@@ -18,6 +18,9 @@ func TestClaudePlanInjectsOnlyProcessLocalAnthropicVariables(t *testing.T) {
 	if plan.Executable != "/usr/local/bin/claude-real" || len(plan.Args) != 1 {
 		t.Fatalf("plan = %#v", plan)
 	}
+	if !plan.Replace {
+		t.Fatal("Claude launch must replace the AIGW process")
+	}
 	env := envMap(plan.Env)
 	if env["ANTHROPIC_AUTH_TOKEN"] != "fresh-secret" || env["ANTHROPIC_BASE_URL"] != "https://example.test" {
 		t.Fatalf("env = %#v", env)

@@ -1,13 +1,31 @@
 package config_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/config"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
+
+func TestLockSerializesMutations(t *testing.T) {
+	store := config.NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	unlock, err := store.Lock(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
+	defer cancel()
+	_, err = store.Lock(ctx)
+	if err == nil || !strings.Contains(err.Error(), "context deadline") {
+		t.Fatalf("second lock error = %v", err)
+	}
+}
 
 func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "config.toml")
@@ -50,5 +68,31 @@ func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
 	got, _ := os.ReadFile(path)
 	if string(got) != "sentinel" {
 		t.Fatalf("existing config was replaced: %q", got)
+	}
+}
+
+func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewStore(path)
+	first := domain.Config{
+		Version:  1,
+		Profiles: map[string]domain.Profile{"one": {Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}},
+		Routes:   domain.Routes{Default: "one", Overrides: map[string]string{}},
+	}
+	if err := store.Save(first); err != nil {
+		t.Fatal(err)
+	}
+	second := first
+	second.Profiles = map[string]domain.Profile{"two": {Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.test"}}}
+	second.Routes.Default = "two"
+	if err := store.Save(second); err != nil {
+		t.Fatal(err)
+	}
+	backup, err := os.ReadFile(path + ".bak")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(backup), `[profiles.one]`) || strings.Contains(strings.ToLower(string(backup)), "token") {
+		t.Fatalf("backup = %s", backup)
 	}
 }
