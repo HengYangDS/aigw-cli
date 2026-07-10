@@ -12,6 +12,7 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/catalog"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
 )
 
 func runWizard(ctx context.Context, app *App) error {
@@ -37,7 +38,11 @@ func runWizard(ctx context.Context, app *App) error {
 	}
 	profile := team.Profiles[selected]
 	profile.ID = selected
-	fmt.Fprintf(app.Out, "欢迎使用 AIGW\n\n✓ 已载入团队配置：%s\n", profile.Label)
+	r := renderer(app)
+	r.Title("AIGW", "首次配置")
+	r.Section("团队服务")
+	r.Status(presentation.OK, "配置目录", "已载入")
+	r.Row("服务", profile.Label)
 	token, err := app.Prompt.Secret("请粘贴 " + profile.Label + " Token：")
 	if err != nil {
 		return err
@@ -45,7 +50,8 @@ func runWizard(ctx context.Context, app *App) error {
 	if err := verifyCredential(ctx, app, profile, token); err != nil {
 		return fmt.Errorf("Token 验证失败：%w", err)
 	}
-	fmt.Fprintln(app.Out, "✓ Token 有效")
+	r.Section("验证")
+	r.Status(presentation.OK, "API Token", "有效")
 
 	discovered := app.Discovery.Discover()
 	cfg := domain.NewConfig()
@@ -53,11 +59,20 @@ func runWizard(ctx context.Context, app *App) error {
 	cfg.Routes.Default = selected
 	if discovered.ClaudeExecutable != "" && profile.Endpoints.Anthropic != "" {
 		cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: discovered.ClaudeExecutable}
-		fmt.Fprintln(app.Out, "✓ 发现 Claude")
 	}
 	if discovered.CodexExecutable != "" && len(discovered.CodexTargets) > 0 && profile.Endpoints.OpenAIResponses != "" {
 		cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: discovered.CodexExecutable, Targets: discovered.CodexTargets}
-		fmt.Fprintf(app.Out, "✓ 发现 Codex（%d 个配置位置）\n", len(discovered.CodexTargets))
+	}
+	r.Section("客户端")
+	if cfg.Adapters[domain.ClientClaude].Enabled {
+		r.Status(presentation.OK, "Claude", "已发现")
+	} else {
+		r.Status(presentation.Info, "Claude", "未发现")
+	}
+	if cfg.Adapters[domain.ClientCodex].Enabled {
+		r.Status(presentation.OK, "Codex", fmt.Sprintf("已发现 · %d 个配置位置", len(discovered.CodexTargets)))
+	} else {
+		r.Status(presentation.Info, "Codex", "未发现")
 	}
 
 	if err := app.Secrets.Set(selected, token); err != nil {
@@ -78,13 +93,16 @@ func runWizard(ctx context.Context, app *App) error {
 		rollbackWizard(app, cfg, selected, claudeEnabled)
 		return fmt.Errorf("客户端配置失败并已 rolled back：%w", err)
 	}
+	r.Section("完成")
 	if claudeEnabled {
-		fmt.Fprintln(app.Out, "✓ Claude 配置完成")
+		r.Status(presentation.OK, "Claude", "配置完成")
 	}
 	if cfg.Adapters[domain.ClientCodex].Enabled {
-		fmt.Fprintln(app.Out, "✓ Codex 配置完成")
+		r.Status(presentation.OK, "Codex", "配置完成")
 	}
-	fmt.Fprintf(app.Out, "✓ 默认服务：%s\n\n已就绪。现在可以直接使用 claude 或 codex。\n", profile.Label)
+	r.Row("默认服务", profile.Label)
+	r.Success("已就绪，可以直接使用 claude 或 codex")
+	r.Next("aigw check")
 	return nil
 }
 

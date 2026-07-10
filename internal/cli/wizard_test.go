@@ -15,6 +15,7 @@ type fakePrompt struct {
 	secret      string
 	secretCalls int
 	selected    string
+	text        string
 }
 
 func (p *fakePrompt) Secret(string) (string, error) {
@@ -23,6 +24,13 @@ func (p *fakePrompt) Secret(string) (string, error) {
 		return "", errors.New("no secret")
 	}
 	return p.secret, nil
+}
+
+func (p *fakePrompt) Text(string) (string, error) {
+	if p.text == "" {
+		return "", errors.New("no text")
+	}
+	return p.text, nil
 }
 
 func (p *fakePrompt) Select(_ string, _ []cli.Choice) (string, error) {
@@ -121,7 +129,7 @@ func TestNoArgsStaysNonInteractiveInPipelines(t *testing.T) {
 	if err := execute(t, app); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "aigw setup") {
+	if !strings.Contains(out.String(), "下一步") || !strings.Contains(out.String(), "aigw") {
 		t.Fatalf("noninteractive output = %s", out.String())
 	}
 }
