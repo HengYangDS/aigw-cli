@@ -6,7 +6,7 @@
 
 ```toml
 version = 1
-recommended_default = "gpt-5.6"
+recommended_default = "gpt-5.6-sol-cdx"
 
 [accounts.dmx]
 label = "DMXAPI"
@@ -19,13 +19,13 @@ anthropic = "https://www.dmxapi.cn"
 kind = "dmxapi"
 base_url = "https://www.dmxapi.cn"
 
-[profiles."gpt-5.6"]
+[profiles."gpt-5.6-sol-cdx"]
 label = "GPT-5.6"
 account = "dmx"
 client = "codex"
 
-[profiles."gpt-5.6".models]
-codex = "gpt-5.6"
+[profiles."gpt-5.6-sol-cdx".models]
+codex = "gpt-5.6-sol-cdx"
 
 [profiles."gpt-5.5"]
 label = "GPT-5.5"
@@ -43,29 +43,29 @@ client = "codex"
 [profiles."gpt-5.5-ssvip".models]
 codex = "gpt-5.5-ssvip"
 
-[profiles."claude-sonnet"]
+[profiles."claude-sonnet-5"]
 label = "Claude Sonnet"
 account = "dmx"
 client = "claude"
 
-[profiles."claude-sonnet".models]
-claude = "claude-sonnet"
+[profiles."claude-sonnet-5".models]
+claude = "claude-sonnet-5"
 
-[profiles."claude-opus"]
+[profiles."claude-opus-4-8-thinking"]
 label = "Claude Opus"
 account = "dmx"
 client = "claude"
 
-[profiles."claude-opus".models]
-claude = "claude-opus"
+[profiles."claude-opus-4-8-thinking".models]
+claude = "claude-opus-4-8-thinking"
 
-[profiles."claude-fable"]
+[profiles."claude-fable-5"]
 label = "Claude Fable"
 account = "dmx"
 client = "claude"
 
-[profiles."claude-fable".models]
-claude = "claude-fable"
+[profiles."claude-fable-5".models]
+claude = "claude-fable-5"
 ```
 
 验证清单：
@@ -106,8 +106,8 @@ aigw balance dmx
 ```bash
 aigw config import team-profiles.toml
 aigw rotate dmx
-aigw use gpt-5.6 --for codex
-aigw use claude-opus --for claude
+aigw use gpt-5.6-sol-cdx --for codex
+aigw use claude-opus-4-8-thinking --for claude
 aigw check
 ```
 
