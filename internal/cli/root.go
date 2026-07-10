@@ -31,6 +31,10 @@ func NewRoot(app *App) *cobra.Command {
 		newTestCommand(app),
 		newDoctorCommand(app),
 		newSyncCommand(app),
+		newProfileCommand(app),
+		newRouteCommand(app),
+		newAdapterCommand(app),
+		newConfigCommand(app),
 	)
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return fmt.Errorf("%w", err)
