@@ -11,6 +11,10 @@ label = "DMXAPI"
 [profiles.dmx.endpoints]
 openai_responses = "https://www.dmxapi.cn/v1"
 anthropic = "https://www.dmxapi.cn"
+
+[profiles.dmx.account_probe]
+kind = "dmxapi"
+base_url = "https://www.dmxapi.cn"
 `
 
 func Team() (manifest.Manifest, error) { return manifest.Parse([]byte(teamProfiles)) }

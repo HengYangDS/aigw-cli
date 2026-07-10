@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/secrets"
 )
 
@@ -22,7 +23,7 @@ func newAddCommand(app *App) *cobra.Command {
 	var tokenStdin bool
 	cmd := &cobra.Command{
 		Use:   "add <profile>",
-		Short: "Add a provider profile and its token",
+		Short: "添加一个服务及其 Token",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			name := args[0]
@@ -61,7 +62,13 @@ func newAddCommand(app *App) *cobra.Command {
 				_ = app.Secrets.Delete(name)
 				return err
 			}
-			fmt.Fprintf(app.Out, "Added %s.\nNext: aigw test\n", name)
+			r := renderer(app)
+			r.Title("AIGW", "服务已添加")
+			r.Section("服务")
+			r.Row("名称", label)
+			r.Row("Profile", name)
+			r.Status(presentation.OK, "系统密钥", "已安全保存")
+			r.Next("aigw check")
 			return nil
 		},
 	}
@@ -77,8 +84,8 @@ func newUseCommand(app *App) *cobra.Command {
 	var all bool
 	cmd := &cobra.Command{
 		Use:   "use <profile>",
-		Short: "Switch the default or one client route",
-		Args:  cobra.ExactArgs(1),
+		Short: "切换当前使用的 AI 服务",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			if all && client != "" {
 				return fmt.Errorf("--all and --for cannot be used together")
@@ -91,12 +98,39 @@ func newUseCommand(app *App) *cobra.Command {
 				return err
 			}
 			before := cloneConfig(cfg)
-			name := args[0]
+			name := ""
+			if len(args) == 1 {
+				name = args[0]
+			} else {
+				if !app.Interactive {
+					return fmt.Errorf("profile is required outside an interactive terminal; run `aigw use <profile>`")
+				}
+				name, err = chooseProfile(app, cfg, "选择要使用的 AI 服务：")
+				if err != nil {
+					return err
+				}
+			}
 			if _, ok := cfg.Profiles[name]; !ok {
 				return fmt.Errorf("unknown profile %q; inspect `aigw profile list`", name)
 			}
+			addedToken := false
 			if !app.Secrets.Has(name) {
-				return fmt.Errorf("profile %q has no token; repair with `aigw rotate %s`", name, name)
+				if !app.Interactive {
+					return fmt.Errorf("profile %q has no token; repair with `aigw rotate %s`", name, name)
+				}
+				profile := cfg.Profiles[name]
+				profile.ID = name
+				token, err := app.Prompt.Secret("请粘贴 " + profile.Label + " Token：")
+				if err != nil {
+					return err
+				}
+				if err := verifyCredential(context.Background(), app, profile, token); err != nil {
+					return fmt.Errorf("Token 验证失败：%w", err)
+				}
+				if err := app.Secrets.Set(name, token); err != nil {
+					return err
+				}
+				addedToken = true
 			}
 			switch {
 			case all:
@@ -108,17 +142,24 @@ func newUseCommand(app *App) *cobra.Command {
 				cfg.Routes.Default = name
 			}
 			if err := commitConfigAndSync(context.Background(), app, before, cfg, "route"); err != nil {
+				if addedToken {
+					_ = app.Secrets.Delete(name)
+				}
 				return err
 			}
-			fmt.Fprintf(app.Out, "Using %s", name)
+			r := renderer(app)
+			r.Title("AIGW", "服务已切换")
+			r.Section("当前选择")
+			r.Row("服务", cfg.Profiles[name].Label)
+			scope := "默认路由"
 			if client != "" {
-				fmt.Fprintf(app.Out, " for %s", client)
+				scope = title(client)
 			} else if all {
-				fmt.Fprint(app.Out, " for all clients")
-			} else {
-				fmt.Fprint(app.Out, " by default")
+				scope = "全部客户端"
 			}
-			fmt.Fprintln(app.Out, ".")
+			r.Row("作用范围", scope)
+			r.Success("客户端配置已同步")
+			r.Next("aigw check")
 			return nil
 		},
 	}
@@ -130,15 +171,18 @@ func newUseCommand(app *App) *cobra.Command {
 func newRotateCommand(app *App) *cobra.Command {
 	var tokenStdin bool
 	cmd := &cobra.Command{
-		Use:   "rotate <profile>",
-		Short: "Replace one profile token",
-		Args:  cobra.ExactArgs(1),
+		Use:   "rotate [profile]",
+		Short: "更新当前服务的 Token",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {
 				return err
 			}
-			name := args[0]
+			name := cfg.Routes.Default
+			if len(args) == 1 {
+				name = args[0]
+			}
 			if _, ok := cfg.Profiles[name]; !ok {
 				return fmt.Errorf("unknown profile %q", name)
 			}
@@ -146,9 +190,21 @@ func newRotateCommand(app *App) *cobra.Command {
 			if oldErr != nil && !errors.Is(oldErr, secrets.ErrNotFound) {
 				return oldErr
 			}
-			token, err := app.readToken(tokenStdin, true)
+			var token string
+			if tokenStdin {
+				token, err = app.readToken(true, false)
+			} else if app.Interactive {
+				token, err = app.Prompt.Secret("请粘贴 " + cfg.Profiles[name].Label + " Token：")
+			} else {
+				return fmt.Errorf("token input requires a terminal; pipe it to `aigw rotate %s --token-stdin`", name)
+			}
 			if err != nil {
 				return err
+			}
+			profile := cfg.Profiles[name]
+			profile.ID = name
+			if err := verifyCredential(context.Background(), app, profile, token); err != nil {
+				return fmt.Errorf("Token 验证失败：%w", err)
 			}
 			if err := app.Secrets.Set(name, token); err != nil {
 				return err
@@ -168,12 +224,27 @@ func newRotateCommand(app *App) *cobra.Command {
 				}
 				return fmt.Errorf("token sync failed and was rolled back: %w", err)
 			}
-			fmt.Fprintf(app.Out, "Rotated %s.\n", name)
+			r := renderer(app)
+			r.Title("AIGW", "Token 已更新")
+			r.Section("服务")
+			r.Row("名称", cfg.Profiles[name].Label)
+			r.Status(presentation.OK, "Token", "验证通过并已安全保存")
+			r.Success("客户端认证已同步")
+			r.Next("aigw check")
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "read one token line from stdin")
 	return cmd
+}
+
+func chooseProfile(app *App, cfg domain.Config, label string) (string, error) {
+	names := sortedProfileNames(cfg)
+	choices := make([]Choice, 0, len(names))
+	for _, name := range names {
+		choices = append(choices, Choice{Value: name, Label: cfg.Profiles[name].Label})
+	}
+	return app.Prompt.Select(label, choices)
 }
 
 type routeStatus struct {
@@ -192,7 +263,7 @@ type statusOutput struct {
 
 func newStatusCommand(app *App) *cobra.Command {
 	var jsonMode bool
-	cmd := &cobra.Command{Use: "status", Short: "Show profiles, routes, and readiness", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "status", Short: "查看详细状态", Args: cobra.NoArgs}
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error { return runStatus(cmd, app, jsonMode) }
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "emit machine-readable JSON")
 	return cmd
@@ -219,25 +290,51 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		return enc.Encode(result)
 	}
 	if len(cfg.Profiles) == 0 {
-		fmt.Fprintln(app.Out, "AIGW is not configured.\n\nNext        aigw setup")
+		r := renderer(app)
+		r.Title("AIGW", "尚未配置")
+		r.Section("开始使用")
+		r.Text("在交互式终端直接运行 aigw 即可完成配置。")
+		r.Next("aigw")
 		return nil
 	}
-	fmt.Fprintln(app.Out, "Current")
-	fmt.Fprintf(app.Out, "  Default   %s\n", result.Default)
+	r := renderer(app)
+	r.Title("AIGW", "当前状态")
+	r.Section("服务")
+	current := cfg.Profiles[result.Default]
+	r.Row("当前服务", current.Label)
+	r.Row("Profile", result.Default)
+	r.Row("已配置服务", fmt.Sprintf("%d", result.Profiles))
+	r.Section("客户端")
+	attention := false
 	for _, client := range []string{domain.ClientClaude, domain.ClientCodex} {
 		route := result.Routes[client]
-		mode := "override"
+		mode := "单独指定"
 		if route.Inherited {
-			mode = "inherited"
+			mode = "继承默认"
 		}
-		readiness := "ready"
+		readiness := route.Profile + " · " + mode + " · 已就绪"
+		state := presentation.OK
 		if !route.SecretAvailable || !route.EndpointReady {
-			readiness = "needs attention"
+			readiness = route.Profile + " · " + mode + " · 需要处理"
+			state = presentation.Warn
+			attention = true
 		}
-		fmt.Fprintf(app.Out, "  %-9s %-12s %s · %s\n", strings.Title(client), route.Profile, mode, readiness)
+		r.Status(state, title(client), readiness)
 	}
-	fmt.Fprintf(app.Out, "\nProfiles    %d\n", result.Profiles)
-	fmt.Fprintln(app.Out, "Next        aigw test")
+	r.Section("账户诊断")
+	if current.AccountProbe != nil && app.Accounts.Has(result.Default) {
+		r.Status(presentation.OK, "精确余额", "已启用")
+	} else if current.AccountProbe != nil {
+		r.Status(presentation.Warn, "精确余额", "未启用")
+		r.Detail("aigw account connect")
+	} else {
+		r.Status(presentation.Info, "精确余额", "服务商未提供探针")
+	}
+	if attention {
+		r.Next("aigw repair")
+	} else {
+		r.Next("aigw check")
+	}
 	return nil
 }
 
@@ -245,7 +342,7 @@ func newTestCommand(app *App) *cobra.Command {
 	var client, profileName string
 	cmd := &cobra.Command{
 		Use:   "test",
-		Short: "Test the resolved provider endpoint",
+		Short: "测试当前服务端点",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load()
@@ -260,6 +357,9 @@ func newTestCommand(app *App) *cobra.Command {
 				clients = []string{client}
 			}
 			checked := 0
+			r := renderer(app)
+			r.Title("AIGW", "连接测试")
+			r.Section("端点")
 			for _, target := range clients {
 				profile, _, err := cfg.Resolve(target, profileName)
 				if err != nil {
@@ -297,12 +397,13 @@ func newTestCommand(app *App) *cobra.Command {
 				if resp.StatusCode >= 500 {
 					return fmt.Errorf("%s endpoint returned HTTP %d", target, resp.StatusCode)
 				}
-				fmt.Fprintf(app.Out, "%s     %s reachable (HTTP %d)\n", strings.Title(target), profile.ID, resp.StatusCode)
+				r.Status(presentation.OK, title(target), fmt.Sprintf("%s · HTTP %d", profile.ID, resp.StatusCode))
 				checked++
 			}
 			if checked == 0 {
 				return fmt.Errorf("resolved profiles have no testable client endpoint")
 			}
+			r.Next("aigw check")
 			return nil
 		},
 	}
@@ -314,7 +415,7 @@ func newTestCommand(app *App) *cobra.Command {
 func newSyncCommand(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync",
-		Short: "Repair enabled client projections",
+		Short: "重新同步客户端配置",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load()
@@ -324,7 +425,10 @@ func newSyncCommand(app *App) *cobra.Command {
 			if err := syncAdapters(cmd.Context(), app, cfg); err != nil {
 				return err
 			}
-			fmt.Fprintln(app.Out, "Client projections are synchronized.")
+			r := renderer(app)
+			r.Title("AIGW", "同步完成")
+			r.Success("客户端配置与认证已刷新")
+			r.Next("aigw check")
 			return nil
 		},
 	}

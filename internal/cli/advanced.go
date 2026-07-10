@@ -13,10 +13,11 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/manifest"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
 )
 
 func newProfileCommand(app *App) *cobra.Command {
-	root := &cobra.Command{Use: "profile", Short: "Inspect and maintain provider profiles"}
+	root := &cobra.Command{Use: "profile", Short: "管理服务 Profile"}
 	root.AddCommand(newProfileListCommand(app), newProfileShowCommand(app), newProfileEditCommand(app), newProfileRenameCommand(app), newProfileRemoveCommand(app))
 	return root
 }
@@ -30,17 +31,23 @@ func newProfileListCommand(app *App) *cobra.Command {
 				return err
 			}
 			names := sortedProfileNames(cfg)
+			r := renderer(app)
+			r.Title("AIGW", "服务列表")
+			r.Section("Profiles")
 			for _, name := range names {
-				mark := " "
+				state := presentation.Info
+				stateText := "可用"
 				if name == cfg.Routes.Default {
-					mark = "*"
+					state = presentation.OK
+					stateText = "当前"
 				}
-				secret := "missing token"
+				secret := "缺少 Token"
 				if app.Secrets.Has(name) {
-					secret = "token available"
+					secret = "Token 可用"
 				}
-				fmt.Fprintf(app.Out, "%s %-20s %s · %s\n", mark, name, cfg.Profiles[name].Label, secret)
+				r.Status(state, name, cfg.Profiles[name].Label+" · "+stateText+" · "+secret)
 			}
+			r.Next("aigw use")
 			return nil
 		},
 	}
@@ -62,14 +69,24 @@ func newProfileShowCommand(app *App) *cobra.Command {
 			if jsonMode {
 				return json.NewEncoder(app.Out).Encode(map[string]any{"id": args[0], "label": profile.Label, "endpoints": profile.Endpoints, "secret_available": app.Secrets.Has(args[0])})
 			}
-			fmt.Fprintf(app.Out, "Profile     %s\nLabel       %s\n", args[0], profile.Label)
+			r := renderer(app)
+			r.Title("AIGW", "服务详情")
+			r.Section("Profile")
+			r.Row("ID", args[0])
+			r.Row("名称", profile.Label)
 			if profile.Endpoints.OpenAIResponses != "" {
-				fmt.Fprintf(app.Out, "OpenAI      %s\n", profile.Endpoints.OpenAIResponses)
+				r.Row("OpenAI", profile.Endpoints.OpenAIResponses)
 			}
 			if profile.Endpoints.Anthropic != "" {
-				fmt.Fprintf(app.Out, "Anthropic   %s\n", profile.Endpoints.Anthropic)
+				r.Row("Anthropic", profile.Endpoints.Anthropic)
 			}
-			fmt.Fprintf(app.Out, "Token       %s\n", map[bool]string{true: "available", false: "missing"}[app.Secrets.Has(args[0])])
+			secretState := presentation.Warn
+			secretText := "缺失"
+			if app.Secrets.Has(args[0]) {
+				secretState = presentation.OK
+				secretText = "可用"
+			}
+			r.Status(secretState, "系统密钥", secretText)
 			return nil
 		},
 	}
@@ -107,7 +124,11 @@ func newProfileEditCommand(app *App) *cobra.Command {
 			if err := commitConfigAndSync(context.Background(), app, before, cfg, "profile"); err != nil {
 				return err
 			}
-			fmt.Fprintf(app.Out, "Updated %s.\n", args[0])
+			r := renderer(app)
+			r.Title("AIGW", "服务已更新")
+			r.Row("Profile", args[0])
+			r.Success("客户端配置已同步")
+			r.Next("aigw check")
 			return nil
 		},
 	}
@@ -166,7 +187,11 @@ func newProfileRenameCommand(app *App) *cobra.Command {
 				}
 				return fmt.Errorf("old secret deletion failed and rename was rolled back: %w", err)
 			}
-			fmt.Fprintf(app.Out, "Renamed %s to %s.\n", oldName, newName)
+			r := renderer(app)
+			r.Title("AIGW", "服务已重命名")
+			r.Row("原名称", oldName)
+			r.Row("新名称", newName)
+			r.Success("密钥槽与路由已同步迁移")
 			return nil
 		},
 	}
@@ -206,7 +231,10 @@ func newProfileRemoveCommand(app *App) *cobra.Command {
 					return fmt.Errorf("secret deletion failed and profile removal was rolled back: %w", err)
 				}
 			}
-			fmt.Fprintf(app.Out, "Removed %s.\n", name)
+			r := renderer(app)
+			r.Title("AIGW", "服务已移除")
+			r.Row("Profile", name)
+			r.Success("本地配置已清理")
 			return nil
 		},
 	}
@@ -215,7 +243,7 @@ func newProfileRemoveCommand(app *App) *cobra.Command {
 }
 
 func newRouteCommand(app *App) *cobra.Command {
-	root := &cobra.Command{Use: "route", Short: "Inspect or reset inherited client routes"}
+	root := &cobra.Command{Use: "route", Short: "管理客户端路由"}
 	root.AddCommand(
 		&cobra.Command{Use: "list", Short: "List resolved routes", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error { return runStatus(cmd, app, false) }},
 		&cobra.Command{Use: "reset <claude|codex>", Short: "Restore one client to default inheritance", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
@@ -232,7 +260,11 @@ func newRouteCommand(app *App) *cobra.Command {
 			if err := commitConfigAndSync(context.Background(), app, before, cfg, "route reset"); err != nil {
 				return err
 			}
-			fmt.Fprintf(app.Out, "%s now inherits the default route.\n", title(client))
+			r := renderer(app)
+			r.Title("AIGW", "路由已重置")
+			r.Row("客户端", title(client))
+			r.Success("现在继承默认服务")
+			r.Next("aigw check")
 			return nil
 		}},
 	)
@@ -240,7 +272,7 @@ func newRouteCommand(app *App) *cobra.Command {
 }
 
 func newAdapterCommand(app *App) *cobra.Command {
-	root := &cobra.Command{Use: "adapter", Short: "Discover and maintain client adapters"}
+	root := &cobra.Command{Use: "adapter", Short: "管理 Claude/Codex 适配器"}
 	root.AddCommand(newAdapterListCommand(app), newAdapterDiscoverCommand(app), newAdapterEnableCommand(app), newAdapterDisableCommand(app))
 	return root
 }
@@ -251,13 +283,21 @@ func newAdapterListCommand(app *App) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		r := renderer(app)
+		r.Title("AIGW", "客户端适配")
+		r.Section("Adapters")
 		for _, name := range []string{domain.ClientClaude, domain.ClientCodex} {
 			adapter := cfg.Adapters[name]
-			state := "disabled"
+			state := presentation.Info
+			stateText := "未启用"
 			if adapter.Enabled {
-				state = "enabled"
+				state = presentation.OK
+				stateText = "已启用"
 			}
-			fmt.Fprintf(app.Out, "%-8s %-8s %s\n", title(name), state, adapter.Executable)
+			r.Status(state, title(name), stateText)
+			if adapter.Executable != "" {
+				r.Detail(adapter.Executable)
+			}
 		}
 		return nil
 	}}
@@ -265,13 +305,16 @@ func newAdapterListCommand(app *App) *cobra.Command {
 
 func newAdapterDiscoverCommand(app *App) *cobra.Command {
 	return &cobra.Command{Use: "discover", Short: "Find installed Claude and Codex executables", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
+		r := renderer(app)
+		r.Title("AIGW", "客户端发现")
+		r.Section("已安装客户端")
 		for _, name := range []string{domain.ClientClaude, domain.ClientCodex} {
 			path, err := exec.LookPath(name)
 			if err != nil {
-				fmt.Fprintf(app.Out, "%-8s not found\n", title(name))
+				r.Status(presentation.Info, title(name), "未发现")
 				continue
 			}
-			fmt.Fprintf(app.Out, "%-8s %s\n", title(name), path)
+			r.Status(presentation.OK, title(name), path)
 		}
 		return nil
 	}}
@@ -331,7 +374,11 @@ func newAdapterEnableCommand(app *App) *cobra.Command {
 			}
 			return fmt.Errorf("adapter enable failed and was rolled back: %w", err)
 		}
-		fmt.Fprintf(app.Out, "Enabled %s adapter.\n", title(client))
+		r := renderer(app)
+		r.Title("AIGW", "客户端已启用")
+		r.Row("客户端", title(client))
+		r.Status(presentation.OK, "适配器", "配置完成")
+		r.Next("aigw check")
 		return nil
 	}}
 	cmd.Flags().StringVar(&executable, "executable", "", "real client executable path")
@@ -352,7 +399,9 @@ func newAdapterDisableCommand(app *App) *cobra.Command {
 		before := cloneConfig(cfg)
 		adapter, ok := cfg.Adapters[client]
 		if !ok || !adapter.Enabled {
-			fmt.Fprintf(app.Out, "%s adapter is already disabled.\n", title(client))
+			r := renderer(app)
+			r.Title("AIGW", "客户端适配")
+			r.Status(presentation.Info, title(client), "已经处于未启用状态")
 			return nil
 		}
 		if client == domain.ClientCodex {
@@ -376,13 +425,16 @@ func newAdapterDisableCommand(app *App) *cobra.Command {
 			}
 			return err
 		}
-		fmt.Fprintf(app.Out, "Disabled %s adapter.\n", title(client))
+		r := renderer(app)
+		r.Title("AIGW", "客户端已停用")
+		r.Row("客户端", title(client))
+		r.Success("AIGW 所有的投影已安全移除")
 		return nil
 	}}
 }
 
 func newConfigCommand(app *App) *cobra.Command {
-	root := &cobra.Command{Use: "config", Short: "Import, export, and inspect AIGW configuration"}
+	root := &cobra.Command{Use: "config", Short: "导入、导出与检查配置"}
 	root.AddCommand(
 		&cobra.Command{Use: "path", Short: "Print the local config path", Args: cobra.NoArgs, Run: func(_ *cobra.Command, _ []string) { fmt.Fprintln(app.Out, app.Config.Path()) }},
 		&cobra.Command{Use: "export", Short: "Export a secret-free team manifest", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
@@ -425,9 +477,16 @@ func newConfigCommand(app *App) *cobra.Command {
 				}
 			}
 			sort.Strings(missing)
-			fmt.Fprintf(app.Out, "Imported %d profiles.\n", len(team.Profiles))
+			r := renderer(app)
+			r.Title("AIGW", "团队配置已导入")
+			r.Row("服务数量", fmt.Sprintf("%d", len(team.Profiles)))
 			for _, name := range missing {
-				fmt.Fprintf(app.Out, "Next: aigw rotate %s\n", name)
+				r.Status(presentation.Warn, name, "需要录入 Token")
+			}
+			if len(missing) > 0 {
+				r.Next("aigw rotate")
+			} else {
+				r.Next("aigw check")
 			}
 			return nil
 		}},
@@ -446,7 +505,11 @@ func newConfigCommand(app *App) *cobra.Command {
 			if err := app.Config.Save(cfg); err != nil {
 				return err
 			}
-			fmt.Fprintf(app.Out, "Migrated %d profiles. Secrets remained in the system keyring.\n", len(cfg.Profiles))
+			r := renderer(app)
+			r.Title("AIGW", "旧配置已迁移")
+			r.Row("服务数量", fmt.Sprintf("%d", len(cfg.Profiles)))
+			r.Status(presentation.OK, "系统密钥", "保持原位，未复制到配置文件")
+			r.Next("aigw repair")
 			return nil
 		}},
 	)
