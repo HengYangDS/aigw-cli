@@ -24,7 +24,7 @@ func ClaudePlan(executable string, args, currentEnv []string, profile domain.Pro
 		"ANTHROPIC_BASE_URL="+endpoint,
 		"AIGW_PROFILE="+profile.ID,
 	)
-	return ProcessPlan{Executable: executable, Args: append([]string(nil), args...), Env: env}, nil
+	return ProcessPlan{Executable: executable, Args: append([]string(nil), args...), Env: env, Replace: true}, nil
 }
 
 func removeEnvironment(env []string, keys ...string) []string {

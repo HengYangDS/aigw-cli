@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/secrets"
 )
 
 func newAddCommand(app *App) *cobra.Command {
@@ -59,9 +61,6 @@ func newAddCommand(app *App) *cobra.Command {
 				_ = app.Secrets.Delete(name)
 				return err
 			}
-			if err := syncAdapters(context.Background(), app, cfg); err != nil {
-				return fmt.Errorf("profile saved, but adapter sync failed: %w; repair with `aigw sync`", err)
-			}
 			fmt.Fprintf(app.Out, "Added %s.\nNext: aigw test\n", name)
 			return nil
 		},
@@ -91,6 +90,7 @@ func newUseCommand(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			before := cloneConfig(cfg)
 			name := args[0]
 			if _, ok := cfg.Profiles[name]; !ok {
 				return fmt.Errorf("unknown profile %q; inspect `aigw profile list`", name)
@@ -107,11 +107,8 @@ func newUseCommand(app *App) *cobra.Command {
 			default:
 				cfg.Routes.Default = name
 			}
-			if err := app.Config.Save(cfg); err != nil {
+			if err := commitConfigAndSync(context.Background(), app, before, cfg, "route"); err != nil {
 				return err
-			}
-			if err := syncAdapters(context.Background(), app, cfg); err != nil {
-				return fmt.Errorf("route saved, but adapter sync failed: %w; repair with `aigw sync`", err)
 			}
 			fmt.Fprintf(app.Out, "Using %s", name)
 			if client != "" {
@@ -145,6 +142,10 @@ func newRotateCommand(app *App) *cobra.Command {
 			if _, ok := cfg.Profiles[name]; !ok {
 				return fmt.Errorf("unknown profile %q", name)
 			}
+			oldToken, oldErr := app.Secrets.Get(name)
+			if oldErr != nil && !errors.Is(oldErr, secrets.ErrNotFound) {
+				return oldErr
+			}
 			token, err := app.readToken(tokenStdin, true)
 			if err != nil {
 				return err
@@ -153,7 +154,19 @@ func newRotateCommand(app *App) *cobra.Command {
 				return err
 			}
 			if err := syncAdapters(context.Background(), app, cfg); err != nil {
-				return fmt.Errorf("token rotated, but adapter sync failed: %w; repair with `aigw sync`", err)
+				var rollbackErr error
+				if errors.Is(oldErr, secrets.ErrNotFound) {
+					rollbackErr = app.Secrets.Delete(name)
+				} else {
+					rollbackErr = app.Secrets.Set(name, oldToken)
+				}
+				if rollbackErr == nil {
+					rollbackErr = syncAdapters(context.Background(), app, cfg)
+				}
+				if rollbackErr != nil {
+					return fmt.Errorf("token sync failed: %w; rollback also failed: %v", err, rollbackErr)
+				}
+				return fmt.Errorf("token sync failed and was rolled back: %w", err)
 			}
 			fmt.Fprintf(app.Out, "Rotated %s.\n", name)
 			return nil
@@ -341,6 +354,45 @@ func syncAdapters(ctx context.Context, app *App, cfg domain.Config) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+func cloneConfig(cfg domain.Config) domain.Config {
+	clone := cfg
+	clone.Profiles = make(map[string]domain.Profile, len(cfg.Profiles))
+	for name, profile := range cfg.Profiles {
+		clone.Profiles[name] = profile
+	}
+	clone.Routes.Overrides = make(map[string]string, len(cfg.Routes.Overrides))
+	for client, profile := range cfg.Routes.Overrides {
+		clone.Routes.Overrides[client] = profile
+	}
+	clone.Adapters = make(map[string]domain.AdapterConfig, len(cfg.Adapters))
+	for name, adapter := range cfg.Adapters {
+		adapter.Targets = append([]string(nil), adapter.Targets...)
+		clone.Adapters[name] = adapter
+	}
+	return clone
+}
+
+func rollbackConfigAndAdapters(ctx context.Context, app *App, before domain.Config) error {
+	if err := app.Config.Save(before); err != nil {
+		return err
+	}
+	return syncAdapters(ctx, app, before)
+}
+
+func commitConfigAndSync(ctx context.Context, app *App, before, after domain.Config, subject string) error {
+	if err := app.Config.Save(after); err != nil {
+		return err
+	}
+	if err := syncAdapters(ctx, app, after); err != nil {
+		rollbackErr := rollbackConfigAndAdapters(ctx, app, before)
+		if rollbackErr != nil {
+			return fmt.Errorf("%s sync failed: %w; rollback also failed: %v", subject, err, rollbackErr)
+		}
+		return fmt.Errorf("%s sync failed and was rolled back: %w", subject, err)
 	}
 	return nil
 }

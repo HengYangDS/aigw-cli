@@ -5,6 +5,7 @@ go 1.24.0
 require github.com/pelletier/go-toml/v2 v2.2.4
 
 require (
+	github.com/gofrs/flock v0.12.1
 	github.com/spf13/cobra v1.9.1
 	github.com/zalando/go-keyring v0.2.6
 	golang.org/x/term v0.25.0
