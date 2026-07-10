@@ -1,0 +1,6 @@
+/dist/
+/aigw
+/aigw.exe
+*.test
+*.out
+.DS_Store

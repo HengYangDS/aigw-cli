@@ -1,15 +1,13 @@
-package secrets_test
+package secrets
 
 import (
 	"errors"
 	"strings"
 	"testing"
-
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/secrets"
 )
 
 func TestMemoryStoreLifecycle(t *testing.T) {
-	store := secrets.NewMemoryStore()
+	store := NewMemoryStore()
 	if store.Has("dmx") {
 		t.Fatal("new store unexpectedly has secret")
 	}
@@ -27,13 +25,13 @@ func TestMemoryStoreLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = store.Get("dmx")
-	if !errors.Is(err, secrets.ErrNotFound) {
+	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing error = %v", err)
 	}
 }
 
 func TestStoresRejectInvalidProfileAndEmptySecret(t *testing.T) {
-	store := secrets.NewMemoryStore()
+	store := NewMemoryStore()
 	for _, name := range []string{"bad name", "", "../escape"} {
 		if err := store.Set(name, "value"); err == nil {
 			t.Errorf("Set(%q) succeeded", name)
@@ -46,24 +44,37 @@ func TestStoresRejectInvalidProfileAndEmptySecret(t *testing.T) {
 
 func TestEnvironmentStoreUsesNormalizedReadOnlyVariable(t *testing.T) {
 	env := map[string]string{"AIGW_TOKEN_DMX_TEAM_1": "from-environment"}
-	store := secrets.NewEnvironmentStore(func(key string) string { return env[key] })
+	store := NewEnvironmentStore(func(key string) string { return env[key] })
 	got, err := store.Get("dmx-team.1")
 	if err != nil || got != "from-environment" {
 		t.Fatalf("Get = %q, %v", got, err)
 	}
-	if err := store.Set("dmx-team.1", "new-secret"); !errors.Is(err, secrets.ErrReadOnly) {
+	if err := store.Set("dmx-team.1", "new-secret"); !errors.Is(err, ErrReadOnly) {
 		t.Fatalf("Set error = %v", err)
 	}
-	if err := store.Delete("dmx-team.1"); !errors.Is(err, secrets.ErrReadOnly) {
+	if err := store.Delete("dmx-team.1"); !errors.Is(err, ErrReadOnly) {
 		t.Fatalf("Delete error = %v", err)
 	}
 }
 
 func TestErrorsNeverContainSecret(t *testing.T) {
 	secret := "sk-this-must-not-leak-anywhere"
-	store := secrets.NewMemoryStore()
+	store := NewMemoryStore()
 	err := store.Set("bad name", secret)
 	if err == nil || strings.Contains(err.Error(), secret) {
 		t.Fatalf("unsafe error: %v", err)
+	}
+}
+
+func TestSelectStoreRequiresExplicitSupportedBackend(t *testing.T) {
+	store, err := Select("env", func(key string) string { return map[string]string{"AIGW_TOKEN_DMX": "ci-secret"}[key] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value, err := store.Get("dmx"); err != nil || value != "ci-secret" {
+		t.Fatalf("environment selection = %q, %v", value, err)
+	}
+	if _, err := Select("plaintext", func(string) string { return "" }); err == nil || !strings.Contains(err.Error(), "supported") {
+		t.Fatalf("unsupported backend error = %v", err)
 	}
 }

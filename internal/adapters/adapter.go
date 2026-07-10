@@ -5,4 +5,5 @@ type ProcessPlan struct {
 	Args       []string
 	Env        []string
 	Stdin      string
+	Replace    bool
 }

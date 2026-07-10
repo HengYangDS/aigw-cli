@@ -19,7 +19,7 @@ func main() {
 	if name == "claude" || name == "claude.cmd" {
 		err = cli.RunClaude(app, os.Args[1:])
 	} else {
-		err = cli.NewRoot(app).Execute()
+		err = cli.Execute(app, os.Args[1:])
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "aigw:", err)

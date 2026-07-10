@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/config"
@@ -41,7 +42,45 @@ type App struct {
 
 type ProcessRunner struct{}
 
+func Execute(app *App, args []string) error {
+	if mutationCommand(args) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		unlock, err := app.Config.Lock(ctx)
+		if err != nil {
+			return fmt.Errorf("%w; retry after the other command finishes", err)
+		}
+		defer unlock()
+	}
+	root := NewRoot(app)
+	root.SetArgs(args)
+	return root.Execute()
+}
+
+func mutationCommand(args []string) bool {
+	if len(args) == 0 {
+		return false
+	}
+	switch args[0] {
+	case "setup", "add", "use", "rotate", "sync":
+		return true
+	case "profile":
+		return len(args) > 1 && (args[1] == "edit" || args[1] == "rename" || args[1] == "remove")
+	case "route":
+		return len(args) > 1 && args[1] == "reset"
+	case "adapter":
+		return len(args) > 1 && (args[1] == "enable" || args[1] == "disable")
+	case "config":
+		return len(args) > 1 && (args[1] == "import" || args[1] == "migrate")
+	default:
+		return false
+	}
+}
+
 func (ProcessRunner) Run(ctx context.Context, plan adapters.ProcessPlan) error {
+	if plan.Replace {
+		return replaceProcess(plan)
+	}
 	cmd := exec.CommandContext(ctx, plan.Executable, plan.Args...)
 	cmd.Env = plan.Env
 	cmd.Stdin = strings.NewReader(plan.Stdin)
@@ -64,9 +103,13 @@ func NewDefault() (*App, error) {
 		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
 	}
 	binDir := filepath.Dir(executable)
+	secretStore, err := secrets.Select(env["AIGW_SECRET_BACKEND"], os.Getenv)
+	if err != nil {
+		return nil, err
+	}
 	return &App{
 		Config:      config.NewStore(path),
-		Secrets:     secrets.NewKeyringStore(),
+		Secrets:     secretStore,
 		In:          os.Stdin,
 		Out:         os.Stdout,
 		Err:         os.Stderr,
