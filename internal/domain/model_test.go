@@ -59,6 +59,11 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 			p.Endpoints.Anthropic = "https://example.test?api_key=secret"
 			c.Profiles["dmx"] = p
 		}, "credential-like"},
+		{"remote plain http", func(c *domain.Config) {
+			p := c.Profiles["dmx"]
+			p.Endpoints.Anthropic = "http://example.test"
+			c.Profiles["dmx"] = p
+		}, "loopback"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -69,5 +74,15 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 				t.Fatalf("error = %v, want substring %q", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestValidateAllowsLoopbackHTTPForLocalCompatibilityTools(t *testing.T) {
+	cfg := validConfig()
+	p := cfg.Profiles["dmx"]
+	p.Endpoints.OpenAIResponses = "http://127.0.0.1:8791/v1"
+	cfg.Profiles["dmx"] = p
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
 	}
 }
