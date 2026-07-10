@@ -264,6 +264,12 @@ func newTestCommand(app *App) *cobra.Command {
 					cancel()
 					return err
 				}
+				token, err := app.Secrets.Get(profile.ID)
+				if err != nil {
+					cancel()
+					return fmt.Errorf("profile %q token unavailable: %w; repair with `aigw rotate %s`", profile.ID, err, profile.ID)
+				}
+				req.Header.Set("Authorization", "Bearer "+token)
 				resp, err := app.HTTP.Do(req)
 				cancel()
 				if err != nil {
@@ -271,6 +277,9 @@ func newTestCommand(app *App) *cobra.Command {
 				}
 				io.Copy(io.Discard, resp.Body)
 				resp.Body.Close()
+				if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+					return fmt.Errorf("%s authentication rejected (HTTP %d); repair with `aigw rotate %s`", target, resp.StatusCode, profile.ID)
+				}
 				if resp.StatusCode >= 500 {
 					return fmt.Errorf("%s endpoint returned HTTP %d", target, resp.StatusCode)
 				}
