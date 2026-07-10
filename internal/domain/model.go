@@ -126,6 +126,9 @@ func validateEndpoint(raw string) error {
 	if u.User != nil {
 		return errors.New("URL userinfo is forbidden")
 	}
+	if u.Scheme == "http" && u.Hostname() != "127.0.0.1" && u.Hostname() != "localhost" && u.Hostname() != "::1" {
+		return errors.New("plain HTTP is allowed only for a loopback endpoint")
+	}
 	for key := range u.Query() {
 		lower := strings.ToLower(key)
 		if strings.Contains(lower, "token") || strings.Contains(lower, "secret") ||
