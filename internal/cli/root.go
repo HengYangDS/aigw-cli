@@ -16,6 +16,13 @@ func NewRoot(app *App) *cobra.Command {
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := app.Config.Load()
+			if err != nil {
+				return err
+			}
+			if len(cfg.Profiles) == 0 && app.Interactive {
+				return runWizard(cmd.Context(), app)
+			}
 			return runStatus(cmd, app, false)
 		},
 	}
