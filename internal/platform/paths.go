@@ -64,6 +64,28 @@ func DataDirFor(goos string, env map[string]string) (string, error) {
 	}
 }
 
+func UserBinDirFor(goos string, env map[string]string) (string, error) {
+	switch goos {
+	case "darwin", "linux":
+		home := env["HOME"]
+		if home == "" {
+			return "", fmt.Errorf("HOME is not set")
+		}
+		return filepath.Join(home, ".local", "bin"), nil
+	case "windows":
+		base := env["LOCALAPPDATA"]
+		if base == "" {
+			base = env["APPDATA"]
+		}
+		if base == "" {
+			return "", fmt.Errorf("LOCALAPPDATA and APPDATA are not set")
+		}
+		return windowsJoin(base, "Programs", "aigw", "bin"), nil
+	default:
+		return "", fmt.Errorf("unsupported operating system %q", goos)
+	}
+}
+
 func windowsJoin(parts ...string) string {
 	clean := make([]string, 0, len(parts))
 	for _, part := range parts {

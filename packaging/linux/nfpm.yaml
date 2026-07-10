@@ -1,0 +1,27 @@
+name: aigw
+arch: ${AIGW_NFPM_ARCH}
+platform: linux
+version: ${AIGW_VERSION}
+section: utils
+priority: optional
+maintainer: DIG <dig@example.invalid>
+description: Cross-platform team CLI for third-party AI API gateway profiles, secrets, routes, and client adapters.
+vendor: DIG
+homepage: http://192.168.64.101:18086/dig/misc/agentic-third-party-api/aigw-cli
+license: Proprietary
+contents:
+  - src: ${AIGW_PACKAGE_ROOT}/aigw
+    dst: /usr/bin/aigw
+    file_info:
+      mode: 0755
+  - src: ${AIGW_REPO_ROOT}/README.md
+    dst: /usr/share/doc/aigw/README.md
+    file_info:
+      mode: 0644
+  - src: ${AIGW_REPO_ROOT}/docs/concepts.md
+    dst: /usr/share/doc/aigw/concepts.md
+    file_info:
+      mode: 0644
+scripts:
+  postinstall: ${AIGW_PACKAGE_ROOT}/postinstall.sh
+  preremove: ${AIGW_PACKAGE_ROOT}/preremove.sh

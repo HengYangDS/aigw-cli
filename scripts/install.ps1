@@ -1,5 +1,5 @@
 param(
-    [string]$InstallDir = $(if ($env:AIGW_INSTALL_DIR) { $env:AIGW_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "Programs\aigw" }),
+    [string]$InstallDir = $(if ($env:AIGW_INSTALL_DIR) { $env:AIGW_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "Programs\aigw\bin" }),
     [string]$Version = $(if ($env:AIGW_VERSION) { $env:AIGW_VERSION } else { "latest" })
 )
 $ErrorActionPreference = "Stop"
@@ -17,7 +17,7 @@ if (Test-Path $LocalBinary) {
         $Version = $release[0].tag_name
     }
     $clean = $Version.TrimStart("v")
-	$tag = if ($Version.StartsWith("v")) { $Version } else { "v$Version" }
+    $tag = if ($Version.StartsWith("v")) { $Version } else { "v$Version" }
     $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq "Arm64") { "arm64" } else { "amd64" }
     $archive = "aigw_${clean}_windows_${arch}.zip"
     $temp = Join-Path ([IO.Path]::GetTempPath()) ("aigw-" + [guid]::NewGuid())
@@ -35,7 +35,7 @@ if (Test-Path $LocalBinary) {
     } else {
         throw "private release download requires authenticated glab or GITLAB_TOKEN"
     }
-    $line = Get-Content (Join-Path $temp "checksums.txt") | Where-Object { $_ -match "(^|[\\/])$([regex]::Escape($archive))$" } | Select-Object -First 1
+    $line = Get-Content (Join-Path $temp "checksums.txt") | Where-Object { $_ -match "(^|[\/])$([regex]::Escape($archive))$" } | Select-Object -First 1
     if (-not $line) { throw "checksum entry missing for $archive" }
     $expected = ($line -split '\s+')[0].ToLowerInvariant()
     $actual = (Get-FileHash (Join-Path $temp $archive) -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -47,5 +47,14 @@ if (Test-Path $LocalBinary) {
 $target = Join-Path $InstallDir "aigw.exe"
 Copy-Item $Source "$target.new" -Force
 Move-Item "$target.new" $target -Force
+
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$parts = @()
+if ($userPath) { $parts = $userPath -split ';' | Where-Object { $_ } }
+if ($parts -notcontains $InstallDir) {
+    $newPath = (($parts + $InstallDir) -join ';')
+    [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+    Write-Host "User PATH updated. Open a new terminal to use aigw."
+}
 Write-Host "Installed $target"
-if (($env:PATH -split ';') -notcontains $InstallDir) { Write-Host "Add $InstallDir to your user PATH, then run: aigw setup" }
+Write-Host "Next: aigw setup"

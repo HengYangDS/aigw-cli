@@ -136,7 +136,10 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
 	}
-	binDir := filepath.Dir(executable)
+	binDir, err := defaultShimDirFor(runtime.GOOS, env, executable)
+	if err != nil {
+		return nil, err
+	}
 	secretStore, err := secrets.Select(env["AIGW_SECRET_BACKEND"], os.Getenv)
 	if err != nil {
 		return nil, err
@@ -157,6 +160,16 @@ func NewDefault() (*App, error) {
 		Discovery:   discovery.Current(),
 		Updater:     selfupdate.Current(executable),
 	}, nil
+}
+
+func defaultShimDirFor(goos string, env map[string]string, executable string) (string, error) {
+	if value := strings.TrimSpace(env["AIGW_SHIM_DIR"]); value != "" {
+		return value, nil
+	}
+	if dir, err := platform.UserBinDirFor(goos, env); err == nil {
+		return dir, nil
+	}
+	return filepath.Dir(executable), nil
 }
 
 func environmentMap(values []string) map[string]string {

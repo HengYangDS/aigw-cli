@@ -3,18 +3,66 @@ package catalog
 import "gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/manifest"
 
 const teamProfiles = `version = 1
-recommended_default = "dmx"
+recommended_default = "gpt-5.6"
 
-[profiles.dmx]
+[accounts.dmx]
 label = "DMXAPI"
 
-[profiles.dmx.endpoints]
+[accounts.dmx.endpoints]
 openai_responses = "https://www.dmxapi.cn/v1"
 anthropic = "https://www.dmxapi.cn"
 
-[profiles.dmx.account_probe]
+[accounts.dmx.account_probe]
 kind = "dmxapi"
 base_url = "https://www.dmxapi.cn"
+
+[profiles."gpt-5.6"]
+label = "GPT-5.6"
+account = "dmx"
+client = "codex"
+
+[profiles."gpt-5.6".models]
+codex = "gpt-5.6"
+
+[profiles."gpt-5.5"]
+label = "GPT-5.5"
+account = "dmx"
+client = "codex"
+
+[profiles."gpt-5.5".models]
+codex = "gpt-5.5"
+
+[profiles."gpt-5.5-ssvip"]
+label = "GPT-5.5 SSVIP"
+account = "dmx"
+client = "codex"
+
+[profiles."gpt-5.5-ssvip".models]
+codex = "gpt-5.5-ssvip"
+
+[profiles."claude-sonnet"]
+label = "Claude Sonnet"
+account = "dmx"
+client = "claude"
+
+[profiles."claude-sonnet".models]
+claude = "claude-sonnet"
+
+[profiles."claude-opus"]
+label = "Claude Opus"
+account = "dmx"
+client = "claude"
+
+[profiles."claude-opus".models]
+claude = "claude-opus"
+
+[profiles."claude-fable"]
+label = "Claude Fable"
+account = "dmx"
+client = "claude"
+
+[profiles."claude-fable".models]
+claude = "claude-fable"
 `
 
 func Team() (manifest.Manifest, error) { return manifest.Parse([]byte(teamProfiles)) }
