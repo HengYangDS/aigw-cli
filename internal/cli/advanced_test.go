@@ -8,6 +8,7 @@ import (
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/cli"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/shims"
 )
 
 func TestConfigImportAndExportAreSecretFree(t *testing.T) {
@@ -61,6 +62,8 @@ func TestLegacyMigrationImportsStructureWithoutChangingSecrets(t *testing.T) {
 
 func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
+	shimDir := t.TempDir()
+	app.Shims = shims.Manager{GOOS: "linux", BinDir: shimDir, AIGWExecutable: filepath.Join(shimDir, "aigw")}
 	cfg := domain.NewConfig()
 	cfg.Profiles["team"] = domain.Profile{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes.Default = "team"
@@ -77,6 +80,15 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	}
 	if _, exists := got.Adapters["codex"]; exists {
 		t.Fatalf("Claude enable touched Codex: %#v", got.Adapters)
+	}
+	if _, err := os.Stat(filepath.Join(shimDir, "claude")); err != nil {
+		t.Fatalf("Claude shim missing: %v", err)
+	}
+	if err := execute(t, app, "adapter", "disable", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(shimDir, "claude")); !os.IsNotExist(err) {
+		t.Fatalf("Claude shim remains: %v", err)
 	}
 }
 
@@ -113,6 +125,39 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 	restored, _ := os.ReadFile(target)
 	if string(restored) != original {
 		t.Fatalf("target not restored:\n%s", restored)
+	}
+}
+
+func TestCodexSyncLogsIntoEachConfiguredHome(t *testing.T) {
+	app, _, secretStore, runner := testApp(t, "")
+	dir := t.TempDir()
+	targets := []string{filepath.Join(dir, "one", "config.toml"), filepath.Join(dir, "two", "config.toml")}
+	for _, target := range targets {
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := domain.NewConfig()
+	cfg.Profiles["team"] = domain.Profile{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
+	cfg.Routes.Default = "team"
+	cfg.Adapters["codex"] = domain.AdapterConfig{Enabled: true, Executable: "/opt/codex-real", Targets: targets}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("team", "secret")
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.plans) != 2 {
+		t.Fatalf("login plans = %#v", runner.plans)
+	}
+	for i, target := range targets {
+		if processEnvMap(runner.plans[i].Env)["CODEX_HOME"] != filepath.Dir(target) {
+			t.Fatalf("plan %d CODEX_HOME = %q", i, processEnvMap(runner.plans[i].Env)["CODEX_HOME"])
+		}
 	}
 }
 

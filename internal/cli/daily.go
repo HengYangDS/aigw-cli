@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -330,14 +331,14 @@ func syncAdapters(ctx context.Context, app *App, cfg domain.Config) error {
 			if err := adapters.SyncCodexConfig(target, profile); err != nil {
 				return err
 			}
-		}
-		if adapter.Executable != "" && app.Runner != nil {
-			plan, err := adapters.CodexLoginPlan(adapter.Executable, "", token)
-			if err != nil {
-				return err
-			}
-			if err := app.Runner.Run(ctx, plan); err != nil {
-				return err
+			if adapter.Executable != "" && app.Runner != nil {
+				plan, err := adapters.CodexLoginPlan(adapter.Executable, filepath.Dir(target), token)
+				if err != nil {
+					return err
+				}
+				if err := app.Runner.Run(ctx, plan); err != nil {
+					return err
+				}
 			}
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/config"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/platform"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/secrets"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/shims"
 )
 
 type Runner interface {
@@ -34,6 +36,7 @@ type App struct {
 	Interactive bool
 	Runner      Runner
 	HTTP        HTTPDoer
+	Shims       shims.Manager
 }
 
 type ProcessRunner struct{}
@@ -56,6 +59,11 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	executable, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
+	}
+	binDir := filepath.Dir(executable)
 	return &App{
 		Config:      config.NewStore(path),
 		Secrets:     secrets.NewKeyringStore(),
@@ -65,6 +73,7 @@ func NewDefault() (*App, error) {
 		Interactive: isTerminal(os.Stdin),
 		Runner:      ProcessRunner{},
 		HTTP:        &http.Client{},
+		Shims:       shims.Manager{GOOS: runtime.GOOS, BinDir: binDir, AIGWExecutable: executable},
 	}, nil
 }
 

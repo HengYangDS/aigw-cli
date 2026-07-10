@@ -16,7 +16,7 @@ func main() {
 		os.Exit(1)
 	}
 	name := strings.TrimSuffix(strings.ToLower(filepath.Base(os.Args[0])), ".exe")
-	if name == "claude" {
+	if name == "claude" || name == "claude.cmd" {
 		err = cli.RunClaude(app, os.Args[1:])
 	} else {
 		err = cli.NewRoot(app).Execute()
