@@ -39,5 +39,15 @@ func NewRoot(app *App) *cobra.Command {
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return fmt.Errorf("%w", err)
 	})
+	hiddenClaude := &cobra.Command{
+		Use:    "__run-claude",
+		Hidden: true,
+		Args:   cobra.ArbitraryArgs,
+		RunE: func(_ *cobra.Command, args []string) error {
+			return RunClaude(app, args)
+		},
+	}
+	hiddenClaude.DisableFlagParsing = true
+	root.AddCommand(hiddenClaude)
 	return root
 }

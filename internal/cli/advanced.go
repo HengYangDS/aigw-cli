@@ -303,7 +303,15 @@ func newAdapterEnableCommand(app *App) *cobra.Command {
 			return fmt.Errorf("profile %q has no token; repair with `aigw rotate %s`", profile.ID, profile.ID)
 		}
 		cfg.Adapters[client] = domain.AdapterConfig{Enabled: true, Executable: executable, Targets: append([]string(nil), targets...)}
+		if client == domain.ClientClaude {
+			if _, err := app.Shims.EnableClaude(); err != nil {
+				return err
+			}
+		}
 		if err := app.Config.Save(cfg); err != nil {
+			if client == domain.ClientClaude {
+				_ = app.Shims.DisableClaude()
+			}
 			return err
 		}
 		if err := syncAdapters(cmd.Context(), app, cfg); err != nil {
@@ -342,6 +350,11 @@ func newAdapterDisableCommand(app *App) *cobra.Command {
 				if err := adapters.DisableCodexConfig(target); err != nil {
 					return err
 				}
+			}
+		}
+		if client == domain.ClientClaude {
+			if err := app.Shims.DisableClaude(); err != nil {
+				return err
 			}
 		}
 		delete(cfg.Adapters, client)
