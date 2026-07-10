@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/account"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/cli"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/config"
@@ -41,11 +42,20 @@ func (r *failingRunner) Run(_ context.Context, _ adapters.ProcessPlan) error {
 type fakeHTTP struct {
 	status  int
 	headers http.Header
+	body    string
+	handler func(*http.Request) (*http.Response, error)
 }
 
 func (f *fakeHTTP) Do(req *http.Request) (*http.Response, error) {
 	f.headers = req.Header.Clone()
-	return &http.Response{StatusCode: f.status, Body: io.NopCloser(strings.NewReader("{}")), Request: req}, nil
+	if f.handler != nil {
+		return f.handler(req)
+	}
+	body := f.body
+	if body == "" {
+		body = "{}"
+	}
+	return &http.Response{StatusCode: f.status, Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
 }
 
 func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, *secrets.MemoryStore, *fakeRunner) {
@@ -57,6 +67,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, *secrets.Memo
 	app := &cli.App{
 		Config:      config.NewStore(filepath.Join(t.TempDir(), "config.toml")),
 		Secrets:     secretStore,
+		Accounts:    account.NewMemoryStore(),
 		In:          strings.NewReader(stdin),
 		Out:         out,
 		Err:         out,
@@ -191,7 +202,7 @@ func TestStatusShowsInheritanceAndJSONNeverContainsToken(t *testing.T) {
 	if err := execute(t, app); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "inherited") {
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "继承默认") {
 		t.Fatalf("human status = %s", out.String())
 	}
 	out.Reset()
@@ -215,7 +226,7 @@ func TestTestCommandAuthenticatesWithoutPrintingAuthorizationHeader(t *testing.T
 	if err := execute(t, app, "test", "--for", "codex"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "reachable") {
+	if !strings.Contains(out.String(), "连接测试") || !strings.Contains(out.String(), "Codex") || !strings.Contains(out.String(), "HTTP 200") {
 		t.Fatalf("test output = %s", out.String())
 	}
 	httpClient := app.HTTP.(*fakeHTTP)

@@ -22,7 +22,7 @@ func main() {
 		err = cli.Execute(app, os.Args[1:])
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "aigw:", err)
+		cli.RenderError(app, err)
 		os.Exit(1)
 	}
 }
