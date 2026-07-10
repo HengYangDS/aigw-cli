@@ -23,9 +23,13 @@ func (r *fakeRunner) Run(_ context.Context, plan adapters.ProcessPlan) error {
 	return nil
 }
 
-type fakeHTTP struct{ status int }
+type fakeHTTP struct {
+	status  int
+	headers http.Header
+}
 
-func (f fakeHTTP) Do(req *http.Request) (*http.Response, error) {
+func (f *fakeHTTP) Do(req *http.Request) (*http.Response, error) {
+	f.headers = req.Header.Clone()
 	return &http.Response{StatusCode: f.status, Body: io.NopCloser(strings.NewReader("{}")), Request: req}, nil
 }
 
@@ -34,6 +38,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, *secrets.Memo
 	out := new(bytes.Buffer)
 	secretStore := secrets.NewMemoryStore()
 	runner := &fakeRunner{}
+	httpClient := &fakeHTTP{status: 200}
 	app := &cli.App{
 		Config:      config.NewStore(filepath.Join(t.TempDir(), "config.toml")),
 		Secrets:     secretStore,
@@ -42,7 +47,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, *secrets.Memo
 		Err:         out,
 		Interactive: false,
 		Runner:      runner,
-		HTTP:        fakeHTTP{status: 200},
+		HTTP:        httpClient,
 	}
 	return app, out, secretStore, runner
 }
@@ -131,7 +136,7 @@ func TestStatusShowsInheritanceAndJSONNeverContainsToken(t *testing.T) {
 	}
 }
 
-func TestTestCommandChecksResolvedEndpointWithoutAuthorizationHeader(t *testing.T) {
+func TestTestCommandAuthenticatesWithoutPrintingAuthorizationHeader(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Profiles["dmx"] = domain.Profile{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
@@ -145,5 +150,28 @@ func TestTestCommandChecksResolvedEndpointWithoutAuthorizationHeader(t *testing.
 	}
 	if !strings.Contains(out.String(), "reachable") {
 		t.Fatalf("test output = %s", out.String())
+	}
+	httpClient := app.HTTP.(*fakeHTTP)
+	if httpClient.headers.Get("Authorization") != "Bearer unused-secret" {
+		t.Fatalf("authorization header = %q", httpClient.headers.Get("Authorization"))
+	}
+	if strings.Contains(out.String(), "unused-secret") || strings.Contains(strings.ToLower(out.String()), "authorization") {
+		t.Fatalf("credential leaked in output: %s", out.String())
+	}
+}
+
+func TestTestCommandRejectsAuthenticationFailure(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Profiles["dmx"] = domain.Profile{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
+	cfg.Routes.Default = "dmx"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("dmx", "rejected-secret")
+	app.HTTP.(*fakeHTTP).status = 401
+	err := execute(t, app, "test", "--for", "claude")
+	if err == nil || !strings.Contains(err.Error(), "authentication rejected") || strings.Contains(err.Error(), "rejected-secret") {
+		t.Fatalf("error = %v", err)
 	}
 }
