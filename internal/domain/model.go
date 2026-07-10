@@ -23,9 +23,15 @@ type Config struct {
 }
 
 type Profile struct {
-	ID        string    `toml:"-" json:"id,omitempty"`
-	Label     string    `toml:"label" json:"label"`
-	Endpoints Endpoints `toml:"endpoints" json:"endpoints"`
+	ID           string        `toml:"-" json:"id,omitempty"`
+	Label        string        `toml:"label" json:"label"`
+	Endpoints    Endpoints     `toml:"endpoints" json:"endpoints"`
+	AccountProbe *AccountProbe `toml:"account_probe,omitempty" json:"account_probe,omitempty"`
+}
+
+type AccountProbe struct {
+	Kind    string `toml:"kind" json:"kind"`
+	BaseURL string `toml:"base_url" json:"base_url"`
 }
 
 type Endpoints struct {
@@ -96,6 +102,14 @@ func (c Config) Validate() error {
 			}
 			if err := validateEndpoint(raw); err != nil {
 				return fmt.Errorf("profile %q endpoint %s: %w", name, protocol, err)
+			}
+		}
+		if profile.AccountProbe != nil {
+			if profile.AccountProbe.Kind != "dmxapi" {
+				return fmt.Errorf("profile %q has unsupported account probe %q", name, profile.AccountProbe.Kind)
+			}
+			if err := validateEndpoint(profile.AccountProbe.BaseURL); err != nil {
+				return fmt.Errorf("profile %q account probe: %w", name, err)
 			}
 		}
 	}
