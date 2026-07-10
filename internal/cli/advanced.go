@@ -89,6 +89,7 @@ func newProfileEditCommand(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			before := cloneConfig(cfg)
 			profile, ok := cfg.Profiles[args[0]]
 			if !ok {
 				return fmt.Errorf("unknown profile %q", args[0])
@@ -103,11 +104,8 @@ func newProfileEditCommand(app *App) *cobra.Command {
 				profile.Endpoints.Anthropic = strings.TrimRight(anthropicURL, "/")
 			}
 			cfg.Profiles[args[0]] = profile
-			if err := app.Config.Save(cfg); err != nil {
+			if err := commitConfigAndSync(context.Background(), app, before, cfg, "profile"); err != nil {
 				return err
-			}
-			if err := syncAdapters(context.Background(), app, cfg); err != nil {
-				return fmt.Errorf("profile saved, but adapter sync failed: %w; repair with `aigw sync`", err)
 			}
 			fmt.Fprintf(app.Out, "Updated %s.\n", args[0])
 			return nil
@@ -131,6 +129,7 @@ func newProfileRenameCommand(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			before := cloneConfig(cfg)
 			profile, ok := cfg.Profiles[oldName]
 			if !ok {
 				return fmt.Errorf("unknown profile %q", oldName)
@@ -155,15 +154,17 @@ func newProfileRenameCommand(app *App) *cobra.Command {
 			if err := app.Secrets.Set(newName, token); err != nil {
 				return err
 			}
-			if err := app.Config.Save(cfg); err != nil {
+			if err := commitConfigAndSync(context.Background(), app, before, cfg, "profile rename"); err != nil {
 				_ = app.Secrets.Delete(newName)
 				return err
 			}
 			if err := app.Secrets.Delete(oldName); err != nil {
-				return fmt.Errorf("profile renamed, but old secret slot remains: %w", err)
-			}
-			if err := syncAdapters(context.Background(), app, cfg); err != nil {
-				return fmt.Errorf("profile renamed, but adapter sync failed: %w; repair with `aigw sync`", err)
+				rollbackErr := rollbackConfigAndAdapters(context.Background(), app, before)
+				_ = app.Secrets.Delete(newName)
+				if rollbackErr != nil {
+					return fmt.Errorf("old secret deletion failed: %w; rollback also failed: %v", err, rollbackErr)
+				}
+				return fmt.Errorf("old secret deletion failed and rename was rolled back: %w", err)
 			}
 			fmt.Fprintf(app.Out, "Renamed %s to %s.\n", oldName, newName)
 			return nil
@@ -180,6 +181,7 @@ func newProfileRemoveCommand(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			before := cloneConfig(cfg)
 			name := args[0]
 			if _, ok := cfg.Profiles[name]; !ok {
 				return fmt.Errorf("unknown profile %q", name)
@@ -198,7 +200,10 @@ func newProfileRemoveCommand(app *App) *cobra.Command {
 			}
 			if !keepSecret {
 				if err := app.Secrets.Delete(name); err != nil {
-					return fmt.Errorf("profile removed, but secret deletion failed: %w", err)
+					if rollbackErr := app.Config.Save(before); rollbackErr != nil {
+						return fmt.Errorf("secret deletion failed: %w; config rollback also failed: %v", err, rollbackErr)
+					}
+					return fmt.Errorf("secret deletion failed and profile removal was rolled back: %w", err)
 				}
 			}
 			fmt.Fprintf(app.Out, "Removed %s.\n", name)
@@ -222,12 +227,10 @@ func newRouteCommand(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			before := cloneConfig(cfg)
 			delete(cfg.Routes.Overrides, client)
-			if err := app.Config.Save(cfg); err != nil {
+			if err := commitConfigAndSync(context.Background(), app, before, cfg, "route reset"); err != nil {
 				return err
-			}
-			if err := syncAdapters(context.Background(), app, cfg); err != nil {
-				return fmt.Errorf("route reset, but adapter sync failed: %w; repair with `aigw sync`", err)
 			}
 			fmt.Fprintf(app.Out, "%s now inherits the default route.\n", title(client))
 			return nil
@@ -292,6 +295,10 @@ func newAdapterEnableCommand(app *App) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		before := cloneConfig(cfg)
+		if current := before.Adapters[client]; current.Enabled {
+			return fmt.Errorf("%s adapter is already enabled; disable it before changing its executable or targets", title(client))
+		}
 		profile, _, err := cfg.Resolve(client, "")
 		if err != nil {
 			return err
@@ -315,10 +322,12 @@ func newAdapterEnableCommand(app *App) *cobra.Command {
 			return err
 		}
 		if err := syncAdapters(cmd.Context(), app, cfg); err != nil {
-			delete(cfg.Adapters, client)
-			_ = app.Config.Save(cfg)
+			_ = app.Config.Save(before)
 			for _, target := range targets {
 				_ = adapters.DisableCodexConfig(target)
+			}
+			if client == domain.ClientClaude {
+				_ = app.Shims.DisableClaude()
 			}
 			return fmt.Errorf("adapter enable failed and was rolled back: %w", err)
 		}
@@ -340,6 +349,7 @@ func newAdapterDisableCommand(app *App) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		before := cloneConfig(cfg)
 		adapter, ok := cfg.Adapters[client]
 		if !ok || !adapter.Enabled {
 			fmt.Fprintf(app.Out, "%s adapter is already disabled.\n", title(client))
@@ -359,6 +369,11 @@ func newAdapterDisableCommand(app *App) *cobra.Command {
 		}
 		delete(cfg.Adapters, client)
 		if err := app.Config.Save(cfg); err != nil {
+			if client == domain.ClientClaude {
+				_, _ = app.Shims.EnableClaude()
+			} else {
+				_ = syncAdapters(context.Background(), app, before)
+			}
 			return err
 		}
 		fmt.Fprintf(app.Out, "Disabled %s adapter.\n", title(client))
@@ -395,11 +410,12 @@ func newConfigCommand(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			before := cloneConfig(cfg)
 			cfg, err = manifest.Merge(cfg, team)
 			if err != nil {
 				return err
 			}
-			if err := app.Config.Save(cfg); err != nil {
+			if err := commitConfigAndSync(context.Background(), app, before, cfg, "team manifest"); err != nil {
 				return err
 			}
 			missing := []string{}

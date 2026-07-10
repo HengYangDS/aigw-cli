@@ -3,8 +3,10 @@ package cli_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -20,6 +22,19 @@ type fakeRunner struct{ plans []adapters.ProcessPlan }
 
 func (r *fakeRunner) Run(_ context.Context, plan adapters.ProcessPlan) error {
 	r.plans = append(r.plans, plan)
+	return nil
+}
+
+type failingRunner struct {
+	err       error
+	remaining int
+}
+
+func (r *failingRunner) Run(_ context.Context, _ adapters.ProcessPlan) error {
+	if r.remaining > 0 {
+		r.remaining--
+		return r.err
+	}
 	return nil
 }
 
@@ -54,9 +69,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, *secrets.Memo
 
 func execute(t *testing.T, app *cli.App, args ...string) error {
 	t.Helper()
-	root := cli.NewRoot(app)
-	root.SetArgs(args)
-	return root.Execute()
+	return cli.Execute(app, args)
 }
 
 func TestAddWithTokenStdinCreatesProfileWithoutPrintingSecret(t *testing.T) {
@@ -109,6 +122,60 @@ func TestUseSetsDefaultOrClientOverride(t *testing.T) {
 	got, _ = app.Config.Load()
 	if got.Routes.Default != "two" || len(got.Routes.Overrides) != 0 {
 		t.Fatalf("all routes = %#v", got.Routes)
+	}
+}
+
+func TestUseRollsBackRouteWhenAdapterSyncFails(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	dir := t.TempDir()
+	target := filepath.Join(dir, "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.NewConfig()
+	cfg.Profiles["one"] = domain.Profile{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	cfg.Profiles["two"] = domain.Profile{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
+	cfg.Routes.Default = "one"
+	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/missing/codex", Targets: []string{target}}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("one", "old-secret")
+	_ = secretStore.Set("two", "new-secret")
+	app.Runner = &failingRunner{err: errors.New("login failed"), remaining: 1}
+	err := execute(t, app, "use", "two")
+	if err == nil || !strings.Contains(err.Error(), "rolled back") {
+		t.Fatalf("error = %v", err)
+	}
+	got, _ := app.Config.Load()
+	if got.Routes.Default != "one" {
+		t.Fatalf("route was not rolled back: %#v", got.Routes)
+	}
+}
+
+func TestRotateRollsBackSecretWhenAdapterSyncFails(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "new-secret\n")
+	dir := t.TempDir()
+	target := filepath.Join(dir, "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.NewConfig()
+	cfg.Profiles["one"] = domain.Profile{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	cfg.Routes.Default = "one"
+	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/missing/codex", Targets: []string{target}}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("one", "old-secret")
+	app.Runner = &failingRunner{err: errors.New("login failed"), remaining: 1}
+	err := execute(t, app, "rotate", "one", "--token-stdin")
+	if err == nil || !strings.Contains(err.Error(), "rolled back") {
+		t.Fatalf("error = %v", err)
+	}
+	got, _ := secretStore.Get("one")
+	if got != "old-secret" {
+		t.Fatalf("secret = %q, want old-secret", got)
 	}
 }
 

@@ -1,0 +1,66 @@
+stages: [verify, package, publish, release]
+
+default:
+  image: golang:1.24
+  cache:
+    key: go-mod
+    paths: [.cache/go-build, .cache/go-mod]
+  before_script:
+    - export GOCACHE="$CI_PROJECT_DIR/.cache/go-build" GOMODCACHE="$CI_PROJECT_DIR/.cache/go-mod"
+
+verify:
+  stage: verify
+  script:
+    - go test -race ./...
+    - go vet ./...
+    - test -z "$(gofmt -l cmd internal tools)"
+    - sh -n scripts/package.sh scripts/install.sh scripts/uninstall.sh
+    - '! grep -RInE --exclude-dir=.git --exclude="*_test.go" "(sk-[A-Za-z0-9_-]{24,}|Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9_-]{24,})" .'
+
+package:
+  stage: package
+  needs: [verify]
+  script:
+    - VERSION="${CI_COMMIT_TAG#v}"; test -n "$VERSION" || VERSION="0.1.0-${CI_COMMIT_SHORT_SHA}"
+    - sh scripts/package.sh "$VERSION" dist
+  artifacts:
+    expire_in: 30 days
+    paths: [dist/]
+
+publish:
+  stage: publish
+  needs:
+    - job: package
+      artifacts: true
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - VERSION="${CI_COMMIT_TAG#v}"
+    - |
+      for file in dist/*; do
+        name=$(basename "$file")
+        curl --fail --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "$file" \
+          "$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/aigw/$VERSION/$name"
+      done
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs: [publish]
+  rules:
+    - if: $CI_COMMIT_TAG
+  before_script: []
+  script:
+    - VERSION="${CI_COMMIT_TAG#v}"
+    - BASE="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/aigw/$VERSION"
+    - |
+      release-cli create --tag-name "$CI_COMMIT_TAG" --name "AIGW $CI_COMMIT_TAG" \
+        --description "Cross-platform AIGW CLI release. Verify downloads with checksums.txt." \
+        --assets-link "{\"name\":\"macOS amd64\",\"url\":\"$BASE/aigw_${VERSION}_darwin_amd64.tar.gz\",\"direct_asset_path\":\"/aigw_${VERSION}_darwin_amd64.tar.gz\"}" \
+        --assets-link "{\"name\":\"macOS arm64\",\"url\":\"$BASE/aigw_${VERSION}_darwin_arm64.tar.gz\",\"direct_asset_path\":\"/aigw_${VERSION}_darwin_arm64.tar.gz\"}" \
+        --assets-link "{\"name\":\"Linux amd64\",\"url\":\"$BASE/aigw_${VERSION}_linux_amd64.tar.gz\",\"direct_asset_path\":\"/aigw_${VERSION}_linux_amd64.tar.gz\"}" \
+        --assets-link "{\"name\":\"Linux arm64\",\"url\":\"$BASE/aigw_${VERSION}_linux_arm64.tar.gz\",\"direct_asset_path\":\"/aigw_${VERSION}_linux_arm64.tar.gz\"}" \
+        --assets-link "{\"name\":\"Windows amd64\",\"url\":\"$BASE/aigw_${VERSION}_windows_amd64.zip\",\"direct_asset_path\":\"/aigw_${VERSION}_windows_amd64.zip\"}" \
+        --assets-link "{\"name\":\"Windows arm64\",\"url\":\"$BASE/aigw_${VERSION}_windows_arm64.zip\",\"direct_asset_path\":\"/aigw_${VERSION}_windows_arm64.zip\"}" \
+        --assets-link "{\"name\":\"SHA-256 checksums\",\"url\":\"$BASE/checksums.txt\",\"direct_asset_path\":\"/checksums.txt\"}" \
+        --assets-link "{\"name\":\"SPDX SBOM\",\"url\":\"$BASE/aigw_${VERSION}.spdx.json\",\"direct_asset_path\":\"/aigw_${VERSION}.spdx.json\"}"

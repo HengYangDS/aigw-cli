@@ -30,3 +30,14 @@ func validate(profile, value string, requireValue bool) error {
 	}
 	return nil
 }
+
+func Select(backend string, getenv func(string) string) (Store, error) {
+	switch backend {
+	case "", "keyring":
+		return NewKeyringStore(), nil
+	case "env":
+		return NewEnvironmentStore(getenv), nil
+	default:
+		return nil, fmt.Errorf("unsupported secret backend %q; supported backends are keyring and env", backend)
+	}
+}
