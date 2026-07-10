@@ -60,6 +60,41 @@ func TestCodexDisableStopsWhenManagedSelectionWasEdited(t *testing.T) {
 	}
 }
 
+func TestCodexSyncAndDisablePreserveUnrelatedUserEdits(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	original := "model_provider = \"native\"\nmodel = \"gpt-original\"\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := domain.Profile{ID: "dmx", Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	edited := strings.Replace(string(data), `model = "gpt-original"`, `model = "gpt-user-edit"`, 1)
+	if err := os.WriteFile(path, []byte(edited), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile.Endpoints.OpenAIResponses = "https://two.test/v1"
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatalf("unrelated user edit blocked sync: %v", err)
+	}
+	data, _ = os.ReadFile(path)
+	if !strings.Contains(string(data), `model = "gpt-user-edit"`) || !strings.Contains(string(data), `base_url = "https://two.test/v1"`) {
+		t.Fatalf("sync lost user edit or endpoint update:\n%s", data)
+	}
+	if err := adapters.DisableCodexConfig(path); err != nil {
+		t.Fatal(err)
+	}
+	data, _ = os.ReadFile(path)
+	if !strings.Contains(string(data), `model_provider = "native"`) || !strings.Contains(string(data), `model = "gpt-user-edit"`) {
+		t.Fatalf("disable lost user-owned content:\n%s", data)
+	}
+	if strings.Contains(string(data), "AIGW managed") || strings.Contains(string(data), "model_providers.aigw") {
+		t.Fatalf("disable left managed content:\n%s", data)
+	}
+}
+
 func TestCodexLoginPlanPassesTokenOnStdinNotArguments(t *testing.T) {
 	plan, err := adapters.CodexLoginPlan("/usr/local/bin/codex", "/tmp/codex-home", "top-secret")
 	if err != nil {

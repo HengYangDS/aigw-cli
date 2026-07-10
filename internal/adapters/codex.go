@@ -22,8 +22,8 @@ const (
 var modelProviderLine = regexp.MustCompile(`(?m)^model_provider\s*=.*$`)
 
 type codexState struct {
-	Original      string `json:"original"`
-	ProjectedHash string `json:"projected_hash"`
+	OriginalProvider string `json:"original_provider,omitempty"`
+	ManagedBlockHash string `json:"managed_block_hash"`
 }
 
 func CodexLoginPlan(executable, codexHome, token string) (ProcessPlan, error) {
@@ -51,12 +51,13 @@ func SyncCodexConfig(path string, profile domain.Profile) error {
 	if err != nil {
 		return err
 	}
-	original, err := originalCodexConfig(path)
+	base, state, err := codexUserConfig(path)
 	if err != nil {
 		return err
 	}
-	projected := projectCodex(original, profile.Label, endpoint)
-	state := codexState{Original: original, ProjectedHash: hashText(projected)}
+	block := codexManagedBlock(profile.Label, endpoint)
+	projected := projectCodex(base, block)
+	state.ManagedBlockHash = hashText(block)
 	stateData, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode Codex adapter state: %w", err)
@@ -65,7 +66,7 @@ func SyncCodexConfig(path string, profile domain.Profile) error {
 		return err
 	}
 	if err := transaction.WriteFileAtomic(codexStatePath(path), append(stateData, '\n'), 0o600); err != nil {
-		_ = transaction.WriteFileAtomic(path, []byte(original), 0o600)
+		_ = transaction.WriteFileAtomic(path, []byte(base), 0o600)
 		return err
 	}
 	return nil
@@ -87,10 +88,11 @@ func DisableCodexConfig(path string) error {
 	if err != nil {
 		return fmt.Errorf("read Codex config: %w", err)
 	}
-	if hashText(string(current)) != state.ProjectedHash {
-		return fmt.Errorf("Codex config conflict: managed projection changed after AIGW wrote it; refusing to overwrite user edits")
+	base, err := removeCodexProjection(string(current), state)
+	if err != nil {
+		return err
 	}
-	if err := transaction.WriteFileAtomic(path, []byte(state.Original), 0o600); err != nil {
+	if err := transaction.WriteFileAtomic(path, []byte(base), 0o600); err != nil {
 		return err
 	}
 	if err := os.Remove(codexStatePath(path)); err != nil && !os.IsNotExist(err) {
@@ -99,46 +101,86 @@ func DisableCodexConfig(path string) error {
 	return nil
 }
 
-func originalCodexConfig(path string) (string, error) {
+func codexUserConfig(path string) (string, codexState, error) {
 	stateData, err := os.ReadFile(codexStatePath(path))
 	if err == nil {
 		var state codexState
 		if err := json.Unmarshal(stateData, &state); err != nil {
-			return "", fmt.Errorf("parse Codex adapter state: %w", err)
+			return "", codexState{}, fmt.Errorf("parse Codex adapter state: %w", err)
 		}
 		current, err := os.ReadFile(path)
 		if err != nil {
-			return "", fmt.Errorf("read Codex config: %w", err)
+			return "", codexState{}, fmt.Errorf("read Codex config: %w", err)
 		}
-		if hashText(string(current)) != state.ProjectedHash {
-			return "", fmt.Errorf("Codex config conflict: managed projection changed after AIGW wrote it; refusing to sync")
+		base, err := removeCodexProjection(string(current), state)
+		if err != nil {
+			return "", codexState{}, err
 		}
-		return state.Original, nil
+		return base, state, nil
 	}
 	if !os.IsNotExist(err) {
-		return "", fmt.Errorf("read Codex adapter state: %w", err)
+		return "", codexState{}, fmt.Errorf("read Codex adapter state: %w", err)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("read Codex config: %w", err)
+		return "", codexState{}, fmt.Errorf("read Codex config: %w", err)
 	}
-	return string(data), nil
+	originalProvider := modelProviderLine.FindString(string(data))
+	return string(data), codexState{OriginalProvider: originalProvider}, nil
 }
 
-func projectCodex(original, label, endpoint string) string {
-	base := strings.TrimRight(original, "\n")
+func projectCodex(original, block string) string {
+	base := strings.TrimRight(original, "\r\n")
 	if modelProviderLine.MatchString(base) {
 		base = modelProviderLine.ReplaceAllString(base, codexSelection)
 	} else {
 		base = codexSelection + "\n" + base
 	}
+	return base + "\n\n" + block
+}
+
+func codexManagedBlock(label, endpoint string) string {
 	label = strings.ReplaceAll(label, `"`, `'`)
-	return base + "\n\n" + codexBegin + "\n" +
+	return codexBegin + "\n" +
 		"[model_providers.aigw]\n" +
 		fmt.Sprintf("name = \"AIGW: %s\"\n", label) +
 		fmt.Sprintf("base_url = \"%s\"\n", endpoint) +
 		"wire_api = \"responses\"\n" +
 		"requires_openai_auth = true\n" + codexEnd + "\n"
+}
+
+func removeCodexProjection(current string, state codexState) (string, error) {
+	if !modelProviderLine.MatchString(current) || modelProviderLine.FindString(current) != codexSelection {
+		return "", fmt.Errorf("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits")
+	}
+	start := strings.Index(current, codexBegin)
+	if start < 0 {
+		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block is missing")
+	}
+	endRel := strings.Index(current[start:], codexEnd)
+	if endRel < 0 {
+		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block is incomplete")
+	}
+	end := start + endRel + len(codexEnd)
+	if end < len(current) && current[end] == '\r' {
+		end++
+	}
+	if end < len(current) && current[end] == '\n' {
+		end++
+	}
+	block := current[start:end]
+	if hashText(block) != state.ManagedBlockHash {
+		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits")
+	}
+	base := strings.TrimRight(current[:start]+current[end:], "\r\n")
+	if state.OriginalProvider != "" {
+		base = strings.Replace(base, codexSelection, state.OriginalProvider, 1)
+	} else {
+		base = strings.TrimPrefix(base, codexSelection+"\n")
+		base = strings.TrimPrefix(base, codexSelection+"\r\n")
+		base = strings.TrimPrefix(base, codexSelection)
+	}
+	return base + "\n", nil
 }
 
 func codexStatePath(path string) string { return path + ".aigw-state.json" }
