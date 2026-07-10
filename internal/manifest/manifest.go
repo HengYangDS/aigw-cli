@@ -15,6 +15,7 @@ var credentialKey = regexp.MustCompile(`(?i)(token|secret|password|api[_-]?key|a
 type Manifest struct {
 	Version            int                       `toml:"version"`
 	RecommendedDefault string                    `toml:"recommended_default"`
+	Accounts           map[string]domain.Account `toml:"accounts,omitempty"`
 	Profiles           map[string]domain.Profile `toml:"profiles"`
 }
 
@@ -35,6 +36,9 @@ func Parse(data []byte) (Manifest, error) {
 	if result.Version != 1 {
 		return Manifest{}, fmt.Errorf("unsupported team manifest version %d", result.Version)
 	}
+	if result.Accounts == nil {
+		result.Accounts = map[string]domain.Account{}
+	}
 	if len(result.Profiles) == 0 {
 		return Manifest{}, fmt.Errorf("team manifest must define at least one profile")
 	}
@@ -44,6 +48,7 @@ func Parse(data []byte) (Manifest, error) {
 		}
 	}
 	check := domain.NewConfig()
+	check.Accounts = result.Accounts
 	check.Profiles = result.Profiles
 	if result.RecommendedDefault != "" {
 		check.Routes.Default = result.RecommendedDefault
@@ -86,6 +91,9 @@ func findCredentialKey(value any, prefix string) string {
 
 func Merge(cfg domain.Config, team Manifest) (domain.Config, error) {
 	cfg.Normalize()
+	for name, account := range team.Accounts {
+		cfg.Accounts[name] = account
+	}
 	for name, profile := range team.Profiles {
 		cfg.Profiles[name] = profile
 	}
@@ -108,7 +116,7 @@ func Export(cfg domain.Config) ([]byte, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	return toml.Marshal(Manifest{Version: 1, RecommendedDefault: cfg.Routes.Default, Profiles: cfg.Profiles})
+	return toml.Marshal(Manifest{Version: 1, RecommendedDefault: cfg.Routes.Default, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
 }
 
 type legacyConfig struct {
@@ -134,13 +142,13 @@ func MigrateLegacyV2(data []byte) (domain.Config, error) {
 	}
 	cfg := domain.NewConfig()
 	for name, source := range legacy.Profiles {
-		profile := domain.Profile{Label: source.Label}
-		profile.Endpoints.OpenAIResponses = source.BaseURL
+		account := domain.Account{Label: source.Label}
+		account.Endpoints.OpenAIResponses = source.BaseURL
 		if codex := source.Adapters[domain.ClientCodex]; codex != nil && codex["base_url"] != "" {
-			profile.Endpoints.OpenAIResponses = codex["base_url"]
+			account.Endpoints.OpenAIResponses = codex["base_url"]
 		}
 		if claude := source.Adapters[domain.ClientClaude]; claude != nil {
-			profile.Endpoints.Anthropic = claude["base_url"]
+			account.Endpoints.Anthropic = claude["base_url"]
 		}
 		if enabledRaw, ok := source.Proxy["codex_responses"]; ok {
 			var enabled bool
@@ -149,11 +157,12 @@ func MigrateLegacyV2(data []byte) (domain.Config, error) {
 				var proxyURL string
 				_ = json.Unmarshal(source.Proxy["url"], &proxyURL)
 				if proxyURL != "" {
-					profile.Endpoints.OpenAIResponses = proxyURL
+					account.Endpoints.OpenAIResponses = proxyURL
 				}
 			}
 		}
-		cfg.Profiles[name] = profile
+		cfg.Accounts[name] = account
+		cfg.Profiles[name] = domain.Profile{Label: source.Label, Account: name}
 	}
 	cfg.Routes.Default = legacy.Routes["default"]
 	for _, client := range []string{domain.ClientClaude, domain.ClientCodex} {

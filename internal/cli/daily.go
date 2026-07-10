@@ -40,14 +40,16 @@ func newAddCommand(app *App) *cobra.Command {
 			if label == "" {
 				label = name
 			}
-			profile := domain.Profile{Label: label, Endpoints: domain.Endpoints{
+			account := domain.Account{Label: label, Endpoints: domain.Endpoints{
 				OpenAIResponses: strings.TrimRight(openAIURL, "/"),
 				Anthropic:       strings.TrimRight(anthropicURL, "/"),
 			}}
+			profile := domain.Profile{Label: label, Account: name}
 			token, err := app.readToken(tokenStdin, true)
 			if err != nil {
 				return err
 			}
+			cfg.Accounts[name] = account
 			cfg.Profiles[name] = profile
 			if cfg.Routes.Default == "" {
 				cfg.Routes.Default = name
@@ -113,21 +115,26 @@ func newUseCommand(app *App) *cobra.Command {
 			if _, ok := cfg.Profiles[name]; !ok {
 				return fmt.Errorf("unknown profile %q; inspect `aigw profile list`", name)
 			}
+			accountName, providerAccount, err := accountForInput(cfg, name)
+			if err != nil {
+				return err
+			}
 			addedToken := false
-			if !app.Secrets.Has(name) {
+			if !app.Secrets.Has(accountName) {
 				if !app.Interactive {
-					return fmt.Errorf("profile %q has no token; repair with `aigw rotate %s`", name, name)
+					return fmt.Errorf("account %q has no token; repair with `aigw rotate %s`", accountName, accountName)
 				}
 				profile := cfg.Profiles[name]
 				profile.ID = name
-				token, err := app.Prompt.Secret("请粘贴 " + profile.Label + " Token：")
+				profile.Endpoints = providerAccount.Endpoints
+				token, err := app.Prompt.Secret("请粘贴 " + providerAccount.Label + " Token：")
 				if err != nil {
 					return err
 				}
 				if err := verifyCredential(context.Background(), app, profile, token); err != nil {
 					return fmt.Errorf("Token 验证失败：%w", err)
 				}
-				if err := app.Secrets.Set(name, token); err != nil {
+				if err := app.Secrets.Set(accountName, token); err != nil {
 					return err
 				}
 				addedToken = true
@@ -143,7 +150,7 @@ func newUseCommand(app *App) *cobra.Command {
 			}
 			if err := commitConfigAndSync(context.Background(), app, before, cfg, "route"); err != nil {
 				if addedToken {
-					_ = app.Secrets.Delete(name)
+					_ = app.Secrets.Delete(accountName)
 				}
 				return err
 			}
@@ -183,10 +190,11 @@ func newRotateCommand(app *App) *cobra.Command {
 			if len(args) == 1 {
 				name = args[0]
 			}
-			if _, ok := cfg.Profiles[name]; !ok {
-				return fmt.Errorf("unknown profile %q", name)
+			accountName, account, err := accountForInput(cfg, name)
+			if err != nil {
+				return err
 			}
-			oldToken, oldErr := app.Secrets.Get(name)
+			oldToken, oldErr := app.Secrets.Get(accountName)
 			if oldErr != nil && !errors.Is(oldErr, secrets.ErrNotFound) {
 				return oldErr
 			}
@@ -196,25 +204,24 @@ func newRotateCommand(app *App) *cobra.Command {
 			} else if app.Interactive {
 				token, err = app.Prompt.Secret("请粘贴 " + cfg.Profiles[name].Label + " Token：")
 			} else {
-				return fmt.Errorf("token input requires a terminal; pipe it to `aigw rotate %s --token-stdin`", name)
+				return fmt.Errorf("token input requires a terminal; pipe it to `aigw rotate %s --token-stdin`", accountName)
 			}
 			if err != nil {
 				return err
 			}
-			profile := cfg.Profiles[name]
-			profile.ID = name
+			profile := domain.Profile{ID: accountName, Label: account.Label, Account: accountName, Endpoints: account.Endpoints, AccountProbe: account.AccountProbe}
 			if err := verifyCredential(context.Background(), app, profile, token); err != nil {
 				return fmt.Errorf("Token 验证失败：%w", err)
 			}
-			if err := app.Secrets.Set(name, token); err != nil {
+			if err := app.Secrets.Set(accountName, token); err != nil {
 				return err
 			}
 			if err := syncAdapters(context.Background(), app, cfg); err != nil {
 				var rollbackErr error
 				if errors.Is(oldErr, secrets.ErrNotFound) {
-					rollbackErr = app.Secrets.Delete(name)
+					rollbackErr = app.Secrets.Delete(accountName)
 				} else {
-					rollbackErr = app.Secrets.Set(name, oldToken)
+					rollbackErr = app.Secrets.Set(accountName, oldToken)
 				}
 				if rollbackErr == nil {
 					rollbackErr = syncAdapters(context.Background(), app, cfg)
@@ -227,7 +234,8 @@ func newRotateCommand(app *App) *cobra.Command {
 			r := renderer(app)
 			r.Title("AIGW", "Token 已更新")
 			r.Section("服务")
-			r.Row("名称", cfg.Profiles[name].Label)
+			r.Row("账户", account.Label)
+			r.Row("Account", accountName)
 			r.Status(presentation.OK, "Token", "验证通过并已安全保存")
 			r.Success("客户端认证已同步")
 			r.Next("aigw check")
@@ -282,7 +290,11 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 			continue
 		}
 		_, endpointErr := profile.EndpointFor(client)
-		result.Routes[client] = routeStatus{Profile: profile.ID, Inherited: inherited, SecretAvailable: app.Secrets.Has(profile.ID), EndpointReady: endpointErr == nil}
+		accountName := profile.Account
+		if accountName == "" {
+			accountName = profile.ID
+		}
+		result.Routes[client] = routeStatus{Profile: profile.ID, Inherited: inherited, SecretAvailable: app.Secrets.Has(accountName), EndpointReady: endpointErr == nil}
 	}
 	if jsonMode {
 		enc := json.NewEncoder(app.Out)
@@ -301,8 +313,20 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 	r.Title("AIGW", "当前状态")
 	r.Section("服务")
 	current := cfg.Profiles[result.Default]
-	r.Row("当前服务", current.Label)
+	accountName := current.Account
+	if accountName == "" {
+		accountName = result.Default
+	}
+	account := cfg.Accounts[accountName]
+	r.Row("当前 Profile", current.Label)
 	r.Row("Profile", result.Default)
+	r.Row("Account", accountName)
+	if current.ModelFor(domain.ClientCodex) != "" {
+		r.Row("Codex 模型", current.ModelFor(domain.ClientCodex))
+	}
+	if current.ModelFor(domain.ClientClaude) != "" {
+		r.Row("Claude 模型", current.ModelFor(domain.ClientClaude))
+	}
 	r.Row("已配置服务", fmt.Sprintf("%d", result.Profiles))
 	r.Section("客户端")
 	attention := false
@@ -322,9 +346,9 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		r.Status(state, title(client), readiness)
 	}
 	r.Section("账户诊断")
-	if current.AccountProbe != nil && app.Accounts.Has(result.Default) {
+	if account.AccountProbe != nil && app.Accounts.Has(accountName) {
 		r.Status(presentation.OK, "精确余额", "已启用")
-	} else if current.AccountProbe != nil {
+	} else if account.AccountProbe != nil {
 		r.Status(presentation.Warn, "精确余额", "未启用")
 		r.Detail("aigw account connect")
 	} else {
@@ -440,7 +464,11 @@ func syncAdapters(ctx context.Context, app *App, cfg domain.Config) error {
 		if err != nil {
 			return err
 		}
-		token, err := app.Secrets.Get(profile.ID)
+		accountName := profile.Account
+		if accountName == "" {
+			accountName = profile.ID
+		}
+		token, err := app.Secrets.Get(accountName)
 		if err != nil {
 			return fmt.Errorf("Codex route token unavailable: %w", err)
 		}
@@ -464,6 +492,10 @@ func syncAdapters(ctx context.Context, app *App, cfg domain.Config) error {
 
 func cloneConfig(cfg domain.Config) domain.Config {
 	clone := cfg
+	clone.Accounts = make(map[string]domain.Account, len(cfg.Accounts))
+	for name, account := range cfg.Accounts {
+		clone.Accounts[name] = account
+	}
 	clone.Profiles = make(map[string]domain.Profile, len(cfg.Profiles))
 	for name, profile := range cfg.Profiles {
 		clone.Profiles[name] = profile
@@ -502,3 +534,20 @@ func commitConfigAndSync(ctx context.Context, app *App, before, after domain.Con
 }
 
 func _processPlanCompileGuard(_ adapters.ProcessPlan) {}
+
+func accountForInput(cfg domain.Config, name string) (string, domain.Account, error) {
+	cfg.Normalize()
+	if account, ok := cfg.Accounts[name]; ok {
+		account.ID = name
+		return name, account, nil
+	}
+	if profile, ok := cfg.Profiles[name]; ok {
+		account, exists := cfg.Accounts[profile.Account]
+		if !exists {
+			return "", domain.Account{}, fmt.Errorf("profile %q references unknown account %q", name, profile.Account)
+		}
+		account.ID = profile.Account
+		return profile.Account, account, nil
+	}
+	return "", domain.Account{}, fmt.Errorf("unknown account or profile %q", name)
+}

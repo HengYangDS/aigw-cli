@@ -51,7 +51,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Profiles["dmx"].Endpoints.Anthropic != "https://example.test" || got.Routes.Default != "dmx" {
+	if got.Accounts["dmx"].Endpoints.Anthropic != "https://example.test" || got.Routes.Default != "dmx" {
 		t.Fatalf("round trip = %#v", got)
 	}
 }

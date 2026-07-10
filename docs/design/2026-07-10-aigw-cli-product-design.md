@@ -7,15 +7,19 @@
 
 ## 1. 定位
 
-AIGW 是面向团队的跨平台第三方 AI API 配置、密钥与客户端路由工具。它是一个按需执行的本地 CLI，不承载 API 流量，不运行后台服务，也不是中央密钥分发系统。
+AIGW 是面向团队的跨平台第三方 AI API Account、模型 Profile、密钥与客户端路由工具。它是一个按需执行的本地 CLI，不承载 API 流量，不运行后台服务，也不是中央密钥分发系统。
 
 仓库名使用 `aigw-cli`，明确它是管理客户端而非真正的数据面网关。DMXAPI 只是一个可配置 Profile，不是产品身份。
 
 ## 2. 领域模型
 
-### Profile
+### Account
 
-一个 Profile 表示一个服务商实例、它支持的协议端点及一个 Token。相同服务商的不同 Token 必须建立不同 Profile，例如 `dmx-main` 与 `dmx-backup`。
+一个 Account 表示一个服务商实例、它支持的协议端点及一个 Token。相同服务商的不同 Token 必须建立不同 Account，例如 `primary-gateway` 与 `backup-gateway`。
+
+### Runtime Profile
+
+一个 Runtime Profile 表示用户日常切换的模型运行配置，引用一个 Account，并可限定客户端与模型名，例如 `gpt-5.6`、`gpt-5.5-ssvip`、`claude-opus`、`claude-fable`。模型名对 AIGW 是透明字符串，由上游网关解释。
 
 ### Endpoint
 
@@ -23,7 +27,7 @@ Profile 可提供 `openai-responses` 和 `anthropic` 两类端点，它们共享
 
 ### Route
 
-Route 将客户端使用面映射到 Profile。解析顺序为：单次命令的 `--profile`、客户端覆盖路由、默认路由。未设置客户端覆盖时自动继承默认路由，不保存重复副本。
+Route 将客户端使用面映射到 Runtime Profile。解析顺序为：单次命令的 `--profile`、客户端覆盖路由、默认路由。未设置客户端覆盖时自动继承默认路由，不保存重复副本。
 
 ### Adapter
 
@@ -35,7 +39,7 @@ Adapter 将解析后的 Profile 投影到一个客户端边界。Claude Adapter 
 
 ```text
 service = AIGW_TOKEN
-account = <profile-id>
+account = <account-id>
 ```
 
 默认后端：macOS Keychain、Windows Credential Manager、Linux Secret Service。CI 可显式选择只读环境变量后端。Linux 没有安全存储时必须清晰失败，不得静默写入明文文件。
@@ -50,7 +54,7 @@ Codex CLI 优先通过独立执行边界传递凭据。对无法经 shim 启动�
 
 ## 5. 用户体验
 
-首次使用由 `aigw setup` 完成发现客户端、导入团队清单、创建 Profile、隐藏输入 Token、测试端点、设置路由和启用 Adapter。配置变更自动同步，用户不需要记住 `apply`；`aigw sync` 仅用于恢复漂移。
+首次使用由 `aigw setup` 完成发现客户端、导入团队清单、创建 Profile、隐藏输入 Token、测试端点、设置路由和启用 Adapter。配置变更自动同步；`aigw sync` 仅用于恢复漂移。
 
 日常命令保持在一个屏幕内：
 
@@ -65,11 +69,11 @@ aigw doctor [--json]
 aigw sync
 ```
 
-高级能力收进 `profile`、`route`、`adapter`、`config` 和 `completion` 命名空间。不提供 `dmx-*`、`init-dmx`、`apply` 等旧兼容命令。错误必须同时给出原因、影响和一条可执行修复命令。
+高级能力收进 `profile`、`route`、`adapter`、`config` 和 `completion` 命名空间。不提供旧的服务商专用兼容命令或别名。错误必须同时给出原因、影响和一条可执行修复命令。
 
 ## 6. 配置与团队复用
 
-本机配置使用 TOML，仅包含 Profile 元数据、端点、路由、Adapter 状态与可执行文件路径。团队清单可安全提交到仓库，包含 Profile 名称、URL、协议和推荐默认路由，但不包含 Token、个人覆盖路由、客户端登录状态或本机路径。
+本机配置使用 TOML，仅包含 Account 元数据、端点、Runtime Profile、模型名、路由、Adapter 状态与可执行文件路径。团队清单可安全提交到仓库，包含 Account、Profile、URL、协议、模型名和推荐默认路由，但不包含 Token、个人覆盖路由、客户端登录状态或本机路径。
 
 配置位置遵守平台约定：
 
@@ -81,13 +85,13 @@ aigw sync
 
 ## 7. 技术与交付
 
-采用 Go 构建单文件二进制，无 Python/Node 运行时要求。管理命令执行后退出；不安装 daemon、watchdog、launchd、systemd 或计划任务。Claude/Codex shim 只负责进程边界转发。
+采用 Go 构建单文件二进制，无 Python/Node 运行时要求。管理命令执行后退出；不安装 daemon、watchdog、launchd、systemd 或计划任务。Claude/Codex shim 只负责进程边界转发。Claude shim 位于用户级 AIGW shim 目录，不能放入 `~/.codex`，也不能写入包管理器拥有的系统目录。
 
-GitLab Release 为 macOS、Linux、Windows 的 amd64/arm64 生成压缩包、SHA-256 校验和与 SBOM。首版提供用户级 `install.sh` 和 `install.ps1`，支持固定版本安装与卸载。后续再增加 Homebrew、Scoop、deb/rpm。
+GitLab Release 为 macOS、Linux、Windows 的 amd64/arm64 生成 portable 压缩包、原生安装包、SHA-256 校验和与 SBOM。原生安装包包括 macOS Universal `.pkg`、Linux amd64/arm64 `.deb` 与 `.rpm`、Windows amd64/arm64 `.msi`。`install.sh` 和 `install.ps1` 作为便携安装兜底，支持固定版本安装与卸载。
 
 ## 8. 现有资产边界
 
-`codex-dmx-proxy` 是独立的 DMX/Codex 传输兼容组件，依赖本地代理与 watchdog，不进入 AIGW 核心，也不由 AIGW 管理。AIGW 可使用用户配置的本地端点，但不知道代理生命周期。
+传输代理、兼容转发器和数据面网关是独立项目，不进入 AIGW 核心，也不由 AIGW 管理。AIGW 可使用用户配置的本地端点，但不知道代理生命周期。
 
 本机 Python 原型仅作为迁移来源和行为参考。新版本完成验证后，迁移 Profile、Route 与现有 `AIGW_TOKEN/<profile>` 密钥，替换 shim，然后删除旧 Python 工具、旧文档和废弃命令；不保留兼容别名。
 
@@ -95,8 +99,8 @@ GitLab Release 为 macOS、Linux、Windows 的 amd64/arm64 生成压缩包、SHA
 
 1. 六个目标 OS/架构均可交叉编译。
 2. 配置及导出物不含 Token，测试覆盖泄漏防线。
-3. Profile、继承路由、密钥后端和两个 Adapter 可独立测试。
+3. Account、Runtime Profile、继承路由、密钥后端和两个 Adapter 可独立测试。
 4. `setup/add/use/rotate/status/test/doctor/sync` 形成完整日常闭环。
 5. 团队清单可导入且不能携带密钥。
-6. 安装、升级、卸载不覆盖非 AIGW-owned 用户配置。
+6. 安装、升级、卸载不覆盖非 AIGW-owned 用户配置；native 安装通过 native 包更新，portable 安装才允许原子替换自身。
 7. 本机旧原型迁移后，`aigw doctor`、`aigw test` 和客户端边界验证通过。

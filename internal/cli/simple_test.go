@@ -125,3 +125,26 @@ func TestHelpKeepsDailyCommandsObvious(t *testing.T) {
 		}
 	}
 }
+
+func TestDoctorWarnsWhenClaudeShimIsNotDiscoverableOnPath(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Profiles["dmx"] = domain.Profile{Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://dmx.test"}}
+	cfg.Routes.Default = "dmx"
+	cfg.Adapters["claude"] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("dmx", "token")
+	shimDir := t.TempDir()
+	app.Shims.BinDir = shimDir
+	app.Shims.AIGWExecutable = filepath.Join(shimDir, "aigw")
+	if _, err := app.Shims.EnableClaude(); err != nil {
+		t.Fatal(err)
+	}
+	app.Discovery = fakeDiscovery{result: discovery.Result{}}
+	err := execute(t, app, "doctor")
+	if err == nil || !strings.Contains(out.String(), "PATH") || !strings.Contains(out.String(), "aigw repair") {
+		t.Fatalf("doctor did not explain missing shim PATH; err=%v output=%s", err, out.String())
+	}
+}

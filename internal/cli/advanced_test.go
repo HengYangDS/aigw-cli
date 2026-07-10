@@ -55,7 +55,7 @@ func TestLegacyMigrationImportsStructureWithoutChangingSecrets(t *testing.T) {
 		t.Fatalf("secret changed: %q, %v", got, err)
 	}
 	cfg, _ := app.Config.Load()
-	if cfg.Profiles["dmx"].Endpoints.Anthropic != "https://dmx.test" {
+	if cfg.Accounts["dmx"].Endpoints.Anthropic != "https://dmx.test" {
 		t.Fatalf("migration = %#v", cfg)
 	}
 }

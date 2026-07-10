@@ -39,17 +39,33 @@ func (ExecRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 type Updater struct {
 	GOOS       string
 	GOARCH     string
+	Channel    Channel
 	Executable string
 	Runner     CommandRunner
 }
 
+type Channel string
+
+const (
+	ChannelPortable Channel = "portable"
+	ChannelPKG      Channel = "pkg"
+	ChannelDeb      Channel = "deb"
+	ChannelRPM      Channel = "rpm"
+	ChannelMSI      Channel = "msi"
+)
+
+var InstallChannel = string(ChannelPortable)
+
 func Current(executable string) Updater {
-	return Updater{GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, Executable: executable, Runner: ExecRunner{}}
+	return Updater{GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, Channel: detectChannel(executable), Executable: executable, Runner: ExecRunner{}}
 }
 
 func (u Updater) Update(ctx context.Context, currentVersion string) (string, error) {
 	if u.Runner == nil {
 		u.Runner = ExecRunner{}
+	}
+	if u.Channel == "" {
+		u.Channel = ChannelPortable
 	}
 	tag, err := u.latestTag(ctx)
 	if err != nil {
@@ -59,6 +75,9 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (string, err
 		return "已经是最新版 " + tag + "。", nil
 	}
 	version := normalizeVersion(tag)
+	if u.Channel != ChannelPortable {
+		return u.updatePackage(ctx, tag, version)
+	}
 	archiveName := fmt.Sprintf("aigw_%s_%s_%s", version, u.GOOS, u.GOARCH)
 	extension := ".tar.gz"
 	if u.GOOS == "windows" {
@@ -97,6 +116,124 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (string, err
 		return "", fmt.Errorf("make updated AIGW executable runnable: %w", err)
 	}
 	return "已更新到 " + tag + "。", nil
+}
+
+func (u Updater) updatePackage(ctx context.Context, tag, version string) (string, error) {
+	asset := u.packageAssetName(version)
+	if asset == "" {
+		return "", fmt.Errorf("installation channel %q is not supported on %s/%s", u.Channel, u.GOOS, u.GOARCH)
+	}
+	tmp, err := os.MkdirTemp("", "aigw-update-*")
+	if err != nil {
+		return "", fmt.Errorf("create update workspace: %w", err)
+	}
+	defer os.RemoveAll(tmp)
+	for _, item := range []string{asset, "checksums.txt"} {
+		if _, err := u.Runner.Run(ctx, "glab", "release", "download", tag, "-R", project, "--asset-name", item, "--dir", tmp); err != nil {
+			return "", fmt.Errorf("download release asset %s: %w", item, err)
+		}
+	}
+	path := filepath.Join(tmp, asset)
+	if err := verifyChecksum(path, filepath.Join(tmp, "checksums.txt"), asset); err != nil {
+		return "", err
+	}
+	if err := u.runPackageInstaller(ctx, path); err != nil {
+		return "", err
+	}
+	switch u.Channel {
+	case ChannelPKG, ChannelMSI:
+		return "已下载 " + tag + " 安装包；请按安装器提示完成更新。", nil
+	case ChannelDeb, ChannelRPM:
+		return "已通过系统包管理器更新到 " + tag + "。", nil
+	default:
+		return "已准备 " + tag + " 更新。", nil
+	}
+}
+
+func (u Updater) packageAssetName(version string) string {
+	switch u.Channel {
+	case ChannelPKG:
+		if u.GOOS != "darwin" {
+			return ""
+		}
+		return fmt.Sprintf("aigw_%s_darwin_universal.pkg", version)
+	case ChannelDeb:
+		if u.GOOS != "linux" {
+			return ""
+		}
+		return fmt.Sprintf("aigw_%s_linux_%s.deb", version, u.GOARCH)
+	case ChannelRPM:
+		if u.GOOS != "linux" {
+			return ""
+		}
+		return fmt.Sprintf("aigw_%s_linux_%s.rpm", version, u.GOARCH)
+	case ChannelMSI:
+		if u.GOOS != "windows" {
+			return ""
+		}
+		return fmt.Sprintf("aigw_%s_windows_%s.msi", version, u.GOARCH)
+	default:
+		return ""
+	}
+}
+
+func (u Updater) runPackageInstaller(ctx context.Context, path string) error {
+	switch u.Channel {
+	case ChannelPKG:
+		_, err := u.Runner.Run(ctx, "open", path)
+		if err != nil {
+			return fmt.Errorf("open macOS installer: %w", err)
+		}
+	case ChannelDeb:
+		_, err := u.Runner.Run(ctx, "sudo", "dpkg", "-i", path)
+		if err != nil {
+			return fmt.Errorf("install deb package: %w", err)
+		}
+	case ChannelRPM:
+		_, err := u.Runner.Run(ctx, "sudo", "rpm", "-Uvh", path)
+		if err != nil {
+			return fmt.Errorf("install rpm package: %w", err)
+		}
+	case ChannelMSI:
+		_, err := u.Runner.Run(ctx, "msiexec", "/i", path)
+		if err != nil {
+			return fmt.Errorf("start Windows installer: %w", err)
+		}
+	default:
+		return fmt.Errorf("unknown installation channel %q", u.Channel)
+	}
+	return nil
+}
+
+func detectChannel(executable string) Channel {
+	if channel, ok := parseChannel(InstallChannel); ok {
+		return channel
+	}
+	if value := strings.TrimSpace(os.Getenv("AIGW_INSTALL_CHANNEL")); value != "" {
+		if channel, ok := parseChannel(value); ok {
+			return channel
+		}
+	}
+	dir := filepath.Dir(executable)
+	if runtime.GOOS == "darwin" && strings.HasPrefix(executable, "/usr/local/") {
+		return ChannelPKG
+	}
+	if runtime.GOOS == "linux" && (dir == "/usr/bin" || dir == "/usr/local/bin") {
+		return ChannelDeb
+	}
+	if runtime.GOOS == "windows" && strings.Contains(strings.ToLower(executable), `program files\aigw`) {
+		return ChannelMSI
+	}
+	return ChannelPortable
+}
+
+func parseChannel(value string) (Channel, bool) {
+	switch channel := Channel(strings.ToLower(strings.TrimSpace(value))); channel {
+	case ChannelPortable, ChannelPKG, ChannelDeb, ChannelRPM, ChannelMSI:
+		return channel, true
+	default:
+		return "", false
+	}
 }
 
 func (u Updater) latestTag(ctx context.Context) (string, error) {
