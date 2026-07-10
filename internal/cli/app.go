@@ -15,6 +15,7 @@ import (
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/config"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/platform"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/secrets"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/shims"
@@ -28,6 +29,16 @@ type HTTPDoer interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
+type Choice struct {
+	Value string
+	Label string
+}
+
+type Prompter interface {
+	Secret(label string) (string, error)
+	Select(label string, choices []Choice) (string, error)
+}
+
 type App struct {
 	Config      config.Store
 	Secrets     secrets.Store
@@ -38,12 +49,14 @@ type App struct {
 	Runner      Runner
 	HTTP        HTTPDoer
 	Shims       shims.Manager
+	Prompt      Prompter
+	Discovery   discovery.Discoverer
 }
 
 type ProcessRunner struct{}
 
 func Execute(app *App, args []string) error {
-	if mutationCommand(args) {
+	if mutationCommand(app, args) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		unlock, err := app.Config.Lock(ctx)
@@ -57,9 +70,10 @@ func Execute(app *App, args []string) error {
 	return root.Execute()
 }
 
-func mutationCommand(args []string) bool {
+func mutationCommand(app *App, args []string) bool {
 	if len(args) == 0 {
-		return false
+		cfg, err := app.Config.Load()
+		return err == nil && len(cfg.Profiles) == 0 && app.Interactive
 	}
 	switch args[0] {
 	case "setup", "add", "use", "rotate", "sync":
@@ -117,6 +131,8 @@ func NewDefault() (*App, error) {
 		Runner:      ProcessRunner{},
 		HTTP:        &http.Client{},
 		Shims:       shims.Manager{GOOS: runtime.GOOS, BinDir: binDir, AIGWExecutable: executable},
+		Prompt:      terminalPrompt{in: os.Stdin, out: os.Stdout},
+		Discovery:   discovery.Current(),
 	}, nil
 }
 
