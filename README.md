@@ -24,7 +24,7 @@ AIGW  当前状态
 - Claude 和 Codex 各自在自己的 Adapter 边界完成映射，互不污染目录。
 - 切换、轮换、状态、余额和诊断只有一套命令，不再手工修改多处配置。
 
-DMXAPI 只是一个 Account 示例；`gpt-5.6`、`gpt-5.5`、`gpt-5.5-ssvip`、`claude-sonnet`、`claude-opus`、`claude-fable` 是内置模型 Profile 示例。模型名对 AIGW 是透明字符串，团队清单可以继续增删。
+DMXAPI 只是一个 Account 示例；`gpt-5.6-sol-cdx`、`gpt-5.5`、`gpt-5.5-ssvip`、`claude-sonnet-5`、`claude-opus-4-8-thinking`、`claude-fable-5` 是内置模型 Profile 示例。模型名对 AIGW 是透明字符串，团队清单可以继续增删。
 
 ## 安装
 
@@ -67,8 +67,8 @@ aigw setup
 ```bash
 aigw config import team-profiles.toml
 aigw rotate dmx
-aigw use gpt-5.6 --for codex
-aigw use claude-opus --for claude
+aigw use gpt-5.6-sol-cdx --for codex
+aigw use claude-opus-4-8-thinking --for claude
 aigw check
 aigw balance dmx
 ```
@@ -106,7 +106,7 @@ aigw update                  # 按安装渠道更新
 AIGW 分两层管理：
 
 - **Account**：上游服务商账户、URL、Token 和余额诊断，例如 `dmx`。
-- **Profile**：用户日常切换的模型运行配置，例如 `gpt-5.6`、`gpt-5.5-ssvip`、`claude-opus`。
+- **Profile**：用户日常切换的模型运行配置，例如 `gpt-5.6-sol-cdx`、`gpt-5.5-ssvip`、`claude-opus-4-8-thinking`。
 
 多个 Profile 可以引用同一个 Account，所以轮换 Token 只需要：
 
@@ -117,8 +117,8 @@ aigw rotate dmx
 切换模型只需要：
 
 ```bash
-aigw use gpt-5.6 --for codex
-aigw use claude-fable --for claude
+aigw use gpt-5.6-sol-cdx --for codex
+aigw use claude-fable-5 --for claude
 ```
 
 ## 客户端边界

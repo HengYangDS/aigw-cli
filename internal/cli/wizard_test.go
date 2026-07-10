@@ -75,7 +75,7 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes.Default != "gpt-5.6" || !cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
+	if cfg.Routes.Default != "gpt-5.6-sol-cdx" || !cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
 		t.Fatalf("configured state = %#v", cfg)
 	}
 	if len(runner.plans) != 1 || runner.plans[0].Executable != "/opt/codex-real" {
