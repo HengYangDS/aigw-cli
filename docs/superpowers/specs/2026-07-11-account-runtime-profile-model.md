@@ -34,13 +34,13 @@ client = "codex"
 [profiles.gpt-5_5.models]
 codex = "gpt-5.5"
 
-[profiles.claude-sonnet]
+[profiles."claude-sonnet-5"]
 label = "Claude Sonnet"
 account = "dmx"
 client = "claude"
 
-[profiles.claude-sonnet.models]
-claude = "claude-sonnet"
+[profiles."claude-sonnet-5".models]
+claude = "claude-sonnet-5"
 ```
 
 ## Routing rules

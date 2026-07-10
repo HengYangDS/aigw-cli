@@ -20,16 +20,16 @@ anthropic = "https://www.dmxapi.cn"
 A Runtime Profile is what users choose day to day. It references one Account and may define a client scope and model name.
 
 ```toml
-[profiles."gpt-5.6"]
+[profiles."gpt-5.6-sol-cdx"]
 label = "GPT-5.6"
 account = "dmx"
 client = "codex"
 
-[profiles."gpt-5.6".models]
-codex = "gpt-5.6"
+[profiles."gpt-5.6-sol-cdx".models]
+codex = "gpt-5.6-sol-cdx"
 ```
 
-Built-in examples include `gpt-5.6`, `gpt-5.5`, `gpt-5.5-ssvip`, `claude-sonnet`, `claude-opus`, and `claude-fable`. Model names are transparent upstream gateway strings; teams can add or remove them in their manifest.
+Built-in examples include `gpt-5.6-sol-cdx`, `gpt-5.5`, `gpt-5.5-ssvip`, `claude-sonnet-5`, `claude-opus-4-8-thinking`, and `claude-fable-5`. Model names are transparent upstream gateway strings; teams can add or remove them in their manifest.
 
 ## Endpoint
 
@@ -40,8 +40,8 @@ An Account may provide an Anthropic endpoint, an OpenAI Responses endpoint, or b
 The default route points to a Runtime Profile. Claude and Codex inherit it unless a client-specific override exists:
 
 ```bash
-aigw use gpt-5.6 --for codex
-aigw use claude-opus --for claude
+aigw use gpt-5.6-sol-cdx --for codex
+aigw use claude-opus-4-8-thinking --for claude
 aigw route reset claude
 ```
 
