@@ -108,3 +108,19 @@ func TestCodexLoginPlanPassesTokenOnStdinNotArguments(t *testing.T) {
 		t.Fatalf("env = %#v", plan.Env)
 	}
 }
+
+func TestSyncCodexConfigProjectsModelWhenConfigured(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := domain.Profile{ID: "gpt-5.6", Label: "GPT-5.6", Account: "dmx", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, Models: domain.Models{Codex: "gpt-5.6"}}
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if !strings.Contains(string(data), "model = \"gpt-5.6\"") {
+		t.Fatalf("Codex config lacks model:\n%s", data)
+	}
+}

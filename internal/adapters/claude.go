@@ -18,12 +18,16 @@ func ClaudePlan(executable string, args, currentEnv []string, profile domain.Pro
 	if err != nil {
 		return ProcessPlan{}, err
 	}
-	env := removeEnvironment(currentEnv, "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "AIGW_PROFILE")
+	env := removeEnvironment(currentEnv, "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "AIGW_ACCOUNT", "AIGW_PROFILE")
 	env = append(env,
 		"ANTHROPIC_AUTH_TOKEN="+token,
 		"ANTHROPIC_BASE_URL="+endpoint,
+		"AIGW_ACCOUNT="+profile.Account,
 		"AIGW_PROFILE="+profile.ID,
 	)
+	if model := profile.ModelFor(domain.ClientClaude); model != "" {
+		env = append(env, "ANTHROPIC_MODEL="+model)
+	}
 	return ProcessPlan{Executable: executable, Args: append([]string(nil), args...), Env: env, Replace: true}, nil
 }
 

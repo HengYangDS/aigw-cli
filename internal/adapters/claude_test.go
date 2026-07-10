@@ -45,3 +45,15 @@ func envMap(values []string) map[string]string {
 	}
 	return out
 }
+
+func TestClaudePlanProjectsModelWhenConfigured(t *testing.T) {
+	profile := domain.Profile{ID: "claude-opus", Account: "dmx", Endpoints: domain.Endpoints{Anthropic: "https://example.test/"}, Models: domain.Models{Claude: "claude-opus"}}
+	plan, err := adapters.ClaudePlan("/bin/claude", nil, []string{"ANTHROPIC_MODEL=old"}, profile, "token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := envMap(plan.Env)
+	if env["ANTHROPIC_MODEL"] != "claude-opus" || env["AIGW_ACCOUNT"] != "dmx" {
+		t.Fatalf("env = %#v", env)
+	}
+}
