@@ -26,6 +26,12 @@ type Renderer struct {
 	styles     styles
 }
 
+const (
+	rowKeyWidth   = 20
+	stateKeyWidth = 18
+	detailIndent  = 2 + 2 + stateKeyWidth
+)
+
 type styles struct {
 	title    lipgloss.Style
 	section  lipgloss.Style
@@ -49,8 +55,8 @@ type Problem struct {
 
 func New(out io.Writer, color bool) *Renderer {
 	base := styles{
-		rowKey:   lipgloss.NewStyle().Width(15),
-		stateKey: lipgloss.NewStyle().Width(13),
+		rowKey:   lipgloss.NewStyle().Width(rowKeyWidth).MaxWidth(rowKeyWidth),
+		stateKey: lipgloss.NewStyle().Width(stateKeyWidth).MaxWidth(stateKeyWidth),
 	}
 	if color {
 		base.title = lipgloss.NewStyle().Bold(true)
@@ -94,7 +100,7 @@ func (r *Renderer) Status(state State, label, value string) {
 }
 
 func (r *Renderer) Detail(value string) {
-	fmt.Fprintln(r.out, lipgloss.NewStyle().MarginLeft(17).Inherit(r.styles.dim).Render(value))
+	fmt.Fprintln(r.out, lipgloss.NewStyle().MarginLeft(detailIndent).Inherit(r.styles.dim).Render(value))
 	r.hasContent = true
 }
 

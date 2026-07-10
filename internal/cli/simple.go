@@ -24,13 +24,17 @@ func newCheckCommand(app *App) *cobra.Command {
 			if len(cfg.Profiles) == 0 {
 				return fmt.Errorf("尚未配置；运行 `aigw`")
 			}
-			profile, _, err := cfg.Resolve("", "")
+			profile, err := firstCheckProfile(cfg)
 			if err != nil {
 				return err
 			}
-			token, err := app.Secrets.Get(profile.ID)
+			accountName := profile.Account
+			if accountName == "" {
+				accountName = profile.ID
+			}
+			token, err := app.Secrets.Get(accountName)
 			if err != nil {
-				return fmt.Errorf("系统密钥缺失\n修复：aigw rotate %s", profile.ID)
+				return fmt.Errorf("系统密钥缺失\n修复：aigw rotate %s", accountName)
 			}
 			r := renderer(app)
 			r.Title("AIGW", "健康检查")
@@ -62,7 +66,7 @@ func newCheckCommand(app *App) *cobra.Command {
 			}
 			r.Section("网关")
 			r.Status(presentation.OK, "API Token", "认证正常")
-			if profile.AccountProbe != nil && app.Accounts.Has(profile.ID) {
+			if profile.AccountProbe != nil && app.Accounts.Has(accountName) {
 				r.Status(presentation.OK, "精确余额", "已启用")
 			} else if profile.AccountProbe != nil {
 				r.Status(presentation.Warn, "精确余额", "未启用")
@@ -93,9 +97,12 @@ func newAccountCommand(app *App) *cobra.Command {
 			if len(args) == 1 {
 				name = args[0]
 			}
-			profile, ok := cfg.Profiles[name]
-			if !ok || profile.AccountProbe == nil {
-				return fmt.Errorf("profile %q does not support exact account diagnostics", name)
+			accountName, providerAccount, err := accountForInput(cfg, name)
+			if err != nil {
+				return err
+			}
+			if providerAccount.AccountProbe == nil {
+				return fmt.Errorf("account %q does not support exact account diagnostics", accountName)
 			}
 			systemToken, err := app.Prompt.Secret("请粘贴平台系统令牌（不是 API Token）：")
 			if err != nil {
@@ -105,13 +112,13 @@ func newAccountCommand(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := app.Accounts.Set(name, account.Credential{SystemToken: systemToken, UserID: userID}); err != nil {
+			if err := app.Accounts.Set(accountName, account.Credential{SystemToken: systemToken, UserID: userID}); err != nil {
 				return err
 			}
 			r := renderer(app)
 			r.Title("AIGW", "账户诊断已启用")
 			r.Section("服务")
-			r.Row("名称", profile.Label)
+			r.Row("名称", providerAccount.Label)
 			r.Status(presentation.OK, "系统凭据", "已安全保存")
 			r.Next("aigw balance")
 			return nil
@@ -125,7 +132,11 @@ func newAccountCommand(app *App) *cobra.Command {
 			if len(args) == 1 {
 				name = args[0]
 			}
-			if err := app.Accounts.Delete(name); err != nil {
+			accountName, _, err := accountForInput(cfg, name)
+			if err != nil {
+				return err
+			}
+			if err := app.Accounts.Delete(accountName); err != nil {
 				return err
 			}
 			r := renderer(app)
@@ -147,24 +158,24 @@ func newBalanceCommand(app *App) *cobra.Command {
 		if len(args) == 1 {
 			name = args[0]
 		}
-		profile, ok := cfg.Profiles[name]
-		if !ok {
-			return fmt.Errorf("unknown profile %q", name)
+		accountName, providerAccount, err := accountForInput(cfg, name)
+		if err != nil {
+			return err
 		}
-		profile.ID = name
-		if profile.AccountProbe == nil {
-			return fmt.Errorf("%s 暂不支持精确余额查询", profile.Label)
+		if providerAccount.AccountProbe == nil {
+			return fmt.Errorf("%s 暂不支持精确余额查询", providerAccount.Label)
 		}
-		credential, err := app.Accounts.Get(name)
+		credential, err := app.Accounts.Get(accountName)
 		if err != nil {
 			return fmt.Errorf("尚未绑定精确账户查询；运行 `aigw account connect`")
 		}
-		apiToken, err := app.Secrets.Get(name)
+		apiToken, err := app.Secrets.Get(accountName)
 		if err != nil {
 			return err
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 15*time.Second)
 		defer cancel()
+		profile := domain.Profile{ID: accountName, Label: providerAccount.Label, Account: accountName, Endpoints: providerAccount.Endpoints, AccountProbe: providerAccount.AccountProbe}
 		report, err := account.Probe(ctx, app.HTTP, profile, apiToken, credential)
 		if err != nil {
 			return err
@@ -181,7 +192,7 @@ func newBalanceCommand(app *App) *cobra.Command {
 		r := renderer(app)
 		r.Title("AIGW", "账户与额度")
 		r.Section("账户")
-		r.Row("服务", profile.Label)
+		r.Row("账户", providerAccount.Label)
 		r.Row("账户余额", fmt.Sprintf("￥%.4f", report.AccountBalance))
 		r.Section("当前 API Token")
 		r.Row("名称", report.TokenName)
@@ -211,7 +222,7 @@ func newRepairCommand(app *App) *cobra.Command {
 			}
 			before := cloneConfig(cfg)
 			discovered := app.Discovery.Discover()
-			profile, _, err := cfg.Resolve("", "")
+			profile, _, err := cfg.Resolve(domain.ClientCodex, "")
 			if err != nil {
 				return err
 			}
@@ -280,4 +291,14 @@ func newUpdateCommand(app *App) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func firstCheckProfile(cfg domain.Config) (domain.Profile, error) {
+	for _, client := range []string{domain.ClientCodex, domain.ClientClaude} {
+		profile, _, err := cfg.Resolve(client, "")
+		if err == nil {
+			return profile, nil
+		}
+	}
+	return domain.Profile{}, fmt.Errorf("当前路由没有可测试端点；运行 `aigw use` 选择模型 Profile")
 }

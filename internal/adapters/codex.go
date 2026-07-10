@@ -55,7 +55,7 @@ func SyncCodexConfig(path string, profile domain.Profile) error {
 	if err != nil {
 		return err
 	}
-	block := codexManagedBlock(profile.Label, endpoint)
+	block := codexManagedBlock(profile.Label, endpoint, profile.ModelFor(domain.ClientCodex))
 	projected := projectCodex(base, block)
 	state.ManagedBlockHash = hashText(block)
 	stateData, err := json.MarshalIndent(state, "", "  ")
@@ -139,14 +139,18 @@ func projectCodex(original, block string) string {
 	return base + "\n\n" + block
 }
 
-func codexManagedBlock(label, endpoint string) string {
+func codexManagedBlock(label, endpoint, model string) string {
 	label = strings.ReplaceAll(label, `"`, `'`)
-	return codexBegin + "\n" +
+	block := codexBegin + "\n" +
 		"[model_providers.aigw]\n" +
 		fmt.Sprintf("name = \"AIGW: %s\"\n", label) +
 		fmt.Sprintf("base_url = \"%s\"\n", endpoint) +
 		"wire_api = \"responses\"\n" +
-		"requires_openai_auth = true\n" + codexEnd + "\n"
+		"requires_openai_auth = true\n"
+	if model != "" {
+		block += fmt.Sprintf("model = \"%s\"\n", strings.ReplaceAll(model, `"`, `'`))
+	}
+	return block + codexEnd + "\n"
 }
 
 func removeCodexProjection(current string, state codexState) (string, error) {

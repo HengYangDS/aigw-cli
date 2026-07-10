@@ -30,7 +30,7 @@ func runWizard(ctx context.Context, app *App) error {
 		choices = append(choices, Choice{Value: name, Label: team.Profiles[name].Label})
 	}
 	selected := team.RecommendedDefault
-	if selected == "" || len(choices) > 1 {
+	if selected == "" {
 		selected, err = app.Prompt.Select("选择团队 AI 服务：", choices)
 		if err != nil {
 			return err
@@ -38,6 +38,8 @@ func runWizard(ctx context.Context, app *App) error {
 	}
 	profile := team.Profiles[selected]
 	profile.ID = selected
+	providerAccount := team.Accounts[profile.Account]
+	providerAccount.ID = profile.Account
 	r := renderer(app)
 	r.Title("AIGW", "首次配置")
 	r.Section("团队服务")
@@ -47,7 +49,8 @@ func runWizard(ctx context.Context, app *App) error {
 	if err != nil {
 		return err
 	}
-	if err := verifyCredential(ctx, app, profile, token); err != nil {
+	verifyProfile := domain.Profile{ID: providerAccount.ID, Label: providerAccount.Label, Account: providerAccount.ID, Endpoints: providerAccount.Endpoints, AccountProbe: providerAccount.AccountProbe}
+	if err := verifyCredential(ctx, app, verifyProfile, token); err != nil {
 		return fmt.Errorf("Token 验证失败：%w", err)
 	}
 	r.Section("验证")
@@ -55,12 +58,13 @@ func runWizard(ctx context.Context, app *App) error {
 
 	discovered := app.Discovery.Discover()
 	cfg := domain.NewConfig()
+	cfg.Accounts = team.Accounts
 	cfg.Profiles = team.Profiles
 	cfg.Routes.Default = selected
-	if discovered.ClaudeExecutable != "" && profile.Endpoints.Anthropic != "" {
+	if discovered.ClaudeExecutable != "" && providerAccount.Endpoints.Anthropic != "" {
 		cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: discovered.ClaudeExecutable}
 	}
-	if discovered.CodexExecutable != "" && len(discovered.CodexTargets) > 0 && profile.Endpoints.OpenAIResponses != "" {
+	if discovered.CodexExecutable != "" && len(discovered.CodexTargets) > 0 && providerAccount.Endpoints.OpenAIResponses != "" {
 		cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: discovered.CodexExecutable, Targets: discovered.CodexTargets}
 	}
 	r.Section("客户端")
@@ -75,22 +79,22 @@ func runWizard(ctx context.Context, app *App) error {
 		r.Status(presentation.Info, "Codex", "未发现")
 	}
 
-	if err := app.Secrets.Set(selected, token); err != nil {
+	if err := app.Secrets.Set(providerAccount.ID, token); err != nil {
 		return err
 	}
 	claudeEnabled := cfg.Adapters[domain.ClientClaude].Enabled
 	if claudeEnabled {
 		if _, err := app.Shims.EnableClaude(); err != nil {
-			_ = app.Secrets.Delete(selected)
+			_ = app.Secrets.Delete(providerAccount.ID)
 			return err
 		}
 	}
 	if err := app.Config.Save(cfg); err != nil {
-		rollbackWizard(app, cfg, selected, claudeEnabled)
+		rollbackWizard(app, cfg, providerAccount.ID, claudeEnabled)
 		return err
 	}
 	if err := syncAdapters(ctx, app, cfg); err != nil {
-		rollbackWizard(app, cfg, selected, claudeEnabled)
+		rollbackWizard(app, cfg, providerAccount.ID, claudeEnabled)
 		return fmt.Errorf("客户端配置失败并已 rolled back：%w", err)
 	}
 	r.Section("完成")

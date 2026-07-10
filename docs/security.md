@@ -8,7 +8,9 @@
 | Windows | Credential Manager |
 | Linux | Secret Service over D-Bus |
 
-The logical service is always `AIGW_TOKEN`; the account is the Profile ID. Linux without a usable Secret Service fails explicitly. CI may set `AIGW_SECRET_BACKEND=env` to select the read-only environment backend and expose `AIGW_TOKEN_<NORMALIZED_PROFILE>` to the process.
+The logical service is always `AIGW_TOKEN`; the account is the Account ID, not the Runtime Profile ID. Linux without a usable Secret Service fails explicitly. CI may set `AIGW_SECRET_BACKEND=env` to select the read-only environment backend and expose `AIGW_TOKEN_<NORMALIZED_PROFILE>` to the process.
+
+Optional provider platform credentials for exact balance diagnostics are stored separately from API Tokens.
 
 ## Non-persistence rules
 
@@ -23,10 +25,14 @@ Use hidden terminal input or pipe exactly one line with `--token-stdin`. AIGW re
 
 ## Client boundaries
 
-The Claude shim is marked as AIGW-owned and invokes the AIGW binary's hidden adapter boundary. AIGW refuses to overwrite or remove a foreign `claude` launcher.
+The Claude shim is marked as AIGW-owned and invokes the AIGW binary's hidden adapter boundary. AIGW refuses to overwrite or remove a foreign `claude` launcher. The shim is created in the user-level AIGW shim directory, not in `~/.codex` and not in package-manager owned system directories.
 
 Codex changes consist only of an AIGW-owned `model_provider` selection and a delimited `[model_providers.aigw]` block. AIGW validates those two owned surfaces before sync or rollback. User edits elsewhere in `config.toml` are preserved.
 
+## Update boundary
+
+Portable installs may replace their own binary after checksum verification. Native package installs use their native installer path: `.pkg`, `.deb`, `.rpm`, or `.msi`. This keeps package-manager ownership intact.
+
 ## Uninstall
 
-Uninstall removes the binary and AIGW-owned Claude launcher. It deliberately preserves configuration, system-keyring entries, and user-owned client configuration. Remove a Profile secret explicitly with `aigw profile remove <name>` before uninstall if policy requires it.
+Uninstall removes the binary and AIGW-owned Claude launcher. It deliberately preserves configuration, system-keyring entries, account diagnostics credentials, and user-owned client configuration. Remove a Profile secret explicitly with `aigw profile remove <name>` before uninstall if policy requires it.
