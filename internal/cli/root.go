@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const Version = "0.1.0-dev"
+var Version = "0.1.0-dev"
 
 func NewRoot(app *App) *cobra.Command {
 	root := &cobra.Command{
