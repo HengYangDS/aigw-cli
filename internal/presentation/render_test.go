@@ -25,12 +25,12 @@ func TestRendererProducesAlignedHumanReadableLayout(t *testing.T) {
 	want := "AIGW  健康检查\n" +
 		"────────────────────────────────────────\n\n" +
 		"配置\n" +
-		"  配置文件       正常\n" +
-		"  当前服务       DMXAPI\n\n" +
+		"  配置文件            正常\n" +
+		"  当前服务            DMXAPI\n\n" +
 		"连接\n" +
-		"  ✓ API Token    正常\n" +
-		"  ! 精确余额     未启用\n" +
-		"                 aigw account connect\n\n" +
+		"  ✓ API Token         正常\n" +
+		"  ! 精确余额          未启用\n" +
+		"                      aigw account connect\n\n" +
 		"结果\n" +
 		"  ✓ 一切正常\n\n" +
 		"下一步\n" +
@@ -51,8 +51,8 @@ func TestRowsAndStatusesStartValuesAtSameDisplayColumn(t *testing.T) {
 		if !ok {
 			t.Fatalf("line lacks value: %q", line)
 		}
-		if got := presentation.DisplayWidth(prefix); got != 17 {
-			t.Fatalf("line %d value column = %d, want 17: %q", index, got, line)
+		if got := presentation.DisplayWidth(prefix); got != 22 {
+			t.Fatalf("line %d value column = %d, want 22: %q", index, got, line)
 		}
 	}
 }

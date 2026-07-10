@@ -56,11 +56,18 @@ release:
     - |
       release-cli create --tag-name "$CI_COMMIT_TAG" --name "AIGW $CI_COMMIT_TAG" \
         --description "Cross-platform AIGW CLI release. Verify downloads with checksums.txt." \
-        --assets-link "{\"name\":\"macOS amd64\",\"url\":\"$BASE/aigw_${VERSION}_darwin_amd64.tar.gz\",\"direct_asset_path\":\"/aigw_${VERSION}_darwin_amd64.tar.gz\"}" \
-        --assets-link "{\"name\":\"macOS arm64\",\"url\":\"$BASE/aigw_${VERSION}_darwin_arm64.tar.gz\",\"direct_asset_path\":\"/aigw_${VERSION}_darwin_arm64.tar.gz\"}" \
-        --assets-link "{\"name\":\"Linux amd64\",\"url\":\"$BASE/aigw_${VERSION}_linux_amd64.tar.gz\",\"direct_asset_path\":\"/aigw_${VERSION}_linux_amd64.tar.gz\"}" \
-        --assets-link "{\"name\":\"Linux arm64\",\"url\":\"$BASE/aigw_${VERSION}_linux_arm64.tar.gz\",\"direct_asset_path\":\"/aigw_${VERSION}_linux_arm64.tar.gz\"}" \
-        --assets-link "{\"name\":\"Windows amd64\",\"url\":\"$BASE/aigw_${VERSION}_windows_amd64.zip\",\"direct_asset_path\":\"/aigw_${VERSION}_windows_amd64.zip\"}" \
-        --assets-link "{\"name\":\"Windows arm64\",\"url\":\"$BASE/aigw_${VERSION}_windows_arm64.zip\",\"direct_asset_path\":\"/aigw_${VERSION}_windows_arm64.zip\"}" \
+        --assets-link "{\"name\":\"macOS Universal pkg\",\"url\":\"$BASE/aigw_${VERSION}_darwin_universal.pkg\",\"direct_asset_path\":\"/aigw_${VERSION}_darwin_universal.pkg\"}" \
+        --assets-link "{\"name\":\"macOS amd64 portable\",\"url\":\"$BASE/aigw_${VERSION}_darwin_amd64.tar.gz\",\"direct_asset_path\":\"/aigw_${VERSION}_darwin_amd64.tar.gz\"}" \
+        --assets-link "{\"name\":\"macOS arm64 portable\",\"url\":\"$BASE/aigw_${VERSION}_darwin_arm64.tar.gz\",\"direct_asset_path\":\"/aigw_${VERSION}_darwin_arm64.tar.gz\"}" \
+        --assets-link "{\"name\":\"Linux amd64 deb\",\"url\":\"$BASE/aigw_${VERSION}_linux_amd64.deb\",\"direct_asset_path\":\"/aigw_${VERSION}_linux_amd64.deb\"}" \
+        --assets-link "{\"name\":\"Linux arm64 deb\",\"url\":\"$BASE/aigw_${VERSION}_linux_arm64.deb\",\"direct_asset_path\":\"/aigw_${VERSION}_linux_arm64.deb\"}" \
+        --assets-link "{\"name\":\"Linux amd64 rpm\",\"url\":\"$BASE/aigw_${VERSION}_linux_amd64.rpm\",\"direct_asset_path\":\"/aigw_${VERSION}_linux_amd64.rpm\"}" \
+        --assets-link "{\"name\":\"Linux arm64 rpm\",\"url\":\"$BASE/aigw_${VERSION}_linux_arm64.rpm\",\"direct_asset_path\":\"/aigw_${VERSION}_linux_arm64.rpm\"}" \
+        --assets-link "{\"name\":\"Linux amd64 portable\",\"url\":\"$BASE/aigw_${VERSION}_linux_amd64.tar.gz\",\"direct_asset_path\":\"/aigw_${VERSION}_linux_amd64.tar.gz\"}" \
+        --assets-link "{\"name\":\"Linux arm64 portable\",\"url\":\"$BASE/aigw_${VERSION}_linux_arm64.tar.gz\",\"direct_asset_path\":\"/aigw_${VERSION}_linux_arm64.tar.gz\"}" \
+        --assets-link "{\"name\":\"Windows amd64 msi\",\"url\":\"$BASE/aigw_${VERSION}_windows_amd64.msi\",\"direct_asset_path\":\"/aigw_${VERSION}_windows_amd64.msi\"}" \
+        --assets-link "{\"name\":\"Windows arm64 msi\",\"url\":\"$BASE/aigw_${VERSION}_windows_arm64.msi\",\"direct_asset_path\":\"/aigw_${VERSION}_windows_arm64.msi\"}" \
+        --assets-link "{\"name\":\"Windows amd64 portable\",\"url\":\"$BASE/aigw_${VERSION}_windows_amd64.zip\",\"direct_asset_path\":\"/aigw_${VERSION}_windows_amd64.zip\"}" \
+        --assets-link "{\"name\":\"Windows arm64 portable\",\"url\":\"$BASE/aigw_${VERSION}_windows_arm64.zip\",\"direct_asset_path\":\"/aigw_${VERSION}_windows_arm64.zip\"}" \
         --assets-link "{\"name\":\"SHA-256 checksums\",\"url\":\"$BASE/checksums.txt\",\"direct_asset_path\":\"/checksums.txt\"}" \
         --assets-link "{\"name\":\"SPDX SBOM\",\"url\":\"$BASE/aigw_${VERSION}.spdx.json\",\"direct_asset_path\":\"/aigw_${VERSION}.spdx.json\"}"

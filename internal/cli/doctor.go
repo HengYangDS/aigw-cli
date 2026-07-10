@@ -49,6 +49,18 @@ func newDoctorCommand(app *App) *cobra.Command {
 					}
 					checks = append(checks, doctorCheck{"adapter:" + client, true, detail, ""})
 				}
+				if adapter := cfg.Adapters[domain.ClientClaude]; adapter.Enabled {
+					discovered := app.Discovery.Discover()
+					ok := discovered.ClaudeExecutable != ""
+					check := doctorCheck{Name: "shim:claude", OK: ok}
+					if ok {
+						check.Detail = "discoverable on PATH"
+					} else {
+						check.Detail = "AIGW Claude shim is not discoverable on PATH"
+						check.Fix = "run `aigw repair`; then open a new terminal if PATH was updated"
+					}
+					checks = append(checks, check)
+				}
 			}
 			if jsonMode {
 				enc := json.NewEncoder(app.Out)

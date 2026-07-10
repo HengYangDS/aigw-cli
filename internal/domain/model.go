@@ -17,16 +17,42 @@ var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
 type Config struct {
 	Version  int                      `toml:"version" json:"version"`
+	Accounts map[string]Account       `toml:"accounts,omitempty" json:"accounts,omitempty"`
 	Profiles map[string]Profile       `toml:"profiles" json:"profiles"`
 	Routes   Routes                   `toml:"routes" json:"routes"`
 	Adapters map[string]AdapterConfig `toml:"adapters,omitempty" json:"adapters,omitempty"`
 }
 
-type Profile struct {
+type Account struct {
 	ID           string        `toml:"-" json:"id,omitempty"`
 	Label        string        `toml:"label" json:"label"`
 	Endpoints    Endpoints     `toml:"endpoints" json:"endpoints"`
 	AccountProbe *AccountProbe `toml:"account_probe,omitempty" json:"account_probe,omitempty"`
+}
+
+type Profile struct {
+	ID           string        `toml:"-" json:"id,omitempty"`
+	Label        string        `toml:"label" json:"label"`
+	Account      string        `toml:"account,omitempty" json:"account,omitempty"`
+	Client       string        `toml:"client,omitempty" json:"client,omitempty"`
+	Models       Models        `toml:"models,omitempty" json:"models,omitempty"`
+	Endpoints    Endpoints     `toml:"endpoints,omitempty" json:"endpoints,omitempty"`
+	AccountProbe *AccountProbe `toml:"account_probe,omitempty" json:"account_probe,omitempty"`
+}
+
+type Models struct {
+	Claude string `toml:"claude,omitempty" json:"claude,omitempty"`
+	Codex  string `toml:"codex,omitempty" json:"codex,omitempty"`
+}
+
+type Runtime struct {
+	ProfileID    string `json:"profile_id"`
+	ProfileLabel string `json:"profile_label"`
+	AccountID    string `json:"account_id"`
+	AccountLabel string `json:"account_label"`
+	Client       string `json:"client"`
+	Endpoint     string `json:"endpoint"`
+	Model        string `json:"model,omitempty"`
 }
 
 type AccountProbe struct {
@@ -51,12 +77,7 @@ type AdapterConfig struct {
 }
 
 func NewConfig() Config {
-	return Config{
-		Version:  1,
-		Profiles: map[string]Profile{},
-		Routes:   Routes{Overrides: map[string]string{}},
-		Adapters: map[string]AdapterConfig{},
-	}
+	return Config{Version: 1, Accounts: map[string]Account{}, Profiles: map[string]Profile{}, Routes: Routes{Overrides: map[string]string{}}, Adapters: map[string]AdapterConfig{}}
 }
 
 func ValidProfileName(name string) bool { return profileNamePattern.MatchString(name) }
@@ -64,6 +85,9 @@ func ValidProfileName(name string) bool { return profileNamePattern.MatchString(
 func (c *Config) Normalize() {
 	if c.Version == 0 {
 		c.Version = 1
+	}
+	if c.Accounts == nil {
+		c.Accounts = map[string]Account{}
 	}
 	if c.Profiles == nil {
 		c.Profiles = map[string]Profile{}
@@ -74,14 +98,68 @@ func (c *Config) Normalize() {
 	if c.Adapters == nil {
 		c.Adapters = map[string]AdapterConfig{}
 	}
+	for name, profile := range c.Profiles {
+		if profile.Account == "" && (profile.Endpoints.OpenAIResponses != "" || profile.Endpoints.Anthropic != "" || profile.AccountProbe != nil) {
+			account := c.Accounts[name]
+			if account.Label == "" {
+				account.Label = profile.Label
+			}
+			if account.Endpoints.OpenAIResponses == "" {
+				account.Endpoints.OpenAIResponses = profile.Endpoints.OpenAIResponses
+			}
+			if account.Endpoints.Anthropic == "" {
+				account.Endpoints.Anthropic = profile.Endpoints.Anthropic
+			}
+			if account.AccountProbe == nil {
+				account.AccountProbe = profile.AccountProbe
+			}
+			c.Accounts[name] = account
+			profile.Account = name
+			profile.Endpoints = Endpoints{}
+			profile.AccountProbe = nil
+			c.Profiles[name] = profile
+		}
+	}
+}
+
+func (c Config) normalizedCopy() Config {
+	out := Config{
+		Version:  c.Version,
+		Accounts: map[string]Account{},
+		Profiles: map[string]Profile{},
+		Routes: Routes{
+			Default:   c.Routes.Default,
+			Overrides: map[string]string{},
+		},
+		Adapters: map[string]AdapterConfig{},
+	}
+	for name, account := range c.Accounts {
+		out.Accounts[name] = account
+	}
+	for name, profile := range c.Profiles {
+		out.Profiles[name] = profile
+	}
+	for name, route := range c.Routes.Overrides {
+		out.Routes.Overrides[name] = route
+	}
+	for name, adapter := range c.Adapters {
+		adapter.Targets = append([]string(nil), adapter.Targets...)
+		out.Adapters[name] = adapter
+	}
+	out.Normalize()
+	return out
 }
 
 func (c Config) Validate() error {
+	c = c.normalizedCopy()
 	if c.Version != 1 {
 		return fmt.Errorf("unsupported config version %d", c.Version)
 	}
 	if len(c.Profiles) == 0 {
 		return errors.New("at least one profile is required")
+	}
+	if len(c.Accounts) == 0 {
+		return errors.New("at least one account is required")
 	}
 	for name, profile := range c.Profiles {
 		if !ValidProfileName(name) {
@@ -90,27 +168,47 @@ func (c Config) Validate() error {
 		if strings.TrimSpace(profile.Label) == "" {
 			return fmt.Errorf("profile %q has an empty label", name)
 		}
-		if profile.Endpoints.OpenAIResponses == "" && profile.Endpoints.Anthropic == "" {
-			return fmt.Errorf("profile %q must define at least one endpoint", name)
+	}
+	for name, account := range c.Accounts {
+		if !ValidProfileName(name) {
+			return fmt.Errorf("invalid account name %q; use letters, numbers, dot, dash, or underscore", name)
 		}
-		for protocol, raw := range map[string]string{
-			"openai_responses": profile.Endpoints.OpenAIResponses,
-			"anthropic":        profile.Endpoints.Anthropic,
-		} {
-			if raw == "" {
-				continue
+		if strings.TrimSpace(account.Label) == "" {
+			return fmt.Errorf("account %q has an empty label", name)
+		}
+		if account.Endpoints.OpenAIResponses == "" && account.Endpoints.Anthropic == "" {
+			return fmt.Errorf("account %q must define at least one endpoint", name)
+		}
+		if err := validateEndpoints("account", name, account.Endpoints); err != nil {
+			return err
+		}
+		if account.AccountProbe != nil {
+			if account.AccountProbe.Kind != "dmxapi" {
+				return fmt.Errorf("account %q has unsupported account probe %q", name, account.AccountProbe.Kind)
 			}
-			if err := validateEndpoint(raw); err != nil {
-				return fmt.Errorf("profile %q endpoint %s: %w", name, protocol, err)
+			if err := validateEndpoint(account.AccountProbe.BaseURL); err != nil {
+				return fmt.Errorf("account %q account probe: %w", name, err)
 			}
 		}
-		if profile.AccountProbe != nil {
-			if profile.AccountProbe.Kind != "dmxapi" {
-				return fmt.Errorf("profile %q has unsupported account probe %q", name, profile.AccountProbe.Kind)
-			}
-			if err := validateEndpoint(profile.AccountProbe.BaseURL); err != nil {
-				return fmt.Errorf("profile %q account probe: %w", name, err)
-			}
+	}
+	for name, profile := range c.Profiles {
+		if profile.Account == "" {
+			return fmt.Errorf("profile %q must reference an account", name)
+		}
+		if _, ok := c.Accounts[profile.Account]; !ok {
+			return fmt.Errorf("profile %q references unknown account %q", name, profile.Account)
+		}
+		if profile.Client != "" && profile.Client != ClientClaude && profile.Client != ClientCodex {
+			return fmt.Errorf("profile %q has unknown client %q", name, profile.Client)
+		}
+		if profile.Client == ClientCodex && profile.Models.Claude != "" {
+			return fmt.Errorf("profile %q is codex-scoped; define a codex model, not a claude model", name)
+		}
+		if profile.Client == ClientClaude && profile.Models.Codex != "" {
+			return fmt.Errorf("profile %q is claude-scoped; define a claude model, not a codex model", name)
+		}
+		if err := validateEndpoints("profile", name, profile.Endpoints); err != nil {
+			return err
 		}
 	}
 	if _, ok := c.Profiles[c.Routes.Default]; !ok {
@@ -132,6 +230,18 @@ func (c Config) Validate() error {
 	return nil
 }
 
+func validateEndpoints(owner, name string, endpoints Endpoints) error {
+	for protocol, raw := range map[string]string{"openai_responses": endpoints.OpenAIResponses, "anthropic": endpoints.Anthropic} {
+		if raw == "" {
+			continue
+		}
+		if err := validateEndpoint(raw); err != nil {
+			return fmt.Errorf("%s %q endpoint %s: %w", owner, name, protocol, err)
+		}
+	}
+	return nil
+}
+
 func validateEndpoint(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
@@ -145,9 +255,7 @@ func validateEndpoint(raw string) error {
 	}
 	for key := range u.Query() {
 		lower := strings.ToLower(key)
-		if strings.Contains(lower, "token") || strings.Contains(lower, "secret") ||
-			strings.Contains(lower, "key") || strings.Contains(lower, "auth") ||
-			strings.Contains(lower, "password") {
+		if strings.Contains(lower, "token") || strings.Contains(lower, "secret") || strings.Contains(lower, "key") || strings.Contains(lower, "auth") || strings.Contains(lower, "password") {
 			return fmt.Errorf("credential-like query parameter %q is forbidden", key)
 		}
 	}
@@ -155,6 +263,7 @@ func validateEndpoint(raw string) error {
 }
 
 func (c Config) Resolve(client, explicitProfile string) (Profile, bool, error) {
+	c = c.normalizedCopy()
 	name := explicitProfile
 	inherited := false
 	if name == "" {
@@ -169,23 +278,83 @@ func (c Config) Resolve(client, explicitProfile string) (Profile, bool, error) {
 	if !ok {
 		return Profile{}, inherited, fmt.Errorf("unknown profile %q", name)
 	}
+	if profile.Client != "" && client != "" && profile.Client != client {
+		return Profile{}, inherited, fmt.Errorf("profile %q is for %s, not %s", name, profile.Client, client)
+	}
+	account, ok := c.Accounts[profile.Account]
+	if !ok {
+		return Profile{}, inherited, fmt.Errorf("profile %q references unknown account %q", name, profile.Account)
+	}
 	profile.ID = name
+	profile.Endpoints = account.Endpoints
+	profile.AccountProbe = account.AccountProbe
 	return profile, inherited, nil
 }
 
-func (p Profile) EndpointFor(client string) (string, error) {
+func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, bool, error) {
+	c = c.normalizedCopy()
+	name := explicitProfile
+	inherited := false
+	if name == "" {
+		var overridden bool
+		name, overridden = c.Routes.Overrides[client]
+		if !overridden {
+			name = c.Routes.Default
+			inherited = true
+		}
+	}
+	profile, ok := c.Profiles[name]
+	if !ok {
+		return Runtime{}, inherited, fmt.Errorf("unknown profile %q", name)
+	}
+	profile.ID = name
+	if profile.Client != "" && client != "" && profile.Client != client {
+		return Runtime{}, inherited, fmt.Errorf("profile %q is for %s, not %s", name, profile.Client, client)
+	}
+	account, ok := c.Accounts[profile.Account]
+	if !ok {
+		return Runtime{}, inherited, fmt.Errorf("profile %q references unknown account %q", name, profile.Account)
+	}
+	account.ID = profile.Account
+	endpoint, err := account.EndpointFor(client)
+	if err != nil {
+		return Runtime{}, inherited, err
+	}
+	return Runtime{ProfileID: name, ProfileLabel: profile.Label, AccountID: account.ID, AccountLabel: account.Label, Client: client, Endpoint: endpoint, Model: profile.ModelFor(client)}, inherited, nil
+}
+
+func (p Profile) ModelFor(client string) string {
 	switch client {
 	case ClientClaude:
-		if p.Endpoints.Anthropic == "" {
-			return "", fmt.Errorf("profile %q has no Anthropic endpoint", p.ID)
-		}
-		return strings.TrimRight(p.Endpoints.Anthropic, "/"), nil
+		return p.Models.Claude
 	case ClientCodex:
-		if p.Endpoints.OpenAIResponses == "" {
-			return "", fmt.Errorf("profile %q has no OpenAI Responses endpoint", p.ID)
+		return p.Models.Codex
+	default:
+		return ""
+	}
+}
+
+func (a Account) EndpointFor(client string) (string, error) {
+	switch client {
+	case ClientClaude:
+		if a.Endpoints.Anthropic == "" {
+			return "", fmt.Errorf("account %q has no Anthropic endpoint", a.ID)
 		}
-		return strings.TrimRight(p.Endpoints.OpenAIResponses, "/"), nil
+		return strings.TrimRight(a.Endpoints.Anthropic, "/"), nil
+	case ClientCodex:
+		if a.Endpoints.OpenAIResponses == "" {
+			return "", fmt.Errorf("account %q has no OpenAI Responses endpoint", a.ID)
+		}
+		return strings.TrimRight(a.Endpoints.OpenAIResponses, "/"), nil
 	default:
 		return "", fmt.Errorf("unknown client %q", client)
 	}
+}
+
+func (p Profile) EndpointFor(client string) (string, error) {
+	if p.Endpoints.OpenAIResponses != "" || p.Endpoints.Anthropic != "" {
+		a := Account{ID: p.Account, Label: p.Label, Endpoints: p.Endpoints}
+		return a.EndpointFor(client)
+	}
+	return "", fmt.Errorf("profile %q has no resolved endpoint for %s", p.ID, client)
 }

@@ -14,4 +14,16 @@ if [ -f "$shim" ]; then
   fi
 fi
 rm -f "$binary"
-echo "Removed AIGW executable and owned launcher. Configuration and system-keyring secrets were preserved."
+
+for profile in "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.profile" "$HOME/.config/fish/config.fish"; do
+  [ -f "$profile" ] || continue
+  tmp="$profile.aigw.$$"
+  awk '
+    $0 == "# >>> AIGW PATH >>>" {skip=1; next}
+    $0 == "# <<< AIGW PATH <<<" {skip=0; next}
+    skip != 1 {print}
+  ' "$profile" > "$tmp"
+  mv "$tmp" "$profile"
+done
+
+echo "Removed AIGW executable, owned launcher, and AIGW PATH block. Configuration and system-keyring secrets were preserved."

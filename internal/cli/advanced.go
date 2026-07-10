@@ -41,8 +41,12 @@ func newProfileListCommand(app *App) *cobra.Command {
 					state = presentation.OK
 					stateText = "当前"
 				}
+				accountName := cfg.Profiles[name].Account
+				if accountName == "" {
+					accountName = name
+				}
 				secret := "缺少 Token"
-				if app.Secrets.Has(name) {
+				if app.Secrets.Has(accountName) {
 					secret = "Token 可用"
 				}
 				r.Status(state, name, cfg.Profiles[name].Label+" · "+stateText+" · "+secret)
@@ -66,23 +70,35 @@ func newProfileShowCommand(app *App) *cobra.Command {
 			if !ok {
 				return fmt.Errorf("unknown profile %q", args[0])
 			}
+			accountName := profile.Account
+			if accountName == "" {
+				accountName = args[0]
+			}
+			account := cfg.Accounts[accountName]
 			if jsonMode {
-				return json.NewEncoder(app.Out).Encode(map[string]any{"id": args[0], "label": profile.Label, "endpoints": profile.Endpoints, "secret_available": app.Secrets.Has(args[0])})
+				return json.NewEncoder(app.Out).Encode(map[string]any{"id": args[0], "label": profile.Label, "account": accountName, "models": profile.Models, "endpoints": account.Endpoints, "secret_available": app.Secrets.Has(accountName)})
 			}
 			r := renderer(app)
 			r.Title("AIGW", "服务详情")
 			r.Section("Profile")
 			r.Row("ID", args[0])
 			r.Row("名称", profile.Label)
-			if profile.Endpoints.OpenAIResponses != "" {
-				r.Row("OpenAI", profile.Endpoints.OpenAIResponses)
+			r.Row("Account", accountName)
+			if profile.ModelFor(domain.ClientCodex) != "" {
+				r.Row("Codex 模型", profile.ModelFor(domain.ClientCodex))
 			}
-			if profile.Endpoints.Anthropic != "" {
-				r.Row("Anthropic", profile.Endpoints.Anthropic)
+			if profile.ModelFor(domain.ClientClaude) != "" {
+				r.Row("Claude 模型", profile.ModelFor(domain.ClientClaude))
+			}
+			if account.Endpoints.OpenAIResponses != "" {
+				r.Row("OpenAI", account.Endpoints.OpenAIResponses)
+			}
+			if account.Endpoints.Anthropic != "" {
+				r.Row("Anthropic", account.Endpoints.Anthropic)
 			}
 			secretState := presentation.Warn
 			secretText := "缺失"
-			if app.Secrets.Has(args[0]) {
+			if app.Secrets.Has(accountName) {
 				secretState = presentation.OK
 				secretText = "可用"
 			}
@@ -349,8 +365,12 @@ func newAdapterEnableCommand(app *App) *cobra.Command {
 		if _, err := profile.EndpointFor(client); err != nil {
 			return err
 		}
-		if !app.Secrets.Has(profile.ID) {
-			return fmt.Errorf("profile %q has no token; repair with `aigw rotate %s`", profile.ID, profile.ID)
+		accountName := profile.Account
+		if accountName == "" {
+			accountName = profile.ID
+		}
+		if !app.Secrets.Has(accountName) {
+			return fmt.Errorf("account %q has no token; repair with `aigw rotate %s`", accountName, accountName)
 		}
 		cfg.Adapters[client] = domain.AdapterConfig{Enabled: true, Executable: executable, Targets: append([]string(nil), targets...)}
 		if client == domain.ClientClaude {
@@ -529,9 +549,13 @@ func RunClaude(app *App, args []string) error {
 	if err != nil {
 		return err
 	}
-	token, err := app.Secrets.Get(profile.ID)
+	accountName := profile.Account
+	if accountName == "" {
+		accountName = profile.ID
+	}
+	token, err := app.Secrets.Get(accountName)
 	if err != nil {
-		return fmt.Errorf("Claude route token unavailable: %w; repair with `aigw rotate %s`", err, profile.ID)
+		return fmt.Errorf("Claude route token unavailable: %w; repair with `aigw rotate %s`", err, accountName)
 	}
 	plan, err := adapters.ClaudePlan(adapter.Executable, args, os.Environ(), profile, token)
 	if err != nil {

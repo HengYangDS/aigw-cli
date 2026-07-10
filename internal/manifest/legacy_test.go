@@ -27,9 +27,12 @@ func TestMigrateLegacyV2PreservesProxyEndpointAndCompactsRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := cfg.Profiles["dmx"]
-	if p.Endpoints.OpenAIResponses != "http://127.0.0.1:8791/v1" || p.Endpoints.Anthropic != "https://www.dmxapi.cn" {
-		t.Fatalf("profile = %#v", p)
+	account := cfg.Accounts["dmx"]
+	if account.Endpoints.OpenAIResponses != "http://127.0.0.1:8791/v1" || account.Endpoints.Anthropic != "https://www.dmxapi.cn" {
+		t.Fatalf("account = %#v", account)
+	}
+	if cfg.Profiles["dmx"].Account != "dmx" {
+		t.Fatalf("runtime profile = %#v", cfg.Profiles["dmx"])
 	}
 	if cfg.Routes.Default != "dmx" || len(cfg.Routes.Overrides) != 0 {
 		t.Fatalf("routes = %#v", cfg.Routes)
