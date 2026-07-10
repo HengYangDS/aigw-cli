@@ -13,12 +13,15 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/account"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/config"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/platform"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/secrets"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/selfupdate"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/shims"
+	"golang.org/x/term"
 )
 
 type Runner interface {
@@ -36,21 +39,29 @@ type Choice struct {
 
 type Prompter interface {
 	Secret(label string) (string, error)
+	Text(label string) (string, error)
 	Select(label string, choices []Choice) (string, error)
+}
+
+type Updater interface {
+	Update(context.Context, string) (string, error)
 }
 
 type App struct {
 	Config      config.Store
 	Secrets     secrets.Store
+	Accounts    account.Store
 	In          io.Reader
 	Out         io.Writer
 	Err         io.Writer
 	Interactive bool
+	Color       bool
 	Runner      Runner
 	HTTP        HTTPDoer
 	Shims       shims.Manager
 	Prompt      Prompter
 	Discovery   discovery.Discoverer
+	Updater     Updater
 }
 
 type ProcessRunner struct{}
@@ -67,7 +78,12 @@ func Execute(app *App, args []string) error {
 	}
 	root := NewRoot(app)
 	root.SetArgs(args)
-	return root.Execute()
+	err := root.Execute()
+	if err != nil {
+		RenderError(app, err)
+		return presented(err)
+	}
+	return nil
 }
 
 func mutationCommand(app *App, args []string) bool {
@@ -78,6 +94,10 @@ func mutationCommand(app *App, args []string) bool {
 	switch args[0] {
 	case "setup", "add", "use", "rotate", "sync":
 		return true
+	case "repair", "update":
+		return true
+	case "account":
+		return len(args) > 1 && (args[1] == "connect" || args[1] == "disconnect")
 	case "profile":
 		return len(args) > 1 && (args[1] == "edit" || args[1] == "rename" || args[1] == "remove")
 	case "route":
@@ -124,15 +144,18 @@ func NewDefault() (*App, error) {
 	return &App{
 		Config:      config.NewStore(path),
 		Secrets:     secretStore,
+		Accounts:    account.NewKeyringStore(),
 		In:          os.Stdin,
 		Out:         os.Stdout,
 		Err:         os.Stderr,
 		Interactive: isTerminal(os.Stdin),
+		Color:       env["NO_COLOR"] == "" && isTerminal(os.Stdout),
 		Runner:      ProcessRunner{},
 		HTTP:        &http.Client{},
 		Shims:       shims.Manager{GOOS: runtime.GOOS, BinDir: binDir, AIGWExecutable: executable},
-		Prompt:      terminalPrompt{in: os.Stdin, out: os.Stdout},
+		Prompt:      terminalPrompt{in: os.Stdin, out: os.Stdout, accessible: env["NO_COLOR"] != ""},
 		Discovery:   discovery.Current(),
+		Updater:     selfupdate.Current(executable),
 	}, nil
 }
 
@@ -148,8 +171,7 @@ func environmentMap(values []string) map[string]string {
 }
 
 func isTerminal(file *os.File) bool {
-	info, err := file.Stat()
-	return err == nil && (info.Mode()&os.ModeCharDevice) != 0
+	return file != nil && term.IsTerminal(int(file.Fd()))
 }
 
 func (a *App) readToken(stdinMode bool, confirm bool) (string, error) {

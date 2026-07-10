@@ -11,7 +11,7 @@ func newSetupCommand(app *App) *cobra.Command {
 	var tokenStdin bool
 	cmd := &cobra.Command{
 		Use:   "setup",
-		Short: "Configure the first provider profile",
+		Short: "以参数方式完成首次配置",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load()

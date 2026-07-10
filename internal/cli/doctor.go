@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
 )
 
 type doctorCheck struct {
@@ -19,7 +20,7 @@ func newDoctorCommand(app *App) *cobra.Command {
 	var jsonMode bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
-		Short: "Diagnose configuration, secrets, and adapters",
+		Short: "查看配置、密钥与适配器的详细诊断",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			checks := []doctorCheck{}
@@ -54,19 +55,25 @@ func newDoctorCommand(app *App) *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(map[string]any{"checks": checks, "ok": allChecksOK(checks)})
 			}
+			r := renderer(app)
+			r.Title("AIGW", "详细诊断")
+			r.Section("检查项")
 			for _, check := range checks {
-				mark := "OK"
+				state := presentation.OK
 				if !check.OK {
-					mark = "FAIL"
+					state = presentation.Fail
 				}
-				fmt.Fprintf(app.Out, "%-4s %-20s %s\n", mark, check.Name, check.Detail)
+				r.Status(state, check.Name, check.Detail)
 				if check.Fix != "" {
-					fmt.Fprintf(app.Out, "     Fix: %s\n", check.Fix)
+					r.Detail("修复：" + check.Fix)
 				}
 			}
 			if !allChecksOK(checks) {
-				return fmt.Errorf("doctor found problems")
+				r.Next("aigw repair")
+				return presented(fmt.Errorf("doctor found problems"))
 			}
+			r.Section("结果")
+			r.Success("未发现问题")
 			return nil
 		},
 	}
