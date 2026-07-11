@@ -14,16 +14,20 @@ verify:
     - go test -race ./...
     - go vet ./...
     - test -z "$(gofmt -l cmd internal tools)"
-    - sh -n scripts/package.sh scripts/install.sh scripts/uninstall.sh scripts/test-portable-install.sh scripts/check-package-safety.sh scripts/check-retired-residue.sh scripts/check-release-artifacts.sh
+    - sh -n scripts/package.sh scripts/install.sh scripts/uninstall.sh scripts/test-portable-install.sh scripts/check-package-safety.sh scripts/check-retired-residue.sh scripts/check-release-artifacts.sh scripts/check-release-readiness.sh scripts/test-release-readiness.sh
     - sh scripts/check-package-safety.sh
     - sh scripts/check-retired-residue.sh
+    - sh scripts/test-release-readiness.sh
     - go build -o /tmp/aigw-install-smoke ./cmd/aigw
     - sh scripts/test-portable-install.sh /tmp/aigw-install-smoke
     - '! grep -RInE --exclude-dir=.git --exclude="*_test.go" "(sk-[A-Za-z0-9_-]{24,}|Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9_-]{24,})" .'
 
 package:
   stage: package
-  needs: [verify]
+  needs:
+    - job: verify
+    - job: release-readiness
+      optional: true
   # Native macOS packaging requires pkgbuild/productbuild. This shell runner
   # also produces the Linux and Windows artifacts through nFPM and wixl; a
   # generic Linux Docker runner must never publish a partial matrix.
@@ -34,6 +38,14 @@ package:
   artifacts:
     expire_in: 30 days
     paths: [dist/]
+
+release-readiness:
+  stage: verify
+  rules:
+    - if: '$CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\./'
+    - when: never
+  script:
+    - sh scripts/check-release-readiness.sh "${CI_COMMIT_TAG#v}"
 
 publish:
   stage: publish
