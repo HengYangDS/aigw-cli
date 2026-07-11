@@ -19,7 +19,6 @@ const (
 type Manager struct {
 	GOOS           string
 	BinDir         string
-	LegacyBinDir   string
 	Home           string
 	Shell          string
 	AIGWExecutable string
@@ -64,9 +63,6 @@ func (m Manager) EnableClaude() (string, error) {
 		}
 		return "", err
 	}
-	if err := m.removeLegacyOwnedClaudeShim(); err != nil {
-		return "", err
-	}
 	return path, nil
 }
 
@@ -77,7 +73,7 @@ func (m Manager) DisableClaude() error {
 		if err := m.RemoveClaudeActivation(); err != nil {
 			return err
 		}
-		return m.removeLegacyOwnedClaudeShim()
+		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("inspect Claude launcher: %w", err)
@@ -91,7 +87,7 @@ func (m Manager) DisableClaude() error {
 	if err := os.Remove(path); err != nil {
 		return fmt.Errorf("remove Claude launcher: %w", err)
 	}
-	return m.removeLegacyOwnedClaudeShim()
+	return nil
 }
 
 // ClaudeActivationReady verifies the persistent user-shell PATH projection.
@@ -174,37 +170,6 @@ func (m Manager) claudeContent() string {
 	}
 	executable := strings.ReplaceAll(m.AIGWExecutable, `'`, `'\''`)
 	return "#!/bin/sh\n# " + marker + "\nexec '" + executable + "' __run-claude \"$@\"\n"
-}
-
-func (m Manager) removeLegacyOwnedClaudeShim() error {
-	legacyPath := m.legacyClaudePath()
-	if legacyPath == "" {
-		return nil
-	}
-	data, err := os.ReadFile(legacyPath)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("inspect legacy Claude launcher: %w", err)
-	}
-	if !strings.Contains(string(data), marker) {
-		return nil
-	}
-	if err := os.Remove(legacyPath); err != nil {
-		return fmt.Errorf("remove legacy Claude launcher: %w", err)
-	}
-	return nil
-}
-
-func (m Manager) legacyClaudePath() string {
-	if m.LegacyBinDir == "" || filepath.Clean(m.LegacyBinDir) == filepath.Clean(m.BinDir) {
-		return ""
-	}
-	if m.GOOS == "windows" {
-		return filepath.Join(m.LegacyBinDir, "claude.cmd")
-	}
-	return filepath.Join(m.LegacyBinDir, "claude")
 }
 
 func (m Manager) shellProfile() (string, error) {

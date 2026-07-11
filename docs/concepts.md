@@ -2,38 +2,44 @@
 
 ## Account
 
-An Account is one upstream provider account boundary: display label, supported protocol endpoints, optional balance probe, and exactly one logical Token. The secret is stored at `AIGW_TOKEN/<account>` in the operating-system credential store; it is never embedded in configuration or team manifests. A local AIGW configuration may contain many Accounts; adding a second service never copies or replaces the first service's Token.
+An Account is one upstream provider account boundary: display label, supported protocol endpoints, optional exact-diagnostics declaration, and exactly one logical Token. The secret is stored at `AIGW_TOKEN/<account>` in the operating-system credential store; it is never embedded in configuration or team manifests. A local AIGW configuration may contain many Accounts; adding a second service never copies or replaces the first service's Token.
 
 Example:
 
 ```toml
-[accounts.dmx]
-label = "DMXAPI"
+[accounts."team-gateway"]
+label = "Team Gateway"
 
-[accounts.dmx.endpoints]
-openai_responses = "https://www.dmxapi.cn/v1"
-anthropic = "https://www.dmxapi.cn"
+[accounts."team-gateway".endpoints]
+openai_responses = "https://gateway.example/v1"
+anthropic = "https://gateway.example"
 ```
 
 ## Runtime Profile
 
-A Runtime Profile is what users choose day to day. It references one Account and may define a client scope and model name. One Account may back many Profiles: one DMXAPI Account can back separate GPT, Claude, embedding, or other model Profiles, while another provider has its own Account and Profile set.
+A Runtime Profile is what users choose day to day. It references one Account and defines a client scope plus the model name to send through that client protocol. One Account may back many Profiles: one Account can back separate GPT and Claude Profiles, while another provider has its own Account and Profile set. Endpoint URLs and provider probes are never Profile fields.
 
 ```toml
 [profiles."gpt-5.6-sol-cdx"]
 label = "GPT-5.6"
-account = "dmx"
+account = "team-gateway"
 client = "codex"
 
 [profiles."gpt-5.6-sol-cdx".models]
 codex = "gpt-5.6-sol-cdx"
 ```
 
-Built-in examples include `gpt-5.6-sol-cdx`, `gpt-5.5`, `gpt-5.5-ssvip`, `claude-sonnet-5`, `claude-opus-4-8-thinking`, and `claude-fable-5`. Model names are transparent upstream gateway strings; teams can add or remove them in their manifest.
+The example team manifest includes `gpt-5.6-sol-cdx`, `gpt-5.5`, `gpt-5.5-ssvip`, `claude-sonnet-5`, `claude-opus-4-8-thinking`, and `claude-fable-5`. It is not an implicit provider default. `claude-sonnet-5` is the recommended Claude baseline; Opus and Fable are explicit task-specific choices. Model names are transparent upstream gateway strings; teams can add or remove them in their manifest.
+
+Use `aigw catalog` to inspect the configured subset and compact count summary of each Account's authenticated OpenAI-compatible model inventory; use `aigw catalog --all` for the full human-readable inventory or `--json` for complete machine output. Then add an explicit Profile with `aigw profile add`. Discovery is read-only: it neither changes a Route nor infers whether an ID supports a particular protocol, embedding, rerank, vision, tools, or reasoning task.
 
 ## Endpoint
 
-An Account may provide an Anthropic endpoint, an OpenAI Responses endpoint, or both. Claude consumes the Anthropic endpoint; Codex consumes the OpenAI Responses endpoint. HTTP is accepted only for loopback compatibility tools such as a separately managed local proxy.
+An Account may provide an Anthropic endpoint, an OpenAI Responses endpoint, or both. Claude consumes the Anthropic endpoint; Codex consumes the OpenAI Responses endpoint. HTTPS is required except for an explicitly configured loopback development Account.
+
+## Provider diagnostics
+
+`aigw check` is generic and works through an Account endpoint. Exact balance or provider-native Token state is optional: a team manifest may declare an `account_probe`, and the installed AIGW build must explicitly include its Provider Diagnostics implementation. An unknown provider declaration never changes routing or invalidates the Account; it only makes `aigw balance` unavailable with a clear explanation.
 
 ## Route
 
@@ -58,9 +64,9 @@ An Adapter projects a resolved Runtime Profile into one client boundary:
 
 Adapters never own provider secrets and never write into one another's directories. Claude shims live in AIGW's dedicated data directory, not in shared `~/.local/bin` or Codex directories. Enabling the adapter adds one bounded, secret-free PATH block to the active user's shell profile so the ordinary `claude` command resolves to the shim; disabling it removes only that owned block.
 
-## Optional data-plane proxy
+## External gateway boundary
 
-AIGW is local-first: it is not a proxy, listens on no local port, and is fully usable without a team service. Claude and Codex normally use their Account's HTTPS endpoints directly. A separately operated proxy or Gateway is justified only for protocol translation, required centralized audit, budget control, or a mandated network egress path. It is a separately assessed and deployed organization service, never an AIGW dependency; AIGW sees only its HTTPS endpoint and never manages its process lifecycle, port, upstream credentials, retries, or fallback policy. Do not select `8888` merely as a convention—choose and reserve a port in the proxy project's deployment contract after checking local and organizational conflicts.
+AIGW is local-first: it is not a gateway, listens on no local port, and is fully usable without a team service. Claude and Codex normally use their Account's HTTPS endpoints directly. A future organization-operated gateway is independently assessed and deployed; AIGW sees only its HTTPS Account endpoint and never manages its process lifecycle, upstream credentials, retries, or fallback policy.
 
 ## Installation channel
 

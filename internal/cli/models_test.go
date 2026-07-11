@@ -1,13 +1,207 @@
 package cli_test
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
+
+func TestCatalogDiscoversSortedModelsWithoutWritingConfigOrLeakingToken(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Profiles["gpt-configured"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6"}}
+	cfg.Profiles["claude-configured"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "gpt-5.6"}}
+	cfg.Routes.Default = "gpt-configured"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(app.Config.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const token = "catalog-token-must-not-appear"
+	if err := secretStore.Set("dmx", token); err != nil {
+		t.Fatal(err)
+	}
+	app.HTTP.(*fakeHTTP).handler = func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/v1/models" || req.Header.Get("Authorization") != "Bearer "+token {
+			t.Fatalf("catalog request = %s authorization=%q", req.URL, req.Header.Get("Authorization"))
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":[{"id":"z-model"},{"id":"gpt-5.6"}]}`)), Request: req}, nil
+	}
+
+	if err := execute(t, app, "catalog", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(app.Config.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatalf("catalog changed config\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+	if strings.Contains(out.String(), token) || strings.Contains(strings.ToLower(out.String()), "authorization") {
+		t.Fatalf("catalog leaked secret material: %s", out.String())
+	}
+	var result struct {
+		Accounts []struct {
+			ID     string `json:"id"`
+			Status string `json:"status"`
+			Models []struct {
+				ID       string   `json:"id"`
+				Profiles []string `json:"profiles"`
+			} `json:"models"`
+		} `json:"accounts"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Accounts) != 1 || result.Accounts[0].ID != "dmx" || result.Accounts[0].Status != "ok" || len(result.Accounts[0].Models) != 2 {
+		t.Fatalf("catalog result = %#v", result)
+	}
+	models := result.Accounts[0].Models
+	if models[0].ID != "gpt-5.6" || strings.Join(models[0].Profiles, ",") != "claude-configured,gpt-configured" || models[1].ID != "z-model" || len(models[1].Profiles) != 0 {
+		t.Fatalf("catalog models = %#v", models)
+	}
+}
+
+func TestCatalogDefaultHumanOutputShowsOnlyConfiguredModels(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Profiles["configured"] = domain.Profile{Label: "Configured", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{Codex: "configured-model"}}
+	cfg.Routes.Default = "configured"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "catalog-token"); err != nil {
+		t.Fatal(err)
+	}
+	app.HTTP.(*fakeHTTP).handler = func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":[{"id":"configured-model"},{"id":"unconfigured-model"}]}`)), Request: req}, nil
+	}
+
+	if err := execute(t, app, "catalog"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	for _, want := range []string{"2 个模型", "1 个已配置", "configured-model", "另有 1 个未配置模型", "aigw catalog --all"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("compact catalog lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "unconfigured-model") {
+		t.Fatalf("compact catalog leaked an unconfigured model:\n%s", text)
+	}
+}
+
+func TestCatalogAllHumanOutputIncludesEveryModelAsReadableRecord(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Profiles["configured"] = domain.Profile{Label: "Configured", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{Codex: "configured-model"}}
+	cfg.Routes.Default = "configured"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "catalog-token"); err != nil {
+		t.Fatal(err)
+	}
+	app.HTTP.(*fakeHTTP).handler = func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":[{"id":"configured-model"},{"id":"unconfigured-model"}]}`)), Request: req}, nil
+	}
+
+	if err := execute(t, app, "catalog", "--all"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	for _, want := range []string{"configured-model", "Profile configured", "unconfigured-model", "未配置"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("full catalog lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "unconfigured-model未配置") {
+		t.Fatalf("full catalog ran together the model and its status:\n%s", text)
+	}
+}
+
+func TestCatalogRejectsAllWithJSON(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	err := execute(t, app, "catalog", "--all", "--json")
+	if err == nil || !strings.Contains(err.Error(), "--all cannot be combined with --json") {
+		t.Fatalf("catalog flags error = %v", err)
+	}
+}
+
+func TestCatalogReportsUnavailableAccountWithoutBlockingHealthyAccount(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["healthy"] = domain.Account{Label: "Healthy", Endpoints: domain.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
+	cfg.Accounts["missing-token"] = domain.Account{Label: "Missing Token", Endpoints: domain.Endpoints{OpenAIResponses: "https://missing.test/v1"}}
+	cfg.Accounts["anthropic-only"] = domain.Account{Label: "Anthropic Only", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}
+	cfg.Profiles["healthy-model"] = domain.Profile{Label: "Healthy", Account: "healthy", Client: domain.ClientCodex, Models: domain.Models{Codex: "healthy-model"}}
+	cfg.Routes.Default = "healthy-model"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("healthy", "healthy-token"); err != nil {
+		t.Fatal(err)
+	}
+	app.HTTP.(*fakeHTTP).handler = func(req *http.Request) (*http.Response, error) {
+		if req.URL.Host != "healthy.test" {
+			t.Fatalf("unexpected request to %s", req.URL)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":[{"id":"healthy-model"}]}`)), Request: req}, nil
+	}
+
+	if err := execute(t, app, "catalog", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"id": "healthy"`, `"status": "ok"`, `"id": "missing-token"`, `"status": "token_unavailable"`, `"id": "anthropic-only"`, `"status": "openai_responses_unavailable"`} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("catalog output lacks %q:\n%s", want, out.String())
+		}
+	}
+}
+
+func TestCatalogReportsMalformedAccountPayloadWithoutBlockingHealthyAccount(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["broken"] = domain.Account{Label: "Broken", Endpoints: domain.Endpoints{OpenAIResponses: "https://broken.test/v1"}}
+	cfg.Accounts["healthy"] = domain.Account{Label: "Healthy", Endpoints: domain.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
+	cfg.Profiles["healthy-model"] = domain.Profile{Label: "Healthy", Account: "healthy", Client: domain.ClientCodex, Models: domain.Models{Codex: "healthy-model"}}
+	cfg.Routes.Default = "healthy-model"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	for _, account := range []string{"broken", "healthy"} {
+		if err := secretStore.Set(account, account+"-token"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	app.HTTP.(*fakeHTTP).handler = func(req *http.Request) (*http.Response, error) {
+		body := `{"data":[{"id":"healthy-model"}]}`
+		if req.URL.Host == "broken.test" {
+			body = `{}`
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
+	}
+
+	if err := execute(t, app, "catalog", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"id": "broken"`, `"status": "request_failed"`, `"id": "healthy"`, `"status": "ok"`, `"id": "healthy-model"`} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("catalog output lacks %q:\n%s", want, out.String())
+		}
+	}
+}
 
 func TestModelsCommandReportsReachabilityFromGatewayModelList(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")

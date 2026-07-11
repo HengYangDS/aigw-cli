@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/providers"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/secrets"
 )
 
@@ -215,38 +217,41 @@ func newRotateCommand(app *App) *cobra.Command {
 			if err := app.Secrets.Set(accountName, token); err != nil {
 				return err
 			}
-			if err := syncAdapters(cmd.Context(), app, cfg); err != nil {
-				var rollbackErr error
-				if errors.Is(oldErr, secrets.ErrNotFound) {
-					rollbackErr = app.Secrets.Delete(accountName)
-				} else {
-					rollbackErr = app.Secrets.Set(accountName, oldToken)
-				}
-				if rollbackErr == nil {
-					rollbackErr = syncAdapters(cmd.Context(), app, cfg)
-				}
-				if rollbackErr != nil {
-					return fmt.Errorf("token sync failed: %w; rollback also failed: %v", err, rollbackErr)
-				}
-				return fmt.Errorf("token sync failed and was rolled back: %w", err)
-			}
-			if err := bindCodexAuthentication(cmd.Context(), app, cfg); err != nil {
-				var rollbackErr error
-				if errors.Is(oldErr, secrets.ErrNotFound) {
-					rollbackErr = app.Secrets.Delete(accountName)
-				} else {
-					rollbackErr = app.Secrets.Set(accountName, oldToken)
-				}
-				if rollbackErr == nil {
-					rollbackErr = syncAdapters(cmd.Context(), app, cfg)
-					if rollbackErr == nil {
-						rollbackErr = bindCodexAuthentication(cmd.Context(), app, cfg)
+			syncCodex := codexRouteUsesAccount(cfg, accountName)
+			if syncCodex {
+				if err := syncCodexProjection(cmd.Context(), app, cfg); err != nil {
+					var rollbackErr error
+					if errors.Is(oldErr, secrets.ErrNotFound) {
+						rollbackErr = app.Secrets.Delete(accountName)
+					} else {
+						rollbackErr = app.Secrets.Set(accountName, oldToken)
 					}
+					if rollbackErr == nil {
+						rollbackErr = syncCodexProjection(cmd.Context(), app, cfg)
+					}
+					if rollbackErr != nil {
+						return fmt.Errorf("token sync failed: %w; rollback also failed: %v", err, rollbackErr)
+					}
+					return fmt.Errorf("token sync failed and was rolled back: %w", err)
 				}
-				if rollbackErr != nil {
-					return fmt.Errorf("token authentication failed: %w; rollback also failed: %v", err, rollbackErr)
+				if err := bindCodexAuthentication(cmd.Context(), app, cfg); err != nil {
+					var rollbackErr error
+					if errors.Is(oldErr, secrets.ErrNotFound) {
+						rollbackErr = app.Secrets.Delete(accountName)
+					} else {
+						rollbackErr = app.Secrets.Set(accountName, oldToken)
+					}
+					if rollbackErr == nil {
+						rollbackErr = syncCodexProjection(cmd.Context(), app, cfg)
+						if rollbackErr == nil {
+							rollbackErr = bindCodexAuthentication(cmd.Context(), app, cfg)
+						}
+					}
+					if rollbackErr != nil {
+						return fmt.Errorf("token authentication failed: %w; rollback also failed: %v", err, rollbackErr)
+					}
+					return fmt.Errorf("token authentication failed and was rolled back: %w", err)
 				}
-				return fmt.Errorf("token authentication failed and was rolled back: %w", err)
 			}
 			r := renderer(app)
 			r.Title("AIGW", "Token 已更新")
@@ -254,7 +259,11 @@ func newRotateCommand(app *App) *cobra.Command {
 			r.Row("账户", account.Label)
 			r.Row("Account", accountName)
 			r.Status(presentation.OK, "Token", "验证通过并已安全保存")
-			r.Success("客户端认证已同步")
+			if syncCodex {
+				r.Success("Codex 认证已同步")
+			} else {
+				r.Success("与 Codex 无关；未触碰 Codex 配置或认证")
+			}
 			r.Next("aigw check")
 			return nil
 		},
@@ -379,11 +388,13 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		r.Status(state, title(client), readiness)
 	}
 	r.Section("账户诊断")
-	if account.AccountProbe != nil && app.Accounts.Has(accountName) {
+	if account.AccountProbe != nil && providers.Supports(account.AccountProbe.Kind) && app.Accounts.Has(accountName) {
 		r.Status(presentation.OK, "精确余额", "已启用")
-	} else if account.AccountProbe != nil {
+	} else if account.AccountProbe != nil && providers.Supports(account.AccountProbe.Kind) {
 		r.Status(presentation.Warn, "精确余额", "未启用")
 		r.Detail("aigw account connect " + accountName)
+	} else if account.AccountProbe != nil {
+		r.Status(presentation.Info, "精确余额", "当前版本未提供此服务商诊断")
 	} else {
 		r.Status(presentation.Info, "精确余额", "服务商未提供探针")
 	}
@@ -766,7 +777,7 @@ func newSyncCommand(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := syncAdapters(cmd.Context(), app, cfg); err != nil {
+			if err := syncCodexProjection(cmd.Context(), app, cfg); err != nil {
 				return err
 			}
 			r := renderer(app)
@@ -828,7 +839,10 @@ func newRollbackCommand(app *App) *cobra.Command {
 
 const codexAuthenticationTimeout = 20 * time.Second
 
-func syncAdapters(_ context.Context, app *App, cfg domain.Config) error {
+// syncCodexProjection is deliberately Codex-only. Claude resolves the current
+// Route inside its own process-bound shim and has no persistent projection to
+// rewrite.
+func syncCodexProjection(_ context.Context, app *App, cfg domain.Config) error {
 	if adapter := cfg.Adapters[domain.ClientCodex]; adapter.Enabled {
 		runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
 		if err != nil {
@@ -889,10 +903,35 @@ func codexRouteAccount(cfg domain.Config) (string, bool) {
 	return runtime.AccountID, runtime.AccountID != ""
 }
 
+func codexRouteUsesAccount(cfg domain.Config, accountName string) bool {
+	activeAccount, ok := codexRouteAccount(cfg)
+	return ok && activeAccount == accountName
+}
+
 func codexAuthenticationChanged(before, after domain.Config) bool {
 	beforeAccount, beforeOK := codexRouteAccount(before)
 	afterAccount, afterOK := codexRouteAccount(after)
 	return afterOK && (!beforeOK || beforeAccount != afterAccount)
+}
+
+func codexProjectionChanged(before, after domain.Config) bool {
+	beforeAdapter := before.Adapters[domain.ClientCodex]
+	afterAdapter := after.Adapters[domain.ClientCodex]
+	if !afterAdapter.Enabled {
+		return false
+	}
+	if !beforeAdapter.Enabled || !slices.Equal(beforeAdapter.Targets, afterAdapter.Targets) {
+		return true
+	}
+	beforeRuntime, _, beforeErr := before.ResolveRuntime(domain.ClientCodex, "")
+	afterRuntime, _, afterErr := after.ResolveRuntime(domain.ClientCodex, "")
+	if beforeErr != nil || afterErr != nil {
+		return true
+	}
+	return beforeRuntime.ProfileID != afterRuntime.ProfileID ||
+		beforeRuntime.ProfileLabel != afterRuntime.ProfileLabel ||
+		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
+		beforeRuntime.Model != afterRuntime.Model
 }
 
 func cloneConfig(cfg domain.Config) domain.Config {
@@ -921,7 +960,7 @@ func rollbackConfigAndAdapters(ctx context.Context, app *App, before domain.Conf
 	if err := app.Config.Save(before); err != nil {
 		return err
 	}
-	if err := syncAdapters(ctx, app, before); err != nil {
+	if err := syncCodexProjection(ctx, app, before); err != nil {
 		return err
 	}
 	if rebindNativeAuthentication {
@@ -934,12 +973,14 @@ func commitConfigAndSync(ctx context.Context, app *App, before, after domain.Con
 	if err := app.Config.Save(after); err != nil {
 		return err
 	}
-	if err := syncAdapters(ctx, app, after); err != nil {
-		rollbackErr := rollbackConfigAndAdapters(ctx, app, before, false)
-		if rollbackErr != nil {
-			return fmt.Errorf("%s sync failed: %w; rollback also failed: %v", subject, err, rollbackErr)
+	if codexProjectionChanged(before, after) {
+		if err := syncCodexProjection(ctx, app, after); err != nil {
+			rollbackErr := rollbackConfigAndAdapters(ctx, app, before, false)
+			if rollbackErr != nil {
+				return fmt.Errorf("%s sync failed: %w; rollback also failed: %v", subject, err, rollbackErr)
+			}
+			return fmt.Errorf("%s sync failed and was rolled back: %w", subject, err)
 		}
-		return fmt.Errorf("%s sync failed and was rolled back: %w", subject, err)
 	}
 	if codexAuthenticationChanged(before, after) {
 		if err := bindCodexAuthentication(ctx, app, after); err != nil {

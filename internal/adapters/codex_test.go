@@ -224,60 +224,6 @@ func TestCodexSyncAcceptsFormatterPaddingOnManagedSelections(t *testing.T) {
 	}
 }
 
-func TestCodexSyncRecoversSemanticallyEquivalentProjectionWhoseOwnershipMarkersWereStripped(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	original := "model_provider = \"native\"\nmodel = \"gpt-original\"\n\n[features]\nkeep = true\n"
-	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol-cdx")
-	if err := adapters.SyncCodexConfig(path, profile); err != nil {
-		t.Fatal(err)
-	}
-	projected, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	stripped := strings.Replace(string(projected), `model_provider = "aigw" # managed by AIGW`, `model_provider = "aigw"`, 1)
-	stripped = strings.Replace(stripped, `model = "gpt-5.6-sol-cdx" # managed by AIGW`, `model = "gpt-5.6-sol-cdx"`, 1)
-	stripped = strings.Replace(stripped, "# >>> AIGW managed provider >>>\n", "", 1)
-	stripped = strings.Replace(stripped, "# <<< AIGW managed provider <<<\n", "", 1)
-	stripped += "# user note after provider\n"
-	if err := os.WriteFile(path, []byte(stripped), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := adapters.ValidateCodexConfig(path, profile); err == nil {
-		t.Fatal("ValidateCodexConfig() accepted a projection whose AIGW ownership markers were stripped")
-	}
-
-	if err := adapters.SyncCodexConfig(path, profile); err != nil {
-		t.Fatalf("SyncCodexConfig() did not recover an otherwise equivalent unmarked projection: %v", err)
-	}
-	recovered, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(recovered), "# user note after provider") {
-		t.Fatal("SyncCodexConfig() removed a user comment adjacent to the unmarked provider table")
-	}
-	if err := adapters.ValidateCodexConfig(path, profile); err != nil {
-		t.Fatalf("ValidateCodexConfig() = %v after recovery", err)
-	}
-	if err := adapters.DisableCodexConfig(path); err != nil {
-		t.Fatal(err)
-	}
-	restored, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(restored), "# user note after provider") {
-		t.Fatal("DisableCodexConfig() removed the preserved user comment")
-	}
-	if !strings.Contains(string(restored), original) {
-		t.Fatalf("restore lost original configuration\nwant subset:\n%s\ngot:\n%s", original, restored)
-	}
-}
-
 func TestCodexSyncRejectsUnmarkedProjectionWhenProviderSemanticsDiffer(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
@@ -310,36 +256,6 @@ func TestCodexSyncRejectsUnmarkedProjectionWhenProviderSemanticsDiffer(t *testin
 	}
 	if string(after) != stripped {
 		t.Fatal("SyncCodexConfig changed an unmarked projection with different provider semantics")
-	}
-}
-
-func TestCodexSyncRecoversEquivalentCRLFProjectionWhoseOwnershipMarkersWereStripped(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(path, []byte("model_provider = \"native\"\r\nmodel = \"gpt-original\"\r\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol-cdx")
-	if err := adapters.SyncCodexConfig(path, profile); err != nil {
-		t.Fatal(err)
-	}
-	projected, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	stripped := strings.Replace(string(projected), `model_provider = "aigw" # managed by AIGW`, `model_provider = "aigw"`, 1)
-	stripped = strings.Replace(stripped, `model = "gpt-5.6-sol-cdx" # managed by AIGW`, `model = "gpt-5.6-sol-cdx"`, 1)
-	stripped = strings.Replace(stripped, "# >>> AIGW managed provider >>>\n", "", 1)
-	stripped = strings.Replace(stripped, "# <<< AIGW managed provider <<<\n", "", 1)
-	stripped = strings.ReplaceAll(stripped, "\n", "\r\n")
-	if err := os.WriteFile(path, []byte(stripped), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := adapters.SyncCodexConfig(path, profile); err != nil {
-		t.Fatalf("SyncCodexConfig() did not recover an equivalent CRLF projection: %v", err)
-	}
-	if err := adapters.ValidateCodexConfig(path, profile); err != nil {
-		t.Fatalf("ValidateCodexConfig() = %v after CRLF recovery", err)
 	}
 }
 
@@ -403,74 +319,51 @@ func TestCodexDisableRemovesManagedModelWhenNoOriginalModelExisted(t *testing.T)
 	}
 }
 
-func TestCodexSyncBackfillsOriginalModelForLegacyState(t *testing.T) {
+func TestCodexResyncPreservesAnEmptyOriginalModel(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	legacyManaged := `model_provider = "aigw" # managed by AIGW
-model = "gpt-original"
-
-# >>> AIGW managed provider >>>
-[model_providers.aigw]
-name = "AIGW: Old"
-base_url = "https://old.test/v1"
-wire_api = "responses"
-requires_openai_auth = true
-# <<< AIGW managed provider <<<
-`
-	if err := os.WriteFile(path, []byte(legacyManaged), 0o600); err != nil {
+	original := "model_provider = \"native\"\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path+".aigw-state.json", []byte(`{"original_provider":"model_provider = \"DMX1\"","managed_block_hash":"3b6be2527ed1e77a9a1e5092af165de1a9e7c76289e65fe3bdfad6bf72dee9bd"}`), 0o600); err != nil {
+	first := codexRuntime("gpt-one", "GPT One", "https://example.test/v1", "gpt-one")
+	if err := adapters.SyncCodexConfig(path, first); err != nil {
 		t.Fatal(err)
 	}
-	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT", "https://example.test/v1", "gpt-5.6-sol-cdx")
-	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+	second := codexRuntime("gpt-two", "GPT Two", "https://example.test/v1", "gpt-two")
+	if err := adapters.SyncCodexConfig(path, second); err != nil {
 		t.Fatal(err)
-	}
-	state, _ := os.ReadFile(path + ".aigw-state.json")
-	if !strings.Contains(string(state), `"original_model": "model = \"gpt-original\""`) {
-		t.Fatalf("state did not backfill original model:\n%s", state)
 	}
 	if err := adapters.DisableCodexConfig(path); err != nil {
 		t.Fatal(err)
 	}
-	restored, _ := os.ReadFile(path)
-	if !strings.Contains(string(restored), `model_provider = "DMX1"`) || !strings.Contains(string(restored), `model = "gpt-original"`) {
-		t.Fatalf("legacy disable did not restore provider/model:\n%s", restored)
+	restored, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(restored) != original {
+		t.Fatalf("resync changed an originally empty model selection\nwant:\n%s\ngot:\n%s", original, restored)
 	}
 }
 
-func TestCodexSyncBackfillsCurrentModelWithoutManagedMarkerWhenOriginalWasLost(t *testing.T) {
+func TestCodexResyncRefusesUnmarkedManagedProjection(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	legacyManaged := `model = "gpt-5.6-sol-cdx" # managed by AIGW
-model_provider = "aigw" # managed by AIGW
-
-# >>> AIGW managed provider >>>
-[model_providers.aigw]
-name = "AIGW: Old"
-base_url = "https://old.test/v1"
-wire_api = "responses"
-requires_openai_auth = true
-# <<< AIGW managed provider <<<
-`
-	if err := os.WriteFile(path, []byte(legacyManaged), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path+".aigw-state.json", []byte(`{"original_provider":"model_provider = \"DMX1\"","managed_block_hash":"3b6be2527ed1e77a9a1e5092af165de1a9e7c76289e65fe3bdfad6bf72dee9bd"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	profile := codexRuntime("gpt-5.6-terra-cdx", "GPT", "https://example.test/v1", "gpt-5.6-terra-cdx")
+	profile := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
-	state, _ := os.ReadFile(path + ".aigw-state.json")
-	if !strings.Contains(string(state), `"original_model": "model = \"gpt-5.6-sol-cdx\""`) || strings.Contains(string(state), "managed by AIGW") {
-		t.Fatalf("state did not backfill a clean fallback model:\n%s", state)
-	}
-	if err := adapters.DisableCodexConfig(path); err != nil {
+	projected, err := os.ReadFile(path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	restored, _ := os.ReadFile(path)
-	if strings.Contains(string(restored), "AIGW managed") || !strings.Contains(string(restored), `model = "gpt-5.6-sol-cdx"`) {
-		t.Fatalf("disable did not restore clean fallback model:\n%s", restored)
+	unmarked := strings.ReplaceAll(string(projected), "# >>> AIGW managed provider >>>\n", "")
+	unmarked = strings.ReplaceAll(unmarked, "# <<< AIGW managed provider <<<\n", "")
+	if err := os.WriteFile(path, []byte(unmarked), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := adapters.SyncCodexConfig(path, profile); err == nil || !strings.Contains(err.Error(), "provider block is missing") {
+		t.Fatalf("unmarked projection sync error = %v, want missing provider block conflict", err)
 	}
 }

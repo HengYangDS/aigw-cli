@@ -23,6 +23,24 @@ type modelRow struct {
 	Reach   string
 }
 
+type catalogModel struct {
+	ID       string   `json:"id"`
+	Profiles []string `json:"profiles,omitempty"`
+}
+
+type catalogAccount struct {
+	ID              string         `json:"id"`
+	Label           string         `json:"label"`
+	Source          string         `json:"source"`
+	SecretAvailable bool           `json:"secret_available"`
+	Status          string         `json:"status"`
+	Models          []catalogModel `json:"models"`
+}
+
+type catalogOutput struct {
+	Accounts []catalogAccount `json:"accounts"`
+}
+
 func newModelsCommand(app *App) *cobra.Command {
 	return &cobra.Command{Use: "models", Short: "检查模型 Profile 是否被网关列出", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		cfg, err := app.Config.Load()
@@ -88,7 +106,145 @@ func newModelsCommand(app *App) *cobra.Command {
 	}}
 }
 
+func newCatalogCommand(app *App) *cobra.Command {
+	var jsonMode, all bool
+	cmd := &cobra.Command{Use: "catalog", Short: "发现各 Account 的已认证模型目录（默认紧凑摘要）", Args: cobra.NoArgs}
+	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+		if jsonMode && all {
+			return fmt.Errorf("--all cannot be combined with --json; JSON already contains the complete catalog")
+		}
+		cfg, err := app.Config.Load()
+		if err != nil {
+			return err
+		}
+		result := catalogOutput{Accounts: make([]catalogAccount, 0, len(cfg.Accounts))}
+		for _, accountName := range sortedAccountNames(cfg) {
+			account := cfg.Accounts[accountName]
+			entry := catalogAccount{ID: accountName, Label: account.Label, Source: "openai_responses", SecretAvailable: app.Secrets.Has(accountName), Models: []catalogModel{}}
+			switch {
+			case account.Endpoints.OpenAIResponses == "":
+				entry.Status = "openai_responses_unavailable"
+			case !entry.SecretAvailable:
+				entry.Status = "token_unavailable"
+			default:
+				token, getErr := app.Secrets.Get(accountName)
+				if getErr != nil {
+					entry.Status = "token_unavailable"
+					break
+				}
+				ids, fetchErr := fetchModelIDs(cmd.Context(), app.HTTP, account, token)
+				if fetchErr != nil {
+					entry.Status = "request_failed"
+					break
+				}
+				entry.Status = "ok"
+				for _, id := range ids {
+					entry.Models = append(entry.Models, catalogModel{ID: id, Profiles: configuredProfilesForModel(cfg, accountName, id)})
+				}
+			}
+			result.Accounts = append(result.Accounts, entry)
+		}
+		if jsonMode {
+			enc := json.NewEncoder(app.Out)
+			enc.SetIndent("", "  ")
+			return enc.Encode(result)
+		}
+		r := renderer(app)
+		r.Title("AIGW", "已认证模型目录")
+		for _, account := range result.Accounts {
+			r.Section(account.Label + " · " + account.ID)
+			if account.Status != "ok" {
+				r.Status(presentation.Warn, "目录", catalogStatusText(account.Status))
+				continue
+			}
+			if len(account.Models) == 0 {
+				r.Status(presentation.Info, "模型", "上游返回空目录")
+				continue
+			}
+			renderCatalogAccount(r, account, all)
+		}
+		r.Next("aigw profile add <profile> --account <account> --for <claude|codex> --model <model>")
+		return nil
+	}
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "输出机器可读 JSON")
+	cmd.Flags().BoolVar(&all, "all", false, "显示完整模型目录")
+	return cmd
+}
+
+func renderCatalogAccount(r *presentation.Renderer, account catalogAccount, all bool) {
+	configured := make([]catalogModel, 0, len(account.Models))
+	for _, model := range account.Models {
+		if len(model.Profiles) > 0 {
+			configured = append(configured, model)
+		}
+	}
+	r.Row("模型总数", fmt.Sprintf("%d 个模型", len(account.Models)))
+	r.Row("已配置", fmt.Sprintf("%d 个已配置", len(configured)))
+	if all {
+		for _, model := range account.Models {
+			state, detail := catalogModelDisplay(model)
+			r.StatusLine(state, "模型", model.ID)
+			r.Detail(detail)
+		}
+		return
+	}
+	for _, model := range configured {
+		_, detail := catalogModelDisplay(model)
+		r.Status(presentation.OK, "模型", model.ID)
+		r.Detail(detail)
+	}
+	if remaining := len(account.Models) - len(configured); remaining > 0 {
+		r.Detail(fmt.Sprintf("另有 %d 个未配置模型；完整目录：aigw catalog --all", remaining))
+	}
+}
+
+func catalogModelDisplay(model catalogModel) (presentation.State, string) {
+	if len(model.Profiles) == 0 {
+		return presentation.Info, "未配置"
+	}
+	return presentation.OK, "Profile " + strings.Join(model.Profiles, ", ")
+}
+
+func configuredProfilesForModel(cfg domain.Config, accountName, model string) []string {
+	profiles := []string{}
+	for name, profile := range cfg.Profiles {
+		if profile.Account != accountName {
+			continue
+		}
+		if profile.Models.Claude == model || profile.Models.Codex == model {
+			profiles = append(profiles, name)
+		}
+	}
+	sort.Strings(profiles)
+	return profiles
+}
+
+func catalogStatusText(status string) string {
+	switch status {
+	case "openai_responses_unavailable":
+		return "未配置 OpenAI Responses 端点"
+	case "token_unavailable":
+		return "Token 不可用"
+	case "request_failed":
+		return "目录请求失败；未修改配置"
+	default:
+		return status
+	}
+}
+
 func fetchModelSet(parent context.Context, client HTTPDoer, account domain.Account, token string) (map[string]bool, error) {
+	ids, err := fetchModelIDs(parent, client, account, token)
+	if err != nil {
+		return nil, err
+	}
+	set := map[string]bool{}
+	for _, id := range ids {
+		set[id] = true
+	}
+	return set, nil
+}
+
+func fetchModelIDs(parent context.Context, client HTTPDoer, account domain.Account, token string) ([]string, error) {
 	endpoint := strings.TrimRight(account.Endpoints.OpenAIResponses, "/")
 	if strings.HasSuffix(endpoint, "/v1") {
 		endpoint += "/models"
@@ -116,11 +272,7 @@ func fetchModelSet(parent context.Context, client HTTPDoer, account domain.Accou
 	if err != nil {
 		return nil, err
 	}
-	set := map[string]bool{}
-	for _, id := range ids {
-		set[id] = true
-	}
-	return set, nil
+	return ids, nil
 }
 
 func parseModelIDs(data []byte) ([]string, error) {
@@ -128,19 +280,32 @@ func parseModelIDs(data []byte) ([]string, error) {
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return nil, err
 	}
-	items, _ := payload["data"].([]any)
+	dataField, exists := payload["data"]
+	if !exists {
+		return nil, fmt.Errorf("models payload is missing data")
+	}
+	items, ok := dataField.([]any)
+	if !ok {
+		return nil, fmt.Errorf("models payload data is not an array")
+	}
 	ids := []string{}
+	seen := map[string]bool{}
 	for _, item := range items {
+		id := ""
 		switch typed := item.(type) {
 		case string:
-			ids = append(ids, typed)
+			id = typed
 		case map[string]any:
 			for _, key := range []string{"id", "model", "name"} {
 				if value, ok := typed[key].(string); ok && value != "" {
-					ids = append(ids, value)
+					id = value
 					break
 				}
 			}
+		}
+		if id != "" && !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
 		}
 	}
 	sort.Strings(ids)

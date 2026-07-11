@@ -1,7 +1,6 @@
 package manifest
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -117,49 +116,4 @@ func Export(cfg domain.Config) ([]byte, error) {
 		return nil, err
 	}
 	return toml.Marshal(Manifest{Version: 1, RecommendedDefault: cfg.Routes.Default, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
-}
-
-type legacyConfig struct {
-	Version  int                      `json:"version"`
-	Profiles map[string]legacyProfile `json:"profiles"`
-	Routes   map[string]string        `json:"routes"`
-}
-
-type legacyProfile struct {
-	Label    string                       `json:"label"`
-	BaseURL  string                       `json:"base_url"`
-	Adapters map[string]map[string]string `json:"adapters"`
-}
-
-func MigrateLegacyV2(data []byte) (domain.Config, error) {
-	var legacy legacyConfig
-	if err := json.Unmarshal(data, &legacy); err != nil {
-		return domain.Config{}, fmt.Errorf("parse legacy config: %w", err)
-	}
-	if legacy.Version != 2 {
-		return domain.Config{}, fmt.Errorf("unsupported legacy config version %d", legacy.Version)
-	}
-	cfg := domain.NewConfig()
-	for name, source := range legacy.Profiles {
-		account := domain.Account{Label: source.Label}
-		account.Endpoints.OpenAIResponses = source.BaseURL
-		if codex := source.Adapters[domain.ClientCodex]; codex != nil && codex["base_url"] != "" {
-			account.Endpoints.OpenAIResponses = codex["base_url"]
-		}
-		if claude := source.Adapters[domain.ClientClaude]; claude != nil {
-			account.Endpoints.Anthropic = claude["base_url"]
-		}
-		cfg.Accounts[name] = account
-		cfg.Profiles[name] = domain.Profile{Label: source.Label, Account: name}
-	}
-	cfg.Routes.Default = legacy.Routes["default"]
-	for _, client := range []string{domain.ClientClaude, domain.ClientCodex} {
-		if route := legacy.Routes[client]; route != "" && route != cfg.Routes.Default {
-			cfg.Routes.Overrides[client] = route
-		}
-	}
-	if err := cfg.Validate(); err != nil {
-		return domain.Config{}, fmt.Errorf("migrated config is invalid: %w", err)
-	}
-	return cfg, nil
 }
