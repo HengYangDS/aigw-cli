@@ -380,3 +380,49 @@ func TestStatusSuggestsAccountSpecificDiagnostics(t *testing.T) {
 		t.Fatalf("status should suggest account-specific diagnostics:\n%s", text)
 	}
 }
+
+func TestCheckKeepsGenericHealthAvailableWhenExactDiagnosticDriverIsNotBundled(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["future"] = domain.Account{
+		Label:        "Future Gateway",
+		Endpoints:    domain.Endpoints{OpenAIResponses: "https://future.test/v1"},
+		AccountProbe: &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://future.test"},
+	}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "future", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	cfg.Routes.Default = "gpt"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("future", "test-token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "check"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "当前版本未提供此服务商诊断") || strings.Contains(out.String(), "aigw balance") {
+		t.Fatalf("check output = %s", out.String())
+	}
+}
+
+func TestBalanceExplainsWhenConfiguredDiagnosticDriverIsNotBundled(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["future"] = domain.Account{
+		Label:        "Future Gateway",
+		Endpoints:    domain.Endpoints{OpenAIResponses: "https://future.test/v1"},
+		AccountProbe: &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://future.test"},
+	}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "future", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	cfg.Routes.Default = "gpt"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("future", "test-token"); err != nil {
+		t.Fatal(err)
+	}
+	err := execute(t, app, "balance")
+	if err == nil || !strings.Contains(err.Error(), "未包含在当前 AIGW 版本") || !strings.Contains(err.Error(), "aigw check") {
+		t.Fatalf("balance error = %v", err)
+	}
+}

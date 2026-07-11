@@ -6,8 +6,8 @@ AIGW 是**本机优先**、可供团队分发的跨平台第三方 AI API 配置
 AIGW  当前状态
 ────────────────────────────────────────
 配置
-  当前服务       DMXAPI
-  Profile        dmx
+  当前 Account      Team Gateway
+  默认 Profile      gpt-5.6-sol-cdx
 
 客户端
   ✓ Claude       继承默认服务 · 已就绪
@@ -27,21 +27,25 @@ AIGW  当前状态
 
 本机直连不是“只能连一个服务”：每个服务 Account 有自己的一把系统密钥和可用协议端点；同一 Account 下可有任意多个模型 Profile，并由 Claude、Codex 或默认 Route 显式选择。团队集中 Gateway 不是安装或日常使用的前提。只有组织确实需要集中审计、预算、协议转换或统一出口时，才应单独评测和部署一个独立 Gateway；AIGW 只把它当作普通 HTTPS Account 入口，绝不管理其端口、进程或上游密钥。
 
-DMXAPI 只是一个 Account 示例；`gpt-5.6-sol-cdx`、`gpt-5.5`、`gpt-5.5-ssvip`、`claude-sonnet-5`、`claude-opus-4-8-thinking`、`claude-fable-5` 是内置模型 Profile 示例。模型名对 AIGW 是透明字符串，团队清单可以继续增删。
+任意上游服务商都可作为一个 Account。示例团队清单包含 `gpt-5.6-sol-cdx`、`gpt-5.5`、`gpt-5.5-ssvip`、`claude-sonnet-5`、`claude-opus-4-8-thinking`、`claude-fable-5` 等 Profile；它们不是 AIGW 的隐式服务商默认值。Claude 默认基线为 `claude-sonnet-5`；Opus 与 Fable 均须显式选择。模型名对 AIGW 是透明字符串，团队清单可以继续增删。
 
 ## 安装
 
 从私有 GitLab Release 下载与你平台匹配的安装包，并校验 `checksums.txt`。
 
+正式团队 Release 在上传前必须通过完整 15 工件矩阵；缺失某平台的原生构建工具时，流水线会拒绝发布，不会悄悄生成残缺 Release。校验和与 SBOM 是当前 RC 的可验证交付物；macOS/Windows 签名与公证须由受保护的组织签名凭据在发布 CI 中提供，不能伪造或由 AIGW 自行绕过。
+
 | 平台 | 推荐安装包 | 便携包 |
 |---|---|---|
-| macOS Intel/Apple Silicon | `aigw_<version>_darwin_universal.pkg` | `darwin_amd64.tar.gz` / `darwin_arm64.tar.gz` |
+| macOS（Intel 或 Apple Silicon） | `aigw_<version>_darwin_universal.pkg` | 按芯片选择下列便携包 |
+| macOS Intel | 同上（Universal `.pkg`） | `aigw_<version>_darwin_amd64.tar.gz` |
+| macOS Apple Silicon | 同上（Universal `.pkg`） | `aigw_<version>_darwin_arm64.tar.gz` |
 | Linux x86-64 | `linux_amd64.deb` 或 `linux_amd64.rpm` | `linux_amd64.tar.gz` |
 | Linux ARM64 | `linux_arm64.deb` 或 `linux_arm64.rpm` | `linux_arm64.tar.gz` |
 | Windows x86-64 | `windows_amd64.msi` | `windows_amd64.zip` |
 | Windows ARM64 | `windows_arm64.msi` | `windows_arm64.zip` |
 
-`amd64` 表示常见 Intel/AMD 64 位 x86 机器；`arm64` 表示 Apple Silicon、ARM Linux 或 Windows on ARM。
+`darwin_universal.pkg` 内含 Intel（`amd64`）和 Apple Silicon（`arm64`）两个原生架构，安装时自动选择；它不是 ARM 专用包。`amd64` 表示常见 Intel/AMD 64 位 x86 机器；`arm64` 表示 Apple Silicon、ARM Linux 或 Windows on ARM。
 
 也可以使用便携安装脚本：
 
@@ -63,27 +67,28 @@ sh install.sh
 aigw setup
 ```
 
-它会引导选择模型 Profile、隐藏输入 Account Token、保存系统密钥、发现 Claude/Codex、写入各自 Adapter，并执行一次连通性检查。
+首次运行 `aigw` 或空参数 `aigw setup` 会引导输入 Account、首个模型 Profile、客户端、端点和隐藏 Token；它不预设任何服务商、URL、Token 槽位或模型。随后会发现适用的 Claude/Codex Adapter，并执行一次连通性检查。
 
 团队清单模式：
 
 ```bash
 aigw config import team-profiles.toml
-aigw rotate dmx
+aigw rotate team-gateway
 aigw use gpt-5.6-sol-cdx --for codex
-aigw use claude-opus-4-8-thinking --for claude
+aigw use claude-sonnet-5 --for claude
 aigw check
-aigw balance dmx
 ```
 
 没有团队清单时：
 
 ```bash
 aigw setup \
-  --profile gateway \
+  --account team-gateway \
+  --profile gpt-5.6-sol-cdx \
   --label "Team Gateway" \
   --openai-url https://gateway.example/v1 \
-  --anthropic-url https://gateway.example
+  --for codex \
+  --model gpt-5.6-sol-cdx
 ```
 
 Token 使用隐藏输入；自动化场景可将一行 Token 管道输入并添加 `--token-stdin`。
@@ -95,8 +100,9 @@ aigw                         # 当前状态；首次运行会进入向导
 aigw setup                   # 傻瓜式首次配置
 aigw use [profile]           # 切换模型 Profile，可交互选择
 aigw rotate [account]        # 更新 Account Token
+aigw catalog [--all|--json]  # 默认紧凑模型摘要；显式查看完整目录或 JSON
 aigw check                   # 配置、Token、客户端与网关健康检查
-aigw balance [account]       # 余额和 Token 额度；支持的服务商才显示精确值
+aigw balance [account]       # 仅对显式配置且本版本支持的服务商显示精确值
 aigw sync                    # 仅对齐客户端配置；不重启客户端、不改动认证
 aigw adapter auth codex      # 仅重新绑定当前 Account 的 Codex 原生认证
 aigw repair                  # 自动发现并修复 Adapter 漂移
@@ -112,21 +118,32 @@ aigw update                  # 按安装渠道更新
 
 AIGW 分两层管理：
 
-- **Account**：上游服务商账户、URL、Token 和余额诊断，例如 `dmx`。
-- **Profile**：用户日常切换的模型运行配置，例如 `gpt-5.6-sol-cdx`、`gpt-5.5-ssvip`、`claude-opus-4-8-thinking`。
+- **Account**：上游服务商账户、URL、Token 和可选的服务商精确诊断，例如 `team-gateway`。
+- **Profile**：用户日常切换的模型运行配置，例如 `gpt-5.6-sol-cdx`、`gpt-5.5-ssvip`、`claude-sonnet-5`。
 
 多个 Profile 可以引用同一个 Account，所以轮换 Token 只需要：
 
 ```bash
-aigw rotate dmx
+aigw rotate team-gateway
 ```
 
 切换模型只需要：
 
 ```bash
 aigw use gpt-5.6-sol-cdx --for codex
-aigw use claude-fable-5 --for claude
+aigw use claude-sonnet-5 --for claude
 ```
+
+添加第二个服务时使用一次 `aigw add <account>` 并录入该服务自己的 Token；在既有服务下添加模型时，不复制 URL 或 Token：
+
+```bash
+aigw account edit team-gateway --openai-url https://gateway.example/v1
+aigw profile add gpt-next --account team-gateway --for codex --model gpt-next
+aigw catalog
+aigw use gpt-next --for codex
+```
+
+`catalog` 只读取该 Account 的 `/v1/models`；默认只显示已配置模型与数量摘要，`--all` 显式展开完整目录，`--json` 保持完整机器输出。列出的模型不自动成为 Profile，也不表示已经通过特定客户端、工具、视觉或推理能力验证。
 
 ## 客户端边界
 
@@ -154,38 +171,36 @@ Codex 只接收带 AIGW 标记的顶层 `model`、`model_provider` 和 provider 
 
 `aigw check` / `aigw doctor` 会给出可操作判断：Token 无效、Token 被禁用、余额/额度耗尽、账号限制、限速、模型/渠道不可用、网关 5xx、网络/TLS/代理问题、本地密钥缺失、Codex 模型或 provider 投影漂移等。
 
-支持精确账户诊断的服务商可绑定平台凭据：
+`aigw check` 对所有 Account 都提供 Token、权限、额度/限速、模型可达性、网络与本地配置诊断。只有团队清单显式配置、且当前 AIGW 版本包含对应 Provider Diagnostics 的服务商，才会显示精确余额入口；该平台凭据独立存储，不进入配置文件：
 
 ```bash
-aigw account connect dmx
-aigw balance dmx
+aigw account connect <account>
+aigw balance <account>
 ```
 
-平台凭据独立保存在系统密钥存储中，不进入配置文件。
+若没有精确诊断驱动，`aigw balance` 会明确说明原因，不会影响 `check`、路由、Token 轮换或客户端使用。
 
 ## 文档
 
 - [核心概念](docs/concepts.md)
 - [安全模型](docs/security.md)
 - [团队推广](docs/team-rollout.md)
-- [旧本机原型迁移](docs/migration.md)
 - [产品设计](docs/design/2026-07-10-aigw-cli-product-design.md)
 
 ## 卸载边界
 
 便携安装的卸载脚本只移除当前用户安装目录中的 `aigw` 与 AIGW-owned Claude shim。原生 `.pkg`、`.deb`、`.rpm`、`.msi` 安装器只管理自身安装的程序文件，**不会遍历用户目录或删除任何用户 shim**；在卸载前如需清理 shim，请以该用户身份运行 `aigw adapter disable claude`。配置、系统密钥和客户端用户配置始终保留，供重新安装或受控离网使用。
 
-## Proxy 边界
+## 外部网关边界
 
-默认不需要本地 proxy，也不监听 8791、8888 或任何端口：Claude/Codex 通过各自 Adapter 直连 Account 的 HTTPS 上游端点。仅当上游协议不兼容、必须进行响应格式转换/集中审计，或组织网络强制要求出口代理时，才应另行部署一个独立的数据面 proxy；其端口、运行方式和生命周期不由 AIGW 管理。
-
-若确需部署该独立 proxy，端口必须由该项目显式配置并做冲突检查；`8888` 不是约定默认值，且常与调试代理或企业工具冲突。AIGW 只接收该 proxy 的明确 URL（例如 `http://127.0.0.1:<chosen-port>/v1`），不会启动、停止、探测或重启它。
+AIGW 不运行 proxy，不监听任何端口。若组织未来部署独立网关，它对 AIGW 只是一个 HTTPS Account 端点；该网关的部署、生命周期与密钥均不属于 AIGW。
 
 ## 开发与验证
 
 ```bash
 go test -race ./...
 go vet ./...
+sh scripts/check-retired-residue.sh
 sh scripts/package.sh 0.1.0-rc.1 dist
 ```
 

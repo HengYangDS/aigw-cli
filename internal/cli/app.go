@@ -140,7 +140,7 @@ func mutationCommand(app *App, args []string) bool {
 	case "adapter":
 		return len(args) > 1 && (args[1] == "enable" || args[1] == "auth" || args[1] == "disable")
 	case "config":
-		return len(args) > 1 && (args[1] == "import" || args[1] == "migrate")
+		return len(args) > 1 && args[1] == "import"
 	default:
 		return false
 	}
@@ -201,10 +201,6 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	legacyBinDir, err := platform.UserBinDirFor(runtime.GOOS, env)
-	if err != nil {
-		return nil, err
-	}
 	secretStore, err := secrets.Select(env["AIGW_SECRET_BACKEND"], os.Getenv)
 	if err != nil {
 		return nil, err
@@ -224,7 +220,6 @@ func NewDefault() (*App, error) {
 		Shims: shims.Manager{
 			GOOS:           runtime.GOOS,
 			BinDir:         binDir,
-			LegacyBinDir:   legacyBinDir,
 			Home:           env["HOME"],
 			Shell:          env["SHELL"],
 			AIGWExecutable: executable,

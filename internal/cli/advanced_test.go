@@ -42,24 +42,11 @@ account = "team"
 	}
 }
 
-func TestLegacyMigrationImportsStructureWithoutChangingSecrets(t *testing.T) {
-	app, _, secretStore, _ := testApp(t, "")
-	_ = secretStore.Set("dmx", "existing-keyring-secret")
-	legacyPath := filepath.Join(t.TempDir(), "config.json")
-	legacy := `{"version":2,"profiles":{"dmx":{"label":"DMXAPI","base_url":"https://dmx.test/v1","adapters":{"claude":{"base_url":"https://dmx.test"},"codex":{"base_url":"https://dmx.test/v1"}}}},"routes":{"default":"dmx","claude":"dmx","codex":"dmx"}}`
-	if err := os.WriteFile(legacyPath, []byte(legacy), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := execute(t, app, "config", "migrate", legacyPath); err != nil {
-		t.Fatal(err)
-	}
-	got, err := secretStore.Get("dmx")
-	if err != nil || got != "existing-keyring-secret" {
-		t.Fatalf("secret changed: %q, %v", got, err)
-	}
-	cfg, _ := app.Config.Load()
-	if cfg.Accounts["dmx"].Endpoints.Anthropic != "https://dmx.test" {
-		t.Fatalf("migration = %#v", cfg)
+func TestConfigDoesNotExposeRemovedLegacyMigration(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	err := execute(t, app, "config", "migrate", filepath.Join(t.TempDir(), "config.json"))
+	if err == nil || !strings.Contains(err.Error(), "unknown config command") {
+		t.Fatalf("legacy migration command error = %v, want unknown config command", err)
 	}
 }
 
@@ -382,5 +369,82 @@ func TestProfileRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 	got, _ := app.Config.Load()
 	if _, ok := got.Profiles["gpt-unused"]; ok || got.Accounts["dmx"].Label != "DMXAPI" {
 		t.Fatalf("remove config = %#v", got)
+	}
+}
+
+func TestProfileAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "gpt", "dmx", "GPT", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, domain.ClientCodex, domain.Models{Codex: "gpt-test"})
+	cfg.Routes.Default = "gpt"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("dmx", "existing-account-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "profile", "add", "claude", "--account", "dmx", "--for", "claude", "--model", "claude-test", "--label", "Claude Test"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := got.Profiles["claude"]
+	if profile.Account != "dmx" || profile.Client != domain.ClientClaude || profile.Models.Claude != "claude-test" {
+		t.Fatalf("added profile = %#v", profile)
+	}
+	if got.Routes.Default != "gpt" || !secretStore.Has("dmx") || secretStore.Has("claude") {
+		t.Fatalf("route or token slots changed: routes=%#v dmx=%v claude=%v", got.Routes, secretStore.Has("dmx"), secretStore.Has("claude"))
+	}
+}
+
+func TestAccountEditUpdatesSharedEndpointWithoutProfileDuplication(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "gpt", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, domain.ClientCodex, domain.Models{Codex: "gpt-test"})
+	addAccountProfile(&cfg, "claude", "dmx", "DMXAPI", domain.Endpoints{}, domain.ClientClaude, domain.Models{Claude: "claude-test"})
+	cfg.Routes.Default = "gpt"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "account", "edit", "dmx", "--openai-url", "https://new.test/v1"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Accounts["dmx"].Endpoints.OpenAIResponses != "https://new.test/v1" {
+		t.Fatalf("account endpoint = %#v", got.Accounts["dmx"])
+	}
+	for _, profile := range got.Profiles {
+		if profile.Account != "dmx" {
+			t.Fatalf("shared profile lost account reference: %#v", profile)
+		}
+	}
+}
+
+func TestProfileAddRejectsClientWithoutMatchingAccountEndpoint(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "gpt", "openai-only", "OpenAI Only", domain.Endpoints{OpenAIResponses: "https://openai.test/v1"}, domain.ClientCodex, domain.Models{Codex: "gpt-test"})
+	cfg.Routes.Default = "gpt"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	err := execute(t, app, "profile", "add", "claude", "--account", "openai-only", "--for", "claude", "--model", "claude-test")
+	if err == nil || !strings.Contains(err.Error(), "no Anthropic endpoint") {
+		t.Fatalf("profile add error = %v", err)
+	}
+	got, loadErr := app.Config.Load()
+	if loadErr != nil {
+		t.Fatal(loadErr)
+	}
+	if _, exists := got.Profiles["claude"]; exists {
+		t.Fatalf("unusable Profile was persisted: %#v", got.Profiles["claude"])
 	}
 }

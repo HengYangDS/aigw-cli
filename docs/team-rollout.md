@@ -8,20 +8,16 @@
 version = 1
 recommended_default = "gpt-5.6-sol-cdx"
 
-[accounts.dmx]
-label = "DMXAPI"
+[accounts."team-gateway"]
+label = "Team Gateway"
 
-[accounts.dmx.endpoints]
-openai_responses = "https://www.dmxapi.cn/v1"
-anthropic = "https://www.dmxapi.cn"
-
-[accounts.dmx.account_probe]
-kind = "dmxapi"
-base_url = "https://www.dmxapi.cn"
+[accounts."team-gateway".endpoints]
+openai_responses = "https://gateway.example/v1"
+anthropic = "https://gateway.example"
 
 [profiles."gpt-5.6-sol-cdx"]
 label = "GPT-5.6"
-account = "dmx"
+account = "team-gateway"
 client = "codex"
 
 [profiles."gpt-5.6-sol-cdx".models]
@@ -29,7 +25,7 @@ codex = "gpt-5.6-sol-cdx"
 
 [profiles."gpt-5.5"]
 label = "GPT-5.5"
-account = "dmx"
+account = "team-gateway"
 client = "codex"
 
 [profiles."gpt-5.5".models]
@@ -37,7 +33,7 @@ codex = "gpt-5.5"
 
 [profiles."gpt-5.5-ssvip"]
 label = "GPT-5.5 SSVIP"
-account = "dmx"
+account = "team-gateway"
 client = "codex"
 
 [profiles."gpt-5.5-ssvip".models]
@@ -45,7 +41,7 @@ codex = "gpt-5.5-ssvip"
 
 [profiles."claude-sonnet-5"]
 label = "Claude Sonnet"
-account = "dmx"
+account = "team-gateway"
 client = "claude"
 
 [profiles."claude-sonnet-5".models]
@@ -53,7 +49,7 @@ claude = "claude-sonnet-5"
 
 [profiles."claude-opus-4-8-thinking"]
 label = "Claude Opus"
-account = "dmx"
+account = "team-gateway"
 client = "claude"
 
 [profiles."claude-opus-4-8-thinking".models]
@@ -61,7 +57,7 @@ claude = "claude-opus-4-8-thinking"
 
 [profiles."claude-fable-5"]
 label = "Claude Fable"
-account = "dmx"
+account = "team-gateway"
 client = "claude"
 
 [profiles."claude-fable-5".models]
@@ -89,6 +85,10 @@ aigw config export
 | Windows x86-64 | `windows_amd64.msi` | `windows_amd64.zip` |
 | Windows ARM64 | `windows_arm64.msi` | `windows_arm64.zip` |
 
+发布流水线在上传前必须通过 15 个工件的完整矩阵检查：macOS Universal pkg、六个便携包、四个 Linux 原生包、两个 Windows MSI、SBOM 与统一校验和。缺少平台专属构建工具或签名材料时，流水线必须失败而不是发布残缺资产。
+
+维护者将 `package` job 调度到受管 macOS runner（tag：`macos`）；该 runner 必须具备 Go、`lipo`、`pkgbuild`、`productbuild`、`nfpm`、`wixl`、`uuidgen`、`file`、`tar` 与 `zip`。缺少该 runner 时 job 应保持 pending，而不是回退到通用 Linux runner 产出不完整 Release。
+
 还必须包含 `checksums.txt` 和 `aigw_<version>.spdx.json`。`amd64` 是常见 Intel/AMD 64 位 x86；`arm64` 是 ARM 64 位。
 
 ## Team member
@@ -98,18 +98,28 @@ aigw config export
 ```bash
 aigw setup
 aigw check
-aigw balance dmx
 ```
 
 团队清单路径：
 
 ```bash
 aigw config import team-profiles.toml
-aigw rotate dmx
+aigw rotate team-gateway
+aigw catalog                 # 默认显示已配置模型与数量摘要
+aigw catalog --all           # 显式展开完整模型目录
 aigw use gpt-5.6-sol-cdx --for codex
-aigw use claude-opus-4-8-thinking --for claude
+aigw use claude-sonnet-5 --for claude
 aigw check
 ```
+
+若某个已导入 Account 的目录中出现尚未配置的模型，成员可在不复制 Token 的前提下添加一个本机 Profile：
+
+```bash
+aigw profile add gpt-next --account team-gateway --for codex --model gpt-next
+aigw use gpt-next --for codex
+```
+
+维护者应先审核模型的协议、权限、价格与适用任务；`catalog` 的发现结果不构成模型准入或自动路由。
 
 需要在变更、升级或客户端故障后取得真实链路证据时，由使用者明确执行：
 
@@ -140,7 +150,7 @@ AIGW 的 Claude shim 位于专属目录：macOS 为 `~/Library/Application Suppo
 
 原生包安装与卸载只管理自己的程序文件，绝不会遍历用户目录来创建或删除 shim。若需删除 shim，由该用户执行 `aigw adapter disable claude`。
 
-默认不部署 proxy，也不占用本地端口。若团队另行运行协议转换或出口审计 proxy，端口和进程生命周期属于该 proxy 项目；AIGW 只把明确的 proxy URL 当作 Account 端点，绝不代管其进程。
+AIGW 不部署网关，也不占用本地端口。若组织未来部署独立网关，AIGW 只把它视为 HTTPS Account 端点，不代管其进程。
 
 ## Update
 
@@ -157,7 +167,7 @@ CI 使用只读环境密钥后端：
 
 ```bash
 export AIGW_SECRET_BACKEND=env
-export AIGW_TOKEN_DMX=masked-ci-token
+export AIGW_TOKEN_TEAM_GATEWAY=masked-ci-token
 ```
 
 环境变量后端只读；`add`、`rotate`、rename 和 secret deletion 会失败，不会生成明文凭据文件。

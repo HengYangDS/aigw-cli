@@ -159,8 +159,8 @@ func (c Config) Validate() error {
 			return err
 		}
 		if account.AccountProbe != nil {
-			if account.AccountProbe.Kind != "dmxapi" {
-				return fmt.Errorf("account %q has unsupported account probe %q", name, account.AccountProbe.Kind)
+			if !ValidProfileName(account.AccountProbe.Kind) {
+				return fmt.Errorf("account %q has invalid account probe provider %q", name, account.AccountProbe.Kind)
 			}
 			if err := validateEndpoint(account.AccountProbe.BaseURL); err != nil {
 				return fmt.Errorf("account %q account probe: %w", name, err)

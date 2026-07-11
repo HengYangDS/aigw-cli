@@ -6,6 +6,9 @@ out=${2:-dist}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 module=gitlab.local/dig/misc/agentic-third-party-api/aigw-cli
 
+"$root/scripts/check-package-safety.sh"
+"$root/scripts/check-retired-residue.sh"
+
 case "$version" in
   *[!0-9A-Za-z._-]*) echo "invalid version: $version" >&2; exit 2 ;;
 esac
@@ -241,4 +244,7 @@ build_windows_msi
 verify_binary_arches
 go run ./tools/sbom -version "$version" > "$out_abs/aigw_${version}.spdx.json"
 write_checksums
+if [ "${AIGW_REQUIRE_FULL_MATRIX:-0}" = "1" ]; then
+  "$root/scripts/check-release-artifacts.sh" "$out_abs" "$version"
+fi
 printf 'release artifacts written to %s\n' "$out_abs"

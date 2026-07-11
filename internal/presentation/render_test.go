@@ -57,6 +57,16 @@ func TestRowsAndStatusesStartValuesAtSameDisplayColumn(t *testing.T) {
 	}
 }
 
+func TestStatusKeepsLongLabelsOnOneLine(t *testing.T) {
+	var out bytes.Buffer
+	r := presentation.New(&out, false)
+	r.Status(presentation.OK, "environment:client-token", "正常")
+	got := out.String()
+	if strings.Count(got, "\n") != 1 || strings.Contains(got, "environment:client\n-token") {
+		t.Fatalf("long status label wrapped: %q", got)
+	}
+}
+
 func TestDisplayWidthTreatsCJKAsTwoColumnsAndANSICodesAsZero(t *testing.T) {
 	if got := presentation.DisplayWidth("配置文件"); got != 8 {
 		t.Fatalf("CJK width = %d, want 8", got)

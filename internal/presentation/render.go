@@ -88,14 +88,14 @@ func (r *Renderer) Section(title string) {
 }
 
 func (r *Renderer) Row(label, value string) {
-	fmt.Fprintf(r.out, "  %s%s\n", r.styles.rowKey.Render(label), value)
+	fmt.Fprintf(r.out, "  %s%s\n", r.fixedLabel(r.styles.rowKey, label, rowKeyWidth), value)
 	r.hasContent = true
 }
 
 func (r *Renderer) Status(state State, label, value string) {
 	symbol := map[State]string{OK: "✓", Warn: "!", Fail: "✗", Info: "·"}[state]
 	symbol = r.stateStyle(state).Render(symbol)
-	fmt.Fprintf(r.out, "  %s %s%s\n", symbol, r.styles.stateKey.Render(label), value)
+	fmt.Fprintf(r.out, "  %s %s%s\n", symbol, r.fixedLabel(r.styles.stateKey, label, stateKeyWidth), value)
 	r.hasContent = true
 }
 
@@ -151,6 +151,13 @@ func (r *Renderer) Problem(problem Problem) {
 
 func (r *Renderer) stateStyle(state State) lipgloss.Style {
 	return map[State]lipgloss.Style{OK: r.styles.ok, Warn: r.styles.warn, Fail: r.styles.fail, Info: r.styles.info}[state]
+}
+
+func (r *Renderer) fixedLabel(style lipgloss.Style, label string, width int) string {
+	if DisplayWidth(label) > width {
+		return label + " "
+	}
+	return style.Render(label)
 }
 
 var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
