@@ -216,6 +216,38 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexProfile(t *testing.T) {
 	}
 }
 
+func TestStatusWarnsWhenClaudePathActivationIsMissing(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}, Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-test"}}
+	cfg.Routes.Default = "claude"
+	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("claude", "token"); err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	shimDir := filepath.Join(home, "Library", "Application Support", "aigw", "bin")
+	app.Shims.BinDir = shimDir
+	app.Shims.Home = home
+	app.Shims.Shell = "/bin/zsh"
+	app.Shims.AIGWExecutable = filepath.Join(shimDir, "aigw")
+	if err := os.MkdirAll(shimDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(shimDir, "claude"), []byte("#!/bin/sh\n# AIGW managed Claude shim\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "status"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Claude PATH 激活缺失") || !strings.Contains(out.String(), "aigw repair") {
+		t.Fatalf("status did not surface missing Claude PATH activation:\n%s", out.String())
+	}
+}
+
 func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()

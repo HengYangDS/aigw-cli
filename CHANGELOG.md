@@ -12,3 +12,4 @@
 - Add secret-free team manifests and legacy local-prototype migration.
 - Add portable archives plus native macOS pkg, Linux deb/rpm and Windows MSI artifacts for amd64 and arm64, checksums and SPDX SBOM.
 - Ensure native package workflows never traverse user homes or delete user-level Claude shims.
+- Move Unix Claude shims from shared user bins into AIGW-owned data directories, with a reversible secret-free shell PATH activation block and owned-legacy migration.
