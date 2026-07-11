@@ -96,3 +96,34 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 		t.Fatalf("backup = %s", backup)
 	}
 }
+
+func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewStore(path)
+	cfg := domain.Config{
+		Version:  1,
+		Accounts: map[string]domain.Account{"dmx": {Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
+		Profiles: map[string]domain.Profile{"claude": {Label: "Claude", Account: "dmx", Models: domain.Models{Claude: "claude-test"}}},
+		Routes:   domain.Routes{Default: "claude", Overrides: map[string]string{}},
+	}
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveVerifiedCheckpoint(cfg, []string{"claude", "codex"}); err != nil {
+		t.Fatal(err)
+	}
+	checkpoint, err := store.LoadVerifiedCheckpoint()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checkpoint.Config.Routes.Default != "claude" || len(checkpoint.Clients) != 2 || checkpoint.VerifiedAt.IsZero() {
+		t.Fatalf("checkpoint = %#v", checkpoint)
+	}
+	data, err := os.ReadFile(path + ".verified.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.ToLower(string(data)), "token") {
+		t.Fatalf("checkpoint contains token-like content: %s", data)
+	}
+}

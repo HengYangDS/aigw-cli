@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -47,6 +48,20 @@ func newCheckCommand(app *App) *cobra.Command {
 			for _, client := range []string{domain.ClientClaude, domain.ClientCodex} {
 				adapter := cfg.Adapters[client]
 				if adapter.Enabled {
+					clientProfile, _, resolveErr := cfg.Resolve(client, "")
+					if resolveErr != nil {
+						return problem(title(client)+" 路由未解析", resolveErr.Error(), title(client)+" 无法确定应使用的 Profile。", "aigw use <profile> --for "+client, resolveErr)
+					}
+					ready, issue := adapterRouteReady(app, cfg, client, clientProfile)
+					if !ready {
+						fix := "aigw repair"
+						impact := title(client) + " 无法继承 AIGW 的路由、Token 或配置投影。"
+						if client == domain.ClientCodex && strings.Contains(issue, "投影") {
+							fix = "aigw sync"
+							impact = "Codex 可能使用错误模型或端点。"
+						}
+						return problem(title(client)+" 适配器未就绪", issue, impact, fix, fmt.Errorf("%s adapter not ready", client))
+					}
 					r.Status(presentation.OK, title(client), "已就绪")
 					clientCount++
 				} else {
@@ -70,12 +85,12 @@ func newCheckCommand(app *App) *cobra.Command {
 				r.Status(presentation.OK, "精确余额", "已启用")
 			} else if profile.AccountProbe != nil {
 				r.Status(presentation.Warn, "精确余额", "未启用")
-				r.Detail("aigw account connect")
+				r.Detail("aigw account connect " + accountName)
 			}
 			r.Section("结果")
 			r.Success("一切正常")
 			if profile.AccountProbe != nil {
-				r.Next("aigw balance")
+				r.Next("aigw balance " + accountName)
 			}
 			return nil
 		},
@@ -85,7 +100,7 @@ func newCheckCommand(app *App) *cobra.Command {
 func newAccountCommand(app *App) *cobra.Command {
 	root := &cobra.Command{Use: "account", Short: "管理可选的精确账户诊断"}
 	root.AddCommand(
-		&cobra.Command{Use: "connect [profile]", Short: "Bind provider platform credentials for exact balance", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+		&cobra.Command{Use: "connect [account]", Short: "Bind provider platform credentials for exact balance", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 			if !app.Interactive {
 				return fmt.Errorf("account connection requires an interactive terminal")
 			}
@@ -123,7 +138,7 @@ func newAccountCommand(app *App) *cobra.Command {
 			r.Next("aigw balance")
 			return nil
 		}},
-		&cobra.Command{Use: "disconnect [profile]", Short: "Remove optional provider platform credentials", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+		&cobra.Command{Use: "disconnect [account]", Short: "Remove optional provider platform credentials", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {
 				return err
@@ -149,7 +164,7 @@ func newAccountCommand(app *App) *cobra.Command {
 }
 
 func newBalanceCommand(app *App) *cobra.Command {
-	return &cobra.Command{Use: "balance [profile]", Short: "查看账户余额与 Token 额度", Args: cobra.MaximumNArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "balance [account]", Short: "查看账户余额与 Token 额度", Args: cobra.MaximumNArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := app.Config.Load()
 		if err != nil {
 			return err
@@ -167,7 +182,13 @@ func newBalanceCommand(app *App) *cobra.Command {
 		}
 		credential, err := app.Accounts.Get(accountName)
 		if err != nil {
-			return fmt.Errorf("尚未绑定精确账户查询；运行 `aigw account connect`")
+			return problem(
+				"精确余额诊断尚未启用",
+				"缺少 "+accountName+" 的服务商平台查询凭据；API Token 已单独保存在系统密钥存储。",
+				"无法区分账户余额、Token 剩余额度、Token 禁用状态和次数限制。",
+				"aigw account connect "+accountName,
+				err,
+			)
 		}
 		apiToken, err := app.Secrets.Get(accountName)
 		if err != nil {
@@ -222,22 +243,25 @@ func newRepairCommand(app *App) *cobra.Command {
 			}
 			before := cloneConfig(cfg)
 			discovered := app.Discovery.Discover()
-			profile, _, err := cfg.Resolve(domain.ClientCodex, "")
-			if err != nil {
-				return err
-			}
+			claudeProfile, _, claudeRouteErr := cfg.Resolve(domain.ClientClaude, "")
+			codexProfile, _, codexRouteErr := cfg.Resolve(domain.ClientCodex, "")
 			newClaude := false
-			if discovered.ClaudeExecutable != "" && profile.Endpoints.Anthropic != "" {
-				if !cfg.Adapters[domain.ClientClaude].Enabled {
+			claudeAdapter := cfg.Adapters[domain.ClientClaude]
+			claudeExecutable := claudeAdapter.Executable
+			if claudeExecutable == "" {
+				claudeExecutable = discovered.ClaudeExecutable
+			}
+			if claudeRouteErr == nil && claudeExecutable != "" && claudeProfile.Endpoints.Anthropic != "" {
+				if !claudeAdapter.Enabled {
 					newClaude = true
 				}
-				cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: discovered.ClaudeExecutable}
+				cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 				if _, err := app.Shims.EnableClaude(); err != nil {
 					return err
 				}
 			}
 			newCodexTargets := []string{}
-			if discovered.CodexExecutable != "" && len(discovered.CodexTargets) > 0 && profile.Endpoints.OpenAIResponses != "" {
+			if codexRouteErr == nil && discovered.CodexExecutable != "" && len(discovered.CodexTargets) > 0 && codexProfile.Endpoints.OpenAIResponses != "" {
 				cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: discovered.CodexExecutable, Targets: discovered.CodexTargets}
 				newCodexTargets = discovered.CodexTargets
 			}
@@ -257,7 +281,11 @@ func newRepairCommand(app *App) *cobra.Command {
 			r.Section("处理结果")
 			r.Status(presentation.OK, "客户端", "已重新发现")
 			r.Status(presentation.OK, "配置", "已同步")
-			r.Status(presentation.OK, "认证", "已刷新")
+			authentication := "未改动"
+			if codexAuthenticationChanged(before, cfg) {
+				authentication = "已绑定"
+			}
+			r.Status(presentation.OK, "认证", authentication)
 			r.Next("aigw check")
 			return nil
 		},

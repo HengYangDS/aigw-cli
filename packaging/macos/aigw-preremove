@@ -1,9 +1,0 @@
-#!/bin/sh
-set -eu
-for home in /Users/*; do
-  shim="$home/.local/bin/claude"
-  if [ -f "$shim" ] && grep -q 'AIGW managed Claude shim' "$shim"; then
-    rm -f "$shim"
-  fi
-done
-exit 0

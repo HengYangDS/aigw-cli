@@ -1,8 +1,7 @@
 #!/bin/sh
 set -eu
-mkdir -p "$HOME/.local/bin" 2>/dev/null || true
 cat <<'MSG'
 AIGW installed to /usr/local/bin/aigw.
 Run: aigw setup
-Claude shim is created later in your user bin directory by aigw setup/repair.
+Claude shim is created later by the target user's aigw setup/repair command.
 MSG

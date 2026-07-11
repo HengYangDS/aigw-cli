@@ -62,3 +62,26 @@ func TestManagerRefusesForeignClaudeShim(t *testing.T) {
 		t.Fatalf("disable error = %v", err)
 	}
 }
+
+func TestManagerReportsOnlyAnOwnedClaudeShimAsReady(t *testing.T) {
+	dir := t.TempDir()
+	manager := shims.Manager{GOOS: "linux", BinDir: dir, AIGWExecutable: filepath.Join(dir, "aigw")}
+	ready, err := manager.ClaudeShimReady()
+	if err != nil || ready {
+		t.Fatalf("missing shim readiness = %v, %v", ready, err)
+	}
+	if _, err := manager.EnableClaude(); err != nil {
+		t.Fatal(err)
+	}
+	ready, err = manager.ClaudeShimReady()
+	if err != nil || !ready {
+		t.Fatalf("owned shim readiness = %v, %v", ready, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "claude"), []byte("foreign launcher"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ready, err = manager.ClaudeShimReady()
+	if err != nil || ready {
+		t.Fatalf("foreign shim readiness = %v, %v", ready, err)
+	}
+}

@@ -17,6 +17,20 @@ type Manager struct {
 	AIGWExecutable string
 }
 
+// ClaudeShimReady reports whether the expected launcher exists and is owned
+// by AIGW. A different executable named "claude" is not a substitute: it
+// cannot provide AIGW's process-bound credential mapping.
+func (m Manager) ClaudeShimReady() (bool, error) {
+	data, err := os.ReadFile(m.claudePath())
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("inspect Claude launcher: %w", err)
+	}
+	return strings.Contains(string(data), marker), nil
+}
+
 func (m Manager) EnableClaude() (string, error) {
 	path := m.claudePath()
 	if data, err := os.ReadFile(path); err == nil && !strings.Contains(string(data), marker) {
