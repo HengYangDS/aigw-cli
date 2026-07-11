@@ -25,14 +25,12 @@ func newCheckCommand(app *App) *cobra.Command {
 			if len(cfg.Profiles) == 0 {
 				return fmt.Errorf("尚未配置；运行 `aigw`")
 			}
-			profile, err := firstCheckProfile(cfg)
+			runtime, err := firstCheckRuntime(cfg)
 			if err != nil {
 				return err
 			}
-			accountName := profile.Account
-			if accountName == "" {
-				accountName = profile.ID
-			}
+			accountName := runtime.AccountID
+			providerAccount := cfg.Accounts[accountName]
 			token, err := app.Secrets.Get(accountName)
 			if err != nil {
 				return fmt.Errorf("系统密钥缺失\n修复：aigw rotate %s", accountName)
@@ -41,18 +39,18 @@ func newCheckCommand(app *App) *cobra.Command {
 			r.Title("AIGW", "健康检查")
 			r.Section("配置")
 			r.Status(presentation.OK, "配置文件", "正常")
-			r.Row("当前服务", profile.Label)
+			r.Row("当前服务", runtime.ProfileLabel)
 			r.Status(presentation.OK, "系统密钥", "可用")
 			r.Section("客户端")
 			clientCount := 0
 			for _, client := range []string{domain.ClientClaude, domain.ClientCodex} {
 				adapter := cfg.Adapters[client]
 				if adapter.Enabled {
-					clientProfile, _, resolveErr := cfg.Resolve(client, "")
+					clientRuntime, _, resolveErr := cfg.ResolveRuntime(client, "")
 					if resolveErr != nil {
 						return problem(title(client)+" 路由未解析", resolveErr.Error(), title(client)+" 无法确定应使用的 Profile。", "aigw use <profile> --for "+client, resolveErr)
 					}
-					ready, issue := adapterRouteReady(app, cfg, client, clientProfile)
+					ready, issue := adapterRouteReady(app, cfg, client, clientRuntime)
 					if !ready {
 						fix := "aigw repair"
 						impact := title(client) + " 无法继承 AIGW 的路由、Token 或配置投影。"
@@ -68,7 +66,7 @@ func newCheckCommand(app *App) *cobra.Command {
 					r.Status(presentation.Info, title(client), "未启用")
 				}
 			}
-			result := diagnostics.Probe(cmd.Context(), app.HTTP, profile, token)
+			result := diagnostics.Probe(cmd.Context(), app.HTTP, runtime, token)
 			if result.Kind != diagnostics.Healthy {
 				evidence := result.Detail
 				if result.HTTPStatus != 0 {
@@ -81,15 +79,15 @@ func newCheckCommand(app *App) *cobra.Command {
 			}
 			r.Section("网关")
 			r.Status(presentation.OK, "API Token", "认证正常")
-			if profile.AccountProbe != nil && app.Accounts.Has(accountName) {
+			if providerAccount.AccountProbe != nil && app.Accounts.Has(accountName) {
 				r.Status(presentation.OK, "精确余额", "已启用")
-			} else if profile.AccountProbe != nil {
+			} else if providerAccount.AccountProbe != nil {
 				r.Status(presentation.Warn, "精确余额", "未启用")
 				r.Detail("aigw account connect " + accountName)
 			}
 			r.Section("结果")
 			r.Success("一切正常")
-			if profile.AccountProbe != nil {
+			if providerAccount.AccountProbe != nil {
 				r.Next("aigw balance " + accountName)
 			}
 			return nil
@@ -196,8 +194,8 @@ func newBalanceCommand(app *App) *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 15*time.Second)
 		defer cancel()
-		profile := domain.Profile{ID: accountName, Label: providerAccount.Label, Account: accountName, Endpoints: providerAccount.Endpoints, AccountProbe: providerAccount.AccountProbe}
-		report, err := account.Probe(ctx, app.HTTP, profile, apiToken, credential)
+		providerAccount.ID = accountName
+		report, err := account.Probe(ctx, app.HTTP, providerAccount, apiToken, credential)
 		if err != nil {
 			return err
 		}
@@ -243,15 +241,15 @@ func newRepairCommand(app *App) *cobra.Command {
 			}
 			before := cloneConfig(cfg)
 			discovered := app.Discovery.Discover()
-			claudeProfile, _, claudeRouteErr := cfg.Resolve(domain.ClientClaude, "")
-			codexProfile, _, codexRouteErr := cfg.Resolve(domain.ClientCodex, "")
+			claudeRuntime, _, claudeRouteErr := cfg.ResolveRuntime(domain.ClientClaude, "")
+			codexRuntime, _, codexRouteErr := cfg.ResolveRuntime(domain.ClientCodex, "")
 			newClaude := false
 			claudeAdapter := cfg.Adapters[domain.ClientClaude]
 			claudeExecutable := claudeAdapter.Executable
 			if claudeExecutable == "" {
 				claudeExecutable = discovered.ClaudeExecutable
 			}
-			if claudeRouteErr == nil && claudeExecutable != "" && claudeProfile.Endpoints.Anthropic != "" {
+			if claudeRouteErr == nil && claudeExecutable != "" && claudeRuntime.Endpoint != "" {
 				if !claudeAdapter.Enabled {
 					newClaude = true
 				}
@@ -261,7 +259,7 @@ func newRepairCommand(app *App) *cobra.Command {
 				}
 			}
 			newCodexTargets := []string{}
-			if codexRouteErr == nil && discovered.CodexExecutable != "" && len(discovered.CodexTargets) > 0 && codexProfile.Endpoints.OpenAIResponses != "" {
+			if codexRouteErr == nil && discovered.CodexExecutable != "" && len(discovered.CodexTargets) > 0 && codexRuntime.Endpoint != "" {
 				cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: discovered.CodexExecutable, Targets: discovered.CodexTargets}
 				newCodexTargets = discovered.CodexTargets
 			}
@@ -321,12 +319,12 @@ func newUpdateCommand(app *App) *cobra.Command {
 	}
 }
 
-func firstCheckProfile(cfg domain.Config) (domain.Profile, error) {
+func firstCheckRuntime(cfg domain.Config) (domain.Runtime, error) {
 	for _, client := range []string{domain.ClientCodex, domain.ClientClaude} {
-		profile, _, err := cfg.Resolve(client, "")
+		runtime, _, err := cfg.ResolveRuntime(client, "")
 		if err == nil {
-			return profile, nil
+			return runtime, nil
 		}
 	}
-	return domain.Profile{}, fmt.Errorf("当前路由没有可测试端点；运行 `aigw use` 选择模型 Profile")
+	return domain.Runtime{}, fmt.Errorf("当前路由没有可测试端点；运行 `aigw use` 选择模型 Profile")
 }

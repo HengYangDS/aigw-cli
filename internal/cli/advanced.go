@@ -112,12 +112,12 @@ func newProfileShowCommand(app *App) *cobra.Command {
 }
 
 func newProfileEditCommand(app *App) *cobra.Command {
-	var label, openAIURL, anthropicURL string
+	var label string
 	cmd := &cobra.Command{
-		Use: "edit <profile>", Short: "Edit profile label or endpoints", Args: cobra.ExactArgs(1),
+		Use: "edit <profile>", Short: "Edit a runtime profile label", Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			if label == "" && openAIURL == "" && anthropicURL == "" {
-				return fmt.Errorf("nothing to edit; provide --label, --openai-url, or --anthropic-url")
+			if label == "" {
+				return fmt.Errorf("nothing to edit; provide --label; use `aigw account edit <account>` for endpoints")
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -130,12 +130,6 @@ func newProfileEditCommand(app *App) *cobra.Command {
 			}
 			if label != "" {
 				profile.Label = label
-			}
-			if openAIURL != "" {
-				profile.Endpoints.OpenAIResponses = strings.TrimRight(openAIURL, "/")
-			}
-			if anthropicURL != "" {
-				profile.Endpoints.Anthropic = strings.TrimRight(anthropicURL, "/")
 			}
 			cfg.Profiles[args[0]] = profile
 			if err := commitConfigAndSync(context.Background(), app, before, cfg, "profile"); err != nil {
@@ -150,8 +144,6 @@ func newProfileEditCommand(app *App) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&label, "label", "", "new display label")
-	cmd.Flags().StringVar(&openAIURL, "openai-url", "", "new OpenAI Responses URL")
-	cmd.Flags().StringVar(&anthropicURL, "anthropic-url", "", "new Anthropic URL")
 	return cmd
 }
 
@@ -335,17 +327,14 @@ func newAdapterEnableCommand(app *App) *cobra.Command {
 		if current := before.Adapters[client]; current.Enabled {
 			return fmt.Errorf("%s adapter is already enabled; disable it before changing its executable or targets", title(client))
 		}
-		profile, _, err := cfg.Resolve(client, "")
+		runtime, _, err := cfg.ResolveRuntime(client, "")
 		if err != nil {
 			return err
 		}
-		if _, err := profile.EndpointFor(client); err != nil {
-			return err
+		if runtime.Endpoint == "" {
+			return fmt.Errorf("profile %q has no %s endpoint", runtime.ProfileID, title(client))
 		}
-		accountName := profile.Account
-		if accountName == "" {
-			accountName = profile.ID
-		}
+		accountName := runtime.AccountID
 		if !app.Secrets.Has(accountName) {
 			return fmt.Errorf("account %q has no token; repair with `aigw rotate %s`", accountName, accountName)
 		}
@@ -573,19 +562,16 @@ func RunClaude(app *App, args []string) error {
 	if !adapter.Enabled || adapter.Executable == "" {
 		return fmt.Errorf("Claude adapter is disabled; run `aigw adapter enable claude --executable <real-claude>`")
 	}
-	profile, _, err := cfg.Resolve(domain.ClientClaude, "")
+	runtime, _, err := cfg.ResolveRuntime(domain.ClientClaude, "")
 	if err != nil {
 		return err
 	}
-	accountName := profile.Account
-	if accountName == "" {
-		accountName = profile.ID
-	}
+	accountName := runtime.AccountID
 	token, err := app.Secrets.Get(accountName)
 	if err != nil {
 		return fmt.Errorf("Claude route token unavailable: %w; repair with `aigw rotate %s`", err, accountName)
 	}
-	plan, err := adapters.ClaudePlan(adapter.Executable, args, os.Environ(), profile, token)
+	plan, err := adapters.ClaudePlan(adapter.Executable, args, os.Environ(), runtime, token)
 	if err != nil {
 		return err
 	}

@@ -129,7 +129,6 @@ type legacyProfile struct {
 	Label    string                       `json:"label"`
 	BaseURL  string                       `json:"base_url"`
 	Adapters map[string]map[string]string `json:"adapters"`
-	Proxy    map[string]json.RawMessage   `json:"proxy"`
 }
 
 func MigrateLegacyV2(data []byte) (domain.Config, error) {
@@ -149,17 +148,6 @@ func MigrateLegacyV2(data []byte) (domain.Config, error) {
 		}
 		if claude := source.Adapters[domain.ClientClaude]; claude != nil {
 			account.Endpoints.Anthropic = claude["base_url"]
-		}
-		if enabledRaw, ok := source.Proxy["codex_responses"]; ok {
-			var enabled bool
-			_ = json.Unmarshal(enabledRaw, &enabled)
-			if enabled {
-				var proxyURL string
-				_ = json.Unmarshal(source.Proxy["url"], &proxyURL)
-				if proxyURL != "" {
-					account.Endpoints.OpenAIResponses = proxyURL
-				}
-			}
 		}
 		cfg.Accounts[name] = account
 		cfg.Profiles[name] = domain.Profile{Label: source.Label, Account: name}
