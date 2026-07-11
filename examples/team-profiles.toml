@@ -1,5 +1,5 @@
 version = 1
-recommended_default = "gpt-5.6-sol-cdx"
+recommended_default = "gpt-5.6-terra-cdx"
 
 [accounts."team-gateway"]
 label = "Team Gateway"
@@ -8,32 +8,18 @@ label = "Team Gateway"
 openai_responses = "https://gateway.example/v1"
 anthropic = "https://gateway.example"
 
-[profiles."gpt-5.6-sol-cdx"]
-label = "GPT-5.6 Sol Codex"
-account = "team-gateway"
-client = "codex"
-
-[profiles."gpt-5.6-sol-cdx".models]
-codex = "gpt-5.6-sol-cdx"
-
 [profiles."gpt-5.6-terra-cdx"]
 label = "GPT-5.6 Terra Codex"
+purpose = "Codex 代码与工程"
 account = "team-gateway"
 client = "codex"
 
 [profiles."gpt-5.6-terra-cdx".models]
 codex = "gpt-5.6-terra-cdx"
 
-[profiles."gpt-5.5"]
-label = "GPT-5.5"
-account = "team-gateway"
-client = "codex"
-
-[profiles."gpt-5.5".models]
-codex = "gpt-5.5"
-
 [profiles."claude-fable-5"]
 label = "Claude Fable 5 (recommended)"
+purpose = "默认 Agent"
 account = "team-gateway"
 client = "claude"
 
@@ -42,6 +28,7 @@ claude = "claude-fable-5"
 
 [profiles."claude-opus-4-8-thinking"]
 label = "Claude Opus 4.8 Thinking"
+purpose = "复杂推理（按需）"
 account = "team-gateway"
 client = "claude"
 
@@ -50,6 +37,7 @@ claude = "claude-opus-4-8-thinking"
 
 [profiles."claude-sonnet-5"]
 label = "Claude Sonnet 5"
+purpose = "平衡备选（按需）"
 account = "team-gateway"
 client = "claude"
 

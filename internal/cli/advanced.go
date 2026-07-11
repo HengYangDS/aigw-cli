@@ -23,7 +23,7 @@ func newProfileCommand(app *App) *cobra.Command {
 }
 
 func newProfileAddCommand(app *App) *cobra.Command {
-	var accountName, client, model, label string
+	var accountName, client, model, label, purpose string
 	cmd := &cobra.Command{
 		Use: "add <profile>", Short: "向既有 Account 添加模型 Profile", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -62,7 +62,7 @@ func newProfileAddCommand(app *App) *cobra.Command {
 				models.Codex = model
 			}
 			before := cloneConfig(cfg)
-			cfg.Profiles[profileName] = domain.Profile{Label: label, Account: accountName, Client: client, Models: models}
+			cfg.Profiles[profileName] = domain.Profile{Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Client: client, Models: models}
 			if err := commitConfigAndSync(cmd.Context(), app, before, cfg, "profile add"); err != nil {
 				return err
 			}
@@ -71,6 +71,9 @@ func newProfileAddCommand(app *App) *cobra.Command {
 			r.Row("Profile", profileName)
 			r.Row("Account", accountName)
 			r.Row("模型", model)
+			if purpose := strings.TrimSpace(purpose); purpose != "" {
+				r.Row("用途", purpose)
+			}
 			r.Success("复用了现有 Account Token；未改变当前路由")
 			r.Next("aigw use " + profileName + " --for " + client)
 			return nil
@@ -80,6 +83,7 @@ func newProfileAddCommand(app *App) *cobra.Command {
 	cmd.Flags().StringVar(&client, "for", "", "客户端：claude 或 codex")
 	cmd.Flags().StringVar(&model, "model", "", "上游模型 ID")
 	cmd.Flags().StringVar(&label, "label", "", "显示名称")
+	cmd.Flags().StringVar(&purpose, "purpose", "", "用途说明（只影响展示）")
 	return cmd
 }
 
@@ -155,7 +159,7 @@ func newProfileListCommand(app *App) *cobra.Command {
 					secret = "Token 可用"
 				}
 				r.StatusLine(state, "Profile", name)
-				r.Detail(cfg.Profiles[name].Label + " · " + stateText + " · Account " + accountName + " · " + secret)
+				r.Detail(profileChoiceLabel(cfg.Profiles[name]) + " · " + stateText + " · Account " + accountName + " · " + secret)
 			}
 			r.Next("aigw use")
 			return nil
@@ -182,13 +186,16 @@ func newProfileShowCommand(app *App) *cobra.Command {
 			}
 			account := cfg.Accounts[accountName]
 			if jsonMode {
-				return json.NewEncoder(app.Out).Encode(map[string]any{"id": args[0], "label": profile.Label, "account": accountName, "models": profile.Models, "endpoints": account.Endpoints, "secret_available": app.Secrets.Has(accountName)})
+				return json.NewEncoder(app.Out).Encode(map[string]any{"id": args[0], "label": profile.Label, "purpose": profile.Purpose, "account": accountName, "models": profile.Models, "endpoints": account.Endpoints, "secret_available": app.Secrets.Has(accountName)})
 			}
 			r := renderer(app)
 			r.Title("AIGW", "服务详情")
 			r.Section("Profile")
 			r.Row("ID", args[0])
 			r.Row("名称", profile.Label)
+			if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
+				r.Row("用途", purpose)
+			}
 			r.Row("Account", accountName)
 			if profile.ModelFor(domain.ClientCodex) != "" {
 				r.Row("Codex 模型", profile.ModelFor(domain.ClientCodex))
@@ -217,12 +224,12 @@ func newProfileShowCommand(app *App) *cobra.Command {
 }
 
 func newProfileEditCommand(app *App) *cobra.Command {
-	var label string
+	var label, purpose string
 	cmd := &cobra.Command{
 		Use: "edit <profile>", Short: "Edit a runtime profile label", Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			if label == "" {
-				return fmt.Errorf("nothing to edit; provide --label; use `aigw account edit <account>` for endpoints")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if label == "" && !cmd.Flags().Changed("purpose") {
+				return fmt.Errorf("nothing to edit; provide --label or --purpose; use `aigw account edit <account>` for endpoints")
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -236,19 +243,28 @@ func newProfileEditCommand(app *App) *cobra.Command {
 			if label != "" {
 				profile.Label = label
 			}
+			if cmd.Flags().Changed("purpose") {
+				profile.Purpose = strings.TrimSpace(purpose)
+			}
 			cfg.Profiles[args[0]] = profile
+			projectionChanged := codexProjectionChanged(before, cfg)
 			if err := commitConfigAndSync(context.Background(), app, before, cfg, "profile"); err != nil {
 				return err
 			}
 			r := renderer(app)
 			r.Title("AIGW", "服务已更新")
 			r.Row("Profile", args[0])
-			r.Success("客户端配置已同步")
+			if projectionChanged {
+				r.Success("客户端配置已同步")
+			} else {
+				r.Success("展示信息已保存；未触碰客户端配置")
+			}
 			r.Next("aigw check")
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&label, "label", "", "new display label")
+	cmd.Flags().StringVar(&purpose, "purpose", "", "用途说明（传入空值可清除）")
 	return cmd
 }
 
