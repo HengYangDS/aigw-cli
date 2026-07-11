@@ -12,12 +12,16 @@ func TestParseTeamManifestAndMergePreservesPersonalState(t *testing.T) {
 	raw := []byte(`version = 1
 recommended_default = "team"
 
-[profiles.team]
+[accounts.team]
 label = "Team Gateway"
 
-[profiles.team.endpoints]
+[accounts.team.endpoints]
 openai_responses = "https://gateway.test/v1"
 anthropic = "https://gateway.test"
+
+[profiles.team]
+label = "Team Gateway"
+account = "team"
 `)
 	m, err := manifest.Parse(raw)
 	if err != nil {
@@ -26,7 +30,8 @@ anthropic = "https://gateway.test"
 	cfg := domain.NewConfig()
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/personal/claude"}
 	cfg.Routes.Overrides[domain.ClientClaude] = "personal"
-	cfg.Profiles["personal"] = domain.Profile{Label: "Personal", Endpoints: domain.Endpoints{Anthropic: "https://personal.test"}}
+	cfg.Accounts["personal"] = domain.Account{Label: "Personal", Endpoints: domain.Endpoints{Anthropic: "https://personal.test"}}
+	cfg.Profiles["personal"] = domain.Profile{Label: "Personal", Account: "personal"}
 	cfg.Routes.Default = "personal"
 	got, err := manifest.Merge(cfg, m)
 	if err != nil {
@@ -53,9 +58,26 @@ func TestParseRejectsCredentialShapedFields(t *testing.T) {
 	}
 }
 
+func TestParseRejectsProfileOwnedEndpointResidue(t *testing.T) {
+	raw := []byte(`version = 1
+recommended_default = "team"
+
+[profiles.team]
+label = "Team Gateway"
+account = "team"
+
+[profiles.team.endpoints]
+openai_responses = "https://gateway.test/v1"
+`)
+	if _, err := manifest.Parse(raw); err == nil {
+		t.Fatalf("legacy Profile endpoint error = %v", err)
+	}
+}
+
 func TestExportOmitsSecretsAdaptersAndOverrides(t *testing.T) {
 	cfg := domain.NewConfig()
-	cfg.Profiles["team"] = domain.Profile{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Profiles["team"] = domain.Profile{Label: "Team", Account: "team"}
 	cfg.Routes.Default = "team"
 	cfg.Routes.Overrides[domain.ClientClaude] = "team"
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/personal/claude"}

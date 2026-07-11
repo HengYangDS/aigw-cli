@@ -94,6 +94,13 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, *secrets.Memo
 	return app, out, secretStore, runner
 }
 
+func addAccountProfile(cfg *domain.Config, profileName, accountName, label string, endpoints domain.Endpoints, client string, models domain.Models) {
+	if _, exists := cfg.Accounts[accountName]; !exists {
+		cfg.Accounts[accountName] = domain.Account{Label: label, Endpoints: endpoints}
+	}
+	cfg.Profiles[profileName] = domain.Profile{Label: label, Account: accountName, Client: client, Models: models}
+}
+
 func execute(t *testing.T, app *cli.App, args ...string) error {
 	t.Helper()
 	return cli.Execute(app, args)
@@ -128,8 +135,8 @@ func TestAddRefusesNonInteractiveImplicitTokenInput(t *testing.T) {
 func TestUseSetsDefaultOrClientOverride(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["one"] = domain.Profile{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Profiles["two"] = domain.Profile{Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.test"}}
+	addAccountProfile(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, "", domain.Models{})
+	addAccountProfile(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, "", domain.Models{})
 	cfg.Routes.Default = "one"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -160,8 +167,8 @@ func TestUseRollsBackRouteWhenAdapterSyncFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig()
-	cfg.Profiles["one"] = domain.Profile{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-	cfg.Profiles["two"] = domain.Profile{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
+	addAccountProfile(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, "", domain.Models{})
+	addAccountProfile(&cfg, "two", "two", "Two", domain.Endpoints{OpenAIResponses: "https://two.test/v1"}, "", domain.Models{})
 	cfg.Routes.Default = "one"
 	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/missing/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
@@ -255,7 +262,7 @@ func TestRotateRollsBackSecretWhenAdapterSyncFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig()
-	cfg.Profiles["one"] = domain.Profile{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	addAccountProfile(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, "", domain.Models{})
 	cfg.Routes.Default = "one"
 	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/missing/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
@@ -276,7 +283,7 @@ func TestRotateRollsBackSecretWhenAdapterSyncFails(t *testing.T) {
 func TestStatusShowsInheritanceAndJSONNeverContainsToken(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["dmx"] = domain.Profile{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}}
+	addAccountProfile(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, "", domain.Models{})
 	cfg.Routes.Default = "dmx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -300,7 +307,7 @@ func TestStatusShowsInheritanceAndJSONNeverContainsToken(t *testing.T) {
 func TestTestCommandAuthenticatesWithoutPrintingAuthorizationHeader(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["dmx"] = domain.Profile{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	addAccountProfile(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, "", domain.Models{})
 	cfg.Routes.Default = "dmx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -414,11 +421,11 @@ func TestVerifyAllWritesVerifiedCheckpoint(t *testing.T) {
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	codexProfile, _, err := cfg.Resolve(domain.ClientCodex, "")
+	codexRuntime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := adapters.SyncCodexConfig(codexTarget, codexProfile); err != nil {
+	if err := adapters.SyncCodexConfig(codexTarget, codexRuntime); err != nil {
 		t.Fatal(err)
 	}
 	if err := secretStore.Set("dmx", "verify-token"); err != nil {
@@ -553,7 +560,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 func TestTestCommandRejectsAuthenticationFailure(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["dmx"] = domain.Profile{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
+	addAccountProfile(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{Anthropic: "https://example.test"}, "", domain.Models{})
 	cfg.Routes.Default = "dmx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

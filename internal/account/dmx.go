@@ -28,14 +28,14 @@ type Report struct {
 	TokenExpiredAt      int64
 }
 
-func Probe(ctx context.Context, client HTTPDoer, profile domain.Profile, apiToken string, credential Credential) (Report, error) {
-	if profile.AccountProbe == nil {
-		return Report{}, fmt.Errorf("profile %q has no account probe", profile.ID)
+func Probe(ctx context.Context, client HTTPDoer, providerAccount domain.Account, apiToken string, credential Credential) (Report, error) {
+	if providerAccount.AccountProbe == nil {
+		return Report{}, fmt.Errorf("account %q has no account probe", providerAccount.ID)
 	}
-	if profile.AccountProbe.Kind != "dmxapi" {
-		return Report{}, fmt.Errorf("unsupported account probe %q", profile.AccountProbe.Kind)
+	if providerAccount.AccountProbe.Kind != "dmxapi" {
+		return Report{}, fmt.Errorf("unsupported account probe %q", providerAccount.AccountProbe.Kind)
 	}
-	base := strings.TrimRight(profile.AccountProbe.BaseURL, "/")
+	base := strings.TrimRight(providerAccount.AccountProbe.BaseURL, "/")
 	var user struct {
 		Success bool `json:"success"`
 		Data    struct {
