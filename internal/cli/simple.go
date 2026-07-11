@@ -44,7 +44,7 @@ func newCheckCommand(app *App) *cobra.Command {
 			r.Status(presentation.OK, "系统密钥", "可用")
 			r.Section("客户端")
 			clientCount := 0
-			for _, client := range []string{domain.ClientClaude, domain.ClientCodex} {
+			for _, client := range domain.AdmittedClientIDs() {
 				adapter := cfg.Adapters[client]
 				if adapter.Enabled {
 					clientRuntime, _, resolveErr := cfg.ResolveRuntime(client, "")

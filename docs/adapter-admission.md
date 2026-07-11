@@ -12,6 +12,10 @@ Provider 支持某协议不等于 AIGW 已支持一个新客户端。只有当�
 Codex Adapter 可以被启用；其他客户端不能通过手工填写模型名、复用 Claude/Codex
 目录或把 OpenAI-compatible 宣称为 Codex Responses 来绕过准入。
 
+运行时将已准入客户端收敛在一个静态注册表中。状态、诊断、Profile/Route 校验和
+Adapter 列表均从该表读取；新增候选模型不会改变这个列表。只有新 Adapter 完整通过
+本页的证据记录并在代码中注册后，它才会出现在正常命令和团队清单的可选范围。
+
 ## 当前已准入边界
 
 | 客户端 | 配置/认证边界 | 可使用的 Provider Account |
