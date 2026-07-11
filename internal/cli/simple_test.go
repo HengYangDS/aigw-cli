@@ -193,7 +193,7 @@ func TestRepairRestoresClaudeShimWithoutReplacingConfiguredExecutable(t *testing
 func TestRepairCanRestoreClaudeWithoutAnyCodexProfile(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	addAccountProfile(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, domain.ClientClaude, domain.Models{Claude: "claude-test"})
+	addAccountProfile(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, domain.ClientClaude, domain.Models{domain.ClientClaude: "claude-test"})
 	cfg.Routes.Default = "claude"
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
@@ -219,7 +219,7 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexProfile(t *testing.T) {
 func TestStatusWarnsWhenClaudePathActivationIsMissing(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	addAccountProfile(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, domain.ClientClaude, domain.Models{Claude: "claude-test"})
+	addAccountProfile(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, domain.ClientClaude, domain.Models{domain.ClientClaude: "claude-test"})
 	cfg.Routes.Default = "claude"
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
@@ -252,7 +252,7 @@ func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT Profile", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT Profile", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
 	cfg.Routes.Default = "gpt-5.6-sol-cdx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -273,8 +273,8 @@ func TestStatusGuidesClientSpecificRouteInsteadOfBlankRepair(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
-	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-fable-5"}}
+	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
+	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-fable-5"}}
 	cfg.Routes.Default = "gpt-5.6-sol-cdx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -301,7 +301,7 @@ func TestStatusWarnsWhenEnabledClaudeAdapterHasNoOwnedShim(t *testing.T) {
 	app.Shims.AIGWExecutable = filepath.Join(shimDir, "aigw")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
-	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude Fable", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-fable-5"}}
+	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude Fable", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-fable-5"}}
 	cfg.Routes.Default = "claude-fable-5"
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
@@ -327,7 +327,7 @@ func TestCheckFailsWhenEnabledClaudeAdapterHasNoOwnedShim(t *testing.T) {
 	app.Shims.AIGWExecutable = filepath.Join(shimDir, "aigw")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude Fable", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-fable-5"}}
+	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude Fable", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-fable-5"}}
 	cfg.Routes.Default = "claude-fable-5"
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
@@ -347,7 +347,7 @@ func TestCheckSuggestsAccountSpecificBalanceCommand(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
 	cfg.Routes.Default = "gpt-5.6-sol-cdx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -366,7 +366,7 @@ func TestStatusSuggestsAccountSpecificDiagnostics(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
 	cfg.Routes.Default = "gpt-5.6-sol-cdx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -389,7 +389,7 @@ func TestCheckKeepsGenericHealthAvailableWhenExactDiagnosticDriverIsNotBundled(t
 		Endpoints:    domain.Endpoints{OpenAIResponses: "https://future.test/v1"},
 		AccountProbe: &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://future.test"},
 	}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "future", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "future", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
 	cfg.Routes.Default = "gpt"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -413,7 +413,7 @@ func TestBalanceExplainsWhenConfiguredDiagnosticDriverIsNotBundled(t *testing.T)
 		Endpoints:    domain.Endpoints{OpenAIResponses: "https://future.test/v1"},
 		AccountProbe: &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://future.test"},
 	}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "future", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "future", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
 	cfg.Routes.Default = "gpt"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
