@@ -125,14 +125,12 @@ func newUseCommand(app *App) *cobra.Command {
 				if !app.Interactive {
 					return fmt.Errorf("account %q has no token; repair with `aigw rotate %s`", accountName, accountName)
 				}
-				profile := cfg.Profiles[name]
-				profile.ID = name
-				profile.Endpoints = providerAccount.Endpoints
 				token, err := app.Prompt.Secret("请粘贴 " + providerAccount.Label + " Token：")
 				if err != nil {
 					return err
 				}
-				if err := verifyCredential(context.Background(), app, profile, token); err != nil {
+				providerAccount.ID = accountName
+				if err := verifyCredential(context.Background(), app, providerAccount, token); err != nil {
 					return fmt.Errorf("Token 验证失败：%w", err)
 				}
 				if err := app.Secrets.Set(accountName, token); err != nil {
@@ -210,8 +208,8 @@ func newRotateCommand(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			profile := domain.Profile{ID: accountName, Label: account.Label, Account: accountName, Endpoints: account.Endpoints, AccountProbe: account.AccountProbe}
-			if err := verifyCredential(context.Background(), app, profile, token); err != nil {
+			account.ID = accountName
+			if err := verifyCredential(context.Background(), app, account, token); err != nil {
 				return fmt.Errorf("Token 验证失败：%w", err)
 			}
 			if err := app.Secrets.Set(accountName, token); err != nil {
@@ -307,19 +305,14 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 	}
 	result := statusOutput{ConfigPath: app.Config.Path(), Default: cfg.Routes.Default, Profiles: len(cfg.Profiles), Routes: map[string]routeStatus{}}
 	for _, client := range []string{domain.ClientClaude, domain.ClientCodex} {
-		profile, inherited, resolveErr := cfg.Resolve(client, "")
+		runtime, inherited, resolveErr := cfg.ResolveRuntime(client, "")
 		if resolveErr != nil {
 			suggested := firstProfileForClient(cfg, client)
 			result.Routes[client] = routeStatus{Inherited: true, NeedsSelection: suggested != "", SuggestedProfile: suggested}
 			continue
 		}
-		_, endpointErr := profile.EndpointFor(client)
-		accountName := profile.Account
-		if accountName == "" {
-			accountName = profile.ID
-		}
-		adapterReady, adapterIssue := adapterRouteReady(app, cfg, client, profile)
-		result.Routes[client] = routeStatus{Profile: profile.ID, Inherited: inherited, SecretAvailable: app.Secrets.Has(accountName), EndpointReady: endpointErr == nil, AdapterReady: adapterReady, AdapterIssue: adapterIssue}
+		adapterReady, adapterIssue := adapterRouteReady(app, cfg, client, runtime)
+		result.Routes[client] = routeStatus{Profile: runtime.ProfileID, Inherited: inherited, SecretAvailable: app.Secrets.Has(runtime.AccountID), EndpointReady: runtime.Endpoint != "", AdapterReady: adapterReady, AdapterIssue: adapterIssue}
 	}
 	if jsonMode {
 		enc := json.NewEncoder(app.Out)
@@ -339,9 +332,6 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 	r.Section("服务")
 	current := cfg.Profiles[result.Default]
 	accountName := current.Account
-	if accountName == "" {
-		accountName = result.Default
-	}
 	account := cfg.Accounts[accountName]
 	r.Row("当前 Profile", current.Label)
 	r.Row("Profile", result.Default)
@@ -410,7 +400,7 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 // adapterRouteReady checks all local conditions that make an enabled adapter
 // usable by the selected route. It is deliberately read-only and never starts
 // or reloads a client process.
-func adapterRouteReady(app *App, cfg domain.Config, client string, profile domain.Profile) (bool, string) {
+func adapterRouteReady(app *App, cfg domain.Config, client string, runtime domain.Runtime) (bool, string) {
 	adapter := cfg.Adapters[client]
 	if !adapter.Enabled {
 		return false, title(client) + " adapter 未启用"
@@ -439,7 +429,7 @@ func adapterRouteReady(app *App, cfg domain.Config, client string, profile domai
 			return false, "Codex 配置目标缺失"
 		}
 		for _, target := range adapter.Targets {
-			if err := adapters.ValidateCodexConfig(target, profile); err != nil {
+			if err := adapters.ValidateCodexConfig(target, runtime); err != nil {
 				return false, "Codex 配置投影漂移：" + err.Error()
 			}
 		}
@@ -496,16 +486,16 @@ func newTestCommand(app *App) *cobra.Command {
 			r.Title("AIGW", "连接测试")
 			r.Section("端点")
 			for _, target := range clients {
-				profile, _, err := cfg.Resolve(target, profileName)
+				runtime, _, err := cfg.ResolveRuntime(target, profileName)
 				if err != nil {
 					return err
 				}
-				endpoint, err := profile.EndpointFor(target)
-				if err != nil {
+				endpoint := runtime.Endpoint
+				if endpoint == "" {
 					if client == "" {
 						continue
 					}
-					return err
+					return fmt.Errorf("profile %q has no %s endpoint", runtime.ProfileID, title(target))
 				}
 				testURL := endpoint
 				if target == domain.ClientCodex {
@@ -517,10 +507,7 @@ func newTestCommand(app *App) *cobra.Command {
 					cancel()
 					return err
 				}
-				accountName := profile.Account
-				if accountName == "" {
-					accountName = profile.ID
-				}
+				accountName := runtime.AccountID
 				token, err := app.Secrets.Get(accountName)
 				if err != nil {
 					cancel()
@@ -540,7 +527,7 @@ func newTestCommand(app *App) *cobra.Command {
 				if resp.StatusCode < 200 || resp.StatusCode >= 400 {
 					return fmt.Errorf("%s endpoint returned HTTP %d", target, resp.StatusCode)
 				}
-				r.Status(presentation.OK, title(target), fmt.Sprintf("%s · HTTP %d", profile.ID, resp.StatusCode))
+				r.Status(presentation.OK, title(target), fmt.Sprintf("%s · HTTP %d", runtime.ProfileID, resp.StatusCode))
 				checked++
 			}
 			if checked == 0 {
@@ -588,29 +575,26 @@ func newVerifyCommand(app *App) *cobra.Command {
 			r.Section("最小请求")
 			r.Detail("会产生一次最小模型请求；不会修改客户端配置或重启客户端。")
 			for _, target := range clients {
-				profile, _, err := cfg.Resolve(target, profileName)
+				runtime, _, err := cfg.ResolveRuntime(target, profileName)
 				if err != nil {
 					return err
 				}
-				accountName := profile.Account
-				if accountName == "" {
-					accountName = profile.ID
-				}
+				accountName := runtime.AccountID
 				token, err := app.Secrets.Get(accountName)
 				if err != nil {
 					return fmt.Errorf("account %q token unavailable: %w; repair with `aigw rotate %s`", accountName, err, accountName)
 				}
 				ctx, cancel := context.WithTimeout(cmd.Context(), 25*time.Second)
 				if target == domain.ClientCodex {
-					err = verifyCodexResponse(ctx, app, profile, token)
+					err = verifyCodexResponse(ctx, app, runtime, token)
 				} else {
-					err = verifyClaudeInvocation(ctx, app, cfg, profile, token)
+					err = verifyClaudeInvocation(ctx, app, cfg, runtime, token)
 				}
 				cancel()
 				if err != nil {
 					return err
 				}
-				r.Status(presentation.OK, title(target), profile.ID+" · 已完成")
+				r.Status(presentation.OK, title(target), runtime.ProfileID+" · 已完成")
 			}
 			if client == "all" {
 				if err := app.Config.SaveVerifiedCheckpoint(cfg, clients); err != nil {
@@ -657,26 +641,23 @@ func validateFullVerificationReadiness(app *App, cfg domain.Config) error {
 	if !codex.Enabled || codex.Executable == "" || len(codex.Targets) == 0 {
 		return fmt.Errorf("full verification requires an enabled Codex adapter with at least one target; run `aigw repair`")
 	}
-	profile, _, err := cfg.Resolve(domain.ClientCodex, "")
+	runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
 	if err != nil {
 		return fmt.Errorf("resolve Codex route for full verification: %w", err)
 	}
 	for _, target := range codex.Targets {
-		if err := adapters.ValidateCodexConfig(target, profile); err != nil {
+		if err := adapters.ValidateCodexConfig(target, runtime); err != nil {
 			return fmt.Errorf("full verification requires a synchronized Codex target %s: %w; run `aigw sync`", target, err)
 		}
 	}
 	return nil
 }
 
-func verifyCodexResponse(ctx context.Context, app *App, profile domain.Profile, token string) error {
-	endpoint, err := profile.EndpointFor(domain.ClientCodex)
-	if err != nil {
-		return err
-	}
-	model := profile.ModelFor(domain.ClientCodex)
+func verifyCodexResponse(ctx context.Context, app *App, runtime domain.Runtime, token string) error {
+	endpoint := runtime.Endpoint
+	model := runtime.Model
 	if model == "" {
-		return fmt.Errorf("profile %q has no Codex model", profile.ID)
+		return fmt.Errorf("profile %q has no Codex model", runtime.ProfileID)
 	}
 	body, err := json.Marshal(map[string]any{
 		"model":             model,
@@ -710,7 +691,7 @@ func verifyCodexResponse(ctx context.Context, app *App, profile domain.Profile, 
 		return fmt.Errorf("Codex verification response exceeded %d bytes", verificationResponseLimit)
 	}
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return fmt.Errorf("Codex model authentication rejected (HTTP %d); repair with `aigw rotate %s`", resp.StatusCode, profile.Account)
+		return fmt.Errorf("Codex model authentication rejected (HTTP %d); repair with `aigw rotate %s`", resp.StatusCode, runtime.AccountID)
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("Codex model request returned HTTP %d", resp.StatusCode)
@@ -742,7 +723,7 @@ func hasVerificationSentinel(data []byte) bool {
 	return false
 }
 
-func verifyClaudeInvocation(ctx context.Context, app *App, cfg domain.Config, profile domain.Profile, token string) error {
+func verifyClaudeInvocation(ctx context.Context, app *App, cfg domain.Config, runtime domain.Runtime, token string) error {
 	adapter := cfg.Adapters[domain.ClientClaude]
 	if !adapter.Enabled || adapter.Executable == "" {
 		return fmt.Errorf("Claude adapter is not enabled; run `aigw repair`")
@@ -754,7 +735,7 @@ func verifyClaudeInvocation(ctx context.Context, app *App, cfg domain.Config, pr
 	if !ready {
 		return fmt.Errorf("Claude shim is missing; run `aigw repair`")
 	}
-	plan, err := adapters.ClaudePlan(adapter.Executable, []string{"--print", "Reply with exactly: AIGW_OK"}, os.Environ(), profile, token)
+	plan, err := adapters.ClaudePlan(adapter.Executable, []string{"--print", "Reply with exactly: AIGW_OK"}, os.Environ(), runtime, token)
 	if err != nil {
 		return err
 	}
@@ -849,12 +830,12 @@ const codexAuthenticationTimeout = 20 * time.Second
 
 func syncAdapters(_ context.Context, app *App, cfg domain.Config) error {
 	if adapter := cfg.Adapters[domain.ClientCodex]; adapter.Enabled {
-		profile, _, err := cfg.Resolve(domain.ClientCodex, "")
+		runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
 		if err != nil {
 			return err
 		}
 		for _, target := range adapter.Targets {
-			if err := adapters.SyncCodexConfig(target, profile); err != nil {
+			if err := adapters.SyncCodexConfig(target, runtime); err != nil {
 				return err
 			}
 		}
@@ -873,14 +854,11 @@ func bindCodexAuthentication(ctx context.Context, app *App, cfg domain.Config) e
 	if adapter.Executable == "" || app.Runner == nil {
 		return fmt.Errorf("Codex authentication requires an enabled adapter executable")
 	}
-	profile, _, err := cfg.Resolve(domain.ClientCodex, "")
+	runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
 	if err != nil {
 		return err
 	}
-	accountName := profile.Account
-	if accountName == "" {
-		accountName = profile.ID
-	}
+	accountName := runtime.AccountID
 	token, err := app.Secrets.Get(accountName)
 	if err != nil {
 		return fmt.Errorf("Codex route token unavailable: %w", err)
@@ -904,14 +882,11 @@ func codexRouteAccount(cfg domain.Config) (string, bool) {
 	if !cfg.Adapters[domain.ClientCodex].Enabled {
 		return "", false
 	}
-	profile, _, err := cfg.Resolve(domain.ClientCodex, "")
+	runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
 	if err != nil {
 		return "", false
 	}
-	if profile.Account != "" {
-		return profile.Account, true
-	}
-	return profile.ID, profile.ID != ""
+	return runtime.AccountID, runtime.AccountID != ""
 }
 
 func codexAuthenticationChanged(before, after domain.Config) bool {

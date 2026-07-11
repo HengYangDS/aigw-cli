@@ -7,25 +7,24 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
 
-func ClaudePlan(executable string, args, currentEnv []string, profile domain.Profile, token string) (ProcessPlan, error) {
+func ClaudePlan(executable string, args, currentEnv []string, runtime domain.Runtime, token string) (ProcessPlan, error) {
 	if executable == "" {
 		return ProcessPlan{}, fmt.Errorf("Claude executable is not configured")
 	}
 	if token == "" {
-		return ProcessPlan{}, fmt.Errorf("profile %q has no token", profile.ID)
+		return ProcessPlan{}, fmt.Errorf("profile %q has no token", runtime.ProfileID)
 	}
-	endpoint, err := profile.EndpointFor(domain.ClientClaude)
-	if err != nil {
-		return ProcessPlan{}, err
+	if runtime.Endpoint == "" {
+		return ProcessPlan{}, fmt.Errorf("profile %q has no Claude endpoint", runtime.ProfileID)
 	}
 	env := removeEnvironment(currentEnv, "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "AIGW_ACCOUNT", "AIGW_PROFILE")
 	env = append(env,
 		"ANTHROPIC_AUTH_TOKEN="+token,
-		"ANTHROPIC_BASE_URL="+endpoint,
-		"AIGW_ACCOUNT="+profile.Account,
-		"AIGW_PROFILE="+profile.ID,
+		"ANTHROPIC_BASE_URL="+runtime.Endpoint,
+		"AIGW_ACCOUNT="+runtime.AccountID,
+		"AIGW_PROFILE="+runtime.ProfileID,
 	)
-	if model := profile.ModelFor(domain.ClientClaude); model != "" {
+	if model := runtime.Model; model != "" {
 		env = append(env, "ANTHROPIC_MODEL="+model)
 	}
 	return ProcessPlan{Executable: executable, Args: append([]string(nil), args...), Env: env, Replace: true}, nil

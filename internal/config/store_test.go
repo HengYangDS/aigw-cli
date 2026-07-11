@@ -12,6 +12,60 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
 
+func TestLoadThenSaveRemovesDuplicatedProfileEndpointResidue(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	legacy := `version = 1
+
+[accounts.gateway]
+label = "Gateway"
+
+[accounts.gateway.endpoints]
+openai_responses = "https://gateway.test/v1"
+
+[profiles.gpt]
+label = "GPT"
+account = "gateway"
+client = "codex"
+
+[profiles.gpt.models]
+codex = "gpt-test"
+
+[profiles.gpt.endpoints]
+openai_responses = "https://duplicate.test/v1"
+
+[profiles.gpt.account_probe]
+kind = "dmxapi"
+base_url = "https://duplicate.test"
+
+[routes]
+default = "gpt"
+`
+	if err := os.WriteFile(path, []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := config.NewStore(path)
+	cfg, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, residue := range []string{"[profiles.gpt.endpoints]", "[profiles.gpt.account_probe]", "https://duplicate.test"} {
+		if strings.Contains(text, residue) {
+			t.Fatalf("canonical save retained legacy Profile residue %q:\n%s", residue, text)
+		}
+	}
+	if !strings.Contains(text, "[accounts.gateway.endpoints]") || !strings.Contains(text, "https://gateway.test/v1") {
+		t.Fatalf("canonical save lost Account endpoint:\n%s", text)
+	}
+}
+
 func TestLockSerializesMutations(t *testing.T) {
 	store := config.NewStore(filepath.Join(t.TempDir(), "config.toml"))
 	unlock, err := store.Lock(context.Background())
@@ -31,11 +85,10 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "config.toml")
 	store := config.NewStore(path)
 	want := domain.Config{
-		Version: 1,
-		Profiles: map[string]domain.Profile{"dmx": {
-			Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://example.test"},
-		}},
-		Routes: domain.Routes{Default: "dmx", Overrides: map[string]string{}},
+		Version:  1,
+		Accounts: map[string]domain.Account{"dmx": {Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
+		Profiles: map[string]domain.Profile{"dmx": {Label: "DMXAPI", Account: "dmx"}},
+		Routes:   domain.Routes{Default: "dmx", Overrides: map[string]string{}},
 	}
 	if err := store.Save(want); err != nil {
 		t.Fatal(err)
@@ -76,14 +129,16 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	store := config.NewStore(path)
 	first := domain.Config{
 		Version:  1,
-		Profiles: map[string]domain.Profile{"one": {Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}},
+		Accounts: map[string]domain.Account{"one": {Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}},
+		Profiles: map[string]domain.Profile{"one": {Label: "One", Account: "one"}},
 		Routes:   domain.Routes{Default: "one", Overrides: map[string]string{}},
 	}
 	if err := store.Save(first); err != nil {
 		t.Fatal(err)
 	}
 	second := first
-	second.Profiles = map[string]domain.Profile{"two": {Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.test"}}}
+	second.Accounts = map[string]domain.Account{"two": {Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.test"}}}
+	second.Profiles = map[string]domain.Profile{"two": {Label: "Two", Account: "two"}}
 	second.Routes.Default = "two"
 	if err := store.Save(second); err != nil {
 		t.Fatal(err)

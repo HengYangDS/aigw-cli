@@ -28,8 +28,8 @@ func TestDMXProbeReturnsAccountAndCurrentTokenDetails(t *testing.T) {
 		}
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
-	profile := domain.Profile{ID: "dmx", Label: "DMXAPI", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
-	report, err := account.Probe(context.Background(), client, profile, "sk-abcd-middle-wxyz", account.Credential{SystemToken: "system-secret", UserID: "10000"})
+	providerAccount := domain.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	report, err := account.Probe(context.Background(), client, providerAccount, "sk-abcd-middle-wxyz", account.Credential{SystemToken: "system-secret", UserID: "10000"})
 	if err != nil {
 		t.Fatal(err)
 	}
