@@ -383,6 +383,9 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	if len(runner.plans) != 1 || runner.plans[0].Executable != "/opt/claude-real" || !strings.Contains(strings.Join(runner.plans[0].Args, " "), "AIGW_OK") {
 		t.Fatalf("Claude verify plan = %#v", runner.plans)
 	}
+	if runner.plans[0].Replace {
+		t.Fatal("Claude verification must capture a child process instead of replacing AIGW")
+	}
 	if strings.Contains(out.String(), "verify-token") || !strings.Contains(out.String(), "真实协议验证") {
 		t.Fatalf("verify output = %s", out.String())
 	}
