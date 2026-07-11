@@ -54,7 +54,11 @@ An Adapter projects a resolved Runtime Profile into one client boundary:
 - Claude receives `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `AIGW_ACCOUNT`, `AIGW_PROFILE`, and optional `ANTHROPIC_MODEL` only in the launched process.
 - Codex receives an AIGW-marked provider block with Account endpoint and optional model plus credentials through its official `login --with-api-key` command.
 
-Adapters never own provider secrets and never write into one another's directories. Claude shims live in AIGW's user-level shim directory, not in Codex directories.
+Adapters never own provider secrets and never write into one another's directories. Claude shims live in AIGW's dedicated data directory, not in shared `~/.local/bin` or Codex directories. Enabling the adapter adds one bounded, secret-free PATH block to the active user's shell profile so the ordinary `claude` command resolves to the shim; disabling it removes only that owned block.
+
+## Optional data-plane proxy
+
+AIGW is not a proxy and listens on no local port. Claude and Codex normally use their Account's HTTPS endpoints directly. A separately operated proxy is justified only for protocol translation, required centralized audit, or a mandated network egress path. When one is used, its endpoint is an Account URL and its port belongs to that proxy project; AIGW never manages its process lifecycle. Do not select `8888` merely as a convention—choose and reserve a port in the proxy project's deployment contract after checking local and organizational conflicts.
 
 ## Installation channel
 

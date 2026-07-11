@@ -25,7 +25,7 @@ Use hidden terminal input or pipe exactly one line with `--token-stdin`. AIGW re
 
 ## Client boundaries
 
-The Claude shim is marked as AIGW-owned and invokes the AIGW binary's hidden adapter boundary. AIGW refuses to overwrite or remove a foreign `claude` launcher. The shim is created in the user-level AIGW shim directory, not in `~/.codex` and not in package-manager owned system directories.
+The Claude shim is marked as AIGW-owned and invokes the AIGW binary's hidden adapter boundary. AIGW refuses to overwrite or remove a foreign `claude` launcher. On macOS/Linux it is created beneath AIGW's data directory rather than shared `~/.local/bin`; the Adapter writes one bounded, secret-free PATH block to the target user's shell profile. This avoids both package-manager-owned system directories and shared-bin cleanup races. The block and launcher are both AIGW-owned and removed together when the Adapter is disabled.
 
 Codex changes consist only of AIGW-owned top-level `model` and `model_provider` selections plus a delimited `[model_providers.aigw]` block. AIGW keeps a per-target state snapshot, validates all three owned surfaces against the resolved Profile in `aigw doctor`, and preserves user edits elsewhere in `config.toml`.
 
@@ -41,4 +41,4 @@ Portable installs may replace their own binary after checksum verification. Nati
 
 ## Uninstall
 
-Portable uninstall removes the binary and its own user's AIGW-owned Claude launcher. Native package uninstall deliberately manages only package-owned files; it never searches or deletes another user's shim. Disable the Claude adapter as the target user before native uninstall when shim removal is desired. All uninstall paths preserve configuration, system-keyring entries, account diagnostics credentials, and user-owned client configuration. Remove Account secrets from the operating-system credential store only when offboarding policy requires it; removing a Runtime Profile does not delete its Account Token.
+Portable uninstall removes the binary, its own user's AIGW-owned Claude launcher, and the bounded AIGW Claude PATH block. Native package uninstall deliberately manages only package-owned files; it never searches or deletes another user's shim or shell configuration. Disable the Claude adapter as the target user before native uninstall when shim removal is desired. All uninstall paths preserve configuration, system-keyring entries, account diagnostics credentials, and user-owned client configuration. Remove Account secrets from the operating-system credential store only when offboarding policy requires it; removing a Runtime Profile does not delete its Account Token.

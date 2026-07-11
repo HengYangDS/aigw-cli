@@ -136,9 +136,11 @@ aigw adapter enable codex \
   --target "$HOME/.codex/config.toml"
 ```
 
-AIGW 的 Claude shim 位于用户级 shim 目录，例如 `~/.local/bin/claude` 或 `%LOCALAPPDATA%\Programs\aigw\bin\claude.cmd`。它只由 AIGW 管理，不覆盖外部 Claude，不写入 Codex 目录。若 PATH 中已有外部 `claude` 优先，`aigw doctor` 会提示修复；用户无需手工修改多个配置文件。
+AIGW 的 Claude shim 位于专属目录：macOS 为 `~/Library/Application Support/aigw/bin/claude`，Linux 为 `${XDG_DATA_HOME:-~/.local/share}/aigw/bin/claude`，Windows 为 `%LOCALAPPDATA%\Programs\aigw\bin\claude.cmd`。它只由 AIGW 管理，不覆盖外部 Claude，不写入 Codex 目录。启用时 AIGW 为当前用户写入一个带边界标记的无密钥 PATH 块；用户无需手工修改多个配置文件。
 
 原生包安装与卸载只管理自己的程序文件，绝不会遍历用户目录来创建或删除 shim。若需删除 shim，由该用户执行 `aigw adapter disable claude`。
+
+默认不部署 proxy，也不占用本地端口。若团队另行运行协议转换或出口审计 proxy，端口和进程生命周期属于该 proxy 项目；AIGW 只把明确的 proxy URL 当作 Account 端点，绝不代管其进程。
 
 ## Update
 

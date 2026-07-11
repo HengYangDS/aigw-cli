@@ -117,7 +117,7 @@ set -eu
 cat <<'MSG'
 AIGW installed to /usr/bin/aigw.
 Run: aigw setup
-Claude shim is created later in your user bin directory by aigw setup/repair.
+Claude shim is created later in AIGW's own data directory by the target user's aigw setup/repair command.
 MSG
 EOS
       chmod 755 "$pkg_stage/postinstall.sh"

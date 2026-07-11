@@ -102,6 +102,20 @@ func newDoctorCommand(app *App) *cobra.Command {
 						check.Fix = "run `aigw repair`"
 					}
 					checks = append(checks, check)
+					if ok {
+						active, activationErr := app.Shims.ClaudeActivationReady()
+						activation := doctorCheck{Name: "path:claude", OK: active}
+						if activationErr != nil {
+							activation.Detail = activationErr.Error()
+							activation.Fix = "run `aigw repair`"
+						} else if active {
+							activation.Detail = "AIGW-managed shell PATH activation"
+						} else {
+							activation.Detail = "AIGW-managed Claude PATH activation is missing"
+							activation.Fix = "run `aigw repair`"
+						}
+						checks = append(checks, activation)
+					}
 				}
 			}
 			if jsonMode {
