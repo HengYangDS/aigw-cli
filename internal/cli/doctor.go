@@ -3,6 +3,8 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
@@ -17,6 +19,14 @@ type doctorCheck struct {
 	Fix    string `json:"fix,omitempty"`
 }
 
+var forbiddenClientTokenEnvironmentNames = []string{
+	"ANTHROPIC_AUTH_TOKEN",
+	"ANTHROPIC_API_KEY",
+	"DMXAPI_TOKEN",
+	"DMX_API_TOKEN",
+	"OPENAI_API_KEY",
+}
+
 func newDoctorCommand(app *App) *cobra.Command {
 	var jsonMode bool
 	cmd := &cobra.Command{
@@ -25,6 +35,20 @@ func newDoctorCommand(app *App) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			checks := []doctorCheck{}
+			if names := forbiddenClientTokenEnvironment(app.Env); len(names) > 0 {
+				checks = append(checks, doctorCheck{
+					Name:   "environment:client-token",
+					OK:     false,
+					Detail: "global client token environment variables are set: " + strings.Join(names, ", "),
+					Fix:    "remove them from the parent environment; AIGW injects Claude credentials only through its shim",
+				})
+			} else {
+				checks = append(checks, doctorCheck{
+					Name:   "environment:client-token",
+					OK:     true,
+					Detail: "no global client token environment variables",
+				})
+			}
 			cfg, err := app.Config.Load()
 			if err != nil {
 				checks = append(checks, doctorCheck{"config", false, err.Error(), "inspect or restore " + app.Config.Path()})
@@ -147,6 +171,27 @@ func newDoctorCommand(app *App) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "emit machine-readable JSON")
 	return cmd
+}
+
+func forbiddenClientTokenEnvironment(values []string) []string {
+	present := map[string]bool{}
+	for _, value := range values {
+		name, _, ok := strings.Cut(value, "=")
+		if !ok {
+			continue
+		}
+		for _, forbidden := range forbiddenClientTokenEnvironmentNames {
+			if name == forbidden {
+				present[name] = true
+			}
+		}
+	}
+	names := make([]string, 0, len(present))
+	for name := range present {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func allChecksOK(checks []doctorCheck) bool {
