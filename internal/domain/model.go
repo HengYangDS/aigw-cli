@@ -196,7 +196,7 @@ func (c Config) Validate() error {
 		if _, ok := c.Accounts[profile.Account]; !ok {
 			return fmt.Errorf("profile %q references unknown account %q", name, profile.Account)
 		}
-		if profile.Client != "" && profile.Client != ClientClaude && profile.Client != ClientCodex {
+		if profile.Client != "" && !IsAdmittedClient(profile.Client) {
 			return fmt.Errorf("profile %q has unknown client %q", name, profile.Client)
 		}
 		if profile.Client == ClientCodex && profile.Models.Claude != "" {
@@ -210,7 +210,7 @@ func (c Config) Validate() error {
 		return fmt.Errorf("default route references unknown profile %q", c.Routes.Default)
 	}
 	for client, profile := range c.Routes.Overrides {
-		if client != ClientClaude && client != ClientCodex {
+		if !IsAdmittedClient(client) {
 			return fmt.Errorf("unknown route %q; supported routes are claude and codex", client)
 		}
 		if _, ok := c.Profiles[profile]; !ok {
@@ -218,7 +218,7 @@ func (c Config) Validate() error {
 		}
 	}
 	for name := range c.Adapters {
-		if name != ClientClaude && name != ClientCodex {
+		if !IsAdmittedClient(name) {
 			return fmt.Errorf("unknown adapter %q", name)
 		}
 	}
@@ -290,10 +290,14 @@ func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, bool, e
 }
 
 func (p Profile) ModelFor(client string) string {
-	switch client {
-	case ClientClaude:
+	spec, ok := ClientSpecFor(client)
+	if !ok {
+		return ""
+	}
+	switch spec.ModelSlot {
+	case ModelSlotClaude:
 		return p.Models.Claude
-	case ClientCodex:
+	case ModelSlotCodex:
 		return p.Models.Codex
 	default:
 		return ""
@@ -301,18 +305,22 @@ func (p Profile) ModelFor(client string) string {
 }
 
 func (a Account) EndpointFor(client string) (string, error) {
-	switch client {
-	case ClientClaude:
+	spec, ok := ClientSpecFor(client)
+	if !ok {
+		return "", fmt.Errorf("unknown client %q", client)
+	}
+	switch spec.EndpointProtocol {
+	case ProtocolAnthropic:
 		if a.Endpoints.Anthropic == "" {
 			return "", fmt.Errorf("account %q has no Anthropic endpoint", a.ID)
 		}
 		return strings.TrimRight(a.Endpoints.Anthropic, "/"), nil
-	case ClientCodex:
+	case ProtocolOpenAIResponses:
 		if a.Endpoints.OpenAIResponses == "" {
 			return "", fmt.Errorf("account %q has no OpenAI Responses endpoint", a.ID)
 		}
 		return strings.TrimRight(a.Endpoints.OpenAIResponses, "/"), nil
 	default:
-		return "", fmt.Errorf("unknown client %q", client)
+		return "", fmt.Errorf("client %q has unsupported endpoint protocol %q", client, spec.EndpointProtocol)
 	}
 }

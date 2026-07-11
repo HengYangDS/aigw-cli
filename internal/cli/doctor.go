@@ -66,7 +66,7 @@ func newDoctorCommand(app *App) *cobra.Command {
 					}
 					checks = append(checks, doctorCheck{"secret:" + name, ok, map[bool]string{true: "available", false: "missing"}[ok], fix})
 				}
-				for _, client := range []string{domain.ClientClaude, domain.ClientCodex} {
+				for _, client := range domain.AdmittedClientIDs() {
 					adapter := cfg.Adapters[client]
 					detail := "disabled"
 					ok := true

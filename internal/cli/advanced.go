@@ -34,7 +34,7 @@ func newProfileAddCommand(app *App) *cobra.Command {
 			if accountName == "" || client == "" || model == "" {
 				return fmt.Errorf("--account, --for, and --model are required")
 			}
-			if client != domain.ClientClaude && client != domain.ClientCodex {
+			if !domain.IsAdmittedClient(client) {
 				return fmt.Errorf("--for must be claude or codex")
 			}
 			cfg, err := app.Config.Load()
@@ -354,7 +354,7 @@ func newRouteCommand(app *App) *cobra.Command {
 		&cobra.Command{Use: "list", Short: "List resolved routes", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error { return runStatus(cmd, app, false) }},
 		&cobra.Command{Use: "reset <claude|codex>", Short: "Restore one client to default inheritance", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 			client := args[0]
-			if client != domain.ClientClaude && client != domain.ClientCodex {
+			if !domain.IsAdmittedClient(client) {
 				return fmt.Errorf("route must be claude or codex")
 			}
 			cfg, err := app.Config.Load()
@@ -392,7 +392,7 @@ func newAdapterListCommand(app *App) *cobra.Command {
 		r := renderer(app)
 		r.Title("AIGW", "客户端适配")
 		r.Section("Adapters")
-		for _, name := range []string{domain.ClientClaude, domain.ClientCodex} {
+		for _, name := range domain.AdmittedClientIDs() {
 			adapter := cfg.Adapters[name]
 			state := presentation.Info
 			stateText := "未启用"
@@ -414,7 +414,7 @@ func newAdapterDiscoverCommand(app *App) *cobra.Command {
 		r := renderer(app)
 		r.Title("AIGW", "客户端发现")
 		r.Section("已安装客户端")
-		for _, name := range []string{domain.ClientClaude, domain.ClientCodex} {
+		for _, name := range domain.AdmittedClientIDs() {
 			path, err := exec.LookPath(name)
 			if err != nil {
 				r.Status(presentation.Info, title(name), "未发现")
@@ -431,7 +431,7 @@ func newAdapterEnableCommand(app *App) *cobra.Command {
 	var targets []string
 	cmd := &cobra.Command{Use: "enable <claude|codex>", Short: "Enable a client adapter", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
-		if client != domain.ClientClaude && client != domain.ClientCodex {
+		if !domain.IsAdmittedClient(client) {
 			return fmt.Errorf("adapter must be claude or codex")
 		}
 		if executable == "" {
@@ -526,7 +526,7 @@ func newAdapterAuthCommand(app *App) *cobra.Command {
 func newAdapterDisableCommand(app *App) *cobra.Command {
 	return &cobra.Command{Use: "disable <claude|codex>", Short: "Disable a client adapter and remove owned projections", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 		client := args[0]
-		if client != domain.ClientClaude && client != domain.ClientCodex {
+		if !domain.IsAdmittedClient(client) {
 			return fmt.Errorf("adapter must be claude or codex")
 		}
 		cfg, err := app.Config.Load()
