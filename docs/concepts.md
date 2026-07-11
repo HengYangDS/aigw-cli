@@ -2,7 +2,7 @@
 
 ## Account
 
-An Account is one upstream provider account boundary: display label, supported protocol endpoints, optional balance probe, and exactly one logical Token. The secret is stored at `AIGW_TOKEN/<account>` in the operating-system credential store; it is never embedded in configuration or team manifests.
+An Account is one upstream provider account boundary: display label, supported protocol endpoints, optional balance probe, and exactly one logical Token. The secret is stored at `AIGW_TOKEN/<account>` in the operating-system credential store; it is never embedded in configuration or team manifests. A local AIGW configuration may contain many Accounts; adding a second service never copies or replaces the first service's Token.
 
 Example:
 
@@ -17,7 +17,7 @@ anthropic = "https://www.dmxapi.cn"
 
 ## Runtime Profile
 
-A Runtime Profile is what users choose day to day. It references one Account and may define a client scope and model name.
+A Runtime Profile is what users choose day to day. It references one Account and may define a client scope and model name. One Account may back many Profiles: one DMXAPI Account can back separate GPT, Claude, embedding, or other model Profiles, while another provider has its own Account and Profile set.
 
 ```toml
 [profiles."gpt-5.6-sol-cdx"]
@@ -47,6 +47,8 @@ aigw route reset claude
 
 The last command removes the override; it does not duplicate the default route.
 
+A Route is a deterministic local selection before the client request. Without a data-plane Gateway, AIGW never silently retries a request through another service or model.
+
 ## Adapter
 
 An Adapter projects a resolved Runtime Profile into one client boundary:
@@ -58,7 +60,7 @@ Adapters never own provider secrets and never write into one another's directori
 
 ## Optional data-plane proxy
 
-AIGW is not a proxy and listens on no local port. Claude and Codex normally use their Account's HTTPS endpoints directly. A separately operated proxy is justified only for protocol translation, required centralized audit, or a mandated network egress path. When one is used, its endpoint is an Account URL and its port belongs to that proxy project; AIGW never manages its process lifecycle. Do not select `8888` merely as a convention—choose and reserve a port in the proxy project's deployment contract after checking local and organizational conflicts.
+AIGW is local-first: it is not a proxy, listens on no local port, and is fully usable without a team service. Claude and Codex normally use their Account's HTTPS endpoints directly. A separately operated proxy or Gateway is justified only for protocol translation, required centralized audit, budget control, or a mandated network egress path. It is a separately assessed and deployed organization service, never an AIGW dependency; AIGW sees only its HTTPS endpoint and never manages its process lifecycle, port, upstream credentials, retries, or fallback policy. Do not select `8888` merely as a convention—choose and reserve a port in the proxy project's deployment contract after checking local and organizational conflicts.
 
 ## Installation channel
 
