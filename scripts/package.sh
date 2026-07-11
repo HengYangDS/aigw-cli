@@ -43,7 +43,7 @@ archive_portable() {
   if [ "$goos" = windows ]; then
     (cd "$build_root" && zip -qr "$out_abs/$name.zip" "$name")
   else
-    (cd "$build_root" && tar -czf "$out_abs/$name.tar.gz" "$name")
+    (cd "$build_root" && tar --no-xattrs -czf "$out_abs/$name.tar.gz" "$name")
   fi
 }
 
