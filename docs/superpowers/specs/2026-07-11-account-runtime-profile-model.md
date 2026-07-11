@@ -32,13 +32,13 @@ client = "codex"
 [profiles.gpt-5_5.models]
 codex = "gpt-5.5"
 
-[profiles."claude-sonnet-5"]
-label = "Claude Sonnet"
+[profiles."claude-fable-5"]
+label = "Claude Fable"
 account = "team-gateway"
 client = "claude"
 
-[profiles."claude-sonnet-5".models]
-claude = "claude-sonnet-5"
+[profiles."claude-fable-5".models]
+claude = "claude-fable-5"
 ```
 
 ## Routing rules
@@ -61,7 +61,7 @@ Daily commands stay simple:
 aigw setup
 aigw use gpt-5.5
 aigw use gpt-5.5-ssvip --for codex
-aigw use claude-sonnet-5 --for claude
+aigw use claude-fable-5 --for claude
 aigw rotate team-gateway
 aigw check
 ```
