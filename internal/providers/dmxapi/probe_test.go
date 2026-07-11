@@ -1,4 +1,4 @@
-package account_test
+package dmxapi_test
 
 import (
 	"context"
@@ -9,13 +9,14 @@ import (
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/account"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/providers/dmxapi"
 )
 
 type roundTrip func(*http.Request) (*http.Response, error)
 
 func (f roundTrip) Do(req *http.Request) (*http.Response, error) { return f(req) }
 
-func TestDMXProbeReturnsAccountAndCurrentTokenDetails(t *testing.T) {
+func TestProbeReturnsAccountAndCurrentTokenDetails(t *testing.T) {
 	requests := 0
 	client := roundTrip(func(req *http.Request) (*http.Response, error) {
 		requests++
@@ -29,7 +30,7 @@ func TestDMXProbeReturnsAccountAndCurrentTokenDetails(t *testing.T) {
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
 	providerAccount := domain.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
-	report, err := account.Probe(context.Background(), client, providerAccount, "sk-abcd-middle-wxyz", account.Credential{SystemToken: "system-secret", UserID: "10000"})
+	report, err := dmxapi.Probe(context.Background(), client, providerAccount, "sk-abcd-middle-wxyz", account.Credential{SystemToken: "system-secret", UserID: "10000"})
 	if err != nil {
 		t.Fatal(err)
 	}

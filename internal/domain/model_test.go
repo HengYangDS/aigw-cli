@@ -78,13 +78,23 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 	}
 }
 
-func TestValidateAllowsLoopbackHTTPForLocalCompatibilityTools(t *testing.T) {
+func TestValidateAllowsExplicitLoopbackDevelopmentAccount(t *testing.T) {
 	cfg := validConfig()
 	a := cfg.Accounts["dmx"]
-	a.Endpoints.OpenAIResponses = "http://127.0.0.1:8791/v1"
+	a.Endpoints.OpenAIResponses = "http://127.0.0.1:18765/v1"
 	cfg.Accounts["dmx"] = a
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestValidateAllowsProviderNeutralExplicitDiagnostics(t *testing.T) {
+	cfg := validConfig()
+	account := cfg.Accounts["dmx"]
+	account.AccountProbe = &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://diagnostics.example.test"}
+	cfg.Accounts["dmx"] = account
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("explicit provider diagnostics must remain configuration-valid even when this build has no driver: %v", err)
 	}
 }
 

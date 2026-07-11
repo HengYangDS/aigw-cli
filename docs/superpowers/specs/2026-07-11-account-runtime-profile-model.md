@@ -1,34 +1,32 @@
-# Account and Runtime Profile Model Design
+# Account and Runtime Profile Contract
 
-## Problem
+## Purpose
 
-AIGW currently treats a Profile as URL + Token + route target. That is not enough once users need to switch between model choices such as `gpt-5.5`, `gpt-5.5-ssvip`, and Claude-specific models on the same upstream gateway account.
-
-Duplicating URL and Token per model would create secret sprawl, make rotation error-prone, and confuse balance diagnostics.
+AIGW separates upstream service identity from model choice. This lets users select GPT and Claude models on the same Account without duplicating URLs or Tokens; provider-native diagnostics remain optional and explicit.
 
 ## Decision
 
 AIGW uses three layers:
 
-1. **Account**: one upstream provider account boundary with protocol endpoints, optional account probe, and exactly one Token at `AIGW_TOKEN/<account-id>`.
+1. **Account**: one upstream provider account boundary with protocol endpoints, optional Provider Diagnostics declaration, and exactly one Token at `AIGW_TOKEN/<account-id>`.
 2. **Runtime Profile**: one selectable runtime choice that references an Account and may define a client scope and model names.
 3. **Route**: maps default/Claude/Codex usage to Runtime Profiles.
 
-Users switch Runtime Profiles with `aigw use`. Users rotate Account Tokens with `aigw rotate <account>`. Balance and exact account diagnostics belong to Accounts.
+Users switch Runtime Profiles with `aigw use`. Users rotate Account Tokens with `aigw rotate <account>`. Generic health diagnostics work for every Account; exact provider-native diagnostics are available only when explicitly declared and bundled in the installed AIGW version.
 
 ## Data model
 
 ```toml
-[accounts.dmx]
-label = "DMXAPI"
+[accounts."team-gateway"]
+label = "Team Gateway"
 
-[accounts.dmx.endpoints]
-openai_responses = "https://www.dmxapi.cn/v1"
-anthropic = "https://www.dmxapi.cn"
+[accounts."team-gateway".endpoints]
+openai_responses = "https://gateway.example/v1"
+anthropic = "https://gateway.example"
 
 [profiles.gpt-5_5]
 label = "GPT-5.5"
-account = "dmx"
+account = "team-gateway"
 client = "codex"
 
 [profiles.gpt-5_5.models]
@@ -36,7 +34,7 @@ codex = "gpt-5.5"
 
 [profiles."claude-sonnet-5"]
 label = "Claude Sonnet"
-account = "dmx"
+account = "team-gateway"
 client = "claude"
 
 [profiles."claude-sonnet-5".models]
@@ -47,23 +45,13 @@ claude = "claude-sonnet-5"
 
 - `routes.default` points to a Runtime Profile.
 - `routes.overrides.claude` and `routes.overrides.codex` point to Runtime Profiles.
-- `Config.Resolve(client, explicitProfile)` returns a resolved Runtime: profile id, profile label, account id, account label, endpoint, and model.
+- `Config.ResolveRuntime(client, explicitProfile)` returns a resolved Runtime: profile id, profile label, account id, account label, endpoint, and model.
 - If a Runtime Profile declares `client`, it may only be used for that client. Empty client means both clients may use it if endpoints exist.
 
 ## Adapter projection
 
 - Claude receives `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `AIGW_ACCOUNT`, `AIGW_PROFILE`, and, when set, `ANTHROPIC_MODEL`.
 - Codex receives the Account OpenAI Responses URL and a model field when a Codex model is set. Token still goes through `codex login --with-api-key`.
-
-## Compatibility
-
-Legacy v1 configs with profile-owned endpoints are normalized in memory and on next save:
-
-- Each legacy profile becomes an Account with the same id.
-- Each legacy profile also remains as a Runtime Profile referencing that Account.
-- The existing keyring slot `AIGW_TOKEN/<legacy-profile-id>` remains valid because Account id is unchanged.
-
-New exports should use the Account + Runtime Profile shape. No tokens enter files.
 
 ## UX
 
@@ -73,9 +61,11 @@ Daily commands stay simple:
 aigw setup
 aigw use gpt-5.5
 aigw use gpt-5.5-ssvip --for codex
-aigw rotate dmx
-aigw balance dmx
+aigw use claude-sonnet-5 --for claude
+aigw rotate team-gateway
 aigw check
 ```
+
+When the team manifest explicitly enables a bundled Provider Diagnostics integration, users may also run `aigw balance <account>`.
 
 `aigw status` shows both the selected Runtime Profile and backing Account.

@@ -3,11 +3,18 @@ package shims_test
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/shims"
 )
+
+func TestManagerDoesNotExposeLegacyShimCompatibilityState(t *testing.T) {
+	if _, found := reflect.TypeOf(shims.Manager{}).FieldByName("LegacyBinDir"); found {
+		t.Fatal("Claude shim manager must not retain a legacy shared-bin compatibility path")
+	}
+}
 
 func TestManagerCreatesAndRemovesOwnedUnixClaudeShim(t *testing.T) {
 	dir := t.TempDir()
@@ -83,66 +90,6 @@ func TestManagerReportsOnlyAnOwnedClaudeShimAsReady(t *testing.T) {
 	ready, err = manager.ClaudeShimReady()
 	if err != nil || ready {
 		t.Fatalf("foreign shim readiness = %v, %v", ready, err)
-	}
-}
-
-func TestManagerUsesDedicatedShimDirectoryAndMigratesOwnedLegacyShim(t *testing.T) {
-	home := t.TempDir()
-	legacy := filepath.Join(home, ".local", "bin")
-	dedicated := filepath.Join(home, "Library", "Application Support", "aigw", "bin")
-	if err := os.MkdirAll(legacy, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	legacyPath := filepath.Join(legacy, "claude")
-	if err := os.WriteFile(legacyPath, []byte("#!/bin/sh\n# AIGW managed Claude shim\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	manager := shims.Manager{GOOS: "darwin", Home: home, Shell: "/bin/zsh", BinDir: dedicated, LegacyBinDir: legacy, AIGWExecutable: "/opt/aigw"}
-	path, err := manager.EnableClaude()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if path != filepath.Join(dedicated, "claude") {
-		t.Fatalf("dedicated shim path = %q", path)
-	}
-	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
-		t.Fatalf("owned legacy shim remains: %v", err)
-	}
-	ready, err := manager.ClaudeActivationReady()
-	if err != nil || !ready {
-		t.Fatalf("activation readiness = %v, %v", ready, err)
-	}
-	profile, err := os.ReadFile(filepath.Join(home, ".zshrc"))
-	if err != nil || !strings.Contains(string(profile), "AIGW Claude shim PATH") || !strings.Contains(string(profile), dedicated) {
-		t.Fatalf("profile = %s, err=%v", profile, err)
-	}
-	if err := manager.DisableClaude(); err != nil {
-		t.Fatal(err)
-	}
-	profile, err = os.ReadFile(filepath.Join(home, ".zshrc"))
-	if err != nil || strings.Contains(string(profile), "AIGW Claude shim PATH") {
-		t.Fatalf("activation was not removed: %s, err=%v", profile, err)
-	}
-}
-
-func TestManagerPreservesForeignLegacyClaudeLauncher(t *testing.T) {
-	home := t.TempDir()
-	legacy := filepath.Join(home, ".local", "bin")
-	dedicated := filepath.Join(home, ".local", "share", "aigw", "bin")
-	if err := os.MkdirAll(legacy, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	legacyPath := filepath.Join(legacy, "claude")
-	if err := os.WriteFile(legacyPath, []byte("foreign launcher"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	manager := shims.Manager{GOOS: "linux", Home: home, Shell: "/bin/bash", BinDir: dedicated, LegacyBinDir: legacy, AIGWExecutable: "/opt/aigw"}
-	if _, err := manager.EnableClaude(); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(legacyPath)
-	if err != nil || string(data) != "foreign launcher" {
-		t.Fatalf("foreign legacy shim changed: %q, %v", data, err)
 	}
 }
 

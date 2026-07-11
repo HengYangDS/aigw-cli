@@ -1,4 +1,6 @@
-package account
+// Package dmxapi implements the explicitly selected DMXAPI diagnostic
+// provider. It has no role in AIGW's default setup, routing, or token model.
+package dmxapi
 
 import (
 	"context"
@@ -9,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/account"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
 
@@ -16,24 +19,9 @@ type HTTPDoer interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-type Report struct {
-	AccountBalance      float64
-	TokenName           string
-	TokenStatus         string
-	TokenUsed           float64
-	TokenRemaining      float64
-	TokenUnlimitedQuota bool
-	TokenRemainingCount int64
-	TokenUnlimitedCount bool
-	TokenExpiredAt      int64
-}
-
-func Probe(ctx context.Context, client HTTPDoer, providerAccount domain.Account, apiToken string, credential Credential) (Report, error) {
-	if providerAccount.AccountProbe == nil {
-		return Report{}, fmt.Errorf("account %q has no account probe", providerAccount.ID)
-	}
-	if providerAccount.AccountProbe.Kind != "dmxapi" {
-		return Report{}, fmt.Errorf("unsupported account probe %q", providerAccount.AccountProbe.Kind)
+func Probe(ctx context.Context, client HTTPDoer, providerAccount domain.Account, apiToken string, credential account.Credential) (account.Report, error) {
+	if providerAccount.AccountProbe == nil || providerAccount.AccountProbe.Kind != "dmxapi" {
+		return account.Report{}, fmt.Errorf("DMXAPI diagnostic provider is not configured")
 	}
 	base := strings.TrimRight(providerAccount.AccountProbe.BaseURL, "/")
 	var user struct {
@@ -44,14 +32,14 @@ func Probe(ctx context.Context, client HTTPDoer, providerAccount domain.Account,
 		Message string `json:"message"`
 	}
 	if err := getJSON(ctx, client, base+"/api/user/self", credential, &user); err != nil {
-		return Report{}, err
+		return account.Report{}, err
 	}
 	if !user.Success {
-		return Report{}, fmt.Errorf("DMXAPI account query failed: %s", user.Message)
+		return account.Report{}, fmt.Errorf("DMXAPI account query failed: %s", user.Message)
 	}
-	items, err := fetchDMXTokens(ctx, client, base, credential)
+	items, err := fetchTokens(ctx, client, base, credential)
 	if err != nil {
-		return Report{}, err
+		return account.Report{}, err
 	}
 	masked := maskedToken(apiToken)
 	for _, token := range items {
@@ -62,7 +50,7 @@ func Probe(ctx context.Context, client HTTPDoer, providerAccount domain.Account,
 		if token.Status == 1 {
 			status = "enabled"
 		}
-		return Report{
+		return account.Report{
 			AccountBalance: float64(user.Data.Quota) / 500000,
 			TokenName:      token.Name, TokenStatus: status,
 			TokenUsed:           float64(token.UsedQuota) / 500000,
@@ -73,10 +61,10 @@ func Probe(ctx context.Context, client HTTPDoer, providerAccount domain.Account,
 			TokenExpiredAt:      token.ExpiredTime,
 		}, nil
 	}
-	return Report{AccountBalance: float64(user.Data.Quota) / 500000}, fmt.Errorf("current API Token was not found in the DMXAPI account")
+	return account.Report{AccountBalance: float64(user.Data.Quota) / 500000}, fmt.Errorf("current API Token was not found in the DMXAPI account")
 }
 
-type dmxToken struct {
+type token struct {
 	Name           string `json:"name"`
 	Key            string `json:"key"`
 	Status         int    `json:"status"`
@@ -88,15 +76,15 @@ type dmxToken struct {
 	ExpiredTime    int64  `json:"expired_time"`
 }
 
-func fetchDMXTokens(ctx context.Context, client HTTPDoer, base string, credential Credential) ([]dmxToken, error) {
-	items := []dmxToken{}
+func fetchTokens(ctx context.Context, client HTTPDoer, base string, credential account.Credential) ([]token, error) {
+	items := []token{}
 	for page := 1; page <= 100; page++ {
 		endpoint := fmt.Sprintf("%s/api/token/search?page=%d&page_size=100", base, page)
 		var payload struct {
 			Success bool `json:"success"`
 			Data    struct {
-				Items    []dmxToken `json:"items"`
-				PageSize int        `json:"page_size"`
+				Items    []token `json:"items"`
+				PageSize int     `json:"page_size"`
 			} `json:"data"`
 			Message string `json:"message"`
 		}
@@ -114,7 +102,7 @@ func fetchDMXTokens(ctx context.Context, client HTTPDoer, base string, credentia
 	return items, nil
 }
 
-func getJSON(ctx context.Context, client HTTPDoer, endpoint string, credential Credential, target any) error {
+func getJSON(ctx context.Context, client HTTPDoer, endpoint string, credential account.Credential, target any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return err
@@ -135,13 +123,13 @@ func getJSON(ctx context.Context, client HTTPDoer, endpoint string, credential C
 	return json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(target)
 }
 
-func maskedToken(token string) string {
-	token = strings.TrimPrefix(strings.TrimSpace(token), "sk-")
-	if decoded, err := url.QueryUnescape(token); err == nil {
-		token = decoded
+func maskedToken(value string) string {
+	value = strings.TrimPrefix(strings.TrimSpace(value), "sk-")
+	if decoded, err := url.QueryUnescape(value); err == nil {
+		value = decoded
 	}
-	if len(token) < 8 {
-		return token
+	if len(value) < 8 {
+		return value
 	}
-	return token[:4] + strings.Repeat("*", 10) + token[len(token)-4:]
+	return value[:4] + strings.Repeat("*", 10) + value[len(value)-4:]
 }
