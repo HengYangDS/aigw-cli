@@ -140,7 +140,7 @@ func TestFirstRunCreatesExplicitGenericAccountWithoutBundledProviderDefault(t *t
 		t.Fatal("generic Account Token was not stored")
 	}
 	profile, ok := cfg.Profiles["gpt-5.6-terra-cdx"]
-	if !ok || profile.Account != "team-gateway" || profile.Client != "codex" || profile.Models.Codex != "gpt-5.6-terra-cdx" {
+	if !ok || profile.Account != "team-gateway" || profile.Client != "codex" || profile.Models[domain.ClientCodex] != "gpt-5.6-terra-cdx" {
 		t.Fatalf("generic profile = %#v", profile)
 	}
 	if _, exists := cfg.Accounts["dmx"]; exists {
@@ -180,7 +180,7 @@ func TestSetupWithoutFlagsRefusesBeforePromptingWhenAlreadyConfigured(t *testing
 	app.Interactive = true
 	cfg := domain.NewConfig()
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "gateway", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-test"}}
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "gateway", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-test"}}
 	cfg.Routes.Default = "claude"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

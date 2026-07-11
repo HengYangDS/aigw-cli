@@ -15,8 +15,8 @@ func TestCatalogDiscoversSortedModelsWithoutWritingConfigOrLeakingToken(t *testi
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-configured"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6"}}
-	cfg.Profiles["claude-configured"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "gpt-5.6"}}
+	cfg.Profiles["gpt-configured"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6"}}
+	cfg.Profiles["claude-configured"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "gpt-5.6"}}
 	cfg.Routes.Default = "gpt-configured"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -75,7 +75,7 @@ func TestCatalogDefaultHumanOutputShowsOnlyConfiguredModels(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Profiles["configured"] = domain.Profile{Label: "Configured", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{Codex: "configured-model"}}
+	cfg.Profiles["configured"] = domain.Profile{Label: "Configured", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "configured-model"}}
 	cfg.Routes.Default = "configured"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -105,7 +105,7 @@ func TestCatalogAllHumanOutputIncludesEveryModelAsReadableRecord(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Profiles["configured"] = domain.Profile{Label: "Configured", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{Codex: "configured-model"}}
+	cfg.Profiles["configured"] = domain.Profile{Label: "Configured", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "configured-model"}}
 	cfg.Routes.Default = "configured"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -145,7 +145,7 @@ func TestCatalogReportsUnavailableAccountWithoutBlockingHealthyAccount(t *testin
 	cfg.Accounts["healthy"] = domain.Account{Label: "Healthy", Endpoints: domain.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
 	cfg.Accounts["missing-token"] = domain.Account{Label: "Missing Token", Endpoints: domain.Endpoints{OpenAIResponses: "https://missing.test/v1"}}
 	cfg.Accounts["anthropic-only"] = domain.Account{Label: "Anthropic Only", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}
-	cfg.Profiles["healthy-model"] = domain.Profile{Label: "Healthy", Account: "healthy", Client: domain.ClientCodex, Models: domain.Models{Codex: "healthy-model"}}
+	cfg.Profiles["healthy-model"] = domain.Profile{Label: "Healthy", Account: "healthy", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "healthy-model"}}
 	cfg.Routes.Default = "healthy-model"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -175,7 +175,7 @@ func TestCatalogReportsMalformedAccountPayloadWithoutBlockingHealthyAccount(t *t
 	cfg := domain.NewConfig()
 	cfg.Accounts["broken"] = domain.Account{Label: "Broken", Endpoints: domain.Endpoints{OpenAIResponses: "https://broken.test/v1"}}
 	cfg.Accounts["healthy"] = domain.Account{Label: "Healthy", Endpoints: domain.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
-	cfg.Profiles["healthy-model"] = domain.Profile{Label: "Healthy", Account: "healthy", Client: domain.ClientCodex, Models: domain.Models{Codex: "healthy-model"}}
+	cfg.Profiles["healthy-model"] = domain.Profile{Label: "Healthy", Account: "healthy", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "healthy-model"}}
 	cfg.Routes.Default = "healthy-model"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -207,8 +207,8 @@ func TestModelsCommandReportsReachabilityFromGatewayModelList(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT-5.6 Sol Codex", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
-	cfg.Profiles["gpt-5.6"] = domain.Profile{Label: "GPT-5.6", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6"}}
+	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT-5.6 Sol Codex", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
+	cfg.Profiles["gpt-5.6"] = domain.Profile{Label: "GPT-5.6", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6"}}
 	cfg.Routes.Default = "gpt-5.6-sol-cdx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -234,7 +234,7 @@ func TestModelsCommandKeepsLongProfileNamesOnOneLine(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["claude-opus-4-8-thinking"] = domain.Profile{Label: "Claude Opus 4.8 Thinking", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-opus-4-8-thinking"}}
+	cfg.Profiles["claude-opus-4-8-thinking"] = domain.Profile{Label: "Claude Opus 4.8 Thinking", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-opus-4-8-thinking"}}
 	cfg.Routes.Default = "claude-opus-4-8-thinking"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
