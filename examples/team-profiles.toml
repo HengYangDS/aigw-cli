@@ -1,4 +1,4 @@
-version = 1
+version = 2
 recommended_default = "gpt-5.6-terra-cdx"
 
 [accounts."team-gateway"]
