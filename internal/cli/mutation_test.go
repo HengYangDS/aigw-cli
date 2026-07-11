@@ -22,6 +22,7 @@ func TestMutationCommandLocksEveryConfigurationWriter(t *testing.T) {
 		{name: "profile list", args: []string{"profile", "list"}, want: false},
 		{name: "profile show", args: []string{"profile", "show", "profile"}, want: false},
 		{name: "account list", args: []string{"account", "list"}, want: false},
+		{name: "removed config upgrade", args: []string{"config", "upgrade"}, want: false},
 	}
 
 	for _, tt := range tests {

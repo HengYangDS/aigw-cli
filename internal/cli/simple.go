@@ -284,6 +284,11 @@ func newRepairCommand(app *App) *cobra.Command {
 				}
 				return err
 			}
+			if cfg.Adapters[domain.ClientCodex].Enabled && !codexProjectionChanged(before, cfg) {
+				if err := syncCodexProjection(cmd.Context(), app, cfg); err != nil {
+					return fmt.Errorf("repair Codex projection: %w", err)
+				}
+			}
 			r := renderer(app)
 			r.Title("AIGW", "修复完成")
 			r.Section("处理结果")

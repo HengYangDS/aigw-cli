@@ -17,7 +17,7 @@ func TestRuntimeProfileDoesNotOwnEndpointsOrAccountProbe(t *testing.T) {
 	}
 }
 
-func TestDeprecatedProfileResolutionSurfaceIsAbsent(t *testing.T) {
+func TestProfileResolutionSurfaceIsAbsent(t *testing.T) {
 	if _, found := reflect.TypeOf(domain.Config{}).MethodByName("Resolve"); found {
 		t.Fatal("Config.Resolve reintroduced Profile-based resolution; use ResolveRuntime")
 	}
@@ -28,7 +28,7 @@ func TestDeprecatedProfileResolutionSurfaceIsAbsent(t *testing.T) {
 
 func validConfig() domain.Config {
 	return domain.Config{
-		Version: 1,
+		Version: domain.ConfigVersion,
 		Accounts: map[string]domain.Account{
 			"dmx":    {Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}},
 			"backup": {Label: "Backup", Endpoints: domain.Endpoints{OpenAIResponses: "https://backup.test/v1"}},
@@ -41,31 +41,17 @@ func validConfig() domain.Config {
 	}
 }
 
-func TestLegacyConfigNeedsExplicitUpgradeBeforeUsingPurpose(t *testing.T) {
+func TestValidateRejectsNonCanonicalSchemaVersion(t *testing.T) {
 	cfg := validConfig()
-	if !cfg.NeedsUpgrade() {
-		t.Fatal("version 1 configuration must report that an explicit upgrade is available")
-	}
-	profile := cfg.Profiles["dmx"]
-	profile.Purpose = "默认 Agent"
-	cfg.Profiles["dmx"] = profile
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "config version 2") {
-		t.Fatalf("v1 purpose error = %v", err)
-	}
-	if !cfg.Upgrade() || cfg.Version != domain.CurrentConfigVersion {
-		t.Fatalf("upgrade = version %d, want version %d", cfg.Version, domain.CurrentConfigVersion)
-	}
-	if err := cfg.Validate(); err != nil {
-		t.Fatalf("upgraded configuration must validate: %v", err)
-	}
-	if cfg.NeedsUpgrade() || cfg.Upgrade() {
-		t.Fatal("current configuration must not require or repeat an upgrade")
+	cfg.Version = 1
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "unsupported config version 1") {
+		t.Fatalf("version 1 validation error = %v", err)
 	}
 }
 
 func TestNewConfigUsesCurrentSchema(t *testing.T) {
-	if got := domain.NewConfig().Version; got != domain.CurrentConfigVersion {
-		t.Fatalf("new config version = %d, want %d", got, domain.CurrentConfigVersion)
+	if got := domain.NewConfig().Version; got != domain.ConfigVersion {
+		t.Fatalf("new config version = %d, want %d", got, domain.ConfigVersion)
 	}
 }
 

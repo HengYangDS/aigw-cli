@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gofrs/flock"
@@ -64,6 +65,7 @@ func (s Store) Save(cfg domain.Config) error {
 	if err != nil {
 		return fmt.Errorf("encode config: %w", err)
 	}
+	data = separateTOMLTableBlocks(data)
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {
 		return fmt.Errorf("create config directory: %w", err)
 	}
@@ -75,6 +77,25 @@ func (s Store) Save(cfg domain.Config) error {
 		return fmt.Errorf("read current config for backup: %w", err)
 	}
 	return writeAtomic(s.path, data, 0o600)
+}
+
+// separateTOMLTableBlocks keeps generated configuration readable when the
+// encoder emits adjacent parent and child table headers. TOML ignores blank
+// lines, so this is a presentation-only normalization of AIGW-owned output.
+func separateTOMLTableBlocks(data []byte) []byte {
+	lines := strings.Split(string(data), "\n")
+	formatted := make([]string, 0, len(lines)+8)
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") && len(formatted) > 0 {
+			previous := strings.TrimSpace(formatted[len(formatted)-1])
+			if previous != "" && !strings.HasPrefix(previous, "#") {
+				formatted = append(formatted, "")
+			}
+		}
+		formatted = append(formatted, line)
+	}
+	return []byte(strings.Join(formatted, "\n"))
 }
 
 func (s Store) SaveVerifiedCheckpoint(cfg domain.Config, clients []string) error {

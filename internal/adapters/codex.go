@@ -53,12 +53,12 @@ func SyncCodexConfig(path string, runtime domain.Runtime) error {
 	if err != nil {
 		return err
 	}
-	base, state, err := codexUserConfig(path, runtime)
+	block := codexManagedBlock(runtime.ProfileLabel, endpoint)
+	base, state, err := codexUserConfig(path, runtime, block)
 	if err != nil {
 		return err
 	}
 	model := runtime.Model
-	block := codexManagedBlock(runtime.ProfileLabel, endpoint)
 	projected := projectCodex(base, block, model)
 	state.ManagedBlockHash = hashText(block)
 	stateData, err := json.MarshalIndent(state, "", "  ")
@@ -150,7 +150,7 @@ func DisableCodexConfig(path string) error {
 	return nil
 }
 
-func codexUserConfig(path string, runtime domain.Runtime) (string, codexState, error) {
+func codexUserConfig(path string, runtime domain.Runtime, expectedBlock string) (string, codexState, error) {
 	stateData, err := os.ReadFile(codexStatePath(path))
 	if err == nil {
 		var state codexState
@@ -161,7 +161,14 @@ func codexUserConfig(path string, runtime domain.Runtime) (string, codexState, e
 		if err != nil {
 			return "", codexState{}, fmt.Errorf("read Codex config: %w", err)
 		}
-		base, err := removeCodexProjection(string(current), state)
+		currentText := string(current)
+		base, err := removeCodexProjection(currentText, state)
+		if err != nil {
+			if repaired, ok := completeExactTruncatedCodexProjection(currentText, state, runtime, expectedBlock); ok {
+				state.ManagedBlockHash = hashText(expectedBlock)
+				base, err = removeCodexProjection(repaired, state)
+			}
+		}
 		if err != nil {
 			return "", codexState{}, err
 		}
@@ -177,6 +184,47 @@ func codexUserConfig(path string, runtime domain.Runtime) (string, codexState, e
 	originalProvider := modelProviderLine.FindString(string(data))
 	originalModel := modelLine.FindString(string(data))
 	return string(data), codexState{OriginalProvider: originalProvider, OriginalModel: originalModel}, nil
+}
+
+// completeExactTruncatedCodexProjection admits only the known interrupted
+// projection shape: the current runtime's complete owned block with its final
+// ownership marker omitted. It returns an in-memory completion so the caller's
+// normal atomic projection transaction remains the sole write path.
+func completeExactTruncatedCodexProjection(current string, state codexState, runtime domain.Runtime, expectedBlock string) (string, bool) {
+	if !isManagedSelection(modelProviderLine.FindString(current), "model_provider", "aigw") {
+		return "", false
+	}
+	if runtime.Model != "" && !isManagedSelection(modelLine.FindString(current), "model", strings.ReplaceAll(runtime.Model, "\"", "'")) {
+		return "", false
+	}
+	marker := strings.Index(current, codexBegin)
+	if marker < 0 {
+		return "", false
+	}
+	providerRel := strings.Index(current[marker:], "[model_providers.aigw]")
+	if providerRel < 0 {
+		return "", false
+	}
+	start := marker + providerRel
+	if strings.Contains(current[start:], codexEnd) {
+		return "", false
+	}
+	truncated := strings.TrimSuffix(expectedBlock, codexEnd+"\n")
+	remaining := current[start:]
+	if !strings.HasPrefix(remaining, truncated) || state.ManagedBlockHash == "" {
+		return "", false
+	}
+	tail := remaining[len(truncated):]
+	if nextTable := regexp.MustCompile(`(?m)^\[[^\r\n]+\]`).FindStringIndex(tail); nextTable != nil {
+		if strings.TrimSpace(tail[:nextTable[0]]) != "" {
+			return "", false
+		}
+		return current[:start] + expectedBlock + tail[nextTable[0]:], true
+	}
+	if strings.TrimSpace(tail) != "" {
+		return "", false
+	}
+	return current[:start] + expectedBlock, true
 }
 
 func codexEndpoint(runtime domain.Runtime) (string, error) {
