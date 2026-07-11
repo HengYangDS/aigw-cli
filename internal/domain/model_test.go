@@ -1,42 +1,43 @@
 package domain_test
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
 
-func validConfig() domain.Config {
-	return domain.Config{
-		Version: 1,
-		Profiles: map[string]domain.Profile{
-			"dmx": {Label: "DMXAPI", Endpoints: domain.Endpoints{
-				OpenAIResponses: "https://example.test/v1",
-				Anthropic:       "https://example.test",
-			}},
-			"backup": {Label: "Backup", Endpoints: domain.Endpoints{
-				OpenAIResponses: "https://backup.test/v1",
-			}},
-		},
-		Routes: domain.Routes{Default: "dmx", Overrides: map[string]string{}},
+func TestRuntimeProfileDoesNotOwnEndpointsOrAccountProbe(t *testing.T) {
+	profileType := reflect.TypeOf(domain.Profile{})
+	for _, field := range []string{"Endpoints", "AccountProbe"} {
+		if _, found := profileType.FieldByName(field); found {
+			t.Fatalf("runtime Profile must not own %s; Account is the only endpoint and probe owner", field)
+		}
 	}
 }
 
-func TestResolveInheritsDefaultAndHonorsOverride(t *testing.T) {
-	cfg := validConfig()
-	p, inherited, err := cfg.Resolve("claude", "")
-	if err != nil || p.ID != "dmx" || !inherited {
-		t.Fatalf("default resolution = %#v, %v, %v", p, inherited, err)
+func TestDeprecatedProfileResolutionSurfaceIsAbsent(t *testing.T) {
+	if _, found := reflect.TypeOf(domain.Config{}).MethodByName("Resolve"); found {
+		t.Fatal("Config.Resolve reintroduced Profile-based resolution; use ResolveRuntime")
 	}
-	cfg.Routes.Overrides[domain.ClientClaude] = "backup"
-	p, inherited, err = cfg.Resolve("claude", "")
-	if err != nil || p.ID != "backup" || inherited {
-		t.Fatalf("override resolution = %#v, %v, %v", p, inherited, err)
+	if _, found := reflect.TypeOf(domain.Profile{}).MethodByName("EndpointFor"); found {
+		t.Fatal("Profile.EndpointFor reintroduced endpoint ownership outside Account")
 	}
-	p, _, err = cfg.Resolve("claude", "dmx")
-	if err != nil || p.ID != "dmx" {
-		t.Fatalf("explicit resolution = %#v, %v", p, err)
+}
+
+func validConfig() domain.Config {
+	return domain.Config{
+		Version: 1,
+		Accounts: map[string]domain.Account{
+			"dmx":    {Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}},
+			"backup": {Label: "Backup", Endpoints: domain.Endpoints{OpenAIResponses: "https://backup.test/v1"}},
+		},
+		Profiles: map[string]domain.Profile{
+			"dmx":    {Label: "DMXAPI", Account: "dmx"},
+			"backup": {Label: "Backup", Account: "backup"},
+		},
+		Routes: domain.Routes{Default: "dmx", Overrides: map[string]string{}},
 	}
 }
 
@@ -50,19 +51,19 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 		{"unknown default", func(c *domain.Config) { c.Routes.Default = "missing" }, "unknown profile"},
 		{"unknown client", func(c *domain.Config) { c.Routes.Overrides["chat"] = "dmx" }, "unknown route"},
 		{"url user info", func(c *domain.Config) {
-			p := c.Profiles["dmx"]
-			p.Endpoints.Anthropic = "https://user:secret@example.test"
-			c.Profiles["dmx"] = p
+			a := c.Accounts["dmx"]
+			a.Endpoints.Anthropic = "https://user:secret@example.test"
+			c.Accounts["dmx"] = a
 		}, "userinfo"},
 		{"url secret query", func(c *domain.Config) {
-			p := c.Profiles["dmx"]
-			p.Endpoints.Anthropic = "https://example.test?api_key=secret"
-			c.Profiles["dmx"] = p
+			a := c.Accounts["dmx"]
+			a.Endpoints.Anthropic = "https://example.test?api_key=secret"
+			c.Accounts["dmx"] = a
 		}, "credential-like"},
 		{"remote plain http", func(c *domain.Config) {
-			p := c.Profiles["dmx"]
-			p.Endpoints.Anthropic = "http://example.test"
-			c.Profiles["dmx"] = p
+			a := c.Accounts["dmx"]
+			a.Endpoints.Anthropic = "http://example.test"
+			c.Accounts["dmx"] = a
 		}, "loopback"},
 	}
 	for _, tt := range tests {
@@ -79,9 +80,9 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 
 func TestValidateAllowsLoopbackHTTPForLocalCompatibilityTools(t *testing.T) {
 	cfg := validConfig()
-	p := cfg.Profiles["dmx"]
-	p.Endpoints.OpenAIResponses = "http://127.0.0.1:8791/v1"
-	cfg.Profiles["dmx"] = p
+	a := cfg.Accounts["dmx"]
+	a.Endpoints.OpenAIResponses = "http://127.0.0.1:8791/v1"
+	cfg.Accounts["dmx"] = a
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
@@ -121,16 +122,5 @@ func TestValidateRejectsRuntimeProfileReferencingUnknownAccountOrWrongClient(t *
 	cfg.Profiles["codex"] = domain.Profile{Label: "Codex", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Claude: "claude-opus"}}
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "codex model") {
 		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestNormalizePromotesLegacyEndpointProfileToAccountBackedRuntimeProfile(t *testing.T) {
-	cfg := domain.Config{Version: 1, Profiles: map[string]domain.Profile{"dmx": {Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://dmx.test"}}}, Routes: domain.Routes{Default: "dmx"}}
-	cfg.Normalize()
-	if cfg.Accounts["dmx"].Endpoints.Anthropic != "https://dmx.test" || cfg.Profiles["dmx"].Account != "dmx" {
-		t.Fatalf("normalized config = %#v", cfg)
-	}
-	if err := cfg.Validate(); err != nil {
-		t.Fatal(err)
 	}
 }

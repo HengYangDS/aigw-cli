@@ -97,14 +97,14 @@ func newDoctorCommand(app *App) *cobra.Command {
 					checks = append(checks, doctorCheck{"adapter:" + client, ok, detail, fix})
 				}
 				if adapter := cfg.Adapters[domain.ClientCodex]; adapter.Enabled {
-					profile, _, resolveErr := cfg.Resolve(domain.ClientCodex, "")
+					runtime, _, resolveErr := cfg.ResolveRuntime(domain.ClientCodex, "")
 					if resolveErr != nil {
 						checks = append(checks, doctorCheck{"projection:codex", false, resolveErr.Error(), "run `aigw use <codex-profile> --for codex`"})
 					} else {
 						for index, target := range adapter.Targets {
 							name := fmt.Sprintf("codex:target-%d", index+1)
-							err := adapters.ValidateCodexConfig(target, profile)
-							check := doctorCheck{Name: name, OK: err == nil, Detail: "profile " + profile.ID}
+							err := adapters.ValidateCodexConfig(target, runtime)
+							check := doctorCheck{Name: name, OK: err == nil, Detail: "profile " + runtime.ProfileID}
 							if err != nil {
 								check.Detail = err.Error()
 								check.Fix = "run `aigw sync` to reconcile this target"

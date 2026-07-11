@@ -16,6 +16,26 @@ import (
 
 type Store struct{ path string }
 
+// legacyProfile exists only at the configuration decode boundary.  It accepts
+// the pre-Account TOML shape long enough to promote it into the canonical
+// Account -> Profile model; it is never exposed by domain types or re-emitted.
+type legacyProfile struct {
+	Label        string               `toml:"label" json:"label"`
+	Account      string               `toml:"account" json:"account"`
+	Client       string               `toml:"client" json:"client"`
+	Models       domain.Models        `toml:"models" json:"models"`
+	Endpoints    domain.Endpoints     `toml:"endpoints" json:"endpoints"`
+	AccountProbe *domain.AccountProbe `toml:"account_probe" json:"account_probe"`
+}
+
+type legacyTOMLConfig struct {
+	Profiles map[string]legacyProfile `toml:"profiles"`
+}
+
+type legacyJSONConfig struct {
+	Profiles map[string]legacyProfile `json:"profiles"`
+}
+
 // VerifiedCheckpoint is a secret-free record written only after all requested
 // client protocol verifications succeed. It is suitable for rollback, not for
 // credential recovery.
@@ -51,15 +71,7 @@ func (s Store) Load() (domain.Config, error) {
 	if err != nil {
 		return domain.Config{}, fmt.Errorf("read config: %w", err)
 	}
-	var cfg domain.Config
-	if err := toml.Unmarshal(data, &cfg); err != nil {
-		return domain.Config{}, fmt.Errorf("parse config: %w", err)
-	}
-	cfg.Normalize()
-	if err := cfg.Validate(); err != nil {
-		return domain.Config{}, fmt.Errorf("validate config: %w", err)
-	}
-	return cfg, nil
+	return decodeTOMLConfig(data)
 }
 
 func (s Store) Save(cfg domain.Config) error {
@@ -113,10 +125,17 @@ func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
 	if err := json.Unmarshal(data, &checkpoint); err != nil {
 		return VerifiedCheckpoint{}, fmt.Errorf("parse verified checkpoint: %w", err)
 	}
-	checkpoint.Config.Normalize()
-	if err := checkpoint.Config.Validate(); err != nil {
-		return VerifiedCheckpoint{}, fmt.Errorf("validate verified checkpoint: %w", err)
+	var legacy struct {
+		Config legacyJSONConfig `json:"config"`
 	}
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return VerifiedCheckpoint{}, fmt.Errorf("parse legacy verified checkpoint fields: %w", err)
+	}
+	canonical, err := promoteLegacyProfiles(checkpoint.Config, legacy.Config.Profiles)
+	if err != nil {
+		return VerifiedCheckpoint{}, err
+	}
+	checkpoint.Config = canonical
 	if checkpoint.VerifiedAt.IsZero() || len(checkpoint.Clients) == 0 {
 		return VerifiedCheckpoint{}, errors.New("verified checkpoint is incomplete")
 	}
@@ -128,13 +147,43 @@ func (s Store) LoadBackup() (domain.Config, error) {
 	if err != nil {
 		return domain.Config{}, fmt.Errorf("read previous config backup: %w", err)
 	}
+	return decodeTOMLConfig(data)
+}
+
+func decodeTOMLConfig(data []byte) (domain.Config, error) {
 	var cfg domain.Config
 	if err := toml.Unmarshal(data, &cfg); err != nil {
-		return domain.Config{}, fmt.Errorf("parse previous config backup: %w", err)
+		return domain.Config{}, fmt.Errorf("parse config: %w", err)
 	}
+	var legacy legacyTOMLConfig
+	if err := toml.Unmarshal(data, &legacy); err != nil {
+		return domain.Config{}, fmt.Errorf("parse legacy config fields: %w", err)
+	}
+	return promoteLegacyProfiles(cfg, legacy.Profiles)
+}
+
+func promoteLegacyProfiles(cfg domain.Config, legacy map[string]legacyProfile) (domain.Config, error) {
 	cfg.Normalize()
+	for name, source := range legacy {
+		profile, exists := cfg.Profiles[name]
+		if !exists {
+			continue
+		}
+		if profile.Account != "" || (source.Endpoints.OpenAIResponses == "" && source.Endpoints.Anthropic == "" && source.AccountProbe == nil) {
+			continue
+		}
+		account := cfg.Accounts[name]
+		if account.Label == "" {
+			account.Label = profile.Label
+		}
+		account.Endpoints = source.Endpoints
+		account.AccountProbe = source.AccountProbe
+		cfg.Accounts[name] = account
+		profile.Account = name
+		cfg.Profiles[name] = profile
+	}
 	if err := cfg.Validate(); err != nil {
-		return domain.Config{}, fmt.Errorf("validate previous config backup: %w", err)
+		return domain.Config{}, fmt.Errorf("validate config: %w", err)
 	}
 	return cfg, nil
 }

@@ -49,8 +49,7 @@ func runWizard(ctx context.Context, app *App) error {
 	if err != nil {
 		return err
 	}
-	verifyProfile := domain.Profile{ID: providerAccount.ID, Label: providerAccount.Label, Account: providerAccount.ID, Endpoints: providerAccount.Endpoints, AccountProbe: providerAccount.AccountProbe}
-	if err := verifyCredential(ctx, app, verifyProfile, token); err != nil {
+	if err := verifyCredential(ctx, app, providerAccount, token); err != nil {
 		return fmt.Errorf("Token 验证失败：%w", err)
 	}
 	r.Section("验证")
@@ -114,10 +113,10 @@ func runWizard(ctx context.Context, app *App) error {
 	return nil
 }
 
-func verifyCredential(ctx context.Context, app *App, profile domain.Profile, token string) error {
-	endpoint := profile.Endpoints.OpenAIResponses
+func verifyCredential(ctx context.Context, app *App, providerAccount domain.Account, token string) error {
+	endpoint := providerAccount.Endpoints.OpenAIResponses
 	if endpoint == "" {
-		endpoint = profile.Endpoints.Anthropic
+		endpoint = providerAccount.Endpoints.Anthropic
 	}
 	checkCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()

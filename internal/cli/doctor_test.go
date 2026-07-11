@@ -16,18 +16,11 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{
-		ID:        "gpt-5.6-sol-cdx",
-		Label:     "GPT 5.6 Sol Codex",
-		Account:   "dmx",
-		Client:    domain.ClientCodex,
-		Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"},
-		Models:    domain.Models{Codex: "gpt-5.6-sol-cdx"},
-	}
+	profile := domain.Profile{Label: "GPT 5.6 Sol Codex", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
 	cfg := domain.NewConfig()
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: profile.Endpoints}
-	cfg.Profiles[profile.ID] = profile
-	cfg.Routes.Default = profile.ID
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	cfg.Profiles["gpt-5.6-sol-cdx"] = profile
+	cfg.Routes.Default = "gpt-5.6-sol-cdx"
 	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -35,7 +28,11 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	if err := secretStore.Set("dmx", "test-token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := adapters.SyncCodexConfig(target, profile); err != nil {
+	runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := adapters.SyncCodexConfig(target, runtime); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(target)
