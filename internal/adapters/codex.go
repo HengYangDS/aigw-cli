@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/pelletier/go-toml/v2"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
 )
@@ -53,7 +54,7 @@ func SyncCodexConfig(path string, profile domain.Profile) error {
 	if err != nil {
 		return err
 	}
-	base, state, err := codexUserConfig(path)
+	base, state, err := codexUserConfig(path, profile)
 	if err != nil {
 		return err
 	}
@@ -88,22 +89,7 @@ func ValidateCodexConfig(path string, profile domain.Profile) error {
 		return fmt.Errorf("read Codex config: %w", err)
 	}
 	text := string(current)
-	if !isManagedSelection(modelProviderLine.FindString(text), "model_provider", "aigw") {
-		return fmt.Errorf("Codex config provider selection does not match AIGW")
-	}
-	if model := profile.ModelFor(domain.ClientCodex); model != "" {
-		if !isManagedSelection(modelLine.FindString(text), "model", strings.ReplaceAll(model, "\"", "'")) {
-			return fmt.Errorf("Codex config model selection does not match profile %q", profile.ID)
-		}
-	}
 	expectedBlock := codexManagedBlock(profile.Label, endpoint)
-	actualBlock, err := codexManagedBlockIn(text)
-	if err != nil {
-		return err
-	}
-	if hashText(actualBlock) != hashText(expectedBlock) {
-		return fmt.Errorf("Codex config provider block does not match profile %q", profile.ID)
-	}
 	stateData, err := os.ReadFile(codexStatePath(path))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -115,10 +101,25 @@ func ValidateCodexConfig(path string, profile domain.Profile) error {
 	if err := json.Unmarshal(stateData, &state); err != nil {
 		return fmt.Errorf("parse Codex adapter state: %w", err)
 	}
-	if !managedBlockHashMatches(state.ManagedBlockHash, actualBlock) {
-		return fmt.Errorf("Codex config AIGW state does not match profile %q", profile.ID)
+	if isManagedSelection(modelProviderLine.FindString(text), "model_provider", "aigw") {
+		if model := profile.ModelFor(domain.ClientCodex); model != "" {
+			if !isManagedSelection(modelLine.FindString(text), "model", strings.ReplaceAll(model, "\"", "'")) {
+				return fmt.Errorf("Codex config model selection does not match profile %q", profile.ID)
+			}
+		}
+		actualBlock, err := codexManagedBlockIn(text)
+		if err != nil {
+			return err
+		}
+		if hashText(actualBlock) != hashText(expectedBlock) {
+			return fmt.Errorf("Codex config provider block does not match profile %q", profile.ID)
+		}
+		if !managedBlockHashMatches(state.ManagedBlockHash, actualBlock) {
+			return fmt.Errorf("Codex config AIGW state does not match profile %q", profile.ID)
+		}
+		return nil
 	}
-	return nil
+	return fmt.Errorf("Codex config provider selection does not match AIGW")
 }
 
 func DisableCodexConfig(path string) error {
@@ -150,7 +151,7 @@ func DisableCodexConfig(path string) error {
 	return nil
 }
 
-func codexUserConfig(path string) (string, codexState, error) {
+func codexUserConfig(path string, profile domain.Profile) (string, codexState, error) {
 	stateData, err := os.ReadFile(codexStatePath(path))
 	if err == nil {
 		var state codexState
@@ -165,6 +166,9 @@ func codexUserConfig(path string) (string, codexState, error) {
 			state.OriginalModel = unmarkManagedModel(modelLine.FindString(string(current)))
 		}
 		base, err := removeCodexProjection(string(current), state)
+		if err != nil {
+			base, err = recoverStrippedCodexProjection(string(current), state, profile)
+		}
 		if err != nil {
 			return "", codexState{}, err
 		}
@@ -183,6 +187,93 @@ func codexUserConfig(path string) (string, codexState, error) {
 	originalProvider := modelProviderLine.FindString(string(data))
 	originalModel := modelLine.FindString(string(data))
 	return string(data), codexState{OriginalProvider: originalProvider, OriginalModel: originalModel}, nil
+}
+
+// recoverStrippedCodexProjection permits a narrowly-defined recovery from a
+// formatter that removed AIGW's comments while preserving the exact active
+// projection. A state file alone is never sufficient: the selected model,
+// endpoint, provider fields, and state hash must all agree before any text is
+// changed. Any semantic difference remains a conflict.
+func recoverStrippedCodexProjection(current string, state codexState, profile domain.Profile) (string, error) {
+	if strings.Contains(current, codexBegin) || strings.Contains(current, codexEnd) {
+		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider markers are incomplete; refusing to overwrite user edits")
+	}
+	if state.ManagedBlockHash == "" {
+		return "", fmt.Errorf("Codex config conflict: AIGW state has no provider hash; refusing to overwrite user edits")
+	}
+	endpoint, err := profile.EndpointFor(domain.ClientCodex)
+	if err != nil {
+		return "", err
+	}
+	expected := codexManagedBlock(profile.Label, endpoint)
+	if !managedBlockHashMatches(state.ManagedBlockHash, expected) {
+		return "", fmt.Errorf("Codex config conflict: AIGW state does not match the selected profile; refusing to overwrite user edits")
+	}
+	if !unmarkedProjectionMatches(current, profile, endpoint) {
+		return "", fmt.Errorf("Codex config conflict: unmarked AIGW projection differs from the selected profile; refusing to overwrite user edits")
+	}
+
+	base, err := removeUnmarkedAIGWProviderTable(current, profile.Label, endpoint)
+	if err != nil {
+		return "", err
+	}
+	if state.OriginalProvider != "" {
+		base = modelProviderLine.ReplaceAllString(base, state.OriginalProvider)
+	} else {
+		base = modelProviderLine.ReplaceAllString(base, "")
+		base = strings.TrimLeft(base, "\r\n")
+	}
+	base = restoreModelSelection(base, state.OriginalModel)
+	return strings.TrimRight(base, "\r\n") + "\n", nil
+}
+
+func unmarkedProjectionMatches(current string, profile domain.Profile, endpoint string) bool {
+	var document map[string]any
+	if err := toml.Unmarshal([]byte(current), &document); err != nil {
+		return false
+	}
+	if stringValue(document["model_provider"]) != "aigw" {
+		return false
+	}
+	if expectedModel := profile.ModelFor(domain.ClientCodex); expectedModel != "" && stringValue(document["model"]) != expectedModel {
+		return false
+	}
+	providers, ok := document["model_providers"].(map[string]any)
+	if !ok {
+		return false
+	}
+	provider, ok := providers["aigw"].(map[string]any)
+	if !ok || len(provider) != 4 {
+		return false
+	}
+	return stringValue(provider["name"]) == "AIGW: "+strings.ReplaceAll(profile.Label, `"`, `'`) &&
+		stringValue(provider["base_url"]) == endpoint &&
+		stringValue(provider["wire_api"]) == "responses" &&
+		boolValue(provider["requires_openai_auth"])
+}
+
+func stringValue(value any) string {
+	text, _ := value.(string)
+	return text
+}
+
+func boolValue(value any) bool {
+	flag, _ := value.(bool)
+	return flag
+}
+
+func removeUnmarkedAIGWProviderTable(current, label, endpoint string) (string, error) {
+	name := strings.ReplaceAll(label, `"`, `'`)
+	pattern := `(?m)^[ \t]*\[model_providers\.aigw\][ \t]*(?:\r?\n)` +
+		`^[ \t]*name[ \t]*=[ \t]*"` + regexp.QuoteMeta("AIGW: "+name) + `"[ \t]*(?:\r?\n)` +
+		`^[ \t]*base_url[ \t]*=[ \t]*"` + regexp.QuoteMeta(endpoint) + `"[ \t]*(?:\r?\n)` +
+		`^[ \t]*wire_api[ \t]*=[ \t]*"responses"[ \t]*(?:\r?\n)` +
+		`^[ \t]*requires_openai_auth[ \t]*=[ \t]*true[ \t]*(?:\r?\n|$)`
+	owned := regexp.MustCompile(pattern).FindStringIndex(current)
+	if owned == nil {
+		return "", fmt.Errorf("Codex config conflict: unmarked AIGW provider table is missing")
+	}
+	return strings.TrimRight(current[:owned[0]]+current[owned[1]:], "\r\n") + "\n", nil
 }
 
 func projectCodex(original, block, model string) string {

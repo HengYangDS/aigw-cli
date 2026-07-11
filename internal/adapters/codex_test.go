@@ -225,6 +225,143 @@ func TestCodexSyncAcceptsFormatterPaddingOnManagedSelections(t *testing.T) {
 	}
 }
 
+func TestCodexSyncRecoversSemanticallyEquivalentProjectionWhoseOwnershipMarkersWereStripped(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	original := "model_provider = \"native\"\nmodel = \"gpt-original\"\n\n[features]\nkeep = true\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := domain.Profile{
+		ID:        "gpt-5.6-sol-cdx",
+		Label:     "GPT 5.6 Sol Codex",
+		Account:   "dmx",
+		Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"},
+		Models:    domain.Models{Codex: "gpt-5.6-sol-cdx"},
+	}
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stripped := strings.Replace(string(projected), `model_provider = "aigw" # managed by AIGW`, `model_provider = "aigw"`, 1)
+	stripped = strings.Replace(stripped, `model = "gpt-5.6-sol-cdx" # managed by AIGW`, `model = "gpt-5.6-sol-cdx"`, 1)
+	stripped = strings.Replace(stripped, "# >>> AIGW managed provider >>>\n", "", 1)
+	stripped = strings.Replace(stripped, "# <<< AIGW managed provider <<<\n", "", 1)
+	stripped += "# user note after provider\n"
+	if err := os.WriteFile(path, []byte(stripped), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := adapters.ValidateCodexConfig(path, profile); err == nil {
+		t.Fatal("ValidateCodexConfig() accepted a projection whose AIGW ownership markers were stripped")
+	}
+
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatalf("SyncCodexConfig() did not recover an otherwise equivalent unmarked projection: %v", err)
+	}
+	recovered, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(recovered), "# user note after provider") {
+		t.Fatal("SyncCodexConfig() removed a user comment adjacent to the unmarked provider table")
+	}
+	if err := adapters.ValidateCodexConfig(path, profile); err != nil {
+		t.Fatalf("ValidateCodexConfig() = %v after recovery", err)
+	}
+	if err := adapters.DisableCodexConfig(path); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(restored), "# user note after provider") {
+		t.Fatal("DisableCodexConfig() removed the preserved user comment")
+	}
+	if !strings.Contains(string(restored), original) {
+		t.Fatalf("restore lost original configuration\nwant subset:\n%s\ngot:\n%s", original, restored)
+	}
+}
+
+func TestCodexSyncRejectsUnmarkedProjectionWhenProviderSemanticsDiffer(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := domain.Profile{
+		ID:        "gpt-5.6-sol-cdx",
+		Label:     "GPT 5.6 Sol Codex",
+		Account:   "dmx",
+		Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"},
+		Models:    domain.Models{Codex: "gpt-5.6-sol-cdx"},
+	}
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stripped := strings.Replace(string(projected), `model_provider = "aigw" # managed by AIGW`, `model_provider = "aigw"`, 1)
+	stripped = strings.Replace(stripped, `model = "gpt-5.6-sol-cdx" # managed by AIGW`, `model = "gpt-5.6-sol-cdx"`, 1)
+	stripped = strings.Replace(stripped, "# >>> AIGW managed provider >>>\n", "", 1)
+	stripped = strings.Replace(stripped, "# <<< AIGW managed provider <<<\n", "", 1)
+	stripped = strings.Replace(stripped, `base_url = "https://example.test/v1"`, `base_url = "https://different.test/v1"`, 1)
+	if err := os.WriteFile(path, []byte(stripped), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err = adapters.SyncCodexConfig(path, profile)
+	if err == nil || !strings.Contains(err.Error(), "conflict") {
+		t.Fatalf("error = %v, want semantic conflict", err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != stripped {
+		t.Fatal("SyncCodexConfig changed an unmarked projection with different provider semantics")
+	}
+}
+
+func TestCodexSyncRecoversEquivalentCRLFProjectionWhoseOwnershipMarkersWereStripped(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("model_provider = \"native\"\r\nmodel = \"gpt-original\"\r\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := domain.Profile{
+		ID:        "gpt-5.6-sol-cdx",
+		Label:     "GPT 5.6 Sol Codex",
+		Account:   "dmx",
+		Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"},
+		Models:    domain.Models{Codex: "gpt-5.6-sol-cdx"},
+	}
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stripped := strings.Replace(string(projected), `model_provider = "aigw" # managed by AIGW`, `model_provider = "aigw"`, 1)
+	stripped = strings.Replace(stripped, `model = "gpt-5.6-sol-cdx" # managed by AIGW`, `model = "gpt-5.6-sol-cdx"`, 1)
+	stripped = strings.Replace(stripped, "# >>> AIGW managed provider >>>\n", "", 1)
+	stripped = strings.Replace(stripped, "# <<< AIGW managed provider <<<\n", "", 1)
+	stripped = strings.ReplaceAll(stripped, "\n", "\r\n")
+	if err := os.WriteFile(path, []byte(stripped), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatalf("SyncCodexConfig() did not recover an equivalent CRLF projection: %v", err)
+	}
+	if err := adapters.ValidateCodexConfig(path, profile); err != nil {
+		t.Fatalf("ValidateCodexConfig() = %v after CRLF recovery", err)
+	}
+}
+
 func TestCodexValidationAndDisablePreserveForeignFieldsBeforeProvider(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	original := "model_provider = \"native\"\nmodel = \"gpt-original\"\n\n[mcp_servers.node_repl]\n"
