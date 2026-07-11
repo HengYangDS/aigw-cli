@@ -2,7 +2,9 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,6 +28,14 @@ import (
 
 type Runner interface {
 	Run(context.Context, adapters.ProcessPlan) error
+}
+
+// CaptureRunner is implemented by runners that can return bounded process
+// output without rendering it to the user's terminal. Protocol verification
+// uses it to prove the expected sentinel was returned, rather than treating a
+// zero process exit as sufficient evidence.
+type CaptureRunner interface {
+	RunCapture(context.Context, adapters.ProcessPlan) ([]byte, error)
 }
 
 type HTTPDoer interface {
@@ -66,6 +76,30 @@ type App struct {
 
 type ProcessRunner struct{}
 
+const capturedProcessOutputLimit = 64 * 1024
+
+var errCapturedProcessOutputLimit = errors.New("captured process output exceeds limit")
+
+type limitedBuffer struct {
+	bytes.Buffer
+	limit    int
+	overflow bool
+}
+
+func (b *limitedBuffer) Write(data []byte) (int, error) {
+	remaining := b.limit - b.Len()
+	if remaining <= 0 {
+		b.overflow = true
+		return 0, errCapturedProcessOutputLimit
+	}
+	if len(data) > remaining {
+		_, _ = b.Buffer.Write(data[:remaining])
+		b.overflow = true
+		return remaining, errCapturedProcessOutputLimit
+	}
+	return b.Buffer.Write(data)
+}
+
 func Execute(app *App, args []string) error {
 	if mutationCommand(app, args) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -92,7 +126,7 @@ func mutationCommand(app *App, args []string) bool {
 		return err == nil && len(cfg.Profiles) == 0 && app.Interactive
 	}
 	switch args[0] {
-	case "setup", "add", "use", "rotate", "sync":
+	case "setup", "add", "use", "rotate", "sync", "rollback":
 		return true
 	case "repair", "update":
 		return true
@@ -103,7 +137,7 @@ func mutationCommand(app *App, args []string) bool {
 	case "route":
 		return len(args) > 1 && args[1] == "reset"
 	case "adapter":
-		return len(args) > 1 && (args[1] == "enable" || args[1] == "disable")
+		return len(args) > 1 && (args[1] == "enable" || args[1] == "auth" || args[1] == "disable")
 	case "config":
 		return len(args) > 1 && (args[1] == "import" || args[1] == "migrate")
 	default:
@@ -124,6 +158,32 @@ func (ProcessRunner) Run(ctx context.Context, plan adapters.ProcessPlan) error {
 		return fmt.Errorf("run %s: %w", plan.Executable, err)
 	}
 	return nil
+}
+
+// RunCapture runs a bounded, non-interactive process invocation. It never
+// embeds captured output in returned errors, so a misbehaving client cannot
+// accidentally surface process environment or response material.
+func (ProcessRunner) RunCapture(ctx context.Context, plan adapters.ProcessPlan) ([]byte, error) {
+	if plan.Replace {
+		return nil, fmt.Errorf("captured execution cannot replace the current process")
+	}
+	cmd := exec.CommandContext(ctx, plan.Executable, plan.Args...)
+	cmd.Env = plan.Env
+	cmd.Stdin = strings.NewReader(plan.Stdin)
+	stdout := &limitedBuffer{limit: capturedProcessOutputLimit}
+	stderr := &limitedBuffer{limit: capturedProcessOutputLimit}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	if err := cmd.Run(); err != nil {
+		if stdout.overflow || stderr.overflow || errors.Is(err, errCapturedProcessOutputLimit) {
+			return nil, fmt.Errorf("run %s: captured output exceeded %d bytes", plan.Executable, capturedProcessOutputLimit)
+		}
+		return nil, fmt.Errorf("run %s: %w", plan.Executable, err)
+	}
+	if stdout.overflow || stderr.overflow {
+		return nil, fmt.Errorf("run %s: captured output exceeded %d bytes", plan.Executable, capturedProcessOutputLimit)
+	}
+	return append([]byte(nil), stdout.Bytes()...), nil
 }
 
 func NewDefault() (*App, error) {

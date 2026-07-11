@@ -70,8 +70,7 @@ build_macos_pkg() {
   cp "$universal" "$pkg_root/usr/local/bin/aigw"
   chmod 755 "$pkg_root/usr/local/bin/aigw"
   cp "$root/packaging/macos/aigw-postinstall" "$scripts_dir/postinstall"
-  cp "$root/packaging/macos/aigw-preremove" "$scripts_dir/preinstall"
-  chmod 755 "$scripts_dir/postinstall" "$scripts_dir/preinstall"
+  chmod 755 "$scripts_dir/postinstall"
   pkgbuild --root "$pkg_root" --scripts "$scripts_dir" --identifier "dig.aigw.cli" --version "$version" --install-location / "$component" >/dev/null
   productbuild --package "$component" "$out_abs/aigw_${version}_darwin_universal.pkg" >/dev/null
 }
@@ -121,19 +120,7 @@ Run: aigw setup
 Claude shim is created later in your user bin directory by aigw setup/repair.
 MSG
 EOS
-      cat > "$pkg_stage/preremove.sh" <<'EOS'
-#!/bin/sh
-set -eu
-for home in /home/* /Users/*; do
-  [ -d "$home" ] || continue
-  shim="$home/.local/bin/claude"
-  if [ -f "$shim" ] && grep -q 'AIGW managed Claude shim' "$shim"; then
-    rm -f "$shim"
-  fi
-done
-exit 0
-EOS
-      chmod 755 "$pkg_stage/postinstall.sh" "$pkg_stage/preremove.sh"
+      chmod 755 "$pkg_stage/postinstall.sh"
       rendered="$pkg_stage/nfpm.yaml"
       render_nfpm_config "$root/packaging/linux/nfpm.yaml" "$rendered" "$(nfpm_arch "$arch")" "$pkg_stage"
       nfpm package -f "$rendered" -p "$channel" -t "$out_abs/aigw_${version}_linux_${arch}.${channel}" >/dev/null

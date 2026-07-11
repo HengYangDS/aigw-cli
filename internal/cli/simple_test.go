@@ -65,6 +65,12 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("dmx", "token")
+	shimDir := t.TempDir()
+	app.Shims.BinDir = shimDir
+	app.Shims.AIGWExecutable = filepath.Join(shimDir, "aigw")
+	if _, err := app.Shims.EnableClaude(); err != nil {
+		t.Fatal(err)
+	}
 	if err := execute(t, app, "check"); err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +132,7 @@ func TestHelpKeepsDailyCommandsObvious(t *testing.T) {
 	}
 }
 
-func TestDoctorWarnsWhenClaudeShimIsNotDiscoverableOnPath(t *testing.T) {
+func TestDoctorAcceptsOwnedClaudeShimWithoutPathDiscovery(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Profiles["dmx"] = domain.Profile{Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://dmx.test"}}
@@ -144,7 +150,201 @@ func TestDoctorWarnsWhenClaudeShimIsNotDiscoverableOnPath(t *testing.T) {
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{}}
 	err := execute(t, app, "doctor")
-	if err == nil || !strings.Contains(out.String(), "PATH") || !strings.Contains(out.String(), "aigw repair") {
-		t.Fatalf("doctor did not explain missing shim PATH; err=%v output=%s", err, out.String())
+	if err != nil || !strings.Contains(out.String(), "shim:claude") || !strings.Contains(out.String(), "AIGW managed") {
+		t.Fatalf("doctor did not accept the owned shim; err=%v output=%s", err, out.String())
+	}
+}
+
+func TestRepairRestoresClaudeShimWithoutReplacingConfiguredExecutable(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
+	cfg.Routes.Default = "claude"
+	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("claude", "token"); err != nil {
+		t.Fatal(err)
+	}
+	shimDir := t.TempDir()
+	app.Shims.BinDir = shimDir
+	app.Shims.AIGWExecutable = filepath.Join(shimDir, "aigw")
+	app.Discovery = fakeDiscovery{result: discovery.Result{ClaudeExecutable: "/different/claude"}}
+
+	if err := execute(t, app, "repair"); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := restored.Adapters[domain.ClientClaude].Executable; got != "/opt/claude-real" {
+		t.Fatalf("repair replaced configured Claude executable: %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(shimDir, "claude")); err != nil {
+		t.Fatalf("repair did not restore owned Claude shim: %v", err)
+	}
+	if !strings.Contains(out.String(), "未改动") {
+		t.Fatalf("repair incorrectly claimed authentication refresh:\n%s", out.String())
+	}
+}
+
+func TestRepairCanRestoreClaudeWithoutAnyCodexProfile(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}, Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-test"}}
+	cfg.Routes.Default = "claude"
+	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("claude", "token"); err != nil {
+		t.Fatal(err)
+	}
+	shimDir := t.TempDir()
+	app.Shims.BinDir = shimDir
+	app.Shims.AIGWExecutable = filepath.Join(shimDir, "aigw")
+	app.Discovery = fakeDiscovery{result: discovery.Result{}}
+
+	if err := execute(t, app, "repair"); err != nil {
+		t.Fatal(err)
+	}
+	ready, err := app.Shims.ClaudeShimReady()
+	if err != nil || !ready {
+		t.Fatalf("Claude shim readiness = %v, %v", ready, err)
+	}
+}
+
+func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT Profile", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	cfg.Routes.Default = "gpt-5.6-sol-cdx"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("dmx", "old-token")
+	prompt := &fakePrompt{secret: "new-token"}
+	app.Interactive = true
+	app.Prompt = prompt
+	if err := execute(t, app, "rotate", "dmx"); err != nil {
+		t.Fatal(err)
+	}
+	if prompt.lastSecretLabel != "请粘贴 DMXAPI Token：" {
+		t.Fatalf("prompt label = %q", prompt.lastSecretLabel)
+	}
+}
+
+func TestStatusGuidesClientSpecificRouteInsteadOfBlankRepair(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
+	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-fable-5"}}
+	cfg.Routes.Default = "gpt-5.6-sol-cdx"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("dmx", "token")
+	if err := execute(t, app, "status"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if strings.Contains(text, "Claude             ·") || strings.Contains(text, "aigw repair") {
+		t.Fatalf("status should not show blank Claude route or misleading repair:\n%s", text)
+	}
+	for _, want := range []string{"Claude", "未选择 Claude Profile", "aigw use claude-fable-5 --for claude"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("status lacks %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestStatusWarnsWhenEnabledClaudeAdapterHasNoOwnedShim(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	shimDir := t.TempDir()
+	app.Shims.BinDir = shimDir
+	app.Shims.AIGWExecutable = filepath.Join(shimDir, "aigw")
+	cfg := domain.NewConfig()
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
+	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude Fable", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-fable-5"}}
+	cfg.Routes.Default = "claude-fable-5"
+	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("dmx", "token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "status"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "Claude shim 缺失") || !strings.Contains(text, "aigw repair") {
+		t.Fatalf("status did not surface the missing Claude shim:\n%s", text)
+	}
+}
+
+func TestCheckFailsWhenEnabledClaudeAdapterHasNoOwnedShim(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	shimDir := t.TempDir()
+	app.Shims.BinDir = shimDir
+	app.Shims.AIGWExecutable = filepath.Join(shimDir, "aigw")
+	cfg := domain.NewConfig()
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
+	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude Fable", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-fable-5"}}
+	cfg.Routes.Default = "claude-fable-5"
+	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("dmx", "token"); err != nil {
+		t.Fatal(err)
+	}
+
+	err := execute(t, app, "check")
+	if err == nil || !strings.Contains(out.String(), "Claude shim") || !strings.Contains(out.String(), "aigw repair") {
+		t.Fatalf("check did not block on a missing Claude shim; err=%v output=%s", err, out.String())
+	}
+}
+
+func TestCheckSuggestsAccountSpecificBalanceCommand(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	cfg.Routes.Default = "gpt-5.6-sol-cdx"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("dmx", "token")
+	if err := execute(t, app, "check"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "aigw account connect dmx") || !strings.Contains(text, "aigw balance dmx") {
+		t.Fatalf("check should suggest account-specific diagnostics:\n%s", text)
+	}
+}
+
+func TestStatusSuggestsAccountSpecificDiagnostics(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	cfg.Routes.Default = "gpt-5.6-sol-cdx"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("dmx", "token")
+	if err := execute(t, app, "status"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "aigw account connect dmx") {
+		t.Fatalf("status should suggest account-specific diagnostics:\n%s", text)
 	}
 }

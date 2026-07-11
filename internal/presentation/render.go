@@ -99,6 +99,13 @@ func (r *Renderer) Status(state State, label, value string) {
 	r.hasContent = true
 }
 
+func (r *Renderer) StatusLine(state State, label, value string) {
+	symbol := map[State]string{OK: "✓", Warn: "!", Fail: "✗", Info: "·"}[state]
+	symbol = r.stateStyle(state).Render(symbol)
+	fmt.Fprintf(r.out, "  %s %s  %s\n", symbol, label, value)
+	r.hasContent = true
+}
+
 func (r *Renderer) Detail(value string) {
 	fmt.Fprintln(r.out, lipgloss.NewStyle().MarginLeft(detailIndent).Inherit(r.styles.dim).Render(value))
 	r.hasContent = true
