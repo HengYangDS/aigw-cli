@@ -91,7 +91,6 @@ aigw check
 团队清单路径：
 
 ```bash
-aigw config upgrade           # 仅旧版本机配置需要；不触碰客户端
 aigw config import team-profiles.toml
 aigw rotate team-gateway
 aigw catalog                 # 默认显示已配置模型与数量摘要
@@ -101,7 +100,7 @@ aigw use claude-fable-5 --for claude
 aigw check
 ```
 
-使用 `purpose` 的团队清单采用 schema v2。旧版无 `purpose` 的本机配置仍可读取；首次导入 v2 清单前运行一次 `aigw config upgrade`，它只原子更新本机 AIGW 配置版本，不会同步、认证、启动或重启任何客户端。
+团队清单和本机配置固定采用 schema v2。AIGW 只接受这一当前结构，避免迁移逻辑和并行配置路径；导入不会同步、认证、启动或重启任何客户端。
 
 若某个已导入 Account 的目录中出现尚未配置的模型，成员可在不复制 Token 的前提下添加一个本机 Profile：
 

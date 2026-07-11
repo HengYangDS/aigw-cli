@@ -14,7 +14,7 @@ import (
 
 func TestLoadRejectsProfileOwnedEndpointResidue(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	legacy := `version = 1
+	raw := `version = 2
 
 [accounts.gateway]
 label = "Gateway"
@@ -40,12 +40,37 @@ base_url = "https://duplicate.test"
 [routes]
 default = "gpt"
 `
-	if err := os.WriteFile(path, []byte(legacy), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	store := config.NewStore(path)
 	if _, err := store.Load(); err == nil {
 		t.Fatal("Profile-owned endpoint residue was accepted")
+	}
+}
+
+func TestLoadRejectsNonCanonicalSchemaVersion(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	raw := `version = 1
+
+[accounts.gateway]
+label = "Gateway"
+
+[accounts.gateway.endpoints]
+anthropic = "https://gateway.test"
+
+[profiles.agent]
+label = "Agent"
+account = "gateway"
+
+[routes]
+default = "agent"
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := config.NewStore(path).Load(); err == nil || !strings.Contains(err.Error(), "unsupported config version 1") {
+		t.Fatalf("version 1 load error = %v", err)
 	}
 }
 
@@ -68,7 +93,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "config.toml")
 	store := config.NewStore(path)
 	want := domain.Config{
-		Version:  1,
+		Version:  domain.ConfigVersion,
 		Accounts: map[string]domain.Account{"dmx": {Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
 		Profiles: map[string]domain.Profile{"dmx": {Label: "DMXAPI", Account: "dmx"}},
 		Routes:   domain.Routes{Default: "dmx", Overrides: map[string]string{}},
@@ -92,7 +117,43 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	}
 }
 
-func TestLoadPreservesLegacyClaudeAndCodexModelKeysAsClientMap(t *testing.T) {
+func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewStore(path)
+	cfg := domain.Config{
+		Version: domain.ConfigVersion,
+		Accounts: map[string]domain.Account{
+			"dmx": {Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}},
+		},
+		Profiles: map[string]domain.Profile{
+			"claude": {
+				Label:   "Claude",
+				Account: "dmx",
+				Client:  domain.ClientClaude,
+				Models:  domain.Models{domain.ClientClaude: "claude-test"},
+			},
+		},
+		Routes: domain.Routes{Default: "claude", Overrides: map[string]string{}},
+	}
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(data), "\n")
+	for index, line := range lines {
+		if !strings.HasPrefix(line, "[") || strings.HasPrefix(line, "[[") {
+			continue
+		}
+		if index > 0 && strings.TrimSpace(lines[index-1]) != "" && !strings.HasPrefix(strings.TrimSpace(lines[index-1]), "#") {
+			t.Fatalf("table %q at line %d is not separated from %q:\n%s", line, index+1, lines[index-1], data)
+		}
+	}
+}
+
+func TestLoadPreservesAdmittedClaudeAndCodexModelKeysAsClientMap(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	data := `version = 2
 [accounts.gateway]
@@ -130,7 +191,7 @@ func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := config.NewStore(path)
-	if err := store.Save(domain.Config{Version: 1}); err == nil {
+	if err := store.Save(domain.Config{Version: domain.ConfigVersion}); err == nil {
 		t.Fatal("expected validation error")
 	}
 	got, _ := os.ReadFile(path)
@@ -143,7 +204,7 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewStore(path)
 	first := domain.Config{
-		Version:  1,
+		Version:  domain.ConfigVersion,
 		Accounts: map[string]domain.Account{"one": {Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}},
 		Profiles: map[string]domain.Profile{"one": {Label: "One", Account: "one"}},
 		Routes:   domain.Routes{Default: "one", Overrides: map[string]string{}},
@@ -171,7 +232,7 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewStore(path)
 	cfg := domain.Config{
-		Version:  1,
+		Version:  domain.ConfigVersion,
 		Accounts: map[string]domain.Account{"dmx": {Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
 		Profiles: map[string]domain.Profile{"claude": {Label: "Claude", Account: "dmx", Models: domain.Models{domain.ClientClaude: "claude-test"}}},
 		Routes:   domain.Routes{Default: "claude", Overrides: map[string]string{}},
