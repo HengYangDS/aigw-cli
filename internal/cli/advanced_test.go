@@ -56,7 +56,7 @@ func TestConfigUpgradeChangesOnlySchemaVersion(t *testing.T) {
 	cfg := domain.NewConfig()
 	cfg.Version = domain.LegacyConfigVersion
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "team", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "team", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
 	cfg.Routes.Default = "gpt"
 	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
@@ -91,7 +91,7 @@ func TestConfigUpgradeChangesOnlySchemaVersion(t *testing.T) {
 func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	addAccountProfile(&cfg, "current", "team", "Team Gateway", domain.Endpoints{Anthropic: "https://team.test"}, domain.ClientClaude, domain.Models{Claude: "claude-current"})
+	addAccountProfile(&cfg, "current", "team", "Team Gateway", domain.Endpoints{Anthropic: "https://team.test"}, domain.ClientClaude, domain.Models{domain.ClientClaude: "claude-current"})
 	cfg.Routes.Default = "current"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -305,7 +305,7 @@ func TestAdapterAuthBindsCurrentCodexAccount(t *testing.T) {
 	}
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
 	cfg.Routes.Default = "gpt"
 	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/opt/codex-real", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
@@ -447,8 +447,8 @@ func TestDoctorChecksAccountTokenOnceForSharedProfiles(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Profiles["alpha-model"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "alpha-model"}}
-	cfg.Profiles["beta-model"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "beta-model"}}
+	cfg.Profiles["alpha-model"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "alpha-model"}}
+	cfg.Profiles["beta-model"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "beta-model"}}
 	cfg.Routes.Default = "alpha-model"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -470,7 +470,7 @@ func TestProfileRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-old"] = domain.Profile{Label: "GPT Old", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-old"}}
+	cfg.Profiles["gpt-old"] = domain.Profile{Label: "GPT Old", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-old"}}
 	cfg.Routes.Default = "gpt-old"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -495,8 +495,8 @@ func TestProfileRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-default"] = domain.Profile{Label: "GPT Default", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-default"}}
-	cfg.Profiles["gpt-unused"] = domain.Profile{Label: "GPT Unused", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-unused"}}
+	cfg.Profiles["gpt-default"] = domain.Profile{Label: "GPT Default", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-default"}}
+	cfg.Profiles["gpt-unused"] = domain.Profile{Label: "GPT Unused", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-unused"}}
 	cfg.Routes.Default = "gpt-default"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -517,7 +517,7 @@ func TestProfileRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 func TestProfileAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	addAccountProfile(&cfg, "gpt", "dmx", "GPT", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, domain.ClientCodex, domain.Models{Codex: "gpt-test"})
+	addAccountProfile(&cfg, "gpt", "dmx", "GPT", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "gpt-test"})
 	cfg.Routes.Default = "gpt"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -534,7 +534,7 @@ func TestProfileAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := got.Profiles["claude"]
-	if profile.Account != "dmx" || profile.Client != domain.ClientClaude || profile.Models.Claude != "claude-test" {
+	if profile.Account != "dmx" || profile.Client != domain.ClientClaude || profile.Models[domain.ClientClaude] != "claude-test" {
 		t.Fatalf("added profile = %#v", profile)
 	}
 	if got.Routes.Default != "gpt" || !secretStore.Has("dmx") || secretStore.Has("claude") {
@@ -545,8 +545,8 @@ func TestProfileAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 func TestAccountEditUpdatesSharedEndpointWithoutProfileDuplication(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	addAccountProfile(&cfg, "gpt", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, domain.ClientCodex, domain.Models{Codex: "gpt-test"})
-	addAccountProfile(&cfg, "claude", "dmx", "DMXAPI", domain.Endpoints{}, domain.ClientClaude, domain.Models{Claude: "claude-test"})
+	addAccountProfile(&cfg, "gpt", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "gpt-test"})
+	addAccountProfile(&cfg, "claude", "dmx", "DMXAPI", domain.Endpoints{}, domain.ClientClaude, domain.Models{domain.ClientClaude: "claude-test"})
 	cfg.Routes.Default = "gpt"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -572,7 +572,7 @@ func TestAccountEditUpdatesSharedEndpointWithoutProfileDuplication(t *testing.T)
 func TestProfileAddRejectsClientWithoutMatchingAccountEndpoint(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	addAccountProfile(&cfg, "gpt", "openai-only", "OpenAI Only", domain.Endpoints{OpenAIResponses: "https://openai.test/v1"}, domain.ClientCodex, domain.Models{Codex: "gpt-test"})
+	addAccountProfile(&cfg, "gpt", "openai-only", "OpenAI Only", domain.Endpoints{OpenAIResponses: "https://openai.test/v1"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "gpt-test"})
 	cfg.Routes.Default = "gpt"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

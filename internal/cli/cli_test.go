@@ -163,9 +163,9 @@ func TestUseForClaudeDoesNotRequireOrRewriteCodexTargets(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
-	cfg.Profiles["claude-fable"] = domain.Profile{Label: "Claude Fable", Account: "gateway", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-fable"}}
-	cfg.Profiles["claude-sonnet"] = domain.Profile{Label: "Claude Sonnet", Account: "gateway", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-sonnet"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
+	cfg.Profiles["claude-fable"] = domain.Profile{Label: "Claude Fable", Account: "gateway", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-fable"}}
+	cfg.Profiles["claude-sonnet"] = domain.Profile{Label: "Claude Sonnet", Account: "gateway", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-sonnet"}}
 	cfg.Routes.Default = "gpt"
 	cfg.Routes.Overrides[domain.ClientClaude] = "claude-fable"
 	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "unavailable-codex-config.toml")}}
@@ -224,7 +224,7 @@ func TestSyncReconcilesCodexConfigWithoutRebindingCredentials(t *testing.T) {
 	}
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
 	cfg.Routes.Default = "gpt"
 	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
@@ -257,8 +257,8 @@ func TestUseCodexProfileOnSameAccountDoesNotRebindCredentials(t *testing.T) {
 	}
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["sol"] = domain.Profile{Label: "Sol", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
-	cfg.Profiles["terra"] = domain.Profile{Label: "Terra", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-terra-cdx"}}
+	cfg.Profiles["sol"] = domain.Profile{Label: "Sol", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
+	cfg.Profiles["terra"] = domain.Profile{Label: "Terra", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-terra-cdx"}}
 	cfg.Routes.Default = "sol"
 	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
@@ -314,8 +314,8 @@ func TestRotateClaudeOnlyAccountDoesNotTouchCodexTargets(t *testing.T) {
 	cfg := domain.NewConfig()
 	cfg.Accounts["codex-account"] = domain.Account{Label: "Codex", Endpoints: domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}}
 	cfg.Accounts["claude-account"] = domain.Account{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://claude.test"}}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "codex-account", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
-	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "claude-account", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "codex-account", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "claude-account", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-test"}}
 	cfg.Routes.Default = "gpt"
 	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/missing/codex", Targets: []string{filepath.Join(t.TempDir(), "unavailable-codex-config.toml")}}
 	if err := app.Config.Save(cfg); err != nil {
@@ -398,7 +398,7 @@ func TestVerifyCodexPerformsBoundedResponsesRequest(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
 	cfg.Routes.Default = "gpt"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -440,7 +440,7 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	}
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
-	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude Fable", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-fable-5"}}
+	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude Fable", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-fable-5"}}
 	cfg.Routes.Default = "claude-fable-5"
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
@@ -474,8 +474,8 @@ func TestVerifyAllWritesVerifiedCheckpoint(t *testing.T) {
 	}
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
-	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-test"}}
 	cfg.Routes.Default = "gpt"
 	cfg.Routes.Overrides[domain.ClientClaude] = "claude"
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
@@ -524,8 +524,8 @@ func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 	}
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
-	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-test"}}
 	cfg.Routes.Default = "gpt"
 	cfg.Routes.Overrides[domain.ClientClaude] = "claude"
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
@@ -548,7 +548,7 @@ func TestVerifyRejectsMissingResponseSentinel(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
 	cfg.Routes.Default = "gpt"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -573,7 +573,7 @@ func TestVerifyClaudeRejectsMissingResponseSentinel(t *testing.T) {
 	}
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
-	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-test"}}
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-test"}}
 	cfg.Routes.Default = "claude"
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
@@ -593,7 +593,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	app, _, secretStore, _ := testApp(t, "")
 	verified := domain.NewConfig()
 	verified.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	verified.Profiles["stable"] = domain.Profile{Label: "Stable", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-stable"}}
+	verified.Profiles["stable"] = domain.Profile{Label: "Stable", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-stable"}}
 	verified.Routes.Default = "stable"
 	if err := app.Config.Save(verified); err != nil {
 		t.Fatal(err)
@@ -602,7 +602,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 		t.Fatal(err)
 	}
 	current := verified
-	current.Profiles = map[string]domain.Profile{"experimental": {Label: "Experimental", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-experimental"}}}
+	current.Profiles = map[string]domain.Profile{"experimental": {Label: "Experimental", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-experimental"}}}
 	current.Routes.Default = "experimental"
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
@@ -643,7 +643,7 @@ func TestTestCommandUsesAccountTokenForRuntimeProfile(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
 	cfg.Routes.Default = "gpt-5.6-sol-cdx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -664,7 +664,7 @@ func TestTestCommandUsesCodexModelsEndpointAndRejectsNotFound(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
 	cfg.Routes.Default = "gpt-5.6-sol-cdx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

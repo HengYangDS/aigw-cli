@@ -7,13 +7,6 @@ const (
 	ProtocolOpenAIResponses EndpointProtocol = "openai_responses"
 )
 
-type ModelSlot string
-
-const (
-	ModelSlotClaude ModelSlot = "claude"
-	ModelSlotCodex  ModelSlot = "codex"
-)
-
 // ClientSpec is the canonical admission record for an implemented client
 // adapter. Adding a candidate model or endpoint never adds a ClientSpec: the
 // adapter must first prove its dedicated configuration, credential, protocol,
@@ -22,12 +15,11 @@ type ClientSpec struct {
 	ID               string
 	Label            string
 	EndpointProtocol EndpointProtocol
-	ModelSlot        ModelSlot
 }
 
 var admittedClientSpecs = []ClientSpec{
-	{ID: ClientClaude, Label: "Claude", EndpointProtocol: ProtocolAnthropic, ModelSlot: ModelSlotClaude},
-	{ID: ClientCodex, Label: "Codex", EndpointProtocol: ProtocolOpenAIResponses, ModelSlot: ModelSlotCodex},
+	{ID: ClientClaude, Label: "Claude", EndpointProtocol: ProtocolAnthropic},
+	{ID: ClientCodex, Label: "Codex", EndpointProtocol: ProtocolOpenAIResponses},
 }
 
 func AdmittedClientSpecs() []ClientSpec {

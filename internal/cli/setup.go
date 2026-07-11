@@ -96,7 +96,7 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 		if strings.TrimSpace(request.Model) == "" {
 			return fmt.Errorf("--for claude requires --model")
 		}
-		models.Claude = strings.TrimSpace(request.Model)
+		models[request.Client] = strings.TrimSpace(request.Model)
 	case domain.ClientCodex:
 		if endpoints.OpenAIResponses == "" {
 			return fmt.Errorf("--for codex requires --openai-url")
@@ -104,7 +104,7 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 		if strings.TrimSpace(request.Model) == "" {
 			return fmt.Errorf("--for codex requires --model")
 		}
-		models.Codex = strings.TrimSpace(request.Model)
+		models[request.Client] = strings.TrimSpace(request.Model)
 	default:
 		return fmt.Errorf("--for must be claude or codex")
 	}
