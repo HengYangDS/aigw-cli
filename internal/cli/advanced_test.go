@@ -22,6 +22,7 @@ label = "Team Gateway"
 anthropic = "https://team.test"
 [profiles.team]
 label = "Team Gateway"
+purpose = "默认 Agent"
 account = "team"
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
@@ -37,8 +38,78 @@ account = "team"
 	if err := execute(t, app, "config", "export"); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(strings.ToLower(out.String()), "token") || !strings.Contains(out.String(), "Team Gateway") {
+	if strings.Contains(strings.ToLower(out.String()), "token") || !strings.Contains(out.String(), "Team Gateway") || !strings.Contains(out.String(), "默认 Agent") {
 		t.Fatalf("unsafe export:\n%s", out.String())
+	}
+}
+
+func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "current", "team", "Team Gateway", domain.Endpoints{Anthropic: "https://team.test"}, domain.ClientClaude, domain.Models{Claude: "claude-current"})
+	cfg.Routes.Default = "current"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "profile", "add", "claude-fable-5", "--account", "team", "--for", "claude", "--model", "claude-fable-5", "--label", "Claude Fable 5", "--purpose", "默认 Agent"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Profiles["claude-fable-5"].Purpose != "默认 Agent" {
+		t.Fatalf("purpose = %q", got.Profiles["claude-fable-5"].Purpose)
+	}
+	if err := secretStore.Set("team", "team-token"); err != nil {
+		t.Fatal(err)
+	}
+	selector := &fakePrompt{selected: "claude-fable-5"}
+	app.Interactive = true
+	app.Prompt = selector
+	if err := execute(t, app, "use"); err != nil {
+		t.Fatal(err)
+	}
+	if len(selector.choices) != 2 || selector.choices[0].Label != "Claude Fable 5 · 默认 Agent" {
+		t.Fatalf("interactive choices = %#v", selector.choices)
+	}
+
+	out.Reset()
+	if err := execute(t, app, "profile", "list"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "默认 Agent") {
+		t.Fatalf("profile list lacks purpose:\n%s", out.String())
+	}
+
+	out.Reset()
+	if err := execute(t, app, "profile", "show", "claude-fable-5", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"purpose":"默认 Agent"`) {
+		t.Fatalf("profile JSON lacks purpose:\n%s", out.String())
+	}
+
+	if err := execute(t, app, "profile", "edit", "claude-fable-5", "--purpose", "深度 Agent"); err != nil {
+		t.Fatal(err)
+	}
+	got, err = app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Profiles["claude-fable-5"].Purpose != "深度 Agent" {
+		t.Fatalf("edited purpose = %q", got.Profiles["claude-fable-5"].Purpose)
+	}
+	if err := execute(t, app, "profile", "edit", "claude-fable-5", "--purpose", ""); err != nil {
+		t.Fatal(err)
+	}
+	got, err = app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Profiles["claude-fable-5"].Purpose != "" {
+		t.Fatalf("cleared purpose = %q", got.Profiles["claude-fable-5"].Purpose)
 	}
 }
 

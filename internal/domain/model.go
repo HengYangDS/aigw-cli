@@ -33,6 +33,7 @@ type Account struct {
 type Profile struct {
 	ID      string `toml:"-" json:"id,omitempty"`
 	Label   string `toml:"label" json:"label"`
+	Purpose string `toml:"purpose,omitempty" json:"purpose,omitempty"`
 	Account string `toml:"account" json:"account"`
 	Client  string `toml:"client,omitempty" json:"client,omitempty"`
 	Models  Models `toml:"models,omitempty" json:"models,omitempty"`

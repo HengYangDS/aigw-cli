@@ -159,6 +159,9 @@ func newUseCommand(app *App) *cobra.Command {
 			r.Title("AIGW", "服务已切换")
 			r.Section("当前选择")
 			r.Row("服务", cfg.Profiles[name].Label)
+			if purpose := strings.TrimSpace(cfg.Profiles[name].Purpose); purpose != "" {
+				r.Row("用途", purpose)
+			}
 			scope := "默认路由"
 			if client != "" {
 				scope = title(client)
@@ -276,9 +279,16 @@ func chooseProfile(app *App, cfg domain.Config, label string) (string, error) {
 	names := sortedProfileNames(cfg)
 	choices := make([]Choice, 0, len(names))
 	for _, name := range names {
-		choices = append(choices, Choice{Value: name, Label: cfg.Profiles[name].Label})
+		choices = append(choices, Choice{Value: name, Label: profileChoiceLabel(cfg.Profiles[name])})
 	}
 	return app.Prompt.Select(label, choices)
+}
+
+func profileChoiceLabel(profile domain.Profile) string {
+	if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
+		return profile.Label + " · " + purpose
+	}
+	return profile.Label
 }
 
 type routeStatus struct {
@@ -344,6 +354,9 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 	account := cfg.Accounts[accountName]
 	r.Row("当前 Profile", current.Label)
 	r.Row("Profile", result.Default)
+	if purpose := strings.TrimSpace(current.Purpose); purpose != "" {
+		r.Row("用途", purpose)
+	}
 	r.Row("Account", accountName)
 	if current.ModelFor(domain.ClientCodex) != "" {
 		r.Row("Codex 模型", current.ModelFor(domain.ClientCodex))
