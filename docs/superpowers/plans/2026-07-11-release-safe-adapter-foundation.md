@@ -32,14 +32,14 @@
 - `Config.Upgrade() bool` changes only the schema version.
 - `aigw config upgrade` writes the upgrade atomically and never syncs, authenticates, starts, or stops a client.
 
-- [ ] Write failing tests for v1 readability, v1-with-purpose rejection, v2 validation, manifest v1/v2 rules, and `config upgrade` leaving Codex target bytes and Runner calls unchanged.
-- [ ] Run focused tests and observe missing API failures.
-- [ ] Implement `LegacyConfigVersion`, `CurrentConfigVersion`, `NeedsUpgrade`, and `Upgrade`; keep v1 readable, allow v2, and reject purpose under v1.
-- [ ] Make `config.Store.Save` write v2 after an explicit upgrade or any purpose-bearing mutation; preserve atomic backup semantics.
-- [ ] Make manifest v1 reject purpose, manifest v2 accept it, and exports emit v2 when required.
-- [ ] Implement `aigw config upgrade`, lock it as a mutation, and document upgrading before importing the v2 team template.
-- [ ] Verify: `go test ./internal/domain ./internal/config ./internal/manifest ./internal/cli -count=1`, then `go test -race ./...` and `go vet ./...`.
-- [ ] Commit: `feat: add explicit config schema upgrades`.
+- [x] Write failing tests for v1 readability, v1-with-purpose rejection, v2 validation, manifest v1/v2 rules, and `config upgrade` leaving Codex target bytes and Runner calls unchanged.
+- [x] Run focused tests and observe the missing API failure.
+- [x] Implement `LegacyConfigVersion`, `CurrentConfigVersion`, `NeedsUpgrade`, and `Upgrade`; keep v1 readable, allow v2, and reject purpose under v1.
+- [x] Preserve v1 on ordinary saves; require explicit upgrade before a purpose-bearing mutation so older files are never silently made incompatible. Atomic backup semantics remain unchanged.
+- [x] Make manifest v1 reject purpose, manifest v2 accept it, and exports emit v2 when required.
+- [x] Implement `aigw config upgrade`, lock it as a mutation, and document upgrading before importing the v2 team template.
+- [x] Verify focused and full race/vet suites.
+- [x] Commit: `feat: add explicit config schema upgrades`.
 
 ### Task 2: Add hermetic portable-install coverage
 
@@ -51,11 +51,11 @@
 - `scripts/test-portable-install.sh <binary>` creates a temporary home, invokes the installer with a local binary, proves `aigw --version`, proves uninstall is ownership-scoped, and removes all temporary state.
 - `AIGW_SOURCE_BINARY` is an explicit test-only local input; downloaded releases retain authenticated checksum validation.
 
-- [ ] Write the smoke script first; it must fail because the installer has no local source seam.
-- [ ] Run `go build -o /tmp/aigw-install-smoke ./cmd/aigw && sh scripts/test-portable-install.sh /tmp/aigw-install-smoke` and confirm that failure.
-- [ ] Implement executable validation and the `AIGW_SOURCE_BINARY` branch before adjacent-binary and release-download paths.
-- [ ] Verify shell syntax, smoke lifecycle, source binary preservation, and temporary-home removal.
-- [ ] Add the build + smoke test to CI `verify`; commit `test: cover portable installation lifecycle`.
+- [x] Write the smoke script first; it fails before the installer has a local source seam.
+- [x] Run the smoke script against a locally built binary and confirm that failure.
+- [x] Implement executable validation and the `AIGW_SOURCE_BINARY` branch before adjacent-binary and release-download paths.
+- [x] Verify shell syntax, smoke lifecycle, source binary preservation, and temporary-home removal.
+- [x] Add the build + smoke test to CI `verify`; commit `test: cover portable installation lifecycle`.
 
 ### Task 3: Make Adapter admission an evidence-gated product contract
 
@@ -65,10 +65,10 @@
 
 **Acceptance record for every Adapter:** executable/version, exclusive config boundary, environment keys, endpoint protocol, model selector behavior, streaming/tool tests, secret-isolation proof, cleanup proof, one explicit paid verification, and rollback evidence.
 
-- [ ] Record official facts: Z.AI exposes Anthropic for Claude Code and a coding PaaS endpoint for OpenCode; Gemini CLI uses a process `GEMINI_API_KEY`; Qwen Code model providers use `envKey`; OpenCode supports `OPENCODE_CONFIG_DIR` and `{env:NAME}`; Perplexity offers a Responses-compatible Agent API.
-- [ ] State GLM as a separate provider Account candidate on supported Claude/OpenCode protocol boundaries, not a synthetic shared `glm` client.
-- [ ] Require unadmitted clients to remain unavailable in normal `profile add`, routing, and templates.
-- [ ] Run `sh scripts/check-retired-residue.sh` and a local Markdown link check; commit `docs: define adapter admission evidence gates`.
+- [x] Record official facts: Z.AI exposes Anthropic for Claude Code and a coding PaaS endpoint for OpenCode; Gemini CLI uses a process `GEMINI_API_KEY`; Qwen Code model providers use `envKey`; OpenCode supports `OPENCODE_CONFIG_DIR` and `{env:NAME}`; Perplexity offers a Responses-compatible Agent API.
+- [x] State GLM as a separate provider Account candidate on supported Claude/OpenCode protocol boundaries, not a synthetic shared `glm` client.
+- [x] Require unadmitted clients to remain unavailable in normal `profile add`, routing, and templates.
+- [x] Run retired-residue and local Markdown link checks; commit `docs: define adapter admission evidence gates`.
 
 ### Task 4: Harden release preflight without inventing external state
 
@@ -76,18 +76,18 @@
 - Create: `docs/release-readiness.md`
 - Modify: `.gitlab-ci.yml`, `README.md`
 
-- [ ] Inspect local signing identity availability and GitLab reachability once with bounded commands, recording status only.
-- [ ] Add a tagged-release guard that checks required protected signing/notarization variable names without printing their values; non-tag package verification remains usable.
-- [ ] Record signing requirements, GitLab runner requirements, remote recovery commands, and the distinction between local package proof and remote release proof.
-- [ ] Verify `sh scripts/package.sh 0.1.0-rc.1 /tmp/aigw-release-proof`, artifact count/checks, and removal of temporary output.
-- [ ] Commit `ci: fail closed on release prerequisites`.
+- [x] Inspect local signing identity availability and GitLab reachability once with bounded commands, recording status only.
+- [x] Add a GA-tag gate that fail-closes until protected macOS/Windows signing and notarization jobs are materially implemented; non-tag and RC package verification remain usable.
+- [x] Record signing requirements, GitLab runner requirements, remote recovery commands, and the distinction between local package proof and remote release proof.
+- [x] Verify the full RC package matrix, artifact count/checks, and removal of temporary output.
+- [x] Commit `ci: fail closed on release prerequisites`.
 
 ### Task 5: Close locally verifiable work and attempt remote publication once
 
 **Files:**
 - Modify: `CHANGELOG.md`, `README.md`
 
-- [ ] Run `go test -race ./...`, `go vet ./...`, retired-residue checks, install smoke, full package matrix, artifact checks, and `git diff --check`.
-- [ ] Record separately: locally complete work versus external blockers (signing identity, GitLab recovery, push/MR/main merge/release, independent provider Token, explicit paid verification).
+- [x] Run `go test -race ./...`, `go vet ./...`, retired-residue checks, schema and install smoke, full package matrix, artifact checks, documentation link checks, and `git diff --check`.
+- [x] Record separately: locally complete work versus external blockers (signing identity, GitLab recovery, push/MR/main merge/release, independent provider Token, explicit paid verification).
 - [ ] Commit `docs: record release readiness evidence`.
 - [ ] Attempt one `git push -u origin codex/initial-product`. If unavailable, preserve the clean committed branch and report the exact blocker without claiming push, merge, release, signing, or live-provider verification.
