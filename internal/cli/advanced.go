@@ -583,6 +583,31 @@ func newConfigCommand(app *App) *cobra.Command {
 	}
 	root.AddCommand(
 		&cobra.Command{Use: "path", Short: "Print the local config path", Args: cobra.NoArgs, Run: func(_ *cobra.Command, _ []string) { fmt.Fprintln(app.Out, app.Config.Path()) }},
+		&cobra.Command{Use: "upgrade", Short: "Upgrade the local config schema without changing clients", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
+			cfg, err := app.Config.Load()
+			if err != nil {
+				return err
+			}
+			if !cfg.NeedsUpgrade() {
+				r := renderer(app)
+				r.Title("AIGW", "配置结构已是最新")
+				r.Row("版本", fmt.Sprintf("%d", cfg.Version))
+				r.Success("未触碰客户端配置或认证")
+				return nil
+			}
+			if !cfg.Upgrade() {
+				return fmt.Errorf("config version %d cannot be upgraded automatically", cfg.Version)
+			}
+			if err := app.Config.Save(cfg); err != nil {
+				return err
+			}
+			r := renderer(app)
+			r.Title("AIGW", "配置结构已升级")
+			r.Row("版本", fmt.Sprintf("%d", cfg.Version))
+			r.Success("已升级本机配置；未触碰客户端配置或认证")
+			r.Next("aigw check")
+			return nil
+		}},
 		&cobra.Command{Use: "export", Short: "Export a secret-free team manifest", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {
