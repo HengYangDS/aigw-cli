@@ -72,12 +72,15 @@ aigw setup
 团队清单模式：
 
 ```bash
+aigw config upgrade           # 仅旧版本机配置需要；不触碰客户端
 aigw config import team-profiles.toml
 aigw rotate team-gateway
 aigw use gpt-5.6-terra-cdx --for codex
 aigw use claude-fable-5 --for claude
 aigw check
 ```
+
+带 `purpose` 的团队清单使用 schema v2。旧版无 `purpose` 的本机配置可继续读取；首次导入 v2 清单前运行 `aigw config upgrade` 即可。该命令仅原子更新 AIGW 自身配置版本，不会同步、认证、启动、关闭或重启 Claude/Codex。
 
 没有团队清单时：
 

@@ -9,8 +9,10 @@ import (
 )
 
 const (
-	ClientClaude = "claude"
-	ClientCodex  = "codex"
+	LegacyConfigVersion  = 1
+	CurrentConfigVersion = 2
+	ClientClaude         = "claude"
+	ClientCodex          = "codex"
 )
 
 var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
@@ -76,14 +78,14 @@ type AdapterConfig struct {
 }
 
 func NewConfig() Config {
-	return Config{Version: 1, Accounts: map[string]Account{}, Profiles: map[string]Profile{}, Routes: Routes{Overrides: map[string]string{}}, Adapters: map[string]AdapterConfig{}}
+	return Config{Version: CurrentConfigVersion, Accounts: map[string]Account{}, Profiles: map[string]Profile{}, Routes: Routes{Overrides: map[string]string{}}, Adapters: map[string]AdapterConfig{}}
 }
 
 func ValidProfileName(name string) bool { return profileNamePattern.MatchString(name) }
 
 func (c *Config) Normalize() {
 	if c.Version == 0 {
-		c.Version = 1
+		c.Version = LegacyConfigVersion
 	}
 	if c.Accounts == nil {
 		c.Accounts = map[string]Account{}
@@ -97,6 +99,22 @@ func (c *Config) Normalize() {
 	if c.Adapters == nil {
 		c.Adapters = map[string]AdapterConfig{}
 	}
+}
+
+func (c Config) NeedsUpgrade() bool {
+	if c.Version == 0 {
+		return true
+	}
+	return c.Version == LegacyConfigVersion
+}
+
+func (c *Config) Upgrade() bool {
+	c.Normalize()
+	if c.Version != LegacyConfigVersion {
+		return false
+	}
+	c.Version = CurrentConfigVersion
+	return true
 }
 
 func (c Config) normalizedCopy() Config {
@@ -129,7 +147,7 @@ func (c Config) normalizedCopy() Config {
 
 func (c Config) Validate() error {
 	c = c.normalizedCopy()
-	if c.Version != 1 {
+	if c.Version != LegacyConfigVersion && c.Version != CurrentConfigVersion {
 		return fmt.Errorf("unsupported config version %d", c.Version)
 	}
 	if len(c.Profiles) == 0 {
@@ -144,6 +162,9 @@ func (c Config) Validate() error {
 		}
 		if strings.TrimSpace(profile.Label) == "" {
 			return fmt.Errorf("profile %q has an empty label", name)
+		}
+		if c.Version == LegacyConfigVersion && strings.TrimSpace(profile.Purpose) != "" {
+			return fmt.Errorf("profile %q purpose requires config version %d; run `aigw config upgrade`", name, CurrentConfigVersion)
 		}
 	}
 	for name, account := range c.Accounts {
