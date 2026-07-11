@@ -18,6 +18,11 @@ type Manifest struct {
 	Profiles           map[string]domain.Profile `toml:"profiles"`
 }
 
+const (
+	legacyVersion  = domain.LegacyConfigVersion
+	currentVersion = domain.CurrentConfigVersion
+)
+
 func Parse(data []byte) (Manifest, error) {
 	var raw map[string]any
 	if err := toml.Unmarshal(data, &raw); err != nil {
@@ -32,7 +37,7 @@ func Parse(data []byte) (Manifest, error) {
 	if err := decoder.Decode(&result); err != nil {
 		return Manifest{}, fmt.Errorf("validate team manifest shape: %w", err)
 	}
-	if result.Version != 1 {
+	if result.Version != legacyVersion && result.Version != currentVersion {
 		return Manifest{}, fmt.Errorf("unsupported team manifest version %d", result.Version)
 	}
 	if result.Accounts == nil {
@@ -40,6 +45,13 @@ func Parse(data []byte) (Manifest, error) {
 	}
 	if len(result.Profiles) == 0 {
 		return Manifest{}, fmt.Errorf("team manifest must define at least one profile")
+	}
+	if result.Version == legacyVersion {
+		for name, profile := range result.Profiles {
+			if strings.TrimSpace(profile.Purpose) != "" {
+				return Manifest{}, fmt.Errorf("team manifest profile %q purpose requires version %d", name, currentVersion)
+			}
+		}
 	}
 	if result.RecommendedDefault != "" {
 		if _, ok := result.Profiles[result.RecommendedDefault]; !ok {
@@ -90,6 +102,9 @@ func findCredentialKey(value any, prefix string) string {
 
 func Merge(cfg domain.Config, team Manifest) (domain.Config, error) {
 	cfg.Normalize()
+	if team.Version > cfg.Version {
+		return domain.Config{}, fmt.Errorf("team manifest version %d requires local config version %d; run `aigw config upgrade`", team.Version, team.Version)
+	}
 	for name, account := range team.Accounts {
 		cfg.Accounts[name] = account
 	}
@@ -115,5 +130,5 @@ func Export(cfg domain.Config) ([]byte, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	return toml.Marshal(Manifest{Version: 1, RecommendedDefault: cfg.Routes.Default, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
+	return toml.Marshal(Manifest{Version: cfg.Version, RecommendedDefault: cfg.Routes.Default, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
 }

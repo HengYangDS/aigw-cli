@@ -5,7 +5,7 @@
 维护一个不含 Token 的团队 Account + Profile 清单，例如 [`examples/team-profiles.toml`](../examples/team-profiles.toml)：
 
 ```toml
-version = 1
+version = 2
 recommended_default = "gpt-5.6-terra-cdx"
 
 [accounts."team-gateway"]
@@ -91,6 +91,7 @@ aigw check
 团队清单路径：
 
 ```bash
+aigw config upgrade           # 仅旧版本机配置需要；不触碰客户端
 aigw config import team-profiles.toml
 aigw rotate team-gateway
 aigw catalog                 # 默认显示已配置模型与数量摘要
@@ -99,6 +100,8 @@ aigw use gpt-5.6-terra-cdx --for codex
 aigw use claude-fable-5 --for claude
 aigw check
 ```
+
+使用 `purpose` 的团队清单采用 schema v2。旧版无 `purpose` 的本机配置仍可读取；首次导入 v2 清单前运行一次 `aigw config upgrade`，它只原子更新本机 AIGW 配置版本，不会同步、认证、启动或重启任何客户端。
 
 若某个已导入 Account 的目录中出现尚未配置的模型，成员可在不复制 Token 的前提下添加一个本机 Profile：
 

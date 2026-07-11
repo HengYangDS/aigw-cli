@@ -58,6 +58,56 @@ func TestParseRejectsCredentialShapedFields(t *testing.T) {
 	}
 }
 
+func TestManifestPurposeRequiresVersionTwo(t *testing.T) {
+	legacy := []byte(`version = 1
+recommended_default = "team"
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+anthropic = "https://gateway.test"
+[profiles.team]
+label = "Team"
+purpose = "默认 Agent"
+account = "team"
+`)
+	if _, err := manifest.Parse(legacy); err == nil || !strings.Contains(err.Error(), "version 2") {
+		t.Fatalf("legacy purpose error = %v", err)
+	}
+	current := []byte(strings.Replace(string(legacy), "version = 1", "version = 2", 1))
+	parsed, err := manifest.Parse(current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Version != domain.CurrentConfigVersion || parsed.Profiles["team"].Purpose != "默认 Agent" {
+		t.Fatalf("parsed manifest = %#v", parsed)
+	}
+}
+
+func TestMergeVersionTwoManifestRequiresLocalSchemaUpgrade(t *testing.T) {
+	team, err := manifest.Parse([]byte(`version = 2
+recommended_default = "team"
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+anthropic = "https://gateway.test"
+[profiles.team]
+label = "Team"
+purpose = "默认 Agent"
+account = "team"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.NewConfig()
+	cfg.Version = domain.LegacyConfigVersion
+	cfg.Accounts["local"] = domain.Account{Label: "Local", Endpoints: domain.Endpoints{Anthropic: "https://local.test"}}
+	cfg.Profiles["local"] = domain.Profile{Label: "Local", Account: "local"}
+	cfg.Routes.Default = "local"
+	if _, err := manifest.Merge(cfg, team); err == nil || !strings.Contains(err.Error(), "config upgrade") {
+		t.Fatalf("merge error = %v", err)
+	}
+}
+
 func TestParseRejectsProfileOwnedEndpointResidue(t *testing.T) {
 	raw := []byte(`version = 1
 recommended_default = "team"
@@ -93,5 +143,8 @@ func TestExportOmitsSecretsAdaptersAndOverrides(t *testing.T) {
 	}
 	if !strings.Contains(text, `recommended_default = 'team'`) && !strings.Contains(text, `recommended_default = "team"`) {
 		t.Fatalf("export lacks recommended default:\n%s", text)
+	}
+	if !strings.Contains(text, "version = 2") {
+		t.Fatalf("new config export must use manifest v2:\n%s", text)
 	}
 }
