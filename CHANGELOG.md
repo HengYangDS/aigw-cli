@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add schema v2 for purpose-labelled team Profiles while retaining readable v1 configurations; `aigw config upgrade` performs an atomic, client-lifecycle-free upgrade before a v2 import.
+- Add a hermetic portable-install lifecycle smoke test that proves install, ownership-scoped uninstall, configuration preservation, and source-binary preservation; run it in CI.
+- Define evidence-gated Adapter admission for GLM/Z.AI, Gemini, Qwen, OpenCode, Perplexity, and Grok; unadmitted clients cannot be routed or placed in team templates.
+- Distinguish signed GA from checksummed RC delivery. CI explicitly blocks unsigned GA tags until protected macOS/Windows signing and notarization jobs are implemented and verified.
+
 ## 0.1.0
 
 - Introduce Profile, Endpoint, inherited Route and isolated Adapter models.
