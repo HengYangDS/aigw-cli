@@ -47,7 +47,7 @@ func NewRoot(app *App) *cobra.Command {
 		&cobra.Group{ID: "daily", Title: "日常使用"},
 		&cobra.Group{ID: "advanced", Title: "高级管理"},
 	)
-	daily := []*cobra.Command{newUseCommand(app), newRotateCommand(app), newCheckCommand(app), newModelsCommand(app), newBalanceCommand(app), newRepairCommand(app), newUpdateCommand(app)}
+	daily := []*cobra.Command{newUseCommand(app), newRotateCommand(app), newCheckCommand(app), newVerifyCommand(app), newRollbackCommand(app), newModelsCommand(app), newBalanceCommand(app), newRepairCommand(app), newUpdateCommand(app)}
 	advanced := []*cobra.Command{newSetupCommand(app), newAddCommand(app), newStatusCommand(app), newTestCommand(app), newDoctorCommand(app), newSyncCommand(app), newAccountCommand(app), newProfileCommand(app), newRouteCommand(app), newAdapterCommand(app), newConfigCommand(app)}
 	for _, command := range daily {
 		command.GroupID = "daily"

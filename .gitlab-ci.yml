@@ -14,7 +14,8 @@ verify:
     - go test -race ./...
     - go vet ./...
     - test -z "$(gofmt -l cmd internal tools)"
-    - sh -n scripts/package.sh scripts/install.sh scripts/uninstall.sh
+    - sh -n scripts/package.sh scripts/install.sh scripts/uninstall.sh scripts/check-package-safety.sh
+    - sh scripts/check-package-safety.sh
     - '! grep -RInE --exclude-dir=.git --exclude="*_test.go" "(sk-[A-Za-z0-9_-]{24,}|Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9_-]{24,})" .'
 
 package:

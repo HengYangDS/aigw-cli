@@ -39,7 +39,7 @@ func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 }
 
 func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
-	app, _, _, _ := testApp(t, "")
+	app, out, _, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Profiles["dmx"] = domain.Profile{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
 	cfg.Routes.Default = "dmx"
@@ -47,8 +47,8 @@ func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := execute(t, app, "balance")
-	if err == nil || !strings.Contains(err.Error(), "aigw account connect") {
-		t.Fatalf("error = %v", err)
+	if err == nil || !strings.Contains(out.String()+err.Error(), "aigw account connect dmx") || !strings.Contains(out.String()+err.Error(), "精确余额诊断尚未启用") {
+		t.Fatalf("output=%s error=%v", out.String(), err)
 	}
 }
 

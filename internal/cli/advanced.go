@@ -49,7 +49,8 @@ func newProfileListCommand(app *App) *cobra.Command {
 				if app.Secrets.Has(accountName) {
 					secret = "Token 可用"
 				}
-				r.Status(state, name, cfg.Profiles[name].Label+" · "+stateText+" · "+secret)
+				r.StatusLine(state, "Profile", name)
+				r.Detail(cfg.Profiles[name].Label + " · " + stateText + " · Account " + accountName + " · " + secret)
 			}
 			r.Next("aigw use")
 			return nil
@@ -156,7 +157,7 @@ func newProfileEditCommand(app *App) *cobra.Command {
 
 func newProfileRenameCommand(app *App) *cobra.Command {
 	return &cobra.Command{
-		Use: "rename <old> <new>", Short: "Rename a profile and its secret slot", Args: cobra.ExactArgs(2),
+		Use: "rename <old> <new>", Short: "Rename a runtime profile", Args: cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			oldName, newName := args[0], args[1]
 			if !domain.ValidProfileName(newName) {
@@ -174,10 +175,6 @@ func newProfileRenameCommand(app *App) *cobra.Command {
 			if _, exists := cfg.Profiles[newName]; exists {
 				return fmt.Errorf("profile %q already exists", newName)
 			}
-			token, err := app.Secrets.Get(oldName)
-			if err != nil {
-				return fmt.Errorf("cannot rename profile without its secret: %w", err)
-			}
 			delete(cfg.Profiles, oldName)
 			cfg.Profiles[newName] = profile
 			if cfg.Routes.Default == oldName {
@@ -188,35 +185,23 @@ func newProfileRenameCommand(app *App) *cobra.Command {
 					cfg.Routes.Overrides[client] = newName
 				}
 			}
-			if err := app.Secrets.Set(newName, token); err != nil {
-				return err
-			}
 			if err := commitConfigAndSync(context.Background(), app, before, cfg, "profile rename"); err != nil {
-				_ = app.Secrets.Delete(newName)
 				return err
-			}
-			if err := app.Secrets.Delete(oldName); err != nil {
-				rollbackErr := rollbackConfigAndAdapters(context.Background(), app, before)
-				_ = app.Secrets.Delete(newName)
-				if rollbackErr != nil {
-					return fmt.Errorf("old secret deletion failed: %w; rollback also failed: %v", err, rollbackErr)
-				}
-				return fmt.Errorf("old secret deletion failed and rename was rolled back: %w", err)
 			}
 			r := renderer(app)
-			r.Title("AIGW", "服务已重命名")
-			r.Row("原名称", oldName)
-			r.Row("新名称", newName)
-			r.Success("密钥槽与路由已同步迁移")
+			r.Title("AIGW", "Profile 已重命名")
+			r.Row("原 Profile", oldName)
+			r.Row("新 Profile", newName)
+			r.Row("Account", profile.Account)
+			r.Success("Account Token 保持原位，路由已同步")
 			return nil
 		},
 	}
 }
 
 func newProfileRemoveCommand(app *App) *cobra.Command {
-	var keepSecret bool
-	cmd := &cobra.Command{
-		Use: "remove <profile>", Short: "Remove an unused profile", Args: cobra.ExactArgs(1),
+	return &cobra.Command{
+		Use: "remove <profile>", Short: "Remove an unused runtime profile", Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -224,7 +209,8 @@ func newProfileRemoveCommand(app *App) *cobra.Command {
 			}
 			before := cloneConfig(cfg)
 			name := args[0]
-			if _, ok := cfg.Profiles[name]; !ok {
+			profile, ok := cfg.Profiles[name]
+			if !ok {
 				return fmt.Errorf("unknown profile %q", name)
 			}
 			if cfg.Routes.Default == name {
@@ -236,33 +222,24 @@ func newProfileRemoveCommand(app *App) *cobra.Command {
 				}
 			}
 			delete(cfg.Profiles, name)
-			if err := app.Config.Save(cfg); err != nil {
+			if err := commitConfigAndSync(context.Background(), app, before, cfg, "profile remove"); err != nil {
 				return err
 			}
-			if !keepSecret {
-				if err := app.Secrets.Delete(name); err != nil {
-					if rollbackErr := app.Config.Save(before); rollbackErr != nil {
-						return fmt.Errorf("secret deletion failed: %w; config rollback also failed: %v", err, rollbackErr)
-					}
-					return fmt.Errorf("secret deletion failed and profile removal was rolled back: %w", err)
-				}
-			}
 			r := renderer(app)
-			r.Title("AIGW", "服务已移除")
+			r.Title("AIGW", "Profile 已移除")
 			r.Row("Profile", name)
-			r.Success("本地配置已清理")
+			r.Row("Account", profile.Account)
+			r.Success("Account 与 Token 保持原位")
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&keepSecret, "keep-secret", false, "leave the system-keyring entry in place")
-	return cmd
 }
 
 func newRouteCommand(app *App) *cobra.Command {
 	root := &cobra.Command{Use: "route", Short: "管理客户端路由"}
 	root.AddCommand(
 		&cobra.Command{Use: "list", Short: "List resolved routes", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error { return runStatus(cmd, app, false) }},
-		&cobra.Command{Use: "reset <claude|codex>", Short: "Restore one client to default inheritance", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+		&cobra.Command{Use: "reset <claude|codex>", Short: "Restore one client to default inheritance", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 			client := args[0]
 			if client != domain.ClientClaude && client != domain.ClientCodex {
 				return fmt.Errorf("route must be claude or codex")
@@ -273,7 +250,7 @@ func newRouteCommand(app *App) *cobra.Command {
 			}
 			before := cloneConfig(cfg)
 			delete(cfg.Routes.Overrides, client)
-			if err := commitConfigAndSync(context.Background(), app, before, cfg, "route reset"); err != nil {
+			if err := commitConfigAndSync(cmd.Context(), app, before, cfg, "route reset"); err != nil {
 				return err
 			}
 			r := renderer(app)
@@ -289,7 +266,7 @@ func newRouteCommand(app *App) *cobra.Command {
 
 func newAdapterCommand(app *App) *cobra.Command {
 	root := &cobra.Command{Use: "adapter", Short: "管理 Claude/Codex 适配器"}
-	root.AddCommand(newAdapterListCommand(app), newAdapterDiscoverCommand(app), newAdapterEnableCommand(app), newAdapterDisableCommand(app))
+	root.AddCommand(newAdapterListCommand(app), newAdapterDiscoverCommand(app), newAdapterEnableCommand(app), newAdapterAuthCommand(app), newAdapterDisableCommand(app))
 	return root
 }
 
@@ -384,7 +361,10 @@ func newAdapterEnableCommand(app *App) *cobra.Command {
 			}
 			return err
 		}
-		if err := syncAdapters(cmd.Context(), app, cfg); err != nil {
+		if err := syncAdapters(cmd.Context(), app, cfg); err == nil && client == domain.ClientCodex {
+			err = bindCodexAuthentication(cmd.Context(), app, cfg)
+		}
+		if err != nil {
 			_ = app.Config.Save(before)
 			for _, target := range targets {
 				_ = adapters.DisableCodexConfig(target)
@@ -404,6 +384,29 @@ func newAdapterEnableCommand(app *App) *cobra.Command {
 	cmd.Flags().StringVar(&executable, "executable", "", "real client executable path")
 	cmd.Flags().StringSliceVar(&targets, "target", nil, "client config path; repeat for multiple Codex homes")
 	return cmd
+}
+
+func newAdapterAuthCommand(app *App) *cobra.Command {
+	return &cobra.Command{Use: "auth codex", Short: "Bind the current Account Token to Codex", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		if args[0] != domain.ClientCodex {
+			return fmt.Errorf("native credential binding is only required for codex")
+		}
+		cfg, err := app.Config.Load()
+		if err != nil {
+			return err
+		}
+		if !cfg.Adapters[domain.ClientCodex].Enabled {
+			return fmt.Errorf("Codex adapter is not enabled; run `aigw adapter enable codex ...` first")
+		}
+		if err := bindCodexAuthentication(cmd.Context(), app, cfg); err != nil {
+			return fmt.Errorf("Codex authentication binding failed: %w", err)
+		}
+		r := renderer(app)
+		r.Title("AIGW", "Codex 认证已绑定")
+		r.Success("当前 Account Token 已写入 Codex 原生凭据存储")
+		r.Next("aigw doctor")
+		return nil
+	}}
 }
 
 func newAdapterDisableCommand(app *App) *cobra.Command {
@@ -490,23 +493,28 @@ func newConfigCommand(app *App) *cobra.Command {
 			if err := commitConfigAndSync(context.Background(), app, before, cfg, "team manifest"); err != nil {
 				return err
 			}
+			accountNames := importedAccountNames(team)
 			missing := []string{}
-			for name := range team.Profiles {
-				if !app.Secrets.Has(name) {
-					missing = append(missing, name)
-				}
-			}
-			sort.Strings(missing)
 			r := renderer(app)
 			r.Title("AIGW", "团队配置已导入")
 			r.Row("服务数量", fmt.Sprintf("%d", len(team.Profiles)))
-			for _, name := range missing {
+			r.Row("账户数量", fmt.Sprintf("%d", len(accountNames)))
+			for _, name := range accountNames {
+				if app.Secrets.Has(name) {
+					r.Status(presentation.OK, "系统密钥", name+" Token 可用")
+					continue
+				}
+				missing = append(missing, name)
 				r.Status(presentation.Warn, name, "需要录入 Token")
 			}
 			if len(missing) > 0 {
-				r.Next("aigw rotate")
+				if len(missing) == 1 {
+					r.Next("aigw rotate " + missing[0])
+				} else {
+					r.Next("aigw rotate <account>")
+				}
 			} else {
-				r.Next("aigw check")
+				r.Next("aigw models")
 			}
 			return nil
 		}},
@@ -534,6 +542,26 @@ func newConfigCommand(app *App) *cobra.Command {
 		}},
 	)
 	return root
+}
+
+func importedAccountNames(team manifest.Manifest) []string {
+	seen := map[string]bool{}
+	for name := range team.Accounts {
+		seen[name] = true
+	}
+	for name, profile := range team.Profiles {
+		accountName := profile.Account
+		if accountName == "" {
+			accountName = name
+		}
+		seen[accountName] = true
+	}
+	names := make([]string, 0, len(seen))
+	for name := range seen {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func RunClaude(app *App, args []string) error {
@@ -567,6 +595,16 @@ func RunClaude(app *App, args []string) error {
 func sortedProfileNames(cfg domain.Config) []string {
 	names := make([]string, 0, len(cfg.Profiles))
 	for name := range cfg.Profiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func sortedAccountNames(cfg domain.Config) []string {
+	cfg.Normalize()
+	names := make([]string, 0, len(cfg.Accounts))
+	for name := range cfg.Accounts {
 		names = append(names, name)
 	}
 	sort.Strings(names)
