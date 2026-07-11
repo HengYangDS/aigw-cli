@@ -1,6 +1,6 @@
 # AIGW CLI
 
-AIGW 是面向团队的跨平台第三方 AI API 配置工具：统一管理 Account、模型 Profile、系统密钥、Claude/Codex 路由与客户端适配，**不运行后台服务，不承载 API 流量**。
+AIGW 是**本机优先**、可供团队分发的跨平台第三方 AI API 配置工具：统一管理 Account、模型 Profile、系统密钥、Claude/Codex 路由与客户端适配，**不运行后台服务，不承载 API 流量**。
 
 ```text
 AIGW  当前状态
@@ -19,10 +19,13 @@ AIGW  当前状态
 
 ## 为什么需要 AIGW
 
+- 个人在本机即可完整使用：一个二进制、系统密钥存储、多个服务 Account、多个模型 Profile、显式客户端 Route 和各自独立的 Claude/Codex Adapter；不依赖团队后台、内网或本地监听端口。
 - 团队可以共享网关 URL、协议和推荐路由，而不共享 Token。
 - 一个 Account 对应一个服务商账户和一个系统密钥槽位；多个模型 Profile 可以继承同一个 Account。
 - Claude 和 Codex 各自在自己的 Adapter 边界完成映射，互不污染目录。
 - 切换、轮换、状态、余额和诊断只有一套命令，不再手工修改多处配置。
+
+本机直连不是“只能连一个服务”：每个服务 Account 有自己的一把系统密钥和可用协议端点；同一 Account 下可有任意多个模型 Profile，并由 Claude、Codex 或默认 Route 显式选择。团队集中 Gateway 不是安装或日常使用的前提。只有组织确实需要集中审计、预算、协议转换或统一出口时，才应单独评测和部署一个独立 Gateway；AIGW 只把它当作普通 HTTPS Account 入口，绝不管理其端口、进程或上游密钥。
 
 DMXAPI 只是一个 Account 示例；`gpt-5.6-sol-cdx`、`gpt-5.5`、`gpt-5.5-ssvip`、`claude-sonnet-5`、`claude-opus-4-8-thinking`、`claude-fable-5` 是内置模型 Profile 示例。模型名对 AIGW 是透明字符串，团队清单可以继续增删。
 

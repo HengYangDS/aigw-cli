@@ -7,9 +7,17 @@
 
 ## 1. 定位
 
-AIGW 是面向团队的跨平台第三方 AI API Account、模型 Profile、密钥与客户端路由工具。它是一个按需执行的本地 CLI，不承载 API 流量，不运行后台服务，也不是中央密钥分发系统。
+AIGW 是**本机优先、团队可分发**的跨平台第三方 AI API Account、模型 Profile、密钥与客户端路由工具。它是一个按需执行的本地 CLI，不承载 API 流量，不运行后台服务，也不是中央密钥分发系统。
 
 仓库名使用 `aigw-cli`，明确它是管理客户端而非真正的数据面网关。DMXAPI 只是一个可配置 Account 示例，不是产品身份。
+
+### 1.1 优先级
+
+1. **本机独立可用：** 用户安装一个原生二进制后，即可用系统密钥存储配置任意多个服务 Account、其下任意多个模型 Profile，以及 Claude、Codex 和未来客户端的显式 Route；每个 Account 可直连其 HTTPS 入口，不依赖内网、团队服务、本地端口或常驻进程。
+2. **团队低摩擦复用：** 团队只分发经过审查的无密钥 Account/Profile 清单和签名 Release；每位成员保有自己的 Token、个人路由和客户端状态。
+3. **集中数据面按需引入：** 仅当集中审计、预算、协议转换或组织出口成为明确需求时，另行选择并部署独立 Gateway。它不是 AIGW 的功能、依赖或默认路径；AIGW 只使用其 HTTPS URL，绝不管理其进程、端口、上游密钥或故障转移策略。
+
+因此，LiteLLM、Bifrost 和同类数据面软件不进入 AIGW 安装包、本机默认流程或日常 UX。它们未来若被组织采用，必须在独立项目中以真实场景重新评测，且不改变本机多服务、多模型、本地 Route 的可用性。
 
 ## 2. 领域模型
 
@@ -21,6 +29,8 @@ AIGW 是面向团队的跨平台第三方 AI API Account、模型 Profile、密�
 
 一个 Runtime Profile 表示用户日常切换的模型运行配置，引用一个 Account，并可限定客户端与模型名，例如 `gpt-5.6-sol-cdx`、`gpt-5.5-ssvip`、`claude-opus-4-8-thinking`、`claude-fable-5`。模型名对 AIGW 是透明字符串，由上游网关解释。
 
+一个 Account 可以被多个 Runtime Profile 引用；Profile 不拥有 URL 或 Token。于是一个 DMXAPI Token 可以安全地支撑 GPT、Claude、Embedding 等多个模型选择；另一个服务商则增加另一个 Account 及其一把 Token。Profile 是本机多服务、多模型能力的基本单位，不是服务端 Gateway 的替代物。
+
 ### Endpoint
 
 Account 可提供 `openai-responses` 和 `anthropic` 两类端点，它们共享该 Account 的唯一 Token。端点是协议能力，不是客户端配置。Runtime Profile 只选择模型和客户端作用面。
@@ -28,6 +38,8 @@ Account 可提供 `openai-responses` 和 `anthropic` 两类端点，它们共享
 ### Route
 
 Route 将客户端使用面映射到 Runtime Profile。解析顺序为：单次命令的 `--profile`、客户端覆盖路由、默认路由。未设置客户端覆盖时自动继承默认路由，不保存重复副本。
+
+Route 是显式的预请求选择：Claude shim 在每次 Claude 启动边界解析，Codex 在 AIGW 管理的配置投影边界解析。没有本地数据面 proxy 时，AIGW 不可能、也不应在一个已经发出的模型请求中换服务商或模型；自动 fallback 默认禁用，未来若引入必须由独立 Gateway 以可见、可审计的策略实现。
 
 ### Adapter
 
