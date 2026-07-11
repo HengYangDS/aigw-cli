@@ -86,6 +86,21 @@ func UserBinDirFor(goos string, env map[string]string) (string, error) {
 	}
 }
 
+// ShimDirFor returns the AIGW-owned launcher directory. Unix shims must not
+// live in the shared user bin directory: package managers and workstation
+// maintenance tools legitimately manage that surface. Windows already has a
+// dedicated AIGW user-program directory, so its launcher remains there.
+func ShimDirFor(goos string, env map[string]string) (string, error) {
+	if goos == "windows" {
+		return UserBinDirFor(goos, env)
+	}
+	dataDir, err := DataDirFor(goos, env)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dataDir, "bin"), nil
+}
+
 func windowsJoin(parts ...string) string {
 	clean := make([]string, 0, len(parts))
 	for _, part := range parts {
