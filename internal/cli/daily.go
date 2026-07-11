@@ -95,7 +95,7 @@ func newUseCommand(app *App) *cobra.Command {
 			if all && client != "" {
 				return fmt.Errorf("--all and --for cannot be used together")
 			}
-			if client != "" && client != domain.ClientClaude && client != domain.ClientCodex {
+			if client != "" && !domain.IsAdmittedClient(client) {
 				return fmt.Errorf("--for must be claude or codex")
 			}
 			cfg, err := app.Config.Load()
@@ -323,7 +323,7 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		return err
 	}
 	result := statusOutput{ConfigPath: app.Config.Path(), Default: cfg.Routes.Default, Profiles: len(cfg.Profiles), Routes: map[string]routeStatus{}}
-	for _, client := range []string{domain.ClientClaude, domain.ClientCodex} {
+	for _, client := range domain.AdmittedClientIDs() {
 		runtime, inherited, resolveErr := cfg.ResolveRuntime(client, "")
 		if resolveErr != nil {
 			suggested := firstProfileForClient(cfg, client)
@@ -368,7 +368,7 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 	r.Section("客户端")
 	attention := false
 	selectionCommand := ""
-	for _, client := range []string{domain.ClientClaude, domain.ClientCodex} {
+	for _, client := range domain.AdmittedClientIDs() {
 		route := result.Routes[client]
 		if route.NeedsSelection {
 			state := presentation.Warn
@@ -498,9 +498,9 @@ func newTestCommand(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			clients := []string{domain.ClientClaude, domain.ClientCodex}
+			clients := domain.AdmittedClientIDs()
 			if client != "" {
-				if client != domain.ClientClaude && client != domain.ClientCodex {
+				if !domain.IsAdmittedClient(client) {
 					return fmt.Errorf("--for must be claude or codex")
 				}
 				clients = []string{client}
@@ -581,7 +581,7 @@ func newVerifyCommand(app *App) *cobra.Command {
 				if profileName != "" {
 					return fmt.Errorf("--profile cannot be used with --for all")
 				}
-				clients = []string{domain.ClientClaude, domain.ClientCodex}
+				clients = domain.AdmittedClientIDs()
 			default:
 				return fmt.Errorf("--for must be claude, codex, or all")
 			}

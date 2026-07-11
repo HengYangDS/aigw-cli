@@ -198,6 +198,32 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	}
 }
 
+func TestAdapterCommandsListOnlyAdmittedClients(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}, "", domain.Models{})
+	cfg.Routes.Default = "team"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "adapter", "list"); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Claude", "Codex"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("adapter list misses admitted client %q:\n%s", want, out.String())
+		}
+	}
+	if strings.Contains(strings.ToLower(out.String()), "gemini") || strings.Contains(strings.ToLower(out.String()), "qwen") {
+		t.Fatalf("adapter list exposed an unadmitted client:\n%s", out.String())
+	}
+
+	err := execute(t, app, "profile", "add", "future", "--account", "team", "--for", "gemini", "--model", "gemini-next")
+	if err == nil || !strings.Contains(err.Error(), "claude or codex") {
+		t.Fatalf("unadmitted client error = %v", err)
+	}
+}
+
 func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 	app, _, secretStore, runner := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "codex", "config.toml")
