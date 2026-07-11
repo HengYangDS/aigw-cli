@@ -61,6 +61,7 @@ type App struct {
 	Config      config.Store
 	Secrets     secrets.Store
 	Accounts    account.Store
+	Env         []string
 	In          io.Reader
 	Out         io.Writer
 	Err         io.Writer
@@ -212,6 +213,7 @@ func NewDefault() (*App, error) {
 		Config:      config.NewStore(path),
 		Secrets:     secretStore,
 		Accounts:    account.NewKeyringStore(),
+		Env:         os.Environ(),
 		In:          os.Stdin,
 		Out:         os.Stdout,
 		Err:         os.Stderr,
