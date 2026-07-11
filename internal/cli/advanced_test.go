@@ -43,48 +43,11 @@ account = "team"
 	}
 }
 
-func TestConfigUpgradeChangesOnlySchemaVersion(t *testing.T) {
-	app, out, _, runner := testApp(t, "")
-	target := filepath.Join(t.TempDir(), "codex", "config.toml")
-	original := []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n")
-	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(target, original, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	cfg := domain.NewConfig()
-	cfg.Version = domain.LegacyConfigVersion
-	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "team", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
-	cfg.Routes.Default = "gpt"
-	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := execute(t, app, "config", "upgrade"); err != nil {
-		t.Fatal(err)
-	}
-	got, err := app.Config.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Version != domain.CurrentConfigVersion {
-		t.Fatalf("version = %d, want %d", got.Version, domain.CurrentConfigVersion)
-	}
-	if len(runner.plans) != 0 {
-		t.Fatalf("schema upgrade started a client process: %#v", runner.plans)
-	}
-	after, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(after) != string(original) {
-		t.Fatalf("schema upgrade changed Codex target:\nwant:\n%s\ngot:\n%s", original, after)
-	}
-	if !strings.Contains(out.String(), "未触碰客户端") {
-		t.Fatalf("upgrade output lacks client-safety guarantee:\n%s", out.String())
+func TestConfigUpgradeIsNotAnAvailableCommand(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	err := execute(t, app, "config", "upgrade")
+	if err == nil || !strings.Contains(err.Error(), "unknown config command") {
+		t.Fatalf("config upgrade error = %v", err)
 	}
 }
 
@@ -369,7 +332,7 @@ func TestProfileRemoveRefusesActiveProfile(t *testing.T) {
 func TestConfigImportReportsMissingAccountTokensNotProfileTokens(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 1
+	manifest := `version = 2
 recommended_default = "gpt-long-model"
 [accounts.dmx]
 label = "DMXAPI"
@@ -409,7 +372,7 @@ claude = "claude-long-model"
 func TestConfigImportReportsOnlyMissingAccounts(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 1
+	manifest := `version = 2
 recommended_default = "gpt-long-model"
 [accounts.dmx]
 label = "DMXAPI"
