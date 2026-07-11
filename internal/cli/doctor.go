@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
 )
@@ -33,7 +34,7 @@ func newDoctorCommand(app *App) *cobra.Command {
 				} else {
 					checks = append(checks, doctorCheck{"config", true, "valid", ""})
 				}
-				for name := range cfg.Profiles {
+				for _, name := range sortedAccountNames(cfg) {
 					ok := app.Secrets.Has(name)
 					fix := ""
 					if !ok {
@@ -44,20 +45,61 @@ func newDoctorCommand(app *App) *cobra.Command {
 				for _, client := range []string{domain.ClientClaude, domain.ClientCodex} {
 					adapter := cfg.Adapters[client]
 					detail := "disabled"
+					ok := true
+					fix := ""
 					if adapter.Enabled {
 						detail = "enabled"
+						if adapter.Executable == "" {
+							ok = false
+							detail = "enabled but executable is missing"
+							fix = "run `aigw repair`"
+						} else if client == domain.ClientClaude {
+							ready, shimErr := app.Shims.ClaudeShimReady()
+							if shimErr != nil {
+								ok = false
+								detail = shimErr.Error()
+								fix = "run `aigw repair`"
+							} else if !ready {
+								ok = false
+								detail = "enabled but AIGW-managed Claude shim is missing"
+								fix = "run `aigw repair`"
+							}
+						} else if len(adapter.Targets) == 0 {
+							ok = false
+							detail = "enabled but no Codex config target is configured"
+							fix = "run `aigw repair`"
+						}
 					}
-					checks = append(checks, doctorCheck{"adapter:" + client, true, detail, ""})
+					checks = append(checks, doctorCheck{"adapter:" + client, ok, detail, fix})
+				}
+				if adapter := cfg.Adapters[domain.ClientCodex]; adapter.Enabled {
+					profile, _, resolveErr := cfg.Resolve(domain.ClientCodex, "")
+					if resolveErr != nil {
+						checks = append(checks, doctorCheck{"projection:codex", false, resolveErr.Error(), "run `aigw use <codex-profile> --for codex`"})
+					} else {
+						for index, target := range adapter.Targets {
+							name := fmt.Sprintf("codex:target-%d", index+1)
+							err := adapters.ValidateCodexConfig(target, profile)
+							check := doctorCheck{Name: name, OK: err == nil, Detail: "profile " + profile.ID}
+							if err != nil {
+								check.Detail = err.Error()
+								check.Fix = "run `aigw sync` to reconcile this target"
+							}
+							checks = append(checks, check)
+						}
+					}
 				}
 				if adapter := cfg.Adapters[domain.ClientClaude]; adapter.Enabled {
-					discovered := app.Discovery.Discover()
-					ok := discovered.ClaudeExecutable != ""
+					ok, shimErr := app.Shims.ClaudeShimReady()
 					check := doctorCheck{Name: "shim:claude", OK: ok}
-					if ok {
-						check.Detail = "discoverable on PATH"
+					if shimErr != nil {
+						check.Detail = shimErr.Error()
+						check.Fix = "run `aigw repair`"
+					} else if ok {
+						check.Detail = "AIGW managed shim"
 					} else {
-						check.Detail = "AIGW Claude shim is not discoverable on PATH"
-						check.Fix = "run `aigw repair`; then open a new terminal if PATH was updated"
+						check.Detail = "AIGW managed Claude shim is missing"
+						check.Fix = "run `aigw repair`"
 					}
 					checks = append(checks, check)
 				}

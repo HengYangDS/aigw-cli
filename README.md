@@ -60,7 +60,7 @@ sh install.sh
 aigw setup
 ```
 
-它会引导选择团队 Profile、隐藏输入 Token、保存系统密钥、发现 Claude/Codex、写入各自 Adapter，并执行一次连通性检查。
+它会引导选择模型 Profile、隐藏输入 Account Token、保存系统密钥、发现 Claude/Codex、写入各自 Adapter，并执行一次连通性检查。
 
 团队清单模式：
 
@@ -93,8 +93,12 @@ aigw setup                   # 傻瓜式首次配置
 aigw use [profile]           # 切换模型 Profile，可交互选择
 aigw rotate [account]        # 更新 Account Token
 aigw check                   # 配置、Token、客户端与网关健康检查
-aigw balance [profile]       # 余额和 Token 额度；支持的服务商才显示精确值
+aigw balance [account]       # 余额和 Token 额度；支持的服务商才显示精确值
+aigw sync                    # 仅对齐客户端配置；不重启客户端、不改动认证
+aigw adapter auth codex      # 仅重新绑定当前 Account 的 Codex 原生认证
 aigw repair                  # 自动发现并修复 Adapter 漂移
+aigw verify --for all        # 明确执行两次最小真实模型请求，并建立验证检查点
+aigw rollback                # 回退到最近一次完整验证配置，不重启客户端
 aigw update                  # 按安装渠道更新
 ```
 
@@ -133,11 +137,19 @@ aigw adapter enable codex \
 
 Claude shim 由 AIGW 放在用户级 AIGW shim 目录，例如 `~/.local/bin/claude`；它不写入 `~/.codex`，也不会覆盖非 AIGW-owned 的 `claude`。Claude Token 只在启动目标进程时映射为 `ANTHROPIC_AUTH_TOKEN`。
 
-Codex 只接收带 AIGW 标记的 provider 投影，并通过官方 `login --with-api-key` 从 stdin 刷新认证。
+Codex 只接收带 AIGW 标记的顶层 `model`、`model_provider` 和 provider 投影。`aigw doctor` 会检查这三处是否仍与当前 Profile 一致；发现手工漂移时，用 `aigw sync` 只恢复配置，不会启动、关闭或重启 Codex。
+
+同一 Account 内切换模型只更新配置，不重复绑定凭据。首次启用 Codex、切换到另一个 Account、`aigw rotate` 或显式运行 `aigw adapter auth codex` 时，AIGW 才通过官方 `login --with-api-key` 从 stdin 执行一次有 20 秒上限的认证绑定。
+
+## 验证与回退
+
+`aigw test` 是无模型调用的连通性与认证检查；`aigw verify --for claude|codex` 则会发送一次有上限的真实模型请求，并要求返回 `AIGW_OK`。它只适合在用户明确允许消耗一次最小额度时使用。
+
+`aigw verify --for all` 还会先确认 Claude shim、Codex 可执行文件和所有 Codex 投影均就绪；仅两条真实链路均通过后，才在本机保存**不含密钥**的完整验证检查点。`aigw rollback` 优先恢复该检查点；`aigw rollback --last-change` 只恢复紧邻的配置备份。二者只恢复 AIGW 管理的配置投影，绝不启动、停止、重启或重载 Claude/Codex 客户端。
 
 ## 诊断
 
-`aigw check` / `aigw doctor` 会给出可操作判断：Token 无效、Token 被禁用、余额/额度耗尽、账号限制、限速、模型/渠道不可用、网关 5xx、网络/TLS/代理问题、本地密钥缺失、Adapter 漂移等。
+`aigw check` / `aigw doctor` 会给出可操作判断：Token 无效、Token 被禁用、余额/额度耗尽、账号限制、限速、模型/渠道不可用、网关 5xx、网络/TLS/代理问题、本地密钥缺失、Codex 模型或 provider 投影漂移等。
 
 支持精确账户诊断的服务商可绑定平台凭据：
 
@@ -155,6 +167,10 @@ aigw balance dmx
 - [团队推广](docs/team-rollout.md)
 - [旧本机原型迁移](docs/migration.md)
 - [产品设计](docs/design/2026-07-10-aigw-cli-product-design.md)
+
+## 卸载边界
+
+便携安装的卸载脚本只移除当前用户安装目录中的 `aigw` 与 AIGW-owned Claude shim。原生 `.pkg`、`.deb`、`.rpm`、`.msi` 安装器只管理自身安装的程序文件，**不会遍历用户目录或删除任何用户 shim**；在卸载前如需清理 shim，请以该用户身份运行 `aigw adapter disable claude`。配置、系统密钥和客户端用户配置始终保留，供重新安装或受控离网使用。
 
 ## 开发与验证
 

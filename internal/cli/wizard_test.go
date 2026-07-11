@@ -12,14 +12,16 @@ import (
 )
 
 type fakePrompt struct {
-	secret      string
-	secretCalls int
-	selected    string
-	text        string
+	secret          string
+	secretCalls     int
+	lastSecretLabel string
+	selected        string
+	text            string
 }
 
-func (p *fakePrompt) Secret(string) (string, error) {
+func (p *fakePrompt) Secret(label string) (string, error) {
 	p.secretCalls++
+	p.lastSecretLabel = label
 	if p.secret == "" {
 		return "", errors.New("no secret")
 	}

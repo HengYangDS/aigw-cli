@@ -97,6 +97,10 @@ func runWizard(ctx context.Context, app *App) error {
 		rollbackWizard(app, cfg, providerAccount.ID, claudeEnabled)
 		return fmt.Errorf("客户端配置失败并已 rolled back：%w", err)
 	}
+	if err := bindCodexAuthentication(ctx, app, cfg); err != nil {
+		rollbackWizard(app, cfg, providerAccount.ID, claudeEnabled)
+		return fmt.Errorf("客户端认证失败并已 rolled back：%w", err)
+	}
 	r.Section("完成")
 	if claudeEnabled {
 		r.Status(presentation.OK, "Claude", "配置完成")
