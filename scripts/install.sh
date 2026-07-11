@@ -49,7 +49,15 @@ ensure_path() {
   echo "PATH updated in $profile. Open a new terminal, or run: export PATH=\"$install_dir:\$PATH\""
 }
 
-if [ -x "$script_dir/aigw" ]; then
+# AIGW_SOURCE_BINARY is an explicit local-test seam. Release downloads still
+# require authenticated retrieval and checksum validation below.
+if [ -n "${AIGW_SOURCE_BINARY:-}" ]; then
+  [ -f "$AIGW_SOURCE_BINARY" ] && [ -x "$AIGW_SOURCE_BINARY" ] || {
+    echo "AIGW_SOURCE_BINARY must reference an executable local file" >&2
+    exit 2
+  }
+  source_binary=$AIGW_SOURCE_BINARY
+elif [ -x "$script_dir/aigw" ]; then
   source_binary="$script_dir/aigw"
 else
   os=$(uname -s | tr '[:upper:]' '[:lower:]')
