@@ -27,7 +27,9 @@ AIGW 是**本机优先、团队可分发**的跨平台第三方 AI API Account�
 
 ### Runtime Profile
 
-一个 Runtime Profile 表示用户日常切换的模型运行配置，引用一个 Account，并可限定客户端与模型名，例如 `gpt-5.6-sol-cdx`、`gpt-5.5-ssvip`、`claude-sonnet-5`、`claude-opus-4-8-thinking`、`claude-fable-5`。`claude-sonnet-5` 是 Claude 的默认基线；其他 Claude Profile 必须显式选择。模型名对 AIGW 是透明字符串，由上游网关解释。
+一个 Runtime Profile 表示用户日常切换的模型运行配置，引用一个 Account，并可限定客户端与模型名，例如 `gpt-5.6-sol-cdx`、`gpt-5.5-ssvip`、`claude-fable-5`、`claude-sonnet-5`、`claude-opus-4-8-thinking`。
+
+`claude-fable-5` 是 Claude 的推荐基线；其他 Claude Profile 必须显式选择。模型名对 AIGW 是透明字符串，由上游网关解释。
 
 一个 Account 可以被多个 Runtime Profile 引用；Profile 不拥有 URL 或 Token。于是一把 Account Token 可以安全地支撑 GPT、Claude、Embedding 等多个模型选择；另一个服务商则增加另一个 Account 及其一把 Token。Profile 是本机多服务、多模型能力的基本单位，不是服务端 Gateway 的替代物。
 
