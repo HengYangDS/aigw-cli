@@ -427,6 +427,13 @@ func adapterRouteReady(app *App, cfg domain.Config, client string, profile domai
 		if !ready {
 			return false, "Claude shim 缺失"
 		}
+		active, err := app.Shims.ClaudeActivationReady()
+		if err != nil {
+			return false, "Claude PATH 激活无法读取"
+		}
+		if !active {
+			return false, "Claude PATH 激活缺失"
+		}
 	case domain.ClientCodex:
 		if len(adapter.Targets) == 0 {
 			return false, "Codex 配置目标缺失"

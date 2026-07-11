@@ -200,6 +200,10 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	legacyBinDir, err := platform.UserBinDirFor(runtime.GOOS, env)
+	if err != nil {
+		return nil, err
+	}
 	secretStore, err := secrets.Select(env["AIGW_SECRET_BACKEND"], os.Getenv)
 	if err != nil {
 		return nil, err
@@ -215,10 +219,17 @@ func NewDefault() (*App, error) {
 		Color:       env["NO_COLOR"] == "" && isTerminal(os.Stdout),
 		Runner:      ProcessRunner{},
 		HTTP:        &http.Client{},
-		Shims:       shims.Manager{GOOS: runtime.GOOS, BinDir: binDir, AIGWExecutable: executable},
-		Prompt:      terminalPrompt{in: os.Stdin, out: os.Stdout, accessible: env["NO_COLOR"] != ""},
-		Discovery:   discovery.Current(),
-		Updater:     selfupdate.Current(executable),
+		Shims: shims.Manager{
+			GOOS:           runtime.GOOS,
+			BinDir:         binDir,
+			LegacyBinDir:   legacyBinDir,
+			Home:           env["HOME"],
+			Shell:          env["SHELL"],
+			AIGWExecutable: executable,
+		},
+		Prompt:    terminalPrompt{in: os.Stdin, out: os.Stdout, accessible: env["NO_COLOR"] != ""},
+		Discovery: discovery.Current(),
+		Updater:   selfupdate.Current(executable),
 	}, nil
 }
 
@@ -226,7 +237,7 @@ func defaultShimDirFor(goos string, env map[string]string, executable string) (s
 	if value := strings.TrimSpace(env["AIGW_SHIM_DIR"]); value != "" {
 		return value, nil
 	}
-	if dir, err := platform.UserBinDirFor(goos, env); err == nil {
+	if dir, err := platform.ShimDirFor(goos, env); err == nil {
 		return dir, nil
 	}
 	return filepath.Dir(executable), nil

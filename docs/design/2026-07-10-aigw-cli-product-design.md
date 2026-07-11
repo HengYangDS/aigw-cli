@@ -48,7 +48,7 @@ account = <account-id>
 
 ## 4. 客户端边界
 
-Claude 通过独立 shim 启动，Token 仅在目标进程边界映射为 `ANTHROPIC_AUTH_TOKEN`，端点映射为 `ANTHROPIC_BASE_URL`。映射不持久化到 Claude 设置文件或 shell 启动文件。
+Claude 通过独立 shim 启动，Token 仅在目标进程边界映射为 `ANTHROPIC_AUTH_TOKEN`，端点映射为 `ANTHROPIC_BASE_URL`。映射不持久化到 Claude 设置文件或 shell 启动文件。shim 位于 AIGW 专属数据目录；为保持原生 `claude` UX，AIGW 只在当前用户 shell profile 写入一个有标记、无密钥、可逆的 PATH 块，不再使用共享 `~/.local/bin`。
 
 Codex CLI 优先通过独立执行边界传递凭据。对无法经 shim 启动的 Codex Desktop，AIGW 只在首次启用、Account 切换、Token 轮换或显式 `aigw adapter auth codex` 时通过 Codex 官方 `login --with-api-key` 边界刷新认证；模型切换和 `aigw sync` 不触发登录。AIGW 只维护带 AIGW 标记的顶层 `model`、`model_provider` 与 provider 配置，不得直接写入明文认证文件，也不得启动、停止或重启桌面客户端。
 
@@ -95,7 +95,7 @@ GitLab Release 为 macOS、Linux、Windows 的 amd64/arm64 生成 portable 压�
 
 ## 8. 现有资产边界
 
-传输代理、兼容转发器和数据面网关是独立项目，不进入 AIGW 核心，也不由 AIGW 管理。AIGW 可使用用户配置的本地端点，但不知道代理生命周期。
+传输代理、兼容转发器和数据面网关是独立项目，不进入 AIGW 核心，也不由 AIGW 管理。默认使用上游 HTTPS 直连且不绑定本地端口；只有协议转换、集中审计或组织出口要求时才引入独立 proxy。若使用本地 proxy，其端口由该项目的部署契约显式选择并检查冲突；AIGW 可使用用户配置的 URL，但不知道代理生命周期。
 
 本机 Python 原型仅作为迁移来源和行为参考。新版本完成验证后，迁移 Account、Runtime Profile、Route 与现有 `AIGW_TOKEN/<account>` 密钥，替换 shim，然后删除旧 Python 工具、旧文档和废弃命令；不保留兼容别名。
 

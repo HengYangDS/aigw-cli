@@ -11,9 +11,17 @@ import (
 
 const marker = "AIGW managed Claude shim"
 
+const (
+	pathBegin = "# >>> AIGW Claude shim PATH >>>"
+	pathEnd   = "# <<< AIGW Claude shim PATH <<<"
+)
+
 type Manager struct {
 	GOOS           string
 	BinDir         string
+	LegacyBinDir   string
+	Home           string
+	Shell          string
 	AIGWExecutable string
 }
 
@@ -33,8 +41,11 @@ func (m Manager) ClaudeShimReady() (bool, error) {
 
 func (m Manager) EnableClaude() (string, error) {
 	path := m.claudePath()
+	existed := false
 	if data, err := os.ReadFile(path); err == nil && !strings.Contains(string(data), marker) {
 		return "", fmt.Errorf("existing Claude launcher %s is not owned by AIGW; move it or choose another AIGW bin directory", path)
+	} else if err == nil {
+		existed = true
 	} else if err != nil && !os.IsNotExist(err) {
 		return "", fmt.Errorf("inspect Claude launcher: %w", err)
 	}
@@ -47,6 +58,15 @@ func (m Manager) EnableClaude() (string, error) {
 			return "", fmt.Errorf("make Claude launcher executable: %w", err)
 		}
 	}
+	if err := m.EnsureClaudeActivation(); err != nil {
+		if !existed {
+			_ = os.Remove(path)
+		}
+		return "", err
+	}
+	if err := m.removeLegacyOwnedClaudeShim(); err != nil {
+		return "", err
+	}
 	return path, nil
 }
 
@@ -54,7 +74,10 @@ func (m Manager) DisableClaude() error {
 	path := m.claudePath()
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return nil
+		if err := m.RemoveClaudeActivation(); err != nil {
+			return err
+		}
+		return m.removeLegacyOwnedClaudeShim()
 	}
 	if err != nil {
 		return fmt.Errorf("inspect Claude launcher: %w", err)
@@ -62,8 +85,78 @@ func (m Manager) DisableClaude() error {
 	if !strings.Contains(string(data), marker) {
 		return fmt.Errorf("Claude launcher %s is not owned by AIGW; refusing to remove it", path)
 	}
+	if err := m.RemoveClaudeActivation(); err != nil {
+		return err
+	}
 	if err := os.Remove(path); err != nil {
 		return fmt.Errorf("remove Claude launcher: %w", err)
+	}
+	return m.removeLegacyOwnedClaudeShim()
+}
+
+// ClaudeActivationReady verifies the persistent user-shell PATH projection.
+// It deliberately does not inspect the current process PATH: a CLI cannot
+// mutate its parent shell, while a new interactive shell will load this block.
+func (m Manager) ClaudeActivationReady() (bool, error) {
+	if m.GOOS == "windows" || m.Home == "" {
+		return true, nil
+	}
+	profile, err := m.shellProfile()
+	if err != nil {
+		return false, err
+	}
+	data, err := os.ReadFile(profile)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("inspect Claude shell activation: %w", err)
+	}
+	text := string(data)
+	return strings.Contains(text, pathBegin) && strings.Contains(text, pathEnd) && strings.Contains(text, m.BinDir), nil
+}
+
+func (m Manager) EnsureClaudeActivation() error {
+	if m.GOOS == "windows" || m.Home == "" {
+		return nil
+	}
+	profile, err := m.shellProfile()
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(profile)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("read Claude shell activation: %w", err)
+	}
+	updated := replaceManagedPathBlock(string(data), m.pathBlock())
+	if updated == string(data) {
+		return nil
+	}
+	if err := transaction.WriteFileAtomic(profile, []byte(updated), 0o644); err != nil {
+		return fmt.Errorf("write Claude shell activation: %w", err)
+	}
+	return nil
+}
+
+func (m Manager) RemoveClaudeActivation() error {
+	if m.GOOS == "windows" || m.Home == "" {
+		return nil
+	}
+	for _, profile := range m.shellProfiles() {
+		data, err := os.ReadFile(profile)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("read Claude shell activation: %w", err)
+		}
+		updated := removeManagedPathBlock(string(data))
+		if updated == string(data) {
+			continue
+		}
+		if err := transaction.WriteFileAtomic(profile, []byte(updated), 0o644); err != nil {
+			return fmt.Errorf("remove Claude shell activation: %w", err)
+		}
 	}
 	return nil
 }
@@ -81,4 +174,114 @@ func (m Manager) claudeContent() string {
 	}
 	executable := strings.ReplaceAll(m.AIGWExecutable, `'`, `'\''`)
 	return "#!/bin/sh\n# " + marker + "\nexec '" + executable + "' __run-claude \"$@\"\n"
+}
+
+func (m Manager) removeLegacyOwnedClaudeShim() error {
+	legacyPath := m.legacyClaudePath()
+	if legacyPath == "" {
+		return nil
+	}
+	data, err := os.ReadFile(legacyPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("inspect legacy Claude launcher: %w", err)
+	}
+	if !strings.Contains(string(data), marker) {
+		return nil
+	}
+	if err := os.Remove(legacyPath); err != nil {
+		return fmt.Errorf("remove legacy Claude launcher: %w", err)
+	}
+	return nil
+}
+
+func (m Manager) legacyClaudePath() string {
+	if m.LegacyBinDir == "" || filepath.Clean(m.LegacyBinDir) == filepath.Clean(m.BinDir) {
+		return ""
+	}
+	if m.GOOS == "windows" {
+		return filepath.Join(m.LegacyBinDir, "claude.cmd")
+	}
+	return filepath.Join(m.LegacyBinDir, "claude")
+}
+
+func (m Manager) shellProfile() (string, error) {
+	profiles := m.shellProfiles()
+	if len(profiles) == 0 {
+		return "", fmt.Errorf("resolve Claude shell activation profile: HOME is not set")
+	}
+	return profiles[0], nil
+}
+
+func (m Manager) shellProfiles() []string {
+	if m.Home == "" {
+		return nil
+	}
+	shell := strings.ToLower(filepath.Base(m.Shell))
+	primary := filepath.Join(m.Home, ".profile")
+	switch shell {
+	case "zsh":
+		primary = filepath.Join(m.Home, ".zshrc")
+	case "bash":
+		bashProfile := filepath.Join(m.Home, ".bash_profile")
+		if _, err := os.Stat(bashProfile); err == nil {
+			primary = bashProfile
+		} else {
+			primary = filepath.Join(m.Home, ".bashrc")
+		}
+	case "fish":
+		primary = filepath.Join(m.Home, ".config", "fish", "config.fish")
+	}
+	all := []string{primary}
+	for _, candidate := range []string{
+		filepath.Join(m.Home, ".zshrc"),
+		filepath.Join(m.Home, ".bash_profile"),
+		filepath.Join(m.Home, ".bashrc"),
+		filepath.Join(m.Home, ".profile"),
+		filepath.Join(m.Home, ".config", "fish", "config.fish"),
+	} {
+		if candidate != primary {
+			all = append(all, candidate)
+		}
+	}
+	return all
+}
+
+func (m Manager) pathBlock() string {
+	dir := strings.ReplaceAll(m.BinDir, `'`, `'\''`)
+	line := "export PATH='" + dir + `':$PATH`
+	if strings.EqualFold(filepath.Base(m.Shell), "fish") {
+		line = "fish_add_path --prepend --move '" + dir + "'"
+	}
+	return "\n" + pathBegin + "\n" + line + "\n" + pathEnd + "\n"
+}
+
+func replaceManagedPathBlock(text, block string) string {
+	text = removeManagedPathBlock(text)
+	return strings.TrimRight(text, "\r\n") + block
+}
+
+func removeManagedPathBlock(text string) string {
+	if !strings.Contains(text, pathBegin) {
+		return text
+	}
+	lines := strings.Split(text, "\n")
+	kept := make([]string, 0, len(lines))
+	skipping := false
+	for _, line := range lines {
+		if line == pathBegin {
+			skipping = true
+			continue
+		}
+		if line == pathEnd && skipping {
+			skipping = false
+			continue
+		}
+		if !skipping {
+			kept = append(kept, line)
+		}
+	}
+	return strings.TrimRight(strings.Join(kept, "\n"), "\r\n") + "\n"
 }
