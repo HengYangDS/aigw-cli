@@ -83,6 +83,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, *secrets.Memo
 		Config:      config.NewStore(filepath.Join(t.TempDir(), "config.toml")),
 		Secrets:     secretStore,
 		Accounts:    account.NewMemoryStore(),
+		Env:         []string{},
 		In:          strings.NewReader(stdin),
 		Out:         out,
 		Err:         out,
