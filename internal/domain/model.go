@@ -41,10 +41,9 @@ type Profile struct {
 	Models  Models `toml:"models,omitempty" json:"models,omitempty"`
 }
 
-type Models struct {
-	Claude string `toml:"claude,omitempty" json:"claude,omitempty"`
-	Codex  string `toml:"codex,omitempty" json:"codex,omitempty"`
-}
+// Models maps an admitted client ID to the upstream model ID it should use.
+// The TOML shape remains [profiles.<id>.models] with client IDs as keys.
+type Models map[string]string
 
 type Runtime struct {
 	ProfileID    string `json:"profile_id"`
@@ -199,11 +198,13 @@ func (c Config) Validate() error {
 		if profile.Client != "" && !IsAdmittedClient(profile.Client) {
 			return fmt.Errorf("profile %q has unknown client %q", name, profile.Client)
 		}
-		if profile.Client == ClientCodex && profile.Models.Claude != "" {
-			return fmt.Errorf("profile %q is codex-scoped; define a codex model, not a claude model", name)
-		}
-		if profile.Client == ClientClaude && profile.Models.Codex != "" {
-			return fmt.Errorf("profile %q is claude-scoped; define a claude model, not a codex model", name)
+		for client, model := range profile.Models {
+			if !IsAdmittedClient(client) {
+				return fmt.Errorf("profile %q defines a model for unadmitted client %q", name, client)
+			}
+			if profile.Client != "" && client != profile.Client && strings.TrimSpace(model) != "" {
+				return fmt.Errorf("profile %q is %s-scoped; define a model for %s, not %s", name, profile.Client, profile.Client, client)
+			}
 		}
 	}
 	if _, ok := c.Profiles[c.Routes.Default]; !ok {
@@ -290,18 +291,7 @@ func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, bool, e
 }
 
 func (p Profile) ModelFor(client string) string {
-	spec, ok := ClientSpecFor(client)
-	if !ok {
-		return ""
-	}
-	switch spec.ModelSlot {
-	case ModelSlotClaude:
-		return p.Models.Claude
-	case ModelSlotCodex:
-		return p.Models.Codex
-	default:
-		return ""
-	}
+	return p.Models[client]
 }
 
 func (a Account) EndpointFor(client string) (string, error) {

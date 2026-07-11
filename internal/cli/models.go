@@ -211,8 +211,11 @@ func configuredProfilesForModel(cfg domain.Config, accountName, model string) []
 		if profile.Account != accountName {
 			continue
 		}
-		if profile.Models.Claude == model || profile.Models.Codex == model {
-			profiles = append(profiles, name)
+		for _, configuredModel := range profile.Models {
+			if configuredModel == model {
+				profiles = append(profiles, name)
+				break
+			}
 		}
 	}
 	sort.Strings(profiles)

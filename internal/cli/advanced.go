@@ -55,12 +55,7 @@ func newProfileAddCommand(app *App) *cobra.Command {
 			if label == "" {
 				label = profileName
 			}
-			models := domain.Models{}
-			if client == domain.ClientClaude {
-				models.Claude = model
-			} else {
-				models.Codex = model
-			}
+			models := domain.Models{client: model}
 			before := cloneConfig(cfg)
 			cfg.Profiles[profileName] = domain.Profile{Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Client: client, Models: models}
 			if err := commitConfigAndSync(cmd.Context(), app, before, cfg, "profile add"); err != nil {

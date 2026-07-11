@@ -9,8 +9,8 @@ import (
 
 func TestAdmittedClientRegistryIsTheSingleProtocolBoundary(t *testing.T) {
 	want := []domain.ClientSpec{
-		{ID: domain.ClientClaude, Label: "Claude", EndpointProtocol: domain.ProtocolAnthropic, ModelSlot: domain.ModelSlotClaude},
-		{ID: domain.ClientCodex, Label: "Codex", EndpointProtocol: domain.ProtocolOpenAIResponses, ModelSlot: domain.ModelSlotCodex},
+		{ID: domain.ClientClaude, Label: "Claude", EndpointProtocol: domain.ProtocolAnthropic},
+		{ID: domain.ClientCodex, Label: "Codex", EndpointProtocol: domain.ProtocolOpenAIResponses},
 	}
 	if got := domain.AdmittedClientSpecs(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("client specs = %#v, want %#v", got, want)
@@ -31,5 +31,15 @@ func TestAdmittedClientRegistryReturnsDefensiveCopies(t *testing.T) {
 	clients[0].ID = "mutated"
 	if domain.AdmittedClientSpecs()[0].ID != domain.ClientClaude {
 		t.Fatal("caller mutation changed the registered client boundary")
+	}
+}
+
+func TestProfileModelsUseAdmittedClientIDsAsKeys(t *testing.T) {
+	profile := domain.Profile{Models: domain.Models{
+		domain.ClientClaude: "claude-test",
+		domain.ClientCodex:  "gpt-test",
+	}}
+	if profile.ModelFor(domain.ClientClaude) != "claude-test" || profile.ModelFor(domain.ClientCodex) != "gpt-test" {
+		t.Fatalf("models = %#v", profile.Models)
 	}
 }

@@ -16,7 +16,7 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{Label: "GPT 5.6 Sol Codex", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	profile := domain.Profile{Label: "GPT 5.6 Sol Codex", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Profiles["gpt-5.6-sol-cdx"] = profile
