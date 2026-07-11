@@ -12,11 +12,11 @@ fail() {
 }
 
 matches=$(git grep -n -E \
-  'MigrateLegacyV2|legacyProfile|legacyTOMLConfig|legacyJSONConfig|promoteLegacyProfiles|LegacyBinDir|removeLegacyOwnedClaudeShim|recoverStrippedCodexProjection|removeUnmarkedAIGWProviderTable' \
+  'MigrateLegacyV2|legacyProfile|legacyTOMLConfig|legacyJSONConfig|promoteLegacyProfiles|LegacyBinDir|removeLegacyOwnedClaudeShim|recoverStrippedCodexProjection|removeUnmarkedAIGWProviderTable|LegacyConfigVersion|CurrentConfigVersion|NeedsUpgrade' \
   -- ':!**/*_test.go' ':!scripts/check-retired-residue.sh' || true)
 [ -z "$matches" ] || { printf '%s\n' "$matches" >&2; fail "retired runtime compatibility code found"; }
 
-matches=$(git grep -n -E 'config migrate|docs/migration\.md|dmx-credential|dmx-responses-proxy|127\.0\.0\.1:(8791|8888)' \
+matches=$(git grep -n -E 'config migrate|config upgrade|docs/migration\.md|dmx-credential|dmx-responses-proxy|127\.0\.0\.1:(8791|8888)' \
   -- README.md docs scripts internal examples CHANGELOG.md ':!scripts/check-retired-residue.sh' ':!**/*_test.go' || true)
 [ -z "$matches" ] || { printf '%s\n' "$matches" >&2; fail "retired command or documentation reference found"; }
 

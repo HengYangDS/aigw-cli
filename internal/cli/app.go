@@ -140,7 +140,7 @@ func mutationCommand(app *App, args []string) bool {
 	case "adapter":
 		return len(args) > 1 && (args[1] == "enable" || args[1] == "auth" || args[1] == "disable")
 	case "config":
-		return len(args) > 1 && (args[1] == "import" || args[1] == "upgrade")
+		return len(args) > 1 && args[1] == "import"
 	default:
 		return false
 	}

@@ -9,7 +9,7 @@ import (
 )
 
 func TestParseTeamManifestAndMergePreservesPersonalState(t *testing.T) {
-	raw := []byte(`version = 1
+	raw := []byte(`version = 2
 recommended_default = "team"
 
 [accounts.team]
@@ -50,7 +50,7 @@ account = "team"
 
 func TestParseRejectsCredentialShapedFields(t *testing.T) {
 	for _, key := range []string{"token", "api_key", "password", "auth_header", "client_secret"} {
-		raw := []byte("version = 1\nrecommended_default = \"team\"\n" + key + " = \"must-not-exist\"\n")
+		raw := []byte("version = 2\nrecommended_default = \"team\"\n" + key + " = \"must-not-exist\"\n")
 		_, err := manifest.Parse(raw)
 		if err == nil || !strings.Contains(err.Error(), "credential") {
 			t.Errorf("key %s: error = %v", key, err)
@@ -58,8 +58,8 @@ func TestParseRejectsCredentialShapedFields(t *testing.T) {
 	}
 }
 
-func TestManifestPurposeRequiresVersionTwo(t *testing.T) {
-	legacy := []byte(`version = 1
+func TestParseRejectsNonCanonicalSchemaVersion(t *testing.T) {
+	oldSchema := []byte(`version = 1
 recommended_default = "team"
 [accounts.team]
 label = "Team"
@@ -70,20 +70,20 @@ label = "Team"
 purpose = "默认 Agent"
 account = "team"
 `)
-	if _, err := manifest.Parse(legacy); err == nil || !strings.Contains(err.Error(), "version 2") {
-		t.Fatalf("legacy purpose error = %v", err)
+	if _, err := manifest.Parse(oldSchema); err == nil || !strings.Contains(err.Error(), "unsupported team manifest version 1") {
+		t.Fatalf("version 1 parse error = %v", err)
 	}
-	current := []byte(strings.Replace(string(legacy), "version = 1", "version = 2", 1))
+	current := []byte(strings.Replace(string(oldSchema), "version = 1", "version = 2", 1))
 	parsed, err := manifest.Parse(current)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsed.Version != domain.CurrentConfigVersion || parsed.Profiles["team"].Purpose != "默认 Agent" {
+	if parsed.Version != domain.ConfigVersion || parsed.Profiles["team"].Purpose != "默认 Agent" {
 		t.Fatalf("parsed manifest = %#v", parsed)
 	}
 }
 
-func TestMergeVersionTwoManifestRequiresLocalSchemaUpgrade(t *testing.T) {
+func TestMergeRejectsNonCanonicalLocalSchemaVersion(t *testing.T) {
 	team, err := manifest.Parse([]byte(`version = 2
 recommended_default = "team"
 [accounts.team]
@@ -99,17 +99,17 @@ account = "team"
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig()
-	cfg.Version = domain.LegacyConfigVersion
+	cfg.Version = 1
 	cfg.Accounts["local"] = domain.Account{Label: "Local", Endpoints: domain.Endpoints{Anthropic: "https://local.test"}}
 	cfg.Profiles["local"] = domain.Profile{Label: "Local", Account: "local"}
 	cfg.Routes.Default = "local"
-	if _, err := manifest.Merge(cfg, team); err == nil || !strings.Contains(err.Error(), "config upgrade") {
+	if _, err := manifest.Merge(cfg, team); err == nil || !strings.Contains(err.Error(), "unsupported config version 1") {
 		t.Fatalf("merge error = %v", err)
 	}
 }
 
 func TestParseRejectsProfileOwnedEndpointResidue(t *testing.T) {
-	raw := []byte(`version = 1
+	raw := []byte(`version = 2
 recommended_default = "team"
 
 [profiles.team]
