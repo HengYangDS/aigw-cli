@@ -110,6 +110,44 @@ func TestRepairDiscoversAndEnablesInstalledClients(t *testing.T) {
 	}
 }
 
+func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "gpt-5.6-terra-cdx"})
+	cfg.Routes.Default = "dmx"
+	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("dmx", "token")
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte(strings.Replace(string(projected), "# <<< AIGW managed provider <<<\n", "", 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	app.Discovery = fakeDiscovery{result: discovery.Result{CodexExecutable: "/opt/codex", CodexTargets: []string{target}}}
+
+	if err := execute(t, app, "repair"); err != nil {
+		t.Fatalf("repair did not resync the existing Codex projection: %v", err)
+	}
+	repaired, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(repaired), "# <<< AIGW managed provider <<<\n") {
+		t.Fatalf("repair falsely succeeded without restoring the provider terminator:\n%s", repaired)
+	}
+}
+
 func TestHelpKeepsDailyCommandsObvious(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	if err := execute(t, app, "--help"); err != nil {

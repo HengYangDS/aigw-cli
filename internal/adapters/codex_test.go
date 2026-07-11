@@ -162,6 +162,97 @@ func TestCodexSyncOwnsTopLevelModelAndRestoresOriginal(t *testing.T) {
 	}
 }
 
+func TestCodexSyncRepairsOnlyAnExactTruncatedOwnedProjection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	original := "model_provider = \"native\"\nmodel = \"gpt-original\"\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := codexRuntime("gpt-5.6-terra-cdx", "GPT-5.6 Terra Codex", "https://example.test/v1", "gpt-5.6-terra-cdx")
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	truncated := strings.Replace(string(projected), "# <<< AIGW managed provider <<<\n", "", 1)
+	if err := os.WriteFile(path, []byte(truncated), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatalf("SyncCodexConfig() did not repair the exact owned truncation: %v", err)
+	}
+	repaired, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(repaired), "# <<< AIGW managed provider <<<\n") {
+		t.Fatalf("repaired projection is still incomplete:\n%s", repaired)
+	}
+	if err := adapters.ValidateCodexConfig(path, profile); err != nil {
+		t.Fatalf("ValidateCodexConfig() rejected repaired projection: %v", err)
+	}
+}
+
+func TestCodexSyncRefusesATruncatedProjectionWithExtraContent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := codexRuntime("gpt-5.6-terra-cdx", "GPT-5.6 Terra Codex", "https://example.test/v1", "gpt-5.6-terra-cdx")
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	truncated := strings.Replace(string(projected), "# <<< AIGW managed provider <<<\n", "foreign = \"do-not-overwrite\"\n", 1)
+	if err := os.WriteFile(path, []byte(truncated), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err = adapters.SyncCodexConfig(path, profile)
+	if err == nil || !strings.Contains(err.Error(), "incomplete") {
+		t.Fatalf("SyncCodexConfig() error = %v, want incomplete owned-projection conflict", err)
+	}
+}
+
+func TestCodexSyncRepairsExactTruncationBeforeUnrelatedConfig(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := codexRuntime("gpt-5.6-terra-cdx", "GPT-5.6 Terra Codex", "https://example.test/v1", "gpt-5.6-terra-cdx")
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	truncated := strings.Replace(string(projected), "# <<< AIGW managed provider <<<\n", "", 1)
+	truncated += "\n[mcp_servers.node_repl]\ncommand = \"node\"\nenabled = true\n"
+	if err := os.WriteFile(path, []byte(truncated), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := adapters.SyncCodexConfig(path, profile); err != nil {
+		t.Fatalf("SyncCodexConfig() did not repair an exact truncated table with preserved tail: %v", err)
+	}
+	repaired, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(repaired), "# <<< AIGW managed provider <<<\n") || !strings.Contains(string(repaired), "[mcp_servers.node_repl]\ncommand = \"node\"") {
+		t.Fatalf("sync did not preserve both the repaired block and unrelated tail:\n%s", repaired)
+	}
+	if err := adapters.ValidateCodexConfig(path, profile); err != nil {
+		t.Fatalf("ValidateCodexConfig() rejected repaired projection: %v", err)
+	}
+}
+
 func TestValidateCodexConfigDetectsManagedModelDrift(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
