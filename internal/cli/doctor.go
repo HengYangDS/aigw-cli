@@ -155,7 +155,7 @@ func newDoctorCommand(app *App) *cobra.Command {
 				if !check.OK {
 					state = presentation.Fail
 				}
-				r.Status(state, check.Name, check.Detail)
+				r.Status(state, doctorCheckLabel(check.Name), check.Detail)
 				if check.Fix != "" {
 					r.Detail("修复：" + check.Fix)
 				}
@@ -171,6 +171,13 @@ func newDoctorCommand(app *App) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "emit machine-readable JSON")
 	return cmd
+}
+
+func doctorCheckLabel(name string) string {
+	if name == "environment:client-token" {
+		return "客户端令牌环境"
+	}
+	return name
 }
 
 func forbiddenClientTokenEnvironment(values []string) []string {

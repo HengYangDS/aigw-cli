@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pelletier/go-toml/v2"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
 )
@@ -162,18 +161,9 @@ func codexUserConfig(path string, runtime domain.Runtime) (string, codexState, e
 		if err != nil {
 			return "", codexState{}, fmt.Errorf("read Codex config: %w", err)
 		}
-		if state.OriginalModel == "" {
-			state.OriginalModel = unmarkManagedModel(modelLine.FindString(string(current)))
-		}
 		base, err := removeCodexProjection(string(current), state)
 		if err != nil {
-			base, err = recoverStrippedCodexProjection(string(current), state, runtime)
-		}
-		if err != nil {
 			return "", codexState{}, err
-		}
-		if state.OriginalModel == "" {
-			state.OriginalModel = modelLine.FindString(base)
 		}
 		return base, state, nil
 	}
@@ -189,98 +179,11 @@ func codexUserConfig(path string, runtime domain.Runtime) (string, codexState, e
 	return string(data), codexState{OriginalProvider: originalProvider, OriginalModel: originalModel}, nil
 }
 
-// recoverStrippedCodexProjection permits a narrowly-defined recovery from a
-// formatter that removed AIGW's comments while preserving the exact active
-// projection. A state file alone is never sufficient: the selected model,
-// endpoint, provider fields, and state hash must all agree before any text is
-// changed. Any semantic difference remains a conflict.
-func recoverStrippedCodexProjection(current string, state codexState, runtime domain.Runtime) (string, error) {
-	if strings.Contains(current, codexBegin) || strings.Contains(current, codexEnd) {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider markers are incomplete; refusing to overwrite user edits")
-	}
-	if state.ManagedBlockHash == "" {
-		return "", fmt.Errorf("Codex config conflict: AIGW state has no provider hash; refusing to overwrite user edits")
-	}
-	endpoint, err := codexEndpoint(runtime)
-	if err != nil {
-		return "", err
-	}
-	expected := codexManagedBlock(runtime.ProfileLabel, endpoint)
-	if !managedBlockHashMatches(state.ManagedBlockHash, expected) {
-		return "", fmt.Errorf("Codex config conflict: AIGW state does not match the selected profile; refusing to overwrite user edits")
-	}
-	if !unmarkedProjectionMatches(current, runtime, endpoint) {
-		return "", fmt.Errorf("Codex config conflict: unmarked AIGW projection differs from the selected profile; refusing to overwrite user edits")
-	}
-
-	base, err := removeUnmarkedAIGWProviderTable(current, runtime.ProfileLabel, endpoint)
-	if err != nil {
-		return "", err
-	}
-	if state.OriginalProvider != "" {
-		base = modelProviderLine.ReplaceAllString(base, state.OriginalProvider)
-	} else {
-		base = modelProviderLine.ReplaceAllString(base, "")
-		base = strings.TrimLeft(base, "\r\n")
-	}
-	base = restoreModelSelection(base, state.OriginalModel)
-	return strings.TrimRight(base, "\r\n") + "\n", nil
-}
-
-func unmarkedProjectionMatches(current string, runtime domain.Runtime, endpoint string) bool {
-	var document map[string]any
-	if err := toml.Unmarshal([]byte(current), &document); err != nil {
-		return false
-	}
-	if stringValue(document["model_provider"]) != "aigw" {
-		return false
-	}
-	if expectedModel := runtime.Model; expectedModel != "" && stringValue(document["model"]) != expectedModel {
-		return false
-	}
-	providers, ok := document["model_providers"].(map[string]any)
-	if !ok {
-		return false
-	}
-	provider, ok := providers["aigw"].(map[string]any)
-	if !ok || len(provider) != 4 {
-		return false
-	}
-	return stringValue(provider["name"]) == "AIGW: "+strings.ReplaceAll(runtime.ProfileLabel, `"`, `'`) &&
-		stringValue(provider["base_url"]) == endpoint &&
-		stringValue(provider["wire_api"]) == "responses" &&
-		boolValue(provider["requires_openai_auth"])
-}
-
-func stringValue(value any) string {
-	text, _ := value.(string)
-	return text
-}
-
-func boolValue(value any) bool {
-	flag, _ := value.(bool)
-	return flag
-}
-
 func codexEndpoint(runtime domain.Runtime) (string, error) {
 	if runtime.Endpoint == "" {
 		return "", fmt.Errorf("profile %q has no Codex endpoint", runtime.ProfileID)
 	}
 	return runtime.Endpoint, nil
-}
-
-func removeUnmarkedAIGWProviderTable(current, label, endpoint string) (string, error) {
-	name := strings.ReplaceAll(label, `"`, `'`)
-	pattern := `(?m)^[ \t]*\[model_providers\.aigw\][ \t]*(?:\r?\n)` +
-		`^[ \t]*name[ \t]*=[ \t]*"` + regexp.QuoteMeta("AIGW: "+name) + `"[ \t]*(?:\r?\n)` +
-		`^[ \t]*base_url[ \t]*=[ \t]*"` + regexp.QuoteMeta(endpoint) + `"[ \t]*(?:\r?\n)` +
-		`^[ \t]*wire_api[ \t]*=[ \t]*"responses"[ \t]*(?:\r?\n)` +
-		`^[ \t]*requires_openai_auth[ \t]*=[ \t]*true[ \t]*(?:\r?\n|$)`
-	owned := regexp.MustCompile(pattern).FindStringIndex(current)
-	if owned == nil {
-		return "", fmt.Errorf("Codex config conflict: unmarked AIGW provider table is missing")
-	}
-	return strings.TrimRight(current[:owned[0]]+current[owned[1]:], "\r\n") + "\n", nil
 }
 
 func projectCodex(original, block, model string) string {
@@ -370,7 +273,7 @@ func codexManagedBlockIn(current string) (string, error) {
 }
 
 func managedBlockHashMatches(stateHash, block string) bool {
-	return stateHash == hashText(block) || stateHash == hashText(codexBegin+"\n"+block)
+	return stateHash == hashText(block)
 }
 
 func removeCodexBeginMarker(text string) string {
@@ -380,17 +283,6 @@ func removeCodexBeginMarker(text string) string {
 		}
 	}
 	return text
-}
-
-func unmarkManagedModel(line string) string {
-	line = strings.TrimSpace(line)
-	if line == "" {
-		return ""
-	}
-	if before, _, ok := strings.Cut(line, "# managed by AIGW"); ok {
-		return strings.TrimSpace(before)
-	}
-	return line
 }
 
 func restoreModelSelection(base, originalModel string) string {

@@ -71,3 +71,15 @@ func TestDoctorReportsGlobalClientTokenEnvironmentWithoutLeakingValue(t *testing
 		t.Fatalf("doctor leaked environment token: %s", result)
 	}
 }
+
+func TestDoctorHumanOutputUsesConciseCheckLabels(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	app.Env = []string{"ANTHROPIC_AUTH_TOKEN=test-token"}
+	if err := execute(t, app, "doctor"); err == nil {
+		t.Fatal("doctor succeeded despite a global client token")
+	}
+	result := out.String()
+	if !strings.Contains(result, "客户端令牌环境") || strings.Contains(result, "environment:client-token") {
+		t.Fatalf("doctor human label = %s", result)
+	}
+}

@@ -9,6 +9,7 @@ import (
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/cli"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
 
 type fakePrompt struct {
@@ -17,6 +18,8 @@ type fakePrompt struct {
 	lastSecretLabel string
 	selected        string
 	text            string
+	texts           []string
+	textCalls       int
 }
 
 func (p *fakePrompt) Secret(label string) (string, error) {
@@ -29,6 +32,11 @@ func (p *fakePrompt) Secret(label string) (string, error) {
 }
 
 func (p *fakePrompt) Text(string) (string, error) {
+	if p.textCalls < len(p.texts) {
+		value := p.texts[p.textCalls]
+		p.textCalls++
+		return value, nil
+	}
 	if p.text == "" {
 		return "", errors.New("no text")
 	}
@@ -46,7 +54,17 @@ func (d fakeDiscovery) Discover() discovery.Result { return d.result }
 func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	app, out, secretStore, runner := testApp(t, "")
 	app.Interactive = true
-	prompt := &fakePrompt{secret: "one-paste-token"}
+	prompt := &fakePrompt{
+		selected: "codex",
+		secret:   "one-paste-token",
+		texts: []string{
+			"team-gateway",
+			"Team Gateway",
+			"https://gateway.test/v1",
+			"gpt-5.6-terra-cdx",
+			"gpt-5.6-terra-cdx",
+		},
+	}
 	app.Prompt = prompt
 	shimDir := t.TempDir()
 	app.Shims.BinDir = shimDir
@@ -70,31 +88,121 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	if prompt.secretCalls != 1 {
 		t.Fatalf("token prompts = %d, want 1", prompt.secretCalls)
 	}
-	if !secretStore.Has("dmx") {
-		t.Fatal("DMX token was not stored")
+	if !secretStore.Has("team-gateway") {
+		t.Fatal("generic Account Token was not stored")
 	}
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes.Default != "gpt-5.6-sol-cdx" || !cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
+	if cfg.Routes.Default != "gpt-5.6-terra-cdx" || cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
 		t.Fatalf("configured state = %#v", cfg)
 	}
 	if len(runner.plans) != 1 || runner.plans[0].Executable != "/opt/codex-real" {
 		t.Fatalf("Codex login plans = %#v", runner.plans)
 	}
-	if _, err := os.Stat(filepath.Join(shimDir, "claude")); err != nil {
-		t.Fatalf("Claude shim missing: %v", err)
+	if _, err := os.Stat(filepath.Join(shimDir, "claude")); !os.IsNotExist(err) {
+		t.Fatalf("Codex-only first-run wizard created a Claude shim: %v", err)
 	}
 	if !strings.Contains(out.String(), "已就绪") || strings.Contains(out.String(), "one-paste-token") {
 		t.Fatalf("wizard output = %s", out.String())
 	}
 }
 
+func TestFirstRunCreatesExplicitGenericAccountWithoutBundledProviderDefault(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	app.Interactive = true
+	app.Prompt = &fakePrompt{
+		selected: "codex",
+		secret:   "one-paste-token",
+		texts: []string{
+			"team-gateway",
+			"Team Gateway",
+			"https://gateway.test/v1",
+			"gpt-5.6-terra-cdx",
+			"gpt-5.6-terra-cdx",
+		},
+	}
+
+	if err := execute(t, app); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if secretStore.Has("dmx") {
+		t.Fatal("first-run wizard seeded a DMX Token slot")
+	}
+	if !secretStore.Has("team-gateway") {
+		t.Fatal("generic Account Token was not stored")
+	}
+	profile, ok := cfg.Profiles["gpt-5.6-terra-cdx"]
+	if !ok || profile.Account != "team-gateway" || profile.Client != "codex" || profile.Models.Codex != "gpt-5.6-terra-cdx" {
+		t.Fatalf("generic profile = %#v", profile)
+	}
+	if _, exists := cfg.Accounts["dmx"]; exists {
+		t.Fatalf("first-run wizard seeded a provider Account: %#v", cfg.Accounts)
+	}
+}
+
+func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	app.Interactive = true
+	app.Prompt = &fakePrompt{
+		selected: "claude",
+		secret:   "one-paste-token",
+		texts: []string{
+			"team-gateway",
+			"Team Gateway",
+			"https://gateway.test",
+			"claude-sonnet-5",
+			"claude-sonnet-5",
+		},
+	}
+
+	if err := execute(t, app, "setup"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !secretStore.Has("team-gateway") || cfg.Routes.Default != "claude-sonnet-5" {
+		t.Fatalf("setup state = %#v", cfg)
+	}
+}
+
+func TestSetupWithoutFlagsRefusesBeforePromptingWhenAlreadyConfigured(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	app.Interactive = true
+	cfg := domain.NewConfig()
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "gateway", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-test"}}
+	cfg.Routes.Default = "claude"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	err := execute(t, app, "setup")
+	if err == nil || !strings.Contains(err.Error(), "already configured") {
+		t.Fatalf("setup error = %v", err)
+	}
+}
+
 func TestWizardFailureLeavesNoProfileSecretOrClientProjection(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	app.Interactive = true
-	app.Prompt = &fakePrompt{secret: "bad-sync-token"}
+	app.Prompt = &fakePrompt{
+		selected: "codex",
+		secret:   "bad-sync-token",
+		texts: []string{
+			"team-gateway",
+			"Team Gateway",
+			"https://gateway.test/v1",
+			"gpt-5.6-terra-cdx",
+			"gpt-5.6-terra-cdx",
+		},
+	}
 	app.Runner = &failingRunner{err: errors.New("Codex login failed"), remaining: 1}
 	shimDir := t.TempDir()
 	app.Shims.BinDir = shimDir
@@ -111,7 +219,7 @@ func TestWizardFailureLeavesNoProfileSecretOrClientProjection(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("error = %v", err)
 	}
-	if secretStore.Has("dmx") {
+	if secretStore.Has("team-gateway") {
 		t.Fatal("failed wizard left secret")
 	}
 	if _, err := os.Stat(app.Config.Path()); !os.IsNotExist(err) {

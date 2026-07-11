@@ -12,7 +12,7 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
 
-func TestLoadThenSaveRemovesDuplicatedProfileEndpointResidue(t *testing.T) {
+func TestLoadRejectsProfileOwnedEndpointResidue(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	legacy := `version = 1
 
@@ -44,25 +44,8 @@ default = "gpt"
 		t.Fatal(err)
 	}
 	store := config.NewStore(path)
-	cfg, err := store.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(data)
-	for _, residue := range []string{"[profiles.gpt.endpoints]", "[profiles.gpt.account_probe]", "https://duplicate.test"} {
-		if strings.Contains(text, residue) {
-			t.Fatalf("canonical save retained legacy Profile residue %q:\n%s", residue, text)
-		}
-	}
-	if !strings.Contains(text, "[accounts.gateway.endpoints]") || !strings.Contains(text, "https://gateway.test/v1") {
-		t.Fatalf("canonical save lost Account endpoint:\n%s", text)
+	if _, err := store.Load(); err == nil {
+		t.Fatal("Profile-owned endpoint residue was accepted")
 	}
 }
 
@@ -180,5 +163,38 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	}
 	if strings.Contains(strings.ToLower(string(data)), "token") {
 		t.Fatalf("checkpoint contains token-like content: %s", data)
+	}
+}
+
+func TestLoadVerifiedCheckpointRejectsProfileOwnedEndpointResidue(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	checkpoint := `{
+  "config": {
+    "version": 1,
+    "accounts": {
+      "gateway": {
+        "label": "Gateway",
+        "endpoints": {"openai_responses": "https://gateway.test/v1"}
+      }
+    },
+    "profiles": {
+      "gpt": {
+        "label": "GPT",
+        "account": "gateway",
+        "client": "codex",
+        "models": {"codex": "gpt-test"},
+        "endpoints": {"openai_responses": "https://duplicate.test/v1"}
+      }
+    },
+    "routes": {"default": "gpt"}
+  },
+  "clients": ["codex"],
+  "verified_at": "2026-07-11T00:00:00Z"
+}`
+	if err := os.WriteFile(path+".verified.json", []byte(checkpoint), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := config.NewStore(path).LoadVerifiedCheckpoint(); err == nil {
+		t.Fatal("Profile-owned checkpoint endpoint residue was accepted")
 	}
 }
