@@ -189,6 +189,7 @@ aigw balance <account>
 - [核心概念](docs/concepts.md)
 - [安全模型](docs/security.md)
 - [模型策略与客户端准入](docs/model-strategy.md)
+- [Adapter 准入](docs/adapter-admission.md)
 - [团队推广](docs/team-rollout.md)
 - [产品设计](docs/design/2026-07-10-aigw-cli-product-design.md)
 
