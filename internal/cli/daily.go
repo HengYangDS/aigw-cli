@@ -758,6 +758,9 @@ func verifyClaudeInvocation(ctx context.Context, app *App, cfg domain.Config, pr
 	if err != nil {
 		return err
 	}
+	// Verification must capture the bounded child output. Interactive Claude
+	// launches still replace AIGW through the normal adapter path.
+	plan.Replace = false
 	runner, ok := app.Runner.(CaptureRunner)
 	if !ok {
 		return fmt.Errorf("Claude verification runner is unavailable")
