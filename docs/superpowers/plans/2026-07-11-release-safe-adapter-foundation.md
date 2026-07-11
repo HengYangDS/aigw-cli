@@ -89,5 +89,5 @@
 
 - [x] Run `go test -race ./...`, `go vet ./...`, retired-residue checks, schema and install smoke, full package matrix, artifact checks, documentation link checks, and `git diff --check`.
 - [x] Record separately: locally complete work versus external blockers (signing identity, GitLab recovery, push/MR/main merge/release, independent provider Token, explicit paid verification).
-- [ ] Commit `docs: record release readiness evidence`.
-- [ ] Attempt one `git push -u origin codex/initial-product`. If unavailable, preserve the clean committed branch and report the exact blocker without claiming push, merge, release, signing, or live-provider verification.
+- [x] Commit `docs: record release readiness evidence`.
+- [x] Attempt one `git push -u origin codex/initial-product`; SSH `192.168.64.101:1122` timed out. The local committed branch is retained; no push, merge, release, signing, or live-provider verification is claimed.
