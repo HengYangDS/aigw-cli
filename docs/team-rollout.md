@@ -6,7 +6,7 @@
 
 ```toml
 version = 1
-recommended_default = "gpt-5.6-sol-cdx"
+recommended_default = "gpt-5.6-terra-cdx"
 
 [accounts."team-gateway"]
 label = "Team Gateway"
@@ -15,32 +15,18 @@ label = "Team Gateway"
 openai_responses = "https://gateway.example/v1"
 anthropic = "https://gateway.example"
 
-[profiles."gpt-5.6-sol-cdx"]
-label = "GPT-5.6"
+[profiles."gpt-5.6-terra-cdx"]
+label = "GPT-5.6 Terra Codex"
+purpose = "Codex 代码与工程"
 account = "team-gateway"
 client = "codex"
 
-[profiles."gpt-5.6-sol-cdx".models]
-codex = "gpt-5.6-sol-cdx"
-
-[profiles."gpt-5.5"]
-label = "GPT-5.5"
-account = "team-gateway"
-client = "codex"
-
-[profiles."gpt-5.5".models]
-codex = "gpt-5.5"
-
-[profiles."gpt-5.5-ssvip"]
-label = "GPT-5.5 SSVIP"
-account = "team-gateway"
-client = "codex"
-
-[profiles."gpt-5.5-ssvip".models]
-codex = "gpt-5.5-ssvip"
+[profiles."gpt-5.6-terra-cdx".models]
+codex = "gpt-5.6-terra-cdx"
 
 [profiles."claude-fable-5"]
 label = "Claude Fable (recommended)"
+purpose = "默认 Agent"
 account = "team-gateway"
 client = "claude"
 
@@ -49,6 +35,7 @@ claude = "claude-fable-5"
 
 [profiles."claude-opus-4-8-thinking"]
 label = "Claude Opus"
+purpose = "复杂推理（按需）"
 account = "team-gateway"
 client = "claude"
 
@@ -57,6 +44,7 @@ claude = "claude-opus-4-8-thinking"
 
 [profiles."claude-sonnet-5"]
 label = "Claude Sonnet"
+purpose = "平衡备选（按需）"
 account = "team-gateway"
 client = "claude"
 
@@ -107,7 +95,7 @@ aigw config import team-profiles.toml
 aigw rotate team-gateway
 aigw catalog                 # 默认显示已配置模型与数量摘要
 aigw catalog --all           # 显式展开完整模型目录
-aigw use gpt-5.6-sol-cdx --for codex
+aigw use gpt-5.6-terra-cdx --for codex
 aigw use claude-fable-5 --for claude
 aigw check
 ```
@@ -115,7 +103,7 @@ aigw check
 若某个已导入 Account 的目录中出现尚未配置的模型，成员可在不复制 Token 的前提下添加一个本机 Profile：
 
 ```bash
-aigw profile add gpt-next --account team-gateway --for codex --model gpt-next
+aigw profile add gpt-next --account team-gateway --for codex --model gpt-next --purpose "已验证的代码任务"
 aigw use gpt-next --for codex
 ```
 
