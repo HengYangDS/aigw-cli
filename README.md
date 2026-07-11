@@ -27,7 +27,7 @@ AIGW  当前状态
 
 本机直连不是“只能连一个服务”：每个服务 Account 有自己的一把系统密钥和可用协议端点；同一 Account 下可有任意多个模型 Profile，并由 Claude、Codex 或默认 Route 显式选择。团队集中 Gateway 不是安装或日常使用的前提。只有组织确实需要集中审计、预算、协议转换或统一出口时，才应单独评测和部署一个独立 Gateway；AIGW 只把它当作普通 HTTPS Account 入口，绝不管理其端口、进程或上游密钥。
 
-任意上游服务商都可作为一个 Account。示例团队清单包含 `gpt-5.6-sol-cdx`、`gpt-5.5`、`gpt-5.5-ssvip`、`claude-sonnet-5`、`claude-opus-4-8-thinking`、`claude-fable-5` 等 Profile；它们不是 AIGW 的隐式服务商默认值。Claude 默认基线为 `claude-sonnet-5`；Opus 与 Fable 均须显式选择。模型名对 AIGW 是透明字符串，团队清单可以继续增删。
+任意上游服务商都可作为一个 Account。Claude 推荐基线为 `claude-fable-5`；Sonnet 与 Opus 均须显式选择。示例团队清单包含 `gpt-5.6-sol-cdx`、`gpt-5.5`、`gpt-5.5-ssvip`、`claude-fable-5`、`claude-sonnet-5`、`claude-opus-4-8-thinking` 等 Profile；它们不是 AIGW 的隐式服务商默认值。模型名对 AIGW 是透明字符串，团队清单可以继续增删。
 
 ## 安装
 
@@ -75,7 +75,7 @@ aigw setup
 aigw config import team-profiles.toml
 aigw rotate team-gateway
 aigw use gpt-5.6-sol-cdx --for codex
-aigw use claude-sonnet-5 --for claude
+aigw use claude-fable-5 --for claude
 aigw check
 ```
 
@@ -131,7 +131,7 @@ aigw rotate team-gateway
 
 ```bash
 aigw use gpt-5.6-sol-cdx --for codex
-aigw use claude-sonnet-5 --for claude
+aigw use claude-fable-5 --for claude
 ```
 
 添加第二个服务时使用一次 `aigw add <account>` 并录入该服务自己的 Token；在既有服务下添加模型时，不复制 URL 或 Token：
