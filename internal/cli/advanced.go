@@ -457,7 +457,7 @@ func newAdapterDisableCommand(app *App) *cobra.Command {
 }
 
 func newConfigCommand(app *App) *cobra.Command {
-	root := &cobra.Command{Use: "config", Short: "导入、导出与检查配置"}
+	root := &cobra.Command{Use: "config", Short: "导入、导出与迁移配置"}
 	root.AddCommand(
 		&cobra.Command{Use: "path", Short: "Print the local config path", Args: cobra.NoArgs, Run: func(_ *cobra.Command, _ []string) { fmt.Fprintln(app.Out, app.Config.Path()) }},
 		&cobra.Command{Use: "export", Short: "Export a secret-free team manifest", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {

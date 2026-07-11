@@ -55,3 +55,22 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 		t.Fatalf("doctor output = %s", out.String())
 	}
 }
+
+func TestDoctorReportsGlobalClientTokenEnvironmentWithoutLeakingValue(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	const secret = "doctor-environment-token-must-not-appear"
+	app.Env = []string{"ANTHROPIC_AUTH_TOKEN=" + secret}
+
+	if err := execute(t, app, "doctor", "--json"); err != nil {
+		t.Fatalf("doctor --json error = %v", err)
+	}
+	result := out.String()
+	if !strings.Contains(result, `"name": "environment:client-token"`) ||
+		!strings.Contains(result, "ANTHROPIC_AUTH_TOKEN") ||
+		!strings.Contains(result, `"ok": false`) {
+		t.Fatalf("doctor output = %s", result)
+	}
+	if strings.Contains(result, secret) {
+		t.Fatalf("doctor leaked environment token: %s", result)
+	}
+}
