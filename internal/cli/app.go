@@ -132,9 +132,9 @@ func mutationCommand(app *App, args []string) bool {
 	case "repair", "update":
 		return true
 	case "account":
-		return len(args) > 1 && (args[1] == "connect" || args[1] == "disconnect")
+		return len(args) > 1 && (args[1] == "connect" || args[1] == "disconnect" || args[1] == "edit")
 	case "profile":
-		return len(args) > 1 && (args[1] == "edit" || args[1] == "rename" || args[1] == "remove")
+		return len(args) > 1 && (args[1] == "add" || args[1] == "edit" || args[1] == "rename" || args[1] == "remove")
 	case "route":
 		return len(args) > 1 && args[1] == "reset"
 	case "adapter":

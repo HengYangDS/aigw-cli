@@ -24,16 +24,18 @@ label = "Team Gateway"
 openai_responses = "https://gateway.example/v1"
 anthropic = "https://gateway.example"
 
-[profiles.gpt-5_5]
-label = "GPT-5.5"
+[profiles."gpt-5.6-terra-cdx"]
+label = "GPT-5.6 Terra Codex"
+purpose = "Codex 代码与工程"
 account = "team-gateway"
 client = "codex"
 
-[profiles.gpt-5_5.models]
-codex = "gpt-5.5"
+[profiles."gpt-5.6-terra-cdx".models]
+codex = "gpt-5.6-terra-cdx"
 
 [profiles."claude-fable-5"]
 label = "Claude Fable"
+purpose = "默认 Agent"
 account = "team-gateway"
 client = "claude"
 
@@ -59,8 +61,7 @@ Daily commands stay simple:
 
 ```bash
 aigw setup
-aigw use gpt-5.5
-aigw use gpt-5.5-ssvip --for codex
+aigw use gpt-5.6-terra-cdx --for codex
 aigw use claude-fable-5 --for claude
 aigw rotate team-gateway
 aigw check
