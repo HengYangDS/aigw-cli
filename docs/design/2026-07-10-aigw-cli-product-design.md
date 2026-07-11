@@ -9,7 +9,7 @@
 
 AIGW 是**本机优先、团队可分发**的跨平台第三方 AI API Account、模型 Profile、密钥与客户端路由工具。它是一个按需执行的本地 CLI，不承载 API 流量，不运行后台服务，也不是中央密钥分发系统。
 
-仓库名使用 `aigw-cli`，明确它是管理客户端而非真正的数据面网关。DMXAPI 只是一个可配置 Account 示例，不是产品身份。
+仓库名使用 `aigw-cli`，明确它是管理客户端而非真正的数据面网关。上游服务商名称仅是可配置的 Account 标签，不是产品身份。
 
 ### 1.1 优先级
 
@@ -27,9 +27,13 @@ AIGW 是**本机优先、团队可分发**的跨平台第三方 AI API Account�
 
 ### Runtime Profile
 
-一个 Runtime Profile 表示用户日常切换的模型运行配置，引用一个 Account，并可限定客户端与模型名，例如 `gpt-5.6-sol-cdx`、`gpt-5.5-ssvip`、`claude-opus-4-8-thinking`、`claude-fable-5`。模型名对 AIGW 是透明字符串，由上游网关解释。
+一个 Runtime Profile 表示用户日常切换的模型运行配置，引用一个 Account，并可限定客户端与模型名，例如 `gpt-5.6-sol-cdx`、`gpt-5.5-ssvip`、`claude-sonnet-5`、`claude-opus-4-8-thinking`、`claude-fable-5`。`claude-sonnet-5` 是 Claude 的默认基线；其他 Claude Profile 必须显式选择。模型名对 AIGW 是透明字符串，由上游网关解释。
 
-一个 Account 可以被多个 Runtime Profile 引用；Profile 不拥有 URL 或 Token。于是一个 DMXAPI Token 可以安全地支撑 GPT、Claude、Embedding 等多个模型选择；另一个服务商则增加另一个 Account 及其一把 Token。Profile 是本机多服务、多模型能力的基本单位，不是服务端 Gateway 的替代物。
+一个 Account 可以被多个 Runtime Profile 引用；Profile 不拥有 URL 或 Token。于是一把 Account Token 可以安全地支撑 GPT、Claude、Embedding 等多个模型选择；另一个服务商则增加另一个 Account 及其一把 Token。Profile 是本机多服务、多模型能力的基本单位，不是服务端 Gateway 的替代物。
+
+### Provider Diagnostics
+
+通用核心不内置任何服务商、URL、Token 槽位或模型清单。`check` 基于 Account 端点提供通用诊断；精确余额、Token 状态等私有管理 API 仅能作为显式 Provider Diagnostics 集成。清单可声明其类型，而当前二进制未包含该驱动时，配置与路由仍然有效，`balance` 只给出清晰的不可用说明。这样新增服务商不改变核心模型，也不会把当前服务商误写成产品身份。
 
 ### Endpoint
 
@@ -39,7 +43,7 @@ Account 可提供 `openai-responses` 和 `anthropic` 两类端点，它们共享
 
 Route 将客户端使用面映射到 Runtime Profile。解析顺序为：单次命令的 `--profile`、客户端覆盖路由、默认路由。未设置客户端覆盖时自动继承默认路由，不保存重复副本。
 
-Route 是显式的预请求选择：Claude shim 在每次 Claude 启动边界解析，Codex 在 AIGW 管理的配置投影边界解析。没有本地数据面 proxy 时，AIGW 不可能、也不应在一个已经发出的模型请求中换服务商或模型；自动 fallback 默认禁用，未来若引入必须由独立 Gateway 以可见、可审计的策略实现。
+Route 是显式的预请求选择：Claude shim 在每次 Claude 启动边界解析，Codex 在 AIGW 管理的配置投影边界解析。AIGW 没有本地数据面，因此不会、也不应在一个已发出的模型请求中切换服务商或模型；自动 fallback 默认禁用。
 
 ### Adapter
 
@@ -66,15 +70,18 @@ Codex CLI 优先通过独立执行边界传递凭据。对无法经 shim 启动�
 
 ## 5. 用户体验
 
-首次使用由 `aigw setup` 完成发现客户端、导入团队清单、选择模型 Profile、隐藏输入 Account Token、测试端点、设置路由和启用 Adapter。配置变更自动同步；同一 Account 内的模型切换不重复绑定认证；`aigw sync` 仅用于恢复漂移，并且不改变认证或客户端进程状态。
+首次运行 `aigw` 或 `aigw setup` 由通用向导完成 Account、首个模型 Profile、客户端、端点和隐藏 Token 的输入；也可先导入团队清单。它不预置任何供应商。配置变更自动同步；同一 Account 内的模型切换不重复绑定认证；`aigw sync` 仅用于恢复漂移，并且不改变认证或客户端进程状态。
 
 日常命令保持在一个屏幕内：
 
 ```text
 aigw
 aigw add <account>
+aigw account edit <account>
+aigw profile add <profile> --account <account> --for claude|codex --model <model>
 aigw use <profile> [--for claude|codex] [--all]
 aigw rotate <account>
+aigw catalog [--all|--json]
 aigw status [--json]
 aigw test [--for claude|codex]
 aigw verify --for claude|codex|all
@@ -85,7 +92,7 @@ aigw sync
 
 `test` 只检查端点和认证；`verify` 是显式付费动作，发送一次最小真实模型请求并要求精确回显 `AIGW_OK`。`verify --for all` 仅在 Claude shim、Codex 投影和两条真实协议链路都通过后保存不含密钥的验证检查点。`rollback` 优先恢复该检查点，`--last-change` 仅恢复上一份配置备份；两者都不会控制客户端生命周期。
 
-高级能力收进 `profile`、`route`、`adapter`、`config` 和 `completion` 命名空间。不提供旧的服务商专用兼容命令或别名。错误必须同时给出原因、影响和一条可执行修复命令。
+高级能力收进 `profile`、`route`、`adapter`、`config` 和 `completion` 命名空间。命令集只实现当前领域模型。错误必须同时给出原因、影响和一条可执行修复命令。
 
 ## 6. 配置与团队复用
 
@@ -107,9 +114,7 @@ GitLab Release 为 macOS、Linux、Windows 的 amd64/arm64 生成 portable 压�
 
 ## 8. 现有资产边界
 
-传输代理、兼容转发器和数据面网关是独立项目，不进入 AIGW 核心，也不由 AIGW 管理。默认使用上游 HTTPS 直连且不绑定本地端口；只有协议转换、集中审计或组织出口要求时才引入独立 proxy。若使用本地 proxy，其端口由该项目的部署契约显式选择并检查冲突；AIGW 可使用用户配置的 URL，但不知道代理生命周期。
-
-本机 Python 原型仅作为迁移来源和行为参考。新版本完成验证后，迁移 Account、Runtime Profile、Route 与现有 `AIGW_TOKEN/<account>` 密钥，替换 shim，然后删除旧 Python 工具、旧文档和废弃命令；不保留兼容别名。
+传输数据面网关是独立项目，不进入 AIGW 核心，也不由 AIGW 管理。AIGW 默认使用上游 HTTPS 直连且不绑定本地端口。若组织以独立项目部署网关，AIGW 只把它视为 HTTPS Account 端点。
 
 ## 9. 验收标准
 
@@ -119,4 +124,4 @@ GitLab Release 为 macOS、Linux、Windows 的 amd64/arm64 生成 portable 压�
 4. `setup/add/use/rotate/status/test/verify/rollback/doctor/sync` 形成完整日常闭环；完整验证必须证明真实响应的 sentinel，不能以 HTTP 2xx 或进程退出码替代。
 5. 团队清单可导入且不能携带密钥。
 6. 安装、升级、卸载不覆盖非 AIGW-owned 用户配置；native 安装通过 native 包更新，portable 安装才允许原子替换自身。
-7. 本机旧原型迁移后，`aigw doctor`、`aigw test` 和客户端边界验证通过；`doctor` 能识别 Codex 顶层模型、provider 选择或 provider 块的漂移。
+7. `aigw doctor`、`aigw test` 和客户端边界验证通过；`doctor` 能识别 Codex 顶层模型、provider 选择或 provider 块的漂移。

@@ -12,6 +12,7 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/diagnostics"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/providers"
 )
 
 func newCheckCommand(app *App) *cobra.Command {
@@ -79,15 +80,17 @@ func newCheckCommand(app *App) *cobra.Command {
 			}
 			r.Section("网关")
 			r.Status(presentation.OK, "API Token", "认证正常")
-			if providerAccount.AccountProbe != nil && app.Accounts.Has(accountName) {
+			if providerAccount.AccountProbe != nil && providers.Supports(providerAccount.AccountProbe.Kind) && app.Accounts.Has(accountName) {
 				r.Status(presentation.OK, "精确余额", "已启用")
-			} else if providerAccount.AccountProbe != nil {
+			} else if providerAccount.AccountProbe != nil && providers.Supports(providerAccount.AccountProbe.Kind) {
 				r.Status(presentation.Warn, "精确余额", "未启用")
 				r.Detail("aigw account connect " + accountName)
+			} else if providerAccount.AccountProbe != nil {
+				r.Status(presentation.Info, "精确余额", "当前版本未提供此服务商诊断")
 			}
 			r.Section("结果")
 			r.Success("一切正常")
-			if providerAccount.AccountProbe != nil {
+			if providerAccount.AccountProbe != nil && providers.Supports(providerAccount.AccountProbe.Kind) {
 				r.Next("aigw balance " + accountName)
 			}
 			return nil
@@ -96,8 +99,9 @@ func newCheckCommand(app *App) *cobra.Command {
 }
 
 func newAccountCommand(app *App) *cobra.Command {
-	root := &cobra.Command{Use: "account", Short: "管理可选的精确账户诊断"}
+	root := &cobra.Command{Use: "account", Short: "管理 Account 端点与可选精确诊断"}
 	root.AddCommand(
+		newAccountEditCommand(app),
 		&cobra.Command{Use: "connect [account]", Short: "Bind provider platform credentials for exact balance", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 			if !app.Interactive {
 				return fmt.Errorf("account connection requires an interactive terminal")
@@ -116,6 +120,9 @@ func newAccountCommand(app *App) *cobra.Command {
 			}
 			if providerAccount.AccountProbe == nil {
 				return fmt.Errorf("account %q does not support exact account diagnostics", accountName)
+			}
+			if !providers.Supports(providerAccount.AccountProbe.Kind) {
+				return fmt.Errorf("exact diagnostics provider %q is not included in this AIGW build", providerAccount.AccountProbe.Kind)
 			}
 			systemToken, err := app.Prompt.Secret("请粘贴平台系统令牌（不是 API Token）：")
 			if err != nil {
@@ -178,6 +185,9 @@ func newBalanceCommand(app *App) *cobra.Command {
 		if providerAccount.AccountProbe == nil {
 			return fmt.Errorf("%s 暂不支持精确余额查询", providerAccount.Label)
 		}
+		if !providers.Supports(providerAccount.AccountProbe.Kind) {
+			return fmt.Errorf("精确诊断服务商 %q 未包含在当前 AIGW 版本中；可继续使用 `aigw check` 获取通用诊断", providerAccount.AccountProbe.Kind)
+		}
 		credential, err := app.Accounts.Get(accountName)
 		if err != nil {
 			return problem(
@@ -195,7 +205,7 @@ func newBalanceCommand(app *App) *cobra.Command {
 		ctx, cancel := context.WithTimeout(cmd.Context(), 15*time.Second)
 		defer cancel()
 		providerAccount.ID = accountName
-		report, err := account.Probe(ctx, app.HTTP, providerAccount, apiToken, credential)
+		report, err := providers.Probe(ctx, app.HTTP, providerAccount, apiToken, credential)
 		if err != nil {
 			return err
 		}

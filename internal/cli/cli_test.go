@@ -159,6 +159,35 @@ func TestUseSetsDefaultOrClientOverride(t *testing.T) {
 	}
 }
 
+func TestUseForClaudeDoesNotRequireOrRewriteCodexTargets(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	cfg.Profiles["claude-fable"] = domain.Profile{Label: "Claude Fable", Account: "gateway", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-fable"}}
+	cfg.Profiles["claude-sonnet"] = domain.Profile{Label: "Claude Sonnet", Account: "gateway", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-sonnet"}}
+	cfg.Routes.Default = "gpt"
+	cfg.Routes.Overrides[domain.ClientClaude] = "claude-fable"
+	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "unavailable-codex-config.toml")}}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "test-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "use", "claude-sonnet", "--for", "claude"); err != nil {
+		t.Fatalf("Claude-only route change touched Codex target: %v", err)
+	}
+	got, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Routes.Default != "gpt" || got.Routes.Overrides[domain.ClientClaude] != "claude-sonnet" {
+		t.Fatalf("routes = %#v", got.Routes)
+	}
+}
+
 func TestUseRollsBackRouteWhenAdapterSyncFails(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	dir := t.TempDir()
@@ -277,6 +306,43 @@ func TestRotateRollsBackSecretWhenAdapterSyncFails(t *testing.T) {
 	got, _ := secretStore.Get("one")
 	if got != "old-secret" {
 		t.Fatalf("secret = %q, want old-secret", got)
+	}
+}
+
+func TestRotateClaudeOnlyAccountDoesNotTouchCodexTargets(t *testing.T) {
+	app, _, secretStore, runner := testApp(t, "new-claude-token\n")
+	cfg := domain.NewConfig()
+	cfg.Accounts["codex-account"] = domain.Account{Label: "Codex", Endpoints: domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}}
+	cfg.Accounts["claude-account"] = domain.Account{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://claude.test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "codex-account", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "claude-account", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-test"}}
+	cfg.Routes.Default = "gpt"
+	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/missing/codex", Targets: []string{filepath.Join(t.TempDir(), "unavailable-codex-config.toml")}}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("codex-account", "codex-token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("claude-account", "old-claude-token"); err != nil {
+		t.Fatal(err)
+	}
+	app.HTTP.(*fakeHTTP).handler = func(req *http.Request) (*http.Response, error) {
+		if req.URL.Host != "claude.test" || req.Header.Get("Authorization") != "Bearer new-claude-token" {
+			t.Fatalf("Claude token verification request = %s authorization=%q", req.URL, req.Header.Get("Authorization"))
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: req}, nil
+	}
+
+	if err := execute(t, app, "rotate", "claude-account", "--token-stdin"); err != nil {
+		t.Fatalf("Claude-only token rotation touched Codex target: %v", err)
+	}
+	got, err := secretStore.Get("claude-account")
+	if err != nil || got != "new-claude-token" {
+		t.Fatalf("Claude token = %q, %v", got, err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("Claude-only token rotation started Codex authentication: %#v", runner.plans)
 	}
 }
 
