@@ -10,6 +10,17 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
 
+func codexRuntime(profileID, label, endpoint, model string) domain.Runtime {
+	return domain.Runtime{
+		ProfileID:    profileID,
+		ProfileLabel: label,
+		AccountID:    "dmx",
+		Client:       domain.ClientCodex,
+		Endpoint:     endpoint,
+		Model:        model,
+	}
+}
+
 func TestCodexSyncProjectsOwnedProviderAndPreservesOtherSettings(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
@@ -17,7 +28,7 @@ func TestCodexSyncProjectsOwnedProviderAndPreservesOtherSettings(t *testing.T) {
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{ID: "dmx", Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, Models: domain.Models{Codex: "gpt-test"}}
+	profile := codexRuntime("dmx", "DMXAPI", "https://example.test/v1", "gpt-test")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +56,7 @@ func TestCodexDisableStopsWhenManagedSelectionWasEdited(t *testing.T) {
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	p := domain.Profile{ID: "dmx", Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	p := codexRuntime("dmx", "DMX", "https://example.test/v1", "")
 	if err := adapters.SyncCodexConfig(path, p); err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +77,7 @@ func TestCodexSyncAndDisablePreserveUnrelatedUserEdits(t *testing.T) {
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{ID: "dmx", Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, Models: domain.Models{Codex: "gpt-one"}}
+	profile := codexRuntime("dmx", "DMX", "https://one.test/v1", "gpt-one")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +86,7 @@ func TestCodexSyncAndDisablePreserveUnrelatedUserEdits(t *testing.T) {
 	if err := os.WriteFile(path, []byte(edited), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile.Endpoints.OpenAIResponses = "https://two.test/v1"
+	profile.Endpoint = "https://two.test/v1"
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatalf("unrelated user edit blocked sync: %v", err)
 	}
@@ -115,7 +126,7 @@ func TestSyncCodexConfigProjectsModelWhenConfigured(t *testing.T) {
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{ID: "gpt-5.6", Label: "GPT-5.6", Account: "dmx", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, Models: domain.Models{Codex: "gpt-5.6"}}
+	profile := codexRuntime("gpt-5.6", "GPT-5.6", "https://example.test/v1", "gpt-5.6")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +142,7 @@ func TestCodexSyncOwnsTopLevelModelAndRestoresOriginal(t *testing.T) {
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{ID: "gpt-5.6-sol-cdx", Label: "GPT", Account: "dmx", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT", "https://example.test/v1", "gpt-5.6-sol-cdx")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -156,13 +167,7 @@ func TestValidateCodexConfigDetectsManagedModelDrift(t *testing.T) {
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{
-		ID:        "gpt-5.6-sol-cdx",
-		Label:     "GPT 5.6 Sol Codex",
-		Account:   "dmx",
-		Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"},
-		Models:    domain.Models{Codex: "gpt-5.6-sol-cdx"},
-	}
+	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol-cdx")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -187,13 +192,7 @@ func TestCodexSyncAcceptsFormatterPaddingOnManagedSelections(t *testing.T) {
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{
-		ID:        "gpt-5.6-sol-cdx",
-		Label:     "GPT 5.6 Sol Codex",
-		Account:   "dmx",
-		Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"},
-		Models:    domain.Models{Codex: "gpt-5.6-sol-cdx"},
-	}
+	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol-cdx")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +208,7 @@ func TestCodexSyncAcceptsFormatterPaddingOnManagedSelections(t *testing.T) {
 	if err := adapters.ValidateCodexConfig(path, profile); err != nil {
 		t.Fatalf("ValidateCodexConfig() rejected formatter-only padding: %v", err)
 	}
-	profile.Endpoints.OpenAIResponses = "https://updated.test/v1"
+	profile.Endpoint = "https://updated.test/v1"
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatalf("SyncCodexConfig() rejected formatter-only padding: %v", err)
 	}
@@ -231,13 +230,7 @@ func TestCodexSyncRecoversSemanticallyEquivalentProjectionWhoseOwnershipMarkersW
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{
-		ID:        "gpt-5.6-sol-cdx",
-		Label:     "GPT 5.6 Sol Codex",
-		Account:   "dmx",
-		Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"},
-		Models:    domain.Models{Codex: "gpt-5.6-sol-cdx"},
-	}
+	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol-cdx")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -290,13 +283,7 @@ func TestCodexSyncRejectsUnmarkedProjectionWhenProviderSemanticsDiffer(t *testin
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{
-		ID:        "gpt-5.6-sol-cdx",
-		Label:     "GPT 5.6 Sol Codex",
-		Account:   "dmx",
-		Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"},
-		Models:    domain.Models{Codex: "gpt-5.6-sol-cdx"},
-	}
+	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol-cdx")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -331,13 +318,7 @@ func TestCodexSyncRecoversEquivalentCRLFProjectionWhoseOwnershipMarkersWereStrip
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\r\nmodel = \"gpt-original\"\r\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{
-		ID:        "gpt-5.6-sol-cdx",
-		Label:     "GPT 5.6 Sol Codex",
-		Account:   "dmx",
-		Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"},
-		Models:    domain.Models{Codex: "gpt-5.6-sol-cdx"},
-	}
+	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol-cdx")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -368,13 +349,7 @@ func TestCodexValidationAndDisablePreserveForeignFieldsBeforeProvider(t *testing
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{
-		ID:        "gpt-5.6-sol-cdx",
-		Label:     "GPT 5.6 Sol Codex",
-		Account:   "dmx",
-		Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"},
-		Models:    domain.Models{Codex: "gpt-5.6-sol-cdx"},
-	}
+	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol-cdx")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +390,7 @@ func TestCodexDisableRemovesManagedModelWhenNoOriginalModelExisted(t *testing.T)
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{ID: "gpt-5.6-sol-cdx", Label: "GPT", Account: "dmx", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT", "https://example.test/v1", "gpt-5.6-sol-cdx")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -447,7 +422,7 @@ requires_openai_auth = true
 	if err := os.WriteFile(path+".aigw-state.json", []byte(`{"original_provider":"model_provider = \"DMX1\"","managed_block_hash":"3b6be2527ed1e77a9a1e5092af165de1a9e7c76289e65fe3bdfad6bf72dee9bd"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{ID: "gpt-5.6-sol-cdx", Label: "GPT", Account: "dmx", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, Models: domain.Models{Codex: "gpt-5.6-sol-cdx"}}
+	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT", "https://example.test/v1", "gpt-5.6-sol-cdx")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -483,7 +458,7 @@ requires_openai_auth = true
 	if err := os.WriteFile(path+".aigw-state.json", []byte(`{"original_provider":"model_provider = \"DMX1\"","managed_block_hash":"3b6be2527ed1e77a9a1e5092af165de1a9e7c76289e65fe3bdfad6bf72dee9bd"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{ID: "gpt-5.6-terra-cdx", Label: "GPT", Account: "dmx", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, Models: domain.Models{Codex: "gpt-5.6-terra-cdx"}}
+	profile := codexRuntime("gpt-5.6-terra-cdx", "GPT", "https://example.test/v1", "gpt-5.6-terra-cdx")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}

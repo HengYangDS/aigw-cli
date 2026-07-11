@@ -31,13 +31,11 @@ type Account struct {
 }
 
 type Profile struct {
-	ID           string        `toml:"-" json:"id,omitempty"`
-	Label        string        `toml:"label" json:"label"`
-	Account      string        `toml:"account,omitempty" json:"account,omitempty"`
-	Client       string        `toml:"client,omitempty" json:"client,omitempty"`
-	Models       Models        `toml:"models,omitempty" json:"models,omitempty"`
-	Endpoints    Endpoints     `toml:"endpoints,omitempty" json:"endpoints,omitempty"`
-	AccountProbe *AccountProbe `toml:"account_probe,omitempty" json:"account_probe,omitempty"`
+	ID      string `toml:"-" json:"id,omitempty"`
+	Label   string `toml:"label" json:"label"`
+	Account string `toml:"account" json:"account"`
+	Client  string `toml:"client,omitempty" json:"client,omitempty"`
+	Models  Models `toml:"models,omitempty" json:"models,omitempty"`
 }
 
 type Models struct {
@@ -97,28 +95,6 @@ func (c *Config) Normalize() {
 	}
 	if c.Adapters == nil {
 		c.Adapters = map[string]AdapterConfig{}
-	}
-	for name, profile := range c.Profiles {
-		if profile.Account == "" && (profile.Endpoints.OpenAIResponses != "" || profile.Endpoints.Anthropic != "" || profile.AccountProbe != nil) {
-			account := c.Accounts[name]
-			if account.Label == "" {
-				account.Label = profile.Label
-			}
-			if account.Endpoints.OpenAIResponses == "" {
-				account.Endpoints.OpenAIResponses = profile.Endpoints.OpenAIResponses
-			}
-			if account.Endpoints.Anthropic == "" {
-				account.Endpoints.Anthropic = profile.Endpoints.Anthropic
-			}
-			if account.AccountProbe == nil {
-				account.AccountProbe = profile.AccountProbe
-			}
-			c.Accounts[name] = account
-			profile.Account = name
-			profile.Endpoints = Endpoints{}
-			profile.AccountProbe = nil
-			c.Profiles[name] = profile
-		}
 	}
 }
 
@@ -207,9 +183,6 @@ func (c Config) Validate() error {
 		if profile.Client == ClientClaude && profile.Models.Codex != "" {
 			return fmt.Errorf("profile %q is claude-scoped; define a claude model, not a codex model", name)
 		}
-		if err := validateEndpoints("profile", name, profile.Endpoints); err != nil {
-			return err
-		}
 	}
 	if _, ok := c.Profiles[c.Routes.Default]; !ok {
 		return fmt.Errorf("default route references unknown profile %q", c.Routes.Default)
@@ -260,35 +233,6 @@ func validateEndpoint(raw string) error {
 		}
 	}
 	return nil
-}
-
-func (c Config) Resolve(client, explicitProfile string) (Profile, bool, error) {
-	c = c.normalizedCopy()
-	name := explicitProfile
-	inherited := false
-	if name == "" {
-		var overridden bool
-		name, overridden = c.Routes.Overrides[client]
-		if !overridden {
-			name = c.Routes.Default
-			inherited = true
-		}
-	}
-	profile, ok := c.Profiles[name]
-	if !ok {
-		return Profile{}, inherited, fmt.Errorf("unknown profile %q", name)
-	}
-	if profile.Client != "" && client != "" && profile.Client != client {
-		return Profile{}, inherited, fmt.Errorf("profile %q is for %s, not %s", name, profile.Client, client)
-	}
-	account, ok := c.Accounts[profile.Account]
-	if !ok {
-		return Profile{}, inherited, fmt.Errorf("profile %q references unknown account %q", name, profile.Account)
-	}
-	profile.ID = name
-	profile.Endpoints = account.Endpoints
-	profile.AccountProbe = account.AccountProbe
-	return profile, inherited, nil
 }
 
 func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, bool, error) {
@@ -349,12 +293,4 @@ func (a Account) EndpointFor(client string) (string, error) {
 	default:
 		return "", fmt.Errorf("unknown client %q", client)
 	}
-}
-
-func (p Profile) EndpointFor(client string) (string, error) {
-	if p.Endpoints.OpenAIResponses != "" || p.Endpoints.Anthropic != "" {
-		a := Account{ID: p.Account, Label: p.Label, Endpoints: p.Endpoints}
-		return a.EndpointFor(client)
-	}
-	return "", fmt.Errorf("profile %q has no resolved endpoint for %s", p.ID, client)
 }

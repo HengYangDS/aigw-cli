@@ -24,7 +24,7 @@ func dmxBalanceHandler(t *testing.T) func(*http.Request) (*http.Response, error)
 func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["dmx"] = domain.Profile{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, "", domain.Models{})
 	cfg.Routes.Default = "dmx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -41,7 +41,10 @@ func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["dmx"] = domain.Profile{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, "", domain.Models{})
+	account := cfg.Accounts["dmx"]
+	account.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
+	cfg.Accounts["dmx"] = account
 	cfg.Routes.Default = "dmx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -57,7 +60,10 @@ func TestAccountConnectStoresSeparateCredentialAndBalanceShowsDetails(t *testing
 	accountStore := account.NewMemoryStore()
 	app.Accounts = accountStore
 	cfg := domain.NewConfig()
-	cfg.Profiles["dmx"] = domain.Profile{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, "", domain.Models{})
+	providerAccount := cfg.Accounts["dmx"]
+	providerAccount.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
+	cfg.Accounts["dmx"] = providerAccount
 	cfg.Routes.Default = "dmx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

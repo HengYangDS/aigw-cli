@@ -12,8 +12,8 @@ import (
 
 func twoProfileConfig() domain.Config {
 	cfg := domain.NewConfig()
-	cfg.Profiles["one"] = domain.Profile{Label: "One Gateway", Endpoints: domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}}
-	cfg.Profiles["two"] = domain.Profile{Label: "Two Gateway", Endpoints: domain.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}}
+	addAccountProfile(&cfg, "one", "one", "One Gateway", domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, "", domain.Models{})
+	addAccountProfile(&cfg, "two", "two", "Two Gateway", domain.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, "", domain.Models{})
 	cfg.Routes.Default = "one"
 	return cfg
 }
@@ -58,7 +58,7 @@ func TestRotateWithoutNameUsesCurrentProfileAndOnePaste(t *testing.T) {
 func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["dmx"] = domain.Profile{Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}}
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, "", domain.Models{})
 	cfg.Routes.Default = "dmx"
 	cfg.Adapters["claude"] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
 	if err := app.Config.Save(cfg); err != nil {
@@ -84,7 +84,7 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 func TestRepairDiscoversAndEnablesInstalledClients(t *testing.T) {
 	app, out, secretStore, runner := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["dmx"] = domain.Profile{Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}}
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, "", domain.Models{})
 	cfg.Routes.Default = "dmx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -135,7 +135,7 @@ func TestHelpKeepsDailyCommandsObvious(t *testing.T) {
 func TestDoctorAcceptsOwnedClaudeShimWithoutPathDiscovery(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["dmx"] = domain.Profile{Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://dmx.test"}}
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, "", domain.Models{})
 	cfg.Routes.Default = "dmx"
 	cfg.Adapters["claude"] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
@@ -158,7 +158,7 @@ func TestDoctorAcceptsOwnedClaudeShimWithoutPathDiscovery(t *testing.T) {
 func TestRepairRestoresClaudeShimWithoutReplacingConfiguredExecutable(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
+	addAccountProfile(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, "", domain.Models{})
 	cfg.Routes.Default = "claude"
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
@@ -193,7 +193,7 @@ func TestRepairRestoresClaudeShimWithoutReplacingConfiguredExecutable(t *testing
 func TestRepairCanRestoreClaudeWithoutAnyCodexProfile(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}, Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-test"}}
+	addAccountProfile(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, domain.ClientClaude, domain.Models{Claude: "claude-test"})
 	cfg.Routes.Default = "claude"
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
@@ -219,7 +219,7 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexProfile(t *testing.T) {
 func TestStatusWarnsWhenClaudePathActivationIsMissing(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}, Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-test"}}
+	addAccountProfile(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, domain.ClientClaude, domain.Models{Claude: "claude-test"})
 	cfg.Routes.Default = "claude"
 	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {

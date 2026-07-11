@@ -39,12 +39,11 @@ type Result struct {
 	Retryable  bool   `json:"retryable"`
 }
 
-func Probe(ctx context.Context, client HTTPDoer, profile domain.Profile, token string) Result {
-	endpoint := profile.Endpoints.OpenAIResponses
+func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token string) Result {
+	endpoint := strings.TrimRight(runtime.Endpoint, "/")
 	if endpoint == "" {
-		endpoint = profile.Endpoints.Anthropic
+		return Result{Kind: EndpointMismatch, Summary: "API 地址无效", Fix: "检查当前 Profile 对应 Account 的协议端点"}
 	}
-	endpoint = strings.TrimRight(endpoint, "/")
 	if strings.HasSuffix(endpoint, "/v1") {
 		endpoint += "/models"
 	}

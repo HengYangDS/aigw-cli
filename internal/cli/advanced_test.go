@@ -16,10 +16,13 @@ func TestConfigImportAndExportAreSecretFree(t *testing.T) {
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
 	manifest := `version = 1
 recommended_default = "team"
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "https://team.test"
 [profiles.team]
 label = "Team Gateway"
-[profiles.team.endpoints]
-anthropic = "https://team.test"
+account = "team"
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
@@ -65,7 +68,7 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	shimDir := t.TempDir()
 	app.Shims = shims.Manager{GOOS: "linux", BinDir: shimDir, AIGWExecutable: filepath.Join(shimDir, "aigw")}
 	cfg := domain.NewConfig()
-	cfg.Profiles["team"] = domain.Profile{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
+	addAccountProfile(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, "", domain.Models{})
 	cfg.Routes.Default = "team"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -103,7 +106,7 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig()
-	cfg.Profiles["team"] = domain.Profile{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
+	addAccountProfile(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, "", domain.Models{})
 	cfg.Routes.Default = "team"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -141,7 +144,7 @@ func TestCodexSyncReconcilesEachConfiguredHomeWithoutLoggingIn(t *testing.T) {
 		}
 	}
 	cfg := domain.NewConfig()
-	cfg.Profiles["team"] = domain.Profile{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
+	addAccountProfile(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, "", domain.Models{})
 	cfg.Routes.Default = "team"
 	cfg.Adapters["codex"] = domain.AdapterConfig{Enabled: true, Executable: "/opt/codex-real", Targets: targets}
 	if err := app.Config.Save(cfg); err != nil {
@@ -194,7 +197,7 @@ func TestAdapterAuthBindsCurrentCodexAccount(t *testing.T) {
 func TestRunClaudeResolvesRouteAndBuildsProcessPlan(t *testing.T) {
 	app, _, secretStore, runner := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["team"] = domain.Profile{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
+	addAccountProfile(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, "", domain.Models{})
 	cfg.Routes.Default = "team"
 	cfg.Adapters["claude"] = domain.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
@@ -223,7 +226,7 @@ func processEnvMap(values []string) map[string]string {
 func TestProfileRemoveRefusesActiveProfile(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig()
-	cfg.Profiles["team"] = domain.Profile{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
+	addAccountProfile(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, "", domain.Models{})
 	cfg.Routes.Default = "team"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

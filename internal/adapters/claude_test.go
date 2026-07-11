@@ -8,10 +8,10 @@ import (
 )
 
 func TestClaudePlanInjectsOnlyProcessLocalAnthropicVariables(t *testing.T) {
-	profile := domain.Profile{ID: "dmx", Endpoints: domain.Endpoints{Anthropic: "https://example.test/"}}
+	runtime := domain.Runtime{ProfileID: "dmx", AccountID: "dmx", Endpoint: "https://example.test"}
 	plan, err := adapters.ClaudePlan("/usr/local/bin/claude-real", []string{"--version"}, []string{
 		"PATH=/usr/bin", "ANTHROPIC_API_KEY=stale", "ANTHROPIC_AUTH_TOKEN=stale", "ANTHROPIC_BASE_URL=stale",
-	}, profile, "fresh-secret")
+	}, runtime, "fresh-secret")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,8 +47,8 @@ func envMap(values []string) map[string]string {
 }
 
 func TestClaudePlanProjectsModelWhenConfigured(t *testing.T) {
-	profile := domain.Profile{ID: "claude-opus", Account: "dmx", Endpoints: domain.Endpoints{Anthropic: "https://example.test/"}, Models: domain.Models{Claude: "claude-opus"}}
-	plan, err := adapters.ClaudePlan("/bin/claude", nil, []string{"ANTHROPIC_MODEL=old"}, profile, "token")
+	runtime := domain.Runtime{ProfileID: "claude-opus", AccountID: "dmx", Endpoint: "https://example.test", Model: "claude-opus"}
+	plan, err := adapters.ClaudePlan("/bin/claude", nil, []string{"ANTHROPIC_MODEL=old"}, runtime, "token")
 	if err != nil {
 		t.Fatal(err)
 	}

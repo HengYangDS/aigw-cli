@@ -20,8 +20,8 @@ func response(status int, body string) *http.Response {
 	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body))}
 }
 
-func profile() domain.Profile {
-	return domain.Profile{ID: "dmx", Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+func runtime() domain.Runtime {
+	return domain.Runtime{ProfileID: "dmx", ProfileLabel: "DMXAPI", AccountID: "dmx", AccountLabel: "DMXAPI", Endpoint: "https://gateway.test/v1"}
 }
 
 func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {
@@ -42,7 +42,7 @@ func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {
 	for _, tt := range tests {
 		result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 			return response(tt.status, tt.body), nil
-		}), profile(), "secret")
+		}), runtime(), "secret")
 		if result.Kind != tt.kind || result.Fix == "" || result.Summary == "" {
 			t.Errorf("status %d body %s => %#v", tt.status, tt.body, result)
 		}
@@ -56,7 +56,7 @@ func TestProbeUsesModelsEndpointAndNeverReturnsCredential(t *testing.T) {
 		requestURL = req.URL.String()
 		authorization = req.Header.Get("Authorization")
 		return response(200, `{"data":[]}`), nil
-	}), profile(), secret)
+	}), runtime(), secret)
 	if result.Kind != diagnostics.Healthy || requestURL != "https://gateway.test/v1/models" || authorization != "Bearer "+secret {
 		t.Fatalf("result=%#v url=%q auth=%q", result, requestURL, authorization)
 	}
@@ -68,7 +68,7 @@ func TestProbeUsesModelsEndpointAndNeverReturnsCredential(t *testing.T) {
 func TestProbeClassifiesNetworkFailure(t *testing.T) {
 	result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 		return nil, errors.New("dial tcp: network unreachable")
-	}), profile(), "secret")
+	}), runtime(), "secret")
 	if result.Kind != diagnostics.NetworkFailure || !result.Retryable {
 		t.Fatalf("result = %#v", result)
 	}
