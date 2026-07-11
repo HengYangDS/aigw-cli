@@ -16,6 +16,10 @@
 
 因此当前分支只能形成**本地已验证、待远端发布**的状态。
 
+最新一次受控推送尝试使用 `ssh -o ConnectTimeout=10` 向
+`codex/initial-product` 推送，SSH `192.168.64.101:1122` 超时。该尝试未改变远端；
+在网络恢复前不再重试。当前不能创建 MR、合入 `main`、打远端 tag 或发布 Release。
+
 ## RC 与 GA 的硬边界
 
 `scripts/check-release-readiness.sh` 的规则是：
