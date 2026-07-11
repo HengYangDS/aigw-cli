@@ -135,7 +135,7 @@ aigw adapter enable codex \
   --target "$HOME/.codex/config.toml"
 ```
 
-Claude shim 由 AIGW 放在用户级 AIGW shim 目录，例如 `~/.local/bin/claude`；它不写入 `~/.codex`，也不会覆盖非 AIGW-owned 的 `claude`。Claude Token 只在启动目标进程时映射为 `ANTHROPIC_AUTH_TOKEN`。
+Claude shim 由 AIGW 放在**专属数据目录**：macOS 为 `~/Library/Application Support/aigw/bin/claude`，Linux 为 `${XDG_DATA_HOME:-~/.local/share}/aigw/bin/claude`，Windows 为 `%LOCALAPPDATA%\Programs\aigw\bin\claude.cmd`。启用 Claude Adapter 时，AIGW 只在当前用户的 shell 配置写入一个有边界标记、无密钥的 PATH 块；它不写入 `~/.codex`，也不会覆盖非 AIGW-owned 的 `claude`。Claude Token 只在启动目标进程时映射为 `ANTHROPIC_AUTH_TOKEN`。
 
 Codex 只接收带 AIGW 标记的顶层 `model`、`model_provider` 和 provider 投影。`aigw doctor` 会检查这三处是否仍与当前 Profile 一致；发现手工漂移时，用 `aigw sync` 只恢复配置，不会启动、关闭或重启 Codex。
 
@@ -171,6 +171,12 @@ aigw balance dmx
 ## 卸载边界
 
 便携安装的卸载脚本只移除当前用户安装目录中的 `aigw` 与 AIGW-owned Claude shim。原生 `.pkg`、`.deb`、`.rpm`、`.msi` 安装器只管理自身安装的程序文件，**不会遍历用户目录或删除任何用户 shim**；在卸载前如需清理 shim，请以该用户身份运行 `aigw adapter disable claude`。配置、系统密钥和客户端用户配置始终保留，供重新安装或受控离网使用。
+
+## Proxy 边界
+
+默认不需要本地 proxy，也不监听 8791、8888 或任何端口：Claude/Codex 通过各自 Adapter 直连 Account 的 HTTPS 上游端点。仅当上游协议不兼容、必须进行响应格式转换/集中审计，或组织网络强制要求出口代理时，才应另行部署一个独立的数据面 proxy；其端口、运行方式和生命周期不由 AIGW 管理。
+
+若确需部署该独立 proxy，端口必须由该项目显式配置并做冲突检查；`8888` 不是约定默认值，且常与调试代理或企业工具冲突。AIGW 只接收该 proxy 的明确 URL（例如 `http://127.0.0.1:<chosen-port>/v1`），不会启动、停止、探测或重启它。
 
 ## 开发与验证
 
