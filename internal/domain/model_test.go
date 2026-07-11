@@ -41,6 +41,34 @@ func validConfig() domain.Config {
 	}
 }
 
+func TestLegacyConfigNeedsExplicitUpgradeBeforeUsingPurpose(t *testing.T) {
+	cfg := validConfig()
+	if !cfg.NeedsUpgrade() {
+		t.Fatal("version 1 configuration must report that an explicit upgrade is available")
+	}
+	profile := cfg.Profiles["dmx"]
+	profile.Purpose = "默认 Agent"
+	cfg.Profiles["dmx"] = profile
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "config version 2") {
+		t.Fatalf("v1 purpose error = %v", err)
+	}
+	if !cfg.Upgrade() || cfg.Version != domain.CurrentConfigVersion {
+		t.Fatalf("upgrade = version %d, want version %d", cfg.Version, domain.CurrentConfigVersion)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("upgraded configuration must validate: %v", err)
+	}
+	if cfg.NeedsUpgrade() || cfg.Upgrade() {
+		t.Fatal("current configuration must not require or repeat an upgrade")
+	}
+}
+
+func TestNewConfigUsesCurrentSchema(t *testing.T) {
+	if got := domain.NewConfig().Version; got != domain.CurrentConfigVersion {
+		t.Fatalf("new config version = %d, want %d", got, domain.CurrentConfigVersion)
+	}
+}
+
 func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 	tests := []struct {
 		name string
