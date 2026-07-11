@@ -129,8 +129,8 @@ func TestValidateAllowsProviderNeutralExplicitDiagnostics(t *testing.T) {
 func TestResolveRuntimeReturnsAccountEndpointAndModel(t *testing.T) {
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Profiles["gpt-5.6"] = domain.Profile{Label: "GPT-5.6", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6"}}
-	cfg.Profiles["claude-opus"] = domain.Profile{Label: "Claude Opus", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "claude-opus"}}
+	cfg.Profiles["gpt-5.6"] = domain.Profile{Label: "GPT-5.6", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6"}}
+	cfg.Profiles["claude-opus"] = domain.Profile{Label: "Claude Opus", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-opus"}}
 	cfg.Routes.Default = "gpt-5.6"
 	cfg.Routes.Overrides[domain.ClientClaude] = "claude-opus"
 	got, inherited, err := cfg.ResolveRuntime(domain.ClientCodex, "")
@@ -152,13 +152,30 @@ func TestResolveRuntimeReturnsAccountEndpointAndModel(t *testing.T) {
 func TestValidateRejectsRuntimeProfileReferencingUnknownAccountOrWrongClient(t *testing.T) {
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["codex"] = domain.Profile{Label: "Codex", Account: "missing", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-5.6"}}
+	cfg.Profiles["codex"] = domain.Profile{Label: "Codex", Account: "missing", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6"}}
 	cfg.Routes.Default = "codex"
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "unknown account") {
 		t.Fatalf("error = %v", err)
 	}
-	cfg.Profiles["codex"] = domain.Profile{Label: "Codex", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Claude: "claude-opus"}}
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "codex model") {
+	cfg.Profiles["codex"] = domain.Profile{Label: "Codex", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientClaude: "claude-opus"}}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "codex-scoped") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestValidateRejectsUnadmittedOrCrossScopedModelKeys(t *testing.T) {
+	cfg := validConfig()
+	profile := cfg.Profiles["dmx"]
+	profile.Client = domain.ClientClaude
+	profile.Models = domain.Models{"gemini": "gemini-next"}
+	cfg.Profiles["dmx"] = profile
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "unadmitted client") {
+		t.Fatalf("unadmitted model key error = %v", err)
+	}
+
+	profile.Models = domain.Models{domain.ClientCodex: "gpt-test"}
+	cfg.Profiles["dmx"] = profile
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "claude-scoped") {
+		t.Fatalf("cross-scoped model key error = %v", err)
 	}
 }

@@ -36,7 +36,7 @@ func TestMutationCommandLocksEveryConfigurationWriter(t *testing.T) {
 func TestCodexProjectionChangeIgnoresProfilePurpose(t *testing.T) {
 	before := domain.NewConfig()
 	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	before.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	before.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
 	before.Routes.Default = "gpt"
 	before.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Targets: []string{"/tmp/codex.toml"}}
 

@@ -92,6 +92,38 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	}
 }
 
+func TestLoadPreservesLegacyClaudeAndCodexModelKeysAsClientMap(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	data := `version = 2
+[accounts.gateway]
+label = "Gateway"
+[accounts.gateway.endpoints]
+openai_responses = "https://gateway.test/v1"
+anthropic = "https://gateway.test"
+[profiles.both]
+label = "Both"
+account = "gateway"
+[profiles.both.models]
+claude = "claude-test"
+codex = "gpt-test"
+[routes]
+default = "both"
+`
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.NewStore(path).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.Profiles["both"].ModelFor(domain.ClientClaude); got != "claude-test" {
+		t.Fatalf("Claude model = %q", got)
+	}
+	if got := cfg.Profiles["both"].ModelFor(domain.ClientCodex); got != "gpt-test" {
+		t.Fatalf("Codex model = %q", got)
+	}
+}
+
 func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(path, []byte("sentinel"), 0o600); err != nil {
@@ -141,7 +173,7 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	cfg := domain.Config{
 		Version:  1,
 		Accounts: map[string]domain.Account{"dmx": {Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
-		Profiles: map[string]domain.Profile{"claude": {Label: "Claude", Account: "dmx", Models: domain.Models{Claude: "claude-test"}}},
+		Profiles: map[string]domain.Profile{"claude": {Label: "Claude", Account: "dmx", Models: domain.Models{domain.ClientClaude: "claude-test"}}},
 		Routes:   domain.Routes{Default: "claude", Overrides: map[string]string{}},
 	}
 	if err := store.Save(cfg); err != nil {
