@@ -77,8 +77,8 @@ func newModelsCommand(app *App) *cobra.Command {
 			} else if row.Reach == "不可达" {
 				state = presentation.Fail
 			}
-			r.Status(state, row.Profile, fmt.Sprintf("%s · %s · %s", row.Model, title(row.Client), row.Reach))
-			r.Detail("Account: " + row.Account)
+			r.StatusLine(state, "Profile", row.Profile)
+			r.Detail(fmt.Sprintf("%s · %s · %s · Account %s", title(row.Client), row.Model, row.Reach, row.Account))
 		}
 		if len(rows) == 0 {
 			r.Status(presentation.Info, "模型", "未配置模型 Profile")

@@ -24,4 +24,3 @@ contents:
       mode: 0644
 scripts:
   postinstall: ${AIGW_PACKAGE_ROOT}/postinstall.sh
-  preremove: ${AIGW_PACKAGE_ROOT}/preremove.sh

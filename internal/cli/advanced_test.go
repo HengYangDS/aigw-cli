@@ -128,7 +128,7 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 	}
 }
 
-func TestCodexSyncLogsIntoEachConfiguredHome(t *testing.T) {
+func TestCodexSyncReconcilesEachConfiguredHomeWithoutLoggingIn(t *testing.T) {
 	app, _, secretStore, runner := testApp(t, "")
 	dir := t.TempDir()
 	targets := []string{filepath.Join(dir, "one", "config.toml"), filepath.Join(dir, "two", "config.toml")}
@@ -151,13 +151,43 @@ func TestCodexSyncLogsIntoEachConfiguredHome(t *testing.T) {
 	if err := execute(t, app, "sync"); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.plans) != 2 {
-		t.Fatalf("login plans = %#v", runner.plans)
+	if len(runner.plans) != 0 {
+		t.Fatalf("sync must not start credential binding plans: %#v", runner.plans)
 	}
-	for i, target := range targets {
-		if processEnvMap(runner.plans[i].Env)["CODEX_HOME"] != filepath.Dir(target) {
-			t.Fatalf("plan %d CODEX_HOME = %q", i, processEnvMap(runner.plans[i].Env)["CODEX_HOME"])
+	for _, target := range targets {
+		data, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatal(err)
 		}
+		if !strings.Contains(string(data), "AIGW managed provider") {
+			t.Fatalf("sync did not reconcile %s:\n%s", target, data)
+		}
+	}
+}
+
+func TestAdapterAuthBindsCurrentCodexAccount(t *testing.T) {
+	app, _, secretStore, runner := testApp(t, "")
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.NewConfig()
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-test"}}
+	cfg.Routes.Default = "gpt"
+	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/opt/codex-real", Targets: []string{target}}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("dmx", "rebind-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "adapter", "auth", "codex"); err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.plans) != 1 || runner.plans[0].Stdin != "rebind-token\n" {
+		t.Fatalf("auth plans = %#v", runner.plans)
 	}
 }
 
@@ -201,5 +231,153 @@ func TestProfileRemoveRefusesActiveProfile(t *testing.T) {
 	err := execute(t, app, "profile", "remove", "team")
 	if err == nil || !strings.Contains(err.Error(), "active") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestConfigImportReportsMissingAccountTokensNotProfileTokens(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	manifestPath := filepath.Join(t.TempDir(), "team.toml")
+	manifest := `version = 1
+recommended_default = "gpt-long-model"
+[accounts.dmx]
+label = "DMXAPI"
+[accounts.dmx.endpoints]
+openai_responses = "https://dmx.test/v1"
+[profiles."gpt-long-model"]
+label = "GPT Long Model"
+account = "dmx"
+client = "codex"
+[profiles."gpt-long-model".models]
+codex = "gpt-long-model"
+[profiles."claude-long-model"]
+label = "Claude Long Model"
+account = "dmx"
+client = "claude"
+[profiles."claude-long-model".models]
+claude = "claude-long-model"
+`
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("dmx", "existing-token")
+	if err := execute(t, app, "config", "import", manifestPath); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if strings.Contains(text, "需要录入 Token") || strings.Contains(text, "gpt-long-model  ") || strings.Contains(text, "claude-long-model  ") {
+		t.Fatalf("import reported profile-level missing tokens despite account token:\n%s", text)
+	}
+	for _, want := range []string{"账户数量", "系统密钥", "dmx", "Token 可用", "aigw models"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("import output lacks %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestConfigImportReportsOnlyMissingAccounts(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	manifestPath := filepath.Join(t.TempDir(), "team.toml")
+	manifest := `version = 1
+recommended_default = "gpt-long-model"
+[accounts.dmx]
+label = "DMXAPI"
+[accounts.dmx.endpoints]
+openai_responses = "https://dmx.test/v1"
+[profiles."gpt-long-model"]
+label = "GPT Long Model"
+account = "dmx"
+client = "codex"
+[profiles."gpt-long-model".models]
+codex = "gpt-long-model"
+[profiles."claude-long-model"]
+label = "Claude Long Model"
+account = "dmx"
+client = "claude"
+[profiles."claude-long-model".models]
+claude = "claude-long-model"
+`
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "config", "import", manifestPath); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "dmx") || !strings.Contains(text, "需要录入 Token") || !strings.Contains(text, "aigw rotate dmx") {
+		t.Fatalf("import did not point to missing account token:\n%s", text)
+	}
+	if strings.Contains(text, "gpt-long-model") || strings.Contains(text, "claude-long-model") {
+		t.Fatalf("import should not report profile names as missing token slots:\n%s", text)
+	}
+}
+
+func TestDoctorChecksAccountTokenOnceForSharedProfiles(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
+	cfg.Profiles["alpha-model"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "alpha-model"}}
+	cfg.Profiles["beta-model"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{Claude: "beta-model"}}
+	cfg.Routes.Default = "alpha-model"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("dmx", "token")
+	if err := execute(t, app, "doctor"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if strings.Contains(text, "secret:alpha-model") || strings.Contains(text, "secret:beta-model") {
+		t.Fatalf("doctor checked profile secrets instead of account secret:\n%s", text)
+	}
+	if !strings.Contains(text, "secret:dmx") || !strings.Contains(text, "未发现问题") {
+		t.Fatalf("doctor did not report account secret cleanly:\n%s", text)
+	}
+}
+
+func TestProfileRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Profiles["gpt-old"] = domain.Profile{Label: "GPT Old", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-old"}}
+	cfg.Routes.Default = "gpt-old"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("dmx", "account-token")
+	if err := execute(t, app, "profile", "rename", "gpt-old", "gpt-new"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := secretStore.Get("dmx"); err != nil || got != "account-token" {
+		t.Fatalf("account token changed: %q %v", got, err)
+	}
+	if secretStore.Has("gpt-new") || secretStore.Has("gpt-old") {
+		t.Fatalf("profile rename created profile-level secret slots")
+	}
+	got, _ := app.Config.Load()
+	if got.Routes.Default != "gpt-new" || got.Profiles["gpt-new"].Account != "dmx" {
+		t.Fatalf("rename config = %#v", got)
+	}
+}
+
+func TestProfileRemoveLeavesAccountAndTokenIntact(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Profiles["gpt-default"] = domain.Profile{Label: "GPT Default", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-default"}}
+	cfg.Profiles["gpt-unused"] = domain.Profile{Label: "GPT Unused", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{Codex: "gpt-unused"}}
+	cfg.Routes.Default = "gpt-default"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("dmx", "account-token")
+	if err := execute(t, app, "profile", "remove", "gpt-unused"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := secretStore.Get("dmx"); err != nil || got != "account-token" {
+		t.Fatalf("account token changed: %q %v", got, err)
+	}
+	got, _ := app.Config.Load()
+	if _, ok := got.Profiles["gpt-unused"]; ok || got.Accounts["dmx"].Label != "DMXAPI" {
+		t.Fatalf("remove config = %#v", got)
 	}
 }

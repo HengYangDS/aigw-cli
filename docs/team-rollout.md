@@ -2,7 +2,7 @@
 
 ## Maintainer
 
-维护一个不含 Token 的团队 Profile 清单，例如 [`examples/team-profiles.toml`](../examples/team-profiles.toml)：
+维护一个不含 Token 的团队 Account + Profile 清单，例如 [`examples/team-profiles.toml`](../examples/team-profiles.toml)：
 
 ```toml
 version = 1
@@ -111,6 +111,21 @@ aigw use claude-opus-4-8-thinking --for claude
 aigw check
 ```
 
+需要在变更、升级或客户端故障后取得真实链路证据时，由使用者明确执行：
+
+```bash
+aigw verify --for all
+```
+
+该命令会调用 Claude 与 Codex 各一次最小模型请求，因此会消耗额度；它在两个 Adapter 投影和两条响应均通过后才保存不含 Token 的本机验证检查点。若随后某次配置变更需要撤销，使用：
+
+```bash
+aigw rollback                 # 最近一次完整验证检查点
+aigw rollback --last-change   # 仅紧邻的一次配置备份
+```
+
+验证和回退均不会启动、停止、重启或重载 Claude/Codex 客户端。
+
 只启用本机实际使用的客户端：
 
 ```bash
@@ -122,6 +137,8 @@ aigw adapter enable codex \
 ```
 
 AIGW 的 Claude shim 位于用户级 shim 目录，例如 `~/.local/bin/claude` 或 `%LOCALAPPDATA%\Programs\aigw\bin\claude.cmd`。它只由 AIGW 管理，不覆盖外部 Claude，不写入 Codex 目录。若 PATH 中已有外部 `claude` 优先，`aigw doctor` 会提示修复；用户无需手工修改多个配置文件。
+
+原生包安装与卸载只管理自己的程序文件，绝不会遍历用户目录来创建或删除 shim。若需删除 shim，由该用户执行 `aigw adapter disable claude`。
 
 ## Update
 
