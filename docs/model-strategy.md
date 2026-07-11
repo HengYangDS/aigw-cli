@@ -64,6 +64,8 @@ claude = "claude-fable-5"
 Profile，也不要复用 Claude/Codex 的配置目录、Token 映射或路由。先完成适配，再让
 它出现在可选 Profile 中。
 
+每个候选的协议证据、专属配置边界、真实验证与回退门槛见 [Adapter 准入](adapter-admission.md)。
+
 ## 准入门槛
 
 一个新客户端或模型进入推荐集，必须按以下顺序通过，而不是“目录里看得到”就加入：
