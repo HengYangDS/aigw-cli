@@ -7,11 +7,11 @@ AIGW  当前状态
 ────────────────────────────────────────
 配置
   当前 Account      Team Gateway
-  默认 Profile      gpt-5.6-sol-cdx
+  默认 Profile      gpt-5.6-terra-cdx
 
 客户端
-  ✓ Claude       继承默认服务 · 已就绪
-  ✓ Codex        继承默认服务 · 已就绪
+  ✓ Claude       claude-fable-5 · 单独指定 · 已就绪
+  ✓ Codex        gpt-5.6-terra-cdx · 继承默认 · 已就绪
 
 下一步
   aigw check
@@ -27,7 +27,7 @@ AIGW  当前状态
 
 本机直连不是“只能连一个服务”：每个服务 Account 有自己的一把系统密钥和可用协议端点；同一 Account 下可有任意多个模型 Profile，并由 Claude、Codex 或默认 Route 显式选择。团队集中 Gateway 不是安装或日常使用的前提。只有组织确实需要集中审计、预算、协议转换或统一出口时，才应单独评测和部署一个独立 Gateway；AIGW 只把它当作普通 HTTPS Account 入口，绝不管理其端口、进程或上游密钥。
 
-任意上游服务商都可作为一个 Account。Claude 推荐基线为 `claude-fable-5`；Sonnet 与 Opus 均须显式选择。示例团队清单包含 `gpt-5.6-sol-cdx`、`gpt-5.5`、`gpt-5.5-ssvip`、`claude-fable-5`、`claude-sonnet-5`、`claude-opus-4-8-thinking` 等 Profile；它们不是 AIGW 的隐式服务商默认值。模型名对 AIGW 是透明字符串，团队清单可以继续增删。
+任意上游服务商都可作为一个 Account。当前精简的可运行基线是 `gpt-5.6-terra-cdx`（Codex）和 `claude-fable-5`（默认 Agent）；Sonnet 与 Opus 仅作明确的按需选择。示例团队清单用可选的 `purpose` 标出每个 Profile 的日常用途，帮助成员选择，而不改变路由或密钥边界。模型名对 AIGW 是透明字符串，团队可按自身已验证的能力增删；[模型策略](docs/model-strategy.md)定义了推荐集与新客户端的准入边界。
 
 ## 安装
 
@@ -74,7 +74,7 @@ aigw setup
 ```bash
 aigw config import team-profiles.toml
 aigw rotate team-gateway
-aigw use gpt-5.6-sol-cdx --for codex
+aigw use gpt-5.6-terra-cdx --for codex
 aigw use claude-fable-5 --for claude
 aigw check
 ```
@@ -84,11 +84,11 @@ aigw check
 ```bash
 aigw setup \
   --account team-gateway \
-  --profile gpt-5.6-sol-cdx \
+  --profile gpt-5.6-terra-cdx \
   --label "Team Gateway" \
   --openai-url https://gateway.example/v1 \
   --for codex \
-  --model gpt-5.6-sol-cdx
+  --model gpt-5.6-terra-cdx
 ```
 
 Token 使用隐藏输入；自动化场景可将一行 Token 管道输入并添加 `--token-stdin`。
@@ -99,6 +99,7 @@ Token 使用隐藏输入；自动化场景可将一行 Token 管道输入并添�
 aigw                         # 当前状态；首次运行会进入向导
 aigw setup                   # 傻瓜式首次配置
 aigw use [profile]           # 切换模型 Profile，可交互选择
+aigw profile add ... --purpose "代码与工程" # 为 Profile 添加一行用途提示
 aigw rotate [account]        # 更新 Account Token
 aigw catalog [--all|--json]  # 默认紧凑模型摘要；显式查看完整目录或 JSON
 aigw check                   # 配置、Token、客户端与网关健康检查
@@ -119,7 +120,7 @@ aigw update                  # 按安装渠道更新
 AIGW 分两层管理：
 
 - **Account**：上游服务商账户、URL、Token 和可选的服务商精确诊断，例如 `team-gateway`。
-- **Profile**：用户日常切换的模型运行配置，例如 `gpt-5.6-sol-cdx`、`gpt-5.5-ssvip`、`claude-sonnet-5`。
+- **Profile**：用户日常切换的模型运行配置，例如 `gpt-5.6-terra-cdx`、`claude-fable-5`、`claude-opus-4-8-thinking`；可选的 `purpose` 仅提供一行用途提示。
 
 多个 Profile 可以引用同一个 Account，所以轮换 Token 只需要：
 
@@ -130,7 +131,7 @@ aigw rotate team-gateway
 切换模型只需要：
 
 ```bash
-aigw use gpt-5.6-sol-cdx --for codex
+aigw use gpt-5.6-terra-cdx --for codex
 aigw use claude-fable-5 --for claude
 ```
 
@@ -138,7 +139,7 @@ aigw use claude-fable-5 --for claude
 
 ```bash
 aigw account edit team-gateway --openai-url https://gateway.example/v1
-aigw profile add gpt-next --account team-gateway --for codex --model gpt-next
+aigw profile add gpt-next --account team-gateway --for codex --model gpt-next --purpose "已验证的代码任务"
 aigw catalog
 aigw use gpt-next --for codex
 ```
@@ -184,6 +185,7 @@ aigw balance <account>
 
 - [核心概念](docs/concepts.md)
 - [安全模型](docs/security.md)
+- [模型策略与客户端准入](docs/model-strategy.md)
 - [团队推广](docs/team-rollout.md)
 - [产品设计](docs/design/2026-07-10-aigw-cli-product-design.md)
 

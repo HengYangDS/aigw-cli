@@ -27,7 +27,7 @@ AIGW 是**本机优先、团队可分发**的跨平台第三方 AI API Account�
 
 ### Runtime Profile
 
-一个 Runtime Profile 表示用户日常切换的模型运行配置，引用一个 Account，并可限定客户端与模型名，例如 `gpt-5.6-sol-cdx`、`gpt-5.5-ssvip`、`claude-fable-5`、`claude-sonnet-5`、`claude-opus-4-8-thinking`。
+一个 Runtime Profile 表示用户日常切换的模型运行配置，引用一个 Account，并可限定客户端与模型名，例如 `gpt-5.6-terra-cdx`、`claude-fable-5`、`claude-sonnet-5`、`claude-opus-4-8-thinking`。Profile 可选 `purpose` 作为一行人类用途提示；它不参与路由或密钥管理。
 
 `claude-fable-5` 是 Claude 的推荐基线；其他 Claude Profile 必须显式选择。模型名对 AIGW 是透明字符串，由上游网关解释。
 
@@ -80,7 +80,7 @@ Codex CLI 优先通过独立执行边界传递凭据。对无法经 shim 启动�
 aigw
 aigw add <account>
 aigw account edit <account>
-aigw profile add <profile> --account <account> --for claude|codex --model <model>
+aigw profile add <profile> --account <account> --for claude|codex --model <model> [--purpose <hint>]
 aigw use <profile> [--for claude|codex] [--all]
 aigw rotate <account>
 aigw catalog [--all|--json]

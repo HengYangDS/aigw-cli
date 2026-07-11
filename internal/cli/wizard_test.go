@@ -17,6 +17,7 @@ type fakePrompt struct {
 	secretCalls     int
 	lastSecretLabel string
 	selected        string
+	choices         []cli.Choice
 	text            string
 	texts           []string
 	textCalls       int
@@ -43,7 +44,8 @@ func (p *fakePrompt) Text(string) (string, error) {
 	return p.text, nil
 }
 
-func (p *fakePrompt) Select(_ string, _ []cli.Choice) (string, error) {
+func (p *fakePrompt) Select(_ string, choices []cli.Choice) (string, error) {
+	p.choices = append([]cli.Choice(nil), choices...)
 	return p.selected, nil
 }
 
