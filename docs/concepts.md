@@ -29,7 +29,7 @@ client = "codex"
 codex = "gpt-5.6-sol-cdx"
 ```
 
-The example team manifest includes `gpt-5.6-sol-cdx`, `gpt-5.5`, `gpt-5.5-ssvip`, `claude-sonnet-5`, `claude-opus-4-8-thinking`, and `claude-fable-5`. It is not an implicit provider default. `claude-sonnet-5` is the recommended Claude baseline; Opus and Fable are explicit task-specific choices. Model names are transparent upstream gateway strings; teams can add or remove them in their manifest.
+`claude-fable-5` is the recommended Claude baseline; Sonnet and Opus are explicit task-specific choices. The example team manifest includes `gpt-5.6-sol-cdx`, `gpt-5.5`, `gpt-5.5-ssvip`, `claude-fable-5`, `claude-sonnet-5`, and `claude-opus-4-8-thinking`; it is not an implicit provider default. Model names are transparent upstream gateway strings; teams can add or remove them in their manifest.
 
 Use `aigw catalog` to inspect the configured subset and compact count summary of each Account's authenticated OpenAI-compatible model inventory; use `aigw catalog --all` for the full human-readable inventory or `--json` for complete machine output. Then add an explicit Profile with `aigw profile add`. Discovery is read-only: it neither changes a Route nor infers whether an ID supports a particular protocol, embedding, rerank, vision, tools, or reasoning task.
 

@@ -39,13 +39,13 @@ client = "codex"
 [profiles."gpt-5.5-ssvip".models]
 codex = "gpt-5.5-ssvip"
 
-[profiles."claude-sonnet-5"]
-label = "Claude Sonnet"
+[profiles."claude-fable-5"]
+label = "Claude Fable (recommended)"
 account = "team-gateway"
 client = "claude"
 
-[profiles."claude-sonnet-5".models]
-claude = "claude-sonnet-5"
+[profiles."claude-fable-5".models]
+claude = "claude-fable-5"
 
 [profiles."claude-opus-4-8-thinking"]
 label = "Claude Opus"
@@ -55,13 +55,13 @@ client = "claude"
 [profiles."claude-opus-4-8-thinking".models]
 claude = "claude-opus-4-8-thinking"
 
-[profiles."claude-fable-5"]
-label = "Claude Fable"
+[profiles."claude-sonnet-5"]
+label = "Claude Sonnet"
 account = "team-gateway"
 client = "claude"
 
-[profiles."claude-fable-5".models]
-claude = "claude-fable-5"
+[profiles."claude-sonnet-5".models]
+claude = "claude-sonnet-5"
 ```
 
 验证清单：
@@ -108,7 +108,7 @@ aigw rotate team-gateway
 aigw catalog                 # 默认显示已配置模型与数量摘要
 aigw catalog --all           # 显式展开完整模型目录
 aigw use gpt-5.6-sol-cdx --for codex
-aigw use claude-sonnet-5 --for claude
+aigw use claude-fable-5 --for claude
 aigw check
 ```
 
