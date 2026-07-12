@@ -75,9 +75,9 @@ aigw config export
 
 发布流水线在上传前必须通过 15 个工件的完整矩阵检查：macOS Universal pkg、六个便携包、四个 Linux 原生包、两个 Windows MSI、SBOM 与统一校验和。缺少平台专属构建工具或签名材料时，流水线必须失败而不是发布残缺资产。
 
-维护者将 `package` job 调度到受管 macOS runner（tag：`macos`）；该 runner 必须具备 Go、`lipo`、`pkgbuild`、`productbuild`、`nfpm`、`wixl`、`uuidgen`、`file`、`tar` 与 `zip`。缺少该 runner 时 job 应保持 pending，而不是回退到通用 Linux runner 产出不完整 Release。
+维护者将 `package` job 调度到受管 macOS runner（tag：`macos`）；该 runner 必须具备 Go、`lipo`、`pkgbuild`、`productbuild`、`nfpm`、`wixl`、`uuidgen`、`file`、`tar` 与 `zip`。缺少该 runner 时 job 应保持 pending，而不是回退到通用 Linux runner 产出不完整 Release。该 job 会先构建完整矩阵，再逐项重算 SHA-256，并检查所有便携包、macOS Universal pkg、Linux `.deb/.rpm` 和 Windows MSI 的载荷、CPU 架构及 MSI 平台 template。
 
-还必须包含 `checksums.txt` 和 `aigw_<version>.spdx.json`。`amd64` 是常见 Intel/AMD 64 位 x86；`arm64` 是 ARM 64 位。
+还必须包含 `checksums.txt` 和 `aigw_<version>.spdx.json`。`amd64` 是常见 Intel/AMD 64 位 x86；`arm64` 是 ARM 64 位。独立的 Linux 原生安装验收应在 Debian 与 RPM 系发行版 runner 上进行；兼容性容器的 `dpkg`/`rpm` 安装结果不能替代该原生发行版证据。
 
 ## Team member
 
