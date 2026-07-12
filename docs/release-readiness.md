@@ -1,6 +1,6 @@
 # Release Readiness
 
-## 当前状态（2026-07-11）
+## 当前状态（2026-07-12）
 
 本机已通过代码、安装 smoke、残留和 15 工件打包验证；这只证明源代码和未签名 RC
 工件可构建，**不等同于远端发布或正式 GA 交付**。
@@ -15,6 +15,25 @@
 | GitLab API | 5 秒连接超时 | 不能创建 Release 或上传工件 |
 
 因此当前分支只能形成**本地已验证、待远端发布**的状态。
+
+## 已完成的真实验收（2026-07-12）
+
+以下验收均基于已签名提交 `e082b00`，而不是包含其他并发未提交改动的工作区；
+每次真实模型请求均经用户明确授权。
+
+| 范围 | 结果 | 证据边界 |
+|---|---|---|
+| macOS 主账户 | Claude 与 Codex 真实最小请求通过 | `verify --for all`；checkpoint 为 schema v2，且不含密钥 |
+| macOS 隔离账户（UID 502） | Claude 与 Codex 真实最小请求通过 | 临时 HOME、临时 AIGW shim、Token 仅在子进程环境中存在，退出后清除 |
+| Linux ARM64 容器 | Claude 与 Codex 真实最小请求通过 | 临时容器、只读配置挂载、只读 secret 挂载；配置不含密钥 |
+| Linux ARM64 `.deb` | 安装并执行通过 | 容器内 `dpkg -i` 后从 `/usr/bin/aigw` 执行 |
+| Linux AMD64 `.deb` / `.rpm` | 工件 payload 执行通过 | 从包中提取 `/usr/bin/aigw`，在 `linux/amd64` 容器内执行 |
+| 交付矩阵 | 15 个 RC 工件完整 | `check-release-artifacts.sh`、checksums 与 SPDX SBOM 均通过 |
+
+Linux AMD64 容器基础镜像因 Docker Hub 超时不可拉取，因此没有声称完成
+`dpkg` 系统级安装；已用同一包 payload 在 AMD64 容器实际执行补足二进制和包内容证据。
+RPM 已验证格式、payload 路径和二进制可执行性；其系统级安装仍应在具备 RPM 发行版
+基础镜像或受管 runner 后补做。
 
 最新一次受控推送尝试使用 `ssh -o ConnectTimeout=10` 向
 `codex/initial-product` 推送，SSH `192.168.64.101:1122` 超时。该尝试未改变远端；
