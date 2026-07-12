@@ -32,5 +32,10 @@ for command in $required_commands; do
   fi
 done
 
+if ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1; then
+  echo "missing package-runner SHA-256 utility: sha256sum or shasum" >&2
+  missing=1
+fi
+
 [ "$missing" -eq 0 ] || exit 1
 echo "package runner capability: OK"
