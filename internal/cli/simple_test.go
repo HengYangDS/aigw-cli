@@ -464,3 +464,48 @@ func TestBalanceExplainsWhenConfiguredDiagnosticDriverIsNotBundled(t *testing.T)
 		t.Fatalf("balance error = %v", err)
 	}
 }
+
+func TestUnconfiguredCommandsPointToSetupWithoutLoops(t *testing.T) {
+	for _, command := range [][]string{{"status"}, {"check"}, {"repair"}, {"models"}, {"catalog"}} {
+		app, out, _, _ := testApp(t, "")
+		err := execute(t, app, command...)
+		if command[0] == "status" && err != nil {
+			t.Fatalf("%v error = %v", command, err)
+		}
+		if command[0] != "status" && err == nil {
+			t.Fatalf("%v succeeded without configuration", command)
+		}
+		text := out.String() + "\n"
+		if err != nil {
+			text += err.Error()
+		}
+		if !strings.Contains(text, "aigw setup") {
+			t.Fatalf("%v should point to setup:\n%s", command, text)
+		}
+		if strings.Contains(text, "运行 `aigw`") || strings.Contains(text, "aigw repair") || strings.Contains(text, "aigw check") {
+			t.Fatalf("%v retained a loop or ambiguous first-use action:\n%s", command, text)
+		}
+	}
+}
+
+func TestCatalogUnconfiguredPointsToSetup(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	err := execute(t, app, "catalog")
+	if err == nil {
+		t.Fatal("catalog succeeded without configuration")
+	}
+	text := out.String() + "\n" + err.Error()
+	if !strings.Contains(text, "aigw setup") || strings.Contains(text, "aigw profile add") {
+		t.Fatalf("catalog should direct first use to setup:\n%s", text)
+	}
+}
+
+func TestCatalogJSONUnconfiguredIsEmptyAndMachineReadable(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	if err := execute(t, app, "catalog", "--json"); err != nil {
+		t.Fatalf("catalog --json error = %v", err)
+	}
+	if strings.TrimSpace(out.String()) != "{\n  \"accounts\": []\n}" {
+		t.Fatalf("catalog --json = %q", out.String())
+	}
+}
