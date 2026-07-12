@@ -342,8 +342,8 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		r := renderer(app)
 		r.Title("AIGW", "尚未配置")
 		r.Section("开始使用")
-		r.Text("在交互式终端直接运行 aigw 即可完成配置。")
-		r.Next("aigw")
+		r.Text("运行一次向导即可添加服务、Token 与首个模型 Profile。")
+		r.Next("aigw setup")
 		return nil
 	}
 	r := renderer(app)

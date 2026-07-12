@@ -83,3 +83,17 @@ func TestDoctorHumanOutputUsesConciseCheckLabels(t *testing.T) {
 		t.Fatalf("doctor human label = %s", result)
 	}
 }
+
+func TestDoctorUnconfiguredPointsToSetupNotRepair(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	if err := execute(t, app, "doctor"); err == nil {
+		t.Fatal("doctor succeeded without configuration")
+	}
+	result := out.String()
+	if !strings.Contains(result, "aigw setup") {
+		t.Fatalf("doctor should point to setup:\n%s", result)
+	}
+	if strings.Contains(result, "aigw repair") {
+		t.Fatalf("doctor should not suggest repair before setup:\n%s", result)
+	}
+}
