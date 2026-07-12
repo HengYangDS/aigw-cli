@@ -13,7 +13,7 @@ if (Test-Path $LocalBinary) {
 } else {
     if ($Version -eq "latest") {
         if (-not (Get-Command glab -ErrorAction SilentlyContinue)) { throw "glab is required to resolve the latest private release; set AIGW_VERSION or install glab" }
-        $release = glab release list -R $Project --per-page 1 --format json | ConvertFrom-Json
+        $release = glab release list -R $Project --per-page 1 -F json | ConvertFrom-Json
         $Version = $release[0].tag_name
     }
     $clean = $Version.TrimStart("v")
