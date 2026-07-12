@@ -42,13 +42,44 @@ checksum_for() {
   fi
 }
 
+checksum_entries=$(mktemp)
+required_names=$(mktemp)
+trap 'rm -f "$checksum_entries" "$required_names"' EXIT HUP INT TERM
+
 for name in $required; do
   [ "$name" = "checksums.txt" ] && continue
-  expected=$(awk -v name="$name" '$2 == name || $2 == "./" name {print $1; exit}' "$out/checksums.txt")
+  printf '%s\n' "$name" >> "$required_names"
+done
+
+awk '
+  NF != 2 { bad=1; next }
+  $1 !~ /^[0-9A-Fa-f]{64}$/ { bad=1; next }
+  {
+    name=$2
+    sub(/^\.\//, "", name)
+    if (name == "" || seen[name]++) { duplicate=name; bad=1; next }
+    print tolower($1) " " name
+  }
+  END { if (bad) exit 1 }
+' "$out/checksums.txt" > "$checksum_entries" || {
+  duplicate=$(awk 'NF == 2 {name=$2; sub(/^\.\//, "", name); if (seen[name]++) {print name; exit}}' "$out/checksums.txt")
+  [ -z "$duplicate" ] || fail "duplicate checksum entry: $duplicate"
+  fail "invalid checksum manifest format"
+}
+
+for name in $(cat "$required_names"); do
+  expected=$(awk -v name="$name" '$2 == name {print $1; exit}' "$checksum_entries")
   [ -n "$expected" ] || fail "checksums.txt does not cover $name"
   actual=$(checksum_for "$out/$name")
   [ "$actual" = "$expected" ] || fail "checksum mismatch for $name"
 done
+
+actual_entries=$(wc -l < "$checksum_entries" | tr -d ' ')
+expected_entries=$(wc -l < "$required_names" | tr -d ' ')
+[ "$actual_entries" -eq "$expected_entries" ] || {
+  unexpected=$(awk 'NR == FNR { wanted[$1]=1; next } !wanted[$2] {print $2; exit}' "$required_names" "$checksum_entries")
+  fail "unexpected checksum entry: ${unexpected:-unknown}"
+}
 
 count=$(find "$out" -maxdepth 1 -type f | wc -l | tr -d ' ')
 [ "$count" -eq 15 ] || fail "expected exactly 15 artifacts, found $count"
