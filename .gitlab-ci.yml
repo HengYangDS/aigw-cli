@@ -22,6 +22,7 @@ verify:
     - sh scripts/test-package-runner-preflight.sh
     - sh scripts/test-msi-version.sh
     - go build -o /tmp/aigw-install-smoke ./cmd/aigw
+    - sh scripts/test-installers.sh /tmp/aigw-install-smoke
     - sh scripts/test-portable-install.sh /tmp/aigw-install-smoke
     - '! grep -RInE --exclude-dir=.git --exclude="*_test.go" "(sk-[A-Za-z0-9_-]{24,}|Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9_-]{24,})" .'
 
