@@ -28,6 +28,22 @@ if ! grep -Eq -- 'release list.*--jq[[:space:]]+[^[:space:]]*\[0\]\.tag_name' "$
   exit 1
 fi
 
+python3 - "$powershell_script" <<'PY'
+from pathlib import Path
+import sys
+text = Path(sys.argv[1]).read_text()
+needles = [
+    'elseif ($env:GITLAB_TOKEN)',
+    '[uri]::EscapeDataString($Project)',
+    'releases/permalink/latest',
+    'GITLAB_TOKEN contains a control character',
+]
+missing = [needle for needle in needles if needle not in text]
+if missing:
+    raise SystemExit('Windows latest-token fallback contract missing: ' + ', '.join(missing))
+print('Windows latest-token fallback contract: OK')
+PY
+
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 home="$tmp/home"
