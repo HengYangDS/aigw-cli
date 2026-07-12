@@ -69,7 +69,7 @@ else
       echo "glab is required to resolve the latest release of this private project; set AIGW_VERSION to a tag or install glab" >&2
       exit 2
     fi
-    version=$(GL_HOST=${AIGW_GL_HOST:-http://192.168.64.101:18086} glab release list -R "$project_path" --per-page 1 -F json | sed -n 's/.*"tag_name":"\([^"]*\)".*/\1/p')
+    version=$(GL_HOST=${AIGW_GL_HOST:-http://192.168.64.101:18086} glab release list -R "$project_path" --per-page 1 -F json --jq '.[0].tag_name')
     [ -n "$version" ] || { echo "no release found" >&2; exit 2; }
   fi
   clean_version=${version#v}
