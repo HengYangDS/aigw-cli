@@ -6,6 +6,7 @@ $ErrorActionPreference = "Stop"
 $Project = "dig/misc/agentic-third-party-api/aigw-cli"
 $HostURL = if ($env:AIGW_GL_HOST) { $env:AIGW_GL_HOST } else { "http://192.168.64.101:18086" }
 $LocalBinary = Join-Path $PSScriptRoot "aigw.exe"
+if ($env:GITLAB_TOKEN -and $env:GITLAB_TOKEN -match "[\r\n]") { throw "GITLAB_TOKEN contains a control character" }
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
 if (Test-Path $LocalBinary) {
@@ -16,7 +17,6 @@ if (Test-Path $LocalBinary) {
             $release = glab release list -R $Project --per-page 1 -F json | ConvertFrom-Json
             $Version = $release[0].tag_name
         } elseif ($env:GITLAB_TOKEN) {
-            if ($env:GITLAB_TOKEN -match "[\r\n]") { throw "GITLAB_TOKEN contains a control character" }
             $projectID = [uri]::EscapeDataString($Project)
             $release = Invoke-RestMethod -Uri "$HostURL/api/v4/projects/$projectID/releases/permalink/latest" -Headers @{"PRIVATE-TOKEN" = $env:GITLAB_TOKEN}
             $Version = $release.tag_name
