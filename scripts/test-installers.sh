@@ -23,6 +23,10 @@ for script in "$unix_script" "$powershell_script"; do
     exit 1
   fi
 done
+if ! grep -Eq -- 'release list.*--jq[[:space:]]+[^[:space:]]*\[0\]\.tag_name' "$unix_script"; then
+  echo "Unix installer must ask glab to select the first tag instead of parsing JSON with sed" >&2
+  exit 1
+fi
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
@@ -61,9 +65,13 @@ case "${1-} ${2-}" in
       *) echo "glab release list must receive -F json" >&2; exit 64 ;;
     esac
     case " $* " in
+      *' --jq .[0].tag_name '*) ;;
+      *) echo "glab release list must select the first tag with --jq" >&2; exit 64 ;;
+    esac
+    case " $* " in
       *' --format json '*) echo "obsolete --format json received" >&2; exit 64 ;;
     esac
-    printf '[{"tag_name":"v%s"}]\n' "$AIGW_TEST_VERSION"
+    printf 'v%s\n' "$AIGW_TEST_VERSION"
     ;;
   'release download')
     asset=
