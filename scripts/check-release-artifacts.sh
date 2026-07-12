@@ -33,9 +33,21 @@ for name in $required; do
   [ -s "$out/$name" ] || fail "missing or empty artifact: $name"
 done
 
+checksum_for() {
+  file=$1
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print $1}'
+  else
+    shasum -a 256 "$file" | awk '{print $1}'
+  fi
+}
+
 for name in $required; do
   [ "$name" = "checksums.txt" ] && continue
-  grep -F "  $name" "$out/checksums.txt" >/dev/null || fail "checksums.txt does not cover $name"
+  expected=$(awk -v name="$name" '$2 == name || $2 == "./" name {print $1; exit}' "$out/checksums.txt")
+  [ -n "$expected" ] || fail "checksums.txt does not cover $name"
+  actual=$(checksum_for "$out/$name")
+  [ "$actual" = "$expected" ] || fail "checksum mismatch for $name"
 done
 
 count=$(find "$out" -maxdepth 1 -type f | wc -l | tr -d ' ')
