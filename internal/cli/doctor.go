@@ -161,7 +161,11 @@ func newDoctorCommand(app *App) *cobra.Command {
 				}
 			}
 			if !allChecksOK(checks) {
-				r.Next("aigw repair")
+				next := "aigw repair"
+				if configNeedsSetup(checks) {
+					next = "aigw setup"
+				}
+				r.Next(next)
 				return presented(fmt.Errorf("doctor found problems"))
 			}
 			r.Section("结果")
@@ -208,4 +212,13 @@ func allChecksOK(checks []doctorCheck) bool {
 		}
 	}
 	return true
+}
+
+func configNeedsSetup(checks []doctorCheck) bool {
+	for _, check := range checks {
+		if check.Name == "config" && !check.OK && check.Detail == "not configured" {
+			return true
+		}
+	}
+	return false
 }
