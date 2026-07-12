@@ -21,7 +21,7 @@ require() {
   }
 }
 
-for command in file tar unzip ar bsdtar msiextract pkgutil lipo; do
+for command in file tar unzip ar bsdtar msiextract msiinfo pkgutil lipo; do
   require "$command"
 done
 
@@ -105,6 +105,13 @@ done
 for arch in amd64 arm64; do
   msi="$out/aigw_${version}_windows_${arch}.msi"
   stage="$work/msi-$arch"
+  template=$(msiinfo suminfo "$msi" | awk -F': ' '$1 == "Template" {print $2; exit}')
+  expected_template=x64
+  [ "$arch" = arm64 ] && expected_template=Arm64
+  [ "$template" = "${expected_template};1033" ] || {
+    echo "unexpected MSI platform template for $arch: $template" >&2
+    exit 1
+  }
   msiextract -C "$stage" "$msi" >/dev/null
   payload=$(find "$stage" -type f -name aigw.exe -print -quit)
   [ -n "$payload" ] || { echo "MSI missing aigw.exe: $arch" >&2; exit 1; }
