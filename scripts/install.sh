@@ -56,6 +56,13 @@ gitlab_api_url() {
 
 gitlab_token_curl_config() {
   config=$1
+  case "$GITLAB_TOKEN" in
+    *"
+"*|*""*)
+      echo "GITLAB_TOKEN contains a control character" >&2
+      return 2
+      ;;
+  esac
   umask 077
   escaped_token=$(printf '%s' "$GITLAB_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g')
   printf 'header = "PRIVATE-TOKEN: %s"\n' "$escaped_token" > "$config"

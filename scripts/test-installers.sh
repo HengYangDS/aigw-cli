@@ -41,6 +41,11 @@ needles = [
 missing = [needle for needle in needles if needle not in text]
 if missing:
     raise SystemExit('Windows latest-token fallback contract missing: ' + ', '.join(missing))
+validation = 'if ($env:GITLAB_TOKEN -and $env:GITLAB_TOKEN -match "[\\r\\n]") { throw "GITLAB_TOKEN contains a control character" }'
+if validation not in text:
+    raise SystemExit('Windows installer must validate GITLAB_TOKEN before every download path')
+if text.index(validation) > text.index('if (Test-Path $LocalBinary)'):
+    raise SystemExit('Windows GITLAB_TOKEN validation must precede installer branch selection')
 print('Windows latest-token fallback contract: OK')
 PY
 
@@ -199,3 +204,33 @@ fallback_installed="$fallback_install/aigw"
 "$fallback_installed" --version >/dev/null
 
 echo "release installer GitLab-token fallback: OK"
+
+printf '%s\n' '== GitLab token fallback rejects header injection =='
+injection_token=$(printf 'test-token\nheader = "Injected: no"')
+set +e
+env \
+  HOME="$tmp/injection-home" \
+  SHELL=/bin/sh \
+  PATH="$fallback_bin:/usr/bin:/bin" \
+  AIGW_VERSION=latest \
+  AIGW_INSTALL_DIR="$tmp/injection-home/bin" \
+  AIGW_GL_HOST=https://gitlab.example.test \
+  GITLAB_TOKEN="$injection_token" \
+  AIGW_TEST_VERSION="$version" \
+  AIGW_TEST_ARCHIVE="$archive" \
+  AIGW_TEST_ARCHIVE_PATH="$tmp/$archive" \
+  AIGW_TEST_CHECKSUM_PATH="$tmp/checksums.txt" \
+  /bin/sh "$unix_script" >"$tmp/injection.out" 2>"$tmp/injection.err"
+injection_rc=$?
+set -e
+if [ "$injection_rc" -eq 0 ]; then
+  echo "installer accepted a newline-bearing GITLAB_TOKEN" >&2
+  exit 1
+fi
+if ! grep -q 'GITLAB_TOKEN contains a control character' "$tmp/injection.err"; then
+  cat "$tmp/injection.err" >&2
+  echo "installer did not explain token control-character rejection" >&2
+  exit 1
+fi
+
+echo "release installer token injection rejection: OK"
