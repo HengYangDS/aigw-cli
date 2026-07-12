@@ -35,7 +35,50 @@ func (m Manager) ClaudeShimReady() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("inspect Claude launcher: %w", err)
 	}
-	return strings.Contains(string(data), marker), nil
+	content := string(data)
+	if !strings.Contains(content, marker) {
+		return false, nil
+	}
+	if m.GOOS == "darwin" || m.GOOS == "linux" {
+		target, ok := unixShimTarget(content)
+		if !ok {
+			return false, fmt.Errorf("AIGW-managed Claude shim has an invalid target; run `aigw repair`")
+		}
+		if isTemporaryPath(target) {
+			return false, fmt.Errorf("AIGW-managed Claude shim target is in a temporary directory: %s; run `aigw repair`", target)
+		}
+		info, err := os.Stat(target)
+		if os.IsNotExist(err) {
+			return false, fmt.Errorf("AIGW-managed Claude shim target is unavailable: %s; run `aigw repair`", target)
+		}
+		if err != nil {
+			return false, fmt.Errorf("inspect AIGW-managed Claude shim target: %w", err)
+		}
+		if info.IsDir() || info.Mode()&0o111 == 0 {
+			return false, fmt.Errorf("AIGW-managed Claude shim target is unavailable: %s; run `aigw repair`", target)
+		}
+	}
+	return true, nil
+}
+
+func unixShimTarget(content string) (string, bool) {
+	const prefix = "exec '"
+	for _, line := range strings.Split(content, "\n") {
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+		rest := strings.TrimPrefix(line, prefix)
+		target, _, found := strings.Cut(rest, "' __run-claude")
+		return target, found && target != ""
+	}
+	return "", false
+}
+
+func isTemporaryPath(path string) bool {
+	clean := filepath.Clean(path)
+	return clean == "/tmp" || strings.HasPrefix(clean, "/tmp/") ||
+		clean == "/private/tmp" || strings.HasPrefix(clean, "/private/tmp/") ||
+		clean == "/var/folders" || strings.HasPrefix(clean, "/var/folders/")
 }
 
 func (m Manager) EnableClaude() (string, error) {
