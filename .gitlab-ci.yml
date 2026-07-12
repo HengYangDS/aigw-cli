@@ -14,7 +14,7 @@ verify:
     - go test -race ./...
     - go vet ./...
     - test -z "$(gofmt -l cmd internal tools)"
-    - sh -n scripts/package.sh scripts/install.sh scripts/uninstall.sh scripts/test-portable-install.sh scripts/check-package-safety.sh scripts/check-retired-residue.sh scripts/check-release-artifacts.sh scripts/test-release-artifacts.sh scripts/test-release-package-layout.sh scripts/check-release-readiness.sh scripts/test-release-readiness.sh
+    - sh -n scripts/package.sh scripts/install.sh scripts/uninstall.sh scripts/test-portable-install.sh scripts/check-package-safety.sh scripts/check-retired-residue.sh scripts/check-release-artifacts.sh scripts/test-release-artifacts.sh scripts/test-release-package-layout.sh scripts/test-linux-native-install.sh scripts/check-release-readiness.sh scripts/test-release-readiness.sh
     - sh scripts/check-package-safety.sh
     - sh scripts/check-retired-residue.sh
     - sh scripts/test-release-readiness.sh

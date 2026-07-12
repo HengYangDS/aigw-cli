@@ -27,13 +27,16 @@
 | macOS 隔离账户（UID 502） | Claude 与 Codex 真实最小请求通过 | 临时 HOME、临时 AIGW shim、Token 仅在子进程环境中存在，退出后清除 |
 | Linux ARM64 容器 | Claude 与 Codex 真实最小请求通过 | 临时容器、只读配置挂载、只读 secret 挂载；配置不含密钥 |
 | Linux ARM64 `.deb` | 安装并执行通过 | 容器内 `dpkg -i` 后从 `/usr/bin/aigw` 执行 |
-| Linux AMD64 `.deb` / `.rpm` | 工件 payload 执行通过 | 从包中提取 `/usr/bin/aigw`，在 `linux/amd64` 容器内执行 |
-| 交付矩阵 | 15 个 RC 工件完整 | `check-release-artifacts.sh`、checksums 与 SPDX SBOM 均通过 |
+| Linux AMD64 `.deb` / `.rpm` | 安装路径通过兼容性容器验收 | `linux/amd64` Alpine 容器实际调用 `dpkg` / `rpm` 安装后，从 `/usr/bin/aigw` 执行；Alpine 的 `musl-linux-amd64` 命名与包的标准 `amd64` 不同，验收只为该命名差异显式使用 `--force-architecture` / `--ignorearch` |
+| 交付矩阵 | 15 个 RC 工件完整 | `check-release-artifacts.sh` 逐项重算并核对 SHA-256；`test-release-package-layout.sh` 检查便携包、macOS Universal pkg、Linux `.deb/.rpm` 与 Windows MSI 的载荷/架构/平台元数据，另有 SPDX SBOM |
 
-Linux AMD64 容器基础镜像因 Docker Hub 超时不可拉取，因此没有声称完成
-`dpkg` 系统级安装；已用同一包 payload 在 AMD64 容器实际执行补足二进制和包内容证据。
-RPM 已验证格式、payload 路径和二进制可执行性；其系统级安装仍应在具备 RPM 发行版
-基础镜像或受管 runner 后补做。
+Linux AMD64 的 `.deb` / `.rpm` 已覆盖包管理器安装、postinstall 与已安装可执行文件版本；该证据是
+Alpine x86_64 **兼容性**容器而不是 Debian/Fedora 原生发行版。故仍不得把它表述为 Debian/Fedora
+原生安装验收；后者应在受管发行版 runner 可用后补做。该限制不影响 RC 工件、静态 payload
+和架构/平台元数据的当前结论。
+
+2026-07-12 的最新本地 RC 复跑使用版本 `0.1.0-rc.3`：完整 15 工件打包、逐项 SHA-256、包布局
+与 MSI `x64` / `Arm64` template 检查均通过。该复跑未涉及网络发布、签名或公证。
 
 最新一次受控推送尝试使用 `ssh -o ConnectTimeout=10` 向
 `codex/initial-product` 推送，SSH `192.168.64.101:1122` 超时。该尝试未改变远端；
