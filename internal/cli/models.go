@@ -48,7 +48,7 @@ func newModelsCommand(app *App) *cobra.Command {
 			return err
 		}
 		if len(cfg.Profiles) == 0 {
-			return fmt.Errorf("尚未配置；运行 `aigw setup`")
+			return problem("尚未配置", "尚未创建任何服务 Profile。", "没有可检查的模型或网关目录。", "aigw setup", fmt.Errorf("not configured"))
 		}
 		modelSets := map[string]map[string]bool{}
 		for accountName, account := range cfg.Accounts {
@@ -116,6 +116,14 @@ func newCatalogCommand(app *App) *cobra.Command {
 		cfg, err := app.Config.Load()
 		if err != nil {
 			return err
+		}
+		if len(cfg.Profiles) == 0 {
+			if jsonMode {
+				enc := json.NewEncoder(app.Out)
+				enc.SetIndent("", "  ")
+				return enc.Encode(catalogOutput{Accounts: []catalogAccount{}})
+			}
+			return problem("尚未配置", "尚未创建任何服务 Profile。", "没有可用于发现模型目录的 Account 或 Token。", "aigw setup", fmt.Errorf("not configured"))
 		}
 		result := catalogOutput{Accounts: make([]catalogAccount, 0, len(cfg.Accounts))}
 		for _, accountName := range sortedAccountNames(cfg) {
