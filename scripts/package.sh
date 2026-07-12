@@ -139,6 +139,18 @@ wix_arch() {
   esac
 }
 
+msi_component_guid() {
+  arch=$1
+  component=$2
+  case "$arch:$component" in
+    amd64:AigwExe) echo F32B31D8-2CCE-4D50-959C-9290F352F0C5 ;;
+    amd64:AigwPath) echo 8361E00B-0AC1-42E7-A16A-3354BF84CEAE ;;
+    arm64:AigwExe) echo 4D557EAF-95D3-4B6B-98ED-D29DA8C754FA ;;
+    arm64:AigwPath) echo 511FB0FA-7943-45F7-B9EB-A9C203464338 ;;
+    *) echo "unknown MSI component GUID: $arch/$component" >&2; exit 2 ;;
+  esac
+}
+
 msi_version() {
   clean=${version#v}
   core=$(printf '%s' "$clean" | sed 's/[^0-9.].*$//')
@@ -164,8 +176,8 @@ build_windows_msi() {
     rm -rf "$msi_stage"
     mkdir -p "$msi_stage"
     build_binary windows "$arch" msi "$msi_stage/aigw.exe"
-    exe_guid=$(uuidgen | tr '[:lower:]' '[:upper:]')
-    path_guid=$(uuidgen | tr '[:lower:]' '[:upper:]')
+    exe_guid=$(msi_component_guid "$arch" AigwExe)
+    path_guid=$(msi_component_guid "$arch" AigwPath)
     if [ "$arch" = arm64 ] && ! wixl -a arm64 -E "$root/packaging/windows/aigw.wxs" >/dev/null 2>"$msi_stage/arm64-probe.err"; then
       wix_target=x64
     fi

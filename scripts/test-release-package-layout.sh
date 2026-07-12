@@ -102,6 +102,16 @@ for arch in amd64 arm64; do
   esac
 done
 
+msi_component_guid() {
+  case "$1:$2" in
+    amd64:AigwExe) echo '{F32B31D8-2CCE-4D50-959C-9290F352F0C5}' ;;
+    amd64:AigwPath) echo '{8361E00B-0AC1-42E7-A16A-3354BF84CEAE}' ;;
+    arm64:AigwExe) echo '{4D557EAF-95D3-4B6B-98ED-D29DA8C754FA}' ;;
+    arm64:AigwPath) echo '{511FB0FA-7943-45F7-B9EB-A9C203464338}' ;;
+    *) echo "unknown expected MSI component: $1/$2" >&2; exit 2 ;;
+  esac
+}
+
 for arch in amd64 arm64; do
   msi="$out/aigw_${version}_windows_${arch}.msi"
   stage="$work/msi-$arch"
@@ -112,6 +122,16 @@ for arch in amd64 arm64; do
     echo "unexpected MSI platform template for $arch: $template" >&2
     exit 1
   }
+  component_ids=$(msiinfo export "$msi" Component | awk -F '	' 'NR > 3 && $1 ~ /^Aigw(Exe|Path)$/ {print $1 "=" $2}')
+  for component in AigwExe AigwPath; do
+    expected=$(msi_component_guid "$arch" "$component")
+    actual=$(printf '%s\n' "$component_ids" | awk -F= -v component="$component" '$1 == component {print $2; exit}')
+    [ -n "$actual" ] || { echo "MSI missing $component component GUID: $arch" >&2; exit 1; }
+    [ "$actual" = "$expected" ] || {
+      echo "unexpected MSI $component component GUID for $arch: $actual" >&2
+      exit 1
+    }
+  done
   msiextract -C "$stage" "$msi" >/dev/null
   payload=$(find "$stage" -type f -name aigw.exe -print -quit)
   [ -n "$payload" ] || { echo "MSI missing aigw.exe: $arch" >&2; exit 1; }
