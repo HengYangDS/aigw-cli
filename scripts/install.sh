@@ -49,6 +49,19 @@ ensure_path() {
   echo "PATH updated in $profile. Open a new terminal, or run: export PATH=\"$install_dir:\$PATH\""
 }
 
+gitlab_api_url() {
+  encoded_path=$(printf '%s' "$project_path" | sed 's#/#%2F#g')
+  printf '%s/api/v4/projects/%s/releases/permalink/latest' "${AIGW_GL_HOST:-http://192.168.64.101:18086}" "$encoded_path"
+}
+
+gitlab_token_curl_config() {
+  config=$1
+  umask 077
+  escaped_token=$(printf '%s' "$GITLAB_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g')
+  printf 'header = "PRIVATE-TOKEN: %s"\n' "$escaped_token" > "$config"
+  chmod 600 "$config"
+}
+
 # AIGW_SOURCE_BINARY is an explicit local-test seam. Release downloads still
 # require authenticated retrieval and checksum validation below.
 if [ -n "${AIGW_SOURCE_BINARY:-}" ]; then
@@ -65,17 +78,27 @@ else
   case "$os" in darwin|linux) ;; *) echo "unsupported OS: $os" >&2; exit 2 ;; esac
   case "$arch" in x86_64|amd64) arch=amd64 ;; arm64|aarch64) arch=arm64 ;; *) echo "unsupported architecture: $arch" >&2; exit 2 ;; esac
   if [ "$version" = latest ]; then
-    if ! command -v glab >/dev/null 2>&1; then
-      echo "glab is required to resolve the latest release of this private project; set AIGW_VERSION to a tag or install glab" >&2
+    if command -v glab >/dev/null 2>&1; then
+      version=$(GL_HOST=${AIGW_GL_HOST:-http://192.168.64.101:18086} glab release list -R "$project_path" --per-page 1 -F json --jq '.[0].tag_name')
+    elif [ -n "${GITLAB_TOKEN:-}" ]; then
+      tmp=$(mktemp -d)
+      trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+      curl_config="$tmp/curl.conf"
+      gitlab_token_curl_config "$curl_config"
+      curl -fsSL --config "$curl_config" "$(gitlab_api_url)" -o "$tmp/latest-release.json"
+      version=$(sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$tmp/latest-release.json" | head -n 1)
+    else
+      echo "latest private release requires authenticated glab or GITLAB_TOKEN; set AIGW_VERSION to install a known tag" >&2
       exit 2
     fi
-    version=$(GL_HOST=${AIGW_GL_HOST:-http://192.168.64.101:18086} glab release list -R "$project_path" --per-page 1 -F json --jq '.[0].tag_name')
     [ -n "$version" ] || { echo "no release found" >&2; exit 2; }
   fi
   clean_version=${version#v}
   archive="aigw_${clean_version}_${os}_${arch}.tar.gz"
-  tmp=$(mktemp -d)
-  trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+  if [ -z "${tmp:-}" ]; then
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+  fi
   tag=$version
   case "$tag" in v*) ;; *) tag="v$tag" ;; esac
   url="$project_url/-/releases/$tag/downloads/$archive"
@@ -83,8 +106,10 @@ else
     GL_HOST=${AIGW_GL_HOST:-http://192.168.64.101:18086} glab release download "$tag" -R "$project_path" --asset-name "$archive" --dir "$tmp"
     GL_HOST=${AIGW_GL_HOST:-http://192.168.64.101:18086} glab release download "$tag" -R "$project_path" --asset-name checksums.txt --dir "$tmp"
   elif [ -n "${GITLAB_TOKEN:-}" ]; then
-    curl -fsSL -H "PRIVATE-TOKEN: $GITLAB_TOKEN" "$url" -o "$tmp/$archive"
-    curl -fsSL -H "PRIVATE-TOKEN: $GITLAB_TOKEN" "$project_url/-/releases/$tag/downloads/checksums.txt" -o "$tmp/checksums.txt"
+    curl_config="$tmp/curl.conf"
+    gitlab_token_curl_config "$curl_config"
+    curl -fsSL --config "$curl_config" "$url" -o "$tmp/$archive"
+    curl -fsSL --config "$curl_config" "$project_url/-/releases/$tag/downloads/checksums.txt" -o "$tmp/checksums.txt"
   else
     echo "private release download requires authenticated glab or GITLAB_TOKEN" >&2
     exit 2
