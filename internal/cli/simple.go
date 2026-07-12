@@ -24,7 +24,7 @@ func newCheckCommand(app *App) *cobra.Command {
 				return fmt.Errorf("配置无效：%w\n修复：aigw repair", err)
 			}
 			if len(cfg.Profiles) == 0 {
-				return fmt.Errorf("尚未配置；运行 `aigw`")
+				return problem("尚未配置", "尚未创建任何服务 Profile。", "无法检查、同步或修复尚不存在的配置。", "aigw setup", fmt.Errorf("not configured"))
 			}
 			runtime, err := firstCheckRuntime(cfg)
 			if err != nil {
@@ -247,7 +247,7 @@ func newRepairCommand(app *App) *cobra.Command {
 				return err
 			}
 			if len(cfg.Profiles) == 0 {
-				return fmt.Errorf("尚未配置；运行 `aigw`")
+				return problem("尚未配置", "尚未创建任何服务 Profile。", "无法检查、同步或修复尚不存在的配置。", "aigw setup", fmt.Errorf("not configured"))
 			}
 			before := cloneConfig(cfg)
 			discovered := app.Discovery.Discover()
