@@ -25,7 +25,7 @@ Use hidden terminal input or pipe exactly one line with `--token-stdin`. AIGW re
 
 ## Client boundaries
 
-The Claude shim is marked as AIGW-owned and invokes the AIGW binary's hidden adapter boundary. AIGW refuses to overwrite or remove a foreign `claude` launcher. On macOS/Linux it is created beneath AIGW's data directory rather than shared `~/.local/bin`; the Adapter writes one bounded, secret-free PATH block to the target user's shell profile. This avoids both package-manager-owned system directories and shared-bin cleanup races. The block and launcher are both AIGW-owned and removed together when the Adapter is disabled.
+The Claude shim is marked as AIGW-owned and invokes the AIGW binary's hidden adapter boundary. AIGW refuses to overwrite or remove a foreign `claude` launcher. On macOS/Linux it is created beneath AIGW's data directory rather than shared `~/.local/bin`; the Adapter writes one bounded, secret-free PATH block to the target user's shell profile. This avoids both package-manager-owned system directories and shared-bin cleanup races. The block and launcher are both AIGW-owned and removed together when the Adapter is disabled. `aigw doctor` rejects a Unix shim whose target is missing, non-executable, malformed, or under a disposable temporary directory, and directs the user to `aigw repair` before it becomes a silent Claude outage.
 
 `aigw doctor` rejects globally inherited client-token variables and reports names only, never values. Remove them from login, shell, IDE, and launch-agent environments. `AIGW_TOKEN_<ACCOUNT>` remains the explicit CI-only secret backend; it is not a global client credential. The Claude shim injects the Account Token as `ANTHROPIC_AUTH_TOKEN` only into the Claude process it launches.
 
