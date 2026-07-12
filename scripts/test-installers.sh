@@ -119,3 +119,67 @@ installed="$install_dir/aigw"
 "$installed" --version >/dev/null
 
 echo "release installer latest-version discovery: OK"
+
+printf '%s\n' '== GitLab token fallback without glab =='
+fallback_home="$tmp/fallback-home"
+fallback_install="$fallback_home/bin"
+fallback_bin="$tmp/fallback-bin"
+mkdir -p "$fallback_bin"
+cat > "$fallback_bin/curl" <<'SH'
+#!/bin/sh
+set -eu
+
+config=
+output=
+url=
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --config) config=$2; shift 2 ;;
+    -o|--output) output=$2; shift 2 ;;
+    *) url=$1; shift ;;
+  esac
+done
+
+[ -n "$config" ] || { echo "curl must receive token using --config" >&2; exit 64; }
+[ -n "$output" ] || { echo "curl must receive an output path" >&2; exit 64; }
+grep -Fx 'header = "PRIVATE-TOKEN: test-token"' "$config" >/dev/null || {
+  echo "curl config must carry the private token" >&2
+  exit 64
+}
+case "$url" in
+  */api/v4/projects/*/releases/permalink/latest)
+    printf '{\n  "tag_name": "v%s"\n}\n' "$AIGW_TEST_VERSION" > "$output"
+    ;;
+  */downloads/"$AIGW_TEST_ARCHIVE")
+    cp "$AIGW_TEST_ARCHIVE_PATH" "$output"
+    ;;
+  */downloads/checksums.txt)
+    cp "$AIGW_TEST_CHECKSUM_PATH" "$output"
+    ;;
+  *)
+    echo "unexpected curl URL: $url" >&2
+    exit 64
+    ;;
+esac
+SH
+chmod 755 "$fallback_bin/curl"
+
+env \
+  HOME="$fallback_home" \
+  SHELL=/bin/sh \
+  PATH="$fallback_bin:/usr/bin:/bin" \
+  AIGW_VERSION=latest \
+  AIGW_INSTALL_DIR="$fallback_install" \
+  AIGW_GL_HOST=https://gitlab.example.test \
+  GITLAB_TOKEN=test-token \
+  AIGW_TEST_VERSION="$version" \
+  AIGW_TEST_ARCHIVE="$archive" \
+  AIGW_TEST_ARCHIVE_PATH="$tmp/$archive" \
+  AIGW_TEST_CHECKSUM_PATH="$tmp/checksums.txt" \
+  /bin/sh "$unix_script"
+
+fallback_installed="$fallback_install/aigw"
+[ -x "$fallback_installed" ] || { echo "token fallback installer did not produce an executable" >&2; exit 1; }
+"$fallback_installed" --version >/dev/null
+
+echo "release installer GitLab-token fallback: OK"
