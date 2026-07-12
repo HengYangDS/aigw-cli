@@ -2,10 +2,17 @@
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-version=0.1.0-package-test
-out=$(mktemp -d)
+out=${1:-}
+version=${2:-}
+created_out=0
 work=$(mktemp -d)
-trap 'rm -rf "$out" "$work"' EXIT HUP INT TERM
+trap 'rm -rf "$work"; [ "$created_out" = 0 ] || rm -rf "$out"' EXIT HUP INT TERM
+
+if [ -z "$out" ] || [ -z "$version" ]; then
+  version=0.1.0-package-test
+  out=$(mktemp -d)
+  created_out=1
+fi
 
 require() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -18,7 +25,11 @@ for command in go nfpm wixl uuidgen file tar unzip ar bsdtar msiextract pkgutil 
   require "$command"
 done
 
-AIGW_REQUIRE_FULL_MATRIX=1 sh "$root/scripts/package.sh" "$version" "$out" >/dev/null
+if [ "$created_out" = 1 ]; then
+  AIGW_REQUIRE_FULL_MATRIX=1 sh "$root/scripts/package.sh" "$version" "$out" >/dev/null
+fi
+[ -d "$out" ] || { echo "artifact directory does not exist: $out" >&2; exit 2; }
+sh "$root/scripts/check-release-artifacts.sh" "$out" "$version" >/dev/null
 
 for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
   os=${target%/*}
