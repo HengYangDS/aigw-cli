@@ -72,7 +72,7 @@ func TestManagerRefusesForeignClaudeShim(t *testing.T) {
 
 func TestManagerReportsOnlyAnOwnedClaudeShimAsReady(t *testing.T) {
 	dir := t.TempDir()
-	manager := shims.Manager{GOOS: "linux", BinDir: dir, AIGWExecutable: filepath.Join(dir, "aigw")}
+	manager := shims.Manager{GOOS: "linux", BinDir: dir, AIGWExecutable: "/bin/sh"}
 	ready, err := manager.ClaudeShimReady()
 	if err != nil || ready {
 		t.Fatalf("missing shim readiness = %v, %v", ready, err)
@@ -90,6 +90,21 @@ func TestManagerReportsOnlyAnOwnedClaudeShimAsReady(t *testing.T) {
 	ready, err = manager.ClaudeShimReady()
 	if err != nil || ready {
 		t.Fatalf("foreign shim readiness = %v, %v", ready, err)
+	}
+}
+
+func TestManagerRejectsOwnedUnixShimThatTargetsTemporaryDirectory(t *testing.T) {
+	dir := t.TempDir()
+	manager := shims.Manager{GOOS: "linux", BinDir: dir, AIGWExecutable: "/tmp/aigw-build"}
+	if _, err := manager.EnableClaude(); err != nil {
+		t.Fatal(err)
+	}
+	ready, err := manager.ClaudeShimReady()
+	if err == nil || ready {
+		t.Fatalf("temporary AIGW target readiness = %v, %v", ready, err)
+	}
+	if !strings.Contains(err.Error(), "temporary directory") {
+		t.Fatalf("error = %v", err)
 	}
 }
 
