@@ -206,7 +206,11 @@ AIGW 不运行 proxy，不监听任何端口。若组织未来部署独立网关
 go test -race ./...
 go vet ./...
 sh scripts/check-retired-residue.sh
-sh scripts/package.sh 0.1.0-rc.1 dist
+AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh 0.1.0-rc.1 dist
+sh scripts/test-release-artifacts.sh
+sh scripts/test-release-package-layout.sh dist 0.1.0-rc.1
+# 可选：本地/容器兼容性验收；依赖 Docker，不能替代 Debian/Fedora runner 的原生证据。
+sh scripts/test-linux-native-install.sh dist 0.1.0-rc.1
 ```
 
 项目目标为 macOS、Linux、Windows 的 amd64 与 arm64。AIGW 只管理本地配置、密钥、路由和客户端 Adapter；任何传输代理或数据面网关均应作为独立项目维护。
