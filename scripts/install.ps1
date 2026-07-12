@@ -12,9 +12,18 @@ if (Test-Path $LocalBinary) {
     $Source = $LocalBinary
 } else {
     if ($Version -eq "latest") {
-        if (-not (Get-Command glab -ErrorAction SilentlyContinue)) { throw "glab is required to resolve the latest private release; set AIGW_VERSION or install glab" }
-        $release = glab release list -R $Project --per-page 1 -F json | ConvertFrom-Json
-        $Version = $release[0].tag_name
+        if (Get-Command glab -ErrorAction SilentlyContinue) {
+            $release = glab release list -R $Project --per-page 1 -F json | ConvertFrom-Json
+            $Version = $release[0].tag_name
+        } elseif ($env:GITLAB_TOKEN) {
+            if ($env:GITLAB_TOKEN -match "[\r\n]") { throw "GITLAB_TOKEN contains a control character" }
+            $projectID = [uri]::EscapeDataString($Project)
+            $release = Invoke-RestMethod -Uri "$HostURL/api/v4/projects/$projectID/releases/permalink/latest" -Headers @{"PRIVATE-TOKEN" = $env:GITLAB_TOKEN}
+            $Version = $release.tag_name
+        } else {
+            throw "latest private release requires authenticated glab or GITLAB_TOKEN; set AIGW_VERSION to install a known tag"
+        }
+        if (-not $Version) { throw "no release found" }
     }
     $clean = $Version.TrimStart("v")
     $tag = if ($Version.StartsWith("v")) { $Version } else { "v$Version" }
