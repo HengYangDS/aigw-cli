@@ -37,4 +37,21 @@ grep -Fx 'missing package-runner command: msiinfo' "$tmp/missing.out" >/dev/null
   exit 1
 }
 
+cat > "$tmp/msiinfo" <<'SH'
+#!/bin/sh
+exit 0
+SH
+chmod 755 "$tmp/msiinfo"
+rm -f "$tmp/sha256sum" "$tmp/shasum"
+if PATH="$tmp:/bin" sh "$root/scripts/check-package-runner.sh" > "$tmp/checksum.out" 2>&1; then
+  cat "$tmp/checksum.out" >&2
+  echo "package-runner preflight accepted no SHA-256 utility" >&2
+  exit 1
+fi
+grep -Fx 'missing package-runner SHA-256 utility: sha256sum or shasum' "$tmp/checksum.out" >/dev/null || {
+  cat "$tmp/checksum.out" >&2
+  echo "package-runner preflight did not name the missing SHA-256 capability" >&2
+  exit 1
+}
+
 echo "package runner capability contract: OK"
