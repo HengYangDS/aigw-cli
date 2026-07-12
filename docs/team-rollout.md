@@ -73,7 +73,7 @@ aigw config export
 | Windows x86-64 | `windows_amd64.msi` | `windows_amd64.zip` |
 | Windows ARM64 | `windows_arm64.msi` | `windows_arm64.zip` |
 
-发布流水线在上传前必须通过 15 个工件的完整矩阵检查：macOS Universal pkg、六个便携包、四个 Linux 原生包、两个 Windows MSI、SBOM 与统一校验和。缺少平台专属构建工具或签名材料时，流水线必须失败而不是发布残缺资产。
+发布流水线在上传前必须通过 15 个工件的完整矩阵检查：macOS Universal pkg、六个便携包、四个 Linux 原生包、两个 Windows MSI、SBOM 与统一校验和。`checksums.txt` 必须恰好包含每个非 checksum 工件的一条 SHA-256 记录：无缺失、重复、额外或歧义路径。缺少平台专属构建工具或签名材料时，流水线必须失败而不是发布残缺资产。
 
 维护者将 `package` job 调度到受管 macOS runner（tag：`macos`）；该 runner 必须具备 Go、`lipo`、`pkgbuild`、`productbuild`、`nfpm`、`wixl`、`uuidgen`、`msibuild`、`file`、`tar`、`zip`、`unzip`、`ar`、`bsdtar`、`msiextract`、`msiinfo`、`pkgutil`，以及 `sha256sum` 或 `shasum` 至少一个。job 会先运行 `check-package-runner.sh`，任一构建、验收或 SHA-256 能力缺失即失败；不能静默跳过工件，也不应回退到通用 Linux runner 产出残缺 Release。随后才构建完整矩阵、逐项重算 SHA-256，并检查所有便携包、macOS Universal pkg、Linux `.deb/.rpm` 和 Windows MSI 的载荷、CPU 架构及 MSI 平台 template。
 
