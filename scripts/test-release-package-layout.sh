@@ -102,6 +102,9 @@ for arch in amd64 arm64; do
   esac
 done
 
+# shellcheck source=msi-version.sh
+. "$root/scripts/msi-version.sh"
+
 msi_component_guid() {
   case "$1:$2" in
     amd64:AigwExe) echo '{F32B31D8-2CCE-4D50-959C-9290F352F0C5}' ;;
@@ -115,6 +118,12 @@ msi_component_guid() {
 for arch in amd64 arm64; do
   msi="$out/aigw_${version}_windows_${arch}.msi"
   stage="$work/msi-$arch"
+  product_version=$(msiinfo export "$msi" Property | awk -F '	' 'NR > 3 && $1 == "ProductVersion" {print $2; exit}' | tr -d '\r')
+  expected_product_version=$(msi_version)
+  [ "$product_version" = "$expected_product_version" ] || {
+    echo "unexpected MSI ProductVersion for $arch: $product_version" >&2
+    exit 1
+  }
   template=$(msiinfo suminfo "$msi" | awk -F': ' '$1 == "Template" {print $2; exit}')
   expected_template=x64
   [ "$arch" = arm64 ] && expected_template=Arm64

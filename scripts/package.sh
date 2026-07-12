@@ -151,15 +151,8 @@ msi_component_guid() {
   esac
 }
 
-msi_version() {
-  clean=${version#v}
-  core=$(printf '%s' "$clean" | sed 's/[^0-9.].*$//')
-  IFS=. set -- $core
-  major=${1:-0}
-  minor=${2:-0}
-  patch=${3:-0}
-  printf '%s.%s.%s' "$major" "$minor" "$patch"
-}
+# shellcheck source=msi-version.sh
+. "$root/scripts/msi-version.sh"
 
 build_windows_msi() {
   if ! command -v wixl >/dev/null 2>&1; then
