@@ -14,11 +14,12 @@ verify:
     - go test -race ./...
     - go vet ./...
     - test -z "$(gofmt -l cmd internal tools)"
-    - sh -n scripts/package.sh scripts/install.sh scripts/uninstall.sh scripts/test-portable-install.sh scripts/check-package-safety.sh scripts/check-retired-residue.sh scripts/check-release-artifacts.sh scripts/test-release-artifacts.sh scripts/test-release-package-layout.sh scripts/test-linux-native-install.sh scripts/check-release-readiness.sh scripts/test-release-readiness.sh
+    - sh -n scripts/package.sh scripts/install.sh scripts/uninstall.sh scripts/test-portable-install.sh scripts/check-package-safety.sh scripts/check-package-runner.sh scripts/check-retired-residue.sh scripts/check-release-artifacts.sh scripts/test-release-artifacts.sh scripts/test-package-runner-preflight.sh scripts/test-release-package-layout.sh scripts/test-linux-native-install.sh scripts/check-release-readiness.sh scripts/test-release-readiness.sh
     - sh scripts/check-package-safety.sh
     - sh scripts/check-retired-residue.sh
     - sh scripts/test-release-readiness.sh
     - sh scripts/test-release-artifacts.sh
+    - sh scripts/test-package-runner-preflight.sh
     - go build -o /tmp/aigw-install-smoke ./cmd/aigw
     - sh scripts/test-portable-install.sh /tmp/aigw-install-smoke
     - '! grep -RInE --exclude-dir=.git --exclude="*_test.go" "(sk-[A-Za-z0-9_-]{24,}|Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9_-]{24,})" .'
@@ -35,6 +36,7 @@ package:
   tags: [macos]
   script:
     - VERSION="${CI_COMMIT_TAG#v}"; test -n "$VERSION" || VERSION="0.1.0-${CI_COMMIT_SHORT_SHA}"
+    - sh scripts/check-package-runner.sh
     - AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$VERSION" dist
     - sh scripts/test-release-package-layout.sh dist "$VERSION"
   artifacts:

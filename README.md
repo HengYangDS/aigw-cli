@@ -206,6 +206,7 @@ AIGW 不运行 proxy，不监听任何端口。若组织未来部署独立网关
 go test -race ./...
 go vet ./...
 sh scripts/check-retired-residue.sh
+sh scripts/check-package-runner.sh
 AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh 0.1.0-rc.1 dist
 sh scripts/test-release-artifacts.sh
 sh scripts/test-release-package-layout.sh dist 0.1.0-rc.1
