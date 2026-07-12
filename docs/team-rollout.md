@@ -77,7 +77,7 @@ aigw config export
 
 维护者将 `package` job 调度到受管 macOS runner（tag：`macos`）；该 runner 必须具备 Go、`lipo`、`pkgbuild`、`productbuild`、`nfpm`、`wixl`、`uuidgen`、`msibuild`、`file`、`tar`、`zip`、`unzip`、`ar`、`bsdtar`、`msiextract`、`msiinfo`、`pkgutil`，以及 `sha256sum` 或 `shasum` 至少一个。job 会先运行 `check-package-runner.sh`，任一构建、验收或 SHA-256 能力缺失即失败；不能静默跳过工件，也不应回退到通用 Linux runner 产出残缺 Release。随后才构建完整矩阵、逐项重算 SHA-256，并检查所有便携包、macOS Universal pkg、Linux `.deb/.rpm` 和 Windows MSI 的载荷、CPU 架构及 MSI 平台 template。
 
-还必须包含 `checksums.txt` 和 `aigw_<version>.spdx.json`。`amd64` 是常见 Intel/AMD 64 位 x86；`arm64` 是 ARM 64 位。Windows MSI 的 `ProductCode` 每次构建可以变化，但 `AigwExe` 与 `AigwPath` 的组件 GUID 按目标架构固定，以保证同一架构的 Major Upgrade 正确替换程序与用户 PATH 组件。独立的 Linux 原生安装验收应在 Debian 与 RPM 系发行版 runner 上进行；兼容性容器的 `dpkg`/`rpm` 安装结果不能替代该原生发行版证据。
+还必须包含 `checksums.txt` 和 `aigw_<version>.spdx.json`。`amd64` 是常见 Intel/AMD 64 位 x86；`arm64` 是 ARM 64 位。Windows MSI 的 `ProductCode` 每次构建可以变化，但 `AigwExe` 与 `AigwPath` 的组件 GUID 按目标架构固定，以保证同一架构的 Major Upgrade 正确替换程序与用户 PATH 组件。MSI 的三段 `ProductVersion` 使用受测映射：第三段编码 SemVer patch 与预发布阶段，确保 `alpha < beta < rc < GA`，且相邻 patch 仍严格递增；不要把 RC、快照和 GA 压成同一个 MSI 版本。独立的 Linux 原生安装验收应在 Debian 与 RPM 系发行版 runner 上进行；兼容性容器的 `dpkg`/`rpm` 安装结果不能替代该原生发行版证据。
 
 ## Team member
 
