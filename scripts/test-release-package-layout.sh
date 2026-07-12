@@ -21,15 +21,23 @@ require() {
   }
 }
 
-for command in go nfpm wixl uuidgen file tar unzip ar bsdtar msiextract pkgutil lipo; do
+for command in file tar unzip ar bsdtar msiextract pkgutil lipo; do
   require "$command"
 done
 
 if [ "$created_out" = 1 ]; then
+  for command in go nfpm wixl uuidgen; do
+    require "$command"
+  done
   AIGW_REQUIRE_FULL_MATRIX=1 sh "$root/scripts/package.sh" "$version" "$out" >/dev/null
 fi
 [ -d "$out" ] || { echo "artifact directory does not exist: $out" >&2; exit 2; }
 sh "$root/scripts/check-release-artifacts.sh" "$out" "$version" >/dev/null
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd "$out" && sha256sum -c checksums.txt >/dev/null)
+else
+  (cd "$out" && shasum -a 256 -c checksums.txt >/dev/null)
+fi
 
 for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
   os=${target%/*}
