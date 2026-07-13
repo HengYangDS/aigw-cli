@@ -121,7 +121,7 @@ func TestCatalogAllHumanOutputIncludesEveryModelAsReadableRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"configured-model", "Profile configured", "unconfigured-model", "未配置"} {
+	for _, want := range []string{"configured-model", "配置 configured", "unconfigured-model", "未配置"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("full catalog lacks %q:\n%s", want, text)
 		}
@@ -134,7 +134,7 @@ func TestCatalogAllHumanOutputIncludesEveryModelAsReadableRecord(t *testing.T) {
 func TestCatalogRejectsAllWithJSON(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	err := execute(t, app, "catalog", "--all", "--json")
-	if err == nil || !strings.Contains(err.Error(), "--all cannot be combined with --json") {
+	if err == nil || !strings.Contains(err.Error(), "--all 不能与 --json 同时使用") {
 		t.Fatalf("catalog flags error = %v", err)
 	}
 }
@@ -251,7 +251,7 @@ func TestModelsCommandKeepsLongProfileNamesOnOneLine(t *testing.T) {
 	if strings.Contains(text, "claude-opus-4-8-\n") || strings.Contains(text, "thinking      ") {
 		t.Fatalf("long profile name was wrapped or column-padded badly:\n%s", text)
 	}
-	if !strings.Contains(text, "Profile  claude-opus-4-8-thinking") || !strings.Contains(text, "Claude · claude-opus-4-8-thinking · 可达 · Account dmx") {
+	if !strings.Contains(text, "配置  claude-opus-4-8-thinking") || !strings.Contains(text, "Claude · claude-opus-4-8-thinking · 可达 · 账户 dmx") {
 		t.Fatalf("models output should use detail layout for long profile names:\n%s", text)
 	}
 }
