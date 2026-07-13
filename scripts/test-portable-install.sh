@@ -12,6 +12,7 @@ home="$tmp/home"
 install_dir="$home/bin"
 config_file="$home/.config/aigw/config.toml"
 profile="$home/.profile"
+zshenv="$home/.zshenv"
 foreign="$install_dir/foreign-tool"
 
 mkdir -p "$(dirname -- "$config_file")" "$install_dir"
@@ -41,6 +42,7 @@ env HOME="$home" AIGW_INSTALL_DIR="$install_dir" /bin/sh "$root/scripts/uninstal
 [ "$(cat "$config_file")" = "preserve-me" ] || { echo "portable uninstall changed configuration" >&2; exit 1; }
 grep -F 'export AIGW_SMOKE_KEEP=1' "$profile" >/dev/null
 ! grep -F '# >>> AIGW PATH >>>' "$profile" >/dev/null
+[ ! -f "$zshenv" ] || ! grep -F '# >>> AIGW PATH bootstrap >>>' "$zshenv" >/dev/null
 [ -x "$source_binary" ] || { echo "portable lifecycle changed source binary" >&2; exit 1; }
 
 echo "portable installation lifecycle: OK"

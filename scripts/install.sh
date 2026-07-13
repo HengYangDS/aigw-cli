@@ -4,6 +4,7 @@ set -eu
 # The portable installer is invoked from arbitrary shell environments. Start
 # from the platform's trusted base tool directories instead of inheriting a
 # user-modified or empty PATH; the installed AIGW PATH block is handled below.
+initial_path=${PATH-}
 PATH=/usr/bin:/bin:/usr/sbin:/sbin
 export PATH
 
@@ -18,6 +19,30 @@ shell_profile() {
     fish) mkdir -p "$HOME/.config/fish"; echo "$HOME/.config/fish/config.fish" ;;
     *) echo "$HOME/.profile" ;;
   esac
+}
+
+ensure_zsh_bootstrap() {
+  [ "$(basename "${SHELL:-sh}")" = zsh ] || return 0
+  case ":$initial_path:" in *:/usr/bin:*|*:/bin:*) return 0 ;; esac
+  bootstrap="$HOME/.zshenv"
+  begin="# >>> AIGW PATH bootstrap >>>"
+  end="# <<< AIGW PATH bootstrap <<<"
+  tmp="$bootstrap.aigw.$$"
+  if [ -f "$bootstrap" ]; then
+    awk -v begin="$begin" -v end="$end" '
+      $0 == begin {skip=1; next}
+      $0 == end {skip=0; next}
+      skip != 1 {print}
+    ' "$bootstrap" > "$tmp"
+  else
+    : > "$tmp"
+  fi
+  {
+    printf '\n%s\n' "$begin"
+    printf 'case ":$PATH:" in *:/usr/bin:*|*:/bin:*) ;; *) export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH" ;; esac\n'
+    printf '%s\n' "$end"
+  } >> "$tmp"
+  mv "$tmp" "$bootstrap"
 }
 
 ensure_path() {
@@ -72,6 +97,7 @@ tmp_binary="$install_dir/.aigw.new.$$"
 cp "$source_binary" "$tmp_binary"
 chmod 755 "$tmp_binary"
 mv "$tmp_binary" "$install_dir/aigw"
+ensure_zsh_bootstrap
 ensure_path
 
 echo "Installed $install_dir/aigw"
