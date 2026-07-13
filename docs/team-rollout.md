@@ -6,7 +6,7 @@
 
 ```toml
 version = 2
-recommended_default = "gpt-5.6-terra-cdx"
+recommended_default = "gpt-5.6-terra"
 
 [accounts."team-gateway"]
 label = "Team Gateway"
@@ -15,14 +15,14 @@ label = "Team Gateway"
 openai_responses = "https://gateway.example/v1"
 anthropic = "https://gateway.example"
 
-[profiles."gpt-5.6-terra-cdx"]
+[profiles."gpt-5.6-terra"]
 label = "GPT-5.6 Terra Codex"
 purpose = "Codex 代码与工程"
 account = "team-gateway"
 client = "codex"
 
-[profiles."gpt-5.6-terra-cdx".models]
-codex = "gpt-5.6-terra-cdx"
+[profiles."gpt-5.6-terra".models]
+codex = "gpt-5.6-terra"
 
 [profiles."claude-fable-5"]
 label = "Claude Fable (recommended)"
@@ -95,7 +95,7 @@ aigw config import team-profiles.toml
 aigw rotate team-gateway
 aigw catalog                 # 默认显示已配置模型与数量摘要
 aigw catalog --all           # 显式展开完整模型目录
-aigw use gpt-5.6-terra-cdx --for codex
+aigw use gpt-5.6-terra --for codex
 aigw use claude-fable-5 --for claude
 aigw check
 ```
@@ -107,7 +107,7 @@ aigw check
 ```sh
 aigw config import team-profiles.toml --replace-account team-gateway
 # 如 Profile 同名且模型或用途也需要替换：
-aigw config import team-profiles.toml --replace-profile gpt-5.6-terra-cdx
+aigw config import team-profiles.toml --replace-profile gpt-5.6-terra
 ```
 
 `--replace-account` 不会复制、删除或更改成员系统密钥中的 Token；它只接受经成员确认的 Account 元数据替换。

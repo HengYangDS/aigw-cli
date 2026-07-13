@@ -257,8 +257,8 @@ func TestUseCodexProfileOnSameAccountDoesNotRebindCredentials(t *testing.T) {
 	}
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["sol"] = domain.Profile{Label: "Sol", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
-	cfg.Profiles["terra"] = domain.Profile{Label: "Terra", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-terra-cdx"}}
+	cfg.Profiles["sol"] = domain.Profile{Label: "Sol", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol"}}
+	cfg.Profiles["terra"] = domain.Profile{Label: "Terra", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-terra"}}
 	cfg.Routes.Default = "sol"
 	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
@@ -278,7 +278,7 @@ func TestUseCodexProfileOnSameAccountDoesNotRebindCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `model = "gpt-5.6-terra-cdx" # managed by AIGW`) {
+	if !strings.Contains(string(data), `model = "gpt-5.6-terra" # managed by AIGW`) {
 		t.Fatalf("Codex model was not switched:\n%s", data)
 	}
 }
@@ -643,8 +643,8 @@ func TestTestCommandUsesAccountTokenForRuntimeProfile(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
-	cfg.Routes.Default = "gpt-5.6-sol-cdx"
+	cfg.Profiles["gpt-5.6-sol"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol"}}
+	cfg.Routes.Default = "gpt-5.6-sol"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -655,7 +655,7 @@ func TestTestCommandUsesAccountTokenForRuntimeProfile(t *testing.T) {
 	if app.HTTP.(*fakeHTTP).headers.Get("Authorization") != "Bearer account-token" {
 		t.Fatalf("authorization header = %q", app.HTTP.(*fakeHTTP).headers.Get("Authorization"))
 	}
-	if strings.Contains(out.String(), "account-token") || !strings.Contains(out.String(), "gpt-5.6-sol-cdx") {
+	if strings.Contains(out.String(), "account-token") || !strings.Contains(out.String(), "gpt-5.6-sol") {
 		t.Fatalf("test output = %s", out.String())
 	}
 }
@@ -664,8 +664,8 @@ func TestTestCommandUsesCodexModelsEndpointAndRejectsNotFound(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
-	cfg.Routes.Default = "gpt-5.6-sol-cdx"
+	cfg.Profiles["gpt-5.6-sol"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol"}}
+	cfg.Routes.Default = "gpt-5.6-sol"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

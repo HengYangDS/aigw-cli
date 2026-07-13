@@ -7,11 +7,11 @@ AIGW  当前状态
 ────────────────────────────────────────
 配置
   当前 Account      Team Gateway
-  默认 Profile      gpt-5.6-terra-cdx
+  默认 Profile      gpt-5.6-terra
 
 客户端
   ✓ Claude       claude-fable-5 · 单独指定 · 已就绪
-  ✓ Codex        gpt-5.6-terra-cdx · 继承默认 · 已就绪
+  ✓ Codex        gpt-5.6-terra · 继承默认 · 已就绪
 
 下一步
   aigw check
@@ -27,7 +27,7 @@ AIGW  当前状态
 
 本机直连不是“只能连一个服务”：每个服务 Account 有自己的一把系统密钥和可用协议端点；同一 Account 下可有任意多个模型 Profile，并由 Claude、Codex 或默认 Route 显式选择。团队集中 Gateway 不是安装或日常使用的前提。只有组织确实需要集中审计、预算、协议转换或统一出口时，才应单独评测和部署一个独立 Gateway；AIGW 只把它当作普通 HTTPS Account 入口，绝不管理其端口、进程或上游密钥。
 
-任意上游服务商都可作为一个 Account。当前精简的可运行基线是 `gpt-5.6-terra-cdx`（Codex）和 `claude-fable-5`（默认 Agent）；Sonnet 与 Opus 仅作明确的按需选择。示例团队清单用可选的 `purpose` 标出每个 Profile 的日常用途，帮助成员选择，而不改变路由或密钥边界。模型名对 AIGW 是透明字符串，团队可按自身已验证的能力增删；[模型策略](docs/model-strategy.md)定义了推荐集与新客户端的准入边界。
+任意上游服务商都可作为一个 Account。当前精简的可运行基线是 `gpt-5.6-terra`（Codex）和 `claude-fable-5`（默认 Agent）；Sonnet 与 Opus 仅作明确的按需选择。示例团队清单用可选的 `purpose` 标出每个 Profile 的日常用途，帮助成员选择，而不改变路由或密钥边界。模型名对 AIGW 是透明字符串，团队可按自身已验证的能力增删；[模型策略](docs/model-strategy.md)定义了推荐集与新客户端的准入边界。
 
 ## 安装
 
@@ -74,7 +74,7 @@ aigw setup
 ```bash
 aigw config import team-profiles.toml
 aigw rotate team-gateway
-aigw use gpt-5.6-terra-cdx --for codex
+aigw use gpt-5.6-terra --for codex
 aigw use claude-fable-5 --for claude
 aigw check
 ```
@@ -85,7 +85,7 @@ aigw check
 
 ```sh
 aigw config import team-profiles.toml --replace-account team-gateway
-aigw config import team-profiles.toml --replace-profile gpt-5.6-terra-cdx
+aigw config import team-profiles.toml --replace-profile gpt-5.6-terra
 ```
 
 `--replace-account` 仅替换 Account 元数据；对应的系统密钥槽位与 Token 不会被团队清单读取、写入或删除。
@@ -95,11 +95,11 @@ aigw config import team-profiles.toml --replace-profile gpt-5.6-terra-cdx
 ```bash
 aigw setup \
   --account team-gateway \
-  --profile gpt-5.6-terra-cdx \
+  --profile gpt-5.6-terra \
   --label "Team Gateway" \
   --openai-url https://gateway.example/v1 \
   --for codex \
-  --model gpt-5.6-terra-cdx
+  --model gpt-5.6-terra
 ```
 
 Token 使用隐藏输入；自动化场景可将一行 Token 管道输入并添加 `--token-stdin`。
@@ -131,7 +131,9 @@ aigw update                  # 按安装渠道更新
 AIGW 分两层管理：
 
 - **Account**：上游服务商账户、URL、Token 和可选的服务商精确诊断，例如 `team-gateway`。
-- **Profile**：用户日常切换的模型运行配置，例如 `gpt-5.6-terra-cdx`、`claude-fable-5`、`claude-opus-4-8-thinking`；可选的 `purpose` 仅提供一行用途提示。
+- **Profile**：用户日常切换的模型运行配置，例如 `gpt-5.6-terra`、`claude-fable-5`、`claude-opus-4-8-thinking`；可选的 `purpose` 仅提供一行用途提示。
+
+Profile 与模型 ID 保持上游的 canonical 名称；客户端语义由 `client` 表达，不再以历史客户端后缀编码进 GPT 名称。
 
 多个 Profile 可以引用同一个 Account，所以轮换 Token 只需要：
 
@@ -142,7 +144,7 @@ aigw rotate team-gateway
 切换模型只需要：
 
 ```bash
-aigw use gpt-5.6-terra-cdx --for codex
+aigw use gpt-5.6-terra --for codex
 aigw use claude-fable-5 --for claude
 ```
 
