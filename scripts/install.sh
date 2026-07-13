@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 
+# The portable installer is invoked from arbitrary shell environments. Start
+# from the platform's trusted base tool directories instead of inheriting a
+# user-modified or empty PATH; the installed AIGW PATH block is handled below.
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+
 install_dir=${AIGW_INSTALL_DIR:-"$HOME/.local/bin"}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
