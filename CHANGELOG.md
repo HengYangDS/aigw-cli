@@ -4,7 +4,8 @@
 
 - Make portable installer and uninstaller help side-effect free on Unix and
   PowerShell, and retain exactly one immediately preceding portable binary for
-  recovery; portable uninstall removes that AIGW-owned rollback binary only.
+  recovery across both archive installs and `aigw update`; portable uninstall
+  removes that AIGW-owned rollback binary only.
 - Retire historical GPT `-cdx` aliases: canonical Profile/model IDs no longer
   duplicate the Codex client scope, and validation plus residue gates reject
   their reintroduction.

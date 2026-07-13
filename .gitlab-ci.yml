@@ -20,6 +20,7 @@ verify:
     - sh scripts/test-release-readiness.sh
     - sh scripts/test-release-artifacts.sh
     - sh scripts/test-package-runner-preflight.sh
+    - sh scripts/test-linux-native-install-staging.sh
     - sh scripts/test-msi-version.sh
     - sh scripts/test-pipeline-gates.sh
     - go build -o /tmp/aigw-install-smoke ./cmd/aigw

@@ -43,7 +43,8 @@ GA 的受保护 CI 必须对**同一组实际发布工件**证明：
 
 结构证据与运行证据必须区分。Linux 验收脚本在 Alpine x86_64 兼容性容器中安装
 `amd64` `.deb` 与 `.rpm`，随后运行 `/usr/bin/aigw`。其中的架构名称处理已在脚本中
-显式声明；它不等同于 Debian/Fedora 原生验收。受管 Debian runner 与 Fedora runner
+显式声明；脚本会先将所需工件暂存到 Docker 可共享的用户缓存目录，避免 macOS
+容器运行时无法挂载私有 `/tmp`。它不等同于 Debian/Fedora 原生验收。受管 Debian runner 与 Fedora runner
 才是该两类发行版的更强证据。若镜像、容器引擎或网络不可用，应把 Linux 运行证据
 记录为“不可用”，不得复用旧结果。
 
