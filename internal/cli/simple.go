@@ -21,7 +21,7 @@ func newCheckCommand(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {
-				return fmt.Errorf("配置无效：%w\n修复：aigw repair", err)
+				return err
 			}
 			if len(cfg.Profiles) == 0 {
 				return problem("尚未配置", "尚未创建任何服务配置。", "无法检查、同步或修复尚不存在的配置。", "aigw setup", fmt.Errorf("not configured"))
