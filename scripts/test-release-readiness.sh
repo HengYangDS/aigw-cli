@@ -13,4 +13,9 @@ if sh "$root/scripts/check-release-readiness.sh" 0.1.0 >/dev/null 2>&1; then
   exit 1
 fi
 
+if grep -n -E '当前状态（20|0\.1\.0-rc\.[0-9]+|codex/initial-product|GitLab SSH|GitLab API|e082b00' "$root/docs/release-readiness.md"; then
+  echo "release evidence contract contains a stale release snapshot" >&2
+  exit 1
+fi
+
 echo "release readiness policy: OK"
