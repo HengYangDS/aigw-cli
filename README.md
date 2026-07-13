@@ -47,7 +47,7 @@ AIGW  当前状态
 
 `darwin_universal.pkg` 内含 Intel（`amd64`）和 Apple Silicon（`arm64`）两个原生架构，安装时自动选择；它不是 ARM 专用包。`amd64` 表示常见 Intel/AMD 64 位 x86 机器；`arm64` 表示 Apple Silicon、ARM Linux 或 Windows on ARM。
 
-也可以使用便携安装脚本：
+解压对应便携包后，在包目录使用便携安装脚本：
 
 ```bash
 sh install.sh
@@ -57,7 +57,7 @@ sh install.sh
 .\install.ps1
 ```
 
-便携安装默认放到 Unix 的 `~/.local/bin` 或 Windows 的 `%LOCALAPPDATA%\Programs\aigw\bin`。原生安装包负责系统安装语义；AIGW 不注册 daemon、launchd、systemd 或计划任务。
+脚本只安装包内的二进制，不访问网络、不读取 GitLab Token；安装完成后的升级统一使用 `aigw update`。便携安装默认放到 Unix 的 `~/.local/bin` 或 Windows 的 `%LOCALAPPDATA%\Programs\aigw\bin`。原生安装包负责系统安装语义；AIGW 不注册 daemon、launchd、systemd 或计划任务。
 
 ## 第一次使用
 
