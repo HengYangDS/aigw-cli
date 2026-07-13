@@ -31,14 +31,14 @@ func newAddCommand(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			if !domain.ValidProfileName(name) {
-				return fmt.Errorf("invalid profile name %q; use letters, numbers, dot, dash, or underscore", name)
+				return fmt.Errorf("服务名称无效 %q；只能使用字母、数字、点、连字符或下划线", name)
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
 				return err
 			}
 			if _, exists := cfg.Profiles[name]; exists {
-				return fmt.Errorf("profile %q already exists; use `aigw profile edit %s` or `aigw rotate %s`", name, name, name)
+				return fmt.Errorf("配置 %q 已存在；请使用 `aigw profile edit %s` 或 `aigw rotate %s`", name, name, name)
 			}
 			if label == "" {
 				label = name
@@ -71,7 +71,7 @@ func newAddCommand(app *App) *cobra.Command {
 			r.Title("AIGW", "服务已添加")
 			r.Section("服务")
 			r.Row("名称", label)
-			r.Row("Profile", name)
+			r.Row("配置", name)
 			r.Status(presentation.OK, "系统密钥", "已安全保存")
 			r.Next("aigw check")
 			return nil
@@ -108,7 +108,7 @@ func newUseCommand(app *App) *cobra.Command {
 				name = args[0]
 			} else {
 				if !app.Interactive {
-					return fmt.Errorf("profile is required outside an interactive terminal; run `aigw use <profile>`")
+					return fmt.Errorf("非交互终端必须指定配置；请运行 `aigw use <profile>`")
 				}
 				name, err = chooseProfile(app, cfg, "选择要使用的 AI 服务：")
 				if err != nil {
@@ -116,7 +116,7 @@ func newUseCommand(app *App) *cobra.Command {
 				}
 			}
 			if _, ok := cfg.Profiles[name]; !ok {
-				return fmt.Errorf("unknown profile %q; inspect `aigw profile list`", name)
+				return fmt.Errorf("未知配置 %q；请运行 `aigw profile list` 查看", name)
 			}
 			accountName, providerAccount, err := accountForInput(cfg, name)
 			if err != nil {
@@ -125,7 +125,7 @@ func newUseCommand(app *App) *cobra.Command {
 			addedToken := false
 			if !app.Secrets.Has(accountName) {
 				if !app.Interactive {
-					return fmt.Errorf("account %q has no token; repair with `aigw rotate %s`", accountName, accountName)
+					return fmt.Errorf("服务账户 %q 缺少 Token；请运行 `aigw rotate %s`", accountName, accountName)
 				}
 				token, err := app.Prompt.Secret("请粘贴 " + providerAccount.Label + " Token：")
 				if err != nil {
@@ -183,7 +183,7 @@ func newRotateCommand(app *App) *cobra.Command {
 	var tokenStdin bool
 	cmd := &cobra.Command{
 		Use:   "rotate [account]",
-		Short: "更新当前 Account 的 Token",
+		Short: "更新当前服务账户的 Token",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := app.Config.Load()
@@ -208,7 +208,7 @@ func newRotateCommand(app *App) *cobra.Command {
 			} else if app.Interactive {
 				token, err = app.Prompt.Secret("请粘贴 " + account.Label + " Token：")
 			} else {
-				return fmt.Errorf("token input requires a terminal; pipe it to `aigw rotate %s --token-stdin`", accountName)
+				return fmt.Errorf("Token 输入需要交互终端；请将一行 Token 通过管道传入 `aigw rotate %s --token-stdin`", accountName)
 			}
 			if err != nil {
 				return err
@@ -233,9 +233,9 @@ func newRotateCommand(app *App) *cobra.Command {
 						rollbackErr = syncCodexProjection(cmd.Context(), app, cfg)
 					}
 					if rollbackErr != nil {
-						return fmt.Errorf("token sync failed: %w; rollback also failed: %v", err, rollbackErr)
+						return fmt.Errorf("Token 同步失败：%w；回退也失败：%v", err, rollbackErr)
 					}
-					return fmt.Errorf("token sync failed and was rolled back: %w", err)
+					return fmt.Errorf("Token 同步失败，已回退：%w", err)
 				}
 				if err := bindCodexAuthentication(cmd.Context(), app, cfg); err != nil {
 					var rollbackErr error
@@ -251,16 +251,16 @@ func newRotateCommand(app *App) *cobra.Command {
 						}
 					}
 					if rollbackErr != nil {
-						return fmt.Errorf("token authentication failed: %w; rollback also failed: %v", err, rollbackErr)
+						return fmt.Errorf("Token 认证同步失败：%w；回退也失败：%v", err, rollbackErr)
 					}
-					return fmt.Errorf("token authentication failed and was rolled back: %w", err)
+					return fmt.Errorf("Token 认证同步失败，已回退：%w", err)
 				}
 			}
 			r := renderer(app)
 			r.Title("AIGW", "Token 已更新")
 			r.Section("服务")
 			r.Row("账户", account.Label)
-			r.Row("Account", accountName)
+			r.Row("服务账户", accountName)
 			r.Status(presentation.OK, "Token", "验证通过并已安全保存")
 			if syncCodex {
 				r.Success("Codex 认证已同步")
@@ -300,6 +300,12 @@ type routeStatus struct {
 	AdapterIssue     string `json:"adapter_issue,omitempty"`
 	NeedsSelection   bool   `json:"needs_selection,omitempty"`
 	SuggestedProfile string `json:"suggested_profile,omitempty"`
+}
+
+type endpointTestResult struct {
+	client    string
+	profileID string
+	status    int
 }
 
 type statusOutput struct {
@@ -342,7 +348,7 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		r := renderer(app)
 		r.Title("AIGW", "尚未配置")
 		r.Section("开始使用")
-		r.Text("运行一次向导即可添加服务、Token 与首个模型 Profile。")
+		r.Text("运行一次向导即可添加服务、Token 与首个模型配置。")
 		r.Next("aigw setup")
 		return nil
 	}
@@ -352,12 +358,12 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 	current := cfg.Profiles[result.Default]
 	accountName := current.Account
 	account := cfg.Accounts[accountName]
-	r.Row("当前 Profile", current.Label)
-	r.Row("Profile", result.Default)
+	r.Row("当前配置", current.Label)
+	r.Row("配置", result.Default)
 	if purpose := strings.TrimSpace(current.Purpose); purpose != "" {
 		r.Row("用途", purpose)
 	}
-	r.Row("Account", accountName)
+	r.Row("服务账户", accountName)
 	if current.ModelFor(domain.ClientCodex) != "" {
 		r.Row("Codex 模型", current.ModelFor(domain.ClientCodex))
 	}
@@ -372,7 +378,7 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		route := result.Routes[client]
 		if route.NeedsSelection {
 			state := presentation.Warn
-			message := "未选择 " + title(client) + " Profile"
+			message := "未选择 " + title(client) + " 配置"
 			if route.SuggestedProfile != "" {
 				cmd := "aigw use " + route.SuggestedProfile + " --for " + client
 				message += " · " + cmd
@@ -418,6 +424,65 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 	} else {
 		r.Next("aigw check")
 	}
+	return nil
+}
+
+// runRouteList answers the narrow question "which Profile will each client
+// use?". Status intentionally remains the operational overview (adapter,
+// endpoint, and secret readiness); keeping this view separate prevents a
+// routine route inspection from being buried under unrelated diagnostics.
+func runRouteList(app *App) error {
+	cfg, err := app.Config.Load()
+	if err != nil {
+		return err
+	}
+	if len(cfg.Profiles) == 0 {
+		return problem("尚未配置", "尚未创建任何服务配置。", "没有可查看的默认路由或客户端覆盖。", "aigw setup", fmt.Errorf("not configured"))
+	}
+	r := renderer(app)
+	r.Title("AIGW", "当前路由")
+	r.Section("默认路由")
+	if profile, ok := cfg.Profiles[cfg.Routes.Default]; ok {
+		r.Status(presentation.OK, "默认配置", cfg.Routes.Default)
+		r.Detail(profileChoiceLabel(profile))
+	} else {
+		r.Status(presentation.Fail, "默认配置", "未找到 "+cfg.Routes.Default)
+		r.Detail("运行 aigw use 选择可用配置")
+	}
+	r.Section("客户端")
+	nextCommand := ""
+	for _, client := range domain.AdmittedClientIDs() {
+		runtime, inherited, resolveErr := cfg.ResolveRuntime(client, "")
+		if resolveErr != nil {
+			state := presentation.Warn
+			message := "未选择 " + title(client) + " 配置"
+			if suggested := firstProfileForClient(cfg, client); suggested != "" {
+				command := "aigw use " + suggested + " --for " + client
+				message += " · " + command
+				if nextCommand == "" {
+					nextCommand = command
+				}
+			}
+			r.Status(state, title(client), message)
+			continue
+		}
+		profileName := runtime.ProfileID
+		mode := "继承默认"
+		if !inherited {
+			mode = "单独指定"
+		}
+		profile, ok := cfg.Profiles[profileName]
+		if !ok {
+			r.Status(presentation.Fail, title(client), profileName+" · "+mode+" · 配置不存在")
+			continue
+		}
+		r.Status(presentation.OK, title(client), profileName+" · "+mode)
+		r.Detail(profileChoiceLabel(profile))
+	}
+	if nextCommand == "" {
+		nextCommand = "aigw use <profile> --for <claude|codex>"
+	}
+	r.Next(nextCommand)
 	return nil
 }
 
@@ -505,10 +570,10 @@ func newTestCommand(app *App) *cobra.Command {
 				}
 				clients = []string{client}
 			}
-			checked := 0
-			r := renderer(app)
-			r.Title("AIGW", "连接测试")
-			r.Section("端点")
+			if len(cfg.Profiles) == 0 {
+				return problem("尚未配置", "尚未创建任何服务配置。", "没有可测试的客户端端点。", "aigw setup", fmt.Errorf("not configured"))
+			}
+			results := make([]endpointTestResult, 0, len(clients))
 			for _, target := range clients {
 				runtime, _, err := cfg.ResolveRuntime(target, profileName)
 				if err != nil {
@@ -519,7 +584,7 @@ func newTestCommand(app *App) *cobra.Command {
 					if client == "" {
 						continue
 					}
-					return fmt.Errorf("profile %q has no %s endpoint", runtime.ProfileID, title(target))
+					return fmt.Errorf("配置 %q 未设置 %s 端点", runtime.ProfileID, title(target))
 				}
 				testURL := endpoint
 				if target == domain.ClientCodex {
@@ -535,34 +600,39 @@ func newTestCommand(app *App) *cobra.Command {
 				token, err := app.Secrets.Get(accountName)
 				if err != nil {
 					cancel()
-					return fmt.Errorf("account %q token unavailable: %w; repair with `aigw rotate %s`", accountName, err, accountName)
+					return fmt.Errorf("服务账户 %q 的 Token 不可用：%w；请运行 `aigw rotate %s`", accountName, err, accountName)
 				}
 				req.Header.Set("Authorization", "Bearer "+token)
 				resp, err := app.HTTP.Do(req)
 				cancel()
 				if err != nil {
-					return fmt.Errorf("%s endpoint unreachable: %w", target, err)
+					return fmt.Errorf("%s 端点不可达：%w", title(target), err)
 				}
 				io.Copy(io.Discard, resp.Body)
 				resp.Body.Close()
 				if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-					return fmt.Errorf("%s authentication rejected (HTTP %d); repair with `aigw rotate %s`", target, resp.StatusCode, accountName)
+					return fmt.Errorf("%s 认证被拒绝（HTTP %d）；请运行 `aigw rotate %s`", title(target), resp.StatusCode, accountName)
 				}
 				if resp.StatusCode < 200 || resp.StatusCode >= 400 {
-					return fmt.Errorf("%s endpoint returned HTTP %d", target, resp.StatusCode)
+					return fmt.Errorf("%s 端点返回 HTTP %d", title(target), resp.StatusCode)
 				}
-				r.Status(presentation.OK, title(target), fmt.Sprintf("%s · HTTP %d", runtime.ProfileID, resp.StatusCode))
-				checked++
+				results = append(results, endpointTestResult{client: target, profileID: runtime.ProfileID, status: resp.StatusCode})
 			}
-			if checked == 0 {
-				return fmt.Errorf("resolved profiles have no testable client endpoint")
+			if len(results) == 0 {
+				return fmt.Errorf("已解析的配置没有可测试的客户端端点")
+			}
+			r := renderer(app)
+			r.Title("AIGW", "连接测试")
+			r.Section("端点")
+			for _, result := range results {
+				r.Status(presentation.OK, title(result.client), fmt.Sprintf("%s · HTTP %d", result.profileID, result.status))
 			}
 			r.Next("aigw check")
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&client, "for", "", "仅测试 Claude 或 Codex")
-	cmd.Flags().StringVar(&profileName, "profile", "", "测试指定 Profile，且不修改路由")
+	cmd.Flags().StringVar(&profileName, "profile", "", "测试指定配置，且不修改路由")
 	return cmd
 }
 
@@ -606,7 +676,7 @@ func newVerifyCommand(app *App) *cobra.Command {
 				accountName := runtime.AccountID
 				token, err := app.Secrets.Get(accountName)
 				if err != nil {
-					return fmt.Errorf("account %q token unavailable: %w; repair with `aigw rotate %s`", accountName, err, accountName)
+					return fmt.Errorf("服务账户 %q 的 Token 不可用：%w；请运行 `aigw rotate %s`", accountName, err, accountName)
 				}
 				ctx, cancel := context.WithTimeout(cmd.Context(), 25*time.Second)
 				if target == domain.ClientCodex {
@@ -631,7 +701,7 @@ func newVerifyCommand(app *App) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&client, "for", "", "验证 Claude、Codex 或全部")
-	cmd.Flags().StringVar(&profileName, "profile", "", "验证指定 Profile，且不修改路由")
+	cmd.Flags().StringVar(&profileName, "profile", "", "验证指定配置，且不修改路由")
 	return cmd
 }
 
@@ -652,26 +722,26 @@ type verificationResponse struct {
 func validateFullVerificationReadiness(app *App, cfg domain.Config) error {
 	claude := cfg.Adapters[domain.ClientClaude]
 	if !claude.Enabled || claude.Executable == "" {
-		return fmt.Errorf("full verification requires an enabled Claude adapter; run `aigw repair`")
+		return fmt.Errorf("全链路验证需要已启用的 Claude 适配器；请运行 `aigw repair`")
 	}
 	ready, err := app.Shims.ClaudeShimReady()
 	if err != nil {
-		return fmt.Errorf("inspect Claude shim: %w", err)
+		return fmt.Errorf("读取 Claude 启动器失败：%w", err)
 	}
 	if !ready {
-		return fmt.Errorf("full verification requires the AIGW-managed Claude shim; run `aigw repair`")
+		return fmt.Errorf("全链路验证需要 AIGW 管理的 Claude 启动器；请运行 `aigw repair`")
 	}
 	codex := cfg.Adapters[domain.ClientCodex]
 	if !codex.Enabled || codex.Executable == "" || len(codex.Targets) == 0 {
-		return fmt.Errorf("full verification requires an enabled Codex adapter with at least one target; run `aigw repair`")
+		return fmt.Errorf("全链路验证需要已启用且至少有一个配置目标的 Codex 适配器；请运行 `aigw repair`")
 	}
 	runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
 	if err != nil {
-		return fmt.Errorf("resolve Codex route for full verification: %w", err)
+		return fmt.Errorf("解析全链路验证所需的 Codex 路由失败：%w", err)
 	}
 	for _, target := range codex.Targets {
 		if err := adapters.ValidateCodexConfig(target, runtime); err != nil {
-			return fmt.Errorf("full verification requires a synchronized Codex target %s: %w; run `aigw sync`", target, err)
+			return fmt.Errorf("全链路验证要求已同步的 Codex 配置目标 %s：%w；请运行 `aigw sync`", target, err)
 		}
 	}
 	return nil
@@ -681,7 +751,7 @@ func verifyCodexResponse(ctx context.Context, app *App, runtime domain.Runtime, 
 	endpoint := runtime.Endpoint
 	model := runtime.Model
 	if model == "" {
-		return fmt.Errorf("profile %q has no Codex model", runtime.ProfileID)
+		return fmt.Errorf("配置 %q 未设置 Codex 模型", runtime.ProfileID)
 	}
 	body, err := json.Marshal(map[string]any{
 		"model":             model,
@@ -690,7 +760,7 @@ func verifyCodexResponse(ctx context.Context, app *App, runtime domain.Runtime, 
 		"store":             false,
 	})
 	if err != nil {
-		return fmt.Errorf("encode Codex verification request: %w", err)
+		return fmt.Errorf("编码 Codex 验证请求失败：%w", err)
 	}
 	requestURL := strings.TrimRight(endpoint, "/")
 	if !strings.HasSuffix(requestURL, "/responses") {
@@ -704,24 +774,24 @@ func verifyCodexResponse(ctx context.Context, app *App, runtime domain.Runtime, 
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := app.HTTP.Do(req)
 	if err != nil {
-		return fmt.Errorf("Codex model request failed: %w", err)
+		return fmt.Errorf("Codex 模型请求失败：%w", err)
 	}
 	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, verificationResponseLimit+1))
 	if err != nil {
-		return fmt.Errorf("read Codex verification response: %w", err)
+		return fmt.Errorf("读取 Codex 验证响应失败：%w", err)
 	}
 	if len(responseBody) > verificationResponseLimit {
-		return fmt.Errorf("Codex verification response exceeded %d bytes", verificationResponseLimit)
+		return fmt.Errorf("Codex 验证响应超过 %d 字节", verificationResponseLimit)
 	}
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return fmt.Errorf("Codex model authentication rejected (HTTP %d); repair with `aigw rotate %s`", resp.StatusCode, runtime.AccountID)
+		return fmt.Errorf("Codex 模型认证被拒绝（HTTP %d）；请运行 `aigw rotate %s`", resp.StatusCode, runtime.AccountID)
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("Codex model request returned HTTP %d", resp.StatusCode)
+		return fmt.Errorf("Codex 模型请求返回 HTTP %d", resp.StatusCode)
 	}
 	if !hasVerificationSentinel(responseBody) {
-		return fmt.Errorf("Codex model response did not return the required verification sentinel")
+		return fmt.Errorf("Codex 模型响应未返回预期的 AIGW_OK 验证标记")
 	}
 	return nil
 }
@@ -750,14 +820,14 @@ func hasVerificationSentinel(data []byte) bool {
 func verifyClaudeInvocation(ctx context.Context, app *App, cfg domain.Config, runtime domain.Runtime, token string) error {
 	adapter := cfg.Adapters[domain.ClientClaude]
 	if !adapter.Enabled || adapter.Executable == "" {
-		return fmt.Errorf("Claude adapter is not enabled; run `aigw repair`")
+		return fmt.Errorf("Claude 适配器未启用；请运行 `aigw repair`")
 	}
 	ready, err := app.Shims.ClaudeShimReady()
 	if err != nil {
 		return err
 	}
 	if !ready {
-		return fmt.Errorf("Claude shim is missing; run `aigw repair`")
+		return fmt.Errorf("Claude 启动器缺失；请运行 `aigw repair`")
 	}
 	plan, err := adapters.ClaudePlan(adapter.Executable, []string{"--print", "Reply with exactly: AIGW_OK"}, os.Environ(), runtime, token)
 	if err != nil {
@@ -768,14 +838,14 @@ func verifyClaudeInvocation(ctx context.Context, app *App, cfg domain.Config, ru
 	plan.Replace = false
 	runner, ok := app.Runner.(CaptureRunner)
 	if !ok {
-		return fmt.Errorf("Claude verification runner is unavailable")
+		return fmt.Errorf("Claude 验证执行器不可用")
 	}
 	output, err := runner.RunCapture(ctx, plan)
 	if err != nil {
-		return fmt.Errorf("Claude minimal request failed: %w", err)
+		return fmt.Errorf("Claude 最小验证请求失败：%w", err)
 	}
 	if strings.TrimSpace(string(output)) != verificationSentinel {
-		return fmt.Errorf("Claude model response did not return the required verification sentinel")
+		return fmt.Errorf("Claude 模型响应未返回预期的 AIGW_OK 验证标记")
 	}
 	return nil
 }
@@ -828,7 +898,7 @@ func newRollbackCommand(app *App) *cobra.Command {
 				restored, err = app.Config.LoadBackup()
 				if err != nil {
 					if errors.Is(err, os.ErrNotExist) {
-						return fmt.Errorf("no verified checkpoint or previous configuration backup is available")
+						return fmt.Errorf("没有可用的完整验证检查点或上一次配置备份")
 					}
 					return err
 				}
@@ -879,7 +949,7 @@ func bindCodexAuthentication(ctx context.Context, app *App, cfg domain.Config) e
 		return nil
 	}
 	if adapter.Executable == "" || app.Runner == nil {
-		return fmt.Errorf("Codex authentication requires an enabled adapter executable")
+		return fmt.Errorf("Codex 认证需要已启用适配器的可执行文件")
 	}
 	runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
 	if err != nil {
@@ -888,7 +958,7 @@ func bindCodexAuthentication(ctx context.Context, app *App, cfg domain.Config) e
 	accountName := runtime.AccountID
 	token, err := app.Secrets.Get(accountName)
 	if err != nil {
-		return fmt.Errorf("Codex route token unavailable: %w", err)
+		return fmt.Errorf("Codex 路由的 Token 不可用：%w", err)
 	}
 	for _, target := range adapter.Targets {
 		plan, err := adapters.CodexLoginPlan(adapter.Executable, filepath.Dir(target), token)
@@ -990,18 +1060,18 @@ func commitConfigAndSync(ctx context.Context, app *App, before, after domain.Con
 		if err := syncCodexProjection(ctx, app, after); err != nil {
 			rollbackErr := rollbackConfigAndAdapters(ctx, app, before, false)
 			if rollbackErr != nil {
-				return fmt.Errorf("%s sync failed: %w; rollback also failed: %v", subject, err, rollbackErr)
+				return fmt.Errorf("%s 同步失败：%w；回退也失败：%v", subject, err, rollbackErr)
 			}
-			return fmt.Errorf("%s sync failed and was rolled back: %w", subject, err)
+			return fmt.Errorf("%s 同步失败，已回退：%w", subject, err)
 		}
 	}
 	if codexAuthenticationChanged(before, after) {
 		if err := bindCodexAuthentication(ctx, app, after); err != nil {
 			rollbackErr := rollbackConfigAndAdapters(ctx, app, before, true)
 			if rollbackErr != nil {
-				return fmt.Errorf("%s authentication failed: %w; rollback also failed: %v", subject, err, rollbackErr)
+				return fmt.Errorf("%s 认证失败：%w；回退也失败：%v", subject, err, rollbackErr)
 			}
-			return fmt.Errorf("%s authentication failed and was rolled back: %w", subject, err)
+			return fmt.Errorf("%s 认证失败，已回退：%w", subject, err)
 		}
 	}
 	return nil
@@ -1018,10 +1088,10 @@ func accountForInput(cfg domain.Config, name string) (string, domain.Account, er
 	if profile, ok := cfg.Profiles[name]; ok {
 		account, exists := cfg.Accounts[profile.Account]
 		if !exists {
-			return "", domain.Account{}, fmt.Errorf("profile %q references unknown account %q", name, profile.Account)
+			return "", domain.Account{}, fmt.Errorf("配置 %q 引用了未知服务账户 %q", name, profile.Account)
 		}
 		account.ID = profile.Account
 		return profile.Account, account, nil
 	}
-	return "", domain.Account{}, fmt.Errorf("unknown account or profile %q", name)
+	return "", domain.Account{}, fmt.Errorf("未知服务账户或配置 %q", name)
 }
