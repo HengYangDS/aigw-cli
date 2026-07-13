@@ -524,7 +524,7 @@ func TestDoctorChecksAccountTokenOnceForSharedProfiles(t *testing.T) {
 	if strings.Contains(text, "secret:alpha-model") || strings.Contains(text, "secret:beta-model") {
 		t.Fatalf("doctor checked profile secrets instead of account secret:\n%s", text)
 	}
-	if !strings.Contains(text, "secret:dmx") || !strings.Contains(text, "未发现问题") {
+	if !strings.Contains(text, "系统密钥") || !strings.Contains(text, "dmx · 可用") || !strings.Contains(text, "未发现问题") {
 		t.Fatalf("doctor did not report account secret cleanly:\n%s", text)
 	}
 }
