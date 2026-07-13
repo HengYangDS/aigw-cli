@@ -13,6 +13,7 @@ import (
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/account"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/redaction"
 )
 
 type HTTPDoer interface {
@@ -35,7 +36,7 @@ func Probe(ctx context.Context, client HTTPDoer, providerAccount domain.Account,
 		return account.Report{}, err
 	}
 	if !user.Success {
-		return account.Report{}, fmt.Errorf("DMXAPI account query failed: %s", user.Message)
+		return account.Report{}, fmt.Errorf("DMXAPI account query failed: %s", redaction.Text(user.Message, credential.SystemToken, credential.UserID))
 	}
 	items, err := fetchTokens(ctx, client, base, credential)
 	if err != nil {
@@ -92,7 +93,7 @@ func fetchTokens(ctx context.Context, client HTTPDoer, base string, credential a
 			return nil, err
 		}
 		if !payload.Success {
-			return nil, fmt.Errorf("DMXAPI token query failed: %s", payload.Message)
+			return nil, fmt.Errorf("DMXAPI token query failed: %s", redaction.Text(payload.Message, credential.SystemToken, credential.UserID))
 		}
 		items = append(items, payload.Data.Items...)
 		if len(payload.Data.Items) < 100 {
@@ -118,7 +119,7 @@ func getJSON(ctx context.Context, client HTTPDoer, endpoint string, credential a
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("DMXAPI platform API returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return fmt.Errorf("DMXAPI platform API returned HTTP %d: %s", resp.StatusCode, redaction.Text(strings.TrimSpace(string(body)), credential.SystemToken, credential.UserID))
 	}
 	return json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(target)
 }
