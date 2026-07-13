@@ -65,6 +65,16 @@ func TestProbeUsesModelsEndpointAndNeverReturnsCredential(t *testing.T) {
 	}
 }
 
+func TestProbeRedactsAnAPIKeyEchoedByTheGateway(t *testing.T) {
+	secret := "sk-gateway-token-must-not-leak"
+	result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
+		return response(http.StatusForbidden, `{"message":"rejected token sk-gateway-token-must-not-leak"}`), nil
+	}), runtime(), secret)
+	if strings.Contains(result.Detail, secret) {
+		t.Fatalf("gateway response leaked API token: %#v", result)
+	}
+}
+
 func TestProbeClassifiesNetworkFailure(t *testing.T) {
 	result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 		return nil, errors.New("dial tcp: network unreachable")
