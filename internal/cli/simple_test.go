@@ -382,7 +382,7 @@ func TestDoctorAcceptsOwnedClaudeShimWithoutPathDiscovery(t *testing.T) {
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{}}
 	err := execute(t, app, "doctor")
-	if err != nil || !strings.Contains(out.String(), "shim:claude") || !strings.Contains(out.String(), "AIGW managed") {
+	if err != nil || !strings.Contains(out.String(), "Claude 启动器") || !strings.Contains(out.String(), "AIGW 管理的 Claude 启动器已就绪") {
 		t.Fatalf("doctor did not accept the owned shim; err=%v output=%s", err, out.String())
 	}
 }
