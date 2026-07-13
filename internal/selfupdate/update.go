@@ -167,6 +167,96 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (string, err
 	return "已更新到 " + tag + "。", nil
 }
 
+// Rollback restores the immediately preceding portable AIGW executable without
+// accessing the network. It swaps the current and previous binaries so the
+// action itself remains reversible and never creates an unbounded chain.
+func (u Updater) Rollback(_ context.Context) (string, error) {
+	if u.Channel == "" {
+		u.Channel = ChannelPortable
+	}
+	if u.Channel != ChannelPortable {
+		return "", fmt.Errorf("program rollback is available only for a portable installation; use the native package manager for %s", u.Channel)
+	}
+	if strings.TrimSpace(u.Executable) == "" {
+		return "", errors.New("AIGW executable path is empty")
+	}
+	if u.GOOS == "windows" && runtime.GOOS == "windows" {
+		return u.scheduleWindowsRollback()
+	}
+	current, err := os.ReadFile(u.Executable)
+	if err != nil {
+		return "", fmt.Errorf("read current AIGW executable: %w", err)
+	}
+	backup := rollbackPath(u.Executable)
+	previous, err := os.ReadFile(backup)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("no previous portable AIGW binary is available")
+		}
+		return "", fmt.Errorf("read previous AIGW executable: %w", err)
+	}
+	info, err := os.Stat(u.Executable)
+	if err != nil {
+		return "", fmt.Errorf("inspect current AIGW executable: %w", err)
+	}
+	if err := transaction.WriteFileAtomic(u.Executable, previous, info.Mode().Perm()); err != nil {
+		return "", fmt.Errorf("restore previous AIGW executable: %w", err)
+	}
+	if err := os.Chmod(u.Executable, info.Mode().Perm()); err != nil {
+		return "", fmt.Errorf("make restored AIGW executable runnable: %w", err)
+	}
+	if err := transaction.WriteFileAtomic(backup, current, info.Mode().Perm()); err != nil {
+		rollbackErr := transaction.WriteFileAtomic(u.Executable, current, info.Mode().Perm())
+		if rollbackErr != nil {
+			return "", fmt.Errorf("save reversible AIGW rollback copy: %w; restore current binary also failed: %v", err, rollbackErr)
+		}
+		return "", fmt.Errorf("save reversible AIGW rollback copy failed and current binary was restored: %w", err)
+	}
+	if err := os.Chmod(backup, info.Mode().Perm()); err != nil {
+		return "", fmt.Errorf("make reversible AIGW rollback copy runnable: %w", err)
+	}
+	return "已恢复上一程序版本；可再次运行 `aigw update --rollback` 恢复当前版本。", nil
+}
+
+func (u Updater) scheduleWindowsRollback() (string, error) {
+	backup := rollbackPath(u.Executable)
+	previous, err := os.ReadFile(backup)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("no previous portable AIGW binary is available")
+		}
+		return "", fmt.Errorf("read previous AIGW executable: %w", err)
+	}
+	info, err := os.Stat(u.Executable)
+	if err != nil {
+		return "", fmt.Errorf("inspect current AIGW executable: %w", err)
+	}
+	staged := windowsRollbackStagePath(u.Executable)
+	if err := os.WriteFile(staged, previous, info.Mode().Perm()); err != nil {
+		return "", fmt.Errorf("stage Windows AIGW rollback: %w", err)
+	}
+	if err := os.Chmod(staged, info.Mode().Perm()); err != nil {
+		return "", fmt.Errorf("make staged Windows AIGW rollback executable: %w", err)
+	}
+	script := u.Executable + ".rollback.cmd"
+	content, err := WindowsRollbackPlan(u.Executable)
+	if err != nil {
+		_ = os.Remove(staged)
+		return "", err
+	}
+	if err := os.WriteFile(script, []byte(content), 0o600); err != nil {
+		_ = os.Remove(staged)
+		return "", fmt.Errorf("write Windows AIGW rollback helper: %w", err)
+	}
+	cmd := exec.Command("cmd", "/C", "start", "", "/B", script)
+	if err := cmd.Start(); err != nil {
+		_ = os.Remove(script)
+		_ = os.Remove(staged)
+		return "", fmt.Errorf("start Windows AIGW rollback helper: %w", err)
+	}
+	return "已安排恢复上一程序版本；退出本次命令后将完成回退。", nil
+}
+
 func preservePreviousBinary(executable string) error {
 	previous, err := os.ReadFile(executable)
 	if err != nil {
@@ -199,6 +289,10 @@ func rollbackPath(executable string) string {
 		return filepath.Join(directory, ".aigw.previous.exe")
 	}
 	return filepath.Join(directory, ".aigw.previous")
+}
+
+func windowsRollbackStagePath(executable string) string {
+	return executable + ".rollback"
 }
 
 func (u Updater) updatePackage(ctx context.Context, tag, version string) (string, error) {
@@ -763,4 +857,17 @@ func WindowsReplacementPlan(executable string) (string, error) {
 	staged := executable + ".update"
 	previous := rollbackPath(executable)
 	return fmt.Sprintf("@echo off\r\nping 127.0.0.1 -n 3 > nul\r\nif exist \"%s\" move /Y \"%s\" \"%s\" > nul\r\nmove /Y \"%s\" \"%s\" > nul\r\ndel \"%%~f0\"\r\n", executable, executable, previous, staged, executable), nil
+}
+
+// WindowsRollbackPlan returns the delayed, reversible program-only rollback
+// script. It runs after the invoking executable exits, swaps the current and
+// previous portable binaries, and restores the original pair if activation of
+// the staged predecessor fails. It deliberately has no network operations.
+func WindowsRollbackPlan(executable string) (string, error) {
+	if strings.TrimSpace(executable) == "" {
+		return "", errors.New("Windows AIGW executable path is empty")
+	}
+	previous := rollbackPath(executable)
+	staged := windowsRollbackStagePath(executable)
+	return fmt.Sprintf("@echo off\r\nping 127.0.0.1 -n 3 > nul\r\nmove /Y \"%s\" \"%s\" > nul\r\nif errorlevel 1 goto :failed_before_swap\r\nmove /Y \"%s\" \"%s\" > nul\r\nif not errorlevel 1 goto :success\r\nmove /Y \"%s\" \"%s\" > nul\r\nif errorlevel 1 goto :failed\r\nmove /Y \"%s\" \"%s\" > nul\r\ngoto :failed\r\n:failed_before_swap\r\ndel \"%s\" > nul 2>&1\r\n:failed\r\ndel \"%%~f0\"\r\nexit /b 1\r\n:success\r\ndel \"%%~f0\"\r\nexit /b 0\r\n", executable, previous, staged, executable, previous, executable, staged, previous, staged), nil
 }

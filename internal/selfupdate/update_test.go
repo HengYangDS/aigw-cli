@@ -167,6 +167,100 @@ func TestUpdateMakesReplacedRollbackBinaryExecutable(t *testing.T) {
 	}
 }
 
+func TestPortableRollbackSwapsCurrentAndPreviousBinary(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "aigw")
+	backup := filepath.Join(filepath.Dir(binary), ".aigw.previous")
+	if err := os.WriteFile(binary, []byte("current-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(backup, []byte("previous-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Channel: selfupdate.ChannelPortable, Executable: binary}
+	message, err := u.Rollback(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(message, "已恢复上一程序版本") {
+		t.Fatalf("message = %q", message)
+	}
+	current, err := os.ReadFile(binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous, err := os.ReadFile(backup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(current) != "previous-binary" || string(previous) != "current-binary" {
+		t.Fatalf("current=%q previous=%q", current, previous)
+	}
+	for _, path := range []string{filepath.Join(filepath.Dir(binary), ".aigw.rollback.stage"), filepath.Join(filepath.Dir(binary), ".aigw.previous.rollback")} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("rollback left staging residue %s: %v", path, err)
+		}
+	}
+}
+
+func TestPortableRollbackRefusesMissingPreviousBinary(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(binary, []byte("current-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Channel: selfupdate.ChannelPortable, Executable: binary}
+	_, err := u.Rollback(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "no previous portable AIGW binary") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestProgramRollbackRejectsPackageManagedInstall(t *testing.T) {
+	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Channel: selfupdate.ChannelPKG, Executable: filepath.Join(t.TempDir(), "aigw")}
+	_, err := u.Rollback(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "portable installation") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestPortableRollbackRoundTripsProgramBinaries(t *testing.T) {
+	dir := t.TempDir()
+	currentSource := filepath.Join(dir, "current-source")
+	previousSource := filepath.Join(dir, "previous-source")
+	current := filepath.Join(dir, "aigw")
+	previous := filepath.Join(dir, ".aigw.previous")
+	if err := os.WriteFile(currentSource, []byte("current-program"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(previousSource, []byte("previous-program"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyFixtureFile(currentSource, current); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyFixtureFile(previousSource, previous); err != nil {
+		t.Fatal(err)
+	}
+	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Channel: selfupdate.ChannelPortable, Executable: current}
+	if _, err := u.Rollback(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixtureFilesEqual(current, previousSource); err != nil {
+		t.Fatalf("first rollback did not activate prior program: %v", err)
+	}
+	if err := fixtureFilesEqual(previous, currentSource); err != nil {
+		t.Fatalf("first rollback did not retain current program: %v", err)
+	}
+	if _, err := u.Rollback(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixtureFilesEqual(current, currentSource); err != nil {
+		t.Fatalf("second rollback did not restore original program: %v", err)
+	}
+	if err := fixtureFilesEqual(previous, previousSource); err != nil {
+		t.Fatalf("second rollback did not restore prior program: %v", err)
+	}
+}
+
 func TestUpdateUsesSupportedGlabJSONFlags(t *testing.T) {
 	runner := &fakeRunner{}
 	u := selfupdate.Updater{
@@ -787,6 +881,40 @@ func TestWindowsReplacementPlanUsesPortableRollbackNameForForwardSlashPath(t *te
 	}
 }
 
+func TestWindowsRollbackPlanStagesPriorBinaryAndRestoresTheOriginalPairOnFailure(t *testing.T) {
+	executable := `C:\\Users\\test\\aigw.exe`
+	plan, err := selfupdate.WindowsRollbackPlan(executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		`move /Y "C:\\Users\\test\\aigw.exe" "C:\\Users\\test\\.aigw.previous.exe"`,
+		`move /Y "C:\\Users\\test\\aigw.exe.rollback" "C:\\Users\\test\\aigw.exe"`,
+		`move /Y "C:\\Users\\test\\.aigw.previous.exe" "C:\\Users\\test\\aigw.exe"`,
+		`move /Y "C:\\Users\\test\\aigw.exe.rollback" "C:\\Users\\test\\.aigw.previous.exe"`,
+		`del "C:\\Users\\test\\aigw.exe.rollback" > nul 2>&1`,
+		`ping 127.0.0.1 -n 3 > nul`,
+		`if errorlevel 1 goto :failed_before_swap`,
+		`if not errorlevel 1 goto :success`,
+	} {
+		if !strings.Contains(plan, expected) {
+			t.Fatalf("Windows rollback plan missing %q:\n%s", expected, plan)
+		}
+	}
+	if strings.Contains(plan, "http://") || strings.Contains(plan, "https://") {
+		t.Fatalf("Windows rollback plan must not contain a network endpoint:\n%s", plan)
+	}
+	if strings.Contains(plan, `if exist "C:\\Users\\test\\aigw.exe"`) {
+		t.Fatalf("Windows rollback plan must not treat an unchanged current binary as success:\n%s", plan)
+	}
+}
+
+func TestWindowsRollbackPlanRejectsEmptyExecutable(t *testing.T) {
+	if _, err := selfupdate.WindowsRollbackPlan(" \t"); err == nil || !strings.Contains(err.Error(), "empty") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestPackageManagedDebUpdateDownloadsVerifiesAndInvokesPackageManager(t *testing.T) {
 	payload := []byte("deb package")
 	sum := sha256.Sum256(payload)
@@ -893,6 +1021,29 @@ func containsSequence(values []string, want ...string) bool {
 		}
 	}
 	return false
+}
+
+func copyFixtureFile(source, destination string) error {
+	data, err := os.ReadFile(source)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(destination, data, 0o755)
+}
+
+func fixtureFilesEqual(left, right string) error {
+	leftData, err := os.ReadFile(left)
+	if err != nil {
+		return err
+	}
+	rightData, err := os.ReadFile(right)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(leftData, rightData) {
+		return fmt.Errorf("contents differ")
+	}
+	return nil
 }
 
 func tarGz(t *testing.T, name string, data []byte) []byte {
