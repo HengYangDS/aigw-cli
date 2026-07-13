@@ -186,7 +186,7 @@ func TestSetupWithoutFlagsRefusesBeforePromptingWhenAlreadyConfigured(t *testing
 		t.Fatal(err)
 	}
 	err := execute(t, app, "setup")
-	if err == nil || !strings.Contains(err.Error(), "already configured") {
+	if err == nil || !strings.Contains(err.Error(), "已完成首次配置") {
 		t.Fatalf("setup error = %v", err)
 	}
 }

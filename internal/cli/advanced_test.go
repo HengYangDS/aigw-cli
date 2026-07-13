@@ -146,7 +146,7 @@ codex = "team-model"
 func TestConfigUpgradeIsNotAnAvailableCommand(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	err := execute(t, app, "config", "upgrade")
-	if err == nil || !strings.Contains(err.Error(), "unknown config command") {
+	if err == nil || !strings.Contains(err.Error(), "未知 config 子命令") {
 		t.Fatalf("config upgrade error = %v", err)
 	}
 }
@@ -224,8 +224,8 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 func TestConfigDoesNotExposeRemovedLegacyMigration(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	err := execute(t, app, "config", "migrate", filepath.Join(t.TempDir(), "config.json"))
-	if err == nil || !strings.Contains(err.Error(), "unknown config command") {
-		t.Fatalf("legacy migration command error = %v, want unknown config command", err)
+	if err == nil || !strings.Contains(err.Error(), "未知 config 子命令") {
+		t.Fatalf("legacy migration command error = %v, want 未知 config 子命令", err)
 	}
 }
 
@@ -282,7 +282,7 @@ func TestAdapterCommandsListOnlyAdmittedClients(t *testing.T) {
 	}
 
 	err := execute(t, app, "profile", "add", "future", "--account", "team", "--for", "gemini", "--model", "gemini-next")
-	if err == nil || !strings.Contains(err.Error(), "claude or codex") {
+	if err == nil || !strings.Contains(err.Error(), "claude 或 codex") {
 		t.Fatalf("unadmitted client error = %v", err)
 	}
 }
