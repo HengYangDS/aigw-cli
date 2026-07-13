@@ -33,7 +33,7 @@ AIGW  当前状态
 
 从私有 GitLab Release 下载与你平台匹配的安装包，并校验 `checksums.txt`。
 
-正式团队 Release 在上传前必须通过完整 15 工件矩阵；缺失某平台的原生构建工具时，流水线会拒绝发布，不会悄悄生成残缺 Release。校验和与 SBOM 是当前 RC 的可验证交付物。无预发布后缀的 GA tag 在组织的 macOS/Windows 签名、公证与验证作业落地前会被 CI 明确阻断，不能伪造或绕过；见 [发布就绪状态](docs/release-readiness.md)。
+正式团队 Release 在上传前必须通过完整 15 工件矩阵；缺失某平台的原生构建工具时，流水线会拒绝发布，不会悄悄生成残缺 Release。校验和与 SBOM 是当前 RC 的可验证交付物。无预发布后缀的 GA tag 在组织的 macOS/Windows 签名、公证与验证作业落地前会被 CI 明确阻断，不能伪造或绕过；见[发布证据契约](docs/release-readiness.md)。
 
 | 平台 | 推荐安装包 | 便携包 |
 |---|---|---|
