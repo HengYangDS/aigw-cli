@@ -162,10 +162,13 @@ AIGW 不部署网关，也不占用本地端口。若组织未来部署独立网
 - Linux `.deb/.rpm`：下载并调用系统包管理器安装。
 - Windows `.msi`：下载并启动 Windows Installer。
 
-私有 GitLab Release 优先使用已认证的 `glab`，并继承
-`AIGW_GL_HOST`。若成员未安装 `glab`，可仅在当前终端提供
-`GITLAB_TOKEN` 后执行同一条 `aigw update`；Token 不会被写入 AIGW
-配置、命令行或错误信息。所有安装渠道都会先校验发布工件的 SHA-256。
+便携包内的安装脚本只复制包内二进制，不联网也不处理 GitLab Token。安装后，
+私有 GitLab Release 的升级统一通过 `aigw update`：优先使用已认证的 `glab`
+并继承 `AIGW_GL_HOST`；成员未安装 `glab` 时，可仅在当前终端提供
+`GITLAB_TOKEN`。Token 不会被写入 AIGW 配置、命令行或错误信息；Token 回退
+要求显式 HTTPS、无路径无凭据的 `AIGW_GL_HOST`，有固定超时、拒绝跨协议降级，
+且不会把已安装版本替换为较旧或格式非法的 Release。所有安装渠道都会先校验发布
+工件的 SHA-256。
 
 ## CI
 

@@ -17,7 +17,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"time"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
 )
@@ -25,6 +27,8 @@ import (
 const project = "dig/misc/agentic-third-party-api/aigw-cli"
 
 const defaultGitLabHost = "http://192.168.64.101:18086"
+
+const gitLabRequestTimeout = 30 * time.Second
 
 type CommandRunner interface {
 	Run(context.Context, string, ...string) ([]byte, error)
@@ -75,6 +79,7 @@ type Updater struct {
 	Channel    Channel
 	Executable string
 	Runner     CommandRunner
+	HTTPClient *http.Client
 }
 
 type Channel string
@@ -100,12 +105,22 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (string, err
 	if u.Channel == "" {
 		u.Channel = ChannelPortable
 	}
+	if err := u.validateGitLabHost(); err != nil {
+		return "", err
+	}
 	tag, err := u.latestTag(ctx)
 	if err != nil {
 		return "", err
 	}
-	if normalizeVersion(tag) == normalizeVersion(currentVersion) {
+	comparison, err := compareVersions(tag, currentVersion)
+	if err != nil {
+		return "", err
+	}
+	if comparison == 0 {
 		return "已经是最新版 " + tag + "。", nil
+	}
+	if comparison < 0 {
+		return "", fmt.Errorf("refusing to replace %s with older release %s", currentVersion, tag)
 	}
 	version := normalizeVersion(tag)
 	if u.Channel != ChannelPortable {
@@ -212,6 +227,9 @@ func (u Updater) downloadReleaseAssets(ctx context.Context, tag, directory strin
 			if !isGlabUnavailable(err) {
 				return fmt.Errorf("download release asset %s: %w", asset, err)
 			}
+			if err := u.validateTokenFallbackHost(); err != nil {
+				return err
+			}
 			for _, remaining := range assets[index:] {
 				if err := u.downloadReleaseAssetFromGitLabAPI(ctx, tag, remaining, directory); err != nil {
 					return err
@@ -236,7 +254,7 @@ func (u Updater) downloadReleaseAssetFromGitLabAPI(ctx context.Context, tag, ass
 		return fmt.Errorf("create GitLab release-download request: %w", err)
 	}
 	request.Header.Set("PRIVATE-TOKEN", token)
-	response, err := gitLabHTTPClient().Do(request)
+	response, err := u.gitLabHTTPClient().Do(request)
 	if err != nil {
 		return fmt.Errorf("download release asset %s: %w", asset, err)
 	}
@@ -323,6 +341,9 @@ func (u Updater) latestTag(ctx context.Context) (string, error) {
 	output, err := u.runGlab(ctx, "release", "list", "-R", project, "--per-page", "1", "-F", "json", "--jq", ".[0].tag_name")
 	if err != nil {
 		if isGlabUnavailable(err) {
+			if err := u.validateTokenFallbackHost(); err != nil {
+				return "", err
+			}
 			return u.latestTagFromGitLabAPI(ctx)
 		}
 		return "", fmt.Errorf("query latest release: %w", err)
@@ -348,7 +369,7 @@ func (u Updater) latestTagFromGitLabAPI(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("create GitLab latest-release request: %w", err)
 	}
 	request.Header.Set("PRIVATE-TOKEN", token)
-	response, err := gitLabHTTPClient().Do(request)
+	response, err := u.gitLabHTTPClient().Do(request)
 	if err != nil {
 		return "", fmt.Errorf("query GitLab latest release: %w", err)
 	}
@@ -376,10 +397,15 @@ func (u Updater) runGlab(ctx context.Context, args ...string) ([]byte, error) {
 }
 
 func (u Updater) gitLabHost() string {
-	if host := strings.TrimRight(strings.TrimSpace(os.Getenv("AIGW_GL_HOST")), "/"); host != "" {
-		return host
+	host := strings.TrimRight(strings.TrimSpace(os.Getenv("AIGW_GL_HOST")), "/")
+	if host == "" {
+		return defaultGitLabHost
 	}
-	return defaultGitLabHost
+	parsed, err := url.Parse(host)
+	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
+		return ""
+	}
+	return host
 }
 
 func (u Updater) gitLabAPIURL(path string) string {
@@ -401,12 +427,41 @@ func gitLabToken() (string, error) {
 	return token, nil
 }
 
-func gitLabHTTPClient() *http.Client {
-	client := *http.DefaultClient
+func (u Updater) validateGitLabHost() error {
+	if u.gitLabHost() == "" {
+		return fmt.Errorf("AIGW_GL_HOST must be an HTTP(S) origin without credentials, path, query, or fragment")
+	}
+	return nil
+}
+
+func (u Updater) validateTokenFallbackHost() error {
+	configuredHost := strings.TrimSpace(os.Getenv("AIGW_GL_HOST"))
+	if configuredHost == "" {
+		return fmt.Errorf("GITLAB_TOKEN fallback requires explicit AIGW_GL_HOST with an HTTPS origin")
+	}
+	parsed, err := url.Parse(configuredHost)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
+		return fmt.Errorf("GITLAB_TOKEN fallback requires AIGW_GL_HOST to be an HTTPS origin without credentials, path, query, or fragment")
+	}
+	return nil
+}
+
+func (u Updater) gitLabHTTPClient() *http.Client {
+	base := u.HTTPClient
+	if base == nil {
+		base = http.DefaultClient
+	}
+	client := *base
+	if client.Timeout == 0 {
+		client.Timeout = gitLabRequestTimeout
+	}
 	defaultCheckRedirect := client.CheckRedirect
 	client.CheckRedirect = func(request *http.Request, previous []*http.Request) error {
 		if len(previous) > 0 && !strings.EqualFold(request.URL.Host, previous[0].URL.Host) {
 			request.Header.Del("PRIVATE-TOKEN")
+		}
+		if len(previous) > 0 && previous[0].URL.Scheme == "https" && request.URL.Scheme != "https" {
+			return fmt.Errorf("refusing GitLab update redirect from HTTPS to HTTP")
 		}
 		if defaultCheckRedirect != nil {
 			return defaultCheckRedirect(request, previous)
@@ -417,6 +472,138 @@ func gitLabHTTPClient() *http.Client {
 }
 
 func normalizeVersion(value string) string { return strings.TrimPrefix(strings.TrimSpace(value), "v") }
+
+func compareVersions(left, right string) (int, error) {
+	leftParts, err := parseVersion(left)
+	if err != nil {
+		return 0, err
+	}
+	rightParts, err := parseVersion(right)
+	if err != nil {
+		return 0, err
+	}
+	for index := 0; index < 3; index++ {
+		if leftParts.core[index] < rightParts.core[index] {
+			return -1, nil
+		}
+		if leftParts.core[index] > rightParts.core[index] {
+			return 1, nil
+		}
+	}
+	if leftParts.pre == rightParts.pre {
+		return 0, nil
+	}
+	if leftParts.pre == "" {
+		return 1, nil
+	}
+	if rightParts.pre == "" {
+		return -1, nil
+	}
+	return comparePrerelease(leftParts.pre, rightParts.pre)
+}
+
+type parsedVersion struct {
+	core [3]uint64
+	pre  string
+}
+
+func parseVersion(value string) (parsedVersion, error) {
+	value = normalizeVersion(value)
+	if value == "" {
+		return parsedVersion{}, fmt.Errorf("invalid release version %q", value)
+	}
+	core, pre, _ := strings.Cut(value, "-")
+	parts := strings.Split(core, ".")
+	if len(parts) != 3 {
+		return parsedVersion{}, fmt.Errorf("invalid release version %q", value)
+	}
+	parsed := parsedVersion{pre: pre}
+	for index, part := range parts {
+		number, err := strconv.ParseUint(part, 10, 64)
+		if err != nil {
+			return parsedVersion{}, fmt.Errorf("invalid release version %q", value)
+		}
+		parsed.core[index] = number
+	}
+	if pre != "" && !validPrerelease(pre) {
+		return parsedVersion{}, fmt.Errorf("invalid release version %q", value)
+	}
+	return parsed, nil
+}
+
+func comparePrerelease(left, right string) (int, error) {
+	leftParts, rightParts := strings.Split(left, "."), strings.Split(right, ".")
+	limit := len(leftParts)
+	if len(rightParts) < limit {
+		limit = len(rightParts)
+	}
+	for index := 0; index < limit; index++ {
+		leftPart, rightPart := leftParts[index], rightParts[index]
+		leftNumber, leftNumeric := prereleaseNumber(leftPart)
+		rightNumber, rightNumeric := prereleaseNumber(rightPart)
+		switch {
+		case leftNumeric && rightNumeric:
+			if leftNumber < rightNumber {
+				return -1, nil
+			}
+			if leftNumber > rightNumber {
+				return 1, nil
+			}
+		case leftNumeric:
+			return -1, nil
+		case rightNumeric:
+			return 1, nil
+		case leftPart < rightPart:
+			return -1, nil
+		case leftPart > rightPart:
+			return 1, nil
+		}
+	}
+	if len(leftParts) < len(rightParts) {
+		return -1, nil
+	}
+	if len(leftParts) > len(rightParts) {
+		return 1, nil
+	}
+	return 0, nil
+}
+
+func validPrerelease(value string) bool {
+	for _, part := range strings.Split(value, ".") {
+		if part == "" {
+			return false
+		}
+		for _, character := range part {
+			if (character < 'a' || character > 'z') && (character < 'A' || character > 'Z') && (character < '0' || character > '9') && character != '-' {
+				return false
+			}
+		}
+		if _, numeric := prereleaseNumber(part); numeric {
+			continue
+		}
+		if allDigits(part) {
+			return false
+		}
+	}
+	return true
+}
+
+func prereleaseNumber(value string) (uint64, bool) {
+	number, err := strconv.ParseUint(value, 10, 64)
+	return number, err == nil
+}
+
+func allDigits(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, character := range value {
+		if character < '0' || character > '9' {
+			return false
+		}
+	}
+	return true
+}
 
 func verifyChecksum(archivePath, checksumPath, archiveName string) error {
 	data, err := os.ReadFile(checksumPath)

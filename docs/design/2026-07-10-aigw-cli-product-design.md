@@ -112,7 +112,7 @@ aigw sync
 
 采用 Go 构建单文件二进制，无 Python/Node 运行时要求。管理命令执行后退出；不安装 daemon、watchdog、launchd、systemd 或计划任务。Claude/Codex shim 只负责进程边界转发。Claude shim 位于用户级 AIGW shim 目录，不能放入 `~/.codex`，也不能写入包管理器拥有的系统目录。
 
-GitLab Release 为 macOS、Linux、Windows 的 amd64/arm64 生成 portable 压缩包、原生安装包、SHA-256 校验和与 SBOM。原生安装包包括 macOS Universal `.pkg`、Linux amd64/arm64 `.deb` 与 `.rpm`、Windows amd64/arm64 `.msi`。`install.sh` 和 `install.ps1` 作为便携安装兜底，支持固定版本安装与卸载。包安装与卸载只管理包拥有的文件，绝不遍历用户目录、创建或删除任何用户 shim；shim 始终由该用户运行的 AIGW Adapter 命令管理。
+GitLab Release 为 macOS、Linux、Windows 的 amd64/arm64 生成 portable 压缩包、原生安装包、SHA-256 校验和与 SBOM。原生安装包包括 macOS Universal `.pkg`、Linux amd64/arm64 `.deb` 与 `.rpm`、Windows amd64/arm64 `.msi`。portable 包内的 `install.sh` 和 `install.ps1` 只复制同包二进制，不实现任何网络下载、Token 处理或 Release 选择；已安装 CLI 的网络升级唯一收口于 `aigw update`。包安装与卸载只管理包拥有的文件，绝不遍历用户目录、创建或删除任何用户 shim；shim 始终由该用户运行的 AIGW Adapter 命令管理。
 
 ## 8. 现有资产边界
 
