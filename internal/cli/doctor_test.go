@@ -16,11 +16,11 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := domain.Profile{Label: "GPT 5.6 Sol Codex", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
+	profile := domain.Profile{Label: "GPT 5.6 Sol Codex", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol"}}
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = profile
-	cfg.Routes.Default = "gpt-5.6-sol-cdx"
+	cfg.Profiles["gpt-5.6-sol"] = profile
+	cfg.Routes.Default = "gpt-5.6-sol"
 	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -39,7 +39,7 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	drifted := strings.Replace(string(data), `model = "gpt-5.6-sol-cdx" # managed by AIGW`, `model = "gpt-5.6-terra" # managed by AIGW`, 1)
+	drifted := strings.Replace(string(data), `model = "gpt-5.6-sol" # managed by AIGW`, `model = "gpt-5.6-terra" # managed by AIGW`, 1)
 	if err := os.WriteFile(target, []byte(drifted), 0o600); err != nil {
 		t.Fatal(err)
 	}

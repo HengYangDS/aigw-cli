@@ -117,7 +117,7 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "gpt-5.6-terra-cdx"})
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "gpt-5.6-terra"})
 	cfg.Routes.Default = "dmx"
 	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
@@ -290,8 +290,8 @@ func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT Profile", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
-	cfg.Routes.Default = "gpt-5.6-sol-cdx"
+	cfg.Profiles["gpt-5.6-sol"] = domain.Profile{Label: "GPT Profile", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol"}}
+	cfg.Routes.Default = "gpt-5.6-sol"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -311,9 +311,9 @@ func TestStatusGuidesClientSpecificRouteInsteadOfBlankRepair(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
+	cfg.Profiles["gpt-5.6-sol"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol"}}
 	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude", Account: "dmx", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-fable-5"}}
-	cfg.Routes.Default = "gpt-5.6-sol-cdx"
+	cfg.Routes.Default = "gpt-5.6-sol"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -385,8 +385,8 @@ func TestCheckSuggestsAccountSpecificBalanceCommand(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
-	cfg.Routes.Default = "gpt-5.6-sol-cdx"
+	cfg.Profiles["gpt-5.6-sol"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol"}}
+	cfg.Routes.Default = "gpt-5.6-sol"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -404,8 +404,8 @@ func TestStatusSuggestsAccountSpecificDiagnostics(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
-	cfg.Profiles["gpt-5.6-sol-cdx"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol-cdx"}}
-	cfg.Routes.Default = "gpt-5.6-sol-cdx"
+	cfg.Profiles["gpt-5.6-sol"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-sol"}}
+	cfg.Routes.Default = "gpt-5.6-sol"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

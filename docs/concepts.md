@@ -22,19 +22,23 @@ anthropic = "https://gateway.example"
 A Runtime Profile is what users choose day to day. It references one Account and defines a client scope plus the model name to send through that client protocol. One Account may back many Profiles: one Account can back separate GPT and Claude Profiles, while another provider has its own Account and Profile set. Endpoint URLs and provider probes are never Profile fields.
 
 ```toml
-[profiles."gpt-5.6-terra-cdx"]
+[profiles."gpt-5.6-terra"]
 label = "GPT-5.6"
 purpose = "Codex 代码与工程"
 account = "team-gateway"
 client = "codex"
 
-[profiles."gpt-5.6-terra-cdx".models]
-codex = "gpt-5.6-terra-cdx"
+[profiles."gpt-5.6-terra".models]
+codex = "gpt-5.6-terra"
 ```
 
 `purpose` is optional, human-facing guidance only. It appears in `aigw use`, `aigw profile list`, and `aigw profile show`; it never changes a route, fallback, Account, endpoint, or Token.
 
-`claude-fable-5` is the recommended Claude baseline; Sonnet and Opus are explicit task-specific choices. The compact example team manifest includes `gpt-5.6-terra-cdx`, `claude-fable-5`, `claude-sonnet-5`, and `claude-opus-4-8-thinking`; it is not an implicit provider default. Model names are transparent upstream gateway strings; teams can add or remove only the models they have admitted for their own clients. See the [model strategy](model-strategy.md) for the curated capability set and adapter-admission policy.
+Profile and model IDs keep the canonical upstream model name; the client scope
+already lives in `client`. AIGW therefore rejects the former GPT client-suffix
+alias instead of translating or preserving it as a compatibility path.
+
+`claude-fable-5` is the recommended Claude baseline; Sonnet and Opus are explicit task-specific choices. The compact example team manifest includes `gpt-5.6-terra`, `claude-fable-5`, `claude-sonnet-5`, and `claude-opus-4-8-thinking`; it is not an implicit provider default. Model names are transparent upstream gateway strings; teams can add or remove only the models they have admitted for their own clients. See the [model strategy](model-strategy.md) for the curated capability set and adapter-admission policy.
 
 Use `aigw catalog` to inspect the configured subset and compact count summary of each Account's authenticated OpenAI-compatible model inventory; use `aigw catalog --all` for the full human-readable inventory or `--json` for complete machine output. Then add an explicit Profile with `aigw profile add`. Discovery is read-only: it neither changes a Route nor infers whether an ID supports a particular protocol, embedding, rerank, vision, tools, or reasoning task.
 
@@ -51,7 +55,7 @@ An Account may provide an Anthropic endpoint, an OpenAI Responses endpoint, or b
 The default route points to a Runtime Profile. Claude and Codex inherit it unless a client-specific override exists:
 
 ```bash
-aigw use gpt-5.6-terra-cdx --for codex
+aigw use gpt-5.6-terra --for codex
 aigw use claude-opus-4-8-thinking --for claude
 aigw route reset claude
 ```
