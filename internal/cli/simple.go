@@ -315,23 +315,38 @@ func contains(values []string, target string) bool {
 }
 
 func newUpdateCommand(app *App) *cobra.Command {
-	return &cobra.Command{
+	var rollback bool
+	cmd := &cobra.Command{
 		Use: "update", Short: "更新到团队最新版本", Args: cobra.NoArgs,
 		RunE: func(ctx *cobra.Command, _ []string) error {
 			if app.Updater == nil {
 				return fmt.Errorf("自动更新不可用；请从团队 GitLab Release 安装最新版")
 			}
-			result, err := app.Updater.Update(ctx.Context(), Version)
+			var (
+				result string
+				err    error
+			)
+			if rollback {
+				result, err = app.Updater.Rollback(ctx.Context())
+			} else {
+				result, err = app.Updater.Update(ctx.Context(), Version)
+			}
 			if err != nil {
 				return err
 			}
 			r := renderer(app)
-			r.Title("AIGW", "更新")
+			title := "更新"
+			if rollback {
+				title = "程序回退"
+			}
+			r.Title("AIGW", title)
 			r.Success(result)
 			r.Next("aigw check")
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&rollback, "rollback", false, "离线回退便携版 AIGW 程序到上一版本")
+	return cmd
 }
 
 func firstCheckRuntime(cfg domain.Config) (domain.Runtime, error) {

@@ -162,6 +162,15 @@ AIGW 不部署网关，也不占用本地端口。若组织未来部署独立网
 - Linux `.deb/.rpm`：下载并调用系统包管理器安装。
 - Windows `.msi`：下载并启动 Windows Installer。
 
+便携安装如需仅恢复上一个 AIGW 程序版本，可离线运行：
+
+```bash
+aigw update --rollback
+```
+
+它不回退模型 Profile、路由、Token 或客户端配置；这些仍由 `aigw rollback` 管理。
+原生安装包必须使用操作系统包管理器处理程序回退。
+
 便携包内的安装脚本只复制包内二进制，不联网也不处理 GitLab Token。安装后，
 私有 GitLab Release 的升级统一通过 `aigw update`：优先使用已认证的 `glab`
 并继承 `AIGW_GL_HOST`；成员未安装 `glab` 时，可仅在当前终端提供
