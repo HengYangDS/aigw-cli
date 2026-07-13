@@ -57,7 +57,7 @@ sh install.sh
 .\install.ps1
 ```
 
-脚本只安装包内的二进制，不访问网络、不读取 GitLab Token；安装完成后的升级统一使用 `aigw update`。便携安装默认放到 Unix 的 `~/.local/bin` 或 Windows 的 `%LOCALAPPDATA%\Programs\aigw\bin`。原生安装包负责系统安装语义；AIGW 不注册 daemon、launchd、systemd 或计划任务。
+脚本只安装包内的二进制，不访问网络、不读取 GitLab Token；安装完成后的升级统一使用 `aigw update`。便携安装默认放到 Unix 的 `~/.local/bin` 或 Windows 的 `%LOCALAPPDATA%\Programs\aigw\bin`。Unix 安装器即使从受限 `PATH` 启动也只使用系统基础工具；仅在 zsh 的原始 `PATH` 缺少系统目录时，才创建一个 AIGW-owned、无密钥、可卸载的 `.zshenv` bootstrap。原生安装包负责系统安装语义；AIGW 不注册 daemon、launchd、systemd 或计划任务。
 
 ## 第一次使用
 
