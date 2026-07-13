@@ -40,9 +40,9 @@ ensure_path() {
   {
     printf '\n%s\n' "$begin"
     if [ "$shell_name" = fish ]; then
-      printf 'fish_add_path %s\n' "$install_dir"
+      printf 'fish_add_path %s /usr/bin /bin /usr/sbin /sbin\n' "$install_dir"
     else
-      printf 'export PATH="%s:$PATH"\n' "$install_dir"
+      printf 'export PATH="%s:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"\n' "$install_dir"
     fi
     printf '%s\n' "$end"
   } >> "$tmp"
