@@ -55,6 +55,7 @@ type Prompter interface {
 
 type Updater interface {
 	Update(context.Context, string) (string, error)
+	Rollback(context.Context) (string, error)
 }
 
 type App struct {

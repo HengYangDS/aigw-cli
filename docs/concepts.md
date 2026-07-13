@@ -99,3 +99,9 @@ line; requests have a finite timeout, release assets remain checksum-verified,
 the token is removed before a redirect crosses hosts, HTTPS-to-HTTP redirects
 are refused, and an older or malformed release cannot replace the installed
 binary.
+
+Portable installs retain exactly one immediate predecessor beside the current
+binary. `aigw update --rollback` swaps those two local binaries without any
+network request or change to configuration, secrets, Accounts, Profiles, Routes
+or Adapters. It is intentionally unavailable for native package channels:
+native rollback belongs to the operating-system package manager.

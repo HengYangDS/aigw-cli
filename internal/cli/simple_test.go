@@ -1,6 +1,8 @@
 package cli_test
 
 import (
+	"context"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -11,6 +13,25 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
+
+type fakeUpdater struct {
+	updateCalls    int
+	rollbackCalls  int
+	updateResult   string
+	rollbackResult string
+	updateErr      error
+	rollbackErr    error
+}
+
+func (u *fakeUpdater) Update(_ context.Context, _ string) (string, error) {
+	u.updateCalls++
+	return u.updateResult, u.updateErr
+}
+
+func (u *fakeUpdater) Rollback(_ context.Context) (string, error) {
+	u.rollbackCalls++
+	return u.rollbackResult, u.rollbackErr
+}
 
 func twoProfileConfig() domain.Config {
 	cfg := domain.NewConfig()
@@ -201,6 +222,52 @@ func TestHelpKeepsDailyCommandsObvious(t *testing.T) {
 		if !strings.Contains(out.String(), wanted) {
 			t.Fatalf("help lacks Chinese section %q:\n%s", wanted, out.String())
 		}
+	}
+}
+
+func TestUpdateRollbackUsesLocalProgramRollbackOnly(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	updater := &fakeUpdater{rollbackResult: "已恢复上一程序版本；可再次运行 `aigw update --rollback` 恢复当前版本。"}
+	app.Updater = updater
+	if err := execute(t, app, "update", "--rollback"); err != nil {
+		t.Fatal(err)
+	}
+	if updater.rollbackCalls != 1 || updater.updateCalls != 0 {
+		t.Fatalf("update calls=%d rollback calls=%d", updater.updateCalls, updater.rollbackCalls)
+	}
+	if !strings.Contains(out.String(), "程序回退") || !strings.Contains(out.String(), "已恢复上一程序版本") {
+		t.Fatalf("output = %s", out.String())
+	}
+}
+
+func TestUpdateWithoutRollbackKeepsNetworkUpdatePath(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	updater := &fakeUpdater{updateResult: "已更新到 v0.2.0。"}
+	app.Updater = updater
+	if err := execute(t, app, "update"); err != nil {
+		t.Fatal(err)
+	}
+	if updater.updateCalls != 1 || updater.rollbackCalls != 0 {
+		t.Fatalf("update calls=%d rollback calls=%d", updater.updateCalls, updater.rollbackCalls)
+	}
+}
+
+func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	app.Updater = &fakeUpdater{rollbackErr: errors.New("no previous portable AIGW binary is available")}
+	err := execute(t, app, "update", "--rollback")
+	if err == nil || !strings.Contains(err.Error(), "no previous portable AIGW binary") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestUpdateHelpDescribesOfflineProgramRollbackInChinese(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	if err := execute(t, app, "update", "--help"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "离线回退便携版 AIGW 程序到上一版本") {
+		t.Fatalf("help = %s", out.String())
 	}
 }
 
