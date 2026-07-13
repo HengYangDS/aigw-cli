@@ -154,7 +154,7 @@ func newCompletionCommand(root *cobra.Command) *cobra.Command {
 			case "powershell":
 				return root.GenPowerShellCompletion(root.OutOrStdout())
 			default:
-				return fmt.Errorf("supported shells: bash, zsh, fish, powershell")
+				return fmt.Errorf("支持的 Shell：bash、zsh、fish、powershell")
 			}
 		},
 	}

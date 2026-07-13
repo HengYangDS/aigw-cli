@@ -277,11 +277,11 @@ func TestCriticalCommandHelpUsesChineseGuidance(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{args: []string{"setup", "--help"}, want: []string{"Account 标识", "首个模型 Profile 标识", "从标准输入读取一行 Token"}},
-		{args: []string{"verify", "--help"}, want: []string{"验证 Claude、Codex 或全部", "验证指定 Profile，且不修改路由"}},
+		{args: []string{"setup", "--help"}, want: []string{"服务账户标识", "首个模型配置标识", "从标准输入读取一行 Token"}},
+		{args: []string{"verify", "--help"}, want: []string{"验证 Claude、Codex 或全部", "验证指定配置，且不修改路由"}},
 		{args: []string{"rollback", "--help"}, want: []string{"仅恢复紧邻的一份配置备份"}},
-		{args: []string{"config", "import", "--help"}, want: []string{"合并不含密钥的团队清单", "显式替换冲突的 Account 元数据", "系统 Token 保持不变"}},
-		{args: []string{"adapter", "auth", "--help"}, want: []string{"将当前 Account 的 Token 绑定到 Codex"}},
+		{args: []string{"config", "import", "--help"}, want: []string{"合并不含密钥的团队清单", "显式替换冲突的服务账户元数据", "系统 Token 保持不变"}},
+		{args: []string{"adapter", "auth", "--help"}, want: []string{"将当前服务账户的 Token 绑定到 Codex"}},
 	}
 	for _, tc := range cases {
 		out.Reset()
@@ -519,10 +519,78 @@ func TestStatusGuidesClientSpecificRouteInsteadOfBlankRepair(t *testing.T) {
 	if strings.Contains(text, "Claude             ·") || strings.Contains(text, "aigw repair") {
 		t.Fatalf("status should not show blank Claude route or misleading repair:\n%s", text)
 	}
-	for _, want := range []string{"Claude", "未选择 Claude Profile", "aigw use claude-fable-5 --for claude"} {
+	for _, want := range []string{"Claude", "未选择 Claude 配置", "aigw use claude-fable-5 --for claude"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("status lacks %q:\n%s", want, text)
 		}
+	}
+}
+
+func TestTerminalErrorLocalizesResolvedProfileClientMismatch(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "team", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
+	cfg.Routes.Default = "gpt"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	err := execute(t, app, "test", "--for", "claude")
+	if err == nil {
+		t.Fatal("test command unexpectedly succeeded")
+	}
+	text := out.String()
+	for _, want := range []string{"配置 \"gpt\" 仅适用于 codex，不能用于 claude", "建议操作", "aigw check"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("localized terminal error lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "profile \"gpt\" is for codex, not claude") {
+		t.Fatalf("terminal leaked raw domain error:\n%s", text)
+	}
+	if strings.Contains(text, "连接测试") {
+		t.Fatalf("failed test command emitted partial success view:\n%s", text)
+	}
+}
+
+func TestTestCommandExplainsUnconfiguredStateBeforeResolvingRoutes(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	err := execute(t, app, "test", "--for", "claude")
+	if err == nil {
+		t.Fatal("test command unexpectedly succeeded")
+	}
+	text := out.String()
+	for _, want := range []string{"尚未配置", "尚未创建任何服务配置。", "aigw setup"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("unconfigured test output lacks %q:\n%s", want, text)
+		}
+	}
+	for _, unwanted := range []string{"连接测试", `unknown profile ""`} {
+		if strings.Contains(text, unwanted) {
+			t.Fatalf("unconfigured test output retained %q:\n%s", unwanted, text)
+		}
+	}
+}
+
+func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	if err := os.WriteFile(app.Config.Path(), []byte("version = 0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := execute(t, app, "status")
+	if err == nil {
+		t.Fatal("status unexpectedly succeeded")
+	}
+	text := out.String()
+	for _, want := range []string{"配置版本不受支持：当前为 0，要求 2", "建议操作", "aigw check"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("localized configuration error lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "unsupported config version") {
+		t.Fatalf("terminal leaked raw configuration error:\n%s", text)
 	}
 }
 

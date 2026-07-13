@@ -11,12 +11,12 @@ import (
 // token slot, URL, or model catalogue for a new user; the user may instead
 // import a secret-free team manifest before running this flow.
 func runWizard(ctx context.Context, app *App) error {
-	account, err := app.Prompt.Text("Account 标识（例如 team-gateway）：")
+	account, err := app.Prompt.Text("服务账户标识（例如 team-gateway）：")
 	if err != nil {
 		return err
 	}
 	if !domain.ValidProfileName(account) {
-		return fmt.Errorf("invalid account name %q; use letters, numbers, dot, dash, or underscore", account)
+		return fmt.Errorf("服务账户名称无效 %q；只能使用字母、数字、点、连字符或下划线", account)
 	}
 	label, err := app.Prompt.Text("服务名称：")
 	if err != nil {
@@ -37,7 +37,7 @@ func runWizard(ctx context.Context, app *App) error {
 	if err != nil {
 		return err
 	}
-	profile, err := app.Prompt.Text("模型 Profile 标识（例如 gpt-5.6-terra）：")
+	profile, err := app.Prompt.Text("模型配置标识（例如 gpt-5.6-terra）：")
 	if err != nil {
 		return err
 	}
