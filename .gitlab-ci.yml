@@ -21,6 +21,7 @@ verify:
     - sh scripts/test-release-artifacts.sh
     - sh scripts/test-package-runner-preflight.sh
     - sh scripts/test-msi-version.sh
+    - sh scripts/test-pipeline-gates.sh
     - go build -o /tmp/aigw-install-smoke ./cmd/aigw
     - sh scripts/test-installers.sh /tmp/aigw-install-smoke
     - sh scripts/test-portable-install.sh /tmp/aigw-install-smoke
@@ -41,6 +42,7 @@ package:
   stage: package
   needs:
     - job: verify
+    - job: windows-installer-runtime
     - job: release-readiness
       optional: true
   # Native macOS packaging requires pkgbuild/productbuild. This shell runner
