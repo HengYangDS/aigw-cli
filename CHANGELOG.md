@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Retire historical GPT `-cdx` aliases: canonical Profile/model IDs no longer
+  duplicate the Codex client scope, and validation plus residue gates reject
+  their reintroduction.
+- Keep `aigw check` anchored to the default Profile instead of allowing a
+  client-specific override to silently replace the displayed current service.
+- Redact known, URL-escaped, and bearer credentials before gateway or provider
+  response text can reach diagnostics or errors.
+- Make portable Unix installation self-contained under an empty or polluted
+  `PATH`; the installer now bootstraps trusted system tool locations before it
+  performs its local-only copy.
+- Replace time-bound release snapshots with an evidence contract that separates
+  local packaging, runtime installation, remote publication, and signed GA
+  claims.
 - Establish schema v2 as the single canonical structure for purpose-labelled team Profiles and local configuration.
 - Add a hermetic portable-install lifecycle smoke test that proves install, ownership-scoped uninstall, configuration preservation, and source-binary preservation; run it in CI.
 - Define evidence-gated Adapter admission for GLM/Z.AI, Gemini, Qwen, OpenCode, Perplexity, and Grok; unadmitted clients cannot be routed or placed in team templates.
