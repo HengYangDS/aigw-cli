@@ -4,6 +4,8 @@
 
 An Account is one upstream provider account boundary: display label, supported protocol endpoints, optional exact-diagnostics declaration, and exactly one logical Token. The secret is stored at `AIGW_TOKEN/<account>` in the operating-system credential store; it is never embedded in configuration or team manifests. A local AIGW configuration may contain many Accounts; adding a second service never copies or replaces the first service's Token.
 
+Team-manifest import is non-destructive by default. A same-named Account or Runtime Profile is accepted only when its semantic configuration already matches the local object; a mismatch is rejected before any local config projection changes. This prevents a token held in `AIGW_TOKEN/<account>` from being silently redirected to a different endpoint. An operator may explicitly replace a reviewed conflict with `--replace-account <id>` or `--replace-profile <id>`; replacing an Account changes metadata only and never reads, writes, or deletes its Token.
+
 Example:
 
 ```toml
