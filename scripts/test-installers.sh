@@ -37,6 +37,13 @@ installed="$install_dir/aigw"
 [ -x "$installed" ] || { echo "local-source installer did not produce an executable" >&2; exit 1; }
 "$installed" --version >/dev/null
 grep -F '# >>> AIGW PATH >>>' "$profile" >/dev/null
+grep -F 'export PATH="' "$profile" | grep -F '/usr/bin:/bin:/usr/sbin:/sbin' >/dev/null
+env -i HOME="$home" SHELL=/bin/sh PATH="" /bin/sh -c '. "$HOME/.profile"; command -v aigw; command -v mkdir; command -v mv' >"$tmp/activated-path.out"
+grep -Fx "$install_dir/aigw" "$tmp/activated-path.out" >/dev/null
+for tool in mkdir mv; do
+  resolved=$(grep -F "/$tool" "$tmp/activated-path.out" | head -n 1 || true)
+  case "$resolved" in /usr/bin/"$tool"|/bin/"$tool") ;; *) echo "activated PATH did not restore $tool: $resolved" >&2; exit 1 ;; esac
+done
 
 archive_dir="$tmp/archive"
 mkdir -p "$archive_dir"
