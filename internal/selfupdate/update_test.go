@@ -96,6 +96,75 @@ func TestUpdateDownloadsVerifiesAndAtomicallyReplacesBinary(t *testing.T) {
 	if string(got) != "new-binary" || !strings.Contains(message, "v0.2.0") {
 		t.Fatalf("binary=%q message=%q", got, message)
 	}
+	backup, err := os.ReadFile(filepath.Join(filepath.Dir(binary), ".aigw.previous"))
+	if err != nil {
+		t.Fatalf("read rollback binary: %v", err)
+	}
+	if string(backup) != "old-binary" {
+		t.Fatalf("rollback binary=%q, want old-binary", backup)
+	}
+	info, err := os.Stat(filepath.Join(filepath.Dir(binary), ".aigw.previous"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Fatalf("rollback mode = %o, want 755", info.Mode().Perm())
+	}
+}
+
+func TestUpdateReplacesOnlyTheSinglePreviousRollbackBinary(t *testing.T) {
+	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("new-binary"))
+	sum := sha256.Sum256(archive)
+	name := "aigw_0.2.0_darwin_arm64.tar.gz"
+	binary := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(binary, []byte("current-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	backupPath := filepath.Join(filepath.Dir(binary), ".aigw.previous")
+	if err := os.WriteFile(backupPath, []byte("older-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runner := &fakeRunner{archive: archive, checksum: fmt.Sprintf("%x  ./%s\n", sum, name)}
+	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: runner}
+	if _, err := u.Update(context.Background(), "0.1.0"); err != nil {
+		t.Fatal(err)
+	}
+	backup, err := os.ReadFile(backupPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(backup) != "current-binary" {
+		t.Fatalf("rollback binary=%q, want immediate prior binary", backup)
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(binary), ".aigw.previous.previous")); !os.IsNotExist(err) {
+		t.Fatalf("unexpected chained rollback binary: %v", err)
+	}
+}
+
+func TestUpdateMakesReplacedRollbackBinaryExecutable(t *testing.T) {
+	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("new-binary"))
+	sum := sha256.Sum256(archive)
+	name := "aigw_0.2.0_darwin_arm64.tar.gz"
+	binary := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(binary, []byte("current-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	backupPath := filepath.Join(filepath.Dir(binary), ".aigw.previous")
+	if err := os.WriteFile(backupPath, []byte("stale-rollback"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runner := &fakeRunner{archive: archive, checksum: fmt.Sprintf("%x  ./%s\n", sum, name)}
+	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: runner}
+	if _, err := u.Update(context.Background(), "0.1.0"); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(backupPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Fatalf("rollback mode = %o, want 755", info.Mode().Perm())
+	}
 }
 
 func TestUpdateUsesSupportedGlabJSONFlags(t *testing.T) {
@@ -683,6 +752,38 @@ func TestUpdateRefusesChecksumMismatch(t *testing.T) {
 	got, _ := os.ReadFile(binary)
 	if string(got) != "old-binary" {
 		t.Fatalf("old binary replaced after checksum failure: %q", got)
+	}
+}
+
+func TestWindowsReplacementPlanRetainsImmediatePreviousBinary(t *testing.T) {
+	executable := `C:\\Users\\test\\aigw.exe`
+	plan, err := selfupdate.WindowsReplacementPlan(executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		`if exist "C:\\Users\\test\\aigw.exe" move /Y "C:\\Users\\test\\aigw.exe" "C:\\Users\\test\\.aigw.previous.exe"`,
+		`move /Y "C:\\Users\\test\\aigw.exe.update" "C:\\Users\\test\\aigw.exe"`,
+	} {
+		if !strings.Contains(plan, expected) {
+			t.Fatalf("Windows replacement plan missing %q:\n%s", expected, plan)
+		}
+	}
+}
+
+func TestWindowsReplacementPlanRejectsEmptyExecutable(t *testing.T) {
+	if _, err := selfupdate.WindowsReplacementPlan(" "); err == nil || !strings.Contains(err.Error(), "empty") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestWindowsReplacementPlanUsesPortableRollbackNameForForwardSlashPath(t *testing.T) {
+	plan, err := selfupdate.WindowsReplacementPlan("C:/Users/test/aigw.exe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(plan, `"C:/Users/test/.aigw.previous.exe"`) {
+		t.Fatalf("Windows replacement plan does not use portable rollback name:\n%s", plan)
 	}
 }
 
