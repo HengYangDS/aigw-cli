@@ -48,6 +48,215 @@ account = "team"
 	}
 }
 
+func TestMergeRejectsConflictingExistingAccountWithoutMutatingLocalConfig(t *testing.T) {
+	team, err := manifest.Parse([]byte(`version = 2
+recommended_default = "team-profile"
+
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "https://team.example.test"
+
+[profiles.team-profile]
+label = "Team Profile"
+account = "team"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.NewConfig()
+	cfg.Accounts["team"] = domain.Account{Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}}
+	cfg.Profiles["local"] = domain.Profile{Label: "Local", Account: "team"}
+	cfg.Routes.Default = "local"
+
+	_, err = manifest.Merge(cfg, team)
+	if err == nil || !strings.Contains(err.Error(), `account "team" conflicts`) {
+		t.Fatalf("merge error = %v", err)
+	}
+	if got := cfg.Accounts["team"].Endpoints.Anthropic; got != "https://personal.example.test" {
+		t.Fatalf("conflicting merge mutated existing endpoint: %q", got)
+	}
+	if _, exists := cfg.Profiles["team-profile"]; exists {
+		t.Fatalf("conflicting merge partially imported profile: %#v", cfg.Profiles)
+	}
+}
+
+func TestMergeRejectsConflictingExistingProfileWithoutMutatingLocalConfig(t *testing.T) {
+	team, err := manifest.Parse([]byte(`version = 2
+recommended_default = "shared"
+
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+openai_responses = "https://team.example.test/v1"
+
+[profiles.shared]
+label = "Team Model"
+account = "team"
+client = "codex"
+[profiles.shared.models]
+codex = "team-model"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.NewConfig()
+	cfg.Accounts["team"] = domain.Account{Label: "Team Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
+	cfg.Profiles["shared"] = domain.Profile{Label: "Personal Model", Account: "team", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "personal-model"}}
+	cfg.Routes.Default = "shared"
+
+	_, err = manifest.Merge(cfg, team)
+	if err == nil || !strings.Contains(err.Error(), `profile "shared" conflicts`) {
+		t.Fatalf("merge error = %v", err)
+	}
+	if got := cfg.Profiles["shared"].Models[domain.ClientCodex]; got != "personal-model" {
+		t.Fatalf("conflicting merge mutated active profile model: %q", got)
+	}
+}
+
+func TestMergeAcceptsEquivalentExistingIdentityWithoutReplacingLocalState(t *testing.T) {
+	team, err := manifest.Parse([]byte(`version = 2
+recommended_default = "shared"
+
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "https://team.example.test"
+
+[profiles.shared]
+label = "Team Profile"
+purpose = "默认 Agent"
+account = "team"
+client = "claude"
+[profiles.shared.models]
+claude = "claude-team"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.NewConfig()
+	cfg.Accounts["team"] = domain.Account{Label: "Team Gateway", Endpoints: domain.Endpoints{Anthropic: "https://team.example.test/"}}
+	cfg.Profiles["shared"] = domain.Profile{Label: "Team Profile", Purpose: "默认 Agent", Account: "team", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-team"}}
+	cfg.Routes.Default = "shared"
+
+	got, err := manifest.Merge(cfg, team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Routes.Default != "shared" || got.Profiles["shared"].Models[domain.ClientClaude] != "claude-team" {
+		t.Fatalf("equivalent merge = %#v", got)
+	}
+	if got.Accounts["team"].Endpoints.Anthropic != "https://team.example.test/" {
+		t.Fatalf("idempotent import should preserve local canonical representation: %#v", got.Accounts["team"])
+	}
+}
+
+func TestMergeWithOptionsReplacesOnlyExplicitConflictingIdentity(t *testing.T) {
+	team, err := manifest.Parse([]byte(`version = 2
+recommended_default = "shared"
+
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+openai_responses = "https://team.example.test/v1"
+
+[profiles.shared]
+label = "Team Model"
+account = "team"
+client = "codex"
+[profiles.shared.models]
+codex = "team-model"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.NewConfig()
+	cfg.Accounts["team"] = domain.Account{Label: "Personal Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://personal.example.test/v1"}}
+	cfg.Profiles["shared"] = domain.Profile{Label: "Personal Model", Account: "team", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "personal-model"}}
+	cfg.Routes.Default = "shared"
+
+	got, err := manifest.MergeWithOptions(cfg, team, manifest.MergeOptions{
+		ReplaceAccounts: map[string]bool{"team": true},
+		ReplaceProfiles: map[string]bool{"shared": true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Accounts["team"].Endpoints.OpenAIResponses != "https://team.example.test/v1" {
+		t.Fatalf("account replacement = %#v", got.Accounts["team"])
+	}
+	if got.Profiles["shared"].Models[domain.ClientCodex] != "team-model" {
+		t.Fatalf("profile replacement = %#v", got.Profiles["shared"])
+	}
+}
+
+func TestMergeWithOptionsRejectsUnusedReplacementSelectors(t *testing.T) {
+	team, err := manifest.Parse([]byte(`version = 2
+recommended_default = "team-profile"
+
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "https://team.example.test"
+
+[profiles.team-profile]
+label = "Team Profile"
+account = "team"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.NewConfig()
+	cfg.Accounts["local"] = domain.Account{Label: "Local", Endpoints: domain.Endpoints{Anthropic: "https://local.example.test"}}
+	cfg.Profiles["local"] = domain.Profile{Label: "Local", Account: "local"}
+	cfg.Routes.Default = "local"
+
+	_, err = manifest.MergeWithOptions(cfg, team, manifest.MergeOptions{ReplaceAccounts: map[string]bool{"missing": true}})
+	if err == nil || !strings.Contains(err.Error(), `--replace-account "missing"`) {
+		t.Fatalf("unused account replacement error = %v", err)
+	}
+	_, err = manifest.MergeWithOptions(cfg, team, manifest.MergeOptions{ReplaceProfiles: map[string]bool{"missing": true}})
+	if err == nil || !strings.Contains(err.Error(), `--replace-profile "missing"`) {
+		t.Fatalf("unused profile replacement error = %v", err)
+	}
+}
+
+func TestMergeWithOptionsDoesNotNormalizeOrMutateRejectedInput(t *testing.T) {
+	team, err := manifest.Parse([]byte(`version = 2
+recommended_default = "team"
+
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "https://team.example.test"
+
+[profiles.team]
+label = "Team"
+account = "team"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.Config{
+		Version: domain.ConfigVersion,
+		Accounts: map[string]domain.Account{
+			"team": {Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}},
+		},
+		Profiles: map[string]domain.Profile{
+			"local": {Label: "Local", Account: "team"},
+		},
+		Routes: domain.Routes{Default: "local"},
+	}
+
+	_, err = manifest.MergeWithOptions(cfg, team, manifest.MergeOptions{})
+	if err == nil {
+		t.Fatal("expected conflict")
+	}
+	if cfg.Routes.Overrides != nil || cfg.Adapters != nil {
+		t.Fatalf("rejected merge normalized caller-owned config: %#v", cfg)
+	}
+}
+
 func TestParseRejectsCredentialShapedFields(t *testing.T) {
 	for _, key := range []string{"token", "api_key", "password", "auth_header", "client_secret"} {
 		raw := []byte("version = 2\nrecommended_default = \"team\"\n" + key + " = \"must-not-exist\"\n")

@@ -102,6 +102,16 @@ aigw check
 
 团队清单和本机配置固定采用 schema v2。AIGW 只接受这一当前结构，避免迁移逻辑和并行配置路径；导入不会同步、认证、启动或重启任何客户端。
 
+导入默认保护成员既有的 Account 身份。若清单中的同名 Account 或 Profile 与本机内容不一致，AIGW 会在写入前拒绝，避免成员已有 Token 被静默导向新的 URL。维护者更新清单后，成员应先核验差异；确认替换时再显式执行：
+
+```sh
+aigw config import team-profiles.toml --replace-account team-gateway
+# 如 Profile 同名且模型或用途也需要替换：
+aigw config import team-profiles.toml --replace-profile gpt-5.6-terra-cdx
+```
+
+`--replace-account` 不会复制、删除或更改成员系统密钥中的 Token；它只接受经成员确认的 Account 元数据替换。
+
 若某个已导入 Account 的目录中出现尚未配置的模型，成员可在不复制 Token 的前提下添加一个本机 Profile：
 
 ```bash
