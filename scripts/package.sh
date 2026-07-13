@@ -43,6 +43,7 @@ archive_portable() {
   cp "$root/README.md" "$stage/"
   cp "$root/scripts/install.sh" "$root/scripts/uninstall.sh" "$stage/"
   cp "$root/scripts/install.ps1" "$root/scripts/uninstall.ps1" "$stage/"
+  chmod 755 "$stage/install.sh" "$stage/uninstall.sh"
   if [ "$goos" = windows ]; then
     (cd "$build_root" && zip -qr "$out_abs/$name.zip" "$name")
   else
