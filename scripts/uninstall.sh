@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 
+# Portable uninstall must work even when invoked from a restricted shell. It
+# removes only AIGW-owned files and marked blocks, so use the same trusted
+# system-tool bootstrap as portable install rather than inheriting PATH.
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+
 install_dir=${AIGW_INSTALL_DIR:-"$HOME/.local/bin"}
 binary="$install_dir/aigw"
 if [ -n "${AIGW_SHIM_DIR:-}" ]; then

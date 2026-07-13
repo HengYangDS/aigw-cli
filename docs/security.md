@@ -39,7 +39,8 @@ The portable Unix installer also starts from a fixed system-tool PATH. If it was
 invoked with a zsh PATH that lacks the system directories needed before
 `.zshrc` runs, it writes a separate AIGW-owned, secret-free conditional
 `.zshenv` bootstrap; normal shells do not receive that file, and portable
-uninstall removes only its delimited block.
+uninstall removes only its delimited block. Portable uninstall uses the same
+fixed system-tool PATH, so removal remains possible from a restricted shell.
 
 `aigw doctor` rejects globally inherited client-token variables and reports names only, never values. Remove them from login, shell, IDE, and launch-agent environments. `AIGW_TOKEN_<ACCOUNT>` remains the explicit CI-only secret backend; it is not a global client credential. The Claude shim injects the Account Token as `ANTHROPIC_AUTH_TOKEN` only into the Claude process it launches.
 
