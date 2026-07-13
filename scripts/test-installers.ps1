@@ -27,6 +27,7 @@ try {
     $savedHost = $env:AIGW_GL_HOST
     $savedVersion = $env:AIGW_VERSION
     $savedToken = $env:GITLAB_TOKEN
+    $savedUserPath = [Environment]::GetEnvironmentVariable("Path", "User")
     $savedFixtureRoot = $env:AIGW_WINDOWS_INSTALLER_TEST_ROOT
     $savedFixtureVersion = $env:AIGW_WINDOWS_INSTALLER_TEST_VERSION
     $savedFixtureArchive = $env:AIGW_WINDOWS_INSTALLER_TEST_ARCHIVE
@@ -94,6 +95,7 @@ try {
         $env:AIGW_GL_HOST = $savedHost
         $env:AIGW_VERSION = $savedVersion
         $env:GITLAB_TOKEN = $savedToken
+        [Environment]::SetEnvironmentVariable("Path", $savedUserPath, "User")
         $env:AIGW_WINDOWS_INSTALLER_TEST_ROOT = $savedFixtureRoot
         $env:AIGW_WINDOWS_INSTALLER_TEST_VERSION = $savedFixtureVersion
         $env:AIGW_WINDOWS_INSTALLER_TEST_ARCHIVE = $savedFixtureArchive
