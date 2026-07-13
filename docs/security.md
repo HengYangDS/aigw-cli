@@ -60,7 +60,10 @@ portable upgrade replaces that one rollback copy; portable uninstall removes
 only that AIGW-owned rollback binary together with the installed executable.
 `aigw update --rollback` uses that same single portable rollback copy, swaps
 it with the active binary locally, and never contacts a release server or
-touches AIGW configuration, secrets or client projections.
+touches AIGW configuration, secrets or client projections. If a selected
+legacy binary lacks the command, download the current portable archive again
+and run its installer; that installer copies only its bundled binary, retains
+one predecessor, and neither reads tokens nor retrieves a release.
 
 ## Update boundary
 
