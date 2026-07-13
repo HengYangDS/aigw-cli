@@ -370,6 +370,33 @@ func TestStatusShowsInheritanceAndJSONNeverContainsToken(t *testing.T) {
 	}
 }
 
+func TestStatusLabelsProfileCountAsModelConfigurations(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "team", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "team", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-test"}}
+	cfg.Routes.Default = "gpt"
+	cfg.Routes.Overrides[domain.ClientClaude] = "claude"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("team", "team-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "status"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "模型配置数          2") {
+		t.Fatalf("status did not identify configuration count:\n%s", text)
+	}
+	if strings.Contains(text, "已配置服务") {
+		t.Fatalf("status mislabels configuration count as services:\n%s", text)
+	}
+}
+
 func TestTestCommandAuthenticatesWithoutPrintingAuthorizationHeader(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
