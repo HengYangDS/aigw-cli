@@ -144,6 +144,9 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 	if !strings.Contains(human, "Codex 配置目标 1") || !strings.Contains(human, "与当前路由不一致") || strings.Contains(human, "Codex config AIGW state is missing") {
 		t.Fatalf("doctor human output = %s", human)
 	}
+	if !strings.Contains(human, "下一步\n  aigw sync") || strings.Contains(human, "下一步\n  aigw repair") {
+		t.Fatalf("doctor drift next action = %s", human)
+	}
 	out.Reset()
 	if err := execute(t, app, "doctor", "--json"); err != nil {
 		t.Fatalf("doctor --json error = %v", err)

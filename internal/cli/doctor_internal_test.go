@@ -24,3 +24,20 @@ func TestDoctorHumanProjectionFailsClosedForFutureChecks(t *testing.T) {
 		}
 	}
 }
+
+func TestDoctorMixedFailuresFallbackToRepair(t *testing.T) {
+	checks := []doctorCheck{
+		{Name: "codex:target-1", OK: false, Fix: "run `aigw sync` to reconcile this target"},
+		{Name: "shim:claude", OK: false, Fix: "run `aigw repair`"},
+	}
+	if got := doctorNextAction(checks); got != "aigw repair" {
+		t.Fatalf("next action = %q, want aigw repair", got)
+	}
+}
+
+func TestDoctorUnclassifiedFailureFallsBackToRepair(t *testing.T) {
+	checks := []doctorCheck{{Name: "config", OK: false, Detail: "unexpected"}}
+	if got := doctorNextAction(checks); got != "aigw repair" {
+		t.Fatalf("next action = %q, want aigw repair", got)
+	}
+}
