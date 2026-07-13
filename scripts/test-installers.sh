@@ -46,6 +46,9 @@ if validation not in text:
     raise SystemExit('Windows installer must validate GITLAB_TOKEN before every download path')
 if text.index(validation) > text.index('if (Test-Path $LocalBinary)'):
     raise SystemExit('Windows GITLAB_TOKEN validation must precede installer branch selection')
+checksum_match = '"^\\s*[0-9A-Fa-f]{64}\\s+[*]?$([regex]::Escape($archive))\\s*$"'
+if checksum_match not in text:
+    raise SystemExit('Windows installer must accept the standard sha256sum filename field')
 print('Windows latest-token fallback contract: OK')
 PY
 

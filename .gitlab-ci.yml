@@ -24,6 +24,12 @@ verify:
     - go build -o /tmp/aigw-install-smoke ./cmd/aigw
     - sh scripts/test-installers.sh /tmp/aigw-install-smoke
     - sh scripts/test-portable-install.sh /tmp/aigw-install-smoke
+    - |
+      if command -v pwsh >/dev/null 2>&1; then
+        pwsh -NoProfile -NonInteractive -File scripts/test-installers.ps1 -Installer "$CI_PROJECT_DIR/scripts/install.ps1"
+      else
+        echo "PowerShell installer runtime verification is covered by the Windows release runner."
+      fi
     - '! grep -RInE --exclude-dir=.git --exclude="*_test.go" "(sk-[A-Za-z0-9_-]{24,}|Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9_-]{24,})" .'
 
 package:
