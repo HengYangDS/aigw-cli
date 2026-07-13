@@ -35,12 +35,31 @@ shell_profile() {
   esac
 }
 
+owned_block_matches() {
+  file=$1
+  begin=$2
+  end=$3
+  expected=$4
+  [ -f "$file" ] || return 1
+  [ "$(grep -Fxc "$begin" "$file" || true)" = 1 ] || return 1
+  [ "$(grep -Fxc "$end" "$file" || true)" = 1 ] || return 1
+  actual=$(awk -v begin="$begin" -v end="$end" '
+    $0 == begin {inside=1}
+    inside {print}
+    inside && $0 == end {exit}
+  ' "$file")
+  [ "$actual" = "$expected" ]
+}
+
 ensure_zsh_bootstrap() {
   [ "$(basename "${SHELL:-sh}")" = zsh ] || return 0
   case ":$initial_path:" in *:/usr/bin:*|*:/bin:*) return 0 ;; esac
   bootstrap="$HOME/.zshenv"
   begin="# >>> AIGW PATH bootstrap >>>"
   end="# <<< AIGW PATH bootstrap <<<"
+  line='case ":$PATH:" in *:/usr/bin:*|*:/bin:*) ;; *) export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH" ;; esac'
+  expected=$(printf '%s\n%s\n%s' "$begin" "$line" "$end")
+  owned_block_matches "$bootstrap" "$begin" "$end" "$expected" && return 0
   tmp="$bootstrap.aigw.$$"
   if [ -f "$bootstrap" ]; then
     awk -v begin="$begin" -v end="$end" '
@@ -53,18 +72,25 @@ ensure_zsh_bootstrap() {
   fi
   {
     printf '\n%s\n' "$begin"
-    printf 'case ":$PATH:" in *:/usr/bin:*|*:/bin:*) ;; *) export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH" ;; esac\n'
+    printf '%s\n' "$line"
     printf '%s\n' "$end"
   } >> "$tmp"
   mv "$tmp" "$bootstrap"
 }
 
 ensure_path() {
-  case ":$PATH:" in *":$install_dir:"*) return 0 ;; esac
   profile=$(shell_profile)
-  mkdir -p "$(dirname -- "$profile")"
   begin="# >>> AIGW PATH >>>"
   end="# <<< AIGW PATH <<<"
+  shell_name=$(basename "${SHELL:-sh}")
+  if [ "$shell_name" = fish ]; then
+    line="fish_add_path $install_dir /usr/bin /bin /usr/sbin /sbin"
+  else
+    line="export PATH=\"$install_dir:/usr/bin:/bin:/usr/sbin:/sbin:\$PATH\""
+  fi
+  expected=$(printf '%s\n%s\n%s' "$begin" "$line" "$end")
+  owned_block_matches "$profile" "$begin" "$end" "$expected" && return 0
+  mkdir -p "$(dirname -- "$profile")"
   tmp="$profile.aigw.$$"
   if [ -f "$profile" ]; then
     awk -v begin="$begin" -v end="$end" '
@@ -75,14 +101,9 @@ ensure_path() {
   else
     : > "$tmp"
   fi
-  shell_name=$(basename "${SHELL:-sh}")
   {
     printf '\n%s\n' "$begin"
-    if [ "$shell_name" = fish ]; then
-      printf 'fish_add_path %s /usr/bin /bin /usr/sbin /sbin\n' "$install_dir"
-    else
-      printf 'export PATH="%s:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"\n' "$install_dir"
-    fi
+    printf '%s\n' "$line"
     printf '%s\n' "$end"
   } >> "$tmp"
   mv "$tmp" "$profile"
@@ -125,5 +146,9 @@ ensure_zsh_bootstrap
 ensure_path
 
 echo "Installed $binary"
-[ "$had_previous" -eq 0 ] || echo "Previous AIGW binary saved to $backup"
-echo "Next: aigw setup"
+if [ "$had_previous" -eq 0 ]; then
+  echo "Next: aigw setup"
+else
+  echo "Previous AIGW binary saved to $backup"
+  echo "Next: aigw check"
+fi
