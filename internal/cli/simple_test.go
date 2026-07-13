@@ -771,3 +771,30 @@ func TestCatalogJSONUnconfiguredIsEmptyAndMachineReadable(t *testing.T) {
 		t.Fatalf("catalog --json = %q", out.String())
 	}
 }
+
+func TestStatusAndCheckHideUnreadableConfigDetails(t *testing.T) {
+	for _, command := range [][]string{{"status"}, {"check"}} {
+		t.Run(strings.Join(command, " "), func(t *testing.T) {
+			app, out, _, _ := testApp(t, "")
+			if err := os.WriteFile(app.Config.Path(), []byte("version = [\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			err := execute(t, app, command...)
+			if err == nil {
+				t.Fatalf("%s unexpectedly succeeded", strings.Join(command, " "))
+			}
+			text := out.String()
+			for _, want := range []string{"无法读取或校验本机配置", "aigw doctor"} {
+				if !strings.Contains(text, want) {
+					t.Fatalf("%s output lacks %q:\n%s", strings.Join(command, " "), want, text)
+				}
+			}
+			for _, forbidden := range []string{"parse config:", "validate config:", "version = [", app.Config.Path()} {
+				if strings.Contains(text, forbidden) {
+					t.Fatalf("%s leaked %q:\n%s", strings.Join(command, " "), forbidden, text)
+				}
+			}
+		})
+	}
+}
