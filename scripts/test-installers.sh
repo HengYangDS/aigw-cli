@@ -77,6 +77,26 @@ env \
 [ -x "$archive_install/aigw" ] || { echo "bundled portable installer did not produce an executable" >&2; exit 1; }
 "$archive_install/aigw" --version >/dev/null
 
+help_home="$tmp/help-home"
+help_install="$help_home/bin"
+set +e
+env \
+  HOME="$help_home" \
+  SHELL=/bin/sh \
+  PATH="" \
+  AIGW_INSTALL_DIR="$help_install" \
+  AIGW_SOURCE_BINARY="$source_binary" \
+  /bin/sh "$unix_script" --help >"$tmp/help.out" 2>"$tmp/help.err"
+help_rc=$?
+set -e
+[ "$help_rc" -eq 0 ] || { cat "$tmp/help.err" >&2; echo "installer help exited unsuccessfully" >&2; exit 1; }
+grep -F 'Usage: install.sh' "$tmp/help.out" >/dev/null || {
+  cat "$tmp/help.out" >&2
+  echo "installer help did not print usage" >&2
+  exit 1
+}
+[ ! -e "$help_install/aigw" ] || { echo "installer help modified the installation" >&2; exit 1; }
+
 set +e
 HOME="$tmp/missing-home" SHELL=/bin/sh PATH="/usr/bin:/bin" AIGW_INSTALL_DIR="$tmp/missing-bin" /bin/sh "$unix_script" >"$tmp/missing.out" 2>"$tmp/missing.err"
 missing_rc=$?
