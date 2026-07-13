@@ -218,7 +218,7 @@ func TestWizardFailureLeavesNoProfileSecretOrClientProjection(t *testing.T) {
 		ClaudeExecutable: "/opt/claude-real", CodexExecutable: "/opt/codex-real", CodexTargets: []string{codexTarget},
 	}}
 	err := execute(t, app)
-	if err == nil || !strings.Contains(err.Error(), "rolled back") {
+	if err == nil || !strings.Contains(err.Error(), "已回退") {
 		t.Fatalf("error = %v", err)
 	}
 	if secretStore.Has("team-gateway") {
