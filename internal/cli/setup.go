@@ -36,21 +36,21 @@ func newSetupCommand(app *App) *cobra.Command {
 					return err
 				}
 				if len(cfg.Profiles) > 0 {
-					return fmt.Errorf("AIGW is already configured; use `aigw add`, `aigw profile add`, or `aigw status`")
+					return fmt.Errorf("AIGW 已完成首次配置；如需新增服务运行 `aigw add`，新增模型运行 `aigw profile add`，查看当前状态运行 `aigw status`")
 				}
 				return runWizard(cmd.Context(), app)
 			}
 			return runSetup(cmd.Context(), app, request)
 		},
 	}
-	cmd.Flags().StringVar(&request.Account, "account", "", "Account identifier; defaults to --profile")
-	cmd.Flags().StringVar(&request.Profile, "profile", "", "first model Profile identifier")
-	cmd.Flags().StringVar(&request.Label, "label", "", "human-readable provider label")
-	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")
-	cmd.Flags().StringVar(&request.AnthropicURL, "anthropic-url", "", "Anthropic base URL")
-	cmd.Flags().StringVar(&request.Client, "for", "", "first Profile client: claude or codex")
-	cmd.Flags().StringVar(&request.Model, "model", "", "upstream model ID for --for")
-	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "read one token line from stdin")
+	cmd.Flags().StringVar(&request.Account, "account", "", "Account 标识；默认使用 --profile")
+	cmd.Flags().StringVar(&request.Profile, "profile", "", "首个模型 Profile 标识")
+	cmd.Flags().StringVar(&request.Label, "label", "", "服务商显示名称")
+	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses 基础 URL")
+	cmd.Flags().StringVar(&request.AnthropicURL, "anthropic-url", "", "Anthropic 基础 URL")
+	cmd.Flags().StringVar(&request.Client, "for", "", "首个 Profile 的客户端：claude 或 codex")
+	cmd.Flags().StringVar(&request.Model, "model", "", "--for 对应的上游模型 ID")
+	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "从标准输入读取一行 Token")
 	return cmd
 }
 
@@ -60,7 +60,7 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 		return err
 	}
 	if len(cfg.Profiles) > 0 {
-		return fmt.Errorf("AIGW is already configured; use `aigw add`, `aigw profile add`, or `aigw status`")
+		return fmt.Errorf("AIGW 已完成首次配置；如需新增服务运行 `aigw add`，新增模型运行 `aigw profile add`，查看当前状态运行 `aigw status`")
 	}
 	request.Profile = strings.TrimSpace(request.Profile)
 	request.Account = strings.TrimSpace(request.Account)
@@ -106,7 +106,7 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 		}
 		models[request.Client] = strings.TrimSpace(request.Model)
 	default:
-		return fmt.Errorf("--for must be claude or codex")
+		return fmt.Errorf("--for 只能是 claude 或 codex；运行 `aigw setup --help` 查看帮助")
 	}
 	account := domain.Account{Label: request.Label, Endpoints: endpoints}
 	profile := domain.Profile{Label: request.Label, Account: request.Account, Client: request.Client, Models: models}

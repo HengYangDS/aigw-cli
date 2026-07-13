@@ -173,7 +173,7 @@ func newDoctorCommand(app *App) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&jsonMode, "json", false, "emit machine-readable JSON")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "输出机器可读 JSON")
 	return cmd
 }
 
