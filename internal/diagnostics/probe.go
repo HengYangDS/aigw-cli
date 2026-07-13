@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/redaction"
 )
 
 type Kind string
@@ -55,13 +56,13 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := client.Do(req)
 	if err != nil {
-		return Result{Kind: NetworkFailure, Summary: "无法连接网关", Detail: sanitize(err.Error()), Fix: "检查网络、代理和网关地址后重试", Retryable: true}
+		return Result{Kind: NetworkFailure, Summary: "无法连接网关", Detail: sanitize(err.Error(), token), Fix: "检查网络、代理和网关地址后重试", Retryable: true}
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 	message := strings.TrimSpace(string(body))
 	lower := strings.ToLower(message)
-	result := Result{HTTPStatus: resp.StatusCode, Detail: compact(message)}
+	result := Result{HTTPStatus: resp.StatusCode, Detail: compact(message, token)}
 	switch {
 	case resp.StatusCode >= 200 && resp.StatusCode < 400:
 		result.Kind, result.Summary = Healthy, "API Token 与网关正常"
@@ -105,17 +106,15 @@ func containsAny(value string, candidates ...string) bool {
 	return false
 }
 
-func compact(value string) string {
+func compact(value string, secrets ...string) string {
+	value = redaction.Text(value, secrets...)
 	value = strings.Join(strings.Fields(value), " ")
 	if len(value) > 500 {
 		value = value[:500] + "…"
 	}
-	return sanitize(value)
+	return sanitize(value, secrets...)
 }
 
-func sanitize(value string) string {
-	if index := strings.Index(strings.ToLower(value), "bearer "); index >= 0 {
-		value = value[:index] + "Bearer [REDACTED]"
-	}
-	return value
+func sanitize(value string, secrets ...string) string {
+	return redaction.Text(value, secrets...)
 }
