@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Separate human-readable `aigw doctor` output from its stable JSON diagnostic
+  contract: terminal checks now use concise Chinese labels, actionable repair
+  commands, and no raw implementation detail leakage.
 - Localize the complete human-facing CLI help surface and common validation
   failures, including context-aware next commands instead of a generic health
   check for syntax and routing mistakes.
