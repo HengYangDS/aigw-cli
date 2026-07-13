@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Verify Linux native packages through four architecture/package paths:
+  `amd64` and `arm64` `.deb`/`.rpm` artifacts are installed and executed in
+  isolated Debian and RPM-family compatibility containers. Image preparation
+  is explicit; package execution itself runs with no network and no pull.
 - Separate human-readable `aigw doctor` output from its stable JSON diagnostic
   contract: terminal checks now use concise Chinese labels, actionable repair
   commands, and no raw implementation detail leakage.
