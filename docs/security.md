@@ -58,6 +58,9 @@ exit before any mutation. Every portable upgrade path—archive installer and
 `<install-dir>/.aigw.previous` (or `.aigw.previous.exe` on Windows). The next
 portable upgrade replaces that one rollback copy; portable uninstall removes
 only that AIGW-owned rollback binary together with the installed executable.
+`aigw update --rollback` uses that same single portable rollback copy, swaps
+it with the active binary locally, and never contacts a release server or
+touches AIGW configuration, secrets or client projections.
 
 ## Update boundary
 
