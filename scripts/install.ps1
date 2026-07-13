@@ -1,62 +1,14 @@
-param(
-    [string]$InstallDir = $(if ($env:AIGW_INSTALL_DIR) { $env:AIGW_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "Programs\aigw\bin" }),
-    [string]$Version = $(if ($env:AIGW_VERSION) { $env:AIGW_VERSION } else { "latest" })
-)
-$ErrorActionPreference = "Stop"
-$Project = "dig/misc/agentic-third-party-api/aigw-cli"
-$HostURL = if ($env:AIGW_GL_HOST) { $env:AIGW_GL_HOST } else { "http://192.168.64.101:18086" }
-$LocalBinary = Join-Path $PSScriptRoot "aigw.exe"
-if ($env:GITLAB_TOKEN -and $env:GITLAB_TOKEN -match "[\r\n]") { throw "GITLAB_TOKEN contains a control character" }
-New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+param([string]$InstallDir = $(if ($env:AIGW_INSTALL_DIR) { $env:AIGW_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "Programs\aigw\bin" }))
 
-if (Test-Path $LocalBinary) {
-    $Source = $LocalBinary
-} else {
-    if ($Version -eq "latest") {
-        if (Get-Command glab -ErrorAction SilentlyContinue) {
-            $release = glab release list -R $Project --per-page 1 -F json | ConvertFrom-Json
-            $Version = $release[0].tag_name
-        } elseif ($env:GITLAB_TOKEN) {
-            $projectID = [uri]::EscapeDataString($Project)
-            $release = Invoke-RestMethod -Uri "$HostURL/api/v4/projects/$projectID/releases/permalink/latest" -Headers @{"PRIVATE-TOKEN" = $env:GITLAB_TOKEN}
-            $Version = $release.tag_name
-        } else {
-            throw "latest private release requires authenticated glab or GITLAB_TOKEN; set AIGW_VERSION to install a known tag"
-        }
-        if (-not $Version) { throw "no release found" }
-    }
-    $clean = $Version.TrimStart("v")
-    $tag = if ($Version.StartsWith("v")) { $Version } else { "v$Version" }
-    $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq "Arm64") { "arm64" } else { "amd64" }
-    $archive = "aigw_${clean}_windows_${arch}.zip"
-    $temp = Join-Path ([IO.Path]::GetTempPath()) ("aigw-" + [guid]::NewGuid())
-    New-Item -ItemType Directory -Path $temp | Out-Null
-    if (Get-Command glab -ErrorAction SilentlyContinue) {
-        $env:GL_HOST = $HostURL
-        glab release download $tag -R $Project --asset-name $archive --dir $temp
-        if ($LASTEXITCODE -ne 0) { throw "glab release download failed" }
-        glab release download $tag -R $Project --asset-name checksums.txt --dir $temp
-        if ($LASTEXITCODE -ne 0) { throw "glab checksum download failed" }
-    } elseif ($env:GITLAB_TOKEN) {
-        $url = "$HostURL/$Project/-/releases/$tag/downloads/$archive"
-        Invoke-WebRequest -Uri $url -Headers @{"PRIVATE-TOKEN" = $env:GITLAB_TOKEN} -OutFile (Join-Path $temp $archive)
-        Invoke-WebRequest -Uri "$HostURL/$Project/-/releases/$tag/downloads/checksums.txt" -Headers @{"PRIVATE-TOKEN" = $env:GITLAB_TOKEN} -OutFile (Join-Path $temp "checksums.txt")
-    } else {
-        throw "private release download requires authenticated glab or GITLAB_TOKEN"
-    }
-    # Release manifests use the portable sha256sum format: <hash><space><space><filename>.
-    # Match the filename as a distinct final field, instead of assuming a path prefix.
-    $line = Get-Content (Join-Path $temp "checksums.txt") | Where-Object { $_ -match "^\s*[0-9A-Fa-f]{64}\s+[*]?$([regex]::Escape($archive))\s*$" } | Select-Object -First 1
-    if (-not $line) { throw "checksum entry missing for $archive" }
-    $expected = ($line -split '\s+')[0].ToLowerInvariant()
-    $actual = (Get-FileHash (Join-Path $temp $archive) -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($actual -ne $expected) { throw "SHA-256 mismatch for $archive" }
-    Expand-Archive (Join-Path $temp $archive) -DestinationPath $temp
-    $Source = Join-Path $temp "aigw_${clean}_windows_${arch}\aigw.exe"
+$ErrorActionPreference = "Stop"
+$LocalBinary = Join-Path $PSScriptRoot "aigw.exe"
+if (-not (Test-Path $LocalBinary)) {
+    throw "This installer only installs the bundled aigw.exe. Download and extract the matching portable zip first; use aigw update after installation."
 }
 
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 $target = Join-Path $InstallDir "aigw.exe"
-Copy-Item $Source "$target.new" -Force
+Copy-Item $LocalBinary "$target.new" -Force
 Move-Item "$target.new" $target -Force
 
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
