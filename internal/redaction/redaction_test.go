@@ -19,3 +19,15 @@ func TestTextRemovesKnownAndBearerCredentials(t *testing.T) {
 		t.Fatalf("redacted text = %q", text)
 	}
 }
+
+func TestTextRemovesUnknownStructuredCredentialFields(t *testing.T) {
+	text := redaction.Text(`{"api_key":"unknown-json-key","token":"unknown-token","nested":{"client_secret":"unknown-secret"},"safe":"kept"} query api_key=unknown-query-key&mode=read`)
+	for _, forbidden := range []string{"unknown-json-key", "unknown-token", "unknown-secret", "unknown-query-key"} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("redacted text contains %q: %q", forbidden, text)
+		}
+	}
+	if !strings.Contains(text, `"safe":"kept"`) {
+		t.Fatalf("redaction removed unrelated diagnostic context: %q", text)
+	}
+}
