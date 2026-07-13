@@ -77,10 +77,10 @@ func newAddCommand(app *App) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&label, "label", "", "human-readable provider label")
-	cmd.Flags().StringVar(&openAIURL, "openai-url", "", "OpenAI Responses base URL")
-	cmd.Flags().StringVar(&anthropicURL, "anthropic-url", "", "Anthropic base URL")
-	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "read one token line from stdin")
+	cmd.Flags().StringVar(&label, "label", "", "服务商显示名称")
+	cmd.Flags().StringVar(&openAIURL, "openai-url", "", "OpenAI Responses 基础 URL")
+	cmd.Flags().StringVar(&anthropicURL, "anthropic-url", "", "Anthropic 基础 URL")
+	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "从标准输入读取一行 Token")
 	return cmd
 }
 
@@ -93,10 +93,10 @@ func newUseCommand(app *App) *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if all && client != "" {
-				return fmt.Errorf("--all and --for cannot be used together")
+				return fmt.Errorf("--all 与 --for 不能同时使用；运行 `aigw use --help` 查看帮助")
 			}
 			if client != "" && !domain.IsAdmittedClient(client) {
-				return fmt.Errorf("--for must be claude or codex")
+				return fmt.Errorf("--for 只能是 claude 或 codex；运行 `aigw use --help` 查看帮助")
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -174,8 +174,8 @@ func newUseCommand(app *App) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "set only claude or codex")
-	cmd.Flags().BoolVar(&all, "all", false, "set default and clear client overrides")
+	cmd.Flags().StringVar(&client, "for", "", "仅设置 Claude 或 Codex")
+	cmd.Flags().BoolVar(&all, "all", false, "设置默认路由并清除客户端覆盖")
 	return cmd
 }
 
@@ -271,7 +271,7 @@ func newRotateCommand(app *App) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "read one token line from stdin")
+	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "从标准输入读取一行 Token")
 	return cmd
 }
 
@@ -313,7 +313,7 @@ func newStatusCommand(app *App) *cobra.Command {
 	var jsonMode bool
 	cmd := &cobra.Command{Use: "status", Short: "查看详细状态", Args: cobra.NoArgs}
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error { return runStatus(cmd, app, jsonMode) }
-	cmd.Flags().BoolVar(&jsonMode, "json", false, "emit machine-readable JSON")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "输出机器可读 JSON")
 	return cmd
 }
 
@@ -501,7 +501,7 @@ func newTestCommand(app *App) *cobra.Command {
 			clients := domain.AdmittedClientIDs()
 			if client != "" {
 				if !domain.IsAdmittedClient(client) {
-					return fmt.Errorf("--for must be claude or codex")
+					return fmt.Errorf("--for 只能是 claude 或 codex；运行 `aigw test --help` 查看帮助")
 				}
 				clients = []string{client}
 			}
@@ -561,8 +561,8 @@ func newTestCommand(app *App) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "test only claude or codex")
-	cmd.Flags().StringVar(&profileName, "profile", "", "test one profile without changing routes")
+	cmd.Flags().StringVar(&client, "for", "", "仅测试 Claude 或 Codex")
+	cmd.Flags().StringVar(&profileName, "profile", "", "测试指定 Profile，且不修改路由")
 	return cmd
 }
 
@@ -579,11 +579,11 @@ func newVerifyCommand(app *App) *cobra.Command {
 				clients = []string{client}
 			case "all":
 				if profileName != "" {
-					return fmt.Errorf("--profile cannot be used with --for all")
+					return fmt.Errorf("--profile 不能与 --for all 同时使用；运行 `aigw verify --help` 查看帮助")
 				}
 				clients = domain.AdmittedClientIDs()
 			default:
-				return fmt.Errorf("--for must be claude, codex, or all")
+				return fmt.Errorf("--for 只能是 claude、codex 或 all；运行 `aigw verify --help` 查看帮助")
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -630,8 +630,8 @@ func newVerifyCommand(app *App) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "verify claude, codex, or all")
-	cmd.Flags().StringVar(&profileName, "profile", "", "verify one profile without changing routes")
+	cmd.Flags().StringVar(&client, "for", "", "验证 Claude、Codex 或全部")
+	cmd.Flags().StringVar(&profileName, "profile", "", "验证指定 Profile，且不修改路由")
 	return cmd
 }
 
@@ -846,7 +846,7 @@ func newRollbackCommand(app *App) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&lastChange, "last-change", false, "restore only the immediately previous config backup")
+	cmd.Flags().BoolVar(&lastChange, "last-change", false, "仅恢复紧邻的一份配置备份")
 	return cmd
 }
 

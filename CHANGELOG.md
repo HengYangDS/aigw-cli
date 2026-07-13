@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Localize the complete human-facing CLI help surface and common validation
+  failures, including context-aware next commands instead of a generic health
+  check for syntax and routing mistakes.
 - Add `aigw update --rollback` for portable installations: a local, reversible
   program-only swap with the single retained prior binary; native package
   channels remain owned by their package manager. If a selected historical

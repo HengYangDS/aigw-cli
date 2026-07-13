@@ -102,7 +102,7 @@ func newAccountCommand(app *App) *cobra.Command {
 	root := &cobra.Command{Use: "account", Short: "管理 Account 端点与可选精确诊断"}
 	root.AddCommand(
 		newAccountEditCommand(app),
-		&cobra.Command{Use: "connect [account]", Short: "Bind provider platform credentials for exact balance", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+		&cobra.Command{Use: "connect [account]", Short: "绑定服务商平台凭据以查询精确余额", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 			if !app.Interactive {
 				return fmt.Errorf("account connection requires an interactive terminal")
 			}
@@ -143,7 +143,7 @@ func newAccountCommand(app *App) *cobra.Command {
 			r.Next("aigw balance")
 			return nil
 		}},
-		&cobra.Command{Use: "disconnect [account]", Short: "Remove optional provider platform credentials", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+		&cobra.Command{Use: "disconnect [account]", Short: "移除可选的服务商平台凭据", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {
 				return err
