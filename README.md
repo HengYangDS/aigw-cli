@@ -81,6 +81,15 @@ aigw check
 
 团队清单与本机配置统一使用 schema v2；AIGW 仅接受这一当前结构，避免迁移逻辑和并行配置路径。导入、轮换和切换都不会同步、认证、启动、关闭或重启 Claude/Codex。
 
+团队清单不能静默接管本机身份：同名 Account 或 Profile 的内容完全一致时导入幂等；若端点、协议或模型等内容不同，导入会拒绝，以免把既有系统 Token 指向新地址。经人工核验后，才可显式替换指定对象：
+
+```sh
+aigw config import team-profiles.toml --replace-account team-gateway
+aigw config import team-profiles.toml --replace-profile gpt-5.6-terra-cdx
+```
+
+`--replace-account` 仅替换 Account 元数据；对应的系统密钥槽位与 Token 不会被团队清单读取、写入或删除。
+
 没有团队清单时：
 
 ```bash

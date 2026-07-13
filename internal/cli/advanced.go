@@ -590,54 +590,70 @@ func newConfigCommand(app *App) *cobra.Command {
 			_, err = app.Out.Write(data)
 			return err
 		}},
-		&cobra.Command{Use: "import <team-profiles.toml>", Short: "Merge a secret-free team manifest", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
-			data, err := os.ReadFile(args[0])
-			if err != nil {
-				return fmt.Errorf("read team manifest: %w", err)
-			}
-			team, err := manifest.Parse(data)
-			if err != nil {
-				return err
-			}
-			cfg, err := app.Config.Load()
-			if err != nil {
-				return err
-			}
-			before := cloneConfig(cfg)
-			cfg, err = manifest.Merge(cfg, team)
-			if err != nil {
-				return err
-			}
-			if err := commitConfigAndSync(context.Background(), app, before, cfg, "team manifest"); err != nil {
-				return err
-			}
-			accountNames := importedAccountNames(team)
-			missing := []string{}
-			r := renderer(app)
-			r.Title("AIGW", "团队配置已导入")
-			r.Row("服务数量", fmt.Sprintf("%d", len(team.Profiles)))
-			r.Row("账户数量", fmt.Sprintf("%d", len(accountNames)))
-			for _, name := range accountNames {
-				if app.Secrets.Has(name) {
-					r.Status(presentation.OK, "系统密钥", name+" Token 可用")
-					continue
+		func() *cobra.Command {
+			var replaceAccounts, replaceProfiles []string
+			cmd := &cobra.Command{Use: "import <team-profiles.toml>", Short: "Merge a secret-free team manifest", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+				data, err := os.ReadFile(args[0])
+				if err != nil {
+					return fmt.Errorf("read team manifest: %w", err)
 				}
-				missing = append(missing, name)
-				r.Status(presentation.Warn, name, "需要录入 Token")
-			}
-			if len(missing) > 0 {
-				if len(missing) == 1 {
-					r.Next("aigw rotate " + missing[0])
+				team, err := manifest.Parse(data)
+				if err != nil {
+					return err
+				}
+				cfg, err := app.Config.Load()
+				if err != nil {
+					return err
+				}
+				before := cloneConfig(cfg)
+				cfg, err = manifest.MergeWithOptions(cfg, team, manifest.MergeOptions{ReplaceAccounts: namedReplacementSet(replaceAccounts), ReplaceProfiles: namedReplacementSet(replaceProfiles)})
+				if err != nil {
+					return err
+				}
+				if err := commitConfigAndSync(context.Background(), app, before, cfg, "team manifest"); err != nil {
+					return err
+				}
+				accountNames := importedAccountNames(team)
+				missing := []string{}
+				r := renderer(app)
+				r.Title("AIGW", "团队配置已导入")
+				r.Row("服务数量", fmt.Sprintf("%d", len(team.Profiles)))
+				r.Row("账户数量", fmt.Sprintf("%d", len(accountNames)))
+				for _, name := range accountNames {
+					if app.Secrets.Has(name) {
+						r.Status(presentation.OK, "系统密钥", name+" Token 可用")
+						continue
+					}
+					missing = append(missing, name)
+					r.Status(presentation.Warn, name, "需要录入 Token")
+				}
+				if len(missing) > 0 {
+					if len(missing) == 1 {
+						r.Next("aigw rotate " + missing[0])
+					} else {
+						r.Next("aigw rotate <account>")
+					}
 				} else {
-					r.Next("aigw rotate <account>")
+					r.Next("aigw models")
 				}
-			} else {
-				r.Next("aigw models")
-			}
-			return nil
-		}},
+				return nil
+			}}
+			cmd.Flags().StringSliceVar(&replaceAccounts, "replace-account", nil, "explicitly replace a conflicting Account metadata entry; its system Token is preserved")
+			cmd.Flags().StringSliceVar(&replaceProfiles, "replace-profile", nil, "explicitly replace a conflicting Profile")
+			return cmd
+		}(),
 	)
 	return root
+}
+
+func namedReplacementSet(names []string) map[string]bool {
+	result := make(map[string]bool, len(names))
+	for _, name := range names {
+		if name = strings.TrimSpace(name); name != "" {
+			result[name] = true
+		}
+	}
+	return result
 }
 
 func importedAccountNames(team manifest.Manifest) []string {

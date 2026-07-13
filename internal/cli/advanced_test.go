@@ -43,6 +43,106 @@ account = "team"
 	}
 }
 
+func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesToken(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["team"] = domain.Account{Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}}
+	cfg.Profiles["local"] = domain.Profile{Label: "Local", Account: "team"}
+	cfg.Routes.Default = "local"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("team", "personal-token"); err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(t.TempDir(), "team.toml")
+	manifest := `version = 2
+recommended_default = "team-profile"
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "https://team.example.test"
+[profiles.team-profile]
+label = "Team Profile"
+account = "team"
+`
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := execute(t, app, "config", "import", manifestPath)
+	if err == nil || !strings.Contains(err.Error(), "--replace-account team") {
+		t.Fatalf("default import error = %v", err)
+	}
+	got, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Accounts["team"].Endpoints.Anthropic != "https://personal.example.test" || got.Routes.Default != "local" {
+		t.Fatalf("default import mutated local identity: %#v", got)
+	}
+	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
+		t.Fatalf("default import altered token: %q, %v", token, err)
+	}
+
+	if err := execute(t, app, "config", "import", manifestPath, "--replace-account", "team"); err != nil {
+		t.Fatal(err)
+	}
+	got, err = app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Accounts["team"].Endpoints.Anthropic != "https://team.example.test" || got.Routes.Default != "local" {
+		t.Fatalf("explicit replacement result: %#v", got)
+	}
+	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
+		t.Fatalf("explicit replacement altered token: %q, %v", token, err)
+	}
+}
+
+func TestConfigImportRefusesProfileConflictUntilExplicitReplacement(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["team"] = domain.Account{Label: "Team Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
+	cfg.Profiles["shared"] = domain.Profile{Label: "Personal Model", Account: "team", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "personal-model"}}
+	cfg.Routes.Default = "shared"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(t.TempDir(), "team.toml")
+	manifest := `version = 2
+recommended_default = "shared"
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+openai_responses = "https://team.example.test/v1"
+[profiles.shared]
+label = "Team Model"
+account = "team"
+client = "codex"
+[profiles.shared.models]
+codex = "team-model"
+`
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := execute(t, app, "config", "import", manifestPath)
+	if err == nil || !strings.Contains(err.Error(), "--replace-profile shared") {
+		t.Fatalf("default import error = %v", err)
+	}
+	if err := execute(t, app, "config", "import", manifestPath, "--replace-profile", "shared"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Profiles["shared"].Models[domain.ClientCodex] != "team-model" {
+		t.Fatalf("explicit profile replacement = %#v", got.Profiles["shared"])
+	}
+}
+
 func TestConfigUpgradeIsNotAnAvailableCommand(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	err := execute(t, app, "config", "upgrade")

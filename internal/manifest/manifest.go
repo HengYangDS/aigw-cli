@@ -18,6 +18,14 @@ type Manifest struct {
 	Profiles           map[string]domain.Profile `toml:"profiles"`
 }
 
+// MergeOptions makes every local-identity replacement explicit. Team manifests
+// are intentionally token-free; they must not silently redirect an existing
+// local Account and its system-held Token to a different endpoint.
+type MergeOptions struct {
+	ReplaceAccounts map[string]bool
+	ReplaceProfiles map[string]bool
+}
+
 func Parse(data []byte) (Manifest, error) {
 	var raw map[string]any
 	if err := toml.Unmarshal(data, &raw); err != nil {
@@ -89,29 +97,117 @@ func findCredentialKey(value any, prefix string) string {
 }
 
 func Merge(cfg domain.Config, team Manifest) (domain.Config, error) {
-	cfg.Normalize()
+	return MergeWithOptions(cfg, team, MergeOptions{})
+}
+
+func MergeWithOptions(cfg domain.Config, team Manifest, options MergeOptions) (domain.Config, error) {
 	if team.Version != domain.ConfigVersion {
 		return domain.Config{}, fmt.Errorf("unsupported team manifest version %d; expected %d", team.Version, domain.ConfigVersion)
 	}
+	merged := cloneConfig(cfg)
+	if err := validateReplacementSelectors(team, options); err != nil {
+		return domain.Config{}, err
+	}
 	for name, account := range team.Accounts {
-		cfg.Accounts[name] = account
+		if existing, exists := merged.Accounts[name]; exists {
+			if equivalentAccount(existing, account) {
+				continue
+			}
+			if !options.ReplaceAccounts[name] {
+				return domain.Config{}, fmt.Errorf("account %q conflicts with local configuration; inspect it with `aigw account list` and re-run with `aigw config import <team-profiles.toml> --replace-account %s` to explicitly replace the Account metadata while preserving its Token", name, name)
+			}
+		}
+		merged.Accounts[name] = account
 	}
 	for name, profile := range team.Profiles {
-		cfg.Profiles[name] = profile
+		if existing, exists := merged.Profiles[name]; exists {
+			if equivalentProfile(existing, profile) {
+				continue
+			}
+			if !options.ReplaceProfiles[name] {
+				return domain.Config{}, fmt.Errorf("profile %q conflicts with local configuration; re-run with `aigw config import <team-profiles.toml> --replace-profile %s` to explicitly replace it", name, name)
+			}
+		}
+		merged.Profiles[name] = profile
 	}
-	if cfg.Routes.Default == "" {
-		cfg.Routes.Default = team.RecommendedDefault
-		if cfg.Routes.Default == "" {
+	if merged.Routes.Default == "" {
+		merged.Routes.Default = team.RecommendedDefault
+		if merged.Routes.Default == "" {
 			for name := range team.Profiles {
-				cfg.Routes.Default = name
+				merged.Routes.Default = name
 				break
 			}
 		}
 	}
-	if err := cfg.Validate(); err != nil {
+	if err := merged.Validate(); err != nil {
 		return domain.Config{}, fmt.Errorf("merge team manifest: %w", err)
 	}
-	return cfg, nil
+	return merged, nil
+}
+
+func validateReplacementSelectors(team Manifest, options MergeOptions) error {
+	for name := range options.ReplaceAccounts {
+		if _, exists := team.Accounts[name]; !exists {
+			return fmt.Errorf("--replace-account %q does not name an Account in the imported team manifest", name)
+		}
+	}
+	for name := range options.ReplaceProfiles {
+		if _, exists := team.Profiles[name]; !exists {
+			return fmt.Errorf("--replace-profile %q does not name a Profile in the imported team manifest", name)
+		}
+	}
+	return nil
+}
+
+func cloneConfig(cfg domain.Config) domain.Config {
+	copy := cfg
+	copy.Accounts = make(map[string]domain.Account, len(cfg.Accounts))
+	for name, account := range cfg.Accounts {
+		copy.Accounts[name] = account
+	}
+	copy.Profiles = make(map[string]domain.Profile, len(cfg.Profiles))
+	for name, profile := range cfg.Profiles {
+		copy.Profiles[name] = profile
+	}
+	copy.Routes.Overrides = make(map[string]string, len(cfg.Routes.Overrides))
+	for client, profile := range cfg.Routes.Overrides {
+		copy.Routes.Overrides[client] = profile
+	}
+	copy.Adapters = make(map[string]domain.AdapterConfig, len(cfg.Adapters))
+	for client, adapter := range cfg.Adapters {
+		adapter.Targets = append([]string(nil), adapter.Targets...)
+		copy.Adapters[client] = adapter
+	}
+	copy.Normalize()
+	return copy
+}
+
+func equivalentAccount(left, right domain.Account) bool {
+	return left.Label == right.Label &&
+		normalizeEndpoint(left.Endpoints.OpenAIResponses) == normalizeEndpoint(right.Endpoints.OpenAIResponses) &&
+		normalizeEndpoint(left.Endpoints.Anthropic) == normalizeEndpoint(right.Endpoints.Anthropic) &&
+		equivalentProbe(left.AccountProbe, right.AccountProbe)
+}
+
+func equivalentProbe(left, right *domain.AccountProbe) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.Kind == right.Kind && normalizeEndpoint(left.BaseURL) == normalizeEndpoint(right.BaseURL)
+}
+
+func normalizeEndpoint(value string) string { return strings.TrimRight(strings.TrimSpace(value), "/") }
+
+func equivalentProfile(left, right domain.Profile) bool {
+	if left.Label != right.Label || left.Purpose != right.Purpose || left.Account != right.Account || left.Client != right.Client || len(left.Models) != len(right.Models) {
+		return false
+	}
+	for client, model := range left.Models {
+		if right.Models[client] != model {
+			return false
+		}
+	}
+	return true
 }
 
 func Export(cfg domain.Config) ([]byte, error) {
