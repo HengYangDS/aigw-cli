@@ -261,6 +261,30 @@ func TestPortableRollbackRoundTripsProgramBinaries(t *testing.T) {
 	}
 }
 
+func TestPortableRollbackGuidesLegacyProgramRecoveryWithCurrentPortableInstaller(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "aigw")
+	backup := filepath.Join(filepath.Dir(binary), ".aigw.previous")
+	if err := os.WriteFile(binary, []byte("current-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(backup, []byte("previous-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Channel: selfupdate.ChannelPortable, Executable: binary}
+	message, err := u.Rollback(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{"旧版本不支持", "团队发布页", "当前便携包", "安装脚本", "仅替换 AIGW 程序"} {
+		if !strings.Contains(message, expected) {
+			t.Fatalf("rollback recovery guidance missing %q: %s", expected, message)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(binary), "aigw-restore-current")); !os.IsNotExist(err) {
+		t.Fatalf("rollback created an extra recovery launcher: %v", err)
+	}
+}
+
 func TestUpdateUsesSupportedGlabJSONFlags(t *testing.T) {
 	runner := &fakeRunner{}
 	u := selfupdate.Updater{

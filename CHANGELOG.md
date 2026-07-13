@@ -4,7 +4,9 @@
 
 - Add `aigw update --rollback` for portable installations: a local, reversible
   program-only swap with the single retained prior binary; native package
-  channels remain owned by their package manager.
+  channels remain owned by their package manager. If a selected historical
+  binary predates the command, reinstalling the current portable package gives
+  a program-only return path.
 - Make portable installer and uninstaller help side-effect free on Unix and
   PowerShell, and retain exactly one immediately preceding portable binary for
   recovery across both archive installs and `aigw update`; portable uninstall
