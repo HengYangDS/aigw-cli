@@ -231,7 +231,7 @@ AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh 0.1.0-rc.1 dist
 sh scripts/test-release-artifacts.sh
 sh scripts/test-msi-version.sh
 sh scripts/test-release-package-layout.sh dist 0.1.0-rc.1
-# 可选：本地/容器兼容性验收；依赖 Docker，不能替代 Debian/Fedora runner 的原生证据。
+# 可选：本地/容器兼容性验收；离线验证 amd64/arm64 的 Debian 与 RPM 安装路径，不能替代 Debian/Fedora runner 的原生证据。
 sh scripts/test-linux-native-install.sh dist 0.1.0-rc.1
 ```
 
