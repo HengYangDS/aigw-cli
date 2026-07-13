@@ -7,8 +7,23 @@ set -eu
 PATH=/usr/bin:/bin:/usr/sbin:/sbin
 export PATH
 
+usage() {
+  cat <<'EOF'
+Usage: uninstall.sh [--help]
+
+Remove only files and shell configuration blocks owned by AIGW.
+EOF
+}
+
+case "${1:-}" in
+  '') ;;
+  -h|--help) usage; exit 0 ;;
+  *) usage >&2; exit 2 ;;
+esac
+
 install_dir=${AIGW_INSTALL_DIR:-"$HOME/.local/bin"}
 binary="$install_dir/aigw"
+backup="$install_dir/.aigw.previous"
 if [ -n "${AIGW_SHIM_DIR:-}" ]; then
   shim_dir="$AIGW_SHIM_DIR"
 else
@@ -28,7 +43,7 @@ if [ -f "$shim" ]; then
     exit 1
   fi
 fi
-rm -f "$binary"
+rm -f "$binary" "$backup"
 
 for profile in "$HOME/.zshenv" "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.profile" "$HOME/.config/fish/config.fish"; do
   [ -f "$profile" ] || continue
