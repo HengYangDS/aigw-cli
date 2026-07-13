@@ -121,6 +121,7 @@ aigw repair                  # 自动发现并修复 Adapter 漂移
 aigw verify --for all        # 明确执行两次最小真实模型请求，并建立验证检查点
 aigw rollback                # 回退到最近一次完整验证配置，不重启客户端
 aigw update                  # 按安装渠道更新
+aigw update --rollback       # 仅回退便携版 AIGW 程序，不访问网络
 ```
 
 低频操作位于 `profile`、`route`、`adapter`、`account` 和 `config` 命名空间。运行 `aigw completion --help` 可生成 Bash、Zsh、Fish 或 PowerShell 补全。
@@ -180,6 +181,10 @@ Codex 只接收带 AIGW 标记的顶层 `model`、`model_provider` 和 provider 
 `aigw test` 是无模型调用的连通性与认证检查；`aigw verify --for claude|codex` 则会发送一次有上限的真实模型请求，并要求返回 `AIGW_OK`。它只适合在用户明确允许消耗一次最小额度时使用。
 
 `aigw verify --for all` 还会先确认 Claude shim、Codex 可执行文件和所有 Codex 投影均就绪；仅两条真实链路均通过后，才在本机保存**不含密钥**的完整验证检查点。`aigw rollback` 优先恢复该检查点；`aigw rollback --last-change` 只恢复紧邻的配置备份。二者只恢复 AIGW 管理的配置投影，绝不启动、停止、重启或重载 Claude/Codex 客户端。
+
+`aigw update --rollback` 与上述配置回退完全独立：它只在便携安装中交换当前 AIGW
+程序与唯一的上一版本副本，不访问网络、不读取 Token、不改动配置、密钥或客户端。
+原生 `.pkg`、`.deb`、`.rpm`、`.msi` 安装应使用各自的包管理器回退。
 
 ## 诊断
 
