@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
 )
@@ -40,11 +41,72 @@ func RenderError(app *App, err error) {
 		renderer(app).Problem(user.problem)
 		return
 	}
+	message := localizeCobraError(err.Error())
 	renderer(app).Problem(presentation.Problem{
-		Title:  err.Error(),
+		Title:  message,
 		Impact: "本次操作未完成；已提交的事务会尽量自动回滚。",
-		Fix:    "aigw check",
+		Fix:    suggestedFix(message),
 	})
+}
+
+func localizeCobraError(message string) string {
+	if command, ok := cobraUnknownCommand(message); ok {
+		return fmt.Sprintf("未知命令 %q", command)
+	}
+	if flag, ok := cobraUnknownFlag(message); ok {
+		return fmt.Sprintf("未知选项 --%s", flag)
+	}
+	return message
+}
+
+func cobraUnknownCommand(message string) (string, bool) {
+	const prefix = `unknown command "`
+	if !strings.HasPrefix(message, prefix) {
+		return "", false
+	}
+	rest := strings.TrimPrefix(message, prefix)
+	command, suffix, ok := strings.Cut(rest, `" for "`)
+	if !ok || !strings.HasSuffix(suffix, `"`) || command == "" {
+		return "", false
+	}
+	return command, true
+}
+
+func cobraUnknownFlag(message string) (string, bool) {
+	const prefix = "unknown flag: --"
+	if !strings.HasPrefix(message, prefix) {
+		return "", false
+	}
+	flag := strings.TrimSpace(strings.TrimPrefix(message, prefix))
+	if flag == "" || strings.ContainsAny(flag, " \t\r\n") {
+		return "", false
+	}
+	return flag, true
+}
+
+func suggestedFix(message string) string {
+	if command := mentionedAIGWCommand(message); command != "" {
+		return command
+	}
+	switch {
+	case strings.Contains(message, "unknown command"), strings.Contains(message, "未知命令"), strings.Contains(message, "unknown flag"), strings.Contains(message, "未知选项"):
+		return "aigw --help"
+	default:
+		return "aigw check"
+	}
+}
+
+func mentionedAIGWCommand(message string) string {
+	start := strings.Index(message, "`aigw ")
+	if start < 0 {
+		return ""
+	}
+	value := message[start+1:]
+	end := strings.Index(value, "`")
+	if end < 0 {
+		return ""
+	}
+	return value[:end]
 }
 
 func healthImpact(cfgClients int) string {

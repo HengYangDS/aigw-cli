@@ -271,6 +271,99 @@ func TestUpdateHelpDescribesOfflineProgramRollbackInChinese(t *testing.T) {
 	}
 }
 
+func TestCriticalCommandHelpUsesChineseGuidance(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	cases := []struct {
+		args []string
+		want []string
+	}{
+		{args: []string{"setup", "--help"}, want: []string{"Account 标识", "首个模型 Profile 标识", "从标准输入读取一行 Token"}},
+		{args: []string{"verify", "--help"}, want: []string{"验证 Claude、Codex 或全部", "验证指定 Profile，且不修改路由"}},
+		{args: []string{"rollback", "--help"}, want: []string{"仅恢复紧邻的一份配置备份"}},
+		{args: []string{"config", "import", "--help"}, want: []string{"合并不含密钥的团队清单", "显式替换冲突的 Account 元数据", "系统 Token 保持不变"}},
+		{args: []string{"adapter", "auth", "--help"}, want: []string{"将当前 Account 的 Token 绑定到 Codex"}},
+	}
+	for _, tc := range cases {
+		out.Reset()
+		if err := execute(t, app, tc.args...); err != nil {
+			t.Fatalf("%v: %v", tc.args, err)
+		}
+		help := out.String()
+		for _, want := range tc.want {
+			if !strings.Contains(help, want) {
+				t.Fatalf("%v help missing %q:\n%s", tc.args, want, help)
+			}
+		}
+	}
+}
+
+func TestCommonCommandFailuresUseChineseGuidance(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	for _, tc := range []struct {
+		args []string
+		want string
+		fix  string
+	}{
+		{args: []string{"config"}, want: "请选择 config 子命令；运行 `aigw config --help` 查看帮助", fix: "aigw config --help"},
+		{args: []string{"adapter", "auth", "claude"}, want: "原生凭据绑定仅适用于 codex", fix: "aigw adapter auth codex"},
+		{args: []string{"use", "--for", "other", "one"}, want: "--for 只能是 claude 或 codex", fix: "aigw use --help"},
+	} {
+		out.Reset()
+		err := execute(t, app, tc.args...)
+		if err == nil || !strings.Contains(out.String(), tc.want) || !strings.Contains(out.String(), tc.fix) {
+			t.Fatalf("%v err=%v output=%s", tc.args, err, out.String())
+		}
+	}
+}
+
+func TestUnknownCommandSuggestsTopLevelHelp(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	err := execute(t, app, "not-a-command")
+	if err == nil || !strings.Contains(out.String(), "未知命令") || !strings.Contains(out.String(), "aigw --help") {
+		t.Fatalf("err=%v output=%s", err, out.String())
+	}
+}
+
+func TestUnknownFlagSuggestsTopLevelHelpInChinese(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	err := execute(t, app, "status", "--not-a-flag")
+	if err == nil || !strings.Contains(out.String(), "未知选项") || !strings.Contains(out.String(), "aigw --help") {
+		t.Fatalf("err=%v output=%s", err, out.String())
+	}
+}
+
+func TestFailureSuggestionUsesCommandNamedInChineseGuidance(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	if err := app.Config.Save(twoProfileConfig()); err != nil {
+		t.Fatal(err)
+	}
+	err := execute(t, app, "setup", "--profile", "new-profile")
+	if err == nil || !strings.Contains(out.String(), "AIGW 已完成首次配置") || !strings.Contains(out.String(), "aigw add") {
+		t.Fatalf("err=%v output=%s", err, out.String())
+	}
+}
+
+func TestCoreValidationFailuresUseChineseGuidance(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{args: []string{"test", "--for", "other"}, want: "--for 只能是 claude 或 codex"},
+		{args: []string{"verify", "--for", "other"}, want: "--for 只能是 claude、codex 或 all"},
+		{args: []string{"setup", "--profile", "new-profile", "--for", "other"}, want: "--for 只能是 claude 或 codex"},
+		{args: []string{"profile", "add", "new-profile"}, want: "必须同时提供 --account、--for 和 --model"},
+		{args: []string{"route", "reset", "other"}, want: "客户端只能是 claude 或 codex"},
+		{args: []string{"adapter", "enable", "other"}, want: "客户端只能是 claude 或 codex"},
+	} {
+		out.Reset()
+		err := execute(t, app, tc.args...)
+		if err == nil || !strings.Contains(out.String(), tc.want) {
+			t.Fatalf("%v err=%v output=%s", tc.args, err, out.String())
+		}
+	}
+}
+
 func TestDoctorAcceptsOwnedClaudeShimWithoutPathDiscovery(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
