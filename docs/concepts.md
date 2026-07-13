@@ -83,3 +83,10 @@ AIGW records its installation channel at build time:
 - `msi`: Windows Installer package; `aigw update` starts the installer.
 
 This prevents package-manager files from being overwritten by portable self-update logic.
+
+For private GitLab releases, `aigw update` uses the configured `AIGW_GL_HOST`
+with authenticated `glab`. If `glab` is unavailable, it falls back to
+`GITLAB_TOKEN` over the GitLab API. The token is neither persisted nor placed
+on a command line; control characters are rejected, release assets remain
+checksum-verified, and the token is removed before a download redirect crosses
+to another host.
