@@ -35,7 +35,7 @@ installed="$install_dir/aigw"
 "$installed" --version >/dev/null
 grep -F '# >>> AIGW PATH >>>' "$profile" >/dev/null
 
-env HOME="$home" AIGW_INSTALL_DIR="$install_dir" /bin/sh "$root/scripts/uninstall.sh"
+env -i HOME="$home" PATH="" AIGW_INSTALL_DIR="$install_dir" /bin/sh "$root/scripts/uninstall.sh"
 
 [ ! -e "$installed" ] || { echo "portable uninstall left AIGW binary" >&2; exit 1; }
 [ -x "$foreign" ] || { echo "portable uninstall removed a foreign binary" >&2; exit 1; }
