@@ -11,7 +11,7 @@ GitLab Release 与签名工件中重新取得。
 | 本地源码可打包 | 目标 revision 干净；`go test -race ./...`；`go vet ./...`；全部发布门禁 | 旧终端日志，或另一个提交的绿灯 |
 | RC 工件矩阵完整 | `AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh <预发布版本> dist`；`check-release-artifacts.sh`；`test-release-package-layout.sh` | 部分压缩包，或没有校验和的构建成功 |
 | 便携安装可用 | 针对候选二进制的 Unix 安装器与 PowerShell 安装器测试 | 仅静态审阅安装脚本 |
-| Linux 包安装路径可用 | 在声明的兼容镜像上执行 `test-linux-native-install.sh dist <版本>`，或取得更强的原生发行版 runner 证据 | 交叉编译、压缩包检查，或镜像/容器失败、不可用时的旧结果 |
+| Linux 包安装路径可用 | 在隔离网络的 Debian 与 RPM 系兼容镜像中，对 `amd64` 与 `arm64` 分别执行 `test-linux-native-install.sh dist <版本>`；或取得更强的原生发行版 runner 证据 | 交叉编译、压缩包检查，或镜像/容器失败、不可用时的旧结果 |
 | Windows 安装器行为可用 | 在 PowerShell 中运行 PowerShell harness；若有原生 Windows runner，其证据更强 | 仅检查 MSI 元数据 |
 | Release 已远端发布 | 对应 tag 的 GitLab package upload 与 Release job 成功；检查实际 Release 资产与校验和 | 本地存在 `dist/` 目录 |
 | GA 已签名且可信 | 受保护 CI 对实际发布资产验证 macOS Developer ID + 公证/固化，以及 Windows Authenticode + 时间戳 | 未签名 RC、本机 identity 检查，或手工上传资产 |
@@ -41,12 +41,13 @@ GA 的受保护 CI 必须对**同一组实际发布工件**证明：
 `.pkg`、Linux `.deb`/`.rpm`、Windows `.msi`、校验和和 SPDX SBOM。
 `check-release-artifacts.sh` 与 `test-release-package-layout.sh` 验证该矩阵的结构完整性。
 
-结构证据与运行证据必须区分。Linux 验收脚本在 Alpine x86_64 兼容性容器中安装
-`amd64` `.deb` 与 `.rpm`，随后运行 `/usr/bin/aigw`。其中的架构名称处理已在脚本中
-显式声明；脚本会先将所需工件暂存到 Docker 可共享的用户缓存目录，避免 macOS
-容器运行时无法挂载私有 `/tmp`。它不等同于 Debian/Fedora 原生验收。受管 Debian runner 与 Fedora runner
-才是该两类发行版的更强证据。若镜像、容器引擎或网络不可用，应把 Linux 运行证据
-记录为“不可用”，不得复用旧结果。
+结构证据与运行证据必须区分。Linux 验收脚本在 Debian 与 RPM 系兼容容器中，对
+`amd64` 和 `arm64` 的 `.deb` 与 `.rpm` 分别执行离线安装并运行 `/usr/bin/aigw`。
+容器在安装阶段使用 `--network none`；脚本会先将所需工件暂存到 Docker 可共享的
+用户缓存目录，避免 macOS 容器运行时无法挂载私有 `/tmp`。这仍不等同于受管
+Debian/Fedora 原生 runner 的证据，后者更强。若候选镜像尚未在本地缓存，镜像拉取
+本身是外部前置条件；镜像可得后，工件安装与运行验收不依赖网络。若镜像、容器引擎
+或网络不可用，应把 Linux 运行证据记录为“不可用”，不得复用旧结果。
 
 ## 发布步骤
 
