@@ -28,7 +28,7 @@ mkdir -p "$home"
 env \
   HOME="$home" \
   SHELL=/bin/sh \
-  PATH="/usr/bin:/bin" \
+  PATH="" \
   AIGW_INSTALL_DIR="$install_dir" \
   AIGW_SOURCE_BINARY="$source_binary" \
   /bin/sh "$unix_script"
@@ -50,7 +50,7 @@ archive_install="$archive_home/bin"
 env \
   HOME="$archive_home" \
   SHELL=/bin/sh \
-  PATH="/usr/bin:/bin" \
+  PATH="" \
   AIGW_INSTALL_DIR="$archive_install" \
   /bin/sh "$archive_dir/install.sh"
 [ -x "$archive_install/aigw" ] || { echo "bundled portable installer did not produce an executable" >&2; exit 1; }
