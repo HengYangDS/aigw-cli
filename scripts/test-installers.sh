@@ -58,6 +58,21 @@ grep -Fx "$zsh_home/bin/aigw" "$tmp/zsh-activated.out" >/dev/null
 for tool in locale mkdir mv; do
   grep -E "/$tool$" "$tmp/zsh-activated.out" >/dev/null || { echo "zsh activation did not restore $tool" >&2; exit 1; }
 done
+cp "$zsh_home/.zshrc" "$tmp/zshrc.before-reinstall"
+cp "$zsh_home/.zshenv" "$tmp/zshenv.before-reinstall"
+env HOME="$zsh_home" SHELL=/bin/zsh PATH="" AIGW_INSTALL_DIR="$zsh_home/bin" AIGW_SOURCE_BINARY="$source_binary" /bin/sh "$unix_script" >"$tmp/zsh-reinstall.out"
+cmp "$tmp/zshrc.before-reinstall" "$zsh_home/.zshrc" >/dev/null || { echo "idempotent zsh reinstall rewrote the owned PATH profile block" >&2; exit 1; }
+cmp "$tmp/zshenv.before-reinstall" "$zsh_home/.zshenv" >/dev/null || { echo "idempotent zsh reinstall rewrote the owned PATH bootstrap block" >&2; exit 1; }
+if grep -F 'PATH updated in ' "$tmp/zsh-reinstall.out" >/dev/null; then
+  cat "$tmp/zsh-reinstall.out" >&2
+  echo "idempotent zsh reinstall reported a redundant PATH update" >&2
+  exit 1
+fi
+grep -F 'Next: aigw check' "$tmp/zsh-reinstall.out" >/dev/null || {
+  cat "$tmp/zsh-reinstall.out" >&2
+  echo "portable upgrade did not direct the user to a health check" >&2
+  exit 1
+}
 
 archive_dir="$tmp/archive"
 mkdir -p "$archive_dir"
