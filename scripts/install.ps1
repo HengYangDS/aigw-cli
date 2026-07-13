@@ -44,7 +44,9 @@ if (Test-Path $LocalBinary) {
     } else {
         throw "private release download requires authenticated glab or GITLAB_TOKEN"
     }
-    $line = Get-Content (Join-Path $temp "checksums.txt") | Where-Object { $_ -match "(^|[\/])$([regex]::Escape($archive))$" } | Select-Object -First 1
+    # Release manifests use the portable sha256sum format: <hash><space><space><filename>.
+    # Match the filename as a distinct final field, instead of assuming a path prefix.
+    $line = Get-Content (Join-Path $temp "checksums.txt") | Where-Object { $_ -match "^\s*[0-9A-Fa-f]{64}\s+[*]?$([regex]::Escape($archive))\s*$" } | Select-Object -First 1
     if (-not $line) { throw "checksum entry missing for $archive" }
     $expected = ($line -split '\s+')[0].ToLowerInvariant()
     $actual = (Get-FileHash (Join-Path $temp $archive) -Algorithm SHA256).Hash.ToLowerInvariant()
