@@ -1,6 +1,8 @@
 package cli_test
 
 import (
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -78,6 +80,38 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("check lacks %q:\n%s", want, out.String())
 		}
+	}
+}
+
+func TestCheckProbesTheDefaultRouteInsteadOfAnOverride(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	cfg.Accounts["claude-account"] = domain.Account{Label: "Claude Gateway", Endpoints: domain.Endpoints{Anthropic: "https://claude.test"}}
+	cfg.Accounts["codex-account"] = domain.Account{Label: "Codex Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}}
+	cfg.Profiles["claude-fable-5"] = domain.Profile{Label: "Claude Fable 5", Account: "claude-account", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-fable-5"}}
+	cfg.Profiles["gpt-5.6-terra"] = domain.Profile{Label: "GPT-5.6 Terra", Account: "codex-account", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-terra"}}
+	cfg.Routes.Default = "claude-fable-5"
+	cfg.Routes.Overrides[domain.ClientCodex] = "gpt-5.6-terra"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("claude-account", "claude-token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("codex-account", "codex-token"); err != nil {
+		t.Fatal(err)
+	}
+	var gotHost, gotAuthorization string
+	app.HTTP.(*fakeHTTP).handler = func(req *http.Request) (*http.Response, error) {
+		gotHost = req.URL.Host
+		gotAuthorization = req.Header.Get("Authorization")
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"data":[]}`)), Request: req}, nil
+	}
+	if err := execute(t, app, "check"); err != nil {
+		t.Fatal(err)
+	}
+	if gotHost != "claude.test" || gotAuthorization != "Bearer claude-token" {
+		t.Fatalf("check probe host=%q authorization=%q, want default Claude route", gotHost, gotAuthorization)
 	}
 }
 

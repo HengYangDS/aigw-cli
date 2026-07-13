@@ -185,7 +185,7 @@ Codex 只接收带 AIGW 标记的顶层 `model`、`model_provider` 和 provider 
 
 `aigw check` / `aigw doctor` 会给出可操作判断：Token 无效、Token 被禁用、余额/额度耗尽、账号限制、限速、模型/渠道不可用、网关 5xx、网络/TLS/代理问题、本地密钥缺失、Codex 模型或 provider 投影漂移等。
 
-`aigw check` 对所有 Account 都提供 Token、权限、额度/限速、模型可达性、网络与本地配置诊断。只有团队清单显式配置、且当前 AIGW 版本包含对应 Provider Diagnostics 的服务商，才会显示精确余额入口；该平台凭据独立存储，不进入配置文件：
+`aigw check` 诊断当前默认 Profile 的 Account，并分别检查已启用客户端的本地路由与 Adapter；它不会把客户端 override 误当成默认服务，也不会静默扫描无关 Account。需要明确验证某个客户端端点时使用 `aigw test --for claude|codex`。只有团队清单显式配置、且当前 AIGW 版本包含对应 Provider Diagnostics 的服务商，才会显示精确余额入口；该平台凭据独立存储，不进入配置文件：
 
 ```bash
 aigw account connect <account>

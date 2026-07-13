@@ -335,11 +335,25 @@ func newUpdateCommand(app *App) *cobra.Command {
 }
 
 func firstCheckRuntime(cfg domain.Config) (domain.Runtime, error) {
-	for _, client := range []string{domain.ClientCodex, domain.ClientClaude} {
-		runtime, _, err := cfg.ResolveRuntime(client, "")
-		if err == nil {
-			return runtime, nil
+	profile, ok := cfg.Profiles[cfg.Routes.Default]
+	if !ok {
+		return domain.Runtime{}, fmt.Errorf("当前默认路由没有可测试端点；运行 `aigw use` 选择模型 Profile")
+	}
+	client := profile.Client
+	if client == "" {
+		for _, candidate := range domain.AdmittedClientIDs() {
+			if _, _, err := cfg.ResolveRuntime(candidate, cfg.Routes.Default); err == nil {
+				client = candidate
+				break
+			}
 		}
 	}
-	return domain.Runtime{}, fmt.Errorf("当前路由没有可测试端点；运行 `aigw use` 选择模型 Profile")
+	if client == "" {
+		return domain.Runtime{}, fmt.Errorf("当前默认路由没有可测试端点；运行 `aigw use` 选择模型 Profile")
+	}
+	runtime, _, err := cfg.ResolveRuntime(client, cfg.Routes.Default)
+	if err != nil {
+		return domain.Runtime{}, fmt.Errorf("当前默认路由没有可测试端点；运行 `aigw use` 选择模型 Profile")
+	}
+	return runtime, nil
 }
