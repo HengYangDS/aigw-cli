@@ -169,7 +169,9 @@ aigw update --rollback
 ```
 
 它不回退模型 Profile、路由、Token 或客户端配置；这些仍由 `aigw rollback` 管理。
-原生安装包必须使用操作系统包管理器处理程序回退。
+若目标旧程序没有 `aigw update --rollback`，从团队发布页重新下载当前便携包并运行包内
+安装脚本即可恢复当前程序；安装器本身不联网，也不触碰 Profile、路由或 Token。原生
+安装包必须使用操作系统包管理器处理程序回退。
 
 便携包内的安装脚本只复制包内二进制，不联网也不处理 GitLab Token。安装后，
 私有 GitLab Release 的升级统一通过 `aigw update`：优先使用已认证的 `glab`

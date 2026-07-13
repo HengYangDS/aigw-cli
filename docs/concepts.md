@@ -103,5 +103,8 @@ binary.
 Portable installs retain exactly one immediate predecessor beside the current
 binary. `aigw update --rollback` swaps those two local binaries without any
 network request or change to configuration, secrets, Accounts, Profiles, Routes
-or Adapters. It is intentionally unavailable for native package channels:
+or Adapters. If an older selected program predates this command, download the
+current portable package again and run its bundled installer to recover the
+current program; it preserves the older program as the one immediate
+predecessor. It is intentionally unavailable for native package channels:
 native rollback belongs to the operating-system package manager.
