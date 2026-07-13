@@ -8,8 +8,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,6 +24,8 @@ import (
 
 const project = "dig/misc/agentic-third-party-api/aigw-cli"
 
+const defaultGitLabHost = "http://192.168.64.101:18086"
+
 type CommandRunner interface {
 	Run(context.Context, string, ...string) ([]byte, error)
 }
@@ -28,12 +33,40 @@ type CommandRunner interface {
 type ExecRunner struct{}
 
 func (ExecRunner) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return ExecRunner{}.RunWithEnv(ctx, nil, name, args...)
+}
+
+type EnvironmentRunner interface {
+	RunWithEnv(context.Context, []string, string, ...string) ([]byte, error)
+}
+
+func (ExecRunner) RunWithEnv(ctx context.Context, environment []string, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = mergeEnvironment(os.Environ(), environment)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("%s failed: %w: %s", name, err, strings.TrimSpace(string(output)))
 	}
 	return output, nil
+}
+
+func mergeEnvironment(base, overrides []string) []string {
+	result := append([]string(nil), base...)
+	for _, override := range overrides {
+		name, _, ok := strings.Cut(override, "=")
+		if !ok || name == "" {
+			continue
+		}
+		prefix := name + "="
+		filtered := result[:0]
+		for _, value := range result {
+			if !strings.HasPrefix(value, prefix) {
+				filtered = append(filtered, value)
+			}
+		}
+		result = append(filtered, override)
+	}
+	return result
 }
 
 type Updater struct {
@@ -89,10 +122,8 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (string, err
 		return "", fmt.Errorf("create update workspace: %w", err)
 	}
 	defer os.RemoveAll(tmp)
-	for _, asset := range []string{archiveName, "checksums.txt"} {
-		if _, err := u.Runner.Run(ctx, "glab", "release", "download", tag, "-R", project, "--asset-name", asset, "--dir", tmp); err != nil {
-			return "", fmt.Errorf("download release asset %s: %w", asset, err)
-		}
+	if err := u.downloadReleaseAssets(ctx, tag, tmp, archiveName, "checksums.txt"); err != nil {
+		return "", err
 	}
 	archivePath := filepath.Join(tmp, archiveName)
 	if err := verifyChecksum(archivePath, filepath.Join(tmp, "checksums.txt"), archiveName); err != nil {
@@ -128,10 +159,8 @@ func (u Updater) updatePackage(ctx context.Context, tag, version string) (string
 		return "", fmt.Errorf("create update workspace: %w", err)
 	}
 	defer os.RemoveAll(tmp)
-	for _, item := range []string{asset, "checksums.txt"} {
-		if _, err := u.Runner.Run(ctx, "glab", "release", "download", tag, "-R", project, "--asset-name", item, "--dir", tmp); err != nil {
-			return "", fmt.Errorf("download release asset %s: %w", item, err)
-		}
+	if err := u.downloadReleaseAssets(ctx, tag, tmp, asset, "checksums.txt"); err != nil {
+		return "", err
 	}
 	path := filepath.Join(tmp, asset)
 	if err := verifyChecksum(path, filepath.Join(tmp, "checksums.txt"), asset); err != nil {
@@ -175,6 +204,60 @@ func (u Updater) packageAssetName(version string) string {
 	default:
 		return ""
 	}
+}
+
+func (u Updater) downloadReleaseAssets(ctx context.Context, tag, directory string, assets ...string) error {
+	for index, asset := range assets {
+		if _, err := u.runGlab(ctx, "release", "download", tag, "-R", project, "--asset-name", asset, "--dir", directory); err != nil {
+			if !isGlabUnavailable(err) {
+				return fmt.Errorf("download release asset %s: %w", asset, err)
+			}
+			for _, remaining := range assets[index:] {
+				if err := u.downloadReleaseAssetFromGitLabAPI(ctx, tag, remaining, directory); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
+func (u Updater) downloadReleaseAssetFromGitLabAPI(ctx context.Context, tag, asset, directory string) error {
+	if filepath.Base(asset) != asset {
+		return fmt.Errorf("invalid release asset name %q", asset)
+	}
+	token, err := gitLabToken()
+	if err != nil {
+		return err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, u.gitLabReleaseDownloadURL(tag, asset), nil)
+	if err != nil {
+		return fmt.Errorf("create GitLab release-download request: %w", err)
+	}
+	request.Header.Set("PRIVATE-TOKEN", token)
+	response, err := gitLabHTTPClient().Do(request)
+	if err != nil {
+		return fmt.Errorf("download release asset %s: %w", asset, err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("download release asset %s: %s", asset, response.Status)
+	}
+	path := filepath.Join(directory, asset)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return fmt.Errorf("create downloaded release asset %s: %w", asset, err)
+	}
+	_, copyErr := io.Copy(file, io.LimitReader(response.Body, 1<<30))
+	closeErr := file.Close()
+	if copyErr != nil {
+		return fmt.Errorf("write downloaded release asset %s: %w", asset, copyErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close downloaded release asset %s: %w", asset, closeErr)
+	}
+	return nil
 }
 
 func (u Updater) runPackageInstaller(ctx context.Context, path string) error {
@@ -237,20 +320,100 @@ func parseChannel(value string) (Channel, bool) {
 }
 
 func (u Updater) latestTag(ctx context.Context) (string, error) {
-	output, err := u.Runner.Run(ctx, "glab", "release", "list", "-R", project, "--per-page", "1", "--format", "json")
+	output, err := u.runGlab(ctx, "release", "list", "-R", project, "--per-page", "1", "-F", "json", "--jq", ".[0].tag_name")
 	if err != nil {
+		if isGlabUnavailable(err) {
+			return u.latestTagFromGitLabAPI(ctx)
+		}
 		return "", fmt.Errorf("query latest release: %w", err)
 	}
-	var releases []struct {
-		TagName string `json:"tag_name"`
-	}
-	if err := json.Unmarshal(output, &releases); err != nil {
-		return "", fmt.Errorf("parse latest release: %w", err)
-	}
-	if len(releases) == 0 || releases[0].TagName == "" {
+	tag := strings.TrimSpace(string(output))
+	if tag == "" {
 		return "", fmt.Errorf("no AIGW release is available")
 	}
-	return releases[0].TagName, nil
+	return tag, nil
+}
+
+func isGlabUnavailable(err error) bool {
+	return errors.Is(err, exec.ErrNotFound)
+}
+
+func (u Updater) latestTagFromGitLabAPI(ctx context.Context) (string, error) {
+	token, err := gitLabToken()
+	if err != nil {
+		return "", err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, u.gitLabAPIURL("releases/permalink/latest"), nil)
+	if err != nil {
+		return "", fmt.Errorf("create GitLab latest-release request: %w", err)
+	}
+	request.Header.Set("PRIVATE-TOKEN", token)
+	response, err := gitLabHTTPClient().Do(request)
+	if err != nil {
+		return "", fmt.Errorf("query GitLab latest release: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return "", fmt.Errorf("query GitLab latest release: %s", response.Status)
+	}
+	var release struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&release); err != nil {
+		return "", fmt.Errorf("parse GitLab latest release: %w", err)
+	}
+	if release.TagName == "" {
+		return "", fmt.Errorf("no AIGW release is available")
+	}
+	return release.TagName, nil
+}
+
+func (u Updater) runGlab(ctx context.Context, args ...string) ([]byte, error) {
+	if runner, ok := u.Runner.(EnvironmentRunner); ok {
+		return runner.RunWithEnv(ctx, []string{"GL_HOST=" + u.gitLabHost()}, "glab", args...)
+	}
+	return u.Runner.Run(ctx, "glab", args...)
+}
+
+func (u Updater) gitLabHost() string {
+	if host := strings.TrimRight(strings.TrimSpace(os.Getenv("AIGW_GL_HOST")), "/"); host != "" {
+		return host
+	}
+	return defaultGitLabHost
+}
+
+func (u Updater) gitLabAPIURL(path string) string {
+	return u.gitLabHost() + "/api/v4/projects/" + url.PathEscape(project) + "/" + path
+}
+
+func (u Updater) gitLabReleaseDownloadURL(tag, asset string) string {
+	return u.gitLabHost() + "/" + project + "/-/releases/" + url.PathEscape(tag) + "/downloads/" + url.PathEscape(asset)
+}
+
+func gitLabToken() (string, error) {
+	token := os.Getenv("GITLAB_TOKEN")
+	if strings.ContainsAny(token, "\r\n") {
+		return "", fmt.Errorf("GITLAB_TOKEN contains a control character")
+	}
+	if token == "" {
+		return "", fmt.Errorf("latest private release requires authenticated glab or GITLAB_TOKEN")
+	}
+	return token, nil
+}
+
+func gitLabHTTPClient() *http.Client {
+	client := *http.DefaultClient
+	defaultCheckRedirect := client.CheckRedirect
+	client.CheckRedirect = func(request *http.Request, previous []*http.Request) error {
+		if len(previous) > 0 && !strings.EqualFold(request.URL.Host, previous[0].URL.Host) {
+			request.Header.Del("PRIVATE-TOKEN")
+		}
+		if defaultCheckRedirect != nil {
+			return defaultCheckRedirect(request, previous)
+		}
+		return nil
+	}
+	return &client
 }
 
 func normalizeVersion(value string) string { return strings.TrimPrefix(strings.TrimSpace(value), "v") }
