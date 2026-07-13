@@ -155,6 +155,9 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (string, err
 	if u.GOOS == "windows" && runtime.GOOS == "windows" {
 		return u.scheduleWindowsReplacement(binary, tag)
 	}
+	if err := preservePreviousBinary(u.Executable); err != nil {
+		return "", err
+	}
 	if err := transaction.WriteFileAtomic(u.Executable, binary, 0o755); err != nil {
 		return "", fmt.Errorf("replace AIGW executable: %w", err)
 	}
@@ -162,6 +165,40 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (string, err
 		return "", fmt.Errorf("make updated AIGW executable runnable: %w", err)
 	}
 	return "已更新到 " + tag + "。", nil
+}
+
+func preservePreviousBinary(executable string) error {
+	previous, err := os.ReadFile(executable)
+	if err != nil {
+		return fmt.Errorf("read current AIGW executable: %w", err)
+	}
+	info, err := os.Stat(executable)
+	if err != nil {
+		return fmt.Errorf("inspect current AIGW executable: %w", err)
+	}
+	backup := rollbackPath(executable)
+	if err := transaction.WriteFileAtomic(backup, previous, info.Mode().Perm()); err != nil {
+		return fmt.Errorf("save previous AIGW executable: %w", err)
+	}
+	if err := os.Chmod(backup, info.Mode().Perm()); err != nil {
+		return fmt.Errorf("make previous AIGW executable runnable: %w", err)
+	}
+	return nil
+}
+
+func rollbackPath(executable string) string {
+	if strings.Contains(executable, `\`) && !strings.Contains(executable, "/") {
+		directory := executable[:strings.LastIndex(executable, `\`)+1]
+		if strings.EqualFold(filepath.Ext(executable), ".exe") {
+			return directory + ".aigw.previous.exe"
+		}
+		return directory + ".aigw.previous"
+	}
+	directory := filepath.Dir(executable)
+	if strings.EqualFold(filepath.Ext(executable), ".exe") {
+		return filepath.Join(directory, ".aigw.previous.exe")
+	}
+	return filepath.Join(directory, ".aigw.previous")
 }
 
 func (u Updater) updatePackage(ctx context.Context, tag, version string) (string, error) {
@@ -702,7 +739,10 @@ func (u Updater) scheduleWindowsReplacement(binary []byte, tag string) (string, 
 		return "", fmt.Errorf("stage Windows update: %w", err)
 	}
 	script := u.Executable + ".update.cmd"
-	content := fmt.Sprintf("@echo off\r\nping 127.0.0.1 -n 3 > nul\r\nmove /Y \"%s\" \"%s\" > nul\r\ndel \"%%~f0\"\r\n", staged, u.Executable)
+	content, err := WindowsReplacementPlan(u.Executable)
+	if err != nil {
+		return "", err
+	}
 	if err := os.WriteFile(script, []byte(content), 0o600); err != nil {
 		return "", fmt.Errorf("write Windows update helper: %w", err)
 	}
@@ -711,4 +751,16 @@ func (u Updater) scheduleWindowsReplacement(binary []byte, tag string) (string, 
 		return "", fmt.Errorf("start Windows update helper: %w", err)
 	}
 	return "已下载 " + tag + "；退出本次命令后将完成更新。", nil
+}
+
+// WindowsReplacementPlan returns the delayed replacement script used when the
+// running executable cannot be renamed immediately. It retains exactly one
+// immediate predecessor beside the portable executable.
+func WindowsReplacementPlan(executable string) (string, error) {
+	if strings.TrimSpace(executable) == "" {
+		return "", errors.New("Windows AIGW executable path is empty")
+	}
+	staged := executable + ".update"
+	previous := rollbackPath(executable)
+	return fmt.Sprintf("@echo off\r\nping 127.0.0.1 -n 3 > nul\r\nif exist \"%s\" move /Y \"%s\" \"%s\" > nul\r\nmove /Y \"%s\" \"%s\" > nul\r\ndel \"%%~f0\"\r\n", executable, executable, previous, staged, executable), nil
 }

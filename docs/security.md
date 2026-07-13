@@ -53,10 +53,11 @@ Endpoint checks are bounded HTTP requests. AIGW does not use an unbounded `codex
 `aigw test` is a bounded connectivity check. `aigw verify` is explicitly opt-in and consumes a minimal real model request; it requires the exact `AIGW_OK` sentinel rather than accepting a successful HTTP status or process exit alone. `aigw verify --for all` first verifies local Claude-shim and Codex-projection readiness, then writes a secret-free verified checkpoint only after both clients pass. `aigw rollback` restores that checkpoint (or `--last-change` restores only the immediate config backup) through the normal projection transaction; it never controls the lifecycle of a desktop client.
 
 Portable `install.sh --help` / `uninstall.sh --help` and PowerShell `-Help`
-exit before any mutation. A portable upgrade retains one immediately preceding
-binary at `<install-dir>/.aigw.previous` (or `.aigw.previous.exe` on Windows);
-the next portable upgrade replaces it, and portable uninstall removes only
-that AIGW-owned rollback binary together with the installed executable.
+exit before any mutation. Every portable upgrade path—archive installer and
+`aigw update` alike—retains one immediately preceding binary at
+`<install-dir>/.aigw.previous` (or `.aigw.previous.exe` on Windows). The next
+portable upgrade replaces that one rollback copy; portable uninstall removes
+only that AIGW-owned rollback binary together with the installed executable.
 
 ## Update boundary
 
