@@ -23,7 +23,7 @@
 | 能力席位 | 首选候选 | 使用边界 | 当前状态 |
 |---|---|---|---|
 | 默认 Agent | `claude-fable-5` | 通用 Agent、长链路工作 | 已由 Claude Adapter 支持；Claude 默认基线 |
-| Codex 工程 | `gpt-5.6-terra-cdx` | Codex 内的代码与工程任务 | 已由 Codex Adapter 支持；Codex 默认基线 |
+| Codex 工程 | `gpt-5.6-terra` | Codex 内的代码与工程任务 | 已由 Codex Adapter 支持；Codex 默认基线 |
 | 深度推理（按需） | `claude-opus-4-8-thinking` | 只有默认 Agent 不足时才显式切换 | Claude Adapter 支持；不作默认 |
 | 平衡备选（按需） | `claude-sonnet-5` | 明确需要更轻量的 Claude 路径时 | Claude Adapter 支持；不作默认 |
 | 中文高阶代码 / Agent | `glm-5.2-cc` | 中文复杂代码与 Agent 对照 | 待独立 GLM/OpenCode Adapter 准入 |

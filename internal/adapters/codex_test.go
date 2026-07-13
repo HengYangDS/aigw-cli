@@ -142,12 +142,12 @@ func TestCodexSyncOwnsTopLevelModelAndRestoresOriginal(t *testing.T) {
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT", "https://example.test/v1", "gpt-5.6-sol-cdx")
+	profile := codexRuntime("gpt-5.6-sol", "GPT", "https://example.test/v1", "gpt-5.6-sol")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)
-	if !strings.Contains(string(data), `model = "gpt-5.6-sol-cdx" # managed by AIGW`) {
+	if !strings.Contains(string(data), `model = "gpt-5.6-sol" # managed by AIGW`) {
 		t.Fatalf("top-level model not managed by selected profile:\n%s", data)
 	}
 	if strings.Contains(string(data), `[model_providers.aigw]\nmodel =`) {
@@ -168,7 +168,7 @@ func TestCodexSyncRepairsOnlyAnExactTruncatedOwnedProjection(t *testing.T) {
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := codexRuntime("gpt-5.6-terra-cdx", "GPT-5.6 Terra Codex", "https://example.test/v1", "gpt-5.6-terra-cdx")
+	profile := codexRuntime("gpt-5.6-terra", "GPT-5.6 Terra Codex", "https://example.test/v1", "gpt-5.6-terra")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestCodexSyncRefusesATruncatedProjectionWithExtraContent(t *testing.T) {
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := codexRuntime("gpt-5.6-terra-cdx", "GPT-5.6 Terra Codex", "https://example.test/v1", "gpt-5.6-terra-cdx")
+	profile := codexRuntime("gpt-5.6-terra", "GPT-5.6 Terra Codex", "https://example.test/v1", "gpt-5.6-terra")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestCodexSyncRepairsExactTruncationBeforeUnrelatedConfig(t *testing.T) {
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := codexRuntime("gpt-5.6-terra-cdx", "GPT-5.6 Terra Codex", "https://example.test/v1", "gpt-5.6-terra-cdx")
+	profile := codexRuntime("gpt-5.6-terra", "GPT-5.6 Terra Codex", "https://example.test/v1", "gpt-5.6-terra")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +258,7 @@ func TestValidateCodexConfigDetectsManagedModelDrift(t *testing.T) {
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol-cdx")
+	profile := codexRuntime("gpt-5.6-sol", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +266,7 @@ func TestValidateCodexConfigDetectsManagedModelDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	drifted := strings.Replace(string(data), `model = "gpt-5.6-sol-cdx" # managed by AIGW`, `model = "gpt-5.6-terra" # managed by AIGW`, 1)
+	drifted := strings.Replace(string(data), `model = "gpt-5.6-sol" # managed by AIGW`, `model = "gpt-5.6-terra" # managed by AIGW`, 1)
 	if err := os.WriteFile(path, []byte(drifted), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -283,7 +283,7 @@ func TestCodexSyncAcceptsFormatterPaddingOnManagedSelections(t *testing.T) {
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol-cdx")
+	profile := codexRuntime("gpt-5.6-sol", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +292,7 @@ func TestCodexSyncAcceptsFormatterPaddingOnManagedSelections(t *testing.T) {
 		t.Fatal(err)
 	}
 	padded := strings.Replace(string(data), `model_provider = "aigw" # managed by AIGW`, `model_provider = "aigw"                                                     # managed by AIGW`, 1)
-	padded = strings.Replace(padded, `model = "gpt-5.6-sol-cdx" # managed by AIGW`, `model = "gpt-5.6-sol-cdx"                                                   # managed by AIGW`, 1)
+	padded = strings.Replace(padded, `model = "gpt-5.6-sol" # managed by AIGW`, `model = "gpt-5.6-sol"                                                   # managed by AIGW`, 1)
 	if err := os.WriteFile(path, []byte(padded), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +320,7 @@ func TestCodexSyncRejectsUnmarkedProjectionWhenProviderSemanticsDiffer(t *testin
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol-cdx")
+	profile := codexRuntime("gpt-5.6-sol", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -329,7 +329,7 @@ func TestCodexSyncRejectsUnmarkedProjectionWhenProviderSemanticsDiffer(t *testin
 		t.Fatal(err)
 	}
 	stripped := strings.Replace(string(projected), `model_provider = "aigw" # managed by AIGW`, `model_provider = "aigw"`, 1)
-	stripped = strings.Replace(stripped, `model = "gpt-5.6-sol-cdx" # managed by AIGW`, `model = "gpt-5.6-sol-cdx"`, 1)
+	stripped = strings.Replace(stripped, `model = "gpt-5.6-sol" # managed by AIGW`, `model = "gpt-5.6-sol"`, 1)
 	stripped = strings.Replace(stripped, "# >>> AIGW managed provider >>>\n", "", 1)
 	stripped = strings.Replace(stripped, "# <<< AIGW managed provider <<<\n", "", 1)
 	stripped = strings.Replace(stripped, `base_url = "https://example.test/v1"`, `base_url = "https://different.test/v1"`, 1)
@@ -356,7 +356,7 @@ func TestCodexValidationAndDisablePreserveForeignFieldsBeforeProvider(t *testing
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol-cdx")
+	profile := codexRuntime("gpt-5.6-sol", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -397,7 +397,7 @@ func TestCodexDisableRemovesManagedModelWhenNoOriginalModelExisted(t *testing.T)
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := codexRuntime("gpt-5.6-sol-cdx", "GPT", "https://example.test/v1", "gpt-5.6-sol-cdx")
+	profile := codexRuntime("gpt-5.6-sol", "GPT", "https://example.test/v1", "gpt-5.6-sol")
 	if err := adapters.SyncCodexConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
