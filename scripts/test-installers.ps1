@@ -34,6 +34,14 @@ try {
     $savedLatestCalls = $env:AIGW_WINDOWS_INSTALLER_TEST_LATEST_CALLS
     $savedDownloadCalls = $env:AIGW_WINDOWS_INSTALLER_TEST_DOWNLOAD_CALLS
     try {
+        # Exercise the remote-release branch from a copy without a sibling
+        # aigw.exe. This keeps the test valid for both source-tree and
+        # portable-package installers, where the latter intentionally ships a
+        # local executable beside install.ps1.
+        $remoteInstallerDirectory = Join-Path $root "remote-installer"
+        New-Item -ItemType Directory -Path $remoteInstallerDirectory | Out-Null
+        $remoteInstaller = Join-Path $remoteInstallerDirectory "install.ps1"
+        Copy-Item $Installer $remoteInstaller
         # No `glab` must be found: this forces the GitLab-token fallback.
         $env:PATH = "/usr/bin:/bin"
         $env:LOCALAPPDATA = Join-Path $root "localappdata"
@@ -67,11 +75,26 @@ try {
                 throw "unexpected asset URL: $Uri"
             }
         }
-        & $Installer
+        & $remoteInstaller
         $target = Join-Path $env:AIGW_INSTALL_DIR "aigw.exe"
         if (-not (Test-Path $target)) { throw "missing installed target: $target" }
         if ((Get-Content -Raw $target).Trim() -ne "AIGW Windows fallback test payload") { throw "installed payload mismatch" }
         if ($env:AIGW_WINDOWS_INSTALLER_TEST_LATEST_CALLS -ne "1" -or $env:AIGW_WINDOWS_INSTALLER_TEST_DOWNLOAD_CALLS -ne "2") { throw "unexpected mocked request counts: latest=$env:AIGW_WINDOWS_INSTALLER_TEST_LATEST_CALLS downloads=$env:AIGW_WINDOWS_INSTALLER_TEST_DOWNLOAD_CALLS" }
+
+        # A portable package takes the local-source branch by design. Verify it
+        # separately whenever the supplied installer has a sibling executable.
+        $localSource = Join-Path (Split-Path -Parent $Installer) "aigw.exe"
+        if (Test-Path $localSource) {
+            $env:AIGW_INSTALL_DIR = Join-Path $root "portable-install"
+            $env:GITLAB_TOKEN = ""
+            $beforeLatest = $env:AIGW_WINDOWS_INSTALLER_TEST_LATEST_CALLS
+            $beforeDownloads = $env:AIGW_WINDOWS_INSTALLER_TEST_DOWNLOAD_CALLS
+            & $Installer
+            $portableTarget = Join-Path $env:AIGW_INSTALL_DIR "aigw.exe"
+            if (-not (Test-Path $portableTarget)) { throw "portable installer did not create target: $portableTarget" }
+            if ((Get-FileHash $portableTarget -Algorithm SHA256).Hash -ne (Get-FileHash $localSource -Algorithm SHA256).Hash) { throw "portable installer payload mismatch" }
+            if ($env:AIGW_WINDOWS_INSTALLER_TEST_LATEST_CALLS -ne $beforeLatest -or $env:AIGW_WINDOWS_INSTALLER_TEST_DOWNLOAD_CALLS -ne $beforeDownloads) { throw "portable installer unexpectedly attempted a network download" }
+        }
 
         # Reject header/control-character injection before even a local-source
         # installation branch can run.
