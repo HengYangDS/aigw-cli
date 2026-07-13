@@ -48,7 +48,7 @@ An Account may provide an Anthropic endpoint, an OpenAI Responses endpoint, or b
 
 ## Provider diagnostics
 
-`aigw check` is generic and works through an Account endpoint. Exact balance or provider-native Token state is optional: a team manifest may declare an `account_probe`, and the installed AIGW build must explicitly include its Provider Diagnostics implementation. An unknown provider declaration never changes routing or invalidates the Account; it only makes `aigw balance` unavailable with a clear explanation.
+`aigw check` is generic and probes the current default Profile's Account while separately checking each enabled client's local route and Adapter. It does not silently substitute a client override for the default service or scan unrelated Accounts; use `aigw test --for claude|codex` for an explicit client endpoint check. Exact balance or provider-native Token state is optional: a team manifest may declare an `account_probe`, and the installed AIGW build must explicitly include its Provider Diagnostics implementation. An unknown provider declaration never changes routing or invalidates the Account; it only makes `aigw balance` unavailable with a clear explanation.
 
 ## Route
 
