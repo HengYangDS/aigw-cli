@@ -55,6 +55,10 @@ for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 wi
   fi
   payload="$stage/aigw_${version}_${os}_${arch}/$binary"
   [ -x "$payload" ] || { echo "portable package missing executable: $os/$arch" >&2; exit 1; }
+  if [ "$os" != windows ]; then
+    installer="$stage/aigw_${version}_${os}_${arch}/install.sh"
+    [ -x "$installer" ] || { echo "portable package installer is not executable: $os/$arch" >&2; exit 1; }
+  fi
   description=$(file "$payload")
   case "$target:$description" in
     darwin/amd64:*x86_64*) ;;

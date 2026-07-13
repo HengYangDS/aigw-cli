@@ -84,9 +84,14 @@ AIGW records its installation channel at build time:
 
 This prevents package-manager files from being overwritten by portable self-update logic.
 
-For private GitLab releases, `aigw update` uses the configured `AIGW_GL_HOST`
-with authenticated `glab`. If `glab` is unavailable, it falls back to
-`GITLAB_TOKEN` over the GitLab API. The token is neither persisted nor placed
-on a command line; control characters are rejected, release assets remain
-checksum-verified, and the token is removed before a download redirect crosses
-to another host.
+Portable archives contain local-only `install.sh` and `install.ps1` scripts.
+They copy the bundled binary and never retrieve releases or inspect GitLab
+credentials. Network release retrieval exists only in `aigw update`: it uses
+the configured `AIGW_GL_HOST` with authenticated `glab`; if `glab` is
+unavailable, it may fall back to `GITLAB_TOKEN` over the GitLab API. That
+fallback requires an explicit HTTPS origin-only `AIGW_GL_HOST` (no credentials,
+path, query, or fragment). Tokens are neither persisted nor placed on a command
+line; requests have a finite timeout, release assets remain checksum-verified,
+the token is removed before a redirect crosses hosts, HTTPS-to-HTTP redirects
+are refused, and an older or malformed release cannot replace the installed
+binary.
