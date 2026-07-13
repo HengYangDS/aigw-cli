@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
@@ -56,6 +57,21 @@ func localizeCobraError(message string) string {
 	if flag, ok := cobraUnknownFlag(message); ok {
 		return fmt.Sprintf("未知选项 --%s", flag)
 	}
+	if profile, expected, actual, ok := runtimeProfileClientMismatch(message); ok {
+		return fmt.Sprintf("配置 %q 仅适用于 %s，不能用于 %s", profile, expected, actual)
+	}
+	if profile, account, ok := runtimeProfileUnknownAccount(message); ok {
+		return fmt.Sprintf("配置 %q 引用了未知服务账户 %q", profile, account)
+	}
+	if account, ok := runtimeMissingEndpoint(message, "Anthropic"); ok {
+		return fmt.Sprintf("服务账户 %q 未设置 Anthropic 端点", account)
+	}
+	if account, ok := runtimeMissingEndpoint(message, "OpenAI Responses"); ok {
+		return fmt.Sprintf("服务账户 %q 未设置 OpenAI Responses 端点", account)
+	}
+	if version, expected, ok := unsupportedConfigVersion(message); ok {
+		return fmt.Sprintf("配置版本不受支持：当前为 %s，要求 %s", version, expected)
+	}
 	return message
 }
 
@@ -82,6 +98,72 @@ func cobraUnknownFlag(message string) (string, bool) {
 		return "", false
 	}
 	return flag, true
+}
+
+func runtimeProfileClientMismatch(message string) (profile, expected, actual string, ok bool) {
+	const prefix = `profile "`
+	if !strings.HasPrefix(message, prefix) {
+		return "", "", "", false
+	}
+	rest := strings.TrimPrefix(message, prefix)
+	profile, rest, found := strings.Cut(rest, `" is for `)
+	if !found || profile == "" {
+		return "", "", "", false
+	}
+	expected, actual, found = strings.Cut(rest, ", not ")
+	if !found || expected == "" || actual == "" {
+		return "", "", "", false
+	}
+	return profile, expected, actual, true
+}
+
+func runtimeProfileUnknownAccount(message string) (profile, account string, ok bool) {
+	const prefix = `profile "`
+	if !strings.HasPrefix(message, prefix) {
+		return "", "", false
+	}
+	rest := strings.TrimPrefix(message, prefix)
+	profile, rest, found := strings.Cut(rest, `" references unknown account "`)
+	if !found || profile == "" || !strings.HasSuffix(rest, `"`) {
+		return "", "", false
+	}
+	account = strings.TrimSuffix(rest, `"`)
+	if account == "" {
+		return "", "", false
+	}
+	return profile, account, true
+}
+
+func runtimeMissingEndpoint(message, protocol string) (account string, ok bool) {
+	const prefix = `account "`
+	if !strings.HasPrefix(message, prefix) {
+		return "", false
+	}
+	rest := strings.TrimPrefix(message, prefix)
+	account, rest, found := strings.Cut(rest, `" has no `+protocol+` endpoint`)
+	if !found || account == "" || rest != "" {
+		return "", false
+	}
+	return account, true
+}
+
+func unsupportedConfigVersion(message string) (version, expected string, ok bool) {
+	const prefix = "validate config: unsupported config version "
+	if !strings.HasPrefix(message, prefix) {
+		return "", "", false
+	}
+	rest := strings.TrimPrefix(message, prefix)
+	version, rest, found := strings.Cut(rest, "; expected ")
+	if !found || version == "" || rest == "" {
+		return "", "", false
+	}
+	if _, err := strconv.Atoi(version); err != nil {
+		return "", "", false
+	}
+	if _, err := strconv.Atoi(rest); err != nil {
+		return "", "", false
+	}
+	return version, rest, true
 }
 
 func suggestedFix(message string) string {

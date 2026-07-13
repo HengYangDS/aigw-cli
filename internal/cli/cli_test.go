@@ -207,7 +207,7 @@ func TestUseRollsBackRouteWhenAdapterSyncFails(t *testing.T) {
 	_ = secretStore.Set("two", "new-secret")
 	app.Runner = &failingRunner{err: errors.New("login failed"), remaining: 1}
 	err := execute(t, app, "use", "two")
-	if err == nil || !strings.Contains(err.Error(), "rolled back") {
+	if err == nil || !strings.Contains(err.Error(), "已回退") {
 		t.Fatalf("error = %v", err)
 	}
 	got, _ := app.Config.Load()
@@ -300,7 +300,7 @@ func TestRotateRollsBackSecretWhenAdapterSyncFails(t *testing.T) {
 	_ = secretStore.Set("one", "old-secret")
 	app.Runner = &failingRunner{err: errors.New("login failed"), remaining: 1}
 	err := execute(t, app, "rotate", "one", "--token-stdin")
-	if err == nil || !strings.Contains(err.Error(), "rolled back") {
+	if err == nil || !strings.Contains(err.Error(), "已回退") {
 		t.Fatalf("error = %v", err)
 	}
 	got, _ := secretStore.Get("one")
@@ -536,7 +536,7 @@ func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := execute(t, app, "verify", "--for", "all")
-	if err == nil || !strings.Contains(err.Error(), "requires an enabled Codex adapter") {
+	if err == nil || !strings.Contains(err.Error(), "全链路验证需要已启用且至少有一个配置目标的 Codex 适配器") {
 		t.Fatalf("error = %v", err)
 	}
 	if _, checkpointErr := app.Config.LoadVerifiedCheckpoint(); checkpointErr == nil {
@@ -558,7 +558,7 @@ func TestVerifyRejectsMissingResponseSentinel(t *testing.T) {
 	}
 	app.HTTP = &fakeHTTP{status: http.StatusOK, body: `{"status":"completed","output_text":"not-the-sentinel"}`}
 	err := execute(t, app, "verify", "--for", "codex")
-	if err == nil || !strings.Contains(err.Error(), "required verification sentinel") {
+	if err == nil || !strings.Contains(err.Error(), "未返回预期的 AIGW_OK 验证标记") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -584,7 +584,7 @@ func TestVerifyClaudeRejectsMissingResponseSentinel(t *testing.T) {
 	}
 	runner.output = []byte("wrong response\n")
 	err := execute(t, app, "verify", "--for", "claude")
-	if err == nil || !strings.Contains(err.Error(), "required verification sentinel") {
+	if err == nil || !strings.Contains(err.Error(), "未返回预期的 AIGW_OK 验证标记") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -634,7 +634,7 @@ func TestTestCommandRejectsAuthenticationFailure(t *testing.T) {
 	_ = secretStore.Set("dmx", "rejected-secret")
 	app.HTTP.(*fakeHTTP).status = 401
 	err := execute(t, app, "test", "--for", "claude")
-	if err == nil || !strings.Contains(err.Error(), "authentication rejected") || strings.Contains(err.Error(), "rejected-secret") {
+	if err == nil || !strings.Contains(err.Error(), "认证被拒绝") || strings.Contains(err.Error(), "rejected-secret") {
 		t.Fatalf("error = %v", err)
 	}
 }

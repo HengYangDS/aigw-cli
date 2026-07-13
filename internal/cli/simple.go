@@ -24,7 +24,7 @@ func newCheckCommand(app *App) *cobra.Command {
 				return fmt.Errorf("配置无效：%w\n修复：aigw repair", err)
 			}
 			if len(cfg.Profiles) == 0 {
-				return problem("尚未配置", "尚未创建任何服务 Profile。", "无法检查、同步或修复尚不存在的配置。", "aigw setup", fmt.Errorf("not configured"))
+				return problem("尚未配置", "尚未创建任何服务配置。", "无法检查、同步或修复尚不存在的配置。", "aigw setup", fmt.Errorf("not configured"))
 			}
 			runtime, err := firstCheckRuntime(cfg)
 			if err != nil {
@@ -49,7 +49,7 @@ func newCheckCommand(app *App) *cobra.Command {
 				if adapter.Enabled {
 					clientRuntime, _, resolveErr := cfg.ResolveRuntime(client, "")
 					if resolveErr != nil {
-						return problem(title(client)+" 路由未解析", resolveErr.Error(), title(client)+" 无法确定应使用的 Profile。", "aigw use <profile> --for "+client, resolveErr)
+						return problem(title(client)+" 路由未解析", resolveErr.Error(), title(client)+" 无法确定应使用的配置。", "aigw use <profile> --for "+client, resolveErr)
 					}
 					ready, issue := adapterRouteReady(app, cfg, client, clientRuntime)
 					if !ready {
@@ -99,12 +99,12 @@ func newCheckCommand(app *App) *cobra.Command {
 }
 
 func newAccountCommand(app *App) *cobra.Command {
-	root := &cobra.Command{Use: "account", Short: "管理 Account 端点与可选精确诊断"}
+	root := &cobra.Command{Use: "account", Short: "管理服务账户端点与可选精确诊断"}
 	root.AddCommand(
 		newAccountEditCommand(app),
 		&cobra.Command{Use: "connect [account]", Short: "绑定服务商平台凭据以查询精确余额", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 			if !app.Interactive {
-				return fmt.Errorf("account connection requires an interactive terminal")
+				return fmt.Errorf("绑定平台凭据需要交互终端")
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -119,10 +119,10 @@ func newAccountCommand(app *App) *cobra.Command {
 				return err
 			}
 			if providerAccount.AccountProbe == nil {
-				return fmt.Errorf("account %q does not support exact account diagnostics", accountName)
+				return fmt.Errorf("服务账户 %q 不支持精确账户诊断", accountName)
 			}
 			if !providers.Supports(providerAccount.AccountProbe.Kind) {
-				return fmt.Errorf("exact diagnostics provider %q is not included in this AIGW build", providerAccount.AccountProbe.Kind)
+				return fmt.Errorf("当前 AIGW 版本未包含服务商 %q 的精确诊断", providerAccount.AccountProbe.Kind)
 			}
 			systemToken, err := app.Prompt.Secret("请粘贴平台系统令牌（不是 API Token）：")
 			if err != nil {
@@ -247,7 +247,7 @@ func newRepairCommand(app *App) *cobra.Command {
 				return err
 			}
 			if len(cfg.Profiles) == 0 {
-				return problem("尚未配置", "尚未创建任何服务 Profile。", "无法检查、同步或修复尚不存在的配置。", "aigw setup", fmt.Errorf("not configured"))
+				return problem("尚未配置", "尚未创建任何服务配置。", "无法检查、同步或修复尚不存在的配置。", "aigw setup", fmt.Errorf("not configured"))
 			}
 			before := cloneConfig(cfg)
 			discovered := app.Discovery.Discover()
@@ -286,7 +286,7 @@ func newRepairCommand(app *App) *cobra.Command {
 			}
 			if cfg.Adapters[domain.ClientCodex].Enabled && !codexProjectionChanged(before, cfg) {
 				if err := syncCodexProjection(cmd.Context(), app, cfg); err != nil {
-					return fmt.Errorf("repair Codex projection: %w", err)
+					return fmt.Errorf("修复 Codex 配置投影失败：%w", err)
 				}
 			}
 			r := renderer(app)
@@ -352,7 +352,7 @@ func newUpdateCommand(app *App) *cobra.Command {
 func firstCheckRuntime(cfg domain.Config) (domain.Runtime, error) {
 	profile, ok := cfg.Profiles[cfg.Routes.Default]
 	if !ok {
-		return domain.Runtime{}, fmt.Errorf("当前默认路由没有可测试端点；运行 `aigw use` 选择模型 Profile")
+		return domain.Runtime{}, fmt.Errorf("当前默认路由没有可测试端点；运行 `aigw use` 选择模型配置")
 	}
 	client := profile.Client
 	if client == "" {
@@ -364,11 +364,11 @@ func firstCheckRuntime(cfg domain.Config) (domain.Runtime, error) {
 		}
 	}
 	if client == "" {
-		return domain.Runtime{}, fmt.Errorf("当前默认路由没有可测试端点；运行 `aigw use` 选择模型 Profile")
+		return domain.Runtime{}, fmt.Errorf("当前默认路由没有可测试端点；运行 `aigw use` 选择模型配置")
 	}
 	runtime, _, err := cfg.ResolveRuntime(client, cfg.Routes.Default)
 	if err != nil {
-		return domain.Runtime{}, fmt.Errorf("当前默认路由没有可测试端点；运行 `aigw use` 选择模型 Profile")
+		return domain.Runtime{}, fmt.Errorf("当前默认路由没有可测试端点；运行 `aigw use` 选择模型配置")
 	}
 	return runtime, nil
 }

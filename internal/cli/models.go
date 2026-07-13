@@ -42,13 +42,13 @@ type catalogOutput struct {
 }
 
 func newModelsCommand(app *App) *cobra.Command {
-	return &cobra.Command{Use: "models", Short: "检查模型 Profile 是否被网关列出", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	return &cobra.Command{Use: "models", Short: "检查模型配置是否被网关列出", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		cfg, err := app.Config.Load()
 		if err != nil {
 			return err
 		}
 		if len(cfg.Profiles) == 0 {
-			return problem("尚未配置", "尚未创建任何服务 Profile。", "没有可检查的模型或网关目录。", "aigw setup", fmt.Errorf("not configured"))
+			return problem("尚未配置", "尚未创建任何服务配置。", "没有可检查的模型或网关目录。", "aigw setup", fmt.Errorf("not configured"))
 		}
 		modelSets := map[string]map[string]bool{}
 		for accountName, account := range cfg.Accounts {
@@ -87,7 +87,7 @@ func newModelsCommand(app *App) *cobra.Command {
 		}
 		r := renderer(app)
 		r.Title("AIGW", "模型可达性")
-		r.Section("Profiles")
+		r.Section("服务配置")
 		for _, row := range rows {
 			state := presentation.Info
 			if row.Reach == "可达" {
@@ -95,11 +95,11 @@ func newModelsCommand(app *App) *cobra.Command {
 			} else if row.Reach == "不可达" {
 				state = presentation.Fail
 			}
-			r.StatusLine(state, "Profile", row.Profile)
-			r.Detail(fmt.Sprintf("%s · %s · %s · Account %s", title(row.Client), row.Model, row.Reach, row.Account))
+			r.StatusLine(state, "配置", row.Profile)
+			r.Detail(fmt.Sprintf("%s · %s · %s · 账户 %s", title(row.Client), row.Model, row.Reach, row.Account))
 		}
 		if len(rows) == 0 {
-			r.Status(presentation.Info, "模型", "未配置模型 Profile")
+			r.Status(presentation.Info, "模型", "未配置模型服务")
 		}
 		r.Next("aigw use")
 		return nil
@@ -108,10 +108,10 @@ func newModelsCommand(app *App) *cobra.Command {
 
 func newCatalogCommand(app *App) *cobra.Command {
 	var jsonMode, all bool
-	cmd := &cobra.Command{Use: "catalog", Short: "发现各 Account 的已认证模型目录（默认紧凑摘要）", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "catalog", Short: "发现各服务账户的已认证模型目录（默认紧凑摘要）", Args: cobra.NoArgs}
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		if jsonMode && all {
-			return fmt.Errorf("--all cannot be combined with --json; JSON already contains the complete catalog")
+			return fmt.Errorf("--all 不能与 --json 同时使用；JSON 已包含完整目录")
 		}
 		cfg, err := app.Config.Load()
 		if err != nil {
@@ -123,7 +123,7 @@ func newCatalogCommand(app *App) *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(catalogOutput{Accounts: []catalogAccount{}})
 			}
-			return problem("尚未配置", "尚未创建任何服务 Profile。", "没有可用于发现模型目录的 Account 或 Token。", "aigw setup", fmt.Errorf("not configured"))
+			return problem("尚未配置", "尚未创建任何服务配置。", "没有可用于发现模型目录的服务账户或 Token。", "aigw setup", fmt.Errorf("not configured"))
 		}
 		result := catalogOutput{Accounts: make([]catalogAccount, 0, len(cfg.Accounts))}
 		for _, accountName := range sortedAccountNames(cfg) {
@@ -210,7 +210,7 @@ func catalogModelDisplay(model catalogModel) (presentation.State, string) {
 	if len(model.Profiles) == 0 {
 		return presentation.Info, "未配置"
 	}
-	return presentation.OK, "Profile " + strings.Join(model.Profiles, ", ")
+	return presentation.OK, "配置 " + strings.Join(model.Profiles, ", ")
 }
 
 func configuredProfilesForModel(cfg domain.Config, accountName, model string) []string {
@@ -277,7 +277,7 @@ func fetchModelIDs(parent context.Context, client HTTPDoer, account domain.Accou
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("models endpoint returned HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("模型目录端点返回 HTTP %d", resp.StatusCode)
 	}
 	ids, err := parseModelIDs(body)
 	if err != nil {
@@ -293,11 +293,11 @@ func parseModelIDs(data []byte) ([]string, error) {
 	}
 	dataField, exists := payload["data"]
 	if !exists {
-		return nil, fmt.Errorf("models payload is missing data")
+		return nil, fmt.Errorf("模型目录响应缺少 data 字段")
 	}
 	items, ok := dataField.([]any)
 	if !ok {
-		return nil, fmt.Errorf("models payload data is not an array")
+		return nil, fmt.Errorf("模型目录响应的 data 字段不是数组")
 	}
 	ids := []string{}
 	seen := map[string]bool{}

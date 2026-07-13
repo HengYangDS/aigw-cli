@@ -157,7 +157,7 @@ func (ProcessRunner) Run(ctx context.Context, plan adapters.ProcessPlan) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("run %s: %w", plan.Executable, err)
+		return fmt.Errorf("执行 %s 失败：%w", plan.Executable, err)
 	}
 	return nil
 }
@@ -167,7 +167,7 @@ func (ProcessRunner) Run(ctx context.Context, plan adapters.ProcessPlan) error {
 // accidentally surface process environment or response material.
 func (ProcessRunner) RunCapture(ctx context.Context, plan adapters.ProcessPlan) ([]byte, error) {
 	if plan.Replace {
-		return nil, fmt.Errorf("captured execution cannot replace the current process")
+		return nil, fmt.Errorf("捕获输出的执行不能替换当前进程")
 	}
 	cmd := exec.CommandContext(ctx, plan.Executable, plan.Args...)
 	cmd.Env = plan.Env
@@ -178,12 +178,12 @@ func (ProcessRunner) RunCapture(ctx context.Context, plan adapters.ProcessPlan) 
 	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
 		if stdout.overflow || stderr.overflow || errors.Is(err, errCapturedProcessOutputLimit) {
-			return nil, fmt.Errorf("run %s: captured output exceeded %d bytes", plan.Executable, capturedProcessOutputLimit)
+			return nil, fmt.Errorf("执行 %s 时捕获的输出超过 %d 字节", plan.Executable, capturedProcessOutputLimit)
 		}
-		return nil, fmt.Errorf("run %s: %w", plan.Executable, err)
+		return nil, fmt.Errorf("执行 %s 失败：%w", plan.Executable, err)
 	}
 	if stdout.overflow || stderr.overflow {
-		return nil, fmt.Errorf("run %s: captured output exceeded %d bytes", plan.Executable, capturedProcessOutputLimit)
+		return nil, fmt.Errorf("执行 %s 时捕获的输出超过 %d 字节", plan.Executable, capturedProcessOutputLimit)
 	}
 	return append([]byte(nil), stdout.Bytes()...), nil
 }
@@ -196,7 +196,7 @@ func NewDefault() (*App, error) {
 	}
 	executable, err := os.Executable()
 	if err != nil {
-		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
+		return nil, fmt.Errorf("解析 AIGW 可执行文件失败：%w", err)
 	}
 	binDir, err := defaultShimDirFor(runtime.GOOS, env, executable)
 	if err != nil {
@@ -261,16 +261,16 @@ func (a *App) readToken(stdinMode bool, confirm bool) (string, error) {
 		reader := bufio.NewReader(a.In)
 		value, err := reader.ReadString('\n')
 		if err != nil && err != io.EOF {
-			return "", fmt.Errorf("read token from stdin: %w", err)
+			return "", fmt.Errorf("从标准输入读取 Token 失败：%w", err)
 		}
 		value = strings.TrimSpace(value)
 		if value == "" {
-			return "", fmt.Errorf("empty token refused")
+			return "", fmt.Errorf("不接受空 Token")
 		}
 		return value, nil
 	}
 	if !a.Interactive {
-		return "", fmt.Errorf("token input requires a terminal; pipe it to `aigw` and add --token-stdin")
+		return "", fmt.Errorf("Token 输入需要交互终端；请通过管道传入 `aigw` 并添加 --token-stdin")
 	}
 	return readHiddenToken(a.Out, confirm)
 }

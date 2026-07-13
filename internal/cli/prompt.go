@@ -48,7 +48,7 @@ func (p terminalPrompt) Text(label string) (string, error) {
 
 func (p terminalPrompt) Select(label string, choices []Choice) (string, error) {
 	if len(choices) == 0 {
-		return "", fmt.Errorf("no choices available")
+		return "", fmt.Errorf("没有可选项")
 	}
 	if len(choices) == 1 {
 		return choices[0].Value, nil
@@ -67,7 +67,7 @@ func (p terminalPrompt) Select(label string, choices []Choice) (string, error) {
 		}
 		selected, err := strconv.Atoi(value)
 		if err != nil || selected < 1 || selected > len(choices) {
-			return "", fmt.Errorf("invalid selection %q", value)
+			return "", fmt.Errorf("无效选择 %q", value)
 		}
 		return choices[selected-1].Value, nil
 	}
@@ -90,7 +90,7 @@ func (p terminalPrompt) run(fields ...huh.Field) error {
 		WithAccessible(p.accessible || os.Getenv("AIGW_ACCESSIBLE") != "").
 		WithShowHelp(false)
 	if err := form.Run(); err != nil {
-		return fmt.Errorf("input cancelled: %w", err)
+		return fmt.Errorf("输入已取消：%w", err)
 	}
 	return nil
 }
@@ -106,7 +106,7 @@ func (p terminalPrompt) plainInput(label string, allowEmpty bool) (string, error
 	fmt.Fprint(p.out, label)
 	line, err := bufio.NewReader(p.in).ReadString('\n')
 	if err != nil && err != io.EOF {
-		return "", fmt.Errorf("read input: %w", err)
+		return "", fmt.Errorf("读取输入失败：%w", err)
 	}
 	value := strings.TrimSpace(line)
 	if value == "" && !allowEmpty {

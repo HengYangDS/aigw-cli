@@ -221,6 +221,94 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	}
 }
 
+func TestProfileListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "gpt", "team", "Team Gateway", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "gpt-test"})
+	cfg.Profiles["gpt"] = domain.Profile{
+		Label:   "GPT Test",
+		Purpose: "native Codex picker-aligned daily default",
+		Account: "team",
+		Client:  domain.ClientCodex,
+		Models:  domain.Models{domain.ClientCodex: "gpt-test"},
+	}
+	cfg.Routes.Default = "gpt"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("team", "team-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "profile", "list"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	for _, want := range []string{"服务配置", "可用配置", "配置  gpt", "Codex · GPT Test · native Codex picker-aligned daily default · 当前 · 账户 team · Token 可用"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("profile list lacks %q:\n%s", want, text)
+		}
+	}
+	for _, retired := range []string{"Profiles\n", "Profile  gpt", "Account team"} {
+		if strings.Contains(text, retired) {
+			t.Fatalf("profile list retained product label %q:\n%s", retired, text)
+		}
+	}
+}
+
+func TestRouteListIsNarrowHumanRouteView(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "gpt", "team", "GPT", domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "gpt-test"})
+	addAccountProfile(&cfg, "claude", "team", "Claude", domain.Endpoints{Anthropic: "https://team.test"}, domain.ClientClaude, domain.Models{domain.ClientClaude: "claude-test"})
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Purpose: "默认编程", Account: "team", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Purpose: "独立审阅", Account: "team", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-test"}}
+	cfg.Routes.Default = "gpt"
+	cfg.Routes.Overrides[domain.ClientClaude] = "claude"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "route", "list"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	for _, want := range []string{"当前路由", "默认路由", "默认配置", "gpt", "Codex", "gpt · 继承默认", "Claude", "claude · 单独指定", "aigw use <profile> --for <claude|codex>"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("route list lacks %q:\n%s", want, text)
+		}
+	}
+	for _, unwanted := range []string{"账户诊断", "已配置服务", "客户端适配"} {
+		if strings.Contains(text, unwanted) {
+			t.Fatalf("route list should not include operational status section %q:\n%s", unwanted, text)
+		}
+	}
+}
+
+func TestRouteListDoesNotMisstateIncompatibleInheritedRouteAsUsable(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "gpt", "team", "GPT", domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "gpt-test"})
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Account: "team", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-test"}}
+	cfg.Routes.Default = "gpt"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "route", "list"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	for _, want := range []string{"Claude", "未选择 Claude 配置", "aigw use claude --for claude", "下一步\n  aigw use claude --for claude"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("route list lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "Claude            gpt · 继承默认") {
+		t.Fatalf("route list misrepresented incompatible inherited route:\n%s", text)
+	}
+}
+
 func TestConfigDoesNotExposeRemovedLegacyMigration(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	err := execute(t, app, "config", "migrate", filepath.Join(t.TempDir(), "config.json"))
@@ -424,7 +512,7 @@ func TestProfileRemoveRefusesActiveProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := execute(t, app, "profile", "remove", "team")
-	if err == nil || !strings.Contains(err.Error(), "active") {
+	if err == nil || !strings.Contains(err.Error(), "默认路由") {
 		t.Fatalf("error = %v", err)
 	}
 }
