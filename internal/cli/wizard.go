@@ -37,7 +37,7 @@ func runWizard(ctx context.Context, app *App) error {
 	if err != nil {
 		return err
 	}
-	profile, err := app.Prompt.Text("模型 Profile 标识（例如 gpt-5.6-terra-cdx）：")
+	profile, err := app.Prompt.Text("模型 Profile 标识（例如 gpt-5.6-terra）：")
 	if err != nil {
 		return err
 	}
