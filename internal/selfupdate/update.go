@@ -215,7 +215,7 @@ func (u Updater) Rollback(_ context.Context) (string, error) {
 	if err := os.Chmod(backup, info.Mode().Perm()); err != nil {
 		return "", fmt.Errorf("make reversible AIGW rollback copy runnable: %w", err)
 	}
-	return "已恢复上一程序版本；可再次运行 `aigw update --rollback` 恢复当前版本。", nil
+	return "已恢复上一程序版本。若该旧版本不支持 `aigw update --rollback`，请从团队发布页重新下载当前便携包并运行其中的安装脚本即可恢复当前程序；该安装仅替换 AIGW 程序并保留旧程序副本。", nil
 }
 
 func (u Updater) scheduleWindowsRollback() (string, error) {
