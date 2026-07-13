@@ -72,6 +72,9 @@ func localizeCobraError(message string) string {
 	if version, expected, ok := unsupportedConfigVersion(message); ok {
 		return fmt.Sprintf("配置版本不受支持：当前为 %s，要求 %s", version, expected)
 	}
+	if configLoadFailure(message) {
+		return "无法读取或校验本机配置；运行 `aigw doctor` 检查或恢复"
+	}
 	return message
 }
 
@@ -148,11 +151,12 @@ func runtimeMissingEndpoint(message, protocol string) (account string, ok bool) 
 }
 
 func unsupportedConfigVersion(message string) (version, expected string, ok bool) {
-	const prefix = "validate config: unsupported config version "
-	if !strings.HasPrefix(message, prefix) {
+	const marker = "validate config: unsupported config version "
+	start := strings.Index(message, marker)
+	if start < 0 {
 		return "", "", false
 	}
-	rest := strings.TrimPrefix(message, prefix)
+	rest := message[start+len(marker):]
 	version, rest, found := strings.Cut(rest, "; expected ")
 	if !found || version == "" || rest == "" {
 		return "", "", false
@@ -164,6 +168,18 @@ func unsupportedConfigVersion(message string) (version, expected string, ok bool
 		return "", "", false
 	}
 	return version, rest, true
+}
+
+// configLoadFailure recognizes errors from AIGW's local configuration boundary.
+// Human output intentionally omits parser diagnostics and filesystem paths;
+// `aigw doctor --json` remains the detailed diagnostic surface.
+func configLoadFailure(message string) bool {
+	for _, marker := range []string{"read config:", "parse config:", "validate config:"} {
+		if strings.Contains(message, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func suggestedFix(message string) string {
