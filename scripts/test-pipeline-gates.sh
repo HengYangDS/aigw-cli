@@ -24,6 +24,10 @@ if not any("command -v pwsh" in line for line in runtime):
 if not any("test-installers.ps1" in line for line in runtime):
     raise SystemExit("windows installer runtime verification must execute the native PowerShell harness")
 
+verify = section("verify")
+if not any("test-linux-native-install-staging.sh" in line for line in verify):
+    raise SystemExit("verify must exercise Linux native-install shared-staging behavior without a Docker daemon")
+
 package = section("package")
 if "    - job: windows-installer-runtime" not in package:
     raise SystemExit("package must explicitly need Windows installer runtime verification")
