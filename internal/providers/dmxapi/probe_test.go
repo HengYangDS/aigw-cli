@@ -38,3 +38,41 @@ func TestProbeReturnsAccountAndCurrentTokenDetails(t *testing.T) {
 		t.Fatalf("report = %#v requests=%d", report, requests)
 	}
 }
+
+func TestProbeRedactsPlatformCredentialsEchoedByTheProvider(t *testing.T) {
+	const systemToken = "platform-token-must-not-leak"
+	const userID = "sensitive-user-id"
+	client := roundTrip(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(strings.NewReader("provider echoed " + systemToken + " for " + userID)),
+		}, nil
+	})
+	providerAccount := domain.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "api-token", account.Credential{SystemToken: systemToken, UserID: userID})
+	if err == nil {
+		t.Fatal("provider probe unexpectedly succeeded")
+	}
+	if strings.Contains(err.Error(), systemToken) || strings.Contains(err.Error(), userID) {
+		t.Fatalf("provider error leaked platform credential: %v", err)
+	}
+}
+
+func TestProbeRedactsPlatformCredentialsFromJSONFailureMessage(t *testing.T) {
+	const systemToken = "platform-message-token-must-not-leak"
+	const userID = "sensitive-message-user"
+	client := roundTrip(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"success":false,"message":"provider echoed platform-message-token-must-not-leak for sensitive-message-user"}`)),
+		}, nil
+	})
+	providerAccount := domain.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "api-token", account.Credential{SystemToken: systemToken, UserID: userID})
+	if err == nil {
+		t.Fatal("provider probe unexpectedly succeeded")
+	}
+	if strings.Contains(err.Error(), systemToken) || strings.Contains(err.Error(), userID) {
+		t.Fatalf("provider JSON error leaked platform credential: %v", err)
+	}
+}
