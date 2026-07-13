@@ -1,76 +1,62 @@
-# Release Evidence Contract
+# 发布证据契约
 
-This document defines the evidence required to make a release claim. It does
-not record a particular commit, RC version, branch, GitLab outage, or signing
-identity snapshot. Those facts change; obtain them from the current checkout,
-CI pipeline, GitLab Release, and signed artifacts at release time.
+本文定义**何种证据足以支持何种发布结论**。它不记录某个提交、RC 版本、分支、
+GitLab 故障或签名身份快照；这些事实会变化，发布时应从当前工作区、CI 流水线、
+GitLab Release 与签名工件中重新取得。
 
-## Release claims and their proof
+## 发布结论与所需证据
 
-| Claim | Required current evidence | Not sufficient |
+| 结论 | 所需的当前证据 | 不能替代它的证据 |
 |---|---|---|
-| Local source is ready to package | Clean target revision; `go test -race ./...`; `go vet ./...`; release gate scripts | An earlier terminal log or a green result from another commit |
-| RC artifact matrix is complete | `AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh <pre-release-version> dist`; `check-release-artifacts.sh`; `test-release-package-layout.sh` | A subset of archives or build success without checksums |
-| Portable installation works | Unix installer test plus PowerShell installer test against the candidate binary | Static script review alone |
-| Linux package path works | `test-linux-native-install.sh dist <version>` on its declared compatible image, or stronger native distribution-runner evidence | Cross-compilation, archive inspection, or a failed/unavailable container run |
-| Windows installer behavior works | PowerShell harness run under PowerShell; native Windows runner evidence is stronger when available | MSI metadata inspection alone |
-| Release is remotely published | GitLab package upload and Release job for the exact tag; inspect the resulting Release assets and checksums | A locally created `dist/` directory |
-| GA is signed and trusted | Protected CI verifies macOS Developer ID + notarization/stapling and Windows Authenticode + timestamp for the exact published assets | An unsigned RC, a local identity check, or a manually uploaded asset |
+| 本地源码可打包 | 目标 revision 干净；`go test -race ./...`；`go vet ./...`；全部发布门禁 | 旧终端日志，或另一个提交的绿灯 |
+| RC 工件矩阵完整 | `AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh <预发布版本> dist`；`check-release-artifacts.sh`；`test-release-package-layout.sh` | 部分压缩包，或没有校验和的构建成功 |
+| 便携安装可用 | 针对候选二进制的 Unix 安装器与 PowerShell 安装器测试 | 仅静态审阅安装脚本 |
+| Linux 包安装路径可用 | 在声明的兼容镜像上执行 `test-linux-native-install.sh dist <版本>`，或取得更强的原生发行版 runner 证据 | 交叉编译、压缩包检查，或镜像/容器失败、不可用时的旧结果 |
+| Windows 安装器行为可用 | 在 PowerShell 中运行 PowerShell harness；若有原生 Windows runner，其证据更强 | 仅检查 MSI 元数据 |
+| Release 已远端发布 | 对应 tag 的 GitLab package upload 与 Release job 成功；检查实际 Release 资产与校验和 | 本地存在 `dist/` 目录 |
+| GA 已签名且可信 | 受保护 CI 对实际发布资产验证 macOS Developer ID + 公证/固化，以及 Windows Authenticode + 时间戳 | 未签名 RC、本机 identity 检查，或手工上传资产 |
 
-No completed local check implies remote publication. No remote upload implies a
-signed GA. State each claim only to the strength of its corresponding current
-evidence.
+任何本地检查通过，都不代表已经远端发布；任何远端上传，也不代表已签名 GA。发布结论
+只能达到其对应的**当前证据强度**。
 
-## RC and GA boundary
+## RC 与 GA 的硬边界
 
-`scripts/check-release-readiness.sh` enforces the release class:
+`scripts/check-release-readiness.sh` 负责区分发布类别：
 
-- `*-rc.*`, `*-beta.*`, and `*-alpha.*` may be packaged as pre-releases with
-  checksums and SPDX SBOM evidence. They must not claim signing or notarization.
-- A version without a pre-release suffix is blocked until protected CI contains
-  and verifies all production signing work. No environment variable, manual
-  upload, or local workaround may bypass this gate.
+- `*-rc.*`、`*-beta.*`、`*-alpha.*` 可作为预发布打包，并以校验和和 SPDX SBOM
+  作为证据；不得声称已签名或已公证。
+- 无预发布后缀的版本，在受保护 CI 包含并验证全部生产签名流程前必须被阻断。不得用
+  环境变量、手工上传或本地绕过跳过此门禁。
 
-GA protected CI must prove, for the exact release assets:
+GA 的受保护 CI 必须对**同一组实际发布工件**证明：
 
-1. macOS Developer ID signing for the binary and package, notarization, and
-   stapling, followed by independent verification;
-2. Windows Authenticode signing and timestamp verification on a managed Windows
-   runner;
-3. checksums regenerated after signing, then verified before publish/release;
-4. signing credentials sourced only from protected/masked CI variables, a
-   runner keychain, or an organization key service.
+1. macOS 二进制与安装包完成 Developer ID 签名、公证和 stapling，并有独立验证；
+2. Windows 工件在受管 Windows runner 完成 Authenticode 签名与时间戳验证；
+3. 签名后重新计算校验和，并在 publish/release 前重新验证；
+4. 签名凭据只来自 GitLab protected/masked variables、runner keychain 或组织密钥服务。
 
-## Cross-platform installation evidence
+## 跨平台安装证据
 
-The package script emits portable archives for macOS/Linux/Windows `amd64` and
-`arm64`, a macOS Universal `.pkg`, Linux `.deb`/`.rpm`, Windows `.msi`,
-checksums, and an SPDX SBOM. `check-release-artifacts.sh` and
-`test-release-package-layout.sh` verify that matrix structurally.
+打包脚本生成 macOS/Linux/Windows 的 `amd64` 与 `arm64` 便携包、macOS Universal
+`.pkg`、Linux `.deb`/`.rpm`、Windows `.msi`、校验和和 SPDX SBOM。
+`check-release-artifacts.sh` 与 `test-release-package-layout.sh` 验证该矩阵的结构完整性。
 
-Structural evidence is deliberately different from runtime evidence. The Linux
-acceptance script installs the `amd64` `.deb` and `.rpm` in an Alpine x86_64
-compatibility container, then runs `/usr/bin/aigw`. Its architecture-name
-workaround is documented in the script and does not establish Debian/Fedora
-native acceptance. A managed Debian runner and a managed Fedora runner remain
-the stronger evidence for those distributions. If the image, engine, or network
-is unavailable, record the Linux runtime evidence as unavailable rather than
-reusing an older result.
+结构证据与运行证据必须区分。Linux 验收脚本在 Alpine x86_64 兼容性容器中安装
+`amd64` `.deb` 与 `.rpm`，随后运行 `/usr/bin/aigw`。其中的架构名称处理已在脚本中
+显式声明；它不等同于 Debian/Fedora 原生验收。受管 Debian runner 与 Fedora runner
+才是该两类发行版的更强证据。若镜像、容器引擎或网络不可用，应把 Linux 运行证据
+记录为“不可用”，不得复用旧结果。
 
-## Release procedure
+## 发布步骤
 
-1. Start from the intended clean revision; record its SHA.
-2. Run the full verification suite and package the exact pre-release version.
-3. Verify checksums, SBOM, package layout, installer behavior, and any available
-   Linux/Windows native-runtime evidence against that exact `dist/` directory.
-4. Push the reviewed branch, merge through the protected default-branch flow,
-   then create a pre-release tag from the merged commit.
-5. Inspect the exact GitLab Release and package assets after the CI publish and
-   release jobs succeed. Perform a clean-environment install only from those
-   remotely published artifacts before describing the RC as distributable.
-6. Create a GA tag only after the protected signing evidence above is present
-   and verified for the published asset set.
+1. 从目标的干净 revision 开始，记录该 revision SHA。
+2. 运行完整验证套件，并以确切预发布版本打包。
+3. 针对同一个 `dist/` 目录验证校验和、SBOM、包布局、安装器行为，以及当下可取得的
+   Linux/Windows 运行证据。
+4. 推送经审阅的分支，经受保护默认分支流程合入；随后从已合入提交创建预发布 tag。
+5. CI 的 publish 与 release job 成功后，检查 GitLab 上**该 tag 的实际资产**；再从
+   远端已发布工件做一次干净环境安装，方可称该 RC 可分发。
+6. 只有上述受保护签名证据已对发布资产验证通过，才可创建 GA tag。
 
-Network availability, CI runner capacity, signing identities, and GitLab state
-are runtime conditions. Diagnose and report them at the time of release; do not
-encode a transient result in this contract.
+网络可达性、CI runner 容量、签名身份与 GitLab 状态都是运行时条件。发布时应即时
+诊断和报告，不能把某次暂态结果写入本契约。
