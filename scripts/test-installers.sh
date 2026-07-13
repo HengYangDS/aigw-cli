@@ -45,6 +45,20 @@ for tool in mkdir mv; do
   case "$resolved" in /usr/bin/"$tool"|/bin/"$tool") ;; *) echo "activated PATH did not restore $tool: $resolved" >&2; exit 1 ;; esac
 done
 
+zsh_home="$tmp/zsh-home"
+mkdir -p "$zsh_home"
+env HOME="$zsh_home" SHELL=/bin/zsh PATH="" AIGW_INSTALL_DIR="$zsh_home/bin" AIGW_SOURCE_BINARY="$source_binary" /bin/sh "$unix_script"
+set +e
+env -i HOME="$zsh_home" PATH="" SHELL=/bin/zsh /bin/zsh -ic 'command -v aigw; command -v locale; command -v mkdir; command -v mv; aigw --version' >"$tmp/zsh-activated.out" 2>"$tmp/zsh-activated.err"
+zsh_rc=$?
+set -e
+[ "$zsh_rc" -eq 0 ] || { cat "$tmp/zsh-activated.err" >&2; echo "zsh activation failed with empty PATH" >&2; exit 1; }
+[ ! -s "$tmp/zsh-activated.err" ] || { cat "$tmp/zsh-activated.err" >&2; echo "zsh emitted startup errors after AIGW install" >&2; exit 1; }
+grep -Fx "$zsh_home/bin/aigw" "$tmp/zsh-activated.out" >/dev/null
+for tool in locale mkdir mv; do
+  grep -E "/$tool$" "$tmp/zsh-activated.out" >/dev/null || { echo "zsh activation did not restore $tool" >&2; exit 1; }
+done
+
 archive_dir="$tmp/archive"
 mkdir -p "$archive_dir"
 cp "$source_binary" "$archive_dir/aigw"

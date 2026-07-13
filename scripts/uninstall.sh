@@ -24,7 +24,7 @@ if [ -f "$shim" ]; then
 fi
 rm -f "$binary"
 
-for profile in "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.profile" "$HOME/.config/fish/config.fish"; do
+for profile in "$HOME/.zshenv" "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.profile" "$HOME/.config/fish/config.fish"; do
   [ -f "$profile" ] || continue
   tmp="$profile.aigw.$$"
   awk '
@@ -32,6 +32,8 @@ for profile in "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.prof
     $0 == "# <<< AIGW PATH <<<" {skip=0; next}
     $0 == "# >>> AIGW Claude shim PATH >>>" {skip=1; next}
     $0 == "# <<< AIGW Claude shim PATH <<<" {skip=0; next}
+    $0 == "# >>> AIGW PATH bootstrap >>>" {skip=1; next}
+    $0 == "# <<< AIGW PATH bootstrap <<<" {skip=0; next}
     skip != 1 {print}
   ' "$profile" > "$tmp"
   mv "$tmp" "$profile"
