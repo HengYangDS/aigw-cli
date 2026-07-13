@@ -370,7 +370,7 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 	if current.ModelFor(domain.ClientClaude) != "" {
 		r.Row("Claude 模型", current.ModelFor(domain.ClientClaude))
 	}
-	r.Row("已配置服务", fmt.Sprintf("%d", result.Profiles))
+	r.Row("模型配置数", fmt.Sprintf("%d", result.Profiles))
 	r.Section("客户端")
 	attention := false
 	selectionCommand := ""
