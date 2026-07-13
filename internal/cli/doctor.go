@@ -161,11 +161,7 @@ func newDoctorCommand(app *App) *cobra.Command {
 				}
 			}
 			if !allChecksOK(checks) {
-				next := "aigw repair"
-				if configNeedsSetup(checks) {
-					next = "aigw setup"
-				}
-				r.Next(next)
+				r.Next(doctorNextAction(checks))
 				return presented(fmt.Errorf("doctor found problems"))
 			}
 			r.Section("结果")
@@ -329,4 +325,30 @@ func configNeedsSetup(checks []doctorCheck) bool {
 		}
 	}
 	return false
+}
+
+// doctorNextAction selects the smallest safe action supported by all failed
+// checks. A single actionable drift should not be escalated into broad repair;
+// mixed or unclassified failures deliberately fall back to repair.
+func doctorNextAction(checks []doctorCheck) string {
+	if configNeedsSetup(checks) {
+		return "aigw setup"
+	}
+	actions := map[string]bool{}
+	for _, check := range checks {
+		if check.OK {
+			continue
+		}
+		action := doctorCheckFix(check)
+		if action == "" || action == "aigw doctor --json" {
+			return "aigw repair"
+		}
+		actions[action] = true
+	}
+	if len(actions) == 1 {
+		for action := range actions {
+			return action
+		}
+	}
+	return "aigw repair"
 }
