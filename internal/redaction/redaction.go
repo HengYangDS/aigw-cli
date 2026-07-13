@@ -12,6 +12,8 @@ const replacement = "[REDACTED]"
 
 var bearerCredential = regexp.MustCompile(`(?i)\bbearer[[:space:]]+[^[:space:],;\}"']+`)
 
+var credentialAssignment = regexp.MustCompile(`(?i)(["']?(api[_-]?key|token|secret|password|client[_-]?secret|access[_-]?token|refresh[_-]?token|authorization)["']?[[:space:]]*[:=][[:space:]]*)("([^"\\]|\\.)*"|'([^'\\]|\\.)*'|[^[:space:],;&}]+)`)
+
 // Text removes every supplied secret in its plain and URL-escaped forms, then
 // removes bearer credentials whose original value is not otherwise known.
 func Text(value string, secrets ...string) string {
@@ -24,5 +26,6 @@ func Text(value string, secrets ...string) string {
 			value = strings.ReplaceAll(value, variant, replacement)
 		}
 	}
+	value = credentialAssignment.ReplaceAllString(value, "${1}"+replacement)
 	return bearerCredential.ReplaceAllString(value, "Bearer "+replacement)
 }
