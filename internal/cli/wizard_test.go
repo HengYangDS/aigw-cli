@@ -63,8 +63,8 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 			"team-gateway",
 			"Team Gateway",
 			"https://gateway.test/v1",
-			"gpt-5.6-terra-cdx",
-			"gpt-5.6-terra-cdx",
+			"gpt-5.6-terra",
+			"gpt-5.6-terra",
 		},
 	}
 	app.Prompt = prompt
@@ -97,7 +97,7 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes.Default != "gpt-5.6-terra-cdx" || cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
+	if cfg.Routes.Default != "gpt-5.6-terra" || cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
 		t.Fatalf("configured state = %#v", cfg)
 	}
 	if len(runner.plans) != 1 || runner.plans[0].Executable != "/opt/codex-real" {
@@ -121,8 +121,8 @@ func TestFirstRunCreatesExplicitGenericAccountWithoutBundledProviderDefault(t *t
 			"team-gateway",
 			"Team Gateway",
 			"https://gateway.test/v1",
-			"gpt-5.6-terra-cdx",
-			"gpt-5.6-terra-cdx",
+			"gpt-5.6-terra",
+			"gpt-5.6-terra",
 		},
 	}
 
@@ -139,8 +139,8 @@ func TestFirstRunCreatesExplicitGenericAccountWithoutBundledProviderDefault(t *t
 	if !secretStore.Has("team-gateway") {
 		t.Fatal("generic Account Token was not stored")
 	}
-	profile, ok := cfg.Profiles["gpt-5.6-terra-cdx"]
-	if !ok || profile.Account != "team-gateway" || profile.Client != "codex" || profile.Models[domain.ClientCodex] != "gpt-5.6-terra-cdx" {
+	profile, ok := cfg.Profiles["gpt-5.6-terra"]
+	if !ok || profile.Account != "team-gateway" || profile.Client != "codex" || profile.Models[domain.ClientCodex] != "gpt-5.6-terra" {
 		t.Fatalf("generic profile = %#v", profile)
 	}
 	if _, exists := cfg.Accounts["dmx"]; exists {
@@ -201,8 +201,8 @@ func TestWizardFailureLeavesNoProfileSecretOrClientProjection(t *testing.T) {
 			"team-gateway",
 			"Team Gateway",
 			"https://gateway.test/v1",
-			"gpt-5.6-terra-cdx",
-			"gpt-5.6-terra-cdx",
+			"gpt-5.6-terra",
+			"gpt-5.6-terra",
 		},
 	}
 	app.Runner = &failingRunner{err: errors.New("Codex login failed"), remaining: 1}

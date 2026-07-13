@@ -165,3 +165,44 @@ func TestValidateRejectsUnadmittedOrCrossScopedModelKeys(t *testing.T) {
 		t.Fatalf("cross-scoped model key error = %v", err)
 	}
 }
+
+func TestValidateRejectsRetiredGPTCDXAliases(t *testing.T) {
+	retired := "gpt-5.6-terra" + "-cdx"
+	tests := []struct {
+		name string
+		edit func(*domain.Config)
+	}{
+		{
+			name: "profile ID",
+			edit: func(cfg *domain.Config) {
+				profile := cfg.Profiles["dmx"]
+				profile.Client = domain.ClientCodex
+				profile.Models = domain.Models{domain.ClientCodex: "gpt-5.6-terra"}
+				delete(cfg.Profiles, "dmx")
+				cfg.Profiles[retired] = profile
+				cfg.Routes.Default = retired
+			},
+		},
+		{
+			name: "Codex model ID",
+			edit: func(cfg *domain.Config) {
+				profile := cfg.Profiles["dmx"]
+				profile.Client = domain.ClientCodex
+				profile.Models = domain.Models{domain.ClientCodex: retired}
+				cfg.Profiles["gpt-5.6-terra"] = profile
+				delete(cfg.Profiles, "dmx")
+				cfg.Routes.Default = "gpt-5.6-terra"
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := validConfig()
+			tt.edit(&cfg)
+			err := cfg.Validate()
+			if err == nil || !strings.Contains(err.Error(), "retired GPT -cdx alias") {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}

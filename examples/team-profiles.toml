@@ -1,5 +1,5 @@
 version = 2
-recommended_default = "gpt-5.6-terra-cdx"
+recommended_default = "gpt-5.6-terra"
 
 [accounts."team-gateway"]
 label = "Team Gateway"
@@ -8,14 +8,14 @@ label = "Team Gateway"
 openai_responses = "https://gateway.example/v1"
 anthropic = "https://gateway.example"
 
-[profiles."gpt-5.6-terra-cdx"]
+[profiles."gpt-5.6-terra"]
 label = "GPT-5.6 Terra Codex"
 purpose = "Codex 代码与工程"
 account = "team-gateway"
 client = "codex"
 
-[profiles."gpt-5.6-terra-cdx".models]
-codex = "gpt-5.6-terra-cdx"
+[profiles."gpt-5.6-terra".models]
+codex = "gpt-5.6-terra"
 
 [profiles."claude-fable-5"]
 label = "Claude Fable 5 (recommended)"
