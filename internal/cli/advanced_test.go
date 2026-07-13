@@ -278,7 +278,7 @@ func TestRouteListIsNarrowHumanRouteView(t *testing.T) {
 			t.Fatalf("route list lacks %q:\n%s", want, text)
 		}
 	}
-	for _, unwanted := range []string{"账户诊断", "已配置服务", "客户端适配"} {
+	for _, unwanted := range []string{"账户诊断", "模型配置数", "客户端适配"} {
 		if strings.Contains(text, unwanted) {
 			t.Fatalf("route list should not include operational status section %q:\n%s", unwanted, text)
 		}
