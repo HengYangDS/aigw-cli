@@ -6,7 +6,7 @@ default:
     key: go-mod
     paths: [.cache/go-build, .cache/go-mod]
   before_script:
-    - export GOCACHE="$CI_PROJECT_DIR/.cache/go-build" GOMODCACHE="$CI_PROJECT_DIR/.cache/go-mod"
+    - export GOPROXY="${AIGW_GOPROXY:-https://goproxy.cn,direct}" GOCACHE="$CI_PROJECT_DIR/.cache/go-build" GOMODCACHE="$CI_PROJECT_DIR/.cache/go-mod"
 
 verify:
   stage: verify
