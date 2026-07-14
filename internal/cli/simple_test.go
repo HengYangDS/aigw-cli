@@ -98,7 +98,7 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 	if err := execute(t, app, "check"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"配置文件", "系统密钥", "网关", "认证正常", "一切正常"} {
+	for _, want := range []string{"Configuration file", "System secret", "Gateway", "Authentication healthy", "Everything is healthy"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("check lacks %q:\n%s", want, out.String())
 		}
@@ -115,7 +115,7 @@ func TestCheckRejectsLocalProgramBuildBeforeClaimingHealth(t *testing.T) {
 	if err == nil {
 		t.Fatal("check succeeded for a local program build")
 	}
-	for _, want := range []string{"本机程序不是正式发布版本", "检测到本地构建标记", "aigw update"} {
+	for _, want := range []string{"Local program is not an official release", "Detected local build marker", "aigw update"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("check output missing %q:\n%s", want, out.String())
 		}
@@ -178,7 +178,7 @@ func TestRepairDiscoversAndEnablesInstalledClients(t *testing.T) {
 	if !got.Adapters["claude"].Enabled || !got.Adapters["codex"].Enabled || len(runner.plans) != 1 {
 		t.Fatalf("repair config=%#v plans=%#v", got, runner.plans)
 	}
-	if !strings.Contains(out.String(), "修复完成") {
+	if !strings.Contains(out.String(), "Repair completed") {
 		t.Fatalf("output = %s", out.String())
 	}
 }
@@ -233,19 +233,19 @@ func TestHelpKeepsDailyCommandsObvious(t *testing.T) {
 	}
 	for _, unwanted := range []string{"Usage:", "Additional Commands:", "Flags:"} {
 		if strings.Contains(out.String(), unwanted) {
-			t.Fatalf("help contains English scaffold %q:\n%s", unwanted, out.String())
+			t.Fatalf("help contains legacy Cobra scaffold %q:\n%s", unwanted, out.String())
 		}
 	}
-	for _, wanted := range []string{"用法", "日常使用", "高级管理", "选项", "查看帮助", "显示版本"} {
+	for _, wanted := range []string{"Usage", "Daily operations", "Administration", "Options", "show help", "show version"} {
 		if !strings.Contains(out.String(), wanted) {
-			t.Fatalf("help lacks Chinese section %q:\n%s", wanted, out.String())
+			t.Fatalf("help lacks expected section %q:\n%s", wanted, out.String())
 		}
 	}
 }
 
 func TestUpdateRollbackUsesLocalProgramRollbackOnly(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
-	updater := &fakeUpdater{rollbackResult: "已恢复上一程序版本；可再次运行 `aigw update --rollback` 恢复当前版本。"}
+	updater := &fakeUpdater{rollbackResult: "restored the previous program version; you can run `aigw update --rollback` again to restore the current version."}
 	app.Updater = updater
 	if err := execute(t, app, "update", "--rollback"); err != nil {
 		t.Fatal(err)
@@ -253,14 +253,14 @@ func TestUpdateRollbackUsesLocalProgramRollbackOnly(t *testing.T) {
 	if updater.rollbackCalls != 1 || updater.updateCalls != 0 {
 		t.Fatalf("update calls=%d rollback calls=%d", updater.updateCalls, updater.rollbackCalls)
 	}
-	if !strings.Contains(out.String(), "程序回退") || !strings.Contains(out.String(), "已恢复上一程序版本") {
+	if !strings.Contains(out.String(), "Program rollback") || !strings.Contains(out.String(), "restored the previous program version") {
 		t.Fatalf("output = %s", out.String())
 	}
 }
 
 func TestUpdateWithoutRollbackKeepsNetworkUpdatePath(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
-	updater := &fakeUpdater{updateResult: "已更新到 v0.2.0。"}
+	updater := &fakeUpdater{updateResult: "updated to v0.2.0."}
 	app.Updater = updater
 	if err := execute(t, app, "update"); err != nil {
 		t.Fatal(err)
@@ -279,27 +279,27 @@ func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
 	}
 }
 
-func TestUpdateHelpDescribesOfflineProgramRollbackInChinese(t *testing.T) {
+func TestUpdateHelpDescribesOfflineProgramRollback(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	if err := execute(t, app, "update", "--help"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "离线回退便携版 AIGW 程序到上一版本") {
+	if !strings.Contains(out.String(), "Roll back the portable AIGW program to the previous version offline") {
 		t.Fatalf("help = %s", out.String())
 	}
 }
 
-func TestCriticalCommandHelpUsesChineseGuidance(t *testing.T) {
+func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	cases := []struct {
 		args []string
 		want []string
 	}{
-		{args: []string{"setup", "--help"}, want: []string{"服务账户标识", "首个模型配置标识", "从标准输入读取一行 Token"}},
-		{args: []string{"verify", "--help"}, want: []string{"验证 Claude、Codex 或全部", "验证指定配置，且不修改路由"}},
-		{args: []string{"rollback", "--help"}, want: []string{"仅恢复紧邻的一份配置备份"}},
-		{args: []string{"config", "import", "--help"}, want: []string{"合并不含密钥的团队清单", "显式替换冲突的服务账户元数据", "系统 Token 保持不变"}},
-		{args: []string{"adapter", "auth", "--help"}, want: []string{"将当前服务账户的 Token 绑定到 Codex"}},
+		{args: []string{"setup", "--help"}, want: []string{"Account ID", "First profile ID", "Read one token line from standard input"}},
+		{args: []string{"verify", "--help"}, want: []string{"Verify Claude, Codex, or all clients", "Verify a specified profile without changing routes"}},
+		{args: []string{"rollback", "--help"}, want: []string{"Restore only the immediately previous configuration backup"}},
+		{args: []string{"config", "import", "--help"}, want: []string{"Merge a secret-free team manifest", "Explicitly replace conflicting account metadata", "system tokens remain unchanged"}},
+		{args: []string{"adapter", "auth", "--help"}, want: []string{"Bind the current account token to Codex"}},
 	}
 	for _, tc := range cases {
 		out.Reset()
@@ -315,16 +315,16 @@ func TestCriticalCommandHelpUsesChineseGuidance(t *testing.T) {
 	}
 }
 
-func TestCommonCommandFailuresUseChineseGuidance(t *testing.T) {
+func TestCommonCommandFailuresUseEnglishGuidance(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	for _, tc := range []struct {
 		args []string
 		want string
 		fix  string
 	}{
-		{args: []string{"config"}, want: "请选择 config 子命令；运行 `aigw config --help` 查看帮助", fix: "aigw config --help"},
-		{args: []string{"adapter", "auth", "claude"}, want: "原生凭据绑定仅适用于 codex", fix: "aigw adapter auth codex"},
-		{args: []string{"use", "--for", "other", "one"}, want: "--for 只能是 claude 或 codex", fix: "aigw use --help"},
+		{args: []string{"config"}, want: "Choose a config subcommand; run `aigw config --help`", fix: "aigw config --help"},
+		{args: []string{"adapter", "auth", "claude"}, want: "Native credential binding is available only for codex", fix: "aigw adapter auth codex"},
+		{args: []string{"use", "--for", "other", "one"}, want: "--for must be claude or codex", fix: "aigw use --help"},
 	} {
 		out.Reset()
 		err := execute(t, app, tc.args...)
@@ -337,42 +337,42 @@ func TestCommonCommandFailuresUseChineseGuidance(t *testing.T) {
 func TestUnknownCommandSuggestsTopLevelHelp(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	err := execute(t, app, "not-a-command")
-	if err == nil || !strings.Contains(out.String(), "未知命令") || !strings.Contains(out.String(), "aigw --help") {
+	if err == nil || !strings.Contains(out.String(), "unknown command") || !strings.Contains(out.String(), "aigw --help") {
 		t.Fatalf("err=%v output=%s", err, out.String())
 	}
 }
 
-func TestUnknownFlagSuggestsTopLevelHelpInChinese(t *testing.T) {
+func TestUnknownFlagSuggestsTopLevelHelp(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	err := execute(t, app, "status", "--not-a-flag")
-	if err == nil || !strings.Contains(out.String(), "未知选项") || !strings.Contains(out.String(), "aigw --help") {
+	if err == nil || !strings.Contains(out.String(), "unknown option") || !strings.Contains(out.String(), "aigw --help") {
 		t.Fatalf("err=%v output=%s", err, out.String())
 	}
 }
 
-func TestFailureSuggestionUsesCommandNamedInChineseGuidance(t *testing.T) {
+func TestFailureSuggestionUsesCommandNamedInEnglishGuidance(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	if err := app.Config.Save(twoProfileConfig()); err != nil {
 		t.Fatal(err)
 	}
 	err := execute(t, app, "setup", "--profile", "new-profile")
-	if err == nil || !strings.Contains(out.String(), "AIGW 已完成首次配置") || !strings.Contains(out.String(), "aigw add") {
+	if err == nil || !strings.Contains(out.String(), "AIGW is already configured") || !strings.Contains(out.String(), "aigw add") {
 		t.Fatalf("err=%v output=%s", err, out.String())
 	}
 }
 
-func TestCoreValidationFailuresUseChineseGuidance(t *testing.T) {
+func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	for _, tc := range []struct {
 		args []string
 		want string
 	}{
-		{args: []string{"test", "--for", "other"}, want: "--for 只能是 claude 或 codex"},
-		{args: []string{"verify", "--for", "other"}, want: "--for 只能是 claude、codex 或 all"},
-		{args: []string{"setup", "--profile", "new-profile", "--for", "other"}, want: "--for 只能是 claude 或 codex"},
-		{args: []string{"profile", "add", "new-profile"}, want: "必须同时提供 --account、--for 和 --model"},
-		{args: []string{"route", "reset", "other"}, want: "客户端只能是 claude 或 codex"},
-		{args: []string{"adapter", "enable", "other"}, want: "客户端只能是 claude 或 codex"},
+		{args: []string{"test", "--for", "other"}, want: "--for must be claude or codex"},
+		{args: []string{"verify", "--for", "other"}, want: "--for must be claude, codex, or all"},
+		{args: []string{"setup", "--profile", "new-profile", "--for", "other"}, want: "--for must be claude or codex"},
+		{args: []string{"profile", "add", "new-profile"}, want: "--account, --for, and --model are required"},
+		{args: []string{"route", "reset", "other"}, want: "Client must be claude or codex"},
+		{args: []string{"adapter", "enable", "other"}, want: "Client must be claude or codex"},
 	} {
 		out.Reset()
 		err := execute(t, app, tc.args...)
@@ -400,7 +400,7 @@ func TestDoctorAcceptsOwnedClaudeShimWithoutPathDiscovery(t *testing.T) {
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{}}
 	err := execute(t, app, "doctor")
-	if err != nil || !strings.Contains(out.String(), "Claude 启动器") || !strings.Contains(out.String(), "AIGW 管理的 Claude 启动器已就绪") {
+	if err != nil || !strings.Contains(out.String(), "Claude launcher") || !strings.Contains(out.String(), "AIGW-managed Claude launcher is ready") {
 		t.Fatalf("doctor did not accept the owned shim; err=%v output=%s", err, out.String())
 	}
 }
@@ -435,7 +435,7 @@ func TestRepairRestoresClaudeShimWithoutReplacingConfiguredExecutable(t *testing
 	if _, err := os.Stat(filepath.Join(shimDir, "claude")); err != nil {
 		t.Fatalf("repair did not restore owned Claude shim: %v", err)
 	}
-	if !strings.Contains(out.String(), "未改动") {
+	if !strings.Contains(out.String(), "Unchanged") {
 		t.Fatalf("repair incorrectly claimed authentication refresh:\n%s", out.String())
 	}
 }
@@ -493,7 +493,7 @@ func TestStatusWarnsWhenClaudePathActivationIsMissing(t *testing.T) {
 	if err := execute(t, app, "status"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Claude PATH 激活缺失") || !strings.Contains(out.String(), "aigw repair") {
+	if !strings.Contains(out.String(), "Claude PATH activation is missing") || !strings.Contains(out.String(), "aigw repair") {
 		t.Fatalf("status did not surface missing Claude PATH activation:\n%s", out.String())
 	}
 }
@@ -514,7 +514,7 @@ func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	if err := execute(t, app, "rotate", "dmx"); err != nil {
 		t.Fatal(err)
 	}
-	if prompt.lastSecretLabel != "请粘贴 DMXAPI Token：" {
+	if prompt.lastSecretLabel != "Paste DMXAPI token: " {
 		t.Fatalf("prompt label = %q", prompt.lastSecretLabel)
 	}
 }
@@ -537,7 +537,7 @@ func TestStatusGuidesClientSpecificRouteInsteadOfBlankRepair(t *testing.T) {
 	if strings.Contains(text, "Claude             ·") || strings.Contains(text, "aigw repair") {
 		t.Fatalf("status should not show blank Claude route or misleading repair:\n%s", text)
 	}
-	for _, want := range []string{"Claude", "未选择 Claude 配置", "aigw use claude-fable-5 --for claude"} {
+	for _, want := range []string{"Claude", "No Claude profile selected", "aigw use claude-fable-5 --for claude"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("status lacks %q:\n%s", want, text)
 		}
@@ -559,15 +559,12 @@ func TestTerminalErrorLocalizesResolvedProfileClientMismatch(t *testing.T) {
 		t.Fatal("test command unexpectedly succeeded")
 	}
 	text := out.String()
-	for _, want := range []string{"配置 \"gpt\" 仅适用于 codex，不能用于 claude", "建议操作", "aigw check"} {
+	for _, want := range []string{"profile \"gpt\" is for codex, not claude", "Recommended action", "aigw check"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("localized terminal error lacks %q:\n%s", want, text)
 		}
 	}
-	if strings.Contains(text, "profile \"gpt\" is for codex, not claude") {
-		t.Fatalf("terminal leaked raw domain error:\n%s", text)
-	}
-	if strings.Contains(text, "连接测试") {
+	if strings.Contains(text, "Connectivity test") {
 		t.Fatalf("failed test command emitted partial success view:\n%s", text)
 	}
 }
@@ -579,12 +576,12 @@ func TestTestCommandExplainsUnconfiguredStateBeforeResolvingRoutes(t *testing.T)
 		t.Fatal("test command unexpectedly succeeded")
 	}
 	text := out.String()
-	for _, want := range []string{"尚未配置", "尚未创建任何服务配置。", "aigw setup"} {
+	for _, want := range []string{"Not configured", "No service profiles have been created.", "aigw setup"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("unconfigured test output lacks %q:\n%s", want, text)
 		}
 	}
-	for _, unwanted := range []string{"连接测试", `unknown profile ""`} {
+	for _, unwanted := range []string{"Connectivity test", `unknown profile ""`} {
 		if strings.Contains(text, unwanted) {
 			t.Fatalf("unconfigured test output retained %q:\n%s", unwanted, text)
 		}
@@ -602,7 +599,7 @@ func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
 		t.Fatal("status unexpectedly succeeded")
 	}
 	text := out.String()
-	for _, want := range []string{"配置版本不受支持：当前为 0，要求 2", "建议操作", "aigw check"} {
+	for _, want := range []string{"unsupported configuration version: found 0, expected 2", "Recommended action", "aigw check"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("localized configuration error lacks %q:\n%s", want, text)
 		}
@@ -633,7 +630,7 @@ func TestStatusWarnsWhenEnabledClaudeAdapterHasNoOwnedShim(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "Claude shim 缺失") || !strings.Contains(text, "aigw repair") {
+	if !strings.Contains(text, "Claude shim is missing") || !strings.Contains(text, "aigw repair") {
 		t.Fatalf("status did not surface the missing Claude shim:\n%s", text)
 	}
 }
@@ -718,7 +715,7 @@ func TestCheckKeepsGenericHealthAvailableWhenExactDiagnosticDriverIsNotBundled(t
 	if err := execute(t, app, "check"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "当前版本未提供此服务商诊断") || strings.Contains(out.String(), "aigw balance") {
+	if !strings.Contains(out.String(), "This version does not provide diagnostics for this provider") || strings.Contains(out.String(), "aigw balance") {
 		t.Fatalf("check output = %s", out.String())
 	}
 }
@@ -740,7 +737,7 @@ func TestBalanceExplainsWhenConfiguredDiagnosticDriverIsNotBundled(t *testing.T)
 		t.Fatal(err)
 	}
 	err := execute(t, app, "balance")
-	if err == nil || !strings.Contains(err.Error(), "未包含在当前 AIGW 版本") || !strings.Contains(err.Error(), "aigw check") {
+	if err == nil || !strings.Contains(err.Error(), "is not included in this AIGW version") || !strings.Contains(err.Error(), "aigw check") {
 		t.Fatalf("balance error = %v", err)
 	}
 }
@@ -762,7 +759,7 @@ func TestUnconfiguredCommandsPointToSetupWithoutLoops(t *testing.T) {
 		if !strings.Contains(text, "aigw setup") {
 			t.Fatalf("%v should point to setup:\n%s", command, text)
 		}
-		if strings.Contains(text, "运行 `aigw`") || strings.Contains(text, "aigw repair") || strings.Contains(text, "aigw check") {
+		if strings.Contains(text, "run `aigw`") || strings.Contains(text, "aigw repair") || strings.Contains(text, "aigw check") {
 			t.Fatalf("%v retained a loop or ambiguous first-use action:\n%s", command, text)
 		}
 	}
@@ -803,7 +800,7 @@ func TestStatusAndCheckHideUnreadableConfigDetails(t *testing.T) {
 				t.Fatalf("%s unexpectedly succeeded", strings.Join(command, " "))
 			}
 			text := out.String()
-			for _, want := range []string{"无法读取或校验本机配置", "aigw doctor"} {
+			for _, want := range []string{"Cannot read or validate local configuration", "aigw doctor"} {
 				if !strings.Contains(text, want) {
 					t.Fatalf("%s output lacks %q:\n%s", strings.Join(command, " "), want, text)
 				}

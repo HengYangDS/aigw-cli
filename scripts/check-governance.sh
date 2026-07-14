@@ -35,7 +35,34 @@ if ! grep -Fq 'sh scripts/check-governance.sh' .gitlab-ci.yml; then
   echo "GitLab CI must execute the governance check" >&2
   exit 1
 fi
-if test -e docs/superpowers || test -e docs/design || test -e docs/reviews || test -e docs/specs; then
-  echo "retired execution-document paths must be moved under docs/history" >&2
+if test -e docs/history || test -e docs/superpowers || test -e docs/design || test -e docs/reviews || test -e docs/specs; then
+  echo "retired documentary paths must not remain in the canonical tree" >&2
   exit 1
 fi
+
+# AIGW CLI is an English-only repository.  Use explicit Unicode ranges instead
+# of a grep Unicode-property dialect so this gate behaves the same on macOS and
+# Linux runners.  Test fixtures are included deliberately: they are part of the
+# maintainable project surface, not an exemption for stale product copy.
+python3 - <<'PY'
+from pathlib import Path
+import subprocess
+import sys
+
+han = set(range(0x3400, 0x4DC0)) | set(range(0x4E00, 0xA000)) | set(range(0xF900, 0xFB00))
+matches = []
+for name in subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0"):
+    if not name:
+        continue
+    path = Path(name)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        continue
+    for line_number, line in enumerate(text.splitlines(), 1):
+        if any(ord(character) in han for character in line):
+            matches.append(f"{name}:{line_number}:{line}")
+if matches:
+    print("\n".join(matches), file=sys.stderr)
+    raise SystemExit("AIGW CLI repository content must be English-only")
+PY

@@ -13,11 +13,11 @@ import (
 func replaceProcess(plan adapters.ProcessPlan) error {
 	executable, err := exec.LookPath(plan.Executable)
 	if err != nil {
-		return fmt.Errorf("解析 %s 失败：%w", plan.Executable, err)
+		return fmt.Errorf("Failed to resolve %s: %w", plan.Executable, err)
 	}
 	argv := append([]string{executable}, plan.Args...)
 	if err := syscall.Exec(executable, argv, plan.Env); err != nil {
-		return fmt.Errorf("用 %s 替换 AIGW 失败：%w", executable, err)
+		return fmt.Errorf("Failed to replace AIGW with %s: %w", executable, err)
 	}
 	return nil
 }

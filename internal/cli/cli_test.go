@@ -267,7 +267,7 @@ func TestUseRollsBackRouteWhenAdapterSyncFails(t *testing.T) {
 	_ = secretStore.Set("two", "new-secret")
 	app.Runner = &failingRunner{err: errors.New("login failed"), remaining: 1}
 	err := execute(t, app, "use", "two")
-	if err == nil || !strings.Contains(err.Error(), "已回退") {
+	if err == nil || !strings.Contains(err.Error(), "was rolled back") {
 		t.Fatalf("error = %v", err)
 	}
 	got, _ := app.Config.Load()
@@ -360,7 +360,7 @@ func TestRotateRollsBackSecretWhenAdapterSyncFails(t *testing.T) {
 	_ = secretStore.Set("one", "old-secret")
 	app.Runner = &failingRunner{err: errors.New("login failed"), remaining: 1}
 	err := execute(t, app, "rotate", "one", "--token-stdin")
-	if err == nil || !strings.Contains(err.Error(), "已回退") {
+	if err == nil || !strings.Contains(err.Error(), "was rolled back") {
 		t.Fatalf("error = %v", err)
 	}
 	got, _ := secretStore.Get("one")
@@ -418,7 +418,7 @@ func TestStatusShowsInheritanceAndJSONNeverContainsToken(t *testing.T) {
 	if err := execute(t, app); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "继承默认") {
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Inherits default") {
 		t.Fatalf("human status = %s", out.String())
 	}
 	out.Reset()
@@ -449,10 +449,10 @@ func TestStatusLabelsProfileCountAsModelConfigurations(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "模型配置数          2") {
+	if !strings.Contains(text, "Model profiles      2") {
 		t.Fatalf("status did not identify configuration count:\n%s", text)
 	}
-	if strings.Contains(text, "已配置服务") {
+	if strings.Contains(text, "configured service") {
 		t.Fatalf("status mislabels configuration count as services:\n%s", text)
 	}
 }
@@ -469,7 +469,7 @@ func TestTestCommandAuthenticatesWithoutPrintingAuthorizationHeader(t *testing.T
 	if err := execute(t, app, "test", "--for", "codex"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "连接测试") || !strings.Contains(out.String(), "Codex") || !strings.Contains(out.String(), "HTTP 200") {
+	if !strings.Contains(out.String(), "Connectivity test") || !strings.Contains(out.String(), "Codex") || !strings.Contains(out.String(), "HTTP 200") {
 		t.Fatalf("test output = %s", out.String())
 	}
 	httpClient := app.HTTP.(*fakeHTTP)
@@ -512,7 +512,7 @@ func TestVerifyCodexPerformsBoundedResponsesRequest(t *testing.T) {
 	if !strings.Contains(requestBody, `"model":"gpt-test"`) || !strings.Contains(requestBody, `"store":false`) || !strings.Contains(requestBody, "AIGW_OK") {
 		t.Fatalf("verify body = %s", requestBody)
 	}
-	if strings.Contains(out.String(), "verify-token") || !strings.Contains(out.String(), "真实协议验证") {
+	if strings.Contains(out.String(), "verify-token") || !strings.Contains(out.String(), "Live protocol verification") {
 		t.Fatalf("verify output = %s", out.String())
 	}
 }
@@ -549,7 +549,7 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	if got := runner.plans[0].Args; len(got) < 7 || got[0] != "--safe-mode" || got[1] != "--disable-slash-commands" || got[2] != "--no-session-persistence" || got[3] != "--print" || got[4] != "--model" || got[5] != "claude-fable-5" {
 		t.Fatalf("Claude verification must use an isolated safe-mode invocation with the routed model, got %#v", got)
 	}
-	if strings.Contains(out.String(), "verify-token") || !strings.Contains(out.String(), "真实协议验证") {
+	if strings.Contains(out.String(), "verify-token") || !strings.Contains(out.String(), "Live protocol verification") {
 		t.Fatalf("verify output = %s", out.String())
 	}
 }
@@ -626,7 +626,7 @@ func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := execute(t, app, "verify", "--for", "all")
-	if err == nil || !strings.Contains(err.Error(), "全链路验证需要已启用且至少有一个配置目标的 Codex 适配器") {
+	if err == nil || !strings.Contains(err.Error(), "Full verification requires an enabled Codex adapter with at least one configuration target") {
 		t.Fatalf("error = %v", err)
 	}
 	if _, checkpointErr := app.Config.LoadVerifiedCheckpoint(); checkpointErr == nil {
@@ -648,7 +648,7 @@ func TestVerifyRejectsMissingResponseSentinel(t *testing.T) {
 	}
 	app.HTTP = &fakeHTTP{status: http.StatusOK, body: `{"status":"completed","output_text":"not-the-sentinel"}`}
 	err := execute(t, app, "verify", "--for", "codex")
-	if err == nil || !strings.Contains(err.Error(), "未返回预期的 AIGW_OK 验证标记") {
+	if err == nil || !strings.Contains(err.Error(), "did not return the expected AIGW_OK verification marker") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -674,7 +674,7 @@ func TestVerifyClaudeRejectsMissingResponseSentinel(t *testing.T) {
 	}
 	runner.output = []byte("wrong response\n")
 	err := execute(t, app, "verify", "--for", "claude")
-	if err == nil || !strings.Contains(err.Error(), "未返回预期的 AIGW_OK 验证标记") {
+	if err == nil || !strings.Contains(err.Error(), "did not return the expected AIGW_OK verification marker") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -726,7 +726,7 @@ func TestTestCommandTreatsClaudeBaseURLNotFoundAsTransportReachable(t *testing.T
 	if err := execute(t, app, "test", "--for", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "HTTP 404 · 服务可达，基础地址不提供 GET 探测") {
+	if !strings.Contains(out.String(), "HTTP 404 · Service is reachable; the base URL does not provide a GET probe") {
 		t.Fatalf("Claude base URL 404 probe result = %s", out.String())
 	}
 }
@@ -742,7 +742,7 @@ func TestTestCommandRejectsAuthenticationFailure(t *testing.T) {
 	_ = secretStore.Set("dmx", "rejected-secret")
 	app.HTTP.(*fakeHTTP).status = 401
 	err := execute(t, app, "test", "--for", "claude")
-	if err == nil || !strings.Contains(err.Error(), "认证被拒绝") || strings.Contains(err.Error(), "rejected-secret") {
+	if err == nil || !strings.Contains(err.Error(), "authentication was rejected") || strings.Contains(err.Error(), "rejected-secret") {
 		t.Fatalf("error = %v", err)
 	}
 }

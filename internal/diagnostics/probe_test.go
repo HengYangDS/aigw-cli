@@ -31,7 +31,7 @@ func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {
 		kind   diagnostics.Kind
 	}{
 		{401, `{"message":"invalid api key"}`, diagnostics.InvalidToken},
-		{403, `{"message":"令牌额度不足"}`, diagnostics.QuotaExhausted},
+		{403, `{"message":"token quota is insufficient"}`, diagnostics.QuotaExhausted},
 		{403, `{"message":"token disabled"}`, diagnostics.TokenDisabled},
 		{403, `{"message":"forbidden"}`, diagnostics.TokenRestricted},
 		{429, `{"message":"too many requests"}`, diagnostics.RateLimited},

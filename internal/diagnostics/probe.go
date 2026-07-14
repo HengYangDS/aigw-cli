@@ -43,20 +43,20 @@ type Result struct {
 func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token string) Result {
 	endpoint := strings.TrimRight(runtime.Endpoint, "/")
 	if endpoint == "" {
-		return Result{Kind: EndpointMismatch, Summary: "API 地址无效", Fix: "检查当前 Profile 对应 Account 的协议端点"}
+		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Fix: "Check the protocol endpoint for the current profile's account"}
 	}
 	if strings.HasSuffix(endpoint, "/v1") {
 		endpoint += "/models"
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return Result{Kind: EndpointMismatch, Summary: "API 地址无效", Detail: err.Error(), Fix: "检查团队 Profile 的网关 URL"}
+		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Detail: err.Error(), Fix: "Check the gateway URL for the team profile"}
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := client.Do(req)
 	if err != nil {
-		return Result{Kind: NetworkFailure, Summary: "无法连接网关", Detail: sanitize(err.Error(), token), Fix: "检查网络、代理和网关地址后重试", Retryable: true}
+		return Result{Kind: NetworkFailure, Summary: "Cannot reach the gateway", Detail: sanitize(err.Error(), token), Fix: "Check the network, proxy, and gateway URL, then try again", Retryable: true}
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
@@ -65,34 +65,34 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 	result := Result{HTTPStatus: resp.StatusCode, Detail: compact(message, token)}
 	switch {
 	case resp.StatusCode >= 200 && resp.StatusCode < 400:
-		result.Kind, result.Summary = Healthy, "API Token 与网关正常"
+		result.Kind, result.Summary = Healthy, "API token and gateway are healthy"
 	case resp.StatusCode == http.StatusUnauthorized:
-		result.Kind, result.Summary = InvalidToken, "API Token 无效或与网关站点不匹配"
-		result.Fix = "运行 `aigw rotate` 重新录入 Token，并确认 URL 与 Token 所属站点一致"
-	case resp.StatusCode == http.StatusForbidden && containsAny(lower, "quota", "额度", "余额", "insufficient", "exhaust"):
-		result.Kind, result.Summary = QuotaExhausted, "Token 额度已耗尽"
-		result.Fix = "在服务商后台增加 Token 额度或设为无限额度；也可运行 `aigw rotate` 切换 Token"
-	case resp.StatusCode == http.StatusForbidden && containsAny(lower, "disabled", "disable", "禁用", "停用"):
-		result.Kind, result.Summary = TokenDisabled, "Token 已被禁用"
-		result.Fix = "在服务商后台启用 Token，或运行 `aigw rotate` 更换 Token"
+		result.Kind, result.Summary = InvalidToken, "API token is invalid or belongs to a different gateway"
+		result.Fix = "Run `aigw rotate` to enter the token again, and confirm that its URL and gateway match"
+	case resp.StatusCode == http.StatusForbidden && containsAny(lower, "quota", "quota", "balance", "insufficient", "exhaust"):
+		result.Kind, result.Summary = QuotaExhausted, "Token quota is exhausted"
+		result.Fix = "Increase the token quota in the provider console, make it unlimited, or run `aigw rotate` to switch tokens"
+	case resp.StatusCode == http.StatusForbidden && containsAny(lower, "disabled", "disable", "disabled", "disabled"):
+		result.Kind, result.Summary = TokenDisabled, "Token is disabled"
+		result.Fix = "Enable the token in the provider console, or run `aigw rotate` to replace it"
 	case resp.StatusCode == http.StatusForbidden:
-		result.Kind, result.Summary = TokenRestricted, "Token 或账户受到限制"
-		result.Fix = "检查 Token 分组、IP 白名单、模型限制和账户状态；运行 `aigw balance` 获取精确信息"
+		result.Kind, result.Summary = TokenRestricted, "Token or account is restricted"
+		result.Fix = "Check the token group, IP allowlist, model restrictions, and account status; run `aigw balance` for precise details"
 	case resp.StatusCode == http.StatusTooManyRequests:
-		result.Kind, result.Summary, result.Retryable = RateLimited, "请求过快或并发额度已满", true
-		result.Fix = "降低并发并稍后重试；持续出现时检查服务商限速策略"
+		result.Kind, result.Summary, result.Retryable = RateLimited, "Request rate or concurrency quota is exhausted", true
+		result.Fix = "Reduce concurrency and try again later; if it persists, check the provider rate-limit policy"
 	case resp.StatusCode == http.StatusNotFound:
-		result.Kind, result.Summary = EndpointMismatch, "API 地址或路径不匹配"
-		result.Fix = "检查网关 URL 是否需要 /v1，以及 .cn/.com 站点是否匹配"
-	case resp.StatusCode == http.StatusServiceUnavailable && containsAny(lower, "model", "channel", "模型", "渠道"):
-		result.Kind, result.Summary, result.Retryable = ModelUnavailable, "当前模型或渠道不可用", true
-		result.Fix = "确认模型名称与 Token 模型限制，或稍后重试"
+		result.Kind, result.Summary = EndpointMismatch, "API URL or path does not match"
+		result.Fix = "Check whether the gateway URL needs /v1 and whether the .cn/.com site matches"
+	case resp.StatusCode == http.StatusServiceUnavailable && containsAny(lower, "model", "channel", "model", "channel"):
+		result.Kind, result.Summary, result.Retryable = ModelUnavailable, "Current model or channel is unavailable", true
+		result.Fix = "Confirm the model name and token model restrictions, or try again later"
 	case resp.StatusCode >= 500:
-		result.Kind, result.Summary, result.Retryable = GatewayFailure, "网关或上游服务故障", true
-		result.Fix = "稍后重试；持续失败时联系网关管理员并提供 HTTP 状态码"
+		result.Kind, result.Summary, result.Retryable = GatewayFailure, "Gateway or upstream service failure", true
+		result.Fix = "Try again later; if it persists, contact the gateway administrator with the HTTP status code"
 	default:
-		result.Kind, result.Summary = Unexpected, fmt.Sprintf("网关返回未预期状态 HTTP %d", resp.StatusCode)
-		result.Fix = "运行 `aigw doctor` 查看详细状态"
+		result.Kind, result.Summary = Unexpected, fmt.Sprintf("Gateway returned unexpected HTTP status %d", resp.StatusCode)
+		result.Fix = "Run `aigw doctor` for detailed status"
 	}
 	return result
 }

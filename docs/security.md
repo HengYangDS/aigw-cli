@@ -53,8 +53,8 @@ Endpoint checks are bounded HTTP requests. AIGW does not use an unbounded `codex
 `aigw test` is a bounded connectivity check. A `404` to an authenticated GET of the Claude base URL means the service is reachable but does not expose a base GET probe; it is not classified as an endpoint outage. `aigw verify` is explicitly opt-in and consumes a minimal real model request; it requires the exact `AIGW_OK` sentinel rather than accepting a successful HTTP status or process exit alone. Claude verification explicitly pins the resolved model and invokes Claude in safe mode with hooks, MCP, skills, plugins, custom commands, and session persistence disabled. Its captured child invocation has a bounded pipe-drain wait; on Windows, its direct child is placed in a kill-on-close Job Object so descendants created by that invocation cannot outlive the verification boundary. `aigw verify --for all` first verifies local Claude-shim and Codex-projection readiness, then writes a secret-free verified checkpoint only after both clients pass. `aigw rollback` restores that checkpoint (or `--last-change` restores only the immediate config backup) through the normal projection transaction; it never controls the lifecycle of a desktop client.
 
 Portable `install.sh --help` / `uninstall.sh --help` and PowerShell `-Help`
-exit before any mutation. Every portable upgrade path—archive installer and
-`aigw update` alike—retains one immediately preceding binary at
+exit before any mutation. Every portable upgrade path--archive installer and
+`aigw update` alike--retains one immediately preceding binary at
 `<install-dir>/.aigw.previous` (or `.aigw.previous.exe` on Windows). The next
 portable upgrade replaces that one rollback copy; portable uninstall removes
 only that AIGW-owned rollback binary together with the installed executable.

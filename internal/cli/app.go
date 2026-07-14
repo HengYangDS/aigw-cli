@@ -160,7 +160,7 @@ func (ProcessRunner) Run(ctx context.Context, plan adapters.ProcessPlan) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("执行 %s 失败：%w", plan.Executable, err)
+		return fmt.Errorf("run %s: %w", plan.Executable, err)
 	}
 	return nil
 }
@@ -170,7 +170,7 @@ func (ProcessRunner) Run(ctx context.Context, plan adapters.ProcessPlan) error {
 // accidentally surface process environment or response material.
 func (ProcessRunner) RunCapture(ctx context.Context, plan adapters.ProcessPlan) ([]byte, error) {
 	if plan.Replace {
-		return nil, fmt.Errorf("捕获输出的执行不能替换当前进程")
+		return nil, fmt.Errorf("a captured process cannot replace the current process")
 	}
 	cmd := exec.CommandContext(ctx, plan.Executable, plan.Args...)
 	cmd.Env = plan.Env
@@ -182,23 +182,23 @@ func (ProcessRunner) RunCapture(ctx context.Context, plan adapters.ProcessPlan) 
 	cmd.Stderr = stderr
 	cleanup, err := startCapturedProcess(cmd)
 	if err != nil {
-		return nil, fmt.Errorf("启动 %s 失败：%w", plan.Executable, err)
+		return nil, fmt.Errorf("start %s: %w", plan.Executable, err)
 	}
 	defer cleanup()
 	if err := cmd.Wait(); err != nil {
 		if stdout.overflow || stderr.overflow || errors.Is(err, errCapturedProcessOutputLimit) {
-			return nil, fmt.Errorf("执行 %s 时捕获的输出超过 %d 字节", plan.Executable, capturedProcessOutputLimit)
+			return nil, fmt.Errorf("captured output from %s exceeds %d bytes", plan.Executable, capturedProcessOutputLimit)
 		}
 		if errors.Is(err, exec.ErrWaitDelay) || (errors.Is(ctx.Err(), context.DeadlineExceeded) && stdout.Len()+stderr.Len() > 0) {
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return nil, fmt.Errorf("执行 %s 超过验证时限，且输出管道未在 %s 内关闭：%w", plan.Executable, capturedProcessWaitDelay, err)
+				return nil, fmt.Errorf("%s exceeded its verification limit and its output pipes did not close within %s: %w", plan.Executable, capturedProcessWaitDelay, err)
 			}
-			return nil, fmt.Errorf("执行 %s 后输出管道未在 %s 内关闭：%w", plan.Executable, capturedProcessWaitDelay, err)
+			return nil, fmt.Errorf("output pipes for %s did not close within %s: %w", plan.Executable, capturedProcessWaitDelay, err)
 		}
-		return nil, fmt.Errorf("执行 %s 失败：%w", plan.Executable, err)
+		return nil, fmt.Errorf("run %s: %w", plan.Executable, err)
 	}
 	if stdout.overflow || stderr.overflow {
-		return nil, fmt.Errorf("执行 %s 时捕获的输出超过 %d 字节", plan.Executable, capturedProcessOutputLimit)
+		return nil, fmt.Errorf("captured output from %s exceeds %d bytes", plan.Executable, capturedProcessOutputLimit)
 	}
 	return append([]byte(nil), stdout.Bytes()...), nil
 }
@@ -211,7 +211,7 @@ func NewDefault() (*App, error) {
 	}
 	executable, err := os.Executable()
 	if err != nil {
-		return nil, fmt.Errorf("解析 AIGW 可执行文件失败：%w", err)
+		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
 	}
 	binDir, err := defaultShimDirFor(runtime.GOOS, env, executable)
 	if err != nil {
@@ -276,16 +276,16 @@ func (a *App) readToken(stdinMode bool, confirm bool) (string, error) {
 		reader := bufio.NewReader(a.In)
 		value, err := reader.ReadString('\n')
 		if err != nil && err != io.EOF {
-			return "", fmt.Errorf("从标准输入读取 Token 失败：%w", err)
+			return "", fmt.Errorf("Failed to read token from standard input: %w", err)
 		}
 		value = strings.TrimSpace(value)
 		if value == "" {
-			return "", fmt.Errorf("不接受空 Token")
+			return "", fmt.Errorf("Empty tokens are not accepted")
 		}
 		return value, nil
 	}
 	if !a.Interactive {
-		return "", fmt.Errorf("Token 输入需要交互终端；请通过管道传入 `aigw` 并添加 --token-stdin")
+		return "", fmt.Errorf("Token input requires an interactive terminal; pipe it to `aigw` with --token-stdin")
 	}
 	return readHiddenToken(a.Out, confirm)
 }

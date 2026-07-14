@@ -12,27 +12,27 @@ import (
 )
 
 func readHiddenToken(out io.Writer, confirm bool) (string, error) {
-	fmt.Fprint(out, "Token：")
+	fmt.Fprint(out, "Token: ")
 	first, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Fprintln(out)
 	if err != nil {
-		return "", fmt.Errorf("读取隐藏 Token 失败：%w", err)
+		return "", fmt.Errorf("read hidden token: %w", err)
 	}
 	value := strings.TrimSpace(string(first))
 	if value == "" {
-		return "", fmt.Errorf("不接受空 Token")
+		return "", fmt.Errorf("empty token is not accepted")
 	}
 	if !confirm {
 		return value, nil
 	}
-	fmt.Fprint(out, "确认 Token：")
+	fmt.Fprint(out, "Confirm token: ")
 	second, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Fprintln(out)
 	if err != nil {
-		return "", fmt.Errorf("确认隐藏 Token 失败：%w", err)
+		return "", fmt.Errorf("confirm hidden token: %w", err)
 	}
 	if value != strings.TrimSpace(string(second)) {
-		return "", fmt.Errorf("两次输入的 Token 不一致")
+		return "", fmt.Errorf("token entries do not match")
 	}
 	return value, nil
 }

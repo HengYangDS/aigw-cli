@@ -24,7 +24,7 @@ own Codex conversation state.
 4. AIGW-owned marked projections and their sidecar state.
 5. IDE caches, client runtime state, generated reports, and logs.
 
-A projection is an owned, re-creatable output—not an independent source of
+A projection is an owned, re-creatable output--not an independent source of
 truth. Do not alter Codex JSONL, SQLite, archived conversations, model metadata,
 or a local proxy deployment to make a configuration test pass.
 
