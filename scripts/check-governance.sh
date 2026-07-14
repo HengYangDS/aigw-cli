@@ -38,6 +38,10 @@ if ! grep -Fq 'sh scripts/check-governance.sh' .gitlab-ci.yml; then
   echo "GitLab CI must execute the governance check" >&2
   exit 1
 fi
+if test -e docs/superpowers; then
+  echo "docs/superpowers is retired; archive provenance under docs/history instead" >&2
+  exit 1
+fi
 
 versions=$(awk '
   /^## [0-9]+\.[0-9]+\.[0-9]+/ {
