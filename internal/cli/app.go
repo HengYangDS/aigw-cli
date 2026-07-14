@@ -59,6 +59,7 @@ type Updater interface {
 }
 
 type App struct {
+	Version     string
 	Config      config.Store
 	Secrets     secrets.Store
 	Accounts    account.Store
@@ -222,6 +223,7 @@ func NewDefault() (*App, error) {
 		return nil, err
 	}
 	return &App{
+		Version:     Version,
 		Config:      config.NewStore(path),
 		Secrets:     secretStore,
 		Accounts:    account.NewKeyringStore(),
