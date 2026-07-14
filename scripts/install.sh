@@ -119,6 +119,10 @@ if [ -n "${AIGW_SOURCE_BINARY:-}" ]; then
     echo "AIGW_SOURCE_BINARY must reference an executable local file" >&2
     exit 2
   }
+  if [ "$install_dir" = "$HOME/.local/bin" ]; then
+    echo "AIGW test source binary must use an explicit non-default AIGW_INSTALL_DIR; refusing to replace the user installation" >&2
+    exit 2
+  fi
   source_binary=$AIGW_SOURCE_BINARY
 elif [ -x "$script_dir/aigw" ]; then
   source_binary="$script_dir/aigw"
