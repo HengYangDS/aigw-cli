@@ -18,15 +18,10 @@ default = section("default")
 if not any("AIGW_GOPROXY" in line and "goproxy.cn,direct" in line for line in default):
     raise SystemExit("default CI environment must configure an overrideable reachable Go module proxy")
 
-if not any("GOFLAGS" in line and "-modcacherw" in line for line in default):
-    raise SystemExit("default CI environment must make the workspace module cache removable")
-
 if any(line.strip() == "cache:" for line in default):
     raise SystemExit("default CI must not archive Go caches inside the checkout")
-if not any("AIGW_CI_CACHE_ROOT" in line and "CI_BUILDS_DIR" in line for line in default):
-    raise SystemExit("default CI environment must keep Go caches in a runner-owned location")
-if any('GOMODCACHE="$CI_PROJECT_DIR' in line or 'GOCACHE="$CI_PROJECT_DIR' in line for line in default):
-    raise SystemExit("default CI Go caches must not live under CI_PROJECT_DIR")
+if not any("prepare-ci-go-cache.sh" in line for line in default):
+    raise SystemExit("default CI must initialize Go caches through the bounded runner-cache helper")
 
 runtime = section("windows-installer-runtime")
 if "  stage: verify" not in runtime:
@@ -65,12 +60,18 @@ if "    - job: package" not in publish:
 release = section("release")
 if any(line.strip().startswith("image:") for line in release):
     raise SystemExit("shell-runner release job must not rely on an ignored container image")
-if not any("JOB-TOKEN: $CI_JOB_TOKEN" in line for line in release):
-    raise SystemExit("release must authenticate with the CI job token")
-if not any("/releases" in line and "CI_API_V4_URL" in line for line in release):
-    raise SystemExit("release must call the GitLab Releases API directly")
+if not any("publish-release.sh" in line for line in release):
+    raise SystemExit("release must call the idempotent GitLab Releases API publisher")
 if any("release-cli" in line for line in release):
     raise SystemExit("release job must not depend on unavailable release-cli")
+publisher = Path(sys.argv[1]).parent / "scripts" / "publish-release.sh"
+publisher_text = publisher.read_text()
+if "JOB-TOKEN: $CI_JOB_TOKEN" not in publisher_text:
+    raise SystemExit("release publisher must authenticate with the CI job token")
+if "--request POST" not in publisher_text or "--request PUT" not in publisher_text:
+    raise SystemExit("release publisher must create or update the GitLab release")
+if "/releases" not in publisher_text or "CI_API_V4_URL" not in publisher_text:
+    raise SystemExit("release publisher must call the GitLab Releases API directly")
 
 print("release pipeline gate contract: OK")
 PY

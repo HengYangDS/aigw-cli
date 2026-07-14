@@ -686,7 +686,7 @@ func newVerifyCommand(app *App) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("服务账户 %q 的 Token 不可用：%w；请运行 `aigw rotate %s`", accountName, err, accountName)
 				}
-				ctx, cancel := context.WithTimeout(cmd.Context(), 25*time.Second)
+				ctx, cancel := context.WithTimeout(cmd.Context(), protocolVerificationTimeout)
 				if target == domain.ClientCodex {
 					err = verifyCodexResponse(ctx, app, runtime, token)
 				} else {
@@ -712,6 +712,11 @@ func newVerifyCommand(app *App) *cobra.Command {
 	cmd.Flags().StringVar(&profileName, "profile", "", "验证指定配置，且不修改路由")
 	return cmd
 }
+
+// protocolVerificationTimeout allows a cold Claude CLI process to initialize
+// and complete one bounded upstream request without turning a healthy, slower
+// response into an exec.CommandContext SIGKILL.
+const protocolVerificationTimeout = time.Minute
 
 const verificationSentinel = "AIGW_OK"
 const verificationResponseLimit = 256 * 1024
