@@ -19,6 +19,9 @@ func newCheckCommand(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use: "check", Short: "一键检查配置、Token、客户端与网关", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if isLocalProgramBuild(Version) {
+				return problem("本机程序不是正式发布版本", "检测到本地构建标记："+Version, "本机开发构建不应替代已验证的团队发布程序。", "aigw update", fmt.Errorf("local program build"))
+			}
 			cfg, err := app.Config.Load()
 			if err != nil {
 				return err
@@ -96,6 +99,10 @@ func newCheckCommand(app *App) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func isLocalProgramBuild(version string) bool {
+	return strings.Contains(version, "+local")
 }
 
 func newAccountCommand(app *App) *cobra.Command {
