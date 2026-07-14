@@ -1,7 +1,9 @@
 # AIGW CLI
 
-**GitLab Project Name:** `AIGW CLI`  \
-**Stable repository Path:** `aigw-cli`
+| GitLab metadata | Value |
+| --- | --- |
+| **Project Name** | `AIGW CLI` |
+| **Stable repository Path** | `aigw-cli` |
 
 AIGW 是**本机优先**、可供团队分发的跨平台第三方 AI API 配置工具：统一管理服务账户、模型配置、系统密钥、Claude/Codex 路由与客户端适配，**不运行后台服务，不承载 API 流量**。
 
