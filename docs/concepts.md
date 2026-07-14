@@ -86,20 +86,29 @@ AIGW records its installation channel at build time:
 - `deb` / `rpm`: Linux package; `aigw update` invokes the package manager.
 - `msi`: Windows Installer package; `aigw update` starts the installer.
 
-This prevents package-manager files from being overwritten by portable self-update logic.
+This prevents package-manager files from being overwritten by portable
+self-update logic.
 
 Portable archives contain local-only `install.sh` and `install.ps1` scripts.
-They copy the bundled binary and never retrieve releases or inspect GitLab
-credentials. Network release retrieval exists only in `aigw update`: it uses
-the configured release source with authenticated `glab`; if `glab` is
-unavailable, it may fall back to `GITLAB_TOKEN` over the GitLab API. The source
-requires both `AIGW_RELEASE_HOST` and `AIGW_RELEASE_PROJECT`; the token fallback
-requires an explicit HTTPS origin-only host (no credentials, path, query, or
-fragment). Tokens are neither persisted nor placed on a command
-line; requests have a finite timeout, release assets remain checksum-verified,
-the token is removed before a redirect crosses hosts, HTTPS-to-HTTP redirects
-are refused, and an older or malformed release cannot replace the installed
-binary.
+They copy the bundled binary and never retrieve releases or inspect release
+credentials. Program distribution has three controlled paths: GitLab is the
+formal primary source, GitHub may mirror the exact formal release assets, and a
+complete extracted artifact directory supports offline candidate acceptance.
+`aigw update` tries GitLab first and may use GitHub only after a source-
+availability failure. It never uses a mirror to bypass malformed metadata,
+version disagreement, missing artifacts, or checksum failure.
+
+`AIGW_LOCAL_CANDIDATE` names a complete extracted artifact directory. AIGW
+accepts it only when it contains exactly one portable archive for the running
+platform and that archive validates against the directory's `checksums.txt`. A
+source tree or standalone executable is not a candidate. For remote testing,
+`AIGW_RELEASE_HOST` and `AIGW_RELEASE_PROJECT` identify GitLab; optional
+`AIGW_RELEASE_MIRROR_HOST` and `AIGW_RELEASE_MIRROR_PROJECT` identify GitHub.
+The GitLab token fallback requires an explicit HTTPS origin. Tokens are neither
+persisted nor placed on a command line; requests have a finite timeout, release
+assets remain checksum-verified, the token is removed before a redirect crosses
+hosts, HTTPS-to-HTTP redirects are refused, and an older or malformed release
+cannot replace the installed binary.
 
 Portable installs retain exactly one immediate predecessor beside the current
 binary. `aigw update --rollback` swaps those two local binaries without any
