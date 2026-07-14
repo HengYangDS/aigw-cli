@@ -29,7 +29,7 @@ func newSetupCommand(app *App) *cobra.Command {
 	request := setupRequest{}
 	cmd := &cobra.Command{
 		Use:   "setup",
-		Short: "以参数方式完成首次配置",
+		Short: "Complete first-time setup with flags",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if app.Interactive && request.Account == "" && request.Profile == "" && request.Label == "" && request.OpenAIURL == "" && request.AnthropicURL == "" && request.Client == "" && request.Model == "" && !request.TokenStdin {
@@ -38,21 +38,21 @@ func newSetupCommand(app *App) *cobra.Command {
 					return err
 				}
 				if len(cfg.Profiles) > 0 {
-					return fmt.Errorf("AIGW 已完成首次配置；如需新增服务运行 `aigw add`，新增模型运行 `aigw profile add`，查看当前状态运行 `aigw status`")
+					return fmt.Errorf("AIGW is already configured; run `aigw add` to add an account, `aigw profile add` to add a model profile, or `aigw status` to inspect current state")
 				}
 				return runWizard(cmd.Context(), app)
 			}
 			return runSetup(cmd.Context(), app, request)
 		},
 	}
-	cmd.Flags().StringVar(&request.Account, "account", "", "服务账户标识；默认使用 --profile")
-	cmd.Flags().StringVar(&request.Profile, "profile", "", "首个模型配置标识")
-	cmd.Flags().StringVar(&request.Label, "label", "", "服务商显示名称")
-	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses 基础 URL")
-	cmd.Flags().StringVar(&request.AnthropicURL, "anthropic-url", "", "Anthropic 基础 URL")
-	cmd.Flags().StringVar(&request.Client, "for", "", "首个模型配置的客户端：claude 或 codex")
-	cmd.Flags().StringVar(&request.Model, "model", "", "--for 对应的上游模型 ID")
-	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "从标准输入读取一行 Token")
+	cmd.Flags().StringVar(&request.Account, "account", "", "Account ID; defaults to --profile")
+	cmd.Flags().StringVar(&request.Profile, "profile", "", "First profile ID")
+	cmd.Flags().StringVar(&request.Label, "label", "", "Provider display name")
+	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")
+	cmd.Flags().StringVar(&request.AnthropicURL, "anthropic-url", "", "Anthropic base URL")
+	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first profile: claude or codex")
+	cmd.Flags().StringVar(&request.Model, "model", "", "Upstream model ID for --for")
+	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
 	return cmd
 }
 
@@ -62,21 +62,21 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 		return err
 	}
 	if len(cfg.Profiles) > 0 {
-		return fmt.Errorf("AIGW 已完成首次配置；如需新增服务运行 `aigw add`，新增模型运行 `aigw profile add`，查看当前状态运行 `aigw status`")
+		return fmt.Errorf("AIGW is already configured; run `aigw add` to add an account, `aigw profile add` to add a model profile, or `aigw status` to inspect current state")
 	}
 	request.Profile = strings.TrimSpace(request.Profile)
 	request.Account = strings.TrimSpace(request.Account)
 	if request.Profile == "" {
-		return fmt.Errorf("必须提供 --profile；示例：`aigw setup --account team-gateway --profile gpt-5.6 --for codex --model gpt-5.6 --openai-url https://gateway.example/v1`")
+		return fmt.Errorf("--profile is required; for example: `aigw setup --account team-gateway --profile gpt-5.6 --for codex --model gpt-5.6 --openai-url https://gateway.example/v1`")
 	}
 	if request.Account == "" {
 		request.Account = request.Profile
 	}
 	if !domain.ValidProfileName(request.Account) {
-		return fmt.Errorf("服务账户名称无效 %q；只能使用字母、数字、点、连字符或下划线", request.Account)
+		return fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", request.Account)
 	}
 	if !domain.ValidProfileName(request.Profile) {
-		return fmt.Errorf("配置名称无效 %q；只能使用字母、数字、点、连字符或下划线", request.Profile)
+		return fmt.Errorf("Invalid profile ID %q; use letters, numbers, dots, hyphens, or underscores", request.Profile)
 	}
 	if request.Label == "" {
 		request.Label = request.Account
@@ -89,26 +89,26 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 	switch request.Client {
 	case "":
 		if request.Model != "" {
-			return fmt.Errorf("使用 --model 时必须同时提供 --for claude 或 --for codex")
+			return fmt.Errorf("--model requires --for claude or --for codex")
 		}
 	case domain.ClientClaude:
 		if endpoints.Anthropic == "" {
-			return fmt.Errorf("--for claude 时必须提供 --anthropic-url")
+			return fmt.Errorf("--for claude requires --anthropic-url")
 		}
 		if strings.TrimSpace(request.Model) == "" {
-			return fmt.Errorf("--for claude 时必须提供 --model")
+			return fmt.Errorf("--for claude requires --model")
 		}
 		models[request.Client] = strings.TrimSpace(request.Model)
 	case domain.ClientCodex:
 		if endpoints.OpenAIResponses == "" {
-			return fmt.Errorf("--for codex 时必须提供 --openai-url")
+			return fmt.Errorf("--for codex requires --openai-url")
 		}
 		if strings.TrimSpace(request.Model) == "" {
-			return fmt.Errorf("--for codex 时必须提供 --model")
+			return fmt.Errorf("--for codex requires --model")
 		}
 		models[request.Client] = strings.TrimSpace(request.Model)
 	default:
-		return fmt.Errorf("--for 只能是 claude 或 codex；运行 `aigw setup --help` 查看帮助")
+		return fmt.Errorf("--for must be claude or codex; run `aigw setup --help`")
 	}
 	account := domain.Account{Label: request.Label, Endpoints: endpoints}
 	profile := domain.Profile{Label: request.Label, Account: request.Account, Client: request.Client, Models: models}
@@ -124,7 +124,7 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 	}
 	account.ID = request.Account
 	if err := verifyCredential(ctx, app, account, token); err != nil {
-		return fmt.Errorf("Token 验证失败：%w", err)
+		return fmt.Errorf("Token validation failed: %w", err)
 	}
 
 	var discoveredClaude, discoveredCodex string
@@ -143,12 +143,12 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 	}
 
 	r := renderer(app)
-	r.Title("AIGW", "首次配置")
-	r.Section("服务")
-	r.Row("服务账户", request.Account)
-	r.Row("配置", request.Profile)
-	r.Row("模型", profile.ModelFor(request.Client))
-	r.Status(presentation.OK, "API Token", "验证通过")
+	r.Title("AIGW", "First-time setup")
+	r.Section("Service")
+	r.Row("Account", request.Account)
+	r.Row("Profile", request.Profile)
+	r.Row("model", profile.ModelFor(request.Client))
+	r.Status(presentation.OK, "API Token", "Validated")
 	if !secretAlreadyManaged {
 		if err := app.Secrets.Set(request.Account, token); err != nil {
 			return err
@@ -169,25 +169,25 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 	}
 	if err := syncCodexProjection(ctx, app, cfg); err != nil {
 		rollbackSetup(app, cfg, request.Account, claudeEnabled, !secretAlreadyManaged)
-		return fmt.Errorf("客户端配置失败并已回退：%w", err)
+		return fmt.Errorf("Client configuration failed and was rolled back: %w", err)
 	}
 	if err := bindCodexAuthentication(ctx, app, cfg); err != nil {
 		rollbackSetup(app, cfg, request.Account, claudeEnabled, !secretAlreadyManaged)
-		return fmt.Errorf("客户端认证失败并已回退：%w", err)
+		return fmt.Errorf("Client authentication failed and was rolled back: %w", err)
 	}
 
-	r.Section("客户端")
+	r.Section("Clients")
 	if cfg.Adapters[domain.ClientClaude].Enabled {
-		r.Status(presentation.OK, "Claude", "配置完成")
+		r.Status(presentation.OK, "Claude", "Configured")
 	} else {
-		r.Status(presentation.Info, "Claude", "未配置")
+		r.Status(presentation.Info, "Claude", "Not configured")
 	}
 	if cfg.Adapters[domain.ClientCodex].Enabled {
-		r.Status(presentation.OK, "Codex", "配置完成")
+		r.Status(presentation.OK, "Codex", "Configured")
 	} else {
-		r.Status(presentation.Info, "Codex", "未配置")
+		r.Status(presentation.Info, "Codex", "Not configured")
 	}
-	r.Success("已就绪；可添加同一服务账户下的其他模型配置")
+	r.Success("Ready. You can add more model profiles for this account.")
 	r.Next("aigw check")
 	return nil
 }
@@ -208,7 +208,7 @@ func setupToken(app *App, request setupRequest) (token string, alreadyManaged bo
 		}
 	}
 	if request.PromptToken {
-		token, err = app.Prompt.Secret("请粘贴 " + request.Label + " Token：")
+		token, err = app.Prompt.Secret("Paste " + request.Label + " token: ")
 		return token, false, err
 	}
 	token, err = app.readToken(request.TokenStdin, true)
@@ -234,10 +234,10 @@ func verifyCredential(ctx context.Context, app *App, providerAccount domain.Acco
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body)
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return fmt.Errorf("网关拒绝认证（HTTP %d）", resp.StatusCode)
+		return fmt.Errorf("Gateway rejected authentication (HTTP %d)", resp.StatusCode)
 	}
 	if resp.StatusCode >= 500 {
-		return fmt.Errorf("网关暂时不可用（HTTP %d）", resp.StatusCode)
+		return fmt.Errorf("Gateway is temporarily unavailable (HTTP %d)", resp.StatusCode)
 	}
 	return nil
 }

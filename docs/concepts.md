@@ -24,7 +24,7 @@ A Runtime Profile is what users choose day to day. It references one Account and
 ```toml
 [profiles."gpt-5.6-terra"]
 label = "GPT-5.6"
-purpose = "Codex 代码与工程"
+purpose = "Codex engineering"
 account = "team-gateway"
 client = "codex"
 
@@ -91,10 +91,11 @@ This prevents package-manager files from being overwritten by portable self-upda
 Portable archives contain local-only `install.sh` and `install.ps1` scripts.
 They copy the bundled binary and never retrieve releases or inspect GitLab
 credentials. Network release retrieval exists only in `aigw update`: it uses
-the configured `AIGW_GL_HOST` with authenticated `glab`; if `glab` is
-unavailable, it may fall back to `GITLAB_TOKEN` over the GitLab API. That
-fallback requires an explicit HTTPS origin-only `AIGW_GL_HOST` (no credentials,
-path, query, or fragment). Tokens are neither persisted nor placed on a command
+the configured release source with authenticated `glab`; if `glab` is
+unavailable, it may fall back to `GITLAB_TOKEN` over the GitLab API. The source
+requires both `AIGW_RELEASE_HOST` and `AIGW_RELEASE_PROJECT`; the token fallback
+requires an explicit HTTPS origin-only host (no credentials, path, query, or
+fragment). Tokens are neither persisted nor placed on a command
 line; requests have a finite timeout, release assets remain checksum-verified,
 the token is removed before a redirect crosses hosts, HTTPS-to-HTTP redirects
 are refused, and an older or malformed release cannot replace the installed

@@ -11,29 +11,29 @@ import (
 func TestRendererProducesAlignedHumanReadableLayout(t *testing.T) {
 	var out bytes.Buffer
 	r := presentation.New(&out, false)
-	r.Title("AIGW", "健康检查")
-	r.Section("配置")
-	r.Row("配置文件", "正常")
-	r.Row("当前服务", "DMXAPI")
-	r.Section("连接")
-	r.Status(presentation.OK, "API Token", "正常")
-	r.Status(presentation.Warn, "精确余额", "未启用")
+	r.Title("AIGW", "Health check")
+	r.Section("Configuration")
+	r.Row("Configuration file", "Healthy")
+	r.Row("Current service", "DMXAPI")
+	r.Section("Connection")
+	r.Status(presentation.OK, "API Token", "Healthy")
+	r.Status(presentation.Warn, "Precise balance", "Disabled")
 	r.Detail("aigw account connect")
-	r.Section("结果")
-	r.Success("一切正常")
+	r.Section("Result")
+	r.Success("Everything is healthy")
 	r.Next("aigw balance")
-	want := "AIGW  健康检查\n" +
+	want := "AIGW  Health check\n" +
 		"────────────────────────────────────────\n\n" +
-		"配置\n" +
-		"  配置文件            正常\n" +
-		"  当前服务            DMXAPI\n\n" +
-		"连接\n" +
-		"  ✓ API Token         正常\n" +
-		"  ! 精确余额          未启用\n" +
+		"Configuration\n" +
+		"  Configuration file  Healthy\n" +
+		"  Current service     DMXAPI\n\n" +
+		"Connection\n" +
+		"  ✓ API Token         Healthy\n" +
+		"  ! Precise balance   Disabled\n" +
 		"                      aigw account connect\n\n" +
-		"结果\n" +
-		"  ✓ 一切正常\n\n" +
-		"下一步\n" +
+		"Result\n" +
+		"  ✓ Everything is healthy\n\n" +
+		"Next\n" +
 		"  aigw balance\n"
 	if out.String() != want {
 		t.Fatalf("layout mismatch\n--- want ---\n%s--- got ---\n%s", want, out.String())
@@ -43,9 +43,9 @@ func TestRendererProducesAlignedHumanReadableLayout(t *testing.T) {
 func TestRowsAndStatusesStartValuesAtSameDisplayColumn(t *testing.T) {
 	var out bytes.Buffer
 	r := presentation.New(&out, false)
-	r.Row("配置文件", "VALUE")
+	r.Row("Configuration file", "VALUE")
 	r.Status(presentation.OK, "API Token", "VALUE")
-	r.Status(presentation.Warn, "精确余额", "VALUE")
+	r.Status(presentation.Warn, "Precise balance", "VALUE")
 	for index, line := range strings.Split(strings.TrimRight(out.String(), "\n"), "\n") {
 		prefix, _, ok := strings.Cut(line, "VALUE")
 		if !ok {
@@ -60,26 +60,28 @@ func TestRowsAndStatusesStartValuesAtSameDisplayColumn(t *testing.T) {
 func TestStatusKeepsLongLabelsOnOneLine(t *testing.T) {
 	var out bytes.Buffer
 	r := presentation.New(&out, false)
-	r.Status(presentation.OK, "environment:client-token", "正常")
+	r.Status(presentation.OK, "environment:client-token", "Healthy")
 	got := out.String()
 	if strings.Count(got, "\n") != 1 || strings.Contains(got, "environment:client\n-token") {
 		t.Fatalf("long status label wrapped: %q", got)
 	}
 }
 
-func TestDisplayWidthTreatsCJKAsTwoColumnsAndANSICodesAsZero(t *testing.T) {
-	if got := presentation.DisplayWidth("配置文件"); got != 8 {
-		t.Fatalf("CJK width = %d, want 8", got)
+func TestDisplayWidthTreatsWideUnicodeAsTwoColumnsAndANSICodesAsZero(t *testing.T) {
+	wide := string([]rune{0xFF21, 0xFF22, 0xFF23, 0xFF24})
+	if got := presentation.DisplayWidth(wide); got != 8 {
+		t.Fatalf("wide Unicode width = %d, want 8", got)
 	}
-	if got := presentation.DisplayWidth("\x1b[32m配置\x1b[0m"); got != 4 {
-		t.Fatalf("colored CJK width = %d, want 4", got)
+	coloredWide := "\x1b[32m" + string([]rune{0xFF21, 0xFF22}) + "\x1b[0m"
+	if got := presentation.DisplayWidth(coloredWide); got != 4 {
+		t.Fatalf("colored wide Unicode width = %d, want 4", got)
 	}
 }
 
 func TestRendererColorIsOptionalAndNeverAffectsSpacing(t *testing.T) {
 	var plain, colored bytes.Buffer
-	presentation.New(&plain, false).Status(presentation.OK, "Token", "正常")
-	presentation.New(&colored, true).Status(presentation.OK, "Token", "正常")
+	presentation.New(&plain, false).Status(presentation.OK, "Token", "Healthy")
+	presentation.New(&colored, true).Status(presentation.OK, "Token", "Healthy")
 	if strings.Contains(plain.String(), "\x1b[") {
 		t.Fatalf("plain output contains ANSI: %q", plain.String())
 	}
@@ -93,24 +95,24 @@ func TestProblemUsesConsistentProblemEvidenceImpactFixOrder(t *testing.T) {
 	var out bytes.Buffer
 	r := presentation.New(&out, false)
 	r.Problem(presentation.Problem{
-		Title:    "Token 额度已耗尽",
-		Evidence: "HTTP 403 · 令牌额度不足",
-		Impact:   "Claude 与 Codex 无法继续调用",
+		Title:    "Token quota is exhausted",
+		Evidence: "HTTP 403 · token quota is insufficient",
+		Impact:   "Claude and Codex cannot continue requests",
 		Fix:      "aigw rotate",
 	})
-	want := `AIGW  需要处理
+	want := `AIGW  Action required
 ────────────────────────────────────────
 
-问题
-  Token 额度已耗尽
+Problem
+  Token quota is exhausted
 
-判断依据
-  HTTP 403 · 令牌额度不足
+Evidence
+  HTTP 403 · token quota is insufficient
 
-影响
-  Claude 与 Codex 无法继续调用
+Impact
+  Claude and Codex cannot continue requests
 
-建议操作
+Recommended action
   aigw rotate
 `
 	if out.String() != want {

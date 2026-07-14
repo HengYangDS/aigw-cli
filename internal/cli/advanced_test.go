@@ -22,7 +22,7 @@ label = "Team Gateway"
 anthropic = "https://team.test"
 [profiles.team]
 label = "Team Gateway"
-purpose = "默认 Agent"
+purpose = "Default agent"
 account = "team"
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
@@ -38,7 +38,7 @@ account = "team"
 	if err := execute(t, app, "config", "export"); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(strings.ToLower(out.String()), "token") || !strings.Contains(out.String(), "Team Gateway") || !strings.Contains(out.String(), "默认 Agent") {
+	if strings.Contains(strings.ToLower(out.String()), "token") || !strings.Contains(out.String(), "Team Gateway") || !strings.Contains(out.String(), "Default agent") {
 		t.Fatalf("unsafe export:\n%s", out.String())
 	}
 }
@@ -146,7 +146,7 @@ codex = "team-model"
 func TestConfigUpgradeIsNotAnAvailableCommand(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	err := execute(t, app, "config", "upgrade")
-	if err == nil || !strings.Contains(err.Error(), "未知 config 子命令") {
+	if err == nil || !strings.Contains(err.Error(), "Unknown config subcommand") {
 		t.Fatalf("config upgrade error = %v", err)
 	}
 }
@@ -160,14 +160,14 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := execute(t, app, "profile", "add", "claude-fable-5", "--account", "team", "--for", "claude", "--model", "claude-fable-5", "--label", "Claude Fable 5", "--purpose", "默认 Agent"); err != nil {
+	if err := execute(t, app, "profile", "add", "claude-fable-5", "--account", "team", "--for", "claude", "--model", "claude-fable-5", "--label", "Claude Fable 5", "--purpose", "Default agent"); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Profiles["claude-fable-5"].Purpose != "默认 Agent" {
+	if got.Profiles["claude-fable-5"].Purpose != "Default agent" {
 		t.Fatalf("purpose = %q", got.Profiles["claude-fable-5"].Purpose)
 	}
 	if err := secretStore.Set("team", "team-token"); err != nil {
@@ -179,7 +179,7 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	if err := execute(t, app, "use"); err != nil {
 		t.Fatal(err)
 	}
-	if len(selector.choices) != 2 || selector.choices[0].Label != "Claude Fable 5 · 默认 Agent" {
+	if len(selector.choices) != 2 || selector.choices[0].Label != "Claude Fable 5 · Default agent" {
 		t.Fatalf("interactive choices = %#v", selector.choices)
 	}
 
@@ -187,7 +187,7 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	if err := execute(t, app, "profile", "list"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "默认 Agent") {
+	if !strings.Contains(out.String(), "Default agent") {
 		t.Fatalf("profile list lacks purpose:\n%s", out.String())
 	}
 
@@ -195,18 +195,18 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	if err := execute(t, app, "profile", "show", "claude-fable-5", "--json"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), `"purpose":"默认 Agent"`) {
+	if !strings.Contains(out.String(), `"purpose":"Default agent"`) {
 		t.Fatalf("profile JSON lacks purpose:\n%s", out.String())
 	}
 
-	if err := execute(t, app, "profile", "edit", "claude-fable-5", "--purpose", "深度 Agent"); err != nil {
+	if err := execute(t, app, "profile", "edit", "claude-fable-5", "--purpose", "Deep agent"); err != nil {
 		t.Fatal(err)
 	}
 	got, err = app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Profiles["claude-fable-5"].Purpose != "深度 Agent" {
+	if got.Profiles["claude-fable-5"].Purpose != "Deep agent" {
 		t.Fatalf("edited purpose = %q", got.Profiles["claude-fable-5"].Purpose)
 	}
 	if err := execute(t, app, "profile", "edit", "claude-fable-5", "--purpose", ""); err != nil {
@@ -244,12 +244,12 @@ func TestProfileListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"服务配置", "可用配置", "配置  gpt", "Codex · GPT Test · native Codex picker-aligned daily default · 当前 · 账户 team · Token 可用"} {
+	for _, want := range []string{"Service profiles", "Available profiles", "Configuration  gpt", "Codex · GPT Test · native Codex picker-aligned daily default · Current · Account team · Token available"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("profile list lacks %q:\n%s", want, text)
 		}
 	}
-	for _, retired := range []string{"Profiles\n", "Profile  gpt", "Account team"} {
+	for _, retired := range []string{"Profiles\n", "Profile  gpt"} {
 		if strings.Contains(text, retired) {
 			t.Fatalf("profile list retained product label %q:\n%s", retired, text)
 		}
@@ -261,8 +261,8 @@ func TestRouteListIsNarrowHumanRouteView(t *testing.T) {
 	cfg := domain.NewConfig()
 	addAccountProfile(&cfg, "gpt", "team", "GPT", domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "gpt-test"})
 	addAccountProfile(&cfg, "claude", "team", "Claude", domain.Endpoints{Anthropic: "https://team.test"}, domain.ClientClaude, domain.Models{domain.ClientClaude: "claude-test"})
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Purpose: "默认编程", Account: "team", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
-	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Purpose: "独立审阅", Account: "team", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-test"}}
+	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Purpose: "Default coding", Account: "team", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
+	cfg.Profiles["claude"] = domain.Profile{Label: "Claude", Purpose: "Independent review", Account: "team", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-test"}}
 	cfg.Routes.Default = "gpt"
 	cfg.Routes.Overrides[domain.ClientClaude] = "claude"
 	if err := app.Config.Save(cfg); err != nil {
@@ -273,12 +273,12 @@ func TestRouteListIsNarrowHumanRouteView(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"当前路由", "默认路由", "默认配置", "gpt", "Codex", "gpt · 继承默认", "Claude", "claude · 单独指定", "aigw use <profile> --for <claude|codex>"} {
+	for _, want := range []string{"Current routes", "Default route", "Default profile", "gpt", "Codex", "gpt · Inherits default", "Claude", "claude · Explicit override", "aigw use <profile> --for <claude|codex>"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("route list lacks %q:\n%s", want, text)
 		}
 	}
-	for _, unwanted := range []string{"账户诊断", "模型配置数", "客户端适配"} {
+	for _, unwanted := range []string{"Account diagnostics", "Model profiles", "Client adapters"} {
 		if strings.Contains(text, unwanted) {
 			t.Fatalf("route list should not include operational status section %q:\n%s", unwanted, text)
 		}
@@ -299,12 +299,12 @@ func TestRouteListDoesNotMisstateIncompatibleInheritedRouteAsUsable(t *testing.T
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"Claude", "未选择 Claude 配置", "aigw use claude --for claude", "下一步\n  aigw use claude --for claude"} {
+	for _, want := range []string{"Claude", "No Claude profile selected", "aigw use claude --for claude", "Next\n  aigw use claude --for claude"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("route list lacks %q:\n%s", want, text)
 		}
 	}
-	if strings.Contains(text, "Claude            gpt · 继承默认") {
+	if strings.Contains(text, "Claude            gpt · Inherits default") {
 		t.Fatalf("route list misrepresented incompatible inherited route:\n%s", text)
 	}
 }
@@ -312,8 +312,8 @@ func TestRouteListDoesNotMisstateIncompatibleInheritedRouteAsUsable(t *testing.T
 func TestConfigDoesNotExposeRemovedLegacyMigration(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	err := execute(t, app, "config", "migrate", filepath.Join(t.TempDir(), "config.json"))
-	if err == nil || !strings.Contains(err.Error(), "未知 config 子命令") {
-		t.Fatalf("legacy migration command error = %v, want 未知 config 子命令", err)
+	if err == nil || !strings.Contains(err.Error(), "Unknown config subcommand") {
+		t.Fatalf("legacy migration command error = %v, want Unknown config subcommand", err)
 	}
 }
 
@@ -370,7 +370,7 @@ func TestAdapterCommandsListOnlyAdmittedClients(t *testing.T) {
 	}
 
 	err := execute(t, app, "profile", "add", "future", "--account", "team", "--for", "gemini", "--model", "gemini-next")
-	if err == nil || !strings.Contains(err.Error(), "claude 或 codex") {
+	if err == nil || !strings.Contains(err.Error(), "claude or codex") {
 		t.Fatalf("unadmitted client error = %v", err)
 	}
 }
@@ -512,7 +512,7 @@ func TestProfileRemoveRefusesActiveProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := execute(t, app, "profile", "remove", "team")
-	if err == nil || !strings.Contains(err.Error(), "默认路由") {
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "default route") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -547,10 +547,10 @@ claude = "claude-long-model"
 		t.Fatal(err)
 	}
 	text := out.String()
-	if strings.Contains(text, "需要录入 Token") || strings.Contains(text, "gpt-long-model  ") || strings.Contains(text, "claude-long-model  ") {
+	if strings.Contains(text, "Token required") || strings.Contains(text, "gpt-long-model  ") || strings.Contains(text, "claude-long-model  ") {
 		t.Fatalf("import reported profile-level missing tokens despite account token:\n%s", text)
 	}
-	for _, want := range []string{"账户数量", "系统密钥", "dmx", "Token 可用", "aigw models"} {
+	for _, want := range []string{"Accounts", "System secret", "dmx", "Token available", "aigw models"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("import output lacks %q:\n%s", want, text)
 		}
@@ -586,7 +586,7 @@ claude = "claude-long-model"
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "dmx") || !strings.Contains(text, "需要录入 Token") || !strings.Contains(text, "aigw rotate dmx") {
+	if !strings.Contains(text, "dmx") || !strings.Contains(text, "Token required") || !strings.Contains(text, "aigw rotate dmx") {
 		t.Fatalf("import did not point to missing account token:\n%s", text)
 	}
 	if strings.Contains(text, "gpt-long-model") || strings.Contains(text, "claude-long-model") {
@@ -612,7 +612,7 @@ func TestDoctorChecksAccountTokenOnceForSharedProfiles(t *testing.T) {
 	if strings.Contains(text, "secret:alpha-model") || strings.Contains(text, "secret:beta-model") {
 		t.Fatalf("doctor checked profile secrets instead of account secret:\n%s", text)
 	}
-	if !strings.Contains(text, "系统密钥") || !strings.Contains(text, "dmx · 可用") || !strings.Contains(text, "未发现问题") {
+	if !strings.Contains(text, "System secret") || !strings.Contains(text, "dmx · available") || !strings.Contains(text, "No problems found") {
 		t.Fatalf("doctor did not report account secret cleanly:\n%s", text)
 	}
 }

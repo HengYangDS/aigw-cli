@@ -287,7 +287,7 @@ func TestPortableRollbackSwapsCurrentAndPreviousBinary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(message, "已恢复上一程序版本") {
+	if !strings.Contains(message, "restored the previous program version") {
 		t.Fatalf("message = %q", message)
 	}
 	current, err := os.ReadFile(binary)
@@ -381,7 +381,7 @@ func TestPortableRollbackGuidesLegacyProgramRecoveryWithCurrentPortableInstaller
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"旧版本不支持", "团队发布页", "当前便携包", "安装脚本", "仅替换 AIGW 程序"} {
+	for _, expected := range []string{"older program does not support", "current portable package", "installer", "replaces only AIGW", "retains one predecessor"} {
 		if !strings.Contains(message, expected) {
 			t.Fatalf("rollback recovery guidance missing %q: %s", expected, message)
 		}
@@ -532,7 +532,7 @@ func TestUpdateTokenFallbackRequiresExplicitHTTPSGitLabOrigin(t *testing.T) {
 				HTTPClient: client,
 			}
 			_, err := u.Update(context.Background(), "0.2.0")
-			if err == nil || (!strings.Contains(err.Error(), "release host") && !strings.Contains(err.Error(), "release source is incomplete") && !strings.Contains(err.Error(), "AIGW_RELEASE_HOST")) {
+			if err == nil || (!strings.Contains(err.Error(), "AIGW_RELEASE_HOST") && !strings.Contains(err.Error(), "release source is incomplete") && !strings.Contains(err.Error(), "release host")) {
 				t.Fatalf("error = %v", err)
 			}
 		})
@@ -1144,7 +1144,7 @@ func TestUpdateRejectsGitLabHostWithCredentialsPathQueryOrFragment(t *testing.T)
 				Runner:     &missingGlabRunner{},
 			}
 			_, err := u.Update(context.Background(), "0.2.0")
-			if err == nil || (!strings.Contains(err.Error(), "release host") && !strings.Contains(err.Error(), "release source is incomplete") && !strings.Contains(err.Error(), "AIGW_RELEASE_HOST")) {
+			if err == nil || !strings.Contains(err.Error(), "release host") {
 				t.Fatalf("error = %v", err)
 			}
 		})
@@ -1293,7 +1293,7 @@ func TestPackageManagedDebUpdateDownloadsVerifiesAndInvokesPackageManager(t *tes
 	if string(got) != "old-binary" {
 		t.Fatalf("package-managed update replaced binary directly: %q", got)
 	}
-	if !strings.Contains(message, "包管理器") {
+	if !strings.Contains(message, "package manager") {
 		t.Fatalf("message = %q", message)
 	}
 	if !runner.called("sudo", "dpkg", "-i") {
@@ -1338,13 +1338,12 @@ func TestCurrentUsesBuildTimeReleaseSource(t *testing.T) {
 	t.Setenv("AIGW_RELEASE_HOST", "")
 	t.Setenv("AIGW_RELEASE_PROJECT", "")
 	updater := selfupdate.Current(filepath.Join(t.TempDir(), "aigw"))
-	want := selfupdate.ReleaseSource{Host: "https://gitlab.example.test", Project: testReleaseProject}
-	if updater.Release != want {
-		t.Fatalf("release source = %#v, want %#v", updater.Release, want)
+	if got := updater.Release; got != (selfupdate.ReleaseSource{Host: "https://gitlab.example.test", Project: testReleaseProject}) {
+		t.Fatalf("release source = %#v", got)
 	}
 }
 
-func TestReleaseSourceEnvironmentOverridesBuildMetadata(t *testing.T) {
+func TestExplicitReleaseSourceEnvironmentOverridesBuildMetadata(t *testing.T) {
 	previousHost, previousProject := selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject
 	t.Cleanup(func() {
 		selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject = previousHost, previousProject
@@ -1364,7 +1363,7 @@ func TestReleaseSourceEnvironmentOverridesBuildMetadata(t *testing.T) {
 			return
 		}
 	}
-	t.Fatalf("release-project override was not passed to glab: %v", runner.calls)
+	t.Fatalf("release project override was not passed to glab: %v", runner.calls)
 }
 
 func (r *fakeRunner) downloaded(asset string) bool {

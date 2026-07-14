@@ -7,12 +7,12 @@ func TestDoctorHumanProjectionFailsClosedForFutureChecks(t *testing.T) {
 		{Name: "future:internal", OK: true, Detail: "internal success detail"},
 		{Name: "future:internal", OK: false, Detail: "internal failure detail", Fix: "internal repair instruction"},
 	} {
-		if got := doctorCheckLabel(check.Name); got != "其他检查" {
-			t.Fatalf("label = %q, want 其他检查", got)
+		if got := doctorCheckLabel(check.Name); got != "Other check" {
+			t.Fatalf("label = %q, want Other check", got)
 		}
-		want := "检查未通过"
+		want := "Check failed"
 		if check.OK {
-			want = "正常"
+			want = "Healthy"
 		}
 		if got := doctorCheckDetail(check); got != want {
 			t.Fatalf("detail = %q, want %q", got, want)

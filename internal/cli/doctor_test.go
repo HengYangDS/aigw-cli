@@ -79,7 +79,7 @@ func TestDoctorHumanOutputUsesConciseCheckLabels(t *testing.T) {
 		t.Fatal("doctor succeeded despite a global client token")
 	}
 	result := out.String()
-	if !strings.Contains(result, "客户端令牌环境") || strings.Contains(result, "environment:client-token") {
+	if !strings.Contains(result, "Client token environment") || strings.Contains(result, "environment:client-token") {
 		t.Fatalf("doctor human label = %s", result)
 	}
 }
@@ -107,12 +107,12 @@ func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T
 		t.Fatal("doctor should report missing shell activation")
 	}
 	result := out.String()
-	for _, want := range []string{"未检测到全局客户端令牌环境变量", "配置有效", "系统密钥", "team · 可用", "已启用", "AIGW 管理的 Claude 启动器", "Claude PATH 激活缺失"} {
+	for _, want := range []string{"No global client token environment variables detected", "Configuration is valid", "System secret", "team · available", "Enabled", "AIGW-managed Claude launcher", "Claude PATH activation is missing"} {
 		if !strings.Contains(result, want) {
 			t.Fatalf("doctor human output missing %q:\n%s", want, result)
 		}
 	}
-	for _, unwanted := range []string{"no global client token environment variables", "config            valid", "available", "AIGW managed shim", "path:claude", "shim:claude"} {
+	for _, unwanted := range []string{"no global client token environment variables", "config            valid", "AIGW managed shim", "path:claude", "shim:claude"} {
 		if strings.Contains(result, unwanted) {
 			t.Fatalf("doctor human output leaked implementation prose %q:\n%s", unwanted, result)
 		}
@@ -141,10 +141,10 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 		t.Fatal("doctor should report Codex projection drift")
 	}
 	human := out.String()
-	if !strings.Contains(human, "Codex 配置目标 1") || !strings.Contains(human, "与当前路由不一致") || strings.Contains(human, "Codex config AIGW state is missing") {
+	if !strings.Contains(human, "Codex configuration target 1") || !strings.Contains(human, "Does not match the current route") || strings.Contains(human, "Codex config AIGW state is missing") {
 		t.Fatalf("doctor human output = %s", human)
 	}
-	if !strings.Contains(human, "下一步\n  aigw sync") || strings.Contains(human, "下一步\n  aigw repair") {
+	if !strings.Contains(human, "Next\n  aigw sync") || strings.Contains(human, "Next\n  aigw repair") {
 		t.Fatalf("doctor drift next action = %s", human)
 	}
 	out.Reset()
@@ -163,7 +163,7 @@ func TestDoctorHumanOutputNeverExposesRawEnvironmentFixText(t *testing.T) {
 		t.Fatal("doctor succeeded despite a global client token")
 	}
 	result := out.String()
-	if !strings.Contains(result, "从启动当前终端的父环境中移除上述变量") {
+	if !strings.Contains(result, "Remove the variables above from the parent environment that launched this terminal") {
 		t.Fatalf("doctor environment fix = %s", result)
 	}
 	if strings.Contains(result, "remove them from the parent environment") {
@@ -180,10 +180,10 @@ func TestDoctorHumanOutputTranslatesUnreadableConfigWithoutLeakingPath(t *testin
 		t.Fatal("doctor should fail when config path is a directory")
 	}
 	result := out.String()
-	if !strings.Contains(result, "无法读取或校验配置") || !strings.Contains(result, "检查或恢复本机配置文件") {
+	if !strings.Contains(result, "Cannot read or validate configuration") || !strings.Contains(result, "Inspect or restore the local configuration file") {
 		t.Fatalf("doctor config failure output = %s", result)
 	}
-	if strings.Contains(result, app.Config.Path()) || strings.Contains(result, "read") {
+	if strings.Contains(result, app.Config.Path()) || strings.Contains(result, "is a directory") {
 		t.Fatalf("doctor leaked raw config error details = %s", result)
 	}
 }

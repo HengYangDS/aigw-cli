@@ -73,7 +73,7 @@ if '${CI_COMMIT_TAG:-}' not in package_script:
     raise SystemExit("package must tolerate an unset CI_COMMIT_TAG in non-tag pipelines")
 if '0.1.0-${CI_COMMIT_SHORT_SHA}' not in package_script:
     raise SystemExit("package must retain a semver-shaped non-tag build fallback")
-if 'AIGW_RELEASE_HOST="$CI_SERVER_URL"' not in package_script or 'AIGW_RELEASE_PROJECT="$CI_PROJECT_PATH"' not in package_script:
+if package_script.count('AIGW_RELEASE_HOST="$CI_SERVER_URL"') != 1 or package_script.count('AIGW_RELEASE_PROJECT="$CI_PROJECT_PATH"') != 1:
     raise SystemExit("package must inject the current CI release source instead of a repository-specific host or project")
 
 publish = section("publish")
