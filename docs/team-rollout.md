@@ -190,4 +190,4 @@ export AIGW_SECRET_BACKEND=env
 export AIGW_TOKEN_TEAM_GATEWAY=masked-ci-token
 ```
 
-环境变量后端只读；`add`、`rotate`、rename 和 secret deletion 会失败，不会生成明文凭据文件。
+环境变量后端只读；`add`、`rotate`、rename 和 secret deletion 会失败，不会生成明文凭据文件。若已预置对应的 `AIGW_TOKEN_<ACCOUNT>`，参数化的首次 `aigw setup` 不需要 `--token-stdin`：它会复用该 Token 验证服务并仅写入无密钥配置元数据。
