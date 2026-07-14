@@ -1,0 +1,56 @@
+name: Verify
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Source and governance gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout full history and tags
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      - name: Run source and policy gates
+        env:
+          CGO_ENABLED: '1'
+        run: |
+          set -euo pipefail
+          go test -race ./...
+          go vet ./...
+          test -z "$(gofmt -l cmd internal tools)"
+          for script in scripts/*.sh; do sh -n "$script"; done
+          sh scripts/check-package-safety.sh
+          sh scripts/check-retired-residue.sh
+          sh scripts/check-governance.sh
+          python3 scripts/check-markdown-presentation.py
+          sh scripts/test-changelog.sh
+          sh scripts/test-release-readiness.sh
+          sh scripts/test-release-artifacts.sh
+          sh scripts/test-release-tag-signature.sh
+          sh scripts/test-package-runner-preflight.sh
+          sh scripts/test-linux-native-install-staging.sh
+          sh scripts/test-msi-version.sh
+          sh scripts/test-publish-release.sh
+          sh scripts/test-publish-github-release.sh
+          sh scripts/test-pipeline-gates.sh
+          sh scripts/test-github-actions-contract.sh
+          sh scripts/test-git-provider-identities.sh
