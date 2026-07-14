@@ -115,5 +115,15 @@ if "--request POST" not in publisher_text or "--request PUT" not in publisher_te
 if "/releases" not in publisher_text or "CI_API_V4_URL" not in publisher_text:
     raise SystemExit("release publisher must call the GitLab Releases API directly")
 
+github = Path(sys.argv[1]).parent / ".github" / "workflows" / "verify.yml"
+if not github.exists():
+    raise SystemExit("GitHub Actions verification workflow is missing")
+github_text = github.read_text()
+for token in ["actions/checkout@v7", "actions/setup-go@v6", "go test -race ./...", "scripts/check-governance.sh", "scripts/test-git-provider-identities.sh"]:
+    if token not in github_text:
+        raise SystemExit(f"GitHub Actions verification workflow must contain {token}")
+if "contents: write" in github_text or "pull-requests: write" in github_text:
+    raise SystemExit("GitHub Actions verification workflow must be read-only")
+
 print("release pipeline gate contract: OK")
 PY
