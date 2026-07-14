@@ -28,6 +28,7 @@ verify:
     # origin before chronology validation so deleted RC tags cannot leak into CI.
     - git fetch --tags --force --prune --prune-tags origin
     - sh scripts/check-governance.sh
+    - python3 scripts/check-markdown-presentation.py
     - sh scripts/test-changelog.sh
     - sh scripts/test-release-readiness.sh
     - sh scripts/test-release-artifacts.sh
