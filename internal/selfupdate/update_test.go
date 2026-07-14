@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -107,7 +108,7 @@ func TestUpdateDownloadsVerifiesAndAtomicallyReplacesBinary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o755 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o755 {
 		t.Fatalf("rollback mode = %o, want 755", info.Mode().Perm())
 	}
 }
@@ -162,7 +163,7 @@ func TestUpdateMakesReplacedRollbackBinaryExecutable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o755 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o755 {
 		t.Fatalf("rollback mode = %o, want 755", info.Mode().Perm())
 	}
 }
@@ -312,6 +313,9 @@ func TestUpdateUsesSupportedGlabJSONFlags(t *testing.T) {
 }
 
 func TestUpdatePassesConfiguredGitLabHostToGlab(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix shell fixture; Windows command-environment propagation is covered by the native Windows release runner")
+	}
 	dir := t.TempDir()
 	capture := filepath.Join(dir, "gl-host")
 	glab := filepath.Join(dir, "glab")

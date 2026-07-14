@@ -44,19 +44,31 @@ func (m Manager) ClaudeShimReady() (bool, error) {
 		if !ok {
 			return false, fmt.Errorf("AIGW-managed Claude shim has an invalid target; run `aigw repair`")
 		}
-		if isTemporaryPath(target) {
-			return false, fmt.Errorf("AIGW-managed Claude shim target is in a temporary directory: %s; run `aigw repair`", target)
+		return validateShimTarget(target, true)
+	}
+	if m.GOOS == "windows" {
+		target, ok := windowsShimTarget(content)
+		if !ok {
+			return false, fmt.Errorf("AIGW-managed Claude shim has an invalid target; run `aigw repair`")
 		}
-		info, err := os.Stat(target)
-		if os.IsNotExist(err) {
-			return false, fmt.Errorf("AIGW-managed Claude shim target is unavailable: %s; run `aigw repair`", target)
-		}
-		if err != nil {
-			return false, fmt.Errorf("inspect AIGW-managed Claude shim target: %w", err)
-		}
-		if info.IsDir() || info.Mode()&0o111 == 0 {
-			return false, fmt.Errorf("AIGW-managed Claude shim target is unavailable: %s; run `aigw repair`", target)
-		}
+		return validateShimTarget(target, false)
+	}
+	return true, nil
+}
+
+func validateShimTarget(target string, requireExecutableBit bool) (bool, error) {
+	if requireExecutableBit && isTemporaryPath(target) {
+		return false, fmt.Errorf("AIGW-managed Claude shim target is in a temporary directory: %s; run `aigw repair`", target)
+	}
+	info, err := os.Stat(target)
+	if os.IsNotExist(err) {
+		return false, fmt.Errorf("AIGW-managed Claude shim target is unavailable: %s; run `aigw repair`", target)
+	}
+	if err != nil {
+		return false, fmt.Errorf("inspect AIGW-managed Claude shim target: %w", err)
+	}
+	if info.IsDir() || (requireExecutableBit && info.Mode()&0o111 == 0) {
+		return false, fmt.Errorf("AIGW-managed Claude shim target is unavailable: %s; run `aigw repair`", target)
 	}
 	return true, nil
 }
@@ -70,6 +82,37 @@ func unixShimTarget(content string) (string, bool) {
 		rest := strings.TrimPrefix(line, prefix)
 		target, _, found := strings.Cut(rest, "' __run-claude")
 		return target, found && target != ""
+	}
+	return "", false
+}
+
+func windowsShimTarget(content string) (string, bool) {
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(strings.TrimSuffix(line, "\r"))
+		if !strings.HasPrefix(line, `"`) {
+			continue
+		}
+		rest := line[1:]
+		closing := -1
+		for index := 0; index < len(rest); index++ {
+			if rest[index] != '"' {
+				continue
+			}
+			if index+1 < len(rest) && rest[index+1] == '"' {
+				index++
+				continue
+			}
+			closing = index
+			break
+		}
+		if closing < 0 {
+			return "", false
+		}
+		target := strings.ReplaceAll(rest[:closing], `""`, `"`)
+		if target == "" || strings.TrimSpace(rest[closing+1:]) != "__run-claude %*" {
+			return "", false
+		}
+		return target, true
 	}
 	return "", false
 }
@@ -209,7 +252,8 @@ func (m Manager) claudePath() string {
 
 func (m Manager) claudeContent() string {
 	if m.GOOS == "windows" {
-		return "@echo off\r\nREM " + marker + "\r\n\"%~dp0aigw.exe\" __run-claude %*\r\n"
+		executable := strings.ReplaceAll(m.AIGWExecutable, `"`, `""`)
+		return "@echo off\r\nREM " + marker + "\r\n\"" + executable + "\" __run-claude %*\r\n"
 	}
 	executable := strings.ReplaceAll(m.AIGWExecutable, `'`, `'\''`)
 	return "#!/bin/sh\n# " + marker + "\nexec '" + executable + "' __run-claude \"$@\"\n"
