@@ -14,7 +14,7 @@ var Version = "0.1.0-dev"
 func NewRoot(app *App) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "aigw",
-		Short:         "团队 AI API 配置、切换与诊断工具",
+		Short:         "Local AI provider configuration, routing, and diagnostics",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
@@ -34,18 +34,18 @@ func NewRoot(app *App) *cobra.Command {
 	root.Version = Version
 	root.InitDefaultHelpFlag()
 	if flag := root.Flags().Lookup("help"); flag != nil {
-		flag.Usage = "查看帮助"
+		flag.Usage = "show help"
 	}
 	root.InitDefaultVersionFlag()
 	if flag := root.Flags().Lookup("version"); flag != nil {
-		flag.Usage = "显示版本"
+		flag.Usage = "show version"
 	}
 	root.SetHelpFunc(func(command *cobra.Command, _ []string) { renderCommandHelp(app, command) })
-	root.SetHelpCommand(&cobra.Command{Use: "help [command]", Short: "查看命令帮助", Hidden: true})
+	root.SetHelpCommand(&cobra.Command{Use: "help [command]", Short: "show command help", Hidden: true})
 	root.CompletionOptions.DisableDefaultCmd = true
 	root.AddGroup(
-		&cobra.Group{ID: "daily", Title: "日常使用"},
-		&cobra.Group{ID: "advanced", Title: "高级管理"},
+		&cobra.Group{ID: "daily", Title: "Daily operations"},
+		&cobra.Group{ID: "advanced", Title: "Administration"},
 	)
 	daily := []*cobra.Command{newUseCommand(app), newRotateCommand(app), newCheckCommand(app), newVerifyCommand(app), newRollbackCommand(app), newModelsCommand(app), newCatalogCommand(app), newBalanceCommand(app), newRepairCommand(app), newUpdateCommand(app)}
 	advanced := []*cobra.Command{newSetupCommand(app), newAddCommand(app), newStatusCommand(app), newTestCommand(app), newDoctorCommand(app), newSyncCommand(app), newAccountCommand(app), newProfileCommand(app), newRouteCommand(app), newAdapterCommand(app), newConfigCommand(app)}
@@ -78,7 +78,7 @@ func NewRoot(app *App) *cobra.Command {
 
 func renderCommandHelp(app *App, command *cobra.Command) {
 	r := renderer(app)
-	title := "命令帮助"
+	title := "Command help"
 	if command.Parent() != nil {
 		title = command.CommandPath()
 	}
@@ -86,7 +86,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 	if command.Short != "" {
 		r.Text(command.Short)
 	}
-	r.Section("用法")
+	r.Section("Usage")
 	usage := command.UseLine()
 	if command.Parent() == nil && command.HasAvailableSubCommands() {
 		usage = command.CommandPath() + " [command]"
@@ -104,7 +104,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 			groups[child.GroupID] = append(groups[child.GroupID], child)
 		}
 	}
-	for _, item := range []struct{ id, title string }{{"daily", "日常使用"}, {"advanced", "高级管理"}} {
+	for _, item := range []struct{ id, title string }{{"daily", "Daily operations"}, {"advanced", "Administration"}} {
 		if len(groups[item.id]) == 0 {
 			continue
 		}
@@ -115,14 +115,14 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 	}
 	if len(ungrouped) > 0 {
 		sort.Slice(ungrouped, func(i, j int) bool { return ungrouped[i].Name() < ungrouped[j].Name() })
-		r.Section("命令")
+		r.Section("Commands")
 		for _, child := range ungrouped {
 			r.Row(child.Name(), child.Short)
 		}
 	}
 	flags := command.NonInheritedFlags()
 	if flags.HasAvailableFlags() {
-		r.Section("选项")
+		r.Section("Options")
 		flags.VisitAll(func(flag *pflag.Flag) {
 			if flag.Hidden {
 				return
@@ -133,7 +133,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 			}
 			usage := strings.TrimSpace(flag.Usage)
 			if flag.Name == "help" {
-				usage = "查看帮助"
+				usage = "show help"
 			}
 			r.Row(name, usage)
 		})
@@ -142,7 +142,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 
 func newCompletionCommand(root *cobra.Command) *cobra.Command {
 	return &cobra.Command{
-		Use: "completion <bash|zsh|fish|powershell>", Short: "生成 Shell 自动补全脚本", Args: cobra.ExactArgs(1),
+		Use: "completion <bash|zsh|fish|powershell>", Short: "generate shell completion", Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			switch args[0] {
 			case "bash":
@@ -154,7 +154,7 @@ func newCompletionCommand(root *cobra.Command) *cobra.Command {
 			case "powershell":
 				return root.GenPowerShellCompletion(root.OutOrStdout())
 			default:
-				return fmt.Errorf("支持的 Shell：bash、zsh、fish、powershell")
+				return fmt.Errorf("supported shells: bash, zsh, fish, powershell")
 			}
 		},
 	}

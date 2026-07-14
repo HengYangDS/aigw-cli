@@ -5,55 +5,35 @@
 | **Project Name** | `AIGW CLI` |
 | **Stable repository Path** | `aigw-cli` |
 
-AIGW 是**本机优先**、可供团队分发的跨平台第三方 AI API 配置工具：统一管理服务账户、模型配置、系统密钥、Claude/Codex 路由与客户端适配，**不运行后台服务，不承载 API 流量**。
+AIGW CLI is a local-first, cross-platform control plane for AI provider
+accounts, credentials, runtime profiles, client routes, and Claude/Codex
+projections. It does not run a gateway, listen on a port, relay API traffic, or
+own Codex conversation state.
 
-```text
-AIGW  当前状态
-────────────────────────────────────────
-服务
-  当前配置            Team Gateway
-  配置                gpt-5.6-terra
-  服务账户            team-gateway
+## What it manages
 
-客户端
-  ✓ Claude       claude-fable-5 · 单独指定 · 已就绪
-  ✓ Codex        gpt-5.6-terra · 继承默认 · 已就绪
+- **Accounts**: one provider boundary, verified endpoint(s), and one operating-
+  system secret slot.
+- **Profiles**: an admitted `account + client + model` daily choice.
+- **Routes**: default, Claude, and Codex selections.
+- **Adapters**: narrow local projections for Claude and Codex.
 
-下一步
-  aigw check
-```
+Codex Desktop owns conversation transcripts and per-conversation model choice.
+AIGW owns only its marked provider projection and native credential binding.
+Codex DMX Proxy owns Responses replay compatibility and its own listener.
 
-## 为什么需要 AIGW
+## Install
 
-- 个人在本机即可完整使用：一个二进制、系统密钥存储、多个服务账户、多个模型配置、显式客户端路由和各自独立的 Claude/Codex 适配器；不依赖团队后台、内网或本地监听端口。
-- 团队可以共享网关 URL、协议和推荐路由，而不共享 Token。
-- 一个服务账户对应一个服务商账户和一个系统密钥槽位；多个模型配置可以继承同一个服务账户。
-- Claude 和 Codex 各自在自己的适配边界完成映射，互不污染目录。
-- 切换、轮换、状态、余额和诊断只有一套命令，不再手工修改多处配置。
+Download a release artifact for your platform and verify it against
+`checksums.txt` before installing.
 
-本机直连不是“只能连一个服务”：每个服务账户有自己的一把系统密钥和可用协议端点；同一服务账户下可有任意多个模型配置，并由 Claude、Codex 或默认路由显式选择。团队集中网关不是安装或日常使用的前提。只有组织确实需要集中审计、预算、协议转换或统一出口时，才应单独评测和部署一个独立网关；AIGW 只把它当作普通 HTTPS 服务入口，绝不管理其端口、进程或上游密钥。
+| Platform | Native package | Portable package |
+| --- | --- | --- |
+| macOS | `aigw_<version>_darwin_universal.pkg` | `aigw_<version>_darwin_{amd64,arm64}.tar.gz` |
+| Linux | `aigw_<version>_linux_{amd64,arm64}.{deb,rpm}` | `aigw_<version>_linux_{amd64,arm64}.tar.gz` |
+| Windows | `aigw_<version>_windows_{amd64,arm64}.msi` | `aigw_<version>_windows_{amd64,arm64}.zip` |
 
-任意上游服务商都可作为一个服务账户。当前精简的可运行基线是 `gpt-5.6-terra`（Codex）和 `claude-fable-5`（默认 Agent）；Sonnet 与 Opus 仅作明确的按需选择。示例团队清单用可选的 `purpose` 标出每个模型配置的日常用途，帮助成员选择，而不改变路由或密钥边界。模型名对 AIGW 是透明字符串，团队可按自身已验证的能力增删；[模型策略](docs/model-strategy.md)定义了推荐集与新客户端的准入边界。
-
-## 安装
-
-从私有 GitLab Release 下载与你平台匹配的安装包，并校验 `checksums.txt`。
-
-正式团队 Release 在上传前必须通过完整 15 工件矩阵；缺失某平台的原生构建工具时，流水线会拒绝发布，不会悄悄生成残缺 Release。校验和与 SBOM 是当前 RC 的可验证交付物。无预发布后缀的 GA tag 在组织的 macOS/Windows 签名、公证与验证作业落地前会被 CI 明确阻断，不能伪造或绕过；见[发布证据契约](docs/release-readiness.md)。
-
-| 平台 | 推荐安装包 | 便携包 |
-|---|---|---|
-| macOS（Intel 或 Apple Silicon） | `aigw_<version>_darwin_universal.pkg` | 按芯片选择下列便携包 |
-| macOS Intel | 同上（Universal `.pkg`） | `aigw_<version>_darwin_amd64.tar.gz` |
-| macOS Apple Silicon | 同上（Universal `.pkg`） | `aigw_<version>_darwin_arm64.tar.gz` |
-| Linux x86-64 | `linux_amd64.deb` 或 `linux_amd64.rpm` | `linux_amd64.tar.gz` |
-| Linux ARM64 | `linux_arm64.deb` 或 `linux_arm64.rpm` | `linux_arm64.tar.gz` |
-| Windows x86-64 | `windows_amd64.msi` | `windows_amd64.zip` |
-| Windows ARM64 | `windows_arm64.msi` | `windows_arm64.zip` |
-
-`darwin_universal.pkg` 内含 Intel（`amd64`）和 Apple Silicon（`arm64`）两个原生架构，安装时自动选择；它不是 ARM 专用包。`amd64` 表示常见 Intel/AMD 64 位 x86 机器；`arm64` 表示 Apple Silicon、ARM Linux 或 Windows on ARM。
-
-解压对应便携包后，在包目录使用便携安装脚本：
+From an extracted portable archive:
 
 ```bash
 sh install.sh
@@ -63,19 +43,21 @@ sh install.sh
 .\install.ps1
 ```
 
-脚本只安装包内的二进制，不访问网络、不读取 GitLab Token；安装完成后的升级统一使用 `aigw update`。便携安装默认放到 Unix 的 `~/.local/bin` 或 Windows 的 `%LOCALAPPDATA%\Programs\aigw\bin`。Unix 安装器即使从受限 `PATH` 启动也只使用系统基础工具；仅在 zsh 的原始 `PATH` 缺少系统目录时，才创建一个 AIGW-owned、无密钥、可卸载的 `.zshenv` bootstrap。原生安装包负责系统安装语义；AIGW 不注册 daemon、launchd、systemd 或计划任务。
+Portable installers copy only the bundled executable. They do not access the
+network, retrieve a release, or read a GitLab token. They install under the
+current user and retain one immediate predecessor for offline program rollback.
+Native packages own only their package-managed files.
 
-## 第一次使用
+## Quick start
 
-最简单路径：
+Interactive setup creates the first account, profile, and route without
+assuming a provider, endpoint, model, or token:
 
 ```bash
 aigw setup
 ```
 
-首次运行 `aigw` 或空参数 `aigw setup` 会引导输入服务账户、首个模型配置、客户端、端点和隐藏 Token；它不预设任何服务商、URL、Token 槽位或模型。随后会发现适用的 Claude/Codex 适配器，并执行一次连通性检查。
-
-团队清单模式：
+For a reviewed, token-free team manifest:
 
 ```bash
 aigw config import team-profiles.toml
@@ -85,171 +67,103 @@ aigw use claude-fable-5 --for claude
 aigw check
 ```
 
-团队清单与本机配置统一使用 schema v2；AIGW 仅接受这一当前结构，避免迁移逻辑和并行配置路径。导入、轮换和切换都不会同步、认证、启动、关闭或重启 Claude/Codex。
+Import is non-destructive by default. A same-named account or profile must
+match exactly or the import stops before any mutation. An explicit reviewed
+replacement changes public metadata only; it never reads, writes, or deletes a
+stored token:
 
-团队清单不能静默接管本机身份：同名服务账户或模型配置的内容完全一致时导入幂等；若端点、协议或模型等内容不同，导入会拒绝，以免把既有系统 Token 指向新地址。经人工核验后，才可显式替换指定对象：
-
-```sh
+```bash
 aigw config import team-profiles.toml --replace-account team-gateway
 aigw config import team-profiles.toml --replace-profile gpt-5.6-terra
 ```
 
-`--replace-account` 仅替换服务账户元数据；对应的系统密钥槽位与 Token 不会被团队清单读取、写入或删除。
-
-没有团队清单时：
+## Daily operations
 
 ```bash
-aigw setup \
-  --account team-gateway \
-  --profile gpt-5.6-terra \
-  --label "Team Gateway" \
-  --openai-url https://gateway.example/v1 \
-  --for codex \
-  --model gpt-5.6-terra
+aigw                         # current routes and readiness
+aigw use [profile]           # choose a profile
+aigw route list              # inspect route overrides
+aigw rotate [account]        # replace one account token
+aigw catalog [--all|--json]  # inspect an account model inventory
+aigw check                   # configuration and endpoint health
+aigw sync --dry-run --json   # inspect all Codex projection actions
+aigw sync                    # atomically reconcile marked projections
+aigw verify --for all        # opt-in minimal real model requests
+aigw rollback                # restore the latest verified configuration
+aigw update                  # update the installed program
+aigw update --rollback       # offline portable-program rollback only
 ```
 
-Token 使用隐藏输入；自动化场景可将一行 Token 管道输入并添加 `--token-stdin`。
+`aigw test` is a bounded connectivity and authentication check. `aigw verify`
+makes a minimal real request and consumes provider quota only when explicitly
+run. `aigw rollback` restores AIGW-managed configuration; it never restarts a
+client. `aigw update --rollback` swaps only the portable executable and its one
+local predecessor; native-package rollback belongs to the platform package
+manager.
 
-## 日常命令
+## Client boundaries
+
+Claude uses an AIGW-owned shim in AIGW's private data directory. Its account
+token becomes `ANTHROPIC_AUTH_TOKEN` only in the Claude process it launches.
+Codex receives only AIGW-marked top-level `model`, `model_provider`, and a
+provider projection. `aigw sync` performs an all-target transaction and does
+not start, stop, restart, reload, or alter a Codex conversation.
+
+For a drifted target, inspect the plan first:
 
 ```bash
-aigw                         # 当前状态；首次运行会进入向导
-aigw setup                   # 傻瓜式首次配置
-aigw use [profile]           # 切换模型配置，可交互选择
-aigw profile add ... --purpose "代码与工程" # 为配置添加一行用途提示
-aigw route list              # 仅查看默认路由与 Claude/Codex 覆盖
-aigw rotate [account]        # 更新服务账户 Token
-aigw catalog [--all|--json]  # 默认紧凑模型摘要；显式查看完整目录或 JSON
-aigw check                   # 配置、Token、客户端与网关健康检查
-aigw balance [account]       # 仅对显式配置且本版本支持的服务商显示精确值
-aigw sync                    # 事务性对齐全部 Codex 投影；不重启客户端、不改动认证
-aigw sync --dry-run --json   # 仅展示各目标动作；不写入配置、认证或会话
-aigw adapter auth codex      # 仅重新绑定当前服务账户的 Codex 原生认证
-aigw repair                  # 自动发现并修复适配器漂移
-aigw verify --for all        # 明确执行两次最小真实模型请求，并建立验证检查点
-aigw rollback                # 回退到最近一次完整验证配置，不重启客户端
-aigw update                  # 按安装渠道更新
-aigw update --rollback       # 仅回退便携版 AIGW 程序，不访问网络
+aigw sync --dry-run --json
+aigw sync
 ```
 
-低频操作位于 `profile`、`route`、`adapter`、`account` 和 `config` 命名空间。运行 `aigw completion --help` 可生成 Bash、Zsh、Fish 或 PowerShell 补全。
+## Update source
 
-
-## 服务账户与模型配置
-
-AIGW 分两层管理：
-
-- **服务账户**：上游服务商账户、URL、Token 和可选的服务商精确诊断，例如 `team-gateway`。
-- **模型配置**：用户日常切换的模型运行配置，例如 `gpt-5.6-terra`、`claude-fable-5`、`claude-opus-4-8-thinking`；可选的 `purpose` 仅提供一行用途提示。
-
-模型配置与模型 ID 保持上游的 canonical 名称；客户端语义由 `client` 表达，不再以历史客户端后缀编码进 GPT 名称。
-
-多个模型配置可以引用同一个服务账户，所以轮换 Token 只需要：
+Released binaries carry the release source recorded by their publishing
+pipeline. A locally built binary has no implicit vendor endpoint: configure both
+variables before using `aigw update`:
 
 ```bash
-aigw rotate team-gateway
+export AIGW_RELEASE_HOST=https://gitlab.example.com
+export AIGW_RELEASE_PROJECT=group/aigw-cli
 ```
 
-切换模型只需要：
+AIGW prefers authenticated `glab`. If `glab` is unavailable, an explicit
+`GITLAB_TOKEN` can be used for an HTTPS GitLab API fallback. Tokens are never
+stored by the updater, passed on a command line, or forwarded across hosts.
+Downloaded artifacts are checksum-verified before replacement.
 
-```bash
-aigw use gpt-5.6-terra --for codex
-aigw use claude-fable-5 --for claude
-```
+## Product boundaries
 
-添加第二个服务时使用一次 `aigw add <account>` 并录入该服务自己的 Token；在既有服务下添加模型时，不复制 URL 或 Token：
+AIGW is a control plane, not a proxy or gateway. It does not own or modify
+Codex JSONL, SQLite, archived conversations, model metadata, or a DMX Proxy
+process. A future organizational gateway is simply a verified HTTPS account
+endpoint from AIGW's perspective.
 
-```bash
-aigw account edit team-gateway --openai-url https://gateway.example/v1
-aigw profile add gpt-next --account team-gateway --for codex --model gpt-next --purpose "已验证的代码任务"
-aigw catalog
-aigw use gpt-next --for codex
-```
+## Documentation and contribution
 
-`catalog` 只读取该服务账户的 `/v1/models`；默认只显示已配置模型与数量摘要，`--all` 显式展开完整目录，`--json` 保持完整机器输出。列出的模型不自动成为模型配置，也不表示已经通过特定客户端、工具、视觉或推理能力验证。
+- [Concepts](docs/concepts.md)
+- [Security model](docs/security.md)
+- [Model strategy](docs/model-strategy.md)
+- [Adapter admission](docs/adapter-admission.md)
+- [Team rollout](docs/team-rollout.md)
+- [Release evidence](docs/release-readiness.md)
+- [Contribution guide](CONTRIBUTING.md)
+- [Documentation root](docs/README.md)
+- [Change and release policy](docs/governance/change-and-release-policy.md)
 
-## 客户端边界
-
-```bash
-aigw adapter discover
-aigw adapter enable claude --executable /absolute/path/to/claude
-aigw adapter enable codex \
-  --executable /absolute/path/to/codex \
-  --target "$HOME/.codex/config.toml"
-```
-
-Claude 启动器由 AIGW 放在**专属数据目录**：macOS 为 `~/Library/Application Support/aigw/bin/claude`，Linux 为 `${XDG_DATA_HOME:-~/.local/share}/aigw/bin/claude`，Windows 为 `%LOCALAPPDATA%\Programs\aigw\bin\claude.cmd`。启用 Claude 适配器时，AIGW 只在当前用户的 shell 配置写入一个有边界标记、无密钥的 PATH 块；它不写入 `~/.codex`，也不会覆盖非 AIGW 管理的 `claude`。Claude Token 只在启动目标进程时映射为 `ANTHROPIC_AUTH_TOKEN`。
-
-Codex 只接收带 AIGW 标记的顶层 `model`、`model_provider` 和 provider 投影。`aigw doctor` 会检查这三处是否仍与当前模型配置一致；发现手工漂移时，先用 `aigw sync --dry-run --json` 审阅全目标计划，再用 `aigw sync` 原子收敛全部目标。该过程不会启动、关闭或重启 Codex。
-
-同一服务账户内切换模型只更新配置，不重复绑定凭据。首次启用 Codex、切换到另一个服务账户、`aigw rotate` 或显式运行 `aigw adapter auth codex` 时，AIGW 才通过官方 `login --with-api-key` 从 stdin 执行一次有 20 秒上限的认证绑定。
-
-## 验证与回退
-
-`aigw test` 是无模型调用的连通性与认证检查；Claude 基础 URL 对 GET 返回 `404` 时表示“服务可达，但基础地址不提供 GET 探测”，不会误报为端点不可达。`aigw verify --for claude|codex` 则会发送一次有上限的真实模型请求，并要求返回 `AIGW_OK`。Claude 验证显式使用当前路由模型和安全模式，禁用 hooks、MCP、skills、插件、自定义命令与会话持久化，避免用户设置污染验证边界。它只适合在用户明确允许消耗一次最小额度时使用。
-
-`aigw verify --for all` 还会先确认 Claude shim、Codex 可执行文件和所有 Codex 投影均就绪；仅两条真实链路均通过后，才在本机保存**不含密钥**的完整验证检查点。`aigw rollback` 优先恢复该检查点；`aigw rollback --last-change` 只恢复紧邻的配置备份。二者只恢复 AIGW 管理的配置投影，绝不启动、停止、重启或重载 Claude/Codex 客户端。
-
-`aigw update --rollback` 与上述配置回退完全独立：它只在便携安装中交换当前 AIGW
-程序与唯一的上一版本副本，不访问网络、不读取 Token、不改动配置、密钥或客户端。
-若回退目标是尚不支持该命令的旧版，使用团队发布页重新下载当前便携包，再运行包内安装
-脚本即可恢复当前程序；安装器只替换 AIGW 程序并保留上一程序副本。原生 `.pkg`、
-`.deb`、`.rpm`、`.msi` 安装应使用各自的包管理器回退。
-
-## 诊断
-
-`aigw check` / `aigw doctor` 会给出可操作判断：Token 无效、Token 被禁用、余额/额度耗尽、账号限制、限速、模型/渠道不可用、网关 5xx、网络/TLS/代理问题、本地密钥缺失、Codex 模型或 provider 投影漂移等。
-
-`aigw check` 诊断当前默认模型配置对应的服务账户，并分别检查已启用客户端的本地路由与适配器；它不会把客户端覆盖路由误当成默认服务，也不会静默扫描无关服务账户。需要明确验证某个客户端端点时使用 `aigw test --for claude|codex`。只有团队清单显式配置、且当前 AIGW 版本包含对应服务商诊断的服务商，才会显示精确余额入口；该平台凭据独立存储，不进入配置文件：
-
-```bash
-aigw account connect <account>
-aigw balance <account>
-```
-
-若没有精确诊断驱动，`aigw balance` 会明确说明原因，不会影响 `check`、路由、Token 轮换或客户端使用。
-
-## 治理与文档
-
-AIGW 是 Codex provider 配置的控制面；它不管理 `codex-dmx-proxy` 的监听器、看门狗或数据面生命周期。代理只在本地 Responses 边界做兼容处理；二者通过受控 endpoint 投影协作，而不共享写入权。
-
-- [Agent 入口](AGENTS.md)
-- [贡献与验证](CONTRIBUTING.md)
-- [文档根](docs/README.md)
-- [权威与投影边界](docs/architecture/authority-and-projection-boundary.md)
-- [变更与发布政策](docs/governance/change-and-release-policy.md)
-- [ADR-0001](docs/decisions/0001-control-plane-data-plane-boundary.md)
-
-## 文档
-
-- [核心概念](docs/concepts.md)
-- [安全模型](docs/security.md)
-- [模型策略与客户端准入](docs/model-strategy.md)
-- [适配器准入](docs/adapter-admission.md)
-- [团队推广](docs/team-rollout.md)
-- [历史产品设计（仅保留溯源）](docs/history/2026-07-10-initial-product-design.md)
-
-## 卸载边界
-
-便携安装的卸载脚本只移除当前用户安装目录中的 `aigw` 与 AIGW-owned Claude shim。原生 `.pkg`、`.deb`、`.rpm`、`.msi` 安装器只管理自身安装的程序文件，**不会遍历用户目录或删除任何用户 shim**；在卸载前如需清理 shim，请以该用户身份运行 `aigw adapter disable claude`。配置、系统密钥和客户端用户配置始终保留，供重新安装或受控离网使用。
-
-## 外部网关边界
-
-AIGW 不运行代理，不监听任何端口。若组织未来部署独立网关，它对 AIGW 只是一个 HTTPS 服务账户端点；该网关的部署、生命周期与密钥均不属于 AIGW。
-
-## 开发与验证
+## Verify a source checkout
 
 ```bash
 go test -race ./...
 go vet ./...
-sh scripts/check-retired-residue.sh
-sh scripts/check-package-runner.sh
+test -z "$(gofmt -l cmd internal tools)"
+sh scripts/check-governance.sh
+python3 scripts/check-markdown-presentation.py
+sh scripts/test-changelog.sh
 AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh 0.1.0-rc.1 dist
-sh scripts/test-release-artifacts.sh
-sh scripts/test-msi-version.sh
 sh scripts/test-release-package-layout.sh dist 0.1.0-rc.1
-# 可选：本地/容器兼容性验收；离线验证 amd64/arm64 的 Debian 与 RPM 安装路径，不能替代 Debian/Fedora runner 的原生证据。
-sh scripts/test-linux-native-install.sh dist 0.1.0-rc.1
 ```
 
-项目目标为 macOS、Linux、Windows 的 amd64 与 arm64。AIGW 只管理本地配置、密钥、路由和客户端适配器；任何传输代理或数据面网关均应作为独立项目维护。
+A source tag is not proof of published assets, native-platform acceptance, or
+GA signing. The evidence boundaries are defined in
+[release-readiness.md](docs/release-readiness.md).

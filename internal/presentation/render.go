@@ -127,24 +127,24 @@ func (r *Renderer) Success(value string) {
 }
 
 func (r *Renderer) Next(command string) {
-	r.Section("下一步")
+	r.Section("Next")
 	r.Command(command)
 }
 
 func (r *Renderer) Problem(problem Problem) {
-	r.Title("AIGW", "需要处理")
-	r.Section("问题")
+	r.Title("AIGW", "Action required")
+	r.Section("Problem")
 	fmt.Fprintf(r.out, "  %s\n", r.styles.problem.Render(problem.Title))
 	if problem.Evidence != "" {
-		r.Section("判断依据")
+		r.Section("Evidence")
 		fmt.Fprintf(r.out, "  %s\n", problem.Evidence)
 	}
 	if problem.Impact != "" {
-		r.Section("影响")
+		r.Section("Impact")
 		fmt.Fprintf(r.out, "  %s\n", problem.Impact)
 	}
 	if problem.Fix != "" {
-		r.Section("建议操作")
+		r.Section("Recommended action")
 		fmt.Fprintf(r.out, "  %s\n", r.styles.command.Render(problem.Fix))
 	}
 }

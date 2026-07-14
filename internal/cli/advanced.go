@@ -17,7 +17,7 @@ import (
 )
 
 func newProfileCommand(app *App) *cobra.Command {
-	root := &cobra.Command{Use: "profile", Short: "管理服务配置"}
+	root := &cobra.Command{Use: "profile", Short: "Manage service profiles"}
 	root.AddCommand(newProfileAddCommand(app), newProfileListCommand(app), newProfileShowCommand(app), newProfileEditCommand(app), newProfileRenameCommand(app), newProfileRemoveCommand(app))
 	return root
 }
@@ -25,28 +25,28 @@ func newProfileCommand(app *App) *cobra.Command {
 func newProfileAddCommand(app *App) *cobra.Command {
 	var accountName, client, model, label, purpose string
 	cmd := &cobra.Command{
-		Use: "add <profile>", Short: "向既有服务账户添加模型配置", Args: cobra.ExactArgs(1),
+		Use: "add <profile>", Short: "Add a model profile to an existing account", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			profileName := args[0]
 			if !domain.ValidProfileName(profileName) {
-				return fmt.Errorf("配置名称无效 %q；只能使用字母、数字、点、连字符或下划线", profileName)
+				return fmt.Errorf("Invalid profile ID %q; use letters, numbers, dots, hyphens, or underscores", profileName)
 			}
 			if accountName == "" || client == "" || model == "" {
-				return fmt.Errorf("必须同时提供 --account、--for 和 --model；运行 `aigw profile add --help` 查看帮助")
+				return fmt.Errorf("--account, --for, and --model are required; run `aigw profile add --help`")
 			}
 			if !domain.IsAdmittedClient(client) {
-				return fmt.Errorf("--for 只能是 claude 或 codex；运行 `aigw profile add --help` 查看帮助")
+				return fmt.Errorf("--for must be claude or codex; run `aigw profile add --help`")
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
 				return err
 			}
 			if _, exists := cfg.Profiles[profileName]; exists {
-				return fmt.Errorf("配置 %q 已存在", profileName)
+				return fmt.Errorf("Profile %q already exists", profileName)
 			}
 			account, exists := cfg.Accounts[accountName]
 			if !exists {
-				return fmt.Errorf("未知服务账户 %q；请先运行 `aigw add %s ...` 添加服务", accountName, accountName)
+				return fmt.Errorf("Unknown account %q; first run `aigw add %s ...`", accountName, accountName)
 			}
 			account.ID = accountName
 			if _, err := account.EndpointFor(client); err != nil {
@@ -62,33 +62,33 @@ func newProfileAddCommand(app *App) *cobra.Command {
 				return err
 			}
 			r := renderer(app)
-			r.Title("AIGW", "模型配置已添加")
-			r.Row("配置", profileName)
-			r.Row("服务账户", accountName)
-			r.Row("模型", model)
+			r.Title("AIGW", "Model profile added")
+			r.Row("Configuration", profileName)
+			r.Row("Account", accountName)
+			r.Row("Model", model)
 			if purpose := strings.TrimSpace(purpose); purpose != "" {
-				r.Row("用途", purpose)
+				r.Row("Purpose", purpose)
 			}
-			r.Success("复用了现有服务账户 Token；未改变当前路由")
+			r.Success("Reused the existing account token; current route was not changed")
 			r.Next("aigw use " + profileName + " --for " + client)
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&accountName, "account", "", "既有服务账户 ID")
-	cmd.Flags().StringVar(&client, "for", "", "客户端：claude 或 codex")
-	cmd.Flags().StringVar(&model, "model", "", "上游模型 ID")
-	cmd.Flags().StringVar(&label, "label", "", "显示名称")
-	cmd.Flags().StringVar(&purpose, "purpose", "", "用途说明（只影响展示）")
+	cmd.Flags().StringVar(&accountName, "account", "", "Existing account ID")
+	cmd.Flags().StringVar(&client, "for", "", "Client: claude or codex")
+	cmd.Flags().StringVar(&model, "model", "", "Upstream model ID")
+	cmd.Flags().StringVar(&label, "label", "", "Display name")
+	cmd.Flags().StringVar(&purpose, "purpose", "", "Purpose note (display only)")
 	return cmd
 }
 
 func newAccountEditCommand(app *App) *cobra.Command {
 	var label, openAIURL, anthropicURL string
 	cmd := &cobra.Command{
-		Use: "edit <account>", Short: "更新服务账户信息与协议端点", Args: cobra.ExactArgs(1),
+		Use: "edit <account>", Short: "Update account metadata and protocol endpoints", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if label == "" && openAIURL == "" && anthropicURL == "" {
-				return fmt.Errorf("没有可更新的内容；请提供 --label、--openai-url 或 --anthropic-url")
+				return fmt.Errorf("Nothing to update; provide --label, --openai-url, or --anthropic-url")
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -96,7 +96,7 @@ func newAccountEditCommand(app *App) *cobra.Command {
 			}
 			account, exists := cfg.Accounts[args[0]]
 			if !exists {
-				return fmt.Errorf("未知服务账户 %q", args[0])
+				return fmt.Errorf("Unknown account %q", args[0])
 			}
 			before := cloneConfig(cfg)
 			if label != "" {
@@ -113,22 +113,22 @@ func newAccountEditCommand(app *App) *cobra.Command {
 				return err
 			}
 			r := renderer(app)
-			r.Title("AIGW", "服务账户已更新")
-			r.Row("服务账户", args[0])
-			r.Success("引用此账户的配置已使用同一组端点；Token 未改变")
+			r.Title("AIGW", "Account updated")
+			r.Row("Account", args[0])
+			r.Success("Profiles using this account now use the same endpoints; token was not changed")
 			r.Next("aigw check")
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&label, "label", "", "新的显示名称")
-	cmd.Flags().StringVar(&openAIURL, "openai-url", "", "新的 OpenAI Responses URL")
-	cmd.Flags().StringVar(&anthropicURL, "anthropic-url", "", "新的 Anthropic URL")
+	cmd.Flags().StringVar(&label, "label", "", "New display name")
+	cmd.Flags().StringVar(&openAIURL, "openai-url", "", "New OpenAI Responses URL")
+	cmd.Flags().StringVar(&anthropicURL, "anthropic-url", "", "New Anthropic URL")
 	return cmd
 }
 
 func newProfileListCommand(app *App) *cobra.Command {
 	return &cobra.Command{
-		Use: "list", Short: "列出服务配置", Args: cobra.NoArgs,
+		Use: "list", Short: "List service profiles", Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -136,30 +136,30 @@ func newProfileListCommand(app *App) *cobra.Command {
 			}
 			names := sortedProfileNames(cfg)
 			r := renderer(app)
-			r.Title("AIGW", "服务配置")
-			r.Section("可用配置")
+			r.Title("AIGW", "Service profiles")
+			r.Section("Available profiles")
 			for _, name := range names {
 				state := presentation.Info
-				stateText := "可用"
+				stateText := "Available"
 				if name == cfg.Routes.Default {
 					state = presentation.OK
-					stateText = "当前"
+					stateText = "Current"
 				}
 				accountName := cfg.Profiles[name].Account
 				if accountName == "" {
 					accountName = name
 				}
-				secret := "缺少 Token"
+				secret := "Token missing"
 				if app.Secrets.Has(accountName) {
-					secret = "Token 可用"
+					secret = "Token available"
 				}
 				profile := cfg.Profiles[name]
 				detail := []string{}
 				if profile.Client != "" {
 					detail = append(detail, title(profile.Client))
 				}
-				detail = append(detail, profileChoiceLabel(profile), stateText, "账户 "+accountName, secret)
-				r.StatusLine(state, "配置", name)
+				detail = append(detail, profileChoiceLabel(profile), stateText, "Account "+accountName, secret)
+				r.StatusLine(state, "Configuration", name)
 				r.Detail(strings.Join(detail, " · "))
 			}
 			r.Next("aigw use")
@@ -171,7 +171,7 @@ func newProfileListCommand(app *App) *cobra.Command {
 func newProfileShowCommand(app *App) *cobra.Command {
 	var jsonMode bool
 	cmd := &cobra.Command{
-		Use: "show <profile>", Short: "查看不含密钥的配置元数据", Args: cobra.ExactArgs(1),
+		Use: "show <profile>", Short: "Show secret-free profile metadata", Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -179,7 +179,7 @@ func newProfileShowCommand(app *App) *cobra.Command {
 			}
 			profile, ok := cfg.Profiles[args[0]]
 			if !ok {
-				return fmt.Errorf("未知配置 %q", args[0])
+				return fmt.Errorf("Unknown profile %q", args[0])
 			}
 			accountName := profile.Account
 			if accountName == "" {
@@ -190,19 +190,19 @@ func newProfileShowCommand(app *App) *cobra.Command {
 				return json.NewEncoder(app.Out).Encode(map[string]any{"id": args[0], "label": profile.Label, "purpose": profile.Purpose, "account": accountName, "models": profile.Models, "endpoints": account.Endpoints, "secret_available": app.Secrets.Has(accountName)})
 			}
 			r := renderer(app)
-			r.Title("AIGW", "服务详情")
-			r.Section("服务配置")
-			r.Row("配置 ID", args[0])
-			r.Row("名称", profile.Label)
+			r.Title("AIGW", "Service details")
+			r.Section("Service profiles")
+			r.Row("Profile ID", args[0])
+			r.Row("Name", profile.Label)
 			if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
-				r.Row("用途", purpose)
+				r.Row("Purpose", purpose)
 			}
-			r.Row("服务账户", accountName)
+			r.Row("Account", accountName)
 			if profile.ModelFor(domain.ClientCodex) != "" {
-				r.Row("Codex 模型", profile.ModelFor(domain.ClientCodex))
+				r.Row("Codex model", profile.ModelFor(domain.ClientCodex))
 			}
 			if profile.ModelFor(domain.ClientClaude) != "" {
-				r.Row("Claude 模型", profile.ModelFor(domain.ClientClaude))
+				r.Row("Claude model", profile.ModelFor(domain.ClientClaude))
 			}
 			if account.Endpoints.OpenAIResponses != "" {
 				r.Row("OpenAI", account.Endpoints.OpenAIResponses)
@@ -211,26 +211,26 @@ func newProfileShowCommand(app *App) *cobra.Command {
 				r.Row("Anthropic", account.Endpoints.Anthropic)
 			}
 			secretState := presentation.Warn
-			secretText := "缺失"
+			secretText := "Missing"
 			if app.Secrets.Has(accountName) {
 				secretState = presentation.OK
-				secretText = "可用"
+				secretText = "Available"
 			}
-			r.Status(secretState, "系统密钥", secretText)
+			r.Status(secretState, "System secret", secretText)
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&jsonMode, "json", false, "输出机器可读 JSON")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
 	return cmd
 }
 
 func newProfileEditCommand(app *App) *cobra.Command {
 	var label, purpose string
 	cmd := &cobra.Command{
-		Use: "edit <profile>", Short: "更新运行配置的显示信息", Args: cobra.ExactArgs(1),
+		Use: "edit <profile>", Short: "Update profile display metadata", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if label == "" && !cmd.Flags().Changed("purpose") {
-				return fmt.Errorf("没有可更新的内容；请提供 --label 或 --purpose；端点请使用 `aigw account edit <account>`")
+				return fmt.Errorf("Nothing to update; provide --label or --purpose; use `aigw account edit <account>` for endpoints")
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -239,7 +239,7 @@ func newProfileEditCommand(app *App) *cobra.Command {
 			before := cloneConfig(cfg)
 			profile, ok := cfg.Profiles[args[0]]
 			if !ok {
-				return fmt.Errorf("未知配置 %q", args[0])
+				return fmt.Errorf("Unknown profile %q", args[0])
 			}
 			if label != "" {
 				profile.Label = label
@@ -253,29 +253,29 @@ func newProfileEditCommand(app *App) *cobra.Command {
 				return err
 			}
 			r := renderer(app)
-			r.Title("AIGW", "服务已更新")
-			r.Row("配置", args[0])
+			r.Title("AIGW", "Profile updated")
+			r.Row("Configuration", args[0])
 			if projectionChanged {
-				r.Success("客户端配置已同步")
+				r.Success("Client configuration synchronized")
 			} else {
-				r.Success("展示信息已保存；未触碰客户端配置")
+				r.Success("Display metadata saved; client configuration was not changed")
 			}
 			r.Next("aigw check")
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&label, "label", "", "新的显示名称")
-	cmd.Flags().StringVar(&purpose, "purpose", "", "用途说明（传入空值可清除）")
+	cmd.Flags().StringVar(&label, "label", "", "New display name")
+	cmd.Flags().StringVar(&purpose, "purpose", "", "Purpose note (pass an empty value to clear)")
 	return cmd
 }
 
 func newProfileRenameCommand(app *App) *cobra.Command {
 	return &cobra.Command{
-		Use: "rename <old> <new>", Short: "重命名运行配置", Args: cobra.ExactArgs(2),
+		Use: "rename <old> <new>", Short: "Rename a profile", Args: cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			oldName, newName := args[0], args[1]
 			if !domain.ValidProfileName(newName) {
-				return fmt.Errorf("新的配置名称无效 %q", newName)
+				return fmt.Errorf("Invalid new profile ID %q", newName)
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -284,10 +284,10 @@ func newProfileRenameCommand(app *App) *cobra.Command {
 			before := cloneConfig(cfg)
 			profile, ok := cfg.Profiles[oldName]
 			if !ok {
-				return fmt.Errorf("未知配置 %q", oldName)
+				return fmt.Errorf("Unknown profile %q", oldName)
 			}
 			if _, exists := cfg.Profiles[newName]; exists {
-				return fmt.Errorf("配置 %q 已存在", newName)
+				return fmt.Errorf("Profile %q already exists", newName)
 			}
 			delete(cfg.Profiles, oldName)
 			cfg.Profiles[newName] = profile
@@ -303,11 +303,11 @@ func newProfileRenameCommand(app *App) *cobra.Command {
 				return err
 			}
 			r := renderer(app)
-			r.Title("AIGW", "配置已重命名")
-			r.Row("原配置", oldName)
-			r.Row("新配置", newName)
-			r.Row("服务账户", profile.Account)
-			r.Success("账户 Token 保持原位，路由已同步")
+			r.Title("AIGW", "Profile renamed")
+			r.Row("Previous profile", oldName)
+			r.Row("New profile", newName)
+			r.Row("Account", profile.Account)
+			r.Success("The account token remains in place and routes were synchronized")
 			return nil
 		},
 	}
@@ -315,7 +315,7 @@ func newProfileRenameCommand(app *App) *cobra.Command {
 
 func newProfileRemoveCommand(app *App) *cobra.Command {
 	return &cobra.Command{
-		Use: "remove <profile>", Short: "删除未使用的运行配置", Args: cobra.ExactArgs(1),
+		Use: "remove <profile>", Short: "Remove an unused profile", Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -325,14 +325,14 @@ func newProfileRemoveCommand(app *App) *cobra.Command {
 			name := args[0]
 			profile, ok := cfg.Profiles[name]
 			if !ok {
-				return fmt.Errorf("未知配置 %q", name)
+				return fmt.Errorf("Unknown profile %q", name)
 			}
 			if cfg.Routes.Default == name {
-				return fmt.Errorf("配置 %q 正在作为默认路由使用；请先运行 `aigw use <other>` 切换", name)
+				return fmt.Errorf("Profile %q is the default route; first run `aigw use <other>`", name)
 			}
 			for client, route := range cfg.Routes.Overrides {
 				if route == name {
-					return fmt.Errorf("配置 %q 正在由 %s 使用；请先运行 `aigw route reset %s` 重置", name, client, client)
+					return fmt.Errorf("Profile %q is used by %s; first run `aigw route reset %s`", name, client, client)
 				}
 			}
 			delete(cfg.Profiles, name)
@@ -340,23 +340,23 @@ func newProfileRemoveCommand(app *App) *cobra.Command {
 				return err
 			}
 			r := renderer(app)
-			r.Title("AIGW", "配置已移除")
-			r.Row("配置", name)
-			r.Row("服务账户", profile.Account)
-			r.Success("服务账户与 Token 保持原位")
+			r.Title("AIGW", "Profile removed")
+			r.Row("Configuration", name)
+			r.Row("Account", profile.Account)
+			r.Success("The account and token remain in place")
 			return nil
 		},
 	}
 }
 
 func newRouteCommand(app *App) *cobra.Command {
-	root := &cobra.Command{Use: "route", Short: "管理客户端路由"}
+	root := &cobra.Command{Use: "route", Short: "Manage client routes"}
 	root.AddCommand(
-		&cobra.Command{Use: "list", Short: "查看默认路由与客户端覆盖", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error { return runRouteList(app) }},
-		&cobra.Command{Use: "reset <claude|codex>", Short: "恢复一个客户端继承默认路由", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		&cobra.Command{Use: "list", Short: "Show the default route and client overrides", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error { return runRouteList(app) }},
+		&cobra.Command{Use: "reset <claude|codex>", Short: "Restore a client's inheritance of the default route", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 			client := args[0]
 			if !domain.IsAdmittedClient(client) {
-				return fmt.Errorf("客户端只能是 claude 或 codex；运行 `aigw route reset --help` 查看帮助")
+				return fmt.Errorf("Client must be claude or codex; run `aigw route reset --help`")
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -368,9 +368,9 @@ func newRouteCommand(app *App) *cobra.Command {
 				return err
 			}
 			r := renderer(app)
-			r.Title("AIGW", "路由已重置")
-			r.Row("客户端", title(client))
-			r.Success("现在继承默认服务")
+			r.Title("AIGW", "Route reset")
+			r.Row("Client", title(client))
+			r.Success("Now inherits the default service")
 			r.Next("aigw check")
 			return nil
 		}},
@@ -379,27 +379,27 @@ func newRouteCommand(app *App) *cobra.Command {
 }
 
 func newAdapterCommand(app *App) *cobra.Command {
-	root := &cobra.Command{Use: "adapter", Short: "管理 Claude/Codex 适配器"}
+	root := &cobra.Command{Use: "adapter", Short: "Manage Claude/Codex adapters"}
 	root.AddCommand(newAdapterListCommand(app), newAdapterDiscoverCommand(app), newAdapterEnableCommand(app), newAdapterAuthCommand(app), newAdapterDisableCommand(app))
 	return root
 }
 
 func newAdapterListCommand(app *App) *cobra.Command {
-	return &cobra.Command{Use: "list", Short: "列出适配器状态", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
+	return &cobra.Command{Use: "list", Short: "List adapter status", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
 		cfg, err := app.Config.Load()
 		if err != nil {
 			return err
 		}
 		r := renderer(app)
-		r.Title("AIGW", "客户端适配")
-		r.Section("适配器")
+		r.Title("AIGW", "Client adapters")
+		r.Section("Adapter")
 		for _, name := range domain.AdmittedClientIDs() {
 			adapter := cfg.Adapters[name]
 			state := presentation.Info
-			stateText := "未启用"
+			stateText := "Disabled"
 			if adapter.Enabled {
 				state = presentation.OK
-				stateText = "已启用"
+				stateText = "Enabled"
 			}
 			r.Status(state, title(name), stateText)
 			if adapter.Executable != "" {
@@ -411,14 +411,14 @@ func newAdapterListCommand(app *App) *cobra.Command {
 }
 
 func newAdapterDiscoverCommand(app *App) *cobra.Command {
-	return &cobra.Command{Use: "discover", Short: "发现已安装的 Claude 与 Codex 可执行文件", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
+	return &cobra.Command{Use: "discover", Short: "Discover installed Claude and Codex executables", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
 		r := renderer(app)
-		r.Title("AIGW", "客户端发现")
-		r.Section("已安装客户端")
+		r.Title("AIGW", "Client discovery")
+		r.Section("Installed clients")
 		for _, name := range domain.AdmittedClientIDs() {
 			path, err := exec.LookPath(name)
 			if err != nil {
-				r.Status(presentation.Info, title(name), "未发现")
+				r.Status(presentation.Info, title(name), "Not found")
 				continue
 			}
 			r.Status(presentation.OK, title(name), path)
@@ -430,16 +430,16 @@ func newAdapterDiscoverCommand(app *App) *cobra.Command {
 func newAdapterEnableCommand(app *App) *cobra.Command {
 	var executable string
 	var targets []string
-	cmd := &cobra.Command{Use: "enable <claude|codex>", Short: "启用客户端适配器", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	cmd := &cobra.Command{Use: "enable <claude|codex>", Short: "Enable a client adapter", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
 		if !domain.IsAdmittedClient(client) {
-			return fmt.Errorf("客户端只能是 claude 或 codex；运行 `aigw adapter enable --help` 查看帮助")
+			return fmt.Errorf("Client must be claude or codex; run `aigw adapter enable --help`")
 		}
 		if executable == "" {
 			return fmt.Errorf("--executable is required; run `aigw adapter discover`")
 		}
 		if client == domain.ClientCodex && len(targets) == 0 {
-			return fmt.Errorf("Codex 适配器至少需要一个 --target config.toml")
+			return fmt.Errorf("Codex adapter requires at least one --target config.toml")
 		}
 		cfg, err := app.Config.Load()
 		if err != nil {
@@ -447,18 +447,18 @@ func newAdapterEnableCommand(app *App) *cobra.Command {
 		}
 		before := cloneConfig(cfg)
 		if current := before.Adapters[client]; current.Enabled {
-			return fmt.Errorf("%s 适配器已启用；修改可执行文件或配置目标前请先停用", title(client))
+			return fmt.Errorf("%s adapter is already enabled; disable it before changing the executable or config targets", title(client))
 		}
 		runtime, _, err := cfg.ResolveRuntime(client, "")
 		if err != nil {
 			return err
 		}
 		if runtime.Endpoint == "" {
-			return fmt.Errorf("配置 %q 未设置 %s 端点", runtime.ProfileID, title(client))
+			return fmt.Errorf("Profile %q has no %s endpoint", runtime.ProfileID, title(client))
 		}
 		accountName := runtime.AccountID
 		if !app.Secrets.Has(accountName) {
-			return fmt.Errorf("服务账户 %q 缺少 Token；请运行 `aigw rotate %s`", accountName, accountName)
+			return fmt.Errorf("Account %q is missing a token; run `aigw rotate %s`", accountName, accountName)
 		}
 		cfg.Adapters[client] = domain.AdapterConfig{Enabled: true, Executable: executable, Targets: append([]string(nil), targets...)}
 		if client == domain.ClientClaude {
@@ -487,48 +487,48 @@ func newAdapterEnableCommand(app *App) *cobra.Command {
 			if client == domain.ClientClaude {
 				_ = app.Shims.DisableClaude()
 			}
-			return fmt.Errorf("启用适配器失败，已回退：%w", syncErr)
+			return fmt.Errorf("Adapter enablement failed and was rolled back: %w", syncErr)
 		}
 		r := renderer(app)
-		r.Title("AIGW", "客户端已启用")
-		r.Row("客户端", title(client))
-		r.Status(presentation.OK, "适配器", "配置完成")
+		r.Title("AIGW", "Client enabled")
+		r.Row("Client", title(client))
+		r.Status(presentation.OK, "Adapter", "Configured")
 		r.Next("aigw check")
 		return nil
 	}}
-	cmd.Flags().StringVar(&executable, "executable", "", "真实客户端可执行文件路径")
-	cmd.Flags().StringSliceVar(&targets, "target", nil, "客户端配置路径；多个 Codex Home 可重复传入")
+	cmd.Flags().StringVar(&executable, "executable", "", "Path to the real client executable")
+	cmd.Flags().StringSliceVar(&targets, "target", nil, "Client configuration path; repeat for multiple Codex homes")
 	return cmd
 }
 
 func newAdapterAuthCommand(app *App) *cobra.Command {
-	return &cobra.Command{Use: "auth codex", Short: "将当前服务账户的 Token 绑定到 Codex", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "auth codex", Short: "Bind the current account token to Codex", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		if args[0] != domain.ClientCodex {
-			return fmt.Errorf("原生凭据绑定仅适用于 codex；运行 `aigw adapter auth codex`")
+			return fmt.Errorf("Native credential binding is available only for codex; run `aigw adapter auth codex`")
 		}
 		cfg, err := app.Config.Load()
 		if err != nil {
 			return err
 		}
 		if !cfg.Adapters[domain.ClientCodex].Enabled {
-			return fmt.Errorf("Codex 适配器未启用；请先运行 `aigw adapter enable codex ...`")
+			return fmt.Errorf("Codex adapter is not enabled; first run `aigw adapter enable codex ...`")
 		}
 		if err := bindCodexAuthentication(cmd.Context(), app, cfg); err != nil {
-			return fmt.Errorf("绑定 Codex 认证失败：%w", err)
+			return fmt.Errorf("Failed to bind Codex authentication: %w", err)
 		}
 		r := renderer(app)
-		r.Title("AIGW", "Codex 认证已绑定")
-		r.Success("当前服务账户 Token 已写入 Codex 原生凭据存储")
+		r.Title("AIGW", "Codex authentication bound")
+		r.Success("The current account token was written to Codex native credential storage")
 		r.Next("aigw doctor")
 		return nil
 	}}
 }
 
 func newAdapterDisableCommand(app *App) *cobra.Command {
-	return &cobra.Command{Use: "disable <claude|codex>", Short: "禁用客户端适配器并移除 AIGW-owned 投影", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "disable <claude|codex>", Short: "Disable a client adapter and remove AIGW-owned projections", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 		client := args[0]
 		if !domain.IsAdmittedClient(client) {
-			return fmt.Errorf("客户端只能是 claude 或 codex；运行 `aigw adapter disable --help` 查看帮助")
+			return fmt.Errorf("Client must be claude or codex; run `aigw adapter disable --help`")
 		}
 		cfg, err := app.Config.Load()
 		if err != nil {
@@ -538,8 +538,8 @@ func newAdapterDisableCommand(app *App) *cobra.Command {
 		adapter, ok := cfg.Adapters[client]
 		if !ok || !adapter.Enabled {
 			r := renderer(app)
-			r.Title("AIGW", "客户端适配")
-			r.Status(presentation.Info, title(client), "已经处于未启用状态")
+			r.Title("AIGW", "Client adapters")
+			r.Status(presentation.Info, title(client), "Already disabled")
 			return nil
 		}
 		if client == domain.ClientCodex {
@@ -564,9 +564,9 @@ func newAdapterDisableCommand(app *App) *cobra.Command {
 			return err
 		}
 		r := renderer(app)
-		r.Title("AIGW", "客户端已停用")
-		r.Row("客户端", title(client))
-		r.Success("AIGW 所有的投影已安全移除")
+		r.Title("AIGW", "Client disabled")
+		r.Row("Client", title(client))
+		r.Success("All AIGW-owned projections were safely removed")
 		return nil
 	}}
 }
@@ -574,17 +574,17 @@ func newAdapterDisableCommand(app *App) *cobra.Command {
 func newConfigCommand(app *App) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "config",
-		Short: "导入和导出配置",
+		Short: "Import and export configuration",
 		RunE: func(_ *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return fmt.Errorf("请选择 config 子命令；运行 `aigw config --help` 查看帮助")
+				return fmt.Errorf("Choose a config subcommand; run `aigw config --help`")
 			}
-			return fmt.Errorf("未知 config 子命令 %q；运行 `aigw config --help` 查看帮助", args[0])
+			return fmt.Errorf("Unknown config subcommand %q; run `aigw config --help`", args[0])
 		},
 	}
 	root.AddCommand(
-		&cobra.Command{Use: "path", Short: "输出本机配置文件路径", Args: cobra.NoArgs, Run: func(_ *cobra.Command, _ []string) { fmt.Fprintln(app.Out, app.Config.Path()) }},
-		&cobra.Command{Use: "export", Short: "导出不含密钥的团队清单", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
+		&cobra.Command{Use: "path", Short: "Print the local configuration path", Args: cobra.NoArgs, Run: func(_ *cobra.Command, _ []string) { fmt.Fprintln(app.Out, app.Config.Path()) }},
+		&cobra.Command{Use: "export", Short: "Export a secret-free team manifest", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {
 				return err
@@ -598,10 +598,10 @@ func newConfigCommand(app *App) *cobra.Command {
 		}},
 		func() *cobra.Command {
 			var replaceAccounts, replaceProfiles []string
-			cmd := &cobra.Command{Use: "import <team-profiles.toml>", Short: "合并不含密钥的团队清单", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+			cmd := &cobra.Command{Use: "import <team-profiles.toml>", Short: "Merge a secret-free team manifest", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 				data, err := os.ReadFile(args[0])
 				if err != nil {
-					return fmt.Errorf("读取团队清单失败：%w", err)
+					return fmt.Errorf("Failed to read team manifest: %w", err)
 				}
 				team, err := manifest.Parse(data)
 				if err != nil {
@@ -622,16 +622,16 @@ func newConfigCommand(app *App) *cobra.Command {
 				accountNames := importedAccountNames(team)
 				missing := []string{}
 				r := renderer(app)
-				r.Title("AIGW", "团队配置已导入")
-				r.Row("服务数量", fmt.Sprintf("%d", len(team.Profiles)))
-				r.Row("账户数量", fmt.Sprintf("%d", len(accountNames)))
+				r.Title("AIGW", "Team configuration imported")
+				r.Row("Profiles", fmt.Sprintf("%d", len(team.Profiles)))
+				r.Row("Accounts", fmt.Sprintf("%d", len(accountNames)))
 				for _, name := range accountNames {
 					if app.Secrets.Has(name) {
-						r.Status(presentation.OK, "系统密钥", name+" Token 可用")
+						r.Status(presentation.OK, "System secret", name+" Token available")
 						continue
 					}
 					missing = append(missing, name)
-					r.Status(presentation.Warn, name, "需要录入 Token")
+					r.Status(presentation.Warn, name, "Token required")
 				}
 				if len(missing) > 0 {
 					if len(missing) == 1 {
@@ -644,8 +644,8 @@ func newConfigCommand(app *App) *cobra.Command {
 				}
 				return nil
 			}}
-			cmd.Flags().StringSliceVar(&replaceAccounts, "replace-account", nil, "显式替换冲突的服务账户元数据；系统 Token 保持不变")
-			cmd.Flags().StringSliceVar(&replaceProfiles, "replace-profile", nil, "显式替换冲突的模型配置")
+			cmd.Flags().StringSliceVar(&replaceAccounts, "replace-account", nil, "Explicitly replace conflicting account metadata; system tokens remain unchanged")
+			cmd.Flags().StringSliceVar(&replaceProfiles, "replace-profile", nil, "Explicitly replace conflicting model profiles")
 			return cmd
 		}(),
 	)
@@ -689,7 +689,7 @@ func RunClaude(app *App, args []string) error {
 	}
 	adapter := cfg.Adapters[domain.ClientClaude]
 	if !adapter.Enabled || adapter.Executable == "" {
-		return fmt.Errorf("Claude 适配器未启用；请运行 `aigw adapter enable claude --executable <real-claude>`")
+		return fmt.Errorf("Claude adapter is not enabled; run `aigw adapter enable claude --executable <real-claude>`")
 	}
 	runtime, _, err := cfg.ResolveRuntime(domain.ClientClaude, "")
 	if err != nil {
@@ -698,7 +698,7 @@ func RunClaude(app *App, args []string) error {
 	accountName := runtime.AccountID
 	token, err := app.Secrets.Get(accountName)
 	if err != nil {
-		return fmt.Errorf("Claude 路由的 Token 不可用：%w；请运行 `aigw rotate %s`", err, accountName)
+		return fmt.Errorf("Token for the Claude route is unavailable: %w; run `aigw rotate %s`", err, accountName)
 	}
 	plan, err := adapters.ClaudePlan(adapter.Executable, args, os.Environ(), runtime, token)
 	if err != nil {

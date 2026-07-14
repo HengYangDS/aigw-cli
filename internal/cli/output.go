@@ -45,35 +45,35 @@ func RenderError(app *App, err error) {
 	message := localizeCobraError(err.Error())
 	renderer(app).Problem(presentation.Problem{
 		Title:  message,
-		Impact: "本次操作未完成；已提交的事务会尽量自动回滚。",
+		Impact: "The operation did not complete; any committed transaction will be rolled back where possible.",
 		Fix:    suggestedFix(message),
 	})
 }
 
 func localizeCobraError(message string) string {
 	if command, ok := cobraUnknownCommand(message); ok {
-		return fmt.Sprintf("未知命令 %q", command)
+		return fmt.Sprintf("unknown command %q", command)
 	}
 	if flag, ok := cobraUnknownFlag(message); ok {
-		return fmt.Sprintf("未知选项 --%s", flag)
+		return fmt.Sprintf("unknown option --%s", flag)
 	}
 	if profile, expected, actual, ok := runtimeProfileClientMismatch(message); ok {
-		return fmt.Sprintf("配置 %q 仅适用于 %s，不能用于 %s", profile, expected, actual)
+		return fmt.Sprintf("profile %q is for %s, not %s", profile, expected, actual)
 	}
 	if profile, account, ok := runtimeProfileUnknownAccount(message); ok {
-		return fmt.Sprintf("配置 %q 引用了未知服务账户 %q", profile, account)
+		return fmt.Sprintf("profile %q references unknown account %q", profile, account)
 	}
 	if account, ok := runtimeMissingEndpoint(message, "Anthropic"); ok {
-		return fmt.Sprintf("服务账户 %q 未设置 Anthropic 端点", account)
+		return fmt.Sprintf("account %q has no Anthropic endpoint", account)
 	}
 	if account, ok := runtimeMissingEndpoint(message, "OpenAI Responses"); ok {
-		return fmt.Sprintf("服务账户 %q 未设置 OpenAI Responses 端点", account)
+		return fmt.Sprintf("account %q has no OpenAI Responses endpoint", account)
 	}
 	if version, expected, ok := unsupportedConfigVersion(message); ok {
-		return fmt.Sprintf("配置版本不受支持：当前为 %s，要求 %s", version, expected)
+		return fmt.Sprintf("unsupported configuration version: found %s, expected %s", version, expected)
 	}
 	if configLoadFailure(message) {
-		return "无法读取或校验本机配置；运行 `aigw doctor` 检查或恢复"
+		return "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it"
 	}
 	return message
 }
@@ -187,7 +187,7 @@ func suggestedFix(message string) string {
 		return command
 	}
 	switch {
-	case strings.Contains(message, "unknown command"), strings.Contains(message, "未知命令"), strings.Contains(message, "unknown flag"), strings.Contains(message, "未知选项"):
+	case strings.Contains(message, "unknown command"), strings.Contains(message, "unknown option"), strings.Contains(message, "unknown flag"):
 		return "aigw --help"
 	default:
 		return "aigw check"
@@ -210,10 +210,10 @@ func mentionedAIGWCommand(message string) string {
 func healthImpact(cfgClients int) string {
 	switch cfgClients {
 	case 0:
-		return "当前 API 调用不可用。"
+		return "The current API route is unavailable."
 	case 1:
-		return "已配置的 AI 客户端无法正常调用。"
+		return "The configured AI client is unavailable."
 	default:
-		return fmt.Sprintf("已配置的 %d 个 AI 客户端无法正常调用。", cfgClients)
+		return fmt.Sprintf("%d configured AI clients are unavailable.", cfgClients)
 	}
 }

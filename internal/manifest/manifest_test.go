@@ -125,7 +125,7 @@ anthropic = "https://team.example.test"
 
 [profiles.shared]
 label = "Team Profile"
-purpose = "默认 Agent"
+purpose = "Default agent"
 account = "team"
 client = "claude"
 [profiles.shared.models]
@@ -136,7 +136,7 @@ claude = "claude-team"
 	}
 	cfg := domain.NewConfig()
 	cfg.Accounts["team"] = domain.Account{Label: "Team Gateway", Endpoints: domain.Endpoints{Anthropic: "https://team.example.test/"}}
-	cfg.Profiles["shared"] = domain.Profile{Label: "Team Profile", Purpose: "默认 Agent", Account: "team", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-team"}}
+	cfg.Profiles["shared"] = domain.Profile{Label: "Team Profile", Purpose: "Default agent", Account: "team", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "claude-team"}}
 	cfg.Routes.Default = "shared"
 
 	got, err := manifest.Merge(cfg, team)
@@ -276,7 +276,7 @@ label = "Team"
 anthropic = "https://gateway.test"
 [profiles.team]
 label = "Team"
-purpose = "默认 Agent"
+purpose = "Default agent"
 account = "team"
 `)
 	if _, err := manifest.Parse(oldSchema); err == nil || !strings.Contains(err.Error(), "unsupported team manifest version 1") {
@@ -287,7 +287,7 @@ account = "team"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsed.Version != domain.ConfigVersion || parsed.Profiles["team"].Purpose != "默认 Agent" {
+	if parsed.Version != domain.ConfigVersion || parsed.Profiles["team"].Purpose != "Default agent" {
 		t.Fatalf("parsed manifest = %#v", parsed)
 	}
 }
@@ -301,7 +301,7 @@ label = "Team"
 anthropic = "https://gateway.test"
 [profiles.team]
 label = "Team"
-purpose = "默认 Agent"
+purpose = "Default agent"
 account = "team"
 `))
 	if err != nil {

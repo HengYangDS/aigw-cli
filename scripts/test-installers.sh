@@ -11,7 +11,7 @@ powershell_script="$root/scripts/install.ps1"
   exit 2
 }
 
-for forbidden in curl glab GITLAB_TOKEN AIGW_GL_HOST AIGW_PROJECT_URL; do
+for forbidden in curl glab GITLAB_TOKEN AIGW_RELEASE_HOST AIGW_RELEASE_PROJECT; do
   if grep -RIn -- "$forbidden" "$unix_script" "$powershell_script" >/dev/null; then
     echo "portable installers must not implement network release retrieval: $forbidden" >&2
     exit 1
