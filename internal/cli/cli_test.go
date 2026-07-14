@@ -486,6 +486,9 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	if runner.plans[0].Replace {
 		t.Fatal("Claude verification must capture a child process instead of replacing AIGW")
 	}
+	if got := runner.plans[0].Args; len(got) < 7 || got[0] != "--safe-mode" || got[1] != "--disable-slash-commands" || got[2] != "--no-session-persistence" || got[3] != "--print" || got[4] != "--model" || got[5] != "claude-fable-5" {
+		t.Fatalf("Claude verification must use an isolated safe-mode invocation with the routed model, got %#v", got)
+	}
 	if strings.Contains(out.String(), "verify-token") || !strings.Contains(out.String(), "真实协议验证") {
 		t.Fatalf("verify output = %s", out.String())
 	}
@@ -647,6 +650,24 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	}
 	if restored.Routes.Default != "stable" {
 		t.Fatalf("rollback default = %q, want stable", restored.Routes.Default)
+	}
+}
+
+func TestTestCommandTreatsClaudeBaseURLNotFoundAsTransportReachable(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{Anthropic: "https://example.test"}, "", domain.Models{})
+	cfg.Routes.Default = "dmx"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_ = secretStore.Set("dmx", "probe-secret")
+	app.HTTP.(*fakeHTTP).status = http.StatusNotFound
+	if err := execute(t, app, "test", "--for", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "HTTP 404 · 服务可达，基础地址不提供 GET 探测") {
+		t.Fatalf("Claude base URL 404 probe result = %s", out.String())
 	}
 }
 

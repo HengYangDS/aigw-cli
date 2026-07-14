@@ -78,7 +78,10 @@ type App struct {
 
 type ProcessRunner struct{}
 
-const capturedProcessOutputLimit = 64 * 1024
+const (
+	capturedProcessOutputLimit = 64 * 1024
+	capturedProcessWaitDelay   = 2 * time.Second
+)
 
 var errCapturedProcessOutputLimit = errors.New("captured process output exceeds limit")
 
@@ -172,13 +175,25 @@ func (ProcessRunner) RunCapture(ctx context.Context, plan adapters.ProcessPlan) 
 	cmd := exec.CommandContext(ctx, plan.Executable, plan.Args...)
 	cmd.Env = plan.Env
 	cmd.Stdin = strings.NewReader(plan.Stdin)
+	cmd.WaitDelay = capturedProcessWaitDelay
 	stdout := &limitedBuffer{limit: capturedProcessOutputLimit}
 	stderr := &limitedBuffer{limit: capturedProcessOutputLimit}
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	if err := cmd.Run(); err != nil {
+	cleanup, err := startCapturedProcess(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("启动 %s 失败：%w", plan.Executable, err)
+	}
+	defer cleanup()
+	if err := cmd.Wait(); err != nil {
 		if stdout.overflow || stderr.overflow || errors.Is(err, errCapturedProcessOutputLimit) {
 			return nil, fmt.Errorf("执行 %s 时捕获的输出超过 %d 字节", plan.Executable, capturedProcessOutputLimit)
+		}
+		if errors.Is(err, exec.ErrWaitDelay) || (errors.Is(ctx.Err(), context.DeadlineExceeded) && stdout.Len()+stderr.Len() > 0) {
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return nil, fmt.Errorf("执行 %s 超过验证时限，且输出管道未在 %s 内关闭：%w", plan.Executable, capturedProcessWaitDelay, err)
+			}
+			return nil, fmt.Errorf("执行 %s 后输出管道未在 %s 内关闭：%w", plan.Executable, capturedProcessWaitDelay, err)
 		}
 		return nil, fmt.Errorf("执行 %s 失败：%w", plan.Executable, err)
 	}
@@ -215,7 +230,7 @@ func NewDefault() (*App, error) {
 		Out:         os.Stdout,
 		Err:         os.Stderr,
 		Interactive: isTerminal(os.Stdin),
-		Color:       env["NO_COLOR"] == "" && isTerminal(os.Stdout),
+		Color:       colorEnabled(runtime.GOOS, env, isTerminal(os.Stdout), enableWindowsVirtualTerminal),
 		Runner:      ProcessRunner{},
 		HTTP:        &http.Client{},
 		Shims: shims.Manager{
@@ -273,4 +288,17 @@ func (a *App) readToken(stdinMode bool, confirm bool) (string, error) {
 		return "", fmt.Errorf("Token 输入需要交互终端；请通过管道传入 `aigw` 并添加 --token-stdin")
 	}
 	return readHiddenToken(a.Out, confirm)
+}
+
+func colorEnabled(goos string, env map[string]string, terminal bool, enableVT func() bool) bool {
+	if !terminal || env["NO_COLOR"] != "" {
+		return false
+	}
+	if goos != "windows" {
+		return true
+	}
+	if enableVT != nil && enableVT() {
+		return true
+	}
+	return env["WT_SESSION"] != "" || env["ANSICON"] != "" || strings.EqualFold(env["ConEmuANSI"], "ON")
 }
