@@ -9,8 +9,20 @@ trap 'rm -f "$fixture"' EXIT HUP INT TERM
 cp "$root/CHANGELOG.md" "$fixture"
 AIGW_CHANGELOG_FILE="$fixture" sh "$checker"
 
-# A published entry must be a tagged release rather than a speculative version.
-printf '\n## [9.9.9] - 2026-07-14\n' >> "$fixture"
+# A published entry before the latest tag must be a locally known release rather
+# than a speculative version. Appending after the latest heading would be an
+# order violation, which is intentionally outside this fixture's scope.
+python3 - "$fixture" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+marker = "## [0.1.0-rc.44] - 2026-07-14"
+if marker not in text:
+    raise SystemExit("fixture lacks latest release heading")
+path.write_text(text.replace(marker, "## [9.9.9] - 2026-07-14\n\n" + marker, 1), encoding="utf-8")
+PY
 if AIGW_CHANGELOG_FILE="$fixture" sh "$checker" >/dev/null 2>&1; then
   echo "changelog checker accepted an untagged published version" >&2
   exit 1
