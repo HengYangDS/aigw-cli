@@ -1,5 +1,8 @@
 # AIGW CLI 产品设计
 
+> **Historical design record.** Superseded by the canonical documentation root and current implementation. It remains only for provenance.
+
+
 **状态：** 已确认  
 **产品名：** AIGW  
 **命令：** `aigw`  
