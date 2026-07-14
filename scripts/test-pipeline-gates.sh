@@ -14,6 +14,10 @@ def section(name):
     end = next((i for i in range(start + 1, len(lines)) if lines[i] and not lines[i].startswith((" ", "\t"))), len(lines))
     return lines[start:end]
 
+default = section("default")
+if not any("AIGW_GOPROXY" in line and "goproxy.cn,direct" in line for line in default):
+    raise SystemExit("default CI environment must configure an overrideable reachable Go module proxy")
+
 runtime = section("windows-installer-runtime")
 if "  stage: verify" not in runtime:
     raise SystemExit("windows installer runtime verification must remain a verify-stage job")
