@@ -72,6 +72,27 @@ func TestDoctorReportsGlobalClientTokenEnvironmentWithoutLeakingValue(t *testing
 	}
 }
 
+func TestDoctorIgnoresRetiredProviderTokenEnvironmentNames(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	app.Env = []string{
+		"DMXAPI_TOKEN=retired-token-must-not-appear",
+		"DMX_API_TOKEN=retired-token-must-not-appear",
+	}
+
+	if err := execute(t, app, "doctor", "--json"); err != nil {
+		t.Fatalf("doctor --json error = %v", err)
+	}
+	result := out.String()
+	if !strings.Contains(result, `"name": "environment:client-token"`) || !strings.Contains(result, `"ok": true`) {
+		t.Fatalf("doctor output = %s", result)
+	}
+	for _, forbidden := range []string{"DMXAPI_TOKEN", "DMX_API_TOKEN", "retired-token-must-not-appear"} {
+		if strings.Contains(result, forbidden) {
+			t.Fatalf("doctor still treats a retired provider token name as input: %s", result)
+		}
+	}
+}
+
 func TestDoctorHumanOutputUsesConciseCheckLabels(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	app.Env = []string{"ANTHROPIC_AUTH_TOKEN=test-token"}

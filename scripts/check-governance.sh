@@ -22,6 +22,7 @@ do
 done
 
 sh scripts/check-changelog.sh
+sh scripts/check-english-text.sh
 
 if ! grep -Fq '# AIGW CLI' README.md; then
   echo "README.md must use the formal Project Name as its title" >&2

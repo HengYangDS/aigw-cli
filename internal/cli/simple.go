@@ -19,8 +19,8 @@ func newCheckCommand(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use: "check", Short: "Check configuration, tokens, clients, and gateway", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if isLocalProgramBuild(Version) {
-				return problem("Local program is not an official release", "Detected local build marker: "+Version, "A local development build must not replace a verified team release.", "aigw update", fmt.Errorf("local program build"))
+			if isLocalProgramBuild(appVersion(app)) {
+				return problem("Local program is not an official release", "Detected local build marker: "+appVersion(app), "A local development build must not replace a verified team release.", "aigw update", fmt.Errorf("local program build"))
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -102,7 +102,8 @@ func newCheckCommand(app *App) *cobra.Command {
 }
 
 func isLocalProgramBuild(version string) bool {
-	return strings.Contains(version, "+local")
+	version = strings.TrimSpace(version)
+	return version == "" || strings.HasSuffix(version, "-dev") || strings.Contains(version, "+local")
 }
 
 func newAccountCommand(app *App) *cobra.Command {
@@ -336,7 +337,7 @@ func newUpdateCommand(app *App) *cobra.Command {
 			if rollback {
 				result, err = app.Updater.Rollback(ctx.Context())
 			} else {
-				result, err = app.Updater.Update(ctx.Context(), Version)
+				result, err = app.Updater.Update(ctx.Context(), appVersion(app))
 			}
 			if err != nil {
 				return err

@@ -31,7 +31,7 @@ func NewRoot(app *App) *cobra.Command {
 	}
 	root.SetOut(app.Out)
 	root.SetErr(app.Err)
-	root.Version = Version
+	root.Version = appVersion(app)
 	root.InitDefaultHelpFlag()
 	if flag := root.Flags().Lookup("help"); flag != nil {
 		flag.Usage = "show help"
@@ -74,6 +74,13 @@ func NewRoot(app *App) *cobra.Command {
 	hiddenClaude.DisableFlagParsing = true
 	root.AddCommand(hiddenClaude)
 	return root
+}
+
+func appVersion(app *App) string {
+	if version := strings.TrimSpace(app.Version); version != "" {
+		return version
+	}
+	return Version
 }
 
 func renderCommandHelp(app *App, command *cobra.Command) {
