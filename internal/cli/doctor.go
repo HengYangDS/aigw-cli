@@ -22,8 +22,6 @@ type doctorCheck struct {
 var forbiddenClientTokenEnvironmentNames = []string{
 	"ANTHROPIC_AUTH_TOKEN",
 	"ANTHROPIC_API_KEY",
-	"DMXAPI_TOKEN",
-	"DMX_API_TOKEN",
 	"OPENAI_API_KEY",
 }
 
