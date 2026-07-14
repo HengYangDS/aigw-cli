@@ -33,19 +33,20 @@ provider treats the other provider's last successful pipeline as sufficient
 release evidence.
 
 GitLab remains the canonical source-history authority. GitHub holds an
-email-safe projection of the same source tree and independently validates that
-projection. The GitHub mirror is synchronized only with
-`git github-mirror-sync`; direct pushes are intentionally disabled. Release
-assets may be published only after the local artifact matrix and the provider's
-own gate set agree.
+email-safe, history-complete projection of the same source tree and independently
+validates, packages, and drafts releases from that projection. The GitHub
+projection is synchronized only with `git github-mirror-sync`; direct pushes
+from the canonical checkout are intentionally disabled. Release assets may be
+published only after the local artifact matrix and the provider's own gate set
+agree.
 
 ## Distribution continuity
 
-GitLab is the formal primary release channel. GitHub is independently operable
-only as a mirror of the exact same versioned 15-artifact release matrix:
-platform packages, `checksums.txt`, and SPDX SBOM. Mirror availability may
-recover from primary transport failure; it must never bypass an integrity,
-provenance, metadata, or version failure at the primary source.
+GitLab and GitHub are formal independent release channels. Each owns a complete
+versioned 15-artifact release matrix: platform packages, `checksums.txt`, and
+SPDX SBOM. A released binary embeds one provider as primary and may use the
+other after a transport/source-availability failure. Fallback must never bypass
+an integrity, provenance, metadata, or version failure at the primary source.
 
 A verified local candidate is a complete extracted artifact directory with one
 platform-matching portable archive and a validating checksum record. It exists
