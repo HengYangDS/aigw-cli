@@ -41,12 +41,14 @@ type missingDownloadRunner struct {
 }
 
 type glabAPIAssetRunner struct {
-	archive     []byte
-	checksum    string
-	archiveURL  string
-	checksumURL string
-	calls       [][]string
-	fileCalls   [][]string
+	archive       []byte
+	checksum      string
+	archiveURL    string
+	checksumURL   string
+	archiveLabel  string
+	checksumLabel string
+	calls         [][]string
+	fileCalls     [][]string
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -91,7 +93,15 @@ func (r *glabAPIAssetRunner) Run(_ context.Context, name string, args ...string)
 		return nil, nil
 	}
 	if len(args) >= 2 && args[0] == "api" && args[1] == "projects/456/releases/v0.2.0" {
-		return []byte(fmt.Sprintf(`{"assets":{"links":[{"name":"aigw_0.2.0_darwin_arm64.tar.gz","url":%q},{"name":"checksums.txt","url":%q}]}}`, r.archiveURL, r.checksumURL)), nil
+		archiveLabel := r.archiveLabel
+		if archiveLabel == "" {
+			archiveLabel = "aigw_0.2.0_darwin_arm64.tar.gz"
+		}
+		checksumLabel := r.checksumLabel
+		if checksumLabel == "" {
+			checksumLabel = "checksums.txt"
+		}
+		return []byte(fmt.Sprintf(`{"assets":{"links":[{"name":%q,"url":%q},{"name":%q,"url":%q}]}}`, archiveLabel, r.archiveURL, checksumLabel, r.checksumURL)), nil
 	}
 	return nil, fmt.Errorf("unexpected args: %v", args)
 }
@@ -708,6 +718,35 @@ func TestUpdateUsesGlabAPIKeychainFallbackWhenReleaseDownloadLeavesNoFile(t *tes
 		if contains(call, "GITLAB_TOKEN") || contains(call, "test-token") {
 			t.Fatalf("credential leaked to glab command: %v", call)
 		}
+	}
+}
+
+func TestUpdateUsesReleaseAssetURLBasenameWhenDisplayNamesDiffer(t *testing.T) {
+	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("new-binary"))
+	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
+	sum := sha256.Sum256(archive)
+	runner := &glabAPIAssetRunner{
+		archive:       archive,
+		checksum:      fmt.Sprintf("%x  ./%s\n", sum, archiveName),
+		archiveURL:    "http://packages.example/aigw/0.2.0/" + archiveName,
+		checksumURL:   "http://packages.example/aigw/0.2.0/checksums.txt",
+		archiveLabel:  "macOS arm64 portable",
+		checksumLabel: "SHA-256 checksums",
+	}
+	binary := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: runner}
+	if _, err := u.Update(context.Background(), "0.1.0"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "new-binary" {
+		t.Fatalf("binary = %q, want new-binary", got)
 	}
 }
 
