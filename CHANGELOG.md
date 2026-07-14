@@ -10,6 +10,16 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 无。
 
+## [0.1.0-rc.47] - 2026-07-14
+
+### Fixed
+
+- Resolve release assets by the filename in each GitLab Release URL as well as by its human-facing display name. `aigw update` now finds checksum and portable archive assets when the Release labels are descriptive (for example, `macOS arm64 portable`) instead of literal filenames.
+
+### Verification
+
+- Added a regression for the exact GitLab Release display-name/URL mismatch; the update path still verifies checksums before replacing the portable binary.
+
 ## [0.1.0-rc.46] - 2026-07-14
 
 ### Fixed
