@@ -3,6 +3,8 @@ set -eu
 
 repo=${1:-.}
 tag=${2:?usage: check-release-tag-signature.sh [repo] <tag>}
+repo=$(CDPATH= cd -- "$repo" && pwd)
+allowed_signers="$repo/packaging/release/allowed_signers"
 
 case "$tag" in
   v[0-9]*.*.*) ;;
@@ -11,6 +13,15 @@ esac
 
 git -C "$repo" rev-parse -q --verify "refs/tags/$tag" >/dev/null || {
   echo "release tag does not exist: $tag" >&2
+  exit 1
+}
+
+test -f "$allowed_signers" || {
+  echo "release tag trust anchor is missing: $allowed_signers" >&2
+  exit 1
+}
+command -v ssh-keygen >/dev/null 2>&1 || {
+  echo "SSH release-tag verification requires ssh-keygen" >&2
   exit 1
 }
 
@@ -25,5 +36,5 @@ case "$object" in
   *) echo "release tag is not SSH signed: $tag" >&2; exit 1 ;;
 esac
 
-git -C "$repo" verify-tag "$tag" >/dev/null
+git -C "$repo" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$allowed_signers" verify-tag "$tag" >/dev/null
 echo "release tag SSH signature: OK ($tag)"
