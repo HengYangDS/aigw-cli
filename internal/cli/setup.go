@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/secrets"
 )
 
 type setupRequest struct {
@@ -116,12 +118,7 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
-	var token string
-	if request.PromptToken {
-		token, err = app.Prompt.Secret("请粘贴 " + request.Label + " Token：")
-	} else {
-		token, err = app.readToken(request.TokenStdin, true)
-	}
+	token, secretAlreadyManaged, err := setupToken(app, request)
 	if err != nil {
 		return err
 	}
@@ -152,26 +149,30 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 	r.Row("配置", request.Profile)
 	r.Row("模型", profile.ModelFor(request.Client))
 	r.Status(presentation.OK, "API Token", "验证通过")
-	if err := app.Secrets.Set(request.Account, token); err != nil {
-		return err
+	if !secretAlreadyManaged {
+		if err := app.Secrets.Set(request.Account, token); err != nil {
+			return err
+		}
 	}
 	claudeEnabled := cfg.Adapters[domain.ClientClaude].Enabled
 	if claudeEnabled {
 		if _, err := app.Shims.EnableClaude(); err != nil {
-			_ = app.Secrets.Delete(request.Account)
+			if !secretAlreadyManaged {
+				_ = app.Secrets.Delete(request.Account)
+			}
 			return err
 		}
 	}
 	if err := app.Config.Save(cfg); err != nil {
-		rollbackSetup(app, cfg, request.Account, claudeEnabled)
+		rollbackSetup(app, cfg, request.Account, claudeEnabled, !secretAlreadyManaged)
 		return err
 	}
 	if err := syncCodexProjection(ctx, app, cfg); err != nil {
-		rollbackSetup(app, cfg, request.Account, claudeEnabled)
+		rollbackSetup(app, cfg, request.Account, claudeEnabled, !secretAlreadyManaged)
 		return fmt.Errorf("客户端配置失败并已回退：%w", err)
 	}
 	if err := bindCodexAuthentication(ctx, app, cfg); err != nil {
-		rollbackSetup(app, cfg, request.Account, claudeEnabled)
+		rollbackSetup(app, cfg, request.Account, claudeEnabled, !secretAlreadyManaged)
 		return fmt.Errorf("客户端认证失败并已回退：%w", err)
 	}
 
@@ -189,6 +190,29 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 	r.Success("已就绪；可添加同一服务账户下的其他模型配置")
 	r.Next("aigw check")
 	return nil
+}
+
+// setupToken prefers a credential that was already supplied by the active
+// secret backend. This is essential for non-interactive CI/container use with
+// AIGW_SECRET_BACKEND=env: the environment store is intentionally read-only,
+// so setup must validate and reference its token rather than asking for a
+// second copy and attempting to persist it.
+func setupToken(app *App, request setupRequest) (token string, alreadyManaged bool, err error) {
+	if !request.PromptToken && !request.TokenStdin {
+		token, err = app.Secrets.Get(request.Account)
+		if err == nil {
+			return token, true, nil
+		}
+		if !errors.Is(err, secrets.ErrNotFound) {
+			return "", false, err
+		}
+	}
+	if request.PromptToken {
+		token, err = app.Prompt.Secret("请粘贴 " + request.Label + " Token：")
+		return token, false, err
+	}
+	token, err = app.readToken(request.TokenStdin, true)
+	return token, false, err
 }
 
 func verifyCredential(ctx context.Context, app *App, providerAccount domain.Account, token string) error {
@@ -218,7 +242,7 @@ func verifyCredential(ctx context.Context, app *App, providerAccount domain.Acco
 	return nil
 }
 
-func rollbackSetup(app *App, cfg domain.Config, account string, claudeEnabled bool) {
+func rollbackSetup(app *App, cfg domain.Config, account string, claudeEnabled, deleteNewSecret bool) {
 	if adapter := cfg.Adapters[domain.ClientCodex]; adapter.Enabled {
 		for _, target := range adapter.Targets {
 			_ = adapters.DisableCodexConfig(target)
@@ -227,7 +251,9 @@ func rollbackSetup(app *App, cfg domain.Config, account string, claudeEnabled bo
 	if claudeEnabled {
 		_ = app.Shims.DisableClaude()
 	}
-	_ = app.Secrets.Delete(account)
+	if deleteNewSecret {
+		_ = app.Secrets.Delete(account)
+	}
 	_ = os.Remove(app.Config.Path())
 	_ = os.Remove(app.Config.Path() + ".bak")
 }
