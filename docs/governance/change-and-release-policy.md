@@ -25,6 +25,19 @@ Changelog heading.
 GitLab **Project Name** is `AIGW CLI`. The stable repository **Path** is
 `aigw-cli`. Display text and external identifier are different contracts.
 
+## Distribution continuity
+
+GitLab is the formal primary release channel. GitHub is independently operable
+only as a mirror of the exact same versioned 15-artifact release matrix:
+platform packages, `checksums.txt`, and SPDX SBOM. Mirror availability may
+recover from primary transport failure; it must never bypass an integrity,
+provenance, metadata, or version failure at the primary source.
+
+A verified local candidate is a complete extracted artifact directory with one
+platform-matching portable archive and a validating checksum record. It exists
+for offline acceptance, installation, and rollback verification. A source
+checkout, a loose binary, and a tag are not candidates.
+
 ## Branch closeout
 
 Merged source branches are disposable delivery artifacts, not project history.

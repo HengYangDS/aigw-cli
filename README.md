@@ -24,8 +24,18 @@ Codex DMX Proxy owns Responses replay compatibility and its own listener.
 
 ## Install
 
-Download a release artifact for your platform and verify it against
-`checksums.txt` before installing.
+AIGW has three equivalent, checksum-first distribution paths:
+
+1. **GitLab primary release** — the organization’s formal release source.
+2. **GitHub mirror** — an independent mirror of the exact verified asset set.
+3. **Verified local candidate** — a complete, extracted artifact directory for
+   offline installation and acceptance testing.
+
+A formal release is the exact 15-artifact matrix: platform packages,
+`checksums.txt`, and an SPDX SBOM. Verify the archive you will install against
+`checksums.txt`. A verified local candidate is an extracted, complete artifact
+directory with the same release files retained together. A source checkout, an
+arbitrary binary, and a Git tag alone are not release artifacts.
 
 | Platform | Native package | Portable package |
 | --- | --- | --- |
@@ -44,9 +54,9 @@ sh install.sh
 ```
 
 Portable installers copy only the bundled executable. They do not access the
-network, retrieve a release, or read a GitLab token. They install under the
-current user and retain one immediate predecessor for offline program rollback.
-Native packages own only their package-managed files.
+network, retrieve a release, or read release credentials. They install under
+the current user and retain one immediate predecessor for offline program
+rollback. Native packages own only their package-managed files.
 
 ## Quick start
 
@@ -116,21 +126,41 @@ aigw sync --dry-run --json
 aigw sync
 ```
 
-## Update source
+## Update sources
 
-Released binaries carry the release source recorded by their publishing
-pipeline. A locally built binary has no implicit vendor endpoint: configure both
-variables before using `aigw update`:
+A released binary embeds GitLab as its primary source and may embed a GitHub
+mirror. `aigw update` uses GitLab first, then uses GitHub **only** when the
+primary source is unavailable. A malformed release, a tag/version conflict, a
+missing asset, or any checksum failure is terminal: AIGW does not switch
+sources after an integrity or provenance failure.
+
+A locally built binary has no implicit vendor endpoint. For a local verified
+candidate, set `AIGW_LOCAL_CANDIDATE` to the extracted artifact directory. The
+directory must contain exactly one portable archive for the current platform
+and `checksums.txt` that validates that archive:
+
+```bash
+export AIGW_LOCAL_CANDIDATE=/secure/path/to/aigw-0.1.0-rc.1
+AIGW_LOCAL_CANDIDATE="$AIGW_LOCAL_CANDIDATE" aigw update
+```
+
+For source builds that must test remote behavior, configure the GitLab primary
+and optional GitHub mirror explicitly:
 
 ```bash
 export AIGW_RELEASE_HOST=https://gitlab.example.com
 export AIGW_RELEASE_PROJECT=group/aigw-cli
+export AIGW_RELEASE_MIRROR_HOST=https://github.com
+export AIGW_RELEASE_MIRROR_PROJECT=owner/aigw-cli
 ```
 
-AIGW prefers authenticated `glab`. If `glab` is unavailable, an explicit
-`GITLAB_TOKEN` can be used for an HTTPS GitLab API fallback. Tokens are never
-stored by the updater, passed on a command line, or forwarded across hosts.
-Downloaded artifacts are checksum-verified before replacement.
+AIGW prefers authenticated `glab` for GitLab. If `glab` is unavailable, an
+explicit `GITLAB_TOKEN` may be used for an HTTPS GitLab API fallback. GitHub
+mirror retrieval uses its public release metadata and assets; a private mirror
+must be exposed through a repository-scoped release path supported by the
+organization before it is enabled. No token is stored by the updater, passed on
+a command line, or forwarded across hosts. Every downloaded artifact is
+checksum-verified before replacement.
 
 ## Product boundaries
 
