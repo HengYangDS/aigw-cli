@@ -1,5 +1,8 @@
 # Authenticated Account Model Catalog — Design
 
+> **Historical design artifact.** Superseded by current source, tests, and canonical docs; retained only for provenance.
+
+
 ## Purpose
 
 Expose the authenticated `/v1/models` inventory for every configured AIGW
