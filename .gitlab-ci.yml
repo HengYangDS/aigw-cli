@@ -14,6 +14,7 @@ verify:
     - for script in scripts/*.sh; do sh -n "$script"; done
     - sh scripts/check-package-safety.sh
     - sh scripts/check-retired-residue.sh
+    - sh scripts/check-governance.sh
     - sh scripts/test-release-readiness.sh
     - sh scripts/test-release-artifacts.sh
     - sh scripts/test-package-runner-preflight.sh
