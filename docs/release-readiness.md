@@ -12,7 +12,7 @@ GitLab Release 与签名工件中重新取得。
 | RC 工件矩阵完整 | `AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh <预发布版本> dist`；`check-release-artifacts.sh`；`test-release-package-layout.sh` | 部分压缩包，或没有校验和的构建成功 |
 | 便携安装可用 | 针对候选二进制的 Unix 安装器与 PowerShell 安装器测试 | 仅静态审阅安装脚本 |
 | Linux 包安装路径可用 | 在隔离网络的 Debian 与 RPM 系兼容镜像中，对 `amd64` 与 `arm64` 分别执行 `test-linux-native-install.sh dist <版本>`；或取得更强的原生发行版 runner 证据 | 交叉编译、压缩包检查，或镜像/容器失败、不可用时的旧结果 |
-| Windows 安装器行为可用 | 在 PowerShell 中运行 PowerShell harness；若有原生 Windows runner，其证据更强 | 仅检查 MSI 元数据 |
+| Windows 安装器行为可用 | 在受管 Windows runner 上运行 PowerShell harness、`go test -race ./...` 和候选 `.exe`/`.cmd` 冒烟；PowerShell harness 是本机补充证据 | 仅检查 MSI 元数据、交叉编译，或非 Windows 主机上的 PowerShell |
 | Release 已远端发布 | 对应 tag 的 GitLab package upload 与 Release job 成功；检查实际 Release 资产与校验和 | 本地存在 `dist/` 目录 |
 | GA 已签名且可信 | 受保护 CI 对实际发布资产验证 macOS Developer ID + 公证/固化，以及 Windows Authenticode + 时间戳 | 未签名 RC、本机 identity 检查，或手工上传资产 |
 
@@ -62,3 +62,20 @@ Debian/Fedora 原生 runner 的证据，后者更强。若候选镜像尚未在�
 
 网络可达性、CI runner 容量、签名身份与 GitLab 状态都是运行时条件。发布时应即时
 诊断和报告，不能把某次暂态结果写入本契约。
+
+## Windows 原生验收最小集
+
+Windows 支持不得由交叉编译或 macOS/Linux 的静态检查替代。稳定 Windows 产物前，受管
+Windows runner 必须对同一候选工件至少证明：
+
+1. Windows PowerShell 5.1 + ConsoleHost 无裸露 ANSI 控制序列；PowerShell 7 + Windows
+   Terminal 保持可读输出。
+2. `go test -race ./...` 与 `go vet ./...` 通过；Windows DACL 与 Credential Manager 的
+   专项测试在真实 Windows API 上执行。
+3. 便携安装、自定义安装、升级、回退和卸载可用；`.cmd` Claude shim 指向实际安装的
+   `aigw.exe`，并能执行 `claude --version`。
+4. Claude 最小验证在安全模式、显式模型和禁用本地扩展的边界内运行；成功、失败和超时
+   都在上限内退出，且本次调用创建的后代不残留。
+
+没有受管 Windows runner 时，这些项目应如实记录为待验收，不能将 PowerShell 脚本的
+跨平台语法检查或 Windows 交叉编译标记为 Windows 原生通过。
