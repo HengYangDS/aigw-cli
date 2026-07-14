@@ -80,6 +80,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, *secrets.Memo
 	runner := &fakeRunner{}
 	httpClient := &fakeHTTP{status: 200}
 	app := &cli.App{
+		Version:     "0.1.0-test",
 		Config:      config.NewStore(filepath.Join(t.TempDir(), "config.toml")),
 		Secrets:     secretStore,
 		Accounts:    account.NewMemoryStore(),
