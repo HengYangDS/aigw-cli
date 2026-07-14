@@ -45,6 +45,27 @@ for tool in mkdir mv; do
   case "$resolved" in /usr/bin/"$tool"|/bin/"$tool") ;; *) echo "activated PATH did not restore $tool: $resolved" >&2; exit 1 ;; esac
 done
 
+# AIGW_SOURCE_BINARY is a test-only seam. It must never replace the user's
+# normal installation path; a development candidate belongs in an isolated
+# directory until it becomes a verified release artifact.
+unsafe_home="$tmp/unsafe-home"
+set +e
+env \
+  HOME="$unsafe_home" \
+  SHELL=/bin/sh \
+  PATH="/usr/bin:/bin" \
+  AIGW_SOURCE_BINARY="$source_binary" \
+  /bin/sh "$unix_script" >"$tmp/unsafe.out" 2>"$tmp/unsafe.err"
+unsafe_rc=$?
+set -e
+[ "$unsafe_rc" -ne 0 ] || { echo "local-source installer replaced the user default installation path" >&2; exit 1; }
+grep -F 'test source binary must use an explicit non-default AIGW_INSTALL_DIR' "$tmp/unsafe.err" >/dev/null || {
+  cat "$tmp/unsafe.err" >&2
+  echo "local-source installer did not explain its user-install safety boundary" >&2
+  exit 1
+}
+[ ! -e "$unsafe_home/.local/bin/aigw" ] || { echo "local-source installer wrote the user default installation path" >&2; exit 1; }
+
 zsh_home="$tmp/zsh-home"
 mkdir -p "$zsh_home"
 env HOME="$zsh_home" SHELL=/bin/zsh PATH="" AIGW_INSTALL_DIR="$zsh_home/bin" AIGW_SOURCE_BINARY="$source_binary" /bin/sh "$unix_script"

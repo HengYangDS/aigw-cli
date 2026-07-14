@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/cli"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
@@ -100,6 +101,23 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 	for _, want := range []string{"配置文件", "系统密钥", "网关", "认证正常", "一切正常"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("check lacks %q:\n%s", want, out.String())
+		}
+	}
+}
+
+func TestCheckRejectsLocalProgramBuildBeforeClaimingHealth(t *testing.T) {
+	previousVersion := cli.Version
+	cli.Version = "0.1.0-rc.44+local.test"
+	t.Cleanup(func() { cli.Version = previousVersion })
+
+	app, out, _, _ := testApp(t, "")
+	err := execute(t, app, "check")
+	if err == nil {
+		t.Fatal("check succeeded for a local program build")
+	}
+	for _, want := range []string{"本机程序不是正式发布版本", "检测到本地构建标记", "aigw update"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("check output missing %q:\n%s", want, out.String())
 		}
 	}
 }
