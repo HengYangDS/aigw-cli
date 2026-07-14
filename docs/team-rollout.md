@@ -72,16 +72,20 @@ claim signing or notarization. GA release requirements are defined in
 
 Portable installers copy bundled files only. Formal releases retain the exact
 15-artifact matrix: platform packages, `checksums.txt`, and an SPDX SBOM.
-GitLab is the primary release source. A GitHub mirror, once admitted, publishes
-the exact same tag, filenames, checksums, and SBOM; it is a continuity channel,
-not an independent product line.
+GitLab and GitHub are complete independent release planes. Each publishes its
+own tag pipeline, full artifact matrix, checksum manifest, SPDX SBOM, and draft
+release. The two planes must converge on exact asset bytes before either is
+admitted as the other's fallback.
 
 After installation, `aigw update` uses the source embedded by the publishing
-pipeline. A source build may configure the primary and mirror explicitly:
+pipeline. A source build may configure either provider as primary and the other
+as fallback explicitly:
 
 ```bash
+export AIGW_RELEASE_PROVIDER=gitlab
 export AIGW_RELEASE_HOST=https://gitlab.example.com
 export AIGW_RELEASE_PROJECT=group/aigw-cli
+export AIGW_RELEASE_MIRROR_PROVIDER=github
 export AIGW_RELEASE_MIRROR_HOST=https://github.com
 export AIGW_RELEASE_MIRROR_PROJECT=owner/aigw-cli
 ```
@@ -97,10 +101,11 @@ export AIGW_LOCAL_CANDIDATE=/secure-transfer/aigw-0.1.0-rc.1
 AIGW_LOCAL_CANDIDATE="$AIGW_LOCAL_CANDIDATE" aigw update
 ```
 
-The updater may use GitHub only after GitLab is unavailable. It never uses the
-mirror to bypass malformed metadata, missing assets, a version conflict, or a
-checksum failure. `GITLAB_TOKEN` is an HTTPS fallback only. Native channels
-delegate program updates and rollback to their platform package manager.
+The updater may use its configured fallback only after the embedded primary is
+unavailable. It never switches providers to bypass malformed metadata, missing
+assets, a version conflict, or a checksum failure. `GITLAB_TOKEN` is an HTTPS
+GitLab fallback only. Native channels delegate program updates and rollback to
+their platform package manager.
 
 ## CI secret boundary
 
