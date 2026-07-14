@@ -15,6 +15,7 @@ verify:
     - sh scripts/check-package-safety.sh
     - sh scripts/check-retired-residue.sh
     - sh scripts/check-governance.sh
+    - sh scripts/test-changelog.sh
     - sh scripts/test-release-readiness.sh
     - sh scripts/test-release-artifacts.sh
     - sh scripts/test-package-runner-preflight.sh
