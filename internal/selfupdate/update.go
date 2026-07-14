@@ -24,13 +24,15 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
 )
 
-const project = "dig/misc/agentic-third-party-api/aigw-cli"
-
-const projectID = "456"
-
-const defaultGitLabHost = "http://192.168.64.101:18086"
-
 const gitLabRequestTimeout = 30 * time.Second
+
+// BuildReleaseHost and BuildReleaseProject are populated by an official
+// release build. Source builds intentionally leave them empty so self-update
+// cannot contact a developer-specific endpoint by default.
+var (
+	BuildReleaseHost    string
+	BuildReleaseProject string
+)
 
 type CommandRunner interface {
 	Run(context.Context, string, ...string) ([]byte, error)
@@ -134,6 +136,15 @@ type Updater struct {
 	Executable string
 	Runner     CommandRunner
 	HTTPClient *http.Client
+	Release    ReleaseSource
+}
+
+// ReleaseSource identifies the GitLab release namespace for this installation.
+// It contains no credential and can be supplied by build metadata or an
+// explicit environment override.
+type ReleaseSource struct {
+	Host    string
+	Project string
 }
 
 type Channel string
@@ -149,7 +160,17 @@ const (
 var InstallChannel = string(ChannelPortable)
 
 func Current(executable string) Updater {
-	return Updater{GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, Channel: detectChannel(executable), Executable: executable, Runner: ExecRunner{}}
+	return Updater{
+		GOOS:       runtime.GOOS,
+		GOARCH:     runtime.GOARCH,
+		Channel:    detectChannel(executable),
+		Executable: executable,
+		Runner:     ExecRunner{},
+		Release: ReleaseSource{
+			Host:    strings.TrimSpace(BuildReleaseHost),
+			Project: strings.TrimSpace(BuildReleaseProject),
+		},
+	}
 }
 
 func (u Updater) Update(ctx context.Context, currentVersion string) (string, error) {
@@ -159,7 +180,7 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (string, err
 	if u.Channel == "" {
 		u.Channel = ChannelPortable
 	}
-	if err := u.validateGitLabHost(); err != nil {
+	if err := u.validateReleaseSource(); err != nil {
 		return "", err
 	}
 	tag, err := u.latestTag(ctx)
@@ -409,7 +430,7 @@ func (u Updater) packageAssetName(version string) string {
 func (u Updater) downloadReleaseAssets(ctx context.Context, tag, directory string, assets ...string) error {
 	for index, asset := range assets {
 		path := filepath.Join(directory, asset)
-		_, err := u.runGlab(ctx, "release", "download", tag, "-R", project, "--asset-name", asset, "--dir", directory)
+		_, err := u.runGlab(ctx, "release", "download", tag, "-R", u.releaseProject(), "--asset-name", asset, "--dir", directory)
 		if err == nil {
 			if info, statErr := os.Stat(path); statErr == nil && !info.IsDir() && info.Size() > 0 {
 				continue
@@ -444,7 +465,7 @@ func (u Updater) downloadReleaseAssetsWithGlabAPI(ctx context.Context, tag, dire
 	if len(assets) == 0 {
 		return fmt.Errorf("authenticated glab asset download is unavailable")
 	}
-	output, err := u.runGlab(ctx, "api", "projects/"+projectID+"/releases/"+url.PathEscape(tag))
+	output, err := u.runGlab(ctx, "api", "projects/"+u.releaseProjectPath()+"/releases/"+url.PathEscape(tag))
 	if err != nil {
 		return fmt.Errorf("query release metadata through glab: %w", err)
 	}
@@ -604,7 +625,7 @@ func parseChannel(value string) (Channel, bool) {
 }
 
 func (u Updater) latestTag(ctx context.Context) (string, error) {
-	output, err := u.runGlab(ctx, "release", "list", "-R", project, "--per-page", "1", "-F", "json", "--jq", ".[0].tag_name")
+	output, err := u.runGlab(ctx, "release", "list", "-R", u.releaseProject(), "--per-page", "1", "-F", "json", "--jq", ".[0].tag_name")
 	if err != nil {
 		if isGlabUnavailable(err) {
 			if err := u.validateTokenFallbackHost(); err != nil {
@@ -657,14 +678,14 @@ func (u Updater) latestTagFromGitLabAPI(ctx context.Context) (string, error) {
 
 func (u Updater) runGlab(ctx context.Context, args ...string) ([]byte, error) {
 	if runner, ok := u.Runner.(EnvironmentRunner); ok {
-		return runner.RunWithEnv(ctx, []string{"GL_HOST=" + u.gitLabHost()}, "glab", args...)
+		return runner.RunWithEnv(ctx, []string{"GL_HOST=" + u.releaseHost()}, "glab", args...)
 	}
 	return u.Runner.Run(ctx, "glab", args...)
 }
 
 func (u Updater) runGlabToFile(ctx context.Context, destination string, args ...string) error {
 	if runner, ok := u.Runner.(EnvironmentFileRunner); ok {
-		return runner.RunToFileWithEnv(ctx, []string{"GL_HOST=" + u.gitLabHost()}, destination, "glab", args...)
+		return runner.RunToFileWithEnv(ctx, []string{"GL_HOST=" + u.releaseHost()}, destination, "glab", args...)
 	}
 	runner, ok := u.Runner.(FileRunner)
 	if !ok {
@@ -673,24 +694,31 @@ func (u Updater) runGlabToFile(ctx context.Context, destination string, args ...
 	return runner.RunToFile(ctx, destination, "glab", args...)
 }
 
-func (u Updater) gitLabHost() string {
-	host := strings.TrimRight(strings.TrimSpace(os.Getenv("AIGW_GL_HOST")), "/")
-	if host == "" {
-		return defaultGitLabHost
+func (u Updater) releaseHost() string {
+	return strings.TrimRight(strings.TrimSpace(u.releaseSource().Host), "/")
+}
+
+func (u Updater) releaseProject() string { return strings.TrimSpace(u.releaseSource().Project) }
+
+func (u Updater) releaseProjectPath() string { return url.PathEscape(u.releaseProject()) }
+
+func (u Updater) releaseSource() ReleaseSource {
+	result := u.Release
+	if host := strings.TrimSpace(os.Getenv("AIGW_RELEASE_HOST")); host != "" {
+		result.Host = host
 	}
-	parsed, err := url.Parse(host)
-	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
-		return ""
+	if project := strings.TrimSpace(os.Getenv("AIGW_RELEASE_PROJECT")); project != "" {
+		result.Project = project
 	}
-	return host
+	return result
 }
 
 func (u Updater) gitLabAPIURL(path string) string {
-	return u.gitLabHost() + "/api/v4/projects/" + url.PathEscape(project) + "/" + path
+	return u.releaseHost() + "/api/v4/projects/" + u.releaseProjectPath() + "/" + path
 }
 
 func (u Updater) gitLabReleaseDownloadURL(tag, asset string) string {
-	return u.gitLabHost() + "/" + project + "/-/releases/" + url.PathEscape(tag) + "/downloads/" + url.PathEscape(asset)
+	return u.releaseHost() + "/" + u.releaseProject() + "/-/releases/" + url.PathEscape(tag) + "/downloads/" + url.PathEscape(asset)
 }
 
 func gitLabToken() (string, error) {
@@ -704,21 +732,32 @@ func gitLabToken() (string, error) {
 	return token, nil
 }
 
-func (u Updater) validateGitLabHost() error {
-	if u.gitLabHost() == "" {
-		return fmt.Errorf("AIGW_GL_HOST must be an HTTP(S) origin without credentials, path, query, or fragment")
+func (u Updater) validateReleaseSource() error {
+	host, project := u.releaseHost(), u.releaseProject()
+	if host == "" && project == "" {
+		return fmt.Errorf("release source is not configured; install an official release or set AIGW_RELEASE_HOST and AIGW_RELEASE_PROJECT")
+	}
+	if host == "" || project == "" {
+		return fmt.Errorf("release source is incomplete; set both AIGW_RELEASE_HOST and AIGW_RELEASE_PROJECT")
+	}
+	parsed, err := url.Parse(host)
+	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
+		return fmt.Errorf("release host must be an HTTP(S) origin without credentials, path, query, or fragment")
+	}
+	if strings.Trim(project, "/") != project || strings.ContainsAny(project, "?#") {
+		return fmt.Errorf("release project must be a GitLab namespace/project path")
 	}
 	return nil
 }
 
 func (u Updater) validateTokenFallbackHost() error {
-	configuredHost := strings.TrimSpace(os.Getenv("AIGW_GL_HOST"))
+	configuredHost := strings.TrimSpace(u.releaseSource().Host)
 	if configuredHost == "" {
-		return fmt.Errorf("GITLAB_TOKEN fallback requires explicit AIGW_GL_HOST with an HTTPS origin")
+		return fmt.Errorf("GITLAB_TOKEN fallback requires explicit AIGW_RELEASE_HOST with an HTTPS origin")
 	}
 	parsed, err := url.Parse(configuredHost)
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
-		return fmt.Errorf("GITLAB_TOKEN fallback requires AIGW_GL_HOST to be an HTTPS origin without credentials, path, query, or fragment")
+		return fmt.Errorf("GITLAB_TOKEN fallback requires AIGW_RELEASE_HOST to be an HTTPS origin without credentials, path, query, or fragment")
 	}
 	return nil
 }
