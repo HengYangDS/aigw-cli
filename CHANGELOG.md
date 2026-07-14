@@ -10,6 +10,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 无。
 
+## [0.1.0-rc.48] - 2026-07-14
+
+### Security
+
+- Require every tag pipeline to verify that its exact annotated release tag carries a locally verifiable SSH signature before packaging, publication, or GitLab Release creation. An unsigned tag now fails closed.
+
 ## [0.1.0-rc.47] - 2026-07-14
 
 ### Fixed
