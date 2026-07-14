@@ -44,6 +44,7 @@ go test -race ./...
 go vet ./...
 test -z "$(gofmt -l cmd internal tools)"
 sh scripts/check-governance.sh
+sh scripts/test-changelog.sh
 ```
 
 Use `aigw sync --dry-run --json` before a configuration mutation where a target
