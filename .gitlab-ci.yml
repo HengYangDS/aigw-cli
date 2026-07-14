@@ -27,20 +27,34 @@ verify:
 
 windows-installer-runtime:
   stage: verify
-  # The release runner is macOS because it builds the Universal pkg. Requiring
-  # PowerShell there makes the Windows installer executable test fail closed,
-  # instead of silently reducing it to static inspection.
+  # This is a PowerShell syntax and installer-contract check on the macOS
+  # release runner. It is not evidence of native Windows behavior.
   tags: [macos]
   before_script: []
   script:
     - command -v pwsh
     - pwsh -NoProfile -NonInteractive -File scripts/test-installers.ps1 -Installer "$CI_PROJECT_DIR/scripts/install.ps1"
 
+windows-native-acceptance:
+  stage: verify
+  # The job is admitted only after a real Windows runner is registered with
+  # the `windows` tag. It is intentionally optional for RC publication until
+  # then; when it runs, a failure blocks the pipeline.
+  tags: [windows]
+  rules:
+    - if: '$AIGW_WINDOWS_NATIVE_RUNNER == "true"'
+    - when: never
+  before_script: []
+  script:
+    - powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-windows-native.ps1 -Repository "$CI_PROJECT_DIR"
+
 package:
   stage: package
   needs:
     - job: verify
     - job: windows-installer-runtime
+    - job: windows-native-acceptance
+      optional: true
     - job: release-readiness
       optional: true
   # Native macOS packaging requires pkgbuild/productbuild. This shell runner

@@ -79,3 +79,7 @@ Windows runner 必须对同一候选工件至少证明：
 
 没有受管 Windows runner 时，这些项目应如实记录为待验收，不能将 PowerShell 脚本的
 跨平台语法检查或 Windows 交叉编译标记为 Windows 原生通过。
+
+仓库中的 `windows-native-acceptance` job 已定义这组验收，但只有组织注册真实 Windows
+runner、赋予 `windows` tag，并将受保护变量 `AIGW_WINDOWS_NATIVE_RUNNER=true` 提供给
+受保护 pipeline 后才会运行。该条件不能由 macOS runner、Wine 或交叉编译替代。
