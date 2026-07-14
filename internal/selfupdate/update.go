@@ -354,20 +354,27 @@ func (u Updater) packageAssetName(version string) string {
 
 func (u Updater) downloadReleaseAssets(ctx context.Context, tag, directory string, assets ...string) error {
 	for index, asset := range assets {
-		if _, err := u.runGlab(ctx, "release", "download", tag, "-R", project, "--asset-name", asset, "--dir", directory); err != nil {
-			if !isGlabUnavailable(err) {
+		path := filepath.Join(directory, asset)
+		_, err := u.runGlab(ctx, "release", "download", tag, "-R", project, "--asset-name", asset, "--dir", directory)
+		if err == nil {
+			if info, statErr := os.Stat(path); statErr == nil && !info.IsDir() {
+				continue
+			}
+			err = fmt.Errorf("glab reported success but did not write %s", asset)
+		}
+		if !isGlabUnavailable(err) {
+			if err := u.validateTokenFallbackHost(); err != nil {
 				return fmt.Errorf("download release asset %s: %w", asset, err)
 			}
-			if err := u.validateTokenFallbackHost(); err != nil {
+		} else if err := u.validateTokenFallbackHost(); err != nil {
+			return err
+		}
+		for _, remaining := range assets[index:] {
+			if err := u.downloadReleaseAssetFromGitLabAPI(ctx, tag, remaining, directory); err != nil {
 				return err
 			}
-			for _, remaining := range assets[index:] {
-				if err := u.downloadReleaseAssetFromGitLabAPI(ctx, tag, remaining, directory); err != nil {
-					return err
-				}
-			}
-			return nil
 		}
+		return nil
 	}
 	return nil
 }
