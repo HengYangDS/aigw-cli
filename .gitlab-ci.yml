@@ -3,7 +3,7 @@ stages: [verify, package, publish, release]
 default:
   image: golang:1.25
   before_script:
-    - export AIGW_CI_CACHE_ROOT="${CI_BUILDS_DIR:-$HOME/builds}/.aigw-ci-cache/$CI_PROJECT_ID" GOPROXY="${AIGW_GOPROXY:-https://goproxy.cn,direct}" GOFLAGS="${GOFLAGS:+$GOFLAGS }-modcacherw"; mkdir -p "$AIGW_CI_CACHE_ROOT/go-build" "$AIGW_CI_CACHE_ROOT/go-mod"; export GOCACHE="$AIGW_CI_CACHE_ROOT/go-build" GOMODCACHE="$AIGW_CI_CACHE_ROOT/go-mod"
+    - export GOPROXY="${AIGW_GOPROXY:-https://goproxy.cn,direct}"; . scripts/prepare-ci-go-cache.sh
 
 verify:
   stage: verify
@@ -101,31 +101,4 @@ release:
     - if: $CI_COMMIT_TAG
   before_script: []
   script:
-    - VERSION="${CI_COMMIT_TAG#v}"
-    - BASE="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/aigw/$VERSION"
-    - |
-      cat > release.json <<EOF
-      {
-        "tag_name": "$CI_COMMIT_TAG",
-        "name": "AIGW $CI_COMMIT_TAG",
-        "description": "Cross-platform AIGW CLI release. Verify downloads with checksums.txt.",
-        "assets": {"links": [
-          {"name":"macOS Universal pkg","url":"$BASE/aigw_${VERSION}_darwin_universal.pkg","direct_asset_path":"/aigw_${VERSION}_darwin_universal.pkg"},
-          {"name":"macOS amd64 portable","url":"$BASE/aigw_${VERSION}_darwin_amd64.tar.gz","direct_asset_path":"/aigw_${VERSION}_darwin_amd64.tar.gz"},
-          {"name":"macOS arm64 portable","url":"$BASE/aigw_${VERSION}_darwin_arm64.tar.gz","direct_asset_path":"/aigw_${VERSION}_darwin_arm64.tar.gz"},
-          {"name":"Linux amd64 deb","url":"$BASE/aigw_${VERSION}_linux_amd64.deb","direct_asset_path":"/aigw_${VERSION}_linux_amd64.deb"},
-          {"name":"Linux arm64 deb","url":"$BASE/aigw_${VERSION}_linux_arm64.deb","direct_asset_path":"/aigw_${VERSION}_linux_arm64.deb"},
-          {"name":"Linux amd64 rpm","url":"$BASE/aigw_${VERSION}_linux_amd64.rpm","direct_asset_path":"/aigw_${VERSION}_linux_amd64.rpm"},
-          {"name":"Linux arm64 rpm","url":"$BASE/aigw_${VERSION}_linux_arm64.rpm","direct_asset_path":"/aigw_${VERSION}_linux_arm64.rpm"},
-          {"name":"Linux amd64 portable","url":"$BASE/aigw_${VERSION}_linux_amd64.tar.gz","direct_asset_path":"/aigw_${VERSION}_linux_amd64.tar.gz"},
-          {"name":"Linux arm64 portable","url":"$BASE/aigw_${VERSION}_linux_arm64.tar.gz","direct_asset_path":"/aigw_${VERSION}_linux_arm64.tar.gz"},
-          {"name":"Windows amd64 msi","url":"$BASE/aigw_${VERSION}_windows_amd64.msi","direct_asset_path":"/aigw_${VERSION}_windows_amd64.msi"},
-          {"name":"Windows arm64 msi","url":"$BASE/aigw_${VERSION}_windows_arm64.msi","direct_asset_path":"/aigw_${VERSION}_windows_arm64.msi"},
-          {"name":"Windows amd64 portable","url":"$BASE/aigw_${VERSION}_windows_amd64.zip","direct_asset_path":"/aigw_${VERSION}_windows_amd64.zip"},
-          {"name":"Windows arm64 portable","url":"$BASE/aigw_${VERSION}_windows_arm64.zip","direct_asset_path":"/aigw_${VERSION}_windows_arm64.zip"},
-          {"name":"SHA-256 checksums","url":"$BASE/checksums.txt","direct_asset_path":"/checksums.txt"},
-          {"name":"SPDX SBOM","url":"$BASE/aigw_${VERSION}.spdx.json","direct_asset_path":"/aigw_${VERSION}.spdx.json"}
-        ]}
-      }
-      EOF
-      curl --fail-with-body --header "JOB-TOKEN: $CI_JOB_TOKEN" --header "Content-Type: application/json" --data @release.json "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases"
+    - sh scripts/publish-release.sh
