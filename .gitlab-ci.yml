@@ -27,11 +27,15 @@ verify:
     # Shell runners retain Git directories. Make the local tag namespace match
     # origin before chronology validation so deleted RC tags cannot leak into CI.
     - git fetch --tags --force --prune --prune-tags origin
+    # A tag is the release authority only when its exact annotated object carries
+    # a locally verifiable SSH signature. Untagged CI remains a source gate.
+    - 'if test -n "${CI_COMMIT_TAG:-}"; then sh scripts/check-release-tag-signature.sh . "$CI_COMMIT_TAG"; fi'
     - sh scripts/check-governance.sh
     - python3 scripts/check-markdown-presentation.py
     - sh scripts/test-changelog.sh
     - sh scripts/test-release-readiness.sh
     - sh scripts/test-release-artifacts.sh
+    - sh scripts/test-release-tag-signature.sh
     - sh scripts/test-package-runner-preflight.sh
     - sh scripts/test-linux-native-install-staging.sh
     - sh scripts/test-msi-version.sh
