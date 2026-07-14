@@ -43,7 +43,7 @@ func TestCodexProjectionChangeIgnoresProfilePurpose(t *testing.T) {
 
 	after := cloneConfig(before)
 	profile := after.Profiles["gpt"]
-	profile.Purpose = "代码与工程"
+	profile.Purpose = "Code and engineering"
 	after.Profiles["gpt"] = profile
 
 	if codexProjectionChanged(before, after) {

@@ -14,7 +14,6 @@ project's product model.
 | [decisions/](decisions/0001-control-plane-data-plane-boundary.md) | Durable design rulings. |
 | [evidence/](evidence/README.md) | Verification records and limits. |
 | [CHANGELOG](../CHANGELOG.md) | Published release history. |
-| [history/](history/README.md) | Superseded designs and closeout snapshots, retained only for provenance. |
 
 Code, tests, schema, and CI outrank prose. AIGW-owned projections are generated
 from canonical AIGW configuration; Codex runtime and proxy state are evidence,

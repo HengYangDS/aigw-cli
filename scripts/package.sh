@@ -4,7 +4,7 @@ set -eu
 version=${1:-0.1.0-dev}
 out=${2:-dist}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-module=gitlab.local/dig/misc/agentic-third-party-api/aigw-cli
+module=$(awk 'NR == 1 && $1 == "module" { print $2; exit }' "$root/go.mod")
 release_host=${AIGW_RELEASE_HOST:-}
 release_project=${AIGW_RELEASE_PROJECT:-}
 

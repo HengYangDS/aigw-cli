@@ -106,7 +106,7 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(shimDir, "claude")); !os.IsNotExist(err) {
 		t.Fatalf("Codex-only first-run wizard created a Claude shim: %v", err)
 	}
-	if !strings.Contains(out.String(), "已就绪") || strings.Contains(out.String(), "one-paste-token") {
+	if !strings.Contains(out.String(), "Ready") || strings.Contains(out.String(), "one-paste-token") {
 		t.Fatalf("wizard output = %s", out.String())
 	}
 }
@@ -186,7 +186,7 @@ func TestSetupWithoutFlagsRefusesBeforePromptingWhenAlreadyConfigured(t *testing
 		t.Fatal(err)
 	}
 	err := execute(t, app, "setup")
-	if err == nil || !strings.Contains(err.Error(), "已完成首次配置") {
+	if err == nil || !strings.Contains(err.Error(), "is already configured") {
 		t.Fatalf("setup error = %v", err)
 	}
 }
@@ -218,7 +218,7 @@ func TestWizardFailureLeavesNoProfileSecretOrClientProjection(t *testing.T) {
 		ClaudeExecutable: "/opt/claude-real", CodexExecutable: "/opt/codex-real", CodexTargets: []string{codexTarget},
 	}}
 	err := execute(t, app)
-	if err == nil || !strings.Contains(err.Error(), "已回退") {
+	if err == nil || !strings.Contains(err.Error(), "was rolled back") {
 		t.Fatalf("error = %v", err)
 	}
 	if secretStore.Has("team-gateway") {
@@ -241,7 +241,7 @@ func TestNoArgsStaysNonInteractiveInPipelines(t *testing.T) {
 	if err := execute(t, app); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "下一步") || !strings.Contains(out.String(), "aigw") {
+	if !strings.Contains(out.String(), "Next") || !strings.Contains(out.String(), "aigw") {
 		t.Fatalf("noninteractive output = %s", out.String())
 	}
 }

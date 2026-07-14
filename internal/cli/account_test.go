@@ -31,9 +31,9 @@ func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 	}
 	_ = secretStore.Set("dmx", "token")
 	app.HTTP.(*fakeHTTP).status = 403
-	app.HTTP.(*fakeHTTP).body = `{"message":"令牌额度不足"}`
+	app.HTTP.(*fakeHTTP).body = `{"message":"token quota is insufficient"}`
 	err := execute(t, app, "check")
-	if err == nil || !strings.Contains(out.String()+err.Error(), "Token 额度已耗尽") || !strings.Contains(out.String()+err.Error(), "aigw rotate") {
+	if err == nil || !strings.Contains(out.String()+err.Error(), "Token quota is exhausted") || !strings.Contains(out.String()+err.Error(), "aigw rotate") {
 		t.Fatalf("output=%s error=%v", out.String(), err)
 	}
 }
@@ -50,7 +50,7 @@ func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := execute(t, app, "balance")
-	if err == nil || !strings.Contains(out.String()+err.Error(), "aigw account connect dmx") || !strings.Contains(out.String()+err.Error(), "精确余额诊断尚未启用") {
+	if err == nil || !strings.Contains(out.String()+err.Error(), "aigw account connect dmx") || !strings.Contains(out.String()+err.Error(), "Precise balance diagnostics are not enabled") {
 		t.Fatalf("output=%s error=%v", out.String(), err)
 	}
 }
@@ -83,7 +83,7 @@ func TestAccountConnectStoresSeparateCredentialAndBalanceShowsDetails(t *testing
 	if err := execute(t, app, "balance"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"账户余额", "￥12.5000", "Token 状态", "启用", "剩余额度", "￥5.0000"} {
+	for _, want := range []string{"Account balance", "$12.5000", "Token status", "Enabled", "Remaining quota", "$5.0000"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("balance lacks %q:\n%s", want, out.String())
 		}
