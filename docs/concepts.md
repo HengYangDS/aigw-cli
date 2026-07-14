@@ -91,20 +91,21 @@ self-update logic.
 
 Portable archives contain local-only `install.sh` and `install.ps1` scripts.
 They copy the bundled binary and never retrieve releases or inspect release
-credentials. Program distribution has three controlled paths: GitLab is the
-formal primary source, GitHub may mirror the exact formal release assets, and a
-complete extracted artifact directory supports offline candidate acceptance.
-`aigw update` tries GitLab first and may use GitHub only after a source-
-availability failure. It never uses a mirror to bypass malformed metadata,
-version disagreement, missing artifacts, or checksum failure.
+credentials. Program distribution has three controlled paths: GitLab and
+GitHub are independent formal release planes, and a complete extracted artifact
+directory supports offline candidate acceptance. Each released binary embeds its
+home provider and may name the other provider as a fallback. `aigw update` never
+uses a fallback to bypass malformed metadata, version disagreement, missing
+artifacts, or checksum failure.
 
 `AIGW_LOCAL_CANDIDATE` names a complete extracted artifact directory. AIGW
 accepts it only when it contains exactly one portable archive for the running
 platform and that archive validates against the directory's `checksums.txt`. A
 source tree or standalone executable is not a candidate. For remote testing,
-`AIGW_RELEASE_HOST` and `AIGW_RELEASE_PROJECT` identify GitLab; optional
-`AIGW_RELEASE_MIRROR_HOST` and `AIGW_RELEASE_MIRROR_PROJECT` identify GitHub.
-The GitLab token fallback requires an explicit HTTPS origin. Tokens are neither
+`AIGW_RELEASE_PROVIDER`, `AIGW_RELEASE_HOST`, and `AIGW_RELEASE_PROJECT`
+identify the embedded primary; the corresponding `AIGW_RELEASE_MIRROR_*`
+variables identify an optional fallback. The GitLab token fallback requires an
+explicit HTTPS origin. Tokens are neither
 persisted nor placed on a command line; requests have a finite timeout, release
 assets remain checksum-verified, the token is removed before a redirect crosses
 hosts, HTTPS-to-HTTP redirects are refused, and an older or malformed release

@@ -26,16 +26,29 @@ required = [
     "go vet ./...",
     "scripts/check-governance.sh",
     "scripts/check-markdown-presentation.py",
-    "scripts/test-git-provider-identities.sh",
     "scripts/test-pipeline-gates.sh",
     "scripts/test-publish-github-release.sh",
+    "scripts/check-package-runner.sh",
+    "scripts/package.sh",
+    "scripts/test-release-package-layout.sh",
+    "scripts/publish-github-release.sh",
+    "AIGW_RELEASE_PROVIDER: github",
+    "AIGW_RELEASE_MIRROR_PROVIDER: gitlab",
+    "AIGW_GITLAB_RELEASE_HOST",
+    "AIGW_GITLAB_RELEASE_PROJECT",
+    "actions/upload-artifact@v4",
+    "actions/download-artifact@v5",
 ]
 for token in required:
     if token not in text:
         raise SystemExit(f"GitHub Actions contract is missing {token!r}")
 if "AIGW_GOPROXY" in text or "goproxy.cn" in text:
     raise SystemExit("GitHub Actions must not inherit GitLab-specific module proxy policy")
-if "pull-requests: write" in text or "contents: write" in text:
-    raise SystemExit("verification workflow must use read-only repository permissions")
+if "pull-requests: write" in text:
+    raise SystemExit("verification workflow must not grant pull-request write permission")
+if text.count("contents: write") != 1:
+    raise SystemExit("GitHub release workflow must grant contents: write only to its release job")
+if "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')" not in text:
+    raise SystemExit("GitHub package/release jobs must be tag-only")
 print("GitHub Actions verification contract: OK")
 PYTHON
