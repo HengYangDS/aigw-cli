@@ -44,6 +44,8 @@ if not any("test-windows-native.ps1" in line for line in native):
     raise SystemExit("native Windows acceptance must execute the Windows-only acceptance harness")
 
 verify = section("verify")
+if not any("git fetch --tags --force --prune --prune-tags origin" in line for line in verify):
+    raise SystemExit("verify must prune stale runner tags before release chronology validation")
 if not any("test-linux-native-install-staging.sh" in line for line in verify):
     raise SystemExit("verify must exercise Linux native-install shared-staging behavior without a Docker daemon")
 
