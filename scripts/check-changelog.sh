@@ -38,9 +38,11 @@ expected_release="## [$latest_version] - $latest_date"
 test "$first_release" = "$expected_release" || fail \
   "first published section must be $expected_release (the latest reachable tag)"
 
-# Every release entry is anchored to a reachable release tag and uses that
-# tag's creation date.  The complete order must equal Git's descending version
-# order, so a copied heading cannot silently become a pseudo-release.
+# Every release entry is anchored to a tag and uses that tag's creation date.
+# In a shallow CI checkout, older tags can be unavailable even though their
+# historical sections remain mandatory; therefore exact coverage is checked
+# against every local release tag, while the newest reachable tag is checked
+# above.  A full clone naturally verifies the complete known tag set.
 actual_versions=$(awk '
   /^## \[/ {
     if ($0 == "## [Unreleased]") {
@@ -56,12 +58,12 @@ actual_versions=$(awk '
     print parts[1]
   }
 ' "$changelog")
-expected_versions=$(git tag --merged HEAD --list 'v[0-9]*' --sort=-version:refname \
+expected_versions=$(git tag --list 'v[0-9]*' --sort=-version:refname \
   | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$' \
   | sed 's/^v//' || true)
-test -n "$expected_versions" || fail "cannot find reachable SemVer release tags"
+test -n "$expected_versions" || fail "cannot find SemVer release tags"
 test "$actual_versions" = "$expected_versions" || fail \
-  "published headings must list each reachable release tag once in descending version order"
+  "published headings must list each known release tag once in descending version order"
 
 awk '
   /^## \[/ {
