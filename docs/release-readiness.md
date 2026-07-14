@@ -12,7 +12,7 @@ does not record a historical branch, runner incident, tag, or signing identity.
 | Portable installation works | Unix and PowerShell installer tests against the candidate binary | Static script review |
 | Linux native package path works | Isolated Debian and RPM-family installation evidence for both architectures, or stronger native-runner proof | Cross-compilation alone |
 | Windows installer works | Managed Windows-runner package and runtime evidence | MSI metadata or non-Windows PowerShell syntax |
-| Release is published | Successful tag pipeline upload and Release jobs, followed by remote asset inspection | A local `dist/` directory |
+| Release is published | Successful tag pipeline upload and GitLab Release inspection; when enabled, GitHub mirror inspection proves identical tag, assets, checksums, and SBOM | A local `dist/` directory or source tag |
 | GA is trusted | Protected CI verification of actual signed/notarized macOS and Windows assets | An unsigned RC or local identity inspection |
 
 ## RC and GA boundary
@@ -33,9 +33,12 @@ checksums for the exact published assets.
    tag pipeline verifies the repository-owned signer anchor before packaging.
 5. Merge only that candidate into the protected default branch and confirm that
    the tag is an ancestor of `main`.
-6. Confirm remote package upload and GitLab Release assets, then perform a
-   clean-environment installation from those published assets.
-7. Create a GA tag only after the protected signing evidence applies to the
+6. Confirm remote package upload and GitLab Release assets. When the GitHub
+   mirror is enabled, inspect its tag, asset names, checksums, and SBOM against
+   the GitLab release before treating it as an update fallback.
+7. Perform a clean-environment installation from published assets and one
+   offline verified-candidate update plus portable rollback proof.
+8. Create a GA tag only after the protected signing evidence applies to the
    exact published artifacts.
 
 A source tag records source identity; it is never, by itself, proof of
