@@ -70,19 +70,37 @@ claim signing or notarization. GA release requirements are defined in
 
 ## Updates
 
-Portable installers copy bundled files only. After installation, `aigw update`
-uses the release source embedded by the publishing pipeline, or the explicit
-portable configuration:
+Portable installers copy bundled files only. Formal releases retain the exact
+15-artifact matrix: platform packages, `checksums.txt`, and an SPDX SBOM.
+GitLab is the primary release source. A GitHub mirror, once admitted, publishes
+the exact same tag, filenames, checksums, and SBOM; it is a continuity channel,
+not an independent product line.
+
+After installation, `aigw update` uses the source embedded by the publishing
+pipeline. A source build may configure the primary and mirror explicitly:
 
 ```bash
 export AIGW_RELEASE_HOST=https://gitlab.example.com
 export AIGW_RELEASE_PROJECT=group/aigw-cli
+export AIGW_RELEASE_MIRROR_HOST=https://github.com
+export AIGW_RELEASE_MIRROR_PROJECT=owner/aigw-cli
 ```
 
-The updater prefers authenticated `glab`; `GITLAB_TOKEN` is an HTTPS fallback
-only. It verifies checksums, never persists a token, and keeps one portable
-rollback binary. Native channels delegate program updates and rollback to their
-platform package manager.
+For offline acceptance, transfer a complete extracted artifact directory rather
+than a loose executable or source checkout. It must contain exactly one
+platform-matching portable archive and a validating `checksums.txt` record.
+Then invoke the explicit candidate path to preserve the normal atomic replace
+and single-binary rollback behavior:
+
+```bash
+export AIGW_LOCAL_CANDIDATE=/secure-transfer/aigw-0.1.0-rc.1
+AIGW_LOCAL_CANDIDATE="$AIGW_LOCAL_CANDIDATE" aigw update
+```
+
+The updater may use GitHub only after GitLab is unavailable. It never uses the
+mirror to bypass malformed metadata, missing assets, a version conflict, or a
+checksum failure. `GITLAB_TOKEN` is an HTTPS fallback only. Native channels
+delegate program updates and rollback to their platform package manager.
 
 ## CI secret boundary
 
