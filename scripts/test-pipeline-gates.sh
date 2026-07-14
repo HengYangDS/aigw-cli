@@ -62,6 +62,8 @@ if not any("test-release-tag-signature.sh" in line for line in verify):
     raise SystemExit("verify must exercise unsigned-tag rejection and signed-tag acceptance")
 if not any("test-linux-native-install-staging.sh" in line for line in verify):
     raise SystemExit("verify must exercise Linux native-install shared-staging behavior without a Docker daemon")
+if not any("check-english-text.sh" in line for line in verify):
+    raise SystemExit("verify must reject non-English tracked product text")
 
 package = section("package")
 if "    - job: windows-installer-runtime" not in package:
