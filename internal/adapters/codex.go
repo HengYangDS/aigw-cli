@@ -429,7 +429,11 @@ func projectCodex(original, block, model string) string {
 			base = selection + "\n" + base
 		}
 	}
-	return base + "\n\n" + codexBegin + "\n" + block
+	// A managed projection owns the provider block, not the incidental number
+	// of blank lines before its ownership marker.  Keep the separator canonical
+	// so a client formatter that folds adjacent blank lines cannot cause every
+	// subsequent dry-run to report a needless update.
+	return base + "\n" + codexBegin + "\n" + block
 }
 
 func codexManagedBlock(label, endpoint string) string {
@@ -443,6 +447,7 @@ func codexManagedBlock(label, endpoint string) string {
 }
 
 func removeCodexProjection(current string, state codexState) (string, error) {
+	legacyState := state.OriginalProvider == "" && state.OriginalModel == ""
 	if !modelProviderLine.MatchString(current) || !isManagedSelection(modelProviderLine.FindString(current), "model_provider", "aigw") {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits")
 	}
@@ -458,13 +463,23 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 	base := strings.TrimRight(current[:providerStart]+current[providerEnd:], "\r\n")
 	base = removeCodexBeginMarker(base)
 	base = strings.TrimRight(base, "\r\n")
+	if legacyState {
+		base = removeManagedModelSelection(base)
+		base = modelProviderLine.ReplaceAllString(base, "")
+		base = strings.TrimLeft(base, "\r\n")
+		return base + "\n", nil
+	}
 	if state.OriginalProvider != "" {
 		base = modelProviderLine.ReplaceAllString(base, state.OriginalProvider)
 	} else {
 		base = modelProviderLine.ReplaceAllString(base, "")
 		base = strings.TrimLeft(base, "\r\n")
 	}
-	base = restoreModelSelection(base, state.OriginalModel)
+	if state.OriginalModel != "" {
+		base = restoreModelSelection(base, state.OriginalModel)
+	} else {
+		base = removeManagedModelSelection(base)
+	}
 	return base + "\n", nil
 }
 
@@ -520,6 +535,18 @@ func restoreModelSelection(base, originalModel string) string {
 		}
 		return originalModel + "\n" + base
 	}
+	lines := strings.Split(base, "\n")
+	kept := lines[:0]
+	for _, line := range lines {
+		if strings.Contains(line, "# managed by AIGW") && strings.HasPrefix(strings.TrimSpace(line), "model") {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.Join(kept, "\n")
+}
+
+func removeManagedModelSelection(base string) string {
 	lines := strings.Split(base, "\n")
 	kept := lines[:0]
 	for _, line := range lines {

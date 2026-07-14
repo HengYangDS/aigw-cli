@@ -137,3 +137,31 @@ func TestPlanCodexConfigsClassifiesInitialConvergedAndExactTruncationRepair(t *t
 		t.Fatalf("truncated plan = %#v", plans)
 	}
 }
+
+func TestSyncCodexConfigsConvergesLegacyStateWithoutOriginalSelections(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	runtime := atomicTestRuntime()
+	block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	legacy := "model = \"gpt-5.6-terra\" # managed by AIGW\n" +
+		"model_provider = \"aigw\" # managed by AIGW\n\n" +
+		"user_setting = true\n\n" +
+		codexBegin + "\n" + block
+	if err := os.WriteFile(path, []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stateData := []byte("{\n  \"managed_block_hash\": \"" + hashText(block) + "\"\n}\n")
+	if err := os.WriteFile(codexStatePath(path), stateData, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := SyncCodexConfigs([]string{path}, runtime); err != nil {
+		t.Fatal(err)
+	}
+	plans, err := PlanCodexConfigs([]string{path}, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plans) != 1 || plans[0].Action != "already-converged" {
+		t.Fatalf("plan after legacy-state convergence = %#v, want already-converged", plans)
+	}
+}
