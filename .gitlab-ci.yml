@@ -36,6 +36,7 @@ verify:
     - sh scripts/test-changelog.sh
     - sh scripts/test-release-readiness.sh
     - sh scripts/test-release-artifacts.sh
+    - sh scripts/test-publish-github-release.sh
     - sh scripts/test-release-tag-signature.sh
     - sh scripts/test-package-runner-preflight.sh
     - sh scripts/test-linux-native-install-staging.sh
@@ -85,7 +86,7 @@ package:
   script:
     - VERSION="${CI_COMMIT_TAG:-}"; VERSION="${VERSION#v}"; test -n "$VERSION" || VERSION="0.1.0-${CI_COMMIT_SHORT_SHA}"
     - sh scripts/check-package-runner.sh
-    - AIGW_RELEASE_HOST="$CI_SERVER_URL" AIGW_RELEASE_PROJECT="$CI_PROJECT_PATH" AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$VERSION" dist
+    - AIGW_RELEASE_HOST="$CI_SERVER_URL" AIGW_RELEASE_PROJECT="$CI_PROJECT_PATH" AIGW_RELEASE_MIRROR_HOST="${AIGW_RELEASE_MIRROR_HOST:-https://github.com}" AIGW_RELEASE_MIRROR_PROJECT="${AIGW_RELEASE_MIRROR_PROJECT:-}" AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$VERSION" dist
     - sh scripts/test-release-package-layout.sh dist "$VERSION"
   artifacts:
     expire_in: 30 days
@@ -123,3 +124,17 @@ release:
   before_script: []
   script:
     - sh scripts/publish-release.sh
+
+mirror-github:
+  stage: release
+  needs:
+    - job: package
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_TAG && $AIGW_GITHUB_MIRROR_ENABLED == "true"'
+    - when: never
+  before_script: []
+  script:
+    - test -n "${AIGW_RELEASE_MIRROR_PROJECT:-}"
+    - test -n "${AIGW_GITHUB_TOKEN:-}"
+    - GITHUB_REPOSITORY="$AIGW_RELEASE_MIRROR_PROJECT" GITHUB_TOKEN="$AIGW_GITHUB_TOKEN" CI_COMMIT_TAG="$CI_COMMIT_TAG" sh scripts/publish-github-release.sh dist
