@@ -19,6 +19,7 @@ go test -race ./...
 go vet ./...
 test -z "$(gofmt -l cmd internal tools)"
 sh scripts/check-governance.sh
+python3 scripts/check-markdown-presentation.py
 sh scripts/test-changelog.sh
 ```
 
