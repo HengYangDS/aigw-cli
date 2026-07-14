@@ -18,7 +18,18 @@ import sys
 
 path = Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
-marker = "## [0.1.0-rc.44] - 2026-07-14"
+import subprocess
+
+latest_tag = subprocess.check_output(
+    ["git", "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*", "HEAD"],
+    text=True,
+).strip()
+latest_version = latest_tag.removeprefix("v")
+latest_date = subprocess.check_output(
+    ["git", "for-each-ref", f"refs/tags/{latest_tag}", "--format=%(creatordate:short)"],
+    text=True,
+).strip().splitlines()[0]
+marker = f"## [{latest_version}] - {latest_date}"
 if marker not in text:
     raise SystemExit("fixture lacks latest release heading")
 path.write_text(text.replace(marker, "## [9.9.9] - 2026-07-14\n\n" + marker, 1), encoding="utf-8")
