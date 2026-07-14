@@ -1,5 +1,8 @@
 # Compact Model Catalog Design
 
+> **Historical design artifact.** Superseded by current source, tests, and canonical docs; retained only for provenance.
+
+
 ## Purpose
 
 Keep `aigw catalog` useful on Accounts that expose hundreds of model IDs. The

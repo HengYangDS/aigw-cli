@@ -867,7 +867,9 @@ func verifyClaudeInvocation(ctx context.Context, app *App, cfg domain.Config, ru
 }
 
 func newSyncCommand(app *App) *cobra.Command {
-	return &cobra.Command{
+	var dryRun bool
+	var jsonMode bool
+	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "重新同步客户端配置",
 		Args:  cobra.NoArgs,
@@ -875,6 +877,29 @@ func newSyncCommand(app *App) *cobra.Command {
 			cfg, err := app.Config.Load()
 			if err != nil {
 				return err
+			}
+			if dryRun {
+				plans, err := planCodexProjection(cfg)
+				if err != nil {
+					return err
+				}
+				if jsonMode {
+					enc := json.NewEncoder(app.Out)
+					enc.SetIndent("", "  ")
+					return enc.Encode(map[string]any{"dry_run": true, "targets": plans})
+				}
+				r := renderer(app)
+				r.Title("AIGW", "同步预演")
+				if len(plans) == 0 {
+					r.Status(presentation.OK, "Codex", "适配器未启用；无配置投影需要变更")
+				} else {
+					for _, plan := range plans {
+						r.Row(plan.Target, plan.Action)
+					}
+				}
+				r.Success("预演未写入配置、状态文件、认证或会话")
+				r.Next("aigw sync")
+				return nil
 			}
 			if err := syncCodexProjection(cmd.Context(), app, cfg); err != nil {
 				return err
@@ -886,6 +911,9 @@ func newSyncCommand(app *App) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "仅显示同步计划，不写入配置")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "以 JSON 输出同步预演")
+	return cmd
 }
 
 func newRollbackCommand(app *App) *cobra.Command {
@@ -941,19 +969,28 @@ const codexAuthenticationTimeout = 20 * time.Second
 // syncCodexProjection is deliberately Codex-only. Claude resolves the current
 // Route inside its own process-bound shim and has no persistent projection to
 // rewrite.
-func syncCodexProjection(_ context.Context, app *App, cfg domain.Config) error {
-	if adapter := cfg.Adapters[domain.ClientCodex]; adapter.Enabled {
-		runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
-		if err != nil {
-			return err
-		}
-		for _, target := range adapter.Targets {
-			if err := adapters.SyncCodexConfig(target, runtime); err != nil {
-				return err
-			}
-		}
+func planCodexProjection(cfg domain.Config) ([]adapters.CodexProjectionPlan, error) {
+	adapter := cfg.Adapters[domain.ClientCodex]
+	if !adapter.Enabled {
+		return nil, nil
 	}
-	return nil
+	runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
+	if err != nil {
+		return nil, err
+	}
+	return adapters.PlanCodexConfigs(adapter.Targets, runtime)
+}
+
+func syncCodexProjection(_ context.Context, app *App, cfg domain.Config) error {
+	adapter := cfg.Adapters[domain.ClientCodex]
+	if !adapter.Enabled {
+		return nil
+	}
+	runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
+	if err != nil {
+		return err
+	}
+	return adapters.SyncCodexConfigs(adapter.Targets, runtime)
 }
 
 // bindCodexAuthentication updates Codex's native credential store. It is
