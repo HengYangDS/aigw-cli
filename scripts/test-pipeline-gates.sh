@@ -50,5 +50,15 @@ publish = section("publish")
 if "    - job: package" not in publish:
     raise SystemExit("publish must remain gated by package")
 
+release = section("release")
+if any(line.strip().startswith("image:") for line in release):
+    raise SystemExit("shell-runner release job must not rely on an ignored container image")
+if not any("JOB-TOKEN: $CI_JOB_TOKEN" in line for line in release):
+    raise SystemExit("release must authenticate with the CI job token")
+if not any("/releases" in line and "CI_API_V4_URL" in line for line in release):
+    raise SystemExit("release must call the GitLab Releases API directly")
+if any("release-cli" in line for line in release):
+    raise SystemExit("release job must not depend on unavailable release-cli")
+
 print("release pipeline gate contract: OK")
 PY
