@@ -52,6 +52,11 @@ if "    - job: windows-installer-runtime" not in package:
     raise SystemExit("package must explicitly need Windows installer runtime verification")
 if "    - job: windows-native-acceptance" not in package or "      optional: true" not in package:
     raise SystemExit("package must gate on native Windows acceptance whenever a Windows runner admits that job")
+package_script = "\n".join(package)
+if '${CI_COMMIT_TAG:-}' not in package_script:
+    raise SystemExit("package must tolerate an unset CI_COMMIT_TAG in non-tag pipelines")
+if '0.1.0-${CI_COMMIT_SHORT_SHA}' not in package_script:
+    raise SystemExit("package must retain a semver-shaped non-tag build fallback")
 
 publish = section("publish")
 if "    - job: package" not in publish:
