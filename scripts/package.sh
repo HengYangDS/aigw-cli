@@ -5,6 +5,8 @@ version=${1:-0.1.0-dev}
 out=${2:-dist}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 module=gitlab.local/dig/misc/agentic-third-party-api/aigw-cli
+release_host=${AIGW_RELEASE_HOST:-}
+release_project=${AIGW_RELEASE_PROJECT:-}
 
 "$root/scripts/check-package-safety.sh"
 "$root/scripts/check-retired-residue.sh"
@@ -27,7 +29,7 @@ build_binary() {
   printf 'building %s/%s (%s)\n' "$goos" "$goarch" "$channel"
   mkdir -p "$(dirname -- "$dest")"
   CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath \
-    -ldflags "-s -w -X ${module}/internal/cli.Version=$version -X ${module}/internal/selfupdate.InstallChannel=$channel" \
+    -ldflags "-s -w -X ${module}/internal/cli.Version=$version -X ${module}/internal/selfupdate.InstallChannel=$channel -X ${module}/internal/selfupdate.BuildReleaseHost=$release_host -X ${module}/internal/selfupdate.BuildReleaseProject=$release_project" \
     -o "$dest" ./cmd/aigw
 }
 

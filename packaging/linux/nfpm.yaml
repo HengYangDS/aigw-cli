@@ -7,7 +7,6 @@ priority: optional
 maintainer: DIG <dig@example.invalid>
 description: Cross-platform team CLI for third-party AI API gateway profiles, secrets, routes, and client adapters.
 vendor: DIG
-homepage: http://192.168.64.101:18086/dig/misc/agentic-third-party-api/aigw-cli
 license: Proprietary
 contents:
   - src: ${AIGW_PACKAGE_ROOT}/aigw
