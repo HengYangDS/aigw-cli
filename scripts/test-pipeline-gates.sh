@@ -21,6 +21,13 @@ if not any("AIGW_GOPROXY" in line and "goproxy.cn,direct" in line for line in de
 if not any("GOFLAGS" in line and "-modcacherw" in line for line in default):
     raise SystemExit("default CI environment must make the workspace module cache removable")
 
+if any(line.strip() == "cache:" for line in default):
+    raise SystemExit("default CI must not archive Go caches inside the checkout")
+if not any("AIGW_CI_CACHE_ROOT" in line and "CI_BUILDS_DIR" in line for line in default):
+    raise SystemExit("default CI environment must keep Go caches in a runner-owned location")
+if any('GOMODCACHE="$CI_PROJECT_DIR' in line or 'GOCACHE="$CI_PROJECT_DIR' in line for line in default):
+    raise SystemExit("default CI Go caches must not live under CI_PROJECT_DIR")
+
 runtime = section("windows-installer-runtime")
 if "  stage: verify" not in runtime:
     raise SystemExit("windows installer runtime verification must remain a verify-stage job")

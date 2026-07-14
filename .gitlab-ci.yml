@@ -2,11 +2,8 @@ stages: [verify, package, publish, release]
 
 default:
   image: golang:1.25
-  cache:
-    key: go-mod
-    paths: [.cache/go-build, .cache/go-mod]
   before_script:
-    - export GOPROXY="${AIGW_GOPROXY:-https://goproxy.cn,direct}" GOFLAGS="${GOFLAGS:+$GOFLAGS }-modcacherw" GOCACHE="$CI_PROJECT_DIR/.cache/go-build" GOMODCACHE="$CI_PROJECT_DIR/.cache/go-mod"
+    - export AIGW_CI_CACHE_ROOT="${CI_BUILDS_DIR:-$HOME/builds}/.aigw-ci-cache/$CI_PROJECT_ID" GOPROXY="${AIGW_GOPROXY:-https://goproxy.cn,direct}" GOFLAGS="${GOFLAGS:+$GOFLAGS }-modcacherw"; mkdir -p "$AIGW_CI_CACHE_ROOT/go-build" "$AIGW_CI_CACHE_ROOT/go-mod"; export GOCACHE="$AIGW_CI_CACHE_ROOT/go-build" GOMODCACHE="$AIGW_CI_CACHE_ROOT/go-mod"
 
 verify:
   stage: verify
