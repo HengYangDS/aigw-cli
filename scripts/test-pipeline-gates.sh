@@ -75,8 +75,8 @@ if '${CI_COMMIT_TAG:-}' not in package_script:
     raise SystemExit("package must tolerate an unset CI_COMMIT_TAG in non-tag pipelines")
 if '0.1.0-${CI_COMMIT_SHORT_SHA}' not in package_script:
     raise SystemExit("package must retain a semver-shaped non-tag build fallback")
-if package_script.count('AIGW_RELEASE_HOST="$CI_SERVER_URL"') != 1 or package_script.count('AIGW_RELEASE_PROJECT="$CI_PROJECT_PATH"') != 1:
-    raise SystemExit("package must inject the current CI release source instead of a repository-specific host or project")
+if package_script.count('AIGW_RELEASE_PROVIDER=gitlab') != 1 or package_script.count('AIGW_RELEASE_HOST="$CI_SERVER_URL"') != 1 or package_script.count('AIGW_RELEASE_PROJECT="$CI_PROJECT_PATH"') != 1:
+    raise SystemExit("package must inject the complete GitLab primary release identity")
 if 'AIGW_RELEASE_MIRROR_HOST' not in package_script or 'AIGW_RELEASE_MIRROR_PROJECT' not in package_script:
     raise SystemExit("package must embed the optional GitHub mirror identity with the GitLab primary source")
 
@@ -119,11 +119,16 @@ github = Path(sys.argv[1]).parent / ".github" / "workflows" / "verify.yml"
 if not github.exists():
     raise SystemExit("GitHub Actions verification workflow is missing")
 github_text = github.read_text()
-for token in ["actions/checkout@v7", "actions/setup-go@v6", "go test -race ./...", "scripts/check-governance.sh", "scripts/test-git-provider-identities.sh"]:
+for token in ["actions/checkout@v7", "actions/setup-go@v6", "go test -race ./...", "scripts/check-governance.sh"]:
     if token not in github_text:
         raise SystemExit(f"GitHub Actions verification workflow must contain {token}")
-if "contents: write" in github_text or "pull-requests: write" in github_text:
-    raise SystemExit("GitHub Actions verification workflow must be read-only")
+if "pull-requests: write" in github_text:
+    raise SystemExit("GitHub Actions verification workflow must not grant pull-request write permission")
+if github_text.count("contents: write") != 1:
+    raise SystemExit("GitHub Actions must grant contents: write only to the release job")
+for token in ["AIGW_RELEASE_PROVIDER: github", "AIGW_RELEASE_MIRROR_PROVIDER: gitlab", "scripts/check-release-tag-signature.sh", "scripts/package.sh", "scripts/publish-github-release.sh"]:
+    if token not in github_text:
+        raise SystemExit(f"GitHub Actions release plane must contain {token}")
 
 print("release pipeline gate contract: OK")
 PY

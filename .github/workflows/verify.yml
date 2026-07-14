@@ -53,4 +53,73 @@ jobs:
           sh scripts/test-publish-github-release.sh
           sh scripts/test-pipeline-gates.sh
           sh scripts/test-github-actions-contract.sh
-          sh scripts/test-git-provider-identities.sh
+
+  package:
+    name: Release artifact matrix
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: verify
+    runs-on: macos-14
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact signed tag
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      - name: Install deterministic packaging tools
+        run: |
+          set -euo pipefail
+          brew install nfpm msitools libarchive
+      - name: Verify signed tag and build full matrix
+        env:
+          AIGW_RELEASE_PROVIDER: github
+          AIGW_RELEASE_HOST: https://github.com
+          AIGW_RELEASE_PROJECT: ${{ github.repository }}
+          AIGW_RELEASE_MIRROR_PROVIDER: gitlab
+          AIGW_RELEASE_MIRROR_HOST: ${{ vars.AIGW_GITLAB_RELEASE_HOST }}
+          AIGW_RELEASE_MIRROR_PROJECT: ${{ vars.AIGW_GITLAB_RELEASE_PROJECT }}
+        run: |
+          set -euo pipefail
+          sh scripts/check-release-tag-signature.sh . "${GITHUB_REF_NAME}"
+          sh scripts/check-package-runner.sh
+          version="${GITHUB_REF_NAME#v}"
+          AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$version" dist
+          sh scripts/test-release-package-layout.sh dist "$version"
+      - name: Upload exact release matrix
+        uses: actions/upload-artifact@v4
+        with:
+          name: aigw-${{ github.ref_name }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Draft GitHub release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout tag release tooling
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Download exact release matrix
+        uses: actions/download-artifact@v5
+        with:
+          name: aigw-${{ github.ref_name }}
+          path: dist
+      - name: Create or resume checksum-verified draft
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
+          CI_COMMIT_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          sh scripts/publish-github-release.sh dist

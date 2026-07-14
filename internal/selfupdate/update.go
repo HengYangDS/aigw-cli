@@ -26,16 +26,18 @@ import (
 
 const releaseRequestTimeout = 30 * time.Second
 
-// BuildReleaseHost and BuildReleaseProject identify the primary GitLab source
-// embedded by the release pipeline. BuildReleaseMirrorHost and
-// BuildReleaseMirrorProject identify the independent GitHub mirror. Source
-// builds intentionally leave all values empty: self-update must fail closed
-// instead of contacting a developer-specific endpoint.
+// BuildReleaseProvider, BuildReleaseHost, and BuildReleaseProject identify
+// the primary release source embedded by a provider pipeline. The corresponding
+// mirror fields identify an optional independent fallback. Source builds leave
+// all values empty: self-update must fail closed instead of contacting a
+// developer-specific endpoint.
 var (
-	BuildReleaseHost          string
-	BuildReleaseProject       string
-	BuildReleaseMirrorHost    string
-	BuildReleaseMirrorProject string
+	BuildReleaseProvider       string
+	BuildReleaseHost           string
+	BuildReleaseProject        string
+	BuildReleaseMirrorProvider string
+	BuildReleaseMirrorHost     string
+	BuildReleaseMirrorProject  string
 )
 
 type CommandRunner interface {
@@ -180,12 +182,12 @@ func Current(executable string) Updater {
 		Executable: executable,
 		Runner:     ExecRunner{},
 		Release: ReleaseSource{
-			Provider: ReleaseProviderGitLab,
+			Provider: releaseProviderOrDefault(BuildReleaseProvider, ReleaseProviderGitLab),
 			Host:     strings.TrimSpace(BuildReleaseHost),
 			Project:  strings.TrimSpace(BuildReleaseProject),
 		},
 		Mirror: ReleaseSource{
-			Provider: ReleaseProviderGitHub,
+			Provider: releaseProviderOrDefault(BuildReleaseMirrorProvider, ReleaseProviderGitHub),
 			Host:     strings.TrimSpace(BuildReleaseMirrorHost),
 			Project:  strings.TrimSpace(BuildReleaseMirrorProject),
 		},
@@ -216,12 +218,12 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (string, err
 	}
 	message, mirrorUnavailable, mirrorErr := u.updateFromReleaseSource(ctx, mirror, currentVersion)
 	if mirrorErr == nil {
-		return message + " from the GitHub mirror", nil
+		return message + " from the " + string(mirror.Provider) + " fallback", nil
 	}
 	if mirrorUnavailable {
-		return "", fmt.Errorf("primary GitLab release source is unavailable: %v; GitHub mirror is unavailable: %w", err, mirrorErr)
+		return "", fmt.Errorf("primary %s release source is unavailable: %v; %s fallback is unavailable: %w", primary.Provider, err, mirror.Provider, mirrorErr)
 	}
-	return "", fmt.Errorf("primary GitLab release source is unavailable: %v; GitHub mirror failed: %w", err, mirrorErr)
+	return "", fmt.Errorf("primary %s release source is unavailable: %v; %s fallback failed: %w", primary.Provider, err, mirror.Provider, mirrorErr)
 }
 
 func (u Updater) updateFromLocalCandidate(candidate, currentVersion string) (string, error) {
@@ -336,7 +338,8 @@ func (u Updater) updateFromGitHubResolvedRelease(ctx context.Context, source Rel
 	}
 	version := normalizeVersion(tag)
 	if u.Channel != ChannelPortable {
-		return "", false, fmt.Errorf("GitHub mirror update is available only for portable installations; use the native package manager for %s", u.Channel)
+		message, err := u.updatePackageFromSource(ctx, source, tag, version)
+		return message, false, err
 	}
 	archiveName := portableArchiveName(version, u.GOOS, u.GOARCH)
 	tmp, err := os.MkdirTemp("", "aigw-update-*")
@@ -1061,9 +1064,26 @@ func (u Updater) releaseProject() string { return strings.TrimSpace(u.releaseSou
 
 func (u Updater) releaseProjectPath() string { return url.PathEscape(u.releaseProject()) }
 
+func releaseProviderOrDefault(value string, fallback ReleaseProvider) ReleaseProvider {
+	provider := ReleaseProvider(strings.ToLower(strings.TrimSpace(value)))
+	switch provider {
+	case ReleaseProviderGitLab, ReleaseProviderGitHub:
+		return provider
+	case "":
+		return fallback
+	default:
+		return provider
+	}
+}
+
 func (u Updater) releaseSource() ReleaseSource {
 	result := u.Release
-	result.Provider = ReleaseProviderGitLab
+	if result.Provider == "" {
+		result.Provider = ReleaseProviderGitLab
+	}
+	if provider := strings.TrimSpace(os.Getenv("AIGW_RELEASE_PROVIDER")); provider != "" {
+		result.Provider = releaseProviderOrDefault(provider, result.Provider)
+	}
 	if host := strings.TrimSpace(os.Getenv("AIGW_RELEASE_HOST")); host != "" {
 		result.Host = host
 	}
@@ -1075,7 +1095,12 @@ func (u Updater) releaseSource() ReleaseSource {
 
 func (u Updater) mirrorSource() ReleaseSource {
 	result := u.Mirror
-	result.Provider = ReleaseProviderGitHub
+	if result.Provider == "" {
+		result.Provider = ReleaseProviderGitHub
+	}
+	if provider := strings.TrimSpace(os.Getenv("AIGW_RELEASE_MIRROR_PROVIDER")); provider != "" {
+		result.Provider = releaseProviderOrDefault(provider, result.Provider)
+	}
 	if host := strings.TrimSpace(os.Getenv("AIGW_RELEASE_MIRROR_HOST")); host != "" {
 		result.Host = host
 	}
@@ -1108,6 +1133,12 @@ func validateReleaseSources(primary, mirror ReleaseSource) error {
 
 func validateReleaseSource(source ReleaseSource) error {
 	host, project := strings.TrimRight(strings.TrimSpace(source.Host), "/"), strings.TrimSpace(source.Project)
+	if source.Provider == "" {
+		source.Provider = ReleaseProviderGitLab
+	}
+	if source.Provider != ReleaseProviderGitLab && source.Provider != ReleaseProviderGitHub {
+		return fmt.Errorf("unsupported release provider %q", source.Provider)
+	}
 	if host == "" || project == "" {
 		return fmt.Errorf("%s release source is incomplete; set both host and project", source.Provider)
 	}
@@ -1133,6 +1164,8 @@ func (u Updater) githubAPIURL(source ReleaseSource, path string) string {
 	origin := strings.TrimRight(source.Host, "/")
 	if strings.EqualFold(origin, "https://github.com") {
 		origin = "https://api.github.com"
+	} else if strings.HasPrefix(origin, "https://") && !strings.Contains(origin, ".github") {
+		origin += "/api/v3"
 	}
 	return origin + "/repos/" + source.Project + "/" + path
 }
