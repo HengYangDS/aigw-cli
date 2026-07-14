@@ -62,8 +62,20 @@ expected_versions=$(git tag --list 'v[0-9]*' --sort=-version:refname \
   | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$' \
   | sed 's/^v//' || true)
 test -n "$expected_versions" || fail "cannot find SemVer release tags"
-test "$actual_versions" = "$expected_versions" || fail \
-  "published headings must list each known release tag once in descending version order"
+available_heading_versions=$(printf '%s\n' "$actual_versions" | while IFS= read -r version; do
+  if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+    printf '%s\n' "$version"
+  elif test "$(git rev-parse --is-shallow-repository)" = false; then
+    fail "release $version has no matching Git tag v$version"
+  fi
+done)
+expected_heading_versions=$(printf '%s\n' "$expected_versions" | while IFS= read -r version; do
+  if printf '%s\n' "$available_heading_versions" | grep -Fxq "$version"; then
+    printf '%s\n' "$version"
+  fi
+done)
+test "$available_heading_versions" = "$expected_heading_versions" || fail \
+  "locally available release tags must appear once in descending version order"
 
 awk '
   /^## \[/ {
@@ -77,6 +89,10 @@ awk '
   }
 ' "$changelog" | while IFS='|' read -r version date; do
   tag="v$version"
+  if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+    test "$(git rev-parse --is-shallow-repository)" = true && continue
+    fail "release $version has no matching Git tag $tag"
+  fi
   tag_date=$(git for-each-ref "refs/tags/$tag" --format='%(creatordate:short)' | head -n 1)
   test "$date" = "$tag_date" || fail \
     "release $version is dated $date but $tag was created on $tag_date"
