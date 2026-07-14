@@ -13,6 +13,10 @@ case "$github_email" in
   hengyang.2003@tsinghua.org.cn) ;;
   *) echo "GitHub mirror identity must be hengyang.2003@tsinghua.org.cn" >&2; exit 2 ;;
 esac
+case "$github_name" in
+  HengYang) ;;
+  *) echo "GitHub mirror author name must be HengYang" >&2; exit 2 ;;
+esac
 
 git rev-parse --is-inside-work-tree >/dev/null
 git diff --quiet && git diff --cached --quiet || {
@@ -43,7 +47,15 @@ snapshot=$(printf '%s\n\n%s\n%s\n' \
     git commit-tree "$tree" -p "$parent")
 
 # `--force-with-lease` makes concurrent GitHub mirror changes fail closed.
-git -c user.name="$github_name" -c user.email="$github_email" -c user.useConfigOnly=true \
-  push --force-with-lease="refs/heads/$branch:$parent" "$remote_url" "${snapshot}:refs/heads/$branch"
+if ! git -c user.name="$github_name" -c user.email="$github_email" -c user.useConfigOnly=true \
+  push --force-with-lease="refs/heads/$branch:$parent" "$remote_url" "${snapshot}:refs/heads/$branch"; then
+  cat >&2 <<'MSG'
+GitHub mirror publication was rejected by GitHub email privacy protection.
+Open https://github.com/settings/emails and make hengyang.2003@tsinghua.org.cn
+public, or disable only "Block command line pushes that expose my email" after
+confirming the address is intentional. Keep GitLab identity protection enabled.
+MSG
+  exit 1
+fi
 git update-ref "refs/remotes/$remote/$branch" "$snapshot" "$parent"
 printf 'GitHub mirror synchronized: %s\n' "$snapshot"
