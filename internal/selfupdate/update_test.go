@@ -40,6 +40,15 @@ type missingDownloadRunner struct {
 	calls [][]string
 }
 
+type glabAPIAssetRunner struct {
+	archive     []byte
+	checksum    string
+	archiveURL  string
+	checksumURL string
+	calls       [][]string
+	fileCalls   [][]string
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (fn roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -71,6 +80,35 @@ func (r *missingDownloadRunner) Run(_ context.Context, name string, args ...stri
 		return nil, os.ErrNotExist
 	}
 	return nil, fmt.Errorf("unexpected args: %v", args)
+}
+
+func (r *glabAPIAssetRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
+	r.calls = append(r.calls, append([]string{name}, args...))
+	if len(args) >= 2 && args[0] == "release" && args[1] == "list" {
+		return []byte("v0.2.0\n"), nil
+	}
+	if len(args) >= 2 && args[0] == "release" && args[1] == "download" {
+		return nil, nil
+	}
+	if len(args) >= 2 && args[0] == "api" && args[1] == "projects/456/releases/v0.2.0" {
+		return []byte(fmt.Sprintf(`{"assets":{"links":[{"name":"aigw_0.2.0_darwin_arm64.tar.gz","url":%q},{"name":"checksums.txt","url":%q}]}}`, r.archiveURL, r.checksumURL)), nil
+	}
+	return nil, fmt.Errorf("unexpected args: %v", args)
+}
+
+func (r *glabAPIAssetRunner) RunToFile(_ context.Context, destination, name string, args ...string) error {
+	r.fileCalls = append(r.fileCalls, append([]string{name}, args...))
+	if name != "glab" || len(args) != 2 || args[0] != "api" {
+		return fmt.Errorf("unexpected file command: %s %v", name, args)
+	}
+	switch args[1] {
+	case r.archiveURL:
+		return os.WriteFile(destination, r.archive, 0o600)
+	case r.checksumURL:
+		return os.WriteFile(destination, []byte(r.checksum), 0o600)
+	default:
+		return fmt.Errorf("unexpected API asset URL: %s", args[1])
+	}
 }
 
 func (r *fakeRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
@@ -634,6 +672,123 @@ func TestUpdateFallsBackToGitLabAPIWhenGlabReportsMissingDownloadedFile(t *testi
 	}
 	if string(got) != "new-binary" {
 		t.Fatalf("binary=%q", got)
+	}
+}
+
+func TestUpdateUsesGlabAPIKeychainFallbackWhenReleaseDownloadLeavesNoFile(t *testing.T) {
+	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("new-binary"))
+	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
+	sum := sha256.Sum256(archive)
+	runner := &glabAPIAssetRunner{
+		archive:     archive,
+		checksum:    fmt.Sprintf("%x  ./%s\n", sum, archiveName),
+		archiveURL:  "http://packages.example/aigw/0.2.0/" + archiveName,
+		checksumURL: "http://packages.example/aigw/0.2.0/checksums.txt",
+	}
+	binary := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITLAB_TOKEN", "")
+	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: runner}
+	if _, err := u.Update(context.Background(), "0.1.0"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "new-binary" {
+		t.Fatalf("binary = %q, want new-binary", got)
+	}
+	if len(runner.fileCalls) != 2 {
+		t.Fatalf("glab API asset downloads = %v, want two streamed assets", runner.fileCalls)
+	}
+	for _, call := range append(runner.calls, runner.fileCalls...) {
+		if contains(call, "GITLAB_TOKEN") || contains(call, "test-token") {
+			t.Fatalf("credential leaked to glab command: %v", call)
+		}
+	}
+}
+
+func TestExecRunnerStreamsGlabAPIAssetWithConfiguredGitLabHost(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix shell fixture")
+	}
+	dir := t.TempDir()
+	capture := filepath.Join(dir, "gl-hosts")
+	glab := filepath.Join(dir, "glab")
+	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("new-binary"))
+	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
+	sum := sha256.Sum256(archive)
+	archiveSource := filepath.Join(dir, "archive")
+	checksumSource := filepath.Join(dir, "checksums.txt")
+	if err := os.WriteFile(archiveSource, archive, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(checksumSource, []byte(fmt.Sprintf("%x  ./%s\n", sum, archiveName)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	script := `#!/bin/sh
+printf '%s\n' "$GL_HOST" >> "$AIGW_TEST_CAPTURE"
+case "$1:$2" in
+  release:list) printf 'v0.2.0\n' ;;
+  release:download) exit 0 ;;
+  api:projects/456/releases/v0.2.0) printf '{"assets":{"links":[{"name":"aigw_0.2.0_darwin_arm64.tar.gz","url":"http://packages.example/aigw_0.2.0_darwin_arm64.tar.gz"},{"name":"checksums.txt","url":"http://packages.example/checksums.txt"}]}}' ;;
+  api:http://packages.example/aigw_0.2.0_darwin_arm64.tar.gz) cat "$AIGW_TEST_ARCHIVE" ;;
+  api:http://packages.example/checksums.txt) cat "$AIGW_TEST_CHECKSUMS" ;;
+  *) echo "unexpected glab arguments: $*" >&2; exit 1 ;;
+esac
+`
+	if err := os.WriteFile(glab, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("AIGW_TEST_CAPTURE", capture)
+	t.Setenv("AIGW_TEST_ARCHIVE", archiveSource)
+	t.Setenv("AIGW_TEST_CHECKSUMS", checksumSource)
+	t.Setenv("AIGW_GL_HOST", "https://gitlab.example.test")
+	binary := filepath.Join(dir, "aigw")
+	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: selfupdate.ExecRunner{}}
+	if _, err := u.Update(context.Background(), "0.1.0"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "new-binary" {
+		t.Fatalf("binary = %q", got)
+	}
+	hosts, err := os.ReadFile(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, host := range strings.Fields(string(hosts)) {
+		if host != "https://gitlab.example.test" {
+			t.Fatalf("GL_HOST = %q, want configured GitLab host for every glab call", host)
+		}
+	}
+}
+
+func TestExecRunnerBoundsStderrWithoutBreakingCommandOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix shell fixture")
+	}
+	dir := t.TempDir()
+	script := filepath.Join(dir, "noisy")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nhead -c 32768 /dev/zero | tr '\\0' x >&2\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	err := (selfupdate.ExecRunner{}).RunToFile(context.Background(), filepath.Join(dir, "asset"), script)
+	if err == nil {
+		t.Fatal("RunToFile succeeded for failing command")
+	}
+	if len(err.Error()) > 17<<10 {
+		t.Fatalf("unbounded command error length = %d", len(err.Error()))
 	}
 }
 
