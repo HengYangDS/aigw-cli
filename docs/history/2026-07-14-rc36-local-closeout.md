@@ -1,5 +1,8 @@
 # RC.36 本地收口记录
 
+> **Historical local closeout.** This RC.36 record is superseded by current source, tests, CI, and canonical governance documents. It remains only as a dated provenance snapshot.
+
+
 **状态：** 本地 RC 候选已收口；远端发布、签名与 GA 仍未发生。
 **范围：** 本记录只覆盖 `0.1.0-rc.36` 的本地源码、工件、本机安装与客户端连通性证据。
 

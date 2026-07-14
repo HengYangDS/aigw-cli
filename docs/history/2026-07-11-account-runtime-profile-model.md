@@ -1,5 +1,8 @@
 # Account and Runtime Profile Contract
 
+> **Historical design artifact.** Superseded by current source, tests, and canonical docs; retained only for provenance.
+
+
 ## Purpose
 
 AIGW separates upstream service identity from model choice. This lets users select GPT and Claude models on the same Account without duplicating URLs or Tokens; provider-native diagnostics remain optional and explicit.
