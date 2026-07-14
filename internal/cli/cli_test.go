@@ -738,3 +738,48 @@ func TestTestCommandUsesCodexModelsEndpointAndRejectsNotFound(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *testing.T) {
+	app, out, secretStore, runner := testApp(t, "")
+	dir := t.TempDir()
+	first := filepath.Join(dir, "first.toml")
+	second := filepath.Join(dir, "second.toml")
+	for _, target := range []string{first, second} {
+		if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := domain.NewConfig()
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "http://127.0.0.1:8791/v1"}}
+	cfg.Profiles["terra"] = domain.Profile{Label: "GPT-5.6 Terra", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-5.6-terra"}}
+	cfg.Routes.Default = "terra"
+	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{first, second}}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "dry-run-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "sync", "--dry-run", "--json"); err != nil {
+		t.Fatalf("sync --dry-run --json error = %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("dry-run started credential binding plans: %#v", runner.plans)
+	}
+	for _, target := range []string{first, second} {
+		data, err := os.ReadFile(target)
+		if err != nil || string(data) != "model_provider = \"native\"\n" {
+			t.Fatalf("dry-run mutated %s: %q, %v", target, data, err)
+		}
+		if _, err := os.Stat(target + ".aigw-state.json"); !os.IsNotExist(err) {
+			t.Fatalf("dry-run wrote sidecar %s: %v", target, err)
+		}
+	}
+	result := out.String()
+	for _, want := range []string{`"action": "initial-project"`, first, second} {
+		if !strings.Contains(result, want) {
+			t.Fatalf("dry-run JSON missing %q:\n%s", want, result)
+		}
+	}
+}
