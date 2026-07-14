@@ -1,5 +1,8 @@
 # AIGW CLI
 
+**GitLab Project Name:** `AIGW CLI`  \
+**Stable repository Path:** `aigw-cli`
+
 AIGW 是**本机优先**、可供团队分发的跨平台第三方 AI API 配置工具：统一管理服务账户、模型配置、系统密钥、Claude/Codex 路由与客户端适配，**不运行后台服务，不承载 API 流量**。
 
 ```text
@@ -117,7 +120,8 @@ aigw rotate [account]        # 更新服务账户 Token
 aigw catalog [--all|--json]  # 默认紧凑模型摘要；显式查看完整目录或 JSON
 aigw check                   # 配置、Token、客户端与网关健康检查
 aigw balance [account]       # 仅对显式配置且本版本支持的服务商显示精确值
-aigw sync                    # 仅对齐客户端配置；不重启客户端、不改动认证
+aigw sync                    # 事务性对齐全部 Codex 投影；不重启客户端、不改动认证
+aigw sync --dry-run --json   # 仅展示各目标动作；不写入配置、认证或会话
 aigw adapter auth codex      # 仅重新绑定当前服务账户的 Codex 原生认证
 aigw repair                  # 自动发现并修复适配器漂移
 aigw verify --for all        # 明确执行两次最小真实模型请求，并建立验证检查点
@@ -174,7 +178,7 @@ aigw adapter enable codex \
 
 Claude 启动器由 AIGW 放在**专属数据目录**：macOS 为 `~/Library/Application Support/aigw/bin/claude`，Linux 为 `${XDG_DATA_HOME:-~/.local/share}/aigw/bin/claude`，Windows 为 `%LOCALAPPDATA%\Programs\aigw\bin\claude.cmd`。启用 Claude 适配器时，AIGW 只在当前用户的 shell 配置写入一个有边界标记、无密钥的 PATH 块；它不写入 `~/.codex`，也不会覆盖非 AIGW 管理的 `claude`。Claude Token 只在启动目标进程时映射为 `ANTHROPIC_AUTH_TOKEN`。
 
-Codex 只接收带 AIGW 标记的顶层 `model`、`model_provider` 和 provider 投影。`aigw doctor` 会检查这三处是否仍与当前模型配置一致；发现手工漂移时，用 `aigw sync` 只恢复配置，不会启动、关闭或重启 Codex。
+Codex 只接收带 AIGW 标记的顶层 `model`、`model_provider` 和 provider 投影。`aigw doctor` 会检查这三处是否仍与当前模型配置一致；发现手工漂移时，先用 `aigw sync --dry-run --json` 审阅全目标计划，再用 `aigw sync` 原子收敛全部目标。该过程不会启动、关闭或重启 Codex。
 
 同一服务账户内切换模型只更新配置，不重复绑定凭据。首次启用 Codex、切换到另一个服务账户、`aigw rotate` 或显式运行 `aigw adapter auth codex` 时，AIGW 才通过官方 `login --with-api-key` 从 stdin 执行一次有 20 秒上限的认证绑定。
 
@@ -202,6 +206,17 @@ aigw balance <account>
 ```
 
 若没有精确诊断驱动，`aigw balance` 会明确说明原因，不会影响 `check`、路由、Token 轮换或客户端使用。
+
+## 治理与文档
+
+AIGW 是 Codex provider 配置的控制面；它不管理 `codex-dmx-proxy` 的监听器、看门狗或数据面生命周期。代理只在本地 Responses 边界做兼容处理；二者通过受控 endpoint 投影协作，而不共享写入权。
+
+- [Agent 入口](AGENTS.md)
+- [贡献与验证](CONTRIBUTING.md)
+- [文档根](docs/README.md)
+- [权威与投影边界](docs/architecture/authority-and-projection-boundary.md)
+- [变更与发布政策](docs/governance/change-and-release-policy.md)
+- [ADR-0001](docs/decisions/0001-control-plane-data-plane-boundary.md)
 
 ## 文档
 
