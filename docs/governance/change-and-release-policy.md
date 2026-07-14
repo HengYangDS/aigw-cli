@@ -25,6 +25,20 @@ Changelog heading.
 GitLab **Project Name** is `AIGW CLI`. The stable repository **Path** is
 `aigw-cli`. Display text and external identifier are different contracts.
 
+## Independent provider planes
+
+GitLab and GitHub are independent verification and publication planes. Each
+runs the complete source and governance gate set from its own workflow. Neither
+provider treats the other provider's last successful pipeline as sufficient
+release evidence.
+
+GitLab remains the canonical source-history authority. GitHub holds an
+email-safe projection of the same source tree and independently validates that
+projection. The GitHub mirror is synchronized only with
+`git github-mirror-sync`; direct pushes are intentionally disabled. Release
+assets may be published only after the local artifact matrix and the provider's
+own gate set agree.
+
 ## Distribution continuity
 
 GitLab is the formal primary release channel. GitHub is independently operable
