@@ -180,7 +180,7 @@ Codex 只接收带 AIGW 标记的顶层 `model`、`model_provider` 和 provider 
 
 ## 验证与回退
 
-`aigw test` 是无模型调用的连通性与认证检查；`aigw verify --for claude|codex` 则会发送一次有上限的真实模型请求，并要求返回 `AIGW_OK`。它只适合在用户明确允许消耗一次最小额度时使用。
+`aigw test` 是无模型调用的连通性与认证检查；Claude 基础 URL 对 GET 返回 `404` 时表示“服务可达，但基础地址不提供 GET 探测”，不会误报为端点不可达。`aigw verify --for claude|codex` 则会发送一次有上限的真实模型请求，并要求返回 `AIGW_OK`。Claude 验证显式使用当前路由模型和安全模式，禁用 hooks、MCP、skills、插件、自定义命令与会话持久化，避免用户设置污染验证边界。它只适合在用户明确允许消耗一次最小额度时使用。
 
 `aigw verify --for all` 还会先确认 Claude shim、Codex 可执行文件和所有 Codex 投影均就绪；仅两条真实链路均通过后，才在本机保存**不含密钥**的完整验证检查点。`aigw rollback` 优先恢复该检查点；`aigw rollback --last-change` 只恢复紧邻的配置备份。二者只恢复 AIGW 管理的配置投影，绝不启动、停止、重启或重载 Claude/Codex 客户端。
 

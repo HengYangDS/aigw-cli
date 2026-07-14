@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -27,9 +28,11 @@ func TestManagerCreatesAndRemovesOwnedUnixClaudeShim(t *testing.T) {
 	if !strings.Contains(string(data), "AIGW managed Claude shim") || !strings.Contains(string(data), "__run-claude") {
 		t.Fatalf("shim = %s", data)
 	}
-	info, _ := os.Stat(path)
-	if info.Mode().Perm() != 0o755 {
-		t.Fatalf("mode = %o", info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		info, _ := os.Stat(path)
+		if info.Mode().Perm() != 0o755 {
+			t.Fatalf("mode = %o", info.Mode().Perm())
+		}
 	}
 	if err := manager.DisableClaude(); err != nil {
 		t.Fatal(err)
@@ -50,8 +53,53 @@ func TestManagerCreatesWindowsCommandShim(t *testing.T) {
 		t.Fatalf("path = %s", path)
 	}
 	data, _ := os.ReadFile(path)
-	if !strings.Contains(string(data), "%~dp0aigw.exe") || !strings.Contains(string(data), "__run-claude") {
-		t.Fatalf("Windows shim = %s", data)
+	if !strings.Contains(string(data), `"`+filepath.Join(dir, "aigw.exe")+`" __run-claude`) {
+		t.Fatalf("Windows shim must target the configured AIGW executable, got %s", data)
+	}
+	if strings.Contains(string(data), "%~dp0aigw.exe") {
+		t.Fatalf("Windows shim must not assume the AIGW executable shares its directory: %s", data)
+	}
+}
+
+func TestManagerRejectsWindowsShimWhoseTargetIsUnavailable(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "portable", "aigw.exe")
+	manager := shims.Manager{GOOS: "windows", BinDir: filepath.Join(dir, "shim"), AIGWExecutable: target}
+	if _, err := manager.EnableClaude(); err != nil {
+		t.Fatal(err)
+	}
+	ready, err := manager.ClaudeShimReady()
+	if ready || err == nil || !strings.Contains(err.Error(), "target is unavailable") {
+		t.Fatalf("unavailable Windows target readiness = %v, %v", ready, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("aigw executable"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ready, err = manager.ClaudeShimReady()
+	if err != nil || !ready {
+		t.Fatalf("available Windows target readiness = %v, %v", ready, err)
+	}
+}
+
+func TestManagerParsesQuotedWindowsShimTarget(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, `AIGW "portable"`, "aigw.exe")
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("aigw executable"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	manager := shims.Manager{GOOS: "windows", BinDir: filepath.Join(dir, "shim"), AIGWExecutable: target}
+	if _, err := manager.EnableClaude(); err != nil {
+		t.Fatal(err)
+	}
+	ready, err := manager.ClaudeShimReady()
+	if err != nil || !ready {
+		t.Fatalf("quoted Windows target readiness = %v, %v", ready, err)
 	}
 }
 

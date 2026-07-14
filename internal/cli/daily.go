@@ -306,6 +306,7 @@ type endpointTestResult struct {
 	client    string
 	profileID string
 	status    int
+	detail    string
 }
 
 type statusOutput struct {
@@ -613,10 +614,13 @@ func newTestCommand(app *App) *cobra.Command {
 				if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 					return fmt.Errorf("%s 认证被拒绝（HTTP %d）；请运行 `aigw rotate %s`", title(target), resp.StatusCode, accountName)
 				}
-				if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+				detail := ""
+				if resp.StatusCode == http.StatusNotFound && target == domain.ClientClaude {
+					detail = "服务可达，基础地址不提供 GET 探测"
+				} else if resp.StatusCode < 200 || resp.StatusCode >= 400 {
 					return fmt.Errorf("%s 端点返回 HTTP %d", title(target), resp.StatusCode)
 				}
-				results = append(results, endpointTestResult{client: target, profileID: runtime.ProfileID, status: resp.StatusCode})
+				results = append(results, endpointTestResult{client: target, profileID: runtime.ProfileID, status: resp.StatusCode, detail: detail})
 			}
 			if len(results) == 0 {
 				return fmt.Errorf("已解析的配置没有可测试的客户端端点")
@@ -625,7 +629,11 @@ func newTestCommand(app *App) *cobra.Command {
 			r.Title("AIGW", "连接测试")
 			r.Section("端点")
 			for _, result := range results {
-				r.Status(presentation.OK, title(result.client), fmt.Sprintf("%s · HTTP %d", result.profileID, result.status))
+				value := fmt.Sprintf("%s · HTTP %d", result.profileID, result.status)
+				if result.detail != "" {
+					value += " · " + result.detail
+				}
+				r.Status(presentation.OK, title(result.client), value)
 			}
 			r.Next("aigw check")
 			return nil
@@ -829,7 +837,10 @@ func verifyClaudeInvocation(ctx context.Context, app *App, cfg domain.Config, ru
 	if !ready {
 		return fmt.Errorf("Claude 启动器缺失；请运行 `aigw repair`")
 	}
-	plan, err := adapters.ClaudePlan(adapter.Executable, []string{"--print", "Reply with exactly: AIGW_OK"}, os.Environ(), runtime, token)
+	if runtime.Model == "" {
+		return fmt.Errorf("配置 %q 未设置 Claude 模型", runtime.ProfileID)
+	}
+	plan, err := adapters.ClaudePlan(adapter.Executable, []string{"--safe-mode", "--disable-slash-commands", "--no-session-persistence", "--print", "--model", runtime.Model, "Reply with exactly: AIGW_OK"}, os.Environ(), runtime, token)
 	if err != nil {
 		return err
 	}
