@@ -16,7 +16,8 @@ for file in \
   docs/governance/change-and-release-policy.md \
   docs/decisions/0001-control-plane-data-plane-boundary.md \
   docs/evidence/README.md \
-  packaging/release/allowed_signers
+  packaging/release/allowed_signers \
+  .github/workflows/verify.yml
 do
   require_file "$file"
 done
@@ -34,6 +35,10 @@ if ! grep -Fq '`aigw-cli`' README.md; then
 fi
 if ! grep -Fq 'sh scripts/check-governance.sh' .gitlab-ci.yml; then
   echo "GitLab CI must execute the governance check" >&2
+  exit 1
+fi
+if ! grep -Fq 'scripts/check-governance.sh' .github/workflows/verify.yml; then
+  echo "GitHub Actions must execute the governance check" >&2
   exit 1
 fi
 if test -e docs/history || test -e docs/superpowers || test -e docs/design || test -e docs/reviews || test -e docs/specs; then

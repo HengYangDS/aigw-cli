@@ -169,6 +169,11 @@ Codex JSONL, SQLite, archived conversations, model metadata, or a DMX Proxy
 process. A future organizational gateway is simply a verified HTTPS account
 endpoint from AIGW's perspective.
 
+GitLab and GitHub are independent source-verification and release planes.
+GitLab retains canonical source history; GitHub independently verifies the
+same source tree and may publish an identical recovery release. Neither plane
+uses the other provider's green pipeline as substitute evidence.
+
 ## Documentation and contribution
 
 - [Concepts](docs/concepts.md)
