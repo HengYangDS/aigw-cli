@@ -349,7 +349,7 @@ func TestUpdateFallsBackToGitHubAfterGitLabAPITransportFailure(t *testing.T) {
 	if readErr != nil {
 		t.Fatal(readErr)
 	}
-	if string(got) != "github-binary" || !strings.Contains(message, "GitHub mirror") {
+	if string(got) != "github-binary" || !strings.Contains(message, "github fallback") {
 		t.Fatalf("binary=%q message=%q", got, message)
 	}
 }
@@ -401,7 +401,7 @@ func TestUpdateFallsBackToGitHubWhenGitLabIsUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != "github-binary" || !strings.Contains(message, "GitHub mirror") {
+	if string(got) != "github-binary" || !strings.Contains(message, "github fallback") {
 		t.Fatalf("binary=%q message=%q", got, message)
 	}
 	if len(requests) != 3 || requests[0] != "/repos/example-owner/aigw-cli/releases/latest" {
@@ -1601,6 +1601,38 @@ func TestCurrentUsesBuildTimeInstallChannel(t *testing.T) {
 	updater := selfupdate.Current("/usr/bin/aigw")
 	if updater.Channel != selfupdate.ChannelRPM {
 		t.Fatalf("channel = %q, want rpm", updater.Channel)
+	}
+}
+
+func TestCurrentUsesBuildTimeReleaseProvider(t *testing.T) {
+	previousProvider, previousHost, previousProject := selfupdate.BuildReleaseProvider, selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject
+	t.Cleanup(func() {
+		selfupdate.BuildReleaseProvider, selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject = previousProvider, previousHost, previousProject
+	})
+	selfupdate.BuildReleaseProvider = "github"
+	selfupdate.BuildReleaseHost = "https://github.com"
+	selfupdate.BuildReleaseProject = "HengYangDS/aigw-cli"
+	t.Setenv("AIGW_RELEASE_PROVIDER", "")
+	t.Setenv("AIGW_RELEASE_HOST", "")
+	t.Setenv("AIGW_RELEASE_PROJECT", "")
+	updater := selfupdate.Current(filepath.Join(t.TempDir(), "aigw"))
+	if got := updater.Release; got != (selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitHub, Host: "https://github.com", Project: "HengYangDS/aigw-cli"}) {
+		t.Fatalf("primary source = %#v", got)
+	}
+}
+
+func TestCurrentUsesBuildTimeGitHubPrimarySource(t *testing.T) {
+	previousHost, previousProject := selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject
+	t.Cleanup(func() {
+		selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject = previousHost, previousProject
+	})
+	selfupdate.BuildReleaseHost = "https://github.com"
+	selfupdate.BuildReleaseProject = "HengYangDS/aigw-cli"
+	t.Setenv("AIGW_RELEASE_HOST", "")
+	t.Setenv("AIGW_RELEASE_PROJECT", "")
+	updater := selfupdate.Current(filepath.Join(t.TempDir(), "aigw"))
+	if got := updater.Release; got != (selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Host: "https://github.com", Project: "HengYangDS/aigw-cli"}) {
+		t.Fatalf("primary source = %#v", got)
 	}
 }
 
