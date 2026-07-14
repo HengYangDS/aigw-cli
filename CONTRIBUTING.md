@@ -19,6 +19,7 @@ go test -race ./...
 go vet ./...
 test -z "$(gofmt -l cmd internal tools)"
 sh scripts/check-governance.sh
+sh scripts/test-changelog.sh
 ```
 
 ## Projection changes
@@ -31,7 +32,9 @@ fails.
 
 ## Release and metadata
 
-Use focused Conventional Commits. Keep `CHANGELOG.md` with `## Unreleased` as
-its first release section, followed by published versions in descending order.
-GitLab **Project Name** is `AIGW CLI`; stable clone **Path** is `aigw-cli`.
-Do not change external paths as a display-name cleanup.
+Use focused Conventional Commits. Keep `CHANGELOG.md` with `## [Unreleased]` as
+its first release section, containing only changes after the latest tagged
+release. Every published heading must map to an existing `v<semver>` tag and
+its tag date; run `sh scripts/check-changelog.sh` before requesting review.
+GitLab **Project Name** is `AIGW CLI`; stable clone **Path** is `aigw-cli`. Do
+not change external paths as a display-name cleanup.

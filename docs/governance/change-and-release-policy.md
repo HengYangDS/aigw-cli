@@ -10,9 +10,17 @@ projection is a failed outcome, not a tolerable intermediate state.
 
 ## Release identity and chronicle
 
-`CHANGELOG.md` begins with `## Unreleased`, followed by dated published releases
-in descending order. Release claims must distinguish local tests, hosted CI,
-physical-platform acceptance, and user-visible conversation recovery.
+`CHANGELOG.md` begins with `## [Unreleased]`, which contains only changes made
+after the latest reachable release tag. The next section must be the latest
+reachable `v<semver>` tag, written as `## [<semver>] - <tag-date>`. Every older
+published section is likewise anchored to a real tag and its creation date.
+Planned versions, branch names, and inferred GA milestones do not belong in the
+release chronicle. `scripts/check-changelog.sh` enforces this invariant in CI.
+
+A release tag records a source version; it is not by itself proof of artifact
+publication, native-platform acceptance, signing, notarization, or GA. Those
+claims require their corresponding evidence and must never be implied by a
+Changelog heading.
 
 GitLab **Project Name** is `AIGW CLI`. The stable repository **Path** is
 `aigw-cli`. Display text and external identifier are different contracts.

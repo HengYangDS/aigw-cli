@@ -1,56 +1,68 @@
 # Changelog
 
-## Unreleased
+All notable, user-relevant changes are recorded here.  This chronicle follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and Semantic
+Versioning.  A published section must correspond to an existing Git tag; it is
+not a plan, a branch name, or an inferred version.  Artifact publication,
+platform acceptance, signing, and GA status remain separate evidence.
 
-- Verify Linux native packages through four architecture/package paths:
-  `amd64` and `arm64` `.deb`/`.rpm` artifacts are installed and executed in
-  isolated Debian and RPM-family compatibility containers. Image preparation
-  is explicit; package execution itself runs with no network and no pull.
-- Separate human-readable `aigw doctor` output from its stable JSON diagnostic
-  contract: terminal checks now use concise Chinese labels, actionable repair
-  commands, and no raw implementation detail leakage.
-- Localize the complete human-facing CLI help surface and common validation
-  failures, including context-aware next commands instead of a generic health
-  check for syntax and routing mistakes.
-- Add `aigw update --rollback` for portable installations: a local, reversible
-  program-only swap with the single retained prior binary; native package
-  channels remain owned by their package manager. If a selected historical
-  binary predates the command, reinstalling the current portable package gives
-  a program-only return path.
-- Make portable installer and uninstaller help side-effect free on Unix and
-  PowerShell, and retain exactly one immediately preceding portable binary for
-  recovery across both archive installs and `aigw update`; portable uninstall
-  removes that AIGW-owned rollback binary only.
-- Retire historical GPT `-cdx` aliases: canonical Profile/model IDs no longer
-  duplicate the Codex client scope, and validation plus residue gates reject
-  their reintroduction.
-- Keep `aigw check` anchored to the default Profile instead of allowing a
-  client-specific override to silently replace the displayed current service.
-- Redact known, URL-escaped, and bearer credentials before gateway or provider
-  response text can reach diagnostics or errors.
-- Make portable Unix installation self-contained under an empty or polluted
-  `PATH`; the installer now bootstraps trusted system tool locations before it
-  performs its local-only copy.
-- Replace time-bound release snapshots with an evidence contract that separates
-  local packaging, runtime installation, remote publication, and signed GA
-  claims.
-- Establish schema v2 as the single canonical structure for purpose-labelled team Profiles and local configuration.
-- Add a hermetic portable-install lifecycle smoke test that proves install, ownership-scoped uninstall, configuration preservation, and source-binary preservation; run it in CI.
-- Define evidence-gated Adapter admission for GLM/Z.AI, Gemini, Qwen, OpenCode, Perplexity, and Grok; unadmitted clients cannot be routed or placed in team templates.
-- Centralize the static Claude/Codex admission registry so status, diagnostics, validation, and Adapter lists share one implemented-client boundary.
-- Distinguish signed GA from checksummed RC delivery. CI explicitly blocks unsigned GA tags until protected macOS/Windows signing and notarization jobs are implemented and verified.
+## [Unreleased]
 
-## 0.1.0
+### Fixed
 
-- Introduce Profile, Endpoint, inherited Route and isolated Adapter models.
-- Store one Account-scoped secret in macOS Keychain, Linux Secret Service or Windows Credential Manager; multiple model Profiles inherit it without duplicate copies.
-- Add Account + Runtime Profile model so multiple model choices share one Account Token.
-- Remove implicit provider/model defaults from first-run setup; example model Profiles now live only in secret-free team manifests.
-- Isolate provider-native exact diagnostics behind explicit Provider Diagnostics integrations, while keeping generic Account health checks available for every service.
-- Add concise setup, add, use, rotate, status, test, doctor, balance and sync workflows.
-- Add Claude process-boundary injection and AIGW-owned Codex provider projection, including optional model projection.
-- Add strict real-response verification, secret-free full-verification checkpoints, and lifecycle-free configuration rollback.
-- Add secret-free team manifests.
-- Add portable archives plus native macOS pkg, Linux deb/rpm and Windows MSI artifacts for amd64 and arm64, checksums and SPDX SBOM.
-- Ensure native package workflows never traverse user homes or delete user-level Claude shims.
-- Use AIGW-owned Unix Claude shim directories with a reversible secret-free shell PATH activation block.
+- Make repeated `aigw sync` recognize legacy Codex sidecars that already
+  represent the canonical projection, rather than reporting a spurious update.
+- Prepare every Codex projection before the first write and restore every
+  target on a failed commit, so a multi-target synchronization is atomic.
+
+### Documentation
+
+- Define the AIGW control-plane / Responses data-plane boundary and organize
+  canonical architecture, governance, decision, evidence, and historical
+  documentation surfaces.
+
+## [0.1.0-rc.44] - 2026-07-14
+
+### Added
+
+- Introduce account-scoped secrets, purpose-labelled runtime profiles, explicit
+  default and client routes, and secret-free team manifests.
+- Provide isolated Claude and Codex adapters, native credential binding, a
+  minimal real-response verifier, and a secret-free verified-configuration
+  checkpoint for rollback.
+- Deliver portable archives and native macOS, Linux, and Windows packages for
+  `amd64` and `arm64`, with checksums, SPDX SBOMs, installer lifecycle tests,
+  and package-layout verification.
+- Add a portable-program rollback path that retains exactly one previous
+  AIGW-owned binary without touching user configuration, credentials, or
+  client state.
+
+### Changed
+
+- Establish schema v2 as the only accepted local and team-manifest structure;
+  model IDs remain upstream-canonical and client identity is represented by the
+  route, not by a model-name suffix.
+- Make first use local-first and provider-neutral: no default provider,
+  endpoint, model, token, background service, or listening port is assumed.
+- Define release evidence so local packaging, hosted CI, physical-platform
+  acceptance, artifact publication, signing, notarization, and GA claims are
+  separately verifiable.
+
+### Fixed
+
+- Redact bearer, URL-escaped, and structured credentials before diagnostic or
+  gateway text reaches terminal output.
+- Make portable install, upgrade, rollback, and uninstall resilient to an
+  empty or polluted `PATH`, while preserving user configuration and limiting
+  cleanup to AIGW-owned files.
+- Make account imports non-destructive, diagnose the default route
+  consistently, and reject retired `-cdx` model aliases and disposable Claude
+  shim targets.
+- Validate checksums and package metadata across the supported release matrix,
+  including Linux package paths and Windows installer semantics.
+
+### Security
+
+- Keep tokens in platform credential stores and ensure team manifests,
+  portable artifacts, rollback records, diagnostics, and release evidence do
+  not embed secrets.
