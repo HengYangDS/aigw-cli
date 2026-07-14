@@ -77,6 +77,8 @@ if '0.1.0-${CI_COMMIT_SHORT_SHA}' not in package_script:
     raise SystemExit("package must retain a semver-shaped non-tag build fallback")
 if package_script.count('AIGW_RELEASE_HOST="$CI_SERVER_URL"') != 1 or package_script.count('AIGW_RELEASE_PROJECT="$CI_PROJECT_PATH"') != 1:
     raise SystemExit("package must inject the current CI release source instead of a repository-specific host or project")
+if 'AIGW_RELEASE_MIRROR_HOST' not in package_script or 'AIGW_RELEASE_MIRROR_PROJECT' not in package_script:
+    raise SystemExit("package must embed the optional GitHub mirror identity with the GitLab primary source")
 
 publish = section("publish")
 if "    - job: package" not in publish:
@@ -89,6 +91,21 @@ if not any("publish-release.sh" in line for line in release):
     raise SystemExit("release must call the idempotent GitLab Releases API publisher")
 if any("release-cli" in line for line in release):
     raise SystemExit("release job must not depend on unavailable release-cli")
+
+mirror = section("mirror-github")
+if "  stage: release" not in mirror or "    - job: package" not in mirror:
+    raise SystemExit("GitHub mirror publication must consume the exact verified package artifacts")
+if not any('AIGW_GITHUB_MIRROR_ENABLED == "true"' in line for line in mirror):
+    raise SystemExit("GitHub mirror publication must remain explicit and opt-in")
+if not any("publish-github-release.sh" in line for line in mirror):
+    raise SystemExit("GitHub mirror job must call the idempotent mirror publisher")
+mirror_publisher = Path(sys.argv[1]).parent / "scripts" / "publish-github-release.sh"
+mirror_text = mirror_publisher.read_text()
+if "Authorization: Bearer $GITHUB_TOKEN" not in mirror_text or "/releases" not in mirror_text:
+    raise SystemExit("GitHub mirror publisher must authenticate and use the Releases API")
+if '"draft": True' not in mirror_text or "checksums.txt" not in mirror_text:
+    raise SystemExit("GitHub mirror publisher must create checksum-verified draft releases")
+
 publisher = Path(sys.argv[1]).parent / "scripts" / "publish-release.sh"
 publisher_text = publisher.read_text()
 if "JOB-TOKEN: $CI_JOB_TOKEN" not in publisher_text:

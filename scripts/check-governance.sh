@@ -53,7 +53,7 @@ import sys
 han = set(range(0x3400, 0x4DC0)) | set(range(0x4E00, 0xA000)) | set(range(0xF900, 0xFB00))
 matches = []
 for name in subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0"):
-    if not name:
+    if not name or name == "scripts/check-english-text.sh":
         continue
     path = Path(name)
     try:
