@@ -56,8 +56,8 @@ Debian/Fedora 原生 runner 的证据，后者更强。若候选镜像尚未在�
 3. 针对同一个 `dist/` 目录验证校验和、SBOM、包布局、安装器行为，以及当下可取得的
    Linux/Windows 运行证据。
 4. 在隔离 worktree 对候选 revision 完成全部门禁后，为该**精确 revision**创建 SSH 签名
-   预发布 tag；tag pipeline 必须在打包前验证该原始 annotated tag 的签名，且是该候选
-   唯一的工件发布入口。
+   预发布 tag；tag pipeline 必须在打包前以仓库受版本控制的 release signer trust anchor
+   验证该原始 annotated tag 的签名，且是该候选唯一的工件发布入口。
 5. 仅将该已标记的精确候选合入受保护默认分支，并确认 tag 成为 `main` 的祖先且 main
    pipeline 成功。若合入未完成，必须删除该候选的 Release、Generic Package 与 tag，
    不得留下游离发布物。
