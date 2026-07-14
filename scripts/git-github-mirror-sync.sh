@@ -27,7 +27,7 @@ esac
 
 canonical=$(git rev-parse "$branch")
 tree=$(git rev-parse "$canonical^{tree}")
-git fetch --no-tags "$remote" "refs/heads/$branch:refs/remotes/$remote/$branch"
+git fetch --no-tags "$remote_url" "refs/heads/$branch:refs/remotes/$remote/$branch"
 parent=$(git rev-parse "refs/remotes/$remote/$branch")
 if [ "$(git rev-parse "$parent^{tree}")" = "$tree" ]; then
   printf 'GitHub mirror already matches canonical %s (%s)\n' "$branch" "$canonical"
@@ -43,6 +43,6 @@ snapshot=$(printf '%s\n\n%s\n%s\n' \
     git commit-tree "$tree" -p "$parent")
 
 # `--force-with-lease` makes concurrent GitHub mirror changes fail closed.
-git push --force-with-lease="refs/heads/$branch:$parent" "$remote" "${snapshot}:refs/heads/$branch"
+git push --force-with-lease="refs/heads/$branch:$parent" "$remote_url" "${snapshot}:refs/heads/$branch"
 git update-ref "refs/remotes/$remote/$branch" "$snapshot" "$parent"
 printf 'GitHub mirror synchronized: %s\n' "$snapshot"
