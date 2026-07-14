@@ -8,7 +8,7 @@
 | Windows | Credential Manager |
 | Linux | Secret Service over D-Bus |
 
-The logical service is always `AIGW_TOKEN`; the account is the Account ID, not the Runtime Profile ID. Linux without a usable Secret Service fails explicitly. CI may set `AIGW_SECRET_BACKEND=env` to select the read-only environment backend and expose `AIGW_TOKEN_<NORMALIZED_ACCOUNT>` to the process.
+The logical service is always `AIGW_TOKEN`; the account is the Account ID, not the Runtime Profile ID. Linux without a usable Secret Service fails explicitly. CI may set `AIGW_SECRET_BACKEND=env` to select the read-only environment backend and expose `AIGW_TOKEN_<NORMALIZED_ACCOUNT>` to the process. When that credential is pre-provisioned, non-interactive `aigw setup` reuses it to validate and write only secret-free metadata; it neither prompts for nor persists a duplicate Token. An explicit `--token-stdin` remains a request to write a new credential and is therefore rejected by the read-only environment backend.
 
 Importing a token-free team manifest cannot silently redirect an existing Account Token: an Account or Profile collision must be semantically identical or the import fails before mutation. Reviewed replacement requires `aigw config import ... --replace-account <id>` and/or `--replace-profile <id>`; Account replacement updates only public metadata and retains the existing system-secret slot unchanged.
 
