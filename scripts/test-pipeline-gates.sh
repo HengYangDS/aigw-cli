@@ -16,6 +16,8 @@ workflow_end = next((i for i in range(workflow_start + 1, len(lines)) if lines[i
 workflow = "\n".join(lines[workflow_start:workflow_end])
 if "CI_COMMIT_BRANCH =~ /^release\\/" not in workflow or "when: never" not in workflow:
     raise SystemExit("CI workflow must suppress untagged release/* branch pipelines; the signed tag is the release verification entry")
+if "CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\\/" not in workflow:
+    raise SystemExit("CI workflow must suppress merge-request pipelines from release/* branches before the signed tag exists")
 
 def section(name):
     start = next(i for i, line in enumerate(lines) if line == f"{name}:")
