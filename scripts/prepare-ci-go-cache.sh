@@ -9,13 +9,14 @@ cache_parent="${CI_BUILDS_DIR:-$HOME/builds}/.aigw-ci-cache"
 AIGW_CI_CACHE_ROOT="$cache_parent/$CI_PROJECT_ID"
 export AIGW_CI_CACHE_ROOT
 
-case "${AIGW_CI_CACHE_MAX_KIB:-262144}" in
+cache_max_kib=${AIGW_CI_CACHE_MAX_KIB:-262144}
+case "$cache_max_kib" in
   *[!0-9]*|'') echo "AIGW_CI_CACHE_MAX_KIB must be a positive integer" >&2; return 2 2>/dev/null || exit 2 ;;
 esac
 
 if [ -d "$AIGW_CI_CACHE_ROOT" ]; then
   size_kib=$(du -sk "$AIGW_CI_CACHE_ROOT" | awk '{print $1}')
-  if [ "$size_kib" -gt "$AIGW_CI_CACHE_MAX_KIB" ]; then
+  if [ "$size_kib" -gt "$cache_max_kib" ]; then
     rm -rf "$AIGW_CI_CACHE_ROOT"
   fi
 fi
