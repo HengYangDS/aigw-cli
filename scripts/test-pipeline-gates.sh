@@ -18,6 +18,9 @@ default = section("default")
 if not any("AIGW_GOPROXY" in line and "goproxy.cn,direct" in line for line in default):
     raise SystemExit("default CI environment must configure an overrideable reachable Go module proxy")
 
+if not any("GOFLAGS" in line and "-modcacherw" in line for line in default):
+    raise SystemExit("default CI environment must make the workspace module cache removable")
+
 runtime = section("windows-installer-runtime")
 if "  stage: verify" not in runtime:
     raise SystemExit("windows installer runtime verification must remain a verify-stage job")
