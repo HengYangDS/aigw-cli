@@ -225,7 +225,7 @@ AIGW 是 Codex provider 配置的控制面；它不管理 `codex-dmx-proxy` 的�
 - [模型策略与客户端准入](docs/model-strategy.md)
 - [适配器准入](docs/adapter-admission.md)
 - [团队推广](docs/team-rollout.md)
-- [产品设计](docs/design/2026-07-10-aigw-cli-product-design.md)
+- [历史产品设计（仅保留溯源）](docs/history/2026-07-10-initial-product-design.md)
 
 ## 卸载边界
 
