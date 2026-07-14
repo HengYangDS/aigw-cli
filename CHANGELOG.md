@@ -10,73 +10,21 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 无。
 
-## [0.1.0-rc.45] - 2026-07-14
+## [0.1.0-rc.46] - 2026-07-14
 
 ### Fixed
 
-- Make repeated `aigw sync` recognize legacy Codex sidecars that already
-  represent the canonical projection, rather than reporting a spurious update.
-- Prepare every Codex projection before the first write and restore every
-  target on a failed commit, so a multi-target synchronization is atomic.
-- Reject development binaries as a healthy user installation and prevent the
-  portable installer from placing a local source build in the default user path.
-- Prune retained runner tags before release-chronology validation, preventing
-  deleted release candidates from contaminating a later CI run.
+- Reuse a pre-provisioned account credential during non-interactive `aigw setup`; the read-only `AIGW_SECRET_BACKEND=env` backend now validates and references `AIGW_TOKEN_<ACCOUNT>` without prompting for or persisting a duplicate Token.
+- Preserve explicit credential intent: `--token-stdin` still takes precedence when a writable secret backend is selected.
+- Make every configured Codex projection atomic: prepare all targets before writing and restore exact config/sidecar pre-state if any commit fails.
+- Recognize already-canonical legacy Codex sidecars, reject development binaries as healthy user installs, and prevent source builds from replacing the default user binary path.
+- Prune retained runner tags before validating the release chronicle, so deleted candidates cannot contaminate later CI.
 
 ### Added
 
-- Provide `aigw sync --dry-run [--json]` as a credential-free, read-only
-  projection plan that never writes configuration, binds authentication, or
-  changes client/session state.
+- Provide `aigw sync --dry-run [--json]` as a credential-free projection plan; it never writes configuration, binds authentication, restarts clients, or changes sessions.
 
 ### Documentation
 
-- Define the AIGW control-plane / Responses data-plane boundary and organize
-  canonical architecture, governance, decision, evidence, and historical
-  documentation surfaces.
-
-## [0.1.0-rc.44] - 2026-07-14
-
-### Added
-
-- Introduce account-scoped secrets, purpose-labelled runtime profiles, explicit
-  default and client routes, and secret-free team manifests.
-- Provide isolated Claude and Codex adapters, native credential binding, a
-  minimal real-response verifier, and a secret-free verified-configuration
-  checkpoint for rollback.
-- Deliver portable archives and native macOS, Linux, and Windows packages for
-  `amd64` and `arm64`, with checksums, SPDX SBOMs, installer lifecycle tests,
-  and package-layout verification.
-- Add a portable-program rollback path that retains exactly one previous
-  AIGW-owned binary without touching user configuration, credentials, or
-  client state.
-
-### Changed
-
-- Establish schema v2 as the only accepted local and team-manifest structure;
-  model IDs remain upstream-canonical and client identity is represented by the
-  route, not by a model-name suffix.
-- Make first use local-first and provider-neutral: no default provider,
-  endpoint, model, token, background service, or listening port is assumed.
-- Define release evidence so local packaging, hosted CI, physical-platform
-  acceptance, artifact publication, signing, notarization, and GA claims are
-  separately verifiable.
-
-### Fixed
-
-- Redact bearer, URL-escaped, and structured credentials before diagnostic or
-  gateway text reaches terminal output.
-- Make portable install, upgrade, rollback, and uninstall resilient to an
-  empty or polluted `PATH`, while preserving user configuration and limiting
-  cleanup to AIGW-owned files.
-- Make account imports non-destructive, diagnose the default route
-  consistently, and reject retired `-cdx` model aliases and disposable Claude
-  shim targets.
-- Validate checksums and package metadata across the supported release matrix,
-  including Linux package paths and Windows installer semantics.
-
-### Security
-
-- Keep tokens in platform credential stores and ensure team manifests,
-  portable artifacts, rollback records, diagnostics, and release evidence do
-  not embed secrets.
+- Establish the AIGW control-plane / Responses data-plane boundary, canonical governance and evidence surfaces, and the explicit separation of Codex Desktop model authority from local provider configuration.
+- Clarify environment-secret setup for repeatable container and CI acceptance without plaintext credentials.
