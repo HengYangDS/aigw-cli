@@ -9,6 +9,14 @@ import sys
 
 lines = Path(sys.argv[1]).read_text().splitlines()
 
+workflow_start = next((i for i, line in enumerate(lines) if line == "workflow:"), None)
+if workflow_start is None:
+    raise SystemExit("CI must define a workflow gate for pre-tag release branches")
+workflow_end = next((i for i in range(workflow_start + 1, len(lines)) if lines[i] and not lines[i].startswith((" ", "\t"))), len(lines))
+workflow = "\n".join(lines[workflow_start:workflow_end])
+if "CI_COMMIT_BRANCH =~ /^release\\/" not in workflow or "when: never" not in workflow:
+    raise SystemExit("CI workflow must suppress untagged release/* branch pipelines; the signed tag is the release verification entry")
+
 def section(name):
     start = next(i for i, line in enumerate(lines) if line == f"{name}:")
     end = next((i for i in range(start + 1, len(lines)) if lines[i] and not lines[i].startswith((" ", "\t"))), len(lines))
