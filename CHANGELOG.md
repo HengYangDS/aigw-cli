@@ -8,12 +8,24 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.45] - 2026-07-14
+
 ### Fixed
 
 - Make repeated `aigw sync` recognize legacy Codex sidecars that already
   represent the canonical projection, rather than reporting a spurious update.
 - Prepare every Codex projection before the first write and restore every
   target on a failed commit, so a multi-target synchronization is atomic.
+- Reject development binaries as a healthy user installation and prevent the
+  portable installer from placing a local source build in the default user path.
+- Prune retained runner tags before release-chronology validation, preventing
+  deleted release candidates from contaminating a later CI run.
+
+### Added
+
+- Provide `aigw sync --dry-run [--json]` as a credential-free, read-only
+  projection plan that never writes configuration, binds authentication, or
+  changes client/session state.
 
 ### Documentation
 
