@@ -26,6 +26,8 @@ import (
 
 const project = "dig/misc/agentic-third-party-api/aigw-cli"
 
+const projectID = "456"
+
 const defaultGitLabHost = "http://192.168.64.101:18086"
 
 const gitLabRequestTimeout = 30 * time.Second
@@ -44,6 +46,14 @@ type EnvironmentRunner interface {
 	RunWithEnv(context.Context, []string, string, ...string) ([]byte, error)
 }
 
+type FileRunner interface {
+	RunToFile(context.Context, string, string, ...string) error
+}
+
+type EnvironmentFileRunner interface {
+	RunToFileWithEnv(context.Context, []string, string, string, ...string) error
+}
+
 func (ExecRunner) RunWithEnv(ctx context.Context, environment []string, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = mergeEnvironment(os.Environ(), environment)
@@ -52,6 +62,50 @@ func (ExecRunner) RunWithEnv(ctx context.Context, environment []string, name str
 		return nil, fmt.Errorf("%s failed: %w: %s", name, err, strings.TrimSpace(string(output)))
 	}
 	return output, nil
+}
+
+func (ExecRunner) RunToFile(ctx context.Context, destination, name string, args ...string) error {
+	return ExecRunner{}.RunToFileWithEnv(ctx, nil, destination, name, args...)
+}
+
+func (ExecRunner) RunToFileWithEnv(ctx context.Context, environment []string, destination, name string, args ...string) error {
+	file, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return fmt.Errorf("open command output %s: %w", filepath.Base(destination), err)
+	}
+	defer file.Close()
+	var stderr strings.Builder
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = mergeEnvironment(os.Environ(), environment)
+	cmd.Stdout = file
+	cmd.Stderr = &limitedWriter{writer: &stderr, limit: 16 << 10}
+	if err := cmd.Run(); err != nil {
+		_ = os.Remove(destination)
+		return fmt.Errorf("%s failed: %w: %s", name, err, strings.TrimSpace(stderr.String()))
+	}
+	return nil
+}
+
+type limitedWriter struct {
+	writer  io.Writer
+	limit   int
+	written int
+}
+
+func (w *limitedWriter) Write(value []byte) (int, error) {
+	originalLength := len(value)
+	remaining := w.limit - w.written
+	if remaining > 0 {
+		if len(value) > remaining {
+			value = value[:remaining]
+		}
+		count, err := w.writer.Write(value)
+		w.written += count
+		if err != nil {
+			return count, err
+		}
+	}
+	return originalLength, nil
 }
 
 func mergeEnvironment(base, overrides []string) []string {
@@ -357,17 +411,19 @@ func (u Updater) downloadReleaseAssets(ctx context.Context, tag, directory strin
 		path := filepath.Join(directory, asset)
 		_, err := u.runGlab(ctx, "release", "download", tag, "-R", project, "--asset-name", asset, "--dir", directory)
 		if err == nil {
-			if info, statErr := os.Stat(path); statErr == nil && !info.IsDir() {
+			if info, statErr := os.Stat(path); statErr == nil && !info.IsDir() && info.Size() > 0 {
 				continue
 			}
 			err = fmt.Errorf("glab reported success but did not write %s", asset)
 		}
-		if !isGlabUnavailable(err) {
-			if err := u.validateTokenFallbackHost(); err != nil {
-				return fmt.Errorf("download release asset %s: %w", asset, err)
+		if apiErr := u.downloadReleaseAssetsWithGlabAPI(ctx, tag, directory, assets[index:]...); apiErr == nil {
+			return nil
+		} else if !isGlabUnavailable(err) {
+			if tokenErr := u.validateTokenFallbackHost(); tokenErr != nil {
+				return fmt.Errorf("download release asset %s: %w; authenticated glab fallback failed: %v", asset, err, apiErr)
 			}
-		} else if err := u.validateTokenFallbackHost(); err != nil {
-			return err
+		} else if tokenErr := u.validateTokenFallbackHost(); tokenErr != nil {
+			return fmt.Errorf("%w; authenticated glab fallback failed: %v", err, apiErr)
 		}
 		for _, remaining := range assets[index:] {
 			if err := u.downloadReleaseAssetFromGitLabAPI(ctx, tag, remaining, directory); err != nil {
@@ -375,6 +431,60 @@ func (u Updater) downloadReleaseAssets(ctx context.Context, tag, directory strin
 			}
 		}
 		return nil
+	}
+	return nil
+}
+
+func (u Updater) downloadReleaseAssetsWithGlabAPI(ctx context.Context, tag, directory string, assets ...string) error {
+	if _, ok := u.Runner.(FileRunner); !ok {
+		if _, ok := u.Runner.(EnvironmentFileRunner); !ok {
+			return fmt.Errorf("authenticated glab asset download is unavailable")
+		}
+	}
+	if len(assets) == 0 {
+		return fmt.Errorf("authenticated glab asset download is unavailable")
+	}
+	output, err := u.runGlab(ctx, "api", "projects/"+projectID+"/releases/"+url.PathEscape(tag))
+	if err != nil {
+		return fmt.Errorf("query release metadata through glab: %w", err)
+	}
+	var release struct {
+		Assets struct {
+			Links []struct {
+				Name string `json:"name"`
+				URL  string `json:"url"`
+			} `json:"links"`
+		} `json:"assets"`
+	}
+	if err := json.Unmarshal(output, &release); err != nil {
+		return fmt.Errorf("parse release metadata through glab: %w", err)
+	}
+	urls := make(map[string]string, len(release.Assets.Links))
+	for _, link := range release.Assets.Links {
+		if filepath.Base(link.Name) == link.Name && link.URL != "" {
+			urls[link.Name] = link.URL
+		}
+	}
+	for _, asset := range assets {
+		if filepath.Base(asset) != asset {
+			return fmt.Errorf("invalid release asset name %q", asset)
+		}
+		assetURL := urls[asset]
+		if assetURL == "" {
+			return fmt.Errorf("release metadata does not include %s", asset)
+		}
+		path := filepath.Join(directory, asset)
+		if err := u.runGlabToFile(ctx, path, "api", assetURL); err != nil {
+			return fmt.Errorf("download release asset %s through glab: %w", asset, err)
+		}
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() || info.Size() == 0 {
+			_ = os.Remove(path)
+			if err != nil {
+				return fmt.Errorf("inspect downloaded release asset %s: %w", asset, err)
+			}
+			return fmt.Errorf("glab API did not write %s", asset)
+		}
 	}
 	return nil
 }
@@ -532,6 +642,17 @@ func (u Updater) runGlab(ctx context.Context, args ...string) ([]byte, error) {
 		return runner.RunWithEnv(ctx, []string{"GL_HOST=" + u.gitLabHost()}, "glab", args...)
 	}
 	return u.Runner.Run(ctx, "glab", args...)
+}
+
+func (u Updater) runGlabToFile(ctx context.Context, destination string, args ...string) error {
+	if runner, ok := u.Runner.(EnvironmentFileRunner); ok {
+		return runner.RunToFileWithEnv(ctx, []string{"GL_HOST=" + u.gitLabHost()}, destination, "glab", args...)
+	}
+	runner, ok := u.Runner.(FileRunner)
+	if !ok {
+		return fmt.Errorf("authenticated glab asset download is unavailable")
+	}
+	return runner.RunToFile(ctx, destination, "glab", args...)
 }
 
 func (u Updater) gitLabHost() string {
