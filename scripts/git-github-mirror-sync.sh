@@ -43,6 +43,7 @@ snapshot=$(printf '%s\n\n%s\n%s\n' \
     git commit-tree "$tree" -p "$parent")
 
 # `--force-with-lease` makes concurrent GitHub mirror changes fail closed.
-git push --force-with-lease="refs/heads/$branch:$parent" "$remote_url" "${snapshot}:refs/heads/$branch"
+git -c user.name="$github_name" -c user.email="$github_email" -c user.useConfigOnly=true \
+  push --force-with-lease="refs/heads/$branch:$parent" "$remote_url" "${snapshot}:refs/heads/$branch"
 git update-ref "refs/remotes/$remote/$branch" "$snapshot" "$parent"
 printf 'GitHub mirror synchronized: %s\n' "$snapshot"
