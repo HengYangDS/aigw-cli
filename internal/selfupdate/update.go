@@ -461,7 +461,13 @@ func (u Updater) downloadReleaseAssetsWithGlabAPI(ctx context.Context, tag, dire
 	}
 	urls := make(map[string]string, len(release.Assets.Links))
 	for _, link := range release.Assets.Links {
-		if filepath.Base(link.Name) == link.Name && link.URL != "" {
+		if link.URL == "" {
+			continue
+		}
+		if assetName := releaseAssetName(link.URL); assetName != "" {
+			urls[assetName] = link.URL
+		}
+		if filepath.Base(link.Name) == link.Name {
 			urls[link.Name] = link.URL
 		}
 	}
@@ -487,6 +493,18 @@ func (u Updater) downloadReleaseAssetsWithGlabAPI(ctx context.Context, tag, dire
 		}
 	}
 	return nil
+}
+
+func releaseAssetName(assetURL string) string {
+	parsed, err := url.Parse(assetURL)
+	if err != nil {
+		return ""
+	}
+	name := filepath.Base(parsed.Path)
+	if name == "." || name == "/" || name == "" || filepath.Base(name) != name {
+		return ""
+	}
+	return name
 }
 
 func (u Updater) downloadReleaseAssetFromGitLabAPI(ctx context.Context, tag, asset, directory string) error {
