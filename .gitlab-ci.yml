@@ -14,6 +14,11 @@ verify:
     - for script in scripts/*.sh; do sh -n "$script"; done
     - sh scripts/check-package-safety.sh
     - sh scripts/check-retired-residue.sh
+    # Shell runners retain Git directories. Make the local tag namespace match
+    # origin before chronology validation so deleted RC tags cannot leak into CI.
+    - git fetch --tags --force --prune --prune-tags origin
+    - sh scripts/check-governance.sh
+    - sh scripts/test-changelog.sh
     - sh scripts/test-release-readiness.sh
     - sh scripts/test-release-artifacts.sh
     - sh scripts/test-package-runner-preflight.sh

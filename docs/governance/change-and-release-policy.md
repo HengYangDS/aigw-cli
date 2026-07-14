@@ -1,0 +1,32 @@
+# Change and Release Policy
+
+Status: canonical.
+
+## Configuration mutations
+
+All Codex target changes use one transaction: prepare every target, commit only
+prepared outputs, and restore every pre-state if any write fails. A partial
+projection is a failed outcome, not a tolerable intermediate state.
+
+## Release identity and chronicle
+
+`CHANGELOG.md` begins with `## [Unreleased]`, which contains only changes made
+after the latest reachable release tag. The next section must be the latest
+reachable `v<semver>` tag, written as `## [<semver>] - <tag-date>`. Every older
+published section is likewise anchored to a real tag and its creation date.
+Planned versions, branch names, and inferred GA milestones do not belong in the
+release chronicle. `scripts/check-changelog.sh` enforces this invariant in CI.
+
+A release tag records a source version; it is not by itself proof of artifact
+publication, native-platform acceptance, signing, notarization, or GA. Those
+claims require their corresponding evidence and must never be implied by a
+Changelog heading.
+
+GitLab **Project Name** is `AIGW CLI`. The stable repository **Path** is
+`aigw-cli`. Display text and external identifier are different contracts.
+
+## Cross-project boundary
+
+AIGW manages marked provider configuration and native credential binding only.
+Codex DMX Proxy manages its executable payload, manifest, watchdog, and
+listener. Neither project may silently adopt the other's state or lifecycle.
