@@ -19,8 +19,8 @@ git diff --quiet && git diff --cached --quiet || {
   echo "refusing mirror sync with a dirty worktree" >&2
   exit 2
 }
-git remote get-url "$remote" >/dev/null
-case "$(git remote get-url "$remote")" in
+remote_url=$(git remote get-url --fetch "$remote")
+case "$remote_url" in
   *github.com*) ;;
   *) echo "mirror remote $remote is not a GitHub remote" >&2; exit 2 ;;
 esac
