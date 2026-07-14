@@ -26,9 +26,9 @@ import (
 
 const gitLabRequestTimeout = 30 * time.Second
 
-// BuildReleaseHost and BuildReleaseProject are populated by an official
-// release build. Source builds intentionally leave them empty so self-update
-// cannot contact a developer-specific endpoint by default.
+// BuildReleaseHost and BuildReleaseProject are populated by the release
+// pipeline. Source builds intentionally leave both values empty: self-update
+// must fail closed instead of contacting a developer-specific endpoint.
 var (
 	BuildReleaseHost    string
 	BuildReleaseProject string
@@ -140,8 +140,8 @@ type Updater struct {
 }
 
 // ReleaseSource identifies the GitLab release namespace for this installation.
-// It contains no credential and can be supplied by build metadata or an
-// explicit environment override.
+// It contains no credential and may be supplied by release build metadata or
+// an explicit environment override.
 type ReleaseSource struct {
 	Host    string
 	Project string
@@ -192,7 +192,7 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (string, err
 		return "", err
 	}
 	if comparison == 0 {
-		return "已经是最新版 " + tag + "。", nil
+		return "already running the latest version " + tag, nil
 	}
 	if comparison < 0 {
 		return "", fmt.Errorf("refusing to replace %s with older release %s", currentVersion, tag)
@@ -239,7 +239,7 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (string, err
 	if err := os.Chmod(u.Executable, 0o755); err != nil {
 		return "", fmt.Errorf("make updated AIGW executable runnable: %w", err)
 	}
-	return "已更新到 " + tag + "。", nil
+	return "updated to " + tag, nil
 }
 
 // Rollback restores the immediately preceding portable AIGW executable without
@@ -290,7 +290,7 @@ func (u Updater) Rollback(_ context.Context) (string, error) {
 	if err := os.Chmod(backup, info.Mode().Perm()); err != nil {
 		return "", fmt.Errorf("make reversible AIGW rollback copy runnable: %w", err)
 	}
-	return "已恢复上一程序版本。若该旧版本不支持 `aigw update --rollback`，请从团队发布页重新下载当前便携包并运行其中的安装脚本即可恢复当前程序；该安装仅替换 AIGW 程序并保留旧程序副本。", nil
+	return "restored the previous program version. If that older program does not support `aigw update --rollback`, download the current portable package and run its installer; it replaces only AIGW and retains one predecessor.", nil
 }
 
 func (u Updater) scheduleWindowsRollback() (string, error) {
@@ -329,7 +329,7 @@ func (u Updater) scheduleWindowsRollback() (string, error) {
 		_ = os.Remove(staged)
 		return "", fmt.Errorf("start Windows AIGW rollback helper: %w", err)
 	}
-	return "已安排恢复上一程序版本；退出本次命令后将完成回退。", nil
+	return "scheduled restoration of the previous program version; rollback completes after this command exits", nil
 }
 
 func preservePreviousBinary(executable string) error {
@@ -392,11 +392,11 @@ func (u Updater) updatePackage(ctx context.Context, tag, version string) (string
 	}
 	switch u.Channel {
 	case ChannelPKG, ChannelMSI:
-		return "已下载 " + tag + " 安装包；请按安装器提示完成更新。", nil
+		return "downloaded the " + tag + " installer; complete the update through the installer", nil
 	case ChannelDeb, ChannelRPM:
-		return "已通过系统包管理器更新到 " + tag + "。", nil
+		return "updated to " + tag + " through the system package manager", nil
 	default:
-		return "已准备 " + tag + " 更新。", nil
+		return "prepared the " + tag + " update", nil
 	}
 }
 
@@ -1029,7 +1029,7 @@ func (u Updater) scheduleWindowsReplacement(binary []byte, tag string) (string, 
 	if err := cmd.Start(); err != nil {
 		return "", fmt.Errorf("start Windows update helper: %w", err)
 	}
-	return "已下载 " + tag + "；退出本次命令后将完成更新。", nil
+	return "downloaded " + tag + "; the update completes after this command exits", nil
 }
 
 // WindowsReplacementPlan returns the delayed replacement script used when the

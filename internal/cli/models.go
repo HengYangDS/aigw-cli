@@ -42,13 +42,13 @@ type catalogOutput struct {
 }
 
 func newModelsCommand(app *App) *cobra.Command {
-	return &cobra.Command{Use: "models", Short: "检查模型配置是否被网关列出", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	return &cobra.Command{Use: "models", Short: "Check whether configured models are listed by their gateways", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		cfg, err := app.Config.Load()
 		if err != nil {
 			return err
 		}
 		if len(cfg.Profiles) == 0 {
-			return problem("尚未配置", "尚未创建任何服务配置。", "没有可检查的模型或网关目录。", "aigw setup", fmt.Errorf("not configured"))
+			return problem("Not configured", "No service profiles have been created.", "No configured models or gateway catalogs are available to inspect.", "aigw setup", fmt.Errorf("not configured"))
 		}
 		modelSets := map[string]map[string]bool{}
 		for accountName, account := range cfg.Accounts {
@@ -74,32 +74,32 @@ func newModelsCommand(app *App) *cobra.Command {
 				if item.model == "" {
 					continue
 				}
-				reach := "未知"
+				reach := "Unknown"
 				if set, ok := modelSets[profile.Account]; ok {
 					if set[item.model] {
-						reach = "可达"
+						reach = "Reachable"
 					} else {
-						reach = "不可达"
+						reach = "Unavailable"
 					}
 				}
 				rows = append(rows, modelRow{Profile: name, Account: profile.Account, Client: item.client, Model: item.model, Reach: reach})
 			}
 		}
 		r := renderer(app)
-		r.Title("AIGW", "模型可达性")
-		r.Section("服务配置")
+		r.Title("AIGW", "Model availability")
+		r.Section("Service profiles")
 		for _, row := range rows {
 			state := presentation.Info
-			if row.Reach == "可达" {
+			if row.Reach == "Reachable" {
 				state = presentation.OK
-			} else if row.Reach == "不可达" {
+			} else if row.Reach == "Unavailable" {
 				state = presentation.Fail
 			}
-			r.StatusLine(state, "配置", row.Profile)
-			r.Detail(fmt.Sprintf("%s · %s · %s · 账户 %s", title(row.Client), row.Model, row.Reach, row.Account))
+			r.StatusLine(state, "Profile", row.Profile)
+			r.Detail(fmt.Sprintf("%s · %s · %s · account %s", title(row.Client), row.Model, row.Reach, row.Account))
 		}
 		if len(rows) == 0 {
-			r.Status(presentation.Info, "模型", "未配置模型服务")
+			r.Status(presentation.Info, "model", "No model services are configured")
 		}
 		r.Next("aigw use")
 		return nil
@@ -108,10 +108,10 @@ func newModelsCommand(app *App) *cobra.Command {
 
 func newCatalogCommand(app *App) *cobra.Command {
 	var jsonMode, all bool
-	cmd := &cobra.Command{Use: "catalog", Short: "发现各服务账户的已认证模型目录（默认紧凑摘要）", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "catalog", Short: "Discover authenticated model catalogs for each account (compact summary by default)", Args: cobra.NoArgs}
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		if jsonMode && all {
-			return fmt.Errorf("--all 不能与 --json 同时使用；JSON 已包含完整目录")
+			return fmt.Errorf("--all cannot be used with --json; JSON already includes the complete catalog")
 		}
 		cfg, err := app.Config.Load()
 		if err != nil {
@@ -123,7 +123,7 @@ func newCatalogCommand(app *App) *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(catalogOutput{Accounts: []catalogAccount{}})
 			}
-			return problem("尚未配置", "尚未创建任何服务配置。", "没有可用于发现模型目录的服务账户或 Token。", "aigw setup", fmt.Errorf("not configured"))
+			return problem("Not configured", "No service profiles have been created.", "No account or token is available for model catalog discovery.", "aigw setup", fmt.Errorf("not configured"))
 		}
 		result := catalogOutput{Accounts: make([]catalogAccount, 0, len(cfg.Accounts))}
 		for _, accountName := range sortedAccountNames(cfg) {
@@ -158,15 +158,15 @@ func newCatalogCommand(app *App) *cobra.Command {
 			return enc.Encode(result)
 		}
 		r := renderer(app)
-		r.Title("AIGW", "已认证模型目录")
+		r.Title("AIGW", "Authenticated model catalog")
 		for _, account := range result.Accounts {
 			r.Section(account.Label + " · " + account.ID)
 			if account.Status != "ok" {
-				r.Status(presentation.Warn, "目录", catalogStatusText(account.Status))
+				r.Status(presentation.Warn, "Catalog", catalogStatusText(account.Status))
 				continue
 			}
 			if len(account.Models) == 0 {
-				r.Status(presentation.Info, "模型", "上游返回空目录")
+				r.Status(presentation.Info, "model", "Upstream returned an empty catalog")
 				continue
 			}
 			renderCatalogAccount(r, account, all)
@@ -174,8 +174,8 @@ func newCatalogCommand(app *App) *cobra.Command {
 		r.Next("aigw profile add <profile> --account <account> --for <claude|codex> --model <model>")
 		return nil
 	}
-	cmd.Flags().BoolVar(&jsonMode, "json", false, "输出机器可读 JSON")
-	cmd.Flags().BoolVar(&all, "all", false, "显示完整模型目录")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
+	cmd.Flags().BoolVar(&all, "all", false, "Show the complete model catalog")
 	return cmd
 }
 
@@ -186,31 +186,31 @@ func renderCatalogAccount(r *presentation.Renderer, account catalogAccount, all 
 			configured = append(configured, model)
 		}
 	}
-	r.Row("模型总数", fmt.Sprintf("%d 个模型", len(account.Models)))
-	r.Row("已配置", fmt.Sprintf("%d 个已配置", len(configured)))
+	r.Row("Models", fmt.Sprintf("%d models", len(account.Models)))
+	r.Row("Configured", fmt.Sprintf("%d configured", len(configured)))
 	if all {
 		for _, model := range account.Models {
 			state, detail := catalogModelDisplay(model)
-			r.StatusLine(state, "模型", model.ID)
+			r.StatusLine(state, "model", model.ID)
 			r.Detail(detail)
 		}
 		return
 	}
 	for _, model := range configured {
 		_, detail := catalogModelDisplay(model)
-		r.Status(presentation.OK, "模型", model.ID)
+		r.Status(presentation.OK, "model", model.ID)
 		r.Detail(detail)
 	}
 	if remaining := len(account.Models) - len(configured); remaining > 0 {
-		r.Detail(fmt.Sprintf("另有 %d 个未配置模型；完整目录：aigw catalog --all", remaining))
+		r.Detail(fmt.Sprintf("%d more models are unconfigured; full catalog: aigw catalog --all", remaining))
 	}
 }
 
 func catalogModelDisplay(model catalogModel) (presentation.State, string) {
 	if len(model.Profiles) == 0 {
-		return presentation.Info, "未配置"
+		return presentation.Info, "Not configured"
 	}
-	return presentation.OK, "配置 " + strings.Join(model.Profiles, ", ")
+	return presentation.OK, "Configured: " + strings.Join(model.Profiles, ", ")
 }
 
 func configuredProfilesForModel(cfg domain.Config, accountName, model string) []string {
@@ -233,11 +233,11 @@ func configuredProfilesForModel(cfg domain.Config, accountName, model string) []
 func catalogStatusText(status string) string {
 	switch status {
 	case "openai_responses_unavailable":
-		return "未配置 OpenAI Responses 端点"
+		return "OpenAI Responses endpoint is not configured"
 	case "token_unavailable":
-		return "Token 不可用"
+		return "Token unavailable"
 	case "request_failed":
-		return "目录请求失败；未修改配置"
+		return "Catalog request failed; configuration was not changed"
 	default:
 		return status
 	}
@@ -277,7 +277,7 @@ func fetchModelIDs(parent context.Context, client HTTPDoer, account domain.Accou
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("模型目录端点返回 HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("Model catalog endpoint returned HTTP %d", resp.StatusCode)
 	}
 	ids, err := parseModelIDs(body)
 	if err != nil {
@@ -293,11 +293,11 @@ func parseModelIDs(data []byte) ([]string, error) {
 	}
 	dataField, exists := payload["data"]
 	if !exists {
-		return nil, fmt.Errorf("模型目录响应缺少 data 字段")
+		return nil, fmt.Errorf("Model catalog response is missing the data field")
 	}
 	items, ok := dataField.([]any)
 	if !ok {
-		return nil, fmt.Errorf("模型目录响应的 data 字段不是数组")
+		return nil, fmt.Errorf("Model catalog response data field is not an array")
 	}
 	ids := []string{}
 	seen := map[string]bool{}

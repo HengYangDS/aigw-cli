@@ -51,7 +51,7 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 		Args:       []string{"-c", "(sleep 5) & printf started; sleep 5"},
 		Env:        []string{},
 	})
-	if err == nil || !strings.Contains(err.Error(), "输出管道未在") {
+	if err == nil || !strings.Contains(err.Error(), "output pipes did not close within") {
 		t.Fatalf("RunCapture error = %v, want pipe-drain diagnostic", err)
 	}
 }

@@ -11,37 +11,37 @@ import (
 // token slot, URL, or model catalogue for a new user; the user may instead
 // import a secret-free team manifest before running this flow.
 func runWizard(ctx context.Context, app *App) error {
-	account, err := app.Prompt.Text("服务账户标识（例如 team-gateway）：")
+	account, err := app.Prompt.Text("Account ID (for example, team-gateway): ")
 	if err != nil {
 		return err
 	}
 	if !domain.ValidProfileName(account) {
-		return fmt.Errorf("服务账户名称无效 %q；只能使用字母、数字、点、连字符或下划线", account)
+		return fmt.Errorf("invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", account)
 	}
-	label, err := app.Prompt.Text("服务名称：")
+	label, err := app.Prompt.Text("Provider display name: ")
 	if err != nil {
 		return err
 	}
-	client, err := app.Prompt.Select("首次配置的客户端：", []Choice{
-		{Value: domain.ClientCodex, Label: "Codex（OpenAI Responses）"},
-		{Value: domain.ClientClaude, Label: "Claude（Anthropic）"},
+	client, err := app.Prompt.Select("Client for the first profile: ", []Choice{
+		{Value: domain.ClientCodex, Label: "Codex (OpenAI Responses)"},
+		{Value: domain.ClientClaude, Label: "Claude (Anthropic)"},
 	})
 	if err != nil {
 		return err
 	}
-	endpointLabel := "OpenAI Responses URL："
+	endpointLabel := "OpenAI Responses URL: "
 	if client == domain.ClientClaude {
-		endpointLabel = "Anthropic URL："
+		endpointLabel = "Anthropic URL: "
 	}
 	endpoint, err := app.Prompt.Text(endpointLabel)
 	if err != nil {
 		return err
 	}
-	profile, err := app.Prompt.Text("模型配置标识（例如 gpt-5.6-terra）：")
+	profile, err := app.Prompt.Text("Profile ID (for example, gpt-5.6-terra): ")
 	if err != nil {
 		return err
 	}
-	model, err := app.Prompt.Text("上游模型 ID：")
+	model, err := app.Prompt.Text("Upstream model ID: ")
 	if err != nil {
 		return err
 	}

@@ -31,7 +31,7 @@ func newDoctorCommand(app *App) *cobra.Command {
 	var jsonMode bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
-		Short: "查看配置、密钥与适配器的详细诊断",
+		Short: "Show detailed diagnostics for configuration, secrets, and adapters",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			checks := []doctorCheck{}
@@ -148,8 +148,8 @@ func newDoctorCommand(app *App) *cobra.Command {
 				return enc.Encode(map[string]any{"checks": checks, "ok": allChecksOK(checks)})
 			}
 			r := renderer(app)
-			r.Title("AIGW", "详细诊断")
-			r.Section("检查项")
+			r.Title("AIGW", "Detailed diagnostics")
+			r.Section("Checks")
 			for _, check := range checks {
 				state := presentation.OK
 				if !check.OK {
@@ -157,44 +157,44 @@ func newDoctorCommand(app *App) *cobra.Command {
 				}
 				r.Status(state, doctorCheckLabel(check.Name), doctorCheckDetail(check))
 				if check.Fix != "" {
-					r.Detail("修复：" + doctorCheckFix(check))
+					r.Detail("Fix: " + doctorCheckFix(check))
 				}
 			}
 			if !allChecksOK(checks) {
 				r.Next(doctorNextAction(checks))
 				return presented(fmt.Errorf("doctor found problems"))
 			}
-			r.Section("结果")
-			r.Success("未发现问题")
+			r.Section("Result")
+			r.Success("No problems found")
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&jsonMode, "json", false, "输出机器可读 JSON")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
 	return cmd
 }
 
 func doctorCheckLabel(name string) string {
 	switch {
 	case name == "environment:client-token":
-		return "客户端令牌环境"
+		return "Client token environment"
 	case name == "config":
-		return "本机配置"
+		return "Local configuration"
 	case strings.HasPrefix(name, "secret:"):
-		return "系统密钥"
+		return "System secret"
 	case name == "adapter:claude":
-		return "Claude 适配器"
+		return "Claude adapter"
 	case name == "adapter:codex":
-		return "Codex 适配器"
+		return "Codex adapter"
 	case name == "shim:claude":
-		return "Claude 启动器"
+		return "Claude launcher"
 	case name == "path:claude":
-		return "Claude PATH 激活"
+		return "Claude PATH activation"
 	case name == "projection:codex":
-		return "Codex 路由"
+		return "Codex route"
 	case strings.HasPrefix(name, "codex:target-"):
-		return "Codex 配置目标 " + strings.TrimPrefix(name, "codex:target-")
+		return "Codex configuration target " + strings.TrimPrefix(name, "codex:target-")
 	default:
-		return "其他检查"
+		return "Other check"
 	}
 }
 
@@ -204,67 +204,67 @@ func doctorCheckDetail(check doctorCheck) string {
 	switch {
 	case name == "environment:client-token":
 		if check.OK {
-			return "未检测到全局客户端令牌环境变量"
+			return "No global client token environment variables detected"
 		}
 		const prefix = "global client token environment variables are set: "
 		if names, ok := strings.CutPrefix(detail, prefix); ok {
-			return "检测到全局客户端令牌环境变量：" + names
+			return "Global client token environment variables detected: " + names
 		}
-		return "检测到全局客户端令牌环境变量"
+		return "Global client token environment variables detected"
 	case name == "config":
 		switch detail {
 		case "valid":
-			return "配置有效"
+			return "Configuration is valid"
 		case "not configured":
-			return "尚未完成首次配置"
+			return "First-time setup is incomplete"
 		default:
-			return "无法读取或校验配置"
+			return "Cannot read or validate configuration"
 		}
 	case strings.HasPrefix(name, "secret:"):
 		account := strings.TrimPrefix(name, "secret:")
 		if check.OK {
-			return account + " · 可用"
+			return account + " · available"
 		}
-		return account + " · 缺失"
+		return account + " · missing"
 	case name == "adapter:claude" || name == "adapter:codex":
 		if check.OK && detail == "enabled" {
-			return "已启用"
+			return "Enabled"
 		}
 		if check.OK && detail == "disabled" {
-			return "未启用"
+			return "Disabled"
 		}
 		if strings.Contains(detail, "executable is missing") {
-			return "已启用，但未配置可执行文件"
+			return "Enabled, but no executable is configured"
 		}
 		if strings.Contains(detail, "no Codex config target") {
-			return "已启用，但未配置 Codex 配置文件"
+			return "Enabled, but no Codex configuration file is configured"
 		}
 	case name == "shim:claude":
 		if check.OK {
-			return "AIGW 管理的 Claude 启动器已就绪"
+			return "AIGW-managed Claude launcher is ready"
 		}
 		if strings.Contains(detail, "is missing") {
-			return "AIGW 管理的 Claude 启动器缺失"
+			return "AIGW-managed Claude launcher is missing"
 		}
 	case name == "path:claude":
 		if check.OK {
-			return "AIGW 管理的 Claude PATH 激活已就绪"
+			return "AIGW-managed Claude PATH activation is ready"
 		}
 		if strings.Contains(detail, "is missing") {
-			return "Claude PATH 激活缺失"
+			return "Claude PATH activation is missing"
 		}
 	case name == "projection:codex":
-		return "当前 Codex 路由无法解析"
+		return "Current Codex route cannot be resolved"
 	case strings.HasPrefix(name, "codex:target-"):
 		if check.OK {
-			return "与当前路由一致"
+			return "Matches the current route"
 		}
-		return "与当前路由不一致"
+		return "Does not match the current route"
 	}
 	if check.OK {
-		return "正常"
+		return "Healthy"
 	}
-	return "检查未通过"
+	return "Check failed"
 }
 
 func doctorCheckFix(check doctorCheck) string {
@@ -277,13 +277,13 @@ func doctorCheckFix(check doctorCheck) string {
 		return "aigw sync"
 	}
 	if strings.HasPrefix(check.Fix, "remove them from the parent environment") {
-		return "从启动当前终端的父环境中移除上述变量"
+		return "Remove the variables above from the parent environment that launched this terminal"
 	}
 	if strings.HasPrefix(check.Fix, "run `") && strings.HasSuffix(check.Fix, "`") {
 		return strings.TrimSuffix(strings.TrimPrefix(check.Fix, "run `"), "`")
 	}
 	if strings.HasPrefix(check.Fix, "inspect or restore ") {
-		return "检查或恢复本机配置文件"
+		return "Inspect or restore the local configuration file"
 	}
 	return "aigw doctor --json"
 }

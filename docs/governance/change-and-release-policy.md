@@ -25,6 +25,16 @@ Changelog heading.
 GitLab **Project Name** is `AIGW CLI`. The stable repository **Path** is
 `aigw-cli`. Display text and external identifier are different contracts.
 
+## Branch closeout
+
+Merged source branches are disposable delivery artifacts, not project history.
+GitLab must enable automatic source-branch deletion after merge. Direct release
+or maintenance merges must delete their remote source branch in the same
+closeout operation. A branch or worktree may be removed only when its tip is
+reachable from `origin/main`, its worktree is clean, and it is not `main` or an
+active unmerged delivery branch. Remove the worktree before deleting its local
+branch. Preserve release tags as immutable provenance.
+
 ## Cross-project boundary
 
 AIGW manages marked provider configuration and native credential binding only.

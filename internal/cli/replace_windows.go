@@ -17,7 +17,7 @@ func replaceProcess(plan adapters.ProcessPlan) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("执行 %s 失败：%w", plan.Executable, err)
+		return fmt.Errorf("Failed to run %s: %w", plan.Executable, err)
 	}
 	return nil
 }

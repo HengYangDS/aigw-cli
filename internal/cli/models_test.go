@@ -91,7 +91,7 @@ func TestCatalogDefaultHumanOutputShowsOnlyConfiguredModels(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"2 个模型", "1 个已配置", "configured-model", "另有 1 个未配置模型", "aigw catalog --all"} {
+	for _, want := range []string{"2 models", "1 configured", "configured-model", "1 more models are unconfigured", "aigw catalog --all"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("compact catalog lacks %q:\n%s", want, text)
 		}
@@ -121,12 +121,12 @@ func TestCatalogAllHumanOutputIncludesEveryModelAsReadableRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"configured-model", "配置 configured", "unconfigured-model", "未配置"} {
+	for _, want := range []string{"configured-model", "Configured: configured", "unconfigured-model", "Not configured"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("full catalog lacks %q:\n%s", want, text)
 		}
 	}
-	if strings.Contains(text, "unconfigured-model未配置") {
+	if strings.Contains(text, "unconfigured-modelNot configured") {
 		t.Fatalf("full catalog ran together the model and its status:\n%s", text)
 	}
 }
@@ -134,7 +134,7 @@ func TestCatalogAllHumanOutputIncludesEveryModelAsReadableRecord(t *testing.T) {
 func TestCatalogRejectsAllWithJSON(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	err := execute(t, app, "catalog", "--all", "--json")
-	if err == nil || !strings.Contains(err.Error(), "--all 不能与 --json 同时使用") {
+	if err == nil || !strings.Contains(err.Error(), "--all cannot be used with --json") {
 		t.Fatalf("catalog flags error = %v", err)
 	}
 }
@@ -225,7 +225,7 @@ func TestModelsCommandReportsReachabilityFromGatewayModelList(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "gpt-5.6-sol") || !strings.Contains(text, "可达") || !strings.Contains(text, "gpt-5.6") || !strings.Contains(text, "不可达") {
+	if !strings.Contains(text, "gpt-5.6-sol") || !strings.Contains(text, "Reachable") || !strings.Contains(text, "gpt-5.6") || !strings.Contains(text, "Unavailable") {
 		t.Fatalf("models output = %s", text)
 	}
 }
@@ -251,7 +251,7 @@ func TestModelsCommandKeepsLongProfileNamesOnOneLine(t *testing.T) {
 	if strings.Contains(text, "claude-opus-4-8-\n") || strings.Contains(text, "thinking      ") {
 		t.Fatalf("long profile name was wrapped or column-padded badly:\n%s", text)
 	}
-	if !strings.Contains(text, "配置  claude-opus-4-8-thinking") || !strings.Contains(text, "Claude · claude-opus-4-8-thinking · 可达 · 账户 dmx") {
+	if !strings.Contains(text, "Profile  claude-opus-4-8-thinking") || !strings.Contains(text, "Claude · claude-opus-4-8-thinking · Reachable · account dmx") {
 		t.Fatalf("models output should use detail layout for long profile names:\n%s", text)
 	}
 }
