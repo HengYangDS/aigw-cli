@@ -55,10 +55,14 @@ Debian/Fedora 原生 runner 的证据，后者更强。若候选镜像尚未在�
 2. 运行完整验证套件，并以确切预发布版本打包。
 3. 针对同一个 `dist/` 目录验证校验和、SBOM、包布局、安装器行为，以及当下可取得的
    Linux/Windows 运行证据。
-4. 推送经审阅的分支，经受保护默认分支流程合入；随后从已合入提交创建预发布 tag。
-5. CI 的 publish 与 release job 成功后，检查 GitLab 上**该 tag 的实际资产**；再从
+4. 在隔离 worktree 对候选 revision 完成全部门禁后，为该**精确 revision**创建签名
+   预发布 tag；tag pipeline 是该候选唯一的工件发布入口。
+5. 仅将该已标记的精确候选合入受保护默认分支，并确认 tag 成为 `main` 的祖先且 main
+   pipeline 成功。若合入未完成，必须删除该候选的 Release、Generic Package 与 tag，
+   不得留下游离发布物。
+6. CI 的 publish 与 release job 成功后，检查 GitLab 上**该 tag 的实际资产**；再从
    远端已发布工件做一次干净环境安装，方可称该 RC 可分发。
-6. 只有上述受保护签名证据已对发布资产验证通过，才可创建 GA tag。
+7. 只有上述受保护签名证据已对发布资产验证通过，才可创建 GA tag。
 
 网络可达性、CI runner 容量、签名身份与 GitLab 状态都是运行时条件。发布时应即时
 诊断和报告，不能把某次暂态结果写入本契约。
