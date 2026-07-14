@@ -26,8 +26,8 @@ Codex DMX Proxy owns Responses replay compatibility and its own listener.
 
 AIGW has three equivalent, checksum-first distribution paths:
 
-1. **GitLab primary release** — the organization’s formal release source.
-2. **GitHub mirror** — an independent mirror of the exact verified asset set.
+1. **GitLab release plane** — a complete, independently verifiable release source.
+2. **GitHub release plane** — a complete, independently verifiable recovery source.
 3. **Verified local candidate** — a complete, extracted artifact directory for
    offline installation and acceptance testing.
 
@@ -128,11 +128,11 @@ aigw sync
 
 ## Update sources
 
-A released binary embeds GitLab as its primary source and may embed a GitHub
-mirror. `aigw update` uses GitLab first, then uses GitHub **only** when the
-primary source is unavailable. A malformed release, a tag/version conflict, a
-missing asset, or any checksum failure is terminal: AIGW does not switch
-sources after an integrity or provenance failure.
+A released binary embeds its home release plane and may embed the other provider
+as an independent fallback. `aigw update` uses the embedded primary provider
+first and switches only when that source is unavailable. A malformed release,
+a tag/version conflict, a missing asset, or any checksum failure is terminal:
+AIGW does not switch sources after an integrity or provenance failure.
 
 A locally built binary has no implicit vendor endpoint. For a local verified
 candidate, set `AIGW_LOCAL_CANDIDATE` to the extracted artifact directory. The
@@ -144,12 +144,14 @@ export AIGW_LOCAL_CANDIDATE=/secure/path/to/aigw-0.1.0-rc.1
 AIGW_LOCAL_CANDIDATE="$AIGW_LOCAL_CANDIDATE" aigw update
 ```
 
-For source builds that must test remote behavior, configure the GitLab primary
-and optional GitHub mirror explicitly:
+For source builds that must test remote behavior, configure the primary provider
+and optional independent fallback explicitly:
 
 ```bash
+export AIGW_RELEASE_PROVIDER=gitlab
 export AIGW_RELEASE_HOST=https://gitlab.example.com
 export AIGW_RELEASE_PROJECT=group/aigw-cli
+export AIGW_RELEASE_MIRROR_PROVIDER=github
 export AIGW_RELEASE_MIRROR_HOST=https://github.com
 export AIGW_RELEASE_MIRROR_PROJECT=owner/aigw-cli
 ```
