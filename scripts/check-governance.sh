@@ -15,7 +15,8 @@ for file in \
   docs/architecture/authority-and-projection-boundary.md \
   docs/governance/change-and-release-policy.md \
   docs/decisions/0001-control-plane-data-plane-boundary.md \
-  docs/evidence/README.md
+  docs/evidence/README.md \
+  packaging/release/allowed_signers
 do
   require_file "$file"
 done
