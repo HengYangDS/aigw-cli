@@ -20,3 +20,15 @@ func TestDefaultShimDirectoryIsAIGWOwnedNotExecutableOrSharedUserBin(t *testing.
 		t.Fatalf("shim dir = %q, want %q and not executable or shared user bin", got, want)
 	}
 }
+
+func TestDefaultWindowsShimDirectorySharesThePortableInstallDirectory(t *testing.T) {
+	env := map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`, "LOCALAPPDATA": `C:\Users\alex\AppData\Local`}
+	got, err := defaultShimDirFor("windows", env, `C:\Users\alex\AppData\Local\Programs\aigw\bin\aigw.exe`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `C:\Users\alex\AppData\Local\Programs\aigw\bin`
+	if got != want {
+		t.Fatalf("Windows default shim dir = %q, want %q", got, want)
+	}
+}
