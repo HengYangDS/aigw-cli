@@ -3,6 +3,7 @@ package discovery_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
@@ -14,7 +15,13 @@ func TestDiscoverFindsClientsAndExistingCodexTargets(t *testing.T) {
 	if err := os.MkdirAll(bin, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"claude", "codex"} {
+	goos := "linux"
+	names := []string{"claude", "codex"}
+	if runtime.GOOS == "windows" {
+		goos = "windows"
+		names = []string{"claude.exe", "codex.exe"}
+	}
+	for _, name := range names {
 		if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\n"), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -26,9 +33,10 @@ func TestDiscoverFindsClientsAndExistingCodexTargets(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	d := discovery.System{GOOS: "linux", Home: home, Path: bin}
+	d := discovery.System{GOOS: goos, Home: home, Path: bin}
 	got := d.Discover()
-	if got.ClaudeExecutable != filepath.Join(bin, "claude") || got.CodexExecutable != filepath.Join(bin, "codex") {
+	wantClaude, wantCodex := filepath.Join(bin, names[0]), filepath.Join(bin, names[1])
+	if got.ClaudeExecutable != wantClaude || got.CodexExecutable != wantCodex {
 		t.Fatalf("executables = %#v", got)
 	}
 	if len(got.CodexTargets) != 1 || got.CodexTargets[0] != target {
@@ -42,10 +50,14 @@ func TestDiscoverSkipsAIGWOwnedClaudeShim(t *testing.T) {
 	if err := os.MkdirAll(bin, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte("#!/bin/sh\n# AIGW managed Claude shim\n"), 0o755); err != nil {
+	goos, name := "linux", "claude"
+	if runtime.GOOS == "windows" {
+		goos, name = "windows", "claude.cmd"
+	}
+	if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\n# AIGW managed Claude shim\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	got := (discovery.System{GOOS: "linux", Home: home, Path: bin}).Discover()
+	got := (discovery.System{GOOS: goos, Home: home, Path: bin}).Discover()
 	if got.ClaudeExecutable != "" {
 		t.Fatalf("managed shim rediscovered as real Claude: %#v", got)
 	}
