@@ -21,7 +21,7 @@ grep -Fq "$github_email" "$repo/scripts/git-github-mirror-sync.sh" || {
   echo "GitHub mirror projection must own the GitHub email" >&2
   exit 1
 }
-grep -Fq 'no_direct_push_allowed' "$repo/.git/config" || {
+[ "$(git -C "$repo" config --local --get remote.github-mirror.pushurl)" = no_direct_push_allowed ] || {
   echo "GitHub mirror direct-push barrier is missing from repository config" >&2
   exit 1
 }
