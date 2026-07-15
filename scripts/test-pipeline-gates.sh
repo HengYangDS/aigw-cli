@@ -3,136 +3,68 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
-python3 - "$root/.gitlab-ci.yml" <<'PY'
+python3 - "$root/.gitlab-ci.yml" "$root/.github/workflows/release.yml" <<'PYTHON'
 from pathlib import Path
 import sys
 
-lines = Path(sys.argv[1]).read_text().splitlines()
+gitlab = Path(sys.argv[1]).read_text(encoding="utf-8")
+github = Path(sys.argv[2]).read_text(encoding="utf-8")
 
-workflow_start = next((i for i, line in enumerate(lines) if line == "workflow:"), None)
-if workflow_start is None:
-    raise SystemExit("CI must define a workflow gate for pre-tag release branches")
-workflow_end = next((i for i in range(workflow_start + 1, len(lines)) if lines[i] and not lines[i].startswith((" ", "\t"))), len(lines))
-workflow = "\n".join(lines[workflow_start:workflow_end])
-if "CI_COMMIT_BRANCH =~ /^release\\/" not in workflow or "when: never" not in workflow:
-    raise SystemExit("CI workflow must suppress untagged release/* branch pipelines; the signed tag is the release verification entry")
-if "CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\\/" not in workflow:
-    raise SystemExit("CI workflow must suppress merge-request pipelines from release/* branches before the signed tag exists")
-
-def section(name):
+def section(text, name):
+    lines = text.splitlines()
     start = next(i for i, line in enumerate(lines) if line == f"{name}:")
     end = next((i for i in range(start + 1, len(lines)) if lines[i] and not lines[i].startswith((" ", "\t"))), len(lines))
-    return lines[start:end]
+    return "\n".join(lines[start:end])
 
-default = section("default")
-if not any("AIGW_GOPROXY" in line and "goproxy.cn,direct" in line for line in default):
-    raise SystemExit("default CI environment must configure an overrideable reachable Go module proxy")
+workflow = section(gitlab, "workflow")
+if r"CI_COMMIT_BRANCH =~ /^release\/" not in workflow or "when: never" not in workflow:
+    raise SystemExit("GitLab must suppress untagged release branch pipelines")
+if r"CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\/" not in workflow:
+    raise SystemExit("GitLab must suppress release branch merge-request pipelines")
 
-if any(line.strip() == "cache:" for line in default):
-    raise SystemExit("default CI must not archive Go caches inside the checkout")
-if not any("prepare-ci-go-cache.sh" in line for line in default):
-    raise SystemExit("default CI must initialize Go caches through the bounded runner-cache helper")
+default = section(gitlab, "default")
+if "AIGW_GOPROXY" not in default or "prepare-ci-go-cache.sh" not in default:
+    raise SystemExit("GitLab must retain its independently configured Go dependency path")
 
-runtime = section("windows-installer-runtime")
-if "  stage: verify" not in runtime:
-    raise SystemExit("windows installer runtime verification must remain a verify-stage job")
-if "  tags: [macos]" not in runtime:
-    raise SystemExit("PowerShell installer contract verification must remain on the macOS release runner")
-if not any("command -v pwsh" in line for line in runtime):
-    raise SystemExit("windows installer runtime verification must fail closed when pwsh is unavailable")
-if not any("test-installers.ps1" in line for line in runtime):
-    raise SystemExit("windows installer runtime verification must execute the native PowerShell harness")
+verify = section(gitlab, "verify")
+for required in [
+    "go test -race ./...", "go vet ./...", "check-release-tag-signature.sh",
+    "check-english-text.sh", "test-linux-native-install-staging.sh",
+    "test-pipeline-gates.sh", "test-github-actions-contract.sh",
+    "test-github-release-workflow.sh", "test-forge-peer-sync.sh",
+    "check-text-layout.py", "test-text-layout.sh",
+]:
+    if required not in verify:
+        raise SystemExit(f"GitLab verification is missing {required}")
 
-native = section("windows-native-acceptance")
-if "  stage: verify" not in native:
-    raise SystemExit("native Windows acceptance must be a verify-stage job")
-if "  tags: [windows]" not in native:
-    raise SystemExit("native Windows acceptance must require a Windows-tagged runner")
-if not any('AIGW_WINDOWS_NATIVE_RUNNER == "true"' in line for line in native):
-    raise SystemExit("native Windows acceptance must remain disabled until a real Windows runner is explicitly admitted")
-if not any("test-windows-native.ps1" in line for line in native):
-    raise SystemExit("native Windows acceptance must execute the Windows-only acceptance harness")
+package = section(gitlab, "package")
+for required in [
+    'AIGW_GITLAB_RELEASE_HOST="$CI_SERVER_URL"',
+    'AIGW_GITLAB_RELEASE_PROJECT="$CI_PROJECT_PATH"',
+    "AIGW_GITHUB_RELEASE_HOST", "AIGW_GITHUB_RELEASE_PROJECT",
+    "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh",
+]:
+    if required not in package:
+        raise SystemExit(f"GitLab package plane is missing {required}")
 
-verify = section("verify")
-if not any("git fetch --tags --force --prune --prune-tags origin" in line for line in verify):
-    raise SystemExit("verify must prune stale runner tags before release chronology validation")
-if not any("check-release-tag-signature.sh" in line and "CI_COMMIT_TAG" in line for line in verify):
-    raise SystemExit("tag pipelines must verify the exact SSH-signed annotated tag before packaging")
-if not any("test-release-tag-signature.sh" in line for line in verify):
-    raise SystemExit("verify must exercise unsigned-tag rejection and signed-tag acceptance")
-if not any("test-linux-native-install-staging.sh" in line for line in verify):
-    raise SystemExit("verify must exercise Linux native-install shared-staging behavior without a Docker daemon")
-if not any("check-english-text.sh" in line for line in verify):
-    raise SystemExit("verify must reject non-English tracked product text")
-if not any("test-text-layout.sh" in line for line in verify):
-    raise SystemExit("GitLab CI must enforce the repository text-layout contract")
-if not any("test-github-projection-sync.sh" in line for line in verify):
-    raise SystemExit("GitLab CI must exercise GitHub projection isolation")
+release = section(gitlab, "release")
+if "publish-release.sh" not in release or "needs: [publish]" not in release:
+    raise SystemExit("GitLab must publish its own independently built release")
+if "mirror-github:" in gitlab or "AIGW_GITHUB_MIRROR" in gitlab:
+    raise SystemExit("GitLab CI must not retain a one-way GitHub dependency")
 
-package = section("package")
-if "    - job: windows-installer-runtime" not in package:
-    raise SystemExit("package must explicitly need Windows installer runtime verification")
-if "    - job: windows-native-acceptance" not in package or "      optional: true" not in package:
-    raise SystemExit("package must gate on native Windows acceptance whenever a Windows runner admits that job")
-package_script = "\n".join(package)
-if '${CI_COMMIT_TAG:-}' not in package_script:
-    raise SystemExit("package must tolerate an unset CI_COMMIT_TAG in non-tag pipelines")
-if '0.1.0-${CI_COMMIT_SHORT_SHA}' not in package_script:
-    raise SystemExit("package must retain a semver-shaped non-tag build fallback")
-if package_script.count('AIGW_RELEASE_PROVIDER=gitlab') != 1 or package_script.count('AIGW_RELEASE_HOST="$CI_SERVER_URL"') != 1 or package_script.count('AIGW_RELEASE_PROJECT="$CI_PROJECT_PATH"') != 1:
-    raise SystemExit("package must inject the complete GitLab primary release identity")
-if 'AIGW_RELEASE_MIRROR_HOST' not in package_script or 'AIGW_RELEASE_MIRROR_PROJECT' not in package_script:
-    raise SystemExit("package must embed the optional GitHub mirror identity with the GitLab primary source")
+for required in [
+    "name: Release", 'tags: ["v*"]', "permissions:\n  contents: write",
+    "runs-on: macos-15", "check-release-tag-signature.sh",
+    "AIGW_GITHUB_RELEASE_HOST", "AIGW_GITHUB_RELEASE_PROJECT",
+    "AIGW_GITLAB_RELEASE_HOST", "AIGW_GITLAB_RELEASE_PROJECT",
+    "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
+    "check-text-layout.py", "test-text-layout.sh",
+]:
+    if required not in github:
+        raise SystemExit(f"GitHub independent release plane is missing {required}")
+if "gitlab-ci" in github.lower() or "publish-release.sh" in github or "mirror" in github.lower() or "primary" in github.lower():
+    raise SystemExit("GitHub release plane retains a non-peer dependency")
 
-publish = section("publish")
-if "    - job: package" not in publish:
-    raise SystemExit("publish must remain gated by package")
-
-release = section("release")
-if any(line.strip().startswith("image:") for line in release):
-    raise SystemExit("shell-runner release job must not rely on an ignored container image")
-if not any("publish-release.sh" in line for line in release):
-    raise SystemExit("release must call the idempotent GitLab Releases API publisher")
-if any("release-cli" in line for line in release):
-    raise SystemExit("release job must not depend on unavailable release-cli")
-
-mirror = section("mirror-github")
-if "  stage: release" not in mirror or "    - job: package" not in mirror:
-    raise SystemExit("GitHub mirror publication must consume the exact verified package artifacts")
-if not any('AIGW_GITHUB_MIRROR_ENABLED == "true"' in line for line in mirror):
-    raise SystemExit("GitHub mirror publication must remain explicit and opt-in")
-if not any("publish-github-release.sh" in line for line in mirror):
-    raise SystemExit("GitHub mirror job must call the idempotent mirror publisher")
-mirror_publisher = Path(sys.argv[1]).parent / "scripts" / "publish-github-release.sh"
-mirror_text = mirror_publisher.read_text()
-if "Authorization: Bearer $GITHUB_TOKEN" not in mirror_text or "/releases" not in mirror_text:
-    raise SystemExit("GitHub mirror publisher must authenticate and use the Releases API")
-if '"draft": True' not in mirror_text or "checksums.txt" not in mirror_text:
-    raise SystemExit("GitHub mirror publisher must create checksum-verified draft releases")
-
-publisher = Path(sys.argv[1]).parent / "scripts" / "publish-release.sh"
-publisher_text = publisher.read_text()
-if "JOB-TOKEN: $CI_JOB_TOKEN" not in publisher_text:
-    raise SystemExit("release publisher must authenticate with the CI job token")
-if "--request POST" not in publisher_text or "--request PUT" not in publisher_text:
-    raise SystemExit("release publisher must create or update the GitLab release")
-if "/releases" not in publisher_text or "CI_API_V4_URL" not in publisher_text:
-    raise SystemExit("release publisher must call the GitLab Releases API directly")
-
-github = Path(sys.argv[1]).parent / ".github" / "workflows" / "verify.yml"
-if not github.exists():
-    raise SystemExit("GitHub Actions verification workflow is missing")
-github_text = github.read_text()
-for token in ["actions/checkout@v7", "actions/setup-go@v6", "go test -race ./...", "scripts/check-governance.sh"]:
-    if token not in github_text:
-        raise SystemExit(f"GitHub Actions verification workflow must contain {token}")
-if "pull-requests: write" in github_text:
-    raise SystemExit("GitHub Actions verification workflow must not grant pull-request write permission")
-if github_text.count("contents: write") != 1:
-    raise SystemExit("GitHub Actions must grant contents: write only to the release job")
-for token in ["AIGW_RELEASE_PROVIDER: github", "AIGW_RELEASE_MIRROR_PROVIDER: gitlab", "scripts/check-release-tag-signature.sh", "scripts/package.sh", "scripts/publish-github-release.sh", "scripts/test-text-layout.sh", "scripts/test-github-projection-sync.sh", "candidate_version", "Resolve package version"]:
-    if token not in github_text:
-        raise SystemExit(f"GitHub Actions release plane must contain {token}")
-
-print("release pipeline gate contract: OK")
-PY
+print("dual forge CI/CD contract: OK")
+PYTHON

@@ -24,8 +24,8 @@ import (
 const testReleaseProject = "example-group/example-project"
 
 func TestMain(m *testing.M) {
-	_ = os.Setenv("AIGW_RELEASE_HOST", "https://gitlab.example.test")
-	_ = os.Setenv("AIGW_RELEASE_PROJECT", testReleaseProject)
+	_ = os.Setenv("AIGW_GITLAB_RELEASE_HOST", "https://gitlab.example.test")
+	_ = os.Setenv("AIGW_GITLAB_RELEASE_PROJECT", testReleaseProject)
 	os.Exit(m.Run())
 }
 
@@ -65,9 +65,102 @@ func (fn roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error)
 	return fn(request)
 }
 
+func TestUpdateRejectsPeerTagDisagreementBeforeDownloading(t *testing.T) {
+	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("candidate"))
+	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
+	binary := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	githubRequests := 0
+	github := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		githubRequests++
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"tag_name":"v0.3.0"}`)
+	}))
+	defer github.Close()
+	t.Setenv("AIGW_GITHUB_RELEASE_HOST", github.URL)
+	t.Setenv("AIGW_GITHUB_RELEASE_PROJECT", "example-owner/aigw-cli")
+	runner := &fakeRunner{archive: archive, checksum: fmt.Sprintf("%x  %s\n", sha256.Sum256(archive), archiveName)}
+	u := selfupdate.Updater{
+		GOOS:       "darwin",
+		GOARCH:     "arm64",
+		Executable: binary,
+		Runner:     runner,
+		HTTPClient: github.Client(),
+		GitLab:     selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Host: "https://gitlab.example.test", Project: testReleaseProject},
+	}
+	_, err := u.Update(context.Background(), "0.1.0")
+	if err == nil || !strings.Contains(err.Error(), "disagree on latest tag") {
+		t.Fatalf("error = %v", err)
+	}
+	if githubRequests != 1 {
+		t.Fatalf("GitHub metadata requests = %d, want 1", githubRequests)
+	}
+	if runner.downloaded(archiveName) {
+		t.Fatalf("GitLab assets were downloaded before peer tag agreement: %v", runner.calls)
+	}
+	got, readErr := os.ReadFile(binary)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(got) != "old-binary" {
+		t.Fatalf("binary replaced after peer tag disagreement: %q", got)
+	}
+}
+
+func TestUpdateRejectsPeerArchiveDisagreementBeforeReplacingBinary(t *testing.T) {
+	gitlabArchive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("gitlab-binary"))
+	githubArchive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("github-binary"))
+	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
+	binary := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var githubURL string
+	github := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
+		case "/downloads/" + archiveName:
+			_, _ = w.Write(githubArchive)
+		case "/downloads/checksums.txt":
+			_, _ = w.Write([]byte(fmt.Sprintf("%x  %s\n", sha256.Sum256(githubArchive), archiveName)))
+		default:
+			http.NotFound(w, request)
+		}
+	}))
+	defer github.Close()
+	githubURL = github.URL
+	t.Setenv("AIGW_GITHUB_RELEASE_HOST", github.URL)
+	t.Setenv("AIGW_GITHUB_RELEASE_PROJECT", "example-owner/aigw-cli")
+	runner := &fakeRunner{archive: gitlabArchive, checksum: fmt.Sprintf("%x  %s\n", sha256.Sum256(gitlabArchive), archiveName)}
+	u := selfupdate.Updater{
+		GOOS:       "darwin",
+		GOARCH:     "arm64",
+		Executable: binary,
+		Runner:     runner,
+		HTTPClient: github.Client(),
+		GitLab:     selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Host: "https://gitlab.example.test", Project: testReleaseProject},
+	}
+	_, err := u.Update(context.Background(), "0.1.0")
+	if err == nil || !strings.Contains(err.Error(), "asset bytes") {
+		t.Fatalf("error = %v", err)
+	}
+	got, readErr := os.ReadFile(binary)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(got) != "old-binary" {
+		t.Fatalf("binary replaced after peer archive disagreement: %q", got)
+	}
+}
+
 func TestUpdateRequiresAnExplicitReleaseSource(t *testing.T) {
-	t.Setenv("AIGW_RELEASE_HOST", "")
-	t.Setenv("AIGW_RELEASE_PROJECT", "")
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", "")
+	t.Setenv("AIGW_GITLAB_RELEASE_PROJECT", "")
 	runner := &fakeRunner{}
 	u := selfupdate.Updater{
 		GOOS:       "darwin",
@@ -197,8 +290,8 @@ func TestUpdateInstallsVerifiedLocalCandidateWithoutReleaseSource(t *testing.T) 
 	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("AIGW_RELEASE_HOST", "")
-	t.Setenv("AIGW_RELEASE_PROJECT", "")
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", "")
+	t.Setenv("AIGW_GITLAB_RELEASE_PROJECT", "")
 	t.Setenv("AIGW_LOCAL_CANDIDATE", candidate)
 	runner := &fakeRunner{}
 	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: runner}
@@ -242,7 +335,7 @@ func TestUpdateRejectsLocalCandidateChecksumMismatchWithoutFallback(t *testing.T
 		GOARCH:     "arm64",
 		Executable: binary,
 		Runner:     runner,
-		Release:    selfupdate.ReleaseSource{Host: "https://gitlab.example.test", Project: testReleaseProject},
+		GitLab:     selfupdate.ReleaseSource{Host: "https://gitlab.example.test", Project: testReleaseProject},
 	}
 	_, err := u.Update(context.Background(), "0.1.0")
 	if err == nil || !strings.Contains(err.Error(), "checksum") {
@@ -260,46 +353,116 @@ func TestUpdateRejectsLocalCandidateChecksumMismatchWithoutFallback(t *testing.T
 	}
 }
 
-func TestUpdateDoesNotUseGitHubMirrorAfterGitLabIntegrityFailure(t *testing.T) {
-	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("bad-primary-binary"))
+func TestUpdateUsesBothPeerArtifactsWhenTagsAgree(t *testing.T) {
+	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("same-binary"))
 	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
+	sum := sha256.Sum256(archive)
 	binary := filepath.Join(t.TempDir(), "aigw")
 	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	mirrorRequests := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		mirrorRequests++
-		http.Error(w, "mirror must not be contacted", http.StatusInternalServerError)
+	requests := 0
+	var githubURL string
+	github := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		requests++
+		switch request.URL.Path {
+		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
+		case "/downloads/" + archiveName:
+			_, _ = w.Write(archive)
+		case "/downloads/checksums.txt":
+			_, _ = w.Write([]byte(fmt.Sprintf("%x  %s\n", sum, archiveName)))
+		default:
+			http.NotFound(w, request)
+		}
 	}))
-	defer server.Close()
-	t.Setenv("AIGW_RELEASE_MIRROR_HOST", server.URL)
-	t.Setenv("AIGW_RELEASE_MIRROR_PROJECT", "example-owner/aigw-cli")
-	runner := &fakeRunner{archive: archive, checksum: strings.Repeat("0", 64) + "  " + archiveName + "\n"}
+	defer github.Close()
+	githubURL = github.URL
+	t.Setenv("AIGW_GITHUB_RELEASE_HOST", github.URL)
+	t.Setenv("AIGW_GITHUB_RELEASE_PROJECT", "example-owner/aigw-cli")
+	runner := &fakeRunner{archive: archive, checksum: fmt.Sprintf("%x  %s\n", sum, archiveName)}
 	u := selfupdate.Updater{
 		GOOS:       "darwin",
 		GOARCH:     "arm64",
 		Executable: binary,
 		Runner:     runner,
-		Release:    selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Host: "https://gitlab.example.test", Project: testReleaseProject},
+		HTTPClient: github.Client(),
+		GitLab:     selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Host: "https://gitlab.example.test", Project: testReleaseProject},
 	}
-	_, err := u.Update(context.Background(), "0.1.0")
-	if err == nil || !strings.Contains(err.Error(), "checksum") {
-		t.Fatalf("error = %v", err)
+	message, err := u.Update(context.Background(), "0.1.0")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if mirrorRequests != 0 {
-		t.Fatalf("GitHub mirror was contacted after a primary integrity failure: %d", mirrorRequests)
+	if !strings.Contains(message, "gitlab and github") {
+		t.Fatalf("message = %q", message)
+	}
+	if requests != 4 {
+		t.Fatalf("GitHub request count = %d, want metadata plus both assets", requests)
+	}
+	if !runner.downloaded(archiveName) || !runner.downloaded("checksums.txt") {
+		t.Fatalf("GitLab artifacts were not independently downloaded: %v", runner.calls)
+	}
+}
+
+func TestUpdateUsesReachablePeerWhenOtherPeerIsUnavailable(t *testing.T) {
+	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("github-binary"))
+	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
+	sum := sha256.Sum256(archive)
+	binary := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var githubURL string
+	github := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
+		case "/downloads/" + archiveName:
+			_, _ = w.Write(archive)
+		case "/downloads/checksums.txt":
+			_, _ = w.Write([]byte(fmt.Sprintf("%x  %s\n", sum, archiveName)))
+		default:
+			http.NotFound(w, request)
+		}
+	}))
+	defer github.Close()
+	githubURL = github.URL
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", "https://gitlab.example.test")
+	t.Setenv("AIGW_GITLAB_RELEASE_PROJECT", testReleaseProject)
+	t.Setenv("AIGW_GITHUB_RELEASE_HOST", github.URL)
+	t.Setenv("AIGW_GITHUB_RELEASE_PROJECT", "example-owner/aigw-cli")
+	t.Setenv("GITLAB_TOKEN", "")
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if strings.Contains(request.URL.Host, "gitlab.example.test") {
+			return nil, fmt.Errorf("simulated GitLab transport outage")
+		}
+		return github.Client().Transport.RoundTrip(request)
+	})}
+	u := selfupdate.Updater{
+		GOOS:       "darwin",
+		GOARCH:     "arm64",
+		Executable: binary,
+		Runner:     &missingGlabRunner{},
+		HTTPClient: client,
+	}
+	message, err := u.Update(context.Background(), "0.1.0")
+	if err != nil {
+		t.Fatal(err)
 	}
 	got, readErr := os.ReadFile(binary)
 	if readErr != nil {
 		t.Fatal(readErr)
 	}
-	if string(got) != "old-binary" {
-		t.Fatalf("binary replaced after primary checksum failure: %q", got)
+	if string(got) != "github-binary" || !strings.Contains(message, "github") {
+		t.Fatalf("binary=%q message=%q", got, message)
 	}
 }
 
-func TestUpdateFallsBackToGitHubAfterGitLabAPITransportFailure(t *testing.T) {
+func TestUpdateUsesGitHubPeerAfterGitLabAPITransportFailure(t *testing.T) {
 	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("github-binary"))
 	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
 	sum := sha256.Sum256(archive)
@@ -310,7 +473,7 @@ func TestUpdateFallsBackToGitHubAfterGitLabAPITransportFailure(t *testing.T) {
 	var serverURL string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
-		case "/repos/example-owner/aigw-cli/releases/latest":
+		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
 				archiveName, serverURL+"/downloads/"+archiveName, serverURL+"/downloads/checksums.txt")
@@ -324,8 +487,8 @@ func TestUpdateFallsBackToGitHubAfterGitLabAPITransportFailure(t *testing.T) {
 	}))
 	defer server.Close()
 	serverURL = server.URL
-	t.Setenv("AIGW_RELEASE_MIRROR_HOST", server.URL)
-	t.Setenv("AIGW_RELEASE_MIRROR_PROJECT", "example-owner/aigw-cli")
+	t.Setenv("AIGW_GITHUB_RELEASE_HOST", server.URL)
+	t.Setenv("AIGW_GITHUB_RELEASE_PROJECT", "example-owner/aigw-cli")
 	t.Setenv("GITLAB_TOKEN", "test-token")
 	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		if strings.Contains(request.URL.Host, "gitlab.example.test") {
@@ -339,7 +502,7 @@ func TestUpdateFallsBackToGitHubAfterGitLabAPITransportFailure(t *testing.T) {
 		Executable: binary,
 		Runner:     &missingGlabRunner{},
 		HTTPClient: client,
-		Release:    selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Host: "https://gitlab.example.test", Project: testReleaseProject},
+		GitLab:     selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Host: "https://gitlab.example.test", Project: testReleaseProject},
 	}
 	message, err := u.Update(context.Background(), "0.1.0")
 	if err != nil {
@@ -349,12 +512,12 @@ func TestUpdateFallsBackToGitHubAfterGitLabAPITransportFailure(t *testing.T) {
 	if readErr != nil {
 		t.Fatal(readErr)
 	}
-	if string(got) != "github-binary" || !strings.Contains(message, "github fallback") {
+	if string(got) != "github-binary" || !strings.Contains(message, "github") {
 		t.Fatalf("binary=%q message=%q", got, message)
 	}
 }
 
-func TestUpdateFallsBackToGitHubWhenGitLabIsUnavailable(t *testing.T) {
+func TestUpdateUsesGitHubPeerWhenGitLabIsUnavailable(t *testing.T) {
 	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("github-binary"))
 	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
 	sum := sha256.Sum256(archive)
@@ -382,10 +545,10 @@ func TestUpdateFallsBackToGitHubWhenGitLabIsUnavailable(t *testing.T) {
 	defer server.Close()
 	serverURL = server.URL
 	githubHost := strings.TrimPrefix(server.URL, "http://")
-	t.Setenv("AIGW_RELEASE_HOST", "https://gitlab.example.test")
-	t.Setenv("AIGW_RELEASE_PROJECT", testReleaseProject)
-	t.Setenv("AIGW_RELEASE_MIRROR_HOST", "http://"+githubHost)
-	t.Setenv("AIGW_RELEASE_MIRROR_PROJECT", "example-owner/aigw-cli")
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", "https://gitlab.example.test")
+	t.Setenv("AIGW_GITLAB_RELEASE_PROJECT", testReleaseProject)
+	t.Setenv("AIGW_GITHUB_RELEASE_HOST", "http://"+githubHost)
+	t.Setenv("AIGW_GITHUB_RELEASE_PROJECT", "example-owner/aigw-cli")
 	u := selfupdate.Updater{
 		GOOS:       "darwin",
 		GOARCH:     "arm64",
@@ -401,11 +564,11 @@ func TestUpdateFallsBackToGitHubWhenGitLabIsUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != "github-binary" || !strings.Contains(message, "github fallback") {
+	if string(got) != "github-binary" || !strings.Contains(message, "github") {
 		t.Fatalf("binary=%q message=%q", got, message)
 	}
-	if len(requests) != 3 || requests[0] != "/repos/example-owner/aigw-cli/releases/latest" {
-		t.Fatalf("GitHub fallback requests = %v", requests)
+	if len(requests) != 4 || requests[0] != "/repos/example-owner/aigw-cli/releases/latest" || requests[1] != "/repos/example-owner/aigw-cli/releases/tags/v0.2.0" {
+		t.Fatalf("GitHub peer requests = %v", requests)
 	}
 }
 
@@ -705,7 +868,7 @@ func TestUpdatePassesConfiguredGitLabHostToGlab(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	t.Setenv("AIGW_RELEASE_HOST", "https://gitlab.example.test")
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", "https://gitlab.example.test")
 	t.Setenv("AIGW_TEST_CAPTURE", capture)
 	u := selfupdate.Updater{
 		GOOS:       "darwin",
@@ -738,7 +901,7 @@ func TestUpdateFallsBackToGitLabAPIWhenGlabIsUnavailable(t *testing.T) {
 		_, _ = w.Write([]byte(`{"tag_name":"v0.2.0"}`))
 	}))
 	defer server.Close()
-	t.Setenv("AIGW_RELEASE_HOST", server.URL)
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", server.URL)
 	t.Setenv("GITLAB_TOKEN", token)
 	runner := &missingGlabRunner{}
 	u := selfupdate.Updater{
@@ -773,7 +936,7 @@ func TestUpdateFallsBackWhenExecRunnerCannotFindGlab(t *testing.T) {
 	}))
 	defer server.Close()
 	t.Setenv("PATH", t.TempDir())
-	t.Setenv("AIGW_RELEASE_HOST", server.URL)
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", server.URL)
 	t.Setenv("GITLAB_TOKEN", token)
 	u := selfupdate.Updater{
 		GOOS:       "darwin",
@@ -791,9 +954,9 @@ func TestUpdateTokenFallbackRequiresExplicitHTTPSGitLabOrigin(t *testing.T) {
 	for _, host := range []string{"", "http://gitlab.example.test"} {
 		t.Run(host, func(t *testing.T) {
 			if host == "" {
-				t.Setenv("AIGW_RELEASE_HOST", "")
+				t.Setenv("AIGW_GITLAB_RELEASE_HOST", "")
 			} else {
-				t.Setenv("AIGW_RELEASE_HOST", host)
+				t.Setenv("AIGW_GITLAB_RELEASE_HOST", host)
 			}
 			t.Setenv("GITLAB_TOKEN", "test-token")
 			client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -808,7 +971,7 @@ func TestUpdateTokenFallbackRequiresExplicitHTTPSGitLabOrigin(t *testing.T) {
 				HTTPClient: client,
 			}
 			_, err := u.Update(context.Background(), "0.2.0")
-			if err == nil || (!strings.Contains(err.Error(), "AIGW_RELEASE_HOST") && !strings.Contains(err.Error(), "release source is incomplete") && !strings.Contains(err.Error(), "release host")) {
+			if err == nil || (!strings.Contains(err.Error(), "AIGW_GITLAB_RELEASE_HOST") && !strings.Contains(err.Error(), "release source is incomplete") && !strings.Contains(err.Error(), "release host")) {
 				t.Fatalf("error = %v", err)
 			}
 		})
@@ -820,7 +983,7 @@ func TestUpdateRejectsControlCharacterTokenBeforeGitLabAPIRequest(t *testing.T) 
 		t.Fatal("GitLab API was called with an invalid token")
 	}))
 	defer server.Close()
-	t.Setenv("AIGW_RELEASE_HOST", server.URL)
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", server.URL)
 	t.Setenv("GITLAB_TOKEN", "test-token\ninjected")
 	u := selfupdate.Updater{
 		GOOS:       "darwin",
@@ -841,7 +1004,7 @@ func TestUpdateDoesNotExposeTokenInGitLabAPIError(t *testing.T) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	}))
 	defer server.Close()
-	t.Setenv("AIGW_RELEASE_HOST", server.URL)
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", server.URL)
 	t.Setenv("GITLAB_TOKEN", token)
 	u := selfupdate.Updater{
 		GOOS:       "darwin",
@@ -885,7 +1048,7 @@ func TestUpdateDownloadsFromGitLabAPIWhenGlabIsUnavailable(t *testing.T) {
 	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("AIGW_RELEASE_HOST", server.URL)
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", server.URL)
 	t.Setenv("GITLAB_TOKEN", token)
 	runner := &missingGlabRunner{}
 	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: runner, HTTPClient: server.Client()}
@@ -930,7 +1093,7 @@ func TestUpdateFallsBackToGitLabAPIWhenGlabReportsEmptyReleaseDownload(t *testin
 	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("AIGW_RELEASE_HOST", server.URL)
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", server.URL)
 	t.Setenv("GITLAB_TOKEN", token)
 	runner := &emptyDownloadRunner{}
 	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: runner, HTTPClient: server.Client()}
@@ -973,7 +1136,7 @@ func TestUpdateFallsBackToGitLabAPIWhenGlabReportsMissingDownloadedFile(t *testi
 	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("AIGW_RELEASE_HOST", server.URL)
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", server.URL)
 	t.Setenv("GITLAB_TOKEN", token)
 	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: &missingDownloadRunner{}, HTTPClient: server.Client()}
 	if _, err := u.Update(context.Background(), "0.1.0"); err != nil {
@@ -1089,7 +1252,7 @@ esac
 	t.Setenv("AIGW_TEST_CAPTURE", capture)
 	t.Setenv("AIGW_TEST_ARCHIVE", archiveSource)
 	t.Setenv("AIGW_TEST_CHECKSUMS", checksumSource)
-	t.Setenv("AIGW_RELEASE_HOST", "https://gitlab.example.test")
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", "https://gitlab.example.test")
 	binary := filepath.Join(dir, "aigw")
 	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
 		t.Fatal(err)
@@ -1159,7 +1322,7 @@ func TestUpdateKeepsExistingBinaryWhenGitLabAPIChecksumMismatches(t *testing.T) 
 	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("AIGW_RELEASE_HOST", server.URL)
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", server.URL)
 	t.Setenv("GITLAB_TOKEN", token)
 	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: &missingGlabRunner{}, HTTPClient: server.Client()}
 	_, err := u.Update(context.Background(), "0.1.0")
@@ -1207,7 +1370,7 @@ func TestUpdateDoesNotForwardGitLabTokenAcrossReleaseRedirect(t *testing.T) {
 	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("AIGW_RELEASE_HOST", gitLabServer.URL)
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", gitLabServer.URL)
 	t.Setenv("GITLAB_TOKEN", token)
 	transport := gitLabServer.Client().Transport.(*http.Transport).Clone()
 	transport.TLSClientConfig = downloadServer.Client().Transport.(*http.Transport).TLSClientConfig.Clone()
@@ -1240,7 +1403,7 @@ func TestUpdateRejectsHTTPSDowngradeRedirectBeforeFollowingIt(t *testing.T) {
 		}
 	}))
 	defer gitLabServer.Close()
-	t.Setenv("AIGW_RELEASE_HOST", gitLabServer.URL)
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", gitLabServer.URL)
 	t.Setenv("GITLAB_TOKEN", token)
 	u := selfupdate.Updater{
 		GOOS:       "darwin",
@@ -1412,7 +1575,7 @@ func TestUpdateRejectsGitLabHostWithCredentialsPathQueryOrFragment(t *testing.T)
 		"https://gitlab.example.test#fragment",
 	} {
 		t.Run(host, func(t *testing.T) {
-			t.Setenv("AIGW_RELEASE_HOST", host)
+			t.Setenv("AIGW_GITLAB_RELEASE_HOST", host)
 			u := selfupdate.Updater{
 				GOOS:       "darwin",
 				GOARCH:     "arm64",
@@ -1447,7 +1610,7 @@ func TestUpdateGitLabFallbackUsesBoundedHTTPClientTimeout(t *testing.T) {
 					Request:    request,
 				}, nil
 			})
-			t.Setenv("AIGW_RELEASE_HOST", "https://gitlab.example.test")
+			t.Setenv("AIGW_GITLAB_RELEASE_HOST", "https://gitlab.example.test")
 			t.Setenv("GITLAB_TOKEN", "test-token")
 			u := selfupdate.Updater{
 				GOOS:       "darwin",
@@ -1604,77 +1767,45 @@ func TestCurrentUsesBuildTimeInstallChannel(t *testing.T) {
 	}
 }
 
-func TestCurrentUsesBuildTimeReleaseProvider(t *testing.T) {
-	previousProvider, previousHost, previousProject := selfupdate.BuildReleaseProvider, selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject
+func TestCurrentUsesBuildTimeGitHubSource(t *testing.T) {
+	previousHost, previousProject := selfupdate.BuildGitHubReleaseHost, selfupdate.BuildGitHubReleaseProject
 	t.Cleanup(func() {
-		selfupdate.BuildReleaseProvider, selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject = previousProvider, previousHost, previousProject
+		selfupdate.BuildGitHubReleaseHost, selfupdate.BuildGitHubReleaseProject = previousHost, previousProject
 	})
-	selfupdate.BuildReleaseProvider = "github"
-	selfupdate.BuildReleaseHost = "https://github.com"
-	selfupdate.BuildReleaseProject = "HengYangDS/aigw-cli"
-	t.Setenv("AIGW_RELEASE_PROVIDER", "")
-	t.Setenv("AIGW_RELEASE_HOST", "")
-	t.Setenv("AIGW_RELEASE_PROJECT", "")
+	selfupdate.BuildGitHubReleaseHost = "https://github.com"
+	selfupdate.BuildGitHubReleaseProject = "example-owner/aigw-cli"
+	t.Setenv("AIGW_GITHUB_RELEASE_HOST", "")
+	t.Setenv("AIGW_GITHUB_RELEASE_PROJECT", "")
 	updater := selfupdate.Current(filepath.Join(t.TempDir(), "aigw"))
-	if got := updater.Release; got != (selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitHub, Host: "https://github.com", Project: "HengYangDS/aigw-cli"}) {
-		t.Fatalf("primary source = %#v", got)
+	if got := updater.GitHub; got != (selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitHub, Host: "https://github.com", Project: "example-owner/aigw-cli"}) {
+		t.Fatalf("GitHub source = %#v", got)
 	}
 }
 
-func TestCurrentUsesBuildTimeGitHubPrimarySource(t *testing.T) {
-	previousHost, previousProject := selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject
+func TestCurrentUsesBuildTimeGitLabSource(t *testing.T) {
+	previousHost, previousProject := selfupdate.BuildGitLabReleaseHost, selfupdate.BuildGitLabReleaseProject
 	t.Cleanup(func() {
-		selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject = previousHost, previousProject
+		selfupdate.BuildGitLabReleaseHost, selfupdate.BuildGitLabReleaseProject = previousHost, previousProject
 	})
-	selfupdate.BuildReleaseHost = "https://github.com"
-	selfupdate.BuildReleaseProject = "HengYangDS/aigw-cli"
-	t.Setenv("AIGW_RELEASE_HOST", "")
-	t.Setenv("AIGW_RELEASE_PROJECT", "")
+	selfupdate.BuildGitLabReleaseHost = "https://gitlab.example.test"
+	selfupdate.BuildGitLabReleaseProject = testReleaseProject
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", "")
+	t.Setenv("AIGW_GITLAB_RELEASE_PROJECT", "")
 	updater := selfupdate.Current(filepath.Join(t.TempDir(), "aigw"))
-	if got := updater.Release; got != (selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Host: "https://github.com", Project: "HengYangDS/aigw-cli"}) {
-		t.Fatalf("primary source = %#v", got)
-	}
-}
-
-func TestCurrentUsesBuildTimeGitHubMirrorSource(t *testing.T) {
-	previousHost, previousProject := selfupdate.BuildReleaseMirrorHost, selfupdate.BuildReleaseMirrorProject
-	t.Cleanup(func() {
-		selfupdate.BuildReleaseMirrorHost, selfupdate.BuildReleaseMirrorProject = previousHost, previousProject
-	})
-	selfupdate.BuildReleaseMirrorHost = "https://github.com"
-	selfupdate.BuildReleaseMirrorProject = "example-owner/aigw-cli"
-	t.Setenv("AIGW_RELEASE_MIRROR_HOST", "")
-	t.Setenv("AIGW_RELEASE_MIRROR_PROJECT", "")
-	updater := selfupdate.Current(filepath.Join(t.TempDir(), "aigw"))
-	if got := updater.Mirror; got != (selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitHub, Host: "https://github.com", Project: "example-owner/aigw-cli"}) {
-		t.Fatalf("mirror source = %#v", got)
-	}
-}
-
-func TestCurrentUsesBuildTimeReleaseSource(t *testing.T) {
-	previousHost, previousProject := selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject
-	t.Cleanup(func() {
-		selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject = previousHost, previousProject
-	})
-	selfupdate.BuildReleaseHost = "https://gitlab.example.test"
-	selfupdate.BuildReleaseProject = testReleaseProject
-	t.Setenv("AIGW_RELEASE_HOST", "")
-	t.Setenv("AIGW_RELEASE_PROJECT", "")
-	updater := selfupdate.Current(filepath.Join(t.TempDir(), "aigw"))
-	if got := updater.Release; got != (selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Host: "https://gitlab.example.test", Project: testReleaseProject}) {
-		t.Fatalf("release source = %#v", got)
+	if got := updater.GitLab; got != (selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Host: "https://gitlab.example.test", Project: testReleaseProject}) {
+		t.Fatalf("GitLab source = %#v", got)
 	}
 }
 
 func TestExplicitReleaseSourceEnvironmentOverridesBuildMetadata(t *testing.T) {
-	previousHost, previousProject := selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject
+	previousHost, previousProject := selfupdate.BuildGitLabReleaseHost, selfupdate.BuildGitLabReleaseProject
 	t.Cleanup(func() {
-		selfupdate.BuildReleaseHost, selfupdate.BuildReleaseProject = previousHost, previousProject
+		selfupdate.BuildGitLabReleaseHost, selfupdate.BuildGitLabReleaseProject = previousHost, previousProject
 	})
-	selfupdate.BuildReleaseHost = "https://embedded.example.test"
-	selfupdate.BuildReleaseProject = "embedded/project"
-	t.Setenv("AIGW_RELEASE_HOST", "https://override.example.test")
-	t.Setenv("AIGW_RELEASE_PROJECT", testReleaseProject)
+	selfupdate.BuildGitLabReleaseHost = "https://embedded.example.test"
+	selfupdate.BuildGitLabReleaseProject = "embedded/project"
+	t.Setenv("AIGW_GITLAB_RELEASE_HOST", "https://override.example.test")
+	t.Setenv("AIGW_GITLAB_RELEASE_PROJECT", testReleaseProject)
 	runner := &fakeRunner{}
 	u := selfupdate.Current(filepath.Join(t.TempDir(), "aigw"))
 	u.Runner = runner
