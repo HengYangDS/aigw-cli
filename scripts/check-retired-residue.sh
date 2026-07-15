@@ -36,8 +36,11 @@ matches=$(git grep -n -E 'gpt-5\.6-[A-Za-z0-9._-]+-cdx' \
 matches=$(git grep -n -E 'catalog\.Team|internal/catalog' -- cmd internal README.md docs examples ':!**/*_test.go' || true)
 [ -z "$matches" ] || { printf '%s\n' "$matches" >&2; fail "bundled provider catalog reference found"; }
 
-for path in docs/migration.md docs/history internal/manifest/legacy_test.go internal/catalog docs/superpowers/plans/2026-07-11-account-runtime-profile-model.md; do
+for path in docs/migration.md docs/history internal/manifest/legacy_test.go internal/catalog docs/superpowers/plans/2026-07-11-account-runtime-profile-model.md scripts/git-github-mirror-sync.sh scripts/test-github-projection-sync.sh scripts/test-git-provider-identities.sh; do
   [ ! -e "$path" ] || fail "retired file remains: $path"
+done
+for path in scripts/project-github-forge.sh scripts/test-github-provider-projection.sh; do
+  [ -x "$path" ] || fail "required provider projection control is missing: $path"
 done
 
 echo "retired compatibility residue: OK"

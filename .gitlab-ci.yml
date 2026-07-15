@@ -43,6 +43,7 @@ verify:
     - sh scripts/test-github-actions-contract.sh
     - sh scripts/test-github-release-workflow.sh
     - sh scripts/test-forge-peer-sync.sh
+    - sh scripts/test-github-provider-projection.sh
     - go build -o /tmp/aigw-install-smoke ./cmd/aigw
     - sh scripts/test-installers.sh /tmp/aigw-install-smoke
     - sh scripts/test-portable-install.sh /tmp/aigw-install-smoke

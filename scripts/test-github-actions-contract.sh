@@ -18,7 +18,7 @@ required = [
     "go test -race ./...", "go vet ./...", "scripts/check-governance.sh",
     "scripts/check-text-layout.py", "scripts/test-text-layout.sh",
     "scripts/test-pipeline-gates.sh", "scripts/test-github-release-workflow.sh",
-    "scripts/test-forge-peer-sync.sh",
+    "scripts/test-forge-peer-sync.sh", "scripts/test-github-provider-projection.sh",
 ]
 for token in required:
     if token not in text:
