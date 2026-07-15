@@ -11,17 +11,24 @@ does not record a historical branch, runner incident, tag, or signing identity.
 | RC artifact matrix is complete | Full package build, artifact check, and package-layout check for one exact version | A partial archive set |
 | Portable installation works | Unix and PowerShell installer tests against the candidate binary | Static script review |
 | Linux native package path works | Isolated Debian and RPM-family installation evidence for both architectures, or stronger native-runner proof | Cross-compilation alone |
-| Windows installer works | Managed Windows-runner package and runtime evidence | MSI metadata or non-Windows PowerShell syntax |
+| Windows RC assurance | Cross-compiled executables, MSI/ZIP layout and architecture checks, and a real PowerShell installer contract | Cross-compilation alone or MSI metadata alone |
+| Windows native runtime works | Managed Windows-runner package, install, upgrade, uninstall, PATH, shim, and execution evidence | Non-Windows PowerShell syntax or structural package checks |
+| macOS native package lifecycle works | Rooted installation, upgrade, execution under an isolated local account, package receipt, and owned uninstall evidence on a disposable APFS volume | Package expansion or a portable-archive test |
 | Release is published | Successful tag pipeline upload and release inspection on the publishing forge; when both forge releases are present, independent GitLab/GitHub inspection proves matching tag, assets, checksums, and SBOM | A local `dist/` directory or source tag |
 | GA is trusted | Protected CI verification of actual signed/notarized macOS and Windows assets | An unsigned RC or local identity inspection |
 
 ## RC and GA boundary
 
 Prerelease versions (`-rc`, `-beta`, `-alpha`) may publish checksum-verified
-artifacts and an SPDX SBOM. They must not claim signing or notarization. A GA
-version fails closed until protected CI verifies Developer ID signing,
-notarization/stapling, Windows Authenticode/time-stamping, and post-signature
-checksums for the exact published assets.
+artifacts and an SPDX SBOM. They must not claim signing or notarization. A
+managed Windows runner is supplementary RC evidence: its absence or runner
+infrastructure failure does not block an RC after the mandatory Windows RC
+assurance gate passes. The disposable-volume macOS native lifecycle proof is
+also additive until a protected release runner has an approved dedicated
+credential. Both native proofs remain mandatory before GA, together with
+protected CI verification of Developer ID signing, notarization/stapling,
+Windows Authenticode/time-stamping, and post-signature checksums for the exact
+published assets.
 
 ## Release sequence
 

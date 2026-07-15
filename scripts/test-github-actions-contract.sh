@@ -17,7 +17,7 @@ required = [
     "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491",
     "go test -race ./...", "go vet ./...", "scripts/check-product-surface.sh", "scripts/check-governance.sh",
     "scripts/check-text-layout.py", "scripts/test-text-layout.sh",
-    "scripts/test-verified-candidate.sh",
+    "scripts/test-verified-candidate.sh", "scripts/test-macos-native-install-staging.sh",
     "scripts/test-pipeline-gates.sh", "scripts/test-github-release-workflow.sh",
     "scripts/test-github-provider-projection.sh",
 ]
