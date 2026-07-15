@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -296,6 +297,8 @@ type routeStatus struct {
 	Inherited        bool   `json:"inherited"`
 	SecretAvailable  bool   `json:"secret_available"`
 	EndpointReady    bool   `json:"endpoint_ready"`
+	Transport        string `json:"transport,omitempty"`
+	TransportReady   bool   `json:"transport_ready,omitempty"`
 	AdapterReady     bool   `json:"adapter_ready"`
 	AdapterIssue     string `json:"adapter_issue,omitempty"`
 	NeedsSelection   bool   `json:"needs_selection,omitempty"`
@@ -338,7 +341,16 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 			continue
 		}
 		adapterReady, adapterIssue := adapterRouteReady(app, cfg, client, runtime)
-		result.Routes[client] = routeStatus{Profile: runtime.ProfileID, Inherited: inherited, SecretAvailable: app.Secrets.Has(runtime.AccountID), EndpointReady: runtime.Endpoint != "", AdapterReady: adapterReady, AdapterIssue: adapterIssue}
+		transport := transportStatus(runtime.Endpoint)
+		result.Routes[client] = routeStatus{
+			Profile:         runtime.ProfileID,
+			Inherited:       inherited,
+			SecretAvailable: app.Secrets.Has(runtime.AccountID),
+			EndpointReady:   runtime.Endpoint != "",
+			Transport:       transport.Kind,
+			AdapterReady:    adapterReady,
+			AdapterIssue:    adapterIssue,
+		}
 	}
 	if jsonMode {
 		enc := json.NewEncoder(app.Out)
@@ -407,6 +419,16 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		}
 		r.Status(state, title(client), readiness)
 	}
+	for _, client := range domain.AdmittedClientIDs() {
+		route := result.Routes[client]
+		if route.Transport != "external_loopback" {
+			continue
+		}
+		r.Section("Transport")
+		r.Status(presentation.Info, title(client), "External loopback compatibility layer")
+		r.Detail("AIGW does not start, stop, or configure it")
+		break
+	}
 	r.Section("Account diagnostics")
 	if account.AccountProbe != nil && providers.Supports(account.AccountProbe.Kind) && app.Accounts.Has(accountName) {
 		r.Status(presentation.OK, "Precise balance", "Enabled")
@@ -426,6 +448,23 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		r.Next("aigw check")
 	}
 	return nil
+}
+
+type transportState struct {
+	Kind string
+}
+
+func transportStatus(endpoint string) transportState {
+	parsed, err := url.Parse(endpoint)
+	if err != nil {
+		return transportState{}
+	}
+	switch strings.ToLower(parsed.Hostname()) {
+	case "127.0.0.1", "::1", "localhost":
+		return transportState{Kind: "external_loopback"}
+	default:
+		return transportState{}
+	}
 }
 
 // runRouteList answers the narrow question "which Profile will each client

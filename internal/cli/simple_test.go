@@ -104,6 +104,50 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 	}
 }
 
+func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "local", "local", "Local Compatibility Layer", domain.Endpoints{OpenAIResponses: "http://127.0.0.1:4567/v1"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "model-test"})
+	cfg.Routes.Default = "local"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("local", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "check"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	for _, want := range []string{"Transport", "External loopback compatibility layer", "AIGW does not start, stop, or configure it"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("check lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "4567") {
+		t.Fatalf("check exposed the loopback transport port:\n%s", text)
+	}
+}
+
+func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "remote", "remote", "Remote Gateway", domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "model-test"})
+	cfg.Routes.Default = "remote"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("remote", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "check"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "External loopback compatibility layer") {
+		t.Fatalf("check misclassified remote endpoint:\n%s", out.String())
+	}
+}
+
 func TestCheckRejectsLocalProgramBuildBeforeClaimingHealth(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	app.Version = "0.1.0-rc.44+local.test"
