@@ -8,12 +8,18 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Added
+
+- Add the canonical MIT License and align repository, package, and contributor
+  surfaces on the same permissive licensing statement.
+
 ### Changed
 
 - Standardize the repository's user-facing commands, diagnostics, examples,
   documentation, and release metadata on English-only canonical text.
 - Simplify the public documentation set around portable installation, explicit
-  control-plane boundaries, and reproducible source-checkout verification.
+  control-plane boundaries, reproducible source-checkout verification, and a
+  clear legal entry point.
 - Record branch closeout as a release-governance requirement: after merge, the
   source worktree and branch are removed once reachability and cleanliness are
   proven.

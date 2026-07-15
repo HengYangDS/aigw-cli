@@ -8,6 +8,13 @@ All Codex target changes use one transaction: prepare every target, commit only
 prepared outputs, and restore every pre-state if any write fails. A partial
 projection is a failed outcome, not a tolerable intermediate state.
 
+## License
+
+AIGW CLI is distributed under the repository-root [MIT License](../../LICENSE).
+All source, documentation, and packaged license references must name the same
+license. Third-party dependency licenses are recorded separately in the release
+SPDX SBOM.
+
 ## Release identity and chronicle
 
 `CHANGELOG.md` begins with `## [Unreleased]`, which contains only changes made

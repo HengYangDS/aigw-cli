@@ -7,6 +7,11 @@ AIGW-marked Codex configuration projections, not Codex session history or a
 proxy process. Never repair a routing problem by editing JSONL, SQLite, model
 metadata, an archived transcript, or a third-party gateway deployment.
 
+## License
+
+By contributing, you agree that your contributions are licensed under the
+repository's [MIT License](LICENSE).
+
 ## Working method
 
 Use an isolated worktree; do not modify a user-owned dirty checkout. Add a
