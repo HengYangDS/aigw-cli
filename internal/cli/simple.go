@@ -83,6 +83,11 @@ func newCheckCommand(app *App) *cobra.Command {
 			}
 			r.Section("Gateway")
 			r.Status(presentation.OK, "API Token", "Authentication healthy")
+			if transport := transportStatus(runtime.Endpoint); transport.Kind == "external_loopback" {
+				r.Section("Transport")
+				r.Status(presentation.Info, "Codex", "External loopback compatibility layer")
+				r.Detail("AIGW does not start, stop, or configure it")
+			}
 			if providerAccount.AccountProbe != nil && providers.Supports(providerAccount.AccountProbe.Kind) && app.Accounts.Has(accountName) {
 				r.Status(presentation.OK, "Precise balance", "Enabled")
 			} else if providerAccount.AccountProbe != nil && providers.Supports(providerAccount.AccountProbe.Kind) {

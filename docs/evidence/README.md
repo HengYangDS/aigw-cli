@@ -14,3 +14,8 @@ Each claim must name its scope, verifier, evidence, and limit.
 Do not claim historical-session recovery merely because a new thread works or
 because a config file is syntactically valid. Keep 429, 477, and upstream SSE
 failures separately classified from configuration and payload-schema defects.
+
+For a loopback endpoint, AIGW can show only that an external compatibility
+layer is selected. This is an endpoint classification, not proof that a
+listener is running or that the transport is healthy; those claims require the
+transport owner's manifest and service evidence.
