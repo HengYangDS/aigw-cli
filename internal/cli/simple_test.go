@@ -12,6 +12,7 @@ import (
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/selfupdate"
 )
 
@@ -301,9 +302,46 @@ func TestHelpKeepsDailyCommandsObvious(t *testing.T) {
 			t.Fatalf("help contains legacy Cobra scaffold %q:\n%s", unwanted, out.String())
 		}
 	}
-	for _, wanted := range []string{"Common path", "Usage", "Start here", "Operate", "Maintain", "Advanced", "Options", "show help", "show version"} {
+	for _, wanted := range []string{"Start with one path", "Usage", "Connect", "Use every day", "Recover", "Advanced", "Options", "show help", "show version"} {
 		if !strings.Contains(out.String(), wanted) {
 			t.Fatalf("help lacks expected section %q:\n%s", wanted, out.String())
+		}
+	}
+}
+
+func TestRootHelpOrganizesTasksBeforeAdministration(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	if err := execute(t, app, "--help"); err != nil {
+		t.Fatal(err)
+	}
+	help := out.String()
+	for _, want := range []string{"Connect", "Use every day", "Recover", "Advanced", "setup", "use", "check", "doctor", "repair"} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("help lacks %q:\n%s", want, help)
+		}
+	}
+	positions := []int{
+		strings.Index(help, "Connect"),
+		strings.Index(help, "Use every day"),
+		strings.Index(help, "Recover"),
+		strings.Index(help, "Advanced"),
+	}
+	for index, position := range positions {
+		if position < 0 || (index > 0 && positions[index-1] >= position) {
+			t.Fatalf("task headings are not ordered:\n%s", help)
+		}
+	}
+}
+
+func TestRootHelpUsesCompactRowsWhenColumnsAreNarrow(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	app.Env = []string{"COLUMNS=48"}
+	if err := execute(t, app, "--help"); err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(strings.TrimRight(out.String(), "\n"), "\n") {
+		if got := presentation.DisplayWidth(line); got > 48 {
+			t.Fatalf("help line width = %d, want <= 48: %q\n%s", got, line, out.String())
 		}
 	}
 }
