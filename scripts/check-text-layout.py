@@ -7,23 +7,22 @@ import ast
 from pathlib import Path
 import subprocess
 import sys
-from typing import TypeAlias
+from typing import List, Optional, Set, Tuple, Type
 
 ROOT = Path(__file__).resolve().parents[1]
-PythonDeclaration: TypeAlias = ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
-PYTHON_MODULE_DECLARATIONS: tuple[type[PythonDeclaration], ...] = (
+PYTHON_MODULE_DECLARATIONS: Tuple[Type[ast.AST], ...] = (
     ast.ClassDef,
     ast.FunctionDef,
     ast.AsyncFunctionDef,
 )
-PYTHON_CLASS_DECLARATIONS: tuple[type[PythonDeclaration], ...] = (
+PYTHON_CLASS_DECLARATIONS: Tuple[Type[ast.AST], ...] = (
     ast.FunctionDef,
     ast.AsyncFunctionDef,
 )
 TABLE_CONFIG_SUFFIXES = {".ini", ".toml"}
 
 
-def tracked_files() -> list[Path]:
+def tracked_files() -> List[Path]:
     names = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
     return [ROOT / name for name in names if name and (ROOT / name).is_file()]
 
@@ -32,8 +31,8 @@ def fail(path: Path, line: int, message: str) -> str:
     return f"{path.relative_to(ROOT)}:{line}: text layout: {message}"
 
 
-def fenced_markdown(lines: list[str]) -> set[int]:
-    protected: set[int] = set()
+def fenced_markdown(lines: List[str]) -> Set[int]:
+    protected: Set[int] = set()
     active = False
     for number, line in enumerate(lines, 1):
         if line.lstrip().startswith(("```", "~~~")):
@@ -44,15 +43,15 @@ def fenced_markdown(lines: list[str]) -> set[int]:
     return protected
 
 
-def blank_lines_between(lines: list[str], left: int, right: int) -> int:
+def blank_lines_between(lines: List[str], left: int, right: int) -> int:
     return sum(1 for line in lines[left:right - 1] if not line.strip())
 
 
-def check_config_table_boundaries(path: Path, lines: list[str]) -> list[str]:
+def check_config_table_boundaries(path: Path, lines: List[str]) -> List[str]:
     """Require one visual separator before each TOML or INI table."""
     if path.suffix.lower() not in TABLE_CONFIG_SUFFIXES:
         return []
-    problems: list[str] = []
+    problems: List[str] = []
     for index, line in enumerate(lines):
         if not line.startswith("["):
             continue
@@ -69,13 +68,13 @@ def check_config_table_boundaries(path: Path, lines: list[str]) -> list[str]:
     return problems
 
 
-def check_python_compact_blocks(path: Path, lines: list[str]) -> list[str]:
+def check_python_compact_blocks(path: Path, lines: List[str]) -> List[str]:
     """Keep Python's two-line declaration rule out of function interiors."""
     try:
         tree = ast.parse("\n".join(lines), filename=str(path))
     except SyntaxError:
         return []
-    problems: list[str] = []
+    problems: List[str] = []
     literal_lines = {
         line_number
         for node in ast.walk(tree)
@@ -90,7 +89,7 @@ def check_python_compact_blocks(path: Path, lines: list[str]) -> list[str]:
             default=node.lineno,
         )
         end = getattr(node, "end_lineno", node.lineno)
-        blank_start: int | None = None
+        blank_start: Optional[int] = None
         for number in range(body_start, end + 1):
             if number in literal_lines:
                 blank_start = None
@@ -106,16 +105,16 @@ def check_python_compact_blocks(path: Path, lines: list[str]) -> list[str]:
     return problems
 
 
-def check_python_boundaries(path: Path, lines: list[str]) -> list[str]:
+def check_python_boundaries(path: Path, lines: List[str]) -> List[str]:
     try:
         tree = ast.parse("\n".join(lines), filename=str(path))
     except SyntaxError:
         return []
-    problems: list[str] = []
+    problems: List[str] = []
 
     def check_declarations(
-        nodes: list[ast.stmt],
-        declaration_types: tuple[type[PythonDeclaration], ...],
+        nodes: List[ast.stmt],
+        declaration_types: Tuple[Type[ast.AST], ...],
         expected: int,
         scope: str,
     ) -> None:
@@ -142,11 +141,11 @@ def check_python_boundaries(path: Path, lines: list[str]) -> list[str]:
     return problems
 
 
-def inspect(path: Path) -> list[str]:
+def inspect(path: Path) -> List[str]:
     data = path.read_bytes()
     if b"\0" in data:
         return []
-    problems: list[str] = []
+    problems: List[str] = []
     if b"\r\n" in data or b"\r" in data:
         problems.append(fail(path, 1, "use LF line endings"))
     if not data.endswith(b"\n"):
@@ -157,7 +156,7 @@ def inspect(path: Path) -> list[str]:
         return problems
     protected = fenced_markdown(lines) if path.suffix.lower() == ".md" else set()
     max_blank_run = 2 if path.suffix.lower() == ".py" else 1
-    blank_start: int | None = None
+    blank_start: Optional[int] = None
     for number, line in enumerate(lines, 1):
         if line.rstrip(" \t") != line:
             problems.append(fail(path, number, "remove trailing whitespace"))
