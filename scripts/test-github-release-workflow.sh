@@ -15,7 +15,7 @@ required = [
     "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
     "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491",
     "scripts/check-release-tag-signature.sh", "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh",
-    "scripts/test-release-package-layout.sh", "publish-github-release.sh",
+    "scripts/test-release-package-layout.sh", "scripts/test-macos-native-install-staging.sh", "publish-github-release.sh",
     "AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY",
     "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY",
 ]

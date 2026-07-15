@@ -8,7 +8,7 @@ workflow:
       when: never
     - when: always
 
-stages: [verify, package, publish, release]
+stages: [verify, package, acceptance, publish, release]
 
 default:
   image: golang:1.25
@@ -40,6 +40,7 @@ verify:
     - sh scripts/test-release-tag-signature.sh
     - sh scripts/test-package-runner-preflight.sh
     - sh scripts/test-linux-native-install-staging.sh
+    - sh scripts/test-macos-native-install-staging.sh
     - sh scripts/test-msi-version.sh
     - sh scripts/test-pipeline-gates.sh
     - sh scripts/test-github-actions-contract.sh
@@ -61,12 +62,38 @@ windows-installer-runtime:
 windows-native-acceptance:
   stage: verify
   tags: [windows]
+  # A managed Windows runner adds native runtime evidence when available. Its
+  # absence or an infrastructure failure must not hold an RC release hostage:
+  # the strict portable installer, MSI, ZIP, architecture, and source gates
+  # remain mandatory on every release candidate. Native Windows evidence is a
+  # hard GA requirement under docs/release-readiness.md.
+  allow_failure: true
   rules:
     - if: '$AIGW_WINDOWS_NATIVE_RUNNER == "true"'
     - when: never
   before_script: []
   script:
     - powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-windows-native.ps1 -Repository "$CI_PROJECT_DIR"
+
+macos-native-acceptance:
+  stage: acceptance
+  tags: [macos]
+  # The package and isolated-account lifecycle proof need an administrator
+  # credential. It is additive RC evidence and must not delay publication when
+  # this runner's dedicated credential is unavailable. GA promotion has its
+  # stricter signing and native-evidence gate in release-readiness.md.
+  allow_failure: true
+  rules:
+    - if: '$AIGW_MACOS_NATIVE_RUNNER == "true"'
+    - when: never
+  before_script: []
+  needs:
+    - job: package
+      artifacts: true
+  script:
+    - 'test -n "${AIGW_MACOS_ACCEPTANCE_USER:-}"'
+    - 'test -n "${AIGW_MACOS_UPGRADE_PACKAGE:-}"'
+    - 'sudo -n sh scripts/test-macos-native-install.sh dist "${CI_COMMIT_TAG#v}"'
 
 package:
   stage: package
@@ -107,6 +134,8 @@ publish:
   needs:
     - job: package
       artifacts: true
+    - job: macos-native-acceptance
+      optional: true
   rules:
     - if: $CI_COMMIT_TAG
   script:
