@@ -427,6 +427,7 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		}
 		r.Section("Transport")
 		r.Status(presentation.Info, title(client), "External loopback compatibility layer")
+		r.Detail(title(client) + " requests use the external listener")
 		r.Detail("AIGW does not start, stop, or configure it")
 		break
 	}

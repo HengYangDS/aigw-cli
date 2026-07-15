@@ -16,6 +16,7 @@ because a config file is syntactically valid. Keep 429, 477, and upstream SSE
 failures separately classified from configuration and payload-schema defects.
 
 For a loopback endpoint, AIGW can show only that an external compatibility
-layer is selected. This is an endpoint classification, not proof that a
-listener is running or that the transport is healthy; those claims require the
-transport owner's manifest and service evidence.
+layer is selected and that the client route uses its listener. This is an
+endpoint classification, not proof that a listener is running or that the
+transport is healthy; those claims require the transport owner's manifest and
+service evidence.
