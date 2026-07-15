@@ -29,7 +29,7 @@ if "AIGW_GOPROXY" not in default or "prepare-ci-go-cache.sh" not in default:
 verify = section(gitlab, "verify")
 for required in [
     "go test -race ./...", "go vet ./...", "check-product-surface.sh", "check-release-tag-signature.sh",
-    "check-english-text.sh", "test-linux-native-install-staging.sh",
+    "check-english-text.sh", "test-linux-native-install-staging.sh", "test-macos-native-install-staging.sh",
     "test-verified-candidate.sh",
     "test-pipeline-gates.sh", "test-github-actions-contract.sh",
     "test-github-release-workflow.sh",
@@ -39,6 +39,8 @@ for required in [
         raise SystemExit(f"GitLab verification is missing {required}")
 
 package = section(gitlab, "package")
+if "macos-native-acceptance" in package:
+    raise SystemExit("package must not depend on post-package macOS native acceptance")
 for required in [
     'AIGW_GITLAB_RELEASE_ORIGIN="$CI_SERVER_URL"',
     'AIGW_GITLAB_RELEASE_REPOSITORY="$CI_PROJECT_PATH"',
@@ -56,6 +58,14 @@ if "publish-release.sh" not in release or "needs: [publish]" not in release:
 if "mirror-github:" in gitlab or "AIGW_GITHUB_MIRROR" in gitlab:
     raise SystemExit("GitLab CI must not retain a one-way GitHub dependency")
 
+windows_native = section(gitlab, "windows-native-acceptance")
+if "allow_failure: true" not in windows_native:
+    raise SystemExit("Windows native evidence must not block RC publication")
+macos_native = section(gitlab, "macos-native-acceptance")
+for required in ["stage: acceptance", "allow_failure: true", "artifacts: true", "AIGW_MACOS_ACCEPTANCE_USER", "AIGW_MACOS_UPGRADE_PACKAGE", "test-macos-native-install.sh"]:
+    if required not in macos_native:
+        raise SystemExit(f"macOS native evidence job is missing {required}")
+
 for required in [
     "name: Release", 'tags: ["v*"]', "permissions:\n  contents: write",
     "runs-on: macos-15", "check-release-tag-signature.sh",
@@ -63,7 +73,7 @@ for required in [
     "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
     "check-text-layout.py", "test-text-layout.sh",
-    "test-verified-candidate.sh",
+    "test-verified-candidate.sh", "test-macos-native-install-staging.sh",
 ]:
     if required not in github:
         raise SystemExit(f"GitHub independent release plane is missing {required}")

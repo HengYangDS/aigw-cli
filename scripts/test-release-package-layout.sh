@@ -89,6 +89,13 @@ case "$(lipo -archs "$universal")" in
   *) echo "macOS pkg binary is not universal" >&2; exit 1 ;;
 esac
 
+macos_uninstaller="$work/pkg/aigw-component.pkg/Payload/usr/local/libexec/aigw/uninstall"
+[ -x "$macos_uninstaller" ] || { echo "macOS pkg missing its owned uninstaller" >&2; exit 1; }
+cmp -s "$root/packaging/macos/aigw-uninstall" "$macos_uninstaller" || {
+  echo "macOS pkg uninstaller differs from the canonical owned uninstaller" >&2
+  exit 1
+}
+
 for arch in amd64 arm64; do
   deb="$out/aigw_${version}_linux_${arch}.deb"
   control=$(ar t "$deb" | awk '/^control\.tar/ {print; exit}')
