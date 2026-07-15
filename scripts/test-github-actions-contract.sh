@@ -19,6 +19,8 @@ required = [
     "pull_request:",
     "push:",
     "workflow_dispatch:",
+    "candidate_version:",
+    "-candidate.<number>",
     "permissions:\n  contents: read",
     "actions/checkout@v7",
     "actions/setup-go@v6",
@@ -26,6 +28,8 @@ required = [
     "go vet ./...",
     "scripts/check-governance.sh",
     "scripts/check-markdown-presentation.py",
+    "scripts/test-text-layout.sh",
+    "scripts/test-github-projection-sync.sh",
     "scripts/test-pipeline-gates.sh",
     "scripts/test-publish-github-release.sh",
     "scripts/check-package-runner.sh",
@@ -49,6 +53,8 @@ if "pull-requests: write" in text:
 if text.count("contents: write") != 1:
     raise SystemExit("GitHub release workflow must grant contents: write only to its release job")
 if "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')" not in text:
-    raise SystemExit("GitHub package/release jobs must be tag-only")
+    raise SystemExit("GitHub release job must remain tag-only")
+if "github.event_name == 'workflow_dispatch'" not in text or "Resolve package version" not in text:
+    raise SystemExit("GitHub Actions must support a package-only candidate dispatch path")
 print("GitHub Actions verification contract: OK")
 PYTHON

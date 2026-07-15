@@ -21,6 +21,16 @@ grep -Fq "$github_email" "$repo/scripts/git-github-mirror-sync.sh" || {
   echo "GitHub mirror projection must own the GitHub email" >&2
   exit 1
 }
+for required in 'file://$canonical_root' 'git-common-dir' 'objects/info/alternates' '--force-with-lease' 'verify-tag' 'GitHub provenance tag'; do
+  grep -Fq -- "$required" "$repo/scripts/git-github-mirror-sync.sh" || {
+    echo "GitHub projection safety protocol is missing: $required" >&2
+    exit 1
+  }
+done
+if grep -Fq 'refs/tags/*:refs/tags/*' "$repo/scripts/git-github-mirror-sync.sh" || grep -Fq 'push --force ' "$repo/scripts/git-github-mirror-sync.sh"; then
+  echo "GitHub projection must not force-publish provenance tags" >&2
+  exit 1
+fi
 [ "$(git -C "$repo" config --local --get remote.github-mirror.pushurl)" = no_direct_push_allowed ] || {
   echo "GitHub mirror direct-push barrier is missing from repository config" >&2
   exit 1

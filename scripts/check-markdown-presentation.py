@@ -12,10 +12,8 @@ ROOT_README = Path(os.environ.get("AIGW_README_FILE", ROOT / "README.md"))
 PROJECT_NAME = "AIGW CLI"
 PROJECT_PATH = "aigw-cli"
 
-
 def fail(message: str) -> None:
     raise SystemExit(f"Markdown presentation contract: {message}")
-
 
 def main() -> None:
     text = ROOT_README.read_text(encoding="utf-8")
@@ -34,7 +32,6 @@ def main() -> None:
     ):
         fail("adjacent metadata rows would collapse without an explicit structure")
     print("Markdown presentation contract: OK")
-
 
 if __name__ == "__main__":
     main()
