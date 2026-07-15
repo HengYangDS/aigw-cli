@@ -15,6 +15,7 @@ AIGW_CHANGELOG_FILE="$fixture" sh "$checker"
 shallow="$tmp/shallow"
 origin="$tmp/origin.git"
 git init -q --bare "$origin"
+git -C "$origin" config receive.shallowUpdate true
 git -C "$root" push -q "$origin" 'HEAD:refs/heads/main'
 git -C "$root" push -q "$origin" --tags
 git -C "$origin" symbolic-ref HEAD refs/heads/main
