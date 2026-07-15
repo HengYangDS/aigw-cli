@@ -50,3 +50,13 @@ A released AIGW binary can contain both source identities. One reachable forge
 is sufficient for update availability. When both are reachable, the updater
 requires matching latest tags and matching checksum-verified current-platform
 artifact bytes before installation.
+
+## Provider identities
+
+GitLab provenance uses `heng.yang.ds@hotmail.com`; GitHub provenance uses
+`hengyang.2003@tsinghua.org.cn`. A direct push guard rejects a provider/email
+mismatch. Equal-object synchronization is appropriate only where both providers
+are deliberately carrying identical commit and tag objects. Where a GitHub
+privacy projection exists, run `sh scripts/project-github-forge.sh` from a clean
+canonical checkout instead; its isolated rewrite sends only the projected
+GitHub branch and leaves both providers' signed tags immutable.
