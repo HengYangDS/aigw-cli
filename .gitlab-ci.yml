@@ -25,16 +25,12 @@ verify:
     - sh scripts/check-package-safety.sh
     - sh scripts/check-retired-residue.sh
     - sh scripts/check-english-text.sh
-    # Shell runners retain Git directories. Make the local tag namespace match
-    # origin before chronology validation so deleted RC tags cannot leak into CI.
     - git fetch --tags --force --prune --prune-tags origin
-    # A tag is the release authority only when its exact annotated object carries
-    # a locally verifiable SSH signature. Untagged CI remains a source gate.
     - 'if test -n "${CI_COMMIT_TAG:-}"; then sh scripts/check-release-tag-signature.sh . "$CI_COMMIT_TAG"; fi'
     - sh scripts/check-governance.sh
-    - sh scripts/test-text-layout.sh
-    - sh scripts/test-github-projection-sync.sh
     - python3 scripts/check-markdown-presentation.py
+    - python3 scripts/check-text-layout.py
+    - sh scripts/test-text-layout.sh
     - sh scripts/test-changelog.sh
     - sh scripts/test-release-readiness.sh
     - sh scripts/test-release-artifacts.sh
@@ -44,6 +40,9 @@ verify:
     - sh scripts/test-linux-native-install-staging.sh
     - sh scripts/test-msi-version.sh
     - sh scripts/test-pipeline-gates.sh
+    - sh scripts/test-github-actions-contract.sh
+    - sh scripts/test-github-release-workflow.sh
+    - sh scripts/test-forge-peer-sync.sh
     - go build -o /tmp/aigw-install-smoke ./cmd/aigw
     - sh scripts/test-installers.sh /tmp/aigw-install-smoke
     - sh scripts/test-portable-install.sh /tmp/aigw-install-smoke
@@ -51,8 +50,6 @@ verify:
 
 windows-installer-runtime:
   stage: verify
-  # This is a PowerShell syntax and installer-contract check on the macOS
-  # release runner. It is not evidence of native Windows behavior.
   tags: [macos]
   before_script: []
   script:
@@ -61,9 +58,6 @@ windows-installer-runtime:
 
 windows-native-acceptance:
   stage: verify
-  # The job is admitted only after a real Windows runner is registered with
-  # the `windows` tag. It is intentionally optional for RC publication until
-  # then; when it runs, a failure blocks the pipeline.
   tags: [windows]
   rules:
     - if: '$AIGW_WINDOWS_NATIVE_RUNNER == "true"'
@@ -81,14 +75,11 @@ package:
       optional: true
     - job: release-readiness
       optional: true
-  # Native macOS packaging requires pkgbuild/productbuild. This shell runner
-  # also produces the Linux and Windows artifacts through nFPM and wixl; a
-  # generic Linux Docker runner must never publish a partial matrix.
   tags: [macos]
   script:
     - VERSION="${CI_COMMIT_TAG:-}"; VERSION="${VERSION#v}"; test -n "$VERSION" || VERSION="0.1.0-${CI_COMMIT_SHORT_SHA}"
     - sh scripts/check-package-runner.sh
-    - AIGW_RELEASE_PROVIDER=gitlab AIGW_RELEASE_HOST="$CI_SERVER_URL" AIGW_RELEASE_PROJECT="$CI_PROJECT_PATH" AIGW_RELEASE_MIRROR_PROVIDER=github AIGW_RELEASE_MIRROR_HOST="${AIGW_RELEASE_MIRROR_HOST:-https://github.com}" AIGW_RELEASE_MIRROR_PROJECT="${AIGW_RELEASE_MIRROR_PROJECT:-}" AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$VERSION" dist
+    - AIGW_GITLAB_RELEASE_HOST="$CI_SERVER_URL" AIGW_GITLAB_RELEASE_PROJECT="$CI_PROJECT_PATH" AIGW_GITHUB_RELEASE_HOST="${AIGW_GITHUB_RELEASE_HOST:-https://github.com}" AIGW_GITHUB_RELEASE_PROJECT="${AIGW_GITHUB_RELEASE_PROJECT:-}" AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$VERSION" dist
     - sh scripts/test-release-package-layout.sh dist "$VERSION"
   artifacts:
     expire_in: 30 days
@@ -126,17 +117,3 @@ release:
   before_script: []
   script:
     - sh scripts/publish-release.sh
-
-mirror-github:
-  stage: release
-  needs:
-    - job: package
-      artifacts: true
-  rules:
-    - if: '$CI_COMMIT_TAG && $AIGW_GITHUB_MIRROR_ENABLED == "true"'
-    - when: never
-  before_script: []
-  script:
-    - test -n "${AIGW_RELEASE_MIRROR_PROJECT:-}"
-    - test -n "${AIGW_GITHUB_TOKEN:-}"
-    - GITHUB_REPOSITORY="$AIGW_RELEASE_MIRROR_PROJECT" GITHUB_TOKEN="$AIGW_GITHUB_TOKEN" CI_COMMIT_TAG="$CI_COMMIT_TAG" sh scripts/publish-github-release.sh dist

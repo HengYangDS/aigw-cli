@@ -7,12 +7,12 @@ does not record a historical branch, runner incident, tag, or signing identity.
 
 | Claim | Required current evidence | Insufficient evidence |
 | --- | --- | --- |
-| Source is packageable | Clean target revision, `go test -race ./...`, `go vet ./...`, all local release gates, and an independent provider CI result | An old terminal log or a green pipeline from only the other provider |
+| Source is packageable | Clean target revision, `go test -race ./...`, `go vet ./...`, and all release gates | An old terminal log |
 | RC artifact matrix is complete | Full package build, artifact check, and package-layout check for one exact version | A partial archive set |
 | Portable installation works | Unix and PowerShell installer tests against the candidate binary | Static script review |
 | Linux native package path works | Isolated Debian and RPM-family installation evidence for both architectures, or stronger native-runner proof | Cross-compilation alone |
 | Windows installer works | Managed Windows-runner package and runtime evidence | MSI metadata or non-Windows PowerShell syntax |
-| Release is published | Successful tag pipeline upload and independent provider Release inspection; the other provider proves identical tag, assets, checksums, and SBOM before fallback admission | A local `dist/` directory or source tag |
+| Release is published | Successful tag pipeline upload and release inspection on the publishing forge; when both forge releases are present, independent GitLab/GitHub inspection proves matching tag, assets, checksums, and SBOM | A local `dist/` directory or source tag |
 | GA is trusted | Protected CI verification of actual signed/notarized macOS and Windows assets | An unsigned RC or local identity inspection |
 
 ## RC and GA boundary
@@ -31,12 +31,11 @@ checksums for the exact published assets.
    against the same `dist/` directory.
 4. Create an SSH-signed annotated prerelease tag for that exact revision. The
    tag pipeline verifies the repository-owned signer anchor before packaging.
-5. Confirm the candidate is accepted by both independent provider verification
-   workflows. Merge it into the protected default branch and confirm that the
-   tag is an ancestor of `main` on each provider projection.
-6. Confirm each provider's own package and draft-release evidence. Inspect the
-   GitLab and GitHub tags, asset names, checksums, and SBOM for exact parity
-   before treating either provider as an update fallback.
+5. Merge only that candidate into the protected default branch and confirm that
+   the tag is an ancestor of `main`.
+6. Confirm remote package upload and release assets on the publishing forge. When
+   both GitLab and GitHub releases are present, inspect both tags, asset names,
+   checksums, and SBOMs for exact agreement before offering dual-forge updates.
 7. Perform a clean-environment installation from published assets and one
    offline verified-candidate update plus portable rollback proof.
 8. Create a GA tag only after the protected signing evidence applies to the

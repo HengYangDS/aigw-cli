@@ -5,15 +5,14 @@ version=${1:-0.1.0-dev}
 out=${2:-dist}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 module=$(awk 'NR == 1 && $1 == "module" { print $2; exit }' "$root/go.mod")
-release_provider=${AIGW_RELEASE_PROVIDER:-gitlab}
-release_host=${AIGW_RELEASE_HOST:-}
-release_project=${AIGW_RELEASE_PROJECT:-}
-release_mirror_provider=${AIGW_RELEASE_MIRROR_PROVIDER:-}
-release_mirror_host=${AIGW_RELEASE_MIRROR_HOST:-}
-release_mirror_project=${AIGW_RELEASE_MIRROR_PROJECT:-}
+gitlab_release_host=${AIGW_GITLAB_RELEASE_HOST:-}
+gitlab_release_project=${AIGW_GITLAB_RELEASE_PROJECT:-}
+github_release_host=${AIGW_GITHUB_RELEASE_HOST:-}
+github_release_project=${AIGW_GITHUB_RELEASE_PROJECT:-}
 
 "$root/scripts/check-package-safety.sh"
 "$root/scripts/check-retired-residue.sh"
+python3 "$root/scripts/check-text-layout.py"
 
 case "$version" in
   *[!0-9A-Za-z._-]*) echo "invalid version: $version" >&2; exit 2 ;;
@@ -33,7 +32,7 @@ build_binary() {
   printf 'building %s/%s (%s)\n' "$goos" "$goarch" "$channel"
   mkdir -p "$(dirname -- "$dest")"
   CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath \
-    -ldflags "-s -w -X ${module}/internal/cli.Version=$version -X ${module}/internal/selfupdate.InstallChannel=$channel -X ${module}/internal/selfupdate.BuildReleaseProvider=$release_provider -X ${module}/internal/selfupdate.BuildReleaseHost=$release_host -X ${module}/internal/selfupdate.BuildReleaseProject=$release_project -X ${module}/internal/selfupdate.BuildReleaseMirrorProvider=$release_mirror_provider -X ${module}/internal/selfupdate.BuildReleaseMirrorHost=$release_mirror_host -X ${module}/internal/selfupdate.BuildReleaseMirrorProject=$release_mirror_project" \
+    -ldflags "-s -w -X ${module}/internal/cli.Version=$version -X ${module}/internal/selfupdate.InstallChannel=$channel -X ${module}/internal/selfupdate.BuildGitLabReleaseHost=$gitlab_release_host -X ${module}/internal/selfupdate.BuildGitLabReleaseProject=$gitlab_release_project -X ${module}/internal/selfupdate.BuildGitHubReleaseHost=$github_release_host -X ${module}/internal/selfupdate.BuildGitHubReleaseProject=$github_release_project" \
     -o "$dest" ./cmd/aigw
 }
 

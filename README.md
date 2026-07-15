@@ -24,16 +24,21 @@ Codex DMX Proxy owns Responses replay compatibility and its own listener.
 
 ## Install
 
-AIGW has three equivalent, checksum-first distribution paths:
+AIGW has three checksum-first distribution paths:
 
-1. **GitLab release plane** — a complete, independently verifiable release source.
-2. **GitHub release plane** — a complete, independently verifiable recovery source.
-3. **Verified local candidate** — a complete, extracted artifact directory for
+1. **GitLab release** — an independent organization forge plane.
+2. **GitHub release** — an independent peer forge plane.
+3. **Verified local candidate** — a complete extracted artifact directory for
    offline installation and acceptance testing.
+
+GitLab and GitHub carry the same commits, branches, signed tags, and release
+identity. Either reachable forge may deliver an update. When both are reachable,
+AIGW requires the latest tag and the current-platform artifact bytes to agree
+before it installs anything.
 
 A formal release is the exact 15-artifact matrix: platform packages,
 `checksums.txt`, and an SPDX SBOM. Verify the archive you will install against
-`checksums.txt`. A verified local candidate is an extracted, complete artifact
+`checksums.txt`. A verified local candidate is an extracted complete artifact
 directory with the same release files retained together. A source checkout, an
 arbitrary binary, and a Git tag alone are not release artifacts.
 
@@ -128,41 +133,39 @@ aigw sync
 
 ## Update sources
 
-A released binary embeds its home release plane and may embed the other provider
-as an independent fallback. `aigw update` uses the embedded primary provider
-first and switches only when that source is unavailable. A malformed release,
-a tag/version conflict, a missing asset, or any checksum failure is terminal:
-AIGW does not switch sources after an integrity or provenance failure.
+A released binary may embed independent GitLab and GitHub release sources. If
+only one configured forge is reachable, `aigw update` can use its verified
+release. If both are reachable, it requires the same latest tag, then downloads
+and checksum-verifies the current-platform artifact from both. It rejects any
+metadata, tag, checksum, or byte disagreement before replacement. A malformed
+release is never bypassed by silently switching sources.
 
 A locally built binary has no implicit vendor endpoint. For a local verified
 candidate, set `AIGW_LOCAL_CANDIDATE` to the extracted artifact directory. The
-directory must contain exactly one portable archive for the current platform
-and `checksums.txt` that validates that archive:
+directory must contain exactly one portable archive for the current platform and
+`checksums.txt` that validates that archive:
 
 ```bash
 export AIGW_LOCAL_CANDIDATE=/secure/path/to/aigw-0.1.0-rc.1
 AIGW_LOCAL_CANDIDATE="$AIGW_LOCAL_CANDIDATE" aigw update
 ```
 
-For source builds that must test remote behavior, configure the primary provider
-and optional independent fallback explicitly:
+For source builds that must test remote behavior, configure each forge
+explicitly:
 
 ```bash
-export AIGW_RELEASE_PROVIDER=gitlab
-export AIGW_RELEASE_HOST=https://gitlab.example.com
-export AIGW_RELEASE_PROJECT=group/aigw-cli
-export AIGW_RELEASE_MIRROR_PROVIDER=github
-export AIGW_RELEASE_MIRROR_HOST=https://github.com
-export AIGW_RELEASE_MIRROR_PROJECT=owner/aigw-cli
+export AIGW_GITLAB_RELEASE_HOST=https://gitlab.example.com
+export AIGW_GITLAB_RELEASE_PROJECT=group/aigw-cli
+export AIGW_GITHUB_RELEASE_HOST=https://github.com
+export AIGW_GITHUB_RELEASE_PROJECT=owner/aigw-cli
 ```
 
 AIGW prefers authenticated `glab` for GitLab. If `glab` is unavailable, an
-explicit `GITLAB_TOKEN` may be used for an HTTPS GitLab API fallback. GitHub
-mirror retrieval uses its public release metadata and assets; a private mirror
-must be exposed through a repository-scoped release path supported by the
-organization before it is enabled. No token is stored by the updater, passed on
-a command line, or forwarded across hosts. Every downloaded artifact is
-checksum-verified before replacement.
+explicit `GITLAB_TOKEN` may be used for an HTTPS GitLab API path. GitHub uses an
+optional ephemeral `AIGW_GITHUB_TOKEN`, `GITHUB_TOKEN`, or `GH_TOKEN` for
+private releases, in that precedence order. No token is stored by the updater,
+passed on a command line, or forwarded across hosts. Every downloaded artifact
+is checksum-verified before replacement.
 
 ## Product boundaries
 
@@ -170,11 +173,6 @@ AIGW is a control plane, not a proxy or gateway. It does not own or modify
 Codex JSONL, SQLite, archived conversations, model metadata, or a DMX Proxy
 process. A future organizational gateway is simply a verified HTTPS account
 endpoint from AIGW's perspective.
-
-GitLab and GitHub are independent source-verification and release planes.
-GitLab retains canonical source history; GitHub independently verifies the
-same source tree and may publish an identical recovery release. Neither plane
-uses the other provider's green pipeline as substitute evidence.
 
 ## Documentation and contribution
 
@@ -184,6 +182,7 @@ uses the other provider's green pipeline as substitute evidence.
 - [Adapter admission](docs/adapter-admission.md)
 - [Team rollout](docs/team-rollout.md)
 - [Release evidence](docs/release-readiness.md)
+- [Forge operations](docs/operations/forge-operations.md)
 - [Contribution guide](CONTRIBUTING.md)
 - [Documentation root](docs/README.md)
 - [Change and release policy](docs/governance/change-and-release-policy.md)
