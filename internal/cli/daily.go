@@ -321,7 +321,7 @@ type statusOutput struct {
 
 func newStatusCommand(app *App) *cobra.Command {
 	var jsonMode bool
-	cmd := &cobra.Command{Use: "status", Short: "Show detailed status", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "status", Short: "Show the active service and the next useful action", Args: cobra.NoArgs}
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error { return runStatus(cmd, app, jsonMode) }
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
 	return cmd
@@ -366,8 +366,9 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		return nil
 	}
 	r := renderer(app)
-	r.Title("AIGW", "Current status")
-	r.Section("Service")
+	r.Title("AIGW", "Ready view")
+	r.Text("The active service, client readiness, and the smallest next action.")
+	r.Section("Active service")
 	current := cfg.Profiles[result.Default]
 	accountName := current.Account
 	account := cfg.Accounts[accountName]
@@ -384,7 +385,7 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		r.Row("Claude model", current.ModelFor(domain.ClientClaude))
 	}
 	r.Row("Model profiles", fmt.Sprintf("%d", result.Profiles))
-	r.Section("Client")
+	r.Section("Clients")
 	attention := false
 	selectionCommand := ""
 	for _, client := range domain.AdmittedClientIDs() {
@@ -429,7 +430,7 @@ func runStatus(_ *cobra.Command, app *App, jsonMode bool) error {
 		r.Detail("AIGW does not start, stop, or configure it")
 		break
 	}
-	r.Section("Account diagnostics")
+	r.Section("Optional diagnostics")
 	if account.AccountProbe != nil && providers.Supports(account.AccountProbe.Kind) && app.Accounts.Has(accountName) {
 		r.Status(presentation.OK, "Precise balance", "Enabled")
 	} else if account.AccountProbe != nil && providers.Supports(account.AccountProbe.Kind) {
