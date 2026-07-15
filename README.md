@@ -130,7 +130,9 @@ credential binding. The tools do not write into one another's directories.
 Codex Desktop owns conversation transcripts and each conversation's model
 choice. AIGW owns only its marked provider projection and native credential
 binding. If a loopback compatibility layer is present, it remains external:
-AIGW does not start, stop, configure, or depend on it.
+Codex requests use that listener, so it must be available for the selected
+route to work. AIGW does not start, stop, configure, or diagnose its service
+lifecycle.
 
 ## Update sources
 

@@ -26,5 +26,7 @@ authentication, restart clients, or modify conversation state.
 When a selected endpoint targets a loopback host, AIGW reports it as an
 external loopback compatibility layer in `status` and `check`. The diagnostic
 does not expose the endpoint URL or port, infer a particular proxy product, or
-add a lifecycle dependency: transport start, stop, configuration, manifest,
-and watchdog ownership remain outside AIGW.
+claim transport ownership. Codex requests use the selected listener, so its
+availability remains a runtime prerequisite for that route. Transport start,
+stop, configuration, manifest, health diagnosis, and watchdog ownership remain
+outside AIGW.

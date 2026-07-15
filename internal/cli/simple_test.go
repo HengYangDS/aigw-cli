@@ -131,7 +131,7 @@ func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *tes
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"Transport", "External loopback compatibility layer", "AIGW does not start, stop, or configure it"} {
+	for _, want := range []string{"Transport", "External loopback compatibility layer", "Codex requests use the external listener", "AIGW does not start, stop, or configure it"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("check lacks %q:\n%s", want, text)
 		}
