@@ -44,18 +44,22 @@ func NewRoot(app *App) *cobra.Command {
 	root.SetHelpCommand(&cobra.Command{Use: "help [command]", Short: "show command help", Hidden: true})
 	root.CompletionOptions.DisableDefaultCmd = true
 	root.AddGroup(
-		&cobra.Group{ID: "daily", Title: "Daily operations"},
-		&cobra.Group{ID: "advanced", Title: "Administration"},
+		&cobra.Group{ID: "start", Title: "Start here"},
+		&cobra.Group{ID: "operate", Title: "Operate"},
+		&cobra.Group{ID: "maintain", Title: "Maintain"},
+		&cobra.Group{ID: "advanced", Title: "Advanced"},
 	)
-	daily := []*cobra.Command{newUseCommand(app), newRotateCommand(app), newCheckCommand(app), newVerifyCommand(app), newRollbackCommand(app), newModelsCommand(app), newCatalogCommand(app), newBalanceCommand(app), newRepairCommand(app), newUpdateCommand(app)}
-	advanced := []*cobra.Command{newSetupCommand(app), newAddCommand(app), newStatusCommand(app), newTestCommand(app), newDoctorCommand(app), newSyncCommand(app), newAccountCommand(app), newProfileCommand(app), newRouteCommand(app), newAdapterCommand(app), newConfigCommand(app)}
-	for _, command := range daily {
-		command.GroupID = "daily"
-		root.AddCommand(command)
-	}
-	for _, command := range advanced {
-		command.GroupID = "advanced"
-		root.AddCommand(command)
+	start := []*cobra.Command{newSetupCommand(app), newUseCommand(app), newStatusCommand(app)}
+	operate := []*cobra.Command{newCheckCommand(app), newTestCommand(app), newVerifyCommand(app), newRotateCommand(app), newModelsCommand(app), newCatalogCommand(app), newBalanceCommand(app)}
+	maintain := []*cobra.Command{newDoctorCommand(app), newRepairCommand(app), newSyncCommand(app), newRollbackCommand(app), newUpdateCommand(app)}
+	advanced := []*cobra.Command{newAddCommand(app), newAccountCommand(app), newProfileCommand(app), newRouteCommand(app), newAdapterCommand(app), newConfigCommand(app)}
+	for group, commands := range map[string][]*cobra.Command{
+		"start": start, "operate": operate, "maintain": maintain, "advanced": advanced,
+	} {
+		for _, command := range commands {
+			command.GroupID = group
+			root.AddCommand(command)
+		}
 	}
 	completion := newCompletionCommand(root)
 	completion.GroupID = "advanced"
@@ -93,6 +97,12 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 	if command.Short != "" {
 		r.Text(command.Short)
 	}
+	if command.Parent() == nil {
+		r.Section("Common path")
+		r.Command("aigw setup    # connect the first service")
+		r.Command("aigw use      # choose the active service")
+		r.Command("aigw check    # confirm readiness")
+	}
 	r.Section("Usage")
 	usage := command.UseLine()
 	if command.Parent() == nil && command.HasAvailableSubCommands() {
@@ -111,7 +121,12 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 			groups[child.GroupID] = append(groups[child.GroupID], child)
 		}
 	}
-	for _, item := range []struct{ id, title string }{{"daily", "Daily operations"}, {"advanced", "Administration"}} {
+	for _, item := range []struct{ id, title string }{
+		{"start", "Start here"},
+		{"operate", "Operate"},
+		{"maintain", "Maintain"},
+		{"advanced", "Advanced"},
+	} {
 		if len(groups[item.id]) == 0 {
 			continue
 		}

@@ -290,9 +290,33 @@ func TestHelpKeepsDailyCommandsObvious(t *testing.T) {
 			t.Fatalf("help contains legacy Cobra scaffold %q:\n%s", unwanted, out.String())
 		}
 	}
-	for _, wanted := range []string{"Usage", "Daily operations", "Administration", "Options", "show help", "show version"} {
+	for _, wanted := range []string{"Common path", "Usage", "Start here", "Operate", "Maintain", "Advanced", "Options", "show help", "show version"} {
 		if !strings.Contains(out.String(), wanted) {
 			t.Fatalf("help lacks expected section %q:\n%s", wanted, out.String())
+		}
+	}
+}
+
+func TestRootHelpPresentsAThreeStepJourney(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	if err := execute(t, app, "--help"); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"aigw setup    # connect the first service", "aigw use      # choose the active service", "aigw check    # confirm readiness"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("help lacks %q:\n%s", want, out.String())
+		}
+	}
+}
+
+func TestStatusKeepsTheFirstRunNextActionSimple(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	if err := execute(t, app, "status"); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Not configured", "Get started", "aigw setup"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("status lacks %q:\n%s", want, out.String())
 		}
 	}
 }
