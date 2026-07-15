@@ -177,14 +177,11 @@ func (u Updater) latestTagFromSource(ctx context.Context, source ReleaseSource) 
 		u.GitLab = original
 		return tag, isGlabUnavailable(err), err
 	case ReleaseProviderGitHub:
-		release, err := u.githubRelease(ctx, source, "releases/latest")
+		tag, err := u.latestTagFromGitHubRelease(ctx, source)
 		if err != nil {
 			return "", isGitHubUnavailable(err), err
 		}
-		if release.TagName == "" {
-			return "", false, fmt.Errorf("no AIGW release is available")
-		}
-		return release.TagName, false, nil
+		return tag, false, nil
 	default:
 		return "", false, fmt.Errorf("unsupported release provider %q", source.Provider)
 	}
