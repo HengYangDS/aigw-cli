@@ -83,12 +83,12 @@ package:
     - sh scripts/check-package-runner.sh
     - |
       set -eu
-      mirror_args=''
-      if test -n "${AIGW_RELEASE_MIRROR_REPOSITORY:-}"; then
-        mirror_origin="${AIGW_RELEASE_MIRROR_ORIGIN:-https://github.com}"
-        mirror_args="AIGW_RELEASE_MIRROR_PROVIDER=github AIGW_RELEASE_MIRROR_ORIGIN=$mirror_origin AIGW_RELEASE_MIRROR_REPOSITORY=$AIGW_RELEASE_MIRROR_REPOSITORY"
+      github_args=''
+      if test -n "${AIGW_GITHUB_RELEASE_REPOSITORY:-}"; then
+        github_origin="${AIGW_GITHUB_RELEASE_ORIGIN:-https://github.com}"
+        github_args="AIGW_GITHUB_RELEASE_ORIGIN=$github_origin AIGW_GITHUB_RELEASE_REPOSITORY=$AIGW_GITHUB_RELEASE_REPOSITORY"
       fi
-      env AIGW_RELEASE_PRIMARY_PROVIDER=gitlab AIGW_RELEASE_PRIMARY_ORIGIN="$CI_SERVER_URL" AIGW_RELEASE_PRIMARY_REPOSITORY="$CI_PROJECT_PATH" $mirror_args AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$VERSION" dist
+      env AIGW_GITLAB_RELEASE_ORIGIN="$CI_SERVER_URL" AIGW_GITLAB_RELEASE_REPOSITORY="$CI_PROJECT_PATH" $github_args AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$VERSION" dist
     - sh scripts/test-release-package-layout.sh dist "$VERSION"
   artifacts:
     expire_in: 30 days
