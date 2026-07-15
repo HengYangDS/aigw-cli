@@ -32,6 +32,8 @@ verify:
     # a locally verifiable SSH signature. Untagged CI remains a source gate.
     - 'if test -n "${CI_COMMIT_TAG:-}"; then sh scripts/check-release-tag-signature.sh . "$CI_COMMIT_TAG"; fi'
     - sh scripts/check-governance.sh
+    - sh scripts/test-text-layout.sh
+    - sh scripts/test-github-projection-sync.sh
     - python3 scripts/check-markdown-presentation.py
     - sh scripts/test-changelog.sh
     - sh scripts/test-release-readiness.sh

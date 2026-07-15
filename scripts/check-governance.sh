@@ -24,6 +24,7 @@ done
 
 sh scripts/check-changelog.sh
 sh scripts/check-english-text.sh
+python3 scripts/check-text-layout.py
 
 if ! grep -Fq '# AIGW CLI' README.md; then
   echo "README.md must use the formal Project Name as its title" >&2

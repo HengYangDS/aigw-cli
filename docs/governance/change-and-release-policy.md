@@ -2,6 +2,16 @@
 
 Status: canonical.
 
+## Text and configuration layout
+
+Every tracked human-readable source or configuration file has a compact layout:
+one blank line separates semantic blocks; leading, terminal, whitespace-only,
+and repeated blank lines are prohibited. Literal content inside Markdown fenced
+blocks is exempt. Python retains its native two-blank-line separation between
+module-level declarations; Go and structured configuration retain their
+formatter-defined grammar. `scripts/check-text-layout.py` enforces the shared
+contract; language formatters remain authoritative within their syntax.
+
 ## Configuration mutations
 
 All Codex target changes use one transaction: prepare every target, commit only
@@ -41,6 +51,12 @@ published only after the local artifact matrix and the provider's own gate set
 agree.
 
 ## Distribution continuity
+
+GitHub also exposes a manual package-only candidate path. It accepts a
+SemVer-shaped version ending in `-candidate.<number>`, runs the same source and
+package gates, and uploads a short-lived artifact. It cannot create a release,
+modify a tag, or become update evidence. Formal GitHub and GitLab releases
+remain tag-triggered and provider-native.
 
 GitLab and GitHub are formal independent release channels. Each owns a complete
 versioned 15-artifact release matrix: platform packages, `checksums.txt`, and
