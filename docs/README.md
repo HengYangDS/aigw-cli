@@ -3,9 +3,15 @@
 Status: canonical.
 
 AIGW uses a small documentation kernel: stable architecture and policy,
-durable decisions, dated evidence, and release history. It borrows this
-structure to keep ownership and proof legible; it does not import another
-project's product model.
+durable decisions, dated evidence, and release history. Start with the product
+concepts, then follow one narrow path rather than reading the whole tree.
+
+| If you need | Start here |
+| --- | --- |
+| The product model and everyday concepts | [Concepts](concepts.md) |
+| Secure setup and operating boundaries | [Security model](security.md) |
+| Team rollout | [Team rollout](team-rollout.md) |
+| Release or forge work | [Release evidence](release-readiness.md) and [Forge Operations](operations/forge-operations.md) |
 
 | Surface | Owns |
 | --- | --- |

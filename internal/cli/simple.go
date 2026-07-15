@@ -330,10 +330,10 @@ func contains(values []string, target string) bool {
 func newUpdateCommand(app *App) *cobra.Command {
 	var rollback bool
 	cmd := &cobra.Command{
-		Use: "update", Short: "Update to the latest team release", Args: cobra.NoArgs,
+		Use: "update", Short: "Install the latest verified release or restore the previous portable program", Args: cobra.NoArgs,
 		RunE: func(ctx *cobra.Command, _ []string) error {
 			if app.Updater == nil {
-				return fmt.Errorf("Automatic update is unavailable; install the latest version from the team GitLab Release")
+				return fmt.Errorf("Automatic update is unavailable; install a verified release from GitLab or GitHub")
 			}
 			var (
 				result string
