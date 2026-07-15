@@ -106,6 +106,51 @@ func TestUpdateRejectsPeerIntegrityFailureBeforeReplacingBinary(t *testing.T) {
 	}
 }
 
+func TestUpdateUsesPublishedGitHubPrereleaseWhenNoStableReleaseExists(t *testing.T) {
+	archive := tarGz(t, "aigw_0.2.0-rc.1_darwin_arm64/aigw", []byte("candidate-binary"))
+	archiveName := "aigw_0.2.0-rc.1_darwin_arm64.tar.gz"
+	sum := sha256.Sum256(archive)
+	binary := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var serverURL string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/repos/example-owner/aigw-cli/releases/latest":
+			http.NotFound(w, request)
+		case "/repos/example-owner/aigw-cli/releases":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `[{"tag_name":"v0.2.0-rc.1","prerelease":true,"published_at":"2026-07-15T00:00:00Z"},{"tag_name":"v0.3.0-rc.1","prerelease":true,"draft":true,"published_at":"2026-07-15T00:00:00Z"}]`)
+		case "/repos/example-owner/aigw-cli/releases/tags/v0.2.0-rc.1":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"tag_name":"v0.2.0-rc.1","prerelease":true,"published_at":"2026-07-15T00:00:00Z","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+				archiveName, serverURL+"/downloads/"+archiveName, serverURL+"/downloads/checksums.txt")
+		case "/downloads/" + archiveName:
+			_, _ = w.Write(archive)
+		case "/downloads/checksums.txt":
+			_, _ = w.Write([]byte(fmt.Sprintf("%x  %s\n", sum, archiveName)))
+		default:
+			http.NotFound(w, request)
+		}
+	}))
+	defer server.Close()
+	serverURL = server.URL
+	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", server.URL)
+	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "example-owner/aigw-cli")
+	u := selfupdate.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: &missingGlabRunner{}, HTTPClient: server.Client()}
+	message, err := u.Update(context.Background(), "0.1.0-rc.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(message, "v0.2.0-rc.1") {
+		t.Fatalf("message = %q", message)
+	}
+	if got, err := os.ReadFile(binary); err != nil || string(got) != "candidate-binary" {
+		t.Fatalf("binary=%q error=%v", got, err)
+	}
+}
+
 func TestUpdateRejectsReachablePeerAuthorizationFailure(t *testing.T) {
 	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
 	binary := filepath.Join(t.TempDir(), "aigw")
