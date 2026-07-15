@@ -20,13 +20,22 @@ version=${CI_COMMIT_TAG#v}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 "$root/scripts/check-release-artifacts.sh" "$artifacts" "$version"
 
+# GitHub does not infer prerelease state from a SemVer tag.  Keep the hosted
+# release metadata faithful to the version: any SemVer prerelease identifier
+# (for example, rc, beta, alpha, or a project-specific test identifier) is a
+# prerelease; a GA version is not.
+prerelease_args=''
+case "$version" in
+  *-*) prerelease_args='--prerelease' ;;
+esac
+
 token=${GH_TOKEN:-${GITHUB_TOKEN:-}}
 [ -n "$token" ] || { echo "GH_TOKEN or GITHUB_TOKEN is required" >&2; exit 2; }
 export GH_TOKEN=$token
 
 if ! gh release view "$CI_COMMIT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
   gh release create "$CI_COMMIT_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
-    --title "AIGW $CI_COMMIT_TAG" --generate-notes "$artifacts"/*
+    --title "AIGW $CI_COMMIT_TAG" $prerelease_args --generate-notes "$artifacts"/*
   echo "GitHub release created: $GITHUB_REPOSITORY $CI_COMMIT_TAG"
   exit 0
 fi

@@ -8,6 +8,11 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Mark GitHub releases created from SemVer prerelease tags as prereleases, while
+  leaving GA releases unmarked.
+
 ## [0.1.0-rc.51] - 2026-07-15
 
 ### Fixed
