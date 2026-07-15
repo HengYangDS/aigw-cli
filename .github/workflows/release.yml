@@ -57,6 +57,7 @@ jobs:
           sh scripts/test-release-artifacts.sh
           sh scripts/test-verified-candidate.sh
           sh scripts/test-pipeline-gates.sh
+          sh scripts/test-macos-native-install-staging.sh
       - name: Build the complete release matrix
         env:
           SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
