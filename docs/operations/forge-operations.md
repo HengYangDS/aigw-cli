@@ -4,39 +4,30 @@ Status: canonical.
 
 ## Model
 
-GitLab and GitHub are equal independent forge planes. A managed repository uses
-one GitLab remote and one GitHub remote; both contain the same commits, branches,
-signed tags, and release identity. Each provider owns its own CI/CD execution
-and release publication. No provider-specific snapshot commits are permitted.
+GitLab and GitHub are equivalent independent forge planes. A managed repository
+uses one GitLab remote and one GitHub remote; each provider owns its own commit
+history, signed tags, CI/CD execution, and release publication. The same release
+version must have an equivalent 15-artifact matrix, checksums, and SBOM on both
+providers, but provider histories and tags are distinct provenance objects. No
+provider-specific snapshot commits are permitted.
 
-## Local enrollment
+## Synchronization
 
-The host-level `agent-forge-peers` tool deliberately has no discovery or
-implicit enrollment. It manages only explicitly enrolled, owned repositories in
-`~/.config/agent/forge-peers.ini`. Do not enroll third-party clones, temporary
-fixtures, foreign worktrees, or a repository without both owner-provided remote
-endpoints.
+The canonical GitLab checkout is projected to GitHub with:
 
-```ini
-[repo "example"]
-path = /absolute/path/to/example
-gitlab_remote = origin
-github_remote = github
-branches = main
-tags = true
-
-[defaults]
-# Optional markers for self-hosted or test forge URLs.
-gitlab_url_markers = gitlab.example.com
-github_url_markers = github.example.com
+```bash
+sh scripts/project-github-forge.sh
 ```
 
-Use `agent-forge-peers status` for a read-only audit. It bounds each Git network
-operation and reports `converged`, `behind`, `ahead`, `diverged`, or
-`unavailable` for branches, plus signed-tag agreement when tag auditing is
-enabled. `agent-forge-peers sync --repo example` requires a clean owned
-worktree and only fast-forwards a reachable peer with the exact local commit.
-It never creates commits, force-pushes, prunes, or deletes refs.
+The command requires a clean canonical checkout, uses a fresh isolated clone for
+the identity rewrite, verifies overlapping provider tags with their respective
+trust anchors, and updates only the selected GitHub branch under a lease. It
+never alters canonical refs, copies provider tags, deletes refs, or performs an
+unleased force push. GitLab recovery uses a normal non-force push of its
+canonical history once the GitLab remote is reachable.
+
+Do not use an equal-object branch or tag synchronizer for this repository; its
+provider-specific identity model intentionally makes those objects different.
 
 ## Release behavior
 
@@ -55,8 +46,5 @@ artifact bytes before installation.
 
 GitLab provenance uses `heng.yang.ds@hotmail.com`; GitHub provenance uses
 `hengyang.2003@tsinghua.org.cn`. A direct push guard rejects a provider/email
-mismatch. Equal-object synchronization is appropriate only where both providers
-are deliberately carrying identical commit and tag objects. Where a GitHub
-privacy projection exists, run `sh scripts/project-github-forge.sh` from a clean
-canonical checkout instead; its isolated rewrite sends only the projected
-GitHub branch and leaves both providers' signed tags immutable.
+mismatch. Same-named tags are independently signed provider provenance records,
+and must never be copied, regenerated, or overwritten across the two namespaces.
