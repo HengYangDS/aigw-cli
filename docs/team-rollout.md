@@ -73,21 +73,20 @@ claim signing or notarization. GA release requirements are defined in
 Portable installers copy bundled files only. Formal releases retain the exact
 15-artifact matrix: platform packages, `checksums.txt`, and an SPDX SBOM.
 GitLab and GitHub are independent forge planes that preserve separate commit
-and signed-tag provenance. GitLab is the embedded primary update source; GitHub
-is an availability-only fallback after a typed GitLab transport or provider-5xx
-failure. A checksum, metadata, authorization, downgrade, or redirect failure is
-terminal and must not switch providers.
+and signed-tag provenance. They are equal update peers: when both are
+reachable, their latest tag and current-platform artifact bytes must agree;
+when one is unreachable, the remaining reachable peer may provide the update.
+A checksum, metadata, authorization, downgrade, or redirect failure is
+terminal and must not be hidden by mixing provider data.
 
 After installation, `aigw update` uses the sources embedded by the publishing
 pipeline. A source build may configure both independently:
 
 ```bash
-export AIGW_RELEASE_PRIMARY_PROVIDER=gitlab
-export AIGW_RELEASE_PRIMARY_ORIGIN=https://gitlab.example.com
-export AIGW_RELEASE_PRIMARY_REPOSITORY=group/aigw-cli
-export AIGW_RELEASE_MIRROR_PROVIDER=github
-export AIGW_RELEASE_MIRROR_ORIGIN=https://github.com
-export AIGW_RELEASE_MIRROR_REPOSITORY=owner/aigw-cli
+export AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example.com
+export AIGW_GITLAB_RELEASE_REPOSITORY=group/aigw-cli
+export AIGW_GITHUB_RELEASE_ORIGIN=https://github.com
+export AIGW_GITHUB_RELEASE_REPOSITORY=owner/aigw-cli
 ```
 
 For offline acceptance, transfer one reviewed platform-matching portable archive

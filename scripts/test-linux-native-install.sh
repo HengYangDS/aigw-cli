@@ -7,6 +7,8 @@ version=${2:?usage: test-linux-native-install.sh <dist-dir> <version>}
 deb_image=${AIGW_LINUX_DEB_ACCEPTANCE_IMAGE:-ghcr.io/catthehacker/ubuntu:act-latest}
 rpm_image=${AIGW_LINUX_RPM_ACCEPTANCE_IMAGE:-public.ecr.aws/docker/library/mysql:8.0}
 shared_tmp_root=${AIGW_DOCKER_SHARED_TMPDIR:-"$HOME/.cache/aigw/container-artifacts"}
+pull_timeout=${AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS:-120}
+lock_timeout=${AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS:-180}
 
 require() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -16,8 +18,56 @@ require() {
 }
 
 require docker
+[ "$pull_timeout" -gt 0 ] 2>/dev/null || { echo "AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS must be a positive integer" >&2; exit 2; }
+[ "$lock_timeout" -gt 0 ] 2>/dev/null || { echo "AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS must be a positive integer" >&2; exit 2; }
 [ -d "$out" ] || { echo "artifact directory does not exist: $out" >&2; exit 2; }
 sh "$root/scripts/check-release-artifacts.sh" "$out" "$version" >/dev/null
+
+run_with_timeout() {
+  seconds=$1
+  shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$seconds" "$@"
+    return
+  fi
+  "$@" &
+  pid=$!
+  elapsed=0
+  while kill -0 "$pid" 2>/dev/null; do
+    if [ "$elapsed" -ge "$seconds" ]; then
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      return 124
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  wait "$pid"
+}
+
+image_lock_name() {
+  printf '%s' "$1-$2" | tr '/:@' '___'
+}
+
+with_image_lock() {
+  image=$1
+  platform=$2
+  shift 2
+  (
+    lock_dir="$shared_tmp_root/.image-lock-$(image_lock_name "$image" "$platform")"
+    elapsed=0
+    while ! mkdir "$lock_dir" 2>/dev/null; do
+      if [ "$elapsed" -ge "$lock_timeout" ]; then
+        echo "timed out waiting for Linux acceptance image lock: $image ($platform)" >&2
+        exit 1
+      fi
+      sleep 1
+      elapsed=$((elapsed + 1))
+    done
+    trap 'rmdir "$lock_dir" 2>/dev/null || true' EXIT HUP INT TERM
+    "$@"
+  )
+}
 
 ensure_image_platform() {
   image=$1
@@ -25,7 +75,28 @@ ensure_image_platform() {
   if docker image inspect --platform "$platform" --format '{{.Os}}/{{.Architecture}}' "$image" 2>/dev/null | grep -Fx "$platform" >/dev/null; then
     return 0
   fi
-  docker pull --platform "$platform" "$image" >/dev/null
+  mkdir -p "$shared_tmp_root"
+  with_image_lock "$image" "$platform" ensure_image_platform_locked "$image" "$platform"
+}
+
+ensure_image_platform_locked() {
+  image=$1
+  platform=$2
+  if docker image inspect --platform "$platform" --format '{{.Os}}/{{.Architecture}}' "$image" 2>/dev/null | grep -Fx "$platform" >/dev/null; then
+    return 0
+  fi
+  printf 'preparing Linux acceptance image: %s (%s)\n' "$image" "$platform" >&2
+  if run_with_timeout "$pull_timeout" docker pull --platform "$platform" "$image" >/dev/null; then
+    :
+  else
+    status=$?
+    if [ "$status" -eq 124 ]; then
+      echo "timed out after ${pull_timeout}s while preparing Linux acceptance image: $image ($platform)" >&2
+    else
+      echo "failed to prepare Linux acceptance image: $image ($platform)" >&2
+    fi
+    return "$status"
+  fi
   docker image inspect --platform "$platform" --format '{{.Os}}/{{.Architecture}}' "$image" 2>/dev/null | grep -Fx "$platform" >/dev/null || {
     echo "acceptance image $image is not available locally for $platform after pull" >&2
     exit 2

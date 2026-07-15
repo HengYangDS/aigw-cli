@@ -40,12 +40,11 @@ for required in [
 
 package = section(gitlab, "package")
 for required in [
-    'AIGW_RELEASE_PRIMARY_PROVIDER=gitlab',
-    'AIGW_RELEASE_PRIMARY_ORIGIN="$CI_SERVER_URL"',
-    'AIGW_RELEASE_PRIMARY_REPOSITORY="$CI_PROJECT_PATH"',
-    'if test -n "${AIGW_RELEASE_MIRROR_REPOSITORY:-}"; then',
-    'mirror_origin="${AIGW_RELEASE_MIRROR_ORIGIN:-https://github.com}"',
-    "AIGW_RELEASE_MIRROR_PROVIDER=github", "AIGW_RELEASE_MIRROR_ORIGIN", "AIGW_RELEASE_MIRROR_REPOSITORY",
+    'AIGW_GITLAB_RELEASE_ORIGIN="$CI_SERVER_URL"',
+    'AIGW_GITLAB_RELEASE_REPOSITORY="$CI_PROJECT_PATH"',
+    'if test -n "${AIGW_GITHUB_RELEASE_REPOSITORY:-}"; then',
+    'github_origin="${AIGW_GITHUB_RELEASE_ORIGIN:-https://github.com}"',
+    "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh",
 ]:
     if required not in package:
@@ -60,8 +59,8 @@ if "mirror-github:" in gitlab or "AIGW_GITHUB_MIRROR" in gitlab:
 for required in [
     "name: Release", 'tags: ["v*"]', "permissions:\n  contents: write",
     "runs-on: macos-15", "check-release-tag-signature.sh",
-    "AIGW_RELEASE_PRIMARY_PROVIDER", "AIGW_RELEASE_PRIMARY_ORIGIN", "AIGW_RELEASE_PRIMARY_REPOSITORY",
-    "AIGW_RELEASE_MIRROR_PROVIDER", "AIGW_RELEASE_MIRROR_ORIGIN", "AIGW_RELEASE_MIRROR_REPOSITORY",
+    "AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY",
+    "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
     "check-text-layout.py", "test-text-layout.sh",
     "test-verified-candidate.sh",
