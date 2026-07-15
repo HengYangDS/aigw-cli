@@ -23,6 +23,8 @@ type spdxPackage struct {
 	VersionInfo      string `json:"versionInfo,omitempty"`
 	DownloadLocation string `json:"downloadLocation"`
 	FilesAnalyzed    bool   `json:"filesAnalyzed"`
+	LicenseConcluded string `json:"licenseConcluded"`
+	LicenseDeclared  string `json:"licenseDeclared"`
 }
 
 func main() {
@@ -35,7 +37,7 @@ func main() {
 		os.Exit(1)
 	}
 	decoder := json.NewDecoder(strings.NewReader(string(data)))
-	packages := []spdxPackage{{Name: "aigw", SPDXID: "SPDXRef-Package-aigw", VersionInfo: *version, DownloadLocation: "NOASSERTION", FilesAnalyzed: false}}
+	packages := []spdxPackage{{Name: "aigw", SPDXID: "SPDXRef-Package-aigw", VersionInfo: *version, DownloadLocation: "NOASSERTION", FilesAnalyzed: false, LicenseConcluded: "MIT", LicenseDeclared: "MIT"}}
 	index := 0
 	for {
 		var item module
@@ -49,7 +51,7 @@ func main() {
 			continue
 		}
 		index++
-		packages = append(packages, spdxPackage{Name: item.Path, SPDXID: fmt.Sprintf("SPDXRef-Dependency-%d", index), VersionInfo: item.Version, DownloadLocation: "NOASSERTION", FilesAnalyzed: false})
+		packages = append(packages, spdxPackage{Name: item.Path, SPDXID: fmt.Sprintf("SPDXRef-Dependency-%d", index), VersionInfo: item.Version, DownloadLocation: "NOASSERTION", FilesAnalyzed: false, LicenseConcluded: "NOASSERTION", LicenseDeclared: "NOASSERTION"})
 	}
 	doc := map[string]any{
 		"spdxVersion": "SPDX-2.3", "dataLicense": "CC0-1.0", "SPDXID": "SPDXRef-DOCUMENT",

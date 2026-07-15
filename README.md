@@ -8,7 +8,8 @@
 AIGW CLI is a local-first, cross-platform control plane for AI provider
 accounts, credentials, runtime profiles, client routes, and Claude/Codex
 projections. It does not run a gateway, listen on a port, relay API traffic, or
-own Codex conversation state.
+own Codex conversation state. It is distributed under the [MIT](LICENSE)
+License.
 
 ## What it manages
 
@@ -30,6 +31,10 @@ AIGW has three checksum-first distribution paths:
 2. **GitHub release** — an independent peer forge plane.
 3. **Verified local candidate** — a complete extracted artifact directory for
    offline installation and acceptance testing.
+
+The source code, documentation, and distributed release files are available
+under the permissive [MIT License](LICENSE). Third-party dependencies retain
+their own licenses, as identified by the release SPDX SBOM.
 
 GitLab and GitHub are independent but equivalent forge planes. They publish the
 same versioned release matrix and use the same release filenames, checksums, and
@@ -182,6 +187,13 @@ endpoint from AIGW's perspective.
 - [Contribution guide](CONTRIBUTING.md)
 - [Documentation root](docs/README.md)
 - [Change and release policy](docs/governance/change-and-release-policy.md)
+- [MIT License](LICENSE)
+
+## License
+
+AIGW CLI is licensed under the [MIT License](LICENSE). The license applies to
+this repository's source and documentation; release SBOMs identify third-party
+dependency provenance separately.
 
 ## Verify a source checkout
 

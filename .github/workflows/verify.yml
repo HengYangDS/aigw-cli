@@ -39,6 +39,7 @@ jobs:
           test -z "$(gofmt -l cmd internal tools)"
           for script in scripts/*.sh; do sh -n "$script"; done
           sh scripts/check-package-safety.sh
+          sh scripts/check-product-surface.sh
           sh scripts/check-retired-residue.sh
           sh scripts/check-english-text.sh
           sh scripts/check-governance.sh
