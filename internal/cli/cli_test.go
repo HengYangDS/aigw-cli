@@ -451,6 +451,9 @@ func TestStatusMarksExternalLoopbackTransportWithoutExposingEndpoint(t *testing.
 			t.Fatalf("status JSON lacks %q:\n%s", want, text)
 		}
 	}
+	if strings.Contains(text, "requests use the external listener") {
+		t.Fatalf("machine-readable status leaked human transport prose:\n%s", text)
+	}
 	if strings.Contains(text, "4567") || strings.Contains(text, "localhost") {
 		t.Fatalf("status JSON exposed loopback endpoint:\n%s", text)
 	}

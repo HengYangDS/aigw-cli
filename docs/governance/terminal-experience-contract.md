@@ -46,6 +46,6 @@ changes, or Codex conversation mutation.
 ## Boundary language
 
 If a selected Account points at a loopback endpoint, the status view may say
-that an external compatibility layer exists. It does not reveal a port, name a
-specific proxy, or create an ownership claim. AIGW neither requires nor manages
-that process.
+that an external compatibility layer exists and that the client route uses its
+listener. It does not reveal a port, name a specific proxy, or create an
+ownership claim. AIGW does not manage that process or diagnose its lifecycle.
