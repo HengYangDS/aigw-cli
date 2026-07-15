@@ -23,7 +23,9 @@ The command requires a clean canonical checkout, uses a fresh isolated clone for
 the identity rewrite, verifies overlapping provider tags with their respective
 trust anchors, and updates only the selected GitHub branch under a lease. It
 never alters canonical refs, copies provider tags, deletes refs, or performs an
-unleased force push. GitLab recovery uses a normal non-force push of its
+unleased force push. It uses the repository-local GitHub remote exactly as
+configured, so user-global Git URL rewrites cannot silently change its
+authentication transport. GitLab recovery uses a normal non-force push of its
 canonical history once the GitLab remote is reachable.
 
 Do not use an equal-object branch or tag synchronizer for this repository; its
