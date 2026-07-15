@@ -431,6 +431,69 @@ func TestStatusShowsInheritanceAndJSONNeverContainsToken(t *testing.T) {
 	}
 }
 
+func TestStatusMarksExternalLoopbackTransportWithoutExposingEndpoint(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "local", "local", "Local Compatibility Layer", domain.Endpoints{OpenAIResponses: "http://localhost:4567/v1"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "model-test"})
+	cfg.Routes.Default = "local"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("local", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "status", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	for _, want := range []string{`"transport": "external_loopback"`} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("status JSON lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "4567") || strings.Contains(text, "localhost") {
+		t.Fatalf("status JSON exposed loopback endpoint:\n%s", text)
+	}
+}
+
+func TestStatusMarksHTTPSLoopbackTransportWithoutExposingEndpoint(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "local", "local", "Local Compatibility Layer", domain.Endpoints{OpenAIResponses: "https://[::1]:4567/v1"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "model-test"})
+	cfg.Routes.Default = "local"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("local", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "status", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"transport": "external_loopback"`) {
+		t.Fatalf("status did not classify HTTPS loopback:\n%s", out.String())
+	}
+}
+
+func TestStatusDoesNotClassifyRemoteHTTPAsExternalLoopbackTransport(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "remote", "remote", "Remote Development Gateway", domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "model-test"})
+	cfg.Routes.Default = "remote"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("remote", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "status", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "external_loopback") {
+		t.Fatalf("status misclassified remote endpoint:\n%s", out.String())
+	}
+}
+
 func TestStatusLabelsProfileCountAsModelConfigurations(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()

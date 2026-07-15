@@ -22,3 +22,9 @@ remains part of preparation and does not weaken foreign-edit conflict checks.
 `aigw sync --dry-run --json` exposes target/action only. It does not expose
 credentials or config bodies and does not mutate files, bind native
 authentication, restart clients, or modify conversation state.
+
+When a selected endpoint targets a loopback host, AIGW reports it as an
+external loopback compatibility layer in `status` and `check`. The diagnostic
+does not expose the endpoint URL or port, infer a particular proxy product, or
+add a lifecycle dependency: transport start, stop, configuration, manifest,
+and watchdog ownership remain outside AIGW.
