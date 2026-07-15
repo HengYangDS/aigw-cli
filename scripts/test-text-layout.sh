@@ -20,6 +20,17 @@ git commit -qm initial
 mkdir -p scripts
 mv "$tmp/check.py" scripts/check-text-layout.py
 python3 scripts/check-text-layout.py >/dev/null
+# macOS includes a system Python that may be older than a developer-managed
+# interpreter. The checker is repository tooling, so it must remain runnable
+# without Homebrew or another runtime manager. Other platforms may inject an
+# equivalent baseline interpreter through AIGW_TEXT_LAYOUT_COMPAT_PYTHON.
+compat_python=${AIGW_TEXT_LAYOUT_COMPAT_PYTHON:-}
+if [ -z "$compat_python" ] && [ "$(uname -s)" = Darwin ] && [ -x /usr/bin/python3 ]; then
+  compat_python=/usr/bin/python3
+fi
+if [ -n "$compat_python" ]; then
+  "$compat_python" scripts/check-text-layout.py >/dev/null
+fi
 printf '# Invalid\n\n\nDouble gap.\n' > README.md
 if python3 scripts/check-text-layout.py >/dev/null 2>&1; then
   echo 'text layout checker accepted consecutive Markdown blank lines' >&2
