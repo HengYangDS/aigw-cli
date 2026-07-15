@@ -380,6 +380,8 @@ func (u Updater) downloadPeerAssets(ctx context.Context, releases []resolvedRele
 		unavailable, err := u.downloadReleaseAssetsFromExactSource(ctx, release.Source, release.Tag, directory, asset, "checksums.txt")
 		if err != nil {
 			if unavailable {
+				_ = os.RemoveAll(directory)
+				cleanupDirectories = cleanupDirectories[:len(cleanupDirectories)-1]
 				unavailableSources = append(unavailableSources, fmt.Errorf("%s: %w", release.Source.Provider, err))
 				continue
 			}
