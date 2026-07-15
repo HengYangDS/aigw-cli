@@ -135,6 +135,11 @@ for arch in amd64 arm64; do
     echo "unexpected MSI platform template for $arch: $template" >&2
     exit 1
   }
+  subject=$(msiinfo suminfo "$msi" | awk -F': ' '$1 == "Subject" {print $2; exit}')
+  [ "$subject" = "AIGW CLI" ] || {
+    echo "unexpected MSI subject for $arch: $subject" >&2
+    exit 1
+  }
   component_ids=$(msiinfo export "$msi" Component | awk -F '	' 'NR > 3 && $1 ~ /^Aigw(Exe|Path)$/ {print $1 "=" $2}')
   for component in AigwExe AigwPath; do
     expected=$(msi_component_guid "$arch" "$component")
