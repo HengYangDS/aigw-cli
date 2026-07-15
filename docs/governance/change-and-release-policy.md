@@ -58,9 +58,11 @@ two namespaces.
 Run `sh scripts/project-github-forge.sh` from a clean canonical checkout to
 project a selected branch into the GitHub identity domain. It rewrites only an
 isolated clone, verifies overlapping provider tags against distinct trust
-anchors, uses a leased branch update, and never pushes a tag. GitLab recovery
-uses a normal, non-force push of canonical history after its remote is reachable.
-No equal-object branch or tag synchronizer applies to AIGW.
+anchors, uses a leased branch update, and never pushes a tag. It honors the
+repository-local GitHub URL without inheriting user-global URL rewrites, so its
+transport and authentication stay explicit. GitLab recovery uses a normal,
+non-force push of canonical history after its remote is reachable. No
+equal-object branch or tag synchronizer applies to AIGW.
 
 ## Branch closeout
 
