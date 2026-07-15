@@ -4,10 +4,30 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 checker="$root/scripts/check-changelog.sh"
 fixture=$(mktemp "${TMPDIR:-/tmp}/aigw-changelog.XXXXXX")
-trap 'rm -f "$fixture"' EXIT HUP INT TERM
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/aigw-changelog.XXXXXX")
+trap 'rm -f "$fixture"; rm -rf "$tmp"' EXIT HUP INT TERM
 
 cp "$root/CHANGELOG.md" "$fixture"
 AIGW_CHANGELOG_FILE="$fixture" sh "$checker"
+
+# A shallow checkout can omit both the release tag and its historical commit.
+# The checker must restore the history and release refs from its named origin.
+shallow="$tmp/shallow"
+origin="$tmp/origin.git"
+git init -q --bare "$origin"
+git -C "$root" push -q "$origin" 'HEAD:refs/heads/main'
+git -C "$root" push -q "$origin" --tags
+git -C "$origin" symbolic-ref HEAD refs/heads/main
+git clone -q --depth 1 --branch main "file://$origin" "$shallow"
+cp "$root/CHANGELOG.md" "$shallow/CHANGELOG.md"
+mkdir -p "$shallow/scripts"
+cp "$checker" "$shallow/scripts/check-changelog.sh"
+(
+  cd "$shallow"
+  test "$(git rev-parse --is-shallow-repository)" = true
+  test -z "$(git tag --list 'v[0-9]*')"
+  AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh
+)
 
 # A published entry before the latest tag must be a locally known release rather
 # than a speculative version. Appending after the latest heading would be an

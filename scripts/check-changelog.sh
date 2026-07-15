@@ -20,7 +20,16 @@ first_heading=$(awk '/^## / { print; exit }' "$changelog")
 test "$first_heading" = "## [Unreleased]" || \
   fail "the first release section must be ## [Unreleased]"
 
+# CI can fetch a shallow branch whose tag object and historical ancestor are
+# absent. Refresh release refs and history once before judging chronology;
+# failure remains closed when no reachable tag becomes available.
 latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
+if test -z "$latest_tag" && git remote get-url origin >/dev/null 2>&1; then
+  git fetch --quiet --no-tags --unshallow origin 2>/dev/null || \
+    git fetch --quiet --no-tags origin 2>/dev/null || true
+  git fetch --quiet --no-tags origin 'refs/tags/*:refs/tags/*' 2>/dev/null || true
+  latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
+fi
 test -n "$latest_tag" || fail "cannot find a reachable v<semver> Git tag"
 latest_version=${latest_tag#v}
 latest_date=$(git for-each-ref "refs/tags/$latest_tag" --format='%(creatordate:short)' | head -n 1)
