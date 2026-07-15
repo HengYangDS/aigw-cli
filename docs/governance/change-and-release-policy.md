@@ -27,12 +27,13 @@ GitLab **Project Name** is `AIGW CLI`. The stable repository **Path** is
 
 ## Distribution continuity
 
-GitLab and GitHub are equal independent forge planes. Each holds the same
-commits, branches, signed tags, and versioned 15-artifact release identity:
-platform packages, `checksums.txt`, and SPDX SBOM. Each CI/CD plane can build
-and publish independently. When both releases are reachable, tag, manifest, and
-artifact disagreement is a fail-closed condition; one forge must never bypass
-an integrity, provenance, metadata, or version failure observed at the other.
+GitLab and GitHub are equivalent independent forge planes. Each has its own
+commit history and signed-tag provenance, and each publishes the same versioned
+15-artifact release matrix: platform packages, `checksums.txt`, and SPDX SBOM.
+Each CI/CD plane can build and publish independently. When both releases are
+reachable, tag name, manifest, and artifact disagreement is a fail-closed
+condition; one forge must never bypass an integrity, provenance, metadata, or
+version failure observed at the other.
 
 A verified local candidate is a complete extracted artifact directory with one
 platform-matching portable archive and a validating checksum record. It exists
@@ -41,20 +42,18 @@ checkout, a loose binary, and a tag are not candidates.
 
 ## Forge synchronization
 
-GitLab and GitHub remain separate identity domains even when their source
-commits converge: GitLab commits and tags use `heng.yang.ds@hotmail.com`; GitHub
-projection commits and tags use `hengyang.2003@tsinghua.org.cn`. Same-named
-provider release tags are independently signed provenance objects and must not
-be overwritten across the two namespaces.
+GitLab and GitHub remain separate identity domains: GitLab commits and tags use
+`heng.yang.ds@hotmail.com`; GitHub projection commits and tags use
+`hengyang.2003@tsinghua.org.cn`. Same-named provider release tags are
+independently signed provenance objects and must not be overwritten across the
+two namespaces.
 
-Use `sh scripts/forge-peer-sync.sh --check` to inspect equal-object branches,
-then explicitly run `sh scripts/forge-peer-sync.sh --sync` only from a clean
-owned worktree to fast-forward each reachable peer with the exact local commit.
-For the provider-specific GitHub identity projection, use
-`sh scripts/project-github-forge.sh`: it rewrites only an isolated clone,
-requires trust verification of existing provider tags, applies a leased branch
-update, and never pushes tags. Neither command creates snapshot commits,
-deletes refs, or permits an unresolved divergence.
+Run `sh scripts/project-github-forge.sh` from a clean canonical checkout to
+project a selected branch into the GitHub identity domain. It rewrites only an
+isolated clone, verifies overlapping provider tags against distinct trust
+anchors, uses a leased branch update, and never pushes a tag. GitLab recovery
+uses a normal, non-force push of canonical history after its remote is reachable.
+No equal-object branch or tag synchronizer applies to AIGW.
 
 ## Branch closeout
 
