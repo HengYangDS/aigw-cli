@@ -16,6 +16,8 @@ platform acceptance, signing, and GA status remain separate evidence.
   check, then follow one explicit next action.
 - Add `aigw update --candidate <archive> --checksums <manifest>` for explicit,
   checksum-first, local-only portable update acceptance.
+- Add a canonical terminal experience contract for task-first navigation,
+  narrow-terminal presentation, and one-action recovery language.
 
 ### Changed
 
@@ -29,6 +31,10 @@ platform acceptance, signing, and GA status remain separate evidence.
   proven.
 - Model update endpoints as atomic provider, origin, and repository tuples, with
   GitLab primary and GitHub availability-only fallback roles.
+- Reorganize root help and documentation around Connect, Use every day,
+  Recover, and Advanced paths without changing the existing command grammar.
+- Make human-readable output adapt to narrow terminals without truncating text
+  or changing JSON output.
 
 ### Fixed
 
