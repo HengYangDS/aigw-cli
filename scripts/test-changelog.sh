@@ -11,25 +11,34 @@ cp "$root/CHANGELOG.md" "$fixture"
 AIGW_CHANGELOG_FILE="$fixture" sh "$checker"
 
 # A shallow checkout can omit both the release tag and its historical commit.
-# First complete the fixture source from its named origin, just as the checker
-# does.  Otherwise a bare fixture seeded by a shallow sender can retain that
-# sender's shallow boundary and cannot serve the release history it is meant to
-# model.  The actual assertion still runs from a fresh depth-one clone below.
-if test "$(git -C "$root" rev-parse --is-shallow-repository)" = true; then
-  git -C "$root" fetch --quiet --unshallow origin 2>/dev/null || \
-    git -C "$root" fetch --quiet --no-tags origin
-  git -C "$root" fetch --quiet --no-tags origin 'refs/tags/*:refs/tags/*'
-fi
-
+# Build a complete, minimal release history first, then clone it shallowly. The
+# source checkout may itself be shallow in CI, so it cannot safely serve as the
+# fixture's remote history.
 shallow="$tmp/shallow"
 origin="$tmp/origin.git"
+source="$tmp/source"
+git init -q -b main "$source"
+git -C "$source" config user.name 'AIGW Changelog Test'
+git -C "$source" config user.email 'aigw-changelog-test@example.invalid'
+printf 'release\n' > "$source/release.txt"
+git -C "$source" add release.txt
+git -C "$source" commit -qm 'release'
+git -C "$source" tag -a v0.1.0-rc.1 -m 'release'
+release_date=$(git -C "$source" for-each-ref refs/tags/v0.1.0-rc.1 --format='%(creatordate:short)' | head -n 1)
+test -n "$release_date" || { echo "fixture release tag has no date" >&2; exit 1; }
+printf 'current\n' >> "$source/release.txt"
+git -C "$source" commit -qam 'current'
 git init -q --bare "$origin"
-git -C "$origin" config receive.shallowUpdate true
-git -C "$root" push -q "$origin" 'HEAD:refs/heads/main'
-git -C "$root" push -q "$origin" --tags
+git -C "$source" push -q "$origin" 'HEAD:refs/heads/main' --tags
 git -C "$origin" symbolic-ref HEAD refs/heads/main
 git clone -q --depth 1 --branch main "file://$origin" "$shallow"
-cp "$root/CHANGELOG.md" "$shallow/CHANGELOG.md"
+cat > "$shallow/CHANGELOG.md" <<EOF
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0-rc.1] - $release_date
+EOF
 mkdir -p "$shallow/scripts"
 cp "$checker" "$shallow/scripts/check-changelog.sh"
 (
