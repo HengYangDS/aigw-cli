@@ -20,6 +20,7 @@ PYTHON_CLASS_DECLARATIONS: tuple[type[PythonDeclaration], ...] = (
     ast.FunctionDef,
     ast.AsyncFunctionDef,
 )
+TABLE_CONFIG_SUFFIXES = {".ini", ".toml"}
 
 
 def tracked_files() -> list[Path]:
@@ -45,6 +46,64 @@ def fenced_markdown(lines: list[str]) -> set[int]:
 
 def blank_lines_between(lines: list[str], left: int, right: int) -> int:
     return sum(1 for line in lines[left:right - 1] if not line.strip())
+
+
+def check_config_table_boundaries(path: Path, lines: list[str]) -> list[str]:
+    """Require one visual separator before each TOML or INI table."""
+    if path.suffix.lower() not in TABLE_CONFIG_SUFFIXES:
+        return []
+    problems: list[str] = []
+    for index, line in enumerate(lines):
+        if not line.startswith("["):
+            continue
+        comment_start = index
+        while comment_start > 0 and lines[comment_start - 1].lstrip().startswith(("#", ";")):
+            comment_start -= 1
+        if comment_start == index:
+            if index > 0 and lines[index - 1].strip():
+                problems.append(fail(path, index + 1, "use one blank line before a config table"))
+        elif comment_start > 0 and lines[comment_start - 1].strip():
+            problems.append(
+                fail(path, comment_start + 1, "use one blank line before a config-table comment")
+            )
+    return problems
+
+
+def check_python_compact_blocks(path: Path, lines: list[str]) -> list[str]:
+    """Keep Python's two-line declaration rule out of function interiors."""
+    try:
+        tree = ast.parse("\n".join(lines), filename=str(path))
+    except SyntaxError:
+        return []
+    problems: list[str] = []
+    literal_lines = {
+        line_number
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        for line_number in range(node.lineno, getattr(node, "end_lineno", node.lineno) + 1)
+    }
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        body_start = min(
+            (getattr(statement, "lineno", node.lineno) for statement in node.body),
+            default=node.lineno,
+        )
+        end = getattr(node, "end_lineno", node.lineno)
+        blank_start: int | None = None
+        for number in range(body_start, end + 1):
+            if number in literal_lines:
+                blank_start = None
+                continue
+            if not lines[number - 1].strip():
+                blank_start = number if blank_start is None else blank_start
+                continue
+            if blank_start is not None and number - blank_start > 1:
+                problems.append(
+                    fail(path, blank_start, "use at most one blank line inside a Python function")
+                )
+            blank_start = None
+    return problems
 
 
 def check_python_boundaries(path: Path, lines: list[str]) -> list[str]:
@@ -79,6 +138,7 @@ def check_python_boundaries(path: Path, lines: list[str]) -> list[str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             check_declarations(node.body, PYTHON_CLASS_DECLARATIONS, 1, "class-method")
+    problems.extend(check_python_compact_blocks(path, lines))
     return problems
 
 
@@ -122,6 +182,7 @@ def inspect(path: Path) -> list[str]:
         problems.append(fail(path, blank_start, "use one final newline, not trailing blank lines"))
     if path.suffix.lower() == ".py":
         problems.extend(check_python_boundaries(path, lines))
+    problems.extend(check_config_table_boundaries(path, lines))
     return problems
 
 
