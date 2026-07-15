@@ -8,6 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.50] - 2026-07-15
+
+### Fixed
+
+- Make the GitHub release workflow install the supported Homebrew `msitools` formula, which provides `wixl`, and make the shallow-history changelog fixture reproduce CI safely.
+
 ## [0.1.0-rc.49] - 2026-07-15
 
 ### Added
