@@ -13,22 +13,83 @@ import (
 )
 
 func (u Updater) latestTagFromGitHub(ctx context.Context, source ReleaseSource) (string, error) {
+	return u.latestTagFromGitHubRelease(ctx, source)
+}
+
+type githubRelease struct {
+	TagName     string `json:"tag_name"`
+	Prerelease  bool   `json:"prerelease"`
+	Draft       bool   `json:"draft"`
+	PublishedAt string `json:"published_at"`
+	Assets      []struct {
+		Name               string `json:"name"`
+		BrowserDownloadURL string `json:"browser_download_url"`
+	} `json:"assets"`
+}
+
+func (u Updater) latestPrereleaseTagFromGitHub(ctx context.Context, source ReleaseSource, latestErr error) (string, error) {
+	if !strings.Contains(latestErr.Error(), "404") {
+		return "", latestErr
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, u.githubAPIURL(source, "releases?per_page=100"), nil)
+	if err != nil {
+		return "", fmt.Errorf("create GitHub prerelease metadata request: %w", err)
+	}
+	if err := u.authorizeGitHubRequest(request); err != nil {
+		return "", err
+	}
+	request.Header.Set("Accept", "application/vnd.github+json")
+	response, err := u.githubHTTPClient().Do(request)
+	if err != nil {
+		return "", unavailable(fmt.Errorf("query GitHub prerelease metadata: %w", err))
+	}
+	defer response.Body.Close()
+	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
+		return "", unavailable(fmt.Errorf("query GitHub prerelease metadata: %s", response.Status))
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return "", latestErr
+	}
+	var releases []githubRelease
+	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(&releases); err != nil {
+		return "", fmt.Errorf("parse GitHub prerelease metadata: %w", err)
+	}
+	latest := ""
+	for _, release := range releases {
+		if release.Draft || !release.Prerelease || strings.TrimSpace(release.PublishedAt) == "" {
+			continue
+		}
+		if _, err := parseVersion(release.TagName); err != nil {
+			continue
+		}
+		if latest == "" {
+			latest = release.TagName
+			continue
+		}
+		comparison, err := compareVersions(release.TagName, latest)
+		if err == nil && comparison > 0 {
+			latest = release.TagName
+		}
+	}
+	if latest == "" {
+		return "", latestErr
+	}
+	return latest, nil
+}
+
+// latestTagFromGitHubRelease resolves the normal GitHub latest-release route
+// first, then falls back to the published prerelease list only when GitHub has
+// no stable release. Source builds and tests use this through the same update
+// path as released binaries.
+func (u Updater) latestTagFromGitHubRelease(ctx context.Context, source ReleaseSource) (string, error) {
 	release, err := u.githubRelease(ctx, source, "releases/latest")
 	if err != nil {
-		return "", err
+		return u.latestPrereleaseTagFromGitHub(ctx, source, err)
 	}
 	if release.TagName == "" {
 		return "", fmt.Errorf("no AIGW release is available")
 	}
 	return release.TagName, nil
-}
-
-type githubRelease struct {
-	TagName string `json:"tag_name"`
-	Assets  []struct {
-		Name               string `json:"name"`
-		BrowserDownloadURL string `json:"browser_download_url"`
-	} `json:"assets"`
 }
 
 func (u Updater) githubRelease(ctx context.Context, source ReleaseSource, path string) (githubRelease, error) {
