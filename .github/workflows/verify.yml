@@ -6,6 +6,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      candidate_version:
+        description: 'Non-release candidate version, e.g. 0.1.0-candidate.1; packages only and never publishes a release'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -41,6 +46,8 @@ jobs:
           sh scripts/check-package-safety.sh
           sh scripts/check-retired-residue.sh
           sh scripts/check-governance.sh
+          sh scripts/test-text-layout.sh
+          sh scripts/test-github-projection-sync.sh
           python3 scripts/check-markdown-presentation.py
           sh scripts/test-changelog.sh
           sh scripts/test-release-readiness.sh
@@ -56,7 +63,7 @@ jobs:
 
   package:
     name: Release artifact matrix
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || github.event_name == 'workflow_dispatch'
     needs: verify
     runs-on: macos-14
     timeout-minutes: 40
@@ -74,7 +81,19 @@ jobs:
         run: |
           set -euo pipefail
           brew install nfpm msitools libarchive
-      - name: Verify signed tag and build full matrix
+      - name: Resolve package version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == workflow_dispatch ]]; then
+            version="${{ inputs.candidate_version }}"
+            case "$version" in *-candidate.[0-9]*) ;; *) echo "candidate_version must end in -candidate.<number>" >&2; exit 2 ;; esac
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+      - name: Verify release tag or candidate input and build full matrix
         env:
           AIGW_RELEASE_PROVIDER: github
           AIGW_RELEASE_HOST: https://github.com
@@ -84,21 +103,22 @@ jobs:
           AIGW_RELEASE_MIRROR_PROJECT: ${{ vars.AIGW_GITLAB_RELEASE_PROJECT }}
         run: |
           set -euo pipefail
-          sh scripts/check-release-tag-signature.sh . "${GITHUB_REF_NAME}"
+          if [[ "${{ github.event_name }}" != workflow_dispatch ]]; then
+            sh scripts/check-release-tag-signature.sh . "${GITHUB_REF_NAME}"
+          fi
           sh scripts/check-package-runner.sh
-          version="${GITHUB_REF_NAME#v}"
-          AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$version" dist
-          sh scripts/test-release-package-layout.sh dist "$version"
+          AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "${{ steps.version.outputs.version }}" dist
+          sh scripts/test-release-package-layout.sh dist "${{ steps.version.outputs.version }}"
       - name: Upload exact release matrix
         uses: actions/upload-artifact@v4
         with:
-          name: aigw-${{ github.ref_name }}
+          name: aigw-${{ steps.version.outputs.version }}
           path: dist/
           if-no-files-found: error
           retention-days: 30
 
   release:
-    name: Draft GitHub release
+    name: Publish verified GitHub release
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: package
     runs-on: ubuntu-24.04

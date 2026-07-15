@@ -20,6 +20,8 @@ go vet ./...
 test -z "$(gofmt -l cmd internal tools)"
 sh scripts/check-governance.sh
 python3 scripts/check-markdown-presentation.py
+python3 scripts/check-text-layout.py
+sh scripts/test-text-layout.sh
 sh scripts/test-changelog.sh
 ```
 
