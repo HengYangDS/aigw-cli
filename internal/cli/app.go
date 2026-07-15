@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -272,6 +273,29 @@ func environmentMap(values []string) map[string]string {
 
 func isTerminal(file *os.File) bool {
 	return file != nil && term.IsTerminal(int(file.Fd()))
+}
+
+func presentationWidthFromEnvironment(env map[string]string) int {
+	width, err := strconv.Atoi(strings.TrimSpace(env["COLUMNS"]))
+	if err != nil || width <= 0 {
+		return 0
+	}
+	return width
+}
+
+func presentationWidth(out io.Writer, env map[string]string) int {
+	if width := presentationWidthFromEnvironment(env); width > 0 {
+		return width
+	}
+	file, ok := out.(*os.File)
+	if !ok || !isTerminal(file) {
+		return 0
+	}
+	width, _, err := term.GetSize(int(file.Fd()))
+	if err != nil || width <= 0 {
+		return 0
+	}
+	return width
 }
 
 func (a *App) readToken(stdinMode bool, confirm bool) (string, error) {

@@ -6,35 +6,24 @@
 | **Stable repository Path** | `aigw-cli` |
 
 AIGW CLI is a local-first, cross-platform control plane for AI provider
-accounts, credentials, runtime profiles, client routes, and Claude/Codex
-projections. It does not run a gateway, listen on a port, relay API traffic, or
-own Codex conversation state. It is distributed under the [MIT](LICENSE)
-License.
+accounts, system-stored credentials, model profiles, client routes, and
+Claude/Codex projections. It is distributed under the [MIT](LICENSE) License.
+It does not run a gateway, listen on a port, relay API traffic, or own Codex
+conversation state.
 
-## Choose a path
+## Start with the task
 
-| If you want to… | Start with | Then |
+| I want to… | Run | Then |
 | --- | --- | --- |
-| Connect AIGW for the first time | `aigw setup` | `aigw check` |
-| Change the active service | `aigw use <profile>` | `aigw check` |
-| Understand the current state | `aigw status` | Follow its single **Next** command |
-| Repair local client integration | `aigw doctor` | Run its recommended action |
-| Work from a reviewed team manifest | `aigw config import team-profiles.toml` | `aigw check` |
+| Connect my first service | `aigw setup` | `aigw check` |
+| Use a different model profile | `aigw use <profile>` | `aigw check` |
+| Know what is active | `aigw` | Follow its one **Next** command |
+| Recover a local client integration | `aigw doctor` | Run its recommended action |
+| Join a team with a reviewed manifest | `aigw config import team-profiles.toml` | `aigw rotate <account>` |
 
-The CLI follows the same pattern throughout: show the current state, state one
-safe next action, and keep detail behind explicit diagnostic commands.
-
-## What it manages
-
-- **Accounts**: one provider boundary, verified endpoint(s), and one operating-
-  system secret slot.
-- **Profiles**: an admitted `account + client + model` daily choice.
-- **Routes**: default, Claude, and Codex selections.
-- **Adapters**: narrow local projections for Claude and Codex.
-
-Codex Desktop owns conversation transcripts and per-conversation model choice.
-AIGW owns only its marked provider projection and native credential binding.
-Codex DMX Proxy owns Responses replay compatibility and its own listener.
+The everyday path is deliberately small: **setup → use → check**. AIGW shows
+current selection, readiness, and one safe next action; detailed object
+management stays under explicit advanced commands.
 
 ## Install
 
@@ -42,8 +31,8 @@ AIGW has three checksum-first distribution paths:
 
 1. **GitLab release** — an independent organization forge plane.
 2. **GitHub release** — an independent peer forge plane.
-3. **Verified local candidate** — a complete extracted artifact directory for
-   offline installation and acceptance testing.
+3. **Verified local candidate** — a reviewed portable archive and its checksum
+   manifest for offline installation and acceptance testing.
 
 The source code, documentation, and distributed release files are available
 under the permissive [MIT License](LICENSE). Third-party dependencies retain
@@ -60,17 +49,19 @@ forges or quietly bypasses a bad primary release.
 
 A formal release is the exact 15-artifact matrix: platform packages,
 `checksums.txt`, and an SPDX SBOM. Verify the archive you will install against
-`checksums.txt`. A verified local candidate is an extracted complete artifact
-directory with the same release files retained together. A source checkout, an
-arbitrary binary, and a Git tag alone are not release artifacts.
+`checksums.txt`. A verified local candidate is one reviewed archive plus the
+matching checksum manifest. A source checkout, arbitrary binary, and Git tag
+alone are not release artifacts.
 
-| Platform | Native package | Portable package |
+| Platform | Recommended package | Portable package |
 | --- | --- | --- |
-| macOS | `aigw_<version>_darwin_universal.pkg` | `aigw_<version>_darwin_{amd64,arm64}.tar.gz` |
-| Linux | `aigw_<version>_linux_{amd64,arm64}.{deb,rpm}` | `aigw_<version>_linux_{amd64,arm64}.tar.gz` |
-| Windows | `aigw_<version>_windows_{amd64,arm64}.msi` | `aigw_<version>_windows_{amd64,arm64}.zip` |
+| macOS Intel / Apple Silicon | `aigw_<version>_darwin_universal.pkg` | `darwin_amd64` / `darwin_arm64` archives |
+| Linux x86-64 | `.deb` or `.rpm` | `linux_amd64.tar.gz` |
+| Linux ARM64 | `.deb` or `.rpm` | `linux_arm64.tar.gz` |
+| Windows x86-64 | `.msi` | `windows_amd64.zip` |
+| Windows ARM64 | `.msi` | `windows_arm64.zip` |
 
-From an extracted portable archive:
+From an extracted portable archive, run the bundled installer:
 
 ```bash
 sh install.sh
@@ -80,15 +71,13 @@ sh install.sh
 .\install.ps1
 ```
 
-Portable installers copy only the bundled executable. They do not access the
-network, retrieve a release, or read release credentials. They install under
-the current user and retain one immediate predecessor for offline program
-rollback. Native packages own only their package-managed files.
+Portable installers only copy the bundled executable. They do not retrieve a
+release, store a credential, register a service, or configure a proxy.
 
-## Quick start
+## First connection
 
-Interactive setup creates the first account, profile, and route without
-assuming a provider, endpoint, model, or token:
+Interactive setup is provider-neutral. It creates one Account, one profile,
+and one secure Token slot without assuming a gateway, model, or provider:
 
 ```bash
 aigw setup
@@ -104,54 +93,43 @@ aigw use claude-fable-5 --for claude
 aigw check
 ```
 
-Import is non-destructive by default. A same-named account or profile must
-match exactly or the import stops before any mutation. An explicit reviewed
-replacement changes public metadata only; it never reads, writes, or deletes a
-stored token:
+Import is non-destructive. A same-named Account or profile must match exactly
+or the import stops before mutation. Explicit replacement changes public
+metadata only; it never reads, writes, or deletes the Account Token.
+
+## Every day
 
 ```bash
-aigw config import team-profiles.toml --replace-account team-gateway
-aigw config import team-profiles.toml --replace-profile gpt-5.6-terra
-```
-
-## Daily operations
-
-```bash
-aigw                         # current routes and readiness
+aigw                         # active profile, client readiness, one next step
 aigw use [profile]           # choose a profile
-aigw route list              # inspect route overrides
 aigw rotate [account]        # replace one account token
-aigw catalog [--all|--json]  # inspect an account model inventory
-aigw check                   # configuration and endpoint health
-aigw sync --dry-run --json   # inspect all Codex projection actions
-aigw sync                    # atomically reconcile marked projections
-aigw verify --for all        # opt-in minimal real model requests
-aigw rollback                # restore the latest verified configuration
-aigw update                  # update the installed program
-aigw update --rollback       # offline portable-program rollback only
+aigw check                   # configuration, client, and endpoint health
+aigw doctor                  # detailed diagnosis and one recovery action
+aigw repair                  # bounded client discovery and reconciliation
 ```
 
 `aigw test` is a bounded connectivity and authentication check. `aigw verify`
 makes a minimal real request and consumes provider quota only when explicitly
-run. `aigw rollback` restores AIGW-managed configuration; it never restarts a
-client. `aigw update --rollback` swaps only the portable executable and its one
-local predecessor; native-package rollback belongs to the platform package
-manager.
+run. `aigw rollback` restores AIGW-managed configuration and never restarts a
+client. `aigw update --rollback` restores only the portable program's immediate
+predecessor; native-package rollback belongs to the platform package manager.
 
-## Client boundaries
+## What AIGW manages
 
-Claude uses an AIGW-owned shim in AIGW's private data directory. Its account
-token becomes `ANTHROPIC_AUTH_TOKEN` only in the Claude process it launches.
-Codex receives only AIGW-marked top-level `model`, `model_provider`, and a
-provider projection. `aigw sync` performs an all-target transaction and does
-not start, stop, restart, reload, or alter a Codex conversation.
+- **Accounts**: one provider boundary, verified endpoint(s), and one
+  operating-system secret slot.
+- **Profiles**: an admitted `account + client + model` daily choice.
+- **Routes**: default, Claude, and Codex selections.
+- **Adapters**: narrow local projections for Claude and Codex.
 
-For a drifted target, inspect the plan first:
+Claude receives `ANTHROPIC_AUTH_TOKEN` only in the process launched by AIGW's
+private shim. Codex receives only AIGW-marked configuration and native
+credential binding. The tools do not write into one another's directories.
 
-```bash
-aigw sync --dry-run --json
-aigw sync
-```
+Codex Desktop owns conversation transcripts and each conversation's model
+choice. AIGW owns only its marked provider projection and native credential
+binding. If a loopback compatibility layer is present, it remains external:
+AIGW does not start, stop, configure, or depend on it.
 
 ## Update sources
 
@@ -184,34 +162,17 @@ private releases, in that precedence order. No token is stored by the updater,
 passed on a command line, or forwarded across hosts. Every downloaded artifact
 is checksum-verified before replacement.
 
-## Product boundaries
+## When you need more
 
-AIGW is a control plane, not a proxy or gateway. It does not own or modify
-Codex JSONL, SQLite, archived conversations, model metadata, or a DMX Proxy
-process. A future organizational gateway is simply a verified HTTPS account
-endpoint from AIGW's perspective.
-
-## Documentation and contribution
-
-Start with [Concepts](docs/concepts.md) for the product model, then use the
-narrow document that matches the task:
-
-| Need | Document |
+| Need | Start here |
 | --- | --- |
-| Secure endpoints, tokens, and local boundaries | [Security model](docs/security.md) |
-| Client adapter decisions | [Adapter admission](docs/adapter-admission.md) |
-| Team adoption and configuration import | [Team rollout](docs/team-rollout.md) |
-| Release evidence and publication limits | [Release evidence](docs/release-readiness.md) |
-| GitLab/GitHub operation and provenance | [Forge operations](docs/operations/forge-operations.md) |
-| Contribution and repository policy | [Contribution guide](CONTRIBUTING.md) |
-| Full document map | [Documentation root](docs/README.md) |
-| License terms | [MIT License](LICENSE) |
-
-## License
-
-AIGW CLI is licensed under the [MIT License](LICENSE). The license applies to
-this repository's source and documentation; release SBOMs identify third-party
-dependency provenance separately.
+| Core Account, Profile, Route, and Adapter concepts | [Concepts](docs/concepts.md) |
+| Secure local credential and client boundaries | [Security model](docs/security.md) |
+| Team manifest and release workflow | [Team rollout](docs/team-rollout.md) |
+| Terminal navigation and presentation rules | [Terminal experience contract](docs/governance/terminal-experience-contract.md) |
+| Control-plane and proxy boundary | [Authority and projection boundary](docs/architecture/authority-and-projection-boundary.md) |
+| Full documentation map | [Documentation root](docs/README.md) |
+| Contributing and verification | [Contribution guide](CONTRIBUTING.md) |
 
 ## Verify a source checkout
 
