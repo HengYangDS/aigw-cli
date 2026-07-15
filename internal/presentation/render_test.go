@@ -25,12 +25,12 @@ func TestRendererProducesAlignedHumanReadableLayout(t *testing.T) {
 	want := "AIGW  Health check\n" +
 		"────────────────────────────────────────\n\n" +
 		"Configuration\n" +
-		"  Configuration file  Healthy\n" +
-		"  Current service     DMXAPI\n\n" +
+		"  Configuration file   Healthy\n" +
+		"  Current service      DMXAPI\n\n" +
 		"Connection\n" +
-		"  ✓ API Token         Healthy\n" +
-		"  ! Precise balance   Disabled\n" +
-		"                      aigw account connect\n\n" +
+		"  ✓ API Token          Healthy\n" +
+		"  ! Precise balance    Disabled\n" +
+		"                       aigw account connect\n\n" +
 		"Result\n" +
 		"  ✓ Everything is healthy\n\n" +
 		"Next\n" +
@@ -40,10 +40,12 @@ func TestRendererProducesAlignedHumanReadableLayout(t *testing.T) {
 	}
 }
 
-func TestRowsAndStatusesStartValuesAtSameDisplayColumn(t *testing.T) {
+func TestRowsAndStatusesShareValueColumnAndRetainSeparator(t *testing.T) {
 	var out bytes.Buffer
 	r := presentation.New(&out, false)
 	r.Row("Configuration file", "VALUE")
+	r.Row("Current service", "VALUE")
+	r.Status(presentation.OK, "Configuration file", "VALUE")
 	r.Status(presentation.OK, "API Token", "VALUE")
 	r.Status(presentation.Warn, "Precise balance", "VALUE")
 	for index, line := range strings.Split(strings.TrimRight(out.String(), "\n"), "\n") {
@@ -51,9 +53,12 @@ func TestRowsAndStatusesStartValuesAtSameDisplayColumn(t *testing.T) {
 		if !ok {
 			t.Fatalf("line lacks value: %q", line)
 		}
-		if got := presentation.DisplayWidth(prefix); got != 22 {
-			t.Fatalf("line %d value column = %d, want 22: %q", index, got, line)
+		if got := presentation.DisplayWidth(prefix); got != 23 {
+			t.Fatalf("line %d value column = %d, want 23: %q", index, got, line)
 		}
+	}
+	if !strings.Contains(out.String(), "✓ Configuration file VALUE\n") {
+		t.Fatalf("status output joined a full-width label to its value: %q", out.String())
 	}
 }
 
