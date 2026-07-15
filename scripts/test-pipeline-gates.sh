@@ -64,6 +64,10 @@ if not any("test-linux-native-install-staging.sh" in line for line in verify):
     raise SystemExit("verify must exercise Linux native-install shared-staging behavior without a Docker daemon")
 if not any("check-english-text.sh" in line for line in verify):
     raise SystemExit("verify must reject non-English tracked product text")
+if not any("test-text-layout.sh" in line for line in verify):
+    raise SystemExit("GitLab CI must enforce the repository text-layout contract")
+if not any("test-github-projection-sync.sh" in line for line in verify):
+    raise SystemExit("GitLab CI must exercise GitHub projection isolation")
 
 package = section("package")
 if "    - job: windows-installer-runtime" not in package:
@@ -126,7 +130,7 @@ if "pull-requests: write" in github_text:
     raise SystemExit("GitHub Actions verification workflow must not grant pull-request write permission")
 if github_text.count("contents: write") != 1:
     raise SystemExit("GitHub Actions must grant contents: write only to the release job")
-for token in ["AIGW_RELEASE_PROVIDER: github", "AIGW_RELEASE_MIRROR_PROVIDER: gitlab", "scripts/check-release-tag-signature.sh", "scripts/package.sh", "scripts/publish-github-release.sh"]:
+for token in ["AIGW_RELEASE_PROVIDER: github", "AIGW_RELEASE_MIRROR_PROVIDER: gitlab", "scripts/check-release-tag-signature.sh", "scripts/package.sh", "scripts/publish-github-release.sh", "scripts/test-text-layout.sh", "scripts/test-github-projection-sync.sh", "candidate_version", "Resolve package version"]:
     if token not in github_text:
         raise SystemExit(f"GitHub Actions release plane must contain {token}")
 
