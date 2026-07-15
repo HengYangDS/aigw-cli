@@ -49,12 +49,14 @@ The source code, documentation, and distributed release files are available
 under the permissive [MIT License](LICENSE). Third-party dependencies retain
 their own licenses, as identified by the release SPDX SBOM.
 
-GitLab and GitHub are independent but equivalent forge planes. They publish the
-same versioned release matrix and use the same release filenames, checksums, and
-SBOM content. Their commit histories, signed tags, and provider identities remain
-separate provenance records. Either reachable forge may deliver an update. When
-both are reachable, AIGW requires the latest tag and the current-platform artifact
-bytes to agree before it installs anything.
+GitLab and GitHub are independent, complete forge planes. They publish the same
+versioned release matrix and use the same release filenames, checksums, and SBOM
+content. Their commit histories, signed tags, and provider identities remain
+separate provenance records. A released binary uses GitLab as its primary update
+source and GitHub only when the complete GitLab attempt fails through a bounded
+transport or provider-5xx availability path. Integrity, authentication, metadata,
+version, and redirect failures remain terminal; AIGW never mixes files across
+forges or quietly bypasses a bad primary release.
 
 A formal release is the exact 15-artifact matrix: platform packages,
 `checksums.txt`, and an SPDX SBOM. Verify the archive you will install against
@@ -153,25 +155,26 @@ aigw sync
 
 ## Update sources
 
-A released binary may embed independent GitLab and GitHub release sources. If
-only one configured forge is reachable, `aigw update` can use its verified
-release. If both are reachable, it requires the same latest tag, then downloads
-and checksum-verifies the current-platform artifact from both. It rejects any
-metadata, tag, checksum, or byte disagreement before replacement. A malformed
-release is never bypassed by silently switching sources.
-
-A locally built binary has no implicit vendor endpoint. A verified local
-candidate is deliberately separate from a release source: it is a complete,
-checksum-verified offline artifact carrier, not a tag or published release.
-
-For source builds that must test remote behavior, configure each forge
-explicitly:
+A released binary may embed independent GitLab primary and GitHub fallback
+tuples. A source build has no implicit vendor endpoint. For an intentional remote
+test, configure complete tuples; never combine individual fields:
 
 ```bash
-export AIGW_GITLAB_RELEASE_HOST=https://gitlab.example.com
-export AIGW_GITLAB_RELEASE_PROJECT=group/aigw-cli
-export AIGW_GITHUB_RELEASE_HOST=https://github.com
-export AIGW_GITHUB_RELEASE_PROJECT=owner/aigw-cli
+export AIGW_RELEASE_PRIMARY_PROVIDER=gitlab
+export AIGW_RELEASE_PRIMARY_ORIGIN=https://gitlab.example.com
+export AIGW_RELEASE_PRIMARY_REPOSITORY=group/aigw-cli
+export AIGW_RELEASE_MIRROR_PROVIDER=github
+export AIGW_RELEASE_MIRROR_ORIGIN=https://github.com
+export AIGW_RELEASE_MIRROR_REPOSITORY=owner/aigw-cli
+```
+
+A verified local candidate is deliberately separate from a release source: it is
+one reviewed archive plus its checksum manifest, not a tag or published release.
+It never opens a network connection:
+
+```bash
+aigw update --candidate /secure-transfer/aigw_0.1.0-candidate.1_darwin_arm64.tar.gz \
+  --checksums /secure-transfer/checksums.txt
 ```
 
 AIGW prefers authenticated `glab` for GitLab. If `glab` is unavailable, an

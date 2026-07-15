@@ -26,15 +26,21 @@ import (
 
 const releaseRequestTimeout = 30 * time.Second
 
-// BuildGitLabReleaseHost and BuildGitLabReleaseProject identify the GitLab forge
-// source embedded by its publishing pipeline. BuildGitHubReleaseHost and
-// BuildGitHubReleaseProject identify the optional GitHub peer forge. Source
-// builds intentionally leave all values empty: self-update must fail closed.
+// BuildReleasePrimary* and BuildReleaseMirror* identify the complete source
+// tuples embedded by publishing pipelines. The legacy BuildGitLab* and
+// BuildGitHub* pairs remain only for compatibility with already-built artifacts.
+// Source builds intentionally leave all values empty: self-update fails closed.
 var (
-	BuildGitLabReleaseHost    string
-	BuildGitLabReleaseProject string
-	BuildGitHubReleaseHost    string
-	BuildGitHubReleaseProject string
+	BuildReleasePrimaryProvider   string
+	BuildReleasePrimaryOrigin     string
+	BuildReleasePrimaryRepository string
+	BuildReleaseMirrorProvider    string
+	BuildReleaseMirrorOrigin      string
+	BuildReleaseMirrorRepository  string
+	BuildGitLabReleaseHost        string
+	BuildGitLabReleaseProject     string
+	BuildGitHubReleaseHost        string
+	BuildGitHubReleaseProject     string
 )
 
 type CommandRunner interface {
@@ -139,8 +145,12 @@ type Updater struct {
 	Executable string
 	Runner     CommandRunner
 	HTTPClient *http.Client
-	GitLab     ReleaseSource
-	GitHub     ReleaseSource
+	Releases   ReleaseSources
+	// GitLab and GitHub remain source-compatible aliases for callers compiled
+	// against the pre-tuple API. They are read only as whole legacy tuples and
+	// are never merged field-by-field with Releases.
+	GitLab ReleaseSource
+	GitHub ReleaseSource
 }
 
 type ReleaseProvider string
@@ -150,23 +160,31 @@ const (
 	ReleaseProviderGitHub ReleaseProvider = "github"
 )
 
-// ReleaseSource identifies one release namespace. It contains no credential.
-// Configured sources are equal peers; neither is a mirror or fallback source.
+// ReleaseSource identifies one release namespace. It contains no credential and
+// is valid only as a complete provider/origin/repository tuple.
 type ReleaseSource struct {
-	Provider ReleaseProvider
-	Host     string
-	Project  string
+	Provider   ReleaseProvider
+	Origin     string
+	Repository string
+	// Deprecated: use Origin and Repository. These are accepted only together
+	// as a legacy tuple so existing callers fail closed rather than silently
+	// combining old and new configuration fields.
+	Host    string
+	Project string
 }
 
-type resolvedRelease struct {
-	Source ReleaseSource
-	Tag    string
+// ReleaseSources records the independent provider roles. GitLab is primary;
+// GitHub is used only after a typed primary-source availability failure.
+type ReleaseSources struct {
+	Primary ReleaseSource
+	Mirror  ReleaseSource
 }
 
-type downloadedRelease struct {
-	Source ReleaseSource
-	Asset  string
-	Digest string
+// CandidateArchive is an explicit local-only update input. It has no provider
+// configuration and cannot be promoted into a remote source implicitly.
+type CandidateArchive struct {
+	ArchivePath   string
+	ChecksumsPath string
 }
 
 type Channel string
@@ -182,22 +200,39 @@ const (
 var InstallChannel = string(ChannelPortable)
 
 func Current(executable string) Updater {
+	primary := ReleaseSource{
+		Provider:   ReleaseProviderGitLab,
+		Origin:     strings.TrimSpace(BuildGitLabReleaseHost),
+		Repository: strings.TrimSpace(BuildGitLabReleaseProject),
+	}
+	mirror := ReleaseSource{
+		Provider:   ReleaseProviderGitHub,
+		Origin:     strings.TrimSpace(BuildGitHubReleaseHost),
+		Repository: strings.TrimSpace(BuildGitHubReleaseProject),
+	}
+	if nonEmpty(BuildReleasePrimaryProvider, BuildReleasePrimaryOrigin, BuildReleasePrimaryRepository) != 0 {
+		primary = ReleaseSource{
+			Provider:   ReleaseProvider(strings.TrimSpace(BuildReleasePrimaryProvider)),
+			Origin:     strings.TrimSpace(BuildReleasePrimaryOrigin),
+			Repository: strings.TrimSpace(BuildReleasePrimaryRepository),
+		}
+	}
+	if nonEmpty(BuildReleaseMirrorProvider, BuildReleaseMirrorOrigin, BuildReleaseMirrorRepository) != 0 {
+		mirror = ReleaseSource{
+			Provider:   ReleaseProvider(strings.TrimSpace(BuildReleaseMirrorProvider)),
+			Origin:     strings.TrimSpace(BuildReleaseMirrorOrigin),
+			Repository: strings.TrimSpace(BuildReleaseMirrorRepository),
+		}
+	}
 	return Updater{
 		GOOS:       runtime.GOOS,
 		GOARCH:     runtime.GOARCH,
 		Channel:    detectChannel(executable),
 		Executable: executable,
 		Runner:     ExecRunner{},
-		GitLab: ReleaseSource{
-			Provider: ReleaseProviderGitLab,
-			Host:     strings.TrimSpace(BuildGitLabReleaseHost),
-			Project:  strings.TrimSpace(BuildGitLabReleaseProject),
-		},
-		GitHub: ReleaseSource{
-			Provider: ReleaseProviderGitHub,
-			Host:     strings.TrimSpace(BuildGitHubReleaseHost),
-			Project:  strings.TrimSpace(BuildGitHubReleaseProject),
-		},
+		Releases:   ReleaseSources{Primary: primary, Mirror: mirror},
+		GitLab:     primary,
+		GitHub:     mirror,
 	}
 }
 
@@ -211,29 +246,47 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (string, err
 	if candidate := strings.TrimSpace(os.Getenv("AIGW_LOCAL_CANDIDATE")); candidate != "" {
 		return u.updateFromLocalCandidate(candidate, currentVersion)
 	}
-	sources := u.forgeSources()
-	if err := validateReleaseSources(sources...); err != nil {
-		return "", err
-	}
-	resolved, err := u.resolvePeerReleases(ctx, sources...)
+	sources, err := u.releaseSources()
 	if err != nil {
 		return "", err
 	}
-	return u.updateFromResolvedPeers(ctx, resolved, currentVersion)
+	message, err := u.updateFromSource(ctx, currentVersion, sources.Primary)
+	if err == nil || sources.Mirror.empty() || !isSourceUnavailable(err) {
+		return message, err
+	}
+	message, mirrorErr := u.updateFromSource(ctx, currentVersion, sources.Mirror)
+	if mirrorErr != nil {
+		return "", fmt.Errorf("GitLab primary unavailable (%v); GitHub fallback failed: %w", err, mirrorErr)
+	}
+	return message, nil
 }
 
 func (u Updater) updateFromLocalCandidate(candidate, currentVersion string) (string, error) {
+	version, err := localCandidateVersion(candidate, u.GOOS, u.GOARCH)
+	if err != nil {
+		return "", err
+	}
+	return u.UpdateCandidate(context.Background(), currentVersion, CandidateArchive{
+		ArchivePath:   filepath.Join(candidate, portableArchiveName(version, u.GOOS, u.GOARCH)),
+		ChecksumsPath: filepath.Join(candidate, "checksums.txt"),
+	})
+}
+
+// UpdateCandidate installs an explicitly supplied local archive. It never
+// consults a release runner or HTTP client.
+func (u Updater) UpdateCandidate(_ context.Context, currentVersion string, candidate CandidateArchive) (string, error) {
+	if u.Channel == "" {
+		u.Channel = ChannelPortable
+	}
 	if u.Channel != ChannelPortable {
 		return "", fmt.Errorf("verified local candidate installation is available only for a portable installation; use the native package manager for %s", u.Channel)
 	}
-	info, err := os.Stat(candidate)
-	if err != nil || !info.IsDir() {
-		if err == nil {
-			err = fmt.Errorf("not a directory")
-		}
-		return "", fmt.Errorf("inspect verified local candidate: %w", err)
+	archivePath, checksumPath := strings.TrimSpace(candidate.ArchivePath), strings.TrimSpace(candidate.ChecksumsPath)
+	if archivePath == "" || checksumPath == "" {
+		return "", fmt.Errorf("verified local candidate requires both archive and checksums paths")
 	}
-	version, err := localCandidateVersion(candidate, u.GOOS, u.GOARCH)
+	archiveName := filepath.Base(archivePath)
+	version, err := archiveVersion(archiveName, u.GOOS, u.GOARCH)
 	if err != nil {
 		return "", err
 	}
@@ -247,16 +300,14 @@ func (u Updater) updateFromLocalCandidate(candidate, currentVersion string) (str
 	if comparison < 0 {
 		return "", fmt.Errorf("refusing to replace %s with older verified local candidate v%s", currentVersion, version)
 	}
-	archiveName := portableArchiveName(version, u.GOOS, u.GOARCH)
-	archivePath := filepath.Join(candidate, archiveName)
-	if err := verifyChecksum(archivePath, filepath.Join(candidate, "checksums.txt"), archiveName); err != nil {
+	if err := verifyChecksum(archivePath, checksumPath, archiveName); err != nil {
 		return "", err
 	}
 	binaryName := "aigw"
 	if u.GOOS == "windows" {
 		binaryName = "aigw.exe"
 	}
-	binary, err := extractBinary(archivePath, binaryName)
+	binary, err := extractBinary(archivePath, expectedBinaryPath(version, u.GOOS, u.GOARCH, binaryName))
 	if err != nil {
 		return "", err
 	}
@@ -269,157 +320,65 @@ func (u Updater) updateFromLocalCandidate(candidate, currentVersion string) (str
 	return "updated to v" + version + " from a verified local candidate", nil
 }
 
-func (u Updater) resolvePeerReleases(ctx context.Context, sources ...ReleaseSource) ([]resolvedRelease, error) {
-	resolved := make([]resolvedRelease, 0, len(sources))
-	unavailableSources := make([]error, 0, len(sources))
-	for _, source := range sources {
-		if source.empty() {
-			continue
-		}
-		tag, sourceUnavailable, err := u.latestTagFromSource(ctx, source)
-		if err == nil {
-			resolved = append(resolved, resolvedRelease{Source: source, Tag: tag})
-			continue
-		}
+func (u Updater) updateFromSource(ctx context.Context, currentVersion string, source ReleaseSource) (string, error) {
+	tag, sourceUnavailable, err := u.latestTagFromSource(ctx, source)
+	if err != nil {
 		if sourceUnavailable {
-			unavailableSources = append(unavailableSources, fmt.Errorf("%s: %w", source.Provider, err))
-			continue
+			return "", unavailable(fmt.Errorf("%s release metadata: %w", source.Provider, err))
 		}
-		return nil, fmt.Errorf("%s release metadata failed: %w", source.Provider, err)
+		return "", fmt.Errorf("%s release metadata: %w", source.Provider, err)
 	}
-	if len(resolved) == 0 {
-		return nil, fmt.Errorf("no configured release source is reachable: %s", joinErrors(unavailableSources))
-	}
-	for _, candidate := range resolved[1:] {
-		if candidate.Tag != resolved[0].Tag {
-			return nil, fmt.Errorf("configured release sources disagree on latest tag: %s=%s, %s=%s", resolved[0].Source.Provider, resolved[0].Tag, candidate.Source.Provider, candidate.Tag)
-		}
-	}
-	return resolved, nil
-}
-
-func joinErrors(errors []error) string {
-	parts := make([]string, 0, len(errors))
-	for _, err := range errors {
-		if err != nil {
-			parts = append(parts, err.Error())
-		}
-	}
-	return strings.Join(parts, "; ")
-}
-
-func (u Updater) updateFromResolvedPeers(ctx context.Context, releases []resolvedRelease, currentVersion string) (string, error) {
-	selected := releases[0]
-	comparison, err := compareVersions(selected.Tag, currentVersion)
+	comparison, err := compareVersions(tag, currentVersion)
 	if err != nil {
 		return "", err
 	}
 	if comparison == 0 {
-		return "already running the latest version " + selected.Tag, nil
+		return "already running the latest version " + tag + " from " + string(source.Provider), nil
 	}
 	if comparison < 0 {
-		return "", fmt.Errorf("refusing to replace %s with older release %s", currentVersion, selected.Tag)
+		return "", fmt.Errorf("refusing to replace %s with older release %s", currentVersion, tag)
 	}
-	asset := portableArchiveName(normalizeVersion(selected.Tag), u.GOOS, u.GOARCH)
+	asset := portableArchiveName(normalizeVersion(tag), u.GOOS, u.GOARCH)
 	if u.Channel != ChannelPortable {
-		asset = u.packageAssetName(normalizeVersion(selected.Tag))
+		asset = u.packageAssetName(normalizeVersion(tag))
 		if asset == "" {
 			return "", fmt.Errorf("installation channel %q is not supported on %s/%s", u.Channel, u.GOOS, u.GOARCH)
 		}
 	}
-	downloads, cleanup, err := u.downloadPeerAssets(ctx, releases, asset)
+	directory, err := os.MkdirTemp("", "aigw-update-*")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("create update workspace: %w", err)
 	}
-	defer cleanup()
-	for _, candidate := range downloads[1:] {
-		if candidate.Digest != downloads[0].Digest {
-			return "", fmt.Errorf("reachable release sources disagree on %s asset bytes: %s != %s", asset, downloads[0].Source.Provider, candidate.Source.Provider)
+	defer os.RemoveAll(directory)
+	sourceUnavailable, err = u.downloadReleaseAssetsFromExactSource(ctx, source, tag, directory, asset, "checksums.txt")
+	if err != nil {
+		if sourceUnavailable {
+			return "", unavailable(fmt.Errorf("%s release assets: %w", source.Provider, err))
 		}
+		return "", fmt.Errorf("%s release assets: %w", source.Provider, err)
+	}
+	archivePath := filepath.Join(directory, asset)
+	if err := verifyChecksum(archivePath, filepath.Join(directory, "checksums.txt"), asset); err != nil {
+		return "", fmt.Errorf("%s release checksum: %w", source.Provider, err)
 	}
 	if u.Channel == ChannelPortable {
-		message, _, err := u.installPortableArchive(downloads[0].Asset, selected.Tag)
+		message, _, err := u.installPortableArchive(archivePath, tag)
 		if err != nil {
 			return "", err
 		}
-		return message + " verified from " + releaseProviders(downloads), nil
+		return message + " verified from " + string(source.Provider), nil
 	}
-	if err := u.runPackageInstaller(ctx, downloads[0].Asset); err != nil {
+	if err := u.runPackageInstaller(ctx, archivePath); err != nil {
 		return "", err
 	}
 	switch u.Channel {
 	case ChannelPKG, ChannelMSI:
-		return "downloaded the " + selected.Tag + " installer verified from " + releaseProviders(downloads) + "; complete the update through the installer", nil
+		return "downloaded the " + tag + " installer verified from " + string(source.Provider) + "; complete the update through the installer", nil
 	case ChannelDeb, ChannelRPM:
-		return "updated to " + selected.Tag + " through the system package manager (verified from " + releaseProviders(downloads) + ")", nil
+		return "updated to " + tag + " through the system package manager (verified from " + string(source.Provider) + ")", nil
 	default:
-		return "prepared the " + selected.Tag + " update verified from " + releaseProviders(downloads), nil
+		return "prepared the " + tag + " update verified from " + string(source.Provider), nil
 	}
-}
-
-func (u Updater) downloadPeerAssets(ctx context.Context, releases []resolvedRelease, asset string) ([]downloadedRelease, func(), error) {
-	downloads := make([]downloadedRelease, 0, len(releases))
-	cleanupDirectories := make([]string, 0, len(releases))
-	cleanup := func() {
-		for _, directory := range cleanupDirectories {
-			_ = os.RemoveAll(directory)
-		}
-	}
-	unavailableSources := make([]error, 0, len(releases))
-	for _, release := range releases {
-		directory, err := os.MkdirTemp("", "aigw-update-*")
-		if err != nil {
-			cleanup()
-			return nil, func() {}, fmt.Errorf("create update workspace: %w", err)
-		}
-		cleanupDirectories = append(cleanupDirectories, directory)
-		unavailable, err := u.downloadReleaseAssetsFromExactSource(ctx, release.Source, release.Tag, directory, asset, "checksums.txt")
-		if err != nil {
-			if unavailable {
-				unavailableSources = append(unavailableSources, fmt.Errorf("%s: %w", release.Source.Provider, err))
-				continue
-			}
-			cleanup()
-			return nil, func() {}, fmt.Errorf("%s release assets failed: %w", release.Source.Provider, err)
-		}
-		path := filepath.Join(directory, asset)
-		if err := verifyChecksum(path, filepath.Join(directory, "checksums.txt"), asset); err != nil {
-			cleanup()
-			return nil, func() {}, fmt.Errorf("%s release checksum failed: %w", release.Source.Provider, err)
-		}
-		digest, err := fileSHA256(path)
-		if err != nil {
-			cleanup()
-			return nil, func() {}, fmt.Errorf("hash %s release asset: %w", release.Source.Provider, err)
-		}
-		downloads = append(downloads, downloadedRelease{Source: release.Source, Asset: path, Digest: digest})
-	}
-	if len(downloads) == 0 {
-		cleanup()
-		return nil, func() {}, fmt.Errorf("all reachable release sources failed while downloading %s: %s", asset, joinErrors(unavailableSources))
-	}
-	return downloads, cleanup, nil
-}
-
-func releaseProviders(downloads []downloadedRelease) string {
-	providers := make([]string, 0, len(downloads))
-	for _, download := range downloads {
-		providers = append(providers, string(download.Source.Provider))
-	}
-	return strings.Join(providers, " and ")
-}
-
-func fileSHA256(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 func (u Updater) installPortableArchive(archivePath, tag string) (string, bool, error) {
@@ -431,7 +390,7 @@ func (u Updater) installPortableArchive(archivePath, tag string) (string, bool, 
 	if u.GOOS == "windows" {
 		binaryName = "aigw.exe"
 	}
-	binary, err := extractBinary(archivePath, binaryName)
+	binary, err := extractBinary(archivePath, expectedBinaryPath(normalizeVersion(tag), u.GOOS, u.GOARCH, binaryName))
 	if err != nil {
 		return "", false, err
 	}
@@ -492,6 +451,28 @@ func localCandidateVersion(directory, goos, goarch string) (string, error) {
 		return "", fmt.Errorf("verified local candidate must contain exactly one portable archive for %s/%s", goos, goarch)
 	}
 	return versions[0], nil
+}
+
+func archiveVersion(name, goos, goarch string) (string, error) {
+	prefix := "aigw_"
+	suffix := "_" + goos + "_" + goarch
+	if goos == "windows" {
+		suffix += ".zip"
+	} else {
+		suffix += ".tar.gz"
+	}
+	if !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, suffix) {
+		return "", fmt.Errorf("verified local candidate archive must target %s/%s", goos, goarch)
+	}
+	version := strings.TrimSuffix(strings.TrimPrefix(name, prefix), suffix)
+	if _, err := parseVersion("v" + version); err != nil {
+		return "", err
+	}
+	return version, nil
+}
+
+func expectedBinaryPath(version, goos, goarch, binaryName string) string {
+	return fmt.Sprintf("aigw_%s_%s_%s/%s", version, goos, goarch, binaryName)
 }
 
 // Rollback restores the immediately preceding portable AIGW executable without
@@ -652,10 +633,10 @@ func (u Updater) packageAssetName(version string) string {
 func (u Updater) downloadReleaseAssetsFromExactSource(ctx context.Context, source ReleaseSource, tag, directory string, assets ...string) (bool, error) {
 	switch source.Provider {
 	case ReleaseProviderGitLab:
-		original := u.GitLab
-		u.GitLab = source
+		original := u.Releases.Primary
+		u.Releases.Primary = source
 		err := u.downloadReleaseAssets(ctx, tag, directory, assets...)
-		u.GitLab = original
+		u.Releases.Primary = original
 		return isGlabUnavailable(err), err
 	case ReleaseProviderGitHub:
 		err := u.downloadReleaseAssetsFromGitHub(ctx, source, tag, directory, assets...)
@@ -806,10 +787,10 @@ func (u Updater) downloadReleaseAssetFromGitLabAPI(ctx context.Context, tag, ass
 func (u Updater) latestTagFromSource(ctx context.Context, source ReleaseSource) (string, bool, error) {
 	switch source.Provider {
 	case ReleaseProviderGitLab:
-		original := u.GitLab
-		u.GitLab = source
+		original := u.Releases.Primary
+		u.Releases.Primary = source
 		tag, err := u.latestTag(ctx)
-		u.GitLab = original
+		u.Releases.Primary = original
 		return tag, isGlabUnavailable(err), err
 	case ReleaseProviderGitHub:
 		release, err := u.githubRelease(ctx, source, "releases/latest")
@@ -1101,81 +1082,145 @@ func (u Updater) runGlabToFile(ctx context.Context, destination string, args ...
 }
 
 func (u Updater) releaseHost() string {
-	return strings.TrimRight(strings.TrimSpace(u.gitLabSource().Host), "/")
+	return strings.TrimRight(strings.TrimSpace(u.gitLabSource().Origin), "/")
 }
 
-func (u Updater) releaseProject() string { return strings.TrimSpace(u.gitLabSource().Project) }
+func (u Updater) releaseProject() string { return strings.TrimSpace(u.gitLabSource().Repository) }
 
 func (u Updater) releaseProjectPath() string { return url.PathEscape(u.releaseProject()) }
 
 func (u Updater) gitLabSource() ReleaseSource {
-	result := u.GitLab
-	result.Provider = ReleaseProviderGitLab
-	if host := strings.TrimSpace(os.Getenv("AIGW_GITLAB_RELEASE_HOST")); host != "" {
-		result.Host = host
-	}
-	if project := strings.TrimSpace(os.Getenv("AIGW_GITLAB_RELEASE_PROJECT")); project != "" {
-		result.Project = project
-	}
-	return result
+	return normalizeLegacySource(u.Releases.Primary, u.GitLab, ReleaseProviderGitLab)
 }
 
 func (u Updater) gitHubSource() ReleaseSource {
-	result := u.GitHub
-	result.Provider = ReleaseProviderGitHub
-	if host := strings.TrimSpace(os.Getenv("AIGW_GITHUB_RELEASE_HOST")); host != "" {
-		result.Host = host
-	}
-	if project := strings.TrimSpace(os.Getenv("AIGW_GITHUB_RELEASE_PROJECT")); project != "" {
-		result.Project = project
-	}
-	return result
+	return normalizeLegacySource(u.Releases.Mirror, u.GitHub, ReleaseProviderGitHub)
 }
 
-func (u Updater) forgeSources() []ReleaseSource {
-	return []ReleaseSource{u.gitLabSource(), u.gitHubSource()}
+func (u Updater) releaseSources() (ReleaseSources, error) {
+	primaryBase := normalizeLegacySource(u.Releases.Primary, u.GitLab, ReleaseProviderGitLab)
+	mirrorBase := normalizeLegacySource(u.Releases.Mirror, u.GitHub, ReleaseProviderGitHub)
+	primary, err := resolveReleaseTuple(
+		primaryBase,
+		ReleaseProviderGitLab,
+		"AIGW_RELEASE_PRIMARY_PROVIDER",
+		"AIGW_RELEASE_PRIMARY_ORIGIN",
+		"AIGW_RELEASE_PRIMARY_REPOSITORY",
+		"AIGW_GITLAB_RELEASE_HOST",
+		"AIGW_GITLAB_RELEASE_PROJECT",
+	)
+	if err != nil {
+		return ReleaseSources{}, err
+	}
+	mirror, err := resolveReleaseTuple(
+		mirrorBase,
+		ReleaseProviderGitHub,
+		"AIGW_RELEASE_MIRROR_PROVIDER",
+		"AIGW_RELEASE_MIRROR_ORIGIN",
+		"AIGW_RELEASE_MIRROR_REPOSITORY",
+		"AIGW_GITHUB_RELEASE_HOST",
+		"AIGW_GITHUB_RELEASE_PROJECT",
+	)
+	if err != nil {
+		return ReleaseSources{}, err
+	}
+	if primary.empty() {
+		return ReleaseSources{}, fmt.Errorf("release source is not configured; install an official release, use `aigw update --candidate ARCHIVE --checksums MANIFEST`, or configure the complete GitLab primary tuple")
+	}
+	if primary.Provider != ReleaseProviderGitLab {
+		return ReleaseSources{}, fmt.Errorf("primary release source must be GitLab")
+	}
+	if !mirror.empty() && mirror.Provider != ReleaseProviderGitHub {
+		return ReleaseSources{}, fmt.Errorf("mirror release source must be GitHub")
+	}
+	if err := validateReleaseSource(primary); err != nil {
+		return ReleaseSources{}, err
+	}
+	if !mirror.empty() {
+		if err := validateReleaseSource(mirror); err != nil {
+			return ReleaseSources{}, err
+		}
+	}
+	return ReleaseSources{Primary: primary, Mirror: mirror}, nil
+}
+
+func normalizeLegacySource(primary, legacy ReleaseSource, provider ReleaseProvider) ReleaseSource {
+	if !primary.empty() {
+		return primary
+	}
+	if strings.TrimSpace(legacy.Origin) != "" || strings.TrimSpace(legacy.Repository) != "" {
+		return legacy
+	}
+	if strings.TrimSpace(legacy.Host) != "" || strings.TrimSpace(legacy.Project) != "" {
+		return ReleaseSource{Provider: provider, Origin: strings.TrimSpace(legacy.Host), Repository: strings.TrimSpace(legacy.Project)}
+	}
+	return ReleaseSource{Provider: provider}
 }
 
 func (s ReleaseSource) empty() bool {
-	return strings.TrimSpace(s.Host) == "" && strings.TrimSpace(s.Project) == ""
+	return strings.TrimSpace(s.Origin) == "" && strings.TrimSpace(s.Repository) == ""
 }
 
-func validateReleaseSources(sources ...ReleaseSource) error {
-	configured := false
-	for _, source := range sources {
-		if source.empty() {
-			continue
-		}
-		configured = true
-		if err := validateReleaseSource(source); err != nil {
-			return err
+func (p ReleaseProvider) String() string { return string(p) }
+
+func resolveReleaseTuple(base ReleaseSource, requiredProvider ReleaseProvider, providerEnv, originEnv, repositoryEnv, legacyOriginEnv, legacyRepositoryEnv string) (ReleaseSource, error) {
+	provider, origin, repository := strings.TrimSpace(os.Getenv(providerEnv)), strings.TrimSpace(os.Getenv(originEnv)), strings.TrimSpace(os.Getenv(repositoryEnv))
+	newCount := nonEmpty(provider, origin, repository)
+	if newCount != 0 && newCount != 3 {
+		return ReleaseSource{}, fmt.Errorf("%s release source tuple is incomplete; set provider, origin, and repository together", strings.Title(strings.TrimSuffix(providerEnv, "_PROVIDER")))
+	}
+	legacyOrigin, legacyRepository := strings.TrimSpace(os.Getenv(legacyOriginEnv)), strings.TrimSpace(os.Getenv(legacyRepositoryEnv))
+	legacyCount := nonEmpty(legacyOrigin, legacyRepository)
+	if legacyCount != 0 && legacyCount != 2 {
+		return ReleaseSource{}, fmt.Errorf("legacy release source override is incomplete; set both %s and %s", legacyOriginEnv, legacyRepositoryEnv)
+	}
+	if newCount == 3 && legacyCount != 0 {
+		return ReleaseSource{}, fmt.Errorf("release source may not mix the new tuple with legacy override variables")
+	}
+	if newCount == 3 {
+		return ReleaseSource{Provider: ReleaseProvider(provider), Origin: origin, Repository: repository}, nil
+	}
+	if legacyCount == 2 {
+		return ReleaseSource{Provider: requiredProvider, Origin: legacyOrigin, Repository: legacyRepository}, nil
+	}
+	return base, nil
+}
+
+func nonEmpty(values ...string) int {
+	count := 0
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			count++
 		}
 	}
-	if !configured {
-		return fmt.Errorf("release source is not configured; install an official release, set AIGW_LOCAL_CANDIDATE, or configure AIGW_GITLAB_RELEASE_HOST and AIGW_GITLAB_RELEASE_PROJECT")
-	}
-	return nil
+	return count
 }
 
 func validateReleaseSource(source ReleaseSource) error {
-	host, project := strings.TrimRight(strings.TrimSpace(source.Host), "/"), strings.TrimSpace(source.Project)
-	if host == "" || project == "" {
-		return fmt.Errorf("%s release source is incomplete; set both host and project", source.Provider)
+	origin, repository := strings.TrimRight(strings.TrimSpace(source.Origin), "/"), strings.TrimSpace(source.Repository)
+	if source.Provider != ReleaseProviderGitLab && source.Provider != ReleaseProviderGitHub {
+		return fmt.Errorf("unsupported release provider %q", source.Provider)
 	}
-	parsed, err := url.Parse(host)
+	if origin == "" || repository == "" {
+		return fmt.Errorf("%s release source is incomplete; set provider, origin, and repository together", source.Provider)
+	}
+	parsed, err := url.Parse(origin)
 	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
-		return fmt.Errorf("%s release host must be an HTTP(S) origin without credentials, path, query, or fragment", source.Provider)
+		return fmt.Errorf("%s release origin must be an HTTP(S) origin without credentials, path, query, or fragment", source.Provider)
 	}
-	if strings.Trim(project, "/") != project || strings.ContainsAny(project, "?#\r\n") {
-		return fmt.Errorf("%s release project must be a valid namespace/project path", source.Provider)
+	if source.Provider == ReleaseProviderGitHub && parsed.Scheme != "https" && !strings.HasSuffix(parsed.Hostname(), ".test") && parsed.Hostname() != "localhost" && parsed.Hostname() != "127.0.0.1" {
+		return fmt.Errorf("GitHub release origin must use HTTPS")
 	}
-	parts := strings.Split(project, "/")
+	if strings.Trim(repository, "/") != repository || strings.ContainsAny(repository, "?#\r\n") {
+		return fmt.Errorf("%s release repository must be a valid namespace/project path", source.Provider)
+	}
+	parts := strings.Split(repository, "/")
 	if source.Provider == ReleaseProviderGitHub && len(parts) != 2 {
-		return fmt.Errorf("GitHub release project must be an owner/project path")
+		return fmt.Errorf("GitHub release repository must be an owner/repository path")
 	}
 	for _, part := range parts {
 		if part == "" || part == "." || part == ".." || strings.Contains(part, "\\") {
-			return fmt.Errorf("%s release project must be a valid namespace/project path", source.Provider)
+			return fmt.Errorf("%s release repository must be a valid namespace/project path", source.Provider)
 		}
 	}
 	return nil
@@ -1190,11 +1235,11 @@ func (u Updater) gitLabReleaseDownloadURL(tag, asset string) string {
 }
 
 func (u Updater) githubAPIURL(source ReleaseSource, path string) string {
-	origin := strings.TrimRight(source.Host, "/")
+	origin := strings.TrimRight(source.Origin, "/")
 	if strings.EqualFold(origin, "https://github.com") {
 		origin = "https://api.github.com"
 	}
-	return origin + "/repos/" + source.Project + "/" + path
+	return origin + "/repos/" + source.Repository + "/" + path
 }
 
 func (u Updater) githubHTTPClient() *http.Client {
@@ -1250,7 +1295,7 @@ func gitLabToken() (string, error) {
 }
 
 func (u Updater) validateTokenFallbackHost() error {
-	configuredHost := strings.TrimSpace(u.gitLabSource().Host)
+	configuredHost := strings.TrimSpace(u.gitLabSource().Origin)
 	if configuredHost == "" {
 		return fmt.Errorf("GITLAB_TOKEN fallback requires explicit AIGW_GITLAB_RELEASE_HOST with an HTTPS origin")
 	}
@@ -1474,9 +1519,9 @@ func isSHA256(value string) bool {
 	return true
 }
 
-func extractBinary(path, binaryName string) ([]byte, error) {
+func extractBinary(path, expectedPath string) ([]byte, error) {
 	if strings.HasSuffix(path, ".zip") {
-		return extractZipBinary(path, binaryName)
+		return extractZipBinary(path, expectedPath)
 	}
 	archive, err := os.Open(path)
 	if err != nil {
@@ -1499,12 +1544,12 @@ func extractBinary(path, binaryName string) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read tar archive: %w", err)
 		}
-		if filepath.Base(filepath.Clean(header.Name)) != binaryName || header.Typeflag != tar.TypeReg {
+		if filepath.Clean(header.Name) != expectedPath || header.Typeflag != tar.TypeReg {
 			continue
 		}
 		matches++
 		if matches > 1 {
-			return nil, fmt.Errorf("update archive contains multiple AIGW binaries")
+			return nil, fmt.Errorf("update archive contains multiple expected AIGW binaries")
 		}
 		binary, err = io.ReadAll(io.LimitReader(reader, 128<<20))
 		if err != nil {
@@ -1512,12 +1557,12 @@ func extractBinary(path, binaryName string) ([]byte, error) {
 		}
 	}
 	if matches != 1 {
-		return nil, fmt.Errorf("AIGW binary is missing from update archive")
+		return nil, fmt.Errorf("expected AIGW binary is missing from update archive")
 	}
 	return binary, nil
 }
 
-func extractZipBinary(path, binaryName string) ([]byte, error) {
+func extractZipBinary(path, expectedPath string) ([]byte, error) {
 	archive, err := zip.OpenReader(path)
 	if err != nil {
 		return nil, fmt.Errorf("open zip archive: %w", err)
@@ -1526,12 +1571,12 @@ func extractZipBinary(path, binaryName string) ([]byte, error) {
 	var binary []byte
 	matches := 0
 	for _, file := range archive.File {
-		if filepath.Base(filepath.Clean(file.Name)) != binaryName || file.FileInfo().IsDir() {
+		if filepath.Clean(file.Name) != expectedPath || file.FileInfo().IsDir() {
 			continue
 		}
 		matches++
 		if matches > 1 {
-			return nil, fmt.Errorf("update archive contains multiple AIGW binaries")
+			return nil, fmt.Errorf("update archive contains multiple expected AIGW binaries")
 		}
 		reader, err := file.Open()
 		if err != nil {
@@ -1547,7 +1592,7 @@ func extractZipBinary(path, binaryName string) ([]byte, error) {
 		}
 	}
 	if matches != 1 {
-		return nil, fmt.Errorf("AIGW binary is missing from update archive")
+		return nil, fmt.Errorf("expected AIGW binary is missing from update archive")
 	}
 	return binary, nil
 }
