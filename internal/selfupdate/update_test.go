@@ -1982,6 +1982,61 @@ func TestUpdateRejectsPeerTagDisagreementBeforeDownloading(t *testing.T) {
 	}
 }
 
+func TestUpdateDiscardsUnavailablePeerWorkspaceBeforeUsingReachablePeer(t *testing.T) {
+	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("same-binary"))
+	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
+	sum := sha256.Sum256(archive)
+	binary := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var githubURL string
+	github := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
+		case "/downloads/" + archiveName:
+			_, _ = w.Write(archive)
+		case "/downloads/checksums.txt":
+			_, _ = w.Write([]byte(fmt.Sprintf("%x  %s\n", sum, archiveName)))
+		default:
+			http.NotFound(w, request)
+		}
+	}))
+	defer github.Close()
+	githubURL = github.URL
+	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", github.URL)
+	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "example-owner/aigw-cli")
+	missingRunner := &fakeRunner{}
+	u := selfupdate.Updater{
+		GOOS:       "darwin",
+		GOARCH:     "arm64",
+		Executable: binary,
+		Runner:     missingRunner,
+		HTTPClient: github.Client(),
+		GitLab:     selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Origin: "https://gitlab.example.test", Repository: testReleaseProject},
+	}
+
+	updateTempRoot := t.TempDir()
+	t.Setenv("TMPDIR", updateTempRoot)
+	message, err := u.Update(context.Background(), "0.1.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(message, "github") || strings.Contains(message, "gitlab and github") {
+		t.Fatalf("message = %q", message)
+	}
+	after, err := filepath.Glob(filepath.Join(updateTempRoot, "aigw-update-*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after) != 0 {
+		t.Fatalf("unavailable peer left update workspace: %v", after)
+	}
+}
+
 func TestUpdateRejectsPeerAssetDisagreementBeforeReplacingBinary(t *testing.T) {
 	gitlabArchive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("gitlab-binary"))
 	githubArchive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("github-binary"))
