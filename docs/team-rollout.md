@@ -72,22 +72,18 @@ claim signing or notarization. GA release requirements are defined in
 
 Portable installers copy bundled files only. Formal releases retain the exact
 15-artifact matrix: platform packages, `checksums.txt`, and an SPDX SBOM.
-GitLab and GitHub are complete independent release planes. Each publishes its
-own tag pipeline, full artifact matrix, checksum manifest, SPDX SBOM, and draft
-release. The two planes must converge on exact asset bytes before either is
-admitted as the other's fallback.
+GitLab and GitHub are equal independent forge planes. They carry the same
+commit, signed tag, filenames, checksums, and SBOM; either reachable forge can
+distribute a release.
 
-After installation, `aigw update` uses the source embedded by the publishing
-pipeline. A source build may configure either provider as primary and the other
-as fallback explicitly:
+After installation, `aigw update` uses the sources embedded by the publishing
+pipeline. A source build may configure both independently:
 
 ```bash
-export AIGW_RELEASE_PROVIDER=gitlab
-export AIGW_RELEASE_HOST=https://gitlab.example.com
-export AIGW_RELEASE_PROJECT=group/aigw-cli
-export AIGW_RELEASE_MIRROR_PROVIDER=github
-export AIGW_RELEASE_MIRROR_HOST=https://github.com
-export AIGW_RELEASE_MIRROR_PROJECT=owner/aigw-cli
+export AIGW_GITLAB_RELEASE_HOST=https://gitlab.example.com
+export AIGW_GITLAB_RELEASE_PROJECT=group/aigw-cli
+export AIGW_GITHUB_RELEASE_HOST=https://github.com
+export AIGW_GITHUB_RELEASE_PROJECT=owner/aigw-cli
 ```
 
 For offline acceptance, transfer a complete extracted artifact directory rather
@@ -101,11 +97,13 @@ export AIGW_LOCAL_CANDIDATE=/secure-transfer/aigw-0.1.0-rc.1
 AIGW_LOCAL_CANDIDATE="$AIGW_LOCAL_CANDIDATE" aigw update
 ```
 
-The updater may use its configured fallback only after the embedded primary is
-unavailable. It never switches providers to bypass malformed metadata, missing
-assets, a version conflict, or a checksum failure. `GITLAB_TOKEN` is an HTTPS
-GitLab fallback only. Native channels delegate program updates and rollback to
-their platform package manager.
+When one forge is reachable, its checksum-verified artifact can update the
+program. When both are reachable, AIGW requires matching tags and artifact
+bytes before installation. It never bypasses malformed metadata, missing
+artifacts, version conflicts, checksum failures, or disagreements. `GITLAB_TOKEN`
+is an HTTPS-only GitLab API path; GitHub tokens are ephemeral environment
+credentials. Native channels delegate program updates and rollback to their
+platform package manager.
 
 ## CI secret boundary
 

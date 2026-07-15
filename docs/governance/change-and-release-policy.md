@@ -2,16 +2,6 @@
 
 Status: canonical.
 
-## Text and configuration layout
-
-Every tracked human-readable source or configuration file has a compact layout:
-one blank line separates semantic blocks; leading, terminal, whitespace-only,
-and repeated blank lines are prohibited. Literal content inside Markdown fenced
-blocks is exempt. Python retains its native two-blank-line separation between
-module-level declarations; Go and structured configuration retain their
-formatter-defined grammar. `scripts/check-text-layout.py` enforces the shared
-contract; language formatters remain authoritative within their syntax.
-
 ## Configuration mutations
 
 All Codex target changes use one transaction: prepare every target, commit only
@@ -35,48 +25,38 @@ Changelog heading.
 GitLab **Project Name** is `AIGW CLI`. The stable repository **Path** is
 `aigw-cli`. Display text and external identifier are different contracts.
 
-## Independent provider planes
-
-GitLab and GitHub are independent verification and publication planes. Each
-runs the complete source and governance gate set from its own workflow. Neither
-provider treats the other provider's last successful pipeline as sufficient
-release evidence.
-
-GitLab remains the canonical source-history authority. GitHub holds an
-email-safe, history-complete projection of the same source tree and independently
-validates, packages, and drafts releases from that projection. The GitHub
-projection is synchronized only with `git github-mirror-sync`; direct pushes
-from the canonical checkout are intentionally disabled. Release assets may be
-published only after the local artifact matrix and the provider's own gate set
-agree.
-
 ## Distribution continuity
 
-GitHub also exposes a manual package-only candidate path. It accepts a
-SemVer-shaped version ending in `-candidate.<number>`, runs the same source and
-package gates, and uploads a short-lived artifact. It cannot create a release,
-modify a tag, or become update evidence. Formal GitHub and GitLab releases
-remain tag-triggered and provider-native.
-
-GitLab and GitHub are formal independent release channels. Each owns a complete
-versioned 15-artifact release matrix: platform packages, `checksums.txt`, and
-SPDX SBOM. A released binary embeds one provider as primary and may use the
-other after a transport/source-availability failure. Fallback must never bypass
-an integrity, provenance, metadata, or version failure at the primary source.
+GitLab and GitHub are equal independent forge planes. Each holds the same
+commits, branches, signed tags, and versioned 15-artifact release identity:
+platform packages, `checksums.txt`, and SPDX SBOM. Each CI/CD plane can build
+and publish independently. When both releases are reachable, tag, manifest, and
+artifact disagreement is a fail-closed condition; one forge must never bypass
+an integrity, provenance, metadata, or version failure observed at the other.
 
 A verified local candidate is a complete extracted artifact directory with one
 platform-matching portable archive and a validating checksum record. It exists
 for offline acceptance, installation, and rollback verification. A source
 checkout, a loose binary, and a tag are not candidates.
 
+## Forge synchronization
+
+The two forges must share the same commit and tag objects. Use
+`sh scripts/forge-peer-sync.sh --check` to inspect `main`, then explicitly run
+`sh scripts/forge-peer-sync.sh --sync` only from a clean owned worktree to
+fast-forward each reachable peer with the exact local commit. The command never
+creates snapshot commits, force-pushes, prunes, or deletes refs. A divergence or
+a conflicting peer is a manual resolution condition, not a reason to rewrite
+history.
+
 ## Branch closeout
 
 Merged source branches are disposable delivery artifacts, not project history.
 GitLab must enable automatic source-branch deletion after merge. Direct release
 or maintenance merges must delete their remote source branch in the same
-closeout operation. A branch or worktree may be removed only when its tip is
-reachable from `origin/main`, its worktree is clean, and it is not `main` or an
-active unmerged delivery branch. Remove the worktree before deleting its local
+closeout operation. A branch or worktree may be removed only when its tip is reachable from the
+local `main` and every required reachable peer, its worktree is clean, and it
+is not `main` or an active unmerged delivery branch. Remove the worktree before deleting its local
 branch. Preserve release tags as immutable provenance.
 
 ## Cross-project boundary

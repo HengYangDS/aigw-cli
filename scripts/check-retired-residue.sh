@@ -20,6 +20,10 @@ matches=$(git grep -n -E 'config migrate|config upgrade|docs/migration\.md|docs/
   -- README.md docs scripts internal examples CHANGELOG.md ':!scripts/check-retired-residue.sh' ':!scripts/check-governance.sh' ':!**/*_test.go' || true)
 [ -z "$matches" ] || { printf '%s\n' "$matches" >&2; fail "retired command or documentation reference found"; }
 
+matches=$(git grep -n -E 'git-github-mirror-sync|github-mirror|no_direct_push_allowed|AIGW_RELEASE_MIRROR|AIGW_RELEASE_(HOST|PROJECT|PROVIDER)|BuildReleaseMirror|BuildRelease(Host|Project|Provider)' \
+  -- README.md docs scripts internal cmd packaging .gitlab-ci.yml .github ':!scripts/check-retired-residue.sh' ':!**/*_test.go' || true)
+[ -z "$matches" ] || { printf '%s\n' "$matches" >&2; fail "retired one-way forge topology found"; }
+
 matches=$(git grep -n -E '\[accounts\.dmx\]|DMXAPI' \
   -- README.md docs examples cmd internal \
   ':!internal/providers/**' ':!internal/cli/doctor.go' ':!**/*_test.go' || true)
