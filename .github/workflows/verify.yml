@@ -57,5 +57,4 @@ jobs:
           sh scripts/test-pipeline-gates.sh
           sh scripts/test-github-actions-contract.sh
           sh scripts/test-github-release-workflow.sh
-          sh scripts/test-forge-peer-sync.sh
           sh scripts/test-github-provider-projection.sh

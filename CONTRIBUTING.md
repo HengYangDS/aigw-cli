@@ -42,11 +42,14 @@ its tag date; run `sh scripts/check-changelog.sh` before requesting review.
 GitLab **Project Name** is `AIGW CLI`; stable clone **Path** is `aigw-cli`. Do
 not change external paths as a display-name cleanup.
 
-GitLab and GitHub are equal peer forges. Keep the same commit, branch, and tag
-history on both. From a clean owned worktree, use
-`sh scripts/forge-peer-sync.sh --check` before the explicit `--sync` action; do
-not create provider-specific snapshot commits, force-push, or delete remote refs
-for convergence.
+GitLab and GitHub are equivalent, independent forge planes. GitLab history and
+signed tags use `heng.yang.ds@hotmail.com`; GitHub projection history and signed
+tags use `hengyang.2003@tsinghua.org.cn`. Do not copy or overwrite signed tags
+between providers. From a clean owned canonical checkout, run
+`sh scripts/project-github-forge.sh` to project a branch into the GitHub identity
+domain. It rewrites only an isolated clone, applies a leased branch update, and
+never pushes a tag. Do not force-push, create snapshot commits, or delete remote
+refs to manufacture convergence.
 
 ## Merge closeout
 
