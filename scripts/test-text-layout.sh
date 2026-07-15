@@ -45,6 +45,17 @@ if python3 scripts/check-text-layout.py >/dev/null 2>&1; then
   exit 1
 fi
 printf 'class Example:\n    def one(self):\n        return 1\n\n    def two(self):\n        return 2\n' > docs/style.py
+printf 'def compact():\n    value = 1\n\n\n    return value\n' > docs/style.py
+if python3 scripts/check-text-layout.py >/dev/null 2>&1; then
+  echo 'text layout checker accepted a double blank line inside a Python function' >&2
+  exit 1
+fi
+printf 'def compact():\n    value = 1\n\n    return value\n' > docs/style.py
+printf 'def documented():\n    value = """First paragraph.\n\n\nSecond paragraph."""\n    return value\n' > docs/style.py
+if ! python3 scripts/check-text-layout.py >/dev/null 2>&1; then
+  echo 'text layout checker rejected literal whitespace inside a Python multiline string' >&2
+  exit 1
+fi
 printf 'root = true\n\n\n[*.go]\nindent_style = tab\n' > .editorconfig
 git add .editorconfig
 if python3 scripts/check-text-layout.py >/dev/null 2>&1; then
@@ -60,6 +71,21 @@ if python3 scripts/check-text-layout.py >/dev/null 2>&1; then
   exit 1
 fi
 printf 'module example\n\ngo 1.24.0\n' > go.mod
+python3 scripts/check-text-layout.py >/dev/null
+printf 'version = 2\n\n# The comment belongs to the table that follows.\n[profile]\nmodel = "example"\n' > config.toml
+git add config.toml
+python3 scripts/check-text-layout.py >/dev/null
+printf 'version = 2\n[profile]\nmodel = "example"\n' > config.toml
+if python3 scripts/check-text-layout.py >/dev/null 2>&1; then
+  echo 'text layout checker accepted a missing TOML table separator' >&2
+  exit 1
+fi
+printf 'version = 2\n# The comment belongs to the table that follows.\n[profile]\nmodel = "example"\n' > config.toml
+if python3 scripts/check-text-layout.py >/dev/null 2>&1; then
+  echo 'text layout checker accepted a missing TOML comment-and-table separator' >&2
+  exit 1
+fi
+printf 'version = 2\n\n# The comment belongs to the table that follows.\n[profile]\nmodel = "example"\n' > config.toml
 python3 scripts/check-text-layout.py >/dev/null
 printf '#!/bin/sh\n\nprintf %s ready\n' > aigw-postinstall
 git add aigw-postinstall
@@ -96,6 +122,7 @@ printf '# Valid\n\n```text\n\n\nLiteral gap retained.\n```\n' > README.md
 printf 'class Example:\n    def one(self):\n        return 1\n\n    def two(self):\n        return 2\n' > docs/style.py
 printf 'root = true\n\n[*.go]\nindent_style = tab\n' > .editorconfig
 printf 'module example\n\ngo 1.24.0\n' > go.mod
+printf 'version = 2\n\n[profile]\nmodel = "example"\n' > config.toml
 printf '#!/bin/sh\n\nprintf %s ready\n' > aigw-postinstall
 printf '{\n\n  "name": "example"\n}\n' > config.json
 python3 scripts/check-text-layout.py >/dev/null
