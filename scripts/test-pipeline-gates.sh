@@ -28,7 +28,7 @@ if "AIGW_GOPROXY" not in default or "prepare-ci-go-cache.sh" not in default:
 
 verify = section(gitlab, "verify")
 for required in [
-    "go test -race ./...", "go vet ./...", "check-release-tag-signature.sh",
+    "go test -race ./...", "go vet ./...", "check-product-surface.sh", "check-release-tag-signature.sh",
     "check-english-text.sh", "test-linux-native-install-staging.sh",
     "test-pipeline-gates.sh", "test-github-actions-contract.sh",
     "test-github-release-workflow.sh",

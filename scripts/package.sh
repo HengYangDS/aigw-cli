@@ -45,7 +45,7 @@ archive_portable() {
   stage="$build_root/$name"
   mkdir -p "$stage"
   build_binary "$goos" "$goarch" portable "$stage/$binary"
-  cp "$root/README.md" "$stage/"
+  cp "$root/README.md" "$root/LICENSE" "$stage/"
   cp "$root/scripts/install.sh" "$root/scripts/uninstall.sh" "$stage/"
   cp "$root/scripts/install.ps1" "$root/scripts/uninstall.ps1" "$stage/"
   chmod 755 "$stage/install.sh" "$stage/uninstall.sh"

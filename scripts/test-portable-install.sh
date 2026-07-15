@@ -5,6 +5,7 @@ source_binary=${1:?usage: test-portable-install.sh <aigw-binary>}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 [ -x "$source_binary" ] || { echo "source binary is not executable: $source_binary" >&2; exit 2; }
+[ -f "$root/LICENSE" ] || { echo "canonical MIT license is missing" >&2; exit 2; }
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
@@ -67,5 +68,6 @@ grep -F 'export AIGW_SMOKE_KEEP=1' "$profile" >/dev/null
 ! grep -F '# >>> AIGW PATH >>>' "$profile" >/dev/null
 [ ! -f "$zshenv" ] || ! grep -F '# >>> AIGW PATH bootstrap >>>' "$zshenv" >/dev/null
 [ -x "$source_binary" ] || { echo "portable lifecycle changed source binary" >&2; exit 1; }
+[ -f "$root/LICENSE" ] || { echo "portable lifecycle changed the canonical MIT license" >&2; exit 1; }
 
 echo "portable installation lifecycle: OK"
