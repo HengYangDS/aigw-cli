@@ -64,9 +64,14 @@ The remaining artifacts are `checksums.txt` and an SPDX SBOM. The release
 pipeline fails rather than publishing a partial matrix. `checksums.txt` must
 contain exactly one SHA-256 record for each non-checksum artifact.
 
-RC artifacts require current structural and installation evidence; they do not
-claim signing or notarization. GA release requirements are defined in
-[Release evidence](release-readiness.md).
+RC artifacts require the complete matrix, checksum/SBOM verification, package
+layout checks, portable installer contracts, and cross-platform architecture
+proof. A managed Windows native runner adds runtime evidence when available but
+does not block an RC; it remains mandatory for GA. macOS native package
+acceptance runs only on a disposable APFS target and an isolated local account;
+it is additive until its protected runner has an approved dedicated credential.
+RC artifacts do not claim signing or notarization. GA release requirements are
+defined in [Release evidence](release-readiness.md).
 
 ## Updates
 
