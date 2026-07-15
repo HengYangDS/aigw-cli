@@ -31,7 +31,7 @@ for required in [
     "go test -race ./...", "go vet ./...", "check-release-tag-signature.sh",
     "check-english-text.sh", "test-linux-native-install-staging.sh",
     "test-pipeline-gates.sh", "test-github-actions-contract.sh",
-    "test-github-release-workflow.sh", "test-forge-peer-sync.sh",
+    "test-github-release-workflow.sh",
     "test-github-provider-projection.sh", "check-text-layout.py", "test-text-layout.sh",
 ]:
     if required not in verify:

@@ -72,9 +72,10 @@ claim signing or notarization. GA release requirements are defined in
 
 Portable installers copy bundled files only. Formal releases retain the exact
 15-artifact matrix: platform packages, `checksums.txt`, and an SPDX SBOM.
-GitLab and GitHub are equal independent forge planes. They carry the same
-commit, signed tag, filenames, checksums, and SBOM; either reachable forge can
-distribute a release.
+GitLab and GitHub are equivalent independent forge planes. They carry the same
+release version, filenames, checksums, and SBOM, while preserving separate
+commit and signed-tag provenance. Either reachable forge can distribute a
+release.
 
 After installation, `aigw update` uses the sources embedded by the publishing
 pipeline. A source build may configure both independently:
