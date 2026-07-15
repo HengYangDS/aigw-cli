@@ -41,11 +41,12 @@ their own licenses, as identified by the release SPDX SBOM.
 GitLab and GitHub are independent, complete forge planes. They publish the same
 versioned release matrix and use the same release filenames, checksums, and SBOM
 content. Their commit histories, signed tags, and provider identities remain
-separate provenance records. A released binary uses GitLab as its primary update
-source and GitHub only when the complete GitLab attempt fails through a bounded
-transport or provider-5xx availability path. Integrity, authentication, metadata,
-version, and redirect failures remain terminal; AIGW never mixes files across
-forges or quietly bypasses a bad primary release.
+separate provenance records. A released binary treats GitLab and GitHub as
+equal update peers: when both are reachable, their latest tag and current
+platform artifact bytes must agree before installation. When only one peer is
+reachable, that peer may supply the update. Integrity, authentication,
+metadata, version, and redirect failures remain terminal; AIGW never mixes
+files across forges.
 
 A formal release is the exact 15-artifact matrix: platform packages,
 `checksums.txt`, and an SPDX SBOM. Verify the archive you will install against
@@ -133,17 +134,16 @@ AIGW does not start, stop, configure, or depend on it.
 
 ## Update sources
 
-A released binary may embed independent GitLab primary and GitHub fallback
-tuples. A source build has no implicit vendor endpoint. For an intentional remote
-test, configure complete tuples; never combine individual fields:
+A released binary may embed independent GitLab and GitHub tuples. A source
+build has no implicit vendor endpoint. For an intentional remote test,
+configure a complete tuple for either or both peers; never combine individual
+fields:
 
 ```bash
-export AIGW_RELEASE_PRIMARY_PROVIDER=gitlab
-export AIGW_RELEASE_PRIMARY_ORIGIN=https://gitlab.example.com
-export AIGW_RELEASE_PRIMARY_REPOSITORY=group/aigw-cli
-export AIGW_RELEASE_MIRROR_PROVIDER=github
-export AIGW_RELEASE_MIRROR_ORIGIN=https://github.com
-export AIGW_RELEASE_MIRROR_REPOSITORY=owner/aigw-cli
+export AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example.com
+export AIGW_GITLAB_RELEASE_REPOSITORY=group/aigw-cli
+export AIGW_GITHUB_RELEASE_ORIGIN=https://github.com
+export AIGW_GITHUB_RELEASE_REPOSITORY=owner/aigw-cli
 ```
 
 A verified local candidate is deliberately separate from a release source: it is

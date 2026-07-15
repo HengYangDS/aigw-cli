@@ -16,8 +16,8 @@ required = [
     "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491",
     "scripts/check-release-tag-signature.sh", "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh",
     "scripts/test-release-package-layout.sh", "publish-github-release.sh",
-    "AIGW_RELEASE_PRIMARY_PROVIDER", "AIGW_RELEASE_PRIMARY_ORIGIN", "AIGW_RELEASE_PRIMARY_REPOSITORY",
-    "AIGW_RELEASE_MIRROR_PROVIDER", "AIGW_RELEASE_MIRROR_ORIGIN", "AIGW_RELEASE_MIRROR_REPOSITORY",
+    "AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY",
+    "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY",
 ]
 for token in required:
     if token not in text:

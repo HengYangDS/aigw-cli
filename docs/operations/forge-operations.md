@@ -37,13 +37,14 @@ release. If an identical GitHub release already exists, its assets are
 downloaded and byte-verified; a disagreement fails closed rather than replacing
 an asset.
 
-A released AIGW binary contains one GitLab primary source tuple and an optional
-GitHub mirror tuple. The updater completes the GitLab attempt before considering
-GitHub. It uses GitHub only after a bounded transport error or GitLab 5xx source
-unavailability; it never falls back for authorization, 4xx, malformed metadata,
-missing assets, checksums, archive validation, downgrade, or redirect-security
-failures. Each attempt obtains its tag, manifest, and artifact from one provider
-only.
+A released AIGW binary contains independent GitLab and GitHub source tuples.
+The updater queries every configured peer. If both peers are reachable, their
+latest tag must match, then their current-platform artifact bytes must match;
+otherwise the update fails before replacing the program. If one peer is
+unreachable, the reachable peer may supply the update. Authorization, 4xx,
+malformed metadata, missing assets, checksum, archive-validation, downgrade,
+and redirect-security failures are terminal. Each provider's tag, manifest, and
+artifact remain a single-provider unit.
 
 ## Provider identities
 

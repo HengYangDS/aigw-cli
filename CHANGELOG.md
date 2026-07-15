@@ -29,8 +29,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Record branch closeout as a release-governance requirement: after merge, the
   source worktree and branch are removed once reachability and cleanliness are
   proven.
-- Model update endpoints as atomic provider, origin, and repository tuples, with
-  GitLab primary and GitHub availability-only fallback roles.
+- Model update endpoints as atomic provider, origin, and repository tuples,
+  with GitLab and GitHub as equal independently verified release peers.
 - Reorganize root help and documentation around Connect, Use every day,
   Recover, and Advanced paths without changing the existing command grammar.
 - Make human-readable output adapt to narrow terminals without truncating text
@@ -43,8 +43,8 @@ platform acceptance, signing, and GA status remain separate evidence.
   builds fail closed until both are configured explicitly.
 - Enforce the English-only canonical-surface rule for tracked text, including
   test fixtures, through the governance gate.
-- Prevent a healthy GitLab update from contacting GitHub, and prevent GitLab
-  integrity failures from silently failing over to GitHub.
+- Reject disagreeing peer tags or platform artifact bytes before installation;
+  retain single-peer updates only when the other configured peer is unavailable.
 
 ## [0.1.0-rc.48] - 2026-07-14
 
