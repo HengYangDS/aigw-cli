@@ -46,6 +46,14 @@ cp "$checker" "$shallow/scripts/check-changelog.sh"
   test "$(git rev-parse --is-shallow-repository)" = true
   test -z "$(git tag --list 'v[0-9]*')"
   AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh
+  if AIGW_CHANGELOG_RELEASE_TAG=v0.1.0-rc.1 AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh >/dev/null 2>&1; then
+    echo "changelog checker accepted a selected tag that does not identify shallow HEAD" >&2
+    exit 1
+  fi
+  if AIGW_CHANGELOG_RELEASE_TAG=v0.1.0-rc.2 AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh >/dev/null 2>&1; then
+    echo "changelog checker accepted a missing selected release tag" >&2
+    exit 1
+  fi
 )
 
 # A published entry before the latest tag must be a locally known release rather
