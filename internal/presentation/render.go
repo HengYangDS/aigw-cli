@@ -27,8 +27,8 @@ type Renderer struct {
 }
 
 const (
-	rowKeyWidth   = 20
-	stateKeyWidth = 18
+	rowKeyWidth   = 21
+	stateKeyWidth = 19
 	detailIndent  = 2 + 2 + stateKeyWidth
 )
 
@@ -154,10 +154,10 @@ func (r *Renderer) stateStyle(state State) lipgloss.Style {
 }
 
 func (r *Renderer) fixedLabel(style lipgloss.Style, label string, width int) string {
-	if DisplayWidth(label) > width {
+	if DisplayWidth(label) >= width {
 		return label + " "
 	}
-	return style.Render(label)
+	return style.Render(label + " ")
 }
 
 var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
