@@ -10,6 +10,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Added
 
+- Split the self-update implementation into focused coordinator, candidate, archive, installer, GitLab, and GitHub units without changing the equal-forge update contract.
+
 - Add the canonical MIT License and align repository, package, and contributor
   surfaces on the same permissive licensing statement.
 - Add a command-oriented entry path in the CLI and documentation: setup, choose,
