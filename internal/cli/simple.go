@@ -13,6 +13,7 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/providers"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/selfupdate"
 )
 
 func newCheckCommand(app *App) *cobra.Command {
@@ -329,8 +330,10 @@ func contains(values []string, target string) bool {
 
 func newUpdateCommand(app *App) *cobra.Command {
 	var rollback bool
+	var candidateArchive string
+	var candidateChecksums string
 	cmd := &cobra.Command{
-		Use: "update", Short: "Install the latest verified release or restore the previous portable program", Args: cobra.NoArgs,
+		Use: "update", Short: "Install a verified release, a local candidate, or restore the previous portable program", Args: cobra.NoArgs,
 		RunE: func(ctx *cobra.Command, _ []string) error {
 			if app.Updater == nil {
 				return fmt.Errorf("Automatic update is unavailable; install a verified release from GitLab or GitHub")
@@ -341,6 +344,11 @@ func newUpdateCommand(app *App) *cobra.Command {
 			)
 			if rollback {
 				result, err = app.Updater.Rollback(ctx.Context())
+			} else if candidateArchive != "" {
+				result, err = app.Updater.UpdateCandidate(ctx.Context(), appVersion(app), selfupdate.CandidateArchive{
+					ArchivePath:   candidateArchive,
+					ChecksumsPath: candidateChecksums,
+				})
 			} else {
 				result, err = app.Updater.Update(ctx.Context(), appVersion(app))
 			}
@@ -351,6 +359,8 @@ func newUpdateCommand(app *App) *cobra.Command {
 			title := "Update"
 			if rollback {
 				title = "Program rollback"
+			} else if candidateArchive != "" {
+				title = "Verified local candidate"
 			}
 			r.Title("AIGW", title)
 			r.Success(result)
@@ -359,6 +369,10 @@ func newUpdateCommand(app *App) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&rollback, "rollback", false, "Roll back the portable AIGW program to the previous version offline")
+	cmd.Flags().StringVar(&candidateArchive, "candidate", "", "Install one local portable archive without network access")
+	cmd.Flags().StringVar(&candidateChecksums, "checksums", "", "Checksum manifest for --candidate")
+	cmd.MarkFlagsRequiredTogether("candidate", "checksums")
+	cmd.MarkFlagsMutuallyExclusive("rollback", "candidate")
 	return cmd
 }
 
