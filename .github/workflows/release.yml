@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v* tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.repository }}-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  package-and-publish:
+    name: Independently package and publish
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out the exact release tag
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744f8676 # v5.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      - name: Install release build tools
+        run: |
+          set -euo pipefail
+          brew install nfpm wixl
+      - name: Verify the signed tag and source gates
+        env:
+          SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$SELECTED_TAG" in v*) ;; *) echo "release requires a v* tag" >&2; exit 2 ;; esac
+          test "$SELECTED_TAG" = "$(git describe --tags --exact-match HEAD)"
+          sh scripts/check-release-tag-signature.sh . "$SELECTED_TAG"
+          go test -race ./...
+          go vet ./...
+          test -z "$(gofmt -l cmd internal tools)"
+          sh scripts/check-governance.sh
+          python3 scripts/check-markdown-presentation.py
+          python3 scripts/check-text-layout.py
+          sh scripts/test-text-layout.sh
+          sh scripts/test-changelog.sh
+          sh scripts/test-release-artifacts.sh
+          sh scripts/test-pipeline-gates.sh
+      - name: Build the complete release matrix
+        env:
+          SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
+          AIGW_GITHUB_RELEASE_HOST: https://github.com
+          AIGW_GITHUB_RELEASE_PROJECT: ${{ github.repository }}
+          AIGW_GITLAB_RELEASE_HOST: ${{ vars.AIGW_GITLAB_RELEASE_HOST }}
+          AIGW_GITLAB_RELEASE_PROJECT: ${{ vars.AIGW_GITLAB_RELEASE_PROJECT }}
+        run: |
+          set -euo pipefail
+          version="${SELECTED_TAG#v}"
+          AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$version" dist
+          sh scripts/test-release-package-layout.sh dist "$version"
+      - name: Publish or verify immutable GitHub release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_COMMIT_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          sh scripts/publish-github-release.sh dist

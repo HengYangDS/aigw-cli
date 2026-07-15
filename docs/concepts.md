@@ -91,25 +91,25 @@ self-update logic.
 
 Portable archives contain local-only `install.sh` and `install.ps1` scripts.
 They copy the bundled binary and never retrieve releases or inspect release
-credentials. Program distribution has three controlled paths: GitLab and
-GitHub are independent formal release planes, and a complete extracted artifact
-directory supports offline candidate acceptance. Each released binary embeds its
-home provider and may name the other provider as a fallback. `aigw update` never
-uses a fallback to bypass malformed metadata, version disagreement, missing
-artifacts, or checksum failure.
+credentials. GitLab and GitHub are equal independent forge sources for the
+same release identity; a complete extracted artifact directory supports offline
+candidate acceptance. If one configured forge is reachable, `aigw update` may
+use it. If both are reachable, it requires matching latest tags and matching
+checksum-verified current-platform artifact bytes before installation. It
+refuses malformed metadata, version disagreement, missing artifacts, checksum
+failure, or byte disagreement.
 
 `AIGW_LOCAL_CANDIDATE` names a complete extracted artifact directory. AIGW
 accepts it only when it contains exactly one portable archive for the running
 platform and that archive validates against the directory's `checksums.txt`. A
 source tree or standalone executable is not a candidate. For remote testing,
-`AIGW_RELEASE_PROVIDER`, `AIGW_RELEASE_HOST`, and `AIGW_RELEASE_PROJECT`
-identify the embedded primary; the corresponding `AIGW_RELEASE_MIRROR_*`
-variables identify an optional fallback. The GitLab token fallback requires an
-explicit HTTPS origin. Tokens are neither
+`AIGW_GITLAB_RELEASE_HOST` and `AIGW_GITLAB_RELEASE_PROJECT` identify GitLab;
+`AIGW_GITHUB_RELEASE_HOST` and `AIGW_GITHUB_RELEASE_PROJECT` identify GitHub.
+The GitLab token path requires an explicit HTTPS origin. Tokens are neither
 persisted nor placed on a command line; requests have a finite timeout, release
-assets remain checksum-verified, the token is removed before a redirect crosses
-hosts, HTTPS-to-HTTP redirects are refused, and an older or malformed release
-cannot replace the installed binary.
+assets remain checksum-verified, credentials are removed before a redirect
+crosses hosts, HTTPS-to-HTTP redirects are refused, and an older or malformed
+release cannot replace the installed binary.
 
 Portable installs retain exactly one immediate predecessor beside the current
 binary. `aigw update --rollback` swaps those two local binaries without any
