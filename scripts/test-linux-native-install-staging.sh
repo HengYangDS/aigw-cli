@@ -132,4 +132,61 @@ while IFS=' ' read -r _ _ path; do
   [ ! -e "$path" ] || { echo "Linux native-install staging residue remains: $path" >&2; exit 1; }
 done < "$capture"
 
+timeout_bin="$tmp/timeout-bin"
+mkdir -p "$timeout_bin"
+cat > "$timeout_bin/docker" <<'SH'
+#!/bin/sh
+case "$1:$2" in
+  image:inspect) exit 1 ;;
+  pull:*) sleep 3; exit 0 ;;
+esac
+exit 1
+SH
+chmod 755 "$timeout_bin/docker"
+if PATH="$timeout_bin:/usr/bin:/bin" \
+  AIGW_DOCKER_SHARED_TMPDIR="$shared" \
+  AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS=1 \
+  AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS=1 \
+  AIGW_LINUX_DEB_ACCEPTANCE_IMAGE="example.test/debian" \
+  AIGW_LINUX_RPM_ACCEPTANCE_IMAGE="example.test/rpm" \
+  sh "$root/scripts/test-linux-native-install.sh" "$out" "$version" >"$tmp/timeout.out" 2>&1; then
+  echo "Linux native-install harness accepted an unbounded image pull" >&2
+  exit 1
+fi
+grep -F "timed out after 1s while preparing Linux acceptance image" "$tmp/timeout.out" >/dev/null || {
+  cat "$tmp/timeout.out" >&2
+  echo "Linux native-install harness did not explain image-pull timeout" >&2
+  exit 1
+}
+
+lock_bin="$tmp/lock-bin"
+mkdir -p "$lock_bin"
+cat > "$lock_bin/docker" <<'SH'
+#!/bin/sh
+case "$1:$2" in
+  image:inspect) exit 1 ;;
+  pull:*) exit 0 ;;
+esac
+exit 1
+SH
+chmod 755 "$lock_bin/docker"
+lock="$shared/.image-lock-example.test_debian-linux_amd64"
+mkdir "$lock"
+if PATH="$lock_bin:/usr/bin:/bin" \
+  AIGW_DOCKER_SHARED_TMPDIR="$shared" \
+  AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS=1 \
+  AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS=1 \
+  AIGW_LINUX_DEB_ACCEPTANCE_IMAGE="example.test/debian" \
+  AIGW_LINUX_RPM_ACCEPTANCE_IMAGE="example.test/rpm" \
+  sh "$root/scripts/test-linux-native-install.sh" "$out" "$version" >"$tmp/lock.out" 2>&1; then
+  echo "Linux native-install harness ignored an active image lock" >&2
+  exit 1
+fi
+rmdir "$lock"
+grep -F "timed out waiting for Linux acceptance image lock" "$tmp/lock.out" >/dev/null || {
+  cat "$tmp/lock.out" >&2
+  echo "Linux native-install harness did not explain image-lock timeout" >&2
+  exit 1
+}
+
 echo "Linux native-install shared-staging contract: OK"

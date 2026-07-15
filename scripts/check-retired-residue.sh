@@ -20,7 +20,7 @@ matches=$(git grep -n -E 'config migrate|config upgrade|docs/migration\.md|docs/
   -- README.md docs scripts internal examples CHANGELOG.md ':!scripts/check-retired-residue.sh' ':!scripts/check-governance.sh' ':!**/*_test.go' || true)
 [ -z "$matches" ] || { printf '%s\n' "$matches" >&2; fail "retired command or documentation reference found"; }
 
-matches=$(git grep -n -E 'git-github-mirror-sync|github-mirror|forge-peer-sync|agent-forge-peers|no_direct_push_allowed|AIGW_RELEASE_(HOST|PROJECT)|BuildRelease(Host|Project)' \
+matches=$(git grep -n -E 'git-github-mirror-sync|github-mirror|forge-peer-sync|agent-forge-peers|no_direct_push_allowed|AIGW_RELEASE_(HOST|PROJECT|PRIMARY|MIRROR)|BuildRelease(Host|Project|Primary|Mirror)|AIGW_(GITLAB|GITHUB)_RELEASE_(HOST|PROJECT)|Build(GitLab|GitHub)Release(Host|Project)' \
   -- README.md docs scripts internal cmd packaging .gitlab-ci.yml .github ':!scripts/check-retired-residue.sh' ':!**/*_test.go' || true)
 [ -z "$matches" ] || { printf '%s\n' "$matches" >&2; fail "retired one-way forge topology found"; }
 

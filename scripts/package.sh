@@ -5,19 +5,10 @@ version=${1:-0.1.0-dev}
 out=${2:-dist}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 module=$(awk 'NR == 1 && $1 == "module" { print $2; exit }' "$root/go.mod")
-primary_provider=${AIGW_RELEASE_PRIMARY_PROVIDER:-}
-primary_origin=${AIGW_RELEASE_PRIMARY_ORIGIN:-${AIGW_GITLAB_RELEASE_HOST:-}}
-primary_repository=${AIGW_RELEASE_PRIMARY_REPOSITORY:-${AIGW_GITLAB_RELEASE_PROJECT:-}}
-mirror_provider=${AIGW_RELEASE_MIRROR_PROVIDER:-}
-mirror_origin=${AIGW_RELEASE_MIRROR_ORIGIN:-${AIGW_GITHUB_RELEASE_HOST:-}}
-mirror_repository=${AIGW_RELEASE_MIRROR_REPOSITORY:-${AIGW_GITHUB_RELEASE_PROJECT:-}}
-
-if [ -z "$primary_provider" ] && { [ -n "$primary_origin" ] || [ -n "$primary_repository" ]; }; then
-  primary_provider=gitlab
-fi
-if [ -z "$mirror_provider" ] && { [ -n "$mirror_origin" ] || [ -n "$mirror_repository" ]; }; then
-  mirror_provider=github
-fi
+gitlab_origin=${AIGW_GITLAB_RELEASE_ORIGIN:-}
+gitlab_repository=${AIGW_GITLAB_RELEASE_REPOSITORY:-}
+github_origin=${AIGW_GITHUB_RELEASE_ORIGIN:-}
+github_repository=${AIGW_GITHUB_RELEASE_REPOSITORY:-}
 
 tuple_count() {
   count=0
@@ -27,21 +18,25 @@ tuple_count() {
   printf '%s\n' "$count"
 }
 
-primary_count=$(tuple_count "$primary_provider" "$primary_origin" "$primary_repository")
-mirror_count=$(tuple_count "$mirror_provider" "$mirror_origin" "$mirror_repository")
-[ "$primary_count" -eq 0 ] || [ "$primary_count" -eq 3 ] || { echo "release primary tuple must include provider, origin, and repository" >&2; exit 2; }
-if [ "$primary_count" -eq 3 ] && [ "$primary_provider" != gitlab ]; then
-  echo "release primary provider must be gitlab" >&2
-  exit 2
-fi
-if [ "$mirror_count" -ne 0 ] && [ "$mirror_count" -ne 3 ]; then
-  echo "release mirror tuple must include provider, origin, and repository" >&2
-  exit 2
-fi
-if [ "$mirror_count" -eq 3 ] && [ "$mirror_provider" != github ]; then
-  echo "release mirror provider must be github" >&2
-  exit 2
-fi
+validate_release_source() {
+  provider=$1
+  origin=$2
+  repository=$3
+  count=$(tuple_count "$origin" "$repository")
+  [ "$count" -eq 0 ] || [ "$count" -eq 2 ] || {
+    echo "$provider release configuration must include both origin and repository" >&2
+    exit 2
+  }
+  case "$origin$repository" in
+    *[![:print:]]*|*[[:space:]]*)
+      echo "$provider release configuration must not contain whitespace or control characters" >&2
+      exit 2
+      ;;
+  esac
+}
+
+validate_release_source GitLab "$gitlab_origin" "$gitlab_repository"
+validate_release_source GitHub "$github_origin" "$github_repository"
 
 "$root/scripts/check-package-safety.sh"
 "$root/scripts/check-retired-residue.sh"
@@ -65,7 +60,7 @@ build_binary() {
   printf 'building %s/%s (%s)\n' "$goos" "$goarch" "$channel"
   mkdir -p "$(dirname -- "$dest")"
   CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath \
-    -ldflags "-s -w -X ${module}/internal/cli.Version=$version -X ${module}/internal/selfupdate.InstallChannel=$channel -X ${module}/internal/selfupdate.BuildReleasePrimaryProvider=$primary_provider -X ${module}/internal/selfupdate.BuildReleasePrimaryOrigin=$primary_origin -X ${module}/internal/selfupdate.BuildReleasePrimaryRepository=$primary_repository -X ${module}/internal/selfupdate.BuildReleaseMirrorProvider=$mirror_provider -X ${module}/internal/selfupdate.BuildReleaseMirrorOrigin=$mirror_origin -X ${module}/internal/selfupdate.BuildReleaseMirrorRepository=$mirror_repository" \
+    -ldflags "-s -w -X ${module}/internal/cli.Version=$version -X ${module}/internal/selfupdate.InstallChannel=$channel -X ${module}/internal/selfupdate.BuildGitLabReleaseOrigin=$gitlab_origin -X ${module}/internal/selfupdate.BuildGitLabReleaseRepository=$gitlab_repository -X ${module}/internal/selfupdate.BuildGitHubReleaseOrigin=$github_origin -X ${module}/internal/selfupdate.BuildGitHubReleaseRepository=$github_repository" \
     -o "$dest" ./cmd/aigw
 }
 
