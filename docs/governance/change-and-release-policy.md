@@ -41,13 +41,20 @@ checkout, a loose binary, and a tag are not candidates.
 
 ## Forge synchronization
 
-The two forges must share the same commit and tag objects. Use
-`sh scripts/forge-peer-sync.sh --check` to inspect `main`, then explicitly run
-`sh scripts/forge-peer-sync.sh --sync` only from a clean owned worktree to
-fast-forward each reachable peer with the exact local commit. The command never
-creates snapshot commits, force-pushes, prunes, or deletes refs. A divergence or
-a conflicting peer is a manual resolution condition, not a reason to rewrite
-history.
+GitLab and GitHub remain separate identity domains even when their source
+commits converge: GitLab commits and tags use `heng.yang.ds@hotmail.com`; GitHub
+projection commits and tags use `hengyang.2003@tsinghua.org.cn`. Same-named
+provider release tags are independently signed provenance objects and must not
+be overwritten across the two namespaces.
+
+Use `sh scripts/forge-peer-sync.sh --check` to inspect equal-object branches,
+then explicitly run `sh scripts/forge-peer-sync.sh --sync` only from a clean
+owned worktree to fast-forward each reachable peer with the exact local commit.
+For the provider-specific GitHub identity projection, use
+`sh scripts/project-github-forge.sh`: it rewrites only an isolated clone,
+requires trust verification of existing provider tags, applies a leased branch
+update, and never pushes tags. Neither command creates snapshot commits,
+deletes refs, or permits an unresolved divergence.
 
 ## Branch closeout
 
