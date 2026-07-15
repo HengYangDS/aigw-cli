@@ -513,7 +513,7 @@ func TestStatusLabelsProfileCountAsModelConfigurations(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "Model profiles      2") {
+	if !strings.Contains(text, "Model profiles       2") {
 		t.Fatalf("status did not identify configuration count:\n%s", text)
 	}
 	if strings.Contains(text, "configured service") {
