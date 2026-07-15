@@ -8,6 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.51] - 2026-07-15
+
+### Fixed
+
+- Build the shallow-history changelog regression from an independent complete fixture, so both GitHub and GitLab release gates exercise the same recoverable history boundary.
+
 ## [0.1.0-rc.50] - 2026-07-15
 
 ### Fixed
