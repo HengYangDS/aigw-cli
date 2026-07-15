@@ -43,7 +43,10 @@ exit 0
 SH
 chmod 755 "$tmp/msiinfo"
 rm -f "$tmp/sha256sum" "$tmp/shasum"
-if PATH="$tmp:/bin" sh "$root/scripts/check-package-runner.sh" > "$tmp/checksum.out" 2>&1; then
+# /bin can be a symlink to /usr/bin on Linux runners, so it is not a valid
+# absence fixture. Invoke the known shell by its absolute path while exposing
+# only the controlled fixture directory through PATH.
+if PATH="$tmp" /bin/sh "$root/scripts/check-package-runner.sh" > "$tmp/checksum.out" 2>&1; then
   cat "$tmp/checksum.out" >&2
   echo "package-runner preflight accepted no SHA-256 utility" >&2
   exit 1
