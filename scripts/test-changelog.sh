@@ -11,7 +11,16 @@ cp "$root/CHANGELOG.md" "$fixture"
 AIGW_CHANGELOG_FILE="$fixture" sh "$checker"
 
 # A shallow checkout can omit both the release tag and its historical commit.
-# The checker must restore the history and release refs from its named origin.
+# First complete the fixture source from its named origin, just as the checker
+# does.  Otherwise a bare fixture seeded by a shallow sender can retain that
+# sender's shallow boundary and cannot serve the release history it is meant to
+# model.  The actual assertion still runs from a fresh depth-one clone below.
+if test "$(git -C "$root" rev-parse --is-shallow-repository)" = true; then
+  git -C "$root" fetch --quiet --unshallow origin 2>/dev/null || \
+    git -C "$root" fetch --quiet --no-tags origin
+  git -C "$root" fetch --quiet --no-tags origin 'refs/tags/*:refs/tags/*'
+fi
+
 shallow="$tmp/shallow"
 origin="$tmp/origin.git"
 git init -q --bare "$origin"
