@@ -20,17 +20,43 @@ first_heading=$(awk '/^## / { print; exit }' "$changelog")
 test "$first_heading" = "## [Unreleased]" || \
   fail "the first release section must be ## [Unreleased]"
 
+# A release pipeline must validate its selected tag, not an arbitrary older tag
+# reachable from its checkout. Branch verification keeps the latest-reachable
+# rule. CI providers expose the selected tag through different variables; the
+# explicit AIGW variable is also available for deterministic local rehearsal.
+selected_tag=${AIGW_CHANGELOG_RELEASE_TAG:-${CI_COMMIT_TAG:-}}
+if test -z "$selected_tag" && test "${GITHUB_REF_TYPE:-}" = tag; then
+  selected_tag=${GITHUB_REF_NAME:-}
+fi
+case "$selected_tag" in
+  '') ;;
+  v[0-9]*.*.*) ;;
+  *) fail "selected release tag is malformed: $selected_tag" ;;
+esac
+
 # CI can fetch a shallow branch whose tag object and historical ancestor are
 # absent. Refresh release refs and history once before judging chronology;
 # failure remains closed when no reachable tag becomes available.
-latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
-if test -z "$latest_tag" && git remote get-url origin >/dev/null 2>&1; then
+latest_tag=$selected_tag
+if test -z "$latest_tag"; then
+  latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
+fi
+if { test -z "$latest_tag" || ! git rev-parse -q --verify "refs/tags/$latest_tag" >/dev/null 2>&1; } && git remote get-url origin >/dev/null 2>&1; then
   git fetch --quiet --no-tags --unshallow origin 2>/dev/null || \
     git fetch --quiet --no-tags origin 2>/dev/null || true
   git fetch --quiet --no-tags origin 'refs/tags/*:refs/tags/*' 2>/dev/null || true
-  latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
+  if test -z "$selected_tag"; then
+    latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
+  fi
 fi
-test -n "$latest_tag" || fail "cannot find a reachable v<semver> Git tag"
+if test -n "$selected_tag"; then
+  git rev-parse -q --verify "refs/tags/$selected_tag" >/dev/null || fail "selected release tag is unavailable: $selected_tag"
+  test "$(git rev-parse "$selected_tag^{}")" = "$(git rev-parse HEAD)" || \
+    fail "selected release tag does not identify HEAD: $selected_tag"
+  latest_tag=$selected_tag
+elif test -z "$latest_tag"; then
+  fail "cannot find a reachable v<semver> Git tag"
+fi
 latest_version=${latest_tag#v}
 latest_date=$(git for-each-ref "refs/tags/$latest_tag" --format='%(creatordate:short)' | head -n 1)
 test -n "$latest_date" || fail "cannot read date for $latest_tag"
