@@ -31,10 +31,12 @@ AIGW has three checksum-first distribution paths:
 3. **Verified local candidate** — a complete extracted artifact directory for
    offline installation and acceptance testing.
 
-GitLab and GitHub carry the same commits, branches, signed tags, and release
-identity. Either reachable forge may deliver an update. When both are reachable,
-AIGW requires the latest tag and the current-platform artifact bytes to agree
-before it installs anything.
+GitLab and GitHub are independent but equivalent forge planes. They publish the
+same versioned release matrix and use the same release filenames, checksums, and
+SBOM content. Their commit histories, signed tags, and provider identities remain
+separate provenance records. Either reachable forge may deliver an update. When
+both are reachable, AIGW requires the latest tag and the current-platform artifact
+bytes to agree before it installs anything.
 
 A formal release is the exact 15-artifact matrix: platform packages,
 `checksums.txt`, and an SPDX SBOM. Verify the archive you will install against
@@ -140,15 +142,9 @@ and checksum-verifies the current-platform artifact from both. It rejects any
 metadata, tag, checksum, or byte disagreement before replacement. A malformed
 release is never bypassed by silently switching sources.
 
-A locally built binary has no implicit vendor endpoint. For a local verified
-candidate, set `AIGW_LOCAL_CANDIDATE` to the extracted artifact directory. The
-directory must contain exactly one portable archive for the current platform and
-`checksums.txt` that validates that archive:
-
-```bash
-export AIGW_LOCAL_CANDIDATE=/secure/path/to/aigw-0.1.0-rc.1
-AIGW_LOCAL_CANDIDATE="$AIGW_LOCAL_CANDIDATE" aigw update
-```
+A locally built binary has no implicit vendor endpoint. A verified local
+candidate is deliberately separate from a release source: it is a complete,
+checksum-verified offline artifact carrier, not a tag or published release.
 
 For source builds that must test remote behavior, configure each forge
 explicitly:
