@@ -146,13 +146,22 @@ func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 		t.Fatal(err)
 	}
 	lines := strings.Split(string(data), "\n")
+	previousTable := -1
 	for index, line := range lines {
 		if !strings.HasPrefix(line, "[") || strings.HasPrefix(line, "[[") {
 			continue
 		}
-		if index > 0 && strings.TrimSpace(lines[index-1]) != "" && !strings.HasPrefix(strings.TrimSpace(lines[index-1]), "#") {
-			t.Fatalf("table %q at line %d is not separated from %q:\n%s", line, index+1, lines[index-1], data)
+		if previousTable < 0 {
+			previousTable = index
+			continue
 		}
+		if strings.TrimSpace(lines[index-1]) != "" {
+			t.Fatalf("table %q at line %d must have exactly one blank separator:\n%s", line, index+1, data)
+		}
+		if index > 1 && strings.TrimSpace(lines[index-2]) == "" {
+			t.Fatalf("table %q at line %d has a double separator:\n%s", line, index+1, data)
+		}
+		previousTable = index
 	}
 }
 
