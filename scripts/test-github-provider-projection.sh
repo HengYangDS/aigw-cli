@@ -13,6 +13,7 @@ projection="$tmp/bootstrap-projection"
 home="$tmp/home"
 global_config="$tmp/global.gitconfig"
 key="$tmp/signing"
+mock_ssh="$tmp/mock-ssh"
 mkdir -p "$home" "$tmp/allowed"
 : > "$global_config"
 ssh-keygen -q -t ed25519 -N '' -f "$key"
@@ -20,10 +21,23 @@ public=$(awk '{print $1" "$2}' "$key.pub")
 printf 'heng.yang.ds@hotmail.com namespaces="git" %s\n' "$public" > "$tmp/allowed/gitlab"
 printf 'hengyang.2003@tsinghua.org.cn namespaces="git" %s\n' "$public" > "$tmp/allowed/github"
 
+cat > "$mock_ssh" <<'EOF'
+#!/bin/sh
+case "$*" in
+  *git-upload-pack*) exec git-upload-pack "${AIGW_TEST_GITHUB_REMOTE:?}" ;;
+  *git-receive-pack*) exec git-receive-pack "${AIGW_TEST_GITHUB_REMOTE:?}" ;;
+esac
+exit 0
+EOF
+chmod +x "$mock_ssh"
+
 export HOME="$home"
 export GIT_CONFIG_NOSYSTEM=1
 export GIT_CONFIG_GLOBAL="$global_config"
-git config --file "$global_config" url."file://$remote".insteadOf git@github.com:test/aigw-cli.git
+# The user-level rewrite deliberately turns the raw SSH remote into an
+# unusable HTTPS URL. Production must retain the local SSH remote and suppress
+# this global rewrite only for GitHub transport operations.
+git config --file "$global_config" url."https://github.com.invalid/".insteadOf git@github.com:
 
 git init -q --bare "$remote"
 git init -q -b main "$source"
@@ -67,6 +81,8 @@ git -C "$source" remote add github git@github.com:test/aigw-cli.git
   cd "$source"
   AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
     AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_TEST_GITHUB_REMOTE="$remote" \
+    GIT_SSH_COMMAND="$mock_ssh" \
     AIGW_GITHUB_REMOTE=github \
     sh "$script" --branch main
 ) >/dev/null

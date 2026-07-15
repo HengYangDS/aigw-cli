@@ -43,13 +43,23 @@ root=$(git rev-parse --show-toplevel)
 canonical_common=$(git rev-parse --path-format=absolute --git-common-dir)
 canonical=$(git rev-parse "refs/heads/$branch")
 canonical_tree=$(git rev-parse "$canonical^{tree}")
-github_url=$(git remote get-url "$github_remote" 2>/dev/null) || { echo "GitHub remote is not configured: $github_remote" >&2; exit 2; }
+# Keep the exact repository-local transport endpoint. `git remote get-url`
+# expands user-global `url.*.insteadOf` rules, which can silently turn a
+# configured SSH remote into HTTPS and change the caller's authentication path.
+github_url=$(git config --local --get "remote.$github_remote.url" 2>/dev/null) || { echo "GitHub remote is not configured: $github_remote" >&2; exit 2; }
 case "$github_url" in *github.com*|file://*) ;; *) echo "$github_remote is not a GitHub remote" >&2; exit 2 ;; esac
 
 workspace=$(mktemp -d "${TMPDIR:-/tmp}/aigw-github-projection.XXXXXX")
 cleanup() { rm -rf "$workspace"; }
 trap cleanup EXIT HUP INT TERM
 projection="$workspace/repository"
+
+# Provider projection is an explicit, self-contained transport operation. The
+# user's global Git configuration remains untouched, but cannot rewrite its
+# configured remote URL underneath this controlled operation.
+git_transport() {
+  GIT_CONFIG_GLOBAL=/dev/null git "$@"
+}
 
 # file:// forces a fresh object database. Linked worktrees, local clone
 # optimisations, alternates, and shared object databases are explicitly barred.
@@ -83,9 +93,9 @@ if git -C "$projection" log "$projected" --format='%ae%n%ce' | grep -Fv -x "$git
 fi
 
 git -C "$projection" remote add github "$github_url"
-remote_tip=$(git -C "$projection" ls-remote --heads github "refs/heads/$branch" | awk 'NR==1 {print $1}')
+remote_tip=$(git_transport -C "$projection" ls-remote --heads github "refs/heads/$branch" | awk 'NR==1 {print $1}')
 [ -n "$remote_tip" ] || { echo "GitHub branch is missing: $branch" >&2; exit 1; }
-git -C "$projection" fetch --quiet --no-tags github "refs/heads/$branch:refs/remotes/github/$branch"
+git_transport -C "$projection" fetch --quiet --no-tags github "refs/heads/$branch:refs/remotes/github/$branch"
 remote_tree=$(git -C "$projection" rev-parse "refs/remotes/github/$branch^{tree}")
 # The remote GitHub history is a rewritten identity projection. It may lag but
 # its tree must be on the canonical branch's history; unrelated content is a
@@ -101,7 +111,7 @@ fi
 # selected canonical branch: historical detached tag namespaces cannot block a
 # current branch projection.
 remote_tags="$workspace/remote-tags"
-git -C "$projection" ls-remote --tags github 'v[0-9]*' > "$remote_tags"
+git_transport -C "$projection" ls-remote --tags github 'v[0-9]*' > "$remote_tags"
 for tag in $(git -C "$root" tag --merged "$canonical" --list 'v[0-9]*'); do
   remote_tag=$(awk -v "needle=refs/tags/$tag" '$2 == needle {print $1; exit}' "$remote_tags")
   [ -n "$remote_tag" ] || continue
@@ -109,7 +119,7 @@ for tag in $(git -C "$root" tag --merged "$canonical" --list 'v[0-9]*'); do
     echo "canonical GitLab tag does not verify: $tag" >&2
     exit 1
   }
-  git -C "$projection" fetch --quiet --no-tags github "refs/tags/$tag:refs/tags/github/$tag"
+  git_transport -C "$projection" fetch --quiet --no-tags github "refs/tags/$tag:refs/tags/github/$tag"
   git -C "$projection" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$github_allowed_signers" verify-tag "github/$tag" >/dev/null 2>&1 || {
     echo "GitHub provenance tag does not verify: $tag" >&2
     exit 1
@@ -118,6 +128,6 @@ done
 
 # Rewritten identity histories cannot use ordinary ancestry. The lease protects
 # against concurrent GitHub ref changes; tags remain immutable and untouched.
-git -C "$projection" -c user.name="$github_name" -c user.email="$github_email" -c user.useConfigOnly=true \
+git_transport -C "$projection" -c user.name="$github_name" -c user.email="$github_email" -c user.useConfigOnly=true \
   push --force-with-lease="refs/heads/$branch:$remote_tip" github "refs/heads/$branch:refs/heads/$branch"
 printf 'GitHub provider projection synchronized: %s\n' "$projected"
