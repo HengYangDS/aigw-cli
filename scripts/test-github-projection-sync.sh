@@ -9,11 +9,13 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/aigw-github-projection-test.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 
 home="$tmp/home"
+signing_key="$HOME/.ssh/id_ed25519_signing_yheng_20260711.pub"
 remote="$tmp/github-remote.git"
 repository="$tmp/repository"
 worktree="$tmp/canonical-worktree"
 global_config="$tmp/global.gitconfig"
 mkdir -p "$home"
+test -f "$signing_key" || { echo "GitHub provenance fixture signing key is unavailable" >&2; exit 1; }
 : > "$global_config"
 
 export HOME="$home"
@@ -40,6 +42,14 @@ git -C "$worktree" remote add github-mirror git@github.com:test/aigw-cli.git
 # are fast-forward only.
 git -C "$worktree" remote add github-seed "file://$remote"
 git -C "$worktree" push -q github-seed sync-main:sync-main
+# Add a provider-native signed provenance tag to the remote. The production
+# synchronizer must verify it but must never rewrite or push it.
+git -C "$worktree" -c user.name=HengYang -c user.email=hengyang.2003@tsinghua.org.cn \
+  -c gpg.format=ssh -c user.signingkey="$signing_key" \
+  tag -s -a v0.0.1 -m 'GitHub provenance fixture' sync-main
+git -C "$worktree" push -q github-seed refs/tags/v0.0.1:refs/tags/v0.0.1
+git -C "$worktree" tag -d v0.0.1 >/dev/null
+printf 'hengyang.2003@tsinghua.org.cn namespaces="git" %s\n' "$(awk '{print $1" "$2}' "$signing_key")" > "$tmp/github-allowed-signers"
 # Keep the configured fetch URL GitHub-shaped for admission; only transport is rewritten by the isolated test config.
 
 git_dir=$(git -C "$worktree" rev-parse --path-format=absolute --git-dir)
@@ -57,7 +67,7 @@ snapshot_refs() {
 
 before_refs=$(snapshot_refs)
 before_head=$(git -C "$worktree" rev-parse HEAD)
-( cd "$repository" && AIGW_GITHUB_MIRROR_BRANCH=sync-main sh "$sync_script" ) >/dev/null
+( cd "$repository" && AIGW_GITHUB_MIRROR_BRANCH=sync-main AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/github-allowed-signers" sh "$sync_script" ) >/dev/null
 
 after_refs=$(snapshot_refs)
 after_head=$(git -C "$worktree" rev-parse HEAD)
@@ -79,7 +89,7 @@ git -C "$worktree" commit -qm 'second canonical commit'
 git -C "$repository" reset --hard -q sync-main
 before_refs=$(snapshot_refs)
 before_head=$(git -C "$worktree" rev-parse HEAD)
-( cd "$repository" && AIGW_GITHUB_MIRROR_BRANCH=sync-main sh "$sync_script" ) >/dev/null
+( cd "$repository" && AIGW_GITHUB_MIRROR_BRANCH=sync-main AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/github-allowed-signers" sh "$sync_script" ) >/dev/null
 
 after_refs=$(snapshot_refs)
 after_head=$(git -C "$worktree" rev-parse HEAD)
