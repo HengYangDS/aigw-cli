@@ -5,10 +5,43 @@ version=${1:-0.1.0-dev}
 out=${2:-dist}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 module=$(awk 'NR == 1 && $1 == "module" { print $2; exit }' "$root/go.mod")
-gitlab_release_host=${AIGW_GITLAB_RELEASE_HOST:-}
-gitlab_release_project=${AIGW_GITLAB_RELEASE_PROJECT:-}
-github_release_host=${AIGW_GITHUB_RELEASE_HOST:-}
-github_release_project=${AIGW_GITHUB_RELEASE_PROJECT:-}
+primary_provider=${AIGW_RELEASE_PRIMARY_PROVIDER:-}
+primary_origin=${AIGW_RELEASE_PRIMARY_ORIGIN:-${AIGW_GITLAB_RELEASE_HOST:-}}
+primary_repository=${AIGW_RELEASE_PRIMARY_REPOSITORY:-${AIGW_GITLAB_RELEASE_PROJECT:-}}
+mirror_provider=${AIGW_RELEASE_MIRROR_PROVIDER:-}
+mirror_origin=${AIGW_RELEASE_MIRROR_ORIGIN:-${AIGW_GITHUB_RELEASE_HOST:-}}
+mirror_repository=${AIGW_RELEASE_MIRROR_REPOSITORY:-${AIGW_GITHUB_RELEASE_PROJECT:-}}
+
+if [ -z "$primary_provider" ] && { [ -n "$primary_origin" ] || [ -n "$primary_repository" ]; }; then
+  primary_provider=gitlab
+fi
+if [ -z "$mirror_provider" ] && { [ -n "$mirror_origin" ] || [ -n "$mirror_repository" ]; }; then
+  mirror_provider=github
+fi
+
+tuple_count() {
+  count=0
+  for value in "$@"; do
+    [ -z "$value" ] || count=$((count + 1))
+  done
+  printf '%s\n' "$count"
+}
+
+primary_count=$(tuple_count "$primary_provider" "$primary_origin" "$primary_repository")
+mirror_count=$(tuple_count "$mirror_provider" "$mirror_origin" "$mirror_repository")
+[ "$primary_count" -eq 0 ] || [ "$primary_count" -eq 3 ] || { echo "release primary tuple must include provider, origin, and repository" >&2; exit 2; }
+if [ "$primary_count" -eq 3 ] && [ "$primary_provider" != gitlab ]; then
+  echo "release primary provider must be gitlab" >&2
+  exit 2
+fi
+if [ "$mirror_count" -ne 0 ] && [ "$mirror_count" -ne 3 ]; then
+  echo "release mirror tuple must include provider, origin, and repository" >&2
+  exit 2
+fi
+if [ "$mirror_count" -eq 3 ] && [ "$mirror_provider" != github ]; then
+  echo "release mirror provider must be github" >&2
+  exit 2
+fi
 
 "$root/scripts/check-package-safety.sh"
 "$root/scripts/check-retired-residue.sh"
@@ -32,7 +65,7 @@ build_binary() {
   printf 'building %s/%s (%s)\n' "$goos" "$goarch" "$channel"
   mkdir -p "$(dirname -- "$dest")"
   CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath \
-    -ldflags "-s -w -X ${module}/internal/cli.Version=$version -X ${module}/internal/selfupdate.InstallChannel=$channel -X ${module}/internal/selfupdate.BuildGitLabReleaseHost=$gitlab_release_host -X ${module}/internal/selfupdate.BuildGitLabReleaseProject=$gitlab_release_project -X ${module}/internal/selfupdate.BuildGitHubReleaseHost=$github_release_host -X ${module}/internal/selfupdate.BuildGitHubReleaseProject=$github_release_project" \
+    -ldflags "-s -w -X ${module}/internal/cli.Version=$version -X ${module}/internal/selfupdate.InstallChannel=$channel -X ${module}/internal/selfupdate.BuildReleasePrimaryProvider=$primary_provider -X ${module}/internal/selfupdate.BuildReleasePrimaryOrigin=$primary_origin -X ${module}/internal/selfupdate.BuildReleasePrimaryRepository=$primary_repository -X ${module}/internal/selfupdate.BuildReleaseMirrorProvider=$mirror_provider -X ${module}/internal/selfupdate.BuildReleaseMirrorOrigin=$mirror_origin -X ${module}/internal/selfupdate.BuildReleaseMirrorRepository=$mirror_repository" \
     -o "$dest" ./cmd/aigw
 }
 

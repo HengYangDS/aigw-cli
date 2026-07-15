@@ -55,6 +55,7 @@ type Prompter interface {
 
 type Updater interface {
 	Update(context.Context, string) (string, error)
+	UpdateCandidate(context.Context, string, selfupdate.CandidateArchive) (string, error)
 	Rollback(context.Context) (string, error)
 }
 

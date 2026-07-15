@@ -33,11 +33,12 @@ checksums for the exact published assets.
    tag pipeline verifies the repository-owned signer anchor before packaging.
 5. Merge only that candidate into the protected default branch and confirm that
    the tag is an ancestor of `main`.
-6. Confirm remote package upload and release assets on the publishing forge. When
-   both GitLab and GitHub releases are present, inspect both tags, asset names,
-   checksums, and SBOMs for exact agreement before offering dual-forge updates.
+6. Confirm remote package upload and release assets on both publishing forges;
+   inspect both tags, asset names, checksums, and SBOMs for exact agreement
+   before offering dual-forge updates.
 7. Perform a clean-environment installation from published assets and one
-   offline verified-candidate update plus portable rollback proof.
+   explicit offline `aigw update --candidate ... --checksums ...` update plus
+   portable rollback proof.
 8. Create a GA tag only after the protected signing evidence applies to the
    exact published artifacts.
 

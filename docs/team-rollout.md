@@ -72,39 +72,39 @@ claim signing or notarization. GA release requirements are defined in
 
 Portable installers copy bundled files only. Formal releases retain the exact
 15-artifact matrix: platform packages, `checksums.txt`, and an SPDX SBOM.
-GitLab and GitHub are equivalent independent forge planes. They carry the same
-release version, filenames, checksums, and SBOM, while preserving separate
-commit and signed-tag provenance. Either reachable forge can distribute a
-release.
+GitLab and GitHub are independent forge planes that preserve separate commit
+and signed-tag provenance. GitLab is the embedded primary update source; GitHub
+is an availability-only fallback after a typed GitLab transport or provider-5xx
+failure. A checksum, metadata, authorization, downgrade, or redirect failure is
+terminal and must not switch providers.
 
 After installation, `aigw update` uses the sources embedded by the publishing
 pipeline. A source build may configure both independently:
 
 ```bash
-export AIGW_GITLAB_RELEASE_HOST=https://gitlab.example.com
-export AIGW_GITLAB_RELEASE_PROJECT=group/aigw-cli
-export AIGW_GITHUB_RELEASE_HOST=https://github.com
-export AIGW_GITHUB_RELEASE_PROJECT=owner/aigw-cli
+export AIGW_RELEASE_PRIMARY_PROVIDER=gitlab
+export AIGW_RELEASE_PRIMARY_ORIGIN=https://gitlab.example.com
+export AIGW_RELEASE_PRIMARY_REPOSITORY=group/aigw-cli
+export AIGW_RELEASE_MIRROR_PROVIDER=github
+export AIGW_RELEASE_MIRROR_ORIGIN=https://github.com
+export AIGW_RELEASE_MIRROR_REPOSITORY=owner/aigw-cli
 ```
 
-For offline acceptance, transfer a complete extracted artifact directory rather
-than a loose executable or source checkout. It must contain exactly one
-platform-matching portable archive and a validating `checksums.txt` record.
-Then invoke the explicit candidate path to preserve the normal atomic replace
-and single-binary rollback behavior:
+For offline acceptance, transfer one reviewed platform-matching portable archive
+with its validating `checksums.txt` record, rather than a loose executable or
+source checkout. Then invoke the explicit candidate path to preserve the normal
+atomic replace and single-binary rollback behavior:
 
 ```bash
-export AIGW_LOCAL_CANDIDATE=/secure-transfer/aigw-0.1.0-rc.1
-AIGW_LOCAL_CANDIDATE="$AIGW_LOCAL_CANDIDATE" aigw update
+aigw update --candidate /secure-transfer/aigw_0.1.0-candidate.1_darwin_arm64.tar.gz \
+  --checksums /secure-transfer/checksums.txt
 ```
 
-When one forge is reachable, its checksum-verified artifact can update the
-program. When both are reachable, AIGW requires matching tags and artifact
-bytes before installation. It never bypasses malformed metadata, missing
-artifacts, version conflicts, checksum failures, or disagreements. `GITLAB_TOKEN`
-is an HTTPS-only GitLab API path; GitHub tokens are ephemeral environment
-credentials. Native channels delegate program updates and rollback to their
-platform package manager.
+The candidate path never contacts a forge. Remote updates never bypass malformed
+metadata, missing artifacts, version conflicts, checksum failures, or redirect
+violations. `GITLAB_TOKEN` is an HTTPS-only GitLab API path; GitHub tokens are
+ephemeral environment credentials. Native channels delegate program updates and
+rollback to their platform package manager.
 
 ## CI secret boundary
 
