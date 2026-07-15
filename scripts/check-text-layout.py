@@ -1,63 +1,136 @@
 #!/usr/bin/env python3
-"""Enforce a compact, portable text-layout contract for tracked source files.
-
-One empty line separates prose paragraphs, declarations, and configuration
-blocks. Consecutive empty lines, whitespace-only empty lines, leading empty
-lines, and terminal empty blocks are never semantic and are therefore rejected.
-The only permitted exception is literal content inside a fenced Markdown block.
-Language-specific structural spacing remains the formatter's authority:
-Python uses PEP 8 two-line separation between module-level declarations, while
-Go and configuration files retain their native grammar and style rules.
-"""
+"""Enforce portable, language-aware text-layout invariants for tracked source."""
 
 from __future__ import annotations
 
-import subprocess
+import ast
 from pathlib import Path
+import subprocess
+import sys
+from typing import TypeAlias
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_NAMES = {"AGENTS.md", "CHANGELOG.md", "CONTRIBUTING.md", "README.md", "aigw"}
-TEXT_SUFFIXES = {".go", ".json", ".md", ".ps1", ".py", ".sh", ".toml", ".txt", ".wxs", ".yaml", ".yml"}
+PythonDeclaration: TypeAlias = ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
+PYTHON_MODULE_DECLARATIONS: tuple[type[PythonDeclaration], ...] = (
+    ast.ClassDef,
+    ast.FunctionDef,
+    ast.AsyncFunctionDef,
+)
+PYTHON_CLASS_DECLARATIONS: tuple[type[PythonDeclaration], ...] = (
+    ast.FunctionDef,
+    ast.AsyncFunctionDef,
+)
 
 
-def is_text_path(name: str) -> bool:
-    path = Path(name)
-    return path.name in TEXT_NAMES or path.suffix.lower() in TEXT_SUFFIXES
+def tracked_files() -> list[Path]:
+    names = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
+    return [ROOT / name for name in names if name and (ROOT / name).is_file()]
+
+
+def fail(path: Path, line: int, message: str) -> str:
+    return f"{path.relative_to(ROOT)}:{line}: text layout: {message}"
+
+
+def fenced_markdown(lines: list[str]) -> set[int]:
+    protected: set[int] = set()
+    active = False
+    for number, line in enumerate(lines, 1):
+        if line.lstrip().startswith(("```", "~~~")):
+            active = not active
+            protected.add(number)
+        elif active:
+            protected.add(number)
+    return protected
+
+
+def blank_lines_between(lines: list[str], left: int, right: int) -> int:
+    return sum(1 for line in lines[left:right - 1] if not line.strip())
+
+
+def check_python_boundaries(path: Path, lines: list[str]) -> list[str]:
+    try:
+        tree = ast.parse("\n".join(lines), filename=str(path))
+    except SyntaxError:
+        return []
+    problems: list[str] = []
+
+    def check_declarations(
+        nodes: list[ast.stmt],
+        declaration_types: tuple[type[PythonDeclaration], ...],
+        expected: int,
+        scope: str,
+    ) -> None:
+        declarations = [node for node in nodes if isinstance(node, declaration_types)]
+        for previous, current in zip(declarations, declarations[1:]):
+            previous_end = getattr(previous, "end_lineno", previous.lineno)
+            actual = blank_lines_between(lines, previous_end, current.lineno)
+            if actual != expected:
+                problems.append(
+                    fail(
+                        path,
+                        previous_end + 1,
+                        "use "
+                        f"{expected} blank line{'s' if expected != 1 else ''} "
+                        f"between {scope} declarations",
+                    )
+                )
+
+    check_declarations(tree.body, PYTHON_MODULE_DECLARATIONS, 2, "module-level")
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            check_declarations(node.body, PYTHON_CLASS_DECLARATIONS, 1, "class-method")
+    return problems
+
+
+def inspect(path: Path) -> list[str]:
+    data = path.read_bytes()
+    if b"\0" in data:
+        return []
+    problems: list[str] = []
+    if b"\r\n" in data or b"\r" in data:
+        problems.append(fail(path, 1, "use LF line endings"))
+    if not data.endswith(b"\n"):
+        problems.append(fail(path, max(1, data.count(b"\n") + 1), "end with one newline"))
+    try:
+        lines = data.decode("utf-8").splitlines()
+    except UnicodeDecodeError:
+        return problems
+    protected = fenced_markdown(lines) if path.suffix.lower() == ".md" else set()
+    max_blank_run = 2 if path.suffix.lower() == ".py" else 1
+    blank_start: int | None = None
+    for number, line in enumerate(lines, 1):
+        if line.rstrip(" \t") != line:
+            problems.append(fail(path, number, "remove trailing whitespace"))
+        if number in protected:
+            blank_start = None
+            continue
+        if line.strip():
+            if blank_start is not None and number - blank_start > max_blank_run:
+                problems.append(
+                    fail(
+                        path,
+                        blank_start,
+                        "use at most "
+                        f"{max_blank_run} consecutive blank line"
+                        f"{'s' if max_blank_run != 1 else ''}",
+                    )
+                )
+            blank_start = None
+        elif blank_start is None:
+            blank_start = number
+    if blank_start is not None:
+        problems.append(fail(path, blank_start, "use one final newline, not trailing blank lines"))
+    if path.suffix.lower() == ".py":
+        problems.extend(check_python_boundaries(path, lines))
+    return problems
 
 
 def main() -> None:
-    tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
-    failures: list[str] = []
-    for name in filter(is_text_path, tracked):
-        path = ROOT / name
-        try:
-            lines = path.read_text(encoding="utf-8").splitlines()
-        except (OSError, UnicodeDecodeError):
-            continue
-        fenced = False
-        blank_run = 0
-        for number, line in enumerate(lines, 1):
-            if name.endswith(".md") and line.startswith("```"):
-                fenced = not fenced
-            if fenced:
-                blank_run = 0
-                continue
-            if line and line[-1].isspace():
-                failures.append(f"{name}:{number}: trailing whitespace")
-            if line:
-                blank_run = 0
-                continue
-            blank_run += 1
-            allowed = 2 if name.endswith(".py") else 1
-            if blank_run > allowed:
-                failures.append(f"{name}:{number}: consecutive blank line")
-        if lines and not lines[0]:
-            failures.append(f"{name}:1: leading blank line")
-        if lines and not lines[-1]:
-            failures.append(f"{name}:{len(lines)}: terminal blank line")
-    if failures:
-        raise SystemExit("Text layout contract failed:\n" + "\n".join(failures))
-    print("Text layout contract: OK")
+    problems = [problem for path in tracked_files() for problem in inspect(path)]
+    if problems:
+        print("\n".join(problems), file=sys.stderr)
+        raise SystemExit(1)
+    print("text layout contract: OK")
 
 
 if __name__ == "__main__":

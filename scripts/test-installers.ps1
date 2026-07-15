@@ -8,7 +8,7 @@ if (-not (Test-Path $Installer)) { throw "installer does not exist: $Installer" 
 $Uninstaller = Join-Path (Split-Path -Parent $Installer) "uninstall.ps1"
 if (-not (Test-Path $Uninstaller)) { throw "uninstaller does not exist beside installer: $Uninstaller" }
 $text = Get-Content -Raw $Installer
-foreach ($forbidden in @("Invoke-WebRequest", "Invoke-RestMethod", "curl", "wget", "gh", "glab", "GITHUB_TOKEN", "GITLAB_TOKEN", "AIGW_RELEASE_HOST", "AIGW_RELEASE_PROJECT", "AIGW_RELEASE_MIRROR_HOST", "AIGW_RELEASE_MIRROR_PROJECT")) {
+foreach ($forbidden in @("Invoke-WebRequest", "Invoke-RestMethod", "curl", "wget", "gh", "glab", "GITHUB_TOKEN", "GITLAB_TOKEN", "AIGW_GITLAB_RELEASE_HOST", "AIGW_GITLAB_RELEASE_PROJECT", "AIGW_GITHUB_RELEASE_HOST", "AIGW_GITHUB_RELEASE_PROJECT")) {
     if ($text -match [regex]::Escape($forbidden)) { throw "portable installer must not implement network release retrieval: $forbidden" }
 }
 

@@ -42,6 +42,12 @@ its tag date; run `sh scripts/check-changelog.sh` before requesting review.
 GitLab **Project Name** is `AIGW CLI`; stable clone **Path** is `aigw-cli`. Do
 not change external paths as a display-name cleanup.
 
+GitLab and GitHub are equal peer forges. Keep the same commit, branch, and tag
+history on both. From a clean owned worktree, use
+`sh scripts/forge-peer-sync.sh --check` before the explicit `--sync` action; do
+not create provider-specific snapshot commits, force-push, or delete remote refs
+for convergence.
+
 ## Merge closeout
 
 Merge is not the end of a branch lifecycle. After the target branch contains
@@ -50,7 +56,7 @@ to remove merge-request source branches automatically; for direct, signed
 release merges, remove the corresponding remote branch explicitly. Before
 removing any branch or worktree, prove all three conditions:
 
-1. its tip is reachable from `origin/main`;
+1. its tip is reachable from local `main` and every required reachable peer;
 2. its worktree is clean and no longer needed; and
 3. it is neither `main` nor an active, unmerged delivery branch.
 
