@@ -12,6 +12,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 - Mark GitHub releases created from SemVer prerelease tags as prereleases, while
   leaving GA releases unmarked.
+- Resolve the newest published GitHub prerelease when GitHub's stable-only
+  latest-release endpoint has no result, preserving the independent peer update
+  contract for prerelease-only release streams.
 
 ## [0.1.0-rc.51] - 2026-07-15
 
