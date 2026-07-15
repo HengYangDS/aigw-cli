@@ -87,6 +87,7 @@ func newCheckCommand(app *App) *cobra.Command {
 			if transport := transportStatus(runtime.Endpoint); transport.Kind == "external_loopback" {
 				r.Section("Transport")
 				r.Status(presentation.Info, "Codex", "External loopback compatibility layer")
+				r.Detail("Codex requests use the external listener")
 				r.Detail("AIGW does not start, stop, or configure it")
 			}
 			if providerAccount.AccountProbe != nil && providers.Supports(providerAccount.AccountProbe.Kind) && app.Accounts.Has(accountName) {
