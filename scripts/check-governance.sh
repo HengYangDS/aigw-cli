@@ -15,6 +15,7 @@ for file in \
   docs/README.md \
   docs/architecture/authority-and-projection-boundary.md \
   docs/governance/change-and-release-policy.md \
+  docs/governance/terminal-experience-contract.md \
   docs/decisions/0001-control-plane-data-plane-boundary.md \
   docs/evidence/README.md \
   packaging/release/allowed_signers \
