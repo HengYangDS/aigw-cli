@@ -36,7 +36,8 @@ jobs:
       - name: Install release build tools
         run: |
           set -euo pipefail
-          brew install nfpm wixl
+          brew install nfpm msitools
+          sh scripts/check-package-runner.sh
       - name: Verify the signed tag and source gates
         env:
           SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
