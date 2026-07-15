@@ -12,6 +12,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 - Add the canonical MIT License and align repository, package, and contributor
   surfaces on the same permissive licensing statement.
+- Add a command-oriented entry path in the CLI and documentation: setup, choose,
+  check, then follow one explicit next action.
 
 ### Changed
 

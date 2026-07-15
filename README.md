@@ -11,6 +11,19 @@ projections. It does not run a gateway, listen on a port, relay API traffic, or
 own Codex conversation state. It is distributed under the [MIT](LICENSE)
 License.
 
+## Choose a path
+
+| If you want to… | Start with | Then |
+| --- | --- | --- |
+| Connect AIGW for the first time | `aigw setup` | `aigw check` |
+| Change the active service | `aigw use <profile>` | `aigw check` |
+| Understand the current state | `aigw status` | Follow its single **Next** command |
+| Repair local client integration | `aigw doctor` | Run its recommended action |
+| Work from a reviewed team manifest | `aigw config import team-profiles.toml` | `aigw check` |
+
+The CLI follows the same pattern throughout: show the current state, state one
+safe next action, and keep detail behind explicit diagnostic commands.
+
 ## What it manages
 
 - **Accounts**: one provider boundary, verified endpoint(s), and one operating-
@@ -177,17 +190,19 @@ endpoint from AIGW's perspective.
 
 ## Documentation and contribution
 
-- [Concepts](docs/concepts.md)
-- [Security model](docs/security.md)
-- [Model strategy](docs/model-strategy.md)
-- [Adapter admission](docs/adapter-admission.md)
-- [Team rollout](docs/team-rollout.md)
-- [Release evidence](docs/release-readiness.md)
-- [Forge operations](docs/operations/forge-operations.md)
-- [Contribution guide](CONTRIBUTING.md)
-- [Documentation root](docs/README.md)
-- [Change and release policy](docs/governance/change-and-release-policy.md)
-- [MIT License](LICENSE)
+Start with [Concepts](docs/concepts.md) for the product model, then use the
+narrow document that matches the task:
+
+| Need | Document |
+| --- | --- |
+| Secure endpoints, tokens, and local boundaries | [Security model](docs/security.md) |
+| Client adapter decisions | [Adapter admission](docs/adapter-admission.md) |
+| Team adoption and configuration import | [Team rollout](docs/team-rollout.md) |
+| Release evidence and publication limits | [Release evidence](docs/release-readiness.md) |
+| GitLab/GitHub operation and provenance | [Forge operations](docs/operations/forge-operations.md) |
+| Contribution and repository policy | [Contribution guide](CONTRIBUTING.md) |
+| Full document map | [Documentation root](docs/README.md) |
+| License terms | [MIT License](LICENSE) |
 
 ## License
 
