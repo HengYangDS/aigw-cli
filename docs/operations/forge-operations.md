@@ -4,7 +4,7 @@ Status: canonical.
 
 ## Model
 
-GitLab and GitHub are equivalent independent forge planes. A managed repository
+GitLab and GitHub are independent, complete forge planes. A managed repository
 uses one GitLab remote and one GitHub remote; each provider owns its own commit
 history, signed tags, CI/CD execution, and release publication. The same release
 version must have an equivalent 15-artifact matrix, checksums, and SBOM on both
@@ -37,10 +37,13 @@ release. If an identical GitHub release already exists, its assets are
 downloaded and byte-verified; a disagreement fails closed rather than replacing
 an asset.
 
-A released AIGW binary can contain both source identities. One reachable forge
-is sufficient for update availability. When both are reachable, the updater
-requires matching latest tags and matching checksum-verified current-platform
-artifact bytes before installation.
+A released AIGW binary contains one GitLab primary source tuple and an optional
+GitHub mirror tuple. The updater completes the GitLab attempt before considering
+GitHub. It uses GitHub only after a bounded transport error or GitLab 5xx source
+unavailability; it never falls back for authorization, 4xx, malformed metadata,
+missing assets, checksums, archive validation, downgrade, or redirect-security
+failures. Each attempt obtains its tag, manifest, and artifact from one provider
+only.
 
 ## Provider identities
 

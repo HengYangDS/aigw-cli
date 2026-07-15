@@ -12,20 +12,31 @@ import (
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/selfupdate"
 )
 
 type fakeUpdater struct {
-	updateCalls    int
-	rollbackCalls  int
-	updateResult   string
-	rollbackResult string
-	updateErr      error
-	rollbackErr    error
+	updateCalls       int
+	candidateCalls    int
+	rollbackCalls     int
+	updateResult      string
+	candidateResult   string
+	rollbackResult    string
+	updateErr         error
+	candidateErr      error
+	rollbackErr       error
+	candidateReceived selfupdate.CandidateArchive
 }
 
 func (u *fakeUpdater) Update(_ context.Context, _ string) (string, error) {
 	u.updateCalls++
 	return u.updateResult, u.updateErr
+}
+
+func (u *fakeUpdater) UpdateCandidate(_ context.Context, _ string, candidate selfupdate.CandidateArchive) (string, error) {
+	u.candidateCalls++
+	u.candidateReceived = candidate
+	return u.candidateResult, u.candidateErr
 }
 
 func (u *fakeUpdater) Rollback(_ context.Context) (string, error) {
@@ -345,6 +356,33 @@ func TestUpdateWithoutRollbackKeepsNetworkUpdatePath(t *testing.T) {
 	}
 	if updater.updateCalls != 1 || updater.rollbackCalls != 0 {
 		t.Fatalf("update calls=%d rollback calls=%d", updater.updateCalls, updater.rollbackCalls)
+	}
+}
+
+func TestUpdateCandidateUsesExplicitOfflineInputs(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	updater := &fakeUpdater{candidateResult: "updated to v0.2.0 from a verified local candidate"}
+	app.Updater = updater
+	if err := execute(t, app, "update", "--candidate", "/tmp/aigw_0.2.0_darwin_arm64.tar.gz", "--checksums", "/tmp/checksums.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if updater.candidateCalls != 1 || updater.updateCalls != 0 || updater.rollbackCalls != 0 {
+		t.Fatalf("network=%d candidate=%d rollback=%d", updater.updateCalls, updater.candidateCalls, updater.rollbackCalls)
+	}
+	if updater.candidateReceived.ArchivePath != "/tmp/aigw_0.2.0_darwin_arm64.tar.gz" || updater.candidateReceived.ChecksumsPath != "/tmp/checksums.txt" {
+		t.Fatalf("candidate = %#v", updater.candidateReceived)
+	}
+	if !strings.Contains(out.String(), "Verified local candidate") {
+		t.Fatalf("output = %s", out.String())
+	}
+}
+
+func TestUpdateCandidateRequiresChecksumManifest(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	app.Updater = &fakeUpdater{}
+	err := execute(t, app, "update", "--candidate", "/tmp/aigw_0.2.0_darwin_arm64.tar.gz")
+	if err == nil || !strings.Contains(err.Error(), "must all be set") {
+		t.Fatalf("error = %v", err)
 	}
 }
 

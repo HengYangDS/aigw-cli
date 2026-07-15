@@ -91,25 +91,30 @@ self-update logic.
 
 Portable archives contain local-only `install.sh` and `install.ps1` scripts.
 They copy the bundled binary and never retrieve releases or inspect release
-credentials. GitLab and GitHub are equal independent forge sources for the
-same release identity; a complete extracted artifact directory supports offline
-candidate acceptance. If one configured forge is reachable, `aigw update` may
-use it. If both are reachable, it requires matching latest tags and matching
-checksum-verified current-platform artifact bytes before installation. It
-refuses malformed metadata, version disagreement, missing artifacts, checksum
-failure, or byte disagreement.
+credentials. GitLab is the primary update source; GitHub is an independent
+fallback only after a typed GitLab transport or provider-5xx availability
+failure. AIGW never fails over after authentication, metadata, checksum,
+archive-layout, downgrade, or redirect-security errors, and it never mixes a
+tag, manifest, or artifact across providers.
 
-`AIGW_LOCAL_CANDIDATE` names a complete extracted artifact directory. AIGW
-accepts it only when it contains exactly one portable archive for the running
-platform and that archive validates against the directory's `checksums.txt`. A
-source tree or standalone executable is not a candidate. For remote testing,
-`AIGW_GITLAB_RELEASE_HOST` and `AIGW_GITLAB_RELEASE_PROJECT` identify GitLab;
-`AIGW_GITHUB_RELEASE_HOST` and `AIGW_GITHUB_RELEASE_PROJECT` identify GitHub.
-The GitLab token path requires an explicit HTTPS origin. Tokens are neither
-persisted nor placed on a command line; requests have a finite timeout, release
-assets remain checksum-verified, credentials are removed before a redirect
-crosses hosts, HTTPS-to-HTTP redirects are refused, and an older or malformed
-release cannot replace the installed binary.
+Use an explicit archive and manifest for offline candidate acceptance:
+
+```bash
+aigw update --candidate /secure-transfer/aigw_0.1.0-candidate.1_darwin_arm64.tar.gz \
+  --checksums /secure-transfer/checksums.txt
+```
+
+The candidate path is local-only and checksum-first; a source tree, loose
+binary, tag, or self-authored checksum is not independent release evidence. For
+remote testing, configure complete `provider`, `origin`, and `repository`
+tuples through `AIGW_RELEASE_PRIMARY_*` and optional `AIGW_RELEASE_MIRROR_*`.
+The legacy complete GitLab/GitHub host-project pairs remain a compatibility
+input, but partial or mixed tuples fail before a network request. The GitLab
+token path requires an explicit HTTPS origin. Tokens are neither persisted nor
+placed on a command line; requests have a finite timeout, release assets remain
+checksum-verified, credentials are removed before a redirect crosses hosts,
+HTTPS-to-HTTP redirects are refused, and an older or malformed release cannot
+replace the installed binary.
 
 Portable installs retain exactly one immediate predecessor beside the current
 binary. `aigw update --rollback` swaps those two local binaries without any

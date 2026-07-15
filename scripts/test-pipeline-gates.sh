@@ -30,6 +30,7 @@ verify = section(gitlab, "verify")
 for required in [
     "go test -race ./...", "go vet ./...", "check-product-surface.sh", "check-release-tag-signature.sh",
     "check-english-text.sh", "test-linux-native-install-staging.sh",
+    "test-verified-candidate.sh",
     "test-pipeline-gates.sh", "test-github-actions-contract.sh",
     "test-github-release-workflow.sh",
     "test-github-provider-projection.sh", "check-text-layout.py", "test-text-layout.sh",
@@ -39,9 +40,11 @@ for required in [
 
 package = section(gitlab, "package")
 for required in [
-    'AIGW_GITLAB_RELEASE_HOST="$CI_SERVER_URL"',
-    'AIGW_GITLAB_RELEASE_PROJECT="$CI_PROJECT_PATH"',
-    "AIGW_GITHUB_RELEASE_HOST", "AIGW_GITHUB_RELEASE_PROJECT",
+    'AIGW_RELEASE_PRIMARY_PROVIDER=gitlab',
+    'AIGW_RELEASE_PRIMARY_ORIGIN="$CI_SERVER_URL"',
+    'AIGW_RELEASE_PRIMARY_REPOSITORY="$CI_PROJECT_PATH"',
+    'AIGW_RELEASE_MIRROR_PROVIDER=github',
+    "AIGW_RELEASE_MIRROR_ORIGIN", "AIGW_RELEASE_MIRROR_REPOSITORY",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh",
 ]:
     if required not in package:
@@ -56,14 +59,15 @@ if "mirror-github:" in gitlab or "AIGW_GITHUB_MIRROR" in gitlab:
 for required in [
     "name: Release", 'tags: ["v*"]', "permissions:\n  contents: write",
     "runs-on: macos-15", "check-release-tag-signature.sh",
-    "AIGW_GITHUB_RELEASE_HOST", "AIGW_GITHUB_RELEASE_PROJECT",
-    "AIGW_GITLAB_RELEASE_HOST", "AIGW_GITLAB_RELEASE_PROJECT",
+    "AIGW_RELEASE_PRIMARY_PROVIDER", "AIGW_RELEASE_PRIMARY_ORIGIN", "AIGW_RELEASE_PRIMARY_REPOSITORY",
+    "AIGW_RELEASE_MIRROR_PROVIDER", "AIGW_RELEASE_MIRROR_ORIGIN", "AIGW_RELEASE_MIRROR_REPOSITORY",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
     "check-text-layout.py", "test-text-layout.sh",
+    "test-verified-candidate.sh",
 ]:
     if required not in github:
         raise SystemExit(f"GitHub independent release plane is missing {required}")
-if "gitlab-ci" in github.lower() or "publish-release.sh" in github or "mirror" in github.lower() or "primary" in github.lower():
+if "gitlab-ci" in github.lower() or "publish-release.sh" in github:
     raise SystemExit("GitHub release plane retains a non-peer dependency")
 
 print("dual forge CI/CD contract: OK")
