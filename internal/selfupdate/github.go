@@ -1,0 +1,177 @@
+package selfupdate
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+func (u Updater) latestTagFromGitHub(ctx context.Context, source ReleaseSource) (string, error) {
+	release, err := u.githubRelease(ctx, source, "releases/latest")
+	if err != nil {
+		return "", err
+	}
+	if release.TagName == "" {
+		return "", fmt.Errorf("no AIGW release is available")
+	}
+	return release.TagName, nil
+}
+
+type githubRelease struct {
+	TagName string `json:"tag_name"`
+	Assets  []struct {
+		Name               string `json:"name"`
+		BrowserDownloadURL string `json:"browser_download_url"`
+	} `json:"assets"`
+}
+
+func (u Updater) githubRelease(ctx context.Context, source ReleaseSource, path string) (githubRelease, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, u.githubAPIURL(source, path), nil)
+	if err != nil {
+		return githubRelease{}, fmt.Errorf("create GitHub release metadata request: %w", err)
+	}
+	if err := u.authorizeGitHubRequest(request); err != nil {
+		return githubRelease{}, err
+	}
+	request.Header.Set("Accept", "application/vnd.github+json")
+	response, err := u.githubHTTPClient().Do(request)
+	if err != nil {
+		return githubRelease{}, unavailable(fmt.Errorf("query GitHub release metadata: %w", err))
+	}
+	defer response.Body.Close()
+	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
+		return githubRelease{}, unavailable(fmt.Errorf("query GitHub release metadata: %s", response.Status))
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return githubRelease{}, fmt.Errorf("query GitHub release metadata: %s", response.Status)
+	}
+	var release githubRelease
+	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(&release); err != nil {
+		return githubRelease{}, fmt.Errorf("parse GitHub release metadata: %w", err)
+	}
+	return release, nil
+}
+
+func (u Updater) downloadGitHubReleaseAssets(ctx context.Context, release githubRelease, directory string, assets ...string) error {
+	urls := make(map[string]string, len(release.Assets))
+	for _, asset := range release.Assets {
+		if filepath.Base(asset.Name) == asset.Name && asset.BrowserDownloadURL != "" {
+			urls[asset.Name] = asset.BrowserDownloadURL
+		}
+	}
+	for _, asset := range assets {
+		if filepath.Base(asset) != asset {
+			return fmt.Errorf("invalid release asset name %q", asset)
+		}
+		assetURL := urls[asset]
+		if assetURL == "" {
+			return fmt.Errorf("GitHub release metadata does not include %s", asset)
+		}
+		if err := u.downloadGitHubAsset(ctx, assetURL, filepath.Join(directory, asset)); err != nil {
+			return fmt.Errorf("download GitHub release asset %s: %w", asset, err)
+		}
+	}
+	return nil
+}
+
+func (u Updater) downloadReleaseAssetsFromGitHub(ctx context.Context, source ReleaseSource, tag, directory string, assets ...string) error {
+	release, err := u.githubRelease(ctx, source, "releases/tags/"+url.PathEscape(tag))
+	if err != nil {
+		return err
+	}
+	if release.TagName != tag {
+		return fmt.Errorf("GitHub release metadata tag %q does not match requested tag %q", release.TagName, tag)
+	}
+	return u.downloadGitHubReleaseAssets(ctx, release, directory, assets...)
+}
+
+func (u Updater) downloadGitHubAsset(ctx context.Context, rawURL, destination string) error {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return fmt.Errorf("create GitHub asset request: %w", err)
+	}
+	if err := u.authorizeGitHubRequest(request); err != nil {
+		return err
+	}
+	response, err := u.githubHTTPClient().Do(request)
+	if err != nil {
+		return unavailable(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
+		return unavailable(fmt.Errorf("%s", response.Status))
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("%s", response.Status)
+	}
+	file, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return fmt.Errorf("create downloaded asset: %w", err)
+	}
+	_, copyErr := io.Copy(file, io.LimitReader(response.Body, 1<<30))
+	closeErr := file.Close()
+	if copyErr != nil {
+		return fmt.Errorf("write downloaded asset: %w", copyErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close downloaded asset: %w", closeErr)
+	}
+	return nil
+}
+
+func isGitHubUnavailable(err error) bool { return isSourceUnavailable(err) }
+
+func (u Updater) githubAPIURL(source ReleaseSource, path string) string {
+	origin := strings.TrimRight(source.Origin, "/")
+	if strings.EqualFold(origin, "https://github.com") {
+		origin = "https://api.github.com"
+	}
+	return origin + "/repos/" + source.Repository + "/" + path
+}
+
+func (u Updater) githubHTTPClient() *http.Client {
+	base := u.HTTPClient
+	if base == nil {
+		base = http.DefaultClient
+	}
+	client := *base
+	if client.Timeout == 0 {
+		client.Timeout = releaseRequestTimeout
+	}
+	defaultCheckRedirect := client.CheckRedirect
+	client.CheckRedirect = func(request *http.Request, previous []*http.Request) error {
+		if len(previous) > 0 && !strings.EqualFold(request.URL.Host, previous[0].URL.Host) {
+			request.Header.Del("Authorization")
+			request.Header.Del("PRIVATE-TOKEN")
+		}
+		if len(previous) > 0 && previous[0].URL.Scheme == "https" && request.URL.Scheme != "https" {
+			return fmt.Errorf("refusing GitHub update redirect from HTTPS to HTTP")
+		}
+		if defaultCheckRedirect != nil {
+			return defaultCheckRedirect(request, previous)
+		}
+		return nil
+	}
+	return &client
+}
+
+func (u *Updater) authorizeGitHubRequest(request *http.Request) error {
+	for _, name := range []string{"AIGW_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"} {
+		token := os.Getenv(name)
+		if token == "" {
+			continue
+		}
+		if strings.ContainsAny(token, "\r\n") {
+			return fmt.Errorf("GitHub token contains a control character")
+		}
+		request.Header.Set("Authorization", "Bearer "+token)
+		break
+	}
+	return nil
+}
