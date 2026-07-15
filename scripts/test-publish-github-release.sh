@@ -35,6 +35,18 @@ done
 )
 cp "$artifacts"/* "$remote_assets/"
 
+stable_artifacts="$tmp/stable-dist"
+mkdir "$stable_artifacts"
+for file in "$artifacts"/*; do
+  [ "$(basename -- "$file")" = checksums.txt ] && continue
+  name=$(basename -- "$file" | sed 's/0\.1\.0-test/0.1.0/g')
+  cp "$file" "$stable_artifacts/$name"
+done
+(
+  cd "$stable_artifacts"
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum ./* > checksums.txt; else shasum -a 256 ./* > checksums.txt; fi
+)
+
 cat > "$tmp/gh" <<'GH'
 #!/bin/sh
 set -eu
@@ -74,8 +86,17 @@ run() {
 run create "$tmp/create.log" >/dev/null
 grep -q "release create v$version" "$tmp/create.log"
 grep -q -- "--verify-tag" "$tmp/create.log"
+grep -q -- "--prerelease" "$tmp/create.log"
 if grep -q -- '--clobber' "$tmp/create.log"; then
   echo "GitHub publisher may not overwrite an existing release asset" >&2
+  exit 1
+fi
+
+stable_log="$tmp/stable.log"
+PATH="$tmp:$PATH" AIGW_TEST_GH_MODE=create AIGW_TEST_GH_LOG="$stable_log" AIGW_TEST_GH_REMOTE="$remote_assets" \
+  GITHUB_REPOSITORY=owner/aigw-cli CI_COMMIT_TAG="v0.1.0" GH_TOKEN=redacted sh "$script" "$stable_artifacts" >/dev/null
+if grep -q -- '--prerelease' "$stable_log"; then
+  echo "GitHub publisher marked a GA release as prerelease" >&2
   exit 1
 fi
 
