@@ -53,8 +53,13 @@ for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 wi
   else
     tar -xzf "$archive" -C "$stage"
   fi
-  payload="$stage/aigw_${version}_${os}_${arch}/$binary"
+  payload_root="$stage/aigw_${version}_${os}_${arch}"
+  payload="$payload_root/$binary"
   [ -x "$payload" ] || { echo "portable package missing executable: $os/$arch" >&2; exit 1; }
+  cmp -s "$root/LICENSE" "$payload_root/LICENSE" || {
+    echo "portable package license file differs from repository MIT license: $os/$arch" >&2
+    exit 1
+  }
   if [ "$os" != windows ]; then
     installer="$stage/aigw_${version}_${os}_${arch}/install.sh"
     [ -x "$installer" ] || { echo "portable package installer is not executable: $os/$arch" >&2; exit 1; }
@@ -88,6 +93,11 @@ for arch in amd64 arm64; do
   ar p "$deb" "$control" | bsdtar -xOf - ./control > "$work/control-$arch"
   grep -Fx "Architecture: $arch" "$work/control-$arch" >/dev/null || { echo "deb architecture mismatch: $arch" >&2; exit 1; }
   ar p "$deb" "$data" | bsdtar -xOf - ./usr/bin/aigw > "$work/deb-$arch"
+  ar p "$deb" "$data" | bsdtar -xOf - ./usr/share/doc/aigw/copyright > "$work/deb-copyright-$arch"
+  cmp -s "$root/LICENSE" "$work/deb-copyright-$arch" || {
+    echo "deb package license file differs from repository MIT license: $arch" >&2
+    exit 1
+  }
   description=$(file "$work/deb-$arch")
   case "$arch:$description" in
     amd64:*x86-64*) ;;
@@ -97,7 +107,13 @@ for arch in amd64 arm64; do
 
   rpm="$out/aigw_${version}_linux_${arch}.rpm"
   bsdtar -tf "$rpm" | grep -Fx /usr/bin/aigw >/dev/null || { echo "rpm missing /usr/bin/aigw: $arch" >&2; exit 1; }
+  bsdtar -tf "$rpm" | grep -Fx /usr/share/doc/aigw/copyright >/dev/null || { echo "rpm missing MIT license file: $arch" >&2; exit 1; }
   bsdtar -xOf "$rpm" /usr/bin/aigw > "$work/rpm-$arch"
+  bsdtar -xOf "$rpm" /usr/share/doc/aigw/copyright > "$work/rpm-copyright-$arch"
+  cmp -s "$root/LICENSE" "$work/rpm-copyright-$arch" || {
+    echo "rpm package license file differs from repository MIT license: $arch" >&2
+    exit 1
+  }
   description=$(file "$work/rpm-$arch")
   case "$arch:$description" in
     amd64:*x86-64*) ;;

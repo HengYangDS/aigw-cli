@@ -10,6 +10,7 @@ require_file() {
 
 for file in \
   AGENTS.md \
+  LICENSE \
   CONTRIBUTING.md \
   docs/README.md \
   docs/architecture/authority-and-projection-boundary.md \
@@ -24,6 +25,7 @@ done
 
 sh scripts/check-changelog.sh
 sh scripts/check-english-text.sh
+sh scripts/check-product-surface.sh
 python3 scripts/check-text-layout.py
 
 if ! grep -Fq '# AIGW CLI' README.md; then
