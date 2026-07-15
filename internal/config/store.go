@@ -79,9 +79,9 @@ func (s Store) Save(cfg domain.Config) error {
 	return writeAtomic(s.path, data, 0o600)
 }
 
-// separateTOMLTableBlocks keeps generated configuration readable when the
-// encoder emits adjacent parent and child table headers. TOML ignores blank
-// lines, so this is a presentation-only normalization of AIGW-owned output.
+// separateTOMLTableBlocks inserts exactly one separator before each generated
+// table after the first. TOML ignores blank lines, so this is a presentation-
+// only normalization of AIGW-owned output.
 func separateTOMLTableBlocks(data []byte) []byte {
 	lines := strings.Split(string(data), "\n")
 	formatted := make([]string, 0, len(lines)+8)
