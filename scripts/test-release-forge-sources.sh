@@ -85,6 +85,6 @@ if SOURCE_DATE_EPOCH=1784246400 \
   echo "package accepted a conflicting release toolchain override" >&2
   exit 1
 fi
-grep -Fx 'AIGW_RELEASE_GO_TOOLCHAIN conflicts with go.mod: expected go1.25.8' "$tmp/toolchain.out" >/dev/null
+grep -Fx 'AIGW_RELEASE_GO_TOOLCHAIN conflicts with go.mod: expected go1.25.12' "$tmp/toolchain.out" >/dev/null
 
 echo "release forge-source manifest contract: OK"

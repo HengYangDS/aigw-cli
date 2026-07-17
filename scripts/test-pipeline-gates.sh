@@ -24,8 +24,8 @@ if r"CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\/" not in workflow:
     raise SystemExit("GitLab must suppress release branch merge-request pipelines")
 
 default = section(gitlab, "default")
-if "image: golang:1.25.8" not in default:
-    raise SystemExit("GitLab release toolchain must pin Go 1.25.8 exactly")
+if "image: golang:1.25.12" not in default:
+    raise SystemExit("GitLab release toolchain must pin Go 1.25.12 exactly")
 if "AIGW_GOPROXY" not in default or "prepare-ci-go-cache.sh" not in default:
     raise SystemExit("GitLab must retain its independently configured Go dependency path")
 if "https://goproxy.cn|https://proxy.golang.org|direct" not in default:
@@ -34,8 +34,8 @@ if "tags: [aigw-release-macos-arm64]" not in default:
     raise SystemExit("GitLab must schedule the full pipeline on its dedicated release runner")
 
 variables = section(gitlab, "variables")
-if "GOTOOLCHAIN: go1.25.8" not in variables:
-    raise SystemExit("GitLab must resolve Go 1.25.8 on every runner")
+if "GOTOOLCHAIN: go1.25.12" not in variables:
+    raise SystemExit("GitLab must resolve Go 1.25.12 on every runner")
 
 verify = section(gitlab, "verify")
 for required in [
@@ -96,7 +96,7 @@ for section_text, name in [
 for required in [
     "name: Release", 'tags: ["v*"]', "permissions:\n  contents: write",
     "runs-on: [self-hosted, macOS, ARM64, aigw-release-macos-arm64]", 'check-release-tag-signature.sh . "$SELECTED_TAG" github',
-    'go-version: "1.25.8"', "check-latest: false", "cache: false", "GOTOOLCHAIN: go1.25.8", "check-release-toolchain.sh",
+    'go-version: "1.25.12"', "check-latest: false", "cache: false", "GOTOOLCHAIN: go1.25.12", "check-release-toolchain.sh",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
     'SOURCE_DATE_EPOCH="$(sh scripts/release-source-date-epoch.sh "$version")"',
     'sh scripts/test-release-reproducibility.sh "$version"',
