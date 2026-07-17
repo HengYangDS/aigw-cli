@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +18,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/config"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/providers"
@@ -920,7 +924,7 @@ func newSyncCommand(app *App) *cobra.Command {
 				return err
 			}
 			if dryRun {
-				plans, err := planCodexProjection(cfg)
+				plans, err := planCodexReconciliation(app, cfg, cfg)
 				if err != nil {
 					return err
 				}
@@ -942,7 +946,7 @@ func newSyncCommand(app *App) *cobra.Command {
 				r.Next("aigw sync")
 				return nil
 			}
-			if err := syncCodexProjection(cmd.Context(), app, cfg); err != nil {
+			if err := reconcileCodexProjection(cmd.Context(), app, cfg, cfg); err != nil {
 				return err
 			}
 			r := renderer(app)
@@ -1007,31 +1011,106 @@ func newRollbackCommand(app *App) *cobra.Command {
 
 const codexAuthenticationTimeout = 20 * time.Second
 
-// syncCodexProjection is deliberately Codex-only. Claude resolves the current
-// Route inside its own process-bound shim and has no persistent projection to
-// rewrite.
-func planCodexProjection(cfg domain.Config) ([]adapters.CodexProjectionPlan, error) {
-	adapter := cfg.Adapters[domain.ClientCodex]
-	if !adapter.Enabled {
-		return nil, nil
-	}
-	runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
+// planCodexReconciliation is the side-effect-free Codex projection preview.
+// It receives both configuration states so target removals are visible rather
+// than silently ignored when the desired adapter is disabled.
+func planCodexReconciliation(app *App, before, after domain.Config) ([]adapters.CodexProjectionPlan, error) {
+	beforeRefs, afterRefs, runtime, err := codexReconciliationInputs(app, before, after)
 	if err != nil {
 		return nil, err
 	}
-	return adapters.PlanCodexConfigs(adapter.Targets, runtime)
+	return adapters.PlanCodexReconciliation(beforeRefs, afterRefs, runtime)
 }
 
-func syncCodexProjection(_ context.Context, app *App, cfg domain.Config) error {
-	adapter := cfg.Adapters[domain.ClientCodex]
-	if !adapter.Enabled {
-		return nil
-	}
-	runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
+// reconcileCodexProjection is deliberately Codex-only. Claude resolves the
+// current route inside its own process-bound shim and has no persistent
+// projection to rewrite.
+func reconcileCodexProjection(_ context.Context, app *App, before, after domain.Config) error {
+	beforeRefs, afterRefs, runtime, err := codexReconciliationInputs(app, before, after)
 	if err != nil {
 		return err
 	}
-	return adapters.SyncCodexConfigs(adapter.Targets, runtime)
+	_, err = adapters.ReconcileCodexConfigs(beforeRefs, afterRefs, runtime)
+	return err
+}
+
+// syncCodexProjection retains the current-state entry point for commands such
+// as token rotation. Configuration transitions must call
+// reconcileCodexProjection with their true before and after states.
+func syncCodexProjection(ctx context.Context, app *App, cfg domain.Config) error {
+	return reconcileCodexProjection(ctx, app, cfg, cfg)
+}
+
+func codexReconciliationInputs(app *App, before, after domain.Config) ([]adapters.CodexTargetRef, []adapters.CodexTargetRef, domain.Runtime, error) {
+	beforeAdapter := before.Adapters[domain.ClientCodex]
+	afterAdapter := after.Adapters[domain.ClientCodex]
+	if !beforeAdapter.Enabled && !afterAdapter.Enabled {
+		return nil, nil, domain.Runtime{}, nil
+	}
+	discovered, err := discoveredResult(app)
+	if err != nil {
+		return nil, nil, domain.Runtime{}, err
+	}
+	beforeRefs, err := codexTargetRefs(discovered, beforeAdapter.Targets, false)
+	if err != nil {
+		return nil, nil, domain.Runtime{}, err
+	}
+	afterRefs, err := codexTargetRefs(discovered, afterAdapter.Targets, false)
+	if err != nil {
+		return nil, nil, domain.Runtime{}, err
+	}
+	if !afterAdapter.Enabled {
+		afterRefs = nil
+		return beforeRefs, afterRefs, domain.Runtime{}, nil
+	}
+	runtime, _, err := after.ResolveRuntime(domain.ClientCodex, "")
+	if err != nil {
+		return nil, nil, domain.Runtime{}, err
+	}
+	return beforeRefs, afterRefs, runtime, nil
+}
+
+func discoveredResult(app *App) (discovery.Result, error) {
+	if app == nil || app.Discovery == nil {
+		return discovery.Result{}, fmt.Errorf("Codex surface discovery is unavailable")
+	}
+	return app.Discovery.Discover(), nil
+}
+
+func codexTargetRefs(discovered discovery.Result, paths []string, explicitAirFallback bool) ([]adapters.CodexTargetRef, error) {
+	refs := make([]adapters.CodexTargetRef, 0, len(paths))
+	for _, path := range paths {
+		if path == "" {
+			return nil, fmt.Errorf("Codex config target is empty")
+		}
+		if surface, ok := discovered.SurfaceForConfigPath(path); ok {
+			mode := adapters.CodexProjectionFullSelection
+			if surface.ID == discovery.SurfaceAirCodex {
+				identity, err := adapters.ReadCodexProjectionIdentity(path)
+				if err != nil {
+					return nil, err
+				}
+				if explicitAirFallback || (identity.Present && identity.AttributionState == "recognized" && identity.ProjectionMode == adapters.CodexProjectionNamespacedFallback) {
+					mode = adapters.CodexProjectionNamespacedFallback
+				}
+			}
+			refs = append(refs, adapters.CodexTargetRef{
+				SurfaceID:      surface.ID,
+				Authority:      surface.Authority,
+				ProjectionMode: mode,
+				Path:           path,
+			})
+			continue
+		}
+		sum := sha256.Sum256([]byte(filepath.Clean(path)))
+		refs = append(refs, adapters.CodexTargetRef{
+			SurfaceID:      "codex-cli-explicit-" + hex.EncodeToString(sum[:6]),
+			Authority:      discovery.AuthorityAIGW,
+			ProjectionMode: adapters.CodexProjectionFullSelection,
+			Path:           path,
+		})
+	}
+	return refs, nil
 }
 
 // bindCodexAuthentication updates Codex's native credential store. It is
@@ -1041,6 +1120,17 @@ func bindCodexAuthentication(ctx context.Context, app *App, cfg domain.Config) e
 	adapter := cfg.Adapters[domain.ClientCodex]
 	if !adapter.Enabled {
 		return nil
+	}
+	return bindCodexAuthenticationTargets(ctx, app, cfg, adapter.Targets)
+}
+
+// bindCodexAuthenticationTargets binds one explicit set of Codex homes. It is
+// used by the Air fallback command so it never executes a client process for
+// unrelated standalone targets.
+func bindCodexAuthenticationTargets(ctx context.Context, app *App, cfg domain.Config, targets []string) error {
+	adapter := cfg.Adapters[domain.ClientCodex]
+	if !adapter.Enabled {
+		return fmt.Errorf("Codex authentication requires an enabled adapter")
 	}
 	if adapter.Executable == "" || app.Runner == nil {
 		return fmt.Errorf("Codex authentication requires an enabled adapter executable")
@@ -1054,7 +1144,7 @@ func bindCodexAuthentication(ctx context.Context, app *App, cfg domain.Config) e
 	if err != nil {
 		return fmt.Errorf("Token for the Codex route is unavailable: %w", err)
 	}
-	for _, target := range adapter.Targets {
+	for _, target := range targets {
 		plan, err := adapters.CodexLoginPlan(adapter.Executable, filepath.Dir(target), token)
 		if err != nil {
 			return err
@@ -1086,6 +1176,14 @@ func codexRouteUsesAccount(cfg domain.Config, accountName string) bool {
 }
 
 func codexAuthenticationChanged(before, after domain.Config) bool {
+	beforeAdapter := before.Adapters[domain.ClientCodex]
+	afterAdapter := after.Adapters[domain.ClientCodex]
+	if !afterAdapter.Enabled {
+		return false
+	}
+	if !beforeAdapter.Enabled || !slices.Equal(beforeAdapter.Targets, afterAdapter.Targets) {
+		return true
+	}
 	beforeAccount, beforeOK := codexRouteAccount(before)
 	afterAccount, afterOK := codexRouteAccount(after)
 	return afterOK && (!beforeOK || beforeAccount != afterAccount)
@@ -1094,6 +1192,9 @@ func codexAuthenticationChanged(before, after domain.Config) bool {
 func codexProjectionChanged(before, after domain.Config) bool {
 	beforeAdapter := before.Adapters[domain.ClientCodex]
 	afterAdapter := after.Adapters[domain.ClientCodex]
+	if beforeAdapter.Enabled != afterAdapter.Enabled {
+		return true
+	}
 	if !afterAdapter.Enabled {
 		return false
 	}
@@ -1133,11 +1234,11 @@ func cloneConfig(cfg domain.Config) domain.Config {
 	return clone
 }
 
-func rollbackConfigAndAdapters(ctx context.Context, app *App, before domain.Config, rebindNativeAuthentication bool) error {
-	if err := app.Config.Save(before); err != nil {
+func rollbackConfigAndAdapters(ctx context.Context, app *App, before, after domain.Config, configBefore, configAfter config.Snapshot, rebindNativeAuthentication bool) error {
+	if err := app.Config.RestoreSnapshot(configBefore, configAfter); err != nil {
 		return err
 	}
-	if err := syncCodexProjection(ctx, app, before); err != nil {
+	if err := reconcileCodexProjection(ctx, app, after, before); err != nil {
 		return err
 	}
 	if rebindNativeAuthentication {
@@ -1147,12 +1248,20 @@ func rollbackConfigAndAdapters(ctx context.Context, app *App, before domain.Conf
 }
 
 func commitConfigAndSync(ctx context.Context, app *App, before, after domain.Config, subject string) error {
+	configBefore, err := app.Config.CaptureSnapshot()
+	if err != nil {
+		return err
+	}
 	if err := app.Config.Save(after); err != nil {
 		return err
 	}
+	configAfter, err := app.Config.CaptureSnapshot()
+	if err != nil {
+		return err
+	}
 	if codexProjectionChanged(before, after) {
-		if err := syncCodexProjection(ctx, app, after); err != nil {
-			rollbackErr := rollbackConfigAndAdapters(ctx, app, before, false)
+		if err := reconcileCodexProjection(ctx, app, before, after); err != nil {
+			rollbackErr := rollbackConfigAndAdapters(ctx, app, before, after, configBefore, configAfter, false)
 			if rollbackErr != nil {
 				return fmt.Errorf("%s synchronization failed: %w; rollback also failed: %v", subject, err, rollbackErr)
 			}
@@ -1161,7 +1270,7 @@ func commitConfigAndSync(ctx context.Context, app *App, before, after domain.Con
 	}
 	if codexAuthenticationChanged(before, after) {
 		if err := bindCodexAuthentication(ctx, app, after); err != nil {
-			rollbackErr := rollbackConfigAndAdapters(ctx, app, before, true)
+			rollbackErr := rollbackConfigAndAdapters(ctx, app, before, after, configBefore, configAfter, true)
 			if rollbackErr != nil {
 				return fmt.Errorf("%s authentication failed: %w; rollback also failed: %v", subject, err, rollbackErr)
 			}
