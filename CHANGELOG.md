@@ -8,7 +8,7 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
-## [0.1.0-rc.61] - 2026-07-17
+## [0.1.0-rc.62] - 2026-07-17
 
 ### Fixed
 
