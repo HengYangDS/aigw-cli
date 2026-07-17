@@ -27,6 +27,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Disable the GitHub release workflow's nonessential Go-cache save so a
   completed release does not remain in a long post-publication compression
   step.
+- Define the private GitHub Free release plane as signed, independently
+  verified provenance rather than claiming unavailable host-enforced tag
+  immutability; AIGW automation still never rewrites provider-native tags.
 
 ## [0.1.0-rc.62] - 2026-07-17
 

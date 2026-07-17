@@ -4,6 +4,14 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 script="$root/scripts/project-github-forge.sh"
+help=$(sh "$script" --help 2>&1 || true)
+case "$help" in
+  *"Existing GitHub release tags must verify as GitHub provenance"*) ;;
+  *) echo 'GitHub projection help omits its provenance-verification boundary' >&2; exit 1 ;;
+esac
+case "$help" in
+  *immutable*) echo 'GitHub projection help claims host-enforced tag immutability' >&2; exit 1 ;;
+esac
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/aigw-github-provider-projection.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 

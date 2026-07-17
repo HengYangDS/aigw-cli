@@ -1,4 +1,4 @@
-# Immutable GitHub tags signed before provider-specific GitHub release signing
+# Historical GitHub tags signed before provider-specific GitHub release signing
 # was introduced. Keep this inventory append-only; never add new releases.
 v0.1.0-rc.48
 v0.1.0-rc.49
