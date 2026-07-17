@@ -8,7 +8,7 @@ does not record a historical branch, runner incident, tag, or signing identity.
 | Claim | Required current evidence | Insufficient evidence |
 | --- | --- | --- |
 | Source is packageable | Clean target revision, `go test -race ./...`, `go vet ./...`, and all release gates | An old terminal log |
-| RC artifact matrix is complete | Full package build, artifact check, and package-layout check for one exact version | A partial archive set |
+| RC artifact matrix is complete | Two full builds of one exact version and source epoch with byte-identical 15-artifact matrices, artifact check, and package-layout check | A partial archive set or semantically similar but byte-different artifacts |
 | Portable installation works | Unix and PowerShell installer tests against the candidate binary | Static script review |
 | Linux native package path works | Isolated Debian and RPM-family installation evidence for both architectures, or stronger native-runner proof | Cross-compilation alone |
 | Windows RC assurance | Cross-compiled executables, MSI/ZIP layout and architecture checks, and a real PowerShell installer contract | Cross-compilation alone or MSI metadata alone |
@@ -33,9 +33,11 @@ published assets.
 ## Release sequence
 
 1. Start from a clean candidate revision and record its SHA.
-2. Run the full gate set and build the exact candidate version.
-3. Validate checksums, SBOM, layout, installers, and available native evidence
-   against the same `dist/` directory.
+2. Derive `SOURCE_DATE_EPOCH` from the exact candidate's committed Changelog
+   heading, run the full gate set, and build the candidate matrix twice.
+3. Require identical filenames and bytes across both matrices, then validate
+   checksums, SBOM, layout, installers, and available native evidence against
+   one retained `dist/` directory.
 4. Create an SSH-signed annotated prerelease tag for that exact revision. The
    tag pipeline verifies the repository-owned signer anchor before packaging.
 5. Merge only that candidate into the protected default branch and confirm that

@@ -5,6 +5,7 @@ version=${1:-0.1.0-dev}
 out=${2:-dist}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 module=$(awk 'NR == 1 && $1 == "module" { print $2; exit }' "$root/go.mod")
+source_date_epoch=${SOURCE_DATE_EPOCH:-}
 gitlab_origin=${AIGW_GITLAB_RELEASE_ORIGIN:-}
 gitlab_repository=${AIGW_GITLAB_RELEASE_REPOSITORY:-}
 github_origin=${AIGW_GITHUB_RELEASE_ORIGIN:-}
@@ -45,6 +46,16 @@ python3 "$root/scripts/check-text-layout.py"
 case "$version" in
   *[!0-9A-Za-z._-]*) echo "invalid version: $version" >&2; exit 2 ;;
 esac
+case "$source_date_epoch" in
+  ''|*[!0-9]*) echo "SOURCE_DATE_EPOCH must be a non-negative Unix epoch" >&2; exit 2 ;;
+esac
+source_date_touch=$(python3 - "$source_date_epoch" <<'PYTHON'
+import datetime as dt
+import sys
+
+print(dt.datetime.fromtimestamp(int(sys.argv[1]), tz=dt.timezone.utc).strftime("%Y%m%d%H%M.%S"))
+PYTHON
+)
 
 rm -rf "$out"
 mkdir -p "$out"
@@ -59,9 +70,9 @@ build_binary() {
   dest=$4
   printf 'building %s/%s (%s)\n' "$goos" "$goarch" "$channel"
   mkdir -p "$(dirname -- "$dest")"
-  CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath \
+  (cd "$root" && CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath \
     -ldflags "-s -w -X ${module}/internal/cli.Version=$version -X ${module}/internal/selfupdate.InstallChannel=$channel -X ${module}/internal/selfupdate.BuildGitLabReleaseOrigin=$gitlab_origin -X ${module}/internal/selfupdate.BuildGitLabReleaseRepository=$gitlab_repository -X ${module}/internal/selfupdate.BuildGitHubReleaseOrigin=$github_origin -X ${module}/internal/selfupdate.BuildGitHubReleaseRepository=$github_repository" \
-    -o "$dest" ./cmd/aigw
+    -o "$dest" ./cmd/aigw)
 }
 
 archive_portable() {
@@ -77,11 +88,18 @@ archive_portable() {
   cp "$root/scripts/install.sh" "$root/scripts/uninstall.sh" "$stage/"
   cp "$root/scripts/install.ps1" "$root/scripts/uninstall.ps1" "$stage/"
   chmod 755 "$stage/install.sh" "$stage/uninstall.sh"
-  if [ "$goos" = windows ]; then
-    (cd "$build_root" && zip -qr "$out_abs/$name.zip" "$name")
-  else
-    (cd "$build_root" && tar --no-xattrs -czf "$out_abs/$name.tar.gz" "$name")
-  fi
+  format=tar.gz
+  archive="$out_abs/$name.tar.gz"
+  [ "$goos" = windows ] && { format=zip; archive="$out_abs/$name.zip"; }
+  (cd "$root" && go run ./tools/archive \
+    -format "$format" -output "$archive" -root "$name" -epoch "$source_date_epoch" \
+    -entry "$binary=$stage/$binary" \
+    -entry "README.md=$stage/README.md" \
+    -entry "LICENSE=$stage/LICENSE" \
+    -entry "install.sh=$stage/install.sh" \
+    -entry "uninstall.sh=$stage/uninstall.sh" \
+    -entry "install.ps1=$stage/install.ps1" \
+    -entry "uninstall.ps1=$stage/uninstall.ps1")
 }
 
 build_portable_archives() {
@@ -91,8 +109,8 @@ build_portable_archives() {
 }
 
 build_macos_pkg() {
-  if ! command -v lipo >/dev/null 2>&1 || ! command -v pkgbuild >/dev/null 2>&1 || ! command -v productbuild >/dev/null 2>&1; then
-    echo "skipping macOS .pkg: lipo, pkgbuild, or productbuild not available" >&2
+  if ! command -v lipo >/dev/null 2>&1 || ! command -v pkgbuild >/dev/null 2>&1 || ! command -v productbuild >/dev/null 2>&1 || ! command -v pkgutil >/dev/null 2>&1 || ! command -v xar >/dev/null 2>&1; then
+    echo "skipping macOS .pkg: lipo, pkgbuild, productbuild, pkgutil, or xar not available" >&2
     return 0
   fi
   pkg_root="$build_root/pkgroot"
@@ -110,8 +128,16 @@ build_macos_pkg() {
   chmod 755 "$pkg_root/usr/local/libexec/aigw/uninstall"
   cp "$root/packaging/macos/aigw-postinstall" "$scripts_dir/postinstall"
   chmod 755 "$scripts_dir/postinstall"
+  normalize_tree_mtime "$pkg_root"
+  normalize_tree_mtime "$scripts_dir"
   pkgbuild --root "$pkg_root" --scripts "$scripts_dir" --identifier "dig.aigw.cli" --version "$version" --install-location / "$component" >/dev/null
-  productbuild --package "$component" "$out_abs/aigw_${version}_darwin_universal.pkg" >/dev/null
+  product="$out_abs/aigw_${version}_darwin_universal.pkg"
+  productbuild --package "$component" "$product" >/dev/null
+  product_stage="$build_root/product-stage"
+  canonical_product="$build_root/aigw-canonical.pkg"
+  pkgutil --expand-full "$product" "$product_stage" >/dev/null
+  (cd "$product_stage" && xar -c --distribution --compression=gzip -f "$canonical_product" Distribution aigw-component.pkg)
+  (cd "$root" && go run ./tools/xarnorm -input "$canonical_product" -output "$product" -epoch "$source_date_epoch")
 }
 
 nfpm_arch() {
@@ -124,6 +150,76 @@ nfpm_arch() {
 
 sed_escape() {
   printf '%s' "$1" | sed 's/[&|\\]/\\&/g'
+}
+
+stable_uuid() {
+  name=$1
+  (cd "$root" && go run ./tools/releaseid \
+    -namespace 6ba7b814-9dad-11d1-80b4-00c04fd430c8 \
+    -name "$name")
+}
+
+normalize_tree_mtime() {
+  tree=$1
+  find "$tree" -exec touch -h -t "$source_date_touch" {} +
+  xattr -cr "$tree"
+}
+
+write_msi_metadata_table() {
+  artifact=$1
+  arch=$2
+  environment_guid=$3
+  package_guid=$4
+  environment_table="$build_root/msi-environment-$arch.idt"
+  summary_table="$build_root/msi-summary-$arch.idt"
+  msiinfo export "$artifact" _SummaryInformation > "$summary_table"
+  python3 - "$environment_table" "$summary_table" "$environment_guid" "$package_guid" "$source_date_epoch" <<'PYTHON'
+import datetime as dt
+import sys
+from pathlib import Path
+
+environment_path = Path(sys.argv[1])
+summary_path = Path(sys.argv[2])
+environment_guid = sys.argv[3]
+package_guid = sys.argv[4]
+epoch = int(sys.argv[5])
+
+def read_idt(path):
+    return path.read_text(encoding="utf-8").splitlines()
+
+def write_idt(path, lines):
+    path.write_bytes(("\r\n".join(lines) + "\r\n").encode("utf-8"))
+
+write_idt(
+    environment_path,
+    [
+        "Environment\tName\tValue\tComponent_",
+        "s72\tl64\tL255\ts72",
+        "Environment\tEnvironment",
+        f"{environment_guid}\t=PATH\t[~];[INSTALLBINFOLDER]\tAigwPath",
+    ],
+)
+
+summary = read_idt(summary_path)
+timestamp = dt.datetime.fromtimestamp(epoch, tz=dt.timezone.utc).strftime("%Y/%m/%d %H:%M:%S")
+seen = set()
+for index, line in enumerate(summary[3:], start=3):
+    fields = line.split("\t")
+    if len(fields) != 2:
+        continue
+    if fields[0] == "9":
+        fields[1] = package_guid
+        seen.add("9")
+    elif fields[0] in {"12", "13"}:
+        fields[1] = timestamp
+        seen.add(fields[0])
+    summary[index] = "\t".join(fields)
+if seen != {"9", "12", "13"}:
+    raise SystemExit("MSI summary information is missing deterministic fields")
+write_idt(summary_path, summary)
+PYTHON
+  msibuild "$artifact" -i "$environment_table"
+  msibuild "$artifact" -i "$summary_table"
 }
 
 render_nfpm_config() {
@@ -195,33 +291,35 @@ build_windows_msi() {
     echo "skipping Windows .msi: wixl not available" >&2
     return 0
   fi
-  if ! command -v uuidgen >/dev/null 2>&1; then
-    echo "skipping Windows .msi: uuidgen not available" >&2
-    return 0
-  fi
   for arch in amd64 arm64; do
     wix_target=$(wix_arch "$arch")
     msi_stage="$build_root/msi-${arch}"
     rm -rf "$msi_stage"
     mkdir -p "$msi_stage"
     build_binary windows "$arch" msi "$msi_stage/aigw.exe"
+    normalize_tree_mtime "$msi_stage"
     exe_guid=$(msi_component_guid "$arch" AigwExe)
     path_guid=$(msi_component_guid "$arch" AigwPath)
+    product_guid=$(stable_uuid "aigw/product/$version/windows/$arch")
+    package_guid=$(stable_uuid "aigw/package/$version/windows/$arch")
+    environment_guid=$(stable_uuid "aigw/environment/$version/windows/$arch")
     if [ "$arch" = arm64 ] && ! wixl -a arm64 -E "$root/packaging/windows/aigw.wxs" >/dev/null 2>"$msi_stage/arm64-probe.err"; then
       wix_target=x64
     fi
     if wixl -a "$wix_target" -D "ProductVersion=$(msi_version)" -D "SourceDir=$msi_stage" \
-      -D "AigwExeGuid=$exe_guid" -D "AigwPathGuid=$path_guid" \
+      -D "AigwExeGuid=$exe_guid" -D "AigwPathGuid=$path_guid" -D "ProductCode=$product_guid" -D "PackageCode=$package_guid" \
       -o "$out_abs/aigw_${version}_windows_${arch}.msi" "$root/packaging/windows/aigw.wxs" >/dev/null 2>"$msi_stage/wixl.err"; then
       if [ "$arch" = arm64 ] && [ "$wix_target" = x64 ]; then
         if command -v msibuild >/dev/null 2>&1; then
           msibuild "$out_abs/aigw_${version}_windows_${arch}.msi" \
-            -s "AIGW CLI" "DIG" "Arm64;1033" "$(uuidgen | tr '[:lower:]' '[:upper:]')" >/dev/null
+            -s "AIGW CLI" "DIG" "Arm64;1033" "$package_guid" >/dev/null
         else
           rm -f "$out_abs/aigw_${version}_windows_${arch}.msi"
           echo "skipping Windows arm64 .msi: wixl lacks arm64 and msibuild is unavailable; portable zip is still generated" >&2
+          continue
         fi
       fi
+      write_msi_metadata_table "$out_abs/aigw_${version}_windows_${arch}.msi" "$arch" "$environment_guid" "$package_guid"
     else
       rm -f "$out_abs/aigw_${version}_windows_${arch}.msi"
       if [ "$arch" = arm64 ]; then
@@ -283,7 +381,7 @@ build_macos_pkg
 build_linux_packages
 build_windows_msi
 verify_binary_arches
-go run ./tools/sbom -version "$version" > "$out_abs/aigw_${version}.spdx.json"
+(cd "$root" && go run ./tools/sbom -version "$version") > "$out_abs/aigw_${version}.spdx.json"
 write_checksums
 if [ "${AIGW_REQUIRE_FULL_MATRIX:-0}" = "1" ]; then
   "$root/scripts/check-release-artifacts.sh" "$out_abs" "$version"
