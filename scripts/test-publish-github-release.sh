@@ -56,7 +56,16 @@ case "$1 $2" in
     [ "${AIGW_TEST_GH_MODE:-create}" = existing ] && exit 0
     exit 1
     ;;
-  'release create') exit 0 ;;
+  'release create')
+    shift 2
+    if [ "${AIGW_TEST_GH_CREATE_REMOTE:-complete}" = complete ]; then
+      for file in "$@"; do
+        [ -f "$file" ] || continue
+        cp "$file" "$AIGW_TEST_GH_REMOTE/"
+      done
+    fi
+    exit 0
+    ;;
   'release download')
     pattern=''
     directory=''
@@ -79,26 +88,43 @@ chmod 755 "$tmp/gh"
 run() {
   mode=$1
   log=$2
-  PATH="$tmp:$PATH" AIGW_TEST_GH_MODE="$mode" AIGW_TEST_GH_LOG="$log" AIGW_TEST_GH_REMOTE="$remote_assets" \
+  remote=${3:-$remote_assets}
+  create_remote=${4:-complete}
+  PATH="$tmp:$PATH" AIGW_TEST_GH_MODE="$mode" AIGW_TEST_GH_LOG="$log" AIGW_TEST_GH_REMOTE="$remote" AIGW_TEST_GH_CREATE_REMOTE="$create_remote" \
     GITHUB_REPOSITORY=owner/aigw-cli CI_COMMIT_TAG="v$version" GH_TOKEN=redacted sh "$script" "$artifacts"
 }
 
-run create "$tmp/create.log" >/dev/null
+created_remote="$tmp/created-remote"
+mkdir "$created_remote"
+run create "$tmp/create.log" "$created_remote" >/dev/null
 grep -q "release create v$version" "$tmp/create.log"
 grep -q -- "--verify-tag" "$tmp/create.log"
 grep -q -- "--prerelease" "$tmp/create.log"
+grep -q "release download v$version --repo owner/aigw-cli --pattern checksums.txt" "$tmp/create.log"
+grep -q "release download v$version --repo owner/aigw-cli --pattern aigw_${version}_windows_arm64.zip" "$tmp/create.log"
 if grep -q -- '--clobber' "$tmp/create.log"; then
   echo "GitHub publisher may not overwrite an existing release asset" >&2
   exit 1
 fi
 
 stable_log="$tmp/stable.log"
-PATH="$tmp:$PATH" AIGW_TEST_GH_MODE=create AIGW_TEST_GH_LOG="$stable_log" AIGW_TEST_GH_REMOTE="$remote_assets" \
+stable_remote="$tmp/stable-remote"
+mkdir "$stable_remote"
+PATH="$tmp:$PATH" AIGW_TEST_GH_MODE=create AIGW_TEST_GH_LOG="$stable_log" AIGW_TEST_GH_REMOTE="$stable_remote" AIGW_TEST_GH_CREATE_REMOTE=complete \
   GITHUB_REPOSITORY=owner/aigw-cli CI_COMMIT_TAG="v0.1.0" GH_TOKEN=redacted sh "$script" "$stable_artifacts" >/dev/null
 if grep -q -- '--prerelease' "$stable_log"; then
   echo "GitHub publisher marked a GA release as prerelease" >&2
   exit 1
 fi
+
+missing_remote="$tmp/missing-remote"
+mkdir "$missing_remote"
+if run create "$tmp/missing.log" "$missing_remote" missing >/dev/null 2>&1; then
+  echo "GitHub publisher accepted a newly-created release with missing assets" >&2
+  exit 1
+fi
+grep -q "release create v$version" "$tmp/missing.log"
+grep -q "release download v$version --repo owner/aigw-cli" "$tmp/missing.log"
 
 run existing "$tmp/existing.log" >/dev/null
 grep -q "release download v$version --repo owner/aigw-cli --pattern checksums.txt" "$tmp/existing.log"

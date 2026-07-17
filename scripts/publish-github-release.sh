@@ -33,37 +33,44 @@ token=${GH_TOKEN:-${GITHUB_TOKEN:-}}
 [ -n "$token" ] || { echo "GH_TOKEN or GITHUB_TOKEN is required" >&2; exit 2; }
 export GH_TOKEN=$token
 
+verify_release() {
+  workspace=$(mktemp -d)
+  trap 'rm -rf "$workspace"' EXIT HUP INT TERM
+  for file in "$artifacts"/*; do
+    [ -f "$file" ] || continue
+    name=$(basename "$file")
+    gh release download "$CI_COMMIT_TAG" --repo "$GITHUB_REPOSITORY" \
+      --pattern "$name" --dir "$workspace"
+  done
+  "$root/scripts/check-release-artifacts.sh" "$workspace" "$version"
+
+  for file in "$artifacts"/*; do
+    [ -f "$file" ] || continue
+    name=$(basename "$file")
+    if command -v sha256sum >/dev/null 2>&1; then
+      local_digest=$(sha256sum "$file" | awk '{print tolower($1)}')
+      remote_digest=$(sha256sum "$workspace/$name" | awk '{print tolower($1)}')
+    else
+      local_digest=$(shasum -a 256 "$file" | awk '{print tolower($1)}')
+      remote_digest=$(shasum -a 256 "$workspace/$name" | awk '{print tolower($1)}')
+    fi
+    [ "$local_digest" = "$remote_digest" ] || {
+      echo "GitHub release asset differs from locally verified $name" >&2
+      return 1
+    }
+  done
+}
+
+created=0
 if ! gh release view "$CI_COMMIT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
   gh release create "$CI_COMMIT_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
     --title "AIGW $CI_COMMIT_TAG" $prerelease_args --generate-notes "$artifacts"/*
-  echo "GitHub release created: $GITHUB_REPOSITORY $CI_COMMIT_TAG"
-  exit 0
+  created=1
 fi
 
-workspace=$(mktemp -d)
-trap 'rm -rf "$workspace"' EXIT HUP INT TERM
-for file in "$artifacts"/*; do
-  [ -f "$file" ] || continue
-  name=$(basename "$file")
-  gh release download "$CI_COMMIT_TAG" --repo "$GITHUB_REPOSITORY" \
-    --pattern "$name" --dir "$workspace"
-done
-"$root/scripts/check-release-artifacts.sh" "$workspace" "$version"
-
-for file in "$artifacts"/*; do
-  [ -f "$file" ] || continue
-  name=$(basename "$file")
-  if command -v sha256sum >/dev/null 2>&1; then
-    local_digest=$(sha256sum "$file" | awk '{print tolower($1)}')
-    remote_digest=$(sha256sum "$workspace/$name" | awk '{print tolower($1)}')
-  else
-    local_digest=$(shasum -a 256 "$file" | awk '{print tolower($1)}')
-    remote_digest=$(shasum -a 256 "$workspace/$name" | awk '{print tolower($1)}')
-  fi
-  [ "$local_digest" = "$remote_digest" ] || {
-    echo "GitHub release asset differs from locally verified $name" >&2
-    exit 1
-  }
-done
-
-echo "GitHub release already matches: $GITHUB_REPOSITORY $CI_COMMIT_TAG"
+verify_release
+if [ "$created" -eq 1 ]; then
+  echo "GitHub release created and verified: $GITHUB_REPOSITORY $CI_COMMIT_TAG"
+else
+  echo "GitHub release already matches: $GITHUB_REPOSITORY $CI_COMMIT_TAG"
+fi
