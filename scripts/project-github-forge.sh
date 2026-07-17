@@ -10,7 +10,7 @@ usage: project-github-forge.sh [--branch <name>] [--github-remote <name>]
 
 Projects one canonical branch into the GitHub peer repository with the GitHub
 commit identity. Existing GitHub release tags must verify as GitHub provenance
-and are immutable. The branch update is leased; no tag ref is pushed.
+before the branch update. The branch update is leased; no tag ref is pushed.
 USAGE
   exit 2
 }
@@ -125,7 +125,7 @@ for tag in $(git -C "$root" tag --merged "$canonical" --list 'v[0-9]*'); do
   git_transport -C "$projection" fetch --quiet --no-tags github "refs/tags/$tag:refs/tags/github/$tag"
   if ! git -C "$projection" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$github_allowed_signers" verify-tag "github/$tag" >/dev/null 2>&1; then
     # Legacy GitHub provenance predates the provider-specific signer. It can
-    # remain verifiable only for an explicit immutable inventory; every new
+    # remain verifiable only for an explicit legacy inventory; every new
     # GitHub tag must pass the current provider trust anchor above.
     if test -f "$github_legacy_tags" && grep -Fxq "$tag" "$github_legacy_tags" && \
       git -C "$projection" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$github_legacy_allowed_signers" verify-tag "github/$tag" >/dev/null 2>&1; then
@@ -138,7 +138,7 @@ for tag in $(git -C "$root" tag --merged "$canonical" --list 'v[0-9]*'); do
 done
 
 # Rewritten identity histories cannot use ordinary ancestry. The lease protects
-# against concurrent GitHub ref changes; tags remain immutable and untouched.
+# against concurrent GitHub ref changes; provider-native tags remain untouched.
 git_transport -C "$projection" -c user.name="$github_name" -c user.email="$github_email" -c user.useConfigOnly=true \
   push --force-with-lease="refs/heads/$branch:$remote_tip" github "refs/heads/$branch:refs/heads/$branch"
 printf 'GitHub provider projection synchronized: %s\n' "$projected"

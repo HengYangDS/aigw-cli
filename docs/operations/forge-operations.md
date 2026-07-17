@@ -46,9 +46,11 @@ A signed tag triggers independently complete GitLab and GitHub pipelines. Each
 uses the dedicated macOS arm64 release runner class, the exact Go patch version
 declared in `go.mod`, the tracked forge-source manifest, and the release epoch
 derived from the source-controlled Changelog heading. Each proves two full-matrix builds byte-identical,
-then publishes its own immutable release. If an identical release already
-exists, its assets are downloaded and byte-verified; a disagreement fails
-closed rather than replacing an asset.
+then publishes its own independently signed release. If an identical release
+already exists, its assets are downloaded and byte-verified; a disagreement
+fails closed rather than replacing an asset. On the private GitHub Free peer,
+tag immutability is not asserted as a host capability: remote tag-signature
+verification and cross-forge artifact comparison remain the acceptance proof.
 
 A released AIGW binary contains independent GitLab and GitHub source tuples.
 The updater queries every configured peer. If both peers are reachable, their

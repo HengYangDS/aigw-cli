@@ -89,10 +89,18 @@ equal update peer.
 GitLab and GitHub remain separate identity domains: GitLab commits and tags use
 `heng.yang.ds@hotmail.com`; GitHub projection commits and tags use
 `hengyang.2003@tsinghua.org.cn`. Each release verifier uses its own tracked
-trust anchor. The retired GitHub signer may verify only the immutable legacy
+trust anchor. The retired GitHub signer may verify only the explicit legacy
 tag inventory; new GitHub release tags must use the current GitHub signer.
 Same-named provider release tags are independently signed provenance objects
-and must not be overwritten across the two namespaces.
+and AIGW must never copy, regenerate, delete, or overwrite them across the two
+namespaces.
+
+The private GitHub peer operates on GitHub Free without repository-ruleset tag
+protection. Its release tags are therefore signed, independently verified
+provenance records, not host-enforced immutable refs. Before a GitHub release
+is accepted, fetch the remote tag, verify it against the tracked GitHub trust
+anchor, and compare its complete artifact matrix with GitLab. A detected manual
+tag change is a provenance failure; it is not an impossible state.
 
 Run `sh scripts/project-github-forge.sh` from a clean canonical checkout to
 project a selected branch into the GitHub identity domain. It rewrites only an
@@ -111,7 +119,8 @@ or maintenance merges must delete their remote source branch in the same
 closeout operation. A branch or worktree may be removed only when its tip is reachable from the
 local `main` and every required reachable peer, its worktree is clean, and it
 is not `main` or an active unmerged delivery branch. Remove the worktree before deleting its local
-branch. Preserve release tags as immutable provenance.
+branch. Preserve release tags as signed provenance evidence and do not imply
+host-enforced immutability where the forge does not provide it.
 
 ## Cross-project boundary
 
