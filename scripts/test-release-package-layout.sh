@@ -26,10 +26,11 @@ for command in file tar unzip ar bsdtar msiextract msiinfo pkgutil lipo; do
 done
 
 if [ "$created_out" = 1 ]; then
-  for command in go nfpm wixl uuidgen; do
+  for command in go nfpm wixl msibuild xar python3; do
     require "$command"
   done
-  AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example.test \
+  SOURCE_DATE_EPOCH=1784246400 \
+    AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example.test \
     AIGW_GITLAB_RELEASE_REPOSITORY=example-group/aigw-cli \
     AIGW_GITHUB_RELEASE_ORIGIN=https://github.com \
     AIGW_GITHUB_RELEASE_REPOSITORY=example-owner/aigw-cli \
@@ -177,6 +178,15 @@ for arch in amd64 arm64; do
       exit 1
     }
   done
+  environment=$(msiinfo export "$msi" Environment | awk -F '	' 'NR > 3 && $2 == "=PATH" && $4 == "AigwPath\r" {print $1 "\t" $2 "\t" $3 "\t" $4; exit}' | tr -d '\r')
+  expected_environment=$(go run "$root/tools/releaseid" \
+    -namespace 6ba7b814-9dad-11d1-80b4-00c04fd430c8 \
+    -name "aigw/environment/$version/windows/$arch")
+  expected_environment=$(printf '%s\t=PATH\t[~];[INSTALLBINFOLDER]\tAigwPath' "$expected_environment")
+  [ "$environment" = "$expected_environment" ] || {
+    echo "unexpected MSI PATH environment entry for $arch: ${environment:-missing}" >&2
+    exit 1
+  }
   msiextract -C "$stage" "$msi" >/dev/null
   payload=$(find "$stage" -type f -name aigw.exe -print -quit)
   [ -n "$payload" ] || { echo "MSI missing aigw.exe: $arch" >&2; exit 1; }

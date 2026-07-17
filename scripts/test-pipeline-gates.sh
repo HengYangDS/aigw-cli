@@ -37,6 +37,7 @@ for required in [
     "test-github-release-workflow.sh",
     "test-github-provider-projection.sh", "check-text-layout.py", "test-text-layout.sh",
     "test-ci-go-proxy-policy.sh",
+    "test-release-source-date-epoch.sh",
 ]:
     if required not in verify:
         raise SystemExit(f"GitLab verification is missing {required}")
@@ -51,6 +52,10 @@ for required in [
     'github_origin="${AIGW_GITHUB_RELEASE_ORIGIN:-https://github.com}"',
     "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh",
+    'SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"',
+    'SOURCE_DATE_EPOCH="$(sh scripts/release-source-date-epoch.sh "$VERSION")"',
+    'if test -n "${CI_COMMIT_TAG:-}"; then',
+    'sh scripts/test-release-reproducibility.sh "$VERSION"',
 ]:
     if required not in package:
         raise SystemExit(f"GitLab package plane is missing {required}")
@@ -75,6 +80,8 @@ for required in [
     "AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY",
     "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
+    'SOURCE_DATE_EPOCH="$(sh scripts/release-source-date-epoch.sh "$version")"',
+    'sh scripts/test-release-reproducibility.sh "$version"',
     "check-text-layout.py", "test-text-layout.sh",
     "test-verified-candidate.sh", "test-macos-native-install-staging.sh",
 ]:

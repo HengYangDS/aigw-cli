@@ -9,8 +9,8 @@ trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 # installed build tools. Every required command is represented by a no-op
 # fixture so one intentionally missing command is the only failure cause.
 for command in \
-  go lipo pkgbuild productbuild nfpm wixl uuidgen msibuild \
-  file tar zip unzip ar bsdtar msiextract msiinfo pkgutil shasum sha256sum; do
+  go lipo pkgbuild productbuild nfpm wixl msibuild xar \
+  file tar zip unzip ar bsdtar msiextract msiinfo pkgutil python3 shasum sha256sum; do
   cat > "$tmp/$command" <<'SH'
 #!/bin/sh
 exit 0
@@ -42,6 +42,25 @@ cat > "$tmp/msiinfo" <<'SH'
 exit 0
 SH
 chmod 755 "$tmp/msiinfo"
+
+rm "$tmp/xar"
+if PATH="$tmp" /bin/sh "$root/scripts/check-package-runner.sh" > "$tmp/xar.out" 2>&1; then
+  cat "$tmp/xar.out" >&2
+  echo "package-runner preflight accepted a missing XAR normalizer" >&2
+  exit 1
+fi
+grep -Fx 'missing package-runner command: xar' "$tmp/xar.out" >/dev/null || {
+  cat "$tmp/xar.out" >&2
+  echo "package-runner preflight did not name the missing XAR normalizer" >&2
+  exit 1
+}
+
+cat > "$tmp/xar" <<'SH'
+#!/bin/sh
+exit 0
+SH
+chmod 755 "$tmp/xar"
+
 rm -f "$tmp/sha256sum" "$tmp/shasum"
 # /bin can be a symlink to /usr/bin on Linux runners, so it is not a valid
 # absence fixture. Invoke the known shell by its absolute path while exposing
