@@ -82,7 +82,13 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		ClaudeExecutable: "/opt/claude-real",
 		CodexExecutable:  "/opt/codex-real",
-		CodexTargets:     []string{codexTarget},
+		Surfaces: []discovery.Surface{{
+			ID:          discovery.SurfaceCodexCLIStandalone,
+			Authority:   discovery.AuthorityAIGW,
+			ConfigPath:  codexTarget,
+			Present:     true,
+			AutoManaged: true,
+		}},
 	}}
 	if err := execute(t, app); err != nil {
 		t.Fatal(err)
@@ -215,7 +221,13 @@ func TestWizardFailureLeavesNoProfileSecretOrClientProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		ClaudeExecutable: "/opt/claude-real", CodexExecutable: "/opt/codex-real", CodexTargets: []string{codexTarget},
+		ClaudeExecutable: "/opt/claude-real", CodexExecutable: "/opt/codex-real", Surfaces: []discovery.Surface{{
+			ID:          discovery.SurfaceCodexCLIStandalone,
+			Authority:   discovery.AuthorityAIGW,
+			ConfigPath:  codexTarget,
+			Present:     true,
+			AutoManaged: true,
+		}},
 	}}
 	err := execute(t, app)
 	if err == nil || !strings.Contains(err.Error(), "was rolled back") {

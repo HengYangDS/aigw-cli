@@ -136,14 +136,26 @@ func mutationCommand(app *App, args []string) bool {
 	switch args[0] {
 	case "setup", "add", "use", "rotate", "sync", "rollback":
 		return true
-	case "repair", "update":
+	case "repair":
+		return !hasArgument(args[1:], "--dry-run")
+	case "update":
 		return true
 	case "account":
 		return len(args) > 1 && (args[1] == "connect" || args[1] == "disconnect" || args[1] == "edit")
 	case "profile":
 		return len(args) > 1 && (args[1] == "add" || args[1] == "edit" || args[1] == "rename" || args[1] == "remove")
 	case "route":
-		return len(args) > 1 && args[1] == "reset"
+		if len(args) < 2 {
+			return false
+		}
+		switch args[1] {
+		case "reset":
+			return true
+		case "fallback", "restore":
+			return !hasArgument(args[2:], "--dry-run")
+		default:
+			return false
+		}
 	case "adapter":
 		return len(args) > 1 && (args[1] == "enable" || args[1] == "auth" || args[1] == "disable")
 	case "config":
@@ -151,6 +163,15 @@ func mutationCommand(app *App, args []string) bool {
 	default:
 		return false
 	}
+}
+
+func hasArgument(values []string, want string) bool {
+	for _, value := range values {
+		if value == want || strings.HasPrefix(value, want+"=") {
+			return true
+		}
+	}
+	return false
 }
 
 func (ProcessRunner) Run(ctx context.Context, plan adapters.ProcessPlan) error {

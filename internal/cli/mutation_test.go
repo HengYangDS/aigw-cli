@@ -23,6 +23,9 @@ func TestMutationCommandLocksEveryConfigurationWriter(t *testing.T) {
 		{name: "profile show", args: []string{"profile", "show", "profile"}, want: false},
 		{name: "account list", args: []string{"account", "list"}, want: false},
 		{name: "removed config upgrade", args: []string{"config", "upgrade"}, want: false},
+		{name: "repair apply", args: []string{"repair"}, want: true},
+		{name: "repair dry-run", args: []string{"repair", "--dry-run"}, want: false},
+		{name: "repair dry-run equals", args: []string{"repair", "--dry-run=true"}, want: false},
 	}
 
 	for _, tt := range tests {

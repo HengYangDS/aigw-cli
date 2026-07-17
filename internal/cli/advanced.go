@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/manifest"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
@@ -374,6 +375,9 @@ func newRouteCommand(app *App) *cobra.Command {
 			r.Next("aigw check")
 			return nil
 		}},
+		newRouteFallbackCommand(app),
+		newRouteRestoreCommand(app),
+		newRouteDoctorCommand(app),
 	)
 	return root
 }
@@ -460,34 +464,28 @@ func newAdapterEnableCommand(app *App) *cobra.Command {
 		if !app.Secrets.Has(accountName) {
 			return fmt.Errorf("Account %q is missing a token; run `aigw rotate %s`", accountName, accountName)
 		}
+		if client == domain.ClientCodex {
+			discovered, err := discoveredResult(app)
+			if err != nil {
+				return err
+			}
+			for _, target := range targets {
+				if err := validateExplicitCodexTarget(discovered, target); err != nil {
+					return err
+				}
+			}
+		}
 		cfg.Adapters[client] = domain.AdapterConfig{Enabled: true, Executable: executable, Targets: append([]string(nil), targets...)}
 		if client == domain.ClientClaude {
 			if _, err := app.Shims.EnableClaude(); err != nil {
 				return err
 			}
 		}
-		if err := app.Config.Save(cfg); err != nil {
+		if err := commitConfigAndSync(cmd.Context(), app, before, cfg, "adapter enable"); err != nil {
 			if client == domain.ClientClaude {
 				_ = app.Shims.DisableClaude()
 			}
-			return err
-		}
-		var syncErr error
-		if client == domain.ClientCodex {
-			syncErr = syncCodexProjection(cmd.Context(), app, cfg)
-			if syncErr == nil {
-				syncErr = bindCodexAuthentication(cmd.Context(), app, cfg)
-			}
-		}
-		if syncErr != nil {
-			_ = app.Config.Save(before)
-			for _, target := range targets {
-				_ = adapters.DisableCodexConfig(target)
-			}
-			if client == domain.ClientClaude {
-				_ = app.Shims.DisableClaude()
-			}
-			return fmt.Errorf("Adapter enablement failed and was rolled back: %w", syncErr)
+			return fmt.Errorf("Adapter enablement failed and was rolled back: %w", err)
 		}
 		r := renderer(app)
 		r.Title("AIGW", "Client enabled")
@@ -542,24 +540,15 @@ func newAdapterDisableCommand(app *App) *cobra.Command {
 			r.Status(presentation.Info, title(client), "Already disabled")
 			return nil
 		}
-		if client == domain.ClientCodex {
-			for _, target := range adapter.Targets {
-				if err := adapters.DisableCodexConfig(target); err != nil {
-					return err
-				}
-			}
-		}
 		if client == domain.ClientClaude {
 			if err := app.Shims.DisableClaude(); err != nil {
 				return err
 			}
 		}
 		delete(cfg.Adapters, client)
-		if err := app.Config.Save(cfg); err != nil {
+		if err := commitConfigAndSync(context.Background(), app, before, cfg, "adapter disable"); err != nil {
 			if client == domain.ClientClaude {
 				_, _ = app.Shims.EnableClaude()
-			} else {
-				_ = syncCodexProjection(context.Background(), app, before)
 			}
 			return err
 		}
@@ -569,6 +558,29 @@ func newAdapterDisableCommand(app *App) *cobra.Command {
 		r.Success("All AIGW-owned projections were safely removed")
 		return nil
 	}}
+}
+
+func validateExplicitCodexTarget(discovered discovery.Result, path string) error {
+	if surface, ok := discovered.SurfaceForExecutablePath(path); ok {
+		if surface.ID == discovery.SurfaceJunieCLI {
+			return fmt.Errorf("Junie CLI is JetBrains-owned and is not a Codex config target")
+		}
+		return fmt.Errorf("an executable is not a Codex configuration target")
+	}
+	surface, ok := discovered.SurfaceForConfigPath(path)
+	if !ok {
+		return nil
+	}
+	switch surface.ID {
+	case discovery.SurfaceCodexCLIStandalone:
+		return nil
+	case discovery.SurfaceAirCodex:
+		return fmt.Errorf("Air is JetBrains-owned; use an explicit Air fallback command")
+	case discovery.SurfacePyCharmCodex:
+		return fmt.Errorf("PyCharm is JetBrains-owned and cannot be enabled as an AIGW target")
+	default:
+		return fmt.Errorf("surface %s is not an AIGW Codex target", surface.ID)
+	}
 }
 
 func newConfigCommand(app *App) *cobra.Command {
