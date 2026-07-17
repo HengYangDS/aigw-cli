@@ -67,6 +67,97 @@ cp "$checker" "$shallow/scripts/check-changelog.sh"
   fi
 )
 
+# A branch checkout can retain an older reachable tag while a newer release
+# tag is present only on origin. The checker must refresh tag refs before it
+# classifies shared historical headings as untagged candidates.
+stale_source="$tmp/stale-source"
+stale_origin="$tmp/stale-origin.git"
+stale="$tmp/stale"
+git init -q -b main "$stale_source"
+git -C "$stale_source" config user.name 'AIGW Changelog Test'
+git -C "$stale_source" config user.email 'aigw-changelog-test@example.invalid'
+printf 'rc1\n' > "$stale_source/release.txt"
+git -C "$stale_source" add release.txt
+git -C "$stale_source" commit -qm 'rc1'
+GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
+  git -C "$stale_source" tag -a v0.1.0-rc.1 -m 'rc1'
+printf 'rc2\n' >> "$stale_source/release.txt"
+git -C "$stale_source" commit -qam 'rc2'
+GIT_COMMITTER_DATE='2026-07-17T00:01:00Z' \
+  git -C "$stale_source" tag -a v0.1.0-rc.2 -m 'rc2'
+git init -q --bare "$stale_origin"
+git -C "$stale_source" push -q "$stale_origin" 'HEAD:refs/heads/main' --tags
+git -C "$stale_origin" symbolic-ref HEAD refs/heads/main
+git clone -q "file://$stale_origin" "$stale"
+git -C "$stale" checkout -q v0.1.0-rc.1
+git -C "$stale" tag -d v0.1.0-rc.2 >/dev/null
+cat > "$stale/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0-rc.3] - 2026-07-17
+
+## [0.1.0-rc.2] - 2026-07-17
+
+## [0.1.0-rc.1] - 2026-07-17
+EOF
+mkdir -p "$stale/scripts"
+cp "$checker" "$stale/scripts/check-changelog.sh"
+if ! (
+  cd "$stale"
+  test "$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD)" = v0.1.0-rc.1
+  test -z "$(git tag --list v0.1.0-rc.2)"
+  CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
+    AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh
+); then
+  echo "changelog checker did not refresh a newer remote release tag" >&2
+  exit 1
+fi
+
+# A version retired from GitLab can remain an active provenance tag on GitHub.
+# The GitHub checker must use its active tag instead of treating the shared
+# GitLab retirement inventory as a conflicting duplicate.
+github_overlap="$tmp/github-active-retired"
+git init -q -b main "$github_overlap"
+git -C "$github_overlap" config user.name 'AIGW Changelog Test'
+git -C "$github_overlap" config user.email 'aigw-changelog-test@example.invalid'
+printf 'release\n' > "$github_overlap/release.txt"
+git -C "$github_overlap" add release.txt
+git -C "$github_overlap" commit -qm 'release'
+GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
+  git -C "$github_overlap" tag -a v0.1.0-rc.2 -m 'active GitHub release'
+printf 'current\n' >> "$github_overlap/release.txt"
+git -C "$github_overlap" commit -qam 'current'
+cat > "$github_overlap/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0-rc.3] - 2026-07-17
+
+## [0.1.0-rc.2] - 2026-07-17
+EOF
+mkdir -p "$github_overlap/scripts" "$github_overlap/packaging/release"
+cp "$checker" "$github_overlap/scripts/check-changelog.sh"
+printf 'v0.1.0-rc.2\n' > "$github_overlap/packaging/release/retired-gitlab-tags.txt"
+if ! (
+  cd "$github_overlap"
+  AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS=true CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
+    AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh
+); then
+  echo "changelog checker rejected an active GitHub tag in the GitLab retirement inventory" >&2
+  exit 1
+fi
+if (
+  cd "$github_overlap"
+  AIGW_CHANGELOG_FORGE= GITLAB_CI=true CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
+    AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh >/dev/null 2>&1
+); then
+  echo "changelog checker accepted an active GitLab tag in the retired GitLab inventory" >&2
+  exit 1
+fi
+
 # Exactly one untagged release candidate may be the first published section.
 # A speculative heading anywhere else must fail, while a valid next candidate
 # must pass before either forge creates its provider-native tag.
@@ -175,7 +266,8 @@ cp "$root/packaging/release/retired-gitlab-tags.txt" "$provider/packaging/releas
 } > "$provider/CHANGELOG.md"
 (
   cd "$provider"
-  CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
+  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
     sh scripts/check-changelog.sh
 )
 
