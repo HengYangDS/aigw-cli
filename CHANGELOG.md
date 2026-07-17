@@ -8,6 +8,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.60] - 2026-07-18
+
+### Fixed
+
+- Keep the release-chronology regression fixture valid after the preceding
+  candidate has been signed, so the release gate continues to exercise the
+  next-candidate path rather than failing on test setup.
+
 ## [0.1.0-rc.59] - 2026-07-17
 
 ### Fixed
