@@ -1,10 +1,109 @@
 package transaction
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 )
+
+// FileSnapshot is the exact file state observed during transaction
+// preparation. It deliberately captures only data, existence, digest, and
+// POSIX mode: ownership, ACLs, and extended attributes need a separately
+// designed cross-platform contract.
+type FileSnapshot struct {
+	Exists bool
+	Data   []byte
+	SHA256 string
+	Mode   os.FileMode
+}
+
+// CaptureFileSnapshot records a file's byte-exact current state. A missing
+// file is a valid snapshot because sidecars are optional.
+func CaptureFileSnapshot(path string) (FileSnapshot, error) {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return FileSnapshot{}, nil
+	}
+	if err != nil {
+		return FileSnapshot{}, fmt.Errorf("read %s: %w", path, err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return FileSnapshot{}, fmt.Errorf("inspect %s: %w", path, err)
+	}
+	sum := sha256.Sum256(data)
+	return FileSnapshot{
+		Exists: true,
+		Data:   append([]byte(nil), data...),
+		SHA256: hex.EncodeToString(sum[:]),
+		Mode:   info.Mode().Perm(),
+	}, nil
+}
+
+// WriteFileAtomicIfUnchanged makes a best-effort guarded write: it refuses to
+// replace a file whose current snapshot differs from the prepared preimage.
+// This is not a cross-process compare-and-swap; an uncooperative writer can
+// still race the subsequent atomic rename.
+func WriteFileAtomicIfUnchanged(path string, expected FileSnapshot, data []byte, defaultMode os.FileMode) (FileSnapshot, error) {
+	current, err := CaptureFileSnapshot(path)
+	if err != nil {
+		return FileSnapshot{}, err
+	}
+	if !sameFileSnapshot(current, expected) {
+		return FileSnapshot{}, fmt.Errorf("preimage changed for %s; refusing to overwrite newer state", path)
+	}
+	if err := WriteFileAtomic(path, data, defaultMode); err != nil {
+		return FileSnapshot{}, err
+	}
+	return CaptureFileSnapshot(path)
+}
+
+// RemoveFileIfUnchanged removes a prepared file only when it has not changed
+// since preparation. It is used for sidecars that were absent before a
+// projection and must be absent again after a compensated rollback.
+func RemoveFileIfUnchanged(path string, expected FileSnapshot) (FileSnapshot, error) {
+	current, err := CaptureFileSnapshot(path)
+	if err != nil {
+		return FileSnapshot{}, err
+	}
+	if !sameFileSnapshot(current, expected) {
+		return FileSnapshot{}, fmt.Errorf("preimage changed for %s; refusing to overwrite newer state", path)
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return FileSnapshot{}, fmt.Errorf("remove %s: %w", path, err)
+	}
+	return FileSnapshot{}, nil
+}
+
+// RestoreFileAtomicIfPostimage restores a prepared preimage only while the
+// file still equals the transaction's own postimage. It never overwrites a
+// newer external edit.
+func RestoreFileAtomicIfPostimage(path string, preimage, postimage FileSnapshot) error {
+	current, err := CaptureFileSnapshot(path)
+	if err != nil {
+		return err
+	}
+	if !sameFileSnapshot(current, postimage) {
+		return fmt.Errorf("postimage changed for %s; refusing to overwrite newer state", path)
+	}
+	if preimage.Exists {
+		return WriteFileAtomic(path, preimage.Data, preimage.Mode)
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove %s: %w", path, err)
+	}
+	return nil
+}
+
+func sameFileSnapshot(left, right FileSnapshot) bool {
+	return left.Exists == right.Exists &&
+		left.SHA256 == right.SHA256 &&
+		left.Mode == right.Mode &&
+		bytes.Equal(left.Data, right.Data)
+}
 
 func WriteFileAtomic(path string, data []byte, defaultMode os.FileMode) error {
 	mode := defaultMode

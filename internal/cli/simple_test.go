@@ -236,7 +236,13 @@ func TestRepairDiscoversAndEnablesInstalledClients(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{ClaudeExecutable: "/opt/claude", CodexExecutable: "/opt/codex", CodexTargets: []string{target}}}
+	app.Discovery = fakeDiscovery{result: discovery.Result{ClaudeExecutable: "/opt/claude", CodexExecutable: "/opt/codex", Surfaces: []discovery.Surface{{
+		ID:          discovery.SurfaceCodexCLIStandalone,
+		Authority:   discovery.AuthorityAIGW,
+		ConfigPath:  target,
+		Present:     true,
+		AutoManaged: true,
+	}}}}
 	if err := execute(t, app, "repair"); err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +279,13 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 	if err := os.WriteFile(target, []byte(strings.Replace(string(projected), "# <<< AIGW managed provider <<<\n", "", 1)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{CodexExecutable: "/opt/codex", CodexTargets: []string{target}}}
+	app.Discovery = fakeDiscovery{result: discovery.Result{CodexExecutable: "/opt/codex", Surfaces: []discovery.Surface{{
+		ID:          discovery.SurfaceCodexCLIStandalone,
+		Authority:   discovery.AuthorityAIGW,
+		ConfigPath:  target,
+		Present:     true,
+		AutoManaged: true,
+	}}}}
 
 	if err := execute(t, app, "repair"); err != nil {
 		t.Fatalf("repair did not resync the existing Codex projection: %v", err)

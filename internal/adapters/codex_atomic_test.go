@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
 )
 
 func atomicTestRuntime() domain.Runtime {
@@ -33,15 +34,15 @@ func TestSyncCodexConfigsRollsBackEveryTargetAndAbsentStateOnWriteFailure(t *tes
 		}
 	}
 
-	originalWrite := writeFileAtomic
-	defer func() { writeFileAtomic = originalWrite }()
+	originalWrite := writeFileAtomicIfUnchanged
+	defer func() { writeFileAtomicIfUnchanged = originalWrite }()
 	writes := 0
-	writeFileAtomic = func(path string, data []byte, mode os.FileMode) error {
+	writeFileAtomicIfUnchanged = func(path string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
 		writes++
 		if writes == 4 { // second target state write, after the first target was fully committed
-			return errors.New("injected state-write failure")
+			return transaction.FileSnapshot{}, errors.New("injected state-write failure")
 		}
-		return originalWrite(path, data, mode)
+		return originalWrite(path, expected, data, mode)
 	}
 
 	err := SyncCodexConfigs([]string{first, second}, atomicTestRuntime())
