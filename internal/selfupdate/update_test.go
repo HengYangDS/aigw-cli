@@ -59,6 +59,12 @@ type glabAPIAssetRunner struct {
 	fileCalls     [][]string
 }
 
+type githubKeyringRunner struct {
+	archive  []byte
+	checksum string
+	calls    [][]string
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (fn roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -148,6 +154,138 @@ func TestUpdateUsesPublishedGitHubPrereleaseWhenNoStableReleaseExists(t *testing
 	}
 	if got, err := os.ReadFile(binary); err != nil || string(got) != "candidate-binary" {
 		t.Fatalf("binary=%q error=%v", got, err)
+	}
+}
+
+func TestUpdateIgnoresGlabConfigurationWarningAroundLatestTag(t *testing.T) {
+	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("candidate-binary"))
+	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
+	checksum := fmt.Sprintf("%x  %s\n", sha256.Sum256(archive), archiveName)
+	binary := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitlab := &fakeRunner{archive: archive, checksum: checksum, tag: "Warning: Multiple config files found.\nUsing: /tmp/glab/config.yml\nv0.2.0\n"}
+	var githubURL string
+	github := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
+		case "/downloads/" + archiveName:
+			_, _ = w.Write(archive)
+		case "/downloads/checksums.txt":
+			_, _ = w.Write([]byte(checksum))
+		default:
+			http.NotFound(w, request)
+		}
+	}))
+	defer github.Close()
+	githubURL = github.URL
+	u := selfupdate.Updater{
+		GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: gitlab, HTTPClient: github.Client(),
+		GitLab: selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Origin: "https://gitlab.example.test", Repository: testReleaseProject},
+		GitHub: selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitHub, Origin: github.URL, Repository: "example-owner/aigw-cli"},
+	}
+	message, err := u.Update(context.Background(), "0.1.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(message, "gitlab and github") {
+		t.Fatalf("message = %q", message)
+	}
+	if got, err := os.ReadFile(binary); err != nil || string(got) != "candidate-binary" {
+		t.Fatalf("binary=%q error=%v", got, err)
+	}
+}
+
+func TestUpdateUsesAuthenticatedGHCLIForPrivatePublishedPrerelease(t *testing.T) {
+	archive := tarGz(t, "aigw_0.2.0-rc.1_darwin_arm64/aigw", []byte("candidate-binary"))
+	archiveName := "aigw_0.2.0-rc.1_darwin_arm64.tar.gz"
+	checksum := fmt.Sprintf("%x  %s\n", sha256.Sum256(archive), archiveName)
+	binary := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runner := &githubKeyringRunner{archive: archive, checksum: checksum}
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Host == "api.github.com" {
+			return &http.Response{StatusCode: http.StatusNotFound, Status: "404 Not Found", Body: io.NopCloser(strings.NewReader(`{"message":"Not Found"}`)), Header: make(http.Header), Request: request}, nil
+		}
+		return nil, fmt.Errorf("unexpected HTTP request: %s", request.URL)
+	})}
+	u := selfupdate.Updater{
+		GOOS:       "darwin",
+		GOARCH:     "arm64",
+		Executable: binary,
+		Runner:     runner,
+		HTTPClient: client,
+		GitLab:     selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitLab, Origin: "https://gitlab.example.test", Repository: testReleaseProject},
+		GitHub:     selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitHub, Origin: "https://github.com", Repository: "example-owner/aigw-cli"},
+	}
+	message, err := u.Update(context.Background(), "0.1.0-rc.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(message, "v0.2.0-rc.1") || !strings.Contains(message, "github") {
+		t.Fatalf("message = %q", message)
+	}
+	if got, err := os.ReadFile(binary); err != nil || string(got) != "candidate-binary" {
+		t.Fatalf("binary=%q error=%v", got, err)
+	}
+	if !runner.called("gh", "api", "repos/example-owner/aigw-cli/releases/latest") ||
+		!runner.called("gh", "api", "repos/example-owner/aigw-cli/releases?per_page=100") ||
+		!runner.called("gh", "release", "download") {
+		t.Fatalf("GH CLI fallback calls = %v", runner.calls)
+	}
+}
+
+func TestUpdateDoesNotUseGHCLIForCustomGitHubOrigin(t *testing.T) {
+	runner := &githubKeyringRunner{}
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusNotFound, Status: "404 Not Found", Body: io.NopCloser(strings.NewReader(`{"message":"Not Found"}`)), Header: make(http.Header), Request: request}, nil
+	})}
+	u := selfupdate.Updater{
+		GOOS:       "darwin",
+		GOARCH:     "arm64",
+		Executable: filepath.Join(t.TempDir(), "aigw"),
+		Runner:     runner,
+		HTTPClient: client,
+		GitHub:     selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitHub, Origin: "https://github.example.test", Repository: "example-owner/aigw-cli"},
+	}
+	_, err := u.Update(context.Background(), "0.1.0")
+	if err == nil || !strings.Contains(err.Error(), "404") {
+		t.Fatalf("error = %v", err)
+	}
+	for _, call := range runner.calls {
+		if call[0] == "gh" {
+			t.Fatalf("custom origin unexpectedly invoked gh: %v", runner.calls)
+		}
+	}
+}
+
+func TestUpdateDoesNotUseGHCLIForNonNotFoundGitHubFailure(t *testing.T) {
+	runner := &githubKeyringRunner{}
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusInternalServerError, Status: "500 Internal Server Error", Body: io.NopCloser(strings.NewReader(`{"message":"Internal Server Error"}`)), Header: make(http.Header), Request: request}, nil
+	})}
+	u := selfupdate.Updater{
+		GOOS:       "darwin",
+		GOARCH:     "arm64",
+		Executable: filepath.Join(t.TempDir(), "aigw"),
+		Runner:     runner,
+		HTTPClient: client,
+		GitHub:     selfupdate.ReleaseSource{Provider: selfupdate.ReleaseProviderGitHub, Origin: "https://github.com", Repository: "example-owner/aigw-cli"},
+	}
+	_, err := u.Update(context.Background(), "0.1.0")
+	if err == nil || !strings.Contains(err.Error(), "500") {
+		t.Fatalf("error = %v", err)
+	}
+	for _, call := range runner.calls {
+		if call[0] == "gh" {
+			t.Fatalf("non-404 failure unexpectedly invoked gh: %v", runner.calls)
+		}
 	}
 }
 
@@ -241,6 +379,63 @@ func TestUpdateRejectsInvalidGitLabTupleBeforeContactingAForge(t *testing.T) {
 func (r *missingGlabRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
 	r.calls = append(r.calls, append([]string{name}, args...))
 	return nil, &exec.Error{Name: name, Err: exec.ErrNotFound}
+}
+
+func (r *githubKeyringRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
+	r.calls = append(r.calls, append([]string{name}, args...))
+	if name == "glab" {
+		return nil, &exec.Error{Name: name, Err: exec.ErrNotFound}
+	}
+	if name != "gh" || len(args) < 2 {
+		return nil, fmt.Errorf("unexpected command: %s %v", name, args)
+	}
+	if args[0] == "api" {
+		switch args[1] {
+		case "repos/example-owner/aigw-cli/releases/latest":
+			return nil, fmt.Errorf("gh api failed: HTTP 404")
+		case "repos/example-owner/aigw-cli/releases?per_page=100":
+			return []byte(`[{"tag_name":"v0.2.0-rc.1","prerelease":true,"published_at":"2026-07-15T00:00:00Z"}]`), nil
+		}
+	}
+	if args[0] == "release" && args[1] == "download" {
+		directory, pattern := "", ""
+		for index, arg := range args {
+			if arg == "--dir" && index+1 < len(args) {
+				directory = args[index+1]
+			}
+			if arg == "--pattern" && index+1 < len(args) {
+				pattern = args[index+1]
+			}
+		}
+		if directory == "" || pattern == "" {
+			return nil, fmt.Errorf("GH release download lacks directory or pattern: %v", args)
+		}
+		data := r.archive
+		if pattern == "checksums.txt" {
+			data = []byte(r.checksum)
+		}
+		return nil, os.WriteFile(filepath.Join(directory, pattern), data, 0o600)
+	}
+	return nil, fmt.Errorf("unexpected GH CLI command: %v", args)
+}
+
+func (r *githubKeyringRunner) called(prefix ...string) bool {
+	for _, call := range r.calls {
+		if len(call) < len(prefix) {
+			continue
+		}
+		match := true
+		for index, want := range prefix {
+			if call[index] != want {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *emptyDownloadRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
@@ -1287,6 +1482,24 @@ func TestExecRunnerBoundsStderrWithoutBreakingCommandOutput(t *testing.T) {
 	}
 	if len(err.Error()) > 17<<10 {
 		t.Fatalf("unbounded command error length = %d", len(err.Error()))
+	}
+}
+
+func TestExecRunnerKeepsSuccessfulStdoutIndependentOfStderr(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix shell fixture")
+	}
+	dir := t.TempDir()
+	script := filepath.Join(dir, "warning")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf 'release-tag\\n'\nprintf 'configuration warning\\n' >&2\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	output, err := (selfupdate.ExecRunner{}).Run(context.Background(), script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := string(output), "release-tag\n"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
 	}
 }
 

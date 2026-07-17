@@ -54,6 +54,14 @@ func (u Updater) latestPrereleaseTagFromGitHub(ctx context.Context, source Relea
 	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(&releases); err != nil {
 		return "", fmt.Errorf("parse GitHub prerelease metadata: %w", err)
 	}
+	latest := latestPublishedGitHubPrerelease(releases)
+	if latest == "" {
+		return "", latestErr
+	}
+	return latest, nil
+}
+
+func latestPublishedGitHubPrerelease(releases []githubRelease) string {
 	latest := ""
 	for _, release := range releases {
 		if release.Draft || !release.Prerelease || strings.TrimSpace(release.PublishedAt) == "" {
@@ -71,10 +79,7 @@ func (u Updater) latestPrereleaseTagFromGitHub(ctx context.Context, source Relea
 			latest = release.TagName
 		}
 	}
-	if latest == "" {
-		return "", latestErr
-	}
-	return latest, nil
+	return latest
 }
 
 // latestTagFromGitHubRelease resolves the normal GitHub latest-release route
@@ -84,12 +89,63 @@ func (u Updater) latestPrereleaseTagFromGitHub(ctx context.Context, source Relea
 func (u Updater) latestTagFromGitHubRelease(ctx context.Context, source ReleaseSource) (string, error) {
 	release, err := u.githubRelease(ctx, source, "releases/latest")
 	if err != nil {
-		return u.latestPrereleaseTagFromGitHub(ctx, source, err)
+		tag, prereleaseErr := u.latestPrereleaseTagFromGitHub(ctx, source, err)
+		if prereleaseErr == nil {
+			return tag, nil
+		}
+		if !isGitHubNotFound(prereleaseErr) {
+			return "", prereleaseErr
+		}
+		if tag, cliErr := u.latestTagFromGitHubCLI(ctx, source); cliErr == nil {
+			return tag, nil
+		}
+		return "", prereleaseErr
 	}
 	if release.TagName == "" {
 		return "", fmt.Errorf("no AIGW release is available")
 	}
 	return release.TagName, nil
+}
+
+// latestTagFromGitHubCLI uses gh's existing, OS-managed authentication only
+// after the official GitHub API returned the deliberate private-repository 404
+// shape. It never reads, exports, or persists gh credentials, and it is never
+// used for a custom GitHub-compatible endpoint.
+func (u Updater) latestTagFromGitHubCLI(ctx context.Context, source ReleaseSource) (string, error) {
+	if !githubCLIFallbackAllowed(source) {
+		return "", fmt.Errorf("GitHub CLI fallback is unavailable for this release source")
+	}
+	release, err := u.githubReleaseWithCLI(ctx, source, "releases/latest")
+	if err == nil {
+		if release.TagName == "" {
+			return "", fmt.Errorf("no AIGW release is available")
+		}
+		return release.TagName, nil
+	}
+	output, listErr := u.runGitHubCLI(ctx, "api", "repos/"+source.Repository+"/releases?per_page=100")
+	if listErr != nil {
+		return "", fmt.Errorf("query GitHub release metadata through gh: %w", listErr)
+	}
+	var releases []githubRelease
+	if err := json.Unmarshal(output, &releases); err != nil {
+		return "", fmt.Errorf("parse GitHub release metadata through gh: %w", err)
+	}
+	if tag := latestPublishedGitHubPrerelease(releases); tag != "" {
+		return tag, nil
+	}
+	return "", err
+}
+
+func (u Updater) githubReleaseWithCLI(ctx context.Context, source ReleaseSource, path string) (githubRelease, error) {
+	output, err := u.runGitHubCLI(ctx, "api", "repos/"+source.Repository+"/"+path)
+	if err != nil {
+		return githubRelease{}, err
+	}
+	var release githubRelease
+	if err := json.Unmarshal(output, &release); err != nil {
+		return githubRelease{}, fmt.Errorf("parse GitHub release metadata through gh: %w", err)
+	}
+	return release, nil
 }
 
 func (u Updater) githubRelease(ctx context.Context, source ReleaseSource, path string) (githubRelease, error) {
@@ -144,12 +200,34 @@ func (u Updater) downloadGitHubReleaseAssets(ctx context.Context, release github
 func (u Updater) downloadReleaseAssetsFromGitHub(ctx context.Context, source ReleaseSource, tag, directory string, assets ...string) error {
 	release, err := u.githubRelease(ctx, source, "releases/tags/"+url.PathEscape(tag))
 	if err != nil {
+		if strings.Contains(err.Error(), "404") && githubCLIFallbackAllowed(source) {
+			return u.downloadGitHubReleaseAssetsWithCLI(ctx, source, tag, directory, assets...)
+		}
 		return err
 	}
 	if release.TagName != tag {
 		return fmt.Errorf("GitHub release metadata tag %q does not match requested tag %q", release.TagName, tag)
 	}
 	return u.downloadGitHubReleaseAssets(ctx, release, directory, assets...)
+}
+
+func (u Updater) downloadGitHubReleaseAssetsWithCLI(ctx context.Context, source ReleaseSource, tag, directory string, assets ...string) error {
+	if !githubCLIFallbackAllowed(source) {
+		return fmt.Errorf("GitHub CLI fallback is unavailable for this release source")
+	}
+	for _, asset := range assets {
+		if filepath.Base(asset) != asset {
+			return fmt.Errorf("invalid release asset name %q", asset)
+		}
+		if _, err := u.runGitHubCLI(ctx, "release", "download", tag, "--repo", source.Repository, "--pattern", asset, "--dir", directory); err != nil {
+			return fmt.Errorf("download GitHub release asset %s through gh: %w", asset, err)
+		}
+		info, err := os.Stat(filepath.Join(directory, asset))
+		if err != nil || info.IsDir() || info.Size() == 0 {
+			return fmt.Errorf("GitHub CLI did not write release asset %s", asset)
+		}
+	}
+	return nil
 }
 
 func (u Updater) downloadGitHubAsset(ctx context.Context, rawURL, destination string) error {
@@ -235,4 +313,16 @@ func (u *Updater) authorizeGitHubRequest(request *http.Request) error {
 		break
 	}
 	return nil
+}
+
+func (u Updater) runGitHubCLI(ctx context.Context, args ...string) ([]byte, error) {
+	return u.Runner.Run(ctx, "gh", args...)
+}
+
+func githubCLIFallbackAllowed(source ReleaseSource) bool {
+	return strings.EqualFold(strings.TrimRight(source.Origin, "/"), "https://github.com")
+}
+
+func isGitHubNotFound(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "404")
 }

@@ -1,6 +1,7 @@
 package selfupdate
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -51,11 +52,15 @@ type EnvironmentFileRunner interface {
 func (ExecRunner) RunWithEnv(ctx context.Context, environment []string, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = mergeEnvironment(os.Environ(), environment)
-	output, err := cmd.CombinedOutput()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &limitedWriter{writer: &stderr, limit: 16 << 10}
+	err := cmd.Run()
 	if err != nil {
-		return nil, fmt.Errorf("%s failed: %w: %s", name, err, strings.TrimSpace(string(output)))
+		return nil, fmt.Errorf("%s failed: %w: %s", name, err, strings.TrimSpace(stderr.String()))
 	}
-	return output, nil
+	return stdout.Bytes(), nil
 }
 
 func (ExecRunner) RunToFile(ctx context.Context, destination, name string, args ...string) error {

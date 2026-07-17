@@ -208,9 +208,11 @@ aigw update --candidate /secure-transfer/aigw_0.1.0-candidate.1_darwin_arm64.tar
 AIGW prefers authenticated `glab` for GitLab. If `glab` is unavailable, an
 explicit `GITLAB_TOKEN` may be used for an HTTPS GitLab API path. GitHub uses an
 optional ephemeral `AIGW_GITHUB_TOKEN`, `GITHUB_TOKEN`, or `GH_TOKEN` for
-private releases, in that precedence order. No token is stored by the updater,
-passed on a command line, or forwarded across hosts. Every downloaded artifact
-is checksum-verified before replacement.
+private releases, in that precedence order. When GitHub intentionally returns
+an anonymous 404 for a private release and no environment token is available,
+AIGW may use the existing local `gh` authentication path for `github.com` only.
+It never reads, exports, stores, or forwards a `gh` credential. Every downloaded
+artifact is checksum-verified before replacement.
 
 ## When you need more
 
