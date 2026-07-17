@@ -8,6 +8,11 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep the shallow branch-history fixture in `test-changelog.sh` independent
+  of an outer GitLab or GitHub release-tag environment.
+
 ## [0.1.0-rc.52] - 2026-07-17
 
 ### Added
