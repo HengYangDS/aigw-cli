@@ -107,8 +107,11 @@ aigw update --candidate /secure-transfer/aigw_0.1.0-candidate.1_darwin_arm64.tar
 The candidate path never contacts a forge. Remote updates never bypass malformed
 metadata, missing artifacts, version conflicts, checksum failures, or redirect
 violations. `GITLAB_TOKEN` is an HTTPS-only GitLab API path; GitHub tokens are
-ephemeral environment credentials. Native channels delegate program updates and
-rollback to their platform package manager.
+ephemeral environment credentials. For a private `github.com` release, AIGW may
+also invoke an already-authenticated local `gh` client after the anonymous API
+returns its intentional 404 response; it never reads, exports, or persists the
+underlying credential. Native channels delegate program updates and rollback to
+their platform package manager.
 
 ## CI secret boundary
 
