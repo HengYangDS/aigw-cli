@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 )
 
@@ -13,7 +12,7 @@ const claudeShimMarker = "AIGW managed Claude shim"
 type Result struct {
 	ClaudeExecutable string
 	CodexExecutable  string
-	CodexTargets     []string
+	Surfaces         []Surface
 }
 
 type Discoverer interface{ Discover() Result }
@@ -33,18 +32,8 @@ func (s System) Discover() Result {
 	result := Result{
 		ClaudeExecutable: s.find("claude", true),
 		CodexExecutable:  s.find("codex", false),
+		Surfaces:         s.discoverSurfaces(),
 	}
-	if s.GOOS == "darwin" {
-		if result.CodexExecutable == "" {
-			result.CodexExecutable = firstExecutable("/Applications/Codex.app/Contents/Resources/codex")
-		}
-	}
-	for _, path := range s.codexConfigCandidates() {
-		if info, err := os.Stat(path); err == nil && !info.IsDir() {
-			result.CodexTargets = append(result.CodexTargets, path)
-		}
-	}
-	sort.Strings(result.CodexTargets)
 	return result
 }
 
@@ -70,26 +59,6 @@ func (s System) find(name string, skipManagedClaude bool) string {
 				absolute, _ := filepath.Abs(path)
 				return absolute
 			}
-		}
-	}
-	return ""
-}
-
-func (s System) codexConfigCandidates() []string {
-	paths := []string{filepath.Join(s.Home, ".codex", "config.toml")}
-	if s.GOOS == "darwin" {
-		paths = append(paths,
-			filepath.Join(s.Home, "Library", "Caches", "JetBrains", "PyCharm2026.1", "aia", "codex", "config.toml"),
-			filepath.Join(s.Home, "Library", "Application Support", "JetBrains", "Air", ".codex", "config.toml"),
-		)
-	}
-	return paths
-}
-
-func firstExecutable(paths ...string) string {
-	for _, path := range paths {
-		if info, err := os.Stat(path); err == nil && !info.IsDir() && info.Mode()&0o111 != 0 {
-			return path
 		}
 	}
 	return ""

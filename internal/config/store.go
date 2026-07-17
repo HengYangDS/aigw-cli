@@ -14,9 +14,19 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/pelletier/go-toml/v2"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
 )
 
 type Store struct{ path string }
+
+// Snapshot captures the exact config and one-version backup state around a
+// configuration mutation. It is intentionally file-level because an empty
+// pre-setup state is not a valid domain.Config and cannot be restored through
+// Save.
+type Snapshot struct {
+	Config transaction.FileSnapshot
+	Backup transaction.FileSnapshot
+}
 
 // VerifiedCheckpoint is a secret-free record written only after all requested
 // client protocol verifications succeed. It is suitable for rollback, not for
@@ -29,6 +39,31 @@ type VerifiedCheckpoint struct {
 
 func NewStore(path string) Store { return Store{path: path} }
 func (s Store) Path() string     { return s.path }
+
+func (s Store) CaptureSnapshot() (Snapshot, error) {
+	configSnapshot, err := transaction.CaptureFileSnapshot(s.path)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	backupSnapshot, err := transaction.CaptureFileSnapshot(s.path + ".bak")
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return Snapshot{Config: configSnapshot, Backup: backupSnapshot}, nil
+}
+
+// RestoreSnapshot restores a captured config and backup only if both files
+// still equal the postimages produced by the current mutation. This protects a
+// newer external writer from being overwritten during compensation.
+func (s Store) RestoreSnapshot(before, after Snapshot) error {
+	if err := transaction.RestoreFileAtomicIfPostimage(s.path, before.Config, after.Config); err != nil {
+		return fmt.Errorf("restore config snapshot: %w", err)
+	}
+	if err := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, after.Backup); err != nil {
+		return fmt.Errorf("restore config backup snapshot: %w", err)
+	}
+	return nil
+}
 
 func (s Store) Lock(ctx context.Context) (func() error, error) {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {

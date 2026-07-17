@@ -8,7 +8,56 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.54] - 2026-07-17
+
+### Added
+
+- Add `aigw repair --dry-run [--json]` as a secret-free, lock-free preview for
+  restoring legacy JetBrains target membership while retaining the standalone
+  Codex target.
+
 ### Fixed
+
+- Make route-doctor conflicts recommend the repair preview instead of an Air
+  restore command that must fail while Air still selects AIGW at the top level.
+
+## [0.1.0-rc.53] - 2026-07-17
+
+### Fixed
+
+- Keep the shallow branch-history fixture in `test-changelog.sh` independent
+  of an outer GitLab or GitHub release-tag environment.
+
+## [0.1.0-rc.52] - 2026-07-17
+
+### Added
+
+- Add host-specific Codex surface classification and `aigw route doctor` for
+  local, secret-free ownership diagnostics. The doctor distinguishes ordinary
+  standalone Codex CLI, PyCharm Codex, JetBrains Air, and Junie CLI without
+  executing a client or probing a provider.
+- Add explicit `aigw route fallback air` and `aigw route restore air` commands
+  with secret-free dry runs and required `--confirm-host-idle` attestation for
+  any mutation.
+
+### Changed
+
+- Make host routing explicit: ordinary standalone Codex CLI receives the AIGW
+  full-selection projection; ChatGPT Desktop retains authority over existing
+  conversation model choices and transcripts; PyCharm Codex and Junie CLI stay
+  JetBrains AI surfaces; and Air stays JetBrains AI except for an explicit,
+  non-default fallback.
+- Restrict generic Codex setup and repair discovery to standalone targets. An
+  explicitly staged Air fallback remains reconcilable, but generic commands no
+  longer adopt JetBrains host defaults.
+
+### Fixed
+
+- Reconcile Codex projections as before-to-after transactions with sidecar
+  writer attribution, guarded preimage checks, byte-exact rollback, and
+  fail-closed handling of incomplete, foreign, or mode-mismatched state.
+- Preserve Air's top-level provider/model selection and original bytes while
+  staging or restoring its namespaced fallback.
 
 - Mark GitHub releases created from SemVer prerelease tags as prereleases, while
   leaving GA releases unmarked.
