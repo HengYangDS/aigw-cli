@@ -219,6 +219,8 @@ else:
     raise SystemExit("fixture contains multiple untagged release candidates")
 path.write_text(text, encoding="utf-8")
 PY
+# This fixture models an ordinary release-preparation branch. It must not
+# inherit the outer tagged pipeline's selected release identity.
 if ! run_branch_checker "$fixture" >/dev/null 2>&1; then
   echo "changelog checker rejected a leading next release candidate" >&2
   exit 1
