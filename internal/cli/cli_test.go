@@ -15,6 +15,7 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/cli"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/config"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/secrets"
 )
@@ -45,6 +46,13 @@ type failingRunner struct {
 	err       error
 	remaining int
 }
+
+// emptyDiscovery preserves the production dependency boundary in command
+// tests: commands always receive a discovery service, while individual tests
+// can still exercise an explicitly configured temporary Codex home.
+type emptyDiscovery struct{}
+
+func (emptyDiscovery) Discover() discovery.Result { return discovery.Result{} }
 
 func (r *failingRunner) Run(_ context.Context, _ adapters.ProcessPlan) error {
 	if r.remaining > 0 {
@@ -91,6 +99,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, *secrets.Memo
 		Interactive: false,
 		Runner:      runner,
 		HTTP:        httpClient,
+		Discovery:   emptyDiscovery{},
 	}
 	return app, out, secretStore, runner
 }

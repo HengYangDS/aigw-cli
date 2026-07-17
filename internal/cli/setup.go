@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/secrets"
@@ -64,6 +63,7 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 	if len(cfg.Profiles) > 0 {
 		return fmt.Errorf("AIGW is already configured; run `aigw add` to add an account, `aigw profile add` to add a model profile, or `aigw status` to inspect current state")
 	}
+	before := cloneConfig(cfg)
 	request.Profile = strings.TrimSpace(request.Profile)
 	request.Account = strings.TrimSpace(request.Account)
 	if request.Profile == "" {
@@ -127,14 +127,13 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 		return fmt.Errorf("Token validation failed: %w", err)
 	}
 
-	var discoveredClaude, discoveredCodex string
-	var discoveredTargets []string
-	if app.Discovery != nil {
-		discovered := app.Discovery.Discover()
-		discoveredClaude = discovered.ClaudeExecutable
-		discoveredCodex = discovered.CodexExecutable
-		discoveredTargets = discovered.CodexTargets
+	discovered, err := discoveredResult(app)
+	if err != nil {
+		return err
 	}
+	discoveredClaude := discovered.ClaudeExecutable
+	discoveredCodex := discovered.CodexExecutable
+	discoveredTargets := discovered.AutoManagedCodexTargets()
 	if runtime, _, resolveErr := cfg.ResolveRuntime(domain.ClientClaude, ""); resolveErr == nil && discoveredClaude != "" && runtime.Endpoint != "" {
 		cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: discoveredClaude}
 	}
@@ -163,17 +162,9 @@ func runSetup(ctx context.Context, app *App, request setupRequest) error {
 			return err
 		}
 	}
-	if err := app.Config.Save(cfg); err != nil {
-		rollbackSetup(app, cfg, request.Account, claudeEnabled, !secretAlreadyManaged)
-		return err
-	}
-	if err := syncCodexProjection(ctx, app, cfg); err != nil {
-		rollbackSetup(app, cfg, request.Account, claudeEnabled, !secretAlreadyManaged)
+	if err := commitConfigAndSync(ctx, app, before, cfg, "setup"); err != nil {
+		rollbackSetup(app, request.Account, claudeEnabled, !secretAlreadyManaged)
 		return fmt.Errorf("Client configuration failed and was rolled back: %w", err)
-	}
-	if err := bindCodexAuthentication(ctx, app, cfg); err != nil {
-		rollbackSetup(app, cfg, request.Account, claudeEnabled, !secretAlreadyManaged)
-		return fmt.Errorf("Client authentication failed and was rolled back: %w", err)
 	}
 
 	r.Section("Clients")
@@ -242,12 +233,7 @@ func verifyCredential(ctx context.Context, app *App, providerAccount domain.Acco
 	return nil
 }
 
-func rollbackSetup(app *App, cfg domain.Config, account string, claudeEnabled, deleteNewSecret bool) {
-	if adapter := cfg.Adapters[domain.ClientCodex]; adapter.Enabled {
-		for _, target := range adapter.Targets {
-			_ = adapters.DisableCodexConfig(target)
-		}
-	}
+func rollbackSetup(app *App, account string, claudeEnabled, deleteNewSecret bool) {
 	if claudeEnabled {
 		_ = app.Shims.DisableClaude()
 	}
