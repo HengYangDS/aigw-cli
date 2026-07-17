@@ -31,6 +31,7 @@ for token in \
   'AIGW_MACOS_UPGRADE_PACKAGE' \
   'upgrade baseline must differ from the candidate version' \
   'run_as_acceptance_user' \
+  'chmod 755 "$candidate_stage" "$candidate_mount"' \
   'sudo -u "$acceptance_user"' \
   'hdiutil create' \
   'hdiutil attach' \
@@ -57,6 +58,17 @@ done
 
 if grep -nE '/Users/|AIGW_MACOS_ACCEPTANCE_USER=[^$]' "$acceptance" "$uninstaller"; then
   echo "macOS native acceptance must not hard-code a host account or home path" >&2
+  exit 1
+fi
+
+if grep -Fq 'for command in hdiutil installer pkgutil su;' "$acceptance"; then
+  echo "macOS native acceptance must preflight sudo, not retired su execution" >&2
+  exit 1
+fi
+require 'for command in hdiutil installer pkgutil sudo;' "$acceptance"
+
+if grep -Fq 'binary_copy="$user_stage/aigw"' "$acceptance"; then
+  echo "macOS native acceptance must execute the installed binary directly" >&2
   exit 1
 fi
 
