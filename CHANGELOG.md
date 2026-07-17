@@ -8,6 +8,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep successful provider CLI diagnostics on stderr out of updater protocol
+  output, so GitLab release-asset discovery remains valid when `glab` emits
+  local configuration warnings.
+- Recover GitHub private prerelease discovery and asset retrieval through the
+  local `gh` credential path when the official API intentionally returns an
+  anonymous 404. No GitHub token is read, exported, or persisted by AIGW.
+
 ## [0.1.0-rc.63] - 2026-07-17
 
 ### Fixed
