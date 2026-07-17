@@ -8,6 +8,23 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.55] - 2026-07-17
+
+### Fixed
+
+- Make the complete 15-artifact release matrix reproducible from one committed
+  source epoch, including portable archives, macOS packages, Windows MSI
+  metadata, checksums, and the SPDX SBOM.
+- Keep GitLab package builds resilient to a transient module-proxy timeout
+  without weakening the declared dependency source policy.
+- Preserve the MSI PATH environment entry through deterministic package
+  metadata and its install/uninstall execution sequence.
+
+### Changed
+
+- Require two byte-identical full-matrix builds before either release plane
+  publishes an artifact set.
+
 ## [0.1.0-rc.54] - 2026-07-17
 
 ### Added
