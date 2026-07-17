@@ -11,8 +11,8 @@ pkgbuild
 productbuild
 nfpm
 wixl
-uuidgen
 msibuild
+xar
 file
 tar
 zip
@@ -22,6 +22,7 @@ bsdtar
 msiextract
 msiinfo
 pkgutil
+python3
 "
 
 missing=0

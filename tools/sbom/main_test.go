@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLoadModulesRetainsGoListDiagnostics(t *testing.T) {
@@ -40,5 +41,36 @@ func TestLoadModulesDecodesAllModules(t *testing.T) {
 	}
 	if modules[1].Path != "example.com/dependency" || modules[1].Version != "v1.2.3" {
 		t.Errorf("dependency = %#v, want path and version", modules[1])
+	}
+}
+
+func TestCreationTimeFromEnvUsesSourceDateEpoch(t *testing.T) {
+	t.Parallel()
+
+	got, err := creationTimeFromEnv(func(string) string { return "1784246400" })
+	if err != nil {
+		t.Fatalf("creationTimeFromEnv() error = %v", err)
+	}
+	want := time.Date(2026, time.July, 17, 0, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Fatalf("creationTimeFromEnv() = %s, want %s", got, want)
+	}
+}
+
+func TestCreationTimeFromEnvRejectsInvalidValues(t *testing.T) {
+	t.Parallel()
+
+	for _, raw := range []string{"", "-1", "not-a-number"} {
+		raw := raw
+		t.Run(raw, func(t *testing.T) {
+			t.Parallel()
+			_, err := creationTimeFromEnv(func(string) string { return raw })
+			if err == nil {
+				t.Fatalf("creationTimeFromEnv(%q) error = nil", raw)
+			}
+			if !strings.Contains(err.Error(), "SOURCE_DATE_EPOCH") {
+				t.Fatalf("creationTimeFromEnv(%q) error = %q, want SOURCE_DATE_EPOCH diagnostic", raw, err)
+			}
+		})
 	}
 }
