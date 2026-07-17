@@ -25,6 +25,8 @@ if r"CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\/" not in workflow:
 default = section(gitlab, "default")
 if "AIGW_GOPROXY" not in default or "prepare-ci-go-cache.sh" not in default:
     raise SystemExit("GitLab must retain its independently configured Go dependency path")
+if "https://goproxy.cn|https://proxy.golang.org|direct" not in default:
+    raise SystemExit("GitLab Go dependency path must fall back after transient proxy failures")
 
 verify = section(gitlab, "verify")
 for required in [
@@ -34,6 +36,7 @@ for required in [
     "test-pipeline-gates.sh", "test-github-actions-contract.sh",
     "test-github-release-workflow.sh",
     "test-github-provider-projection.sh", "check-text-layout.py", "test-text-layout.sh",
+    "test-ci-go-proxy-policy.sh",
 ]:
     if required not in verify:
         raise SystemExit(f"GitLab verification is missing {required}")
