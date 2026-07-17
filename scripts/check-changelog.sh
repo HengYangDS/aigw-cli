@@ -130,8 +130,14 @@ if retired_path.exists():
             release_key(version)
         except ValueError:
             raise SystemExit(f"CHANGELOG.md: invalid retired tag inventory at line {number}: {raw}")
-        if version in retired_versions or version in tag_versions:
-            raise SystemExit(f"CHANGELOG.md: duplicate active or retired release version: {version}")
+        if version in retired_versions:
+            raise SystemExit(f"CHANGELOG.md: duplicate retired release version: {version}")
+        # GitLab deliberately retires superseded failed-candidate tags, while
+        # GitHub retains its independently signed historical equivalents. An
+        # active provider tag therefore satisfies the inventory entry rather
+        # than conflicting with it.
+        if version in tag_versions:
+            continue
         retired_versions.append(version)
 
 # All known tags must have exactly one heading in matching descending order.

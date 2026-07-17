@@ -7,8 +7,15 @@ fixture=$(mktemp "${TMPDIR:-/tmp}/aigw-changelog.XXXXXX")
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/aigw-changelog.XXXXXX")
 trap 'rm -f "$fixture"; rm -rf "$tmp"' EXIT HUP INT TERM
 
+# This suite exercises branch chronology fixtures.  A surrounding tag pipeline
+# must not turn those fixtures into a selected-tag test accidentally.
+run_branch_checker() {
+  CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
+    AIGW_CHANGELOG_FILE="$1" sh "$checker"
+}
+
 cp "$root/CHANGELOG.md" "$fixture"
-AIGW_CHANGELOG_FILE="$fixture" sh "$checker"
+run_branch_checker "$fixture"
 
 # A shallow checkout can omit both the release tag and its historical commit.
 # Build a complete, minimal release history first, then clone it shallowly. The
@@ -82,7 +89,7 @@ if marker is None:
     raise SystemExit("fixture lacks latest release heading")
 path.write_text(text[:marker.end()] + "\n\n## [9.9.9] - 2026-07-14" + text[marker.end():], encoding="utf-8")
 PY
-if AIGW_CHANGELOG_FILE="$fixture" sh "$checker" >/dev/null 2>&1; then
+if run_branch_checker "$fixture" >/dev/null 2>&1; then
   echo "changelog checker accepted a non-leading untagged published version" >&2
   exit 1
 fi
@@ -121,7 +128,7 @@ else:
     raise SystemExit("fixture contains multiple untagged release candidates")
 path.write_text(text, encoding="utf-8")
 PY
-if ! AIGW_CHANGELOG_FILE="$fixture" sh "$checker" >/dev/null 2>&1; then
+if ! run_branch_checker "$fixture" >/dev/null 2>&1; then
   echo "changelog checker rejected a leading next release candidate" >&2
   exit 1
 fi
@@ -140,9 +147,36 @@ if count != 1:
     raise SystemExit("fixture lacks a published release heading")
 path.write_text(changed, encoding="utf-8")
 PY
-if AIGW_CHANGELOG_FILE="$fixture" sh "$checker" >/dev/null 2>&1; then
+if run_branch_checker "$fixture" >/dev/null 2>&1; then
   echo "changelog checker accepted an invalid release date" >&2
   exit 1
 fi
+
+# GitHub retains historical provider-native tags that GitLab has deliberately
+# retired after failed candidates. The GitLab retirement inventory must act as
+# a fallback, not conflict with GitHub's active historical tags.
+provider="$tmp/provider"
+git init -q -b main "$provider"
+git -C "$provider" config user.name 'AIGW Changelog Provider Test'
+git -C "$provider" config user.email 'aigw-changelog-provider@example.invalid'
+git -C "$provider" commit --allow-empty -qm provider
+for number in $(seq 48 58); do
+  git -C "$provider" tag "v0.1.0-rc.$number"
+done
+mkdir -p "$provider/scripts" "$provider/packaging/release"
+cp "$checker" "$provider/scripts/check-changelog.sh"
+cp "$root/packaging/release/retired-gitlab-tags.txt" "$provider/packaging/release/retired-gitlab-tags.txt"
+{
+  printf '# Changelog\n\n## [Unreleased]\n\n'
+  printf '## [0.1.0-rc.61] - 2026-07-17\n\n'
+  for number in $(seq 58 -1 48); do
+    printf '## [0.1.0-rc.%s] - 2026-07-17\n\n' "$number"
+  done
+} > "$provider/CHANGELOG.md"
+(
+  cd "$provider"
+  CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
+    sh scripts/check-changelog.sh
+)
 
 echo "changelog chronology contract: OK"

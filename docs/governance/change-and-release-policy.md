@@ -30,7 +30,9 @@ GA milestones do not belong in the release chronicle.
 When a superseded GitLab release tag is deliberately retired, its Changelog
 section remains part of the published product history. The version is recorded
 in `packaging/release/retired-gitlab-tags.txt`; the chronology gate requires
-that inventory and the retained sections to stay ordered and complete.
+that inventory and the retained sections to stay ordered and complete. A
+provider that still retains its independently signed historical tag satisfies
+the same entry; it is not a duplicate or a reason to rewrite provenance.
 
 A release tag records a source version; it is not by itself proof of artifact
 publication, native-platform acceptance, signing, notarization, or GA. Those
