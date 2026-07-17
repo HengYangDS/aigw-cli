@@ -48,7 +48,7 @@ jobs:
           set -euo pipefail
           case "$SELECTED_TAG" in v*) ;; *) echo "release requires a v* tag" >&2; exit 2 ;; esac
           test "$SELECTED_TAG" = "$(git describe --tags --exact-match HEAD)"
-          sh scripts/check-release-tag-signature.sh . "$SELECTED_TAG"
+          sh scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github
           sh scripts/check-release-toolchain.sh
           go test -race ./...
           go vet ./...

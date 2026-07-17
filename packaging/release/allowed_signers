@@ -1,3 +1,0 @@
-# Release tag trust anchor.  A candidate tag must verify under the `git`
-# namespace against this repository-owned signer identity before CI may publish.
-heng.yang.ds@hotmail.com namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGOTMHpVCmszedNGtkRwTRWWglzwe1ZW6ZADTVUz7Mpi heng.yang.ds@hotmail.com git-signing 2026-07-11
