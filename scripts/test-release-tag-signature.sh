@@ -29,11 +29,13 @@ grep -F 'not SSH signed' "$tmp/unsigned.out" >/dev/null || {
 
 mkdir -p "$tmp/empty-home"
 signed=''
-for tag in $(git -C "$root" tag --list 'v[0-9]*'); do
-  if HOME="$tmp/empty-home" sh "$root/scripts/check-release-tag-signature.sh" "$root" "$tag" gitlab >"$tmp/signed.out" 2>&1; then
-    signed=$tag
-    break
-  fi
+for provider in gitlab github; do
+  for tag in $(git -C "$root" tag --list 'v[0-9]*'); do
+    if HOME="$tmp/empty-home" sh "$root/scripts/check-release-tag-signature.sh" "$root" "$tag" "$provider" >"$tmp/signed.out" 2>&1; then
+      signed=$tag
+      break 2
+    fi
+  done
 done
 [ -n "$signed" ] || {
   cat "$tmp/signed.out" >&2 || true
