@@ -33,14 +33,37 @@ case "$selected_tag" in
   *) fail "selected release tag is malformed: $selected_tag" ;;
 esac
 
+forge=${AIGW_CHANGELOG_FORGE:-}
+if test -z "$forge"; then
+  if test "${GITHUB_ACTIONS:-}" = true; then
+    forge=github
+  elif test -n "${GITLAB_CI:-}"; then
+    forge=gitlab
+  else
+    forge=local
+  fi
+fi
+case "$forge" in
+  gitlab|github|local) ;;
+  *) fail "release forge is malformed: $forge" ;;
+esac
+
+has_origin=false
+if git remote get-url origin >/dev/null 2>&1; then
+  has_origin=true
+  # A shallow or cached checkout can retain an older reachable tag while a
+  # newer release tag is present only on origin. Refresh the complete tag
+  # namespace before classifying shared Changelog history.
+  git fetch --quiet --no-tags origin 'refs/tags/*:refs/tags/*' 2>/dev/null || true
+fi
+
 latest_tag=$selected_tag
 if test -z "$latest_tag"; then
   latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
 fi
-if { test -z "$latest_tag" || ! git rev-parse -q --verify "refs/tags/$latest_tag" >/dev/null 2>&1; } && git remote get-url origin >/dev/null 2>&1; then
+if test -z "$latest_tag" && test "$has_origin" = true; then
   git fetch --quiet --no-tags --unshallow origin 2>/dev/null || \
     git fetch --quiet --no-tags origin 2>/dev/null || true
-  git fetch --quiet --no-tags origin 'refs/tags/*:refs/tags/*' 2>/dev/null || true
   if test -z "$selected_tag"; then
     latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
   fi
@@ -54,7 +77,7 @@ elif test -z "$latest_tag"; then
   fail "cannot find a reachable v<semver> Git tag"
 fi
 
-python3 - "$changelog" "$latest_tag" "$selected_tag" "$root/packaging/release/retired-gitlab-tags.txt" <<'PYTHON'
+python3 - "$changelog" "$latest_tag" "$selected_tag" "$root/packaging/release/retired-gitlab-tags.txt" "$forge" <<'PYTHON'
 from __future__ import annotations
 
 import datetime as dt
@@ -67,6 +90,7 @@ path = Path(sys.argv[1])
 latest_tag = sys.argv[2]
 selected_tag = sys.argv[3]
 retired_path = Path(sys.argv[4])
+forge = sys.argv[5]
 heading = re.compile(r"^## \[([^]]+)\] - (\d{4}-\d{2}-\d{2})$")
 semver = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$")
 
@@ -131,12 +155,12 @@ if retired_path.exists():
         except ValueError:
             raise SystemExit(f"CHANGELOG.md: invalid retired tag inventory at line {number}: {raw}")
         if version in retired_versions:
-            raise SystemExit(f"CHANGELOG.md: duplicate retired release version: {version}")
-        # GitLab deliberately retires superseded failed-candidate tags, while
-        # GitHub retains its independently signed historical equivalents. An
-        # active provider tag therefore satisfies the inventory entry rather
-        # than conflicting with it.
+            raise SystemExit(f"CHANGELOG.md: duplicate active or retired release version: {version}")
         if version in tag_versions:
+            # The inventory records GitLab retirement. A same-named GitHub
+            # provenance tag remains active and takes precedence on GitHub.
+            if forge != "github":
+                raise SystemExit(f"CHANGELOG.md: duplicate active or retired release version: {version}")
             continue
         retired_versions.append(version)
 
