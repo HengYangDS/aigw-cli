@@ -21,7 +21,7 @@ require() {
   }
 }
 
-for command in file tar unzip ar bsdtar msiextract msiinfo pkgutil lipo; do
+for command in go file tar unzip ar bsdtar msiextract msiinfo pkgutil lipo; do
   require "$command"
 done
 
@@ -75,6 +75,10 @@ for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 wi
     windows/arm64:*[Aa]arch64*) ;;
     *) echo "unexpected portable executable architecture for $target: $description" >&2; exit 1 ;;
   esac
+  if go version -m "$payload" | grep -q '^[[:space:]]*build[[:space:]]*vcs\.'; then
+    echo "portable executable retains forge-specific VCS build metadata: $os/$arch" >&2
+    exit 1
+  fi
 done
 
 pkg="$out/aigw_${version}_darwin_universal.pkg"
@@ -175,7 +179,7 @@ for arch in amd64 arm64; do
     }
   done
   environment=$(msiinfo export "$msi" Environment | awk -F '	' 'NR > 3 && $2 == "=PATH" && $4 == "AigwPath\r" {print $1 "\t" $2 "\t" $3 "\t" $4; exit}' | tr -d '\r')
-  expected_environment=$(go run "$root/tools/releaseid" \
+  expected_environment=$(cd "$root" && go run -buildvcs=false ./tools/releaseid \
     -namespace 6ba7b814-9dad-11d1-80b4-00c04fd430c8 \
     -name "aigw/environment/$version/windows/$arch")
   expected_environment=$(printf '%s\t=PATH\t[~];[INSTALLBINFOLDER]\tAigwPath' "$expected_environment")

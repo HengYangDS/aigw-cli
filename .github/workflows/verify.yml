@@ -14,6 +14,9 @@ concurrency:
   group: verify-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GOTOOLCHAIN: go1.25.8
+
 jobs:
   verify:
     name: Source and governance gates
@@ -27,13 +30,14 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
-          go-version-file: go.mod
-          check-latest: true
+          go-version: "1.25.8"
+          check-latest: false
       - name: Run source and policy gates
         env:
           CGO_ENABLED: '1'
         run: |
           set -euo pipefail
+          sh scripts/check-release-toolchain.sh
           go test -race ./...
           go vet ./...
           test -z "$(gofmt -l cmd internal tools)"
@@ -50,6 +54,8 @@ jobs:
           sh scripts/test-release-readiness.sh
           sh scripts/test-release-artifacts.sh
           sh scripts/test-release-source-date-epoch.sh
+          sh scripts/test-release-forge-sources.sh
+          sh scripts/test-release-toolchain.sh
           sh scripts/test-verified-candidate.sh
           sh scripts/test-release-tag-signature.sh
           sh scripts/test-package-runner-preflight.sh

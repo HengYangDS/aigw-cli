@@ -8,7 +8,7 @@ does not record a historical branch, runner incident, tag, or signing identity.
 | Claim | Required current evidence | Insufficient evidence |
 | --- | --- | --- |
 | Source is packageable | Clean target revision, `go test -race ./...`, `go vet ./...`, and all release gates | An old terminal log |
-| RC artifact matrix is complete | Two full builds on the dedicated release runner, with one exact version, epoch, pinned toolchain, tracked forge-source manifest, byte-identical 15-artifact matrices, artifact check, and package-layout check | A partial archive set, a provider-specific build tuple, or semantically similar but byte-different artifacts |
+| RC artifact matrix is complete | Two full builds on the dedicated release runner, with one exact version, epoch, Go patch version from `go.mod`, tracked forge-source manifest, byte-identical 15-artifact matrices, artifact check, and package-layout check | A partial archive set, a provider-specific build tuple, or semantically similar but byte-different artifacts |
 | Portable installation works | Unix and PowerShell installer tests against the candidate binary | Static script review |
 | Linux native package path works | Isolated Debian and RPM-family installation evidence for both architectures, or stronger native-runner proof | Cross-compilation alone |
 | Windows RC assurance | Cross-compiled executables, MSI/ZIP layout and architecture checks, and a real PowerShell installer contract | Cross-compilation alone or MSI metadata alone |
@@ -34,7 +34,7 @@ published assets.
 
 1. Start from a clean candidate revision and record its SHA.
 2. Derive `SOURCE_DATE_EPOCH` from the exact candidate's committed Changelog
-   heading, select the pinned toolchain and tracked forge-source manifest, run
+   heading, select the Go patch version declared in `go.mod` and tracked forge-source manifest, run
    the full gate set, and build the candidate matrix twice on the dedicated
    macOS arm64 release runner.
 3. Require identical filenames and bytes across both matrices, then validate
