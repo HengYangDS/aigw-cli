@@ -49,3 +49,32 @@ If a selected Account points at a loopback endpoint, the status view may say
 that an external compatibility layer exists and that the client route uses its
 listener. It does not reveal a port, name a specific proxy, or create an
 ownership claim. AIGW does not manage that process or diagnose its lifecycle.
+
+## Host-route commands
+
+`aigw route doctor` is a read-only ownership diagnostic. It may inspect local
+configuration attribution, but it must not run Codex, Junie, or an IDE; read a
+credential; contact a provider; expose configuration bodies or paths; or claim
+that authentication, session metadata, endpoint hops, terminal outcomes, or
+billing were proven. Junie is reported as not probed. A reported conflict is a
+state to investigate, not authority to repair an external host.
+
+For a route-ownership conflict, the one safe next command is
+`aigw repair --dry-run`, not a direct write and not an Air fallback restore.
+The repair preview is read-only: it does not take the mutation lock, enable a
+shim, bind authentication, expose configuration paths, or execute a client. It
+maps every planned Codex transition to a stable surface ID, then leaves host
+idleness and any later apply as separate operator responsibilities.
+
+`aigw route fallback air` and `aigw route restore air` are explicit mutation
+commands, not generic recovery actions. Their `--dry-run` variants are
+credential-free previews that acquire no mutation lock and perform no native
+authentication binding. Their apply variants require `--confirm-host-idle` and
+must state that the flag is an operator attestation rather than an Air process
+probe. They never start, stop, restart, or reload Air, and they must fail
+closed if Air's top-level selection is already AIGW rather than JetBrains AI.
+
+Human guidance must distinguish a persistent routing policy from runtime proof:
+the desired state is standalone Codex/AIGW and JetBrains-owned PyCharm, Air,
+and Junie; a route, endpoint, terminal response, or billing assertion remains
+unverified until its separately requested live evidence exists.

@@ -212,6 +212,37 @@ func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
 	}
 }
 
+func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewStore(path)
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.Config{
+		Version:  domain.ConfigVersion,
+		Accounts: map[string]domain.Account{"gateway": {Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}},
+		Profiles: map[string]domain.Profile{"gateway": {Label: "Gateway", Account: "gateway"}},
+		Routes:   domain.Routes{Default: "gateway", Overrides: map[string]string{}},
+	}
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RestoreSnapshot(before, after); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("config remains after restore: %v", err)
+	}
+	if _, err := os.Stat(path + ".bak"); !os.IsNotExist(err) {
+		t.Fatalf("backup remains after restore: %v", err)
+	}
+}
+
 func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewStore(path)
