@@ -402,3 +402,43 @@ func TestValidateCodexConfigRejectsForeignSidecarAttribution(t *testing.T) {
 		t.Fatalf("ValidateCodexConfig() error = %v, want foreign writer", err)
 	}
 }
+
+func TestReadCodexProjectionIdentityDistinguishesFallbackAndLegacyState(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("model_provider = \"jetbrains\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReconcileCodexConfigs(nil, []CodexTargetRef{airFallbackCodexTarget(path)}, atomicTestRuntime()); err != nil {
+		t.Fatal(err)
+	}
+	identity, err := ReadCodexProjectionIdentity(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !identity.Present || identity.ProjectionMode != CodexProjectionNamespacedFallback || identity.AttributionState != "recognized" {
+		t.Fatalf("fallback identity = %#v", identity)
+	}
+	stateData, err := os.ReadFile(codexStatePath(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state codexState
+	if err := json.Unmarshal(stateData, &state); err != nil {
+		t.Fatal(err)
+	}
+	state.ProjectionMode, state.WriterID, state.TransactionID = "", "", ""
+	legacyData, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codexStatePath(path), append(legacyData, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	identity, err = ReadCodexProjectionIdentity(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !identity.Present || identity.ProjectionMode != CodexProjectionFullSelection || identity.AttributionState != "legacy" {
+		t.Fatalf("legacy identity = %#v", identity)
+	}
+}

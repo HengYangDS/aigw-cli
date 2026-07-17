@@ -41,6 +41,15 @@ type CodexReconciliationReceipt struct {
 	Plans         []CodexProjectionPlan `json:"plans"`
 }
 
+// CodexProjectionIdentity is the bounded sidecar identity used by surface
+// routing. It intentionally excludes configuration bodies, paths, endpoints,
+// and credential material.
+type CodexProjectionIdentity struct {
+	Present          bool
+	ProjectionMode   string
+	AttributionState string
+}
+
 type codexReconciliationTarget struct {
 	ref     CodexTargetRef
 	desired bool
@@ -67,6 +76,38 @@ type committedCodexArtifact struct {
 var writeFileAtomicIfUnchanged = transaction.WriteFileAtomicIfUnchanged
 var removeFileIfUnchanged = transaction.RemoveFileIfUnchanged
 var restoreFileAtomicIfPostimage = transaction.RestoreFileAtomicIfPostimage
+
+// ReadCodexProjectionIdentity reads only the sidecar attribution required to
+// select a safe surface mode. It never changes configuration or sessions.
+func ReadCodexProjectionIdentity(path string) (CodexProjectionIdentity, error) {
+	data, err := os.ReadFile(codexStatePath(path))
+	if os.IsNotExist(err) {
+		return CodexProjectionIdentity{}, nil
+	}
+	if err != nil {
+		return CodexProjectionIdentity{}, fmt.Errorf("read Codex adapter state: %w", err)
+	}
+	var state codexState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return CodexProjectionIdentity{}, fmt.Errorf("parse Codex adapter state: %w", err)
+	}
+	legacy, err := validateCodexStateAttribution(state, "")
+	if err != nil {
+		return CodexProjectionIdentity{}, err
+	}
+	if legacy {
+		return CodexProjectionIdentity{
+			Present:          true,
+			ProjectionMode:   CodexProjectionFullSelection,
+			AttributionState: "legacy",
+		}, nil
+	}
+	return CodexProjectionIdentity{
+		Present:          true,
+		ProjectionMode:   state.ProjectionMode,
+		AttributionState: "recognized",
+	}, nil
+}
 
 // PlanCodexReconciliation prepares a before-to-after target transition
 // without writing configuration, sidecars, credentials, or sessions.
