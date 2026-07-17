@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.59] - 2026-07-17
+
 ### Fixed
 
 - Treat the Changelog release date as source-controlled metadata, rather than
