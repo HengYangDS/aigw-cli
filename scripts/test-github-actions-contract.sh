@@ -14,7 +14,7 @@ required = [
     "name: Verify", "pull_request:", "push:", "workflow_dispatch:",
     "permissions:\n  contents: read",
     "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
-    "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491", 'go-version: "1.25.8"', "check-latest: false", "GOTOOLCHAIN: go1.25.8", "git fetch --force --tags origin", "if: github.ref_type == 'tag'", 'SELECTED_TAG: ${{ github.ref_name }}', 'scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/check-release-toolchain.sh",
+    "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491", 'go-version: "1.25.12"', "check-latest: false", "GOTOOLCHAIN: go1.25.12", "git fetch --force --tags origin", "if: github.ref_type == 'tag'", 'SELECTED_TAG: ${{ github.ref_name }}', 'scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/check-release-toolchain.sh",
     "go test -race ./...", "go vet ./...", "scripts/check-product-surface.sh", "scripts/check-governance.sh",
     "scripts/check-text-layout.py", "scripts/test-text-layout.sh", "scripts/test-release-source-date-epoch.sh",
     "scripts/test-verified-candidate.sh", "scripts/test-release-tag-signature-provider-selection.sh", "scripts/test-macos-native-install-staging.sh",
