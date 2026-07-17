@@ -31,6 +31,15 @@ canonical history once the GitLab remote is reachable.
 Do not use an equal-object branch or tag synchronizer for this repository; its
 provider-specific identity model intentionally makes those objects different.
 
+## Dependency transport
+
+Each forge has an independent CI dependency path. GitLab's Go jobs default to
+`https://goproxy.cn|https://proxy.golang.org|direct`: the pipe separators permit
+the Go toolchain to advance after a transient proxy failure, including a TLS
+timeout. A caller may override the complete chain with `AIGW_GOPROXY`; an
+override is responsible for preserving the intended fallback semantics. GitHub
+Actions does not inherit this GitLab-specific setting.
+
 ## Release behavior
 
 A signed tag triggers independently complete GitLab and GitHub pipelines. Each
