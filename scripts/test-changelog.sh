@@ -65,6 +65,7 @@ cp "$checker" "$shallow/scripts/check-changelog.sh"
 # order violation, which is intentionally outside this fixture's scope.
 python3 - "$fixture" <<'PY'
 from pathlib import Path
+import re
 import sys
 
 path = Path(sys.argv[1])
@@ -76,14 +77,10 @@ latest_tag = subprocess.check_output(
     text=True,
 ).strip()
 latest_version = latest_tag.removeprefix("v")
-latest_date = subprocess.check_output(
-    ["git", "show", "-s", "--format=%cs", f"{latest_tag}^{{}}"],
-    text=True,
-).strip()
-marker = f"## [{latest_version}] - {latest_date}"
-if marker not in text:
+marker = re.search(rf"^## \[{re.escape(latest_version)}\] - \d{{4}}-\d{{2}}-\d{{2}}$", text, re.MULTILINE)
+if marker is None:
     raise SystemExit("fixture lacks latest release heading")
-path.write_text(text.replace(marker, "## [9.9.9] - 2026-07-14\n\n" + marker, 1), encoding="utf-8")
+path.write_text(text[:marker.start()] + "## [9.9.9] - 2026-07-14\n\n" + text[marker.start():], encoding="utf-8")
 PY
 if AIGW_CHANGELOG_FILE="$fixture" sh "$checker" >/dev/null 2>&1; then
   echo "changelog checker accepted an untagged published version" >&2
