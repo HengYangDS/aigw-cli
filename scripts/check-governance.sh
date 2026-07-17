@@ -18,7 +18,10 @@ for file in \
   docs/governance/terminal-experience-contract.md \
   docs/decisions/0001-control-plane-data-plane-boundary.md \
   docs/evidence/README.md \
-  packaging/release/allowed_signers \
+  packaging/release/gitlab-allowed-signers \
+  packaging/release/github-allowed-signers \
+  packaging/release/github-legacy-allowed-signers \
+  packaging/release/github-legacy-tags.txt \
   .github/workflows/verify.yml
 do
   require_file "$file"

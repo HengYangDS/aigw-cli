@@ -45,7 +45,7 @@ Actions does not inherit this GitLab-specific setting.
 A signed tag triggers independently complete GitLab and GitHub pipelines. Each
 uses the dedicated macOS arm64 release runner class, the exact Go patch version
 declared in `go.mod`, the tracked forge-source manifest, and the release epoch
-derived from the tagged Changelog heading. Each proves two full-matrix builds byte-identical,
+derived from the source-controlled Changelog heading. Each proves two full-matrix builds byte-identical,
 then publishes its own immutable release. If an identical release already
 exists, its assets are downloaded and byte-verified; a disagreement fails
 closed rather than replacing an asset.
@@ -62,6 +62,7 @@ artifact remain a single-provider unit.
 ## Provider identities
 
 GitLab provenance uses `heng.yang.ds@hotmail.com`; GitHub provenance uses
-`hengyang.2003@tsinghua.org.cn`. A direct push guard rejects a provider/email
+`hengyang.2003@tsinghua.org.cn`. Separate repository-tracked trust anchors
+verify their release tags. A direct push guard rejects a provider/email
 mismatch. Same-named tags are independently signed provider provenance records,
 and must never be copied, regenerated, or overwritten across the two namespaces.

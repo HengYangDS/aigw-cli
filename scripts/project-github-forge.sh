@@ -19,8 +19,11 @@ branch=main
 github_remote=${AIGW_GITHUB_REMOTE:-github}
 github_name=${AIGW_GITHUB_AUTHOR_NAME:-HengYang}
 github_email=${AIGW_GITHUB_AUTHOR_EMAIL:-hengyang.2003@tsinghua.org.cn}
-github_allowed_signers=${AIGW_GITHUB_ALLOWED_SIGNERS:-$HOME/.config/git/aigw-github-allowed-signers}
-gitlab_allowed_signers=${AIGW_GITLAB_ALLOWED_SIGNERS:-$(CDPATH= cd -- "$(dirname -- "$0")/../packaging/release" && pwd)/allowed_signers}
+release_directory=$(CDPATH= cd -- "$(dirname -- "$0")/../packaging/release" && pwd)
+github_allowed_signers=${AIGW_GITHUB_ALLOWED_SIGNERS:-$release_directory/github-allowed-signers}
+github_legacy_allowed_signers=${AIGW_GITHUB_LEGACY_ALLOWED_SIGNERS:-$release_directory/github-legacy-allowed-signers}
+github_legacy_tags=${AIGW_GITHUB_LEGACY_TAGS:-$release_directory/github-legacy-tags.txt}
+gitlab_allowed_signers=${AIGW_GITLAB_ALLOWED_SIGNERS:-$release_directory/gitlab-allowed-signers}
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -120,10 +123,18 @@ for tag in $(git -C "$root" tag --merged "$canonical" --list 'v[0-9]*'); do
     exit 1
   }
   git_transport -C "$projection" fetch --quiet --no-tags github "refs/tags/$tag:refs/tags/github/$tag"
-  git -C "$projection" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$github_allowed_signers" verify-tag "github/$tag" >/dev/null 2>&1 || {
-    echo "GitHub provenance tag does not verify: $tag" >&2
-    exit 1
-  }
+  if ! git -C "$projection" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$github_allowed_signers" verify-tag "github/$tag" >/dev/null 2>&1; then
+    # Legacy GitHub provenance predates the provider-specific signer. It can
+    # remain verifiable only for an explicit immutable inventory; every new
+    # GitHub tag must pass the current provider trust anchor above.
+    if test -f "$github_legacy_tags" && grep -Fxq "$tag" "$github_legacy_tags" && \
+      git -C "$projection" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$github_legacy_allowed_signers" verify-tag "github/$tag" >/dev/null 2>&1; then
+      :
+    else
+      echo "GitHub provenance tag does not verify under its permitted trust anchors: $tag" >&2
+      exit 1
+    fi
+  fi
 done
 
 # Rewritten identity histories cannot use ordinary ancestry. The lease protects
