@@ -202,9 +202,34 @@ func (u Updater) latestTag(ctx context.Context) (string, error) {
 		}
 		return tag, apiErr
 	}
-	tag := strings.TrimSpace(string(output))
+	tag, err := releaseTagFromCLIOutput(output)
+	if err != nil {
+		return "", err
+	}
 	if tag == "" {
 		return "", fmt.Errorf("no AIGW release is available")
+	}
+	return tag, nil
+}
+
+// releaseTagFromCLIOutput keeps the update contract independent of incidental
+// client diagnostics. glab prints any configuration-location warnings before
+// its --jq value, so the final non-empty line remains the sole authoritative
+// tag. A malformed final value must still fail closed rather than being
+// mistaken for an absent release.
+func releaseTagFromCLIOutput(output []byte) (string, error) {
+	tag := ""
+	for _, line := range strings.FieldsFunc(string(output), func(r rune) bool { return r == '\n' || r == '\r' }) {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		tag = strings.TrimSpace(line)
+	}
+	if tag == "" {
+		return "", nil
+	}
+	if _, err := parseVersion(tag); err != nil {
+		return "", err
 	}
 	return tag, nil
 }
