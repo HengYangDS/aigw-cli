@@ -48,13 +48,24 @@ case "$forge" in
   *) fail "release forge is malformed: $forge" ;;
 esac
 
+# A selected tag can be a locally signed pre-push admission object. Validate it
+# before any remote tag refresh, because origin legitimately does not advertise
+# the new tag until the later, non-force push.
+if test -n "$selected_tag"; then
+  git rev-parse -q --verify "refs/tags/$selected_tag" >/dev/null || fail "selected release tag is unavailable: $selected_tag"
+  test "$(git rev-parse "$selected_tag^{}")" = "$(git rev-parse HEAD)" || \
+    fail "selected release tag does not identify HEAD: $selected_tag"
+fi
+
 has_origin=false
 if git remote get-url origin >/dev/null 2>&1; then
   has_origin=true
-  # A shallow or cached checkout can retain an older reachable tag while a
-  # newer release tag is present only on origin. Refresh the complete tag
-  # namespace before classifying shared Changelog history.
-  git fetch --quiet --no-tags origin 'refs/tags/*:refs/tags/*' 2>/dev/null || true
+  if test -z "$selected_tag"; then
+    # A shallow or cached checkout can retain an older reachable tag while a
+    # newer release tag is present only on origin. Refresh the complete tag
+    # namespace before classifying shared Changelog history.
+    git fetch --quiet --no-tags origin 'refs/tags/*:refs/tags/*' 2>/dev/null || true
+  fi
 fi
 
 latest_tag=$selected_tag
@@ -69,9 +80,6 @@ if test -z "$latest_tag" && test "$has_origin" = true; then
   fi
 fi
 if test -n "$selected_tag"; then
-  git rev-parse -q --verify "refs/tags/$selected_tag" >/dev/null || fail "selected release tag is unavailable: $selected_tag"
-  test "$(git rev-parse "$selected_tag^{}")" = "$(git rev-parse HEAD)" || \
-    fail "selected release tag does not identify HEAD: $selected_tag"
   latest_tag=$selected_tag
 elif test -z "$latest_tag"; then
   fail "cannot find a reachable v<semver> Git tag"
