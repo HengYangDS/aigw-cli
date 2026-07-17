@@ -27,26 +27,45 @@ type spdxPackage struct {
 	LicenseDeclared  string `json:"licenseDeclared"`
 }
 
+var runGoList = func() ([]byte, error) {
+	cmd := exec.Command("go", "list", "-m", "-json", "all")
+	return cmd.CombinedOutput()
+}
+
+func loadModules() ([]module, error) {
+	data, err := runGoList()
+	if err != nil {
+		detail := strings.TrimSpace(string(data))
+		if detail == "" {
+			return nil, fmt.Errorf("run go list -m -json all: %w", err)
+		}
+		return nil, fmt.Errorf("run go list -m -json all: %w\n%s", err, detail)
+	}
+
+	decoder := json.NewDecoder(strings.NewReader(string(data)))
+	modules := []module{}
+	for {
+		var item module
+		if err := decoder.Decode(&item); err == io.EOF {
+			return modules, nil
+		} else if err != nil {
+			return nil, fmt.Errorf("decode go list module metadata: %w", err)
+		}
+		modules = append(modules, item)
+	}
+}
+
 func main() {
 	version := flag.String("version", "dev", "AIGW version")
 	flag.Parse()
-	cmd := exec.Command("go", "list", "-m", "-json", "all")
-	data, err := cmd.Output()
+	modules, err := loadModules()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	decoder := json.NewDecoder(strings.NewReader(string(data)))
 	packages := []spdxPackage{{Name: "aigw", SPDXID: "SPDXRef-Package-aigw", VersionInfo: *version, DownloadLocation: "NOASSERTION", FilesAnalyzed: false, LicenseConcluded: "MIT", LicenseDeclared: "MIT"}}
 	index := 0
-	for {
-		var item module
-		if err := decoder.Decode(&item); err == io.EOF {
-			break
-		} else if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
+	for _, item := range modules {
 		if item.Version == "" {
 			continue
 		}
