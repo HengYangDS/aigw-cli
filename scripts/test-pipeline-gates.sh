@@ -5,6 +5,7 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 python3 - "$root/.gitlab-ci.yml" "$root/.github/workflows/release.yml" <<'PYTHON'
 from pathlib import Path
+import re
 import sys
 
 gitlab = Path(sys.argv[1]).read_text(encoding="utf-8")
@@ -39,6 +40,7 @@ for required in [
     "go test -race ./...", "go vet ./...", "check-product-surface.sh", "check-release-tag-signature.sh",
     "check-english-text.sh", "test-linux-native-install-staging.sh", "test-macos-native-install-staging.sh",
     "test-verified-candidate.sh",
+    "test-publish-release.sh", "test-publish-github-release.sh",
     "test-pipeline-gates.sh", "test-github-actions-contract.sh",
     "test-github-release-workflow.sh",
     "test-github-provider-projection.sh", "check-text-layout.py", "test-text-layout.sh",
@@ -98,6 +100,7 @@ for required in [
     'sh scripts/test-release-reproducibility.sh "$version"',
     "check-text-layout.py", "test-text-layout.sh",
     "test-verified-candidate.sh", "test-macos-native-install-staging.sh",
+    "test-publish-release.sh", "test-publish-github-release.sh",
 ]:
     if required not in github:
         raise SystemExit(f"GitHub independent release plane is missing {required}")
@@ -107,7 +110,7 @@ for forbidden in [
 ]:
     if forbidden in github:
         raise SystemExit(f"GitHub release plane retains provider-specific build metadata: {forbidden}")
-if "gitlab-ci" in github.lower() or "publish-release.sh" in github:
+if "gitlab-ci" in github.lower() or re.search(r"(?m)^\s*sh scripts/publish-release\.sh(?:\s|$)", github):
     raise SystemExit("GitHub release plane retains a non-peer dependency")
 
 print("dual forge CI/CD contract: OK")
