@@ -31,6 +31,29 @@ fi
 if [ -n "$compat_python" ]; then
   "$compat_python" scripts/check-text-layout.py >/dev/null
 fi
+
+# The checker must remain independent of a caller's fsmonitor setting. Route
+# its Git subprocess through a contract wrapper so the invocation itself is
+# checked, while the real Git process still validates the result.
+real_git=$(command -v git)
+git_wrapper=$tmp/git-wrapper
+mkdir -p "$git_wrapper"
+cat > "$git_wrapper/git" <<'SH'
+#!/bin/sh
+if [ "$1" != "-c" ] || [ "$2" != "core.fsmonitor=false" ] || [ "$3" != "ls-files" ] || [ "$4" != "-z" ]; then
+  echo 'text layout checker did not disable fsmonitor for tracked-file discovery' >&2
+  exit 1
+fi
+exec "$AIGW_TEXT_LAYOUT_REAL_GIT" "$@"
+SH
+chmod +x "$git_wrapper/git"
+env \
+  AIGW_TEXT_LAYOUT_REAL_GIT="$real_git" \
+  GIT_CONFIG_COUNT=1 \
+  GIT_CONFIG_KEY_0=core.fsmonitor \
+  GIT_CONFIG_VALUE_0=true \
+  PATH="$git_wrapper:$PATH" \
+  python3 scripts/check-text-layout.py >/dev/null
 printf '# Invalid\n\n\nDouble gap.\n' > README.md
 if python3 scripts/check-text-layout.py >/dev/null 2>&1; then
   echo 'text layout checker accepted consecutive Markdown blank lines' >&2
