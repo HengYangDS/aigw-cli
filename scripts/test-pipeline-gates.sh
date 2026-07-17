@@ -27,6 +27,12 @@ if "AIGW_GOPROXY" not in default or "prepare-ci-go-cache.sh" not in default:
     raise SystemExit("GitLab must retain its independently configured Go dependency path")
 if "https://goproxy.cn|https://proxy.golang.org|direct" not in default:
     raise SystemExit("GitLab Go dependency path must fall back after transient proxy failures")
+if "tags: [aigw-release-macos-arm64]" not in default:
+    raise SystemExit("GitLab must schedule the full pipeline on its dedicated release runner")
+
+variables = section(gitlab, "variables")
+if "AIGW_RELEASE_GO_TOOLCHAIN: go1.25.8" not in variables:
+    raise SystemExit("GitLab must pin the release Go toolchain")
 
 verify = section(gitlab, "verify")
 for required in [
@@ -46,11 +52,6 @@ package = section(gitlab, "package")
 if "macos-native-acceptance" in package:
     raise SystemExit("package must not depend on post-package macOS native acceptance")
 for required in [
-    'AIGW_GITLAB_RELEASE_ORIGIN="$CI_SERVER_URL"',
-    'AIGW_GITLAB_RELEASE_REPOSITORY="$CI_PROJECT_PATH"',
-    'if test -n "${AIGW_GITHUB_RELEASE_REPOSITORY:-}"; then',
-    'github_origin="${AIGW_GITHUB_RELEASE_ORIGIN:-https://github.com}"',
-    "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh",
     'SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"',
     'SOURCE_DATE_EPOCH="$(sh scripts/release-source-date-epoch.sh "$VERSION")"',
@@ -59,6 +60,13 @@ for required in [
 ]:
     if required not in package:
         raise SystemExit(f"GitLab package plane is missing {required}")
+for forbidden in [
+    'AIGW_GITLAB_RELEASE_ORIGIN="$CI_SERVER_URL"',
+    'AIGW_GITLAB_RELEASE_REPOSITORY="$CI_PROJECT_PATH"',
+    'AIGW_GITHUB_RELEASE_ORIGIN', 'AIGW_GITHUB_RELEASE_REPOSITORY',
+]:
+    if forbidden in package:
+        raise SystemExit(f"GitLab package plane retains provider-specific build metadata: {forbidden}")
 
 release = section(gitlab, "release")
 if "publish-release.sh" not in release or "needs: [publish]" not in release:
@@ -73,12 +81,18 @@ macos_native = section(gitlab, "macos-native-acceptance")
 for required in ["stage: acceptance", "allow_failure: true", "artifacts: true", "AIGW_MACOS_ACCEPTANCE_USER", "AIGW_MACOS_UPGRADE_PACKAGE", "test-macos-native-install.sh"]:
     if required not in macos_native:
         raise SystemExit(f"macOS native evidence job is missing {required}")
+for section_text, name in [
+    (section(gitlab, "windows-installer-runtime"), "Windows installer"),
+    (macos_native, "macOS native acceptance"),
+    (package, "package"),
+]:
+    if "tags: [aigw-release-macos-arm64]" not in section_text:
+        raise SystemExit(f"{name} must use the dedicated release runner")
 
 for required in [
     "name: Release", 'tags: ["v*"]', "permissions:\n  contents: write",
-    "runs-on: macos-15", "check-release-tag-signature.sh",
-    "AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY",
-    "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY",
+    "runs-on: [self-hosted, macOS, ARM64, aigw-release-macos-arm64]", "check-release-tag-signature.sh",
+    "AIGW_RELEASE_GO_TOOLCHAIN: go1.25.8",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
     'SOURCE_DATE_EPOCH="$(sh scripts/release-source-date-epoch.sh "$version")"',
     'sh scripts/test-release-reproducibility.sh "$version"',
@@ -87,6 +101,12 @@ for required in [
 ]:
     if required not in github:
         raise SystemExit(f"GitHub independent release plane is missing {required}")
+for forbidden in [
+    "AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY",
+    "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY",
+]:
+    if forbidden in github:
+        raise SystemExit(f"GitHub release plane retains provider-specific build metadata: {forbidden}")
 if "gitlab-ci" in github.lower() or "publish-release.sh" in github:
     raise SystemExit("GitHub release plane retains a non-peer dependency")
 

@@ -43,11 +43,12 @@ Actions does not inherit this GitLab-specific setting.
 ## Release behavior
 
 A signed tag triggers independently complete GitLab and GitHub pipelines. Each
-derives the same source-neutral release epoch from the tagged Changelog
-heading, proves two local full-matrix builds byte-identical, builds the full
-matrix from the tagged commit, and publishes its own immutable release. If an
-identical GitHub release already exists, its assets are downloaded and
-byte-verified; a disagreement fails closed rather than replacing an asset.
+uses the dedicated macOS arm64 release runner class, the same pinned Go
+toolchain, tracked forge-source manifest, and release epoch derived from the
+tagged Changelog heading. Each proves two full-matrix builds byte-identical,
+then publishes its own immutable release. If an identical release already
+exists, its assets are downloaded and byte-verified; a disagreement fails
+closed rather than replacing an asset.
 
 A released AIGW binary contains independent GitLab and GitHub source tuples.
 The updater queries every configured peer. If both peers are reachable, their

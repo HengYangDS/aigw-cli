@@ -44,6 +44,11 @@ do
   require "$token" "$acceptance"
 done
 
+if ! grep -Fq "find \"\$tree\" -type f -name '._*' -delete" "$root/scripts/package.sh"; then
+  echo "macOS package staging must discard AppleDouble metadata before packaging" >&2
+  exit 1
+fi
+
 for token in \
   'dig.aigw.cli' \
   'usr/local/bin/aigw' \
