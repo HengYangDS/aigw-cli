@@ -106,18 +106,20 @@ retired_versions = {
     for line in retired.read_text(encoding="utf-8").splitlines()
     if line.strip() and not line.lstrip().startswith("#")
 }
-marker = next(
-    (
-        match
-        for match in re.finditer(r"^## \[([^]]+)\] - \d{4}-\d{2}-\d{2}$", text, re.MULTILINE)
-        if match.group(1) not in tag_versions | retired_versions
-    ),
-    None,
-)
-if marker is None:
-    raise SystemExit("fixture lacks an untagged leading release candidate")
+published = list(re.finditer(r"^## \[([^]]+)\] - \d{4}-\d{2}-\d{2}$", text, re.MULTILINE))
+unknown = [match for match in published if match.group(1) not in tag_versions | retired_versions]
 candidate = "## [9999.0.0-ci.1] - 2026-07-17"
-path.write_text(text[:marker.start()] + candidate + text[marker.end():], encoding="utf-8")
+if not unknown:
+    unreleased = re.search(r"^## \[Unreleased\]$", text, re.MULTILINE)
+    if unreleased is None:
+        raise SystemExit("fixture lacks the Unreleased heading")
+    text = text[:unreleased.end()] + "\n\n" + candidate + text[unreleased.end():]
+elif len(unknown) == 1:
+    marker = unknown[0]
+    text = text[:marker.start()] + candidate + text[marker.end():]
+else:
+    raise SystemExit("fixture contains multiple untagged release candidates")
+path.write_text(text, encoding="utf-8")
 PY
 if ! AIGW_CHANGELOG_FILE="$fixture" sh "$checker" >/dev/null 2>&1; then
   echo "changelog checker rejected a leading next release candidate" >&2
