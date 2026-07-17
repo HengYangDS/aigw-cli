@@ -5,12 +5,31 @@ version=${1:-0.1.0-dev}
 out=${2:-dist}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 module=$(awk 'NR == 1 && $1 == "module" { print $2; exit }' "$root/go.mod")
+go_version=$(awk '$1 == "go" { print $2; exit }' "$root/go.mod")
 source_date_epoch=${SOURCE_DATE_EPOCH:-}
-go_toolchain=${AIGW_RELEASE_GO_TOOLCHAIN:-go1.25.8}
+requested_go_toolchain=${AIGW_RELEASE_GO_TOOLCHAIN:-}
+requested_gitlab_origin=${AIGW_GITLAB_RELEASE_ORIGIN:-}
+requested_gitlab_repository=${AIGW_GITLAB_RELEASE_REPOSITORY:-}
+requested_github_origin=${AIGW_GITHUB_RELEASE_ORIGIN:-}
+requested_github_repository=${AIGW_GITHUB_RELEASE_REPOSITORY:-}
 
-"$root/scripts/check-release-forge-sources.sh" >/dev/null
-# shellcheck source=../packaging/release/forge-sources.env
-. "$root/packaging/release/forge-sources.env"
+[ -n "$go_version" ] || { echo "release toolchain: go.mod has no Go version" >&2; exit 2; }
+go_toolchain="go$go_version"
+
+case "$requested_go_toolchain" in
+  ''|"$go_toolchain") ;;
+  *) echo "AIGW_RELEASE_GO_TOOLCHAIN conflicts with go.mod: expected $go_toolchain" >&2; exit 2 ;;
+esac
+
+export GOTOOLCHAIN="$go_toolchain"
+
+release_source_exports=$(python3 "$root/scripts/resolve-release-forge-sources.py" \
+  --file "$root/packaging/release/forge-sources.env" --shell)
+# The resolver emits only validated shell-quoted values from the tracked
+# manifest. This makes the following exports safe while avoiding shell-sourcing
+# the manifest itself.
+# shellcheck disable=SC2086
+eval "$release_source_exports"
 gitlab_origin=$AIGW_GITLAB_RELEASE_ORIGIN
 gitlab_repository=$AIGW_GITLAB_RELEASE_REPOSITORY
 github_origin=$AIGW_GITHUB_RELEASE_ORIGIN
@@ -44,9 +63,26 @@ validate_release_source() {
 validate_release_source GitLab "$gitlab_origin" "$gitlab_repository"
 validate_release_source GitHub "$github_origin" "$github_repository"
 
+validate_release_override() {
+  provider=$1
+  field=$2
+  requested=$3
+  canonical=$4
+  [ -z "$requested" ] || [ "$requested" = "$canonical" ] || {
+    echo "$provider release $field override conflicts with the source-owned release tuple" >&2
+    exit 2
+  }
+}
+
+validate_release_override GitLab origin "$requested_gitlab_origin" "$gitlab_origin"
+validate_release_override GitLab repository "$requested_gitlab_repository" "$gitlab_repository"
+validate_release_override GitHub origin "$requested_github_origin" "$github_origin"
+validate_release_override GitHub repository "$requested_github_repository" "$github_repository"
+
 "$root/scripts/check-package-safety.sh"
 "$root/scripts/check-retired-residue.sh"
 python3 "$root/scripts/check-text-layout.py"
+"$root/scripts/check-release-toolchain.sh"
 
 case "$version" in
   *[!0-9A-Za-z._-]*) echo "invalid version: $version" >&2; exit 2 ;;
@@ -54,12 +90,6 @@ esac
 case "$source_date_epoch" in
   ''|*[!0-9]*) echo "SOURCE_DATE_EPOCH must be a non-negative Unix epoch" >&2; exit 2 ;;
 esac
-case "$go_toolchain" in
-  go[0-9]*.[0-9]*.[0-9]*) ;;
-  *) echo "AIGW_RELEASE_GO_TOOLCHAIN must be a full Go toolchain version" >&2; exit 2 ;;
-esac
-export GOTOOLCHAIN=$go_toolchain
-export GOFLAGS=-buildvcs=false
 source_date_touch=$(python3 - "$source_date_epoch" <<'PYTHON'
 import datetime as dt
 import sys
@@ -81,7 +111,7 @@ build_binary() {
   dest=$4
   printf 'building %s/%s (%s)\n' "$goos" "$goarch" "$channel"
   mkdir -p "$(dirname -- "$dest")"
-  (cd "$root" && CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath \
+  (cd "$root" && CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -buildvcs=false \
     -ldflags "-s -w -X ${module}/internal/cli.Version=$version -X ${module}/internal/selfupdate.InstallChannel=$channel -X ${module}/internal/selfupdate.BuildGitLabReleaseOrigin=$gitlab_origin -X ${module}/internal/selfupdate.BuildGitLabReleaseRepository=$gitlab_repository -X ${module}/internal/selfupdate.BuildGitHubReleaseOrigin=$github_origin -X ${module}/internal/selfupdate.BuildGitHubReleaseRepository=$github_repository" \
     -o "$dest" ./cmd/aigw)
 }
@@ -102,7 +132,7 @@ archive_portable() {
   format=tar.gz
   archive="$out_abs/$name.tar.gz"
   [ "$goos" = windows ] && { format=zip; archive="$out_abs/$name.zip"; }
-  (cd "$root" && go run ./tools/archive \
+  (cd "$root" && go run -buildvcs=false ./tools/archive \
     -format "$format" -output "$archive" -root "$name" -epoch "$source_date_epoch" \
     -entry "$binary=$stage/$binary" \
     -entry "README.md=$stage/README.md" \
@@ -148,7 +178,7 @@ build_macos_pkg() {
   canonical_product="$build_root/aigw-canonical.pkg"
   pkgutil --expand-full "$product" "$product_stage" >/dev/null
   (cd "$product_stage" && xar -c --distribution --compression=gzip -f "$canonical_product" Distribution aigw-component.pkg)
-  (cd "$root" && go run ./tools/xarnorm -input "$canonical_product" -output "$product" -epoch "$source_date_epoch")
+  (cd "$root" && go run -buildvcs=false ./tools/xarnorm -input "$canonical_product" -output "$product" -epoch "$source_date_epoch")
 }
 
 nfpm_arch() {
@@ -165,7 +195,7 @@ sed_escape() {
 
 stable_uuid() {
   name=$1
-  (cd "$root" && go run ./tools/releaseid \
+  (cd "$root" && go run -buildvcs=false ./tools/releaseid \
     -namespace 6ba7b814-9dad-11d1-80b4-00c04fd430c8 \
     -name "$name")
 }
@@ -393,7 +423,7 @@ build_macos_pkg
 build_linux_packages
 build_windows_msi
 verify_binary_arches
-(cd "$root" && go run ./tools/sbom -version "$version") > "$out_abs/aigw_${version}.spdx.json"
+(cd "$root" && go run -buildvcs=false ./tools/sbom -version "$version") > "$out_abs/aigw_${version}.spdx.json"
 write_checksums
 if [ "${AIGW_REQUIRE_FULL_MATRIX:-0}" = "1" ]; then
   "$root/scripts/check-release-artifacts.sh" "$out_abs" "$version"
