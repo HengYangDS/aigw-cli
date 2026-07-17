@@ -53,15 +53,19 @@ Every formal release matrix has one source-neutral `SOURCE_DATE_EPOCH`: UTC
 midnight of the committed `CHANGELOG.md` heading for that exact version. The
 package entrypoint rejects a missing or invalid epoch. It normalizes portable
 archives, package metadata, MSI identity fields, and the SPDX creation time
-before it writes `checksums.txt`.
+before it writes `checksums.txt`. It also pins the exact Go toolchain and reads
+both public release-source tuples from the tracked forge-source manifest; a
+provider pipeline may not inject its own tuple into the artifact bytes.
 
-Before a release plane publishes, it builds the complete 15-artifact matrix
-twice with the same version, epoch, and source tuples. The sorted filenames,
-every artifact byte, the checksum manifest, and the SPDX SBOM must match. A
-native packager that cannot satisfy this contract blocks the tag; it is not
-permitted to create a provider-specific exception. The two provider pipelines
-then remain independently responsible for their own published-matrix
-inspection and cross-forge byte comparison.
+Before publication, the complete 15-artifact matrix is built twice on the
+dedicated macOS arm64 release runner with the same version, epoch, toolchain,
+and manifest. The sorted filenames, every artifact byte, the checksum manifest,
+and the SPDX SBOM must match. GitLab and GitHub use that same controlled runner
+class, while retaining independent CI/CD, commit, tag, and publication planes.
+A native packager that cannot satisfy this contract blocks the tag; no
+provider-specific exception is permitted. Both published release matrices are
+then downloaded and compared byte-for-byte before either is offered as an
+equal update peer.
 
 ## Forge synchronization
 
