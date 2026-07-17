@@ -13,7 +13,10 @@ stages: [verify, package, acceptance, publish, release]
 default:
   image: golang:1.25
   before_script:
-    - export GOPROXY="${AIGW_GOPROXY:-https://goproxy.cn,direct}"; . scripts/prepare-ci-go-cache.sh
+    # A pipe, rather than a comma, means Go may advance after a transient
+    # proxy failure such as a TLS handshake timeout. Keep GitLab's dependency
+    # path self-contained; GitHub Actions deliberately uses its own defaults.
+    - export GOPROXY="${AIGW_GOPROXY:-https://goproxy.cn|https://proxy.golang.org|direct}"; . scripts/prepare-ci-go-cache.sh
 
 verify:
   stage: verify
@@ -43,6 +46,7 @@ verify:
     - sh scripts/test-macos-native-install-staging.sh
     - sh scripts/test-msi-version.sh
     - sh scripts/test-pipeline-gates.sh
+    - sh scripts/test-ci-go-proxy-policy.sh
     - sh scripts/test-github-actions-contract.sh
     - sh scripts/test-github-release-workflow.sh
     - sh scripts/test-github-provider-projection.sh
