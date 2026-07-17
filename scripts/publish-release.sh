@@ -35,18 +35,66 @@ cat > release.json <<EOF
 EOF
 
 endpoint="$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases"
+
+verify_release() {
+  status=$(curl --silent --show-error --output release-response.json --write-out '%{http_code}' \
+    --header "JOB-TOKEN: $CI_JOB_TOKEN" "$endpoint/$CI_COMMIT_TAG" || true)
+  case "$status" in
+    2??) ;;
+    *)
+      cat release-response.json >&2 2>/dev/null || true
+      echo "GitLab release verification failed with HTTP $status" >&2
+      return 1
+      ;;
+  esac
+
+  if ! tr -d '[:space:]' < release-response.json | grep -Fq "\"tag_name\":\"$CI_COMMIT_TAG\""; then
+    echo "GitLab release verification returned the wrong tag" >&2
+    return 1
+  fi
+
+  asset_urls=$(sed -n 's/.*"url":"\([^"]*\)".*/\1/p' release.json)
+  asset_count=0
+  for asset_url in $asset_urls; do
+    asset_count=$((asset_count + 1))
+    if ! tr -d '[:space:]' < release-response.json | grep -Fq "\"url\":\"$asset_url\""; then
+      echo "GitLab release verification is missing asset $asset_url" >&2
+      return 1
+    fi
+    if ! curl --silent --show-error --fail --location --output /dev/null \
+      --header "JOB-TOKEN: $CI_JOB_TOKEN" "$asset_url"; then
+      echo "GitLab release verification could not fetch asset $asset_url" >&2
+      return 1
+    fi
+  done
+  if [ "$asset_count" -ne 15 ]; then
+    echo "GitLab release verification expected 15 assets, found $asset_count in manifest" >&2
+    return 1
+  fi
+}
+
 status=$(curl --silent --show-error --output release-response.json --write-out '%{http_code}' \
   --request POST --header "JOB-TOKEN: $CI_JOB_TOKEN" --header 'Content-Type: application/json' \
   --data @release.json "$endpoint" || true)
 case "$status" in
-  2??) exit 0 ;;
+  2??) ;;
   409)
     status=$(curl --silent --show-error --output release-response.json --write-out '%{http_code}' \
       --request PUT --header "JOB-TOKEN: $CI_JOB_TOKEN" --header 'Content-Type: application/json' \
       --data @release.json "$endpoint/$CI_COMMIT_TAG" || true)
-    case "$status" in 2??) exit 0;; esac
+    case "$status" in 2??) ;; *)
+      cat release-response.json >&2 2>/dev/null || true
+      echo "GitLab release publication failed with HTTP $status" >&2
+      exit 1
+      ;;
+    esac
+    ;;
+  *)
+    cat release-response.json >&2 2>/dev/null || true
+    echo "GitLab release publication failed with HTTP $status" >&2
+    exit 1
     ;;
 esac
-cat release-response.json >&2 2>/dev/null || true
-echo "GitLab release publication failed with HTTP $status" >&2
-exit 1
+
+verify_release
+echo "GitLab release verified: $CI_COMMIT_TAG"
