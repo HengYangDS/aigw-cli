@@ -61,3 +61,6 @@ jobs:
           sh scripts/test-github-actions-contract.sh
           sh scripts/test-github-release-workflow.sh
           sh scripts/test-github-provider-projection.sh
+      - name: Run PowerShell installer contract
+        shell: pwsh
+        run: ./scripts/test-installers.ps1 -Installer ./scripts/install.ps1

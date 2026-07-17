@@ -70,6 +70,9 @@ jobs:
           version="${SELECTED_TAG#v}"
           AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$version" dist
           sh scripts/test-release-package-layout.sh dist "$version"
+      - name: Run PowerShell installer contract
+        shell: pwsh
+        run: ./scripts/test-installers.ps1 -Installer ./scripts/install.ps1
       - name: Publish or verify immutable GitHub release assets
         env:
           GH_TOKEN: ${{ github.token }}
