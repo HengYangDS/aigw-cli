@@ -377,6 +377,7 @@ func newRouteCommand(app *App) *cobra.Command {
 		}},
 		newRouteFallbackCommand(app),
 		newRouteRestoreCommand(app),
+		newRouteDoctorCommand(app),
 	)
 	return root
 }
