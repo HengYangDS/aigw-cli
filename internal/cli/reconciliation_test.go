@@ -239,3 +239,80 @@ func TestRepairRestoresLegacyAirAndKeepsOnlyStandaloneTarget(t *testing.T) {
 		t.Fatalf("native authentication plans = %#v", runner.plans)
 	}
 }
+
+func TestRepairDryRunPlansLegacyJetBrainsRestorationWithoutMutation(t *testing.T) {
+	dir := t.TempDir()
+	standalone := filepath.Join(dir, "standalone", "config.toml")
+	pycharm := filepath.Join(dir, "pycharm", "config.toml")
+	air := filepath.Join(dir, "air", "config.toml")
+	for _, target := range []string{standalone, pycharm, air} {
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before := reconciliationConfig(standalone)
+	adapter := before.Adapters[domain.ClientCodex]
+	adapter.Targets = []string{standalone, pycharm, air}
+	before.Adapters[domain.ClientCodex] = adapter
+	runtime, _, err := before.ResolveRuntime(domain.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range adapter.Targets {
+		if err := adapters.SyncCodexConfig(target, runtime); err != nil {
+			t.Fatal(err)
+		}
+	}
+	store := config.NewStore(filepath.Join(dir, "aigw.toml"))
+	if err := store.Save(before); err != nil {
+		t.Fatal(err)
+	}
+	tracked := append([]string{store.Path()}, adapter.Targets...)
+	for _, target := range adapter.Targets {
+		tracked = append(tracked, target+".aigw-state.json")
+	}
+	preimages := make(map[string][]byte, len(tracked))
+	for _, target := range tracked {
+		data, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		preimages[target] = data
+	}
+	runner := &reconciliationRunner{}
+	output := new(bytes.Buffer)
+	app := &App{
+		Config: store, Runner: runner, Out: output, Err: output,
+		Discovery: reconciliationDiscovery{result: discovery.Result{CodexExecutable: "/opt/codex", Surfaces: []discovery.Surface{
+			{ID: discovery.SurfaceCodexCLIStandalone, Authority: discovery.AuthorityAIGW, ConfigPath: standalone, Present: true, AutoManaged: true},
+			{ID: discovery.SurfacePyCharmCodex, Authority: discovery.AuthorityJetBrainsAI, ConfigPath: pycharm, Present: true},
+			{ID: discovery.SurfaceAirCodex, Authority: discovery.AuthorityJetBrainsAI, ConfigPath: air, Present: true, ManualFallbackAllowed: true},
+		}}},
+	}
+	if err := Execute(app, []string{"repair", "--dry-run", "--json"}); err != nil {
+		t.Fatalf("repair --dry-run --json error = %v", err)
+	}
+	for target, want := range preimages {
+		got, err := os.ReadFile(target)
+		if err != nil || !bytes.Equal(got, want) {
+			t.Fatalf("dry-run mutated %s: %q, %v", target, got, err)
+		}
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("repair dry-run executed native authentication: %#v", runner.plans)
+	}
+	text := output.String()
+	for _, want := range []string{`"dry_run": true`, `"restore-external"`, discovery.SurfaceAirCodex, discovery.SurfacePyCharmCodex} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("repair dry-run JSON missing %q:\n%s", want, text)
+		}
+	}
+	for _, forbidden := range []string{air, pycharm, standalone} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("repair dry-run exposed config path %q:\n%s", forbidden, text)
+		}
+	}
+}

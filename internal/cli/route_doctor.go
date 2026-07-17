@@ -192,7 +192,7 @@ func renderRouteDoctorReport(app *App, report routeDoctorReport) {
 	if report.OK {
 		r.Success("No route ownership conflict was detected")
 	} else {
-		r.Next("aigw route restore air --dry-run")
+		r.Next("aigw repair --dry-run")
 	}
 }
 
