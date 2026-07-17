@@ -44,9 +44,43 @@ fixed system-tool PATH, so removal remains possible from a restricted shell.
 
 `aigw doctor` rejects globally inherited client-token variables and reports names only, never values. Remove them from login, shell, IDE, and launch-agent environments. `AIGW_TOKEN_<ACCOUNT>` remains the explicit CI-only secret backend; it is not a global client credential. The Claude shim injects the Account Token as `ANTHROPIC_AUTH_TOKEN` only into the Claude process it launches.
 
-Codex changes consist only of AIGW-owned top-level `model` and `model_provider` selections plus a delimited `[model_providers.aigw]` block. AIGW keeps a per-target state snapshot, validates all three owned surfaces against the resolved Profile in `aigw doctor`, and preserves user edits elsewhere in `config.toml`. If a formatter removes only AIGW ownership comments, AIGW accepts recovery only when the state hash and every owned model/provider value exactly match the selected Profile; any semantic difference remains a conflict.
+Codex ownership is host-specific. AIGW may manage top-level `model` and
+`model_provider` selections plus a delimited `[model_providers.aigw]` block
+only for an admitted standalone Codex CLI target. PyCharm Codex is never an
+AIGW target, and Junie CLI is not a Codex adapter. ChatGPT Desktop retains
+authority over every existing conversation's model and transcript even where
+it reads a later/new-work default from the standalone configuration.
 
-`aigw sync` only reconciles those owned config surfaces. It never starts, stops, restarts, or reloads a Claude/Codex client and never rebinds credentials. Credential binding is limited to first Codex adapter enable, an Account-changing Codex route, a Token rotation, or the explicit `aigw adapter auth codex` command; each native `codex login --with-api-key` invocation has a 20-second bound and receives the Token only through stdin.
+Air remains JetBrains AI by default. `aigw route fallback air` may append an
+AIGW-owned `[model_providers.aigw_fallback]` block with an ownership sidecar;
+it must not write Air's top-level `model` or `model_provider`. The command
+fails closed if Air already selects AIGW at the top level, if the fallback is
+unowned, or if the sidecar attribution is partial, foreign, or mode-mismatched.
+Restore removes only the marked fallback and returns the retained Air bytes
+exactly. Apply and restore require `--confirm-host-idle`; the flag attests
+idleness but never probes, starts, stops, or restarts Air.
+
+AIGW snapshots each owned configuration and sidecar as exact bytes, existence,
+digest, and POSIX mode. Before a write it verifies the captured preimage;
+compensating rollback restores only its own unchanged postimages. This guards
+against ordinary concurrent edits but is not a cross-process CAS guarantee.
+
+`aigw sync` reconciles only admitted owned surfaces: standalone full-selection
+targets and an explicitly staged Air fallback. Generic setup and repair adopt
+only standalone targets. It never starts, stops, restarts, or reloads a
+Claude/Codex client and never rebinds credentials during a dry-run. Credential
+binding is limited to first Codex adapter enable, an Account-changing Codex
+route, a Token rotation, the explicit `aigw adapter auth codex` command, or
+first staging of Air's explicit fallback. Each native
+`codex login --with-api-key` invocation has a 20-second bound and receives the
+Token only through stdin.
+
+`aigw repair --dry-run` is the required secret-free planning surface when an
+older configuration still lists a JetBrains target. It renders the proposed
+standalone adoption and legacy restore actions without writing the AIGW config,
+Codex files, sidecars, shims, or credentials; it neither runs native login nor
+acquires the configuration mutation lock. Its stable surface identifiers avoid
+disclosing local configuration paths in the preview.
 
 Endpoint checks are bounded HTTP requests. AIGW does not use an unbounded `codex exec` process as a health check and does not install a watchdog or any lifecycle automation for desktop clients.
 
