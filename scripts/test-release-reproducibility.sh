@@ -4,7 +4,6 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 version=${1:-0.1.0-reproducibility-test}
 epoch=${SOURCE_DATE_EPOCH:-1784246400}
-toolchain=${AIGW_RELEASE_GO_TOOLCHAIN:-go1.25.8}
 tmp=$(mktemp -d)
 first="$tmp/first"
 second="$tmp/second"
@@ -14,15 +13,9 @@ trap 'status=$?; if [ "$success" = 1 ]; then rm -rf "$tmp"; else echo "reproduci
 case "$epoch" in
   ''|*[!0-9]*) echo "SOURCE_DATE_EPOCH must be a non-negative Unix epoch" >&2; exit 2 ;;
 esac
-case "$toolchain" in
-  go[0-9]*.[0-9]*.[0-9]*) ;;
-  *) echo "AIGW_RELEASE_GO_TOOLCHAIN must be a full Go toolchain version" >&2; exit 2 ;;
-esac
-
 build() {
   out=$1
   env \
-    AIGW_RELEASE_GO_TOOLCHAIN="$toolchain" \
     SOURCE_DATE_EPOCH="$epoch" \
     AIGW_REQUIRE_FULL_MATRIX=1 \
     sh "$root/scripts/package.sh" "$version" "$out" >/dev/null
