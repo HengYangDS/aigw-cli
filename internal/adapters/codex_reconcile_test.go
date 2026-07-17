@@ -296,3 +296,109 @@ func TestReconcileCodexConfigsAdoptsOnlyCompleteAIGWSidecarAttribution(t *testin
 		}
 	}
 }
+
+func TestReconcileCodexConfigsUsesLegacySidecarBesideSymlinkTarget(t *testing.T) {
+	dir := t.TempDir()
+	realDir := filepath.Join(dir, "real")
+	if err := os.MkdirAll(realDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	realPath := filepath.Join(realDir, "config.toml")
+	aliasPath := filepath.Join(dir, "alias.toml")
+	original := "model_provider = \"native\"\nmodel = \"gpt-native\"\n"
+	if err := os.WriteFile(realPath, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(realPath, aliasPath); err != nil {
+		t.Fatal(err)
+	}
+	runtime := atomicTestRuntime()
+	block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	if err := os.WriteFile(realPath, []byte(projectCodex(original, block, runtime.Model)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	legacy := codexState{
+		OriginalProvider: `model_provider = "native"`,
+		OriginalModel:    `model = "gpt-native"`,
+		ManagedBlockHash: hashText(block),
+	}
+	legacyData, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codexStatePath(aliasPath), append(legacyData, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := ReconcileCodexConfigs(nil, []CodexTargetRef{standaloneCodexTarget(aliasPath)}, runtime); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(realPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count := strings.Count(string(data), "[model_providers.aigw]"); count != 1 {
+		t.Fatalf("managed provider tables = %d, want one:\n%s", count, data)
+	}
+	if _, err := os.Stat(codexStatePath(realPath)); !os.IsNotExist(err) {
+		t.Fatalf("unexpected canonical sidecar created beside real target: %v", err)
+	}
+	stateData, err := os.ReadFile(codexStatePath(aliasPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state codexState
+	if err := json.Unmarshal(stateData, &state); err != nil {
+		t.Fatal(err)
+	}
+	if state.WriterID != CodexProjectionWriterID || state.ProjectionMode != CodexProjectionFullSelection || state.TransactionID == "" {
+		t.Fatalf("legacy symlink sidecar was not adopted: %#v", state)
+	}
+}
+
+func TestReconcileCodexConfigsRejectsUnownedAirFallbackBlock(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	original := []byte("model_provider = \"jetbrains\"\n\n[model_providers.aigw_fallback]\nname = \"foreign\"\n")
+	if err := os.WriteFile(path, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ReconcileCodexConfigs(nil, []CodexTargetRef{airFallbackCodexTarget(path)}, atomicTestRuntime())
+	if err == nil || !strings.Contains(err.Error(), "unowned") {
+		t.Fatalf("ReconcileCodexConfigs() error = %v, want unowned fallback conflict", err)
+	}
+	got, readErr := os.ReadFile(path)
+	if readErr != nil || !bytes.Equal(got, original) {
+		t.Fatalf("config changed after unowned fallback rejection: %q, %v", got, readErr)
+	}
+}
+
+func TestValidateCodexConfigRejectsForeignSidecarAttribution(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime := atomicTestRuntime()
+	if err := SyncCodexConfig(path, runtime); err != nil {
+		t.Fatal(err)
+	}
+	stateData, err := os.ReadFile(codexStatePath(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state codexState
+	if err := json.Unmarshal(stateData, &state); err != nil {
+		t.Fatal(err)
+	}
+	state.WriterID = "foreign-projector"
+	mutated, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codexStatePath(path), append(mutated, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err = ValidateCodexConfig(path, runtime)
+	if err == nil || !strings.Contains(err.Error(), "foreign writer") {
+		t.Fatalf("ValidateCodexConfig() error = %v, want foreign writer", err)
+	}
+}
