@@ -8,6 +8,17 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Added
+
+- Add `aigw repair --dry-run [--json]` as a secret-free, lock-free preview for
+  restoring legacy JetBrains target membership while retaining the standalone
+  Codex target.
+
+### Fixed
+
+- Make route-doctor conflicts recommend the repair preview instead of an Air
+  restore command that must fail while Air still selects AIGW at the top level.
+
 ## [0.1.0-rc.53] - 2026-07-17
 
 ### Fixed

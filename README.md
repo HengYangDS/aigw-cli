@@ -107,6 +107,7 @@ aigw rotate [account]        # replace one account token
 aigw check                   # configuration, client, and endpoint health
 aigw doctor                  # detailed diagnosis and one recovery action
 aigw repair                  # bounded client discovery and reconciliation
+aigw repair --dry-run --json # preview repair without writing or binding auth
 aigw route doctor            # inspect host-route ownership; no probes or writes
 ```
 
@@ -151,6 +152,14 @@ following surfaces before it plans a projection:
 Use `aigw route doctor --json` for a local, secret-free ownership report. It
 does not run Codex, Junie, or an IDE; read credentials; contact an endpoint; or
 report configuration bodies, paths, sessions, or billing as known facts.
+
+When route doctor finds an old AIGW full selection on a JetBrains surface, run
+`aigw repair --dry-run --json` before any mutation. The preview maps planned
+projection actions to stable surface IDs rather than exposing configuration
+paths; it does not write configuration, sidecars, shims, authentication, or
+conversation state. It lets an operator verify that legacy Air/PyCharm entries
+will be restored and only the standalone target retained. Apply `aigw repair`
+only after separately proving the affected hosts are naturally idle.
 
 Air remains JetBrains AI by default. Its opt-in fallback has a separate,
 deliberate path:
