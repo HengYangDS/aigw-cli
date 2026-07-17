@@ -39,7 +39,7 @@ if "GOTOOLCHAIN: go1.25.8" not in variables:
 
 verify = section(gitlab, "verify")
 for required in [
-    "go test -race ./...", "go vet ./...", "check-product-surface.sh", "check-release-tag-signature.sh", "check-release-toolchain.sh",
+    "go test -race ./...", "go vet ./...", "check-product-surface.sh", 'check-release-tag-signature.sh . "$CI_COMMIT_TAG" gitlab', "check-release-toolchain.sh",
     "check-english-text.sh", "test-linux-native-install-staging.sh", "test-macos-native-install-staging.sh",
     "test-verified-candidate.sh",
     "test-publish-release.sh", "test-publish-github-release.sh",
@@ -95,7 +95,7 @@ for section_text, name in [
 
 for required in [
     "name: Release", 'tags: ["v*"]', "permissions:\n  contents: write",
-    "runs-on: [self-hosted, macOS, ARM64, aigw-release-macos-arm64]", "check-release-tag-signature.sh",
+    "runs-on: [self-hosted, macOS, ARM64, aigw-release-macos-arm64]", 'check-release-tag-signature.sh . "$SELECTED_TAG" github',
     'go-version: "1.25.8"', "check-latest: false", "GOTOOLCHAIN: go1.25.8", "check-release-toolchain.sh",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
     'SOURCE_DATE_EPOCH="$(sh scripts/release-source-date-epoch.sh "$version")"',
