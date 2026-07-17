@@ -27,6 +27,10 @@ type codexState struct {
 	OriginalProvider string `json:"original_provider,omitempty"`
 	OriginalModel    string `json:"original_model,omitempty"`
 	ManagedBlockHash string `json:"managed_block_hash"`
+	ProjectionMode   string `json:"projection_mode,omitempty"`
+	WriterID         string `json:"writer_id,omitempty"`
+	TransactionID    string `json:"transaction_id,omitempty"`
+	FallbackPrefix   string `json:"fallback_prefix,omitempty"`
 }
 
 // CodexProjectionPlan is a non-secret, read-only rendering of one target's
@@ -86,15 +90,7 @@ func SyncCodexConfig(path string, runtime domain.Runtime) error {
 // writing. It is the dry-run boundary used by the CLI and callers that need
 // evidence before mutation.
 func PlanCodexConfigs(paths []string, runtime domain.Runtime) ([]CodexProjectionPlan, error) {
-	prepared, err := prepareCodexProjections(paths, runtime)
-	if err != nil {
-		return nil, err
-	}
-	plans := make([]CodexProjectionPlan, 0, len(prepared))
-	for _, projection := range prepared {
-		plans = append(plans, CodexProjectionPlan{Target: projection.target, Action: projection.action})
-	}
-	return plans, nil
+	return PlanCodexReconciliation(nil, standaloneCodexTargets(paths), runtime)
 }
 
 // SyncCodexConfigs is an all-target transaction. It prepares every target
@@ -102,25 +98,8 @@ func PlanCodexConfigs(paths []string, runtime domain.Runtime) ([]CodexProjection
 // profile half-synchronized. If any atomic write fails, every configuration and
 // sidecar returns to its byte-exact pre-state, including an absent sidecar.
 func SyncCodexConfigs(paths []string, runtime domain.Runtime) error {
-	prepared, err := prepareCodexProjections(paths, runtime)
-	if err != nil {
-		return err
-	}
-	committed := make([]preparedCodexProjection, 0, len(prepared))
-	for _, projection := range prepared {
-		if projection.action == "already-converged" {
-			continue
-		}
-		committed = append(committed, projection)
-		if err := writePreparedCodexProjection(projection); err != nil {
-			rollbackErr := rollbackCodexProjections(committed)
-			if rollbackErr != nil {
-				return fmt.Errorf("commit Codex projection %s: %w; rollback also failed: %v", projection.target, err, rollbackErr)
-			}
-			return fmt.Errorf("commit Codex projection %s: %w; all targets rolled back", projection.target, err)
-		}
-	}
-	return nil
+	_, err := ReconcileCodexConfigs(nil, standaloneCodexTargets(paths), runtime)
+	return err
 }
 
 func prepareCodexProjections(paths []string, runtime domain.Runtime) ([]preparedCodexProjection, error) {
@@ -302,32 +281,8 @@ func ValidateCodexConfig(path string, runtime domain.Runtime) error {
 }
 
 func DisableCodexConfig(path string) error {
-	stateData, err := os.ReadFile(codexStatePath(path))
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("read Codex adapter state: %w", err)
-	}
-	var state codexState
-	if err := json.Unmarshal(stateData, &state); err != nil {
-		return fmt.Errorf("parse Codex adapter state: %w", err)
-	}
-	current, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read Codex config: %w", err)
-	}
-	base, err := removeCodexProjection(string(current), state)
-	if err != nil {
-		return err
-	}
-	if err := transaction.WriteFileAtomic(path, []byte(base), 0o600); err != nil {
-		return err
-	}
-	if err := os.Remove(codexStatePath(path)); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove Codex adapter state: %w", err)
-	}
-	return nil
+	_, err := ReconcileCodexConfigs(standaloneCodexTargets([]string{path}), nil, domain.Runtime{})
+	return err
 }
 
 func codexUserConfig(path string, runtime domain.Runtime, expectedBlock string) (string, codexState, error) {
