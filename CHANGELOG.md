@@ -24,6 +24,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Refresh GitHub verification tags as annotated remote objects and exercise
   both GitLab and GitHub trust anchors in the signature regression, preventing
   a valid GitHub provenance tag from being treated as an unverifiable fixture.
+- Disable the GitHub release workflow's nonessential Go-cache save so a
+  completed release does not remain in a long post-publication compression
+  step.
 
 ## [0.1.0-rc.62] - 2026-07-17
 

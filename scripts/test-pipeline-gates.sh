@@ -96,7 +96,7 @@ for section_text, name in [
 for required in [
     "name: Release", 'tags: ["v*"]', "permissions:\n  contents: write",
     "runs-on: [self-hosted, macOS, ARM64, aigw-release-macos-arm64]", 'check-release-tag-signature.sh . "$SELECTED_TAG" github',
-    'go-version: "1.25.8"', "check-latest: false", "GOTOOLCHAIN: go1.25.8", "check-release-toolchain.sh",
+    'go-version: "1.25.8"', "check-latest: false", "cache: false", "GOTOOLCHAIN: go1.25.8", "check-release-toolchain.sh",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
     'SOURCE_DATE_EPOCH="$(sh scripts/release-source-date-epoch.sh "$version")"',
     'sh scripts/test-release-reproducibility.sh "$version"',
