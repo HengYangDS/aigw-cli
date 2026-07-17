@@ -47,7 +47,7 @@ for required in [
     "test-github-release-workflow.sh",
     "test-github-provider-projection.sh", "check-text-layout.py", "test-text-layout.sh",
     "test-ci-go-proxy-policy.sh", "test-ci-go-cache-preparation.sh",
-    "test-release-source-date-epoch.sh", "test-release-forge-sources.sh", "test-release-toolchain.sh",
+    "test-release-source-date-epoch.sh", "test-release-forge-sources.sh", "test-release-toolchain.sh", "test-release-tag-signature-provider-selection.sh",
 ]:
     if required not in verify:
         raise SystemExit(f"GitLab verification is missing {required}")
