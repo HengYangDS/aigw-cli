@@ -27,6 +27,11 @@ cross-forge Changelog invariant. Planned versions, branch names, and inferred
 GA milestones do not belong in the release chronicle.
 `scripts/check-changelog.sh` enforces this invariant in CI.
 
+When a superseded GitLab release tag is deliberately retired, its Changelog
+section remains part of the published product history. The version is recorded
+in `packaging/release/retired-gitlab-tags.txt`; the chronology gate requires
+that inventory and the retained sections to stay ordered and complete.
+
 A release tag records a source version; it is not by itself proof of artifact
 publication, native-platform acceptance, signing, notarization, or GA. Those
 claims require their corresponding evidence and must never be implied by a
