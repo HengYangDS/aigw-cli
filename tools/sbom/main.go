@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -30,6 +31,18 @@ type spdxPackage struct {
 var runGoList = func() ([]byte, error) {
 	cmd := exec.Command("go", "list", "-m", "-json", "all")
 	return cmd.CombinedOutput()
+}
+
+func creationTimeFromEnv(getenv func(string) string) (time.Time, error) {
+	raw := strings.TrimSpace(getenv("SOURCE_DATE_EPOCH"))
+	if raw == "" {
+		return time.Time{}, fmt.Errorf("SOURCE_DATE_EPOCH must be set to a non-negative Unix epoch")
+	}
+	epoch, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || epoch < 0 {
+		return time.Time{}, fmt.Errorf("SOURCE_DATE_EPOCH must be a non-negative Unix epoch")
+	}
+	return time.Unix(epoch, 0).UTC(), nil
 }
 
 func loadModules() ([]module, error) {
@@ -58,6 +71,11 @@ func loadModules() ([]module, error) {
 func main() {
 	version := flag.String("version", "dev", "AIGW version")
 	flag.Parse()
+	created, err := creationTimeFromEnv(os.Getenv)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
 	modules, err := loadModules()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -75,7 +93,7 @@ func main() {
 	doc := map[string]any{
 		"spdxVersion": "SPDX-2.3", "dataLicense": "CC0-1.0", "SPDXID": "SPDXRef-DOCUMENT",
 		"name": "aigw-" + *version, "documentNamespace": "https://aigw.internal/spdx/" + *version,
-		"creationInfo": map[string]any{"created": time.Now().UTC().Format(time.RFC3339), "creators": []string{"Tool: aigw-sbom"}},
+		"creationInfo": map[string]any{"created": created.Format(time.RFC3339), "creators": []string{"Tool: aigw-sbom"}},
 		"packages":     packages,
 	}
 	encoder := json.NewEncoder(os.Stdout)

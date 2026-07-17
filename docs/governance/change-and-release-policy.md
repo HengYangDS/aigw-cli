@@ -47,6 +47,22 @@ platform-matching portable archive and a validating checksum record. It exists
 for offline acceptance, installation, and rollback verification. A source
 checkout, a loose binary, and a tag are not candidates.
 
+## Reproducible release inputs
+
+Every formal release matrix has one source-neutral `SOURCE_DATE_EPOCH`: UTC
+midnight of the committed `CHANGELOG.md` heading for that exact version. The
+package entrypoint rejects a missing or invalid epoch. It normalizes portable
+archives, package metadata, MSI identity fields, and the SPDX creation time
+before it writes `checksums.txt`.
+
+Before a release plane publishes, it builds the complete 15-artifact matrix
+twice with the same version, epoch, and source tuples. The sorted filenames,
+every artifact byte, the checksum manifest, and the SPDX SBOM must match. A
+native packager that cannot satisfy this contract blocks the tag; it is not
+permitted to create a provider-specific exception. The two provider pipelines
+then remain independently responsible for their own published-matrix
+inspection and cross-forge byte comparison.
+
 ## Forge synchronization
 
 GitLab and GitHub remain separate identity domains: GitLab commits and tags use
