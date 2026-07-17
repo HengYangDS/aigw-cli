@@ -57,6 +57,7 @@ jobs:
           sh scripts/test-release-artifacts.sh
           sh scripts/test-publish-release.sh
           sh scripts/test-publish-github-release.sh
+          sh scripts/test-ci-go-cache-preparation.sh
           sh scripts/test-verified-candidate.sh
           sh scripts/test-pipeline-gates.sh
           sh scripts/test-macos-native-install-staging.sh

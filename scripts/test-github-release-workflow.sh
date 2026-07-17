@@ -19,7 +19,7 @@ required = [
     'sh scripts/test-release-reproducibility.sh "$version"',
     "scripts/test-release-package-layout.sh", "scripts/test-macos-native-install-staging.sh", "shell: pwsh", "scripts/test-installers.ps1", "publish-github-release.sh",
     "AIGW_RELEASE_GO_TOOLCHAIN: go1.25.8",
-    "scripts/test-publish-release.sh", "scripts/test-publish-github-release.sh",
+    "scripts/test-publish-release.sh", "scripts/test-publish-github-release.sh", "scripts/test-ci-go-cache-preparation.sh",
 ]
 for token in required:
     if token not in text:

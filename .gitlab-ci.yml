@@ -53,6 +53,7 @@ verify:
     - sh scripts/test-msi-version.sh
     - sh scripts/test-pipeline-gates.sh
     - sh scripts/test-ci-go-proxy-policy.sh
+    - sh scripts/test-ci-go-cache-preparation.sh
     - sh scripts/test-github-actions-contract.sh
     - sh scripts/test-github-release-workflow.sh
     - sh scripts/test-github-provider-projection.sh

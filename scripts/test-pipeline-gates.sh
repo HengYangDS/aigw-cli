@@ -44,7 +44,7 @@ for required in [
     "test-pipeline-gates.sh", "test-github-actions-contract.sh",
     "test-github-release-workflow.sh",
     "test-github-provider-projection.sh", "check-text-layout.py", "test-text-layout.sh",
-    "test-ci-go-proxy-policy.sh",
+    "test-ci-go-proxy-policy.sh", "test-ci-go-cache-preparation.sh",
     "test-release-source-date-epoch.sh",
 ]:
     if required not in verify:
@@ -100,7 +100,7 @@ for required in [
     'sh scripts/test-release-reproducibility.sh "$version"',
     "check-text-layout.py", "test-text-layout.sh",
     "test-verified-candidate.sh", "test-macos-native-install-staging.sh",
-    "test-publish-release.sh", "test-publish-github-release.sh",
+    "test-publish-release.sh", "test-publish-github-release.sh", "test-ci-go-cache-preparation.sh",
 ]:
     if required not in github:
         raise SystemExit(f"GitHub independent release plane is missing {required}")

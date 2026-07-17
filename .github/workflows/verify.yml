@@ -53,6 +53,7 @@ jobs:
           sh scripts/test-verified-candidate.sh
           sh scripts/test-release-tag-signature.sh
           sh scripts/test-package-runner-preflight.sh
+          sh scripts/test-ci-go-cache-preparation.sh
           sh scripts/test-linux-native-install-staging.sh
           sh scripts/test-macos-native-install-staging.sh
           sh scripts/test-msi-version.sh

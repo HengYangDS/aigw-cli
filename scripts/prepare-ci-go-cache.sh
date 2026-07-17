@@ -17,6 +17,7 @@ esac
 if [ -d "$AIGW_CI_CACHE_ROOT" ]; then
   size_kib=$(du -sk "$AIGW_CI_CACHE_ROOT" | awk '{print $1}')
   if [ "$size_kib" -gt "$cache_max_kib" ]; then
+    chmod -R u+w "$AIGW_CI_CACHE_ROOT"
     rm -rf "$AIGW_CI_CACHE_ROOT"
   fi
 fi
