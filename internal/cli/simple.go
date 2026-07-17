@@ -2,12 +2,15 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/account"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/diagnostics"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
@@ -254,76 +257,138 @@ func newBalanceCommand(app *App) *cobra.Command {
 }
 
 func newRepairCommand(app *App) *cobra.Command {
-	return &cobra.Command{
+	var dryRun, jsonMode bool
+	cmd := &cobra.Command{
 		Use: "repair", Short: "Discover and repair client configuration", Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := app.Config.Load()
-			if err != nil {
-				return err
-			}
-			if len(cfg.Profiles) == 0 {
-				return problem("Not configured", "No service profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
-			}
-			before := cloneConfig(cfg)
-			discovered, err := discoveredResult(app)
-			if err != nil {
-				return err
-			}
-			claudeRuntime, _, claudeRouteErr := cfg.ResolveRuntime(domain.ClientClaude, "")
-			codexRuntime, _, codexRouteErr := cfg.ResolveRuntime(domain.ClientCodex, "")
-			newClaude := false
-			claudeAdapter := cfg.Adapters[domain.ClientClaude]
-			claudeExecutable := claudeAdapter.Executable
-			if claudeExecutable == "" {
-				claudeExecutable = discovered.ClaudeExecutable
-			}
-			if claudeRouteErr == nil && claudeExecutable != "" && claudeRuntime.Endpoint != "" {
-				if !claudeAdapter.Enabled {
-					newClaude = true
-				}
-				cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: claudeExecutable}
-				if _, err := app.Shims.EnableClaude(); err != nil {
-					return err
-				}
-			}
-			if codexRouteErr == nil && codexRuntime.Endpoint != "" {
-				currentCodex := cfg.Adapters[domain.ClientCodex]
-				targets := repairCodexTargets(discovered, currentCodex.Targets)
-				executable := currentCodex.Executable
-				if discovered.CodexExecutable != "" {
-					executable = discovered.CodexExecutable
-				}
-				if executable != "" && len(targets) > 0 {
-					cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: executable, Targets: targets}
-				} else if currentCodex.Enabled && len(targets) == 0 {
-					delete(cfg.Adapters, domain.ClientCodex)
-				}
-			}
-			if err := commitConfigAndSync(cmd.Context(), app, before, cfg, "repair"); err != nil {
-				if newClaude {
-					_ = app.Shims.DisableClaude()
-				}
-				return err
-			}
-			if cfg.Adapters[domain.ClientCodex].Enabled && !codexProjectionChanged(before, cfg) {
-				if err := syncCodexProjection(cmd.Context(), app, cfg); err != nil {
-					return fmt.Errorf("Failed to repair Codex configuration projection: %w", err)
-				}
-			}
-			r := renderer(app)
-			r.Title("AIGW", "Repair completed")
-			r.Section("Results")
-			r.Status(presentation.OK, "Client", "Rediscovered")
-			r.Status(presentation.OK, "Configuration", "Synchronized")
-			authentication := "Unchanged"
-			if codexAuthenticationChanged(before, cfg) {
-				authentication = "Bound"
-			}
-			r.Status(presentation.OK, "Authentication", authentication)
-			r.Next("aigw check")
-			return nil
-		},
+		RunE: func(cmd *cobra.Command, _ []string) error { return runRepair(cmd.Context(), app, dryRun, jsonMode) },
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview repair without writing configuration or authentication")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write a secret-free repair preview as JSON")
+	return cmd
+}
+
+type repairPreview struct {
+	DryRun              bool                      `json:"dry_run"`
+	ConfigurationAction string                    `json:"configuration_action"`
+	Codex               []repairProjectionPreview `json:"codex"`
+}
+
+type repairProjectionPreview struct {
+	SurfaceID string `json:"surface_id"`
+	Action    string `json:"action"`
+}
+
+func runRepair(ctx context.Context, app *App, dryRun, jsonMode bool) error {
+	before, err := app.Config.Load()
+	if err != nil {
+		return err
+	}
+	if len(before.Profiles) == 0 {
+		return problem("Not configured", "No service profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
+	}
+	after, discovered, enableClaude, newClaude, err := repairDesiredConfig(app, before)
+	if err != nil {
+		return err
+	}
+	if dryRun {
+		plans, err := planCodexReconciliation(app, before, after)
+		if err != nil {
+			return err
+		}
+		return renderRepairPreview(app, jsonMode, before, after, discovered, plans)
+	}
+	if enableClaude {
+		if _, err := app.Shims.EnableClaude(); err != nil {
+			return err
+		}
+	}
+	if err := commitConfigAndSync(ctx, app, before, after, "repair"); err != nil {
+		if newClaude {
+			_ = app.Shims.DisableClaude()
+		}
+		return err
+	}
+	if after.Adapters[domain.ClientCodex].Enabled && !codexProjectionChanged(before, after) {
+		if err := syncCodexProjection(ctx, app, after); err != nil {
+			return fmt.Errorf("Failed to repair Codex configuration projection: %w", err)
+		}
+	}
+	r := renderer(app)
+	r.Title("AIGW", "Repair completed")
+	r.Section("Results")
+	r.Status(presentation.OK, "Client", "Rediscovered")
+	r.Status(presentation.OK, "Configuration", "Synchronized")
+	authentication := "Unchanged"
+	if codexAuthenticationChanged(before, after) {
+		authentication = "Bound"
+	}
+	r.Status(presentation.OK, "Authentication", authentication)
+	r.Next("aigw check")
+	return nil
+}
+
+func repairDesiredConfig(app *App, before domain.Config) (domain.Config, discovery.Result, bool, bool, error) {
+	after := cloneConfig(before)
+	discovered, err := discoveredResult(app)
+	if err != nil {
+		return domain.Config{}, discovery.Result{}, false, false, err
+	}
+	claudeRuntime, _, claudeRouteErr := after.ResolveRuntime(domain.ClientClaude, "")
+	codexRuntime, _, codexRouteErr := after.ResolveRuntime(domain.ClientCodex, "")
+	enableClaude := false
+	newClaude := false
+	claudeAdapter := after.Adapters[domain.ClientClaude]
+	claudeExecutable := claudeAdapter.Executable
+	if claudeExecutable == "" {
+		claudeExecutable = discovered.ClaudeExecutable
+	}
+	if claudeRouteErr == nil && claudeExecutable != "" && claudeRuntime.Endpoint != "" {
+		enableClaude = true
+		newClaude = !claudeAdapter.Enabled
+		after.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: claudeExecutable}
+	}
+	if codexRouteErr == nil && codexRuntime.Endpoint != "" {
+		currentCodex := after.Adapters[domain.ClientCodex]
+		targets := repairCodexTargets(discovered, currentCodex.Targets)
+		executable := currentCodex.Executable
+		if discovered.CodexExecutable != "" {
+			executable = discovered.CodexExecutable
+		}
+		if executable != "" && len(targets) > 0 {
+			after.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: executable, Targets: targets}
+		} else if currentCodex.Enabled && len(targets) == 0 {
+			delete(after.Adapters, domain.ClientCodex)
+		}
+	}
+	return after, discovered, enableClaude, newClaude, nil
+}
+
+func renderRepairPreview(app *App, jsonMode bool, before, after domain.Config, discovered discovery.Result, plans []adapters.CodexProjectionPlan) error {
+	preview := repairPreview{DryRun: true, ConfigurationAction: "already-converged", Codex: make([]repairProjectionPreview, 0, len(plans))}
+	if !reflect.DeepEqual(before, after) {
+		preview.ConfigurationAction = "update"
+	}
+	for _, plan := range plans {
+		surfaceID := "codex-cli-explicit"
+		if surface, ok := discovered.SurfaceForConfigPath(plan.Target); ok {
+			surfaceID = surface.ID
+		}
+		preview.Codex = append(preview.Codex, repairProjectionPreview{SurfaceID: surfaceID, Action: plan.Action})
+	}
+	if jsonMode {
+		encoder := json.NewEncoder(app.Out)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(preview)
+	}
+	r := renderer(app)
+	r.Title("AIGW", "Repair preview")
+	r.Row("Configuration", preview.ConfigurationAction)
+	for _, plan := range preview.Codex {
+		r.Row(plan.SurfaceID, plan.Action)
+	}
+	r.Success("Preview did not write configuration, state files, authentication, shims, or conversations")
+	r.Next("aigw repair")
+	return nil
 }
 
 func contains(values []string, target string) bool {

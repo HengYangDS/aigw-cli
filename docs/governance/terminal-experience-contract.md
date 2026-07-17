@@ -59,6 +59,13 @@ that authentication, session metadata, endpoint hops, terminal outcomes, or
 billing were proven. Junie is reported as not probed. A reported conflict is a
 state to investigate, not authority to repair an external host.
 
+For a route-ownership conflict, the one safe next command is
+`aigw repair --dry-run`, not a direct write and not an Air fallback restore.
+The repair preview is read-only: it does not take the mutation lock, enable a
+shim, bind authentication, expose configuration paths, or execute a client. It
+maps every planned Codex transition to a stable surface ID, then leaves host
+idleness and any later apply as separate operator responsibilities.
+
 `aigw route fallback air` and `aigw route restore air` are explicit mutation
 commands, not generic recovery actions. Their `--dry-run` variants are
 credential-free previews that acquire no mutation lock and perform no native

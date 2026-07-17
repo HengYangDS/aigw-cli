@@ -136,7 +136,9 @@ func mutationCommand(app *App, args []string) bool {
 	switch args[0] {
 	case "setup", "add", "use", "rotate", "sync", "rollback":
 		return true
-	case "repair", "update":
+	case "repair":
+		return !hasArgument(args[1:], "--dry-run")
+	case "update":
 		return true
 	case "account":
 		return len(args) > 1 && (args[1] == "connect" || args[1] == "disconnect" || args[1] == "edit")
