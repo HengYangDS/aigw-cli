@@ -10,7 +10,8 @@ trap 'rm -f "$fixture"; rm -rf "$tmp"' EXIT HUP INT TERM
 # This suite exercises branch chronology fixtures.  A surrounding tag pipeline
 # must not turn those fixtures into a selected-tag test accidentally.
 run_branch_checker() {
-  CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
+  AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI= \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
     AIGW_CHANGELOG_FILE="$1" sh "$checker"
 }
 
@@ -55,7 +56,8 @@ cp "$checker" "$shallow/scripts/check-changelog.sh"
   # This fixture intentionally has no selected release tag. Clear the outer
   # CI tag variables so a tag pipeline cannot leak its real release identity
   # into the shallow branch-history assertion.
-  CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
+  AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI= \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
     AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh
   if AIGW_CHANGELOG_RELEASE_TAG=v0.1.0-rc.1 AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh >/dev/null 2>&1; then
     echo "changelog checker accepted a selected tag that does not identify shallow HEAD" >&2
@@ -108,7 +110,8 @@ if ! (
   cd "$stale"
   test "$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD)" = v0.1.0-rc.1
   test -z "$(git tag --list v0.1.0-rc.2)"
-  CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
+  AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI= \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
     AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh
 ); then
   echo "changelog checker did not refresh a newer remote release tag" >&2
@@ -143,7 +146,8 @@ cp "$checker" "$github_overlap/scripts/check-changelog.sh"
 printf 'v0.1.0-rc.2\n' > "$github_overlap/packaging/release/retired-gitlab-tags.txt"
 if ! (
   cd "$github_overlap"
-  AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS=true CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
+  AIGW_CHANGELOG_FORGE= GITLAB_CI= GITHUB_ACTIONS=true \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
     AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh
 ); then
   echo "changelog checker rejected an active GitHub tag in the GitLab retirement inventory" >&2
@@ -151,7 +155,8 @@ if ! (
 fi
 if (
   cd "$github_overlap"
-  AIGW_CHANGELOG_FORGE= GITLAB_CI=true CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
+  AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI=true \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
     AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh >/dev/null 2>&1
 ); then
   echo "changelog checker accepted an active GitLab tag in the retired GitLab inventory" >&2
@@ -269,7 +274,7 @@ cp "$root/packaging/release/retired-gitlab-tags.txt" "$provider/packaging/releas
 } > "$provider/CHANGELOG.md"
 (
   cd "$provider"
-  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true \
+  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true GITLAB_CI= \
     CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
     sh scripts/check-changelog.sh
 )
