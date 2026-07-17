@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -140,6 +141,31 @@ func TestRouteDoctorRecommendsRepairPreviewForLegacyJetBrainsProjection(t *testi
 	text := out.String()
 	if !strings.Contains(text, "aigw repair --dry-run") || strings.Contains(text, "aigw route restore air --dry-run") {
 		t.Fatalf("route doctor did not recommend the safe legacy repair preview:\n%s", text)
+	}
+}
+
+func TestRouteDoctorConflictJSONRemainsMachineReadable(t *testing.T) {
+	h := newAirRouteHarness(t)
+	cfg, err := h.app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := cfg.Adapters["codex"]
+	adapter.Targets = append(adapter.Targets, h.air)
+	cfg.Adapters["codex"] = adapter
+	if err := h.app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Execute(h.app, []string{"route", "doctor", "--json"}); err == nil {
+		t.Fatal("conflicting Air projection unexpectedly passed route doctor")
+	}
+	var report routeDoctorReport
+	if err := json.Unmarshal(h.app.Out.(*bytes.Buffer).Bytes(), &report); err != nil {
+		t.Fatalf("route doctor conflict JSON is not parseable: %v\n%s", err, h.app.Out.(*bytes.Buffer).String())
+	}
+	if report.OK {
+		t.Fatalf("report = %#v, want conflict", report)
 	}
 }
 

@@ -54,6 +54,12 @@ func newRouteDoctorCommand(app *App) *cobra.Command {
 				renderRouteDoctorReport(app, report)
 			}
 			if !report.OK {
+				// The JSON report is the complete machine-readable result.  Do
+				// not append a terminal problem card to the same stream, or an
+				// automation caller cannot decode a detected conflict.
+				if jsonMode {
+					return presented(errors.New("route ownership conflict detected; review the reported surface"))
+				}
 				return errors.New("route ownership conflict detected; review the reported surface")
 			}
 			return nil
