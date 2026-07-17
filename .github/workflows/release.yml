@@ -20,7 +20,7 @@ concurrency:
 jobs:
   package-and-publish:
     name: Independently package and publish
-    runs-on: macos-15
+    runs-on: [self-hosted, macOS, ARM64, aigw-release-macos-arm64]
     timeout-minutes: 45
     steps:
       - name: Check out the exact release tag
@@ -61,10 +61,7 @@ jobs:
       - name: Build the complete release matrix
         env:
           SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
-          AIGW_GITLAB_RELEASE_ORIGIN: ${{ vars.AIGW_GITLAB_RELEASE_ORIGIN }}
-          AIGW_GITLAB_RELEASE_REPOSITORY: ${{ vars.AIGW_GITLAB_RELEASE_REPOSITORY }}
-          AIGW_GITHUB_RELEASE_ORIGIN: https://github.com
-          AIGW_GITHUB_RELEASE_REPOSITORY: ${{ github.repository }}
+          AIGW_RELEASE_GO_TOOLCHAIN: go1.25.8
         run: |
           set -euo pipefail
           version="${SELECTED_TAG#v}"

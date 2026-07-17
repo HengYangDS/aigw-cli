@@ -8,6 +8,17 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Pin release builds to Go 1.25.8, use one tracked provider-neutral release
+  source manifest, and remove AppleDouble metadata before macOS packaging so
+  the equal GitLab and GitHub release planes produce the same artifact bytes.
+
+### Changed
+
+- Run the full release matrix on the dedicated macOS arm64 release runner in
+  both forge pipelines, with a byte-for-byte comparison gate for every matrix.
+
 ## [0.1.0-rc.55] - 2026-07-17
 
 ### Fixed

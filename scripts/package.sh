@@ -6,10 +6,15 @@ out=${2:-dist}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 module=$(awk 'NR == 1 && $1 == "module" { print $2; exit }' "$root/go.mod")
 source_date_epoch=${SOURCE_DATE_EPOCH:-}
-gitlab_origin=${AIGW_GITLAB_RELEASE_ORIGIN:-}
-gitlab_repository=${AIGW_GITLAB_RELEASE_REPOSITORY:-}
-github_origin=${AIGW_GITHUB_RELEASE_ORIGIN:-}
-github_repository=${AIGW_GITHUB_RELEASE_REPOSITORY:-}
+go_toolchain=${AIGW_RELEASE_GO_TOOLCHAIN:-go1.25.8}
+
+"$root/scripts/check-release-forge-sources.sh" >/dev/null
+# shellcheck source=../packaging/release/forge-sources.env
+. "$root/packaging/release/forge-sources.env"
+gitlab_origin=$AIGW_GITLAB_RELEASE_ORIGIN
+gitlab_repository=$AIGW_GITLAB_RELEASE_REPOSITORY
+github_origin=$AIGW_GITHUB_RELEASE_ORIGIN
+github_repository=$AIGW_GITHUB_RELEASE_REPOSITORY
 
 tuple_count() {
   count=0
@@ -49,6 +54,12 @@ esac
 case "$source_date_epoch" in
   ''|*[!0-9]*) echo "SOURCE_DATE_EPOCH must be a non-negative Unix epoch" >&2; exit 2 ;;
 esac
+case "$go_toolchain" in
+  go[0-9]*.[0-9]*.[0-9]*) ;;
+  *) echo "AIGW_RELEASE_GO_TOOLCHAIN must be a full Go toolchain version" >&2; exit 2 ;;
+esac
+export GOTOOLCHAIN=$go_toolchain
+export GOFLAGS=-buildvcs=false
 source_date_touch=$(python3 - "$source_date_epoch" <<'PYTHON'
 import datetime as dt
 import sys
@@ -163,6 +174,7 @@ normalize_tree_mtime() {
   tree=$1
   find "$tree" -exec touch -h -t "$source_date_touch" {} +
   xattr -cr "$tree"
+  find "$tree" -type f -name '._*' -delete
 }
 
 write_msi_metadata_table() {
