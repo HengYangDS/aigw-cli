@@ -18,7 +18,7 @@ required = [
     'SOURCE_DATE_EPOCH="$(sh scripts/release-source-date-epoch.sh "$version")"',
     'sh scripts/test-release-reproducibility.sh "$version"',
     "scripts/test-release-package-layout.sh", "scripts/test-macos-native-install-staging.sh", "shell: pwsh", "scripts/test-installers.ps1", "publish-github-release.sh",
-    'go-version: "1.25.8"', "check-latest: false", "GOTOOLCHAIN: go1.25.8",
+    'go-version: "1.25.8"', "check-latest: false", "cache: false", "GOTOOLCHAIN: go1.25.8",
     "scripts/test-publish-release.sh", "scripts/test-publish-github-release.sh", "scripts/test-ci-go-cache-preparation.sh",
 ]
 for token in required:
@@ -37,6 +37,11 @@ for forbidden in (
         raise SystemExit(f"GitHub Actions release contract retains provider-specific build metadata: {forbidden}")
 if "go-version-file:" in text or "check-latest: true" in text:
     raise SystemExit("GitHub Actions release contract retains floating Go configuration")
+setup = text.index("actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491")
+cache = text.index("cache: false")
+build = text.index("name: Install release build tools")
+if not setup < cache < build:
+    raise SystemExit("GitHub Actions release contract must disable setup-go cache before release packaging")
 for forbidden in ("@main", "@master"):
     if forbidden in text.lower():
         raise SystemExit(f"GitHub Actions release contract contains stale {forbidden!r} language")
