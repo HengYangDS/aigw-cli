@@ -19,6 +19,7 @@ required = [
     "scripts/check-text-layout.py", "scripts/test-text-layout.sh", "scripts/test-release-source-date-epoch.sh",
     "scripts/test-verified-candidate.sh", "scripts/test-macos-native-install-staging.sh",
     "shell: pwsh", "scripts/test-installers.ps1",
+    "scripts/test-ci-go-cache-preparation.sh",
     "scripts/test-publish-release.sh", "scripts/test-publish-github-release.sh",
     "scripts/test-pipeline-gates.sh", "scripts/test-github-release-workflow.sh",
     "scripts/test-github-provider-projection.sh",
