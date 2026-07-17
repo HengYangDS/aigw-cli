@@ -18,6 +18,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Clear outer GitLab and GitHub provider markers from ordinary-branch fixtures
   so cross-forge tag pipelines keep exercising the intended positive and
   negative chronology cases.
+- Preserve a selected, locally signed pre-push tag while chronology admission
+  checks remote history, so release dry-runs cannot discard the provenance
+  object they are validating.
 
 ## [0.1.0-rc.62] - 2026-07-17
 
