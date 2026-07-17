@@ -8,8 +8,6 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
-## [0.1.0-rc.62] - 2026-07-17
-
 ### Fixed
 
 - Refresh provider tag refs before validating shared chronology, prefer an
@@ -17,6 +15,21 @@ platform acceptance, signing, and GA status remain separate evidence.
   exercise both cases in the Changelog regression suite.
 - Isolate the next-candidate fixture from an outer tagged pipeline so release
   verification keeps testing ordinary-branch behavior after a tag is cut.
+- Clear outer GitLab and GitHub provider markers from ordinary-branch fixtures
+  so cross-forge tag pipelines keep exercising the intended positive and
+  negative chronology cases.
+
+## [0.1.0-rc.62] - 2026-07-17
+
+### Fixed
+
+- Treat the Changelog release date as source-controlled metadata, rather than
+  as the timestamp of one forge's independently signed tag.
+- Verify GitLab and GitHub release tags against separate tracked trust anchors;
+  the retired GitHub signer is restricted to an explicit immutable inventory.
+- Preserve superseded GitLab release headings through an explicit retired-tag
+  inventory, and keep the chronology regression fixture valid after a candidate
+  tag is created.
 
 ## [0.1.0-rc.61] - 2026-07-17
 
