@@ -233,7 +233,7 @@ test -z "$(gofmt -l cmd internal tools)"
 sh scripts/check-governance.sh
 python3 scripts/check-markdown-presentation.py
 sh scripts/test-changelog.sh
-export GOTOOLCHAIN=go1.25.8
+export GOTOOLCHAIN=go1.25.12
 sh scripts/check-release-toolchain.sh
 version=$(git describe --tags --exact-match | sed 's/^v//')
 SOURCE_DATE_EPOCH=$(sh scripts/release-source-date-epoch.sh "$version") \

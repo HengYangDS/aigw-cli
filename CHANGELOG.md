@@ -8,8 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.63] - 2026-07-17
+
 ### Fixed
 
+- Advance the pinned release compiler from Go 1.25.8 to the current stable
+  Go 1.25.12 patch across source metadata and both independent CI planes.
 - Keep `aigw route doctor --json` strictly machine-readable when it reports a
   route-ownership conflict; the command now returns a non-zero status without
   appending a human terminal card to the JSON stream.
