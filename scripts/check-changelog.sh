@@ -54,7 +54,7 @@ elif test -z "$latest_tag"; then
   fail "cannot find a reachable v<semver> Git tag"
 fi
 
-python3 - "$changelog" "$latest_tag" "$selected_tag" <<'PYTHON'
+python3 - "$changelog" "$latest_tag" "$selected_tag" "$root/packaging/release/retired-gitlab-tags.txt" <<'PYTHON'
 from __future__ import annotations
 
 import datetime as dt
@@ -66,6 +66,7 @@ from pathlib import Path
 path = Path(sys.argv[1])
 latest_tag = sys.argv[2]
 selected_tag = sys.argv[3]
+retired_path = Path(sys.argv[4])
 heading = re.compile(r"^## \[([^]]+)\] - (\d{4}-\d{2}-\d{2})$")
 semver = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$")
 
@@ -116,14 +117,33 @@ if not tag_versions:
     raise SystemExit("CHANGELOG.md: cannot find SemVer release tags")
 tag_versions.sort(key=release_key, reverse=True)
 
+retired_versions = []
+if retired_path.exists():
+    for number, line in enumerate(retired_path.read_text(encoding="utf-8").splitlines(), 1):
+        raw = line.strip()
+        if not raw or raw.startswith("#"):
+            continue
+        if not raw.startswith("v"):
+            raise SystemExit(f"CHANGELOG.md: malformed retired tag inventory at line {number}: {raw}")
+        version = raw.removeprefix("v")
+        try:
+            release_key(version)
+        except ValueError:
+            raise SystemExit(f"CHANGELOG.md: invalid retired tag inventory at line {number}: {raw}")
+        if version in retired_versions or version in tag_versions:
+            raise SystemExit(f"CHANGELOG.md: duplicate active or retired release version: {version}")
+        retired_versions.append(version)
+
 # All known tags must have exactly one heading in matching descending order.
 # An untagged candidate is allowed only as the single first release section on
 # an ordinary branch, so release preparation can pass before either forge signs
 # its provider-native tag.
-known = [version for version in entries if version in tag_versions]
-if known != tag_versions:
-    raise SystemExit("CHANGELOG.md: locally available release tags must appear once in descending version order")
-unknown = [version for version in entries if version not in tag_versions]
+managed_versions = tag_versions + retired_versions
+managed_versions.sort(key=release_key, reverse=True)
+known = [version for version in entries if version in managed_versions]
+if known != managed_versions:
+    raise SystemExit("CHANGELOG.md: active and retired release tags must appear once in descending version order")
+unknown = [version for version in entries if version not in managed_versions]
 
 if selected_tag:
     selected_version = selected_tag.removeprefix("v")
