@@ -23,7 +23,13 @@ TABLE_CONFIG_SUFFIXES = {".ini", ".toml"}
 
 
 def tracked_files() -> List[Path]:
-    names = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
+    # Repository checks must not inherit a developer's fsmonitor daemon. Apple
+    # Git can wait indefinitely for a stale daemon socket in short-lived CI
+    # fixtures, while this read-only query neither needs nor should start it.
+    names = subprocess.check_output(
+        ["git", "-c", "core.fsmonitor=false", "ls-files", "-z"],
+        cwd=ROOT,
+    ).decode().split("\0")
     return [ROOT / name for name in names if name and (ROOT / name).is_file()]
 
 
