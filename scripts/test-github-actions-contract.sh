@@ -18,6 +18,7 @@ required = [
     "go test -race ./...", "go vet ./...", "scripts/check-product-surface.sh", "scripts/check-governance.sh",
     "scripts/check-text-layout.py", "scripts/test-text-layout.sh",
     "scripts/test-verified-candidate.sh", "scripts/test-macos-native-install-staging.sh",
+    "shell: pwsh", "scripts/test-installers.ps1",
     "scripts/test-pipeline-gates.sh", "scripts/test-github-release-workflow.sh",
     "scripts/test-github-provider-projection.sh",
 ]

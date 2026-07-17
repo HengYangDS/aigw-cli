@@ -27,6 +27,8 @@ rmdir "$prefix/libexec" 2>/dev/null || true
 
 if [ "$target" != / ] && command -v pkgutil >/dev/null 2>&1; then
   pkgutil --volume "$target" --forget dig.aigw.cli >/dev/null 2>&1 || true
+elif command -v pkgutil >/dev/null 2>&1; then
+  pkgutil --forget dig.aigw.cli >/dev/null 2>&1 || true
 fi
 
 echo "AIGW native package files removed from $target"
