@@ -50,6 +50,7 @@ verify:
     - sh scripts/test-verified-candidate.sh
     - sh scripts/test-publish-github-release.sh
     - sh scripts/test-release-tag-signature.sh
+    - sh scripts/test-release-tag-signature-provider-selection.sh
     - sh scripts/test-package-runner-preflight.sh
     - sh scripts/test-linux-native-install-staging.sh
     - sh scripts/test-macos-native-install-staging.sh

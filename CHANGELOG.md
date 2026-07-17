@@ -21,6 +21,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Preserve a selected, locally signed pre-push tag while chronology admission
   checks remote history, so release dry-runs cannot discard the provenance
   object they are validating.
+- Refresh GitHub verification tags as annotated remote objects and exercise
+  both GitLab and GitHub trust anchors in the signature regression, preventing
+  a valid GitHub provenance tag from being treated as an unverifiable fixture.
 
 ## [0.1.0-rc.62] - 2026-07-17
 
