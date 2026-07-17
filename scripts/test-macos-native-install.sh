@@ -19,7 +19,7 @@ case "$acceptance_user" in
     ;;
 esac
 
-for command in hdiutil installer pkgutil su; do
+for command in hdiutil installer pkgutil sudo; do
   command -v "$command" >/dev/null 2>&1 || {
     echo "required for macOS native-install acceptance: $command" >&2
     exit 2
@@ -104,6 +104,7 @@ hdiutil create -quiet -size 256m -fs APFS -volname AIGWCandidate -ov -type UDIF 
 candidate_device=$(attach_image "$candidate_image" "$candidate_mount")
 installer -verboseR -pkg "$package" -target "$candidate_mount"
 assert_installed "$candidate_mount" "$version"
+chmod 755 "$candidate_stage" "$candidate_mount"
 
 # A separate image proves that the same artifact works on a clean target. The
 # caller provides a distinct, previously verified package for the upgrade path.
