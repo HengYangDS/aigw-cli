@@ -259,6 +259,9 @@ func ValidateCodexConfig(path string, runtime domain.Runtime) error {
 	if err := json.Unmarshal(stateData, &state); err != nil {
 		return fmt.Errorf("parse Codex adapter state: %w", err)
 	}
+	if _, err := validateCodexStateAttribution(state, CodexProjectionFullSelection); err != nil {
+		return err
+	}
 	if isManagedSelection(modelProviderLine.FindString(text), "model_provider", "aigw") {
 		if model := runtime.Model; model != "" {
 			if !isManagedSelection(modelLine.FindString(text), "model", strings.ReplaceAll(model, "\"", "'")) {
@@ -286,7 +289,11 @@ func DisableCodexConfig(path string) error {
 }
 
 func codexUserConfig(path string, runtime domain.Runtime, expectedBlock string) (string, codexState, error) {
-	stateData, err := os.ReadFile(codexStatePath(path))
+	return codexUserConfigAt(path, codexStatePath(path), runtime, expectedBlock)
+}
+
+func codexUserConfigAt(path, statePath string, runtime domain.Runtime, expectedBlock string) (string, codexState, error) {
+	stateData, err := os.ReadFile(statePath)
 	if err == nil {
 		var state codexState
 		if err := json.Unmarshal(stateData, &state); err != nil {

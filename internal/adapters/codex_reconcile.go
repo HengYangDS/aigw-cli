@@ -31,6 +31,7 @@ type CodexTargetRef struct {
 	Authority      string
 	ProjectionMode string
 	Path           string
+	statePath      string
 }
 
 // CodexReconciliationReceipt describes a completed in-process projection
@@ -145,7 +146,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 	if !configSnapshot.Exists {
 		return codexPreparedTarget{}, fmt.Errorf("Codex config does not exist")
 	}
-	statePath := codexStatePath(target.ref.Path)
+	statePath := targetCodexStatePath(target.ref)
 	stateSnapshot, err := transaction.CaptureFileSnapshot(statePath)
 	if err != nil {
 		return codexPreparedTarget{}, err
@@ -170,7 +171,7 @@ func prepareCodexFullSelection(target CodexTargetRef, runtime domain.Runtime, bl
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	base, projectedState, err := codexUserConfig(target.Path, runtime, block)
+	base, projectedState, err := codexUserConfigAt(target.Path, targetCodexStatePath(target), runtime, block)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -202,13 +203,16 @@ func prepareCodexFullSelection(target CodexTargetRef, runtime domain.Runtime, bl
 	}
 	return codexPreparedTarget{
 		plan:      CodexProjectionPlan{Target: target.Path, Action: action},
-		artifacts: codexArtifactsForDesiredState(target.Path, configSnapshot, projected, stateSnapshot, stateData),
+		artifacts: codexArtifactsForDesiredState(target.Path, targetCodexStatePath(target), configSnapshot, projected, stateSnapshot, stateData),
 	}, nil
 }
 
 func prepareCodexFallback(target CodexTargetRef, block string, configSnapshot, stateSnapshot transaction.FileSnapshot, transactionID string) (codexPreparedTarget, error) {
 	if airTopLevelSelectsAIGW(string(configSnapshot.Data)) {
 		return codexPreparedTarget{}, fmt.Errorf("Air currently selects AIGW at top level; return Air to JetBrains AI before staging or changing fallback")
+	}
+	if !stateSnapshot.Exists && (strings.Contains(string(configSnapshot.Data), codexFallbackBegin) || strings.Contains(string(configSnapshot.Data), "[model_providers.aigw_fallback]")) {
+		return codexPreparedTarget{}, fmt.Errorf("Codex config contains an unowned AIGW fallback block; refusing to add a duplicate")
 	}
 	state, _, err := codexStateForTarget(stateSnapshot, CodexProjectionNamespacedFallback)
 	if err != nil {
@@ -245,7 +249,7 @@ func prepareCodexFallback(target CodexTargetRef, block string, configSnapshot, s
 	}
 	return codexPreparedTarget{
 		plan:      CodexProjectionPlan{Target: target.Path, Action: action},
-		artifacts: codexArtifactsForDesiredState(target.Path, configSnapshot, []byte(projected), stateSnapshot, stateData),
+		artifacts: codexArtifactsForDesiredState(target.Path, targetCodexStatePath(target), configSnapshot, []byte(projected), stateSnapshot, stateData),
 	}, nil
 }
 
@@ -271,11 +275,11 @@ func prepareCodexRestore(target CodexTargetRef, configSnapshot, stateSnapshot tr
 	}
 	return codexPreparedTarget{
 		plan:      CodexProjectionPlan{Target: target.Path, Action: "restore-external"},
-		artifacts: codexArtifactsForDesiredState(target.Path, configSnapshot, []byte(restored), stateSnapshot, nil),
+		artifacts: codexArtifactsForDesiredState(target.Path, targetCodexStatePath(target), configSnapshot, []byte(restored), stateSnapshot, nil),
 	}, nil
 }
 
-func codexArtifactsForDesiredState(configPath string, configBefore transaction.FileSnapshot, configData []byte, stateBefore transaction.FileSnapshot, stateData []byte) []codexPreparedArtifact {
+func codexArtifactsForDesiredState(configPath, statePath string, configBefore transaction.FileSnapshot, configData []byte, stateBefore transaction.FileSnapshot, stateData []byte) []codexPreparedArtifact {
 	artifacts := make([]codexPreparedArtifact, 0, 2)
 	configDesired := desiredCodexSnapshot(configData, configBefore.Mode)
 	if !sameCodexSnapshot(configBefore, configDesired) {
@@ -290,7 +294,7 @@ func codexArtifactsForDesiredState(configPath string, configBefore transaction.F
 		stateDesired = desiredCodexSnapshot(stateData, stateMode)
 	}
 	if !sameCodexSnapshot(stateBefore, stateDesired) {
-		artifacts = append(artifacts, codexPreparedArtifact{path: codexStatePath(configPath), before: stateBefore, desired: stateDesired})
+		artifacts = append(artifacts, codexPreparedArtifact{path: statePath, before: stateBefore, desired: stateDesired})
 	}
 	return artifacts
 }
@@ -407,7 +411,11 @@ func normalizeCodexTargets(values []CodexTargetRef) ([]CodexTargetRef, error) {
 		if target.Path == "" || target.SurfaceID == "" || target.Authority == "" || target.ProjectionMode == "" {
 			return nil, fmt.Errorf("Codex target requires surface_id, authority, projection_mode, and path")
 		}
-		path, err := canonicalCodexTargetPath(target.Path)
+		sourcePath, err := absoluteCodexTargetPath(target.Path)
+		if err != nil {
+			return nil, err
+		}
+		path, err := canonicalCodexTargetPath(sourcePath)
 		if err != nil {
 			return nil, err
 		}
@@ -416,6 +424,7 @@ func normalizeCodexTargets(values []CodexTargetRef) ([]CodexTargetRef, error) {
 		}
 		seen[path] = struct{}{}
 		target.Path = path
+		target.statePath = preferredCodexStatePath(sourcePath, path)
 		normalized = append(normalized, target)
 	}
 	sort.Slice(normalized, func(left, right int) bool { return normalized[left].Path < normalized[right].Path })
@@ -423,9 +432,9 @@ func normalizeCodexTargets(values []CodexTargetRef) ([]CodexTargetRef, error) {
 }
 
 func canonicalCodexTargetPath(path string) (string, error) {
-	absolute, err := filepath.Abs(filepath.Clean(path))
+	absolute, err := absoluteCodexTargetPath(path)
 	if err != nil {
-		return "", fmt.Errorf("resolve Codex target %s: %w", path, err)
+		return "", err
 	}
 	resolved, err := filepath.EvalSymlinks(absolute)
 	if err == nil {
@@ -437,9 +446,39 @@ func canonicalCodexTargetPath(path string) (string, error) {
 	return "", fmt.Errorf("resolve Codex target symlinks %s: %w", path, err)
 }
 
+func absoluteCodexTargetPath(path string) (string, error) {
+	absolute, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return "", fmt.Errorf("resolve Codex target %s: %w", path, err)
+	}
+	return absolute, nil
+}
+
+func preferredCodexStatePath(sourcePath, canonicalPath string) string {
+	canonicalStatePath := codexStatePath(canonicalPath)
+	if sourcePath == canonicalPath {
+		return canonicalStatePath
+	}
+	if info, err := os.Lstat(canonicalStatePath); err == nil && !info.IsDir() {
+		return canonicalStatePath
+	}
+	legacyStatePath := codexStatePath(sourcePath)
+	if info, err := os.Lstat(legacyStatePath); err == nil && !info.IsDir() {
+		return legacyStatePath
+	}
+	return canonicalStatePath
+}
+
+func targetCodexStatePath(target CodexTargetRef) string {
+	if target.statePath != "" {
+		return target.statePath
+	}
+	return codexStatePath(target.Path)
+}
+
 func validateDesiredCodexTarget(target CodexTargetRef) error {
 	switch {
-	case target.SurfaceID == "codex-cli-standalone" && target.Authority == "aigw" && target.ProjectionMode == CodexProjectionFullSelection:
+	case (target.SurfaceID == "codex-cli-standalone" || strings.HasPrefix(target.SurfaceID, "codex-cli-explicit-")) && target.Authority == "aigw" && target.ProjectionMode == CodexProjectionFullSelection:
 		return nil
 	case target.SurfaceID == "jetbrains-air-codex" && target.Authority == "jetbrains-ai" && target.ProjectionMode == CodexProjectionNamespacedFallback:
 		return nil
