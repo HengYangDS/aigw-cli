@@ -69,6 +69,48 @@ cp "$checker" "$shallow/scripts/check-changelog.sh"
   fi
 )
 
+# A selected tag can exist locally during release admission before it is pushed
+# to origin. Refreshing origin's tag namespace must not discard that selected
+# local provenance object before the checker validates it.
+prepush="$tmp/prepush"
+prepush_origin="$tmp/prepush-origin.git"
+git init -q -b main "$prepush"
+git -C "$prepush" config user.name 'AIGW Changelog Test'
+git -C "$prepush" config user.email 'aigw-changelog-test@example.invalid'
+printf 'release\n' > "$prepush/release.txt"
+git -C "$prepush" add release.txt
+GIT_AUTHOR_DATE='2026-07-17T00:00:00Z' GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
+  git -C "$prepush" commit -qm 'release'
+GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
+  git -C "$prepush" tag -a v0.1.0-rc.1 -m 'release'
+git init -q --bare "$prepush_origin"
+git -C "$prepush" remote add origin "file://$prepush_origin"
+git -C "$prepush" push -q origin 'HEAD:refs/heads/main' refs/tags/v0.1.0-rc.1
+printf 'candidate\n' >> "$prepush/release.txt"
+git -C "$prepush" add release.txt
+GIT_AUTHOR_DATE='2026-07-17T00:01:00Z' GIT_COMMITTER_DATE='2026-07-17T00:01:00Z' \
+  git -C "$prepush" commit -qm 'candidate'
+GIT_COMMITTER_DATE='2026-07-17T00:01:00Z' \
+  git -C "$prepush" tag -a v0.1.0-rc.2 -m 'local pre-push candidate'
+cat > "$prepush/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0-rc.2] - 2026-07-17
+
+## [0.1.0-rc.1] - 2026-07-17
+EOF
+mkdir -p "$prepush/scripts"
+cp "$checker" "$prepush/scripts/check-changelog.sh"
+(
+  cd "$prepush"
+  test "$(git tag --list v0.1.0-rc.2)" = v0.1.0-rc.2
+  AIGW_CHANGELOG_FORGE=gitlab GITHUB_ACTIONS= GITLAB_CI= \
+    AIGW_CHANGELOG_RELEASE_TAG=v0.1.0-rc.2 sh scripts/check-changelog.sh
+  test "$(git tag --list v0.1.0-rc.2)" = v0.1.0-rc.2
+)
+
 # A branch checkout can retain an older reachable tag while a newer release
 # tag is present only on origin. The checker must refresh tag refs before it
 # classifies shared historical headings as untagged candidates.
