@@ -10,6 +10,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Keep `aigw route doctor --json` strictly machine-readable when it reports a
+  route-ownership conflict; the command now returns a non-zero status without
+  appending a human terminal card to the JSON stream.
 - Refresh provider tag refs before validating shared chronology, prefer an
   active GitHub provenance tag over a same-named GitLab retirement record, and
   exercise both cases in the Changelog regression suite.
@@ -215,9 +218,6 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
-- Keep `aigw route doctor --json` strictly machine-readable when it reports a
-  route-ownership conflict; the command now returns a non-zero status without
-  appending a human terminal card to the JSON stream.
 - Remove repository-specific release endpoints from source builds. Published
   artifacts now receive their release host and project at build time; source
   builds fail closed until both are configured explicitly.
