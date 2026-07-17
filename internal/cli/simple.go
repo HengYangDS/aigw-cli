@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/account"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/diagnostics"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/providers"
@@ -265,7 +265,10 @@ func newRepairCommand(app *App) *cobra.Command {
 				return problem("Not configured", "No service profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 			}
 			before := cloneConfig(cfg)
-			discovered := app.Discovery.Discover()
+			discovered, err := discoveredResult(app)
+			if err != nil {
+				return err
+			}
 			claudeRuntime, _, claudeRouteErr := cfg.ResolveRuntime(domain.ClientClaude, "")
 			codexRuntime, _, codexRouteErr := cfg.ResolveRuntime(domain.ClientCodex, "")
 			newClaude := false
@@ -283,17 +286,20 @@ func newRepairCommand(app *App) *cobra.Command {
 					return err
 				}
 			}
-			newCodexTargets := []string{}
-			if codexRouteErr == nil && discovered.CodexExecutable != "" && len(discovered.CodexTargets) > 0 && codexRuntime.Endpoint != "" {
-				cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: discovered.CodexExecutable, Targets: discovered.CodexTargets}
-				newCodexTargets = discovered.CodexTargets
+			if codexRouteErr == nil && codexRuntime.Endpoint != "" {
+				currentCodex := cfg.Adapters[domain.ClientCodex]
+				targets := repairCodexTargets(discovered, currentCodex.Targets)
+				executable := currentCodex.Executable
+				if discovered.CodexExecutable != "" {
+					executable = discovered.CodexExecutable
+				}
+				if executable != "" && len(targets) > 0 {
+					cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: executable, Targets: targets}
+				} else if currentCodex.Enabled && len(targets) == 0 {
+					delete(cfg.Adapters, domain.ClientCodex)
+				}
 			}
 			if err := commitConfigAndSync(cmd.Context(), app, before, cfg, "repair"); err != nil {
-				for _, target := range newCodexTargets {
-					if !contains(before.Adapters[domain.ClientCodex].Targets, target) {
-						_ = adapters.DisableCodexConfig(target)
-					}
-				}
 				if newClaude {
 					_ = app.Shims.DisableClaude()
 				}
@@ -327,6 +333,33 @@ func contains(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func repairCodexTargets(discovered discovery.Result, current []string) []string {
+	seen := map[string]bool{}
+	targets := make([]string, 0, len(current)+len(discovered.Surfaces))
+	appendTarget := func(path string) {
+		if path != "" && !seen[path] {
+			seen[path] = true
+			targets = append(targets, path)
+		}
+	}
+	for _, path := range discovered.AutoManagedCodexTargets() {
+		appendTarget(path)
+	}
+	for _, path := range current {
+		if surface, ok := discovered.SurfaceForConfigPath(path); ok {
+			if surface.ID == discovery.SurfaceCodexCLIStandalone {
+				appendTarget(path)
+			}
+			continue
+		}
+		// An unknown existing target was explicitly configured by the user. It
+		// remains an AIGW-owned standalone candidate; only known JetBrains
+		// surfaces are removed by generic repair.
+		appendTarget(path)
+	}
+	return targets
 }
 
 func newUpdateCommand(app *App) *cobra.Command {
