@@ -49,6 +49,7 @@ jobs:
           sh scripts/test-changelog.sh
           sh scripts/test-release-readiness.sh
           sh scripts/test-release-artifacts.sh
+          sh scripts/test-release-source-date-epoch.sh
           sh scripts/test-verified-candidate.sh
           sh scripts/test-release-tag-signature.sh
           sh scripts/test-package-runner-preflight.sh

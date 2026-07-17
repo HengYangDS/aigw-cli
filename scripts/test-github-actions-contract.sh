@@ -16,7 +16,7 @@ required = [
     "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
     "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491",
     "go test -race ./...", "go vet ./...", "scripts/check-product-surface.sh", "scripts/check-governance.sh",
-    "scripts/check-text-layout.py", "scripts/test-text-layout.sh",
+    "scripts/check-text-layout.py", "scripts/test-text-layout.sh", "scripts/test-release-source-date-epoch.sh",
     "scripts/test-verified-candidate.sh", "scripts/test-macos-native-install-staging.sh",
     "shell: pwsh", "scripts/test-installers.ps1",
     "scripts/test-pipeline-gates.sh", "scripts/test-github-release-workflow.sh",

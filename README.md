@@ -231,8 +231,12 @@ test -z "$(gofmt -l cmd internal tools)"
 sh scripts/check-governance.sh
 python3 scripts/check-markdown-presentation.py
 sh scripts/test-changelog.sh
-AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh 0.1.0-rc.1 dist
-sh scripts/test-release-package-layout.sh dist 0.1.0-rc.1
+version=$(git describe --tags --exact-match | sed 's/^v//')
+SOURCE_DATE_EPOCH=$(sh scripts/release-source-date-epoch.sh "$version") \
+  AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$version" dist
+sh scripts/test-release-package-layout.sh dist "$version"
+SOURCE_DATE_EPOCH=$(sh scripts/release-source-date-epoch.sh "$version") \
+  sh scripts/test-release-reproducibility.sh "$version"
 ```
 
 A source tag is not proof of published assets, native-platform acceptance, or
