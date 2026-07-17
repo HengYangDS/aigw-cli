@@ -56,6 +56,11 @@ domain. It rewrites only an isolated clone, applies a leased branch update, and
 never pushes a tag. Do not force-push, create snapshot commits, or delete remote
 refs to manufacture convergence.
 
+The private GitHub Free peer does not provide repository-ruleset tag protection.
+Describe its release tags as signed and independently verified provenance, not
+as host-enforced immutable refs. AIGW automation still never updates or deletes
+a provider-native release tag.
+
 ## Merge closeout
 
 Merge is not the end of a branch lifecycle. After the target branch contains
