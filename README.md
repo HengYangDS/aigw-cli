@@ -107,6 +107,7 @@ aigw rotate [account]        # replace one account token
 aigw check                   # configuration, client, and endpoint health
 aigw doctor                  # detailed diagnosis and one recovery action
 aigw repair                  # bounded client discovery and reconciliation
+aigw route doctor            # inspect host-route ownership; no probes or writes
 ```
 
 `aigw test` is a bounded connectivity and authentication check. `aigw verify`
@@ -133,6 +134,42 @@ binding. If a loopback compatibility layer is present, it remains external:
 Codex requests use that listener, so it must be available for the selected
 route to work. AIGW does not start, stop, configure, or diagnose its service
 lifecycle.
+
+### Host-specific Codex routing
+
+Codex is not one homogeneous host surface. On macOS, AIGW classifies the
+following surfaces before it plans a projection:
+
+| Surface | Persistent default | AIGW behavior |
+| --- | --- | --- |
+| Ordinary standalone Codex CLI | AIGW | AIGW may manage its full provider/model selection. Generic `setup` and `repair` adopt only this surface. |
+| ChatGPT Desktop | AIGW default configuration for later/new work | Desktop alone owns each existing conversation's model and transcript; AIGW never edits conversation state. |
+| PyCharm Codex | JetBrains AI | Classified for diagnosis and excluded from AIGW target adoption. |
+| JetBrains Air | JetBrains AI | Classified for diagnosis. AIGW may stage only an explicit, reversible namespaced fallback. |
+| Junie CLI | JetBrains AI through Junie Account / JetBrains Account | Observed as a JetBrains surface, never admitted as a Codex target or executed by route diagnosis. |
+
+Use `aigw route doctor --json` for a local, secret-free ownership report. It
+does not run Codex, Junie, or an IDE; read credentials; contact an endpoint; or
+report configuration bodies, paths, sessions, or billing as known facts.
+
+Air remains JetBrains AI by default. Its opt-in fallback has a separate,
+deliberate path:
+
+```bash
+aigw route fallback air --dry-run --json
+aigw route fallback air --confirm-host-idle
+aigw route restore air --dry-run --json
+aigw route restore air --confirm-host-idle
+```
+
+The dry runs do not write configuration, bind authentication, or start a
+client. The apply commands require an operator attestation that Air is idle;
+they do not probe, start, stop, or restart Air. Fallback appends an
+AIGW-owned namespaced block only. It never changes Air's top-level `model` or
+`model_provider`; restore removes only that owned block and preserves the
+remaining Air file byte-for-byte. If Air is already selected to AIGW at the
+top level, both operations fail closed until its native settings return it to
+JetBrains AI.
 
 ## Update sources
 
