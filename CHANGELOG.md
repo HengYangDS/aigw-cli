@@ -8,6 +8,13 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Treat the Changelog release date as source-controlled metadata, rather than
+  as the timestamp of one forge's independently signed tag.
+- Verify GitLab and GitHub release tags against separate tracked trust anchors;
+  the retired GitHub signer is restricted to an explicit immutable inventory.
+
 ## [0.1.0-rc.58] - 2026-07-17
 
 ### Fixed

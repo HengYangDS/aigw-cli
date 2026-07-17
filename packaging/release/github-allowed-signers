@@ -1,0 +1,3 @@
+# Current GitHub release-tag trust anchor. New GitHub candidates must verify in
+# the git namespace under the GitHub identity before the GitHub plane may publish.
+hengyang.2003@tsinghua.org.cn namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG1Si6Iug2qPitDjdGWsA+TE0joEP+Z57XjGN7PXO5WL GitHub release signing key 2026-07-17

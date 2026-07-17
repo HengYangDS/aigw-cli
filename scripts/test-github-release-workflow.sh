@@ -14,7 +14,7 @@ required = [
     "permissions:\n  contents: write",
     "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
     "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491",
-    "scripts/check-release-tag-signature.sh", "scripts/check-release-toolchain.sh", "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh",
+    'scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/check-release-toolchain.sh", "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh",
     'SOURCE_DATE_EPOCH="$(sh scripts/release-source-date-epoch.sh "$version")"',
     'sh scripts/test-release-reproducibility.sh "$version"',
     "scripts/test-release-package-layout.sh", "scripts/test-macos-native-install-staging.sh", "shell: pwsh", "scripts/test-installers.ps1", "publish-github-release.sh",
