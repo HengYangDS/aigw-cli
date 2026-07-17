@@ -11,7 +11,7 @@ workflow:
 stages: [verify, package, acceptance, publish, release]
 
 default:
-  image: golang:1.25.8
+  image: golang:1.25.12
   tags: [aigw-release-macos-arm64]
   before_script:
     # A pipe, rather than a comma, means Go may advance after a transient
@@ -20,7 +20,7 @@ default:
     - export GOPROXY="${AIGW_GOPROXY:-https://goproxy.cn|https://proxy.golang.org|direct}"; . scripts/prepare-ci-go-cache.sh
 
 variables:
-  GOTOOLCHAIN: go1.25.8
+  GOTOOLCHAIN: go1.25.12
 
 verify:
   stage: verify
