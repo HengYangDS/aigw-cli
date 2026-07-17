@@ -10,7 +10,7 @@ git init -q
 git config user.name 'AIGW signature test'
 git config user.email 'aigw-signature-test@example.invalid'
 mkdir -p "$tmp/packaging/release"
-cp "$root/packaging/release/allowed_signers" "$tmp/packaging/release/allowed_signers"
+cp "$root/packaging/release/gitlab-allowed-signers" "$tmp/packaging/release/gitlab-allowed-signers"
 printf 'fixture\n' > fixture
 git add fixture
 git commit -qm fixture
@@ -30,7 +30,7 @@ grep -F 'not SSH signed' "$tmp/unsigned.out" >/dev/null || {
 mkdir -p "$tmp/empty-home"
 signed=''
 for tag in $(git -C "$root" tag --list 'v[0-9]*'); do
-  if HOME="$tmp/empty-home" sh "$root/scripts/check-release-tag-signature.sh" "$root" "$tag" >"$tmp/signed.out" 2>&1; then
+  if HOME="$tmp/empty-home" sh "$root/scripts/check-release-tag-signature.sh" "$root" "$tag" gitlab >"$tmp/signed.out" 2>&1; then
     signed=$tag
     break
   fi

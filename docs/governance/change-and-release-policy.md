@@ -19,8 +19,10 @@ SPDX SBOM.
 
 `CHANGELOG.md` begins with `## [Unreleased]`, which contains only changes made
 after the latest reachable release tag. The next section must be the latest
-reachable `v<semver>` tag, written as `## [<semver>] - <tag-date>`. Every older
-published section is likewise anchored to a real tag and its creation date.
+reachable `v<semver>` tag, written as `## [<semver>] - <release-date>`. Every
+older published section is likewise anchored to a real tag and a valid,
+source-controlled release date. GitLab and GitHub sign separate provenance
+tags, so their tag-object timestamps are not a cross-forge Changelog invariant.
 Planned versions, branch names, and inferred GA milestones do not belong in the
 release chronicle. `scripts/check-changelog.sh` enforces this invariant in CI.
 
@@ -78,9 +80,11 @@ equal update peer.
 
 GitLab and GitHub remain separate identity domains: GitLab commits and tags use
 `heng.yang.ds@hotmail.com`; GitHub projection commits and tags use
-`hengyang.2003@tsinghua.org.cn`. Same-named provider release tags are
-independently signed provenance objects and must not be overwritten across the
-two namespaces.
+`hengyang.2003@tsinghua.org.cn`. Each release verifier uses its own tracked
+trust anchor. The retired GitHub signer may verify only the immutable legacy
+tag inventory; new GitHub release tags must use the current GitHub signer.
+Same-named provider release tags are independently signed provenance objects
+and must not be overwritten across the two namespaces.
 
 Run `sh scripts/project-github-forge.sh` from a clean canonical checkout to
 project a selected branch into the GitHub identity domain. It rewrites only an

@@ -2,9 +2,15 @@
 set -eu
 
 repo=${1:-.}
-tag=${2:?usage: check-release-tag-signature.sh [repo] <tag>}
+tag=${2:?usage: check-release-tag-signature.sh [repo] <tag> [gitlab|github]}
+provider=${3:-gitlab}
 repo=$(CDPATH= cd -- "$repo" && pwd)
-allowed_signers="$repo/packaging/release/allowed_signers"
+
+case "$provider" in
+  gitlab|github) ;;
+  *) echo "release tag provider must be gitlab or github: $provider" >&2; exit 2 ;;
+esac
+allowed_signers="$repo/packaging/release/${provider}-allowed-signers"
 
 case "$tag" in
   v[0-9]*.*.*) ;;
@@ -36,5 +42,6 @@ case "$object" in
   *) echo "release tag is not SSH signed: $tag" >&2; exit 1 ;;
 esac
 
-git -C "$repo" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$allowed_signers" verify-tag "$tag" >/dev/null
-echo "release tag SSH signature: OK ($tag)"
+git -C "$repo" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen \
+  -c gpg.ssh.allowedSignersFile="$allowed_signers" verify-tag "$tag" >/dev/null
+echo "release tag SSH signature: OK ($provider $tag)"

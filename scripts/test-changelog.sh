@@ -24,7 +24,7 @@ printf 'release\n' > "$source/release.txt"
 git -C "$source" add release.txt
 git -C "$source" commit -qm 'release'
 git -C "$source" tag -a v0.1.0-rc.1 -m 'release'
-release_date=$(git -C "$source" for-each-ref refs/tags/v0.1.0-rc.1 --format='%(creatordate:short)' | head -n 1)
+release_date=$(git -C "$source" show -s --format=%cs v0.1.0-rc.1^{})
 test -n "$release_date" || { echo "fixture release tag has no date" >&2; exit 1; }
 printf 'current\n' >> "$source/release.txt"
 git -C "$source" commit -qam 'current'
@@ -77,9 +77,9 @@ latest_tag = subprocess.check_output(
 ).strip()
 latest_version = latest_tag.removeprefix("v")
 latest_date = subprocess.check_output(
-    ["git", "for-each-ref", f"refs/tags/{latest_tag}", "--format=%(creatordate:short)"],
+    ["git", "show", "-s", "--format=%cs", f"{latest_tag}^{{}}"],
     text=True,
-).strip().splitlines()[0]
+).strip()
 marker = f"## [{latest_version}] - {latest_date}"
 if marker not in text:
     raise SystemExit("fixture lacks latest release heading")
@@ -99,13 +99,13 @@ import sys
 path = Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
 pattern = re.compile(r"^(## \[(?!Unreleased\])[^]]+\]) - \d{4}-\d{2}-\d{2}$", re.MULTILINE)
-changed, count = pattern.subn(r"\1 - 2000-01-01", text, count=1)
+changed, count = pattern.subn(r"\1 - 2000-02-30", text, count=1)
 if count != 1:
     raise SystemExit("fixture lacks a published release heading")
 path.write_text(changed, encoding="utf-8")
 PY
 if AIGW_CHANGELOG_FILE="$fixture" sh "$checker" >/dev/null 2>&1; then
-  echo "changelog checker accepted a tag/date mismatch" >&2
+  echo "changelog checker accepted an invalid release date" >&2
   exit 1
 fi
 
