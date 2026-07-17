@@ -24,6 +24,8 @@ if r"CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\/" not in workflow:
     raise SystemExit("GitLab must suppress release branch merge-request pipelines")
 
 default = section(gitlab, "default")
+if "image: golang:1.25.8" not in default:
+    raise SystemExit("GitLab release toolchain must pin Go 1.25.8 exactly")
 if "AIGW_GOPROXY" not in default or "prepare-ci-go-cache.sh" not in default:
     raise SystemExit("GitLab must retain its independently configured Go dependency path")
 if "https://goproxy.cn|https://proxy.golang.org|direct" not in default:
@@ -32,12 +34,12 @@ if "tags: [aigw-release-macos-arm64]" not in default:
     raise SystemExit("GitLab must schedule the full pipeline on its dedicated release runner")
 
 variables = section(gitlab, "variables")
-if "AIGW_RELEASE_GO_TOOLCHAIN: go1.25.8" not in variables:
-    raise SystemExit("GitLab must pin the release Go toolchain")
+if "GOTOOLCHAIN: go1.25.8" not in variables:
+    raise SystemExit("GitLab must resolve Go 1.25.8 on every runner")
 
 verify = section(gitlab, "verify")
 for required in [
-    "go test -race ./...", "go vet ./...", "check-product-surface.sh", "check-release-tag-signature.sh",
+    "go test -race ./...", "go vet ./...", "check-product-surface.sh", "check-release-tag-signature.sh", "check-release-toolchain.sh",
     "check-english-text.sh", "test-linux-native-install-staging.sh", "test-macos-native-install-staging.sh",
     "test-verified-candidate.sh",
     "test-publish-release.sh", "test-publish-github-release.sh",
@@ -45,7 +47,7 @@ for required in [
     "test-github-release-workflow.sh",
     "test-github-provider-projection.sh", "check-text-layout.py", "test-text-layout.sh",
     "test-ci-go-proxy-policy.sh", "test-ci-go-cache-preparation.sh",
-    "test-release-source-date-epoch.sh",
+    "test-release-source-date-epoch.sh", "test-release-forge-sources.sh", "test-release-toolchain.sh",
 ]:
     if required not in verify:
         raise SystemExit(f"GitLab verification is missing {required}")
@@ -94,7 +96,7 @@ for section_text, name in [
 for required in [
     "name: Release", 'tags: ["v*"]', "permissions:\n  contents: write",
     "runs-on: [self-hosted, macOS, ARM64, aigw-release-macos-arm64]", "check-release-tag-signature.sh",
-    "AIGW_RELEASE_GO_TOOLCHAIN: go1.25.8",
+    'go-version: "1.25.8"', "check-latest: false", "GOTOOLCHAIN: go1.25.8", "check-release-toolchain.sh",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
     'SOURCE_DATE_EPOCH="$(sh scripts/release-source-date-epoch.sh "$version")"',
     'sh scripts/test-release-reproducibility.sh "$version"',
@@ -112,6 +114,9 @@ for forbidden in [
         raise SystemExit(f"GitHub release plane retains provider-specific build metadata: {forbidden}")
 if "gitlab-ci" in github.lower() or re.search(r"(?m)^\s*sh scripts/publish-release\.sh(?:\s|$)", github):
     raise SystemExit("GitHub release plane retains a non-peer dependency")
+for workflow_name, workflow_text in (("GitHub release", github),):
+    if "go-version-file:" in workflow_text or "check-latest: true" in workflow_text:
+        raise SystemExit(f"{workflow_name} retains floating Go setup")
 
 print("dual forge CI/CD contract: OK")
 PYTHON

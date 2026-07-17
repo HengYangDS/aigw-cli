@@ -182,10 +182,12 @@ JetBrains AI.
 
 ## Update sources
 
-A released binary may embed independent GitLab and GitHub tuples. A source
-build has no implicit vendor endpoint. For an intentional remote test,
-configure a complete tuple for either or both peers; never combine individual
-fields:
+A formal package reads its two official update peers from the tracked,
+credential-free `packaging/release/forge-sources.env` manifest. Both release
+planes validate and embed that same complete tuple set; a conflicting CI or
+shell override is rejected. A direct development `go build` has no implicit
+vendor endpoint. For an intentional remote test, configure a complete tuple for
+either or both peers; never combine individual fields:
 
 ```bash
 export AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example.com
@@ -231,6 +233,8 @@ test -z "$(gofmt -l cmd internal tools)"
 sh scripts/check-governance.sh
 python3 scripts/check-markdown-presentation.py
 sh scripts/test-changelog.sh
+export GOTOOLCHAIN=go1.25.8
+sh scripts/check-release-toolchain.sh
 version=$(git describe --tags --exact-match | sed 's/^v//')
 SOURCE_DATE_EPOCH=$(sh scripts/release-source-date-epoch.sh "$version") \
   AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$version" dist

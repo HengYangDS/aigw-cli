@@ -43,9 +43,9 @@ Actions does not inherit this GitLab-specific setting.
 ## Release behavior
 
 A signed tag triggers independently complete GitLab and GitHub pipelines. Each
-uses the dedicated macOS arm64 release runner class, the same pinned Go
-toolchain, tracked forge-source manifest, and release epoch derived from the
-tagged Changelog heading. Each proves two full-matrix builds byte-identical,
+uses the dedicated macOS arm64 release runner class, the exact Go patch version
+declared in `go.mod`, the tracked forge-source manifest, and the release epoch
+derived from the tagged Changelog heading. Each proves two full-matrix builds byte-identical,
 then publishes its own immutable release. If an identical release already
 exists, its assets are downloaded and byte-verified; a disagreement fails
 closed rather than replacing an asset.

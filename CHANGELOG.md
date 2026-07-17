@@ -8,6 +8,33 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.58] - 2026-07-17
+
+### Fixed
+
+- Pin release builds to Go 1.25.8, use one tracked provider-neutral release
+  source manifest, and remove AppleDouble metadata before macOS packaging so
+  the equal GitLab and GitHub release planes produce the same artifact bytes.
+- Reject a release compiler or provider tuple that differs from the committed
+  source contract, and omit forge-specific VCS metadata from portable binaries.
+
+### Changed
+
+- Run the full release matrix on the dedicated macOS arm64 release runner in
+  both forge pipelines, with a byte-for-byte comparison gate for every matrix.
+
+## [0.1.0-rc.57] - 2026-07-18
+
+### Fixed
+
+- Reset writable ownership before bounded CI Go-cache eviction, so a read-only
+  module entry cannot abort a release package job.
+- Verify every linked GitLab and GitHub release asset after creation or reuse;
+  publication now fails closed when a release is incomplete or differs from
+  locally validated artifacts.
+
+## [0.1.0-rc.56] - 2026-07-18
+
 ### Fixed
 
 - Pin release builds to Go 1.25.8, use one tracked provider-neutral release

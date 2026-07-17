@@ -53,9 +53,16 @@ Every formal release matrix has one source-neutral `SOURCE_DATE_EPOCH`: UTC
 midnight of the committed `CHANGELOG.md` heading for that exact version. The
 package entrypoint rejects a missing or invalid epoch. It normalizes portable
 archives, package metadata, MSI identity fields, and the SPDX creation time
-before it writes `checksums.txt`. It also pins the exact Go toolchain and reads
-both public release-source tuples from the tracked forge-source manifest; a
-provider pipeline may not inject its own tuple into the artifact bytes.
+before it writes `checksums.txt`.
+
+The formal package entrypoint derives the exact Go patch version from `go.mod`,
+checks the selected compiler before it writes an artifact, and rejects a
+conflicting caller-supplied toolchain. `packaging/release/forge-sources.env` is
+the credential-free, source-owned record of both official update peers. Its
+resolver validates each complete tuple before packaging and rejects a
+conflicting CI or shell override. Thus a release's embedded update topology is
+independent of the forge that built it. A direct development `go build` still
+has no implicit release source.
 
 Before publication, the complete 15-artifact matrix is built twice on the
 dedicated macOS arm64 release runner with the same version, epoch, toolchain,
