@@ -8,7 +8,34 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Added
+
+- Add host-specific Codex surface classification and `aigw route doctor` for
+  local, secret-free ownership diagnostics. The doctor distinguishes ordinary
+  standalone Codex CLI, PyCharm Codex, JetBrains Air, and Junie CLI without
+  executing a client or probing a provider.
+- Add explicit `aigw route fallback air` and `aigw route restore air` commands
+  with secret-free dry runs and required `--confirm-host-idle` attestation for
+  any mutation.
+
+### Changed
+
+- Make host routing explicit: ordinary standalone Codex CLI receives the AIGW
+  full-selection projection; ChatGPT Desktop retains authority over existing
+  conversation model choices and transcripts; PyCharm Codex and Junie CLI stay
+  JetBrains AI surfaces; and Air stays JetBrains AI except for an explicit,
+  non-default fallback.
+- Restrict generic Codex setup and repair discovery to standalone targets. An
+  explicitly staged Air fallback remains reconcilable, but generic commands no
+  longer adopt JetBrains host defaults.
+
 ### Fixed
+
+- Reconcile Codex projections as before-to-after transactions with sidecar
+  writer attribution, guarded preimage checks, byte-exact rollback, and
+  fail-closed handling of incomplete, foreign, or mode-mismatched state.
+- Preserve Air's top-level provider/model selection and original bytes while
+  staging or restoring its namespaced fallback.
 
 - Mark GitHub releases created from SemVer prerelease tags as prereleases, while
   leaving GA releases unmarked.
