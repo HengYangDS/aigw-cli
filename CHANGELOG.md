@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.54] - 2026-07-17
+
 ### Added
 
 - Add `aigw repair --dry-run [--json]` as a secret-free, lock-free preview for
