@@ -30,10 +30,6 @@ if [ "$created_out" = 1 ]; then
     require "$command"
   done
   SOURCE_DATE_EPOCH=1784246400 \
-    AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example.test \
-    AIGW_GITLAB_RELEASE_REPOSITORY=example-group/aigw-cli \
-    AIGW_GITHUB_RELEASE_ORIGIN=https://github.com \
-    AIGW_GITHUB_RELEASE_REPOSITORY=example-owner/aigw-cli \
     AIGW_REQUIRE_FULL_MATRIX=1 sh "$root/scripts/package.sh" "$version" "$out" >/dev/null
 fi
 [ -d "$out" ] || { echo "artifact directory does not exist: $out" >&2; exit 2; }
