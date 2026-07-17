@@ -27,6 +27,15 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
         with:
           fetch-depth: 0
+      - name: Refresh annotated release tags
+        run: git fetch --force --tags origin
+      - name: Verify pushed release tag provenance
+        if: github.ref_type == 'tag'
+        env:
+          SELECTED_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          sh scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github
       - name: Set up Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
@@ -58,6 +67,7 @@ jobs:
           sh scripts/test-release-toolchain.sh
           sh scripts/test-verified-candidate.sh
           sh scripts/test-release-tag-signature.sh
+          sh scripts/test-release-tag-signature-provider-selection.sh
           sh scripts/test-package-runner-preflight.sh
           sh scripts/test-ci-go-cache-preparation.sh
           sh scripts/test-linux-native-install-staging.sh
