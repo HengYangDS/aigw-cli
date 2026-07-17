@@ -87,25 +87,37 @@ if AIGW_CHANGELOG_FILE="$fixture" sh "$checker" >/dev/null 2>&1; then
   exit 1
 fi
 
-python3 - "$fixture" <<'PY'
+cp "$root/CHANGELOG.md" "$fixture"
+python3 - "$fixture" "$root/packaging/release/retired-gitlab-tags.txt" <<'PY'
 from pathlib import Path
 import re
 import subprocess
 import sys
 
 path = Path(sys.argv[1])
-semver = re.compile(r"^v\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$")
-tags = [
+retired = Path(sys.argv[2])
+text = path.read_text(encoding="utf-8")
+tag_versions = {
     tag.removeprefix("v")
-    for tag in subprocess.check_output(["git", "tag", "--list", "v[0-9]*", "--sort=-version:refname"], text=True).splitlines()
-    if semver.fullmatch(tag)
-]
-if not tags:
-    raise SystemExit("fixture lacks release tags")
-sections = ["# Changelog", "", "## [Unreleased]", "", "## [9999.0.0-ci.1] - 2026-07-17", ""]
-for version in tags:
-    sections.extend([f"## [{version}] - 2026-07-17", ""])
-path.write_text("\n".join(sections), encoding="utf-8")
+    for tag in subprocess.check_output(["git", "tag", "--list", "v[0-9]*"], text=True).splitlines()
+}
+retired_versions = {
+    line.strip().removeprefix("v")
+    for line in retired.read_text(encoding="utf-8").splitlines()
+    if line.strip() and not line.lstrip().startswith("#")
+}
+marker = next(
+    (
+        match
+        for match in re.finditer(r"^## \[([^]]+)\] - \d{4}-\d{2}-\d{2}$", text, re.MULTILINE)
+        if match.group(1) not in tag_versions | retired_versions
+    ),
+    None,
+)
+if marker is None:
+    raise SystemExit("fixture lacks an untagged leading release candidate")
+candidate = "## [9999.0.0-ci.1] - 2026-07-17"
+path.write_text(text[:marker.start()] + candidate + text[marker.end():], encoding="utf-8")
 PY
 if ! AIGW_CHANGELOG_FILE="$fixture" sh "$checker" >/dev/null 2>&1; then
   echo "changelog checker rejected a leading next release candidate" >&2
