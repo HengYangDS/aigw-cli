@@ -261,6 +261,7 @@ cp "$checker" "$provider/scripts/check-changelog.sh"
 cp "$root/packaging/release/retired-gitlab-tags.txt" "$provider/packaging/release/retired-gitlab-tags.txt"
 {
   printf '# Changelog\n\n## [Unreleased]\n\n'
+  printf '## [0.1.0-rc.62] - 2026-07-17\n\n'
   printf '## [0.1.0-rc.61] - 2026-07-17\n\n'
   for number in $(seq 58 -1 48); do
     printf '## [0.1.0-rc.%s] - 2026-07-17\n\n' "$number"
