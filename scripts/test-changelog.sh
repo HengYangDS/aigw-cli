@@ -60,9 +60,9 @@ cp "$checker" "$shallow/scripts/check-changelog.sh"
   fi
 )
 
-# A published entry before the latest tag must be a locally known release rather
-# than a speculative version. Appending after the latest heading would be an
-# order violation, which is intentionally outside this fixture's scope.
+# Exactly one untagged release candidate may be the first published section.
+# A speculative heading anywhere else must fail, while a valid next candidate
+# must pass before either forge creates its provider-native tag.
 python3 - "$fixture" <<'PY'
 from pathlib import Path
 import re
@@ -80,10 +80,35 @@ latest_version = latest_tag.removeprefix("v")
 marker = re.search(rf"^## \[{re.escape(latest_version)}\] - \d{{4}}-\d{{2}}-\d{{2}}$", text, re.MULTILINE)
 if marker is None:
     raise SystemExit("fixture lacks latest release heading")
-path.write_text(text[:marker.start()] + "## [9.9.9] - 2026-07-14\n\n" + text[marker.start():], encoding="utf-8")
+path.write_text(text[:marker.end()] + "\n\n## [9.9.9] - 2026-07-14" + text[marker.end():], encoding="utf-8")
 PY
 if AIGW_CHANGELOG_FILE="$fixture" sh "$checker" >/dev/null 2>&1; then
-  echo "changelog checker accepted an untagged published version" >&2
+  echo "changelog checker accepted a non-leading untagged published version" >&2
+  exit 1
+fi
+
+python3 - "$fixture" <<'PY'
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+path = Path(sys.argv[1])
+semver = re.compile(r"^v\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$")
+tags = [
+    tag.removeprefix("v")
+    for tag in subprocess.check_output(["git", "tag", "--list", "v[0-9]*", "--sort=-version:refname"], text=True).splitlines()
+    if semver.fullmatch(tag)
+]
+if not tags:
+    raise SystemExit("fixture lacks release tags")
+sections = ["# Changelog", "", "## [Unreleased]", "", "## [9999.0.0-ci.1] - 2026-07-17", ""]
+for version in tags:
+    sections.extend([f"## [{version}] - 2026-07-17", ""])
+path.write_text("\n".join(sections), encoding="utf-8")
+PY
+if ! AIGW_CHANGELOG_FILE="$fixture" sh "$checker" >/dev/null 2>&1; then
+  echo "changelog checker rejected a leading next release candidate" >&2
   exit 1
 fi
 

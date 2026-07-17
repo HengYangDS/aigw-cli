@@ -18,13 +18,14 @@ SPDX SBOM.
 ## Release identity and chronicle
 
 `CHANGELOG.md` begins with `## [Unreleased]`, which contains only changes made
-after the latest reachable release tag. The next section must be the latest
-reachable `v<semver>` tag, written as `## [<semver>] - <release-date>`. Every
-older published section is likewise anchored to a real tag and a valid,
-source-controlled release date. GitLab and GitHub sign separate provenance
-tags, so their tag-object timestamps are not a cross-forge Changelog invariant.
-Planned versions, branch names, and inferred GA milestones do not belong in the
-release chronicle. `scripts/check-changelog.sh` enforces this invariant in CI.
+after the next release candidate is cut. During release preparation, exactly
+one next candidate may immediately follow it; after tagging, that heading must
+identify the selected `v<semver>` tag. Every older published section is anchored
+to a real tag and a valid, source-controlled release date. GitLab and GitHub
+sign separate provenance tags, so their tag-object timestamps are not a
+cross-forge Changelog invariant. Planned versions, branch names, and inferred
+GA milestones do not belong in the release chronicle.
+`scripts/check-changelog.sh` enforces this invariant in CI.
 
 A release tag records a source version; it is not by itself proof of artifact
 publication, native-platform acceptance, signing, notarization, or GA. Those
