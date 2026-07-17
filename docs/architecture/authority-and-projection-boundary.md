@@ -45,11 +45,22 @@ commands never turn an Air or PyCharm default into an AIGW full selection.
 Dry-run does not mutate files, bind native authentication, restart clients, or
 modify conversation state.
 
+`aigw repair --dry-run --json` is the transition preview for legacy target
+membership. It computes the desired repair state without enabling a Claude
+shim, binding native Codex authentication, writing configuration, or taking a
+mutation lock. Its output identifies planned Codex actions by stable surface ID
+rather than by configuration path, so an operator can verify restoration of a
+legacy PyCharm/Air full selection before applying `aigw repair`. The preview is
+not a host-idleness proof and does not authorize an apply while a host has
+active work.
+
 `aigw route doctor` is a separate local observer. It reports host policy,
 sidecar attribution, and selection conflicts without running a client,
 contacting a provider, reading credentials, exposing paths or configuration
 bodies, or claiming session, endpoint, terminal, or billing proof. Junie is
-always reported as not probed.
+always reported as not probed. On a route-ownership conflict it recommends the
+repair preview, not an Air fallback restore that could be invalid while Air is
+still selected to AIGW at the top level.
 
 Air fallback never changes the top-level `model` or `model_provider` keys. It
 adds/removes only an AIGW-owned namespaced suffix, preserving the original Air

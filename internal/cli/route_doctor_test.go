@@ -113,6 +113,36 @@ func TestRouteDoctorDoesNotTreatExpectedExternalSurfacesAsFailure(t *testing.T) 
 	}
 }
 
+func TestRouteDoctorRecommendsRepairPreviewForLegacyJetBrainsProjection(t *testing.T) {
+	h := newAirRouteHarness(t)
+	cfg, err := h.app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := cfg.Adapters["codex"]
+	adapter.Targets = append(adapter.Targets, h.air)
+	cfg.Adapters["codex"] = adapter
+	if err := h.app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	runtime, _, err := cfg.ResolveRuntime("codex", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := adapters.SyncCodexConfig(h.air, runtime); err != nil {
+		t.Fatal(err)
+	}
+	out := new(bytes.Buffer)
+	h.app.Out, h.app.Err = out, out
+	if err := Execute(h.app, []string{"route", "doctor"}); err == nil {
+		t.Fatal("legacy JetBrains projection unexpectedly passed route doctor")
+	}
+	text := out.String()
+	if !strings.Contains(text, "aigw repair --dry-run") || strings.Contains(text, "aigw route restore air --dry-run") {
+		t.Fatalf("route doctor did not recommend the safe legacy repair preview:\n%s", text)
+	}
+}
+
 func TestRouteDoctorIsNotAMutationCommand(t *testing.T) {
 	if mutationCommand(&App{}, []string{"route", "doctor", "--json"}) {
 		t.Fatal("route doctor must not acquire a mutation lock")

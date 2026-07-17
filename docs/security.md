@@ -75,6 +75,13 @@ first staging of Air's explicit fallback. Each native
 `codex login --with-api-key` invocation has a 20-second bound and receives the
 Token only through stdin.
 
+`aigw repair --dry-run` is the required secret-free planning surface when an
+older configuration still lists a JetBrains target. It renders the proposed
+standalone adoption and legacy restore actions without writing the AIGW config,
+Codex files, sidecars, shims, or credentials; it neither runs native login nor
+acquires the configuration mutation lock. Its stable surface identifiers avoid
+disclosing local configuration paths in the preview.
+
 Endpoint checks are bounded HTTP requests. AIGW does not use an unbounded `codex exec` process as a health check and does not install a watchdog or any lifecycle automation for desktop clients.
 
 `aigw test` is a bounded connectivity check. A `404` to an authenticated GET of the Claude base URL means the service is reachable but does not expose a base GET probe; it is not classified as an endpoint outage. `aigw verify` is explicitly opt-in and consumes a minimal real model request; it requires the exact `AIGW_OK` sentinel rather than accepting a successful HTTP status or process exit alone. Claude verification explicitly pins the resolved model and invokes Claude in safe mode with hooks, MCP, skills, plugins, custom commands, and session persistence disabled. Its captured child invocation has a bounded pipe-drain wait; on Windows, its direct child is placed in a kill-on-close Job Object so descendants created by that invocation cannot outlive the verification boundary. `aigw verify --for all` first verifies local Claude-shim and Codex-projection readiness, then writes a secret-free verified checkpoint only after both clients pass. `aigw rollback` restores that checkpoint (or `--last-change` restores only the immediate config backup) through the normal projection transaction; it never controls the lifecycle of a desktop client.
