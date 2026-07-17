@@ -15,9 +15,12 @@ workspace="$tmp/workspace"
 cache_base="$tmp/builds"
 mkdir -p "$workspace" "$cache_base/.aigw-ci-cache/456/go-build" "$cache_base/.aigw-ci-cache/456/go-mod"
 dd if=/dev/zero of="$cache_base/.aigw-ci-cache/456/go-mod/oversize" bs=1024 count=8 >/dev/null 2>&1
+mkdir -p "$cache_base/.aigw-ci-cache/456/go-mod/readonly"
+printf 'locked cache entry\n' > "$cache_base/.aigw-ci-cache/456/go-mod/readonly/entry"
+chmod u-w "$cache_base/.aigw-ci-cache/456/go-mod/readonly"
 
 CI_BUILDS_DIR="$cache_base" CI_PROJECT_ID=456 CI_PROJECT_DIR="$workspace" AIGW_CI_CACHE_MAX_KIB=4 \
-  sh -ceu '. "$1"; test "$AIGW_CI_CACHE_ROOT" = "$CI_BUILDS_DIR/.aigw-ci-cache/$CI_PROJECT_ID"; test "$GOCACHE" = "$AIGW_CI_CACHE_ROOT/go-build"; test "$GOMODCACHE" = "$AIGW_CI_CACHE_ROOT/go-mod"; case "$GOCACHE:$GOMODCACHE" in "$CI_PROJECT_DIR"/*) exit 1;; esac; case " $GOFLAGS " in *" -modcacherw "*) ;; *) exit 1;; esac; test ! -e "$GOMODCACHE/oversize"' sh "$script"
+  sh -ceu '. "$1"; test "$AIGW_CI_CACHE_ROOT" = "$CI_BUILDS_DIR/.aigw-ci-cache/$CI_PROJECT_ID"; test "$GOCACHE" = "$AIGW_CI_CACHE_ROOT/go-build"; test "$GOMODCACHE" = "$AIGW_CI_CACHE_ROOT/go-mod"; case "$GOCACHE:$GOMODCACHE" in "$CI_PROJECT_DIR"/*) exit 1;; esac; case " $GOFLAGS " in *" -modcacherw "*) ;; *) exit 1;; esac; test ! -e "$GOMODCACHE/oversize"; test ! -e "$GOMODCACHE/readonly"' sh "$script"
 
 CI_BUILDS_DIR="$cache_base" CI_PROJECT_ID=456 CI_PROJECT_DIR="$workspace" \
   sh -ceu '. "$1"; test "${AIGW_CI_CACHE_MAX_KIB-}" = ""; test "$AIGW_CI_CACHE_ROOT" = "$CI_BUILDS_DIR/.aigw-ci-cache/$CI_PROJECT_ID"' sh "$script"
