@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.65] - 2026-07-18
+
 ### Fixed
 
 - Recover JetBrains Air only from a verified stale AIGW full-selection and
