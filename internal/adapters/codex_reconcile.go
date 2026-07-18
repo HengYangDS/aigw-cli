@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,9 +17,10 @@ import (
 )
 
 const (
-	CodexProjectionFullSelection      = "full-selection"
-	CodexProjectionNamespacedFallback = "namespaced-fallback"
-	CodexProjectionWriterID           = "aigw-cli"
+	CodexProjectionFullSelection                 = "full-selection"
+	CodexProjectionNamespacedFallback            = "namespaced-fallback"
+	CodexProjectionStaleAirFullSelectionRecovery = "recover-stale-full-selection"
+	CodexProjectionWriterID                      = "aigw-cli"
 
 	codexFallbackBegin = "# >>> AIGW fallback provider >>>"
 	codexFallbackEnd   = "# <<< AIGW fallback provider <<<"
@@ -162,7 +164,17 @@ func prepareCodexReconciliation(before, after []CodexTargetRef, runtime domain.R
 		return nil, "", err
 	}
 	endpoint := ""
-	if len(after) > 0 {
+	needsEndpoint := false
+	for _, target := range targets {
+		if !target.desired {
+			continue
+		}
+		if target.ref.ProjectionMode == CodexProjectionFullSelection || target.ref.ProjectionMode == CodexProjectionNamespacedFallback {
+			needsEndpoint = true
+			break
+		}
+	}
+	if needsEndpoint {
 		endpoint, err = codexEndpoint(runtime)
 		if err != nil {
 			return nil, "", err
@@ -202,6 +214,8 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 	case CodexProjectionNamespacedFallback:
 		block := codexFallbackBlock(runtime.ProfileLabel, endpoint)
 		return prepareCodexFallback(target.ref, block, configSnapshot, stateSnapshot, transactionID)
+	case CodexProjectionStaleAirFullSelectionRecovery:
+		return prepareStaleAirFullSelectionRecovery(target.ref, configSnapshot, stateSnapshot)
 	default:
 		return codexPreparedTarget{}, fmt.Errorf("unsupported Codex projection mode %q", target.ref.ProjectionMode)
 	}
@@ -317,6 +331,27 @@ func prepareCodexRestore(target CodexTargetRef, configSnapshot, stateSnapshot tr
 	return codexPreparedTarget{
 		plan:      CodexProjectionPlan{Target: target.Path, Action: "restore-external"},
 		artifacts: codexArtifactsForDesiredState(target.Path, targetCodexStatePath(target), configSnapshot, []byte(restored), stateSnapshot, nil),
+	}, nil
+}
+
+func prepareStaleAirFullSelectionRecovery(target CodexTargetRef, configSnapshot, stateSnapshot transaction.FileSnapshot) (codexPreparedTarget, error) {
+	if !stateSnapshot.Exists {
+		return codexPreparedTarget{}, errors.New("Air has no AIGW sidecar for stale full-selection recovery")
+	}
+	state, legacy, err := codexStateForTarget(stateSnapshot, CodexProjectionNamespacedFallback)
+	if err != nil {
+		return codexPreparedTarget{}, err
+	}
+	if legacy {
+		return codexPreparedTarget{}, errors.New("legacy AIGW sidecar cannot authorize stale Air full-selection recovery")
+	}
+	recovered, err := removeStaleAirFullSelection(string(configSnapshot.Data), state)
+	if err != nil {
+		return codexPreparedTarget{}, err
+	}
+	return codexPreparedTarget{
+		plan:      CodexProjectionPlan{Target: target.Path, Action: "recover-stale-full-selection"},
+		artifacts: codexArtifactsForDesiredState(target.Path, targetCodexStatePath(target), configSnapshot, []byte(recovered), stateSnapshot, nil),
 	}, nil
 }
 
@@ -521,7 +556,7 @@ func validateDesiredCodexTarget(target CodexTargetRef) error {
 	switch {
 	case (target.SurfaceID == "codex-cli-standalone" || strings.HasPrefix(target.SurfaceID, "codex-cli-explicit-")) && target.Authority == "aigw" && target.ProjectionMode == CodexProjectionFullSelection:
 		return nil
-	case target.SurfaceID == "jetbrains-air-codex" && target.Authority == "jetbrains-ai" && target.ProjectionMode == CodexProjectionNamespacedFallback:
+	case target.SurfaceID == "jetbrains-air-codex" && target.Authority == "jetbrains-ai" && (target.ProjectionMode == CodexProjectionNamespacedFallback || target.ProjectionMode == CodexProjectionStaleAirFullSelectionRecovery):
 		return nil
 	default:
 		return fmt.Errorf("Codex target %s cannot use authority %s with projection mode %s", target.SurfaceID, target.Authority, target.ProjectionMode)

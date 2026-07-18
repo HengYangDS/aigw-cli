@@ -16,12 +16,15 @@ import (
 )
 
 type routeChangePreview struct {
-	DryRun         bool   `json:"dry_run"`
-	SurfaceID      string `json:"surface_id"`
-	Authority      string `json:"authority"`
-	ProjectionMode string `json:"projection_mode"`
-	Action         string `json:"action"`
+	DryRun              bool   `json:"dry_run"`
+	SurfaceID           string `json:"surface_id"`
+	Authority           string `json:"authority"`
+	ProjectionMode      string `json:"projection_mode"`
+	Action              string `json:"action"`
+	ConfigurationAction string `json:"configuration_action,omitempty"`
 }
+
+var reconcileCodexConfigs = adapters.ReconcileCodexConfigs
 
 func newRouteFallbackCommand(app *App) *cobra.Command {
 	var dryRun, jsonMode, confirmHostIdle bool
@@ -53,6 +56,25 @@ func newRouteRestoreCommand(app *App) *cobra.Command {
 				return errors.New("only `aigw route restore air` is admitted")
 			}
 			return runAirRestore(app, dryRun, jsonMode, confirmHostIdle)
+		},
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without writing configuration")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the secret-free preview as JSON")
+	cmd.Flags().BoolVar(&confirmHostIdle, "confirm-host-idle", false, "Attest that Air is idle; this command never probes, starts, or stops it")
+	return cmd
+}
+
+func newRouteRecoverCommand(app *App) *cobra.Command {
+	var dryRun, jsonMode, confirmHostIdle bool
+	cmd := &cobra.Command{
+		Use:   "recover <air>",
+		Short: "Recover Air from a verified stale AIGW full selection",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			if args[0] != "air" {
+				return errors.New("only `aigw route recover air` is admitted")
+			}
+			return runAirRecover(app, dryRun, jsonMode, confirmHostIdle)
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without writing configuration")
@@ -199,6 +221,80 @@ func runAirRestore(app *App, dryRun, jsonMode, confirmHostIdle bool) error {
 	return nil
 }
 
+func runAirRecover(app *App, dryRun, jsonMode, confirmHostIdle bool) error {
+	surface, _, err := resolveAirSurface(app)
+	if err != nil {
+		return err
+	}
+	before, err := app.Config.Load()
+	if err != nil {
+		return err
+	}
+	target := adapters.CodexTargetRef{
+		SurfaceID:      discovery.SurfaceAirCodex,
+		Authority:      discovery.AuthorityJetBrainsAI,
+		ProjectionMode: adapters.CodexProjectionStaleAirFullSelectionRecovery,
+		Path:           surface.ConfigPath,
+	}
+	plans, err := adapters.PlanCodexReconciliation(nil, []adapters.CodexTargetRef{target}, domain.Runtime{})
+	if err != nil {
+		return err
+	}
+	if len(plans) != 1 {
+		return errors.New("Air stale full-selection recovery plan is missing")
+	}
+	after := cloneConfig(before)
+	adapter := after.Adapters[domain.ClientCodex]
+	adapter.Targets = removeTarget(adapter.Targets, surface.ConfigPath)
+	after.Adapters[domain.ClientCodex] = adapter
+	configurationAction := "already-without-air-fallback-target"
+	if !slicesEqual(before.Adapters[domain.ClientCodex].Targets, adapter.Targets) {
+		configurationAction = "remove-air-fallback-target"
+	}
+	preview := routeChangePreview{
+		DryRun:              true,
+		SurfaceID:           discovery.SurfaceAirCodex,
+		Authority:           discovery.AuthorityJetBrainsAI,
+		ProjectionMode:      "none",
+		Action:              plans[0].Action,
+		ConfigurationAction: configurationAction,
+	}
+	if dryRun {
+		return renderRoutePreview(app, jsonMode, preview)
+	}
+	if !confirmHostIdle {
+		return errors.New("Air recovery requires --confirm-host-idle; no process was probed or stopped")
+	}
+	if configurationAction == "already-without-air-fallback-target" {
+		if _, err := reconcileCodexConfigs(nil, []adapters.CodexTargetRef{target}, domain.Runtime{}); err != nil {
+			return err
+		}
+	} else {
+		configBefore, err := app.Config.CaptureSnapshot()
+		if err != nil {
+			return err
+		}
+		if err := app.Config.Save(after); err != nil {
+			return err
+		}
+		configAfter, err := app.Config.CaptureSnapshot()
+		if err != nil {
+			return err
+		}
+		if _, err := reconcileCodexConfigs(nil, []adapters.CodexTargetRef{target}, domain.Runtime{}); err != nil {
+			if restoreErr := app.Config.RestoreSnapshot(configBefore, configAfter); restoreErr != nil {
+				return fmt.Errorf("Air stale full-selection recovery failed: %w; config rollback failed: %v", err, restoreErr)
+			}
+			return err
+		}
+	}
+	r := renderer(app)
+	r.Title("AIGW", "Air stale full selection recovered")
+	r.Success("AIGW-owned full-selection residue was removed; Air remains under JetBrains ownership")
+	r.Next("aigw route doctor --json")
+	return nil
+}
+
 func resolveAirSurface(app *App) (discovery.Surface, discovery.Result, error) {
 	discovered, err := discoveredResult(app)
 	if err != nil {
@@ -333,8 +429,15 @@ func renderRoutePreview(app *App, jsonMode bool, preview routeChangePreview) err
 	r.Row("Authority", preview.Authority)
 	r.Row("Projection", preview.ProjectionMode)
 	r.Row("Action", preview.Action)
+	if preview.ConfigurationAction != "" {
+		r.Row("Configuration", preview.ConfigurationAction)
+	}
 	r.Success("Preview made no persistent changes")
-	r.Next("aigw route fallback air --confirm-host-idle")
+	if preview.Action == "recover-stale-full-selection" {
+		r.Next("aigw route recover air --confirm-host-idle")
+	} else {
+		r.Next("aigw route fallback air --confirm-host-idle")
+	}
 	return nil
 }
 
