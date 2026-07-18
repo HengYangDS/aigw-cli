@@ -43,7 +43,11 @@ Air configuration and all of the following hold:
 
 Every other state fails closed, including ordinary fallback, a full-selection
 sidecar, foreign or incomplete sidecar data, duplicate markers, a changed
-provider block, or retained original-selection values.
+provider block, or retained original-selection values. A clean Air file with
+no sidecar and no AIGW selection, markers, or provider tables is an idempotent
+`already-external` result rather than an error; it authorizes no write. AIGW
+residue without an attributable sidecar still fails closed without exposing
+the configuration path.
 
 The command removes only the AIGW-marked top-level selections, full-selection
 provider block, mismatched sidecar, and Air's explicit AIGW target membership.

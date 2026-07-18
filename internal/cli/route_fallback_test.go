@@ -241,6 +241,52 @@ func TestAirRecoverDryRunIsReadOnly(t *testing.T) {
 	}
 }
 
+func TestAirRecoverAlreadyExternalDryRunIsPathFreeJSON(t *testing.T) {
+	h := newAirRouteHarness(t)
+	configBefore, err := os.ReadFile(h.app.Config.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	airBefore, err := os.ReadFile(h.air)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Execute(h.app, []string{"route", "recover", "air", "--dry-run", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	var preview routeChangePreview
+	output := h.app.Out.(*bytes.Buffer).Bytes()
+	if err := json.Unmarshal(output, &preview); err != nil {
+		t.Fatalf("already-external preview is not JSON: %v\n%s", err, output)
+	}
+	if preview.Action != "already-external" || preview.ConfigurationAction != "already-without-air-fallback-target" {
+		t.Fatalf("preview = %#v", preview)
+	}
+	if bytes.Contains(output, []byte(h.air)) {
+		t.Fatalf("already-external preview exposed Air path:\n%s", output)
+	}
+	configAfter, _ := os.ReadFile(h.app.Config.Path())
+	airAfter, _ := os.ReadFile(h.air)
+	if !bytes.Equal(configAfter, configBefore) || !bytes.Equal(airAfter, airBefore) {
+		t.Fatal("already-external recovery preview mutated persistent state")
+	}
+}
+
+func TestAirRecoverRejectedStateDoesNotExposePath(t *testing.T) {
+	h := newAirRouteHarness(t)
+	unsafe := "model_provider = \"aigw\" # managed by AIGW\n"
+	if err := os.WriteFile(h.air, []byte(unsafe), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := Execute(h.app, []string{"route", "recover", "air", "--dry-run", "--json"})
+	if err == nil {
+		t.Fatal("unsafe Air recovery unexpectedly succeeded")
+	}
+	if strings.Contains(err.Error(), h.air) || strings.Contains(h.app.Out.(*bytes.Buffer).String(), h.air) {
+		t.Fatalf("rejected Air recovery exposed its config path: %v\n%s", err, h.app.Out.(*bytes.Buffer).String())
+	}
+}
+
 func TestAirRecoverRequiresHostIdleConfirmation(t *testing.T) {
 	h := newAirRouteHarness(t)
 	stageStaleAirFullSelection(t, h)

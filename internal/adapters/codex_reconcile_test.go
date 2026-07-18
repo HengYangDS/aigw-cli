@@ -179,6 +179,32 @@ func TestReconcileCodexConfigsRecoversStaleAirFullSelection(t *testing.T) {
 	}
 }
 
+func TestReconcileCodexConfigsTreatsAlreadyExternalAirRecoveryAsNoOp(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	original := []byte("model_provider = \"jetbrains\"\nmodel = \"jb-default\"\nuser_setting = true\n")
+	if err := os.WriteFile(path, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	target := airStaleFullSelectionRecoveryTarget(path)
+	plans, err := PlanCodexReconciliation(nil, []CodexTargetRef{target}, domain.Runtime{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plans) != 1 || plans[0].Action != "already-external" {
+		t.Fatalf("plans = %#v", plans)
+	}
+	if _, err := ReconcileCodexConfigs(nil, []CodexTargetRef{target}, domain.Runtime{}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(after, original) {
+		t.Fatalf("external Air config changed: %q, %v", after, err)
+	}
+	if _, err := os.Stat(codexStatePath(path)); !os.IsNotExist(err) {
+		t.Fatalf("already-external recovery created a sidecar: %v", err)
+	}
+}
+
 func TestReconcileCodexConfigsRejectsUnsafeStaleAirFullSelectionRecovery(t *testing.T) {
 	for _, test := range []struct {
 		name   string
