@@ -8,6 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Refuse to create an AIGW-managed Claude launcher from recognizable
+  ephemeral Go source-run or compiler output, preventing a durable shim
+  from pointing to a binary that disappears after the command exits.
+
 ## [0.1.0-rc.65] - 2026-07-18
 
 ### Fixed
