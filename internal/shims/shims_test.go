@@ -156,6 +156,25 @@ func TestManagerRejectsOwnedUnixShimThatTargetsTemporaryDirectory(t *testing.T) 
 	}
 }
 
+func TestManagerRefusesToWriteClaudeShimFromTemporaryBuildExecutable(t *testing.T) {
+	for _, executable := range []string{
+		"/tmp/aigw-go-preview-20260718/23/aigw",
+		"/var/folders/example/T/go-build123/b001/exe/aigw",
+		`C:\Users\example\AppData\Local\Temp\go-build123\b001\exe\aigw.exe`,
+	} {
+		t.Run(filepath.Base(filepath.Dir(executable)), func(t *testing.T) {
+			dir := t.TempDir()
+			manager := shims.Manager{GOOS: "linux", BinDir: dir, AIGWExecutable: executable}
+			if _, err := manager.EnableClaude(); err == nil || !strings.Contains(err.Error(), "temporary build executable") {
+				t.Fatalf("EnableClaude() error = %v", err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "claude")); !os.IsNotExist(err) {
+				t.Fatalf("temporary build unexpectedly wrote Claude shim: %v", err)
+			}
+		})
+	}
+}
+
 func TestDisableDoesNotRewriteShellProfilesWithoutAIGWBlock(t *testing.T) {
 	home := t.TempDir()
 	profilePath := filepath.Join(home, ".zshrc")

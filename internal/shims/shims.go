@@ -125,6 +125,9 @@ func isTemporaryPath(path string) bool {
 }
 
 func (m Manager) EnableClaude() (string, error) {
+	if isEphemeralBuildExecutable(m.AIGWExecutable) {
+		return "", fmt.Errorf("refusing to write AIGW-managed Claude shim from temporary build executable %s; install AIGW or run its persistent binary", m.AIGWExecutable)
+	}
 	path := m.claudePath()
 	existed := false
 	if data, err := os.ReadFile(path); err == nil && !strings.Contains(string(data), marker) {
@@ -150,6 +153,20 @@ func (m Manager) EnableClaude() (string, error) {
 		return "", err
 	}
 	return path, nil
+}
+
+// isEphemeralBuildExecutable identifies Go's short-lived source-run build
+// outputs. A generic temporary directory remains a valid test or portable
+// execution location; only these recognizable compiler workspaces must never
+// become a persistent Claude shim target.
+func isEphemeralBuildExecutable(path string) bool {
+	portablePath := strings.ReplaceAll(filepath.Clean(path), "\\", "/")
+	for _, part := range strings.Split(portablePath, "/") {
+		if strings.HasPrefix(part, "aigw-go-preview-") || strings.HasPrefix(part, "go-build") {
+			return true
+		}
+	}
+	return false
 }
 
 func (m Manager) DisableClaude() error {
