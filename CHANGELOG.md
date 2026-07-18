@@ -10,6 +10,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Keep `aigw route recover air --dry-run --json` idempotent and path-free when
+  Air is already externally owned and no AIGW sidecar remains.
 - Refuse to create an AIGW-managed Claude launcher from recognizable
   ephemeral Go source-run or compiler output, preventing a durable shim
   from pointing to a binary that disappears after the command exits.
