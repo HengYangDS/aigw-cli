@@ -22,6 +22,8 @@ const (
 
 var modelProviderLine = regexp.MustCompile(`(?m)^[ \t]*model_provider[ \t]*=.*$`)
 var modelLine = regexp.MustCompile(`(?m)^[ \t]*model[ \t]*=.*$`)
+var managedModelLine = regexp.MustCompile(`(?m)^[ \t]*model[ \t]*=[ \t]*"[^"\r\n]+"[ \t]*#[ \t]*managed by AIGW[ \t]*$`)
+var exactCodexManagedBlock = regexp.MustCompile(`\A\[model_providers\.aigw\]\r?\nname = "AIGW: [^"\r\n]*"\r?\nbase_url = "[^"\r\n]+"\r?\nwire_api = "responses"\r?\nrequires_openai_auth = true\r?\n# <<< AIGW managed provider <<<\r?\n?\z`)
 
 type codexState struct {
 	OriginalProvider string `json:"original_provider,omitempty"`
@@ -443,6 +445,48 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 		base = removeManagedModelSelection(base)
 	}
 	return base + "\n", nil
+}
+
+func removeStaleAirFullSelection(current string, state codexState) (string, error) {
+	block, err := staleAirFullSelectionBlock(current, state)
+	if err != nil {
+		return "", err
+	}
+	return removeCodexProjection(current, codexState{ManagedBlockHash: hashText(block)})
+}
+
+func staleAirFullSelectionBlock(current string, state codexState) (string, error) {
+	if state.ProjectionMode != CodexProjectionNamespacedFallback {
+		return "", fmt.Errorf("Air sidecar projection mode is %q, want %q", state.ProjectionMode, CodexProjectionNamespacedFallback)
+	}
+	if state.OriginalProvider != "" || state.OriginalModel != "" {
+		return "", errors.New("Air fallback sidecar retains an original selection; refusing stale full-selection recovery")
+	}
+	if strings.Count(current, codexBegin) != 1 || strings.Count(current, codexEnd) != 1 || strings.Count(current, "[model_providers.aigw]") != 1 {
+		return "", errors.New("Air stale full-selection recovery requires exactly one complete AIGW full-selection block")
+	}
+	if strings.Contains(current, codexFallbackBegin) || strings.Contains(current, codexFallbackEnd) || strings.Contains(current, "[model_providers.aigw_fallback]") {
+		return "", errors.New("Air contains an AIGW fallback block; use ordinary fallback restore instead")
+	}
+	providers := modelProviderLine.FindAllString(current, -1)
+	if len(providers) != 1 || !isManagedSelection(providers[0], "model_provider", "aigw") {
+		return "", errors.New("Air stale full-selection recovery requires an AIGW-managed model_provider selection")
+	}
+	models := modelLine.FindAllString(current, -1)
+	if len(models) > 1 || (len(models) == 1 && !managedModelLine.MatchString(models[0])) {
+		return "", errors.New("Air stale full-selection recovery requires an optional AIGW-managed model selection")
+	}
+	block, err := codexManagedBlockIn(current)
+	if err != nil {
+		return "", err
+	}
+	if !exactCodexManagedBlock.MatchString(block) {
+		return "", errors.New("Air AIGW provider block changed; refusing stale full-selection recovery")
+	}
+	if managedBlockHashMatches(state.ManagedBlockHash, block) {
+		return "", errors.New("Air sidecar matches its full-selection block; use ordinary recovery instead")
+	}
+	return block, nil
 }
 
 // isManagedSelection accepts harmless formatter changes such as the padded

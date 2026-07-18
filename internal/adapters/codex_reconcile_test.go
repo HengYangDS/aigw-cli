@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
 )
 
@@ -27,6 +28,15 @@ func airFallbackCodexTarget(path string) CodexTargetRef {
 		SurfaceID:      "jetbrains-air-codex",
 		Authority:      "jetbrains-ai",
 		ProjectionMode: CodexProjectionNamespacedFallback,
+		Path:           path,
+	}
+}
+
+func airStaleFullSelectionRecoveryTarget(path string) CodexTargetRef {
+	return CodexTargetRef{
+		SurfaceID:      "jetbrains-air-codex",
+		Authority:      "jetbrains-ai",
+		ProjectionMode: CodexProjectionStaleAirFullSelectionRecovery,
 		Path:           path,
 	}
 }
@@ -111,6 +121,285 @@ func TestReconcileCodexConfigsStagesAndRestoresAirFallbackByteExact(t *testing.T
 	}
 	if _, err := os.Stat(codexStatePath(path)); !os.IsNotExist(err) {
 		t.Fatalf("Air fallback state remains after restore: %v", err)
+	}
+}
+
+func TestReconcileCodexConfigsRecoversStaleAirFullSelection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	original := "model_provider = \"jetbrains\"\nmodel = \"jb-default\"\nuser_setting = true\n"
+	runtime := atomicTestRuntime()
+	fullBlock := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	if err := os.WriteFile(path, []byte(projectCodex(original, fullBlock, runtime.Model)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fallbackBlock := codexFallbackBlock(runtime.ProfileLabel, runtime.Endpoint)
+	staleState, err := json.Marshal(codexState{
+		ManagedBlockHash: hashText(fallbackBlock),
+		ProjectionMode:   CodexProjectionNamespacedFallback,
+		WriterID:         CodexProjectionWriterID,
+		TransactionID:    "stale-air-full-selection",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codexStatePath(path), append(staleState, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	target := airStaleFullSelectionRecoveryTarget(path)
+	plans, err := PlanCodexReconciliation(nil, []CodexTargetRef{target}, domain.Runtime{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plans) != 1 || plans[0].Action != "recover-stale-full-selection" {
+		t.Fatalf("plans = %#v", plans)
+	}
+	if _, err := ReconcileCodexConfigs(nil, []CodexTargetRef{target}, domain.Runtime{}); err != nil {
+		t.Fatal(err)
+	}
+	recovered, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{
+		`model_provider = "aigw"`,
+		`# managed by AIGW`,
+		"AIGW managed provider",
+		"[model_providers.aigw]",
+	} {
+		if strings.Contains(string(recovered), forbidden) {
+			t.Fatalf("recovered Air config retains %q:\n%s", forbidden, recovered)
+		}
+	}
+	if !strings.Contains(string(recovered), "user_setting = true") {
+		t.Fatalf("recovered Air config lost unrelated setting:\n%s", recovered)
+	}
+	if _, err := os.Stat(codexStatePath(path)); !os.IsNotExist(err) {
+		t.Fatalf("stale Air sidecar remains after recovery: %v", err)
+	}
+}
+
+func TestReconcileCodexConfigsRejectsUnsafeStaleAirFullSelectionRecovery(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(t *testing.T, path string)
+	}{
+		{
+			name: "full-selection-sidecar",
+			mutate: func(t *testing.T, path string) {
+				t.Helper()
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				block, err := codexManagedBlockIn(string(data))
+				if err != nil {
+					t.Fatal(err)
+				}
+				state, err := json.Marshal(codexState{
+					ManagedBlockHash: hashText(block),
+					ProjectionMode:   CodexProjectionFullSelection,
+					WriterID:         CodexProjectionWriterID,
+					TransactionID:    "full-selection-sidecar",
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(codexStatePath(path), append(state, '\n'), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "foreign-sidecar",
+			mutate: func(t *testing.T, path string) {
+				t.Helper()
+				stateData, err := os.ReadFile(codexStatePath(path))
+				if err != nil {
+					t.Fatal(err)
+				}
+				var state codexState
+				if err := json.Unmarshal(stateData, &state); err != nil {
+					t.Fatal(err)
+				}
+				state.WriterID = "foreign-projector"
+				encoded, err := json.Marshal(state)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(codexStatePath(path), append(encoded, '\n'), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "duplicate-full-selection-marker",
+			mutate: func(t *testing.T, path string) {
+				t.Helper()
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, append(data, []byte(codexBegin+"\n")...), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "changed-provider-block",
+			mutate: func(t *testing.T, path string) {
+				t.Helper()
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				changed := strings.Replace(string(data), `wire_api = "responses"`, `wire_api = "foreign"`, 1)
+				if err := os.WriteFile(path, []byte(changed), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "fallback-sidecar-with-original-selection",
+			mutate: func(t *testing.T, path string) {
+				t.Helper()
+				stateData, err := os.ReadFile(codexStatePath(path))
+				if err != nil {
+					t.Fatal(err)
+				}
+				var state codexState
+				if err := json.Unmarshal(stateData, &state); err != nil {
+					t.Fatal(err)
+				}
+				state.OriginalProvider = `model_provider = "jetbrains"`
+				encoded, err := json.Marshal(state)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(codexStatePath(path), append(encoded, '\n'), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			runtime := atomicTestRuntime()
+			fullBlock := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+			if err := os.WriteFile(path, []byte(projectCodex("model_provider = \"jetbrains\"\nmodel = \"jb-default\"\n", fullBlock, runtime.Model)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			fallbackBlock := codexFallbackBlock(runtime.ProfileLabel, runtime.Endpoint)
+			state, err := json.Marshal(codexState{
+				ManagedBlockHash: hashText(fallbackBlock),
+				ProjectionMode:   CodexProjectionNamespacedFallback,
+				WriterID:         CodexProjectionWriterID,
+				TransactionID:    "stale-air-full-selection",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(codexStatePath(path), append(state, '\n'), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			test.mutate(t, path)
+			configBefore, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			stateBefore, err := os.ReadFile(codexStatePath(path))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ReconcileCodexConfigs(nil, []CodexTargetRef{airStaleFullSelectionRecoveryTarget(path)}, domain.Runtime{}); err == nil {
+				t.Fatal("stale Air recovery unexpectedly accepted unsafe state")
+			}
+			configAfter, err := os.ReadFile(path)
+			if err != nil || !bytes.Equal(configAfter, configBefore) {
+				t.Fatalf("config changed after rejected recovery: %q, %v", configAfter, err)
+			}
+			stateAfter, err := os.ReadFile(codexStatePath(path))
+			if err != nil || !bytes.Equal(stateAfter, stateBefore) {
+				t.Fatalf("sidecar changed after rejected recovery: %q, %v", stateAfter, err)
+			}
+		})
+	}
+}
+
+func TestReconcileCodexConfigsRejectsNormalAirFallbackForStaleRecovery(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	original := []byte("model_provider = \"jetbrains\"\nmodel = \"jb-default\"\n")
+	if err := os.WriteFile(path, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReconcileCodexConfigs(nil, []CodexTargetRef{airFallbackCodexTarget(path)}, atomicTestRuntime()); err != nil {
+		t.Fatal(err)
+	}
+	configBefore, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateBefore, err := os.ReadFile(codexStatePath(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReconcileCodexConfigs(nil, []CodexTargetRef{airStaleFullSelectionRecoveryTarget(path)}, domain.Runtime{}); err == nil {
+		t.Fatal("stale Air recovery unexpectedly accepted a normal fallback")
+	}
+	configAfter, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(configAfter, configBefore) {
+		t.Fatalf("config changed after rejected normal fallback: %q, %v", configAfter, err)
+	}
+	stateAfter, err := os.ReadFile(codexStatePath(path))
+	if err != nil || !bytes.Equal(stateAfter, stateBefore) {
+		t.Fatalf("sidecar changed after rejected normal fallback: %q, %v", stateAfter, err)
+	}
+}
+
+func TestReconcileCodexConfigsRollsBackStaleAirRecoveryWhenSidecarRemovalFails(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	runtime := atomicTestRuntime()
+	fullBlock := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	if err := os.WriteFile(path, []byte(projectCodex("model_provider = \"jetbrains\"\nmodel = \"jb-default\"\nuser_setting = true\n", fullBlock, runtime.Model)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fallbackBlock := codexFallbackBlock(runtime.ProfileLabel, runtime.Endpoint)
+	state, err := json.Marshal(codexState{
+		ManagedBlockHash: hashText(fallbackBlock),
+		ProjectionMode:   CodexProjectionNamespacedFallback,
+		WriterID:         CodexProjectionWriterID,
+		TransactionID:    "stale-air-full-selection",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codexStatePath(path), append(state, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	configBefore, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateBefore, err := os.ReadFile(codexStatePath(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalRemove := removeFileIfUnchanged
+	defer func() { removeFileIfUnchanged = originalRemove }()
+	removeFileIfUnchanged = func(string, transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+		return transaction.FileSnapshot{}, errors.New("injected stale-Air sidecar removal failure")
+	}
+	_, err = ReconcileCodexConfigs(nil, []CodexTargetRef{airStaleFullSelectionRecoveryTarget(path)}, domain.Runtime{})
+	if err == nil || !strings.Contains(err.Error(), "injected stale-Air sidecar removal failure") {
+		t.Fatalf("ReconcileCodexConfigs() error = %v", err)
+	}
+	configAfter, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(configAfter, configBefore) {
+		t.Fatalf("config after rollback = %q, %v", configAfter, err)
+	}
+	stateAfter, err := os.ReadFile(codexStatePath(path))
+	if err != nil || !bytes.Equal(stateAfter, stateBefore) {
+		t.Fatalf("sidecar after rollback = %q, %v", stateAfter, err)
 	}
 }
 

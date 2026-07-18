@@ -169,6 +169,40 @@ func TestRouteDoctorConflictJSONRemainsMachineReadable(t *testing.T) {
 	}
 }
 
+func TestRouteDoctorRecommendsAirRecoveryForStaleFullSelection(t *testing.T) {
+	h := newAirRouteHarness(t)
+	stageStaleAirFullSelection(t, h)
+	report, err := buildRouteDoctorReport(h.app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.OK || len(report.Surfaces) == 0 {
+		t.Fatalf("report = %#v", report)
+	}
+	air := routeSurfaceStatus{}
+	for _, surface := range report.Surfaces {
+		if surface.SurfaceID == discovery.SurfaceAirCodex {
+			air = surface
+			break
+		}
+	}
+	if air.State != "recoverable-stale-full-selection" {
+		t.Fatalf("Air status = %#v", air)
+	}
+	out := new(bytes.Buffer)
+	h.app.Out, h.app.Err = out, out
+	if err := Execute(h.app, []string{"route", "doctor"}); err == nil {
+		t.Fatal("stale Air full selection unexpectedly passed route doctor")
+	}
+	text := out.String()
+	if !strings.Contains(text, "aigw route recover air --dry-run") {
+		t.Fatalf("route doctor output omitted recovery command:\n%s", text)
+	}
+	if strings.Contains(text, "aigw repair --dry-run") || strings.Contains(text, h.air) {
+		t.Fatalf("route doctor gave unsafe recovery guidance:\n%s", text)
+	}
+}
+
 func TestRouteDoctorIsNotAMutationCommand(t *testing.T) {
 	if mutationCommand(&App{}, []string{"route", "doctor", "--json"}) {
 		t.Fatal("route doctor must not acquire a mutation lock")
