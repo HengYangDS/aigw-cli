@@ -60,6 +60,16 @@ Restore removes only the marked fallback and returns the retained Air bytes
 exactly. Apply and restore require `--confirm-host-idle`; the flag attests
 idleness but never probes, starts, stops, or restarts Air.
 
+`aigw route recover air` is a different, narrow repair for a complete
+AIGW-marked full selection paired with a recognized but mismatched
+namespaced-fallback sidecar. It is admitted only when the full block has the
+exact generated shape, no fallback block is present, the sidecar has no saved
+original selection, and its hash does not match the full block. The recovery
+removes only the AIGW-marked provider/model residue, sidecar, and explicit Air
+target membership; it never writes a JetBrains top-level selection, binds
+credentials, runs a client, or reads conversation state. Any other mixed or
+foreign state remains fail-closed.
+
 AIGW snapshots each owned configuration and sidecar as exact bytes, existence,
 digest, and POSIX mode. Before a write it verifies the captured preimage;
 compensating rollback restores only its own unchanged postimages. This guards

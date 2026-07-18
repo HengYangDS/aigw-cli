@@ -8,6 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Recover JetBrains Air only from a verified stale AIGW full-selection and
+  fallback-sidecar mismatch, removing AIGW residue and explicit target
+  membership without fabricating a JetBrains selection or touching sessions.
+
 ## [0.1.0-rc.64] - 2026-07-17
 
 ### Fixed

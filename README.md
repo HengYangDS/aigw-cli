@@ -154,12 +154,22 @@ does not run Codex, Junie, or an IDE; read credentials; contact an endpoint; or
 report configuration bodies, paths, sessions, or billing as known facts.
 
 When route doctor finds an old AIGW full selection on a JetBrains surface, run
-`aigw repair --dry-run --json` before any mutation. The preview maps planned
-projection actions to stable surface IDs rather than exposing configuration
-paths; it does not write configuration, sidecars, shims, authentication, or
-conversation state. It lets an operator verify that legacy Air/PyCharm entries
-will be restored and only the standalone target retained. Apply `aigw repair`
-only after separately proving the affected hosts are naturally idle.
+`aigw repair --dry-run --json` before any mutation. The one exception is the
+explicitly reported `recoverable-stale-full-selection` Air state: it has a
+complete AIGW full selection but a mismatched AIGW fallback sidecar and no
+recoverable original selection. Use its separate recovery preview instead:
+
+```bash
+aigw route recover air --dry-run --json
+aigw route recover air --confirm-host-idle
+```
+
+Recovery accepts only that exact AIGW-owned mismatch. It removes the marked
+AIGW full selection, stale sidecar, and Air's explicit AIGW target membership;
+it does not fabricate a JetBrains `model` or `model_provider` selection,
+authenticate a client, or touch conversation state. A later Air UI session is
+still the authority for proving JetBrains authentication and user-visible
+behavior.
 
 Air remains JetBrains AI by default. Its opt-in fallback has a separate,
 deliberate path:
@@ -169,6 +179,8 @@ aigw route fallback air --dry-run --json
 aigw route fallback air --confirm-host-idle
 aigw route restore air --dry-run --json
 aigw route restore air --confirm-host-idle
+aigw route recover air --dry-run --json
+aigw route recover air --confirm-host-idle
 ```
 
 The dry runs do not write configuration, bind authentication, or start a
@@ -178,7 +190,9 @@ AIGW-owned namespaced block only. It never changes Air's top-level `model` or
 `model_provider`; restore removes only that owned block and preserves the
 remaining Air file byte-for-byte. If Air is already selected to AIGW at the
 top level, both operations fail closed until its native settings return it to
-JetBrains AI.
+JetBrains AI. `route recover air` is not a fallback operation: it is admitted
+only for the reported stale full-selection/fallback-sidecar mismatch and
+returns Air to an unselected external baseline.
 
 ## Update sources
 

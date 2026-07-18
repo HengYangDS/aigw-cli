@@ -3,6 +3,10 @@ package cli
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -197,6 +201,107 @@ func TestAirRestoreRepairsUnlistedStaleFallback(t *testing.T) {
 	}
 }
 
+func TestAirRecoverDryRunIsReadOnly(t *testing.T) {
+	h := newAirRouteHarness(t)
+	stageStaleAirFullSelection(t, h)
+	configBefore, err := os.ReadFile(h.app.Config.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	airBefore, err := os.ReadFile(h.air)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateBefore, err := os.ReadFile(h.air + ".aigw-state.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Execute(h.app, []string{"route", "recover", "air", "--dry-run", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	configAfter, _ := os.ReadFile(h.app.Config.Path())
+	airAfter, _ := os.ReadFile(h.air)
+	stateAfter, _ := os.ReadFile(h.air + ".aigw-state.json")
+	if !bytes.Equal(configAfter, configBefore) || !bytes.Equal(airAfter, airBefore) || !bytes.Equal(stateAfter, stateBefore) {
+		t.Fatal("Air recover dry-run mutated persistent state")
+	}
+	if len(h.runner.plans) != 0 {
+		t.Fatalf("Air recover dry-run executed native authentication: %#v", h.runner.plans)
+	}
+	output := h.app.Out.(*bytes.Buffer).String()
+	for _, want := range []string{`"projection_mode": "none"`, `"action": "recover-stale-full-selection"`, `"configuration_action": "remove-air-fallback-target"`} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("Air recover preview missing %q:\n%s", want, output)
+		}
+	}
+	for _, forbidden := range []string{h.air, "gateway.test", "secret", "model_provider"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("Air recover preview exposed %q:\n%s", forbidden, output)
+		}
+	}
+}
+
+func TestAirRecoverRequiresHostIdleConfirmation(t *testing.T) {
+	h := newAirRouteHarness(t)
+	stageStaleAirFullSelection(t, h)
+	err := Execute(h.app, []string{"route", "recover", "air"})
+	if err == nil || !strings.Contains(err.Error(), "--confirm-host-idle") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestAirRecoverRemovesStaleFullSelectionAndTarget(t *testing.T) {
+	h := newAirRouteHarness(t)
+	stageStaleAirFullSelection(t, h)
+	if err := Execute(h.app, []string{"route", "recover", "air", "--confirm-host-idle"}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := h.app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contains(cfg.Adapters[domain.ClientCodex].Targets, h.air) {
+		t.Fatalf("Air remains in AIGW targets: %#v", cfg.Adapters[domain.ClientCodex].Targets)
+	}
+	recovered, err := os.ReadFile(h.air)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{`model_provider = "aigw"`, `# managed by AIGW`, "AIGW managed provider", "[model_providers.aigw]"} {
+		if strings.Contains(string(recovered), forbidden) {
+			t.Fatalf("recovered Air config retains %q:\n%s", forbidden, recovered)
+		}
+	}
+	if _, err := os.Stat(h.air + ".aigw-state.json"); !os.IsNotExist(err) {
+		t.Fatalf("stale Air sidecar remains after recover: %v", err)
+	}
+	if len(h.runner.plans) != 0 {
+		t.Fatalf("Air recovery executed native authentication: %#v", h.runner.plans)
+	}
+}
+
+func TestAirRecoverRestoresControlConfigWhenAdapterRecoveryFails(t *testing.T) {
+	h := newAirRouteHarness(t)
+	stageStaleAirFullSelection(t, h)
+	configBefore, err := os.ReadFile(h.app.Config.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalReconcile := reconcileCodexConfigs
+	defer func() { reconcileCodexConfigs = originalReconcile }()
+	reconcileCodexConfigs = func([]adapters.CodexTargetRef, []adapters.CodexTargetRef, domain.Runtime) (adapters.CodexReconciliationReceipt, error) {
+		return adapters.CodexReconciliationReceipt{}, errors.New("injected Air recovery failure")
+	}
+	err = Execute(h.app, []string{"route", "recover", "air", "--confirm-host-idle"})
+	if err == nil || !strings.Contains(err.Error(), "injected Air recovery failure") {
+		t.Fatalf("error = %v", err)
+	}
+	configAfter, err := os.ReadFile(h.app.Config.Path())
+	if err != nil || !bytes.Equal(configAfter, configBefore) {
+		t.Fatalf("control-plane config after rollback = %q, %v", configAfter, err)
+	}
+}
+
 func TestRouteFallbackDryRunsDoNotTakeMutationLock(t *testing.T) {
 	if mutationCommand(&App{}, []string{"route", "fallback", "air", "--dry-run"}) {
 		t.Fatal("fallback dry-run unexpectedly takes a mutation lock")
@@ -209,6 +314,58 @@ func TestRouteFallbackDryRunsDoNotTakeMutationLock(t *testing.T) {
 	}
 	if !mutationCommand(&App{}, []string{"route", "fallback", "air", "--confirm-host-idle"}) {
 		t.Fatal("fallback apply must take a mutation lock")
+	}
+	if mutationCommand(&App{}, []string{"route", "recover", "air", "--dry-run"}) {
+		t.Fatal("recover dry-run unexpectedly takes a mutation lock")
+	}
+	if !mutationCommand(&App{}, []string{"route", "recover", "air", "--confirm-host-idle"}) {
+		t.Fatal("recover apply must take a mutation lock")
+	}
+}
+
+func stageStaleAirFullSelection(t *testing.T, h airRouteHarness) {
+	t.Helper()
+	cfg, err := h.app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := cfg.Adapters[domain.ClientCodex]
+	adapter.Targets = addSortedTarget(adapter.Targets, h.air)
+	cfg.Adapters[domain.ClientCodex] = adapter
+	if err := h.app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	full := "model_provider = \"aigw\" # managed by AIGW\n" +
+		"model = \"gpt-test\" # managed by AIGW\n\n" +
+		"# >>> AIGW managed provider >>>\n" +
+		"[model_providers.aigw]\n" +
+		"name = \"AIGW: GPT\"\n" +
+		"base_url = \"https://gateway.test/v1\"\n" +
+		"wire_api = \"responses\"\n" +
+		"requires_openai_auth = true\n" +
+		"# <<< AIGW managed provider <<<\n"
+	if err := os.WriteFile(h.air, []byte(full), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fallback := "# >>> AIGW fallback provider >>>\n" +
+		"[model_providers.aigw_fallback]\n" +
+		"name = \"AIGW fallback: GPT\"\n" +
+		"base_url = \"https://gateway.test/v1\"\n" +
+		"wire_api = \"responses\"\n" +
+		"requires_openai_auth = true\n" +
+		"# <<< AIGW fallback provider <<<\n"
+	fallbackHash := sha256.Sum256([]byte(fallback))
+	state, err := json.Marshal(map[string]string{
+		"managed_block_hash": fmt.Sprintf("%x", fallbackHash),
+		"projection_mode":    "namespaced-fallback",
+		"writer_id":          "aigw-cli",
+		"transaction_id":     "stale-air-full-selection",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(h.air+".aigw-state.json", append(state, '\n'), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 
