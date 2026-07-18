@@ -59,12 +59,16 @@ that authentication, session metadata, endpoint hops, terminal outcomes, or
 billing were proven. Junie is reported as not probed. A reported conflict is a
 state to investigate, not authority to repair an external host.
 
-For a route-ownership conflict, the one safe next command is
+For an ordinary route-ownership conflict, the safe next command is
 `aigw repair --dry-run`, not a direct write and not an Air fallback restore.
 The repair preview is read-only: it does not take the mutation lock, enable a
 shim, bind authentication, expose configuration paths, or execute a client. It
 maps every planned Codex transition to a stable surface ID, then leaves host
-idleness and any later apply as separate operator responsibilities.
+idleness and any later apply as separate operator responsibilities. The exact
+Air state `recoverable-stale-full-selection` is different: use
+`aigw route recover air --dry-run`. It can remove only a complete AIGW full
+selection paired with a mismatched recognized fallback sidecar; it does not
+write a JetBrains selection or claim runtime authentication.
 
 `aigw route fallback air` and `aigw route restore air` are explicit mutation
 commands, not generic recovery actions. Their `--dry-run` variants are
@@ -73,6 +77,13 @@ authentication binding. Their apply variants require `--confirm-host-idle` and
 must state that the flag is an operator attestation rather than an Air process
 probe. They never start, stop, restart, or reload Air, and they must fail
 closed if Air's top-level selection is already AIGW rather than JetBrains AI.
+
+`aigw route recover air` is an explicit mutation command for the single stale
+full-selection/fallback-sidecar mismatch reported by route doctor. Its preview
+is credential-free and lock-free; apply requires `--confirm-host-idle` and
+removes only AIGW-owned markers, sidecar, and AIGW target membership. It never
+starts, stops, restarts, reloads, or authenticates Air, and it returns Air to
+an unselected external baseline rather than fabricating a JetBrains setting.
 
 Human guidance must distinguish a persistent routing policy from runtime proof:
 the desired state is standalone Codex/AIGW and JetBrains-owned PyCharm, Air,
