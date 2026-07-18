@@ -336,7 +336,20 @@ func prepareCodexRestore(target CodexTargetRef, configSnapshot, stateSnapshot tr
 
 func prepareStaleAirFullSelectionRecovery(target CodexTargetRef, configSnapshot, stateSnapshot transaction.FileSnapshot) (codexPreparedTarget, error) {
 	if !stateSnapshot.Exists {
-		return codexPreparedTarget{}, errors.New("Air has no AIGW sidecar for stale full-selection recovery")
+		text := string(configSnapshot.Data)
+		if airTopLevelSelectsAIGW(text) ||
+			strings.Contains(text, "managed by AIGW") ||
+			strings.Contains(text, codexBegin) ||
+			strings.Contains(text, codexEnd) ||
+			strings.Contains(text, codexFallbackBegin) ||
+			strings.Contains(text, codexFallbackEnd) ||
+			strings.Contains(text, "[model_providers.aigw]") ||
+			strings.Contains(text, "[model_providers.aigw_fallback]") {
+			return codexPreparedTarget{}, errors.New("Air contains AIGW projection residue without an attributable sidecar")
+		}
+		return codexPreparedTarget{
+			plan: CodexProjectionPlan{Target: target.Path, Action: "already-external"},
+		}, nil
 	}
 	state, legacy, err := codexStateForTarget(stateSnapshot, CodexProjectionNamespacedFallback)
 	if err != nil {
