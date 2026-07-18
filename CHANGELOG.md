@@ -8,6 +8,11 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep `aigw route recover air --dry-run --json` idempotent and path-free when
+  Air is already externally owned and no AIGW sidecar remains.
+
 ## [0.1.0-rc.65] - 2026-07-18
 
 ### Fixed
