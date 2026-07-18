@@ -238,7 +238,7 @@ func runAirRecover(app *App, dryRun, jsonMode, confirmHostIdle bool) error {
 	}
 	plans, err := adapters.PlanCodexReconciliation(nil, []adapters.CodexTargetRef{target}, domain.Runtime{})
 	if err != nil {
-		return err
+		return errors.New("Air recovery is not admitted for the current configuration")
 	}
 	if len(plans) != 1 {
 		return errors.New("Air stale full-selection recovery plan is missing")
