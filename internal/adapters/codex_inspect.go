@@ -64,6 +64,13 @@ func InspectCodexConfig(path string) (CodexInspection, error) {
 		inspection.AttributionState = "recognized"
 		inspection.ProjectionMode = state.ProjectionMode
 	}
+	if !legacy && inspection.ProjectionMode == CodexProjectionNamespacedFallback {
+		if _, recoveryErr := staleAirFullSelectionBlock(text, state); recoveryErr == nil {
+			inspection.State = "recoverable-stale-full-selection"
+			inspection.AIGWManaged = true
+			return inspection, nil
+		}
+	}
 
 	var block string
 	switch inspection.ProjectionMode {

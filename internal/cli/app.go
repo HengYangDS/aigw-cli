@@ -151,7 +151,7 @@ func mutationCommand(app *App, args []string) bool {
 		switch args[1] {
 		case "reset":
 			return true
-		case "fallback", "restore":
+		case "fallback", "restore", "recover":
 			return !hasArgument(args[2:], "--dry-run")
 		default:
 			return false

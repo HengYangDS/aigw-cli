@@ -198,6 +198,12 @@ func renderRouteDoctorReport(app *App, report routeDoctorReport) {
 	if report.OK {
 		r.Success("No route ownership conflict was detected")
 	} else {
+		for _, surface := range report.Surfaces {
+			if surface.SurfaceID == discovery.SurfaceAirCodex && surface.State == "recoverable-stale-full-selection" {
+				r.Next("aigw route recover air --dry-run")
+				return
+			}
+		}
 		r.Next("aigw repair --dry-run")
 	}
 }

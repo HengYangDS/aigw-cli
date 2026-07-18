@@ -38,3 +38,32 @@ func TestInspectCodexConfigReportsFallbackOwnershipWithoutLeakingConfig(t *testi
 		}
 	}
 }
+
+func TestInspectCodexConfigClassifiesRecoverableStaleAirFullSelection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	runtime := atomicTestRuntime()
+	fullBlock := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	if err := os.WriteFile(path, []byte(projectCodex("model_provider = \"jetbrains\"\nmodel = \"jb-default\"\n", fullBlock, runtime.Model)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fallbackBlock := codexFallbackBlock(runtime.ProfileLabel, runtime.Endpoint)
+	state, err := json.Marshal(codexState{
+		ManagedBlockHash: hashText(fallbackBlock),
+		ProjectionMode:   CodexProjectionNamespacedFallback,
+		WriterID:         CodexProjectionWriterID,
+		TransactionID:    "stale-air-full-selection",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codexStatePath(path), append(state, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	inspection, err := InspectCodexConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inspection.State != "recoverable-stale-full-selection" || inspection.ProjectionMode != CodexProjectionNamespacedFallback || inspection.AttributionState != "recognized" || inspection.SidecarHashMatches || !inspection.AIGWManaged {
+		t.Fatalf("inspection = %#v", inspection)
+	}
+}
