@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.66] - 2026-07-18
+
 ### Fixed
 
 - Keep `aigw route recover air --dry-run --json` idempotent and path-free when
