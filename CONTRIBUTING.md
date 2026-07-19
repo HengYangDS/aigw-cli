@@ -67,7 +67,7 @@ Merge is not the end of a branch lifecycle. After the target branch contains
 the source commit, delete the source branch immediately. GitLab is configured
 to remove merge-request source branches automatically; for direct, signed
 release merges, remove the corresponding remote branch explicitly. Before
-removing any branch or worktree, prove all three conditions:
+removing any branch or worktree, prove all four conditions:
 
 1. its tip is reachable from local `main`;
 2. every reachable peer contains the corresponding proven content: the same
