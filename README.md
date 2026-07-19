@@ -274,9 +274,12 @@ artifact is checksum-verified before replacement.
 ```bash
 go test -race ./...
 go vet ./...
+sh scripts/check-static-analysis.sh
 test -z "$(gofmt -l cmd internal tools)"
 sh scripts/check-governance.sh
 python3 scripts/check-markdown-presentation.py
+python3 scripts/check-text-layout.py
+sh scripts/test-text-layout.sh
 sh scripts/test-changelog.sh
 export GOTOOLCHAIN=go1.25.12
 sh scripts/check-release-toolchain.sh
