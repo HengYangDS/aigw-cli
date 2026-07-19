@@ -27,6 +27,16 @@ platform acceptance, signing, and GA status remain separate evidence.
   locally validated matrix, rejecting missing, extra, duplicate, or mismatched
   assets without updating the Release or forwarding its job token to a
   cross-host download redirect.
+- Make `aigw route doctor` fail closed for unbound or foreign Air residue:
+  human and JSON results state that no AIGW mutation is admitted and suggest
+  only the read-only `aigw route doctor --json`, rather than repair, recovery,
+  checks, or path-bearing actions that cannot change the JetBrains-owned route.
+- Validate GitHub branch chronology against provider-native release trees when
+  its projected commit identity differs from the canonical history.
+- Prove source-branch closeout across canonical and identity-rewriting forge
+  histories, including clean CI fixtures that do not inherit a runner identity.
+- Reject credential-shaped literals in tracked source and test fixtures while
+  retaining explicit, non-secret redaction sentinels.
 
 ## [0.1.0-rc.67] - 2026-07-19
 

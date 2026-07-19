@@ -308,7 +308,7 @@ func TestInspectAirLifecycleRejectsUntrackedQuarantineAlongsideActiveCase(t *tes
 	if err := os.MkdirAll(filepath.Dir(untrackedPath), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	privatePayload := []byte("https://untracked-private.invalid/v1\nsk-untracked-private-credential\n")
+	privatePayload := []byte("https://untracked-private.invalid/v1\naigw-test-untracked-private-credential\n")
 	if err := os.WriteFile(untrackedPath, privatePayload, 0o600); err != nil {
 		t.Fatal(err)
 	}

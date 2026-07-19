@@ -100,6 +100,13 @@ removes only AIGW-owned markers, sidecar, and AIGW target membership. It never
 starts, stops, restarts, reloads, or authenticates Air, and it returns Air to
 an unselected external baseline rather than fabricating a JetBrains setting.
 
+An `orphaned-aigw-marker`, or `partial-or-foreign-residue` whose disk selection
+remains `aigw-managed`, is unbound Air residue. It is a diagnostic boundary,
+not proof that AIGW can safely remove the marked text. Route doctor therefore
+states that no AIGW mutation is admitted and recommends only another read-only
+`aigw route doctor --json` report; it must not suggest generic repair or Air
+recovery for either state.
+
 Human guidance must distinguish a persistent routing policy from runtime proof:
 the desired state is standalone Codex/AIGW and JetBrains-owned PyCharm, Air,
 and Junie; a route, endpoint, terminal response, or billing assertion remains
