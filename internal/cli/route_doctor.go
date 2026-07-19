@@ -115,6 +115,31 @@ func buildRouteDoctorReport(app *App) (routeDoctorReport, error) {
 			Management:          "external",
 			State:               "not-managed",
 		}
+		recoveryDerivedState := ""
+		if surface.ID == discovery.SurfaceAirCodex {
+			store, storeErr := airRecoveryStore(app)
+			if storeErr != nil {
+				return routeDoctorReport{}, storeErr
+			}
+			lifecycle, lifecycleErr := store.InspectAirLifecycle(surface.ConfigPath, standalonePath)
+			if lifecycleErr != nil {
+				return routeDoctorReport{}, lifecycleErr
+			}
+			status.RecoveryState = lifecycle.RecoveryState
+			status.RecoveryHealth = lifecycle.RecoveryHealth
+			status.RecoveryReasonCode = lifecycle.RecoveryReasonCode
+			if lifecycle.DerivedState != "" {
+				recoveryDerivedState = lifecycle.DerivedState
+				status.State = lifecycle.DerivedState
+			}
+			if lifecycle.RecoveryHealth == recovery.AirRecoveryHealthInvalid {
+				report.OK = false
+			}
+			switch lifecycle.RecoveryState {
+			case "prepared", "awaiting-host-roundtrip", "quarantined":
+				report.OK = false
+			}
+		}
 		if surface.ID == discovery.SurfaceJunieCLI {
 			status.Management = "external-jetbrains"
 			report.Surfaces = append(report.Surfaces, status)
@@ -138,7 +163,10 @@ func buildRouteDoctorReport(app *App) (routeDoctorReport, error) {
 			inspection, err = adapters.InspectCodexConfig(surface.ConfigPath)
 		}
 		if err != nil {
-			return routeDoctorReport{}, err
+			status.State = "inspection-unreadable"
+			report.OK = false
+			report.Surfaces = append(report.Surfaces, status)
+			continue
 		}
 		status.State = inspection.State
 		status.ProjectionMode = nonEmptyRouteField(inspection.ProjectionMode, "none")
@@ -182,28 +210,8 @@ func buildRouteDoctorReport(app *App) (routeDoctorReport, error) {
 				report.OK = false
 			}
 		}
-		if surface.ID == discovery.SurfaceAirCodex {
-			store, storeErr := airRecoveryStore(app)
-			if storeErr != nil {
-				return routeDoctorReport{}, storeErr
-			}
-			lifecycle, lifecycleErr := store.InspectAirLifecycle(surface.ConfigPath, standalonePath)
-			if lifecycleErr != nil {
-				return routeDoctorReport{}, lifecycleErr
-			}
-			status.RecoveryState = lifecycle.RecoveryState
-			status.RecoveryHealth = lifecycle.RecoveryHealth
-			status.RecoveryReasonCode = lifecycle.RecoveryReasonCode
-			if lifecycle.DerivedState != "" {
-				status.State = lifecycle.DerivedState
-			}
-			if lifecycle.RecoveryHealth == recovery.AirRecoveryHealthInvalid {
-				report.OK = false
-			}
-			switch lifecycle.RecoveryState {
-			case "prepared", "awaiting-host-roundtrip", "quarantined":
-				report.OK = false
-			}
+		if recoveryDerivedState != "" {
+			status.State = recoveryDerivedState
 		}
 		if inspection.AttributionState == "foreign-or-incomplete" || inspection.State == "aigw-drift" || inspection.State == "stale-sidecar" || inspection.State == "ownership-conflict" || inspection.State == "partial-or-foreign-residue" || status.State == "orphaned-exact-full-selection" || status.State == "reappeared-after-recovery" {
 			report.OK = false

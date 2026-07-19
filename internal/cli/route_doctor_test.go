@@ -16,6 +16,7 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/config"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/recovery"
 )
 
 type rejectingDoctorRunner struct{ calls int }
@@ -496,6 +497,133 @@ func TestRouteDoctorReportsBoundedRecoveryHealthReasonCodesWithoutWrites(t *test
 			for _, secret := range private {
 				if secret != "" && bytes.Contains(output, []byte(secret)) {
 					t.Fatalf("route doctor leaked %q: %s", secret, output)
+				}
+			}
+		})
+	}
+}
+
+func TestRouteDoctorReportsRecoveryLifecycleWhenAirConfigIsMissing(t *testing.T) {
+	tests := []struct {
+		name       string
+		mutate     func(t *testing.T, ledgerPath string)
+		wantState  string
+		wantHealth string
+		wantReason string
+	}{
+		{name: "active recovery", wantState: recovery.AirRecoveryStateAwaitingHostRoundtrip, wantHealth: recovery.AirRecoveryHealthHealthy, wantReason: recovery.AirRecoveryReasonOK},
+		{
+			name: "invalid recovery storage",
+			mutate: func(t *testing.T, ledgerPath string) {
+				if runtime.GOOS == "windows" {
+					t.Skip("POSIX permission contract")
+				}
+				if err := os.Chmod(ledgerPath, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantState:  "unknown",
+			wantHealth: recovery.AirRecoveryHealthInvalid,
+			wantReason: recovery.AirRecoveryReasonLedgerPermission,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newAirOrphanCLIHarness(t)
+			caseID := previewAirOrphanCase(t, &h).CaseID
+			h.app.Out.(*bytes.Buffer).Reset()
+			if err := Execute(h.app, []string{
+				"route", "recover-orphan", "air", "--case-id", caseID,
+				"--confirm-host-idle", "--ack-unset-external-selection", "--json",
+			}); err != nil {
+				t.Fatal(err)
+			}
+			ledgerPath := filepath.Join(h.dataDir, "recovery", "air", "ledger.json")
+			quarantinePath := filepath.Join(h.dataDir, "recovery", "air", "quarantine", caseID, "config.toml")
+			if tt.mutate != nil {
+				tt.mutate(t, ledgerPath)
+			}
+			if err := os.Remove(h.air); err != nil {
+				t.Fatal(err)
+			}
+			discovered := h.app.Discovery.(reconciliationDiscovery).result
+			for index := range discovered.Surfaces {
+				if discovered.Surfaces[index].ID == discovery.SurfaceAirCodex {
+					discovered.Surfaces[index].Present = false
+				}
+			}
+			h.app.Discovery = reconciliationDiscovery{result: discovered}
+			before := captureDoctorFiles(t, []string{ledgerPath, quarantinePath})
+
+			h.app.Out.(*bytes.Buffer).Reset()
+			err := Execute(h.app, []string{"route", "doctor", "--json"})
+			if err == nil {
+				t.Fatal("active or invalid recovery storage passed route doctor when Air config was missing")
+			}
+			output := h.app.Out.(*bytes.Buffer).Bytes()
+			var report routeDoctorReport
+			if err := json.Unmarshal(output, &report); err != nil {
+				t.Fatalf("route doctor did not emit machine-readable JSON: %v\n%s", err, output)
+			}
+			air := routeDoctorSurface(report, discovery.SurfaceAirCodex)
+			if air.RecoveryState != tt.wantState || air.RecoveryHealth != tt.wantHealth || air.RecoveryReasonCode != tt.wantReason {
+				t.Fatalf("Air recovery lifecycle = %#v, want state=%q health=%q reason=%q", air, tt.wantState, tt.wantHealth, tt.wantReason)
+			}
+			if after := captureDoctorFiles(t, []string{ledgerPath, quarantinePath}); !reflect.DeepEqual(before, after) {
+				t.Fatalf("route doctor changed recovery storage:\nbefore=%#v\nafter=%#v", before, after)
+			}
+			for _, forbidden := range []string{h.air, h.dataDir, caseID, "ledger.json", "config.toml"} {
+				if bytes.Contains(output, []byte(forbidden)) || strings.Contains(err.Error(), forbidden) {
+					t.Fatalf("route doctor leaked %q: err=%v output=%s", forbidden, err, output)
+				}
+			}
+		})
+	}
+}
+
+func TestRouteDoctorClassifiesUnreadableCodexConfigsWithoutPathErrors(t *testing.T) {
+	tests := []struct {
+		name      string
+		surfaceID string
+		path      func(airRouteHarness) string
+	}{
+		{name: "standalone Codex", surfaceID: discovery.SurfaceCodexCLIStandalone, path: func(h airRouteHarness) string { return h.standalone }},
+		{name: "Air", surfaceID: discovery.SurfaceAirCodex, path: func(h airRouteHarness) string { return h.air }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newAirRouteHarness(t)
+			path := tt.path(h)
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Mkdir(path, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			h.app.Out.(*bytes.Buffer).Reset()
+
+			err := Execute(h.app, []string{"route", "doctor", "--json"})
+			if err == nil {
+				t.Fatal("unreadable Codex config passed route doctor")
+			}
+			var pathErr *os.PathError
+			if errors.As(err, &pathErr) {
+				t.Fatalf("route doctor propagated os.PathError: %v", err)
+			}
+			output := h.app.Out.(*bytes.Buffer).Bytes()
+			var report routeDoctorReport
+			if err := json.Unmarshal(output, &report); err != nil {
+				t.Fatalf("route doctor did not emit machine-readable JSON: %v\n%s", err, output)
+			}
+			status := routeDoctorSurface(report, tt.surfaceID)
+			if status.State != "inspection-unreadable" || report.OK {
+				t.Fatalf("unreadable surface status = %#v, report=%#v", status, report)
+			}
+			for _, forbidden := range []string{path, "read Codex config", "capture Air config"} {
+				if bytes.Contains(output, []byte(forbidden)) || strings.Contains(err.Error(), forbidden) {
+					t.Fatalf("route doctor leaked %q: err=%v output=%s", forbidden, err, output)
 				}
 			}
 		})
