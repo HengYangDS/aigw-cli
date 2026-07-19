@@ -112,6 +112,7 @@ const (
 	AirRecoveryReasonQuarantinePermission = "quarantine-permission-invalid"
 	AirRecoveryReasonQuarantineUnexpected = "quarantine-unexpected"
 	AirRecoveryReasonStoragePermission    = "storage-permission-invalid"
+	AirRecoveryReasonStorageUnexpected    = "storage-unexpected"
 )
 
 // InspectAirLifecycle reads the private journal, quarantine metadata, and
@@ -124,15 +125,16 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 		RecoveryReasonCode: AirRecoveryReasonLedgerUnreadable,
 	}
 	storage, storageErr := s.inspectAirRecoveryStorage()
-	if storage.unsafeTraversal {
-		if !storage.ledgerExists {
-			status.RecoveryState = "none"
-		}
+	if storage.unsafeTraversal && !storage.ledgerExists {
+		status.RecoveryState = "none"
 		status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
 		return status, nil
 	}
-	ledgerSnapshot, err := s.capture(s.airLedgerPath())
+	ledgerSnapshot, err := s.captureRecovery(s.airLedgerPath())
 	if err != nil {
+		if storage.unsafeTraversal {
+			status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
+		}
 		return status, nil
 	}
 	if !ledgerSnapshot.Exists {
@@ -143,6 +145,10 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 		}
 		if storage.permissionInvalid {
 			status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
+			return status, nil
+		}
+		if storage.unexpectedStorage {
+			status.RecoveryReasonCode = AirRecoveryReasonStorageUnexpected
 			return status, nil
 		}
 		if storage.hasQuarantineArtifacts() {
@@ -163,12 +169,20 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 		return status, nil
 	}
 	status.RecoveryState = ledger.State
+	if storage.unsafeTraversal {
+		status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
+		return status, nil
+	}
 	if storageErr != nil {
 		status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnreadable
 		return status, nil
 	}
 	if storage.permissionInvalid {
 		status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
+		return status, nil
+	}
+	if storage.unexpectedStorage {
+		status.RecoveryReasonCode = AirRecoveryReasonStorageUnexpected
 		return status, nil
 	}
 	var quarantine transaction.FileSnapshot
@@ -178,7 +192,7 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 		return status, nil
 	}
 	if quarantineExists {
-		quarantine, err = s.capture(s.airQuarantinePath(ledger.CaseID))
+		quarantine, err = s.captureRecovery(s.airQuarantinePath(ledger.CaseID))
 		if err != nil {
 			status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnreadable
 			return status, nil
@@ -269,7 +283,7 @@ func (s Store) PlanAirOrphanRecovery(options AirRecoverOptions) (AirRecoveryPlan
 		return s.planExistingAirRecovery(options, ledger, ledgerBefore)
 	}
 	if ledgerBefore.Exists && ledger.State == AirRecoveryStateSettled {
-		previousQuarantine, captureErr := s.capture(s.airQuarantinePath(ledger.CaseID))
+		previousQuarantine, captureErr := s.captureRecovery(s.airQuarantinePath(ledger.CaseID))
 		if captureErr != nil {
 			return AirRecoveryPlan{}, errors.New("inspect settled Air recovery quarantine")
 		}
@@ -298,7 +312,7 @@ func (s Store) PlanAirOrphanRecovery(options AirRecoverOptions) (AirRecoveryPlan
 		generation = ledger.RecoveryGeneration + 1
 	}
 	caseID := airCaseID(generation, removal.Preimage.SHA256)
-	quarantineBefore, err := s.capture(s.airQuarantinePath(caseID))
+	quarantineBefore, err := s.captureRecovery(s.airQuarantinePath(caseID))
 	if err != nil {
 		return AirRecoveryPlan{}, errors.New("inspect Air recovery quarantine")
 	}
@@ -450,7 +464,7 @@ func (s Store) RecoverAirOrphan(options AirRecoverOptions) (AirRecoveryReceipt, 
 
 func (s Store) resumePreparedAirRecovery(options AirRecoverOptions, plan AirRecoveryPlan) (AirRecoveryReceipt, error) {
 	ledger := plan.activeLedger
-	quarantine, err := s.capture(s.airQuarantinePath(ledger.CaseID))
+	quarantine, err := s.captureRecovery(s.airQuarantinePath(ledger.CaseID))
 	if err != nil || !quarantine.Exists || quarantine.SHA256 != ledger.QuarantineSHA256 {
 		return AirRecoveryReceipt{}, errors.New("prepared Air recovery quarantine is unavailable")
 	}
@@ -577,7 +591,7 @@ func (s Store) PlanAirSettlement(options AirSettleOptions) (AirSettlementPlan, e
 	if !ledgerBefore.Exists || ledger.CaseID != options.CaseID {
 		return AirSettlementPlan{}, errors.New("Air recovery case is not active")
 	}
-	quarantine, err := s.capture(s.airQuarantinePath(ledger.CaseID))
+	quarantine, err := s.captureRecovery(s.airQuarantinePath(ledger.CaseID))
 	if err != nil {
 		return AirSettlementPlan{}, errors.New("inspect Air recovery quarantine")
 	}
@@ -813,7 +827,7 @@ func (s Store) guardedWrite(path string, expected transaction.FileSnapshot, data
 	if writeErr == nil && sameRecoverySnapshot(observed, desired) {
 		return desired, true, nil
 	}
-	current, captureErr := s.capture(path)
+	current, captureErr := captureStorePath(s, path)
 	if captureErr == nil && sameRecoverySnapshot(current, desired) {
 		if writeErr != nil {
 			return desired, true, errors.New("guarded write reported failure after commit")
@@ -834,7 +848,7 @@ func (s Store) guardedRemove(path string, expected transaction.FileSnapshot) (tr
 	if removeErr == nil && !observed.Exists {
 		return transaction.FileSnapshot{}, true, nil
 	}
-	current, captureErr := s.capture(path)
+	current, captureErr := captureStorePath(s, path)
 	if captureErr == nil && !current.Exists {
 		if removeErr != nil {
 			return transaction.FileSnapshot{}, true, errors.New("guarded remove reported failure after commit")
