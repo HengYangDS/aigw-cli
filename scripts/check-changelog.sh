@@ -142,8 +142,8 @@ for tag in subprocess.check_output(["git", "tag", "--list", "v[0-9]*"], text=Tru
     peeled = subprocess.check_output(["git", "rev-parse", f"{tag}^{{}}"], text=True).strip()
     if forge == "github":
         # GitHub's identity projection rewrites commits while preserving the
-        # released source tree and its immutable provider-native tag. A tag is
-        # active there only when its exact tree is represented by HEAD.
+        # released source tree and its signed provider-native provenance tag.
+        # A tag is active there only when its exact tree is represented by HEAD.
         tree = subprocess.check_output(["git", "rev-parse", f"{peeled}^{{tree}}"], text=True).strip()
         active = tree in head_trees
     elif forge == "local":
