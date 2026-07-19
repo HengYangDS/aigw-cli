@@ -395,3 +395,163 @@ func TestAirLedgerRejectsUnknownFieldsAndMismatchedCaseBinding(t *testing.T) {
 		t.Fatal("mismatched case binding accepted")
 	}
 }
+
+func TestSettleAirReappearedProjectionWaitsForReferenceProof(t *testing.T) {
+	f := newAirRecoveryFixture(t)
+	plan, _ := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
+	if _, err := f.store.RecoverAirOrphan(f.recoverOptions(plan.CaseID)); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(f.air, f.orphan, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	options := AirSettleOptions{AirPath: f.air, StandalonePath: f.standalone, CaseID: plan.CaseID}
+	settlement, err := f.store.PlanAirSettlement(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settlement.State != "reappeared-after-recovery" || settlement.Action != "wait-for-reference" {
+		t.Fatalf("settlement = %#v", settlement)
+	}
+	if _, err := f.store.SettleAir(options); err == nil {
+		t.Fatal("reappeared projection settled without reference proof")
+	}
+	ledger, present, err := f.store.loadAirLedger()
+	if err != nil || !present || ledger.State != AirRecoveryStateAwaitingHostRoundtrip {
+		t.Fatalf("ledger = %#v, %v, %v", ledger, present, err)
+	}
+	projection, _ := os.ReadFile(f.standalone)
+	if err := os.WriteFile(f.air, projection, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if receipt, err := f.store.SettleAir(options); err != nil || receipt.State != AirRecoveryStateSettled {
+		t.Fatalf("receipt = %#v, error = %v", receipt, err)
+	}
+}
+
+func TestSettleAirQuarantinedCaseCannotTransitionToSettled(t *testing.T) {
+	f := newAirRecoveryFixture(t)
+	plan, _ := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
+	if _, err := f.store.RecoverAirOrphan(f.recoverOptions(plan.CaseID)); err != nil {
+		t.Fatal(err)
+	}
+	options := AirSettleOptions{AirPath: f.air, StandalonePath: f.standalone, CaseID: plan.CaseID}
+	if err := os.WriteFile(f.air, []byte("# >>> AIGW managed provider >>>\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if receipt, err := f.store.SettleAir(options); err != nil || receipt.State != AirRecoveryStateQuarantined {
+		t.Fatalf("receipt = %#v, error = %v", receipt, err)
+	}
+	if err := os.WriteFile(f.air, []byte("model_provider = \"jetbrains\"\nhost_roundtrip = true\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	settlement, err := f.store.PlanAirSettlement(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settlement.State != AirRecoveryStateQuarantined || settlement.Action != "already-quarantined" {
+		t.Fatalf("settlement = %#v", settlement)
+	}
+	if receipt, err := f.store.SettleAir(options); err != nil || receipt.State != AirRecoveryStateQuarantined {
+		t.Fatalf("receipt = %#v, error = %v", receipt, err)
+	}
+	if _, err := os.Stat(f.store.airQuarantinePath(plan.CaseID)); err != nil {
+		t.Fatalf("quarantine missing: %v", err)
+	}
+}
+
+func TestPlanAirOrphanRecoveryRefusesNewGenerationUntilSettledPayloadIsGone(t *testing.T) {
+	f := newAirRecoveryFixture(t)
+	plan, _ := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
+	if _, err := f.store.RecoverAirOrphan(f.recoverOptions(plan.CaseID)); err != nil {
+		t.Fatal(err)
+	}
+	ledger, snapshot, err := f.store.captureAirLedger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := f.store.now().UTC()
+	ledger.State = AirRecoveryStateSettled
+	ledger.SettledAt = &now
+	data, _ := encodeAirLedger(ledger)
+	if _, err := f.store.write(f.store.airLedgerPath(), snapshot, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(f.air, f.orphan, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.store.PlanAirOrphanRecovery(f.recoverOptions("")); err == nil {
+		t.Fatal("new generation admitted while settled quarantine payload remains")
+	}
+}
+
+func TestSettleAirRejectsChangedClassificationInputBeforeOwnedWrites(t *testing.T) {
+	for _, changed := range []string{"air", "air-sidecar", "standalone", "standalone-sidecar"} {
+		t.Run(changed, func(t *testing.T) {
+			f := newAirRecoveryFixture(t)
+			plan, _ := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
+			if _, err := f.store.RecoverAirOrphan(f.recoverOptions(plan.CaseID)); err != nil {
+				t.Fatal(err)
+			}
+			projection, _ := os.ReadFile(f.standalone)
+			if err := os.WriteFile(f.air, projection, 0o640); err != nil {
+				t.Fatal(err)
+			}
+			originalCapture := f.store.capture
+			airCaptures := 0
+			airSidecarCaptures := 0
+			standaloneCaptures := 0
+			standaloneSidecarCaptures := 0
+			f.store.capture = func(path string) (transaction.FileSnapshot, error) {
+				if path == f.air {
+					airCaptures++
+					if changed == "air" && airCaptures == 3 {
+						if err := os.WriteFile(f.air, []byte("newer-air-state = true\n"), 0o640); err != nil {
+							return transaction.FileSnapshot{}, err
+						}
+					}
+				}
+				if path == codexSidecarPath(f.air) {
+					airSidecarCaptures++
+					if changed == "air-sidecar" && airSidecarCaptures == 3 {
+						if err := os.WriteFile(path, []byte(`{"writer_id":"foreign"}`), 0o600); err != nil {
+							return transaction.FileSnapshot{}, err
+						}
+					}
+				}
+				if path == f.standalone {
+					standaloneCaptures++
+					if changed == "standalone" && standaloneCaptures == 3 {
+						if err := os.WriteFile(f.standalone, append(projection, []byte("newer-reference = true\n")...), 0o600); err != nil {
+							return transaction.FileSnapshot{}, err
+						}
+					}
+				}
+				if path == codexSidecarPath(f.standalone) {
+					standaloneSidecarCaptures++
+					if changed == "standalone-sidecar" && standaloneSidecarCaptures == 3 {
+						body, err := os.ReadFile(path)
+						if err != nil {
+							return transaction.FileSnapshot{}, err
+						}
+						if err := os.WriteFile(path, append(body, ' '), 0o600); err != nil {
+							return transaction.FileSnapshot{}, err
+						}
+					}
+				}
+				return originalCapture(path)
+			}
+			options := AirSettleOptions{AirPath: f.air, StandalonePath: f.standalone, CaseID: plan.CaseID}
+			if _, err := f.store.SettleAir(options); err == nil {
+				t.Fatal("changed external preimage was accepted")
+			}
+			ledger, present, err := f.store.loadAirLedger()
+			if err != nil || !present || ledger.State != AirRecoveryStateAwaitingHostRoundtrip {
+				t.Fatalf("ledger = %#v, %v, %v", ledger, present, err)
+			}
+			if _, err := os.Stat(f.store.airQuarantinePath(plan.CaseID)); err != nil {
+				t.Fatalf("quarantine missing: %v", err)
+			}
+		})
+	}
+}
