@@ -69,6 +69,31 @@ type fakeHTTP struct {
 	handler func(*http.Request) (*http.Response, error)
 }
 
+type failingOutput struct{ err error }
+
+func (w failingOutput) Write([]byte) (int, error) { return 0, w.err }
+
+type failingReadCloser struct{ err error }
+
+func (body failingReadCloser) Read([]byte) (int, error) { return 0, body.err }
+func (body failingReadCloser) Close() error             { return nil }
+
+type contextBoundReadCloser struct {
+	ctx    context.Context
+	reader *strings.Reader
+}
+
+func (body *contextBoundReadCloser) Read(data []byte) (int, error) {
+	select {
+	case <-body.ctx.Done():
+		return 0, body.ctx.Err()
+	default:
+		return body.reader.Read(data)
+	}
+}
+
+func (body *contextBoundReadCloser) Close() error { return nil }
+
 func (f *fakeHTTP) Do(req *http.Request) (*http.Response, error) {
 	f.headers = req.Header.Clone()
 	if f.handler != nil {
@@ -131,6 +156,17 @@ func TestAddWithTokenStdinCreatesProfileWithoutPrintingSecret(t *testing.T) {
 	cfg, err := app.Config.Load()
 	if err != nil || cfg.Routes.Default != "dmx" || cfg.Profiles["dmx"].Label != "DMXAPI" {
 		t.Fatalf("config = %#v, %v", cfg, err)
+	}
+}
+
+func TestExecuteReturnsHumanOutputFailure(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	want := errors.New("output is unavailable")
+	app.Out = failingOutput{err: want}
+
+	err := execute(t, app, "adapter", "discover")
+	if !errors.Is(err, want) {
+		t.Fatalf("Execute() error = %v, want %v", err, want)
 	}
 }
 
@@ -554,6 +590,52 @@ func TestTestCommandAuthenticatesWithoutPrintingAuthorizationHeader(t *testing.T
 	}
 	if strings.Contains(out.String(), "unused-secret") || strings.Contains(strings.ToLower(out.String()), "authorization") {
 		t.Fatalf("credential leaked in output: %s", out.String())
+	}
+}
+
+func TestTestCommandReturnsResponseReadFailure(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, "", domain.Models{})
+	cfg.Routes.Default = "dmx"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("dmx", "unused-secret"); err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("response interrupted")
+	app.HTTP = &fakeHTTP{status: http.StatusOK, handler: func(request *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: failingReadCloser{err: want}, Request: request}, nil
+	}}
+
+	err := execute(t, app, "test", "--for", "codex")
+	if !errors.Is(err, want) {
+		t.Fatalf("test command error = %v, want %v", err, want)
+	}
+}
+
+func TestTestCommandKeepsRequestContextAliveUntilResponseIsDrained(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, "", domain.Models{})
+	cfg.Routes.Default = "dmx"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("dmx", "unused-secret"); err != nil {
+		t.Fatal(err)
+	}
+	app.HTTP = &fakeHTTP{status: http.StatusOK, handler: func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       &contextBoundReadCloser{ctx: request.Context(), reader: strings.NewReader("ok")},
+			Request:    request,
+		}, nil
+	}}
+
+	if err := execute(t, app, "test", "--for", "codex"); err != nil {
+		t.Fatalf("test command error = %v", err)
 	}
 }
 

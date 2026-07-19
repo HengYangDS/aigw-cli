@@ -89,5 +89,7 @@ func TestCompressTOCUsesZlib(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compressTOC() did not produce a zlib stream: %v", err)
 	}
-	reader.Close()
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
 }
