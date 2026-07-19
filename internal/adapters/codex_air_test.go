@@ -209,6 +209,29 @@ func TestExactAirManagedProjectionRejectsQuotedAIGWAliases(t *testing.T) {
 	}
 }
 
+func TestExactAirManagedProjectionRejectsIncompleteProtectedAliases(t *testing.T) {
+	canonical := airProjectionFuzzFixture(true, "\n")
+	for _, line := range []string{
+		`"model\u005fprovider`,
+		`"model\U0000005fprovider`,
+		`"model_provider"`,
+		`'model_provider`,
+		`"model\u005fprovider\q`,
+		`"mo\u0064el`,
+		`["model\u005fproviders`,
+	} {
+		t.Run(line, func(t *testing.T) {
+			text := strings.Replace(canonical, codexBegin, line+"\n"+codexBegin, 1)
+			if _, exact := exactAirManagedProjection(text); exact {
+				t.Fatal("incomplete protected alias was admitted as an exact projection")
+			}
+			if !hasAirAIGWResidue(text) {
+				t.Fatal("incomplete protected alias evaded residue detection")
+			}
+		})
+	}
+}
+
 func TestInspectAirCodexConfigClassifiesQuotedAIGWResidue(t *testing.T) {
 	for _, text := range []string{
 		`"model_provider" = "aigw"` + "\n",
@@ -238,6 +261,27 @@ func TestInspectAirCodexConfigClassifiesQuotedAIGWResidue(t *testing.T) {
 	}
 }
 
+func TestInspectAirCodexConfigClassifiesIncompleteProtectedAliases(t *testing.T) {
+	for _, text := range []string{
+		`"model\u005fprovider` + "\n",
+		`'model_provider` + "\n",
+		`"mo\u0064el` + "\n",
+		`["model\u005fproviders` + "\n",
+	} {
+		path := filepath.Join(t.TempDir(), "config.toml")
+		if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		inspection, err := InspectAirCodexConfig(path, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if inspection.State != AirStatePartialOrForeignResidue || inspection.AIGWManaged {
+			t.Fatalf("inspection = %#v, want incomplete alias to fail closed", inspection)
+		}
+	}
+}
+
 func TestAirTopLevelSelectsAIGWRecognizesQuotedKeys(t *testing.T) {
 	for _, text := range []string{
 		`"model_provider" = "aigw"` + "\n",
@@ -259,6 +303,10 @@ func TestAirAliasRecognitionPreservesUnrelatedQuotedKeys(t *testing.T) {
 		`'model\u005fprovider' = 'aigw'` + "\n",
 		`["host\u005fproviders"."ai\u0067w"]` + "\nforeign = true\n",
 		`[model_providers."host\u005fprovider"]` + "\nforeign = true\n",
+		`"host\u005fprovider` + "\n",
+		`"model_provider_hint"` + "\n",
+		`'model\u005fprovider` + "\n",
+		`["host\u005fproviders` + "\n",
 	} {
 		if hasAirAIGWResidue(text) {
 			t.Fatal("unrelated quoted key was classified as AIGW residue")
@@ -426,6 +474,25 @@ func TestPlanAirOrphanRemovalRejectsNonOrphanStates(t *testing.T) {
 		}
 		if _, err := PlanAirOrphanRemoval(air, standalone); err == nil {
 			t.Fatal("escaped AIGW alias unexpectedly admitted for orphan removal")
+		}
+	})
+	t.Run("incomplete alias residue", func(t *testing.T) {
+		air, standalone, body := prepareAirHostMirrorFixture(t)
+		orphan := strings.Replace(string(body), atomicTestRuntime().Endpoint, "https://orphan.test/v1", 1)
+		orphan += `"model\u005fprovider` + "\n"
+		if err := os.WriteFile(air, []byte(orphan), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		before, err := os.ReadFile(air)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := PlanAirOrphanRemoval(air, standalone); err == nil {
+			t.Fatal("incomplete AIGW alias unexpectedly admitted for orphan removal")
+		}
+		after, err := os.ReadFile(air)
+		if err != nil || !bytes.Equal(after, before) {
+			t.Fatalf("rejected orphan removal changed Air: %v", err)
 		}
 	})
 	t.Run("sidecar", func(t *testing.T) {
