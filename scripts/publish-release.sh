@@ -1,12 +1,16 @@
 #!/bin/sh
 set -eu
 
+artifacts=${1:-dist}
 : "${CI_API_V4_URL:?CI_API_V4_URL is required}"
 : "${CI_PROJECT_ID:?CI_PROJECT_ID is required}"
 : "${CI_COMMIT_TAG:?CI_COMMIT_TAG is required}"
 : "${CI_JOB_TOKEN:?CI_JOB_TOKEN is required}"
 
 version=${CI_COMMIT_TAG#v}
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+"$root/scripts/check-release-artifacts.sh" "$artifacts" "$version"
+
 base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/aigw/$version"
 
 cat > release.json <<EOF
@@ -48,29 +52,99 @@ verify_release() {
       ;;
   esac
 
-  if ! tr -d '[:space:]' < release-response.json | grep -Fq "\"tag_name\":\"$CI_COMMIT_TAG\""; then
-    echo "GitLab release verification returned the wrong tag" >&2
-    return 1
-  fi
+  workspace=$(mktemp -d)
+  asset_list=$(mktemp)
+  trap 'rm -rf "$workspace"; rm -f "$asset_list"' EXIT HUP INT TERM
 
-  asset_urls=$(sed -n 's/.*"url":"\([^"]*\)".*/\1/p' release.json)
-  asset_count=0
-  for asset_url in $asset_urls; do
-    asset_count=$((asset_count + 1))
-    if ! tr -d '[:space:]' < release-response.json | grep -Fq "\"url\":\"$asset_url\""; then
-      echo "GitLab release verification is missing asset $asset_url" >&2
-      return 1
-    fi
-    if ! curl --silent --show-error --fail --location --output /dev/null \
+  python3 - release.json release-response.json "$asset_list" "$CI_COMMIT_TAG" <<'PYTHON'
+import json
+import sys
+
+expected_path, actual_path, output_path, expected_tag = sys.argv[1:]
+
+try:
+    with open(expected_path, encoding="utf-8") as handle:
+        expected_release = json.load(handle)
+    with open(actual_path, encoding="utf-8") as handle:
+        actual_release = json.load(handle)
+except (OSError, ValueError) as exc:
+    raise SystemExit(f"GitLab release verification returned invalid JSON: {exc}")
+
+if actual_release.get("tag_name") != expected_tag:
+    raise SystemExit("GitLab release verification returned the wrong tag")
+
+try:
+    expected_links = expected_release["assets"]["links"]
+    actual_links = actual_release["assets"]["links"]
+except (KeyError, TypeError):
+    raise SystemExit("GitLab release verification returned an invalid asset manifest")
+
+if not isinstance(expected_links, list) or len(expected_links) != 15:
+    raise SystemExit(
+        f"GitLab release verification expected 15 local asset links, found {len(expected_links) if isinstance(expected_links, list) else 0}"
+    )
+if not isinstance(actual_links, list) or len(actual_links) != 15:
+    raise SystemExit(
+        f"GitLab release verification expected 15 remote asset links, found {len(actual_links) if isinstance(actual_links, list) else 0}"
+    )
+
+expected_urls = []
+downloads = []
+for link in expected_links:
+    if not isinstance(link, dict):
+        raise SystemExit("GitLab release verification found an invalid local asset link")
+    url = link.get("url")
+    direct_path = link.get("direct_asset_path")
+    if not isinstance(url, str) or not url:
+        raise SystemExit("GitLab release verification found an invalid local asset URL")
+    if not isinstance(direct_path, str) or not direct_path.startswith("/"):
+        raise SystemExit("GitLab release verification found an invalid direct asset path")
+    name = direct_path[1:]
+    if not name or "/" in name or "\t" in name or "\n" in name:
+        raise SystemExit("GitLab release verification found an unsafe direct asset path")
+    expected_urls.append(url)
+    downloads.append((name, url))
+
+actual_urls = []
+for link in actual_links:
+    if not isinstance(link, dict) or not isinstance(link.get("url"), str):
+        raise SystemExit("GitLab release verification found an invalid remote asset link")
+    actual_urls.append(link["url"])
+
+if len(set(expected_urls)) != 15:
+    raise SystemExit("GitLab release verification found duplicate local asset URLs")
+if len(set(actual_urls)) != 15:
+    raise SystemExit("GitLab release verification found duplicate remote asset URLs")
+if set(actual_urls) != set(expected_urls):
+    missing = sorted(set(expected_urls) - set(actual_urls))
+    extra = sorted(set(actual_urls) - set(expected_urls))
+    if missing:
+        raise SystemExit(f"GitLab release verification is missing asset {missing[0]}")
+    raise SystemExit(f"GitLab release verification found unexpected asset {extra[0]}")
+
+with open(output_path, "w", encoding="utf-8", newline="\n") as handle:
+    for name, url in downloads:
+        handle.write(f"{name}\t{url}\n")
+PYTHON
+
+  tab=$(printf '\t')
+  while IFS="$tab" read -r asset_name asset_url; do
+    if ! curl --silent --show-error --fail --location --output "$workspace/$asset_name" \
       --header "JOB-TOKEN: $CI_JOB_TOKEN" "$asset_url"; then
       echo "GitLab release verification could not fetch asset $asset_url" >&2
       return 1
     fi
+  done < "$asset_list"
+
+  "$root/scripts/check-release-artifacts.sh" "$workspace" "$version" >/dev/null
+  for local_asset in "$artifacts"/*; do
+    [ -f "$local_asset" ] || continue
+    asset_name=$(basename "$local_asset")
+    if ! cmp -s "$local_asset" "$workspace/$asset_name"; then
+      echo "GitLab release asset differs from locally verified $asset_name" >&2
+      return 1
+    fi
   done
-  if [ "$asset_count" -ne 15 ]; then
-    echo "GitLab release verification expected 15 assets, found $asset_count in manifest" >&2
-    return 1
-  fi
 }
 
 status=$(curl --silent --show-error --output release-response.json --write-out '%{http_code}' \

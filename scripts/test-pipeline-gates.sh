@@ -73,8 +73,16 @@ for forbidden in [
         raise SystemExit(f"GitLab package plane retains provider-specific build metadata: {forbidden}")
 
 release = section(gitlab, "release")
-if "publish-release.sh" not in release or "needs: [publish]" not in release:
-    raise SystemExit("GitLab must publish its own independently built release")
+for required in [
+    "publish-release.sh dist",
+    "job: publish",
+    "job: package",
+    "artifacts: true",
+]:
+    if required not in release:
+        raise SystemExit(
+            f"GitLab release verification is missing its local artifact matrix contract: {required}"
+        )
 if "mirror-github:" in gitlab or "AIGW_GITHUB_MIRROR" in gitlab:
     raise SystemExit("GitLab CI must not retain a one-way GitHub dependency")
 
