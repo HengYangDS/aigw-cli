@@ -129,6 +129,13 @@ func (s Store) validateAirRecoveryStorage(caseID string, ledger, quarantine tran
 	if !quarantine.Exists || quarantine.Mode.Perm() != 0o600 {
 		return errors.New("Air recovery quarantine has unsafe permissions")
 	}
+	return s.validateAirRecoveryDirectories(caseID)
+}
+
+func (s Store) validateAirRecoveryDirectories(caseID string) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
 	for _, path := range []string{
 		s.root,
 		filepath.Join(s.root, "air"),
@@ -141,6 +148,17 @@ func (s Store) validateAirRecoveryStorage(caseID string, ledger, quarantine tran
 		}
 	}
 	return nil
+}
+
+func (s Store) hasAirQuarantineArtifacts() (bool, error) {
+	entries, err := os.ReadDir(filepath.Join(s.root, "air", "quarantine"))
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return len(entries) != 0, nil
 }
 
 func validateAirLedger(ledger airLedger) error {

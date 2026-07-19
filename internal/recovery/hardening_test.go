@@ -237,6 +237,62 @@ func TestInspectAirLifecycleClassifiesRecoveryStorageWithoutWrites(t *testing.T)
 	}
 }
 
+func TestInspectAirLifecycleRejectsSettledLedgerWithUnsafeStoragePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX permission contract")
+	}
+	f := newAirRecoveryFixture(t)
+	plan, err := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.store.RecoverAirOrphan(f.recoverOptions(plan.CaseID)); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(f.air, []byte("model_provider = \"jetbrains\"\nhost_roundtrip = true\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.store.SettleAir(AirSettleOptions{AirPath: f.air, StandalonePath: f.standalone, CaseID: plan.CaseID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(f.store.root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
+	if err != nil {
+		t.Fatalf("inspection returned internal storage error: %v", err)
+	}
+	if status.RecoveryState != AirRecoveryStateSettled || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonStoragePermission {
+		t.Fatalf("status = %#v, want settled invalid storage-permission-invalid", status)
+	}
+}
+
+func TestInspectAirLifecycleRejectsOrphanQuarantineWithoutLedger(t *testing.T) {
+	f := newAirRecoveryFixture(t)
+	caseID := validPreparedAirLedgerForTest().CaseID
+	quarantinePath := f.store.airQuarantinePath(caseID)
+	if err := os.MkdirAll(filepath.Dir(quarantinePath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte("private orphan quarantine payload")
+	if err := os.WriteFile(quarantinePath, payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
+	if err != nil {
+		t.Fatalf("inspection returned internal storage error: %v", err)
+	}
+	if status.RecoveryState != "none" || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonQuarantineUnexpected {
+		t.Fatalf("status = %#v, want none invalid quarantine-unexpected", status)
+	}
+	got, err := os.ReadFile(quarantinePath)
+	if err != nil || !bytes.Equal(got, payload) {
+		t.Fatalf("read-only inspection changed orphan quarantine: %q, %v", got, err)
+	}
+}
+
 func assertAirPublicJSONSchema(t *testing.T, value any, wantKeys, forbidden []string) {
 	t.Helper()
 	data, err := json.Marshal(value)
