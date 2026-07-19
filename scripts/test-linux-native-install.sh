@@ -60,15 +60,37 @@ run_with_timeout() {
     '
   }
 
-  signal_process_tree() {
-    signal=$1
-    root_pid=$2
-    descendants=$(descendant_pids "$root_pid")
-    set -- "$root_pid"
-    for descendant in $descendants; do
-      set -- "$@" "$descendant"
-    done
-    kill "-$signal" "$@" 2>/dev/null || true
+  process_tree_pids() {
+    process_tree_root=$1
+    printf '%s\n' "$process_tree_root"
+    descendant_pids "$process_tree_root"
+  }
+
+  surviving_process_tree_pids() {
+    retained_process_list=$1
+    printf '%s\n' "$retained_process_list" |
+      while IFS= read -r retained_pid; do
+        case "$retained_pid" in
+          ''|*[!0-9]*) continue ;;
+        esac
+        if kill -0 "$retained_pid" 2>/dev/null; then
+          printf '%s\n' "$retained_pid"
+          descendant_pids "$retained_pid"
+        fi
+      done |
+      awk '!seen[$1]++'
+  }
+
+  signal_processes() {
+    process_signal=$1
+    process_list=$2
+    printf '%s\n' "$process_list" |
+      while IFS= read -r process_pid; do
+        case "$process_pid" in
+          ''|*[!0-9]*) continue ;;
+        esac
+        kill "-$process_signal" "$process_pid" 2>/dev/null || true
+      done
   }
 
   "$@" &
@@ -76,15 +98,20 @@ run_with_timeout() {
   elapsed=0
   while kill -0 "$pid" 2>/dev/null; do
     if [ "$elapsed" -ge "$seconds" ]; then
-      signal_process_tree TERM "$pid"
+      # Retain the exact pre-TERM tree. A root that exits during the grace
+      # period can no longer be used to rediscover its reparented descendants.
+      retained_pids=$(process_tree_pids "$pid" | awk '!seen[$1]++')
+      signal_processes TERM "$retained_pids"
       # Preserve a hard 300-second ceiling: the one-second TERM grace is only
       # available when it still fits below the admitted timeout maximum.
       if [ "$seconds" -lt 300 ]; then
         sleep 1
       fi
-      if kill -0 "$pid" 2>/dev/null; then
-        signal_process_tree KILL "$pid"
-      fi
+      # Signal only exact retained PIDs that are still live, plus their current
+      # descendants. This avoids a broad process-group kill while covering
+      # descendants spawned or reparented during TERM handling.
+      kill_pids=$(surviving_process_tree_pids "$retained_pids")
+      signal_processes KILL "$kill_pids"
       wait "$pid" 2>/dev/null || true
       return 124
     fi
