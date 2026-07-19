@@ -89,12 +89,19 @@ func buildAirRuntimeAttestation(app *App) (attestation.AirRuntimeAttestation, er
 		LogDir:             logDir,
 		AIGWEndpoint:       configuredRuntime.Endpoint,
 		ConfigurationState: inspection.State,
-		Now:                time.Now(),
+		Now:                appNow(app),
 	})
 	if err != nil {
 		return attestation.AirRuntimeAttestation{}, err
 	}
 	return report, nil
+}
+
+func appNow(app *App) time.Time {
+	if app.Now != nil {
+		return app.Now()
+	}
+	return time.Now()
 }
 
 func renderAirRuntimeAttestation(app *App, report attestation.AirRuntimeAttestation) {

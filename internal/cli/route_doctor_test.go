@@ -266,7 +266,7 @@ func TestRouteDoctorRejectsAirOrphanAndPartialResidueWithoutLeaks(t *testing.T) 
 			mutate: func(text string) string {
 				return strings.Replace(text, "https://gateway.test/v1", "https://orphan.test/v1", 1)
 			},
-			wantState: "orphaned-aigw-marker",
+			wantState: "orphaned-exact-full-selection",
 			secret:    "orphan.test",
 		},
 		{
