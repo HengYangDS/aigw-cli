@@ -107,6 +107,49 @@ printf '%s %s %s\n' "$platform" "$package" "$host" >> "$AIGW_TEST_DOCKER_MOUNTS"
 SH
 chmod 755 "$bin/docker"
 
+expect_timeout_upper_bound_rejected() {
+  label=$1
+  pull_timeout=$2
+  lock_timeout=$3
+  expected=$4
+  output="$tmp/$label.out"
+  if PATH="$bin:/usr/bin:/bin" \
+    AIGW_DOCKER_SHARED_TMPDIR="$shared" \
+    AIGW_TEST_DOCKER_MOUNTS="$capture" \
+    AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS="$pull_timeout" \
+    AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS="$lock_timeout" \
+    AIGW_LINUX_DEB_ACCEPTANCE_IMAGE="example.test/debian" \
+    AIGW_LINUX_RPM_ACCEPTANCE_IMAGE="example.test/rpm" \
+    sh "$root/scripts/test-linux-native-install.sh" "$out" "$version" >"$output" 2>&1
+  then
+    echo "Linux native-install harness accepted $label timeout above 300 seconds" >&2
+    return 1
+  else
+    rc=$?
+  fi
+  [ "$rc" -eq 2 ] || {
+    cat "$output" >&2
+    echo "Linux native-install harness used unexpected exit $rc for $label timeout above 300 seconds" >&2
+    return 1
+  }
+  grep -F "$expected" "$output" >/dev/null || {
+    cat "$output" >&2
+    echo "Linux native-install harness did not explain $label timeout upper bound" >&2
+    return 1
+  }
+}
+
+upper_bound_failures=0
+expect_timeout_upper_bound_rejected \
+  image-pull 301 180 \
+  "AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS must be an integer from 1 through 300" ||
+  upper_bound_failures=$((upper_bound_failures + 1))
+expect_timeout_upper_bound_rejected \
+  image-lock 120 301 \
+  "AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS must be an integer from 1 through 300" ||
+  upper_bound_failures=$((upper_bound_failures + 1))
+[ "$upper_bound_failures" -eq 0 ] || exit 1
+
 PATH="$bin:/usr/bin:/bin" \
   AIGW_DOCKER_SHARED_TMPDIR="$shared" \
   AIGW_TEST_DOCKER_MOUNTS="$capture" \
