@@ -7,6 +7,7 @@ workflow="$root/.github/workflows/verify.yml"
 [ -f "$workflow" ] || { echo "GitHub Actions verification workflow is missing" >&2; exit 1; }
 python3 - "$workflow" <<'PYTHON'
 from pathlib import Path
+import re
 import sys
 
 text = Path(sys.argv[1]).read_text(encoding="utf-8")
@@ -15,14 +16,14 @@ required = [
     "permissions:\n  contents: read",
     "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
     "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491", 'go-version: "1.25.12"', "check-latest: false", "GOTOOLCHAIN: go1.25.12", "git fetch --force --tags origin", "if: github.ref_type == 'tag'", 'SELECTED_TAG: ${{ github.ref_name }}', 'scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/check-release-toolchain.sh",
-    "go test -race ./...", "go vet ./...", "scripts/check-product-surface.sh", "scripts/check-governance.sh", "scripts/check-credential-literals.sh", "scripts/test-credential-literals.sh", "scripts/check-credential-fixtures.sh", "scripts/test-credential-fixtures.sh",
+    "go test -race ./...", "go vet ./...", "scripts/check-product-surface.sh", "scripts/check-governance.sh",
     "scripts/check-text-layout.py", "scripts/test-text-layout.sh", "scripts/test-release-source-date-epoch.sh",
     "scripts/test-verified-candidate.sh", "scripts/test-release-tag-signature-provider-selection.sh", "scripts/test-macos-native-install-staging.sh",
     "shell: pwsh", "scripts/test-installers.ps1",
     "scripts/test-ci-go-cache-preparation.sh",
     "scripts/test-publish-release.sh", "scripts/test-publish-github-release.sh",
     "scripts/test-pipeline-gates.sh", "scripts/test-github-release-workflow.sh",
-    "scripts/test-github-provider-projection.sh", "scripts/test-branch-closeout.sh",
+    "scripts/test-github-provider-projection.sh",
 ]
 for token in required:
     if token not in text:
@@ -41,5 +42,16 @@ provenance = text.index("name: Verify pushed release tag provenance")
 gates = text.index("name: Run source and policy gates")
 if not checkout < refresh < provenance < gates:
     raise SystemExit("GitHub Actions must refresh and verify annotated tags before source gates")
+next_step = text.find("\n      - name:", gates + 1)
+gate_step = text[gates:] if next_step < 0 else text[gates:next_step]
+for command in [
+    "sh scripts/check-credential-literals.sh",
+    "sh scripts/test-credential-literals.sh",
+    "sh scripts/check-credential-fixtures.sh",
+    "sh scripts/test-credential-fixtures.sh",
+    "sh scripts/test-branch-closeout.sh",
+]:
+    if not re.search(rf"(?m)^[ \t]+{re.escape(command)}[ \t]*$", gate_step):
+        raise SystemExit(f"GitHub Actions source gates are missing active command: {command}")
 print("GitHub Actions verification contract: OK")
 PYTHON
