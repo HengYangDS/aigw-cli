@@ -32,11 +32,20 @@ done
 printf '%s %s\n' "$method" "${url:-}" >> "$AIGW_TEST_CURL_LOG"
 case "$method" in
   POST) status=${AIGW_TEST_POST_STATUS:-201} ;;
-  PUT) status=${AIGW_TEST_PUT_STATUS:-200} ;;
+  PUT|PATCH|DELETE) status=500 ;;
   GET)
     case "${url:-}" in
       */packages/generic/*) status=${AIGW_TEST_ASSET_STATUS:-200} ;;
-      *) status=${AIGW_TEST_GET_STATUS:-200} ;;
+      *)
+        release_get_count=$(grep -c '^GET .*/releases/' "$AIGW_TEST_CURL_LOG")
+        if [ "$release_get_count" -eq 1 ]; then
+          status=${AIGW_TEST_INITIAL_GET_STATUS:-404}
+          response_mode=${AIGW_TEST_INITIAL_GET_MODE:-complete}
+        else
+          status=${AIGW_TEST_GET_STATUS:-200}
+          response_mode=${AIGW_TEST_GET_MODE:-complete}
+        fi
+        ;;
     esac
     ;;
   *) status=500 ;;
@@ -53,7 +62,7 @@ if [ -n "$out" ]; then
     GET)
       case "${url:-}" in
         */packages/generic/*) : ;;
-        *) python3 - "$out" "${AIGW_TEST_GET_MODE:-complete}" <<'PY'
+        *) python3 - "$out" "${response_mode:-complete}" <<'PY'
 import json
 import sys
 
@@ -81,8 +90,8 @@ chmod 755 "$tmp/curl"
 
 run_case() {
   name=$1
-  post=$2
-  put=$3
+  initial_get=$2
+  post=${3:-201}
   get_mode=${4:-complete}
   asset_status=${5:-200}
   work="$tmp/$name"
@@ -90,7 +99,7 @@ run_case() {
   (
     cd "$work"
     set +e
-    PATH="$tmp:$PATH" AIGW_TEST_CURL_LOG="$work/curl.log" AIGW_TEST_POST_STATUS="$post" AIGW_TEST_PUT_STATUS="$put" AIGW_TEST_GET_MODE="$get_mode" AIGW_TEST_ASSET_STATUS="$asset_status" AIGW_TEST_REQUIRE_LOCATION=1 \
+    PATH="$tmp:$PATH" AIGW_TEST_CURL_LOG="$work/curl.log" AIGW_TEST_INITIAL_GET_STATUS="$initial_get" AIGW_TEST_POST_STATUS="$post" AIGW_TEST_GET_MODE="$get_mode" AIGW_TEST_ASSET_STATUS="$asset_status" AIGW_TEST_REQUIRE_LOCATION=1 \
       CI_API_V4_URL=https://gitlab.example/api/v4 CI_PROJECT_ID=456 CI_COMMIT_TAG=v0.1.0-test CI_JOB_TOKEN=redacted \
       sh "$script"
     publish_status=$?
@@ -105,37 +114,43 @@ PY
   )
 }
 
-run_case created 201 200
-test "$(wc -l < "$tmp/created/curl.log" | tr -d ' ')" = 17
-grep -q '^GET https://gitlab.example/api/v4/projects/456/releases/v0.1.0-test$' "$tmp/created/curl.log"
+run_case created 404 201
+test "$(wc -l < "$tmp/created/curl.log" | tr -d ' ')" = 18
+test "$(grep -c '^GET https://gitlab.example/api/v4/projects/456/releases/v0.1.0-test$' "$tmp/created/curl.log")" = 2
+test "$(grep -c '^POST https://gitlab.example/api/v4/projects/456/releases$' "$tmp/created/curl.log")" = 1
 test "$(grep -c '^GET https://gitlab.example/api/v4/projects/456/packages/generic/aigw/0.1.0-test/' "$tmp/created/curl.log")" = 15
+! grep -Eq '^(PUT|PATCH|DELETE) ' "$tmp/created/curl.log"
 
-aigw_409="$tmp/conflict"
-run_case conflict 409 200
-test "$(wc -l < "$aigw_409/curl.log" | tr -d ' ')" = 18
-grep -q '^PUT ' "$aigw_409/curl.log"
-grep -q '^GET https://gitlab.example/api/v4/projects/456/releases/v0.1.0-test$' "$aigw_409/curl.log"
-test "$(grep -c '^GET https://gitlab.example/api/v4/projects/456/packages/generic/aigw/0.1.0-test/' "$aigw_409/curl.log")" = 15
+run_case existing 200 500
+test "$(wc -l < "$tmp/existing/curl.log" | tr -d ' ')" = 17
+test "$(grep -c '^GET https://gitlab.example/api/v4/projects/456/releases/v0.1.0-test$' "$tmp/existing/curl.log")" = 2
+! grep -Eq '^(POST|PUT|PATCH|DELETE) ' "$tmp/existing/curl.log"
 
-if run_case missing-asset 201 200 missing-asset; then
+run_case concurrent-create 404 409
+test "$(wc -l < "$tmp/concurrent-create/curl.log" | tr -d ' ')" = 18
+test "$(grep -c '^GET https://gitlab.example/api/v4/projects/456/releases/v0.1.0-test$' "$tmp/concurrent-create/curl.log")" = 2
+test "$(grep -c '^POST https://gitlab.example/api/v4/projects/456/releases$' "$tmp/concurrent-create/curl.log")" = 1
+! grep -Eq '^(PUT|PATCH|DELETE) ' "$tmp/concurrent-create/curl.log"
+
+if run_case missing-asset 404 201 missing-asset; then
   echo "release publisher accepted a release missing one of the 15 expected assets" >&2
   exit 1
 fi
-test "$(wc -l < "$tmp/missing-asset/curl.log" | tr -d ' ')" = 16
+test "$(wc -l < "$tmp/missing-asset/curl.log" | tr -d ' ')" = 17
 grep -q '^GET https://gitlab.example/api/v4/projects/456/releases/v0.1.0-test$' "$tmp/missing-asset/curl.log"
 test "$(grep -c '^GET https://gitlab.example/api/v4/projects/456/packages/generic/aigw/0.1.0-test/' "$tmp/missing-asset/curl.log")" = 14
 
-if run_case unavailable-asset 201 200 complete 404; then
+if run_case unavailable-asset 404 201 complete 404; then
   echo "release publisher accepted an unavailable linked Generic Package asset" >&2
   exit 1
 fi
-test "$(wc -l < "$tmp/unavailable-asset/curl.log" | tr -d ' ')" = 3
+test "$(wc -l < "$tmp/unavailable-asset/curl.log" | tr -d ' ')" = 4
 grep -q '^GET https://gitlab.example/api/v4/projects/456/packages/generic/aigw/0.1.0-test/' "$tmp/unavailable-asset/curl.log"
 
 mkdir -p "$tmp/denied"
 if (
   cd "$tmp/denied"
-  PATH="$tmp:$PATH" AIGW_TEST_CURL_LOG="$tmp/denied/curl.log" AIGW_TEST_POST_STATUS=403 AIGW_TEST_PUT_STATUS=200 \
+  PATH="$tmp:$PATH" AIGW_TEST_CURL_LOG="$tmp/denied/curl.log" AIGW_TEST_INITIAL_GET_STATUS=500 AIGW_TEST_POST_STATUS=201 \
     CI_API_V4_URL=https://gitlab.example/api/v4 CI_PROJECT_ID=456 CI_COMMIT_TAG=v0.1.0-test CI_JOB_TOKEN=redacted \
     sh "$script"
 ); then
@@ -143,6 +158,12 @@ if (
   exit 1
 fi
 test "$(wc -l < "$tmp/denied/curl.log" | tr -d ' ')" = 1
-! grep -q '^PUT ' "$tmp/denied/curl.log"
+! grep -Eq '^(POST|PUT|PATCH|DELETE) ' "$tmp/denied/curl.log"
 
-echo "idempotent release publisher contract: OK"
+if run_case existing-missing-asset 200 500 missing-asset; then
+  echo "release publisher accepted an incomplete existing release" >&2
+  exit 1
+fi
+! grep -Eq '^(POST|PUT|PATCH|DELETE) ' "$tmp/existing-missing-asset/curl.log"
+
+echo "immutable release publisher contract: OK"

@@ -61,6 +61,9 @@ type Updater interface {
 }
 
 type App struct {
+	GOOS        string
+	DataDir     string
+	Now         func() time.Time
 	Version     string
 	Config      config.Store
 	Secrets     secrets.Store
@@ -151,7 +154,7 @@ func mutationCommand(app *App, args []string) bool {
 		switch args[1] {
 		case "reset":
 			return true
-		case "fallback", "restore", "recover":
+		case "fallback", "restore", "recover", "recover-orphan", "settle":
 			return !hasArgument(args[2:], "--dry-run")
 		default:
 			return false
@@ -233,6 +236,10 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	dataDir, err := platform.DataDirFor(runtime.GOOS, env)
+	if err != nil {
+		return nil, err
+	}
 	executable, err := os.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
@@ -246,6 +253,9 @@ func NewDefault() (*App, error) {
 		return nil, err
 	}
 	return &App{
+		GOOS:        runtime.GOOS,
+		DataDir:     dataDir,
+		Now:         time.Now,
 		Version:     Version,
 		Config:      config.NewStore(path),
 		Secrets:     secretStore,
