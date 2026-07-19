@@ -202,17 +202,17 @@ func writeAtomic(path string, data []byte, mode os.FileMode) error {
 		return fmt.Errorf("create temporary config: %w", err)
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
+	defer func() { _ = os.Remove(tmpName) }()
 	if err := tmp.Chmod(mode); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return fmt.Errorf("secure temporary config: %w", err)
 	}
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return fmt.Errorf("write temporary config: %w", err)
 	}
 	if err := tmp.Sync(); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return fmt.Errorf("sync temporary config: %w", err)
 	}
 	if err := tmp.Close(); err != nil {

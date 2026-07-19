@@ -54,9 +54,13 @@ func (p terminalPrompt) Select(label string, choices []Choice) (string, error) {
 		return choices[0].Value, nil
 	}
 	if p.accessible || os.Getenv("AIGW_ACCESSIBLE") != "" {
-		fmt.Fprintln(p.out, label)
+		if _, err := fmt.Fprintln(p.out, label); err != nil {
+			return "", fmt.Errorf("render selection prompt: %w", err)
+		}
 		for index, choice := range choices {
-			fmt.Fprintf(p.out, "  %d. %s\n", index+1, choice.Label)
+			if _, err := fmt.Fprintf(p.out, "  %d. %s\n", index+1, choice.Label); err != nil {
+				return "", fmt.Errorf("render selection option: %w", err)
+			}
 		}
 		value, err := p.plainInput("Select [1]: ", true)
 		if err != nil {
@@ -103,7 +107,9 @@ func requiredValue(value string) error {
 }
 
 func (p terminalPrompt) plainInput(label string, allowEmpty bool) (string, error) {
-	fmt.Fprint(p.out, label)
+	if _, err := fmt.Fprint(p.out, label); err != nil {
+		return "", fmt.Errorf("render input prompt: %w", err)
+	}
 	line, err := bufio.NewReader(p.in).ReadString('\n')
 	if err != nil && err != io.EOF {
 		return "", fmt.Errorf("read input: %w", err)

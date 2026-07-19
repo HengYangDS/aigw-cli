@@ -54,6 +54,10 @@ if ! grep -Fq 'scripts/check-static-analysis.sh' .gitlab-ci.yml; then
   echo "GitLab CI must execute the static-analysis check" >&2
   exit 1
 fi
+if ! grep -Fq 'go tool staticcheck' scripts/check-static-analysis.sh || ! grep -Fq 'go tool errcheck ./...' scripts/check-static-analysis.sh; then
+  echo "static-analysis check must run the tracked Staticcheck and Errcheck tools" >&2
+  exit 1
+fi
 if ! grep -Fq 'scripts/check-governance.sh' .github/workflows/verify.yml; then
   echo "GitHub Actions must execute the governance check" >&2
   exit 1

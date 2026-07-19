@@ -116,7 +116,7 @@ func getJSON(ctx context.Context, client HTTPDoer, endpoint string, credential a
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return fmt.Errorf("DMXAPI platform API returned HTTP %d: %s", resp.StatusCode, redaction.Text(strings.TrimSpace(string(body)), credential.SystemToken, credential.UserID))

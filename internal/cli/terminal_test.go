@@ -10,7 +10,11 @@ func TestDevNullIsNotInteractiveTerminal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	}()
 	if isTerminal(file) {
 		t.Fatal("os.DevNull must not trigger the interactive wizard")
 	}
