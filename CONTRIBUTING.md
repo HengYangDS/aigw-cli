@@ -69,9 +69,30 @@ to remove merge-request source branches automatically; for direct, signed
 release merges, remove the corresponding remote branch explicitly. Before
 removing any branch or worktree, prove all three conditions:
 
-1. its tip is reachable from local `main` and every required reachable peer;
-2. its worktree is clean and no longer needed; and
-3. it is neither `main` nor an active, unmerged delivery branch.
+1. its tip is reachable from local `main`;
+2. every reachable peer contains the corresponding proven content: the same
+   commit for a non-rewriting peer, or the same ordered source-tree history for
+   an identity-rewriting projection;
+3. its worktree is clean and no longer needed; and
+4. it is neither `main` nor an active, unmerged delivery branch.
 
 Retire the worktree before its local branch. Tags remain release evidence and
-are not branch residue.
+are not branch residue. A locally unreachable peer is not evidence of absence:
+record the failed probe and defer only that peer's publication or remote-ref
+cleanup.
+
+After refreshing reachable peer refs, run the closeout verifier from the
+canonical checkout. Use `commit` for GitLab's canonical history and `tree` for
+GitHub's identity-rewriting projection:
+
+```sh
+sh scripts/check-branch-closeout.sh \
+  --source work/<delivery-branch> \
+  --canonical main \
+  --peer gitlab:refs/remotes/origin/main:commit \
+  --peer github:refs/remotes/github/main:tree
+```
+
+If a peer cannot be reached, do not invent a matching ref. Record that failed
+probe, verify the remaining reachable planes, and defer the unavailable peer's
+publication or remote-ref cleanup.
