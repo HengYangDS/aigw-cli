@@ -360,6 +360,9 @@ func airLineHasIncompleteProtectedAlias(line string) bool {
 	if position < len(line) && line[position] == '=' {
 		return false
 	}
+	if position < len(line) && line[position] == '.' && key.valid {
+		return false
+	}
 	return airKeyMatchesAlias(key, "model_provider", "model")
 }
 
