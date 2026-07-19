@@ -243,8 +243,9 @@ path = Path(sys.argv[1])
 retired = Path(sys.argv[2])
 text = path.read_text(encoding="utf-8")
 tag_versions = {
-    tag.removeprefix("v")
-    for tag in subprocess.check_output(["git", "tag", "--list", "v[0-9]*"], text=True).splitlines()
+    tag.removeprefix("github/").removeprefix("v")
+    for pattern in ("v[0-9]*", "github/v[0-9]*")
+    for tag in subprocess.check_output(["git", "tag", "--list", pattern], text=True).splitlines()
 }
 retired_versions = {
     line.strip().removeprefix("v")
@@ -360,5 +361,75 @@ printf '' > "$provider_tree/packaging/release/retired-gitlab-tags.txt"
     CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
     sh scripts/check-changelog.sh
 )
+
+# A canonical checkout fetches GitHub provenance into a qualified namespace so
+# it cannot overwrite an identically named GitLab tag. The GitHub chronology
+# check must recognize that qualified tag, while a GitLab check must not.
+provider_scoped="$tmp/provider-scoped"
+git init -q -b main "$provider_scoped"
+git -C "$provider_scoped" config user.name 'AIGW Changelog Provider Test'
+git -C "$provider_scoped" config user.email 'aigw-changelog-provider@example.invalid'
+printf 'release\n' > "$provider_scoped/release.txt"
+git -C "$provider_scoped" add release.txt
+git -C "$provider_scoped" commit -qm 'qualified provider release'
+git -C "$provider_scoped" tag -a github/v0.1.0-rc.1 -m 'qualified GitHub provider release'
+cat > "$provider_scoped/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0-rc.1] - 2026-07-17
+EOF
+mkdir -p "$provider_scoped/scripts" "$provider_scoped/packaging/release"
+cp "$checker" "$provider_scoped/scripts/check-changelog.sh"
+printf '' > "$provider_scoped/packaging/release/retired-gitlab-tags.txt"
+(
+  cd "$provider_scoped"
+  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true GITLAB_CI= \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
+    sh scripts/check-changelog.sh
+)
+if (
+  cd "$provider_scoped"
+  AIGW_CHANGELOG_FORGE=gitlab GITHUB_ACTIONS= GITLAB_CI=true \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
+    sh scripts/check-changelog.sh >/dev/null 2>&1
+); then
+  echo "changelog checker accepted a qualified GitHub tag as GitLab provenance" >&2
+  exit 1
+fi
+
+# A qualified GitHub namespace must isolate chronology from higher GitLab-only
+# versions, rather than allowing unscoped tags to change GitHub's latest tag.
+provider_conflict="$tmp/provider-conflict"
+git init -q -b main "$provider_conflict"
+git -C "$provider_conflict" config user.name 'AIGW Changelog Provider Test'
+git -C "$provider_conflict" config user.email 'aigw-changelog-provider@example.invalid'
+printf 'gitlab\n' > "$provider_conflict/release.txt"
+git -C "$provider_conflict" add release.txt
+git -C "$provider_conflict" commit -qm 'GitLab release'
+git -C "$provider_conflict" tag -a v0.1.0-rc.2 -m 'GitLab release'
+printf 'github\n' > "$provider_conflict/release.txt"
+git -C "$provider_conflict" commit -am 'GitHub release' -q
+git -C "$provider_conflict" tag -a github/v0.1.0-rc.1 -m 'GitHub release'
+cat > "$provider_conflict/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0-rc.1] - 2026-07-17
+EOF
+mkdir -p "$provider_conflict/scripts" "$provider_conflict/packaging/release"
+cp "$checker" "$provider_conflict/scripts/check-changelog.sh"
+printf '' > "$provider_conflict/packaging/release/retired-gitlab-tags.txt"
+if (
+  cd "$provider_conflict"
+  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true GITLAB_CI= \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
+    sh scripts/check-changelog.sh >/dev/null 2>&1
+); then
+  echo "changelog checker accepted a higher GitLab-only tag on the GitHub plane" >&2
+  exit 1
+fi
 
 echo "changelog chronology contract: OK"
