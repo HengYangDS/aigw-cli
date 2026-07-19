@@ -188,11 +188,24 @@ func exactAirManagedProjection(text string) (*airManagedProjection, bool) {
 	if err != nil || hasAirAIGWResidue(remainder) {
 		return nil, false
 	}
-	input := airProjectionFingerprintDomain +
-		normalizeAirProjectionLine(providers[0].text) + "\n" +
-		model + "\n" +
-		normalizedBlock
-	sum := sha256.Sum256([]byte(input))
+	type fingerprintPart struct {
+		start int
+		text  string
+	}
+	parts := []fingerprintPart{
+		{start: providers[0].span.start, text: normalizeAirProjectionLine(providers[0].text) + "\n"},
+		{start: blockStart, text: normalizedBlock},
+	}
+	if len(models) == 1 {
+		parts = append(parts, fingerprintPart{start: models[0].span.start, text: model + "\n"})
+	}
+	sort.Slice(parts, func(left, right int) bool { return parts[left].start < parts[right].start })
+	var fingerprintInput strings.Builder
+	fingerprintInput.WriteString(airProjectionFingerprintDomain)
+	for _, part := range parts {
+		fingerprintInput.WriteString(part.text)
+	}
+	sum := sha256.Sum256([]byte(fingerprintInput.String()))
 	return &airManagedProjection{
 		block:        block,
 		fingerprint:  hex.EncodeToString(sum[:]),
