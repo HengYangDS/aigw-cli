@@ -11,14 +11,16 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"time"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
 )
 
 const (
-	airLedgerSchemaVersion = 1
-	airSurfaceID           = "jetbrains-air-codex"
+	airLedgerSchemaVersion   = 1
+	airSurfaceID             = "jetbrains-air-codex"
+	maxAirRecoveryGeneration = 999_999
 
 	AirRecoveryStatePrepared              = "prepared"
 	AirRecoveryStateAwaitingHostRoundtrip = "awaiting-host-roundtrip"
@@ -90,6 +92,9 @@ func (s Store) captureAirLedger() (airLedger, transaction.FileSnapshot, error) {
 	if !snapshot.Exists {
 		return airLedger{}, snapshot, nil
 	}
+	if runtime.GOOS != "windows" && snapshot.Mode.Perm() != 0o600 {
+		return airLedger{}, transaction.FileSnapshot{}, errors.New("Air recovery ledger has unsafe permissions")
+	}
 	var ledger airLedger
 	decoder := json.NewDecoder(bytes.NewReader(snapshot.Data))
 	decoder.DisallowUnknownFields()
@@ -106,20 +111,36 @@ func (s Store) captureAirLedger() (airLedger, transaction.FileSnapshot, error) {
 	return ledger, snapshot, nil
 }
 
+func (s Store) validateAirRecoveryStorage(caseID string, ledger, quarantine transaction.FileSnapshot) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	if ledger.Exists && ledger.Mode.Perm() != 0o600 {
+		return errors.New("Air recovery ledger has unsafe permissions")
+	}
+	if !quarantine.Exists || quarantine.Mode.Perm() != 0o600 {
+		return errors.New("Air recovery quarantine has unsafe permissions")
+	}
+	for _, path := range []string{
+		s.root,
+		filepath.Join(s.root, "air"),
+		filepath.Join(s.root, "air", "quarantine"),
+		filepath.Dir(s.airQuarantinePath(caseID)),
+	} {
+		info, err := os.Stat(path)
+		if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
+			return errors.New("Air recovery storage has unsafe directory permissions")
+		}
+	}
+	return nil
+}
+
 func validateAirLedger(ledger airLedger) error {
 	if ledger.SchemaVersion != airLedgerSchemaVersion || ledger.SurfaceID != airSurfaceID {
 		return errors.New("Air recovery ledger has an unsupported identity")
 	}
-	if ledger.RecoveryGeneration < 1 || !airCaseIDPattern.MatchString(ledger.CaseID) {
+	if ledger.RecoveryGeneration < 1 || ledger.RecoveryGeneration > maxAirRecoveryGeneration || !airCaseIDPattern.MatchString(ledger.CaseID) {
 		return errors.New("Air recovery ledger has an invalid case identity")
-	}
-	if isSHA256Hex(ledger.ConfigPreimageSHA256) && ledger.CaseID != airCaseID(ledger.RecoveryGeneration, ledger.ConfigPreimageSHA256) {
-		return errors.New("Air recovery ledger case is not bound to its preimage")
-	}
-	switch ledger.State {
-	case AirRecoveryStatePrepared, AirRecoveryStateAwaitingHostRoundtrip, AirRecoveryStateQuarantined, AirRecoveryStateSettled:
-	default:
-		return errors.New("Air recovery ledger has an unsupported state")
 	}
 	for _, digest := range []string{
 		ledger.ProjectionFingerprintSHA256,
@@ -131,11 +152,55 @@ func validateAirLedger(ledger airLedger) error {
 			return errors.New("Air recovery ledger has an invalid digest")
 		}
 	}
+	if ledger.CaseID != airCaseID(ledger.RecoveryGeneration, ledger.ConfigPreimageSHA256) {
+		return errors.New("Air recovery ledger case is not bound to its preimage")
+	}
+	if ledger.QuarantineSHA256 != ledger.ConfigPreimageSHA256 {
+		return errors.New("Air recovery ledger quarantine is not bound to its preimage")
+	}
+	if ledger.CleanedPostimageSHA256 == ledger.ConfigPreimageSHA256 {
+		return errors.New("Air recovery ledger cleanup did not change the preimage")
+	}
+	if ledger.ConfigPreimageMode > uint32(os.ModePerm) {
+		return errors.New("Air recovery ledger has an invalid config mode")
+	}
 	if ledger.ObservedRoundtripSHA256 != "" && !isSHA256Hex(ledger.ObservedRoundtripSHA256) {
 		return errors.New("Air recovery ledger has an invalid roundtrip digest")
 	}
 	if ledger.CreatedAt.IsZero() {
 		return errors.New("Air recovery ledger is missing its creation time")
+	}
+	return validateAirLedgerState(ledger)
+}
+
+func validateAirLedgerState(ledger airLedger) error {
+	recovered := ledger.RecoveredAt
+	settled := ledger.SettledAt
+	if recovered != nil && (recovered.IsZero() || recovered.Before(ledger.CreatedAt)) {
+		return errors.New("Air recovery ledger has an invalid recovered time")
+	}
+	if settled != nil && (settled.IsZero() || recovered == nil || settled.Before(*recovered)) {
+		return errors.New("Air recovery ledger has an invalid settled time")
+	}
+	switch ledger.State {
+	case AirRecoveryStatePrepared:
+		if recovered != nil || settled != nil || ledger.ObservedRoundtripSHA256 != "" {
+			return errors.New("prepared Air recovery ledger contains later-state fields")
+		}
+	case AirRecoveryStateAwaitingHostRoundtrip:
+		if recovered == nil || settled != nil || ledger.ObservedRoundtripSHA256 != "" {
+			return errors.New("awaiting Air recovery ledger has inconsistent lifecycle fields")
+		}
+	case AirRecoveryStateQuarantined:
+		if recovered == nil || settled != nil || ledger.ObservedRoundtripSHA256 == "" || ledger.ObservedRoundtripSHA256 == ledger.CleanedPostimageSHA256 {
+			return errors.New("quarantined Air recovery ledger has inconsistent lifecycle fields")
+		}
+	case AirRecoveryStateSettled:
+		if recovered == nil || settled == nil || ledger.ObservedRoundtripSHA256 == "" || ledger.ObservedRoundtripSHA256 == ledger.CleanedPostimageSHA256 {
+			return errors.New("settled Air recovery ledger has inconsistent lifecycle fields")
+		}
+	default:
+		return errors.New("Air recovery ledger has an unsupported state")
 	}
 	return nil
 }
