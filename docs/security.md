@@ -70,6 +70,30 @@ target membership; it never writes a JetBrains top-level selection, binds
 credentials, runs a client, or reads conversation state. Any other mixed or
 foreign state remains fail-closed.
 
+Air host-mirror classification compares a versioned managed-projection
+fingerprint internally. It normalizes CRLF to LF only and never emits that
+fingerprint. `aigw route attest air` admits only bounded, fresh forwarding
+records from the selected Air log generation with exact logger, message, and
+URL rules. It caps line and total scan sizes and ignores headers, bodies,
+prompts, responses, tokens, sessions, and unrelated log output. Public output
+contains no path, raw URL, host, port, endpoint, model, PID, call trace, token,
+prompt, response, or recovery digest.
+
+`aigw route recover-orphan air` is limited to a sidecar-absent exact generated
+full selection without positive standalone reference proof. Apply requires the
+exact case ID, `--confirm-host-idle`, and
+`--ack-unset-external-selection`; there is no force option. Admission and
+settlement bind snapshots of the Air config and sidecar and the standalone
+config and sidecar. Recovery writes no replacement selection, and settlement
+never writes Air.
+
+The recovery directory is private mode `0700`; ledger and byte-exact
+quarantine files are `0600`. Complete digests remain private ledger fields.
+Every owned write or removal uses a deterministic postimage guard, and reverse
+compensation attempts every artifact while refusing to overwrite concurrent
+postimages. This path is independent from ADR-0003's recognized
+fallback/full-selection sidecar mismatch.
+
 AIGW snapshots each owned configuration and sidecar as exact bytes, existence,
 digest, and POSIX mode. Before a write it verifies the captured preimage;
 compensating rollback restores only its own unchanged postimages. This guards

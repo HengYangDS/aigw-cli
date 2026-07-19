@@ -68,3 +68,23 @@ func TestShimDirUsesAIGWOwnedDataBoundary(t *testing.T) {
 		}
 	}
 }
+
+func TestAirLogDirUsesMacOSHomeBoundary(t *testing.T) {
+	got, err := platform.AirLogDirFor("darwin", map[string]string{"HOME": "/Users/alex"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "/Users/alex/Library/Logs/JetBrains/Air"
+	if filepath.Clean(got) != filepath.Clean(want) {
+		t.Fatalf("AirLogDirFor() = %q, want %q", got, want)
+	}
+}
+
+func TestAirLogDirRejectsUnsupportedOrMissingHome(t *testing.T) {
+	if _, err := platform.AirLogDirFor("linux", map[string]string{"HOME": "/home/alex"}); err == nil {
+		t.Fatal("non-macOS Air log path unexpectedly admitted")
+	}
+	if _, err := platform.AirLogDirFor("darwin", map[string]string{}); err == nil {
+		t.Fatal("missing HOME unexpectedly admitted")
+	}
+}
