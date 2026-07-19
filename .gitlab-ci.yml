@@ -34,6 +34,8 @@ verify:
     - sh scripts/check-product-surface.sh
     - sh scripts/check-retired-residue.sh
     - sh scripts/check-english-text.sh
+    - sh scripts/check-credential-fixtures.sh
+    - sh scripts/test-credential-fixtures.sh
     - git fetch --tags --force --prune --prune-tags origin
     - 'if test -n "${CI_COMMIT_TAG:-}"; then sh scripts/check-release-tag-signature.sh . "$CI_COMMIT_TAG" gitlab; fi'
     - sh scripts/check-governance.sh

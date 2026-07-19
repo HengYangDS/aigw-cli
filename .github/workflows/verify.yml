@@ -55,6 +55,8 @@ jobs:
           sh scripts/check-product-surface.sh
           sh scripts/check-retired-residue.sh
           sh scripts/check-english-text.sh
+          sh scripts/check-credential-fixtures.sh
+          sh scripts/test-credential-fixtures.sh
           sh scripts/check-governance.sh
           python3 scripts/check-markdown-presentation.py
           python3 scripts/check-text-layout.py
