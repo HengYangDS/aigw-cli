@@ -51,6 +51,8 @@ already exists, its exact 15 links are verified, every asset is downloaded, and
 the complete matrix is compared byte-for-byte with the local checksums and
 files. Missing, extra, duplicate, or changed assets fail closed, and the
 existing Release is inspected with GET only rather than replaced or updated.
+Redirected downloads send the GitLab job token only to the configured GitLab
+origin; a cross-host asset store receives no GitLab credential.
 On the private GitHub Free peer,
 tag immutability is not asserted as a host capability: remote tag-signature
 verification and cross-forge artifact comparison remain the acceptance proof.
