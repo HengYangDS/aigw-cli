@@ -75,7 +75,7 @@ func TestInspectAirCodexConfigRequiresRecognizedStandaloneSidecar(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inspection.State != "orphaned-aigw-marker" || inspection.AIGWManaged {
+	if inspection.State != "orphaned-exact-full-selection" || inspection.AIGWManaged {
 		t.Fatalf("inspection = %#v", inspection)
 	}
 }
@@ -116,7 +116,7 @@ func TestInspectAirCodexConfigRejectsSemanticMirrorDifferences(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if inspection.State != "orphaned-aigw-marker" || inspection.AIGWManaged {
+			if inspection.State != "orphaned-exact-full-selection" || inspection.AIGWManaged {
 				t.Fatalf("inspection = %#v", inspection)
 			}
 		})
@@ -165,7 +165,7 @@ func TestInspectAirCodexConfigNormalizesOnlyLineEndings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inspection.State != "orphaned-aigw-marker" {
+	if inspection.State != "partial-or-foreign-residue" {
 		t.Fatalf("padded inspection = %#v", inspection)
 	}
 
@@ -177,7 +177,7 @@ func TestInspectAirCodexConfigNormalizesOnlyLineEndings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inspection.State != "orphaned-aigw-marker" {
+	if inspection.State != "partial-or-foreign-residue" {
 		t.Fatalf("comment-padded inspection = %#v", inspection)
 	}
 }
@@ -218,7 +218,7 @@ func TestInspectAirCodexConfigRejectsDriftedStandaloneReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inspection.State != "orphaned-aigw-marker" || inspection.AIGWManaged {
+	if inspection.State != "orphaned-exact-full-selection" || inspection.AIGWManaged {
 		t.Fatalf("inspection = %#v", inspection)
 	}
 }
