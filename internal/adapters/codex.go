@@ -462,18 +462,17 @@ func staleAirFullSelectionBlock(current string, state codexState) (string, error
 	if state.OriginalProvider != "" || state.OriginalModel != "" {
 		return "", errors.New("Air fallback sidecar retains an original selection; refusing stale full-selection recovery")
 	}
-	if strings.Count(current, codexBegin) != 1 || strings.Count(current, codexEnd) != 1 || strings.Count(current, "[model_providers.aigw]") != 1 {
+	if strings.Count(current, codexBegin) != 1 || strings.Count(current, codexEnd) != 1 || strings.Count(current, "[model_providers.aigw") != 1 || airAIGWProviderTableCount(current) != 1 {
 		return "", errors.New("Air stale full-selection recovery requires exactly one complete AIGW full-selection block")
 	}
 	if strings.Contains(current, codexFallbackBegin) || strings.Contains(current, codexFallbackEnd) || strings.Contains(current, "[model_providers.aigw_fallback]") {
 		return "", errors.New("Air contains an AIGW fallback block; use ordinary fallback restore instead")
 	}
-	providers := modelProviderLine.FindAllString(current, -1)
-	if len(providers) != 1 || !isManagedSelection(providers[0], "model_provider", "aigw") {
+	providers, models := topLevelAirSelectionLines(current)
+	if len(providers) != 1 || !isManagedSelection(providers[0].text, "model_provider", "aigw") {
 		return "", errors.New("Air stale full-selection recovery requires an AIGW-managed model_provider selection")
 	}
-	models := modelLine.FindAllString(current, -1)
-	if len(models) > 1 || (len(models) == 1 && !managedModelLine.MatchString(models[0])) {
+	if len(models) > 1 || (len(models) == 1 && !managedModelLine.MatchString(models[0].text)) {
 		return "", errors.New("Air stale full-selection recovery requires an optional AIGW-managed model selection")
 	}
 	block, err := codexManagedBlockIn(current)
