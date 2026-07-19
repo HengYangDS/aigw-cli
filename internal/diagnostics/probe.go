@@ -157,7 +157,17 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 		return Result{Kind: NetworkFailure, Summary: "Cannot reach the gateway", Detail: sanitize(err.Error(), token), Fix: "Check the network, proxy, and gateway URL, then try again", Retryable: true}
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	if readErr != nil {
+		return Result{
+			Kind:       NetworkFailure,
+			Summary:    "Cannot read the gateway response",
+			Detail:     sanitize(readErr.Error(), token),
+			Fix:        "Check the network, proxy, and gateway URL, then try again",
+			HTTPStatus: resp.StatusCode,
+			Retryable:  true,
+		}
+	}
 	message := strings.TrimSpace(string(body))
 	lower := strings.ToLower(message)
 	result := Result{HTTPStatus: resp.StatusCode, Detail: compact(message, token)}
