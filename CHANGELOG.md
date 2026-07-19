@@ -13,12 +13,16 @@ platform acceptance, signing, and GA status remain separate evidence.
 ### Fixed
 
 - Preserve the exact provider/model order in Air host-mirror fingerprints and
-  reject quoted-key/table aliases, including escaped TOML key segments, as
-  foreign residue while fuzzing malformed projection and router-log inputs,
-  including a route path normalization edge case.
+  reject quoted, escaped, incomplete, or otherwise malformed protected TOML
+  key/table aliases as foreign residue without rejecting valid dotted keys,
+  while fuzzing malformed projection and router-log inputs, including a route
+  path normalization edge case.
 - Report bounded recovery-ledger and quarantine health from the existing
   read-only `route doctor` command even when Air is missing, without exposing
-  private digests, case details, paths, or raw routes.
+  private digests, case details, paths, or raw routes. Private recovery reads,
+  writes, removals, and rollback are descriptor-bound and fail closed on
+  symlink traversal, unsafe permissions, special files, or unexpected storage
+  residue.
 - Verify every byte of all 15 assets on an existing GitLab Release against the
   locally validated matrix, rejecting missing, extra, duplicate, or mismatched
   assets without updating the Release or forwarding its job token to a
