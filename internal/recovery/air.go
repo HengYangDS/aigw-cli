@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
@@ -89,22 +90,100 @@ type AirSettlementReceipt struct {
 // separates persistent journal state from a currently derived configuration
 // state and contains no case identifier, path, or digest.
 type AirLifecycleStatus struct {
-	RecoveryState string `json:"recovery_state,omitempty"`
-	DerivedState  string `json:"derived_state,omitempty"`
+	RecoveryState      string `json:"recovery_state"`
+	DerivedState       string `json:"derived_state"`
+	RecoveryHealth     string `json:"recovery_health"`
+	RecoveryReasonCode string `json:"recovery_reason_code"`
 }
 
-// InspectAirLifecycle reads the hashes-only journal and current Air snapshot
-// without changing either.
+const (
+	AirRecoveryHealthInactive = "inactive"
+	AirRecoveryHealthHealthy  = "healthy"
+	AirRecoveryHealthInvalid  = "invalid"
+
+	AirRecoveryReasonOK                   = "ok"
+	AirRecoveryReasonLedgerMissing        = "ledger-missing"
+	AirRecoveryReasonLedgerUnreadable     = "ledger-unreadable"
+	AirRecoveryReasonLedgerInvalid        = "ledger-invalid"
+	AirRecoveryReasonLedgerPermission     = "ledger-permission-invalid"
+	AirRecoveryReasonQuarantineMissing    = "quarantine-missing"
+	AirRecoveryReasonQuarantineUnreadable = "quarantine-unreadable"
+	AirRecoveryReasonQuarantineInvalid    = "quarantine-invalid"
+	AirRecoveryReasonQuarantinePermission = "quarantine-permission-invalid"
+	AirRecoveryReasonQuarantineUnexpected = "quarantine-unexpected"
+	AirRecoveryReasonStoragePermission    = "storage-permission-invalid"
+)
+
+// InspectAirLifecycle reads the private journal, quarantine metadata, and
+// current Air snapshot without changing any of them. Storage defects are
+// returned as bounded reason codes rather than path-bearing internal errors.
 func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycleStatus, error) {
-	ledger, present, err := s.loadAirLedger()
+	status := AirLifecycleStatus{
+		RecoveryState:      "unknown",
+		RecoveryHealth:     AirRecoveryHealthInvalid,
+		RecoveryReasonCode: AirRecoveryReasonLedgerUnreadable,
+	}
+	ledgerSnapshot, err := s.capture(s.airLedgerPath())
 	if err != nil {
-		return AirLifecycleStatus{}, err
+		return status, nil
 	}
-	if !present {
-		return AirLifecycleStatus{}, nil
+	if !ledgerSnapshot.Exists {
+		status.RecoveryState = "none"
+		status.RecoveryHealth = AirRecoveryHealthInactive
+		status.RecoveryReasonCode = AirRecoveryReasonLedgerMissing
+		return status, nil
 	}
-	status := AirLifecycleStatus{RecoveryState: ledger.State}
-	if ledger.State == AirRecoveryStateSettled || ledger.State == AirRecoveryStatePrepared {
+	if runtime.GOOS != "windows" && ledgerSnapshot.Mode.Perm() != 0o600 {
+		status.RecoveryReasonCode = AirRecoveryReasonLedgerPermission
+		return status, nil
+	}
+	ledger, err := decodeAirLedger(ledgerSnapshot.Data)
+	if err != nil {
+		status.RecoveryReasonCode = AirRecoveryReasonLedgerInvalid
+		return status, nil
+	}
+	status.RecoveryState = ledger.State
+	quarantine, err := s.capture(s.airQuarantinePath(ledger.CaseID))
+	if err != nil {
+		status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnreadable
+		return status, nil
+	}
+	if ledger.State == AirRecoveryStateSettled {
+		if quarantine.Exists {
+			if runtime.GOOS != "windows" && quarantine.Mode.Perm() != 0o600 {
+				status.RecoveryReasonCode = AirRecoveryReasonQuarantinePermission
+				return status, nil
+			}
+			if quarantine.SHA256 != ledger.QuarantineSHA256 {
+				status.RecoveryReasonCode = AirRecoveryReasonQuarantineInvalid
+				return status, nil
+			}
+			status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnexpected
+			return status, nil
+		}
+		status.RecoveryHealth = AirRecoveryHealthHealthy
+		status.RecoveryReasonCode = AirRecoveryReasonOK
+		return status, nil
+	}
+	if !quarantine.Exists {
+		status.RecoveryReasonCode = AirRecoveryReasonQuarantineMissing
+		return status, nil
+	}
+	if runtime.GOOS != "windows" && quarantine.Mode.Perm() != 0o600 {
+		status.RecoveryReasonCode = AirRecoveryReasonQuarantinePermission
+		return status, nil
+	}
+	if quarantine.SHA256 != ledger.QuarantineSHA256 {
+		status.RecoveryReasonCode = AirRecoveryReasonQuarantineInvalid
+		return status, nil
+	}
+	if err := s.validateAirRecoveryStorage(ledger.CaseID, ledgerSnapshot, quarantine); err != nil {
+		status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
+		return status, nil
+	}
+	status.RecoveryHealth = AirRecoveryHealthHealthy
+	status.RecoveryReasonCode = AirRecoveryReasonOK
+	if ledger.State == AirRecoveryStatePrepared {
 		return status, nil
 	}
 	current, err := s.capture(airPath)
