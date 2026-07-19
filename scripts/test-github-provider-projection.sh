@@ -120,4 +120,33 @@ if git -C "$remote" log main --format='%ae%n%ce' | grep -Fv -x 'hengyang.2003@ts
   exit 1
 fi
 
+# The projection may be invoked from an isolated worktree or any other local
+# branch while `--branch main` selects a different canonical ref.  The initial
+# clone follows the caller's current branch, so the implementation must detach
+# at the requested source commit before it clears its temporary branch
+# namespace; otherwise a later checkout sees every source file as staged.
+git -C "$source" checkout -qb work/projection-caller-context main
+printf 'caller-only\n' > "$source/CALLER_CONTEXT.txt"
+git -C "$source" add CALLER_CONTEXT.txt
+git -C "$source" commit -qm 'caller-only projection context'
+
+(
+  cd "$source"
+  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
+    AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_TEST_GITHUB_REMOTE="$remote" \
+    GIT_SSH_COMMAND="$mock_ssh" \
+    AIGW_GITHUB_REMOTE=github \
+    sh "$script" --branch main
+) >/dev/null
+
+[ "$(git -C "$remote" rev-parse refs/heads/main^{tree})" = "$(git -C "$source" rev-parse refs/heads/main^{tree})" ] || {
+  echo 'projection from a non-canonical caller branch changed GitHub source content' >&2
+  exit 1
+}
+if git -C "$remote" ls-tree -r --name-only main | grep -Fxq CALLER_CONTEXT.txt; then
+  echo 'projection copied a caller-only worktree file into GitHub main' >&2
+  exit 1
+fi
+
 echo 'GitHub provider projection isolation contract: OK'

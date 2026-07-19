@@ -56,6 +56,7 @@ workspace=$(mktemp -d "${TMPDIR:-/tmp}/aigw-github-projection.XXXXXX")
 cleanup() { rm -rf "$workspace"; }
 trap cleanup EXIT HUP INT TERM
 projection="$workspace/repository"
+projection_source_ref="refs/aigw-projection/canonical"
 
 # Provider projection is an explicit, self-contained transport operation. The
 # user's global Git configuration remains untouched, but cannot rewrite its
@@ -73,10 +74,20 @@ projection_common=$(git -C "$projection" rev-parse --path-format=absolute --git-
 git -C "$projection" remote remove origin 2>/dev/null || true
 
 # Limit rewrite inputs to the one canonical branch. Provider-native tags stay
-# outside the rewritten namespace and are never copied or regenerated.
+# outside the rewritten namespace and are never copied or regenerated.  Keep
+# the source commit reachable through a private temporary ref and detach HEAD
+# before deleting heads: deleting the branch currently checked out by a clone
+# otherwise turns every tracked file into a staged addition.
+git -C "$projection" update-ref "$projection_source_ref" "$canonical"
+git -C "$projection" checkout --detach --quiet "$projection_source_ref"
 git -C "$projection" for-each-ref --format='delete %(refname)' refs/heads refs/tags | git -C "$projection" update-ref --stdin
-git -C "$projection" branch --force "$branch" "$canonical"
+git -C "$projection" branch --force "$branch" "$projection_source_ref"
 git -C "$projection" checkout --quiet "$branch"
+git -C "$projection" update-ref -d "$projection_source_ref"
+test -z "$(git -C "$projection" status --porcelain)" || {
+  echo "projection clone is not clean before identity rewrite" >&2
+  exit 1
+}
 FILTER_BRANCH_SQUELCH_WARNING=1 git -C "$projection" filter-branch -f \
   --env-filter '
     GIT_AUTHOR_NAME="HengYang"
