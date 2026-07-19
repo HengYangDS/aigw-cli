@@ -4,10 +4,10 @@ platform: linux
 version: ${AIGW_VERSION}
 section: utils
 priority: optional
-maintainer: DIG <dig@example.invalid>
+maintainer: Yang HENG <heng.yang.ds@hotmail.com>
 description: Cross-platform team CLI for third-party AI API gateway profiles, secrets, routes, and client adapters.
-vendor: DIG
-homepage: https://example.invalid/aigw-cli
+vendor: AIGW CLI
+homepage: https://github.com/HengYangDS/aigw-cli
 license: MIT
 contents:
   - src: ${AIGW_PACKAGE_ROOT}/aigw
