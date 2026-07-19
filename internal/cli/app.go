@@ -61,6 +61,7 @@ type Updater interface {
 }
 
 type App struct {
+	GOOS        string
 	Version     string
 	Config      config.Store
 	Secrets     secrets.Store
@@ -246,6 +247,7 @@ func NewDefault() (*App, error) {
 		return nil, err
 	}
 	return &App{
+		GOOS:        runtime.GOOS,
 		Version:     Version,
 		Config:      config.NewStore(path),
 		Secrets:     secretStore,
