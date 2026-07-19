@@ -13,7 +13,9 @@ trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 
 copy="$tmp/repository"
 git clone -q --no-local "file://$root" "$copy"
-printf 'package fixtures\n\nconst token = "sk-abcdefghijklmnopqrstuvwxyz012345"\n' > "$copy/internal/credential_shape_test.go"
+prefix='sk-'
+suffix='abcdefghijklmnopqrstuvwxyz012345'
+printf 'package fixtures\n\nconst token = "%s%s"\n' "$prefix" "$suffix" > "$copy/internal/credential_shape_test.go"
 git -C "$copy" add internal/credential_shape_test.go
 if (
   cd "$copy"
