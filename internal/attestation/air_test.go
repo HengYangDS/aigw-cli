@@ -227,6 +227,25 @@ func TestInspectAirRuntimeSkipsOversizedLines(t *testing.T) {
 	}
 }
 
+func TestInspectAirRuntimeKeepsCurrentEvidenceWhenRotationExceedsScanBudget(t *testing.T) {
+	now := time.Date(2026, 7, 19, 12, 0, 0, 0, time.UTC)
+	logDir := t.TempDir()
+	current := airForwardingLine(now.Add(-time.Minute), "5250:WS:selected", "accepted", "https://api.jetbrains.ai/responses")
+	writeAirLog(t, logDir, "air.log", current)
+	writeAirLog(t, logDir, "air1.log", strings.Repeat("rotation-noise", 128))
+
+	report, err := attestation.InspectAirRuntime(attestation.AirOptions{
+		LogDir: logDir, AIGWEndpoint: "https://gateway.test/v1", ConfigurationState: "external-host-mirror", Now: now,
+		ScanByteLimit: int64(len(current) + 32),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.State != "host-mirror-runtime-attested" || report.RuntimeAuthority != "jetbrains-ai" || report.RequestCount != 1 {
+		t.Fatalf("report = %#v", report)
+	}
+}
+
 func TestInspectAirRuntimeReturnsUnknownForMissingStaleFutureOrNoisyEvidence(t *testing.T) {
 	now := time.Date(2026, 7, 19, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
