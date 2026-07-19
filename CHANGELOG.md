@@ -13,9 +13,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 ### Fixed
 
 - Preserve the exact provider/model order in Air host-mirror fingerprints and
-  reject quoted-key/table aliases as foreign residue while fuzzing malformed
-  projection and router-log inputs, including a route path normalization edge
-  case.
+  reject quoted-key/table aliases, including escaped TOML key segments, as
+  foreign residue while fuzzing malformed projection and router-log inputs,
+  including a route path normalization edge case.
 - Report bounded recovery-ledger and quarantine health from the existing
   read-only `route doctor` command even when Air is missing, without exposing
   private digests, case details, paths, or raw routes.
