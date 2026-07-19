@@ -3,6 +3,7 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 tmp=$(mktemp -d)
+real_python3=$(command -v python3)
 
 fixture_process_is_live() {
   pid_file=$1
@@ -17,13 +18,20 @@ fixture_process_is_live() {
   esac
   fixture_command=$(ps -p "$fixture_pid" -o command= 2>/dev/null || true)
   case "$fixture_command" in
-    *"$tmp/timeout-bin/docker"*) return 0 ;;
+    *"$tmp/"*) return 0 ;;
     *) return 1 ;;
   esac
 }
 
 cleanup_timeout_fixture_processes() {
   for pid_file in \
+    "$tmp/supervisor-cancel-child.pid" \
+    "$tmp/supervisor-cancel-root.pid" \
+    "$tmp/supervisor-late-child.pid" \
+    "$tmp/supervisor-late-root.pid" \
+    "$tmp/supervisor-sentinel.pid" \
+    "$tmp/supervisor-timeout.pid" \
+    "$tmp/supervisor-python.pid" \
     "$tmp/timeout-grandchild.pid" \
     "$tmp/timeout-child.pid" \
     "$tmp/timeout-root.pid"
@@ -210,20 +218,37 @@ while IFS=' ' read -r _ _ path; do
   [ ! -e "$path" ] || { echo "Linux native-install staging residue remains: $path" >&2; exit 1; }
 done < "$capture"
 
-timeout_bin="$tmp/timeout-bin"
-mkdir -p "$timeout_bin"
-for utility in awk cat cp dirname find grep mkdir mktemp ps rm rmdir sh sleep tr wc; do
-  utility_path=$(command -v "$utility")
-  ln -s "$utility_path" "$timeout_bin/$utility"
+supervisor_bin="$tmp/supervisor-bin"
+mkdir -p "$supervisor_bin"
+for utility in awk cat cp dirname find grep mkdir mktemp rm rmdir sh sleep tr wc; do
+  ln -s "$(command -v "$utility")" "$supervisor_bin/$utility"
 done
 if command -v sha256sum >/dev/null 2>&1; then
-  ln -s "$(command -v sha256sum)" "$timeout_bin/sha256sum"
+  ln -s "$(command -v sha256sum)" "$supervisor_bin/sha256sum"
 else
-  ln -s "$(command -v shasum)" "$timeout_bin/shasum"
+  ln -s "$(command -v shasum)" "$supervisor_bin/shasum"
 fi
-cat > "$timeout_bin/docker" <<'SH'
+cat > "$supervisor_bin/python3" <<'SH'
+#!/bin/sh
+printf '%s\n' "$$" > "$AIGW_TEST_SUPERVISOR_PID"
+exec "$AIGW_TEST_REAL_PYTHON3" "$@"
+SH
+cat > "$supervisor_bin/timeout" <<'SH'
+#!/bin/sh
+printf '%s\n' "$$" > "$AIGW_TEST_FAKE_TIMEOUT_PID"
+: > "$AIGW_TEST_FAKE_TIMEOUT_INVOKED"
+trap '' TERM
+while :; do sleep 1; done
+SH
+cat > "$supervisor_bin/docker" <<'SH'
 #!/bin/sh
 case "${1-}" in
+  __aigw_sentinel)
+    printf '%s\n' "$$" > "$AIGW_TEST_SENTINEL_PID"
+    trap '' TERM
+    trap 'exit 0' HUP
+    while :; do sleep 1; done
+    ;;
   __aigw_timeout_child)
     printf '%s\n' "$$" > "$AIGW_TEST_TIMEOUT_CHILD_PID"
     trap '' TERM
@@ -235,96 +260,198 @@ case "${1-}" in
     trap '' TERM
     while :; do sleep 1; done
     ;;
+  __aigw_late_child)
+    printf '%s\n' "$$" > "$AIGW_TEST_LATE_CHILD_PID"
+    trap '' TERM
+    while :; do sleep 1; done
+    ;;
+  __aigw_cancel_child)
+    printf '%s\n' "$$" > "$AIGW_TEST_CANCEL_CHILD_PID"
+    trap '' TERM
+    while :; do sleep 1; done
+    ;;
 esac
 case "$1:$2" in
   image:inspect) exit 1 ;;
   pull:*)
-    printf '%s\n' "$$" > "$AIGW_TEST_TIMEOUT_ROOT_PID"
-    trap 'exit 0' TERM
-    "$0" __aigw_timeout_child &
-    wait "$!"
+    case "$AIGW_TEST_DOCKER_MODE" in
+      root-exit)
+        printf '%s\n' "$$" > "$AIGW_TEST_TIMEOUT_ROOT_PID"
+        trap 'exit 0' TERM
+        "$0" __aigw_timeout_child &
+        wait "$!"
+        ;;
+      late-fork)
+        printf '%s\n' "$$" > "$AIGW_TEST_LATE_ROOT_PID"
+        trap 'printf "reused:%s\n" "$(cat "$AIGW_TEST_SENTINEL_PID")" > "$AIGW_TEST_IDENTITY_SWITCH"; sleep 0.2; "$0" __aigw_late_child & while [ ! -s "$AIGW_TEST_LATE_CHILD_PID" ]; do :; done' TERM
+        while :; do sleep 1; done
+        ;;
+      cancellation)
+        printf '%s\n' "$$" > "$AIGW_TEST_CANCEL_ROOT_PID"
+        trap '' TERM
+        "$0" __aigw_cancel_child &
+        while [ ! -s "$AIGW_TEST_CANCEL_CHILD_PID" ]; do :; done
+        wait "$!"
+        ;;
+    esac
     ;;
 esac
 exit 1
 SH
-chmod 755 "$timeout_bin/docker"
-if PATH="$timeout_bin" command -v timeout >/dev/null 2>&1; then
-  echo "Linux native-install fallback fixture unexpectedly provides timeout" >&2
-  exit 1
-fi
+chmod 755 "$supervisor_bin/python3" "$supervisor_bin/timeout" "$supervisor_bin/docker"
+
 timeout_root_pid="$tmp/timeout-root.pid"
 timeout_child_pid="$tmp/timeout-child.pid"
 timeout_grandchild_pid="$tmp/timeout-grandchild.pid"
-PATH="$timeout_bin" \
-  AIGW_DOCKER_SHARED_TMPDIR="$shared" \
-  AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS=1 \
-  AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS=1 \
-  AIGW_LINUX_DEB_ACCEPTANCE_IMAGE="example.test/debian" \
-  AIGW_LINUX_RPM_ACCEPTANCE_IMAGE="example.test/rpm" \
-  AIGW_TEST_TIMEOUT_ROOT_PID="$timeout_root_pid" \
-  AIGW_TEST_TIMEOUT_CHILD_PID="$timeout_child_pid" \
-  AIGW_TEST_TIMEOUT_GRANDCHILD_PID="$timeout_grandchild_pid" \
-  sh "$root/scripts/test-linux-native-install.sh" "$out" "$version" >"$tmp/timeout.out" 2>&1 &
-native_install_pid=$!
-elapsed=0
-while kill -0 "$native_install_pid" 2>/dev/null && [ "$elapsed" -lt 5 ]; do
-  sleep 1
-  elapsed=$((elapsed + 1))
-done
-if kill -0 "$native_install_pid" 2>/dev/null; then
-  cleanup_timeout_fixture_processes
-  kill -KILL "$native_install_pid" 2>/dev/null || true
-  wait "$native_install_pid" 2>/dev/null || true
-  cat "$tmp/timeout.out" >&2
-  echo "Linux native-install fallback did not bound a descendant-resistant image pull" >&2
+supervisor_late_root_pid="$tmp/supervisor-late-root.pid"
+supervisor_late_child_pid="$tmp/supervisor-late-child.pid"
+supervisor_cancel_root_pid="$tmp/supervisor-cancel-root.pid"
+supervisor_cancel_child_pid="$tmp/supervisor-cancel-child.pid"
+supervisor_sentinel_pid="$tmp/supervisor-sentinel.pid"
+supervisor_python_pid="$tmp/supervisor-python.pid"
+supervisor_timeout_pid="$tmp/supervisor-timeout.pid"
+supervisor_timeout_invoked="$tmp/supervisor-timeout-invoked"
+supervisor_identity_switch="$tmp/supervisor-identity-switched"
+
+start_supervisor_case() {
+  supervisor_label=$1
+  supervisor_mode=$2
+  supervisor_timeout=$3
+  supervisor_output="$tmp/$supervisor_label.out"
+  PATH="$supervisor_bin" \
+    AIGW_DOCKER_SHARED_TMPDIR="$shared" \
+    AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS="$supervisor_timeout" \
+    AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS=1 \
+    AIGW_LINUX_DEB_ACCEPTANCE_IMAGE="example.test/debian" \
+    AIGW_LINUX_RPM_ACCEPTANCE_IMAGE="example.test/rpm" \
+    AIGW_TEST_REAL_PYTHON3="$real_python3" \
+    AIGW_TEST_SUPERVISOR_PID="$supervisor_python_pid" \
+    AIGW_TEST_FAKE_TIMEOUT_PID="$supervisor_timeout_pid" \
+    AIGW_TEST_FAKE_TIMEOUT_INVOKED="$supervisor_timeout_invoked" \
+    AIGW_TEST_DOCKER_MODE="$supervisor_mode" \
+    AIGW_TEST_TIMEOUT_ROOT_PID="$timeout_root_pid" \
+    AIGW_TEST_TIMEOUT_CHILD_PID="$timeout_child_pid" \
+    AIGW_TEST_TIMEOUT_GRANDCHILD_PID="$timeout_grandchild_pid" \
+    AIGW_TEST_LATE_ROOT_PID="$supervisor_late_root_pid" \
+    AIGW_TEST_LATE_CHILD_PID="$supervisor_late_child_pid" \
+    AIGW_TEST_CANCEL_ROOT_PID="$supervisor_cancel_root_pid" \
+    AIGW_TEST_CANCEL_CHILD_PID="$supervisor_cancel_child_pid" \
+    AIGW_TEST_SENTINEL_PID="$supervisor_sentinel_pid" \
+    AIGW_TEST_IDENTITY_SWITCH="$supervisor_identity_switch" \
+    sh "$root/scripts/test-linux-native-install.sh" "$out" "$version" >"$supervisor_output" 2>&1 &
+  supervisor_native_pid=$!
+}
+
+wait_supervisor_case() {
+  supervisor_limit=$1
+  supervisor_elapsed=0
+  while kill -0 "$supervisor_native_pid" 2>/dev/null && [ "$supervisor_elapsed" -lt "$supervisor_limit" ]; do
+    sleep 1
+    supervisor_elapsed=$((supervisor_elapsed + 1))
+  done
+  if kill -0 "$supervisor_native_pid" 2>/dev/null; then
+    cleanup_timeout_fixture_processes
+    kill -KILL "$supervisor_native_pid" 2>/dev/null || true
+    wait "$supervisor_native_pid" 2>/dev/null || true
+    cat "$supervisor_output" >&2
+    echo "Linux native-install safe supervisor exceeded its bounded fixture deadline" >&2
+    exit 1
+  fi
+  if wait "$supervisor_native_pid"; then
+    supervisor_rc=0
+  else
+    supervisor_rc=$?
+  fi
+}
+
+start_supervisor_case root-exit root-exit 1
+wait_supervisor_case 6
+[ "$supervisor_rc" -eq 124 ] || {
+  cat "$supervisor_output" >&2
+  echo "Linux native-install root-exit fixture used unexpected exit $supervisor_rc" >&2
   exit 1
-fi
-if wait "$native_install_pid"; then
-  echo "Linux native-install harness accepted an unbounded image pull" >&2
+}
+grep -F "timed out after 1s while preparing Linux acceptance image" "$supervisor_output" >/dev/null
+for pid_file in "$timeout_root_pid" "$timeout_child_pid" "$timeout_grandchild_pid"; do
+  [ -s "$pid_file" ] || { echo "Linux native-install root-exit fixture missed a process" >&2; exit 1; }
+  ! fixture_process_is_live "$pid_file" || { echo "Linux native-install root-exit fixture leaked a process" >&2; exit 1; }
+done
+[ ! -e "$supervisor_timeout_invoked" ] || { echo "Linux native-install invoked an untrusted timeout executable" >&2; exit 1; }
+
+AIGW_TEST_SENTINEL_PID="$supervisor_sentinel_pid" "$supervisor_bin/docker" __aigw_sentinel &
+supervisor_sentinel_job=$!
+while [ ! -s "$supervisor_sentinel_pid" ]; do sleep 1; done
+identity_before="retained:$(cat "$supervisor_sentinel_pid")"
+start_supervisor_case late-fork late-fork 1
+wait_supervisor_case 6
+[ "$supervisor_rc" -eq 124 ] || {
+  cat "$supervisor_output" >&2
+  echo "Linux native-install late-fork fixture used unexpected exit $supervisor_rc" >&2
+  exit 1
+}
+[ -s "$supervisor_late_child_pid" ] && [ -f "$supervisor_identity_switch" ] || {
+  echo "Linux native-install late-fork fixture did not create its adversarial descendant" >&2
+  exit 1
+}
+identity_after=$(cat "$supervisor_identity_switch")
+[ "$identity_before" != "$identity_after" ] || { echo "Linux native-install identity simulation did not change" >&2; exit 1; }
+fixture_process_is_live "$supervisor_sentinel_pid" || { echo "Linux native-install targeted an unrelated reused identity" >&2; exit 1; }
+! fixture_process_is_live "$supervisor_late_child_pid" || { echo "Linux native-install late-fork descendant escaped" >&2; exit 1; }
+[ ! -e "$supervisor_timeout_invoked" ] || { echo "Linux native-install invoked an untrusted timeout executable" >&2; exit 1; }
+kill -HUP "$(cat "$supervisor_sentinel_pid")"
+wait "$supervisor_sentinel_job" 2>/dev/null || true
+
+: > "$supervisor_python_pid"
+start_supervisor_case cancellation cancellation 30
+supervisor_elapsed=0
+while { [ ! -s "$supervisor_python_pid" ] || [ ! -s "$supervisor_cancel_root_pid" ] || [ ! -s "$supervisor_cancel_child_pid" ]; } &&
+  [ "$supervisor_elapsed" -lt 5 ]
+do
+  sleep 1
+  supervisor_elapsed=$((supervisor_elapsed + 1))
+done
+for pid_file in "$supervisor_python_pid" "$supervisor_cancel_root_pid" "$supervisor_cancel_child_pid"; do
+  [ -s "$pid_file" ] || { echo "Linux native-install cancellation fixture missed a process" >&2; exit 1; }
+done
+kill -TERM "$supervisor_native_pid"
+wait_supervisor_case 5
+[ "$supervisor_rc" -eq 143 ] || {
+  cat "$supervisor_output" >&2
+  echo "Linux native-install cancellation fixture used unexpected exit $supervisor_rc" >&2
+  exit 1
+}
+for pid_file in "$supervisor_python_pid" "$supervisor_cancel_root_pid" "$supervisor_cancel_child_pid"; do
+  ! fixture_process_is_live "$pid_file" || { echo "Linux native-install cancellation leaked an owned process" >&2; exit 1; }
+done
+[ ! -d "$shared/.image-lock-example.test_debian-linux_amd64" ] || {
+  echo "Linux native-install cancellation leaked its image lock" >&2
+  exit 1
+}
+
+missing_supervisor_bin="$tmp/missing-supervisor-bin"
+mkdir -p "$missing_supervisor_bin"
+ln -s "$(command -v dirname)" "$missing_supervisor_bin/dirname"
+ln -s "$(command -v sh)" "$missing_supervisor_bin/sh"
+cat > "$missing_supervisor_bin/docker" <<'SH'
+#!/bin/sh
+: > "$AIGW_TEST_MISSING_SUPERVISOR_DOCKER_LOG"
+exit 1
+SH
+chmod 755 "$missing_supervisor_bin/docker"
+missing_supervisor_log="$tmp/missing-supervisor-docker.log"
+if PATH="$missing_supervisor_bin" AIGW_TEST_MISSING_SUPERVISOR_DOCKER_LOG="$missing_supervisor_log" \
+  sh "$root/scripts/test-linux-native-install.sh" "$out" "$version" >"$tmp/missing-supervisor.out" 2>&1
+then
+  echo "Linux native-install ran without a safe supervisor" >&2
   exit 1
 else
-  rc=$?
+  missing_supervisor_rc=$?
 fi
-[ "$rc" -eq 124 ] || {
-  cat "$tmp/timeout.out" >&2
-  echo "Linux native-install harness used unexpected exit $rc for image-pull timeout" >&2
+[ "$missing_supervisor_rc" -eq 2 ] && [ ! -e "$missing_supervisor_log" ] || {
+  echo "Linux native-install launched Docker without a safe supervisor" >&2
   exit 1
 }
-grep -F "timed out after 1s while preparing Linux acceptance image" "$tmp/timeout.out" >/dev/null || {
-  cat "$tmp/timeout.out" >&2
-  echo "Linux native-install harness did not explain image-pull timeout" >&2
-  exit 1
-}
-for pid_file in "$timeout_root_pid" "$timeout_child_pid" "$timeout_grandchild_pid"; do
-  [ -f "$pid_file" ] || {
-    cat "$tmp/timeout.out" >&2
-    echo "Linux native-install timeout fixture did not record its complete process tree" >&2
-    exit 1
-  }
-done
-if fixture_process_is_live "$timeout_root_pid"; then
-  cleanup_timeout_fixture_processes
-  echo "Linux native-install timeout left its TERM-exiting root alive" >&2
-  exit 1
-fi
-leaked_descendants=''
-for pid_file in "$timeout_child_pid" "$timeout_grandchild_pid"; do
-  if fixture_process_is_live "$pid_file"; then
-    leaked_descendants="$leaked_descendants $(cat "$pid_file")"
-  fi
-done
-if [ -n "$leaked_descendants" ]; then
-  cleanup_timeout_fixture_processes
-  sleep 1
-  for pid_file in "$timeout_child_pid" "$timeout_grandchild_pid"; do
-    if fixture_process_is_live "$pid_file"; then
-      echo "Linux native-install timeout fixture cleanup left a descendant alive" >&2
-      exit 1
-    fi
-  done
-  echo "Linux native-install fallback returned 124 but leaked retained descendant(s):$leaked_descendants; fixture cleanup left none" >&2
-  exit 1
-fi
+grep -F "required for Linux native-install acceptance: python3" "$tmp/missing-supervisor.out" >/dev/null
 
 lock_bin="$tmp/lock-bin"
 mkdir -p "$lock_bin"
@@ -339,7 +466,7 @@ SH
 chmod 755 "$lock_bin/docker"
 lock="$shared/.image-lock-example.test_debian-linux_amd64"
 mkdir "$lock"
-if PATH="$lock_bin:/usr/bin:/bin" \
+if PATH="$lock_bin:$PATH" \
   AIGW_DOCKER_SHARED_TMPDIR="$shared" \
   AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS=1 \
   AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS=1 \
@@ -355,5 +482,37 @@ grep -F "timed out waiting for Linux acceptance image lock" "$tmp/lock.out" >/de
   echo "Linux native-install harness did not explain image-lock timeout" >&2
   exit 1
 }
+
+mkdir "$lock"
+PATH="$lock_bin:$PATH" \
+  AIGW_DOCKER_SHARED_TMPDIR="$shared" \
+  AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS=1 \
+  AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS=30 \
+  AIGW_LINUX_DEB_ACCEPTANCE_IMAGE="example.test/debian" \
+  AIGW_LINUX_RPM_ACCEPTANCE_IMAGE="example.test/rpm" \
+  sh "$root/scripts/test-linux-native-install.sh" "$out" "$version" >"$tmp/lock-cancel.out" 2>&1 &
+lock_cancel_pid=$!
+sleep 1
+kill -TERM "$lock_cancel_pid"
+lock_cancel_elapsed=0
+while kill -0 "$lock_cancel_pid" 2>/dev/null && [ "$lock_cancel_elapsed" -lt 5 ]; do
+  sleep 1
+  lock_cancel_elapsed=$((lock_cancel_elapsed + 1))
+done
+if kill -0 "$lock_cancel_pid" 2>/dev/null; then
+  kill -KILL "$lock_cancel_pid" 2>/dev/null || true
+  wait "$lock_cancel_pid" 2>/dev/null || true
+  echo "Linux native-install did not cancel bounded lock waiting" >&2
+  exit 1
+fi
+if wait "$lock_cancel_pid"; then
+  echo "Linux native-install lock-wait cancellation unexpectedly succeeded" >&2
+  exit 1
+else
+  lock_cancel_rc=$?
+fi
+[ "$lock_cancel_rc" -eq 143 ] || { echo "Linux native-install lock-wait cancellation used exit $lock_cancel_rc" >&2; exit 1; }
+[ -d "$lock" ] || { echo "Linux native-install cancellation removed a foreign image lock" >&2; exit 1; }
+rmdir "$lock"
 
 echo "Linux native-install shared-staging contract: OK"
