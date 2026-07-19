@@ -19,6 +19,8 @@ source_tip=$(git -c core.fsmonitor=false -C "$source" rev-parse HEAD)
 
 projection="$tmp/projection"
 git -c core.fsmonitor=false clone -q --no-local "file://$source" "$projection"
+git -c core.fsmonitor=false -C "$projection" config user.name 'AIGW Closeout Test'
+git -c core.fsmonitor=false -C "$projection" config user.email 'aigw-closeout@example.invalid'
 FILTER_BRANCH_SQUELCH_WARNING=1 git -c core.fsmonitor=false -C "$projection" filter-branch -f --env-filter '
   GIT_AUTHOR_NAME="Projected"
   GIT_AUTHOR_EMAIL="projected@example.invalid"
