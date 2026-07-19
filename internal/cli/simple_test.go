@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/cli"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
@@ -114,6 +115,123 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 			t.Fatalf("check lacks %q:\n%s", want, out.String())
 		}
 	}
+}
+
+func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
+	tests := []struct {
+		name       string
+		statuses   []int
+		wantError  bool
+		wantText   []string
+		rejectText []string
+	}{
+		{
+			name:       "healthy first observation",
+			statuses:   []int{http.StatusOK},
+			wantText:   []string{"Authentication healthy", "Everything is healthy"},
+			rejectText: []string{"transient response", "aigw rotate"},
+		},
+		{
+			name:       "recovered transient",
+			statuses:   []int{http.StatusUnauthorized, http.StatusOK, http.StatusOK, http.StatusOK},
+			wantText:   []string{"Authentication healthy", "Authentication recovered after a transient response", "Everything is healthy"},
+			rejectText: []string{"aigw rotate"},
+		},
+		{
+			name:      "persistent invalid token",
+			statuses:  []int{http.StatusUnauthorized, http.StatusUnauthorized, http.StatusUnauthorized, http.StatusUnauthorized},
+			wantError: true,
+			wantText:  []string{"API token is invalid or belongs to a different gateway", "aigw rotate"},
+		},
+		{
+			name:       "unstable authentication",
+			statuses:   []int{http.StatusUnauthorized, http.StatusOK, http.StatusUnauthorized, http.StatusOK},
+			wantError:  true,
+			wantText:   []string{"Authentication could not be confirmed consistently", "aigw check"},
+			rejectText: []string{"aigw rotate"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app, out, secretStore, _ := testApp(t, "")
+			cfg := domain.NewConfig()
+			addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, domain.ClientCodex, domain.Models{domain.ClientCodex: "gpt-test"})
+			cfg.Routes.Default = "dmx"
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := secretStore.Set("dmx", "stable-token"); err != nil {
+				t.Fatal(err)
+			}
+			beforeConfig, err := os.ReadFile(app.Config.Path())
+			if err != nil {
+				t.Fatal(err)
+			}
+			prompt := &recordingPrompt{}
+			app.Interactive = true
+			app.Prompt = prompt
+			calls := 0
+			app.HTTP.(*fakeHTTP).handler = func(req *http.Request) (*http.Response, error) {
+				if calls >= len(tt.statuses) {
+					t.Fatalf("unexpected authentication probe %d", calls+1)
+				}
+				status := tt.statuses[calls]
+				calls++
+				return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(`{"message":"bounded observation"}`)), Request: req}, nil
+			}
+
+			err = execute(t, app, "check")
+			if (err != nil) != tt.wantError {
+				t.Fatalf("check error = %v, wantError=%v\n%s", err, tt.wantError, out.String())
+			}
+			if calls != len(tt.statuses) {
+				t.Fatalf("probe calls = %d, want %d", calls, len(tt.statuses))
+			}
+			for _, want := range tt.wantText {
+				if !strings.Contains(out.String(), want) {
+					t.Fatalf("check output lacks %q:\n%s", want, out.String())
+				}
+			}
+			for _, reject := range tt.rejectText {
+				if strings.Contains(out.String(), reject) {
+					t.Fatalf("check output unexpectedly contains %q:\n%s", reject, out.String())
+				}
+			}
+			if prompt.calls != 0 {
+				t.Fatalf("check prompted %d times", prompt.calls)
+			}
+			afterConfig, err := os.ReadFile(app.Config.Path())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(afterConfig) != string(beforeConfig) {
+				t.Fatalf("check changed configuration\nbefore:\n%s\nafter:\n%s", beforeConfig, afterConfig)
+			}
+			if token, err := secretStore.Get("dmx"); err != nil || token != "stable-token" {
+				t.Fatalf("stored token = %q, %v; want unchanged", token, err)
+			}
+		})
+	}
+}
+
+type recordingPrompt struct {
+	calls int
+}
+
+func (p *recordingPrompt) Secret(string) (string, error) {
+	p.calls++
+	return "", errors.New("prompt forbidden during check")
+}
+
+func (p *recordingPrompt) Text(string) (string, error) {
+	p.calls++
+	return "", errors.New("prompt forbidden during check")
+}
+
+func (p *recordingPrompt) Select(string, []cli.Choice) (string, error) {
+	p.calls++
+	return "", errors.New("prompt forbidden during check")
 }
 
 func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *testing.T) {
