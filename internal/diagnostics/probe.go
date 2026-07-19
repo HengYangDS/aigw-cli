@@ -156,7 +156,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 	if err != nil {
 		return Result{Kind: NetworkFailure, Summary: "Cannot reach the gateway", Detail: sanitize(err.Error(), token), Fix: "Check the network, proxy, and gateway URL, then try again", Retryable: true}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 	if readErr != nil {
 		return Result{

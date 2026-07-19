@@ -599,7 +599,10 @@ func newConfigCommand(app *App) *cobra.Command {
 		},
 	}
 	root.AddCommand(
-		&cobra.Command{Use: "path", Short: "Print the local configuration path", Args: cobra.NoArgs, Run: func(_ *cobra.Command, _ []string) { fmt.Fprintln(app.Out, app.Config.Path()) }},
+		&cobra.Command{Use: "path", Short: "Print the local configuration path", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
+			_, err := fmt.Fprintln(app.Out, app.Config.Path())
+			return err
+		}},
 		&cobra.Command{Use: "export", Short: "Export a secret-free team manifest", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {

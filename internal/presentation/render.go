@@ -20,6 +20,7 @@ const (
 
 type Renderer struct {
 	out        io.Writer
+	err        error
 	color      bool
 	width      int
 	hasContent bool
@@ -76,14 +77,33 @@ func NewWithWidth(out io.Writer, color bool, width int) *Renderer {
 	return &Renderer{out: out, color: color, width: width, styles: base}
 }
 
+// Err reports the first output failure observed while rendering. Renderer
+// methods remain intentionally fluent so command layouts stay declarative;
+// callers can inspect this once after a complete presentation.
+func (r *Renderer) Err() error { return r.err }
+
+func (r *Renderer) printf(format string, args ...any) {
+	if r.err != nil {
+		return
+	}
+	_, r.err = fmt.Fprintf(r.out, format, args...)
+}
+
+func (r *Renderer) println(args ...any) {
+	if r.err != nil {
+		return
+	}
+	_, r.err = fmt.Fprintln(r.out, args...)
+}
+
 func (r *Renderer) Title(product, title string) {
 	if r.width > 0 {
 		for _, line := range wrap(product+"  "+title, r.width) {
-			fmt.Fprintln(r.out, r.styles.title.Render(line))
+			r.println(r.styles.title.Render(line))
 		}
-		fmt.Fprintln(r.out, strings.Repeat("─", min(40, r.width)))
+		r.println(strings.Repeat("─", min(40, r.width)))
 	} else {
-		fmt.Fprintf(r.out, "%s  %s\n%s\n", r.styles.title.Render(product), title, strings.Repeat("─", 40))
+		r.printf("%s  %s\n%s\n", r.styles.title.Render(product), title, strings.Repeat("─", 40))
 	}
 	r.hasContent = true
 	r.inSection = false
@@ -91,24 +111,24 @@ func (r *Renderer) Title(product, title string) {
 
 func (r *Renderer) Section(title string) {
 	if r.hasContent {
-		fmt.Fprintln(r.out)
+		r.println()
 	}
-	fmt.Fprintln(r.out, r.styles.section.Render(title))
+	r.println(r.styles.section.Render(title))
 	r.hasContent = true
 	r.inSection = true
 }
 
 func (r *Renderer) Row(label, value string) {
 	if r.requiresCompact(label, value, 2) {
-		fmt.Fprintf(r.out, "  %s\n", label)
+		r.printf("  %s\n", label)
 		r.writeWrapped(value, compactIndent, r.styles.dim)
 		r.hasContent = true
 		return
 	}
 	if r.width > 0 {
-		fmt.Fprintf(r.out, "  %s  %s\n", label, value)
+		r.printf("  %s  %s\n", label, value)
 	} else {
-		fmt.Fprintf(r.out, "  %s%s\n", r.fixedLabel(r.styles.rowKey, label, rowKeyWidth), value)
+		r.printf("  %s%s\n", r.fixedLabel(r.styles.rowKey, label, rowKeyWidth), value)
 	}
 	r.hasContent = true
 }
@@ -116,16 +136,16 @@ func (r *Renderer) Row(label, value string) {
 func (r *Renderer) Status(state State, label, value string) {
 	symbol := map[State]string{OK: "✓", Warn: "!", Fail: "✗", Info: "·"}[state]
 	if r.requiresCompact(symbol+" "+label, value, 2) {
-		fmt.Fprintf(r.out, "  %s %s\n", r.stateStyle(state).Render(symbol), label)
+		r.printf("  %s %s\n", r.stateStyle(state).Render(symbol), label)
 		r.writeWrapped(value, compactIndent, r.styles.dim)
 		r.hasContent = true
 		return
 	}
 	symbol = r.stateStyle(state).Render(symbol)
 	if r.width > 0 {
-		fmt.Fprintf(r.out, "  %s %s  %s\n", symbol, label, value)
+		r.printf("  %s %s  %s\n", symbol, label, value)
 	} else {
-		fmt.Fprintf(r.out, "  %s %s%s\n", symbol, r.fixedLabel(r.styles.stateKey, label, stateKeyWidth), value)
+		r.printf("  %s %s%s\n", symbol, r.fixedLabel(r.styles.stateKey, label, stateKeyWidth), value)
 	}
 	r.hasContent = true
 }
@@ -136,7 +156,7 @@ func (r *Renderer) StatusLine(state State, label, value string) {
 		return
 	}
 	symbol = r.stateStyle(state).Render(symbol)
-	fmt.Fprintf(r.out, "  %s %s  %s\n", symbol, label, value)
+	r.printf("  %s %s  %s\n", symbol, label, value)
 	r.hasContent = true
 }
 
@@ -146,7 +166,7 @@ func (r *Renderer) Detail(value string) {
 		r.hasContent = true
 		return
 	}
-	fmt.Fprintln(r.out, lipgloss.NewStyle().MarginLeft(detailIndent).Inherit(r.styles.dim).Render(value))
+	r.println(lipgloss.NewStyle().MarginLeft(detailIndent).Inherit(r.styles.dim).Render(value))
 	r.hasContent = true
 }
 
@@ -154,7 +174,7 @@ func (r *Renderer) Text(value string) {
 	if r.compactText(value, 2, r.styles.dim) {
 		return
 	}
-	fmt.Fprintf(r.out, "  %s\n", value)
+	r.printf("  %s\n", value)
 	r.hasContent = true
 }
 
@@ -164,7 +184,7 @@ func (r *Renderer) Command(value string) {
 		r.hasContent = true
 		return
 	}
-	fmt.Fprintf(r.out, "  %s\n", r.styles.command.Render(value))
+	r.printf("  %s\n", r.styles.command.Render(value))
 	r.hasContent = true
 }
 
@@ -172,7 +192,7 @@ func (r *Renderer) Success(value string) {
 	if r.compactRow("✓", value, true) {
 		return
 	}
-	fmt.Fprintf(r.out, "  %s %s\n", r.styles.ok.Render("✓"), value)
+	r.printf("  %s %s\n", r.styles.ok.Render("✓"), value)
 	r.hasContent = true
 }
 
@@ -207,7 +227,7 @@ func (r *Renderer) writeHumanText(value string, style lipgloss.Style) {
 	if r.width > 0 {
 		r.writeWrapped(value, 2, style)
 	} else {
-		fmt.Fprintf(r.out, "  %s\n", style.Render(value))
+		r.printf("  %s\n", style.Render(value))
 	}
 	r.hasContent = true
 }
@@ -225,9 +245,9 @@ func (r *Renderer) compactRow(label, value string, status bool) bool {
 	}
 	if status {
 		symbol, rest, _ := strings.Cut(label, " ")
-		fmt.Fprintf(r.out, "  %s %s\n", r.stateStyleForSymbol(symbol).Render(symbol), rest)
+		r.printf("  %s %s\n", r.stateStyleForSymbol(symbol).Render(symbol), rest)
 	} else {
-		fmt.Fprintf(r.out, "  %s\n", label)
+		r.printf("  %s\n", label)
 	}
 	r.writeWrapped(value, compactIndent, r.styles.dim)
 	r.hasContent = true
@@ -249,7 +269,7 @@ func (r *Renderer) writeWrapped(value string, indent int, style lipgloss.Style) 
 		available = 1
 	}
 	for _, line := range wrap(value, available) {
-		fmt.Fprintf(r.out, "%s%s\n", strings.Repeat(" ", indent), style.Render(line))
+		r.printf("%s%s\n", strings.Repeat(" ", indent), style.Render(line))
 	}
 }
 

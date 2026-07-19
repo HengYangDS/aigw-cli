@@ -243,7 +243,7 @@ func scanAirLog(path string, location *time.Location, budget *int64) ([]airRecor
 	if err != nil {
 		return nil, false, errors.New("unavailable")
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	reader := bufio.NewReaderSize(file, maxAirLogLineBytes)
 	records := make([]airRecord, 0)
