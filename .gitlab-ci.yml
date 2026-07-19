@@ -34,6 +34,8 @@ verify:
     - sh scripts/check-product-surface.sh
     - sh scripts/check-retired-residue.sh
     - sh scripts/check-english-text.sh
+    - sh scripts/check-credential-literals.sh
+    - sh scripts/test-credential-literals.sh
     - sh scripts/check-credential-fixtures.sh
     - sh scripts/test-credential-fixtures.sh
     - git fetch --tags --force --prune --prune-tags origin
@@ -67,7 +69,6 @@ verify:
     - go build -o /tmp/aigw-install-smoke ./cmd/aigw
     - sh scripts/test-installers.sh /tmp/aigw-install-smoke
     - sh scripts/test-portable-install.sh /tmp/aigw-install-smoke
-    - '! grep -RInE --exclude-dir=.git --exclude="*_test.go" "(sk-[A-Za-z0-9_-]{24,}|Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9_-]{24,})" .'
 
 windows-installer-runtime:
   stage: verify

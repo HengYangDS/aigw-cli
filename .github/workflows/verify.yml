@@ -55,6 +55,8 @@ jobs:
           sh scripts/check-product-surface.sh
           sh scripts/check-retired-residue.sh
           sh scripts/check-english-text.sh
+          sh scripts/check-credential-literals.sh
+          sh scripts/test-credential-literals.sh
           sh scripts/check-credential-fixtures.sh
           sh scripts/test-credential-fixtures.sh
           sh scripts/check-governance.sh
