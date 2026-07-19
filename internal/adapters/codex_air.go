@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
 )
@@ -24,10 +25,18 @@ const (
 
 var exactAirManagedProviderLine = regexp.MustCompile(`^model_provider = "aigw" # managed by AIGW$`)
 var exactAirManagedModelLine = regexp.MustCompile(`^model = "[^"\r\n]+" # managed by AIGW$`)
-var quotedAirModelProviderLine = regexp.MustCompile(`(?m)^[ \t]*(?:"model_provider"|'model_provider')[ \t]*=.*$`)
-var quotedAirModelLine = regexp.MustCompile(`(?m)^[ \t]*(?:"model"|'model')[ \t]*=.*$`)
-var airAIGWSelectionLine = regexp.MustCompile(`^[ \t]*(?:model_provider|"model_provider"|'model_provider')[ \t]*=[ \t]*(?:"aigw(?:_fallback)?"|'aigw(?:_fallback)?')[ \t]*(?:#[^\r\n]*)?$`)
-var airAIGWProviderTableLine = regexp.MustCompile(`(?m)^[ \t]*\[\[?[ \t]*(?:model_providers|"model_providers"|'model_providers')[ \t]*\.[ \t]*(?:aigw(?:_fallback)?|"aigw(?:_fallback)?"|'aigw(?:_fallback)?')[ \t]*(?:\]|\.|$)`)
+var airAIGWSelectionValue = regexp.MustCompile(`^[ \t]*(?:"aigw(?:_fallback)?"|'aigw(?:_fallback)?')[ \t]*(?:#[^\r\n]*)?$`)
+
+const airAliasDecodedKeyLimit = 64
+
+type airTOMLKeySegment struct {
+	value    string
+	raw      string
+	end      int
+	valid    bool
+	basic    bool
+	overflow bool
+}
 
 type airTextSpan struct {
 	start int
@@ -230,10 +239,14 @@ func topLevelAirSelectionLines(text string) ([]airProjectionLine, []airProjectio
 		if inTable {
 			continue
 		}
-		if modelProviderLine.MatchString(line.text) || quotedAirModelProviderLine.MatchString(line.text) {
+		key, _, ok := airTopLevelAssignment(line.text)
+		if !ok {
+			continue
+		}
+		if airKeyMatchesAlias(key, "model_provider") {
 			providers = append(providers, line)
 		}
-		if modelLine.MatchString(line.text) || quotedAirModelLine.MatchString(line.text) {
+		if airKeyMatchesAlias(key, "model") {
 			models = append(models, line)
 		}
 	}
@@ -294,7 +307,7 @@ func hasAirAIGWResidue(text string) bool {
 		return true
 	}
 	for _, line := range splitAirProjectionLines(text) {
-		if airAIGWSelectionLine.MatchString(normalizeAirProjectionLine(line.text)) {
+		if airLineSelectsAIGW(line.text) {
 			return true
 		}
 	}
@@ -302,7 +315,235 @@ func hasAirAIGWResidue(text string) bool {
 }
 
 func airAIGWProviderTableCount(text string) int {
-	return len(airAIGWProviderTableLine.FindAllStringIndex(normalizeAirProjectionNewlines(text), -1))
+	count := 0
+	for _, line := range splitAirProjectionLines(normalizeAirProjectionNewlines(text)) {
+		if airLineDeclaresAIGWProviderTable(line.text) {
+			count++
+		}
+	}
+	return count
+}
+
+func airTopLevelAssignment(line string) (airTOMLKeySegment, string, bool) {
+	line = normalizeAirProjectionLine(line)
+	start := skipAirTOMLKeySpace(line, 0)
+	key, ok := parseAirTOMLKeySegment(line[start:])
+	if !ok {
+		return airTOMLKeySegment{}, "", false
+	}
+	end := skipAirTOMLKeySpace(line, start+key.end)
+	if end >= len(line) || line[end] != '=' {
+		return airTOMLKeySegment{}, "", false
+	}
+	return key, line[end+1:], true
+}
+
+func airLineSelectsAIGW(line string) bool {
+	key, value, ok := airTopLevelAssignment(line)
+	return ok && airKeyMatchesAlias(key, "model_provider") && airAIGWSelectionValue.MatchString(value)
+}
+
+func airLineDeclaresAIGWProviderTable(line string) bool {
+	line = normalizeAirProjectionLine(line)
+	position := skipAirTOMLKeySpace(line, 0)
+	if position >= len(line) || line[position] != '[' {
+		return false
+	}
+	position++
+	if position < len(line) && line[position] == '[' {
+		position++
+	}
+	position = skipAirTOMLKeySpace(line, position)
+	namespace, ok := parseAirTOMLKeySegment(line[position:])
+	if !ok || !airKeyMatchesAlias(namespace, "model_providers") {
+		return false
+	}
+	position = skipAirTOMLKeySpace(line, position+namespace.end)
+	if position >= len(line) || line[position] != '.' {
+		return false
+	}
+	position = skipAirTOMLKeySpace(line, position+1)
+	provider, ok := parseAirTOMLKeySegment(line[position:])
+	if !ok || !airKeyMatchesAlias(provider, "aigw", "aigw_fallback") {
+		return false
+	}
+	position = skipAirTOMLKeySpace(line, position+provider.end)
+	return position == len(line) || line[position] == ']' || line[position] == '.'
+}
+
+func skipAirTOMLKeySpace(text string, position int) int {
+	for position < len(text) && (text[position] == ' ' || text[position] == '\t') {
+		position++
+	}
+	return position
+}
+
+func parseAirTOMLKeySegment(text string) (airTOMLKeySegment, bool) {
+	if text == "" {
+		return airTOMLKeySegment{}, false
+	}
+	switch text[0] {
+	case '"':
+		return parseAirTOMLBasicKeySegment(text), true
+	case '\'':
+		if end := strings.IndexByte(text[1:], '\''); end >= 0 {
+			end++
+			return airTOMLKeySegment{value: text[1:end], raw: text[1:end], end: end + 1, valid: true}, true
+		}
+		return airTOMLKeySegment{value: text[1:], raw: text[1:], end: len(text), valid: false}, true
+	default:
+		end := 0
+		for end < len(text) && isAirTOMLBareKeyByte(text[end]) {
+			end++
+		}
+		if end == 0 {
+			return airTOMLKeySegment{}, false
+		}
+		return airTOMLKeySegment{value: text[:end], raw: text[:end], end: end, valid: true}, true
+	}
+}
+
+func parseAirTOMLBasicKeySegment(text string) airTOMLKeySegment {
+	decoded := make([]rune, 0, 16)
+	valid := true
+	decodePrefix := true
+	overflow := false
+	for position := 1; position < len(text); {
+		if text[position] == '"' {
+			return airTOMLKeySegment{
+				value:    string(decoded),
+				raw:      text[1:position],
+				end:      position + 1,
+				valid:    valid,
+				basic:    true,
+				overflow: overflow,
+			}
+		}
+		if text[position] == '\\' {
+			r, width, ok := decodeAirTOMLBasicKeyEscape(text[position:])
+			if !ok {
+				valid = false
+				decodePrefix = false
+				position += min(2, len(text)-position)
+				continue
+			}
+			if decodePrefix {
+				decoded, overflow = appendAirAliasRune(decoded, r, overflow)
+			}
+			position += width
+			continue
+		}
+		r, width := utf8.DecodeRuneInString(text[position:])
+		if r == utf8.RuneError && width == 1 {
+			valid = false
+			decodePrefix = false
+			position++
+			continue
+		}
+		if r < 0x20 || r == 0x7f {
+			valid = false
+			decodePrefix = false
+		}
+		if decodePrefix {
+			decoded, overflow = appendAirAliasRune(decoded, r, overflow)
+		}
+		position += width
+	}
+	return airTOMLKeySegment{
+		value:    string(decoded),
+		raw:      text[1:],
+		end:      len(text),
+		valid:    false,
+		basic:    true,
+		overflow: overflow,
+	}
+}
+
+func decodeAirTOMLBasicKeyEscape(text string) (rune, int, bool) {
+	if len(text) < 2 || text[0] != '\\' {
+		return 0, 0, false
+	}
+	switch text[1] {
+	case 'b':
+		return '\b', 2, true
+	case 't':
+		return '\t', 2, true
+	case 'n':
+		return '\n', 2, true
+	case 'f':
+		return '\f', 2, true
+	case 'r':
+		return '\r', 2, true
+	case '"':
+		return '"', 2, true
+	case '\\':
+		return '\\', 2, true
+	case 'u':
+		return decodeAirTOMLUnicodeEscape(text, 4)
+	case 'U':
+		return decodeAirTOMLUnicodeEscape(text, 8)
+	default:
+		return 0, 0, false
+	}
+}
+
+func decodeAirTOMLUnicodeEscape(text string, digits int) (rune, int, bool) {
+	width := digits + 2
+	if len(text) < width {
+		return 0, 0, false
+	}
+	value := uint32(0)
+	for _, digit := range text[2:width] {
+		value <<= 4
+		switch {
+		case digit >= '0' && digit <= '9':
+			value += uint32(digit - '0')
+		case digit >= 'a' && digit <= 'f':
+			value += uint32(digit-'a') + 10
+		case digit >= 'A' && digit <= 'F':
+			value += uint32(digit-'A') + 10
+		default:
+			return 0, 0, false
+		}
+	}
+	r := rune(value)
+	if !utf8.ValidRune(r) || r >= 0xd800 && r <= 0xdfff {
+		return 0, 0, false
+	}
+	return r, width, true
+}
+
+func appendAirAliasRune(decoded []rune, r rune, overflow bool) ([]rune, bool) {
+	if overflow || len(decoded) >= airAliasDecodedKeyLimit {
+		return decoded, true
+	}
+	return append(decoded, r), false
+}
+
+func airKeyMatchesAlias(key airTOMLKeySegment, aliases ...string) bool {
+	for _, alias := range aliases {
+		if key.valid && !key.overflow && key.value == alias {
+			return true
+		}
+		if !key.valid && key.basic && airMalformedBasicKeyResemblesAlias(key, alias) {
+			return true
+		}
+	}
+	return false
+}
+
+func airMalformedBasicKeyResemblesAlias(key airTOMLKeySegment, alias string) bool {
+	if strings.Contains(key.raw, alias) {
+		return true
+	}
+	return key.value != "" && (strings.HasPrefix(alias, key.value) || strings.HasPrefix(key.value, alias))
+}
+
+func isAirTOMLBareKeyByte(value byte) bool {
+	return value >= 'a' && value <= 'z' ||
+		value >= 'A' && value <= 'Z' ||
+		value >= '0' && value <= '9' ||
+		value == '_' || value == '-'
 }
 
 func airSnapshotWithData(preimage transaction.FileSnapshot, data []byte) transaction.FileSnapshot {
