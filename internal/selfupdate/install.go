@@ -57,34 +57,6 @@ func portableArchiveName(version, goos, goarch string) string {
 	return fmt.Sprintf("aigw_%s_%s_%s%s", version, goos, goarch, extension)
 }
 
-func localCandidateVersion(directory, goos, goarch string) (string, error) {
-	entries, err := os.ReadDir(directory)
-	if err != nil {
-		return "", fmt.Errorf("read verified local candidate: %w", err)
-	}
-	prefix := "aigw_"
-	suffix := "_" + goos + "_" + goarch
-	if goos == "windows" {
-		suffix += ".zip"
-	} else {
-		suffix += ".tar.gz"
-	}
-	versions := make([]string, 0, 1)
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasPrefix(entry.Name(), prefix) || !strings.HasSuffix(entry.Name(), suffix) {
-			continue
-		}
-		version := strings.TrimSuffix(strings.TrimPrefix(entry.Name(), prefix), suffix)
-		if _, err := parseVersion("v" + version); err == nil {
-			versions = append(versions, version)
-		}
-	}
-	if len(versions) != 1 {
-		return "", fmt.Errorf("verified local candidate must contain exactly one portable archive for %s/%s", goos, goarch)
-	}
-	return versions[0], nil
-}
-
 func archiveVersion(name, goos, goarch string) (string, error) {
 	prefix := "aigw_"
 	suffix := "_" + goos + "_" + goarch

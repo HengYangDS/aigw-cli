@@ -23,7 +23,8 @@ for file in \
   packaging/release/github-legacy-allowed-signers \
   packaging/release/github-legacy-tags.txt \
   packaging/release/retired-gitlab-tags.txt \
-  .github/workflows/verify.yml
+  .github/workflows/verify.yml \
+  scripts/check-static-analysis.sh
 do
   require_file "$file"
 done
@@ -43,6 +44,14 @@ if ! grep -Fq '`aigw-cli`' README.md; then
 fi
 if ! grep -Fq 'sh scripts/check-governance.sh' .gitlab-ci.yml; then
   echo "GitLab CI must execute the governance check" >&2
+  exit 1
+fi
+if ! grep -Fq 'scripts/check-static-analysis.sh' .github/workflows/verify.yml; then
+  echo "GitHub Actions must execute the static-analysis check" >&2
+  exit 1
+fi
+if ! grep -Fq 'scripts/check-static-analysis.sh' .gitlab-ci.yml; then
+  echo "GitLab CI must execute the static-analysis check" >&2
   exit 1
 fi
 if ! grep -Fq 'scripts/check-governance.sh' .github/workflows/verify.yml; then
