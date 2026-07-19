@@ -192,7 +192,11 @@ for tag in tags:
         continue
     tag_trees[version] = tree
     tag_versions.append(version)
-if latest_tag:
+# When a canonical checkout has a qualified GitHub namespace, the shell-level
+# `latest_tag` candidate comes from unscoped GitLab tags and must not leak back
+# into GitHub chronology. Native GitHub checkouts have no qualified namespace,
+# so their direct latest tag remains valid.
+if latest_tag and not (forge == "github" and github_tags):
     try:
         latest_version = latest_tag.removeprefix("v")
         release_key(latest_version)
