@@ -307,7 +307,7 @@ func hasAirAIGWResidue(text string) bool {
 		return true
 	}
 	for _, line := range splitAirProjectionLines(text) {
-		if airLineSelectsAIGW(line.text) {
+		if airLineSelectsAIGW(line.text) || airLineHasIncompleteProtectedAlias(line.text) {
 			return true
 		}
 	}
@@ -341,6 +341,43 @@ func airTopLevelAssignment(line string) (airTOMLKeySegment, string, bool) {
 func airLineSelectsAIGW(line string) bool {
 	key, value, ok := airTopLevelAssignment(line)
 	return ok && airKeyMatchesAlias(key, "model_provider") && airAIGWSelectionValue.MatchString(value)
+}
+
+func airLineHasIncompleteProtectedAlias(line string) bool {
+	line = normalizeAirProjectionLine(line)
+	position := skipAirTOMLKeySpace(line, 0)
+	if position >= len(line) {
+		return false
+	}
+	if line[position] == '[' {
+		return airLineHasIncompleteProtectedTableAlias(line[position:])
+	}
+	key, ok := parseAirTOMLKeySegment(line[position:])
+	if !ok {
+		return false
+	}
+	position = skipAirTOMLKeySpace(line, position+key.end)
+	if position < len(line) && line[position] == '=' {
+		return false
+	}
+	return airKeyMatchesAlias(key, "model_provider", "model")
+}
+
+func airLineHasIncompleteProtectedTableAlias(line string) bool {
+	position := 1
+	if position < len(line) && line[position] == '[' {
+		position++
+	}
+	position = skipAirTOMLKeySpace(line, position)
+	namespace, ok := parseAirTOMLKeySegment(line[position:])
+	if !ok || !airKeyMatchesAlias(namespace, "model_providers") {
+		return false
+	}
+	position = skipAirTOMLKeySpace(line, position+namespace.end)
+	if position < len(line) && line[position] == '.' {
+		return false
+	}
+	return !namespace.valid || position >= len(line) || line[position] != ']'
 }
 
 func airLineDeclaresAIGWProviderTable(line string) bool {
@@ -523,6 +560,9 @@ func appendAirAliasRune(decoded []rune, r rune, overflow bool) ([]rune, bool) {
 func airKeyMatchesAlias(key airTOMLKeySegment, aliases ...string) bool {
 	for _, alias := range aliases {
 		if key.valid && !key.overflow && key.value == alias {
+			return true
+		}
+		if !key.valid && !key.basic && !key.overflow && key.value == alias {
 			return true
 		}
 		if !key.valid && key.basic && airMalformedBasicKeyResemblesAlias(key, alias) {
