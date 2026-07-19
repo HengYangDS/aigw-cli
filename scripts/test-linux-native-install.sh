@@ -40,12 +40,51 @@ run_with_timeout() {
     timeout "$seconds" "$@"
     return
   fi
+
+  descendant_pids() {
+    root_pid=$1
+    ps -eo pid=,ppid= 2>/dev/null | awk -v root="$root_pid" '
+      { parent[$1] = $2 }
+      END {
+        for (candidate in parent) {
+          ancestor = candidate
+          while (ancestor in parent && parent[ancestor] != 0) {
+            ancestor = parent[ancestor]
+            if (ancestor == root) {
+              print candidate
+              break
+            }
+          }
+        }
+      }
+    '
+  }
+
+  signal_process_tree() {
+    signal=$1
+    root_pid=$2
+    descendants=$(descendant_pids "$root_pid")
+    set -- "$root_pid"
+    for descendant in $descendants; do
+      set -- "$@" "$descendant"
+    done
+    kill "-$signal" "$@" 2>/dev/null || true
+  }
+
   "$@" &
   pid=$!
   elapsed=0
   while kill -0 "$pid" 2>/dev/null; do
     if [ "$elapsed" -ge "$seconds" ]; then
-      kill "$pid" 2>/dev/null || true
+      signal_process_tree TERM "$pid"
+      # Preserve a hard 300-second ceiling: the one-second TERM grace is only
+      # available when it still fits below the admitted timeout maximum.
+      if [ "$seconds" -lt 300 ]; then
+        sleep 1
+      fi
+      if kill -0 "$pid" 2>/dev/null; then
+        signal_process_tree KILL "$pid"
+      fi
       wait "$pid" 2>/dev/null || true
       return 124
     fi
