@@ -21,7 +21,7 @@ A host surface has one of the following contracts:
 | Ordinary standalone Codex CLI | AIGW | Full provider/model selection is admitted. |
 | ChatGPT Desktop | Desktop for existing conversations | AIGW may provide default configuration for later/new work, but never edits session metadata, JSONL, SQLite, a selected conversation model, or a transcript. |
 | PyCharm Codex | JetBrains AI | Excluded from AIGW target adoption and generic reconciliation. |
-| JetBrains Air | JetBrains AI | Default selection is external. Only `aigw route fallback air` may stage a reversible, namespaced AIGW block. |
+| JetBrains Air | JetBrains AI | Default selection and exact host mirrors are external. Only `aigw route fallback air` may stage a reversible, namespaced AIGW block. |
 | Junie CLI | JetBrains AI | Classified for route diagnosis only; it is never a Codex target. |
 
 A projection comprises `config.toml` plus its `.aigw-state.json` sidecar. A
@@ -61,6 +61,27 @@ bodies, or claiming session, endpoint, terminal, or billing proof. Junie is
 always reported as not probed. On a route-ownership conflict it recommends the
 repair preview, not an Air fallback restore that could be invalid while Air is
 still selected to AIGW at the top level.
+
+Equal AIGW bytes or markers do not transfer ownership. Air is an
+`external-host-mirror` only when its exact managed projection matches a current
+standalone full-selection projection with a recognized, hash-matching sidecar.
+Without that positive reference proof, a sidecar-absent exact generated full
+selection is `orphaned-exact-full-selection`; partial, duplicate, fallback,
+foreign, and changed shapes remain fail closed. Route doctor gives a host
+mirror no mutation guidance, keeps ADR-0003's sidecar-mismatch recovery
+separate, and recommends `recover-orphan` only for the exact orphan.
+
+`aigw route attest air` observes bounded forwarding records from one fresh Air
+log generation. This ephemeral evidence does not grant authority or prove
+process lifecycle, authentication, billing, terminal outcome, or a visible
+reply. It reads no headers, bodies, prompts, responses, credentials, or
+conversation state.
+
+Exact-orphan recovery binds immutable snapshots of the Air config and sidecar
+and the standalone config and sidecar. Its private journal and quarantine retain
+the byte-exact preimage while guarded removal leaves an unset external
+baseline. Settlement updates only that journal and quarantine; it never writes
+Air or invents a JetBrains selection.
 
 Air fallback never changes the top-level `model` or `model_provider` keys. It
 adds/removes only an AIGW-owned namespaced suffix, preserving the original Air
