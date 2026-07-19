@@ -117,3 +117,16 @@ func windowsJoin(parts ...string) string {
 	}
 	return strings.Join(clean, `\`)
 }
+
+// AirLogDirFor returns the only host-log boundary admitted for Air runtime
+// attestation. Other platforms are rejected rather than guessed.
+func AirLogDirFor(goos string, env map[string]string) (string, error) {
+	if goos != "darwin" {
+		return "", fmt.Errorf("Air runtime attestation is unsupported on %q", goos)
+	}
+	home := env["HOME"]
+	if home == "" {
+		return "", fmt.Errorf("HOME is not set")
+	}
+	return filepath.Join(home, "Library", "Logs", "JetBrains", "Air"), nil
+}
