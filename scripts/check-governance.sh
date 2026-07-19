@@ -29,6 +29,25 @@ do
   require_file "$file"
 done
 
+for gate in \
+  'go test -race ./...' \
+  'go vet ./...' \
+  'sh scripts/check-static-analysis.sh' \
+  'test -z "$(gofmt -l cmd internal tools)"' \
+  'sh scripts/check-governance.sh' \
+  'python3 scripts/check-markdown-presentation.py' \
+  'python3 scripts/check-text-layout.py' \
+  'sh scripts/test-text-layout.sh' \
+  'sh scripts/test-changelog.sh'
+do
+  for document in CONTRIBUTING.md AGENTS.md README.md; do
+    if ! grep -Fxq "$gate" "$document"; then
+      echo "$document must list required local verification gate exactly: $gate" >&2
+      exit 1
+    fi
+  done
+done
+
 sh scripts/check-changelog.sh
 sh scripts/check-english-text.sh
 sh scripts/check-product-surface.sh
