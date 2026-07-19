@@ -8,6 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Make the human `aigw route doctor` result explain that an unbound Air
+  `orphaned-aigw-marker` admits no AIGW mutation, rather than suggesting a
+  generic repair that would not change the external JetBrains surface.
+
 ## [0.1.0-rc.67] - 2026-07-19
 
 ### Fixed
