@@ -29,10 +29,11 @@ forms, bearer credentials are removed even when their value is unknown, and
 credential-shaped JSON/query fields are redacted without discarding unrelated
 diagnostic context.
 
-Test fixtures use explicit `aigw-test-*` sentinels rather than API-key-shaped
-literals. The credential-fixture gate rejects `sk-` and bearer-token patterns in
-test source, so historical or fixture-only data cannot be mistaken for a live
-secret during evidence retention or repository scans.
+The credential-literal gate rejects `sk-` and bearer-token patterns in
+tracked non-test source. Test fixtures use explicit `aigw-test-*` sentinels
+rather than API-key-shaped literals, and the credential-fixture gate rejects
+such patterns in test source. These controls prevent source, history reviews,
+and evidence retention from mistaking fixture-only data for a live secret.
 
 Use hidden terminal input or pipe exactly one line with `--token-stdin`. AIGW rejects endpoint URLs containing userinfo or credential-like query parameters. Remote endpoints require HTTPS; HTTP is loopback-only.
 
