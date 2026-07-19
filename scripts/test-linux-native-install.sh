@@ -17,9 +17,19 @@ require() {
   }
 }
 
+require_timeout_range() {
+  name=$1
+  value=$2
+  if [ "$value" -ge 1 ] 2>/dev/null && [ "$value" -le 300 ] 2>/dev/null; then
+    return 0
+  fi
+  echo "$name must be an integer from 1 through 300" >&2
+  exit 2
+}
+
 require docker
-[ "$pull_timeout" -gt 0 ] 2>/dev/null || { echo "AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS must be a positive integer" >&2; exit 2; }
-[ "$lock_timeout" -gt 0 ] 2>/dev/null || { echo "AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS must be a positive integer" >&2; exit 2; }
+require_timeout_range AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS "$pull_timeout"
+require_timeout_range AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS "$lock_timeout"
 [ -d "$out" ] || { echo "artifact directory does not exist: $out" >&2; exit 2; }
 sh "$root/scripts/check-release-artifacts.sh" "$out" "$version" >/dev/null
 
