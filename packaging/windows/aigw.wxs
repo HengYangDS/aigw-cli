@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="$(var.ProductCode)" Name="AIGW CLI" Language="1033" Version="$(var.ProductVersion)" Manufacturer="DIG" UpgradeCode="A4F1C6D9-4995-4E48-B469-6F7C0DF5485D">
+  <Product Id="$(var.ProductCode)" Name="AIGW CLI" Language="1033" Version="$(var.ProductVersion)" Manufacturer="AIGW CLI" UpgradeCode="A4F1C6D9-4995-4E48-B469-6F7C0DF5485D">
     <Package Id="$(var.PackageCode)" InstallerVersion="500" Compressed="yes" InstallScope="perUser"/>
     <MajorUpgrade DowngradeErrorMessage="A newer version of AIGW is already installed."/>
     <MediaTemplate EmbedCab="yes"/>
