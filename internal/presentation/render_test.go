@@ -2,11 +2,16 @@ package presentation_test
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
 )
+
+type failingWriter struct{ err error }
+
+func (w failingWriter) Write([]byte) (int, error) { return 0, w.err }
 
 func TestRendererProducesAlignedHumanReadableLayout(t *testing.T) {
 	var out bytes.Buffer
@@ -37,6 +42,16 @@ func TestRendererProducesAlignedHumanReadableLayout(t *testing.T) {
 		"  aigw balance\n"
 	if out.String() != want {
 		t.Fatalf("layout mismatch\n--- want ---\n%s--- got ---\n%s", want, out.String())
+	}
+}
+
+func TestRendererRecordsOutputWriteFailure(t *testing.T) {
+	want := errors.New("output is unavailable")
+	r := presentation.New(failingWriter{err: want}, false)
+	r.Title("AIGW", "Health check")
+
+	if !errors.Is(r.Err(), want) {
+		t.Fatalf("Renderer.Err() = %v, want %v", r.Err(), want)
 	}
 }
 

@@ -148,7 +148,7 @@ func (u Updater) downloadReleaseAssetFromGitLabAPI(ctx context.Context, tag, ass
 	if err != nil {
 		return fmt.Errorf("download release asset %s: %w", asset, err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("download release asset %s: %s", asset, response.Status)
 	}
@@ -277,7 +277,7 @@ func (u Updater) latestTagFromGitLabAPI(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", unavailable(fmt.Errorf("query GitLab latest release: %w", err))
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
 		return "", unavailable(fmt.Errorf("query GitLab latest release: %s", response.Status))
 	}

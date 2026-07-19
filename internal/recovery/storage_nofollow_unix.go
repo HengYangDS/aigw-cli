@@ -24,7 +24,7 @@ func captureRecoveryFileNoFollow(root, path string) (transaction.FileSnapshot, e
 	if err != nil {
 		return transaction.FileSnapshot{}, errors.New("open private recovery file")
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() {
 		return transaction.FileSnapshot{}, errors.New("inspect private recovery file")
@@ -47,7 +47,7 @@ func readRecoveryDirectoryNoFollow(root, path string) ([]os.FileInfo, os.FileInf
 	if err != nil {
 		return nil, nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	info, err := file.Stat()
 	if err != nil || !info.IsDir() {
 		return nil, nil, errors.New("inspect private recovery directory")
@@ -75,7 +75,7 @@ func openRecoveryPathNoFollow(root, path string, directory bool) (*os.File, erro
 	}
 	if relative == "." {
 		if !directory {
-			current.Close()
+			_ = current.Close()
 			return nil, errors.New("private recovery file resolves to a directory")
 		}
 		return current, nil
@@ -92,13 +92,13 @@ func openRecoveryPathNoFollow(root, path string, directory bool) (*os.File, erro
 		nextFD, openErr := unix.Openat(int(current.Fd()), part, flags, 0)
 		if openErr != nil {
 			entryExists := recoveryEntryExistsAt(current, part)
-			current.Close()
+			_ = current.Close()
 			if errors.Is(openErr, unix.ENOENT) && !entryExists {
 				return nil, os.ErrNotExist
 			}
 			return nil, openErr
 		}
-		current.Close()
+		_ = current.Close()
 		currentPath = filepath.Join(currentPath, part)
 		current = os.NewFile(uintptr(nextFD), currentPath)
 		if current == nil {
