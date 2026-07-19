@@ -15,9 +15,13 @@ func readHiddenToken(out io.Writer, confirm bool) (string, error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		return "", fmt.Errorf("hidden token input requires an interactive terminal; use --token-stdin")
 	}
-	fmt.Fprint(out, "Token: ")
+	if _, err := fmt.Fprint(out, "Token: "); err != nil {
+		return "", fmt.Errorf("prompt for token: %w", err)
+	}
 	first, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintln(out)
+	if _, writeErr := fmt.Fprintln(out); writeErr != nil {
+		return "", fmt.Errorf("finish token prompt: %w", writeErr)
+	}
 	if err != nil {
 		return "", fmt.Errorf("read hidden token: %w", err)
 	}
@@ -28,9 +32,13 @@ func readHiddenToken(out io.Writer, confirm bool) (string, error) {
 	if !confirm {
 		return value, nil
 	}
-	fmt.Fprint(out, "Confirm token: ")
+	if _, err := fmt.Fprint(out, "Confirm token: "); err != nil {
+		return "", fmt.Errorf("prompt to confirm token: %w", err)
+	}
 	second, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintln(out)
+	if _, writeErr := fmt.Fprintln(out); writeErr != nil {
+		return "", fmt.Errorf("finish token confirmation prompt: %w", writeErr)
+	}
 	if err != nil {
 		return "", fmt.Errorf("confirm hidden token: %w", err)
 	}

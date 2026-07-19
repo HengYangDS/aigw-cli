@@ -23,7 +23,7 @@ func (e *presentedError) Error() string { return e.cause.Error() }
 func (e *presentedError) Unwrap() error { return e.cause }
 
 func renderer(app *App) *presentation.Renderer {
-	return presentation.NewWithWidth(app.Out, app.Color, presentationWidth(app.Out, environmentMap(app.Env)))
+	return presentation.NewWithWidth(renderErrorWriter{writer: app.Out, err: &app.renderErr}, app.Color, presentationWidth(app.Out, environmentMap(app.Env)))
 }
 
 func problem(title, evidence, impact, fix string, cause error) error {

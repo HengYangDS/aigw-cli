@@ -80,6 +80,20 @@ type App struct {
 	Prompt      Prompter
 	Discovery   discovery.Discoverer
 	Updater     Updater
+	renderErr   error
+}
+
+type renderErrorWriter struct {
+	writer io.Writer
+	err    *error
+}
+
+func (w renderErrorWriter) Write(data []byte) (int, error) {
+	count, writeErr := w.writer.Write(data)
+	if writeErr != nil && *w.err == nil {
+		*w.err = writeErr
+	}
+	return count, writeErr
 }
 
 type ProcessRunner struct{}
@@ -112,18 +126,32 @@ func (b *limitedBuffer) Write(data []byte) (int, error) {
 }
 
 func Execute(app *App, args []string) error {
+	app.renderErr = nil
+	var unlock func() error
 	if mutationCommand(app, args) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		unlock, err := app.Config.Lock(ctx)
+		locked, err := app.Config.Lock(ctx)
 		if err != nil {
 			return fmt.Errorf("%w; retry after the other command finishes", err)
 		}
-		defer unlock()
+		unlock = locked
 	}
 	root := NewRoot(app)
 	root.SetArgs(args)
 	err := root.Execute()
+	if err == nil && app.renderErr != nil {
+		err = app.renderErr
+	}
+	if unlock != nil {
+		if unlockErr := unlock(); unlockErr != nil {
+			if err == nil {
+				err = fmt.Errorf("release config lock: %w", unlockErr)
+			} else {
+				err = fmt.Errorf("%w; release config lock: %v", err, unlockErr)
+			}
+		}
+	}
 	if err != nil {
 		RenderError(app, err)
 		return presented(err)
