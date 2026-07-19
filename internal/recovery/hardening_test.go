@@ -338,6 +338,51 @@ func TestInspectAirLifecycleRejectsUntrackedQuarantineAlongsideActiveCase(t *tes
 	}
 }
 
+func TestInspectAirLifecycleRejectsUnexpectedRecoveryStorageEntries(t *testing.T) {
+	t.Run("active ledger temporary residue", func(t *testing.T) {
+		f := newAirRecoveryFixture(t)
+		plan, err := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.store.RecoverAirOrphan(f.recoverOptions(plan.CaseID)); err != nil {
+			t.Fatal(err)
+		}
+		residue := filepath.Join(f.store.root, "air", ".aigw-write-review")
+		if err := os.WriteFile(residue, []byte("crash residue\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if status.RecoveryState != AirRecoveryStateAwaitingHostRoundtrip || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonStorageUnexpected {
+			t.Fatalf("status = %#v, want awaiting-host-roundtrip invalid storage-unexpected", status)
+		}
+		if got, err := os.ReadFile(residue); err != nil || string(got) != "crash residue\n" {
+			t.Fatalf("read-only inspection changed residue: %q, %v", got, err)
+		}
+	})
+
+	t.Run("root residue without ledger", func(t *testing.T) {
+		f := newAirRecoveryFixture(t)
+		if err := os.MkdirAll(f.store.root, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(f.store.root, "foreign.bin"), []byte("private\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if status.RecoveryState != "none" || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonStorageUnexpected {
+			t.Fatalf("status = %#v, want none invalid storage-unexpected", status)
+		}
+	})
+}
+
 func TestInspectAirLifecycleRejectsUnsafeExistingRecoveryDirectories(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("POSIX permission contract")
@@ -443,6 +488,105 @@ func TestInspectAirLifecycleRejectsSymlinkedRecoveryRootWithoutFollowingIt(t *te
 	}
 	if status.RecoveryState != "none" || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonStoragePermission {
 		t.Fatalf("status = %#v, want none invalid storage-permission-invalid", status)
+	}
+}
+
+func TestInspectAirLifecycleRejectsQuarantineSwapToSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink contract")
+	}
+	f := newAirRecoveryFixture(t)
+	plan, err := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.store.RecoverAirOrphan(f.recoverOptions(plan.CaseID)); err != nil {
+		t.Fatal(err)
+	}
+	quarantinePath := f.store.airQuarantinePath(plan.CaseID)
+	payload, err := os.ReadFile(quarantinePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(f.root, "same-quarantine-target.toml")
+	if err := os.WriteFile(target, payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	originalCapture := f.store.captureRecovery
+	swapped := false
+	f.store.captureRecovery = func(path string) (transaction.FileSnapshot, error) {
+		if path == quarantinePath && !swapped {
+			swapped = true
+			if err := os.Remove(quarantinePath); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(target, quarantinePath); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return originalCapture(path)
+	}
+	status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
+	if err != nil {
+		t.Fatalf("inspection returned internal storage error: %v", err)
+	}
+	if !swapped {
+		t.Fatal("test seam did not swap the inventoried quarantine")
+	}
+	if status.RecoveryState != AirRecoveryStateAwaitingHostRoundtrip || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonQuarantineUnreadable {
+		t.Fatalf("status = %#v, want awaiting-host-roundtrip invalid quarantine-unreadable", status)
+	}
+}
+
+func TestInspectAirLifecyclePrioritizesUnsafeRootPermissionsWithoutLedgerTraversal(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX permission contract")
+	}
+	f := newAirRecoveryFixture(t)
+	if err := os.MkdirAll(f.store.root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(f.store.root, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(f.store.root, 0o700) })
+
+	status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
+	if err != nil {
+		t.Fatalf("inspection returned internal storage error: %v", err)
+	}
+	if status.RecoveryState != "none" || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonStoragePermission {
+		t.Fatalf("status = %#v, want none invalid storage-permission-invalid", status)
+	}
+}
+
+func TestInspectAirLifecycleRejectsSymlinkedQuarantineCaseDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink contract")
+	}
+	f := newAirRecoveryFixture(t)
+	plan, err := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.store.RecoverAirOrphan(f.recoverOptions(plan.CaseID)); err != nil {
+		t.Fatal(err)
+	}
+	caseDir := filepath.Dir(f.store.airQuarantinePath(plan.CaseID))
+	target := filepath.Join(f.root, "private-case-target")
+	if err := os.Rename(caseDir, target); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, caseDir); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
+	if err != nil {
+		t.Fatalf("inspection returned internal storage error: %v", err)
+	}
+	if status.RecoveryState != AirRecoveryStateAwaitingHostRoundtrip || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonStoragePermission {
+		t.Fatalf("status = %#v, want awaiting-host-roundtrip invalid storage-permission-invalid", status)
 	}
 }
 
@@ -585,9 +729,9 @@ func TestRecoverAirOrphanRejectsChangedFourSurfaceAdmissionSnapshots(t *testing.
 			if err != nil {
 				t.Fatal(err)
 			}
-			originalCapture := f.store.capture
+			originalCapture := f.store.captureRecovery
 			changedOnce := false
-			f.store.capture = func(path string) (transaction.FileSnapshot, error) {
+			f.store.captureRecovery = func(path string) (transaction.FileSnapshot, error) {
 				if !changedOnce && path == f.store.airQuarantinePath(preview.CaseID) {
 					changedOnce = true
 					switch changed {
