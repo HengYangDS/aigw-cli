@@ -37,6 +37,15 @@ or a local proxy deployment to make a configuration test pass.
 - Codex DMX Proxy owns local Responses transport compatibility and listener
   lifecycle. AIGW must not start, stop, reload, or configure its process.
 
+## Analyzer isolation
+
+An analyzer may inspect `main` read-only. Any analyzer capable of formatting,
+auto-fixing, rewriting, or otherwise writing source must use an isolated
+non-`main` worktree and a private per-task `TMPDIR`; it must never auto-fix
+`main`. Before retiring its worktree, record the owning task and prove that the
+owner has handed off or terminated and that no owning task remains live.
+Worktree visibility or an apparently idle agent is not retirement authority.
+
 ## Required verification
 
 ```bash
