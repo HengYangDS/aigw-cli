@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -424,5 +423,3 @@ func routeEnvValue(values []string, key string) string {
 	}
 	return ""
 }
-
-func _routeFallbackContextCompileGuard(_ context.Context) {}
