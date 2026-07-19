@@ -293,6 +293,159 @@ func TestInspectAirLifecycleRejectsOrphanQuarantineWithoutLedger(t *testing.T) {
 	}
 }
 
+func TestInspectAirLifecycleRejectsUntrackedQuarantineAlongsideActiveCase(t *testing.T) {
+	f := newAirRecoveryFixture(t)
+	plan, err := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.store.RecoverAirOrphan(f.recoverOptions(plan.CaseID)); err != nil {
+		t.Fatal(err)
+	}
+
+	untrackedCaseID := "air-999999-deadbeefcafe"
+	untrackedPath := f.store.airQuarantinePath(untrackedCaseID)
+	if err := os.MkdirAll(filepath.Dir(untrackedPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	privatePayload := []byte("https://untracked-private.invalid/v1\nsk-untracked-private-credential\n")
+	if err := os.WriteFile(untrackedPath, privatePayload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	trackedBefore, err := os.ReadFile(f.store.airQuarantinePath(plan.CaseID))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
+	if err != nil {
+		t.Fatalf("inspection returned internal storage error: %v", err)
+	}
+	if status.RecoveryState != AirRecoveryStateAwaitingHostRoundtrip || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonQuarantineUnexpected {
+		t.Fatalf("status = %#v, want awaiting-host-roundtrip invalid quarantine-unexpected", status)
+	}
+	assertAirPublicJSONSchema(t, status,
+		[]string{"derived_state", "recovery_health", "recovery_reason_code", "recovery_state"},
+		[]string{plan.CaseID, untrackedCaseID, filepath.Dir(untrackedPath), string(privatePayload), plan.ConfigPreimageSHA256},
+	)
+	trackedAfter, err := os.ReadFile(f.store.airQuarantinePath(plan.CaseID))
+	if err != nil || !bytes.Equal(trackedAfter, trackedBefore) {
+		t.Fatalf("read-only inspection changed tracked quarantine: %q, %v", trackedAfter, err)
+	}
+	untrackedAfter, err := os.ReadFile(untrackedPath)
+	if err != nil || !bytes.Equal(untrackedAfter, privatePayload) {
+		t.Fatalf("read-only inspection changed untracked quarantine: %q, %v", untrackedAfter, err)
+	}
+}
+
+func TestInspectAirLifecycleRejectsUnsafeExistingRecoveryDirectories(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX permission contract")
+	}
+	tests := []struct {
+		name      string
+		prepare   bool
+		unsafeDir func(airRecoveryFixture, string) string
+		wantState string
+	}{
+		{
+			name: "empty recovery root without ledger",
+			unsafeDir: func(f airRecoveryFixture, _ string) string {
+				return f.store.root
+			},
+			wantState: "none",
+		},
+		{
+			name: "empty Air state directory without ledger",
+			unsafeDir: func(f airRecoveryFixture, _ string) string {
+				return filepath.Join(f.store.root, "air")
+			},
+			wantState: "none",
+		},
+		{
+			name: "empty quarantine directory without ledger",
+			unsafeDir: func(f airRecoveryFixture, _ string) string {
+				return filepath.Join(f.store.root, "air", "quarantine")
+			},
+			wantState: "none",
+		},
+		{
+			name:    "active case directory",
+			prepare: true,
+			unsafeDir: func(f airRecoveryFixture, caseID string) string {
+				return filepath.Dir(f.store.airQuarantinePath(caseID))
+			},
+			wantState: AirRecoveryStateAwaitingHostRoundtrip,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newAirRecoveryFixture(t)
+			caseID := ""
+			if tt.prepare {
+				plan, err := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
+				if err != nil {
+					t.Fatal(err)
+				}
+				caseID = plan.CaseID
+				if _, err := f.store.RecoverAirOrphan(f.recoverOptions(caseID)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			unsafeDir := tt.unsafeDir(f, caseID)
+			if !tt.prepare {
+				if err := os.MkdirAll(unsafeDir, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.Chmod(unsafeDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+
+			status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
+			if err != nil {
+				t.Fatalf("inspection returned internal storage error: %v", err)
+			}
+			if status.RecoveryState != tt.wantState || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonStoragePermission {
+				t.Fatalf("status = %#v, want state=%q invalid storage-permission-invalid", status, tt.wantState)
+			}
+			info, err := os.Stat(unsafeDir)
+			if err != nil {
+				t.Fatalf("read-only inspection removed unsafe directory: %v", err)
+			}
+			if info.Mode().Perm() != 0o755 {
+				t.Fatalf("read-only inspection changed unsafe directory mode: %v", info.Mode().Perm())
+			}
+		})
+	}
+}
+
+func TestInspectAirLifecycleRejectsSymlinkedRecoveryRootWithoutFollowingIt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink contract")
+	}
+	f := newAirRecoveryFixture(t)
+	target := filepath.Join(f.root, "private-target")
+	if err := os.MkdirAll(filepath.Join(target, "air", "quarantine"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(f.store.root), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, f.store.root); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
+	if err != nil {
+		t.Fatalf("inspection returned internal storage error: %v", err)
+	}
+	if status.RecoveryState != "none" || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonStoragePermission {
+		t.Fatalf("status = %#v, want none invalid storage-permission-invalid", status)
+	}
+}
+
 func assertAirPublicJSONSchema(t *testing.T, value any, wantKeys, forbidden []string) {
 	t.Helper()
 	data, err := json.Marshal(value)

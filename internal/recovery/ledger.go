@@ -71,6 +71,24 @@ type airLedger struct {
 	QuarantineSHA256            string     `json:"quarantine_sha256"`
 }
 
+type airRecoveryStorageInventory struct {
+	ledgerExists      bool
+	permissionInvalid bool
+	unsafeTraversal   bool
+	quarantineEntries []airRecoveryQuarantineEntry
+}
+
+type airRecoveryQuarantineEntry struct {
+	name      string
+	directory bool
+	files     []airRecoveryQuarantineFile
+}
+
+type airRecoveryQuarantineFile struct {
+	name    string
+	regular bool
+}
+
 func (s Store) airLedgerPath() string {
 	return filepath.Join(s.root, "air", "ledger.json")
 }
@@ -133,32 +151,165 @@ func (s Store) validateAirRecoveryStorage(caseID string, ledger, quarantine tran
 }
 
 func (s Store) validateAirRecoveryDirectories(caseID string) error {
-	if runtime.GOOS == "windows" {
-		return nil
-	}
 	for _, path := range []string{
 		s.root,
 		filepath.Join(s.root, "air"),
 		filepath.Join(s.root, "air", "quarantine"),
 		filepath.Dir(s.airQuarantinePath(caseID)),
 	} {
-		info, err := os.Stat(path)
-		if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
+		info, err := os.Lstat(path)
+		if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() || (runtime.GOOS != "windows" && info.Mode().Perm() != 0o700) {
 			return errors.New("Air recovery storage has unsafe directory permissions")
 		}
 	}
 	return nil
 }
 
-func (s Store) hasAirQuarantineArtifacts() (bool, error) {
-	entries, err := os.ReadDir(filepath.Join(s.root, "air", "quarantine"))
+func (s Store) inspectAirRecoveryStorage() (airRecoveryStorageInventory, error) {
+	var inventory airRecoveryStorageInventory
+	rootExists, rootSafe, err := inspectAirRecoveryDirectory(s.root)
+	if err != nil || !rootExists {
+		return inventory, err
+	}
+	if !rootSafe {
+		inventory.permissionInvalid = true
+		inventory.unsafeTraversal = true
+		return inventory, nil
+	}
+	if runtime.GOOS != "windows" {
+		if info, err := os.Lstat(s.root); err != nil || info.Mode().Perm() != 0o700 {
+			inventory.permissionInvalid = true
+		}
+	}
+
+	airRoot := filepath.Join(s.root, "air")
+	airExists, airSafe, err := inspectAirRecoveryDirectory(airRoot)
+	if err != nil || !airExists {
+		return inventory, err
+	}
+	if !airSafe {
+		inventory.permissionInvalid = true
+		inventory.unsafeTraversal = true
+		return inventory, nil
+	}
+	if runtime.GOOS != "windows" {
+		if info, err := os.Lstat(airRoot); err != nil || info.Mode().Perm() != 0o700 {
+			inventory.permissionInvalid = true
+		}
+	}
+
+	ledgerInfo, err := os.Lstat(s.airLedgerPath())
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+	case err != nil:
+		return inventory, err
+	case ledgerInfo.Mode()&os.ModeSymlink != 0 || !ledgerInfo.Mode().IsRegular():
+		inventory.ledgerExists = true
+		inventory.permissionInvalid = true
+		inventory.unsafeTraversal = true
+		return inventory, nil
+	default:
+		inventory.ledgerExists = true
+	}
+
+	quarantineRoot := filepath.Join(airRoot, "quarantine")
+	quarantineExists, quarantineSafe, err := inspectAirRecoveryDirectory(quarantineRoot)
+	if err != nil || !quarantineExists {
+		return inventory, err
+	}
+	if !quarantineSafe {
+		inventory.permissionInvalid = true
+		inventory.unsafeTraversal = true
+		return inventory, nil
+	}
+	if runtime.GOOS != "windows" {
+		if info, err := os.Lstat(quarantineRoot); err != nil || info.Mode().Perm() != 0o700 {
+			inventory.permissionInvalid = true
+		}
+	}
+
+	entries, err := os.ReadDir(quarantineRoot)
+	if err != nil {
+		return inventory, err
+	}
+	for _, entry := range entries {
+		path := filepath.Join(quarantineRoot, entry.Name())
+		info, err := os.Lstat(path)
+		if err != nil {
+			return inventory, err
+		}
+		item := airRecoveryQuarantineEntry{name: entry.Name()}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			if info.Mode()&os.ModeSymlink != 0 {
+				inventory.permissionInvalid = true
+			}
+			inventory.quarantineEntries = append(inventory.quarantineEntries, item)
+			continue
+		}
+		item.directory = true
+		if runtime.GOOS != "windows" && info.Mode().Perm() != 0o700 {
+			inventory.permissionInvalid = true
+		}
+		files, err := os.ReadDir(path)
+		if err != nil {
+			return inventory, err
+		}
+		for _, file := range files {
+			fileInfo, err := os.Lstat(filepath.Join(path, file.Name()))
+			if err != nil {
+				return inventory, err
+			}
+			item.files = append(item.files, airRecoveryQuarantineFile{
+				name:    file.Name(),
+				regular: fileInfo.Mode()&os.ModeSymlink == 0 && fileInfo.Mode().IsRegular(),
+			})
+		}
+		inventory.quarantineEntries = append(inventory.quarantineEntries, item)
+	}
+	return inventory, nil
+}
+
+func inspectAirRecoveryDirectory(path string) (bool, bool, error) {
+	info, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return false, nil
+		return false, true, nil
 	}
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
-	return len(entries) != 0, nil
+	return true, info.Mode()&os.ModeSymlink == 0 && info.IsDir(), nil
+}
+
+func (inventory airRecoveryStorageInventory) hasQuarantineArtifacts() bool {
+	return len(inventory.quarantineEntries) != 0
+}
+
+func (inventory airRecoveryStorageInventory) quarantineFile(caseID, name string) (bool, bool) {
+	for _, entry := range inventory.quarantineEntries {
+		if entry.name != caseID || !entry.directory {
+			continue
+		}
+		for _, file := range entry.files {
+			if file.name == name {
+				return true, file.regular
+			}
+		}
+	}
+	return false, false
+}
+
+func (inventory airRecoveryStorageInventory) hasUnexpectedQuarantine(caseID string, expectConfig bool) bool {
+	for _, entry := range inventory.quarantineEntries {
+		if entry.name != caseID || !entry.directory {
+			return true
+		}
+		for _, file := range entry.files {
+			if !expectConfig || file.name != "config.toml" || !file.regular {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func validateAirLedger(ledger airLedger) error {
