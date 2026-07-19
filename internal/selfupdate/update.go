@@ -72,15 +72,23 @@ func (ExecRunner) RunToFileWithEnv(ctx context.Context, environment []string, de
 	if err != nil {
 		return fmt.Errorf("open command output %s: %w", filepath.Base(destination), err)
 	}
-	defer file.Close()
 	var stderr strings.Builder
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = mergeEnvironment(os.Environ(), environment)
 	cmd.Stdout = file
 	cmd.Stderr = &limitedWriter{writer: &stderr, limit: 16 << 10}
-	if err := cmd.Run(); err != nil {
+	runErr := cmd.Run()
+	closeErr := file.Close()
+	if runErr != nil {
 		_ = os.Remove(destination)
-		return fmt.Errorf("%s failed: %w: %s", name, err, strings.TrimSpace(stderr.String()))
+		if closeErr != nil {
+			return fmt.Errorf("%s failed: %w: %s; close command output %s: %v", name, runErr, strings.TrimSpace(stderr.String()), filepath.Base(destination), closeErr)
+		}
+		return fmt.Errorf("%s failed: %w: %s", name, runErr, strings.TrimSpace(stderr.String()))
+	}
+	if closeErr != nil {
+		_ = os.Remove(destination)
+		return fmt.Errorf("close command output %s: %w", filepath.Base(destination), closeErr)
 	}
 	return nil
 }

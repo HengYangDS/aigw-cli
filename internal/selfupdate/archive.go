@@ -19,7 +19,7 @@ func fileSHA256(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
 		return "", err
@@ -191,7 +191,7 @@ func verifyChecksum(archivePath, checksumPath, archiveName string) error {
 	if err != nil {
 		return fmt.Errorf("open update archive: %w", err)
 	}
-	defer archive.Close()
+	defer func() { _ = archive.Close() }()
 	hash := sha256.New()
 	if _, err := io.Copy(hash, archive); err != nil {
 		return fmt.Errorf("hash update archive: %w", err)
@@ -223,12 +223,12 @@ func extractBinary(path, expectedPath string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open update archive: %w", err)
 	}
-	defer archive.Close()
+	defer func() { _ = archive.Close() }()
 	gz, err := gzip.NewReader(archive)
 	if err != nil {
 		return nil, fmt.Errorf("open gzip archive: %w", err)
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 	reader := tar.NewReader(gz)
 	var binary []byte
 	matches := 0
@@ -263,7 +263,7 @@ func extractZipBinary(path, expectedPath string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open zip archive: %w", err)
 	}
-	defer archive.Close()
+	defer func() { _ = archive.Close() }()
 	var binary []byte
 	matches := 0
 	for _, file := range archive.File {
