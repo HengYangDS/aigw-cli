@@ -166,9 +166,12 @@ publish:
 
 release:
   stage: release
-  needs: [publish]
+  needs:
+    - job: publish
+    - job: package
+      artifacts: true
   rules:
     - if: $CI_COMMIT_TAG
   before_script: []
   script:
-    - sh scripts/publish-release.sh
+    - sh scripts/publish-release.sh dist
