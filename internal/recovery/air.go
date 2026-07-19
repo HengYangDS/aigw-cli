@@ -129,6 +129,15 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 	}
 	if !ledgerSnapshot.Exists {
 		status.RecoveryState = "none"
+		unexpectedQuarantine, quarantineErr := s.hasAirQuarantineArtifacts()
+		if quarantineErr != nil {
+			status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnreadable
+			return status, nil
+		}
+		if unexpectedQuarantine {
+			status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnexpected
+			return status, nil
+		}
 		status.RecoveryHealth = AirRecoveryHealthInactive
 		status.RecoveryReasonCode = AirRecoveryReasonLedgerMissing
 		return status, nil
@@ -161,6 +170,10 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 			status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnexpected
 			return status, nil
 		}
+		if err := s.validateAirRecoveryDirectories(ledger.CaseID); err != nil {
+			status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
+			return status, nil
+		}
 		status.RecoveryHealth = AirRecoveryHealthHealthy
 		status.RecoveryReasonCode = AirRecoveryReasonOK
 		return status, nil
@@ -188,14 +201,14 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 	}
 	current, err := s.capture(airPath)
 	if err != nil || !current.Exists {
-		return AirLifecycleStatus{}, errors.New("inspect Air recovery lifecycle")
+		return status, nil
 	}
 	if current.SHA256 == ledger.CleanedPostimageSHA256 {
 		return status, nil
 	}
 	inspection, err := adapters.InspectAirCodexConfig(airPath, standalonePath)
 	if err != nil {
-		return AirLifecycleStatus{}, errors.New("inspect Air recovery lifecycle")
+		return status, nil
 	}
 	if inspection.State != adapters.AirStateOrphanedExactFullSelection {
 		return status, nil
