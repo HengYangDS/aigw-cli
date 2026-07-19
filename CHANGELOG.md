@@ -10,6 +10,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Build the isolated GitHub identity projection from a detached temporary
+  source ref, so clearing its branch namespace cannot turn the complete source
+  tree into staged additions before the projection rewrite begins.
 - Fail closed when a registered source worktree cannot be inspected during
   branch closeout, and require mandatory governance commands to remain in the
   enforcing GitHub Actions `run` block or GitLab `verify.script` block rather
