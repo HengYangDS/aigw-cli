@@ -40,6 +40,228 @@ func TestAirRecoveryPlanJSONExposesOnlyBoundedPreviewFields(t *testing.T) {
 	}
 }
 
+func TestAirRecoveryPublicJSONSchemasAreExactAndPrivateFieldsStayPrivate(t *testing.T) {
+	f := newAirRecoveryFixture(t)
+	plan, err := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := f.store.RecoverAirOrphan(f.recoverOptions(plan.CaseID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lifecycle, err := f.store.InspectAirLifecycle(f.air, f.standalone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settlementPlan, err := f.store.PlanAirSettlement(AirSettleOptions{
+		AirPath: f.air, StandalonePath: f.standalone, CaseID: plan.CaseID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(f.air, []byte("model_provider = \"jetbrains\"\nhost_roundtrip = true\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	settlementReceipt, err := f.store.SettleAir(AirSettleOptions{
+		AirPath: f.air, StandalonePath: f.standalone, CaseID: plan.CaseID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	private := []string{
+		f.air,
+		f.standalone,
+		f.store.root,
+		"https://orphan.test/v1",
+		"https://gateway.test/v1",
+		plan.ProjectionFingerprintSHA256,
+		plan.ConfigPreimageSHA256,
+		plan.CleanedPostimageSHA256,
+		plan.QuarantineSHA256,
+	}
+	tests := []struct {
+		name      string
+		value     any
+		wantKeys  []string
+		forbidden []string
+	}{
+		{
+			name: "recover dry-run plan", value: plan,
+			wantKeys:  []string{"action", "case_id", "recovery_generation", "state", "surface_id"},
+			forbidden: private,
+		},
+		{
+			name: "recover apply receipt", value: receipt,
+			wantKeys:  []string{"action", "case_id", "recovery_generation", "state", "surface_id"},
+			forbidden: private,
+		},
+		{
+			name: "settle dry-run plan", value: settlementPlan,
+			wantKeys:  []string{"action", "case_id", "recovery_generation", "state", "surface_id"},
+			forbidden: private,
+		},
+		{
+			name: "settle apply receipt", value: settlementReceipt,
+			wantKeys:  []string{"action", "case_id", "recovery_generation", "state", "surface_id"},
+			forbidden: private,
+		},
+		{
+			name: "lifecycle status", value: lifecycle,
+			wantKeys:  []string{"derived_state", "recovery_health", "recovery_reason_code", "recovery_state"},
+			forbidden: append(append([]string{}, private...), plan.CaseID, plan.ConfigPreimageSHA256[:12]),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assertAirPublicJSONSchema(t, tt.value, tt.wantKeys, tt.forbidden)
+		})
+	}
+}
+
+func TestInspectAirLifecycleClassifiesRecoveryStorageWithoutWrites(t *testing.T) {
+	tests := []struct {
+		name       string
+		prepare    bool
+		mutate     func(t *testing.T, f airRecoveryFixture, caseID string)
+		wantState  string
+		wantHealth string
+		wantReason string
+	}{
+		{name: "ledger missing", wantState: "none", wantHealth: "inactive", wantReason: "ledger-missing"},
+		{
+			name: "ledger invalid", prepare: true,
+			mutate: func(t *testing.T, f airRecoveryFixture, _ string) {
+				if err := os.WriteFile(f.store.airLedgerPath(), []byte("{\"private_url\":\"https://doctor-secret.invalid/v1\"}\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantState: "unknown", wantHealth: "invalid", wantReason: "ledger-invalid",
+		},
+		{
+			name: "ledger permission invalid", prepare: true,
+			mutate: func(t *testing.T, f airRecoveryFixture, _ string) {
+				if runtime.GOOS == "windows" {
+					t.Skip("POSIX permission contract")
+				}
+				if err := os.Chmod(f.store.airLedgerPath(), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantState: "unknown", wantHealth: "invalid", wantReason: "ledger-permission-invalid",
+		},
+		{
+			name: "quarantine missing", prepare: true,
+			mutate: func(t *testing.T, f airRecoveryFixture, caseID string) {
+				if err := os.Remove(f.store.airQuarantinePath(caseID)); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantState: AirRecoveryStateAwaitingHostRoundtrip, wantHealth: "invalid", wantReason: "quarantine-missing",
+		},
+		{
+			name: "quarantine invalid", prepare: true,
+			mutate: func(t *testing.T, f airRecoveryFixture, caseID string) {
+				if err := os.WriteFile(f.store.airQuarantinePath(caseID), []byte("https://doctor-secret.invalid/v1\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantState: AirRecoveryStateAwaitingHostRoundtrip, wantHealth: "invalid", wantReason: "quarantine-invalid",
+		},
+		{
+			name: "quarantine permission invalid", prepare: true,
+			mutate: func(t *testing.T, f airRecoveryFixture, caseID string) {
+				if runtime.GOOS == "windows" {
+					t.Skip("POSIX permission contract")
+				}
+				if err := os.Chmod(f.store.airQuarantinePath(caseID), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantState: AirRecoveryStateAwaitingHostRoundtrip, wantHealth: "invalid", wantReason: "quarantine-permission-invalid",
+		},
+		{
+			name: "valid active recovery", prepare: true,
+			wantState: AirRecoveryStateAwaitingHostRoundtrip, wantHealth: "healthy", wantReason: "ok",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newAirRecoveryFixture(t)
+			caseID := ""
+			if tt.prepare {
+				plan, err := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
+				if err != nil {
+					t.Fatal(err)
+				}
+				caseID = plan.CaseID
+				if _, err := f.store.RecoverAirOrphan(f.recoverOptions(caseID)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tt.mutate != nil {
+				tt.mutate(t, f, caseID)
+			}
+			if !tt.prepare {
+				if _, err := os.Stat(f.store.root); !os.IsNotExist(err) {
+					t.Fatalf("unexpected recovery root before inspection: %v", err)
+				}
+			}
+			f.store.write = func(string, transaction.FileSnapshot, []byte, os.FileMode) (transaction.FileSnapshot, error) {
+				t.Fatal("lifecycle inspection attempted a write")
+				return transaction.FileSnapshot{}, nil
+			}
+			f.store.remove = func(string, transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+				t.Fatal("lifecycle inspection attempted a remove")
+				return transaction.FileSnapshot{}, nil
+			}
+			f.store.restore = func(string, transaction.FileSnapshot, transaction.FileSnapshot) error {
+				t.Fatal("lifecycle inspection attempted a restore")
+				return nil
+			}
+			status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
+			if err != nil {
+				t.Fatalf("inspection returned internal storage error: %v", err)
+			}
+			if status.RecoveryState != tt.wantState || status.RecoveryHealth != tt.wantHealth || status.RecoveryReasonCode != tt.wantReason {
+				t.Fatalf("status = %#v, want state=%q health=%q reason=%q", status, tt.wantState, tt.wantHealth, tt.wantReason)
+			}
+			if !tt.prepare {
+				if _, err := os.Stat(f.store.root); !os.IsNotExist(err) {
+					t.Fatalf("read-only inspection created recovery root: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func assertAirPublicJSONSchema(t *testing.T, value any, wantKeys, forbidden []string) {
+	t.Helper()
+	data, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(data, &body); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(body))
+	for key := range body {
+		got = append(got, key)
+	}
+	sort.Strings(got)
+	if !reflect.DeepEqual(got, wantKeys) {
+		t.Fatalf("JSON keys = %v, want %v; body = %s", got, wantKeys, data)
+	}
+	for _, secret := range forbidden {
+		if secret != "" && bytes.Contains(data, []byte(secret)) {
+			t.Fatalf("public JSON leaked %q: %s", secret, data)
+		}
+	}
+}
+
 func TestAirLedgerRejectsCrossFieldStateTimeDigestAndModeViolations(t *testing.T) {
 	base := validPreparedAirLedgerForTest()
 	oneMinute := time.Minute

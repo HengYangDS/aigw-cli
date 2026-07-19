@@ -7,6 +7,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
+	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -331,4 +334,200 @@ func TestRouteDoctorIsNotAMutationCommand(t *testing.T) {
 	if mutationCommand(&App{}, []string{"route", "doctor", "--json"}) {
 		t.Fatal("route doctor must not acquire a mutation lock")
 	}
+}
+
+func TestRouteDoctorReportsBoundedRecoveryHealthReasonCodesWithoutWrites(t *testing.T) {
+	tests := []struct {
+		name       string
+		prepare    bool
+		mutate     func(t *testing.T, ledgerPath, quarantinePath string)
+		wantState  string
+		wantHealth string
+		wantReason string
+	}{
+		{name: "ledger missing", wantState: "none", wantHealth: "inactive", wantReason: "ledger-missing"},
+		{
+			name: "ledger invalid", prepare: true,
+			mutate: func(t *testing.T, ledgerPath, _ string) {
+				if err := os.WriteFile(ledgerPath, []byte("{\"private_url\":\"https://doctor-secret.invalid/v1\",\"private_path\":\"/private/recovery/case\",\"credential\":\"sk-private-doctor-credential\"}\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantState: "unknown", wantHealth: "invalid", wantReason: "ledger-invalid",
+		},
+		{
+			name: "ledger permission invalid", prepare: true,
+			mutate: func(t *testing.T, ledgerPath, _ string) {
+				if runtime.GOOS == "windows" {
+					t.Skip("POSIX permission contract")
+				}
+				if err := os.Chmod(ledgerPath, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantState: "unknown", wantHealth: "invalid", wantReason: "ledger-permission-invalid",
+		},
+		{
+			name: "quarantine missing", prepare: true,
+			mutate: func(t *testing.T, _, quarantinePath string) {
+				if err := os.Remove(quarantinePath); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantState: "awaiting-host-roundtrip", wantHealth: "invalid", wantReason: "quarantine-missing",
+		},
+		{
+			name: "quarantine invalid", prepare: true,
+			mutate: func(t *testing.T, _, quarantinePath string) {
+				if err := os.WriteFile(quarantinePath, []byte("https://doctor-secret.invalid/v1\n/private/recovery/case\nsk-private-doctor-credential\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantState: "awaiting-host-roundtrip", wantHealth: "invalid", wantReason: "quarantine-invalid",
+		},
+		{
+			name: "quarantine permission invalid", prepare: true,
+			mutate: func(t *testing.T, _, quarantinePath string) {
+				if runtime.GOOS == "windows" {
+					t.Skip("POSIX permission contract")
+				}
+				if err := os.Chmod(quarantinePath, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantState: "awaiting-host-roundtrip", wantHealth: "invalid", wantReason: "quarantine-permission-invalid",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newAirOrphanCLIHarness(t)
+			caseID := ""
+			ledgerPath := filepath.Join(h.dataDir, "recovery", "air", "ledger.json")
+			quarantinePath := ""
+			private := []string{
+				h.air, h.standalone, h.dataDir,
+				"https://doctor-secret.invalid/v1", "/private/recovery/case", "sk-private-doctor-credential",
+				"orphan.test", "gateway.test", "ledger.json", "config.toml",
+			}
+			if tt.prepare {
+				caseID = previewAirOrphanCase(t, &h).CaseID
+				h.app.Out.(*bytes.Buffer).Reset()
+				if err := Execute(h.app, []string{
+					"route", "recover-orphan", "air", "--case-id", caseID,
+					"--confirm-host-idle", "--ack-unset-external-selection", "--json",
+				}); err != nil {
+					t.Fatal(err)
+				}
+				quarantinePath = filepath.Join(h.dataDir, "recovery", "air", "quarantine", caseID, "config.toml")
+				private = append(private, caseID)
+				ledgerData, err := os.ReadFile(ledgerPath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var ledger map[string]any
+				if err := json.Unmarshal(ledgerData, &ledger); err != nil {
+					t.Fatal(err)
+				}
+				for key, value := range ledger {
+					if strings.HasSuffix(key, "_sha256") {
+						if digest, ok := value.(string); ok {
+							private = append(private, digest)
+							if len(digest) >= 12 {
+								private = append(private, digest[:12])
+							}
+						}
+					}
+				}
+			}
+			if tt.mutate != nil {
+				tt.mutate(t, ledgerPath, quarantinePath)
+			}
+			tracked := []string{h.air, h.standalone, h.app.Config.Path(), ledgerPath, quarantinePath}
+			before := captureDoctorFiles(t, tracked)
+			h.app.Out.(*bytes.Buffer).Reset()
+			_ = Execute(h.app, []string{"route", "doctor", "--json"})
+			output := h.app.Out.(*bytes.Buffer).Bytes()
+			after := captureDoctorFiles(t, tracked)
+			if !reflect.DeepEqual(before, after) {
+				t.Fatalf("route doctor changed recovery inputs:\nbefore=%#v\nafter=%#v", before, after)
+			}
+			if !tt.prepare {
+				if _, err := os.Stat(filepath.Join(h.dataDir, "recovery")); !os.IsNotExist(err) {
+					t.Fatalf("route doctor created recovery storage: %v", err)
+				}
+			}
+			var report struct {
+				Surfaces []map[string]any `json:"surfaces"`
+				OK       bool             `json:"ok"`
+			}
+			if err := json.Unmarshal(output, &report); err != nil {
+				t.Fatalf("doctor recovery health is not machine-readable JSON: %v\n%s", err, output)
+			}
+			if report.OK {
+				t.Fatalf("unsettled or invalid recovery storage passed doctor: %s", output)
+			}
+			var air map[string]any
+			for _, surface := range report.Surfaces {
+				if surface["surface_id"] == discovery.SurfaceAirCodex {
+					air = surface
+					break
+				}
+			}
+			if air == nil {
+				t.Fatalf("Air surface missing: %s", output)
+			}
+			if air["recovery_state"] != tt.wantState || air["recovery_health"] != tt.wantHealth || air["recovery_reason_code"] != tt.wantReason {
+				t.Fatalf("Air recovery health = %#v, want state=%q health=%q reason=%q", air, tt.wantState, tt.wantHealth, tt.wantReason)
+			}
+			gotKeys := make([]string, 0, len(air))
+			for key := range air {
+				gotKeys = append(gotKeys, key)
+			}
+			sort.Strings(gotKeys)
+			wantKeys := []string{
+				"attribution_state", "baseline_authority", "billing_evidence", "disk_selection", "fallback",
+				"host_authentication", "management", "observed_endpoint_hop", "present", "product", "projection_mode",
+				"recovery_health", "recovery_reason_code", "recovery_state", "session_metadata", "state", "surface_id", "terminal_outcome",
+			}
+			if !reflect.DeepEqual(gotKeys, wantKeys) {
+				t.Fatalf("Air doctor JSON keys = %v, want %v; body = %s", gotKeys, wantKeys, output)
+			}
+			for _, secret := range private {
+				if secret != "" && bytes.Contains(output, []byte(secret)) {
+					t.Fatalf("route doctor leaked %q: %s", secret, output)
+				}
+			}
+		})
+	}
+}
+
+type doctorFileSnapshot struct {
+	Exists bool
+	Data   string
+	Mode   os.FileMode
+}
+
+func captureDoctorFiles(t *testing.T, paths []string) map[string]doctorFileSnapshot {
+	t.Helper()
+	result := make(map[string]doctorFileSnapshot, len(paths))
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if os.IsNotExist(err) {
+			result[path] = doctorFileSnapshot{}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result[path] = doctorFileSnapshot{Exists: true, Data: string(data), Mode: info.Mode().Perm()}
+	}
+	return result
 }

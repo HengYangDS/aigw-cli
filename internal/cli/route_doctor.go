@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/recovery"
 )
 
 type routeSurfaceStatus struct {
@@ -27,6 +28,8 @@ type routeSurfaceStatus struct {
 	Management          string `json:"management"`
 	State               string `json:"state"`
 	RecoveryState       string `json:"recovery_state,omitempty"`
+	RecoveryHealth      string `json:"recovery_health,omitempty"`
+	RecoveryReasonCode  string `json:"recovery_reason_code,omitempty"`
 }
 
 type routeDoctorReport struct {
@@ -189,8 +192,13 @@ func buildRouteDoctorReport(app *App) (routeDoctorReport, error) {
 				return routeDoctorReport{}, lifecycleErr
 			}
 			status.RecoveryState = lifecycle.RecoveryState
+			status.RecoveryHealth = lifecycle.RecoveryHealth
+			status.RecoveryReasonCode = lifecycle.RecoveryReasonCode
 			if lifecycle.DerivedState != "" {
 				status.State = lifecycle.DerivedState
+			}
+			if lifecycle.RecoveryHealth == recovery.AirRecoveryHealthInvalid {
+				report.OK = false
 			}
 			switch lifecycle.RecoveryState {
 			case "prepared", "awaiting-host-roundtrip", "quarantined":
@@ -221,6 +229,12 @@ func renderRouteDoctorReport(app *App, report routeDoctorReport) {
 		r.Row("State", surface.State)
 		if surface.RecoveryState != "" {
 			r.Row("Recovery", surface.RecoveryState)
+		}
+		if surface.RecoveryHealth != "" {
+			r.Row("Recovery health", surface.RecoveryHealth)
+		}
+		if surface.RecoveryReasonCode != "" {
+			r.Row("Recovery reason", surface.RecoveryReasonCode)
 		}
 		r.Row("Authentication", surface.HostAuthentication)
 		r.Row("Endpoint", surface.ObservedEndpointHop)
