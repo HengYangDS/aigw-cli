@@ -644,7 +644,7 @@ func removeCodexFallbackProjection(current string, state codexState) (string, er
 func airTopLevelSelectsAIGW(text string) bool {
 	providers, _ := topLevelAirSelectionLines(text)
 	for _, provider := range providers {
-		if airAIGWSelectionLine.MatchString(normalizeAirProjectionLine(provider.text)) {
+		if airLineSelectsAIGW(provider.text) {
 			return true
 		}
 	}
