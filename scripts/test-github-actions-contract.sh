@@ -22,7 +22,7 @@ required = [
     "scripts/test-ci-go-cache-preparation.sh",
     "scripts/test-publish-release.sh", "scripts/test-publish-github-release.sh",
     "scripts/test-pipeline-gates.sh", "scripts/test-github-release-workflow.sh",
-    "scripts/test-github-provider-projection.sh",
+    "scripts/test-github-provider-projection.sh", "scripts/test-branch-closeout.sh",
 ]
 for token in required:
     if token not in text:
