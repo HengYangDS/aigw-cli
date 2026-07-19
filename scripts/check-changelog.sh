@@ -132,19 +132,42 @@ if not entries:
     raise SystemExit("CHANGELOG.md: missing published release heading")
 
 head_trees = set(subprocess.check_output(["git", "log", "HEAD", "--format=%T"], text=True).splitlines())
+direct_tags = subprocess.check_output(["git", "tag", "--list", "v[0-9]*"], text=True).splitlines()
+github_tags = subprocess.check_output(["git", "tag", "--list", "github/v[0-9]*"], text=True).splitlines()
+
+# Canonical checkouts keep fetched GitHub release tags beneath `github/` so
+# provider-native provenance never collides with GitLab's unscoped tag names.
+# A native GitHub checkout has only the direct names. Local chronology may
+# inspect both providers, but a GitLab-only check must never accept a GitHub tag
+# merely because both providers release the same version.
+if forge == "github":
+    # A canonical checkout can locally audit the remote GitHub namespace under
+    # `github/`; a native GitHub checkout exposes the same tags directly. Do
+    # not combine both here: an unscoped GitLab tag must not masquerade as
+    # GitHub provenance when qualified tags are available.
+    tags = github_tags or direct_tags
+elif forge == "local":
+    # Local validation accepts every complete fetched provider namespace. The
+    # source-tree identity below prevents a foreign GitHub tag from becoming
+    # local chronology unless this branch actually contains its source tree.
+    tags = direct_tags + github_tags
+else:
+    tags = direct_tags
+
 tag_versions = []
-for tag in subprocess.check_output(["git", "tag", "--list", "v[0-9]*"], text=True).splitlines():
-    version = tag.removeprefix("v")
+tag_trees: dict[str, str] = {}
+for tag in tags:
+    version = tag.removeprefix("github/").removeprefix("v")
     try:
         release_key(version)
     except ValueError:
         continue
     peeled = subprocess.check_output(["git", "rev-parse", f"{tag}^{{}}"], text=True).strip()
+    tree = subprocess.check_output(["git", "rev-parse", f"{peeled}^{{tree}}"], text=True).strip()
     if forge == "github":
         # GitHub's identity projection rewrites commits while preserving the
         # released source tree and its signed provider-native provenance tag.
         # A tag is active there only when its exact tree is represented by HEAD.
-        tree = subprocess.check_output(["git", "rev-parse", f"{peeled}^{{tree}}"], text=True).strip()
         active = tree in head_trees
     elif forge == "local":
         # Local validation accepts a complete fetched tag namespace so a
@@ -162,6 +185,12 @@ for tag in subprocess.check_output(["git", "tag", "--list", "v[0-9]*"], text=Tru
         ).returncode == 0
     if not active:
         continue
+    previous_tree = tag_trees.get(version)
+    if previous_tree is not None:
+        if previous_tree != tree:
+            raise SystemExit(f"CHANGELOG.md: provider tags disagree on source tree for version {version}")
+        continue
+    tag_trees[version] = tree
     tag_versions.append(version)
 if latest_tag:
     try:
@@ -172,7 +201,7 @@ if latest_tag:
     if latest_version not in tag_versions:
         tag_versions.append(latest_version)
 if not tag_versions:
-    raise SystemExit("CHANGELOG.md: cannot find an active v<semver> Git tag")
+    raise SystemExit("CHANGELOG.md: cannot find an active release tag for the selected forge")
 tag_versions.sort(key=release_key, reverse=True)
 
 retired_versions = []
