@@ -274,7 +274,7 @@ func fetchModelIDs(parent context.Context, client HTTPDoer, account domain.Accou
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("Model catalog endpoint returned HTTP %d", resp.StatusCode)

@@ -24,7 +24,7 @@ func writeRecoveryFileAtomicIfUnchanged(root, path string, expected transaction.
 	if err != nil {
 		return transaction.FileSnapshot{}, errors.New("open private recovery parent")
 	}
-	defer directory.Close()
+	defer func() { _ = directory.Close() }()
 	current, err := captureRecoveryFileAt(directory, name)
 	if err != nil {
 		return transaction.FileSnapshot{}, err
@@ -53,7 +53,7 @@ func removeRecoveryFileIfUnchanged(root, path string, expected transaction.FileS
 	if err != nil {
 		return transaction.FileSnapshot{}, errors.New("open private recovery parent")
 	}
-	defer directory.Close()
+	defer func() { _ = directory.Close() }()
 	current, err := captureRecoveryFileAt(directory, name)
 	if err != nil {
 		return transaction.FileSnapshot{}, err
@@ -78,7 +78,7 @@ func restoreRecoveryFileAtomicIfPostimage(root, path string, preimage, postimage
 	if err != nil {
 		return errors.New("open private recovery parent")
 	}
-	defer directory.Close()
+	defer func() { _ = directory.Close() }()
 	current, err := captureRecoveryFileAt(directory, name)
 	if err != nil {
 		return err
@@ -114,25 +114,25 @@ func openRecoveryParentNoFollow(root, path string, create bool) (*os.File, strin
 	currentPath := root
 	for _, part := range parts[:len(parts)-1] {
 		if part == "" || part == "." || part == ".." {
-			current.Close()
+			_ = current.Close()
 			return nil, "", errors.New("private recovery parent is invalid")
 		}
 		if create {
 			if mkdirErr := unix.Mkdirat(int(current.Fd()), part, 0o700); mkdirErr != nil && !errors.Is(mkdirErr, unix.EEXIST) {
-				current.Close()
+				_ = current.Close()
 				return nil, "", mkdirErr
 			}
 		}
 		nextFD, openErr := unix.Openat(int(current.Fd()), part, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_DIRECTORY|unix.O_NOFOLLOW, 0)
 		if openErr != nil {
 			entryExists := recoveryEntryExistsAt(current, part)
-			current.Close()
+			_ = current.Close()
 			if errors.Is(openErr, unix.ENOENT) && !entryExists {
 				return nil, "", os.ErrNotExist
 			}
 			return nil, "", openErr
 		}
-		current.Close()
+		_ = current.Close()
 		currentPath = filepath.Join(currentPath, part)
 		current = os.NewFile(uintptr(nextFD), currentPath)
 		if current == nil {
@@ -141,7 +141,7 @@ func openRecoveryParentNoFollow(root, path string, create bool) (*os.File, strin
 		}
 		info, statErr := current.Stat()
 		if statErr != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
-			current.Close()
+			_ = current.Close()
 			return nil, "", errors.New("private recovery parent has unsafe permissions")
 		}
 	}
@@ -172,20 +172,20 @@ func openRecoveryRootNoFollow(root string, create, requirePrivateMode bool) (*os
 		}
 		if create {
 			if mkdirErr := unix.Mkdirat(int(current.Fd()), part, 0o700); mkdirErr != nil && !errors.Is(mkdirErr, unix.EEXIST) {
-				current.Close()
+				_ = current.Close()
 				return nil, mkdirErr
 			}
 		}
 		nextFD, openErr := unix.Openat(int(current.Fd()), part, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_DIRECTORY|unix.O_NOFOLLOW, 0)
 		if openErr != nil {
 			entryExists := recoveryEntryExistsAt(current, part)
-			current.Close()
+			_ = current.Close()
 			if errors.Is(openErr, unix.ENOENT) && !entryExists {
 				return nil, os.ErrNotExist
 			}
 			return nil, openErr
 		}
-		current.Close()
+		_ = current.Close()
 		currentPath = filepath.Join(currentPath, part)
 		current = os.NewFile(uintptr(nextFD), currentPath)
 		if current == nil {
@@ -195,7 +195,7 @@ func openRecoveryRootNoFollow(root string, create, requirePrivateMode bool) (*os
 	}
 	info, err := current.Stat()
 	if err != nil || !info.IsDir() || (requirePrivateMode && info.Mode().Perm() != 0o700) {
-		current.Close()
+		_ = current.Close()
 		return nil, errors.New("private recovery root has unsafe permissions")
 	}
 	return current, nil
@@ -231,7 +231,7 @@ func captureRecoveryFileAt(directory *os.File, name string) (transaction.FileSna
 		_ = unix.Close(fd)
 		return transaction.FileSnapshot{}, errors.New("open private recovery file")
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() {
 		return transaction.FileSnapshot{}, errors.New("inspect private recovery file")
