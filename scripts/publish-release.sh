@@ -74,15 +74,17 @@ verify_release() {
 }
 
 status=$(curl --silent --show-error --output release-response.json --write-out '%{http_code}' \
-  --request POST --header "JOB-TOKEN: $CI_JOB_TOKEN" --header 'Content-Type: application/json' \
-  --data @release.json "$endpoint" || true)
+  --header "JOB-TOKEN: $CI_JOB_TOKEN" "$endpoint/$CI_COMMIT_TAG" || true)
 case "$status" in
-  2??) ;;
-  409)
+  2??)
+    ;;
+  404)
     status=$(curl --silent --show-error --output release-response.json --write-out '%{http_code}' \
-      --request PUT --header "JOB-TOKEN: $CI_JOB_TOKEN" --header 'Content-Type: application/json' \
-      --data @release.json "$endpoint/$CI_COMMIT_TAG" || true)
-    case "$status" in 2??) ;; *)
+      --request POST --header "JOB-TOKEN: $CI_JOB_TOKEN" --header 'Content-Type: application/json' \
+      --data @release.json "$endpoint" || true)
+    case "$status" in
+      2??|409) ;;
+      *)
       cat release-response.json >&2 2>/dev/null || true
       echo "GitLab release publication failed with HTTP $status" >&2
       exit 1
@@ -91,7 +93,7 @@ case "$status" in
     ;;
   *)
     cat release-response.json >&2 2>/dev/null || true
-    echo "GitLab release publication failed with HTTP $status" >&2
+    echo "GitLab release preflight failed with HTTP $status" >&2
     exit 1
     ;;
 esac
