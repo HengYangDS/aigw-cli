@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -13,6 +14,16 @@ import (
 )
 
 const airProjectionFingerprintDomain = "aigw-codex-full-selection-v1\x00"
+
+const (
+	AirStateExternalClean              = "external-clean"
+	AirStateExternalHostMirror         = "external-host-mirror"
+	AirStateOrphanedExactFullSelection = "orphaned-exact-full-selection"
+	AirStatePartialOrForeignResidue    = "partial-or-foreign-residue"
+)
+
+var exactAirManagedProviderLine = regexp.MustCompile(`^model_provider = "aigw" # managed by AIGW$`)
+var exactAirManagedModelLine = regexp.MustCompile(`^model = "[^"\r\n]+" # managed by AIGW$`)
 
 type airTextSpan struct {
 	start int
@@ -53,7 +64,7 @@ func PlanAirOrphanRemoval(airPath, standalonePath string) (AirOrphanRemovalPlan,
 	if err != nil {
 		return AirOrphanRemovalPlan{}, err
 	}
-	if inspection.State != "orphaned-aigw-marker" || projection == nil {
+	if inspection.State != AirStateOrphanedExactFullSelection || projection == nil {
 		return AirOrphanRemovalPlan{}, fmt.Errorf("Air state %q is not an exact removable orphan", inspection.State)
 	}
 	cleaned, err := removeAirProjectionSpans(string(preimage.Data), projection.removalSpans)
@@ -90,9 +101,9 @@ func inspectAirCodexConfig(airPath, standalonePath string) (CodexInspection, *ai
 	projection, exact := exactAirManagedProjection(text)
 	if !exact {
 		if hasAirAIGWResidue(text) {
-			inspection.State = "partial-or-foreign-residue"
+			inspection.State = AirStatePartialOrForeignResidue
 		} else {
-			inspection.State = "external-clean"
+			inspection.State = AirStateExternalClean
 		}
 		inspection.AIGWManaged = false
 		return inspection, nil, preimage, nil
@@ -110,14 +121,14 @@ func inspectAirCodexConfig(airPath, standalonePath string) (CodexInspection, *ai
 				return CodexInspection{}, nil, transaction.FileSnapshot{}, fmt.Errorf("read standalone Codex config: %w", readErr)
 			}
 			if standaloneProjection, ok := exactAirManagedProjection(string(standaloneData)); ok && standaloneProjection.fingerprint == projection.fingerprint {
-				inspection.State = "external-host-mirror"
+				inspection.State = AirStateExternalHostMirror
 				inspection.AIGWManaged = false
 				return inspection, projection, preimage, nil
 			}
 		}
 	}
 
-	inspection.State = "orphaned-aigw-marker"
+	inspection.State = AirStateOrphanedExactFullSelection
 	inspection.AIGWManaged = false
 	return inspection, projection, preimage, nil
 }
@@ -141,10 +152,10 @@ func exactAirManagedProjection(text string) (*airManagedProjection, bool) {
 		return nil, false
 	}
 	providers, models := topLevelAirSelectionLines(text)
-	if len(providers) != 1 || !isManagedSelection(normalizeAirProjectionLine(providers[0].text), "model_provider", "aigw") {
+	if len(providers) != 1 || !exactAirManagedProviderLine.MatchString(normalizeAirProjectionLine(providers[0].text)) {
 		return nil, false
 	}
-	if len(models) > 1 || (len(models) == 1 && !managedModelLine.MatchString(normalizeAirProjectionLine(models[0].text))) {
+	if len(models) > 1 || (len(models) == 1 && !exactAirManagedModelLine.MatchString(normalizeAirProjectionLine(models[0].text))) {
 		return nil, false
 	}
 	block, err := codexManagedBlockIn(text)

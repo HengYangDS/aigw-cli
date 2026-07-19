@@ -37,6 +37,7 @@ type AirOptions struct {
 	AIGWEndpoint       string
 	ConfigurationState string
 	Now                time.Time
+	ScanByteLimit      int64
 }
 
 // AirRuntimeAttestation is deliberately bounded to stable classifications,
@@ -88,7 +89,10 @@ func InspectAirRuntime(options AirOptions) (AirRuntimeAttestation, error) {
 	if !ok {
 		return AirRuntimeAttestation{}, errors.New("configured Codex route is unavailable")
 	}
-	budget := int64(maxAirLogScannedBytes)
+	budget := options.ScanByteLimit
+	if budget <= 0 {
+		budget = int64(maxAirLogScannedBytes)
+	}
 	currentRecords, present, err := scanAirLog(filepath.Join(options.LogDir, "air.log"), now.Location(), &budget)
 	if err != nil {
 		if errors.Is(err, errAirLogScanLimit) {
@@ -117,7 +121,7 @@ func InspectAirRuntime(options AirOptions) (AirRuntimeAttestation, error) {
 		rotated, present, err := scanAirLog(filepath.Join(options.LogDir, "air"+strconv.Itoa(index)+".log"), now.Location(), &budget)
 		if err != nil {
 			if errors.Is(err, errAirLogScanLimit) {
-				return report, nil
+				break
 			}
 			return AirRuntimeAttestation{}, errors.New("Air router log is unavailable")
 		}
