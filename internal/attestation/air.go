@@ -332,6 +332,9 @@ func parseRouteIdentity(raw string) (routeIdentity, bool) {
 	}
 	if path != "/" {
 		path = strings.TrimRight(path, "/")
+		if path == "" {
+			path = "/"
+		}
 	}
 	return routeIdentity{scheme: scheme, hostname: hostname, port: port, path: path}, true
 }
