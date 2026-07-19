@@ -29,7 +29,7 @@ Read one path, not the whole repository.
 | [Team rollout](team-rollout.md) | Team manifests, member setup, release artifacts, and updates. |
 | [governance/](governance/change-and-release-policy.md) | Change, release, and contributor policy. |
 | [decisions/](decisions/0001-control-plane-data-plane-boundary.md) | Durable design rulings. |
-| [evidence/](evidence/README.md) | Verification records and limits. |
+| [evidence/](evidence/README.md) | Verification records, limits, and local Git-object housekeeping. |
 | [CHANGELOG](../CHANGELOG.md) | Published release history. |
 | [LICENSE](../LICENSE) | MIT licensing terms for the repository. |
 

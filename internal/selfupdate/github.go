@@ -12,10 +12,6 @@ import (
 	"strings"
 )
 
-func (u Updater) latestTagFromGitHub(ctx context.Context, source ReleaseSource) (string, error) {
-	return u.latestTagFromGitHubRelease(ctx, source)
-}
-
 type githubRelease struct {
 	TagName     string `json:"tag_name"`
 	Prerelease  bool   `json:"prerelease"`

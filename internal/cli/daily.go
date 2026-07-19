@@ -696,7 +696,7 @@ func newVerifyCommand(app *App) *cobra.Command {
 		Short: "Run one minimal live request to verify the model protocol path",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			clients := []string{}
+			var clients []string
 			switch client {
 			case domain.ClientClaude, domain.ClientCodex:
 				clients = []string{client}
@@ -1279,8 +1279,6 @@ func commitConfigAndSync(ctx context.Context, app *App, before, after domain.Con
 	}
 	return nil
 }
-
-func _processPlanCompileGuard(_ adapters.ProcessPlan) {}
 
 func accountForInput(cfg domain.Config, name string) (string, domain.Account, error) {
 	cfg.Normalize()
