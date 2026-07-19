@@ -168,6 +168,11 @@ for arch in amd64 arm64; do
     echo "unexpected MSI subject for $arch: $subject" >&2
     exit 1
   }
+  author=$(msiinfo suminfo "$msi" | awk -F': ' '$1 == "Author" {print $2; exit}')
+  [ "$author" = "AIGW CLI" ] || {
+    echo "unexpected MSI author for $arch: $author" >&2
+    exit 1
+  }
   component_ids=$(msiinfo export "$msi" Component | awk -F '	' 'NR > 3 && $1 ~ /^Aigw(Exe|Path)$/ {print $1 "=" $2}')
   for component in AigwExe AigwPath; do
     expected=$(msi_component_guid "$arch" "$component")

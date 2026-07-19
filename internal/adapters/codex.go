@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
 )
 
 const (
@@ -42,27 +41,6 @@ type CodexProjectionPlan struct {
 	Target string `json:"target"`
 	Action string `json:"action"`
 }
-
-type codexTargetSnapshot struct {
-	path       string
-	config     []byte
-	configMode os.FileMode
-	state      []byte
-	stateMode  os.FileMode
-	stateExist bool
-}
-
-type preparedCodexProjection struct {
-	target   string
-	config   []byte
-	state    []byte
-	action   string
-	snapshot codexTargetSnapshot
-}
-
-// writeFileAtomic is an injected seam for deterministic commit/rollback tests.
-// Production code uses transaction.WriteFileAtomic.
-var writeFileAtomic = transaction.WriteFileAtomic
 
 func CodexLoginPlan(executable, codexHome, token string) (ProcessPlan, error) {
 	if executable == "" {
@@ -104,67 +82,6 @@ func SyncCodexConfigs(paths []string, runtime domain.Runtime) error {
 	return err
 }
 
-func prepareCodexProjections(paths []string, runtime domain.Runtime) ([]preparedCodexProjection, error) {
-	if len(paths) == 0 {
-		return nil, nil
-	}
-	endpoint, err := codexEndpoint(runtime)
-	if err != nil {
-		return nil, err
-	}
-	block := codexManagedBlock(runtime.ProfileLabel, endpoint)
-	seen := make(map[string]struct{}, len(paths))
-	prepared := make([]preparedCodexProjection, 0, len(paths))
-	for _, path := range paths {
-		if path == "" {
-			return nil, fmt.Errorf("Codex config target is empty")
-		}
-		if _, duplicate := seen[path]; duplicate {
-			return nil, fmt.Errorf("Codex config target %s is duplicated", path)
-		}
-		seen[path] = struct{}{}
-		projection, err := prepareCodexProjection(path, runtime, block)
-		if err != nil {
-			return nil, fmt.Errorf("prepare Codex projection %s: %w", path, err)
-		}
-		prepared = append(prepared, projection)
-	}
-	return prepared, nil
-}
-
-func prepareCodexProjection(path string, runtime domain.Runtime, block string) (preparedCodexProjection, error) {
-	snapshot, err := readCodexTargetSnapshot(path)
-	if err != nil {
-		return preparedCodexProjection{}, err
-	}
-	base, state, err := codexUserConfig(path, runtime, block)
-	if err != nil {
-		return preparedCodexProjection{}, err
-	}
-	projected := projectCodex(base, block, runtime.Model)
-	state.ManagedBlockHash = hashText(block)
-	stateData, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return preparedCodexProjection{}, fmt.Errorf("encode Codex adapter state: %w", err)
-	}
-	stateData = append(stateData, '\n')
-	action := "update"
-	if string(snapshot.config) == projected && snapshot.stateExist && string(snapshot.state) == string(stateData) {
-		action = "already-converged"
-	} else if isExactTruncatedCodexProjection(string(snapshot.config), snapshot.state, runtime, block) {
-		action = "repair-truncated"
-	} else if !snapshot.stateExist {
-		action = "initial-project"
-	}
-	return preparedCodexProjection{
-		target:   path,
-		config:   []byte(projected),
-		state:    stateData,
-		action:   action,
-		snapshot: snapshot,
-	}, nil
-}
-
 func isExactTruncatedCodexProjection(current string, stateData []byte, runtime domain.Runtime, block string) bool {
 	var state codexState
 	if len(stateData) == 0 || json.Unmarshal(stateData, &state) != nil {
@@ -172,68 +89,6 @@ func isExactTruncatedCodexProjection(current string, stateData []byte, runtime d
 	}
 	_, ok := completeExactTruncatedCodexProjection(current, state, runtime, block)
 	return ok
-}
-
-func readCodexTargetSnapshot(path string) (codexTargetSnapshot, error) {
-	config, err := os.ReadFile(path)
-	if err != nil {
-		return codexTargetSnapshot{}, fmt.Errorf("read Codex config: %w", err)
-	}
-	configMode := os.FileMode(0o600)
-	if info, statErr := os.Stat(path); statErr == nil {
-		configMode = info.Mode().Perm()
-	} else {
-		return codexTargetSnapshot{}, fmt.Errorf("inspect Codex config: %w", statErr)
-	}
-	snapshot := codexTargetSnapshot{path: path, config: config, configMode: configMode}
-	statePath := codexStatePath(path)
-	state, err := os.ReadFile(statePath)
-	if os.IsNotExist(err) {
-		return snapshot, nil
-	}
-	if err != nil {
-		return codexTargetSnapshot{}, fmt.Errorf("read Codex adapter state: %w", err)
-	}
-	snapshot.state = state
-	snapshot.stateExist = true
-	if info, statErr := os.Stat(statePath); statErr == nil {
-		snapshot.stateMode = info.Mode().Perm()
-	} else {
-		return codexTargetSnapshot{}, fmt.Errorf("inspect Codex adapter state: %w", statErr)
-	}
-	return snapshot, nil
-}
-
-func writePreparedCodexProjection(projection preparedCodexProjection) error {
-	if err := writeFileAtomic(projection.target, projection.config, projection.snapshot.configMode); err != nil {
-		return err
-	}
-	if err := writeFileAtomic(codexStatePath(projection.target), projection.state, 0o600); err != nil {
-		return err
-	}
-	return nil
-}
-
-func rollbackCodexProjections(projections []preparedCodexProjection) error {
-	var failures []string
-	for index := len(projections) - 1; index >= 0; index-- {
-		projection := projections[index]
-		if err := writeFileAtomic(projection.target, projection.snapshot.config, projection.snapshot.configMode); err != nil {
-			failures = append(failures, fmt.Sprintf("restore %s: %v", projection.target, err))
-		}
-		statePath := codexStatePath(projection.target)
-		if projection.snapshot.stateExist {
-			if err := writeFileAtomic(statePath, projection.snapshot.state, projection.snapshot.stateMode); err != nil {
-				failures = append(failures, fmt.Sprintf("restore %s: %v", statePath, err))
-			}
-		} else if err := os.Remove(statePath); err != nil && !os.IsNotExist(err) {
-			failures = append(failures, fmt.Sprintf("remove %s: %v", statePath, err))
-		}
-	}
-	if len(failures) > 0 {
-		return errors.New(strings.Join(failures, "; "))
-	}
-	return nil
 }
 
 // ValidateCodexConfig verifies that a Codex target still matches the resolved
@@ -288,10 +143,6 @@ func ValidateCodexConfig(path string, runtime domain.Runtime) error {
 func DisableCodexConfig(path string) error {
 	_, err := ReconcileCodexConfigs(standaloneCodexTargets([]string{path}), nil, domain.Runtime{})
 	return err
-}
-
-func codexUserConfig(path string, runtime domain.Runtime, expectedBlock string) (string, codexState, error) {
-	return codexUserConfigAt(path, codexStatePath(path), runtime, expectedBlock)
 }
 
 func codexUserConfigAt(path, statePath string, runtime domain.Runtime, expectedBlock string) (string, codexState, error) {
