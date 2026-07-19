@@ -422,14 +422,53 @@ EOF
 mkdir -p "$provider_conflict/scripts" "$provider_conflict/packaging/release"
 cp "$checker" "$provider_conflict/scripts/check-changelog.sh"
 printf '' > "$provider_conflict/packaging/release/retired-gitlab-tags.txt"
-if (
+(
   cd "$provider_conflict"
   AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true GITLAB_CI= \
     CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
-    sh scripts/check-changelog.sh >/dev/null 2>&1
+    sh scripts/check-changelog.sh
+)
+
+# Once a qualified GitHub namespace exists, the unscoped `git describe` result
+# must not leak a GitLab-only version back into GitHub chronology. Listing both
+# headings would incorrectly pass if that direct tag were re-added.
+provider_latest_leak="$tmp/provider-latest-leak"
+git init -q -b main "$provider_latest_leak"
+git -C "$provider_latest_leak" config user.name 'AIGW Changelog Provider Test'
+git -C "$provider_latest_leak" config user.email 'aigw-changelog-provider@example.invalid'
+printf 'gitlab\n' > "$provider_latest_leak/release.txt"
+git -C "$provider_latest_leak" add release.txt
+git -C "$provider_latest_leak" commit -qm 'GitLab release'
+git -C "$provider_latest_leak" tag -a v0.1.0-rc.1 -m 'GitLab release'
+printf 'github\n' > "$provider_latest_leak/release.txt"
+git -C "$provider_latest_leak" commit -am 'GitHub release' -q
+git -C "$provider_latest_leak" tag -a github/v0.1.0-rc.2 -m 'GitHub release'
+cat > "$provider_latest_leak/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0-rc.2] - 2026-07-19
+
+## [0.1.0-rc.1] - 2026-07-18
+EOF
+mkdir -p "$provider_latest_leak/scripts" "$provider_latest_leak/packaging/release"
+cp "$checker" "$provider_latest_leak/scripts/check-changelog.sh"
+printf '' > "$provider_latest_leak/packaging/release/retired-gitlab-tags.txt"
+if (
+  cd "$provider_latest_leak"
+  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true GITLAB_CI= \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
+    sh scripts/check-changelog.sh 2>error.log
 ); then
-  echo "changelog checker accepted a higher GitLab-only tag on the GitHub plane" >&2
+  echo "changelog checker accepted an unscoped latest tag on the GitHub plane" >&2
   exit 1
 fi
+grep -Fq 'only the first release heading may be an untagged next candidate' \
+  "$provider_latest_leak/error.log" || {
+    cat "$provider_latest_leak/error.log" >&2
+    echo "changelog checker rejected the latest-tag leak for an unexpected reason" >&2
+    exit 1
+  }
 
 echo "changelog chronology contract: OK"
