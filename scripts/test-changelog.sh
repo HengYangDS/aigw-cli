@@ -321,4 +321,44 @@ cp "$root/packaging/release/retired-gitlab-tags.txt" "$provider/packaging/releas
     sh scripts/check-changelog.sh
 )
 
+# GitHub provider branches rewrite identities.  A provider-native tag can be
+# unreachable by commit ancestry while its exact tree is present in the current
+# branch.  GitHub branch CI must recognize that immutable provider tag as the
+# latest published source version rather than rejecting a valid Changelog.
+provider_tree="$tmp/provider-tree"
+provider_tree_origin="$tmp/provider-tree-origin.git"
+git init -q -b main "$provider_tree"
+git -C "$provider_tree" config user.name 'AIGW Changelog Provider Test'
+git -C "$provider_tree" config user.email 'aigw-changelog-provider@example.invalid'
+printf 'release\n' > "$provider_tree/release.txt"
+git -C "$provider_tree" add release.txt
+git -C "$provider_tree" commit -qm 'release'
+git -C "$provider_tree" tag -a v0.1.0-rc.1 -m 'provider release'
+git init -q --bare "$provider_tree_origin"
+git -C "$provider_tree" remote add origin "file://$provider_tree_origin"
+git -C "$provider_tree" push -q origin 'HEAD:refs/heads/main' --tags
+git -C "$provider_tree" checkout -q --orphan projected
+git -C "$provider_tree" rm -q --cached -r .
+git -C "$provider_tree" checkout -q v0.1.0-rc.1 -- release.txt
+git -C "$provider_tree" add release.txt
+git -C "$provider_tree" commit -qm 'rewritten provider branch'
+git -C "$provider_tree" branch -f main HEAD
+git -C "$provider_tree" checkout -q main
+cat > "$provider_tree/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0-rc.1] - 2026-07-17
+EOF
+mkdir -p "$provider_tree/scripts" "$provider_tree/packaging/release"
+cp "$checker" "$provider_tree/scripts/check-changelog.sh"
+printf '' > "$provider_tree/packaging/release/retired-gitlab-tags.txt"
+(
+  cd "$provider_tree"
+  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true GITLAB_CI= \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
+    sh scripts/check-changelog.sh
+)
+
 echo "changelog chronology contract: OK"
