@@ -179,6 +179,44 @@ func TestProbeStableCancellationStopsRecoveryPromptly(t *testing.T) {
 	}
 }
 
+func TestProbeStableTreatsRecoveryBodyReadTimeoutsAsAuthenticationUnstable(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusUnauthorized} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			calls := 0
+			closed := 0
+			client := clientFunc(func(req *http.Request) (*http.Response, error) {
+				calls++
+				if calls == 1 {
+					return response(http.StatusUnauthorized, `{"message":"temporary authentication failure"}`), nil
+				}
+				return &http.Response{
+					StatusCode: status,
+					Body: &contextErrorBody{
+						ctx:    req.Context(),
+						closed: &closed,
+					},
+				}, nil
+			})
+			policy := diagnostics.StabilityPolicy{
+				RecoveryDelays: []time.Duration{0, 0, 0},
+				AttemptTimeout: 10 * time.Millisecond,
+			}
+
+			result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", policy)
+
+			if calls != 4 || closed != 3 {
+				t.Fatalf("calls=%d closed=%d, want four calls and three closed recovery bodies", calls, closed)
+			}
+			if result.Kind != diagnostics.AuthenticationUnstable || result.Attempts != 4 || result.RecoveredTransient || !result.Retryable {
+				t.Fatalf("result = %#v, want retryable authentication instability", result)
+			}
+			if strings.Contains(result.Fix, "rotate") {
+				t.Fatalf("body-read timeout must not recommend rotation: %#v", result)
+			}
+		})
+	}
+}
+
 func TestProbeStableClosesEveryResponse(t *testing.T) {
 	closed := 0
 	statuses := []int{http.StatusUnauthorized, http.StatusOK, http.StatusOK, http.StatusOK}
@@ -246,6 +284,21 @@ func immediateStabilityPolicy() diagnostics.StabilityPolicy {
 type countingReadCloser struct {
 	io.Reader
 	closed *int
+}
+
+type contextErrorBody struct {
+	ctx    context.Context
+	closed *int
+}
+
+func (body *contextErrorBody) Read([]byte) (int, error) {
+	<-body.ctx.Done()
+	return 0, body.ctx.Err()
+}
+
+func (body *contextErrorBody) Close() error {
+	*body.closed++
+	return nil
 }
 
 func (c *countingReadCloser) Close() error {
