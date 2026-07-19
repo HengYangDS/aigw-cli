@@ -9,6 +9,8 @@ rpm_image=${AIGW_LINUX_RPM_ACCEPTANCE_IMAGE:-public.ecr.aws/docker/library/mysql
 shared_tmp_root=${AIGW_DOCKER_SHARED_TMPDIR:-"$HOME/.cache/aigw/container-artifacts"}
 pull_timeout=${AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS:-120}
 lock_timeout=${AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS:-180}
+active_supervisor_pid=''
+active_lock_dir=''
 
 require() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -28,6 +30,7 @@ require_timeout_range() {
 }
 
 require docker
+require python3
 require_timeout_range AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS "$pull_timeout"
 require_timeout_range AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS "$lock_timeout"
 [ -d "$out" ] || { echo "artifact directory does not exist: $out" >&2; exit 2; }
@@ -36,89 +39,15 @@ sh "$root/scripts/check-release-artifacts.sh" "$out" "$version" >/dev/null
 run_with_timeout() {
   seconds=$1
   shift
-  if command -v timeout >/dev/null 2>&1; then
-    timeout "$seconds" "$@"
-    return
+  python3 "$root/scripts/run-with-timeout.py" "$seconds" "$@" &
+  active_supervisor_pid=$!
+  if wait "$active_supervisor_pid"; then
+    supervisor_status=0
+  else
+    supervisor_status=$?
   fi
-
-  descendant_pids() {
-    root_pid=$1
-    ps -eo pid=,ppid= 2>/dev/null | awk -v root="$root_pid" '
-      { parent[$1] = $2 }
-      END {
-        for (candidate in parent) {
-          ancestor = candidate
-          while (ancestor in parent && parent[ancestor] != 0) {
-            ancestor = parent[ancestor]
-            if (ancestor == root) {
-              print candidate
-              break
-            }
-          }
-        }
-      }
-    '
-  }
-
-  process_tree_pids() {
-    process_tree_root=$1
-    printf '%s\n' "$process_tree_root"
-    descendant_pids "$process_tree_root"
-  }
-
-  surviving_process_tree_pids() {
-    retained_process_list=$1
-    printf '%s\n' "$retained_process_list" |
-      while IFS= read -r retained_pid; do
-        case "$retained_pid" in
-          ''|*[!0-9]*) continue ;;
-        esac
-        if kill -0 "$retained_pid" 2>/dev/null; then
-          printf '%s\n' "$retained_pid"
-          descendant_pids "$retained_pid"
-        fi
-      done |
-      awk '!seen[$1]++'
-  }
-
-  signal_processes() {
-    process_signal=$1
-    process_list=$2
-    printf '%s\n' "$process_list" |
-      while IFS= read -r process_pid; do
-        case "$process_pid" in
-          ''|*[!0-9]*) continue ;;
-        esac
-        kill "-$process_signal" "$process_pid" 2>/dev/null || true
-      done
-  }
-
-  "$@" &
-  pid=$!
-  elapsed=0
-  while kill -0 "$pid" 2>/dev/null; do
-    if [ "$elapsed" -ge "$seconds" ]; then
-      # Retain the exact pre-TERM tree. A root that exits during the grace
-      # period can no longer be used to rediscover its reparented descendants.
-      retained_pids=$(process_tree_pids "$pid" | awk '!seen[$1]++')
-      signal_processes TERM "$retained_pids"
-      # Preserve a hard 300-second ceiling: the one-second TERM grace is only
-      # available when it still fits below the admitted timeout maximum.
-      if [ "$seconds" -lt 300 ]; then
-        sleep 1
-      fi
-      # Signal only exact retained PIDs that are still live, plus their current
-      # descendants. This avoids a broad process-group kill while covering
-      # descendants spawned or reparented during TERM handling.
-      kill_pids=$(surviving_process_tree_pids "$retained_pids")
-      signal_processes KILL "$kill_pids"
-      wait "$pid" 2>/dev/null || true
-      return 124
-    fi
-    sleep 1
-    elapsed=$((elapsed + 1))
-  done
-  wait "$pid"
+  active_supervisor_pid=''
+  return "$supervisor_status"
 }
 
 image_lock_name() {
@@ -129,20 +58,25 @@ with_image_lock() {
   image=$1
   platform=$2
   shift 2
-  (
-    lock_dir="$shared_tmp_root/.image-lock-$(image_lock_name "$image" "$platform")"
-    elapsed=0
-    while ! mkdir "$lock_dir" 2>/dev/null; do
-      if [ "$elapsed" -ge "$lock_timeout" ]; then
-        echo "timed out waiting for Linux acceptance image lock: $image ($platform)" >&2
-        exit 1
-      fi
-      sleep 1
-      elapsed=$((elapsed + 1))
-    done
-    trap 'rmdir "$lock_dir" 2>/dev/null || true' EXIT HUP INT TERM
-    "$@"
-  )
+  lock_dir="$shared_tmp_root/.image-lock-$(image_lock_name "$image" "$platform")"
+  elapsed=0
+  while ! mkdir "$lock_dir" 2>/dev/null; do
+    if [ "$elapsed" -ge "$lock_timeout" ]; then
+      echo "timed out waiting for Linux acceptance image lock: $image ($platform)" >&2
+      return 1
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  active_lock_dir=$lock_dir
+  if "$@"; then
+    lock_status=0
+  else
+    lock_status=$?
+  fi
+  rmdir "$active_lock_dir" 2>/dev/null || true
+  active_lock_dir=''
+  return "$lock_status"
 }
 
 ensure_image_platform() {
@@ -181,8 +115,29 @@ ensure_image_platform_locked() {
 
 mkdir -p "$shared_tmp_root"
 staged=$(mktemp -d "$shared_tmp_root/aigw-linux-native-install.XXXXXX")
-cleanup() { rm -rf "$staged"; }
-trap cleanup EXIT HUP INT TERM
+cleanup() {
+  if [ -n "$active_lock_dir" ]; then
+    rmdir "$active_lock_dir" 2>/dev/null || true
+    active_lock_dir=''
+  fi
+  rm -rf "$staged"
+}
+forward_signal() {
+  signal_name=$1
+  signal_status=$2
+  trap '' HUP INT TERM
+  if [ -n "$active_supervisor_pid" ]; then
+    kill "-$signal_name" "$active_supervisor_pid" 2>/dev/null || true
+    wait "$active_supervisor_pid" 2>/dev/null || true
+    active_supervisor_pid=''
+  fi
+  cleanup
+  exit "$signal_status"
+}
+trap cleanup EXIT
+trap 'forward_signal HUP 129' HUP
+trap 'forward_signal INT 130' INT
+trap 'forward_signal TERM 143' TERM
 for arch in amd64 arm64; do
   cp "$out/aigw_${version}_linux_${arch}.deb" "$staged/"
   cp "$out/aigw_${version}_linux_${arch}.rpm" "$staged/"
