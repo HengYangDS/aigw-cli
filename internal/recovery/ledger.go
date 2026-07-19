@@ -95,20 +95,28 @@ func (s Store) captureAirLedger() (airLedger, transaction.FileSnapshot, error) {
 	if runtime.GOOS != "windows" && snapshot.Mode.Perm() != 0o600 {
 		return airLedger{}, transaction.FileSnapshot{}, errors.New("Air recovery ledger has unsafe permissions")
 	}
-	var ledger airLedger
-	decoder := json.NewDecoder(bytes.NewReader(snapshot.Data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&ledger); err != nil {
-		return airLedger{}, transaction.FileSnapshot{}, errors.New("Air recovery ledger is invalid")
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return airLedger{}, transaction.FileSnapshot{}, errors.New("Air recovery ledger has trailing content")
-	}
-	if err := validateAirLedger(ledger); err != nil {
+	ledger, err := decodeAirLedger(snapshot.Data)
+	if err != nil {
 		return airLedger{}, transaction.FileSnapshot{}, err
 	}
 	return ledger, snapshot, nil
+}
+
+func decodeAirLedger(data []byte) (airLedger, error) {
+	var ledger airLedger
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&ledger); err != nil {
+		return airLedger{}, errors.New("Air recovery ledger is invalid")
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return airLedger{}, errors.New("Air recovery ledger has trailing content")
+	}
+	if err := validateAirLedger(ledger); err != nil {
+		return airLedger{}, err
+	}
+	return ledger, nil
 }
 
 func (s Store) validateAirRecoveryStorage(caseID string, ledger, quarantine transaction.FileSnapshot) error {

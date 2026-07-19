@@ -157,6 +157,7 @@ func TestAirRecoverOrphanCleansExactProjectionWithoutClientOrCredentials(t *test
 		t.Fatalf("recovery executed a client: %#v", h.runner.plans)
 	}
 	output := h.app.Out.(*bytes.Buffer).String()
+	assertAirRouteJSONKeys(t, h.app.Out.(*bytes.Buffer).Bytes())
 	for _, forbidden := range []string{h.air, h.standalone, h.dataDir, "orphan.test", "gateway.test", "gpt-test"} {
 		if strings.Contains(output, forbidden) {
 			t.Fatalf("recovery leaked %q: %s", forbidden, output)
@@ -230,6 +231,7 @@ func TestAirSettleWaitsForRoundtripThenSettlesWithoutWritingAir(t *testing.T) {
 	if !strings.Contains(h.app.Out.(*bytes.Buffer).String(), `"action": "wait"`) {
 		t.Fatalf("settle preview = %s", h.app.Out.(*bytes.Buffer).String())
 	}
+	assertAirRouteJSONKeys(t, h.app.Out.(*bytes.Buffer).Bytes())
 	if err := Execute(h.app, []string{"route", "settle", "air", "--case-id", caseID}); err == nil {
 		t.Fatal("unchanged cleaned postimage settled")
 	}
@@ -248,6 +250,7 @@ func TestAirSettleWaitsForRoundtripThenSettlesWithoutWritingAir(t *testing.T) {
 	if !strings.Contains(h.app.Out.(*bytes.Buffer).String(), `"state": "settled"`) {
 		t.Fatalf("settle output = %s", h.app.Out.(*bytes.Buffer).String())
 	}
+	assertAirRouteJSONKeys(t, h.app.Out.(*bytes.Buffer).Bytes())
 }
 
 func TestAirSettleAcceptsRecreatedReferenceMirrorAndQuarantinesPartialResidue(t *testing.T) {
