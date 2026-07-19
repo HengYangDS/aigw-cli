@@ -89,6 +89,10 @@ func buildRouteDoctorReport(app *App) (routeDoctorReport, error) {
 		}
 	}
 	report := routeDoctorReport{OK: true, Surfaces: make([]routeSurfaceStatus, 0, len(discovered.Surfaces))}
+	standalonePath := ""
+	if standalone, ok := discovered.Surface(discovery.SurfaceCodexCLIStandalone); ok && standalone.Present {
+		standalonePath = standalone.ConfigPath
+	}
 	for _, surface := range discovered.Surfaces {
 		status := routeSurfaceStatus{
 			SurfaceID:           surface.ID,
@@ -123,7 +127,12 @@ func buildRouteDoctorReport(app *App) (routeDoctorReport, error) {
 			report.Surfaces = append(report.Surfaces, status)
 			continue
 		}
-		inspection, err := adapters.InspectCodexConfig(surface.ConfigPath)
+		var inspection adapters.CodexInspection
+		if surface.ID == discovery.SurfaceAirCodex {
+			inspection, err = adapters.InspectAirCodexConfig(surface.ConfigPath, standalonePath)
+		} else {
+			inspection, err = adapters.InspectCodexConfig(surface.ConfigPath)
+		}
 		if err != nil {
 			return routeDoctorReport{}, err
 		}
@@ -169,7 +178,7 @@ func buildRouteDoctorReport(app *App) (routeDoctorReport, error) {
 				report.OK = false
 			}
 		}
-		if inspection.AttributionState == "foreign-or-incomplete" || inspection.State == "aigw-drift" || inspection.State == "stale-sidecar" || inspection.State == "ownership-conflict" {
+		if inspection.AttributionState == "foreign-or-incomplete" || inspection.State == "aigw-drift" || inspection.State == "stale-sidecar" || inspection.State == "ownership-conflict" || inspection.State == "partial-or-foreign-residue" {
 			report.OK = false
 		}
 		report.Surfaces = append(report.Surfaces, status)

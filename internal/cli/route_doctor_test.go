@@ -203,6 +203,130 @@ func TestRouteDoctorRecommendsAirRecoveryForStaleFullSelection(t *testing.T) {
 	}
 }
 
+func TestRouteDoctorAcceptsAirHostMirrorRegardlessOfSurfaceOrderWithoutLeaks(t *testing.T) {
+	h := newAirRouteHarness(t)
+	standalone, err := os.ReadFile(h.standalone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	airMirror := append([]byte(nil), standalone...)
+	airMirror = append(airMirror, []byte("\n[jetbrains]\nhost_only = true\n")...)
+	if err := os.WriteFile(h.air, airMirror, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	discovered, err := discoveredResult(h.app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(discovered.Surfaces) != 2 {
+		t.Fatalf("surfaces = %#v", discovered.Surfaces)
+	}
+	discovered.Surfaces[0], discovered.Surfaces[1] = discovered.Surfaces[1], discovered.Surfaces[0]
+	h.app.Discovery = reconciliationDiscovery{result: discovered}
+
+	report, err := buildRouteDoctorReport(h.app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.OK {
+		t.Fatalf("report = %#v", report)
+	}
+	air := routeDoctorSurface(report, discovery.SurfaceAirCodex)
+	if air.State != "external-host-mirror" || air.Management != "external-jetbrains" {
+		t.Fatalf("Air status = %#v", air)
+	}
+
+	out := new(bytes.Buffer)
+	h.app.Out, h.app.Err = out, out
+	if err := Execute(h.app, []string{"route", "doctor", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	output := out.String()
+	for _, forbidden := range []string{h.air, h.standalone, "gateway.test", "gpt-test", "model_provider", "host_only = true"} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("doctor leaked %q: %s", forbidden, output)
+		}
+	}
+	for _, want := range []string{`"state": "external-host-mirror"`, `"management": "external-jetbrains"`, `"ok": true`} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("doctor output missing %q: %s", want, output)
+		}
+	}
+}
+
+func TestRouteDoctorRejectsAirOrphanAndPartialResidueWithoutLeaks(t *testing.T) {
+	tests := []struct {
+		name      string
+		mutate    func(string) string
+		wantState string
+		secret    string
+	}{
+		{
+			name: "exact orphan",
+			mutate: func(text string) string {
+				return strings.Replace(text, "https://gateway.test/v1", "https://orphan.test/v1", 1)
+			},
+			wantState: "orphaned-aigw-marker",
+			secret:    "orphan.test",
+		},
+		{
+			name: "partial residue",
+			mutate: func(string) string {
+				return "model_provider = \"aigw\" # managed by AIGW\n# >>> AIGW managed provider >>>\nbase_url = \"https://partial.test/v1\"\n"
+			},
+			wantState: "partial-or-foreign-residue",
+			secret:    "partial.test",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newAirRouteHarness(t)
+			standalone, err := os.ReadFile(h.standalone)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(h.air, []byte(tt.mutate(string(standalone))), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			report, err := buildRouteDoctorReport(h.app)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if report.OK {
+				t.Fatalf("report = %#v, want conflict", report)
+			}
+			air := routeDoctorSurface(report, discovery.SurfaceAirCodex)
+			if air.State != tt.wantState || air.Management != "external-jetbrains" {
+				t.Fatalf("Air status = %#v", air)
+			}
+
+			out := new(bytes.Buffer)
+			h.app.Out, h.app.Err = out, out
+			if err := Execute(h.app, []string{"route", "doctor", "--json"}); err == nil {
+				t.Fatal("route doctor unexpectedly accepted Air conflict")
+			}
+			output := out.String()
+			for _, forbidden := range []string{h.air, h.standalone, tt.secret, "gpt-test", "model_provider"} {
+				if strings.Contains(output, forbidden) {
+					t.Fatalf("doctor leaked %q: %s", forbidden, output)
+				}
+			}
+			if !strings.Contains(output, `"state": "`+tt.wantState+`"`) || !strings.Contains(output, `"ok": false`) {
+				t.Fatalf("doctor output = %s", output)
+			}
+		})
+	}
+}
+
+func routeDoctorSurface(report routeDoctorReport, surfaceID string) routeSurfaceStatus {
+	for _, surface := range report.Surfaces {
+		if surface.SurfaceID == surfaceID {
+			return surface
+		}
+	}
+	return routeSurfaceStatus{}
+}
+
 func TestRouteDoctorIsNotAMutationCommand(t *testing.T) {
 	if mutationCommand(&App{}, []string{"route", "doctor", "--json"}) {
 		t.Fatal("route doctor must not acquire a mutation lock")
