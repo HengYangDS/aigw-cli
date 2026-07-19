@@ -39,7 +39,7 @@ func (u Updater) latestPrereleaseTagFromGitHub(ctx context.Context, source Relea
 	if err != nil {
 		return "", unavailable(fmt.Errorf("query GitHub prerelease metadata: %w", err))
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
 		return "", unavailable(fmt.Errorf("query GitHub prerelease metadata: %s", response.Status))
 	}
@@ -157,7 +157,7 @@ func (u Updater) githubRelease(ctx context.Context, source ReleaseSource, path s
 	if err != nil {
 		return githubRelease{}, unavailable(fmt.Errorf("query GitHub release metadata: %w", err))
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
 		return githubRelease{}, unavailable(fmt.Errorf("query GitHub release metadata: %s", response.Status))
 	}
@@ -238,7 +238,7 @@ func (u Updater) downloadGitHubAsset(ctx context.Context, rawURL, destination st
 	if err != nil {
 		return unavailable(err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
 		return unavailable(fmt.Errorf("%s", response.Status))
 	}

@@ -222,7 +222,7 @@ func verifyCredential(ctx context.Context, app *App, providerAccount domain.Acco
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, resp.Body)
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return fmt.Errorf("Gateway rejected authentication (HTTP %d)", resp.StatusCode)
