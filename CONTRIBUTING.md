@@ -19,6 +19,11 @@ failing regression before changing behavior. Changes to projection logic must
 cover successful convergence, preflight rejection, write failure, byte-exact
 rollback, and absent-sidecar restoration.
 
+Local developer-tool state, including `.serena/`, is disposable and ignored.
+It may index the current checkout, but it is not AIGW configuration, evidence,
+or an input to release and runtime decisions. Do not add it to commits, copy it
+between worktrees, or use it to reconstruct source state.
+
 ```bash
 go test -race ./...
 go vet ./...
