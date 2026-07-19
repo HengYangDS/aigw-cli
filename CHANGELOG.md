@@ -8,6 +8,20 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.68] - 2026-07-19
+
+### Fixed
+
+- Preserve the exact provider/model order in Air host-mirror fingerprints and
+  fuzz malformed projection and router-log inputs, including a route path
+  normalization edge case.
+- Report bounded recovery-ledger and quarantine health from the existing
+  read-only `route doctor` command without exposing private digests, case
+  details, paths, or raw routes.
+- Verify every byte of all 15 assets on an existing GitLab Release against the
+  locally validated matrix, rejecting missing, extra, duplicate, or mismatched
+  assets without updating the Release.
+
 ## [0.1.0-rc.67] - 2026-07-19
 
 ### Fixed

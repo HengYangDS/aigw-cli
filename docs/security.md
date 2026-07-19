@@ -94,6 +94,13 @@ compensation attempts every artifact while refusing to overwrite concurrent
 postimages. This path is independent from ADR-0003's recognized
 fallback/full-selection sidecar mismatch.
 
+The existing `aigw route doctor` command inspects that private recovery state
+without taking the mutation lock, creating directories, or changing files. Its
+public health projection is limited to lifecycle state, `healthy`, `inactive`,
+or `invalid`, and stable ledger/quarantine reason codes. It does not emit a
+case ID, private digest, storage path, quarantine filename, raw URL, or
+configuration body.
+
 AIGW snapshots each owned configuration and sidecar as exact bytes, existence,
 digest, and POSIX mode. Before a write it verifies the captured preimage;
 compensating rollback restores only its own unchanged postimages. This guards
