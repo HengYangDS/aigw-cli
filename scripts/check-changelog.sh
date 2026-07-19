@@ -79,12 +79,6 @@ if test -z "$latest_tag" && test "$has_origin" = true; then
     latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
   fi
 fi
-if test -n "$selected_tag"; then
-  latest_tag=$selected_tag
-elif test -z "$latest_tag"; then
-  fail "cannot find a reachable v<semver> Git tag"
-fi
-
 python3 - "$changelog" "$latest_tag" "$selected_tag" "$root/packaging/release/retired-gitlab-tags.txt" "$forge" <<'PYTHON'
 from __future__ import annotations
 
@@ -137,6 +131,7 @@ for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
 if not entries:
     raise SystemExit("CHANGELOG.md: missing published release heading")
 
+head_trees = set(subprocess.check_output(["git", "log", "HEAD", "--format=%T"], text=True).splitlines())
 tag_versions = []
 for tag in subprocess.check_output(["git", "tag", "--list", "v[0-9]*"], text=True).splitlines():
     version = tag.removeprefix("v")
@@ -144,9 +139,40 @@ for tag in subprocess.check_output(["git", "tag", "--list", "v[0-9]*"], text=Tru
         release_key(version)
     except ValueError:
         continue
+    peeled = subprocess.check_output(["git", "rev-parse", f"{tag}^{{}}"], text=True).strip()
+    if forge == "github":
+        # GitHub's identity projection rewrites commits while preserving the
+        # released source tree and its immutable provider-native tag. A tag is
+        # active there only when its exact tree is represented by HEAD.
+        tree = subprocess.check_output(["git", "rev-parse", f"{peeled}^{{tree}}"], text=True).strip()
+        active = tree in head_trees
+    elif forge == "local":
+        # Local validation accepts a complete fetched tag namespace so a
+        # shallow checkout can recover chronology from its configured origin.
+        active = True
+    else:
+        # Canonical GitLab/local history keeps its own identity. A foreign tag
+        # copied into the local object store is not a canonical release merely
+        # because it happens to name an equivalent tree.
+        active = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", peeled, "HEAD"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).returncode == 0
+    if not active:
+        continue
     tag_versions.append(version)
+if latest_tag:
+    try:
+        latest_version = latest_tag.removeprefix("v")
+        release_key(latest_version)
+    except ValueError:
+        raise SystemExit(f"CHANGELOG.md: invalid latest release tag: {latest_tag}")
+    if latest_version not in tag_versions:
+        tag_versions.append(latest_version)
 if not tag_versions:
-    raise SystemExit("CHANGELOG.md: cannot find SemVer release tags")
+    raise SystemExit("CHANGELOG.md: cannot find an active v<semver> Git tag")
 tag_versions.sort(key=release_key, reverse=True)
 
 retired_versions = []
@@ -190,10 +216,10 @@ if selected_tag:
     if unknown:
         raise SystemExit("CHANGELOG.md: selected tag pipeline contains an untagged release heading")
 else:
-    latest_version = latest_tag.removeprefix("v")
+    latest_version = tag_versions[0]
     if not unknown:
         if entries[0] != latest_version:
-            raise SystemExit(f"CHANGELOG.md: first published section must identify the latest reachable tag: {latest_tag}")
+            raise SystemExit(f"CHANGELOG.md: first published section must identify the latest active tag: v{latest_version}")
     elif len(unknown) != 1 or entries[0] != unknown[0]:
         raise SystemExit("CHANGELOG.md: only the first release heading may be an untagged next candidate")
     elif release_key(unknown[0]) <= release_key(tag_versions[0]):
