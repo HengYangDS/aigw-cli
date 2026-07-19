@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/diagnostics"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
@@ -82,4 +83,172 @@ func TestProbeClassifiesNetworkFailure(t *testing.T) {
 	if result.Kind != diagnostics.NetworkFailure || !result.Retryable {
 		t.Fatalf("result = %#v", result)
 	}
+}
+
+func TestDefaultStabilityPolicyUsesBoundedRecovery(t *testing.T) {
+	policy := diagnostics.DefaultStabilityPolicy()
+	wantDelays := []time.Duration{250 * time.Millisecond, 500 * time.Millisecond, time.Second}
+	if len(policy.RecoveryDelays) != len(wantDelays) {
+		t.Fatalf("RecoveryDelays = %v, want %v", policy.RecoveryDelays, wantDelays)
+	}
+	for index, want := range wantDelays {
+		if policy.RecoveryDelays[index] != want {
+			t.Fatalf("RecoveryDelays[%d] = %s, want %s", index, policy.RecoveryDelays[index], want)
+		}
+	}
+	if policy.AttemptTimeout != 5*time.Second {
+		t.Fatalf("AttemptTimeout = %s, want 5s", policy.AttemptTimeout)
+	}
+}
+
+func TestProbeStableRecoversOnlyAfterThreeHealthyObservations(t *testing.T) {
+	client := sequenceClient(t, []probeObservation{
+		{status: http.StatusUnauthorized, body: `{"message":"temporary authentication failure"}`},
+		{status: http.StatusOK, body: `{"data":[]}`},
+		{status: http.StatusOK, body: `{"data":[]}`},
+		{status: http.StatusOK, body: `{"data":[]}`},
+	})
+
+	result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", immediateStabilityPolicy())
+
+	if result.Kind != diagnostics.Healthy || result.Attempts != 4 || !result.RecoveredTransient {
+		t.Fatalf("result = %#v, want recovered healthy result after four attempts", result)
+	}
+}
+
+func TestProbeStableConfirmsPersistentInvalidToken(t *testing.T) {
+	client := sequenceClient(t, []probeObservation{
+		{status: http.StatusUnauthorized, body: `{"message":"invalid api key"}`},
+		{status: http.StatusUnauthorized, body: `{"message":"invalid api key"}`},
+		{status: http.StatusUnauthorized, body: `{"message":"invalid api key"}`},
+		{status: http.StatusUnauthorized, body: `{"message":"invalid api key"}`},
+	})
+
+	result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", immediateStabilityPolicy())
+
+	if result.Kind != diagnostics.InvalidToken || result.Attempts != 4 || result.RecoveredTransient {
+		t.Fatalf("result = %#v, want persistent invalid token after four attempts", result)
+	}
+	if !strings.Contains(result.Fix, "aigw rotate") {
+		t.Fatalf("persistent invalid token fix = %q, want manual rotate guidance", result.Fix)
+	}
+}
+
+func TestProbeStableClassifiesMixedAuthenticationOutcomesAsUnstable(t *testing.T) {
+	client := sequenceClient(t, []probeObservation{
+		{status: http.StatusUnauthorized, body: `{"message":"temporary authentication failure"}`},
+		{status: http.StatusOK, body: `{"data":[]}`},
+		{status: http.StatusUnauthorized, body: `{"message":"temporary authentication failure"}`},
+		{status: http.StatusOK, body: `{"data":[]}`},
+	})
+
+	result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", immediateStabilityPolicy())
+
+	if result.Kind != diagnostics.AuthenticationUnstable || result.Attempts != 4 || !result.Retryable {
+		t.Fatalf("result = %#v, want retryable authentication instability", result)
+	}
+	if strings.Contains(result.Fix, "rotate") {
+		t.Fatalf("unstable authentication must not recommend rotation: %#v", result)
+	}
+}
+
+func TestProbeStableCancellationStopsRecoveryPromptly(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	calls := 0
+	client := clientFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		cancel()
+		return response(http.StatusUnauthorized, `{"message":"temporary authentication failure"}`), nil
+	})
+	policy := diagnostics.StabilityPolicy{
+		RecoveryDelays: []time.Duration{time.Hour, time.Hour, time.Hour},
+		AttemptTimeout: time.Second,
+	}
+	started := time.Now()
+
+	result := diagnostics.ProbeStable(ctx, client, runtime(), "secret", policy)
+
+	if elapsed := time.Since(started); elapsed > 250*time.Millisecond {
+		t.Fatalf("ProbeStable took %s after cancellation", elapsed)
+	}
+	if calls != 1 || result.Attempts != 1 {
+		t.Fatalf("calls=%d result=%#v, want one completed observation", calls, result)
+	}
+	if result.Kind != diagnostics.AuthenticationUnstable || !result.Retryable || strings.Contains(result.Fix, "rotate") {
+		t.Fatalf("canceled recovery result = %#v, want retry-only authentication instability", result)
+	}
+}
+
+func TestProbeStableClosesEveryResponse(t *testing.T) {
+	closed := 0
+	statuses := []int{http.StatusUnauthorized, http.StatusOK, http.StatusOK, http.StatusOK}
+	calls := 0
+	client := clientFunc(func(*http.Request) (*http.Response, error) {
+		status := statuses[calls]
+		calls++
+		return &http.Response{
+			StatusCode: status,
+			Body: &countingReadCloser{
+				Reader: strings.NewReader(`{"data":[]}`),
+				closed: &closed,
+			},
+		}, nil
+	})
+
+	result := diagnostics.ProbeStable(context.Background(), client, runtime(), "secret", immediateStabilityPolicy())
+
+	if result.Kind != diagnostics.Healthy || closed != 4 {
+		t.Fatalf("result=%#v closed=%d, want four closed responses", result, closed)
+	}
+}
+
+func TestProbeStableNeverReturnsCredential(t *testing.T) {
+	secret := "aigw-stability-token-never-leaks"
+	client := sequenceClient(t, []probeObservation{
+		{status: http.StatusUnauthorized, body: `{"message":"rejected aigw-stability-token-never-leaks"}`},
+		{status: http.StatusOK, body: `{"message":"accepted aigw-stability-token-never-leaks"}`},
+		{status: http.StatusUnauthorized, body: `{"message":"rejected aigw-stability-token-never-leaks"}`},
+		{status: http.StatusOK, body: `{"message":"accepted aigw-stability-token-never-leaks"}`},
+	})
+
+	result := diagnostics.ProbeStable(context.Background(), client, runtime(), secret, immediateStabilityPolicy())
+
+	if strings.Contains(result.Summary+result.Detail+result.Fix, secret) {
+		t.Fatalf("credential leaked: %#v", result)
+	}
+}
+
+type probeObservation struct {
+	status int
+	body   string
+}
+
+func sequenceClient(t *testing.T, observations []probeObservation) clientFunc {
+	t.Helper()
+	calls := 0
+	return func(*http.Request) (*http.Response, error) {
+		if calls >= len(observations) {
+			t.Fatalf("unexpected probe call %d", calls+1)
+		}
+		observation := observations[calls]
+		calls++
+		return response(observation.status, observation.body), nil
+	}
+}
+
+func immediateStabilityPolicy() diagnostics.StabilityPolicy {
+	return diagnostics.StabilityPolicy{
+		RecoveryDelays: []time.Duration{0, 0, 0},
+		AttemptTimeout: time.Second,
+	}
+}
+
+type countingReadCloser struct {
+	io.Reader
+	closed *int
+}
+
+func (c *countingReadCloser) Close() error {
+	*c.closed++
+	return nil
 }
