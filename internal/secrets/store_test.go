@@ -58,7 +58,7 @@ func TestEnvironmentStoreUsesNormalizedReadOnlyVariable(t *testing.T) {
 }
 
 func TestErrorsNeverContainSecret(t *testing.T) {
-	secret := "sk-this-must-not-leak-anywhere"
+	secret := "aigw-test-secret-never-leaks"
 	store := NewMemoryStore()
 	err := store.Set("bad name", secret)
 	if err == nil || strings.Contains(err.Error(), secret) {
