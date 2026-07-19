@@ -254,6 +254,40 @@ func TestRouteDoctorAcceptsAirHostMirrorRegardlessOfSurfaceOrderWithoutLeaks(t *
 	}
 }
 
+func TestRouteDoctorExplainsUnboundAirResidueWithoutSuggestingAnAIGWWrite(t *testing.T) {
+	h := newAirRouteHarness(t)
+	if err := os.WriteFile(h.air, []byte("model_provider = \"aigw\" # managed by AIGW\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out := new(bytes.Buffer)
+	h.app.Out, h.app.Err = out, out
+
+	if err := Execute(h.app, []string{"route", "doctor"}); err == nil {
+		t.Fatal("orphaned Air residue unexpectedly passed route doctor")
+	}
+	text := out.String()
+	for _, want := range []string{
+		"Air has unbound AIGW residue",
+		"No AIGW mutation is admitted",
+		"aigw route doctor --json",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("route doctor output missing %q:\n%s", want, text)
+		}
+	}
+	for _, forbidden := range []string{
+		"aigw repair --dry-run",
+		"aigw route recover air --dry-run",
+		"aigw route recover-orphan air --dry-run --json",
+		"aigw check",
+		h.air,
+	} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("route doctor gave unsafe unbound-residue guidance %q:\n%s", forbidden, text)
+		}
+	}
+}
+
 func TestRouteDoctorRejectsAirOrphanAndPartialResidueWithoutLeaks(t *testing.T) {
 	tests := []struct {
 		name      string
