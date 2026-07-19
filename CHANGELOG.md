@@ -13,6 +13,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Make the human `aigw route doctor` result explain that an unbound Air
   `orphaned-aigw-marker` admits no AIGW mutation, rather than suggesting a
   generic repair that would not change the external JetBrains surface.
+- Validate GitHub branch chronology against provider-native release trees when
+  its projected commit identity differs from the canonical history.
+- Prove source-branch closeout across canonical and identity-rewriting forge
+  histories, including clean CI fixtures that do not inherit a runner identity.
+- Reject credential-shaped literals in tracked source and test fixtures while
+  retaining explicit, non-secret redaction sentinels.
 
 ## [0.1.0-rc.67] - 2026-07-19
 
