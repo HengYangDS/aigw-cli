@@ -11,6 +11,38 @@ if [ ! -f "$script" ]; then
   exit 1
 fi
 
+version=0.1.0-test
+artifacts="$tmp/dist"
+remote="$tmp/remote"
+mkdir "$artifacts" "$remote"
+
+for name in \
+  "aigw_${version}_darwin_amd64.tar.gz" \
+  "aigw_${version}_darwin_arm64.tar.gz" \
+  "aigw_${version}_darwin_universal.pkg" \
+  "aigw_${version}_linux_amd64.deb" \
+  "aigw_${version}_linux_amd64.rpm" \
+  "aigw_${version}_linux_amd64.tar.gz" \
+  "aigw_${version}_linux_arm64.deb" \
+  "aigw_${version}_linux_arm64.rpm" \
+  "aigw_${version}_linux_arm64.tar.gz" \
+  "aigw_${version}_windows_amd64.msi" \
+  "aigw_${version}_windows_amd64.zip" \
+  "aigw_${version}_windows_arm64.msi" \
+  "aigw_${version}_windows_arm64.zip" \
+  "aigw_${version}.spdx.json"; do
+  printf 'locally verified bytes for %s\n' "$name" > "$artifacts/$name"
+done
+(
+  cd "$artifacts"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum ./* > checksums.txt
+  else
+    shasum -a 256 ./* > checksums.txt
+  fi
+)
+cp "$artifacts"/* "$remote/"
+
 cat > "$tmp/curl" <<'CURL'
 #!/bin/sh
 set -eu
@@ -18,6 +50,7 @@ method=GET
 out=''
 write=''
 location=0
+url=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --request|-X) method=$2; shift 2 ;;
@@ -29,13 +62,21 @@ while [ "$#" -gt 0 ]; do
     *) url=$1; shift ;;
   esac
 done
-printf '%s %s\n' "$method" "${url:-}" >> "$AIGW_TEST_CURL_LOG"
+printf '%s %s\n' "$method" "$url" >> "$AIGW_TEST_CURL_LOG"
+
+response_mode=complete
 case "$method" in
   POST) status=${AIGW_TEST_POST_STATUS:-201} ;;
-  PUT|PATCH|DELETE) status=500 ;;
   GET)
-    case "${url:-}" in
-      */packages/generic/*) status=${AIGW_TEST_ASSET_STATUS:-200} ;;
+    case "$url" in
+      */packages/generic/*)
+        name=${url##*/}
+        if [ "${AIGW_TEST_MISSING_ASSET:-}" = "$name" ]; then
+          status=404
+        else
+          status=200
+        fi
+        ;;
       *)
         release_get_count=$(grep -c '^GET .*/releases/' "$AIGW_TEST_CURL_LOG")
         if [ "$release_get_count" -eq 1 ]; then
@@ -50,41 +91,51 @@ case "$method" in
     ;;
   *) status=500 ;;
 esac
-if [ "${AIGW_TEST_REQUIRE_LOCATION:-0}" = 1 ]; then
-  case "${url:-}" in
-    */packages/generic/*)
-      [ "$location" -eq 1 ] || { echo "asset fetch must follow redirects" >&2; exit 2; }
-      ;;
-  esac
-fi
+
+case "$url" in
+  */packages/generic/*)
+    if [ "${AIGW_TEST_REQUIRE_LOCATION:-0}" = 1 ] && [ "$location" -ne 1 ]; then
+      echo "asset fetch must follow redirects" >&2
+      exit 2
+    fi
+    ;;
+esac
+
 if [ -n "$out" ]; then
-  case "$method" in
-    GET)
-      case "${url:-}" in
-        */packages/generic/*) : ;;
-        *) python3 - "$out" "${response_mode:-complete}" <<'PY'
+  case "$method:$url:$status" in
+    GET:*packages/generic/*:200)
+      name=${url##*/}
+      if [ "$out" != /dev/null ]; then
+        cp "$AIGW_TEST_REMOTE/$name" "$out"
+      fi
+      ;;
+    GET:*:2??)
+      python3 - "$out" "$response_mode" <<'PY'
 import json
 import sys
 
 out, mode = sys.argv[1:]
-payload = json.load(open("release.json"))
-links = payload["assets"]["links"]
+payload = json.load(open("release.json", encoding="utf-8"))
+links = [{"url": item["url"]} for item in payload["assets"]["links"]]
+tag = payload["tag_name"]
 if mode == "missing-asset":
     links = links[:-1]
+elif mode == "extra-asset":
+    links.append({"url": links[0]["url"].rsplit("/", 1)[0] + "/unexpected.bin"})
+elif mode == "wrong-tag":
+    tag = "v9.9.9"
 json.dump(
-    {"tag_name": payload["tag_name"], "assets": {"links": [{"url": x["url"]} for x in links]}},
-    open(out, "w"),
+    {"tag_name": tag, "assets": {"links": links}},
+    open(out, "w", encoding="utf-8"),
     separators=(",", ":"),
 )
 PY
-        ;;
-      esac
       ;;
     *) printf '{"status":%s}\n' "$status" > "$out" ;;
   esac
 fi
 case "$write" in *http_code*) printf '%s' "$status" ;; esac
-case "$status" in 2*) exit 0;; *) exit 22;; esac
+case "$status" in 2*) exit 0 ;; *) exit 22 ;; esac
 CURL
 chmod 755 "$tmp/curl"
 
@@ -93,77 +144,153 @@ run_case() {
   initial_get=$2
   post=${3:-201}
   get_mode=${4:-complete}
-  asset_status=${5:-200}
+  remote_directory=${5:-$remote}
+  missing_asset=${6:-}
+  artifact_directory=${7:-$artifacts}
   work="$tmp/$name"
   mkdir -p "$work"
   (
     cd "$work"
     set +e
-    PATH="$tmp:$PATH" AIGW_TEST_CURL_LOG="$work/curl.log" AIGW_TEST_INITIAL_GET_STATUS="$initial_get" AIGW_TEST_POST_STATUS="$post" AIGW_TEST_GET_MODE="$get_mode" AIGW_TEST_ASSET_STATUS="$asset_status" AIGW_TEST_REQUIRE_LOCATION=1 \
-      CI_API_V4_URL=https://gitlab.example/api/v4 CI_PROJECT_ID=456 CI_COMMIT_TAG=v0.1.0-test CI_JOB_TOKEN=redacted \
-      sh "$script"
+    PATH="$tmp:$PATH" \
+      AIGW_TEST_CURL_LOG="$work/curl.log" \
+      AIGW_TEST_INITIAL_GET_STATUS="$initial_get" \
+      AIGW_TEST_POST_STATUS="$post" \
+      AIGW_TEST_GET_MODE="$get_mode" \
+      AIGW_TEST_REMOTE="$remote_directory" \
+      AIGW_TEST_MISSING_ASSET="$missing_asset" \
+      AIGW_TEST_REQUIRE_LOCATION=1 \
+      CI_API_V4_URL=https://gitlab.example/api/v4 \
+      CI_PROJECT_ID=456 \
+      CI_COMMIT_TAG="v$version" \
+      CI_JOB_TOKEN=redacted \
+      sh "$script" "$artifact_directory"
     publish_status=$?
     set -e
     [ "$publish_status" -eq 0 ] || exit "$publish_status"
     python3 - <<'PY'
 import json
-payload=json.load(open('release.json'))
-assert payload['tag_name']=='v0.1.0-test'
-assert len(payload['assets']['links'])==15
+
+payload = json.load(open("release.json", encoding="utf-8"))
+assert payload["tag_name"] == "v0.1.0-test"
+assert len(payload["assets"]["links"]) == 15
 PY
   )
 }
 
-run_case created 404 201
+assert_no_overwrite_methods() {
+  log=$1
+  if grep -Ev '^(GET|POST) ' "$log" | grep -q .; then
+    echo "release publisher issued an unexpected HTTP method" >&2
+    exit 1
+  fi
+}
+
+run_case created 404 201 >/dev/null
 test "$(wc -l < "$tmp/created/curl.log" | tr -d ' ')" = 18
 test "$(grep -c '^GET https://gitlab.example/api/v4/projects/456/releases/v0.1.0-test$' "$tmp/created/curl.log")" = 2
 test "$(grep -c '^POST https://gitlab.example/api/v4/projects/456/releases$' "$tmp/created/curl.log")" = 1
 test "$(grep -c '^GET https://gitlab.example/api/v4/projects/456/packages/generic/aigw/0.1.0-test/' "$tmp/created/curl.log")" = 15
-! grep -Eq '^(PUT|PATCH|DELETE) ' "$tmp/created/curl.log"
+assert_no_overwrite_methods "$tmp/created/curl.log"
 
-run_case existing 200 500
+run_case existing 200 500 >/dev/null
 test "$(wc -l < "$tmp/existing/curl.log" | tr -d ' ')" = 17
 test "$(grep -c '^GET https://gitlab.example/api/v4/projects/456/releases/v0.1.0-test$' "$tmp/existing/curl.log")" = 2
-! grep -Eq '^(POST|PUT|PATCH|DELETE) ' "$tmp/existing/curl.log"
+if grep -Ev '^GET ' "$tmp/existing/curl.log" | grep -q .; then
+  echo "existing GitLab release verification issued a mutating HTTP request" >&2
+  exit 1
+fi
 
-run_case concurrent-create 404 409
+run_case concurrent-create 404 409 >/dev/null
 test "$(wc -l < "$tmp/concurrent-create/curl.log" | tr -d ' ')" = 18
-test "$(grep -c '^GET https://gitlab.example/api/v4/projects/456/releases/v0.1.0-test$' "$tmp/concurrent-create/curl.log")" = 2
 test "$(grep -c '^POST https://gitlab.example/api/v4/projects/456/releases$' "$tmp/concurrent-create/curl.log")" = 1
-! grep -Eq '^(PUT|PATCH|DELETE) ' "$tmp/concurrent-create/curl.log"
+assert_no_overwrite_methods "$tmp/concurrent-create/curl.log"
 
-if run_case missing-asset 404 201 missing-asset; then
-  echo "release publisher accepted a release missing one of the 15 expected assets" >&2
+if run_case missing-link 200 500 missing-asset >/dev/null 2>&1; then
+  echo "release publisher accepted a release missing one of the 15 expected links" >&2
   exit 1
 fi
-test "$(wc -l < "$tmp/missing-asset/curl.log" | tr -d ' ')" = 17
-grep -q '^GET https://gitlab.example/api/v4/projects/456/releases/v0.1.0-test$' "$tmp/missing-asset/curl.log"
-test "$(grep -c '^GET https://gitlab.example/api/v4/projects/456/packages/generic/aigw/0.1.0-test/' "$tmp/missing-asset/curl.log")" = 14
+assert_no_overwrite_methods "$tmp/missing-link/curl.log"
 
-if run_case unavailable-asset 404 201 complete 404; then
-  echo "release publisher accepted an unavailable linked Generic Package asset" >&2
+if run_case extra-link 200 500 extra-asset >/dev/null 2>&1; then
+  echo "release publisher accepted an unexpected sixteenth release link" >&2
   exit 1
 fi
-test "$(wc -l < "$tmp/unavailable-asset/curl.log" | tr -d ' ')" = 4
-grep -q '^GET https://gitlab.example/api/v4/projects/456/packages/generic/aigw/0.1.0-test/' "$tmp/unavailable-asset/curl.log"
+assert_no_overwrite_methods "$tmp/extra-link/curl.log"
+
+missing_name="aigw_${version}_linux_arm64.rpm"
+if run_case missing-bytes 200 500 complete "$remote" "$missing_name" >/dev/null 2>&1; then
+  echo "release publisher accepted a release with a missing remote asset" >&2
+  exit 1
+fi
+assert_no_overwrite_methods "$tmp/missing-bytes/curl.log"
+
+tampered_remote="$tmp/tampered-remote"
+mkdir "$tampered_remote"
+cp "$remote"/* "$tampered_remote/"
+printf 'different remote bytes\n' > "$tampered_remote/aigw_${version}_linux_amd64.tar.gz"
+if run_case mismatched-bytes 200 500 complete "$tampered_remote" >/dev/null 2>&1; then
+  echo "release publisher accepted remote asset bytes that differ from the local matrix" >&2
+  exit 1
+fi
+assert_no_overwrite_methods "$tmp/mismatched-bytes/curl.log"
+
+self_consistent_tamper="$tmp/self-consistent-tamper"
+mkdir "$self_consistent_tamper"
+cp "$remote"/* "$self_consistent_tamper/"
+printf 'different but self-consistent remote bytes\n' > "$self_consistent_tamper/aigw_${version}_windows_arm64.zip"
+(
+  cd "$self_consistent_tamper"
+  rm checksums.txt
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum ./* > checksums.txt
+  else
+    shasum -a 256 ./* > checksums.txt
+  fi
+)
+if run_case self-consistent-mismatch 200 500 complete "$self_consistent_tamper" >/dev/null 2>&1; then
+  echo "release publisher trusted a self-consistent remote matrix instead of the local matrix" >&2
+  exit 1
+fi
+assert_no_overwrite_methods "$tmp/self-consistent-mismatch/curl.log"
+
+bad_manifest_remote="$tmp/bad-manifest-remote"
+mkdir "$bad_manifest_remote"
+cp "$remote"/* "$bad_manifest_remote/"
+printf 'not a checksum manifest\n' > "$bad_manifest_remote/checksums.txt"
+if run_case mismatched-manifest 200 500 complete "$bad_manifest_remote" >/dev/null 2>&1; then
+  echo "release publisher accepted a remote checksums.txt that differs from the local manifest" >&2
+  exit 1
+fi
+assert_no_overwrite_methods "$tmp/mismatched-manifest/curl.log"
+
+bad_local="$tmp/bad-local"
+mkdir "$bad_local"
+cp "$artifacts"/* "$bad_local/"
+printf 'not a checksum manifest\n' > "$bad_local/checksums.txt"
+if run_case malformed-local-manifest 200 500 complete "$remote" '' "$bad_local" >/dev/null 2>&1; then
+  echo "release publisher contacted GitLab with an invalid local checksums.txt" >&2
+  exit 1
+fi
+test ! -s "$tmp/malformed-local-manifest/curl.log"
 
 mkdir -p "$tmp/denied"
 if (
   cd "$tmp/denied"
-  PATH="$tmp:$PATH" AIGW_TEST_CURL_LOG="$tmp/denied/curl.log" AIGW_TEST_INITIAL_GET_STATUS=500 AIGW_TEST_POST_STATUS=201 \
-    CI_API_V4_URL=https://gitlab.example/api/v4 CI_PROJECT_ID=456 CI_COMMIT_TAG=v0.1.0-test CI_JOB_TOKEN=redacted \
-    sh "$script"
+  PATH="$tmp:$PATH" \
+    AIGW_TEST_CURL_LOG="$tmp/denied/curl.log" \
+    AIGW_TEST_INITIAL_GET_STATUS=500 \
+    AIGW_TEST_REMOTE="$remote" \
+    CI_API_V4_URL=https://gitlab.example/api/v4 \
+    CI_PROJECT_ID=456 \
+    CI_COMMIT_TAG="v$version" \
+    CI_JOB_TOKEN=redacted \
+    sh "$script" "$artifacts"
 ); then
-  echo "release publisher accepted a non-conflict POST failure" >&2
+  echo "release publisher accepted a failed preflight" >&2
   exit 1
 fi
 test "$(wc -l < "$tmp/denied/curl.log" | tr -d ' ')" = 1
 ! grep -Eq '^(POST|PUT|PATCH|DELETE) ' "$tmp/denied/curl.log"
 
-if run_case existing-missing-asset 200 500 missing-asset; then
-  echo "release publisher accepted an incomplete existing release" >&2
-  exit 1
-fi
-! grep -Eq '^(POST|PUT|PATCH|DELETE) ' "$tmp/existing-missing-asset/curl.log"
-
-echo "immutable release publisher contract: OK"
+echo "immutable GitLab release publisher contract: OK"
