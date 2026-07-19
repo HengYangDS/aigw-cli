@@ -74,7 +74,7 @@ func newCheckCommand(app *App) *cobra.Command {
 					r.Status(presentation.Info, title(client), "Disabled")
 				}
 			}
-			result := diagnostics.Probe(cmd.Context(), app.HTTP, runtime, token)
+			result := diagnostics.ProbeStable(cmd.Context(), app.HTTP, runtime, token, diagnostics.DefaultStabilityPolicy())
 			if result.Kind != diagnostics.Healthy {
 				evidence := result.Detail
 				if result.HTTPStatus != 0 {
@@ -87,6 +87,9 @@ func newCheckCommand(app *App) *cobra.Command {
 			}
 			r.Section("Gateway")
 			r.Status(presentation.OK, "API Token", "Authentication healthy")
+			if result.RecoveredTransient {
+				r.Detail("Authentication recovered after a transient response")
+			}
 			if transport := transportStatus(runtime.Endpoint); transport.Kind == "external_loopback" {
 				r.Section("Transport")
 				r.Status(presentation.Info, "Codex", "External loopback compatibility layer")
