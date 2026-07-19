@@ -272,6 +272,51 @@ func TestReconcileCodexConfigsRejectsUnsafeStaleAirFullSelectionRecovery(t *test
 			},
 		},
 		{
+			name: "quoted-duplicate-provider-selection",
+			mutate: func(t *testing.T, path string) {
+				t.Helper()
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				changed := strings.Replace(string(data), codexBegin, `"model_provider" = "aigw"`+"\n"+codexBegin, 1)
+				if err := os.WriteFile(path, []byte(changed), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "quoted-duplicate-model-selection",
+			mutate: func(t *testing.T, path string) {
+				t.Helper()
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				changed := strings.Replace(string(data), codexBegin, `"model" = "gpt-5.6-sol"`+"\n"+codexBegin, 1)
+				if err := os.WriteFile(path, []byte(changed), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			name: "quoted-foreign-provider-table",
+			mutate: func(t *testing.T, path string) {
+				t.Helper()
+				file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := file.WriteString("\n[model_providers.\"aigw\"]\nforeign = true\n"); err != nil {
+					_ = file.Close()
+					t.Fatal(err)
+				}
+				if err := file.Close(); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
 			name: "changed-provider-block",
 			mutate: func(t *testing.T, path string) {
 				t.Helper()
