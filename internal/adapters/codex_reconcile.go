@@ -337,14 +337,7 @@ func prepareCodexRestore(target CodexTargetRef, configSnapshot, stateSnapshot tr
 func prepareStaleAirFullSelectionRecovery(target CodexTargetRef, configSnapshot, stateSnapshot transaction.FileSnapshot) (codexPreparedTarget, error) {
 	if !stateSnapshot.Exists {
 		text := string(configSnapshot.Data)
-		if airTopLevelSelectsAIGW(text) ||
-			strings.Contains(text, "managed by AIGW") ||
-			strings.Contains(text, codexBegin) ||
-			strings.Contains(text, codexEnd) ||
-			strings.Contains(text, codexFallbackBegin) ||
-			strings.Contains(text, codexFallbackEnd) ||
-			strings.Contains(text, "[model_providers.aigw]") ||
-			strings.Contains(text, "[model_providers.aigw_fallback]") {
+		if hasAirAIGWResidue(text) {
 			return codexPreparedTarget{}, errors.New("Air contains AIGW projection residue without an attributable sidecar")
 		}
 		return codexPreparedTarget{
@@ -649,6 +642,11 @@ func removeCodexFallbackProjection(current string, state codexState) (string, er
 }
 
 func airTopLevelSelectsAIGW(text string) bool {
-	line := modelProviderLine.FindString(text)
-	return strings.Contains(line, "\"aigw\"") || strings.Contains(line, "\"aigw_fallback\"")
+	providers, _ := topLevelAirSelectionLines(text)
+	for _, provider := range providers {
+		if airAIGWSelectionLine.MatchString(normalizeAirProjectionLine(provider.text)) {
+			return true
+		}
+	}
+	return false
 }
