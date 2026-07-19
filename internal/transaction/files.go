@@ -120,17 +120,17 @@ func WriteFileAtomic(path string, data []byte, defaultMode os.FileMode) error {
 		return fmt.Errorf("create temporary file: %w", err)
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
+	defer func() { _ = os.Remove(tmpName) }()
 	if err := tmp.Chmod(mode); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return fmt.Errorf("set temporary mode: %w", err)
 	}
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return fmt.Errorf("write temporary file: %w", err)
 	}
 	if err := tmp.Sync(); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return fmt.Errorf("sync temporary file: %w", err)
 	}
 	if err := tmp.Close(); err != nil {

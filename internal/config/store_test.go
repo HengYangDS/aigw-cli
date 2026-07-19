@@ -81,7 +81,11 @@ func TestLockSerializesMutations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer unlock()
+	defer func() {
+		if unlockErr := unlock(); unlockErr != nil {
+			t.Error(unlockErr)
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
 	defer cancel()
 	_, err = store.Lock(ctx)
