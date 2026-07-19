@@ -14,7 +14,7 @@ github = Path(sys.argv[2]).read_text(encoding="utf-8")
 def section(text, name):
     lines = text.splitlines()
     start = next(i for i, line in enumerate(lines) if line == f"{name}:")
-    end = next((i for i in range(start + 1, len(lines)) if lines[i] and not lines[i].startswith((" ", "\t"))), len(lines))
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].strip() and not lines[i].lstrip().startswith("#") and not lines[i].startswith((" ", "\t"))), len(lines))
     return "\n".join(lines[start:end])
 
 workflow = section(gitlab, "workflow")
@@ -51,15 +51,119 @@ for required in [
 ]:
     if required not in verify:
         raise SystemExit(f"GitLab verification is missing {required}")
-for command in [
+verify_commands = [
     "sh scripts/check-credential-literals.sh",
     "sh scripts/test-credential-literals.sh",
     "sh scripts/check-credential-fixtures.sh",
     "sh scripts/test-credential-fixtures.sh",
     "sh scripts/test-branch-closeout.sh",
+]
+
+def check_canonical_mapping_keys(lines, indent, banned, context):
+    for line in lines:
+        if len(line) - len(line.lstrip()) != indent:
+            continue
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        merge = re.match(r"^<<\s*:", stripped)
+        match = re.match(r"^([A-Za-z0-9_-]+)\s*:", stripped)
+        if merge is None and match is None:
+            raise SystemExit(f"{context} contains non-canonical mapping key syntax: {stripped}")
+        key = "<<" if merge is not None else match.group(1)
+        if key in banned:
+            raise SystemExit(f"{context} must not define {key}")
+
+def check_verify_commands(verify_job):
+    lines = verify_job.splitlines()
+    job_indent = len(lines[0]) - len(lines[0].lstrip())
+    check_canonical_mapping_keys(
+        lines[1:],
+        job_indent + 2,
+        {"allow_failure", "rules", "only", "except", "when", "extends", "<<"},
+        "GitLab verify job",
+    )
+    script_start = next(
+        index for index, line in enumerate(lines) if line == "  script:"
+    )
+    script_indent = len(lines[script_start]) - len(lines[script_start].lstrip())
+    script_end = next(
+        (
+            index
+            for index in range(script_start + 1, len(lines))
+            if lines[index].strip()
+            and not lines[index].lstrip().startswith("#")
+            and len(lines[index]) - len(lines[index].lstrip()) <= script_indent
+        ),
+        len(lines),
+    )
+    verify_script = "\n".join(lines[script_start + 1:script_end])
+    for command in verify_commands:
+        if not re.search(rf"(?m)^[ \t]*-[ \t]+{re.escape(command)}[ \t]*$", verify_script):
+            raise SystemExit(f"GitLab verification is missing active command: {command}")
+
+check_verify_commands(verify)
+
+for key, body in [
+    ("allow_failure", "  allow_failure: true\n"),
+    ("rules", "  rules:\n    - when: never\n"),
+    ("extends", "  extends: .nonblocking\n"),
 ]:
-    if not re.search(rf"(?m)^[ \t]*-[ \t]+{re.escape(command)}[ \t]*$", verify):
-        raise SystemExit(f"GitLab verification is missing active command: {command}")
+    candidate = verify.replace("verify:\n", f"verify:\n{body}", 1)
+    try:
+        check_verify_commands(candidate)
+    except SystemExit as error:
+        expected = f"GitLab verify job must not define {key}"
+        if str(error) != expected:
+            raise SystemExit(f"GitLab {key} fixture failed unexpectedly: {error}")
+    else:
+        raise SystemExit(f"GitLab contract accepted verify job with {key}")
+
+for body in [
+    '  "allow\\u005ffailure": true\n',
+    "  'allow_failure' : true\n",
+]:
+    candidate = verify.replace("verify:\n", f"verify:\n{body}", 1)
+    try:
+        check_verify_commands(candidate)
+    except SystemExit as error:
+        expected = f"GitLab verify job contains non-canonical mapping key syntax: {body.strip()}"
+        if str(error) != expected:
+            raise SystemExit(f"GitLab non-canonical key fixture failed unexpectedly: {error}")
+    else:
+        raise SystemExit("GitLab contract accepted a non-canonical verify job key")
+
+verify_end = gitlab.index("\nwindows-installer-runtime:")
+commented_gitlab = (
+    gitlab[:verify_end]
+    + "\n# low-indent comment\n  allow_failure: true"
+    + gitlab[verify_end:]
+)
+try:
+    check_verify_commands(section(commented_gitlab, "verify"))
+except SystemExit as error:
+    expected = "GitLab verify job must not define allow_failure"
+    if str(error) != expected:
+        raise SystemExit(f"GitLab low-indent comment fixture failed unexpectedly: {error}")
+else:
+    raise SystemExit("GitLab contract accepted allow_failure after a low-indent comment")
+
+# GitLab after_script failures do not gate the job, so command text there must
+# not satisfy the verify.script execution contract.
+inactive_command = verify_commands[0]
+inactive_line = f"    - {inactive_command}\n"
+if verify.count(inactive_line) != 1:
+    raise SystemExit("GitLab active-command fixture has an unexpected command count")
+inactive = verify.replace(inactive_line, "", 1)
+inactive += f"\n  after_script:\n    - {inactive_command}"
+try:
+    check_verify_commands(inactive)
+except SystemExit as error:
+    expected = f"GitLab verification is missing active command: {inactive_command}"
+    if str(error) != expected:
+        raise SystemExit(f"GitLab after_script fixture failed for an unexpected reason: {error}")
+else:
+    raise SystemExit("GitLab contract accepted a verification gate present only in after_script")
 
 package = section(gitlab, "package")
 if "macos-native-acceptance" in package:

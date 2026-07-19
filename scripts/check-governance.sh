@@ -57,11 +57,6 @@ if ! grep -Fxq '.serena/' .gitignore; then
   echo ".gitignore must exclude local Serena project metadata" >&2
   exit 1
 fi
-if git ls-files --error-unmatch .serena >/dev/null 2>&1 || \
-  git ls-files -- .serena/ | grep -q .; then
-  echo "local Serena project metadata must not be tracked" >&2
-  exit 1
-fi
 
 # AIGW CLI is an English-only repository.  Use explicit Unicode ranges instead
 # of a grep Unicode-property dialect so this gate behaves the same on macOS and
@@ -72,9 +67,25 @@ from pathlib import Path
 import subprocess
 import sys
 
+def is_serena_metadata(name: str) -> bool:
+    return ".serena" in name.split("/")
+
+for fixture in [".serena", ".serena/project.yml", "docs/.serena/project.yml"]:
+    if not is_serena_metadata(fixture):
+        raise SystemExit(f"Serena metadata matcher missed fixture: {fixture}")
+for fixture in ["serena/project.yml", ".serenade/project.yml", "docs/serena/project.yml"]:
+    if is_serena_metadata(fixture):
+        raise SystemExit(f"Serena metadata matcher rejected safe fixture: {fixture}")
+
+tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
+serena_matches = [name for name in tracked if name and is_serena_metadata(name)]
+if serena_matches:
+    print("\n".join(serena_matches), file=sys.stderr)
+    raise SystemExit("local Serena project metadata must not be tracked")
+
 han = set(range(0x3400, 0x4DC0)) | set(range(0x4E00, 0xA000)) | set(range(0xF900, 0xFB00))
 matches = []
-for name in subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0"):
+for name in tracked:
     if not name or name == "scripts/check-english-text.sh":
         continue
     path = Path(name)
