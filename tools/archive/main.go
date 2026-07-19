@@ -85,16 +85,24 @@ func writeArchive(output string, format archiveFormat, root string, epoch time.T
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
+	var writeErr error
 	switch format {
 	case formatTarGz:
-		return writeTarGz(file, root, epoch, ordered)
+		writeErr = writeTarGz(file, root, epoch, ordered)
 	case formatZip:
-		return writeZip(file, root, epoch, ordered)
+		writeErr = writeZip(file, root, epoch, ordered)
 	default:
-		return fmt.Errorf("unsupported archive format: %s", format)
+		writeErr = fmt.Errorf("unsupported archive format: %s", format)
 	}
+	closeErr := file.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close output archive: %w", closeErr)
+	}
+	return nil
 }
 
 func validateArchiveName(value string) error {
@@ -156,7 +164,6 @@ func writeTarEntry(writer *tar.Writer, root string, epoch time.Time, entry archi
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 	header := &tar.Header{
 		Name:     root + "/" + entry.Name,
 		Mode:     int64(info.Mode().Perm()),
@@ -166,10 +173,18 @@ func writeTarEntry(writer *tar.Writer, root string, epoch time.Time, entry archi
 		Format:   tar.FormatUSTAR,
 	}
 	if err := writer.WriteHeader(header); err != nil {
+		_ = file.Close()
 		return err
 	}
-	_, err = io.Copy(writer, file)
-	return err
+	_, copyErr := io.Copy(writer, file)
+	closeErr := file.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close archive entry %s: %w", entry.Name, closeErr)
+	}
+	return nil
 }
 
 func writeZip(output io.Writer, root string, epoch time.Time, entries []archiveEntry) error {
@@ -196,13 +211,20 @@ func writeZipEntry(writer *zip.Writer, root string, epoch time.Time, entry archi
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 	header := &zip.FileHeader{Name: root + "/" + entry.Name, Method: zip.Store, Modified: epoch}
 	header.SetMode(info.Mode().Perm())
 	destination, err := writer.CreateHeader(header)
 	if err != nil {
+		_ = file.Close()
 		return err
 	}
-	_, err = io.Copy(destination, file)
-	return err
+	_, copyErr := io.Copy(destination, file)
+	closeErr := file.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close archive entry %s: %w", entry.Name, closeErr)
+	}
+	return nil
 }

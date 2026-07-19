@@ -82,7 +82,7 @@ func TestUpdateRejectsPeerIntegrityFailureBeforeReplacingBinary(t *testing.T) {
 	github := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		githubRequests++
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"tag_name":"v0.2.0"}`)
+		_, _ = fmt.Fprint(w, `{"tag_name":"v0.2.0"}`)
 	}))
 	defer github.Close()
 	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", github.URL)
@@ -127,10 +127,10 @@ func TestUpdateUsesPublishedGitHubPrereleaseWhenNoStableReleaseExists(t *testing
 			http.NotFound(w, request)
 		case "/repos/example-owner/aigw-cli/releases":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `[{"tag_name":"v0.2.0-rc.1","prerelease":true,"published_at":"2026-07-15T00:00:00Z"},{"tag_name":"v0.3.0-rc.1","prerelease":true,"draft":true,"published_at":"2026-07-15T00:00:00Z"}]`)
+			_, _ = fmt.Fprintf(w, `[{"tag_name":"v0.2.0-rc.1","prerelease":true,"published_at":"2026-07-15T00:00:00Z"},{"tag_name":"v0.3.0-rc.1","prerelease":true,"draft":true,"published_at":"2026-07-15T00:00:00Z"}]`)
 		case "/repos/example-owner/aigw-cli/releases/tags/v0.2.0-rc.1":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"tag_name":"v0.2.0-rc.1","prerelease":true,"published_at":"2026-07-15T00:00:00Z","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0-rc.1","prerelease":true,"published_at":"2026-07-15T00:00:00Z","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
 				archiveName, serverURL+"/downloads/"+archiveName, serverURL+"/downloads/checksums.txt")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(archive)
@@ -171,7 +171,7 @@ func TestUpdateIgnoresGlabConfigurationWarningAroundLatestTag(t *testing.T) {
 		switch request.URL.Path {
 		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
 				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(archive)
@@ -299,7 +299,7 @@ func TestUpdateRejectsReachablePeerAuthorizationFailure(t *testing.T) {
 	github := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		githubRequests++
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"tag_name":"v0.2.0"}`)
+		_, _ = fmt.Fprint(w, `{"tag_name":"v0.2.0"}`)
 	}))
 	defer github.Close()
 	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", github.URL)
@@ -607,7 +607,7 @@ func TestUpdateUsesReachablePeerWhenOtherPeerIsUnavailable(t *testing.T) {
 		switch request.URL.Path {
 		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
 				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(archive)
@@ -663,7 +663,7 @@ func TestUpdateUsesGitHubPeerAfterGitLabAPITransportFailure(t *testing.T) {
 		switch request.URL.Path {
 		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
 				archiveName, serverURL+"/downloads/"+archiveName, serverURL+"/downloads/checksums.txt")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(archive)
@@ -720,7 +720,7 @@ func TestUpdateUsesGitHubPeerWhenGitLabIsUnavailable(t *testing.T) {
 		switch request.URL.Path {
 		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
 				archiveName, serverURL+"/downloads/"+archiveName, serverURL+"/downloads/checksums.txt")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(archive)
@@ -2165,7 +2165,7 @@ func TestUpdateVerifiesMatchingPeerReleasesBeforeInstalling(t *testing.T) {
 		switch request.URL.Path {
 		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
 				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(archive)
@@ -2211,7 +2211,7 @@ func TestUpdateRejectsPeerTagDisagreementBeforeDownloading(t *testing.T) {
 	github := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		requests++
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"tag_name":"v0.3.0"}`)
+		_, _ = fmt.Fprint(w, `{"tag_name":"v0.3.0"}`)
 	}))
 	defer github.Close()
 	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", github.URL)
@@ -2253,7 +2253,7 @@ func TestUpdateDiscardsUnavailablePeerWorkspaceBeforeUsingReachablePeer(t *testi
 		switch request.URL.Path {
 		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
 				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(archive)
@@ -2308,7 +2308,7 @@ func TestUpdateRejectsPeerAssetDisagreementBeforeReplacingBinary(t *testing.T) {
 		switch request.URL.Path {
 		case "/repos/example-owner/aigw-cli/releases/latest", "/repos/example-owner/aigw-cli/releases/tags/v0.2.0":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
+			_, _ = fmt.Fprintf(w, `{"tag_name":"v0.2.0","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}`,
 				archiveName, githubURL+"/downloads/"+archiveName, githubURL+"/downloads/checksums.txt")
 		case "/downloads/" + archiveName:
 			_, _ = w.Write(githubArchive)

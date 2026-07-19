@@ -650,12 +650,20 @@ func newTestCommand(app *App) *cobra.Command {
 				}
 				req.Header.Set("Authorization", "Bearer "+token)
 				resp, err := app.HTTP.Do(req)
-				cancel()
 				if err != nil {
+					cancel()
 					return fmt.Errorf("%s endpoint is unreachable: %w", title(target), err)
 				}
-				io.Copy(io.Discard, resp.Body)
-				resp.Body.Close()
+				if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+					_ = resp.Body.Close()
+					cancel()
+					return fmt.Errorf("read %s endpoint response: %w", title(target), err)
+				}
+				if err := resp.Body.Close(); err != nil {
+					cancel()
+					return fmt.Errorf("close %s endpoint response: %w", title(target), err)
+				}
+				cancel()
 				if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 					return fmt.Errorf("%s authentication was rejected (HTTP %d); run `aigw rotate %s`", title(target), resp.StatusCode, accountName)
 				}
@@ -834,7 +842,7 @@ func verifyCodexResponse(ctx context.Context, app *App, runtime domain.Runtime, 
 	if err != nil {
 		return fmt.Errorf("Codex model request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, verificationResponseLimit+1))
 	if err != nil {
 		return fmt.Errorf("Failed to read Codex verification response: %w", err)
