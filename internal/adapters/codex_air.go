@@ -24,6 +24,10 @@ const (
 
 var exactAirManagedProviderLine = regexp.MustCompile(`^model_provider = "aigw" # managed by AIGW$`)
 var exactAirManagedModelLine = regexp.MustCompile(`^model = "[^"\r\n]+" # managed by AIGW$`)
+var quotedAirModelProviderLine = regexp.MustCompile(`(?m)^[ \t]*(?:"model_provider"|'model_provider')[ \t]*=.*$`)
+var quotedAirModelLine = regexp.MustCompile(`(?m)^[ \t]*(?:"model"|'model')[ \t]*=.*$`)
+var airAIGWSelectionLine = regexp.MustCompile(`^[ \t]*(?:model_provider|"model_provider"|'model_provider')[ \t]*=[ \t]*(?:"aigw(?:_fallback)?"|'aigw(?:_fallback)?')[ \t]*(?:#[^\r\n]*)?$`)
+var airAIGWProviderTableLine = regexp.MustCompile(`(?m)^[ \t]*\[\[?[ \t]*(?:model_providers|"model_providers"|'model_providers')[ \t]*\.[ \t]*(?:aigw(?:_fallback)?|"aigw(?:_fallback)?"|'aigw(?:_fallback)?')[ \t]*(?:\]|\.|$)`)
 
 type airTextSpan struct {
 	start int
@@ -146,6 +150,7 @@ func exactAirManagedProjection(text string) (*airManagedProjection, bool) {
 	if strings.Count(text, codexBegin) != 1 ||
 		strings.Count(text, codexEnd) != 1 ||
 		strings.Count(text, "[model_providers.aigw") != 1 ||
+		airAIGWProviderTableCount(text) != 1 ||
 		strings.Contains(text, codexFallbackBegin) ||
 		strings.Contains(text, codexFallbackEnd) ||
 		strings.Contains(text, "[model_providers.aigw_fallback]") {
@@ -225,10 +230,10 @@ func topLevelAirSelectionLines(text string) ([]airProjectionLine, []airProjectio
 		if inTable {
 			continue
 		}
-		if modelProviderLine.MatchString(line.text) {
+		if modelProviderLine.MatchString(line.text) || quotedAirModelProviderLine.MatchString(line.text) {
 			providers = append(providers, line)
 		}
-		if modelLine.MatchString(line.text) {
+		if modelLine.MatchString(line.text) || quotedAirModelLine.MatchString(line.text) {
 			models = append(models, line)
 		}
 	}
@@ -282,23 +287,22 @@ func hasAirAIGWResidue(text string) bool {
 		strings.Contains(text, codexFallbackBegin) ||
 		strings.Contains(text, codexFallbackEnd) ||
 		strings.Contains(text, "[model_providers.aigw") ||
+		airAIGWProviderTableCount(text) != 0 ||
 		strings.Contains(text, "managed by AIGW") ||
 		strings.Contains(text, `name = "AIGW:`) ||
 		strings.Contains(text, `name = "AIGW fallback:`) {
 		return true
 	}
-	for _, line := range modelProviderLine.FindAllString(text, -1) {
-		_, value, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		value, _, _ = strings.Cut(value, "#")
-		value = strings.Trim(strings.TrimSpace(value), "\"'")
-		if value == "aigw" || value == "aigw_fallback" {
+	for _, line := range splitAirProjectionLines(text) {
+		if airAIGWSelectionLine.MatchString(normalizeAirProjectionLine(line.text)) {
 			return true
 		}
 	}
 	return false
+}
+
+func airAIGWProviderTableCount(text string) int {
+	return len(airAIGWProviderTableLine.FindAllStringIndex(normalizeAirProjectionNewlines(text), -1))
 }
 
 func airSnapshotWithData(preimage transaction.FileSnapshot, data []byte) transaction.FileSnapshot {

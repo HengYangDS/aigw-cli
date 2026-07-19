@@ -22,10 +22,10 @@ func FuzzParseAirRecord(f *testing.F) {
 			return
 		}
 		if record.generation == "" || record.target.scheme == "" || record.target.hostname == "" {
-			t.Fatalf("accepted record is incomplete: %#v", record)
+			t.Fatal("accepted record is incomplete")
 		}
 		if record.target.scheme != "http" && record.target.scheme != "https" {
-			t.Fatalf("accepted unsupported scheme: %#v", record.target)
+			t.Fatal("accepted record uses an unsupported scheme")
 		}
 	})
 }
@@ -48,14 +48,14 @@ func FuzzParseRouteIdentity(f *testing.F) {
 			return
 		}
 		if route.scheme != "http" && route.scheme != "https" {
-			t.Fatalf("unsupported scheme was accepted: %#v", route)
+			t.Fatal("accepted route uses an unsupported scheme")
 		}
 		port, err := strconv.Atoi(route.port)
 		if err != nil || port < 1 || port > 65535 {
-			t.Fatalf("invalid normalized port was accepted: %#v", route)
+			t.Fatal("accepted route uses an invalid normalized port")
 		}
 		if route.hostname == "" || !strings.HasPrefix(route.path, "/") {
-			t.Fatalf("incomplete route identity was accepted: %#v", route)
+			t.Fatal("accepted route identity is incomplete")
 		}
 	})
 }
@@ -69,7 +69,7 @@ func FuzzInspectAirRuntimeIsBoundedAndRedacted(f *testing.F) {
 	f.Fuzz(func(t *testing.T, body []byte) {
 		logDir := t.TempDir()
 		if err := os.WriteFile(filepath.Join(logDir, "air.log"), body, 0o600); err != nil {
-			t.Fatal(err)
+			t.Fatal("fuzz fixture write failed")
 		}
 		report, err := InspectAirRuntime(AirOptions{
 			LogDir:             logDir,
@@ -81,18 +81,18 @@ func FuzzInspectAirRuntimeIsBoundedAndRedacted(f *testing.F) {
 		if err != nil {
 			for _, value := range forbidden {
 				if strings.Contains(err.Error(), value) {
-					t.Fatalf("attestation error leaked %q: %v", value, err)
+					t.Fatal("attestation error disclosed private input")
 				}
 			}
 			return
 		}
 		encoded, err := json.Marshal(report)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal("attestation encoding failed")
 		}
 		for _, value := range forbidden {
 			if strings.Contains(string(encoded), value) {
-				t.Fatalf("attestation output leaked %q: %s", value, encoded)
+				t.Fatal("attestation output disclosed private input")
 			}
 		}
 	})

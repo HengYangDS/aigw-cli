@@ -142,6 +142,84 @@ func TestInspectAirCodexConfigRejectsPartialOrForeignResidue(t *testing.T) {
 	}
 }
 
+func TestExactAirManagedProjectionRejectsQuotedAIGWAliases(t *testing.T) {
+	canonical := airProjectionFuzzFixture(true, "\n")
+	tests := []struct {
+		name string
+		text string
+	}{
+		{
+			name: "quoted duplicate selection",
+			text: strings.Replace(canonical, codexBegin, `"model_provider" = "aigw"`+"\n"+codexBegin, 1),
+		},
+		{
+			name: "literal quoted duplicate selection",
+			text: strings.Replace(canonical, codexBegin, `'model_provider' = 'aigw'`+"\n"+codexBegin, 1),
+		},
+		{
+			name: "quoted duplicate model",
+			text: strings.Replace(canonical, codexBegin, `"model" = "gpt-5.6-sol"`+"\n"+codexBegin, 1),
+		},
+		{
+			name: "quoted provider table",
+			text: canonical + "\n" + `[model_providers."aigw"]` + "\nforeign = true\n",
+		},
+		{
+			name: "fully quoted provider table",
+			text: canonical + "\n" + `["model_providers"."aigw"]` + "\nforeign = true\n",
+		},
+		{
+			name: "literal quoted provider table",
+			text: canonical + "\n" + `['model_providers'.'aigw']` + "\nforeign = true\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, exact := exactAirManagedProjection(tt.text); exact {
+				t.Fatal("quoted AIGW alias was admitted as an exact projection")
+			}
+			if !hasAirAIGWResidue(tt.text) {
+				t.Fatal("quoted AIGW alias evaded residue detection")
+			}
+		})
+	}
+}
+
+func TestInspectAirCodexConfigClassifiesQuotedAIGWResidue(t *testing.T) {
+	for _, text := range []string{
+		`"model_provider" = "aigw"` + "\n",
+		`'model_provider' = 'aigw_fallback'` + "\n",
+		`[model_providers."aigw"]` + "\nforeign = true\n",
+		`["model_providers"."aigw_fallback"]` + "\nforeign = true\n",
+		"[model_providers.aigw\n",
+		`[model_providers."aigw"` + "\n",
+	} {
+		path := filepath.Join(t.TempDir(), "config.toml")
+		if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		inspection, err := InspectAirCodexConfig(path, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if inspection.State != AirStatePartialOrForeignResidue || inspection.AIGWManaged {
+			t.Fatal("quoted AIGW residue did not fail closed")
+		}
+	}
+}
+
+func TestAirTopLevelSelectsAIGWRecognizesQuotedKeys(t *testing.T) {
+	for _, text := range []string{
+		`"model_provider" = "aigw"` + "\n",
+		`'model_provider' = 'aigw'` + "\n",
+		`"model_provider" = "aigw_fallback"` + "\n",
+	} {
+		if !airTopLevelSelectsAIGW(text) {
+			t.Fatal("quoted top-level AIGW selection evaded detection")
+		}
+	}
+}
+
 func TestInspectAirCodexConfigNormalizesOnlyLineEndings(t *testing.T) {
 	air, standalone, body := prepareAirHostMirrorFixture(t)
 	crlf := strings.ReplaceAll(string(body), "\n", "\r\n")

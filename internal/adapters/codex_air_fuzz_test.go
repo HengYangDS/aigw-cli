@@ -44,6 +44,10 @@ func FuzzExactAirManagedProjection(f *testing.F) {
 		airProjectionFuzzFixture(true, "\n"),
 		airProjectionFuzzFixture(true, "\r\n"),
 		airProjectionFuzzFixture(false, "\n"),
+		strings.Replace(airProjectionFuzzFixture(true, "\n"), codexBegin, `"model_provider" = "aigw"`+"\n"+codexBegin, 1),
+		airProjectionFuzzFixture(true, "\n") + "\n" + `[model_providers."aigw"]` + "\nforeign = true\n",
+		`"model_provider" = "aigw"` + "\n",
+		`[model_providers."aigw"]` + "\nforeign = true\n",
 		codexBegin + "\n[model_providers.aigw]\n",
 		"model_provider = \"aigw\" # managed by AIGW\n" + codexBegin + "\n" + codexBegin,
 		"[model_providers.aigw_fallback]\nmanaged by AIGW\n",
@@ -57,7 +61,7 @@ func FuzzExactAirManagedProjection(f *testing.F) {
 		projection, exact := exactAirManagedProjection(text)
 		if exact {
 			if projection == nil || len(projection.fingerprint) != 64 {
-				t.Fatalf("exact projection returned an invalid fingerprint shape: %#v", projection)
+				t.Fatal("exact projection returned an invalid fingerprint shape")
 			}
 			if strings.Count(text, codexBegin) != 1 || strings.Count(text, codexEnd) != 1 ||
 				strings.Count(text, "[model_providers.aigw") != 1 ||
@@ -70,31 +74,31 @@ func FuzzExactAirManagedProjection(f *testing.F) {
 		root := t.TempDir()
 		airPath := filepath.Join(root, "air", "config.toml")
 		if err := os.MkdirAll(filepath.Dir(airPath), 0o700); err != nil {
-			t.Fatal(err)
+			t.Fatal("fuzz fixture directory setup failed")
 		}
 		if err := os.WriteFile(airPath, raw, 0o600); err != nil {
-			t.Fatal(err)
+			t.Fatal("fuzz fixture write failed")
 		}
 		inspection, err := InspectAirCodexConfig(airPath, "")
 		if err != nil {
 			for _, forbidden := range []string{root, airPath, "secret.example", "secret-token", "session-id"} {
 				if strings.Contains(err.Error(), forbidden) {
-					t.Fatalf("inspection error leaked private input %q: %v", forbidden, err)
+					t.Fatal("inspection error disclosed private input")
 				}
 			}
 			return
 		}
 		encoded, err := json.Marshal(inspection)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatal("inspection encoding failed")
 		}
 		for _, forbidden := range []string{root, airPath, "https://", "secret.example", "secret-token", "session-id"} {
 			if strings.Contains(string(encoded), forbidden) {
-				t.Fatalf("inspection leaked private input %q: %s", forbidden, encoded)
+				t.Fatal("inspection disclosed private input")
 			}
 		}
 		if hasAirAIGWResidue(text) && !exact && inspection.State != AirStatePartialOrForeignResidue {
-			t.Fatalf("non-exact AIGW residue did not fail closed: %#v", inspection)
+			t.Fatal("non-exact AIGW residue did not fail closed")
 		}
 	})
 }
@@ -106,7 +110,8 @@ func FuzzAirProjectionCRLFOnlyNormalization(f *testing.F) {
 		if !ok {
 			return
 		}
-		crlfText := strings.ReplaceAll(text, "\n", "\r\n")
+		lfText := normalizeAirProjectionNewlines(text)
+		crlfText := strings.ReplaceAll(lfText, "\n", "\r\n")
 		crlf, ok := exactAirManagedProjection(crlfText)
 		if !ok {
 			t.Fatal("CRLF-only rewrite changed exact projection admission")
