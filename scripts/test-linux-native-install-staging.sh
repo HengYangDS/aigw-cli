@@ -3,7 +3,42 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+
+fixture_process_is_live() {
+  pid_file=$1
+  [ -f "$pid_file" ] || return 1
+  fixture_pid=$(cat "$pid_file")
+  case "$fixture_pid" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  fixture_state=$(ps -p "$fixture_pid" -o stat= 2>/dev/null | awk 'NR == 1 { print $1 }')
+  case "$fixture_state" in
+    ''|Z*) return 1 ;;
+  esac
+  fixture_command=$(ps -p "$fixture_pid" -o command= 2>/dev/null || true)
+  case "$fixture_command" in
+    *"$tmp/timeout-bin/docker"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+cleanup_timeout_fixture_processes() {
+  for pid_file in \
+    "$tmp/timeout-grandchild.pid" \
+    "$tmp/timeout-child.pid" \
+    "$tmp/timeout-root.pid"
+  do
+    if fixture_process_is_live "$pid_file"; then
+      kill -KILL "$(cat "$pid_file")" 2>/dev/null || true
+    fi
+  done
+}
+
+cleanup() {
+  cleanup_timeout_fixture_processes
+  rm -rf "$tmp"
+}
+trap cleanup EXIT HUP INT TERM
 out="$tmp/artifacts"
 shared="$tmp/shared"
 bin="$tmp/bin"
@@ -188,12 +223,26 @@ else
 fi
 cat > "$timeout_bin/docker" <<'SH'
 #!/bin/sh
+case "${1-}" in
+  __aigw_timeout_child)
+    printf '%s\n' "$$" > "$AIGW_TEST_TIMEOUT_CHILD_PID"
+    trap '' TERM
+    "$0" __aigw_timeout_grandchild &
+    wait "$!"
+    ;;
+  __aigw_timeout_grandchild)
+    printf '%s\n' "$$" > "$AIGW_TEST_TIMEOUT_GRANDCHILD_PID"
+    trap '' TERM
+    while :; do sleep 1; done
+    ;;
+esac
 case "$1:$2" in
   image:inspect) exit 1 ;;
   pull:*)
-    printf '%s\n' "$$" > "$AIGW_TEST_TERM_RESISTANT_DOCKER_PID"
-    trap '' TERM
-    while :; do sleep 1; done
+    printf '%s\n' "$$" > "$AIGW_TEST_TIMEOUT_ROOT_PID"
+    trap 'exit 0' TERM
+    "$0" __aigw_timeout_child &
+    wait "$!"
     ;;
 esac
 exit 1
@@ -203,14 +252,18 @@ if PATH="$timeout_bin" command -v timeout >/dev/null 2>&1; then
   echo "Linux native-install fallback fixture unexpectedly provides timeout" >&2
   exit 1
 fi
-term_resistant_pid="$tmp/term-resistant-docker.pid"
+timeout_root_pid="$tmp/timeout-root.pid"
+timeout_child_pid="$tmp/timeout-child.pid"
+timeout_grandchild_pid="$tmp/timeout-grandchild.pid"
 PATH="$timeout_bin" \
   AIGW_DOCKER_SHARED_TMPDIR="$shared" \
   AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS=1 \
   AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS=1 \
   AIGW_LINUX_DEB_ACCEPTANCE_IMAGE="example.test/debian" \
   AIGW_LINUX_RPM_ACCEPTANCE_IMAGE="example.test/rpm" \
-  AIGW_TEST_TERM_RESISTANT_DOCKER_PID="$term_resistant_pid" \
+  AIGW_TEST_TIMEOUT_ROOT_PID="$timeout_root_pid" \
+  AIGW_TEST_TIMEOUT_CHILD_PID="$timeout_child_pid" \
+  AIGW_TEST_TIMEOUT_GRANDCHILD_PID="$timeout_grandchild_pid" \
   sh "$root/scripts/test-linux-native-install.sh" "$out" "$version" >"$tmp/timeout.out" 2>&1 &
 native_install_pid=$!
 elapsed=0
@@ -219,13 +272,11 @@ while kill -0 "$native_install_pid" 2>/dev/null && [ "$elapsed" -lt 5 ]; do
   elapsed=$((elapsed + 1))
 done
 if kill -0 "$native_install_pid" 2>/dev/null; then
-  if [ -f "$term_resistant_pid" ]; then
-    kill -KILL "$(cat "$term_resistant_pid")" 2>/dev/null || true
-  fi
+  cleanup_timeout_fixture_processes
   kill -KILL "$native_install_pid" 2>/dev/null || true
   wait "$native_install_pid" 2>/dev/null || true
   cat "$tmp/timeout.out" >&2
-  echo "Linux native-install fallback did not bound a TERM-resistant image pull" >&2
+  echo "Linux native-install fallback did not bound a descendant-resistant image pull" >&2
   exit 1
 fi
 if wait "$native_install_pid"; then
@@ -244,6 +295,36 @@ grep -F "timed out after 1s while preparing Linux acceptance image" "$tmp/timeou
   echo "Linux native-install harness did not explain image-pull timeout" >&2
   exit 1
 }
+for pid_file in "$timeout_root_pid" "$timeout_child_pid" "$timeout_grandchild_pid"; do
+  [ -f "$pid_file" ] || {
+    cat "$tmp/timeout.out" >&2
+    echo "Linux native-install timeout fixture did not record its complete process tree" >&2
+    exit 1
+  }
+done
+if fixture_process_is_live "$timeout_root_pid"; then
+  cleanup_timeout_fixture_processes
+  echo "Linux native-install timeout left its TERM-exiting root alive" >&2
+  exit 1
+fi
+leaked_descendants=''
+for pid_file in "$timeout_child_pid" "$timeout_grandchild_pid"; do
+  if fixture_process_is_live "$pid_file"; then
+    leaked_descendants="$leaked_descendants $(cat "$pid_file")"
+  fi
+done
+if [ -n "$leaked_descendants" ]; then
+  cleanup_timeout_fixture_processes
+  sleep 1
+  for pid_file in "$timeout_child_pid" "$timeout_grandchild_pid"; do
+    if fixture_process_is_live "$pid_file"; then
+      echo "Linux native-install timeout fixture cleanup left a descendant alive" >&2
+      exit 1
+    fi
+  done
+  echo "Linux native-install fallback returned 124 but leaked retained descendant(s):$leaked_descendants; fixture cleanup left none" >&2
+  exit 1
+fi
 
 lock_bin="$tmp/lock-bin"
 mkdir -p "$lock_bin"
