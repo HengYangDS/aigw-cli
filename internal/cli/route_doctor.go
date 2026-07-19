@@ -26,6 +26,7 @@ type routeSurfaceStatus struct {
 	Present             bool   `json:"present"`
 	Management          string `json:"management"`
 	State               string `json:"state"`
+	RecoveryState       string `json:"recovery_state,omitempty"`
 }
 
 type routeDoctorReport struct {
@@ -89,6 +90,10 @@ func buildRouteDoctorReport(app *App) (routeDoctorReport, error) {
 		}
 	}
 	report := routeDoctorReport{OK: true, Surfaces: make([]routeSurfaceStatus, 0, len(discovered.Surfaces))}
+	standalonePath := ""
+	if standalone, ok := discovered.Surface(discovery.SurfaceCodexCLIStandalone); ok && standalone.Present {
+		standalonePath = standalone.ConfigPath
+	}
 	for _, surface := range discovered.Surfaces {
 		status := routeSurfaceStatus{
 			SurfaceID:           surface.ID,
@@ -123,7 +128,12 @@ func buildRouteDoctorReport(app *App) (routeDoctorReport, error) {
 			report.Surfaces = append(report.Surfaces, status)
 			continue
 		}
-		inspection, err := adapters.InspectCodexConfig(surface.ConfigPath)
+		var inspection adapters.CodexInspection
+		if surface.ID == discovery.SurfaceAirCodex {
+			inspection, err = adapters.InspectAirCodexConfig(surface.ConfigPath, standalonePath)
+		} else {
+			inspection, err = adapters.InspectCodexConfig(surface.ConfigPath)
+		}
 		if err != nil {
 			return routeDoctorReport{}, err
 		}
@@ -169,7 +179,25 @@ func buildRouteDoctorReport(app *App) (routeDoctorReport, error) {
 				report.OK = false
 			}
 		}
-		if inspection.AttributionState == "foreign-or-incomplete" || inspection.State == "aigw-drift" || inspection.State == "stale-sidecar" || inspection.State == "ownership-conflict" {
+		if surface.ID == discovery.SurfaceAirCodex {
+			store, storeErr := airRecoveryStore(app)
+			if storeErr != nil {
+				return routeDoctorReport{}, storeErr
+			}
+			lifecycle, lifecycleErr := store.InspectAirLifecycle(surface.ConfigPath, standalonePath)
+			if lifecycleErr != nil {
+				return routeDoctorReport{}, lifecycleErr
+			}
+			status.RecoveryState = lifecycle.RecoveryState
+			if lifecycle.DerivedState != "" {
+				status.State = lifecycle.DerivedState
+			}
+			switch lifecycle.RecoveryState {
+			case "prepared", "awaiting-host-roundtrip", "quarantined":
+				report.OK = false
+			}
+		}
+		if inspection.AttributionState == "foreign-or-incomplete" || inspection.State == "aigw-drift" || inspection.State == "stale-sidecar" || inspection.State == "ownership-conflict" || inspection.State == "partial-or-foreign-residue" || status.State == "orphaned-exact-full-selection" || status.State == "reappeared-after-recovery" {
 			report.OK = false
 		}
 		report.Surfaces = append(report.Surfaces, status)
@@ -191,6 +219,9 @@ func renderRouteDoctorReport(app *App, report routeDoctorReport) {
 		r.Row("Disk selection", surface.DiskSelection)
 		r.Row("Fallback", surface.Fallback)
 		r.Row("State", surface.State)
+		if surface.RecoveryState != "" {
+			r.Row("Recovery", surface.RecoveryState)
+		}
 		r.Row("Authentication", surface.HostAuthentication)
 		r.Row("Endpoint", surface.ObservedEndpointHop)
 		r.Row("Billing", surface.BillingEvidence)
@@ -201,6 +232,10 @@ func renderRouteDoctorReport(app *App, report routeDoctorReport) {
 		for _, surface := range report.Surfaces {
 			if surface.SurfaceID == discovery.SurfaceAirCodex && surface.State == "recoverable-stale-full-selection" {
 				r.Next("aigw route recover air --dry-run")
+				return
+			}
+			if surface.SurfaceID == discovery.SurfaceAirCodex && surface.State == "orphaned-exact-full-selection" {
+				r.Next("aigw route recover-orphan air --dry-run --json")
 				return
 			}
 		}

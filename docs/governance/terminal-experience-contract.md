@@ -70,6 +70,21 @@ Air state `recoverable-stale-full-selection` is different: use
 selection paired with a mismatched recognized fallback sidecar; it does not
 write a JetBrains selection or claim runtime authentication.
 
+An `external-host-mirror` is healthy external management and receives no
+mutation guidance. A sidecar-absent `orphaned-exact-full-selection` instead
+uses `aigw route recover-orphan air --dry-run --json`. Doctor next actions are
+therefore ordered: ADR-0003 recovery for its recognized mismatch, exact-orphan
+recovery for its admitted shape, and ordinary `aigw repair --dry-run` for other
+conflicts.
+
+`aigw route attest air` is credential-free, lock-free, and read-only. Its
+human wording must say bounded forwarding evidence, never authentication,
+billing, quota, terminal, or reply proof. `recover-orphan` preview is also
+read-only. Apply requires the exact case, an operator idleness attestation, and
+the explicit unset-selection acknowledgement; it never supports `--force`.
+`settle` preview is read-only, and settle apply mutates only the private ledger
+and quarantine, never Air.
+
 `aigw route fallback air` and `aigw route restore air` are explicit mutation
 commands, not generic recovery actions. Their `--dry-run` variants are
 credential-free previews that acquire no mutation lock and perform no native
