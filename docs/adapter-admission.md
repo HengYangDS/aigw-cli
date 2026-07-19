@@ -37,10 +37,12 @@ adapter. ChatGPT Desktop alone owns model choices and transcripts for existing
 conversations.
 
 JetBrains Air also remains JetBrains AI by default. It is not an ordinary Codex
-adapter target. AIGW's sole exception is the explicit
-`aigw route fallback air` flow: it may add a separately attributed namespaced
-fallback, never a top-level AIGW selection. The operator must first inspect a
-secret-free dry-run and, for apply or restore, attest that Air is idle with
+adapter target. `aigw route fallback air` is the only flow allowed to stage a
+separately attributed provider block, and it never writes a top-level AIGW
+selection. Host-mirror classification, read-only route attestation, and exact
+orphan cleanup are diagnostic or recovery boundaries; they do not admit Air as
+an AIGW adapter or target. The operator must inspect a secret-free dry-run and,
+for fallback apply or restore, attest that Air is idle with
 `--confirm-host-idle`. This does not authorize client probing or lifecycle
 control.
 
