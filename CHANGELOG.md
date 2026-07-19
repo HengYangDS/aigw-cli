@@ -8,6 +8,17 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Fail closed when a registered source worktree cannot be inspected during
+  branch closeout, and require mandatory governance commands to remain in the
+  enforcing GitHub Actions `run` block or GitLab `verify.script` block rather
+  than inert environment data or non-blocking `after_script` configuration;
+  conditional or non-blocking job and step settings cannot bypass those gates.
+- Treat `.serena/` at any depth as disposable local developer-tool state, and
+  keep GitHub Changelog chronology confined to its qualified provider tag
+  namespace without admitting unscoped GitLab tags.
+
 ## [0.1.0-rc.68] - 2026-07-19
 
 ### Fixed
