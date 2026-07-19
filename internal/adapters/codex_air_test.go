@@ -161,8 +161,32 @@ func TestExactAirManagedProjectionRejectsQuotedAIGWAliases(t *testing.T) {
 			text: strings.Replace(canonical, codexBegin, `"model" = "gpt-5.6-sol"`+"\n"+codexBegin, 1),
 		},
 		{
+			name: "unicode escaped duplicate selection",
+			text: strings.Replace(canonical, codexBegin, `"model\u005fprovider" = "aigw"`+"\n"+codexBegin, 1),
+		},
+		{
+			name: "long unicode escaped duplicate selection",
+			text: strings.Replace(canonical, codexBegin, `"model\U0000005fprovider" = "aigw"`+"\n"+codexBegin, 1),
+		},
+		{
+			name: "unicode escaped duplicate model",
+			text: strings.Replace(canonical, codexBegin, `"mo\u0064el" = "gpt-5.6-sol"`+"\n"+codexBegin, 1),
+		},
+		{
 			name: "quoted provider table",
 			text: canonical + "\n" + `[model_providers."aigw"]` + "\nforeign = true\n",
+		},
+		{
+			name: "unicode escaped provider table name",
+			text: canonical + "\n" + `[model_providers."ai\u0067w"]` + "\nforeign = true\n",
+		},
+		{
+			name: "unicode escaped provider namespace",
+			text: canonical + "\n" + `["model\u005fproviders".aigw]` + "\nforeign = true\n",
+		},
+		{
+			name: "unicode escaped provider namespace and name",
+			text: canonical + "\n" + `["model\u005fproviders"."ai\u0067w"]` + "\nforeign = true\n",
 		},
 		{
 			name: "fully quoted provider table",
@@ -189,8 +213,14 @@ func TestInspectAirCodexConfigClassifiesQuotedAIGWResidue(t *testing.T) {
 	for _, text := range []string{
 		`"model_provider" = "aigw"` + "\n",
 		`'model_provider' = 'aigw_fallback'` + "\n",
+		`"model\u005fprovider" = "aigw"` + "\n",
+		`"model\U0000005fprovider" = "aigw_fallback"` + "\n",
 		`[model_providers."aigw"]` + "\nforeign = true\n",
 		`["model_providers"."aigw_fallback"]` + "\nforeign = true\n",
+		`[model_providers."ai\u0067w"]` + "\nforeign = true\n",
+		`["model\u005fproviders"."aigw\u005ffallback"]` + "\nforeign = true\n",
+		`"model\u005fprovider\q" = "aigw"` + "\n",
+		`[model_providers."aigw\q"]` + "\nforeign = true\n",
 		"[model_providers.aigw\n",
 		`[model_providers."aigw"` + "\n",
 	} {
@@ -213,9 +243,29 @@ func TestAirTopLevelSelectsAIGWRecognizesQuotedKeys(t *testing.T) {
 		`"model_provider" = "aigw"` + "\n",
 		`'model_provider' = 'aigw'` + "\n",
 		`"model_provider" = "aigw_fallback"` + "\n",
+		`"model\u005fprovider" = "aigw"` + "\n",
+		`"model\U0000005fprovider" = "aigw_fallback"` + "\n",
+		`"model\u005fprovider\q" = "aigw"` + "\n",
 	} {
 		if !airTopLevelSelectsAIGW(text) {
 			t.Fatal("quoted top-level AIGW selection evaded detection")
+		}
+	}
+}
+
+func TestAirAliasRecognitionPreservesUnrelatedQuotedKeys(t *testing.T) {
+	for _, text := range []string{
+		`"host\u005fprovider" = "aigw"` + "\n",
+		`'model\u005fprovider' = 'aigw'` + "\n",
+		`["host\u005fproviders"."ai\u0067w"]` + "\nforeign = true\n",
+		`[model_providers."host\u005fprovider"]` + "\nforeign = true\n",
+	} {
+		if hasAirAIGWResidue(text) {
+			t.Fatal("unrelated quoted key was classified as AIGW residue")
+		}
+		providers, models := topLevelAirSelectionLines(text)
+		if len(providers) != 0 || len(models) != 0 {
+			t.Fatal("unrelated quoted key was classified as a top-level selection")
 		}
 	}
 }
@@ -365,6 +415,17 @@ func TestPlanAirOrphanRemovalRejectsNonOrphanStates(t *testing.T) {
 		}
 		if _, err := PlanAirOrphanRemoval(air, standalone); err == nil {
 			t.Fatal("partial residue unexpectedly admitted for orphan removal")
+		}
+	})
+	t.Run("escaped alias residue", func(t *testing.T) {
+		air, standalone, body := prepareAirHostMirrorFixture(t)
+		orphan := strings.Replace(string(body), atomicTestRuntime().Endpoint, "https://orphan.test/v1", 1)
+		orphan += `"model\u005fprovider" = "aigw"` + "\n"
+		if err := os.WriteFile(air, []byte(orphan), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := PlanAirOrphanRemoval(air, standalone); err == nil {
+			t.Fatal("escaped AIGW alias unexpectedly admitted for orphan removal")
 		}
 	})
 	t.Run("sidecar", func(t *testing.T) {
