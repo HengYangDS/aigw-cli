@@ -81,8 +81,10 @@ prompt, response, or recovery digest.
 
 Quoted TOML aliases for the top-level `model_provider` or `model` keys and for
 the `model_providers.aigw` table are not canonical AIGW output, including basic
-quoted keys that encode those names with `\u` or `\U` escapes. They are treated
-as foreign residue so they cannot be ignored beside, or removed with, an exact
+quoted keys that encode those names with `\u` or `\U` escapes. Incomplete and
+malformed protected aliases also fail closed, including invalid escaped dotted
+forms; valid dotted keys remain external content. Blocking residue never enters
+an exact removal span, so it cannot be ignored beside, or removed with, a
 generated projection.
 
 `aigw route recover-orphan air` is limited to a sidecar-absent exact generated
@@ -95,10 +97,14 @@ never writes Air.
 
 The recovery directory is private mode `0700`; ledger and byte-exact
 quarantine files are `0600`. Complete digests remain private ledger fields.
-Every owned write or removal uses a deterministic postimage guard, and reverse
+On Darwin and Linux, recovery-owned traversal and file capture are bound to
+opened descriptors without following symlinks; writes, removals, and rollback
+remain bound to the admitted parent descriptor. Special files, unsafe
+permissions, and unexpected root or Air-state entries fail closed. Every owned
+write or removal also uses a deterministic postimage guard, and reverse
 compensation attempts every artifact while refusing to overwrite concurrent
-postimages. This path is independent from ADR-0003's recognized
-fallback/full-selection sidecar mismatch.
+postimages. This path is independent from ADR-0003's recognized fallback/full-
+selection sidecar mismatch.
 
 The existing `aigw route doctor` command inspects that private recovery state
 without taking the mutation lock, creating directories, or changing files. Its
