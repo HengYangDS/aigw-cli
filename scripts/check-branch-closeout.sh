@@ -4,7 +4,7 @@ set -eu
 
 usage() {
   cat >&2 <<'USAGE'
-usage: check-branch-closeout.sh --source <commit-or-ref> [--canonical <ref>] [--peer <name:ref:mode>]...
+usage: check-branch-closeout.sh --source <local-branch> [--canonical <local-branch>] [--peer <name:ref:mode>]...
 
 Modes are `commit` for a peer that preserves commit identity and `tree` for an
 identity-rewriting projection. A tree peer passes only when it preserves the
@@ -34,14 +34,38 @@ done
 test -n "$source_ref" || usage
 test -n "$peers" || usage
 
-git -c core.fsmonitor=false rev-parse --verify -q "$source_ref^{commit}" >/dev/null || {
-  echo "source ref is unavailable: $source_ref" >&2
-  exit 2
+normalize_local_branch() {
+  label=$1
+  raw=$2
+  normalized=$(git -c core.fsmonitor=false rev-parse --symbolic-full-name --verify "$raw" 2>/dev/null) || normalized=
+  case "$normalized" in
+    refs/heads/*) ;;
+    *)
+      echo "$label ref is unavailable or is not a local branch: $raw" >&2
+      return 2
+      ;;
+  esac
+  git -c core.fsmonitor=false rev-parse --verify -q "$normalized^{commit}" >/dev/null || {
+    echo "$label ref is unavailable: $raw" >&2
+    return 2
+  }
+  printf '%s\n' "$normalized"
 }
-git -c core.fsmonitor=false rev-parse --verify -q "$canonical^{commit}" >/dev/null || {
-  echo "canonical ref is unavailable: $canonical" >&2
-  exit 2
-}
+
+source_ref=$(normalize_local_branch source "$source_ref")
+canonical=$(normalize_local_branch canonical "$canonical")
+
+if test "$source_ref" = "$canonical"; then
+  echo "source branch must differ from canonical branch: $source_ref" >&2
+  exit 1
+fi
+
+source_worktree=$(git -c core.fsmonitor=false for-each-ref --format='%(worktreepath)' "$source_ref")
+if test -n "$source_worktree" && \
+  test -n "$(git -c core.fsmonitor=false -C "$source_worktree" status --porcelain --untracked-files=normal)"; then
+  echo "source branch worktree is not clean: $source_ref ($source_worktree)" >&2
+  exit 1
+fi
 
 if ! git -c core.fsmonitor=false merge-base --is-ancestor "$source_ref" "$canonical"; then
   echo "canonical ref does not contain source tip: $canonical <- $source_ref" >&2

@@ -5,7 +5,10 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root"
 
-if git grep -nE -- "sk-[A-Za-z0-9_-]{24,}|Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9_-]{24,}" -- '*_test.go' ':!vendor/**'; then
+sk_pattern='sk-[A-Za-z0-9_-]{24,}'
+bearer_pattern='Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9_-]{24,}'
+if git grep -nE -- "$sk_pattern" -- '*_test.go' ':!vendor/**' ||
+  git grep -niE -- "$bearer_pattern" -- '*_test.go' ':!vendor/**'; then
   echo "credential-shaped test fixture found; use an aigw-test-* sentinel instead" >&2
   exit 1
 fi
