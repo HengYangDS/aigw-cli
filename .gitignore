@@ -7,3 +7,6 @@
 
 # Local linked worktrees
 .worktrees/
+
+# Local Serena project metadata is a disposable developer-tool projection.
+.serena/
