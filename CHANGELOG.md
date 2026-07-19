@@ -20,7 +20,8 @@ platform acceptance, signing, and GA status remain separate evidence.
   details, paths, or raw routes.
 - Verify every byte of all 15 assets on an existing GitLab Release against the
   locally validated matrix, rejecting missing, extra, duplicate, or mismatched
-  assets without updating the Release.
+  assets without updating the Release or forwarding its job token to a
+  cross-host download redirect.
 
 ## [0.1.0-rc.67] - 2026-07-19
 
