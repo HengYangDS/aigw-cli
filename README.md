@@ -153,9 +153,9 @@ Use `aigw route doctor --json` for a local, secret-free ownership report. It
 does not run Codex, Junie, or an IDE; read credentials; contact an endpoint; or
 report configuration bodies, paths, sessions, or billing as known facts.
 For Air, the same read-only report includes bounded recovery lifecycle health
-and stable reason codes for missing, invalid, or permission-unsafe private
-ledger and quarantine state. It never creates recovery storage or exposes its
-paths, complete digests, quarantine bytes, or case preimages.
+and stable reason codes for missing, invalid, permission-unsafe, or unexpected
+private recovery state. It never creates recovery storage or exposes its paths,
+complete digests, quarantine bytes, or case preimages.
 
 An `external-host-mirror` is a healthy JetBrains-owned copy whose exact managed
 projection matches the current attributed standalone projection. It is not an
