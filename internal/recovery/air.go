@@ -123,18 +123,29 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 		RecoveryHealth:     AirRecoveryHealthInvalid,
 		RecoveryReasonCode: AirRecoveryReasonLedgerUnreadable,
 	}
+	storage, storageErr := s.inspectAirRecoveryStorage()
+	if storage.unsafeTraversal {
+		if !storage.ledgerExists {
+			status.RecoveryState = "none"
+		}
+		status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
+		return status, nil
+	}
 	ledgerSnapshot, err := s.capture(s.airLedgerPath())
 	if err != nil {
 		return status, nil
 	}
 	if !ledgerSnapshot.Exists {
 		status.RecoveryState = "none"
-		unexpectedQuarantine, quarantineErr := s.hasAirQuarantineArtifacts()
-		if quarantineErr != nil {
+		if storageErr != nil {
 			status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnreadable
 			return status, nil
 		}
-		if unexpectedQuarantine {
+		if storage.permissionInvalid {
+			status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
+			return status, nil
+		}
+		if storage.hasQuarantineArtifacts() {
 			status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnexpected
 			return status, nil
 		}
@@ -152,10 +163,26 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 		return status, nil
 	}
 	status.RecoveryState = ledger.State
-	quarantine, err := s.capture(s.airQuarantinePath(ledger.CaseID))
-	if err != nil {
+	if storageErr != nil {
 		status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnreadable
 		return status, nil
+	}
+	if storage.permissionInvalid {
+		status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
+		return status, nil
+	}
+	var quarantine transaction.FileSnapshot
+	quarantineExists, quarantineRegular := storage.quarantineFile(ledger.CaseID, "config.toml")
+	if quarantineExists && !quarantineRegular {
+		status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnreadable
+		return status, nil
+	}
+	if quarantineExists {
+		quarantine, err = s.capture(s.airQuarantinePath(ledger.CaseID))
+		if err != nil {
+			status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnreadable
+			return status, nil
+		}
 	}
 	if ledger.State == AirRecoveryStateSettled {
 		if quarantine.Exists {
@@ -172,6 +199,10 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 		}
 		if err := s.validateAirRecoveryDirectories(ledger.CaseID); err != nil {
 			status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
+			return status, nil
+		}
+		if storage.hasUnexpectedQuarantine(ledger.CaseID, false) {
+			status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnexpected
 			return status, nil
 		}
 		status.RecoveryHealth = AirRecoveryHealthHealthy
@@ -192,6 +223,10 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 	}
 	if err := s.validateAirRecoveryStorage(ledger.CaseID, ledgerSnapshot, quarantine); err != nil {
 		status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
+		return status, nil
+	}
+	if storage.hasUnexpectedQuarantine(ledger.CaseID, true) {
+		status.RecoveryReasonCode = AirRecoveryReasonQuarantineUnexpected
 		return status, nil
 	}
 	status.RecoveryHealth = AirRecoveryHealthHealthy
