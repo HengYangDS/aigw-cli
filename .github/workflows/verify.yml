@@ -49,6 +49,7 @@ jobs:
           sh scripts/check-release-toolchain.sh
           go test -race ./...
           go vet ./...
+          sh scripts/check-static-analysis.sh
           test -z "$(gofmt -l cmd internal tools)"
           for script in scripts/*.sh; do sh -n "$script"; done
           sh scripts/check-package-safety.sh
