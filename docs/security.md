@@ -79,6 +79,11 @@ prompts, responses, tokens, sessions, and unrelated log output. Public output
 contains no path, raw URL, host, port, endpoint, model, PID, call trace, token,
 prompt, response, or recovery digest.
 
+Quoted TOML aliases for the top-level `model_provider` or `model` keys and for
+the `model_providers.aigw` table are not canonical AIGW output. They are treated
+as foreign residue so they cannot be ignored beside, or removed with, an exact
+generated projection.
+
 `aigw route recover-orphan air` is limited to a sidecar-absent exact generated
 full selection without positive standalone reference proof. Apply requires the
 exact case ID, `--confirm-host-idle`, and
@@ -99,7 +104,9 @@ without taking the mutation lock, creating directories, or changing files. Its
 public health projection is limited to lifecycle state, `healthy`, `inactive`,
 or `invalid`, and stable ledger/quarantine reason codes. It does not emit a
 case ID, private digest, storage path, quarantine filename, raw URL, or
-configuration body.
+configuration body. Lifecycle inspection still runs when the Air configuration
+is absent or unreadable, so unsafe storage and untracked quarantine bytes do
+not disappear behind a healthy missing-surface result.
 
 AIGW snapshots each owned configuration and sidecar as exact bytes, existence,
 digest, and POSIX mode. Before a write it verifies the captured preimage;
