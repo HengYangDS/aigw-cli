@@ -8,6 +8,19 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.67] - 2026-07-19
+
+### Fixed
+
+- Distinguish a reference-proven JetBrains-owned Air host mirror from a true
+  exact AIGW orphan, and recover only the latter through a case-bound
+  quarantine and settlement workflow.
+- Add secret-free, read-only Air route attestation from bounded forwarding
+  evidence without exposing raw routes, credentials, prompts, responses, or
+  sessions.
+- Preserve existing GitLab Releases by verifying them read-only instead of
+  updating them after a publication conflict.
+
 ## [0.1.0-rc.66] - 2026-07-18
 
 ### Fixed
