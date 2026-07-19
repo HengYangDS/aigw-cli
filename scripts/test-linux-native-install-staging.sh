@@ -177,25 +177,68 @@ done < "$capture"
 
 timeout_bin="$tmp/timeout-bin"
 mkdir -p "$timeout_bin"
+for utility in awk cat cp dirname find grep mkdir mktemp ps rm rmdir sh sleep tr wc; do
+  utility_path=$(command -v "$utility")
+  ln -s "$utility_path" "$timeout_bin/$utility"
+done
+if command -v sha256sum >/dev/null 2>&1; then
+  ln -s "$(command -v sha256sum)" "$timeout_bin/sha256sum"
+else
+  ln -s "$(command -v shasum)" "$timeout_bin/shasum"
+fi
 cat > "$timeout_bin/docker" <<'SH'
 #!/bin/sh
 case "$1:$2" in
   image:inspect) exit 1 ;;
-  pull:*) sleep 3; exit 0 ;;
+  pull:*)
+    printf '%s\n' "$$" > "$AIGW_TEST_TERM_RESISTANT_DOCKER_PID"
+    trap '' TERM
+    while :; do sleep 1; done
+    ;;
 esac
 exit 1
 SH
 chmod 755 "$timeout_bin/docker"
-if PATH="$timeout_bin:/usr/bin:/bin" \
+if PATH="$timeout_bin" command -v timeout >/dev/null 2>&1; then
+  echo "Linux native-install fallback fixture unexpectedly provides timeout" >&2
+  exit 1
+fi
+term_resistant_pid="$tmp/term-resistant-docker.pid"
+PATH="$timeout_bin" \
   AIGW_DOCKER_SHARED_TMPDIR="$shared" \
   AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS=1 \
   AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS=1 \
   AIGW_LINUX_DEB_ACCEPTANCE_IMAGE="example.test/debian" \
   AIGW_LINUX_RPM_ACCEPTANCE_IMAGE="example.test/rpm" \
-  sh "$root/scripts/test-linux-native-install.sh" "$out" "$version" >"$tmp/timeout.out" 2>&1; then
-  echo "Linux native-install harness accepted an unbounded image pull" >&2
+  AIGW_TEST_TERM_RESISTANT_DOCKER_PID="$term_resistant_pid" \
+  sh "$root/scripts/test-linux-native-install.sh" "$out" "$version" >"$tmp/timeout.out" 2>&1 &
+native_install_pid=$!
+elapsed=0
+while kill -0 "$native_install_pid" 2>/dev/null && [ "$elapsed" -lt 5 ]; do
+  sleep 1
+  elapsed=$((elapsed + 1))
+done
+if kill -0 "$native_install_pid" 2>/dev/null; then
+  if [ -f "$term_resistant_pid" ]; then
+    kill -KILL "$(cat "$term_resistant_pid")" 2>/dev/null || true
+  fi
+  kill -KILL "$native_install_pid" 2>/dev/null || true
+  wait "$native_install_pid" 2>/dev/null || true
+  cat "$tmp/timeout.out" >&2
+  echo "Linux native-install fallback did not bound a TERM-resistant image pull" >&2
   exit 1
 fi
+if wait "$native_install_pid"; then
+  echo "Linux native-install harness accepted an unbounded image pull" >&2
+  exit 1
+else
+  rc=$?
+fi
+[ "$rc" -eq 124 ] || {
+  cat "$tmp/timeout.out" >&2
+  echo "Linux native-install harness used unexpected exit $rc for image-pull timeout" >&2
+  exit 1
+}
 grep -F "timed out after 1s while preparing Linux acceptance image" "$tmp/timeout.out" >/dev/null || {
   cat "$tmp/timeout.out" >&2
   echo "Linux native-install harness did not explain image-pull timeout" >&2
