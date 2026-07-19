@@ -323,7 +323,7 @@ cp "$root/packaging/release/retired-gitlab-tags.txt" "$provider/packaging/releas
 
 # GitHub provider branches rewrite identities.  A provider-native tag can be
 # unreachable by commit ancestry while its exact tree is present in the current
-# branch.  GitHub branch CI must recognize that immutable provider tag as the
+# branch.  GitHub branch CI must recognize that signed provider tag as the
 # latest published source version rather than rejecting a valid Changelog.
 provider_tree="$tmp/provider-tree"
 provider_tree_origin="$tmp/provider-tree-origin.git"
