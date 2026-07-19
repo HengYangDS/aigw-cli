@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/redaction"
@@ -14,17 +15,18 @@ import (
 type Kind string
 
 const (
-	Healthy          Kind = "healthy"
-	InvalidToken     Kind = "invalid_token"
-	QuotaExhausted   Kind = "quota_exhausted"
-	TokenDisabled    Kind = "token_disabled"
-	TokenRestricted  Kind = "token_restricted"
-	RateLimited      Kind = "rate_limited"
-	ModelUnavailable Kind = "model_unavailable"
-	GatewayFailure   Kind = "gateway_failure"
-	EndpointMismatch Kind = "endpoint_mismatch"
-	NetworkFailure   Kind = "network_failure"
-	Unexpected       Kind = "unexpected"
+	Healthy                Kind = "healthy"
+	InvalidToken           Kind = "invalid_token"
+	AuthenticationUnstable Kind = "authentication_unstable"
+	QuotaExhausted         Kind = "quota_exhausted"
+	TokenDisabled          Kind = "token_disabled"
+	TokenRestricted        Kind = "token_restricted"
+	RateLimited            Kind = "rate_limited"
+	ModelUnavailable       Kind = "model_unavailable"
+	GatewayFailure         Kind = "gateway_failure"
+	EndpointMismatch       Kind = "endpoint_mismatch"
+	NetworkFailure         Kind = "network_failure"
+	Unexpected             Kind = "unexpected"
 )
 
 type HTTPDoer interface {
@@ -32,12 +34,108 @@ type HTTPDoer interface {
 }
 
 type Result struct {
-	Kind       Kind   `json:"kind"`
-	Summary    string `json:"summary"`
-	Detail     string `json:"detail,omitempty"`
-	Fix        string `json:"fix,omitempty"`
-	HTTPStatus int    `json:"http_status,omitempty"`
-	Retryable  bool   `json:"retryable"`
+	Kind               Kind   `json:"kind"`
+	Summary            string `json:"summary"`
+	Detail             string `json:"detail,omitempty"`
+	Fix                string `json:"fix,omitempty"`
+	HTTPStatus         int    `json:"http_status,omitempty"`
+	Retryable          bool   `json:"retryable"`
+	Attempts           int    `json:"attempts,omitempty"`
+	RecoveredTransient bool   `json:"recovered_transient,omitempty"`
+}
+
+type StabilityPolicy struct {
+	RecoveryDelays []time.Duration
+	AttemptTimeout time.Duration
+}
+
+func DefaultStabilityPolicy() StabilityPolicy {
+	return StabilityPolicy{
+		RecoveryDelays: []time.Duration{250 * time.Millisecond, 500 * time.Millisecond, time.Second},
+		AttemptTimeout: 5 * time.Second,
+	}
+}
+
+func ProbeStable(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token string, policy StabilityPolicy) Result {
+	result := probeWithTimeout(ctx, client, runtime, token, policy.AttemptTimeout)
+	result.Attempts = 1
+	if result.Kind != InvalidToken {
+		return result
+	}
+
+	recovery := make([]Result, 0, len(policy.RecoveryDelays))
+	for _, delay := range policy.RecoveryDelays {
+		if err := waitForRecovery(ctx, delay); err != nil {
+			return unstableAuthentication(result.Attempts, err.Error())
+		}
+		observation := probeWithTimeout(ctx, client, runtime, token, policy.AttemptTimeout)
+		recovery = append(recovery, observation)
+		result.Attempts++
+	}
+
+	if allKind(recovery, Healthy) {
+		recovered := recovery[len(recovery)-1]
+		recovered.Attempts = result.Attempts
+		recovered.RecoveredTransient = true
+		return recovered
+	}
+	if allKind(recovery, InvalidToken) {
+		persistent := recovery[len(recovery)-1]
+		persistent.Attempts = result.Attempts
+		return persistent
+	}
+	return unstableAuthentication(result.Attempts, "Authentication responses were inconsistent across bounded recovery attempts")
+}
+
+func probeWithTimeout(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token string, timeout time.Duration) Result {
+	if timeout <= 0 {
+		return Probe(ctx, client, runtime, token)
+	}
+	attemptCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return Probe(attemptCtx, client, runtime, token)
+}
+
+func waitForRecovery(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			return nil
+		}
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func allKind(results []Result, kind Kind) bool {
+	if len(results) == 0 {
+		return false
+	}
+	for _, result := range results {
+		if result.Kind != kind {
+			return false
+		}
+	}
+	return true
+}
+
+func unstableAuthentication(attempts int, detail string) Result {
+	return Result{
+		Kind:      AuthenticationUnstable,
+		Summary:   "Authentication could not be confirmed consistently",
+		Detail:    detail,
+		Fix:       "Run `aigw check` again later",
+		Retryable: true,
+		Attempts:  attempts,
+	}
 }
 
 func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token string) Result {
