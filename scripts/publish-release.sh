@@ -40,6 +40,95 @@ EOF
 
 endpoint="$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases"
 
+download_release_asset() {
+  asset_name=$1
+  asset_url=$2
+  output=$3
+  current_url=$asset_url
+  redirects=0
+  response_body="$output.part"
+  response_headers="$output.headers"
+
+  while :; do
+    send_token=$(python3 - "$CI_API_V4_URL" "$current_url" <<'PYTHON'
+import sys
+from urllib.parse import urlsplit
+
+def authority(raw):
+    parsed = urlsplit(raw)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise SystemExit(1)
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    return parsed.scheme.lower(), parsed.hostname.lower().rstrip("."), port
+
+print("yes" if authority(sys.argv[1]) == authority(sys.argv[2]) else "no")
+PYTHON
+    ) || {
+      echo "GitLab release verification found an invalid asset URL for $asset_name" >&2
+      return 1
+    }
+
+    if [ "$send_token" = yes ]; then
+      status=$(curl --silent --show-error --output "$response_body" --dump-header "$response_headers" --write-out '%{http_code}' \
+        --header "JOB-TOKEN: $CI_JOB_TOKEN" "$current_url" || true)
+    else
+      status=$(curl --silent --show-error --output "$response_body" --dump-header "$response_headers" --write-out '%{http_code}' \
+        "$current_url" || true)
+    fi
+
+    case "$status" in
+      2??)
+        mv "$response_body" "$output"
+        rm -f "$response_headers"
+        return 0
+        ;;
+      3??)
+        redirects=$((redirects + 1))
+        if [ "$redirects" -gt 5 ]; then
+          echo "GitLab release verification exceeded the redirect limit for $asset_name" >&2
+          return 1
+        fi
+        next_url=$(python3 - "$current_url" "$response_headers" <<'PYTHON'
+import sys
+from urllib.parse import urljoin, urlsplit
+
+current, header_path = sys.argv[1:]
+location = ""
+with open(header_path, encoding="latin-1") as handle:
+    for line in handle:
+        name, separator, value = line.partition(":")
+        if separator and name.strip().lower() == "location":
+            location = value.strip()
+if not location:
+    raise SystemExit(1)
+resolved = urljoin(current, location)
+before = urlsplit(current)
+after = urlsplit(resolved)
+if after.scheme not in {"http", "https"} or not after.hostname:
+    raise SystemExit(1)
+if after.username is not None or after.password is not None or after.fragment:
+    raise SystemExit(1)
+if before.scheme == "https" and after.scheme != "https":
+    raise SystemExit(1)
+print(resolved)
+PYTHON
+        ) || {
+          echo "GitLab release verification rejected an unsafe redirect for $asset_name" >&2
+          rm -f "$response_body" "$response_headers"
+          return 1
+        }
+        rm -f "$response_body" "$response_headers"
+        current_url=$next_url
+        ;;
+      *)
+        echo "GitLab release verification could not fetch asset $asset_name (HTTP $status)" >&2
+        rm -f "$response_body" "$response_headers"
+        return 1
+        ;;
+    esac
+  done
+}
+
 verify_release() {
   status=$(curl --silent --show-error --output release-response.json --write-out '%{http_code}' \
     --header "JOB-TOKEN: $CI_JOB_TOKEN" "$endpoint/$CI_COMMIT_TAG" || true)
@@ -129,9 +218,7 @@ PYTHON
 
   tab=$(printf '\t')
   while IFS="$tab" read -r asset_name asset_url; do
-    if ! curl --silent --show-error --fail --location --output "$workspace/$asset_name" \
-      --header "JOB-TOKEN: $CI_JOB_TOKEN" "$asset_url"; then
-      echo "GitLab release verification could not fetch asset $asset_url" >&2
+    if ! download_release_asset "$asset_name" "$asset_url" "$workspace/$asset_name"; then
       return 1
     fi
   done < "$asset_list"
