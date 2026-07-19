@@ -54,13 +54,10 @@ func newRouteDoctorCommand(app *App) *cobra.Command {
 				renderRouteDoctorReport(app, report)
 			}
 			if !report.OK {
-				// The JSON report is the complete machine-readable result.  Do
-				// not append a terminal problem card to the same stream, or an
-				// automation caller cannot decode a detected conflict.
-				if jsonMode {
-					return presented(errors.New("route ownership conflict detected; review the reported surface"))
-				}
-				return errors.New("route ownership conflict detected; review the reported surface")
+				// The rendered report already provides the state-specific next
+				// action. Do not append a generic terminal problem card to either
+				// human or JSON output: it can obscure the bounded recovery path.
+				return presented(errors.New("route ownership conflict detected; review the reported surface"))
 			}
 			return nil
 		},
@@ -201,6 +198,12 @@ func renderRouteDoctorReport(app *App, report routeDoctorReport) {
 		for _, surface := range report.Surfaces {
 			if surface.SurfaceID == discovery.SurfaceAirCodex && surface.State == "recoverable-stale-full-selection" {
 				r.Next("aigw route recover air --dry-run")
+				return
+			}
+			if surface.SurfaceID == discovery.SurfaceAirCodex && surface.State == "orphaned-aigw-marker" {
+				r.Section("Boundary")
+				r.Text("Air has unbound AIGW residue. No AIGW mutation is admitted without a recognized sidecar or a verified stale full-selection recovery shape.")
+				r.Next("aigw route doctor --json")
 				return
 			}
 		}
