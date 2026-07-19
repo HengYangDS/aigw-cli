@@ -24,6 +24,19 @@ It may index the current checkout, but it is not AIGW configuration, evidence,
 or an input to release and runtime decisions. Do not add it to commits, copy it
 between worktrees, or use it to reconstruct source state.
 
+### Analyzer isolation
+
+Read-only analyzers may inspect `main`. A write-capable analyzer must run in an
+isolated non-`main` worktree with a private per-task `TMPDIR`; formatting,
+auto-fix, source rewriting, and generated scratch output must not target
+`main`. Promote analyzer changes only through reviewed commits in the owned
+worktree.
+
+Before retiring an analyzer worktree, identify its owning task and prove that
+the owner handed off or terminated and no owning task remains live. Then apply
+the ordinary branch-closeout requirements below. Agent-list visibility alone
+is not liveness or retirement proof.
+
 ```bash
 go test -race ./...
 go vet ./...

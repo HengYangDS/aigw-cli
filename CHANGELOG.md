@@ -10,6 +10,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Require three bounded recovery observations before an initial HTTP 401 is
+  treated as a persistent invalid Token; mixed results remain retry-only and
+  never mutate credentials.
 - Build the isolated GitHub identity projection from a detached temporary
   source ref, so clearing its branch namespace cannot turn the complete source
   tree into staged additions before the projection rewrite begins.
