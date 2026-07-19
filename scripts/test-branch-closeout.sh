@@ -77,6 +77,18 @@ if (
 fi
 rm -f "$source_worktree/untracked.txt"
 
+unavailable_worktree="$tmp/source-worktree-unavailable"
+mv "$source_worktree" "$unavailable_worktree"
+if (
+  cd "$source"
+  sh "$checker" --source work/source --canonical main \
+    --peer canonical:main:commit
+) >/dev/null 2>&1; then
+  echo 'branch closeout checker accepted an unavailable source worktree' >&2
+  failures=$((failures + 1))
+fi
+mv "$unavailable_worktree" "$source_worktree"
+
 test "$failures" -eq 0 || exit 1
 
 printf 'different\n' > "$projection/state.txt"

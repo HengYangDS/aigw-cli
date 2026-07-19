@@ -61,10 +61,15 @@ if test "$source_ref" = "$canonical"; then
 fi
 
 source_worktree=$(git -c core.fsmonitor=false for-each-ref --format='%(worktreepath)' "$source_ref")
-if test -n "$source_worktree" && \
-  test -n "$(git -c core.fsmonitor=false -C "$source_worktree" status --porcelain --untracked-files=normal)"; then
-  echo "source branch worktree is not clean: $source_ref ($source_worktree)" >&2
-  exit 1
+if test -n "$source_worktree"; then
+  if ! source_status=$(git -c core.fsmonitor=false -C "$source_worktree" status --porcelain --untracked-files=normal); then
+    echo "source branch worktree cannot be inspected: $source_ref ($source_worktree)" >&2
+    exit 1
+  fi
+  if test -n "$source_status"; then
+    echo "source branch worktree is not clean: $source_ref ($source_worktree)" >&2
+    exit 1
+  fi
 fi
 
 if ! git -c core.fsmonitor=false merge-base --is-ancestor "$source_ref" "$canonical"; then
