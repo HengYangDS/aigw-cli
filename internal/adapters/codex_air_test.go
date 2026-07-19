@@ -218,6 +218,8 @@ func TestExactAirManagedProjectionRejectsIncompleteProtectedAliases(t *testing.T
 		`'model_provider`,
 		`"model\u005fprovider\q`,
 		`"mo\u0064el`,
+		`"model_provider\q".kind = "host"`,
+		`"mo\u0064el\q".kind = "host"`,
 		`["model\u005fproviders`,
 	} {
 		t.Run(line, func(t *testing.T) {
@@ -266,6 +268,7 @@ func TestInspectAirCodexConfigClassifiesIncompleteProtectedAliases(t *testing.T)
 		`"model\u005fprovider` + "\n",
 		`'model_provider` + "\n",
 		`"mo\u0064el` + "\n",
+		`"model_provider\q".kind = "host"` + "\n",
 		`["model\u005fproviders` + "\n",
 	} {
 		path := filepath.Join(t.TempDir(), "config.toml")
@@ -307,6 +310,9 @@ func TestAirAliasRecognitionPreservesUnrelatedQuotedKeys(t *testing.T) {
 		`"model_provider_hint"` + "\n",
 		`'model\u005fprovider` + "\n",
 		`["host\u005fproviders` + "\n",
+		"model.temperature = 0.2\n",
+		`"model_provider".kind = "host"` + "\n",
+		`"model_provider" . kind = "host"` + "\n",
 	} {
 		if hasAirAIGWResidue(text) {
 			t.Fatal("unrelated quoted key was classified as AIGW residue")
@@ -402,7 +408,8 @@ func TestInspectAirCodexConfigRejectsDriftedStandaloneReference(t *testing.T) {
 func TestPlanAirOrphanRemovalReturnsExactReadOnlySnapshots(t *testing.T) {
 	air, standalone, body := prepareAirHostMirrorFixture(t)
 	orphan := strings.Replace(string(body), atomicTestRuntime().Endpoint, "https://orphan.test/v1", 1) +
-		"\n[jetbrains.profile]\nmodel_provider = \"host-provider\"\nmodel = \"host-model\"\n"
+		"\nmodel.temperature = 0.2\n\"model_provider\".kind = \"host\"\n" +
+		"[jetbrains.profile]\nmodel_provider = \"host-provider\"\nmodel = \"host-model\"\n"
 	if err := os.WriteFile(air, []byte(orphan), 0o640); err != nil {
 		t.Fatal(err)
 	}
@@ -435,7 +442,7 @@ func TestPlanAirOrphanRemovalReturnsExactReadOnlySnapshots(t *testing.T) {
 			t.Fatalf("cleaned snapshot retained %q:\n%s", forbidden, cleaned)
 		}
 	}
-	for _, preserved := range []string{"standalone_only = true", "[jetbrains]", "host_only = true", "model_provider = \"host-provider\"", "model = \"host-model\""} {
+	for _, preserved := range []string{"standalone_only = true", "model.temperature = 0.2", `"model_provider".kind = "host"`, "[jetbrains]", "host_only = true", "model_provider = \"host-provider\"", "model = \"host-model\""} {
 		if !strings.Contains(cleaned, preserved) {
 			t.Fatalf("cleaned snapshot lost %q:\n%s", preserved, cleaned)
 		}
