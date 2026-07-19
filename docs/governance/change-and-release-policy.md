@@ -116,11 +116,15 @@ equal-object branch or tag synchronizer applies to AIGW.
 Merged source branches are disposable delivery artifacts, not project history.
 GitLab must enable automatic source-branch deletion after merge. Direct release
 or maintenance merges must delete their remote source branch in the same
-closeout operation. A branch or worktree may be removed only when its tip is reachable from the
-local `main` and every required reachable peer, its worktree is clean, and it
-is not `main` or an active unmerged delivery branch. Remove the worktree before deleting its local
-branch. Preserve release tags as signed provenance evidence and do not imply
-host-enforced immutability where the forge does not provide it.
+closeout operation. A branch or worktree may be removed only when its tip is
+reachable from local `main`, each reachable non-rewriting peer contains that
+same tip, and each reachable identity-rewriting projection contains the same
+ordered source-tree history. Its worktree must be clean, no longer needed, and
+neither `main` nor an active unmerged delivery branch. Remove the worktree
+before deleting its local branch. An unreachable peer requires a recorded probe
+and a deferred remote closeout; it does not make the local branch a current
+delivery lane. Preserve release tags as signed provenance evidence and do not
+imply host-enforced immutability where the forge does not provide it.
 
 ## Cross-project boundary
 

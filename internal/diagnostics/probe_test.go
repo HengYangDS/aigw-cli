@@ -66,9 +66,9 @@ func TestProbeUsesModelsEndpointAndNeverReturnsCredential(t *testing.T) {
 }
 
 func TestProbeRedactsAnAPIKeyEchoedByTheGateway(t *testing.T) {
-	secret := "sk-gateway-token-must-not-leak"
+	secret := "aigw-test-gateway-token-never-leaks"
 	result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
-		return response(http.StatusForbidden, `{"message":"rejected token sk-gateway-token-must-not-leak"}`), nil
+		return response(http.StatusForbidden, `{"message":"rejected token aigw-test-gateway-token-never-leaks"}`), nil
 	}), runtime(), secret)
 	if strings.Contains(result.Detail, secret) {
 		t.Fatalf("gateway response leaked API token: %#v", result)
