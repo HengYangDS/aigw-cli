@@ -53,6 +53,15 @@ if test -e docs/history || test -e docs/superpowers || test -e docs/design || te
   echo "retired documentary paths must not remain in the canonical tree" >&2
   exit 1
 fi
+if ! grep -Fxq '.serena/' .gitignore; then
+  echo ".gitignore must exclude local Serena project metadata" >&2
+  exit 1
+fi
+if git ls-files --error-unmatch .serena >/dev/null 2>&1 || \
+  git ls-files -- .serena/ | grep -q .; then
+  echo "local Serena project metadata must not be tracked" >&2
+  exit 1
+fi
 
 # AIGW CLI is an English-only repository.  Use explicit Unicode ranges instead
 # of a grep Unicode-property dialect so this gate behaves the same on macOS and
