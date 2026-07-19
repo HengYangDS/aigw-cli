@@ -40,12 +40,12 @@ if "GOTOOLCHAIN: go1.25.12" not in variables:
 verify = section(gitlab, "verify")
 for required in [
     "go test -race ./...", "go vet ./...", "check-product-surface.sh", 'check-release-tag-signature.sh . "$CI_COMMIT_TAG" gitlab', "check-release-toolchain.sh",
-    "check-english-text.sh", "test-linux-native-install-staging.sh", "test-macos-native-install-staging.sh",
+    "check-english-text.sh", "check-credential-literals.sh", "test-credential-literals.sh", "check-credential-fixtures.sh", "test-credential-fixtures.sh", "test-linux-native-install-staging.sh", "test-macos-native-install-staging.sh",
     "test-verified-candidate.sh",
     "test-publish-release.sh", "test-publish-github-release.sh",
     "test-pipeline-gates.sh", "test-github-actions-contract.sh",
     "test-github-release-workflow.sh",
-    "test-github-provider-projection.sh", "check-text-layout.py", "test-text-layout.sh",
+    "test-github-provider-projection.sh", "test-branch-closeout.sh", "check-text-layout.py", "test-text-layout.sh",
     "test-ci-go-proxy-policy.sh", "test-ci-go-cache-preparation.sh",
     "test-release-source-date-epoch.sh", "test-release-forge-sources.sh", "test-release-toolchain.sh", "test-release-tag-signature-provider-selection.sh",
 ]:
