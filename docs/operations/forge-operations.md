@@ -47,8 +47,11 @@ uses the dedicated macOS arm64 release runner class, the exact Go patch version
 declared in `go.mod`, the tracked forge-source manifest, and the release epoch
 derived from the source-controlled Changelog heading. Each proves two full-matrix builds byte-identical,
 then publishes its own independently signed release. If an identical release
-already exists, its assets are downloaded and byte-verified; a disagreement
-fails closed rather than replacing an asset. On the private GitHub Free peer,
+already exists, its exact 15 links are verified, every asset is downloaded, and
+the complete matrix is compared byte-for-byte with the local checksums and
+files. Missing, extra, duplicate, or changed assets fail closed, and the
+existing Release is inspected with GET only rather than replaced or updated.
+On the private GitHub Free peer,
 tag immutability is not asserted as a host capability: remote tag-signature
 verification and cross-forge artifact comparison remain the acceptance proof.
 
