@@ -258,6 +258,66 @@ func TestRouteDoctorAcceptsAirHostMirrorRegardlessOfSurfaceOrderWithoutLeaks(t *
 	}
 }
 
+func TestRouteDoctorExplainsUnboundAirResidueWithoutSuggestingAnAIGWWrite(t *testing.T) {
+	h := newAirRouteHarness(t)
+	if err := os.WriteFile(h.air, []byte("model_provider = \"aigw\" # managed by AIGW\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	report, err := buildRouteDoctorReport(h.app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	air := routeDoctorSurface(report, discovery.SurfaceAirCodex)
+	if air.State != "partial-or-foreign-residue" || air.DiskSelection != "aigw-managed" {
+		t.Fatalf("Air status = %#v, want unbound managed residue", air)
+	}
+	out := new(bytes.Buffer)
+	h.app.Out, h.app.Err = out, out
+
+	if err := Execute(h.app, []string{"route", "doctor"}); err == nil {
+		t.Fatal("unbound Air residue unexpectedly passed route doctor")
+	}
+	assertUnboundAirBoundaryGuidance(t, out.String(), h.air)
+}
+
+func TestRouteDoctorExplainsLegacyOrphanedAirMarkerWithoutSuggestingAnAIGWWrite(t *testing.T) {
+	out := new(bytes.Buffer)
+	app := &App{Out: out, Err: out}
+	renderRouteDoctorReport(app, routeDoctorReport{
+		OK: false,
+		Surfaces: []routeSurfaceStatus{{
+			SurfaceID: discovery.SurfaceAirCodex,
+			Product:   "JetBrains Air Codex",
+			State:     "orphaned-aigw-marker",
+		}},
+	})
+	assertUnboundAirBoundaryGuidance(t, out.String(), "/private/air/config.toml")
+}
+
+func assertUnboundAirBoundaryGuidance(t *testing.T, text string, privatePath string) {
+	t.Helper()
+	for _, want := range []string{
+		"Air has unbound AIGW residue",
+		"No AIGW mutation is admitted",
+		"aigw route doctor --json",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("route doctor output missing %q:\n%s", want, text)
+		}
+	}
+	for _, forbidden := range []string{
+		"aigw repair --dry-run",
+		"aigw route recover air --dry-run",
+		"aigw route recover-orphan air --dry-run --json",
+		"aigw check",
+		privatePath,
+	} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("route doctor gave unsafe unbound-residue guidance %q:\n%s", forbidden, text)
+		}
+	}
+}
+
 func TestRouteDoctorRejectsAirOrphanAndPartialResidueWithoutLeaks(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -350,7 +410,7 @@ func TestRouteDoctorReportsBoundedRecoveryHealthReasonCodesWithoutWrites(t *test
 		{
 			name: "ledger invalid", prepare: true,
 			mutate: func(t *testing.T, ledgerPath, _ string) {
-				if err := os.WriteFile(ledgerPath, []byte("{\"private_url\":\"https://doctor-secret.invalid/v1\",\"private_path\":\"/private/recovery/case\",\"credential\":\"sk-private-doctor-credential\"}\n"), 0o600); err != nil {
+				if err := os.WriteFile(ledgerPath, []byte("{\"private_url\":\"https://doctor-secret.invalid/v1\",\"private_path\":\"/private/recovery/case\",\"credential\":\"aigw-test-private-doctor-credential\"}\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -380,7 +440,7 @@ func TestRouteDoctorReportsBoundedRecoveryHealthReasonCodesWithoutWrites(t *test
 		{
 			name: "quarantine invalid", prepare: true,
 			mutate: func(t *testing.T, _, quarantinePath string) {
-				if err := os.WriteFile(quarantinePath, []byte("https://doctor-secret.invalid/v1\n/private/recovery/case\nsk-private-doctor-credential\n"), 0o600); err != nil {
+				if err := os.WriteFile(quarantinePath, []byte("https://doctor-secret.invalid/v1\n/private/recovery/case\naigw-test-private-doctor-credential\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -408,7 +468,7 @@ func TestRouteDoctorReportsBoundedRecoveryHealthReasonCodesWithoutWrites(t *test
 			quarantinePath := ""
 			private := []string{
 				h.air, h.standalone, h.dataDir,
-				"https://doctor-secret.invalid/v1", "/private/recovery/case", "sk-private-doctor-credential",
+				"https://doctor-secret.invalid/v1", "/private/recovery/case", "aigw-test-private-doctor-credential",
 				"orphan.test", "gateway.test", "ledger.json", "config.toml",
 			}
 			if tt.prepare {
