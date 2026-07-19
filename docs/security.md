@@ -80,7 +80,8 @@ contains no path, raw URL, host, port, endpoint, model, PID, call trace, token,
 prompt, response, or recovery digest.
 
 Quoted TOML aliases for the top-level `model_provider` or `model` keys and for
-the `model_providers.aigw` table are not canonical AIGW output. They are treated
+the `model_providers.aigw` table are not canonical AIGW output, including basic
+quoted keys that encode those names with `\u` or `\U` escapes. They are treated
 as foreign residue so they cannot be ignored beside, or removed with, an exact
 generated projection.
 
