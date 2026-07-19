@@ -354,7 +354,7 @@ build_windows_msi() {
       if [ "$arch" = arm64 ] && [ "$wix_target" = x64 ]; then
         if command -v msibuild >/dev/null 2>&1; then
           msibuild "$out_abs/aigw_${version}_windows_${arch}.msi" \
-            -s "AIGW CLI" "DIG" "Arm64;1033" "$package_guid" >/dev/null
+            -s "AIGW CLI" "AIGW CLI" "Arm64;1033" "$package_guid" >/dev/null
         else
           rm -f "$out_abs/aigw_${version}_windows_${arch}.msi"
           echo "skipping Windows arm64 .msi: wixl lacks arm64 and msibuild is unavailable; portable zip is still generated" >&2
