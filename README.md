@@ -146,18 +146,25 @@ following surfaces before it plans a projection:
 | Ordinary standalone Codex CLI | AIGW | AIGW may manage its full provider/model selection. Generic `setup` and `repair` adopt only this surface. |
 | ChatGPT Desktop | AIGW default configuration for later/new work | Desktop alone owns each existing conversation's model and transcript; AIGW never edits conversation state. |
 | PyCharm Codex | JetBrains AI | Classified for diagnosis and excluded from AIGW target adoption. |
-| JetBrains Air | JetBrains AI | Classified for diagnosis. AIGW may stage only an explicit, reversible namespaced fallback. |
+| JetBrains Air | JetBrains AI | Exact standalone copies remain external host mirrors. AIGW may stage only an explicit, reversible namespaced fallback. |
 | Junie CLI | JetBrains AI through Junie Account / JetBrains Account | Observed as a JetBrains surface, never admitted as a Codex target or executed by route diagnosis. |
 
 Use `aigw route doctor --json` for a local, secret-free ownership report. It
 does not run Codex, Junie, or an IDE; read credentials; contact an endpoint; or
 report configuration bodies, paths, sessions, or billing as known facts.
 
-When route doctor finds an old AIGW full selection on a JetBrains surface, run
-`aigw repair --dry-run --json` before any mutation. The one exception is the
-explicitly reported `recoverable-stale-full-selection` Air state: it has a
-complete AIGW full selection but a mismatched AIGW fallback sidecar and no
-recoverable original selection. Use its separate recovery preview instead:
+An `external-host-mirror` is a healthy JetBrains-owned copy whose exact managed
+projection matches the current attributed standalone projection. It is not an
+AIGW target and receives no mutation guidance. Optional bounded forwarding
+evidence is available without credentials or writes:
+
+```bash
+aigw route attest air --json
+```
+
+For an ordinary ownership conflict, run `aigw repair --dry-run --json` before
+any mutation. The ADR-0003 state `recoverable-stale-full-selection` instead
+uses its dedicated recovery preview:
 
 ```bash
 aigw route recover air --dry-run --json
@@ -170,6 +177,24 @@ it does not fabricate a JetBrains `model` or `model_provider` selection,
 authenticate a client, or touch conversation state. A later Air UI session is
 still the authority for proving JetBrains authentication and user-visible
 behavior.
+
+The separate `orphaned-exact-full-selection` state is a sidecar-absent exact
+generated projection that cannot be proven equal to the current standalone
+reference. Recover it only through its deterministic case and private
+quarantine:
+
+```bash
+aigw route recover-orphan air --dry-run --json
+aigw route recover-orphan air --case-id <id> --confirm-host-idle --ack-unset-external-selection
+aigw route settle air --case-id <id> --dry-run --json
+aigw route settle air --case-id <id>
+```
+
+Recovery writes no replacement provider or model selection. It leaves an
+unset external baseline and waits for a separately observed host roundtrip.
+Settlement changes only the private recovery ledger and quarantine; it never
+writes Air. Neither attestation nor settlement proves login, authentication,
+quota, billing, terminal success, or a user-visible reply.
 
 Air remains JetBrains AI by default. Its opt-in fallback has a separate,
 deliberate path:
