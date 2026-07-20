@@ -10,6 +10,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Verify every GitHub release tag whose source tree is represented by the
+  selected canonical branch before updating its identity projection, including
+  GitHub-only tags that have no same-named GitLab provenance tag.
 - Require three bounded recovery observations before an initial HTTP 401 is
   treated as a persistent invalid Token; mixed results remain retry-only and
   never mutate credentials.
@@ -24,6 +27,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Treat `.serena/` at any depth as disposable local developer-tool state, and
   keep GitHub Changelog chronology confined to its qualified provider tag
   namespace without admitting unscoped GitLab tags.
+- Check and surface terminal-output, persistence, archive, HTTP, and process
+  cleanup failures instead of silently discarding them, while retaining fluent
+  command presentation and explicit recovery behavior.
+- Run tracked Staticcheck and Errcheck checks in local and hosted verification,
+  so unchecked errors and analysis regressions fail before a release candidate
+  is prepared.
 
 ## [0.1.0-rc.68] - 2026-07-19
 

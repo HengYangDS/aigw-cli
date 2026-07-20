@@ -119,21 +119,34 @@ if ! git -C "$projection" log "$canonical" --format='%T' | grep -F -x "$remote_t
   exit 1
 fi
 
-# If both providers already expose a tag of the same name, each must verify
-# under its own trust anchor. Tags remain outside this branch-only projection;
-# no tag is copied, regenerated, or pushed. Use only tags reachable from the
-# selected canonical branch: historical detached tag namespaces cannot block a
-# current branch projection.
+# Every GitHub release tag whose source tree is represented by the selected
+# canonical branch must verify under the GitHub trust policy before the branch
+# projection is updated.  This covers both same-named GitLab/GitHub releases
+# and GitHub-only releases created after an identity projection. Tags remain
+# outside this branch-only projection; no tag is copied, regenerated, or
+# pushed. Historical tags whose trees are absent from the selected branch do
+# not block a current projection.
 remote_tags="$workspace/remote-tags"
 git_transport -C "$projection" ls-remote --tags github 'v[0-9]*' > "$remote_tags"
-for tag in $(git -C "$root" tag --merged "$canonical" --list 'v[0-9]*'); do
-  remote_tag=$(awk -v "needle=refs/tags/$tag" '$2 == needle {print $1; exit}' "$remote_tags")
-  [ -n "$remote_tag" ] || continue
-  git -C "$root" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$gitlab_allowed_signers" verify-tag "$tag" >/dev/null 2>&1 || {
-    echo "canonical GitLab tag does not verify: $tag" >&2
-    exit 1
-  }
+canonical_trees="$workspace/canonical-trees"
+git -C "$root" log "$canonical" --format=%T | LC_ALL=C sort -u > "$canonical_trees"
+for tag in $(awk '$2 !~ /\^\{\}$/ {sub("refs/tags/", "", $2); print $2}' "$remote_tags" | LC_ALL=C sort -u); do
   git_transport -C "$projection" fetch --quiet --no-tags github "refs/tags/$tag:refs/tags/github/$tag"
+  if [ "$(git -C "$projection" cat-file -t "github/$tag")" != tag ]; then
+    echo "GitHub release tag must be annotated: $tag" >&2
+    exit 1
+  fi
+  tag_tree=$(git -C "$projection" rev-parse "github/$tag^{}^{tree}")
+  grep -F -x "$tag_tree" "$canonical_trees" >/dev/null || continue
+  # When the selected canonical history also carries this release name, retain
+  # the existing dual-provenance requirement instead of allowing a GitHub tag
+  # to stand in for canonical GitLab provenance.
+  if git -C "$root" tag --merged "$canonical" --list "$tag" | grep -Fxq "$tag"; then
+    git -C "$root" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$gitlab_allowed_signers" verify-tag "$tag" >/dev/null 2>&1 || {
+      echo "canonical GitLab tag does not verify: $tag" >&2
+      exit 1
+    }
+  fi
   if ! git -C "$projection" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$github_allowed_signers" verify-tag "github/$tag" >/dev/null 2>&1; then
     # Legacy GitHub provenance predates the provider-specific signer. It can
     # remain verifiable only for an explicit legacy inventory; every new
