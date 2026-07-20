@@ -43,15 +43,16 @@ override is responsible for preserving the intended fallback semantics. GitHub
 Actions does not inherit this GitLab-specific setting.
 
 Every runner registration, LaunchAgent, work directory, cache, and label belongs
-to exactly one `forge × repository` tuple. No GitHub runner serves GitLab jobs,
-and no runner is shared by repositories. AIGW has exactly two local
-registrations: GitHub is `aigw-github-macos-arm64`; GitLab is
-`aigw-gitlab-macos-arm64`. GitHub verification runs only trusted `main`, tag,
-and manual workflows, so this repository's GitHub runner never executes
-pull-request code; GitLab remains the canonical merge-request gate. Each
-registration has its own LaunchAgent, work directory, cache, and credential.
-This avoids GitHub-hosted-runner billing or quota state without collapsing the
-independent forge boundary.
+to exactly one `forge × repository × privilege` tuple. No GitHub runner serves
+GitLab jobs, no runner is shared by repositories, and a release runner never
+executes verification or merge-request workflow code. AIGW uses three separate
+registrations: GitLab is `aigw-release-macos-arm64`; GitHub verification is
+`aigw-github-verify-macos-arm64`; GitHub release is
+`aigw-github-release-macos-arm64`. GitHub verification runs only trusted `main`,
+tag, and manual workflows; GitLab remains the canonical merge-request gate.
+Each registration has its own LaunchAgent, work directory, cache, and credential.
+This avoids GitHub-hosted-runner billing or quota state without collapsing forge
+or privilege boundaries.
 
 ## Release behavior
 
