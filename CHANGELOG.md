@@ -10,12 +10,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
-- Let GitLab-only verification retain explicitly inventoried GitHub-only
-  releases in the shared Changelog chronology without requiring private GitHub
-  tag transport.
-- Verify every GitHub release tag whose source tree is represented by the
-  selected canonical branch before updating its identity projection, including
-  GitHub-only tags that have no same-named GitLab provenance tag.
+- Remove the temporary GitHub-only release exception inventory after RC.67 and
+  RC.68 gained independent GitLab provenance, CI, and release records; release
+  chronology now admits only versions completed on both forge planes.
+- Declare complete Git history in source-controlled GitLab CI, preventing a
+  project-level shallow-clone setting from misclassifying published chronology.
+- Require distinct local GitHub and GitLab runners per repository; GitHub
+  verification accepts only trusted `main`, tag, and manual workflows.
+- Verify every GitHub provenance tag whose source tree is represented by the
+  selected canonical branch before updating its identity projection.
 - Require three bounded recovery observations before an initial HTTP 401 is
   treated as a persistent invalid Token; mixed results remain retry-only and
   never mutate credentials.

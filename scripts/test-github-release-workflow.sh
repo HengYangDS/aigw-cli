@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 text = Path(sys.argv[1]).read_text(encoding="utf-8")
 required = [
-    "name: Release", 'tags: ["v*"]', "runs-on: [self-hosted, macOS, ARM64, aigw-release-macos-arm64]",
+    "name: Release", 'tags: ["v*"]', "runs-on: [self-hosted, macOS, ARM64, aigw-github-macos-arm64]",
     "permissions:\n  contents: write",
     "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
     "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491",
@@ -24,6 +24,8 @@ required = [
 for token in required:
     if token not in text:
         raise SystemExit(f"GitHub Actions release contract is missing {token!r}")
+if "aigw-gitlab-macos-arm64" in text:
+    raise SystemExit("GitHub Actions release must use only its dedicated runner label")
 required_toolchain = "brew install nfpm msitools"
 if required_toolchain not in text:
     raise SystemExit("GitHub Actions release contract must install the Homebrew msitools formula")

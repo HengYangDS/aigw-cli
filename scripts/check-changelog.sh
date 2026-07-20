@@ -79,7 +79,7 @@ if test -z "$latest_tag" && test "$has_origin" = true; then
     latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
   fi
 fi
-python3 - "$changelog" "$latest_tag" "$selected_tag" "$root/packaging/release/retired-gitlab-tags.txt" "$root/packaging/release/github-only-tags.txt" "$forge" <<'PYTHON'
+python3 - "$changelog" "$latest_tag" "$selected_tag" "$root/packaging/release/retired-gitlab-tags.txt" "$forge" <<'PYTHON'
 from __future__ import annotations
 
 import datetime as dt
@@ -92,8 +92,7 @@ path = Path(sys.argv[1])
 latest_tag = sys.argv[2]
 selected_tag = sys.argv[3]
 retired_path = Path(sys.argv[4])
-github_only_path = Path(sys.argv[5])
-forge = sys.argv[6]
+forge = sys.argv[5]
 heading = re.compile(r"^## \[([^]]+)\] - (\d{4}-\d{2}-\d{2})$")
 semver = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$")
 
@@ -232,32 +231,11 @@ if retired_path.exists():
             continue
         retired_versions.append(version)
 
-github_only_versions = []
-if github_only_path.exists():
-    for number, line in enumerate(github_only_path.read_text(encoding="utf-8").splitlines(), 1):
-        raw = line.strip()
-        if not raw or raw.startswith("#"):
-            continue
-        if not raw.startswith("v"):
-            raise SystemExit(f"CHANGELOG.md: malformed GitHub-only tag inventory at line {number}: {raw}")
-        version = raw.removeprefix("v")
-        try:
-            release_key(version)
-        except ValueError:
-            raise SystemExit(f"CHANGELOG.md: invalid GitHub-only tag inventory at line {number}: {raw}")
-        if version in github_only_versions:
-            raise SystemExit(f"CHANGELOG.md: duplicate GitHub-only tag inventory version: {version}")
-        if version in retired_versions:
-            raise SystemExit(f"CHANGELOG.md: version is both GitLab-retired and GitHub-only: {version}")
-        if forge == "gitlab" and version in tag_versions:
-            raise SystemExit(f"CHANGELOG.md: GitHub-only tag is active in the GitLab namespace: v{version}")
-        github_only_versions.append(version)
-
 # All known tags must have exactly one heading in matching descending order.
 # An untagged candidate is allowed only as the single first release section on
 # an ordinary branch, so release preparation can pass before either forge signs
 # its provider-native tag.
-managed_versions = sorted(set(tag_versions + retired_versions + github_only_versions), key=release_key, reverse=True)
+managed_versions = sorted(set(tag_versions + retired_versions), key=release_key, reverse=True)
 known = [version for version in entries if version in managed_versions]
 if known != managed_versions:
     raise SystemExit("CHANGELOG.md: active and retired release tags must appear once in descending version order")
