@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
     tags: ['v*']
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -20,7 +19,9 @@ env:
 jobs:
   verify:
     name: Source and governance gates
-    runs-on: ubuntu-24.04
+    # GitLab is the canonical merge-request gate. This runner accepts only
+    # repository-controlled main, tag, and manual workflow revisions.
+    runs-on: [self-hosted, macOS, ARM64, aigw-github-macos-arm64]
     timeout-minutes: 25
     steps:
       - name: Check out full history and tags

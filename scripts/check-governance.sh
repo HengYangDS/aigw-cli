@@ -22,7 +22,6 @@ for file in \
   packaging/release/github-allowed-signers \
   packaging/release/github-legacy-allowed-signers \
   packaging/release/github-legacy-tags.txt \
-  packaging/release/github-only-tags.txt \
   packaging/release/retired-gitlab-tags.txt \
   .github/workflows/verify.yml \
   scripts/check-static-analysis.sh \
