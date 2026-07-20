@@ -14,6 +14,7 @@ POLL_SECONDS = 0.1
 TERM_GRACE_SECONDS = 1
 STATUS = struct.Struct("!i")
 received_signal = None
+start_authorization_fd = None
 
 
 def request_shutdown(signum, _frame):
@@ -21,6 +22,11 @@ def request_shutdown(signum, _frame):
     global received_signal
     if received_signal is None:
         received_signal = signum
+    if start_authorization_fd is not None:
+        try:
+            os.write(start_authorization_fd, b"C")
+        except OSError:
+            pass
 
 
 def shell_status(return_code):
@@ -33,6 +39,8 @@ def shell_status(return_code):
 def write_all(fd, payload):
     """Write one small control message despite signal interruptions."""
     while payload:
+        if fd == start_authorization_fd and payload == b"G" and received_signal is not None:
+            payload = b"C"
         try:
             written = os.write(fd, payload)
         except InterruptedError:
@@ -57,7 +65,14 @@ def close_fd(fd):
         pass
 
 
-def run_session_leader(ready_fd, start_fd, status_fd, command):
+def deactivate_start_authorization(fd):
+    """Stop exposing one start-control descriptor to the signal handler."""
+    global start_authorization_fd
+    if start_authorization_fd == fd:
+        start_authorization_fd = None
+
+
+def run_session_leader(ready_fd, start_fd, status_fd, start_deadline, command):
     """Own the session, report command status, and remain until group cleanup."""
     try:
         os.setsid()
@@ -65,15 +80,26 @@ def run_session_leader(ready_fd, start_fd, status_fd, command):
             signal.signal(handled_signal, signal.SIG_DFL)
         write_all(ready_fd, b"R")
         os.close(ready_fd)
+        start = b""
         while True:
+            remaining = start_deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            readable, _, _ = select.select([start_fd], [], [], min(POLL_SECONDS, remaining))
+            if not readable:
+                continue
             try:
                 start = os.read(start_fd, 1)
                 break
             except InterruptedError:
                 continue
         os.close(start_fd)
+        if start == b"G" and time.monotonic() >= start_deadline:
+            start = b""
         if start != b"G":
-            os._exit(127)
+            os.close(status_fd)
+            while True:
+                signal.pause()
         try:
             command_status = subprocess.Popen(command).wait()
         except OSError:
@@ -88,6 +114,7 @@ def run_session_leader(ready_fd, start_fd, status_fd, command):
 
 def spawn_session(command, ready_deadline):
     """Fork a persistent session leader and wait for its readiness handshake."""
+    global start_authorization_fd
     ready_read, ready_write = os.pipe()
     start_read, start_write = os.pipe()
     status_read, status_write = os.pipe()
@@ -96,50 +123,67 @@ def spawn_session(command, ready_deadline):
         os.close(ready_read)
         os.close(start_write)
         os.close(status_read)
-        run_session_leader(ready_write, start_read, status_write, command)
+        run_session_leader(ready_write, start_read, status_write, ready_deadline, command)
         os._exit(127)
 
     os.close(ready_write)
     os.close(start_read)
     os.close(status_write)
+    start_authorization_fd = start_write
     spawn_status = None
     ready = b""
-    while True:
+    try:
+        while True:
+            if received_signal is not None:
+                spawn_status = 128 + received_signal
+                break
+            remaining = ready_deadline - time.monotonic()
+            if remaining <= 0:
+                spawn_status = 124
+                break
+            readable, _, _ = select.select([ready_read], [], [], min(POLL_SECONDS, remaining))
+            if not readable:
+                continue
+            try:
+                ready = os.read(ready_read, 1)
+            except InterruptedError:
+                continue
+            break
+
+        if ready == b"R" and spawn_status is None:
+            try:
+                write_all(start_write, b"G")
+            except OSError:
+                ready = b""
+            if ready == b"R":
+                if received_signal is not None:
+                    spawn_status = 128 + received_signal
+                elif time.monotonic() >= ready_deadline:
+                    spawn_status = 124
+                else:
+                    return leader_pid, status_read, None
+    finally:
+        deactivate_start_authorization(start_write)
+        close_fd(ready_read)
+        close_fd(start_write)
+
+    close_fd(status_read)
+    if ready == b"R":
+        wrapper_status = close_group(leader_pid, 0)
+    else:
+        try:
+            os.kill(leader_pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        _, wait_status = waitpid_nointr(leader_pid)
+        wrapper_status = os.waitstatus_to_exitcode(wait_status)
+    if spawn_status is None:
         if received_signal is not None:
             spawn_status = 128 + received_signal
-            break
-        remaining = ready_deadline - time.monotonic()
-        if remaining <= 0:
+        elif time.monotonic() >= ready_deadline:
             spawn_status = 124
-            break
-        readable, _, _ = select.select([ready_read], [], [], min(POLL_SECONDS, remaining))
-        if not readable:
-            continue
-        try:
-            ready = os.read(ready_read, 1)
-        except InterruptedError:
-            continue
-        break
-
-    close_fd(ready_read)
-    if ready == b"R" and spawn_status is None:
-        try:
-            write_all(start_write, b"G")
-        except OSError:
-            ready = b""
-        close_fd(start_write)
-        if ready == b"R":
-            return leader_pid, status_read, None
-
-    close_fd(start_write)
-    close_fd(status_read)
-    try:
-        os.kill(leader_pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
-    _, wait_status = waitpid_nointr(leader_pid)
-    if spawn_status is None:
-        spawn_status = shell_status(os.waitstatus_to_exitcode(wait_status))
+        else:
+            spawn_status = shell_status(wrapper_status)
     return None, None, spawn_status
 
 
@@ -197,6 +241,16 @@ def supervise(timeout_seconds, command, started):
                 continue
             chunk = os.read(status_fd, STATUS.size - len(status_payload))
             if not chunk:
+                if received_signal is not None:
+                    deadline = started + MAX_TOTAL_SECONDS
+                    grace = min(TERM_GRACE_SECONDS, max(0, deadline - time.monotonic()))
+                    close_group(leader_pid, grace)
+                    leader_reaped = True
+                    return 128 + received_signal
+                if time.monotonic() >= timeout_deadline:
+                    close_group(leader_pid, 0)
+                    leader_reaped = True
+                    return 124
                 wrapper_status = close_group(leader_pid, 0)
                 leader_reaped = True
                 return shell_status(wrapper_status)
