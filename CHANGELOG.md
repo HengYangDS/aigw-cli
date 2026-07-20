@@ -10,6 +10,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Remove the temporary GitHub-only release exception inventory after RC.67 and
+  RC.68 gained independent GitLab provenance, CI, and release records; release
+  chronology now admits only versions completed on both forge planes.
+- Declare complete Git history in source-controlled GitLab CI, preventing a
+  project-level shallow-clone setting from misclassifying published chronology.
+- Require distinct per-repository local GitHub and GitLab runners.
 - Let GitLab-only verification retain explicitly inventoried GitHub-only
   releases in the shared Changelog chronology without requiring private GitHub
   tag transport.
