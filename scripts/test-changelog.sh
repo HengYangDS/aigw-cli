@@ -195,6 +195,49 @@ if ! (
   echo "changelog checker rejected an active GitHub tag in the GitLab retirement inventory" >&2
   exit 1
 fi
+
+# A GitLab-only checkout cannot fetch private GitHub provenance tags during its
+# source gate. The explicit GitHub-only inventory must preserve the published
+# Changelog section as known history without admitting a second untagged
+# candidate. A GitHub checkout with the active tag must accept the same shared
+# inventory without treating it as a duplicate.
+github_only="$tmp/github-only"
+git init -q -b main "$github_only"
+git -C "$github_only" config user.name 'AIGW Changelog Provider Test'
+git -C "$github_only" config user.email 'aigw-changelog-provider@example.invalid'
+printf 'gitlab release\n' > "$github_only/release.txt"
+git -C "$github_only" add release.txt
+git -C "$github_only" commit -qm 'GitLab release'
+git -C "$github_only" tag -a v0.1.0-rc.1 -m 'GitLab release'
+printf 'current\n' >> "$github_only/release.txt"
+git -C "$github_only" commit -qam 'current'
+cat > "$github_only/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0-rc.2] - 2026-07-17
+
+## [0.1.0-rc.1] - 2026-07-17
+EOF
+mkdir -p "$github_only/scripts" "$github_only/packaging/release"
+cp "$checker" "$github_only/scripts/check-changelog.sh"
+printf '' > "$github_only/packaging/release/retired-gitlab-tags.txt"
+printf 'v0.1.0-rc.2\n' > "$github_only/packaging/release/github-only-tags.txt"
+(
+  cd "$github_only"
+  AIGW_CHANGELOG_FORGE=gitlab GITHUB_ACTIONS= GITLAB_CI=true \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
+    sh scripts/check-changelog.sh
+)
+git -C "$github_only" tag -a github/v0.1.0-rc.2 -m 'GitHub-only release'
+git -C "$github_only" tag -a github/v0.1.0-rc.1 HEAD~1 -m 'GitHub historical release'
+(
+  cd "$github_only"
+  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true GITLAB_CI= \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
+    sh scripts/check-changelog.sh
+)
 if (
   cd "$github_overlap"
   AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI=true \
@@ -233,7 +276,7 @@ if run_branch_checker "$fixture" >/dev/null 2>&1; then
 fi
 
 cp "$root/CHANGELOG.md" "$fixture"
-python3 - "$fixture" "$root/packaging/release/retired-gitlab-tags.txt" <<'PY'
+python3 - "$fixture" "$root/packaging/release/retired-gitlab-tags.txt" "$root/packaging/release/github-only-tags.txt" <<'PY'
 from pathlib import Path
 import re
 import subprocess
@@ -241,6 +284,7 @@ import sys
 
 path = Path(sys.argv[1])
 retired = Path(sys.argv[2])
+github_only = Path(sys.argv[3])
 text = path.read_text(encoding="utf-8")
 tag_versions = {
     tag.removeprefix("github/").removeprefix("v")
@@ -252,8 +296,13 @@ retired_versions = {
     for line in retired.read_text(encoding="utf-8").splitlines()
     if line.strip() and not line.lstrip().startswith("#")
 }
+github_only_versions = {
+    line.strip().removeprefix("v")
+    for line in github_only.read_text(encoding="utf-8").splitlines()
+    if line.strip() and not line.lstrip().startswith("#")
+}
 published = list(re.finditer(r"^## \[([^]]+)\] - \d{4}-\d{2}-\d{2}$", text, re.MULTILINE))
-unknown = [match for match in published if match.group(1) not in tag_versions | retired_versions]
+unknown = [match for match in published if match.group(1) not in tag_versions | retired_versions | github_only_versions]
 candidate = "## [9999.0.0-ci.1] - 2026-07-17"
 if not unknown:
     unreleased = re.search(r"^## \[Unreleased\]$", text, re.MULTILINE)
