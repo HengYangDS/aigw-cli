@@ -12,7 +12,7 @@ stages: [verify, package, acceptance, publish, release]
 
 default:
   image: golang:1.25.12
-  tags: [aigw-release-macos-arm64]
+  tags: [aigw-gitlab-macos-arm64]
   before_script:
     # A pipe, rather than a comma, means Go may advance after a transient
     # proxy failure such as a TLS handshake timeout. Keep GitLab's dependency
@@ -20,6 +20,9 @@ default:
     - export GOPROXY="${AIGW_GOPROXY:-https://goproxy.cn|https://proxy.golang.org|direct}"; . scripts/prepare-ci-go-cache.sh
 
 variables:
+  # Release chronology and branch-closeout proof need complete ancestry. Keep
+  # this in source so a project-level shallow-clone setting cannot regress it.
+  GIT_DEPTH: "0"
   GOTOOLCHAIN: go1.25.12
 
 verify:
@@ -76,7 +79,7 @@ verify:
 
 windows-installer-runtime:
   stage: verify
-  tags: [aigw-release-macos-arm64]
+  tags: [aigw-gitlab-macos-arm64]
   before_script: []
   script:
     - command -v pwsh
@@ -100,7 +103,7 @@ windows-native-acceptance:
 
 macos-native-acceptance:
   stage: acceptance
-  tags: [aigw-release-macos-arm64]
+  tags: [aigw-gitlab-macos-arm64]
   # The package and isolated-account lifecycle proof need an administrator
   # credential. It is additive RC evidence and must not delay publication when
   # this runner's dedicated credential is unavailable. GA promotion has its
@@ -127,7 +130,7 @@ package:
       optional: true
     - job: release-readiness
       optional: true
-  tags: [aigw-release-macos-arm64]
+  tags: [aigw-gitlab-macos-arm64]
   script:
     - VERSION="${CI_COMMIT_TAG:-}"; VERSION="${VERSION#v}"; test -n "$VERSION" || VERSION="0.1.0-${CI_COMMIT_SHORT_SHA}"
     - sh scripts/check-release-toolchain.sh
