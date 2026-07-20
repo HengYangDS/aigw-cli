@@ -29,6 +29,21 @@ case "$tag" in
     echo "fixture release tag is only trusted by github: $provider" >&2
     exit 1
     ;;
+  github/v0.0.0-unsigned)
+    if test "$provider" = github; then
+      echo "release tag is not SSH signed: $tag" >&2
+      exit 1
+    fi
+    echo "qualified GitHub tag requires github provider: $tag" >&2
+    exit 2
+    ;;
+  github/v0.0.0-github)
+    if test "$provider" = github; then
+      exit 0
+    fi
+    echo "qualified GitHub tag requires github provider: $tag" >&2
+    exit 2
+    ;;
   *)
     echo "unexpected fixture tag: $tag" >&2
     exit 2
@@ -45,6 +60,7 @@ git -C "$fixture" add fixture
 git -C "$fixture" commit -qm fixture
 git -C "$fixture" tag -a v0.0.0-unsigned -m unsigned
 git -C "$fixture" tag -a v0.0.0-github -m github
+git -C "$fixture" update-ref refs/tags/github/v0.0.0-github refs/tags/v0.0.0-github
 
 if ! sh "$fixture/scripts/test-release-tag-signature.sh" > "$tmp/result.out" 2>&1; then
   cat "$tmp/result.out" >&2
@@ -52,7 +68,7 @@ if ! sh "$fixture/scripts/test-release-tag-signature.sh" > "$tmp/result.out" 2>&
   exit 1
 fi
 
-grep -F 'release tag signature gate: OK (v0.0.0-github)' "$tmp/result.out" >/dev/null || {
+grep -F 'release tag signature gate: OK (v0.0.0-github; qualified namespace rejected unsigned reference)' "$tmp/result.out" >/dev/null || {
   cat "$tmp/result.out" >&2
   echo "release-tag signature regression selected the wrong fixture" >&2
   exit 1

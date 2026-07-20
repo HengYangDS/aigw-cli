@@ -28,6 +28,7 @@ grep -F 'not SSH signed' "$tmp/unsigned.out" >/dev/null || {
 }
 
 mkdir -p "$tmp/empty-home"
+cp "$root/packaging/release/github-allowed-signers" "$tmp/packaging/release/github-allowed-signers"
 signed=''
 for provider in gitlab github; do
   for tag in $(git -C "$root" tag --list 'v[0-9]*'); do
@@ -43,4 +44,27 @@ done
   exit 1
 }
 
-echo "release tag signature gate: OK ($signed)"
+git update-ref refs/tags/github/v0.0.0-unsigned refs/tags/v0.0.0-unsigned
+if sh "$root/scripts/check-release-tag-signature.sh" "$tmp" github/v0.0.0-unsigned github >"$tmp/github-qualified.out" 2>&1; then
+  cat "$tmp/github-qualified.out" >&2
+  echo "unsigned qualified GitHub tag was accepted" >&2
+  exit 1
+fi
+grep -F 'not SSH signed' "$tmp/github-qualified.out" >/dev/null || {
+  cat "$tmp/github-qualified.out" >&2
+  echo "qualified GitHub tag was rejected before signature validation" >&2
+  exit 1
+}
+
+if sh "$root/scripts/check-release-tag-signature.sh" "$tmp" github/v0.0.0-unsigned gitlab >"$tmp/github-qualified-provider.out" 2>&1; then
+  cat "$tmp/github-qualified-provider.out" >&2
+  echo "qualified GitHub tag was accepted under the GitLab provider" >&2
+  exit 1
+fi
+grep -F 'qualified GitHub tag requires github provider' "$tmp/github-qualified-provider.out" >/dev/null || {
+  cat "$tmp/github-qualified-provider.out" >&2
+  echo "qualified GitHub tag provider rejection was not explicit" >&2
+  exit 1
+}
+
+echo "release tag signature gate: OK ($signed; qualified namespace rejected unsigned reference)"
