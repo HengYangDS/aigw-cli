@@ -20,7 +20,8 @@ env:
 jobs:
   verify:
     name: Source and governance gates
-    runs-on: ubuntu-24.04
+    # This repository's GitHub runner is distinct from its GitLab runner.
+    runs-on: [self-hosted, macOS, ARM64, aigw-github-macos-arm64]
     timeout-minutes: 25
     steps:
       - name: Check out full history and tags
