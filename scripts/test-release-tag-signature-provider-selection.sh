@@ -48,7 +48,7 @@ git -C "$fixture" tag -a v0.0.0-github -m github
 
 if ! sh "$fixture/scripts/test-release-tag-signature.sh" > "$tmp/result.out" 2>&1; then
   cat "$tmp/result.out" >&2
-  echo "release-tag signature regression did not discover a github-only fixture" >&2
+  echo "release-tag signature regression did not discover a GitHub-native fixture" >&2
   exit 1
 fi
 

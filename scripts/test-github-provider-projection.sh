@@ -149,9 +149,9 @@ if git -C "$remote" ls-tree -r --name-only main | grep -Fxq CALLER_CONTEXT.txt; 
   exit 1
 fi
 
-# A GitHub-only release tag may have no same-named canonical GitLab tag, while
-# still identifying a source tree represented by the selected canonical branch.
-# It is nevertheless GitHub release provenance and must be verified before the
+# A GitHub-native provenance tag may have no same-named canonical GitLab tag,
+# while still identifying a source tree represented by the selected canonical
+# branch. It is nevertheless GitHub provenance and must be verified before the
 # branch projection is updated.  An untrusted tag exercises the negative path:
 # the old implementation checked only overlapping canonical tag names and
 # would have accepted this remote state.
@@ -162,7 +162,7 @@ git -C "$remote" \
   -c user.email='untrusted@example.invalid' \
   -c gpg.format=ssh \
   -c user.signingkey="$rogue_key" \
-  tag -s -a v0.2.0 main -m 'untrusted GitHub-only release identity'
+  tag -s -a v0.2.0 main -m 'untrusted GitHub-native provenance identity'
 source_main_before=$(git -C "$source" rev-parse refs/heads/main)
 remote_main_before=$(git -C "$remote" rev-parse refs/heads/main)
 if (
@@ -175,21 +175,21 @@ if (
     sh "$script" --branch main
 ) >"$tmp/untrusted-github-only-tag.out" 2>&1; then
   cat "$tmp/untrusted-github-only-tag.out" >&2
-  echo 'projection accepted an untrusted GitHub-only release tag' >&2
+  echo 'projection accepted an untrusted GitHub-native provenance tag' >&2
   exit 1
 fi
 grep -F 'GitHub provenance tag does not verify under its permitted trust anchors: v0.2.0' \
   "$tmp/untrusted-github-only-tag.out" >/dev/null || {
   cat "$tmp/untrusted-github-only-tag.out" >&2
-  echo 'projection did not identify the untrusted GitHub-only release tag' >&2
+  echo 'projection did not identify the untrusted GitHub-native provenance tag' >&2
   exit 1
 }
 [ "$(git -C "$source" rev-parse refs/heads/main)" = "$source_main_before" ] || {
-  echo 'rejected GitHub-only provenance changed canonical main' >&2
+  echo 'rejected GitHub-native provenance changed canonical main' >&2
   exit 1
 }
 [ "$(git -C "$remote" rev-parse refs/heads/main)" = "$remote_main_before" ] || {
-  echo 'rejected GitHub-only provenance changed the GitHub main fixture' >&2
+  echo 'rejected GitHub-native provenance changed the GitHub main fixture' >&2
   exit 1
 }
 git -C "$remote" tag -d v0.2.0 >/dev/null
@@ -207,13 +207,13 @@ if (
     sh "$script" --branch main
 ) >"$tmp/lightweight-github-only-tag.out" 2>&1; then
   cat "$tmp/lightweight-github-only-tag.out" >&2
-  echo 'projection accepted a lightweight GitHub-only release tag' >&2
+  echo 'projection accepted a lightweight GitHub-native provenance tag' >&2
   exit 1
 fi
 grep -F 'GitHub release tag must be annotated: v0.2.1' \
   "$tmp/lightweight-github-only-tag.out" >/dev/null || {
   cat "$tmp/lightweight-github-only-tag.out" >&2
-  echo 'projection did not identify the lightweight GitHub-only release tag' >&2
+  echo 'projection did not identify the lightweight GitHub-native provenance tag' >&2
   exit 1
 }
 
