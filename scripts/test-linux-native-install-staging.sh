@@ -3,7 +3,7 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 tmp=$(mktemp -d)
-real_python3=$(command -v python3)
+real_python3=${AIGW_TEST_SUPERVISOR_PYTHON:-$(command -v python3)}
 
 fixture_process_is_live() {
   pid_file=$1
@@ -325,29 +325,154 @@ supervisor_timeout_pid="$tmp/supervisor-timeout.pid"
 supervisor_timeout_invoked="$tmp/supervisor-timeout-invoked"
 supervisor_identity_switch="$tmp/supervisor-identity-switched"
 
-if AIGW_TEST_COMPLETED_CHILD_PID="$supervisor_completed_child_pid" \
-  "$real_python3" "$root/scripts/run-with-timeout.py" 5 \
-  "$supervisor_bin/docker" __aigw_completed_leader
-then
-  :
-else
-  echo "Linux timeout supervisor changed a completed leader's exit status" >&2
-  exit 1
-fi
-[ -s "$supervisor_completed_child_pid" ] || {
-  echo "Linux timeout supervisor completion fixture did not create its descendant" >&2
-  exit 1
-}
-if fixture_process_is_live "$supervisor_completed_child_pid"; then
-  cleanup_timeout_fixture_processes
-  sleep 1
-  fixture_process_is_live "$supervisor_completed_child_pid" && {
-    echo "Linux timeout supervisor fixture cleanup left a descendant running" >&2
-    exit 1
+check_completed_leader() {
+  completed_python=$1
+  if "$completed_python" "$root/scripts/run-with-timeout.py" 5 /bin/sh -c 'exit 7' \
+    >"$tmp/completed-nonzero.out" 2>&1
+  then
+    completed_nonzero_rc=0
+  else
+    completed_nonzero_rc=$?
+  fi
+  [ "$completed_nonzero_rc" -eq 7 ] || {
+    cat "$tmp/completed-nonzero.out" >&2
+    echo "Linux timeout supervisor changed a completed nonzero status: $completed_python" >&2
+    return 1
   }
-  echo "Linux timeout supervisor returned after its leader while an owned descendant was still running" >&2
-  exit 1
-fi
+  rm -f "$supervisor_completed_child_pid"
+  if AIGW_TEST_COMPLETED_CHILD_PID="$supervisor_completed_child_pid" \
+    "$completed_python" "$root/scripts/run-with-timeout.py" 5 \
+    "$supervisor_bin/docker" __aigw_completed_leader >"$tmp/completed-leader.out" 2>&1
+  then
+    :
+  else
+    cat "$tmp/completed-leader.out" >&2
+    echo "Linux timeout supervisor changed a completed leader's exit status: $completed_python" >&2
+    return 1
+  fi
+  [ -s "$supervisor_completed_child_pid" ] || {
+    echo "Linux timeout supervisor completion fixture did not create its descendant" >&2
+    return 1
+  }
+  if fixture_process_is_live "$supervisor_completed_child_pid"; then
+    cleanup_timeout_fixture_processes
+    sleep 1
+    fixture_process_is_live "$supervisor_completed_child_pid" && {
+      echo "Linux timeout supervisor fixture cleanup left a descendant running" >&2
+      return 1
+    }
+    echo "Linux timeout supervisor returned after its leader while an owned descendant was still running" >&2
+    return 1
+  fi
+}
+
+check_ready_handshake_boundary() {
+  boundary_python=$1
+  if "$boundary_python" - "$root/scripts/run-with-timeout.py" "$tmp/ready-handshake-command-started" \
+    >"$tmp/ready-handshake-boundary.out" 2>&1 <<'PY'
+import os
+import signal
+import sys
+import time
+
+source_path = sys.argv[1]
+marker_base = sys.argv[2]
+namespace = {"__name__": "aigw_run_with_timeout"}
+with open(source_path, "rb") as source_file:
+    exec(compile(source_file.read(), source_path, "exec"), namespace)
+
+leader_pids = []
+real_fork = os.fork
+
+def recording_fork():
+    pid = real_fork()
+    if pid > 0:
+        leader_pids.append(pid)
+    return pid
+
+def child_was_reaped(pid):
+    if pid is None:
+        return False
+    try:
+        waited_pid, _ = os.waitpid(pid, os.WNOHANG)
+    except ChildProcessError:
+        return True
+    if waited_pid == 0:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        try:
+            os.waitpid(pid, 0)
+        except ChildProcessError:
+            pass
+    return False
+
+os.fork = recording_fork
+real_run_session_leader = namespace.get("run_session_leader")
+marker_program = (
+    "from pathlib import Path; import sys, time; "
+    "Path(sys.argv[1]).write_text('started'); time.sleep(5)"
+)
+timeout_marker = marker_base + ".timeout"
+cancel_marker = marker_base + ".cancel"
+
+namespace["run_session_leader"] = lambda *args: time.sleep(5)
+started = time.monotonic()
+before_forks = len(leader_pids)
+command = [sys.executable, "-c", marker_program, timeout_marker]
+timeout_status = namespace["supervise"](1, command, started)
+timeout_elapsed = time.monotonic() - started
+timeout_pid = leader_pids[-1] if len(leader_pids) == before_forks + 1 else None
+timeout_reaped = child_was_reaped(timeout_pid)
+timeout_started = os.path.exists(timeout_marker)
+print(
+    f"ready handshake timeout={timeout_status}/{timeout_elapsed:.3f}s "
+    f"started={timeout_started} reaped={timeout_reaped}"
+)
+if timeout_status != 124 or timeout_elapsed >= 3 or timeout_started or not timeout_reaped:
+    raise SystemExit(1)
+
+if real_run_session_leader is None:
+    raise SystemExit(1)
+namespace["run_session_leader"] = real_run_session_leader
+namespace["received_signal"] = signal.SIGTERM
+started = time.monotonic()
+before_forks = len(leader_pids)
+command = [sys.executable, "-c", marker_program, cancel_marker]
+cancel_status = namespace["supervise"](30, command, started)
+cancel_elapsed = time.monotonic() - started
+cancel_pid = leader_pids[-1] if len(leader_pids) == before_forks + 1 else None
+cancel_reaped = child_was_reaped(cancel_pid)
+cancel_started = os.path.exists(cancel_marker)
+print(
+    f"ready handshake cancel={cancel_status}/{cancel_elapsed:.3f}s "
+    f"started={cancel_started} reaped={cancel_reaped}"
+)
+os.fork = real_fork
+if cancel_status != 143 or cancel_elapsed >= 3 or cancel_started or not cancel_reaped:
+    raise SystemExit(1)
+PY
+  then
+    :
+  else
+    cat "$tmp/ready-handshake-boundary.out" >&2
+    echo "Linux timeout supervisor readiness handshake was not bounded: $boundary_python" >&2
+    return 1
+  fi
+}
+
+completed_python_candidates=${AIGW_TEST_SUPERVISOR_PYTHON:-"$real_python3 /usr/bin/python3 /opt/homebrew/bin/python3.12"}
+completed_python_tested=' '
+for completed_python in $completed_python_candidates; do
+  [ -x "$completed_python" ] || continue
+  case "$completed_python_tested" in
+    *" $completed_python "*) continue ;;
+  esac
+  check_completed_leader "$completed_python" || exit 1
+  check_ready_handshake_boundary "$completed_python" || exit 1
+  completed_python_tested="$completed_python_tested$completed_python "
+done
 
 start_supervisor_case() {
   supervisor_label=$1
