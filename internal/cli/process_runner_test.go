@@ -98,7 +98,8 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 	if err := requireShellFixture(t); err != nil {
 		t.Skip(err)
 	}
-	marker, err := os.CreateTemp(t.TempDir(), "pipe-drain-child-")
+	fixtureDir := t.TempDir()
+	marker, err := os.CreateTemp(fixtureDir, "pipe-drain-child-")
 	if err != nil {
 		t.Fatalf("CreateTemp marker: %v", err)
 	}
@@ -107,6 +108,16 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 	}
 	if err := os.Remove(marker.Name()); err != nil {
 		t.Fatalf("remove marker: %v", err)
+	}
+	ready, err := os.CreateTemp(fixtureDir, "pipe-drain-ready-")
+	if err != nil {
+		t.Fatalf("CreateTemp ready marker: %v", err)
+	}
+	if err := ready.Close(); err != nil {
+		t.Fatalf("close ready marker: %v", err)
+	}
+	if err := os.Remove(ready.Name()); err != nil {
+		t.Fatalf("remove ready marker: %v", err)
 	}
 	t.Cleanup(func() {
 		data, readErr := os.ReadFile(marker.Name())
@@ -127,7 +138,7 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 	go func() {
 		_, runErr := (ProcessRunner{}).RunCapture(ctx, adapters.ProcessPlan{
 			Executable: "/bin/sh",
-			Args:       []string{"-c", "(sleep 30) & printf '%s\\n' \"$!\" > \"$1\"; printf started; sleep 30", "sh", marker.Name()},
+			Args:       []string{"-c", "(sleep 30) & printf '%s\\n' \"$!\" > \"$1\"; : > \"$2\"; printf started; while [ ! -f \"$3\" ]; do sleep 0.01; done; sleep 30", "sh", marker.Name(), ready.Name(), fixtureDir + "/expire"},
 			Env:        []string{},
 		})
 		result <- runErr
@@ -139,6 +150,17 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 		case <-time.After(capturedProcessWaitDelay + time.Second):
 		}
 		t.Fatalf("background descendant did not inherit output before deadline: %v", err)
+	}
+	if err := waitForFixtureFile(ready.Name(), time.Second); err != nil {
+		ctx.expire()
+		select {
+		case <-result:
+		case <-time.After(capturedProcessWaitDelay + time.Second):
+		}
+		t.Fatalf("shell fixture did not reach the deadline barrier: %v", err)
+	}
+	if err := os.WriteFile(fixtureDir+"/expire", []byte("expire\n"), 0o600); err != nil {
+		t.Fatalf("release deadline barrier: %v", err)
 	}
 	ctx.expire()
 	var runErr error

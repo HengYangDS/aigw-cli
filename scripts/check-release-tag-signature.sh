@@ -13,8 +13,17 @@ esac
 allowed_signers="$repo/packaging/release/${provider}-allowed-signers"
 
 case "$tag" in
-  v[0-9]*.*.*) ;;
+  v[0-9]*.*.*|github/v[0-9]*.*.*) ;;
   *) echo "release tag is malformed: $tag" >&2; exit 2 ;;
+esac
+
+case "$tag" in
+  github/*)
+    test "$provider" = github || {
+      echo "qualified GitHub tag requires github provider: $tag" >&2
+      exit 2
+    }
+    ;;
 esac
 
 git -C "$repo" rev-parse -q --verify "refs/tags/$tag" >/dev/null || {
