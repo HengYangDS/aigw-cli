@@ -9,6 +9,7 @@ import time
 
 MAX_TOTAL_SECONDS = 300
 TERM_GRACE_SECONDS = 1
+WAITID_FLAGS = os.WEXITED | os.WNOHANG | os.WNOWAIT
 received_signal = None
 
 
@@ -40,7 +41,7 @@ def close_group(process, term_grace):
     if term_grace > 0:
         time.sleep(term_grace)
     signal_group(process, signal.SIGKILL)
-    process.wait()
+    return process.wait()
 
 
 def supervise(timeout_seconds, command, started):
@@ -55,16 +56,18 @@ def supervise(timeout_seconds, command, started):
                 close_group(process, grace)
                 return 128 + received_signal
 
+            # Observe leader completion without reaping it. Its unreaped PID
+            # keeps the owned PGID reserved until every remaining member is
+            # stopped, after which wait() preserves the leader's real status.
+            if os.waitid(os.P_PID, process.pid, WAITID_FLAGS) is not None:
+                return shell_status(close_group(process, 0))
+
             remaining = timeout_deadline - time.monotonic()
             if remaining <= 0:
                 deadline = started + min(timeout_seconds + TERM_GRACE_SECONDS, MAX_TOTAL_SECONDS)
                 close_group(process, max(0, deadline - time.monotonic()))
                 return 124
-
-            try:
-                return shell_status(process.wait(timeout=min(0.1, remaining)))
-            except subprocess.TimeoutExpired:
-                pass
+            time.sleep(min(0.1, remaining))
     finally:
         if process.returncode is None:
             close_group(process, 0)

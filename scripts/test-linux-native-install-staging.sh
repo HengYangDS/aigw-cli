@@ -27,6 +27,7 @@ cleanup_timeout_fixture_processes() {
   for pid_file in \
     "$tmp/supervisor-cancel-child.pid" \
     "$tmp/supervisor-cancel-root.pid" \
+    "$tmp/supervisor-completed-child.pid" \
     "$tmp/supervisor-late-child.pid" \
     "$tmp/supervisor-late-root.pid" \
     "$tmp/supervisor-sentinel.pid" \
@@ -270,6 +271,16 @@ case "${1-}" in
     trap '' TERM
     while :; do sleep 1; done
     ;;
+  __aigw_completed_child)
+    printf '%s\n' "$$" > "$AIGW_TEST_COMPLETED_CHILD_PID"
+    trap '' TERM
+    while :; do sleep 1; done
+    ;;
+  __aigw_completed_leader)
+    "$0" __aigw_completed_child &
+    while [ ! -s "$AIGW_TEST_COMPLETED_CHILD_PID" ]; do :; done
+    exit 0
+    ;;
 esac
 case "$1:$2" in
   image:inspect) exit 1 ;;
@@ -307,11 +318,36 @@ supervisor_late_root_pid="$tmp/supervisor-late-root.pid"
 supervisor_late_child_pid="$tmp/supervisor-late-child.pid"
 supervisor_cancel_root_pid="$tmp/supervisor-cancel-root.pid"
 supervisor_cancel_child_pid="$tmp/supervisor-cancel-child.pid"
+supervisor_completed_child_pid="$tmp/supervisor-completed-child.pid"
 supervisor_sentinel_pid="$tmp/supervisor-sentinel.pid"
 supervisor_python_pid="$tmp/supervisor-python.pid"
 supervisor_timeout_pid="$tmp/supervisor-timeout.pid"
 supervisor_timeout_invoked="$tmp/supervisor-timeout-invoked"
 supervisor_identity_switch="$tmp/supervisor-identity-switched"
+
+if AIGW_TEST_COMPLETED_CHILD_PID="$supervisor_completed_child_pid" \
+  "$real_python3" "$root/scripts/run-with-timeout.py" 5 \
+  "$supervisor_bin/docker" __aigw_completed_leader
+then
+  :
+else
+  echo "Linux timeout supervisor changed a completed leader's exit status" >&2
+  exit 1
+fi
+[ -s "$supervisor_completed_child_pid" ] || {
+  echo "Linux timeout supervisor completion fixture did not create its descendant" >&2
+  exit 1
+}
+if fixture_process_is_live "$supervisor_completed_child_pid"; then
+  cleanup_timeout_fixture_processes
+  sleep 1
+  fixture_process_is_live "$supervisor_completed_child_pid" && {
+    echo "Linux timeout supervisor fixture cleanup left a descendant running" >&2
+    exit 1
+  }
+  echo "Linux timeout supervisor returned after its leader while an owned descendant was still running" >&2
+  exit 1
+fi
 
 start_supervisor_case() {
   supervisor_label=$1
