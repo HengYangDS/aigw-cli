@@ -6,11 +6,14 @@ set -eu
 
 usage() {
   cat >&2 <<'USAGE'
-usage: project-github-forge.sh [--branch <name>] [--github-remote <name>]
+usage: project-github-forge.sh [--branch <name>] [--github-remote <name>] [--reconcile-divergence <remote-tip>]
 
 Projects one canonical branch into the GitHub peer repository with the GitHub
 commit identity. Existing GitHub release tags must verify as GitHub provenance
 before the branch update. The branch update is leased; no tag ref is pushed.
+`--reconcile-divergence` accepts only the named current GitHub branch tip and
+replaces that divergent branch history under the same lease; it never changes
+GitHub tags.
 USAGE
   exit 2
 }
@@ -24,11 +27,13 @@ github_allowed_signers=${AIGW_GITHUB_ALLOWED_SIGNERS:-$release_directory/github-
 github_legacy_allowed_signers=${AIGW_GITHUB_LEGACY_ALLOWED_SIGNERS:-$release_directory/github-legacy-allowed-signers}
 github_legacy_tags=${AIGW_GITHUB_LEGACY_TAGS:-$release_directory/github-legacy-tags.txt}
 gitlab_allowed_signers=${AIGW_GITLAB_ALLOWED_SIGNERS:-$release_directory/gitlab-allowed-signers}
+reconcile_remote_tip=
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --branch) branch=${2:?missing branch name}; shift ;;
     --github-remote) github_remote=${2:?missing GitHub remote}; shift ;;
+    --reconcile-divergence) reconcile_remote_tip=${2:?missing expected GitHub branch tip}; shift ;;
     -h|--help) usage ;;
     *) usage ;;
   esac
@@ -38,6 +43,10 @@ done
 case "$branch" in ''|*' '*|*..*|*'~'*|*'^'*|*':'*|*'?'*|*'['*|*'\'*) echo "invalid branch name: $branch" >&2; exit 2 ;; esac
 case "$github_name" in HengYang) ;; *) echo "GitHub author name must be HengYang" >&2; exit 2 ;; esac
 case "$github_email" in hengyang.2003@tsinghua.org.cn) ;; *) echo "GitHub identity must be hengyang.2003@tsinghua.org.cn" >&2; exit 2 ;; esac
+if test -n "$reconcile_remote_tip"; then
+  case "$reconcile_remote_tip" in *[!0123456789abcdefABCDEF]*) echo "invalid expected GitHub branch tip: $reconcile_remote_tip" >&2; exit 2 ;; esac
+  test "${#reconcile_remote_tip}" -eq 40 || { echo "expected GitHub branch tip must be a full 40-character SHA-1: $reconcile_remote_tip" >&2; exit 2; }
+fi
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "run inside a Git worktree" >&2; exit 2; }
 git diff --quiet && git diff --cached --quiet || { echo "refusing GitHub projection with a dirty canonical worktree" >&2; exit 2; }
@@ -109,14 +118,22 @@ fi
 git -C "$projection" remote add github "$github_url"
 remote_tip=$(git_transport -C "$projection" ls-remote --heads github "refs/heads/$branch" | awk 'NR==1 {print $1}')
 [ -n "$remote_tip" ] || { echo "GitHub branch is missing: $branch" >&2; exit 1; }
+if test -n "$reconcile_remote_tip" && test "$reconcile_remote_tip" != "$remote_tip"; then
+  echo "GitHub branch tip changed; expected $reconcile_remote_tip, found $remote_tip" >&2
+  exit 1
+fi
 git_transport -C "$projection" fetch --quiet --no-tags github "refs/heads/$branch:refs/remotes/github/$branch"
 remote_tree=$(git -C "$projection" rev-parse "refs/remotes/github/$branch^{tree}")
 # The remote GitHub history is a rewritten identity projection. It may lag but
-# its tree must be on the canonical branch's history; unrelated content is a
-# divergence, not a force-push invitation.
+# its tree must be on the canonical branch's history. Unrelated content is a
+# divergence, not a force-push invitation, unless a caller explicitly names
+# its exact tip through the controlled reconciliation option above.
 if ! git -C "$projection" log "$canonical" --format='%T' | grep -F -x "$remote_tree" >/dev/null; then
-  echo "GitHub branch tree diverges from canonical history; resolve manually" >&2
-  exit 1
+  if test -z "$reconcile_remote_tip"; then
+    echo "GitHub branch tree diverges from canonical history; resolve manually" >&2
+    exit 1
+  fi
+  printf 'GitHub divergence recovery accepted for leased tip: %s\n' "$remote_tip"
 fi
 
 # Every GitHub release tag whose source tree is represented by the selected
