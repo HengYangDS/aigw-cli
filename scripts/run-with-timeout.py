@@ -2,14 +2,17 @@
 """Run one command in an owned session with bounded TERM/KILL cleanup."""
 
 import os
+import select
 import signal
+import struct
 import subprocess
 import sys
 import time
 
 MAX_TOTAL_SECONDS = 300
+POLL_SECONDS = 0.1
 TERM_GRACE_SECONDS = 1
-WAITID_FLAGS = os.WEXITED | os.WNOHANG | os.WNOWAIT
+STATUS = struct.Struct("!i")
 received_signal = None
 
 
@@ -27,50 +30,186 @@ def shell_status(return_code):
     return 128 - return_code
 
 
-def signal_group(process, signum):
-    """Signal only the process session owned by this supervisor."""
+def write_all(fd, payload):
+    """Write one small control message despite signal interruptions."""
+    while payload:
+        try:
+            written = os.write(fd, payload)
+        except InterruptedError:
+            continue
+        payload = payload[written:]
+
+
+def waitpid_nointr(pid):
+    """Wait for one owned child despite signal interruptions."""
+    while True:
+        try:
+            return os.waitpid(pid, 0)
+        except InterruptedError:
+            continue
+
+
+def close_fd(fd):
+    """Close a control descriptor if it is still open."""
     try:
-        os.killpg(process.pid, signum)
-    except ProcessLookupError:
+        os.close(fd)
+    except OSError:
         pass
 
 
-def close_group(process, term_grace):
-    """Terminate the owned group while its unreaped leader reserves the PGID."""
-    signal_group(process, signal.SIGTERM)
+def run_session_leader(ready_fd, start_fd, status_fd, command):
+    """Own the session, report command status, and remain until group cleanup."""
+    try:
+        os.setsid()
+        for handled_signal in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
+            signal.signal(handled_signal, signal.SIG_DFL)
+        write_all(ready_fd, b"R")
+        os.close(ready_fd)
+        while True:
+            try:
+                start = os.read(start_fd, 1)
+                break
+            except InterruptedError:
+                continue
+        os.close(start_fd)
+        if start != b"G":
+            os._exit(127)
+        try:
+            command_status = subprocess.Popen(command).wait()
+        except OSError:
+            command_status = 127
+        write_all(status_fd, STATUS.pack(command_status))
+        os.close(status_fd)
+        while True:
+            signal.pause()
+    except BaseException:
+        os._exit(127)
+
+
+def spawn_session(command, ready_deadline):
+    """Fork a persistent session leader and wait for its readiness handshake."""
+    ready_read, ready_write = os.pipe()
+    start_read, start_write = os.pipe()
+    status_read, status_write = os.pipe()
+    leader_pid = os.fork()
+    if leader_pid == 0:
+        os.close(ready_read)
+        os.close(start_write)
+        os.close(status_read)
+        run_session_leader(ready_write, start_read, status_write, command)
+        os._exit(127)
+
+    os.close(ready_write)
+    os.close(start_read)
+    os.close(status_write)
+    spawn_status = None
+    ready = b""
+    while True:
+        if received_signal is not None:
+            spawn_status = 128 + received_signal
+            break
+        remaining = ready_deadline - time.monotonic()
+        if remaining <= 0:
+            spawn_status = 124
+            break
+        readable, _, _ = select.select([ready_read], [], [], min(POLL_SECONDS, remaining))
+        if not readable:
+            continue
+        try:
+            ready = os.read(ready_read, 1)
+        except InterruptedError:
+            continue
+        break
+
+    close_fd(ready_read)
+    if ready == b"R" and spawn_status is None:
+        try:
+            write_all(start_write, b"G")
+        except OSError:
+            ready = b""
+        close_fd(start_write)
+        if ready == b"R":
+            return leader_pid, status_read, None
+
+    close_fd(start_write)
+    close_fd(status_read)
+    try:
+        os.kill(leader_pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    _, wait_status = waitpid_nointr(leader_pid)
+    if spawn_status is None:
+        spawn_status = shell_status(os.waitstatus_to_exitcode(wait_status))
+    return None, None, spawn_status
+
+
+def signal_group(leader_pid, signum):
+    """Signal only the process session owned by this supervisor."""
+    try:
+        os.killpg(leader_pid, signum)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def close_group(leader_pid, term_grace):
+    """Terminate the owned group, then reap its identity-reserving leader."""
+    term_delivered = False
     if term_grace > 0:
+        term_delivered = signal_group(leader_pid, signal.SIGTERM)
         time.sleep(term_grace)
-    signal_group(process, signal.SIGKILL)
-    return process.wait()
+    try:
+        signal_group(leader_pid, signal.SIGKILL)
+    except PermissionError:
+        if not term_delivered:
+            raise
+    _, wait_status = waitpid_nointr(leader_pid)
+    return os.waitstatus_to_exitcode(wait_status)
 
 
 def supervise(timeout_seconds, command, started):
-    """Return the command status, timeout status, or propagated signal status."""
-    process = subprocess.Popen(command, start_new_session=True)
+    """Return command status, timeout status, or propagated signal status."""
     timeout_deadline = started + timeout_seconds
+    leader_pid, status_fd, spawn_status = spawn_session(command, timeout_deadline)
+    if leader_pid is None:
+        return shell_status(spawn_status)
+
+    status_payload = b""
+    leader_reaped = False
     try:
         while True:
             if received_signal is not None:
                 deadline = started + MAX_TOTAL_SECONDS
                 grace = min(TERM_GRACE_SECONDS, max(0, deadline - time.monotonic()))
-                close_group(process, grace)
+                close_group(leader_pid, grace)
+                leader_reaped = True
                 return 128 + received_signal
-
-            # Observe leader completion without reaping it. Its unreaped PID
-            # keeps the owned PGID reserved until every remaining member is
-            # stopped, after which wait() preserves the leader's real status.
-            if os.waitid(os.P_PID, process.pid, WAITID_FLAGS) is not None:
-                return shell_status(close_group(process, 0))
 
             remaining = timeout_deadline - time.monotonic()
             if remaining <= 0:
                 deadline = started + min(timeout_seconds + TERM_GRACE_SECONDS, MAX_TOTAL_SECONDS)
-                close_group(process, max(0, deadline - time.monotonic()))
+                close_group(leader_pid, max(0, deadline - time.monotonic()))
+                leader_reaped = True
                 return 124
-            time.sleep(min(0.1, remaining))
+
+            ready, _, _ = select.select([status_fd], [], [], min(POLL_SECONDS, remaining))
+            if not ready:
+                continue
+            chunk = os.read(status_fd, STATUS.size - len(status_payload))
+            if not chunk:
+                wrapper_status = close_group(leader_pid, 0)
+                leader_reaped = True
+                return shell_status(wrapper_status)
+            status_payload += chunk
+            if len(status_payload) == STATUS.size:
+                command_status = STATUS.unpack(status_payload)[0]
+                close_group(leader_pid, 0)
+                leader_reaped = True
+                return shell_status(command_status)
     finally:
-        if process.returncode is None:
-            close_group(process, 0)
+        os.close(status_fd)
+        if not leader_reaped:
+            close_group(leader_pid, 0)
 
 
 def main():
