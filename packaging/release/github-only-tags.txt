@@ -2,5 +2,3 @@
 # Changelog validator uses this append-only source inventory when a GitLab-only
 # checkout cannot fetch the private GitHub tag namespace.  Do not list a tag
 # that exists in the GitLab namespace.
-v0.1.0-rc.67
-v0.1.0-rc.68
