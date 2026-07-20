@@ -10,6 +10,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Disable Go-cache save in self-hosted GitHub verification so a completed gate
+  cannot remain in runner cleanup after its visible test steps finish.
 - Remove the temporary GitHub-only release exception inventory after RC.67 and
   RC.68 gained independent GitLab provenance, CI, and release records; release
   chronology now admits only versions completed on both forge planes.
