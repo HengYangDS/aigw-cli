@@ -216,5 +216,97 @@ grep -F 'GitHub release tag must be annotated: v0.2.1' \
   echo 'projection did not identify the lightweight GitHub-native provenance tag' >&2
   exit 1
 }
+git -C "$remote" tag -d v0.2.1 >/dev/null
+
+# A remote branch that contains an independently merged GitHub-only change is
+# a divergence even when an operator later admits equivalent canonical work.
+# The normal projection must refuse it. Recovery is explicit: it requires the
+# exact read-only remote tip and retains the same leased branch update.
+git clone -q --no-local "file://$remote" "$tmp/divergent-github"
+git -C "$tmp/divergent-github" checkout -qb main origin/main
+git -C "$tmp/divergent-github" config user.name HengYang
+git -C "$tmp/divergent-github" config user.email hengyang.2003@tsinghua.org.cn
+printf 'GitHub-only historical merge\n' > "$tmp/divergent-github/GITHUB_ONLY.txt"
+git -C "$tmp/divergent-github" add GITHUB_ONLY.txt
+git -C "$tmp/divergent-github" commit -qm 'historical GitHub-only merge'
+git -C "$tmp/divergent-github" -c core.hooksPath=/dev/null push -q origin HEAD:main
+remote_divergent_tip=$(git -C "$remote" rev-parse refs/heads/main)
+
+git -C "$source" checkout -q main
+printf 'canonical reconciliation\n' > "$source/CANONICAL_RECONCILIATION.txt"
+git -C "$source" add CANONICAL_RECONCILIATION.txt
+git -C "$source" commit -qm 'canonical reconciliation source'
+source_main_before=$(git -C "$source" rev-parse refs/heads/main)
+
+if (
+  cd "$source"
+  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
+    AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_TEST_GITHUB_REMOTE="$remote" \
+    GIT_SSH_COMMAND="$mock_ssh" \
+    AIGW_GITHUB_REMOTE=github \
+    sh "$script" --branch main
+) >"$tmp/divergent-github.out" 2>&1; then
+  cat "$tmp/divergent-github.out" >&2
+  echo 'projection accepted a divergent GitHub main without explicit recovery' >&2
+  exit 1
+fi
+grep -F 'GitHub branch tree diverges from canonical history; resolve manually' \
+  "$tmp/divergent-github.out" >/dev/null || {
+  cat "$tmp/divergent-github.out" >&2
+  echo 'projection did not identify a divergent GitHub main' >&2
+  exit 1
+}
+[ "$(git -C "$source" rev-parse refs/heads/main)" = "$source_main_before" ] || {
+  echo 'rejected GitHub divergence changed canonical main' >&2
+  exit 1
+}
+[ "$(git -C "$remote" rev-parse refs/heads/main)" = "$remote_divergent_tip" ] || {
+  echo 'rejected GitHub divergence changed the remote main' >&2
+  exit 1
+}
+
+wrong_tip=0000000000000000000000000000000000000000
+if (
+  cd "$source"
+  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
+    AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_TEST_GITHUB_REMOTE="$remote" \
+    GIT_SSH_COMMAND="$mock_ssh" \
+    AIGW_GITHUB_REMOTE=github \
+    sh "$script" --branch main --reconcile-divergence "$wrong_tip"
+) >"$tmp/wrong-divergence-tip.out" 2>&1; then
+  cat "$tmp/wrong-divergence-tip.out" >&2
+  echo 'projection accepted a stale divergence-recovery tip' >&2
+  exit 1
+fi
+grep -F "GitHub branch tip changed; expected $wrong_tip, found $remote_divergent_tip" \
+  "$tmp/wrong-divergence-tip.out" >/dev/null || {
+  cat "$tmp/wrong-divergence-tip.out" >&2
+  echo 'projection did not fail closed for the stale divergence-recovery tip' >&2
+  exit 1
+}
+
+(
+  cd "$source"
+  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
+    AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_TEST_GITHUB_REMOTE="$remote" \
+    GIT_SSH_COMMAND="$mock_ssh" \
+    AIGW_GITHUB_REMOTE=github \
+    sh "$script" --branch main --reconcile-divergence "$remote_divergent_tip"
+) >/dev/null
+[ "$(git -C "$remote" rev-parse refs/heads/main^{tree})" = "$(git -C "$source" rev-parse refs/heads/main^{tree})" ] || {
+  echo 'explicit GitHub divergence recovery did not project canonical source' >&2
+  exit 1
+}
+[ "$(git -C "$remote" rev-parse refs/tags/v0.1.0)" = "$remote_tag_before" ] || {
+  echo 'explicit GitHub divergence recovery rewrote the GitHub release tag' >&2
+  exit 1
+}
+if git -C "$remote" log main --format='%ae%n%ce' | grep -Fv -x 'hengyang.2003@tsinghua.org.cn' | grep -q .; then
+  echo 'explicit GitHub divergence recovery retains a non-GitHub identity' >&2
+  exit 1
+fi
 
 echo 'GitHub provider projection isolation contract: OK'
