@@ -14,7 +14,7 @@ text = Path(sys.argv[1]).read_text(encoding="utf-8")
 required = [
     "name: Verify", "push:", "workflow_dispatch:", "branches: [main]", "tags: ['v*']",
     "permissions:\n  contents: read",
-    "runs-on: [self-hosted, macOS, ARM64, aigw-github-macos-arm64]",
+    "runs-on: [self-hosted, macOS, ARM64, aigw-github-verify-macos-arm64]",
     "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
     "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491", 'go-version: "1.25.12"', "check-latest: false", "cache: false", "GOTOOLCHAIN: go1.25.12", "git fetch --force --tags origin", "if: github.ref_type == 'tag'", 'SELECTED_TAG: ${{ github.ref_name }}', 'scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/check-release-toolchain.sh",
     "go test -race ./...", "go vet ./...", "scripts/check-static-analysis.sh", "scripts/check-product-surface.sh", "scripts/check-governance.sh",
@@ -31,7 +31,7 @@ for token in required:
         raise SystemExit(f"GitHub Actions contract is missing {token!r}")
 if "pull_request:" in text or "pull_request_target:" in text:
     raise SystemExit("GitHub verification must not execute pull-request workflow code")
-if "aigw-gitlab-macos-arm64" in text:
+if "aigw-release-macos-arm64" in text or "aigw-github-release-macos-arm64" in text:
     raise SystemExit("GitHub verification must use only its dedicated runner label")
 if "AIGW_GOPROXY" in text or "goproxy.cn" in text:
     raise SystemExit("GitHub Actions must not inherit GitLab-specific module proxy policy")
