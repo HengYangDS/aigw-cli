@@ -42,6 +42,16 @@ timeout. A caller may override the complete chain with `AIGW_GOPROXY`; an
 override is responsible for preserving the intended fallback semantics. GitHub
 Actions does not inherit this GitLab-specific setting.
 
+Every repository has two distinct local runner registrations: one for its
+GitHub workflows and another for its GitLab workflows. A runner registration,
+LaunchAgent, work directory, cache, and label belong to exactly one
+`forge × repository` tuple; no GitHub runner may service GitLab jobs, and no
+runner may be shared by two repositories. AIGW has exactly two local runner
+registrations: its GitHub label is `aigw-github-macos-arm64`; its GitLab label
+is `aigw-gitlab-macos-arm64`. They have separate LaunchAgents, work directories,
+caches, and registration credentials. This avoids GitHub-hosted-runner billing
+or quota state without collapsing the independent forge boundary.
+
 ## Release behavior
 
 A signed tag triggers independently complete GitLab and GitHub pipelines. Each

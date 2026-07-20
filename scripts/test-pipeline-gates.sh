@@ -30,7 +30,7 @@ if "AIGW_GOPROXY" not in default or "prepare-ci-go-cache.sh" not in default:
     raise SystemExit("GitLab must retain its independently configured Go dependency path")
 if "https://goproxy.cn|https://proxy.golang.org|direct" not in default:
     raise SystemExit("GitLab Go dependency path must fall back after transient proxy failures")
-if "tags: [aigw-release-macos-arm64]" not in default:
+if "tags: [aigw-gitlab-macos-arm64]" not in default:
     raise SystemExit("GitLab must schedule the full pipeline on its dedicated release runner")
 
 variables = section(gitlab, "variables")
@@ -215,12 +215,12 @@ for section_text, name in [
     (macos_native, "macOS native acceptance"),
     (package, "package"),
 ]:
-    if "tags: [aigw-release-macos-arm64]" not in section_text:
+    if "tags: [aigw-gitlab-macos-arm64]" not in section_text:
         raise SystemExit(f"{name} must use the dedicated release runner")
 
 for required in [
     "name: Release", 'tags: ["v*"]', "permissions:\n  contents: write",
-    "runs-on: [self-hosted, macOS, ARM64, aigw-release-macos-arm64]", 'check-release-tag-signature.sh . "$SELECTED_TAG" github',
+    "runs-on: [self-hosted, macOS, ARM64, aigw-github-macos-arm64]", 'check-release-tag-signature.sh . "$SELECTED_TAG" github',
     'go-version: "1.25.12"', "check-latest: false", "cache: false", "GOTOOLCHAIN: go1.25.12", "check-release-toolchain.sh", "check-static-analysis.sh",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
     'SOURCE_DATE_EPOCH="$(sh scripts/release-source-date-epoch.sh "$version")"',
