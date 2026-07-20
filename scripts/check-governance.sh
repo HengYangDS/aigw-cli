@@ -24,7 +24,8 @@ for file in \
   packaging/release/github-legacy-tags.txt \
   packaging/release/retired-gitlab-tags.txt \
   .github/workflows/verify.yml \
-  scripts/check-static-analysis.sh
+  scripts/check-static-analysis.sh \
+  scripts/check-tag-namespace.sh
 do
   require_file "$file"
 done
@@ -49,6 +50,7 @@ do
 done
 
 sh scripts/check-changelog.sh
+sh scripts/check-tag-namespace.sh
 sh scripts/check-english-text.sh
 sh scripts/check-product-surface.sh
 python3 scripts/check-text-layout.py

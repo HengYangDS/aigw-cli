@@ -65,6 +65,7 @@ jobs:
           python3 scripts/check-text-layout.py
           sh scripts/test-text-layout.sh
           sh scripts/test-changelog.sh
+          sh scripts/test-tag-namespace.sh
           sh scripts/test-release-readiness.sh
           sh scripts/test-release-artifacts.sh
           sh scripts/test-release-source-date-epoch.sh
