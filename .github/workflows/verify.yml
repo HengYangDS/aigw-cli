@@ -42,6 +42,7 @@ jobs:
         with:
           go-version: "1.25.12"
           check-latest: false
+          cache: false
       - name: Run source and policy gates
         env:
           CGO_ENABLED: '1'
