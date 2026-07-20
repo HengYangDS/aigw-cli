@@ -10,6 +10,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Let GitLab-only verification retain explicitly inventoried GitHub-only
+  releases in the shared Changelog chronology without requiring private GitHub
+  tag transport.
 - Verify every GitHub release tag whose source tree is represented by the
   selected canonical branch before updating its identity projection, including
   GitHub-only tags that have no same-named GitLab provenance tag.

@@ -34,6 +34,12 @@ that inventory and the retained sections to stay ordered and complete. A
 provider that still retains its independently signed historical tag satisfies
 the same entry; it is not a duplicate or a reason to rewrite provenance.
 
+A published GitHub release that has no GitLab provenance tag is recorded in
+`packaging/release/github-only-tags.txt`. This explicit, append-only inventory
+lets a GitLab-only CI checkout validate the shared chronology without fetching
+private GitHub tags. It must never name a version that is active in the GitLab
+namespace or listed as GitLab-retired.
+
 A release tag records a source version; it is not by itself proof of artifact
 publication, native-platform acceptance, signing, notarization, or GA. Those
 claims require their corresponding evidence and must never be implied by a
