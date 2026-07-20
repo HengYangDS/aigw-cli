@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.69] - 2026-07-21
+
 ### Fixed
 
 - Disable Go-cache save in self-hosted GitHub verification so a completed gate
