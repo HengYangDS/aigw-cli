@@ -42,6 +42,9 @@ jobs:
         with:
           go-version: "1.25.12"
           check-latest: false
+          # Self-hosted verification must finish when its visible gates finish;
+          # do not add a post-job archive/save phase.
+          cache: false
       - name: Run source and policy gates
         env:
           CGO_ENABLED: '1'
