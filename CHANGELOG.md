@@ -17,8 +17,9 @@ platform acceptance, signing, and GA status remain separate evidence.
   chronology now admits only versions completed on both forge planes.
 - Declare complete Git history in source-controlled GitLab CI, preventing a
   project-level shallow-clone setting from misclassifying published chronology.
-- Require distinct local GitHub and GitLab runners per repository; GitHub
-  verification accepts only trusted `main`, tag, and manual workflows.
+- Require separate local GitLab, GitHub verification, and GitHub release
+  runners; GitHub verification accepts only trusted `main`, tag, and manual
+  workflows, while the release runner never executes verification code.
 - Verify every GitHub provenance tag whose source tree is represented by the
   selected canonical branch before updating its identity projection.
 - Require three bounded recovery observations before an initial HTTP 401 is

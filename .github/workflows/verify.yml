@@ -19,9 +19,9 @@ env:
 jobs:
   verify:
     name: Source and governance gates
-    # GitLab is the canonical merge-request gate. This runner accepts only
-    # repository-controlled main, tag, and manual workflow revisions.
-    runs-on: [self-hosted, macOS, ARM64, aigw-github-macos-arm64]
+    # GitLab is the canonical merge-request gate. This trusted runner accepts
+    # only repository-controlled main, tag, and manual workflow revisions.
+    runs-on: [self-hosted, macOS, ARM64, aigw-github-verify-macos-arm64]
     timeout-minutes: 25
     steps:
       - name: Check out full history and tags
@@ -42,7 +42,9 @@ jobs:
         with:
           go-version: "1.25.12"
           check-latest: false
-          cache: false
+          # Self-hosted verification must finish when its visible gates finish;
+          # do not add a post-job archive/save phase.
+           cache: false
       - name: Run source and policy gates
         env:
           CGO_ENABLED: '1'
