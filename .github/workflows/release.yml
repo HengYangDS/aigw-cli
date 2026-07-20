@@ -23,7 +23,8 @@ env:
 jobs:
   package-and-publish:
     name: Independently package and publish
-    runs-on: [self-hosted, macOS, ARM64, aigw-release-macos-arm64]
+    # This repository's GitHub runner is distinct from its GitLab runner.
+    runs-on: [self-hosted, macOS, ARM64, aigw-github-macos-arm64]
     timeout-minutes: 45
     steps:
       - name: Check out the exact release tag
