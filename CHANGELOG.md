@@ -10,6 +10,7 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Require distinct per-repository local GitHub and GitLab runners.
 - Let GitLab-only verification retain explicitly inventoried GitHub-only
   releases in the shared Changelog chronology without requiring private GitHub
   tag transport.
