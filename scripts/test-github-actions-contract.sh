@@ -12,7 +12,7 @@ import sys
 
 text = Path(sys.argv[1]).read_text(encoding="utf-8")
 required = [
-    "name: Verify", "pull_request:", "push:", "workflow_dispatch:",
+    "name: Verify", "push:", "workflow_dispatch:", "branches: [main]", "tags: ['v*']",
     "permissions:\n  contents: read",
     "runs-on: [self-hosted, macOS, ARM64, aigw-github-macos-arm64]",
     "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
@@ -29,10 +29,10 @@ required = [
 for token in required:
     if token not in text:
         raise SystemExit(f"GitHub Actions contract is missing {token!r}")
-if "pull_request_target:" in text:
-    raise SystemExit("GitHub verification must not use pull_request_target")
+if "pull_request:" in text or "pull_request_target:" in text:
+    raise SystemExit("GitHub verification must not execute pull-request workflow code")
 if "aigw-gitlab-macos-arm64" in text:
-    raise SystemExit("GitHub verification must not use the GitLab runner label")
+    raise SystemExit("GitHub verification must use only its dedicated runner label")
 if "AIGW_GOPROXY" in text or "goproxy.cn" in text:
     raise SystemExit("GitHub Actions must not inherit GitLab-specific module proxy policy")
 if "pull-requests: write" in text or "contents: write" in text:
