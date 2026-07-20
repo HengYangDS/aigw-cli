@@ -42,19 +42,23 @@ timeout. A caller may override the complete chain with `AIGW_GOPROXY`; an
 override is responsible for preserving the intended fallback semantics. GitHub
 Actions does not inherit this GitLab-specific setting.
 
-Every repository has two distinct local runner registrations: one for its
-GitHub workflows and another for its GitLab workflows. A runner registration,
-LaunchAgent, work directory, cache, and label belong to exactly one
-`forge × repository` tuple; no GitHub runner may service GitLab jobs, and no
-runner may be shared by two repositories. AIGW has exactly two local runner
-registrations: its GitHub label is `aigw-github-macos-arm64`; its GitLab label
-is `aigw-gitlab-macos-arm64`. They have separate LaunchAgents, work directories,
-caches, and registration credentials. This avoids GitHub-hosted-runner billing
-or quota state without collapsing the independent forge boundary.
+Every runner registration, LaunchAgent, work directory, cache, and label belongs
+to exactly one `forge × repository × privilege` tuple. No GitHub runner serves
+GitLab jobs, no runner is shared by repositories, and a release runner never
+executes verification or merge-request workflow code. AIGW uses three separate
+registrations: GitLab is `aigw-release-macos-arm64`; GitHub verification is
+`aigw-github-verify-macos-arm64`; GitHub release is
+`aigw-github-release-macos-arm64`. GitHub verification runs only trusted `main`,
+tag, and manual workflows; GitLab remains the canonical merge-request gate.
+Each registration has its own LaunchAgent, work directory, cache, and credential.
+This avoids GitHub-hosted-runner billing or quota state without collapsing forge
+or privilege boundaries.
 
 ## Release behavior
 
-A signed tag triggers independently complete GitLab and GitHub pipelines. Each
+A release is complete only after the same version has independently completed
+both GitLab and GitHub tag pipelines and release publication. A signed tag
+triggers each forge's own pipeline. Each
 uses the dedicated macOS arm64 release runner class, the exact Go patch version
 declared in `go.mod`, the tracked forge-source manifest, and the release epoch
 derived from the source-controlled Changelog heading. Each proves two full-matrix builds byte-identical,
@@ -64,7 +68,9 @@ the complete matrix is compared byte-for-byte with the local checksums and
 files. Missing, extra, duplicate, or changed assets fail closed, and the
 existing Release is inspected with GET only rather than replaced or updated.
 Redirected downloads send the GitLab job token only to the configured GitLab
-origin; a cross-host asset store receives no GitLab credential.
+origin; a cross-host asset store receives no GitLab credential. If one forge is
+unavailable, retain a bounded pending-publication record outside `CHANGELOG.md`;
+do not create a lasting one-sided release exception.
 On the private GitHub Free peer,
 tag immutability is not asserted as a host capability: remote tag-signature
 verification and cross-forge artifact comparison remain the acceptance proof.
