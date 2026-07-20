@@ -122,7 +122,7 @@ fi
 # Every GitHub release tag whose source tree is represented by the selected
 # canonical branch must verify under the GitHub trust policy before the branch
 # projection is updated.  This covers both same-named GitLab/GitHub releases
-# and GitHub-only releases created after an identity projection. Tags remain
+# and GitHub-native provenance tags created after an identity projection. Tags remain
 # outside this branch-only projection; no tag is copied, regenerated, or
 # pushed. Historical tags whose trees are absent from the selected branch do
 # not block a current projection.
