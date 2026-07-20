@@ -6,6 +6,16 @@ checker="$root/scripts/check-tag-namespace.sh"
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/aigw-tag-namespace.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 fixture="$tmp/repository"
+
+# This suite exercises three synthetic topologies (local canonical, native
+# GitLab, native GitHub).  CI identity belongs to the real checkout, never to
+# a fixture, so explicitly clear it for every checker invocation unless a test
+# deliberately supplies a forge mode.
+run_fixture_checker() {
+  AIGW_TAG_NAMESPACE_FORGE="${1:-}" GITLAB_CI= GITHUB_ACTIONS= \
+    sh "$fixture/scripts/check-tag-namespace.sh"
+}
+
 mkdir -p "$fixture/scripts" "$fixture/packaging/release"
 cp "$checker" "$fixture/scripts/check-tag-namespace.sh"
 
@@ -37,14 +47,17 @@ git -C "$fixture" -c user.name='GitHub fixture identity' \
   -c user.email='github@example.invalid' -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen \
   -c user.signingkey="$github_key" tag -s -a github/v0.1.0 HEAD -m 'qualified GitHub release'
 
-if ! sh "$fixture/scripts/check-tag-namespace.sh" > "$tmp/valid.out" 2>&1; then
+# The fixture models a canonical local checkout containing both provider
+# namespaces.  A hosted CI environment must not leak its forge identity into
+# that topology: the checker is intentionally exercising its local detection.
+if ! run_fixture_checker > "$tmp/valid.out" 2>&1; then
   cat "$tmp/valid.out" >&2
   echo 'tag namespace checker rejected canonical GitLab and qualified GitHub tags' >&2
   exit 1
 fi
 
 git -C "$fixture" tag -d github/v0.1.0 >/dev/null
-if ! AIGW_TAG_NAMESPACE_FORGE=gitlab sh "$fixture/scripts/check-tag-namespace.sh" > "$tmp/gitlab.out" 2>&1; then
+if ! run_fixture_checker gitlab > "$tmp/gitlab.out" 2>&1; then
   cat "$tmp/gitlab.out" >&2
   echo 'tag namespace checker rejected native GitLab provenance' >&2
   exit 1
@@ -54,12 +67,12 @@ git -C "$fixture" -c user.name='GitHub fixture identity' \
   -c user.email='github@example.invalid' -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen \
   -c user.signingkey="$github_key" tag -s -a v0.1.0 -m 'native GitHub release'
 git -C "$fixture" remote add origin git@github.com:example/aigw-cli.git
-if ! AIGW_TAG_NAMESPACE_FORGE=github sh "$fixture/scripts/check-tag-namespace.sh" > "$tmp/github.out" 2>&1; then
+if ! run_fixture_checker github > "$tmp/github.out" 2>&1; then
   cat "$tmp/github.out" >&2
   echo 'tag namespace checker rejected native GitHub provenance' >&2
   exit 1
 fi
-if ! sh "$fixture/scripts/check-tag-namespace.sh" > "$tmp/github-auto.out" 2>&1; then
+if ! run_fixture_checker > "$tmp/github-auto.out" 2>&1; then
   cat "$tmp/github-auto.out" >&2
   echo 'tag namespace checker did not detect a standalone GitHub checkout' >&2
   exit 1
@@ -67,7 +80,7 @@ fi
 git -C "$fixture" -c user.name='GitHub fixture identity' \
   -c user.email='github@example.invalid' -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen \
   -c user.signingkey="$github_key" tag -s -a github/v0.1.0 HEAD -m 'qualified GitHub release'
-if AIGW_TAG_NAMESPACE_FORGE=github sh "$fixture/scripts/check-tag-namespace.sh" > "$tmp/github-qualified.out" 2>&1; then
+if run_fixture_checker github > "$tmp/github-qualified.out" 2>&1; then
   cat "$tmp/github-qualified.out" >&2
   echo 'tag namespace checker accepted qualified provenance in a native GitHub checkout' >&2
   exit 1
@@ -86,7 +99,7 @@ git -C "$fixture" -c user.name='AIGW tag namespace fixture' \
   -c user.signingkey="$gitlab_key" tag -s -a v0.1.0 -m 'canonical GitLab release'
 
 git -C "$fixture" tag provider/v0.1.0 v0.1.0
-if sh "$fixture/scripts/check-tag-namespace.sh" > "$tmp/provider.out" 2>&1; then
+if run_fixture_checker > "$tmp/provider.out" 2>&1; then
   cat "$tmp/provider.out" >&2
   echo 'tag namespace checker accepted a legacy provider alias' >&2
   exit 1
@@ -105,7 +118,7 @@ git -C "$fixture" -c user.name='GitHub fixture identity' \
   -c user.email='github@example.invalid' -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen \
   -c user.signingkey="$rogue" \
   tag -s -a v0.2.0 -m 'GitHub provenance in the wrong namespace'
-if sh "$fixture/scripts/check-tag-namespace.sh" > "$tmp/unscoped.out" 2>&1; then
+if run_fixture_checker > "$tmp/unscoped.out" 2>&1; then
   cat "$tmp/unscoped.out" >&2
   echo 'tag namespace checker accepted unscoped non-GitLab provenance' >&2
   exit 1
