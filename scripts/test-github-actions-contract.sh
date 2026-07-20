@@ -16,7 +16,7 @@ required = [
     "permissions:\n  contents: read",
     "runs-on: [self-hosted, macOS, ARM64, aigw-github-macos-arm64]",
     "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
-    "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491", 'go-version: "1.25.12"', "check-latest: false", "GOTOOLCHAIN: go1.25.12", "git fetch --force --tags origin", "if: github.ref_type == 'tag'", 'SELECTED_TAG: ${{ github.ref_name }}', 'scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/check-release-toolchain.sh",
+    "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491", 'go-version: "1.25.12"', "check-latest: false", "cache: false", "GOTOOLCHAIN: go1.25.12", "git fetch --force --tags origin", "if: github.ref_type == 'tag'", 'SELECTED_TAG: ${{ github.ref_name }}', 'scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/check-release-toolchain.sh",
     "go test -race ./...", "go vet ./...", "scripts/check-static-analysis.sh", "scripts/check-product-surface.sh", "scripts/check-governance.sh",
     "scripts/check-text-layout.py", "scripts/test-text-layout.sh", "scripts/test-release-source-date-epoch.sh",
     "scripts/test-verified-candidate.sh", "scripts/test-release-tag-signature-provider-selection.sh", "scripts/test-macos-native-install-staging.sh",
@@ -41,10 +41,14 @@ if "@main" in text or "@master" in text:
     raise SystemExit("GitHub Actions must use immutable action revisions")
 if "go-version-file:" in text or "check-latest: true" in text:
     raise SystemExit("GitHub Actions verification must not float its Go toolchain")
+setup = text.index("actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491")
+cache = text.index("cache: false", setup)
+gates = text.index("name: Run source and policy gates")
+if not setup < cache < gates:
+    raise SystemExit("GitHub Actions verification must disable setup-go cache before source gates")
 checkout = text.index("name: Check out full history and tags")
 refresh = text.index("git fetch --force --tags origin")
 provenance = text.index("name: Verify pushed release tag provenance")
-gates = text.index("name: Run source and policy gates")
 if not checkout < refresh < provenance < gates:
     raise SystemExit("GitHub Actions must refresh and verify annotated tags before source gates")
 source_gate_commands = [
