@@ -19,8 +19,21 @@ if test -z "$forge"; then
     forge=github
   elif test -n "${GITLAB_CI:-}"; then
     forge=gitlab
-  else
+  elif git for-each-ref --format='%(refname)' 'refs/tags/github/v[0-9]*' | grep -q .; then
+    # A canonical checkout retains fetched GitHub provenance in a qualified
+    # namespace.  Prefer that concrete local topology over remote URL guesses.
     forge=local
+  else
+    origin_url=$(git config --local --get remote.origin.url 2>/dev/null || true)
+    case "$origin_url" in
+      *github.com*)
+        # A standalone GitHub clone must be verifiable outside Actions as well
+        # as inside it. Its unscoped tags are GitHub provenance, not GitLab
+        # aliases.
+        forge=github
+        ;;
+      *) forge=local ;;
+    esac
   fi
 fi
 case "$forge" in
