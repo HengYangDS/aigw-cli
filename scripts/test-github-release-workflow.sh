@@ -24,6 +24,8 @@ required = [
 for token in required:
     if token not in text:
         raise SystemExit(f"GitHub Actions release contract is missing {token!r}")
+if "aigw-gitlab-macos-arm64" in text:
+    raise SystemExit("GitHub Actions release must use only its dedicated runner label")
 required_toolchain = "brew install nfpm msitools"
 if required_toolchain not in text:
     raise SystemExit("GitHub Actions release contract must install the Homebrew msitools formula")
