@@ -20,13 +20,15 @@ sh scripts/project-github-forge.sh
 ```
 
 The command requires a clean canonical checkout, uses a fresh isolated clone for
-the identity rewrite, verifies overlapping provider tags with their respective
-trust anchors, and updates only the selected GitHub branch under a lease. It
-never alters canonical refs, copies provider tags, deletes refs, or performs an
-unleased force push. It uses the repository-local GitHub remote exactly as
-configured, so user-global Git URL rewrites cannot silently change its
-authentication transport. GitLab recovery uses a normal non-force push of its
-canonical history once the GitLab remote is reachable.
+the identity rewrite, verifies each GitHub release tag whose source tree is
+present on the selected canonical branch, and also verifies a same-named
+canonical GitLab tag under its own trust anchor. It updates only the selected
+GitHub branch under a lease. It never alters canonical refs, copies provider
+tags, deletes refs, or performs an unleased force push. It uses the
+repository-local GitHub remote exactly as configured, so user-global Git URL
+rewrites cannot silently change its authentication transport. GitLab recovery
+uses a normal non-force push of its canonical history once the GitLab remote is
+reachable.
 
 Do not use an equal-object branch or tag synchronizer for this repository; its
 provider-specific identity model intentionally makes those objects different.
@@ -73,3 +75,6 @@ GitLab provenance uses `heng.yang.ds@hotmail.com`; GitHub provenance uses
 verify their release tags. A direct push guard rejects a provider/email
 mismatch. Same-named tags are independently signed provider provenance records,
 and must never be copied, regenerated, or overwritten across the two namespaces.
+In a canonical local checkout, GitLab tags remain unscoped and fetched GitHub
+provenance is qualified below `github/`; obsolete `provider/` aliases are not
+admitted. Native forge checkouts retain their own provider-native `v*` tags.
