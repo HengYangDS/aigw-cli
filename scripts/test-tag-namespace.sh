@@ -53,9 +53,15 @@ git -C "$fixture" tag -d v0.1.0 >/dev/null
 git -C "$fixture" -c user.name='GitHub fixture identity' \
   -c user.email='github@example.invalid' -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen \
   -c user.signingkey="$github_key" tag -s -a v0.1.0 -m 'native GitHub release'
+git -C "$fixture" remote add origin git@github.com:example/aigw-cli.git
 if ! AIGW_TAG_NAMESPACE_FORGE=github sh "$fixture/scripts/check-tag-namespace.sh" > "$tmp/github.out" 2>&1; then
   cat "$tmp/github.out" >&2
   echo 'tag namespace checker rejected native GitHub provenance' >&2
+  exit 1
+fi
+if ! sh "$fixture/scripts/check-tag-namespace.sh" > "$tmp/github-auto.out" 2>&1; then
+  cat "$tmp/github-auto.out" >&2
+  echo 'tag namespace checker did not detect a standalone GitHub checkout' >&2
   exit 1
 fi
 git -C "$fixture" -c user.name='GitHub fixture identity' \
@@ -74,6 +80,7 @@ grep -F 'qualified GitHub provenance is only valid in a local canonical checkout
 }
 git -C "$fixture" tag -d github/v0.1.0 >/dev/null
 git -C "$fixture" tag -d v0.1.0 >/dev/null
+git -C "$fixture" remote remove origin
 git -C "$fixture" -c user.name='AIGW tag namespace fixture' \
   -c user.email='gitlab@example.invalid' -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen \
   -c user.signingkey="$gitlab_key" tag -s -a v0.1.0 -m 'canonical GitLab release'
