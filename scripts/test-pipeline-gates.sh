@@ -236,6 +236,7 @@ for required in [
 for forbidden in [
     "AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY",
     "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY",
+    "aigw-gitlab-macos-arm64",
 ]:
     if forbidden in github:
         raise SystemExit(f"GitHub release plane retains provider-specific build metadata: {forbidden}")
