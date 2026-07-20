@@ -416,6 +416,8 @@ marker_program = (
 )
 timeout_marker = marker_base + ".timeout"
 cancel_marker = marker_base + ".cancel"
+ready_cancel_marker = marker_base + ".ready-cancel"
+deadline_marker = marker_base + ".deadline"
 
 namespace["run_session_leader"] = lambda *args: time.sleep(5)
 started = time.monotonic()
@@ -449,8 +451,69 @@ print(
     f"ready handshake cancel={cancel_status}/{cancel_elapsed:.3f}s "
     f"started={cancel_started} reaped={cancel_reaped}"
 )
-os.fork = real_fork
 if cancel_status != 143 or cancel_elapsed >= 3 or cancel_started or not cancel_reaped:
+    raise SystemExit(1)
+
+namespace["received_signal"] = None
+real_write_all = namespace["write_all"]
+parent_pid = os.getpid()
+
+def cancel_before_ack(fd, payload):
+    if os.getpid() == parent_pid and payload == b"G":
+        namespace["request_shutdown"](signal.SIGTERM, None)
+        real_write_all(fd, payload)
+        time.sleep(0.4)
+        return
+    return real_write_all(fd, payload)
+
+namespace["write_all"] = cancel_before_ack
+started = time.monotonic()
+before_forks = len(leader_pids)
+command = [sys.executable, "-c", marker_program, ready_cancel_marker]
+ready_cancel_status = namespace["supervise"](10, command, started)
+ready_cancel_elapsed = time.monotonic() - started
+ready_cancel_pid = leader_pids[-1] if len(leader_pids) == before_forks + 1 else None
+ready_cancel_reaped = child_was_reaped(ready_cancel_pid)
+ready_cancel_started = os.path.exists(ready_cancel_marker)
+print(
+    f"ready-to-ack cancel={ready_cancel_status}/{ready_cancel_elapsed:.3f}s "
+    f"started={ready_cancel_started} reaped={ready_cancel_reaped}"
+)
+namespace["write_all"] = real_write_all
+if (
+    ready_cancel_status != 143
+    or ready_cancel_elapsed >= 3
+    or ready_cancel_started
+    or not ready_cancel_reaped
+):
+    raise SystemExit(1)
+
+namespace["received_signal"] = None
+
+def cross_deadline_before_ack(fd, payload):
+    if os.getpid() == parent_pid and payload == b"G":
+        time.sleep(1.1)
+        real_write_all(fd, payload)
+        time.sleep(0.4)
+        return
+    return real_write_all(fd, payload)
+
+namespace["write_all"] = cross_deadline_before_ack
+started = time.monotonic()
+before_forks = len(leader_pids)
+command = [sys.executable, "-c", marker_program, deadline_marker]
+deadline_status = namespace["supervise"](1, command, started)
+deadline_elapsed = time.monotonic() - started
+deadline_pid = leader_pids[-1] if len(leader_pids) == before_forks + 1 else None
+deadline_reaped = child_was_reaped(deadline_pid)
+deadline_started = os.path.exists(deadline_marker)
+print(
+    f"ready-to-ack deadline={deadline_status}/{deadline_elapsed:.3f}s "
+    f"started={deadline_started} reaped={deadline_reaped}"
+)
+namespace["write_all"] = real_write_all
+os.fork = real_fork
+if deadline_status != 124 or deadline_elapsed >= 3 or deadline_started or not deadline_reaped:
     raise SystemExit(1)
 PY
   then
