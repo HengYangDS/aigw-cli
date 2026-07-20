@@ -277,6 +277,7 @@ go vet ./...
 sh scripts/check-static-analysis.sh
 test -z "$(gofmt -l cmd internal tools)"
 sh scripts/check-governance.sh
+sh scripts/check-tag-namespace.sh
 python3 scripts/check-markdown-presentation.py
 sh scripts/test-changelog.sh
 export GOTOOLCHAIN=go1.25.12

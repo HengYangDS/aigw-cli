@@ -45,7 +45,7 @@ for required in [
     "test-publish-release.sh", "test-publish-github-release.sh",
     "test-pipeline-gates.sh", "test-github-actions-contract.sh",
     "test-github-release-workflow.sh",
-    "test-github-provider-projection.sh", "check-text-layout.py", "test-text-layout.sh",
+    "test-github-provider-projection.sh", "test-tag-namespace.sh", "check-text-layout.py", "test-text-layout.sh",
     "test-ci-go-proxy-policy.sh", "test-ci-go-cache-preparation.sh",
     "test-release-source-date-epoch.sh", "test-release-forge-sources.sh", "test-release-toolchain.sh", "test-release-tag-signature-provider-selection.sh",
 ]:

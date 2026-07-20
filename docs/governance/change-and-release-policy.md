@@ -93,7 +93,10 @@ trust anchor. The retired GitHub signer may verify only the explicit legacy
 tag inventory; new GitHub release tags must use the current GitHub signer.
 Same-named provider release tags are independently signed provenance objects
 and AIGW must never copy, regenerate, delete, or overwrite them across the two
-namespaces.
+namespaces. In a canonical local checkout, unscoped `v*` tags are GitLab
+provenance and fetched GitHub tags live only below `github/`; native forge
+checkouts keep their own tags unscoped. The `provider/` namespace is retired
+and forbidden so a local alias cannot misrepresent its provenance owner.
 
 The private GitHub peer operates on GitHub Free without repository-ruleset tag
 protection. Its release tags are therefore signed, independently verified
@@ -104,12 +107,13 @@ tag change is a provenance failure; it is not an impossible state.
 
 Run `sh scripts/project-github-forge.sh` from a clean canonical checkout to
 project a selected branch into the GitHub identity domain. It rewrites only an
-isolated clone, verifies overlapping provider tags against distinct trust
-anchors, uses a leased branch update, and never pushes a tag. It honors the
-repository-local GitHub URL without inheriting user-global URL rewrites, so its
-transport and authentication stay explicit. GitLab recovery uses a normal,
-non-force push of canonical history after its remote is reachable. No
-equal-object branch or tag synchronizer applies to AIGW.
+isolated clone, verifies every GitHub release tag whose source tree is present
+on the selected canonical branch, and retains the separate GitLab verification
+for a same-named canonical tag. It uses a leased branch update and never pushes
+a tag. It honors the repository-local GitHub URL without inheriting user-global
+URL rewrites, so its transport and authentication stay explicit. GitLab
+recovery uses a normal, non-force push of canonical history after its remote is
+reachable. No equal-object branch or tag synchronizer applies to AIGW.
 
 ## Branch closeout
 
