@@ -160,6 +160,124 @@ if ! (
   exit 1
 fi
 
+# Refreshing canonical GitLab tags must not prune qualified GitHub provenance
+# when the caller enables global fetch pruning.
+prune_source="$tmp/prune-source"
+prune_origin="$tmp/prune-origin.git"
+prune_checkout="$tmp/prune-checkout"
+prune_config="$tmp/prune-global.config"
+git init -q -b main "$prune_source"
+git -C "$prune_source" config user.name 'AIGW Changelog Test'
+git -C "$prune_source" config user.email 'aigw-changelog-test@example.invalid'
+printf 'rc1\n' > "$prune_source/release.txt"
+git -C "$prune_source" add release.txt
+git -C "$prune_source" commit -qm 'rc1'
+prune_rc1=$(git -C "$prune_source" rev-parse HEAD)
+printf 'rc2\n' >> "$prune_source/release.txt"
+git -C "$prune_source" commit -qam 'rc2'
+GIT_COMMITTER_DATE='2026-07-17T00:01:00Z' \
+  git -C "$prune_source" tag -a v0.1.0-rc.2 -m 'rc2'
+git init -q --bare "$prune_origin"
+git -C "$prune_source" push -q "$prune_origin" 'HEAD:refs/heads/main' refs/tags/v0.1.0-rc.2
+git -C "$prune_origin" symbolic-ref HEAD refs/heads/main
+git clone -q "file://$prune_origin" "$prune_checkout"
+git -C "$prune_checkout" config user.name 'AIGW Changelog Test'
+git -C "$prune_checkout" config user.email 'aigw-changelog-test@example.invalid'
+GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
+  git -C "$prune_checkout" tag -a github/v0.1.0-rc.1 "$prune_rc1" -m 'GitHub rc1'
+cat > "$prune_checkout/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0-rc.2] - 2026-07-17
+
+## [0.1.0-rc.1] - 2026-07-17
+EOF
+mkdir -p "$prune_checkout/scripts" "$prune_checkout/packaging/release"
+cp "$checker" "$prune_checkout/scripts/check-changelog.sh"
+: > "$prune_checkout/packaging/release/retired-gitlab-tags.txt"
+git config --file "$prune_config" fetch.prune true
+git config --file "$prune_config" fetch.pruneTags true
+if ! (
+  cd "$prune_checkout"
+  test "$(git tag --list github/v0.1.0-rc.1)" = github/v0.1.0-rc.1 &&
+    GIT_CONFIG_GLOBAL="$prune_config" AIGW_CHANGELOG_FORGE=local \
+      GITHUB_ACTIONS= GITLAB_CI= CI_COMMIT_TAG= GITHUB_REF_TYPE= \
+      GITHUB_REF_NAME= AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh &&
+    test "$(git tag --list github/v0.1.0-rc.1)" = github/v0.1.0-rc.1
+); then
+  echo "changelog checker pruned qualified GitHub provenance during GitLab tag refresh" >&2
+  exit 1
+fi
+
+# The branch-history fallback must preserve the same qualified namespace when
+# no direct release tag is available after the canonical tag refresh.
+fallback_source="$tmp/prune-fallback-source"
+fallback_origin="$tmp/prune-fallback-origin.git"
+fallback_checkout="$tmp/prune-fallback-checkout"
+git init -q -b main "$fallback_source"
+git -C "$fallback_source" config user.name 'AIGW Changelog Test'
+git -C "$fallback_source" config user.email 'aigw-changelog-test@example.invalid'
+printf 'release\n' > "$fallback_source/release.txt"
+git -C "$fallback_source" add release.txt
+git -C "$fallback_source" commit -qm 'release'
+fallback_release=$(git -C "$fallback_source" rev-parse HEAD)
+git init -q --bare "$fallback_origin"
+git -C "$fallback_source" push -q "$fallback_origin" 'HEAD:refs/heads/main'
+git -C "$fallback_origin" symbolic-ref HEAD refs/heads/main
+git clone -q "file://$fallback_origin" "$fallback_checkout"
+git -C "$fallback_checkout" config user.name 'AIGW Changelog Test'
+git -C "$fallback_checkout" config user.email 'aigw-changelog-test@example.invalid'
+GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
+  git -C "$fallback_checkout" tag -a github/v0.1.0-rc.1 "$fallback_release" -m 'GitHub rc1'
+cat > "$fallback_checkout/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0-rc.1] - 2026-07-17
+EOF
+mkdir -p "$fallback_checkout/scripts" "$fallback_checkout/packaging/release"
+cp "$checker" "$fallback_checkout/scripts/check-changelog.sh"
+: > "$fallback_checkout/packaging/release/retired-gitlab-tags.txt"
+if ! (
+  cd "$fallback_checkout"
+  test -z "$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)" &&
+    GIT_CONFIG_GLOBAL="$prune_config" AIGW_CHANGELOG_FORGE=local \
+      GITHUB_ACTIONS= GITLAB_CI= CI_COMMIT_TAG= GITHUB_REF_TYPE= \
+      GITHUB_REF_NAME= AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh &&
+    test "$(git tag --list github/v0.1.0-rc.1)" = github/v0.1.0-rc.1
+); then
+  echo "changelog checker pruned qualified GitHub provenance during branch-history refresh" >&2
+  exit 1
+fi
+
+# Exercise the successful unshallow branch separately from the complete-clone
+# fallback above.
+unshallow_checkout="$tmp/prune-unshallow-checkout"
+git clone -q --depth 1 "file://$fallback_origin" "$unshallow_checkout"
+git -C "$unshallow_checkout" config user.name 'AIGW Changelog Test'
+git -C "$unshallow_checkout" config user.email 'aigw-changelog-test@example.invalid'
+GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
+  git -C "$unshallow_checkout" tag -a github/v0.1.0-rc.1 HEAD -m 'GitHub rc1'
+cp "$fallback_checkout/CHANGELOG.md" "$unshallow_checkout/CHANGELOG.md"
+mkdir -p "$unshallow_checkout/scripts" "$unshallow_checkout/packaging/release"
+cp "$checker" "$unshallow_checkout/scripts/check-changelog.sh"
+: > "$unshallow_checkout/packaging/release/retired-gitlab-tags.txt"
+if ! (
+  cd "$unshallow_checkout"
+  test "$(git rev-parse --is-shallow-repository)" = true &&
+    GIT_CONFIG_GLOBAL="$prune_config" AIGW_CHANGELOG_FORGE=local \
+      GITHUB_ACTIONS= GITLAB_CI= CI_COMMIT_TAG= GITHUB_REF_TYPE= \
+      GITHUB_REF_NAME= AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh &&
+    test "$(git rev-parse --is-shallow-repository)" = false &&
+    test "$(git tag --list github/v0.1.0-rc.1)" = github/v0.1.0-rc.1
+); then
+  echo "changelog checker pruned qualified GitHub provenance while unshallowing history" >&2
+  exit 1
+fi
+
 # A version retired from GitLab can remain an active provenance tag on GitHub.
 # The GitHub checker must use its active tag instead of treating the shared
 # GitLab retirement inventory as a conflicting duplicate.

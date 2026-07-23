@@ -63,8 +63,10 @@ if git remote get-url origin >/dev/null 2>&1; then
   if test -z "$selected_tag"; then
     # A shallow or cached checkout can retain an older reachable tag while a
     # newer release tag is present only on origin. Refresh the complete tag
-    # namespace before classifying shared Changelog history.
-    git fetch --quiet --no-tags origin 'refs/tags/*:refs/tags/*' 2>/dev/null || true
+    # namespace before classifying shared Changelog history. The qualified
+    # GitHub namespace is not owned by origin and must survive global pruning.
+    git fetch --quiet --no-prune --no-prune-tags --no-tags \
+      origin 'refs/tags/*:refs/tags/*' 2>/dev/null || true
   fi
 fi
 
@@ -73,8 +75,10 @@ if test -z "$latest_tag"; then
   latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
 fi
 if test -z "$latest_tag" && test "$has_origin" = true; then
-  git fetch --quiet --no-tags --unshallow origin 2>/dev/null || \
-    git fetch --quiet --no-tags origin 2>/dev/null || true
+  git fetch --quiet --no-prune --no-prune-tags --no-tags \
+    --unshallow origin 2>/dev/null || \
+    git fetch --quiet --no-prune --no-prune-tags --no-tags \
+      origin 2>/dev/null || true
   if test -z "$selected_tag"; then
     latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
   fi
