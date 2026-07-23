@@ -159,6 +159,8 @@ else:
     tags = direct_tags
 
 tag_versions = []
+direct_tag_versions: set[str] = set()
+github_tag_versions: set[str] = set()
 tag_trees: dict[str, str] = {}
 for tag in tags:
     version = tag.removeprefix("github/").removeprefix("v")
@@ -189,6 +191,10 @@ for tag in tags:
         ).returncode == 0
     if not active:
         continue
+    if tag.startswith("github/"):
+        github_tag_versions.add(version)
+    else:
+        direct_tag_versions.add(version)
     previous_tree = tag_trees.get(version)
     if previous_tree is not None:
         if previous_tree != tree:
@@ -229,8 +235,15 @@ if retired_path.exists():
             raise SystemExit(f"CHANGELOG.md: duplicate active or retired release version: {version}")
         if version in tag_versions:
             # The inventory records GitLab retirement. A same-named GitHub
-            # provenance tag remains active and takes precedence on GitHub.
-            if forge != "github":
+            # provenance tag remains active on GitHub and beneath the
+            # canonical checkout's qualified namespace. An unscoped local tag
+            # still represents active GitLab provenance and must conflict.
+            github_only_overlap = forge == "github" or (
+                forge == "local"
+                and version in github_tag_versions
+                and version not in direct_tag_versions
+            )
+            if not github_only_overlap:
                 raise SystemExit(f"CHANGELOG.md: duplicate active or retired release version: {version}")
             continue
         retired_versions.append(version)

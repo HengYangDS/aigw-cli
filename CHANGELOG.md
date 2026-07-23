@@ -14,7 +14,8 @@ platform acceptance, signing, and GA status remain separate evidence.
   connectivity checks, so Anthropic-compatible endpoints no longer receive an
   OpenAI bearer header.
 - Preserve qualified GitHub provenance tags while refreshing canonical GitLab
-  tags, even when global Git fetch pruning is enabled.
+  tags, even when global Git fetch pruning is enabled, and record retired GitLab
+  `rc.58` chronology so fresh CI checkouts do not depend on workstation refs.
 
 ## [0.1.0-rc.69] - 2026-07-21
 
