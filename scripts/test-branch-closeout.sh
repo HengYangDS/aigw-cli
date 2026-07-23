@@ -114,4 +114,19 @@ if (
   exit 1
 fi
 
+malformed_output="$tmp/malformed-peer-output"
+if (
+  cd "$source"
+  sh "$checker" --source work/source --canonical main \
+    --peer :main:commit
+) >"$malformed_output" 2>&1; then
+  echo 'branch closeout checker accepted a malformed peer specification' >&2
+  exit 1
+fi
+if ! grep -Fq 'peer specification must include a name, ref, and mode' "$malformed_output"; then
+  echo 'branch closeout checker reported an unexpected malformed-peer failure' >&2
+  cat "$malformed_output" >&2
+  exit 1
+fi
+
 echo 'branch closeout provider-equivalence contract: OK'

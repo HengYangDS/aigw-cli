@@ -79,6 +79,12 @@ Every new adapter must supply all of the following before merge:
    admitted writer and that generic discovery cannot silently adopt a foreign
    IDE or CLI surface.
 
+Connectivity probes are part of the protocol contract. An Anthropic probe sets
+`X-Api-Key` and must not set `Authorization`; an OpenAI Responses probe sets
+`Authorization: Bearer` and must not set `X-Api-Key`. Regression tests assert
+both the required and forbidden headers and prove that neither the credential
+nor its header name appears in command output.
+
 Until the record is complete, the candidate remains absent from enablement,
 team manifests, routable profiles, and automatic fallback.
 

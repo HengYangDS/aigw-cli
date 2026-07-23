@@ -122,6 +122,17 @@ URL rewrites, so its transport and authentication stay explicit. GitLab
 recovery uses a normal, non-force push of canonical history after its remote is
 reachable. No equal-object branch or tag synchronizer applies to AIGW.
 
+A steady-state synchronization claim requires current, explicitly refreshed
+peer refs. The local canonical branch and GitLab peer must have identical commit
+IDs; the GitHub projection must preserve the canonical branch's complete
+ordered source-tree history. `scripts/check-forge-sync.sh` enforces those
+offline ref invariants without fetching or writing. It does not replace
+provider-specific tag verification, release-record comparison, or independent
+SHA-256 verification of every shared release asset. Matching manifests without
+matching provider asset digests are insufficient evidence. Tracked retirement
+inventories remain the only admitted explanation for a deliberate
+provider-specific historical tag absence.
+
 ## Branch closeout
 
 Merged source branches are disposable delivery artifacts, not project history.

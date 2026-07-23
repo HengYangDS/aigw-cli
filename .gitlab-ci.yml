@@ -73,6 +73,7 @@ verify:
     - sh scripts/test-github-release-workflow.sh
     - sh scripts/test-github-provider-projection.sh
     - sh scripts/test-branch-closeout.sh
+    - sh scripts/test-forge-sync.sh
     - go build -o /tmp/aigw-install-smoke ./cmd/aigw
     - sh scripts/test-installers.sh /tmp/aigw-install-smoke
     - sh scripts/test-portable-install.sh /tmp/aigw-install-smoke

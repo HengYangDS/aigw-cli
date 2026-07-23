@@ -33,6 +33,40 @@ reachable.
 Do not use an equal-object branch or tag synchronizer for this repository; its
 provider-specific identity model intentionally makes those objects different.
 
+## Mirror verification
+
+A steady-state mirror requires the canonical local branch and GitLab to resolve
+to the exact same commit. GitHub must preserve the canonical branch's complete
+ordered source-tree history, even though its identity rewrite produces different
+commit IDs. Refresh only the required tracking refs, with pruning disabled, and
+then run the offline checker:
+
+```bash
+git fetch --no-prune --no-prune-tags --no-tags origin \
+  refs/heads/main:refs/remotes/origin/main
+git fetch --no-prune --no-prune-tags --no-tags github \
+  refs/heads/main:refs/remotes/github/main
+sh scripts/check-forge-sync.sh \
+  --canonical main \
+  --peer gitlab:refs/remotes/origin/main:commit \
+  --peer github:refs/remotes/github/main:tree
+```
+
+The checker performs no network access and writes no refs. It validates the
+already-refreshed refs supplied by the caller; it cannot turn a stale tracking
+ref into current remote evidence. `check-branch-closeout.sh` remains a separate
+retirement proof for a delivery branch and intentionally accepts a canonical
+peer that contains that source tip. It is not a steady-state mirror audit.
+
+Qualified `github/*` tags in a canonical checkout are an on-demand provenance
+cache owned by the GitHub plane, not by `origin`. Any fetch that can touch tags
+in such a checkout must explicitly disable both branch and tag pruning. Never
+copy provider-native tags to manufacture symmetry. A retired tag listed in the
+tracked retirement inventory is a governed lifecycle difference, not a mirror
+gap. For every version active on both forges, verify the complete release asset
+set against each provider's independent SHA-256 metadata; matching tag names or
+matching checksum manifests alone do not prove matching artifact bytes.
+
 ## Dependency transport
 
 Each forge has an independent CI dependency path. GitLab's Go jobs default to

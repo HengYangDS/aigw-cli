@@ -2,6 +2,8 @@
 # Verify source-branch closeout without conflating canonical and projected IDs.
 set -eu
 
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
 usage() {
   cat >&2 <<'USAGE'
 usage: check-branch-closeout.sh --source <local-branch> [--canonical <local-branch>] [--peer <name:ref:mode>]...
@@ -85,7 +87,10 @@ trap cleanup EXIT HUP INT TERM
 git -c core.fsmonitor=false log --reverse --topo-order --format=%T "$canonical" > "$canonical_trees"
 
 printf '%s\n' "$peers" | while IFS=: read -r name peer mode; do
-  test -n "$name" || continue
+  if test -z "$name" || test -z "$peer" || test -z "$mode"; then
+    echo "peer specification must include a name, ref, and mode" >&2
+    exit 2
+  fi
   case "$mode" in
     commit|tree) ;;
     *) echo "peer $name has invalid mode: $mode" >&2; exit 2 ;;
@@ -103,28 +108,7 @@ printf '%s\n' "$peers" | while IFS=: read -r name peer mode; do
       ;;
     tree)
       git -c core.fsmonitor=false log --reverse --topo-order --format=%T "$peer" > "$peer_trees"
-      python3 - "$canonical_trees" "$peer_trees" "$name" <<'PYTHON'
-from pathlib import Path
-import sys
-
-canonical = Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
-peer = Path(sys.argv[2]).read_text(encoding="utf-8").splitlines()
-name = sys.argv[3]
-if canonical == peer:
-    raise SystemExit(0)
-if len(canonical) != len(peer):
-    raise SystemExit(
-        f"peer {name} does not preserve canonical ordered source-tree history: "
-        f"expected {len(canonical)} entries, found {len(peer)}"
-    )
-for position, (expected, actual) in enumerate(zip(canonical, peer), 1):
-    if expected != actual:
-        raise SystemExit(
-            f"peer {name} does not preserve canonical ordered source-tree history "
-            f"at position {position}: expected {expected}, found {actual}"
-        )
-raise SystemExit(f"peer {name} does not preserve canonical ordered source-tree history")
-PYTHON
+      python3 "$script_dir/compare-ordered-trees.py" "$canonical_trees" "$peer_trees" "$name"
       ;;
   esac
   printf 'branch closeout peer: %s (%s) OK\n' "$name" "$mode"
