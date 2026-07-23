@@ -7,11 +7,12 @@ fixture=$(mktemp "${TMPDIR:-/tmp}/aigw-changelog.XXXXXX")
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/aigw-changelog.XXXXXX")
 trap 'rm -f "$fixture"; rm -rf "$tmp"' EXIT HUP INT TERM
 
-# This suite exercises branch chronology fixtures.  A surrounding tag pipeline
-# must not turn those fixtures into a selected-tag test accidentally.
+# This suite exercises branch chronology fixtures. A surrounding tag pipeline
+# must not turn those fixtures into a selected-tag test, but provider identity
+# must remain available so native tags retain their forge provenance.
 run_branch_checker() {
-  AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI= \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
+  AIGW_CHANGELOG_FORGE= CI_COMMIT_TAG= GITHUB_REF_TYPE= \
+    GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
     AIGW_CHANGELOG_FILE="$1" sh "$checker"
 }
 
@@ -23,12 +24,32 @@ run_branch_checker "$fixture"
 # workstation's qualified GitHub provenance refs.
 fresh_gitlab="$tmp/fresh-gitlab"
 git clone -q --no-tags --shared "$root" "$fresh_gitlab"
-git -C "$fresh_gitlab" fetch -q --no-tags "$root" 'refs/tags/v*:refs/tags/v*'
 git -C "$fresh_gitlab" remote remove origin
 cp "$root/CHANGELOG.md" "$fresh_gitlab/CHANGELOG.md"
 cp "$checker" "$fresh_gitlab/scripts/check-changelog.sh"
 cp "$root/packaging/release/retired-gitlab-tags.txt" \
   "$fresh_gitlab/packaging/release/retired-gitlab-tags.txt"
+# Synthesize the canonical provider set independently of whichever forge runs
+# this suite: the first published version is the untagged next candidate, each
+# tracked retirement stays absent, and rc.58 is a fixed missing-tag regression.
+published_versions=$(
+  awk '
+    /^## \[[0-9]/ {
+      line = $0
+      sub(/^## \[/, "", line)
+      sub(/\].*$/, "", line)
+      print line
+    }
+  ' "$fresh_gitlab/CHANGELOG.md"
+)
+candidate_version=$(printf '%s\n' "$published_versions" | awk 'NR == 1 { print; exit }')
+for version in $published_versions; do
+  tag="v$version"
+  test "$version" = "$candidate_version" && continue
+  test "$tag" = v0.1.0-rc.58 && continue
+  grep -Fxq "$tag" "$fresh_gitlab/packaging/release/retired-gitlab-tags.txt" && continue
+  git -C "$fresh_gitlab" tag "$tag" HEAD
+done
 if ! (
   cd "$fresh_gitlab"
   test -z "$(git tag --list 'github/*')" &&
