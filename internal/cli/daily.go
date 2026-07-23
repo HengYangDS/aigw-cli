@@ -648,7 +648,20 @@ func newTestCommand(app *App) *cobra.Command {
 					cancel()
 					return fmt.Errorf("Token for account %q is unavailable: %w; run `aigw rotate %s`", accountName, err, accountName)
 				}
-				req.Header.Set("Authorization", "Bearer "+token)
+				spec, ok := domain.ClientSpecFor(target)
+				if !ok {
+					cancel()
+					return fmt.Errorf("%s client protocol is unavailable", target)
+				}
+				switch spec.EndpointProtocol {
+				case domain.ProtocolAnthropic:
+					req.Header.Set("X-Api-Key", token)
+				case domain.ProtocolOpenAIResponses:
+					req.Header.Set("Authorization", "Bearer "+token)
+				default:
+					cancel()
+					return fmt.Errorf("%s endpoint protocol %q is unsupported", target, spec.EndpointProtocol)
+				}
 				resp, err := app.HTTP.Do(req)
 				if err != nil {
 					cancel()

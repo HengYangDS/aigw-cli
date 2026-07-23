@@ -593,6 +593,33 @@ func TestTestCommandAuthenticatesWithoutPrintingAuthorizationHeader(t *testing.T
 	}
 }
 
+func TestTestCommandUsesAnthropicAPIKeyHeader(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := domain.NewConfig()
+	addAccountProfile(&cfg, "claude", "anthropic", "Anthropic", domain.Endpoints{Anthropic: "https://example.test"}, "", domain.Models{})
+	cfg.Routes.Default = "claude"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("anthropic", "anthropic-test-secret"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "test", "--for", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	httpClient := app.HTTP.(*fakeHTTP)
+	if httpClient.headers.Get("X-Api-Key") != "anthropic-test-secret" {
+		t.Fatalf("x-api-key header = %q", httpClient.headers.Get("X-Api-Key"))
+	}
+	if httpClient.headers.Get("Authorization") != "" {
+		t.Fatalf("authorization header = %q", httpClient.headers.Get("Authorization"))
+	}
+	if strings.Contains(out.String(), "anthropic-test-secret") || strings.Contains(strings.ToLower(out.String()), "x-api-key") {
+		t.Fatalf("credential leaked in output: %s", out.String())
+	}
+}
+
 func TestTestCommandReturnsResponseReadFailure(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := domain.NewConfig()
