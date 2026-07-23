@@ -30,7 +30,9 @@ Read-only analyzers may inspect `main`. A write-capable analyzer must run in an
 isolated non-`main` worktree with a private per-task `TMPDIR`; formatting,
 auto-fix, source rewriting, and generated scratch output must not target
 `main`. Promote analyzer changes only through reviewed commits in the owned
-worktree.
+worktree. Read-only reports, API metadata, ref inventories, and other scratch
+data belong below `${TMPDIR:-/tmp}` and must be removed after use; never
+redirect them into a checkout or the user home directory.
 
 Before retiring an analyzer worktree, identify its owning task and prove that
 the owner handed off or terminated and no owning task remains live. Then apply
@@ -75,6 +77,26 @@ between providers. From a clean owned canonical checkout, run
 domain. It rewrites only an isolated clone, applies a leased branch update, and
 never pushes a tag. Do not force-push, create snapshot commits, or delete remote
 refs to manufacture convergence.
+
+Steady-state forge verification is distinct from delivery-branch closeout.
+After explicitly refreshing the required remote-tracking refs without pruning
+tags, run the read-only mirror checker:
+
+```sh
+git fetch --no-prune --no-prune-tags --no-tags origin \
+  refs/heads/main:refs/remotes/origin/main
+git fetch --no-prune --no-prune-tags --no-tags github \
+  refs/heads/main:refs/remotes/github/main
+sh scripts/check-forge-sync.sh \
+  --canonical main \
+  --peer gitlab:refs/remotes/origin/main:commit \
+  --peer github:refs/remotes/github/main:tree
+```
+
+The checker never fetches or writes refs. Its result proves only the refs named
+by the caller: remote freshness comes from the preceding successful fetches,
+while tag provenance, release records, and artifact bytes retain their separate
+verification gates.
 
 The private GitHub Free peer does not provide repository-ruleset tag protection.
 Describe its release tags as signed and independently verified provenance, not
