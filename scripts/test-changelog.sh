@@ -18,6 +18,29 @@ run_branch_checker() {
 cp "$root/CHANGELOG.md" "$fixture"
 run_branch_checker "$fixture"
 
+# A fresh GitLab checkout has only provider-native v* tags. The tracked
+# retirement inventory must make shared chronology valid without relying on a
+# workstation's qualified GitHub provenance refs.
+fresh_gitlab="$tmp/fresh-gitlab"
+git clone -q --no-tags --shared "$root" "$fresh_gitlab"
+git -C "$fresh_gitlab" fetch -q --no-tags "$root" 'refs/tags/v*:refs/tags/v*'
+git -C "$fresh_gitlab" remote remove origin
+cp "$root/CHANGELOG.md" "$fresh_gitlab/CHANGELOG.md"
+cp "$checker" "$fresh_gitlab/scripts/check-changelog.sh"
+cp "$root/packaging/release/retired-gitlab-tags.txt" \
+  "$fresh_gitlab/packaging/release/retired-gitlab-tags.txt"
+if ! (
+  cd "$fresh_gitlab"
+  test -z "$(git tag --list 'github/*')" &&
+    test -z "$(git tag --list v0.1.0-rc.58)" &&
+    AIGW_CHANGELOG_FORGE=gitlab GITHUB_ACTIONS= GITLAB_CI=true \
+      CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
+      AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh
+); then
+  echo "changelog checker rejected tracked chronology in a fresh GitLab checkout" >&2
+  exit 1
+fi
+
 # A shallow checkout can omit both the release tag and its historical commit.
 # Build a complete, minimal release history first, then clone it shallowly. The
 # source checkout may itself be shallow in CI, so it cannot safely serve as the
@@ -321,6 +344,45 @@ if (
     AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh >/dev/null 2>&1
 ); then
   echo "changelog checker accepted an active GitLab tag in the retired GitLab inventory" >&2
+  exit 1
+fi
+
+# A canonical local checkout may retain the independently signed GitHub tag for
+# a retired GitLab version. The overlap is valid only while the direct GitLab
+# tag remains absent.
+local_overlap="$tmp/local-active-retired"
+git init -q -b main "$local_overlap"
+git -C "$local_overlap" config user.name 'AIGW Changelog Test'
+git -C "$local_overlap" config user.email 'aigw-changelog-test@example.invalid'
+printf 'release\n' > "$local_overlap/release.txt"
+git -C "$local_overlap" add release.txt
+git -C "$local_overlap" commit -qm 'release'
+GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
+  git -C "$local_overlap" tag -a github/v0.1.0-rc.2 -m 'active GitHub release'
+printf 'current\n' >> "$local_overlap/release.txt"
+git -C "$local_overlap" commit -qam 'current'
+cp "$github_overlap/CHANGELOG.md" "$local_overlap/CHANGELOG.md"
+mkdir -p "$local_overlap/scripts" "$local_overlap/packaging/release"
+cp "$checker" "$local_overlap/scripts/check-changelog.sh"
+printf 'v0.1.0-rc.2\n' > "$local_overlap/packaging/release/retired-gitlab-tags.txt"
+if ! (
+  cd "$local_overlap"
+  AIGW_CHANGELOG_FORGE=local GITHUB_ACTIONS= GITLAB_CI= \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
+    AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh
+); then
+  echo "changelog checker rejected qualified GitHub provenance for a retired GitLab version" >&2
+  exit 1
+fi
+GIT_COMMITTER_DATE='2026-07-17T00:01:00Z' \
+  git -C "$local_overlap" tag -a v0.1.0-rc.2 -m 'active GitLab release' HEAD~1
+if (
+  cd "$local_overlap"
+  AIGW_CHANGELOG_FORGE=local GITHUB_ACTIONS= GITLAB_CI= \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
+    AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh >/dev/null 2>&1
+); then
+  echo "changelog checker accepted a direct GitLab tag in its retirement inventory" >&2
   exit 1
 fi
 
