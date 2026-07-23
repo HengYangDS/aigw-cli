@@ -24,8 +24,12 @@ for file in \
   packaging/release/github-legacy-tags.txt \
   packaging/release/retired-gitlab-tags.txt \
   .github/workflows/verify.yml \
+  scripts/check-branch-closeout.sh \
+  scripts/check-forge-sync.sh \
   scripts/check-static-analysis.sh \
-  scripts/check-tag-namespace.sh
+  scripts/check-tag-namespace.sh \
+  scripts/compare-ordered-trees.py \
+  scripts/test-forge-sync.sh
 do
   require_file "$file"
 done
