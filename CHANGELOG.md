@@ -8,6 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Added
+
+- Add an offline forge synchronization contract that requires exact canonical
+  commit identity on GitLab and complete ordered source-tree history in the
+  identity-rewritten GitHub projection.
+
 ### Fixed
 
 - Use protocol-specific authentication headers for direct Claude and Codex

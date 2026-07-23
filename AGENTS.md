@@ -42,8 +42,11 @@ or a local proxy deployment to make a configuration test pass.
 An analyzer may inspect `main` read-only. Any analyzer capable of formatting,
 auto-fixing, rewriting, or otherwise writing source must use an isolated
 non-`main` worktree and a private per-task `TMPDIR`; it must never auto-fix
-`main`. Before retiring its worktree, record the owning task and prove that the
-owner has handed off or terminated and that no owning task remains live.
+`main`. Scratch reports and API or ref inventories must stay in that temporary
+directory, be removed after use, and never be redirected into a checkout or the
+user home directory. Before retiring its worktree, record the owning task and
+prove that the owner has handed off or terminated and that no owning task
+remains live.
 Worktree visibility or an apparently idle agent is not retirement authority.
 
 ## Required verification
