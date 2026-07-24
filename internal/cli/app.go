@@ -172,9 +172,21 @@ func mutationCommand(app *App, args []string) bool {
 	case "update":
 		return true
 	case "account":
-		return len(args) > 1 && (args[1] == "connect" || args[1] == "disconnect" || args[1] == "edit")
+		if len(args) < 2 {
+			return false
+		}
+		if args[1] == "rename" {
+			return !boolArgumentEnabled(args[2:], "--dry-run")
+		}
+		return args[1] == "connect" || args[1] == "disconnect" || args[1] == "edit"
 	case "profile":
-		return len(args) > 1 && (args[1] == "add" || args[1] == "edit" || args[1] == "rename" || args[1] == "remove")
+		if len(args) < 2 {
+			return false
+		}
+		if args[1] == "rename" {
+			return !boolArgumentEnabled(args[2:], "--dry-run")
+		}
+		return args[1] == "add" || args[1] == "edit" || args[1] == "remove"
 	case "route":
 		if len(args) < 2 {
 			return false
@@ -201,6 +213,20 @@ func hasArgument(values []string, want string) bool {
 		if value == want || strings.HasPrefix(value, want+"=") {
 			return true
 		}
+	}
+	return false
+}
+
+func boolArgumentEnabled(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+		if !strings.HasPrefix(value, want+"=") {
+			continue
+		}
+		enabled, err := strconv.ParseBool(strings.TrimPrefix(value, want+"="))
+		return err == nil && enabled
 	}
 	return false
 }

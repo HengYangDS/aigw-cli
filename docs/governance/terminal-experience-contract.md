@@ -21,6 +21,19 @@ The root help surface has four ordered sections:
 | Recover | Diagnose and reconcile bounded local drift | `doctor`, `repair`, `sync`, `rollback`, `update` |
 | Advanced | Manage declared configuration objects or explicit diagnostics | `account`, `adapter`, `add`, `balance`, `catalog`, `config`, `models`, `profile`, `route`, `test`, `verify` |
 
+## Interactive and scripting behavior
+
+Renaming commands (`aigw profile rename`, `aigw account rename`) support 0, 1, or 2 positional arguments:
+
+- **0 arguments**: In an interactive environment, AIGW prompts for a source object through a sorted selection list and then asks for the new target ID.
+- **1 argument**: AIGW treats the argument as the source ID and prompts only for the new target ID.
+- **2 arguments**: AIGW renames the source to the target immediately, providing a stable path for scripts and automation.
+- **Non-interactive failure**: If required arguments are missing in a non-interactive environment, the command fails with a clear error rather than hanging for input.
+
+Renaming commands also support `--dry-run` and `--json`. A dry-run must not acquire a mutation lock or write configuration, `.bak`, credentials, or client state. Rename JSON contains neither secret values nor local filesystem paths.
+
+`aigw account rename <old> <new> --finalize` requires both IDs explicitly; it never prompts for either one. A rotation confirmation flag is required only when its corresponding old and new credential slots differ. With the `env` backend, old variables must be unset outside AIGW; until they are absent, finalization exits non-zero and remains incomplete, and the command must be retried. After successful finalization, dry-run JSON reports `already-finalized`.
+
 No command alias is introduced merely to improve presentation. The existing
 command grammar remains the stable automation surface.
 

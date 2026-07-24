@@ -12,6 +12,12 @@ The logical service is always `AIGW_TOKEN`; the account is the Account ID, not t
 
 Importing a token-free team manifest cannot silently redirect an existing Account Token: an Account or Profile collision must be semantically identical or the import fails before mutation. Reviewed replacement requires `aigw config import ... --replace-account <id>` and/or `--replace-profile <id>`; Account replacement updates only public metadata and retains the existing system-secret slot unchanged.
 
+Account renaming (`aigw account rename`) preserves this boundary through a two-phase credential migration. Phase 1 copies missing target Token and optional `AIGW_ACCOUNT/<account>` account-probe credentials and reads them back; equal target values are resumable, while differing values fail closed. The read-only `env` backend requires equal target variables to be externally pre-provisioned. After success, the current TOML has no old Account key; only the single `.bak` configuration preimage and the old credential slots retain the old identity.
+
+Finalization requires both Account IDs, semantic agreement with the complete admitted-client verified checkpoint, and an available target Token. It converges the single `.bak` under a three-file exact-preimage check before deleting old slots. Each rotation confirmation flag is required only when its corresponding old and new slots differ, and differing probe credentials trigger a live target-provider probe during apply. Partial deletion is retryable; old `env` variables must be unset externally before the incomplete, non-zero finalization is retried.
+
+Configuration, the Token secret store, and the account-probe secret store do not form an ACID transaction. The three-file exact-preimage check is best-effort protection and is not a cross-process CAS guarantee; a detected competing change fails closed rather than proving global atomicity.
+
 Optional provider platform credentials for exact balance diagnostics are stored separately from API Tokens. Exact diagnostics are explicitly selected provider integrations, not a prerequisite for generic Account health checks or a hidden provider default.
 
 ## Non-persistence rules
