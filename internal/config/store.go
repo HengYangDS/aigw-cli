@@ -28,6 +28,18 @@ type Snapshot struct {
 	Backup transaction.FileSnapshot
 }
 
+type VerifiedBackupSnapshot struct {
+	Config   transaction.FileSnapshot
+	Backup   transaction.FileSnapshot
+	Verified transaction.FileSnapshot
+}
+
+type VerifiedBackupState struct {
+	Snapshot   VerifiedBackupSnapshot
+	Current    domain.Config
+	Checkpoint VerifiedCheckpoint
+}
+
 // VerifiedCheckpoint is a secret-free record written only after all requested
 // client protocol verifications succeed. It is suitable for rollback, not for
 // credential recovery.
@@ -50,6 +62,72 @@ func (s Store) CaptureSnapshot() (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	return Snapshot{Config: configSnapshot, Backup: backupSnapshot}, nil
+}
+
+func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
+	configSnapshot, err := transaction.CaptureFileSnapshot(s.path)
+	if err != nil {
+		return VerifiedBackupState{}, err
+	}
+	if !configSnapshot.Exists {
+		return VerifiedBackupState{}, fmt.Errorf("current config is unavailable: %w", os.ErrNotExist)
+	}
+	backupSnapshot, err := transaction.CaptureFileSnapshot(s.path + ".bak")
+	if err != nil {
+		return VerifiedBackupState{}, err
+	}
+	verifiedSnapshot, err := transaction.CaptureFileSnapshot(s.path + ".verified.json")
+	if err != nil {
+		return VerifiedBackupState{}, err
+	}
+	if !verifiedSnapshot.Exists {
+		return VerifiedBackupState{}, fmt.Errorf("verified checkpoint is unavailable: %w", os.ErrNotExist)
+	}
+	current, err := decodeTOMLConfig(configSnapshot.Data)
+	if err != nil {
+		return VerifiedBackupState{}, fmt.Errorf("decode current config snapshot: %w", err)
+	}
+	checkpoint, err := decodeVerifiedCheckpoint(verifiedSnapshot.Data)
+	if err != nil {
+		return VerifiedBackupState{}, err
+	}
+	return VerifiedBackupState{
+		Snapshot: VerifiedBackupSnapshot{
+			Config:   configSnapshot,
+			Backup:   backupSnapshot,
+			Verified: verifiedSnapshot,
+		},
+		Current:    current,
+		Checkpoint: checkpoint,
+	}, nil
+}
+
+func (s Store) ConvergeVerifiedBackup(expected VerifiedBackupSnapshot) (VerifiedBackupSnapshot, error) {
+	currentConfig, err := transaction.CaptureFileSnapshot(s.path)
+	if err != nil {
+		return VerifiedBackupSnapshot{}, err
+	}
+	if !sameFileSnapshot(currentConfig, expected.Config) {
+		return VerifiedBackupSnapshot{}, errors.New("config preimage changed; refusing to converge backup")
+	}
+	currentVerified, err := transaction.CaptureFileSnapshot(s.path + ".verified.json")
+	if err != nil {
+		return VerifiedBackupSnapshot{}, err
+	}
+	if !sameFileSnapshot(currentVerified, expected.Verified) {
+		return VerifiedBackupSnapshot{}, errors.New("verified checkpoint preimage changed; refusing to converge backup")
+	}
+	if _, err := transaction.WriteFileAtomicIfUnchanged(s.path+".bak", expected.Backup, expected.Config.Data, 0o600); err != nil {
+		return VerifiedBackupSnapshot{}, fmt.Errorf("converge verified config backup: %w", err)
+	}
+	if err := os.Chmod(s.path+".bak", 0o600); err != nil {
+		return VerifiedBackupSnapshot{}, fmt.Errorf("secure verified config backup: %w", err)
+	}
+	currentBackup, err := transaction.CaptureFileSnapshot(s.path + ".bak")
+	if err != nil {
+		return VerifiedBackupSnapshot{}, err
+	}
+	return VerifiedBackupSnapshot{Config: currentConfig, Backup: currentBackup, Verified: currentVerified}, nil
 }
 
 // RestoreSnapshot restores a captured config and backup only if both files
@@ -158,6 +236,10 @@ func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
 	if err != nil {
 		return VerifiedCheckpoint{}, fmt.Errorf("read verified checkpoint: %w", err)
 	}
+	return decodeVerifiedCheckpoint(data)
+}
+
+func decodeVerifiedCheckpoint(data []byte) (VerifiedCheckpoint, error) {
 	var checkpoint VerifiedCheckpoint
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
@@ -194,6 +276,13 @@ func decodeTOMLConfig(data []byte) (domain.Config, error) {
 		return domain.Config{}, fmt.Errorf("validate config: %w", err)
 	}
 	return cfg, nil
+}
+
+func sameFileSnapshot(left, right transaction.FileSnapshot) bool {
+	return left.Exists == right.Exists &&
+		left.SHA256 == right.SHA256 &&
+		left.Mode == right.Mode &&
+		bytes.Equal(left.Data, right.Data)
 }
 
 func writeAtomic(path string, data []byte, mode os.FileMode) error {

@@ -46,3 +46,5 @@ func (s EnvironmentStore) Has(profile string) bool {
 	_, err := s.Get(profile)
 	return err == nil
 }
+
+func (EnvironmentStore) ReadOnly() bool { return true }

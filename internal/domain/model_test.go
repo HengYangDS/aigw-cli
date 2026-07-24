@@ -166,43 +166,30 @@ func TestValidateRejectsUnadmittedOrCrossScopedModelKeys(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsRetiredGPTCDXAliases(t *testing.T) {
-	retired := "gpt-5.6-terra" + "-cdx"
-	tests := []struct {
-		name string
-		edit func(*domain.Config)
-	}{
-		{
-			name: "profile ID",
-			edit: func(cfg *domain.Config) {
-				profile := cfg.Profiles["dmx"]
-				profile.Client = domain.ClientCodex
-				profile.Models = domain.Models{domain.ClientCodex: "gpt-5.6-terra"}
-				delete(cfg.Profiles, "dmx")
-				cfg.Profiles[retired] = profile
-				cfg.Routes.Default = retired
-			},
-		},
-		{
-			name: "Codex model ID",
-			edit: func(cfg *domain.Config) {
-				profile := cfg.Profiles["dmx"]
-				profile.Client = domain.ClientCodex
-				profile.Models = domain.Models{domain.ClientCodex: retired}
-				cfg.Profiles["gpt-5.6-terra"] = profile
-				delete(cfg.Profiles, "dmx")
-				cfg.Routes.Default = "gpt-5.6-terra"
-			},
-		},
+func TestValidateTreatsProfileIDAsTransparentConfiguration(t *testing.T) {
+	const profileID = "gpt-5.6-terra-cdx"
+	cfg := validConfig()
+	profile := cfg.Profiles["dmx"]
+	profile.Client = domain.ClientCodex
+	profile.Models = domain.Models{domain.ClientCodex: "upstream-model"}
+	delete(cfg.Profiles, "dmx")
+	cfg.Profiles[profileID] = profile
+	cfg.Routes.Default = profileID
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("valid profile ID must not be rejected by product-specific naming policy: %v", err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := validConfig()
-			tt.edit(&cfg)
-			err := cfg.Validate()
-			if err == nil || !strings.Contains(err.Error(), "retired GPT -cdx alias") {
-				t.Fatalf("error = %v", err)
-			}
-		})
+}
+
+func TestValidateTreatsUpstreamModelIDAsTransparentConfiguration(t *testing.T) {
+	const modelID = "gpt-5.6-terra-cdx"
+	cfg := validConfig()
+	profile := cfg.Profiles["dmx"]
+	profile.Client = domain.ClientCodex
+	profile.Models = domain.Models{domain.ClientCodex: modelID}
+	cfg.Profiles["dmx"] = profile
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("upstream model ID must not be rejected by product-specific naming policy: %v", err)
 	}
 }

@@ -1,7 +1,9 @@
 package config_test
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -337,4 +339,143 @@ func TestLoadVerifiedCheckpointRejectsProfileOwnedEndpointResidue(t *testing.T) 
 	if _, err := config.NewStore(path).LoadVerifiedCheckpoint(); err == nil {
 		t.Fatal("Profile-owned checkpoint endpoint residue was accepted")
 	}
+}
+
+func TestConvergeVerifiedBackupCopiesExactCurrentBytes(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewStore(path)
+	oldConfig := convergenceConfig("old")
+	currentConfig := convergenceConfig("current")
+	if err := store.Save(oldConfig); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Save(currentConfig); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveVerifiedCheckpoint(currentConfig, domain.AdmittedClientIDs()); err != nil {
+		t.Fatal(err)
+	}
+	currentBytes, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	customBytes := append([]byte("# byte-exact verified current\n"), currentBytes...)
+	if err := os.WriteFile(path, customBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	state, err := store.CaptureVerifiedBackupState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifiedBefore, err := os.ReadFile(path + ".verified.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := store.ConvergeVerifiedBackup(state.Snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backup, err := os.ReadFile(path + ".bak")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(backup, customBytes) || !bytes.Equal(result.Backup.Data, customBytes) {
+		t.Fatalf("backup was not converged byte-exactly\nwant %q\ngot  %q", customBytes, backup)
+	}
+	if result.Backup.Mode != 0o600 {
+		t.Fatalf("converged backup mode = %o, want 600", result.Backup.Mode)
+	}
+	verifiedAfter, err := os.ReadFile(path + ".verified.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(verifiedAfter, verifiedBefore) {
+		t.Fatal("backup convergence changed the verified checkpoint")
+	}
+}
+
+func TestConvergeVerifiedBackupRejectsChangedPreimages(t *testing.T) {
+	for _, changed := range []string{"config", "backup", "verified"} {
+		t.Run(changed, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			store := config.NewStore(path)
+			if err := store.Save(convergenceConfig("old")); err != nil {
+				t.Fatal(err)
+			}
+			current := convergenceConfig("current")
+			if err := store.Save(current); err != nil {
+				t.Fatal(err)
+			}
+			if err := store.SaveVerifiedCheckpoint(current, domain.AdmittedClientIDs()); err != nil {
+				t.Fatal(err)
+			}
+			state, err := store.CaptureVerifiedBackupState()
+			if err != nil {
+				t.Fatal(err)
+			}
+			backupBefore, err := os.ReadFile(path + ".bak")
+			if err != nil {
+				t.Fatal(err)
+			}
+			changedPath := map[string]string{
+				"config":   path,
+				"backup":   path + ".bak",
+				"verified": path + ".verified.json",
+			}[changed]
+			changedBytes := []byte("external " + changed + " change\n")
+			if changed == "config" {
+				original, readErr := os.ReadFile(path)
+				if readErr != nil {
+					t.Fatal(readErr)
+				}
+				changedBytes = append(original, []byte("# external change\n")...)
+			}
+			if changed == "verified" {
+				original, readErr := os.ReadFile(path + ".verified.json")
+				if readErr != nil {
+					t.Fatal(readErr)
+				}
+				changedBytes = append(original, '\n')
+			}
+			if err := os.WriteFile(changedPath, changedBytes, 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := store.ConvergeVerifiedBackup(state.Snapshot); err == nil || !strings.Contains(err.Error(), "preimage changed") {
+				t.Fatalf("convergence error = %v", err)
+			}
+			backupAfter, err := os.ReadFile(path + ".bak")
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantBackup := backupBefore
+			if changed == "backup" {
+				wantBackup = changedBytes
+			}
+			if !bytes.Equal(backupAfter, wantBackup) {
+				t.Fatalf("backup overwritten after %s preimage change: %q", changed, backupAfter)
+			}
+		})
+	}
+}
+
+func TestCaptureVerifiedBackupStateRequiresCheckpoint(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := config.NewStore(path)
+	if err := store.Save(convergenceConfig("current")); err != nil {
+		t.Fatal(err)
+	}
+	_, err := store.CaptureVerifiedBackupState()
+	if err == nil || !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing checkpoint error = %v", err)
+	}
+}
+
+func convergenceConfig(id string) domain.Config {
+	cfg := domain.NewConfig()
+	cfg.Accounts[id] = domain.Account{Label: strings.ToUpper(id), Endpoints: domain.Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
+	cfg.Profiles[id] = domain.Profile{Label: strings.ToUpper(id), Account: id, Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: id + "-model"}}
+	cfg.Routes.Default = id
+	return cfg
 }

@@ -4,6 +4,10 @@
 
 An Account is one upstream provider account boundary: display label, supported protocol endpoints, optional exact-diagnostics declaration, and exactly one logical Token. The secret is stored at `AIGW_TOKEN/<account>` in the operating-system credential store; it is never embedded in configuration or team manifests. A local AIGW configuration may contain many Accounts; adding a second service never copies or replaces the first service's Token.
 
+`aigw account rename [old] [new]` moves an Account ID and updates all referencing Profiles. Phase 1 adopts the target `AIGW_TOKEN/<account>` and optional `AIGW_ACCOUNT/<account>` account-probe slots: missing values are copied and read back, equal values are resumable, and differing values fail closed. The read-only `env` backend requires equal target variables to be externally pre-provisioned. After success, the current TOML contains only the new Account key; the old key remains in the single `.bak` preimage and the old credential slots remain available.
+
+`aigw account rename <old> <new> --finalize` verifies the complete admitted-client checkpoint and converges the single `.bak` before deleting old slots. A rotation confirmation flag is required only when its corresponding old and new slots differ; differing probe credentials also require a live target-provider probe. Partial cleanup is retryable, while old `env` variables must be unset externally before retrying.
+
 Team-manifest import is non-destructive by default. A same-named Account or Runtime Profile is accepted only when its semantic configuration already matches the local object; a mismatch is rejected before any local config projection changes. This prevents a token held in `AIGW_TOKEN/<account>` from being silently redirected to a different endpoint. An operator may explicitly replace a reviewed conflict with `--replace-account <id>` or `--replace-profile <id>`; replacing an Account changes metadata only and never reads, writes, or deletes its Token.
 
 Example:
@@ -21,6 +25,8 @@ anthropic = "https://gateway.example"
 
 A Runtime Profile is what users choose day to day. It references one Account and defines a client scope plus the model name to send through that client protocol. One Account may back many Profiles: one Account can back separate GPT and Claude Profiles, while another provider has its own Account and Profile set. Endpoint URLs and provider probes are never Profile fields.
 
+`aigw profile rename [old] [new]` changes a Profile ID and updates all Route references to that profile. It does not touch Account configuration or Token slots. Interactive 0-argument use allows selecting the source and prompting for the target ID; 2-argument use is stable for scripting.
+
 ```toml
 [profiles."gpt-5.6-terra"]
 label = "GPT-5.6"
@@ -34,9 +40,12 @@ codex = "gpt-5.6-terra"
 
 `purpose` is optional, human-facing guidance only. It appears in `aigw use`, `aigw profile list`, and `aigw profile show`; it never changes a route, fallback, Account, endpoint, or Token.
 
-Profile and model IDs keep the canonical upstream model name; the client scope
-already lives in `client`. AIGW therefore rejects the former GPT client-suffix
-alias instead of translating or preserving it as a compatibility path.
+Profile IDs are user-defined configuration identities, and model IDs are
+transparent upstream gateway strings. AIGW validates generic Profile ID syntax,
+references, and client scope, but it does not reject, translate, or rewrite an
+ID based on a provider name, model version, prefix, suffix, or historical naming
+policy. Client scope remains explicit in `client` rather than being inferred
+from either ID.
 
 `claude-fable-5` is the recommended Claude baseline; Sonnet and Opus are explicit task-specific choices. The compact example team manifest includes `gpt-5.6-terra`, `claude-fable-5`, `claude-sonnet-5`, and `claude-opus-4-8-thinking`; it is not an implicit provider default. Model names are transparent upstream gateway strings; teams can add or remove only the models they have admitted for their own clients. See the [model strategy](model-strategy.md) for the curated capability set and adapter-admission policy.
 

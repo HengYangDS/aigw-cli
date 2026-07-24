@@ -139,9 +139,6 @@ func (c Config) Validate() error {
 		if !ValidProfileName(name) {
 			return fmt.Errorf("invalid profile name %q; use letters, numbers, dot, dash, or underscore", name)
 		}
-		if isRetiredGPTCDXAlias(name) {
-			return fmt.Errorf("profile %q uses a retired GPT -cdx alias; use the native model/profile ID without -cdx", name)
-		}
 		if strings.TrimSpace(profile.Label) == "" {
 			return fmt.Errorf("profile %q has an empty label", name)
 		}
@@ -182,9 +179,6 @@ func (c Config) Validate() error {
 			if !IsAdmittedClient(client) {
 				return fmt.Errorf("profile %q defines a model for unadmitted client %q", name, client)
 			}
-			if isRetiredGPTCDXAlias(model) {
-				return fmt.Errorf("profile %q model %q uses a retired GPT -cdx alias; use the native model ID without -cdx", name, model)
-			}
 			if profile.Client != "" && client != profile.Client && strings.TrimSpace(model) != "" {
 				return fmt.Errorf("profile %q is %s-scoped; define a model for %s, not %s", name, profile.Client, profile.Client, client)
 			}
@@ -207,13 +201,6 @@ func (c Config) Validate() error {
 		}
 	}
 	return nil
-}
-
-// isRetiredGPTCDXAlias blocks AIGW's former client-suffixed GPT names. Client
-// scope belongs in Profile.Client; model and Profile IDs remain canonical.
-func isRetiredGPTCDXAlias(value string) bool {
-	value = strings.ToLower(strings.TrimSpace(value))
-	return strings.HasPrefix(value, "gpt-5.6-") && strings.HasSuffix(value, "-cdx")
 }
 
 func validateEndpoints(owner, name string, endpoints Endpoints) error {
