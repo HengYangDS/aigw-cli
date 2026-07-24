@@ -10,20 +10,28 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Added
 
-- Add `aigw profile rename [old] [new]` and `aigw account rename [old] [new]` commands with support for interactive selection, scripting-friendly arguments, and a safe two-phase account credential migration.
 - Add an offline forge synchronization contract that requires exact canonical
   commit identity on GitLab and complete ordered source-tree history in the
   identity-rewritten GitHub projection.
 
 ### Fixed
 
-- Remove runtime and static exclusions for specific `gpt-5.6-*-cdx` profile and model IDs; model identity is now constrained only by general format, references, and client protocol capabilities.
 - Use protocol-specific authentication headers for direct Claude and Codex
   connectivity checks, so Anthropic-compatible endpoints no longer receive an
   OpenAI bearer header.
 - Preserve qualified GitHub provenance tags while refreshing canonical GitLab
   tags, even when global Git fetch pruning is enabled, and record retired GitLab
   `rc.58` chronology so fresh CI checkouts do not depend on workstation refs.
+
+## [0.1.0-rc.70] - 2026-07-24
+
+### Added
+
+- Add `aigw profile rename [old] [new]` and `aigw account rename [old] [new]` commands with support for interactive selection, scripting-friendly arguments, and a safe two-phase account credential migration.
+
+### Fixed
+
+- Remove runtime and static exclusions for specific `gpt-5.6-*-cdx` profile and model IDs; model identity is now constrained only by general format, references, and client protocol capabilities.
 
 ## [0.1.0-rc.69] - 2026-07-21
 
