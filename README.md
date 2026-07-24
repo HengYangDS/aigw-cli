@@ -109,6 +109,8 @@ aigw doctor                  # detailed diagnosis and one recovery action
 aigw repair                  # bounded client discovery and reconciliation
 aigw repair --dry-run --json # preview repair without writing or binding auth
 aigw route doctor            # inspect host-route ownership; no probes or writes
+aigw profile rename [old] [new] # rename a profile; updates route references
+aigw account rename [old] [new] # rename an account; two-phase credential migration
 ```
 
 `aigw test` is a bounded connectivity and authentication check. `aigw verify`
