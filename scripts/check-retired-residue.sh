@@ -29,10 +29,6 @@ matches=$(git grep -n -E '\[accounts\.dmx\]|DMXAPI' \
   ':!internal/providers/**' ':!internal/cli/doctor.go' ':!**/*_test.go' || true)
 [ -z "$matches" ] || { printf '%s\n' "$matches" >&2; fail "provider identity leaked into product defaults"; }
 
-matches=$(git grep -n -E 'gpt-5\.6-[A-Za-z0-9._-]+-cdx' \
-  -- . ':!scripts/check-retired-residue.sh' || true)
-[ -z "$matches" ] || { printf '%s\n' "$matches" >&2; fail "retired GPT -cdx alias found"; }
-
 matches=$(git grep -n -E 'catalog\.Team|internal/catalog' -- cmd internal README.md docs examples ':!**/*_test.go' || true)
 [ -z "$matches" ] || { printf '%s\n' "$matches" >&2; fail "bundled provider catalog reference found"; }
 

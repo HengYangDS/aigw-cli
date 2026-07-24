@@ -123,6 +123,7 @@ func newAccountCommand(app *App) *cobra.Command {
 	root := &cobra.Command{Use: "account", Short: "Manage account endpoints and optional precise diagnostics"}
 	root.AddCommand(
 		newAccountEditCommand(app),
+		newAccountRenameCommand(app),
 		&cobra.Command{Use: "connect [account]", Short: "Bind provider platform credentials to query precise balance", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 			if !app.Interactive {
 				return fmt.Errorf("Binding platform credentials requires an interactive terminal")

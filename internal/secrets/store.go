@@ -21,6 +21,11 @@ type Store interface {
 	Has(profile string) bool
 }
 
+func IsReadOnly(store Store) bool {
+	reporter, ok := store.(interface{ ReadOnly() bool })
+	return ok && reporter.ReadOnly()
+}
+
 func validate(profile, value string, requireValue bool) error {
 	if !domain.ValidProfileName(profile) {
 		return fmt.Errorf("invalid profile name %q", profile)

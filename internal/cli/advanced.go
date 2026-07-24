@@ -271,47 +271,39 @@ func newProfileEditCommand(app *App) *cobra.Command {
 }
 
 func newProfileRenameCommand(app *App) *cobra.Command {
-	return &cobra.Command{
-		Use: "rename <old> <new>", Short: "Rename a profile", Args: cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			oldName, newName := args[0], args[1]
-			if !domain.ValidProfileName(newName) {
-				return fmt.Errorf("Invalid new profile ID %q", newName)
+	var dryRun, jsonMode bool
+	cmd := &cobra.Command{
+		Use: "rename [old] [new]", Short: "Rename a profile", Args: cobra.MaximumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 2 && !app.Interactive {
+				return fmt.Errorf("profile rename requires <old> <new> in non-interactive mode")
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
 				return err
 			}
-			before := cloneConfig(cfg)
-			profile, ok := cfg.Profiles[oldName]
-			if !ok {
-				return fmt.Errorf("Unknown profile %q", oldName)
-			}
-			if _, exists := cfg.Profiles[newName]; exists {
-				return fmt.Errorf("Profile %q already exists", newName)
-			}
-			delete(cfg.Profiles, oldName)
-			cfg.Profiles[newName] = profile
-			if cfg.Routes.Default == oldName {
-				cfg.Routes.Default = newName
-			}
-			for client, name := range cfg.Routes.Overrides {
-				if name == oldName {
-					cfg.Routes.Overrides[client] = newName
-				}
-			}
-			if err := commitConfigAndSync(context.Background(), app, before, cfg, "profile rename"); err != nil {
+			oldID, newID, err := resolveRenameIDs(app, "profile", args, profileRenameChoices(cfg))
+			if err != nil {
 				return err
 			}
-			r := renderer(app)
-			r.Title("AIGW", "Profile renamed")
-			r.Row("Previous profile", oldName)
-			r.Row("New profile", newName)
-			r.Row("Account", profile.Account)
-			r.Success("The account token remains in place and routes were synchronized")
-			return nil
+			plan, err := planProfileRename(cfg, oldID, newID)
+			if err != nil {
+				return err
+			}
+			if dryRun {
+				return writeRenameResult(app, plan, jsonMode)
+			}
+			if err := commitConfigAndSync(cmd.Context(), app, cfg, plan.config, "profile rename"); err != nil {
+				return err
+			}
+			plan.Status = "applied"
+			plan.Actions.Backup = "refreshed"
+			return writeRenameResult(app, plan, jsonMode)
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the rename plan without writing configuration")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the rename plan or result as JSON")
+	return cmd
 }
 
 func newProfileRemoveCommand(app *App) *cobra.Command {
