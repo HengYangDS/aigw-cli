@@ -38,9 +38,10 @@ func removeEnvironment(env []string, keys ...string) []string {
 	out := make([]string, 0, len(env))
 	for _, entry := range env {
 		key, _, _ := strings.Cut(entry, "=")
-		if !remove[key] {
-			out = append(out, entry)
+		if remove[key] || strings.HasPrefix(key, "AIGW_TOKEN_") {
+			continue
 		}
+		out = append(out, entry)
 	}
 	return out
 }

@@ -3,35 +3,75 @@
 ## Maintainer workflow
 
 Publish a reviewed, token-free account and profile manifest, such as
-[`examples/team-profiles.toml`](../examples/team-profiles.toml). It may contain
-account metadata, endpoints, profiles, models, purposes, and a recommended
-default. It must not contain tokens, personal route overrides, adapter state, or
+the repository deployment manifest
+[`team/team-profiles.toml`](../team/team-profiles.toml). Use
+[`examples/team-profiles.toml`](../examples/team-profiles.toml) as the
+provider-neutral format example. A manifest may contain account metadata,
+endpoints, profiles, models, purposes, and a recommended default plus optional
+recommended client routes. It must not contain tokens, adapter state, or
 machine paths.
 
+Recommended client routes require team manifest v3. Current clients continue to
+accept v2 manifests without that table; older clients reject v3 and must be
+updated before rollout rather than partially applying it.
+
 ```bash
-aigw config import team-profiles.toml
-aigw config export
+aigw config export > team-profiles.toml
 ```
+
+Exported client routes are recommendations. Import and setup fill only a
+member's missing route selections; they do not replace an existing personal
+Claude or Codex route.
 
 Import is idempotent only for semantically identical names. A conflict stops
 before mutation. A reviewed operator can replace public metadata explicitly:
 
 ```bash
-aigw config import team-profiles.toml --replace-account team-gateway
-aigw config import team-profiles.toml --replace-profile gpt-5.6-terra
+aigw config import team-profiles.toml --replace-account dmxapi
+aigw config import team-profiles.toml --replace-profile dmxapi-gpt-5.6-terra
 ```
 
 Those switches never read, copy, delete, or replace a member's system token.
 
 ## Member workflow
 
+### New machine
+
+Review only each `[accounts.<id>.endpoints]` table. Profiles, models, and
+recommended routes are maintained team metadata; Tokens never belong in this
+file. The repository deployment manifest includes a loopback compatibility
+endpoint; keep it only when that listener exists on the member's machine.
+
 ```bash
-aigw config import team-profiles.toml
-aigw rotate team-gateway
-aigw use gpt-5.6-terra --for codex
-aigw use claude-fable-5 --for claude
+aigw setup --from team-profiles.toml
 aigw check
 ```
+
+Interactive setup prompts once for each missing Account Token, validates every
+Account before writing, imports the full profile matrix, and applies the
+recommended default and client routes. AIGW stores Tokens in the selected system
+secret backend. When Codex is configured, its native login also binds the active
+credential into the one admitted Codex home; team setup refuses multiple
+auto-managed Codex targets because partial native login cannot be rolled back.
+`--token-stdin` is intentionally limited to a one-Account manifest; a
+multi-Account manifest must use hidden interactive prompts or pre-provisioned
+environment secrets.
+
+If Claude is discoverable, validation makes one bounded, no-session-persistence
+minimal model request per Claude Account. Otherwise setup uses a strict
+authenticated models probe; install or make Claude discoverable first when a
+provider does not expose that probe. Codex validation uses the models endpoint.
+
+### Already configured machine
+
+```bash
+aigw config import team-profiles.toml
+aigw rotate <account> # only when that Account still lacks a Token
+aigw check
+```
+
+`setup --from` is first-configuration only. Import remains non-destructive and
+never reads, writes, or deletes Account Tokens.
 
 Use `aigw catalog --all` for read-only inventory inspection. Catalog results are
 not admission evidence and do not automatically change a route. Enable only
@@ -119,7 +159,8 @@ CI can use the read-only environment secret backend:
 
 ```bash
 export AIGW_SECRET_BACKEND=env
-export AIGW_TOKEN_TEAM_GATEWAY=masked-ci-token
+export AIGW_TOKEN_TEAM_GATEWAY=masked-team-token
+aigw setup --from examples/team-profiles.toml
 ```
 
-This backend validates a pre-provisioned token but cannot write or delete it.
+This backend validates pre-provisioned Tokens but cannot write or delete them.
