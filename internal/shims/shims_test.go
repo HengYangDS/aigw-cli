@@ -42,6 +42,48 @@ func TestManagerCreatesAndRemovesOwnedUnixClaudeShim(t *testing.T) {
 	}
 }
 
+func TestEnableClaudeRestoresExistingLauncherWhenActivationFails(t *testing.T) {
+	home := t.TempDir()
+	binDir := t.TempDir()
+	manager := shims.Manager{GOOS: "linux", Home: home, Shell: "/bin/zsh", BinDir: binDir, AIGWExecutable: "/bin/sh"}
+	path, err := manager.EnableClaude()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(home, ".zshrc")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(home, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	manager.AIGWExecutable = "/bin/echo"
+	_, enableErr := manager.EnableClaude()
+	if err := os.Chmod(home, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if enableErr == nil {
+		t.Skip("filesystem permissions did not reject the activation write")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) || info.Mode().Perm() != 0o700 {
+		t.Fatalf("launcher was not restored after activation failure: mode=%o", info.Mode().Perm())
+	}
+}
+
 func TestManagerCreatesWindowsCommandShim(t *testing.T) {
 	dir := t.TempDir()
 	manager := shims.Manager{GOOS: "windows", BinDir: dir, AIGWExecutable: filepath.Join(dir, "aigw.exe")}

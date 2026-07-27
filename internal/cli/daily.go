@@ -908,10 +908,14 @@ func verifyClaudeInvocation(ctx context.Context, app *App, cfg domain.Config, ru
 	if !ready {
 		return fmt.Errorf("Claude launcher is missing; run `aigw repair`")
 	}
+	return verifyClaudeRuntimeWithExecutable(ctx, app, adapter.Executable, runtime, token)
+}
+
+func verifyClaudeRuntimeWithExecutable(ctx context.Context, app *App, executable string, runtime domain.Runtime, token string) error {
 	if runtime.Model == "" {
 		return fmt.Errorf("Profile %q has no Claude model", runtime.ProfileID)
 	}
-	plan, err := adapters.ClaudePlan(adapter.Executable, []string{"--safe-mode", "--disable-slash-commands", "--no-session-persistence", "--print", "--model", runtime.Model, "Reply with exactly: AIGW_OK"}, os.Environ(), runtime, token)
+	plan, err := adapters.ClaudePlan(executable, []string{"--safe-mode", "--disable-slash-commands", "--no-session-persistence", "--print", "--model", runtime.Model, "Reply with exactly: AIGW_OK"}, os.Environ(), runtime, token)
 	if err != nil {
 		return err
 	}
@@ -922,7 +926,9 @@ func verifyClaudeInvocation(ctx context.Context, app *App, cfg domain.Config, ru
 	if !ok {
 		return fmt.Errorf("Claude verification runner is unavailable")
 	}
-	output, err := runner.RunCapture(ctx, plan)
+	verifyCtx, cancel := context.WithTimeout(ctx, protocolVerificationTimeout)
+	defer cancel()
+	output, err := runner.RunCapture(verifyCtx, plan)
 	if err != nil {
 		return fmt.Errorf("Claude minimal verification request failed: %w", err)
 	}
