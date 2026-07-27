@@ -10,6 +10,10 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Added
 
+- Add first-time `aigw setup --from <team-profiles.toml>` for token-free team
+  manifest v3, including reviewed route recommendations, per-Account hidden
+  Token prompts, real Claude-client validation when discoverable, strict Codex
+  endpoint probes, and bounded rollback.
 - Add an offline forge synchronization contract that requires exact canonical
   commit identity on GitLab and complete ordered source-tree history in the
   identity-rewritten GitHub projection.

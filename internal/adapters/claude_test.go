@@ -11,6 +11,7 @@ func TestClaudePlanInjectsOnlyProcessLocalAnthropicVariables(t *testing.T) {
 	runtime := domain.Runtime{ProfileID: "dmx", AccountID: "dmx", Endpoint: "https://example.test"}
 	plan, err := adapters.ClaudePlan("/usr/local/bin/claude-real", []string{"--version"}, []string{
 		"PATH=/usr/bin", "ANTHROPIC_API_KEY=stale", "ANTHROPIC_AUTH_TOKEN=stale", "ANTHROPIC_BASE_URL=stale",
+		"AIGW_TOKEN_AIHUBMIX=unrelated", "AIGW_TOKEN_DMXAPI=unrelated",
 	}, runtime, "fresh-secret")
 	if err != nil {
 		t.Fatal(err)
@@ -27,6 +28,12 @@ func TestClaudePlanInjectsOnlyProcessLocalAnthropicVariables(t *testing.T) {
 	}
 	if _, ok := env["ANTHROPIC_API_KEY"]; ok {
 		t.Fatal("stale ANTHROPIC_API_KEY survived")
+	}
+	if _, ok := env["AIGW_TOKEN_AIHUBMIX"]; ok {
+		t.Fatal("unrelated AIHubMix Token survived")
+	}
+	if _, ok := env["AIGW_TOKEN_DMXAPI"]; ok {
+		t.Fatal("unrelated DMXAPI Token survived")
 	}
 	if env["AIGW_PROFILE"] != "dmx" {
 		t.Fatalf("AIGW_PROFILE = %q", env["AIGW_PROFILE"])

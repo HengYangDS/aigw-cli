@@ -64,6 +64,15 @@ func TestRestoreFileAtomicIfPostimageRestoresExactPreimage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(path, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		postimage, err = transaction.CaptureFileSnapshot(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := transaction.RestoreFileAtomicIfPostimage(path, before, postimage); err != nil {
 		t.Fatal(err)
 	}

@@ -84,14 +84,33 @@ and one secure Token slot without assuming a gateway, model, or provider:
 aigw setup
 ```
 
-For a reviewed, token-free team manifest:
+For a new machine with a reviewed, token-free team manifest, review only the
+Account endpoints and run one command. AIGW imports every profile, prompts once
+for each missing Account Token, validates the credentials, and keeps Tokens out
+of the manifest and local config:
+
+```bash
+aigw setup --from team-profiles.toml
+```
+
+This repository's ready-to-use deployment manifest is
+[`team/team-profiles.toml`](team/team-profiles.toml); the provider-neutral
+format example remains [`examples/team-profiles.toml`](examples/team-profiles.toml).
+
+When Claude is installed, setup validates each Claude Account with one bounded,
+no-session-persistence minimal model request. Without Claude it falls back to a
+strict authenticated models probe; providers that do not expose that probe must
+be set up after Claude is discoverable. Codex Accounts use an authenticated
+models probe.
+
+`setup --from` and recommended client routes use team manifest v3. Older AIGW
+clients fail closed on v3 and must be updated before this rollout path is used.
+
+On an already configured machine, merge public metadata without touching
+existing Tokens:
 
 ```bash
 aigw config import team-profiles.toml
-aigw rotate team-gateway
-aigw use gpt-5.6-terra --for codex
-aigw use claude-fable-5 --for claude
-aigw check
 ```
 
 Import is non-destructive. A same-named Account or profile must match exactly

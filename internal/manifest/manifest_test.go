@@ -1,12 +1,234 @@
 package manifest_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/manifest"
 )
+
+func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "team", "team-profiles.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	team, err := manifest.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if team.Version != 3 {
+		t.Fatalf("team manifest version = %d, want 3", team.Version)
+	}
+	if team.RecommendedDefault != "dmxapi-gpt-5.6-terra" {
+		t.Fatalf("recommended default = %q", team.RecommendedDefault)
+	}
+	if len(team.RecommendedRoutes) != 1 || team.RecommendedRoutes[domain.ClientClaude] != "aihubmix-claude-sonnet-5" {
+		t.Fatalf("recommended routes = %#v", team.RecommendedRoutes)
+	}
+	if len(team.Accounts) != 2 || len(team.Profiles) != 24 {
+		t.Fatalf("example matrix has %d Accounts and %d profiles, want 2 and 24", len(team.Accounts), len(team.Profiles))
+	}
+	if got := team.Accounts["aihubmix"].Endpoints; got.OpenAIResponses != "https://aihubmix.com/v1" || got.Anthropic != "https://aihubmix.com" {
+		t.Fatalf("AIHubMix endpoints = %#v", got)
+	}
+	dmxapi := team.Accounts["dmxapi"]
+	if dmxapi.Endpoints.OpenAIResponses != "http://127.0.0.1:8791/v1" || dmxapi.Endpoints.Anthropic != "https://www.dmxapi.cn" {
+		t.Fatalf("DMXAPI endpoints = %#v", dmxapi.Endpoints)
+	}
+	if dmxapi.AccountProbe == nil || dmxapi.AccountProbe.Kind != "dmxapi" || dmxapi.AccountProbe.BaseURL != "https://www.dmxapi.cn" {
+		t.Fatalf("DMXAPI account probe = %#v", dmxapi.AccountProbe)
+	}
+
+	want := map[string]struct{ client, model string }{
+		"aihubmix-claude-fable-5":      {domain.ClientClaude, "claude-fable-5"},
+		"aihubmix-claude-opus-5":       {domain.ClientClaude, "claude-opus-5"},
+		"aihubmix-claude-sonnet-5":     {domain.ClientClaude, "claude-sonnet-5"},
+		"aihubmix-gpt-5.6-luna":        {domain.ClientCodex, "gpt-5.6-luna"},
+		"aihubmix-gpt-5.6-sol":         {domain.ClientCodex, "gpt-5.6-sol"},
+		"aihubmix-gpt-5.6-terra":       {domain.ClientCodex, "gpt-5.6-terra"},
+		"dmxapi-claude-fable-5":        {domain.ClientClaude, "claude-fable-5"},
+		"dmxapi-claude-fable-5-cc":     {domain.ClientClaude, "claude-fable-5-cc"},
+		"dmxapi-claude-fable-5-ssvip":  {domain.ClientClaude, "claude-fable-5-ssvip"},
+		"dmxapi-claude-opus-5-cc":      {domain.ClientClaude, "claude-opus-5-cc"},
+		"dmxapi-claude-opus-5-ssvip":   {domain.ClientClaude, "claude-opus-5-ssvip"},
+		"dmxapi-claude-sonnet-5":       {domain.ClientClaude, "claude-sonnet-5"},
+		"dmxapi-claude-sonnet-5-cc":    {domain.ClientClaude, "claude-sonnet-5-cc"},
+		"dmxapi-claude-sonnet-5-ssvip": {domain.ClientClaude, "claude-sonnet-5-ssvip"},
+		"dmxapi-gpt-5.6-luna":          {domain.ClientCodex, "gpt-5.6-luna"},
+		"dmxapi-gpt-5.6-luna-cdx":      {domain.ClientCodex, "gpt-5.6-luna-cdx"},
+		"dmxapi-gpt-5.6-luna-ssvip":    {domain.ClientCodex, "gpt-5.6-luna-ssvip"},
+		"dmxapi-gpt-5.6-sol":           {domain.ClientCodex, "gpt-5.6-sol"},
+		"dmxapi-gpt-5.6-sol-cdx":       {domain.ClientCodex, "gpt-5.6-sol-cdx"},
+		"dmxapi-gpt-5.6-sol-ssvip":     {domain.ClientCodex, "gpt-5.6-sol-ssvip"},
+		"dmxapi-gpt-5.6-terra":         {domain.ClientCodex, "gpt-5.6-terra"},
+		"dmxapi-gpt-5.6-terra-cdx":     {domain.ClientCodex, "gpt-5.6-terra-cdx"},
+		"dmxapi-gpt-5.6-terra-ssvip":   {domain.ClientCodex, "gpt-5.6-terra-ssvip"},
+		"dmxapi-qwen3.7-max":           {domain.ClientCodex, "qwen3.7-max"},
+	}
+	for name, expected := range want {
+		profile, ok := team.Profiles[name]
+		if !ok {
+			t.Errorf("missing profile %q", name)
+			continue
+		}
+		if profile.Client != expected.client || profile.Models[expected.client] != expected.model {
+			t.Errorf("profile %q = client %q model %q, want %q and %q", name, profile.Client, profile.Models[expected.client], expected.client, expected.model)
+		}
+	}
+	for name := range team.Profiles {
+		if _, ok := want[name]; !ok {
+			t.Errorf("unexpected profile %q", name)
+		}
+	}
+}
+
+func TestExampleTeamManifestIsProviderNeutralVersionThree(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "examples", "team-profiles.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	team, err := manifest.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if team.Version != 3 || len(team.Accounts) != 1 || len(team.Profiles) != 4 {
+		t.Fatalf("neutral example = version %d, %d Accounts, %d profiles", team.Version, len(team.Accounts), len(team.Profiles))
+	}
+	if _, ok := team.Profiles["claude-opus-5"]; !ok {
+		t.Fatal("neutral example lacks Claude Opus 5")
+	}
+	for name := range team.Profiles {
+		if strings.Contains(name, "4-8") {
+			t.Fatalf("neutral example retains obsolete profile %q", name)
+		}
+	}
+}
+
+func TestRecommendedRoutesAreValidatedExportedAndDoNotOverridePersonalChoices(t *testing.T) {
+	raw := []byte(`version = 3
+recommended_default = "team-codex"
+[recommended_routes]
+claude = "team-claude"
+codex = "team-codex"
+
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+openai_responses = "https://team.test/v1"
+anthropic = "https://team.test"
+
+[profiles.team-claude]
+label = "Team Claude"
+account = "team"
+client = "claude"
+[profiles.team-claude.models]
+claude = "claude-test"
+
+[profiles.team-codex]
+label = "Team Codex"
+account = "team"
+client = "codex"
+[profiles.team-codex.models]
+codex = "gpt-test"
+`)
+	team, err := manifest.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := manifest.Merge(domain.NewConfig(), team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Routes.Overrides[domain.ClientClaude] != "team-claude" || got.Routes.Overrides[domain.ClientCodex] != "team-codex" {
+		t.Fatalf("recommended routes not applied: %#v", got.Routes)
+	}
+
+	got.Accounts["personal"] = domain.Account{Label: "Personal", Endpoints: domain.Endpoints{Anthropic: "https://personal.test"}}
+	got.Profiles["personal-claude"] = domain.Profile{Label: "Personal Claude", Account: "personal", Client: domain.ClientClaude, Models: domain.Models{domain.ClientClaude: "personal-model"}}
+	got.Routes.Overrides[domain.ClientClaude] = "personal-claude"
+	merged, err := manifest.Merge(got, team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if merged.Routes.Overrides[domain.ClientClaude] != "personal-claude" || merged.Routes.Overrides[domain.ClientCodex] != "team-codex" {
+		t.Fatalf("merge replaced a personal route: %#v", merged.Routes)
+	}
+
+	exported, err := manifest.Export(merged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exportedTeam, err := manifest.Parse(exported)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exportedTeam.RecommendedRoutes[domain.ClientClaude] != "personal-claude" || exportedTeam.RecommendedRoutes[domain.ClientCodex] != "team-codex" {
+		t.Fatalf("exported routes = %#v", exportedTeam.RecommendedRoutes)
+	}
+}
+
+func TestParseRejectsIncompatibleRecommendedRoute(t *testing.T) {
+	raw := []byte(`version = 3
+recommended_default = "codex"
+[recommended_routes]
+claude = "codex"
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+openai_responses = "https://team.test/v1"
+[profiles.codex]
+label = "Codex"
+account = "team"
+client = "codex"
+[profiles.codex.models]
+codex = "gpt-test"
+`)
+	if _, err := manifest.Parse(raw); err == nil {
+		t.Fatal("incompatible recommended route was accepted")
+	}
+}
+
+func TestVersionTwoRejectsRecommendedRoutesButRemainsSupportedWithoutThem(t *testing.T) {
+	legacy := `version = 2
+recommended_default = "claude"
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+anthropic = "https://team.test"
+[profiles.claude]
+label = "Claude"
+account = "team"
+client = "claude"
+[profiles.claude.models]
+claude = "claude-test"
+`
+	if _, err := manifest.Parse([]byte(legacy)); err != nil {
+		t.Fatalf("legacy v2 manifest was rejected: %v", err)
+	}
+	withRoutes := strings.Replace(legacy, "[accounts.team]", "[recommended_routes]\nclaude = \"claude\"\n[accounts.team]", 1)
+	if _, err := manifest.Parse([]byte(withRoutes)); err == nil || !strings.Contains(err.Error(), "version 3") {
+		t.Fatalf("v2 recommended_routes error = %v", err)
+	}
+	withEmptyRoutes := strings.Replace(legacy, "[accounts.team]", "[recommended_routes]\n[accounts.team]", 1)
+	if _, err := manifest.Parse([]byte(withEmptyRoutes)); err == nil || !strings.Contains(err.Error(), "version 3") {
+		t.Fatalf("v2 empty recommended_routes error = %v", err)
+	}
+}
+
+func TestExportRejectsRouteThatCannotBeParsedBack(t *testing.T) {
+	cfg := domain.NewConfig()
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
+	cfg.Profiles["codex"] = domain.Profile{Label: "Codex", Account: "team", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
+	cfg.Routes.Default = "codex"
+	cfg.Routes.Overrides[domain.ClientClaude] = "codex"
+
+	if _, err := manifest.Export(cfg); err == nil {
+		t.Fatal("export accepted a client-incompatible route")
+	}
+}
 
 func TestParseTeamManifestAndMergePreservesPersonalState(t *testing.T) {
 	raw := []byte(`version = 2
@@ -333,7 +555,7 @@ openai_responses = "https://gateway.test/v1"
 	}
 }
 
-func TestExportOmitsSecretsAdaptersAndOverrides(t *testing.T) {
+func TestExportOmitsSecretsAndAdaptersAndPublishesRouteRecommendations(t *testing.T) {
 	cfg := domain.NewConfig()
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Profiles["team"] = domain.Profile{Label: "Team", Account: "team"}
@@ -353,7 +575,7 @@ func TestExportOmitsSecretsAdaptersAndOverrides(t *testing.T) {
 	if !strings.Contains(text, `recommended_default = 'team'`) && !strings.Contains(text, `recommended_default = "team"`) {
 		t.Fatalf("export lacks recommended default:\n%s", text)
 	}
-	if !strings.Contains(text, "version = 2") {
-		t.Fatalf("new config export must use manifest v2:\n%s", text)
+	if !strings.Contains(text, "version = 3") || !strings.Contains(text, "recommended_routes") || !strings.Contains(text, "claude") {
+		t.Fatalf("new config export must use manifest v3 with route recommendations:\n%s", text)
 	}
 }

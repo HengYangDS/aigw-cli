@@ -11,9 +11,15 @@ import (
 
 var credentialKey = regexp.MustCompile(`(?i)(token|secret|password|api[_-]?key|auth(?:orization)?(?:[_-]?header)?|credential)`)
 
+const (
+	legacyVersion  = 2
+	currentVersion = 3
+)
+
 type Manifest struct {
 	Version            int                       `toml:"version"`
 	RecommendedDefault string                    `toml:"recommended_default"`
+	RecommendedRoutes  map[string]string         `toml:"recommended_routes,omitempty"`
 	Accounts           map[string]domain.Account `toml:"accounts,omitempty"`
 	Profiles           map[string]domain.Profile `toml:"profiles"`
 }
@@ -34,17 +40,24 @@ func Parse(data []byte) (Manifest, error) {
 	if key := findCredentialKey(raw, ""); key != "" {
 		return Manifest{}, fmt.Errorf("team manifest contains forbidden credential field %q", key)
 	}
+	_, recommendedRoutesPresent := raw["recommended_routes"]
 	var result Manifest
 	decoder := toml.NewDecoder(strings.NewReader(string(data)))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&result); err != nil {
 		return Manifest{}, fmt.Errorf("validate team manifest shape: %w", err)
 	}
-	if result.Version != domain.ConfigVersion {
-		return Manifest{}, fmt.Errorf("unsupported team manifest version %d; expected %d", result.Version, domain.ConfigVersion)
+	if result.Version != legacyVersion && result.Version != currentVersion {
+		return Manifest{}, fmt.Errorf("unsupported team manifest version %d; supported versions are %d and %d", result.Version, legacyVersion, currentVersion)
 	}
 	if result.Accounts == nil {
 		result.Accounts = map[string]domain.Account{}
+	}
+	if result.RecommendedRoutes == nil {
+		result.RecommendedRoutes = map[string]string{}
+	}
+	if result.Version == legacyVersion && recommendedRoutesPresent {
+		return Manifest{}, fmt.Errorf("recommended_routes requires team manifest version %d", currentVersion)
 	}
 	if len(result.Profiles) == 0 {
 		return Manifest{}, fmt.Errorf("team manifest must define at least one profile")
@@ -65,8 +78,22 @@ func Parse(data []byte) (Manifest, error) {
 			break
 		}
 	}
+	for client, profile := range result.RecommendedRoutes {
+		if client != domain.ClientClaude && client != domain.ClientCodex {
+			return Manifest{}, fmt.Errorf("recommended route uses unsupported client %q", client)
+		}
+		if _, ok := result.Profiles[profile]; !ok {
+			return Manifest{}, fmt.Errorf("recommended %s route references unknown profile %q", client, profile)
+		}
+		check.Routes.Overrides[client] = profile
+	}
 	if err := check.Validate(); err != nil {
 		return Manifest{}, fmt.Errorf("invalid team manifest: %w", err)
+	}
+	for client := range result.RecommendedRoutes {
+		if _, _, err := check.ResolveRuntime(client, ""); err != nil {
+			return Manifest{}, fmt.Errorf("invalid recommended %s route: %w", client, err)
+		}
 	}
 	return result, nil
 }
@@ -101,8 +128,8 @@ func Merge(cfg domain.Config, team Manifest) (domain.Config, error) {
 }
 
 func MergeWithOptions(cfg domain.Config, team Manifest, options MergeOptions) (domain.Config, error) {
-	if team.Version != domain.ConfigVersion {
-		return domain.Config{}, fmt.Errorf("unsupported team manifest version %d; expected %d", team.Version, domain.ConfigVersion)
+	if team.Version != legacyVersion && team.Version != currentVersion {
+		return domain.Config{}, fmt.Errorf("unsupported team manifest version %d; supported versions are %d and %d", team.Version, legacyVersion, currentVersion)
 	}
 	merged := cloneConfig(cfg)
 	if err := validateReplacementSelectors(team, options); err != nil {
@@ -137,6 +164,11 @@ func MergeWithOptions(cfg domain.Config, team Manifest, options MergeOptions) (d
 				merged.Routes.Default = name
 				break
 			}
+		}
+	}
+	for client, profile := range team.RecommendedRoutes {
+		if merged.Routes.Overrides[client] == "" {
+			merged.Routes.Overrides[client] = profile
 		}
 	}
 	if err := merged.Validate(); err != nil {
@@ -214,5 +246,16 @@ func Export(cfg domain.Config) ([]byte, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	return toml.Marshal(Manifest{Version: domain.ConfigVersion, RecommendedDefault: cfg.Routes.Default, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
+	recommendedRoutes := make(map[string]string, len(cfg.Routes.Overrides))
+	for client, profile := range cfg.Routes.Overrides {
+		recommendedRoutes[client] = profile
+	}
+	data, err := toml.Marshal(Manifest{Version: currentVersion, RecommendedDefault: cfg.Routes.Default, RecommendedRoutes: recommendedRoutes, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
+	if err != nil {
+		return nil, err
+	}
+	if _, err := Parse(data); err != nil {
+		return nil, fmt.Errorf("export team manifest: %w", err)
+	}
+	return data, nil
 }
