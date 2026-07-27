@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.71] - 2026-07-27
+
 ### Added
 
 - Add first-time `aigw setup --from <team-profiles.toml>` for token-free team
