@@ -21,9 +21,10 @@ import (
 )
 
 type fakeRunner struct {
-	plans   []adapters.ProcessPlan
-	output  []byte
-	capture error
+	plans            []adapters.ProcessPlan
+	captureDeadlines []bool
+	output           []byte
+	capture          error
 }
 
 func (r *fakeRunner) Run(_ context.Context, plan adapters.ProcessPlan) error {
@@ -31,8 +32,10 @@ func (r *fakeRunner) Run(_ context.Context, plan adapters.ProcessPlan) error {
 	return nil
 }
 
-func (r *fakeRunner) RunCapture(_ context.Context, plan adapters.ProcessPlan) ([]byte, error) {
+func (r *fakeRunner) RunCapture(ctx context.Context, plan adapters.ProcessPlan) ([]byte, error) {
 	r.plans = append(r.plans, plan)
+	_, hasDeadline := ctx.Deadline()
+	r.captureDeadlines = append(r.captureDeadlines, hasDeadline)
 	if r.capture != nil {
 		return nil, r.capture
 	}
@@ -60,6 +63,10 @@ func (r *failingRunner) Run(_ context.Context, _ adapters.ProcessPlan) error {
 		return r.err
 	}
 	return nil
+}
+
+func (r *failingRunner) RunCapture(_ context.Context, _ adapters.ProcessPlan) ([]byte, error) {
+	return []byte("AIGW_OK\n"), nil
 }
 
 type fakeHTTP struct {
@@ -434,8 +441,8 @@ func TestRotateClaudeOnlyAccountDoesNotTouchCodexTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.HTTP.(*fakeHTTP).handler = func(req *http.Request) (*http.Response, error) {
-		if req.URL.Host != "claude.test" || req.Header.Get("Authorization") != "Bearer new-claude-token" {
-			t.Fatalf("Claude token verification request = %s authorization=%q", req.URL, req.Header.Get("Authorization"))
+		if req.URL.Host != "claude.test" || req.Header.Get("X-Api-Key") != "new-claude-token" || req.Header.Get("Authorization") != "" {
+			t.Fatalf("Claude token verification request = %s headers=%#v", req.URL, req.Header)
 		}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: req}, nil
 	}

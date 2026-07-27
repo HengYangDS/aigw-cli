@@ -90,7 +90,7 @@ func RestoreFileAtomicIfPostimage(path string, preimage, postimage FileSnapshot)
 		return fmt.Errorf("postimage changed for %s; refusing to overwrite newer state", path)
 	}
 	if preimage.Exists {
-		return WriteFileAtomic(path, preimage.Data, preimage.Mode)
+		return WriteFileAtomicExactMode(path, preimage.Data, preimage.Mode)
 	}
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove %s: %w", path, err)
@@ -106,11 +106,23 @@ func sameFileSnapshot(left, right FileSnapshot) bool {
 }
 
 func WriteFileAtomic(path string, data []byte, defaultMode os.FileMode) error {
+	return writeFileAtomic(path, data, defaultMode, true)
+}
+
+// WriteFileAtomicExactMode replaces a file without inheriting the current
+// target mode. It is reserved for byte-and-mode-exact transaction rollback.
+func WriteFileAtomicExactMode(path string, data []byte, mode os.FileMode) error {
+	return writeFileAtomic(path, data, mode, false)
+}
+
+func writeFileAtomic(path string, data []byte, defaultMode os.FileMode, preserveExistingMode bool) error {
 	mode := defaultMode
-	if info, err := os.Stat(path); err == nil {
-		mode = info.Mode().Perm()
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("inspect %s: %w", path, err)
+	if preserveExistingMode {
+		if info, err := os.Stat(path); err == nil {
+			mode = info.Mode().Perm()
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("inspect %s: %w", path, err)
+		}
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("create parent directory: %w", err)

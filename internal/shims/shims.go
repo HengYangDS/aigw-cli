@@ -1,6 +1,7 @@
 package shims
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,6 +23,54 @@ type Manager struct {
 	Home           string
 	Shell          string
 	AIGWExecutable string
+}
+
+// ClaudeStateSnapshot is a byte-exact transaction boundary for the managed
+// launcher and shell activation file. Its fields stay private so callers can
+// only capture and restore state through Manager.
+type ClaudeStateSnapshot struct {
+	launcherPath   string
+	launcher       transaction.FileSnapshot
+	activationPath string
+	activation     transaction.FileSnapshot
+}
+
+func (m Manager) CaptureClaudeState() (ClaudeStateSnapshot, error) {
+	launcherPath := m.claudePath()
+	launcher, err := transaction.CaptureFileSnapshot(launcherPath)
+	if err != nil {
+		return ClaudeStateSnapshot{}, err
+	}
+	snapshot := ClaudeStateSnapshot{launcherPath: launcherPath, launcher: launcher}
+	if m.GOOS == "windows" || m.Home == "" {
+		return snapshot, nil
+	}
+	activationPath, err := m.shellProfile()
+	if err != nil {
+		return ClaudeStateSnapshot{}, err
+	}
+	activation, err := transaction.CaptureFileSnapshot(activationPath)
+	if err != nil {
+		return ClaudeStateSnapshot{}, err
+	}
+	snapshot.activationPath = activationPath
+	snapshot.activation = activation
+	return snapshot, nil
+}
+
+func (m Manager) RestoreClaudeState(before, after ClaudeStateSnapshot) error {
+	if before.launcherPath != after.launcherPath || before.launcherPath != m.claudePath() {
+		return fmt.Errorf("Claude launcher path changed during rollback")
+	}
+	if before.activationPath != after.activationPath {
+		return fmt.Errorf("Claude activation path changed during rollback")
+	}
+	var restoreErr error
+	if before.activationPath != "" {
+		restoreErr = errors.Join(restoreErr, transaction.RestoreFileAtomicIfPostimage(before.activationPath, before.activation, after.activation))
+	}
+	restoreErr = errors.Join(restoreErr, transaction.RestoreFileAtomicIfPostimage(before.launcherPath, before.launcher, after.launcher))
+	return restoreErr
 }
 
 // ClaudeShimReady reports whether the expected launcher exists and is owned
@@ -129,30 +178,39 @@ func (m Manager) EnableClaude() (string, error) {
 		return "", fmt.Errorf("refusing to write AIGW-managed Claude shim from temporary build executable %s; install AIGW or run its persistent binary", m.AIGWExecutable)
 	}
 	path := m.claudePath()
-	existed := false
 	if data, err := os.ReadFile(path); err == nil && !strings.Contains(string(data), marker) {
 		return "", fmt.Errorf("existing Claude launcher %s is not owned by AIGW; move it or choose another AIGW bin directory", path)
-	} else if err == nil {
-		existed = true
 	} else if err != nil && !os.IsNotExist(err) {
 		return "", fmt.Errorf("inspect Claude launcher: %w", err)
 	}
+	before, err := m.CaptureClaudeState()
+	if err != nil {
+		return "", err
+	}
 	content := m.claudeContent()
 	if err := transaction.WriteFileAtomic(path, []byte(content), 0o755); err != nil {
-		return "", err
+		return "", m.rollbackClaudeEnable(before, err)
 	}
 	if m.GOOS != "windows" {
 		if err := os.Chmod(path, 0o755); err != nil {
-			return "", fmt.Errorf("make Claude launcher executable: %w", err)
+			return "", m.rollbackClaudeEnable(before, fmt.Errorf("make Claude launcher executable: %w", err))
 		}
 	}
 	if err := m.EnsureClaudeActivation(); err != nil {
-		if !existed {
-			_ = os.Remove(path)
-		}
-		return "", err
+		return "", m.rollbackClaudeEnable(before, err)
 	}
 	return path, nil
+}
+
+func (m Manager) rollbackClaudeEnable(before ClaudeStateSnapshot, cause error) error {
+	after, err := m.CaptureClaudeState()
+	if err != nil {
+		return fmt.Errorf("%w; capture Claude launcher rollback postimage: %v", cause, err)
+	}
+	if err := m.RestoreClaudeState(before, after); err != nil {
+		return fmt.Errorf("%w; restore Claude launcher state: %v", cause, err)
+	}
+	return cause
 }
 
 // isEphemeralBuildExecutable identifies Go's short-lived source-run build
