@@ -20,6 +20,13 @@ func TestTextRemovesKnownAndBearerCredentials(t *testing.T) {
 	}
 }
 
+func TestTextSkipsBlankSecretsAndReturnsUnchangedInput(t *testing.T) {
+	text := redaction.Text("nothing secret here", "", "   ")
+	if text != "nothing secret here" {
+		t.Fatalf("Text = %q", text)
+	}
+}
+
 func TestTextRemovesUnknownStructuredCredentialFields(t *testing.T) {
 	text := redaction.Text(`{"api_key":"unknown-json-key","token":"unknown-token","nested":{"client_secret":"unknown-secret"},"safe":"kept"} query api_key=unknown-query-key&mode=read`)
 	for _, forbidden := range []string{"unknown-json-key", "unknown-token", "unknown-secret", "unknown-query-key"} {

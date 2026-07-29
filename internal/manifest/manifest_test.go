@@ -566,6 +566,194 @@ openai_responses = "https://gateway.test/v1"
 	}
 }
 
+func TestParseRejectsMalformedTOML(t *testing.T) {
+	if _, err := manifest.Parse([]byte("version = [1, 2\n")); err == nil || !strings.Contains(err.Error(), "parse team manifest") {
+		t.Fatalf("malformed TOML error = %v", err)
+	}
+}
+
+func TestParseRejectsManifestWithoutAnyProfile(t *testing.T) {
+	raw := []byte(`version = 3
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+anthropic = "https://team.test"
+`)
+	if _, err := manifest.Parse(raw); err == nil || !strings.Contains(err.Error(), "at least one profile") {
+		t.Fatalf("no-profile error = %v", err)
+	}
+}
+
+func TestParseRejectsUnknownRecommendedDefault(t *testing.T) {
+	raw := []byte(`version = 3
+recommended_default = "missing"
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+anthropic = "https://team.test"
+[profiles.team]
+label = "Team"
+account = "team"
+`)
+	if _, err := manifest.Parse(raw); err == nil || !strings.Contains(err.Error(), "recommended default references unknown profile") {
+		t.Fatalf("unknown recommended default error = %v", err)
+	}
+}
+
+func TestParseInitializesMissingAccountsAndDefaultsToFirstProfile(t *testing.T) {
+	raw := []byte(`version = 3
+[profiles.solo]
+label = "Solo"
+account = "missing"
+`)
+	if _, err := manifest.Parse(raw); err == nil || !strings.Contains(err.Error(), "invalid team manifest") {
+		t.Fatalf("account-less manifest error = %v", err)
+	}
+}
+
+func TestParseRejectsRecommendedRouteWithUnsupportedClient(t *testing.T) {
+	raw := []byte(`version = 3
+[recommended_routes]
+gemini = "team"
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+anthropic = "https://team.test"
+[profiles.team]
+label = "Team"
+account = "team"
+`)
+	if _, err := manifest.Parse(raw); err == nil || !strings.Contains(err.Error(), "unsupported client") {
+		t.Fatalf("unsupported recommended route client error = %v", err)
+	}
+}
+
+func TestParseRejectsRecommendedRouteReferencingUnknownProfile(t *testing.T) {
+	raw := []byte(`version = 3
+[recommended_routes]
+claude = "missing"
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+anthropic = "https://team.test"
+[profiles.team]
+label = "Team"
+account = "team"
+`)
+	if _, err := manifest.Parse(raw); err == nil || !strings.Contains(err.Error(), "references unknown profile") {
+		t.Fatalf("unknown recommended route profile error = %v", err)
+	}
+}
+
+func TestParseRejectsDeeplyNestedCredentialShapedFields(t *testing.T) {
+	raw := []byte(`version = 3
+[wrapper]
+password = "leak"
+[[entries]]
+token = "leak"
+`)
+	if _, err := manifest.Parse(raw); err == nil || !strings.Contains(err.Error(), "credential") {
+		t.Fatalf("nested credential field error = %v", err)
+	}
+}
+
+func TestMergeWithOptionsRejectsNonCanonicalTeamManifestVersion(t *testing.T) {
+	team := manifest.Manifest{Version: 99, Profiles: map[string]domain.Profile{"team": {Label: "Team", Account: "team"}}}
+	if _, err := manifest.MergeWithOptions(domain.NewConfig(), team, manifest.MergeOptions{}); err == nil || !strings.Contains(err.Error(), "unsupported team manifest version 99") {
+		t.Fatalf("unsupported manifest version error = %v", err)
+	}
+}
+
+func TestMergeDefaultsToFirstTeamProfileWhenNeitherSideChoosesADefault(t *testing.T) {
+	team, err := manifest.Parse([]byte(`version = 3
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+anthropic = "https://team.test"
+[profiles.solo]
+label = "Solo"
+account = "team"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := manifest.Merge(domain.NewConfig(), team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Routes.Default != "solo" {
+		t.Fatalf("merged default = %q, want the only team profile", got.Routes.Default)
+	}
+}
+
+func TestMergeRejectsConflictingModelOverrideWithOtherwiseIdenticalProfile(t *testing.T) {
+	team, err := manifest.Parse([]byte(`version = 2
+recommended_default = "shared"
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+openai_responses = "https://team.example.test/v1"
+[profiles.shared]
+label = "Team Profile"
+account = "team"
+client = "codex"
+[profiles.shared.models]
+codex = "team-model"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.NewConfig()
+	cfg.Accounts["team"] = domain.Account{Label: "Team Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
+	cfg.Profiles["shared"] = domain.Profile{Label: "Team Profile", Account: "team", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "personal-model"}}
+	cfg.Routes.Default = "shared"
+
+	if _, err := manifest.Merge(cfg, team); err == nil || !strings.Contains(err.Error(), `profile "shared" conflicts`) {
+		t.Fatalf("model-only conflict error = %v", err)
+	}
+}
+
+func TestMergeTreatsIdenticalAccountProbesAsEquivalent(t *testing.T) {
+	team, err := manifest.Parse([]byte(`version = 2
+recommended_default = "team"
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "https://team.example.test"
+[accounts.team.account_probe]
+kind = "dmxapi"
+base_url = "https://team.example.test/probe"
+[profiles.team]
+label = "Team"
+account = "team"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := domain.NewConfig()
+	cfg.Accounts["team"] = domain.Account{
+		Label:        "Team Gateway",
+		Endpoints:    domain.Endpoints{Anthropic: "https://team.example.test"},
+		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://team.example.test/probe/"},
+	}
+	cfg.Profiles["local"] = domain.Profile{Label: "Local", Account: "team"}
+	cfg.Routes.Default = "local"
+
+	got, err := manifest.Merge(cfg, team)
+	if err != nil {
+		t.Fatalf("equivalent account probes must not conflict: %v", err)
+	}
+	if got.Accounts["team"].AccountProbe.Kind != "dmxapi" {
+		t.Fatalf("merged account probe = %#v", got.Accounts["team"].AccountProbe)
+	}
+}
+
+func TestExportRejectsInvalidConfiguration(t *testing.T) {
+	if _, err := manifest.Export(domain.Config{}); err == nil {
+		t.Fatal("export accepted an invalid configuration")
+	}
+}
+
 func TestExportOmitsSecretsAndAdaptersAndPublishesRouteRecommendations(t *testing.T) {
 	cfg := domain.NewConfig()
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}

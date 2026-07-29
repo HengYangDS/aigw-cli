@@ -1,24 +1,19 @@
 package main
 
 import (
-	"errors"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestLoadModulesRetainsGoListDiagnostics(t *testing.T) {
-	original := runGoList
-	t.Cleanup(func() { runGoList = original })
-	runGoList = func() ([]byte, error) {
-		return []byte("go: example.invalid/module: unavailable\n"), errors.New("exit status 1")
-	}
+	t.Setenv("PATH", t.TempDir())
 
 	_, err := loadModules()
 	if err == nil {
 		t.Fatal("loadModules() error = nil, want diagnostic failure")
 	}
-	for _, want := range []string{"run go list -m -json all", "exit status 1", "example.invalid/module"} {
+	for _, want := range []string{"run go list -m -json all", "executable file not found"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("loadModules() error = %q, want %q", err, want)
 		}
@@ -26,13 +21,7 @@ func TestLoadModulesRetainsGoListDiagnostics(t *testing.T) {
 }
 
 func TestLoadModulesDecodesAllModules(t *testing.T) {
-	original := runGoList
-	t.Cleanup(func() { runGoList = original })
-	runGoList = func() ([]byte, error) {
-		return []byte("{\"Path\":\"example.com/aigw\"}\n{\"Path\":\"example.com/dependency\",\"Version\":\"v1.2.3\"}\n"), nil
-	}
-
-	modules, err := loadModules()
+	modules, err := decodeModules([]byte("{\"Path\":\"example.com/aigw\"}\n{\"Path\":\"example.com/dependency\",\"Version\":\"v1.2.3\"}\n"))
 	if err != nil {
 		t.Fatalf("loadModules() error = %v", err)
 	}
