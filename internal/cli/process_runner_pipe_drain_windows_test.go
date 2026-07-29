@@ -106,7 +106,7 @@ func TestRunCaptureRejectsOversizedWindowsOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = (ProcessRunner{}).RunCapture(context.Background(), adapters.ProcessPlan{
+	_, err = (ProcessRunner{MaxOutputBytes: capturedProcessOutputLimit}).RunCapture(context.Background(), adapters.ProcessPlan{
 		Executable: executable,
 		Args:       []string{"-test.run=^TestRunCaptureRejectsOversizedWindowsOutput$"},
 		Env:        append(os.Environ(), windowsPipeDrainRoleEnvironment+"=oversized-output"),

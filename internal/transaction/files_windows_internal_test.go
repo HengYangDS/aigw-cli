@@ -31,7 +31,7 @@ func TestCommitTemporaryFileSurfacesWriteFailureFromReadOnlyHandle(t *testing.T)
 	}
 }
 
-func TestCommitTemporaryFileSurfacesMetadataFailureForWindowsPipe(t *testing.T) {
+func TestCommitTemporaryFileSurfacesReplaceFailureForWindowsPipe(t *testing.T) {
 	reader, writer, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
@@ -53,8 +53,8 @@ func TestCommitTemporaryFileSurfacesMetadataFailureForWindowsPipe(t *testing.T) 
 	err = commitTemporaryFile(writer, filepath.Join(t.TempDir(), "target"), want, 0o400)
 	_ = writer.Close()
 	got := <-result
-	if err == nil || !strings.Contains(err.Error(), "set temporary mode") {
-		t.Fatalf("commitTemporaryFile() error = %v, want a real Windows pipe metadata failure", err)
+	if err == nil || !strings.Contains(err.Error(), "replace") {
+		t.Fatalf("commitTemporaryFile() error = %v, want a real Windows pipe replace failure", err)
 	}
 	if got.err != nil || string(got.data) != string(want) {
 		t.Fatalf("pipe data after metadata failure = %q, %v; want %q", got.data, got.err, want)
