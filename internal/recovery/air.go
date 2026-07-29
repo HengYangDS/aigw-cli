@@ -124,7 +124,7 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 		RecoveryReasonCode: AirRecoveryReasonLedgerUnreadable,
 	}
 	storage, storageErr := s.inspectAirRecoveryStorage()
-	if storage.unsafeTraversal && !storage.ledgerExists {
+	if storage.rootUnsafe {
 		status.RecoveryState = "none"
 		status.RecoveryReasonCode = AirRecoveryReasonStoragePermission
 		return status, nil
