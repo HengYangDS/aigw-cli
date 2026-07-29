@@ -3,6 +3,7 @@ package discovery
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -55,11 +56,22 @@ func TestFindUsesWindowsCommandSuffixWithoutExecutableBit(t *testing.T) {
 
 func TestFindSkipsManagedClaudeOnlyWhenRequested(t *testing.T) {
 	dir := t.TempDir()
-	target := filepath.Join(dir, "claude")
+	// A real Windows filesystem never reports a Unix executable bit
+	// (https://github.com/golang/go/issues/41809), so the non-Windows
+	// exec-bit branch of find cannot be exercised there regardless of the
+	// permission requested at creation. Exercise the Windows lookup
+	// semantics instead: its plain-name fallback still reaches this file
+	// and bypasses the exec-bit check entirely, which is the only find
+	// path a real native-Windows host can ever take in production.
+	goos, name := "linux", "claude"
+	if runtime.GOOS == "windows" {
+		goos, name = "windows", "claude.cmd"
+	}
+	target := filepath.Join(dir, name)
 	if err := os.WriteFile(target, []byte("#!/bin/sh\n# AIGW managed Claude shim\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	system := System{GOOS: "linux", Path: dir}
+	system := System{GOOS: goos, Path: dir}
 	if got := system.find("claude", true); got != "" {
 		t.Fatalf("find(managed Claude, skip=true) = %q", got)
 	}

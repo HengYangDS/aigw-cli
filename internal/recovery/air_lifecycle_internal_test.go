@@ -160,9 +160,7 @@ func TestInspectAirLifecycleAdditionalActiveClassifications(t *testing.T) {
 			snapshot, err := originalCapture(path)
 			if err == nil && path == f.store.airQuarantinePath(plan.CaseID) && !changed {
 				changed = true
-				if err := os.Chmod(filepath.Dir(path), 0o755); err != nil {
-					t.Fatal(err)
-				}
+				makeRecoveryDirectorySecurityInvalidForTest(t, filepath.Dir(path))
 			}
 			return snapshot, err
 		}
@@ -181,7 +179,8 @@ func TestInspectAirLifecycleAdditionalSettledClassifications(t *testing.T) {
 		if err := os.WriteFile(f.store.airQuarantinePath(plan.CaseID), f.orphan, 0o644); err != nil {
 			t.Fatal(err)
 		}
-		assertLifecycleForTest(t, f.store, f.air, f.standalone, AirRecoveryStateSettled, AirRecoveryHealthInvalid, AirRecoveryReasonQuarantinePermission)
+		makeRecoveryFileSecurityInvalidForTest(t, f.store.airQuarantinePath(plan.CaseID))
+		assertLifecycleForTest(t, f.store, f.air, f.standalone, AirRecoveryStateSettled, AirRecoveryHealthInvalid, quarantineSecurityFailureReasonForTest)
 	})
 
 	t.Run("quarantine digest", func(t *testing.T) {
@@ -219,9 +218,7 @@ func TestInspectAirLifecycleAdditionalSettledClassifications(t *testing.T) {
 		f.store.captureRecovery = func(path string) (transaction.FileSnapshot, error) {
 			if path == f.store.airLedgerPath() && !changed {
 				changed = true
-				if err := os.Chmod(filepath.Dir(f.store.airQuarantinePath(plan.CaseID)), 0o755); err != nil {
-					t.Fatal(err)
-				}
+				makeRecoveryDirectorySecurityInvalidForTest(t, filepath.Dir(f.store.airQuarantinePath(plan.CaseID)))
 			}
 			return originalCapture(path)
 		}
@@ -305,9 +302,7 @@ func TestPlanAirOrphanRecoveryAdditionalFailuresAndGeneration(t *testing.T) {
 		if err := os.WriteFile(path, f.orphan, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Chmod(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
-		}
+		makeRecoveryDirectorySecurityInvalidForTest(t, filepath.Dir(path))
 		if _, err := f.store.PlanAirOrphanRecovery(f.recoverOptions("")); err == nil {
 			t.Fatal("accepted matching quarantine in unsafe storage")
 		}
