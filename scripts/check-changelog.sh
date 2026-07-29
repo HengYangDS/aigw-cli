@@ -58,7 +58,8 @@ if test -n "$selected_tag"; then
 fi
 
 has_origin=false
-if git remote get-url origin >/dev/null 2>&1; then
+allow_fetch=${AIGW_CHANGELOG_ALLOW_FETCH:-false}
+if test "$allow_fetch" = true && git remote get-url origin >/dev/null 2>&1; then
   has_origin=true
   if test -z "$selected_tag"; then
     # A shallow or cached checkout can retain an older reachable tag while a
@@ -73,7 +74,7 @@ fi
 latest_tag=$selected_tag
 if test -z "$latest_tag"; then
   latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
-  case "$latest_tag" in github/*) latest_tag= ;; esac
+  case "$latest_tag" in github/v*) latest_tag=${latest_tag#github/} ;; esac
 fi
 if test -z "$latest_tag" && test "$has_origin" = true; then
   git fetch --quiet --no-prune --no-prune-tags --no-tags \
@@ -82,7 +83,7 @@ if test -z "$latest_tag" && test "$has_origin" = true; then
       origin 2>/dev/null || true
   if test -z "$selected_tag"; then
     latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
-    case "$latest_tag" in github/*) latest_tag= ;; esac
+    case "$latest_tag" in github/v*) latest_tag=${latest_tag#github/} ;; esac
   fi
 fi
 python3 - "$changelog" "$latest_tag" "$selected_tag" "$root/packaging/release/retired-gitlab-tags.txt" "$forge" <<'PYTHON'
