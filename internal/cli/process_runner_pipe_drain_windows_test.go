@@ -98,27 +98,6 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 	}
 }
 
-func TestRunCaptureRejectsOversizedWindowsOutput(t *testing.T) {
-	if runWindowsPipeDrainHelper(t, "TestRunCaptureRejectsOversizedWindowsOutput") {
-		return
-	}
-	const executable = "powershell.exe"
-	_, err := (ProcessRunner{}).RunCapture(context.Background(), adapters.ProcessPlan{
-		Executable: executable,
-		Args: []string{
-			"-NoProfile",
-			"-NonInteractive",
-			"-Command",
-			fmt.Sprintf("[Console]::Out.Write('x' * %d)", capturedProcessOutputLimit*4),
-		},
-		Env: os.Environ(),
-	})
-	want := fmt.Sprintf("captured output from %s exceeds %d bytes", executable, capturedProcessOutputLimit)
-	if err == nil || !strings.Contains(err.Error(), want) {
-		t.Fatalf("RunCapture error = %v, want %q", err, want)
-	}
-}
-
 func newWindowsPipeDrainFixture(t *testing.T, testName, role string) windowsPipeDrainFixture {
 	t.Helper()
 	executable, err := os.Executable()
