@@ -93,10 +93,11 @@ jobs:
       - name: Verify the signed tag and source gates
         env:
           SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
+          AIGW_CHANGELOG_RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
           case "$SELECTED_TAG" in v*) ;; *) echo "release requires a v* tag" >&2; exit 2 ;; esac
-          test "$SELECTED_TAG" = "$(git describe --tags --exact-match HEAD)"
+          test "$(git rev-parse "$SELECTED_TAG^{}")" = "$(git rev-parse HEAD)"
           sh scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github
           sh scripts/check-commit-provenance.sh . github
           sh scripts/check-release-toolchain.sh
