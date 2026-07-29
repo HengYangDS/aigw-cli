@@ -77,6 +77,14 @@ canonical_floor=$(git -C "$source" rev-parse HEAD)
 git -C "$source" -c gpg.format=ssh -c user.signingkey="$key" tag -s -a v0.1.0 -m 'GitLab release identity'
 canonical_tag=$(git -C "$source" rev-parse refs/tags/v0.1.0)
 
+# Keep one signed branch forked before the initial GitHub synchronization. A
+# later merge must map its old parent to the unique equal-tree GitHub ancestor.
+git -C "$source" checkout -qb work/old-parent main
+printf 'old-parent\n' > "$source/OLD_PARENT.txt"
+git -C "$source" add OLD_PARENT.txt
+git -C "$source" commit -qm 'signed old-parent commit'
+git -C "$source" checkout -q main
+
 # Bootstrap an existing GitHub provider history and its provider-native tag.
 git clone -q --no-local "file://$source" "$projection"
 git -C "$projection" tag -d v0.1.0 >/dev/null
@@ -175,6 +183,7 @@ printf 'main\n' > "$source/MAIN.txt"
 git -C "$source" add MAIN.txt
 git -C "$source" commit -qm 'signed main commit'
 git -C "$source" merge -q --no-ff -S -m 'signed canonical merge' work/provider-merge
+git -C "$source" merge -q --no-ff -S -m 'signed old-parent merge' work/old-parent
 (
   cd "$source"
   AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
