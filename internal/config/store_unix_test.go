@@ -3,6 +3,7 @@
 package config_test
 
 import (
+	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,19 @@ import (
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/config"
 )
+
+// denyDirectoryWrite makes dir refuse new files while remaining a directory
+// that can still be traversed and removed. This is the exact permission
+// model Store.Save's temporary-file creation checks: on POSIX, clearing the
+// owner write bit is honored for directories, unlike on Windows (see
+// store_windows_test.go and https://github.com/golang/go/issues/35042).
+func denyDirectoryWrite(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+}
 
 func TestSaveSurfacesWriteFailureBeyondFileSizeLimit(t *testing.T) {
 	signal.Ignore(syscall.SIGXFSZ)

@@ -254,9 +254,17 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 		if err := execute(t, app, "sync", "--dry-run"); err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(out.String(), target) || !strings.Contains(out.String(), "initial-project") {
-			t.Fatalf("output = %q", out.String())
+		var renderedTargets []string
+		for _, line := range strings.Split(out.String(), "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasSuffix(line, " initial-project") {
+				renderedTargets = append(renderedTargets, strings.TrimSpace(strings.TrimSuffix(line, " initial-project")))
+			}
 		}
+		if len(renderedTargets) != 1 {
+			t.Fatalf("initial-project rows = %#v, output = %q", renderedTargets, out.String())
+		}
+		assertSameExistingPath(t, renderedTargets[0], target)
 	})
 }
 

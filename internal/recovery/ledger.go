@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"time"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
@@ -128,7 +127,7 @@ func (s Store) captureAirLedger() (airLedger, transaction.FileSnapshot, error) {
 	if !snapshot.Exists {
 		return airLedger{}, snapshot, nil
 	}
-	if runtime.GOOS != "windows" && snapshot.Mode.Perm() != 0o600 {
+	if !recoveryFileModeIsPrivate(snapshot.Mode) {
 		return airLedger{}, transaction.FileSnapshot{}, errors.New("Air recovery ledger has unsafe permissions")
 	}
 	ledger, err := decodeAirLedger(snapshot.Data)
@@ -156,13 +155,13 @@ func decodeAirLedger(data []byte) (airLedger, error) {
 }
 
 func (s Store) validateAirRecoveryStorage(caseID string, ledger, quarantine transaction.FileSnapshot) error {
-	if runtime.GOOS == "windows" {
-		return nil
+	if !quarantine.Exists {
+		return errors.New("Air recovery quarantine has unsafe permissions")
 	}
-	if ledger.Exists && ledger.Mode.Perm() != 0o600 {
+	if ledger.Exists && !recoveryFileModeIsPrivate(ledger.Mode) {
 		return errors.New("Air recovery ledger has unsafe permissions")
 	}
-	if !quarantine.Exists || quarantine.Mode.Perm() != 0o600 {
+	if !recoveryFileModeIsPrivate(quarantine.Mode) {
 		return errors.New("Air recovery quarantine has unsafe permissions")
 	}
 	return s.validateAirRecoveryDirectories(caseID)
@@ -176,7 +175,7 @@ func (s Store) validateAirRecoveryDirectories(caseID string) error {
 		filepath.Dir(s.airQuarantinePath(caseID)),
 	} {
 		_, info, err := readRecoveryDirectoryNoFollow(s.root, path)
-		if err != nil || !info.IsDir() || (runtime.GOOS != "windows" && info.Mode().Perm() != 0o700) {
+		if err != nil || !info.IsDir() || !recoveryDirectoryModeIsPrivate(info.Mode()) {
 			return errors.New("Air recovery storage has unsafe directory permissions")
 		}
 	}
@@ -194,7 +193,7 @@ func (s Store) inspectAirRecoveryStorage() (airRecoveryStorageInventory, error) 
 		inventory.unsafeTraversal = true
 		return inventory, nil
 	}
-	if runtime.GOOS != "windows" && rootInfo.Mode().Perm() != 0o700 {
+	if !recoveryDirectoryModeIsPrivate(rootInfo.Mode()) {
 		inventory.permissionInvalid = true
 	}
 	for _, entry := range rootEntries {
@@ -218,7 +217,7 @@ func (s Store) inspectAirRecoveryStorage() (airRecoveryStorageInventory, error) 
 		inventory.unsafeTraversal = true
 		return inventory, nil
 	}
-	if runtime.GOOS != "windows" && airInfo.Mode().Perm() != 0o700 {
+	if !recoveryDirectoryModeIsPrivate(airInfo.Mode()) {
 		inventory.permissionInvalid = true
 	}
 	for _, entry := range airEntries {
@@ -252,7 +251,7 @@ func (s Store) inspectAirRecoveryStorage() (airRecoveryStorageInventory, error) 
 		inventory.unsafeTraversal = true
 		return inventory, nil
 	}
-	if runtime.GOOS != "windows" && quarantineInfo.Mode().Perm() != 0o700 {
+	if !recoveryDirectoryModeIsPrivate(quarantineInfo.Mode()) {
 		inventory.permissionInvalid = true
 	}
 	for _, entry := range entries {
@@ -271,7 +270,7 @@ func (s Store) inspectAirRecoveryStorage() (airRecoveryStorageInventory, error) 
 			inventory.unsafeTraversal = true
 			return inventory, nil
 		}
-		if runtime.GOOS != "windows" && caseInfo.Mode().Perm() != 0o700 {
+		if !recoveryDirectoryModeIsPrivate(caseInfo.Mode()) {
 			inventory.permissionInvalid = true
 		}
 		for _, file := range files {
@@ -410,7 +409,7 @@ func desiredSnapshot(data []byte, mode os.FileMode) transaction.FileSnapshot {
 		Exists: true,
 		Data:   append([]byte(nil), data...),
 		SHA256: hex.EncodeToString(sum[:]),
-		Mode:   mode,
+		Mode:   platformSnapshotMode(mode),
 	}
 }
 
