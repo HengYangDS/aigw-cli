@@ -183,13 +183,13 @@ func (s Store) Save(cfg domain.Config) error {
 		return fmt.Errorf("create config directory: %w", err)
 	}
 	if current, err := os.ReadFile(s.path); err == nil {
-		if err := writeAtomic(s.path+".bak", current, 0o600); err != nil {
+		if err := transaction.WriteFileAtomicExactMode(s.path+".bak", current, 0o600); err != nil {
 			return fmt.Errorf("back up current config: %w", err)
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("read current config for backup: %w", err)
 	}
-	return writeAtomic(s.path, data, 0o600)
+	return transaction.WriteFileAtomicExactMode(s.path, data, 0o600)
 }
 
 // separateTOMLTableBlocks inserts exactly one separator before each generated
@@ -228,7 +228,7 @@ func (s Store) SaveVerifiedCheckpoint(cfg domain.Config, clients []string) error
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {
 		return fmt.Errorf("create config directory for verified checkpoint: %w", err)
 	}
-	return writeAtomic(s.path+".verified.json", append(data, '\n'), 0o600)
+	return transaction.WriteFileAtomicExactMode(s.path+".verified.json", append(data, '\n'), 0o600)
 }
 
 func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
@@ -283,32 +283,4 @@ func sameFileSnapshot(left, right transaction.FileSnapshot) bool {
 		left.SHA256 == right.SHA256 &&
 		left.Mode == right.Mode &&
 		bytes.Equal(left.Data, right.Data)
-}
-
-func writeAtomic(path string, data []byte, mode os.FileMode) error {
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".config.toml.*")
-	if err != nil {
-		return fmt.Errorf("create temporary config: %w", err)
-	}
-	tmpName := tmp.Name()
-	defer func() { _ = os.Remove(tmpName) }()
-	if err := tmp.Chmod(mode); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("secure temporary config: %w", err)
-	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("write temporary config: %w", err)
-	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("sync temporary config: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("close temporary config: %w", err)
-	}
-	if err := os.Rename(tmpName, path); err != nil {
-		return fmt.Errorf("replace config atomically: %w", err)
-	}
-	return os.Chmod(path, mode)
 }

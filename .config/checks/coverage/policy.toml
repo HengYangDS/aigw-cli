@@ -1,0 +1,8 @@
+# Go coverage policy truth boundary. The threshold applies independently to
+# every package and to the aggregate; packages and source files cannot be excluded.
+minimum_statement_percent = 95.0
+comparison = "strictly-greater-than"
+covermode = "atomic"
+packages = ["./..."]
+owner = "product-toolchain"
+source = "go test coverage profile"
