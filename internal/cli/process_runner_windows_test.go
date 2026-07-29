@@ -47,6 +47,17 @@ func TestProcessRunnerRunReplacesProcessErrorSurfacesLookupFailure(t *testing.T)
 	}
 }
 
+func TestProcessRunnerRunReplacesProcessSuccessfully(t *testing.T) {
+	err := (ProcessRunner{}).Run(context.Background(), adapters.ProcessPlan{
+		Executable: "cmd.exe",
+		Args:       []string{"/c", "exit", "0"},
+		Replace:    true,
+	})
+	if err != nil {
+		t.Fatalf("Run() with Replace error = %v", err)
+	}
+}
+
 func TestProcessRunnerRunCaptureRejectsReplace(t *testing.T) {
 	_, err := (ProcessRunner{}).RunCapture(context.Background(), adapters.ProcessPlan{
 		Executable: "cmd.exe",
