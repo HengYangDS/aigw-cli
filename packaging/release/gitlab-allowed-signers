@@ -2,3 +2,4 @@
 # namespace under the GitLab identity before the GitLab plane may publish.
 heng.yang.ds@hotmail.com namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGOTMHpVCmszedNGtkRwTRWWglzwe1ZW6ZADTVUz7Mpi GitLab release signing key 2026-07-11
 heng.yang.ds@hotmail.com namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFuiqqoiCu6yHMM/OO+V0ZKlHR+auaOR0G5BoQmOnub+ GitLab signing key 2026-07-29
+heng.yang.ds@hotmail.com namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP4xUKiovLr1zO1kgyoBPhVyQkG+z3fj2QojL6dUp5yp GitLab signing key recovery 2026-07-29
