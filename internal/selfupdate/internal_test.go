@@ -13,6 +13,19 @@ import (
 	"testing"
 )
 
+type rejectingLimitedWriter struct{}
+
+func (rejectingLimitedWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write rejected")
+}
+
+func TestLimitedWriterPropagatesUnderlyingError(t *testing.T) {
+	writer := &limitedWriter{writer: rejectingLimitedWriter{}, limit: 16}
+	if count, err := writer.Write([]byte("payload")); count != 0 || err == nil || !strings.Contains(err.Error(), "write rejected") {
+		t.Fatalf("Write() = (%d, %v)", count, err)
+	}
+}
+
 // tarGzForTest builds a single-entry tar.gz fixture for internal (whitebox)
 // tests. It mirrors the external test package's tarGz helper.
 func tarGzForTest(t *testing.T, name string, data []byte) []byte {
