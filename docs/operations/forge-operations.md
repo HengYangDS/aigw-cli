@@ -90,10 +90,11 @@ GitHub-hosted Linux and Windows runners provide independent native operating-
 system evidence. Each self-hosted registration has its own service, work
 directory, cache, and credential.
 
-The GitLab Windows job blocks every pipeline; the GitHub Linux and Windows jobs
-block trusted `main`, tag, and manual workflows. The macOS verification runner
-likewise blocks trusted source workflows, while release jobs add package-
-lifecycle acceptance. No native job is an allowed failure.
+The registered GitLab Windows runner is not scheduled because its host shell is
+not administratively manageable. GitHub Linux and Windows jobs block trusted
+`main`, tag, and manual workflows. The macOS verification runner likewise
+blocks trusted source workflows, while release jobs add package-lifecycle
+acceptance. No scheduled native job is an allowed failure.
 
 ## Release behavior
 

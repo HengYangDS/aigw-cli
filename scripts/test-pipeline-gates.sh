@@ -192,12 +192,8 @@ for forbidden in [
 ]:
     if forbidden in package:
         raise SystemExit(f"GitLab package plane retains provider-specific build metadata: {forbidden}")
-if "job: windows-native-acceptance" not in package:
-    raise SystemExit("package must wait for native Windows acceptance")
-windows_need = package[package.index("job: windows-native-acceptance"):]
-windows_need = windows_need.split("\n    - job:", 1)[0]
-if "optional: true" in windows_need:
-    raise SystemExit("native Windows acceptance must block packaging")
+if "windows-native-acceptance:" in gitlab:
+    raise SystemExit("GitLab must not schedule its unmanageable Windows runner")
 
 release = section(gitlab, "release")
 for required in [
@@ -213,13 +209,6 @@ for required in [
 if "mirror-github:" in gitlab or "AIGW_GITHUB_MIRROR" in gitlab:
     raise SystemExit("GitLab CI must not retain a one-way GitHub dependency")
 
-windows_native = section(gitlab, "windows-native-acceptance")
-for forbidden in ["allow_failure: true", "when: never", "AIGW_WINDOWS_NATIVE_RUNNER"]:
-    if forbidden in windows_native:
-        raise SystemExit(f"Windows native evidence must block every pipeline: {forbidden}")
-for required in ["tags: [windows]", "test-windows-native.ps1"]:
-    if required not in windows_native:
-        raise SystemExit(f"Windows native evidence job is missing {required}")
 macos_native = section(gitlab, "macos-native-acceptance")
 if "allow_failure: true" in macos_native or "when: never" in macos_native:
     raise SystemExit("macOS native evidence must block tagged publication")
