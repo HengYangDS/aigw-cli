@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.72] - 2026-07-29
+
 ### Changed
 
 - Replace the DMXAPI Qwen 3.7 Max team profile with a token-free UCloud
