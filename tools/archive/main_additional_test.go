@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -210,4 +212,95 @@ func closedFile(t *testing.T) *os.File {
 		t.Fatal(err)
 	}
 	return file
+}
+
+type writeCloserStub struct {
+	io.Writer
+	closeErr error
+}
+
+func (w writeCloserStub) Close() error { return w.closeErr }
+
+type readCloserStub struct {
+	io.Reader
+	closeErr error
+}
+
+func (r readCloserStub) Close() error { return r.closeErr }
+
+// failAfterWriter accepts writes until the allowed byte budget is exhausted,
+// then reports an error. It lets tests drive a real *tar.Writer into its
+// Close() failure path deterministically, without depending on any
+// platform-specific behavior.
+type failAfterWriter struct {
+	allowed int
+	written int
+}
+
+func (w *failAfterWriter) Write(p []byte) (int, error) {
+	if w.written+len(p) > w.allowed {
+		return 0, errors.New("write limit exceeded")
+	}
+	w.written += len(p)
+	return len(p), nil
+}
+
+func TestWriteArchiveContentsReportsOutputCloseFailure(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "payload")
+	if err := os.WriteFile(source, []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := normalizeEntries([]archiveEntry{{Name: "payload", Source: source}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := writeCloserStub{Writer: &bytes.Buffer{}, closeErr: errors.New("close failed")}
+	err = writeArchiveContents(output, formatZip, "release", time.Unix(1, 0).UTC(), entries)
+	if err == nil || !strings.Contains(err.Error(), "close output archive") {
+		t.Fatalf("writeArchiveContents() error = %v", err)
+	}
+}
+
+func TestWriteTarStreamReportsCloseFailure(t *testing.T) {
+	writer := &failAfterWriter{allowed: 512}
+	if err := writeTarStream(writer, "release", time.Unix(1, 0).UTC(), nil); err == nil {
+		t.Fatal("writeTarStream() error = nil")
+	}
+}
+
+func TestWriteTarEntryContentsReportsSourceCloseFailure(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "payload")
+	if err := os.WriteFile(source, []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file := readCloserStub{Reader: strings.NewReader("payload"), closeErr: errors.New("close failed")}
+	writer := tar.NewWriter(&bytes.Buffer{})
+	err = writeTarEntryContents(writer, "release", time.Unix(1, 0).UTC(), archiveEntry{Name: "payload"}, info, file)
+	if err == nil || !strings.Contains(err.Error(), "close archive entry") {
+		t.Fatalf("writeTarEntryContents() error = %v", err)
+	}
+}
+
+func TestWriteZipEntryContentsReportsSourceCloseFailure(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "payload")
+	if err := os.WriteFile(source, []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file := readCloserStub{Reader: strings.NewReader("payload"), closeErr: errors.New("close failed")}
+	writer := zip.NewWriter(&bytes.Buffer{})
+	err = writeZipEntryContents(writer, "release", time.Unix(1, 0).UTC(), archiveEntry{Name: "payload"}, info, file)
+	if err == nil || !strings.Contains(err.Error(), "close archive entry") {
+		t.Fatalf("writeZipEntryContents() error = %v", err)
+	}
 }

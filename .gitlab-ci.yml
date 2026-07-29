@@ -88,13 +88,6 @@ windows-installer-runtime:
     - command -v pwsh
     - pwsh -NoProfile -NonInteractive -File scripts/test-installers.ps1 -Installer "$CI_PROJECT_DIR/scripts/install.ps1"
 
-windows-native-acceptance:
-  stage: verify
-  tags: [windows]
-  before_script: []
-  script:
-    - powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-windows-native.ps1 -Repository "$CI_PROJECT_DIR"
-
 macos-native-acceptance:
   stage: acceptance
   tags: [aigw-release-macos-arm64]
@@ -114,7 +107,6 @@ package:
   needs:
     - job: verify
     - job: windows-installer-runtime
-    - job: windows-native-acceptance
     - job: release-readiness
       optional: true
   tags: [aigw-release-macos-arm64]

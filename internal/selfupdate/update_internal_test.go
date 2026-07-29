@@ -72,17 +72,15 @@ func (unavailableGlabRunner) Run(context.Context, string, ...string) ([]byte, er
 }
 
 func TestDownloadPeerAssetsRejectsUnwritableTempDirectory(t *testing.T) {
-	previous, hadPrevious := os.LookupEnv("TMPDIR")
-	t.Cleanup(func() {
-		if hadPrevious {
-			_ = os.Setenv("TMPDIR", previous)
-		} else {
-			_ = os.Unsetenv("TMPDIR")
-		}
-	})
-	if err := os.Setenv("TMPDIR", filepath.Join(t.TempDir(), "does-not-exist")); err != nil {
-		t.Fatal(err)
-	}
+	// os.MkdirTemp("", ...) resolves the base directory through
+	// os.TempDir(), which honors different environment variables per OS:
+	// $TMPDIR on Unix, but %TMP%/%TEMP%/%USERPROFILE% (in that order) on
+	// Windows. All of them must be pointed at a missing directory so the
+	// workspace creation fails deterministically on every platform.
+	missing := filepath.Join(t.TempDir(), "does-not-exist")
+	t.Setenv("TMPDIR", missing)
+	t.Setenv("TMP", missing)
+	t.Setenv("TEMP", missing)
 	u := Updater{Runner: &fakeCommandRunner{}}
 	releases := []resolvedRelease{{Source: ReleaseSource{Provider: ReleaseProviderGitLab}, Tag: "v1.0.0"}}
 	if _, _, err := u.downloadPeerAssets(context.Background(), releases, "asset.tar.gz"); err == nil || !strings.Contains(err.Error(), "create update workspace") {
