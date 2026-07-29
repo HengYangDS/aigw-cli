@@ -75,9 +75,11 @@ projection_fingerprint() {
   commit=$1
   parents=$(git -C "$projection" show -s --format='%P' "$commit")
   parent_count=$(printf '%s\n' "$parents" | awk '{print NF}')
+  message=$(git -C "$projection" show -s --format='%B' "$commit")
   {
     printf 'parents=%s\n' "$parent_count"
-    git -C "$projection" show -s --format='%T%n%aI%n%cI%n%B' "$commit"
+    git -C "$projection" show -s --format='%T%n%aI%n%cI' "$commit"
+    printf '%s\n' "$message"
   } | git hash-object --stdin
 }
 
@@ -237,7 +239,8 @@ if [ -n "$new_commits" ]; then
     source_tree=$(git -C "$projection" show -s --format='%T' "$source_commit")
     author_date=$(git -C "$projection" show -s --format='%aI' "$source_commit")
     committer_date=$(git -C "$projection" show -s --format='%cI' "$source_commit")
-    git -C "$projection" show -s --format='%B' "$source_commit" > "$message_file"
+    source_message=$(git -C "$projection" show -s --format='%B' "$source_commit")
+    printf '%s\n' "$source_message" > "$message_file"
     projected=$(
       GIT_AUTHOR_NAME="$github_name" \
       GIT_AUTHOR_EMAIL="$github_email" \
