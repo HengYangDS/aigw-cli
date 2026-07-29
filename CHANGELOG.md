@@ -8,6 +8,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.73] - 2026-07-29
+
+### Fixed
+
+- Pass the selected provider root tag explicitly through GitHub verification
+  and release jobs so cached qualified tags cannot alter release chronology.
+- Keep native macOS, Linux, and Windows source verification blocking for RCs,
+  while reserving rooted macOS package-lifecycle acceptance for GA credentials.
+
 ## [0.1.0-rc.72] - 2026-07-29
 
 ### Added

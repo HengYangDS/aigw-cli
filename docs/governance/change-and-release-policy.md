@@ -75,9 +75,9 @@ substitutes for cohesive packages, explicit dependency direction, SSOT, DRY,
 MECE, and SOLID design.
 
 Native source verification on macOS, Linux, and Windows is blocking on trusted
-CI changes. Native package-lifecycle acceptance for all three operating-system
-families is additionally blocking on releases. Runner absence is a failed gate,
-not permission to mark the job optional.
+CI changes and RC releases. Rooted macOS package-lifecycle acceptance is a GA
+gate and is not scheduled when the runner lacks a dedicated administrator
+credential. A scheduled native source job is never an allowed failure.
 
 ## Reproducible release inputs
 
