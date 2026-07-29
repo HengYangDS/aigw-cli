@@ -100,8 +100,19 @@ func TestDiscoverClassifiesJetBrainsSurfacesWithoutExecutingJunie(t *testing.T) 
 	if _, err := os.Stat(sentinel); !os.IsNotExist(err) {
 		t.Fatalf("Junie was executed during discovery: %v", err)
 	}
-	if got.CodexExecutable != filepath.Join(bin, "codex") {
-		t.Fatalf("CodexExecutable = %q", got.CodexExecutable)
+	wantCodex := filepath.Join(bin, "codex")
+	if runtime.GOOS == "windows" {
+		// A real Windows filesystem never reports a Unix executable bit
+		// (https://github.com/golang/go/issues/41809), so a GOOS-darwin
+		// System can never classify this file as executable on this host;
+		// that combination never occurs in production, since Current()
+		// always sets GOOS to the real runtime.GOOS. The Windows-target
+		// executable lookup path is covered separately by
+		// TestDiscoverFindsClientsAndAutoManagedCodexTargets.
+		wantCodex = ""
+	}
+	if got.CodexExecutable != wantCodex {
+		t.Fatalf("CodexExecutable = %q, want %q", got.CodexExecutable, wantCodex)
 	}
 	if targets := got.AutoManagedCodexTargets(); len(targets) != 1 || targets[0] != standalone {
 		t.Fatalf("AutoManagedCodexTargets() = %#v", targets)

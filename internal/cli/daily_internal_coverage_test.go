@@ -17,7 +17,6 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/discovery"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/secrets"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/shims"
 )
 
 type dailyRunOnly struct{ err error }
@@ -50,15 +49,6 @@ func dailyCoverageApp(t *testing.T, cfg domain.Config) *App {
 	}
 	out := &bytes.Buffer{}
 	return &App{Config: store, Secrets: secrets.NewMemoryStore(), Accounts: account.NewMemoryStore(), Discovery: reconciliationDiscovery{}, Out: out, Err: out}
-}
-
-func readyDailyShim(t *testing.T) shims.Manager {
-	t.Helper()
-	manager := shims.Manager{GOOS: "linux", Home: t.TempDir(), BinDir: filepath.Join(t.TempDir(), "bin"), Shell: "/bin/zsh", AIGWExecutable: "/usr/bin/true"}
-	if _, err := manager.EnableClaude(); err != nil {
-		t.Fatal(err)
-	}
-	return manager
 }
 
 func TestStatusHumanTransportAndProbeBranches(t *testing.T) {
@@ -113,42 +103,26 @@ func TestDailyRouteAndAdapterHelpers(t *testing.T) {
 	if ready, issue := adapterRouteReady(app, cfg, domain.ClientCodex, runtime); ready || !strings.Contains(issue, "executable") {
 		t.Fatalf("ready=%v issue=%q", ready, issue)
 	}
-	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/codex"}
+	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "codex"}
 	if ready, issue := adapterRouteReady(app, cfg, domain.ClientCodex, runtime); ready || !strings.Contains(issue, "target") {
 		t.Fatalf("ready=%v issue=%q", ready, issue)
 	}
-	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
+	cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
 	if ready, issue := adapterRouteReady(app, cfg, domain.ClientCodex, runtime); ready || !strings.Contains(issue, "drift") {
 		t.Fatalf("ready=%v issue=%q", ready, issue)
 	}
 
 	claudeRuntime, _, _ := cfg.ResolveRuntime(domain.ClientClaude, "")
-	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/claude"}
-	badDir := t.TempDir()
-	if err := os.Mkdir(filepath.Join(badDir, "claude"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	app.Shims = shims.Manager{GOOS: "linux", BinDir: badDir}
+	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "claude"}
+	app.Shims = unreadableDailyShim(t)
 	if ready, issue := adapterRouteReady(app, cfg, domain.ClientClaude, claudeRuntime); ready || !strings.Contains(issue, "Cannot read Claude shim") {
 		t.Fatalf("ready=%v issue=%q", ready, issue)
 	}
-	app.Shims = shims.Manager{GOOS: "linux", BinDir: t.TempDir()}
+	app.Shims = missingDailyShim(t)
 	if ready, issue := adapterRouteReady(app, cfg, domain.ClientClaude, claudeRuntime); ready || !strings.Contains(issue, "shim is missing") {
 		t.Fatalf("ready=%v issue=%q", ready, issue)
 	}
-	app.Shims = readyDailyShim(t)
-	if err := os.Remove(filepath.Join(app.Shims.Home, ".zshrc")); err != nil {
-		t.Fatal(err)
-	}
-	if ready, issue := adapterRouteReady(app, cfg, domain.ClientClaude, claudeRuntime); ready || !strings.Contains(issue, "activation is missing") {
-		t.Fatalf("ready=%v issue=%q", ready, issue)
-	}
-	if err := os.Mkdir(filepath.Join(app.Shims.Home, ".zshrc"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if ready, issue := adapterRouteReady(app, cfg, domain.ClientClaude, claudeRuntime); ready || !strings.Contains(issue, "Cannot read Claude PATH") {
-		t.Fatalf("ready=%v issue=%q", ready, issue)
-	}
+	assertDailyClaudeActivationBehavior(t, app, cfg, claudeRuntime)
 
 	profiles := domain.NewConfig()
 	profiles.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
@@ -169,15 +143,13 @@ func TestFullVerificationReadinessFailures(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 
-	base.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/claude"}
-	badDir := t.TempDir()
-	_ = os.Mkdir(filepath.Join(badDir, "claude"), 0o700)
-	app.Shims = shims.Manager{GOOS: "linux", BinDir: badDir}
+	base.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "claude"}
+	app.Shims = unreadableDailyShim(t)
 	if err := validateFullVerificationReadiness(app, base); err == nil || !strings.Contains(err.Error(), "read Claude launcher") {
 		t.Fatalf("error = %v", err)
 	}
 
-	app.Shims = shims.Manager{GOOS: "linux", BinDir: t.TempDir()}
+	app.Shims = missingDailyShim(t)
 	if err := validateFullVerificationReadiness(app, base); err == nil || !strings.Contains(err.Error(), "managed Claude launcher") {
 		t.Fatalf("error = %v", err)
 	}
@@ -187,7 +159,7 @@ func TestFullVerificationReadinessFailures(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 
-	base.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
+	base.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
 	if err := validateFullVerificationReadiness(app, base); err == nil || !strings.Contains(err.Error(), "synchronized Codex") {
 		t.Fatalf("error = %v", err)
 	}
@@ -244,8 +216,8 @@ func TestVerifyClaudeFailureBranches(t *testing.T) {
 	if err := verifyClaudeInvocation(context.Background(), &App{}, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "disabled") {
 		t.Fatalf("error = %v", err)
 	}
-	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/claude"}
-	if err := verifyClaudeInvocation(context.Background(), &App{Shims: shims.Manager{GOOS: "linux", BinDir: t.TempDir()}}, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "launcher is missing") {
+	cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "claude"}
+	if err := verifyClaudeInvocation(context.Background(), &App{Shims: missingDailyShim(t)}, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "launcher is missing") {
 		t.Fatalf("error = %v", err)
 	}
 	if err := verifyClaudeRuntimeWithExecutable(context.Background(), &App{}, "/claude", domain.Runtime{ProfileID: "one"}, "token"); err == nil || !strings.Contains(err.Error(), "no Claude model") {

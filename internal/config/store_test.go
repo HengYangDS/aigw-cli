@@ -112,10 +112,8 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtime.GOOS != "windows" {
-		if got := info.Mode().Perm(); got != 0o600 {
-			t.Fatalf("mode = %o, want 600", got)
-		}
+	if got, want := info.Mode().Perm(), securePersistedFileMode(); got != want {
+		t.Fatalf("mode = %o, want %o", got, want)
 	}
 	got, err := store.Load()
 	if err != nil {
@@ -383,8 +381,8 @@ func TestConvergeVerifiedBackupCopiesExactCurrentBytes(t *testing.T) {
 	if !bytes.Equal(backup, customBytes) || !bytes.Equal(result.Backup.Data, customBytes) {
 		t.Fatalf("backup was not converged byte-exactly\nwant %q\ngot  %q", customBytes, backup)
 	}
-	if result.Backup.Mode != 0o600 {
-		t.Fatalf("converged backup mode = %o, want 600", result.Backup.Mode)
+	if want := securePersistedFileMode(); result.Backup.Mode != want {
+		t.Fatalf("converged backup mode = %o, want %o", result.Backup.Mode, want)
 	}
 	verifiedAfter, err := os.ReadFile(path + ".verified.json")
 	if err != nil {
@@ -472,6 +470,20 @@ func TestCaptureVerifiedBackupStateRequiresCheckpoint(t *testing.T) {
 	}
 }
 
+// securePersistedFileMode is the exact permission bits Store persists secrets
+// with, as observed through os.Stat. On Unix this is the literal 0o600 mode
+// passed to WriteFileAtomicExactMode/os.Chmod. Windows has no POSIX
+// owner/group/other bits: os.Chmod only toggles the FILE_ATTRIBUTE_READONLY
+// attribute, and a writable file is always reported back as 0o666 (see
+// https://pkg.go.dev/os#Chmod). Asserting 0o600 unconditionally on Windows is
+// not a real platform mode; it is the wrong expectation for that platform.
+func securePersistedFileMode() os.FileMode {
+	if runtime.GOOS == "windows" {
+		return 0o666
+	}
+	return 0o600
+}
+
 func convergenceConfig(id string) domain.Config {
 	cfg := domain.NewConfig()
 	cfg.Accounts[id] = domain.Account{Label: strings.ToUpper(id), Endpoints: domain.Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
@@ -488,9 +500,6 @@ func TestPathReturnsConfiguredPath(t *testing.T) {
 }
 
 func TestCaptureSnapshotSurfacesConfigReadErrors(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := t.TempDir()
 	if _, err := config.NewStore(path).CaptureSnapshot(); err == nil {
 		t.Fatal("CaptureSnapshot succeeded despite a directory at the config path")
@@ -498,9 +507,6 @@ func TestCaptureSnapshotSurfacesConfigReadErrors(t *testing.T) {
 }
 
 func TestCaptureSnapshotSurfacesBackupReadErrors(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.Mkdir(path+".bak", 0o700); err != nil {
 		t.Fatal(err)
@@ -519,9 +525,6 @@ func TestCaptureVerifiedBackupStateRequiresExistingConfig(t *testing.T) {
 }
 
 func TestCaptureVerifiedBackupStateSurfacesConfigReadErrors(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := t.TempDir()
 	if _, err := config.NewStore(path).CaptureVerifiedBackupState(); err == nil {
 		t.Fatal("CaptureVerifiedBackupState succeeded despite a directory at the config path")
@@ -529,9 +532,6 @@ func TestCaptureVerifiedBackupStateSurfacesConfigReadErrors(t *testing.T) {
 }
 
 func TestCaptureVerifiedBackupStateSurfacesBackupReadErrors(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewStore(path)
 	if err := store.Save(convergenceConfig("current")); err != nil {
@@ -546,9 +546,6 @@ func TestCaptureVerifiedBackupStateSurfacesBackupReadErrors(t *testing.T) {
 }
 
 func TestCaptureVerifiedBackupStateSurfacesVerifiedReadErrors(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewStore(path)
 	if err := store.Save(convergenceConfig("current")); err != nil {
@@ -591,9 +588,6 @@ func TestCaptureVerifiedBackupStateSurfacesCheckpointDecodeErrors(t *testing.T) 
 }
 
 func TestConvergeVerifiedBackupSurfacesConfigReadErrors(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := t.TempDir()
 	_, err := config.NewStore(path).ConvergeVerifiedBackup(config.VerifiedBackupSnapshot{})
 	if err == nil {
@@ -602,9 +596,6 @@ func TestConvergeVerifiedBackupSurfacesConfigReadErrors(t *testing.T) {
 }
 
 func TestConvergeVerifiedBackupSurfacesVerifiedReadErrors(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := config.NewStore(path)
 	if err := store.Save(convergenceConfig("current")); err != nil {
@@ -671,16 +662,16 @@ func TestRestoreSnapshotSurfacesBackupPostimageMismatch(t *testing.T) {
 }
 
 func TestLockSurfacesUnwritableConfigDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
+	// A regular file standing where the config directory must be created
+	// refuses MkdirAll identically on every platform: unlike a chmod-
+	// restricted directory, this is not a permission model Windows is
+	// free to ignore (see https://github.com/golang/go/issues/35042).
 	base := t.TempDir()
-	locked := filepath.Join(base, "locked")
-	if err := os.Mkdir(locked, 0o555); err != nil {
+	blocked := filepath.Join(base, "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
-	store := config.NewStore(filepath.Join(locked, "child", "config.toml"))
+	store := config.NewStore(filepath.Join(blocked, "child", "config.toml"))
 	if _, err := store.Lock(context.Background()); err == nil {
 		t.Fatal("Lock succeeded despite an unwritable config directory")
 	}
@@ -698,9 +689,6 @@ func TestLoadOfMissingConfigReturnsDefault(t *testing.T) {
 }
 
 func TestLoadSurfacesUnderlyingReadErrors(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := t.TempDir()
 	if _, err := config.NewStore(path).Load(); err == nil || !strings.Contains(err.Error(), "read config") {
 		t.Fatalf("Load(directory) error = %v", err)
@@ -708,44 +696,39 @@ func TestLoadSurfacesUnderlyingReadErrors(t *testing.T) {
 }
 
 func TestSaveSurfacesUnwritableConfigDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
+	// See TestLockSurfacesUnwritableConfigDirectory: a file blocking the
+	// directory component is reachable on every platform, unlike chmod.
 	base := t.TempDir()
-	locked := filepath.Join(base, "locked")
-	if err := os.Mkdir(locked, 0o555); err != nil {
+	blocked := filepath.Join(base, "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
-	store := config.NewStore(filepath.Join(locked, "child", "config.toml"))
+	store := config.NewStore(filepath.Join(blocked, "child", "config.toml"))
 	if err := store.Save(convergenceConfig("current")); err == nil {
 		t.Fatal("Save succeeded despite an unwritable config directory")
 	}
 }
 
 func TestSaveSurfacesBackupWriteFailures(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
+	// An existing directory at the backup path refuses the atomic rename
+	// that finalizes the backup write on every platform: renaming a file
+	// onto an existing directory fails on POSIX (EISDIR) and on Windows
+	// (access denied), unlike a chmod-restricted parent directory.
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
 	store := config.NewStore(path)
 	if err := store.Save(convergenceConfig("old")); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(dir, 0o555); err != nil {
+	if err := os.Mkdir(path+".bak", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
 	if err := store.Save(convergenceConfig("current")); err == nil || !strings.Contains(err.Error(), "back up current config") {
 		t.Fatalf("backup write failure error = %v", err)
 	}
 }
 
 func TestSaveSurfacesUnderlyingCurrentReadErrors(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := t.TempDir()
 	if err := config.NewStore(path).Save(convergenceConfig("current")); err == nil || !strings.Contains(err.Error(), "read current config for backup") {
 		t.Fatalf("Save(directory) error = %v", err)
@@ -760,16 +743,14 @@ func TestSaveVerifiedCheckpointRejectsInvalidConfiguration(t *testing.T) {
 }
 
 func TestSaveVerifiedCheckpointSurfacesUnwritableConfigDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
+	// See TestLockSurfacesUnwritableConfigDirectory: a file blocking the
+	// directory component is reachable on every platform, unlike chmod.
 	base := t.TempDir()
-	locked := filepath.Join(base, "locked")
-	if err := os.Mkdir(locked, 0o555); err != nil {
+	blocked := filepath.Join(base, "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
-	store := config.NewStore(filepath.Join(locked, "child", "config.toml"))
+	store := config.NewStore(filepath.Join(blocked, "child", "config.toml"))
 	if err := store.SaveVerifiedCheckpoint(convergenceConfig("current"), []string{"codex"}); err == nil {
 		t.Fatal("SaveVerifiedCheckpoint succeeded despite an unwritable config directory")
 	}
@@ -838,14 +819,8 @@ func TestLoadBackupSurfacesMissingFile(t *testing.T) {
 }
 
 func TestSaveSurfacesTemporaryFileCreationFailure(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	dir := t.TempDir()
-	if err := os.Chmod(dir, 0o555); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	denyDirectoryWrite(t, dir)
 	path := filepath.Join(dir, "config.toml")
 	if err := config.NewStore(path).Save(convergenceConfig("current")); err == nil {
 		t.Fatal("Save succeeded despite an unwritable existing config directory")
@@ -853,9 +828,6 @@ func TestSaveSurfacesTemporaryFileCreationFailure(t *testing.T) {
 }
 
 func TestSaveVerifiedCheckpointSurfacesRenameFailureOverExistingDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.Mkdir(path+".verified.json", 0o700); err != nil {
 		t.Fatal(err)

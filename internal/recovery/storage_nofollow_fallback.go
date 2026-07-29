@@ -41,8 +41,11 @@ func captureRecoveryFileNoFollow(root, path string) (transaction.FileSnapshot, e
 
 func readRecoveryDirectoryNoFollow(root, path string) ([]os.FileInfo, os.FileInfo, error) {
 	info, err := lstatRecoveryPath(root, path)
-	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+	if err != nil {
 		return nil, nil, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return nil, nil, errors.New("open private recovery directory")
 	}
 	file, err := os.Open(path)
 	if err != nil {
@@ -58,9 +61,36 @@ func readRecoveryDirectoryNoFollow(root, path string) ([]os.FileInfo, os.FileInf
 }
 
 func lstatRecoveryPath(root, path string) (os.FileInfo, error) {
-	relative, err := filepath.Rel(filepath.Clean(root), filepath.Clean(path))
+	root = filepath.Clean(root)
+	path = filepath.Clean(path)
+	relative, err := filepath.Rel(root, path)
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) || filepath.IsAbs(relative) {
 		return nil, errors.New("private recovery path escapes its root")
 	}
-	return os.Lstat(path)
+	current := root
+	info, err := os.Lstat(current)
+	if err != nil {
+		return nil, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return nil, errors.New("private recovery root is unsafe")
+	}
+	if relative == "." {
+		return info, nil
+	}
+	parts := strings.Split(relative, string(os.PathSeparator))
+	for index, part := range parts {
+		current = filepath.Join(current, part)
+		info, err = os.Lstat(current)
+		if err != nil {
+			return nil, err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil, errors.New("private recovery path contains a link")
+		}
+		if index < len(parts)-1 && !info.IsDir() {
+			return nil, errors.New("private recovery parent is unsafe")
+		}
+	}
+	return info, nil
 }

@@ -27,6 +27,13 @@ platform acceptance, signing, and GA status remain separate evidence.
   mandatory, and change GitHub projection to signed, forward-only commits
   without a history-rewrite escape.
 
+### Fixed
+
+- Make Windows paths, file modes, archive names, recovery storage, deferred
+  self-update, discovery, and launcher tests follow native platform semantics.
+- Make transaction snapshots read bytes and metadata from one file handle, and
+  remove timing-dependent Linux and Windows process/file race fixtures.
+
 ## [0.1.0-rc.71] - 2026-07-27
 
 ### Added
