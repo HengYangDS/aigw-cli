@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+unset AIGW_CHANGELOG_RELEASE_TAG
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 checker="$root/scripts/check-changelog.sh"
