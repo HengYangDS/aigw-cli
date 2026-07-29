@@ -15,13 +15,13 @@ import (
 )
 
 type recordingRunner struct {
-	profile string
-	err     error
-	name    string
-	args    []string
-	path    string
+	profile        string
+	err            error
+	name           string
+	args           []string
+	path           string
 	listedPackages []string
-	listErr error
+	listErr        error
 }
 
 type rejectingWriter struct{}
@@ -246,13 +246,85 @@ func TestRealMainRejectsPositionalArgumentAndInvalidProfile(t *testing.T) {
 }
 
 func TestRealMainRejectsUnavailableTemporaryDirectory(t *testing.T) {
-	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
+	// TMPDIR is not honored by os.CreateTemp on Windows (it uses
+	// TMP/TEMP/USERPROFILE instead), so the temporary-directory failure is
+	// forced directly through createCoverageProfile instead of relying on
+	// a platform-specific environment variable.
+	missing := filepath.Join(t.TempDir(), "missing")
+	restore := stubCoverageProfile(func() (*os.File, error) {
+		return os.CreateTemp(missing, "aigw-coverage-*.out")
+	})
+	defer restore()
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	if code := realMain([]string{"--policy", writePolicy(t, validPolicy)}, &stdout, &stderr, &recordingRunner{}); code != 1 {
 		t.Fatalf("realMain code = %d, want 1", code)
 	}
 	if !strings.Contains(stderr.String(), "create coverage profile") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRealMainRejectsCoverageProfileCloseFailure(t *testing.T) {
+	restore := stubCoverageProfile(func() (*os.File, error) {
+		file, err := os.CreateTemp(t.TempDir(), "aigw-coverage-*.out")
+		if err != nil {
+			return nil, err
+		}
+		// Close it early so the Close call inside realMain observes the
+		// already-closed error deterministically on every platform.
+		if err := file.Close(); err != nil {
+			return nil, err
+		}
+		return file, nil
+	})
+	defer restore()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if code := realMain([]string{"--policy", writePolicy(t, validPolicy)}, &stdout, &stderr, &recordingRunner{}); code != 1 {
+		t.Fatalf("realMain code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "close coverage profile") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func stubCoverageProfile(factory func() (*os.File, error)) func() {
+	original := createCoverageProfile
+	createCoverageProfile = factory
+	return func() { createCoverageProfile = original }
+}
+
+type emptyListRunner struct{}
+
+func (emptyListRunner) Run(name string, args []string, stdout, stderr io.Writer) error {
+	return nil
+}
+
+func TestRealMainRejectsEmptyPackageList(t *testing.T) {
+	policyPath := writePolicy(t, validPolicy)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, emptyListRunner{}); code != 1 {
+		t.Fatalf("realMain code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "go list returned no packages") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRealMainDeduplicatesRepeatedListedPackages(t *testing.T) {
+	policyPath := writePolicy(t, validPolicy)
+	runner := &recordingRunner{
+		profile:        "mode: atomic\nexample/dup/a.go:1.1,2.1 100 1\n",
+		listedPackages: []string{"example/dup", "example/dup"},
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 0 {
+		t.Fatalf("realMain code = %d, stderr = %q", code, stderr.String())
+	}
+	if strings.Contains(stderr.String(), "is absent from the coverage profile") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }

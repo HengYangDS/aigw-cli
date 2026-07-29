@@ -166,11 +166,16 @@ func windowsShimTarget(content string) (string, bool) {
 	return "", false
 }
 
+// isTemporaryPath recognizes the well-known Unix temporary directories using
+// a portable, forward-slash comparison. filepath.Clean renders separators
+// for the compiling GOOS, not for the Unix path this string represents, so a
+// literal backslash comparison would silently stop matching whenever these
+// tests (or a cross-compiled binary) run with Windows path semantics.
 func isTemporaryPath(path string) bool {
-	clean := filepath.Clean(path)
-	return clean == "/tmp" || strings.HasPrefix(clean, "/tmp/") ||
-		clean == "/private/tmp" || strings.HasPrefix(clean, "/private/tmp/") ||
-		clean == "/var/folders" || strings.HasPrefix(clean, "/var/folders/")
+	portablePath := strings.ReplaceAll(filepath.Clean(path), "\\", "/")
+	return portablePath == "/tmp" || strings.HasPrefix(portablePath, "/tmp/") ||
+		portablePath == "/private/tmp" || strings.HasPrefix(portablePath, "/private/tmp/") ||
+		portablePath == "/var/folders" || strings.HasPrefix(portablePath, "/var/folders/")
 }
 
 func (m Manager) EnableClaude() (string, error) {

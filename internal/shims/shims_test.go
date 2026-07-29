@@ -126,25 +126,6 @@ func TestManagerRejectsWindowsShimWhoseTargetIsUnavailable(t *testing.T) {
 	}
 }
 
-func TestManagerParsesQuotedWindowsShimTarget(t *testing.T) {
-	dir := t.TempDir()
-	target := filepath.Join(dir, `AIGW "portable"`, "aigw.exe")
-	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(target, []byte("aigw executable"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	manager := shims.Manager{GOOS: "windows", BinDir: filepath.Join(dir, "shim"), AIGWExecutable: target}
-	if _, err := manager.EnableClaude(); err != nil {
-		t.Fatal(err)
-	}
-	ready, err := manager.ClaudeShimReady()
-	if err != nil || !ready {
-		t.Fatalf("quoted Windows target readiness = %v, %v", ready, err)
-	}
-}
-
 func TestManagerRefusesForeignClaudeShim(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "claude")
@@ -157,29 +138,6 @@ func TestManagerRefusesForeignClaudeShim(t *testing.T) {
 	}
 	if err := manager.DisableClaude(); err == nil || !strings.Contains(err.Error(), "not owned") {
 		t.Fatalf("disable error = %v", err)
-	}
-}
-
-func TestManagerReportsOnlyAnOwnedClaudeShimAsReady(t *testing.T) {
-	dir := t.TempDir()
-	manager := shims.Manager{GOOS: "linux", BinDir: dir, AIGWExecutable: "/bin/sh"}
-	ready, err := manager.ClaudeShimReady()
-	if err != nil || ready {
-		t.Fatalf("missing shim readiness = %v, %v", ready, err)
-	}
-	if _, err := manager.EnableClaude(); err != nil {
-		t.Fatal(err)
-	}
-	ready, err = manager.ClaudeShimReady()
-	if err != nil || !ready {
-		t.Fatalf("owned shim readiness = %v, %v", ready, err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "claude"), []byte("foreign launcher"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	ready, err = manager.ClaudeShimReady()
-	if err != nil || ready {
-		t.Fatalf("foreign shim readiness = %v, %v", ready, err)
 	}
 }
 

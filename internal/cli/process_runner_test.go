@@ -1,83 +1,33 @@
+//go:build !windows
+
 package cli
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 )
 
-func requireShellFixture(t *testing.T) error {
+// requireShellFixture fails loudly (rather than skipping) when this POSIX
+// build's /bin/sh fixture is unavailable: a real Unix CI runner is expected
+// to always provide one, so its absence is itself a reportable environment
+// defect, not a reason to silently drop coverage.
+func requireShellFixture(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("/bin/sh"); err != nil {
-		return fmt.Errorf("/bin/sh unavailable: %w", err)
-	}
-	return nil
-}
-
-// deadlineSignalContext lets this test begin the command only after its
-// background descendant has inherited the output pipes, then deterministically
-// deliver the DeadlineExceeded signal that RunCapture reports to callers.
-// A fixed short timeout races process start under parallel CI load.
-type deadlineSignalContext struct {
-	done chan struct{}
-	once sync.Once
-}
-
-func newDeadlineSignalContext() *deadlineSignalContext {
-	return &deadlineSignalContext{done: make(chan struct{})}
-}
-
-func (c *deadlineSignalContext) Deadline() (time.Time, bool) { return time.Time{}, false }
-
-func (c *deadlineSignalContext) Done() <-chan struct{} { return c.done }
-
-func (c *deadlineSignalContext) Err() error {
-	select {
-	case <-c.done:
-		return context.DeadlineExceeded
-	default:
-		return nil
-	}
-}
-
-func (c *deadlineSignalContext) Value(any) any { return nil }
-
-func (c *deadlineSignalContext) expire() {
-	c.once.Do(func() { close(c.done) })
-}
-
-func waitForFixtureFile(path string, limit time.Duration) error {
-	timer := time.NewTimer(limit)
-	defer timer.Stop()
-	ticker := time.NewTicker(10 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		if _, err := os.Stat(path); err == nil {
-			return nil
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-		select {
-		case <-timer.C:
-			return fmt.Errorf("timed out after %s", limit)
-		case <-ticker.C:
-		}
+		t.Fatalf("/bin/sh unavailable: %v", err)
 	}
 }
 
 func TestRunCaptureBoundsPipeDrainAfterChildExit(t *testing.T) {
-	if err := requireShellFixture(t); err != nil {
-		t.Skip(err)
-	}
+	requireShellFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	started := time.Now()
@@ -95,9 +45,7 @@ func TestRunCaptureBoundsPipeDrainAfterChildExit(t *testing.T) {
 }
 
 func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
-	if err := requireShellFixture(t); err != nil {
-		t.Skip(err)
-	}
+	requireShellFixture(t)
 	fixtureDir := t.TempDir()
 	marker, err := os.CreateTemp(fixtureDir, "pipe-drain-child-")
 	if err != nil {
