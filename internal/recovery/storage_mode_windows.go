@@ -5,7 +5,7 @@ package recovery
 import "os"
 
 func platformSnapshotMode(mode os.FileMode) os.FileMode {
-	if mode.Perm()&0o222 == 0 {
+	if mode.Perm()&0o200 == 0 {
 		return 0o444
 	}
 	return 0o666
