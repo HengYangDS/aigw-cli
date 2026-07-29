@@ -24,6 +24,12 @@ anthropic = 'https://www.dmxapi.cn'
 kind = 'dmxapi'
 base_url = 'https://www.dmxapi.cn'
 
+[accounts.ucloud]
+label = 'UCloud'
+
+[accounts.ucloud.endpoints]
+openai_responses = 'https://api.modelverse.cn/v1'
+
 [profiles]
 
 [profiles.aihubmix-claude-fable-5]
@@ -214,11 +220,6 @@ client = 'codex'
 [profiles.'dmxapi-gpt-5.6-terra-ssvip'.models]
 codex = 'gpt-5.6-terra-ssvip'
 
-[profiles.'dmxapi-qwen3.7-max']
-label = 'DMXAPI · Qwen 3.7 Max'
-purpose = 'validated task-scoped Chinese synthesis alternative; non-default and no automatic tool-routing promotion'
-account = 'dmxapi'
-client = 'codex'
-
-[profiles.'dmxapi-qwen3.7-max'.models]
-codex = 'qwen3.7-max'
+[profiles.ucloud]
+label = 'UCloud'
+account = 'ucloud'

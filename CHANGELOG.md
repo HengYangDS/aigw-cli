@@ -8,6 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- Replace the DMXAPI Qwen 3.7 Max team profile with a token-free UCloud
+  Account placeholder at its mainland OpenAI-compatible endpoint while
+  preserving all recommended routes.
+
 ## [0.1.0-rc.71] - 2026-07-27
 
 ### Added
