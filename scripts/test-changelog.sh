@@ -100,7 +100,7 @@ cp "$checker" "$shallow/scripts/check-changelog.sh"
   # This fixture intentionally has no selected release tag. Clear the outer
   # CI tag variables so a tag pipeline cannot leak its real release identity
   # into the shallow branch-history assertion.
-  AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI= \
+  AIGW_CHANGELOG_ALLOW_FETCH=true AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI= \
     CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
     AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh
   if AIGW_CHANGELOG_RELEASE_TAG=v0.1.0-rc.1 AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh >/dev/null 2>&1; then
@@ -196,7 +196,7 @@ if ! (
   cd "$stale"
   test "$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD)" = v0.1.0-rc.1
   test -z "$(git tag --list v0.1.0-rc.2)"
-  AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI= \
+  AIGW_CHANGELOG_ALLOW_FETCH=true AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI= \
     CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
     AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh
 ); then
@@ -246,7 +246,7 @@ git config --file "$prune_config" fetch.pruneTags true
 if ! (
   cd "$prune_checkout"
   test "$(git tag --list github/v0.1.0-rc.1)" = github/v0.1.0-rc.1 &&
-    GIT_CONFIG_GLOBAL="$prune_config" AIGW_CHANGELOG_FORGE=local \
+    GIT_CONFIG_GLOBAL="$prune_config" AIGW_CHANGELOG_ALLOW_FETCH=true AIGW_CHANGELOG_FORGE=local \
       GITHUB_ACTIONS= GITLAB_CI= CI_COMMIT_TAG= GITHUB_REF_TYPE= \
       GITHUB_REF_NAME= AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh &&
     test "$(git tag --list github/v0.1.0-rc.1)" = github/v0.1.0-rc.1
@@ -288,7 +288,7 @@ cp "$checker" "$fallback_checkout/scripts/check-changelog.sh"
 if ! (
   cd "$fallback_checkout"
   test -z "$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)" &&
-    GIT_CONFIG_GLOBAL="$prune_config" AIGW_CHANGELOG_FORGE=local \
+    GIT_CONFIG_GLOBAL="$prune_config" AIGW_CHANGELOG_ALLOW_FETCH=true AIGW_CHANGELOG_FORGE=local \
       GITHUB_ACTIONS= GITLAB_CI= CI_COMMIT_TAG= GITHUB_REF_TYPE= \
       GITHUB_REF_NAME= AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh &&
     test "$(git tag --list github/v0.1.0-rc.1)" = github/v0.1.0-rc.1
@@ -312,7 +312,7 @@ cp "$checker" "$unshallow_checkout/scripts/check-changelog.sh"
 if ! (
   cd "$unshallow_checkout"
   test "$(git rev-parse --is-shallow-repository)" = true &&
-    GIT_CONFIG_GLOBAL="$prune_config" AIGW_CHANGELOG_FORGE=local \
+    GIT_CONFIG_GLOBAL="$prune_config" AIGW_CHANGELOG_ALLOW_FETCH=true AIGW_CHANGELOG_FORGE=local \
       GITHUB_ACTIONS= GITLAB_CI= CI_COMMIT_TAG= GITHUB_REF_TYPE= \
       GITHUB_REF_NAME= AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/check-changelog.sh &&
     test "$(git rev-parse --is-shallow-repository)" = false &&
