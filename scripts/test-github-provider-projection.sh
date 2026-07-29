@@ -79,7 +79,7 @@ canonical_tag=$(git -C "$source" rev-parse refs/tags/v0.1.0)
 git -C "$source" commit --allow-empty -qm 'signed duplicate-tree canonical commit'
 
 # Keep one signed branch forked before the initial GitHub synchronization. A
-# later merge must map its old parent by matching first-parent position and tree.
+# later merge must map its old parent by identity-neutral commit fingerprint.
 git -C "$source" checkout -qb work/old-parent "$canonical_floor"
 printf 'old-parent\n' > "$source/OLD_PARENT.txt"
 git -C "$source" add OLD_PARENT.txt
