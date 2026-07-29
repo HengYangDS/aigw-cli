@@ -98,8 +98,9 @@ directory, cache, and credential.
 The registered GitLab Windows runner is not scheduled because its host shell is
 not administratively manageable. GitHub Linux and Windows jobs block trusted
 `main`, tag, and manual workflows. The macOS verification runner likewise
-blocks trusted source workflows, while release jobs add package-lifecycle
-acceptance. No scheduled native job is an allowed failure.
+blocks trusted source workflows. Rooted macOS package-lifecycle acceptance is
+reserved for GA until that runner has a dedicated administrator credential. No
+scheduled native job is an allowed failure.
 
 ## Release behavior
 

@@ -67,9 +67,9 @@ Worktree visibility or an apparently idle agent is not retirement authority.
   `hengyang.2003@tsinghua.org.cn` and a trusted GitHub signature. Do not rewrite
   the historical floors or published release tags.
 - Native source verification on macOS, Linux, and Windows blocks trusted CI
-  changes; native package-lifecycle acceptance blocks releases.
-  Cross-compilation and package inspection cover additional CPU targets but
-  replace neither.
+  changes and RC releases. Cross-compilation and package inspection cover
+  additional CPU targets but do not replace those native source runs. Rooted
+  macOS package-lifecycle acceptance remains a GA requirement.
 
 ## Required verification
 

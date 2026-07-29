@@ -194,6 +194,8 @@ for forbidden in [
         raise SystemExit(f"GitLab package plane retains provider-specific build metadata: {forbidden}")
 if "windows-native-acceptance:" in gitlab:
     raise SystemExit("GitLab must not schedule its unmanageable Windows runner")
+if "macos-native-acceptance:" in gitlab:
+    raise SystemExit("GitLab must not schedule macOS package acceptance without administrator credentials")
 
 release = section(gitlab, "release")
 for required in [
@@ -209,20 +211,9 @@ for required in [
 if "mirror-github:" in gitlab or "AIGW_GITHUB_MIRROR" in gitlab:
     raise SystemExit("GitLab CI must not retain a one-way GitHub dependency")
 
-macos_native = section(gitlab, "macos-native-acceptance")
-if "allow_failure: true" in macos_native or "when: never" in macos_native:
-    raise SystemExit("macOS native evidence must block tagged publication")
-for required in ["stage: acceptance", "artifacts: true", "AIGW_MACOS_ACCEPTANCE_USER", "AIGW_MACOS_UPGRADE_PACKAGE", "test-macos-native-install.sh", "if: '$CI_COMMIT_TAG'"]:
-    if required not in macos_native:
-        raise SystemExit(f"macOS native evidence job is missing {required}")
 publish = section(gitlab, "publish")
-macos_need = publish[publish.index("job: macos-native-acceptance"):]
-macos_need = macos_need.split("\n    - job:", 1)[0]
-if "optional: true" in macos_need:
-    raise SystemExit("native macOS acceptance must block publication")
 for section_text, name in [
     (section(gitlab, "windows-installer-runtime"), "Windows installer"),
-    (macos_native, "macOS native acceptance"),
     (package, "package"),
 ]:
     if "tags: [aigw-release-macos-arm64]" not in section_text:
@@ -231,7 +222,7 @@ for section_text, name in [
 for required in [
     "name: Release", 'tags: ["v*"]', "permissions:\n  contents: write",
     "native-linux:", "runs-on: ubuntu-latest", "native-windows:", "runs-on: windows-latest",
-    "needs: [native-linux, native-windows]", "go run ./tools/coveragegate --race", "check-commit-provenance.sh . github",
+    "needs: [native-linux, native-windows]", "go run ./tools/coveragegate --race", "check-commit-provenance.sh . github", "AIGW_CHANGELOG_RELEASE_TAG:",
     "runs-on: [self-hosted, macOS, ARM64, aigw-github-release-macos-arm64]", 'check-release-tag-signature.sh . "$SELECTED_TAG" github',
     'go-version: "1.25.12"', "check-latest: false", "cache: false", "GOTOOLCHAIN: go1.25.12", "check-release-toolchain.sh", "check-static-analysis.sh",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
