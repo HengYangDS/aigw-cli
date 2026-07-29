@@ -14,8 +14,8 @@ $root = Join-Path ([IO.Path]::GetTempPath()) ("aigw-windows-native-" + [guid]::N
 try {
     Set-Location $Repository
 
-    & go test -race ./...
-    if ($LASTEXITCODE -ne 0) { throw "go test -race ./... failed" }
+    & go run ./tools/coveragegate --race
+    if ($LASTEXITCODE -ne 0) { throw "coverage and race gate failed" }
     & go vet ./...
     if ($LASTEXITCODE -ne 0) { throw "go vet ./... failed" }
 

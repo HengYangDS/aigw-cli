@@ -64,6 +64,21 @@ platform-matching portable archive and a validating checksum record. It exists
 for offline acceptance, installation, and rollback verification. A source
 checkout, a loose binary, and a tag are not candidates.
 
+## Engineering quality
+
+`.config/checks/coverage/policy.toml` is the coverage SSOT. The executable gate
+tests every Go package under `./...` with no exclusion surface and requires each
+package and the aggregate to remain strictly above 95 percent. One semantic
+owner must govern each behavior and policy; source compatibility shims,
+forwarding wrappers, alias-only packages, and re-exports are not admitted
+substitutes for cohesive packages, explicit dependency direction, SSOT, DRY,
+MECE, and SOLID design.
+
+Native source verification on macOS, Linux, and Windows is blocking on trusted
+CI changes. Native package-lifecycle acceptance for all three operating-system
+families is additionally blocking on releases. Runner absence is a failed gate,
+not permission to mark the job optional.
+
 ## Reproducible release inputs
 
 Every formal release matrix has one source-neutral `SOURCE_DATE_EPOCH`: UTC
@@ -112,15 +127,22 @@ is accepted, fetch the remote tag, verify it against the tracked GitHub trust
 anchor, and compare its complete artifact matrix with GitLab. A detected manual
 tag change is a provenance failure; it is not an impossible state.
 
+`packaging/release/verified-commit-floors.txt` records the immutable historical
+boundary. Every later GitLab commit uses the GitLab email and trust anchor;
+every later GitHub commit uses the GitHub email and trust anchor.
+
 Run `sh scripts/project-github-forge.sh` from a clean canonical checkout to
-project a selected branch into the GitHub identity domain. It rewrites only an
-isolated clone, verifies every GitHub release tag whose source tree is present
-on the selected canonical branch, and retains the separate GitLab verification
-for a same-named canonical tag. It uses a leased branch update and never pushes
-a tag. It honors the repository-local GitHub URL without inheriting user-global
-URL rewrites, so its transport and authentication stay explicit. GitLab
-recovery uses a normal, non-force push of canonical history after its remote is
-reachable. No equal-object branch or tag synchronizer applies to AIGW.
+project a selected branch into the GitHub identity domain. It verifies every
+GitHub release tag whose source tree is present on the selected canonical
+branch, retains the separate GitLab verification for a same-named canonical
+tag, and maps the current GitHub tip to an equal canonical source tree. It then
+appends later source commits with their merge topology, the GitHub identity,
+and a trusted signature, using an ordinary fast-forward push. It never rewrites
+history or pushes a tag. It honors the repository-local GitHub URL without
+inheriting user-global URL rewrites, so transport and authentication stay
+explicit. GitLab recovery uses a normal, non-force push of canonical history
+after its remote is reachable. No equal-object branch or tag synchronizer
+applies to AIGW.
 
 A steady-state synchronization claim requires current, explicitly refreshed
 peer refs. The local canonical branch and GitLab peer must have identical commit

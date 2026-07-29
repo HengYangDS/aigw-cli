@@ -28,7 +28,7 @@ type spdxPackage struct {
 	LicenseDeclared  string `json:"licenseDeclared"`
 }
 
-var runGoList = func() ([]byte, error) {
+func runGoList() ([]byte, error) {
 	cmd := exec.Command("go", "list", "-m", "-json", "all")
 	return cmd.CombinedOutput()
 }
@@ -54,7 +54,10 @@ func loadModules() ([]module, error) {
 		}
 		return nil, fmt.Errorf("run go list -m -json all: %w\n%s", err, detail)
 	}
+	return decodeModules(data)
+}
 
+func decodeModules(data []byte) ([]module, error) {
 	decoder := json.NewDecoder(strings.NewReader(string(data)))
 	modules := []module{}
 	for {
@@ -69,19 +72,35 @@ func loadModules() ([]module, error) {
 }
 
 func main() {
-	version := flag.String("version", "dev", "AIGW version")
-	flag.Parse()
-	created, err := creationTimeFromEnv(os.Getenv)
+	os.Exit(run(os.Args[1:], os.Getenv, os.Stdout, os.Stderr))
+}
+
+func run(args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("sbom", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	version := flags.String("version", "dev", "AIGW version")
+	if err := flags.Parse(args); err != nil {
+		return 2
+	}
+	created, err := creationTimeFromEnv(getenv)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+		_, _ = fmt.Fprintln(stderr, err)
+		return 2
 	}
 	modules, err := loadModules()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
 	}
-	packages := []spdxPackage{{Name: "aigw", SPDXID: "SPDXRef-Package-aigw", VersionInfo: *version, DownloadLocation: "NOASSERTION", FilesAnalyzed: false, LicenseConcluded: "MIT", LicenseDeclared: "MIT"}}
+	if err := writeSBOM(stdout, *version, created, modules); err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	return 0
+}
+
+func writeSBOM(output io.Writer, version string, created time.Time, modules []module) error {
+	packages := []spdxPackage{{Name: "aigw", SPDXID: "SPDXRef-Package-aigw", VersionInfo: version, DownloadLocation: "NOASSERTION", FilesAnalyzed: false, LicenseConcluded: "MIT", LicenseDeclared: "MIT"}}
 	index := 0
 	for _, item := range modules {
 		if item.Version == "" {
@@ -92,14 +111,14 @@ func main() {
 	}
 	doc := map[string]any{
 		"spdxVersion": "SPDX-2.3", "dataLicense": "CC0-1.0", "SPDXID": "SPDXRef-DOCUMENT",
-		"name": "aigw-" + *version, "documentNamespace": "https://aigw.internal/spdx/" + *version,
+		"name": "aigw-" + version, "documentNamespace": "https://aigw.internal/spdx/" + version,
 		"creationInfo": map[string]any{"created": created.Format(time.RFC3339), "creators": []string{"Tool: aigw-sbom"}},
 		"packages":     packages,
 	}
-	encoder := json.NewEncoder(os.Stdout)
+	encoder := json.NewEncoder(output)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(doc); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
+	return nil
 }

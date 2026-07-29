@@ -21,11 +21,57 @@ env:
   GOTOOLCHAIN: go1.25.12
 
 jobs:
+  native-linux:
+    name: Native Linux release acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out the exact release tag
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version: "1.25.12"
+          check-latest: false
+          cache: false
+      - name: Run native Linux release acceptance
+        run: |
+          set -euo pipefail
+          sh scripts/check-commit-provenance.sh . github
+          go run ./tools/coveragegate --race
+          go vet ./...
+          go build -o "$RUNNER_TEMP/aigw" ./cmd/aigw
+          "$RUNNER_TEMP/aigw" --version
+
+  native-windows:
+    name: Native Windows release acceptance
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out the exact release tag
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version: "1.25.12"
+          check-latest: false
+          cache: false
+      - name: Run native Windows release acceptance
+        shell: pwsh
+        run: ./scripts/test-windows-native.ps1 -Repository $env:GITHUB_WORKSPACE
+
   package-and-publish:
     name: Independently package and publish
     # Release credentials are confined to a runner that never executes
     # verification or merge-request workflow code.
     runs-on: [self-hosted, macOS, ARM64, aigw-github-release-macos-arm64]
+    needs: [native-linux, native-windows]
     timeout-minutes: 45
     steps:
       - name: Check out the exact release tag
@@ -52,8 +98,9 @@ jobs:
           case "$SELECTED_TAG" in v*) ;; *) echo "release requires a v* tag" >&2; exit 2 ;; esac
           test "$SELECTED_TAG" = "$(git describe --tags --exact-match HEAD)"
           sh scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github
+          sh scripts/check-commit-provenance.sh . github
           sh scripts/check-release-toolchain.sh
-          go test -race ./...
+          go run ./tools/coveragegate --race
           go vet ./...
           sh scripts/check-static-analysis.sh
           test -z "$(gofmt -l cmd internal tools)"

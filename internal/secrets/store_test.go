@@ -36,6 +36,12 @@ func TestStoresRejectInvalidProfileAndEmptySecret(t *testing.T) {
 		if err := store.Set(name, "value"); err == nil {
 			t.Errorf("Set(%q) succeeded", name)
 		}
+		if _, err := store.Get(name); err == nil {
+			t.Errorf("Get(%q) succeeded", name)
+		}
+		if err := store.Delete(name); err == nil {
+			t.Errorf("Delete(%q) succeeded", name)
+		}
 	}
 	if err := store.Set("dmx", ""); err == nil {
 		t.Fatal("empty secret accepted")
@@ -49,11 +55,58 @@ func TestEnvironmentStoreUsesNormalizedReadOnlyVariable(t *testing.T) {
 	if err != nil || got != "from-environment" {
 		t.Fatalf("Get = %q, %v", got, err)
 	}
+	if !store.Has("dmx-team.1") || store.Has("missing") {
+		t.Fatalf("Has(dmx-team.1) = %v, Has(missing) = %v", store.Has("dmx-team.1"), store.Has("missing"))
+	}
+	if !store.ReadOnly() {
+		t.Fatal("environment store must report read-only")
+	}
+	if !IsReadOnly(store) {
+		t.Fatal("IsReadOnly must detect the read-only reporter")
+	}
 	if err := store.Set("dmx-team.1", "new-secret"); !errors.Is(err, ErrReadOnly) {
 		t.Fatalf("Set error = %v", err)
 	}
 	if err := store.Delete("dmx-team.1"); !errors.Is(err, ErrReadOnly) {
 		t.Fatalf("Delete error = %v", err)
+	}
+}
+
+func TestEnvironmentStoreMissingVariableIsNotFound(t *testing.T) {
+	store := NewEnvironmentStore(func(string) string { return "" })
+	if _, err := store.Get("dmx"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Get error = %v", err)
+	}
+}
+
+func TestEnvironmentStoreRejectsInvalidProfileName(t *testing.T) {
+	store := NewEnvironmentStore(func(string) string { return "value" })
+	if _, err := store.Get("bad name"); err == nil {
+		t.Error("Get(bad name) succeeded")
+	}
+	if err := store.Set("bad name", "value"); err == nil {
+		t.Error("Set(bad name) succeeded")
+	}
+	if err := store.Delete("bad name"); err == nil {
+		t.Error("Delete(bad name) succeeded")
+	}
+}
+
+func TestMemoryStoreIsNotReportedReadOnly(t *testing.T) {
+	if IsReadOnly(NewMemoryStore()) {
+		t.Fatal("memory store must not report read-only")
+	}
+}
+
+func TestSelectDefaultsToKeyringBackend(t *testing.T) {
+	for _, backend := range []string{"", "keyring"} {
+		store, err := Select(backend, func(string) string { return "" })
+		if err != nil {
+			t.Fatalf("Select(%q) error = %v", backend, err)
+		}
+		if _, ok := store.(KeyringStore); !ok {
+			t.Fatalf("Select(%q) = %T, want KeyringStore", backend, store)
+		}
 	}
 }
 

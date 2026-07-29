@@ -64,3 +64,25 @@ func TestClaudePlanProjectsModelWhenConfigured(t *testing.T) {
 		t.Fatalf("env = %#v", env)
 	}
 }
+
+func TestClaudePlanErrors(t *testing.T) {
+	cases := []struct {
+		name       string
+		executable string
+		runtime    domain.Runtime
+		token      string
+		wantErr    string
+	}{
+		{"missing executable", "", domain.Runtime{}, "tok", "Claude executable is not configured"},
+		{"missing token", "bin", domain.Runtime{ProfileID: "p"}, "", "profile \"p\" has no token"},
+		{"missing endpoint", "bin", domain.Runtime{ProfileID: "p"}, "tok", "profile \"p\" has no Claude endpoint"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := adapters.ClaudePlan(c.executable, nil, nil, c.runtime, c.token)
+			if err == nil || err.Error() != c.wantErr {
+				t.Fatalf("got err = %v, want %q", err, c.wantErr)
+			}
+		})
+	}
+}

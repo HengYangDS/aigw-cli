@@ -12,6 +12,9 @@ esac
 case "$help" in
   *immutable*) echo 'GitHub projection help claims host-enforced tag immutability' >&2; exit 1 ;;
 esac
+case "$help" in
+  *reconcile-divergence*) echo 'GitHub projection still offers history-rewriting divergence recovery' >&2; exit 1 ;;
+esac
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/aigw-github-provider-projection.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 
@@ -52,9 +55,13 @@ git init -q -b main "$source"
 git -C "$source" config user.name 'Yang HENG'
 git -C "$source" config user.email 'heng.yang.ds@hotmail.com'
 git -C "$source" config user.useConfigOnly true
+git -C "$source" config gpg.format ssh
+git -C "$source" config user.signingkey "$key"
+git -C "$source" config commit.gpgsign true
 printf 'first\n' > "$source/README.md"
 git -C "$source" add README.md
 git -C "$source" commit -qm 'first canonical source commit'
+canonical_floor=$(git -C "$source" rev-parse HEAD)
 git -C "$source" -c gpg.format=ssh -c user.signingkey="$key" tag -s -a v0.1.0 -m 'GitLab release identity'
 canonical_tag=$(git -C "$source" rev-parse refs/tags/v0.1.0)
 
@@ -75,6 +82,8 @@ git -C "$projection" -c user.name=HengYang -c user.email=hengyang.2003@tsinghua.
 git -C "$projection" remote set-url origin "file://$remote"
 git -C "$projection" -c core.hooksPath=/dev/null push -q origin main refs/tags/v0.1.0
 remote_tag_before=$(git -C "$remote" rev-parse refs/tags/v0.1.0)
+remote_main_before=$(git -C "$remote" rev-parse refs/heads/main)
+printf 'gitlab %s\ngithub %s\n' "$canonical_floor" "$remote_main_before" > "$tmp/verified-floors"
 
 # Advance the canonical source. The production projection must not rewrite its
 # refs or its GitLab release tag while it rewrites only the isolated clone.
@@ -89,6 +98,8 @@ git -C "$source" remote add github git@github.com:test/aigw-cli.git
   cd "$source"
   AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
     AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_GITHUB_SIGNING_KEY="$key" \
+    AIGW_VERIFIED_COMMIT_FLOORS="$tmp/verified-floors" \
     AIGW_TEST_GITHUB_REMOTE="$remote" \
     GIT_SSH_COMMAND="$mock_ssh" \
     AIGW_GITHUB_REMOTE=github \
@@ -115,10 +126,70 @@ git -C "$source" remote add github git@github.com:test/aigw-cli.git
   echo 'projected GitHub main tree differs from canonical source' >&2
   exit 1
 }
+remote_main_after=$(git -C "$remote" rev-parse refs/heads/main)
+git -C "$remote" merge-base --is-ancestor "$remote_main_before" "$remote_main_after" || {
+  echo 'GitHub projection rewrote the pre-policy branch tip' >&2
+  exit 1
+}
+[ "$(git -C "$remote" rev-list --count "$remote_main_before..$remote_main_after")" -eq 1 ] || {
+  echo 'GitHub projection did not append exactly one new source commit' >&2
+  exit 1
+}
+git -C "$remote" \
+  -c gpg.format=ssh \
+  -c gpg.ssh.program=ssh-keygen \
+  -c gpg.ssh.allowedSignersFile="$tmp/allowed/github" \
+  verify-commit "$remote_main_after" >/dev/null || {
+  echo 'GitHub projection did not sign its appended commit' >&2
+  exit 1
+}
 if git -C "$remote" log main --format='%ae%n%ce' | grep -Fv -x 'hengyang.2003@tsinghua.org.cn' | grep -q .; then
   echo 'GitHub projection retains a non-GitHub identity' >&2
   exit 1
 fi
+
+# Provider projection preserves canonical merge topology while appending only
+# signed GitHub commits to the existing remote tip.
+git -C "$source" checkout -qb work/provider-merge main
+printf 'feature\n' > "$source/FEATURE.txt"
+git -C "$source" add FEATURE.txt
+git -C "$source" commit -qm 'signed feature commit'
+git -C "$source" checkout -q main
+printf 'main\n' > "$source/MAIN.txt"
+git -C "$source" add MAIN.txt
+git -C "$source" commit -qm 'signed main commit'
+git -C "$source" merge -q --no-ff -S -m 'signed canonical merge' work/provider-merge
+(
+  cd "$source"
+  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
+    AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_GITHUB_SIGNING_KEY="$key" \
+    AIGW_VERIFIED_COMMIT_FLOORS="$tmp/verified-floors" \
+    AIGW_TEST_GITHUB_REMOTE="$remote" \
+    GIT_SSH_COMMAND="$mock_ssh" \
+    AIGW_GITHUB_REMOTE=github \
+    sh "$script" --branch main
+) >/dev/null
+remote_merge=$(git -C "$remote" rev-parse refs/heads/main)
+[ "$(git -C "$remote" show -s --format='%P' "$remote_merge" | wc -w | tr -d ' ')" -eq 2 ] || {
+  echo 'GitHub projection flattened a canonical merge commit' >&2
+  exit 1
+}
+[ "$(git -C "$remote" rev-parse "$remote_merge^{tree}")" = "$(git -C "$source" rev-parse main^{tree})" ] || {
+  echo 'GitHub merge projection tree differs from canonical source' >&2
+  exit 1
+}
+for commit in $(git -C "$remote" rev-list "$remote_main_after..$remote_merge"); do
+  git -C "$remote" \
+    -c gpg.format=ssh \
+    -c gpg.ssh.program=ssh-keygen \
+    -c gpg.ssh.allowedSignersFile="$tmp/allowed/github" \
+    verify-commit "$commit" >/dev/null || {
+    echo "GitHub merge projection commit is unsigned: $commit" >&2
+    exit 1
+  }
+done
+remote_main_after=$remote_merge
 
 # The projection may be invoked from an isolated worktree or any other local
 # branch while `--branch main` selects a different canonical ref.  The initial
@@ -134,6 +205,8 @@ git -C "$source" commit -qm 'caller-only projection context'
   cd "$source"
   AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
     AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_GITHUB_SIGNING_KEY="$key" \
+    AIGW_VERIFIED_COMMIT_FLOORS="$tmp/verified-floors" \
     AIGW_TEST_GITHUB_REMOTE="$remote" \
     GIT_SSH_COMMAND="$mock_ssh" \
     AIGW_GITHUB_REMOTE=github \
@@ -169,6 +242,8 @@ if (
   cd "$source"
   AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
     AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_GITHUB_SIGNING_KEY="$key" \
+    AIGW_VERIFIED_COMMIT_FLOORS="$tmp/verified-floors" \
     AIGW_TEST_GITHUB_REMOTE="$remote" \
     GIT_SSH_COMMAND="$mock_ssh" \
     AIGW_GITHUB_REMOTE=github \
@@ -201,6 +276,8 @@ if (
   cd "$source"
   AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
     AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_GITHUB_SIGNING_KEY="$key" \
+    AIGW_VERIFIED_COMMIT_FLOORS="$tmp/verified-floors" \
     AIGW_TEST_GITHUB_REMOTE="$remote" \
     GIT_SSH_COMMAND="$mock_ssh" \
     AIGW_GITHUB_REMOTE=github \
@@ -220,8 +297,7 @@ git -C "$remote" tag -d v0.2.1 >/dev/null
 
 # A remote branch that contains an independently merged GitHub-only change is
 # a divergence even when an operator later admits equivalent canonical work.
-# The normal projection must refuse it. Recovery is explicit: it requires the
-# exact read-only remote tip and retains the same leased branch update.
+# Forward-only identity governance must refuse it without a rewrite escape.
 git clone -q --no-local "file://$remote" "$tmp/divergent-github"
 git -C "$tmp/divergent-github" checkout -qb main origin/main
 git -C "$tmp/divergent-github" config user.name HengYang
@@ -242,6 +318,8 @@ if (
   cd "$source"
   AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
     AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_GITHUB_SIGNING_KEY="$key" \
+    AIGW_VERIFIED_COMMIT_FLOORS="$tmp/verified-floors" \
     AIGW_TEST_GITHUB_REMOTE="$remote" \
     GIT_SSH_COMMAND="$mock_ssh" \
     AIGW_GITHUB_REMOTE=github \
@@ -265,48 +343,5 @@ grep -F 'GitHub branch tree diverges from canonical history; resolve manually' \
   echo 'rejected GitHub divergence changed the remote main' >&2
   exit 1
 }
-
-wrong_tip=0000000000000000000000000000000000000000
-if (
-  cd "$source"
-  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
-    AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
-    AIGW_TEST_GITHUB_REMOTE="$remote" \
-    GIT_SSH_COMMAND="$mock_ssh" \
-    AIGW_GITHUB_REMOTE=github \
-    sh "$script" --branch main --reconcile-divergence "$wrong_tip"
-) >"$tmp/wrong-divergence-tip.out" 2>&1; then
-  cat "$tmp/wrong-divergence-tip.out" >&2
-  echo 'projection accepted a stale divergence-recovery tip' >&2
-  exit 1
-fi
-grep -F "GitHub branch tip changed; expected $wrong_tip, found $remote_divergent_tip" \
-  "$tmp/wrong-divergence-tip.out" >/dev/null || {
-  cat "$tmp/wrong-divergence-tip.out" >&2
-  echo 'projection did not fail closed for the stale divergence-recovery tip' >&2
-  exit 1
-}
-
-(
-  cd "$source"
-  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
-    AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
-    AIGW_TEST_GITHUB_REMOTE="$remote" \
-    GIT_SSH_COMMAND="$mock_ssh" \
-    AIGW_GITHUB_REMOTE=github \
-    sh "$script" --branch main --reconcile-divergence "$remote_divergent_tip"
-) >/dev/null
-[ "$(git -C "$remote" rev-parse refs/heads/main^{tree})" = "$(git -C "$source" rev-parse refs/heads/main^{tree})" ] || {
-  echo 'explicit GitHub divergence recovery did not project canonical source' >&2
-  exit 1
-}
-[ "$(git -C "$remote" rev-parse refs/tags/v0.1.0)" = "$remote_tag_before" ] || {
-  echo 'explicit GitHub divergence recovery rewrote the GitHub release tag' >&2
-  exit 1
-}
-if git -C "$remote" log main --format='%ae%n%ce' | grep -Fv -x 'hengyang.2003@tsinghua.org.cn' | grep -q .; then
-  echo 'explicit GitHub divergence recovery retains a non-GitHub identity' >&2
-  exit 1
-fi
 
 echo 'GitHub provider projection isolation contract: OK'
