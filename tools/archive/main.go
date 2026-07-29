@@ -39,26 +39,35 @@ func (f *entryFlag) Set(value string) error {
 }
 
 func main() {
-	formatFlag := flag.String("format", "", "archive format: tar.gz or zip")
-	output := flag.String("output", "", "output archive path")
-	root := flag.String("root", "", "archive root directory")
-	epochFlag := flag.Int64("epoch", -1, "non-negative Unix epoch")
+	os.Exit(run(os.Args[1:], os.Stderr))
+}
+
+func run(args []string, stderr io.Writer) int {
+	flags := flag.NewFlagSet("archive", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	formatFlag := flags.String("format", "", "archive format: tar.gz or zip")
+	output := flags.String("output", "", "output archive path")
+	root := flags.String("root", "", "archive root directory")
+	epochFlag := flags.Int64("epoch", -1, "non-negative Unix epoch")
 	var rawEntries entryFlag
-	flag.Var(&rawEntries, "entry", "archive-path=source-path; repeat for every file")
-	flag.Parse()
+	flags.Var(&rawEntries, "entry", "archive-path=source-path; repeat for every file")
+	if err := flags.Parse(args); err != nil {
+		return 2
+	}
 
 	if *output == "" || *root == "" || *epochFlag < 0 || len(rawEntries) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: archive -format <tar.gz|zip> -output <path> -root <directory> -epoch <non-negative epoch> -entry <archive-path=source-path> [...]")
-		os.Exit(2)
+		_, _ = fmt.Fprintln(stderr, "usage: archive -format <tar.gz|zip> -output <path> -root <directory> -epoch <non-negative epoch> -entry <archive-path=source-path> [...]")
+		return 2
 	}
 	entries, err := parseEntries(rawEntries)
 	if err == nil {
 		err = writeArchive(*output, archiveFormat(*formatFlag), *root, time.Unix(*epochFlag, 0).UTC(), entries)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+		_, _ = fmt.Fprintln(stderr, err)
+		return 2
 	}
+	return 0
 }
 
 func parseEntries(raw []string) ([]archiveEntry, error) {

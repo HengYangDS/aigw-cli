@@ -71,20 +71,14 @@ func TestNormalizeXARRejectsVolatileTOC(t *testing.T) {
 }
 
 func writeFixtureXAR(path string, toc, heap []byte) error {
-	compressed, err := compressTOC(toc)
-	if err != nil {
-		return err
-	}
+	compressed := compressTOC(toc)
 	return writeXAR(path, compressed, len(toc), heap)
 }
 
 func TestCompressTOCUsesZlib(t *testing.T) {
 	t.Parallel()
 
-	compressed, err := compressTOC([]byte("toc"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	compressed := compressTOC([]byte("toc"))
 	reader, err := zlib.NewReader(bytes.NewReader(compressed))
 	if err != nil {
 		t.Fatalf("compressTOC() did not produce a zlib stream: %v", err)
