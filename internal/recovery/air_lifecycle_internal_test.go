@@ -86,6 +86,13 @@ func TestInspectAirLifecycleAdditionalActiveClassifications(t *testing.T) {
 		assertLifecycleForTest(t, f.store, f.air, f.standalone, AirRecoveryStateAwaitingHostRoundtrip, AirRecoveryHealthInvalid, AirRecoveryReasonQuarantineUnreadable)
 	})
 
+	t.Run("unreadable quarantine case directory", func(t *testing.T) {
+		f, plan := prepareAirRecoveryCrashForTest(t)
+		release := makeRecoveryPathUnreadableForTest(t, filepath.Dir(f.store.airQuarantinePath(plan.CaseID)))
+		assertLifecycleForTest(t, f.store, f.air, f.standalone, AirRecoveryStatePrepared, AirRecoveryHealthInvalid, AirRecoveryReasonStoragePermission)
+		release()
+	})
+
 	t.Run("prepared recovery", func(t *testing.T) {
 		f, _ := prepareAirRecoveryCrashForTest(t)
 		assertLifecycleForTest(t, f.store, f.air, f.standalone, AirRecoveryStatePrepared, AirRecoveryHealthHealthy, AirRecoveryReasonOK)

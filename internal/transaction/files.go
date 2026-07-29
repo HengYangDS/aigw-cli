@@ -152,11 +152,15 @@ func writeFileAtomic(path string, data []byte, defaultMode os.FileMode, preserve
 		_ = tmp.Close()
 		_ = os.Remove(tmpName)
 	}()
-	if err := tmp.Chmod(mode); err != nil {
-		return fmt.Errorf("set temporary mode: %w", err)
-	}
+	return commitTemporaryFile(tmp, path, data, mode)
+}
+
+func commitTemporaryFile(tmp *os.File, path string, data []byte, mode os.FileMode) error {
 	if _, err := tmp.Write(data); err != nil {
 		return fmt.Errorf("write temporary file: %w", err)
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		return fmt.Errorf("set temporary mode: %w", err)
 	}
 	if err := tmp.Sync(); err != nil {
 		return fmt.Errorf("sync temporary file: %w", err)
@@ -164,7 +168,7 @@ func writeFileAtomic(path string, data []byte, defaultMode os.FileMode, preserve
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("close temporary file: %w", err)
 	}
-	if err := os.Rename(tmpName, path); err != nil {
+	if err := os.Rename(tmp.Name(), path); err != nil {
 		return fmt.Errorf("replace %s: %w", path, err)
 	}
 	return nil
