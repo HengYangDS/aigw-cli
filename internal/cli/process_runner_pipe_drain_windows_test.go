@@ -28,7 +28,7 @@ const (
 
 func TestMain(m *testing.M) {
 	if os.Getenv(windowsPipeDrainRoleEnvironment) == "oversized-output" {
-		_, _ = os.Stdout.Write(bytes.Repeat([]byte("x"), capturedProcessOutputLimit+1))
+		_, _ = os.Stdout.Write(bytes.Repeat([]byte("x"), capturedProcessOutputLimit*4))
 		os.Exit(0)
 	}
 	os.Exit(m.Run())
