@@ -29,8 +29,8 @@ type coveragePolicy struct {
 }
 
 type coverageResult struct {
-	Covered int64
-	Total   int64
+	Covered  int64
+	Total    int64
 	Packages map[string]coverageCount
 }
 
@@ -64,6 +64,14 @@ func main() {
 	os.Exit(realMain(os.Args[1:], os.Stdout, os.Stderr, systemRunner{}))
 }
 
+// createCoverageProfile is overridden in tests to exercise temporary-file
+// creation and closure failures without depending on platform-specific
+// temporary-directory environment variables (TMPDIR is not honored on
+// Windows).
+var createCoverageProfile = func() (*os.File, error) {
+	return os.CreateTemp("", "aigw-coverage-*.out")
+}
+
 func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int {
 	flags := flag.NewFlagSet("coveragegate", flag.ContinueOnError)
 	flags.SetOutput(stderr)
@@ -94,7 +102,7 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int
 		return 1
 	}
 	sort.Strings(expectedPackages)
-	profile, err := os.CreateTemp("", "aigw-coverage-*.out")
+	profile, err := createCoverageProfile()
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "create coverage profile: %v\n", err)
 		return 1

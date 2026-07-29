@@ -188,19 +188,27 @@ func preservePreviousBinary(executable string) error {
 	return nil
 }
 
+// rollbackPath derives the sibling backup path for executable using the
+// separator style already present in executable, rather than the host OS's
+// native separator. This keeps the result stable across platforms: a
+// POSIX-style path (e.g. produced by a Windows binary staged from a
+// forward-slash working directory) must not be rewritten with backslashes,
+// and vice versa.
 func rollbackPath(executable string) string {
-	if strings.Contains(executable, `\`) && !strings.Contains(executable, "/") {
-		directory := executable[:strings.LastIndex(executable, `\`)+1]
-		if strings.EqualFold(filepath.Ext(executable), ".exe") {
-			return directory + ".aigw.previous.exe"
-		}
-		return directory + ".aigw.previous"
-	}
-	directory := filepath.Dir(executable)
+	suffix := ".aigw.previous"
 	if strings.EqualFold(filepath.Ext(executable), ".exe") {
-		return filepath.Join(directory, ".aigw.previous.exe")
+		suffix += ".exe"
 	}
-	return filepath.Join(directory, ".aigw.previous")
+	if strings.Contains(executable, `\`) && !strings.Contains(executable, "/") {
+		if index := strings.LastIndex(executable, `\`); index >= 0 {
+			return executable[:index+1] + suffix
+		}
+		return suffix
+	}
+	if index := strings.LastIndex(executable, "/"); index >= 0 {
+		return executable[:index+1] + suffix
+	}
+	return suffix
 }
 
 func windowsRollbackStagePath(executable string) string {

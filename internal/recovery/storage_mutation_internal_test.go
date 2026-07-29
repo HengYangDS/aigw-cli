@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
@@ -139,6 +140,24 @@ func TestRecoveryPathOpeningRejectsEscapesAndUnsafeDirectories(t *testing.T) {
 		if file, _, err := openRecoveryParentNoFollow(root, filepath.Join(blocked, "ledger.json"), false); err == nil {
 			_ = file.Close()
 			t.Fatal("opened a regular file as a recovery parent")
+		}
+	})
+
+	t.Run("oversized parent component name blocks directory creation", func(t *testing.T) {
+		root := privateRecoveryRootForTest(t)
+		oversized := strings.Repeat("a", 300)
+		if file, _, err := openRecoveryParentNoFollow(root, filepath.Join(root, oversized, "ledger.json"), true); err == nil {
+			_ = file.Close()
+			t.Fatal("created a recovery parent with an oversized directory name")
+		}
+	})
+
+	t.Run("oversized root component name blocks directory creation", func(t *testing.T) {
+		base := t.TempDir()
+		oversized := strings.Repeat("a", 300)
+		if file, err := openRecoveryRootNoFollow(filepath.Join(base, oversized), true, true); err == nil {
+			_ = file.Close()
+			t.Fatal("created a recovery root with an oversized directory name")
 		}
 	})
 }

@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"path"
 	"runtime"
 	"strconv"
 	"strings"
@@ -342,7 +342,40 @@ func defaultShimDirFor(goos string, env map[string]string, executable string) (s
 	if dir, err := platform.ShimDirFor(goos, env); err == nil {
 		return dir, nil
 	}
-	return filepath.Dir(executable), nil
+	return executableDirFor(goos, executable), nil
+}
+
+// executableDirFor reports the directory containing executable using goos's
+// own path convention rather than the host build's. filepath.Dir is bound to
+// the runtime GOOS, so a cross-compiled fallback (for example computing a
+// Windows-targeted answer from a POSIX build, or vice versa) must not use it
+// directly: the separator it recognizes would not match the target platform.
+func executableDirFor(goos, executable string) string {
+	if goos == "windows" {
+		return windowsDirName(executable)
+	}
+	return path.Dir(executable)
+}
+
+// windowsDirName is a minimal, host-independent equivalent of filepath.Dir
+// for Windows-style paths, accepting both "\\" and "/" separators the way
+// Windows itself does.
+func windowsDirName(name string) string {
+	trimmed := strings.TrimRight(name, `\/`)
+	if trimmed == "" {
+		return name
+	}
+	idx := strings.LastIndexAny(trimmed, `\/`)
+	if idx < 0 {
+		return "."
+	}
+	if idx == 0 {
+		return trimmed[:1]
+	}
+	if idx == 2 && trimmed[1] == ':' {
+		return trimmed[:idx+1]
+	}
+	return trimmed[:idx]
 }
 
 func environmentMap(values []string) map[string]string {
