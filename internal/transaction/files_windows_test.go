@@ -15,9 +15,8 @@ import (
 )
 
 // These are the Windows equivalents of files_unix_test.go: POSIX permission
-// bits and RLIMIT_FSIZE do not exist on Windows, so the same production
-// branches are reached here through native Windows sharing violations and
-// ACL deny entries (via icacls) instead.
+// bits and RLIMIT_FSIZE do not exist on Windows, so native path, sharing,
+// device, and ACL semantics exercise the corresponding production branches.
 
 // lockExclusive opens path with no sharing at all, so any concurrent
 // os.Open (which Go always issues with at least FILE_SHARE_READ|WRITE) fails
@@ -89,17 +88,17 @@ func TestWriteFileAtomicIfUnchangedRejectsUnreadableCurrentStateWhenLocked(t *te
 	}
 }
 
-func TestWriteFileAtomicIfUnchangedSurfacesUnderlyingWriteFailureWhenDirectoryDeniesWrite(t *testing.T) {
+func TestWriteFileAtomicIfUnchangedSurfacesTemporaryFileCreationFailure(t *testing.T) {
 	dir := t.TempDir()
-	denyDirEveryone(t, dir, "(W)")
+	denyDirEveryone(t, dir, "(WD)")
 	path := filepath.Join(dir, "file")
 	expected, err := transaction.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, err = transaction.WriteFileAtomicIfUnchanged(path, expected, []byte("x"), 0o600)
-	if err == nil || strings.Contains(err.Error(), "preimage changed") {
-		t.Fatalf("WriteFileAtomicIfUnchanged() error = %v, want the underlying write failure", err)
+	if err == nil || !strings.Contains(err.Error(), "create temporary file") {
+		t.Fatalf("WriteFileAtomicIfUnchanged() error = %v, want a temporary-file creation failure", err)
 	}
 }
 
@@ -160,26 +159,39 @@ func TestRestoreFileAtomicIfPostimageSurfacesRemovePermissionErrorWhenDeleteDeni
 	}
 }
 
-func TestWriteFileAtomicSurfacesStatFailureBeyondMissingFileWhenAttributesDenied(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "file")
-	if err := os.WriteFile(path, []byte("old"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	denyFileEveryone(t, path, "(RA)")
-	if err := transaction.WriteFileAtomic(path, []byte("x"), 0o600); err == nil {
-		t.Fatal("WriteFileAtomic succeeded despite a read-attributes-denied existing file")
+func TestWriteFileAtomicSurfacesInvalidWindowsPathDuringStat(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "invalid\x00name")
+	if err := transaction.WriteFileAtomic(path, []byte("x"), 0o600); err == nil || !strings.Contains(err.Error(), "inspect ") {
+		t.Fatalf("WriteFileAtomic() error = %v, want an invalid-path stat failure", err)
 	}
 }
 
-func TestWriteFileAtomicSurfacesUnwritableParentDirectoryWhenCreateDenied(t *testing.T) {
-	base := t.TempDir()
-	locked := filepath.Join(base, "locked")
-	if err := os.Mkdir(locked, 0o700); err != nil {
+func TestWriteFileAtomicSurfacesParentPathThatIsAFile(t *testing.T) {
+	parent := filepath.Join(t.TempDir(), "parent-is-a-file")
+	if err := os.WriteFile(parent, []byte("not a directory"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	denyDirEveryone(t, locked, "(W)")
-	path := filepath.Join(locked, "child", "file")
-	if err := transaction.WriteFileAtomicExactMode(path, []byte("x"), 0o600); err == nil {
-		t.Fatal("WriteFileAtomicExactMode succeeded despite an unwritable parent directory")
+	path := filepath.Join(parent, "child", "file")
+	if err := transaction.WriteFileAtomicExactMode(path, []byte("x"), 0o600); err == nil || !strings.Contains(err.Error(), "create parent directory") {
+		t.Fatalf("WriteFileAtomicExactMode() error = %v, want a parent-directory creation failure", err)
+	}
+}
+
+func TestWriteFileAtomicExactModeAppliesReadOnlyModeAfterWriting(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "read-only")
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+	if err := transaction.WriteFileAtomicExactMode(path, []byte("content"), 0o400); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "content" || info.Mode().Perm()&0o200 != 0 {
+		t.Fatalf("written file = %q mode %o, want content with a read-only mode", data, info.Mode().Perm())
 	}
 }

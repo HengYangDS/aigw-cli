@@ -69,6 +69,40 @@ func TestWindowsFallbackRecoveryMutationsRejectLockedTarget(t *testing.T) {
 	}
 }
 
+func TestWindowsFallbackRecoveryMutationsSurfaceDeleteSharingViolationAfterCapture(t *testing.T) {
+	for _, operation := range []string{"write", "remove", "restore"} {
+		t.Run(operation, func(t *testing.T) {
+			root := privateRecoveryRootForTest(t)
+			path := filepath.Join(root, "ledger.json")
+			data := []byte("original\n")
+			if err := os.WriteFile(path, data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			expected, err := captureRecoveryFileNoFollow(root, path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			release := holdRecoveryPathWithoutDeleteSharingForTest(t, path)
+			switch operation {
+			case "write":
+				_, err = writeRecoveryFileAtomicIfUnchanged(root, path, expected, []byte("changed\n"), 0o600)
+			case "remove":
+				_, err = removeRecoveryFileIfUnchanged(root, path, expected)
+			case "restore":
+				err = restoreRecoveryFileAtomicIfPostimage(root, path, transaction.FileSnapshot{}, expected)
+			}
+			if err == nil {
+				t.Fatalf("%s succeeded while the target denied delete sharing", operation)
+			}
+			release()
+			current, readErr := os.ReadFile(path)
+			if readErr != nil || !bytes.Equal(current, data) {
+				t.Fatalf("delete-protected target changed: %q, %v", current, readErr)
+			}
+		})
+	}
+}
+
 func TestValidateRecoveryMutationParentsAcceptsWindowsDirectoryModes(t *testing.T) {
 	root := privateRecoveryRootForTest(t)
 	parent := filepath.Join(root, "air")

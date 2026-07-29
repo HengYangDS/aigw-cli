@@ -88,8 +88,8 @@ type airLedger struct {
 }
 
 type airRecoveryStorageInventory struct {
-	ledgerExists      bool
 	permissionInvalid bool
+	rootUnsafe        bool
 	unsafeTraversal   bool
 	unexpectedStorage bool
 	quarantineEntries []airRecoveryQuarantineEntry
@@ -190,6 +190,7 @@ func (s Store) inspectAirRecoveryStorage() (airRecoveryStorageInventory, error) 
 	}
 	if err != nil {
 		inventory.permissionInvalid = true
+		inventory.rootUnsafe = true
 		inventory.unsafeTraversal = true
 		return inventory, nil
 	}
@@ -228,7 +229,6 @@ func (s Store) inspectAirRecoveryStorage() (airRecoveryStorageInventory, error) 
 
 	ledgerInfo, ledgerExists := recoveryDirectoryEntry(airEntries, "ledger.json")
 	if ledgerExists {
-		inventory.ledgerExists = true
 		if ledgerInfo.Mode()&os.ModeSymlink != 0 || !ledgerInfo.Mode().IsRegular() {
 			inventory.permissionInvalid = true
 			inventory.unsafeTraversal = true
@@ -258,7 +258,7 @@ func (s Store) inspectAirRecoveryStorage() (airRecoveryStorageInventory, error) 
 		path := filepath.Join(quarantineRoot, entry.Name())
 		item := airRecoveryQuarantineEntry{name: entry.Name()}
 		if entry.Mode()&os.ModeSymlink != 0 || !entry.IsDir() {
-			if entry.Mode()&os.ModeSymlink != 0 {
+			if !entry.Mode().IsRegular() {
 				inventory.permissionInvalid = true
 			}
 			inventory.quarantineEntries = append(inventory.quarantineEntries, item)
