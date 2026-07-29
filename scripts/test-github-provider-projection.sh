@@ -25,6 +25,8 @@ home="$tmp/home"
 global_config="$tmp/global.gitconfig"
 key="$tmp/signing"
 mock_ssh="$tmp/mock-ssh"
+signing_program="$tmp/signing-program"
+signing_marker="$tmp/signing-program.called"
 mkdir -p "$home" "$tmp/allowed"
 : > "$global_config"
 ssh-keygen -q -t ed25519 -N '' -f "$key"
@@ -41,6 +43,16 @@ esac
 exit 0
 EOF
 chmod +x "$mock_ssh"
+
+ssh_keygen=$(command -v ssh-keygen)
+cat > "$signing_program" <<EOF
+#!/bin/sh
+: > "\${AIGW_TEST_SIGNING_PROGRAM_MARKER:?}"
+exec "$ssh_keygen" "\$@"
+EOF
+chmod +x "$signing_program"
+export AIGW_GITHUB_SIGNING_PROGRAM="$signing_program"
+export AIGW_TEST_SIGNING_PROGRAM_MARKER="$signing_marker"
 
 export HOME="$home"
 export GIT_CONFIG_NOSYSTEM=1
@@ -127,6 +139,10 @@ git -C "$source" remote add github git@github.com:test/aigw-cli.git
   exit 1
 }
 remote_main_after=$(git -C "$remote" rev-parse refs/heads/main)
+[ -f "$signing_marker" ] || {
+  echo 'GitHub projection ignored its configured signing program' >&2
+  exit 1
+}
 git -C "$remote" merge-base --is-ancestor "$remote_main_before" "$remote_main_after" || {
   echo 'GitHub projection rewrote the pre-policy branch tip' >&2
   exit 1
