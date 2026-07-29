@@ -1,0 +1,185 @@
+//go:build windows
+
+package transaction_test
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"golang.org/x/sys/windows"
+
+	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
+)
+
+// These are the Windows equivalents of files_unix_test.go: POSIX permission
+// bits and RLIMIT_FSIZE do not exist on Windows, so the same production
+// branches are reached here through native Windows sharing violations and
+// ACL deny entries (via icacls) instead.
+
+// lockExclusive opens path with no sharing at all, so any concurrent
+// os.Open (which Go always issues with at least FILE_SHARE_READ|WRITE) fails
+// with a genuine sharing violation until the returned func closes the lock.
+func lockExclusive(t *testing.T, path string) func() {
+	t.Helper()
+	namePtr, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(namePtr, windows.GENERIC_READ, 0, nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		t.Fatalf("CreateFile with an exclusive share mode: %v", err)
+	}
+	return func() { _ = windows.CloseHandle(handle) }
+}
+
+// denyDirEveryone adds a deny ACE for the well-known Everyone SID on dir and
+// every entry created under it, then removes the ACE during cleanup so
+// t.TempDir() can still delete the tree afterward.
+func denyDirEveryone(t *testing.T, dir, rights string) {
+	t.Helper()
+	if out, err := exec.Command("icacls", dir, "/deny", "*S-1-1-0:(OI)(CI)"+rights).CombinedOutput(); err != nil {
+		t.Fatalf("icacls /deny %s on %s: %v: %s", rights, dir, err, out)
+	}
+	t.Cleanup(func() {
+		if out, err := exec.Command("icacls", dir, "/remove:d", "*S-1-1-0").CombinedOutput(); err != nil {
+			t.Errorf("remove temporary directory deny ACL: %v: %s", err, out)
+		}
+	})
+}
+
+// denyFileEveryone adds a deny ACE for the well-known Everyone SID on a
+// single file, then removes it during cleanup.
+func denyFileEveryone(t *testing.T, path, rights string) {
+	t.Helper()
+	if out, err := exec.Command("icacls", path, "/deny", "*S-1-1-0:"+rights).CombinedOutput(); err != nil {
+		t.Fatalf("icacls /deny %s on %s: %v: %s", rights, path, err, out)
+	}
+	t.Cleanup(func() {
+		if out, err := exec.Command("icacls", path, "/remove:d", "*S-1-1-0").CombinedOutput(); err != nil {
+			t.Errorf("remove temporary file deny ACL: %v: %s", err, out)
+		}
+	})
+}
+
+func TestCaptureFileSnapshotSurfacesReadErrorsWhenExclusivelyLocked(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "locked")
+	if err := os.WriteFile(path, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	unlock := lockExclusive(t, path)
+	defer unlock()
+	if _, err := transaction.CaptureFileSnapshot(path); err == nil || strings.Contains(err.Error(), "not exist") {
+		t.Fatalf("CaptureFileSnapshot() error = %v, want a read error while the file is exclusively locked", err)
+	}
+}
+
+func TestWriteFileAtomicIfUnchangedRejectsUnreadableCurrentStateWhenLocked(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(path, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	unlock := lockExclusive(t, path)
+	defer unlock()
+	_, err := transaction.WriteFileAtomicIfUnchanged(path, transaction.FileSnapshot{}, []byte("x"), 0o600)
+	if err == nil || strings.Contains(err.Error(), "preimage changed") {
+		t.Fatalf("WriteFileAtomicIfUnchanged() error = %v, want the underlying read failure", err)
+	}
+}
+
+func TestWriteFileAtomicIfUnchangedSurfacesUnderlyingWriteFailureWhenDirectoryDeniesWrite(t *testing.T) {
+	dir := t.TempDir()
+	denyDirEveryone(t, dir, "(W)")
+	path := filepath.Join(dir, "file")
+	expected, err := transaction.CaptureFileSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = transaction.WriteFileAtomicIfUnchanged(path, expected, []byte("x"), 0o600)
+	if err == nil || strings.Contains(err.Error(), "preimage changed") {
+		t.Fatalf("WriteFileAtomicIfUnchanged() error = %v, want the underlying write failure", err)
+	}
+}
+
+func TestRemoveFileIfUnchangedRejectsUnreadableCurrentStateWhenLocked(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(path, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	unlock := lockExclusive(t, path)
+	defer unlock()
+	_, err := transaction.RemoveFileIfUnchanged(path, transaction.FileSnapshot{})
+	if err == nil || strings.Contains(err.Error(), "preimage changed") {
+		t.Fatalf("RemoveFileIfUnchanged() error = %v, want the underlying read failure", err)
+	}
+}
+
+func TestRemoveFileIfUnchangedSurfacesRemovePermissionErrorWhenDeleteDenied(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(path, []byte("prepared"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	expected, err := transaction.CaptureFileSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	denyFileEveryone(t, path, "(D)")
+	if _, err := transaction.RemoveFileIfUnchanged(path, expected); err == nil {
+		t.Fatal("RemoveFileIfUnchanged succeeded despite a delete-denied file")
+	}
+}
+
+func TestRestoreFileAtomicIfPostimageRejectsUnreadableCurrentStateWhenLocked(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(path, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	unlock := lockExclusive(t, path)
+	defer unlock()
+	err := transaction.RestoreFileAtomicIfPostimage(path, transaction.FileSnapshot{}, transaction.FileSnapshot{})
+	if err == nil || strings.Contains(err.Error(), "postimage changed") {
+		t.Fatalf("RestoreFileAtomicIfPostimage() error = %v, want the underlying read failure", err)
+	}
+}
+
+func TestRestoreFileAtomicIfPostimageSurfacesRemovePermissionErrorWhenDeleteDenied(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "file")
+	before, err := transaction.CaptureFileSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	postimage, err := transaction.WriteFileAtomicIfUnchanged(path, before, []byte("projected"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	denyFileEveryone(t, path, "(D)")
+	if err := transaction.RestoreFileAtomicIfPostimage(path, before, postimage); err == nil {
+		t.Fatal("RestoreFileAtomicIfPostimage succeeded despite a delete-denied file")
+	}
+}
+
+func TestWriteFileAtomicSurfacesStatFailureBeyondMissingFileWhenAttributesDenied(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(path, []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	denyFileEveryone(t, path, "(RA)")
+	if err := transaction.WriteFileAtomic(path, []byte("x"), 0o600); err == nil {
+		t.Fatal("WriteFileAtomic succeeded despite a read-attributes-denied existing file")
+	}
+}
+
+func TestWriteFileAtomicSurfacesUnwritableParentDirectoryWhenCreateDenied(t *testing.T) {
+	base := t.TempDir()
+	locked := filepath.Join(base, "locked")
+	if err := os.Mkdir(locked, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	denyDirEveryone(t, locked, "(W)")
+	path := filepath.Join(locked, "child", "file")
+	if err := transaction.WriteFileAtomicExactMode(path, []byte("x"), 0o600); err == nil {
+		t.Fatal("WriteFileAtomicExactMode succeeded despite an unwritable parent directory")
+	}
+}
