@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -24,6 +25,14 @@ const (
 	windowsPipeDrainBarrierEnvironment    = "AIGW_TEST_WINDOWS_PIPE_DRAIN_BARRIER"
 	windowsPipeDrainPIDEnvironment        = "AIGW_TEST_WINDOWS_PIPE_DRAIN_PID"
 )
+
+func TestMain(m *testing.M) {
+	if os.Getenv(windowsPipeDrainRoleEnvironment) == "oversized-output" {
+		_, _ = os.Stdout.Write(bytes.Repeat([]byte("x"), capturedProcessOutputLimit+1))
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
 
 type windowsPipeDrainFixture struct {
 	plan       adapters.ProcessPlan
@@ -178,10 +187,6 @@ func runWindowsPipeDrainHelper(t *testing.T, testName string) bool {
 	role := os.Getenv(windowsPipeDrainRoleEnvironment)
 	if role == "" {
 		return false
-	}
-	if role == "oversized-output" {
-		_, _ = fmt.Fprint(os.Stdout, strings.Repeat("x", capturedProcessOutputLimit+1024))
-		return true
 	}
 	if role == "descendant" {
 		if err := os.WriteFile(os.Getenv(windowsPipeDrainPIDEnvironment), []byte(strconv.Itoa(os.Getpid())), 0o600); err != nil {
