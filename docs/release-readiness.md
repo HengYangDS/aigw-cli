@@ -21,10 +21,12 @@ does not record a historical branch, runner incident, tag, or signing identity.
 
 Prerelease versions (`-rc`, `-beta`, `-alpha`) may publish checksum-verified
 artifacts and an SPDX SBOM. They must not claim signing or notarization. Native
-macOS, Linux, and Windows acceptance is blocking for every prerelease; runner
-absence or infrastructure failure blocks publication rather than weakening the
-gate. GA additionally requires
-protected CI verification of Developer ID signing, notarization/stapling,
+macOS, Linux, and Windows source acceptance is blocking for every prerelease;
+runner absence or infrastructure failure blocks publication rather than
+weakening the gate. Rooted macOS package-lifecycle proof remains supplementary
+until a dedicated administrator credential exists and is mandatory for GA.
+GA additionally requires protected CI verification of Developer ID signing,
+notarization/stapling,
 Windows Authenticode/time-stamping, and post-signature checksums for the exact
 published assets.
 

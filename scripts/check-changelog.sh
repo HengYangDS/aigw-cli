@@ -73,6 +73,7 @@ fi
 latest_tag=$selected_tag
 if test -z "$latest_tag"; then
   latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
+  case "$latest_tag" in github/*) latest_tag= ;; esac
 fi
 if test -z "$latest_tag" && test "$has_origin" = true; then
   git fetch --quiet --no-prune --no-prune-tags --no-tags \
@@ -81,6 +82,7 @@ if test -z "$latest_tag" && test "$has_origin" = true; then
       origin 2>/dev/null || true
   if test -z "$selected_tag"; then
     latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
+    case "$latest_tag" in github/*) latest_tag= ;; esac
   fi
 fi
 python3 - "$changelog" "$latest_tag" "$selected_tag" "$root/packaging/release/retired-gitlab-tags.txt" "$forge" <<'PYTHON'
