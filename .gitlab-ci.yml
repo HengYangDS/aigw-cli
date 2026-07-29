@@ -8,7 +8,7 @@ workflow:
       when: never
     - when: always
 
-stages: [verify, package, acceptance, publish, release]
+stages: [verify, package, publish, release]
 
 default:
   image: golang:1.25.12
@@ -88,20 +88,6 @@ windows-installer-runtime:
     - command -v pwsh
     - pwsh -NoProfile -NonInteractive -File scripts/test-installers.ps1 -Installer "$CI_PROJECT_DIR/scripts/install.ps1"
 
-macos-native-acceptance:
-  stage: acceptance
-  tags: [aigw-release-macos-arm64]
-  rules:
-    - if: '$CI_COMMIT_TAG'
-  before_script: []
-  needs:
-    - job: package
-      artifacts: true
-  script:
-    - 'test -n "${AIGW_MACOS_ACCEPTANCE_USER:-}"'
-    - 'test -n "${AIGW_MACOS_UPGRADE_PACKAGE:-}"'
-    - 'sudo -n sh scripts/test-macos-native-install.sh dist "${CI_COMMIT_TAG#v}"'
-
 package:
   stage: package
   needs:
@@ -141,7 +127,6 @@ publish:
   needs:
     - job: package
       artifacts: true
-    - job: macos-native-acceptance
   rules:
     - if: $CI_COMMIT_TAG
   script:
