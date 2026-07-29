@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"testing"
 	"time"
@@ -439,6 +440,12 @@ func TestInspectAirLifecycleRejectsUnsafeExistingRecoveryDirectories(t *testing.
 			status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
 			if err != nil {
 				t.Fatalf("inspection returned internal storage error: %v", err)
+			}
+			if runtime.GOOS == "windows" && !tt.prepare {
+				if status.RecoveryState != "none" || status.RecoveryHealth != AirRecoveryHealthInactive || status.RecoveryReasonCode != AirRecoveryReasonLedgerMissing {
+					t.Fatalf("status = %#v, want none inactive ledger-missing", status)
+				}
+				return
 			}
 			if status.RecoveryState != tt.wantState || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonStoragePermission {
 				t.Fatalf("status = %#v, want state=%q invalid storage-permission-invalid", status, tt.wantState)
