@@ -35,6 +35,16 @@ func makeRecoveryPathUnreadableForTest(t *testing.T, path string) func() {
 
 func lockRecoveryPathForTest(t *testing.T, path string) func() {
 	t.Helper()
+	return openRecoveryPathWithSharingForTest(t, path, 0)
+}
+
+func holdRecoveryPathWithoutDeleteSharingForTest(t *testing.T, path string) func() {
+	t.Helper()
+	return openRecoveryPathWithSharingForTest(t, path, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE)
+}
+
+func openRecoveryPathWithSharingForTest(t *testing.T, path string, shareMode uint32) func() {
+	t.Helper()
 	name, err := windows.UTF16PtrFromString(path)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +52,7 @@ func lockRecoveryPathForTest(t *testing.T, path string) func() {
 	handle, err := windows.CreateFile(
 		name,
 		windows.GENERIC_READ,
-		0,
+		shareMode,
 		nil,
 		windows.OPEN_EXISTING,
 		windows.FILE_FLAG_BACKUP_SEMANTICS,
