@@ -14,9 +14,11 @@ import (
 
 type fakePrompt struct {
 	secret          string
+	secretErr       error
 	secretCalls     int
 	lastSecretLabel string
 	selected        string
+	selectErr       error
 	choices         []cli.Choice
 	text            string
 	texts           []string
@@ -26,6 +28,9 @@ type fakePrompt struct {
 func (p *fakePrompt) Secret(label string) (string, error) {
 	p.secretCalls++
 	p.lastSecretLabel = label
+	if p.secretErr != nil {
+		return "", p.secretErr
+	}
 	if p.secret == "" {
 		return "", errors.New("no secret")
 	}
@@ -46,6 +51,9 @@ func (p *fakePrompt) Text(string) (string, error) {
 
 func (p *fakePrompt) Select(_ string, choices []cli.Choice) (string, error) {
 	p.choices = append([]cli.Choice(nil), choices...)
+	if p.selectErr != nil {
+		return "", p.selectErr
+	}
 	return p.selected, nil
 }
 

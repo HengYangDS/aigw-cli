@@ -40,11 +40,13 @@ the ordinary branch-closeout requirements below. Agent-list visibility alone
 is not liveness or retirement proof.
 
 ```bash
-go test -race ./...
+go run ./tools/coveragegate --race
 go vet ./...
 sh scripts/check-static-analysis.sh
 test -z "$(gofmt -l cmd internal tools)"
 sh scripts/check-governance.sh
+sh scripts/check-commit-provenance.sh . gitlab
+sh scripts/test-commit-provenance.sh
 sh scripts/check-tag-namespace.sh
 python3 scripts/check-markdown-presentation.py
 python3 scripts/check-text-layout.py
@@ -74,9 +76,18 @@ signed tags use `heng.yang.ds@hotmail.com`; GitHub projection history and signed
 tags use `hengyang.2003@tsinghua.org.cn`. Do not copy or overwrite signed tags
 between providers. From a clean owned canonical checkout, run
 `sh scripts/project-github-forge.sh` to project a branch into the GitHub identity
-domain. It rewrites only an isolated clone, applies a leased branch update, and
-never pushes a tag. Do not force-push, create snapshot commits, or delete remote
-refs to manufacture convergence.
+domain. It maps the existing GitHub tip to an equal canonical tree, appends each
+later source commit with the GitHub identity and trusted signature, and uses an
+ordinary fast-forward push. It never rewrites history or pushes a tag. Do not
+force-push, create snapshot commits, or delete remote refs to manufacture
+convergence.
+
+Every descendant after the tracked provider floor must use its provider email
+for both author and committer and verify under that provider's SSH trust anchor.
+Keep coverage policy in `.config/checks/coverage/policy.toml`; each Go package
+under `./...` and the aggregate must execute strictly above 95 percent. Do not
+introduce source compatibility shims, forwarding wrappers, alias-only packages,
+or re-exports in place of a semantic owner.
 
 Steady-state forge verification is distinct from delivery-branch closeout.
 After explicitly refreshing the required remote-tracking refs without pruning

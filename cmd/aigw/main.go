@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,19 +11,26 @@ import (
 )
 
 func main() {
+	os.Exit(run(os.Args[0], os.Args[1:], os.Stdout, os.Stderr))
+}
+
+func run(program string, args []string, stdout, stderr io.Writer) int {
 	app, err := cli.NewDefault()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "aigw:", err)
-		os.Exit(1)
+		_, _ = fmt.Fprintln(stderr, "aigw:", err)
+		return 1
 	}
-	name := strings.TrimSuffix(strings.ToLower(filepath.Base(os.Args[0])), ".exe")
+	app.Out = stdout
+	app.Err = stderr
+	name := strings.TrimSuffix(strings.ToLower(filepath.Base(program)), ".exe")
 	if name == "claude" || name == "claude.cmd" {
-		err = cli.RunClaude(app, os.Args[1:])
+		err = cli.RunClaude(app, args)
 	} else {
-		err = cli.Execute(app, os.Args[1:])
+		err = cli.Execute(app, args)
 	}
 	if err != nil {
 		cli.RenderError(app, err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

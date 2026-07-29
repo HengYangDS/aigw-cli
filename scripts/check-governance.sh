@@ -18,28 +18,34 @@ for file in \
   docs/governance/terminal-experience-contract.md \
   docs/decisions/0001-control-plane-data-plane-boundary.md \
   docs/evidence/README.md \
+  .config/checks/coverage/policy.toml \
   packaging/release/gitlab-allowed-signers \
   packaging/release/github-allowed-signers \
   packaging/release/github-legacy-allowed-signers \
   packaging/release/github-legacy-tags.txt \
   packaging/release/retired-gitlab-tags.txt \
+  packaging/release/verified-commit-floors.txt \
   .github/workflows/verify.yml \
   scripts/check-branch-closeout.sh \
   scripts/check-forge-sync.sh \
   scripts/check-static-analysis.sh \
+  scripts/check-commit-provenance.sh \
   scripts/check-tag-namespace.sh \
   scripts/compare-ordered-trees.py \
-  scripts/test-forge-sync.sh
+  scripts/test-forge-sync.sh \
+  scripts/test-commit-provenance.sh
 do
   require_file "$file"
 done
 
 for gate in \
-  'go test -race ./...' \
+  'go run ./tools/coveragegate --race' \
   'go vet ./...' \
   'sh scripts/check-static-analysis.sh' \
   'test -z "$(gofmt -l cmd internal tools)"' \
   'sh scripts/check-governance.sh' \
+  'sh scripts/check-commit-provenance.sh . gitlab' \
+  'sh scripts/test-commit-provenance.sh' \
   'sh scripts/check-tag-namespace.sh' \
   'python3 scripts/check-markdown-presentation.py' \
   'python3 scripts/check-text-layout.py' \
@@ -52,6 +58,13 @@ do
       exit 1
     fi
   done
+done
+
+for document in CONTRIBUTING.md AGENTS.md README.md; do
+  if grep -Fq 'go test -race ./...' "$document"; then
+    echo "$document bypasses the required coverage gate" >&2
+    exit 1
+  fi
 done
 
 sh scripts/check-changelog.sh

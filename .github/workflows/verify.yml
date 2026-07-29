@@ -61,7 +61,8 @@ jobs:
         run: |
           set -euo pipefail
           sh scripts/check-release-toolchain.sh
-          go test -race ./...
+          sh scripts/check-commit-provenance.sh . github
+          go run ./tools/coveragegate --race
           go vet ./...
           sh scripts/check-static-analysis.sh
           test -z "$(gofmt -l cmd internal tools)"
@@ -99,8 +100,52 @@ jobs:
           sh scripts/test-github-actions-contract.sh
           sh scripts/test-github-release-workflow.sh
           sh scripts/test-github-provider-projection.sh
+          sh scripts/test-commit-provenance.sh
           sh scripts/test-branch-closeout.sh
           sh scripts/test-forge-sync.sh
       - name: Run PowerShell installer contract
         shell: pwsh
         run: ./scripts/test-installers.ps1 -Installer ./scripts/install.ps1
+
+  native-linux:
+    name: Native Linux acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version: "1.25.12"
+          check-latest: false
+          cache: false
+      - name: Run native Linux acceptance
+        run: |
+          set -euo pipefail
+          sh scripts/check-commit-provenance.sh . github
+          go run ./tools/coveragegate --race
+          go vet ./...
+          go build -o "$RUNNER_TEMP/aigw" ./cmd/aigw
+          "$RUNNER_TEMP/aigw" --version
+
+  native-windows:
+    name: Native Windows acceptance
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version: "1.25.12"
+          check-latest: false
+          cache: false
+      - name: Run native Windows acceptance
+        shell: pwsh
+        run: ./scripts/test-windows-native.ps1 -Repository $env:GITHUB_WORKSPACE
