@@ -49,14 +49,38 @@ prove that the owner has handed off or terminated and that no owning task
 remains live.
 Worktree visibility or an apparently idle agent is not retirement authority.
 
+## Engineering quality
+
+- `.config/checks/coverage/policy.toml` is the coverage SSOT. Every Go package
+  under `./...` participates, no source or package exclusion is permitted, and
+  each package and the aggregate must be strictly greater than 95 percent.
+- Keep one semantic owner for each policy and behavior. Prefer cohesive domain
+  packages, explicit dependency direction, and narrow interfaces; apply SSOT,
+  DRY, MECE, and SOLID rather than duplicating policy across scripts or CI.
+- Do not introduce source-level compatibility shims, forwarding wrappers,
+  alias-only packages, or re-exports. The client launcher manager in
+  `internal/shims` is owned product behavior, not permission for forwarding
+  architecture.
+- `packaging/release/verified-commit-floors.txt` is the forward-only identity
+  boundary. Every later GitLab commit must use `heng.yang.ds@hotmail.com` and a
+  trusted GitLab signature; every later GitHub projection commit must use
+  `hengyang.2003@tsinghua.org.cn` and a trusted GitHub signature. Do not rewrite
+  the historical floors or published release tags.
+- Native source verification on macOS, Linux, and Windows blocks trusted CI
+  changes; native package-lifecycle acceptance blocks releases.
+  Cross-compilation and package inspection cover additional CPU targets but
+  replace neither.
+
 ## Required verification
 
 ```bash
-go test -race ./...
+go run ./tools/coveragegate --race
 go vet ./...
 sh scripts/check-static-analysis.sh
 test -z "$(gofmt -l cmd internal tools)"
 sh scripts/check-governance.sh
+sh scripts/check-commit-provenance.sh . gitlab
+sh scripts/test-commit-provenance.sh
 sh scripts/check-tag-namespace.sh
 python3 scripts/check-markdown-presentation.py
 python3 scripts/check-text-layout.py

@@ -1,19 +1,18 @@
 #!/bin/sh
-# Project canonical GitLab history into the GitHub identity domain. Only an
-# isolated clone is rewritten; canonical refs and provider-native release tags
-# are never altered or pushed by this command.
+# Project new canonical GitLab commits into the GitHub identity domain. Only
+# descendants of the existing GitHub tip are created; canonical refs and
+# provider-native release tags are never altered or pushed by this command.
 set -eu
 
 usage() {
   cat >&2 <<'USAGE'
-usage: project-github-forge.sh [--branch <name>] [--github-remote <name>] [--reconcile-divergence <remote-tip>]
+usage: project-github-forge.sh [--branch <name>] [--github-remote <name>]
 
 Projects one canonical branch into the GitHub peer repository with the GitHub
-commit identity. Existing GitHub release tags must verify as GitHub provenance
-before the branch update. The branch update is leased; no tag ref is pushed.
-`--reconcile-divergence` accepts only the named current GitHub branch tip and
-replaces that divergent branch history under the same lease; it never changes
-GitHub tags.
+commit identity and a trusted GitHub commit signature.
+Existing GitHub release tags must verify as GitHub provenance before the branch
+update. The update must be a fast-forward; no tag ref is pushed and no
+history-rewrite escape exists.
 USAGE
   exit 2
 }
@@ -22,18 +21,19 @@ branch=main
 github_remote=${AIGW_GITHUB_REMOTE:-github}
 github_name=${AIGW_GITHUB_AUTHOR_NAME:-HengYang}
 github_email=${AIGW_GITHUB_AUTHOR_EMAIL:-hengyang.2003@tsinghua.org.cn}
-release_directory=$(CDPATH= cd -- "$(dirname -- "$0")/../packaging/release" && pwd)
+script_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+release_directory="$script_root/packaging/release"
 github_allowed_signers=${AIGW_GITHUB_ALLOWED_SIGNERS:-$release_directory/github-allowed-signers}
 github_legacy_allowed_signers=${AIGW_GITHUB_LEGACY_ALLOWED_SIGNERS:-$release_directory/github-legacy-allowed-signers}
 github_legacy_tags=${AIGW_GITHUB_LEGACY_TAGS:-$release_directory/github-legacy-tags.txt}
 gitlab_allowed_signers=${AIGW_GITLAB_ALLOWED_SIGNERS:-$release_directory/gitlab-allowed-signers}
-reconcile_remote_tip=
+verified_commit_floors=${AIGW_VERIFIED_COMMIT_FLOORS:-$release_directory/verified-commit-floors.txt}
+github_signing_key=${AIGW_GITHUB_SIGNING_KEY:-}
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --branch) branch=${2:?missing branch name}; shift ;;
     --github-remote) github_remote=${2:?missing GitHub remote}; shift ;;
-    --reconcile-divergence) reconcile_remote_tip=${2:?missing expected GitHub branch tip}; shift ;;
     -h|--help) usage ;;
     *) usage ;;
   esac
@@ -43,15 +43,11 @@ done
 case "$branch" in ''|*' '*|*..*|*'~'*|*'^'*|*':'*|*'?'*|*'['*|*'\'*) echo "invalid branch name: $branch" >&2; exit 2 ;; esac
 case "$github_name" in HengYang) ;; *) echo "GitHub author name must be HengYang" >&2; exit 2 ;; esac
 case "$github_email" in hengyang.2003@tsinghua.org.cn) ;; *) echo "GitHub identity must be hengyang.2003@tsinghua.org.cn" >&2; exit 2 ;; esac
-if test -n "$reconcile_remote_tip"; then
-  case "$reconcile_remote_tip" in *[!0123456789abcdefABCDEF]*) echo "invalid expected GitHub branch tip: $reconcile_remote_tip" >&2; exit 2 ;; esac
-  test "${#reconcile_remote_tip}" -eq 40 || { echo "expected GitHub branch tip must be a full 40-character SHA-1: $reconcile_remote_tip" >&2; exit 2; }
-fi
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "run inside a Git worktree" >&2; exit 2; }
 git diff --quiet && git diff --cached --quiet || { echo "refusing GitHub projection with a dirty canonical worktree" >&2; exit 2; }
 
-root=$(git rev-parse --show-toplevel)
+canonical_root=$(git rev-parse --show-toplevel)
 canonical_common=$(git rev-parse --path-format=absolute --git-common-dir)
 canonical=$(git rev-parse "refs/heads/$branch")
 canonical_tree=$(git rev-parse "$canonical^{tree}")
@@ -76,65 +72,53 @@ git_transport() {
 
 # file:// forces a fresh object database. Linked worktrees, local clone
 # optimisations, alternates, and shared object databases are explicitly barred.
-git clone --quiet --no-local "file://$root" "$projection"
+git clone --quiet --no-local "file://$canonical_root" "$projection"
 projection_common=$(git -C "$projection" rev-parse --path-format=absolute --git-common-dir)
 [ "$projection_common" != "$canonical_common" ] || { echo "projection clone shares canonical Git common directory" >&2; exit 1; }
 [ ! -e "$projection_common/objects/info/alternates" ] || { echo "projection clone has object alternates" >&2; exit 1; }
 git -C "$projection" remote remove origin 2>/dev/null || true
 
-# Limit rewrite inputs to the one canonical branch. Provider-native tags stay
-# outside the rewritten namespace and are never copied or regenerated.  Keep
-# the source commit reachable through a private temporary ref and detach HEAD
-# before deleting heads: deleting the branch currently checked out by a clone
-# otherwise turns every tracked file into a staged addition.
+# Keep exactly one canonical source ref. Provider-native tags are fetched into
+# a separate namespace below and are never copied, regenerated, or pushed.
 git -C "$projection" update-ref "$projection_source_ref" "$canonical"
 git -C "$projection" checkout --detach --quiet "$projection_source_ref"
 git -C "$projection" for-each-ref --format='delete %(refname)' refs/heads refs/tags | git -C "$projection" update-ref --stdin
-git -C "$projection" branch --force "$branch" "$projection_source_ref"
-git -C "$projection" checkout --quiet "$branch"
-git -C "$projection" update-ref -d "$projection_source_ref"
 test -z "$(git -C "$projection" status --porcelain)" || {
-  echo "projection clone is not clean before identity rewrite" >&2
+  echo "projection clone is not clean before identity projection" >&2
   exit 1
 }
-FILTER_BRANCH_SQUELCH_WARNING=1 git -C "$projection" filter-branch -f \
-  --env-filter '
-    GIT_AUTHOR_NAME="HengYang"
-    GIT_AUTHOR_EMAIL="hengyang.2003@tsinghua.org.cn"
-    GIT_COMMITTER_NAME="HengYang"
-    GIT_COMMITTER_EMAIL="hengyang.2003@tsinghua.org.cn"
-  ' -- "$branch" >/dev/null 2>&1
-git -C "$projection" for-each-ref --format='%(refname)' refs/original/ | while IFS= read -r ref; do
-  git -C "$projection" update-ref -d "$ref"
-done
 
-projected=$(git -C "$projection" rev-parse "refs/heads/$branch")
-[ "$(git -C "$projection" rev-parse "$projected^{tree}")" = "$canonical_tree" ] || { echo "projected GitHub branch tree differs from canonical branch" >&2; exit 1; }
-if git -C "$projection" log "$projected" --format='%ae%n%ce' | grep -Fv -x "$github_email" | grep -q .; then
-  echo "projected GitHub history retains a non-GitHub identity" >&2
-  exit 1
-fi
+# The canonical plane enforces its own identity and signature only after its
+# declared floor. Historical releases remain untouched.
+AIGW_GITLAB_ALLOWED_SIGNERS="$gitlab_allowed_signers" \
+  AIGW_GITHUB_ALLOWED_SIGNERS="$github_allowed_signers" \
+  AIGW_VERIFIED_COMMIT_FLOORS="$verified_commit_floors" \
+  sh "$script_root/scripts/check-commit-provenance.sh" "$projection" gitlab >/dev/null
 
 git -C "$projection" remote add github "$github_url"
 remote_tip=$(git_transport -C "$projection" ls-remote --heads github "refs/heads/$branch" | awk 'NR==1 {print $1}')
 [ -n "$remote_tip" ] || { echo "GitHub branch is missing: $branch" >&2; exit 1; }
-if test -n "$reconcile_remote_tip" && test "$reconcile_remote_tip" != "$remote_tip"; then
-  echo "GitHub branch tip changed; expected $reconcile_remote_tip, found $remote_tip" >&2
-  exit 1
-fi
 git_transport -C "$projection" fetch --quiet --no-tags github "refs/heads/$branch:refs/remotes/github/$branch"
 remote_tree=$(git -C "$projection" rev-parse "refs/remotes/github/$branch^{tree}")
-# The remote GitHub history is a rewritten identity projection. It may lag but
-# its tree must be on the canonical branch's history. Unrelated content is a
-# divergence, not a force-push invitation, unless a caller explicitly names
-# its exact tip through the controlled reconciliation option above.
-if ! git -C "$projection" log "$canonical" --format='%T' | grep -F -x "$remote_tree" >/dev/null; then
-  if test -z "$reconcile_remote_tip"; then
-    echo "GitHub branch tree diverges from canonical history; resolve manually" >&2
-    exit 1
-  fi
-  printf 'GitHub divergence recovery accepted for leased tip: %s\n' "$remote_tip"
-fi
+
+# The GitHub tip is provider-specific history, so commit ancestry differs. Its
+# tree must map to one canonical commit; only later canonical commits are
+# eligible for forward projection.
+canonical_base=$(git -C "$projection" log "$canonical" --format='%H %T' | awk -v tree="$remote_tree" '$2 == tree {print $1; exit}')
+[ -n "$canonical_base" ] || {
+  echo "GitHub branch tree diverges from canonical history; resolve manually" >&2
+  exit 1
+}
+
+# Existing GitHub descendants after its floor must already satisfy the GitHub
+# identity policy. This follows the tree classification so divergence and
+# provenance remain distinct failure classes.
+git -C "$projection" checkout --detach --quiet "$remote_tip"
+AIGW_GITLAB_ALLOWED_SIGNERS="$gitlab_allowed_signers" \
+  AIGW_GITHUB_ALLOWED_SIGNERS="$github_allowed_signers" \
+  AIGW_VERIFIED_COMMIT_FLOORS="$verified_commit_floors" \
+  sh "$script_root/scripts/check-commit-provenance.sh" "$projection" github >/dev/null
+git -C "$projection" checkout --detach --quiet "$projection_source_ref"
 
 # Every GitHub release tag whose source tree is represented by the selected
 # canonical branch must verify under the GitHub trust policy before the branch
@@ -146,7 +130,7 @@ fi
 remote_tags="$workspace/remote-tags"
 git_transport -C "$projection" ls-remote --tags github 'v[0-9]*' > "$remote_tags"
 canonical_trees="$workspace/canonical-trees"
-git -C "$root" log "$canonical" --format=%T | LC_ALL=C sort -u > "$canonical_trees"
+git -C "$canonical_root" log "$canonical" --format=%T | LC_ALL=C sort -u > "$canonical_trees"
 for tag in $(awk '$2 !~ /\^\{\}$/ {sub("refs/tags/", "", $2); print $2}' "$remote_tags" | LC_ALL=C sort -u); do
   git_transport -C "$projection" fetch --quiet --no-tags github "refs/tags/$tag:refs/tags/github/$tag"
   if [ "$(git -C "$projection" cat-file -t "github/$tag")" != tag ]; then
@@ -158,8 +142,8 @@ for tag in $(awk '$2 !~ /\^\{\}$/ {sub("refs/tags/", "", $2); print $2}' "$remot
   # When the selected canonical history also carries this release name, retain
   # the existing dual-provenance requirement instead of allowing a GitHub tag
   # to stand in for canonical GitLab provenance.
-  if git -C "$root" tag --merged "$canonical" --list "$tag" | grep -Fxq "$tag"; then
-    git -C "$root" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$gitlab_allowed_signers" verify-tag "$tag" >/dev/null 2>&1 || {
+  if git -C "$canonical_root" tag --merged "$canonical" --list "$tag" | grep -Fxq "$tag"; then
+    git -C "$canonical_root" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen -c gpg.ssh.allowedSignersFile="$gitlab_allowed_signers" verify-tag "$tag" >/dev/null 2>&1 || {
       echo "canonical GitLab tag does not verify: $tag" >&2
       exit 1
     }
@@ -178,8 +162,84 @@ for tag in $(awk '$2 !~ /\^\{\}$/ {sub("refs/tags/", "", $2); print $2}' "$remot
   fi
 done
 
-# Rewritten identity histories cannot use ordinary ancestry. The lease protects
-# against concurrent GitHub ref changes; provider-native tags remain untouched.
-git_transport -C "$projection" -c user.name="$github_name" -c user.email="$github_email" -c user.useConfigOnly=true \
-  push --force-with-lease="refs/heads/$branch:$remote_tip" github "refs/heads/$branch:refs/heads/$branch"
+# Replay every commit after the tree-equivalent canonical base in topological
+# order. A private ref maps each canonical parent to its projected GitHub
+# parent, preserving merge topology without rewriting any existing GitHub
+# commit. Every generated commit has the GitHub identity, a trusted signature,
+# and the canonical source tree.
+new_commits=$(git -C "$projection" rev-list --reverse --topo-order "$canonical_base..$canonical")
+projected=$remote_tip
+projection_map="refs/aigw-projection-map"
+git -C "$projection" update-ref "$projection_map/$canonical_base" "$remote_tip"
+if [ -n "$new_commits" ]; then
+  if [ -z "$github_signing_key" ]; then
+    github_signing_key=$(git -C "$canonical_root" config --get aigw.githubSigningKey 2>/dev/null || true)
+  fi
+  [ -n "$github_signing_key" ] || {
+    echo 'GitHub signing key is required through AIGW_GITHUB_SIGNING_KEY or aigw.githubSigningKey' >&2
+    exit 2
+  }
+  [ -f "$github_signing_key" ] || {
+    echo "GitHub signing key is not a readable file: $github_signing_key" >&2
+    exit 2
+  }
+
+  message_file="$workspace/commit-message"
+  for source_commit in $new_commits; do
+    source_parents=$(git -C "$projection" show -s --format='%P' "$source_commit")
+    set --
+    for source_parent in $source_parents; do
+      projected_parent=$(git -C "$projection" rev-parse --verify "$projection_map/$source_parent^{commit}" 2>/dev/null) || {
+        echo "canonical parent is outside the mapped projection range: $source_parent" >&2
+        exit 1
+      }
+      set -- "$@" -p "$projected_parent"
+    done
+    source_tree=$(git -C "$projection" show -s --format='%T' "$source_commit")
+    author_date=$(git -C "$projection" show -s --format='%aI' "$source_commit")
+    committer_date=$(git -C "$projection" show -s --format='%cI' "$source_commit")
+    git -C "$projection" show -s --format='%B' "$source_commit" > "$message_file"
+    projected=$(
+      GIT_AUTHOR_NAME="$github_name" \
+      GIT_AUTHOR_EMAIL="$github_email" \
+      GIT_AUTHOR_DATE="$author_date" \
+      GIT_COMMITTER_NAME="$github_name" \
+      GIT_COMMITTER_EMAIL="$github_email" \
+      GIT_COMMITTER_DATE="$committer_date" \
+      git -C "$projection" \
+        -c gpg.format=ssh \
+        -c gpg.ssh.program=ssh-keygen \
+        -c user.signingkey="$github_signing_key" \
+        commit-tree -S "$source_tree" "$@" < "$message_file"
+    )
+    git -C "$projection" \
+      -c gpg.format=ssh \
+      -c gpg.ssh.program=ssh-keygen \
+      -c gpg.ssh.allowedSignersFile="$github_allowed_signers" \
+      verify-commit "$projected" >/dev/null 2>&1 || {
+      echo "generated GitHub commit does not verify: $projected" >&2
+      exit 1
+    }
+    git -C "$projection" update-ref "$projection_map/$source_commit" "$projected"
+  done
+fi
+
+[ "$(git -C "$projection" rev-parse "$projected^{tree}")" = "$canonical_tree" ] || {
+  echo "projected GitHub branch tree differs from canonical branch" >&2
+  exit 1
+}
+git -C "$projection" update-ref "refs/heads/$branch" "$projected"
+git -C "$projection" checkout --detach --quiet "$projected"
+AIGW_GITLAB_ALLOWED_SIGNERS="$gitlab_allowed_signers" \
+  AIGW_GITHUB_ALLOWED_SIGNERS="$github_allowed_signers" \
+  AIGW_VERIFIED_COMMIT_FLOORS="$verified_commit_floors" \
+  sh "$script_root/scripts/check-commit-provenance.sh" "$projection" github >/dev/null
+
+# An ordinary push is the concurrency guard and the no-rewrite guarantee: any
+# remote advance or divergent ref makes this operation fail non-fast-forward.
+git_transport -C "$projection" \
+  -c user.name="$github_name" \
+  -c user.email="$github_email" \
+  -c user.useConfigOnly=true \
+  push --quiet github "refs/heads/$branch:refs/heads/$branch"
 printf 'GitHub provider projection synchronized: %s\n' "$projected"

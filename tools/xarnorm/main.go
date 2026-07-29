@@ -24,18 +24,27 @@ const (
 var creationTime = regexp.MustCompile(`<creation-time>[^<]+</creation-time>`)
 
 func main() {
-	input := flag.String("input", "", "input XAR package")
-	output := flag.String("output", "", "normalized XAR package")
-	epoch := flag.Int64("epoch", -1, "non-negative Unix epoch")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stderr))
+}
+
+func run(args []string, stderr io.Writer) int {
+	flags := flag.NewFlagSet("xarnorm", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	input := flags.String("input", "", "input XAR package")
+	output := flags.String("output", "", "normalized XAR package")
+	epoch := flags.Int64("epoch", -1, "non-negative Unix epoch")
+	if err := flags.Parse(args); err != nil {
+		return 2
+	}
 	if *input == "" || *output == "" || *epoch < 0 {
-		fmt.Fprintln(os.Stderr, "usage: xarnorm -input <package.xar> -output <package.xar> -epoch <non-negative epoch>")
-		os.Exit(2)
+		_, _ = fmt.Fprintln(stderr, "usage: xarnorm -input <package.xar> -output <package.xar> -epoch <non-negative epoch>")
+		return 2
 	}
 	if err := normalizeXAR(*input, *output, time.Unix(*epoch, 0).UTC()); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+		_, _ = fmt.Fprintln(stderr, err)
+		return 2
 	}
+	return 0
 }
 
 func normalizeXAR(input, output string, epoch time.Time) error {
@@ -47,10 +56,7 @@ func normalizeXAR(input, output string, epoch time.Time) error {
 	if err != nil {
 		return err
 	}
-	compressed, err := compressTOC(normalized)
-	if err != nil {
-		return err
-	}
+	compressed := compressTOC(normalized)
 	return writeXAR(output, compressed, len(normalized), heap)
 }
 
@@ -120,19 +126,13 @@ func readXAR(path string) ([]byte, []byte, error) {
 	return toc, append([]byte(nil), data[heapStart:]...), nil
 }
 
-func compressTOC(toc []byte) ([]byte, error) {
+func compressTOC(toc []byte) []byte {
 	var output bytes.Buffer
-	writer, err := zlib.NewWriterLevel(&output, zlib.BestCompression)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := writer.Write(toc); err != nil {
-		return nil, err
-	}
-	if err := writer.Close(); err != nil {
-		return nil, err
-	}
-	return output.Bytes(), nil
+	// The compression level is valid and bytes.Buffer writes cannot fail.
+	writer, _ := zlib.NewWriterLevel(&output, zlib.BestCompression)
+	_, _ = writer.Write(toc)
+	_ = writer.Close()
+	return output.Bytes()
 }
 
 func writeXAR(path string, compressed []byte, uncompressedLength int, heap []byte) error {

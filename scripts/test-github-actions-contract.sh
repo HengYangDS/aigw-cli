@@ -17,7 +17,8 @@ required = [
     "runs-on: [self-hosted, macOS, ARM64, aigw-github-verify-macos-arm64]",
     "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
     "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491", 'go-version: "1.25.12"', "check-latest: false", "cache: false", "GOTOOLCHAIN: go1.25.12", "for attempt in 1 2 3; do", "if git fetch --force --tags origin; then", 'sleep "$attempt"', "if: github.ref_type == 'tag'", 'SELECTED_TAG: ${{ github.ref_name }}', 'scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/check-release-toolchain.sh",
-    "go test -race ./...", "go vet ./...", "scripts/check-static-analysis.sh", "scripts/check-product-surface.sh", "scripts/check-governance.sh",
+    "go run ./tools/coveragegate --race", "go vet ./...", "scripts/check-static-analysis.sh", "scripts/check-product-surface.sh", "scripts/check-governance.sh",
+    "scripts/check-commit-provenance.sh . github", "scripts/test-commit-provenance.sh",
     "scripts/check-text-layout.py", "scripts/test-text-layout.sh", "scripts/test-release-source-date-epoch.sh",
     "scripts/test-verified-candidate.sh", "scripts/test-release-tag-signature-provider-selection.sh", "scripts/test-macos-native-install-staging.sh",
     "shell: pwsh", "scripts/test-installers.ps1",
@@ -25,6 +26,7 @@ required = [
     "scripts/test-publish-release.sh", "scripts/test-publish-github-release.sh",
     "scripts/test-pipeline-gates.sh", "scripts/test-github-release-workflow.sh",
     "scripts/test-github-provider-projection.sh", "scripts/test-forge-sync.sh",
+    "native-linux:", "runs-on: ubuntu-latest", "native-windows:", "runs-on: windows-latest",
 ]
 for token in required:
     if token not in text:
@@ -176,7 +178,8 @@ expect_nonblocking_rejection(
     "step if after a low-indent comment",
 )
 
-commented_job = text + "# low-indent comment\n    if: false\n"
+next_job = text.index("\n  native-linux:")
+commented_job = text[:next_job] + "\n# low-indent comment\n    if: false" + text[next_job:]
 expect_nonblocking_rejection(
     commented_job,
     "GitHub Actions verify job must not define if",

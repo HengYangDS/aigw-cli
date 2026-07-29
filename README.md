@@ -293,11 +293,13 @@ artifact is checksum-verified before replacement.
 ## Verify a source checkout
 
 ```bash
-go test -race ./...
+go run ./tools/coveragegate --race
 go vet ./...
 sh scripts/check-static-analysis.sh
 test -z "$(gofmt -l cmd internal tools)"
 sh scripts/check-governance.sh
+sh scripts/check-commit-provenance.sh . gitlab
+sh scripts/test-commit-provenance.sh
 sh scripts/check-tag-namespace.sh
 python3 scripts/check-markdown-presentation.py
 python3 scripts/check-text-layout.py

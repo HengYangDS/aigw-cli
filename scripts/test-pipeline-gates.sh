@@ -45,7 +45,8 @@ if "git fetch --tags --force origin" not in verify:
 if "--prune-tags origin" in verify or "--prune origin" in verify:
     raise SystemExit("GitLab verification must not prune local GitHub provenance namespaces")
 for required in [
-    "go test -race ./...", "go vet ./...", "check-static-analysis.sh", "check-product-surface.sh", 'check-release-tag-signature.sh . "$CI_COMMIT_TAG" gitlab', "check-release-toolchain.sh",
+    "go run ./tools/coveragegate --race", "go vet ./...", "check-static-analysis.sh", "check-product-surface.sh", 'check-release-tag-signature.sh . "$CI_COMMIT_TAG" gitlab', "check-release-toolchain.sh",
+    "check-commit-provenance.sh . gitlab", "test-commit-provenance.sh",
     "check-english-text.sh", "test-linux-native-install-staging.sh", "test-macos-native-install-staging.sh",
     "test-verified-candidate.sh",
     "test-publish-release.sh", "test-publish-github-release.sh",
@@ -191,6 +192,12 @@ for forbidden in [
 ]:
     if forbidden in package:
         raise SystemExit(f"GitLab package plane retains provider-specific build metadata: {forbidden}")
+if "job: windows-native-acceptance" not in package:
+    raise SystemExit("package must wait for native Windows acceptance")
+windows_need = package[package.index("job: windows-native-acceptance"):]
+windows_need = windows_need.split("\n    - job:", 1)[0]
+if "optional: true" in windows_need:
+    raise SystemExit("native Windows acceptance must block packaging")
 
 release = section(gitlab, "release")
 for required in [
@@ -207,12 +214,23 @@ if "mirror-github:" in gitlab or "AIGW_GITHUB_MIRROR" in gitlab:
     raise SystemExit("GitLab CI must not retain a one-way GitHub dependency")
 
 windows_native = section(gitlab, "windows-native-acceptance")
-if "allow_failure: true" not in windows_native:
-    raise SystemExit("Windows native evidence must not block RC publication")
+for forbidden in ["allow_failure: true", "when: never", "AIGW_WINDOWS_NATIVE_RUNNER"]:
+    if forbidden in windows_native:
+        raise SystemExit(f"Windows native evidence must block every pipeline: {forbidden}")
+for required in ["tags: [windows]", "test-windows-native.ps1"]:
+    if required not in windows_native:
+        raise SystemExit(f"Windows native evidence job is missing {required}")
 macos_native = section(gitlab, "macos-native-acceptance")
-for required in ["stage: acceptance", "allow_failure: true", "artifacts: true", "AIGW_MACOS_ACCEPTANCE_USER", "AIGW_MACOS_UPGRADE_PACKAGE", "test-macos-native-install.sh"]:
+if "allow_failure: true" in macos_native or "when: never" in macos_native:
+    raise SystemExit("macOS native evidence must block tagged publication")
+for required in ["stage: acceptance", "artifacts: true", "AIGW_MACOS_ACCEPTANCE_USER", "AIGW_MACOS_UPGRADE_PACKAGE", "test-macos-native-install.sh", "if: '$CI_COMMIT_TAG'"]:
     if required not in macos_native:
         raise SystemExit(f"macOS native evidence job is missing {required}")
+publish = section(gitlab, "publish")
+macos_need = publish[publish.index("job: macos-native-acceptance"):]
+macos_need = macos_need.split("\n    - job:", 1)[0]
+if "optional: true" in macos_need:
+    raise SystemExit("native macOS acceptance must block publication")
 for section_text, name in [
     (section(gitlab, "windows-installer-runtime"), "Windows installer"),
     (macos_native, "macOS native acceptance"),
@@ -223,6 +241,8 @@ for section_text, name in [
 
 for required in [
     "name: Release", 'tags: ["v*"]', "permissions:\n  contents: write",
+    "native-linux:", "runs-on: ubuntu-latest", "native-windows:", "runs-on: windows-latest",
+    "needs: [native-linux, native-windows]", "go run ./tools/coveragegate --race", "check-commit-provenance.sh . github",
     "runs-on: [self-hosted, macOS, ARM64, aigw-github-release-macos-arm64]", 'check-release-tag-signature.sh . "$SELECTED_TAG" github',
     'go-version: "1.25.12"', "check-latest: false", "cache: false", "GOTOOLCHAIN: go1.25.12", "check-release-toolchain.sh", "check-static-analysis.sh",
     "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh", "publish-github-release.sh",
