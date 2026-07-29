@@ -11,7 +11,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"golang.org/x/sys/unix"
@@ -199,18 +198,6 @@ func openRecoveryRootNoFollow(root string, create, requirePrivateMode bool) (*os
 		return nil, errors.New("private recovery root has unsafe permissions")
 	}
 	return current, nil
-}
-
-func canonicalRecoveryRootPath(path string) string {
-	if runtime.GOOS != "darwin" {
-		return path
-	}
-	for _, alias := range []string{"/var", "/tmp", "/etc"} {
-		if path == alias || strings.HasPrefix(path, alias+string(os.PathSeparator)) {
-			return filepath.Join("/private", path)
-		}
-	}
-	return path
 }
 
 func recoveryEntryExistsAt(directory *os.File, name string) bool {
