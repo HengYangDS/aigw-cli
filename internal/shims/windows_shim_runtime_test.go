@@ -3,6 +3,7 @@
 package shims_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,28 +13,47 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/shims"
 )
 
-// persistentTestExecutable copies the running test binary (which `go test`
-// always builds under a "go-build*" temporary directory) into a directory
-// name that does not match EnableClaude's ephemeral-build-executable guard.
-// It stands in for an installed, persistent AIGW binary so these tests can
-// exercise the real Windows launcher without tripping the very protection
-// they are not meant to test.
-func persistentTestExecutable(t *testing.T) string {
+func TestMain(m *testing.M) {
+	if os.Getenv("AIGW_TEST_WINDOWS_SHIM_HELPER") == "1" {
+		if len(os.Args) < 2 || os.Args[1] != "__run-claude" {
+			os.Exit(9)
+		}
+		fmt.Println("AIGW_WINDOWS_SHIM_OK")
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
+
+func persistentTestExecutable(t *testing.T, directory string) string {
 	t.Helper()
+	if err := os.MkdirAll(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	data, err := os.ReadFile(os.Args[0])
 	if err != nil {
 		t.Fatal(err)
 	}
-	persistent := filepath.Join(t.TempDir(), "aigw.exe")
+	persistent := filepath.Join(directory, "aigw.exe")
 	if err := os.WriteFile(persistent, data, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	return persistent
 }
 
+func runWindowsShim(t *testing.T, path string) []byte {
+	t.Helper()
+	command := exec.Command(path)
+	command.Env = append(os.Environ(), "AIGW_TEST_WINDOWS_SHIM_HELPER=1")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run Windows Claude shim: %v: %s", err, output)
+	}
+	return output
+}
+
 func TestManagerCreatesWindowsCommandShimThatCanRunAIGW(t *testing.T) {
 	dir := t.TempDir()
-	manager := shims.Manager{GOOS: "windows", BinDir: dir, AIGWExecutable: persistentTestExecutable(t)}
+	manager := shims.Manager{GOOS: "windows", BinDir: dir, AIGWExecutable: persistentTestExecutable(t, filepath.Join(dir, "target"))}
 	path, err := manager.EnableClaude()
 	if err != nil {
 		t.Fatal(err)
@@ -41,11 +61,8 @@ func TestManagerCreatesWindowsCommandShimThatCanRunAIGW(t *testing.T) {
 	if filepath.Ext(path) != ".cmd" {
 		t.Fatalf("shim path = %q, want .cmd", path)
 	}
-	output, err := exec.Command(path, "-test.run=^$").CombinedOutput()
-	if err != nil {
-		t.Fatalf("run Windows Claude shim: %v: %s", err, output)
-	}
-	if !strings.Contains(string(output), "PASS") {
+	output := runWindowsShim(t, path)
+	if !strings.Contains(string(output), "AIGW_WINDOWS_SHIM_OK") {
 		t.Fatalf("Windows Claude shim output = %q", output)
 	}
 }
@@ -57,7 +74,7 @@ func TestManagerCreatesWindowsCommandShimThatCanRunAIGW(t *testing.T) {
 // support (os.Stat never reports an execute bit there).
 func TestManagerReportsOnlyAnOwnedWindowsClaudeShimAsReady(t *testing.T) {
 	dir := t.TempDir()
-	manager := shims.Manager{GOOS: "windows", BinDir: dir, AIGWExecutable: persistentTestExecutable(t)}
+	manager := shims.Manager{GOOS: "windows", BinDir: dir, AIGWExecutable: persistentTestExecutable(t, filepath.Join(dir, "target"))}
 	ready, err := manager.ClaudeShimReady()
 	if err != nil || ready {
 		t.Fatalf("missing shim readiness = %v, %v", ready, err)
@@ -91,14 +108,7 @@ func TestManagerHandlesWindowsTargetRequiringQuotesOnRealPath(t *testing.T) {
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(os.Args[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-	target := filepath.Join(targetDir, "aigw.exe")
-	if err := os.WriteFile(target, data, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	target := persistentTestExecutable(t, targetDir)
 	manager := shims.Manager{GOOS: "windows", BinDir: filepath.Join(root, "shim"), AIGWExecutable: target}
 	path, err := manager.EnableClaude()
 	if err != nil {
@@ -108,11 +118,8 @@ func TestManagerHandlesWindowsTargetRequiringQuotesOnRealPath(t *testing.T) {
 	if err != nil || !ready {
 		t.Fatalf("spaced Windows target readiness = %v, %v", ready, err)
 	}
-	output, err := exec.Command(path, "-test.run=^$").CombinedOutput()
-	if err != nil {
-		t.Fatalf("run Windows Claude shim with quoted target: %v: %s", err, output)
-	}
-	if !strings.Contains(string(output), "PASS") {
+	output := runWindowsShim(t, path)
+	if !strings.Contains(string(output), "AIGW_WINDOWS_SHIM_OK") {
 		t.Fatalf("Windows Claude shim output = %q", output)
 	}
 }

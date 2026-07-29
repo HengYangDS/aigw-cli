@@ -124,11 +124,17 @@ func TestBuildAirRuntimeAttestationDependencyErrors(t *testing.T) {
 
 	t.Run("log inspection", func(t *testing.T) {
 		h := newAirAttestationHarness(t, "https://api.jetbrains.ai/responses")
-		logDir := filepath.Dir(h.log)
-		if err := os.RemoveAll(logDir); err != nil {
+		// A non-regular file at the exact log path forces a dependency
+		// failure on every platform: unlike corrupting the log directory
+		// itself, this does not depend on how the host OS classifies a
+		// broken intermediate path component (Unix reports "not a
+		// directory" as a hard error; Windows reports the analogous
+		// condition as "not found", which the log scanner treats as
+		// merely absent evidence rather than a failure).
+		if err := os.Remove(h.log); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(logDir, []byte("not a directory"), 0o600); err != nil {
+		if err := os.Mkdir(h.log, 0o700); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := buildAirRuntimeAttestation(h.app); err == nil {

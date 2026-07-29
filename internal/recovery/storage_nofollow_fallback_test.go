@@ -73,7 +73,7 @@ func TestReadRecoveryDirectoryNoFollowFallbackRejectsRegularFile(t *testing.T) {
 	if err := os.WriteFile(path, []byte("ledger"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := readRecoveryDirectoryNoFollow(root, path); err == nil {
+	if entries, info, err := readRecoveryDirectoryNoFollow(root, path); err == nil || entries != nil || info != nil {
 		t.Fatal("read a regular file as a recovery directory")
 	}
 }
@@ -87,6 +87,44 @@ func TestReadRecoveryDirectoryNoFollowFallbackRejectsPathEscape(t *testing.T) {
 	if _, _, err := readRecoveryDirectoryNoFollow(root, filepath.Join(root, "..", "outside-directory")); err == nil {
 		t.Fatal("read a directory that escapes its root")
 	}
+}
+
+func TestReadRecoveryDirectoryNoFollowFallbackReportsMissingDirectory(t *testing.T) {
+	root := privateRecoveryRootForTest(t)
+	entries, info, err := readRecoveryDirectoryNoFollow(root, filepath.Join(root, "missing"))
+	if !errors.Is(err, os.ErrNotExist) || entries != nil || info != nil {
+		t.Fatalf("missing directory = %#v, %v, %v", entries, info, err)
+	}
+}
+
+func TestLstatRecoveryPathRejectsUnsafeParentComponents(t *testing.T) {
+	t.Run("regular file", func(t *testing.T) {
+		root := privateRecoveryRootForTest(t)
+		parent := filepath.Join(root, "parent")
+		if err := os.WriteFile(parent, []byte("not a directory"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := lstatRecoveryPath(root, filepath.Join(parent, "ledger.json")); err == nil {
+			t.Fatal("accepted a regular file as a recovery parent")
+		}
+	})
+
+	t.Run("linked directory", func(t *testing.T) {
+		base := t.TempDir()
+		root := filepath.Join(base, "recovery")
+		outside := filepath.Join(base, "outside")
+		if err := os.Mkdir(root, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(outside, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		link := filepath.Join(root, "linked")
+		createRecoveryLinkForTest(t, outside, link)
+		if _, err := lstatRecoveryPath(root, filepath.Join(link, "ledger.json")); err == nil {
+			t.Fatal("followed a linked recovery parent")
+		}
+	})
 }
 
 func TestLstatRecoveryPathRejectsEscapesAndAbsolutePaths(t *testing.T) {

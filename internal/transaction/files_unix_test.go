@@ -14,15 +14,29 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
 )
 
-func TestCaptureFileSnapshotSurfacesInspectRace(t *testing.T) {
+func TestCaptureFileSnapshotSurfacesSymlinkLoop(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "loop")
+	if err := os.Symlink(path, path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.CaptureFileSnapshot(path); err == nil || !strings.Contains(err.Error(), "read") {
+		t.Fatalf("CaptureFileSnapshot() error = %v, want a symlink-loop read error", err)
+	}
+}
+
+func TestCaptureFileSnapshotRemainsConsistentWhenPathDisappears(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "snapshot-fifo")
 	if err := syscall.Mkfifo(path, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	result := make(chan error, 1)
+	type snapshotResult struct {
+		snapshot transaction.FileSnapshot
+		err      error
+	}
+	result := make(chan snapshotResult, 1)
 	go func() {
-		_, err := transaction.CaptureFileSnapshot(path)
-		result <- err
+		snapshot, err := transaction.CaptureFileSnapshot(path)
+		result <- snapshotResult{snapshot: snapshot, err: err}
 	}()
 
 	writer, err := os.OpenFile(path, os.O_WRONLY, 0)
@@ -39,8 +53,9 @@ func TestCaptureFileSnapshotSurfacesInspectRace(t *testing.T) {
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := <-result; err == nil || !strings.Contains(err.Error(), "inspect") {
-		t.Fatalf("CaptureFileSnapshot() error = %v, want an inspect error after the path disappears", err)
+	got := <-result
+	if got.err != nil || !got.snapshot.Exists || string(got.snapshot.Data) != "snapshot" {
+		t.Fatalf("CaptureFileSnapshot() = %#v, %v", got.snapshot, got.err)
 	}
 }
 
