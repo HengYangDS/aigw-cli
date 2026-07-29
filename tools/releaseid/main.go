@@ -6,24 +6,37 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
 
 func main() {
-	namespace := flag.String("namespace", "", "RFC 4122 UUID namespace")
-	name := flag.String("name", "", "stable UUIDv5 name")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+func run(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("releaseid", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	namespace := flags.String("namespace", "", "RFC 4122 UUID namespace")
+	name := flags.String("name", "", "stable UUIDv5 name")
+	if err := flags.Parse(args); err != nil {
+		return 2
+	}
 	if *namespace == "" || *name == "" {
-		fmt.Fprintln(os.Stderr, "usage: releaseid -namespace <uuid> -name <stable name>")
-		os.Exit(2)
+		_, _ = fmt.Fprintln(stderr, "usage: releaseid -namespace <uuid> -name <stable name>")
+		return 2
 	}
 	value, err := uuidV5(*namespace, *name)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+		_, _ = fmt.Fprintln(stderr, err)
+		return 2
 	}
-	fmt.Println(value)
+	if _, err := fmt.Fprintln(stdout, value); err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	return 0
 }
 
 func uuidV5(namespace, name string) (string, error) {

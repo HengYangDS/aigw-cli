@@ -19,16 +19,17 @@ The canonical GitLab checkout is projected to GitHub with:
 sh scripts/project-github-forge.sh
 ```
 
-The command requires a clean canonical checkout, uses a fresh isolated clone for
-the identity rewrite, verifies each GitHub release tag whose source tree is
-present on the selected canonical branch, and also verifies a same-named
-canonical GitLab tag under its own trust anchor. It updates only the selected
-GitHub branch under a lease. It never alters canonical refs, copies provider
-tags, deletes refs, or performs an unleased force push. It uses the
-repository-local GitHub remote exactly as configured, so user-global Git URL
-rewrites cannot silently change its authentication transport. GitLab recovery
-uses a normal non-force push of its canonical history once the GitLab remote is
-reachable.
+The command requires a clean canonical checkout, uses a fresh isolated clone,
+verifies both providers' post-floor commit identities and each GitHub release
+tag whose source tree is present on the selected canonical branch, and also
+verifies a same-named canonical GitLab tag. It maps the existing GitHub tip to
+an equal canonical tree and appends later source commits with the GitHub email
+and trusted signature. The update is an ordinary fast-forward push. It never
+alters canonical refs, rewrites history, copies provider tags, or deletes refs.
+It uses the repository-local GitHub remote exactly as configured, so user-global
+Git URL rewrites cannot silently change its authentication transport. GitLab
+recovery uses a normal non-force push of its canonical history once the GitLab
+remote is reachable.
 
 Do not use an equal-object branch or tag synchronizer for this repository; its
 provider-specific identity model intentionally makes those objects different.
@@ -76,17 +77,23 @@ timeout. A caller may override the complete chain with `AIGW_GOPROXY`; an
 override is responsible for preserving the intended fallback semantics. GitHub
 Actions does not inherit this GitLab-specific setting.
 
-Every runner registration, LaunchAgent, work directory, cache, and label belongs
+Every self-hosted runner registration, LaunchAgent, work directory, cache, and label belongs
 to exactly one `forge × repository × privilege` tuple. No GitHub runner serves
 GitLab jobs, no runner is shared by repositories, and a release runner never
 executes verification or merge-request workflow code. AIGW uses three separate
-registrations: GitLab is `aigw-release-macos-arm64`; GitHub verification is
+registrations: GitLab macOS is `aigw-release-macos-arm64`, GitLab Windows is
+`windows`; GitHub verification is
 `aigw-github-verify-macos-arm64`; GitHub release is
 `aigw-github-release-macos-arm64`. GitHub verification runs only trusted `main`,
 tag, and manual workflows; GitLab remains the canonical merge-request gate.
-Each registration has its own LaunchAgent, work directory, cache, and credential.
-This avoids GitHub-hosted-runner billing or quota state without collapsing forge
-or privilege boundaries.
+GitHub-hosted Linux and Windows runners provide independent native operating-
+system evidence. Each self-hosted registration has its own service, work
+directory, cache, and credential.
+
+The GitLab Windows job blocks every pipeline; the GitHub Linux and Windows jobs
+block trusted `main`, tag, and manual workflows. The macOS verification runner
+likewise blocks trusted source workflows, while release jobs add package-
+lifecycle acceptance. No native job is an allowed failure.
 
 ## Release behavior
 
@@ -122,8 +129,8 @@ artifact remain a single-provider unit.
 
 GitLab provenance uses `heng.yang.ds@hotmail.com`; GitHub provenance uses
 `hengyang.2003@tsinghua.org.cn`. Separate repository-tracked trust anchors
-verify their release tags. A direct push guard rejects a provider/email
-mismatch. Same-named tags are independently signed provider provenance records,
+verify every commit after the tracked provider floor and each release tag. A
+direct push guard rejects a provider/email or signature mismatch. Same-named tags are independently signed provider provenance records,
 and must never be copied, regenerated, or overwritten across the two namespaces.
 In a canonical local checkout, GitLab tags remain unscoped and fetched GitHub
 provenance is qualified below `github/`; obsolete `provider/` aliases are not

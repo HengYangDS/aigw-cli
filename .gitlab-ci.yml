@@ -29,7 +29,7 @@ verify:
   stage: verify
   script:
     - sh scripts/check-release-toolchain.sh
-    - go test -race ./...
+    - go run ./tools/coveragegate --race
     - go vet ./...
     - sh scripts/check-static-analysis.sh
     - test -z "$(gofmt -l cmd internal tools)"
@@ -45,6 +45,7 @@ verify:
     # Fetch GitLab provenance tags without pruning unrelated local namespaces.
     # Canonical workstations retain GitHub provenance below refs/tags/github/.
     - git fetch --tags --force origin
+    - sh scripts/check-commit-provenance.sh . gitlab
     - 'if test -n "${CI_COMMIT_TAG:-}"; then sh scripts/check-release-tag-signature.sh . "$CI_COMMIT_TAG" gitlab; fi'
     - sh scripts/check-governance.sh
     - python3 scripts/check-markdown-presentation.py
@@ -72,6 +73,7 @@ verify:
     - sh scripts/test-github-actions-contract.sh
     - sh scripts/test-github-release-workflow.sh
     - sh scripts/test-github-provider-projection.sh
+    - sh scripts/test-commit-provenance.sh
     - sh scripts/test-branch-closeout.sh
     - sh scripts/test-forge-sync.sh
     - go build -o /tmp/aigw-install-smoke ./cmd/aigw
@@ -89,15 +91,6 @@ windows-installer-runtime:
 windows-native-acceptance:
   stage: verify
   tags: [windows]
-  # A managed Windows runner adds native runtime evidence when available. Its
-  # absence or an infrastructure failure must not hold an RC release hostage:
-  # the strict portable installer, MSI, ZIP, architecture, and source gates
-  # remain mandatory on every release candidate. Native Windows evidence is a
-  # hard GA requirement under docs/release-readiness.md.
-  allow_failure: true
-  rules:
-    - if: '$AIGW_WINDOWS_NATIVE_RUNNER == "true"'
-    - when: never
   before_script: []
   script:
     - powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-windows-native.ps1 -Repository "$CI_PROJECT_DIR"
@@ -105,14 +98,8 @@ windows-native-acceptance:
 macos-native-acceptance:
   stage: acceptance
   tags: [aigw-release-macos-arm64]
-  # The package and isolated-account lifecycle proof need an administrator
-  # credential. It is additive RC evidence and must not delay publication when
-  # this runner's dedicated credential is unavailable. GA promotion has its
-  # stricter signing and native-evidence gate in release-readiness.md.
-  allow_failure: true
   rules:
-    - if: '$AIGW_MACOS_NATIVE_RUNNER == "true"'
-    - when: never
+    - if: '$CI_COMMIT_TAG'
   before_script: []
   needs:
     - job: package
@@ -128,7 +115,6 @@ package:
     - job: verify
     - job: windows-installer-runtime
     - job: windows-native-acceptance
-      optional: true
     - job: release-readiness
       optional: true
   tags: [aigw-release-macos-arm64]
@@ -164,7 +150,6 @@ publish:
     - job: package
       artifacts: true
     - job: macos-native-acceptance
-      optional: true
   rules:
     - if: $CI_COMMIT_TAG
   script:
