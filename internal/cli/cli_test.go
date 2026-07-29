@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -56,6 +57,21 @@ type failingRunner struct {
 type emptyDiscovery struct{}
 
 func (emptyDiscovery) Discover() discovery.Result { return discovery.Result{} }
+
+func assertSameExistingPath(t *testing.T, got, want string) {
+	t.Helper()
+	gotInfo, err := os.Stat(got)
+	if err != nil {
+		t.Fatalf("inspect rendered path %q: %v", got, err)
+	}
+	wantInfo, err := os.Stat(want)
+	if err != nil {
+		t.Fatalf("inspect expected path %q: %v", want, err)
+	}
+	if !os.SameFile(gotInfo, wantInfo) {
+		t.Fatalf("paths identify different files: got %q, want %q", got, want)
+	}
+}
 
 func (r *failingRunner) Run(_ context.Context, _ adapters.ProcessPlan) error {
 	if r.remaining > 0 {
@@ -1028,10 +1044,24 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 			t.Fatalf("dry-run wrote sidecar %s: %v", target, err)
 		}
 	}
-	result := out.String()
-	for _, want := range []string{`"action": "initial-project"`, first, second} {
-		if !strings.Contains(result, want) {
-			t.Fatalf("dry-run JSON missing %q:\n%s", want, result)
+	var preview struct {
+		DryRun  bool `json:"dry_run"`
+		Targets []struct {
+			Target string `json:"target"`
+			Action string `json:"action"`
+		} `json:"targets"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
+		t.Fatalf("decode sync dry-run JSON: %v\n%s", err, out.String())
+	}
+	wantTargets := []string{first, second}
+	if !preview.DryRun || len(preview.Targets) != len(wantTargets) {
+		t.Fatalf("sync dry-run preview = %#v", preview)
+	}
+	for index, want := range wantTargets {
+		if preview.Targets[index].Action != "initial-project" {
+			t.Fatalf("target %d action = %q, want initial-project", index, preview.Targets[index].Action)
 		}
+		assertSameExistingPath(t, preview.Targets[index].Target, want)
 	}
 }

@@ -13,6 +13,11 @@ import (
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
 )
 
+// installPortableArchive verifies and extracts a portable archive, then
+// installs the contained binary. The returned bool reports whether the
+// executable was scheduled for a delayed swap (true, on a native Windows
+// host, where the running executable cannot be overwritten in place) rather
+// than replaced immediately (false).
 func (u Updater) installPortableArchive(archivePath, tag string) (string, bool, error) {
 	archiveName := filepath.Base(archivePath)
 	if err := verifyChecksum(archivePath, filepath.Join(filepath.Dir(archivePath), "checksums.txt"), archiveName); err != nil {
@@ -28,7 +33,10 @@ func (u Updater) installPortableArchive(archivePath, tag string) (string, bool, 
 	}
 	if u.GOOS == "windows" && runtime.GOOS == "windows" {
 		message, err := u.scheduleWindowsReplacement(binary, tag)
-		return message, false, err
+		if err != nil {
+			return "", false, err
+		}
+		return message, true, nil
 	}
 	if err := u.replacePortableBinary(binary); err != nil {
 		return "", false, err

@@ -2,13 +2,43 @@ package cli
 
 import (
 	"bytes"
-	"os"
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
+
+type doctorResult struct {
+	Checks []doctorCheck `json:"checks"`
+	OK     bool          `json:"ok"`
+}
+
+func executeDoctorJSON(t *testing.T, app *App) doctorResult {
+	t.Helper()
+	cmd := newDoctorCommand(app)
+	cmd.SetArgs([]string{"--json"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var result doctorResult
+	if err := json.Unmarshal(app.Out.(*bytes.Buffer).Bytes(), &result); err != nil {
+		t.Fatalf("decode doctor JSON: %v\n%s", err, app.Out.(*bytes.Buffer).String())
+	}
+	return result
+}
+
+func requireDoctorCheck(t *testing.T, result doctorResult, name string) doctorCheck {
+	t.Helper()
+	for _, check := range result.Checks {
+		if check.Name == name {
+			return check
+		}
+	}
+	t.Fatalf("doctor result missing %q: %#v", name, result.Checks)
+	return doctorCheck{}
+}
 
 func TestDoctorHumanProjectionFailsClosedForFutureChecks(t *testing.T) {
 	for _, check := range []doctorCheck{
@@ -100,33 +130,28 @@ func TestDoctorCommandCoverageFailures(t *testing.T) {
 
 	t.Run("Codex target and Claude shim read", func(t *testing.T) {
 		cfg := dailyCoverageConfig()
-		cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/claude"}
-		cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "/codex"}
+		cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "claude"}
+		cfg.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Executable: "codex"}
 		app := dailyCoverageApp(t, cfg)
-		app.Shims.GOOS = "linux"
-		app.Shims.BinDir = t.TempDir()
-		if err := os.Mkdir(filepath.Join(app.Shims.BinDir, "claude"), 0o700); err != nil {
-			t.Fatal(err)
+		app.Shims = unreadableDailyShim(t)
+		result := executeDoctorJSON(t, app)
+		codex := requireDoctorCheck(t, result, "adapter:codex")
+		if codex.OK || codex.Detail != "enabled but no Codex config target is configured" || codex.Fix != "run `aigw repair`" {
+			t.Fatalf("Codex adapter check = %#v", codex)
 		}
-		cmd := newDoctorCommand(app)
-		cmd.SetArgs([]string{"--json"})
-		if err := cmd.Execute(); err != nil {
-			t.Fatal(err)
-		}
-		output := app.Out.(*bytes.Buffer).String()
-		for _, want := range []string{"enabled but no Codex config target", "is a directory"} {
-			if !strings.Contains(output, want) {
-				t.Fatalf("doctor output missing %q: %s", want, output)
+		for _, name := range []string{"adapter:claude", "shim:claude"} {
+			check := requireDoctorCheck(t, result, name)
+			if check.OK || !strings.Contains(check.Detail, "inspect Claude launcher") || check.Fix != "run `aigw repair`" {
+				t.Fatalf("%s directory-read check = %#v", name, check)
 			}
 		}
 	})
 
 	t.Run("missing Claude shim", func(t *testing.T) {
 		cfg := dailyCoverageConfig()
-		cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/claude"}
+		cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "claude"}
 		app := dailyCoverageApp(t, cfg)
-		app.Shims.GOOS = "linux"
-		app.Shims.BinDir = t.TempDir()
+		app.Shims = missingDailyShim(t)
 		cmd := newDoctorCommand(app)
 		cmd.SetArgs([]string{"--json"})
 		if err := cmd.Execute(); err != nil {
@@ -137,27 +162,11 @@ func TestDoctorCommandCoverageFailures(t *testing.T) {
 		}
 	})
 
-	t.Run("Claude activation read", func(t *testing.T) {
+	t.Run("Claude activation", func(t *testing.T) {
 		cfg := dailyCoverageConfig()
-		cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "/claude"}
+		cfg.Adapters[domain.ClientClaude] = domain.AdapterConfig{Enabled: true, Executable: "claude"}
 		app := dailyCoverageApp(t, cfg)
-		app.Shims = readyDailyShim(t)
-		activation := filepath.Join(app.Shims.Home, ".zshrc")
-		if err := os.Remove(activation); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Mkdir(activation, 0o700); err != nil {
-			t.Fatal(err)
-		}
-		cmd := newDoctorCommand(app)
-		cmd.SetArgs([]string{"--json"})
-		if err := cmd.Execute(); err != nil {
-			t.Fatal(err)
-		}
-		output := app.Out.(*bytes.Buffer).String()
-		if !strings.Contains(output, `"name": "path:claude"`) || !strings.Contains(output, "is a directory") {
-			t.Fatalf("doctor output = %s", output)
-		}
+		assertDoctorClaudeActivationBehavior(t, app)
 	})
 
 	t.Run("Codex route resolution", func(t *testing.T) {

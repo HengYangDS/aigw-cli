@@ -294,7 +294,7 @@ case "$1:$2" in
         ;;
       late-fork)
         printf '%s\n' "$$" > "$AIGW_TEST_LATE_ROOT_PID"
-        trap 'printf "reused:%s\n" "$(cat "$AIGW_TEST_SENTINEL_PID")" > "$AIGW_TEST_IDENTITY_SWITCH"; sleep 0.2; "$0" __aigw_late_child & while [ ! -s "$AIGW_TEST_LATE_CHILD_PID" ]; do :; done' TERM
+        trap '"$0" __aigw_late_child & late_child_pid=$!; printf "%s\n" "$late_child_pid" > "$AIGW_TEST_LATE_CHILD_PID"; printf "reused:%s\n" "$(cat "$AIGW_TEST_SENTINEL_PID")" > "$AIGW_TEST_IDENTITY_SWITCH"; wait "$late_child_pid"' TERM
         while :; do sleep 1; done
         ;;
       cancellation)

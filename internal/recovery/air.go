@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/adapters"
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
@@ -159,7 +158,7 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 		status.RecoveryReasonCode = AirRecoveryReasonLedgerMissing
 		return status, nil
 	}
-	if runtime.GOOS != "windows" && ledgerSnapshot.Mode.Perm() != 0o600 {
+	if !recoveryFileModeIsPrivate(ledgerSnapshot.Mode) {
 		status.RecoveryReasonCode = AirRecoveryReasonLedgerPermission
 		return status, nil
 	}
@@ -200,7 +199,7 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 	}
 	if ledger.State == AirRecoveryStateSettled {
 		if quarantine.Exists {
-			if runtime.GOOS != "windows" && quarantine.Mode.Perm() != 0o600 {
+			if !recoveryFileModeIsPrivate(quarantine.Mode) {
 				status.RecoveryReasonCode = AirRecoveryReasonQuarantinePermission
 				return status, nil
 			}
@@ -227,7 +226,7 @@ func (s Store) InspectAirLifecycle(airPath, standalonePath string) (AirLifecycle
 		status.RecoveryReasonCode = AirRecoveryReasonQuarantineMissing
 		return status, nil
 	}
-	if runtime.GOOS != "windows" && quarantine.Mode.Perm() != 0o600 {
+	if !recoveryFileModeIsPrivate(quarantine.Mode) {
 		status.RecoveryReasonCode = AirRecoveryReasonQuarantinePermission
 		return status, nil
 	}

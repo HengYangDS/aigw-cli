@@ -3,7 +3,9 @@ package cli_test
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -295,19 +297,40 @@ func TestAdapterReadAndValidationBranches(t *testing.T) {
 
 	t.Run("discover executables", func(t *testing.T) {
 		dir := t.TempDir()
+		fixtures := map[string]string{}
 		for _, name := range []string{"claude", "codex"} {
-			path := filepath.Join(dir, name)
-			if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o700); err != nil {
+			filename := name
+			content := []byte("#!/bin/sh\nexit 0\n")
+			mode := os.FileMode(0o700)
+			if runtime.GOOS == "windows" {
+				filename = name + ".cmd"
+				content = []byte("@echo off\r\nexit /b 0\r\n")
+				mode = 0o600
+			}
+			path := filepath.Join(dir, filename)
+			if err := os.WriteFile(path, content, mode); err != nil {
 				t.Fatal(err)
 			}
+			fixtures[name] = path
 		}
 		t.Setenv("PATH", dir)
+		resolved := map[string]string{}
+		for name, fixture := range fixtures {
+			path, err := exec.LookPath(name)
+			if err != nil {
+				t.Fatalf("resolve %s fixture: %v", name, err)
+			}
+			assertSameExistingPath(t, path, fixture)
+			resolved[name] = path
+		}
 		app, out, _, _ := testApp(t, "")
 		if err := execute(t, app, "adapter", "discover"); err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(out.String(), filepath.Join(dir, "claude")) || !strings.Contains(out.String(), filepath.Join(dir, "codex")) {
-			t.Fatalf("output = %q", out.String())
+		for name, path := range resolved {
+			if !strings.Contains(out.String(), path) {
+				t.Fatalf("output missing resolved %s path %q: %q", name, path, out.String())
+			}
 		}
 	})
 
