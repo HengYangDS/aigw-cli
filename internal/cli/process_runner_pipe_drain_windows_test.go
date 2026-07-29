@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -25,14 +24,6 @@ const (
 	windowsPipeDrainBarrierEnvironment    = "AIGW_TEST_WINDOWS_PIPE_DRAIN_BARRIER"
 	windowsPipeDrainPIDEnvironment        = "AIGW_TEST_WINDOWS_PIPE_DRAIN_PID"
 )
-
-func TestMain(m *testing.M) {
-	if os.Getenv(windowsPipeDrainRoleEnvironment) == "oversized-output" {
-		_, _ = os.Stdout.Write(bytes.Repeat([]byte("x"), capturedProcessOutputLimit*4))
-		os.Exit(0)
-	}
-	os.Exit(m.Run())
-}
 
 type windowsPipeDrainFixture struct {
 	plan       adapters.ProcessPlan
@@ -111,14 +102,16 @@ func TestRunCaptureRejectsOversizedWindowsOutput(t *testing.T) {
 	if runWindowsPipeDrainHelper(t, "TestRunCaptureRejectsOversizedWindowsOutput") {
 		return
 	}
-	executable, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = (ProcessRunner{}).RunCapture(context.Background(), adapters.ProcessPlan{
+	const executable = "powershell.exe"
+	_, err := (ProcessRunner{}).RunCapture(context.Background(), adapters.ProcessPlan{
 		Executable: executable,
-		Args:       []string{"-test.run=^TestRunCaptureRejectsOversizedWindowsOutput$"},
-		Env:        append(os.Environ(), windowsPipeDrainRoleEnvironment+"=oversized-output"),
+		Args: []string{
+			"-NoProfile",
+			"-NonInteractive",
+			"-Command",
+			fmt.Sprintf("[Console]::Out.Write('x' * %d)", capturedProcessOutputLimit*4),
+		},
+		Env: os.Environ(),
 	})
 	want := fmt.Sprintf("captured output from %s exceeds %d bytes", executable, capturedProcessOutputLimit)
 	if err == nil || !strings.Contains(err.Error(), want) {
