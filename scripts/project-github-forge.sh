@@ -204,10 +204,18 @@ if [ -n "$new_commits" ]; then
     source_parents=$(git -C "$projection" show -s --format='%P' "$source_commit")
     set --
     for source_parent in $source_parents; do
-      projected_parent=$(git -C "$projection" rev-parse --verify "$projection_map/$source_parent^{commit}" 2>/dev/null) || {
-        echo "canonical parent is outside the mapped projection range: $source_parent" >&2
-        exit 1
-      }
+      projected_parent=$(git -C "$projection" rev-parse --verify "$projection_map/$source_parent^{commit}" 2>/dev/null || true)
+      if [ -z "$projected_parent" ]; then
+        source_parent_tree=$(git -C "$projection" rev-parse "$source_parent^{tree}")
+        projected_matches=$(git -C "$projection" log "$remote_tip" --format='%H %T' | awk -v tree="$source_parent_tree" '$2 == tree {print $1}')
+        match_count=$(printf '%s\n' "$projected_matches" | awk 'NF {count++} END {print count + 0}')
+        [ "$match_count" -eq 1 ] || {
+          echo "canonical parent has $match_count equal-tree GitHub ancestors: $source_parent" >&2
+          exit 1
+        }
+        projected_parent=$projected_matches
+        git -C "$projection" update-ref "$projection_map/$source_parent" "$projected_parent"
+      fi
       set -- "$@" -p "$projected_parent"
     done
     source_tree=$(git -C "$projection" show -s --format='%T' "$source_commit")
