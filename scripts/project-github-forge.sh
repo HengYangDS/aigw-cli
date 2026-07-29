@@ -207,13 +207,20 @@ if [ -n "$new_commits" ]; then
       projected_parent=$(git -C "$projection" rev-parse --verify "$projection_map/$source_parent^{commit}" 2>/dev/null || true)
       if [ -z "$projected_parent" ]; then
         source_parent_tree=$(git -C "$projection" rev-parse "$source_parent^{tree}")
-        projected_matches=$(git -C "$projection" log "$remote_tip" --format='%H %T' | awk -v tree="$source_parent_tree" '$2 == tree {print $1}')
-        match_count=$(printf '%s\n' "$projected_matches" | awk 'NF {count++} END {print count + 0}')
-        [ "$match_count" -eq 1 ] || {
-          echo "canonical parent has $match_count equal-tree GitHub ancestors: $source_parent" >&2
+        source_parent_position=$(git -C "$projection" rev-list --first-parent --reverse "$canonical_base" | awk -v commit="$source_parent" '$0 == commit {print NR}')
+        [ -n "$source_parent_position" ] || {
+          echo "canonical parent is outside the mapped first-parent history: $source_parent" >&2
           exit 1
         }
-        projected_parent=$projected_matches
+        projected_parent=$(git -C "$projection" rev-list --first-parent --reverse "$remote_tip" | awk -v position="$source_parent_position" 'NR == position {print; exit}')
+        [ -n "$projected_parent" ] || {
+          echo "GitHub history lacks canonical parent position $source_parent_position: $source_parent" >&2
+          exit 1
+        }
+        [ "$(git -C "$projection" rev-parse "$projected_parent^{tree}")" = "$source_parent_tree" ] || {
+          echo "GitHub parent tree differs at canonical position $source_parent_position: $source_parent" >&2
+          exit 1
+        }
         git -C "$projection" update-ref "$projection_map/$source_parent" "$projected_parent"
       fi
       set -- "$@" -p "$projected_parent"
