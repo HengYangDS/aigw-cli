@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -215,11 +216,11 @@ func isSHA256(value string) bool {
 	return true
 }
 
-func extractBinary(path, expectedPath string) ([]byte, error) {
-	if strings.HasSuffix(path, ".zip") {
-		return extractZipBinary(path, expectedPath)
+func extractBinary(archivePath, expectedPath string) ([]byte, error) {
+	if strings.HasSuffix(archivePath, ".zip") {
+		return extractZipBinary(archivePath, expectedPath)
 	}
-	archive, err := os.Open(path)
+	archive, err := os.Open(archivePath)
 	if err != nil {
 		return nil, fmt.Errorf("open update archive: %w", err)
 	}
@@ -240,7 +241,10 @@ func extractBinary(path, expectedPath string) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read tar archive: %w", err)
 		}
-		if filepath.Clean(header.Name) != expectedPath || header.Typeflag != tar.TypeReg {
+		// Tar entry names always use "/" regardless of the host OS, so the
+		// comparison must use the slash-based "path" package rather than
+		// "path/filepath", which would normalize to "\\" on Windows.
+		if path.Clean(header.Name) != expectedPath || header.Typeflag != tar.TypeReg {
 			continue
 		}
 		matches++
@@ -258,8 +262,8 @@ func extractBinary(path, expectedPath string) ([]byte, error) {
 	return binary, nil
 }
 
-func extractZipBinary(path, expectedPath string) ([]byte, error) {
-	archive, err := zip.OpenReader(path)
+func extractZipBinary(archivePath, expectedPath string) ([]byte, error) {
+	archive, err := zip.OpenReader(archivePath)
 	if err != nil {
 		return nil, fmt.Errorf("open zip archive: %w", err)
 	}
@@ -267,7 +271,10 @@ func extractZipBinary(path, expectedPath string) ([]byte, error) {
 	var binary []byte
 	matches := 0
 	for _, file := range archive.File {
-		if filepath.Clean(file.Name) != expectedPath || file.FileInfo().IsDir() {
+		// Zip entry names always use "/" regardless of the host OS, so the
+		// comparison must use the slash-based "path" package rather than
+		// "path/filepath", which would normalize to "\\" on Windows.
+		if path.Clean(file.Name) != expectedPath || file.FileInfo().IsDir() {
 			continue
 		}
 		matches++

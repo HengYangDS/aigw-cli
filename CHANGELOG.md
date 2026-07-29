@@ -16,7 +16,7 @@ platform acceptance, signing, and GA status remain separate evidence.
   under `./...` and requires both every package and the aggregate to remain
   strictly above 95 percent.
 - Add blocking native Linux and Windows verification alongside the existing
-  macOS release runners, including the managed GitLab Windows runner.
+  macOS release runners, with Windows acceptance enforced on GitHub.
 
 ### Changed
 

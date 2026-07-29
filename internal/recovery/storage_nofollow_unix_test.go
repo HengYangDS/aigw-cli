@@ -51,6 +51,24 @@ func TestReadRecoveryDirectoryNoFollowMaterializesEntryMetadata(t *testing.T) {
 	}
 }
 
+func TestReadRecoveryDirectoryNoFollowRejectsUnreadableDirectory(t *testing.T) {
+	root := t.TempDir()
+	unreadable := filepath.Join(root, "unreadable")
+	if err := os.Mkdir(unreadable, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(unreadable, "config.toml"), []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(unreadable, 0o100); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o700) })
+	if _, _, err := readRecoveryDirectoryNoFollow(root, unreadable); err == nil {
+		t.Fatal("listed the entries of a directory without read permission")
+	}
+}
+
 func TestCaptureRecoveryFileNoFollowRejectsFIFOWithoutBlocking(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "ledger.json")

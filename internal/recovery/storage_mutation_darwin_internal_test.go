@@ -98,6 +98,30 @@ func TestImmutableDirectoryRejectsRecoveryRootCreation(t *testing.T) {
 	}
 }
 
+func TestCanonicalRecoveryRootPathResolvesPrivateAliases(t *testing.T) {
+	cases := []struct {
+		name string
+		path string
+		want string
+	}{
+		{name: "var alias", path: "/var", want: "/private/var"},
+		{name: "var subtree", path: "/var/folders/example", want: "/private/var/folders/example"},
+		{name: "tmp alias", path: "/tmp", want: "/private/tmp"},
+		{name: "tmp subtree", path: "/tmp/aigw-recovery", want: "/private/tmp/aigw-recovery"},
+		{name: "etc alias", path: "/etc", want: "/private/etc"},
+		{name: "etc subtree", path: "/etc/aigw", want: "/private/etc/aigw"},
+		{name: "non alias", path: "/Users/example/recovery", want: "/Users/example/recovery"},
+		{name: "alias-prefixed non alias", path: "/varnish/recovery", want: "/varnish/recovery"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if got := canonicalRecoveryRootPath(testCase.path); got != testCase.want {
+				t.Fatalf("canonicalRecoveryRootPath(%q) = %q, want %q", testCase.path, got, testCase.want)
+			}
+		})
+	}
+}
+
 func TestOpenRecoveryRootReportsFileDescriptorExhaustion(t *testing.T) {
 	var original unix.Rlimit
 	if err := unix.Getrlimit(unix.RLIMIT_NOFILE, &original); err != nil {
