@@ -94,13 +94,16 @@ func writeArchive(output string, format archiveFormat, root string, epoch time.T
 	if err != nil {
 		return err
 	}
+	return writeArchiveContents(file, format, root, epoch, ordered)
+}
 
+func writeArchiveContents(file io.WriteCloser, format archiveFormat, root string, epoch time.Time, entries []archiveEntry) error {
 	var writeErr error
 	switch format {
 	case formatTarGz:
-		writeErr = writeTarGz(file, root, epoch, ordered)
+		writeErr = writeTarGz(file, root, epoch, entries)
 	case formatZip:
-		writeErr = writeZip(file, root, epoch, ordered)
+		writeErr = writeZip(file, root, epoch, entries)
 	default:
 		writeErr = fmt.Errorf("unsupported archive format: %s", format)
 	}
@@ -149,7 +152,14 @@ func writeTarGz(output io.Writer, root string, epoch time.Time, entries []archiv
 	gzipWriter := gzip.NewWriter(output)
 	gzipWriter.Header.ModTime = epoch
 	gzipWriter.Header.OS = 255
-	tarWriter := tar.NewWriter(gzipWriter)
+	if err := writeTarStream(gzipWriter, root, epoch, entries); err != nil {
+		return err
+	}
+	return gzipWriter.Close()
+}
+
+func writeTarStream(output io.Writer, root string, epoch time.Time, entries []archiveEntry) error {
+	tarWriter := tar.NewWriter(output)
 	if err := tarWriter.WriteHeader(&tar.Header{Name: root + "/", Mode: 0o755, Typeflag: tar.TypeDir, ModTime: epoch, Format: tar.FormatUSTAR}); err != nil {
 		return err
 	}
@@ -161,7 +171,7 @@ func writeTarGz(output io.Writer, root string, epoch time.Time, entries []archiv
 	if err := tarWriter.Close(); err != nil {
 		return err
 	}
-	return gzipWriter.Close()
+	return nil
 }
 
 func writeTarEntry(writer *tar.Writer, root string, epoch time.Time, entry archiveEntry) error {
@@ -173,6 +183,10 @@ func writeTarEntry(writer *tar.Writer, root string, epoch time.Time, entry archi
 	if err != nil {
 		return err
 	}
+	return writeTarEntryContents(writer, root, epoch, entry, info, file)
+}
+
+func writeTarEntryContents(writer *tar.Writer, root string, epoch time.Time, entry archiveEntry, info os.FileInfo, file io.ReadCloser) error {
 	header := &tar.Header{
 		Name:     root + "/" + entry.Name,
 		Mode:     int64(info.Mode().Perm()),
@@ -220,6 +234,10 @@ func writeZipEntry(writer *zip.Writer, root string, epoch time.Time, entry archi
 	if err != nil {
 		return err
 	}
+	return writeZipEntryContents(writer, root, epoch, entry, info, file)
+}
+
+func writeZipEntryContents(writer *zip.Writer, root string, epoch time.Time, entry archiveEntry, info os.FileInfo, file io.ReadCloser) error {
 	header := &zip.FileHeader{Name: root + "/" + entry.Name, Method: zip.Store, Modified: epoch}
 	header.SetMode(info.Mode().Perm())
 	destination, err := writer.CreateHeader(header)

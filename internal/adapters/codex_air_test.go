@@ -421,7 +421,7 @@ func TestPlanAirOrphanRemovalReturnsExactReadOnlySnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !plan.Preimage.Exists || !bytes.Equal(plan.Preimage.Data, []byte(orphan)) || plan.Preimage.Mode != 0o640 {
+	if !plan.Preimage.Exists || !bytes.Equal(plan.Preimage.Data, []byte(orphan)) || plan.Preimage.Mode != expectedMode(0o640) {
 		t.Fatalf("preimage = %#v", plan.Preimage)
 	}
 	if !plan.Cleaned.Exists || plan.Cleaned.Mode != plan.Preimage.Mode || plan.ProjectionFingerprintSHA256 == "" {
