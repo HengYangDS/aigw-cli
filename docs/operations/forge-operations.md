@@ -31,6 +31,11 @@ Git URL rewrites cannot silently change its authentication transport. GitLab
 recovery uses a normal non-force push of its canonical history once the GitLab
 remote is reachable.
 
+Provide the GitHub signing key through `AIGW_GITHUB_SIGNING_KEY` or
+`aigw.githubSigningKey`. Encrypted keys additionally use the approved
+`AIGW_GITHUB_SIGNING_PROGRAM` or `aigw.githubSigningProgram`; the program must
+be executable and remain inside the workstation credential boundary.
+
 Do not use an equal-object branch or tag synchronizer for this repository; its
 provider-specific identity model intentionally makes those objects different.
 
