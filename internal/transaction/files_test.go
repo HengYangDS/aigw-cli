@@ -340,14 +340,11 @@ func TestWriteFileAtomicSurfacesStatFailureBeyondMissingFile(t *testing.T) {
 }
 
 func TestWriteFileAtomicSurfacesRenameFailureOverExistingDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := filepath.Join(t.TempDir(), "target-is-a-directory")
 	if err := os.Mkdir(path, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := transaction.WriteFileAtomic(path, []byte("x"), 0o600); err == nil {
-		t.Fatal("WriteFileAtomic succeeded despite an existing directory at the target path")
+	if err := transaction.WriteFileAtomic(path, []byte("x"), 0o600); err == nil || !strings.Contains(err.Error(), "replace ") {
+		t.Fatalf("WriteFileAtomic() error = %v, want a rename failure over an existing directory", err)
 	}
 }
