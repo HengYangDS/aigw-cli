@@ -29,6 +29,7 @@ github_legacy_tags=${AIGW_GITHUB_LEGACY_TAGS:-$release_directory/github-legacy-t
 gitlab_allowed_signers=${AIGW_GITLAB_ALLOWED_SIGNERS:-$release_directory/gitlab-allowed-signers}
 verified_commit_floors=${AIGW_VERIFIED_COMMIT_FLOORS:-$release_directory/verified-commit-floors.txt}
 github_signing_key=${AIGW_GITHUB_SIGNING_KEY:-}
+github_signing_program=${AIGW_GITHUB_SIGNING_PROGRAM:-}
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -183,6 +184,20 @@ if [ -n "$new_commits" ]; then
     echo "GitHub signing key is not a readable file: $github_signing_key" >&2
     exit 2
   }
+  if [ -z "$github_signing_program" ]; then
+    github_signing_program=$(git -C "$canonical_root" config --get aigw.githubSigningProgram 2>/dev/null || true)
+  fi
+  github_signing_program=${github_signing_program:-ssh-keygen}
+  case "$github_signing_program" in
+    */*) [ -x "$github_signing_program" ] || {
+      echo "GitHub signing program is not executable: $github_signing_program" >&2
+      exit 2
+    } ;;
+    *) command -v "$github_signing_program" >/dev/null 2>&1 || {
+      echo "GitHub signing program is unavailable: $github_signing_program" >&2
+      exit 2
+    } ;;
+  esac
 
   message_file="$workspace/commit-message"
   for source_commit in $new_commits; do
@@ -208,7 +223,7 @@ if [ -n "$new_commits" ]; then
       GIT_COMMITTER_DATE="$committer_date" \
       git -C "$projection" \
         -c gpg.format=ssh \
-        -c gpg.ssh.program=ssh-keygen \
+        -c gpg.ssh.program="$github_signing_program" \
         -c user.signingkey="$github_signing_key" \
         commit-tree -S "$source_tree" "$@" < "$message_file"
     )

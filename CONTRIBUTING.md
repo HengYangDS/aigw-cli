@@ -82,6 +82,10 @@ ordinary fast-forward push. It never rewrites history or pushes a tag. Do not
 force-push, create snapshot commits, or delete remote refs to manufacture
 convergence.
 
+Set `AIGW_GITHUB_SIGNING_KEY` and, for an encrypted key, the approved
+`AIGW_GITHUB_SIGNING_PROGRAM`; repository-local `aigw.githubSigningKey` and
+`aigw.githubSigningProgram` provide the equivalent persistent configuration.
+
 Every descendant after the tracked provider floor must use its provider email
 for both author and committer and verify under that provider's SSH trust anchor.
 Keep coverage policy in `.config/checks/coverage/policy.toml`; each Go package
