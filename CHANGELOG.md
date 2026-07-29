@@ -33,6 +33,8 @@ platform acceptance, signing, and GA status remain separate evidence.
   self-update, discovery, and launcher tests follow native platform semantics.
 - Make transaction snapshots read bytes and metadata from one file handle, and
   remove timing-dependent Linux and Windows process/file race fixtures.
+- Preserve signed, forward-only GitHub projection for merge branches forked
+  from older canonical ancestors, including Keychain-backed signing.
 
 ## [0.1.0-rc.71] - 2026-07-27
 
