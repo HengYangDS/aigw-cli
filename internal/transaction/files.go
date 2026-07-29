@@ -27,6 +27,14 @@ type snapshotFile interface {
 	Close() error
 }
 
+type temporaryFile interface {
+	Name() string
+	Write([]byte) (int, error)
+	Chmod(os.FileMode) error
+	Sync() error
+	Close() error
+}
+
 // CaptureFileSnapshot records a file's byte-exact current state. A missing
 // file is a valid snapshot because sidecars are optional.
 func CaptureFileSnapshot(path string) (FileSnapshot, error) {
@@ -155,7 +163,7 @@ func writeFileAtomic(path string, data []byte, defaultMode os.FileMode, preserve
 	return commitTemporaryFile(tmp, path, data, mode)
 }
 
-func commitTemporaryFile(tmp *os.File, path string, data []byte, mode os.FileMode) error {
+func commitTemporaryFile(tmp temporaryFile, path string, data []byte, mode os.FileMode) error {
 	if _, err := tmp.Write(data); err != nil {
 		return fmt.Errorf("write temporary file: %w", err)
 	}
