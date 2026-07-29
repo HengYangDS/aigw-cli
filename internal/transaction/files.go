@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -20,17 +21,32 @@ type FileSnapshot struct {
 	Mode   os.FileMode
 }
 
+type snapshotFile interface {
+	io.Reader
+	Stat() (os.FileInfo, error)
+	Close() error
+}
+
 // CaptureFileSnapshot records a file's byte-exact current state. A missing
 // file is a valid snapshot because sidecars are optional.
 func CaptureFileSnapshot(path string) (FileSnapshot, error) {
-	data, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if os.IsNotExist(err) {
 		return FileSnapshot{}, nil
 	}
 	if err != nil {
 		return FileSnapshot{}, fmt.Errorf("read %s: %w", path, err)
 	}
-	info, err := os.Stat(path)
+	return captureOpenedFile(path, file)
+}
+
+func captureOpenedFile(path string, file snapshotFile) (FileSnapshot, error) {
+	defer func() { _ = file.Close() }()
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return FileSnapshot{}, fmt.Errorf("read %s: %w", path, err)
+	}
+	info, err := file.Stat()
 	if err != nil {
 		return FileSnapshot{}, fmt.Errorf("inspect %s: %w", path, err)
 	}

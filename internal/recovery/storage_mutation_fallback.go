@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
@@ -31,6 +30,12 @@ func writeRecoveryFileAtomicIfUnchanged(root, path string, expected transaction.
 
 func removeRecoveryFileIfUnchanged(root, path string, expected transaction.FileSnapshot) (transaction.FileSnapshot, error) {
 	if err := validateRecoveryMutationParents(root, path, false); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			if sameRecoverySnapshot(transaction.FileSnapshot{}, expected) {
+				return transaction.FileSnapshot{}, nil
+			}
+			return transaction.FileSnapshot{}, errors.New("private recovery preimage changed")
+		}
 		return transaction.FileSnapshot{}, err
 	}
 	current, err := captureRecoveryFileNoFollow(root, path)
@@ -48,6 +53,12 @@ func removeRecoveryFileIfUnchanged(root, path string, expected transaction.FileS
 
 func restoreRecoveryFileAtomicIfPostimage(root, path string, preimage, postimage transaction.FileSnapshot) error {
 	if err := validateRecoveryMutationParents(root, path, preimage.Exists); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			if !preimage.Exists && sameRecoverySnapshot(transaction.FileSnapshot{}, postimage) {
+				return nil
+			}
+			return errors.New("private recovery postimage changed")
+		}
 		return err
 	}
 	current, err := captureRecoveryFileNoFollow(root, path)
@@ -58,7 +69,7 @@ func restoreRecoveryFileAtomicIfPostimage(root, path string, preimage, postimage
 		return errors.New("private recovery postimage changed")
 	}
 	if preimage.Exists {
-		return transaction.WriteFileAtomic(path, preimage.Data, preimage.Mode)
+		return transaction.WriteFileAtomicExactMode(path, preimage.Data, preimage.Mode)
 	}
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -97,10 +108,13 @@ func validateRecoveryMutationParents(root, path string, create bool) error {
 			}
 			info, err = os.Lstat(current)
 		}
+		if errors.Is(err, os.ErrNotExist) {
+			return os.ErrNotExist
+		}
 		if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
 			return errors.New("private recovery parent is unsafe")
 		}
-		if runtime.GOOS != "windows" && info.Mode().Perm() != 0o700 {
+		if !recoveryDirectoryModeIsPrivate(info.Mode()) {
 			return errors.New("private recovery parent has unsafe permissions")
 		}
 	}

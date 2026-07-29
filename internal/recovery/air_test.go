@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -114,19 +113,13 @@ func TestRecoverAirOrphanWritesQuarantineAndAwaitingLedger(t *testing.T) {
 			t.Fatalf("cleaned lost %q", want)
 		}
 	}
-	info, _ := os.Stat(f.air)
-	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o640 {
-		t.Fatalf("mode=%o", info.Mode().Perm())
-	}
+	assertRecoveryFileModeForTest(t, f.air, 0o640)
 	quarantine := f.store.airQuarantinePath(plan.CaseID)
 	payload, err := os.ReadFile(quarantine)
 	if err != nil || !bytes.Equal(payload, f.orphan) {
 		t.Fatalf("quarantine=%q %v", payload, err)
 	}
-	qinfo, _ := os.Stat(quarantine)
-	if runtime.GOOS != "windows" && qinfo.Mode().Perm() != 0o600 {
-		t.Fatalf("quarantine mode=%o", qinfo.Mode().Perm())
-	}
+	assertRecoveryFileModeForTest(t, quarantine, 0o600)
 	ledger, present, err := f.store.loadAirLedger()
 	if err != nil || !present || ledger.State != "awaiting-host-roundtrip" {
 		t.Fatalf("ledger=%#v present=%v err=%v", ledger, present, err)
