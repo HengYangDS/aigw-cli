@@ -28,8 +28,8 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 	if len(team.RecommendedRoutes) != 1 || team.RecommendedRoutes[domain.ClientClaude] != "aihubmix-claude-sonnet-5" {
 		t.Fatalf("recommended routes = %#v", team.RecommendedRoutes)
 	}
-	if len(team.Accounts) != 2 || len(team.Profiles) != 24 {
-		t.Fatalf("example matrix has %d Accounts and %d profiles, want 2 and 24", len(team.Accounts), len(team.Profiles))
+	if len(team.Accounts) != 3 || len(team.Profiles) != 24 {
+		t.Fatalf("example matrix has %d Accounts and %d profiles, want 3 and 24", len(team.Accounts), len(team.Profiles))
 	}
 	if got := team.Accounts["aihubmix"].Endpoints; got.OpenAIResponses != "https://aihubmix.com/v1" || got.Anthropic != "https://aihubmix.com" {
 		t.Fatalf("AIHubMix endpoints = %#v", got)
@@ -40,6 +40,13 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 	}
 	if dmxapi.AccountProbe == nil || dmxapi.AccountProbe.Kind != "dmxapi" || dmxapi.AccountProbe.BaseURL != "https://www.dmxapi.cn" {
 		t.Fatalf("DMXAPI account probe = %#v", dmxapi.AccountProbe)
+	}
+	ucloud, ok := team.Accounts["ucloud"]
+	if !ok {
+		t.Fatal("team manifest lacks UCloud account")
+	}
+	if ucloud.Label != "UCloud" || ucloud.Endpoints.OpenAIResponses != "https://api.modelverse.cn/v1" || ucloud.Endpoints.Anthropic != "" {
+		t.Fatalf("UCloud account = %#v", ucloud)
 	}
 
 	want := map[string]struct{ client, model string }{
@@ -66,7 +73,7 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 		"dmxapi-gpt-5.6-terra":         {domain.ClientCodex, "gpt-5.6-terra"},
 		"dmxapi-gpt-5.6-terra-cdx":     {domain.ClientCodex, "gpt-5.6-terra-cdx"},
 		"dmxapi-gpt-5.6-terra-ssvip":   {domain.ClientCodex, "gpt-5.6-terra-ssvip"},
-		"dmxapi-qwen3.7-max":           {domain.ClientCodex, "qwen3.7-max"},
+		"ucloud":                       {"", ""},
 	}
 	for name, expected := range want {
 		profile, ok := team.Profiles[name]
@@ -82,6 +89,10 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 		if _, ok := want[name]; !ok {
 			t.Errorf("unexpected profile %q", name)
 		}
+	}
+	ucloudProfile := team.Profiles["ucloud"]
+	if ucloudProfile.Account != "ucloud" || ucloudProfile.Client != "" || len(ucloudProfile.Models) != 0 {
+		t.Fatalf("UCloud placeholder profile = %#v", ucloudProfile)
 	}
 }
 
