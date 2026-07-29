@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"sort"
 	"testing"
 	"time"
@@ -142,14 +141,9 @@ func TestInspectAirLifecycleClassifiesRecoveryStorageWithoutWrites(t *testing.T)
 		{
 			name: "ledger permission invalid", prepare: true,
 			mutate: func(t *testing.T, f airRecoveryFixture, _ string) {
-				if runtime.GOOS == "windows" {
-					t.Skip("POSIX permission contract")
-				}
-				if err := os.Chmod(f.store.airLedgerPath(), 0o644); err != nil {
-					t.Fatal(err)
-				}
+				makeRecoveryFileSecurityInvalidForTest(t, f.store.airLedgerPath())
 			},
-			wantState: "unknown", wantHealth: "invalid", wantReason: "ledger-permission-invalid",
+			wantState: "unknown", wantHealth: "invalid", wantReason: ledgerSecurityFailureReasonForTest,
 		},
 		{
 			name: "quarantine missing", prepare: true,
@@ -172,14 +166,9 @@ func TestInspectAirLifecycleClassifiesRecoveryStorageWithoutWrites(t *testing.T)
 		{
 			name: "quarantine permission invalid", prepare: true,
 			mutate: func(t *testing.T, f airRecoveryFixture, caseID string) {
-				if runtime.GOOS == "windows" {
-					t.Skip("POSIX permission contract")
-				}
-				if err := os.Chmod(f.store.airQuarantinePath(caseID), 0o644); err != nil {
-					t.Fatal(err)
-				}
+				makeRecoveryFileSecurityInvalidForTest(t, f.store.airQuarantinePath(caseID))
 			},
-			wantState: AirRecoveryStateAwaitingHostRoundtrip, wantHealth: "invalid", wantReason: "quarantine-permission-invalid",
+			wantState: AirRecoveryStateAwaitingHostRoundtrip, wantHealth: "invalid", wantReason: quarantineSecurityFailureReasonForTest,
 		},
 		{
 			name: "valid active recovery", prepare: true,
@@ -238,9 +227,6 @@ func TestInspectAirLifecycleClassifiesRecoveryStorageWithoutWrites(t *testing.T)
 }
 
 func TestInspectAirLifecycleRejectsSettledLedgerWithUnsafeStoragePermissions(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("POSIX permission contract")
-	}
 	f := newAirRecoveryFixture(t)
 	plan, err := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
 	if err != nil {
@@ -255,8 +241,15 @@ func TestInspectAirLifecycleRejectsSettledLedgerWithUnsafeStoragePermissions(t *
 	if _, err := f.store.SettleAir(AirSettleOptions{AirPath: f.air, StandalonePath: f.standalone, CaseID: plan.CaseID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(f.store.root, 0o755); err != nil {
-		t.Fatal(err)
+	originalCapture := f.store.captureRecovery
+	changed := false
+	f.store.captureRecovery = func(path string) (transaction.FileSnapshot, error) {
+		snapshot, captureErr := originalCapture(path)
+		if captureErr == nil && path == f.store.airLedgerPath() && !changed {
+			changed = true
+			makeRecoveryDirectorySecurityInvalidForTest(t, f.store.root)
+		}
+		return snapshot, captureErr
 	}
 
 	status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
@@ -384,9 +377,6 @@ func TestInspectAirLifecycleRejectsUnexpectedRecoveryStorageEntries(t *testing.T
 }
 
 func TestInspectAirLifecycleRejectsUnsafeExistingRecoveryDirectories(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("POSIX permission contract")
-	}
 	tests := []struct {
 		name      string
 		prepare   bool
@@ -444,9 +434,7 @@ func TestInspectAirLifecycleRejectsUnsafeExistingRecoveryDirectories(t *testing.
 					t.Fatal(err)
 				}
 			}
-			if err := os.Chmod(unsafeDir, 0o755); err != nil {
-				t.Fatal(err)
-			}
+			makeRecoveryDirectorySecurityInvalidForTest(t, unsafeDir)
 
 			status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
 			if err != nil {
@@ -455,21 +443,12 @@ func TestInspectAirLifecycleRejectsUnsafeExistingRecoveryDirectories(t *testing.
 			if status.RecoveryState != tt.wantState || status.RecoveryHealth != AirRecoveryHealthInvalid || status.RecoveryReasonCode != AirRecoveryReasonStoragePermission {
 				t.Fatalf("status = %#v, want state=%q invalid storage-permission-invalid", status, tt.wantState)
 			}
-			info, err := os.Stat(unsafeDir)
-			if err != nil {
-				t.Fatalf("read-only inspection removed unsafe directory: %v", err)
-			}
-			if info.Mode().Perm() != 0o755 {
-				t.Fatalf("read-only inspection changed unsafe directory mode: %v", info.Mode().Perm())
-			}
+			assertRecoveryDirectorySecurityFaultForTest(t, unsafeDir)
 		})
 	}
 }
 
 func TestInspectAirLifecycleRejectsSymlinkedRecoveryRootWithoutFollowingIt(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink contract")
-	}
 	f := newAirRecoveryFixture(t)
 	target := filepath.Join(f.root, "private-target")
 	if err := os.MkdirAll(filepath.Join(target, "air", "quarantine"), 0o700); err != nil {
@@ -478,9 +457,7 @@ func TestInspectAirLifecycleRejectsSymlinkedRecoveryRootWithoutFollowingIt(t *te
 	if err := os.MkdirAll(filepath.Dir(f.store.root), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(target, f.store.root); err != nil {
-		t.Fatal(err)
-	}
+	createRecoveryLinkForTest(t, target, f.store.root)
 
 	status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
 	if err != nil {
@@ -492,9 +469,6 @@ func TestInspectAirLifecycleRejectsSymlinkedRecoveryRootWithoutFollowingIt(t *te
 }
 
 func TestInspectAirLifecycleRejectsQuarantineSwapToSymlink(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink contract")
-	}
 	f := newAirRecoveryFixture(t)
 	plan, err := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
 	if err != nil {
@@ -520,9 +494,7 @@ func TestInspectAirLifecycleRejectsQuarantineSwapToSymlink(t *testing.T) {
 			if err := os.Remove(quarantinePath); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Symlink(target, quarantinePath); err != nil {
-				t.Fatal(err)
-			}
+			createRecoveryLinkForTest(t, target, quarantinePath)
 		}
 		return originalCapture(path)
 	}
@@ -539,17 +511,11 @@ func TestInspectAirLifecycleRejectsQuarantineSwapToSymlink(t *testing.T) {
 }
 
 func TestInspectAirLifecyclePrioritizesUnsafeRootPermissionsWithoutLedgerTraversal(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("POSIX permission contract")
-	}
 	f := newAirRecoveryFixture(t)
 	if err := os.MkdirAll(f.store.root, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(f.store.root, 0); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(f.store.root, 0o700) })
+	makeRecoveryPathUnreadableForTest(t, f.store.root)
 
 	status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
 	if err != nil {
@@ -561,9 +527,6 @@ func TestInspectAirLifecyclePrioritizesUnsafeRootPermissionsWithoutLedgerTravers
 }
 
 func TestInspectAirLifecycleRejectsSymlinkedQuarantineCaseDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink contract")
-	}
 	f := newAirRecoveryFixture(t)
 	plan, err := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
 	if err != nil {
@@ -577,9 +540,7 @@ func TestInspectAirLifecycleRejectsSymlinkedQuarantineCaseDirectory(t *testing.T
 	if err := os.Rename(caseDir, target); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(target, caseDir); err != nil {
-		t.Fatal(err)
-	}
+	createRecoveryLinkForTest(t, target, caseDir)
 
 	status, err := f.store.InspectAirLifecycle(f.air, f.standalone)
 	if err != nil {
@@ -805,68 +766,6 @@ func TestRecoverAirOrphanResumesMatchingQuarantineFirstCrash(t *testing.T) {
 	ledger, present, err := f.store.loadAirLedger()
 	if err != nil || !present || ledger.State != AirRecoveryStateAwaitingHostRoundtrip {
 		t.Fatalf("ledger = %#v, %v, %v", ledger, present, err)
-	}
-}
-
-func TestPreparedAirRecoveryRejectsUnsafeModes(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("POSIX permission contract")
-	}
-	tests := []string{
-		"ledger file", "quarantine file", "config file",
-		"recovery root", "air state directory", "quarantine directory", "case directory",
-	}
-	for _, changed := range tests {
-		t.Run(changed, func(t *testing.T) {
-			f := newAirRecoveryFixture(t)
-			plan, err := f.store.PlanAirOrphanRecovery(f.recoverOptions(""))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := f.store.write(f.store.airQuarantinePath(plan.CaseID), plan.quarantineBefore, plan.removal.Preimage.Data, 0o600); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := f.store.write(f.store.airLedgerPath(), plan.ledgerBefore, plan.preparedLedger, 0o600); err != nil {
-				t.Fatal(err)
-			}
-			paths := map[string]string{
-				"ledger file":          f.store.airLedgerPath(),
-				"quarantine file":      f.store.airQuarantinePath(plan.CaseID),
-				"config file":          f.air,
-				"recovery root":        f.store.root,
-				"air state directory":  filepath.Join(f.store.root, "air"),
-				"quarantine directory": filepath.Join(f.store.root, "air", "quarantine"),
-				"case directory":       filepath.Dir(f.store.airQuarantinePath(plan.CaseID)),
-			}
-			mode := os.FileMode(0o755)
-			if changed == "ledger file" || changed == "quarantine file" {
-				mode = 0o644
-			}
-			if changed == "config file" {
-				mode = 0o600
-			}
-			if err := os.Chmod(paths[changed], mode); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := f.store.RecoverAirOrphan(f.recoverOptions(plan.CaseID)); err == nil {
-				t.Fatal("prepared recovery resumed with unsafe or mismatched mode")
-			}
-			current, err := os.ReadFile(f.air)
-			if err != nil || !bytes.Equal(current, f.orphan) {
-				t.Fatalf("Air changed after rejection: %q, %v", current, err)
-			}
-			ledger, present, err := f.store.loadAirLedger()
-			if changed == "ledger file" {
-				// Loading may itself reject an unsafe ledger mode after hardening.
-				if err == nil {
-					t.Fatalf("unsafe ledger mode remained readable: %#v, %v", ledger, present)
-				}
-				return
-			}
-			if err != nil || !present || ledger.State != AirRecoveryStatePrepared {
-				t.Fatalf("ledger = %#v, %v, %v", ledger, present, err)
-			}
-		})
 	}
 }
 

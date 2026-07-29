@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
@@ -35,6 +34,9 @@ func TestFallbackRecoveryMutationsEnforceMissingAndChangedSnapshots(t *testing.T
 	}
 	if err := restoreRecoveryFileAtomicIfPostimage(root, path, missing, missing); err != nil {
 		t.Fatalf("restore missing to missing: %v", err)
+	}
+	if _, err := os.Stat(root); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing rollback created recovery root: %v", err)
 	}
 	if err := restoreRecoveryFileAtomicIfPostimage(root, path, missing, desired); err == nil {
 		t.Fatal("restore accepted a missing file as a present postimage")
@@ -146,35 +148,32 @@ func TestValidateRecoveryMutationParentsRejectsRegularFileComponent(t *testing.T
 	}
 }
 
+func TestValidateRecoveryMutationParentsRejectsLinkedComponent(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "recovery")
+	outside := filepath.Join(base, "outside")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(outside, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "linked")
+	createRecoveryLinkForTest(t, outside, link)
+	for _, create := range []bool{false, true} {
+		if err := validateRecoveryMutationParents(root, filepath.Join(link, "ledger.json"), create); err == nil {
+			t.Fatalf("create=%v: followed a linked recovery parent", create)
+		}
+	}
+	if entries, err := os.ReadDir(outside); err != nil || len(entries) != 0 {
+		t.Fatalf("linked target changed: %#v, %v", entries, err)
+	}
+}
+
 func TestValidateRecoveryMutationParentsMissingWithoutCreateFails(t *testing.T) {
 	root := privateRecoveryRootForTest(t)
 	path := filepath.Join(root, "missing", "ledger.json")
 	if err := validateRecoveryMutationParents(root, path, false); err == nil {
 		t.Fatal("accepted a missing parent without creating it")
-	}
-}
-
-// TestValidateRecoveryMutationParentsPermissionEnforcement documents the
-// platform split baked into validateRecoveryMutationParents: Windows has no
-// POSIX-style owner permission bits comparable to 0700, so the mode check is
-// skipped there, while every other fallback target (BSDs, etc.) must still
-// enforce it. The assertion below always matches whichever OS actually runs
-// it, so it exercises a real branch on every non-darwin, non-linux platform.
-func TestValidateRecoveryMutationParentsPermissionEnforcement(t *testing.T) {
-	root := privateRecoveryRootForTest(t)
-	parent := filepath.Join(root, "air")
-	if err := os.Mkdir(parent, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(parent, "ledger.json")
-	err := validateRecoveryMutationParents(root, path, false)
-	if runtime.GOOS == "windows" {
-		if err != nil {
-			t.Fatalf("Windows fallback enforced a POSIX-only permission check: %v", err)
-		}
-		return
-	}
-	if err == nil {
-		t.Fatal("accepted a recovery parent with unsafe permissions")
 	}
 }

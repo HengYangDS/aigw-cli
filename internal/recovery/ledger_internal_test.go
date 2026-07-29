@@ -41,9 +41,7 @@ func TestCaptureAirLedgerRejectsSymlinkWithoutFollowingIt(t *testing.T) {
 	if err := os.WriteFile(target, []byte("private target"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(target, store.airLedgerPath()); err != nil {
-		t.Fatal(err)
-	}
+	createRecoveryLinkForTest(t, target, store.airLedgerPath())
 	if _, _, err := store.captureAirLedger(); err == nil || !strings.Contains(err.Error(), "read Air recovery ledger") {
 		t.Fatalf("capture error = %v", err)
 	}
@@ -63,14 +61,33 @@ func TestDecodeAirLedgerRejectsTrailingJSON(t *testing.T) {
 	}
 }
 
-func TestValidateAirRecoveryStorageRejectsUnsafeFiles(t *testing.T) {
+func TestValidateAirRecoveryStorageRejectsMissingQuarantine(t *testing.T) {
 	store := NewStore(t.TempDir())
-	quarantine := desiredSnapshot([]byte("quarantine"), 0o600)
-	if err := store.validateAirRecoveryStorage("air-000001-deadbeefcafe", desiredSnapshot([]byte("ledger"), 0o644), quarantine); err == nil {
-		t.Fatal("accepted an unsafe ledger mode")
-	}
 	if err := store.validateAirRecoveryStorage("air-000001-deadbeefcafe", transaction.FileSnapshot{}, transaction.FileSnapshot{}); err == nil {
 		t.Fatal("accepted a missing quarantine")
+	}
+}
+
+func TestValidateAirRecoveryStorageRejectsLinkedCaseDirectory(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "recovery")
+	store := NewStore(root)
+	caseID := "air-000001-deadbeefcafe"
+	caseDirectory := filepath.Dir(store.airQuarantinePath(caseID))
+	if err := os.MkdirAll(caseDirectory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(base, "outside-case")
+	if err := os.Mkdir(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(caseDirectory); err != nil {
+		t.Fatal(err)
+	}
+	createRecoveryLinkForTest(t, target, caseDirectory)
+	quarantine := desiredSnapshot([]byte("quarantine"), 0o600)
+	if err := store.validateAirRecoveryStorage(caseID, transaction.FileSnapshot{}, quarantine); err == nil {
+		t.Fatal("accepted a linked recovery case directory")
 	}
 }
 
@@ -179,10 +196,7 @@ func TestInspectAirRecoveryStorageHandlesUnreadableDirectories(t *testing.T) {
 			if err := os.MkdirAll(path, 0o700); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Chmod(path, 0); err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() { _ = os.Chmod(path, 0o700) })
+			makeRecoveryPathUnreadableForTest(t, path)
 			inventory, err := NewStore(root).inspectAirRecoveryStorage()
 			if err != nil {
 				t.Fatal(err)

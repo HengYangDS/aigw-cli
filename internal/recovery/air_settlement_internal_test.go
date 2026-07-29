@@ -42,9 +42,7 @@ func TestInspectAirLifecycleHandlesUnsafeLedgerCaptureAndVanishedConfig(t *testi
 		if err := os.WriteFile(target, []byte("ledger"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Symlink(target, store.airLedgerPath()); err != nil {
-			t.Fatal(err)
-		}
+		createRecoveryLinkForTest(t, target, store.airLedgerPath())
 		assertLifecycleForTest(t, store, filepath.Join(root, "config.toml"), filepath.Join(root, "standalone.toml"), "unknown", AirRecoveryHealthInvalid, AirRecoveryReasonStoragePermission)
 	})
 
@@ -98,9 +96,7 @@ func TestPlanAirSettlementAdditionalFailures(t *testing.T) {
 		if err := os.MkdirAll(filepath.Dir(store.airLedgerPath()), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Symlink(filepath.Join(root, "missing"), store.airLedgerPath()); err != nil {
-			t.Fatal(err)
-		}
+		createRecoveryCaptureFailureForTest(t, store.airLedgerPath())
 		if _, err := store.PlanAirSettlement(AirSettleOptions{CaseID: validCase}); err == nil {
 			t.Fatal("settled with unreadable ledger")
 		}

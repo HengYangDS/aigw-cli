@@ -388,7 +388,7 @@ func planAccountFinalize(app *App, oldID, newID string, options accountFinalizeO
 	}
 
 	backupConverged := state.Snapshot.Backup.Exists &&
-		state.Snapshot.Backup.Mode == 0o600 &&
+		state.Snapshot.Backup.Mode == securePersistedFileMode &&
 		bytes.Equal(state.Snapshot.Backup.Data, state.Snapshot.Config.Data)
 	plan := renamePlan{
 		Resource:           "account",
