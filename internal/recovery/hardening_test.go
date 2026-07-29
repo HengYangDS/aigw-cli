@@ -441,7 +441,7 @@ func TestInspectAirLifecycleRejectsUnsafeExistingRecoveryDirectories(t *testing.
 			if err != nil {
 				t.Fatalf("inspection returned internal storage error: %v", err)
 			}
-			if runtime.GOOS == "windows" && (tt.name == "ledger is symbolic link" || tt.name == "quarantine is symbolic link") {
+			if runtime.GOOS == "windows" && (tt.name == "empty Air state directory without ledger" || tt.name == "empty quarantine directory without ledger") {
 				if status.RecoveryState != "none" || status.RecoveryHealth != AirRecoveryHealthInactive || status.RecoveryReasonCode != AirRecoveryReasonLedgerMissing {
 					t.Fatalf("status = %#v, want none inactive ledger-missing", status)
 				}
