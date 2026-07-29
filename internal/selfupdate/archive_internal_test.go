@@ -341,3 +341,16 @@ func TestExtractBinaryRejectsMultipleMatches(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestExtractBinaryRejectsMissingEntry(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "a.tar.gz")
+	archive := tarGzWithEntriesForTest(t, []tarEntryForTest{
+		{name: "aigw_1.2.3/other", data: []byte("payload")},
+	})
+	if err := os.WriteFile(path, archive, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := extractBinary(path, "aigw_1.2.3/aigw"); err == nil || !strings.Contains(err.Error(), "is missing from update archive") {
+		t.Fatalf("error = %v", err)
+	}
+}
