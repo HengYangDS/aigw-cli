@@ -71,6 +71,16 @@ git_transport() {
   GIT_CONFIG_GLOBAL=/dev/null git "$@"
 }
 
+projection_fingerprint() {
+  commit=$1
+  parents=$(git -C "$projection" show -s --format='%P' "$commit")
+  parent_count=$(printf '%s\n' "$parents" | awk '{print NF}')
+  {
+    printf 'parents=%s\n' "$parent_count"
+    git -C "$projection" show -s --format='%T%n%aI%n%cI%n%B' "$commit"
+  } | git hash-object --stdin
+}
+
 # file:// forces a fresh object database. Linked worktrees, local clone
 # optimisations, alternates, and shared object databases are explicitly barred.
 git clone --quiet --no-local "file://$canonical_root" "$projection"
@@ -206,21 +216,20 @@ if [ -n "$new_commits" ]; then
     for source_parent in $source_parents; do
       projected_parent=$(git -C "$projection" rev-parse --verify "$projection_map/$source_parent^{commit}" 2>/dev/null || true)
       if [ -z "$projected_parent" ]; then
-        source_parent_tree=$(git -C "$projection" rev-parse "$source_parent^{tree}")
-        source_parent_position=$(git -C "$projection" rev-list --first-parent --reverse "$canonical_base" | awk -v commit="$source_parent" '$0 == commit {print NR}')
-        [ -n "$source_parent_position" ] || {
-          echo "canonical parent is outside the mapped first-parent history: $source_parent" >&2
+        source_parent_fingerprint=$(projection_fingerprint "$source_parent")
+        projected_matches=
+        for candidate in $(git -C "$projection" rev-list "$remote_tip"); do
+          if [ "$(projection_fingerprint "$candidate")" = "$source_parent_fingerprint" ]; then
+            projected_matches="${projected_matches}${projected_matches:+
+}$candidate"
+          fi
+        done
+        match_count=$(printf '%s\n' "$projected_matches" | awk 'NF {count++} END {print count + 0}')
+        [ "$match_count" -eq 1 ] || {
+          echo "canonical parent has $match_count identity-neutral GitHub matches: $source_parent" >&2
           exit 1
         }
-        projected_parent=$(git -C "$projection" rev-list --first-parent --reverse "$remote_tip" | awk -v position="$source_parent_position" 'NR == position {print; exit}')
-        [ -n "$projected_parent" ] || {
-          echo "GitHub history lacks canonical parent position $source_parent_position: $source_parent" >&2
-          exit 1
-        }
-        [ "$(git -C "$projection" rev-parse "$projected_parent^{tree}")" = "$source_parent_tree" ] || {
-          echo "GitHub parent tree differs at canonical position $source_parent_position: $source_parent" >&2
-          exit 1
-        }
+        projected_parent=$projected_matches
         git -C "$projection" update-ref "$projection_map/$source_parent" "$projected_parent"
       fi
       set -- "$@" -p "$projected_parent"
