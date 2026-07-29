@@ -1,9 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"regexp"
+	"strings"
 	"testing"
 )
+
+type rejectingWriter struct{}
+
+func (rejectingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write rejected")
+}
 
 func TestUUIDV5IsStableAndVersionScoped(t *testing.T) {
 	t.Parallel()
@@ -37,5 +46,16 @@ func TestUUIDV5RejectsMalformedNamespace(t *testing.T) {
 
 	if _, err := uuidV5("not-a-uuid", "aigw"); err == nil {
 		t.Fatal("uuidV5() error = nil for malformed namespace")
+	}
+}
+
+func TestRunRejectsOutputFailure(t *testing.T) {
+	var stderr bytes.Buffer
+	code := run([]string{
+		"-namespace", "6ba7b814-9dad-11d1-80b4-00c04fd430c8",
+		"-name", "aigw",
+	}, rejectingWriter{}, &stderr)
+	if code != 1 || !strings.Contains(stderr.String(), "write rejected") {
+		t.Fatalf("run() = %d, stderr = %q", code, stderr.String())
 	}
 }

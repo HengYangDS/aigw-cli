@@ -10,11 +10,22 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [0.1.0-rc.72] - 2026-07-29
 
+### Added
+
+- Add a repository-wide Go statement-coverage gate that tests every package
+  under `./...` and requires both every package and the aggregate to remain
+  strictly above 95 percent.
+- Add blocking native Linux and Windows verification alongside the existing
+  macOS release runners, including the managed GitLab Windows runner.
+
 ### Changed
 
 - Replace the DMXAPI Qwen 3.7 Max team profile with a token-free UCloud
   Account placeholder at its mainland OpenAI-compatible endpoint while
   preserving all recommended routes.
+- Make post-floor GitLab and GitHub commit email and SSH-signature verification
+  mandatory, and change GitHub projection to signed, forward-only commits
+  without a history-rewrite escape.
 
 ## [0.1.0-rc.71] - 2026-07-27
 
