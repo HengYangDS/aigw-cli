@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.77] - 2026-07-30
+
 ### Changed
 
 - Route every Codex Account in the deployment manifest through its own
