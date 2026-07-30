@@ -25,7 +25,7 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 	if team.RecommendedDefault != "dmxapi-gpt-5.6-terra" {
 		t.Fatalf("recommended default = %q", team.RecommendedDefault)
 	}
-	if len(team.RecommendedRoutes) != 1 || team.RecommendedRoutes[domain.ClientClaude] != "aihubmix-claude-sonnet-5" {
+	if len(team.RecommendedRoutes) != 1 || team.RecommendedRoutes[domain.ClientClaude] != "dmxapi-claude-opus-5" {
 		t.Fatalf("recommended routes = %#v", team.RecommendedRoutes)
 	}
 	if len(team.Accounts) != 3 || len(team.Profiles) != 30 {
