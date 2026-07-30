@@ -42,11 +42,11 @@ func TestInspectCodexConfigReportsFallbackOwnershipWithoutLeakingConfig(t *testi
 func TestInspectCodexConfigClassifiesRecoverableStaleAirFullSelection(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	runtime := atomicTestRuntime()
-	fullBlock := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	fullBlock := codexManagedBlock(runtime, runtime.Endpoint)
 	if err := os.WriteFile(path, []byte(projectCodex("model_provider = \"jetbrains\"\nmodel = \"jb-default\"\n", fullBlock, runtime.Model)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	fallbackBlock := codexFallbackBlock(runtime.ProfileLabel, runtime.Endpoint)
+	fallbackBlock := codexFallbackBlock(runtime, runtime.Endpoint)
 	state, err := json.Marshal(codexState{
 		ManagedBlockHash: hashText(fallbackBlock),
 		ProjectionMode:   CodexProjectionNamespacedFallback,

@@ -26,6 +26,7 @@ base_url = 'https://www.dmxapi.cn'
 
 [accounts.ucloud]
 label = 'UCloud'
+codex_responses_storage = 'required'
 
 [accounts.ucloud.endpoints]
 openai_responses = 'https://api.modelverse.cn/v1'

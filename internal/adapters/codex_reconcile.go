@@ -209,10 +209,10 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 	}
 	switch target.ref.ProjectionMode {
 	case CodexProjectionFullSelection:
-		block := codexManagedBlock(runtime.ProfileLabel, endpoint)
+		block := codexManagedBlock(runtime, endpoint)
 		return prepareCodexFullSelection(target.ref, runtime, block, configSnapshot, stateSnapshot, transactionID)
 	case CodexProjectionNamespacedFallback:
-		block := codexFallbackBlock(runtime.ProfileLabel, endpoint)
+		block := codexFallbackBlock(runtime, endpoint)
 		return prepareCodexFallback(target.ref, block, configSnapshot, stateSnapshot, transactionID)
 	case CodexProjectionStaleAirFullSelectionRecovery:
 		return prepareStaleAirFullSelectionRecovery(target.ref, configSnapshot, stateSnapshot)
@@ -598,11 +598,15 @@ func projectCodexFallback(original, block string) (string, string) {
 	return original + prefix + block, prefix
 }
 
-func codexFallbackBlock(label, endpoint string) string {
-	label = strings.ReplaceAll(label, "\"", "'")
+func codexFallbackBlock(runtime domain.Runtime, endpoint string) string {
+	name := "AIGW fallback: " + runtime.ProfileLabel
+	if runtime.CodexResponsesStorage == domain.CodexResponsesStorageRequired {
+		name = "azure"
+	}
+	name = strings.ReplaceAll(name, "\"", "'")
 	return codexFallbackBegin + "\n" +
 		"[model_providers.aigw_fallback]\n" +
-		fmt.Sprintf("name = \"AIGW fallback: %s\"\n", label) +
+		fmt.Sprintf("name = \"%s\"\n", name) +
 		fmt.Sprintf("base_url = \"%s\"\n", endpoint) +
 		"wire_api = \"responses\"\n" +
 		"requires_openai_auth = true\n" +

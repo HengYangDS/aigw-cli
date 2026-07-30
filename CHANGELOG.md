@@ -8,6 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Let an Account declare that Codex Responses items require upstream storage,
+  and project the bounded Codex provider identity needed to keep multi-turn
+  `rs_...` and tool-call items valid with Codex 0.146.
+
 ## [0.1.0-rc.75] - 2026-07-30
 
 ### Added

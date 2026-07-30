@@ -22,7 +22,7 @@ const (
 var modelProviderLine = regexp.MustCompile(`(?m)^[ \t]*model_provider[ \t]*=.*$`)
 var modelLine = regexp.MustCompile(`(?m)^[ \t]*model[ \t]*=.*$`)
 var managedModelLine = regexp.MustCompile(`(?m)^[ \t]*model[ \t]*=[ \t]*"[^"\r\n]+"[ \t]*#[ \t]*managed by AIGW[ \t]*$`)
-var exactCodexManagedBlock = regexp.MustCompile(`\A\[model_providers\.aigw\]\r?\nname = "AIGW: [^"\r\n]*"\r?\nbase_url = "[^"\r\n]+"\r?\nwire_api = "responses"\r?\nrequires_openai_auth = true\r?\n# <<< AIGW managed provider <<<\r?\n?\z`)
+var exactCodexManagedBlock = regexp.MustCompile(`\A\[model_providers\.aigw\]\r?\nname = "(?:azure|AIGW: [^"\r\n]*)"\r?\nbase_url = "[^"\r\n]+"\r?\nwire_api = "responses"\r?\nrequires_openai_auth = true\r?\n# <<< AIGW managed provider <<<\r?\n?\z`)
 
 type codexState struct {
 	OriginalProvider string `json:"original_provider,omitempty"`
@@ -104,7 +104,7 @@ func ValidateCodexConfig(path string, runtime domain.Runtime) error {
 		return fmt.Errorf("read Codex config: %w", err)
 	}
 	text := string(current)
-	expectedBlock := codexManagedBlock(runtime.ProfileLabel, endpoint)
+	expectedBlock := codexManagedBlock(runtime, endpoint)
 	stateData, err := os.ReadFile(codexStatePath(path))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -251,10 +251,17 @@ func projectCodex(original, block, model string) string {
 	return base + "\n" + codexBegin + "\n" + block
 }
 
-func codexManagedBlock(label, endpoint string) string {
-	label = strings.ReplaceAll(label, `"`, `'`)
+func codexManagedBlock(runtime domain.Runtime, endpoint string) string {
+	name := "AIGW: " + runtime.ProfileLabel
+	if runtime.CodexResponsesStorage == domain.CodexResponsesStorageRequired {
+		// Codex 0.146 only enables Responses item persistence through its
+		// built-in Azure provider identity. Keep that client-specific mapping
+		// here while the Account retains the truthful provider label.
+		name = "azure"
+	}
+	name = strings.ReplaceAll(name, `"`, `'`)
 	return "[model_providers.aigw]\n" +
-		fmt.Sprintf("name = \"AIGW: %s\"\n", label) +
+		fmt.Sprintf("name = \"%s\"\n", name) +
 		fmt.Sprintf("base_url = \"%s\"\n", endpoint) +
 		"wire_api = \"responses\"\n" +
 		"requires_openai_auth = true\n" +
