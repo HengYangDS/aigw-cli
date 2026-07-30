@@ -40,9 +40,9 @@ if "GOTOOLCHAIN: go1.25.12" not in variables:
     raise SystemExit("GitLab must resolve Go 1.25.12 on every runner")
 
 verify = section(gitlab, "verify")
-if "git fetch --tags --force origin" not in verify:
-    raise SystemExit("GitLab verification must refresh its release tags without pruning GitHub provenance")
-if "--prune-tags origin" in verify or "--prune origin" in verify:
+if "git fetch --force --prune --no-tags origin '+refs/tags/v*:refs/tags/v*'" not in verify:
+    raise SystemExit("GitLab verification must prune stale direct release tags without pruning GitHub provenance")
+if "--prune-tags" in verify:
     raise SystemExit("GitLab verification must not prune local GitHub provenance namespaces")
 for required in [
     "go run ./tools/coveragegate --race", "go vet ./...", "check-static-analysis.sh", "check-product-surface.sh", 'check-release-tag-signature.sh . "$CI_COMMIT_TAG" gitlab', "check-release-toolchain.sh",
