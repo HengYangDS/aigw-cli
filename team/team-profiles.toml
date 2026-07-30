@@ -2,7 +2,7 @@ version = 3
 recommended_default = 'dmxapi-gpt-5.6-terra'
 
 [recommended_routes]
-claude = 'aihubmix-claude-sonnet-5'
+claude = 'dmxapi-claude-opus-5'
 
 [accounts]
 
