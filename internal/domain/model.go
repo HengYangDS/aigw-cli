@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	ConfigVersion = 2
-	ClientClaude  = "claude"
-	ClientCodex   = "codex"
+	ConfigVersion                 = 2
+	ClientClaude                  = "claude"
+	ClientCodex                   = "codex"
+	CodexResponsesStorageRequired = "required"
 )
 
 var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
@@ -25,10 +26,11 @@ type Config struct {
 }
 
 type Account struct {
-	ID           string        `toml:"-" json:"id,omitempty"`
-	Label        string        `toml:"label" json:"label"`
-	Endpoints    Endpoints     `toml:"endpoints" json:"endpoints"`
-	AccountProbe *AccountProbe `toml:"account_probe,omitempty" json:"account_probe,omitempty"`
+	ID                    string        `toml:"-" json:"id,omitempty"`
+	Label                 string        `toml:"label" json:"label"`
+	CodexResponsesStorage string        `toml:"codex_responses_storage,omitempty" json:"codex_responses_storage,omitempty"`
+	Endpoints             Endpoints     `toml:"endpoints" json:"endpoints"`
+	AccountProbe          *AccountProbe `toml:"account_probe,omitempty" json:"account_probe,omitempty"`
 }
 
 type Profile struct {
@@ -45,13 +47,14 @@ type Profile struct {
 type Models map[string]string
 
 type Runtime struct {
-	ProfileID    string `json:"profile_id"`
-	ProfileLabel string `json:"profile_label"`
-	AccountID    string `json:"account_id"`
-	AccountLabel string `json:"account_label"`
-	Client       string `json:"client"`
-	Endpoint     string `json:"endpoint"`
-	Model        string `json:"model,omitempty"`
+	ProfileID             string `json:"profile_id"`
+	ProfileLabel          string `json:"profile_label"`
+	AccountID             string `json:"account_id"`
+	AccountLabel          string `json:"account_label"`
+	Client                string `json:"client"`
+	Endpoint              string `json:"endpoint"`
+	Model                 string `json:"model,omitempty"`
+	CodexResponsesStorage string `json:"codex_responses_storage,omitempty"`
 }
 
 type AccountProbe struct {
@@ -152,6 +155,9 @@ func (c Config) Validate() error {
 		}
 		if account.Endpoints.OpenAIResponses == "" && account.Endpoints.Anthropic == "" {
 			return fmt.Errorf("account %q must define at least one endpoint", name)
+		}
+		if account.CodexResponsesStorage != "" && account.CodexResponsesStorage != CodexResponsesStorageRequired {
+			return fmt.Errorf("account %q codex responses storage must be %q when set", name, CodexResponsesStorageRequired)
 		}
 		if err := validateEndpoints("account", name, account.Endpoints); err != nil {
 			return err
@@ -264,7 +270,16 @@ func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, bool, e
 	if err != nil {
 		return Runtime{}, inherited, err
 	}
-	return Runtime{ProfileID: name, ProfileLabel: profile.Label, AccountID: account.ID, AccountLabel: account.Label, Client: client, Endpoint: endpoint, Model: profile.ModelFor(client)}, inherited, nil
+	return Runtime{
+		ProfileID:             name,
+		ProfileLabel:          profile.Label,
+		AccountID:             account.ID,
+		AccountLabel:          account.Label,
+		Client:                client,
+		Endpoint:              endpoint,
+		Model:                 profile.ModelFor(client),
+		CodexResponsesStorage: account.CodexResponsesStorage,
+	}, inherited, nil
 }
 
 func (p Profile) ModelFor(client string) string {

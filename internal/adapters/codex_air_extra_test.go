@@ -184,7 +184,7 @@ func TestInspectAirCodexConfigReadBoundaries(t *testing.T) {
 			t.Fatal(err)
 		}
 		runtime := atomicTestRuntime()
-		block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+		block := codexManagedBlock(runtime, runtime.Endpoint)
 		if err := os.WriteFile(airPath, []byte(projectCodex("", block, runtime.Model)), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -196,7 +196,7 @@ func TestInspectAirCodexConfigReadBoundaries(t *testing.T) {
 
 func TestExactAirManagedProjectionRejectsStructuralAmbiguity(t *testing.T) {
 	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	block := codexManagedBlock(runtime, runtime.Endpoint)
 	for _, test := range []struct {
 		name string
 		text string

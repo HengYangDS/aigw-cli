@@ -216,6 +216,7 @@ func cloneConfig(cfg domain.Config) domain.Config {
 
 func equivalentAccount(left, right domain.Account) bool {
 	return left.Label == right.Label &&
+		left.CodexResponsesStorage == right.CodexResponsesStorage &&
 		normalizeEndpoint(left.Endpoints.OpenAIResponses) == normalizeEndpoint(right.Endpoints.OpenAIResponses) &&
 		normalizeEndpoint(left.Endpoints.Anthropic) == normalizeEndpoint(right.Endpoints.Anthropic) &&
 		equivalentProbe(left.AccountProbe, right.AccountProbe)

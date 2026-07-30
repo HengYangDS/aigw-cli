@@ -48,6 +48,9 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 	if ucloud.Label != "UCloud" || ucloud.Endpoints.OpenAIResponses != "https://api.modelverse.cn/v1" || ucloud.Endpoints.Anthropic != "https://api.modelverse.cn" {
 		t.Fatalf("UCloud account = %#v", ucloud)
 	}
+	if ucloud.CodexResponsesStorage != domain.CodexResponsesStorageRequired {
+		t.Fatalf("UCloud Codex Responses storage = %q, want %q", ucloud.CodexResponsesStorage, domain.CodexResponsesStorageRequired)
+	}
 
 	want := map[string]struct{ client, model string }{
 		"aihubmix-claude-fable-5":      {domain.ClientClaude, "claude-fable-5"},
@@ -131,6 +134,42 @@ func TestExampleTeamManifestIsProviderNeutralVersionThree(t *testing.T) {
 		if strings.Contains(name, "4-8") {
 			t.Fatalf("neutral example retains obsolete profile %q", name)
 		}
+	}
+}
+
+func TestCodexResponsesStorageRequirementRoundTripsThroughTeamManifest(t *testing.T) {
+	raw := []byte(`version = 3
+recommended_default = "team-codex"
+
+[accounts.team]
+label = "Team"
+codex_responses_storage = "required"
+
+[accounts.team.endpoints]
+openai_responses = "https://team.test/v1"
+
+[profiles.team-codex]
+label = "Team Codex"
+account = "team"
+client = "codex"
+
+[profiles.team-codex.models]
+codex = "gpt-test"
+`)
+	team, err := manifest.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := manifest.Merge(domain.NewConfig(), team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exported, err := manifest.Export(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(exported), `codex_responses_storage = 'required'`) {
+		t.Fatalf("exported manifest lost Codex Responses storage requirement:\n%s", exported)
 	}
 }
 
