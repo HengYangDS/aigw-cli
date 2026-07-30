@@ -50,6 +50,17 @@ func TestCodexProjectionChangedWhenAdapterIsDisabled(t *testing.T) {
 	}
 }
 
+func TestCodexProjectionChangedWhenResponsesStorageRequirementChanges(t *testing.T) {
+	before := reconciliationConfig(filepath.Join(t.TempDir(), "config.toml"))
+	after := cloneConfig(before)
+	account := after.Accounts["gateway"]
+	account.CodexResponsesStorage = domain.CodexResponsesStorageRequired
+	after.Accounts["gateway"] = account
+	if !codexProjectionChanged(before, after) {
+		t.Fatal("changing the Codex Responses storage requirement must reconcile the provider projection")
+	}
+}
+
 func TestCommitConfigAndSyncRestoresTargetRemovedFromAdapter(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "codex", "config.toml")
