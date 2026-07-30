@@ -106,6 +106,14 @@ client = 'claude'
 [profiles.dmxapi-claude-fable-5-ssvip.models]
 claude = 'claude-fable-5-ssvip'
 
+[profiles.dmxapi-claude-opus-5]
+label = 'DMXAPI · Claude Opus 5'
+account = 'dmxapi'
+client = 'claude'
+
+[profiles.dmxapi-claude-opus-5.models]
+claude = 'claude-opus-5'
+
 [profiles.dmxapi-claude-opus-5-cc]
 label = 'DMXAPI · Claude Opus 5 CC'
 account = 'dmxapi'

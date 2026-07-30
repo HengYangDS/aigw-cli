@@ -28,8 +28,8 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 	if len(team.RecommendedRoutes) != 1 || team.RecommendedRoutes[domain.ClientClaude] != "aihubmix-claude-sonnet-5" {
 		t.Fatalf("recommended routes = %#v", team.RecommendedRoutes)
 	}
-	if len(team.Accounts) != 3 || len(team.Profiles) != 29 {
-		t.Fatalf("example matrix has %d Accounts and %d profiles, want 3 and 29", len(team.Accounts), len(team.Profiles))
+	if len(team.Accounts) != 3 || len(team.Profiles) != 30 {
+		t.Fatalf("example matrix has %d Accounts and %d profiles, want 3 and 30", len(team.Accounts), len(team.Profiles))
 	}
 	if got := team.Accounts["aihubmix"].Endpoints; got.OpenAIResponses != "https://aihubmix.com/v1" || got.Anthropic != "https://aihubmix.com" {
 		t.Fatalf("AIHubMix endpoints = %#v", got)
@@ -59,6 +59,7 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 		"dmxapi-claude-fable-5":        {domain.ClientClaude, "claude-fable-5"},
 		"dmxapi-claude-fable-5-cc":     {domain.ClientClaude, "claude-fable-5-cc"},
 		"dmxapi-claude-fable-5-ssvip":  {domain.ClientClaude, "claude-fable-5-ssvip"},
+		"dmxapi-claude-opus-5":         {domain.ClientClaude, "claude-opus-5"},
 		"dmxapi-claude-opus-5-cc":      {domain.ClientClaude, "claude-opus-5-cc"},
 		"dmxapi-claude-opus-5-ssvip":   {domain.ClientClaude, "claude-opus-5-ssvip"},
 		"dmxapi-claude-sonnet-5":       {domain.ClientClaude, "claude-sonnet-5"},
