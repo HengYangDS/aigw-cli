@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.76] - 2026-07-30
+
 ### Fixed
 
 - Let an Account declare that Codex Responses items require upstream storage,
