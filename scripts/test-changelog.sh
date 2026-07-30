@@ -509,7 +509,12 @@ for number in $(seq 48 58); do
 done
 mkdir -p "$provider/scripts" "$provider/packaging/release"
 cp "$checker" "$provider/scripts/check-changelog.sh"
-cp "$root/packaging/release/retired-gitlab-tags.txt" "$provider/packaging/release/retired-gitlab-tags.txt"
+{
+  for number in $(seq 48 58); do
+    printf 'v0.1.0-rc.%s\n' "$number"
+  done
+  printf 'v0.1.0-rc.61\n'
+} > "$provider/packaging/release/retired-gitlab-tags.txt"
 {
   printf '# Changelog\n\n## [Unreleased]\n\n'
   printf '## [0.1.0-rc.62] - 2026-07-17\n\n'

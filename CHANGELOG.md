@@ -19,7 +19,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 ### Fixed
 
 - Prune stale direct GitLab release tags from persistent CI workspaces without
-  removing qualified GitHub provenance, preventing false Changelog failures.
+  removing qualified GitHub provenance, and retain removed release chronology
+  in the append-only retirement inventory.
 - Align provider-native commit trust anchors with the currently registered
   GitLab and GitHub SSH signing keys.
 
