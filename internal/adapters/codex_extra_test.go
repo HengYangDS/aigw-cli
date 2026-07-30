@@ -105,7 +105,7 @@ func TestValidateCodexConfigExtra(t *testing.T) {
 	}
 	writeExtraCodexState(t, path, state)
 
-	block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	block := codexManagedBlock(runtime, runtime.Endpoint)
 	content := "model_provider = \"aigw\" # managed by AIGW\n" + codexBegin + "\n" + block
 	writeExtraCodexFile(t, path, content)
 
@@ -531,7 +531,7 @@ func TestInspectCodexConfigReachableStates(t *testing.T) {
 	t.Run("legacy full selection", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "config.toml")
 		runtime := atomicTestRuntime()
-		block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+		block := codexManagedBlock(runtime, runtime.Endpoint)
 		writeExtraCodexFile(t, path, projectCodex("model_provider = \"native\"\n", block, ""))
 		writeExtraCodexState(t, path, codexState{ManagedBlockHash: hashText(block)})
 
@@ -547,7 +547,7 @@ func TestInspectCodexConfigReachableStates(t *testing.T) {
 	t.Run("full selection disk drift", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "config.toml")
 		runtime := atomicTestRuntime()
-		block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+		block := codexManagedBlock(runtime, runtime.Endpoint)
 		writeExtraCodexFile(t, path, "model_provider = \"native\"\n"+codexBegin+"\n"+block)
 		writeExtraCodexState(t, path, attributedExtraCodexState(CodexProjectionFullSelection, block))
 
@@ -563,7 +563,7 @@ func TestInspectCodexConfigReachableStates(t *testing.T) {
 	t.Run("selected fallback conflict", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "config.toml")
 		runtime := atomicTestRuntime()
-		block := codexFallbackBlock(runtime.ProfileLabel, runtime.Endpoint)
+		block := codexFallbackBlock(runtime, runtime.Endpoint)
 		writeExtraCodexFile(t, path, "model_provider = \"aigw_fallback\"\n"+block)
 		writeExtraCodexState(t, path, attributedExtraCodexState(CodexProjectionNamespacedFallback, block))
 
@@ -608,7 +608,7 @@ func TestCodexFallbackBlockInBoundaries(t *testing.T) {
 
 func TestValidateCodexConfigReachableErrors(t *testing.T) {
 	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	block := codexManagedBlock(runtime, runtime.Endpoint)
 	validState := attributedExtraCodexState(CodexProjectionFullSelection, block)
 
 	t.Run("sidecar is directory", func(t *testing.T) {
@@ -642,7 +642,7 @@ func TestValidateCodexConfigReachableErrors(t *testing.T) {
 
 	t.Run("provider profile mismatch", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "config.toml")
-		otherBlock := codexManagedBlock(runtime.ProfileLabel, "https://other.example/v1")
+		otherBlock := codexManagedBlock(runtime, "https://other.example/v1")
 		writeExtraCodexFile(t, path, projectCodex("", otherBlock, runtime.Model))
 		writeExtraCodexState(t, path, attributedExtraCodexState(CodexProjectionFullSelection, otherBlock))
 		if err := ValidateCodexConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "provider block does not match") {
@@ -662,7 +662,7 @@ func TestValidateCodexConfigReachableErrors(t *testing.T) {
 
 func TestCodexUserConfigAtReadErrors(t *testing.T) {
 	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	block := codexManagedBlock(runtime, runtime.Endpoint)
 
 	t.Run("invalid sidecar", func(t *testing.T) {
 		root := t.TempDir()
@@ -711,7 +711,7 @@ func TestCodexUserConfigAtReadErrors(t *testing.T) {
 
 func TestCompleteExactTruncatedCodexProjectionRejectsAmbiguities(t *testing.T) {
 	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	block := codexManagedBlock(runtime, runtime.Endpoint)
 	state := codexState{ManagedBlockHash: hashText(block)}
 	truncated := strings.TrimSuffix(block, codexEnd+"\n")
 
@@ -746,7 +746,7 @@ func TestCompleteExactTruncatedCodexProjectionRejectsAmbiguities(t *testing.T) {
 
 func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	block := codexManagedBlock(runtime, runtime.Endpoint)
 	current := projectCodex("external = true\n", block, runtime.Model)
 	state := codexState{
 		OriginalModel:    `model = "native-model"`,
@@ -767,7 +767,7 @@ func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 
 func TestStaleAirFullSelectionBlockAdditionalConflicts(t *testing.T) {
 	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	block := codexManagedBlock(runtime, runtime.Endpoint)
 	projected := projectCodex("model_provider = \"native\"\n", block, "")
 
 	for _, test := range []struct {
@@ -901,7 +901,8 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 
 func TestPrepareCodexFallbackAdditionalStates(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	block := codexFallbackBlock(atomicTestRuntime().ProfileLabel, atomicTestRuntime().Endpoint)
+	runtime := atomicTestRuntime()
+	block := codexFallbackBlock(runtime, runtime.Endpoint)
 	config := transaction.FileSnapshot{Exists: true, Data: []byte("external = true\n"), Mode: 0o600}
 
 	t.Run("invalid sidecar", func(t *testing.T) {
