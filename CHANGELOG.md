@@ -8,6 +8,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.75] - 2026-07-30
+
+### Added
+
+- Add Claude Fable 5, Opus 5, Sonnet 5 and GPT-5.6 Luna, Sol, Terra UCloud
+  profiles to the ready-to-use team manifest, including UCloud's
+  Anthropic-compatible endpoint.
+
 ## [0.1.0-rc.74] - 2026-07-29
 
 ### Fixed
