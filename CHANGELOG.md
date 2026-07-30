@@ -15,6 +15,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Add Claude Fable 5, Opus 5, Sonnet 5 and GPT-5.6 Luna, Sol, Terra UCloud
   profiles to the ready-to-use team manifest, including UCloud's
   Anthropic-compatible endpoint.
+- Add the regular DMXAPI Claude Opus 5 profile alongside its CC and SSVIP
+  variants.
 
 ### Fixed
 
