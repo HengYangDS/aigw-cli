@@ -10,14 +10,14 @@ claude = 'dmxapi-claude-opus-5'
 label = 'AIHubMix'
 
 [accounts.aihubmix.endpoints]
-openai_responses = 'https://aihubmix.com/v1'
+openai_responses = 'http://127.0.0.1:8791/aihubmix/v1'
 anthropic = 'https://aihubmix.com'
 
 [accounts.dmxapi]
 label = 'DMXAPI'
 
 [accounts.dmxapi.endpoints]
-openai_responses = 'http://127.0.0.1:8791/v1'
+openai_responses = 'http://127.0.0.1:8791/dmxapi/v1'
 anthropic = 'https://www.dmxapi.cn'
 
 [accounts.dmxapi.account_probe]
@@ -29,7 +29,7 @@ label = 'UCloud'
 codex_responses_storage = 'required'
 
 [accounts.ucloud.endpoints]
-openai_responses = 'https://api.modelverse.cn/v1'
+openai_responses = 'http://127.0.0.1:8791/ucloud/v1'
 anthropic = 'https://api.modelverse.cn'
 
 [profiles]
@@ -164,14 +164,6 @@ client = 'codex'
 [profiles.'dmxapi-gpt-5.6-luna'.models]
 codex = 'gpt-5.6-luna'
 
-[profiles.'dmxapi-gpt-5.6-luna-cdx']
-label = 'DMXAPI · GPT-5.6 Luna CDX'
-account = 'dmxapi'
-client = 'codex'
-
-[profiles.'dmxapi-gpt-5.6-luna-cdx'.models]
-codex = 'gpt-5.6-luna-cdx'
-
 [profiles.'dmxapi-gpt-5.6-luna-ssvip']
 label = 'DMXAPI · GPT-5.6 Luna SSVIP'
 account = 'dmxapi'
@@ -189,14 +181,6 @@ client = 'codex'
 [profiles.'dmxapi-gpt-5.6-sol'.models]
 codex = 'gpt-5.6-sol'
 
-[profiles.'dmxapi-gpt-5.6-sol-cdx']
-label = 'DMXAPI · GPT-5.6 Sol CDX'
-account = 'dmxapi'
-client = 'codex'
-
-[profiles.'dmxapi-gpt-5.6-sol-cdx'.models]
-codex = 'gpt-5.6-sol-cdx'
-
 [profiles.'dmxapi-gpt-5.6-sol-ssvip']
 label = 'DMXAPI · GPT-5.6 Sol SSVIP'
 account = 'dmxapi'
@@ -213,14 +197,6 @@ client = 'codex'
 
 [profiles.'dmxapi-gpt-5.6-terra'.models]
 codex = 'gpt-5.6-terra'
-
-[profiles.'dmxapi-gpt-5.6-terra-cdx']
-label = 'DMXAPI · GPT-5.6 Terra CDX'
-account = 'dmxapi'
-client = 'codex'
-
-[profiles.'dmxapi-gpt-5.6-terra-cdx'.models]
-codex = 'gpt-5.6-terra-cdx'
 
 [profiles.'dmxapi-gpt-5.6-terra-ssvip']
 label = 'DMXAPI · GPT-5.6 Terra SSVIP'

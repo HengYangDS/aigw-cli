@@ -99,7 +99,14 @@ Adapters never own provider secrets and never write into one another's directori
 
 ## External gateway boundary
 
-AIGW is local-first: it is not a gateway, listens on no local port, and is fully usable without a team service. Claude and Codex normally use their Account's HTTPS endpoints directly. A future organization-operated gateway is independently assessed and deployed; AIGW sees only its HTTPS Account endpoint and never manages its process lifecycle, upstream credentials, retries, or fallback policy.
+AIGW is local-first: it is not a gateway, listens on no local port, and is fully
+usable without a team service. Accounts may use their HTTPS endpoints directly
+or an explicitly configured loopback compatibility endpoint. The repository
+deployment manifest assigns each Codex Account a distinct provider-scoped
+loopback namespace so route switching retains one replay-compatibility path.
+That external listener is independently assessed and deployed; AIGW sees only
+the configured Account endpoint and never manages its process lifecycle,
+upstream credentials, retries, or fallback policy.
 
 ## Installation channel
 

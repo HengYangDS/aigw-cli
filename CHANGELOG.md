@@ -8,6 +8,17 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- Route every Codex Account in the deployment manifest through its own
+  provider-scoped loopback Responses namespace, so switching providers retains
+  one external replay-compatibility path.
+
+### Removed
+
+- Remove the three DMXAPI GPT-5.6 `-cdx` aliases from the maintained deployment
+  profile matrix; native Luna, Sol, and Terra profiles remain available.
+
 ## [0.1.0-rc.76] - 2026-07-30
 
 ### Fixed
