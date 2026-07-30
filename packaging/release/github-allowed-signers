@@ -2,5 +2,6 @@
 # the git namespace under the GitHub identity before the GitHub plane may publish.
 hengyang.2003@tsinghua.org.cn namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG1Si6Iug2qPitDjdGWsA+TE0joEP+Z57XjGN7PXO5WL GitHub release signing key 2026-07-17
 hengyang.2003@tsinghua.org.cn namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMBvC6W9dJB4DQ3JGKjEMmhJfzdCGA1EY+SDd8j5mqKe GitHub signing key 2026-07-29
+hengyang.2003@tsinghua.org.cn namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHdvzym3Ou6MVx4TKT/4Xw6IK0Tbsxz4tpQUllWPDLSS GitHub current signing key 2026-07-29b
 hengyang.2003@tsinghua.org.cn namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPGYU9Xbpb0yMVmrzIw9bWyzea8IyppWyru+GDYojrxb GitHub final signing key 2026-07-29
 hengyang.2003@tsinghua.org.cn namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILyLcRSRqnIkTAjheiE3DsVQJusbP7ZWkoVz0G/3DpSa GitHub one-time rc73 signing key 2026-07-29

@@ -16,6 +16,13 @@ platform acceptance, signing, and GA status remain separate evidence.
   profiles to the ready-to-use team manifest, including UCloud's
   Anthropic-compatible endpoint.
 
+### Fixed
+
+- Prune stale direct GitLab release tags from persistent CI workspaces without
+  removing qualified GitHub provenance, preventing false Changelog failures.
+- Align provider-native commit trust anchors with the currently registered
+  GitLab and GitHub SSH signing keys.
+
 ## [0.1.0-rc.74] - 2026-07-29
 
 ### Fixed
