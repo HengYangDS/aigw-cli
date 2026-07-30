@@ -42,9 +42,9 @@ verify:
     - sh scripts/test-credential-literals.sh
     - sh scripts/check-credential-fixtures.sh
     - sh scripts/test-credential-fixtures.sh
-    # Fetch GitLab provenance tags without pruning unrelated local namespaces.
-    # Canonical workstations retain GitHub provenance below refs/tags/github/.
-    - git fetch --tags --force origin
+    # Refresh and prune only GitLab's direct release-tag namespace. Qualified
+    # GitHub provenance below refs/tags/github/ remains untouched.
+    - git fetch --force --prune --no-tags origin '+refs/tags/v*:refs/tags/v*'
     - sh scripts/check-commit-provenance.sh . gitlab
     - 'if test -n "${CI_COMMIT_TAG:-}"; then sh scripts/check-release-tag-signature.sh . "$CI_COMMIT_TAG" gitlab; fi'
     - sh scripts/check-governance.sh
