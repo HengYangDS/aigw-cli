@@ -1236,7 +1236,8 @@ func codexProjectionChanged(before, after domain.Config) bool {
 	return beforeRuntime.ProfileID != afterRuntime.ProfileID ||
 		beforeRuntime.ProfileLabel != afterRuntime.ProfileLabel ||
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
-		beforeRuntime.Model != afterRuntime.Model
+		beforeRuntime.Model != afterRuntime.Model ||
+		beforeRuntime.CodexResponsesStorage != afterRuntime.CodexResponsesStorage
 }
 
 func cloneConfig(cfg domain.Config) domain.Config {
