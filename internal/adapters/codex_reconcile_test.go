@@ -128,11 +128,11 @@ func TestReconcileCodexConfigsRecoversStaleAirFullSelection(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	original := "model_provider = \"jetbrains\"\nmodel = \"jb-default\"\nuser_setting = true\n"
 	runtime := atomicTestRuntime()
-	fullBlock := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	fullBlock := codexManagedBlock(runtime, runtime.Endpoint)
 	if err := os.WriteFile(path, []byte(projectCodex(original, fullBlock, runtime.Model)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	fallbackBlock := codexFallbackBlock(runtime.ProfileLabel, runtime.Endpoint)
+	fallbackBlock := codexFallbackBlock(runtime, runtime.Endpoint)
 	staleState, err := json.Marshal(codexState{
 		ManagedBlockHash: hashText(fallbackBlock),
 		ProjectionMode:   CodexProjectionNamespacedFallback,
@@ -356,11 +356,11 @@ func TestReconcileCodexConfigsRejectsUnsafeStaleAirFullSelectionRecovery(t *test
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			runtime := atomicTestRuntime()
-			fullBlock := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+			fullBlock := codexManagedBlock(runtime, runtime.Endpoint)
 			if err := os.WriteFile(path, []byte(projectCodex("model_provider = \"jetbrains\"\nmodel = \"jb-default\"\n", fullBlock, runtime.Model)), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			fallbackBlock := codexFallbackBlock(runtime.ProfileLabel, runtime.Endpoint)
+			fallbackBlock := codexFallbackBlock(runtime, runtime.Endpoint)
 			state, err := json.Marshal(codexState{
 				ManagedBlockHash: hashText(fallbackBlock),
 				ProjectionMode:   CodexProjectionNamespacedFallback,
@@ -430,11 +430,11 @@ func TestReconcileCodexConfigsRejectsNormalAirFallbackForStaleRecovery(t *testin
 func TestReconcileCodexConfigsRollsBackStaleAirRecoveryWhenSidecarRemovalFails(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	runtime := atomicTestRuntime()
-	fullBlock := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	fullBlock := codexManagedBlock(runtime, runtime.Endpoint)
 	if err := os.WriteFile(path, []byte(projectCodex("model_provider = \"jetbrains\"\nmodel = \"jb-default\"\nuser_setting = true\n", fullBlock, runtime.Model)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	fallbackBlock := codexFallbackBlock(runtime.ProfileLabel, runtime.Endpoint)
+	fallbackBlock := codexFallbackBlock(runtime, runtime.Endpoint)
 	state, err := json.Marshal(codexState{
 		ManagedBlockHash: hashText(fallbackBlock),
 		ProjectionMode:   CodexProjectionNamespacedFallback,
@@ -673,7 +673,7 @@ func TestReconcileCodexConfigsUsesLegacySidecarBesideSymlinkTarget(t *testing.T)
 		t.Fatal(err)
 	}
 	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	block := codexManagedBlock(runtime, runtime.Endpoint)
 	if err := os.WriteFile(realPath, []byte(projectCodex(original, block, runtime.Model)), 0o600); err != nil {
 		t.Fatal(err)
 	}

@@ -142,7 +142,7 @@ func TestPlanCodexConfigsClassifiesInitialConvergedAndExactTruncationRepair(t *t
 func TestSyncCodexConfigsConvergesLegacyStateWithoutOriginalSelections(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime.ProfileLabel, runtime.Endpoint)
+	block := codexManagedBlock(runtime, runtime.Endpoint)
 	legacy := "model = \"gpt-5.6-terra\" # managed by AIGW\n" +
 		"model_provider = \"aigw\" # managed by AIGW\n\n" +
 		"user_setting = true\n\n" +

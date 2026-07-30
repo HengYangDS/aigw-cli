@@ -1,12 +1,40 @@
 package domain_test
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
 
 	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
+
+func TestResolveRuntimeCarriesRequiredCodexResponsesStorage(t *testing.T) {
+	cfg := validConfig()
+	account := cfg.Accounts["dmx"]
+	account.CodexResponsesStorage = "required"
+	cfg.Accounts["dmx"] = account
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	runtime, _, err := cfg.ResolveRuntime(domain.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoded), `"codex_responses_storage":"required"`) {
+		t.Fatalf("resolved runtime lost Codex Responses storage requirement: %s", encoded)
+	}
+
+	account.CodexResponsesStorage = "sometimes"
+	cfg.Accounts["dmx"] = account
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "codex responses storage") {
+		t.Fatalf("invalid storage requirement error = %v", err)
+	}
+}
 
 func TestRuntimeProfileDoesNotOwnEndpointsOrAccountProbe(t *testing.T) {
 	profileType := reflect.TypeOf(domain.Profile{})
