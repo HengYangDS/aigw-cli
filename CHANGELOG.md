@@ -17,6 +17,8 @@ platform acceptance, signing, and GA status remain separate evidence.
   Anthropic-compatible endpoint.
 - Add the regular DMXAPI Claude Opus 5 profile alongside its CC and SSVIP
   variants.
+- Make DMXAPI Claude Opus 5 the recommended Claude route while retaining
+  DMXAPI GPT-5.6 Terra as the default Codex route.
 
 ### Fixed
 
