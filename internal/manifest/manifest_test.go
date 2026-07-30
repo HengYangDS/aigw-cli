@@ -28,8 +28,8 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 	if len(team.RecommendedRoutes) != 1 || team.RecommendedRoutes[domain.ClientClaude] != "aihubmix-claude-sonnet-5" {
 		t.Fatalf("recommended routes = %#v", team.RecommendedRoutes)
 	}
-	if len(team.Accounts) != 3 || len(team.Profiles) != 24 {
-		t.Fatalf("example matrix has %d Accounts and %d profiles, want 3 and 24", len(team.Accounts), len(team.Profiles))
+	if len(team.Accounts) != 3 || len(team.Profiles) != 29 {
+		t.Fatalf("example matrix has %d Accounts and %d profiles, want 3 and 29", len(team.Accounts), len(team.Profiles))
 	}
 	if got := team.Accounts["aihubmix"].Endpoints; got.OpenAIResponses != "https://aihubmix.com/v1" || got.Anthropic != "https://aihubmix.com" {
 		t.Fatalf("AIHubMix endpoints = %#v", got)
@@ -45,7 +45,7 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 	if !ok {
 		t.Fatal("team manifest lacks UCloud account")
 	}
-	if ucloud.Label != "UCloud" || ucloud.Endpoints.OpenAIResponses != "https://api.modelverse.cn/v1" || ucloud.Endpoints.Anthropic != "" {
+	if ucloud.Label != "UCloud" || ucloud.Endpoints.OpenAIResponses != "https://api.modelverse.cn/v1" || ucloud.Endpoints.Anthropic != "https://api.modelverse.cn" {
 		t.Fatalf("UCloud account = %#v", ucloud)
 	}
 
@@ -73,7 +73,12 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 		"dmxapi-gpt-5.6-terra":         {domain.ClientCodex, "gpt-5.6-terra"},
 		"dmxapi-gpt-5.6-terra-cdx":     {domain.ClientCodex, "gpt-5.6-terra-cdx"},
 		"dmxapi-gpt-5.6-terra-ssvip":   {domain.ClientCodex, "gpt-5.6-terra-ssvip"},
-		"ucloud":                       {"", ""},
+		"ucloud-claude-fable-5":        {domain.ClientClaude, "claude-fable-5"},
+		"ucloud-claude-opus-5":         {domain.ClientClaude, "claude-opus-5"},
+		"ucloud-claude-sonnet-5":       {domain.ClientClaude, "claude-sonnet-5"},
+		"ucloud-gpt-5.6-luna":          {domain.ClientCodex, "gpt-5.6-luna"},
+		"ucloud-gpt-5.6-sol":           {domain.ClientCodex, "gpt-5.6-sol"},
+		"ucloud-gpt-5.6-terra":         {domain.ClientCodex, "gpt-5.6-terra"},
 	}
 	for name, expected := range want {
 		profile, ok := team.Profiles[name]
@@ -90,9 +95,19 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 			t.Errorf("unexpected profile %q", name)
 		}
 	}
-	ucloudProfile := team.Profiles["ucloud"]
-	if ucloudProfile.Account != "ucloud" || ucloudProfile.Client != "" || len(ucloudProfile.Models) != 0 {
-		t.Fatalf("UCloud placeholder profile = %#v", ucloudProfile)
+	ucloudLabels := map[string]string{
+		"ucloud-claude-fable-5":  "UCloud · Claude Fable 5",
+		"ucloud-claude-opus-5":   "UCloud · Claude Opus 5",
+		"ucloud-claude-sonnet-5": "UCloud · Claude Sonnet 5",
+		"ucloud-gpt-5.6-luna":    "UCloud · GPT-5.6 Luna",
+		"ucloud-gpt-5.6-sol":     "UCloud · GPT-5.6 Sol",
+		"ucloud-gpt-5.6-terra":   "UCloud · GPT-5.6 Terra",
+	}
+	for name, label := range ucloudLabels {
+		profile := team.Profiles[name]
+		if profile.Account != "ucloud" || profile.Label != label {
+			t.Errorf("UCloud profile %q = account %q label %q", name, profile.Account, profile.Label)
+		}
 	}
 }
 
