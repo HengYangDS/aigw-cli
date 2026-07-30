@@ -28,14 +28,14 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 	if len(team.RecommendedRoutes) != 1 || team.RecommendedRoutes[domain.ClientClaude] != "dmxapi-claude-opus-5" {
 		t.Fatalf("recommended routes = %#v", team.RecommendedRoutes)
 	}
-	if len(team.Accounts) != 3 || len(team.Profiles) != 30 {
-		t.Fatalf("example matrix has %d Accounts and %d profiles, want 3 and 30", len(team.Accounts), len(team.Profiles))
+	if len(team.Accounts) != 3 || len(team.Profiles) != 27 {
+		t.Fatalf("example matrix has %d Accounts and %d profiles, want 3 and 27", len(team.Accounts), len(team.Profiles))
 	}
-	if got := team.Accounts["aihubmix"].Endpoints; got.OpenAIResponses != "https://aihubmix.com/v1" || got.Anthropic != "https://aihubmix.com" {
+	if got := team.Accounts["aihubmix"].Endpoints; got.OpenAIResponses != "http://127.0.0.1:8791/aihubmix/v1" || got.Anthropic != "https://aihubmix.com" {
 		t.Fatalf("AIHubMix endpoints = %#v", got)
 	}
 	dmxapi := team.Accounts["dmxapi"]
-	if dmxapi.Endpoints.OpenAIResponses != "http://127.0.0.1:8791/v1" || dmxapi.Endpoints.Anthropic != "https://www.dmxapi.cn" {
+	if dmxapi.Endpoints.OpenAIResponses != "http://127.0.0.1:8791/dmxapi/v1" || dmxapi.Endpoints.Anthropic != "https://www.dmxapi.cn" {
 		t.Fatalf("DMXAPI endpoints = %#v", dmxapi.Endpoints)
 	}
 	if dmxapi.AccountProbe == nil || dmxapi.AccountProbe.Kind != "dmxapi" || dmxapi.AccountProbe.BaseURL != "https://www.dmxapi.cn" {
@@ -45,7 +45,7 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 	if !ok {
 		t.Fatal("team manifest lacks UCloud account")
 	}
-	if ucloud.Label != "UCloud" || ucloud.Endpoints.OpenAIResponses != "https://api.modelverse.cn/v1" || ucloud.Endpoints.Anthropic != "https://api.modelverse.cn" {
+	if ucloud.Label != "UCloud" || ucloud.Endpoints.OpenAIResponses != "http://127.0.0.1:8791/ucloud/v1" || ucloud.Endpoints.Anthropic != "https://api.modelverse.cn" {
 		t.Fatalf("UCloud account = %#v", ucloud)
 	}
 	if ucloud.CodexResponsesStorage != domain.CodexResponsesStorageRequired {
@@ -69,13 +69,10 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 		"dmxapi-claude-sonnet-5-cc":    {domain.ClientClaude, "claude-sonnet-5-cc"},
 		"dmxapi-claude-sonnet-5-ssvip": {domain.ClientClaude, "claude-sonnet-5-ssvip"},
 		"dmxapi-gpt-5.6-luna":          {domain.ClientCodex, "gpt-5.6-luna"},
-		"dmxapi-gpt-5.6-luna-cdx":      {domain.ClientCodex, "gpt-5.6-luna-cdx"},
 		"dmxapi-gpt-5.6-luna-ssvip":    {domain.ClientCodex, "gpt-5.6-luna-ssvip"},
 		"dmxapi-gpt-5.6-sol":           {domain.ClientCodex, "gpt-5.6-sol"},
-		"dmxapi-gpt-5.6-sol-cdx":       {domain.ClientCodex, "gpt-5.6-sol-cdx"},
 		"dmxapi-gpt-5.6-sol-ssvip":     {domain.ClientCodex, "gpt-5.6-sol-ssvip"},
 		"dmxapi-gpt-5.6-terra":         {domain.ClientCodex, "gpt-5.6-terra"},
-		"dmxapi-gpt-5.6-terra-cdx":     {domain.ClientCodex, "gpt-5.6-terra-cdx"},
 		"dmxapi-gpt-5.6-terra-ssvip":   {domain.ClientCodex, "gpt-5.6-terra-ssvip"},
 		"ucloud-claude-fable-5":        {domain.ClientClaude, "claude-fable-5"},
 		"ucloud-claude-opus-5":         {domain.ClientClaude, "claude-opus-5"},
@@ -94,7 +91,13 @@ func TestRepositoryTeamManifestMatchesCurrentProfileMatrix(t *testing.T) {
 			t.Errorf("profile %q = client %q model %q, want %q and %q", name, profile.Client, profile.Models[expected.client], expected.client, expected.model)
 		}
 	}
-	for name := range team.Profiles {
+	for name, profile := range team.Profiles {
+		if strings.HasSuffix(name, "-cdx") {
+			t.Errorf("retired Codex alias remains in deployment manifest: %q", name)
+		}
+		if strings.HasSuffix(profile.Models[domain.ClientCodex], "-cdx") {
+			t.Errorf("retired Codex model alias remains in deployment manifest profile %q", name)
+		}
 		if _, ok := want[name]; !ok {
 			t.Errorf("unexpected profile %q", name)
 		}

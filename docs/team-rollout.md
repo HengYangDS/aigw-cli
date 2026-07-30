@@ -37,11 +37,12 @@ Those switches never read, copy, delete, or replace a member's system token.
 
 ### New machine
 
-Review each Account's public endpoint and optional
+Review each Account's endpoint and optional
 `codex_responses_storage` requirement. Profiles, models, and recommended routes
 are maintained team metadata; Tokens never belong in this file. The repository
-deployment manifest includes a loopback compatibility endpoint; keep it only
-when that listener exists on the member's machine.
+deployment manifest gives every Codex Account a distinct provider-scoped
+loopback compatibility endpoint. Use it only when the external listener
+supports the complete declared namespace set on the member's machine.
 
 ```bash
 aigw setup --from team-profiles.toml
@@ -73,6 +74,10 @@ aigw check
 
 `setup --from` is first-configuration only. Import remains non-destructive and
 never reads, writes, or deletes Account Tokens.
+
+Import also does not delete a local Profile merely because a newer team
+manifest omits it. After reviewing that it is not selected by any Route, remove
+an obsolete local entry explicitly with `aigw profile remove <profile>`.
 
 Use `aigw catalog --all` for read-only inventory inspection. Catalog results are
 not admission evidence and do not automatically change a route. Enable only
