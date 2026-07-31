@@ -1,0 +1,9 @@
+profile_id = "aigw-cli"
+
+[openspec]
+material_paths = [
+    ".ethos/profile.toml",
+    "openspec/**",
+    "docs/governance/**",
+    "rules/**",
+]
