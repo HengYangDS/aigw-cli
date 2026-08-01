@@ -1,9 +1,9 @@
 # Agent Entry Points
 
-This repository is **AIGW CLI**, the local control plane for provider account
-configuration, credentials, route selection, and Codex/Claude configuration
-projections. It does not run a proxy, listen on a port, carry API traffic, or
-own Codex conversation state.
+This repository is **AIGW CLI**, a local control plane for provider Accounts,
+credentials, Profiles, Routes, and explicit Claude/Codex client integration.
+It does not run a proxy, listen on a port, carry API traffic, or own Codex
+conversation state.
 
 ## Canonical Surfaces
 
@@ -34,8 +34,10 @@ or a local proxy deployment to make a configuration test pass.
   transcripts.
 - AIGW owns marked provider blocks, endpoint selection, credentials, and the
   atomic projection across configured Codex targets.
-- Codex DMX Proxy owns local Responses transport compatibility and listener
-  lifecycle. AIGW must not start, stop, reload, or configure its process.
+- External Responses compatibility services, when explicitly selected by an
+  operator, own their transport and lifecycle. AIGW treats them as ordinary
+  Account endpoints and must not install, start, stop, reload, or configure
+  them.
 
 ## Analyzer isolation
 
@@ -58,14 +60,16 @@ Worktree visibility or an apparently idle agent is not retirement authority.
   packages, explicit dependency direction, and narrow interfaces; apply SSOT,
   DRY, MECE, and SOLID rather than duplicating policy across scripts or CI.
 - Do not introduce source-level compatibility shims, forwarding wrappers,
-  alias-only packages, or re-exports. The client launcher manager in
-  `internal/shims` is owned product behavior, not permission for forwarding
+  alias-only packages, or re-exports. The Claude launcher in
+  `internal/claude` is owned product behavior, not permission for forwarding
   architecture.
-- `packaging/release/verified-commit-floors.txt` is the forward-only identity
-  boundary. Every later GitLab commit must use `heng.yang.ds@hotmail.com` and a
-  trusted GitLab signature; every later GitHub projection commit must use
-  `hengyang.2003@tsinghua.org.cn` and a trusted GitHub signature. Do not rewrite
-  the historical floors or published release tags.
+- `.config/release/verified-commit-floors.txt` is the ordinary forward-only
+  identity boundary. Every later commit must use the publication actor supplied
+  by that Forge's protected release context and a trusted signature from its
+  explicit trust input. Published history may be rebuilt only for an explicitly
+  authorized identity repair, from the earliest invalid commit, across both
+  Forge-specific histories, tags, releases, and integrity evidence as one
+  fail-closed operation; a partial rebuild is never an accepted state.
 - Native source verification on macOS, Linux, and Windows blocks trusted CI
   changes and RC releases. Cross-compilation and package inspection cover
   additional CPU targets but do not replace those native source runs. Rooted
@@ -74,18 +78,22 @@ Worktree visibility or an apparently idle agent is not retirement authority.
 ## Required verification
 
 ```bash
+go run ./tools/architecture --root .
+sh scripts/checks/governance/check-module-identity.sh
 go run ./tools/coveragegate --race
 go vet ./...
-sh scripts/check-static-analysis.sh
+sh scripts/checks/quality/check-static-analysis.sh
+sh scripts/checks/governance/check-portability.sh
+sh scripts/tests/governance/test-portability.sh
 test -z "$(gofmt -l cmd internal tools)"
-sh scripts/check-governance.sh
-sh scripts/check-commit-provenance.sh . gitlab
-sh scripts/test-commit-provenance.sh
-sh scripts/check-tag-namespace.sh
-python3 scripts/check-markdown-presentation.py
-python3 scripts/check-text-layout.py
-sh scripts/test-text-layout.sh
-sh scripts/test-changelog.sh
+sh scripts/checks/governance/check-governance.sh
+AIGW_GITLAB_AUTHOR_EMAIL='<release actor email>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-commit-provenance.sh . gitlab
+sh scripts/tests/forge/test-commit-provenance.sh
+AIGW_TAG_NAMESPACE_FORGE='<local|gitlab|github>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' AIGW_GITHUB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-tag-namespace.sh
+python3 scripts/checks/governance/check-markdown-presentation.py
+python3 scripts/checks/governance/check-text-layout.py
+sh scripts/tests/governance/test-text-layout.sh
+sh scripts/tests/governance/test-changelog.sh
 ```
 
 Use `aigw sync --dry-run --json` before a configuration mutation where a target

@@ -111,11 +111,17 @@ func TestRealMainPassesOnlyStrictlyAbovePolicy(t *testing.T) {
 	if runner.name != "go" {
 		t.Fatalf("command = %q, want go", runner.name)
 	}
+	if !contains(runner.args, "./...") {
+		t.Fatalf("test arguments %q do not include the complete package set", runner.args)
+	}
 	wantArgs := []string{"test", "-count=1", "-race", "-covermode=atomic"}
 	for _, want := range wantArgs {
 		if !contains(runner.args, want) {
 			t.Errorf("arguments %q lack %q", runner.args, want)
 		}
+	}
+	if !contains(runner.args, "-coverpkg=./...") {
+		t.Errorf("arguments %q lack cross-package instrumentation", runner.args)
 	}
 	if got := runner.args[len(runner.args)-1]; got != "./..." {
 		t.Fatalf("last argument = %q, want ./...", got)
@@ -125,6 +131,32 @@ func TestRealMainPassesOnlyStrictlyAbovePolicy(t *testing.T) {
 	}
 	if _, err := os.Stat(runner.path); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("temporary profile remains: %v", err)
+	}
+}
+
+func TestReadCoverageMergesRepeatedCrossPackageRanges(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "coverage.out")
+	body := "mode: atomic\nexample/a.go:1.1,2.1 96 0\nexample/a.go:3.1,4.1 4 0\nexample/a.go:1.1,2.1 96 1\nexample/a.go:3.1,4.1 4 0\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	result, err := readCoverage(path, "atomic")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Total != 100 || result.Covered != 96 {
+		t.Fatalf("coverage = %d/%d, want 96/100", result.Covered, result.Total)
+	}
+}
+
+func TestReadCoverageRejectsConflictingRepeatedRange(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "coverage.out")
+	body := "mode: atomic\nexample/a.go:1.1,2.1 1 0\nexample/a.go:1.1,2.1 2 1\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readCoverage(path, "atomic"); err == nil || !strings.Contains(err.Error(), "conflicts with repeated source range") {
+		t.Fatalf("error = %v", err)
 	}
 }
 

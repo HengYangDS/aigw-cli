@@ -1,0 +1,62 @@
+# Architecture layout gate — SSOT for Go repository structure checks.
+# Consumed by tools/architecture; values are not hardcoded in the checker.
+owner = "product-toolchain"
+source = "repository architecture layout"
+
+# Direct files under these roots are forbidden; only semantic subdirectories.
+scripts_roots = ["scripts"]
+
+# Managed Go trees subject to flat-directory, suffix-flat, naming, and AST rules.
+go_roots = ["cmd", "internal", "tools"]
+
+# Composition roots may contain only their declared production files. Command
+# behavior belongs to semantic subpackages, never beside the root assembler.
+composition_root_files = { "internal/cli" = ["app.go"] }
+
+# CLI leaf packages are peers. They may depend on the invocation capability
+# contract, but never on another command leaf; shared behavior belongs to a
+# domain package outside internal/cli.
+peer_package_roots = { "internal/cli" = ["invocation"] }
+
+# Production .go files per directory (test files reported separately).
+flat_directory_limit = 8
+
+# Effective non-comment source and AST decision-branch budgets. These reject the
+# false-green tactic of concatenating unrelated owners into fewer large files.
+max_file_eloc = 600
+max_directory_eloc = 3000
+max_file_complexity = 180
+max_directory_complexity = 900
+
+# Same prefix foo_*.go group size that fails (after platform-variant collapse).
+suffix_flat_group_min = 3
+
+# Platform build suffixes treated as one semantic implementation for suffix-flat.
+# Do not generalize beyond this explicit list.
+platform_build_suffixes = ["unix", "windows", "darwin", "linux", "posix"]
+
+# Permanent directory / package names that are forbidden.
+forbidden_names = ["commands", "shim", "shims", "compat", "compatibility"]
+
+# Product identities that AIGW must never import or embed. AIGW composes with
+# independent data planes only through operator-configured HTTP endpoints.
+forbidden_product_references = [
+  "codex-responses-proxy",
+  "codex_dmx_proxy",
+  "codex-dmx-proxy",
+]
+
+# Empty by default — do not mint debt baselines here.
+allowed_forbidden_names = []
+
+# Top-level roots skipped entirely while walking the repository.
+ignore_roots = ["vendor", ".git", "records", "build"]
+
+# Directory base names skipped anywhere in the walk (runtime / VCS residue).
+ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
+
+# AST surface rules inside managed Go roots.
+check_exported_type_alias = true
+check_function_var_alias = true
+check_package_documentation = true
+check_trivial_wrappers = true

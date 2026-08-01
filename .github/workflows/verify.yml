@@ -14,14 +14,14 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GOTOOLCHAIN: go1.25.12
+  GOTOOLCHAIN: go1.26.5
 
 jobs:
   verify:
     name: Source and governance gates
     # GitLab is the canonical merge-request gate. This trusted runner accepts
     # only repository-controlled main, tag, and manual workflow revisions.
-    runs-on: [self-hosted, macOS, ARM64, aigw-github-verify-macos-arm64]
+    runs-on: ${{ fromJSON(vars.AIGW_VERIFY_RUNNER) }}
     timeout-minutes: 25
     steps:
       - name: Check out full history and tags
@@ -44,13 +44,14 @@ jobs:
         if: github.ref_type == 'tag'
         env:
           SELECTED_TAG: ${{ github.ref_name }}
+          AIGW_GITHUB_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
         run: |
           set -euo pipefail
-          sh scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github
+          sh scripts/checks/forge/check-release-tag-signature.sh . "$SELECTED_TAG" github
       - name: Set up Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
-          go-version: "1.25.12"
+          go-version: "1.26.5"
           check-latest: false
           # Self-hosted verification must finish when its visible gates finish;
           # do not add a post-job archive/save phase.
@@ -59,54 +60,61 @@ jobs:
         env:
           CGO_ENABLED: '1'
           AIGW_CHANGELOG_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          GITHUB_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
+          AIGW_GITHUB_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
         run: |
           set -euo pipefail
-          sh scripts/check-release-toolchain.sh
-          sh scripts/check-commit-provenance.sh . github
+          sh scripts/checks/release/check-release-toolchain.sh
+          AIGW_GITHUB_AUTHOR_EMAIL="$GITHUB_RELEASE_AUTHOR_EMAIL" sh scripts/checks/forge/check-commit-provenance.sh . github
+          go run ./tools/architecture --root .
+          sh scripts/checks/governance/check-module-identity.sh
+          sh scripts/tests/governance/test-module-identity.sh
           go run ./tools/coveragegate --race
           go vet ./...
-          sh scripts/check-static-analysis.sh
+          sh scripts/checks/quality/check-static-analysis.sh
           test -z "$(gofmt -l cmd internal tools)"
-          for script in scripts/*.sh; do sh -n "$script"; done
-          sh scripts/check-package-safety.sh
-          sh scripts/check-product-surface.sh
-          sh scripts/check-retired-residue.sh
-          sh scripts/check-english-text.sh
-          sh scripts/check-credential-literals.sh
-          sh scripts/test-credential-literals.sh
-          sh scripts/check-credential-fixtures.sh
-          sh scripts/test-credential-fixtures.sh
-          sh scripts/check-governance.sh
-          python3 scripts/check-markdown-presentation.py
-          python3 scripts/check-text-layout.py
-          sh scripts/test-text-layout.sh
-          sh scripts/test-changelog.sh
-          sh scripts/test-tag-namespace.sh
-          sh scripts/test-release-readiness.sh
-          sh scripts/test-release-artifacts.sh
-          sh scripts/test-release-source-date-epoch.sh
-          sh scripts/test-release-forge-sources.sh
-          sh scripts/test-release-toolchain.sh
-          sh scripts/test-verified-candidate.sh
-          sh scripts/test-release-tag-signature.sh
-          sh scripts/test-release-tag-signature-provider-selection.sh
-          sh scripts/test-package-runner-preflight.sh
-          sh scripts/test-ci-go-cache-preparation.sh
-          sh scripts/test-linux-native-install-staging.sh
-          sh scripts/test-macos-native-install-staging.sh
-          sh scripts/test-msi-version.sh
-          sh scripts/test-publish-release.sh
-          sh scripts/test-publish-github-release.sh
-          sh scripts/test-pipeline-gates.sh
-          sh scripts/test-github-actions-contract.sh
-          sh scripts/test-github-release-workflow.sh
-          sh scripts/test-github-provider-projection.sh
-          sh scripts/test-commit-provenance.sh
-          sh scripts/test-branch-closeout.sh
-          sh scripts/test-forge-sync.sh
+          for script in $(git ls-files 'scripts/*.sh'); do sh -n "$script"; done
+          sh scripts/checks/release/check-package-safety.sh
+          sh scripts/checks/governance/check-product-surface.sh
+          sh scripts/checks/governance/check-portability.sh
+          sh scripts/tests/governance/test-portability.sh
+          sh scripts/checks/release/check-retired-residue.sh
+          sh scripts/checks/governance/check-english-text.sh
+          sh scripts/checks/security/check-credential-literals.sh
+          sh scripts/tests/security/test-credential-literals.sh
+          sh scripts/checks/security/check-credential-fixtures.sh
+          sh scripts/tests/security/test-credential-fixtures.sh
+          sh scripts/checks/governance/check-governance.sh
+          python3 scripts/checks/governance/check-markdown-presentation.py
+          python3 scripts/checks/governance/check-text-layout.py
+          sh scripts/tests/governance/test-text-layout.sh
+          sh scripts/tests/governance/test-changelog.sh
+          sh scripts/tests/forge/test-tag-namespace.sh
+          sh scripts/tests/release/test-release-readiness.sh
+          sh scripts/tests/release/test-release-artifacts.sh
+          sh scripts/tests/release/test-release-source-date-epoch.sh
+          sh scripts/tests/forge/test-release-forge-sources.sh
+          sh scripts/tests/release/test-release-toolchain.sh
+          sh scripts/tests/release/test-verified-candidate.sh
+          sh scripts/tests/forge/test-release-tag-signature.sh
+          sh scripts/tests/forge/test-release-tag-signature-provider-selection.sh
+          sh scripts/tests/release/test-package-runner-preflight.sh
+          sh scripts/tests/ci/test-ci-go-cache-preparation.sh
+          sh scripts/tests/install/test-linux-native-install-staging.sh
+          sh scripts/tests/install/test-macos-native-install-staging.sh
+          sh scripts/tests/release/test-msi-version.sh
+          sh scripts/tests/release/test-publish-gitlab-release.sh
+          sh scripts/tests/release/test-publish-github-release.sh
+          sh scripts/tests/ci/test-pipeline-gates.sh
+          sh scripts/tests/ci/test-github-actions-contract.sh
+          sh scripts/tests/ci/test-github-release-workflow.sh
+          sh scripts/tests/forge/test-github-provider-projection.sh
+          sh scripts/tests/forge/test-commit-provenance.sh
+          sh scripts/tests/forge/test-branch-closeout.sh
+          sh scripts/tests/forge/test-forge-sync.sh
       - name: Run PowerShell installer contract
         shell: pwsh
-        run: ./scripts/test-installers.ps1 -Installer ./scripts/install.ps1
+        run: ./scripts/tests/install/test-installers.ps1 -Installer ./scripts/install/install.ps1
 
   native-linux:
     name: Native Linux acceptance
@@ -120,13 +128,17 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
-          go-version: "1.25.12"
+          go-version: "1.26.5"
           check-latest: false
           cache: false
       - name: Run native Linux acceptance
+        env:
+          GITHUB_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
+          AIGW_GITHUB_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
         run: |
           set -euo pipefail
-          sh scripts/check-commit-provenance.sh . github
+          AIGW_GITHUB_AUTHOR_EMAIL="$GITHUB_RELEASE_AUTHOR_EMAIL" sh scripts/checks/forge/check-commit-provenance.sh . github
+          go run ./tools/architecture --root .
           go run ./tools/coveragegate --race
           go vet ./...
           go build -o "$RUNNER_TEMP/aigw" ./cmd/aigw
@@ -144,9 +156,9 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
-          go-version: "1.25.12"
+          go-version: "1.26.5"
           check-latest: false
           cache: false
       - name: Run native Windows acceptance
         shell: pwsh
-        run: ./scripts/test-windows-native.ps1 -Repository $env:GITHUB_WORKSPACE
+        run: ./scripts/tests/install/test-windows-native.ps1 -Repository $env:GITHUB_WORKSPACE

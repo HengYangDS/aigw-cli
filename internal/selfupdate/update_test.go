@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/selfupdate"
+	"aigw-cli/internal/selfupdate"
 )
 
 const testReleaseProject = "example-group/example-project"
@@ -165,7 +165,7 @@ func TestUpdateIgnoresGlabConfigurationWarningAroundLatestTag(t *testing.T) {
 	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	gitlab := &fakeRunner{archive: archive, checksum: checksum, tag: "Warning: Multiple config files found.\nUsing: /tmp/glab/config.yml\nv0.2.0\n"}
+	gitlab := &fakeRunner{archive: archive, checksum: checksum, tag: "Warning: Multiple config files found.\nUsing: /tmp/glab/configuration.yml\nv0.2.0\n"}
 	var githubURL string
 	github := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {

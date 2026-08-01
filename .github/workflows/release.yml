@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  GOTOOLCHAIN: go1.25.12
+  GOTOOLCHAIN: go1.26.5
 
 jobs:
   native-linux:
@@ -34,13 +34,19 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
-          go-version: "1.25.12"
+          go-version: "1.26.5"
           check-latest: false
           cache: false
       - name: Run native Linux release acceptance
+        env:
+          GITHUB_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
+          AIGW_GITHUB_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
         run: |
           set -euo pipefail
-          sh scripts/check-commit-provenance.sh . github
+          AIGW_GITHUB_AUTHOR_EMAIL="$GITHUB_RELEASE_AUTHOR_EMAIL" sh scripts/checks/forge/check-commit-provenance.sh . github
+          go run ./tools/architecture --root .
+          sh scripts/checks/governance/check-module-identity.sh
+          sh scripts/tests/governance/test-module-identity.sh
           go run ./tools/coveragegate --race
           go vet ./...
           go build -o "$RUNNER_TEMP/aigw" ./cmd/aigw
@@ -59,18 +65,18 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
-          go-version: "1.25.12"
+          go-version: "1.26.5"
           check-latest: false
           cache: false
       - name: Run native Windows release acceptance
         shell: pwsh
-        run: ./scripts/test-windows-native.ps1 -Repository $env:GITHUB_WORKSPACE
+        run: ./scripts/tests/install/test-windows-native.ps1 -Repository $env:GITHUB_WORKSPACE
 
   package-and-publish:
     name: Independently package and publish
     # Release credentials are confined to a runner that never executes
     # verification or merge-request workflow code.
-    runs-on: [self-hosted, macOS, ARM64, aigw-github-release-macos-arm64]
+    runs-on: ${{ fromJSON(vars.AIGW_RELEASE_RUNNER) }}
     needs: [native-linux, native-windows]
     timeout-minutes: 45
     steps:
@@ -82,59 +88,69 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
-          go-version: "1.25.12"
+          go-version: "1.26.5"
           check-latest: false
           cache: false
       - name: Install release build tools
         run: |
           set -euo pipefail
           brew install nfpm msitools
-          sh scripts/check-package-runner.sh
+          sh scripts/checks/release/check-package-runner.sh
       - name: Verify the signed tag and source gates
         env:
           SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
           AIGW_CHANGELOG_RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          GITHUB_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
+          AIGW_GITHUB_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
         run: |
           set -euo pipefail
           case "$SELECTED_TAG" in v*) ;; *) echo "release requires a v* tag" >&2; exit 2 ;; esac
           test "$(git rev-parse "$SELECTED_TAG^{}")" = "$(git rev-parse HEAD)"
-          sh scripts/check-release-tag-signature.sh . "$SELECTED_TAG" github
-          sh scripts/check-commit-provenance.sh . github
-          sh scripts/check-release-toolchain.sh
+          sh scripts/checks/forge/check-release-tag-signature.sh . "$SELECTED_TAG" github
+          AIGW_GITHUB_AUTHOR_EMAIL="$GITHUB_RELEASE_AUTHOR_EMAIL" sh scripts/checks/forge/check-commit-provenance.sh . github
+          sh scripts/checks/release/check-release-toolchain.sh
+          go run ./tools/architecture --root .
           go run ./tools/coveragegate --race
           go vet ./...
-          sh scripts/check-static-analysis.sh
+          sh scripts/checks/quality/check-static-analysis.sh
           test -z "$(gofmt -l cmd internal tools)"
-          sh scripts/check-governance.sh
-          python3 scripts/check-markdown-presentation.py
-          python3 scripts/check-text-layout.py
-          sh scripts/test-text-layout.sh
-          sh scripts/test-changelog.sh
-          sh scripts/test-release-artifacts.sh
-          sh scripts/test-publish-release.sh
-          sh scripts/test-publish-github-release.sh
-          sh scripts/test-ci-go-cache-preparation.sh
-          sh scripts/test-verified-candidate.sh
-          sh scripts/test-pipeline-gates.sh
-          sh scripts/test-macos-native-install-staging.sh
+          sh scripts/checks/governance/check-governance.sh
+          sh scripts/checks/governance/check-portability.sh
+          sh scripts/tests/governance/test-portability.sh
+          python3 scripts/checks/governance/check-markdown-presentation.py
+          python3 scripts/checks/governance/check-text-layout.py
+          sh scripts/tests/governance/test-text-layout.sh
+          sh scripts/tests/governance/test-changelog.sh
+          sh scripts/tests/release/test-release-artifacts.sh
+          sh scripts/tests/release/test-publish-gitlab-release.sh
+          sh scripts/tests/release/test-publish-github-release.sh
+          sh scripts/tests/ci/test-ci-go-cache-preparation.sh
+          sh scripts/tests/release/test-verified-candidate.sh
+          sh scripts/tests/ci/test-pipeline-gates.sh
+          sh scripts/tests/install/test-macos-native-install-staging.sh
       - name: Build the complete release matrix
         env:
           SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
+          AIGW_GITHUB_RELEASE_ORIGIN: ${{ github.server_url }}
+          AIGW_GITHUB_RELEASE_REPOSITORY: ${{ github.repository }}
+          AIGW_GITLAB_RELEASE_ORIGIN: ${{ vars.AIGW_GITLAB_RELEASE_ORIGIN }}
+          AIGW_GITLAB_RELEASE_REPOSITORY: ${{ vars.AIGW_GITLAB_RELEASE_REPOSITORY }}
+          AIGW_PACKAGE_HOMEPAGE: ${{ vars.AIGW_PACKAGE_HOMEPAGE }}
         run: |
           set -euo pipefail
           version="${SELECTED_TAG#v}"
-          SOURCE_DATE_EPOCH="$(sh scripts/release-source-date-epoch.sh "$version")"
+          SOURCE_DATE_EPOCH="$(sh scripts/release/lib/release-source-date-epoch.sh "$version")"
           export SOURCE_DATE_EPOCH
-          sh scripts/test-release-reproducibility.sh "$version"
-          AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$version" dist
-          sh scripts/test-release-package-layout.sh dist "$version"
+          sh scripts/tests/release/test-release-reproducibility.sh "$version"
+          AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/release/build/package.sh "$version" dist
+          sh scripts/tests/release/test-release-package-layout.sh dist "$version"
       - name: Run PowerShell installer contract
         shell: pwsh
-        run: ./scripts/test-installers.ps1 -Installer ./scripts/install.ps1
+        run: ./scripts/tests/install/test-installers.ps1 -Installer ./scripts/install/install.ps1
       - name: Publish or verify immutable GitHub release assets
         env:
           GH_TOKEN: ${{ github.token }}
           CI_COMMIT_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
-          sh scripts/publish-github-release.sh dist
+          sh scripts/release/publish/publish-github-release.sh dist

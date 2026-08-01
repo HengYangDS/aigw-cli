@@ -1,10 +1,12 @@
+// Package secrets owns Account Token storage backends. It never stores tokens
+// in AIGW configuration or client projections.
 package secrets
 
 import (
 	"errors"
 	"fmt"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	configuration "aigw-cli/internal/configuration"
 )
 
 const Service = "AIGW_TOKEN"
@@ -27,7 +29,7 @@ func IsReadOnly(store Store) bool {
 }
 
 func validate(profile, value string, requireValue bool) error {
-	if !domain.ValidProfileName(profile) {
+	if !configuration.ValidProfileName(profile) {
 		return fmt.Errorf("invalid profile name %q", profile)
 	}
 	if requireValue && value == "" {

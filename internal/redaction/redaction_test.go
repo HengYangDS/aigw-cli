@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/redaction"
+	"aigw-cli/internal/redaction"
 )
 
 func TestTextRemovesKnownAndBearerCredentials(t *testing.T) {

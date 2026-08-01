@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/account"
+	"aigw-cli/internal/account"
 )
 
 func TestMemoryStoreKeepsAccountProbeCredentialSeparate(t *testing.T) {

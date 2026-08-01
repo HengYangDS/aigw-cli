@@ -4,8 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/config"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	configuration "aigw-cli/internal/configuration"
 )
 
 func TestMutationCommandLocksEveryConfigurationWriter(t *testing.T) {
@@ -37,6 +36,11 @@ func TestMutationCommandLocksEveryConfigurationWriter(t *testing.T) {
 		{name: "repair apply", args: []string{"repair"}, want: true},
 		{name: "repair dry-run", args: []string{"repair", "--dry-run"}, want: false},
 		{name: "repair dry-run equals", args: []string{"repair", "--dry-run=true"}, want: false},
+		{name: "repair dry-run false", args: []string{"repair", "--dry-run=false"}, want: true},
+		{name: "sync apply", args: []string{"sync"}, want: true},
+		{name: "sync dry-run", args: []string{"sync", "--dry-run"}, want: false},
+		{name: "sync dry-run equals", args: []string{"sync", "--dry-run=true"}, want: false},
+		{name: "sync dry-run false", args: []string{"sync", "--dry-run=false"}, want: true},
 		{name: "update", args: []string{"update"}, want: true},
 		{name: "bare account", args: []string{"account"}, want: false},
 		{name: "bare profile", args: []string{"profile"}, want: false},
@@ -64,21 +68,21 @@ func TestMutationCommandLocksEveryConfigurationWriter(t *testing.T) {
 }
 
 func TestMutationCommandWithNoArgsChecksInteractiveOnboarding(t *testing.T) {
-	emptyStore := App{Config: config.NewStore(filepath.Join(t.TempDir(), "missing.toml")), Interactive: true}
+	emptyStore := App{Config: configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml")), Interactive: true}
 	if !mutationCommand(&emptyStore, nil) {
 		t.Fatal("an interactive terminal with no profiles should trigger the onboarding wizard lock")
 	}
 
-	nonInteractive := App{Config: config.NewStore(filepath.Join(t.TempDir(), "missing.toml")), Interactive: false}
+	nonInteractive := App{Config: configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml")), Interactive: false}
 	if mutationCommand(&nonInteractive, nil) {
 		t.Fatal("a non-interactive session with no profiles must not take a mutation lock")
 	}
 
-	path := filepath.Join(t.TempDir(), "config.toml")
-	store := config.NewStore(path)
-	cfg := domain.NewConfig()
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "dmx", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
+	path := filepath.Join(t.TempDir(), "configuration.toml")
+	store := configuration.NewStore(path)
+	cfg := configuration.NewConfig()
+	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
 	cfg.Routes.Default = "gpt"
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -86,22 +90,5 @@ func TestMutationCommandWithNoArgsChecksInteractiveOnboarding(t *testing.T) {
 	populated := App{Config: store, Interactive: true}
 	if mutationCommand(&populated, nil) {
 		t.Fatal("an already-configured store must not trigger the onboarding wizard lock")
-	}
-}
-
-func TestCodexProjectionChangeIgnoresProfilePurpose(t *testing.T) {
-	before := domain.NewConfig()
-	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	before.Profiles["gpt"] = domain.Profile{Label: "GPT", Account: "gateway", Client: domain.ClientCodex, Models: domain.Models{domain.ClientCodex: "gpt-test"}}
-	before.Routes.Default = "gpt"
-	before.Adapters[domain.ClientCodex] = domain.AdapterConfig{Enabled: true, Targets: []string{"/tmp/codex.toml"}}
-
-	after := cloneConfig(before)
-	profile := after.Profiles["gpt"]
-	profile.Purpose = "Code and engineering"
-	after.Profiles["gpt"] = profile
-
-	if codexProjectionChanged(before, after) {
-		t.Fatal("display-only profile purpose must not rewrite the Codex projection")
 	}
 }

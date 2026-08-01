@@ -1,12 +1,14 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -100,6 +102,7 @@ func run(args []string, getenv func(string) string, stdout, stderr io.Writer) in
 }
 
 func writeSBOM(output io.Writer, version string, created time.Time, modules []module) error {
+	namespace := documentNamespace(version, created, modules)
 	packages := []spdxPackage{{Name: "aigw", SPDXID: "SPDXRef-Package-aigw", VersionInfo: version, DownloadLocation: "NOASSERTION", FilesAnalyzed: false, LicenseConcluded: "MIT", LicenseDeclared: "MIT"}}
 	index := 0
 	for _, item := range modules {
@@ -111,7 +114,7 @@ func writeSBOM(output io.Writer, version string, created time.Time, modules []mo
 	}
 	doc := map[string]any{
 		"spdxVersion": "SPDX-2.3", "dataLicense": "CC0-1.0", "SPDXID": "SPDXRef-DOCUMENT",
-		"name": "aigw-" + version, "documentNamespace": "https://aigw.internal/spdx/" + version,
+		"name": "aigw-" + version, "documentNamespace": namespace,
 		"creationInfo": map[string]any{"created": created.Format(time.RFC3339), "creators": []string{"Tool: aigw-sbom"}},
 		"packages":     packages,
 	}
@@ -121,4 +124,19 @@ func writeSBOM(output io.Writer, version string, created time.Time, modules []mo
 		return err
 	}
 	return nil
+}
+
+func documentNamespace(version string, created time.Time, modules []module) string {
+	records := make([]string, 0, len(modules))
+	for _, item := range modules {
+		record := item.Path + "\x00" + item.Version
+		if item.Replace != nil {
+			record += "\x00" + item.Replace.Path + "\x00" + item.Replace.Version
+		}
+		records = append(records, record)
+	}
+	sort.Strings(records)
+	identity := "aigw-sbom\x00" + version + "\x00" + strconv.FormatInt(created.Unix(), 10) + "\x00" + strings.Join(records, "\x00")
+	digest := sha256.Sum256([]byte(identity))
+	return fmt.Sprintf("urn:sha256:%x", digest)
 }

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/diagnostics"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
+	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/diagnostics"
 )
 
 type clientFunc func(*http.Request) (*http.Response, error)
@@ -21,8 +21,8 @@ func response(status int, body string) *http.Response {
 	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body))}
 }
 
-func runtime() domain.Runtime {
-	return domain.Runtime{ProfileID: "dmx", ProfileLabel: "DMXAPI", AccountID: "dmx", AccountLabel: "DMXAPI", Endpoint: "https://gateway.test/v1"}
+func runtime() configuration.Runtime {
+	return configuration.Runtime{ProfileID: "dmx", ProfileLabel: "DMXAPI", AccountID: "dmx", AccountLabel: "DMXAPI", Endpoint: "https://gateway.test/v1"}
 }
 
 func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {

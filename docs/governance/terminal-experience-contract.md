@@ -63,64 +63,15 @@ that an external compatibility layer exists and that the client route uses its
 listener. It does not reveal a port, name a specific proxy, or create an
 ownership claim. AIGW does not manage that process or diagnose its lifecycle.
 
-## Host-route commands
+## Client and transport boundaries
 
-`aigw route doctor` is a read-only ownership diagnostic. It may inspect local
-configuration attribution, but it must not run Codex, Junie, or an IDE; read a
-credential; contact a provider; expose configuration bodies or paths; or claim
-that authentication, session metadata, endpoint hops, terminal outcomes, or
-billing were proven. Junie is reported as not probed. A reported conflict is a
-state to investigate, not authority to repair an external host.
+Route commands manage only AIGW's default and per-client Profile selections.
+They do not inspect or control IDEs, desktop clients, external proxy processes,
+or conversation state. `aigw repair --dry-run` is the safe preview for a local
+projection problem; it takes no mutation lock, binds no authentication, exposes
+no configuration body, and executes no client.
 
-For an ordinary route-ownership conflict, the safe next command is
-`aigw repair --dry-run`, not a direct write and not an Air fallback restore.
-The repair preview is read-only: it does not take the mutation lock, enable a
-shim, bind authentication, expose configuration paths, or execute a client. It
-maps every planned Codex transition to a stable surface ID, then leaves host
-idleness and any later apply as separate operator responsibilities. The exact
-Air state `recoverable-stale-full-selection` is different: use
-`aigw route recover air --dry-run`. It can remove only a complete AIGW full
-selection paired with a mismatched recognized fallback sidecar; it does not
-write a JetBrains selection or claim runtime authentication.
-
-An `external-host-mirror` is healthy external management and receives no
-mutation guidance. A sidecar-absent `orphaned-exact-full-selection` instead
-uses `aigw route recover-orphan air --dry-run --json`. Doctor next actions are
-therefore ordered: ADR-0003 recovery for its recognized mismatch, exact-orphan
-recovery for its admitted shape, and ordinary `aigw repair --dry-run` for other
-conflicts.
-
-`aigw route attest air` is credential-free, lock-free, and read-only. Its
-human wording must say bounded forwarding evidence, never authentication,
-billing, quota, terminal, or reply proof. `recover-orphan` preview is also
-read-only. Apply requires the exact case, an operator idleness attestation, and
-the explicit unset-selection acknowledgement; it never supports `--force`.
-`settle` preview is read-only, and settle apply mutates only the private ledger
-and quarantine, never Air.
-
-`aigw route fallback air` and `aigw route restore air` are explicit mutation
-commands, not generic recovery actions. Their `--dry-run` variants are
-credential-free previews that acquire no mutation lock and perform no native
-authentication binding. Their apply variants require `--confirm-host-idle` and
-must state that the flag is an operator attestation rather than an Air process
-probe. They never start, stop, restart, or reload Air, and they must fail
-closed if Air's top-level selection is already AIGW rather than JetBrains AI.
-
-`aigw route recover air` is an explicit mutation command for the single stale
-full-selection/fallback-sidecar mismatch reported by route doctor. Its preview
-is credential-free and lock-free; apply requires `--confirm-host-idle` and
-removes only AIGW-owned markers, sidecar, and AIGW target membership. It never
-starts, stops, restarts, reloads, or authenticates Air, and it returns Air to
-an unselected external baseline rather than fabricating a JetBrains setting.
-
-An `orphaned-aigw-marker`, or `partial-or-foreign-residue` whose disk selection
-remains `aigw-managed`, is unbound Air residue. It is a diagnostic boundary,
-not proof that AIGW can safely remove the marked text. Route doctor therefore
-states that no AIGW mutation is admitted and recommends only another read-only
-`aigw route doctor --json` report; it must not suggest generic repair or Air
-recovery for either state.
-
-Human guidance must distinguish a persistent routing policy from runtime proof:
-the desired state is standalone Codex/AIGW and JetBrains-owned PyCharm, Air,
-and Junie; a route, endpoint, terminal response, or billing assertion remains
-unverified until its separately requested live evidence exists.
+When an Account selects a loopback endpoint, human guidance calls it an external
+compatibility layer and leaves its service lifecycle unverified. Authentication,
+endpoint passage, terminal output, billing, and a visible reply require separate
+live evidence; configuration alone proves none of them.

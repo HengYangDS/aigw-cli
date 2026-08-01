@@ -1,3 +1,0 @@
-# Retired GitHub signer. It may verify only the explicit legacy tags named in
-# github-legacy-tags.txt; it must never be used for a new GitHub candidate.
-hengyang.2003@tsinghua.org.cn namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGOTMHpVCmszedNGtkRwTRWWglzwe1ZW6ZADTVUz7Mpi GitHub legacy release signing key retired 2026-07-17
