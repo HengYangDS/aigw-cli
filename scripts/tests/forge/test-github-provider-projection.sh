@@ -92,27 +92,25 @@ git -C "$source" add OLD_PARENT.txt
 git -C "$source" commit -qm 'signed old-parent commit'
 git -C "$source" checkout -q main
 
-# Bootstrap an existing GitHub provider history and its provider-native tag.
-git clone -q --no-local "file://$source" "$projection"
-git -C "$projection" tag -d v0.1.0 >/dev/null
-FILTER_BRANCH_SQUELCH_WARNING=1 git -C "$projection" filter-branch -f --env-filter '
-  GIT_AUTHOR_NAME="GitHub Fixture"
-  GIT_AUTHOR_EMAIL="github@example.invalid"
-  GIT_COMMITTER_NAME="GitHub Fixture"
-  GIT_COMMITTER_EMAIL="github@example.invalid"
-' -- main >/dev/null 2>&1
-git -C "$projection" for-each-ref --format='%(refname)' refs/original/ | while IFS= read -r ref; do
-  git -C "$projection" update-ref -d "$ref"
-done
+# Bootstrap an existing GitHub provider history through the same raw-object
+# replay owner used by production. Tests must not maintain a second history
+# rewriting algorithm or weaken the complete-history trust boundary.
+python3 "$root/scripts/forge/lib/replay-history.py" \
+  --source "$source" \
+  --revision main \
+  --output "$projection" \
+  --ref refs/heads/main \
+  --actor-name "$github_name" \
+  --actor-email "$github_email" \
+  --signing-key "$key" \
+  --allowed-signers "$tmp/allowed/github" >/dev/null
 git -C "$projection" -c user.name="$github_name" -c user.email="$github_email" \
   -c gpg.format=ssh -c user.signingkey="$key" tag -s -a v0.1.0 -m 'GitHub release identity'
 git -C "$projection" remote set-url origin "file://$remote"
-git -C "$projection" -c core.hooksPath=/dev/null push -q origin main refs/tags/v0.1.0
+git -C "$projection" -c core.hooksPath=/dev/null push -q origin refs/heads/main refs/tags/v0.1.0
 git -C "$remote" symbolic-ref HEAD refs/heads/main
 remote_tag_before=$(git -C "$remote" rev-parse refs/tags/v0.1.0)
 remote_main_before=$(git -C "$remote" rev-parse refs/heads/main)
-printf 'gitlab %s\ngithub %s\n' "$canonical_floor" "$remote_main_before" > "$tmp/verified-floors"
-
 # Advance the canonical source. The production projection must not rewrite its
 # refs or its GitLab release tag while it rewrites only the isolated clone.
 printf 'second\n' >> "$source/README.md"
@@ -130,7 +128,6 @@ git -C "$source" remote add github git@github.com:test/aigw-cli.git
     AIGW_GITHUB_AUTHOR_NAME="$github_name" \
     AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
     AIGW_GITHUB_SIGNING_KEY="$key" \
-    AIGW_VERIFIED_COMMIT_FLOORS="$tmp/verified-floors" \
     AIGW_TEST_GITHUB_REMOTE="$remote" \
     GIT_SSH_COMMAND="$mock_ssh" \
     AIGW_GITHUB_REMOTE=github \
@@ -203,7 +200,6 @@ git -C "$source" merge -q --no-ff -S -m 'signed old-parent merge' work/old-paren
     AIGW_GITHUB_AUTHOR_NAME="$github_name" \
     AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
     AIGW_GITHUB_SIGNING_KEY="$key" \
-    AIGW_VERIFIED_COMMIT_FLOORS="$tmp/verified-floors" \
     AIGW_TEST_GITHUB_REMOTE="$remote" \
     GIT_SSH_COMMAND="$mock_ssh" \
     AIGW_GITHUB_REMOTE=github \
@@ -248,7 +244,6 @@ git -C "$source" commit -qm 'caller-only projection context'
     AIGW_GITHUB_AUTHOR_NAME="$github_name" \
     AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
     AIGW_GITHUB_SIGNING_KEY="$key" \
-    AIGW_VERIFIED_COMMIT_FLOORS="$tmp/verified-floors" \
     AIGW_TEST_GITHUB_REMOTE="$remote" \
     GIT_SSH_COMMAND="$mock_ssh" \
     AIGW_GITHUB_REMOTE=github \
@@ -288,7 +283,6 @@ if (
     AIGW_GITHUB_AUTHOR_NAME="$github_name" \
     AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
     AIGW_GITHUB_SIGNING_KEY="$key" \
-    AIGW_VERIFIED_COMMIT_FLOORS="$tmp/verified-floors" \
     AIGW_TEST_GITHUB_REMOTE="$remote" \
     GIT_SSH_COMMAND="$mock_ssh" \
     AIGW_GITHUB_REMOTE=github \
@@ -325,7 +319,6 @@ if (
     AIGW_GITHUB_AUTHOR_NAME="$github_name" \
     AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
     AIGW_GITHUB_SIGNING_KEY="$key" \
-    AIGW_VERIFIED_COMMIT_FLOORS="$tmp/verified-floors" \
     AIGW_TEST_GITHUB_REMOTE="$remote" \
     GIT_SSH_COMMAND="$mock_ssh" \
     AIGW_GITHUB_REMOTE=github \
@@ -349,6 +342,9 @@ git -C "$remote" tag -d v0.2.1 >/dev/null
 git clone -q --no-local "file://$remote" "$tmp/divergent-github"
 git -C "$tmp/divergent-github" config user.name "$github_name"
 git -C "$tmp/divergent-github" config user.email "$github_email"
+git -C "$tmp/divergent-github" config gpg.format ssh
+git -C "$tmp/divergent-github" config user.signingkey "$key"
+git -C "$tmp/divergent-github" config commit.gpgsign true
 printf 'GitHub-only historical merge\n' > "$tmp/divergent-github/GITHUB_ONLY.txt"
 git -C "$tmp/divergent-github" add GITHUB_ONLY.txt
 git -C "$tmp/divergent-github" commit -qm 'historical GitHub-only merge'
@@ -369,7 +365,6 @@ if (
     AIGW_GITHUB_AUTHOR_NAME="$github_name" \
     AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
     AIGW_GITHUB_SIGNING_KEY="$key" \
-    AIGW_VERIFIED_COMMIT_FLOORS="$tmp/verified-floors" \
     AIGW_TEST_GITHUB_REMOTE="$remote" \
     GIT_SSH_COMMAND="$mock_ssh" \
     AIGW_GITHUB_REMOTE=github \
@@ -379,7 +374,7 @@ if (
   echo 'projection accepted a divergent GitHub main without explicit recovery' >&2
   exit 1
 fi
-grep -F 'GitHub branch tree diverges from canonical history; resolve manually' \
+grep -F 'GitHub branch diverges from the complete canonical identity projection; resolve manually' \
   "$tmp/divergent-github.out" >/dev/null || {
   cat "$tmp/divergent-github.out" >&2
   echo 'projection did not identify a divergent GitHub main' >&2

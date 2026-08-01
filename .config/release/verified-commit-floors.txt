@@ -1,4 +1,0 @@
-# Provider identity enforcement begins after these existing branch commits.
-# Historical release provenance remains immutable; every descendant is checked.
-gitlab 8e2b7cddf672febbdbff60818a999df66ecc413f
-github 3ab489cbd2c8dce73ad4acb862409f5cf34db7c3
