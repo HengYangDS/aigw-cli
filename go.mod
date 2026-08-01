@@ -1,6 +1,6 @@
-module gitlab.local/dig/misc/agentic-third-party-api/aigw-cli
+module aigw-cli
 
-go 1.25.12
+go 1.26.5
 
 require github.com/pelletier/go-toml/v2 v2.2.4
 

@@ -2,14 +2,14 @@
 
 - Status: accepted
 - Date: 2026-07-17
-- Owner: Yang HENG
+- Owner: Release maintainers
 
 ## Context
 
-`HengYangDS/aigw-cli` is private and uses GitHub Free. GitHub does not admit
-repository-ruleset tag protection for this combination. The available
-alternatives are a paid plan or making the repository public; neither is
-accepted for this project.
+The current GitHub publication peer is private and uses a plan that does not
+admit repository-ruleset tag protection for this combination. The available
+alternatives are a paid plan or making the repository public; neither is part
+of the current publication policy.
 
 ## Decision
 
@@ -22,7 +22,7 @@ provider-native release tag.
 ## Consequences
 
 Release acceptance requires the current remote tag to verify against the
-tracked GitHub signer and the complete GitHub artifact matrix to pass checksum
+protected GitHub trust input and the complete GitHub artifact matrix to pass checksum
 and byte-for-byte comparison with GitLab. A manual GitHub tag mutation remains
 possible at the hosting layer and is treated as a detected provenance failure,
 not as an impossible state. No release or host-route claim may state that the

@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
+	"aigw-cli/internal/transaction"
 )
 
 // installPortableArchive verifies and extracts a portable archive, then

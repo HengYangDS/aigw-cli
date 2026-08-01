@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/cli"
+	"aigw-cli/internal/claude"
+	"aigw-cli/internal/cli"
+	"aigw-cli/internal/presentation"
 )
 
 func main() {
@@ -24,12 +27,12 @@ func run(program string, args []string, stdout, stderr io.Writer) int {
 	app.Err = stderr
 	name := strings.TrimSuffix(strings.ToLower(filepath.Base(program)), ".exe")
 	if name == "claude" || name == "claude.cmd" {
-		err = cli.RunClaude(app, args)
+		err = claude.Run(context.Background(), app.Config, app.Secrets, app.Runner, args, app.Env)
 	} else {
 		err = cli.Execute(app, args)
 	}
 	if err != nil {
-		cli.RenderError(app, err)
+		presentation.RenderError(app.Renderer(), err)
 		return 1
 	}
 	return 0

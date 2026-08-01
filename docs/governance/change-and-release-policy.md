@@ -25,11 +25,11 @@ to a real tag and a valid, source-controlled release date. GitLab and GitHub
 sign separate provenance tags, so their tag-object timestamps are not a
 cross-forge Changelog invariant. Planned versions, branch names, and inferred
 GA milestones do not belong in the release chronicle.
-`scripts/check-changelog.sh` enforces this invariant in CI.
+`scripts/checks/governance/check-changelog.sh` enforces this invariant in CI.
 
 When a superseded GitLab release tag is deliberately retired, its Changelog
 section remains part of the published product history. The version is recorded
-in `packaging/release/retired-gitlab-tags.txt`; the chronology gate requires
+in `.config/release/retired-gitlab-tags.txt`; the chronology gate requires
 that inventory and the retained sections to stay ordered and complete. A
 provider that still retains its independently signed historical tag satisfies
 the same entry; it is not a duplicate or a reason to rewrite provenance.
@@ -48,6 +48,22 @@ Changelog heading.
 
 GitLab **Project Name** is `AIGW CLI`. The stable repository **Path** is
 `aigw-cli`. Display text and external identifier are different contracts.
+
+## Go build identity
+
+AIGW is distributed as signed executables and native packages, not as an
+importable Go library. Its module declaration is therefore the non-fetchable
+product build identity `aigw-cli`; repository-private packages use that identity
+only for compilation. It is not a Git remote, organization namespace, homepage,
+or installation path, and it must not encode any of them.
+
+All reusable Go implementation stays below `internal/`. Adding a public Go
+package is a product-distribution change: it first requires a real, stable,
+resolvable organization-owned module path. A personal namespace, private
+network coordinate, deployment-specific Forge path, and invented vanity domain
+are never acceptable substitutes. The module-identity gate enforces this
+boundary and its portability fixtures exercise private, personal, URL, and
+filesystem-shaped regressions.
 
 ## Distribution continuity
 
@@ -89,16 +105,16 @@ before it writes `checksums.txt`.
 
 The formal package entrypoint derives the exact Go patch version from `go.mod`,
 checks the selected compiler before it writes an artifact, and rejects a
-conflicting caller-supplied toolchain. `packaging/release/forge-sources.env` is
-the credential-free, source-owned record of both official update peers. Its
-resolver validates each complete tuple before packaging and rejects a
-conflicting CI or shell override. Thus a release's embedded update topology is
-independent of the forge that built it. A direct development `go build` still
-has no implicit release source.
+conflicting caller-supplied toolchain. Protected release context owns both
+official update-peer tuples; `.config/release/forge-sources.env` is a
+fictitious shape fixture only. The resolver validates each complete tuple
+before packaging. Thus product source remains independent of the Forge that
+publishes it, while a direct development `go build` has no implicit release
+source.
 
 Before publication, the complete 15-artifact matrix is built twice on the
-dedicated macOS arm64 release runner with the same version, epoch, toolchain,
-and manifest. The sorted filenames, every artifact byte, the checksum manifest,
+protected release runner with the same version, epoch, toolchain, and explicit
+Forge coordinates. The sorted filenames, every artifact byte, the checksum manifest,
 and the SPDX SBOM must match. GitLab and GitHub use that same controlled runner
 class, while retaining independent CI/CD, commit, tag, and publication planes.
 A native packager that cannot satisfy this contract blocks the tag; no
@@ -108,10 +124,10 @@ equal update peer.
 
 ## Forge synchronization
 
-GitLab and GitHub remain separate identity domains: GitLab commits and tags use
-`heng.yang.ds@hotmail.com`; GitHub projection commits and tags use
-`hengyang.2003@tsinghua.org.cn`. Each release verifier uses its own tracked
-trust anchor. The retired GitHub signer may verify only the explicit legacy
+GitLab and GitHub remain separate identity domains. Their protected release
+contexts supply the publication actors and trust inputs; reusable product code
+does not select a person, account, email, key, or signing program. The retired
+GitHub signer may verify only the explicit legacy
 tag inventory; new GitHub release tags must use the current GitHub signer.
 Same-named provider release tags are independently signed provenance objects
 and AIGW must never copy, regenerate, delete, or overwrite them across the two
@@ -127,11 +143,16 @@ is accepted, fetch the remote tag, verify it against the tracked GitHub trust
 anchor, and compare its complete artifact matrix with GitLab. A detected manual
 tag change is a provenance failure; it is not an impossible state.
 
-`packaging/release/verified-commit-floors.txt` records the immutable historical
-boundary. Every later GitLab commit uses the GitLab email and trust anchor;
-every later GitHub commit uses the GitHub email and trust anchor.
+`.config/release/verified-commit-floors.txt` records the ordinary forward-only
+identity boundary. Every later commit uses its Forge's explicit publication
+actor and trust input. If a maintainer explicitly authorizes repair of an
+already published identity violation, reconstruct each Forge-specific history
+from the earliest invalid commit and replace every affected branch, signed tag,
+release record, and integrity receipt together. The repair remains incomplete
+while either Forge still exposes the invalid history; a new floor, `.mailmap`,
+or forward-only commit cannot conceal it.
 
-Run `sh scripts/project-github-forge.sh` from a clean canonical checkout to
+Run `sh scripts/forge/lib/project-github-forge.sh` from a clean canonical checkout to
 project a selected branch into the GitHub identity domain. It verifies every
 GitHub release tag whose source tree is present on the selected canonical
 branch, retains the separate GitLab verification for a same-named canonical
@@ -147,7 +168,7 @@ applies to AIGW.
 A steady-state synchronization claim requires current, explicitly refreshed
 peer refs. The local canonical branch and GitLab peer must have identical commit
 IDs; the GitHub projection must preserve the canonical branch's complete
-ordered source-tree history. `scripts/check-forge-sync.sh` enforces those
+ordered source-tree history. `scripts/checks/forge/check-forge-sync.sh` enforces those
 offline ref invariants without fetching or writing. It does not replace
 provider-specific tag verification, release-record comparison, or independent
 SHA-256 verification of every shared release asset. Matching manifests without
@@ -173,5 +194,7 @@ imply host-enforced immutability where the forge does not provide it.
 ## Cross-project boundary
 
 AIGW manages marked provider configuration and native credential binding only.
-Codex DMX Proxy manages its executable payload, manifest, watchdog, and
-listener. Neither project may silently adopt the other's state or lifecycle.
+An optional external compatibility service manages its own executable payload,
+manifest, supervision, and listener. AIGW composes with it only through an
+operator-selected HTTP endpoint; neither product may silently adopt the other's
+state or lifecycle.

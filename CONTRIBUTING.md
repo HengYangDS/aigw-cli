@@ -40,18 +40,22 @@ the ordinary branch-closeout requirements below. Agent-list visibility alone
 is not liveness or retirement proof.
 
 ```bash
+go run ./tools/architecture --root .
+sh scripts/checks/governance/check-module-identity.sh
 go run ./tools/coveragegate --race
 go vet ./...
-sh scripts/check-static-analysis.sh
+sh scripts/checks/quality/check-static-analysis.sh
+sh scripts/checks/governance/check-portability.sh
+sh scripts/tests/governance/test-portability.sh
 test -z "$(gofmt -l cmd internal tools)"
-sh scripts/check-governance.sh
-sh scripts/check-commit-provenance.sh . gitlab
-sh scripts/test-commit-provenance.sh
-sh scripts/check-tag-namespace.sh
-python3 scripts/check-markdown-presentation.py
-python3 scripts/check-text-layout.py
-sh scripts/test-text-layout.sh
-sh scripts/test-changelog.sh
+sh scripts/checks/governance/check-governance.sh
+AIGW_GITLAB_AUTHOR_EMAIL='<release actor email>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-commit-provenance.sh . gitlab
+sh scripts/tests/forge/test-commit-provenance.sh
+AIGW_TAG_NAMESPACE_FORGE='<local|gitlab|github>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' AIGW_GITHUB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-tag-namespace.sh
+python3 scripts/checks/governance/check-markdown-presentation.py
+python3 scripts/checks/governance/check-text-layout.py
+sh scripts/tests/governance/test-text-layout.sh
+sh scripts/tests/governance/test-changelog.sh
 ```
 
 ## Projection changes
@@ -67,22 +71,24 @@ fails.
 Use focused Conventional Commits. Keep `CHANGELOG.md` with `## [Unreleased]` as
 its first release section, containing only changes after the latest tagged
 release. Every published heading must map to an existing `v<semver>` tag and
-its tag date; run `sh scripts/check-changelog.sh` before requesting review.
+its tag date; run `sh scripts/checks/governance/check-changelog.sh` before requesting review.
 GitLab **Project Name** is `AIGW CLI`; stable clone **Path** is `aigw-cli`. Do
 not change external paths as a display-name cleanup.
 
-GitLab and GitHub are equivalent, independent forge planes. GitLab history and
-signed tags use `heng.yang.ds@hotmail.com`; GitHub projection history and signed
-tags use `hengyang.2003@tsinghua.org.cn`. Do not copy or overwrite signed tags
-between providers. From a clean owned canonical checkout, run
-`sh scripts/project-github-forge.sh` to project a branch into the GitHub identity
+GitLab and GitHub are equivalent, independent Forge planes. Each plane receives
+its publication actor and trust material from protected execution context; the
+product does not select a maintainer, email, key, or account. Do not copy or
+overwrite signed tags between providers. From a clean owned canonical checkout, run
+`sh scripts/forge/lib/project-github-forge.sh` to project a branch into the GitHub identity
 domain. It maps the existing GitHub tip to an equal canonical tree, appends each
 later source commit with the GitHub identity and trusted signature, and uses an
 ordinary fast-forward push. It never rewrites history or pushes a tag. Do not
 force-push, create snapshot commits, or delete remote refs to manufacture
 convergence.
 
-Set `AIGW_GITHUB_SIGNING_KEY` and, for an encrypted key, the approved
+Set `AIGW_GITLAB_AUTHOR_EMAIL`, `AIGW_GITHUB_AUTHOR_NAME`,
+`AIGW_GITHUB_AUTHOR_EMAIL`, and `AIGW_GITHUB_SIGNING_KEY` through protected
+release context and, for an encrypted key, the approved
 `AIGW_GITHUB_SIGNING_PROGRAM`; repository-local `aigw.githubSigningKey` and
 `aigw.githubSigningProgram` provide the equivalent persistent configuration.
 
@@ -102,7 +108,7 @@ git fetch --no-prune --no-prune-tags --no-tags origin \
   refs/heads/main:refs/remotes/origin/main
 git fetch --no-prune --no-prune-tags --no-tags github \
   refs/heads/main:refs/remotes/github/main
-sh scripts/check-forge-sync.sh \
+sh scripts/checks/forge/check-forge-sync.sh \
   --canonical main \
   --peer gitlab:refs/remotes/origin/main:commit \
   --peer github:refs/remotes/github/main:tree
@@ -143,7 +149,7 @@ canonical checkout. Use `commit` for GitLab's canonical history and `tree` for
 GitHub's identity-rewriting projection:
 
 ```sh
-sh scripts/check-branch-closeout.sh \
+sh scripts/checks/forge/check-branch-closeout.sh \
   --source work/<delivery-branch> \
   --canonical main \
   --peer gitlab:refs/remotes/origin/main:commit \

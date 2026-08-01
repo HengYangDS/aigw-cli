@@ -1,3 +1,5 @@
+// Package transaction owns guarded, byte-exact filesystem mutation and
+// compensation primitives used by higher-level domains.
 package transaction
 
 import (
