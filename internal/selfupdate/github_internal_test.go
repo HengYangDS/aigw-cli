@@ -3,6 +3,7 @@ package selfupdate
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,12 @@ import (
 	"strings"
 	"testing"
 )
+
+type githubRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn githubRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return fn(request)
+}
 
 func closedListenerURL(t *testing.T) string {
 	t.Helper()
@@ -288,15 +295,29 @@ func TestDownloadReleaseAssetsFromGitHubRejectsTagMismatch(t *testing.T) {
 }
 
 func TestDownloadReleaseAssetsFromGitHubFallsBackToCLIOn404(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.NotFound(w, r)
-	}))
-	defer server.Close()
+	requests := 0
+	client := &http.Client{Transport: githubRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		requests++
+		want := "https://api.github.com/repos/o/r/releases/tags/v1.0.0"
+		if request.Method != http.MethodGet || request.URL.String() != want {
+			return nil, fmt.Errorf("unexpected GitHub request: %s %s", request.Method, request.URL)
+		}
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Status:     "404 Not Found",
+			Body:       http.NoBody,
+			Header:     make(http.Header),
+			Request:    request,
+		}, nil
+	})}
 	directory := t.TempDir()
-	u := Updater{HTTPClient: server.Client(), Runner: &writingCommandRunner{directory: directory}}
+	u := Updater{HTTPClient: client, Runner: &writingCommandRunner{directory: directory}}
 	source := ReleaseSource{Origin: "https://github.com", Repository: "o/r"}
 	if err := u.downloadReleaseAssetsFromGitHub(context.Background(), source, "v1.0.0", directory, "asset.tar.gz"); err != nil {
 		t.Fatal(err)
+	}
+	if requests != 1 {
+		t.Fatalf("GitHub API requests = %d, want one controlled request", requests)
 	}
 }
 
