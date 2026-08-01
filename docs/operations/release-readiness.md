@@ -1,0 +1,58 @@
+# Release Evidence
+
+This document defines which current evidence supports which release claim. It
+does not record a historical branch, runner incident, tag, or signing identity.
+
+## Claims and evidence
+
+| Claim | Required current evidence | Insufficient evidence |
+| --- | --- | --- |
+| Source is packageable | Clean target revision, every `./...` package and the aggregate strictly above 95 percent statement coverage with race detection, `go vet ./...`, provider commit verification, and all release gates | An old terminal log, a reduced coverage denominator, or aggregate-only compliance |
+| RC artifact matrix is complete | Two full builds on the protected release runner, with one exact version, epoch, Go patch version from `go.mod`, explicit Forge coordinates, byte-identical 15-artifact matrices, artifact check, and package-layout check | A partial archive set, an implicit deployment tuple, or semantically similar but byte-different artifacts |
+| Portable installation works | Unix and PowerShell installer tests against the candidate binary | Static script review |
+| Linux native package path works | Isolated Debian and RPM-family installation evidence for both architectures, or stronger native-runner proof | Cross-compilation alone |
+| Windows RC assurance | A blocking managed Windows-runner test, build, installer, execution, PATH, and launcher proof plus MSI/ZIP layout and architecture checks | Cross-compilation alone, MSI metadata alone, or an allowed failure |
+| Windows native runtime works | Blocking managed Windows-runner package, install, upgrade, uninstall, PATH, launcher, and execution evidence | Non-Windows PowerShell syntax or structural package checks |
+| macOS native package lifecycle works | Rooted installation, upgrade, execution under an isolated local account, package receipt, and owned uninstall evidence on a disposable APFS volume | Package expansion or a portable-archive test |
+| Release is published | Successful tag pipeline upload and release inspection on the publishing forge; when both forge releases are present, independent GitLab/GitHub inspection proves matching tag, assets, checksums, and SBOM | A local `dist/` directory or source tag |
+| GA is trusted | Protected CI verification of actual signed/notarized macOS and Windows assets | An unsigned RC or local identity inspection |
+
+## RC and GA boundary
+
+Prerelease versions (`-rc`, `-beta`, `-alpha`) may publish checksum-verified
+artifacts and an SPDX SBOM. They must not claim signing or notarization. Native
+macOS, Linux, and Windows source acceptance is blocking for every prerelease;
+runner absence or infrastructure failure blocks publication rather than
+weakening the gate. Rooted macOS package-lifecycle proof remains supplementary
+until a dedicated administrator credential exists and is mandatory for GA.
+GA additionally requires protected CI verification of Developer ID signing,
+notarization/stapling,
+Windows Authenticode/time-stamping, and post-signature checksums for the exact
+published assets.
+
+## Release sequence
+
+1. Start from a clean candidate revision and record its SHA.
+2. Derive `SOURCE_DATE_EPOCH` from the exact candidate's committed Changelog
+   heading, select the Go patch version declared in `go.mod` and explicit release inputs, run
+   the full gate set, obtain blocking native macOS, Linux, and Windows results,
+   and build the candidate matrix twice on the dedicated macOS arm64 release
+   runner.
+3. Require identical filenames and bytes across both matrices, then validate
+   checksums, SBOM, layout, installers, and all required native evidence against
+   one retained `dist/` directory.
+4. Create an SSH-signed annotated prerelease tag for that exact revision. The
+   tag pipeline verifies its protected Forge trust input before packaging.
+5. Merge only that candidate into the protected default branch and confirm that
+   the tag is an ancestor of `main`.
+6. Confirm remote package upload and release assets on both publishing forges;
+   inspect both tags, asset names, checksums, and SBOMs for exact agreement
+   before offering dual-forge updates.
+7. Perform a clean-environment installation from published assets and one
+   explicit offline `aigw update --candidate ... --checksums ...` update plus
+   portable rollback proof.
+8. Create a GA tag only after the protected signing evidence applies to the
+   exact published artifacts.
+
+A source tag records source identity; it is never, by itself, proof of
+publication, installation, platform acceptance, signing, or GA status.

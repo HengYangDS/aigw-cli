@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-24
-- Owner: Yang HENG
+- Owner: AIGW maintainers
 
 ## Context
 

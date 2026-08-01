@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
+	"aigw-cli/internal/presentation"
 )
 
 func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
@@ -14,7 +14,7 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 	r.Row("Current profile", "GPT-5.6 Terra")
 	r.Status(presentation.OK, "Precise balance", "Disabled until connected")
 	r.Detail("Run aigw account connect team-gateway")
-	r.Command("aigw config import team-profiles.toml")
+	r.Command("aigw config import configuration.toml")
 
 	got := out.String()
 	for _, want := range []string{
@@ -26,13 +26,13 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 		"    Run aigw account\n",
 		"    connect team-gateway\n",
 		"  aigw config import\n",
-		"  team-profiles.toml\n",
+		"  configuration.toml\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("narrow output missing %q:\n%s", want, got)
 		}
 	}
-	for _, forbidden := range []string{"Current profileGPT", "connec\nted", "team-profiles.tom\nl"} {
+	for _, forbidden := range []string{"Current profileGPT", "connec\nted", "configuration.tom\nl"} {
 		if strings.Contains(got, forbidden) {
 			t.Fatalf("narrow output contains %q:\n%s", forbidden, got)
 		}

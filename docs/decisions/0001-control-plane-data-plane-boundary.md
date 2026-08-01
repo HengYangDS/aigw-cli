@@ -12,13 +12,14 @@ control plane. Overlapping writers cause drift and ambiguous rollback.
 ## Decision
 
 AIGW owns the canonical account manifest and marked provider projections across
-Codex targets. Codex DMX Proxy owns outbound request sanitization and its local
-service lifecycle. AIGW has no proxy lifecycle API; the proxy never rewrites an
+Codex targets. Any explicitly selected compatibility service owns its outbound
+request transformation and local lifecycle. AIGW has no transport-service
+lifecycle API, and an external service never gains authority over an
 AIGW-marked provider block. Existing Codex conversation model selection and
 transcripts remain under Codex Desktop authority.
 
 ## Consequence
 
 Projection recovery happens through AIGW's all-target transaction. Transport
-recovery happens through the proxy's manifest-verified deployment. Neither path
-edits historical conversations.
+recovery remains entirely within the selected service's product boundary.
+Neither path edits historical conversations.

@@ -1,0 +1,189 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/pelletier/go-toml/v2"
+)
+
+const defaultPolicyPath = ".config/checks/architecture/policy.toml"
+
+// policy is the declarative SSOT loaded from TOML. Checker behavior must
+// follow these fields rather than hardcoded repository layout constants.
+type policy struct {
+	Owner                     string              `toml:"owner"`
+	Source                    string              `toml:"source"`
+	ScriptsRoots              []string            `toml:"scripts_roots"`
+	GoRoots                   []string            `toml:"go_roots"`
+	CompositionRootFiles      map[string][]string `toml:"composition_root_files"`
+	PeerPackageRoots          map[string][]string `toml:"peer_package_roots"`
+	FlatDirectoryLimit        int                 `toml:"flat_directory_limit"`
+	MaxFileELOC               int                 `toml:"max_file_eloc"`
+	MaxDirectoryELOC          int                 `toml:"max_directory_eloc"`
+	MaxFileComplexity         int                 `toml:"max_file_complexity"`
+	MaxDirectoryComplexity    int                 `toml:"max_directory_complexity"`
+	SuffixFlatGroupMin        int                 `toml:"suffix_flat_group_min"`
+	PlatformBuildSuffixes     []string            `toml:"platform_build_suffixes"`
+	ForbiddenNames            []string            `toml:"forbidden_names"`
+	ForbiddenProductRefs      []string            `toml:"forbidden_product_references"`
+	AllowedForbiddenNames     []string            `toml:"allowed_forbidden_names"`
+	IgnoreRoots               []string            `toml:"ignore_roots"`
+	IgnoreDirectoryNames      []string            `toml:"ignore_directory_names"`
+	CheckExportedTypeAlias    bool                `toml:"check_exported_type_alias"`
+	CheckFunctionVarAlias     bool                `toml:"check_function_var_alias"`
+	CheckPackageDocumentation bool                `toml:"check_package_documentation"`
+	CheckTrivialWrappers      bool                `toml:"check_trivial_wrappers"`
+}
+
+func loadPolicy(path string) (policy, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return policy{}, err
+	}
+	var p policy
+	decoder := toml.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&p); err != nil {
+		return policy{}, err
+	}
+	if err := validatePolicy(p); err != nil {
+		return policy{}, err
+	}
+	return p, nil
+}
+
+func validatePolicy(p policy) error {
+	if strings.TrimSpace(p.Owner) == "" || strings.TrimSpace(p.Source) == "" {
+		return fmt.Errorf("owner and source must be non-empty")
+	}
+	if len(p.ScriptsRoots) == 0 {
+		return fmt.Errorf("scripts_roots must be non-empty")
+	}
+	if len(p.GoRoots) == 0 {
+		return fmt.Errorf("go_roots must be non-empty")
+	}
+	for _, root := range p.GoRoots {
+		if strings.TrimSpace(root) == "" || strings.Contains(root, `\`) || filepath.IsAbs(root) {
+			return fmt.Errorf("go_roots entries must be non-empty relative paths")
+		}
+	}
+	for _, root := range p.ScriptsRoots {
+		if strings.TrimSpace(root) == "" || strings.Contains(root, `\`) || filepath.IsAbs(root) {
+			return fmt.Errorf("scripts_roots entries must be non-empty relative paths")
+		}
+	}
+	for root, files := range p.CompositionRootFiles {
+		if strings.TrimSpace(root) == "" || strings.Contains(root, `\`) || filepath.IsAbs(root) || len(files) == 0 {
+			return fmt.Errorf("composition_root_files keys must be relative paths with non-empty file lists")
+		}
+		seen := map[string]bool{}
+		for _, file := range files {
+			if strings.TrimSpace(file) == "" || filepath.Base(file) != file || !strings.HasSuffix(file, ".go") || seen[file] {
+				return fmt.Errorf("composition_root_files values must be unique .go base names")
+			}
+			seen[file] = true
+		}
+	}
+	for root, allowed := range p.PeerPackageRoots {
+		if err := validateRelativeRoot(root, "peer_package_roots"); err != nil {
+			return err
+		}
+		seen := map[string]bool{}
+		for _, name := range allowed {
+			if strings.TrimSpace(name) == "" || filepath.Base(name) != name || strings.ContainsAny(name, `/\\`) || seen[name] {
+				return fmt.Errorf("peer_package_roots values must be unique child package names")
+			}
+			seen[name] = true
+		}
+	}
+	if p.FlatDirectoryLimit < 1 {
+		return fmt.Errorf("flat_directory_limit must be >= 1")
+	}
+	if p.MaxFileELOC < 1 || p.MaxDirectoryELOC < p.MaxFileELOC {
+		return fmt.Errorf("ELOC limits must be positive and directory limit must be >= file limit")
+	}
+	if p.MaxFileComplexity < 1 || p.MaxDirectoryComplexity < p.MaxFileComplexity {
+		return fmt.Errorf("complexity limits must be positive and directory limit must be >= file limit")
+	}
+	if p.SuffixFlatGroupMin < 2 {
+		return fmt.Errorf("suffix_flat_group_min must be >= 2")
+	}
+	if len(p.ForbiddenNames) == 0 {
+		return fmt.Errorf("forbidden_names must be non-empty")
+	}
+	for _, name := range p.ForbiddenNames {
+		if strings.TrimSpace(name) == "" || name != strings.ToLower(name) {
+			return fmt.Errorf("forbidden_names must be non-empty lowercase identifiers")
+		}
+	}
+	for _, reference := range p.ForbiddenProductRefs {
+		if strings.TrimSpace(reference) == "" || reference != strings.ToLower(reference) {
+			return fmt.Errorf("forbidden_product_references must be non-empty lowercase strings")
+		}
+	}
+	for _, name := range p.AllowedForbiddenNames {
+		if strings.TrimSpace(name) == "" {
+			return fmt.Errorf("allowed_forbidden_names entries must be non-empty")
+		}
+	}
+	if len(p.PlatformBuildSuffixes) == 0 {
+		return fmt.Errorf("platform_build_suffixes must be non-empty")
+	}
+	for _, suffix := range p.PlatformBuildSuffixes {
+		if strings.TrimSpace(suffix) == "" || suffix != strings.ToLower(suffix) {
+			return fmt.Errorf("platform_build_suffixes must be non-empty lowercase tokens")
+		}
+	}
+	return nil
+}
+
+func validateRelativeRoot(root, field string) error {
+	if strings.TrimSpace(root) == "" || strings.Contains(root, `\`) || filepath.IsAbs(root) {
+		return fmt.Errorf("%s keys must be non-empty relative paths", field)
+	}
+	return nil
+}
+
+func (p policy) platformSuffixSet() map[string]struct{} {
+	out := make(map[string]struct{}, len(p.PlatformBuildSuffixes))
+	for _, suffix := range p.PlatformBuildSuffixes {
+		out[suffix] = struct{}{}
+	}
+	return out
+}
+
+func (p policy) forbiddenNameSet() map[string]struct{} {
+	out := make(map[string]struct{}, len(p.ForbiddenNames))
+	for _, name := range p.ForbiddenNames {
+		out[name] = struct{}{}
+	}
+	return out
+}
+
+func (p policy) allowedForbiddenNameSet() map[string]struct{} {
+	out := make(map[string]struct{}, len(p.AllowedForbiddenNames))
+	for _, name := range p.AllowedForbiddenNames {
+		out[strings.ToLower(name)] = struct{}{}
+	}
+	return out
+}
+
+func (p policy) ignoreRootSet() map[string]struct{} {
+	out := make(map[string]struct{}, len(p.IgnoreRoots))
+	for _, name := range p.IgnoreRoots {
+		out[name] = struct{}{}
+	}
+	return out
+}
+
+func (p policy) ignoreDirectoryNameSet() map[string]struct{} {
+	out := make(map[string]struct{}, len(p.IgnoreDirectoryNames))
+	for _, name := range p.IgnoreDirectoryNames {
+		out[name] = struct{}{}
+	}
+	return out
+}

@@ -91,7 +91,10 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int
 		return 1
 	}
 	var packageOutput bytes.Buffer
-	listArgs := append([]string{"list", "-f", "{{.ImportPath}}"}, policy.Packages...)
+	// Pure acceptance-test packages intentionally own no production statements.
+	// They still run and contribute cross-package coverage, but only packages
+	// with production Go files participate in the per-package floor.
+	listArgs := append([]string{"list", "-f", "{{if .GoFiles}}{{.ImportPath}}{{end}}"}, policy.Packages...)
 	if err := runner.Run("go", listArgs, &packageOutput, stderr); err != nil {
 		_, _ = fmt.Fprintf(stderr, "go list failed: %v\n", err)
 		return 1
@@ -119,7 +122,8 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int
 	if *race {
 		goArgs = append(goArgs, "-race")
 	}
-	goArgs = append(goArgs, "-covermode="+policy.CoverMode, "-coverprofile="+profilePath)
+	coverPackages := strings.Join(policy.Packages, ",")
+	goArgs = append(goArgs, "-covermode="+policy.CoverMode, "-coverpkg="+coverPackages, "-coverprofile="+profilePath)
 	goArgs = append(goArgs, policy.Packages...)
 	if err := runner.Run("go", goArgs, stdout, stderr); err != nil {
 		_, _ = fmt.Fprintf(stderr, "go test failed: %v\n", err)
@@ -217,6 +221,12 @@ func readCoverage(path, expectedMode string) (coverageResult, error) {
 	}
 
 	result := coverageResult{Packages: map[string]coverageCount{}}
+	type sourceRange struct {
+		packageName string
+		statements  int64
+		covered     bool
+	}
+	ranges := map[string]sourceRange{}
 	line := 1
 	for scanner.Scan() {
 		line++
@@ -237,20 +247,33 @@ func readCoverage(path, expectedMode string) (coverageResult, error) {
 		if err != nil || count < 0 {
 			return coverageResult{}, fmt.Errorf("line %d has invalid execution count", line)
 		}
-		if statements > math.MaxInt64-result.Total {
-			return coverageResult{}, fmt.Errorf("line %d overflows statement total", line)
+		rangeID := fields[0]
+		covered := count > 0
+		if existing, ok := ranges[rangeID]; ok {
+			if existing.packageName != packageName || existing.statements != statements {
+				return coverageResult{}, fmt.Errorf("line %d conflicts with repeated source range", line)
+			}
+			existing.covered = existing.covered || covered
+			ranges[rangeID] = existing
+			continue
 		}
-		result.Total += statements
-		packageCoverage := result.Packages[packageName]
-		packageCoverage.Total += statements
-		if count > 0 {
-			result.Covered += statements
-			packageCoverage.Covered += statements
-		}
-		result.Packages[packageName] = packageCoverage
+		ranges[rangeID] = sourceRange{packageName: packageName, statements: statements, covered: covered}
 	}
 	if err := scanner.Err(); err != nil {
 		return coverageResult{}, err
+	}
+	for _, source := range ranges {
+		if source.statements > math.MaxInt64-result.Total {
+			return coverageResult{}, fmt.Errorf("coverage profile overflows statement total")
+		}
+		result.Total += source.statements
+		packageCoverage := result.Packages[source.packageName]
+		packageCoverage.Total += source.statements
+		if source.covered {
+			result.Covered += source.statements
+			packageCoverage.Covered += source.statements
+		}
+		result.Packages[source.packageName] = packageCoverage
 	}
 	if result.Total == 0 {
 		return coverageResult{}, fmt.Errorf("profile contains no statements")

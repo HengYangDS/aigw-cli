@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"aigw-cli/internal/account"
 	keyring "github.com/zalando/go-keyring"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/account"
 )
 
 func TestKeyringStoreLifecycleUsesMockedSystemKeyring(t *testing.T) {

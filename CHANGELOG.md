@@ -8,6 +8,26 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.78] - 2026-07-31
+
+### Changed
+
+- Remove AIGW's JetBrains Air, PyCharm, and Junie discovery, diagnosis,
+  fallback, attestation, and recovery vertical slices. IDE configuration and
+  lifecycle remain entirely with the owning client; AIGW now projects only to
+  configured standalone Codex homes.
+- Make the version 3 configuration manifest the only admitted manifest shape,
+  retain one deliberately fictitious product-format example, and move real
+  provider endpoints, models, and route recommendations to adopter-owned data.
+- Organize client projection, process execution, launcher management, surface
+  identity, release operations, and repository checks under their semantic
+  owners, enforced by the repository architecture gate.
+
+### Removed
+
+- Remove the legacy version 2 manifest parser and the Air-specific route,
+  recovery, attestation, and private-ledger command surface.
+
 ## [0.1.0-rc.77] - 2026-07-30
 
 ### Changed
