@@ -5,7 +5,7 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 checker="$root/scripts/checks/forge/check-commit-provenance.sh"
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/aigw-commit-provenance.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
-mkdir -p "$tmp/home"
+mkdir -p "$tmp/home" "$tmp/allowed"
 export HOME="$tmp/home"
 export GIT_CONFIG_NOSYSTEM=1
 export GIT_CONFIG_GLOBAL=/dev/null
@@ -13,112 +13,134 @@ export GIT_CONFIG_COUNT=1
 export GIT_CONFIG_KEY_0=core.hooksPath
 export GIT_CONFIG_VALUE_0=/dev/null
 
-repo="$tmp/repository"
 gitlab_key="$tmp/gitlab-signing"
 github_key="$tmp/github-signing"
 rogue_key="$tmp/rogue-signing"
-gitlab_email='gitlab@example.invalid'
-github_email='github@example.invalid'
-mkdir -p "$tmp/allowed"
+gitlab_email=gitlab@example.invalid
+github_email=github@example.invalid
 ssh-keygen -q -t ed25519 -N '' -f "$gitlab_key"
 ssh-keygen -q -t ed25519 -N '' -f "$github_key"
 ssh-keygen -q -t ed25519 -N '' -f "$rogue_key"
-gitlab_public=$(awk '{print $1" "$2}' "$gitlab_key.pub")
-github_public=$(awk '{print $1" "$2}' "$github_key.pub")
-printf '%s namespaces="git" %s\n' "$gitlab_email" "$gitlab_public" > "$tmp/allowed/gitlab"
-printf '%s namespaces="git" %s\n' "$github_email" "$github_public" > "$tmp/allowed/github"
+printf '%s namespaces="git" %s\n' "$gitlab_email" "$(cut -d ' ' -f 1,2 "$gitlab_key.pub")" > "$tmp/allowed/gitlab"
+printf '%s namespaces="git" %s\n' "$github_email" "$(cut -d ' ' -f 1,2 "$github_key.pub")" > "$tmp/allowed/github"
 
-git init -q -b main "$repo"
-git -C "$repo" config user.name 'Provenance Fixture'
-git -C "$repo" config user.email 'legacy@example.invalid'
-git -C "$repo" commit --allow-empty --no-gpg-sign -qm 'historical commit'
-historical=$(git -C "$repo" rev-parse HEAD)
-git -C "$repo" commit --allow-empty --no-gpg-sign -qm 'legacy floor'
-floor=$(git -C "$repo" rev-parse HEAD)
+init_repository() {
+  repository=$1
+  email=$2
+  key=$3
+  git init -q -b main "$repository"
+  git -C "$repository" config user.name 'Provenance Fixture'
+  git -C "$repository" config user.email "$email"
+  git -C "$repository" config user.useConfigOnly true
+  git -C "$repository" config gpg.format ssh
+  git -C "$repository" config user.signingkey "$key"
+  git -C "$repository" config commit.gpgsign true
+}
 
-git -C "$repo" checkout -q --detach "$historical"
-AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+signed_empty_commit() {
+  git -C "$1" commit --allow-empty -S -qm "$2"
+}
+
+check_gitlab() {
+  AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_GITLAB_AUTHOR_EMAIL="$gitlab_email" \
+    sh "$checker" "$1" gitlab
+}
+
+check_github() {
   AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
-  AIGW_GITLAB_AUTHOR_EMAIL="$gitlab_email" \
-  sh "$checker" "$repo" gitlab "$floor" >/dev/null
-git -C "$repo" checkout -q main
+    AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
+    sh "$checker" "$1" github
+}
 
-git -C "$repo" config user.email "$gitlab_email"
-git -C "$repo" -c gpg.format=ssh -c user.signingkey="$gitlab_key" \
-  commit --allow-empty -S -qm 'verified GitLab commit'
-gitlab_head=$(git -C "$repo" rev-parse HEAD)
-AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
-  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
-  AIGW_GITLAB_AUTHOR_EMAIL="$gitlab_email" \
-  sh "$checker" "$repo" gitlab "$floor" >/dev/null
+expect_failure() {
+  name=$1
+  expected=$2
+  shift 2
+  if "$@" >"$tmp/$name.out" 2>&1; then
+    echo "commit provenance accepted $name" >&2
+    exit 1
+  fi
+  grep -F "$expected" "$tmp/$name.out" >/dev/null || {
+    cat "$tmp/$name.out" >&2
+    echo "commit provenance did not identify $name" >&2
+    exit 1
+  }
+}
 
-git -C "$repo" config user.email 'wrong@example.invalid'
-git -C "$repo" -c gpg.format=ssh -c user.signingkey="$gitlab_key" \
-  commit --allow-empty -S -qm 'wrong GitLab identity'
-if AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
-  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
-  AIGW_GITLAB_AUTHOR_EMAIL="$gitlab_email" \
-  sh "$checker" "$repo" gitlab "$gitlab_head" >"$tmp/wrong-identity.out" 2>&1; then
-  echo 'commit provenance accepted the wrong GitLab identity' >&2
-  exit 1
-fi
-grep -F "must use $gitlab_email" "$tmp/wrong-identity.out" >/dev/null
+valid_gitlab="$tmp/valid-gitlab"
+init_repository "$valid_gitlab" "$gitlab_email" "$gitlab_key"
+signed_empty_commit "$valid_gitlab" root
+signed_empty_commit "$valid_gitlab" descendant
+check_gitlab "$valid_gitlab" | grep -F 'gitlab commit provenance: 2 verified commit(s)' >/dev/null
 
-git -C "$repo" reset -q --hard "$gitlab_head"
-git -C "$repo" config user.email "$gitlab_email"
-git -C "$repo" commit --allow-empty --no-gpg-sign -qm 'unsigned GitLab commit'
-if AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
-  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
-  AIGW_GITLAB_AUTHOR_EMAIL="$gitlab_email" \
-  sh "$checker" "$repo" gitlab "$gitlab_head" >"$tmp/unsigned.out" 2>&1; then
-  echo 'commit provenance accepted an unsigned GitLab commit' >&2
-  exit 1
-fi
-grep -F 'does not have a trusted gitlab signature' "$tmp/unsigned.out" >/dev/null
+invalid_root="$tmp/invalid-root"
+init_repository "$invalid_root" legacy@example.invalid "$gitlab_key"
+git -C "$invalid_root" commit --allow-empty --no-gpg-sign -qm 'invalid root'
+git -C "$invalid_root" config user.email "$gitlab_email"
+signed_empty_commit "$invalid_root" 'signed suffix'
+expect_failure 'an invalid root hidden by a signed suffix' 'must use gitlab@example.invalid' \
+  check_gitlab "$invalid_root"
 
-git -C "$repo" reset -q --hard "$floor"
-git -C "$repo" config user.email "$github_email"
-git -C "$repo" -c gpg.format=ssh -c user.signingkey="$github_key" \
-  commit --allow-empty -S -qm 'verified GitHub commit'
-github_head=$(git -C "$repo" rev-parse HEAD)
-AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
-  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
-  AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
-  sh "$checker" "$repo" github "$floor" >/dev/null
+unsigned_root="$tmp/unsigned-root"
+init_repository "$unsigned_root" "$gitlab_email" "$gitlab_key"
+git -C "$unsigned_root" commit --allow-empty --no-gpg-sign -qm 'unsigned root'
+signed_empty_commit "$unsigned_root" 'signed suffix'
+expect_failure 'an unsigned root hidden by a signed suffix' 'does not have a trusted gitlab signature' \
+  check_gitlab "$unsigned_root"
 
-git -C "$repo" -c gpg.format=ssh -c user.signingkey="$rogue_key" \
-  commit --allow-empty -S -qm 'untrusted GitHub signer'
-if AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
-  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
-  AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
-  sh "$checker" "$repo" github "$github_head" >"$tmp/untrusted.out" 2>&1; then
-  echo 'commit provenance accepted an untrusted GitHub signer' >&2
-  exit 1
-fi
-grep -F 'does not have a trusted github signature' "$tmp/untrusted.out" >/dev/null
+wrong_author="$tmp/wrong-author"
+init_repository "$wrong_author" "$gitlab_email" "$gitlab_key"
+signed_empty_commit "$wrong_author" root
+GIT_AUTHOR_EMAIL=wrong@example.invalid git -C "$wrong_author" commit --allow-empty -S -qm 'wrong author'
+expect_failure 'a wrong author' 'must use gitlab@example.invalid' check_gitlab "$wrong_author"
 
-touch "$repo/.mailmap"
-if AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
-  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
-  AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
-  sh "$checker" "$repo" github "$floor" >"$tmp/mailmap.out" 2>&1; then
-  echo 'commit provenance accepted a mailmap identity overlay' >&2
-  exit 1
-fi
-grep -F '.mailmap is forbidden' "$tmp/mailmap.out" >/dev/null
-rm "$repo/.mailmap"
+wrong_committer="$tmp/wrong-committer"
+init_repository "$wrong_committer" "$gitlab_email" "$gitlab_key"
+signed_empty_commit "$wrong_committer" root
+GIT_COMMITTER_EMAIL=wrong@example.invalid git -C "$wrong_committer" commit --allow-empty -S -qm 'wrong committer'
+expect_failure 'a wrong committer' 'must use gitlab@example.invalid' check_gitlab "$wrong_committer"
 
-if AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
-  sh "$checker" "$repo" gitlab "$floor" >"$tmp/missing-identity.out" 2>&1; then
-  echo 'commit provenance accepted an implicit publication actor' >&2
-  exit 1
-fi
-grep -F 'author email is required through AIGW_GITLAB_AUTHOR_EMAIL' "$tmp/missing-identity.out" >/dev/null
+untrusted="$tmp/untrusted"
+init_repository "$untrusted" "$github_email" "$rogue_key"
+signed_empty_commit "$untrusted" 'untrusted GitHub root'
+expect_failure 'an untrusted GitHub signer' 'does not have a trusted github signature' \
+  check_github "$untrusted"
 
-if sh "$checker" "$repo" unknown "$floor" >"$tmp/provider.out" 2>&1; then
-  echo 'commit provenance accepted an unknown provider' >&2
-  exit 1
-fi
-grep -F 'provider must be gitlab or github' "$tmp/provider.out" >/dev/null
+merge_parent="$tmp/merge-parent"
+init_repository "$merge_parent" "$gitlab_email" "$gitlab_key"
+printf 'root\n' > "$merge_parent/root"
+git -C "$merge_parent" add root
+git -C "$merge_parent" commit -S -qm root
+git -C "$merge_parent" checkout -qb feature
+git -C "$merge_parent" config user.signingkey "$rogue_key"
+printf 'feature\n' > "$merge_parent/feature"
+git -C "$merge_parent" add feature
+git -C "$merge_parent" commit -S -qm 'untrusted merge parent'
+rogue_parent=$(git -C "$merge_parent" rev-parse HEAD)
+git -C "$merge_parent" checkout -q main
+git -C "$merge_parent" config user.signingkey "$gitlab_key"
+printf 'main\n' > "$merge_parent/main"
+git -C "$merge_parent" add main
+git -C "$merge_parent" commit -S -qm main
+git -C "$merge_parent" merge -q --no-ff -S -m merge feature
+expect_failure 'an untrusted merge parent' "$rogue_parent does not have a trusted gitlab signature" \
+  check_gitlab "$merge_parent"
+
+touch "$valid_gitlab/.mailmap"
+expect_failure 'a mailmap identity overlay' '.mailmap is forbidden' check_gitlab "$valid_gitlab"
+rm "$valid_gitlab/.mailmap"
+
+expect_failure 'an implicit publication actor' \
+  'author email is required through AIGW_GITLAB_AUTHOR_EMAIL' \
+  env AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" sh "$checker" "$valid_gitlab" gitlab
+expect_failure 'an empty trust input' \
+  'trust input is required through AIGW_GITLAB_ALLOWED_SIGNERS' \
+  env AIGW_GITLAB_AUTHOR_EMAIL="$gitlab_email" sh "$checker" "$valid_gitlab" gitlab
+expect_failure 'an unknown provider' 'provider must be gitlab or github' \
+  sh "$checker" "$valid_gitlab" unknown
+expect_failure 'a retired range argument' \
+  'usage: check-commit-provenance.sh <repository> <gitlab|github>' \
+  sh "$checker" "$valid_gitlab" gitlab HEAD~1
 
 echo 'commit provenance tests: OK'

@@ -19,7 +19,7 @@ required = [
     "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
     "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491", f'go-version: "{go_version}"', "check-latest: false", "cache: false", f"GOTOOLCHAIN: go{go_version}", "for attempt in 1 2 3; do", "if git fetch --force --tags origin; then", 'sleep "$attempt"', "if: github.ref_type == 'tag'", 'SELECTED_TAG: ${{ github.ref_name }}', 'scripts/checks/forge/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/checks/release/check-release-toolchain.sh",
     "go run ./tools/architecture --root .", "go run ./tools/coveragegate --race", "go vet ./...", "scripts/checks/quality/check-static-analysis.sh", "for script in $(git ls-files 'scripts/*.sh'); do sh -n \"$script\"; done", "scripts/checks/governance/check-product-surface.sh", "scripts/checks/governance/check-governance.sh",
-    "scripts/checks/forge/check-commit-provenance.sh . github", "scripts/tests/forge/test-commit-provenance.sh", "AIGW_CHANGELOG_RELEASE_TAG:",
+    "scripts/checks/forge/check-commit-provenance.sh . github", "scripts/tests/forge/test-commit-provenance.sh", "scripts/tests/forge/test-replay-history.py", "AIGW_CHANGELOG_RELEASE_TAG:",
     "scripts/checks/governance/check-text-layout.py", "scripts/tests/governance/test-text-layout.sh", "scripts/tests/release/test-release-source-date-epoch.sh",
     "scripts/tests/release/test-verified-candidate.sh", "scripts/tests/forge/test-release-tag-signature-provider-selection.sh", "scripts/tests/install/test-macos-native-install-staging.sh",
     "shell: pwsh", "scripts/tests/install/test-installers.ps1",
