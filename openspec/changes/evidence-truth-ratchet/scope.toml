@@ -1,0 +1,14 @@
+schema_version = 1
+paths = [
+  "evidence/claims/product-convergence-20260731.toml",
+  "evidence/chronicle/product-convergence-20260731/**",
+  "internal/cli/doctor/doctor_behavior_test.go",
+  "internal/selfupdate/github_internal_test.go",
+  "openspec/changes/evidence-truth-ratchet/**",
+  "openspec/changes/archive/*-evidence-truth-ratchet/**",
+  "openspec/specs/product-control-plane/**",
+  "scripts/checks/governance/check-governance.sh",
+  "scripts/checks/governance/check-evidence-consistency.py",
+  "scripts/tests/governance/test-evidence-consistency.py",
+  "tools/coveragegate/**",
+]
