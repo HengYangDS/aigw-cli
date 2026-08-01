@@ -34,6 +34,8 @@ for file in \
   scripts/checks/quality/check-static-analysis.sh \
   scripts/checks/governance/check-module-identity.sh \
   scripts/tests/governance/test-module-identity.sh \
+  scripts/checks/governance/check-evidence-consistency.py \
+  scripts/tests/governance/test-evidence-consistency.py \
   scripts/checks/governance/check-portability.sh \
   scripts/tests/governance/test-portability.sh \
   scripts/checks/forge/check-commit-provenance.sh \
@@ -80,6 +82,9 @@ done
 
 sh scripts/checks/governance/check-module-identity.sh
 sh scripts/tests/governance/test-module-identity.sh
+python3 scripts/tests/governance/test-evidence-consistency.py
+python3 scripts/checks/governance/check-evidence-consistency.py \
+  evidence/claims/product-convergence-20260731.toml
 sh scripts/checks/governance/check-portability.sh
 sh scripts/tests/governance/test-portability.sh
 sh scripts/checks/governance/check-changelog.sh
