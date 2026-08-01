@@ -143,23 +143,24 @@ is accepted, fetch the remote tag, verify it against the tracked GitHub trust
 anchor, and compare its complete artifact matrix with GitLab. A detected manual
 tag change is a provenance failure; it is not an impossible state.
 
-`.config/release/verified-commit-floors.txt` records the ordinary forward-only
-identity boundary. Every later commit uses its Forge's explicit publication
-actor and trust input. If a maintainer explicitly authorizes repair of an
-already published identity violation, reconstruct each Forge-specific history
-from the earliest invalid commit and replace every affected branch, signed tag,
-release record, and integrity receipt together. The repair remains incomplete
-while either Forge still exposes the invalid history; a new floor, `.mailmap`,
-or forward-only commit cannot conceal it.
+Every commit reachable from a published branch tip uses its Forge's explicit
+publication actor and trust input. Verification walks the complete reachable
+graph; a floor, `.mailmap`, or clean suffix cannot conceal invalid provenance.
+If a maintainer explicitly authorizes repair of an already published identity
+violation, reconstruct each Forge-specific history in isolated object storage
+and replace every affected branch, signed tag, release record, and integrity
+receipt together. The repair remains incomplete while either Forge still
+exposes invalid or mixed history.
 
-Run `sh scripts/forge/lib/project-github-forge.sh` from a clean canonical checkout to
-project a selected branch into the GitHub identity domain. It verifies every
+Run `sh scripts/forge/lib/project-github-forge.sh` from a clean canonical checkout
+to project a selected branch into the GitHub identity domain. It verifies every
+reachable canonical and GitHub commit, verifies every
 GitHub release tag whose source tree is present on the selected canonical
 branch, retains the separate GitLab verification for a same-named canonical
 tag, and maps the current GitHub tip to an equal canonical source tree. It then
 appends later source commits with their merge topology, the GitHub identity,
 and a trusted signature, using an ordinary fast-forward push. It never rewrites
-history or pushes a tag. It honors the repository-local GitHub URL without
+steady-state history or pushes a tag. It honors the repository-local GitHub URL without
 inheriting user-global URL rewrites, so transport and authentication stay
 explicit. GitLab recovery uses a normal, non-force push of canonical history
 after its remote is reachable. No equal-object branch or tag synchronizer
