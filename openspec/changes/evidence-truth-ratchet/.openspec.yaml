@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-08-01
+goal: Make stale or internally inconsistent candidate evidence fail closed.
