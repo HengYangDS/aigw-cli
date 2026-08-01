@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	configuration "aigw-cli/internal/configuration"
 	keyring "github.com/zalando/go-keyring"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
 )
 
 const Service = "AIGW_ACCOUNT"
@@ -31,7 +31,7 @@ type KeyringStore struct{}
 func NewKeyringStore() KeyringStore { return KeyringStore{} }
 
 func (KeyringStore) Get(profile string) (Credential, error) {
-	if !domain.ValidProfileName(profile) {
+	if !configuration.ValidProfileName(profile) {
 		return Credential{}, fmt.Errorf("invalid profile name %q", profile)
 	}
 	value, err := keyring.Get(Service, profile)
@@ -52,7 +52,7 @@ func (KeyringStore) Get(profile string) (Credential, error) {
 }
 
 func (KeyringStore) Set(profile string, credential Credential) error {
-	if !domain.ValidProfileName(profile) {
+	if !configuration.ValidProfileName(profile) {
 		return fmt.Errorf("invalid profile name %q", profile)
 	}
 	if credential.SystemToken == "" || credential.UserID == "" {
@@ -96,7 +96,7 @@ func (s *MemoryStore) Get(profile string) (Credential, error) {
 }
 
 func (s *MemoryStore) Set(profile string, credential Credential) error {
-	if !domain.ValidProfileName(profile) || credential.SystemToken == "" || credential.UserID == "" {
+	if !configuration.ValidProfileName(profile) || credential.SystemToken == "" || credential.UserID == "" {
 		return errors.New("valid profile, system token and user ID are required")
 	}
 	s.mu.Lock()

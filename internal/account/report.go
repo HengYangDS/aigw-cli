@@ -1,3 +1,5 @@
+// Package account owns optional provider-native diagnostic credentials and
+// results. Canonical Account configuration remains in package configuration.
 package account
 
 // Report is a provider-native, optional account diagnostic result. Core AIGW

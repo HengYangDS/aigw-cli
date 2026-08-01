@@ -1,0 +1,14 @@
+schema: spec-driven
+context: |
+  AIGW CLI is a provider-neutral local control plane for Accounts, credentials,
+  Profiles, Routes, endpoints, storage policy, and explicit client projections.
+  It never owns API traffic, external gateway lifecycle, IDE state, or sessions.
+rules:
+  proposal:
+    - State the authority boundary, breaking removals, reuse stance, and non-goals.
+  specs:
+    - Define observable behavior and fail-closed boundaries, not implementation names.
+  design:
+    - Assign every behavior and policy to one semantic owner and dependency direction.
+  tasks:
+    - Separate local gates, exact-HEAD proof, hosted CI, publication, and housekeeping.

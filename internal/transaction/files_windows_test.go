@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
+	"aigw-cli/internal/transaction"
 )
 
 // These are the Windows equivalents of files_unix_test.go: POSIX permission

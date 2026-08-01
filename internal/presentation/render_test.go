@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/presentation"
+	"aigw-cli/internal/presentation"
 )
 
 type failingWriter struct{ err error }

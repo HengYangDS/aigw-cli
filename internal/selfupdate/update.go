@@ -1,3 +1,5 @@
+// Package selfupdate owns dual-Forge release resolution, verified artifact
+// retrieval, channel-aware installation, and portable rollback.
 package selfupdate
 
 import (

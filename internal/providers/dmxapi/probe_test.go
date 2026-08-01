@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/account"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/providers/dmxapi"
+	"aigw-cli/internal/account"
+	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/providers/dmxapi"
 )
 
 type roundTrip func(*http.Request) (*http.Response, error)
@@ -30,7 +30,7 @@ func TestProbeReturnsAccountAndCurrentTokenDetails(t *testing.T) {
 		}
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
-	providerAccount := domain.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	providerAccount := configuration.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
 	report, err := dmxapi.Probe(context.Background(), client, providerAccount, "sk-abcd-middle-wxyz", account.Credential{SystemToken: "system-secret", UserID: "10000"})
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +49,7 @@ func TestProbeRedactsPlatformCredentialsEchoedByTheProvider(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader("provider echoed " + systemToken + " for " + userID)),
 		}, nil
 	})
-	providerAccount := domain.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	providerAccount := configuration.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
 	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "api-token", account.Credential{SystemToken: systemToken, UserID: userID})
 	if err == nil {
 		t.Fatal("provider probe unexpectedly succeeded")
@@ -68,7 +68,7 @@ func TestProbeRedactsPlatformCredentialsFromJSONFailureMessage(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(`{"success":false,"message":"provider echoed platform-message-token-must-not-leak for sensitive-message-user"}`)),
 		}, nil
 	})
-	providerAccount := domain.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	providerAccount := configuration.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
 	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "api-token", account.Credential{SystemToken: systemToken, UserID: userID})
 	if err == nil {
 		t.Fatal("provider probe unexpectedly succeeded")
@@ -86,13 +86,13 @@ func TestProbeHandlesConfigurationErrors(t *testing.T) {
 	cred := account.Credential{}
 
 	// nil AccountProbe
-	_, err := dmxapi.Probe(ctx, client, domain.Account{AccountProbe: nil}, "", cred)
+	_, err := dmxapi.Probe(ctx, client, configuration.Account{AccountProbe: nil}, "", cred)
 	if err == nil || !strings.Contains(err.Error(), "not configured") {
 		t.Errorf("expected error for nil AccountProbe, got %v", err)
 	}
 
 	// Wrong Kind
-	_, err = dmxapi.Probe(ctx, client, domain.Account{AccountProbe: &domain.AccountProbe{Kind: "other"}}, "", cred)
+	_, err = dmxapi.Probe(ctx, client, configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "other"}}, "", cred)
 	if err == nil || !strings.Contains(err.Error(), "not configured") {
 		t.Errorf("expected error for wrong Kind, got %v", err)
 	}
@@ -106,7 +106,7 @@ func TestProbeTokenNotFound(t *testing.T) {
 		}
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
-	providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+	providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "sk-no-match", account.Credential{})
 	if err == nil || !strings.Contains(err.Error(), "not found in the DMXAPI account") {
 		t.Errorf("expected 'not found' error, got %v", err)
@@ -121,7 +121,7 @@ func TestProbeTokenDisabled(t *testing.T) {
 		}
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
-	providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+	providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 	report, err := dmxapi.Probe(context.Background(), client, providerAccount, "sk-abcd-middle-wxyz", account.Credential{})
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +149,7 @@ func TestProbePagination(t *testing.T) {
 		}
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
-	providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+	providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "sk-abcd-middle-wxyz", account.Credential{})
 	if err != nil {
 		t.Fatal(err)
@@ -180,7 +180,7 @@ func TestMaskedToken(t *testing.T) {
 			}
 			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
 		})
-		providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+		providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 		_, err := dmxapi.Probe(context.Background(), client, providerAccount, c.input, account.Credential{})
 		if err != nil {
 			t.Errorf("input %q: unexpected error %v", c.input, err)
@@ -195,7 +195,7 @@ func TestProbeFetchTokensError(t *testing.T) {
 		}
 		return &http.Response{StatusCode: 500, Body: io.NopCloser(strings.NewReader(`error`))}, nil
 	})
-	providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+	providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "api-token", account.Credential{})
 	if err == nil || !strings.Contains(err.Error(), "HTTP 500") {
 		t.Errorf("expected error from fetchTokens, got %v", err)
@@ -209,7 +209,7 @@ func TestProbeFetchTokensSuccessFalse(t *testing.T) {
 		}
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"success":false,"message":"token search failed"}`))}, nil
 	})
-	providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+	providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "api-token", account.Credential{})
 	if err == nil || !strings.Contains(err.Error(), "token query failed") {
 		t.Errorf("expected error from fetchTokens, got %v", err)
@@ -220,7 +220,7 @@ func TestProbeNetworkError(t *testing.T) {
 	client := roundTrip(func(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("network error")
 	})
-	providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+	providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "api-token", account.Credential{})
 	if err == nil || !strings.Contains(err.Error(), "network error") {
 		t.Errorf("expected network error, got %v", err)

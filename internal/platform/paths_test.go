@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/platform"
+	"aigw-cli/internal/platform"
 )
 
 func TestConfigPathUsesPlatformConvention(t *testing.T) {
@@ -13,10 +13,10 @@ func TestConfigPathUsesPlatformConvention(t *testing.T) {
 		env  map[string]string
 		want string
 	}{
-		{"darwin", map[string]string{"HOME": "/Users/alex"}, "/Users/alex/Library/Application Support/aigw/config.toml"},
-		{"linux", map[string]string{"HOME": "/home/alex"}, "/home/alex/.config/aigw/config.toml"},
-		{"linux", map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg"}, "/cfg/aigw/config.toml"},
-		{"windows", map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`}, `C:\Users\alex\AppData\Roaming\aigw\config.toml`},
+		{"darwin", map[string]string{"HOME": "/Users/alex"}, "/Users/alex/Library/Application Support/aigw/configuration.toml"},
+		{"linux", map[string]string{"HOME": "/home/alex"}, "/home/alex/.config/aigw/configuration.toml"},
+		{"linux", map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg"}, "/cfg/aigw/configuration.toml"},
+		{"windows", map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`}, `C:\Users\alex\AppData\Roaming\aigw\configuration.toml`},
 	}
 	for _, tt := range tests {
 		got, err := platform.ConfigPathFor(tt.goos, tt.env)
@@ -117,7 +117,7 @@ func TestUserBinDirRefusesMissingWindowsEnvOrUnsupportedOS(t *testing.T) {
 	}
 }
 
-func TestShimDirUsesAIGWOwnedDataBoundary(t *testing.T) {
+func TestLauncherDirUsesAIGWOwnedDataBoundary(t *testing.T) {
 	tests := []struct {
 		goos string
 		env  map[string]string
@@ -129,43 +129,49 @@ func TestShimDirUsesAIGWOwnedDataBoundary(t *testing.T) {
 		{"windows", map[string]string{"LOCALAPPDATA": `C:\Users\alex\AppData\Local`}, `C:\Users\alex\AppData\Local\Programs\aigw\bin`},
 	}
 	for _, tt := range tests {
-		got, err := platform.ShimDirFor(tt.goos, tt.env)
+		got, err := platform.LauncherDirFor(tt.goos, tt.env)
 		if err != nil || filepath.Clean(got) != filepath.Clean(tt.want) {
-			t.Errorf("ShimDirFor(%s) = %q, %v; want %q", tt.goos, got, err, tt.want)
+			t.Errorf("LauncherDirFor(%s) = %q, %v; want %q", tt.goos, got, err, tt.want)
 		}
 	}
 }
 
-func TestShimDirRejectsUnsupportedOS(t *testing.T) {
-	if _, err := platform.ShimDirFor("plan9", map[string]string{}); err == nil {
+func TestLauncherDirRejectsUnsupportedOS(t *testing.T) {
+	if _, err := platform.LauncherDirFor("plan9", map[string]string{}); err == nil {
 		t.Fatal("unsupported operating system unexpectedly admitted")
+	}
+}
+
+func TestDefaultLauncherDirectoryFallsBackAndHonorsOverride(t *testing.T) {
+	if got, err := platform.DefaultLauncherDirFor("darwin", map[string]string{"AIGW_LAUNCHER_DIR": "  /custom/shims  "}, "/opt/bin/aigw"); err != nil || got != "/custom/shims" {
+		t.Fatalf("override = %q, %v", got, err)
+	}
+	if got, err := platform.DefaultLauncherDirFor("darwin", map[string]string{}, "/opt/bin/aigw"); err != nil || got != "/opt/bin" {
+		t.Fatalf("fallback = %q, %v", got, err)
+	}
+}
+
+func TestExecutableDirectoryUsesTargetPathConvention(t *testing.T) {
+	tests := []struct{ goos, executable, want string }{
+		{goos: "linux", executable: "/opt/aigw/bin/aigw", want: "/opt/aigw/bin"},
+		{goos: "windows", executable: `C:\Program Files\AIGW\aigw.exe`, want: `C:\Program Files\AIGW`},
+		{goos: "windows", executable: `C:\aigw.exe`, want: `C:\`},
+		{goos: "windows", executable: `/aigw.exe`, want: `/`},
+		{goos: "windows", executable: `aigw.exe`, want: `.`},
+		{goos: "windows", executable: ``, want: ``},
+		{goos: "windows", executable: `C:\AIGW\\`, want: `C:\`},
+	}
+	for _, test := range tests {
+		if got := platform.ExecutableDirFor(test.goos, test.executable); got != test.want {
+			t.Errorf("ExecutableDirFor(%q, %q) = %q, want %q", test.goos, test.executable, got, test.want)
+		}
 	}
 }
 
 func TestWindowsJoinPreservesLeadingSeparator(t *testing.T) {
 	got, err := platform.ConfigPathFor("windows", map[string]string{"APPDATA": `\`})
-	want := `\aigw\config.toml`
+	want := `\aigw\configuration.toml`
 	if err != nil || got != want {
 		t.Fatalf("ConfigPathFor(windows) with root APPDATA = %q, %v; want %q", got, err, want)
-	}
-}
-
-func TestAirLogDirUsesMacOSHomeBoundary(t *testing.T) {
-	got, err := platform.AirLogDirFor("darwin", map[string]string{"HOME": "/Users/alex"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "/Users/alex/Library/Logs/JetBrains/Air"
-	if filepath.Clean(got) != filepath.Clean(want) {
-		t.Fatalf("AirLogDirFor() = %q, want %q", got, want)
-	}
-}
-
-func TestAirLogDirRejectsUnsupportedOrMissingHome(t *testing.T) {
-	if _, err := platform.AirLogDirFor("linux", map[string]string{"HOME": "/home/alex"}); err == nil {
-		t.Fatal("non-macOS Air log path unexpectedly admitted")
-	}
-	if _, err := platform.AirLogDirFor("darwin", map[string]string{}); err == nil {
-		t.Fatal("missing HOME unexpectedly admitted")
 	}
 }

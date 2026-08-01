@@ -1,7 +1,10 @@
+// Package platform derives portable AIGW-owned paths from the target operating
+// system and explicit environment inputs.
 package platform
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -13,7 +16,7 @@ func ConfigPathFor(goos string, env map[string]string) (string, error) {
 		if home == "" {
 			return "", fmt.Errorf("HOME is not set")
 		}
-		return filepath.Join(home, "Library", "Application Support", "aigw", "config.toml"), nil
+		return filepath.Join(home, "Library", "Application Support", "aigw", "configuration.toml"), nil
 	case "linux":
 		base := env["XDG_CONFIG_HOME"]
 		if base == "" {
@@ -22,13 +25,13 @@ func ConfigPathFor(goos string, env map[string]string) (string, error) {
 			}
 			base = filepath.Join(env["HOME"], ".config")
 		}
-		return filepath.Join(base, "aigw", "config.toml"), nil
+		return filepath.Join(base, "aigw", "configuration.toml"), nil
 	case "windows":
 		base := env["APPDATA"]
 		if base == "" {
 			return "", fmt.Errorf("APPDATA is not set")
 		}
-		return windowsJoin(base, "aigw", "config.toml"), nil
+		return windowsJoin(base, "aigw", "configuration.toml"), nil
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
@@ -86,11 +89,11 @@ func UserBinDirFor(goos string, env map[string]string) (string, error) {
 	}
 }
 
-// ShimDirFor returns the AIGW-owned launcher directory. Unix shims must not
+// LauncherDirFor returns the AIGW-owned launcher directory. Unix launchers must not
 // live in the shared user bin directory: package managers and workstation
 // maintenance tools legitimately manage that surface. Windows already has a
 // dedicated AIGW user-program directory, so its launcher remains there.
-func ShimDirFor(goos string, env map[string]string) (string, error) {
+func LauncherDirFor(goos string, env map[string]string) (string, error) {
 	if goos == "windows" {
 		return UserBinDirFor(goos, env)
 	}
@@ -99,6 +102,41 @@ func ShimDirFor(goos string, env map[string]string) (string, error) {
 		return "", err
 	}
 	return filepath.Join(dataDir, "bin"), nil
+}
+
+func DefaultLauncherDirFor(goos string, env map[string]string, executable string) (string, error) {
+	if value := strings.TrimSpace(env["AIGW_LAUNCHER_DIR"]); value != "" {
+		return value, nil
+	}
+	if dir, err := LauncherDirFor(goos, env); err == nil {
+		return dir, nil
+	}
+	return ExecutableDirFor(goos, executable), nil
+}
+
+func ExecutableDirFor(goos, executable string) string {
+	if goos == "windows" {
+		return windowsDirName(executable)
+	}
+	return path.Dir(executable)
+}
+
+func windowsDirName(name string) string {
+	trimmed := strings.TrimRight(name, `\/`)
+	if trimmed == "" {
+		return name
+	}
+	idx := strings.LastIndexAny(trimmed, `\/`)
+	if idx < 0 {
+		return "."
+	}
+	if idx == 0 {
+		return trimmed[:1]
+	}
+	if idx == 2 && trimmed[1] == ':' {
+		return trimmed[:idx+1]
+	}
+	return trimmed[:idx]
 }
 
 func windowsJoin(parts ...string) string {
@@ -116,17 +154,4 @@ func windowsJoin(parts ...string) string {
 		return `\` + strings.Join(clean, `\`)
 	}
 	return strings.Join(clean, `\`)
-}
-
-// AirLogDirFor returns the only host-log boundary admitted for Air runtime
-// attestation. Other platforms are rejected rather than guessed.
-func AirLogDirFor(goos string, env map[string]string) (string, error) {
-	if goos != "darwin" {
-		return "", fmt.Errorf("Air runtime attestation is unsupported on %q", goos)
-	}
-	home := env["HOME"]
-	if home == "" {
-		return "", fmt.Errorf("HOME is not set")
-	}
-	return filepath.Join(home, "Library", "Logs", "JetBrains", "Air"), nil
 }

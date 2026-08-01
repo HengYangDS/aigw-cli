@@ -2,8 +2,45 @@ profile_id = "aigw-cli"
 
 [openspec]
 material_paths = [
-    ".ethos/profile.toml",
-    "openspec/**",
-    "docs/governance/**",
-    "rules/**",
+  ".config/**",
+  ".ethos/profile.toml",
+  ".github/**",
+  ".gitlab-ci.yml",
+  "AGENTS.md",
+  "CHANGELOG.md",
+  "CONTRIBUTING.md",
+  "README.md",
+  "cmd/**",
+  "docs/governance/**",
+  "go.mod",
+  "internal/**",
+  "openspec/**",
+  "packaging/**",
+  "scripts/**",
+  "tools/**",
 ]
+
+[proof]
+code_correctness_gates = ["go-behavior", "go-static-analysis"]
+
+[proof.code_correctness_map]
+behavior = "go-behavior"
+static-analysis = "go-static-analysis"
+
+[[proof.gates]]
+id = "go-behavior"
+kind = "test"
+command = ["go", "run", "./tools/coveragegate", "--race"]
+dimensions = ["behavior", "test", "coverage"]
+evidence_class = "proof"
+trust_bearing = true
+network_policy = "offline"
+
+[[proof.gates]]
+id = "go-static-analysis"
+kind = "static"
+command = ["sh", "-c", "go run ./tools/architecture --root . && go vet ./... && sh scripts/checks/quality/check-static-analysis.sh"]
+dimensions = ["static-analysis", "architecture", "vet"]
+evidence_class = "proof"
+trust_bearing = true
+network_policy = "offline"

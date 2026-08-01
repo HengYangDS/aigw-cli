@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/transaction"
+	"aigw-cli/internal/transaction"
 )
 
 func TestCaptureFileSnapshotOfMissingFileIsEmptyNotError(t *testing.T) {

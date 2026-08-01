@@ -1,3 +1,5 @@
+// Package diagnostics owns bounded, redacted endpoint and authentication
+// health observations. It does not mutate routes, credentials, or clients.
 package diagnostics
 
 import (
@@ -8,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/redaction"
+	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/redaction"
 )
 
 type Kind string
@@ -56,7 +58,7 @@ func DefaultStabilityPolicy() StabilityPolicy {
 	}
 }
 
-func ProbeStable(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token string, policy StabilityPolicy) Result {
+func ProbeStable(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, policy StabilityPolicy) Result {
 	result := probeWithTimeout(ctx, client, runtime, token, policy.AttemptTimeout)
 	result.Attempts = 1
 	if result.Kind != InvalidToken {
@@ -87,7 +89,7 @@ func ProbeStable(ctx context.Context, client HTTPDoer, runtime domain.Runtime, t
 	return unstableAuthentication(result.Attempts, "Authentication responses were inconsistent across bounded recovery attempts")
 }
 
-func probeWithTimeout(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token string, timeout time.Duration) Result {
+func probeWithTimeout(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, timeout time.Duration) Result {
 	if timeout <= 0 {
 		return Probe(ctx, client, runtime, token)
 	}
@@ -138,7 +140,7 @@ func unstableAuthentication(attempts int, detail string) Result {
 	}
 }
 
-func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token string) Result {
+func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string) Result {
 	endpoint := strings.TrimRight(runtime.Endpoint, "/")
 	if endpoint == "" {
 		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Fix: "Check the protocol endpoint for the current profile's account"}
@@ -148,7 +150,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Detail: err.Error(), Fix: "Check the gateway URL for the team profile"}
+		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Detail: err.Error(), Fix: "Check the endpoint for the active profile"}
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)

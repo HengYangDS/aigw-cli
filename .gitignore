@@ -10,3 +10,8 @@
 
 # Local Serena project metadata is a disposable developer-tool projection.
 .serena/
+
+# ETHOS local coordination state is runtime-only. Keep the directory contract,
+# never commit its database or write-ahead-log files.
+.ethos/state/*
+!.ethos/state/.gitignore

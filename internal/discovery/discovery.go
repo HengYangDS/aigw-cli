@@ -1,3 +1,5 @@
+// Package discovery classifies installed client executables and host surfaces
+// without adopting or mutating them.
 package discovery
 
 import (
@@ -7,7 +9,7 @@ import (
 	"strings"
 )
 
-const claudeShimMarker = "AIGW managed Claude shim"
+const claudeLauncherMarker = "AIGW managed Claude launcher"
 
 type Result struct {
 	ClaudeExecutable string
@@ -51,7 +53,7 @@ func (s System) find(name string, skipManagedClaude bool) string {
 			}
 			if skipManagedClaude {
 				data, _ := os.ReadFile(path)
-				if strings.Contains(string(data), claudeShimMarker) {
+				if strings.Contains(string(data), claudeLauncherMarker) {
 					continue
 				}
 			}

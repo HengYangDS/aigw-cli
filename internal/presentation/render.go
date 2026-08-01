@@ -1,3 +1,5 @@
+// Package presentation renders stable human-facing output and structured
+// problem guidance without owning command or domain behavior.
 package presentation
 
 import (
@@ -27,6 +29,8 @@ type Renderer struct {
 	inSection  bool
 	styles     styles
 }
+
+const ProductName = "AIGW"
 
 const (
 	rowKeyWidth   = 21
@@ -108,6 +112,9 @@ func (r *Renderer) Title(product, title string) {
 	r.hasContent = true
 	r.inSection = false
 }
+
+// ProductTitle renders one title under the single product display identity.
+func (r *Renderer) ProductTitle(title string) { r.Title(ProductName, title) }
 
 func (r *Renderer) Section(title string) {
 	if r.hasContent {
@@ -202,7 +209,7 @@ func (r *Renderer) Next(command string) {
 }
 
 func (r *Renderer) Problem(problem Problem) {
-	r.Title("AIGW", "Action required")
+	r.ProductTitle("Action required")
 	r.Section("Problem")
 	r.writeHumanText(problem.Title, r.styles.problem)
 	if problem.Evidence != "" {

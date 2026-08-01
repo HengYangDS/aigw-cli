@@ -4,10 +4,10 @@ platform: linux
 version: ${AIGW_VERSION}
 section: utils
 priority: optional
-maintainer: Yang HENG <heng.yang.ds@hotmail.com>
+maintainer: ${AIGW_PACKAGE_MAINTAINER}
 description: Cross-platform team CLI for third-party AI API gateway profiles, secrets, routes, and client adapters.
 vendor: AIGW CLI
-homepage: https://github.com/HengYangDS/aigw-cli
+homepage: ${AIGW_PACKAGE_HOMEPAGE}
 license: MIT
 contents:
   - src: ${AIGW_PACKAGE_ROOT}/aigw
@@ -22,7 +22,7 @@ contents:
     dst: /usr/share/doc/aigw/copyright
     file_info:
       mode: 0644
-  - src: ${AIGW_REPO_ROOT}/docs/concepts.md
+  - src: ${AIGW_REPO_ROOT}/docs/concepts/README.md
     dst: /usr/share/doc/aigw/concepts.md
     file_info:
       mode: 0644

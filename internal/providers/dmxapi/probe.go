@@ -11,17 +11,20 @@ import (
 	"net/url"
 	"strings"
 
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/account"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/domain"
-	"gitlab.local/dig/misc/agentic-third-party-api/aigw-cli/internal/redaction"
+	"aigw-cli/internal/account"
+	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/redaction"
 )
 
-type HTTPDoer interface {
+// Kind is the stable manifest identifier for the bundled DMXAPI diagnostic.
+const Kind = "dmxapi"
+
+type httpDoer interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-func Probe(ctx context.Context, client HTTPDoer, providerAccount domain.Account, apiToken string, credential account.Credential) (account.Report, error) {
-	if providerAccount.AccountProbe == nil || providerAccount.AccountProbe.Kind != "dmxapi" {
+func Probe(ctx context.Context, client httpDoer, providerAccount configuration.Account, apiToken string, credential account.Credential) (account.Report, error) {
+	if providerAccount.AccountProbe == nil || providerAccount.AccountProbe.Kind != Kind {
 		return account.Report{}, fmt.Errorf("DMXAPI diagnostic provider is not configured")
 	}
 	base := strings.TrimRight(providerAccount.AccountProbe.BaseURL, "/")
@@ -77,7 +80,7 @@ type token struct {
 	ExpiredTime    int64  `json:"expired_time"`
 }
 
-func fetchTokens(ctx context.Context, client HTTPDoer, base string, credential account.Credential) ([]token, error) {
+func fetchTokens(ctx context.Context, client httpDoer, base string, credential account.Credential) ([]token, error) {
 	items := []token{}
 	for page := 1; page <= 100; page++ {
 		endpoint := fmt.Sprintf("%s/api/token/search?page=%d&page_size=100", base, page)
@@ -103,7 +106,7 @@ func fetchTokens(ctx context.Context, client HTTPDoer, base string, credential a
 	return items, nil
 }
 
-func getJSON(ctx context.Context, client HTTPDoer, endpoint string, credential account.Credential, target any) error {
+func getJSON(ctx context.Context, client httpDoer, endpoint string, credential account.Credential, target any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return err

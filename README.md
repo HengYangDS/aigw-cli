@@ -6,10 +6,10 @@
 | **Stable repository Path** | `aigw-cli` |
 
 AIGW CLI is a local-first, cross-platform control plane for AI provider
-accounts, system-stored credentials, model profiles, client routes, and
-Claude/Codex projections. It is distributed under the [MIT](LICENSE) License.
-It does not run a gateway, listen on a port, relay API traffic, or own Codex
-conversation state.
+Accounts, system-stored credentials, model Profiles, Routes, and explicit
+Claude/Codex client integration. It is distributed under the [MIT](LICENSE)
+License. It does not run a gateway, listen on a port, relay API traffic, or own
+Codex conversation state.
 
 ## Start with the task
 
@@ -19,11 +19,11 @@ conversation state.
 | Use a different model profile | `aigw use <profile>` | `aigw check` |
 | Know what is active | `aigw` | Follow its one **Next** command |
 | Recover a local client integration | `aigw doctor` | Run its recommended action |
-| Join a team with a reviewed manifest | `aigw config import team-profiles.toml` | `aigw rotate <account>` |
+| Join a team with a reviewed manifest | `aigw config import manifest.toml` | `aigw rotate <account>` |
 
-The everyday path is deliberately small: **setup → use → check**. AIGW shows
-current selection, readiness, and one safe next action; detailed object
-management stays under explicit advanced commands.
+The everyday path is deliberately small: **setup → use → check**. AIGW
+shows the current selection, readiness, and one safe next action; detailed
+object management stays under explicit advanced commands.
 
 ## Install
 
@@ -37,6 +37,11 @@ AIGW has three checksum-first distribution paths:
 The source code, documentation, and distributed release files are available
 under the permissive [MIT License](LICENSE). Third-party dependencies retain
 their own licenses, as identified by the release SPDX SBOM.
+
+AIGW is installed from verified release artifacts; it is not published as an
+importable Go library. The short module declaration in `go.mod` is a
+non-fetchable build identity, deliberately independent of either Forge,
+organization, maintainer, and local filesystem layout.
 
 GitLab and GitHub are independent, complete forge planes. They publish the same
 versioned release matrix and use the same release filenames, checksums, and SBOM
@@ -84,33 +89,35 @@ and one secure Token slot without assuming a gateway, model, or provider:
 aigw setup
 ```
 
-For a new machine with a reviewed, token-free team manifest, review only the
-Account endpoints and run one command. AIGW imports every profile, prompts once
-for each missing Account Token, validates the credentials, and keeps Tokens out
-of the manifest and local config:
+For a new machine with a reviewed, token-free configuration manifest, review
+only the Account endpoints and run one command. AIGW imports every profile,
+prompts once for each missing Account Token, validates the credentials, and
+keeps Tokens out of the manifest and local config:
 
 ```bash
-aigw setup --from team-profiles.toml
+aigw setup --from manifest.toml
 ```
 
-This repository's ready-to-use deployment manifest is
-[`team/team-profiles.toml`](team/team-profiles.toml); the provider-neutral
-format example remains [`examples/team-profiles.toml`](examples/team-profiles.toml).
+Start from the deliberately fictitious, provider-neutral
+[`manifests/example.toml`](manifests/example.toml). Real provider endpoints,
+model IDs, route recommendations, and diagnostic policies belong to the
+adopting team's separately reviewed manifest, not the product repository.
 
-When Claude is installed, setup validates each Claude Account with one bounded,
-no-session-persistence minimal model request. Without Claude it falls back to a
-strict authenticated models probe; providers that do not expose that probe must
-be set up after Claude is discoverable. Codex Accounts use an authenticated
-models probe.
+For a Claude Profile, setup uses one bounded, no-session-persistence model
+request when a Claude executable is discoverable. Otherwise it uses an
+authenticated models probe. For a Codex Profile, setup uses the authenticated
+models probe. If an upstream omits that probe, make Claude discoverable before
+setting up its Claude Profile.
 
-`setup --from` and recommended client routes use team manifest v3. Older AIGW
-clients fail closed on v3 and must be updated before this rollout path is used.
+`setup --from` and recommended client routes use configuration manifest v3.
+Older AIGW clients fail closed on v3 and must be updated before this rollout
+path is used.
 
 On an already configured machine, merge public metadata without touching
 existing Tokens:
 
 ```bash
-aigw config import team-profiles.toml
+aigw config import manifest.toml
 ```
 
 Import is non-destructive. A same-named Account or profile must match exactly
@@ -127,7 +134,6 @@ aigw check                   # configuration, client, and endpoint health
 aigw doctor                  # detailed diagnosis and one recovery action
 aigw repair                  # bounded client discovery and reconciliation
 aigw repair --dry-run --json # preview repair without writing or binding auth
-aigw route doctor            # inspect host-route ownership; no probes or writes
 aigw profile rename [old] [new] # rename a profile; updates route references
 aigw account rename [old] [new] # rename an account; two-phase credential migration
 ```
@@ -144,11 +150,12 @@ predecessor; native-package rollback belongs to the platform package manager.
   operating-system secret slot.
 - **Profiles**: an admitted `account + client + model` daily choice.
 - **Routes**: default, Claude, and Codex selections.
-- **Adapters**: narrow local projections for Claude and Codex.
+- **Adapters**: bounded client integrations for Claude and standalone Codex.
 
-Claude receives `ANTHROPIC_AUTH_TOKEN` only in the process launched by AIGW's
-private shim. Codex receives only AIGW-marked configuration and native
-credential binding. The tools do not write into one another's directories.
+Claude receives `ANTHROPIC_AUTH_TOKEN` only in the process launched through the
+AIGW-owned launcher. Codex receives only AIGW-marked configuration and native
+credential binding. The integrations do not write into one another's owned
+surfaces.
 
 Codex Desktop owns conversation transcripts and each conversation's model
 choice. AIGW owns only its marked provider projection and native credential
@@ -157,101 +164,26 @@ Codex requests use that listener, so it must be available for the selected
 route to work. AIGW does not start, stop, configure, or diagnose its service
 lifecycle.
 
-### Host-specific Codex routing
+### Codex ownership boundary
 
-Codex is not one homogeneous host surface. On macOS, AIGW classifies the
-following surfaces before it plans a projection:
+AIGW projects only to configured standalone Codex homes. Each target is a
+`configuration.toml` path admitted by discovery or explicit operator
+configuration; AIGW marks and reconciles only its own provider/model block and
+sidecar. Generic setup and repair discover the ordinary standalone Codex CLI
+home and preserve explicitly configured standalone homes.
 
-| Surface | Persistent default | AIGW behavior |
-| --- | --- | --- |
-| Ordinary standalone Codex CLI | AIGW | AIGW may manage its full provider/model selection. Generic `setup` and `repair` adopt only this surface. |
-| ChatGPT Desktop | AIGW default configuration for later/new work | Desktop alone owns each existing conversation's model and transcript; AIGW never edits conversation state. |
-| PyCharm Codex | JetBrains AI | Classified for diagnosis and excluded from AIGW target adoption. |
-| JetBrains Air | JetBrains AI | Exact standalone copies remain external host mirrors. AIGW may stage only an explicit, reversible namespaced fallback. |
-| Junie CLI | JetBrains AI through Junie Account / JetBrains Account | Observed as a JetBrains surface, never admitted as a Codex target or executed by route diagnosis. |
-
-Use `aigw route doctor --json` for a local, secret-free ownership report. It
-does not run Codex, Junie, or an IDE; read credentials; contact an endpoint; or
-report configuration bodies, paths, sessions, or billing as known facts.
-For Air, the same read-only report includes bounded recovery lifecycle health
-and stable reason codes for missing, invalid, permission-unsafe, or unexpected
-private recovery state. It never creates recovery storage or exposes its paths,
-complete digests, quarantine bytes, or case preimages.
-
-An `external-host-mirror` is a healthy JetBrains-owned copy whose exact managed
-projection matches the current attributed standalone projection. It is not an
-AIGW target and receives no mutation guidance. Optional bounded forwarding
-evidence is available without credentials or writes:
-
-```bash
-aigw route attest air --json
-```
-
-For an ordinary ownership conflict, run `aigw repair --dry-run --json` before
-any mutation. The ADR-0003 state `recoverable-stale-full-selection` instead
-uses its dedicated recovery preview:
-
-```bash
-aigw route recover air --dry-run --json
-aigw route recover air --confirm-host-idle
-```
-
-Recovery accepts only that exact AIGW-owned mismatch. It removes the marked
-AIGW full selection, stale sidecar, and Air's explicit AIGW target membership;
-it does not fabricate a JetBrains `model` or `model_provider` selection,
-authenticate a client, or touch conversation state. A later Air UI session is
-still the authority for proving JetBrains authentication and user-visible
-behavior.
-
-The separate `orphaned-exact-full-selection` state is a sidecar-absent exact
-generated projection that cannot be proven equal to the current standalone
-reference. Recover it only through its deterministic case and private
-quarantine:
-
-```bash
-aigw route recover-orphan air --dry-run --json
-aigw route recover-orphan air --case-id <id> --confirm-host-idle --ack-unset-external-selection
-aigw route settle air --case-id <id> --dry-run --json
-aigw route settle air --case-id <id>
-```
-
-Recovery writes no replacement provider or model selection. It leaves an
-unset external baseline and waits for a separately observed host roundtrip.
-Settlement changes only the private recovery ledger and quarantine; it never
-writes Air. Neither attestation nor settlement proves login, authentication,
-quota, billing, terminal success, or a user-visible reply.
-
-Air remains JetBrains AI by default. Its opt-in fallback has a separate,
-deliberate path:
-
-```bash
-aigw route fallback air --dry-run --json
-aigw route fallback air --confirm-host-idle
-aigw route restore air --dry-run --json
-aigw route restore air --confirm-host-idle
-aigw route recover air --dry-run --json
-aigw route recover air --confirm-host-idle
-```
-
-The dry runs do not write configuration, bind authentication, or start a
-client. The apply commands require an operator attestation that Air is idle;
-they do not probe, start, stop, or restart Air. Fallback appends an
-AIGW-owned namespaced block only. It never changes Air's top-level `model` or
-`model_provider`; restore removes only that owned block and preserves the
-remaining Air file byte-for-byte. If Air is already selected to AIGW at the
-top level, both operations fail closed until its native settings return it to
-JetBrains AI. `route recover air` is not a fallback operation: it is admitted
-only for the reported stale full-selection/fallback-sidecar mismatch and
-returns Air to an unselected external baseline.
-
+Codex Desktop owns every existing conversation's model, transcript, JSONL,
+SQLite, and runtime metadata. IDE integrations and other clients own their own
+configuration and lifecycle. They are not discovered, diagnosed, repaired, or
+controlled by AIGW. To use an external Responses compatibility service, select
+its HTTP endpoint in an Account; AIGW does not install or manage that service.
 ## Update sources
 
-A formal package reads its two official update peers from the tracked,
-credential-free `packaging/release/forge-sources.env` manifest. Both release
-planes validate and embed that same complete tuple set; a conflicting CI or
-shell override is rejected. A direct development `go build` has no implicit
-vendor endpoint. For an intentional remote test, configure a complete tuple for
-either or both peers; never combine individual fields:
+A formal package reads its two official update peers from protected release
+execution inputs. The tracked `.config/release/forge-sources.env` is only a
+fictitious shape fixture; it is never embedded. Both release planes validate
+and embed the explicitly supplied tuple set. A direct development `go build`
+has no implicit vendor endpoint:
 
 ```bash
 export AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example.com
@@ -282,9 +214,9 @@ artifact is checksum-verified before replacement.
 
 | Need | Start here |
 | --- | --- |
-| Core Account, Profile, Route, and Adapter concepts | [Concepts](docs/concepts.md) |
-| Secure local credential and client boundaries | [Security model](docs/security.md) |
-| Team manifest and release workflow | [Team rollout](docs/team-rollout.md) |
+| Core Account, Profile, Route, and Adapter concepts | [Concepts](docs/concepts/README.md) |
+| Secure local credential and client boundaries | [Security model](docs/governance/security.md) |
+| Configuration manifest and release workflow | [Team rollout](docs/guides/team-rollout.md) |
 | Terminal navigation and presentation rules | [Terminal experience contract](docs/governance/terminal-experience-contract.md) |
 | Control-plane and proxy boundary | [Authority and projection boundary](docs/architecture/authority-and-projection-boundary.md) |
 | Full documentation map | [Documentation root](docs/README.md) |
@@ -293,28 +225,32 @@ artifact is checksum-verified before replacement.
 ## Verify a source checkout
 
 ```bash
+go run ./tools/architecture --root .
+sh scripts/checks/governance/check-module-identity.sh
 go run ./tools/coveragegate --race
 go vet ./...
-sh scripts/check-static-analysis.sh
+sh scripts/checks/quality/check-static-analysis.sh
+sh scripts/checks/governance/check-portability.sh
+sh scripts/tests/governance/test-portability.sh
 test -z "$(gofmt -l cmd internal tools)"
-sh scripts/check-governance.sh
-sh scripts/check-commit-provenance.sh . gitlab
-sh scripts/test-commit-provenance.sh
-sh scripts/check-tag-namespace.sh
-python3 scripts/check-markdown-presentation.py
-python3 scripts/check-text-layout.py
-sh scripts/test-text-layout.sh
-sh scripts/test-changelog.sh
-export GOTOOLCHAIN=go1.25.12
-sh scripts/check-release-toolchain.sh
+sh scripts/checks/governance/check-governance.sh
+AIGW_GITLAB_AUTHOR_EMAIL='<release actor email>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-commit-provenance.sh . gitlab
+sh scripts/tests/forge/test-commit-provenance.sh
+AIGW_TAG_NAMESPACE_FORGE='<local|gitlab|github>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' AIGW_GITHUB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-tag-namespace.sh
+python3 scripts/checks/governance/check-markdown-presentation.py
+python3 scripts/checks/governance/check-text-layout.py
+sh scripts/tests/governance/test-text-layout.sh
+sh scripts/tests/governance/test-changelog.sh
+export GOTOOLCHAIN=go1.26.5
+sh scripts/checks/release/check-release-toolchain.sh
 version=$(git describe --tags --exact-match | sed 's/^v//')
-SOURCE_DATE_EPOCH=$(sh scripts/release-source-date-epoch.sh "$version") \
-  AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/package.sh "$version" dist
-sh scripts/test-release-package-layout.sh dist "$version"
-SOURCE_DATE_EPOCH=$(sh scripts/release-source-date-epoch.sh "$version") \
-  sh scripts/test-release-reproducibility.sh "$version"
+SOURCE_DATE_EPOCH=$(sh scripts/release/lib/release-source-date-epoch.sh "$version") \
+  AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/release/build/package.sh "$version" dist
+sh scripts/tests/release/test-release-package-layout.sh dist "$version"
+SOURCE_DATE_EPOCH=$(sh scripts/release/lib/release-source-date-epoch.sh "$version") \
+  sh scripts/tests/release/test-release-reproducibility.sh "$version"
 ```
 
 A source tag is not proof of published assets, native-platform acceptance, or
 GA signing. The evidence boundaries are defined in
-[release-readiness.md](docs/release-readiness.md).
+[release-readiness.md](docs/operations/release-readiness.md).

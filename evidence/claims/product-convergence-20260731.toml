@@ -1,0 +1,40 @@
+[claim]
+id = "product-convergence-20260731"
+change_id = "terminal-quality-closeout"
+subject = "aigw-cli:product-control-plane"
+state = "active"
+summary = "Local candidate evidence binds the provider-control-plane boundary, semantic ownership, quiet failure output, and measured quality floor."
+
+[evidence]
+dated = "evidence/chronicle/product-convergence-20260731/2026-07-31.md"
+sha256 = "93bfcb1b6453f9c24c17abdc3eaf8e7aba0939cd97e4bddaf999c85860311f29"
+evidence_ids = ["evidence:product-convergence-20260731"]
+binding = "The dated local observations bind the product boundary, semantic ownership, portability checks, and measured staged-candidate gate results only."
+verifier = "digest_only"
+tests = [
+  "go run ./tools/coveragegate --race",
+  "go run ./tools/architecture --root .",
+  "sh scripts/checks/governance/check-portability.sh",
+  "openspec validate --all --strict --json",
+  "ethos plan --changed --json",
+]
+
+[evidence.freshness]
+mode = "historical"
+
+[boundary]
+owner = "aigw-cli"
+scope = "Local source, governance, and candidate-gate observations only; hosted CI, publication, installation, runtime, and session continuity remain external."
+
+[carriers]
+openspec = "openspec/changes/archive/2026-08-01-terminal-quality-closeout"
+fallback = "Keep the accepted AIGW version and its external endpoint composition until this candidate completes exact-HEAD proof and hosted verification."
+kill_signal = "AIGW again owns traffic, gateway lifecycle, IDE or session state, personal publication identity, or parallel source authorities."
+
+[promotion]
+targets = [
+  ".ethos/profile.toml",
+  "docs/architecture/authority-and-projection-boundary.md",
+  "docs/governance/change-and-release-policy.md",
+  "openspec/specs/product-control-plane/spec.md",
+]

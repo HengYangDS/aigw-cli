@@ -16,7 +16,7 @@ provider-specific snapshot commits are permitted.
 The canonical GitLab checkout is projected to GitHub with:
 
 ```bash
-sh scripts/project-github-forge.sh
+sh scripts/forge/lib/project-github-forge.sh
 ```
 
 The command requires a clean canonical checkout, uses a fresh isolated clone,
@@ -52,7 +52,7 @@ git fetch --no-prune --no-prune-tags --no-tags origin \
   refs/heads/main:refs/remotes/origin/main
 git fetch --no-prune --no-prune-tags --no-tags github \
   refs/heads/main:refs/remotes/github/main
-sh scripts/check-forge-sync.sh \
+sh scripts/checks/forge/check-forge-sync.sh \
   --canonical main \
   --peer gitlab:refs/remotes/origin/main:commit \
   --peer github:refs/remotes/github/main:tree
@@ -82,15 +82,15 @@ timeout. A caller may override the complete chain with `AIGW_GOPROXY`; an
 override is responsible for preserving the intended fallback semantics. GitHub
 Actions does not inherit this GitLab-specific setting.
 
-Every self-hosted runner registration, LaunchAgent, work directory, cache, and label belongs
-to exactly one `forge × repository × privilege` tuple. No GitHub runner serves
-GitLab jobs, no runner is shared by repositories, and a release runner never
-executes verification or merge-request workflow code. AIGW uses three separate
-registrations: GitLab macOS is `aigw-release-macos-arm64`, GitLab Windows is
-`windows`; GitHub verification is
-`aigw-github-verify-macos-arm64`; GitHub release is
-`aigw-github-release-macos-arm64`. GitHub verification runs only trusted `main`,
-tag, and manual workflows; GitLab remains the canonical merge-request gate.
+Every self-hosted runner registration, service, work directory, cache, and
+label belongs to exactly one `forge × repository × privilege` tuple. Runner
+inventory is adopter infrastructure supplied through protected Forge variables:
+`AIGW_GITLAB_RUNNER_TAG`, `AIGW_VERIFY_RUNNER`, and `AIGW_RELEASE_RUNNER`.
+Product source does not name a host, service manager, work directory, or label.
+No GitHub runner serves GitLab jobs, no runner is shared by repositories, and a
+release runner never executes verification or merge-request workflow code.
+GitHub verification runs only trusted `main`, tag, and manual workflows;
+GitLab remains the canonical merge-request gate.
 GitHub-hosted Linux and Windows runners provide independent native operating-
 system evidence. Each self-hosted registration has its own service, work
 directory, cache, and credential.
@@ -107,8 +107,8 @@ scheduled native job is an allowed failure.
 A release is complete only after the same version has independently completed
 both GitLab and GitHub tag pipelines and release publication. A signed tag
 triggers each forge's own pipeline. Each
-uses the dedicated macOS arm64 release runner class, the exact Go patch version
-declared in `go.mod`, the tracked forge-source manifest, and the release epoch
+uses the protected release-runner selection, the exact Go patch version
+declared in `go.mod`, explicit Forge coordinates, and the release epoch
 derived from the source-controlled Changelog heading. Each proves two full-matrix builds byte-identical,
 then publishes its own independently signed release. If an identical release
 already exists, its exact 15 links are verified, every asset is downloaded, and
@@ -134,9 +134,10 @@ artifact remain a single-provider unit.
 
 ## Provider identities
 
-GitLab provenance uses `heng.yang.ds@hotmail.com`; GitHub provenance uses
-`hengyang.2003@tsinghua.org.cn`. Separate repository-tracked trust anchors
-verify every commit after the tracked provider floor and each release tag. A
+Each Forge receives its publication actor and trust material from protected
+execution context. The product never binds an operator identity, email, key,
+or account. Separate trust inputs verify every commit after the tracked
+provider floor and each release tag. A
 direct push guard rejects a provider/email or signature mismatch. Same-named tags are independently signed provider provenance records,
 and must never be copied, regenerated, or overwritten across the two namespaces.
 In a canonical local checkout, GitLab tags remain unscoped and fetched GitHub

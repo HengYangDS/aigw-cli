@@ -4,16 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-)
 
-const (
-	SurfaceCodexCLIStandalone = "codex-cli-standalone"
-	SurfacePyCharmCodex       = "jetbrains-pycharm-codex"
-	SurfaceAirCodex           = "jetbrains-air-codex"
-	SurfaceJunieCLI           = "jetbrains-junie-cli"
-
-	AuthorityAIGW        = "aigw"
-	AuthorityJetBrainsAI = "jetbrains-ai"
+	"aigw-cli/internal/surface"
 )
 
 // Surface is a stable host classification. Discovery only inspects paths; it
@@ -30,54 +22,19 @@ type Surface struct {
 }
 
 func (s System) surfaceCatalog() []Surface {
-	standalone := Surface{
-		ID:          SurfaceCodexCLIStandalone,
+	return []Surface{{
+		ID:          string(surface.CodexCLIStandalone),
 		Product:     "Codex CLI",
-		Authority:   AuthorityAIGW,
-		ConfigPath:  filepath.Join(s.Home, ".codex", "config.toml"),
+		Authority:   string(surface.AuthorityAIGW),
+		ConfigPath:  filepath.Join(s.Home, ".codex", "configuration.toml"),
 		AutoManaged: true,
-	}
-	if s.GOOS != "darwin" {
-		return []Surface{standalone}
-	}
-	return []Surface{
-		standalone,
-		{
-			ID:        SurfacePyCharmCodex,
-			Product:   "PyCharm",
-			Authority: AuthorityJetBrainsAI,
-			ConfigPath: filepath.Join(
-				s.Home, "Library", "Caches", "JetBrains", "PyCharm2026.1",
-				"aia", "codex", "config.toml",
-			),
-		},
-		{
-			ID:        SurfaceAirCodex,
-			Product:   "JetBrains Air",
-			Authority: AuthorityJetBrainsAI,
-			ConfigPath: filepath.Join(
-				s.Home, "Library", "Application Support", "JetBrains", "Air",
-				".codex", "config.toml",
-			),
-			ManualFallbackAllowed: true,
-		},
-		{
-			ID:         SurfaceJunieCLI,
-			Product:    "Junie CLI",
-			Authority:  AuthorityJetBrainsAI,
-			Executable: filepath.Join(s.Home, ".local", "bin", "junie"),
-		},
-	}
+	}}
 }
 
 func (s System) discoverSurfaces() []Surface {
 	surfaces := s.surfaceCatalog()
 	for index := range surfaces {
-		path := surfaces[index].ConfigPath
-		if path == "" {
-			path = surfaces[index].Executable
-		}
-		info, err := os.Lstat(path)
+		info, err := os.Lstat(surfaces[index].ConfigPath)
 		surfaces[index].Present = err == nil && !info.IsDir()
 	}
 	return surfaces
@@ -110,9 +67,7 @@ func (r Result) SurfaceForExecutablePath(path string) (Surface, bool) {
 	return Surface{}, false
 }
 
-// AutoManagedCodexTargets returns only existing AIGW-owned standalone homes.
-// JetBrains-backed surfaces are visible for diagnosis but excluded from generic
-// setup and repair adoption.
+// AutoManagedCodexTargets returns existing AIGW-owned standalone homes.
 func (r Result) AutoManagedCodexTargets() []string {
 	targets := make([]string, 0)
 	for _, surface := range r.Surfaces {
