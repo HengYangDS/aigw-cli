@@ -85,6 +85,30 @@ package or the aggregate.
   aggregate coverage to 95 percent or less
 - **THEN** local and hosted verification SHALL fail before publication
 
+### Requirement: Deterministic local verification
+
+Local verification MUST use controlled fixtures rather than an undeclared
+public network dependency.
+
+#### Scenario: A local test depends on external state
+
+- **WHEN** a verification test would contact a public endpoint instead of its
+  controlled fixture
+- **THEN** local verification SHALL fail or the fixture SHALL intercept the
+  exact request without public network I/O
+
+### Requirement: Source-bound quantitative evidence
+
+A dated quantitative observation MUST identify its source revision and tree,
+retain its numerator and denominator, and derive rather than independently
+assert its displayed percentage.
+
+#### Scenario: Quantitative evidence is incomplete or inconsistent
+
+- **WHEN** dated evidence omits its source identity or raw counts, its percentage
+  does not match those counts, or its claim digest does not match the record
+- **THEN** governance verification SHALL fail before promotion
+
 ### Requirement: Documented package ownership
 
 Every non-command production package MUST document its package contract at the
