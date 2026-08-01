@@ -201,6 +201,16 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	if findCheck(t, checks, "adapter:claude").Detail != "enabled but executable is missing" {
 		t.Fatalf("checks = %#v", checks)
 	}
+
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+		Enabled:    true,
+		Executable: "codex",
+	}
+	deps, _, _ = doctorDependencies(t, cfg)
+	check := findCheck(t, Collect(deps), "adapter:codex")
+	if check.OK || check.Detail != "enabled but no Codex config target is configured" || check.Fix != "run `aigw repair`" {
+		t.Fatalf("Codex adapter check = %#v", check)
+	}
 	if got := sortedDoctorAccountNames(configuration.Config{Accounts: map[string]configuration.Account{"z": {}, "a": {}}}); strings.Join(got, ",") != "a,z" {
 		t.Fatalf("sorted accounts = %v", got)
 	}
