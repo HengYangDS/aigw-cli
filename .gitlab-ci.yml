@@ -81,6 +81,7 @@ verify:
     - sh scripts/tests/ci/test-github-release-workflow.sh
     - sh scripts/tests/forge/test-github-provider-projection.sh
     - sh scripts/tests/forge/test-commit-provenance.sh
+    - PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/forge/test-replay-history.py
     - sh scripts/tests/forge/test-branch-closeout.sh
     - sh scripts/tests/forge/test-forge-sync.sh
     - go build -o /tmp/aigw-install-smoke ./cmd/aigw

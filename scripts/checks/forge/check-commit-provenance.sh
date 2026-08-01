@@ -2,18 +2,13 @@
 set -eu
 
 usage() {
-  echo 'usage: check-commit-provenance.sh <repository> <gitlab|github> [exclusive-floor]' >&2
+  echo 'usage: check-commit-provenance.sh <repository> <gitlab|github>' >&2
   exit 2
 }
 
-[ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage
+[ "$#" -eq 2 ] || usage
 repository=$1
 provider=$2
-explicit_floor=${3:-}
-
-root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
-release_directory="$root/.config/release"
-floor_file=${AIGW_VERIFIED_COMMIT_FLOORS:-$release_directory/verified-commit-floors.txt}
 
 case "$provider" in
   gitlab)
@@ -30,8 +25,9 @@ case "$provider" in
     ;;
 esac
 
+provider_upper=$(printf '%s' "$provider" | tr '[:lower:]' '[:upper:]')
 [ -n "$required_email" ] || {
-  echo "$provider author email is required through AIGW_$(printf '%s' "$provider" | tr '[:lower:]' '[:upper:]')_AUTHOR_EMAIL" >&2
+  echo "$provider author email is required through AIGW_${provider_upper}_AUTHOR_EMAIL" >&2
   exit 2
 }
 case "$required_email" in
@@ -39,7 +35,7 @@ case "$required_email" in
   *) echo "$provider author email is malformed" >&2; exit 2 ;;
 esac
 [ -n "$allowed_signers" ] || {
-  echo "$provider trust input is required through AIGW_$(printf '%s' "$provider" | tr '[:lower:]' '[:upper:]')_ALLOWED_SIGNERS" >&2
+  echo "$provider trust input is required through AIGW_${provider_upper}_ALLOWED_SIGNERS" >&2
   exit 2
 }
 
@@ -56,37 +52,11 @@ git -C "$repository" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
   exit 2
 }
 
-floor=$explicit_floor
-if [ -z "$floor" ]; then
-  [ -f "$floor_file" ] || {
-    echo "verified commit floor file is missing: $floor_file" >&2
-    exit 2
-  }
-  floor=$(awk -v provider="$provider" '$1 == provider {print $2}' "$floor_file")
-  [ -n "$floor" ] || {
-    echo "verified commit floor is missing for $provider" >&2
-    exit 2
-  }
-fi
-
-floor=$(git -C "$repository" rev-parse --verify "$floor^{commit}" 2>/dev/null) || {
-  echo "verified commit floor is not a commit: $floor" >&2
-  exit 2
-}
 head=$(git -C "$repository" rev-parse --verify 'HEAD^{commit}')
-if ! git -C "$repository" merge-base --is-ancestor "$floor" "$head"; then
-  if git -C "$repository" merge-base --is-ancestor "$head" "$floor"; then
-    echo "$provider commit provenance: historical revision precedes enforcement floor"
-    exit 0
-  fi
-  echo "verified commit floor and HEAD are on divergent histories: $floor" >&2
-  exit 1
-fi
-
-commits=$(git -C "$repository" rev-list --reverse "$floor..$head")
+commits=$(git -C "$repository" rev-list --reverse --topo-order "$head")
 [ -n "$commits" ] || {
-  echo "$provider commit provenance: no descendants after floor"
-  exit 0
+  echo "$provider commit provenance: HEAD has no reachable commits" >&2
+  exit 1
 }
 
 for commit in $commits; do
@@ -107,4 +77,4 @@ for commit in $commits; do
 done
 
 count=$(printf '%s\n' "$commits" | awk 'NF {count++} END {print count + 0}')
-echo "$provider commit provenance: $count verified descendant(s)"
+echo "$provider commit provenance: $count verified commit(s)"

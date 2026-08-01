@@ -20,7 +20,7 @@ sh scripts/forge/lib/project-github-forge.sh
 ```
 
 The command requires a clean canonical checkout, uses a fresh isolated clone,
-verifies both providers' post-floor commit identities and each GitHub release
+verifies both providers' complete reachable commit identities and each GitHub release
 tag whose source tree is present on the selected canonical branch, and also
 verifies a same-named canonical GitLab tag. It maps the existing GitHub tip to
 an equal canonical tree and appends later source commits with the GitHub email

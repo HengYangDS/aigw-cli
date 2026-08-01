@@ -100,7 +100,7 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Replace the DMXAPI Qwen 3.7 Max team profile with a token-free UCloud
   Account placeholder at its mainland OpenAI-compatible endpoint while
   preserving all recommended routes.
-- Make post-floor GitLab and GitHub commit email and SSH-signature verification
+- Make GitLab and GitHub commit email and SSH-signature verification
   mandatory, and change GitHub projection to signed, forward-only commits
   without a history-rewrite escape.
 

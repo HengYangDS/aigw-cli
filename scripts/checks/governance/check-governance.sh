@@ -27,7 +27,6 @@ for file in \
   .config/ci/verify-gates.toml \
   .config/release/github-legacy-tags.txt \
   .config/release/retired-gitlab-tags.txt \
-  .config/release/verified-commit-floors.txt \
   .github/workflows/verify.yml \
   scripts/checks/forge/check-branch-closeout.sh \
   scripts/checks/forge/check-forge-sync.sh \
@@ -41,8 +40,10 @@ for file in \
   scripts/checks/forge/check-commit-provenance.sh \
   scripts/checks/forge/check-tag-namespace.sh \
   scripts/forge/lib/compare-ordered-trees.py \
+  scripts/forge/lib/replay-history.py \
   scripts/tests/forge/test-forge-sync.sh \
-  scripts/tests/forge/test-commit-provenance.sh
+  scripts/tests/forge/test-commit-provenance.sh \
+  scripts/tests/forge/test-replay-history.py
 do
   require_file "$file"
 done
@@ -59,6 +60,7 @@ for gate in \
   'sh scripts/checks/governance/check-governance.sh' \
   "AIGW_GITLAB_AUTHOR_EMAIL='<release actor email>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-commit-provenance.sh . gitlab" \
   'sh scripts/tests/forge/test-commit-provenance.sh' \
+  'PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/forge/test-replay-history.py' \
   "AIGW_TAG_NAMESPACE_FORGE='<local|gitlab|github>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' AIGW_GITHUB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-tag-namespace.sh" \
   'python3 scripts/checks/governance/check-markdown-presentation.py' \
   'python3 scripts/checks/governance/check-text-layout.py' \
