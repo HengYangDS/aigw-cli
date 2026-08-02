@@ -28,7 +28,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 			if client != "" {
 				spec, ok := configuration.ClientSpecFor(client)
 				if !ok {
-					return fmt.Errorf("--for must be claude or codex; run `aigw test --help`")
+					return fmt.Errorf("--for must be %s; run `aigw test --help`", configuration.AdmittedClientUsage())
 				}
 				clients = []configuration.ClientSpec{spec}
 			}

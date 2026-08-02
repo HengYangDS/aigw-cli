@@ -21,16 +21,16 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var clients []string
-			switch client {
-			case configuration.ClientClaude, configuration.ClientCodex:
+			switch {
+			case configuration.IsAdmittedClient(client):
 				clients = []string{client}
-			case "all":
+			case client == "all":
 				if profileName != "" {
 					return fmt.Errorf("--profile cannot be used with --for all; run `aigw verify --help`")
 				}
 				clients = configuration.AdmittedClientIDs()
 			default:
-				return fmt.Errorf("--for must be claude, codex, or all; run `aigw verify --help`")
+				return fmt.Errorf("--for must be %s; run `aigw verify --help`", configuration.AdmittedClientUsage("all"))
 			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {
@@ -77,7 +77,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Verify Claude, Codex, or all clients")
+	cmd.Flags().StringVar(&client, "for", "", "Verify "+configuration.AdmittedClientLabelUsage("all")+" clients")
 	cmd.Flags().StringVar(&profileName, "profile", "", "Verify a specified profile without changing routes")
 	return cmd
 }

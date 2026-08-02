@@ -19,6 +19,22 @@ func TestCurrentReflectsProcessPlatformAndPath(t *testing.T) {
 	}
 }
 
+func TestResultIndexesExecutablesByAdmittedClient(t *testing.T) {
+	result := discovery.Result{Executables: map[string]string{
+		"claude": "/portable/claude",
+		"codex":  "/portable/codex",
+	}}
+	if got := result.Executable("claude"); got != "/portable/claude" {
+		t.Fatalf("Claude executable = %q", got)
+	}
+	if got := result.Executable("codex"); got != "/portable/codex" {
+		t.Fatalf("Codex executable = %q", got)
+	}
+	if got := result.Executable("unknown"); got != "" {
+		t.Fatalf("unknown executable = %q", got)
+	}
+}
+
 func TestResultRejectsUnknownSurfacePaths(t *testing.T) {
 	result := discovery.Result{Surfaces: []discovery.Surface{{ID: "known", ConfigPath: "/known/config", Executable: "/known/executable"}}}
 	if surface, ok := result.Surface("unknown"); ok {

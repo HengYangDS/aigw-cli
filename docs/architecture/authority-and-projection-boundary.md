@@ -20,7 +20,7 @@ Client runtime -> sessions, model selection, transcripts, and lifecycle
 | Codex Home shared by CLI and Desktop | AIGW projection | Manage the marked provider/model block, sidecar, and native credential binding. |
 | Codex Desktop-only GUI settings | Codex Desktop | Never discover, diagnose, project, repair, or control them. |
 | Existing Codex conversation | Client runtime | Never edit its model, transcript, JSONL, SQLite, or metadata. |
-| IDE or other client integration | Owning client | Never discover, diagnose, repair, or control it. |
+| Foreign application or integration | Owning product | No AIGW dependency, discovery, configuration, verification, repair, or control. |
 | Responses compatibility service | Service operator | Treat it as an ordinary HTTP endpoint; never install or manage it. |
 
 AIGW neither imports nor manages a Responses compatibility service, and such a
@@ -31,8 +31,9 @@ request-path dependency, not lifecycle or ownership coupling.
 Claude Code and Codex are the current admitted clients. Setup projects only a
 client whose required executable and configuration surface are discoverable;
 absence is not an error and does not authorize AIGW to create or mutate that
-client's state. Hermes and any future client require an independent Adapter
-admission rather than reuse of Claude or Codex configuration.
+client's state. Hermes and other future agents that support third-party LLM
+APIs require an independent Adapter admission; this release neither implements
+nor accepts them.
 
 ## Source topology
 
@@ -75,5 +76,9 @@ does not grant AIGW authority over conversations or Desktop-only GUI settings.
 
 A loopback endpoint is reported as an external compatibility layer. AIGW does
 not reveal the port, infer a proxy product, or claim transport ownership.
+The governed deployment for this release explicitly selects Codex Responses
+Proxy endpoints for Codex routes to UCloud, DMXAPI, and AIHubMix. That declared
+deployment topology is runtime acceptance scope, while endpoint discovery in
+the reusable AIGW product remains product-, path-, and port-neutral.
 Availability, service configuration, health diagnosis, watchdogs, deployment,
 and rollback remain the service operator's responsibility.

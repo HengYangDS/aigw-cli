@@ -53,42 +53,6 @@ func TestExampleConfigurationManifestIsProviderNeutralVersionThree(t *testing.T)
 	}
 }
 
-func TestCodexResponsesStorageRequirementRoundTripsThroughConfigurationManifest(t *testing.T) {
-	raw := []byte(`version = 3
-recommended_default = "team-codex"
-
-[accounts.team]
-label = "Team"
-codex_responses_storage = "required"
-
-[accounts.team.endpoints]
-openai_responses = "https://team.test/v1"
-
-[profiles.team-codex]
-label = "Team Codex"
-account = "team"
-client = "codex"
-
-[profiles.team-codex.models]
-codex = "gpt-test"
-`)
-	team, err := Parse(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := Merge(NewConfig(), team)
-	if err != nil {
-		t.Fatal(err)
-	}
-	exported, err := Export(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(exported), `codex_responses_storage = 'required'`) {
-		t.Fatalf("exported manifest lost Codex Responses storage requirement:\n%s", exported)
-	}
-}
-
 func TestRecommendedRoutesAreValidatedExportedAndDoNotOverridePersonalChoices(t *testing.T) {
 	raw := []byte(`version = 3
 recommended_default = "team-codex"
@@ -149,6 +113,40 @@ codex = "gpt-test"
 	}
 	if exportedTeam.RecommendedRoutes[ClientClaude] != "personal-claude" || exportedTeam.RecommendedRoutes[ClientCodex] != "team-codex" {
 		t.Fatalf("exported routes = %#v", exportedTeam.RecommendedRoutes)
+	}
+}
+
+func TestManifestAdmissionIsDerivedFromClientRegistry(t *testing.T) {
+	previous := admittedClientSpecs
+	admittedClientSpecs = append(AdmittedClientSpecs(), ClientSpec{
+		ID:               "synthetic",
+		Label:            "Synthetic",
+		EndpointProtocol: ProtocolOpenAIResponses,
+	})
+	defer func() { admittedClientSpecs = previous }()
+
+	manifest, err := Parse([]byte(`version = 3
+recommended_default = "synthetic-default"
+[recommended_routes]
+synthetic = "synthetic-default"
+
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+openai_responses = "https://team.test/v1"
+
+[profiles.synthetic-default]
+label = "Synthetic Default"
+account = "team"
+client = "synthetic"
+[profiles.synthetic-default.models]
+synthetic = "synthetic-model"
+`))
+	if err != nil {
+		t.Fatalf("registry-admitted client was rejected: %v", err)
+	}
+	if manifest.RecommendedRoutes["synthetic"] != "synthetic-default" {
+		t.Fatalf("recommended routes = %#v", manifest.RecommendedRoutes)
 	}
 }
 

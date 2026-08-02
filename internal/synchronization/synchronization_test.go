@@ -93,14 +93,6 @@ func TestProjectionChangedForPersistentCodexSemantics(t *testing.T) {
 		t.Fatal("adapter removal must change the projection")
 	}
 
-	storage := before.Clone()
-	account := storage.Accounts["gateway"]
-	account.CodexResponsesStorage = configuration.CodexResponsesStorageRequired
-	storage.Accounts["gateway"] = account
-	if !ProjectionChanged(before, storage) {
-		t.Fatal("Responses storage policy must change the projection")
-	}
-
 	purpose := before.Clone()
 	profile := purpose.Profiles["gpt"]
 	profile.Purpose = "display only"

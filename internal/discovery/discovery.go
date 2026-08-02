@@ -3,6 +3,7 @@
 package discovery
 
 import (
+	configuration "aigw-cli/internal/configuration"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,10 +13,14 @@ import (
 const claudeLauncherMarker = "AIGW managed Claude launcher"
 
 type Result struct {
-	ClaudeExecutable string
-	CodexExecutable  string
-	Surfaces         []Surface
+	Executables map[string]string
+	Surfaces    []Surface
 }
+
+// Executable returns the discovered real executable for one admitted client.
+// The result is keyed by stable client ID so generic workflows do not require
+// a new field or switch when an adapter is admitted.
+func (r Result) Executable(client string) string { return r.Executables[client] }
 
 type Discoverer interface{ Discover() Result }
 
@@ -32,9 +37,11 @@ func Current() System {
 
 func (s System) Discover() Result {
 	result := Result{
-		ClaudeExecutable: s.find("claude", true),
-		CodexExecutable:  s.find("codex", false),
-		Surfaces:         s.discoverSurfaces(),
+		Executables: map[string]string{
+			configuration.ClientClaude: s.find(configuration.ClientClaude, true),
+			configuration.ClientCodex:  s.find(configuration.ClientCodex, false),
+		},
+		Surfaces: s.discoverSurfaces(),
 	}
 	return result
 }

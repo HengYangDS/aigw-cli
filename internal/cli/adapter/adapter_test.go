@@ -104,7 +104,7 @@ func TestDiscoverReportsFoundAndMissingExecutables(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime, out, _, _ := adapterRuntime(t, adapterConfig())
-	runtime.Discovery = adapterDiscovery{result: discovery.Result{ClaudeExecutable: claudePath}}
+	runtime.Discovery = adapterDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: claudePath}}}
 
 	if err := executeAdapter(t, runtime, "discover"); err != nil {
 		t.Fatal(err)

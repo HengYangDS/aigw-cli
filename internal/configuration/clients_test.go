@@ -41,3 +41,44 @@ func TestProfileModelsUseAdmittedClientIDsAsKeys(t *testing.T) {
 		t.Fatalf("models = %#v", profile.Models)
 	}
 }
+
+func TestClientSpecResolvesItsDeclaredEndpoint(t *testing.T) {
+	account := Account{ID: "team", Endpoints: Endpoints{
+		Anthropic:       "https://anthropic.example/v1/",
+		OpenAIResponses: "https://responses.example/v1/",
+	}}
+	tests := []struct {
+		client string
+		want   string
+	}{
+		{client: ClientClaude, want: "https://anthropic.example/v1"},
+		{client: ClientCodex, want: "https://responses.example/v1"},
+	}
+	for _, test := range tests {
+		t.Run(test.client, func(t *testing.T) {
+			spec, ok := ClientSpecFor(test.client)
+			if !ok {
+				t.Fatalf("missing client spec %q", test.client)
+			}
+			got, err := spec.Endpoint(account)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != test.want {
+				t.Fatalf("endpoint = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestAdmittedClientUsageIsDerivedFromRegistry(t *testing.T) {
+	if got := AdmittedClientUsage(); got != "claude or codex" {
+		t.Fatalf("usage = %q", got)
+	}
+	if got := AdmittedClientUsage("all"); got != "claude, codex, or all" {
+		t.Fatalf("usage with extra choice = %q", got)
+	}
+	if got := AdmittedClientLabelUsage("all"); got != "Claude, Codex, or all" {
+		t.Fatalf("label usage = %q", got)
+	}
+}
