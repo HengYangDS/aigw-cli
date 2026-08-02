@@ -697,14 +697,14 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 	t.Run("endpoint missing", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		writeExtraCodexFile(t, path, "external = true\n")
-		if _, err := PlanReconciliation(nil, []TargetRef{standaloneCodexTarget(path)}, configuration.Runtime{ProfileID: "missing-endpoint"}); err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
+		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, configuration.Runtime{ProfileID: "missing-endpoint"}); err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
 			t.Fatalf("PlanReconciliation() error = %v", err)
 		}
 	})
 
 	t.Run("config missing", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "missing.toml")
-		if _, err := PlanReconciliation(nil, []TargetRef{standaloneCodexTarget(path)}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "config does not exist") || !strings.Contains(err.Error(), "prepare Codex target") {
+		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "config does not exist") || !strings.Contains(err.Error(), "prepare Codex target") {
 			t.Fatalf("PlanReconciliation() error = %v", err)
 		}
 	})
@@ -715,7 +715,7 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 		if err := os.Mkdir(codexStatePath(path), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := PlanReconciliation(nil, []TargetRef{standaloneCodexTarget(path)}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "prepare Codex target") {
+		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "prepare Codex target") {
 			t.Fatalf("PlanReconciliation() error = %v", err)
 		}
 	})
@@ -732,7 +732,7 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 	t.Run("invalid desired authority", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		writeExtraCodexFile(t, path, "external = true\n")
-		target := standaloneCodexTarget(path)
+		target := codexHomeTarget(path)
 		target.Authority = "foreign"
 		if _, err := PlanReconciliation(nil, []TargetRef{target}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "cannot use authority") {
 			t.Fatalf("PlanReconciliation() error = %v", err)
@@ -744,7 +744,7 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 		if err := os.Symlink(path, path); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := normalizeCodexTargets([]TargetRef{standaloneCodexTarget(path)}); err == nil || !strings.Contains(err.Error(), "resolve Codex target symlinks") {
+		if _, err := normalizeCodexTargets([]TargetRef{codexHomeTarget(path)}); err == nil || !strings.Contains(err.Error(), "resolve Codex target symlinks") {
 			t.Fatalf("normalizeCodexTargets() error = %v", err)
 		}
 	})

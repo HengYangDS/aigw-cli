@@ -28,10 +28,10 @@ func TestReadHiddenTokenRejectsNonConsoleStdinOnWindows(t *testing.T) {
 
 	var prompt bytes.Buffer
 	_, err = ReadHiddenToken(&prompt, false)
-	if err == nil || !strings.Contains(err.Error(), "read hidden token") {
-		t.Fatalf("readToken error = %v, want non-console input diagnostic", err)
+	if err == nil || !strings.Contains(err.Error(), "interactive terminal") {
+		t.Fatalf("readToken error = %v, want interactive-terminal diagnostic", err)
 	}
-	if got := prompt.String(); got != "Token: \n" {
-		t.Fatalf("token prompt = %q, want %q", got, "Token: \n")
+	if got := prompt.String(); got != "" {
+		t.Fatalf("non-console input unexpectedly emitted a prompt: %q", got)
 	}
 }

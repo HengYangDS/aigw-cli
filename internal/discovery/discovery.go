@@ -1,4 +1,4 @@
-// Package discovery classifies installed client executables and host surfaces
+// Package discovery classifies installed client executables and Codex homes
 // without adopting or mutating them.
 package discovery
 

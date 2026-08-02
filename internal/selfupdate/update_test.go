@@ -24,9 +24,38 @@ import (
 const testReleaseProject = "example-group/example-project"
 
 func TestMain(m *testing.M) {
-	_ = os.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "https://gitlab.example.test")
-	_ = os.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", testReleaseProject)
-	os.Exit(m.Run())
+	isolated, err := os.MkdirTemp("", "aigw-selfupdate-test-")
+	if err != nil {
+		panic(err)
+	}
+
+	values := map[string]string{
+		"AIGW_GITLAB_RELEASE_ORIGIN":     "https://gitlab.example.test",
+		"AIGW_GITLAB_RELEASE_REPOSITORY": testReleaseProject,
+		"AIGW_GITHUB_RELEASE_ORIGIN":     "",
+		"AIGW_GITHUB_RELEASE_REPOSITORY": "",
+		"AIGW_GITHUB_TOKEN":              "",
+		"GITHUB_TOKEN":                   "",
+		"GH_TOKEN":                       "",
+		"GITLAB_TOKEN":                   "",
+		"GL_HOST":                        "",
+		"GL_CONFIG_DIR":                  filepath.Join(isolated, "glab"),
+		"XDG_CONFIG_HOME":                filepath.Join(isolated, "config"),
+		"HOME":                           filepath.Join(isolated, "home"),
+	}
+	for _, directory := range []string{values["GL_CONFIG_DIR"], values["XDG_CONFIG_HOME"], values["HOME"]} {
+		if err := os.MkdirAll(directory, 0o700); err != nil {
+			panic(err)
+		}
+	}
+	for name, value := range values {
+		if err := os.Setenv(name, value); err != nil {
+			panic(err)
+		}
+	}
+	code := m.Run()
+	_ = os.RemoveAll(isolated)
+	os.Exit(code)
 }
 
 type fakeRunner struct {

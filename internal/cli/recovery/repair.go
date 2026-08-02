@@ -131,7 +131,7 @@ func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, afte
 		preview.ConfigurationAction = "update"
 	}
 	for _, plan := range plans {
-		surfaceID := "codex-cli-explicit"
+		surfaceID := "codex-home-explicit"
 		if surface, ok := discovered.SurfaceForConfigPath(plan.Target); ok {
 			surfaceID = surface.ID
 		}
@@ -167,13 +167,13 @@ func repairCodexTargets(discovered discovery.Result, current []string) []string 
 	}
 	for _, path := range current {
 		if surface, ok := discovered.SurfaceForConfigPath(path); ok {
-			if surface.ID == string(surfaceidentity.CodexCLIStandalone) {
+			if surface.ID == string(surfaceidentity.CodexHomeDefault) {
 				appendTarget(path)
 			}
 			continue
 		}
 		// An unknown existing target was explicitly configured by the user. It
-		// remains an explicit AIGW-owned standalone candidate.
+		// remains an explicit AIGW-owned Codex Home candidate.
 		appendTarget(path)
 	}
 	return targets

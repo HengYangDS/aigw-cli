@@ -15,7 +15,7 @@ func TestCommandBoundaryTargetAndNamingBranches(t *testing.T) {
 	executable := filepath.Join(t.TempDir(), "codex")
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
 	discovered := discovery.Result{Surfaces: []discovery.Surface{
-		{ID: string(surfaceidentity.CodexCLIStandalone), Executable: executable},
+		{ID: string(surfaceidentity.CodexHomeDefault), Executable: executable},
 		{ID: "future-surface", ConfigPath: configPath},
 	}}
 	if err := adapter.ValidateCodexTarget(discovered, executable); err == nil || !strings.Contains(err.Error(), "executable") {

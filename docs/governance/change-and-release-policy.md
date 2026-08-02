@@ -97,6 +97,12 @@ credential. A scheduled native source job is never an allowed failure.
 
 ## Reproducible release inputs
 
+A release candidate advances to the current stable supported Go compiler, Go
+module graph, and CI Actions before it is frozen. `go.mod` owns the exact Go
+inputs and `.config/ci/verify-gates.toml` owns immutable Action revisions;
+reproducibility repeats those selected versions and is not a reason to preserve
+obsolete versions.
+
 Every formal release matrix has one source-neutral `SOURCE_DATE_EPOCH`: UTC
 midnight of the committed `CHANGELOG.md` heading for that exact version. The
 package entrypoint rejects a missing or invalid epoch. It normalizes portable
@@ -146,11 +152,20 @@ tag change is a provenance failure; it is not an impossible state.
 Every commit reachable from a published branch tip uses its Forge's explicit
 publication actor and trust input. Verification walks the complete reachable
 graph; a floor, `.mailmap`, or clean suffix cannot conceal invalid provenance.
+GitHub-hosted jobs receive allowed-signers content from protected repository
+variables, write it with restrictive permissions to a runner-temporary file,
+and pass only that file path to verification. GitLab supplies the equivalent
+input as a protected file variable. Neither workflow stores trust material in
+the checkout or logs its contents.
 If a maintainer explicitly authorizes repair of an already published identity
 violation, reconstruct each Forge-specific history in isolated object storage
 and replace every affected branch, signed tag, release record, and integrity
 receipt together. The repair remains incomplete while either Forge still
 exposes invalid or mixed history.
+
+Architecture policy paths use one repository-relative grammar on every runner.
+POSIX roots, Windows drive, UNC or device roots, backslashes, empty segments,
+dot segments, and parent traversal are rejected independently of the host OS.
 
 Run `sh scripts/forge/lib/project-github-forge.sh` from a clean canonical checkout
 to project a selected branch into the GitHub identity domain. It verifies every
