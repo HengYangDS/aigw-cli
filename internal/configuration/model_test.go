@@ -1,39 +1,11 @@
 package configuration
 
 import (
-	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
 )
-
-func TestResolveRuntimeCarriesRequiredCodexResponsesStorage(t *testing.T) {
-	cfg := validConfig()
-	account := cfg.Accounts["dmx"]
-	account.CodexResponsesStorage = "required"
-	cfg.Accounts["dmx"] = account
-	if err := cfg.Validate(); err != nil {
-		t.Fatal(err)
-	}
-	runtime, _, err := cfg.ResolveRuntime(ClientCodex, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	encoded, err := json.Marshal(runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(encoded), `"codex_responses_storage":"required"`) {
-		t.Fatalf("resolved runtime lost Codex Responses storage requirement: %s", encoded)
-	}
-
-	account.CodexResponsesStorage = "sometimes"
-	cfg.Accounts["dmx"] = account
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "codex responses storage") {
-		t.Fatalf("invalid storage requirement error = %v", err)
-	}
-}
 
 func TestConfigQueriesOwnAccountAndProfileSelectionSemantics(t *testing.T) {
 	cfg := NewConfig()

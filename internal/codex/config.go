@@ -253,12 +253,6 @@ func projectCodex(original, block, model string) string {
 
 func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 	name := "AIGW: " + runtime.ProfileLabel
-	if runtime.CodexResponsesStorage == configuration.CodexResponsesStorageRequired {
-		// Codex 0.146 only enables Responses item persistence through its
-		// built-in Azure provider identity. Keep that client-specific mapping
-		// here while the Account retains the truthful provider label.
-		name = "azure"
-	}
 	name = strings.ReplaceAll(name, `"`, `'`)
 	return "[model_providers.aigw]\n" +
 		fmt.Sprintf("name = \"%s\"\n", name) +

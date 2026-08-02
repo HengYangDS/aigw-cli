@@ -166,7 +166,7 @@ func TestRepairRestoresClaudeLauncherWithoutReplacingConfiguredExecutable(t *tes
 	shimDir := t.TempDir()
 	app.ClaudeLauncher.BinDir = shimDir
 	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
-	app.Discovery = fakeDiscovery{result: discovery.Result{ClaudeExecutable: "/different/claude"}}
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/different/claude"}}}
 
 	if err := execute(t, app, "repair"); err != nil {
 		t.Fatal(err)

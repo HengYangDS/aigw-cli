@@ -1,6 +1,6 @@
 [claim]
 id = "product-convergence-20260731"
-change_id = "forge-provenance-ci-closeout"
+change_id = "terminal-product-convergence"
 subject = "aigw-cli:product-control-plane"
 state = "active"
 summary = "Local candidate evidence binds the provider-control-plane boundary, deterministic verification, whole-history provenance mechanism, portable hosted trust projection, host-independent policy paths, semantic ownership, quiet failure output, and measured quality floor."
@@ -28,7 +28,7 @@ owner = "aigw-cli"
 scope = "Local source, governance, and candidate-gate observations only; hosted CI, publication, installation, runtime, and session continuity remain external."
 
 [carriers]
-openspec = "openspec/changes/forge-provenance-ci-closeout"
+openspec = "openspec/changes/terminal-product-convergence"
 fallback = "Keep the accepted AIGW version and its external endpoint composition until this candidate completes exact-HEAD proof and hosted verification."
 kill_signal = "AIGW again owns traffic, gateway lifecycle, IDE or session state, personal publication identity, or parallel source authorities."
 
