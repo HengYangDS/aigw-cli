@@ -8,7 +8,7 @@ func TestStableIdentities(t *testing.T) {
 		got  string
 		want string
 	}{
-		{name: "standalone Codex CLI", got: string(CodexCLIStandalone), want: "codex-cli-standalone"},
+		{name: "default Codex Home", got: string(CodexHomeDefault), want: "codex-home-default"},
 		{name: "AIGW authority", got: string(AuthorityAIGW), want: "aigw"},
 	}
 	for _, tt := range tests {
@@ -20,22 +20,22 @@ func TestStableIdentities(t *testing.T) {
 	}
 }
 
-func TestIDClassifiesCodexCLISurfaces(t *testing.T) {
+func TestIDClassifiesCodexHomes(t *testing.T) {
 	tests := []struct {
 		name string
 		id   ID
 		want bool
 	}{
-		{name: "standalone", id: CodexCLIStandalone, want: true},
-		{name: "explicit", id: CodexCLIExplicit("0123456789ab"), want: true},
-		{name: "legacy empty explicit identifier", id: CodexCLIExplicit(""), want: true},
-		{name: "embedded prefix", id: ID("other-codex-cli-explicit-0123456789ab"), want: false},
+		{name: "default", id: CodexHomeDefault, want: true},
+		{name: "explicit", id: CodexHomeExplicit("0123456789ab"), want: true},
+		{name: "legacy empty explicit identifier", id: CodexHomeExplicit(""), want: true},
+		{name: "embedded prefix", id: ID("other-codex-home-explicit-0123456789ab"), want: false},
 		{name: "empty", id: ID(""), want: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.id.IsCodexCLI(); got != tt.want {
-				t.Fatalf("IsCodexCLI() = %v, want %v", got, tt.want)
+			if got := tt.id.IsCodexHome(); got != tt.want {
+				t.Fatalf("IsCodexHome() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -48,8 +48,8 @@ func TestIDAuthority(t *testing.T) {
 		authority Authority
 		known     bool
 	}{
-		{name: "standalone", id: CodexCLIStandalone, authority: AuthorityAIGW, known: true},
-		{name: "explicit", id: CodexCLIExplicit("0123456789ab"), authority: AuthorityAIGW, known: true},
+		{name: "default", id: CodexHomeDefault, authority: AuthorityAIGW, known: true},
+		{name: "explicit", id: CodexHomeExplicit("0123456789ab"), authority: AuthorityAIGW, known: true},
 		{name: "unknown", id: ID("unknown"), known: false},
 	}
 	for _, tt := range tests {

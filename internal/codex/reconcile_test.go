@@ -14,9 +14,9 @@ import (
 	"aigw-cli/internal/transaction"
 )
 
-func standaloneCodexTarget(path string) TargetRef {
+func codexHomeTarget(path string) TargetRef {
 	return TargetRef{
-		SurfaceID:      string(surface.CodexCLIStandalone),
+		SurfaceID:      string(surface.CodexHomeDefault),
 		Authority:      string(surface.AuthorityAIGW),
 		ProjectionMode: ProjectionFullSelection,
 		Path:           path,
@@ -29,7 +29,7 @@ func TestReconcileConfigsRestoresRemovedFullSelectionTarget(t *testing.T) {
 	if err := os.WriteFile(path, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	target := standaloneCodexTarget(path)
+	target := codexHomeTarget(path)
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime()); err != nil {
 		t.Fatal(err)
 	}
@@ -75,8 +75,8 @@ func TestReconcileConfigsRollsBackMixedRestoreAndAdd(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	before := []TargetRef{standaloneCodexTarget(restoredPath)}
-	after := []TargetRef{standaloneCodexTarget(addedPath)}
+	before := []TargetRef{codexHomeTarget(restoredPath)}
+	after := []TargetRef{codexHomeTarget(addedPath)}
 	if _, err := ReconcileConfigs(nil, before, atomicTestRuntime()); err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestReconcileConfigsRejectsChangedPreimageWithoutOverwrite(t *testing.T) {
 		}
 		return originalWrite(path, expected, data, mode)
 	}
-	_, err := ReconcileConfigs(nil, []TargetRef{standaloneCodexTarget(path)}, atomicTestRuntime())
+	_, err := ReconcileConfigs(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime())
 	if err == nil || !strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("ReconcileConfigs() error = %v, want preimage changed", err)
 	}
@@ -169,7 +169,7 @@ func TestReconcileConfigsAdoptsOnlyCompleteAIGWSidecarAttribution(t *testing.T) 
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	target := standaloneCodexTarget(path)
+	target := codexHomeTarget(path)
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime()); err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +282,7 @@ func TestReconcileConfigsUsesLegacySidecarBesideSymlinkTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := ReconcileConfigs(nil, []TargetRef{standaloneCodexTarget(aliasPath)}, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{codexHomeTarget(aliasPath)}, runtime); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(realPath)

@@ -103,8 +103,8 @@ func TestDiscoverReportsFoundAndMissingExecutables(t *testing.T) {
 	if err := os.WriteFile(claudePath, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("PATH", bin)
 	runtime, out, _, _ := adapterRuntime(t, adapterConfig())
+	runtime.Discovery = adapterDiscovery{result: discovery.Result{ClaudeExecutable: claudePath}}
 
 	if err := executeAdapter(t, runtime, "discover"); err != nil {
 		t.Fatal(err)
@@ -112,6 +112,14 @@ func TestDiscoverReportsFoundAndMissingExecutables(t *testing.T) {
 	text := out.String()
 	if !strings.Contains(text, claudePath) || !strings.Contains(text, "Codex") || !strings.Contains(text, "Not found") {
 		t.Fatalf("discover output = %q", text)
+	}
+}
+
+func TestDiscoverFailsWhenDiscoveryIsUnavailable(t *testing.T) {
+	runtime, _, _, _ := adapterRuntime(t, adapterConfig())
+	runtime.Discovery = nil
+	if err := executeAdapter(t, runtime, "discover"); err == nil || !strings.Contains(err.Error(), "discovery is unavailable") {
+		t.Fatalf("discover error = %v", err)
 	}
 }
 
@@ -201,7 +209,7 @@ func TestEnableCodexValidatesTargetsAndPersistsProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
-		ID:         string(surfaceidentity.CodexCLIStandalone),
+		ID:         string(surfaceidentity.CodexHomeDefault),
 		Authority:  string(surfaceidentity.AuthorityAIGW),
 		ConfigPath: target,
 		Present:    true,
@@ -244,7 +252,7 @@ func TestEnableCodexRejectsUnsafeTargetsAndUnavailableDiscovery(t *testing.T) {
 	}
 
 	executable := filepath.Join(t.TempDir(), "codex")
-	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexCLIStandalone), Executable: executable}}}}
+	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), Executable: executable}}}}
 	err = executeAdapter(t, runtime, "enable", configuration.ClientCodex, "--executable", "/opt/codex", "--target", executable)
 	if err == nil || !strings.Contains(err.Error(), "executable") {
 		t.Fatalf("executable target error = %v", err)
@@ -394,7 +402,7 @@ func TestDisableCodexRestoresProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
-		ID: string(surfaceidentity.CodexCLIStandalone), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target,
+		ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target,
 	}}}}
 	if err := executeAdapter(t, runtime, "enable", configuration.ClientCodex, "--executable", "/opt/codex", "--target", target); err != nil {
 		t.Fatal(err)
@@ -412,12 +420,12 @@ func TestDisableCodexRestoresProjection(t *testing.T) {
 }
 
 func TestCodexTargetValidationAcceptsStandaloneAndUnknownPaths(t *testing.T) {
-	standalone := filepath.Join(t.TempDir(), "configuration.toml")
+	codexHome := filepath.Join(t.TempDir(), "config.toml")
 	discovered := discovery.Result{Surfaces: []discovery.Surface{{
-		ID: string(surfaceidentity.CodexCLIStandalone), ConfigPath: standalone,
+		ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: codexHome,
 	}}}
-	if err := ValidateCodexTarget(discovered, standalone); err != nil {
-		t.Fatalf("standalone target rejected: %v", err)
+	if err := ValidateCodexTarget(discovered, codexHome); err != nil {
+		t.Fatalf("Codex Home target rejected: %v", err)
 	}
 	if err := ValidateCodexTarget(discovered, filepath.Join(t.TempDir(), "explicit.toml")); err != nil {
 		t.Fatalf("explicit target rejected: %v", err)

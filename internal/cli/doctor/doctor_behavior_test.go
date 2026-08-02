@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -300,8 +301,17 @@ func TestLauncherReadFailuresAreDiagnostic(t *testing.T) {
 	}
 
 	launcherPath := filepath.Join(t.TempDir(), "claude")
-	manager = claude.Launcher{GOOS: "darwin", BinDir: filepath.Dir(launcherPath), Home: filepath.Join(t.TempDir(), "missing", "home"), Shell: "/bin/zsh", AIGWExecutable: "/usr/bin/true"}
-	if err := os.WriteFile(launcherPath, []byte("#!/bin/sh\n# AIGW managed Claude launcher\nexec '/usr/bin/true' __run-claude \"$@\"\n"), 0o755); err != nil {
+	target, err := exec.LookPath("go")
+	if err != nil {
+		t.Fatalf("resolve persistent executable fixture: %v", err)
+	}
+	target, err = filepath.Abs(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager = claude.Launcher{GOOS: "darwin", BinDir: filepath.Dir(launcherPath), Home: filepath.Join(t.TempDir(), "missing", "home"), Shell: "/bin/zsh", AIGWExecutable: target}
+	launcher := "#!/bin/sh\n# AIGW managed Claude launcher\nexec '" + target + "' __run-claude \"$@\"\n"
+	if err := os.WriteFile(launcherPath, []byte(launcher), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	checks = claudeLauncherChecks(Dependencies{ClaudeLauncher: manager}, cfg)

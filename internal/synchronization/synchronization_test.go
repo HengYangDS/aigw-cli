@@ -78,7 +78,7 @@ func testConfig(target string) configuration.Config {
 
 func targetDiscovery(target string) staticDiscovery {
 	return staticDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
-		ID: string(surfaceidentity.CodexCLIStandalone), Authority: string(surfaceidentity.AuthorityAIGW),
+		ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
 		ConfigPath: target, Present: true, AutoManaged: true,
 	}}}}
 }

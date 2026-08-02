@@ -122,7 +122,7 @@ func TestSetupFromConfigurationManifestPromptsOnlyForTokensAndKeepsThemSecret(t 
 		ClaudeExecutable: "/opt/claude-real",
 		CodexExecutable:  "/opt/codex-real",
 		Surfaces: []discovery.Surface{{
-			ID:          string(surfaceidentity.CodexCLIStandalone),
+			ID:          string(surfaceidentity.CodexHomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  codexTarget,
 			Present:     true,
@@ -326,7 +326,7 @@ func TestSetupFromConfigurationManifestRefusesMultipleCodexTargetsBeforePromptOr
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		CodexExecutable: "/opt/codex-real",
 		Surfaces: []discovery.Surface{
-			{ID: string(surfaceidentity.CodexCLIStandalone), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: filepath.Join(t.TempDir(), "one", "configuration.toml"), Present: true, AutoManaged: true},
+			{ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: filepath.Join(t.TempDir(), "one", "configuration.toml"), Present: true, AutoManaged: true},
 			{ID: "second-codex", Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: filepath.Join(t.TempDir(), "two", "configuration.toml"), Present: true, AutoManaged: true},
 		},
 	}}
@@ -524,7 +524,7 @@ func TestSetupFromConfigurationManifestClientFailureRollsBackCredentialsConfigAn
 		ClaudeExecutable: "/opt/claude-real",
 		CodexExecutable:  "/opt/codex-real",
 		Surfaces: []discovery.Surface{{
-			ID:          string(surfaceidentity.CodexCLIStandalone),
+			ID:          string(surfaceidentity.CodexHomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  codexTarget,
 			Present:     true,
@@ -586,7 +586,7 @@ func TestSetupFromConfigurationManifestClientFailurePreservesExistingClaudeLaunc
 		ClaudeExecutable: "/opt/claude-real",
 		CodexExecutable:  "/opt/codex-real",
 		Surfaces: []discovery.Surface{{
-			ID:          string(surfaceidentity.CodexCLIStandalone),
+			ID:          string(surfaceidentity.CodexHomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  codexTarget,
 			Present:     true,

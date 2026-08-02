@@ -11,6 +11,10 @@ github_go_version_field = "go-version"
 github_check_latest = false
 github_setup_go_cache = false
 
+[toolchain.github_actions]
+checkout = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
+setup_go = "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
+
 # Commands that must appear on both GitLab verify and GitHub verify source gates.
 [common]
 commands = [

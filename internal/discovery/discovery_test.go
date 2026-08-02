@@ -26,7 +26,7 @@ func TestDiscoverFindsClientsAndAutoManagedCodexTargets(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	target := filepath.Join(home, ".codex", "configuration.toml")
+	target := filepath.Join(home, ".codex", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 		t.Fatal(err)
 	}

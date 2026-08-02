@@ -73,7 +73,7 @@ func TestRepairDiscoversAndEnablesInstalledClients(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{ClaudeExecutable: "/opt/claude", CodexExecutable: "/opt/codex", Surfaces: []discovery.Surface{{
-		ID:          string(surfaceidentity.CodexCLIStandalone),
+		ID:          string(surfaceidentity.CodexHomeDefault),
 		Authority:   string(surfaceidentity.AuthorityAIGW),
 		ConfigPath:  target,
 		Present:     true,

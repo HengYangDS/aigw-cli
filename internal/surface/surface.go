@@ -10,28 +10,28 @@ type ID string
 type Authority string
 
 const (
-	CodexCLIStandalone ID = "codex-cli-standalone"
+	CodexHomeDefault ID = "codex-home-default"
 
 	AuthorityAIGW Authority = "aigw"
 
-	codexCLIExplicitPrefix = "codex-cli-explicit-"
+	codexHomeExplicitPrefix = "codex-home-explicit-"
 )
 
-// CodexCLIExplicit returns the stable identity for an explicitly selected
-// Codex CLI configuration.
-func CodexCLIExplicit(identifier string) ID {
-	return ID(codexCLIExplicitPrefix + identifier)
+// CodexHomeExplicit returns the stable identity for an explicitly selected
+// Codex home.
+func CodexHomeExplicit(identifier string) ID {
+	return ID(codexHomeExplicitPrefix + identifier)
 }
 
-// IsCodexCLI reports whether the identity is a standalone or explicit Codex
-// CLI surface.
-func (id ID) IsCodexCLI() bool {
-	return id == CodexCLIStandalone || strings.HasPrefix(string(id), codexCLIExplicitPrefix)
+// IsCodexHome reports whether the identity is the default or an explicit Codex
+// home shared by Codex CLI and Codex Desktop.
+func (id ID) IsCodexHome() bool {
+	return id == CodexHomeDefault || strings.HasPrefix(string(id), codexHomeExplicitPrefix)
 }
 
 // Authority returns the owner of a known surface identity.
 func (id ID) Authority() (Authority, bool) {
-	if id.IsCodexCLI() {
+	if id.IsCodexHome() {
 		return AuthorityAIGW, true
 	}
 	return "", false
