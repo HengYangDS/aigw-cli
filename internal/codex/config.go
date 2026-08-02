@@ -1,5 +1,6 @@
-// Package codex owns standalone Codex configuration projection, inspection,
-// reconciliation, and native authentication plans. It never owns conversations.
+// Package codex owns Codex Home configuration projection, inspection,
+// reconciliation, and native authentication plans. It never owns conversations
+// or Codex Desktop-only settings.
 package codex
 
 import (
@@ -69,7 +70,7 @@ func SyncConfig(path string, runtime configuration.Runtime) error {
 // writing. It is the dry-run boundary used by the CLI and callers that need
 // evidence before mutation.
 func PlanConfigs(paths []string, runtime configuration.Runtime) ([]ProjectionPlan, error) {
-	return PlanReconciliation(nil, standaloneCodexTargets(paths), runtime)
+	return PlanReconciliation(nil, codexHomeTargets(paths), runtime)
 }
 
 // SyncConfigs is an all-target transaction. It prepares every target
@@ -77,7 +78,7 @@ func PlanConfigs(paths []string, runtime configuration.Runtime) ([]ProjectionPla
 // profile half-synchronized. If any atomic write fails, every configuration and
 // sidecar returns to its byte-exact pre-state, including an absent sidecar.
 func SyncConfigs(paths []string, runtime configuration.Runtime) error {
-	_, err := ReconcileConfigs(nil, standaloneCodexTargets(paths), runtime)
+	_, err := ReconcileConfigs(nil, codexHomeTargets(paths), runtime)
 	return err
 }
 
@@ -140,7 +141,7 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 }
 
 func DisableConfig(path string) error {
-	_, err := ReconcileConfigs(standaloneCodexTargets([]string{path}), nil, configuration.Runtime{})
+	_, err := ReconcileConfigs(codexHomeTargets([]string{path}), nil, configuration.Runtime{})
 	return err
 }
 

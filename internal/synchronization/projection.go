@@ -88,7 +88,7 @@ func codexTargetRefs(discovered discovery.Result, paths []string) ([]codex.Targe
 		}
 		sum := sha256.Sum256([]byte(filepath.Clean(path)))
 		refs = append(refs, codex.TargetRef{
-			SurfaceID:      string(surfaceidentity.CodexCLIExplicit(hex.EncodeToString(sum[:6]))),
+			SurfaceID:      string(surfaceidentity.CodexHomeExplicit(hex.EncodeToString(sum[:6]))),
 			Authority:      string(surfaceidentity.AuthorityAIGW),
 			ProjectionMode: codex.ProjectionFullSelection,
 			Path:           path,

@@ -3,6 +3,7 @@ package cli_test
 import (
 	"aigw-cli/internal/claude"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/discovery"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -65,6 +66,7 @@ func TestAdapterReadAndValidationBranches(t *testing.T) {
 			resolved[name] = path
 		}
 		app, out, _, _ := testApp(t, "")
+		app.Discovery = discovery.System{GOOS: runtime.GOOS, Home: t.TempDir(), Path: dir}
 		if err := execute(t, app, "adapter", "discover"); err != nil {
 			t.Fatal(err)
 		}

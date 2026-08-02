@@ -33,7 +33,11 @@ or a local proxy deployment to make a configuration test pass.
 - Codex Desktop owns the model chosen by each existing conversation and its
   transcripts.
 - AIGW owns marked provider blocks, endpoint selection, credentials, and the
-  atomic projection across configured Codex targets.
+  atomic projection across configured Codex homes shared by CLI and Desktop.
+- AIGW does not own Codex Desktop-only GUI settings.
+- The admitted client set is Claude Code and Codex. Missing clients remain
+  untouched; Hermes and any future client require a separately admitted
+  Adapter rather than reuse of Claude or Codex surfaces.
 - External Responses compatibility services, when explicitly selected by an
   operator, own their transport and lifecycle. AIGW treats them as ordinary
   Account endpoints and must not install, start, stop, reload, or configure

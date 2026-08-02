@@ -5,19 +5,27 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 workflow="$root/.github/workflows/verify.yml"
 
 [ -f "$workflow" ] || { echo "GitHub Actions verification workflow is missing" >&2; exit 1; }
-python3 - "$workflow" "$root/go.mod" <<'PYTHON'
+python3 - "$workflow" "$root/go.mod" "$root/.config/ci/verify-gates.toml" <<'PYTHON'
 from pathlib import Path
 import re
+import tomllib
 import sys
 
 text = Path(sys.argv[1]).read_text(encoding="utf-8")
 go_version = next(line.split()[1] for line in Path(sys.argv[2]).read_text(encoding="utf-8").splitlines() if line.startswith("go "))
+actions = tomllib.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))["toolchain"]["github_actions"]
+checkout_action = actions["checkout"]
+setup_go_action = actions["setup_go"]
+for key, expected_name in (("checkout", "actions/checkout"), ("setup_go", "actions/setup-go")):
+    value = actions[key]
+    if re.fullmatch(rf"{re.escape(expected_name)}@[0-9a-f]{{40}}", value) is None:
+        raise SystemExit(f"GitHub Action {key} must pin {expected_name} by a 40-character commit SHA")
 required = [
     "name: Verify", "push:", "workflow_dispatch:", "branches: [main]", "tags: ['v*']",
     "permissions:\n  contents: read",
     "runs-on: ${{ fromJSON(vars.AIGW_VERIFY_RUNNER) }}",
-    "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
-    "actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491", f'go-version: "{go_version}"', "check-latest: false", "cache: false", f"GOTOOLCHAIN: go{go_version}", "for attempt in 1 2 3; do", "if git fetch --force --tags origin; then", 'sleep "$attempt"', "if: github.ref_type == 'tag'", 'SELECTED_TAG: ${{ github.ref_name }}', 'scripts/checks/forge/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/checks/release/check-release-toolchain.sh",
+    checkout_action,
+    setup_go_action, f'go-version: "{go_version}"', "check-latest: false", "cache: false", f"GOTOOLCHAIN: go{go_version}", "for attempt in 1 2 3; do", "if git fetch --force --tags origin; then", 'sleep "$attempt"', "if: github.ref_type == 'tag'", 'SELECTED_TAG: ${{ github.ref_name }}', 'scripts/checks/forge/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/checks/release/check-release-toolchain.sh",
     "go run ./tools/architecture --root .", "go run ./tools/coveragegate --race", "go vet ./...", "scripts/checks/quality/check-static-analysis.sh", "for script in $(git ls-files 'scripts/*.sh'); do sh -n \"$script\"; done", "scripts/checks/governance/check-product-surface.sh", "scripts/checks/governance/check-governance.sh",
     "scripts/checks/forge/check-commit-provenance.sh . github", "scripts/tests/forge/test-commit-provenance.sh", "scripts/tests/forge/test-replay-history.py", "AIGW_CHANGELOG_RELEASE_TAG:",
     "scripts/checks/governance/check-text-layout.py", "scripts/tests/governance/test-text-layout.sh", "scripts/tests/release/test-release-source-date-epoch.sh",
@@ -28,6 +36,9 @@ required = [
     "scripts/tests/ci/test-pipeline-gates.sh", "scripts/tests/ci/test-github-release-workflow.sh",
     "scripts/tests/forge/test-github-provider-projection.sh", "scripts/tests/forge/test-forge-sync.sh",
     "native-linux:", "runs-on: ubuntu-latest", "native-windows:", "runs-on: windows-latest",
+    "name: Materialize provenance trust input", "AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}",
+    'allowed_signers="$RUNNER_TEMP/aigw-allowed-signers"', 'printf \'%s\\n\' "$AIGW_RELEASE_ALLOWED_SIGNERS" > "$allowed_signers"',
+    'echo "AIGW_GITHUB_ALLOWED_SIGNERS=$allowed_signers" >> "$GITHUB_ENV"',
 ]
 for token in required:
     if token not in text:
@@ -38,13 +49,17 @@ if "runs-on: [self-hosted" in text or "aigw-github-verify-macos-arm64" in text:
     raise SystemExit("GitHub verification hardcodes adopter runner inventory")
 if "AIGW_GOPROXY" in text or "goproxy.cn" in text:
     raise SystemExit("GitHub Actions must not inherit GitLab-specific module proxy policy")
+if "AIGW_GITHUB_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}" in text:
+    raise SystemExit("GitHub Actions must not pass trust content where a checker requires a path")
+if text.count("name: Materialize provenance trust input") != 2:
+    raise SystemExit("GitHub verification must materialize trust input once per provenance job")
 if "pull-requests: write" in text or "contents: write" in text:
     raise SystemExit("verification workflow must use read-only repository permissions")
 if "@main" in text or "@master" in text:
     raise SystemExit("GitHub Actions must use immutable action revisions")
 if "go-version-file:" in text or "check-latest: true" in text:
     raise SystemExit("GitHub Actions verification must not float its Go toolchain")
-setup = text.index("actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491")
+setup = text.index(setup_go_action)
 cache = text.index("cache: false", setup)
 gates = text.index("name: Run source and policy gates")
 if not setup < cache < gates:

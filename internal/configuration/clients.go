@@ -8,9 +8,10 @@ const (
 )
 
 // ClientSpec is the canonical admission record for an implemented client
-// adapter. Adding a candidate model or endpoint never adds a ClientSpec: the
-// adapter must first prove its dedicated configuration, credential, protocol,
-// verification, and rollback boundaries.
+// adapter. The current product admits Claude and Codex for its enterprise use
+// case; this registry is extensible, but a provider or model alone never admits
+// another client. A future adapter must prove its own configuration, credential,
+// protocol, verification, rollback, and uninstall boundaries.
 type ClientSpec struct {
 	ID               string
 	Label            string

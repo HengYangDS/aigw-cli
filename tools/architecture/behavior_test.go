@@ -306,9 +306,8 @@ func TestValidatePolicyEdgeEntries(t *testing.T) {
 	}
 	bad = base
 	bad.GoRoots = []string{"internal/../x"}
-	// relative with .. is allowed by current validator (not abs). OK.
-	if err := validatePolicy(bad); err != nil {
-		t.Fatal(err)
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("parent traversal go root")
 	}
 	bad = base
 	bad.PeerPackageRoots = map[string][]string{"": {"invocation"}}

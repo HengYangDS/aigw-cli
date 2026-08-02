@@ -395,6 +395,13 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 		{name: "empty forbidden", body: strings.Replace(validPolicy, `forbidden_names = ["commands", "shim", "shims", "compat", "compatibility"]`, `forbidden_names = []`, 1), want: "forbidden_names", code: 1},
 		{name: "uppercase forbidden", body: strings.Replace(validPolicy, `"shim"`, `"Launcher"`, 1), want: "forbidden_names", code: 1},
 		{name: "abs go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["/tmp/x"]`, 1), want: "go_roots", code: 1},
+		{name: "windows drive go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["C:/tmp/x"]`, 1), want: "go_roots", code: 1},
+		{name: "windows relative drive go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["C:tmp/x"]`, 1), want: "go_roots", code: 1},
+		{name: "unc go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["//server/share"]`, 1), want: "go_roots", code: 1},
+		{name: "parent traversal go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["internal/../cmd"]`, 1), want: "go_roots", code: 1},
+		{name: "absolute scripts root", body: strings.Replace(validPolicy, `scripts_roots = ["scripts"]`, `scripts_roots = ["/scripts"]`, 1), want: "scripts_roots", code: 1},
+		{name: "windows composition root", body: strings.Replace(validPolicy, `composition_root_files = { "internal/cli" = ["app.go"] }`, `composition_root_files = { "C:/internal/cli" = ["app.go"] }`, 1), want: "composition_root_files", code: 1},
+		{name: "parent peer root", body: strings.Replace(validPolicy, `peer_package_roots = { "internal/cli" = ["invocation"] }`, `peer_package_roots = { "internal/../cli" = ["invocation"] }`, 1), want: "peer_package_roots", code: 1},
 		{name: "empty scripts", body: strings.Replace(validPolicy, `scripts_roots = ["scripts"]`, `scripts_roots = []`, 1), want: "scripts_roots", code: 1},
 		{name: "empty platform", body: strings.Replace(validPolicy, `platform_build_suffixes = ["unix", "windows", "darwin", "linux", "posix"]`, `platform_build_suffixes = []`, 1), want: "platform_build_suffixes", code: 1},
 	}

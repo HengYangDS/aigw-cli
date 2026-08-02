@@ -8,6 +8,24 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- Upgrade the Go dependency graph and immutable GitHub Actions revisions to
+  their current stable releases without retaining obsolete versions as
+  compatibility targets.
+
+### Fixed
+
+- Materialize GitHub provenance trust content as a runner-temporary file and
+  validate repository-relative policy paths identically on macOS, Linux, and
+  Windows.
+- Restore the actual `~/.codex/config.toml` projection target and model Codex
+  CLI/Desktop as one shared Codex Home integration without claiming authority
+  over conversations or Desktop-only GUI settings.
+- Make the current client boundary explicit: setup configures only discoverable
+  Claude or Codex integrations, while missing clients remain untouched and
+  Hermes or future clients require independent Adapter admission.
+
 ## [0.1.0-rc.78] - 2026-07-31
 
 ### Changed

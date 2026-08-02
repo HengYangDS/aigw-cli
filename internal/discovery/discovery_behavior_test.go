@@ -61,15 +61,15 @@ func TestResultFindsKnownSurfaceByEachIdentity(t *testing.T) {
 	}
 }
 
-func TestLinuxDiscoveryContainsOnlyStandaloneSurface(t *testing.T) {
+func TestLinuxDiscoveryContainsOnlyDefaultCodexHome(t *testing.T) {
 	home := t.TempDir()
 	result := (discovery.System{GOOS: "linux", Home: home}).Discover()
 	if len(result.Surfaces) != 1 {
 		t.Fatalf("Linux surfaces = %#v", result.Surfaces)
 	}
 	surface := result.Surfaces[0]
-	wantConfig := filepath.Join(home, ".codex", "configuration.toml")
-	if surface.ID != string(surfacepkg.CodexCLIStandalone) || surface.ConfigPath != wantConfig || surface.Present {
-		t.Fatalf("standalone surface = %#v", surface)
+	wantConfig := filepath.Join(home, ".codex", "config.toml")
+	if surface.ID != string(surfacepkg.CodexHomeDefault) || surface.ConfigPath != wantConfig || surface.Present {
+		t.Fatalf("default Codex Home = %#v", surface)
 	}
 }
