@@ -72,7 +72,7 @@ func TestRunRepairReportsDiscoveryAndLauncherFailures(t *testing.T) {
 	}
 	runtime := invocation.Context{
 		Config:         store,
-		Discovery:      staticDiscovery{result: discovery.Result{ClaudeExecutable: "/portable/claude"}},
+		Discovery:      staticDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/portable/claude"}}},
 		ClaudeLauncher: claude.Launcher{GOOS: "linux", BinDir: filepath.Join(blockedParent, "bin"), AIGWExecutable: "/portable/aigw"},
 	}
 	if err := runRepair(context.Background(), runtime, false, false); err == nil {

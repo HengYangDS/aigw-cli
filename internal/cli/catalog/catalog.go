@@ -113,21 +113,19 @@ func modelRows(cfg configuration.Config, modelSets map[string]map[string]bool) [
 	rows := []modelRow{}
 	for _, name := range sortedProfileNames(cfg) {
 		profile := cfg.Profiles[name]
-		for _, item := range []struct{ client, model string }{
-			{configuration.ClientCodex, profile.ModelFor(configuration.ClientCodex)},
-			{configuration.ClientClaude, profile.ModelFor(configuration.ClientClaude)},
-		} {
-			if item.model == "" {
+		for _, spec := range configuration.AdmittedClientSpecs() {
+			model := profile.ModelFor(spec.ID)
+			if model == "" {
 				continue
 			}
 			reach := "Unknown"
 			if set, ok := modelSets[profile.Account]; ok {
 				reach = "Unavailable"
-				if set[item.model] {
+				if set[model] {
 					reach = "Reachable"
 				}
 			}
-			rows = append(rows, modelRow{name, profile.Account, item.client, item.model, reach})
+			rows = append(rows, modelRow{name, profile.Account, spec.ID, model, reach})
 		}
 	}
 	return rows
@@ -169,7 +167,7 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 			}
 			renderCatalogAccount(r, account, all)
 		}
-		r.Next("aigw profile add <profile> --account <account> --for <claude|codex> --model <model>")
+		r.Next("aigw profile add <profile> --account <account> --for <" + strings.Join(configuration.AdmittedClientIDs(), "|") + "> --model <model>")
 		return r.Err()
 	}
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")

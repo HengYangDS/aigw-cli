@@ -127,7 +127,7 @@ func TestSetupRollsBackSecretWhenDiscoveredClientEnablementFails(t *testing.T) {
 	}
 	app.ClaudeLauncher.BinDir = filepath.Join(blocker, "bin")
 	app.ClaudeLauncher.AIGWExecutable = "/bin/aigw"
-	app.Discovery = fakeDiscovery{result: discovery.Result{ClaudeExecutable: "/opt/claude"}}
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}}
 	err := execute(t, app, "setup", "--profile", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--token-stdin")
 	if err == nil {
 		t.Fatal("expected Claude launcher enablement failure")
@@ -141,8 +141,8 @@ func TestSetupRollsBackConfigAndSecretWhenCodexProjectionFails(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "token\n")
 	target := t.TempDir()
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		CodexExecutable: "/opt/codex",
-		Surfaces:        []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
+		Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
+		Surfaces:    []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
 	}}
 	err := execute(t, app, "setup", "--profile", "one", "--for", "codex", "--model", "m", "--openai-url", "https://one.test/v1", "--token-stdin")
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {

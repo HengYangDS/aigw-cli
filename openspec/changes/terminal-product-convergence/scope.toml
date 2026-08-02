@@ -2,6 +2,7 @@ schema_version = 1
 paths = [
   ".config/ci/verify-gates.toml",
   ".github/**",
+  ".gitlab-ci.yml",
   "AGENTS.md",
   "CHANGELOG.md",
   "README.md",

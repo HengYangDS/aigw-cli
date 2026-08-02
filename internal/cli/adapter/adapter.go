@@ -3,7 +3,6 @@ package adapter
 
 import (
 	"fmt"
-	"strings"
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
@@ -54,7 +53,7 @@ func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 		r.ProductTitle("Client discovery")
 		r.Section("Installed clients")
 		for _, spec := range configuration.AdmittedClientSpecs() {
-			path := discoveredClientExecutable(discovered, spec.ID)
+			path := discovered.Executable(spec.ID)
 			if path == "" {
 				r.Status(presentation.Info, spec.Label, "Not found")
 				continue
@@ -65,17 +64,6 @@ func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 	}}
 }
 
-func discoveredClientExecutable(result discovery.Result, client string) string {
-	switch client {
-	case configuration.ClientClaude:
-		return result.ClaudeExecutable
-	case configuration.ClientCodex:
-		return result.CodexExecutable
-	default:
-		return ""
-	}
-}
-
 func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	var executable string
 	var targets []string
@@ -83,7 +71,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		client := args[0]
 		spec, ok := configuration.ClientSpecFor(client)
 		if !ok {
-			return fmt.Errorf("Client must be %s; run `aigw adapter enable --help`", strings.Join(configuration.AdmittedClientIDs(), " or "))
+			return fmt.Errorf("Client must be %s; run `aigw adapter enable --help`", configuration.AdmittedClientUsage())
 		}
 		if executable == "" {
 			return fmt.Errorf("--executable is required; run `aigw adapter discover`")
@@ -172,7 +160,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		client := args[0]
 		spec, ok := configuration.ClientSpecFor(client)
 		if !ok {
-			return fmt.Errorf("Client must be %s; run `aigw adapter disable --help`", strings.Join(configuration.AdmittedClientIDs(), " or "))
+			return fmt.Errorf("Client must be %s; run `aigw adapter disable --help`", configuration.AdmittedClientUsage())
 		}
 		cfg, err := runtime.Config.Load()
 		if err != nil {

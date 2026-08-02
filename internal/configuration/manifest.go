@@ -96,7 +96,7 @@ func Parse(data []byte) (Manifest, error) {
 		}
 	}
 	for client, profile := range result.RecommendedRoutes {
-		if client != ClientClaude && client != ClientCodex {
+		if !IsAdmittedClient(client) {
 			return Manifest{}, fmt.Errorf("recommended route uses unsupported client %q", client)
 		}
 		if _, ok := result.Profiles[profile]; !ok {
@@ -210,7 +210,6 @@ func validateReplacementSelectors(incoming Manifest, options MergeOptions) error
 
 func equivalentAccount(left, right Account) bool {
 	return left.Label == right.Label &&
-		left.CodexResponsesStorage == right.CodexResponsesStorage &&
 		normalizeEndpoint(left.Endpoints.OpenAIResponses) == normalizeEndpoint(right.Endpoints.OpenAIResponses) &&
 		normalizeEndpoint(left.Endpoints.Anthropic) == normalizeEndpoint(right.Endpoints.Anthropic) &&
 		equivalentProbe(left.AccountProbe, right.AccountProbe)

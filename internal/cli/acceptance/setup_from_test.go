@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
@@ -119,8 +120,7 @@ func TestSetupFromConfigurationManifestPromptsOnlyForTokensAndKeepsThemSecret(t 
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		ClaudeExecutable: "/opt/claude-real",
-		CodexExecutable:  "/opt/codex-real",
+		Executables: map[string]string{configuration.ClientClaude: "/opt/claude-real", configuration.ClientCodex: "/opt/codex-real"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(surfaceidentity.CodexHomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -324,7 +324,7 @@ func TestSetupFromConfigurationManifestRefusesMultipleCodexTargetsBeforePromptOr
 	prompt := &manifestSetupPrompt{secrets: []string{"must-not-be-read"}}
 	app.Prompt = prompt
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		CodexExecutable: "/opt/codex-real",
+		Executables: map[string]string{configuration.ClientCodex: "/opt/codex-real"},
 		Surfaces: []discovery.Surface{
 			{ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: filepath.Join(t.TempDir(), "one", "configuration.toml"), Present: true, AutoManaged: true},
 			{ID: "second-codex", Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: filepath.Join(t.TempDir(), "two", "configuration.toml"), Present: true, AutoManaged: true},
@@ -521,8 +521,7 @@ func TestSetupFromConfigurationManifestClientFailureRollsBackCredentialsConfigAn
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		ClaudeExecutable: "/opt/claude-real",
-		CodexExecutable:  "/opt/codex-real",
+		Executables: map[string]string{configuration.ClientClaude: "/opt/claude-real", configuration.ClientCodex: "/opt/codex-real"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(surfaceidentity.CodexHomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -583,8 +582,7 @@ func TestSetupFromConfigurationManifestClientFailurePreservesExistingClaudeLaunc
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		ClaudeExecutable: "/opt/claude-real",
-		CodexExecutable:  "/opt/codex-real",
+		Executables: map[string]string{configuration.ClientClaude: "/opt/claude-real", configuration.ClientCodex: "/opt/codex-real"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(surfaceidentity.CodexHomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),

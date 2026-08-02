@@ -32,6 +32,8 @@ or a local proxy deployment to make a configuration test pass.
 
 - Codex Desktop owns the model chosen by each existing conversation and its
   transcripts.
+- AIGW neither depends on, configures, nor verifies foreign applications or
+  their private runtime state.
 - AIGW owns marked provider blocks, endpoint selection, credentials, and the
   atomic projection across configured Codex homes shared by CLI and Desktop.
 - AIGW does not own Codex Desktop-only GUI settings.
@@ -42,6 +44,10 @@ or a local proxy deployment to make a configuration test pass.
   operator, own their transport and lifecycle. AIGW treats them as ordinary
   Account endpoints and must not install, start, stop, reload, or configure
   them.
+- The governed deployment accepted for this closeout selects Codex Responses
+  Proxy endpoints for Codex traffic to UCloud, DMXAPI, and AIHubMix. This
+  deployment fact does not give AIGW Proxy lifecycle ownership or permit a
+  fixed product name, path, port, or process assumption in source.
 
 ## Analyzer isolation
 

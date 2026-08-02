@@ -35,7 +35,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 				return fmt.Errorf("--account, --for, and --model are required; run `aigw profile add --help`")
 			}
 			if !configuration.IsAdmittedClient(client) {
-				return fmt.Errorf("--for must be claude or codex; run `aigw profile add --help`")
+				return fmt.Errorf("--for must be %s; run `aigw profile add --help`", configuration.AdmittedClientUsage())
 			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {
@@ -74,7 +74,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&accountName, "account", "", "Existing account ID")
-	cmd.Flags().StringVar(&client, "for", "", "Client: claude or codex")
+	cmd.Flags().StringVar(&client, "for", "", "Client: "+configuration.AdmittedClientUsage())
 	cmd.Flags().StringVar(&model, "model", "", "Upstream model ID")
 	cmd.Flags().StringVar(&label, "label", "", "Display name")
 	cmd.Flags().StringVar(&purpose, "purpose", "", "Purpose note (display only)")
@@ -150,11 +150,10 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 				r.Row("Purpose", purpose)
 			}
 			r.Row("Account", accountName)
-			if model := profile.ModelFor(configuration.ClientCodex); model != "" {
-				r.Row("Codex model", model)
-			}
-			if model := profile.ModelFor(configuration.ClientClaude); model != "" {
-				r.Row("Claude model", model)
+			for _, spec := range configuration.AdmittedClientSpecs() {
+				if model := profile.ModelFor(spec.ID); model != "" {
+					r.Row(spec.Label+" model", model)
+				}
 			}
 			if account.Endpoints.OpenAIResponses != "" {
 				r.Row("OpenAI", account.Endpoints.OpenAIResponses)

@@ -78,13 +78,13 @@ func TestDiscoverRequiresAndUsesTheBoundDiscoverer(t *testing.T) {
 		t.Fatal("Discover() error = nil, want unavailable error")
 	}
 
-	want := discovery.Result{CodexExecutable: "/portable/codex"}
+	want := discovery.Result{Executables: map[string]string{configuration.ClientCodex: "/portable/codex"}}
 	got, err := Discover(Context{Discovery: fixedDiscoverer{result: want}})
 	if err != nil {
 		t.Fatalf("Discover() error = %v", err)
 	}
-	if got.CodexExecutable != want.CodexExecutable {
-		t.Fatalf("Discover().CodexExecutable = %q, want %q", got.CodexExecutable, want.CodexExecutable)
+	if got.Executable(configuration.ClientCodex) != want.Executable(configuration.ClientCodex) {
+		t.Fatalf("Discover().Executable(codex) = %q, want %q", got.Executable(configuration.ClientCodex), want.Executable(configuration.ClientCodex))
 	}
 }
 

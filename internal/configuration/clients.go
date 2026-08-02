@@ -1,5 +1,10 @@
 package configuration
 
+import (
+	"fmt"
+	"strings"
+)
+
 type EndpointProtocol string
 
 const (
@@ -35,6 +40,36 @@ func AdmittedClientIDs() []string {
 	return clients
 }
 
+// AdmittedClientUsage renders the stable client choices for CLI help and
+// errors. Extra choices are command-local values such as "all"; admitted
+// client IDs remain owned by this registry.
+func AdmittedClientUsage(extra ...string) string {
+	return naturalChoices(append(AdmittedClientIDs(), extra...))
+}
+
+// AdmittedClientLabelUsage renders presentation labels while preserving
+// command-local extra values such as "all".
+func AdmittedClientLabelUsage(extra ...string) string {
+	labels := make([]string, 0, len(admittedClientSpecs)+len(extra))
+	for _, spec := range admittedClientSpecs {
+		labels = append(labels, spec.Label)
+	}
+	return naturalChoices(append(labels, extra...))
+}
+
+func naturalChoices(choices []string) string {
+	switch len(choices) {
+	case 0:
+		return ""
+	case 1:
+		return choices[0]
+	case 2:
+		return strings.Join(choices, " or ")
+	default:
+		return strings.Join(choices[:len(choices)-1], ", ") + ", or " + choices[len(choices)-1]
+	}
+}
+
 func ClientSpecFor(id string) (ClientSpec, bool) {
 	for _, spec := range admittedClientSpecs {
 		if spec.ID == id {
@@ -47,4 +82,23 @@ func ClientSpecFor(id string) (ClientSpec, bool) {
 func IsAdmittedClient(id string) bool {
 	_, ok := ClientSpecFor(id)
 	return ok
+}
+
+// Endpoint resolves this client's declared protocol endpoint from an Account.
+// Client identity selects protocol only here; provider identity never changes
+// client behavior.
+func (s ClientSpec) Endpoint(account Account) (string, error) {
+	var endpoint string
+	switch s.EndpointProtocol {
+	case ProtocolAnthropic:
+		endpoint = account.Endpoints.Anthropic
+	case ProtocolOpenAIResponses:
+		endpoint = account.Endpoints.OpenAIResponses
+	default:
+		return "", fmt.Errorf("client %q has unsupported endpoint protocol %q", s.ID, s.EndpointProtocol)
+	}
+	if endpoint == "" {
+		return "", &RuntimeMissingEndpointError{AccountID: account.ID, Protocol: s.EndpointProtocol}
+	}
+	return strings.TrimRight(endpoint, "/"), nil
 }
