@@ -5,11 +5,12 @@
 | **Project Name** | `AIGW CLI` |
 | **Stable repository Path** | `aigw-cli` |
 
-AIGW CLI is a local-first, cross-platform control plane for AI provider
-Accounts, system-stored credentials, model Profiles, Routes, and explicit
-Claude/Codex client integration. It is distributed under the [MIT](LICENSE)
-License. It does not run a gateway, listen on a port, relay API traffic, or own
-Codex conversation state.
+AIGW CLI is a local-first, cross-platform control plane for enterprise teams
+using reviewed third-party AI services. It manages provider Accounts,
+system-stored credentials, model Profiles, Routes, and explicit Claude/Codex
+client integration. It is distributed under the [MIT](LICENSE) License. It
+does not run a gateway, listen on a port, relay API traffic, or own Codex
+conversation state.
 
 ## Start with the task
 
@@ -150,7 +151,14 @@ predecessor; native-package rollback belongs to the platform package manager.
   operating-system secret slot.
 - **Profiles**: an admitted `account + client + model` daily choice.
 - **Routes**: default, Claude, and Codex selections.
-- **Adapters**: bounded client integrations for Claude and standalone Codex.
+- **Adapters**: bounded client integrations for Claude and Codex.
+
+The admitted client set is intentionally small: Claude Code and the Codex Home
+shared by Codex CLI and Codex Desktop. Setup configures only an admitted client
+whose required executable and configuration surface are discoverable; a client
+that is not installed remains untouched and is reported as not configured.
+Hermes and other future clients require their own admitted Adapter and are not
+configured by the current release.
 
 Claude receives `ANTHROPIC_AUTH_TOKEN` only in the process launched through the
 AIGW-owned launcher. Codex receives only AIGW-marked configuration and native
@@ -166,17 +174,18 @@ lifecycle.
 
 ### Codex ownership boundary
 
-AIGW projects only to configured standalone Codex homes. Each target is a
-`configuration.toml` path admitted by discovery or explicit operator
-configuration; AIGW marks and reconciles only its own provider/model block and
-sidecar. Generic setup and repair discover the ordinary standalone Codex CLI
-home and preserve explicitly configured standalone homes.
+Codex CLI and Codex Desktop share the Codex Home configuration. AIGW projects
+to configured Codex homes; the default target is `~/.codex/config.toml`, and an
+operator may explicitly configure another Codex Home target. AIGW marks and
+reconciles only its provider/model block and sidecar. It does not create a
+second Desktop adapter or manage Desktop-only GUI settings.
 
-Codex Desktop owns every existing conversation's model, transcript, JSONL,
-SQLite, and runtime metadata. IDE integrations and other clients own their own
-configuration and lifecycle. They are not discovered, diagnosed, repaired, or
-controlled by AIGW. To use an external Responses compatibility service, select
-its HTTP endpoint in an Account; AIGW does not install or manage that service.
+Codex owns every existing conversation's model, transcript, JSONL, SQLite, and
+runtime metadata. IDE integrations and other clients own their own configuration
+and lifecycle. They are not discovered, diagnosed, repaired, or controlled by
+AIGW. To use an external Responses compatibility service, select its HTTP
+endpoint in an Account; AIGW does not install or manage that service.
+
 ## Update sources
 
 A formal package reads its two official update peers from protected release

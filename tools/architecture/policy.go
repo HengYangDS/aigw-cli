@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -67,22 +67,22 @@ func validatePolicy(p policy) error {
 		return fmt.Errorf("go_roots must be non-empty")
 	}
 	for _, root := range p.GoRoots {
-		if strings.TrimSpace(root) == "" || strings.Contains(root, `\`) || filepath.IsAbs(root) {
+		if !isPortableRelativePath(root) {
 			return fmt.Errorf("go_roots entries must be non-empty relative paths")
 		}
 	}
 	for _, root := range p.ScriptsRoots {
-		if strings.TrimSpace(root) == "" || strings.Contains(root, `\`) || filepath.IsAbs(root) {
+		if !isPortableRelativePath(root) {
 			return fmt.Errorf("scripts_roots entries must be non-empty relative paths")
 		}
 	}
 	for root, files := range p.CompositionRootFiles {
-		if strings.TrimSpace(root) == "" || strings.Contains(root, `\`) || filepath.IsAbs(root) || len(files) == 0 {
+		if !isPortableRelativePath(root) || len(files) == 0 {
 			return fmt.Errorf("composition_root_files keys must be relative paths with non-empty file lists")
 		}
 		seen := map[string]bool{}
 		for _, file := range files {
-			if strings.TrimSpace(file) == "" || filepath.Base(file) != file || !strings.HasSuffix(file, ".go") || seen[file] {
+			if strings.TrimSpace(file) == "" || path.Base(file) != file || !strings.HasSuffix(file, ".go") || seen[file] {
 				return fmt.Errorf("composition_root_files values must be unique .go base names")
 			}
 			seen[file] = true
@@ -94,7 +94,7 @@ func validatePolicy(p policy) error {
 		}
 		seen := map[string]bool{}
 		for _, name := range allowed {
-			if strings.TrimSpace(name) == "" || filepath.Base(name) != name || strings.ContainsAny(name, `/\\`) || seen[name] {
+			if strings.TrimSpace(name) == "" || path.Base(name) != name || strings.ContainsAny(name, `/\\`) || seen[name] {
 				return fmt.Errorf("peer_package_roots values must be unique child package names")
 			}
 			seen[name] = true
@@ -142,10 +142,25 @@ func validatePolicy(p policy) error {
 }
 
 func validateRelativeRoot(root, field string) error {
-	if strings.TrimSpace(root) == "" || strings.Contains(root, `\`) || filepath.IsAbs(root) {
+	if !isPortableRelativePath(root) {
 		return fmt.Errorf("%s keys must be non-empty relative paths", field)
 	}
 	return nil
+}
+
+func isPortableRelativePath(value string) bool {
+	if value == "" || value != strings.TrimSpace(value) || strings.Contains(value, `\`) || strings.HasPrefix(value, "/") {
+		return false
+	}
+	if len(value) >= 2 && ((value[0] >= 'a' && value[0] <= 'z') || (value[0] >= 'A' && value[0] <= 'Z')) && value[1] == ':' {
+		return false
+	}
+	for _, element := range strings.Split(value, "/") {
+		if element == "" || element == "." || element == ".." {
+			return false
+		}
+	}
+	return true
 }
 
 func (p policy) platformSuffixSet() map[string]struct{} {

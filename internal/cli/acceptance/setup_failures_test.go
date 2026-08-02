@@ -142,7 +142,7 @@ func TestSetupRollsBackConfigAndSecretWhenCodexProjectionFails(t *testing.T) {
 	target := t.TempDir()
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		CodexExecutable: "/opt/codex",
-		Surfaces:        []discovery.Surface{{ID: string(surfaceidentity.CodexCLIStandalone), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
+		Surfaces:        []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
 	}}
 	err := execute(t, app, "setup", "--profile", "one", "--for", "codex", "--model", "m", "--openai-url", "https://one.test/v1", "--token-stdin")
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {

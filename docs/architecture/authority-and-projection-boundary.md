@@ -10,14 +10,15 @@ client lifecycle.
 AIGW configuration
   Account -> selected endpoint -> external service
   Route   -> Claude -> process-only environment
-          -> Codex  -> admitted target -> guarded projection -> compensation
+          -> Codex  -> admitted home -> guarded projection -> compensation
 Client runtime -> sessions, model selection, transcripts, and lifecycle
 ```
 
 | Surface | Authority | AIGW contract |
 | --- | --- | --- |
 | Standalone Claude Code | AIGW-owned launcher | Inject the selected Account Token only into the launched process. |
-| Standalone Codex home | AIGW projection | Manage the marked provider/model block, sidecar, and native credential binding. |
+| Codex Home shared by CLI and Desktop | AIGW projection | Manage the marked provider/model block, sidecar, and native credential binding. |
+| Codex Desktop-only GUI settings | Codex Desktop | Never discover, diagnose, project, repair, or control them. |
 | Existing Codex conversation | Client runtime | Never edit its model, transcript, JSONL, SQLite, or metadata. |
 | IDE or other client integration | Owning client | Never discover, diagnose, repair, or control it. |
 | Responses compatibility service | Service operator | Treat it as an ordinary HTTP endpoint; never install or manage it. |
@@ -26,6 +27,12 @@ AIGW neither imports nor manages a Responses compatibility service, and such a
 service needs no AIGW installation. The products compose only when an operator
 selects the service's HTTP endpoint for an Account; that creates an ordinary
 request-path dependency, not lifecycle or ownership coupling.
+
+Claude Code and Codex are the current admitted clients. Setup projects only a
+client whose required executable and configuration surface are discoverable;
+absence is not an error and does not authorize AIGW to create or mutate that
+client's state. Hermes and any future client require an independent Adapter
+admission rather than reuse of Claude or Codex configuration.
 
 ## Source topology
 
@@ -39,14 +46,14 @@ The physical packages follow the behavior they own:
 | `internal/credential` | Provider-neutral endpoint authentication validation. |
 | `internal/providers` | Explicitly bundled provider-native diagnostics. |
 | `internal/claude` | Claude process plans and the AIGW-owned launcher. |
-| `internal/codex` | Standalone Codex projection planning, inspection, reconciliation, and native login plans. |
+| `internal/codex` | Codex Home projection planning, inspection, reconciliation, and native login plans. |
 | `internal/synchronization` | Configuration, Codex projection, and Codex authentication convergence. |
 | `internal/discovery` and `internal/surface` | Read-only host discovery and stable surface authority. |
 | `internal/cli` | Cobra composition and root workflows; semantic command groups live in its subpackages. |
 | `internal/selfupdate` | Dual-Forge update resolution, artifact verification, installation, and portable rollback. |
 | `internal/process` and `internal/transaction` | Bounded process execution and guarded filesystem mutation. |
 
-A Codex projection comprises `configuration.toml` plus its
+A Codex projection comprises `config.toml` plus its
 `.aigw-state.json` sidecar. The sidecar records the projection mode, writer ID,
 and transaction ID. A legacy sidecar with none of those fields is adoptable
 only as a full-selection legacy projection; partial, foreign, and
@@ -61,9 +68,10 @@ or crash-safe compare-and-swap.
 
 `aigw sync --dry-run --json` exposes the target/action plan without reading
 credentials, binding authentication, starting a client, or changing files.
-Generic setup and repair discover only the ordinary standalone Codex CLI home.
-An unknown path is admitted only when the operator explicitly configures it as
-a standalone Codex target.
+Generic setup and repair discover the default Codex Home shared by Codex CLI
+and Codex Desktop. An unknown path is admitted only when the operator explicitly
+configures it as another Codex Home target. This shared configuration ownership
+does not grant AIGW authority over conversations or Desktop-only GUI settings.
 
 A loopback endpoint is reported as an external compatibility layer. AIGW does
 not reveal the port, infer a proxy product, or claim transport ownership.

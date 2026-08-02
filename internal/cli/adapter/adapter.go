@@ -3,7 +3,6 @@ package adapter
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
@@ -47,12 +46,16 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 
 func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 	return &cobra.Command{Use: "discover", Short: "Discover installed client executables", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
+		discovered, err := discover(runtime)
+		if err != nil {
+			return err
+		}
 		r := renderer(runtime)
 		r.ProductTitle("Client discovery")
 		r.Section("Installed clients")
 		for _, spec := range configuration.AdmittedClientSpecs() {
-			path, err := exec.LookPath(spec.ID)
-			if err != nil {
+			path := discoveredClientExecutable(discovered, spec.ID)
+			if path == "" {
 				r.Status(presentation.Info, spec.Label, "Not found")
 				continue
 			}
@@ -60,6 +63,17 @@ func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 		}
 		return nil
 	}}
+}
+
+func discoveredClientExecutable(result discovery.Result, client string) string {
+	switch client {
+	case configuration.ClientClaude:
+		return result.ClaudeExecutable
+	case configuration.ClientCodex:
+		return result.CodexExecutable
+	default:
+		return ""
+	}
 }
 
 func newEnableCommand(runtime invocation.Context) *cobra.Command {
@@ -75,7 +89,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 			return fmt.Errorf("--executable is required; run `aigw adapter discover`")
 		}
 		if client == configuration.ClientCodex && len(targets) == 0 {
-			return fmt.Errorf("Codex adapter requires at least one --target configuration.toml")
+			return fmt.Errorf("Codex adapter requires at least one --target config.toml")
 		}
 		cfg, err := runtime.Config.Load()
 		if err != nil {
@@ -192,13 +206,13 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 	}}
 }
 
-// ValidateCodexTarget rejects executable paths and non-standalone Codex
+// ValidateCodexTarget rejects executable paths and non-Codex-Home
 // surfaces where a writable configuration target is required.
 func ValidateCodexTarget(discovered discovery.Result, path string) error {
 	if _, ok := discovered.SurfaceForExecutablePath(path); ok {
 		return fmt.Errorf("an executable is not a Codex configuration target")
 	}
-	if surface, ok := discovered.SurfaceForConfigPath(path); ok && surface.ID != string(surfaceidentity.CodexCLIStandalone) {
+	if surface, ok := discovered.SurfaceForConfigPath(path); ok && surface.ID != string(surfaceidentity.CodexHomeDefault) {
 		return fmt.Errorf("surface %s is not an AIGW Codex target", surface.ID)
 	}
 	return nil

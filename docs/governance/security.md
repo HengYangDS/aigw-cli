@@ -67,8 +67,9 @@ fixed system-tool PATH, so removal remains possible from a restricted shell.
 
 Codex ownership is target-specific. AIGW may manage top-level `model` and
 `model_provider` selections plus a delimited `[model_providers.aigw]` block
-only for an admitted standalone Codex target. The ordinary standalone home is
-discovered; every additional home must be configured explicitly. IDE settings,
+only for an admitted Codex Home target. The default home is shared by Codex CLI
+and Codex Desktop and is discovered at `~/.codex/config.toml`; every additional
+home must be configured explicitly. Desktop-only GUI settings, IDE settings,
 client sessions, conversation JSONL, SQLite, selected models, transcripts, and
 application lifecycle are outside AIGW.
 
@@ -77,14 +78,14 @@ digest, and POSIX mode. Before a write it verifies the captured preimage;
 compensating rollback restores only its own unchanged postimages. This guards
 against ordinary concurrent edits but is not a cross-process CAS guarantee.
 
-`aigw sync` reconciles only configured standalone targets. It never starts,
+`aigw sync` reconciles only configured Codex Home targets. It never starts,
 stops, restarts, or reloads a Claude/Codex client and never rebinds credentials
 during a dry-run. Credential binding is limited to first Codex adapter enable,
 an Account-changing Codex route, a Token rotation, or the explicit
 `aigw adapter auth codex` command. Each native `codex login --with-api-key`
 invocation has a 20-second bound and receives the Token only through stdin.
 
-`aigw repair --dry-run` renders proposed standalone adoption and restore actions
+`aigw repair --dry-run` renders proposed Codex Home adoption and restore actions
 without writing AIGW configuration, Codex files, sidecars, launchers, or
 credentials; it neither runs native login nor acquires the configuration
 mutation lock.

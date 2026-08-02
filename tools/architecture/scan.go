@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -63,10 +64,10 @@ func checkPeerPackageImports(root string, files []goFileInfo, p policy, report *
 			allowed[name] = true
 		}
 		for _, file := range files {
-			if file.isTest || filepath.Dir(file.dir) != peerRoot {
+			if file.isTest || path.Dir(file.dir) != peerRoot {
 				continue
 			}
-			sourceChild := filepath.Base(file.dir)
+			sourceChild := path.Base(file.dir)
 			abs := filepath.Join(root, filepath.FromSlash(file.relPath))
 			data, err := os.ReadFile(abs)
 			if err != nil {

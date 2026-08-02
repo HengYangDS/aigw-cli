@@ -27,20 +27,29 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Check out the exact release tag
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26.5"
           check-latest: false
           cache: false
+      - name: Materialize provenance trust input
+        env:
+          AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
+        run: |
+          set -euo pipefail
+          test -n "$AIGW_RELEASE_ALLOWED_SIGNERS"
+          umask 077
+          allowed_signers="$RUNNER_TEMP/aigw-allowed-signers"
+          printf '%s\n' "$AIGW_RELEASE_ALLOWED_SIGNERS" > "$allowed_signers"
+          echo "AIGW_GITHUB_ALLOWED_SIGNERS=$allowed_signers" >> "$GITHUB_ENV"
       - name: Run native Linux release acceptance
         env:
           GITHUB_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
-          AIGW_GITHUB_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
         run: |
           set -euo pipefail
           AIGW_GITHUB_AUTHOR_EMAIL="$GITHUB_RELEASE_AUTHOR_EMAIL" sh scripts/checks/forge/check-commit-provenance.sh . github
@@ -58,12 +67,12 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Check out the exact release tag
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26.5"
           check-latest: false
@@ -81,12 +90,12 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out the exact release tag
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26.5"
           check-latest: false
@@ -96,12 +105,21 @@ jobs:
           set -euo pipefail
           brew install nfpm msitools
           sh scripts/checks/release/check-package-runner.sh
+      - name: Materialize provenance trust input
+        env:
+          AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
+        run: |
+          set -euo pipefail
+          test -n "$AIGW_RELEASE_ALLOWED_SIGNERS"
+          umask 077
+          allowed_signers="$RUNNER_TEMP/aigw-allowed-signers"
+          printf '%s\n' "$AIGW_RELEASE_ALLOWED_SIGNERS" > "$allowed_signers"
+          echo "AIGW_GITHUB_ALLOWED_SIGNERS=$allowed_signers" >> "$GITHUB_ENV"
       - name: Verify the signed tag and source gates
         env:
           SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
           AIGW_CHANGELOG_RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
           GITHUB_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
-          AIGW_GITHUB_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
         run: |
           set -euo pipefail
           case "$SELECTED_TAG" in v*) ;; *) echo "release requires a v* tag" >&2; exit 2 ;; esac

@@ -56,3 +56,12 @@ func assertClaudeActivationBehavior(t *testing.T, app *App, cfg configuration.Co
 	}
 	assertNoUnixActivationProfile(t, app.ClaudeLauncher.Home)
 }
+
+func assertNoUnixActivationProfile(t *testing.T, home string) {
+	t.Helper()
+	for _, name := range []string{".profile", ".zshrc", ".bash_profile", ".bashrc"} {
+		if _, err := os.Stat(filepath.Join(home, name)); !os.IsNotExist(err) {
+			t.Fatalf("Windows Claude launcher wrote Unix activation profile %s: %v", name, err)
+		}
+	}
+}

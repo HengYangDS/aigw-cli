@@ -22,7 +22,7 @@ new model in an account catalog does not change it.
 | Client | Configuration and authentication boundary | Required account capability |
 | --- | --- | --- |
 | Claude Code | AIGW-owned launcher; Anthropic environment variables exist only in the launched process | Verified Anthropic-compatible endpoint |
-| Ordinary standalone Codex CLI | AIGW-owned full-selection `configuration.toml` projection; official `login --with-api-key` binding | Verified OpenAI Responses endpoint |
+| Codex CLI and Codex Desktop | AIGW-owned `config.toml` projection in the shared Codex Home; official `codex login --with-api-key` binding | Verified OpenAI Responses endpoint |
 
 Each account retains one system token. Switching profiles within an account does
 not copy a token; switching accounts does not write a token into client files.
@@ -30,12 +30,13 @@ not copy a token; switching accounts does not write a token into client files.
 ## Host-surface ownership
 
 Client admission does not grant AIGW control over every product that can read a
-Codex-shaped configuration file. AIGW discovers only the ordinary standalone
-Codex CLI home. Additional targets must be configured explicitly and are treated
-as standalone Codex homes; IDE configuration, client sessions, and application
-lifecycle remain outside the Adapter boundary. ChatGPT Desktop and every other
-client retain authority over existing conversations, model choices, transcripts,
-JSONL, SQLite, and runtime metadata.
+Codex-shaped configuration file. Codex CLI and Codex Desktop share one default
+Codex Home, and AIGW discovers that home rather than inventing a Desktop-specific
+adapter. Additional Codex homes must be configured explicitly. Desktop-only GUI
+settings, IDE configuration, client sessions, and application lifecycle remain
+outside the Adapter boundary. Codex and every other client retain authority over
+existing conversations, model choices, transcripts, JSONL, SQLite, and runtime
+metadata.
 
 ## Candidate status
 
@@ -45,6 +46,7 @@ JSONL, SQLite, and runtime metadata.
 | Gemini CLI | Separate client adapter | Not admitted |
 | Qwen Code | Separate client adapter | Not admitted |
 | OpenCode | Separate client adapter | Not admitted |
+| Hermes Agent | Separate client adapter | Not admitted |
 | Perplexity | Research provider, not a Codex default | Not admitted |
 | Grok | Independent cross-check provider | Not admitted |
 

@@ -1,0 +1,16 @@
+schema_version = 1
+paths = [
+  ".config/ci/verify-gates.toml",
+  ".github/**",
+  "AGENTS.md",
+  "CHANGELOG.md",
+  "README.md",
+  "docs/**",
+  "evidence/**",
+  "go.mod",
+  "go.sum",
+  "internal/**",
+  "openspec/**",
+  "scripts/**",
+  "tools/**",
+]

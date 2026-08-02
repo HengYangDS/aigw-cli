@@ -23,10 +23,10 @@ type Surface struct {
 
 func (s System) surfaceCatalog() []Surface {
 	return []Surface{{
-		ID:          string(surface.CodexCLIStandalone),
-		Product:     "Codex CLI",
+		ID:          string(surface.CodexHomeDefault),
+		Product:     "Codex",
 		Authority:   string(surface.AuthorityAIGW),
-		ConfigPath:  filepath.Join(s.Home, ".codex", "configuration.toml"),
+		ConfigPath:  filepath.Join(s.Home, ".codex", "config.toml"),
 		AutoManaged: true,
 	}}
 }
@@ -67,7 +67,7 @@ func (r Result) SurfaceForExecutablePath(path string) (Surface, bool) {
 	return Surface{}, false
 }
 
-// AutoManagedCodexTargets returns existing AIGW-owned standalone homes.
+// AutoManagedCodexTargets returns existing AIGW-owned Codex homes.
 func (r Result) AutoManagedCodexTargets() []string {
 	targets := make([]string, 0)
 	for _, surface := range r.Surfaces {

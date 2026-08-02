@@ -27,12 +27,12 @@ func TestRenderRepairPreviewIncludesKnownAndExplicitSurfaces(t *testing.T) {
 	before := configuration.NewConfig()
 	after := before.Clone()
 	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/codex", Targets: []string{"/known", "/explicit"}}
-	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexCLIStandalone), ConfigPath: "/known", Present: true}}}
+	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: "/known", Present: true}}}
 	plans := []codex.ProjectionPlan{{Target: "/known", Action: "update"}, {Target: "/explicit", Action: "create"}}
 	if err := renderRepairPreview(runtime, false, before, after, discovered, plans); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Repair preview", "update", string(surfaceidentity.CodexCLIStandalone), "codex-cli-explicit", "create"} {
+	for _, want := range []string{"Repair preview", "update", string(surfaceidentity.CodexHomeDefault), "codex-home-explicit", "create"} {
 		if !bytes.Contains(out.Bytes(), []byte(want)) {
 			t.Fatalf("output lacks %q: %s", want, out.String())
 		}
@@ -45,7 +45,7 @@ func TestRenderRepairPreviewJSONReportsTheSameSemanticPlan(t *testing.T) {
 	before := configuration.NewConfig()
 	after := before.Clone()
 	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
-	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexCLIStandalone), ConfigPath: "/known"}}}
+	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: "/known"}}}
 	plans := []codex.ProjectionPlan{{Target: "/known", Action: "update"}}
 
 	if err := renderRepairPreview(runtime, true, before, after, discovered, plans); err != nil {
@@ -55,7 +55,7 @@ func TestRenderRepairPreviewJSONReportsTheSameSemanticPlan(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if !got.DryRun || got.ConfigurationAction != "update" || len(got.Codex) != 1 || got.Codex[0].SurfaceID != string(surfaceidentity.CodexCLIStandalone) {
+	if !got.DryRun || got.ConfigurationAction != "update" || len(got.Codex) != 1 || got.Codex[0].SurfaceID != string(surfaceidentity.CodexHomeDefault) {
 		t.Fatalf("preview = %#v", got)
 	}
 }
@@ -112,10 +112,10 @@ func TestRepairDesiredConfigDropsUnusableCodexAndKeepsExplicitTargets(t *testing
 	}
 
 	discovered := discovery.Result{Surfaces: []discovery.Surface{
-		{ID: string(surfaceidentity.CodexCLIStandalone), ConfigPath: "/standalone", Present: true, AutoManaged: true},
+		{ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: "/default-home", Present: true, AutoManaged: true},
 	}}
-	targets := repairCodexTargets(discovered, []string{"", "/standalone", "/explicit", "/explicit"})
-	want := []string{"/standalone", "/explicit"}
+	targets := repairCodexTargets(discovered, []string{"", "/default-home", "/explicit", "/explicit"})
+	want := []string{"/default-home", "/explicit"}
 	if len(targets) != len(want) || targets[0] != want[0] || targets[1] != want[1] {
 		t.Fatalf("targets = %#v, want %#v", targets, want)
 	}
