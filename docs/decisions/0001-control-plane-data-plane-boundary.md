@@ -15,9 +15,10 @@ AIGW owns the canonical account manifest and marked provider projections across
 Codex targets. Any explicitly selected compatibility service owns its outbound
 request transformation and local lifecycle. AIGW has no transport-service
 lifecycle API, and an external service never gains authority over an
-AIGW-marked provider block. Codex CLI and Codex Desktop share the Codex Home
-configuration, while Codex retains authority over existing conversation model
-selection, transcripts, and Desktop-only GUI settings.
+AIGW-marked provider block. Codex CLI and Codex Desktop share the native Codex Home configuration, while
+Codex retains authority over existing conversation model selection, transcripts,
+and Desktop-only GUI settings. Foreign applications and integrations remain
+independent; AIGW neither depends on, configures, nor verifies them.
 
 ## Consequence
 

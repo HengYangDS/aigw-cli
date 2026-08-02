@@ -2,12 +2,7 @@
 
 ## Account
 
-An Account is one upstream provider account boundary: display label, supported protocol endpoints, optional Codex Responses storage requirement, optional exact-diagnostics declaration, and exactly one logical Token. The secret is stored at `AIGW_TOKEN/<account>` in the operating-system credential store; it is never embedded in configuration or configuration manifests. A local AIGW configuration may contain many Accounts; adding a second service never copies or replaces the first service's Token.
-
-Set `codex_responses_storage = "required"` only when the Responses upstream
-persists item IDs across turns. AIGW then emits the bounded Codex provider
-identity that makes current Codex clients send `store = true`; the Account
-label and endpoint remain the provider truth.
+An Account is one upstream provider account boundary: display label, supported protocol endpoints, optional exact-diagnostics declaration, and exactly one logical Token. The secret is stored at `AIGW_TOKEN/<account>` in the operating-system credential store; it is never embedded in configuration or configuration manifests. A local AIGW configuration may contain many Accounts; adding a second service never copies or replaces the first service's Token.
 
 `aigw account rename [old] [new]` moves an Account ID and updates all referencing Profiles. Phase 1 adopts the target `AIGW_TOKEN/<account>` and optional `AIGW_ACCOUNT/<account>` account-probe slots: missing values are copied and read back, equal values are resumable, and differing values fail closed. The read-only `env` backend requires equal target variables to be externally pre-provisioned. After success, the current TOML contains only the new Account key; the old key remains in the single `.bak` preimage and the old credential slots remain available.
 
@@ -20,7 +15,6 @@ Example:
 ```toml
 [accounts."team-gateway"]
 label = "Team Gateway"
-codex_responses_storage = "required"
 
 [accounts."team-gateway".endpoints]
 openai_responses = "https://gateway.example/v1"

@@ -89,8 +89,7 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		ClaudeExecutable: "/opt/claude-real",
-		CodexExecutable:  "/opt/codex-real",
+		Executables: map[string]string{configuration.ClientClaude: "/opt/claude-real", configuration.ClientCodex: "/opt/codex-real"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(surfaceidentity.CodexHomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -230,7 +229,7 @@ func TestWizardFailureLeavesNoProfileSecretOrClientProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		ClaudeExecutable: "/opt/claude-real", CodexExecutable: "/opt/codex-real", Surfaces: []discovery.Surface{{
+		Executables: map[string]string{configuration.ClientClaude: "/opt/claude-real", configuration.ClientCodex: "/opt/codex-real"}, Surfaces: []discovery.Surface{{
 			ID:          string(surfaceidentity.CodexHomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  codexTarget,

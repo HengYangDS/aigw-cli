@@ -51,29 +51,6 @@ func TestCodexSyncProjectsOwnedProviderAndPreservesOtherSettings(t *testing.T) {
 	}
 }
 
-func TestCodexSyncRequestsStoredResponsesForRequiredAccounts(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "configuration.toml")
-	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	runtime := codexRuntime("ucloud", "UCloud · GPT-5.6 Terra", "https://api.modelverse.cn/v1", "gpt-5.6-terra")
-	runtime.CodexResponsesStorage = configuration.CodexResponsesStorageRequired
-	if err := codex.SyncConfig(path, runtime); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(data)
-	if !strings.Contains(text, `name = "azure"`) {
-		t.Fatalf("stored Responses projection lacks the Codex persistence provider identity:\n%s", text)
-	}
-	if strings.Contains(text, `name = "AIGW: UCloud`) {
-		t.Fatalf("stored Responses projection retained the non-persisting provider identity:\n%s", text)
-	}
-}
-
 func TestCodexDisableStopsWhenManagedSelectionWasEdited(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {

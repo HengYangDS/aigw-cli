@@ -106,11 +106,10 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 		r.Row("Purpose", purpose)
 	}
 	r.Row("Account", accountName)
-	if current.ModelFor(configuration.ClientCodex) != "" {
-		r.Row("Codex model", current.ModelFor(configuration.ClientCodex))
-	}
-	if current.ModelFor(configuration.ClientClaude) != "" {
-		r.Row("Claude model", current.ModelFor(configuration.ClientClaude))
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if model := current.ModelFor(spec.ID); model != "" {
+			r.Row(spec.Label+" model", model)
+		}
 	}
 	r.Row("Model profiles", fmt.Sprintf("%d", result.Profiles))
 	r.Section("Clients")

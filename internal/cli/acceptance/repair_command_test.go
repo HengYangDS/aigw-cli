@@ -49,7 +49,7 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 		}
 		app.ClaudeLauncher.BinDir = filepath.Join(blocker, "bin")
 		app.ClaudeLauncher.AIGWExecutable = "/bin/aigw"
-		app.Discovery = fakeDiscovery{result: discovery.Result{ClaudeExecutable: "/opt/claude"}}
+		app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}}
 		if err := execute(t, app, "repair"); err == nil {
 			t.Fatal("expected launcher enable failure")
 		}
@@ -72,7 +72,7 @@ func TestRepairDiscoversAndEnablesInstalledClients(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{ClaudeExecutable: "/opt/claude", CodexExecutable: "/opt/codex", Surfaces: []discovery.Surface{{
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude", configuration.ClientCodex: "/opt/codex"}, Surfaces: []discovery.Surface{{
 		ID:          string(surfaceidentity.CodexHomeDefault),
 		Authority:   string(surfaceidentity.AuthorityAIGW),
 		ConfigPath:  target,

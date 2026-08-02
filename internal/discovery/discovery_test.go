@@ -36,7 +36,7 @@ func TestDiscoverFindsClientsAndAutoManagedCodexTargets(t *testing.T) {
 	d := discovery.System{GOOS: goos, Home: home, Path: bin}
 	got := d.Discover()
 	wantClaude, wantCodex := filepath.Join(bin, names[0]), filepath.Join(bin, names[1])
-	if got.ClaudeExecutable != wantClaude || got.CodexExecutable != wantCodex {
+	if got.Executable("claude") != wantClaude || got.Executable("codex") != wantCodex {
 		t.Fatalf("executables = %#v", got)
 	}
 	if targets := got.AutoManagedCodexTargets(); len(targets) != 1 || targets[0] != target {
@@ -58,7 +58,7 @@ func TestDiscoverSkipsAIGWOwnedClaudeLauncher(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := (discovery.System{GOOS: goos, Home: home, Path: bin}).Discover()
-	if got.ClaudeExecutable != "" {
+	if got.Executable("claude") != "" {
 		t.Fatalf("managed launcher rediscovered as real Claude: %#v", got)
 	}
 }

@@ -27,7 +27,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 				return fmt.Errorf("--all and --for cannot be used together; run `aigw use --help`")
 			}
 			if client != "" && !configuration.IsAdmittedClient(client) {
-				return fmt.Errorf("--for must be claude or codex; run `aigw use --help`")
+				return fmt.Errorf("--for must be %s; run `aigw use --help`", configuration.AdmittedClientUsage())
 			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {
@@ -106,7 +106,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			return r.Err()
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Set only Claude or Codex")
+	cmd.Flags().StringVar(&client, "for", "", "Set only "+configuration.AdmittedClientUsage())
 	cmd.Flags().BoolVar(&all, "all", false, "Set the default route and clear client overrides")
 	return cmd
 }
@@ -164,7 +164,7 @@ func runList(runtime invocation.Context) error {
 		r.Detail(profileChoiceLabel(profile))
 	}
 	if nextCommand == "" {
-		nextCommand = "aigw use <profile> --for <claude|codex>"
+		nextCommand = "aigw use <profile> --for <" + strings.Join(configuration.AdmittedClientIDs(), "|") + ">"
 	}
 	r.Next(nextCommand)
 	return nil
@@ -176,7 +176,7 @@ func newResetCommand(runtime invocation.Context) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := args[0]
 			if !configuration.IsAdmittedClient(client) {
-				return fmt.Errorf("Client must be %s; run `aigw route reset --help`", strings.Join(configuration.AdmittedClientIDs(), " or "))
+				return fmt.Errorf("Client must be %s; run `aigw route reset --help`", configuration.AdmittedClientUsage())
 			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {

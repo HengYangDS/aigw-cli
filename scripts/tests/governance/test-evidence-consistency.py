@@ -6,10 +6,16 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+
+
+# Loading the checker is part of a repository gate, not a package installation.
+# Keep that read-only validation from leaving bytecode beside governed source.
+sys.dont_write_bytecode = True
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -38,6 +44,13 @@ def git(root: Path, *args: str) -> str:
 
 class EvidenceConsistencyTests(unittest.TestCase):
     """Exercise the quantitative observation and claim-digest boundary."""
+
+    def test_loading_checker_leaves_no_repository_bytecode(self) -> None:
+        cache = CHECKER.parent / "__pycache__"
+        if cache.exists():
+            self.fail(f"pre-existing repository bytecode residue: {cache}")
+        load_checker()
+        self.assertFalse(cache.exists())
 
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()

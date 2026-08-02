@@ -35,13 +35,11 @@ Those switches never read, copy, delete, or replace a member's system token.
 
 ### New machine
 
-Review each Account's endpoint and optional
-`codex_responses_storage` requirement. Profiles, models, and recommended routes
-are maintained team metadata; Tokens never belong in this file. The team's
+Review each Account endpoint. Profiles, models, and recommended routes are
+maintained team metadata; Tokens never belong in this file. The team's
 deployment manifest may use a provider endpoint directly or an independently
-managed compatibility endpoint. Preserve each reviewed storage requirement
-when changing an endpoint because it governs the provider's Responses item
-policy.
+managed compatibility endpoint. Responses storage, replay, and normalization
+remain properties of that endpoint or its independently managed Proxy.
 
 ```bash
 aigw setup --from manifest.toml

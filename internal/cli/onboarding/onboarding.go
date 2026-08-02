@@ -66,7 +66,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&request.Label, "label", "", "Provider display name")
 	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")
 	cmd.Flags().StringVar(&request.AnthropicURL, "anthropic-url", "", "Anthropic base URL")
-	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first profile: claude or codex")
+	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first profile: "+configuration.AdmittedClientUsage())
 	cmd.Flags().StringVar(&request.Model, "model", "", "Upstream model ID for --for")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
 	return cmd
@@ -103,29 +103,27 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 		Anthropic:       strings.TrimRight(strings.TrimSpace(request.AnthropicURL), "/"),
 	}
 	models := configuration.Models{}
-	switch request.Client {
-	case "":
+	if request.Client == "" {
 		if request.Model != "" {
-			return fmt.Errorf("--model requires --for claude or --for codex")
+			return fmt.Errorf("--model requires --for %s", configuration.AdmittedClientUsage())
 		}
-	case configuration.ClientClaude:
-		if endpoints.Anthropic == "" {
-			return fmt.Errorf("--for claude requires --anthropic-url")
+	} else {
+		spec, ok := configuration.ClientSpecFor(request.Client)
+		if !ok {
+			return fmt.Errorf("--for must be %s; run `aigw setup --help`", configuration.AdmittedClientUsage())
+		}
+		account := configuration.Account{ID: request.Account, Endpoints: endpoints}
+		if _, err := spec.Endpoint(account); err != nil {
+			var missing *configuration.RuntimeMissingEndpointError
+			if !errors.As(err, &missing) {
+				return err
+			}
+			return fmt.Errorf("--for %s requires %s", request.Client, setupEndpointFlag(spec.EndpointProtocol))
 		}
 		if strings.TrimSpace(request.Model) == "" {
-			return fmt.Errorf("--for claude requires --model")
+			return fmt.Errorf("--for %s requires --model", request.Client)
 		}
 		models[request.Client] = strings.TrimSpace(request.Model)
-	case configuration.ClientCodex:
-		if endpoints.OpenAIResponses == "" {
-			return fmt.Errorf("--for codex requires --openai-url")
-		}
-		if strings.TrimSpace(request.Model) == "" {
-			return fmt.Errorf("--for codex requires --model")
-		}
-		models[request.Client] = strings.TrimSpace(request.Model)
-	default:
-		return fmt.Errorf("--for must be claude or codex; run `aigw setup --help`")
 	}
 	account := configuration.Account{Label: request.Label, Endpoints: endpoints}
 	profile := configuration.Profile{Label: request.Label, Account: request.Account, Client: request.Client, Models: models}
@@ -152,8 +150,8 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	if err != nil {
 		return err
 	}
-	discoveredClaude := discovered.ClaudeExecutable
-	discoveredCodex := discovered.CodexExecutable
+	discoveredClaude := discovered.Executable(configuration.ClientClaude)
+	discoveredCodex := discovered.Executable(configuration.ClientCodex)
 	discoveredTargets := discovered.AutoManagedCodexTargets()
 	if runtime, _, resolveErr := cfg.ResolveRuntime(configuration.ClientClaude, ""); resolveErr == nil && discoveredClaude != "" && runtime.Endpoint != "" {
 		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: discoveredClaude}
@@ -204,6 +202,17 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	return nil
 }
 
+func setupEndpointFlag(protocol configuration.EndpointProtocol) string {
+	switch protocol {
+	case configuration.ProtocolAnthropic:
+		return "--anthropic-url"
+	case configuration.ProtocolOpenAIResponses:
+		return "--openai-url"
+	default:
+		return "a supported endpoint"
+	}
+}
+
 type manifestSetupCredential struct {
 	account     string
 	token       string
@@ -239,8 +248,8 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	if err != nil {
 		return err
 	}
-	discoveredClaude := discovered.ClaudeExecutable
-	discoveredCodex := discovered.CodexExecutable
+	discoveredClaude := discovered.Executable(configuration.ClientClaude)
+	discoveredCodex := discovered.Executable(configuration.ClientCodex)
 	discoveredTargets := discovered.AutoManagedCodexTargets()
 	if runtime, _, resolveErr := cfg.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && runtime.Endpoint != "" && discoveredCodex != "" && len(discoveredTargets) > 1 {
 		return fmt.Errorf("configuration setup found multiple auto-managed Codex targets; automatic native credential binding is not atomic across targets, so reduce the admitted target set before setup or import the manifest without first-time client binding")

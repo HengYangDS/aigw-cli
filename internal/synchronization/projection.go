@@ -119,6 +119,5 @@ func ProjectionChanged(before, after configuration.Config) bool {
 	return beforeRuntime.ProfileID != afterRuntime.ProfileID ||
 		beforeRuntime.ProfileLabel != afterRuntime.ProfileLabel ||
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
-		beforeRuntime.Model != afterRuntime.Model ||
-		beforeRuntime.CodexResponsesStorage != afterRuntime.CodexResponsesStorage
+		beforeRuntime.Model != afterRuntime.Model
 }

@@ -102,7 +102,7 @@ func repairDesiredConfig(runtime invocation.Context, before configuration.Config
 	claudeAdapter := after.Adapters[configuration.ClientClaude]
 	claudeExecutable := claudeAdapter.Executable
 	if claudeExecutable == "" {
-		claudeExecutable = discovered.ClaudeExecutable
+		claudeExecutable = discovered.Executable(configuration.ClientClaude)
 	}
 	if claudeRouteErr == nil && claudeExecutable != "" && claudeRuntime.Endpoint != "" {
 		enableClaude = true
@@ -113,8 +113,8 @@ func repairDesiredConfig(runtime invocation.Context, before configuration.Config
 		currentCodex := after.Adapters[configuration.ClientCodex]
 		targets := repairCodexTargets(discovered, currentCodex.Targets)
 		executable := currentCodex.Executable
-		if discovered.CodexExecutable != "" {
-			executable = discovered.CodexExecutable
+		if discovered.Executable(configuration.ClientCodex) != "" {
+			executable = discovered.Executable(configuration.ClientCodex)
 		}
 		if executable != "" && len(targets) > 0 {
 			after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: targets}
