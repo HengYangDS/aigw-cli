@@ -128,13 +128,13 @@ metadata only; it never reads, writes, or deletes the Account Token.
 ## Every day
 
 ```bash
-aigw                         # active profile, client readiness, one next step
-aigw use [profile]           # choose a profile
-aigw rotate [account]        # replace one account token
-aigw check                   # configuration, client, and endpoint health
-aigw doctor                  # detailed diagnosis and one recovery action
-aigw repair                  # bounded client discovery and reconciliation
-aigw repair --dry-run --json # preview repair without writing or binding auth
+aigw                            # active profile, client readiness, one next step
+aigw use [profile]              # choose a profile
+aigw rotate [account]           # replace one account token
+aigw check                      # configuration, client, and endpoint health
+aigw doctor                     # detailed diagnosis and one recovery action
+aigw repair                     # bounded client discovery and reconciliation
+aigw repair --dry-run --json    # preview repair without writing or binding auth
 aigw profile rename [old] [new] # rename a profile; updates route references
 aigw account rename [old] [new] # rename an account; two-phase credential migration
 ```
