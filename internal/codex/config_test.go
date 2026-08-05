@@ -34,7 +34,7 @@ func TestCodexSyncProjectsOwnedProviderAndPreservesOtherSettings(t *testing.T) {
 	}
 	data, _ := os.ReadFile(path)
 	text := string(data)
-	for _, want := range []string{`model_provider = "aigw" # managed by AIGW`, `model = "gpt-test" # managed by AIGW`, `[model_providers.aigw]`, `base_url = "https://example.test/v1"`, `[model_providers.native]`} {
+	for _, want := range []string{`model_provider = "aigw" # managed by AIGW`, `model = "gpt-test" # managed by AIGW`, `[agents]`, `max_concurrent_threads_per_session = 16`, `max_depth = 1`, `[features.multi_agent_v2]`, `[model_providers.aigw]`, `base_url = "https://example.test/v1"`, `[model_providers.native]`} {
 		if !strings.Contains(text, want) {
 			t.Errorf("projected config lacks %q:\n%s", want, text)
 		}
@@ -48,6 +48,48 @@ func TestCodexSyncProjectsOwnedProviderAndPreservesOtherSettings(t *testing.T) {
 	restored, _ := os.ReadFile(path)
 	if string(restored) != original {
 		t.Fatalf("restored config differs\nwant:\n%s\ngot:\n%s", original, restored)
+	}
+}
+
+func TestCodexSyncProjectsCurrentPerSessionConcurrencySchema(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "configuration.toml")
+	original := "model_provider = \"native\"\nmax_threads = 99\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
+	if err := codex.SyncConfig(path, profile); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, want := range []string{
+		"[agents]\n",
+		"max_concurrent_threads_per_session = 16\n",
+		"max_depth = 1\n",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("Codex config lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Count(text, "max_concurrent_threads_per_session") != 2 {
+		t.Fatalf("Codex config does not bind both scheduler generations:\n%s", text)
+	}
+	if strings.Contains(text, "max_threads") {
+		t.Fatalf("AIGW retained the retired scheduler key:\n%s", text)
+	}
+	if err := codex.DisableConfig(path); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(restored) != "model_provider = \"native\"\n" {
+		t.Fatalf("disable restored the retired scheduler key:\n%s", restored)
 	}
 }
 

@@ -20,10 +20,17 @@ const (
 	codexSelection = `model_provider = "aigw" # managed by AIGW`
 	codexBegin     = "# >>> AIGW managed provider >>>"
 	codexEnd       = "# <<< AIGW managed provider <<<"
+	// Codex owns scheduling; AIGW projects the bounded client policy while the
+	// selected endpoint remains an ordinary provider concern. The current Codex
+	// schema calls this a per-session limit; do not replace it with the retired
+	// max_threads spelling or a proxy-side session limiter.
+	codexSessionConcurrency = 16
+	codexAgentDepth         = 1
 )
 
 var modelProviderLine = regexp.MustCompile(`(?m)^[ \t]*model_provider[ \t]*=.*$`)
 var modelLine = regexp.MustCompile(`(?m)^[ \t]*model[ \t]*=.*$`)
+var legacyMaxThreadsLine = regexp.MustCompile(`(?m)^[ \t]*max_threads[ \t]*=.*(?:\r?\n)?`)
 
 type codexState struct {
 	OriginalProvider string `json:"original_provider,omitempty"`
@@ -230,7 +237,7 @@ func codexEndpoint(runtime configuration.Runtime) (string, error) {
 }
 
 func projectCodex(original, block, model string) string {
-	base := strings.TrimRight(original, "\r\n")
+	base := strings.TrimRight(legacyMaxThreadsLine.ReplaceAllString(original, ""), "\r\n")
 	if modelProviderLine.MatchString(base) {
 		base = modelProviderLine.ReplaceAllString(base, codexSelection)
 	} else {
@@ -259,6 +266,11 @@ func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 		fmt.Sprintf("base_url = \"%s\"\n", endpoint) +
 		"wire_api = \"responses\"\n" +
 		"requires_openai_auth = true\n" +
+		"\n[agents]\n" +
+		fmt.Sprintf("max_concurrent_threads_per_session = %d\n", codexSessionConcurrency) +
+		fmt.Sprintf("max_depth = %d\n", codexAgentDepth) +
+		"\n[features.multi_agent_v2]\n" +
+		fmt.Sprintf("max_concurrent_threads_per_session = %d\n", codexSessionConcurrency) +
 		codexEnd + "\n"
 }
 

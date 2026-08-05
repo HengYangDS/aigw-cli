@@ -1,201 +1,303 @@
-## 1. Product Model and Request Paths
+# Terminal Product Convergence Design
 
-The design starts from the three actual product flows rather than abstract host
-or agent taxonomies.
+## 1. Product boundary
 
-```text
-AIGW control plane
-  Account + Token + protocol endpoints
-      + Profile(client, model)
-      + Route(client -> profile)
-      + native-client adapter settings
+AIGW is a local-first enterprise control plane for third-party AI services. It
+owns declarative Account, Token, Profile, Route, and native-client projection
+state. It does not relay model traffic or own client conversations.
 
-Native Codex request path (product composition)
-  Codex CLI/Desktop
-      -> OpenAI Responses endpoint selected by AIGW
-      -> optional Codex Responses Proxy
-      -> third-party OpenAI-compatible provider
-
-Current governed deployment and acceptance path
-  Codex CLI/Desktop
-      -> AIGW-projected Responses endpoint
-      -> Codex Responses Proxy
-      -> UCloud | DMXAPI | AIHubMix
-
-Native Claude Code request path
-  AIGW-owned claude launcher
-      -> process-scoped Anthropic endpoint, model, and token
-      -> third-party Anthropic-compatible provider
+```mermaid
+flowchart LR
+    O["Operator"] --> A["AIGW"]
+    A --> C["Codex Home"]
+    A --> L["Claude Code launcher"]
+    C --> R["Responses endpoint"]
+    L --> H["Anthropic endpoint"]
 ```
 
-The nouns have precise meanings:
+| Owner | Owns |
+| --- | --- |
+| AIGW | Accounts, Tokens, Profiles, Routes, admitted Adapter projections |
+| Codex | Conversations, JSONL, SQLite, item state, model metadata, Desktop GUI |
+| Claude Code | Session and client runtime behavior |
+| External endpoint product | Traffic relay, retries, listener lifecycle |
+| Each Forge | Its own CI, tags, Releases, and assets |
+| Workstation / ETHOS | Generic host and repository governance only |
 
-| Noun | Meaning | Owner |
-| --- | --- | --- |
-| Provider Account | One logical credential boundary plus one or both supported protocol endpoints | AIGW configuration |
-| Profile | A client-scoped model choice on one Account | AIGW configuration |
-| Route | The selected Profile for `codex` or `claude` | AIGW configuration |
-| Codex adapter | Projects the selected Responses endpoint/model into the shared native Codex Home and binds native credentials | AIGW |
-| Claude Code adapter | Plans the native Claude process and injects the selected Anthropic endpoint/model/token only into that process | AIGW |
-| Codex Responses Proxy | Optional Responses data plane for protocol normalization, replay, empty-response recovery, provider portability, and 429 backpressure | Proxy product |
-| Native client runtime | Conversation/session/tool behavior after launch | Codex or Claude Code |
+JetBrains, Air, Junie, ACP, and MCP are parallel products and outside this
+change. AIGW currently admits Codex and Claude Code only. Hermes and future
+clients remain designed extension points, not implementation scope.
 
-Codex and Claude Code are not providers and are not interchangeable adapters.
-An Account may expose both protocols, allowing separate Codex and Claude Profiles
-to share one credential boundary. A Profile is always scoped to exactly one
-client. A Route selects a Profile; it does not select a Proxy process or mutate
-the other client.
+## 2. Product model
 
-The Proxy is optional to the reusable AIGW product contract and Codex-facing
-because it implements the OpenAI Responses wire contract. It is mandatory in
-this closeout's deployed Codex path and runtime acceptance for UCloud, DMXAPI,
-and AIHubMix. Claude Code uses the independently selected Anthropic-compatible
-endpoint; it does not traverse the Responses Proxy. AIGW treats every endpoint
-as operator input and never manages the selected endpoint's service lifecycle.
+```mermaid
+flowchart LR
+    A["Account"] --> P["Profile"]
+    P --> R["Route"]
+    R --> D["Adapter"]
+    A --> K["OS Token slot"]
+```
 
-AIGW, Proxy, Codex, and Claude Code are the complete product graph for this
-change. Unrelated applications and integrations are absent from the design.
+| Entity | Contract |
+| --- | --- |
+| Account | Provider endpoint set and one logical Token boundary |
+| Profile | One explicit `account + client + model` daily choice |
+| Route | Default or client-specific Profile selection |
+| Adapter | Projection into exactly one admitted native client |
 
-## 2. Declarative Provider Kernel
+Provider identity never acts as a hidden behavior switch. An ordinary provider
+is configuration data. Provider-native balance/account diagnostics are optional
+leaf capabilities and cannot become setup, routing, projection, or verification
+dependencies.
 
-An Account owns a label, supported protocol endpoints, one logical Token
-boundary, Profile data, and explicit endpoint capabilities. An ordinary provider
-is admitted through token-free manifest data and must not add a provider-specific
-command, client projection branch, installer case, service manager, or core
-dependency.
+## 3. Client adapters
 
-Provider-native account or balance diagnostics are optional leaf capabilities
-behind one provider-neutral contract. Ordinary setup, selection, projection,
-endpoint checking, and native-client verification work with zero diagnostics.
-A diagnostic may have separate credentials and transport, but cannot become a
-routing or configuration dependency.
-
-Provider identity is never a hidden client-behavior switch. AIGW removes the
-legacy Account storage flag and Azure-name workaround completely. Responses
-storage, replay, and normalization belong to the selected endpoint or Proxy.
-
-## 3. Native Client Adapters
-
-Codex and Claude Code are the only admitted clients in this release. Each adapter
-owns:
+Codex and Claude Code implement one adapter contract:
 
 - presence and supported-version discovery;
-- supported configuration or process planning;
-- credential binding and least-scope injection;
-- guarded AIGW-owned mutation and byte-exact rollback;
-- bounded real verification when explicitly invoked;
-- status/diagnostic contributions;
-- uninstall of only its AIGW-owned state.
+- configuration or process planning;
+- least-scope credential binding;
+- guarded mutation and byte-exact rollback;
+- bounded explicit verification;
+- status and diagnostic contribution;
+- uninstall of only AIGW-owned state.
 
-Common workflows iterate admitted adapters rather than spread client-name
-switches through commands. The contract deliberately permits future native
-clients such as Hermes and other agents that support third-party LLM APIs, but
-none is implemented or accepted in this change. A future admission adds only
-that client's adapter, one declaration, and its fixtures; it does not alter
-provider policy, Proxy behavior, command roots, or another adapter.
+Common workflows iterate the admitted registry rather than spread client-name
+switches across commands. A synthetic future adapter must have a local change
+radius without implementing another client.
 
-Codex CLI and Desktop share the native Codex Home. AIGW owns only its marked
-provider/model selection, sidecar, and native credential binding. It never edits
-conversation JSONL, SQLite, history, Responses item records, model metadata, or
-Desktop-only GUI state.
+### Codex
 
-The Claude launcher is an AIGW-owned process boundary that injects the selected
-Account Token only into the launched Claude Code process. Missing clients are
-reported as explicit no-op skips and do not cause foreign directory creation,
-installation, application launch, or partial mutation.
+Codex CLI and Desktop share one Codex Home. AIGW owns only its marked provider
+and model projection, sidecar, and native credential binding. It never edits
+conversation or Desktop-only state.
 
-## 4. UX and Physical Architecture
+The projection declares Codex's own scheduler bound:
 
-The daily user journey is:
-
-```text
-install aigw -> aigw setup -> aigw use -> aigw check
+```toml
+[agents]
+max_concurrent_threads_per_session = 16
+max_depth = 1
 ```
 
-Advanced Account, Profile, Route, Adapter, configuration, and update management
-stays under deliberate namespaces. Failures are quiet, actionable, and free of
-tracebacks, warnings, or usage banners unless requested.
+The external endpoint remains session-agnostic; AIGW does not impose a proxy
+global queue.
 
-The CLI root owns command composition, top-level argument binding, presentation,
-and dependency assembly only. Behavior follows cohesive owners for
-configuration, credentials, providers, Codex, Claude, projection/transaction,
-presentation, process, and update. Generic buckets, forwarding facades, alias
-packages, re-exports, one-caller abstractions, duplicated policy, and retired
-compatibility owners are deleted unless an independent invariant proves their
-reason to exist.
+### Claude Code
 
-Architecture gates enforce dependency direction, package contracts, command
-ownership, hard-coding, flatness, ELOC, complexity, duplication, and zero
-forwarding facades. `scc` is trend evidence and ponytail review is the deletion
-challenge, not another source of truth.
+The AIGW launcher injects the selected Anthropic endpoint, model, and Token into
+one launched process. No plaintext Token is written to a shell profile or shared
+configuration.
 
-## 5. Repository-Owned Development Supply Chain
+### Missing clients
 
-`go.mod` owns the exact current stable Go toolchain and dependency graph. CI,
-local verification, packaging, and docs derive those versions rather than
-repeat them. Repository-owned commands compose format, vet, static analysis,
-architecture, portability, documentation, race tests, and package plus aggregate
-coverage strictly above 95%.
+Setup and repair touch only admitted clients whose required executable and
+surface are present. Missing and foreign clients remain untouched.
 
-Shell or Python remains only when its platform, packaging, or Forge boundary is
-intrinsic. It cannot duplicate product policy or accidentally borrow another
-repository or ambient Python environment. macOS, Linux, and Windows native
-source/package lifecycle results remain distinct from cross-compilation.
+## 4. UX and DX
 
-## 6. Publication and Portability
+| Surface | UX | DX |
+| --- | --- | --- |
+| Entry | Installed `aigw` | Repository-owned Go and quality commands |
+| Goal | Configure, select, inspect, recover | Build, test, analyze, package, publish |
+| Output | Task-first human view or explicit JSON | Reproducible diagnostics and artifacts |
+| Environment | No source checkout required | Repository module, lock graph, isolated tools |
 
-Product source, defaults, examples, fixtures, docs, and package metadata contain
-no real contributor identity, home directory, checkout path, private Forge
-coordinate, credential, key, fingerprint, signer, or trust anchor. Protected
-release context supplies Forge coordinates, publication actors, signers, trust,
-credentials, and update-source tuples.
+Daily UX remains:
 
-GitLab and GitHub keep independent verified histories. GitHub materializes
-protected signer content into a permission-restricted runner-temporary file;
-GitLab retains its protected file-variable contract. Repository-relative policy
-paths use one host-independent lexical grammar. Required identity-neutral release
-assets are deterministic and byte-equal across both Forge planes.
+```text
+aigw setup
+aigw use
+aigw check
+```
 
-## 7. Acceptance and Closeout
+Human output answers selection, readiness, and the next safe action. One result
+model feeds human and JSON views. Lip Gloss remains the sole visual engine;
+display-width alignment, responsive layout, CJK, colorless output, and golden
+80/100/120-column snapshots are enforced. No second TUI framework is added.
 
-Completion requires separate current evidence for:
+Expected failures do not emit an unexpected traceback, warning, or usage banner.
 
-- focused RED/GREEN proof and one frozen exact-HEAD local full proof;
-- package and aggregate coverage each strictly above 95%;
-- synthetic provider and future-client extension with bounded change radius;
-- zero provider identity hacks, personal/path hard-coding, foreign-product
-  dependency, forwarding facade, compatibility residue, or architecture finding;
-- native macOS, Linux, and Windows verification and package lifecycle;
-- trusted GitLab and GitHub histories, exact-tip green CI, signed tags/releases,
-  and asset parity;
-- installation only from verified release assets;
-- UCloud, DMXAPI, and AIHubMix routes; native Codex traffic through the
-  AIGW-projected Proxy endpoint; native Claude Code behavior; and Proxy replay,
-  empty-response recovery, provider-portable normalization, and 429 backpressure;
-- continuous reply in the same original affected Codex conversation without
-  modifying JSONL, SQLite, history, item records, or model metadata;
-- clean canonical roots and zero non-canonical lanes, worktrees, work branches,
-  leases, temporary checkouts, old services, or generated residue.
+## 5. Semantic physical structure
 
-Foreign-application configuration, runtime, and verification do not appear in
-this acceptance set. Local proof, hosted CI, publication, installation,
-runtime, exact-conversation recovery, and housekeeping remain separate claims.
+The final codebase is organized by product semantics, not generic layers.
 
-## 8. Migration Plan
+```mermaid
+flowchart TD
+    CLI["cli: command composition"] --> DOMAIN["configuration and Accounts"]
+    CLI --> ADAPTERS["Codex and Claude adapters"]
+    CLI --> VIEW["presentation"]
+    ADAPTERS --> TX["transaction/process"]
+    UPDATE["self-update"] --> TX
+```
 
-1. Preserve the completed hosted-CI, portable-path, native Codex Home,
-   absent-client, and current-stable supply-chain fixes.
-2. Add failing tests for declarative provider extension, explicit Codex
-   capabilities, optional diagnostics, cohesive adapters, hard-coding, and
-   forbidden cross-product coupling.
-3. Reimplement required semantic-housekeeping and lane deltas under the terminal
-   owners; do not mechanically overlay obsolete topology.
-4. Remove redundant carriers, provider-identity hacks, shims, aliases, flat
-   residue, duplicated orchestration, and stale docs/comments/docstrings.
-5. Run focused tests, coverage above 95%, full local gates, strict OpenSpec, and
-   pristine exact-HEAD proof.
-6. Land and publish independent trusted GitLab and GitHub histories with asset
-   parity; install only the verified release.
-7. Verify native Codex/Claude Code, three providers, Proxy behavior, and the same
-   original Codex conversation.
-8. Retire every non-canonical lane through exact owner-bound closeout checks.
+Target owners:
+
+| Owner | Responsibility |
+| --- | --- |
+| `configuration` | Account, Profile, Route, Adapter schema and persistence |
+| `secrets` | Token backends |
+| `codex` | Codex projection and credential plan |
+| `claude` | Claude launcher and process plan |
+| `providers` | Optional provider-native diagnostics only |
+| `presentation` | Human projection of command result models |
+| `transaction` / `process` | Guarded effects and bounded execution |
+| `selfupdate` | Dual-source update verification and installation |
+| `cli` | Cobra composition and task orchestration only |
+
+`internal/cli` currently imports too many semantic packages. Commands are
+reduced to thin compositions over cohesive owners. Generic buckets, forwarding
+facades, re-export packages, aliases, duplicated orchestration, and one-caller
+abstractions are removed unless independently justified.
+
+Tests mirror the same semantic owners. Architecture gates enforce dependency
+direction, fan-in/fan-out, ELOC, complexity, duplication, hard-coding, and zero
+compatibility residue.
+
+## 6. Documentation system
+
+| Owner | Subject |
+| --- | --- |
+| `README.md` | Product and user journey |
+| `CONTRIBUTING.md` | Developer workflow and quality graph |
+| `docs/concepts/` | Entity semantics only |
+| `docs/architecture/` | Boundaries and dependency direction |
+| `docs/governance/` | Current invariants |
+| `docs/guides/` | Task-oriented team adoption |
+| `docs/operations/` | Forge and release procedures |
+| `docs/decisions/` | Durable decisions |
+| `docs/evidence/` | Claim limits |
+| `openspec/changes/archive/` | Immutable history |
+
+`docs/README.md` is the unique registry. Current documents do not repeat the
+same concept, release procedure, or boundary. Mermaid expresses relationships;
+tables express ownership and comparison; lists express rules; code blocks
+express exact commands. ASCII arrows and prose walls are rejected.
+
+Markdownlint and Lychee prove Markdown syntax and all internal/external links.
+Current documentation is English-only. Archive and dated evidence are preserved
+as history and removed from current navigation when superseded.
+
+## 7. Quality architecture
+
+Every concern has one policy owner and one reusable command owner. Hooks and CI
+are projections.
+
+```mermaid
+flowchart LR
+    P["Native policy"] --> S["Repository check command"]
+    S --> H["Hooks"]
+    S --> G["GitLab"]
+    S --> A["GitHub"]
+    S --> E["Local evidence"]
+```
+
+| Concern | Owner/tool |
+| --- | --- |
+| Format | `gofmt` |
+| Static correctness | `go vet`, Staticcheck, Errcheck |
+| Tests and race | `go test -race` |
+| Statement coverage | Repository coverage gate; aggregate and each package strictly above 95% |
+| Architecture and portability | Repository architecture tool |
+| Markdown | markdownlint-cli2 |
+| Links | Lychee |
+| Shell | ShellCheck and shfmt |
+| GitHub workflows | actionlint and Zizmor |
+| Secrets | Gitleaks |
+| Go vulnerabilities | govulncheck |
+| SBOM | Existing deterministic SBOM owner |
+| Complexity and duplication | Architecture gate plus `scc` trend evidence; add a tool only for an uncovered distinct metric |
+| CLI UX | Golden, width, no-color, JSON, and black-box package tests |
+| Docs registry | Unique subject and link graph checker |
+
+No concern is duplicated in CI YAML. Existing scripts are consolidated into a
+small task graph; one wrapper per concern is acceptable, not dozens of parallel
+policy surfaces.
+
+## 8. Supply chain
+
+`go.mod` owns the latest stable Go toolchain and direct dependencies. `go.sum`
+owns the resolved module graph.
+
+- Direct and transitive stable updates are evaluated together.
+- Pseudo-versions are retained only when required by a direct stable dependency;
+  arbitrary moving commits are not selected manually.
+- Update candidates pass format, vet, static analysis, race, coverage,
+  architecture, package, install, and cross-platform gates.
+- CI derives the exact Go patch version from `go.mod`.
+- Shell and Python remain only for intrinsic packaging or Forge boundaries and
+  use repository-declared tools; no ambient ETHOS or system Python environment
+  satisfies project verification.
+
+## 9. Local-first and independent Forges
+
+Local source verification, packaging, candidate installation, and runtime
+acceptance do not require a remote.
+
+GitLab and GitHub publish independently:
+
+```mermaid
+flowchart TD
+    S["Accepted source"] --> G["GitLab native pipeline"]
+    S --> H["GitHub native pipeline"]
+    G --> A["Read-only parity audit"]
+    H --> A
+```
+
+Neither Forge invokes, authenticates to, waits for, or downloads from the other.
+When both are reachable, update requires equal version and current-platform
+artifact bytes. When one is unreachable, the other may supply its own complete
+verified update.
+
+Runner identity is truthful. A runner belongs to one
+`Forge × repository × platform × executor × purpose` boundary. Jobs prove actual
+OS and architecture. Missing capability blocks; it is not an allowed failure.
+
+## 10. Lane semantic convergence
+
+The `terminal-product-convergence` lane owns the terminal design. The
+`runner-admission` lane contains two independent semantic sets:
+
+- portable client-control-plane work overlapping terminal convergence;
+- unique GitLab managed-runner admission changes.
+
+The first is compared path-by-path and absorbed only where stronger or missing.
+The second must be reimplemented or cherry-picked under the terminal owner with
+its CI contract tests. No lane is deleted based on cleanliness alone.
+
+Every other lane, branch, lease, and worktree is classified as required unique,
+already represented, obsolete, or unknown. Only the first three can converge;
+unknown facts remain retained until resolved.
+
+## 11. Archive lifecycle
+
+Archive is immutable history, not a current task queue or authority. Existing
+AIGW archive directories have no unchecked tasks and no detected post-archive
+markers, but their canonical-spec coverage and current navigation still require
+verification.
+
+A change may archive only when:
+
+- material semantics exist in canonical specs;
+- required source/tests/docs are complete;
+- remaining publication and runtime claims have explicit owners;
+- archival does not make an incomplete task appear complete.
+
+## 12. Acceptance
+
+Completion requires current evidence for:
+
+- provider-neutral configuration and optional diagnostics;
+- cohesive Codex/Claude adapters and bounded future-client extension;
+- correct Codex scheduler projection and no provider/proxy concurrency coupling;
+- clean semantic package and test structure;
+- task-first responsive UX and stable JSON;
+- complete quality graph and strictly above 95% aggregate/package coverage;
+- latest stable supply chain and vulnerability proof;
+- native macOS, Linux, and Windows package lifecycle;
+- local-first build/install/runtime;
+- independent GitLab/GitHub green release and parity;
+- native Codex through Proxy to UCloud, DMXAPI, AIHubMix, native Claude Code,
+  and original-conversation continuity without session mutation;
+- every lane semantic delta absorbed or explicitly rejected before closeout;
+- clean canonical roots and deep housekeeping.

@@ -193,7 +193,7 @@ for body in [
     else:
         raise SystemExit("GitLab contract accepted a non-canonical verify job key")
 
-verify_end = gitlab.index("\nwindows-installer-runtime:")
+verify_end = gitlab.index("\npackage:")
 commented_gitlab = (
     gitlab[:verify_end] + "\n# low-indent comment\n  allow_failure: true" + gitlab[verify_end:]
 )
@@ -231,7 +231,9 @@ for forbidden in gitlab_cfg.get("forbid_package_provider_build_metadata", []):
     if forbidden in package:
         raise SystemExit(f"GitLab package plane retains provider-specific build metadata: {forbidden}")
 
-if gitlab_cfg.get("forbid_windows_native_acceptance_job", False) and "windows-native-acceptance:" in gitlab:
+if gitlab_cfg.get("forbid_windows_native_acceptance_job", False) and any(
+    token in gitlab for token in ("windows-native-acceptance:", "windows-installer-runtime:")
+):
     raise SystemExit("GitLab must not schedule its unmanageable Windows runner")
 if gitlab_cfg.get("forbid_macos_native_acceptance_job", False) and "macos-native-acceptance:" in gitlab:
     raise SystemExit("GitLab must not schedule macOS package acceptance without administrator credentials")
@@ -242,12 +244,8 @@ if gitlab_cfg.get("forbid_github_mirror_job", False):
     if "mirror-github:" in gitlab or "AIGW_GITHUB_MIRROR" in gitlab:
         raise SystemExit("GitLab CI must not retain a one-way GitHub dependency")
 
-for section_text, name in [
-    (section(gitlab, "windows-installer-runtime"), "Windows installer"),
-    (package, "package"),
-]:
-    if expected_gitlab_tag not in section_text:
-        raise SystemExit(f"{name} must use the protected release runner selection")
+if expected_gitlab_tag not in package:
+    raise SystemExit("package must use the protected release runner selection")
 
 # --- GitHub verify projection ---
 require_tokens(github_verify, common_commands, "GitHub verify plane")
