@@ -129,6 +129,59 @@ func TestCodexSyncCreatesMissingSchedulerTablesWithoutOwningTheirNeighbors(t *te
 	}
 }
 
+func TestCodexSyncRejectsMalformedTOMLWithoutChangingFiles(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "configuration.toml")
+	original := "model_provider = \"native\"\n[agents\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
+	err := codex.SyncConfig(path, profile)
+	if err == nil || !strings.Contains(err.Error(), "parse Codex config") {
+		t.Fatalf("SyncConfig() error = %v, want TOML parse failure", err)
+	}
+	data, readErr := os.ReadFile(path)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(data) != original {
+		t.Fatalf("malformed config changed\nwant:\n%s\ngot:\n%s", original, data)
+	}
+	if _, statErr := os.Stat(path + ".aigw-state.json"); !os.IsNotExist(statErr) {
+		t.Fatalf("state sidecar exists after rejected projection: %v", statErr)
+	}
+}
+
+func TestCodexSyncRejectsManagedSchedulerDrift(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "configuration.toml")
+	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
+	if err := codex.SyncConfig(path, profile); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	drifted := strings.Replace(string(data), "max_depth = 1 # managed by AIGW", "max_depth = 2 # managed by AIGW", 1)
+	if err := os.WriteFile(path, []byte(drifted), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err = codex.SyncConfig(path, profile)
+	if err == nil || !strings.Contains(err.Error(), "scheduler keys changed") {
+		t.Fatalf("SyncConfig() error = %v, want scheduler conflict", err)
+	}
+	current, readErr := os.ReadFile(path)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(current) != drifted {
+		t.Fatal("rejected scheduler drift was overwritten")
+	}
+}
+
 func TestCodexDisableStopsWhenManagedSelectionWasEdited(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
