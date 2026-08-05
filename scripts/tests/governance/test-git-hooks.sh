@@ -36,7 +36,7 @@ assert_quiet_success() {
   label=$1
   shift
   write_ethos pass admitted 0
-  PATH="$tmp/bin:$PATH" "$@" >"$tmp/stdout" 2>"$tmp/stderr"
+  (cd "$repo" && PATH="$tmp/bin:$PATH" "$@") >"$tmp/stdout" 2>"$tmp/stderr"
   test ! -s "$tmp/stdout" || { echo "$label must be quiet on stdout" >&2; exit 1; }
   test ! -s "$tmp/stderr" || { echo "$label must be quiet on stderr" >&2; exit 1; }
 }
@@ -45,7 +45,7 @@ assert_actionable_failure() {
   label=$1
   shift
   write_ethos block blocked 1
-  if PATH="$tmp/bin:$PATH" "$@" >"$tmp/stdout" 2>"$tmp/stderr"; then
+  if (cd "$repo" && PATH="$tmp/bin:$PATH" "$@") >"$tmp/stdout" 2>"$tmp/stderr"; then
     echo "$label unexpectedly succeeded" >&2
     exit 1
   fi
@@ -63,7 +63,7 @@ assert_actionable_failure pre-commit "$root/.githooks/pre-commit"
 head=$(git -C "$repo" write-tree)
 write_ethos pass admitted 0
 printf 'refs/heads/local %s refs/heads/dev %040d\n' "$head" 0 | \
-  PATH="$tmp/bin:$PATH" "$root/.githooks/pre-push" origin unused \
+  (cd "$repo" && PATH="$tmp/bin:$PATH" "$root/.githooks/pre-push" origin unused) \
     >"$tmp/stdout" 2>"$tmp/stderr"
 test ! -s "$tmp/stdout" || { echo 'pre-push must be quiet on stdout' >&2; exit 1; }
 test ! -s "$tmp/stderr" || { echo 'pre-push must be quiet on stderr' >&2; exit 1; }
@@ -83,7 +83,7 @@ grep -Fx '{"verdict":"block","state":"blocked","required_gaps":["scope"]}' \
 
 write_ethos pass admitted 0
 printf '%040d %040d refs/heads/dev\n' 0 1 | \
-  PATH="$tmp/bin:$PATH" "$root/.githooks/reference-transaction" prepared \
+  (cd "$repo" && PATH="$tmp/bin:$PATH" "$root/.githooks/reference-transaction" prepared) \
     >"$tmp/stdout" 2>"$tmp/stderr"
 test ! -s "$tmp/stdout" || { echo 'reference-transaction must be quiet on stdout' >&2; exit 1; }
 test ! -s "$tmp/stderr" || { echo 'reference-transaction must be quiet on stderr' >&2; exit 1; }
@@ -103,7 +103,7 @@ grep -Fx '{"verdict":"block","state":"blocked","required_gaps":["scope"]}' \
 
 write_ethos pass admitted 0
 if printf 'refs/heads/local %s refs/heads/work/private %040d\n' "$head" 0 | \
-    PATH="$tmp/bin:$PATH" "$root/.githooks/pre-push" origin unused \
+    (cd "$repo" && PATH="$tmp/bin:$PATH" "$root/.githooks/pre-push" origin unused) \
       >"$tmp/stdout" 2>"$tmp/stderr"; then
   echo 'private work branch push unexpectedly succeeded' >&2
   exit 1
