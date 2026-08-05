@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.79] - 2026-08-05
+
 ### Changed
 
 - Upgrade the Go dependency graph and immutable GitHub Actions revisions to
