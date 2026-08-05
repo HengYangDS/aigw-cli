@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-06
+goal: Ship the forward rc.80 release only after native, local, and independent
+  dual-Forge proof succeeds.

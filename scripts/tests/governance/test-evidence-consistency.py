@@ -117,6 +117,34 @@ class EvidenceConsistencyTests(unittest.TestCase):
         record = self.write_record()
         checker.verify(self.root, self.write_claim(record))
 
+    def test_peer_forge_commit_is_portable_when_tree_is_in_current_history(self) -> None:
+        checker = load_checker()
+        peer_commit = "0" * 40
+        record = self.write_record(head=peer_commit)
+        checker.verify(self.root, self.write_claim(record))
+
+    def test_tree_absent_from_current_history_fails_closed(self) -> None:
+        checker = load_checker()
+        previous = self.head
+        (self.root / "source.txt").write_text("successor\n", encoding="utf-8")
+        git(self.root, "add", "source.txt")
+        git(self.root, "commit", "-q", "-m", "successor")
+        current_tree = git(self.root, "rev-parse", "HEAD^{tree}")
+        git(self.root, "checkout", "-q", "--orphan", "independent")
+        git(self.root, "rm", "-q", "-rf", ".")
+        (self.root / "other.txt").write_text("independent\n", encoding="utf-8")
+        git(self.root, "add", "other.txt")
+        git(self.root, "commit", "-q", "-m", "independent")
+        record = self.write_record(head="0" * 40, tree=current_tree)
+        with self.assertRaisesRegex(ValueError, "source tree is absent from current history"):
+            checker.verify(self.root, self.write_claim(record))
+
+    def test_locally_available_commit_must_match_recorded_tree(self) -> None:
+        checker = load_checker()
+        record = self.write_record(head=self.head, tree="0" * 40)
+        with self.assertRaisesRegex(ValueError, "source tree mismatch"):
+            checker.verify(self.root, self.write_claim(record))
+
     def test_missing_raw_counts_fails_closed(self) -> None:
         checker = load_checker()
         record = self.write_record(

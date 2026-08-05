@@ -1,0 +1,22 @@
+schema_version = 1
+id = "change:rc80-hosted-verification"
+intent = "Repair provider-neutral evidence and Windows fixture determinism and ship rc.80 forward."
+subjects = ["repository:self"]
+scope = [".github/workflows/**", ".gitlab-ci.yml", "CHANGELOG.md", "cmd/**", "internal/cli/doctor/**", "openspec/**", "scripts/**"]
+invariants = [
+  "failed_rc_79_facts_are_immutable",
+  "evidence_validation_remains_strict",
+  "identity_and_trust_remain_protected_context",
+  "gitlab_and_github_publish_independently",
+]
+acceptance = [
+  "provider_neutral_tree_governance_passes",
+  "native_windows_launcher_tests_are_hermetic",
+  "all_package_and_aggregate_coverage_remain_strictly_above_ninety_five_percent",
+  "independent_rc_80_releases_are_installed_and_accepted",
+]
+risks = ["tree_ancestry_search", "windows_fixture_identity"]
+authority_refs = ["user_instruction", "AGENTS.md", "openspec/specs/product-control-plane/spec.md"]
+permissions = ["repository.read", "work-lane.write", "git.ref.compare-and-swap", "local-proof.execute", "terminal-publication.execute"]
+hypotheses = ["tree_identity_and_hermetic_fixtures_remove_hosted_only_failures"]
+dependencies = []
