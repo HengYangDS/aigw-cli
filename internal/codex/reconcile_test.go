@@ -266,7 +266,11 @@ func TestReconcileConfigsUsesLegacySidecarBesideSymlinkTarget(t *testing.T) {
 	}
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	if err := os.WriteFile(realPath, []byte(projectCodex(original, block, runtime.Model)), 0o600); err != nil {
+	projection, err := projectCodex(original, block, runtime.Model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(realPath, []byte(projection), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	legacy := codexState{

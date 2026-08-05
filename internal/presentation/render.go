@@ -150,7 +150,13 @@ func (r *Renderer) Status(state State, label, value string) {
 }
 
 func (r *Renderer) StatusLine(state State, label, value string) {
-	r.Status(state, label, value)
+	symbol := map[State]string{OK: "✓", Warn: "!", Fail: "✗", Info: "·"}[state]
+	if r.compactRow(symbol+" "+label, value, true) {
+		return
+	}
+	symbol = r.stateStyle(state).Render(symbol)
+	r.printf("  %s %s  %s\n", symbol, label, value)
+	r.hasContent = true
 }
 
 func (r *Renderer) Detail(value string) {

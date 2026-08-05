@@ -53,7 +53,7 @@ func TestCodexSyncProjectsOwnedProviderAndPreservesOtherSettings(t *testing.T) {
 
 func TestCodexSyncProjectsCurrentPerSessionConcurrencySchema(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
-	original := "model_provider = \"native\"\nmax_threads = 99\n"
+	original := "model_provider = \"native\"\nmax_threads = 99\n\n[agents]\nmax_concurrent_threads_per_session = 7\nmax_depth = 3\n\n[features.multi_agent_v2]\nmax_concurrent_threads_per_session = 5\n"
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -68,8 +68,8 @@ func TestCodexSyncProjectsCurrentPerSessionConcurrencySchema(t *testing.T) {
 	text := string(data)
 	for _, want := range []string{
 		"[agents]\n",
-		"max_concurrent_threads_per_session = 16\n",
-		"max_depth = 1\n",
+		"max_concurrent_threads_per_session = 16",
+		"max_depth = 1",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("Codex config lacks %q:\n%s", want, text)
@@ -78,8 +78,11 @@ func TestCodexSyncProjectsCurrentPerSessionConcurrencySchema(t *testing.T) {
 	if strings.Count(text, "max_concurrent_threads_per_session") != 2 {
 		t.Fatalf("Codex config does not bind both scheduler generations:\n%s", text)
 	}
-	if strings.Contains(text, "max_threads") {
-		t.Fatalf("AIGW retained the retired scheduler key:\n%s", text)
+	if !strings.Contains(text, "max_threads = 99") {
+		t.Fatalf("AIGW changed an unrelated user-owned scheduler key:\n%s", text)
+	}
+	if strings.Count(text, "[agents]") != 1 || strings.Count(text, "[features.multi_agent_v2]") != 1 {
+		t.Fatalf("AIGW duplicated an existing Codex table:\n%s", text)
 	}
 	if err := codex.DisableConfig(path); err != nil {
 		t.Fatal(err)
@@ -88,8 +91,41 @@ func TestCodexSyncProjectsCurrentPerSessionConcurrencySchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(restored) != "model_provider = \"native\"\n" {
-		t.Fatalf("disable restored the retired scheduler key:\n%s", restored)
+	if string(restored) != original {
+		t.Fatalf("disable did not restore the byte-exact user configuration:\n%s", restored)
+	}
+}
+
+func TestCodexSyncCreatesMissingSchedulerTablesWithoutOwningTheirNeighbors(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "configuration.toml")
+	original := "model_provider = \"native\"\n\n[agents]\nmax_threads = 9\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
+	if err := codex.SyncConfig(path, profile); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	if strings.Count(text, "[agents]") != 1 || strings.Count(text, "[features.multi_agent_v2]") != 1 {
+		t.Fatalf("AIGW did not project one scheduler table of each kind:\n%s", text)
+	}
+	if !strings.Contains(text, "max_threads = 9") {
+		t.Fatalf("AIGW changed an unrelated key in an owned table:\n%s", text)
+	}
+	if err := codex.DisableConfig(path); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(restored) != original {
+		t.Fatalf("restore mismatch\nwant:\n%s\ngot:\n%s", original, restored)
 	}
 }
 
