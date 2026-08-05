@@ -11,9 +11,12 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	configuration "aigw-cli/internal/configuration"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 const (
@@ -33,12 +36,14 @@ var modelLine = regexp.MustCompile(`(?m)^[ \t]*model[ \t]*=.*$`)
 var legacyMaxThreadsLine = regexp.MustCompile(`(?m)^[ \t]*max_threads[ \t]*=.*(?:\r?\n)?`)
 
 type codexState struct {
-	OriginalProvider string `json:"original_provider,omitempty"`
-	OriginalModel    string `json:"original_model,omitempty"`
-	ManagedBlockHash string `json:"managed_block_hash"`
-	ProjectionMode   string `json:"projection_mode,omitempty"`
-	WriterID         string `json:"writer_id,omitempty"`
-	TransactionID    string `json:"transaction_id,omitempty"`
+	OriginalProvider       string          `json:"original_provider,omitempty"`
+	OriginalModel          string          `json:"original_model,omitempty"`
+	ManagedBlockHash       string          `json:"managed_block_hash"`
+	OriginalScheduler      map[string]*int `json:"original_scheduler,omitempty"`
+	ProjectedSchedulerHash string          `json:"projected_scheduler_hash,omitempty"`
+	ProjectionMode         string          `json:"projection_mode,omitempty"`
+	WriterID               string          `json:"writer_id,omitempty"`
+	TransactionID          string          `json:"transaction_id,omitempty"`
 }
 
 // ProjectionPlan is a non-secret, read-only rendering of one target's
@@ -142,6 +147,12 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 		if !managedBlockHashMatches(state.ManagedBlockHash, actualBlock) {
 			return fmt.Errorf("Codex config AIGW state does not match profile %q", runtime.ProfileID)
 		}
+		if err := validateCodexScheduler(text); err != nil {
+			return err
+		}
+		if state.ProjectedSchedulerHash != "" && state.ProjectedSchedulerHash != codexSchedulerHash(text) {
+			return fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
+		}
 		return nil
 	}
 	return fmt.Errorf("Codex config provider selection does not match AIGW")
@@ -174,6 +185,10 @@ func codexUserConfigAt(path, statePath string, runtime configuration.Runtime, ex
 		if err != nil {
 			return "", codexState{}, err
 		}
+		base, err = restoreCodexScheduler(base, state.OriginalScheduler)
+		if err != nil {
+			return "", codexState{}, err
+		}
 		return base, state, nil
 	}
 	if !os.IsNotExist(err) {
@@ -185,7 +200,11 @@ func codexUserConfigAt(path, statePath string, runtime configuration.Runtime, ex
 	}
 	originalProvider := modelProviderLine.FindString(string(data))
 	originalModel := modelLine.FindString(string(data))
-	return string(data), codexState{OriginalProvider: originalProvider, OriginalModel: originalModel}, nil
+	scheduler, err := captureCodexScheduler(string(data))
+	if err != nil {
+		return "", codexState{}, err
+	}
+	return string(data), codexState{OriginalProvider: originalProvider, OriginalModel: originalModel, OriginalScheduler: scheduler}, nil
 }
 
 // completeExactTruncatedCodexProjection admits only the known interrupted
@@ -236,8 +255,12 @@ func codexEndpoint(runtime configuration.Runtime) (string, error) {
 	return runtime.Endpoint, nil
 }
 
-func projectCodex(original, block, model string) string {
-	base := strings.TrimRight(legacyMaxThreadsLine.ReplaceAllString(original, ""), "\r\n")
+func projectCodex(original, block, model string) (string, error) {
+	base, err := projectCodexScheduler(original)
+	if err != nil {
+		return "", err
+	}
+	base = strings.TrimRight(base, "\r\n")
 	if modelProviderLine.MatchString(base) {
 		base = modelProviderLine.ReplaceAllString(base, codexSelection)
 	} else {
@@ -255,7 +278,7 @@ func projectCodex(original, block, model string) string {
 	// of blank lines before its ownership marker.  Keep the separator canonical
 	// so a client formatter that folds adjacent blank lines cannot cause every
 	// subsequent dry-run to report a needless update.
-	return base + "\n" + codexBegin + "\n" + block
+	return base + "\n" + codexBegin + "\n" + block, nil
 }
 
 func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
@@ -266,11 +289,6 @@ func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 		fmt.Sprintf("base_url = \"%s\"\n", endpoint) +
 		"wire_api = \"responses\"\n" +
 		"requires_openai_auth = true\n" +
-		"\n[agents]\n" +
-		fmt.Sprintf("max_concurrent_threads_per_session = %d\n", codexSessionConcurrency) +
-		fmt.Sprintf("max_depth = %d\n", codexAgentDepth) +
-		"\n[features.multi_agent_v2]\n" +
-		fmt.Sprintf("max_concurrent_threads_per_session = %d\n", codexSessionConcurrency) +
 		codexEnd + "\n"
 }
 
@@ -285,6 +303,9 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 	}
 	if !managedBlockHashMatches(state.ManagedBlockHash, block) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits")
+	}
+	if state.ProjectedSchedulerHash != "" && state.ProjectedSchedulerHash != codexSchedulerHash(current) {
+		return "", fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
 	}
 	providerStart := strings.Index(current, "[model_providers.aigw]")
 	providerEnd := providerStart + len(block)
@@ -308,7 +329,255 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 	} else {
 		base = removeManagedModelSelection(base)
 	}
-	return base + "\n", nil
+	base, err = restoreCodexScheduler(base+"\n", state.OriginalScheduler)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasSuffix(current, "\n") {
+		base = strings.TrimRight(base, "\n") + "\n"
+	} else {
+		base = strings.TrimRight(base, "\n")
+	}
+	return base, nil
+}
+
+var codexSchedulerKeys = map[string]map[string]int{
+	"agents": {
+		"max_concurrent_threads_per_session": codexSessionConcurrency,
+		"max_depth":                          codexAgentDepth,
+	},
+	"features.multi_agent_v2": {
+		"max_concurrent_threads_per_session": codexSessionConcurrency,
+	},
+}
+
+func captureCodexScheduler(text string) (map[string]*int, error) {
+	if err := validateCodexTOML(text); err != nil {
+		return nil, err
+	}
+	original := make(map[string]*int)
+	for table, keys := range codexSchedulerKeys {
+		for key := range keys {
+			value, present, err := codexIntegerKey(text, table, key)
+			if err != nil {
+				return nil, err
+			}
+			name := table + "." + key
+			if present {
+				copied := value
+				original[name] = &copied
+			} else {
+				original[name] = nil
+			}
+		}
+	}
+	return original, nil
+}
+
+func projectCodexScheduler(text string) (string, error) {
+	if err := validateCodexTOML(text); err != nil {
+		return "", err
+	}
+	result := text
+	tables := make([]string, 0, len(codexSchedulerKeys))
+	for table := range codexSchedulerKeys {
+		tables = append(tables, table)
+	}
+	sort.Strings(tables)
+	for _, table := range tables {
+		keys := make([]string, 0, len(codexSchedulerKeys[table]))
+		for key := range codexSchedulerKeys[table] {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			var err error
+			result, err = setCodexIntegerKey(result, table, key, codexSchedulerKeys[table][key])
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+	return result, validateCodexTOML(result)
+}
+
+func restoreCodexScheduler(text string, original map[string]*int) (string, error) {
+	if len(original) == 0 {
+		return text, nil
+	}
+	result := text
+	names := make([]string, 0, len(original))
+	for name := range original {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		table, key, ok := strings.Cut(name, ".max_")
+		if !ok {
+			return "", fmt.Errorf("invalid Codex scheduler state key %q", name)
+		}
+		key = "max_" + key
+		var err error
+		if original[name] == nil {
+			result, err = removeCodexIntegerKey(result, table, key)
+		} else {
+			result, err = setCodexIntegerKey(result, table, key, *original[name])
+		}
+		if err != nil {
+			return "", err
+		}
+		result = removeEmptyCodexTable(result, table)
+	}
+	result = regexp.MustCompile(`(?m)^([ \t]*max_(?:concurrent_threads_per_session|depth)[ \t]*=[ \t]*[0-9]+)[ \t]*#[ \t]*managed by AIGW[ \t]*$`).ReplaceAllString(result, "$1")
+	return result, validateCodexTOML(result)
+}
+
+func codexSchedulerHash(text string) string {
+	values := make([]string, 0)
+	for table, keys := range codexSchedulerKeys {
+		for key := range keys {
+			value, present, err := codexIntegerKey(text, table, key)
+			if err != nil || !present {
+				values = append(values, table+"."+key+"=<missing>")
+				continue
+			}
+			values = append(values, fmt.Sprintf("%s.%s=%d", table, key, value))
+		}
+	}
+	sort.Strings(values)
+	return hashText(strings.Join(values, "\n"))
+}
+
+func validateCodexScheduler(text string) error {
+	for table, keys := range codexSchedulerKeys {
+		for key, expected := range keys {
+			actual, present, err := codexIntegerKey(text, table, key)
+			if err != nil {
+				return err
+			}
+			if !present || actual != expected {
+				return fmt.Errorf("Codex config scheduler key %s.%s does not match AIGW", table, key)
+			}
+		}
+	}
+	return nil
+}
+
+func validateCodexTOML(text string) error {
+	var value map[string]any
+	if err := toml.Unmarshal([]byte(text), &value); err != nil {
+		return fmt.Errorf("parse Codex config: %w", err)
+	}
+	return nil
+}
+
+func codexTableBounds(text, table string) (int, int, bool) {
+	header := "[" + table + "]"
+	lineStart := 0
+	for lineStart <= len(text) {
+		lineEnd := strings.IndexByte(text[lineStart:], '\n')
+		if lineEnd < 0 {
+			lineEnd = len(text)
+		} else {
+			lineEnd += lineStart + 1
+		}
+		line := strings.TrimSpace(strings.TrimSuffix(text[lineStart:lineEnd], "\n"))
+		if line == header {
+			end := lineEnd
+			for end < len(text) {
+				nextEnd := strings.IndexByte(text[end:], '\n')
+				if nextEnd < 0 {
+					nextEnd = len(text)
+				} else {
+					nextEnd += end + 1
+				}
+				next := strings.TrimSpace(strings.TrimSuffix(text[end:nextEnd], "\n"))
+				if strings.HasPrefix(next, "[") && strings.HasSuffix(next, "]") {
+					break
+				}
+				end = nextEnd
+			}
+			return lineStart, end, true
+		}
+		if lineEnd == len(text) {
+			break
+		}
+		lineStart = lineEnd
+	}
+	return 0, 0, false
+}
+
+func codexIntegerKey(text, table, key string) (int, bool, error) {
+	start, end, present := codexTableBounds(text, table)
+	if !present {
+		return 0, false, nil
+	}
+	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*([0-9]+)[ \t]*(?:#.*)?$`)
+	match := pattern.FindStringSubmatch(text[start:end])
+	if match == nil {
+		return 0, false, nil
+	}
+	var value int
+	if _, err := fmt.Sscanf(match[1], "%d", &value); err != nil {
+		return 0, false, fmt.Errorf("parse Codex scheduler key %s.%s: %w", table, key, err)
+	}
+	return value, true, nil
+}
+
+func setCodexIntegerKey(text, table, key string, value int) (string, error) {
+	start, end, present := codexTableBounds(text, table)
+	assignment := fmt.Sprintf("%s = %d # managed by AIGW", key, value)
+	if !present {
+		separator := ""
+		if text != "" && !strings.HasSuffix(text, "\n") {
+			separator = "\n"
+		}
+		if strings.TrimSpace(text) != "" {
+			separator += "\n"
+		}
+		return text + separator + "[" + table + "]\n" + assignment + "\n", nil
+	}
+	section := text[start:end]
+	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=.*$`)
+	if pattern.MatchString(section) {
+		section = pattern.ReplaceAllString(section, assignment)
+	} else {
+		headerEnd := strings.IndexByte(section, '\n')
+		if headerEnd < 0 {
+			section += "\n" + assignment + "\n"
+		} else {
+			headerEnd++
+			section = section[:headerEnd] + assignment + "\n" + section[headerEnd:]
+		}
+	}
+	return text[:start] + section + text[end:], nil
+}
+
+func removeCodexIntegerKey(text, table, key string) (string, error) {
+	start, end, present := codexTableBounds(text, table)
+	if !present {
+		return text, nil
+	}
+	section := text[start:end]
+	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=.*(?:\n|$)`)
+	section = pattern.ReplaceAllString(section, "")
+	return text[:start] + section + text[end:], nil
+}
+
+func removeEmptyCodexTable(text, table string) string {
+	start, end, present := codexTableBounds(text, table)
+	if !present {
+		return text
+	}
+	section := text[start:end]
+	lines := strings.Split(section, "\n")
+	for _, line := range lines[1:] {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
+			return text
+		}
+	}
+	return text[:start] + text[end:]
 }
 
 // isManagedSelection accepts harmless formatter changes such as the padded

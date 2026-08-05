@@ -454,7 +454,11 @@ func TestInspectConfigReachableStates(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		runtime := atomicTestRuntime()
 		block := codexManagedBlock(runtime, runtime.Endpoint)
-		writeExtraCodexFile(t, path, projectCodex("model_provider = \"native\"\n", block, ""))
+		projection, err := projectCodex("model_provider = \"native\"\n", block, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeExtraCodexFile(t, path, projection)
 		writeExtraCodexState(t, path, codexState{ManagedBlockHash: hashText(block)})
 
 		inspection, err := InspectConfig(path)
@@ -491,7 +495,11 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 
 	t.Run("sidecar is directory", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeExtraCodexFile(t, path, projectCodex("", block, runtime.Model))
+		projection, err := projectCodex("", block, runtime.Model)
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeExtraCodexFile(t, path, projection)
 		if err := os.Mkdir(codexStatePath(path), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -502,7 +510,11 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 
 	t.Run("invalid sidecar", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeExtraCodexFile(t, path, projectCodex("", block, runtime.Model))
+		projection, err := projectCodex("", block, runtime.Model)
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeExtraCodexFile(t, path, projection)
 		writeExtraCodexFile(t, codexStatePath(path), "{")
 		if err := ValidateConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "parse Codex adapter state") {
 			t.Fatalf("ValidateConfig() error = %v", err)
@@ -521,7 +533,11 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 	t.Run("provider profile mismatch", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		otherBlock := codexManagedBlock(runtime, "https://other.example/v1")
-		writeExtraCodexFile(t, path, projectCodex("", otherBlock, runtime.Model))
+		projection, err := projectCodex("", otherBlock, runtime.Model)
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeExtraCodexFile(t, path, projection)
 		writeExtraCodexState(t, path, attributedExtraCodexState(ProjectionFullSelection, otherBlock))
 		if err := ValidateConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "provider block does not match") {
 			t.Fatalf("ValidateConfig() error = %v", err)
@@ -625,7 +641,10 @@ func TestCompleteExactTruncatedCodexProjectionRejectsAmbiguities(t *testing.T) {
 func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	current := projectCodex("external = true\n", block, runtime.Model)
+	current, err := projectCodex("external = true\n", block, runtime.Model)
+	if err != nil {
+		t.Fatal(err)
+	}
 	state := codexState{
 		OriginalModel:    `model = "native-model"`,
 		ManagedBlockHash: hashText(block),
@@ -646,7 +665,10 @@ func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 func TestRemoveCodexProjectionRejectsChangedManagedBlock(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	current := projectCodex("external = true\n", block, runtime.Model)
+	current, err := projectCodex("external = true\n", block, runtime.Model)
+	if err != nil {
+		t.Fatal(err)
+	}
 	state := codexState{ManagedBlockHash: hashText(block)}
 	current = strings.Replace(current, runtime.Endpoint, "https://changed.example/v1", 1)
 

@@ -221,8 +221,13 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 		return codexPreparedTarget{}, err
 	}
 	state = projectedState
-	projected := []byte(projectCodex(base, block, runtime.Model))
+	projection, err := projectCodex(base, block, runtime.Model)
+	if err != nil {
+		return codexPreparedTarget{}, err
+	}
+	projected := []byte(projection)
 	state.ManagedBlockHash = hashText(block)
+	state.ProjectedSchedulerHash = codexSchedulerHash(string(projected))
 	state.ProjectionMode = ProjectionFullSelection
 	state.WriterID = ProjectionWriterID
 	stateData, err := encodeCodexState(state)
