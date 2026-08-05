@@ -3,6 +3,7 @@ paths = [
   ".config/ci/verify-gates.toml",
   ".github/**",
   ".gitlab-ci.yml",
+  ".gitignore",
   "AGENTS.md",
   "CHANGELOG.md",
   "README.md",
