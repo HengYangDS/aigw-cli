@@ -1,79 +1,64 @@
-# Concepts
+# Product Concepts
+
+AIGW has four configuration entities and two external boundaries.
+
+```mermaid
+flowchart LR
+    A["Account"] --> P["Profile"]
+    P --> R["Route"]
+    R --> D["Adapter"]
+    A --> K["OS Token slot"]
+    D --> C["Native client"]
+```
+
+## Core entities
+
+| Entity | Meaning | Cardinal rule |
+| --- | --- | --- |
+| Account | One provider endpoint and logical Token boundary | Token belongs to the Account, not a Profile |
+| Profile | One `account + client + model` choice | Client scope is explicit |
+| Route | Default or client-specific Profile selection | No hidden provider fallback |
+| Adapter | Projection into one native client | Never writes another client's surface |
 
 ## Account
 
-An Account is one upstream provider account boundary: display label, supported protocol endpoints, optional exact-diagnostics declaration, and exactly one logical Token. The secret is stored at `AIGW_TOKEN/<account>` in the operating-system credential store; it is never embedded in configuration or configuration manifests. A local AIGW configuration may contain many Accounts; adding a second service never copies or replaces the first service's Token.
+An Account contains:
 
-`aigw account rename [old] [new]` moves an Account ID and updates all referencing Profiles. Phase 1 adopts the target `AIGW_TOKEN/<account>` and optional `AIGW_ACCOUNT/<account>` account-probe slots: missing values are copied and read back, equal values are resumable, and differing values fail closed. The read-only `env` backend requires equal target variables to be externally pre-provisioned. After success, the current TOML contains only the new Account key; the old key remains in the single `.bak` preimage and the old credential slots remain available.
-
-`aigw account rename <old> <new> --finalize` verifies the complete admitted-client checkpoint and converges the single `.bak` before deleting old slots. A rotation confirmation flag is required only when its corresponding old and new slots differ; differing probe credentials also require a live target-provider probe. Partial cleanup is retryable, while old `env` variables must be unset externally before retrying.
-
-Team-manifest import is non-destructive by default. A same-named Account or Runtime Profile is accepted only when its semantic configuration already matches the local object; a mismatch is rejected before any local config projection changes. This prevents a token held in `AIGW_TOKEN/<account>` from being silently redirected to a different endpoint. An operator may explicitly replace a reviewed conflict with `--replace-account <id>` or `--replace-profile <id>`; replacing an Account changes metadata only and never reads, writes, or deletes its Token.
-
-Example:
+- a human label;
+- an OpenAI Responses endpoint, an Anthropic endpoint, or both;
+- one logical Token stored by the operating system;
+- an optional provider-native diagnostic declaration.
 
 ```toml
-[accounts."team-gateway"]
+[accounts.team]
 label = "Team Gateway"
 
-[accounts."team-gateway".endpoints]
+[accounts.team.endpoints]
 openai_responses = "https://gateway.example/v1"
 anthropic = "https://gateway.example"
 ```
 
-## Runtime Profile
+Configuration and manifests never contain the Token.
 
-A Runtime Profile is what users choose day to day. It references one Account and defines a client scope plus the model name to send through that client protocol. One Account may back many Profiles: one Account can back separate GPT and Claude Profiles, while another provider has its own Account and Profile set. Endpoint URLs and provider probes are never Profile fields.
+## Profile
 
-`aigw profile rename [old] [new]` changes a Profile ID and updates all Route references to that profile. It does not touch Account configuration or Token slots. Interactive 0-argument use allows selecting the source and prompting for the target ID; 2-argument use is stable for scripting.
+A Profile is the daily model choice for one client.
 
 ```toml
-[profiles."codex-default"]
+[profiles.codex-default]
 label = "Codex Default"
-purpose = "Team-selected Codex profile"
-account = "team-gateway"
+purpose = "Reviewed daily profile"
+account = "team"
 client = "codex"
 
-[profiles."codex-default".models]
-codex = "codex-model-id"
+[profiles.codex-default.models]
+codex = "model-id"
 ```
 
-`purpose` is optional, human-facing guidance only. It appears in `aigw use`, `aigw profile list`, and `aigw profile show`; it never changes a route, fallback, Account, endpoint, or Token.
-
-Profile IDs are user-defined configuration identities, and model IDs are
-transparent upstream gateway strings. AIGW validates generic Profile ID syntax,
-references, and client scope, but it does not reject, translate, or rewrite an
-ID based on a provider name, model version, prefix, suffix, or historical naming
-policy. Client scope remains explicit in `client` rather than being inferred
-from either ID.
-
-The compact example configuration manifest uses fictitious model IDs. AIGW has
-no preferred provider or model; an adopting team admits only the profiles its
-own protocol, permission, cost, and client evidence supports. See the
-[model strategy](model-strategy.md) for the admission policy.
-
-Use `aigw catalog` to inspect the configured subset and compact count summary of each Account's authenticated OpenAI-compatible model inventory; use `aigw catalog --all` for the full human-readable inventory or `--json` for complete machine output. Then add an explicit Profile with `aigw profile add`. Discovery is read-only: it neither changes a Route nor infers whether an ID supports a particular protocol, embedding, rerank, vision, tools, or reasoning task.
-
-## Endpoint
-
-An Account may provide an Anthropic endpoint, an OpenAI Responses endpoint, or both. Claude consumes the Anthropic endpoint; Codex consumes the OpenAI Responses endpoint. HTTPS is required except for an explicitly configured loopback development Account.
-
-## Provider diagnostics
-
-`aigw check` is generic and probes the current default Profile's Account while separately checking each enabled client's local route and Adapter. It does not silently substitute a client override for the default service or scan unrelated Accounts; use `aigw test --for claude|codex` for an explicit client endpoint check. Exact balance or provider-native Token state is optional: a configuration manifest may declare an `account_probe`, and the installed AIGW build must explicitly include its Provider Diagnostics implementation. An unknown provider declaration never changes routing or invalidates the Account; it only makes `aigw balance` unavailable with a clear explanation.
-
-A single HTTP 401 is an observation, not a confirmed invalid Token. After an
-initial 401, `aigw check` makes three bounded recovery observations against the
-same configured endpoint with the same in-memory Token. Three healthy results
-report a recovered transient; three further 401 responses confirm the existing
-manual `aigw rotate` guidance. Mixed results report retryable authentication
-instability without recommending rotation. The check never bypasses a
-configured loopback endpoint, prompts for a replacement, or changes the Token,
-Account, endpoint, Route, Adapter, proxy, or client.
+Profile and model IDs are transparent operator-defined strings. AIGW does not
+infer a provider, capability, or version policy from their spelling.
 
 ## Route
-
-The default route points to a Runtime Profile. Claude and Codex inherit it unless a client-specific override exists:
 
 ```bash
 aigw use codex-default --for codex
@@ -81,84 +66,59 @@ aigw use claude-default --for claude
 aigw route reset claude
 ```
 
-The last command removes the override; it does not duplicate the default route.
-
-A Route is a deterministic local selection before the client request. Without a data-plane Gateway, AIGW never silently retries a request through another service or model.
+A client-specific route overrides the default. Reset removes only that override.
+AIGW selects before the request; it does not retry traffic through another
+service or model.
 
 ## Adapter
 
-An Adapter projects a resolved Runtime Profile into one client boundary:
+| Adapter | Projection |
+| --- | --- |
+| Codex | AIGW-marked provider/model configuration and native credential binding |
+| Claude Code | Process-scoped endpoint, model, and Token through the AIGW launcher |
 
-- Claude receives `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`,
-  `AIGW_ACCOUNT`, `AIGW_PROFILE`, and optional `ANTHROPIC_MODEL` only in the
-  launched process.
-- Codex receives an AIGW-marked provider block with Account endpoint and
-  optional model plus credentials through its official `login --with-api-key`
-  command.
+Adapters do not own provider behavior. Missing clients remain untouched.
 
-Adapters never own provider secrets and never write into one another's owned
-surfaces. The Claude launcher lives in AIGW's data directory, not shared
-`~/.local/bin` or a Codex directory. Enabling the Adapter adds one bounded,
-secret-free PATH block to the active user's shell profile; disabling it removes
-only that owned block and launcher.
+## Endpoint
 
-## External gateway boundary
+- Claude Code consumes the Account's Anthropic endpoint.
+- Codex consumes the Account's OpenAI Responses endpoint.
+- HTTPS is required except for an explicit loopback Account.
+- A loopback process remains external to AIGW lifecycle ownership.
 
-AIGW is local-first: it is not a gateway, listens on no local port, and is fully
-usable without a team service. Accounts may use their HTTPS endpoints directly
-or an explicitly configured loopback compatibility endpoint. An adopting team
-may assign a Codex Account a direct provider endpoint or a provider-scoped
-loopback compatibility endpoint. That external listener is
-independently assessed and deployed; AIGW sees only
-the configured Account endpoint and never manages its process lifecycle,
-upstream credentials, retries, or fallback policy.
+## Provider diagnostics
+
+Routing and endpoint checks are provider-neutral. Exact balance or account state
+is an optional leaf capability declared by `account_probe` and implemented by a
+bundled diagnostic provider.
+
+An unknown diagnostic kind does not invalidate the Account or Route. It makes
+only the optional diagnostic unavailable.
+
+## Manifest import
+
+A token-free team manifest adds or reconciles public metadata. Same-named
+Accounts and Profiles must match or import stops before mutation. Explicit
+replacement changes metadata only; it never changes the Token slot.
+
+## Rename
+
+| Operation | Changes | Preserves |
+| --- | --- | --- |
+| `profile rename` | Profile ID and Route references | Account and Token |
+| `account rename` | Account ID and Profile references | Token through a two-phase migration |
+| `account rename --finalize` | Removes verified old credential slots | Current configuration and checkpoint |
+
+Finalize fails closed if credential equality or checkpoint proof is incomplete.
 
 ## Installation channel
 
-AIGW records its installation channel at build time:
+| Channel | Update behavior |
+| --- | --- |
+| Portable | Atomic binary replacement; one immediate predecessor retained |
+| macOS package | Launch verified package installer |
+| Debian / RPM | Use platform package manager |
+| Windows MSI | Launch verified MSI |
 
-- `portable`: archive or user-level script install; `aigw update` replaces the current binary atomically.
-- `pkg`: macOS package; `aigw update` opens the downloaded installer.
-- `deb` / `rpm`: Linux package; `aigw update` invokes the package manager.
-- `msi`: Windows Installer package; `aigw update` starts the installer.
-
-This prevents package-manager files from being overwritten by portable
-self-update logic.
-
-Portable archives contain local-only `install.sh` and `install.ps1` scripts.
-They copy the bundled binary and never retrieve releases or inspect release
-credentials. GitLab and GitHub are equal update peers. When both are reachable,
-AIGW requires their latest tag and platform artifact bytes to agree before
-installing. When only one peer is reachable, that peer may supply the update.
-Authentication, metadata, checksum, archive-layout, downgrade, and
-redirect-security errors are terminal, and AIGW never mixes a tag, manifest,
-or artifact across providers.
-
-Use an explicit archive and manifest for offline candidate acceptance:
-
-```bash
-aigw update --candidate /secure-transfer/aigw_0.1.0-candidate.1_darwin_arm64.tar.gz \
-  --checksums /secure-transfer/checksums.txt
-```
-
-The candidate path is local-only and checksum-first; a source tree, loose
-binary, tag, or self-authored checksum is not independent release evidence. For
-remote testing, configure complete `provider`, `origin`, and `repository`
-tuples through `AIGW_GITLAB_RELEASE_ORIGIN` /
-`AIGW_GITLAB_RELEASE_REPOSITORY` and
-`AIGW_GITHUB_RELEASE_ORIGIN` / `AIGW_GITHUB_RELEASE_REPOSITORY`.
-Partial tuples fail before a network request. The GitLab token path requires an
-explicit HTTPS origin. Tokens are neither persisted nor placed on a command
-line; requests have a finite timeout, release assets remain checksum-verified,
-credentials are removed before a redirect crosses hosts, HTTPS-to-HTTP
-redirects are refused, and an older or malformed release cannot replace the
-installed binary.
-
-Portable installs retain exactly one immediate predecessor beside the current
-binary. `aigw update --rollback` swaps those two local binaries without any
-network request or change to configuration, secrets, Accounts, Profiles, Routes
-or Adapters. If an older selected program predates this command, download the
-current portable package again and run its bundled installer to recover the
-current program; it preserves the older program as the one immediate
-predecessor. It is intentionally unavailable for native package channels:
-native rollback belongs to the operating-system package manager.
+`aigw update --rollback` applies only to portable installations. Native package
+rollback belongs to the platform package manager.

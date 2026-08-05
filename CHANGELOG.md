@@ -25,6 +25,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Make the current client boundary explicit: setup configures only discoverable
   Claude or Codex integrations, while missing clients remain untouched and
   Hermes or future clients require independent Adapter admission.
+- Project Codex's current per-session scheduler keys with a 16-thread limit and
+  depth 1, leaving global transport capacity to the selected external service.
 
 ## [0.1.0-rc.78] - 2026-07-31
 
