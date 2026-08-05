@@ -28,6 +28,9 @@ for file in \
   .config/release/github-legacy-tags.txt \
   .config/release/retired-gitlab-tags.txt \
   .github/workflows/verify.yml \
+  .githooks/pre-commit \
+  .githooks/pre-push \
+  .githooks/reference-transaction \
   scripts/checks/forge/check-branch-closeout.sh \
   scripts/checks/forge/check-forge-sync.sh \
   scripts/checks/quality/check-static-analysis.sh \
@@ -37,6 +40,7 @@ for file in \
   scripts/tests/governance/test-evidence-consistency.py \
   scripts/checks/governance/check-portability.sh \
   scripts/tests/governance/test-portability.sh \
+  scripts/tests/governance/test-git-hooks.sh \
   scripts/checks/forge/check-commit-provenance.sh \
   scripts/checks/forge/check-tag-namespace.sh \
   scripts/forge/lib/compare-ordered-trees.py \
@@ -89,6 +93,7 @@ python3 scripts/checks/governance/check-evidence-consistency.py \
   evidence/claims/product-convergence-20260731.toml
 sh scripts/checks/governance/check-portability.sh
 sh scripts/tests/governance/test-portability.sh
+sh scripts/tests/governance/test-git-hooks.sh
 sh scripts/checks/governance/check-changelog.sh
 sh scripts/tests/forge/test-tag-namespace.sh
 sh scripts/checks/governance/check-english-text.sh

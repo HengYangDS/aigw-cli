@@ -4,6 +4,7 @@ profile_id = "aigw-cli"
 material_paths = [
   ".config/**",
   ".ethos/**",
+  ".githooks/**",
   ".github/**",
   ".gitlab-ci.yml",
   "AGENTS.md",
