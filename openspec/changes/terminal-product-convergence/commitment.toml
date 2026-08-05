@@ -5,6 +5,7 @@ subjects = ["repository:self"]
 scope = [
   ".config/**",
   ".ethos/**",
+  ".githooks/**",
   ".github/**",
   ".gitlab-ci.yml",
   ".gitignore",

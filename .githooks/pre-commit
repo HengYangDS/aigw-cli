@@ -1,0 +1,21 @@
+#!/bin/sh
+# Admit staged tracked writes through the public ETHOS command plane.
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+staged=$(git diff --cached --name-only --diff-filter=ACMRTD)
+[ -n "$staged" ] || exit 0
+
+set --
+while IFS= read -r file; do
+  [ -n "$file" ] || continue
+  set -- "$@" "$file"
+done <<EOF
+$staged
+EOF
+
+if ! report=$(ethos hook admit pre-tool "$@" \
+  --root "$root" --editor-root "$root" --require-editor-root --json); then
+  printf '%s\n' "$report" >&2
+  exit 1
+fi
