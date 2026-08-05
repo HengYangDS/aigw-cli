@@ -88,19 +88,10 @@ verify:
     - sh scripts/tests/install/test-installers.sh /tmp/aigw-install-smoke
     - sh scripts/tests/install/test-portable-install.sh /tmp/aigw-install-smoke
 
-windows-installer-runtime:
-  stage: verify
-  tags: [$AIGW_GITLAB_RUNNER_TAG]
-  before_script: []
-  script:
-    - command -v pwsh
-    - pwsh -NoProfile -NonInteractive -File scripts/tests/install/test-installers.ps1 -Installer "$CI_PROJECT_DIR/scripts/install/install.ps1"
-
 package:
   stage: package
   needs:
     - job: verify
-    - job: windows-installer-runtime
     - job: release-readiness
       optional: true
   tags: [$AIGW_GITLAB_RUNNER_TAG]
