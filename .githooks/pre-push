@@ -1,0 +1,26 @@
+#!/bin/sh
+# Admit only shared branches and tags through the public ETHOS command plane.
+set -eu
+
+remote=$1
+root=$(git rev-parse --show-toplevel)
+zero=0000000000000000000000000000000000000000
+
+while read -r _local_ref local_head remote_ref remote_head; do
+  [ -n "$remote_ref" ] || continue
+  [ "$local_head" != "$zero" ] || continue
+
+  case "$remote_ref" in
+    refs/heads/main|refs/heads/dev|refs/heads/proposal/*|refs/tags/*) ;;
+    refs/heads/*)
+      printf 'remote branch is outside the shared namespace: %s\n' "$remote_ref" >&2
+      exit 1
+      ;;
+  esac
+
+  if ! report=$(ethos hook pre-push "$remote_ref" "$local_head" \
+    --remote-head "$remote_head" --remote "$remote" --root "$root" --json); then
+    printf '%s\n' "$report" >&2
+    exit 1
+  fi
+done
