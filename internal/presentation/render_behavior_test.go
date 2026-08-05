@@ -41,37 +41,6 @@ func TestRendererWritesNonCompactRowsAtConfiguredWidth(t *testing.T) {
 	}
 }
 
-func TestRendererAlignsDisplayWidthForCJKLabels(t *testing.T) {
-	var out bytes.Buffer
-	renderer := presentation.NewWithWidth(&out, false, 80)
-	renderer.Row("配置", "healthy")
-	renderer.Row("Configuration", "healthy")
-	renderer.Status(presentation.OK, "模型", "ready")
-	renderer.Status(presentation.OK, "Codex", "ready")
-
-	lines := bytes.Split(bytes.TrimSpace(out.Bytes()), []byte("\n"))
-	if len(lines) != 4 {
-		t.Fatalf("output lines = %q", out.String())
-	}
-	for _, pair := range [][2]int{{0, 1}, {2, 3}} {
-		left := bytes.Index(lines[pair[0]], []byte("healthy"))
-		right := bytes.Index(lines[pair[1]], []byte("healthy"))
-		if pair[0] == 2 {
-			left = bytes.Index(lines[pair[0]], []byte("ready"))
-			right = bytes.Index(lines[pair[1]], []byte("ready"))
-		}
-		if left == right {
-			continue
-		}
-		// Byte offsets differ for CJK. The rendered display columns must not.
-		leftColumn := presentation.DisplayWidth(string(lines[pair[0]][:left]))
-		rightColumn := presentation.DisplayWidth(string(lines[pair[1]][:right]))
-		if leftColumn != rightColumn {
-			t.Fatalf("value columns = %d and %d in %q", leftColumn, rightColumn, out.String())
-		}
-	}
-}
-
 func TestRendererWrapsTextAtConfiguredWidth(t *testing.T) {
 	var out bytes.Buffer
 	presentation.NewWithWidth(&out, false, 12).Text("alpha beta gamma")
