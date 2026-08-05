@@ -1,0 +1,10 @@
+schema_version = 1
+paths = [
+  ".github/workflows/**",
+  ".gitlab-ci.yml",
+  "CHANGELOG.md",
+  "cmd/**",
+  "internal/cli/doctor/**",
+  "openspec/**",
+  "scripts/**",
+]
