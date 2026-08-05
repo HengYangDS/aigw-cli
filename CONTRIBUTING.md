@@ -120,7 +120,8 @@ by the caller: remote freshness comes from the preceding successful fetches,
 while tag provenance, release records, and artifact bytes retain their separate
 verification gates.
 
-The private GitHub Free peer does not provide repository-ruleset tag protection.
+The public GitHub distribution peer may enforce host rules independently, but
+release acceptance never relies on a Forge-specific tag ruleset.
 Describe its release tags as signed and independently verified provenance, not
 as host-enforced immutable refs. AIGW automation still never updates or deletes
 a provider-native release tag.
