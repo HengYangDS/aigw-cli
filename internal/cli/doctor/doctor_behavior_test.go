@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -83,6 +84,41 @@ func findCheck(t *testing.T, checks []Check, name string) Check {
 	}
 	t.Fatalf("missing check %q: %#v", name, checks)
 	return Check{}
+}
+
+func persistentFixtureExecutable(t *testing.T) string {
+	t.Helper()
+	cache, err := os.UserCacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.MkdirTemp(cache, "aigw-doctor-fixture-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	target := filepath.Join(root, "fixture"+filepath.Ext(os.Args[0]))
+	goExecutable, err := exec.LookPath("go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := os.Open(goExecutable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	destination, err := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o755)
+	if err != nil {
+		_ = source.Close()
+		t.Fatal(err)
+	}
+	_, copyErr := io.Copy(destination, source)
+	closeSourceErr := source.Close()
+	closeDestinationErr := destination.Close()
+	if err := errors.Join(copyErr, closeSourceErr, closeDestinationErr); err != nil {
+		_ = os.Remove(target)
+		t.Fatal(err)
+	}
+	return target
 }
 
 func TestHumanProjectionFailsClosedForFutureChecks(t *testing.T) {
@@ -301,14 +337,7 @@ func TestLauncherReadFailuresAreDiagnostic(t *testing.T) {
 	}
 
 	launcherPath := filepath.Join(t.TempDir(), "claude")
-	target, err := exec.LookPath("go")
-	if err != nil {
-		t.Fatalf("resolve persistent executable fixture: %v", err)
-	}
-	target, err = filepath.Abs(target)
-	if err != nil {
-		t.Fatal(err)
-	}
+	target := persistentFixtureExecutable(t)
 	manager = claude.Launcher{GOOS: "darwin", BinDir: filepath.Dir(launcherPath), Home: filepath.Join(t.TempDir(), "missing", "home"), Shell: "/bin/zsh", AIGWExecutable: target}
 	launcher := "#!/bin/sh\n# AIGW managed Claude launcher\nexec '" + target + "' __run-claude \"$@\"\n"
 	if err := os.WriteFile(launcherPath, []byte(launcher), 0o755); err != nil {

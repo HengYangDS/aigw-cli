@@ -32,6 +32,27 @@ def git(root: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def commit_tree(root: Path, commit: str) -> str | None:
+    """Return a locally available commit's tree, or ``None`` for a peer-Forge ID."""
+
+    result = subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+        cwd=root,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        return None
+    return git(root, "rev-parse", f"{commit}^{{tree}}")
+
+
+def tree_in_current_history(root: Path, expected: str) -> bool:
+    """Return whether ``HEAD`` ancestry contains ``expected`` content."""
+
+    return expected in git(root, "log", "--format=%T", "HEAD").splitlines()
+
+
 def repository_path(root: Path, raw: object, label: str) -> Path:
     """Resolve one canonical repository-relative regular-file path."""
 
@@ -79,9 +100,11 @@ def verify(root: Path, claim_path: Path) -> None:
     )
     if derived != Decimal(observation["percent"]):
         raise ValueError("coverage percentage mismatch")
-    actual_tree = git(root, "rev-parse", f"{observation['head']}^{{tree}}")
-    if actual_tree != observation["tree"]:
+    actual_tree = commit_tree(root, observation["head"])
+    if actual_tree is not None and actual_tree != observation["tree"]:
         raise ValueError("source tree mismatch")
+    if not tree_in_current_history(root, observation["tree"]):
+        raise ValueError("source tree is absent from current history")
 
 
 def main() -> int:

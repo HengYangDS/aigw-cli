@@ -8,6 +8,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.80] - 2026-08-05
+
+### Fixed
+
+- Validate source-bound evidence by provider-neutral tree identity in each
+  Forge's own signed history, without requiring a peer-Forge commit object.
+- Build the Claude launcher diagnostic fixture from the test-owned executable
+  instead of depending on the host Go toolchain path.
+
 ## [0.1.0-rc.79] - 2026-08-05
 
 ### Changed
