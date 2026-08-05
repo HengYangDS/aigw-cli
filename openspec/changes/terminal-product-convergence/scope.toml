@@ -1,6 +1,7 @@
 schema_version = 1
 paths = [
   ".config/ci/verify-gates.toml",
+  ".githooks/**",
   ".github/**",
   ".gitlab-ci.yml",
   ".gitignore",
