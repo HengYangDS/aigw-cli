@@ -183,6 +183,28 @@ rollback belongs to the platform package manager. A verified offline candidate
 may be supplied explicitly with its checksum manifest; source trees, loose
 binaries, tags, and self-authored checksums are not installation evidence.
 
+## Verify a source checkout
+
+```bash
+go run ./tools/architecture --root .
+sh scripts/checks/governance/check-module-identity.sh
+go run ./tools/coveragegate --race
+go vet ./...
+sh scripts/checks/quality/check-static-analysis.sh
+sh scripts/checks/governance/check-portability.sh
+sh scripts/tests/governance/test-portability.sh
+test -z "$(gofmt -l cmd internal tools)"
+sh scripts/checks/governance/check-governance.sh
+AIGW_GITLAB_AUTHOR_EMAIL='<release actor email>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-commit-provenance.sh . gitlab
+sh scripts/tests/forge/test-commit-provenance.sh
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/forge/test-replay-history.py
+AIGW_TAG_NAMESPACE_FORGE='<local|gitlab|github>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' AIGW_GITHUB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-tag-namespace.sh
+python3 scripts/checks/governance/check-markdown-presentation.py
+python3 scripts/checks/governance/check-text-layout.py
+sh scripts/tests/governance/test-text-layout.sh
+sh scripts/tests/governance/test-changelog.sh
+```
+
 ## Documentation
 
 | Need | Source of truth |
@@ -196,4 +218,4 @@ binaries, tags, and self-authored checksums are not installation evidence.
 | Development | [CONTRIBUTING](CONTRIBUTING.md) |
 | Full index | [Documentation root](docs/README.md) |
 
-Licensed under the [MIT License](LICENSE).
+Licensed under the MIT License: [MIT](LICENSE).
