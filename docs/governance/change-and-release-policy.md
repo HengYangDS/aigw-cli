@@ -142,10 +142,10 @@ provenance and fetched GitHub tags live only below `github/`; native forge
 checkouts keep their own tags unscoped. The `provider/` namespace is retired
 and forbidden so a local alias cannot misrepresent its provenance owner.
 
-The private GitHub peer operates on GitHub Free without repository-ruleset tag
-protection. Its release tags are therefore signed, independently verified
-provenance records, not host-enforced immutable refs. Before a GitHub release
-is accepted, fetch the remote tag, verify it against the tracked GitHub trust
+The GitHub peer is a public distribution surface. Its release tags remain
+signed, independently verified provenance records; release acceptance does not
+delegate integrity to an optional host ruleset. Before a GitHub release is
+accepted, fetch the remote tag, verify it against the tracked GitHub trust
 anchor, and compare its complete artifact matrix with GitLab. A detected manual
 tag change is a provenance failure; it is not an impossible state.
 

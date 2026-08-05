@@ -18,6 +18,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Describe GitHub accurately as the public distribution peer while keeping
+  signed, independently verified Forge provenance as the release authority.
 - Materialize GitHub provenance trust content as a runner-temporary file and
   validate repository-relative policy paths identically on macOS, Linux, and
   Windows.
