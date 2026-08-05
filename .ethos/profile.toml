@@ -3,7 +3,7 @@ profile_id = "aigw-cli"
 [openspec]
 material_paths = [
   ".config/**",
-  ".ethos/profile.toml",
+  ".ethos/**",
   ".github/**",
   ".gitlab-ci.yml",
   "AGENTS.md",

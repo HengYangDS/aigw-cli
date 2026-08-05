@@ -126,45 +126,31 @@ func (r *Renderer) Section(title string) {
 }
 
 func (r *Renderer) Row(label, value string) {
-	if r.requiresCompact(label, value, 2) {
+	if r.requiresCompactColumn(label, value, rowKeyWidth) {
 		r.printf("  %s\n", label)
 		r.writeWrapped(value, compactIndent, r.styles.dim)
 		r.hasContent = true
 		return
 	}
-	if r.width > 0 {
-		r.printf("  %s  %s\n", label, value)
-	} else {
-		r.printf("  %s%s\n", r.fixedLabel(r.styles.rowKey, label, rowKeyWidth), value)
-	}
+	r.printf("  %s%s\n", r.fixedLabel(r.styles.rowKey, label, rowKeyWidth), value)
 	r.hasContent = true
 }
 
 func (r *Renderer) Status(state State, label, value string) {
 	symbol := map[State]string{OK: "✓", Warn: "!", Fail: "✗", Info: "·"}[state]
-	if r.requiresCompact(symbol+" "+label, value, 2) {
+	if r.requiresCompactColumn(label, value, stateKeyWidth+2) {
 		r.printf("  %s %s\n", r.stateStyle(state).Render(symbol), label)
 		r.writeWrapped(value, compactIndent, r.styles.dim)
 		r.hasContent = true
 		return
 	}
 	symbol = r.stateStyle(state).Render(symbol)
-	if r.width > 0 {
-		r.printf("  %s %s  %s\n", symbol, label, value)
-	} else {
-		r.printf("  %s %s%s\n", symbol, r.fixedLabel(r.styles.stateKey, label, stateKeyWidth), value)
-	}
+	r.printf("  %s %s%s\n", symbol, r.fixedLabel(r.styles.stateKey, label, stateKeyWidth), value)
 	r.hasContent = true
 }
 
 func (r *Renderer) StatusLine(state State, label, value string) {
-	symbol := map[State]string{OK: "✓", Warn: "!", Fail: "✗", Info: "·"}[state]
-	if r.compactRow(symbol+" "+label, value, true) {
-		return
-	}
-	symbol = r.stateStyle(state).Render(symbol)
-	r.printf("  %s %s  %s\n", symbol, label, value)
-	r.hasContent = true
+	r.Status(state, label, value)
 }
 
 func (r *Renderer) Detail(value string) {
@@ -244,6 +230,17 @@ func (r *Renderer) requiresCompact(label, value string, gap int) bool {
 		return false
 	}
 	return DisplayWidth("  "+label+strings.Repeat(" ", gap)+value) > r.width
+}
+
+func (r *Renderer) requiresCompactColumn(label, value string, columnWidth int) bool {
+	if r.width <= 0 {
+		return false
+	}
+	labelWidth := DisplayWidth(label) + 1
+	if labelWidth < columnWidth {
+		labelWidth = columnWidth
+	}
+	return 2+labelWidth+DisplayWidth(value) > r.width
 }
 
 func (r *Renderer) compactRow(label, value string, status bool) bool {
