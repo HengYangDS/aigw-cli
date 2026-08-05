@@ -23,7 +23,7 @@
 ## 4. Establish the complete quality system
 
 - [x] 4.1 Create single policy and execution owners for format, vet, static analysis, race, coverage, architecture, Markdown, links, shell, workflows, secrets, vulnerabilities, SBOM, structure, and CLI examples.
-- [ ] 4.2 Keep hooks, GitLab, and GitHub as thin projections and eliminate duplicated command bodies and version declarations.
+- [x] 4.2 Keep hooks, GitLab, and GitHub as thin projections and eliminate duplicated command bodies and version declarations.
 - [x] 4.3 Raise aggregate and every package statement coverage to strictly above 95% on the final package graph.
 - [x] 4.4 Make every expected CLI and gate failure concise, actionable, and free of traceback/warning/usage noise.
 
