@@ -32,7 +32,7 @@ func TestRendererWritesNonCompactRowsAtConfiguredWidth(t *testing.T) {
 
 	want := "  Label                Value\n" +
 		"  · State              Value\n" +
-		"  ! State              Value\n" +
+		"  ! State  Value\n" +
 		"  short\n" +
 		"  aigw ok\n" +
 		"  ✓ done\n"
