@@ -27,6 +27,7 @@ try {
         $env:AIGW_INSTALL_DIR = $null
         $helpText = (& (Join-Path $helpPackage "install.ps1") -Help | Out-String)
         if ($helpText -notmatch [regex]::Escape("Usage: install.ps1")) { throw "installer help did not print usage without a Windows environment" }
+        if ($helpText -notmatch [regex]::Escape("-NoPath")) { throw "installer help did not explain profile-free installation" }
         $uninstallHelpText = (& (Join-Path $helpPackage "uninstall.ps1") -Help | Out-String)
         if ($uninstallHelpText -notmatch [regex]::Escape("Usage: uninstall.ps1")) { throw "uninstaller help did not print usage without a Windows environment" }
 
@@ -43,7 +44,8 @@ try {
         New-Item -ItemType Directory -Force -Path $env:AIGW_INSTALL_DIR | Out-Null
         $target = Join-Path $env:AIGW_INSTALL_DIR "aigw.exe"
         Set-Content -NoNewline -Path $target -Value "AIGW Windows previous payload"
-        & (Join-Path $package "install.ps1")
+        & (Join-Path $package "install.ps1") -NoPath
+        if ([Environment]::GetEnvironmentVariable("Path", "User") -ne $savedUserPath) { throw "-NoPath modified the user PATH" }
         if (-not (Test-Path $target)) { throw "missing installed target" }
         if ((Get-Content -Raw $target).Trim() -ne "AIGW Windows bundled installer payload") { throw "installed payload mismatch" }
         $backup = Join-Path $env:AIGW_INSTALL_DIR ".aigw.previous.exe"
