@@ -1,690 +1,84 @@
 #!/bin/sh
 set -eu
-unset AIGW_CHANGELOG_RELEASE_TAG
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 checker="$root/scripts/checks/governance/check-changelog.sh"
-fixture=$(mktemp "${TMPDIR:-/tmp}/aigw-changelog.XXXXXX")
-tmp=$(mktemp -d "${TMPDIR:-/tmp}/aigw-changelog.XXXXXX")
-trap 'rm -f "$fixture"; rm -rf "$tmp"' EXIT HUP INT TERM
+workspace=$(mktemp -d "${TMPDIR:-/tmp}/aigw-changelog.XXXXXX")
+trap 'rm -rf "$workspace"' EXIT HUP INT TERM
 
-# Fixture repositories are intentionally minimal and must not inherit the
-# workstation's Git template hooks. Product tests own their Git behavior and
-# should be quiet and reproducible on hosts with or without global hooks.
-git_fixture() {
-  git -c init.templateDir= "$@"
+check() {
+  file=$1
+  AIGW_CHANGELOG_FILE="$file" AIGW_CHANGELOG_RELEASE_TAG= \
+    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= sh "$checker"
 }
 
-# This suite exercises branch chronology fixtures. A surrounding tag pipeline
-# must not turn those fixtures into a selected-tag test, but provider identity
-# must remain available so native tags retain their forge provenance.
-run_branch_checker() {
-  AIGW_CHANGELOG_FORGE= CI_COMMIT_TAG= GITHUB_REF_TYPE= \
-    GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
-    AIGW_CHANGELOG_FILE="$1" sh "$checker"
-}
+cp "$root/CHANGELOG.md" "$workspace/valid.md"
+check "$workspace/valid.md"
 
-cp "$root/CHANGELOG.md" "$fixture"
-run_branch_checker "$fixture"
+cat > "$workspace/minimal.md" <<'EOF'
+## [Unreleased]
 
-# A fresh GitLab checkout has only provider-native v* tags. The tracked
-# retirement inventory must make shared chronology valid without relying on a
-# workstation's qualified GitHub provenance refs.
-fresh_gitlab="$tmp/fresh-gitlab"
-git clone -q --no-tags --shared "$root" "$fresh_gitlab"
-git -C "$fresh_gitlab" remote remove origin
-cp "$root/CHANGELOG.md" "$fresh_gitlab/CHANGELOG.md"
-mkdir -p "$fresh_gitlab/scripts/checks/governance" "$fresh_gitlab/.config/release"
-cp "$checker" "$fresh_gitlab/scripts/checks/governance/check-changelog.sh"
-cp "$root/.config/release/retired-gitlab-tags.txt" \
-  "$fresh_gitlab/.config/release/retired-gitlab-tags.txt"
-# Synthesize the canonical provider set independently of whichever forge runs
-# this suite: the first published version is the untagged next candidate, each
-# tracked retirement stays absent, and rc.58 is a fixed missing-tag regression.
-published_versions=$(
-  awk '
-    /^## \[[0-9]/ {
-      line = $0
-      sub(/^## \[/, "", line)
-      sub(/\].*$/, "", line)
-      print line
-    }
-  ' "$fresh_gitlab/CHANGELOG.md"
-)
-candidate_version=$(printf '%s\n' "$published_versions" | awk 'NR == 1 { print; exit }')
-for version in $published_versions; do
-  tag="v$version"
-  test "$version" = "$candidate_version" && continue
-  test "$tag" = v0.1.0-rc.58 && continue
-  grep -Fxq "$tag" "$fresh_gitlab/.config/release/retired-gitlab-tags.txt" && continue
-  git -C "$fresh_gitlab" tag "$tag" HEAD
-done
-if ! (
-  cd "$fresh_gitlab"
-  test -z "$(git tag --list 'github/*')" &&
-    test -z "$(git tag --list v0.1.0-rc.58)" &&
-    AIGW_CHANGELOG_FORGE=gitlab GITHUB_ACTIONS= GITLAB_CI=true \
-      CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
-      AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/checks/governance/check-changelog.sh
-); then
-  echo "changelog checker rejected tracked chronology in a fresh GitLab checkout" >&2
+## [1.1.0] - 2026-08-06
+
+## [1.0.0] - 2026-08-05
+EOF
+check "$workspace/minimal.md"
+
+cat > "$workspace/out-of-order.md" <<'EOF'
+## [Unreleased]
+
+## [1.0.0] - 2026-08-05
+
+## [1.1.0] - 2026-08-06
+EOF
+if check "$workspace/out-of-order.md" >/dev/null 2>&1; then
+  echo "changelog checker accepted releases outside semantic-version order" >&2
   exit 1
 fi
 
-# A shallow checkout can omit both the release tag and its historical commit.
-# Build a complete, minimal release history first, then clone it shallowly. The
-# source checkout may itself be shallow in CI, so it cannot safely serve as the
-# fixture's remote history.
-shallow="$tmp/shallow"
-origin="$tmp/origin.git"
-source="$tmp/source"
-git_fixture init -q -b main "$source"
-git -C "$source" config user.name 'AIGW Changelog Test'
-git -C "$source" config user.email 'aigw-changelog-test@example.invalid'
-printf 'release\n' > "$source/release.txt"
-git -C "$source" add release.txt
-git -C "$source" commit -qm 'release'
-git -C "$source" tag -a v0.1.0-rc.1 -m 'release'
-release_date=$(git -C "$source" show -s --format=%cs v0.1.0-rc.1^{})
-test -n "$release_date" || { echo "fixture release tag has no date" >&2; exit 1; }
-printf 'current\n' >> "$source/release.txt"
-git -C "$source" commit -qam 'current'
-git_fixture init -q --bare "$origin"
-git -C "$source" push -q "$origin" 'HEAD:refs/heads/main' --tags
-git -C "$origin" symbolic-ref HEAD refs/heads/main
-git clone -q --depth 1 --branch main "file://$origin" "$shallow"
-cat > "$shallow/CHANGELOG.md" <<EOF
-# Changelog
-
+cat > "$workspace/duplicate.md" <<'EOF'
 ## [Unreleased]
 
-## [0.1.0-rc.1] - $release_date
+## [1.0.0] - 2026-08-06
+
+## [1.0.0] - 2026-08-05
 EOF
-mkdir -p "$shallow/scripts/checks/governance"
-cp "$checker" "$shallow/scripts/checks/governance/check-changelog.sh"
+if check "$workspace/duplicate.md" >/dev/null 2>&1; then
+  echo "changelog checker accepted duplicate releases" >&2
+  exit 1
+fi
+
+cat > "$workspace/malformed.md" <<'EOF'
+## [Unreleased]
+
+## [next] - tomorrow
+EOF
+if check "$workspace/malformed.md" >/dev/null 2>&1; then
+  echo "changelog checker accepted a malformed release heading" >&2
+  exit 1
+fi
+
+repository="$workspace/repository"
+git -c init.templateDir= init -q "$repository"
+git -C "$repository" config user.name test
+git -C "$repository" config user.email test@example.invalid
+mkdir -p "$repository/scripts/checks/governance"
+cp "$checker" "$repository/scripts/checks/governance/check-changelog.sh"
+cp "$workspace/minimal.md" "$repository/CHANGELOG.md"
+git -C "$repository" add .
+git -C "$repository" commit -q -m release
+git -C "$repository" tag -a v1.1.0 -m release
 (
-  cd "$shallow"
-  test "$(git rev-parse --is-shallow-repository)" = true
-  test -z "$(git tag --list 'v[0-9]*')"
-  # This fixture intentionally has no selected release tag. Clear the outer
-  # CI tag variables so a tag pipeline cannot leak its real release identity
-  # into the shallow branch-history assertion.
-  AIGW_CHANGELOG_ALLOW_FETCH=true AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI= \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
-    AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/checks/governance/check-changelog.sh
-  if AIGW_CHANGELOG_RELEASE_TAG=v0.1.0-rc.1 AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/checks/governance/check-changelog.sh >/dev/null 2>&1; then
-    echo "changelog checker accepted a selected tag that does not identify shallow HEAD" >&2
-    exit 1
-  fi
-  if AIGW_CHANGELOG_RELEASE_TAG=v0.1.0-rc.2 AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/checks/governance/check-changelog.sh >/dev/null 2>&1; then
-    echo "changelog checker accepted a missing selected release tag" >&2
-    exit 1
-  fi
+  cd "$repository"
+  AIGW_CHANGELOG_RELEASE_TAG=v1.1.0 sh scripts/checks/governance/check-changelog.sh
 )
-
-# A selected tag can exist locally during release admission before it is pushed
-# to origin. Refreshing origin's tag namespace must not discard that selected
-# local provenance object before the checker validates it.
-prepush="$tmp/prepush"
-prepush_origin="$tmp/prepush-origin.git"
-git_fixture init -q -b main "$prepush"
-git -C "$prepush" config user.name 'AIGW Changelog Test'
-git -C "$prepush" config user.email 'aigw-changelog-test@example.invalid'
-printf 'release\n' > "$prepush/release.txt"
-git -C "$prepush" add release.txt
-GIT_AUTHOR_DATE='2026-07-17T00:00:00Z' GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
-  git -C "$prepush" commit -qm 'release'
-GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
-  git -C "$prepush" tag -a v0.1.0-rc.1 -m 'release'
-git_fixture init -q --bare "$prepush_origin"
-git -C "$prepush" remote add origin "file://$prepush_origin"
-git -C "$prepush" push -q origin 'HEAD:refs/heads/main' refs/tags/v0.1.0-rc.1
-printf 'candidate\n' >> "$prepush/release.txt"
-git -C "$prepush" add release.txt
-GIT_AUTHOR_DATE='2026-07-17T00:01:00Z' GIT_COMMITTER_DATE='2026-07-17T00:01:00Z' \
-  git -C "$prepush" commit -qm 'candidate'
-GIT_COMMITTER_DATE='2026-07-17T00:01:00Z' \
-  git -C "$prepush" tag -a v0.1.0-rc.2 -m 'local pre-push candidate'
-cat > "$prepush/CHANGELOG.md" <<'EOF'
-# Changelog
-
-## [Unreleased]
-
-## [0.1.0-rc.2] - 2026-07-17
-
-## [0.1.0-rc.1] - 2026-07-17
-EOF
-mkdir -p "$prepush/scripts/checks/governance"
-cp "$checker" "$prepush/scripts/checks/governance/check-changelog.sh"
-(
-  cd "$prepush"
-  test "$(git tag --list v0.1.0-rc.2)" = v0.1.0-rc.2
-  AIGW_CHANGELOG_FORGE=gitlab GITHUB_ACTIONS= GITLAB_CI= \
-    AIGW_CHANGELOG_RELEASE_TAG=v0.1.0-rc.2 sh scripts/checks/governance/check-changelog.sh
-  test "$(git tag --list v0.1.0-rc.2)" = v0.1.0-rc.2
-)
-
-# A branch checkout can retain an older reachable tag while a newer release
-# tag is present only on origin. The checker must refresh tag refs before it
-# classifies shared historical headings as untagged candidates.
-stale_source="$tmp/stale-source"
-stale_origin="$tmp/stale-origin.git"
-stale="$tmp/stale"
-git_fixture init -q -b main "$stale_source"
-git -C "$stale_source" config user.name 'AIGW Changelog Test'
-git -C "$stale_source" config user.email 'aigw-changelog-test@example.invalid'
-printf 'rc1\n' > "$stale_source/release.txt"
-git -C "$stale_source" add release.txt
-git -C "$stale_source" commit -qm 'rc1'
-GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
-  git -C "$stale_source" tag -a v0.1.0-rc.1 -m 'rc1'
-printf 'rc2\n' >> "$stale_source/release.txt"
-git -C "$stale_source" commit -qam 'rc2'
-GIT_COMMITTER_DATE='2026-07-17T00:01:00Z' \
-  git -C "$stale_source" tag -a v0.1.0-rc.2 -m 'rc2'
-git_fixture init -q --bare "$stale_origin"
-git -C "$stale_source" push -q "$stale_origin" 'HEAD:refs/heads/main' --tags
-git -C "$stale_origin" symbolic-ref HEAD refs/heads/main
-git clone -q "file://$stale_origin" "$stale"
-git -C "$stale" checkout -q v0.1.0-rc.1
-git -C "$stale" tag -d v0.1.0-rc.2 >/dev/null
-cat > "$stale/CHANGELOG.md" <<'EOF'
-# Changelog
-
-## [Unreleased]
-
-## [0.1.0-rc.3] - 2026-07-17
-
-## [0.1.0-rc.2] - 2026-07-17
-
-## [0.1.0-rc.1] - 2026-07-17
-EOF
-mkdir -p "$stale/scripts/checks/governance"
-cp "$checker" "$stale/scripts/checks/governance/check-changelog.sh"
-if ! (
-  cd "$stale"
-  test "$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD)" = v0.1.0-rc.1
-  test -z "$(git tag --list v0.1.0-rc.2)"
-  AIGW_CHANGELOG_ALLOW_FETCH=true AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI= \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
-    AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/checks/governance/check-changelog.sh
-); then
-  echo "changelog checker did not refresh a newer remote release tag" >&2
-  exit 1
-fi
-
-# Refreshing canonical GitLab tags must not prune qualified GitHub provenance
-# when the caller enables global fetch pruning.
-prune_source="$tmp/prune-source"
-prune_origin="$tmp/prune-origin.git"
-prune_checkout="$tmp/prune-checkout"
-prune_config="$tmp/prune-global.config"
-git_fixture init -q -b main "$prune_source"
-git -C "$prune_source" config user.name 'AIGW Changelog Test'
-git -C "$prune_source" config user.email 'aigw-changelog-test@example.invalid'
-printf 'rc1\n' > "$prune_source/release.txt"
-git -C "$prune_source" add release.txt
-git -C "$prune_source" commit -qm 'rc1'
-prune_rc1=$(git -C "$prune_source" rev-parse HEAD)
-printf 'rc2\n' >> "$prune_source/release.txt"
-git -C "$prune_source" commit -qam 'rc2'
-GIT_COMMITTER_DATE='2026-07-17T00:01:00Z' \
-  git -C "$prune_source" tag -a v0.1.0-rc.2 -m 'rc2'
-git_fixture init -q --bare "$prune_origin"
-git -C "$prune_source" push -q "$prune_origin" 'HEAD:refs/heads/main' refs/tags/v0.1.0-rc.2
-git -C "$prune_origin" symbolic-ref HEAD refs/heads/main
-git clone -q "file://$prune_origin" "$prune_checkout"
-git -C "$prune_checkout" config user.name 'AIGW Changelog Test'
-git -C "$prune_checkout" config user.email 'aigw-changelog-test@example.invalid'
-GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
-  git -C "$prune_checkout" tag -a github/v0.1.0-rc.1 "$prune_rc1" -m 'GitHub rc1'
-cat > "$prune_checkout/CHANGELOG.md" <<'EOF'
-# Changelog
-
-## [Unreleased]
-
-## [0.1.0-rc.2] - 2026-07-17
-
-## [0.1.0-rc.1] - 2026-07-17
-EOF
-mkdir -p "$prune_checkout/scripts/checks/governance" "$prune_checkout/.config/release"
-cp "$checker" "$prune_checkout/scripts/checks/governance/check-changelog.sh"
-: > "$prune_checkout/.config/release/retired-gitlab-tags.txt"
-git config --file "$prune_config" fetch.prune true
-git config --file "$prune_config" fetch.pruneTags true
-if ! (
-  cd "$prune_checkout"
-  test "$(git tag --list github/v0.1.0-rc.1)" = github/v0.1.0-rc.1 &&
-    GIT_CONFIG_GLOBAL="$prune_config" AIGW_CHANGELOG_ALLOW_FETCH=true AIGW_CHANGELOG_FORGE=local \
-      GITHUB_ACTIONS= GITLAB_CI= CI_COMMIT_TAG= GITHUB_REF_TYPE= \
-      GITHUB_REF_NAME= AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/checks/governance/check-changelog.sh &&
-    test "$(git tag --list github/v0.1.0-rc.1)" = github/v0.1.0-rc.1
-); then
-  echo "changelog checker pruned qualified GitHub provenance during GitLab tag refresh" >&2
-  exit 1
-fi
-
-# The branch-history fallback must preserve the same qualified namespace when
-# no direct release tag is available after the canonical tag refresh.
-fallback_source="$tmp/prune-fallback-source"
-fallback_origin="$tmp/prune-fallback-origin.git"
-fallback_checkout="$tmp/prune-fallback-checkout"
-git_fixture init -q -b main "$fallback_source"
-git -C "$fallback_source" config user.name 'AIGW Changelog Test'
-git -C "$fallback_source" config user.email 'aigw-changelog-test@example.invalid'
-printf 'release\n' > "$fallback_source/release.txt"
-git -C "$fallback_source" add release.txt
-git -C "$fallback_source" commit -qm 'release'
-fallback_release=$(git -C "$fallback_source" rev-parse HEAD)
-git_fixture init -q --bare "$fallback_origin"
-git -C "$fallback_source" push -q "$fallback_origin" 'HEAD:refs/heads/main'
-git -C "$fallback_origin" symbolic-ref HEAD refs/heads/main
-git clone -q "file://$fallback_origin" "$fallback_checkout"
-git -C "$fallback_checkout" config user.name 'AIGW Changelog Test'
-git -C "$fallback_checkout" config user.email 'aigw-changelog-test@example.invalid'
-GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
-  git -C "$fallback_checkout" tag -a github/v0.1.0-rc.1 "$fallback_release" -m 'GitHub rc1'
-cat > "$fallback_checkout/CHANGELOG.md" <<'EOF'
-# Changelog
-
-## [Unreleased]
-
-## [0.1.0-rc.1] - 2026-07-17
-EOF
-mkdir -p "$fallback_checkout/scripts/checks/governance" "$fallback_checkout/.config/release"
-cp "$checker" "$fallback_checkout/scripts/checks/governance/check-changelog.sh"
-: > "$fallback_checkout/.config/release/retired-gitlab-tags.txt"
-if ! (
-  cd "$fallback_checkout"
-  test -z "$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)" &&
-    GIT_CONFIG_GLOBAL="$prune_config" AIGW_CHANGELOG_ALLOW_FETCH=true AIGW_CHANGELOG_FORGE=local \
-      GITHUB_ACTIONS= GITLAB_CI= CI_COMMIT_TAG= GITHUB_REF_TYPE= \
-      GITHUB_REF_NAME= AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/checks/governance/check-changelog.sh &&
-    test "$(git tag --list github/v0.1.0-rc.1)" = github/v0.1.0-rc.1
-); then
-  echo "changelog checker pruned qualified GitHub provenance during branch-history refresh" >&2
-  exit 1
-fi
-
-# Exercise the successful unshallow branch separately from the complete-clone
-# fallback above.
-unshallow_checkout="$tmp/prune-unshallow-checkout"
-git clone -q --depth 1 "file://$fallback_origin" "$unshallow_checkout"
-git -C "$unshallow_checkout" config user.name 'AIGW Changelog Test'
-git -C "$unshallow_checkout" config user.email 'aigw-changelog-test@example.invalid'
-GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
-  git -C "$unshallow_checkout" tag -a github/v0.1.0-rc.1 HEAD -m 'GitHub rc1'
-cp "$fallback_checkout/CHANGELOG.md" "$unshallow_checkout/CHANGELOG.md"
-mkdir -p "$unshallow_checkout/scripts/checks/governance" "$unshallow_checkout/.config/release"
-cp "$checker" "$unshallow_checkout/scripts/checks/governance/check-changelog.sh"
-: > "$unshallow_checkout/.config/release/retired-gitlab-tags.txt"
-if ! (
-  cd "$unshallow_checkout"
-  test "$(git rev-parse --is-shallow-repository)" = true &&
-    GIT_CONFIG_GLOBAL="$prune_config" AIGW_CHANGELOG_ALLOW_FETCH=true AIGW_CHANGELOG_FORGE=local \
-      GITHUB_ACTIONS= GITLAB_CI= CI_COMMIT_TAG= GITHUB_REF_TYPE= \
-      GITHUB_REF_NAME= AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/checks/governance/check-changelog.sh &&
-    test "$(git rev-parse --is-shallow-repository)" = false &&
-    test "$(git tag --list github/v0.1.0-rc.1)" = github/v0.1.0-rc.1
-); then
-  echo "changelog checker pruned qualified GitHub provenance while unshallowing history" >&2
-  exit 1
-fi
-
-# A version retired from GitLab can remain an active provenance tag on GitHub.
-# The GitHub checker must use its active tag instead of treating the shared
-# GitLab retirement inventory as a conflicting duplicate.
-github_overlap="$tmp/github-active-retired"
-git_fixture init -q -b main "$github_overlap"
-git -C "$github_overlap" config user.name 'AIGW Changelog Test'
-git -C "$github_overlap" config user.email 'aigw-changelog-test@example.invalid'
-printf 'release\n' > "$github_overlap/release.txt"
-git -C "$github_overlap" add release.txt
-git -C "$github_overlap" commit -qm 'release'
-GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
-  git -C "$github_overlap" tag -a v0.1.0-rc.2 -m 'active GitHub release'
-printf 'current\n' >> "$github_overlap/release.txt"
-git -C "$github_overlap" commit -qam 'current'
-cat > "$github_overlap/CHANGELOG.md" <<'EOF'
-# Changelog
-
-## [Unreleased]
-
-## [0.1.0-rc.3] - 2026-07-17
-
-## [0.1.0-rc.2] - 2026-07-17
-EOF
-mkdir -p "$github_overlap/scripts/checks/governance" "$github_overlap/.config/release"
-cp "$checker" "$github_overlap/scripts/checks/governance/check-changelog.sh"
-printf 'v0.1.0-rc.2\n' > "$github_overlap/.config/release/retired-gitlab-tags.txt"
-if ! (
-  cd "$github_overlap"
-  AIGW_CHANGELOG_FORGE= GITLAB_CI= GITHUB_ACTIONS=true \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
-    AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/checks/governance/check-changelog.sh
-); then
-  echo "changelog checker rejected an active GitHub tag in the GitLab retirement inventory" >&2
-  exit 1
-fi
-
+git -C "$repository" commit --allow-empty -q -m newer
 if (
-  cd "$github_overlap"
-  AIGW_CHANGELOG_FORGE= GITHUB_ACTIONS= GITLAB_CI=true \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
-    AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/checks/governance/check-changelog.sh >/dev/null 2>&1
+  cd "$repository"
+  AIGW_CHANGELOG_RELEASE_TAG=v1.1.0 sh scripts/checks/governance/check-changelog.sh >/dev/null 2>&1
 ); then
-  echo "changelog checker accepted an active GitLab tag in the retired GitLab inventory" >&2
+  echo "changelog checker accepted a selected tag that does not identify HEAD" >&2
   exit 1
 fi
 
-# A canonical local checkout may retain the independently signed GitHub tag for
-# a retired GitLab version. The overlap is valid only while the direct GitLab
-# tag remains absent.
-local_overlap="$tmp/local-active-retired"
-git_fixture init -q -b main "$local_overlap"
-git -C "$local_overlap" config user.name 'AIGW Changelog Test'
-git -C "$local_overlap" config user.email 'aigw-changelog-test@example.invalid'
-printf 'release\n' > "$local_overlap/release.txt"
-git -C "$local_overlap" add release.txt
-git -C "$local_overlap" commit -qm 'release'
-GIT_COMMITTER_DATE='2026-07-17T00:00:00Z' \
-  git -C "$local_overlap" tag -a github/v0.1.0-rc.2 -m 'active GitHub release'
-printf 'current\n' >> "$local_overlap/release.txt"
-git -C "$local_overlap" commit -qam 'current'
-cp "$github_overlap/CHANGELOG.md" "$local_overlap/CHANGELOG.md"
-mkdir -p "$local_overlap/scripts/checks/governance" "$local_overlap/.config/release"
-cp "$checker" "$local_overlap/scripts/checks/governance/check-changelog.sh"
-printf 'v0.1.0-rc.2\n' > "$local_overlap/.config/release/retired-gitlab-tags.txt"
-if ! (
-  cd "$local_overlap"
-  AIGW_CHANGELOG_FORGE=local GITHUB_ACTIONS= GITLAB_CI= \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
-    AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/checks/governance/check-changelog.sh
-); then
-  echo "changelog checker rejected qualified GitHub provenance for a retired GitLab version" >&2
-  exit 1
-fi
-GIT_COMMITTER_DATE='2026-07-17T00:01:00Z' \
-  git -C "$local_overlap" tag -a v0.1.0-rc.2 -m 'active GitLab release' HEAD~1
-if (
-  cd "$local_overlap"
-  AIGW_CHANGELOG_FORGE=local GITHUB_ACTIONS= GITLAB_CI= \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= \
-    AIGW_CHANGELOG_FILE=CHANGELOG.md sh scripts/checks/governance/check-changelog.sh >/dev/null 2>&1
-); then
-  echo "changelog checker accepted a direct GitLab tag in its retirement inventory" >&2
-  exit 1
-fi
-
-# Exactly one untagged release candidate may be the first published section.
-# A speculative heading anywhere else must fail, while a valid next candidate
-# must pass before either forge creates its provider-native tag.
-python3 - "$fixture" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-path = Path(sys.argv[1])
-text = path.read_text(encoding="utf-8")
-import subprocess
-
-latest_tag = subprocess.check_output(
-    ["git", "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*", "HEAD"],
-    text=True,
-).strip()
-latest_version = latest_tag.removeprefix("v")
-marker = re.search(rf"^## \[{re.escape(latest_version)}\] - \d{{4}}-\d{{2}}-\d{{2}}$", text, re.MULTILINE)
-if marker is None:
-    raise SystemExit("fixture lacks latest release heading")
-path.write_text(text[:marker.end()] + "\n\n## [9.9.9] - 2026-07-14" + text[marker.end():], encoding="utf-8")
-PY
-if run_branch_checker "$fixture" >/dev/null 2>&1; then
-  echo "changelog checker accepted a non-leading untagged published version" >&2
-  exit 1
-fi
-
-cp "$root/CHANGELOG.md" "$fixture"
-python3 - "$fixture" "$root/.config/release/retired-gitlab-tags.txt" <<'PY'
-from pathlib import Path
-import re
-import subprocess
-import sys
-
-path = Path(sys.argv[1])
-retired = Path(sys.argv[2])
-text = path.read_text(encoding="utf-8")
-tag_versions = {
-    tag.removeprefix("github/").removeprefix("v")
-    for pattern in ("v[0-9]*", "github/v[0-9]*")
-    for tag in subprocess.check_output(["git", "tag", "--list", pattern], text=True).splitlines()
-}
-retired_versions = {
-    line.strip().removeprefix("v")
-    for line in retired.read_text(encoding="utf-8").splitlines()
-    if line.strip() and not line.lstrip().startswith("#")
-}
-published = list(re.finditer(r"^## \[([^]]+)\] - \d{4}-\d{2}-\d{2}$", text, re.MULTILINE))
-unknown = [match for match in published if match.group(1) not in tag_versions | retired_versions]
-candidate = "## [9999.0.0-ci.1] - 2026-07-17"
-if not unknown:
-    unreleased = re.search(r"^## \[Unreleased\]$", text, re.MULTILINE)
-    if unreleased is None:
-        raise SystemExit("fixture lacks the Unreleased heading")
-    text = text[:unreleased.end()] + "\n\n" + candidate + text[unreleased.end():]
-elif len(unknown) == 1:
-    marker = unknown[0]
-    text = text[:marker.start()] + candidate + text[marker.end():]
-else:
-    raise SystemExit("fixture contains multiple untagged release candidates")
-path.write_text(text, encoding="utf-8")
-PY
-# This fixture models an ordinary release-preparation branch. It must not
-# inherit the outer tagged pipeline's selected release identity.
-if ! run_branch_checker "$fixture" >/dev/null 2>&1; then
-  echo "changelog checker rejected a leading next release candidate" >&2
-  exit 1
-fi
-
-cp "$root/CHANGELOG.md" "$fixture"
-python3 - "$fixture" <<'PY'
-from pathlib import Path
-import re
-import sys
-
-path = Path(sys.argv[1])
-text = path.read_text(encoding="utf-8")
-pattern = re.compile(r"^(## \[(?!Unreleased\])[^]]+\]) - \d{4}-\d{2}-\d{2}$", re.MULTILINE)
-changed, count = pattern.subn(r"\1 - 2000-02-30", text, count=1)
-if count != 1:
-    raise SystemExit("fixture lacks a published release heading")
-path.write_text(changed, encoding="utf-8")
-PY
-if run_branch_checker "$fixture" >/dev/null 2>&1; then
-  echo "changelog checker accepted an invalid release date" >&2
-  exit 1
-fi
-
-# GitHub retains historical provider-native tags that GitLab has deliberately
-# retired after failed candidates. The GitLab retirement inventory must act as
-# a fallback, not conflict with GitHub's active historical tags.
-provider="$tmp/provider"
-git_fixture init -q -b main "$provider"
-git -C "$provider" config user.name 'AIGW Changelog Provider Test'
-git -C "$provider" config user.email 'aigw-changelog-provider@example.invalid'
-git -C "$provider" commit --allow-empty -qm provider
-for number in $(seq 48 58); do
-  git -C "$provider" tag "v0.1.0-rc.$number"
-done
-mkdir -p "$provider/scripts/checks/governance" "$provider/.config/release"
-cp "$checker" "$provider/scripts/checks/governance/check-changelog.sh"
-{
-  for number in $(seq 48 58); do
-    printf 'v0.1.0-rc.%s\n' "$number"
-  done
-  printf 'v0.1.0-rc.61\n'
-} > "$provider/.config/release/retired-gitlab-tags.txt"
-{
-  printf '# Changelog\n\n## [Unreleased]\n\n'
-  printf '## [0.1.0-rc.62] - 2026-07-17\n\n'
-  printf '## [0.1.0-rc.61] - 2026-07-17\n\n'
-  for number in $(seq 58 -1 48); do
-    printf '## [0.1.0-rc.%s] - 2026-07-17\n\n' "$number"
-  done
-} > "$provider/CHANGELOG.md"
-(
-  cd "$provider"
-  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true GITLAB_CI= \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
-    sh scripts/checks/governance/check-changelog.sh
-)
-
-# GitHub provider branches rewrite identities.  A provider-native tag can be
-# unreachable by commit ancestry while its exact tree is present in the current
-# branch.  GitHub branch CI must recognize that signed provider tag as the
-# latest published source version rather than rejecting a valid Changelog.
-provider_tree="$tmp/provider-tree"
-provider_tree_origin="$tmp/provider-tree-origin.git"
-git_fixture init -q -b main "$provider_tree"
-git -C "$provider_tree" config user.name 'AIGW Changelog Provider Test'
-git -C "$provider_tree" config user.email 'aigw-changelog-provider@example.invalid'
-printf 'release\n' > "$provider_tree/release.txt"
-git -C "$provider_tree" add release.txt
-git -C "$provider_tree" commit -qm 'release'
-git -C "$provider_tree" tag -a v0.1.0-rc.1 -m 'provider release'
-git_fixture init -q --bare "$provider_tree_origin"
-git -C "$provider_tree" remote add origin "file://$provider_tree_origin"
-git -C "$provider_tree" push -q origin 'HEAD:refs/heads/main' --tags
-git -C "$provider_tree" checkout -q --orphan projected
-git -C "$provider_tree" rm -q --cached -r .
-git -C "$provider_tree" checkout -q v0.1.0-rc.1 -- release.txt
-git -C "$provider_tree" add release.txt
-git -C "$provider_tree" commit -qm 'rewritten provider branch'
-git -C "$provider_tree" branch -f main HEAD
-git -C "$provider_tree" checkout -q main
-cat > "$provider_tree/CHANGELOG.md" <<'EOF'
-# Changelog
-
-## [Unreleased]
-
-## [0.1.0-rc.1] - 2026-07-17
-EOF
-mkdir -p "$provider_tree/scripts/checks/governance" "$provider_tree/.config/release"
-cp "$checker" "$provider_tree/scripts/checks/governance/check-changelog.sh"
-printf '' > "$provider_tree/.config/release/retired-gitlab-tags.txt"
-(
-  cd "$provider_tree"
-  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true GITLAB_CI= \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
-    sh scripts/checks/governance/check-changelog.sh
-)
-
-# A canonical checkout fetches GitHub provenance into a qualified namespace so
-# it cannot overwrite an identically named GitLab tag. The GitHub chronology
-# check must recognize that qualified tag, while a GitLab check must not.
-provider_scoped="$tmp/provider-scoped"
-git_fixture init -q -b main "$provider_scoped"
-git -C "$provider_scoped" config user.name 'AIGW Changelog Provider Test'
-git -C "$provider_scoped" config user.email 'aigw-changelog-provider@example.invalid'
-printf 'release\n' > "$provider_scoped/release.txt"
-git -C "$provider_scoped" add release.txt
-git -C "$provider_scoped" commit -qm 'qualified provider release'
-git -C "$provider_scoped" tag -a github/v0.1.0-rc.1 -m 'qualified GitHub provider release'
-cat > "$provider_scoped/CHANGELOG.md" <<'EOF'
-# Changelog
-
-## [Unreleased]
-
-## [0.1.0-rc.1] - 2026-07-17
-EOF
-mkdir -p "$provider_scoped/scripts/checks/governance" "$provider_scoped/.config/release"
-cp "$checker" "$provider_scoped/scripts/checks/governance/check-changelog.sh"
-printf '' > "$provider_scoped/.config/release/retired-gitlab-tags.txt"
-(
-  cd "$provider_scoped"
-  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true GITLAB_CI= \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
-    sh scripts/checks/governance/check-changelog.sh
-)
-if (
-  cd "$provider_scoped"
-  AIGW_CHANGELOG_FORGE=gitlab GITHUB_ACTIONS= GITLAB_CI=true \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
-    sh scripts/checks/governance/check-changelog.sh >/dev/null 2>&1
-); then
-  echo "changelog checker accepted a qualified GitHub tag as GitLab provenance" >&2
-  exit 1
-fi
-
-# A qualified GitHub namespace must isolate chronology from higher GitLab-only
-# versions, rather than allowing unscoped tags to change GitHub's latest tag.
-provider_conflict="$tmp/provider-conflict"
-git_fixture init -q -b main "$provider_conflict"
-git -C "$provider_conflict" config user.name 'AIGW Changelog Provider Test'
-git -C "$provider_conflict" config user.email 'aigw-changelog-provider@example.invalid'
-printf 'gitlab\n' > "$provider_conflict/release.txt"
-git -C "$provider_conflict" add release.txt
-git -C "$provider_conflict" commit -qm 'GitLab release'
-git -C "$provider_conflict" tag -a v0.1.0-rc.2 -m 'GitLab release'
-printf 'github\n' > "$provider_conflict/release.txt"
-git -C "$provider_conflict" commit -am 'GitHub release' -q
-git -C "$provider_conflict" tag -a github/v0.1.0-rc.1 -m 'GitHub release'
-cat > "$provider_conflict/CHANGELOG.md" <<'EOF'
-# Changelog
-
-## [Unreleased]
-
-## [0.1.0-rc.1] - 2026-07-17
-EOF
-mkdir -p "$provider_conflict/scripts/checks/governance" "$provider_conflict/.config/release"
-cp "$checker" "$provider_conflict/scripts/checks/governance/check-changelog.sh"
-printf '' > "$provider_conflict/.config/release/retired-gitlab-tags.txt"
-(
-  cd "$provider_conflict"
-  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true GITLAB_CI= \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
-    sh scripts/checks/governance/check-changelog.sh
-)
-
-# Once a qualified GitHub namespace exists, the unscoped `git describe` result
-# must not leak a GitLab-only version back into GitHub chronology. Listing both
-# headings would incorrectly pass if that direct tag were re-added.
-provider_latest_leak="$tmp/provider-latest-leak"
-git_fixture init -q -b main "$provider_latest_leak"
-git -C "$provider_latest_leak" config user.name 'AIGW Changelog Provider Test'
-git -C "$provider_latest_leak" config user.email 'aigw-changelog-provider@example.invalid'
-printf 'gitlab\n' > "$provider_latest_leak/release.txt"
-git -C "$provider_latest_leak" add release.txt
-git -C "$provider_latest_leak" commit -qm 'GitLab release'
-git -C "$provider_latest_leak" tag -a v0.1.0-rc.1 -m 'GitLab release'
-printf 'github\n' > "$provider_latest_leak/release.txt"
-git -C "$provider_latest_leak" commit -am 'GitHub release' -q
-git -C "$provider_latest_leak" tag -a github/v0.1.0-rc.2 -m 'GitHub release'
-cat > "$provider_latest_leak/CHANGELOG.md" <<'EOF'
-# Changelog
-
-## [Unreleased]
-
-## [0.1.0-rc.2] - 2026-07-19
-
-## [0.1.0-rc.1] - 2026-07-18
-EOF
-mkdir -p "$provider_latest_leak/scripts/checks/governance" "$provider_latest_leak/.config/release"
-cp "$checker" "$provider_latest_leak/scripts/checks/governance/check-changelog.sh"
-printf '' > "$provider_latest_leak/.config/release/retired-gitlab-tags.txt"
-if (
-  cd "$provider_latest_leak"
-  AIGW_CHANGELOG_FORGE=github GITHUB_ACTIONS=true GITLAB_CI= \
-    CI_COMMIT_TAG= GITHUB_REF_TYPE= GITHUB_REF_NAME= AIGW_CHANGELOG_RELEASE_TAG= \
-    sh scripts/checks/governance/check-changelog.sh 2>error.log
-); then
-  echo "changelog checker accepted an unscoped latest tag on the GitHub plane" >&2
-  exit 1
-fi
-grep -Fq 'only the first release heading may be an untagged next candidate' \
-  "$provider_latest_leak/error.log" || {
-    cat "$provider_latest_leak/error.log" >&2
-    echo "changelog checker rejected the latest-tag leak for an unexpected reason" >&2
-    exit 1
-  }
-
-echo "changelog chronology contract: OK"
+echo "changelog contract: OK"

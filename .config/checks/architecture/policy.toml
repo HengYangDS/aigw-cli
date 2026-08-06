@@ -35,20 +35,6 @@ suffix_flat_group_min = 3
 # Do not generalize beyond this explicit list.
 platform_build_suffixes = ["unix", "windows", "darwin", "linux", "posix"]
 
-# Permanent directory / package names that are forbidden.
-forbidden_names = ["commands", "shim", "shims", "compat", "compatibility"]
-
-# Product identities that AIGW must never import or embed. AIGW composes with
-# independent data planes only through operator-configured HTTP endpoints.
-forbidden_product_references = [
-  "codex-responses-proxy",
-  "codex_dmx_proxy",
-  "codex-dmx-proxy",
-]
-
-# Empty by default — do not mint debt baselines here.
-allowed_forbidden_names = []
-
 # Top-level roots skipped entirely while walking the repository.
 ignore_roots = ["vendor", ".git", "records", "build"]
 

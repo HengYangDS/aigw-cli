@@ -8,5 +8,6 @@
 - [x] Bind the README environment contract to the existing governance gate.
 - [x] Repair canonical document fragments and verify them with Lychee.
 - [x] Replace Forge error-text parsing with typed HTTP status semantics and one HTTPS policy.
+- [x] Replace retired-tag and residue blacklists with positive release and structure contracts.
 - [ ] Execute complete local proof and hosted Linux, Windows, and macOS CI.
 - [ ] Land, publish rc.80 independently to both Forges, install, and verify.

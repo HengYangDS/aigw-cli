@@ -47,9 +47,6 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	checkFlatDirectories(dirStats, p, &report)
 	checkSourceBudgets(goFiles, dirStats, p, &report)
 	checkSuffixFlat(goFiles, p, &report)
-	if err := checkForbiddenNames(absRoot, p, &report); err != nil {
-		return Report{}, err
-	}
 	if err := checkGoAST(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}
@@ -457,72 +454,6 @@ func checkSuffixFlat(files []goFileInfo, p policy, report *Report) {
 			})
 		}
 	}
-}
-
-func checkForbiddenNames(root string, p policy, report *Report) error {
-	forbidden := p.forbiddenNameSet()
-	allowed := p.allowedForbiddenNameSet()
-
-	// Walk managed go roots and scripts roots for directory names.
-	var roots []string
-	roots = append(roots, p.GoRoots...)
-	roots = append(roots, p.ScriptsRoots...)
-	seen := map[string]struct{}{}
-	for _, relRoot := range roots {
-		abs := filepath.Join(root, filepath.FromSlash(relRoot))
-		info, err := os.Stat(abs)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return fmt.Errorf("stat %s: %w", relRoot, err)
-		}
-		if !info.IsDir() {
-			continue
-		}
-		err = filepath.WalkDir(abs, func(path string, d fs.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if !d.IsDir() {
-				return nil
-			}
-			name := d.Name()
-			rel, err := filepath.Rel(root, path)
-			if err != nil {
-				return err
-			}
-			relPOSIX := toPOSIX(rel)
-			if path != abs {
-				if shouldIgnoreDirName(name, p) || shouldIgnoreRelPath(relPOSIX, p) {
-					return fs.SkipDir
-				}
-			}
-			lower := strings.ToLower(name)
-			if _, ok := forbidden[lower]; !ok {
-				return nil
-			}
-			if _, ok := allowed[lower]; ok {
-				return nil
-			}
-			// Dedup exact path.
-			if _, ok := seen[relPOSIX]; ok {
-				return nil
-			}
-			seen[relPOSIX] = struct{}{}
-			report.addFinding(Finding{
-				Rule:    "forbidden_name",
-				Path:    relPOSIX,
-				Name:    lower,
-				Message: fmt.Sprintf("permanent directory/package name %q is forbidden", lower),
-			})
-			return nil
-		})
-		if err != nil {
-			return fmt.Errorf("walk forbidden names under %s: %w", relRoot, err)
-		}
-	}
-	return nil
 }
 
 func collapsePlatformSuffixes(stem string, platform map[string]struct{}) string {

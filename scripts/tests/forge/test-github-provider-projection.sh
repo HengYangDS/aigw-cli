@@ -292,7 +292,7 @@ if (
   echo 'projection accepted an untrusted GitHub-native provenance tag' >&2
   exit 1
 fi
-grep -F 'GitHub provenance tag does not verify under its permitted trust anchors: v0.2.0' \
+grep -F 'GitHub provenance tag does not verify: v0.2.0' \
   "$tmp/untrusted-github-only-tag.out" >/dev/null || {
   cat "$tmp/untrusted-github-only-tag.out" >&2
   echo 'projection did not identify the untrusted GitHub-native provenance tag' >&2
