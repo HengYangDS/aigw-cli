@@ -99,6 +99,21 @@ Start from [`manifests/example.toml`](manifests/example.toml). Product source
 contains no real provider endpoint, model recommendation, Token, contributor
 identity, or organization-specific Forge coordinate.
 
+### Environment variables
+
+Interactive users do not need environment variables. Use these only for
+explicit automation or a deliberately selected secret backend:
+
+| Variable | Meaning |
+| --- | --- |
+| `AIGW_SECRET_BACKEND=keyring` | Use the operating-system credential store (default). |
+| `AIGW_SECRET_BACKEND=env` | Read token slots without writing them. |
+| `AIGW_TOKEN_<ACCOUNT>` | Token for an account when the `env` backend is selected; never commit it. |
+| `AIGW_ACCESSIBLE=1` | Use accessibility-oriented terminal output. |
+
+Release-origin and Forge-token variables belong to contributor and release
+operations, not normal product setup; see [CONTRIBUTING](CONTRIBUTING.md).
+
 AIGW configures only supported clients that are present. Missing clients remain
 untouched and are reported as not configured.
 

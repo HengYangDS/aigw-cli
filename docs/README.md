@@ -7,9 +7,9 @@ Read one path, not the whole repository.
 ## Personal use
 
 1. [Install AIGW](../README.md#install)
-2. [Connect the first service](../README.md#first-connection)
-3. [Use it every day](../README.md#every-day)
-4. [Recover a local integration](governance/terminal-experience-contract.md#recovery-language)
+2. [Connect the first service](../README.md#connect-a-service)
+3. [Use it every day](../README.md#use-it-every-day)
+4. [Recover a local integration](governance/terminal-experience-contract.md#boundary-language)
 
 ## Team use
 
