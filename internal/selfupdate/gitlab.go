@@ -154,7 +154,7 @@ func (u Updater) downloadReleaseAssetFromGitLabAPI(ctx context.Context, tag, ass
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("download release asset %s: %s", asset, response.Status)
+		return httpFailure(ReleaseProviderGitLab, "download release asset "+asset, response)
 	}
 	path := filepath.Join(directory, asset)
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
@@ -282,11 +282,8 @@ func (u Updater) latestTagFromGitLabAPI(ctx context.Context) (string, error) {
 		return "", unavailable(fmt.Errorf("query GitLab latest release: %w", err))
 	}
 	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
-		return "", unavailable(fmt.Errorf("query GitLab latest release: %s", response.Status))
-	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return "", fmt.Errorf("query GitLab latest release: %s", response.Status)
+		return "", httpFailure(ReleaseProviderGitLab, "query latest release", response)
 	}
 	var release struct {
 		TagName string `json:"tag_name"`
