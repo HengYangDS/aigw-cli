@@ -197,13 +197,13 @@ func TestReadProjectionIdentityExtra(t *testing.T) {
 		t.Errorf("expected not present, got %+v, err %v", id, err)
 	}
 
-	// Legacy
+	// Unattributed sidecars fail closed.
 	writeExtraCodexFile(t, path, "")
 	state := codexState{}
 	writeExtraCodexState(t, path, state)
 	id, err = ReadProjectionIdentity(path)
-	if err != nil || id.AttributionState != "legacy" {
-		t.Errorf("expected legacy, got %+v, err %v", id, err)
+	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") || id.Present {
+		t.Errorf("expected incomplete attribution rejection, got %+v, err %v", id, err)
 	}
 }
 
@@ -348,7 +348,7 @@ func TestValidateCodexStateAttributionExtra(t *testing.T) {
 		{codexState{ProjectionMode: ProjectionFullSelection, WriterID: "other", TransactionID: "t"}, ""},
 	}
 	for _, c := range cases {
-		_, err := validateCodexStateAttribution(c.state, c.mode)
+		err := validateCodexStateAttribution(c.state, c.mode)
 		if err == nil {
 			t.Errorf("expected error for state %+v, mode %q", c.state, c.mode)
 		}
@@ -450,7 +450,7 @@ func TestInspectConfigReachableStates(t *testing.T) {
 		}
 	})
 
-	t.Run("legacy full selection", func(t *testing.T) {
+	t.Run("unattributed full selection", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		runtime := atomicTestRuntime()
 		block := codexManagedBlock(runtime, runtime.Endpoint)
@@ -465,7 +465,7 @@ func TestInspectConfigReachableStates(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if inspection.State != "legacy-full-selection" || inspection.ProjectionMode != ProjectionFullSelection || inspection.AttributionState != "legacy" || !inspection.AIGWManaged || !inspection.SidecarHashMatches {
+		if inspection.State != "ownership-conflict" || inspection.AttributionState != "foreign-or-incomplete" || inspection.AIGWManaged || inspection.SidecarHashMatches {
 			t.Fatalf("inspection = %#v", inspection)
 		}
 	})
@@ -606,7 +606,14 @@ func TestCodexUserConfigAtReadErrors(t *testing.T) {
 func TestCompleteExactTruncatedCodexProjectionRejectsAmbiguities(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	state := codexState{ManagedBlockHash: hashText(block)}
+	state := codexState{
+		ManagedBlockHash: hashText(block),
+		OriginalScheduler: map[string]*int{
+			"agents.max_concurrent_threads_per_session":                  nil,
+			"agents.max_depth":                                           nil,
+			"features.multi_agent_v2.max_concurrent_threads_per_session": nil,
+		},
+	}
 	truncated := strings.TrimSuffix(block, codexEnd+"\n")
 
 	for _, test := range []struct {
@@ -659,6 +666,31 @@ func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 	}
 	if got := removeCodexBeginMarker("external = true\n"); got != "external = true\n" {
 		t.Fatalf("removeCodexBeginMarker() = %q", got)
+	}
+}
+
+func TestRemoveCodexProjectionRestoresAbsentOriginalSelection(t *testing.T) {
+	runtime := atomicTestRuntime()
+	block := codexManagedBlock(runtime, runtime.Endpoint)
+	current, err := projectCodex("external = true\n", block, runtime.Model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := codexState{
+		ManagedBlockHash: hashText(block),
+		OriginalScheduler: map[string]*int{
+			"agents.max_concurrent_threads_per_session":                  nil,
+			"agents.max_depth":                                           nil,
+			"features.multi_agent_v2.max_concurrent_threads_per_session": nil,
+		},
+	}
+
+	restored, err := removeCodexProjection(current, state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored != "external = true\n" {
+		t.Fatalf("restored config = %q", restored)
 	}
 }
 

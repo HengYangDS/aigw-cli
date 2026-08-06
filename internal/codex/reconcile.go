@@ -88,16 +88,8 @@ func ReadProjectionIdentity(path string) (ProjectionIdentity, error) {
 	if err := json.Unmarshal(data, &state); err != nil {
 		return ProjectionIdentity{}, fmt.Errorf("parse Codex adapter state: %w", err)
 	}
-	legacy, err := validateCodexStateAttribution(state, "")
-	if err != nil {
+	if err := validateCodexStateAttribution(state, ""); err != nil {
 		return ProjectionIdentity{}, err
-	}
-	if legacy {
-		return ProjectionIdentity{
-			Present:          true,
-			ProjectionMode:   ProjectionFullSelection,
-			AttributionState: "legacy",
-		}, nil
 	}
 	return ProjectionIdentity{
 		Present:          true,
@@ -212,7 +204,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 }
 
 func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, block string, configSnapshot, stateSnapshot transaction.FileSnapshot, transactionID string) (codexPreparedTarget, error) {
-	state, legacy, err := codexStateForTarget(stateSnapshot, ProjectionFullSelection)
+	state, err := codexStateForTarget(stateSnapshot, ProjectionFullSelection)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -234,7 +226,7 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	if !bytes.Equal(configSnapshot.Data, projected) || !bytes.Equal(stateSnapshot.Data, stateData) || !stateSnapshot.Exists || legacy {
+	if !bytes.Equal(configSnapshot.Data, projected) || !bytes.Equal(stateSnapshot.Data, stateData) || !stateSnapshot.Exists {
 		state.TransactionID = transactionID
 		stateData, err = encodeCodexState(state)
 		if err != nil {
@@ -246,8 +238,6 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 		action = "already-converged"
 	} else if !stateSnapshot.Exists {
 		action = "initial-project"
-	} else if legacy {
-		action = "adopt-legacy-sidecar"
 	} else if isExactTruncatedCodexProjection(string(configSnapshot.Data), stateSnapshot.Data, runtime, block) {
 		action = "repair-truncated"
 	}
@@ -261,7 +251,7 @@ func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot transac
 	if !stateSnapshot.Exists {
 		return codexPreparedTarget{plan: ProjectionPlan{Target: target.Path, Action: "already-restored"}}, nil
 	}
-	state, _, err := codexStateForTarget(stateSnapshot, target.ProjectionMode)
+	state, err := codexStateForTarget(stateSnapshot, target.ProjectionMode)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -328,19 +318,18 @@ func hashBytes(data []byte) string {
 	return hashText(string(data))
 }
 
-func codexStateForTarget(snapshot transaction.FileSnapshot, expectedMode string) (codexState, bool, error) {
+func codexStateForTarget(snapshot transaction.FileSnapshot, expectedMode string) (codexState, error) {
 	if !snapshot.Exists {
-		return codexState{}, false, nil
+		return codexState{}, nil
 	}
 	var state codexState
 	if err := json.Unmarshal(snapshot.Data, &state); err != nil {
-		return codexState{}, false, fmt.Errorf("parse Codex adapter state: %w", err)
+		return codexState{}, fmt.Errorf("parse Codex adapter state: %w", err)
 	}
-	legacy, err := validateCodexStateAttribution(state, expectedMode)
-	if err != nil {
-		return codexState{}, false, err
+	if err := validateCodexStateAttribution(state, expectedMode); err != nil {
+		return codexState{}, err
 	}
-	return state, legacy, nil
+	return state, nil
 }
 
 func encodeCodexState(state codexState) ([]byte, error) {
@@ -351,23 +340,20 @@ func encodeCodexState(state codexState) ([]byte, error) {
 	return append(data, '\n'), nil
 }
 
-func validateCodexStateAttribution(state codexState, expectedMode string) (bool, error) {
-	if state.ProjectionMode == "" && state.WriterID == "" && state.TransactionID == "" {
-		return true, nil
-	}
+func validateCodexStateAttribution(state codexState, expectedMode string) error {
 	if state.ProjectionMode == "" || state.WriterID == "" || state.TransactionID == "" {
-		return false, fmt.Errorf("Codex sidecar attribution is incomplete")
+		return fmt.Errorf("Codex sidecar attribution is incomplete")
 	}
 	if state.ProjectionMode != ProjectionFullSelection {
-		return false, fmt.Errorf("Codex sidecar has unsupported projection mode %q", state.ProjectionMode)
+		return fmt.Errorf("Codex sidecar has unsupported projection mode %q", state.ProjectionMode)
 	}
 	if state.WriterID != ProjectionWriterID {
-		return false, fmt.Errorf("Codex sidecar is owned by foreign writer %q", state.WriterID)
+		return fmt.Errorf("Codex sidecar is owned by foreign writer %q", state.WriterID)
 	}
 	if expectedMode != "" && state.ProjectionMode != expectedMode {
-		return false, fmt.Errorf("Codex sidecar projection mode is %q, want %q", state.ProjectionMode, expectedMode)
+		return fmt.Errorf("Codex sidecar projection mode is %q, want %q", state.ProjectionMode, expectedMode)
 	}
-	return false, nil
+	return nil
 }
 
 func codexTargetUnion(before, after []TargetRef) ([]codexReconciliationTarget, error) {
@@ -455,9 +441,9 @@ func preferredCodexStatePath(sourcePath, canonicalPath string) string {
 	if info, err := os.Lstat(canonicalStatePath); err == nil && !info.IsDir() {
 		return canonicalStatePath
 	}
-	legacyStatePath := codexStatePath(sourcePath)
-	if info, err := os.Lstat(legacyStatePath); err == nil && !info.IsDir() {
-		return legacyStatePath
+	sourceStatePath := codexStatePath(sourcePath)
+	if info, err := os.Lstat(sourceStatePath); err == nil && !info.IsDir() {
+		return sourceStatePath
 	}
 	return canonicalStatePath
 }
