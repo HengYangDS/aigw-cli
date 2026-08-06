@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -139,15 +140,15 @@ func TestPlanConfigsClassifiesInitialConvergedAndExactTruncationRepair(t *testin
 	}
 }
 
-func TestSyncConfigsConvergesLegacyStateWithoutOriginalSelections(t *testing.T) {
+func TestSyncConfigsRejectsUnattributedStateWithoutOriginalSelections(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	legacy := "model = \"gpt-5.6-terra\" # managed by AIGW\n" +
+	unattributed := "model = \"gpt-5.6-terra\" # managed by AIGW\n" +
 		"model_provider = \"aigw\" # managed by AIGW\n\n" +
 		"user_setting = true\n\n" +
 		codexBegin + "\n" + block
-	if err := os.WriteFile(path, []byte(legacy), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(unattributed), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	stateData := []byte("{\n  \"managed_block_hash\": \"" + hashText(block) + "\"\n}\n")
@@ -155,14 +156,16 @@ func TestSyncConfigsConvergesLegacyStateWithoutOriginalSelections(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	if err := SyncConfigs([]string{path}, runtime); err != nil {
-		t.Fatal(err)
-	}
-	plans, err := PlanConfigs([]string{path}, runtime)
+	beforeConfig, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plans) != 1 || plans[0].Action != "already-converged" {
-		t.Fatalf("plan after legacy-state convergence = %#v, want already-converged", plans)
+	err = SyncConfigs([]string{path}, runtime)
+	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") {
+		t.Fatalf("SyncConfigs() error = %v, want incomplete attribution", err)
+	}
+	afterConfig, readErr := os.ReadFile(path)
+	if readErr != nil || !bytes.Equal(afterConfig, beforeConfig) {
+		t.Fatalf("config changed after unattributed sidecar rejection: %q, %v", afterConfig, readErr)
 	}
 }

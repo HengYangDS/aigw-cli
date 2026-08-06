@@ -2,6 +2,7 @@ package codex
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -132,9 +133,9 @@ func TestCodexReconciliationHelpersCoverRecognizedState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, legacy, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: data}, ProjectionFullSelection)
-	if err != nil || legacy || parsed.TransactionID != state.TransactionID {
-		t.Fatalf("state = %#v, legacy=%v, err=%v", parsed, legacy, err)
+	parsed, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: data}, ProjectionFullSelection)
+	if err != nil || parsed.TransactionID != state.TransactionID {
+		t.Fatalf("state = %#v, err=%v", parsed, err)
 	}
 
 	config := t.TempDir() + "/config.toml"
@@ -151,10 +152,10 @@ func TestCodexReconciliationHelpersCoverRecognizedState(t *testing.T) {
 	if _, err := newCodexTransactionID(); err != nil {
 		t.Fatal(err)
 	}
-	if _, present, err := codexStateForTarget(transaction.FileSnapshot{}, ProjectionFullSelection); err != nil || present {
-		t.Fatalf("absent state = present %v, err %v", present, err)
+	if absent, err := codexStateForTarget(transaction.FileSnapshot{}, ProjectionFullSelection); err != nil || !reflect.DeepEqual(absent, codexState{}) {
+		t.Fatalf("absent state = %#v, err %v", absent, err)
 	}
-	if _, _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte("{")}, ProjectionFullSelection); err == nil {
+	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte("{")}, ProjectionFullSelection); err == nil {
 		t.Fatal("invalid state JSON was accepted")
 	}
 	if _, err := normalizeCodexTargets([]TargetRef{{}}); err == nil {
@@ -172,13 +173,13 @@ func TestCodexReconciliationHelpersCoverRecognizedState(t *testing.T) {
 	}}); err == nil {
 		t.Fatal("duplicate target was accepted")
 	}
-	if _, _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection"}`)}, ProjectionFullSelection); err == nil {
+	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection"}`)}, ProjectionFullSelection); err == nil {
 		t.Fatal("incomplete state attribution was accepted")
 	}
-	if _, _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"other","writer_id":"aigw-cli","transaction_id":"x"}`)}, ProjectionFullSelection); err == nil {
+	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"other","writer_id":"aigw-cli","transaction_id":"x"}`)}, ProjectionFullSelection); err == nil {
 		t.Fatal("unsupported projection mode was accepted")
 	}
-	if _, _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection","writer_id":"foreign","transaction_id":"x"}`)}, ProjectionFullSelection); err == nil {
+	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection","writer_id":"foreign","transaction_id":"x"}`)}, ProjectionFullSelection); err == nil {
 		t.Fatal("foreign writer was accepted")
 	}
 
@@ -235,23 +236,23 @@ func TestCodexReconciliationHelpersCoverRecognizedState(t *testing.T) {
 		t.Fatalf("conflict inspection = %#v, %v", inspection, err)
 	}
 
-	legacyPath := t.TempDir() + "/legacy.toml"
-	legacyBlock := codexManagedBlock(driftRuntime, driftRuntime.Endpoint)
-	legacyConfig := "model_provider = \"aigw\" # managed by AIGW\n\n" + codexBegin + "\n" + legacyBlock
-	if err := os.WriteFile(legacyPath, []byte(legacyConfig), 0o600); err != nil {
+	unattributedPath := t.TempDir() + "/unattributed.toml"
+	unattributedBlock := codexManagedBlock(driftRuntime, driftRuntime.Endpoint)
+	unattributedConfig := "model_provider = \"aigw\" # managed by AIGW\n\n" + codexBegin + "\n" + unattributedBlock
+	if err := os.WriteFile(unattributedPath, []byte(unattributedConfig), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	legacyState := codexState{ManagedBlockHash: hashText(legacyBlock)}
-	legacyData, err := encodeCodexState(legacyState)
+	unattributedState := codexState{ManagedBlockHash: hashText(unattributedBlock)}
+	unattributedData, err := encodeCodexState(unattributedState)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(codexStatePath(legacyPath), legacyData, 0o600); err != nil {
+	if err := os.WriteFile(codexStatePath(unattributedPath), unattributedData, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	inspection, err = InspectConfig(legacyPath)
-	if err != nil || inspection.State != "legacy-full-selection" {
-		t.Fatalf("legacy inspection = %#v, %v", inspection, err)
+	inspection, err = InspectConfig(unattributedPath)
+	if err != nil || inspection.State != "ownership-conflict" {
+		t.Fatalf("unattributed inspection = %#v, %v", inspection, err)
 	}
 	if _, err := codexManagedBlockIn(codexBegin + "\n" + codexEnd); err == nil {
 		t.Fatal("managed block without provider table was accepted")
