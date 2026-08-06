@@ -28,7 +28,7 @@ required = [
     'SOURCE_DATE_EPOCH="$(sh scripts/release/lib/release-source-date-epoch.sh "$version")"',
     'sh scripts/tests/release/test-release-reproducibility.sh "$version"',
     "scripts/tests/release/test-release-package-layout.sh", "scripts/tests/install/test-macos-native-install-staging.sh", "shell: pwsh", "scripts/tests/install/test-installers.ps1", "publish-github-release.sh",
-    f'go-version: "{go_version}"', "check-latest: false", "cache: false", f"GOTOOLCHAIN: go{go_version}",
+    "go-version-file: go.mod", "check-latest: false", "cache: false",
     "scripts/tests/release/test-publish-gitlab-release.sh", "scripts/tests/release/test-publish-github-release.sh", "scripts/tests/ci/test-ci-go-cache-preparation.sh",
     "name: Materialize provenance trust input", "AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}",
     'allowed_signers="$RUNNER_TEMP/aigw-allowed-signers"', 'printf \'%s\\n\' "$AIGW_RELEASE_ALLOWED_SIGNERS" > "$allowed_signers"',
@@ -55,8 +55,10 @@ for required_input in (
 ):
     if required_input not in text:
         raise SystemExit(f"GitHub Actions release contract omits explicit release input: {required_input}")
-if "go-version-file:" in text or "check-latest: true" in text:
-    raise SystemExit("GitHub Actions release contract retains floating Go configuration")
+if f'go-version: "{go_version}"' in text or f"GOTOOLCHAIN: go{go_version}" in text:
+    raise SystemExit("GitHub Actions release duplicates the project Go version")
+if "check-latest: true" in text:
+    raise SystemExit("GitHub Actions release must not request a newer Go toolchain")
 setup = text.index(setup_go_action)
 cache = text.index("cache: false")
 build = text.index("name: Install release build tools")

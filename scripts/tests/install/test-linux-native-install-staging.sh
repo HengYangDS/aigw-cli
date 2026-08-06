@@ -525,7 +525,7 @@ PY
   fi
 }
 
-completed_python_candidates=${AIGW_TEST_SUPERVISOR_PYTHON:-"$real_python3 /usr/bin/python3 /opt/homebrew/bin/python3.12"}
+completed_python_candidates=$real_python3
 completed_python_tested=' '
 for completed_python in $completed_python_candidates; do
   [ -x "$completed_python" ] || continue
