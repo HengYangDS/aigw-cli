@@ -286,6 +286,10 @@ func TestLatestTagFromGitLabAPIRejectsOtherFailureStatus(t *testing.T) {
 	if err == nil || isSourceUnavailable(err) || !strings.Contains(err.Error(), "403") {
 		t.Fatalf("error = %v", err)
 	}
+	var httpErr releaseHTTPError
+	if !errors.As(err, &httpErr) || httpErr.statusCode != http.StatusForbidden || httpErr.provider != ReleaseProviderGitLab {
+		t.Fatalf("error = %#v, want typed GitLab 403", err)
+	}
 }
 
 func TestLatestTagFromGitLabAPIRejectsMalformedJSON(t *testing.T) {

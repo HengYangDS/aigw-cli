@@ -5,6 +5,7 @@ package selfupdate
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -160,6 +161,35 @@ type ReleaseSource struct {
 	Provider   ReleaseProvider
 	Origin     string
 	Repository string
+}
+
+type releaseHTTPError struct {
+	provider   ReleaseProvider
+	operation  string
+	statusCode int
+	status     string
+}
+
+func (e releaseHTTPError) Error() string {
+	return fmt.Sprintf("%s %s: %s", e.provider, e.operation, e.status)
+}
+
+func httpFailure(provider ReleaseProvider, operation string, response *http.Response) error {
+	err := releaseHTTPError{
+		provider:   provider,
+		operation:  operation,
+		statusCode: response.StatusCode,
+		status:     response.Status,
+	}
+	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
+		return unavailable(err)
+	}
+	return err
+}
+
+func isHTTPStatus(err error, statusCode int) bool {
+	var target releaseHTTPError
+	return errors.As(err, &target) && target.statusCode == statusCode
 }
 
 type resolvedRelease struct {
@@ -433,8 +463,8 @@ func validateReleaseSource(source ReleaseSource) error {
 	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
 		return fmt.Errorf("%s release origin must be an HTTP(S) origin without credentials, path, query, or fragment", source.Provider)
 	}
-	if source.Provider == ReleaseProviderGitHub && parsed.Scheme != "https" && !strings.HasSuffix(parsed.Hostname(), ".test") && parsed.Hostname() != "localhost" && parsed.Hostname() != "127.0.0.1" {
-		return fmt.Errorf("GitHub release origin must use HTTPS")
+	if parsed.Scheme != "https" && !strings.HasSuffix(parsed.Hostname(), ".test") && parsed.Hostname() != "localhost" && parsed.Hostname() != "127.0.0.1" {
+		return fmt.Errorf("%s release origin must use HTTPS", source.Provider)
 	}
 	if strings.Trim(repository, "/") != repository || strings.ContainsAny(repository, "?#\r\n") {
 		return fmt.Errorf("%s release repository must be a valid namespace/project path", source.Provider)

@@ -15,6 +15,10 @@ import (
 
 type githubRoundTripFunc func(*http.Request) (*http.Response, error)
 
+func githubNotFoundError() error {
+	return releaseHTTPError{provider: ReleaseProviderGitHub, operation: "query latest release", statusCode: http.StatusNotFound, status: "404 Not Found"}
+}
+
 func (fn githubRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
 	return fn(request)
 }
@@ -34,16 +38,25 @@ func closedListenerURL(t *testing.T) string {
 
 func TestLatestPrereleaseTagFromGitHubReturnsOriginalErrorWhenNotNotFound(t *testing.T) {
 	u := Updater{}
-	original := errors.New("query failed: 500")
+	original := releaseHTTPError{provider: ReleaseProviderGitHub, operation: "query latest release", statusCode: http.StatusInternalServerError, status: "500 Internal Server Error"}
 	if _, err := u.latestPrereleaseTagFromGitHub(context.Background(), ReleaseSource{}, original); err != original {
 		t.Fatalf("error = %v, want %v", err, original)
+	}
+}
+
+func TestLatestPrereleaseTagFromGitHubDoesNotTreatIncidental404TextAsNotFound(t *testing.T) {
+	u := Updater{}
+	original := errors.New("transport failed after 404 retries")
+	if _, err := u.latestPrereleaseTagFromGitHub(context.Background(), ReleaseSource{}, original); err != original {
+		t.Fatalf("error = %v, want original error identity", err)
 	}
 }
 
 func TestLatestPrereleaseTagFromGitHubRejectsMalformedRepository(t *testing.T) {
 	u := Updater{}
 	source := ReleaseSource{Origin: "https://api.github.com", Repository: "o/r\n"}
-	if _, err := u.latestPrereleaseTagFromGitHub(context.Background(), source, errors.New("404")); err == nil || !strings.Contains(err.Error(), "create GitHub prerelease metadata request") {
+	latestErr := releaseHTTPError{provider: ReleaseProviderGitHub, operation: "query latest release", statusCode: http.StatusNotFound, status: "404 Not Found"}
+	if _, err := u.latestPrereleaseTagFromGitHub(context.Background(), source, latestErr); err == nil || !strings.Contains(err.Error(), "create GitHub prerelease metadata request") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -54,7 +67,7 @@ func TestLatestPrereleaseTagFromGitHubPropagatesAuthorizationFailure(t *testing.
 	t.Setenv("GH_TOKEN", "")
 	u := Updater{}
 	source := ReleaseSource{Origin: "https://api.github.com", Repository: "o/r"}
-	if _, err := u.latestPrereleaseTagFromGitHub(context.Background(), source, errors.New("404")); err == nil || !strings.Contains(err.Error(), "control character") {
+	if _, err := u.latestPrereleaseTagFromGitHub(context.Background(), source, githubNotFoundError()); err == nil || !strings.Contains(err.Error(), "control character") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -62,7 +75,7 @@ func TestLatestPrereleaseTagFromGitHubPropagatesAuthorizationFailure(t *testing.
 func TestLatestPrereleaseTagFromGitHubReportsUnavailableOnConnectionFailure(t *testing.T) {
 	u := Updater{HTTPClient: &http.Client{}}
 	source := ReleaseSource{Origin: closedListenerURL(t), Repository: "o/r"}
-	_, err := u.latestPrereleaseTagFromGitHub(context.Background(), source, errors.New("404"))
+	_, err := u.latestPrereleaseTagFromGitHub(context.Background(), source, githubNotFoundError())
 	if err == nil || !isGitHubUnavailable(err) {
 		t.Fatalf("error = %v, want unavailable", err)
 	}
@@ -75,14 +88,14 @@ func TestLatestPrereleaseTagFromGitHubReportsUnavailableOnRateLimit(t *testing.T
 	defer server.Close()
 	u := Updater{HTTPClient: server.Client()}
 	source := ReleaseSource{Origin: server.URL, Repository: "o/r"}
-	_, err := u.latestPrereleaseTagFromGitHub(context.Background(), source, errors.New("404"))
+	_, err := u.latestPrereleaseTagFromGitHub(context.Background(), source, githubNotFoundError())
 	if err == nil || !isGitHubUnavailable(err) {
 		t.Fatalf("error = %v, want unavailable", err)
 	}
 }
 
 func TestLatestPrereleaseTagFromGitHubReturnsOriginalErrorOnOtherFailureStatus(t *testing.T) {
-	original := errors.New("release metadata: 404 Not Found")
+	original := githubNotFoundError()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
@@ -101,13 +114,13 @@ func TestLatestPrereleaseTagFromGitHubRejectsMalformedJSON(t *testing.T) {
 	defer server.Close()
 	u := Updater{HTTPClient: server.Client()}
 	source := ReleaseSource{Origin: server.URL, Repository: "o/r"}
-	if _, err := u.latestPrereleaseTagFromGitHub(context.Background(), source, errors.New("404")); err == nil || !strings.Contains(err.Error(), "parse GitHub prerelease metadata") {
+	if _, err := u.latestPrereleaseTagFromGitHub(context.Background(), source, githubNotFoundError()); err == nil || !strings.Contains(err.Error(), "parse GitHub prerelease metadata") {
 		t.Fatalf("error = %v", err)
 	}
 }
 
 func TestLatestPrereleaseTagFromGitHubReturnsOriginalErrorWhenNoPublishedPrerelease(t *testing.T) {
-	original := errors.New("release metadata: 404 Not Found")
+	original := githubNotFoundError()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`[{"tag_name":"v1.0.0","prerelease":false,"published_at":"2026-01-01T00:00:00Z"}]`))
 	}))
