@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -58,6 +59,15 @@ func TestDownloadReleaseAssetsReturnsGlabUnavailableTokenFallbackFailure(t *test
 	}
 }
 
+func TestGlabAvailabilityDoesNotDependOnErrorText(t *testing.T) {
+	if isGlabUnavailable(errors.New("authenticated glab asset download is unavailable")) {
+		t.Fatal("plain error text was misclassified as source unavailability")
+	}
+	if !isGlabUnavailable(unavailable(errors.New("glab unavailable with arbitrary text"))) {
+		t.Fatal("typed unavailability was not recognized")
+	}
+}
+
 func TestDownloadReleaseAssetsWrapsFailureWhenNonUnavailableAndTokenInvalid(t *testing.T) {
 	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
 	t.Setenv("GITLAB_TOKEN", "")
@@ -71,6 +81,8 @@ func TestDownloadReleaseAssetsWrapsFailureWhenNonUnavailableAndTokenInvalid(t *t
 type erroringExecNotFound struct{}
 
 func (e *erroringExecNotFound) Error() string { return "authenticated glab command not found" }
+
+func (e *erroringExecNotFound) Unwrap() error { return exec.ErrNotFound }
 
 func TestDownloadReleaseAssetsWithGlabAPISkipsLinksWithEmptyURL(t *testing.T) {
 	metadata := `{"assets":{"links":[{"name":"asset.tar.gz","url":""},{"name":"asset.tar.gz","url":"https://example.test/downloads/asset.tar.gz"}]}}`
@@ -186,6 +198,8 @@ type execNotFoundError struct{}
 func (*execNotFoundError) Error() string {
 	return "authenticated glab: exec: \"glab\": executable file not found in $PATH"
 }
+
+func (*execNotFoundError) Unwrap() error { return exec.ErrNotFound }
 
 func TestLatestTagCombinesGlabAndAPIUnavailability(t *testing.T) {
 	url := closedListenerURL(t)

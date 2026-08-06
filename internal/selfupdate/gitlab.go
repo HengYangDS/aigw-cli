@@ -63,7 +63,7 @@ func (u Updater) downloadReleaseAssets(ctx context.Context, tag, directory strin
 func (u Updater) downloadReleaseAssetsWithGlabAPI(ctx context.Context, tag, directory string, assets ...string) error {
 	if _, ok := u.Runner.(FileRunner); !ok {
 		if _, ok := u.Runner.(EnvironmentFileRunner); !ok {
-			return fmt.Errorf("authenticated glab asset download is unavailable")
+			return unavailable(fmt.Errorf("authenticated glab asset download is unavailable"))
 		}
 	}
 	if len(assets) == 0 {
@@ -260,11 +260,7 @@ func isGlabUnavailable(err error) bool {
 	if err == nil {
 		return false
 	}
-	if isSourceUnavailable(err) || errors.Is(err, exec.ErrNotFound) {
-		return true
-	}
-	return strings.Contains(err.Error(), "authenticated glab") ||
-		strings.Contains(err.Error(), "latest private release requires authenticated glab")
+	return isSourceUnavailable(err) || errors.Is(err, exec.ErrNotFound)
 }
 
 func (u Updater) latestTagFromGitLabAPI(ctx context.Context) (string, error) {
@@ -310,7 +306,7 @@ func (u Updater) runGlabToFile(ctx context.Context, destination string, args ...
 	}
 	runner, ok := u.Runner.(FileRunner)
 	if !ok {
-		return fmt.Errorf("authenticated glab asset download is unavailable")
+		return unavailable(fmt.Errorf("authenticated glab asset download is unavailable"))
 	}
 	return runner.RunToFile(ctx, destination, "glab", args...)
 }
@@ -337,7 +333,7 @@ func gitLabToken() (string, error) {
 		return "", fmt.Errorf("GITLAB_TOKEN contains a control character")
 	}
 	if token == "" {
-		return "", fmt.Errorf("latest private release requires authenticated glab or GITLAB_TOKEN")
+		return "", unavailable(fmt.Errorf("GitLab release credentials are unavailable; authenticate glab or set GITLAB_TOKEN"))
 	}
 	return token, nil
 }
