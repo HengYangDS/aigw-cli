@@ -24,7 +24,7 @@ type githubRelease struct {
 }
 
 func (u Updater) latestPrereleaseTagFromGitHub(ctx context.Context, source ReleaseSource, latestErr error) (string, error) {
-	if !strings.Contains(latestErr.Error(), "404") {
+	if !isHTTPStatus(latestErr, http.StatusNotFound) {
 		return "", latestErr
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, u.githubAPIURL(source, "releases?per_page=100"), nil)
@@ -40,10 +40,10 @@ func (u Updater) latestPrereleaseTagFromGitHub(ctx context.Context, source Relea
 		return "", unavailable(fmt.Errorf("query GitHub prerelease metadata: %w", err))
 	}
 	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
-		return "", unavailable(fmt.Errorf("query GitHub prerelease metadata: %s", response.Status))
-	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
+			return "", httpFailure(ReleaseProviderGitHub, "query prerelease metadata", response)
+		}
 		return "", latestErr
 	}
 	var releases []githubRelease
@@ -158,11 +158,8 @@ func (u Updater) githubRelease(ctx context.Context, source ReleaseSource, path s
 		return githubRelease{}, unavailable(fmt.Errorf("query GitHub release metadata: %w", err))
 	}
 	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
-		return githubRelease{}, unavailable(fmt.Errorf("query GitHub release metadata: %s", response.Status))
-	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return githubRelease{}, fmt.Errorf("query GitHub release metadata: %s", response.Status)
+		return githubRelease{}, httpFailure(ReleaseProviderGitHub, "query release metadata", response)
 	}
 	var release githubRelease
 	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(&release); err != nil {
@@ -196,7 +193,7 @@ func (u Updater) downloadGitHubReleaseAssets(ctx context.Context, release github
 func (u Updater) downloadReleaseAssetsFromGitHub(ctx context.Context, source ReleaseSource, tag, directory string, assets ...string) error {
 	release, err := u.githubRelease(ctx, source, "releases/tags/"+url.PathEscape(tag))
 	if err != nil {
-		if strings.Contains(err.Error(), "404") && githubCLIFallbackAllowed(source) {
+		if isHTTPStatus(err, http.StatusNotFound) && githubCLIFallbackAllowed(source) {
 			return u.downloadGitHubReleaseAssetsWithCLI(ctx, source, tag, directory, assets...)
 		}
 		return err
@@ -239,11 +236,8 @@ func (u Updater) downloadGitHubAsset(ctx context.Context, rawURL, destination st
 		return unavailable(err)
 	}
 	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
-		return unavailable(fmt.Errorf("%s", response.Status))
-	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("%s", response.Status)
+		return httpFailure(ReleaseProviderGitHub, "download release asset", response)
 	}
 	file, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
@@ -320,5 +314,5 @@ func githubCLIFallbackAllowed(source ReleaseSource) bool {
 }
 
 func isGitHubNotFound(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "404")
+	return isHTTPStatus(err, http.StatusNotFound)
 }

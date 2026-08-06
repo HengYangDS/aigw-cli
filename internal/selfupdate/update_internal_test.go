@@ -130,6 +130,13 @@ func TestValidateReleaseSourceRejectsGitHubOverPlainHTTPForRealHost(t *testing.T
 	}
 }
 
+func TestValidateReleaseSourceRejectsGitLabOverPlainHTTPForRealHost(t *testing.T) {
+	source := ReleaseSource{Provider: ReleaseProviderGitLab, Origin: "http://gitlab.example.com", Repository: "group/project"}
+	if err := validateReleaseSource(source); err == nil || !strings.Contains(err.Error(), "must use HTTPS") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestValidateReleaseSourceAllowsGitHubOverPlainHTTPForTestHosts(t *testing.T) {
 	cases := []string{"http://example.test", "http://localhost:8080", "http://127.0.0.1:8080"}
 	for _, origin := range cases {
