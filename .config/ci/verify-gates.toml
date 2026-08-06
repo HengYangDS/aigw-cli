@@ -4,10 +4,8 @@
 
 [toolchain]
 go_mod = "go.mod"
-# Projected forms must match go.mod exactly when present.
-gitlab_image_prefix = "golang:"
-gotoolchain_prefix = "go"
-github_go_version_field = "go-version"
+# GitHub reads the project version directly. GitLab's pre-checkout bootstrap
+# image is a separate, immutable supply-chain input and must not copy it.
 github_check_latest = false
 github_setup_go_cache = false
 

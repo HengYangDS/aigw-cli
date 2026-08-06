@@ -122,9 +122,7 @@ native_linux = gates["native"]["linux"]
 native_windows = gates["native"]["windows"]
 native_macos = gates["native"]["macos"]
 
-expected_image = f"{toolchain['gitlab_image_prefix']}{go_version}"
-expected_gotoolchain = f"{toolchain['gotoolchain_prefix']}{go_version}"
-expected_github_go = f'{toolchain["github_go_version_field"]}: "{go_version}"'
+expected_github_go = f'go-version-file: {toolchain["go_mod"]}'
 
 # --- GitLab structural contract driven by SSOT ---
 workflow = section(gitlab, "workflow")
@@ -136,8 +134,11 @@ if gitlab_cfg.get("suppress_release_branch_merge_request", False):
         raise SystemExit("GitLab must suppress release branch merge-request pipelines")
 
 default = section(gitlab, "default")
-if f"image: {expected_image}" not in default:
-    raise SystemExit(f"GitLab release toolchain must pin Go {go_version} exactly from go.mod")
+image = re.search(r"(?m)^  image: (\S+)$", default)
+if image is None or re.fullmatch(r"golang@sha256:[0-9a-f]{64}", image.group(1)) is None:
+    raise SystemExit("GitLab bootstrap image must use an immutable official Go digest")
+if go_version in image.group(1):
+    raise SystemExit("GitLab bootstrap image must not duplicate the project Go version")
 if "AIGW_GOPROXY" not in default or gitlab_cfg["prepare_cache_script"] not in default:
     raise SystemExit("GitLab must retain its independently configured Go dependency path")
 if gitlab_cfg["goproxy_fallback"] not in default:
@@ -149,8 +150,8 @@ if expected_gitlab_tag not in default:
 variables = section(gitlab, "variables")
 if f'GIT_DEPTH: "{gitlab_cfg["git_depth"]}"' not in variables:
     raise SystemExit("GitLab CI must declare complete history for release chronology")
-if f"GOTOOLCHAIN: {expected_gotoolchain}" not in variables:
-    raise SystemExit(f"GitLab must resolve Go {go_version} on every runner")
+if "GOTOOLCHAIN:" in variables:
+    raise SystemExit("GitLab must derive the project toolchain from go.mod, not duplicate it")
 
 verify = section(gitlab, "verify")
 if "--prune-tags" in verify:
@@ -251,9 +252,9 @@ if expected_gitlab_tag not in package:
 require_tokens(github_verify, common_commands, "GitHub verify plane")
 require_tokens(github_verify, github_verify_commands, "GitHub verify plane")
 if expected_github_go not in github_verify:
-    raise SystemExit(f"GitHub verify must pin go-version {go_version} from go.mod")
-if f"GOTOOLCHAIN: {expected_gotoolchain}" not in github_verify:
-    raise SystemExit(f"GitHub verify must set GOTOOLCHAIN to {expected_gotoolchain}")
+    raise SystemExit("GitHub verify must derive the Go toolchain from go.mod")
+if "GOTOOLCHAIN:" in github_verify or f'go-version: "{go_version}"' in github_verify:
+    raise SystemExit("GitHub verify must not duplicate the project Go version")
 if f"runs-on: {github_verify_cfg['runner']}" not in github_verify:
     raise SystemExit("GitHub verify must receive its runner inventory from repository variables")
 if f"permissions:\n  {github_verify_cfg['permissions']}" not in github_verify and (
@@ -278,8 +279,8 @@ if github_verify_cfg.get("forbid_write_permissions", False):
 if github_verify_cfg.get("forbid_floating_actions", False):
     if "@main" in github_verify or "@master" in github_verify:
         raise SystemExit("GitHub Actions must use immutable action revisions")
-if "go-version-file:" in github_verify or "check-latest: true" in github_verify:
-    raise SystemExit("GitHub Actions verification must not float its Go toolchain")
+if "check-latest: true" in github_verify:
+    raise SystemExit("GitHub Actions verification must not request a newer Go toolchain")
 if toolchain.get("github_setup_go_cache") is False and "cache: false" not in github_verify:
     raise SystemExit("GitHub verify must disable setup-go cache")
 
@@ -298,7 +299,6 @@ require_tokens(
         github_release_cfg["needs"],
         f"runs-on: {github_release_cfg['runner']}",
         expected_github_go,
-        f"GOTOOLCHAIN: {expected_gotoolchain}",
         "check-latest: false",
         "cache: false",
     ]
@@ -314,8 +314,10 @@ if "gitlab-ci" in github_release.lower() or re.search(
     r"(?m)^\s*sh scripts/release/publish/publish-gitlab-release\.sh(?:\s|$)", github_release
 ):
     raise SystemExit("GitHub release plane retains a non-peer dependency")
-if "go-version-file:" in github_release or "check-latest: true" in github_release:
-    raise SystemExit("GitHub release retains floating Go setup")
+if "GOTOOLCHAIN:" in github_release or f'go-version: "{go_version}"' in github_release:
+    raise SystemExit("GitHub release must not duplicate the project Go version")
+if "check-latest: true" in github_release:
+    raise SystemExit("GitHub release must not request a newer Go toolchain")
 
 # GitLab must not claim GitHub-hosted native jobs.
 for token in ("native-linux:", "native-windows:"):
