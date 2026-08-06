@@ -124,7 +124,7 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 	if err := json.Unmarshal(stateData, &state); err != nil {
 		return fmt.Errorf("parse Codex adapter state: %w", err)
 	}
-	if _, err := validateCodexStateAttribution(state, ProjectionFullSelection); err != nil {
+	if err := validateCodexStateAttribution(state, ProjectionFullSelection); err != nil {
 		return err
 	}
 	if isManagedSelection(modelProviderLine.FindString(text), "model_provider", "aigw") {
@@ -289,7 +289,6 @@ func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 }
 
 func removeCodexProjection(current string, state codexState) (string, error) {
-	legacyState := state.OriginalProvider == "" && state.OriginalModel == ""
 	if !modelProviderLine.MatchString(current) || !isManagedSelection(modelProviderLine.FindString(current), "model_provider", "aigw") {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits")
 	}
@@ -308,12 +307,6 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 	base := strings.TrimRight(current[:providerStart]+current[providerEnd:], "\r\n")
 	base = removeCodexBeginMarker(base)
 	base = strings.TrimRight(base, "\r\n")
-	if legacyState {
-		base = removeManagedModelSelection(base)
-		base = modelProviderLine.ReplaceAllString(base, "")
-		base = strings.TrimLeft(base, "\r\n")
-		return base + "\n", nil
-	}
 	if state.OriginalProvider != "" {
 		base = modelProviderLine.ReplaceAllString(base, state.OriginalProvider)
 	} else {
@@ -330,9 +323,9 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 		return "", err
 	}
 	if strings.HasSuffix(current, "\n") {
-		base = strings.TrimRight(base, "\n") + "\n"
+		base = strings.Trim(base, "\n") + "\n"
 	} else {
-		base = strings.TrimRight(base, "\n")
+		base = strings.Trim(base, "\n")
 	}
 	return base, nil
 }
