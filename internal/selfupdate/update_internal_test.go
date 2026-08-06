@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -68,7 +69,7 @@ func TestUpdateFromResolvedPeersRejectsUnsupportedPackageChannel(t *testing.T) {
 type unavailableGlabRunner struct{}
 
 func (unavailableGlabRunner) Run(context.Context, string, ...string) ([]byte, error) {
-	return nil, errors.New("authenticated glab command not found")
+	return nil, exec.ErrNotFound
 }
 
 func TestDownloadPeerAssetsRejectsUnwritableTempDirectory(t *testing.T) {
