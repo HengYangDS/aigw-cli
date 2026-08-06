@@ -1,11 +1,12 @@
 param(
     [string]$InstallDir,
+    [switch]$NoPath,
     [switch]$Help
 )
 
 $ErrorActionPreference = "Stop"
 if ($Help) {
-    Write-Output "Usage: install.ps1 [-InstallDir <path>] [-Help]"
+    Write-Output "Usage: install.ps1 [-InstallDir <path>] [-NoPath] [-Help]"
     Write-Output "Install the bundled AIGW binary for the current user."
     return
 }
@@ -34,13 +35,15 @@ if (Test-Path $target) {
 Copy-Item $LocalBinary "$target.new" -Force
 Move-Item "$target.new" $target -Force
 
-$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-$parts = @()
-if ($userPath) { $parts = $userPath -split ';' | Where-Object { $_ } }
-if ($parts -notcontains $InstallDir) {
-    $newPath = (($parts + $InstallDir) -join ';')
-    [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
-    Write-Host "User PATH updated. Open a new terminal to use aigw."
+if (-not $NoPath) {
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $parts = @()
+    if ($userPath) { $parts = $userPath -split ';' | Where-Object { $_ } }
+    if ($parts -notcontains $InstallDir) {
+        $newPath = (($parts + $InstallDir) -join ';')
+        [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+        Write-Host "User PATH updated. Open a new terminal to use aigw."
+    }
 }
 Write-Host "Installed $target"
 if (Test-Path $backup) { Write-Host "Previous AIGW binary saved to $backup" }
