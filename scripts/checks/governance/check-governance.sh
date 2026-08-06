@@ -108,6 +108,21 @@ if ! grep -Fq '`aigw-cli`' README.md; then
   echo "README.md must declare the stable GitLab Path separately" >&2
   exit 1
 fi
+for contract in \
+  '`AIGW_SECRET_BACKEND=keyring`' \
+  '`AIGW_SECRET_BACKEND=env`' \
+  '`AIGW_TOKEN_<ACCOUNT>`' \
+  '`AIGW_ACCESSIBLE=1`'
+do
+  if ! grep -Fq "$contract" README.md; then
+    echo "README.md must explain public environment contract: $contract" >&2
+    exit 1
+  fi
+done
+if grep -Fq 'AIGW_SECRET_BACKEND=keychain' README.md; then
+  echo 'README.md names unsupported secret backend keychain' >&2
+  exit 1
+fi
 if ! grep -Fq 'sh scripts/checks/governance/check-governance.sh' .gitlab-ci.yml; then
   echo "GitLab CI must execute the governance check" >&2
   exit 1
