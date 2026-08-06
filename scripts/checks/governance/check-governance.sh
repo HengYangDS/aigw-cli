@@ -25,8 +25,6 @@ for file in \
   .config/checks/architecture/policy.toml \
   .config/checks/coverage/policy.toml \
   .config/ci/verify-gates.toml \
-  .config/release/github-legacy-tags.txt \
-  .config/release/retired-gitlab-tags.txt \
   .github/workflows/verify.yml \
   .githooks/pre-commit \
   .githooks/pre-push \

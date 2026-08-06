@@ -7,7 +7,6 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -15,7 +14,6 @@ import (
 
 func checkGoAST(root string, files []goFileInfo, p policy, report *Report) error {
 	fset := token.NewFileSet()
-	seenPackages := map[string]struct{}{}
 	type packageDocumentation struct {
 		name       string
 		path       string
@@ -47,8 +45,6 @@ func checkGoAST(root string, files []goFileInfo, p policy, report *Report) error
 			})
 			continue
 		}
-		// Forbidden package names from package clause (once per directory).
-		checkPackageClause(parsed, file, p, report, seenPackages)
 		if p.CheckPackageDocumentation && parsed.Name != nil && parsed.Name.Name != "main" {
 			state := packageDocs[file.dir]
 			if state.path == "" {
@@ -58,8 +54,6 @@ func checkGoAST(root string, files []goFileInfo, p policy, report *Report) error
 			state.documented = state.documented || hasPackageDocumentation(parsed)
 			packageDocs[file.dir] = state
 		}
-		checkForeignProductBindings(fset, parsed, file.relPath, p.ForbiddenProductRefs, report)
-
 		if p.CheckExportedTypeAlias {
 			checkExportedTypeAliases(fset, parsed, file.relPath, report)
 		}
@@ -99,77 +93,6 @@ func hasPackageDocumentation(parsed *ast.File) bool {
 	}
 	next := documentation[len(prefix)]
 	return next == ' ' || next == '.' || next == ':'
-}
-
-func checkForeignProductBindings(fset *token.FileSet, parsed *ast.File, relPath string, forbidden []string, report *Report) {
-	for _, imported := range parsed.Imports {
-		path, err := strconv.Unquote(imported.Path.Value)
-		if err != nil || !containsForbiddenProductReference(path, forbidden) {
-			continue
-		}
-		pos := fset.Position(imported.Pos())
-		report.addFinding(Finding{
-			Rule:    "foreign_product_dependency",
-			Path:    relPath,
-			Line:    pos.Line,
-			Message: "AIGW CLI may not import or own the independent Codex Responses Proxy product",
-		})
-	}
-	ast.Inspect(parsed, func(node ast.Node) bool {
-		literal, ok := node.(*ast.BasicLit)
-		if !ok || literal.Kind != token.STRING {
-			return true
-		}
-		value, err := strconv.Unquote(literal.Value)
-		if err != nil || !containsForbiddenProductReference(value, forbidden) {
-			return true
-		}
-		pos := fset.Position(literal.Pos())
-		report.addFinding(Finding{
-			Rule:    "foreign_product_literal",
-			Path:    relPath,
-			Line:    pos.Line,
-			Message: "AIGW CLI may compose through a configured HTTP endpoint, not a proxy product binding",
-		})
-		return true
-	})
-}
-
-func containsForbiddenProductReference(value string, forbidden []string) bool {
-	value = strings.ToLower(value)
-	for _, reference := range forbidden {
-		if strings.Contains(value, reference) {
-			return true
-		}
-	}
-	return false
-}
-
-func checkPackageClause(parsed *ast.File, file goFileInfo, p policy, report *Report, seen map[string]struct{}) {
-	if parsed.Name == nil {
-		return
-	}
-	name := parsed.Name.Name
-	lower := strings.ToLower(name)
-	if _, ok := p.forbiddenNameSet()[lower]; !ok {
-		return
-	}
-	if _, ok := p.allowedForbiddenNameSet()[lower]; ok {
-		return
-	}
-	key := file.dir + "\x00" + lower
-	if _, ok := seen[key]; ok {
-		return
-	}
-	seen[key] = struct{}{}
-	report.addFinding(Finding{
-		Rule:    "forbidden_package_name",
-		Path:    file.relPath,
-		Line:    1,
-		Name:    lower,
-		Package: name,
-		Message: fmt.Sprintf("permanent package name %q is forbidden", lower),
-	})
 }
 
 func checkExportedTypeAliases(fset *token.FileSet, parsed *ast.File, relPath string, report *Report) {

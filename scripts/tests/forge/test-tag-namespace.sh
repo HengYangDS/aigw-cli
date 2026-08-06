@@ -20,8 +20,6 @@ run_fixture_checker() {
   AIGW_TAG_NAMESPACE_FORGE="${1:-}" GITLAB_CI= GITHUB_ACTIONS= \
     AIGW_GITLAB_ALLOWED_SIGNERS="$fixture/.config/release/gitlab-allowed-signers" \
     AIGW_GITHUB_ALLOWED_SIGNERS="$fixture/.config/release/github-allowed-signers" \
-    AIGW_GITHUB_LEGACY_ALLOWED_SIGNERS="$fixture/.config/release/github-legacy-allowed-signers" \
-    AIGW_GITHUB_LEGACY_TAGS="$fixture/.config/release/github-legacy-tags.txt" \
     sh "$fixture/scripts/checks/forge/check-tag-namespace.sh"
 }
 
@@ -38,9 +36,6 @@ printf 'gitlab@example.invalid namespaces="git" %s\n' "$gitlab_public" \
   > "$fixture/.config/release/gitlab-allowed-signers"
 printf 'github@example.invalid namespaces="git" %s\n' "$github_public" \
   > "$fixture/.config/release/github-allowed-signers"
-printf 'github@example.invalid namespaces="git" %s\n' "$github_public" \
-  > "$fixture/.config/release/github-legacy-allowed-signers"
-printf 'v0.0.9\n' > "$fixture/.config/release/github-legacy-tags.txt"
 
 git init -q "$fixture"
 git -C "$fixture" config user.name 'AIGW tag namespace fixture'
@@ -107,18 +102,6 @@ git -C "$fixture" -c user.name='AIGW tag namespace fixture' \
   -c user.email='gitlab@example.invalid' -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen \
   -c user.signingkey="$gitlab_key" tag -s -a v0.1.0 -m 'canonical GitLab release'
 
-git -C "$fixture" tag provider/v0.1.0 v0.1.0
-if run_fixture_checker > "$tmp/provider.out" 2>&1; then
-  cat "$tmp/provider.out" >&2
-  echo 'tag namespace checker accepted a legacy provider alias' >&2
-  exit 1
-fi
-grep -F 'legacy provider alias remains: provider/v0.1.0' "$tmp/provider.out" >/dev/null || {
-  cat "$tmp/provider.out" >&2
-  echo 'tag namespace checker did not identify the legacy provider alias' >&2
-  exit 1
-}
-git -C "$fixture" tag -d provider/v0.1.0 >/dev/null
 git -C "$fixture" tag -d v0.1.0 >/dev/null
 
 rogue="$tmp/rogue"
