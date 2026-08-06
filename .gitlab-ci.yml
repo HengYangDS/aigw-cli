@@ -11,7 +11,9 @@ workflow:
 stages: [verify, package, publish, release]
 
 default:
-  image: golang:1.26.5
+  # Bootstrap identity is immutable and independent of the project version;
+  # go.mod remains the sole owner of the selected project toolchain.
+  image: golang@sha256:2005724102f45917a63e9d092fc0e4ea56ea575048ce147caad5f5f61502c365
   tags: [$AIGW_GITLAB_RUNNER_TAG]
   before_script:
     # A pipe, rather than a comma, means Go may advance after a transient
@@ -23,7 +25,6 @@ variables:
   # Release chronology and branch-closeout proof need complete ancestry. Keep
   # this in source so a project-level shallow-clone setting cannot regress it.
   GIT_DEPTH: "0"
-  GOTOOLCHAIN: go1.26.5
   GITLAB_RELEASE_AUTHOR_EMAIL: $AIGW_RELEASE_AUTHOR_EMAIL
   AIGW_GITLAB_ALLOWED_SIGNERS: $AIGW_RELEASE_ALLOWED_SIGNERS
 

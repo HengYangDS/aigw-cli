@@ -25,7 +25,7 @@ required = [
     "permissions:\n  contents: read",
     "runs-on: ${{ fromJSON(vars.AIGW_VERIFY_RUNNER) }}",
     checkout_action,
-    setup_go_action, f'go-version: "{go_version}"', "check-latest: false", "cache: false", f"GOTOOLCHAIN: go{go_version}", "for attempt in 1 2 3; do", "if git fetch --force --tags origin; then", 'sleep "$attempt"', "if: github.ref_type == 'tag'", 'SELECTED_TAG: ${{ github.ref_name }}', 'scripts/checks/forge/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/checks/release/check-release-toolchain.sh",
+    setup_go_action, "go-version-file: go.mod", "check-latest: false", "cache: false", "for attempt in 1 2 3; do", "if git fetch --force --tags origin; then", 'sleep "$attempt"', "if: github.ref_type == 'tag'", 'SELECTED_TAG: ${{ github.ref_name }}', 'scripts/checks/forge/check-release-tag-signature.sh . "$SELECTED_TAG" github', "scripts/checks/release/check-release-toolchain.sh",
     "go run ./tools/architecture --root .", "go run ./tools/coveragegate --race", "go vet ./...", "scripts/checks/quality/check-static-analysis.sh", "for script in $(git ls-files 'scripts/*.sh'); do sh -n \"$script\"; done", "scripts/checks/governance/check-product-surface.sh", "scripts/checks/governance/check-governance.sh",
     "scripts/checks/forge/check-commit-provenance.sh . github", "scripts/tests/forge/test-commit-provenance.sh", "scripts/tests/forge/test-replay-history.py", "AIGW_CHANGELOG_RELEASE_TAG:",
     "scripts/checks/governance/check-text-layout.py", "scripts/tests/governance/test-text-layout.sh", "scripts/tests/release/test-release-source-date-epoch.sh",
@@ -57,8 +57,10 @@ if "pull-requests: write" in text or "contents: write" in text:
     raise SystemExit("verification workflow must use read-only repository permissions")
 if "@main" in text or "@master" in text:
     raise SystemExit("GitHub Actions must use immutable action revisions")
-if "go-version-file:" in text or "check-latest: true" in text:
-    raise SystemExit("GitHub Actions verification must not float its Go toolchain")
+if f'go-version: "{go_version}"' in text or f"GOTOOLCHAIN: go{go_version}" in text:
+    raise SystemExit("GitHub Actions verification duplicates the project Go version")
+if "check-latest: true" in text:
+    raise SystemExit("GitHub Actions verification must not request a newer Go toolchain")
 setup = text.index(setup_go_action)
 cache = text.index("cache: false", setup)
 gates = text.index("name: Run source and policy gates")

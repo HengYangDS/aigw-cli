@@ -94,6 +94,16 @@ printf '%s\n' '192.168.10.20' >"$fixture_only/testdata/private-endpoint.txt"
 git -C "$fixture_only" add .
 "$checker" "$fixture_only" >/dev/null
 
+fixed_python=$(new_fixture fixed-python)
+mkdir -p "$fixed_python/scripts/checks"
+cat >"$fixed_python/scripts/checks/run.sh" <<'EOF'
+#!/bin/sh
+exec /opt/homebrew/bin/python3.12 task.py
+EOF
+git -C "$fixed_python" add .
+expect_rejected fixed-python "$fixed_python"
+grep -F 'fixed Python interpreter path' "$tmp/fixed-python.out" >/dev/null
+
 portable=$(new_fixture portable)
 mkdir -p "$portable/internal/core"
 cat >"$portable/internal/core/config.go" <<'EOF'
