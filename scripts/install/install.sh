@@ -10,17 +10,23 @@ export PATH
 
 usage() {
   cat <<'EOF'
-Usage: install.sh [--help]
+Usage: install.sh [--no-path] [--help]
 
 Install the bundled AIGW binary for the current user.
+
+  --no-path  Install the binary without changing shell startup files.
 EOF
 }
 
-case "${1:-}" in
-  '') ;;
-  -h|--help) usage; exit 0 ;;
-  *) usage >&2; exit 2 ;;
-esac
+manage_path=1
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --no-path) manage_path=0 ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
+  esac
+  shift
+done
 
 install_dir=${AIGW_INSTALL_DIR:-"$HOME/.local/bin"}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -146,8 +152,10 @@ tmp_binary="$install_dir/.aigw.new.$$"
 cp "$source_binary" "$tmp_binary"
 chmod 755 "$tmp_binary"
 mv "$tmp_binary" "$binary"
-ensure_zsh_bootstrap
-ensure_path
+if [ "$manage_path" -eq 1 ]; then
+  ensure_zsh_bootstrap
+  ensure_path
+fi
 
 echo "Installed $binary"
 if [ "$had_previous" -eq 0 ]; then
