@@ -1,22 +1,57 @@
 schema_version = 1
 id = "change:rc80-terminal-forward-fix"
-intent = "Land hosted CI, coverage, and profile-free portable installation fixes for rc.80."
+intent = "Complete portable product, supply-chain, Forge, documentation, and release convergence for rc.80."
 subjects = [
     "repository:self",
 ]
 scope = [
+    ".config/**",
+    ".github/**",
+    ".gitlab-ci.yml",
+    "AGENTS.md",
     "openspec/changes/rc80-terminal-forward-fix/**",
     "CHANGELOG.md",
+    "CONTRIBUTING.md",
     "README.md",
-    "internal/cli/doctor/**",
-    "internal/codex/**",
-    "scripts/install/**",
-    "scripts/tests/install/**",
+    "cmd/**",
+    "docs/**",
+    "go.mod",
+    "go.sum",
+    "internal/**",
+    "manifests/**",
+    "packaging/**",
+    "scripts/**",
+    "tools/**",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
+invariants = [
+    "aigw_remains_a_portable_control_plane_and_never_owns_proxy_or_client_runtime",
+    "gitlab_and_github_are_independent_native_projections_of_one_repository_contract",
+    "supply_chain_versions_have_one_repository_owned_source",
+    "provider_and_client_extension_require_one_narrow_adapter_without_cross_layer_conditionals",
+    "personal_identity_host_paths_and_local_credentials_never_enter_product_behavior",
+]
+acceptance = [
+    "hosted_linux_windows_and_macos_verification_pass",
+    "internal_codex_and_aggregate_coverage_are_strictly_above_ninety_five_percent",
+    "portable_installation_and_public_documentation_match_product_behavior",
+    "repository_dependencies_are_current_and_reproducible",
+    "forge_toolchains_derive_from_repository_metadata_without_version_copies",
+    "tests_do_not_bind_to_system_python_paths_or_one_developer_machine",
+    "statement_branch_and_package_coverage_are_each_strictly_above_ninety_five_percent",
+    "gitlab_and_github_publish_equivalent_assets_without_runtime_dependency_on_each_other",
+]
+risks = [
+    "host_specific_fixture_drift",
+    "documentation_behavior_drift",
+    "indirect_dependency_regression",
+    "forge_projection_semantic_drift",
+    "toolchain_bootstrap_drift",
+]
+authority_refs = [
+    "user_instruction",
+    "AGENTS.md",
+    "openspec/specs/product-control-plane/spec.md",
+]
 permissions = [
     "repository.read",
     "work-lane.write",

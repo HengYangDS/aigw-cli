@@ -1,0 +1,11 @@
+# Tasks
+
+- [x] Repair the hosted Windows Claude launcher fixture.
+- [x] Raise `internal/codex` coverage above the strict package floor.
+- [x] Make portable installation independent of an existing user profile.
+- [x] Document the public automation and secret-backend environment contract.
+- [x] Refresh applicable stable repository dependencies.
+- [x] Bind the README environment contract to the existing governance gate.
+- [x] Repair canonical document fragments and verify them with Lychee.
+- [ ] Execute complete local proof and hosted Linux, Windows, and macOS CI.
+- [ ] Land, publish rc.80 independently to both Forges, install, and verify.
