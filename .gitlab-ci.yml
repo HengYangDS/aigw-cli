@@ -44,7 +44,6 @@ verify:
     - sh scripts/checks/governance/check-product-surface.sh
     - sh scripts/checks/governance/check-portability.sh
     - sh scripts/tests/governance/test-portability.sh
-    - sh scripts/checks/release/check-retired-residue.sh
     - sh scripts/checks/governance/check-english-text.sh
     - sh scripts/checks/security/check-credential-literals.sh
     - sh scripts/tests/security/test-credential-literals.sh

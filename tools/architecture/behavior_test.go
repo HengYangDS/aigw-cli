@@ -174,30 +174,6 @@ func local() {}
 	}
 }
 
-func TestPackageClauseAllowAndDedup(t *testing.T) {
-	p := mustPolicy(t)
-	p.AllowedForbiddenNames = []string{"shims"}
-	report := newReport("p", ".")
-	seen := map[string]struct{}{}
-	src := "package shims\n"
-	fset := token.NewFileSet()
-	parsed, err := parser.ParseFile(fset, "launcher.go", src, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	file := goFileInfo{relPath: "internal/launcher/launcher.go", dir: "internal/launcher"}
-	checkPackageClause(parsed, file, p, &report, seen)
-	if len(report.Findings) != 0 {
-		t.Fatalf("allowlist should skip: %+v", report.Findings)
-	}
-	p.AllowedForbiddenNames = nil
-	checkPackageClause(parsed, file, p, &report, seen)
-	checkPackageClause(parsed, file, p, &report, seen)
-	if len(report.Findings) != 1 {
-		t.Fatalf("dedup failed: %+v", report.Findings)
-	}
-}
-
 func TestPackageDocumentationMustDescribeItsPackage(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "internal", "missing", "missing.go"), "package missing\n")
@@ -272,7 +248,6 @@ func TestValidatePolicyEdgeEntries(t *testing.T) {
 		MaxDirectoryComplexity: 900,
 		SuffixFlatGroupMin:     3,
 		PlatformBuildSuffixes:  []string{"unix"},
-		ForbiddenNames:         []string{"shim"},
 	}
 	if err := validatePolicy(base); err != nil {
 		t.Fatal(err)
@@ -286,13 +261,6 @@ func TestValidatePolicyEdgeEntries(t *testing.T) {
 	bad.ScriptsRoots = []string{`C:\x`}
 	if err := validatePolicy(bad); err == nil {
 		t.Fatal("backslash scripts")
-	}
-	bad = base
-	bad.AllowedForbiddenNames = []string{" "}
-	// spaces are non-empty after trim? TrimSpace of " " is empty - we check TrimSpace == ""
-	bad.AllowedForbiddenNames = []string{"   "}
-	if err := validatePolicy(bad); err == nil {
-		t.Fatal("blank allowlist")
 	}
 	bad = base
 	bad.PlatformBuildSuffixes = []string{"UNIX"}
@@ -483,69 +451,6 @@ func TestRelativePolicyFromRoot(t *testing.T) {
 	}
 }
 
-func TestForbiddenNamesOnScriptsAndCompat(t *testing.T) {
-	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
-	writeFile(t, filepath.Join(root, "scripts", "compat", "x.sh"), "ok\n")
-	writeFile(t, filepath.Join(root, "internal", "compatibility", "x.go"), "package compatibility\n")
-	writeFile(t, filepath.Join(root, "internal", "ok", "x.go"), "package ok\n")
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 1 {
-		t.Fatalf("code=%d", code)
-	}
-	report := decodeReport(t, stdout.String())
-	if !hasRule(report, "forbidden_name") {
-		t.Fatalf("rules=%v", findingRules(report))
-	}
-}
-
-func TestGenericCommandsOwnerIsForbidden(t *testing.T) {
-	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
-	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
-	writeFile(t, filepath.Join(root, "internal", "commands", "command.go"), "package commands\n")
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 1 {
-		t.Fatalf("code=%d stderr=%q", code, stderr.String())
-	}
-	report := decodeReport(t, stdout.String())
-	for _, rule := range []string{"forbidden_name", "forbidden_package_name"} {
-		if !hasRule(report, rule) {
-			t.Fatalf("missing %s finding: %v", rule, findingRules(report))
-		}
-	}
-}
-
-func TestConfiguredForeignProductReferencesAreRejected(t *testing.T) {
-	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
-	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
-	writeFile(t, filepath.Join(root, "internal", "product", "binding.go"), `package product
-
-import foreign "foreign-product/client"
-
-const command = "foreign-product install"
-
-func Use() any { return foreign.Client{} }
-`)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 1 {
-		t.Fatalf("code=%d stderr=%q", code, stderr.String())
-	}
-	report := decodeReport(t, stdout.String())
-	for _, rule := range []string{"foreign_product_dependency", "foreign_product_literal"} {
-		if !hasRule(report, rule) {
-			t.Fatalf("missing %s finding: %v", rule, findingRules(report))
-		}
-	}
-}
-
 func TestSuffixFlatSkipsTestsAndPrivate(t *testing.T) {
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
@@ -652,20 +557,6 @@ func TestCheckGoASTReadError(t *testing.T) {
 	}
 }
 
-func TestForbiddenNameAllowlistDirectory(t *testing.T) {
-	root := t.TempDir()
-	body := strings.Replace(validPolicy, `allowed_forbidden_names = []`, `allowed_forbidden_names = ["compat"]`, 1)
-	policyPath := writePolicy(t, root, body)
-	writeFile(t, filepath.Join(root, "scripts", "compat", "x.sh"), "ok\n")
-	writeFile(t, filepath.Join(root, "internal", "pkg", "x.go"), "package pkg\n")
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("code=%d stdout=%s stderr=%q", code, stdout.String(), stderr.String())
-	}
-}
-
 func TestAbsolutePolicyOutsideRoot(t *testing.T) {
 	root := t.TempDir()
 	other := t.TempDir()
@@ -746,20 +637,6 @@ func local() {}
 	}
 	if names["_"] {
 		t.Fatal("blank should not be reported")
-	}
-}
-
-func TestCheckPackageClauseNonForbidden(t *testing.T) {
-	fset := token.NewFileSet()
-	parsed, err := parser.ParseFile(fset, "p.go", "package ok\n", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	report := newReport("p", ".")
-	seen := map[string]struct{}{}
-	checkPackageClause(parsed, goFileInfo{relPath: "internal/ok/p.go", dir: "internal/ok"}, mustPolicy(t), &report, seen)
-	if len(report.Findings) != 0 {
-		t.Fatalf("%+v", report.Findings)
 	}
 }
 
@@ -931,38 +808,6 @@ func TestShouldIgnoreRelPathEmptyParts(t *testing.T) {
 	// strings.Split("", "/") yields []string{""}; first part "" not in ignore roots
 	if shouldIgnoreRelPath("", p) {
 		t.Fatal("empty")
-	}
-}
-
-func TestForbiddenNamesFileRootSkipped(t *testing.T) {
-	root := t.TempDir()
-	// scripts as file under a go root name used only for forbidden walk — configure custom policy
-	body := validPolicy
-	// Use a scripts root that is a file
-	writeFile(t, filepath.Join(root, "scripts"), "file")
-	writeFile(t, filepath.Join(root, "internal", "pkg", "x.go"), "package pkg\n")
-	// go root that is a file should be skipped by collect and forbidden walk
-	writeFile(t, filepath.Join(root, "tools"), "file")
-	policyPath := writePolicy(t, root, body)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 1 {
-		t.Fatalf("code=%d stdout=%s", code, stdout.String())
-	}
-	// scripts file triggers scripts_root_not_directory
-	report := decodeReport(t, stdout.String())
-	if !hasRule(report, "scripts_root_not_directory") {
-		t.Fatalf("%v", findingRules(report))
-	}
-}
-
-func TestCheckPackageClauseNilName(t *testing.T) {
-	report := newReport("p", ".")
-	seen := map[string]struct{}{}
-	checkPackageClause(&ast.File{Name: nil}, goFileInfo{relPath: "x.go", dir: "."}, mustPolicy(t), &report, seen)
-	if len(report.Findings) != 0 {
-		t.Fatal(report.Findings)
 	}
 }
 

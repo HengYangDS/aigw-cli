@@ -69,7 +69,6 @@ case "$package_homepage" in
 esac
 
 "$root/scripts/checks/release/check-package-safety.sh"
-"$root/scripts/checks/release/check-retired-residue.sh"
 python3 "$root/scripts/checks/governance/check-text-layout.py"
 "$root/scripts/checks/release/check-release-toolchain.sh"
 

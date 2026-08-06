@@ -28,9 +28,6 @@ type policy struct {
 	MaxDirectoryComplexity    int                 `toml:"max_directory_complexity"`
 	SuffixFlatGroupMin        int                 `toml:"suffix_flat_group_min"`
 	PlatformBuildSuffixes     []string            `toml:"platform_build_suffixes"`
-	ForbiddenNames            []string            `toml:"forbidden_names"`
-	ForbiddenProductRefs      []string            `toml:"forbidden_product_references"`
-	AllowedForbiddenNames     []string            `toml:"allowed_forbidden_names"`
 	IgnoreRoots               []string            `toml:"ignore_roots"`
 	IgnoreDirectoryNames      []string            `toml:"ignore_directory_names"`
 	CheckExportedTypeAlias    bool                `toml:"check_exported_type_alias"`
@@ -112,24 +109,6 @@ func validatePolicy(p policy) error {
 	if p.SuffixFlatGroupMin < 2 {
 		return fmt.Errorf("suffix_flat_group_min must be >= 2")
 	}
-	if len(p.ForbiddenNames) == 0 {
-		return fmt.Errorf("forbidden_names must be non-empty")
-	}
-	for _, name := range p.ForbiddenNames {
-		if strings.TrimSpace(name) == "" || name != strings.ToLower(name) {
-			return fmt.Errorf("forbidden_names must be non-empty lowercase identifiers")
-		}
-	}
-	for _, reference := range p.ForbiddenProductRefs {
-		if strings.TrimSpace(reference) == "" || reference != strings.ToLower(reference) {
-			return fmt.Errorf("forbidden_product_references must be non-empty lowercase strings")
-		}
-	}
-	for _, name := range p.AllowedForbiddenNames {
-		if strings.TrimSpace(name) == "" {
-			return fmt.Errorf("allowed_forbidden_names entries must be non-empty")
-		}
-	}
 	if len(p.PlatformBuildSuffixes) == 0 {
 		return fmt.Errorf("platform_build_suffixes must be non-empty")
 	}
@@ -167,22 +146,6 @@ func (p policy) platformSuffixSet() map[string]struct{} {
 	out := make(map[string]struct{}, len(p.PlatformBuildSuffixes))
 	for _, suffix := range p.PlatformBuildSuffixes {
 		out[suffix] = struct{}{}
-	}
-	return out
-}
-
-func (p policy) forbiddenNameSet() map[string]struct{} {
-	out := make(map[string]struct{}, len(p.ForbiddenNames))
-	for _, name := range p.ForbiddenNames {
-		out[name] = struct{}{}
-	}
-	return out
-}
-
-func (p policy) allowedForbiddenNameSet() map[string]struct{} {
-	out := make(map[string]struct{}, len(p.AllowedForbiddenNames))
-	for _, name := range p.AllowedForbiddenNames {
-		out[strings.ToLower(name)] = struct{}{}
 	}
 	return out
 }
