@@ -104,6 +104,9 @@ func TestCodexSchedulerHelpersCoverRemainingErrorPaths(t *testing.T) {
 	if err := validateCodexScheduler("[agents]\nmax_depth = 2\n"); err == nil {
 		t.Fatal("validation accepted a different scheduler value")
 	}
+	if err := validateCodexScheduler("[agents]\nmax_depth = 999999999999999999999999999999999999999999999999999999999999\n"); err == nil || !strings.Contains(err.Error(), "parse Codex scheduler key") {
+		t.Fatalf("scheduler integer overflow error = %v", err)
+	}
 
 	codexSchedulerKeys = map[string]map[string]int{"bad[": {"max_depth": 1}}
 	if _, err := projectCodexScheduler(""); err == nil {

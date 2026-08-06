@@ -12,6 +12,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Let portable and automated installations explicitly avoid changing shell or
+  user PATH configuration.
 - Validate source-bound evidence by provider-neutral tree identity in each
   Forge's own signed history, without requiring a peer-Forge commit object.
 - Build the Claude launcher diagnostic fixture from the test-owned executable

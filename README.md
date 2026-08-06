@@ -61,6 +61,17 @@ sh install.sh
 .\install.ps1
 ```
 
+Automation and isolated installations can leave shell startup configuration
+unchanged:
+
+```bash
+sh install.sh --no-path
+```
+
+```powershell
+.\install.ps1 -NoPath
+```
+
 The installer copies only the bundled executable. It does not retrieve a
 release, store credentials, configure clients, or start another product.
 

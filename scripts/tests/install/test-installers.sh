@@ -45,6 +45,26 @@ for tool in mkdir mv; do
   case "$resolved" in /usr/bin/"$tool"|/bin/"$tool") ;; *) echo "activated PATH did not restore $tool: $resolved" >&2; exit 1 ;; esac
 done
 
+# An isolated or automation-owned installation must be able to install the
+# binary without mutating the invoking user's shell startup files.
+no_path_home="$tmp/no-path-home"
+no_path_install="$tmp/no-path-bin"
+mkdir -p "$no_path_home"
+printf 'preserve-me\n' > "$no_path_home/.profile"
+env \
+  HOME="$no_path_home" \
+  SHELL=/bin/sh \
+  PATH="/usr/bin:/bin" \
+  AIGW_INSTALL_DIR="$no_path_install" \
+  AIGW_SOURCE_BINARY="$source_binary" \
+  /bin/sh "$unix_script" --no-path
+[ -x "$no_path_install/aigw" ] || { echo "--no-path did not install the binary" >&2; exit 1; }
+[ "$(cat "$no_path_home/.profile")" = preserve-me ] || {
+  echo "--no-path modified the shell profile" >&2
+  exit 1
+}
+[ ! -e "$no_path_home/.zshenv" ] || { echo "--no-path created a zsh bootstrap" >&2; exit 1; }
+
 # AIGW_SOURCE_BINARY is a test-only seam. It must never replace the user's
 # normal installation path; a development candidate belongs in an isolated
 # directory until it becomes a verified release artifact.
@@ -129,6 +149,11 @@ set -e
 grep -F 'Usage: install.sh' "$tmp/help.out" >/dev/null || {
   cat "$tmp/help.out" >&2
   echo "installer help did not print usage" >&2
+  exit 1
+}
+grep -F -- '--no-path' "$tmp/help.out" >/dev/null || {
+  cat "$tmp/help.out" >&2
+  echo "installer help did not explain profile-free installation" >&2
   exit 1
 }
 [ ! -e "$help_install/aigw" ] || { echo "installer help modified the installation" >&2; exit 1; }

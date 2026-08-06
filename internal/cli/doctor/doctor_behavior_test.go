@@ -338,7 +338,7 @@ func TestLauncherReadFailuresAreDiagnostic(t *testing.T) {
 
 	launcherPath := filepath.Join(t.TempDir(), "claude")
 	target := persistentFixtureExecutable(t)
-	manager = claude.Launcher{GOOS: "darwin", BinDir: filepath.Dir(launcherPath), Home: filepath.Join(t.TempDir(), "missing", "home"), Shell: "/bin/zsh", AIGWExecutable: target}
+	manager = claude.Launcher{GOOS: "other", BinDir: filepath.Dir(launcherPath), Home: filepath.Join(t.TempDir(), "missing", "home"), Shell: "/bin/zsh", AIGWExecutable: target}
 	launcher := "#!/bin/sh\n# AIGW managed Claude launcher\nexec '" + target + "' __run-claude \"$@\"\n"
 	if err := os.WriteFile(launcherPath, []byte(launcher), 0o755); err != nil {
 		t.Fatal(err)
