@@ -50,20 +50,14 @@ func InspectConfig(path string) (Inspection, error) {
 		inspection.AttributionState = "invalid"
 		return inspection, nil
 	}
-	legacy, attributionErr := validateCodexStateAttribution(state, "")
-	if attributionErr != nil {
+	if attributionErr := validateCodexStateAttribution(state, ""); attributionErr != nil {
 		inspection.State = "ownership-conflict"
 		inspection.AttributionState = "foreign-or-incomplete"
 		inspection.ProjectionMode = state.ProjectionMode
 		return inspection, nil
 	}
-	if legacy {
-		inspection.AttributionState = "legacy"
-		inspection.ProjectionMode = ProjectionFullSelection
-	} else {
-		inspection.AttributionState = "recognized"
-		inspection.ProjectionMode = state.ProjectionMode
-	}
+	inspection.AttributionState = "recognized"
+	inspection.ProjectionMode = state.ProjectionMode
 	var block string
 	switch inspection.ProjectionMode {
 	case ProjectionFullSelection:
@@ -86,8 +80,6 @@ func InspectConfig(path string) (Inspection, error) {
 	case ProjectionFullSelection:
 		if inspection.DiskSelection != "aigw-managed" {
 			inspection.State = "aigw-drift"
-		} else if inspection.AttributionState == "legacy" {
-			inspection.State = "legacy-full-selection"
 		} else {
 			inspection.State = "aigw-managed"
 		}

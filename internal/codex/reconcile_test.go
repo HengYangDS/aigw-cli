@@ -164,7 +164,7 @@ func TestReconcileConfigsRejectsChangedPreimageWithoutOverwrite(t *testing.T) {
 	}
 }
 
-func TestReconcileConfigsAdoptsOnlyCompleteAIGWSidecarAttribution(t *testing.T) {
+func TestReconcileConfigsRejectsUnattributedSidecar(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -186,25 +186,32 @@ func TestReconcileConfigsAdoptsOnlyCompleteAIGWSidecarAttribution(t *testing.T) 
 	state.ProjectionMode = ""
 	state.WriterID = ""
 	state.TransactionID = ""
-	legacy, err := json.Marshal(state)
+	unattributed, err := json.Marshal(state)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(statePath, append(legacy, '\n'), 0o600); err != nil {
+	if err := os.WriteFile(statePath, append(unattributed, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime()); err != nil {
-		t.Fatalf("legacy full-selection adoption failed: %v", err)
-	}
-	adopted, err := os.ReadFile(statePath)
+	beforeConfig, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal(adopted, &state); err != nil {
+	beforeState, err := os.ReadFile(statePath)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if state.ProjectionMode != ProjectionFullSelection || state.WriterID != ProjectionWriterID || state.TransactionID == "" {
-		t.Fatalf("legacy sidecar was not attributed: %#v", state)
+	_, err = ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime())
+	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") {
+		t.Fatalf("ReconcileConfigs() error = %v, want incomplete attribution", err)
+	}
+	afterConfig, readErr := os.ReadFile(path)
+	if readErr != nil || !bytes.Equal(afterConfig, beforeConfig) {
+		t.Fatalf("config changed after unattributed sidecar rejection: %q, %v", afterConfig, readErr)
+	}
+	afterState, readErr := os.ReadFile(statePath)
+	if readErr != nil || !bytes.Equal(afterState, beforeState) {
+		t.Fatalf("sidecar changed after unattributed sidecar rejection: %q, %v", afterState, readErr)
 	}
 
 	for _, mutate := range []func(*codexState){
@@ -249,7 +256,7 @@ func TestReconcileConfigsAdoptsOnlyCompleteAIGWSidecarAttribution(t *testing.T) 
 	}
 }
 
-func TestReconcileConfigsUsesLegacySidecarBesideSymlinkTarget(t *testing.T) {
+func TestReconcileConfigsRejectsUnattributedSidecarBesideSymlinkTarget(t *testing.T) {
 	dir := t.TempDir()
 	realDir := filepath.Join(dir, "real")
 	if err := os.MkdirAll(realDir, 0o700); err != nil {
@@ -273,28 +280,29 @@ func TestReconcileConfigsUsesLegacySidecarBesideSymlinkTarget(t *testing.T) {
 	if err := os.WriteFile(realPath, []byte(projection), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	legacy := codexState{
+	unattributed := codexState{
 		OriginalProvider: `model_provider = "native"`,
 		OriginalModel:    `model = "gpt-native"`,
 		ManagedBlockHash: hashText(block),
 	}
-	legacyData, err := json.Marshal(legacy)
+	unattributedData, err := json.Marshal(unattributed)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(codexStatePath(aliasPath), append(legacyData, '\n'), 0o600); err != nil {
+	if err := os.WriteFile(codexStatePath(aliasPath), append(unattributedData, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := ReconcileConfigs(nil, []TargetRef{codexHomeTarget(aliasPath)}, runtime); err != nil {
-		t.Fatal(err)
+	_, err = ReconcileConfigs(nil, []TargetRef{codexHomeTarget(aliasPath)}, runtime)
+	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") {
+		t.Fatalf("ReconcileConfigs() error = %v, want incomplete attribution", err)
 	}
 	data, err := os.ReadFile(realPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if count := strings.Count(string(data), "[model_providers.aigw]"); count != 1 {
-		t.Fatalf("managed provider tables = %d, want one:\n%s", count, data)
+		t.Fatalf("managed provider tables changed after rejection: %d:\n%s", count, data)
 	}
 	if _, err := os.Stat(codexStatePath(realPath)); !os.IsNotExist(err) {
 		t.Fatalf("unexpected canonical sidecar created beside real target: %v", err)
@@ -307,8 +315,8 @@ func TestReconcileConfigsUsesLegacySidecarBesideSymlinkTarget(t *testing.T) {
 	if err := json.Unmarshal(stateData, &state); err != nil {
 		t.Fatal(err)
 	}
-	if state.WriterID != ProjectionWriterID || state.ProjectionMode != ProjectionFullSelection || state.TransactionID == "" {
-		t.Fatalf("legacy symlink sidecar was not adopted: %#v", state)
+	if state.WriterID != "" || state.ProjectionMode != "" || state.TransactionID != "" {
+		t.Fatalf("unattributed symlink sidecar changed: %#v", state)
 	}
 }
 
