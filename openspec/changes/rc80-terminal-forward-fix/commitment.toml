@@ -1,0 +1,25 @@
+schema_version = 1
+id = "change:rc80-terminal-forward-fix"
+intent = "Land hosted CI, coverage, and profile-free portable installation fixes for rc.80."
+subjects = [
+    "repository:self",
+]
+scope = [
+    "openspec/changes/rc80-terminal-forward-fix/**",
+    "CHANGELOG.md",
+    "README.md",
+    "internal/cli/doctor/**",
+    "internal/codex/**",
+    "scripts/install/**",
+    "scripts/tests/install/**",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+permissions = [
+    "repository.read",
+    "work-lane.write",
+]
+hypotheses = []
+dependencies = []
