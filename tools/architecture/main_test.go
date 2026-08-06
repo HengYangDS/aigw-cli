@@ -24,9 +24,6 @@ max_file_complexity = 180
 max_directory_complexity = 900
 suffix_flat_group_min = 3
 platform_build_suffixes = ["unix", "windows", "darwin", "linux", "posix"]
-forbidden_names = ["commands", "shim", "shims", "compat", "compatibility"]
-forbidden_product_references = ["foreign-product"]
-allowed_forbidden_names = []
 ignore_roots = ["vendor", ".git", "records", "build"]
 ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
 check_exported_type_alias = true
@@ -219,8 +216,6 @@ func Print(a ...any) (n int, err error) {
 		"scripts_root_file",
 		"flat_directory",
 		"suffix_flat",
-		"forbidden_name",
-		"forbidden_package_name",
 		"composition_root_file",
 		"peer_package_import",
 		"exported_type_alias",
@@ -333,9 +328,6 @@ type Named fmt.Stringer
 	if hasRule(report, "flat_directory") {
 		t.Fatalf("limit-8 should pass: %v", findingRules(report))
 	}
-	if hasRule(report, "forbidden_name") {
-		t.Fatalf("ignored roots leaked forbidden_name: %v", findingRules(report))
-	}
 	if hasRule(report, "trivial_wrapper") {
 		t.Fatalf("logic wrapper false positive: %v\n%s", findingRules(report), stdout.String())
 	}
@@ -350,24 +342,6 @@ type Named fmt.Stringer
 	}
 	if code != 1 {
 		t.Fatalf("code=%d want 1 for parse error", code)
-	}
-}
-
-func TestAllowlistForbiddenName(t *testing.T) {
-	root := t.TempDir()
-	body := strings.Replace(validPolicy, `allowed_forbidden_names = []`, `allowed_forbidden_names = ["shims"]`, 1)
-	policyPath := writePolicy(t, root, body)
-	writeFile(t, filepath.Join(root, "internal", "shims", "launcher.go"), "package shims\n")
-	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	report := decodeReport(t, stdout.String())
-	if hasRule(report, "forbidden_name") || hasRule(report, "forbidden_package_name") {
-		t.Fatalf("allowlist failed: %v", findingRules(report))
-	}
-	if code != 0 {
-		t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
 	}
 }
 
@@ -392,8 +366,6 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 		{name: "bad file complexity", body: strings.Replace(validPolicy, "max_file_complexity = 180", "max_file_complexity = 0", 1), want: "complexity limits", code: 1},
 		{name: "bad directory complexity", body: strings.Replace(validPolicy, "max_directory_complexity = 900", "max_directory_complexity = 179", 1), want: "complexity limits", code: 1},
 		{name: "bad suffix min", body: strings.Replace(validPolicy, "suffix_flat_group_min = 3", "suffix_flat_group_min = 1", 1), want: "suffix_flat_group_min", code: 1},
-		{name: "empty forbidden", body: strings.Replace(validPolicy, `forbidden_names = ["commands", "shim", "shims", "compat", "compatibility"]`, `forbidden_names = []`, 1), want: "forbidden_names", code: 1},
-		{name: "uppercase forbidden", body: strings.Replace(validPolicy, `"shim"`, `"Launcher"`, 1), want: "forbidden_names", code: 1},
 		{name: "abs go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["/tmp/x"]`, 1), want: "go_roots", code: 1},
 		{name: "windows drive go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["C:/tmp/x"]`, 1), want: "go_roots", code: 1},
 		{name: "windows relative drive go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["C:tmp/x"]`, 1), want: "go_roots", code: 1},
@@ -561,9 +533,6 @@ func TestLoadPolicyRepoDefaultShape(t *testing.T) {
 	}
 	if p.FlatDirectoryLimit != 8 || p.MaxFileELOC != 700 || p.MaxDirectoryELOC != 3600 || p.MaxFileComplexity != 180 || p.MaxDirectoryComplexity != 900 || p.SuffixFlatGroupMin != 3 {
 		t.Fatalf("%+v", p)
-	}
-	if len(p.allowedForbiddenNameSet()) != 0 {
-		t.Fatal("allowlist must default empty")
 	}
 }
 

@@ -20,10 +20,7 @@ github_name=${AIGW_GITHUB_AUTHOR_NAME:-}
 github_email=${AIGW_GITHUB_AUTHOR_EMAIL:-}
 gitlab_email=${AIGW_GITLAB_AUTHOR_EMAIL:-}
 script_root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
-release_directory="$script_root/.config/release"
 github_allowed_signers=${AIGW_GITHUB_ALLOWED_SIGNERS:-}
-github_legacy_allowed_signers=${AIGW_GITHUB_LEGACY_ALLOWED_SIGNERS:-}
-github_legacy_tags=${AIGW_GITHUB_LEGACY_TAGS:-$release_directory/github-legacy-tags.txt}
 gitlab_allowed_signers=${AIGW_GITLAB_ALLOWED_SIGNERS:-}
 github_signing_key=${AIGW_GITHUB_SIGNING_KEY:-}
 github_signing_program=${AIGW_GITHUB_SIGNING_PROGRAM:-}
@@ -136,14 +133,8 @@ for tag in $(awk '$2 !~ /\^\{\}$/ {sub("refs/tags/", "", $2); print $2}' "$remot
   fi
   if ! git -C "$projection" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen \
     -c gpg.ssh.allowedSignersFile="$github_allowed_signers" verify-tag "github/$tag" >/dev/null 2>&1; then
-    if [ -f "$github_legacy_tags" ] && grep -Fxq "$tag" "$github_legacy_tags" && \
-      git -C "$projection" -c gpg.format=ssh -c gpg.ssh.program=ssh-keygen \
-        -c gpg.ssh.allowedSignersFile="$github_legacy_allowed_signers" verify-tag "github/$tag" >/dev/null 2>&1; then
-      :
-    else
-      echo "GitHub provenance tag does not verify under its permitted trust anchors: $tag" >&2
-      exit 1
-    fi
+    echo "GitHub provenance tag does not verify: $tag" >&2
+    exit 1
   fi
 done
 

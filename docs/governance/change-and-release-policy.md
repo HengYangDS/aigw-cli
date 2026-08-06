@@ -18,21 +18,15 @@ SPDX SBOM.
 ## Release identity and chronicle
 
 `CHANGELOG.md` begins with `## [Unreleased]`, which contains only changes made
-after the next release candidate is cut. During release preparation, exactly
-one next candidate may immediately follow it; after tagging, that heading must
-identify the selected `v<semver>` tag. Every older published section is anchored
-to a real tag and a valid, source-controlled release date. GitLab and GitHub
-sign separate provenance tags, so their tag-object timestamps are not a
+after the next release candidate is cut. Published headings are unique, dated
+SemVer entries in strict descending order. During release, the first published
+heading must identify the selected `v<semver>` tag, and that tag must identify
+`HEAD`. Historical headings are the product chronicle; their validity does not
+depend on whether a particular Forge still retains an old tag. GitLab and
+GitHub sign separate provenance tags, so tag-object timestamps are not a
 cross-forge Changelog invariant. Planned versions, branch names, and inferred
 GA milestones do not belong in the release chronicle.
 `scripts/checks/governance/check-changelog.sh` enforces this invariant in CI.
-
-When a superseded GitLab release tag is deliberately retired, its Changelog
-section remains part of the published product history. The version is recorded
-in `.config/release/retired-gitlab-tags.txt`; the chronology gate requires
-that inventory and the retained sections to stay ordered and complete. A
-provider that still retains its independently signed historical tag satisfies
-the same entry; it is not a duplicate or a reason to rewrite provenance.
 
 A version joins the shared product chronology only after GitLab and GitHub have
 each created their own signed provenance tag, completed their CI, and published
