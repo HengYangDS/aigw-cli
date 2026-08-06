@@ -77,6 +77,9 @@ patterns = {
         r"172\.(?:1[6-9]|2\d|3[01])\.(?:\d{1,3}\.)\d{1,3})(?![0-9])"
     ),
     "personal SSH path": re.compile(r"(?:^|[\s'\"])(?:~|\$HOME)/\.ssh/[A-Za-z0-9_.-]+"),
+    "fixed Python interpreter path": re.compile(
+        "/usr" r"/bin/python3|/opt" r"/homebrew/bin/python(?:3(?:\.\d+)?)?"
+    ),
 }
 findings: list[str] = []
 for raw in paths:
