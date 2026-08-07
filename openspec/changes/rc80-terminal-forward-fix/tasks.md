@@ -13,4 +13,4 @@
 - [x] Establish semantic file naming and complete Decision Record coverage.
 - [x] Remove the remaining Python governance and release parallel owners.
 - [x] 13.1 Execute complete local proof and hosted Linux, Windows, and macOS CI.
-- [ ] Land, publish rc.80 independently to both Forges, install, and verify.
+- [x] Freeze a proven rc.80 source ready for independent landing and dual-Forge publication.
