@@ -401,23 +401,24 @@ func TestIgnoreHelpers(t *testing.T) {
 	}
 }
 
+func TestScriptsRootRejectsDirectFile(t *testing.T) {
+	root := t.TempDir()
+	policyPath := writePolicy(t, root, validPolicy)
+	writeFile(t, filepath.Join(root, "scripts", "direct.sh"), "ok\n")
+	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 {
+		t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
+	}
+	if report := decodeReport(t, stdout.String()); !hasRule(report, "scripts_root_file") {
+		t.Fatalf("expected direct-file finding: %v", findingRules(report))
+	}
+}
+
 func TestScriptsSymlinkAndIgnore(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		// Windows runners may not grant symlink creation. The portable direct-file
-		// contract still exercises the same scripts-root finding and report path.
-		root := t.TempDir()
-		policyPath := writePolicy(t, root, validPolicy)
-		writeFile(t, filepath.Join(root, "scripts", "direct.sh"), "ok\n")
-		writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
-		var stdout bytes.Buffer
-		var stderr bytes.Buffer
-		if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 {
-			t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
-		}
-		if report := decodeReport(t, stdout.String()); !hasRule(report, "scripts_root_file") {
-			t.Fatalf("expected direct-file finding: %v", findingRules(report))
-		}
-		return
+		t.Skip("symlink creation may require Windows developer mode")
 	}
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
