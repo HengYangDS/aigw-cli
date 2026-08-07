@@ -133,10 +133,14 @@ rm "$valid_gitlab/.mailmap"
 
 expect_failure 'an implicit publication actor' \
   'author email is required through AIGW_GITLAB_AUTHOR_EMAIL' \
-  env AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" sh "$checker" "$valid_gitlab" gitlab
+  env AIGW_GITLAB_AUTHOR_EMAIL= \
+    AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    sh "$checker" "$valid_gitlab" gitlab
 expect_failure 'an empty trust input' \
   'trust input is required through AIGW_GITLAB_ALLOWED_SIGNERS' \
-  env AIGW_GITLAB_AUTHOR_EMAIL="$gitlab_email" sh "$checker" "$valid_gitlab" gitlab
+  env AIGW_GITLAB_AUTHOR_EMAIL="$gitlab_email" \
+    AIGW_GITLAB_ALLOWED_SIGNERS= \
+    sh "$checker" "$valid_gitlab" gitlab
 expect_failure 'an unknown provider' 'provider must be gitlab or github' \
   sh "$checker" "$valid_gitlab" unknown
 expect_failure 'a retired range argument' \
