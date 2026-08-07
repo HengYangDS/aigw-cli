@@ -6,6 +6,7 @@ subjects = [
 ]
 scope = [
     ".config/**",
+    ".ethos/**",
     ".github/**",
     ".gitlab-ci.yml",
     "AGENTS.md",
