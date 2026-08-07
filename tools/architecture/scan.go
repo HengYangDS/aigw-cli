@@ -516,9 +516,6 @@ func shouldIgnoreDirName(name string, p policy) bool {
 
 func shouldIgnoreRelPath(relPOSIX string, p policy) bool {
 	parts := strings.Split(relPOSIX, "/")
-	if len(parts) == 0 {
-		return false
-	}
 	if _, ok := p.ignoreRootSet()[parts[0]]; ok {
 		return true
 	}

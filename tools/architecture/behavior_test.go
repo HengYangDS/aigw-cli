@@ -417,9 +417,6 @@ func TestScriptsRootRejectsDirectFile(t *testing.T) {
 }
 
 func TestScriptsSymlinkAndIgnore(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink creation may require Windows developer mode")
-	}
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
@@ -428,6 +425,9 @@ func TestScriptsSymlinkAndIgnore(t *testing.T) {
 	// symlink to directory OK
 	targetDir := filepath.Join(root, "scripts", "check")
 	if err := os.Symlink(targetDir, filepath.Join(root, "scripts", "linkdir")); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("symlink creation requires Windows developer mode: %v", err)
+		}
 		t.Fatal(err)
 	}
 	// symlink to file fails
