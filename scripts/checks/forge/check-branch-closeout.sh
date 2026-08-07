@@ -2,8 +2,6 @@
 # Verify source-branch closeout without conflating canonical and projected IDs.
 set -eu
 
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-
 usage() {
   cat >&2 <<'USAGE'
 usage: check-branch-closeout.sh --source <local-branch> [--canonical <local-branch>] [--peer <name:ref:mode>]...
@@ -84,6 +82,23 @@ peer_trees=$(mktemp "${TMPDIR:-/tmp}/aigw-closeout-peer-trees.XXXXXX")
 cleanup() { rm -f "$canonical_trees" "$peer_trees"; }
 trap cleanup EXIT HUP INT TERM
 
+compare_ordered_trees() {
+  name=$1
+  expected_count=$(wc -l < "$canonical_trees" | tr -d ' ')
+  actual_count=$(wc -l < "$peer_trees" | tr -d ' ')
+  if test "$expected_count" -ne "$actual_count"; then
+    echo "peer $name does not preserve canonical ordered source-tree history: expected $expected_count entries, found $actual_count" >&2
+    return 1
+  fi
+  awk -v name="$name" '
+    NR == FNR { expected[NR] = $0; next }
+    expected[FNR] != $0 {
+      printf "peer %s does not preserve canonical ordered source-tree history at position %d: expected %s, found %s\n", name, FNR, expected[FNR], $0 > "/dev/stderr"
+      exit 1
+    }
+  ' "$canonical_trees" "$peer_trees"
+}
+
 git -c core.fsmonitor=false log --reverse --topo-order --format=%T "$canonical" > "$canonical_trees"
 
 printf '%s\n' "$peers" | while IFS=: read -r name peer mode; do
@@ -108,7 +123,7 @@ printf '%s\n' "$peers" | while IFS=: read -r name peer mode; do
       ;;
     tree)
       git -c core.fsmonitor=false log --reverse --topo-order --format=%T "$peer" > "$peer_trees"
-      python3 "$script_dir/../../forge/lib/compare-ordered-trees.py" "$canonical_trees" "$peer_trees" "$name"
+      compare_ordered_trees "$name"
       ;;
   esac
   printf 'branch closeout peer: %s (%s) OK\n' "$name" "$mode"

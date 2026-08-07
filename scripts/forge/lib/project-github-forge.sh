@@ -74,17 +74,11 @@ AIGW_GITLAB_ALLOWED_SIGNERS="$gitlab_allowed_signers" \
   sh "$script_root/scripts/checks/forge/check-commit-provenance.sh" "$canonical_root" gitlab >/dev/null
 
 workspace=$(mktemp -d "${TMPDIR:-/tmp}/aigw-github-projection.XXXXXX")
-cleanup() { python3 - "$workspace" <<'PY'
-from pathlib import Path
-import shutil
-import sys
-shutil.rmtree(Path(sys.argv[1]), ignore_errors=True)
-PY
-}
+cleanup() { rm -rf "$workspace"; }
 trap cleanup EXIT HUP INT TERM
 projection="$workspace/repository.git"
 
-PYTHONDONTWRITEBYTECODE=1 python3 "$script_root/scripts/forge/lib/replay-history.py" \
+go run "$script_root/tools/historyreplay" \
   --source "$canonical_root" \
   --revision "$canonical" \
   --output "$projection" \

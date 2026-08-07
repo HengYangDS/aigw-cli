@@ -10,7 +10,8 @@ trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 # fixture so one intentionally missing command is the only failure cause.
 for command in \
   go lipo pkgbuild productbuild nfpm wixl msibuild xar \
-  file tar zip unzip ar bsdtar msiextract msiinfo pkgutil python3 shasum sha256sum; do
+  file tar zip unzip ar bsdtar msiextract msiinfo pkgutil shasum sha256sum
+do
   cat > "$tmp/$command" <<'SH'
 #!/bin/sh
 exit 0

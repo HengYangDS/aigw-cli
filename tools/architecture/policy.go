@@ -34,6 +34,8 @@ type policy struct {
 	CheckFunctionVarAlias     bool                `toml:"check_function_var_alias"`
 	CheckPackageDocumentation bool                `toml:"check_package_documentation"`
 	CheckTrivialWrappers      bool                `toml:"check_trivial_wrappers"`
+	CheckDecisionRecords      bool                `toml:"check_decision_records"`
+	CheckSemanticNames        bool                `toml:"check_semantic_names"`
 }
 
 func loadPolicy(path string) (policy, error) {

@@ -2,6 +2,22 @@
 
 Status: canonical.
 
+## Decision records and names
+
+- OpenSpec authorizes a bounded change; `docs/decisions/` preserves only its
+  durable rationale. It is not a parallel specification or task tracker.
+- Project-owned Decision Records use
+  `dr-<four-digit-sequence>-<concise-kebab-case-description>.md` with a matching
+  `DR-<sequence>` title.
+- Project-owned documents, scripts, packages, fixtures, and tests use concise
+  names that identify their semantic owner and responsibility. Generic buckets,
+  unexplained numeric prefixes, personal identities, and local paths are invalid.
+- Ecosystem protocol names remain unchanged, including `README.md`, `go.mod`,
+  `main.go`, and OpenSpec carrier names.
+- Durable product boundaries, foundational architecture or dependency choices,
+  compatibility and retention policy, release trust, security posture, and
+  other costly-to-reverse rulings require a Decision Record.
+
 ## Configuration mutations
 
 All Codex target changes use one transaction: prepare every target, commit only

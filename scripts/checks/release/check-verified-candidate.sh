@@ -35,32 +35,7 @@ payload="$stage/$root_name"
 [ -d "$payload/artifacts" ] || { echo "candidate artifacts are missing" >&2; exit 1; }
 
 read_manifest() {
-  python3 - "$payload/candidate.json" <<'PY'
-import json
-import re
-import sys
-
-data = json.load(open(sys.argv[1], encoding="utf-8"))
-required = {
-    "schema": 1,
-    "kind": "aigw-verified-candidate",
-    "artifacts_dir": "artifacts",
-    "checksums_path": "artifacts/checksums.txt",
-    "artifact_count": 15,
-}
-for key, value in required.items():
-    if data.get(key) != value:
-        raise SystemExit(f"candidate manifest has invalid {key}")
-if not re.fullmatch(r"[0-9A-Za-z][0-9A-Za-z._-]*", str(data.get("version", ""))):
-    raise SystemExit("candidate manifest has invalid version")
-for key in ("commit", "tree"):
-    if not re.fullmatch(r"[0-9a-f]{40}", str(data.get(key, ""))):
-        raise SystemExit(f"candidate manifest has invalid {key}")
-if not re.fullmatch(r"[0-9a-f]{64}", str(data.get("checksums_sha256", ""))):
-    raise SystemExit("candidate manifest has invalid checksums_sha256")
-print(data["version"])
-print(data["checksums_sha256"])
-PY
+  (cd "$root" && go run -buildvcs=false ./tools/releasekit validate-candidate-manifest "$payload/candidate.json")
 }
 manifest=$(read_manifest)
 version=$(printf '%s\n' "$manifest" | sed -n '1p')

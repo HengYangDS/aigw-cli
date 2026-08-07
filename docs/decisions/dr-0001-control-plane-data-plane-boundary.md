@@ -1,4 +1,4 @@
-# ADR-0001: Separate AIGW Control Plane from Proxy Data Plane
+# DR-0001: Separate AIGW Control Plane from Transport Data Planes
 
 - Status: accepted
 - Date: 2026-07-14
@@ -20,8 +20,13 @@ Codex retains authority over existing conversation model selection, transcripts,
 and Desktop-only GUI settings. Foreign applications and integrations remain
 independent; AIGW neither depends on, configures, nor verifies them.
 
-## Consequence
+## Consequences
 
 Projection recovery happens through AIGW's all-target transaction. Transport
 recovery remains entirely within the selected service's product boundary.
 Neither path edits historical conversations.
+
+## Revisit Trigger
+
+Revisit only if AIGW intentionally becomes a transport runtime or an external
+transport service becomes an admitted AIGW configuration owner.

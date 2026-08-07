@@ -11,6 +11,7 @@ pull_timeout=${AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS:-120}
 lock_timeout=${AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS:-180}
 active_supervisor_pid=''
 active_lock_dir=''
+supervisor=${AIGW_PROCESS_SUPERVISOR:-"$root/build/tools/processsupervisor"}
 
 require() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -30,7 +31,10 @@ require_timeout_range() {
 }
 
 require docker
-require python3
+[ -x "$supervisor" ] || {
+  echo "required for Linux native-install acceptance: processsupervisor" >&2
+  exit 2
+}
 require_timeout_range AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS "$pull_timeout"
 require_timeout_range AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS "$lock_timeout"
 [ -d "$out" ] || { echo "artifact directory does not exist: $out" >&2; exit 2; }
@@ -39,7 +43,7 @@ sh "$root/scripts/checks/release/check-release-artifacts.sh" "$out" "$version" >
 run_with_timeout() {
   seconds=$1
   shift
-  python3 "$root/scripts/tests/install/run-with-timeout.py" "$seconds" "$@" &
+  "$supervisor" "$seconds" "$@" &
   active_supervisor_pid=$!
   if wait "$active_supervisor_pid"; then
     supervisor_status=0

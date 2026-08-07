@@ -5,6 +5,9 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 script="$root/scripts/release/lib/release-source-date-epoch.sh"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+repositorycheck="$tmp/repositorycheck"
+(cd "$root" && go build -o "$repositorycheck" ./tools/repositorycheck)
+export AIGW_REPOSITORY_CHECK="$repositorycheck"
 
 expect_failure() {
   name=$1
@@ -44,7 +47,7 @@ cat > "$tmp/duplicate.md" <<'DOC'
 ## [0.1.0-rc.55] - 2026-07-17
 ## [0.1.0-rc.55] - 2026-07-17
 DOC
-expect_failure duplicate 'release heading must occur exactly once: 0.1.0-rc.55' \
+expect_failure duplicate 'duplicate published version' \
   "$script" 0.1.0-rc.55 "$tmp/duplicate.md"
 
 cat > "$tmp/invalid-date.md" <<'DOC'

@@ -89,9 +89,6 @@ jobs:
           sh scripts/checks/security/check-credential-fixtures.sh
           sh scripts/tests/security/test-credential-fixtures.sh
           sh scripts/checks/governance/check-governance.sh
-          python3 scripts/checks/governance/check-markdown-presentation.py
-          python3 scripts/checks/governance/check-text-layout.py
-          sh scripts/tests/governance/test-text-layout.sh
           sh scripts/tests/governance/test-changelog.sh
           sh scripts/tests/forge/test-tag-namespace.sh
           sh scripts/tests/release/test-release-readiness.sh
@@ -114,7 +111,7 @@ jobs:
           sh scripts/tests/ci/test-github-release-workflow.sh
           sh scripts/tests/forge/test-github-provider-projection.sh
           sh scripts/tests/forge/test-commit-provenance.sh
-          PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/forge/test-replay-history.py
+          go test ./tools/historyreplay
           sh scripts/tests/forge/test-branch-closeout.sh
           sh scripts/tests/forge/test-forge-sync.sh
       - name: Run PowerShell installer contract
