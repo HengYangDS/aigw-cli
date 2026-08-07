@@ -18,6 +18,17 @@ func TestDefaultStartCommandReportsMissingExecutable(t *testing.T) {
 	}
 }
 
+func TestDefaultKillAndWaitStopsCommand(t *testing.T) {
+	command := exec.Command("cmd", "/c", "ping -n 30 127.0.0.1 >NUL")
+	if err := command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	killAndWaitForCommand(command)
+	if command.ProcessState == nil || !command.ProcessState.Exited() {
+		t.Fatalf("process_state=%v", command.ProcessState)
+	}
+}
+
 func TestStartOwnsEveryFailureBoundary(t *testing.T) {
 	if !Supported() {
 		t.Fatal("Windows build reported no Job Object support")
