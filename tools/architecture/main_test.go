@@ -373,6 +373,7 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 		{name: "parent traversal go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["internal/../cmd"]`, 1), want: "go_roots", code: 1},
 		{name: "absolute scripts root", body: strings.Replace(validPolicy, `scripts_roots = ["scripts"]`, `scripts_roots = ["/scripts"]`, 1), want: "scripts_roots", code: 1},
 		{name: "windows composition root", body: strings.Replace(validPolicy, `composition_root_files = { "internal/cli" = ["app.go"] }`, `composition_root_files = { "C:/internal/cli" = ["app.go"] }`, 1), want: "composition_root_files", code: 1},
+		{name: "duplicate composition file", body: strings.Replace(validPolicy, `composition_root_files = { "internal/cli" = ["app.go"] }`, `composition_root_files = { "internal/cli" = ["app.go", "app.go"] }`, 1), want: "composition_root_files", code: 1},
 		{name: "parent peer root", body: strings.Replace(validPolicy, `peer_package_roots = { "internal/cli" = ["invocation"] }`, `peer_package_roots = { "internal/../cli" = ["invocation"] }`, 1), want: "peer_package_roots", code: 1},
 		{name: "empty scripts", body: strings.Replace(validPolicy, `scripts_roots = ["scripts"]`, `scripts_roots = []`, 1), want: "scripts_roots", code: 1},
 		{name: "empty platform", body: strings.Replace(validPolicy, `platform_build_suffixes = ["unix", "windows", "darwin", "linux", "posix"]`, `platform_build_suffixes = []`, 1), want: "platform_build_suffixes", code: 1},
@@ -442,6 +443,57 @@ func TestScriptsRootNotDirectory(t *testing.T) {
 	report := decodeReport(t, stdout.String())
 	if !hasRule(report, "scripts_root_not_directory") {
 		t.Fatalf("rules=%v", findingRules(report))
+	}
+}
+
+func TestDecisionRecordDuplicateSequence(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "docs", "decisions")
+	writeFile(t, filepath.Join(directory, "README.md"), "[A](dr-0001-a.md)\n[B](dr-0001-b.md)\n")
+	body := "# DR-0001: Fixture\n\n- Status: Accepted\n- Date: 2026-08-08\n\n## Context\nX\n\n## Decision\nX\n\n## Consequences\nX\n\n## Revisit Trigger\nX\n"
+	writeFile(t, filepath.Join(directory, "dr-0001-a.md"), body)
+	writeFile(t, filepath.Join(directory, "dr-0001-b.md"), body)
+	report := newReport("policy", root)
+	if err := checkDecisionRecords(root, &report); err != nil {
+		t.Fatal(err)
+	}
+	if !hasRule(report, "decision_record_sequence_duplicate") {
+		t.Fatalf("duplicate sequence was not reported: %+v", report.Findings)
+	}
+}
+
+func TestTrackedFilesRejectsBrokenRepositoryMetadata(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := trackedFiles(root); err == nil || !strings.Contains(err.Error(), "list tracked files") {
+		t.Fatalf("error=%v", err)
+	}
+}
+
+func TestWorkspaceFilesSkipsGitMetadataDirectories(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, ".git-shadow", "private"), "ignored")
+	writeFile(t, filepath.Join(root, "docs", "kept.md"), "kept")
+	files, err := workspaceFiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 || files[0] != "docs/kept.md" {
+		t.Fatalf("files=%v", files)
+	}
+}
+
+func TestTextLayoutSkipsPythonSources(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "fixture.py"), "print('fixture')\r\n")
+	report := newReport("policy", root)
+	if err := checkTextLayout(root, &report); err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Findings) != 0 {
+		t.Fatalf("Python source entered the text-layout plane: %+v", report.Findings)
 	}
 }
 

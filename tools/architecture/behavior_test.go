@@ -203,6 +203,44 @@ func TestPackageDocumentationMustDescribeItsPackage(t *testing.T) {
 	}
 }
 
+func TestPackageDocumentationAcceptsExactPackageName(t *testing.T) {
+	parsed, err := parser.ParseFile(token.NewFileSet(), "p.go", "// Package p\npackage p\n", parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasPackageDocumentation(parsed) {
+		t.Fatal("exact package documentation was rejected")
+	}
+}
+
+func TestMalformedAliasDeclarationsAreIgnored(t *testing.T) {
+	parsed := &ast.File{
+		Name: ast.NewIdent("p"),
+		Decls: []ast.Decl{
+			&ast.GenDecl{Tok: token.TYPE, Specs: []ast.Spec{&ast.ImportSpec{Path: &ast.BasicLit{Value: `"fmt"`}}}},
+			&ast.GenDecl{Tok: token.VAR, Specs: []ast.Spec{&ast.ImportSpec{Path: &ast.BasicLit{Value: `"fmt"`}}}},
+		},
+	}
+	report := newReport("p", ".")
+	checkExportedTypeAliases(token.NewFileSet(), parsed, "p.go", &report)
+	checkFunctionVarAliases(token.NewFileSet(), parsed, "p.go", &report)
+	if len(report.Findings) != 0 {
+		t.Fatalf("malformed declarations produced findings: %+v", report.Findings)
+	}
+}
+
+func TestImportedPackageNameUsesPathBase(t *testing.T) {
+	parsed, err := parser.ParseFile(token.NewFileSet(), "p.go", `package p
+import "example.com/owner/library"
+`, parser.ImportsOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := importedPackageNames(parsed)["library"]; !ok {
+		t.Fatal("default import name did not use the path base")
+	}
+}
+
 func TestFinalizeSortTies(t *testing.T) {
 	report := newReport("p", ".")
 	report.DirectoryStats = []DirectoryStats{{Path: "b"}, {Path: "a"}}
@@ -365,8 +403,21 @@ func TestIgnoreHelpers(t *testing.T) {
 
 func TestScriptsSymlinkAndIgnore(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		// symlink creation may require privileges
-		t.Skip("symlink fixture is unix-oriented")
+		// Windows runners may not grant symlink creation. The portable direct-file
+		// contract still exercises the same scripts-root finding and report path.
+		root := t.TempDir()
+		policyPath := writePolicy(t, root, validPolicy)
+		writeFile(t, filepath.Join(root, "scripts", "direct.sh"), "ok\n")
+		writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
+		var stdout bytes.Buffer
+		var stderr bytes.Buffer
+		if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 {
+			t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
+		}
+		if report := decodeReport(t, stdout.String()); !hasRule(report, "scripts_root_file") {
+			t.Fatalf("expected direct-file finding: %v", findingRules(report))
+		}
+		return
 	}
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
