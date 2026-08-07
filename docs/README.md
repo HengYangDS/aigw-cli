@@ -31,7 +31,7 @@ Read one path, not the whole repository.
 | [Team rollout](guides/team-rollout.md) | Configuration manifests, member setup, release artifacts, and updates. |
 | [governance/](governance/change-and-release-policy.md) | Change, release, and contributor policy. |
 | [operations/](operations/forge-operations.md) | Forge operations and release evidence contracts. |
-| [decisions/](decisions/0001-control-plane-data-plane-boundary.md) | Durable design rulings. |
+| [decisions/](decisions/README.md) | Decision grammar, coverage rule, and durable rulings. |
 | [evidence/](evidence/README.md) | Verification records, limits, and local Git-object housekeeping. |
 | [CHANGELOG](../CHANGELOG.md) | Published release history. |
 | [LICENSE](../LICENSE) | MIT licensing terms for the repository. |

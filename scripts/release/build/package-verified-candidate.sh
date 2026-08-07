@@ -67,20 +67,8 @@ if command -v sha256sum >/dev/null 2>&1; then
 else
   manifest_digest=$(shasum -a 256 "$payload/artifacts/checksums.txt" | awk '{print tolower($1)}')
 fi
-cat > "$payload/candidate.json" <<EOF
-{
-  "schema": 1,
-  "kind": "aigw-verified-candidate",
-  "version": "$version",
-  "commit": "$commit",
-  "tree": "$tree",
-  "created_utc": "$timestamp",
-  "artifacts_dir": "artifacts",
-  "checksums_path": "artifacts/checksums.txt",
-  "checksums_sha256": "$manifest_digest",
-  "artifact_count": 15
-}
-EOF
+(cd "$root" && go run -buildvcs=false ./tools/releasekit write-candidate-manifest \
+  "$payload/candidate.json" "$version" "$commit" "$tree" "$timestamp" "$manifest_digest" 15)
 
 rm -f "$out_abs/$carrier_name" "$out_abs/$carrier_name.sha256"
 (cd "$stage" && tar -czf "$out_abs/$carrier_name" "$carrier_root")

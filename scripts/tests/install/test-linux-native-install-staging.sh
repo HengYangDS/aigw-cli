@@ -3,7 +3,8 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 tmp=$(mktemp -d)
-real_python3=${AIGW_TEST_SUPERVISOR_PYTHON:-$(command -v python3)}
+process_supervisor="$tmp/processsupervisor"
+go build -o "$process_supervisor" ./tools/processsupervisor
 
 fixture_process_is_live() {
   pid_file=$1
@@ -32,7 +33,7 @@ cleanup_timeout_fixture_processes() {
     "$tmp/supervisor-late-root.pid" \
     "$tmp/supervisor-sentinel.pid" \
     "$tmp/supervisor-timeout.pid" \
-    "$tmp/supervisor-python.pid" \
+    "$tmp/supervisor-process.pid" \
     "$tmp/timeout-grandchild.pid" \
     "$tmp/timeout-child.pid" \
     "$tmp/timeout-root.pid"
@@ -158,6 +159,7 @@ expect_timeout_upper_bound_rejected() {
   expected=$4
   output="$tmp/$label.out"
   if PATH="$bin:/usr/bin:/bin" \
+    AIGW_PROCESS_SUPERVISOR="$process_supervisor" \
     AIGW_DOCKER_SHARED_TMPDIR="$shared" \
     AIGW_TEST_DOCKER_MOUNTS="$capture" \
     AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS="$pull_timeout" \
@@ -195,6 +197,7 @@ expect_timeout_upper_bound_rejected \
 [ "$upper_bound_failures" -eq 0 ] || exit 1
 
 PATH="$bin:/usr/bin:/bin" \
+  AIGW_PROCESS_SUPERVISOR="$process_supervisor" \
   AIGW_DOCKER_SHARED_TMPDIR="$shared" \
   AIGW_TEST_DOCKER_MOUNTS="$capture" \
   AIGW_LINUX_DEB_ACCEPTANCE_IMAGE="example.test/debian" \
@@ -229,11 +232,6 @@ if command -v sha256sum >/dev/null 2>&1; then
 else
   ln -s "$(command -v shasum)" "$supervisor_bin/shasum"
 fi
-cat > "$supervisor_bin/python3" <<'SH'
-#!/bin/sh
-printf '%s\n' "$$" > "$AIGW_TEST_SUPERVISOR_PID"
-exec "$AIGW_TEST_REAL_PYTHON3" "$@"
-SH
 cat > "$supervisor_bin/timeout" <<'SH'
 #!/bin/sh
 printf '%s\n' "$$" > "$AIGW_TEST_FAKE_TIMEOUT_PID"
@@ -309,7 +307,7 @@ case "$1:$2" in
 esac
 exit 1
 SH
-chmod 755 "$supervisor_bin/python3" "$supervisor_bin/timeout" "$supervisor_bin/docker"
+chmod 755 "$supervisor_bin/timeout" "$supervisor_bin/docker"
 
 timeout_root_pid="$tmp/timeout-root.pid"
 timeout_child_pid="$tmp/timeout-child.pid"
@@ -320,14 +318,13 @@ supervisor_cancel_root_pid="$tmp/supervisor-cancel-root.pid"
 supervisor_cancel_child_pid="$tmp/supervisor-cancel-child.pid"
 supervisor_completed_child_pid="$tmp/supervisor-completed-child.pid"
 supervisor_sentinel_pid="$tmp/supervisor-sentinel.pid"
-supervisor_python_pid="$tmp/supervisor-python.pid"
 supervisor_timeout_pid="$tmp/supervisor-timeout.pid"
 supervisor_timeout_invoked="$tmp/supervisor-timeout-invoked"
 supervisor_identity_switch="$tmp/supervisor-identity-switched"
 
 check_completed_leader() {
-  completed_python=$1
-  if "$completed_python" "$root/scripts/tests/install/run-with-timeout.py" 5 /bin/sh -c 'exit 7' \
+  completed_supervisor=$1
+  if "$completed_supervisor" 5 /bin/sh -c 'exit 7' \
     >"$tmp/completed-nonzero.out" 2>&1
   then
     completed_nonzero_rc=0
@@ -336,18 +333,18 @@ check_completed_leader() {
   fi
   [ "$completed_nonzero_rc" -eq 7 ] || {
     cat "$tmp/completed-nonzero.out" >&2
-    echo "Linux timeout supervisor changed a completed nonzero status: $completed_python" >&2
+    echo "Linux timeout supervisor changed a completed nonzero status" >&2
     return 1
   }
   rm -f "$supervisor_completed_child_pid"
   if AIGW_TEST_COMPLETED_CHILD_PID="$supervisor_completed_child_pid" \
-    "$completed_python" "$root/scripts/tests/install/run-with-timeout.py" 5 \
+    "$completed_supervisor" 5 \
     "$supervisor_bin/docker" __aigw_completed_leader >"$tmp/completed-leader.out" 2>&1
   then
     :
   else
     cat "$tmp/completed-leader.out" >&2
-    echo "Linux timeout supervisor changed a completed leader's exit status: $completed_python" >&2
+    echo "Linux timeout supervisor changed a completed leader's exit status" >&2
     return 1
   fi
   [ -s "$supervisor_completed_child_pid" ] || {
@@ -366,176 +363,7 @@ check_completed_leader() {
   fi
 }
 
-check_ready_handshake_boundary() {
-  boundary_python=$1
-  if "$boundary_python" - "$root/scripts/tests/install/run-with-timeout.py" "$tmp/ready-handshake-command-started" \
-    >"$tmp/ready-handshake-boundary.out" 2>&1 <<'PY'
-import os
-import signal
-import sys
-import time
-
-source_path = sys.argv[1]
-marker_base = sys.argv[2]
-namespace = {"__name__": "aigw_run_with_timeout"}
-with open(source_path, "rb") as source_file:
-    exec(compile(source_file.read(), source_path, "exec"), namespace)
-
-leader_pids = []
-real_fork = os.fork
-
-def recording_fork():
-    pid = real_fork()
-    if pid > 0:
-        leader_pids.append(pid)
-    return pid
-
-def child_was_reaped(pid):
-    if pid is None:
-        return False
-    try:
-        waited_pid, _ = os.waitpid(pid, os.WNOHANG)
-    except ChildProcessError:
-        return True
-    if waited_pid == 0:
-        try:
-            os.kill(pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        try:
-            os.waitpid(pid, 0)
-        except ChildProcessError:
-            pass
-    return False
-
-os.fork = recording_fork
-real_run_session_leader = namespace.get("run_session_leader")
-marker_program = (
-    "from pathlib import Path; import sys, time; "
-    "Path(sys.argv[1]).write_text('started'); time.sleep(5)"
-)
-timeout_marker = marker_base + ".timeout"
-cancel_marker = marker_base + ".cancel"
-ready_cancel_marker = marker_base + ".ready-cancel"
-deadline_marker = marker_base + ".deadline"
-
-namespace["run_session_leader"] = lambda *args: time.sleep(5)
-started = time.monotonic()
-before_forks = len(leader_pids)
-command = [sys.executable, "-c", marker_program, timeout_marker]
-timeout_status = namespace["supervise"](1, command, started)
-timeout_elapsed = time.monotonic() - started
-timeout_pid = leader_pids[-1] if len(leader_pids) == before_forks + 1 else None
-timeout_reaped = child_was_reaped(timeout_pid)
-timeout_started = os.path.exists(timeout_marker)
-print(
-    f"ready handshake timeout={timeout_status}/{timeout_elapsed:.3f}s "
-    f"started={timeout_started} reaped={timeout_reaped}"
-)
-if timeout_status != 124 or timeout_elapsed >= 3 or timeout_started or not timeout_reaped:
-    raise SystemExit(1)
-
-if real_run_session_leader is None:
-    raise SystemExit(1)
-namespace["run_session_leader"] = real_run_session_leader
-namespace["received_signal"] = signal.SIGTERM
-started = time.monotonic()
-before_forks = len(leader_pids)
-command = [sys.executable, "-c", marker_program, cancel_marker]
-cancel_status = namespace["supervise"](30, command, started)
-cancel_elapsed = time.monotonic() - started
-cancel_pid = leader_pids[-1] if len(leader_pids) == before_forks + 1 else None
-cancel_reaped = child_was_reaped(cancel_pid)
-cancel_started = os.path.exists(cancel_marker)
-print(
-    f"ready handshake cancel={cancel_status}/{cancel_elapsed:.3f}s "
-    f"started={cancel_started} reaped={cancel_reaped}"
-)
-if cancel_status != 143 or cancel_elapsed >= 3 or cancel_started or not cancel_reaped:
-    raise SystemExit(1)
-
-namespace["received_signal"] = None
-real_write_all = namespace["write_all"]
-parent_pid = os.getpid()
-
-def cancel_before_ack(fd, payload):
-    if os.getpid() == parent_pid and payload == b"G":
-        namespace["request_shutdown"](signal.SIGTERM, None)
-        real_write_all(fd, payload)
-        time.sleep(0.4)
-        return
-    return real_write_all(fd, payload)
-
-namespace["write_all"] = cancel_before_ack
-started = time.monotonic()
-before_forks = len(leader_pids)
-command = [sys.executable, "-c", marker_program, ready_cancel_marker]
-ready_cancel_status = namespace["supervise"](10, command, started)
-ready_cancel_elapsed = time.monotonic() - started
-ready_cancel_pid = leader_pids[-1] if len(leader_pids) == before_forks + 1 else None
-ready_cancel_reaped = child_was_reaped(ready_cancel_pid)
-ready_cancel_started = os.path.exists(ready_cancel_marker)
-print(
-    f"ready-to-ack cancel={ready_cancel_status}/{ready_cancel_elapsed:.3f}s "
-    f"started={ready_cancel_started} reaped={ready_cancel_reaped}"
-)
-namespace["write_all"] = real_write_all
-if (
-    ready_cancel_status != 143
-    or ready_cancel_elapsed >= 3
-    or ready_cancel_started
-    or not ready_cancel_reaped
-):
-    raise SystemExit(1)
-
-namespace["received_signal"] = None
-
-def cross_deadline_before_ack(fd, payload):
-    if os.getpid() == parent_pid and payload == b"G":
-        time.sleep(1.1)
-        real_write_all(fd, payload)
-        time.sleep(0.4)
-        return
-    return real_write_all(fd, payload)
-
-namespace["write_all"] = cross_deadline_before_ack
-started = time.monotonic()
-before_forks = len(leader_pids)
-command = [sys.executable, "-c", marker_program, deadline_marker]
-deadline_status = namespace["supervise"](1, command, started)
-deadline_elapsed = time.monotonic() - started
-deadline_pid = leader_pids[-1] if len(leader_pids) == before_forks + 1 else None
-deadline_reaped = child_was_reaped(deadline_pid)
-deadline_started = os.path.exists(deadline_marker)
-print(
-    f"ready-to-ack deadline={deadline_status}/{deadline_elapsed:.3f}s "
-    f"started={deadline_started} reaped={deadline_reaped}"
-)
-namespace["write_all"] = real_write_all
-os.fork = real_fork
-if deadline_status != 124 or deadline_elapsed >= 3 or deadline_started or not deadline_reaped:
-    raise SystemExit(1)
-PY
-  then
-    :
-  else
-    cat "$tmp/ready-handshake-boundary.out" >&2
-    echo "Linux timeout supervisor readiness handshake was not bounded: $boundary_python" >&2
-    return 1
-  fi
-}
-
-completed_python_candidates=$real_python3
-completed_python_tested=' '
-for completed_python in $completed_python_candidates; do
-  [ -x "$completed_python" ] || continue
-  case "$completed_python_tested" in
-    *" $completed_python "*) continue ;;
-  esac
-  check_completed_leader "$completed_python" || exit 1
-  check_ready_handshake_boundary "$completed_python" || exit 1
-  completed_python_tested="$completed_python_tested$completed_python "
-done
+check_completed_leader "$process_supervisor"
 
 start_supervisor_case() {
   supervisor_label=$1
@@ -548,8 +376,7 @@ start_supervisor_case() {
     AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS=1 \
     AIGW_LINUX_DEB_ACCEPTANCE_IMAGE="example.test/debian" \
     AIGW_LINUX_RPM_ACCEPTANCE_IMAGE="example.test/rpm" \
-    AIGW_TEST_REAL_PYTHON3="$real_python3" \
-    AIGW_TEST_SUPERVISOR_PID="$supervisor_python_pid" \
+    AIGW_PROCESS_SUPERVISOR="$process_supervisor" \
     AIGW_TEST_FAKE_TIMEOUT_PID="$supervisor_timeout_pid" \
     AIGW_TEST_FAKE_TIMEOUT_INVOKED="$supervisor_timeout_invoked" \
     AIGW_TEST_DOCKER_MODE="$supervisor_mode" \
@@ -625,16 +452,15 @@ fixture_process_is_live "$supervisor_sentinel_pid" || { echo "Linux native-insta
 kill -HUP "$(cat "$supervisor_sentinel_pid")"
 wait "$supervisor_sentinel_job" 2>/dev/null || true
 
-: > "$supervisor_python_pid"
 start_supervisor_case cancellation cancellation 30
 supervisor_elapsed=0
-while { [ ! -s "$supervisor_python_pid" ] || [ ! -s "$supervisor_cancel_root_pid" ] || [ ! -s "$supervisor_cancel_child_pid" ]; } &&
+while { [ ! -s "$supervisor_cancel_root_pid" ] || [ ! -s "$supervisor_cancel_child_pid" ]; } &&
   [ "$supervisor_elapsed" -lt 5 ]
 do
   sleep 1
   supervisor_elapsed=$((supervisor_elapsed + 1))
 done
-for pid_file in "$supervisor_python_pid" "$supervisor_cancel_root_pid" "$supervisor_cancel_child_pid"; do
+for pid_file in "$supervisor_cancel_root_pid" "$supervisor_cancel_child_pid"; do
   [ -s "$pid_file" ] || { echo "Linux native-install cancellation fixture missed a process" >&2; exit 1; }
 done
 kill -TERM "$supervisor_native_pid"
@@ -644,7 +470,7 @@ wait_supervisor_case 5
   echo "Linux native-install cancellation fixture used unexpected exit $supervisor_rc" >&2
   exit 1
 }
-for pid_file in "$supervisor_python_pid" "$supervisor_cancel_root_pid" "$supervisor_cancel_child_pid"; do
+for pid_file in "$supervisor_cancel_root_pid" "$supervisor_cancel_child_pid"; do
   ! fixture_process_is_live "$pid_file" || { echo "Linux native-install cancellation leaked an owned process" >&2; exit 1; }
 done
 [ ! -d "$shared/.image-lock-example.test_debian-linux_amd64" ] || {
@@ -663,7 +489,8 @@ exit 1
 SH
 chmod 755 "$missing_supervisor_bin/docker"
 missing_supervisor_log="$tmp/missing-supervisor-docker.log"
-if PATH="$missing_supervisor_bin" AIGW_TEST_MISSING_SUPERVISOR_DOCKER_LOG="$missing_supervisor_log" \
+if PATH="$missing_supervisor_bin" AIGW_PROCESS_SUPERVISOR="$tmp/missing-processsupervisor" \
+  AIGW_TEST_MISSING_SUPERVISOR_DOCKER_LOG="$missing_supervisor_log" \
   sh "$root/scripts/tests/install/test-linux-native-install.sh" "$out" "$version" >"$tmp/missing-supervisor.out" 2>&1
 then
   echo "Linux native-install ran without a safe supervisor" >&2
@@ -675,7 +502,7 @@ fi
   echo "Linux native-install launched Docker without a safe supervisor" >&2
   exit 1
 }
-grep -F "required for Linux native-install acceptance: python3" "$tmp/missing-supervisor.out" >/dev/null
+grep -F "required for Linux native-install acceptance: processsupervisor" "$tmp/missing-supervisor.out" >/dev/null
 
 lock_bin="$tmp/lock-bin"
 mkdir -p "$lock_bin"
@@ -691,6 +518,7 @@ chmod 755 "$lock_bin/docker"
 lock="$shared/.image-lock-example.test_debian-linux_amd64"
 mkdir "$lock"
 if PATH="$lock_bin:$PATH" \
+  AIGW_PROCESS_SUPERVISOR="$process_supervisor" \
   AIGW_DOCKER_SHARED_TMPDIR="$shared" \
   AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS=1 \
   AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS=1 \
@@ -709,6 +537,7 @@ grep -F "timed out waiting for Linux acceptance image lock" "$tmp/lock.out" >/de
 
 mkdir "$lock"
 PATH="$lock_bin:$PATH" \
+  AIGW_PROCESS_SUPERVISOR="$process_supervisor" \
   AIGW_DOCKER_SHARED_TMPDIR="$shared" \
   AIGW_LINUX_IMAGE_PULL_TIMEOUT_SECONDS=1 \
   AIGW_LINUX_IMAGE_LOCK_TIMEOUT_SECONDS=30 \

@@ -10,33 +10,13 @@ artifacts=${1:-dist}
 version=${CI_COMMIT_TAG#v}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 "$root/scripts/checks/release/check-release-artifacts.sh" "$artifacts" "$version"
+workspace_root=$(pwd -P)
+release_json="$workspace_root/release.json"
+release_response="$workspace_root/release-response.json"
 
 base="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/aigw/$version"
 
-cat > release.json <<EOF
-{
-  "tag_name": "$CI_COMMIT_TAG",
-  "name": "AIGW $CI_COMMIT_TAG",
-  "description": "Cross-platform AIGW CLI release. Verify downloads with checksums.txt.",
-  "assets": {"links": [
-    {"name":"macOS Universal pkg","url":"$base/aigw_${version}_darwin_universal.pkg","direct_asset_path":"/aigw_${version}_darwin_universal.pkg"},
-    {"name":"macOS amd64 portable","url":"$base/aigw_${version}_darwin_amd64.tar.gz","direct_asset_path":"/aigw_${version}_darwin_amd64.tar.gz"},
-    {"name":"macOS arm64 portable","url":"$base/aigw_${version}_darwin_arm64.tar.gz","direct_asset_path":"/aigw_${version}_darwin_arm64.tar.gz"},
-    {"name":"Linux amd64 deb","url":"$base/aigw_${version}_linux_amd64.deb","direct_asset_path":"/aigw_${version}_linux_amd64.deb"},
-    {"name":"Linux arm64 deb","url":"$base/aigw_${version}_linux_arm64.deb","direct_asset_path":"/aigw_${version}_linux_arm64.deb"},
-    {"name":"Linux amd64 rpm","url":"$base/aigw_${version}_linux_amd64.rpm","direct_asset_path":"/aigw_${version}_linux_amd64.rpm"},
-    {"name":"Linux arm64 rpm","url":"$base/aigw_${version}_linux_arm64.rpm","direct_asset_path":"/aigw_${version}_linux_arm64.rpm"},
-    {"name":"Linux amd64 portable","url":"$base/aigw_${version}_linux_amd64.tar.gz","direct_asset_path":"/aigw_${version}_linux_amd64.tar.gz"},
-    {"name":"Linux arm64 portable","url":"$base/aigw_${version}_linux_arm64.tar.gz","direct_asset_path":"/aigw_${version}_linux_arm64.tar.gz"},
-    {"name":"Windows amd64 msi","url":"$base/aigw_${version}_windows_amd64.msi","direct_asset_path":"/aigw_${version}_windows_amd64.msi"},
-    {"name":"Windows arm64 msi","url":"$base/aigw_${version}_windows_arm64.msi","direct_asset_path":"/aigw_${version}_windows_arm64.msi"},
-    {"name":"Windows amd64 portable","url":"$base/aigw_${version}_windows_amd64.zip","direct_asset_path":"/aigw_${version}_windows_amd64.zip"},
-    {"name":"Windows arm64 portable","url":"$base/aigw_${version}_windows_arm64.zip","direct_asset_path":"/aigw_${version}_windows_arm64.zip"},
-    {"name":"SHA-256 checksums","url":"$base/checksums.txt","direct_asset_path":"/checksums.txt"},
-    {"name":"SPDX SBOM","url":"$base/aigw_${version}.spdx.json","direct_asset_path":"/aigw_${version}.spdx.json"}
-  ]}
-}
-EOF
+(cd "$root" && go run -buildvcs=false ./tools/releasekit write-gitlab-release "$CI_COMMIT_TAG" "$base" "$release_json")
 
 endpoint="$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases"
 
@@ -50,20 +30,7 @@ download_release_asset() {
   response_headers="$output.headers"
 
   while :; do
-    send_token=$(python3 - "$CI_API_V4_URL" "$current_url" <<'PYTHON'
-import sys
-from urllib.parse import urlsplit
-
-def authority(raw):
-    parsed = urlsplit(raw)
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        raise SystemExit(1)
-    port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    return parsed.scheme.lower(), parsed.hostname.lower().rstrip("."), port
-
-print("yes" if authority(sys.argv[1]) == authority(sys.argv[2]) else "no")
-PYTHON
-    ) || {
+    send_token=$(cd "$root" && go run -buildvcs=false ./tools/releasekit same-authority "$CI_API_V4_URL" "$current_url") || {
       echo "GitLab release verification found an invalid asset URL for $asset_name" >&2
       return 1
     }
@@ -88,31 +55,7 @@ PYTHON
           echo "GitLab release verification exceeded the redirect limit for $asset_name" >&2
           return 1
         fi
-        next_url=$(python3 - "$current_url" "$response_headers" <<'PYTHON'
-import sys
-from urllib.parse import urljoin, urlsplit
-
-current, header_path = sys.argv[1:]
-location = ""
-with open(header_path, encoding="latin-1") as handle:
-    for line in handle:
-        name, separator, value = line.partition(":")
-        if separator and name.strip().lower() == "location":
-            location = value.strip()
-if not location:
-    raise SystemExit(1)
-resolved = urljoin(current, location)
-before = urlsplit(current)
-after = urlsplit(resolved)
-if after.scheme not in {"http", "https"} or not after.hostname:
-    raise SystemExit(1)
-if after.username is not None or after.password is not None or after.fragment:
-    raise SystemExit(1)
-if before.scheme == "https" and after.scheme != "https":
-    raise SystemExit(1)
-print(resolved)
-PYTHON
-        ) || {
+        next_url=$(cd "$root" && go run -buildvcs=false ./tools/releasekit resolve-redirect "$current_url" "$response_headers") || {
           echo "GitLab release verification rejected an unsafe redirect for $asset_name" >&2
           rm -f "$response_body" "$response_headers"
           return 1
@@ -130,12 +73,12 @@ PYTHON
 }
 
 verify_release() {
-  status=$(curl --silent --show-error --output release-response.json --write-out '%{http_code}' \
+  status=$(curl --silent --show-error --output "$release_response" --write-out '%{http_code}' \
     --header "JOB-TOKEN: $CI_JOB_TOKEN" "$endpoint/$CI_COMMIT_TAG" || true)
   case "$status" in
     2??) ;;
     *)
-      cat release-response.json >&2 2>/dev/null || true
+      cat "$release_response" >&2 2>/dev/null || true
       echo "GitLab release verification failed with HTTP $status" >&2
       return 1
       ;;
@@ -145,76 +88,8 @@ verify_release() {
   asset_list=$(mktemp)
   trap 'rm -rf "$workspace"; rm -f "$asset_list"' EXIT HUP INT TERM
 
-  python3 - release.json release-response.json "$asset_list" "$CI_COMMIT_TAG" <<'PYTHON'
-import json
-import sys
-
-expected_path, actual_path, output_path, expected_tag = sys.argv[1:]
-
-try:
-    with open(expected_path, encoding="utf-8") as handle:
-        expected_release = json.load(handle)
-    with open(actual_path, encoding="utf-8") as handle:
-        actual_release = json.load(handle)
-except (OSError, ValueError) as exc:
-    raise SystemExit(f"GitLab release verification returned invalid JSON: {exc}")
-
-if actual_release.get("tag_name") != expected_tag:
-    raise SystemExit("GitLab release verification returned the wrong tag")
-
-try:
-    expected_links = expected_release["assets"]["links"]
-    actual_links = actual_release["assets"]["links"]
-except (KeyError, TypeError):
-    raise SystemExit("GitLab release verification returned an invalid asset manifest")
-
-if not isinstance(expected_links, list) or len(expected_links) != 15:
-    raise SystemExit(
-        f"GitLab release verification expected 15 local asset links, found {len(expected_links) if isinstance(expected_links, list) else 0}"
-    )
-if not isinstance(actual_links, list) or len(actual_links) != 15:
-    raise SystemExit(
-        f"GitLab release verification expected 15 remote asset links, found {len(actual_links) if isinstance(actual_links, list) else 0}"
-    )
-
-expected_urls = []
-downloads = []
-for link in expected_links:
-    if not isinstance(link, dict):
-        raise SystemExit("GitLab release verification found an invalid local asset link")
-    url = link.get("url")
-    direct_path = link.get("direct_asset_path")
-    if not isinstance(url, str) or not url:
-        raise SystemExit("GitLab release verification found an invalid local asset URL")
-    if not isinstance(direct_path, str) or not direct_path.startswith("/"):
-        raise SystemExit("GitLab release verification found an invalid direct asset path")
-    name = direct_path[1:]
-    if not name or "/" in name or "\t" in name or "\n" in name:
-        raise SystemExit("GitLab release verification found an unsafe direct asset path")
-    expected_urls.append(url)
-    downloads.append((name, url))
-
-actual_urls = []
-for link in actual_links:
-    if not isinstance(link, dict) or not isinstance(link.get("url"), str):
-        raise SystemExit("GitLab release verification found an invalid remote asset link")
-    actual_urls.append(link["url"])
-
-if len(set(expected_urls)) != 15:
-    raise SystemExit("GitLab release verification found duplicate local asset URLs")
-if len(set(actual_urls)) != 15:
-    raise SystemExit("GitLab release verification found duplicate remote asset URLs")
-if set(actual_urls) != set(expected_urls):
-    missing = sorted(set(expected_urls) - set(actual_urls))
-    extra = sorted(set(actual_urls) - set(expected_urls))
-    if missing:
-        raise SystemExit(f"GitLab release verification is missing asset {missing[0]}")
-    raise SystemExit(f"GitLab release verification found unexpected asset {extra[0]}")
-
-with open(output_path, "w", encoding="utf-8", newline="\n") as handle:
-    for name, url in downloads:
-        handle.write(f"{name}\t{url}\n")
-PYTHON
+  (cd "$root" && go run -buildvcs=false ./tools/releasekit verify-gitlab-release \
+    "$release_json" "$release_response" "$asset_list" "$CI_COMMIT_TAG")
 
   tab=$(printf '\t')
   while IFS="$tab" read -r asset_name asset_url; do
@@ -234,26 +109,26 @@ PYTHON
   done
 }
 
-status=$(curl --silent --show-error --output release-response.json --write-out '%{http_code}' \
+status=$(curl --silent --show-error --output "$release_response" --write-out '%{http_code}' \
   --header "JOB-TOKEN: $CI_JOB_TOKEN" "$endpoint/$CI_COMMIT_TAG" || true)
 case "$status" in
   2??)
     ;;
   404)
-    status=$(curl --silent --show-error --output release-response.json --write-out '%{http_code}' \
+    status=$(curl --silent --show-error --output "$release_response" --write-out '%{http_code}' \
       --request POST --header "JOB-TOKEN: $CI_JOB_TOKEN" --header 'Content-Type: application/json' \
-      --data @release.json "$endpoint" || true)
+      --data @"$release_json" "$endpoint" || true)
     case "$status" in
       2??|409) ;;
       *)
-      cat release-response.json >&2 2>/dev/null || true
+      cat "$release_response" >&2 2>/dev/null || true
       echo "GitLab release publication failed with HTTP $status" >&2
       exit 1
       ;;
     esac
     ;;
   *)
-    cat release-response.json >&2 2>/dev/null || true
+    cat "$release_response" >&2 2>/dev/null || true
     echo "GitLab release preflight failed with HTTP $status" >&2
     exit 1
     ;;

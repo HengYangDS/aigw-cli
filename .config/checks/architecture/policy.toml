@@ -46,3 +46,5 @@ check_exported_type_alias = true
 check_function_var_alias = true
 check_package_documentation = true
 check_trivial_wrappers = true
+check_decision_records = true
+check_semantic_names = true

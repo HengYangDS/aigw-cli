@@ -1,4 +1,4 @@
-# ADR-0005: Account Rename Two-Phase Credential Migration
+# DR-0003: Migrate Account Rename Credentials in Two Phases
 
 - Status: accepted
 - Date: 2026-07-24

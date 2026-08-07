@@ -5,6 +5,9 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 checker="$root/scripts/checks/governance/check-changelog.sh"
 workspace=$(mktemp -d "${TMPDIR:-/tmp}/aigw-changelog.XXXXXX")
 trap 'rm -rf "$workspace"' EXIT HUP INT TERM
+repositorycheck="$workspace/repositorycheck"
+(cd "$root" && go build -o "$repositorycheck" ./tools/repositorycheck)
+export AIGW_REPOSITORY_CHECK="$repositorycheck"
 
 check() {
   file=$1

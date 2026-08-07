@@ -26,7 +26,7 @@ for command in go file tar unzip ar bsdtar msiextract msiinfo pkgutil lipo; do
 done
 
 if [ "$created_out" = 1 ]; then
-  for command in go nfpm wixl msibuild xar python3; do
+  for command in nfpm wixl msibuild xar zip; do
     require "$command"
   done
   SOURCE_DATE_EPOCH=1784246400 \
