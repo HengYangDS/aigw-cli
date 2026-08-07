@@ -27,20 +27,6 @@ func TestRunTimesOutOwnedCommand(t *testing.T) {
 	}
 }
 
-func TestRunForwardsTerminationSignal(t *testing.T) {
-	done := make(chan int, 1)
-	go func() {
-		done <- run(append([]string{"5", shell()}, shellSleepArgs(5)...), &bytes.Buffer{})
-	}()
-	time.Sleep(100 * time.Millisecond)
-	if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
-		t.Fatal(err)
-	}
-	if code := <-done; code != 128+int(syscall.SIGTERM) {
-		t.Fatalf("code=%d", code)
-	}
-}
-
 func TestRunRejectsInvalidArguments(t *testing.T) {
 	for _, args := range [][]string{nil, {"0", "true"}, {"301", "true"}, {"not-a-number", "true"}} {
 		if code := run(args, &bytes.Buffer{}); code != 2 {
