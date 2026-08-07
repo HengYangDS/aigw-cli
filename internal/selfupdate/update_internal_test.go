@@ -138,6 +138,19 @@ func TestValidateReleaseSourceRejectsGitLabOverPlainHTTPForRealHost(t *testing.T
 	}
 }
 
+func TestValidateReleaseSourceAllowsPrivateGitLabOverPlainHTTP(t *testing.T) {
+	for _, origin := range []string{
+		"http://192.168.64.101:18086",
+		"http://10.0.0.8",
+		"http://[fd00::8]:8080",
+	} {
+		source := ReleaseSource{Provider: ReleaseProviderGitLab, Origin: origin, Repository: "group/project"}
+		if err := validateReleaseSource(source); err != nil {
+			t.Fatalf("origin=%q error = %v", origin, err)
+		}
+	}
+}
+
 func TestValidateReleaseSourceAllowsGitHubOverPlainHTTPForTestHosts(t *testing.T) {
 	cases := []string{"http://example.test", "http://localhost:8080", "http://127.0.0.1:8080"}
 	for _, origin := range cases {

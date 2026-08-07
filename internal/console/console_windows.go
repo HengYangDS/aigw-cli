@@ -11,11 +11,19 @@ import (
 func EnableVirtualTerminal() bool {
 	var mode uint32
 	handle := windows.Handle(os.Stdout.Fd())
-	if err := windows.GetConsoleMode(handle, &mode); err != nil {
+	return enableVirtualTerminalMode(
+		func(mode *uint32) error { return windows.GetConsoleMode(handle, mode) },
+		func(mode uint32) error { return windows.SetConsoleMode(handle, mode) },
+		mode,
+	)
+}
+
+func enableVirtualTerminalMode(read func(*uint32) error, write func(uint32) error, mode uint32) bool {
+	if err := read(&mode); err != nil {
 		return false
 	}
 	if mode&windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING != 0 {
 		return true
 	}
-	return windows.SetConsoleMode(handle, mode|windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING) == nil
+	return write(mode|windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING) == nil
 }
