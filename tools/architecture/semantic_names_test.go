@@ -174,3 +174,9 @@ func TestRepositoryTextChecksReportUnavailableInputs(t *testing.T) {
 		t.Fatalf("missing portable-text carrier: %v", err)
 	}
 }
+
+func TestWorkspaceFilesReportsMissingRoot(t *testing.T) {
+	if _, err := workspaceFiles(filepath.Join(t.TempDir(), "missing")); err == nil {
+		t.Fatal("missing workspace root accepted")
+	}
+}
