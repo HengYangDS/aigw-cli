@@ -90,3 +90,10 @@ func TestRunnerRunCaptureReturnsStdout(t *testing.T) {
 		t.Fatalf("RunCapture() output = %q", output)
 	}
 }
+
+func TestStartCapturedProcessReportsMissingExecutable(t *testing.T) {
+	cleanup, err := startCapturedProcess(exec.Command("aigw-definitely-not-a-real-binary"))
+	if err == nil || cleanup != nil {
+		t.Fatalf("cleanup_present=%t error=%v", cleanup != nil, err)
+	}
+}
