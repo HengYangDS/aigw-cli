@@ -15,6 +15,11 @@ import (
 
 const maxSeconds = 300
 
+var (
+	notifySignals = signal.Notify
+	stopSignals   = signal.Stop
+)
+
 func main() {
 	os.Exit(runProcess(os.Args[1:], os.Stderr, startOwned))
 }
@@ -35,8 +40,8 @@ func runProcess(args []string, stderr io.Writer, start func(*exec.Cmd) (func(), 
 	}
 
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(signals)
+	notifySignals(signals, os.Interrupt, syscall.SIGTERM)
+	defer stopSignals(signals)
 	timer := time.NewTimer(time.Duration(seconds) * time.Second)
 	defer timer.Stop()
 

@@ -6,10 +6,18 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"golang.org/x/sys/windows"
 )
+
+func TestStartReportsMissingExecutable(t *testing.T) {
+	cleanup, err := Start(exec.Command(filepath.Join(t.TempDir(), "missing.exe")))
+	if err == nil || cleanup != nil {
+		t.Fatalf("cleanup_present=%t error=%v", cleanup != nil, err)
+	}
+}
 
 func TestStartOwnsEveryFailureBoundary(t *testing.T) {
 	if !Supported() {
