@@ -12,10 +12,9 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func TestStartReportsMissingExecutable(t *testing.T) {
-	cleanup, err := Start(exec.Command(filepath.Join(t.TempDir(), "missing.exe")))
-	if err == nil || cleanup != nil {
-		t.Fatalf("cleanup_present=%t error=%v", cleanup != nil, err)
+func TestDefaultStartCommandReportsMissingExecutable(t *testing.T) {
+	if err := startCommand(exec.Command(filepath.Join(t.TempDir(), "missing.exe"))); err == nil {
+		t.Fatal("missing executable started")
 	}
 }
 
