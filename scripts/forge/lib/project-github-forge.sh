@@ -78,7 +78,7 @@ cleanup() { rm -rf "$workspace"; }
 trap cleanup EXIT HUP INT TERM
 projection="$workspace/repository.git"
 
-go run "$script_root/tools/historyreplay" \
+go -C "$script_root" run ./tools/historyreplay \
   --source "$canonical_root" \
   --revision "$canonical" \
   --output "$projection" \
@@ -93,18 +93,19 @@ projected=$(git -C "$projection" rev-parse "refs/heads/$branch")
 git_transport() { GIT_CONFIG_GLOBAL=/dev/null git "$@"; }
 git -C "$projection" remote add github "$github_url"
 remote_tip=$(git_transport -C "$projection" ls-remote --heads github "refs/heads/$branch" | awk 'NR==1 {print $1}')
-[ -n "$remote_tip" ] || { echo "GitHub branch is missing: $branch" >&2; exit 1; }
-git_transport -C "$projection" fetch --quiet --no-tags github "refs/heads/$branch:refs/remotes/github/$branch"
-git -C "$projection" merge-base --is-ancestor "$remote_tip" "$projected" || {
-  echo "GitHub branch diverges from the complete canonical identity projection; resolve manually" >&2
-  exit 1
-}
+if [ -n "$remote_tip" ]; then
+  git_transport -C "$projection" fetch --quiet --no-tags github "refs/heads/$branch:refs/remotes/github/$branch"
+  git -C "$projection" merge-base --is-ancestor "$remote_tip" "$projected" || {
+    echo "GitHub branch diverges from the complete canonical identity projection; resolve manually" >&2
+    exit 1
+  }
 
-git -C "$projection" symbolic-ref HEAD "refs/remotes/github/$branch"
-AIGW_GITHUB_ALLOWED_SIGNERS="$github_allowed_signers" \
-  AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
-  sh "$script_root/scripts/checks/forge/check-commit-provenance.sh" "$projection" github >/dev/null
-git -C "$projection" symbolic-ref HEAD "refs/heads/$branch"
+  git -C "$projection" symbolic-ref HEAD "refs/remotes/github/$branch"
+  AIGW_GITHUB_ALLOWED_SIGNERS="$github_allowed_signers" \
+    AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
+    sh "$script_root/scripts/checks/forge/check-commit-provenance.sh" "$projection" github >/dev/null
+  git -C "$projection" symbolic-ref HEAD "refs/heads/$branch"
+fi
 
 remote_tags="$workspace/remote-tags"
 git_transport -C "$projection" ls-remote --tags github 'v[0-9]*' > "$remote_tags"
