@@ -91,11 +91,47 @@ printf 'old-parent\n' > "$source/OLD_PARENT.txt"
 git -C "$source" add OLD_PARENT.txt
 git -C "$source" commit -qm 'signed old-parent commit'
 git -C "$source" checkout -q main
+git -C "$source" remote add github git@github.com:test/aigw-cli.git
+
+# A proposal branch has no pre-existing peer on its first publication.  The
+# projection owner must create it directly; requiring an operator to bootstrap
+# the same identity rewrite by hand would create a second publication path.
+git -C "$source" branch proposal/first-publication main
+source_refs_before=$(git -C "$source" for-each-ref --format='%(refname) %(objectname)' | LC_ALL=C sort)
+(
+  cd "$source"
+  AIGW_GITHUB_ALLOWED_SIGNERS="$tmp/allowed/github" \
+    AIGW_GITLAB_ALLOWED_SIGNERS="$tmp/allowed/gitlab" \
+    AIGW_GITLAB_AUTHOR_EMAIL="$gitlab_email" \
+    AIGW_GITHUB_AUTHOR_NAME="$github_name" \
+    AIGW_GITHUB_AUTHOR_EMAIL="$github_email" \
+    AIGW_GITHUB_SIGNING_KEY="$key" \
+    AIGW_TEST_GITHUB_REMOTE="$remote" \
+    GIT_SSH_COMMAND="$mock_ssh" \
+    AIGW_GITHUB_REMOTE=github \
+    sh "$script" --branch proposal/first-publication
+) >/dev/null
+[ "$(git -C "$remote" rev-parse refs/heads/proposal/first-publication^{tree})" = "$(git -C "$source" rev-parse refs/heads/proposal/first-publication^{tree})" ] || {
+  echo 'first GitHub proposal projection changed the source tree' >&2
+  exit 1
+}
+git -C "$remote" \
+  -c gpg.format=ssh \
+  -c gpg.ssh.program=ssh-keygen \
+  -c gpg.ssh.allowedSignersFile="$tmp/allowed/github" \
+  verify-commit refs/heads/proposal/first-publication >/dev/null 2>&1 || {
+  echo 'first GitHub proposal projection is not signed by its provider identity' >&2
+  exit 1
+}
+[ "$(git -C "$source" for-each-ref --format='%(refname) %(objectname)' | LC_ALL=C sort)" = "$source_refs_before" ] || {
+  echo 'first GitHub proposal projection rewrote canonical refs' >&2
+  exit 1
+}
 
 # Bootstrap an existing GitHub provider history through the same raw-object
 # replay owner used by production. Tests must not maintain a second history
 # rewriting algorithm or weaken the complete-history trust boundary.
-go run "$root/tools/historyreplay" \
+go -C "$root" run ./tools/historyreplay \
   --source "$source" \
   --revision main \
   --output "$projection" \
@@ -118,7 +154,6 @@ git -C "$source" add README.md
 git -C "$source" commit -qm 'second canonical source commit'
 source_head_before=$(git -C "$source" rev-parse HEAD)
 source_refs_before=$(git -C "$source" for-each-ref --format='%(refname) %(objectname)' | LC_ALL=C sort)
-git -C "$source" remote add github git@github.com:test/aigw-cli.git
 
 (
   cd "$source"
