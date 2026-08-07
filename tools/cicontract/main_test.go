@@ -52,17 +52,19 @@ func TestRunUsesCurrentDirectoryByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := os.Chdir(previous); err != nil {
-			t.Errorf("restore working directory: %v", err)
-		}
-	})
 	root := repository(t, map[string]string{
 		".gitlab-ci.yml": "${AIGW_GOPROXY:-https://goproxy.cn|https://proxy.golang.org|direct}",
 	})
 	if err := os.Chdir(root); err != nil {
 		t.Fatal(err)
 	}
+	// Register restoration after TempDir's cleanup so Windows can remove the
+	// fixture directory without the process still holding it as cwd.
+	t.Cleanup(func() {
+		if err := os.Chdir(previous); err != nil {
+			t.Errorf("restore working directory: %v", err)
+		}
+	})
 	if err := run([]string{"proxy-policy"}); err != nil {
 		t.Fatalf("default root failed: %v", err)
 	}
