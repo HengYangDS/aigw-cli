@@ -95,7 +95,7 @@ git -C "$source" checkout -q main
 # Bootstrap an existing GitHub provider history through the same raw-object
 # replay owner used by production. Tests must not maintain a second history
 # rewriting algorithm or weaken the complete-history trust boundary.
-python3 "$root/scripts/forge/lib/replay-history.py" \
+go run "$root/tools/historyreplay" \
   --source "$source" \
   --revision main \
   --output "$projection" \

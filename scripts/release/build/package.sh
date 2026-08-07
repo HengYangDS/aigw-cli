@@ -21,12 +21,7 @@ esac
 
 export GOTOOLCHAIN="$go_toolchain"
 
-release_source_exports=$(python3 "$root/scripts/release/lib/resolve-release-forge-sources.py" \
-  --environment --shell)
-# The resolver emits only validated shell-quoted values from explicit release
-# execution inputs. This avoids baking an adopter or Forge into product source.
-# shellcheck disable=SC2086
-eval "$release_source_exports"
+go run "$root/tools/releasekit" validate-release-sources
 gitlab_origin=$AIGW_GITLAB_RELEASE_ORIGIN
 gitlab_repository=$AIGW_GITLAB_RELEASE_REPOSITORY
 github_origin=$AIGW_GITHUB_RELEASE_ORIGIN
@@ -69,7 +64,6 @@ case "$package_homepage" in
 esac
 
 "$root/scripts/checks/release/check-package-safety.sh"
-python3 "$root/scripts/checks/governance/check-text-layout.py"
 "$root/scripts/checks/release/check-release-toolchain.sh"
 
 case "$version" in
@@ -78,13 +72,7 @@ esac
 case "$source_date_epoch" in
   ''|*[!0-9]*) echo "SOURCE_DATE_EPOCH must be a non-negative Unix epoch" >&2; exit 2 ;;
 esac
-source_date_touch=$(python3 - "$source_date_epoch" <<'PYTHON'
-import datetime as dt
-import sys
-
-print(dt.datetime.fromtimestamp(int(sys.argv[1]), tz=dt.timezone.utc).strftime("%Y%m%d%H%M.%S"))
-PYTHON
-)
+source_date_touch=$(cd "$root" && go run -buildvcs=false ./tools/releasekit touch-timestamp "$source_date_epoch")
 
 rm -rf "$out"
 mkdir -p "$out"
@@ -203,51 +191,9 @@ write_msi_metadata_table() {
   environment_table="$build_root/msi-environment-$arch.idt"
   summary_table="$build_root/msi-summary-$arch.idt"
   msiinfo export "$artifact" _SummaryInformation > "$summary_table"
-  python3 - "$environment_table" "$summary_table" "$environment_guid" "$package_guid" "$source_date_epoch" <<'PYTHON'
-import datetime as dt
-import sys
-from pathlib import Path
-
-environment_path = Path(sys.argv[1])
-summary_path = Path(sys.argv[2])
-environment_guid = sys.argv[3]
-package_guid = sys.argv[4]
-epoch = int(sys.argv[5])
-
-def read_idt(path):
-    return path.read_text(encoding="utf-8").splitlines()
-
-def write_idt(path, lines):
-    path.write_bytes(("\r\n".join(lines) + "\r\n").encode("utf-8"))
-
-write_idt(
-    environment_path,
-    [
-        "Environment\tName\tValue\tComponent_",
-        "s72\tl64\tL255\ts72",
-        "Environment\tEnvironment",
-        f"{environment_guid}\t=PATH\t[~];[INSTALLBINFOLDER]\tAigwPath",
-    ],
-)
-
-summary = read_idt(summary_path)
-timestamp = dt.datetime.fromtimestamp(epoch, tz=dt.timezone.utc).strftime("%Y/%m/%d %H:%M:%S")
-seen = set()
-for index, line in enumerate(summary[3:], start=3):
-    fields = line.split("\t")
-    if len(fields) != 2:
-        continue
-    if fields[0] == "9":
-        fields[1] = package_guid
-        seen.add("9")
-    elif fields[0] in {"12", "13"}:
-        fields[1] = timestamp
-        seen.add(fields[0])
-    summary[index] = "\t".join(fields)
-if seen != {"9", "12", "13"}:
-    raise SystemExit("MSI summary information is missing deterministic fields")
-write_idt(summary_path, summary)
-PYTHON
+  (cd "$root" && go run -buildvcs=false ./tools/releasekit msi-metadata \
+    -environment "$environment_table" -summary "$summary_table" \
+    -environment-guid "$environment_guid" -package-guid "$package_guid" -epoch "$source_date_epoch")
   msibuild "$artifact" -i "$environment_table"
   msibuild "$artifact" -i "$summary_table"
 }

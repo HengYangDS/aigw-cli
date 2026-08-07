@@ -124,28 +124,8 @@ if [ -n "$out" ]; then
       fi
       ;;
     GET:*:2??)
-      python3 - "$out" "$response_mode" <<'PY'
-import json
-import sys
-
-out, mode = sys.argv[1:]
-payload = json.load(open("release.json", encoding="utf-8"))
-links = [{"url": item["url"]} for item in payload["assets"]["links"]]
-tag = payload["tag_name"]
-if mode == "missing-asset":
-    links = links[:-1]
-elif mode == "extra-asset":
-    links.append({"url": links[0]["url"].rsplit("/", 1)[0] + "/unexpected.bin"})
-elif mode == "duplicate-asset":
-    links[-1] = {"url": links[0]["url"]}
-elif mode == "wrong-tag":
-    tag = "v9.9.9"
-json.dump(
-    {"tag_name": tag, "assets": {"links": links}},
-    open(out, "w", encoding="utf-8"),
-    separators=(",", ":"),
-)
-PY
+      (cd "$AIGW_TEST_ROOT" && go run -buildvcs=false ./tools/releasekit \
+        project-gitlab-response "$AIGW_TEST_WORK/release.json" "$response_mode" "$out")
       ;;
     *) printf '{"status":%s}\n' "$status" > "$out" ;;
   esac
@@ -179,6 +159,8 @@ run_case() {
       AIGW_TEST_MISSING_ASSET="$missing_asset" \
       AIGW_TEST_REDIRECT_ASSET="$redirect_asset" \
       AIGW_TEST_REDIRECT_URL="https://objects.example.test/$redirect_asset" \
+      AIGW_TEST_ROOT="$root" \
+      AIGW_TEST_WORK="$work" \
       CI_API_V4_URL=https://gitlab.example/api/v4 \
       CI_PROJECT_ID=456 \
       CI_COMMIT_TAG="v$version" \
@@ -187,13 +169,8 @@ run_case() {
     publish_status=$?
     set -e
     [ "$publish_status" -eq 0 ] || exit "$publish_status"
-    python3 - <<'PY'
-import json
-
-payload = json.load(open("release.json", encoding="utf-8"))
-assert payload["tag_name"] == "v0.1.0-test"
-assert len(payload["assets"]["links"]) == 15
-PY
+    (cd "$root" && go run -buildvcs=false ./tools/releasekit \
+      validate-gitlab-release "$work/release.json" "v$version")
   )
 }
 

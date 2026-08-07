@@ -480,3 +480,19 @@ func validateReleaseSource(source ReleaseSource) error {
 	}
 	return nil
 }
+
+// ValidateBuildReleaseSources validates the two independent release tuples
+// supplied by a packaging context. It never reads a repository-local Forge
+// manifest and does not require either Forge to contact the other.
+func ValidateBuildReleaseSources() error {
+	sources := []ReleaseSource{
+		{Provider: ReleaseProviderGitLab, Origin: os.Getenv("AIGW_GITLAB_RELEASE_ORIGIN"), Repository: os.Getenv("AIGW_GITLAB_RELEASE_REPOSITORY")},
+		{Provider: ReleaseProviderGitHub, Origin: os.Getenv("AIGW_GITHUB_RELEASE_ORIGIN"), Repository: os.Getenv("AIGW_GITHUB_RELEASE_REPOSITORY")},
+	}
+	for _, source := range sources {
+		if err := validateReleaseSource(source); err != nil {
+			return err
+		}
+	}
+	return nil
+}

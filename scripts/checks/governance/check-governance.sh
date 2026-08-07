@@ -16,7 +16,7 @@ for file in \
   docs/architecture/authority-and-projection-boundary.md \
   docs/governance/change-and-release-policy.md \
   docs/governance/terminal-experience-contract.md \
-  docs/decisions/0001-control-plane-data-plane-boundary.md \
+  docs/decisions/README.md \
   docs/evidence/README.md \
   docs/concepts/README.md \
   docs/guides/team-rollout.md \
@@ -34,18 +34,14 @@ for file in \
   scripts/checks/quality/check-static-analysis.sh \
   scripts/checks/governance/check-module-identity.sh \
   scripts/tests/governance/test-module-identity.sh \
-  scripts/checks/governance/check-evidence-consistency.py \
-  scripts/tests/governance/test-evidence-consistency.py \
   scripts/checks/governance/check-portability.sh \
   scripts/tests/governance/test-portability.sh \
   scripts/tests/governance/test-git-hooks.sh \
   scripts/checks/forge/check-commit-provenance.sh \
   scripts/checks/forge/check-tag-namespace.sh \
-  scripts/forge/lib/compare-ordered-trees.py \
-  scripts/forge/lib/replay-history.py \
   scripts/tests/forge/test-forge-sync.sh \
   scripts/tests/forge/test-commit-provenance.sh \
-  scripts/tests/forge/test-replay-history.py
+  tools/historyreplay/main.go
 do
   require_file "$file"
 done
@@ -62,11 +58,8 @@ for gate in \
   'sh scripts/checks/governance/check-governance.sh' \
   "AIGW_GITLAB_AUTHOR_EMAIL='<release actor email>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-commit-provenance.sh . gitlab" \
   'sh scripts/tests/forge/test-commit-provenance.sh' \
-  'PYTHONDONTWRITEBYTECODE=1 python3 scripts/tests/forge/test-replay-history.py' \
+  'go test ./tools/historyreplay' \
   "AIGW_TAG_NAMESPACE_FORGE='<local|gitlab|github>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' AIGW_GITHUB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-tag-namespace.sh" \
-  'python3 scripts/checks/governance/check-markdown-presentation.py' \
-  'python3 scripts/checks/governance/check-text-layout.py' \
-  'sh scripts/tests/governance/test-text-layout.sh' \
   'sh scripts/tests/governance/test-changelog.sh'
 do
   for document in CONTRIBUTING.md AGENTS.md README.md; do
@@ -86,9 +79,6 @@ done
 
 sh scripts/checks/governance/check-module-identity.sh
 sh scripts/tests/governance/test-module-identity.sh
-python3 scripts/tests/governance/test-evidence-consistency.py
-python3 scripts/checks/governance/check-evidence-consistency.py \
-  evidence/claims/product-convergence-20260731.toml
 sh scripts/checks/governance/check-portability.sh
 sh scripts/tests/governance/test-portability.sh
 sh scripts/tests/governance/test-git-hooks.sh
@@ -96,7 +86,6 @@ sh scripts/checks/governance/check-changelog.sh
 sh scripts/tests/forge/test-tag-namespace.sh
 sh scripts/checks/governance/check-english-text.sh
 sh scripts/checks/governance/check-product-surface.sh
-python3 scripts/checks/governance/check-text-layout.py
 
 if ! grep -Fq '# AIGW CLI' README.md; then
   echo "README.md must use the formal Project Name as its title" >&2
@@ -150,45 +139,4 @@ if ! grep -Fxq '.serena/' .gitignore; then
   exit 1
 fi
 
-# AIGW CLI is an English-only repository.  Use explicit Unicode ranges instead
-# of a grep Unicode-property dialect so this gate behaves the same on macOS and
-# Linux runners.  Test fixtures are included deliberately: they are part of the
-# maintainable project surface, not an exemption for stale product copy.
-python3 - <<'PY'
-from pathlib import Path
-import subprocess
-import sys
-
-def is_serena_metadata(name: str) -> bool:
-    return ".serena" in name.split("/")
-
-for fixture in [".serena", ".serena/project.yml", "docs/.serena/project.yml"]:
-    if not is_serena_metadata(fixture):
-        raise SystemExit(f"Serena metadata matcher missed fixture: {fixture}")
-for fixture in ["serena/project.yml", ".serenade/project.yml", "docs/serena/project.yml"]:
-    if is_serena_metadata(fixture):
-        raise SystemExit(f"Serena metadata matcher rejected safe fixture: {fixture}")
-
-tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
-serena_matches = [name for name in tracked if name and is_serena_metadata(name)]
-if serena_matches:
-    print("\n".join(serena_matches), file=sys.stderr)
-    raise SystemExit("local Serena project metadata must not be tracked")
-
-han = set(range(0x3400, 0x4DC0)) | set(range(0x4E00, 0xA000)) | set(range(0xF900, 0xFB00))
-matches = []
-for name in tracked:
-    if not name or name == "scripts/checks/governance/check-english-text.sh":
-        continue
-    path = Path(name)
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, OSError):
-        continue
-    for line_number, line in enumerate(text.splitlines(), 1):
-        if any(ord(character) in han for character in line):
-            matches.append(f"{name}:{line_number}:{line}")
-if matches:
-    print("\n".join(matches), file=sys.stderr)
-    raise SystemExit("AIGW CLI repository content must be English-only")
-PY
+go run ./tools/repositorycheck --root "$root" english-text

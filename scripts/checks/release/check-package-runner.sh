@@ -22,7 +22,6 @@ bsdtar
 msiextract
 msiinfo
 pkgutil
-python3
 "
 
 missing=0
