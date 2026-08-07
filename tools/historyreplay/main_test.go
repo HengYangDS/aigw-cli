@@ -377,31 +377,85 @@ func useGitWrapper(t *testing.T, mode string) {
 		t.Fatal(err)
 	}
 	directory := t.TempDir()
-	wrapper := filepath.Join(directory, "git")
-	quotedGit := shellQuote(realGit)
-	script := "#!/bin/sh\n"
-	script += "mode=" + shellQuote(mode) + "\n"
-	script += "command=\nfor argument do\n case \"$argument\" in rev-list|clone|for-each-ref|update-ref|cat-file|commit-tree|verify-commit|show) command=$argument; break;; esac\ndone\n"
-	script += "case \"$mode:$command\" in\n"
-	script += "rev-list:rev-list) exit 1;;\n"
-	script += "clone:clone) exit 1;;\n"
-	script += "alternates:clone) for last do :; done; " + quotedGit + " \"$@\" || exit; mkdir -p \"$last/objects/info\"; : > \"$last/objects/info/alternates\"; exit;;\n"
-	script += "for-each-ref:for-each-ref) exit 1;;\n"
-	script += "update-ref:update-ref) case \"$*\" in *' -d '*) exit 1;; esac;;\n"
-	script += "cat-file:cat-file) exit 1;;\n"
-	script += "commit-tree:commit-tree) exit 1;;\n"
-	script += "verify-commit:verify-commit) exit 1;;\n"
-	script += "show:show) exit 1;;\n"
-	script += "esac\nexec " + quotedGit + " \"$@\"\n"
-	if err := os.WriteFile(wrapper, []byte(script), 0o700); err != nil {
+	helperSource := filepath.Join(directory, "git-helper.go")
+	if err := os.WriteFile(helperSource, []byte(gitHelperSource), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	moduleFile := filepath.Join(directory, "go.mod")
+	if err := os.WriteFile(moduleFile, []byte("module git-helper\n\ngo 1.26.5\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	wrapper := filepath.Join(directory, "git")
+	if filepath.Separator == '\\' {
+		wrapper += ".exe"
+	}
+	build := exec.Command("go", "build", "-o", wrapper, helperSource)
+	build.Dir = directory
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build git helper: %v: %s", err, output)
+	}
+	t.Setenv("AIGW_TEST_GIT_MODE", mode)
+	t.Setenv("AIGW_TEST_REAL_GIT", realGit)
 	t.Setenv("PATH", directory+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
-func shellQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+const gitHelperSource = `package main
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+)
+
+func main() {
+	args := os.Args[1:]
+	command := ""
+	for _, argument := range args {
+		switch argument {
+		case "rev-list", "clone", "for-each-ref", "update-ref", "cat-file", "commit-tree", "verify-commit", "show":
+			command = argument
+		}
+	}
+	mode := os.Getenv("AIGW_TEST_GIT_MODE")
+	switch mode + ":" + command {
+	case "rev-list:rev-list", "clone:clone", "for-each-ref:for-each-ref", "cat-file:cat-file", "commit-tree:commit-tree", "verify-commit:verify-commit", "show:show":
+		os.Exit(1)
+	case "update-ref:update-ref":
+		for _, argument := range args {
+			if argument == "-d" {
+				os.Exit(1)
+			}
+		}
+	case "alternates:clone":
+		if run(args) != 0 {
+			os.Exit(1)
+		}
+		output := args[len(args)-1]
+		if err := os.MkdirAll(filepath.Join(output, "objects", "info"), 0o700); err != nil {
+			os.Exit(1)
+		}
+		if err := os.WriteFile(filepath.Join(output, "objects", "info", "alternates"), nil, 0o600); err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	os.Exit(run(args))
 }
+
+func run(args []string) int {
+	command := exec.Command(os.Getenv("AIGW_TEST_REAL_GIT"), args...)
+	command.Stdin = os.Stdin
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	if err := command.Run(); err != nil {
+		if exit, ok := err.(*exec.ExitError); ok {
+			return exit.ExitCode()
+		}
+		return 1
+	}
+	return 0
+}
+`
 
 func gitTest(t *testing.T, repository string, args ...string) {
 	t.Helper()
