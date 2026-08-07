@@ -80,17 +80,8 @@ fi
 
 # Unsafe archive members must fail before extraction.
 unsafe="$tmp/unsafe.tar.gz"
-python3 - "$unsafe" <<'PY'
-import io
-import tarfile
-import sys
-
-with tarfile.open(sys.argv[1], "w:gz") as archive:
-    info = tarfile.TarInfo("../escape")
-    data = b"unsafe\n"
-    info.size = len(data)
-    archive.addfile(info, io.BytesIO(data))
-PY
+printf 'unsafe\n' > "$tmp/escape"
+(cd "$tmp" && printf '../escape\n' | pax -w -x ustar | gzip -n > "$unsafe")
 if sh "$clone/scripts/checks/release/check-verified-candidate.sh" "$unsafe" >/dev/null 2>&1; then
   echo "candidate checker accepted an unsafe archive member" >&2
   exit 1

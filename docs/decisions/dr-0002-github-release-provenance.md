@@ -1,4 +1,4 @@
-# ADR-0002: Accept Signed GitHub Provenance on the Public Peer
+# DR-0002: Accept Signed GitHub Release Provenance
 
 - Status: accepted
 - Date: 2026-07-17
@@ -18,12 +18,17 @@ overwriting, deleting, or regenerating a provider-native release tag.
 
 ## Consequences
 
-Release acceptance requires the current remote tag to verify against the
-protected GitHub trust input and the complete GitHub artifact matrix to pass checksum
-and byte-for-byte comparison with GitLab. A manual GitHub tag mutation remains
-possible at the hosting layer and is treated as a detected provenance failure,
-not as an impossible state. No release or host-route claim may state that the
-GitHub tag is host-enforced immutable.
+GitHub release acceptance requires the current remote tag to verify against the
+protected GitHub trust input and the complete GitHub artifact matrix to pass
+its own checksums and installation tests. A GitHub release never waits for or
+downloads from GitLab. When both releases exist, a separate read-only audit may
+establish cross-Forge asset parity; that audit is evidence about two completed
+publications, not an input to either publication.
+
+A manual GitHub tag mutation remains possible at the hosting layer and is
+treated as a detected provenance failure, not as an impossible state. No
+release or host-route claim may state that the GitHub tag is host-enforced
+immutable.
 
 ## Revisit Trigger
 

@@ -4,6 +4,8 @@ go 1.26.5
 
 require github.com/pelletier/go-toml/v2 v2.4.3
 
+require go.yaml.in/yaml/v3 v3.0.5
+
 require (
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.5

@@ -32,6 +32,19 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	}
 	report := newReport(policyPath, absRoot)
 
+	if p.CheckDecisionRecords {
+		if err := checkDecisionRecords(absRoot, &report); err != nil {
+			return Report{}, err
+		}
+	}
+	if p.CheckSemanticNames {
+		if err := checkSemanticNames(absRoot, &report); err != nil {
+			return Report{}, err
+		}
+	}
+	if err := checkTextLayout(absRoot, &report); err != nil {
+		return Report{}, err
+	}
 	if err := checkScriptsRoots(absRoot, p, &report); err != nil {
 		return Report{}, err
 	}

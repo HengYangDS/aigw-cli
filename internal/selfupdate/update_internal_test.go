@@ -185,3 +185,17 @@ func TestValidateReleaseSourceAcceptsNestedGitLabNamespace(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestValidateBuildReleaseSourcesRequiresCompleteIndependentTuples(t *testing.T) {
+	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "https://gitlab.example.test")
+	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "group/project")
+	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example.test")
+	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "owner/project")
+	if err := ValidateBuildReleaseSources(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "")
+	if err := ValidateBuildReleaseSources(); err == nil || !strings.Contains(err.Error(), "github release source is incomplete") {
+		t.Fatalf("error = %v", err)
+	}
+}
