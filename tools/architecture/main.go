@@ -70,5 +70,5 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 func startsWithDotDot(rel string) bool {
-	return rel == ".." || len(rel) >= 3 && (rel[:3] == ".."+string(filepath.Separator) || rel[:3] == "../")
+	return rel == ".." || len(rel) >= 3 && (rel[:3] == "../" || rel[:3] == `..\`)
 }

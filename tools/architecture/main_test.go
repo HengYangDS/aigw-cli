@@ -503,6 +503,19 @@ func TestCollapseAndHelpers(t *testing.T) {
 	}
 }
 
+func TestStartsWithDotDotAcceptsBothPortableSeparators(t *testing.T) {
+	for _, value := range []string{"..", "../x", `..\x`} {
+		if !startsWithDotDot(value) {
+			t.Fatalf("%q was not recognized", value)
+		}
+	}
+	for _, value := range []string{".", "pkg", ".../x"} {
+		if startsWithDotDot(value) {
+			t.Fatalf("%q was recognized", value)
+		}
+	}
+}
+
 func TestReportFinalizeStable(t *testing.T) {
 	report := newReport("p.toml", "/tmp/root")
 	report.addFinding(Finding{Rule: "b", Path: "z", Message: "m2"})

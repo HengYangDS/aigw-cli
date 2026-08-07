@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"os"
 	"os/exec"
@@ -463,7 +464,7 @@ func validateReleaseSource(source ReleaseSource) error {
 	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
 		return fmt.Errorf("%s release origin must be an HTTP(S) origin without credentials, path, query, or fragment", source.Provider)
 	}
-	if parsed.Scheme != "https" && !strings.HasSuffix(parsed.Hostname(), ".test") && parsed.Hostname() != "localhost" && parsed.Hostname() != "127.0.0.1" {
+	if parsed.Scheme != "https" && !plainHTTPReleaseOriginAllowed(parsed.Hostname()) {
 		return fmt.Errorf("%s release origin must use HTTPS", source.Provider)
 	}
 	if strings.Trim(repository, "/") != repository || strings.ContainsAny(repository, "?#\r\n") {
@@ -479,6 +480,14 @@ func validateReleaseSource(source ReleaseSource) error {
 		}
 	}
 	return nil
+}
+
+func plainHTTPReleaseOriginAllowed(host string) bool {
+	if strings.HasSuffix(host, ".test") || host == "localhost" {
+		return true
+	}
+	address, err := netip.ParseAddr(host)
+	return err == nil && (address.IsLoopback() || address.IsPrivate() || address.IsLinkLocalUnicast())
 }
 
 // ValidateBuildReleaseSources validates the two independent release tuples
