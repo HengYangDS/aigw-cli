@@ -7,7 +7,8 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 
-if AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example \
+if AIGW_GITHUB_RELEASE_REPOSITORY= \
+  AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example \
   AIGW_GITLAB_RELEASE_REPOSITORY=group/aigw-cli \
   AIGW_GITHUB_RELEASE_ORIGIN=https://github.example \
   go run "$root/tools/releasekit" validate-release-sources >"$tmp/incomplete.out" 2>&1
@@ -28,7 +29,12 @@ then
 fi
 grep -F 'release origin must be an HTTP(S) origin without credentials, path, query, or fragment' "$tmp/invalid.out" >/dev/null
 
-if SOURCE_DATE_EPOCH=1784246400 \
+if AIGW_GITLAB_RELEASE_ORIGIN= \
+  AIGW_GITLAB_RELEASE_REPOSITORY= \
+  AIGW_GITHUB_RELEASE_ORIGIN= \
+  AIGW_GITHUB_RELEASE_REPOSITORY= \
+  AIGW_PACKAGE_HOMEPAGE= \
+  SOURCE_DATE_EPOCH=1784246400 \
   sh "$root/scripts/release/build/package.sh" 0.1.0-release-source-test "$tmp/missing" >"$tmp/missing.out" 2>&1
 then
   echo "package accepted missing release-source inputs" >&2
@@ -36,7 +42,8 @@ then
 fi
 grep -F 'release source is incomplete' "$tmp/missing.out" >/dev/null
 
-if SOURCE_DATE_EPOCH=1784246400 \
+if AIGW_PACKAGE_HOMEPAGE= \
+  SOURCE_DATE_EPOCH=1784246400 \
   AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example \
   AIGW_GITLAB_RELEASE_REPOSITORY=group/aigw-cli \
   AIGW_GITHUB_RELEASE_ORIGIN=https://github.example \
