@@ -1,0 +1,22 @@
+[publication]
+local_verification_command = "go run ./tools/coveragegate --race"
+local_installation_command = "sh scripts/tests/install/test-portable-install.sh"
+gitlab_remote = "origin"
+gitlab_ci_surface = ".gitlab-ci.yml"
+github_remote = "github"
+github_ci_surface = ".github/workflows/verify.yml"
+
+[protected_refs]
+branches = ["main", "dev"]
+tags = ["v*"]
+
+[host_profile]
+provider = "native-release"
+
+[host_profile.surfaces]
+verification = ".github/workflows/verify.yml"
+installation = "README.md"
+
+[attestation]
+formats = ["spdx-2.3-json"]
+signing = "ssh-signature"
