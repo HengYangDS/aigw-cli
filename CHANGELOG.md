@@ -12,6 +12,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Preserve the established cross-platform `config.toml` control-plane path so
+  upgrading does not make an existing configuration appear absent.
 - Let portable and automated installations explicitly avoid changing shell or
   user PATH configuration.
 - Validate source-bound evidence by provider-neutral tree identity in each
