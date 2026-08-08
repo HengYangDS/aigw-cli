@@ -13,10 +13,10 @@ func TestConfigPathUsesPlatformConvention(t *testing.T) {
 		env  map[string]string
 		want string
 	}{
-		{"darwin", map[string]string{"HOME": "/Users/alex"}, "/Users/alex/Library/Application Support/aigw/configuration.toml"},
-		{"linux", map[string]string{"HOME": "/home/alex"}, "/home/alex/.config/aigw/configuration.toml"},
-		{"linux", map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg"}, "/cfg/aigw/configuration.toml"},
-		{"windows", map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`}, `C:\Users\alex\AppData\Roaming\aigw\configuration.toml`},
+		{"darwin", map[string]string{"HOME": "/Users/alex"}, "/Users/alex/Library/Application Support/aigw/config.toml"},
+		{"linux", map[string]string{"HOME": "/home/alex"}, "/home/alex/.config/aigw/config.toml"},
+		{"linux", map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg"}, "/cfg/aigw/config.toml"},
+		{"windows", map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`}, `C:\Users\alex\AppData\Roaming\aigw\config.toml`},
 	}
 	for _, tt := range tests {
 		got, err := platform.ConfigPathFor(tt.goos, tt.env)
@@ -170,7 +170,7 @@ func TestExecutableDirectoryUsesTargetPathConvention(t *testing.T) {
 
 func TestWindowsJoinPreservesLeadingSeparator(t *testing.T) {
 	got, err := platform.ConfigPathFor("windows", map[string]string{"APPDATA": `\`})
-	want := `\aigw\configuration.toml`
+	want := `\aigw\config.toml`
 	if err != nil || got != want {
 		t.Fatalf("ConfigPathFor(windows) with root APPDATA = %q, %v; want %q", got, err, want)
 	}

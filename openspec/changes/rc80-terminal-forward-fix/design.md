@@ -16,6 +16,9 @@
 6. Use one Decision Record register and the
    `dr-<sequence>-<description>.md` grammar for durable rationale; OpenSpec
    remains the only change authority.
+7. Keep `config.toml` as the sole cross-platform control-plane file name. A
+   cosmetic internal rename cannot create a second path, compatibility reader,
+   or migration burden at a user data boundary.
 
 ## Verification
 

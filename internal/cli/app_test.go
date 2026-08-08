@@ -96,6 +96,9 @@ func TestNewDefaultBuildsAFunctioningApp(t *testing.T) {
 	if app.Config.Path() == "" {
 		t.Fatal("NewDefault() did not wire a config path")
 	}
+	if filepath.Base(app.Config.Path()) != "config.toml" {
+		t.Fatalf("NewDefault() config path = %q, want the stable config.toml contract", app.Config.Path())
+	}
 	if app.Secrets == nil || app.Accounts == nil || app.Runner == nil || app.HTTP == nil || app.Prompt == nil || app.Discovery == nil || app.Updater == nil {
 		t.Fatalf("NewDefault() left a required dependency nil: %#v", app)
 	}

@@ -16,7 +16,7 @@ func ConfigPathFor(goos string, env map[string]string) (string, error) {
 		if home == "" {
 			return "", fmt.Errorf("HOME is not set")
 		}
-		return filepath.Join(home, "Library", "Application Support", "aigw", "configuration.toml"), nil
+		return filepath.Join(home, "Library", "Application Support", "aigw", "config.toml"), nil
 	case "linux":
 		base := env["XDG_CONFIG_HOME"]
 		if base == "" {
@@ -25,13 +25,13 @@ func ConfigPathFor(goos string, env map[string]string) (string, error) {
 			}
 			base = filepath.Join(env["HOME"], ".config")
 		}
-		return filepath.Join(base, "aigw", "configuration.toml"), nil
+		return filepath.Join(base, "aigw", "config.toml"), nil
 	case "windows":
 		base := env["APPDATA"]
 		if base == "" {
 			return "", fmt.Errorf("APPDATA is not set")
 		}
-		return windowsJoin(base, "aigw", "configuration.toml"), nil
+		return windowsJoin(base, "aigw", "config.toml"), nil
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}

@@ -14,3 +14,4 @@
 - [x] Remove the remaining Python governance and release parallel owners.
 - [x] 13.1 Execute complete local proof and hosted Linux, Windows, and macOS CI.
 - [x] Freeze a proven rc.80 source ready for independent landing and dual-Forge publication.
+- [x] Restore the stable `config.toml` path before publication and prove existing configuration remains visible.
