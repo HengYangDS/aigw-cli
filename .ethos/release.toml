@@ -1,6 +1,10 @@
 [publication]
+local_verification_command = "tools/ci/scripts/run-local-ci.sh"
+local_installation_command = "scripts/install/install.sh --no-path"
 gitlab_remote = "origin"
+gitlab_ci_surface = ".gitlab-ci.yml"
 github_remote = "github"
+github_ci_surface = ".github/workflows/verify.yml"
 
 [protected_refs]
 branches = ["main", "dev"]
