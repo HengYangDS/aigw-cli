@@ -5,4 +5,4 @@
 ## 2. Verify and Close
 
 - [x] 2.1 Run the architecture gate and exact full proof.
-- [ ] 2.2 Archive the completed change.
+- [x] 2.2 Archive the completed change.
