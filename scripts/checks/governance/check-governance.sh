@@ -130,6 +130,17 @@ if ! grep -Fq 'scripts/checks/governance/check-governance.sh' .github/workflows/
   echo "GitHub Actions must execute the governance check" >&2
   exit 1
 fi
+for declaration in \
+  'local_verification_command = "tools/ci/scripts/run-local-ci.sh"' \
+  'local_installation_command = "scripts/install/install.sh --no-path"' \
+  'gitlab_ci_surface = ".gitlab-ci.yml"' \
+  'github_ci_surface = ".github/workflows/verify.yml"'
+do
+  if ! grep -Fxq "$declaration" .ethos/release.toml; then
+    echo "release topology must declare repository-native surface: $declaration" >&2
+    exit 1
+  fi
+done
 if test -e docs/history || test -e docs/superpowers || test -e docs/design || test -e docs/reviews || test -e docs/specs; then
   echo "retired documentary paths must not remain in the canonical tree" >&2
   exit 1
