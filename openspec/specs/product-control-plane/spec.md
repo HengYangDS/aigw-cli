@@ -358,4 +358,3 @@ path, or an undocumented environment variable.
 - **WHEN** native Linux, Windows, or macOS verification runs
 - **THEN** repository-controlled fixtures exercise equivalent product meaning
 - **AND** every package and the aggregate remain strictly above 95% coverage.
-
