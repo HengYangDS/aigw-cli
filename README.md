@@ -211,20 +211,9 @@ checksums are not installation evidence.
 ## Verify a source checkout
 
 ```bash
-go run ./tools/architecture --root .
-go run ./tools/coveragegate --race
-go vet ./...
-go tool staticcheck -checks=all,-ST1000,-ST1005 ./...
-go tool errcheck ./...
-go test ./tools/architecture
-go run ./tools/repositorycheck --root . go-format
-go run ./tools/repositorycheck --root . governance
+go run ./tools/ci source
 go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
-go test ./tools/forge
 go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
-go run ./tools/repositorycheck --root . product-surface
-go run ./tools/repositorycheck --root . credentials
-go test ./tools/repositorycheck
 ```
 
 ## Documentation

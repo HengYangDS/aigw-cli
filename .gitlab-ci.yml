@@ -27,7 +27,7 @@ verify:
   stage: verify
   script:
     - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
-    - mise exec --locked -- go run ./tools/civerify source
+    - mise exec --locked -- go run ./tools/ci source
 
 package:
   stage: package
@@ -37,7 +37,7 @@ package:
       optional: true
   tags: [$AIGW_GITLAB_RUNNER_TAG]
   script:
-    - mise exec --locked -- go run ./tools/releasekit build-ci build/release dist
+    - mise exec --locked -- go run ./tools/release build-ci build/release dist
   artifacts:
     expire_in: 30 days
     paths: [dist/]
@@ -48,7 +48,7 @@ release-readiness:
     - if: '$CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\./'
     - when: never
   script:
-    - mise exec --locked -- go run ./tools/releasekit validate-readiness-tag
+    - mise exec --locked -- go run ./tools/release validate-readiness-tag
 
 publish:
   stage: publish
@@ -58,7 +58,7 @@ publish:
   rules:
     - if: $CI_COMMIT_TAG
   script:
-    - mise exec --locked -- go run ./tools/releasekit upload-gitlab dist
+    - mise exec --locked -- go run ./tools/release upload-gitlab dist
 
 release:
   stage: release
@@ -69,4 +69,4 @@ release:
   rules:
     - if: $CI_COMMIT_TAG
   script:
-    - mise exec --locked -- go run ./tools/releasekit publish-gitlab dist
+    - mise exec --locked -- go run ./tools/release publish-gitlab dist

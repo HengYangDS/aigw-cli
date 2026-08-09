@@ -7,7 +7,7 @@ an old log, branch name, runner incident, tag, or signing identity for proof.
 
 | Claim | Required current evidence | Insufficient evidence |
 | --- | --- | --- |
-| Source is releasable | Clean target revision; every production package and the aggregate strictly above 95 percent statement coverage with race detection; static analysis; provider commit verification | An old log, reduced denominator, aggregate-only coverage, or an unsupported branch claim |
+| Source is releasable | Clean target revision; every production package and the aggregate strictly above 95 percent statement coverage with race detection; static analysis; provider commit verification | An old log, reduced denominator, or aggregate-only coverage |
 | Artifact matrix is complete | Two builds from one version, epoch, Go toolchain, and explicit Forge coordinates; byte-identical six platform archives, SPDX SBOM, and checksum manifest | A partial set, implicit deployment tuple, or semantically similar bytes |
 | Installation works | Native macOS, Linux, and Windows execution of `aigw install`, update, rollback, and uninstall against the candidate archive | Cross-compilation or archive inspection alone |
 | Windows runtime works | Blocking managed Windows build, install, execution, upgrade, rollback, and uninstall evidence | Non-Windows PowerShell syntax or an allowed failure |
@@ -29,7 +29,7 @@ published assets.
 2. Derive the release epoch from that revision's Changelog heading.
 3. Run all source, coverage, static-analysis, provenance, and native-platform
    gates.
-4. Build the eight-asset matrix twice with `releasekit`; require identical names
+4. Build the eight-asset matrix twice with `release`; require identical names
    and bytes.
 5. Validate checksums, SBOM portability, archive layout, and native lifecycle
    evidence.

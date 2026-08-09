@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -55,6 +56,9 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	if err := checkTextLayout(absRoot, &report); err != nil {
 		return Report{}, err
 	}
+	if err := checkPackageChildren(absRoot, p, &report); err != nil {
+		return Report{}, err
+	}
 	goFiles, dirStats, err := collectGoFiles(absRoot, p)
 	if err != nil {
 		return Report{}, err
@@ -64,6 +68,9 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	if err := checkPeerPackageImports(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}
+	if err := checkImportEdges(absRoot, goFiles, p, &report); err != nil {
+		return Report{}, err
+	}
 	checkFlatDirectories(dirStats, p, &report)
 	checkSourceBudgets(goFiles, dirStats, p, &report)
 	checkSuffixFlat(goFiles, p, &report)
@@ -71,6 +78,96 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 		return Report{}, err
 	}
 	return report, nil
+}
+
+func checkPackageChildren(root string, p policy, report *Report) error {
+	for packageRoot, allowedChildren := range p.PackageChildren {
+		packageRootPath := filepath.Join(root, filepath.FromSlash(packageRoot))
+		info, err := os.Stat(packageRootPath)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("stat package root %s: %w", packageRoot, err)
+		}
+		if !info.IsDir() {
+			continue
+		}
+		entries, err := os.ReadDir(packageRootPath)
+		if err != nil {
+			return fmt.Errorf("read package root %s: %w", packageRoot, err)
+		}
+		allowed := make(map[string]bool, len(allowedChildren))
+		for _, child := range allowedChildren {
+			allowed[child] = true
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+				continue
+			}
+			if !allowed[entry.Name()] {
+				report.addFinding(Finding{
+					Rule:    "package_child",
+					Path:    path.Join(packageRoot, entry.Name()),
+					Name:    entry.Name(),
+					Message: fmt.Sprintf("package root %q admits only its declared semantic owners", packageRoot),
+				})
+				continue
+			}
+		}
+	}
+	return nil
+}
+
+func checkImportEdges(root string, files []goFileInfo, p policy, report *Report) error {
+	if len(p.AllowedImportEdges) == 0 {
+		return nil
+	}
+	fset := token.NewFileSet()
+	for _, file := range files {
+		if file.isTest {
+			continue
+		}
+		allowedTargets, managed := p.AllowedImportEdges[file.dir]
+		if !managed {
+			continue
+		}
+		allowed := make(map[string]bool, len(allowedTargets))
+		for _, target := range allowedTargets {
+			allowed[target] = true
+		}
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file.relPath)))
+		if err != nil {
+			return fmt.Errorf("read %s: %w", file.relPath, err)
+		}
+		parsed, err := parser.ParseFile(fset, file.relPath, data, parser.ImportsOnly)
+		if err != nil {
+			continue
+		}
+		for _, imported := range parsed.Imports {
+			importPath, err := strconv.Unquote(imported.Path.Value)
+			if err != nil {
+				continue
+			}
+			const modulePrefix = "aigw-cli/"
+			if !strings.HasPrefix(importPath, modulePrefix) {
+				continue
+			}
+			target := strings.TrimPrefix(importPath, modulePrefix)
+			if target == file.dir || allowed[target] {
+				continue
+			}
+			pos := fset.Position(imported.Pos())
+			report.addFinding(Finding{
+				Rule:    "import_edge",
+				Path:    file.relPath,
+				Line:    pos.Line,
+				Package: target,
+				Message: fmt.Sprintf("package %q may not import %q; declare the dependency or move shared behavior to a neutral owner", file.dir, target),
+			})
+		}
+	}
+	return nil
 }
 
 func checkPeerPackageImports(root string, files []goFileInfo, p policy, report *Report) error {

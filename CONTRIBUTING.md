@@ -40,20 +40,9 @@ the ordinary branch-closeout requirements below. Agent-list visibility alone
 is not liveness or retirement proof.
 
 ```bash
-go run ./tools/architecture --root .
-go run ./tools/coveragegate --race
-go vet ./...
-go tool staticcheck -checks=all,-ST1000,-ST1005 ./...
-go tool errcheck ./...
-go test ./tools/architecture
-go run ./tools/repositorycheck --root . go-format
-go run ./tools/repositorycheck --root . governance
+go run ./tools/ci source
 go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
-go test ./tools/forge
 go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
-go run ./tools/repositorycheck --root . product-surface
-go run ./tools/repositorycheck --root . credentials
-go test ./tools/repositorycheck
 ```
 
 ## Projection changes
@@ -69,7 +58,7 @@ fails.
 Use focused Conventional Commits. Keep `CHANGELOG.md` with `## [Unreleased]` as
 its first release section, containing only changes after the latest tagged
 release. Every published heading must map to an existing `v<semver>` tag and
-its tag date; run `go run ./tools/repositorycheck --root . changelog` before requesting review.
+its tag date; run `go run ./tools/repository --root . changelog` before requesting review.
 GitLab **Project Name** is `AIGW CLI`; stable clone **Path** is `aigw-cli`. Do
 not change external paths as a display-name cleanup.
 

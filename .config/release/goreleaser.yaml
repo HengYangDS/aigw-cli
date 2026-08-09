@@ -23,10 +23,10 @@ builds:
       - >-
         -s -w
         -X aigw-cli/internal/cli.Version={{ .Version }}
-        -X aigw-cli/internal/selfupdate.BuildGitLabReleaseOrigin={{ .Env.AIGW_GITLAB_RELEASE_ORIGIN }}
-        -X aigw-cli/internal/selfupdate.BuildGitLabReleaseRepository={{ .Env.AIGW_GITLAB_RELEASE_REPOSITORY }}
-        -X aigw-cli/internal/selfupdate.BuildGitHubReleaseOrigin={{ .Env.AIGW_GITHUB_RELEASE_ORIGIN }}
-        -X aigw-cli/internal/selfupdate.BuildGitHubReleaseRepository={{ .Env.AIGW_GITHUB_RELEASE_REPOSITORY }}
+        -X aigw-cli/internal/upgrade.BuildGitLabReleaseOrigin={{ .Env.AIGW_GITLAB_RELEASE_ORIGIN }}
+        -X aigw-cli/internal/upgrade.BuildGitLabReleaseRepository={{ .Env.AIGW_GITLAB_RELEASE_REPOSITORY }}
+        -X aigw-cli/internal/upgrade.BuildGitHubReleaseOrigin={{ .Env.AIGW_GITHUB_RELEASE_ORIGIN }}
+        -X aigw-cli/internal/upgrade.BuildGitHubReleaseRepository={{ .Env.AIGW_GITHUB_RELEASE_REPOSITORY }}
 
 archives:
   - ids: [portable]

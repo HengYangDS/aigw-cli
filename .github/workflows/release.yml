@@ -39,7 +39,7 @@ jobs:
           install: true
           cache: false
       - name: Run native macOS release acceptance
-        run: mise exec --locked -- go run ./tools/civerify native --platform darwin
+        run: mise exec --locked -- go run ./tools/ci native --platform darwin
 
   native-linux:
     name: Native Linux release acceptance
@@ -59,9 +59,9 @@ jobs:
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
-        run: mise exec --locked -- go run ./tools/civerify trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"
+        run: mise exec --locked -- go run ./tools/ci trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"
       - name: Run native Linux release acceptance
-        run: mise exec --locked -- go run ./tools/civerify native --platform linux
+        run: mise exec --locked -- go run ./tools/ci native --platform linux
 
   native-windows:
     name: Native Windows release acceptance
@@ -79,7 +79,7 @@ jobs:
           install: true
           cache: false
       - name: Run native Windows release acceptance
-        run: mise exec --locked -- go run ./tools/civerify native --platform windows
+        run: mise exec --locked -- go run ./tools/ci native --platform windows
 
   package-and-publish:
     name: Independently package and publish
@@ -102,7 +102,7 @@ jobs:
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
-        run: mise exec --locked -- go run ./tools/civerify trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"
+        run: mise exec --locked -- go run ./tools/ci trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"
       - name: Verify the signed tag and source gates
         env:
           SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
@@ -110,15 +110,15 @@ jobs:
           AIGW_FORGE_PROVIDER: github
           AIGW_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
           AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_GITHUB_ALLOWED_SIGNERS }}
-        run: mise exec --locked -- go run ./tools/civerify source
+        run: mise exec --locked -- go run ./tools/ci source
       - name: Build the complete release matrix
         env:
           SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
           AIGW_GITHUB_RELEASE_ORIGIN: ${{ github.server_url }}
           AIGW_GITHUB_RELEASE_REPOSITORY: ${{ github.repository }}
-        run: mise exec --locked -- go run ./tools/releasekit build-ci build/release dist
+        run: mise exec --locked -- go run ./tools/release build-ci build/release dist
       - name: Publish or verify immutable GitHub release assets
         env:
           GH_TOKEN: ${{ github.token }}
           CI_COMMIT_TAG: ${{ inputs.tag || github.ref_name }}
-        run: mise exec --locked -- go run ./tools/releasekit publish-github dist
+        run: mise exec --locked -- go run ./tools/release publish-github dist

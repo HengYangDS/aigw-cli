@@ -6,6 +6,21 @@ source = "repository architecture layout"
 # Managed Go trees subject to flat-directory, suffix-flat, naming, and AST rules.
 go_roots = ["cmd", "internal", "tools"]
 
+# Direct semantic owners form a closed, positive topology. Adding a new domain
+# is an architecture change; provider implementations remain extensible below
+# the declared providers owner.
+package_children = {
+  "cmd" = ["aigw"],
+  "internal" = [
+    "account", "claude", "cli", "codex", "configuration", "console",
+    "credential", "diagnostics", "discovery", "platform", "presentation",
+    "process", "prompt", "providers", "redaction", "renaming", "secrets",
+    "surface", "synchronization", "transaction", "upgrade", "verification",
+    "winjob",
+  ],
+  "tools" = ["architecture", "ci", "coverage", "forge", "release", "repository"],
+}
+
 # Composition roots may contain only their declared production files. Command
 # behavior belongs to semantic subpackages, never beside the root assembler.
 composition_root_files = { "internal/cli" = ["app.go"] }
@@ -14,6 +29,17 @@ composition_root_files = { "internal/cli" = ["app.go"] }
 # contract, but never on another command leaf; shared behavior belongs to a
 # domain package outside internal/cli.
 peer_package_roots = { "internal/cli" = ["invocation"] }
+
+# Repository tools are independent composition roots. They may use the standard
+# library and declared third-party libraries, but never product runtime packages.
+allowed_import_edges = {
+  "tools/architecture" = [],
+  "tools/ci" = [],
+  "tools/coverage" = [],
+  "tools/forge" = [],
+  "tools/release" = [],
+  "tools/repository" = [],
+}
 
 # Production .go files per directory (test files reported separately).
 flat_directory_limit = 8
