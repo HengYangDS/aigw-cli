@@ -1,0 +1,32 @@
+schema_version = 1
+id = "change:terminal-candidate-integration"
+intent = "Bind the accumulated proven and archived work-lane tree to one exact candidate integration authority without changing product behavior."
+subjects = [
+    "repository:self",
+]
+scope = [
+    "openspec/changes/terminal-candidate-integration/**",
+    ".config/**",
+    ".ethos/**",
+    ".github/**",
+    ".gitlab-ci.yml",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "docs/**",
+    "go.mod",
+    "go.sum",
+    "internal/**",
+    "openspec/**",
+    "tools/**",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+permissions = [
+    "repository.read",
+    "work-lane.write",
+]
+hypotheses = []
+dependencies = []
