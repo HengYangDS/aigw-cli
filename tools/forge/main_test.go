@@ -254,7 +254,7 @@ func TestReplayCleansPartialOutputAfterMalformedCommit(t *testing.T) {
 
 func TestReplayReportsGitBoundaryFailures(t *testing.T) {
 	for _, mode := range []string{
-		"rev-list", "clone", "alternates", "for-each-ref", "update-ref", "cat-file", "commit-tree", "verify-commit", "show",
+		"rev-list", "clone", "alternates", "for-each-ref", "update-ref", "symbolic-ref", "cat-file", "commit-tree", "verify-commit", "show",
 	} {
 		t.Run(mode, func(t *testing.T) {
 			option := signedReplayFixture(t)
@@ -426,13 +426,13 @@ func main() {
 	command := ""
 	for _, argument := range args {
 		switch argument {
-		case "rev-parse", "rev-list", "clone", "for-each-ref", "update-ref", "cat-file", "commit-tree", "verify-commit", "verify-tag", "show", "log", "status", "config", "remote", "ls-remote", "fetch", "merge-base", "push":
+		case "rev-parse", "rev-list", "clone", "for-each-ref", "update-ref", "symbolic-ref", "cat-file", "commit-tree", "verify-commit", "verify-tag", "show", "log", "status", "config", "remote", "ls-remote", "fetch", "merge-base", "push":
 			command = argument
 		}
 	}
 	mode := os.Getenv("AIGW_TEST_GIT_MODE")
 	switch mode + ":" + command {
-	case "rev-parse:rev-parse", "rev-list:rev-list", "clone:clone", "for-each-ref:for-each-ref", "cat-file:cat-file", "commit-tree:commit-tree", "verify-commit:verify-commit", "verify-tag:verify-tag", "show:show", "log:log", "status:status", "config:config", "remote:remote", "ls-remote:ls-remote", "fetch:fetch", "merge-base:merge-base", "push:push":
+	case "rev-parse:rev-parse", "rev-list:rev-list", "clone:clone", "for-each-ref:for-each-ref", "symbolic-ref:symbolic-ref", "cat-file:cat-file", "commit-tree:commit-tree", "verify-commit:verify-commit", "verify-tag:verify-tag", "show:show", "log:log", "status:status", "config:config", "remote:remote", "ls-remote:ls-remote", "fetch:fetch", "merge-base:merge-base", "push:push":
 		os.Exit(1)
 	case "rev-parse-symbolic:rev-parse":
 		for _, argument := range args {
