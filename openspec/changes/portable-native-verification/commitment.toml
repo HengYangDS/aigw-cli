@@ -1,0 +1,29 @@
+schema_version = 1
+id = "change:portable-native-verification"
+intent = "Make native source verification hermetic across macOS, Linux, and Windows without weakening platform contracts."
+subjects = [
+    "repository:self",
+]
+scope = [
+    "openspec/changes/portable-native-verification/**",
+    "internal/claude/**",
+    "internal/cli/acceptance/**",
+    "internal/cli/install/**",
+    "internal/cli/doctor/**",
+    "internal/cli/readiness/**",
+    "internal/verification/**",
+    "internal/selfupdate/**",
+    "tools/civerify/**",
+    "tools/forge/**",
+    "tools/repositorycheck/**",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+permissions = [
+    "repository.read",
+    "work-lane.write",
+]
+hypotheses = []
+dependencies = []
