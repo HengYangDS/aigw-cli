@@ -5,7 +5,7 @@
 
 ## Context
 
-AIGW is distributed as executables and native packages, not as a public Go
+AIGW is distributed as executable archives, not as a public Go
 library. A remote, personal, private-network, or local-filesystem module path
 would falsely make deployment topology part of the product API.
 

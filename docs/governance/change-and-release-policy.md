@@ -42,14 +42,13 @@ depend on whether a particular Forge still retains an old tag. GitLab and
 GitHub sign separate provenance tags, so tag-object timestamps are not a
 cross-forge Changelog invariant. Planned versions, branch names, and inferred
 GA milestones do not belong in the release chronicle.
-`scripts/checks/governance/check-changelog.sh` enforces this invariant in CI.
+`go run ./tools/repositorycheck --root . changelog` enforces this invariant in CI.
 
-A version joins the shared product chronology only after GitLab and GitHub have
-each created their own signed provenance tag, completed their CI, and published
-their release record. If either forge is unavailable, retain a bounded pending
-publication record outside the release chronicle and complete that forge before
-calling the version released. A one-sided published-version inventory is not an
-accepted steady state.
+A version joins the product chronology when one Forge has created its signed
+provenance tag, completed its CI, and published its complete release record. A
+second Forge may publish the same version independently; only then may the
+project claim dual publication and asset parity. One-sided availability remains
+a valid release state, not evidence about the unavailable Forge.
 
 A release tag records a source version; it is not by itself proof of artifact
 publication, native-platform acceptance, signing, notarization, or GA. Those
@@ -121,22 +120,21 @@ before it writes `checksums.txt`.
 
 The formal package entrypoint derives the exact Go patch version from `go.mod`,
 checks the selected compiler before it writes an artifact, and rejects a
-conflicting caller-supplied toolchain. Protected release context owns both
-official update-peer tuples; `.config/release/forge-sources.env` is a
-fictitious shape fixture only. The resolver validates each complete tuple
-before packaging. Thus product source remains independent of the Forge that
-publishes it, while a direct development `go build` has no implicit release
-source.
+conflicting caller-supplied toolchain. Each protected release context owns only its own update-source tuple; a local
+build owns none. `.config/release/forge-sources.env` is a fictitious shape
+fixture only. The resolver validates every configured tuple before packaging.
+Thus product source remains independent of the publishing Forge, while a direct
+development `go build` has no implicit release source.
 
 Before publication, the complete 15-artifact matrix is built twice on the
 protected release runner with the same version, epoch, toolchain, and explicit
 Forge coordinates. The sorted filenames, every artifact byte, the checksum manifest,
-and the SPDX SBOM must match. GitLab and GitHub use that same controlled runner
-class, while retaining independent CI/CD, commit, tag, and publication planes.
-A native packager that cannot satisfy this contract blocks the tag; no
-provider-specific exception is permitted. Both published release matrices are
-then downloaded and compared byte-for-byte before either is offered as an
-equal update peer.
+and the SPDX SBOM must match. Each Forge repeats the same source-neutral build contract in its own protected
+context while retaining independent CI/CD, commit, tag, and publication planes.
+A native packager that cannot satisfy this contract blocks that Forge's tag; no
+provider-specific exception is permitted. When both releases exist, a separate
+read-only audit downloads and compares their matrices byte-for-byte before they
+are presented as equal update peers.
 
 ## Forge synchronization
 
@@ -177,7 +175,7 @@ Architecture policy paths use one repository-relative grammar on every runner.
 POSIX roots, Windows drive, UNC or device roots, backslashes, empty segments,
 dot segments, and parent traversal are rejected independently of the host OS.
 
-Run `sh scripts/forge/lib/project-github-forge.sh` from a clean canonical checkout
+Run `go run ./tools/forge project` with explicit protected identity and trust inputs from a clean canonical checkout
 to project a selected branch into the GitHub identity domain. It verifies every
 reachable canonical and GitHub commit, verifies every
 GitHub release tag whose source tree is present on the selected canonical
@@ -194,7 +192,7 @@ applies to AIGW.
 A steady-state synchronization claim requires current, explicitly refreshed
 peer refs. The local canonical branch and GitLab peer must have identical commit
 IDs; the GitHub projection must preserve the canonical branch's complete
-ordered source-tree history. `scripts/checks/forge/check-forge-sync.sh` enforces those
+ordered source-tree history. `go run ./tools/forge sync` enforces those
 offline ref invariants without fetching or writing. It does not replace
 provider-specific tag verification, release-record comparison, or independent
 SHA-256 verification of every shared release asset. Matching manifests without

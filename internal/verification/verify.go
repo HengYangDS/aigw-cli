@@ -22,11 +22,6 @@ type HTTPDoer interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-// ClaudeLauncher reports whether the AIGW-managed Claude launcher is ready.
-type ClaudeLauncher interface {
-	ClaudeLauncherReady() (bool, error)
-}
-
 // Runner is the ordinary process capability carried by a CLI invocation. Live
 // verification additionally requires that the concrete runner implement
 // process.CaptureRunner.
@@ -54,17 +49,17 @@ type response struct {
 
 // ValidateFullReadiness checks the local preconditions for verifying both
 // supported clients without performing a model request.
-func ValidateFullReadiness(launcher ClaudeLauncher, cfg configuration.Config) error {
+func ValidateFullReadiness(cfg configuration.Config) error {
 	claudeAdapter := cfg.Adapters[configuration.ClientClaude]
 	if !claudeAdapter.Enabled || claudeAdapter.Executable == "" {
 		return fmt.Errorf("Full verification requires an enabled Claude adapter; run `aigw repair`")
 	}
-	ready, err := launcher.ClaudeLauncherReady()
+	ready, err := claude.Ready(claudeAdapter.Executable)
 	if err != nil {
-		return fmt.Errorf("Failed to read Claude launcher: %w", err)
+		return fmt.Errorf("Failed to inspect Claude executable: %w", err)
 	}
 	if !ready {
-		return fmt.Errorf("Full verification requires the AIGW-managed Claude launcher; run `aigw repair`")
+		return fmt.Errorf("Full verification requires an available Claude executable; run `aigw repair`")
 	}
 	codexAdapter := cfg.Adapters[configuration.ClientCodex]
 	if !codexAdapter.Enabled || codexAdapter.Executable == "" || len(codexAdapter.Targets) == 0 {
@@ -153,19 +148,19 @@ func HasResponseSentinel(data []byte) bool {
 	return false
 }
 
-// VerifyClaudeInvocation checks launcher admission before executing the
+// VerifyClaudeInvocation checks native executable admission before executing the
 // configured Claude adapter.
-func VerifyClaudeInvocation(ctx context.Context, launcher ClaudeLauncher, runner Runner, cfg configuration.Config, clientRuntime configuration.Runtime, token string) error {
+func VerifyClaudeInvocation(ctx context.Context, runner Runner, cfg configuration.Config, clientRuntime configuration.Runtime, token string) error {
 	adapter := cfg.Adapters[configuration.ClientClaude]
 	if !adapter.Enabled || adapter.Executable == "" {
 		return fmt.Errorf("Claude adapter is disabled; run `aigw repair`")
 	}
-	ready, err := launcher.ClaudeLauncherReady()
+	ready, err := claude.Ready(adapter.Executable)
 	if err != nil {
 		return err
 	}
 	if !ready {
-		return fmt.Errorf("Claude launcher is missing; run `aigw repair`")
+		return fmt.Errorf("Claude executable is unavailable; run `aigw repair`")
 	}
 	return VerifyClaudeRuntime(ctx, runner, adapter.Executable, clientRuntime, token)
 }

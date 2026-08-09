@@ -81,19 +81,14 @@ func TestVerifyCodexPerformsBoundedResponsesRequest(t *testing.T) {
 
 func TestVerifyAllWritesVerifiedCheckpoint(t *testing.T) {
 	app, _, secretStore, runner := testApp(t, "")
-	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
-	if _, err := app.ClaudeLauncher.EnableClaude(); err != nil {
-		t.Fatal(err)
-	}
+	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
 	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
 	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
 	cfg.Routes.Default = "gpt"
 	cfg.Routes.Overrides[configuration.ClientClaude] = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -150,17 +145,12 @@ func TestVerifyRejectsMissingResponseSentinel(t *testing.T) {
 
 func TestVerifyClaudeRejectsMissingResponseSentinel(t *testing.T) {
 	app, _, secretStore, runner := testApp(t, "")
-	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
-	if _, err := app.ClaudeLauncher.EnableClaude(); err != nil {
-		t.Fatal(err)
-	}
+	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{Anthropic: "https://example.test"}}
 	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
 	cfg.Routes.Default = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -29,10 +29,12 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("dmx", "token")
-	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
-	if _, err := app.ClaudeLauncher.EnableClaude(); err != nil {
+	claudeExecutable := filepath.Join(t.TempDir(), "claude")
+	if err := os.WriteFile(claudeExecutable, []byte("fixture"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
+	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := execute(t, app, "check"); err != nil {

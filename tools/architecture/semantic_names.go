@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -16,10 +19,8 @@ var semanticNameGrammars = map[string]struct {
 	rule    string
 	pattern *regexp.Regexp
 }{
-	".go":  {"semantic_name_go", regexp.MustCompile(`^[a-z][a-z0-9_]*\.go$`)},
-	".md":  {"semantic_name_markdown", regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\.md$`)},
-	".ps1": {"semantic_name_powershell", regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\.ps1$`)},
-	".sh":  {"semantic_name_shell", regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\.sh$`)},
+	".go": {"semantic_name_go", regexp.MustCompile(`^[a-z][a-z0-9_]*\.go$`)},
+	".md": {"semantic_name_markdown", regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\.md$`)},
 }
 
 var nativeCarrierNames = map[string]bool{
@@ -170,4 +171,110 @@ func isOpenSpecCarrier(relative, name string) bool {
 	default:
 		return false
 	}
+}
+
+var foreignInternalImport = regexp.MustCompile(`(?:https?://|ssh://|git@|[^"/\s]+\.[^"/\s]+/)[^"\s]*/internal/`)
+var implicitPublicationIdentity = regexp.MustCompile(`AIGW_(?:GITLAB|GITHUB)_(?:AUTHOR_(?:NAME|EMAIL)|SIGNING_KEY):-[^}]`)
+var fixedRunnerInventory = regexp.MustCompile(`(?i)(?:aigw-(?:release|github-(?:verify|release))-macos-arm64|runs-on:\s*\[[^]]*self-hosted)`)
+
+func checkModuleIdentity(root string, report *Report) error {
+	module, err := readModuleIdentity(filepath.Join(root, "go.mod"))
+	if err != nil {
+		return err
+	}
+	if module != "aigw-cli" || strings.ContainsAny(module, `:\`) || strings.HasPrefix(module, "/") || strings.Contains(module, ".") && strings.Contains(module, "/") {
+		report.addFinding(Finding{Rule: "module_identity", Path: "go.mod", Message: "module must use the non-fetchable product build identity aigw-cli"})
+	}
+	return filepath.WalkDir(root, func(filePath string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			if entry.Name() == ".git" || entry.Name() == "vendor" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(entry.Name()) != ".go" {
+			return nil
+		}
+		relative, err := filepath.Rel(root, filePath)
+		if err != nil {
+			return err
+		}
+		relative = toPOSIX(relative)
+		if !strings.Contains(relative, "/") || !strings.HasPrefix(relative, "internal/") && !strings.HasPrefix(relative, "cmd/") && !strings.HasPrefix(relative, "tools/") {
+			report.addFinding(Finding{Rule: "public_go_package", Path: relative, Message: "public Go packages require an explicitly owned resolvable module identity"})
+		}
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return err
+		}
+		parsed, err := parser.ParseFile(token.NewFileSet(), relative, data, parser.ImportsOnly)
+		if err != nil {
+			return nil
+		}
+		for _, imported := range parsed.Imports {
+			if foreignInternalImport.MatchString(imported.Path.Value) {
+				report.addFinding(Finding{Rule: "foreign_internal_import", Path: relative, Message: "internal imports must use the product build identity"})
+			}
+		}
+		return nil
+	})
+}
+
+func readModuleIdentity(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("read go.mod: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) == 2 && fields[0] == "module" {
+			return fields[1], nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return "", fmt.Errorf("go.mod has no module declaration")
+}
+
+func checkPortability(root string, report *Report) error {
+	files, err := trackedFiles(root)
+	if err != nil {
+		return err
+	}
+	for _, relative := range files {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
+		if err != nil {
+			continue
+		}
+		text := string(data)
+		if shellOwnedAutomation(relative, data) {
+			report.addFinding(Finding{Rule: "shell_owned_automation", Path: relative, Message: "repository automation must be owned by portable Go commands and tests"})
+		}
+		if (strings.HasPrefix(relative, "scripts/forge/") || strings.HasPrefix(relative, "scripts/release/") || strings.HasPrefix(relative, "scripts/checks/forge/")) && implicitPublicationIdentity.MatchString(text) {
+			report.addFinding(Finding{Rule: "implicit_publication_identity", Path: relative, Message: "publication identity must be explicit execution input"})
+		}
+		if strings.HasPrefix(relative, ".config/release/") && strings.HasSuffix(relative, "allowed-signers") {
+			report.addFinding(Finding{Rule: "tracked_trust_anchor", Path: relative, Message: "publication trust anchors must be protected execution inputs"})
+		}
+		if (strings.HasPrefix(relative, ".config/ci/") || strings.HasPrefix(relative, ".github/") || relative == ".gitlab-ci.yml") && fixedRunnerInventory.MatchString(text) {
+			report.addFinding(Finding{Rule: "fixed_runner_inventory", Path: relative, Message: "runner inventory must be supplied by the adopting Forge"})
+		}
+	}
+	return nil
+}
+
+func shellOwnedAutomation(relative string, data []byte) bool {
+	extension := strings.ToLower(filepath.Ext(relative))
+	if extension == ".sh" || extension == ".bash" || extension == ".zsh" || extension == ".ps1" || extension == ".cmd" || extension == ".bat" {
+		return true
+	}
+	first, _, _ := bytes.Cut(data, []byte{'\n'})
+	shebang := strings.ToLower(string(first))
+	return strings.HasPrefix(shebang, "#!") && (strings.Contains(shebang, "/sh") || strings.Contains(shebang, "bash") || strings.Contains(shebang, "zsh") || strings.Contains(shebang, "powershell") || strings.Contains(shebang, "pwsh"))
 }

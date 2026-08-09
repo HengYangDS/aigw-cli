@@ -1,0 +1,31 @@
+schema_version = 1
+id = "change:ci-log-hygiene"
+intent = "Eliminate non-actionable Git initialization warnings from hosted AIGW verification and release logs without weakening any gate."
+subjects = ["repository:self"]
+scope = [
+  ".github/workflows/verify.yml",
+  ".github/workflows/release.yml",
+  "tools/cicontract/main.go",
+  "tools/cicontract/main_test.go",
+  "openspec/changes/ci-log-hygiene/**",
+]
+invariants = [
+  "aigw_remains_independent_of_workstation_and_proxy_products",
+  "gitlab_and_github_remain_independent_publication_planes",
+  "no_quality_or_provenance_gate_is_weakened",
+]
+acceptance = [
+  "workflow_contract_rejects_missing_explicit_default_branch_configuration",
+  "local_full_governance_and_hosted_exact_sha_ci_pass_without_actionable_warnings",
+]
+risks = ["workflow_environment_configuration_drift"]
+authority_refs = ["user_instruction", "AGENTS.md", "docs/governance/change-and-release-policy.md"]
+permissions = [
+  "repository.read",
+  "work-lane.write",
+  "git.ref.compare-and-swap",
+  "local-proof.execute",
+  "terminal-publication.execute",
+]
+hypotheses = []
+dependencies = []

@@ -215,19 +215,13 @@ type Channel string
 
 const (
 	ChannelPortable Channel = "portable"
-	ChannelPKG      Channel = "pkg"
-	ChannelDeb      Channel = "deb"
-	ChannelRPM      Channel = "rpm"
-	ChannelMSI      Channel = "msi"
 )
-
-var InstallChannel = string(ChannelPortable)
 
 func Current(executable string) Updater {
 	return Updater{
 		GOOS:       runtime.GOOS,
 		GOARCH:     runtime.GOARCH,
-		Channel:    detectChannel(executable),
+		Channel:    ChannelPortable,
 		Executable: executable,
 		Runner:     ExecRunner{},
 		GitLab: ReleaseSource{
@@ -313,12 +307,6 @@ func (u Updater) updateFromResolvedPeers(ctx context.Context, releases []resolve
 		return "", fmt.Errorf("refusing to replace %s with older release %s", currentVersion, selected.Tag)
 	}
 	asset := portableArchiveName(normalizeVersion(selected.Tag), u.GOOS, u.GOARCH)
-	if u.Channel != ChannelPortable {
-		asset = u.packageAssetName(normalizeVersion(selected.Tag))
-		if asset == "" {
-			return "", fmt.Errorf("installation channel %q is not supported on %s/%s", u.Channel, u.GOOS, u.GOARCH)
-		}
-	}
 	downloads, cleanup, err := u.downloadPeerAssets(ctx, releases, asset)
 	if err != nil {
 		return "", err
@@ -329,24 +317,11 @@ func (u Updater) updateFromResolvedPeers(ctx context.Context, releases []resolve
 			return "", fmt.Errorf("reachable release sources disagree on %s asset bytes: %s != %s", asset, downloads[0].Source.Provider, candidate.Source.Provider)
 		}
 	}
-	if u.Channel == ChannelPortable {
-		message, _, err := u.installPortableArchive(downloads[0].Asset, selected.Tag)
-		if err != nil {
-			return "", err
-		}
-		return message + " verified from " + releaseProviders(downloads), nil
-	}
-	if err := u.runPackageInstaller(ctx, downloads[0].Asset); err != nil {
+	message, _, err := u.installPortableArchive(downloads[0].Asset, selected.Tag)
+	if err != nil {
 		return "", err
 	}
-	switch u.Channel {
-	case ChannelPKG, ChannelMSI:
-		return "downloaded the " + selected.Tag + " installer verified from " + releaseProviders(downloads) + "; complete the update through the installer", nil
-	case ChannelDeb, ChannelRPM:
-		return "updated to " + selected.Tag + " through the system package manager (verified from " + releaseProviders(downloads) + ")", nil
-	default:
-		return "prepared the " + selected.Tag + " update verified from " + releaseProviders(downloads), nil
-	}
+	return message + " verified from " + releaseProviders(downloads), nil
 }
 
 func (u Updater) downloadPeerAssets(ctx context.Context, releases []resolvedRelease, asset string) ([]downloadedRelease, func(), error) {
@@ -490,15 +465,17 @@ func plainHTTPReleaseOriginAllowed(host string) bool {
 	return err == nil && (address.IsLoopback() || address.IsPrivate() || address.IsLinkLocalUnicast())
 }
 
-// ValidateBuildReleaseSources validates the two independent release tuples
-// supplied by a packaging context. It never reads a repository-local Forge
-// manifest and does not require either Forge to contact the other.
+// ValidateBuildReleaseSources validates every configured release tuple. A
+// local build may configure none; either Forge may configure only itself.
 func ValidateBuildReleaseSources() error {
 	sources := []ReleaseSource{
 		{Provider: ReleaseProviderGitLab, Origin: os.Getenv("AIGW_GITLAB_RELEASE_ORIGIN"), Repository: os.Getenv("AIGW_GITLAB_RELEASE_REPOSITORY")},
 		{Provider: ReleaseProviderGitHub, Origin: os.Getenv("AIGW_GITHUB_RELEASE_ORIGIN"), Repository: os.Getenv("AIGW_GITHUB_RELEASE_REPOSITORY")},
 	}
 	for _, source := range sources {
+		if source.empty() {
+			continue
+		}
 		if err := validateReleaseSource(source); err != nil {
 			return err
 		}

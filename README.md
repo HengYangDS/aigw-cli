@@ -14,7 +14,7 @@ It does **not** relay model traffic, run a gateway, or own conversation state.
 flowchart LR
     U["Operator"] --> A["AIGW"]
     A --> C["Codex configuration"]
-    A --> L["Claude Code launcher"]
+    A --> L["Claude Code settings"]
     C --> E["Selected Responses endpoint"]
     L --> H["Selected Anthropic endpoint"]
 ```
@@ -42,38 +42,37 @@ Advanced object management remains under explicit command groups.
 
 ## Install
 
-Install a checksum-verified package or portable archive from either independent
-release plane.
+Install the checksum-verified archive matching the host from either independent
+release plane: `darwin_amd64`, `darwin_arm64`, `linux_amd64`, `linux_arm64`,
+`windows_amd64`, or `windows_arm64`.
 
-| Platform | Native package | Portable archive |
-| --- | --- | --- |
-| macOS | universal `.pkg` | `darwin_amd64` or `darwin_arm64` |
-| Linux | `.deb` or `.rpm` | `linux_amd64` or `linux_arm64` |
-| Windows | `.msi` | `windows_amd64` or `windows_arm64` |
-
-A portable archive contains the executable and a local installer:
+A portable archive contains only the executable, README, and license. Run the
+executable once to install it in the platform's user program directory:
 
 ```bash
-sh install.sh
+./aigw install
 ```
 
 ```powershell
-.\install.ps1
+.\aigw.exe install
 ```
 
-Automation and isolated installations can leave shell startup configuration
-unchanged:
+The default is `~/.local/bin/aigw` on macOS and Linux, and the AIGW user-program
+directory on Windows. An explicit destination is available for isolated use:
 
 ```bash
-sh install.sh --no-path
+./aigw install --target /path/to/aigw
 ```
 
 ```powershell
-.\install.ps1 -NoPath
+.\aigw.exe install --target C:\path\to\aigw.exe
 ```
 
-The installer copies only the bundled executable. It does not retrieve a
-release, store credentials, configure clients, or start another product.
+`aigw install` copies only the running executable and retains one predecessor
+for rollback. It does not edit shell startup files, retrieve a release, store
+credentials, configure clients, or start another product. `aigw uninstall`
+removes only the installed executable and that rollback copy; configuration and
+credential-store secrets remain intact.
 
 GitLab and GitHub publish independently. Either release plane may supply a
 verified installation. When both are reachable during update, AIGW requires
@@ -163,7 +162,7 @@ flowchart LR
 The current admitted clients are:
 
 - **Codex CLI and Codex Desktop**, which share one Codex Home;
-- **Claude Code**, launched through an AIGW-owned process boundary.
+- **Claude Code**, configured through its official user settings and credential-helper boundary.
 
 Future clients require a new admitted adapter. They are not inferred from a
 provider name and are not configured by the current release.
@@ -174,7 +173,7 @@ provider name and are not configured by the current release.
 | --- | --- |
 | Account metadata, Tokens, Profiles, Routes | AIGW |
 | AIGW-marked Codex provider/model projection | AIGW |
-| Claude process-scoped endpoint and Token injection | AIGW |
+| AIGW-owned Claude Code endpoint/model keys and credential helper | AIGW |
 | Codex conversations, JSONL, SQLite, model metadata | Codex |
 | Claude session behavior | Claude Code |
 | External gateway or compatibility process | Its own product/operator |
@@ -204,28 +203,28 @@ aigw update
 aigw update --rollback
 ```
 
-Portable installations retain one immediate predecessor. Native package
-rollback belongs to the platform package manager. A verified offline candidate
-may be supplied explicitly with its checksum manifest; source trees, loose
-binaries, tags, and self-authored checksums are not installation evidence.
+Every installation uses the same portable lifecycle and retains one immediate
+predecessor. A verified offline candidate may be supplied explicitly with its
+checksum manifest; source trees, loose binaries, tags, and self-authored
+checksums are not installation evidence.
 
 ## Verify a source checkout
 
 ```bash
 go run ./tools/architecture --root .
-sh scripts/checks/governance/check-module-identity.sh
 go run ./tools/coveragegate --race
 go vet ./...
-sh scripts/checks/quality/check-static-analysis.sh
-sh scripts/checks/governance/check-portability.sh
-sh scripts/tests/governance/test-portability.sh
-test -z "$(gofmt -l cmd internal tools)"
-sh scripts/checks/governance/check-governance.sh
-AIGW_GITLAB_AUTHOR_EMAIL='<release actor email>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-commit-provenance.sh . gitlab
-sh scripts/tests/forge/test-commit-provenance.sh
-go test ./tools/historyreplay
-AIGW_TAG_NAMESPACE_FORGE='<local|gitlab|github>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' AIGW_GITHUB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-tag-namespace.sh
-sh scripts/tests/governance/test-changelog.sh
+go tool staticcheck -checks=all,-ST1000,-ST1005 ./...
+go tool errcheck ./...
+go test ./tools/architecture
+go run ./tools/repositorycheck --root . go-format
+go run ./tools/repositorycheck --root . governance
+go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
+go test ./tools/forge
+go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
+go run ./tools/repositorycheck --root . product-surface
+go run ./tools/repositorycheck --root . credentials
+go test ./tools/repositorycheck
 ```
 
 ## Documentation

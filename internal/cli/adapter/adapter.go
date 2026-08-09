@@ -109,15 +109,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 			}
 		}
 		cfg.Adapters[client] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: append([]string(nil), targets...)}
-		if client == configuration.ClientClaude {
-			if _, err := runtime.ClaudeLauncher.EnableClaude(); err != nil {
-				return err
-			}
-		}
 		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "adapter enable"); err != nil {
-			if client == configuration.ClientClaude {
-				_ = runtime.ClaudeLauncher.DisableClaude()
-			}
 			return fmt.Errorf("Adapter enablement failed and was rolled back: %w", err)
 		}
 		r := renderer(runtime)
@@ -174,16 +166,8 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 			r.Status(presentation.Info, spec.Label, "Already disabled")
 			return nil
 		}
-		if client == configuration.ClientClaude {
-			if err := runtime.ClaudeLauncher.DisableClaude(); err != nil {
-				return err
-			}
-		}
 		delete(cfg.Adapters, client)
 		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "adapter disable"); err != nil {
-			if client == configuration.ClientClaude {
-				_, _ = runtime.ClaudeLauncher.EnableClaude()
-			}
 			return err
 		}
 		r := renderer(runtime)

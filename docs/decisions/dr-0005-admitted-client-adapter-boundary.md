@@ -13,7 +13,8 @@ cause AIGW to adopt foreign IDEs or agents accidentally.
 ## Decision
 
 The current admitted client set is Codex CLI and Desktop through their shared
-Codex Home, plus Claude Code through an AIGW-owned process launcher. Missing
+Codex Home, plus Claude Code through its official per-user settings and
+credential-helper interfaces. Missing
 clients are untouched. Desktop-only GUI state, JetBrains products, MCP, ACP,
 Hermes, and every other agent remain outside the current adapter boundary.
 

@@ -90,19 +90,13 @@ func TestSyncReconcilesCodexConfigWithoutRebindingCredentials(t *testing.T) {
 
 func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
-	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
-	if _, err := app.ClaudeLauncher.EnableClaude(); err != nil {
-		t.Fatal(err)
-	}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
 	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
 	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
 	cfg.Routes.Default = "gpt"
 	cfg.Routes.Overrides[configuration.ClientClaude] = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

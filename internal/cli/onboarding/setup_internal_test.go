@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/claude"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/process"
@@ -320,14 +319,10 @@ func TestSetupClaudeVerificationHelper(t *testing.T) {
 	}
 }
 
-func TestRollbackSetupRemovesLauncherSecretAndConfig(t *testing.T) {
+func TestRollbackSetupRemovesSecretAndConfig(t *testing.T) {
 	dir := t.TempDir()
 	store := secrets.NewMemoryStore()
 	if err := store.Set("one", "token"); err != nil {
-		t.Fatal(err)
-	}
-	manager := claude.Launcher{GOOS: "linux", BinDir: filepath.Join(dir, "bin"), AIGWExecutable: "/bin/aigw"}
-	if _, err := manager.EnableClaude(); err != nil {
 		t.Fatal(err)
 	}
 	configPath := filepath.Join(dir, "configuration.toml")
@@ -337,12 +332,12 @@ func TestRollbackSetupRemovesLauncherSecretAndConfig(t *testing.T) {
 	if err := os.WriteFile(configPath+".bak", []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app := invocation.Context{Secrets: store, ClaudeLauncher: manager, Config: configuration.NewStore(configPath)}
-	rollbackSetup(app, "one", true, true)
+	app := invocation.Context{Secrets: store, Config: configuration.NewStore(configPath)}
+	rollbackSetup(app, "one", true)
 	if store.Has("one") {
 		t.Fatal("secret remains")
 	}
-	for _, path := range []string{filepath.Join(manager.BinDir, "claude"), configPath, configPath + ".bak"} {
+	for _, path := range []string{configPath, configPath + ".bak"} {
 		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("%s remains: %v", path, err)
 		}

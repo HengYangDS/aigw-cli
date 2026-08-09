@@ -4,19 +4,12 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
 // UpdateCandidate installs an explicitly supplied local archive. It never
 // consults a release runner or HTTP client.
 func (u Updater) UpdateCandidate(_ context.Context, currentVersion string, candidate CandidateArchive) (string, error) {
-	if u.Channel == "" {
-		u.Channel = ChannelPortable
-	}
-	if u.Channel != ChannelPortable {
-		return "", fmt.Errorf("verified local candidate installation is available only for a portable installation; use the native package manager for %s", u.Channel)
-	}
 	archivePath, checksumPath := strings.TrimSpace(candidate.ArchivePath), strings.TrimSpace(candidate.ChecksumsPath)
 	if archivePath == "" || checksumPath == "" {
 		return "", fmt.Errorf("verified local candidate requires both archive and checksums paths")
@@ -46,9 +39,6 @@ func (u Updater) UpdateCandidate(_ context.Context, currentVersion string, candi
 	binary, err := extractBinary(archivePath, expectedBinaryPath(version, u.GOOS, u.GOARCH, binaryName))
 	if err != nil {
 		return "", err
-	}
-	if u.GOOS == "windows" && runtime.GOOS == "windows" {
-		return u.scheduleWindowsReplacement(binary, "v"+version)
 	}
 	if err := u.replacePortableBinary(binary); err != nil {
 		return "", err

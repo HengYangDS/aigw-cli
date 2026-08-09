@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"aigw-cli/internal/account"
-	"aigw-cli/internal/claude"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
@@ -46,24 +45,26 @@ type Updater interface {
 
 // Context carries capabilities for one command execution without product-global state.
 type Context struct {
-	Version        string
-	Config         configuration.Store
-	Secrets        secrets.Store
-	Accounts       account.Store
-	In             io.Reader
-	Out            io.Writer
-	Color          bool
-	Width          int
-	Interactive    bool
-	Runner         Runner
-	HTTP           HTTPDoer
-	ClaudeLauncher claude.Launcher
-	Prompt         Prompter
-	Discovery      discovery.Discoverer
-	Updater        Updater
-	RenderOut      io.Writer
-	Now            func() time.Time
-	Problem        func(title, evidence, impact, fix string, cause error) error
+	Version            string
+	Executable         string
+	InstallTarget      string
+	ClaudeSettingsPath string
+	Config             configuration.Store
+	Secrets            secrets.Store
+	Accounts           account.Store
+	In                 io.Reader
+	Out                io.Writer
+	Color              bool
+	Width              int
+	Interactive        bool
+	Runner             Runner
+	HTTP               HTTPDoer
+	Prompt             Prompter
+	Discovery          discovery.Discoverer
+	Updater            Updater
+	RenderOut          io.Writer
+	Now                func() time.Time
+	Problem            func(title, evidence, impact, fix string, cause error) error
 }
 
 // ReadToken reads an explicitly requested token source without consulting
@@ -130,9 +131,10 @@ func Title(value string) string {
 // capabilities without leaking CLI composition details into domain packages.
 func Synchronizer(runtime Context) synchronization.Synchronizer {
 	return synchronization.Synchronizer{
-		Config:    runtime.Config,
-		Secrets:   runtime.Secrets,
-		Runner:    runtime.Runner,
-		Discovery: runtime.Discovery,
+		Config:             runtime.Config,
+		Secrets:            runtime.Secrets,
+		Runner:             runtime.Runner,
+		Discovery:          runtime.Discovery,
+		ClaudeSettingsPath: runtime.ClaudeSettingsPath,
 	}
 }

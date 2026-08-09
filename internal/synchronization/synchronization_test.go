@@ -394,3 +394,76 @@ func (fixedSecrets) Get(string) (string, error) { return "", nil }
 func (fixedSecrets) Set(string, string) error   { return nil }
 func (fixedSecrets) Delete(string) error        { return nil }
 func (fixedSecrets) Has(string) bool            { return true }
+
+func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	original := []byte(`{"theme":"dark"}`)
+	if err := os.WriteFile(settingsPath, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before := configuration.NewConfig()
+	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-team"}}
+	before.Routes.Default = "claude"
+	after := before.Clone()
+	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
+	if err := store.Save(before); err != nil {
+		t.Fatal(err)
+	}
+	syncer := Synchronizer{Config: store, ClaudeSettingsPath: settingsPath}
+	if err := syncer.Commit(context.Background(), before, after, "enable Claude"); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(settingsPath)
+	if err != nil || !strings.Contains(string(projected), `"ANTHROPIC_BASE_URL": "https://gateway.test"`) || !strings.Contains(string(projected), `"apiKeyHelper": "aigw credential claude"`) {
+		t.Fatalf("projected settings = %s, %v", projected, err)
+	}
+	if strings.Contains(string(projected), "token") || strings.Contains(string(projected), "secret") {
+		t.Fatalf("projected settings leaked credential material: %s", projected)
+	}
+	if err := syncer.Commit(context.Background(), after, before, "disable Claude"); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := os.ReadFile(settingsPath)
+	if err != nil || !strings.Contains(string(restored), `"theme": "dark"`) {
+		t.Fatalf("restored settings = %s, %v", restored, err)
+	}
+	if _, err := os.Stat(settingsPath + ".aigw-state.json"); !os.IsNotExist(err) {
+		t.Fatalf("Claude settings state remains: %v", err)
+	}
+}
+
+func TestCommitRollsBackConfigurationWhenClaudeProjectionFails(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settingsPath, []byte(`{"apiKeyHelper":"foreign"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before := configuration.NewConfig()
+	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude}
+	before.Routes.Default = "claude"
+	after := before.Clone()
+	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
+	if err := store.Save(before); err != nil {
+		t.Fatal(err)
+	}
+	syncer := Synchronizer{Config: store, ClaudeSettingsPath: settingsPath}
+	err := syncer.Commit(context.Background(), before, after, "enable Claude")
+	if err == nil || !strings.Contains(err.Error(), "rolled back") {
+		t.Fatalf("Commit() error = %v", err)
+	}
+	stored, loadErr := store.Load()
+	if loadErr != nil || stored.Adapters[configuration.ClientClaude].Enabled {
+		t.Fatalf("configuration was not rolled back: %#v, %v", stored, loadErr)
+	}
+}

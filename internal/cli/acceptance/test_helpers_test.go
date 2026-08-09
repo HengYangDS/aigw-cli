@@ -136,18 +136,21 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, *secrets.Memo
 	runner := &fakeRunner{}
 	httpClient := &fakeHTTP{status: 200}
 	app := &cli.App{
-		Version:     "0.1.0-test",
-		Config:      configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")),
-		Secrets:     secretStore,
-		Accounts:    account.NewMemoryStore(),
-		Env:         []string{},
-		In:          strings.NewReader(stdin),
-		Out:         out,
-		Err:         out,
-		Interactive: false,
-		Runner:      runner,
-		HTTP:        httpClient,
-		Discovery:   emptyDiscovery{},
+		Version:            "0.1.0-test",
+		Executable:         filepath.Join(t.TempDir(), "aigw"),
+		InstallTarget:      filepath.Join(t.TempDir(), "bin", "aigw"),
+		ClaudeSettingsPath: filepath.Join(t.TempDir(), ".claude", "settings.json"),
+		Config:             configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")),
+		Secrets:            secretStore,
+		Accounts:           account.NewMemoryStore(),
+		Env:                []string{},
+		In:                 strings.NewReader(stdin),
+		Out:                out,
+		Err:                out,
+		Interactive:        false,
+		Runner:             runner,
+		HTTP:               httpClient,
+		Discovery:          emptyDiscovery{},
 	}
 	return app, out, secretStore, runner
 }
@@ -164,15 +167,13 @@ func execute(t *testing.T, app *cli.App, args ...string) error {
 	return cli.Execute(app, args)
 }
 
-func processEnvMap(values []string) map[string]string {
-	result := map[string]string{}
-	for _, value := range values {
-		key, item, ok := strings.Cut(value, "=")
-		if ok {
-			result[key] = item
-		}
+func executableFixture(t *testing.T, name string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, []byte("native client fixture"), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	return result
+	return path
 }
 
 type closeFailingBody struct {

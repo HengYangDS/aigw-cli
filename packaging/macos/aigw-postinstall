@@ -1,7 +1,0 @@
-#!/bin/sh
-set -eu
-cat <<'MSG'
-AIGW installed to /usr/local/bin/aigw.
-Run: aigw setup
-Claude launcher is created later in AIGW's own Application Support directory by the target user's aigw setup/repair command.
-MSG

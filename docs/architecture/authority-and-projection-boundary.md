@@ -10,7 +10,7 @@ flowchart LR
     O["Operator"] --> A["AIGW control plane"]
     A --> K["OS credential store"]
     A --> C["Codex Home projection"]
-    A --> L["Claude launcher"]
+    A --> L["Claude Code settings"]
     C --> R["Responses endpoint"]
     L --> H["Anthropic endpoint"]
     R -. optional .-> P["External compatibility layer"]
@@ -37,7 +37,7 @@ process.
 | `internal/configuration` | Account, Profile, Route, Adapter schema and persistence |
 | `internal/secrets` | Token storage backends |
 | `internal/codex` | Codex projection planning and reconciliation |
-| `internal/claude` | Claude process plan and launcher |
+| `internal/claude` | Claude Code settings projection, credential-safe process plans, and readiness |
 | `internal/credential` | Provider-neutral endpoint authentication validation |
 | `internal/providers` | Optional provider-native diagnostics only |
 | `internal/presentation` | Human projection of command results |
@@ -79,8 +79,11 @@ the plan without reading credentials or changing files.
 
 ### Claude Code
 
-AIGW injects endpoint, model, and Token into the launched process. The Token is
-not written to a shell profile or shared configuration file.
+AIGW projects the selected endpoint and model into Claude Code's official
+per-user `settings.json`. `apiKeyHelper` retrieves the active Account Token from
+the AIGW credential store when Claude Code requests it; the Token is never
+written to settings, shell profiles, arguments, or logs. Users continue to run
+the native `claude` command directly.
 
 ### Missing clients
 

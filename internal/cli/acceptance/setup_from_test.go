@@ -109,9 +109,6 @@ func TestSetupFromConfigurationManifestPromptsOnlyForTokensAndKeepsThemSecret(t 
 	app.Interactive = true
 	prompt := &manifestSetupPrompt{secrets: []string{"aigw-test-aihubmix-token", "aigw-test-dmxapi-token"}}
 	app.Prompt = prompt
-	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
 	codexTarget := filepath.Join(t.TempDir(), "codex", "configuration.toml")
 	if err := os.MkdirAll(filepath.Dir(codexTarget), 0o700); err != nil {
 		t.Fatal(err)
@@ -177,9 +174,6 @@ func TestSetupFromConfigurationManifestPromptsOnlyForTokensAndKeepsThemSecret(t 
 	}
 	if !cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
 		t.Fatalf("discovered clients were not configured: %#v", cfg.Adapters)
-	}
-	if _, err := os.Stat(filepath.Join(shimDir, "claude")); err != nil {
-		t.Fatalf("Claude launcher missing: %v", err)
 	}
 	if len(runner.plans) != 3 || runner.plans[0].Executable != "/opt/claude-real" || runner.plans[1].Executable != "/opt/claude-real" || runner.plans[2].Executable != "/opt/codex-real" {
 		executables := make([]string, 0, len(runner.plans))
@@ -507,14 +501,11 @@ account = "team"
 	}
 }
 
-func TestSetupFromConfigurationManifestClientFailureRollsBackCredentialsConfigAndLauncher(t *testing.T) {
+func TestSetupFromConfigurationManifestClientFailureRollsBackCredentialsAndConfig(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &manifestSetupPrompt{secrets: []string{"aigw-test-aihubmix-token", "aigw-test-dmxapi-token"}}
 	app.Runner = &failingRunner{err: errors.New("Codex login failed"), remaining: 1}
-	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	original := "model_provider = \"native\"\n"
 	if err := os.WriteFile(codexTarget, []byte(original), 0o600); err != nil {
@@ -540,49 +531,28 @@ func TestSetupFromConfigurationManifestClientFailureRollsBackCredentialsConfigAn
 		t.Fatal("failed setup left an Account Token")
 	}
 	assertManifestSetupLeavesNoConfig(t, app)
-	if _, err := os.Stat(filepath.Join(shimDir, "claude")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("failed setup left Claude launcher: %v", err)
-	}
 	data, err := os.ReadFile(codexTarget)
 	if err != nil || string(data) != original {
 		t.Fatalf("failed setup changed Codex config: %q, %v", data, err)
 	}
 }
 
-func TestSetupFromConfigurationManifestClientFailurePreservesExistingClaudeLauncher(t *testing.T) {
+func TestSetupFromConfigurationManifestClientFailurePreservesForeignClaudeExecutable(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &manifestSetupPrompt{secrets: []string{"aigw-test-aihubmix-token", "aigw-test-dmxapi-token"}}
 	app.Runner = &failingRunner{err: errors.New("Codex login failed"), remaining: 1}
-	oldLauncherDir := t.TempDir()
-	newLauncherDir := t.TempDir()
-	home := t.TempDir()
-	app.ClaudeLauncher.GOOS = "darwin"
-	app.ClaudeLauncher.Home = home
-	app.ClaudeLauncher.Shell = "/bin/zsh"
-	app.ClaudeLauncher.BinDir = oldLauncherDir
-	app.ClaudeLauncher.AIGWExecutable = "/bin/sh"
-	if _, err := app.ClaudeLauncher.EnableClaude(); err != nil {
-		t.Fatal(err)
-	}
-	oldLauncherPath := filepath.Join(oldLauncherDir, "claude")
-	oldActivationPath := filepath.Join(home, ".zshrc")
-	oldLauncher, err := os.ReadFile(oldLauncherPath)
+	claudeExecutable := executableFixture(t, "claude")
+	originalExecutable, err := os.ReadFile(claudeExecutable)
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldActivation, err := os.ReadFile(oldActivationPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	app.ClaudeLauncher.BinDir = newLauncherDir
-	app.ClaudeLauncher.AIGWExecutable = "/bin/echo"
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientClaude: "/opt/claude-real", configuration.ClientCodex: "/opt/codex-real"},
+		Executables: map[string]string{configuration.ClientClaude: claudeExecutable, configuration.ClientCodex: "/opt/codex-real"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(surfaceidentity.CodexHomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -600,12 +570,8 @@ func TestSetupFromConfigurationManifestClientFailurePreservesExistingClaudeLaunc
 	if secretStore.Has("aihubmix") || secretStore.Has("dmxapi") {
 		t.Fatal("failed setup left an Account Token")
 	}
-	gotOldLauncher, shimErr := os.ReadFile(oldLauncherPath)
-	gotActivation, activationErr := os.ReadFile(oldActivationPath)
-	if shimErr != nil || string(gotOldLauncher) != string(oldLauncher) || activationErr != nil || string(gotActivation) != string(oldActivation) {
-		t.Fatalf("existing Claude launcher state was not restored exactly: shim=%v activation=%v", shimErr, activationErr)
-	}
-	if _, err := os.Stat(filepath.Join(newLauncherDir, "claude")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("failed setup left new Claude launcher: %v", err)
+	gotExecutable, readErr := os.ReadFile(claudeExecutable)
+	if readErr != nil || string(gotExecutable) != string(originalExecutable) {
+		t.Fatalf("foreign Claude executable changed: error=%v bytes=%q", readErr, gotExecutable)
 	}
 }

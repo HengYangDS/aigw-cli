@@ -37,7 +37,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if client == "all" {
-				if err := domainverification.ValidateFullReadiness(runtime.ClaudeLauncher, cfg); err != nil {
+				if err := domainverification.ValidateFullReadiness(cfg); err != nil {
 					return err
 				}
 			}
@@ -59,7 +59,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if target == configuration.ClientCodex {
 					err = domainverification.VerifyCodexResponse(ctx, runtime.HTTP, clientRuntime, token)
 				} else {
-					err = domainverification.VerifyClaudeInvocation(ctx, runtime.ClaudeLauncher, runtime.Runner, cfg, clientRuntime, token)
+					err = domainverification.VerifyClaudeInvocation(ctx, runtime.Runner, cfg, clientRuntime, token)
 				}
 				cancel()
 				if err != nil {

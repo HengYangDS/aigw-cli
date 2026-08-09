@@ -78,8 +78,6 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	}
 	app.Prompt = prompt
 	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
 	codexTarget := filepath.Join(t.TempDir(), "codex", "configuration.toml")
 	if err := os.MkdirAll(filepath.Dir(codexTarget), 0o700); err != nil {
 		t.Fatal(err)
@@ -118,7 +116,7 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 		t.Fatalf("Codex login plans = %#v", runner.plans)
 	}
 	if _, err := os.Stat(filepath.Join(shimDir, "claude")); !os.IsNotExist(err) {
-		t.Fatalf("Codex-only first-run wizard created a Claude launcher: %v", err)
+		t.Fatalf("Codex-only first-run wizard mutated a Claude command path: %v", err)
 	}
 	if !strings.Contains(out.String(), "Ready") || strings.Contains(out.String(), "one-paste-token") {
 		t.Fatalf("wizard output = %s", out.String())
@@ -221,8 +219,6 @@ func TestWizardFailureLeavesNoProfileSecretOrClientProjection(t *testing.T) {
 	}
 	app.Runner = &failingRunner{err: errors.New("Codex login failed"), remaining: 1}
 	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	original := "model_provider = \"native\"\n"
 	if err := os.WriteFile(codexTarget, []byte(original), 0o600); err != nil {
@@ -248,7 +244,7 @@ func TestWizardFailureLeavesNoProfileSecretOrClientProjection(t *testing.T) {
 		t.Fatalf("failed wizard left config: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(shimDir, "claude")); !os.IsNotExist(err) {
-		t.Fatalf("failed wizard left Claude launcher: %v", err)
+		t.Fatalf("failed wizard left a Claude command-path artifact: %v", err)
 	}
 	data, _ := os.ReadFile(codexTarget)
 	if string(data) != original {

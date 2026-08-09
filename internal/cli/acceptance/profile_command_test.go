@@ -347,27 +347,28 @@ func TestRotateWithoutNameUsesCurrentProfileAndOnePaste(t *testing.T) {
 
 func TestRepairCanRestoreClaudeWithoutAnyCodexProfile(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
+	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "claude-test"})
 	cfg.Routes.Default = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := secretStore.Set("claude", "token"); err != nil {
 		t.Fatal(err)
 	}
-	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
 	app.Discovery = fakeDiscovery{result: discovery.Result{}}
 
 	if err := execute(t, app, "repair"); err != nil {
 		t.Fatal(err)
 	}
-	ready, err := app.ClaudeLauncher.ClaudeLauncherReady()
-	if err != nil || !ready {
-		t.Fatalf("Claude launcher readiness = %v, %v", ready, err)
+	got, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if adapter := got.Adapters[configuration.ClientClaude]; !adapter.Enabled || adapter.Executable != claudeExecutable {
+		t.Fatalf("Claude adapter changed during repair: %#v", adapter)
 	}
 }
 

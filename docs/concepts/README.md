@@ -75,7 +75,7 @@ service or model.
 | Adapter | Projection |
 | --- | --- |
 | Codex | AIGW-marked provider/model configuration and native credential binding |
-| Claude Code | Process-scoped endpoint, model, and Token through the AIGW launcher |
+| Claude Code | Official user-settings endpoint/model projection and credential helper |
 
 Adapters do not own provider behavior. Missing clients remain untouched.
 
@@ -111,14 +111,9 @@ replacement changes metadata only; it never changes the Token slot.
 
 Finalize fails closed if credential equality or checkpoint proof is incomplete.
 
-## Installation channel
+## Installation lifecycle
 
-| Channel | Update behavior |
-| --- | --- |
-| Portable | Atomic binary replacement; one immediate predecessor retained |
-| macOS package | Launch verified package installer |
-| Debian / RPM | Use platform package manager |
-| Windows MSI | Launch verified MSI |
-
-`aigw update --rollback` applies only to portable installations. Native package
-rollback belongs to the platform package manager.
+All platforms use one archive and one CLI-owned lifecycle: `aigw install`,
+`aigw update`, `aigw update --rollback`, and `aigw uninstall`. Updates replace
+the binary atomically and retain exactly one immediate predecessor. There is no
+parallel package-manager channel.

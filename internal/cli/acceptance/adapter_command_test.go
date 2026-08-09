@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"aigw-cli/internal/claude"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"os"
@@ -170,8 +169,7 @@ func TestAdapterReadAndValidationBranches(t *testing.T) {
 
 func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
-	shimDir := t.TempDir()
-	app.ClaudeLauncher = claude.Launcher{GOOS: "linux", BinDir: shimDir, AIGWExecutable: filepath.Join(shimDir, "aigw")}
+	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, "", configuration.Models{})
 	cfg.Routes.Default = "team"
@@ -179,24 +177,21 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("team", "secret")
-	if err := execute(t, app, "adapter", "enable", "claude", "--executable", "/opt/claude-real"); err != nil {
+	if err := execute(t, app, "adapter", "enable", "claude", "--executable", claudeExecutable); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := app.Config.Load()
-	if !got.Adapters["claude"].Enabled || got.Adapters["claude"].Executable != "/opt/claude-real" {
+	if !got.Adapters["claude"].Enabled || got.Adapters["claude"].Executable != claudeExecutable {
 		t.Fatalf("Claude adapter = %#v", got.Adapters["claude"])
 	}
 	if _, exists := got.Adapters["codex"]; exists {
 		t.Fatalf("Claude enable touched Codex: %#v", got.Adapters)
 	}
-	if _, err := os.Stat(filepath.Join(shimDir, "claude")); err != nil {
-		t.Fatalf("Claude launcher missing: %v", err)
-	}
 	if err := execute(t, app, "adapter", "disable", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(shimDir, "claude")); !os.IsNotExist(err) {
-		t.Fatalf("Claude launcher remains: %v", err)
+	if _, err := os.Stat(claudeExecutable); err != nil {
+		t.Fatalf("adapter disable changed the foreign Claude executable: %v", err)
 	}
 }
 
@@ -303,11 +298,8 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 	})
 }
 
-func TestStatusWarnsWhenEnabledClaudeAdapterHasNoOwnedLauncher(t *testing.T) {
+func TestStatusWarnsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
-	launcherDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = launcherDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(launcherDir, "aigw")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{Anthropic: "https://example.test"}}
 	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-fable-5"}}
@@ -324,16 +316,13 @@ func TestStatusWarnsWhenEnabledClaudeAdapterHasNoOwnedLauncher(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "Claude launcher is missing") || !strings.Contains(text, "aigw repair") {
-		t.Fatalf("status did not surface the missing Claude launcher:\n%s", text)
+	if !strings.Contains(text, "Claude executable is unavailable") || !strings.Contains(text, "aigw repair") {
+		t.Fatalf("status did not surface the unavailable Claude executable:\n%s", text)
 	}
 }
 
-func TestCheckFailsWhenEnabledClaudeAdapterHasNoOwnedLauncher(t *testing.T) {
+func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
-	launcherDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = launcherDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(launcherDir, "aigw")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
 	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-fable-5"}}
@@ -347,7 +336,7 @@ func TestCheckFailsWhenEnabledClaudeAdapterHasNoOwnedLauncher(t *testing.T) {
 	}
 
 	err := execute(t, app, "check")
-	if err == nil || !strings.Contains(out.String(), "Claude launcher") || !strings.Contains(out.String(), "aigw repair") {
-		t.Fatalf("check did not block on a missing Claude launcher; err=%v output=%s", err, out.String())
+	if err == nil || !strings.Contains(out.String(), "Claude executable is unavailable") || !strings.Contains(out.String(), "aigw repair") {
+		t.Fatalf("check did not block on an unavailable Claude executable; err=%v output=%s", err, out.String())
 	}
 }

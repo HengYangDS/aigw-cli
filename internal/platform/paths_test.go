@@ -117,61 +117,27 @@ func TestUserBinDirRefusesMissingWindowsEnvOrUnsupportedOS(t *testing.T) {
 	}
 }
 
-func TestLauncherDirUsesAIGWOwnedDataBoundary(t *testing.T) {
-	tests := []struct {
+func TestClaudeSettingsPathUsesTheOfficialUserScope(t *testing.T) {
+	for _, test := range []struct {
+		name string
 		goos string
 		env  map[string]string
 		want string
 	}{
-		{"darwin", map[string]string{"HOME": "/Users/alex"}, "/Users/alex/Library/Application Support/aigw/bin"},
-		{"linux", map[string]string{"HOME": "/home/alex"}, "/home/alex/.local/share/aigw/bin"},
-		{"linux", map[string]string{"HOME": "/home/alex", "XDG_DATA_HOME": "/data"}, "/data/aigw/bin"},
-		{"windows", map[string]string{"LOCALAPPDATA": `C:\Users\alex\AppData\Local`}, `C:\Users\alex\AppData\Local\Programs\aigw\bin`},
+		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, want: "/Users/alex/.claude/settings.json"},
+		{name: "Linux", goos: "linux", env: map[string]string{"HOME": "/home/alex"}, want: "/home/alex/.claude/settings.json"},
+		{name: "Windows", goos: "windows", env: map[string]string{"USERPROFILE": `C:\Users\alex`}, want: `C:\Users\alex\.claude\settings.json`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := platform.ClaudeSettingsPathFor(test.goos, test.env)
+			if err != nil || filepath.Clean(got) != filepath.Clean(test.want) {
+				t.Fatalf("ClaudeSettingsPathFor() = %q, %v; want %q", got, err, test.want)
+			}
+		})
 	}
-	for _, tt := range tests {
-		got, err := platform.LauncherDirFor(tt.goos, tt.env)
-		if err != nil || filepath.Clean(got) != filepath.Clean(tt.want) {
-			t.Errorf("LauncherDirFor(%s) = %q, %v; want %q", tt.goos, got, err, tt.want)
+	for _, goos := range []string{"darwin", "linux", "windows", "plan9"} {
+		if _, err := platform.ClaudeSettingsPathFor(goos, map[string]string{}); err == nil {
+			t.Fatalf("ClaudeSettingsPathFor(%q) accepted missing home", goos)
 		}
-	}
-}
-
-func TestLauncherDirRejectsUnsupportedOS(t *testing.T) {
-	if _, err := platform.LauncherDirFor("plan9", map[string]string{}); err == nil {
-		t.Fatal("unsupported operating system unexpectedly admitted")
-	}
-}
-
-func TestDefaultLauncherDirectoryFallsBackAndHonorsOverride(t *testing.T) {
-	if got, err := platform.DefaultLauncherDirFor("darwin", map[string]string{"AIGW_LAUNCHER_DIR": "  /custom/shims  "}, "/opt/bin/aigw"); err != nil || got != "/custom/shims" {
-		t.Fatalf("override = %q, %v", got, err)
-	}
-	if got, err := platform.DefaultLauncherDirFor("darwin", map[string]string{}, "/opt/bin/aigw"); err != nil || got != "/opt/bin" {
-		t.Fatalf("fallback = %q, %v", got, err)
-	}
-}
-
-func TestExecutableDirectoryUsesTargetPathConvention(t *testing.T) {
-	tests := []struct{ goos, executable, want string }{
-		{goos: "linux", executable: "/opt/aigw/bin/aigw", want: "/opt/aigw/bin"},
-		{goos: "windows", executable: `C:\Program Files\AIGW\aigw.exe`, want: `C:\Program Files\AIGW`},
-		{goos: "windows", executable: `C:\aigw.exe`, want: `C:\`},
-		{goos: "windows", executable: `/aigw.exe`, want: `/`},
-		{goos: "windows", executable: `aigw.exe`, want: `.`},
-		{goos: "windows", executable: ``, want: ``},
-		{goos: "windows", executable: `C:\AIGW\\`, want: `C:\`},
-	}
-	for _, test := range tests {
-		if got := platform.ExecutableDirFor(test.goos, test.executable); got != test.want {
-			t.Errorf("ExecutableDirFor(%q, %q) = %q, want %q", test.goos, test.executable, got, test.want)
-		}
-	}
-}
-
-func TestWindowsJoinPreservesLeadingSeparator(t *testing.T) {
-	got, err := platform.ConfigPathFor("windows", map[string]string{"APPDATA": `\`})
-	want := `\aigw\config.toml`
-	if err != nil || got != want {
-		t.Fatalf("ConfigPathFor(windows) with root APPDATA = %q, %v; want %q", got, err, want)
 	}
 }

@@ -110,30 +110,23 @@ func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "claude-test"})
 	cfg.Routes.Default = "team"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
-	if _, err := app.ClaudeLauncher.EnableClaude(); err != nil {
+	if err := execute(t, app, "doctor"); err != nil {
 		t.Fatal(err)
 	}
-	app.ClaudeLauncher.Home = t.TempDir()
-	if err := execute(t, app, "doctor"); err == nil {
-		t.Fatal("doctor should report missing shell activation")
-	}
 	result := out.String()
-	for _, want := range []string{"No global client token environment variables detected", "Configuration is valid", "System secret", "team · available", "Enabled", "AIGW-managed Claude launcher", "Claude PATH activation is missing"} {
+	for _, want := range []string{"No global client token environment variables detected", "Configuration is valid", "System secret", "team · available", "Claude adapter", "Enabled"} {
 		if !strings.Contains(result, want) {
 			t.Fatalf("doctor human output missing %q:\n%s", want, result)
 		}
 	}
-	for _, unwanted := range []string{"no global client token environment variables", "config            valid", "AIGW managed launcher", "path:claude", "launcher:claude"} {
+	for _, unwanted := range []string{"no global client token environment variables", "config            valid", "AIGW managed launcher", "PATH activation", "path:claude", "launcher:claude"} {
 		if strings.Contains(result, unwanted) {
 			t.Fatalf("doctor human output leaked implementation prose %q:\n%s", unwanted, result)
 		}
