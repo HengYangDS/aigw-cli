@@ -486,6 +486,37 @@ func TestPackageChildrenEnforcePositiveTopology(t *testing.T) {
 	}
 }
 
+func TestPackageChildrenIgnoreNonDirectoriesAndReportUnreadableRoots(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "tools"), "not a directory\n")
+	report := newReport("policy", root)
+	p := policy{PackageChildren: map[string][]string{"tools": {"release"}}}
+	if err := checkPackageChildren(root, p, &report); err != nil {
+		t.Fatalf("non-directory managed root must be inert: %v", err)
+	}
+
+}
+
+func TestImportEdgesSkipTestsMalformedImportsAndAllowedDependencies(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "tools", "release", "test.go"), "package main\n")
+	writeFile(t, filepath.Join(root, "tools", "release", "broken.go"), "package main\nimport (\n")
+	writeFile(t, filepath.Join(root, "tools", "release", "allowed.go"), "package main\nimport (\n _ \"aigw-cli/tools/release\"\n _ \"aigw-cli/tools/repository\"\n)\n")
+	files := []goFileInfo{
+		{relPath: "tools/release/test.go", dir: "tools/release", isTest: true},
+		{relPath: "tools/release/broken.go", dir: "tools/release"},
+		{relPath: "tools/release/allowed.go", dir: "tools/release"},
+	}
+	report := newReport("policy", root)
+	p := policy{AllowedImportEdges: map[string][]string{"tools/release": {"tools/repository"}}}
+	if err := checkImportEdges(root, files, p, &report); err != nil {
+		t.Fatal(err)
+	}
+	if got := report.Summary["import_edge"]; got != 0 {
+		t.Fatalf("allowed or inert imports produced findings: %+v", report.Findings)
+	}
+}
+
 func TestPeerPackageImportBranches(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "internal", "cli", "account", "account.go"), `package account
