@@ -1,6 +1,6 @@
 schema_version = 1
 id = "change:branch-coverage-contract"
-intent = "Enforce truthful Go branch coverage above 95 percent without weakening statement or package coverage."
+intent = "Keep Go coverage claims truthful while preserving strict aggregate and per-package statement evidence."
 subjects = [
     "repository:self",
 ]
@@ -23,12 +23,12 @@ invariants = [
 acceptance = [
     "aggregate_statement_coverage_strictly_exceeds_ninety_five_percent",
     "every_production_package_statement_coverage_strictly_exceeds_ninety_five_percent",
-    "aggregate_branch_coverage_strictly_exceeds_ninety_five_percent",
+    "unsupported_branch_coverage_is_not_claimed",
     "macos_linux_and_windows_execute_the_same_gate",
 ]
 risks = [
-    "branch_instrumentation_changes_test_behavior",
-    "unsupported_control_flow_is_misstated_as_measured",
+    "statement_evidence_is_misstated_as_branch_evidence",
+    "an_unmaintained_instrumenter_becomes_repository_owned_infrastructure",
     "tool_output_drift_is_silently_accepted",
 ]
 authority_refs = [
