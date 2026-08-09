@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -138,31 +137,20 @@ func TestInstallRejectsInvalidSourceAndSamePath(t *testing.T) {
 	if err := Install(source, source); err == nil || !strings.Contains(err.Error(), "same path") {
 		t.Fatalf("same path=%v", err)
 	}
-	if runtime.GOOS == "windows" {
-		target := filepath.Join(root, "target.exe")
-		if err := Install(source, target); err != nil {
-			t.Fatal(err)
-		}
-		if got, err := os.ReadFile(target); err != nil || string(got) != "binary" {
-			t.Fatalf("Windows target = %q, %v", got, err)
-		}
-	}
 }
 
-func TestInstallRejectsNonExecutableSourceAndBlockedDestinations(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows executability is not represented by POSIX mode bits")
-	}
+func TestInstallAcceptsPortableFileAndRejectsBlockedDestinations(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "aigw")
 	if err := os.WriteFile(source, []byte("binary"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := Install(source, filepath.Join(root, "bin", "aigw")); err == nil || !strings.Contains(err.Error(), "not executable") {
-		t.Fatalf("non-executable source = %v", err)
-	}
-	if err := os.Chmod(source, 0o755); err != nil {
+	target := filepath.Join(root, "bin", "aigw")
+	if err := Install(source, target); err != nil {
 		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(target); err != nil || string(got) != "binary" {
+		t.Fatalf("portable target = %q, %v", got, err)
 	}
 	blocked := filepath.Join(root, "blocked")
 	if err := os.WriteFile(blocked, []byte("file"), 0o600); err != nil {
@@ -173,6 +161,13 @@ func TestInstallRejectsNonExecutableSourceAndBlockedDestinations(t *testing.T) {
 	}
 	if err := Install(source, root); err == nil || !strings.Contains(err.Error(), "read installed") {
 		t.Fatalf("directory target = %v", err)
+	}
+}
+
+func TestInstallRejectsDirectorySource(t *testing.T) {
+	root := t.TempDir()
+	if err := Install(root, filepath.Join(root, "target")); err == nil || !strings.Contains(err.Error(), "not executable") {
+		t.Fatalf("directory source = %v", err)
 	}
 }
 

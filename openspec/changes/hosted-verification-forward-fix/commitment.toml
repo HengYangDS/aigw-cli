@@ -6,13 +6,29 @@ subjects = [
 ]
 scope = [
     "openspec/changes/hosted-verification-forward-fix/**",
+    "internal/cli/install/install.go",
     "internal/cli/install/install_test.go",
     ".gitlab-ci.yml",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
+invariants = [
+    "gitlab_and_github_remain_independent_publication_planes",
+    "only_regular_files_enter_the_portable_installer",
+    "the_installed_target_mode_is_product_owned",
+]
+acceptance = [
+    "gitlab_protected_file_variables_reach_the_existing_verifier_as_paths",
+    "portable_regular_file_installation_has_one_cross_platform_contract",
+    "macos_linux_and_windows_native_verification_pass_on_the_exact_head",
+]
+risks = [
+    "unverified_source_callers_bypass_release_admission",
+    "forge_trust_input_shape_drift",
+]
+authority_refs = [
+    "user_instruction",
+    "AGENTS.md",
+    "docs/governance/change-and-release-policy.md",
+]
 permissions = [
     "repository.read",
     "work-lane.write",
