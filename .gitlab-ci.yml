@@ -26,8 +26,7 @@ variables:
 verify:
   stage: verify
   script:
-    - mise exec --locked -- go run ./tools/civerify trust-input --output "$CI_BUILDS_DIR/aigw-allowed-signers" --github-env "$CI_BUILDS_DIR/aigw-forge.env"
-    - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$CI_BUILDS_DIR/aigw-allowed-signers"
+    - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
     - mise exec --locked -- go run ./tools/civerify source
 
 package:
