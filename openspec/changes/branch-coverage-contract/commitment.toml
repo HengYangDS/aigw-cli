@@ -1,0 +1,26 @@
+schema_version = 1
+id = "change:branch-coverage-contract"
+intent = "Enforce truthful Go branch coverage above 95 percent without weakening statement or package coverage."
+subjects = [
+    "repository:self",
+]
+scope = [
+    "openspec/changes/branch-coverage-contract/**",
+    ".config/checks/coverage/**",
+    "tools/coveragegate/**",
+    "tools/civerify/**",
+    "go.mod",
+    "go.sum",
+    "docs/operations/release-readiness.md",
+    "openspec/specs/product-control-plane/spec.md",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+permissions = [
+    "repository.read",
+    "work-lane.write",
+]
+hypotheses = []
+dependencies = []
