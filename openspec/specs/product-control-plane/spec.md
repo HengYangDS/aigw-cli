@@ -436,4 +436,3 @@ compare-and-swap authority bound to the complete accumulated lane delta.
 - **THEN** ETHOS SHALL move `candidate/dev` only from the previously observed ref
 - **AND** any candidate, Lease, tree, scope, or proof drift SHALL fail closed
 - **AND** no remote Forge SHALL be queried or mutated.
-
