@@ -13,6 +13,9 @@ import (
 )
 
 func TestSourceRunsThePortableGateSequence(t *testing.T) {
+	t.Setenv("AIGW_FORGE_PROVIDER", "")
+	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
+	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := [][]string{
 		{"go", "run", "./tools/cicontract", "toolchain", "."},
 		{"go", "run", "./tools/releasekit", "validate-toolchain", "go.mod"},
@@ -118,6 +121,7 @@ func TestRunRejectsInvalidCommandShapes(t *testing.T) {
 }
 
 func TestTrustInputRejectsMissingOrUnwritableDestinations(t *testing.T) {
+	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS", "")
 	root := t.TempDir()
 	output := filepath.Join(root, "allowed-signers")
 	environment := filepath.Join(root, "github-env")
