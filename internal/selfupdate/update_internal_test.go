@@ -58,14 +58,6 @@ func TestUpdateDefaultsNilRunnerToExecRunner(t *testing.T) {
 	}
 }
 
-func TestUpdateFromResolvedPeersRejectsUnsupportedPackageChannel(t *testing.T) {
-	u := Updater{GOOS: "linux", GOARCH: "arm64", Channel: ChannelPKG}
-	releases := []resolvedRelease{{Source: ReleaseSource{Provider: ReleaseProviderGitLab}, Tag: "v1.0.0"}}
-	if _, err := u.updateFromResolvedPeers(context.Background(), releases, "0.1.0"); err == nil || !strings.Contains(err.Error(), "is not supported on") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
 type unavailableGlabRunner struct{}
 
 func (unavailableGlabRunner) Run(context.Context, string, ...string) ([]byte, error) {
@@ -199,14 +191,31 @@ func TestValidateReleaseSourceAcceptsNestedGitLabNamespace(t *testing.T) {
 	}
 }
 
-func TestValidateBuildReleaseSourcesRequiresCompleteIndependentTuples(t *testing.T) {
+func TestValidateBuildReleaseSourcesAllowsLocalAndSingleForgeContexts(t *testing.T) {
+	for _, name := range []string{"AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY", "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY"} {
+		t.Setenv(name, "")
+	}
+	if err := ValidateBuildReleaseSources(); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "https://gitlab.example.test")
 	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "group/project")
+	if err := ValidateBuildReleaseSources(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
+	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
 	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example.test")
 	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "owner/project")
 	if err := ValidateBuildReleaseSources(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestValidateBuildReleaseSourcesRejectsPartialConfiguredTuple(t *testing.T) {
+	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
+	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
+	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example.test")
 	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "")
 	if err := ValidateBuildReleaseSources(); err == nil || !strings.Contains(err.Error(), "github release source is incomplete") {
 		t.Fatalf("error = %v", err)

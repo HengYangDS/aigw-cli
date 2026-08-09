@@ -44,7 +44,7 @@ func TestDiscoverFindsClientsAndAutoManagedCodexTargets(t *testing.T) {
 	}
 }
 
-func TestDiscoverSkipsAIGWOwnedClaudeLauncher(t *testing.T) {
+func TestDiscoverReturnsClaudeExecutableWithoutPrivateMarkers(t *testing.T) {
 	home := t.TempDir()
 	bin := filepath.Join(home, "bin")
 	if err := os.MkdirAll(bin, 0o700); err != nil {
@@ -54,11 +54,15 @@ func TestDiscoverSkipsAIGWOwnedClaudeLauncher(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		goos, name = "windows", "claude.cmd"
 	}
-	if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\n# AIGW managed Claude launcher\n"), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\nnative Claude fixture\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	got := (discovery.System{GOOS: goos, Home: home, Path: bin}).Discover()
-	if got.Executable("claude") != "" {
-		t.Fatalf("managed launcher rediscovered as real Claude: %#v", got)
+	want, err := filepath.Abs(filepath.Join(bin, name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Executable("claude") != want {
+		t.Fatalf("Claude executable = %q, want %q", got.Executable("claude"), want)
 	}
 }

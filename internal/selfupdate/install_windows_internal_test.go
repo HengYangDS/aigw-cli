@@ -4,104 +4,36 @@ package selfupdate
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
-func TestInstallPortableArchiveWindowsPropagatesHelperWriteFailure(t *testing.T) {
-	directory := t.TempDir()
-	archivePath, _ := writeWindowsPortableArchiveForTest(t, directory)
-	executable := filepath.Join(directory, "aigw.exe")
-	if err := os.WriteFile(executable, []byte("current"), 0o755); err != nil {
+func TestWindowsPortableUpdateDoesNotCreateCommandScripts(t *testing.T) {
+	root := t.TempDir()
+	executable := filepath.Join(root, "aigw.exe")
+	if err := os.WriteFile(executable, []byte("current"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir(executable+".update.cmd", 0o700); err != nil {
+	updater := Updater{Executable: executable, GOOS: "windows"}
+	archivePath, _ := writeWindowsPortableArchiveForTest(t, root)
+	if _, scheduled, err := updater.installPortableArchive(archivePath, "v1.2.3"); err != nil || scheduled {
+		t.Fatalf("installPortableArchive() = scheduled %v, err %v", scheduled, err)
+	}
+	if got, err := os.ReadFile(executable); err != nil || string(got) != "windows-binary" {
+		t.Fatalf("updated executable = %q, %v", got, err)
+	}
+	if got, err := os.ReadFile(rollbackPath(executable)); err != nil || string(got) != "current" {
+		t.Fatalf("rollback executable = %q, %v", got, err)
+	}
+	if _, err := updater.Rollback(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-
-	u := Updater{GOOS: "windows", GOARCH: "amd64", Executable: executable}
-	message, scheduled, err := u.installPortableArchive(archivePath, "v1.2.3")
-	if err == nil || !strings.Contains(err.Error(), "write Windows update helper") {
-		t.Fatalf("error = %v", err)
-	}
-	if message != "" || scheduled {
-		t.Fatalf("message = %q, scheduled = %v", message, scheduled)
-	}
-	staged, readErr := os.ReadFile(executable + ".update")
-	if readErr != nil || string(staged) != "windows-binary" {
-		t.Fatalf("staged=%q err=%v", staged, readErr)
-	}
-}
-
-func TestUpdateCandidateWindowsPropagatesHelperWriteFailure(t *testing.T) {
-	directory := t.TempDir()
-	archivePath, checksumsPath := writeWindowsPortableArchiveForTest(t, directory)
-	executable := filepath.Join(directory, "aigw.exe")
-	if err := os.WriteFile(executable, []byte("current"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(executable+".update.cmd", 0o700); err != nil {
-		t.Fatal(err)
-	}
-
-	u := Updater{GOOS: "windows", GOARCH: "amd64", Executable: executable}
-	message, err := u.UpdateCandidate(context.Background(), "v1.0.0", CandidateArchive{
-		ArchivePath:   archivePath,
-		ChecksumsPath: checksumsPath,
-	})
-	if err == nil || !strings.Contains(err.Error(), "write Windows update helper") {
-		t.Fatalf("error = %v", err)
-	}
-	if message != "" {
-		t.Fatalf("message = %q", message)
-	}
-}
-
-func TestRollbackWindowsPropagatesStagingCollision(t *testing.T) {
-	executable := writeWindowsRollbackPairForTest(t)
-	if err := os.Mkdir(windowsRollbackStagePath(executable), 0o700); err != nil {
-		t.Fatal(err)
-	}
-
-	u := Updater{Channel: ChannelPortable, GOOS: "windows", Executable: executable}
-	message, err := u.Rollback(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "stage Windows AIGW rollback") {
-		t.Fatalf("error = %v", err)
-	}
-	if message != "" {
-		t.Fatalf("message = %q", message)
-	}
-}
-
-func TestRollbackWindowsCleansStageAfterHelperWriteFailure(t *testing.T) {
-	executable := writeWindowsRollbackPairForTest(t)
-	if err := os.Mkdir(executable+".rollback.cmd", 0o700); err != nil {
-		t.Fatal(err)
-	}
-
-	u := Updater{Channel: ChannelPortable, GOOS: "windows", Executable: executable}
-	message, err := u.Rollback(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "write Windows AIGW rollback helper") {
-		t.Fatalf("error = %v", err)
-	}
-	if message != "" {
-		t.Fatalf("message = %q", message)
-	}
-	if _, statErr := os.Stat(windowsRollbackStagePath(executable)); !os.IsNotExist(statErr) {
-		t.Fatalf("staged rollback binary was not cleaned up: %v", statErr)
-	}
-}
-
-func TestDetectChannelWindowsPathHeuristic(t *testing.T) {
-	previous := InstallChannel
-	t.Cleanup(func() { InstallChannel = previous })
-	InstallChannel = "bogus"
-	t.Setenv("AIGW_INSTALL_CHANNEL", "")
-
-	if got := detectChannel(`C:\Program Files\AIGW\aigw.exe`); got != ChannelMSI {
-		t.Fatalf("channel = %q, want msi", got)
+	for _, suffix := range []string{".update.cmd", ".rollback.cmd"} {
+		if _, err := os.Stat(executable + suffix); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("generated command script %s exists: %v", suffix, err)
+		}
 	}
 }
 
@@ -125,16 +57,4 @@ func writeWindowsPortableArchiveForTest(t *testing.T, directory string) (string,
 		t.Fatal(err)
 	}
 	return archivePath, checksumsPath
-}
-
-func writeWindowsRollbackPairForTest(t *testing.T) string {
-	t.Helper()
-	executable := filepath.Join(t.TempDir(), "aigw.exe")
-	if err := os.WriteFile(executable, []byte("current"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(rollbackPath(executable), []byte("previous"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return executable
 }

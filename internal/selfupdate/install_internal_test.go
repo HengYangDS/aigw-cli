@@ -4,17 +4,13 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
 
 // TestInstallPortableArchiveUsesWindowsBinaryNameWithoutWindowsRuntime covers
 // installing a Windows-targeted archive using the "aigw.exe" binary name. The
-// expected installation path depends on the host actually running the test:
-// on a real Windows host, the running executable may be locked, so the swap
-// must be scheduled for later rather than written in place; on every other
-// host, the write happens immediately.
+// replacement owner is the same native Go implementation on every platform.
 func TestInstallPortableArchiveUsesWindowsBinaryNameWithoutWindowsRuntime(t *testing.T) {
 	directory := t.TempDir()
 	archiveName := "aigw_1.2.3_windows_amd64.zip"
@@ -39,25 +35,8 @@ func TestInstallPortableArchiveUsesWindowsBinaryNameWithoutWindowsRuntime(t *tes
 	if !strings.Contains(message, "v1.2.3") {
 		t.Fatalf("message = %q", message)
 	}
-	if runtime.GOOS == "windows" {
-		if !scheduled {
-			t.Fatal("installPortableArchive did not schedule a Windows replacement while running on a Windows host")
-		}
-		staged, err := os.ReadFile(executable + ".update")
-		if err != nil || string(staged) != "windows-binary" {
-			t.Fatalf("staged=%q err=%v", staged, err)
-		}
-		if _, err := os.Stat(executable + ".update.cmd"); err != nil {
-			t.Fatalf("update script missing: %v", err)
-		}
-		got, err := os.ReadFile(executable)
-		if err != nil || string(got) != "old" {
-			t.Fatalf("executable was rewritten before the scheduled swap ran: got=%q err=%v", got, err)
-		}
-		return
-	}
 	if scheduled {
-		t.Fatal("installPortableArchive scheduled a Windows replacement outside a Windows runtime")
+		t.Fatal("installPortableArchive scheduled a helper process")
 	}
 	got, err := os.ReadFile(executable)
 	if err != nil || string(got) != "windows-binary" {
@@ -144,21 +123,6 @@ func TestRollbackRejectsUnreadableBackup(t *testing.T) {
 	}
 	u := Updater{Channel: ChannelPortable, Executable: executable}
 	if _, err := u.Rollback(context.Background()); err == nil || !strings.Contains(err.Error(), "read previous AIGW executable") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestScheduleWindowsRollbackRejectsUnreadableBackup(t *testing.T) {
-	withFakeCmd(t, true)
-	executable := filepath.Join(t.TempDir(), "aigw.exe")
-	if err := os.WriteFile(executable, []byte("current"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(rollbackPath(executable), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	u := Updater{Executable: executable}
-	if _, err := u.scheduleWindowsRollback(); err == nil || !strings.Contains(err.Error(), "read previous AIGW executable") {
 		t.Fatalf("error = %v", err)
 	}
 }

@@ -22,7 +22,7 @@ func (s Synchronizer) Commit(ctx context.Context, before, after configuration.Co
 	if err != nil {
 		return err
 	}
-	if ProjectionChanged(before, after) {
+	if ProjectionChanged(before, after) || ClaudeProjectionChanged(before, after) {
 		if err := s.Reconcile(ctx, before, after); err != nil {
 			rollbackErr := s.rollback(ctx, before, after, configBefore, configAfter, false)
 			if rollbackErr != nil {

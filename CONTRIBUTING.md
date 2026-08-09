@@ -41,19 +41,19 @@ is not liveness or retirement proof.
 
 ```bash
 go run ./tools/architecture --root .
-sh scripts/checks/governance/check-module-identity.sh
 go run ./tools/coveragegate --race
 go vet ./...
-sh scripts/checks/quality/check-static-analysis.sh
-sh scripts/checks/governance/check-portability.sh
-sh scripts/tests/governance/test-portability.sh
-test -z "$(gofmt -l cmd internal tools)"
-sh scripts/checks/governance/check-governance.sh
-AIGW_GITLAB_AUTHOR_EMAIL='<release actor email>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-commit-provenance.sh . gitlab
-sh scripts/tests/forge/test-commit-provenance.sh
-go test ./tools/historyreplay
-AIGW_TAG_NAMESPACE_FORGE='<local|gitlab|github>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' AIGW_GITHUB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-tag-namespace.sh
-sh scripts/tests/governance/test-changelog.sh
+go tool staticcheck -checks=all,-ST1000,-ST1005 ./...
+go tool errcheck ./...
+go test ./tools/architecture
+go run ./tools/repositorycheck --root . go-format
+go run ./tools/repositorycheck --root . governance
+go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
+go test ./tools/forge
+go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
+go run ./tools/repositorycheck --root . product-surface
+go run ./tools/repositorycheck --root . credentials
+go test ./tools/repositorycheck
 ```
 
 ## Projection changes
@@ -69,7 +69,7 @@ fails.
 Use focused Conventional Commits. Keep `CHANGELOG.md` with `## [Unreleased]` as
 its first release section, containing only changes after the latest tagged
 release. Every published heading must map to an existing `v<semver>` tag and
-its tag date; run `sh scripts/checks/governance/check-changelog.sh` before requesting review.
+its tag date; run `go run ./tools/repositorycheck --root . changelog` before requesting review.
 GitLab **Project Name** is `AIGW CLI`; stable clone **Path** is `aigw-cli`. Do
 not change external paths as a display-name cleanup.
 
@@ -77,7 +77,7 @@ GitLab and GitHub are equivalent, independent Forge planes. Each plane receives
 its publication actor and trust material from protected execution context; the
 product does not select a maintainer, email, key, or account. Do not copy or
 overwrite signed tags between providers. From a clean owned canonical checkout, run
-`sh scripts/forge/lib/project-github-forge.sh` to project a branch into the GitHub identity
+`go run ./tools/forge project` with explicit protected identity and trust inputs to project a branch into the GitHub identity
 domain. It maps the existing GitHub tip to an equal canonical tree, appends each
 later source commit with the GitHub identity and trusted signature, and uses an
 ordinary fast-forward push. It never rewrites history or pushes a tag. Do not
@@ -106,7 +106,7 @@ git fetch --no-prune --no-prune-tags --no-tags origin \
   refs/heads/main:refs/remotes/origin/main
 git fetch --no-prune --no-prune-tags --no-tags github \
   refs/heads/main:refs/remotes/github/main
-sh scripts/checks/forge/check-forge-sync.sh \
+go run ./tools/forge sync \
   --canonical main \
   --peer gitlab:refs/remotes/origin/main:commit \
   --peer github:refs/remotes/github/main:tree
@@ -148,7 +148,7 @@ canonical checkout. Use `commit` for GitLab's canonical history and `tree` for
 GitHub's identity-rewriting projection:
 
 ```sh
-sh scripts/checks/forge/check-branch-closeout.sh \
+go run ./tools/forge closeout \
   --source work/<delivery-branch> \
   --canonical main \
   --peer gitlab:refs/remotes/origin/main:commit \

@@ -10,14 +10,6 @@ import (
 	"testing"
 )
 
-func TestUpdateCandidateRejectsNonPortableChannel(t *testing.T) {
-	u := Updater{Channel: ChannelDeb}
-	_, err := u.UpdateCandidate(context.Background(), "0.1.0", CandidateArchive{ArchivePath: "a", ChecksumsPath: "b"})
-	if err == nil || !strings.Contains(err.Error(), "native package manager") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
 func TestUpdateCandidateRequiresBothPaths(t *testing.T) {
 	u := Updater{}
 	cases := []CandidateArchive{

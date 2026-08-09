@@ -57,15 +57,9 @@ func TestRouteAndAdapterReadinessHelpers(t *testing.T) {
 
 	claudeRuntime, _, _ := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "claude"}
-	app.ClaudeLauncher = unreadableClaudeLauncher(t)
-	if ready, issue := readiness.AdapterRouteReady(app.invocationContext(), cfg, configuration.ClientClaude, claudeRuntime); ready || !strings.Contains(issue, "Cannot read Claude launcher") {
+	if ready, issue := readiness.AdapterRouteReady(app.invocationContext(), cfg, configuration.ClientClaude, claudeRuntime); ready || !strings.Contains(issue, "executable is unavailable") {
 		t.Fatalf("ready=%v issue=%q", ready, issue)
 	}
-	app.ClaudeLauncher = missingClaudeLauncher(t)
-	if ready, issue := readiness.AdapterRouteReady(app.invocationContext(), cfg, configuration.ClientClaude, claudeRuntime); ready || !strings.Contains(issue, "launcher is missing") {
-		t.Fatalf("ready=%v issue=%q", ready, issue)
-	}
-	assertClaudeActivationBehavior(t, app, cfg, claudeRuntime)
 
 	profiles := configuration.NewConfig()
 	profiles.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}

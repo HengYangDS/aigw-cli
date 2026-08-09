@@ -17,7 +17,6 @@ const defaultPolicyPath = ".config/checks/architecture/policy.toml"
 type policy struct {
 	Owner                     string              `toml:"owner"`
 	Source                    string              `toml:"source"`
-	ScriptsRoots              []string            `toml:"scripts_roots"`
 	GoRoots                   []string            `toml:"go_roots"`
 	CompositionRootFiles      map[string][]string `toml:"composition_root_files"`
 	PeerPackageRoots          map[string][]string `toml:"peer_package_roots"`
@@ -36,6 +35,8 @@ type policy struct {
 	CheckTrivialWrappers      bool                `toml:"check_trivial_wrappers"`
 	CheckDecisionRecords      bool                `toml:"check_decision_records"`
 	CheckSemanticNames        bool                `toml:"check_semantic_names"`
+	CheckModuleIdentity       bool                `toml:"check_module_identity"`
+	CheckPortability          bool                `toml:"check_portability"`
 }
 
 func loadPolicy(path string) (policy, error) {
@@ -59,20 +60,12 @@ func validatePolicy(p policy) error {
 	if strings.TrimSpace(p.Owner) == "" || strings.TrimSpace(p.Source) == "" {
 		return fmt.Errorf("owner and source must be non-empty")
 	}
-	if len(p.ScriptsRoots) == 0 {
-		return fmt.Errorf("scripts_roots must be non-empty")
-	}
 	if len(p.GoRoots) == 0 {
 		return fmt.Errorf("go_roots must be non-empty")
 	}
 	for _, root := range p.GoRoots {
 		if !isPortableRelativePath(root) {
 			return fmt.Errorf("go_roots entries must be non-empty relative paths")
-		}
-	}
-	for _, root := range p.ScriptsRoots {
-		if !isPortableRelativePath(root) {
-			return fmt.Errorf("scripts_roots entries must be non-empty relative paths")
 		}
 	}
 	for root, files := range p.CompositionRootFiles {

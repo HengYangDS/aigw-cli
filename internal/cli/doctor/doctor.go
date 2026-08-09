@@ -18,14 +18,13 @@ import (
 
 // Dependencies are the capabilities required by the diagnostic command.
 type Dependencies struct {
-	Config         configuration.Store
-	Secrets        secrets.Store
-	Env            []string
-	Out            io.Writer
-	Color          bool
-	Width          int
-	ClaudeLauncher claude.Launcher
-	RenderOut      io.Writer
+	Config    configuration.Store
+	Secrets   secrets.Store
+	Env       []string
+	Out       io.Writer
+	Color     bool
+	Width     int
+	RenderOut io.Writer
 }
 
 // Check is one machine-readable diagnostic result.
@@ -92,14 +91,15 @@ func renderWriter(deps Dependencies) io.Writer {
 	return deps.Out
 }
 
-// Collect evaluates configuration, credentials, launchers, and projections.
+// Collect evaluates configuration, credentials, client executables, and
+// projections.
 func Collect(deps Dependencies) []Check {
 	checks := []Check{}
 	if names := ForbiddenClientTokenEnvironment(deps.Env); len(names) > 0 {
 		checks = append(checks, Check{
 			Name:   "environment:client-token",
 			Detail: "global client token environment variables are set: " + strings.Join(names, ", "),
-			Fix:    "remove them from the parent environment; AIGW injects Claude credentials only through its launcher",
+			Fix:    "remove them from the parent environment; AIGW supplies credentials only to explicit client verification processes",
 		})
 	} else {
 		checks = append(checks, Check{
@@ -141,14 +141,14 @@ func Collect(deps Dependencies) []Check {
 				detail = "enabled but executable is missing"
 				fix = "run `aigw repair`"
 			} else if client == configuration.ClientClaude {
-				ready, launcherErr := deps.ClaudeLauncher.ClaudeLauncherReady()
-				if launcherErr != nil {
+				ready, integrationErr := claude.Ready(adapter.Executable)
+				if integrationErr != nil {
 					ok = false
-					detail = launcherErr.Error()
+					detail = integrationErr.Error()
 					fix = "run `aigw repair`"
 				} else if !ready {
 					ok = false
-					detail = "enabled but AIGW-managed Claude launcher is missing"
+					detail = "enabled but the configured Claude executable is unavailable"
 					fix = "run `aigw repair`"
 				}
 			} else if len(adapter.Targets) == 0 {
@@ -160,7 +160,6 @@ func Collect(deps Dependencies) []Check {
 		checks = append(checks, Check{"adapter:" + client, ok, detail, fix})
 	}
 	checks = append(checks, codexProjectionChecks(cfg)...)
-	checks = append(checks, claudeLauncherChecks(deps, cfg)...)
 	return checks
 }
 
@@ -186,39 +185,6 @@ func codexProjectionChecks(cfg configuration.Config) []Check {
 	return checks
 }
 
-func claudeLauncherChecks(deps Dependencies, cfg configuration.Config) []Check {
-	if !cfg.Adapters[configuration.ClientClaude].Enabled {
-		return nil
-	}
-	ok, err := deps.ClaudeLauncher.ClaudeLauncherReady()
-	check := Check{Name: "launcher:claude", OK: ok}
-	if err != nil {
-		check.Detail = err.Error()
-		check.Fix = "run `aigw repair`"
-	} else if ok {
-		check.Detail = "AIGW managed launcher"
-	} else {
-		check.Detail = "AIGW managed Claude launcher is missing"
-		check.Fix = "run `aigw repair`"
-	}
-	checks := []Check{check}
-	if !ok {
-		return checks
-	}
-	active, activationErr := deps.ClaudeLauncher.ClaudeActivationReady()
-	activation := Check{Name: "path:claude", OK: active}
-	if activationErr != nil {
-		activation.Detail = activationErr.Error()
-		activation.Fix = "run `aigw repair`"
-	} else if active {
-		activation.Detail = "AIGW-managed shell PATH activation"
-	} else {
-		activation.Detail = "AIGW-managed Claude PATH activation is missing"
-		activation.Fix = "run `aigw repair`"
-	}
-	return append(checks, activation)
-}
-
 func sortedDoctorAccountNames(cfg configuration.Config) []string {
 	names := make([]string, 0, len(cfg.Accounts))
 	for name := range cfg.Accounts {
@@ -241,10 +207,6 @@ func Label(name string) string {
 		return "Claude adapter"
 	case name == "adapter:codex":
 		return "Codex adapter"
-	case name == "launcher:claude":
-		return "Claude launcher"
-	case name == "path:claude":
-		return "Claude PATH activation"
 	case name == "projection:codex":
 		return "Codex route"
 	case strings.HasPrefix(name, "codex:target-"):
@@ -289,20 +251,6 @@ func Detail(check Check) string {
 		}
 		if strings.Contains(detail, "no Codex config target") {
 			return "Enabled, but no Codex configuration file is configured"
-		}
-	case name == "launcher:claude":
-		if check.OK {
-			return "AIGW-managed Claude launcher is ready"
-		}
-		if strings.Contains(detail, "is missing") {
-			return "AIGW-managed Claude launcher is missing"
-		}
-	case name == "path:claude":
-		if check.OK {
-			return "AIGW-managed Claude PATH activation is ready"
-		}
-		if strings.Contains(detail, "is missing") {
-			return "Claude PATH activation is missing"
 		}
 	case name == "projection:codex":
 		return "Current Codex route cannot be resolved"

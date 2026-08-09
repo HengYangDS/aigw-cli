@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"aigw-cli/internal/account"
-	"aigw-cli/internal/claude"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
@@ -37,7 +36,5 @@ func configuredCommandApp(t *testing.T, cfg configuration.Config) *App {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	return &App{Config: store, Secrets: secrets.NewMemoryStore(), Accounts: account.NewMemoryStore(), Discovery: staticDiscovery{}, Out: out, Err: out}
+	return &App{Config: store, ClaudeSettingsPath: filepath.Join(t.TempDir(), ".claude", "settings.json"), Secrets: secrets.NewMemoryStore(), Accounts: account.NewMemoryStore(), Discovery: staticDiscovery{}, Out: out, Err: out}
 }
-
-var _ claude.Launcher

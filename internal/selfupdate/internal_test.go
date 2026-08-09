@@ -15,6 +15,20 @@ import (
 
 type rejectingLimitedWriter struct{}
 
+type fakeCommandRunner struct {
+	calls [][]string
+	fail  map[string]error
+}
+
+func (r *fakeCommandRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
+	call := append([]string{name}, args...)
+	r.calls = append(r.calls, call)
+	if err, ok := r.fail[name]; ok {
+		return nil, err
+	}
+	return []byte("ok"), nil
+}
+
 func (rejectingLimitedWriter) Write([]byte) (int, error) {
 	return 0, errors.New("write rejected")
 }
@@ -138,272 +152,6 @@ func TestRollbackPathVariants(t *testing.T) {
 	}
 	if got := rollbackPath(`C:\aigw\aigw`); got != `C:\aigw\.aigw.previous` {
 		t.Fatalf("rollbackPath = %q", got)
-	}
-}
-
-func TestWindowsRollbackStagePathAppendsSuffix(t *testing.T) {
-	if got := windowsRollbackStagePath(`C:\aigw\aigw.exe`); got != `C:\aigw\aigw.exe.rollback` {
-		t.Fatalf("windowsRollbackStagePath = %q", got)
-	}
-}
-
-func TestParseChannelRejectsUnknownValue(t *testing.T) {
-	if _, ok := parseChannel("bogus"); ok {
-		t.Fatal("parseChannel accepted an unknown channel")
-	}
-	if channel, ok := parseChannel(" DEB "); !ok || channel != ChannelDeb {
-		t.Fatalf("channel = %q, ok = %v", channel, ok)
-	}
-}
-
-func TestDetectChannelPrefersBuildTimeInstallChannel(t *testing.T) {
-	previous := InstallChannel
-	t.Cleanup(func() { InstallChannel = previous })
-	InstallChannel = "rpm"
-	if got := detectChannel("/usr/bin/aigw"); got != ChannelRPM {
-		t.Fatalf("channel = %q, want rpm", got)
-	}
-}
-
-func TestDetectChannelFallsBackToEnvironmentVariable(t *testing.T) {
-	previous := InstallChannel
-	t.Cleanup(func() { InstallChannel = previous })
-	InstallChannel = "bogus"
-	t.Setenv("AIGW_INSTALL_CHANNEL", "msi")
-	if got := detectChannel("/usr/bin/aigw"); got != ChannelMSI {
-		t.Fatalf("channel = %q, want msi", got)
-	}
-}
-
-func TestDetectChannelIgnoresInvalidEnvironmentVariable(t *testing.T) {
-	previous := InstallChannel
-	t.Cleanup(func() { InstallChannel = previous })
-	InstallChannel = "bogus"
-	t.Setenv("AIGW_INSTALL_CHANNEL", "also-bogus")
-	got := detectChannel("/opt/aigw/aigw")
-	if got != ChannelPortable {
-		t.Fatalf("channel = %q, want portable", got)
-	}
-}
-
-func TestPackageAssetNameAllChannels(t *testing.T) {
-	cases := []struct {
-		channel Channel
-		goos    string
-		goarch  string
-		want    string
-	}{
-		{ChannelPKG, "darwin", "arm64", "aigw_1.2.3_darwin_universal.pkg"},
-		{ChannelPKG, "linux", "arm64", ""},
-		{ChannelDeb, "linux", "amd64", "aigw_1.2.3_linux_amd64.deb"},
-		{ChannelDeb, "darwin", "amd64", ""},
-		{ChannelRPM, "linux", "amd64", "aigw_1.2.3_linux_amd64.rpm"},
-		{ChannelRPM, "darwin", "amd64", ""},
-		{ChannelMSI, "windows", "amd64", "aigw_1.2.3_windows_amd64.msi"},
-		{ChannelMSI, "linux", "amd64", ""},
-		{ChannelPortable, "darwin", "amd64", ""},
-	}
-	for _, tc := range cases {
-		u := Updater{Channel: tc.channel, GOOS: tc.goos, GOARCH: tc.goarch}
-		if got := u.packageAssetName("1.2.3"); got != tc.want {
-			t.Fatalf("channel=%s goos=%s: packageAssetName = %q, want %q", tc.channel, tc.goos, got, tc.want)
-		}
-	}
-}
-
-type fakeCommandRunner struct {
-	calls [][]string
-	fail  map[string]error
-}
-
-func (r *fakeCommandRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
-	call := append([]string{name}, args...)
-	r.calls = append(r.calls, call)
-	if err, ok := r.fail[name]; ok {
-		return nil, err
-	}
-	return []byte("ok"), nil
-}
-
-func TestRunPackageInstallerAllChannels(t *testing.T) {
-	cases := []struct {
-		channel Channel
-		prefix  []string
-	}{
-		{ChannelPKG, []string{"open"}},
-		{ChannelDeb, []string{"sudo", "dpkg", "-i"}},
-		{ChannelRPM, []string{"sudo", "rpm", "-Uvh"}},
-		{ChannelMSI, []string{"msiexec", "/i"}},
-	}
-	for _, tc := range cases {
-		runner := &fakeCommandRunner{}
-		u := Updater{Channel: tc.channel, Runner: runner}
-		if err := u.runPackageInstaller(context.Background(), "/tmp/pkg"); err != nil {
-			t.Fatalf("channel=%s error = %v", tc.channel, err)
-		}
-		want := append(append([]string{}, tc.prefix...), "/tmp/pkg")
-		if len(runner.calls) != 1 || strings.Join(runner.calls[0], " ") != strings.Join(want, " ") {
-			t.Fatalf("channel=%s calls = %v, want %v", tc.channel, runner.calls, want)
-		}
-	}
-}
-
-func TestRunPackageInstallerPropagatesFailureForEachChannel(t *testing.T) {
-	cases := []struct {
-		channel Channel
-		command string
-	}{
-		{ChannelPKG, "open"},
-		{ChannelDeb, "sudo"},
-		{ChannelRPM, "sudo"},
-		{ChannelMSI, "msiexec"},
-	}
-	for _, tc := range cases {
-		runner := &fakeCommandRunner{fail: map[string]error{tc.command: errors.New("boom")}}
-		u := Updater{Channel: tc.channel, Runner: runner}
-		if err := u.runPackageInstaller(context.Background(), "/tmp/pkg"); err == nil || !strings.Contains(err.Error(), "boom") {
-			t.Fatalf("channel=%s error = %v", tc.channel, err)
-		}
-	}
-}
-
-func TestRunPackageInstallerRejectsUnknownChannel(t *testing.T) {
-	u := Updater{Channel: "bogus", Runner: &fakeCommandRunner{}}
-	if err := u.runPackageInstaller(context.Background(), "/tmp/pkg"); err == nil || !strings.Contains(err.Error(), "unknown installation channel") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-// withFakeCmd installs a fake `cmd` executable on PATH for the duration of
-// the test so scheduleWindowsReplacement/scheduleWindowsRollback can be
-// exercised end-to-end without requiring an actual Windows host.
-func withFakeCmd(t *testing.T, succeed bool) {
-	t.Helper()
-	directory := t.TempDir()
-	script := "#!/bin/sh\nexit 0\n"
-	if !succeed {
-		script = "#!/bin/sh\nexit 1\n"
-	}
-	path := filepath.Join(directory, "cmd")
-	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", directory+string(os.PathListSeparator)+os.Getenv("PATH"))
-}
-
-func TestScheduleWindowsReplacementStagesBinaryAndLaunchesHelper(t *testing.T) {
-	withFakeCmd(t, true)
-	executable := filepath.Join(t.TempDir(), "aigw.exe")
-	if err := os.WriteFile(executable, []byte("current"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	u := Updater{Executable: executable}
-	message, err := u.scheduleWindowsReplacement([]byte("new-binary"), "v1.2.3")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(message, "v1.2.3") {
-		t.Fatalf("message = %q", message)
-	}
-	staged, err := os.ReadFile(executable + ".update")
-	if err != nil || string(staged) != "new-binary" {
-		t.Fatalf("staged=%q err=%v", staged, err)
-	}
-	if _, err := os.Stat(executable + ".update.cmd"); err != nil {
-		t.Fatalf("update script missing: %v", err)
-	}
-}
-
-func TestScheduleWindowsReplacementRejectsEmptyExecutable(t *testing.T) {
-	t.Chdir(t.TempDir())
-	withFakeCmd(t, true)
-	u := Updater{Executable: " "}
-	if _, err := u.scheduleWindowsReplacement([]byte("data"), "v1.0.0"); err == nil {
-		t.Fatal("scheduleWindowsReplacement accepted an empty executable path")
-	}
-}
-
-func TestScheduleWindowsReplacementFailsWhenStagingCannotBeWritten(t *testing.T) {
-	withFakeCmd(t, true)
-	directory := t.TempDir()
-	executable := filepath.Join(directory, "missing-parent", "aigw.exe")
-	u := Updater{Executable: executable}
-	if _, err := u.scheduleWindowsReplacement([]byte("data"), "v1.0.0"); err == nil || !strings.Contains(err.Error(), "stage Windows update") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestScheduleWindowsReplacementFailsWhenHelperCannotStart(t *testing.T) {
-	t.Setenv("PATH", t.TempDir())
-	executable := filepath.Join(t.TempDir(), "aigw.exe")
-	if err := os.WriteFile(executable, []byte("current"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	u := Updater{Executable: executable}
-	if _, err := u.scheduleWindowsReplacement([]byte("data"), "v1.0.0"); err == nil || !strings.Contains(err.Error(), "start Windows update helper") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestScheduleWindowsRollbackRestoresPreviousBinary(t *testing.T) {
-	withFakeCmd(t, true)
-	executable := filepath.Join(t.TempDir(), "aigw.exe")
-	if err := os.WriteFile(executable, []byte("current"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(rollbackPath(executable), []byte("previous"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	u := Updater{Executable: executable}
-	message, err := u.scheduleWindowsRollback()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(message, "scheduled") {
-		t.Fatalf("message = %q", message)
-	}
-	staged, err := os.ReadFile(windowsRollbackStagePath(executable))
-	if err != nil || string(staged) != "previous" {
-		t.Fatalf("staged=%q err=%v", staged, err)
-	}
-}
-
-func TestScheduleWindowsRollbackRequiresPreviousBinary(t *testing.T) {
-	withFakeCmd(t, true)
-	executable := filepath.Join(t.TempDir(), "aigw.exe")
-	if err := os.WriteFile(executable, []byte("current"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	u := Updater{Executable: executable}
-	if _, err := u.scheduleWindowsRollback(); err == nil || !strings.Contains(err.Error(), "no previous portable AIGW binary") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestScheduleWindowsRollbackFailsWhenExecutableMissing(t *testing.T) {
-	withFakeCmd(t, true)
-	executable := filepath.Join(t.TempDir(), "aigw.exe")
-	if err := os.WriteFile(rollbackPath(executable), []byte("previous"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	u := Updater{Executable: executable}
-	if _, err := u.scheduleWindowsRollback(); err == nil || !strings.Contains(err.Error(), "inspect current AIGW executable") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestScheduleWindowsRollbackFailsWhenHelperCannotStart(t *testing.T) {
-	t.Setenv("PATH", t.TempDir())
-	executable := filepath.Join(t.TempDir(), "aigw.exe")
-	if err := os.WriteFile(executable, []byte("current"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(rollbackPath(executable), []byte("previous"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	u := Updater{Executable: executable}
-	if _, err := u.scheduleWindowsRollback(); err == nil || !strings.Contains(err.Error(), "start Windows AIGW rollback helper") {
-		t.Fatalf("error = %v", err)
 	}
 }
 
@@ -587,12 +335,6 @@ func TestVerifyChecksumRejectsUnreadableArchive(t *testing.T) {
 	}
 	if err := verifyChecksum(filepath.Join(directory, "a"), filepath.Join(directory, "checksums.txt"), "a"); err == nil || !strings.Contains(err.Error(), "open update archive") {
 		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestPreservePreviousBinaryRejectsMissingSource(t *testing.T) {
-	if err := preservePreviousBinary(filepath.Join(t.TempDir(), "missing")); err == nil {
-		t.Fatal("preservePreviousBinary accepted a missing source")
 	}
 }
 

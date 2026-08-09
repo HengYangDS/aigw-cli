@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+env:
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 concurrency:
   group: verify-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -25,98 +30,46 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+      - name: Set up locked toolchain
+        uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          install: true
+          cache: false
       - name: Refresh annotated release tags
-        run: |
-          set -euo pipefail
-          for attempt in 1 2 3; do
-            if git fetch --force --tags origin; then
-              exit 0
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              exit 1
-            fi
-            sleep "$attempt"
-          done
+        run: mise exec --locked -- go run ./tools/civerify fetch-tags
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
-        run: |
-          set -euo pipefail
-          test -n "$AIGW_RELEASE_ALLOWED_SIGNERS"
-          umask 077
-          allowed_signers="$RUNNER_TEMP/aigw-allowed-signers"
-          printf '%s\n' "$AIGW_RELEASE_ALLOWED_SIGNERS" > "$allowed_signers"
-          echo "AIGW_GITHUB_ALLOWED_SIGNERS=$allowed_signers" >> "$GITHUB_ENV"
+        run: mise exec --locked -- go run ./tools/civerify trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"
       - name: Verify pushed release tag provenance
         if: github.ref_type == 'tag'
         env:
           SELECTED_TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          sh scripts/checks/forge/check-release-tag-signature.sh . "$SELECTED_TAG" github
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-          check-latest: false
-          # Self-hosted verification must finish when its visible gates finish;
-          # do not add a post-job archive/save phase.
-          cache: false
+        run: mise exec --locked -- go run ./tools/forge tag --provider github --tag "$SELECTED_TAG" --allowed-signers "$AIGW_GITHUB_ALLOWED_SIGNERS"
       - name: Run source and policy gates
         env:
           CGO_ENABLED: '1'
+          AIGW_FORGE_PROVIDER: github
+          AIGW_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
+          AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_GITHUB_ALLOWED_SIGNERS }}
           AIGW_CHANGELOG_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          GITHUB_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
-        run: |
-          set -euo pipefail
-          sh scripts/checks/release/check-release-toolchain.sh
-          AIGW_GITHUB_AUTHOR_EMAIL="$GITHUB_RELEASE_AUTHOR_EMAIL" sh scripts/checks/forge/check-commit-provenance.sh . github
-          go run ./tools/architecture --root .
-          sh scripts/checks/governance/check-module-identity.sh
-          sh scripts/tests/governance/test-module-identity.sh
-          go run ./tools/coveragegate --race
-          go vet ./...
-          sh scripts/checks/quality/check-static-analysis.sh
-          test -z "$(gofmt -l cmd internal tools)"
-          for script in $(git ls-files 'scripts/*.sh'); do sh -n "$script"; done
-          sh scripts/checks/release/check-package-safety.sh
-          sh scripts/checks/governance/check-product-surface.sh
-          sh scripts/checks/governance/check-portability.sh
-          sh scripts/tests/governance/test-portability.sh
-          sh scripts/checks/governance/check-english-text.sh
-          sh scripts/checks/security/check-credential-literals.sh
-          sh scripts/tests/security/test-credential-literals.sh
-          sh scripts/checks/security/check-credential-fixtures.sh
-          sh scripts/tests/security/test-credential-fixtures.sh
-          sh scripts/checks/governance/check-governance.sh
-          sh scripts/tests/governance/test-changelog.sh
-          sh scripts/tests/forge/test-tag-namespace.sh
-          sh scripts/tests/release/test-release-readiness.sh
-          sh scripts/tests/release/test-release-artifacts.sh
-          sh scripts/tests/release/test-release-source-date-epoch.sh
-          sh scripts/tests/forge/test-release-forge-sources.sh
-          sh scripts/tests/release/test-release-toolchain.sh
-          sh scripts/tests/release/test-verified-candidate.sh
-          sh scripts/tests/forge/test-release-tag-signature.sh
-          sh scripts/tests/forge/test-release-tag-signature-provider-selection.sh
-          sh scripts/tests/release/test-package-runner-preflight.sh
-          sh scripts/tests/ci/test-ci-go-cache-preparation.sh
-          sh scripts/tests/install/test-linux-native-install-staging.sh
-          sh scripts/tests/install/test-macos-native-install-staging.sh
-          sh scripts/tests/release/test-msi-version.sh
-          sh scripts/tests/release/test-publish-gitlab-release.sh
-          sh scripts/tests/release/test-publish-github-release.sh
-          sh scripts/tests/ci/test-pipeline-gates.sh
-          sh scripts/tests/ci/test-github-actions-contract.sh
-          sh scripts/tests/ci/test-github-release-workflow.sh
-          sh scripts/tests/forge/test-github-provider-projection.sh
-          sh scripts/tests/forge/test-commit-provenance.sh
-          go test ./tools/historyreplay
-          sh scripts/tests/forge/test-branch-closeout.sh
-          sh scripts/tests/forge/test-forge-sync.sh
-      - name: Run PowerShell installer contract
-        shell: pwsh
-        run: ./scripts/tests/install/test-installers.ps1 -Installer ./scripts/install/install.ps1
+        run: mise exec --locked -- go run ./tools/civerify source
+  native-darwin:
+    name: Native macOS acceptance
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Set up locked toolchain
+        uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          install: true
+          cache: false
+      - name: Run native macOS acceptance
+        run: mise exec --locked -- go run ./tools/civerify native --platform darwin
 
   native-linux:
     name: Native Linux acceptance
@@ -127,33 +80,17 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - name: Set up locked toolchain
+        uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          go-version-file: go.mod
-          check-latest: false
+          install: true
           cache: false
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
-        run: |
-          set -euo pipefail
-          test -n "$AIGW_RELEASE_ALLOWED_SIGNERS"
-          umask 077
-          allowed_signers="$RUNNER_TEMP/aigw-allowed-signers"
-          printf '%s\n' "$AIGW_RELEASE_ALLOWED_SIGNERS" > "$allowed_signers"
-          echo "AIGW_GITHUB_ALLOWED_SIGNERS=$allowed_signers" >> "$GITHUB_ENV"
+        run: mise exec --locked -- go run ./tools/civerify trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"
       - name: Run native Linux acceptance
-        env:
-          GITHUB_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
-        run: |
-          set -euo pipefail
-          AIGW_GITHUB_AUTHOR_EMAIL="$GITHUB_RELEASE_AUTHOR_EMAIL" sh scripts/checks/forge/check-commit-provenance.sh . github
-          go run ./tools/architecture --root .
-          go run ./tools/coveragegate --race
-          go vet ./...
-          go build -o "$RUNNER_TEMP/aigw" ./cmd/aigw
-          "$RUNNER_TEMP/aigw" --version
+        run: mise exec --locked -- go run ./tools/civerify native --platform linux
 
   native-windows:
     name: Native Windows acceptance
@@ -164,12 +101,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - name: Set up locked toolchain
+        uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
-          go-version-file: go.mod
-          check-latest: false
+          install: true
           cache: false
       - name: Run native Windows acceptance
-        shell: pwsh
-        run: ./scripts/tests/install/test-windows-native.ps1 -Repository $env:GITHUB_WORKSPACE
+        run: mise exec --locked -- go run ./tools/civerify native --platform windows

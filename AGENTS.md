@@ -71,9 +71,9 @@ Worktree visibility or an apparently idle agent is not retirement authority.
   packages, explicit dependency direction, and narrow interfaces; apply SSOT,
   DRY, MECE, and SOLID rather than duplicating policy across scripts or CI.
 - Do not introduce source-level compatibility shims, forwarding wrappers,
-  alias-only packages, or re-exports. The Claude launcher in
-  `internal/claude` is owned product behavior, not permission for forwarding
-  architecture.
+  alias-only packages, or re-exports. Claude Code uses its official user
+  settings projection and credential-helper contract; AIGW never intercepts
+  the `claude` command or mutates shell profiles.
 - Every commit reachable from a published branch tip must use the publication
   actor supplied by that Forge's protected release context and a trusted
   signature from its explicit trust input. No floor, mailmap, or suffix-only
@@ -90,19 +90,19 @@ Worktree visibility or an apparently idle agent is not retirement authority.
 
 ```bash
 go run ./tools/architecture --root .
-sh scripts/checks/governance/check-module-identity.sh
 go run ./tools/coveragegate --race
 go vet ./...
-sh scripts/checks/quality/check-static-analysis.sh
-sh scripts/checks/governance/check-portability.sh
-sh scripts/tests/governance/test-portability.sh
-test -z "$(gofmt -l cmd internal tools)"
-sh scripts/checks/governance/check-governance.sh
-AIGW_GITLAB_AUTHOR_EMAIL='<release actor email>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-commit-provenance.sh . gitlab
-sh scripts/tests/forge/test-commit-provenance.sh
-go test ./tools/historyreplay
-AIGW_TAG_NAMESPACE_FORGE='<local|gitlab|github>' AIGW_GITLAB_ALLOWED_SIGNERS='<path>' AIGW_GITHUB_ALLOWED_SIGNERS='<path>' sh scripts/checks/forge/check-tag-namespace.sh
-sh scripts/tests/governance/test-changelog.sh
+go tool staticcheck -checks=all,-ST1000,-ST1005 ./...
+go tool errcheck ./...
+go test ./tools/architecture
+go run ./tools/repositorycheck --root . go-format
+go run ./tools/repositorycheck --root . governance
+go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
+go test ./tools/forge
+go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
+go run ./tools/repositorycheck --root . product-surface
+go run ./tools/repositorycheck --root . credentials
+go test ./tools/repositorycheck
 ```
 
 Use `aigw sync --dry-run --json` before a configuration mutation where a target

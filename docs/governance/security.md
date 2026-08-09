@@ -32,7 +32,7 @@ Replacing Account metadata never redirects or overwrites the existing Token.
 | Client | AIGW may write | AIGW never writes |
 | --- | --- | --- |
 | Codex | Marked provider/model block, sidecar, official credential binding | Conversation JSONL, SQLite, history, item records, model metadata, Desktop GUI state |
-| Claude Code | AIGW launcher and process environment | Global plaintext Token or unrelated shell content |
+| Claude Code | AIGW-owned endpoint/model keys, sidecar, and credential helper | Plaintext Token, shell profiles, command interception, sessions, or unrelated settings |
 | Missing/foreign client | Nothing | Directories, launch state, configuration |
 
 ## Transaction boundary
@@ -77,6 +77,6 @@ terminal.
 
 ## Uninstall
 
-Uninstall removes only AIGW-owned configuration markers, launcher state,
+Uninstall removes only AIGW-owned configuration markers, Claude settings state,
 credentials, and program files for the selected installation channel. It does
 not remove client conversations, provider accounts, or another product.

@@ -22,7 +22,6 @@ func TestSemanticNamesAcceptNativeCarrierGrammars(t *testing.T) {
 	writeFile(t, filepath.Join(root, "README.md"), "# Project\n")
 	writeFile(t, filepath.Join(root, "docs", "release-policy.md"), "# Policy\n")
 	writeFile(t, filepath.Join(root, "internal", "routing", "route_plan.go"), "package routing\n")
-	writeFile(t, filepath.Join(root, "scripts", "checks", "check-release.sh"), "#!/bin/sh\n")
 	runGit(t, root, "add", ".")
 	report := newReport("policy", root)
 	if err := checkSemanticNames(root, &report); err != nil {
@@ -67,7 +66,6 @@ func TestSemanticNamesRejectWrongCarrierAndNumericNames(t *testing.T) {
 	runGit(t, root, "init", "-q")
 	writeFile(t, filepath.Join(root, "docs", "2026-plan.md"), "# Plan\n")
 	writeFile(t, filepath.Join(root, "internal", "routing", "route-plan.go"), "package routing\n")
-	writeFile(t, filepath.Join(root, "scripts", "checks", "check_release.sh"), "#!/bin/sh\n")
 	runGit(t, root, "add", ".")
 	report := newReport("policy", root)
 	if err := checkSemanticNames(root, &report); err != nil {
@@ -75,7 +73,6 @@ func TestSemanticNamesRejectWrongCarrierAndNumericNames(t *testing.T) {
 	}
 	assertFinding(t, report.Findings, "semantic_name_markdown", "docs/2026-plan.md")
 	assertFinding(t, report.Findings, "semantic_name_go", "internal/routing/route-plan.go")
-	assertFinding(t, report.Findings, "semantic_name_shell", "scripts/checks/check_release.sh")
 }
 
 func TestSemanticNamesRejectPythonFiles(t *testing.T) {

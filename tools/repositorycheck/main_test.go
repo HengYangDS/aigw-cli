@@ -62,6 +62,117 @@ func TestRunChecksChangelogAndReleaseEpoch(t *testing.T) {
 	}
 }
 
+func TestRepositoryCheckOwnsFormerShellForwarders(t *testing.T) {
+	root := initReleaseRepository(t, "1.2.3")
+	if err := run([]string{"--root", root, "english-text"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"--root", root, "changelog"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"--root", root, "release-epoch", "1.2.3"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRepositoryCheckRejectsCredentialShapesAndProductSurfaceDrift(t *testing.T) {
+	root := productSurfaceRepository(t)
+	if err := checkProductSurface(root); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkCredentials(root); err != nil {
+		t.Fatal(err)
+	}
+
+	write := func(relative, content string) {
+		t.Helper()
+		path := filepath.Join(root, filepath.FromSlash(relative))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		gitRepository(t, root, "add", relative)
+	}
+
+	write("internal/leak.go", "package internal\n\nconst token = \"sk-abcdefghijklmnopqrstuvwxyz012345\"\n")
+	if err := checkCredentials(root); err == nil || !strings.Contains(err.Error(), "outside test source") {
+		t.Fatalf("production credential shape accepted: %v", err)
+	}
+	if err := os.Remove(filepath.Join(root, "internal", "leak.go")); err != nil {
+		t.Fatal(err)
+	}
+	gitRepository(t, root, "add", "internal/leak.go")
+
+	write("internal/leak_test.go", "package internal\n\nconst token = \"sk-abcdefghijklmnopqrstuvwxyz012345\"\n")
+	if err := checkCredentials(root); err == nil || !strings.Contains(err.Error(), "test fixture") {
+		t.Fatalf("test credential shape accepted: %v", err)
+	}
+
+	write("README.md", "# Product\n\nProprietary\n")
+	if err := checkProductSurface(root); err == nil {
+		t.Fatal("proprietary product surface accepted")
+	}
+}
+
+func TestRepositoryCheckContractErrorSurfaces(t *testing.T) {
+	if err := checkCredentials(filepath.Join(t.TempDir(), "missing")); err == nil {
+		t.Fatal("missing credential repository accepted")
+	}
+	root := productSurfaceRepository(t)
+	for _, command := range []string{"credentials", "product-surface"} {
+		if err := run([]string{"--root", root, command}); err != nil {
+			t.Fatalf("%s: %v", command, err)
+		}
+	}
+	for relative, sentinel := range map[string]string{
+		"internal/secrets/store_test.go":     "aigw-test-secret-never-leaks",
+		"internal/diagnostics/probe_test.go": "aigw-test-gateway-token-never-leaks",
+	} {
+		path := filepath.Join(root, filepath.FromSlash(relative))
+		if err := os.WriteFile(path, []byte("package fixture\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		gitRepository(t, root, "add", relative)
+		if err := checkCredentials(root); err == nil || !strings.Contains(err.Error(), "redaction sentinel is missing") {
+			t.Fatalf("missing sentinel %s accepted: %v", sentinel, err)
+		}
+		if err := os.WriteFile(path, []byte("package fixture\nconst sentinel = \""+sentinel+"\"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		gitRepository(t, root, "add", relative)
+	}
+	if err := os.Remove(filepath.Join(root, "LICENSE")); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkProductSurface(root); err == nil || !strings.Contains(err.Error(), "LICENSE") {
+		t.Fatalf("missing product surface accepted: %v", err)
+	}
+
+	for _, relative := range []string{"README.md", "docs/README.md"} {
+		root := productSurfaceRepository(t)
+		path := filepath.Join(root, filepath.FromSlash(relative))
+		if err := os.WriteFile(path, []byte("Proprietary\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := checkProductSurface(root); err == nil {
+			t.Fatalf("invalid %s accepted", relative)
+		}
+	}
+
+	root = productSurfaceRepository(t)
+	if err := os.MkdirAll(filepath.Join(root, "docs", "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "docs", "nested", "license.md"), []byte("Proprietary\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkProductSurface(root); err == nil || !strings.Contains(err.Error(), "proprietary licensing residue") {
+		t.Fatalf("nested proprietary residue accepted: %v", err)
+	}
+}
+
 func TestExecuteReportsErrors(t *testing.T) {
 	stderr, err := os.CreateTemp(t.TempDir(), "stderr")
 	if err != nil {
@@ -77,6 +188,19 @@ func TestExecuteReportsErrors(t *testing.T) {
 	}
 	if execute([]string{"--root", initReleaseRepository(t, "1.2.3"), "changelog"}, stderr) != 0 {
 		t.Fatal("valid invocation failed")
+	}
+}
+
+func TestMainDelegatesProcessStatus(t *testing.T) {
+	previousArgs := os.Args
+	previousExit := exit
+	t.Cleanup(func() { os.Args, exit = previousArgs, previousExit })
+	os.Args = []string{"repositorycheck", "--root", productSurfaceRepository(t), "product-surface"}
+	status := -1
+	exit = func(code int) { status = code }
+	main()
+	if status != 0 {
+		t.Fatalf("main status = %d", status)
 	}
 }
 
@@ -296,6 +420,32 @@ func initReleaseRepository(t *testing.T, version string) string {
 	gitRepository(t, root, "add", "CHANGELOG.md")
 	gitRepository(t, root, "commit", "-q", "-m", "release")
 	gitRepository(t, root, "tag", "v"+version)
+	return root
+}
+
+func productSurfaceRepository(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	gitRepository(t, root, "init", "-q")
+	files := map[string]string{
+		"LICENSE":                            "MIT License\n\nCopyright (c) 2026 AIGW CLI Contributors\n\nTHE SOFTWARE IS PROVIDED \"AS IS\"\n",
+		"README.md":                          "# Product\n\n[MIT](LICENSE)\n\nMIT License\n",
+		"CHANGELOG.md":                       "## [Unreleased]\n",
+		"CONTRIBUTING.md":                    "MIT License\n",
+		"docs/README.md":                     "[LICENSE](../LICENSE)\n",
+		"internal/secrets/store_test.go":     "package secrets\n\nconst sentinel = \"aigw-test-secret-never-leaks\"\n",
+		"internal/diagnostics/probe_test.go": "package diagnostics\n\nconst sentinel = \"aigw-test-gateway-token-never-leaks\"\n",
+	}
+	for relative, content := range files {
+		path := filepath.Join(root, filepath.FromSlash(relative))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	gitRepository(t, root, "add", ".")
 	return root
 }
 

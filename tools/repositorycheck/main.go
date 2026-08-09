@@ -7,7 +7,9 @@ import (
 	"os"
 )
 
-func main() { os.Exit(execute(os.Args[1:], os.Stderr)) }
+var exit = os.Exit
+
+func main() { exit(execute(os.Args[1:], os.Stderr)) }
 
 func execute(args []string, stderr *os.File) int {
 	if err := run(args); err != nil {
@@ -24,7 +26,7 @@ func run(args []string) error {
 		return err
 	}
 	if flags.NArg() == 0 {
-		return fmt.Errorf("usage: repositorycheck [--root path] <changelog|release-epoch|english-text>")
+		return fmt.Errorf("usage: repositorycheck [--root path] <changelog|release-epoch|english-text|credentials|product-surface|go-format|governance>")
 	}
 	switch flags.Arg(0) {
 	case "changelog":
@@ -33,6 +35,14 @@ func run(args []string) error {
 		return printReleaseEpoch(*root, flags.Args()[1:])
 	case "english-text":
 		return checkEnglishText(*root)
+	case "credentials":
+		return checkCredentials(*root)
+	case "product-surface":
+		return checkProductSurface(*root)
+	case "go-format":
+		return checkGoFormat(*root)
+	case "governance":
+		return checkGovernance(*root)
 	default:
 		return fmt.Errorf("unknown repository check: %s", flags.Arg(0))
 	}

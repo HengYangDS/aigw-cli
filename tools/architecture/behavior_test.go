@@ -7,10 +7,120 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
+
+func TestRepositoryContractsRejectNonPortableModuleIdentity(t *testing.T) {
+	for name, module := range map[string]string{
+		"forge":      "gitlab.example.local/group/aigw-cli",
+		"personal":   "github.com/example-user/aigw-cli",
+		"url":        "https://example.test/aigw-cli",
+		"filesystem": "/opt/team/aigw-cli",
+	} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			writeFile(t, filepath.Join(root, "go.mod"), "module "+module+"\n\ngo 1.26.5\n")
+			writeFile(t, filepath.Join(root, "cmd", "aigw", "main.go"), "package main\n")
+			report := newReport("policy", root)
+			if err := checkModuleIdentity(root, &report); err != nil {
+				t.Fatal(err)
+			}
+			if !hasRule(report, "module_identity") {
+				t.Fatalf("module %q accepted: %+v", module, report.Findings)
+			}
+		})
+	}
+}
+
+func TestRepositoryContractsRejectMissingModuleAndMissingRoot(t *testing.T) {
+	root := t.TempDir()
+	report := newReport("policy", root)
+	if err := checkModuleIdentity(root, &report); err == nil {
+		t.Fatal("missing go.mod accepted")
+	}
+	writeFile(t, filepath.Join(root, "go.mod"), "go 1.26.5\n")
+	if err := checkModuleIdentity(root, &report); err == nil {
+		t.Fatal("missing module declaration accepted")
+	}
+	if err := checkPortability(filepath.Join(root, "missing"), &report); err == nil {
+		t.Fatal("missing portability root accepted")
+	}
+}
+
+func TestDecisionRecordReadFailureIsReported(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "docs", "decisions")
+	writeFile(t, filepath.Join(directory, "README.md"), "# Decisions\n")
+	if err := os.Symlink(filepath.Join(root, "missing-record"), filepath.Join(directory, "dr-0001-missing.md")); err != nil {
+		t.Fatal(err)
+	}
+	report := newReport("policy", root)
+	if err := checkDecisionRecords(root, &report); err == nil || !strings.Contains(err.Error(), "read docs/decisions/dr-0001-missing.md") {
+		t.Fatalf("decision record read error = %v", err)
+	}
+}
+
+func TestRepositoryContractsRejectPublicPackageAndForeignInternalImport(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module aigw-cli\n\ngo 1.26.5\n")
+	writeFile(t, filepath.Join(root, "client", "client.go"), "package client\n")
+	writeFile(t, filepath.Join(root, "cmd", "aigw", "main.go"), "package main\n\nimport _ \"gitlab.example.local/group/aigw-cli/internal/core\"\n")
+	report := newReport("policy", root)
+	if err := checkModuleIdentity(root, &report); err != nil {
+		t.Fatal(err)
+	}
+	for _, rule := range []string{"public_go_package", "foreign_internal_import"} {
+		if !hasRule(report, rule) {
+			t.Fatalf("missing %s: %+v", rule, report.Findings)
+		}
+	}
+}
+
+func TestRepositoryContractsRejectPortableSourceLeaks(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init", "-q")
+	writeFile(t, filepath.Join(root, "scripts", "release", "publish.sh"), "AIGW_GITLAB_AUTHOR_EMAIL=${AIGW_GITLAB_AUTHOR_EMAIL:-maintainer@example.test}\n")
+	writeFile(t, filepath.Join(root, ".config", "release", "team.allowed-signers"), "actor ssh-ed25519 fixture\n")
+	writeFile(t, filepath.Join(root, ".github", "workflows", "verify.yml"), "runs-on: [self-hosted, macos]\n")
+	runGit(t, root, "add", ".")
+	report := newReport("policy", root)
+	if err := checkPortability(root, &report); err != nil {
+		t.Fatal(err)
+	}
+	for _, rule := range []string{"implicit_publication_identity", "tracked_trust_anchor", "fixed_runner_inventory"} {
+		if !hasRule(report, rule) {
+			t.Fatalf("missing %s: %+v", rule, report.Findings)
+		}
+	}
+}
+
+func TestRepositoryContractsRejectShellOwnedAutomation(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init", "-q")
+	writeFile(t, filepath.Join(root, "scripts", "release", "publish.sh"), "#!/bin/sh\nprintf 'publish\\n'\n")
+	writeFile(t, filepath.Join(root, "tools", "quality"), "#!/usr/bin/env bash\nprintf 'quality\\n'\n")
+	writeFile(t, filepath.Join(root, ".githooks", "pre-commit"), "#!/bin/sh\nethos hook admit pre-tool\n")
+	runGit(t, root, "add", ".")
+
+	report := newReport("policy", root)
+	if err := checkPortability(root, &report); err != nil {
+		t.Fatal(err)
+	}
+	if got := countRule(report, "shell_owned_automation"); got != 3 {
+		t.Fatalf("shell-owned findings = %d, want 3: %+v", got, report.Findings)
+	}
+}
+
+func countRule(report Report, rule string) int {
+	count := 0
+	for _, finding := range report.Findings {
+		if finding.Rule == rule {
+			count++
+		}
+	}
+	return count
+}
 
 func TestTrivialWrapperBranches(t *testing.T) {
 	cases := []struct {
@@ -277,7 +387,6 @@ func TestValidatePolicyEdgeEntries(t *testing.T) {
 	base := policy{
 		Owner:                  "o",
 		Source:                 "s",
-		ScriptsRoots:           []string{"scripts"},
 		GoRoots:                []string{"internal"},
 		FlatDirectoryLimit:     8,
 		MaxFileELOC:            700,
@@ -291,16 +400,6 @@ func TestValidatePolicyEdgeEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 	bad := base
-	bad.ScriptsRoots = []string{""}
-	if err := validatePolicy(bad); err == nil {
-		t.Fatal("empty scripts entry")
-	}
-	bad = base
-	bad.ScriptsRoots = []string{`C:\x`}
-	if err := validatePolicy(bad); err == nil {
-		t.Fatal("backslash scripts")
-	}
-	bad = base
 	bad.PlatformBuildSuffixes = []string{"UNIX"}
 	if err := validatePolicy(bad); err == nil {
 		t.Fatal("upper platform")
@@ -398,85 +497,6 @@ func TestIgnoreHelpers(t *testing.T) {
 	}
 	if isIdentPrefix("foo-bar") {
 		t.Fatal("dash")
-	}
-}
-
-func TestScriptsRootRejectsDirectFile(t *testing.T) {
-	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
-	writeFile(t, filepath.Join(root, "scripts", "direct.sh"), "ok\n")
-	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 {
-		t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
-	}
-	if report := decodeReport(t, stdout.String()); !hasRule(report, "scripts_root_file") {
-		t.Fatalf("expected direct-file finding: %v", findingRules(report))
-	}
-}
-
-func TestScriptsSymlinkAndIgnore(t *testing.T) {
-	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
-	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
-	// ignored name under scripts root
-	writeFile(t, filepath.Join(root, "scripts", "vendor", "x"), "x")
-	// symlink to directory OK
-	targetDir := filepath.Join(root, "scripts", "check")
-	if err := os.Symlink(targetDir, filepath.Join(root, "scripts", "linkdir")); err != nil {
-		if runtime.GOOS == "windows" {
-			t.Skipf("symlink creation requires Windows developer mode: %v", err)
-		}
-		t.Fatal(err)
-	}
-	// symlink to file fails
-	targetFile := filepath.Join(root, "scripts", "check", "a.sh")
-	if err := os.Symlink(targetFile, filepath.Join(root, "scripts", "linkfile")); err != nil {
-		t.Fatal(err)
-	}
-	// broken symlink fails as file
-	if err := os.Symlink(filepath.Join(root, "missing"), filepath.Join(root, "scripts", "broken")); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 1 {
-		t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
-	}
-	report := decodeReport(t, stdout.String())
-	if !hasRule(report, "scripts_root_file") {
-		t.Fatalf("expected symlink file findings: %v", findingRules(report))
-	}
-}
-
-func TestUnreadableScriptsRoot(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("chmod semantics differ on windows")
-	}
-	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
-	scripts := filepath.Join(root, "scripts")
-	if err := os.MkdirAll(scripts, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(scripts, 0); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(scripts, 0o755) })
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 1 {
-		t.Fatalf("code=%d", code)
-	}
-	if !strings.Contains(stderr.String(), "analyze repository") && !strings.Contains(stderr.String(), "scripts") {
-		// Depending on OS, ReadDir may fail with permission
-		if !strings.Contains(stderr.String(), "permission") && !strings.Contains(stderr.String(), "read scripts") && !strings.Contains(stderr.String(), "analyze repository") {
-			t.Fatalf("stderr=%q", stderr.String())
-		}
 	}
 }
 
@@ -795,6 +815,21 @@ func TestMainCoversEntry(t *testing.T) {
 	main()
 	if code != 0 {
 		t.Fatalf("main exit=%d", code)
+	}
+}
+
+func TestRunReportsAnalysisFailure(t *testing.T) {
+	root := t.TempDir()
+	policyPath := writePolicy(t, root, validPolicy)
+	if err := os.MkdirAll(filepath.Join(root, "internal"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "missing-go-source"), filepath.Join(root, "internal", "broken.go")); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), "analyze repository") {
+		t.Fatalf("code=%d stderr=%q", code, stderr.String())
 	}
 }
 

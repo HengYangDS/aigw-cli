@@ -1,9 +1,7 @@
 package cli_test
 
 import (
-	"aigw-cli/internal/claude"
 	configuration "aigw-cli/internal/configuration"
-	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -98,24 +96,6 @@ func TestRouteListDoesNotMisstateIncompatibleInheritedRouteAsUsable(t *testing.T
 	}
 	if strings.Contains(text, "Claude            gpt · Inherits default") {
 		t.Fatalf("route list misrepresented incompatible inherited route:\n%s", text)
-	}
-}
-
-func TestRunClaudeResolvesRouteAndBuildsProcessPlan(t *testing.T) {
-	app, _, secretStore, runner := testApp(t, "")
-	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, "", configuration.Models{})
-	cfg.Routes.Default = "team"
-	cfg.Adapters["claude"] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	_ = secretStore.Set("team", "claude-secret")
-	if err := claude.Run(context.Background(), app.Config, app.Secrets, app.Runner, []string{"--version"}, app.Env); err != nil {
-		t.Fatal(err)
-	}
-	if len(runner.plans) != 1 || runner.plans[0].Executable != "/opt/claude-real" || processEnvMap(runner.plans[0].Env)["ANTHROPIC_AUTH_TOKEN"] != "claude-secret" {
-		t.Fatalf("Claude process plan = %#v", runner.plans)
 	}
 }
 
@@ -342,17 +322,12 @@ func TestTestCommandUsesAnthropicAPIKeyHeader(t *testing.T) {
 
 func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	app, out, secretStore, runner := testApp(t, "")
-	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
-	if _, err := app.ClaudeLauncher.EnableClaude(); err != nil {
-		t.Fatal(err)
-	}
+	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{Anthropic: "https://example.test"}}
 	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-fable-5"}}
 	cfg.Routes.Default = "claude-fable-5"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -363,7 +338,7 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	if err := execute(t, app, "verify", "--for", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.plans) != 1 || runner.plans[0].Executable != "/opt/claude-real" || !strings.Contains(strings.Join(runner.plans[0].Args, " "), "AIGW_OK") {
+	if len(runner.plans) != 1 || runner.plans[0].Executable != claudeExecutable || !strings.Contains(strings.Join(runner.plans[0].Args, " "), "AIGW_OK") {
 		t.Fatalf("Claude verify plan = %#v", runner.plans)
 	}
 	if runner.plans[0].Replace {

@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/claude"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
@@ -60,26 +58,13 @@ func TestRenderRepairPreviewJSONReportsTheSameSemanticPlan(t *testing.T) {
 	}
 }
 
-func TestRunRepairReportsDiscoveryAndLauncherFailures(t *testing.T) {
+func TestRunRepairReportsDiscoveryFailureWithoutMutatingConfiguration(t *testing.T) {
 	store, cfg := configuredRepairStore(t)
 	if err := runRepair(context.Background(), invocation.Context{Config: store}, false, false); err == nil || !strings.Contains(err.Error(), "discovery") {
 		t.Fatalf("runRepair() error = %v, want discovery failure", err)
 	}
-
-	blockedParent := filepath.Join(t.TempDir(), "not-a-directory")
-	if err := os.WriteFile(blockedParent, []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	runtime := invocation.Context{
-		Config:         store,
-		Discovery:      staticDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/portable/claude"}}},
-		ClaudeLauncher: claude.Launcher{GOOS: "linux", BinDir: filepath.Join(blockedParent, "bin"), AIGWExecutable: "/portable/aigw"},
-	}
-	if err := runRepair(context.Background(), runtime, false, false); err == nil {
-		t.Fatal("runRepair() error = nil, want launcher failure")
-	}
 	if saved, err := store.Load(); err != nil || saved.Routes.Default != cfg.Routes.Default {
-		t.Fatalf("configuration changed after launcher failure: cfg=%#v error=%v", saved, err)
+		t.Fatalf("configuration changed after discovery failure: cfg=%#v error=%v", saved, err)
 	}
 }
 
@@ -103,7 +88,7 @@ func TestRepairDesiredConfigDropsUnusableCodexAndKeepsExplicitTargets(t *testing
 	before.Routes.Default = "one"
 	before.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/old"}
 	runtime := invocation.Context{Discovery: staticDiscovery{result: discovery.Result{}}}
-	after, _, _, _, err := repairDesiredConfig(runtime, before)
+	after, _, err := repairDesiredConfig(runtime, before)
 	if err != nil {
 		t.Fatal(err)
 	}

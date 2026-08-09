@@ -21,7 +21,7 @@ new model in an account catalog does not change it.
 
 | Client | Configuration and authentication boundary | Required account capability |
 | --- | --- | --- |
-| Claude Code | AIGW-owned launcher; Anthropic environment variables exist only in the launched process | Verified Anthropic-compatible endpoint |
+| Claude Code | Official per-user settings projection; Token is read on demand through `aigw credential claude` | Verified Anthropic-compatible endpoint |
 | Codex CLI and Codex Desktop | AIGW-owned `config.toml` projection in the shared Codex Home; official `codex login --with-api-key` binding | Verified OpenAI Responses endpoint |
 
 Each account retains one system token. Switching profiles within an account does

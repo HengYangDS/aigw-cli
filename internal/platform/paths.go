@@ -4,7 +4,6 @@ package platform
 
 import (
 	"fmt"
-	"path"
 	"path/filepath"
 	"strings"
 )
@@ -67,6 +66,28 @@ func DataDirFor(goos string, env map[string]string) (string, error) {
 	}
 }
 
+// ClaudeSettingsPathFor returns Claude Code's official per-user settings file.
+// The path is derived only from the target platform and explicit environment;
+// AIGW never assumes a workstation-specific directory.
+func ClaudeSettingsPathFor(goos string, env map[string]string) (string, error) {
+	var home string
+	if goos == "windows" {
+		home = env["USERPROFILE"]
+		if home == "" {
+			return "", fmt.Errorf("USERPROFILE is not set")
+		}
+		return windowsJoin(home, ".claude", "settings.json"), nil
+	}
+	if goos != "darwin" && goos != "linux" {
+		return "", fmt.Errorf("unsupported operating system %q", goos)
+	}
+	home = env["HOME"]
+	if home == "" {
+		return "", fmt.Errorf("HOME is not set")
+	}
+	return filepath.Join(home, ".claude", "settings.json"), nil
+}
+
 func UserBinDirFor(goos string, env map[string]string) (string, error) {
 	switch goos {
 	case "darwin", "linux":
@@ -87,56 +108,6 @@ func UserBinDirFor(goos string, env map[string]string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
-}
-
-// LauncherDirFor returns the AIGW-owned launcher directory. Unix launchers must not
-// live in the shared user bin directory: package managers and workstation
-// maintenance tools legitimately manage that surface. Windows already has a
-// dedicated AIGW user-program directory, so its launcher remains there.
-func LauncherDirFor(goos string, env map[string]string) (string, error) {
-	if goos == "windows" {
-		return UserBinDirFor(goos, env)
-	}
-	dataDir, err := DataDirFor(goos, env)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dataDir, "bin"), nil
-}
-
-func DefaultLauncherDirFor(goos string, env map[string]string, executable string) (string, error) {
-	if value := strings.TrimSpace(env["AIGW_LAUNCHER_DIR"]); value != "" {
-		return value, nil
-	}
-	if dir, err := LauncherDirFor(goos, env); err == nil {
-		return dir, nil
-	}
-	return ExecutableDirFor(goos, executable), nil
-}
-
-func ExecutableDirFor(goos, executable string) string {
-	if goos == "windows" {
-		return windowsDirName(executable)
-	}
-	return path.Dir(executable)
-}
-
-func windowsDirName(name string) string {
-	trimmed := strings.TrimRight(name, `\/`)
-	if trimmed == "" {
-		return name
-	}
-	idx := strings.LastIndexAny(trimmed, `\/`)
-	if idx < 0 {
-		return "."
-	}
-	if idx == 0 {
-		return trimmed[:1]
-	}
-	if idx == 2 && trimmed[1] == ':' {
-		return trimmed[:idx+1]
-	}
-	return trimmed[:idx]
 }
 
 func windowsJoin(parts ...string) string {

@@ -20,16 +20,12 @@ func TestRootLoadHiddenClaudeHelpAndCompletionBranches(t *testing.T) {
 		}
 	})
 
-	t.Run("hidden Claude", func(t *testing.T) {
+	t.Run("retired Claude launcher", func(t *testing.T) {
 		out := &bytes.Buffer{}
 		app := &App{Config: configuration.NewStore(t.TempDir()), Out: out, Err: out}
 		root := NewRoot(app)
-		command, _, err := root.Find([]string{"__run-claude"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := command.RunE(command, []string{"--arg"}); err == nil {
-			t.Fatal("expected Claude preflight error")
+		if command, _, err := root.Find([]string{"__run-claude"}); err == nil && command.Name() == "__run-claude" {
+			t.Fatal("retired Claude command interceptor remains")
 		}
 	})
 

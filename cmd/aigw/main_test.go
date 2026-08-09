@@ -55,16 +55,16 @@ func TestRunAIGWRendersCommandError(t *testing.T) {
 	}
 }
 
-func TestRunAIGWRoutesClaudeInvocation(t *testing.T) {
+func TestRunDoesNotInferBehaviorFromTheExecutableName(t *testing.T) {
 	setAIGWTestEnvironment(t)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := run("/usr/local/bin/CLAUDE", []string{"--version"}, &stdout, &stderr); code != 1 {
-		t.Fatalf("run() code = %d, want 1", code)
+	if code := run("/usr/local/bin/CLAUDE", []string{"--version"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "Claude adapter is not enabled") {
-		t.Fatalf("run() stdout = %q, want adapter diagnostic", stdout.String())
+	if !strings.Contains(stdout.String(), "0.1.0-dev") {
+		t.Fatalf("run() stdout = %q, want AIGW version", stdout.String())
 	}
 }
 

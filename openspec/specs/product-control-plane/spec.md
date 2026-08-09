@@ -336,8 +336,8 @@ tree within the current Forge's own history.
 Cross-platform tests SHALL construct client executables from test-owned
 fixtures rather than borrowing unrelated host toolchain executables.
 
-#### Scenario: Windows tests an unreadable Claude launcher
-- **WHEN** native Windows verification exercises launcher read failures
+#### Scenario: Windows tests an unreadable Claude executable
+- **WHEN** native Windows verification exercises client-executable read failures
 - **THEN** the fixture SHALL be an isolated executable controlled by the test
 - **AND** the result SHALL not depend on the installed Go toolchain path or contents.
 

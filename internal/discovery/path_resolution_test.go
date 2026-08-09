@@ -49,12 +49,12 @@ func TestFindUsesWindowsCommandSuffixWithoutExecutableBit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := (System{GOOS: "windows", Path: dir}).find("claude", false); got != want {
+	if got := (System{GOOS: "windows", Path: dir}).find("claude"); got != want {
 		t.Fatalf("find(claude) = %q, want %q", got, want)
 	}
 }
 
-func TestFindSkipsManagedClaudeOnlyWhenRequested(t *testing.T) {
+func TestFindTreatsClaudeAsTheNativeClientExecutable(t *testing.T) {
 	dir := t.TempDir()
 	// A real Windows filesystem never reports a Unix executable bit
 	// (https://github.com/golang/go/issues/41809), so the non-Windows
@@ -68,19 +68,16 @@ func TestFindSkipsManagedClaudeOnlyWhenRequested(t *testing.T) {
 		goos, name = "windows", "claude.cmd"
 	}
 	target := filepath.Join(dir, name)
-	if err := os.WriteFile(target, []byte("#!/bin/sh\n# AIGW managed Claude launcher\n"), 0o700); err != nil {
+	if err := os.WriteFile(target, []byte("#!/bin/sh\nnative Claude fixture\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	system := System{GOOS: goos, Path: dir}
-	if got := system.find("claude", true); got != "" {
-		t.Fatalf("find(managed Claude, skip=true) = %q", got)
-	}
 	want, err := filepath.Abs(target)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := system.find("claude", false); got != want {
-		t.Fatalf("find(managed Claude, skip=false) = %q, want %q", got, want)
+	if got := system.find("claude"); got != want {
+		t.Fatalf("find(claude) = %q, want %q", got, want)
 	}
 }
 
@@ -110,7 +107,7 @@ func TestFindRejectsDirectoriesAndNonExecutableUnixFiles(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			tt.setup(t, filepath.Join(dir, "codex"))
-			if got := (System{GOOS: "linux", Path: dir}).find("codex", false); got != "" {
+			if got := (System{GOOS: "linux", Path: dir}).find("codex"); got != "" {
 				t.Fatalf("find(codex) = %q", got)
 			}
 		})

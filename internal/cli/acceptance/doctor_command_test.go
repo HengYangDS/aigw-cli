@@ -2,8 +2,6 @@ package cli_test
 
 import (
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/discovery"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -31,25 +29,18 @@ func TestDoctorChecksAccountTokenOnceForSharedProfiles(t *testing.T) {
 	}
 }
 
-func TestDoctorAcceptsOwnedClaudeLauncherWithoutPathDiscovery(t *testing.T) {
+func TestDoctorAcceptsConfiguredClaudeExecutableWithoutDiscovery(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, "", configuration.Models{})
 	cfg.Routes.Default = "dmx"
-	cfg.Adapters["claude"] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	cfg.Adapters["claude"] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("dmx", "token")
-	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
-	if _, err := app.ClaudeLauncher.EnableClaude(); err != nil {
-		t.Fatal(err)
-	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{}}
 	err := execute(t, app, "doctor")
-	if err != nil || !strings.Contains(out.String(), "Claude launcher") || !strings.Contains(out.String(), "AIGW-managed Claude launcher is ready") {
-		t.Fatalf("doctor did not accept the owned launcher; err=%v output=%s", err, out.String())
+	if err != nil || !strings.Contains(out.String(), "Claude adapter") || !strings.Contains(out.String(), "Enabled") {
+		t.Fatalf("doctor did not accept the configured executable; err=%v output=%s", err, out.String())
 	}
 }

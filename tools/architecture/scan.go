@@ -31,6 +31,16 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 		return Report{}, fmt.Errorf("resolve root: %w", err)
 	}
 	report := newReport(policyPath, absRoot)
+	if p.CheckModuleIdentity {
+		if err := checkModuleIdentity(absRoot, &report); err != nil {
+			return Report{}, err
+		}
+	}
+	if p.CheckPortability {
+		if err := checkPortability(absRoot, &report); err != nil {
+			return Report{}, err
+		}
+	}
 
 	if p.CheckDecisionRecords {
 		if err := checkDecisionRecords(absRoot, &report); err != nil {
@@ -43,9 +53,6 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 		}
 	}
 	if err := checkTextLayout(absRoot, &report); err != nil {
-		return Report{}, err
-	}
-	if err := checkScriptsRoots(absRoot, p, &report); err != nil {
 		return Report{}, err
 	}
 	goFiles, dirStats, err := collectGoFiles(absRoot, p)
@@ -135,68 +142,6 @@ func checkCompositionRoots(files []goFileInfo, p policy, report *Report) {
 			})
 		}
 	}
-}
-
-func checkScriptsRoots(root string, p policy, report *Report) error {
-	for _, scriptsRoot := range p.ScriptsRoots {
-		abs := filepath.Join(root, filepath.FromSlash(scriptsRoot))
-		info, err := os.Stat(abs)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return fmt.Errorf("stat scripts root %s: %w", scriptsRoot, err)
-		}
-		if !info.IsDir() {
-			report.addFinding(Finding{
-				Rule:    "scripts_root_not_directory",
-				Path:    toPOSIX(scriptsRoot),
-				Message: "scripts root must be a directory of semantic subdirectories",
-			})
-			continue
-		}
-		entries, err := os.ReadDir(abs)
-		if err != nil {
-			return fmt.Errorf("read scripts root %s: %w", scriptsRoot, err)
-		}
-		for _, entry := range entries {
-			name := entry.Name()
-			if shouldIgnoreDirName(name, p) {
-				continue
-			}
-			rel := toPOSIX(filepath.Join(scriptsRoot, name))
-			if entry.Type()&fs.ModeSymlink != 0 {
-				// Resolve only enough to classify file vs directory.
-				targetInfo, statErr := os.Stat(filepath.Join(abs, name))
-				if statErr != nil {
-					report.addFinding(Finding{
-						Rule:    "scripts_root_file",
-						Path:    rel,
-						Message: "scripts root may not contain direct files; use semantic subdirectories only",
-					})
-					continue
-				}
-				if targetInfo.IsDir() {
-					continue
-				}
-				report.addFinding(Finding{
-					Rule:    "scripts_root_file",
-					Path:    rel,
-					Message: "scripts root may not contain direct files; use semantic subdirectories only",
-				})
-				continue
-			}
-			if entry.IsDir() {
-				continue
-			}
-			report.addFinding(Finding{
-				Rule:    "scripts_root_file",
-				Path:    rel,
-				Message: "scripts root may not contain direct files; use semantic subdirectories only",
-			})
-		}
-	}
-	return nil
 }
 
 func collectGoFiles(root string, p policy) ([]goFileInfo, []DirectoryStats, error) {

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"aigw-cli/internal/claude"
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -24,15 +25,33 @@ func (s Synchronizer) Plan(before, after configuration.Config) ([]codex.Projecti
 	return codex.PlanReconciliation(beforeRefs, afterRefs, runtime)
 }
 
-// Reconcile applies the Codex projection for one configuration transition.
-// Claude resolves its route inside the process-bound launcher and therefore
-// has no persistent projection here.
+// Reconcile applies every admitted client projection for one configuration
+// transition. Codex and Claude retain separate format owners while this package
+// provides the single transaction boundary.
 func (s Synchronizer) Reconcile(_ context.Context, before, after configuration.Config) error {
 	beforeRefs, afterRefs, runtime, err := s.reconciliationInputs(before, after)
 	if err != nil {
 		return err
 	}
-	_, err = codex.ReconcileConfigs(beforeRefs, afterRefs, runtime)
+	if _, err = codex.ReconcileConfigs(beforeRefs, afterRefs, runtime); err != nil {
+		return err
+	}
+	if !ClaudeProjectionChanged(before, after) {
+		return nil
+	}
+	if s.ClaudeSettingsPath == "" {
+		return fmt.Errorf("Claude settings path is unavailable")
+	}
+	adapter := after.Adapters[configuration.ClientClaude]
+	if !adapter.Enabled {
+		_, err = claude.ReconcileSettings(s.ClaudeSettingsPath, true, configuration.Runtime{})
+		return err
+	}
+	claudeRuntime, _, err := after.ResolveRuntime(configuration.ClientClaude, "")
+	if err != nil {
+		return err
+	}
+	_, err = claude.ReconcileSettings(s.ClaudeSettingsPath, false, claudeRuntime)
 	return err
 }
 
@@ -118,6 +137,28 @@ func ProjectionChanged(before, after configuration.Config) bool {
 	}
 	return beforeRuntime.ProfileID != afterRuntime.ProfileID ||
 		beforeRuntime.ProfileLabel != afterRuntime.ProfileLabel ||
+		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
+		beforeRuntime.Model != afterRuntime.Model
+}
+
+// ClaudeProjectionChanged reports whether a transition changes the persistent
+// Claude Code settings projection. The executable path is readiness metadata,
+// not part of the settings projection itself.
+func ClaudeProjectionChanged(before, after configuration.Config) bool {
+	beforeAdapter := before.Adapters[configuration.ClientClaude]
+	afterAdapter := after.Adapters[configuration.ClientClaude]
+	if beforeAdapter.Enabled != afterAdapter.Enabled {
+		return true
+	}
+	if !afterAdapter.Enabled {
+		return false
+	}
+	beforeRuntime, _, beforeErr := before.ResolveRuntime(configuration.ClientClaude, "")
+	afterRuntime, _, afterErr := after.ResolveRuntime(configuration.ClientClaude, "")
+	if beforeErr != nil || afterErr != nil {
+		return true
+	}
+	return beforeRuntime.AccountID != afterRuntime.AccountID ||
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
 		beforeRuntime.Model != afterRuntime.Model
 }

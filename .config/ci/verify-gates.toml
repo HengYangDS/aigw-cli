@@ -1,88 +1,39 @@
 # Declarative SSOT for dual-forge verification gates and native acceptance.
 # Consumers must read this file; workflows are projections, not authority.
-# Go toolchain version is always derived from go.mod at check time.
+# mise.toml selects every repository tool; mise.lock resolves immutable assets.
+# go.mod remains the Go language/module contract and must match the mise selection.
 
 [toolchain]
 go_mod = "go.mod"
-# GitHub reads the project version directly. GitLab's pre-checkout bootstrap
-# image is a separate, immutable supply-chain input and must not copy it.
-github_check_latest = false
-github_setup_go_cache = false
+mise_config = "mise.toml"
+mise_lock = "mise.lock"
 
 [toolchain.github_actions]
 checkout = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
-setup_go = "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
+mise = "jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654" # v4.2.4
 
 # Commands that must appear on both GitLab verify and GitHub verify source gates.
 [common]
 commands = [
-  "sh scripts/checks/release/check-release-toolchain.sh",
-  "go run ./tools/architecture --root .",
-  "sh scripts/checks/governance/check-module-identity.sh",
-  "sh scripts/tests/governance/test-module-identity.sh",
-  "go run ./tools/coveragegate --race",
-  "go vet ./...",
-  "sh scripts/checks/quality/check-static-analysis.sh",
-  'test -z "$(gofmt -l cmd internal tools)"',
-  "for script in $(git ls-files 'scripts/*.sh'); do sh -n \"$script\"; done",
-  "sh scripts/checks/release/check-package-safety.sh",
-  "sh scripts/checks/governance/check-product-surface.sh",
-  "sh scripts/checks/governance/check-portability.sh",
-  "sh scripts/tests/governance/test-portability.sh",
-  "sh scripts/checks/governance/check-english-text.sh",
-  "sh scripts/checks/security/check-credential-literals.sh",
-  "sh scripts/tests/security/test-credential-literals.sh",
-  "sh scripts/checks/security/check-credential-fixtures.sh",
-  "sh scripts/tests/security/test-credential-fixtures.sh",
-  "sh scripts/checks/governance/check-governance.sh",
-  "sh scripts/tests/governance/test-changelog.sh",
-  "sh scripts/tests/forge/test-tag-namespace.sh",
-  "sh scripts/tests/release/test-release-readiness.sh",
-  "sh scripts/tests/release/test-release-artifacts.sh",
-  "sh scripts/tests/release/test-publish-gitlab-release.sh",
-  "sh scripts/tests/release/test-release-source-date-epoch.sh",
-  "sh scripts/tests/forge/test-release-forge-sources.sh",
-  "sh scripts/tests/release/test-release-toolchain.sh",
-  "sh scripts/tests/release/test-verified-candidate.sh",
-  "sh scripts/tests/release/test-publish-github-release.sh",
-  "sh scripts/tests/forge/test-release-tag-signature.sh",
-  "sh scripts/tests/forge/test-release-tag-signature-provider-selection.sh",
-  "sh scripts/tests/release/test-package-runner-preflight.sh",
-  "sh scripts/tests/install/test-linux-native-install-staging.sh",
-  "sh scripts/tests/install/test-macos-native-install-staging.sh",
-  "sh scripts/tests/release/test-msi-version.sh",
-  "sh scripts/tests/ci/test-pipeline-gates.sh",
-  "sh scripts/tests/ci/test-ci-go-cache-preparation.sh",
-  "sh scripts/tests/ci/test-github-actions-contract.sh",
-  "sh scripts/tests/ci/test-github-release-workflow.sh",
-  "sh scripts/tests/forge/test-github-provider-projection.sh",
-  "sh scripts/tests/forge/test-commit-provenance.sh",
-  "go test ./tools/historyreplay",
-  "sh scripts/tests/forge/test-branch-closeout.sh",
-  "sh scripts/tests/forge/test-forge-sync.sh",
+  "mise exec --locked -- go run ./tools/civerify source",
 ]
 
 # Active verify.script commands that must be line-exact GitLab script entries.
 [common.active_script_commands]
 commands = [
-  "sh scripts/checks/security/check-credential-literals.sh",
-  "sh scripts/tests/security/test-credential-literals.sh",
-  "sh scripts/checks/security/check-credential-fixtures.sh",
-  "sh scripts/tests/security/test-credential-fixtures.sh",
-  "sh scripts/tests/forge/test-branch-closeout.sh",
-  "sh scripts/tests/forge/test-forge-sync.sh",
+  "mise exec --locked -- go run ./tools/civerify source",
 ]
 
 [gitlab]
+bootstrap_image = "ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6"
 workflow_file = ".gitlab-ci.yml"
 runner_tag_variable = "AIGW_GITLAB_RUNNER_TAG"
 git_depth = "0"
 goproxy_fallback = "https://goproxy.cn|https://proxy.golang.org|direct"
-prepare_cache_script = "scripts/forge/lib/prepare-ci-go-cache.sh"
 # Untagged release/* branches and their MRs must never open a pipeline.
 suppress_untagged_release_branch = true
 suppress_release_branch_merge_request = true
-# GitLab must not schedule runners it cannot administer for native package acceptance.
+# GitLab must not schedule native jobs on runners it cannot administer.
 forbid_windows_native_acceptance_job = true
 forbid_macos_native_acceptance_job = true
 forbid_github_mirror_job = true
@@ -92,28 +43,17 @@ forbid_package_provider_build_metadata = []
 [gitlab.commands]
 # GitLab-only verification beyond the common set.
 required = [
-  "git fetch --force --prune --no-tags origin '+refs/tags/v*:refs/tags/v*'",
-  'AIGW_GITLAB_AUTHOR_EMAIL="$GITLAB_RELEASE_AUTHOR_EMAIL" sh scripts/checks/forge/check-commit-provenance.sh . gitlab',
-  'check-release-tag-signature.sh . "$CI_COMMIT_TAG" gitlab',
-  "sh scripts/tests/ci/test-ci-go-proxy-policy.sh",
-  "go build -o /tmp/aigw-install-smoke ./cmd/aigw",
-  "sh scripts/tests/install/test-installers.sh /tmp/aigw-install-smoke",
-  "sh scripts/tests/install/test-portable-install.sh /tmp/aigw-install-smoke",
+  "mise exec --locked -- go run ./tools/civerify source",
 ]
 
 [gitlab.package]
 required = [
-  "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/release/build/package.sh",
-  'SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"',
-  'SOURCE_DATE_EPOCH="$(sh scripts/release/lib/release-source-date-epoch.sh "$VERSION")"',
-  'if test -n "${CI_COMMIT_TAG:-}"; then',
-  ': "${AIGW_PACKAGE_HOMEPAGE:?protected product homepage is required}"',
-  'sh scripts/tests/release/test-release-reproducibility.sh "$VERSION"',
+  "mise exec --locked -- go run ./tools/releasekit build-ci build/release dist",
 ]
 
 [gitlab.release]
 required = [
-  "publish-gitlab-release.sh dist",
+  "mise exec --locked -- go run ./tools/releasekit publish-gitlab dist",
   "job: publish",
   "job: package",
   "artifacts: true",
@@ -132,20 +72,15 @@ forbid_floating_actions = true
 [github.verify.commands]
 # GitHub verify-only additions and provider identity.
 required = [
-  'AIGW_GITHUB_AUTHOR_EMAIL="$GITHUB_RELEASE_AUTHOR_EMAIL" sh scripts/checks/forge/check-commit-provenance.sh . github',
-  'scripts/checks/forge/check-release-tag-signature.sh . "$SELECTED_TAG" github',
-  "shell: pwsh",
-  "scripts/tests/install/test-installers.ps1",
+  "mise exec --locked -- go run ./tools/civerify source",
+  "mise exec --locked -- go run ./tools/civerify native --platform darwin",
+  "mise exec --locked -- go run ./tools/civerify native --platform linux",
+  "mise exec --locked -- go run ./tools/civerify native --platform windows",
 ]
 
 [github.verify.active_script_commands]
 commands = [
-  "sh scripts/checks/security/check-credential-literals.sh",
-  "sh scripts/tests/security/test-credential-literals.sh",
-  "sh scripts/checks/security/check-credential-fixtures.sh",
-  "sh scripts/tests/security/test-credential-fixtures.sh",
-  "sh scripts/tests/forge/test-branch-closeout.sh",
-  "sh scripts/tests/forge/test-forge-sync.sh",
+  "mise exec --locked -- go run ./tools/civerify source",
 ]
 
 [github.release]
@@ -154,27 +89,17 @@ runner = "${{ fromJSON(vars.AIGW_RELEASE_RUNNER) }}"
 permissions = "contents: write"
 name = "Release"
 tag_filter = 'tags: ["v*"]'
-needs = "needs: [native-linux, native-windows]"
+needs = "needs: [native-darwin, native-linux, native-windows]"
 
 [github.release.commands]
 required = [
-  "go run ./tools/architecture --root .",
-  "go run ./tools/coveragegate --race",
-  "check-commit-provenance.sh . github",
+  "mise exec --locked -- go run ./tools/civerify source",
+  "mise exec --locked -- go run ./tools/civerify native --platform darwin",
+  "mise exec --locked -- go run ./tools/civerify native --platform linux",
+  "mise exec --locked -- go run ./tools/civerify native --platform windows",
   "AIGW_CHANGELOG_RELEASE_TAG:",
-  'check-release-tag-signature.sh . "$SELECTED_TAG" github',
-  "check-release-toolchain.sh",
-  "check-static-analysis.sh",
-  "AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/release/build/package.sh",
-  "publish-github-release.sh",
-  "AIGW_PACKAGE_HOMEPAGE:",
-  'SOURCE_DATE_EPOCH="$(sh scripts/release/lib/release-source-date-epoch.sh "$version")"',
-  'sh scripts/tests/release/test-release-reproducibility.sh "$version"',
-  "test-verified-candidate.sh",
-  "test-macos-native-install-staging.sh",
-  "test-publish-gitlab-release.sh",
-  "test-publish-github-release.sh",
-  "test-ci-go-cache-preparation.sh",
+  "mise exec --locked -- go run ./tools/releasekit build-ci build/release dist",
+  "mise exec --locked -- go run ./tools/releasekit publish-github dist",
 ]
 
 [github.release.forbid]
@@ -182,14 +107,20 @@ tokens = [
   "aigw-gitlab-macos-arm64",
 ]
 
+[native.darwin]
+runs_on = "macos-latest"
+required = [
+  "native-darwin:",
+  "runs-on: macos-latest",
+  "mise exec --locked -- go run ./tools/civerify native --platform darwin",
+]
+
 [native.linux]
 runs_on = "ubuntu-latest"
 required = [
   "native-linux:",
   "runs-on: ubuntu-latest",
-  "go run ./tools/architecture --root .",
-  "go run ./tools/coveragegate --race",
-  "go vet ./...",
+  "mise exec --locked -- go run ./tools/civerify native --platform linux",
 ]
 
 [native.windows]
@@ -197,11 +128,5 @@ runs_on = "windows-latest"
 required = [
   "native-windows:",
   "runs-on: windows-latest",
-  "scripts/tests/install/test-windows-native.ps1",
-]
-
-[native.macos]
-# macOS native package acceptance stays off unmanaged GitLab; staging gates run on verify.
-staging_commands = [
-  "sh scripts/tests/install/test-macos-native-install-staging.sh",
+  "mise exec --locked -- go run ./tools/civerify native --platform windows",
 ]
