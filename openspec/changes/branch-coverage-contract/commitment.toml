@@ -9,6 +9,7 @@ scope = [
     ".config/checks/coverage/**",
     "tools/coveragegate/**",
     "tools/civerify/**",
+    "tools/repositorycheck/**",
     "go.mod",
     "go.sum",
     "docs/operations/release-readiness.md",
