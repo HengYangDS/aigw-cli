@@ -2,7 +2,6 @@
 version: 2
 
 project_name: aigw
-dist: "{{ .Env.AIGW_RELEASE_STAGE }}"
 
 snapshot:
   version_template: "{{ .Env.AIGW_VERSION }}"

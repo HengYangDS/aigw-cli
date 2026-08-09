@@ -7,3 +7,5 @@
       PowerShell entry points.
 - [x] 1.5 Replace the date-prefixed active Change carrier with one semantic
       identifier and rebind it through exact CAS.
+- [x] 1.6 Keep the tracked GoReleaser configuration host-neutral and inject
+      the isolated staging directory only into the ephemeral build copy.
