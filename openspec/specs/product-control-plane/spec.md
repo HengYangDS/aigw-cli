@@ -113,7 +113,9 @@ Each behavior and policy SHALL have one semantic owner; composition roots SHALL
 only assemble those owners. Source gates MUST reject compatibility shims,
 forwarding wrappers, alias-only packages, forbidden product references,
 unmanaged flat structure, host-dependent policy paths, and statement coverage
-of 95 percent or less for any package or the aggregate.
+of 95 percent or less for any package or the aggregate. Coverage claims MUST
+name their executable measure accurately and MUST NOT infer branch evidence
+from a Go statement profile.
 
 #### Scenario: Architecture or coverage regresses
 
@@ -126,6 +128,13 @@ of 95 percent or less for any package or the aggregate.
 - **WHEN** policy contains an absolute or parent-traversing path in another
   host's syntax
 - **THEN** validation SHALL reject it identically on macOS, Linux, and Windows
+
+#### Scenario: No admitted branch authority exists
+
+- **WHEN** no stable tool can measure the complete module once on every
+  supported platform
+- **THEN** release evidence names only statement coverage and makes no branch
+  claim
 
 ### Requirement: Deterministic local verification
 
@@ -371,3 +380,4 @@ NOT require either Forge to operate the other.
 - **WHEN** local verification and one declared Forge remain available
 - **THEN** local acceptance and that Forge's publication path SHALL remain
   independently inspectable without mutating or querying the unavailable Forge
+
