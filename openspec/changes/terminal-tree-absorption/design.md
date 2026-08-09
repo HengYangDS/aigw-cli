@@ -10,6 +10,7 @@ matches the verified terminal tree. Retain only this commit on the Work Lane.
 | Trusted authorship | SSH commit signature |
 | Shell automation removed | Tracked extension and shebang inventory |
 | Independent Forges | CI and release contracts remain separate |
+| Portable release staging | Releasekit materializes the runtime-only GoReleaser `dist` path in an isolated configuration |
 
 No compatibility wrapper, forwarding layer, or alternate automation owner is
 introduced.

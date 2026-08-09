@@ -15,7 +15,7 @@ import (
 )
 
 func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
-	root := t.TempDir()
+	root := releaseRoot(t)
 	for _, name := range []string{"go.mod", "LICENSE", "README.md"} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte("fixture"), 0o600); err != nil {
 			t.Fatal(err)
@@ -26,7 +26,7 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 	runner := func(call toolCall) error {
 		calls = append(calls, call)
 		if call.Name == "goreleaser" {
-			stage := environmentValue(call.Env, "AIGW_RELEASE_STAGE")
+			stage := goReleaserStage(t, call.Args)
 			if err := os.MkdirAll(stage, 0o700); err != nil {
 				return err
 			}
@@ -70,6 +70,61 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 	}
 	if err := validatePortableArtifactMatrix(output, "1.2.3"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func goReleaserStage(t *testing.T, args []string) string {
+	t.Helper()
+	var config string
+	for index, argument := range args {
+		if argument == "--config" && index+1 < len(args) {
+			config = args[index+1]
+			break
+		}
+	}
+	if config == "" {
+		t.Fatalf("GoReleaser config missing from %v", args)
+	}
+	data, err := os.ReadFile(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if value, ok := strings.CutPrefix(line, "dist: "); ok {
+			return strings.Trim(value, "\"")
+		}
+	}
+	t.Fatalf("GoReleaser dist missing from %s", config)
+	return ""
+}
+
+func releaseRoot(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	config := filepath.Join(root, ".config", "release")
+	if err := os.MkdirAll(config, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(config, "goreleaser.yaml"), []byte("version: 2\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+func TestRenderGoReleaserConfigRejectsMissingSource(t *testing.T) {
+	if _, err := renderGoReleaserConfig(t.TempDir(), t.TempDir(), t.TempDir()); err == nil || !strings.Contains(err.Error(), "read GoReleaser config") {
+		t.Fatalf("missing config error = %v", err)
+	}
+}
+
+func TestRenderGoReleaserConfigRejectsUnwritableDestination(t *testing.T) {
+	root := releaseRoot(t)
+	blocked := filepath.Join(t.TempDir(), "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := renderGoReleaserConfig(root, blocked, t.TempDir()); err == nil || !strings.Contains(err.Error(), "write GoReleaser config") {
+		t.Fatalf("unwritable config error = %v", err)
 	}
 }
 
@@ -234,7 +289,7 @@ func TestResolveReleaseEpochUsesCommitOrChangelogAuthority(t *testing.T) {
 }
 
 func TestReleaseBuildPropagatesToolFailureAndNeverPublishesPartialMatrix(t *testing.T) {
-	root := t.TempDir()
+	root := releaseRoot(t)
 	output := filepath.Join(root, "dist")
 	if err := os.MkdirAll(output, 0o700); err != nil {
 		t.Fatal(err)
@@ -245,7 +300,7 @@ func TestReleaseBuildPropagatesToolFailureAndNeverPublishesPartialMatrix(t *test
 	want := errors.New("tool failed")
 	err := buildRelease(buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli"}, func(call toolCall) error {
 		if call.Name == "goreleaser" {
-			stage := environmentValue(call.Env, "AIGW_RELEASE_STAGE")
+			stage := goReleaserStage(t, call.Args)
 			if mkdirErr := os.MkdirAll(stage, 0o700); mkdirErr != nil {
 				return mkdirErr
 			}
@@ -311,16 +366,6 @@ func TestNormalizedSPDXIsDeterministicAndPortable(t *testing.T) {
 	}
 }
 
-func environmentValue(environment []string, name string) string {
-	prefix := name + "="
-	for _, entry := range environment {
-		if strings.HasPrefix(entry, prefix) {
-			return strings.TrimPrefix(entry, prefix)
-		}
-	}
-	return ""
-}
-
 func TestPortableArtifactMatrixRejectsNativePackagesAndCorruption(t *testing.T) {
 	directory := t.TempDir()
 	version := "1.2.3"
@@ -363,7 +408,7 @@ func TestPortableArtifactMatrixRejectsNativePackagesAndCorruption(t *testing.T) 
 
 func TestReleaseBuildBoundaryFailures(t *testing.T) {
 	valid := buildRequest{
-		Root: t.TempDir(), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400",
+		Root: releaseRoot(t), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400",
 		GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli",
 		GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli",
 	}
@@ -390,7 +435,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 			if call.Name != "goreleaser" {
 				return nil
 			}
-			stage := environmentValue(call.Env, "AIGW_RELEASE_STAGE")
+			stage := goReleaserStage(t, call.Args)
 			candidate := filepath.Join(filepath.Dir(stage), "artifacts")
 			return os.WriteFile(candidate, []byte("collision"), 0o600)
 		})
@@ -402,7 +447,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 	t.Run("missing GoReleaser artifact", func(t *testing.T) {
 		err := buildRelease(valid, func(call toolCall) error {
 			if call.Name == "goreleaser" {
-				return os.MkdirAll(environmentValue(call.Env, "AIGW_RELEASE_STAGE"), 0o700)
+				return os.MkdirAll(goReleaserStage(t, call.Args), 0o700)
 			}
 			return nil
 		})
@@ -416,7 +461,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 			if call.Name != "goreleaser" {
 				return nil
 			}
-			stage := environmentValue(call.Env, "AIGW_RELEASE_STAGE")
+			stage := goReleaserStage(t, call.Args)
 			if err := os.MkdirAll(stage, 0o700); err != nil {
 				return err
 			}
@@ -438,13 +483,13 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 
 func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
 	valid := buildRequest{
-		Root: t.TempDir(), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400",
+		Root: releaseRoot(t), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400",
 		GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli",
 		GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli",
 	}
 	populate := func(call toolCall) error {
 		if call.Name == "goreleaser" {
-			stage := environmentValue(call.Env, "AIGW_RELEASE_STAGE")
+			stage := goReleaserStage(t, call.Args)
 			if err := os.MkdirAll(stage, 0o700); err != nil {
 				return err
 			}
