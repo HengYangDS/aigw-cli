@@ -484,6 +484,37 @@ func TestValidateBuildReleaseSources(t *testing.T) {
 	}
 }
 
+func TestValidateBuildReleaseSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
+	for _, name := range []string{"AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY", "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY"} {
+		t.Setenv(name, "")
+	}
+	cases := []struct {
+		name, origin, repository, want string
+	}{
+		{"http origin", "http://gitlab.example.test", "group/project", "HTTPS authority"},
+		{"origin path", "https://gitlab.example.test/api", "group/project", "HTTPS authority"},
+		{"repository edge slash", "https://gitlab.example.test", "/group/project", "namespace/project path"},
+		{"repository query", "https://gitlab.example.test", "group/project?x", "namespace/project path"},
+		{"repository empty segment", "https://gitlab.example.test", "group//project", "namespace/project path"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", tc.origin)
+			t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", tc.repository)
+			if err := validateBuildReleaseSources(); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
+	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
+	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example.test")
+	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "group/subgroup/project")
+	if err := validateBuildReleaseSources(); err == nil || !strings.Contains(err.Error(), "owner/repository") {
+		t.Fatalf("nested GitHub repository error = %v", err)
+	}
+}
+
 func TestRunCoversPublishCommands(t *testing.T) {
 	artifacts := releaseFixture(t, "0.1.0")
 	remote := readReleaseFixture(t, artifacts, "0.1.0")
