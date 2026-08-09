@@ -2,4 +2,4 @@
 
 - [x] Normalize native executable fixtures and installation semantics.
 - [x] Normalize native paths, text newlines, permissions, and archive coordinates.
-- [ ] Run exact-HEAD proof and hosted native CI; focused and local source gates are green.
+- [x] Run focused tests, local source gates, and exact-HEAD proof; hosted native CI follows the governed landing.
