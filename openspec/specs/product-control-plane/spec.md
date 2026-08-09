@@ -406,4 +406,3 @@ contract SHALL use the canonical text form enforced by repository policy.
 - **WHEN** the repository architecture gate reads the product-control-plane spec
 - **THEN** it SHALL find exactly one terminal newline
 - **AND** the local-first independent publication requirement SHALL remain unchanged
-

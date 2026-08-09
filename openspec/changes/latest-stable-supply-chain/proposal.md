@@ -8,6 +8,7 @@ current stable dependency set rather than a stale lock.
 
 - Refresh the Go module graph with the repository's declared Go toolchain.
 - Accept only the resolver-selected indirect dependency update.
+- Preserve canonical text layout after the preceding OpenSpec archive projection.
 
 ## Capabilities
 
