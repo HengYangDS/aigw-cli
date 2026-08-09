@@ -429,6 +429,61 @@ func TestValidatePolicyEdgeEntries(t *testing.T) {
 	if err := validatePolicy(bad); err == nil {
 		t.Fatal("duplicate peer package name")
 	}
+	bad = base
+	bad.PackageChildren = map[string][]string{"tools": {}}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("empty package children")
+	}
+	bad = base
+	bad.PackageChildren = map[string][]string{"../tools": {"release"}}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("invalid package root")
+	}
+	bad = base
+	bad.PackageChildren = map[string][]string{"tools": {"release", "release"}}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("duplicate package child")
+	}
+	bad = base
+	bad.PackageChildren = map[string][]string{"tools": {"release/legacy"}}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("nested package child")
+	}
+	bad = base
+	bad.AllowedImportEdges = map[string][]string{"tools/release": {"internal/upgrade", "internal/upgrade"}}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("duplicate import edge")
+	}
+	bad = base
+	bad.AllowedImportEdges = map[string][]string{"../tools/release": {}}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("invalid import edge source")
+	}
+}
+
+func TestPackageChildrenEnforcePositiveTopology(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "tools", "release", "main.go"), "package main\n")
+	writeFile(t, filepath.Join(root, "tools", "legacy", "main.go"), "package main\n")
+	report := newReport("policy", root)
+	p := policy{PackageChildren: map[string][]string{"tools": {"release", "coverage"}}}
+	if err := checkPackageChildren(root, p, &report); err != nil {
+		t.Fatal(err)
+	}
+	if got := report.Summary["package_child"]; got != 1 {
+		t.Fatalf("package child findings = %d, want unexpected child only: %+v", got, report.Findings)
+	}
+	if got := report.Findings[0].Path; got != "tools/legacy" {
+		t.Fatalf("package child path = %q, want tools/legacy", got)
+	}
+
+	report = newReport("policy", root)
+	if err := checkPackageChildren(filepath.Join(root, "missing"), p, &report); err != nil {
+		t.Fatalf("absent managed roots must be inert: %v", err)
+	}
+	if got := report.Summary["package_child"]; got != 0 {
+		t.Fatalf("absent managed roots produced findings: %+v", report.Findings)
+	}
 }
 
 func TestPeerPackageImportBranches(t *testing.T) {
@@ -463,6 +518,30 @@ import (
 	files[0].relPath = "internal/cli/account/missing.go"
 	if err := checkPeerPackageImports(root, files, p, &report); err == nil {
 		t.Fatal("missing peer package source was accepted")
+	}
+}
+
+func TestImportEdgesRejectToolToProductRuntimeDependency(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "tools", "release", "main.go")
+	writeFile(t, path, "package main\n\nimport _ \"aigw-cli/internal/upgrade\"\n")
+	files := []goFileInfo{{relPath: "tools/release/main.go", dir: "tools/release"}}
+	report := newReport("policy", root)
+	policy := policy{AllowedImportEdges: map[string][]string{"tools/release": {}}}
+	if err := checkImportEdges(root, files, policy, &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Summary["import_edge"] != 1 {
+		t.Fatalf("tool-to-runtime import not rejected: %+v", report.Findings)
+	}
+
+	writeFile(t, path, "package main\n\nimport _ \"github.com/example/library\"\n")
+	report = newReport("policy", root)
+	if err := checkImportEdges(root, files, policy, &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Summary["import_edge"] != 0 {
+		t.Fatalf("third-party import rejected: %+v", report.Findings)
 	}
 }
 

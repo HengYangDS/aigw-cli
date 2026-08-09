@@ -42,7 +42,7 @@ depend on whether a particular Forge still retains an old tag. GitLab and
 GitHub sign separate provenance tags, so tag-object timestamps are not a
 cross-forge Changelog invariant. Planned versions, branch names, and inferred
 GA milestones do not belong in the release chronicle.
-`go run ./tools/repositorycheck --root . changelog` enforces this invariant in CI.
+`go run ./tools/repository --root . changelog` enforces this invariant in CI.
 
 A version joins the product chronology when one Forge has created its signed
 provenance tag, completed its CI, and published its complete release record. A

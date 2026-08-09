@@ -37,7 +37,7 @@ static-analysis = "go-static-analysis"
 [[proof.gates]]
 id = "go-behavior"
 kind = "test"
-command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/coveragegate", "--race"]
+command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/coverage", "--race"]
 dimensions = ["behavior", "test", "coverage"]
 evidence_class = "proof"
 trust_bearing = true
@@ -55,7 +55,7 @@ network_policy = "offline"
 [[proof.gates]]
 id = "go-format"
 kind = "static"
-command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/repositorycheck", "--root", ".", "go-format"]
+command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/repository", "--root", ".", "go-format"]
 dimensions = ["format"]
 evidence_class = "proof"
 trust_bearing = true

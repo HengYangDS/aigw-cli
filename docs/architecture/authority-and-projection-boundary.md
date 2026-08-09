@@ -43,7 +43,7 @@ process.
 | `internal/presentation` | Human projection of command results |
 | `internal/cli` | Command composition; domain behavior remains in semantic owners |
 | `internal/transaction` | Guarded filesystem mutation and rollback |
-| `internal/selfupdate` | Independent-Forge update verification and installation |
+| `internal/upgrade` | Independent-Forge update verification and installation |
 
 Dependency direction is toward domain owners. Presentation, CLI composition,
 Forge code, and host discovery do not define product semantics.

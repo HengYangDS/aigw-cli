@@ -1,5 +1,5 @@
 [publication]
-local_verification_command = "go run ./tools/coveragegate --race"
+local_verification_command = "go run ./tools/coverage --race"
 local_installation_command = "go run ./cmd/aigw install"
 gitlab_remote = "origin"
 gitlab_ci_surface = ".gitlab-ci.yml"

@@ -6,6 +6,7 @@ subjects = [
 ]
 scope = [
     "openspec/changes/semantic-package-boundaries/**",
+    "openspec/specs/**",
     ".config/**",
     ".ethos/**",
     ".github/**",
@@ -22,10 +23,29 @@ scope = [
     "mise.lock",
     "packaging/**",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
+invariants = [
+    "package_names_are_readable_single_concepts",
+    "repository_tools_do_not_import_product_runtime_owners",
+    "renames_leave_no_alias_or_compatibility_surface",
+    "one_ci_entrypoint_owns_local_and_hosted_source_verification",
+]
+acceptance = [
+    "repository_tree_contains_only_declared_direct_owners",
+    "declared_dependency_directions_pass_the_architecture_gate",
+    "all_local_ci_release_documentation_and_build_references_move_atomically",
+    "macos_linux_and_windows_execute_the_same_source_gate",
+]
+risks = [
+    "renamed_commands_drift_between_local_and_hosted_workflows",
+    "package_movement_hides_a_dependency_cycle",
+    "a_compatibility_surface_preserves_the_retired_topology",
+]
+authority_refs = [
+    "user_instruction",
+    "AGENTS.md",
+    ".config/checks/architecture/policy.toml",
+    "docs/architecture/authority-and-projection-boundary.md",
+]
 permissions = [
     "repository.read",
     "work-lane.write",

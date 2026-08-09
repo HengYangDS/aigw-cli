@@ -8,7 +8,7 @@ import (
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/selfupdate"
+	"aigw-cli/internal/upgrade"
 	"bytes"
 	"context"
 	"errors"
@@ -232,7 +232,7 @@ type fakeUpdater struct {
 	updateErr         error
 	candidateErr      error
 	rollbackErr       error
-	candidateReceived selfupdate.CandidateArchive
+	candidateReceived upgrade.CandidateArchive
 }
 
 func (u *fakeUpdater) Update(_ context.Context, _ string) (string, error) {
@@ -240,7 +240,7 @@ func (u *fakeUpdater) Update(_ context.Context, _ string) (string, error) {
 	return u.updateResult, u.updateErr
 }
 
-func (u *fakeUpdater) UpdateCandidate(_ context.Context, _ string, candidate selfupdate.CandidateArchive) (string, error) {
+func (u *fakeUpdater) UpdateCandidate(_ context.Context, _ string, candidate upgrade.CandidateArchive) (string, error) {
 	u.candidateCalls++
 	u.candidateReceived = candidate
 	return u.candidateResult, u.candidateErr
