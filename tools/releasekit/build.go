@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -53,17 +54,20 @@ func buildRelease(request buildRequest, run toolRunner) error {
 	defer func() { _ = os.RemoveAll(workspace) }()
 	stage := filepath.Join(workspace, "goreleaser")
 	candidate := filepath.Join(workspace, "artifacts")
+	config, err := renderGoReleaserConfig(request.Root, workspace, stage)
+	if err != nil {
+		return err
+	}
 	environment := []string{
 		"AIGW_VERSION=" + request.Version,
 		"AIGW_RELEASE_EPOCH=" + request.Epoch,
 		"AIGW_RELEASE_TIMESTAMP=" + instant.Format(time.RFC3339),
-		"AIGW_RELEASE_STAGE=" + stage,
 		"AIGW_GITLAB_RELEASE_ORIGIN=" + request.GitLabOrigin,
 		"AIGW_GITLAB_RELEASE_REPOSITORY=" + request.GitLabRepository,
 		"AIGW_GITHUB_RELEASE_ORIGIN=" + request.GitHubOrigin,
 		"AIGW_GITHUB_RELEASE_REPOSITORY=" + request.GitHubRepository,
 	}
-	if err := run(toolCall{Name: "goreleaser", Directory: request.Root, Args: []string{"release", "--snapshot", "--clean", "--skip=publish", "--config", ".config/release/goreleaser.yaml"}, Env: environment}); err != nil {
+	if err := run(toolCall{Name: "goreleaser", Directory: request.Root, Args: []string{"release", "--snapshot", "--clean", "--skip=publish", "--config", config}, Env: environment}); err != nil {
 		return fmt.Errorf("build portable release artifacts: %w", err)
 	}
 	if err := os.MkdirAll(candidate, 0o755); err != nil {
@@ -96,6 +100,20 @@ func buildRelease(request buildRequest, run toolRunner) error {
 		return err
 	}
 	return replaceDirectory(candidate, output)
+}
+
+func renderGoReleaserConfig(root, workspace, stage string) (string, error) {
+	source := filepath.Join(root, ".config", "release", "goreleaser.yaml")
+	data, err := os.ReadFile(source)
+	if err != nil {
+		return "", fmt.Errorf("read GoReleaser config: %w", err)
+	}
+	config := filepath.Join(workspace, "goreleaser.yaml")
+	content := append(data, []byte("\ndist: "+strconv.Quote(stage)+"\n")...)
+	if err := os.WriteFile(config, content, 0o600); err != nil {
+		return "", fmt.Errorf("write GoReleaser config: %w", err)
+	}
+	return config, nil
 }
 
 func validateBuildRequest(request buildRequest) error {
