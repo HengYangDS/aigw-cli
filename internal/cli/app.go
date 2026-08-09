@@ -41,8 +41,8 @@ import (
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/renaming"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/selfupdate"
 	"aigw-cli/internal/synchronization"
+	"aigw-cli/internal/upgrade"
 	"github.com/spf13/cobra"
 )
 
@@ -62,7 +62,7 @@ type Prompter interface {
 
 type Updater interface {
 	Update(context.Context, string) (string, error)
-	UpdateCandidate(context.Context, string, selfupdate.CandidateArchive) (string, error)
+	UpdateCandidate(context.Context, string, upgrade.CandidateArchive) (string, error)
 	Rollback(context.Context) (string, error)
 }
 
@@ -267,7 +267,7 @@ func NewDefault() (*App, error) {
 		HTTP:               &http.Client{},
 		Prompt:             prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
 		Discovery:          discovery.Current(),
-		Updater:            selfupdate.Current(executable),
+		Updater:            upgrade.Current(executable),
 	}, nil
 }
 

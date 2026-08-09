@@ -15,13 +15,13 @@ mise = "jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654" # v4.2.4
 # Commands that must appear on both GitLab verify and GitHub verify source gates.
 [common]
 commands = [
-  "mise exec --locked -- go run ./tools/civerify source",
+  "mise exec --locked -- go run ./tools/ci source",
 ]
 
 # Active verify.script commands that must be line-exact GitLab script entries.
 [common.active_script_commands]
 commands = [
-  "mise exec --locked -- go run ./tools/civerify source",
+  "mise exec --locked -- go run ./tools/ci source",
 ]
 
 [gitlab]
@@ -43,17 +43,17 @@ forbid_package_provider_build_metadata = []
 [gitlab.commands]
 # GitLab-only verification beyond the common set.
 required = [
-  "mise exec --locked -- go run ./tools/civerify source",
+  "mise exec --locked -- go run ./tools/ci source",
 ]
 
 [gitlab.package]
 required = [
-  "mise exec --locked -- go run ./tools/releasekit build-ci build/release dist",
+  "mise exec --locked -- go run ./tools/release build-ci build/release dist",
 ]
 
 [gitlab.release]
 required = [
-  "mise exec --locked -- go run ./tools/releasekit publish-gitlab dist",
+  "mise exec --locked -- go run ./tools/release publish-gitlab dist",
   "job: publish",
   "job: package",
   "artifacts: true",
@@ -72,15 +72,15 @@ forbid_floating_actions = true
 [github.verify.commands]
 # GitHub verify-only additions and provider identity.
 required = [
-  "mise exec --locked -- go run ./tools/civerify source",
-  "mise exec --locked -- go run ./tools/civerify native --platform darwin",
-  "mise exec --locked -- go run ./tools/civerify native --platform linux",
-  "mise exec --locked -- go run ./tools/civerify native --platform windows",
+  "mise exec --locked -- go run ./tools/ci source",
+  "mise exec --locked -- go run ./tools/ci native --platform darwin",
+  "mise exec --locked -- go run ./tools/ci native --platform linux",
+  "mise exec --locked -- go run ./tools/ci native --platform windows",
 ]
 
 [github.verify.active_script_commands]
 commands = [
-  "mise exec --locked -- go run ./tools/civerify source",
+  "mise exec --locked -- go run ./tools/ci source",
 ]
 
 [github.release]
@@ -93,13 +93,13 @@ needs = "needs: [native-darwin, native-linux, native-windows]"
 
 [github.release.commands]
 required = [
-  "mise exec --locked -- go run ./tools/civerify source",
-  "mise exec --locked -- go run ./tools/civerify native --platform darwin",
-  "mise exec --locked -- go run ./tools/civerify native --platform linux",
-  "mise exec --locked -- go run ./tools/civerify native --platform windows",
+  "mise exec --locked -- go run ./tools/ci source",
+  "mise exec --locked -- go run ./tools/ci native --platform darwin",
+  "mise exec --locked -- go run ./tools/ci native --platform linux",
+  "mise exec --locked -- go run ./tools/ci native --platform windows",
   "AIGW_CHANGELOG_RELEASE_TAG:",
-  "mise exec --locked -- go run ./tools/releasekit build-ci build/release dist",
-  "mise exec --locked -- go run ./tools/releasekit publish-github dist",
+  "mise exec --locked -- go run ./tools/release build-ci build/release dist",
+  "mise exec --locked -- go run ./tools/release publish-github dist",
 ]
 
 [github.release.forbid]
@@ -112,7 +112,7 @@ runs_on = "macos-latest"
 required = [
   "native-darwin:",
   "runs-on: macos-latest",
-  "mise exec --locked -- go run ./tools/civerify native --platform darwin",
+  "mise exec --locked -- go run ./tools/ci native --platform darwin",
 ]
 
 [native.linux]
@@ -120,7 +120,7 @@ runs_on = "ubuntu-latest"
 required = [
   "native-linux:",
   "runs-on: ubuntu-latest",
-  "mise exec --locked -- go run ./tools/civerify native --platform linux",
+  "mise exec --locked -- go run ./tools/ci native --platform linux",
 ]
 
 [native.windows]
@@ -128,5 +128,5 @@ runs_on = "windows-latest"
 required = [
   "native-windows:",
   "runs-on: windows-latest",
-  "mise exec --locked -- go run ./tools/civerify native --platform windows",
+  "mise exec --locked -- go run ./tools/ci native --platform windows",
 ]

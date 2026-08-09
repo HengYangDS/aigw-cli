@@ -18,8 +18,10 @@ type policy struct {
 	Owner                     string              `toml:"owner"`
 	Source                    string              `toml:"source"`
 	GoRoots                   []string            `toml:"go_roots"`
+	PackageChildren           map[string][]string `toml:"package_children"`
 	CompositionRootFiles      map[string][]string `toml:"composition_root_files"`
 	PeerPackageRoots          map[string][]string `toml:"peer_package_roots"`
+	AllowedImportEdges        map[string][]string `toml:"allowed_import_edges"`
 	FlatDirectoryLimit        int                 `toml:"flat_directory_limit"`
 	MaxFileELOC               int                 `toml:"max_file_eloc"`
 	MaxDirectoryELOC          int                 `toml:"max_directory_eloc"`
@@ -68,6 +70,21 @@ func validatePolicy(p policy) error {
 			return fmt.Errorf("go_roots entries must be non-empty relative paths")
 		}
 	}
+	for root, children := range p.PackageChildren {
+		if err := validateRelativeRoot(root, "package_children"); err != nil {
+			return err
+		}
+		if len(children) == 0 {
+			return fmt.Errorf("package_children values must be non-empty")
+		}
+		seen := map[string]bool{}
+		for _, child := range children {
+			if strings.TrimSpace(child) == "" || path.Base(child) != child || strings.ContainsAny(child, `/\\`) || seen[child] {
+				return fmt.Errorf("package_children values must be unique child package names")
+			}
+			seen[child] = true
+		}
+	}
 	for root, files := range p.CompositionRootFiles {
 		if !isPortableRelativePath(root) || len(files) == 0 {
 			return fmt.Errorf("composition_root_files keys must be relative paths with non-empty file lists")
@@ -90,6 +107,21 @@ func validatePolicy(p policy) error {
 				return fmt.Errorf("peer_package_roots values must be unique child package names")
 			}
 			seen[name] = true
+		}
+	}
+	for source, targets := range p.AllowedImportEdges {
+		if err := validateRelativeRoot(source, "allowed_import_edges"); err != nil {
+			return err
+		}
+		seen := map[string]bool{}
+		for _, target := range targets {
+			if err := validateRelativeRoot(target, "allowed_import_edges"); err != nil {
+				return err
+			}
+			if seen[target] {
+				return fmt.Errorf("allowed_import_edges values must be unique package paths")
+			}
+			seen[target] = true
 		}
 	}
 	if p.FlatDirectoryLimit < 1 {

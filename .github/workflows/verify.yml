@@ -36,11 +36,11 @@ jobs:
           install: true
           cache: false
       - name: Refresh annotated release tags
-        run: mise exec --locked -- go run ./tools/civerify fetch-tags
+        run: mise exec --locked -- go run ./tools/ci fetch-tags
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
-        run: mise exec --locked -- go run ./tools/civerify trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"
+        run: mise exec --locked -- go run ./tools/ci trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"
       - name: Verify pushed release tag provenance
         if: github.ref_type == 'tag'
         env:
@@ -53,7 +53,7 @@ jobs:
           AIGW_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
           AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_GITHUB_ALLOWED_SIGNERS }}
           AIGW_CHANGELOG_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-        run: mise exec --locked -- go run ./tools/civerify source
+        run: mise exec --locked -- go run ./tools/ci source
   native-darwin:
     name: Native macOS acceptance
     runs-on: macos-latest
@@ -69,7 +69,7 @@ jobs:
           install: true
           cache: false
       - name: Run native macOS acceptance
-        run: mise exec --locked -- go run ./tools/civerify native --platform darwin
+        run: mise exec --locked -- go run ./tools/ci native --platform darwin
 
   native-linux:
     name: Native Linux acceptance
@@ -88,9 +88,9 @@ jobs:
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
-        run: mise exec --locked -- go run ./tools/civerify trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"
+        run: mise exec --locked -- go run ./tools/ci trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"
       - name: Run native Linux acceptance
-        run: mise exec --locked -- go run ./tools/civerify native --platform linux
+        run: mise exec --locked -- go run ./tools/ci native --platform linux
 
   native-windows:
     name: Native Windows acceptance
@@ -107,4 +107,4 @@ jobs:
           install: true
           cache: false
       - name: Run native Windows acceptance
-        run: mise exec --locked -- go run ./tools/civerify native --platform windows
+        run: mise exec --locked -- go run ./tools/ci native --platform windows

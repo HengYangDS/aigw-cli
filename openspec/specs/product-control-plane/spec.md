@@ -380,4 +380,3 @@ NOT require either Forge to operate the other.
 - **WHEN** local verification and one declared Forge remain available
 - **THEN** local acceptance and that Forge's publication path SHALL remain
   independently inspectable without mutating or querying the unavailable Forge
-

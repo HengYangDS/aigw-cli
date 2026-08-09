@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/selfupdate"
+	"aigw-cli/internal/upgrade"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +27,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if rollback {
 				result, err = runtime.Updater.Rollback(ctx.Context())
 			} else if candidateArchive != "" {
-				result, err = runtime.Updater.UpdateCandidate(ctx.Context(), runtime.Version, selfupdate.CandidateArchive{
+				result, err = runtime.Updater.UpdateCandidate(ctx.Context(), runtime.Version, upgrade.CandidateArchive{
 					ArchivePath:   candidateArchive,
 					ChecksumsPath: candidateChecksums,
 				})
