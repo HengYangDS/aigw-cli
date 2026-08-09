@@ -1,0 +1,27 @@
+schema_version = 1
+id = "change:20260810-forge-branch-transaction"
+intent = "Project main and dev as one fail-closed Forge branch transaction while preserving proposal branches as explicit single-branch projections."
+subjects = ["repository:self"]
+scope = [
+  "openspec/changes/20260810-forge-branch-transaction/**",
+  "openspec/changes/archive/*-20260810-forge-branch-transaction/**",
+  "tools/forge/project.go",
+  "tools/forge/project_test.go",
+]
+invariants = [
+  "gitlab_and_github_remain_independent_publication_endpoints",
+  "main_and_dev_are_derived_from_one_source_tree_and_advance_together",
+  "proposal_branches_remain_explicit_single_branch_publication",
+  "candidate_dev_and_work_branches_are_never_published",
+]
+acceptance = [
+  "the_transaction_regression_fails_before_the_fix_and_passes_after_it",
+  "remote_preconditions_are_checked_before_any_branch_update",
+  "one_atomic_push_updates_main_and_dev_or_updates_neither",
+  "complete_native_source_and_forge_gates_pass",
+]
+risks = ["partial_remote_ref_update", "remote_concurrent_movement"]
+authority_refs = ["tools/forge/project.go", "tools/forge/project_test.go"]
+permissions = ["repository.read", "work-lane.write", "local-proof.execute", "git.ref.compare-and-swap"]
+hypotheses = ["git_atomic_push_is_supported_by_the_admitted_forge_remotes"]
+dependencies = ["git:stable"]
