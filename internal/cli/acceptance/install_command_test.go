@@ -3,6 +3,7 @@ package cli_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -11,6 +12,10 @@ func TestPortableInstallAndUninstallCommandsOwnOnlyProgramFiles(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	app.Executable = filepath.Join(t.TempDir(), "download", "aigw")
 	app.InstallTarget = filepath.Join(t.TempDir(), "bin", "aigw")
+	if runtime.GOOS == "windows" {
+		app.Executable += ".exe"
+		app.InstallTarget += ".exe"
+	}
 	if err := os.MkdirAll(filepath.Dir(app.Executable), 0o700); err != nil {
 		t.Fatal(err)
 	}

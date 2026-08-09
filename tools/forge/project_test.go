@@ -114,7 +114,8 @@ func TestProjectionRejectsSourceAndRemoteDivergence(t *testing.T) {
 }
 
 func TestProjectionRemoteValidation(t *testing.T) {
-	for _, accepted := range []string{"file:///tmp/repository.git", "/tmp/repository.git", "https://github.com/example/repository.git", "ssh://git@gitlab.example/example/repository.git", "git@forge.example:example/repository.git"} {
+	local := filepath.Join(t.TempDir(), "repository.git")
+	for _, accepted := range []string{"file://" + filepath.ToSlash(local), local, "https://github.com/example/repository.git", "ssh://git@gitlab.example/example/repository.git", "git@forge.example:example/repository.git"} {
 		if err := validateProjectionRemote(accepted); err != nil {
 			t.Errorf("%s: %v", accepted, err)
 		}

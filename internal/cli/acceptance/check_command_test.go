@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -29,10 +28,7 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("dmx", "token")
-	claudeExecutable := filepath.Join(t.TempDir(), "claude")
-	if err := os.WriteFile(claudeExecutable, []byte("fixture"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	claudeExecutable := executableFixture(t, "claude")
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
