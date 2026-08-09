@@ -46,6 +46,8 @@ func TestProjectionCreatesNonDefaultTargetBranch(t *testing.T) {
 	}
 	branch := "proposal/semantic-boundaries"
 	gitTest(t, fixture.repository, "branch", branch, "main")
+	gitTest(t, fixture.repository, "config", "user.email", "other@example.invalid")
+	writeCommit(t, fixture.repository, "main-only", "main only\n", "main only")
 	gitTest(t, fixture.repository, "remote", "add", "github", remote)
 	option := projectionOptions{
 		repository: fixture.repository, branch: branch, remote: "github",

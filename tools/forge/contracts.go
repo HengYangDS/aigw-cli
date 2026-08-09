@@ -27,6 +27,7 @@ type peerSpec struct{ name, ref, mode string }
 func runCommitProvenance(args []string) error {
 	flags := flag.NewFlagSet("forge commits", flag.ContinueOnError)
 	repository := flags.String("repository", ".", "Git repository")
+	revision := flags.String("revision", "HEAD", "commit revision to verify")
 	provider := flags.String("provider", "", "gitlab or github")
 	email := flags.String("email", "", "required author and committer email")
 	allowedSigners := flags.String("allowed-signers", "", "SSH allowed signers file")
@@ -51,7 +52,7 @@ func runCommitProvenance(args []string) error {
 	} else if !os.IsNotExist(err) {
 		return err
 	}
-	head, err := gitOutput(*repository, "rev-parse", "--verify", "HEAD^{commit}")
+	head, err := gitOutput(*repository, "rev-parse", "--verify", *revision+"^{commit}")
 	if err != nil {
 		return err
 	}
