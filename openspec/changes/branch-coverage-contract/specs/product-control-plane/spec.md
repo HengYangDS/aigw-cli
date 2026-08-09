@@ -2,20 +2,20 @@
 
 ### Requirement: Coverage claims are executable and truthful
 
-AIGW MUST require aggregate statement coverage, every production package's
-statement coverage, and aggregate branch coverage to each be strictly greater
-than 95 percent. Statement and branch measurements MUST retain distinct named
-authorities and MUST NOT be inferred from one another.
+AIGW MUST require aggregate statement coverage and every production package's
+statement coverage to each be strictly greater than 95 percent. It MUST name
+the executable measure accurately and MUST NOT infer branch evidence from a Go
+statement profile.
 
 #### Scenario: One measure reaches only the floor
 
-- **WHEN** aggregate statements, any production package, or aggregate branches
-  are at or below 95 percent
+- **WHEN** aggregate statements or any production package are at or below 95
+  percent
 - **THEN** the single coverage gate fails and identifies the failed measure.
 
-#### Scenario: Branch evidence is unavailable
+#### Scenario: No admitted branch authority exists
 
-- **WHEN** the branch instrumenter cannot enumerate, instrument, execute, or
-  produce a parseable summary for any production package
-- **THEN** the gate fails closed rather than reporting statement success as
-  branch success.
+- **WHEN** no stable tool can measure the complete module once on every
+  supported platform
+- **THEN** release evidence names only statement coverage and makes no branch
+  claim.

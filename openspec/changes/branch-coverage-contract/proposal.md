@@ -8,15 +8,15 @@ the promised branch claim.
 
 ## Change
 
-Keep the Go cover profile as the sole statement and per-package owner. Add one
-mature source instrumenter for aggregate branch coverage, lock it through the Go
-tool graph, and make the existing coverage gate enforce both results strictly
-above 95 percent. CI and local proof continue to call one repository command.
+Keep the Go cover profile as the sole statement and per-package authority. The
+evaluation found no stable, maintained tool that measures the complete module
+in one test execution across macOS, Linux, and Windows. Therefore remove the
+unsupported branch claim instead of adopting a source-rewriting fork or owning
+an instrumenter. CI and local proof continue to call one repository command.
 
 ## Boundary
 
 The gate does not rename statement coverage as branch coverage, exclude hard
-packages, instrument tests, or invent a second threshold. Go's native cover
-profile remains authoritative for statements; the branch tool owns only branch
-measurement. Select statements remain outside the admitted tool's branch model
-and retain ordinary statement/race coverage.
+packages, duplicate tests, or invent an unproved measure. Go's native cover
+profile remains authoritative for statements. Branch coverage becomes a future
+capability only when one admitted tool satisfies the complete contract.
