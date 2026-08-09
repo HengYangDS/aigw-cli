@@ -6,7 +6,7 @@
 
 - [x] 2.1 Run the repository architecture gate.
 - [x] 2.2 Run exact-HEAD full proof.
-- [ ] 2.3 Archive and land through the public lifecycle.
+- [x] 2.3 Archive and land through the public lifecycle.
 
 ## Requirement To Task To Proof
 
