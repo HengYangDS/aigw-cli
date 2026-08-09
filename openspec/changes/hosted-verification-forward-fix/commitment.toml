@@ -1,0 +1,21 @@
+schema_version = 1
+id = "change:hosted-verification-forward-fix"
+intent = "Close exact native Windows coverage and GitLab provenance-input gaps exposed by hosted verification."
+subjects = [
+    "repository:self",
+]
+scope = [
+    "openspec/changes/hosted-verification-forward-fix/**",
+    "internal/cli/install/install_test.go",
+    ".gitlab-ci.yml",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+permissions = [
+    "repository.read",
+    "work-lane.write",
+]
+hypotheses = []
+dependencies = []
