@@ -76,7 +76,7 @@ func project(option projectionOptions) error {
 	if err := validateProjectionRemote(remoteURL); err != nil {
 		return err
 	}
-	if err := runCommitProvenance([]string{"--repository", repository, "--provider", option.sourceProvider, "--email", option.sourceEmail, "--allowed-signers", option.sourceSigners}); err != nil {
+	if err := runCommitProvenance([]string{"--repository", repository, "--revision", branchRef, "--provider", option.sourceProvider, "--email", option.sourceEmail, "--allowed-signers", option.sourceSigners}); err != nil {
 		return err
 	}
 	workspace, err := os.MkdirTemp("", "aigw-forge-projection-*")
@@ -113,7 +113,7 @@ func project(option projectionOptions) error {
 		if err := git(projection, nil, "merge-base", "--is-ancestor", remoteTip, projected); err != nil {
 			return errors.New("target branch diverges from the complete canonical identity projection")
 		}
-		if err := runCommitProvenance([]string{"--repository", projection, "--provider", option.targetProvider, "--email", option.actorEmail, "--allowed-signers", option.targetSigners}); err != nil {
+		if err := runCommitProvenance([]string{"--repository", projection, "--revision", branchRef, "--provider", option.targetProvider, "--email", option.actorEmail, "--allowed-signers", option.targetSigners}); err != nil {
 			return err
 		}
 	}
