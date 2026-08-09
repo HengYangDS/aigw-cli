@@ -152,6 +152,9 @@ func replay(option options) (replayErr error) {
 	if err := git(output, nil, "update-ref", option.ref, tip, strings.Repeat("0", 40)); err != nil {
 		return err
 	}
+	if err := git(output, nil, "symbolic-ref", "HEAD", option.ref); err != nil {
+		return err
+	}
 	var replayMap strings.Builder
 	for _, oid := range oids {
 		fmt.Fprintf(&replayMap, "%s\t%s\n", oid, mapping[oid])
