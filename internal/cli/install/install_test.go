@@ -138,6 +138,15 @@ func TestInstallRejectsInvalidSourceAndSamePath(t *testing.T) {
 	if err := Install(source, source); err == nil || !strings.Contains(err.Error(), "same path") {
 		t.Fatalf("same path=%v", err)
 	}
+	if runtime.GOOS == "windows" {
+		target := filepath.Join(root, "target.exe")
+		if err := Install(source, target); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := os.ReadFile(target); err != nil || string(got) != "binary" {
+			t.Fatalf("Windows target = %q, %v", got, err)
+		}
+	}
 }
 
 func TestInstallRejectsNonExecutableSourceAndBlockedDestinations(t *testing.T) {
