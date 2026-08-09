@@ -38,6 +38,33 @@ func TestProjectionCreatesAndAdvancesTarget(t *testing.T) {
 	}
 }
 
+func TestProjectionCreatesNonDefaultTargetBranch(t *testing.T) {
+	fixture := forgeFixture(t)
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	if output, err := exec.Command("git", "init", "-q", "--bare", remote).CombinedOutput(); err != nil {
+		t.Fatalf("git init bare: %v: %s", err, output)
+	}
+	branch := "proposal/semantic-boundaries"
+	gitTest(t, fixture.repository, "branch", branch, "main")
+	gitTest(t, fixture.repository, "remote", "add", "github", remote)
+	option := projectionOptions{
+		repository: fixture.repository, branch: branch, remote: "github",
+		sourceProvider: "gitlab", targetProvider: "github", sourceEmail: fixture.email,
+		actorName: "GitHub Actor", actorEmail: fixture.email,
+		signingKey: fixture.key, signingProgram: "ssh-keygen",
+		sourceSigners: fixture.allowedSigners, targetSigners: fixture.allowedSigners,
+	}
+	if err := project(option); err != nil {
+		t.Fatal(err)
+	}
+	if err := project(option); err != nil {
+		t.Fatal(err)
+	}
+	if projected := gitTestOutput(t, remote, "rev-parse", "refs/heads/"+branch); projected == "" {
+		t.Fatal("projection did not create non-default target branch")
+	}
+}
+
 func TestProjectionCommandAndProviderBoundary(t *testing.T) {
 	fixture := forgeFixture(t)
 	remote := filepath.Join(t.TempDir(), "remote.git")
