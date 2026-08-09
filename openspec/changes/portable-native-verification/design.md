@@ -13,4 +13,3 @@ Tests own these distinctions at their semantic helpers. Production behavior is
 changed only where it currently applies a POSIX executable-bit contract to a
 Windows target. No compatibility path, alternate installer, or CI exception is
 introduced.
-
