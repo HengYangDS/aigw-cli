@@ -14,10 +14,28 @@ scope = [
     "docs/operations/release-readiness.md",
     "openspec/specs/product-control-plane/spec.md",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
+invariants = [
+    "statement_and_branch_coverage_are_distinct_truthful_measures",
+    "every_production_package_remains_in_the_statement_floor",
+    "ci_and_local_proof_use_one_coverage_entrypoint",
+]
+acceptance = [
+    "aggregate_statement_coverage_strictly_exceeds_ninety_five_percent",
+    "every_production_package_statement_coverage_strictly_exceeds_ninety_five_percent",
+    "aggregate_branch_coverage_strictly_exceeds_ninety_five_percent",
+    "macos_linux_and_windows_execute_the_same_gate",
+]
+risks = [
+    "branch_instrumentation_changes_test_behavior",
+    "unsupported_control_flow_is_misstated_as_measured",
+    "tool_output_drift_is_silently_accepted",
+]
+authority_refs = [
+    "user_instruction",
+    "AGENTS.md",
+    ".config/checks/coverage/policy.toml",
+    "docs/operations/release-readiness.md",
+]
 permissions = [
     "repository.read",
     "work-lane.write",
