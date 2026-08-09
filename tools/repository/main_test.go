@@ -64,6 +64,9 @@ func TestRunChecksChangelogAndReleaseEpoch(t *testing.T) {
 
 func TestRepositoryOwnsFormerShellForwarders(t *testing.T) {
 	root := initReleaseRepository(t, "1.2.3")
+	if err := run([]string{"--root", root, "go-format"}); err != nil {
+		t.Fatal(err)
+	}
 	if err := run([]string{"--root", root, "english-text"}); err != nil {
 		t.Fatal(err)
 	}
