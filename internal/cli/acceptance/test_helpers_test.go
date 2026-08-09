@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -169,6 +170,9 @@ func execute(t *testing.T, app *cli.App, args ...string) error {
 
 func executableFixture(t *testing.T, name string) string {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
 	path := filepath.Join(t.TempDir(), name)
 	if err := os.WriteFile(path, []byte("native client fixture"), 0o755); err != nil {
 		t.Fatal(err)

@@ -57,7 +57,7 @@ func checkProductSurface(root string) error {
 		if err != nil {
 			return fmt.Errorf("product surface: read %s: %w", relative, err)
 		}
-		text := string(data)
+		text := strings.ReplaceAll(string(data), "\r\n", "\n")
 		for _, token := range tokens {
 			if !strings.Contains(text, token) {
 				return fmt.Errorf("product surface: %s is missing %q", relative, token)

@@ -230,7 +230,7 @@ func TestTrustInputWritesPrivateFileAndGitHubEnvironment(t *testing.T) {
 		t.Fatalf("trust input=%q error=%v", data, err)
 	}
 	info, err := os.Stat(output)
-	if err != nil || info.Mode().Perm() != 0o600 {
+	if err != nil || (runtime.GOOS != "windows" && info.Mode().Perm() != 0o600) {
 		t.Fatalf("trust mode=%v error=%v", info, err)
 	}
 	envData, err := os.ReadFile(environment)

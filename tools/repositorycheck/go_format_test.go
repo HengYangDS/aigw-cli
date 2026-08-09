@@ -22,7 +22,8 @@ func TestGoFormatAcceptsFormattedSourceAndRejectsDrift(t *testing.T) {
 	if err := os.WriteFile(path, []byte("package main\nfunc main(){println(\"drift\")}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := checkGoFormat(root); err == nil || !strings.Contains(err.Error(), "cmd/tool/main.go") {
+	wantPath := filepath.Join("cmd", "tool", "main.go")
+	if err := checkGoFormat(root); err == nil || !strings.Contains(err.Error(), wantPath) {
 		t.Fatalf("format drift error = %v", err)
 	}
 }

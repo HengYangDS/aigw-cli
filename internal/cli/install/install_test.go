@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -140,6 +141,9 @@ func TestInstallRejectsInvalidSourceAndSamePath(t *testing.T) {
 }
 
 func TestInstallRejectsNonExecutableSourceAndBlockedDestinations(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows executability is not represented by POSIX mode bits")
+	}
 	root := t.TempDir()
 	source := filepath.Join(root, "aigw")
 	if err := os.WriteFile(source, []byte("binary"), 0o644); err != nil {

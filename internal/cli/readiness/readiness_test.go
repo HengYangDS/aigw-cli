@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -169,6 +170,9 @@ func TestAdapterRouteReadyCoversClaudeExecutableAndCodexOutcomes(t *testing.T) {
 	}
 
 	executable := filepath.Join(t.TempDir(), "claude")
+	if goruntime.GOOS == "windows" {
+		executable += ".exe"
+	}
 	if err := os.WriteFile(executable, []byte("binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}

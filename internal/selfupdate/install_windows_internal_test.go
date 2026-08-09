@@ -16,7 +16,7 @@ func TestWindowsPortableUpdateDoesNotCreateCommandScripts(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("current"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	updater := Updater{Executable: executable, GOOS: "windows"}
+	updater := Updater{Executable: executable, GOOS: "windows", GOARCH: "amd64"}
 	archivePath, _ := writeWindowsPortableArchiveForTest(t, root)
 	if _, scheduled, err := updater.installPortableArchive(archivePath, "v1.2.3"); err != nil || scheduled {
 		t.Fatalf("installPortableArchive() = scheduled %v, err %v", scheduled, err)
