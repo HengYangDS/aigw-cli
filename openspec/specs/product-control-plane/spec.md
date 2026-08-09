@@ -424,4 +424,3 @@ duplicating it in repository scripts.
 - **WHEN** an OpenSpec archive projection leaves a surplus terminal blank line
 - **THEN** the same native gate SHALL reject it
 - **AND** the active closeout SHALL restore canonical text without weakening policy
-
