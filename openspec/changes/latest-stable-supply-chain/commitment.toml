@@ -1,0 +1,22 @@
+schema_version = 1
+id = "change:latest-stable-supply-chain"
+intent = "Refresh the repository-locked Go dependency graph to the current stable resolved set without changing product behavior."
+subjects = [
+    "repository:self",
+]
+scope = [
+    "openspec/changes/latest-stable-supply-chain/**",
+    "openspec/changes/archive/*-latest-stable-supply-chain/**",
+    "go.mod",
+    "go.sum",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+permissions = [
+    "repository.read",
+    "work-lane.write",
+]
+hypotheses = []
+dependencies = []
