@@ -1,0 +1,26 @@
+schema_version = 1
+id = "change:20260809-terminal-tree-absorption"
+intent = "Absorb the complete portable AIGW terminal tree onto current dev as one trusted commit without carrying process history."
+subjects = ["repository:self"]
+scope = ["**"]
+invariants = [
+  "aigw_remains_a_portable_configuration_control_plane",
+  "shell_owned_automation_and_parallel_compatibility_surfaces_do_not_survive",
+  "gitlab_and_github_remain_independent_publication_planes",
+  "the_absorbed_tree_contains_no_personal_or_host_specific_product_behavior",
+]
+acceptance = [
+  "the_absorbed_product_tree_matches_the_verified_terminal_tree_except_for_current_change_governance",
+  "all_source_quality_security_and_native_platform_gates_pass",
+  "the_terminal history_contains_one_trusted_commit_above_current_dev",
+]
+risks = ["terminal_tree_semantic_omission", "history_absorption_changes_commit_identity"]
+authority_refs = ["user_instruction", "AGENTS.md", "docs/governance/change-and-release-policy.md"]
+permissions = [
+  "repository.read",
+  "work-lane.write",
+  "git.ref.compare-and-swap",
+  "local-proof.execute",
+]
+hypotheses = []
+dependencies = []

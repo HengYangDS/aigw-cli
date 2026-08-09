@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: aigw
+dist: "{{ .Env.AIGW_RELEASE_STAGE }}"
+
+snapshot:
+  version_template: "{{ .Env.AIGW_VERSION }}"
+
+metadata:
+  mod_timestamp: "{{ .Env.AIGW_RELEASE_EPOCH }}"
+
+builds:
+  -
+    id: portable
+    main: ./cmd/aigw
+    binary: aigw
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    env: [CGO_ENABLED=0]
+    mod_timestamp: "{{ .Env.AIGW_RELEASE_EPOCH }}"
+    flags: [-trimpath, -buildvcs=false]
+    ldflags:
+      - >-
+        -s -w
+        -X aigw-cli/internal/cli.Version={{ .Version }}
+        -X aigw-cli/internal/selfupdate.BuildGitLabReleaseOrigin={{ .Env.AIGW_GITLAB_RELEASE_ORIGIN }}
+        -X aigw-cli/internal/selfupdate.BuildGitLabReleaseRepository={{ .Env.AIGW_GITLAB_RELEASE_REPOSITORY }}
+        -X aigw-cli/internal/selfupdate.BuildGitHubReleaseOrigin={{ .Env.AIGW_GITHUB_RELEASE_ORIGIN }}
+        -X aigw-cli/internal/selfupdate.BuildGitHubReleaseRepository={{ .Env.AIGW_GITHUB_RELEASE_REPOSITORY }}
+
+archives:
+  - ids: [portable]
+    name_template: "aigw_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    wrap_in_directory: true
+    builds_info:
+      mtime: "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - src: README.md
+        info:
+          mtime: "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
+      - src: LICENSE
+        info:
+          mtime: "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
+
+checksum:
+  name_template: checksums.txt
+
+sboms:
+  - disable: true
+
+changelog:
+  disable: true
+
+release:
+  disable: true

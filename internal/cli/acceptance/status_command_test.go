@@ -2,8 +2,6 @@ package cli_test
 
 import (
 	configuration "aigw-cli/internal/configuration"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -20,7 +18,7 @@ func TestStatusKeepsTheFirstRunNextActionSimple(t *testing.T) {
 	}
 }
 
-func TestStatusWarnsWhenClaudePathActivationIsMissing(t *testing.T) {
+func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "claude-test"})
@@ -32,23 +30,11 @@ func TestStatusWarnsWhenClaudePathActivationIsMissing(t *testing.T) {
 	if err := secretStore.Set("claude", "token"); err != nil {
 		t.Fatal(err)
 	}
-	home := t.TempDir()
-	shimDir := filepath.Join(home, "Library", "Application Support", "aigw", "bin")
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.Home = home
-	app.ClaudeLauncher.Shell = "/bin/zsh"
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
-	if err := os.MkdirAll(shimDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(shimDir, "claude"), []byte("#!/bin/sh\n# AIGW managed Claude launcher\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	if err := execute(t, app, "status"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Claude PATH activation is missing") || !strings.Contains(out.String(), "aigw repair") {
-		t.Fatalf("status did not surface missing Claude PATH activation:\n%s", out.String())
+	if !strings.Contains(out.String(), "Claude executable is unavailable") || !strings.Contains(out.String(), "aigw repair") {
+		t.Fatalf("status did not surface the unavailable Claude executable:\n%s", out.String())
 	}
 }
 

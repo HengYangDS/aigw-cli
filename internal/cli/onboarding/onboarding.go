@@ -3,7 +3,6 @@
 package onboarding
 
 import (
-	"aigw-cli/internal/claude"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -172,17 +171,8 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 			return err
 		}
 	}
-	claudeEnabled := cfg.Adapters[configuration.ClientClaude].Enabled
-	if claudeEnabled {
-		if _, err := runtime.ClaudeLauncher.EnableClaude(); err != nil {
-			if !secretAlreadyManaged {
-				_ = runtime.Secrets.Delete(request.Account)
-			}
-			return err
-		}
-	}
 	if err := invocation.Synchronizer(runtime).Commit(ctx, before, cfg, "setup"); err != nil {
-		rollbackSetup(runtime, request.Account, claudeEnabled, !secretAlreadyManaged)
+		rollbackSetup(runtime, request.Account, !secretAlreadyManaged)
 		return fmt.Errorf("Client configuration failed and was rolled back: %w", err)
 	}
 
@@ -276,44 +266,13 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: discoveredCodex, Targets: discoveredTargets}
 	}
 
-	claudeEnabled := cfg.Adapters[configuration.ClientClaude].Enabled
-	launcherBefore := claude.LauncherStateSnapshot{}
-	launcherAfter := claude.LauncherStateSnapshot{}
-	if claudeEnabled {
-		launcherBefore, err = runtime.ClaudeLauncher.CaptureClaudeState()
-		if err != nil {
-			return err
-		}
-	}
 	written, err := writeManifestSetupCredentials(runtime, credentials)
 	if err != nil {
 		return err
 	}
-	if claudeEnabled {
-		if _, err := runtime.ClaudeLauncher.EnableClaude(); err != nil {
-			if rollbackErr := rollbackManifestSetupCredentials(runtime, credentials, written); rollbackErr != nil {
-				return fmt.Errorf("enable Claude adapter: %w; credential rollback also failed: %v", err, rollbackErr)
-			}
-			return err
-		}
-		launcherAfter, err = runtime.ClaudeLauncher.CaptureClaudeState()
-		if err != nil {
-			if rollbackErr := rollbackManifestSetupCredentials(runtime, credentials, written); rollbackErr != nil {
-				return fmt.Errorf("capture Claude launcher postimage: %w; credential rollback also failed: %v", err, rollbackErr)
-			}
-			return fmt.Errorf("capture Claude launcher postimage: %w", err)
-		}
-	}
 	if err := invocation.Synchronizer(runtime).Commit(ctx, before, cfg, "configuration setup"); err != nil {
-		var launcherRollbackErr error
-		if claudeEnabled {
-			launcherRollbackErr = runtime.ClaudeLauncher.RestoreClaudeState(launcherBefore, launcherAfter)
-		}
 		if rollbackErr := rollbackManifestSetupCredentials(runtime, credentials, written); rollbackErr != nil {
 			return fmt.Errorf("configuration setup failed: %w; credential rollback also failed: %v", err, rollbackErr)
-		}
-		if launcherRollbackErr != nil {
-			return fmt.Errorf("configuration setup failed: %w; Claude launcher rollback also failed: %v", err, launcherRollbackErr)
 		}
 		return fmt.Errorf("Configuration setup failed and credentials were rolled back: %w", err)
 	}
@@ -542,10 +501,7 @@ func setupToken(runtime invocation.Context, request Request) (token string, alre
 	return token, false, err
 }
 
-func rollbackSetup(runtime invocation.Context, account string, claudeEnabled, deleteNewSecret bool) {
-	if claudeEnabled {
-		_ = runtime.ClaudeLauncher.DisableClaude()
-	}
+func rollbackSetup(runtime invocation.Context, account string, deleteNewSecret bool) {
 	if deleteNewSecret {
 		_ = runtime.Secrets.Delete(account)
 	}

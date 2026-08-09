@@ -48,7 +48,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	if len(before.Profiles) == 0 {
 		return presentation.ProblemError("Not configured", "No service profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
-	after, discovered, enableClaude, newClaude, err := repairDesiredConfig(runtime, before)
+	after, discovered, err := repairDesiredConfig(runtime, before)
 	if err != nil {
 		return err
 	}
@@ -59,15 +59,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 		}
 		return renderRepairPreview(runtime, jsonMode, before, after, discovered, plans)
 	}
-	if enableClaude {
-		if _, err := runtime.ClaudeLauncher.EnableClaude(); err != nil {
-			return err
-		}
-	}
 	if err := invocation.Synchronizer(runtime).Commit(ctx, before, after, "repair"); err != nil {
-		if newClaude {
-			_ = runtime.ClaudeLauncher.DisableClaude()
-		}
 		return err
 	}
 	if after.Adapters[configuration.ClientCodex].Enabled && !synchronization.ProjectionChanged(before, after) {
@@ -89,24 +81,20 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	return nil
 }
 
-func repairDesiredConfig(runtime invocation.Context, before configuration.Config) (configuration.Config, discovery.Result, bool, bool, error) {
+func repairDesiredConfig(runtime invocation.Context, before configuration.Config) (configuration.Config, discovery.Result, error) {
 	after := before.Clone()
 	discovered, err := invocation.Discover(runtime)
 	if err != nil {
-		return configuration.Config{}, discovery.Result{}, false, false, err
+		return configuration.Config{}, discovery.Result{}, err
 	}
 	claudeRuntime, _, claudeRouteErr := after.ResolveRuntime(configuration.ClientClaude, "")
 	codexRuntime, _, codexRouteErr := after.ResolveRuntime(configuration.ClientCodex, "")
-	enableClaude := false
-	newClaude := false
 	claudeAdapter := after.Adapters[configuration.ClientClaude]
 	claudeExecutable := claudeAdapter.Executable
 	if claudeExecutable == "" {
 		claudeExecutable = discovered.Executable(configuration.ClientClaude)
 	}
 	if claudeRouteErr == nil && claudeExecutable != "" && claudeRuntime.Endpoint != "" {
-		enableClaude = true
-		newClaude = !claudeAdapter.Enabled
 		after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 	}
 	if codexRouteErr == nil && codexRuntime.Endpoint != "" {
@@ -122,7 +110,7 @@ func repairDesiredConfig(runtime invocation.Context, before configuration.Config
 			delete(after.Adapters, configuration.ClientCodex)
 		}
 	}
-	return after, discovered, enableClaude, newClaude, nil
+	return after, discovered, nil
 }
 
 func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, after configuration.Config, discovered discovery.Result, plans []codex.ProjectionPlan) error {
@@ -148,7 +136,7 @@ func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, afte
 	for _, plan := range preview.Codex {
 		r.Row(plan.SurfaceID, plan.Action)
 	}
-	r.Success("Preview did not write configuration, state files, authentication, launchers, or conversations")
+	r.Success("Preview did not write configuration, state files, authentication, client executables, or conversations")
 	r.Next("aigw repair")
 	return nil
 }

@@ -75,12 +75,11 @@ Future clients require a separately reviewed adapter with:
 GitLab and GitHub are independent release sources. Verify one complete artifact
 set from one source; do not mix a tag, checksum file, and archive across Forges.
 
-| Platform | Preferred install |
+| Platform | Install asset |
 | --- | --- |
-| macOS | `.pkg` |
-| Linux | `.deb` or `.rpm` |
-| Windows | `.msi` |
-| Offline/portable | Matching archive and checksum manifest |
+| macOS | Matching Darwin archive and checksum manifest |
+| Linux | Matching Linux archive and checksum manifest |
+| Windows | Matching Windows archive and checksum manifest |
 
 After installation:
 

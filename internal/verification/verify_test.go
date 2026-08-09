@@ -26,15 +26,6 @@ type responseBody struct {
 
 func (body responseBody) Close() error { return body.closeErr }
 
-type launcherResult struct {
-	ready bool
-	err   error
-}
-
-func (launcher launcherResult) ClaudeLauncherReady() (bool, error) {
-	return launcher.ready, launcher.err
-}
-
 type basicRunner struct{ err error }
 
 func (runner basicRunner) Run(context.Context, process.Plan) error { return runner.err }
@@ -68,22 +59,23 @@ func verificationConfig() configuration.Config {
 
 func TestValidateFullReadiness(t *testing.T) {
 	cfg := verificationConfig()
-	if err := ValidateFullReadiness(launcherResult{}, cfg); err == nil || !strings.Contains(err.Error(), "enabled Claude") {
+	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "enabled Claude") {
 		t.Fatalf("disabled Claude error = %v", err)
 	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "claude"}
-	want := errors.New("launcher failed")
-	if err := ValidateFullReadiness(launcherResult{err: want}, cfg); !errors.Is(err, want) {
-		t.Fatalf("launcher error = %v", err)
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
+	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "available Claude") {
+		t.Fatalf("missing executable error = %v", err)
 	}
-	if err := ValidateFullReadiness(launcherResult{}, cfg); err == nil || !strings.Contains(err.Error(), "managed Claude") {
-		t.Fatalf("missing launcher error = %v", err)
+	claudeExecutable := filepath.Join(t.TempDir(), "claude")
+	if err := os.WriteFile(claudeExecutable, []byte("fixture"), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	if err := ValidateFullReadiness(launcherResult{ready: true}, cfg); err == nil || !strings.Contains(err.Error(), "enabled Codex") {
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
+	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "enabled Codex") {
 		t.Fatalf("disabled Codex error = %v", err)
 	}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
-	if err := ValidateFullReadiness(launcherResult{ready: true}, cfg); err == nil || !strings.Contains(err.Error(), "synchronized Codex") {
+	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "synchronized Codex") {
 		t.Fatalf("drift error = %v", err)
 	}
 	target := filepath.Join(t.TempDir(), "configuration.toml")
@@ -98,8 +90,32 @@ func TestValidateFullReadiness(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{target}}
-	if err := ValidateFullReadiness(launcherResult{ready: true}, cfg); err != nil {
+	if err := ValidateFullReadiness(cfg); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestValidateFullReadinessReportsInspectionAndRouteErrors(t *testing.T) {
+	cfg := verificationConfig()
+	loop := filepath.Join(t.TempDir(), "claude")
+	if err := os.Symlink(loop, loop); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: loop}
+	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "inspect Claude executable") {
+		t.Fatalf("Claude inspection error = %v", err)
+	}
+
+	claudeExecutable := filepath.Join(t.TempDir(), "claude")
+	if err := os.WriteFile(claudeExecutable, []byte("fixture"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{"unused"}}
+	cfg.Routes.Default = "missing"
+	delete(cfg.Routes.Overrides, configuration.ClientCodex)
+	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "resolve the Codex route") {
+		t.Fatalf("Codex route error = %v", err)
 	}
 }
 
@@ -179,17 +195,22 @@ func TestVerifyClaude(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := VerifyClaudeInvocation(context.Background(), launcherResult{}, nil, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "disabled") {
+	if err := VerifyClaudeInvocation(context.Background(), nil, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "disabled") {
 		t.Fatalf("disabled error = %v", err)
 	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "claude"}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
+	if err := VerifyClaudeInvocation(context.Background(), nil, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "executable is unavailable") {
+		t.Fatalf("missing executable error = %v", err)
+	}
+	loop := filepath.Join(t.TempDir(), "claude")
+	if err := os.Symlink(loop, loop); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: loop}
+	if err := VerifyClaudeInvocation(context.Background(), nil, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "inspect Claude executable") {
+		t.Fatalf("inspection error = %v", err)
+	}
 	want := errors.New("launcher failed")
-	if err := VerifyClaudeInvocation(context.Background(), launcherResult{err: want}, nil, cfg, runtime, "token"); !errors.Is(err, want) {
-		t.Fatalf("launcher error = %v", err)
-	}
-	if err := VerifyClaudeInvocation(context.Background(), launcherResult{}, nil, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "launcher is missing") {
-		t.Fatalf("missing launcher error = %v", err)
-	}
 	if err := VerifyClaudeRuntime(context.Background(), nil, "claude", configuration.Runtime{ProfileID: "one"}, "token"); err == nil || !strings.Contains(err.Error(), "no Claude model") {
 		t.Fatalf("model error = %v", err)
 	}
@@ -202,7 +223,12 @@ func TestVerifyClaude(t *testing.T) {
 	if err := VerifyClaudeRuntime(context.Background(), captureRunner{output: []byte("wrong")}, "claude", runtime, "token"); err == nil || !strings.Contains(err.Error(), "expected AIGW_OK") {
 		t.Fatalf("sentinel error = %v", err)
 	}
-	if err := VerifyClaudeInvocation(context.Background(), launcherResult{ready: true}, captureRunner{output: []byte(" AIGW_OK \n")}, cfg, runtime, "token"); err != nil {
+	executable := filepath.Join(t.TempDir(), "claude")
+	if err := os.WriteFile(executable, []byte("fixture"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
+	if err := VerifyClaudeInvocation(context.Background(), captureRunner{output: []byte(" AIGW_OK \n")}, cfg, runtime, "token"); err != nil {
 		t.Fatal(err)
 	}
 }

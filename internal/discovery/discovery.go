@@ -7,10 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 )
-
-const claudeLauncherMarker = "AIGW managed Claude launcher"
 
 type Result struct {
 	Executables map[string]string
@@ -38,15 +35,15 @@ func Current() System {
 func (s System) Discover() Result {
 	result := Result{
 		Executables: map[string]string{
-			configuration.ClientClaude: s.find(configuration.ClientClaude, true),
-			configuration.ClientCodex:  s.find(configuration.ClientCodex, false),
+			configuration.ClientClaude: s.find(configuration.ClientClaude),
+			configuration.ClientCodex:  s.find(configuration.ClientCodex),
 		},
 		Surfaces: s.discoverSurfaces(),
 	}
 	return result
 }
 
-func (s System) find(name string, skipManagedClaude bool) string {
+func (s System) find(name string) string {
 	names := []string{name}
 	if s.GOOS == "windows" {
 		names = []string{name + ".exe", name + ".cmd", name + ".bat", name}
@@ -57,12 +54,6 @@ func (s System) find(name string, skipManagedClaude bool) string {
 			info, err := os.Stat(path)
 			if err != nil || info.IsDir() {
 				continue
-			}
-			if skipManagedClaude {
-				data, _ := os.ReadFile(path)
-				if strings.Contains(string(data), claudeLauncherMarker) {
-					continue
-				}
 			}
 			if s.GOOS == "windows" || info.Mode()&0o111 != 0 {
 				absolute, _ := filepath.Abs(path)

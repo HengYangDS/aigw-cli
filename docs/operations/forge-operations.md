@@ -29,7 +29,7 @@ GitLab carries the canonical commit identity. GitHub carries an equal-tree,
 ordered history with its own provider identity and signature.
 
 ```bash
-sh scripts/forge/lib/project-github-forge.sh
+go run ./tools/forge project --help
 ```
 
 The projection is forward-only and fast-forward. It does not copy tags, force
@@ -44,7 +44,7 @@ git fetch --no-prune --no-prune-tags --no-tags origin \
   refs/heads/main:refs/remotes/origin/main
 git fetch --no-prune --no-prune-tags --no-tags github \
   refs/heads/main:refs/remotes/github/main
-sh scripts/checks/forge/check-forge-sync.sh \
+go run ./tools/forge sync \
   --canonical main \
   --peer gitlab:refs/remotes/origin/main:commit \
   --peer github:refs/remotes/github/main:tree
@@ -89,8 +89,9 @@ dual-publication claim.
 | Provider signatures | Independently valid; not byte-equal |
 | Provider-only metadata | Valid on its own Forge |
 
-A released binary contains two independent update-source tuples. If both peers
-are reachable, version and current-platform artifact bytes must agree. If one is
+A Forge release embeds only that Forge's update-source tuple; a local build
+embeds none. If an installation is configured with both peers and both are
+reachable, version and current-platform artifact bytes must agree. If one is
 unreachable, the reachable peer may supply the complete verified update.
 Authorization, malformed metadata, checksum, archive, downgrade, or redirect
 failure remains terminal.

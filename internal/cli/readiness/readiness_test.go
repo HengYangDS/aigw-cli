@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"aigw-cli/internal/account"
-	"aigw-cli/internal/claude"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -155,7 +154,7 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	}
 }
 
-func TestAdapterRouteReadyCoversAllLauncherAndCodexOutcomes(t *testing.T) {
+func TestAdapterRouteReadyCoversClaudeExecutableAndCodexOutcomes(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
 	clientRuntime, _, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
@@ -169,55 +168,17 @@ func TestAdapterRouteReadyCoversAllLauncherAndCodexOutcomes(t *testing.T) {
 		t.Fatalf("missing executable ready=%v issue=%q", ready, issue)
 	}
 
-	launcherRoot := t.TempDir()
-	binDir := filepath.Join(launcherRoot, "bin")
-	if err := os.MkdirAll(binDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	executable := filepath.Join(launcherRoot, "aigw")
+	executable := filepath.Join(t.TempDir(), "claude")
 	if err := os.WriteFile(executable, []byte("binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir(filepath.Join(launcherRoot, ".zshrc"), 0o700); err != nil {
-		t.Fatal(err)
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
+	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || issue != "Claude executable is unavailable" {
+		t.Fatalf("missing executable ready=%v issue=%q", ready, issue)
 	}
-	runtime.ClaudeLauncher = claude.Launcher{GOOS: "test", BinDir: binDir, Home: launcherRoot, Shell: "/bin/zsh", AIGWExecutable: executable}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "claude"}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || issue != "Claude launcher is missing" {
-		t.Fatalf("missing launcher ready=%v issue=%q", ready, issue)
-	}
-	if err := os.Remove(filepath.Join(launcherRoot, ".zshrc")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := runtime.ClaudeLauncher.EnableClaude(); err != nil {
-		t.Fatal(err)
-	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
 	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); !ready || issue != "" {
-		t.Fatalf("ready launcher ready=%v issue=%q", ready, issue)
-	}
-	if err := os.Remove(filepath.Join(launcherRoot, ".zshrc")); err != nil {
-		t.Fatal(err)
-	}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || issue != "Claude PATH activation is missing" {
-		t.Fatalf("missing activation ready=%v issue=%q", ready, issue)
-	}
-	if err := os.Mkdir(filepath.Join(launcherRoot, ".zshrc"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || issue != "Cannot read Claude PATH activation" {
-		t.Fatalf("unreadable activation ready=%v issue=%q", ready, issue)
-	}
-	if err := os.Remove(filepath.Join(launcherRoot, ".zshrc")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Remove(filepath.Join(binDir, "claude")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(binDir, "claude"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || issue != "Cannot read Claude launcher" {
-		t.Fatalf("unreadable launcher ready=%v issue=%q", ready, issue)
+		t.Fatalf("ready executable ready=%v issue=%q", ready, issue)
 	}
 
 	codexRuntime, _, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
@@ -354,6 +315,24 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 }
 
 func TestReadinessSmallHelpers(t *testing.T) {
+	for configuredClients, want := range map[int]string{
+		0: "The current API route is unavailable.",
+		1: "The configured AI client is unavailable.",
+		2: "2 configured AI clients are unavailable.",
+	} {
+		if got := healthImpact(configuredClients); got != want {
+			t.Fatalf("healthImpact(%d) = %q, want %q", configuredClients, got, want)
+		}
+	}
+	if _, err := firstCheckRuntime(configuration.NewConfig()); err == nil || !strings.Contains(err.Error(), "no testable endpoint") {
+		t.Fatalf("empty default route error = %v", err)
+	}
+	missingAccount := configuration.NewConfig()
+	missingAccount.Profiles["missing"] = configuration.Profile{Account: "absent", Client: configuration.ClientCodex}
+	missingAccount.Routes.Default = "missing"
+	if _, err := firstCheckRuntime(missingAccount); err == nil || !strings.Contains(err.Error(), "no testable endpoint") {
+		t.Fatalf("unresolvable default route error = %v", err)
+	}
 	if got := TransportStatus("%"); got.Kind != "" {
 		t.Fatalf("invalid transport = %#v", got)
 	}

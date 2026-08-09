@@ -4,14 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/claude"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 
@@ -86,41 +83,6 @@ func findCheck(t *testing.T, checks []Check, name string) Check {
 	return Check{}
 }
 
-func persistentFixtureExecutable(t *testing.T) string {
-	t.Helper()
-	cache, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	root, err := os.MkdirTemp(cache, "aigw-doctor-fixture-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(root) })
-	target := filepath.Join(root, "fixture"+filepath.Ext(os.Args[0]))
-	goExecutable, err := exec.LookPath("go")
-	if err != nil {
-		t.Fatal(err)
-	}
-	source, err := os.Open(goExecutable)
-	if err != nil {
-		t.Fatal(err)
-	}
-	destination, err := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o755)
-	if err != nil {
-		_ = source.Close()
-		t.Fatal(err)
-	}
-	_, copyErr := io.Copy(destination, source)
-	closeSourceErr := source.Close()
-	closeDestinationErr := destination.Close()
-	if err := errors.Join(copyErr, closeSourceErr, closeDestinationErr); err != nil {
-		_ = os.Remove(target)
-		t.Fatal(err)
-	}
-	return target
-}
-
 func TestHumanProjectionFailsClosedForFutureChecks(t *testing.T) {
 	for _, check := range []Check{
 		{Name: "future:internal", OK: true, Detail: "internal success detail"},
@@ -163,8 +125,6 @@ func TestHumanFormattingBranches(t *testing.T) {
 		"secret:team":              "System secret",
 		"adapter:claude":           "Claude adapter",
 		"adapter:codex":            "Codex adapter",
-		"launcher:claude":          "Claude launcher",
-		"path:claude":              "Claude PATH activation",
 		"projection:codex":         "Codex route",
 		"codex:target-7":           "Codex configuration target 7",
 	}
@@ -188,10 +148,6 @@ func TestHumanFormattingBranches(t *testing.T) {
 		{Check{Name: "adapter:claude", OK: true, Detail: "enabled"}, "Enabled"},
 		{Check{Name: "adapter:claude", Detail: "enabled but executable is missing"}, "Enabled, but no executable is configured"},
 		{Check{Name: "adapter:codex", Detail: "enabled but no Codex config target is configured"}, "Enabled, but no Codex configuration file is configured"},
-		{Check{Name: "launcher:claude", OK: true}, "AIGW-managed Claude launcher is ready"},
-		{Check{Name: "launcher:claude", Detail: "AIGW managed Claude launcher is missing"}, "AIGW-managed Claude launcher is missing"},
-		{Check{Name: "path:claude", OK: true}, "AIGW-managed Claude PATH activation is ready"},
-		{Check{Name: "path:claude", Detail: "AIGW-managed Claude PATH activation is missing"}, "Claude PATH activation is missing"},
 		{Check{Name: "projection:codex", Detail: "unavailable"}, "Current Codex route cannot be resolved"},
 		{Check{Name: "codex:target-1", OK: true}, "Matches the current route"},
 		{Check{Name: "codex:target-1"}, "Does not match the current route"},
@@ -262,40 +218,26 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	}
 }
 
-func TestCollectExercisesLauncherAndProjectionStates(t *testing.T) {
+func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	cfg := validDoctorConfig()
-	home := t.TempDir()
-	bin := t.TempDir()
-	manager := claude.Launcher{GOOS: "other", BinDir: bin, Home: home, Shell: "/bin/zsh", AIGWExecutable: filepath.Join(bin, "aigw")}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "claude"}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
 	deps, _, secretsStore := doctorDependencies(t, cfg)
-	deps.ClaudeLauncher = manager
 	if err := secretsStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
 	checks := Collect(deps)
-	if check := findCheck(t, checks, "adapter:claude"); check.OK || !strings.Contains(check.Detail, "launcher is missing") {
+	if check := findCheck(t, checks, "adapter:claude"); check.OK || !strings.Contains(check.Detail, "executable is unavailable") {
 		t.Fatalf("adapter check = %#v", check)
 	}
-	if check := findCheck(t, checks, "launcher:claude"); check.OK || !strings.Contains(check.Detail, "launcher is missing") {
-		t.Fatalf("launcher check = %#v", check)
-	}
-
-	if err := os.WriteFile(filepath.Join(bin, "aigw"), []byte("binary"), 0o755); err != nil {
+	executable := filepath.Join(t.TempDir(), "claude")
+	if err := os.WriteFile(executable, []byte("binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte("AIGW managed Claude launcher\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(home, ".zshrc"), []byte("# >>> AIGW Claude launcher PATH >>>\n"+bin+"\n# <<< AIGW Claude launcher PATH <<<\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
+	deps, _, _ = doctorDependencies(t, cfg)
 	checks = Collect(deps)
-	if check := findCheck(t, checks, "launcher:claude"); !check.OK {
-		t.Fatalf("launcher check = %#v", check)
-	}
-	if check := findCheck(t, checks, "path:claude"); !check.OK {
-		t.Fatalf("activation check = %#v", check)
+	if check := findCheck(t, checks, "adapter:claude"); !check.OK {
+		t.Fatalf("adapter check = %#v", check)
 	}
 
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
@@ -313,39 +255,19 @@ func TestCollectExercisesLauncherAndProjectionStates(t *testing.T) {
 	if got := codexProjectionChecks(configuration.NewConfig()); got != nil {
 		t.Fatalf("disabled projection checks = %#v", got)
 	}
-	if got := claudeLauncherChecks(Dependencies{}, configuration.NewConfig()); got != nil {
-		t.Fatalf("disabled launcher checks = %#v", got)
-	}
 }
 
-func TestLauncherReadFailuresAreDiagnostic(t *testing.T) {
+func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 	cfg := validDoctorConfig()
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "claude"}
 	blocked := filepath.Join(t.TempDir(), "claude")
 	if err := os.MkdirAll(blocked, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	manager := claude.Launcher{GOOS: "darwin", BinDir: filepath.Dir(blocked), Home: t.TempDir(), Shell: "/bin/zsh"}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: blocked}
 	deps, _, _ := doctorDependencies(t, cfg)
-	deps.ClaudeLauncher = manager
-	checks := Collect(deps)
-	for _, name := range []string{"adapter:claude", "launcher:claude"} {
-		check := findCheck(t, checks, name)
-		if check.OK || !strings.Contains(check.Detail, "inspect Claude launcher") {
-			t.Fatalf("%s = %#v", name, check)
-		}
-	}
-
-	launcherPath := filepath.Join(t.TempDir(), "claude")
-	target := persistentFixtureExecutable(t)
-	manager = claude.Launcher{GOOS: "other", BinDir: filepath.Dir(launcherPath), Home: filepath.Join(t.TempDir(), "missing", "home"), Shell: "/bin/zsh", AIGWExecutable: target}
-	launcher := "#!/bin/sh\n# AIGW managed Claude launcher\nexec '" + target + "' __run-claude \"$@\"\n"
-	if err := os.WriteFile(launcherPath, []byte(launcher), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	checks = claudeLauncherChecks(Dependencies{ClaudeLauncher: manager}, cfg)
-	if check := findCheck(t, checks, "path:claude"); check.OK || check.Detail != "AIGW-managed Claude PATH activation is missing" {
-		t.Fatalf("activation = %#v", check)
+	check := findCheck(t, Collect(deps), "adapter:claude")
+	if check.OK || !strings.Contains(check.Detail, "unavailable") {
+		t.Fatalf("adapter = %#v", check)
 	}
 }
 

@@ -1,6 +1,6 @@
 [publication]
-local_verification_command = "tools/ci/scripts/run-local-ci.sh"
-local_installation_command = "scripts/install/install.sh --no-path"
+local_verification_command = "go run ./tools/coveragegate --race"
+local_installation_command = "go run ./cmd/aigw install"
 gitlab_remote = "origin"
 gitlab_ci_surface = ".gitlab-ci.yml"
 github_remote = "github"

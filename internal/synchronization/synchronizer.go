@@ -30,8 +30,9 @@ type ConfigStore interface {
 // transaction. It does not discover credentials, paths, or executables on its
 // own, which keeps host and test policy outside the synchronization domain.
 type Synchronizer struct {
-	Config    ConfigStore
-	Secrets   secrets.Store
-	Runner    Runner
-	Discovery discovery.Discoverer
+	Config             ConfigStore
+	Secrets            secrets.Store
+	Runner             Runner
+	Discovery          discovery.Discoverer
+	ClaudeSettingsPath string
 }

@@ -151,21 +151,19 @@ func TestUpdateCandidateRequiresChecksumManifest(t *testing.T) {
 	}
 }
 
-func TestRepairRestoresClaudeLauncherWithoutReplacingConfiguredExecutable(t *testing.T) {
+func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
+	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, "", configuration.Models{})
 	cfg.Routes.Default = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := secretStore.Set("claude", "token"); err != nil {
 		t.Fatal(err)
 	}
-	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/different/claude"}}}
 
 	if err := execute(t, app, "repair"); err != nil {
@@ -175,11 +173,8 @@ func TestRepairRestoresClaudeLauncherWithoutReplacingConfiguredExecutable(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := restored.Adapters[configuration.ClientClaude].Executable; got != "/opt/claude-real" {
+	if got := restored.Adapters[configuration.ClientClaude].Executable; got != claudeExecutable {
 		t.Fatalf("repair replaced configured Claude executable: %q", got)
-	}
-	if _, err := os.Stat(filepath.Join(shimDir, "claude")); err != nil {
-		t.Fatalf("repair did not restore owned Claude launcher: %v", err)
 	}
 	if !strings.Contains(out.String(), "Unchanged") {
 		t.Fatalf("repair incorrectly claimed authentication refresh:\n%s", out.String())

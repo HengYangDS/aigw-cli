@@ -13,7 +13,6 @@ import (
 
 const validPolicy = `owner = "product-toolchain"
 source = "repository architecture layout"
-scripts_roots = ["scripts"]
 go_roots = ["cmd", "internal", "tools"]
 composition_root_files = { "internal/cli" = ["app.go"] }
 peer_package_roots = { "internal/cli" = ["invocation"] }
@@ -160,9 +159,6 @@ func TestRunDetectsCoreViolations(t *testing.T) {
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
 
-	// scripts root direct file
-	writeFile(t, filepath.Join(root, "scripts", "loose.sh"), "#!/bin/sh\n")
-
 	// flat directory over limit (9 production files)
 	for i := 1; i <= 9; i++ {
 		writeFile(t, filepath.Join(root, "internal", "flat", "f"+itoa(i)+".go"), "package flat\n")
@@ -213,7 +209,6 @@ func Print(a ...any) (n int, err error) {
 		t.Fatal("expected ok=false")
 	}
 	for _, rule := range []string{
-		"scripts_root_file",
 		"flat_directory",
 		"suffix_flat",
 		"composition_root_file",
@@ -371,11 +366,9 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 		{name: "windows relative drive go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["C:tmp/x"]`, 1), want: "go_roots", code: 1},
 		{name: "unc go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["//server/share"]`, 1), want: "go_roots", code: 1},
 		{name: "parent traversal go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["internal/../cmd"]`, 1), want: "go_roots", code: 1},
-		{name: "absolute scripts root", body: strings.Replace(validPolicy, `scripts_roots = ["scripts"]`, `scripts_roots = ["/scripts"]`, 1), want: "scripts_roots", code: 1},
 		{name: "windows composition root", body: strings.Replace(validPolicy, `composition_root_files = { "internal/cli" = ["app.go"] }`, `composition_root_files = { "C:/internal/cli" = ["app.go"] }`, 1), want: "composition_root_files", code: 1},
 		{name: "duplicate composition file", body: strings.Replace(validPolicy, `composition_root_files = { "internal/cli" = ["app.go"] }`, `composition_root_files = { "internal/cli" = ["app.go", "app.go"] }`, 1), want: "composition_root_files", code: 1},
 		{name: "parent peer root", body: strings.Replace(validPolicy, `peer_package_roots = { "internal/cli" = ["invocation"] }`, `peer_package_roots = { "internal/../cli" = ["invocation"] }`, 1), want: "peer_package_roots", code: 1},
-		{name: "empty scripts", body: strings.Replace(validPolicy, `scripts_roots = ["scripts"]`, `scripts_roots = []`, 1), want: "scripts_roots", code: 1},
 		{name: "empty platform", body: strings.Replace(validPolicy, `platform_build_suffixes = ["unix", "windows", "darwin", "linux", "posix"]`, `platform_build_suffixes = []`, 1), want: "platform_build_suffixes", code: 1},
 	}
 	for _, test := range tests {
@@ -426,23 +419,6 @@ func TestAbsolutePolicyPath(t *testing.T) {
 	report := decodeReport(t, stdout.String())
 	if report.Policy == "" {
 		t.Fatal("empty policy path in report")
-	}
-}
-
-func TestScriptsRootNotDirectory(t *testing.T) {
-	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
-	writeFile(t, filepath.Join(root, "scripts"), "not a dir\n")
-	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 1 {
-		t.Fatalf("code=%d", code)
-	}
-	report := decodeReport(t, stdout.String())
-	if !hasRule(report, "scripts_root_not_directory") {
-		t.Fatalf("rules=%v", findingRules(report))
 	}
 }
 
@@ -623,10 +599,10 @@ func Print(a ...any) (n int, err error) { return fmt.Print(a...) }
 	}
 }
 
-func TestMissingGoAndScriptsRootsAreSkipped(t *testing.T) {
+func TestMissingGoRootsAreSkipped(t *testing.T) {
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
-	// no scripts/, no go roots — clean
+	// No managed Go roots is a valid empty fixture.
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)

@@ -3,21 +3,216 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
-	"time"
 )
 
-func TestTouchTimestampUsesUTC(t *testing.T) {
-	got, err := touchTimestamp("1784246400")
+func TestExecuteReturnsPortableProcessStatus(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if status := execute([]string{"unknown"}, &stdout, &stderr); status != 2 || !strings.Contains(stderr.String(), "unknown releasekit command") {
+		t.Fatalf("failure status=%d stderr=%q", status, stderr.String())
+	}
+	stderr.Reset()
+	if status := execute([]string{"same-authority", "https://example.test", "https://example.test"}, &stdout, &stderr); status != 0 {
+		t.Fatalf("success status=%d stderr=%q", status, stderr.String())
+	}
+}
+
+func TestArtifactMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
+	version := "1.2.3"
+	if err := validateArtifactMatrix(filepath.Join(t.TempDir(), "missing"), version); err == nil {
+		t.Fatal("missing matrix accepted")
+	}
+	directory := writeArtifactFixture(t, version)
+	if err := validateArtifactMatrix(directory, version); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(directory, artifactNames(version)[0])); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "missing or empty") {
+		t.Fatalf("missing artifact=%v", err)
+	}
+
+	directory = writeArtifactFixture(t, version)
+	if err := os.WriteFile(filepath.Join(directory, "unexpected"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected") {
+		t.Fatalf("extra artifact=%v", err)
+	}
+
+	directory = writeArtifactFixture(t, version)
+	if err := os.WriteFile(filepath.Join(directory, artifactNames(version)[0]), []byte("corrupt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+		t.Fatalf("corrupt artifact=%v", err)
+	}
+
+	directory = writeArtifactFixture(t, version)
+	checksumPath := filepath.Join(directory, "checksums.txt")
+	if err := os.WriteFile(checksumPath, []byte("bad\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "invalid checksum") {
+		t.Fatalf("invalid checksum manifest=%v", err)
+	}
+
+	directory = writeArtifactFixture(t, version)
+	content, err := os.ReadFile(filepath.Join(directory, "checksums.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != "202607170000.00" {
-		t.Fatalf("timestamp = %q", got)
+	first := strings.SplitN(string(content), "\n", 2)[0]
+	if err := os.WriteFile(filepath.Join(directory, "checksums.txt"), append(content, []byte(first+"\n")...), 0o600); err != nil {
+		t.Fatal(err)
 	}
+	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "duplicate checksum") {
+		t.Fatalf("duplicate checksum=%v", err)
+	}
+
+	directory = writeArtifactFixture(t, version)
+	if err := os.WriteFile(filepath.Join(directory, "checksums.txt"), append(content, []byte(strings.Repeat("0", 64)+"  unknown\n")...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected entries") {
+		t.Fatalf("unexpected checksum=%v", err)
+	}
+}
+
+func TestCompareArtifactMatrices(t *testing.T) {
+	version := "1.2.3"
+	left, right := writeArtifactFixture(t, version), writeArtifactFixture(t, version)
+	if err := compareArtifactMatrices(left, right, version); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(right, artifactNames(version)[0]), []byte("different"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := rewriteChecksums(right, version); err != nil {
+		t.Fatal(err)
+	}
+	if err := compareArtifactMatrices(left, right, version); err == nil || !strings.Contains(err.Error(), "differs") {
+		t.Fatalf("different matrix=%v", err)
+	}
+}
+
+func TestRunArtifactCommands(t *testing.T) {
+	version := "1.2.3"
+	left, right := writeArtifactFixture(t, version), writeArtifactFixture(t, version)
+	var output bytes.Buffer
+	if err := run([]string{"validate-artifacts", left, version}, &output); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"compare-artifacts", left, right, version}, &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"validate-artifacts"}, {"compare-artifacts"}} {
+		if err := run(args, &output); err == nil {
+			t.Fatalf("invalid invocation accepted: %v", args)
+		}
+	}
+}
+
+func TestReleasePolicyCommands(t *testing.T) {
+	tmp := t.TempDir()
+	module := filepath.Join(tmp, "go.mod")
+	if err := os.WriteFile(module, []byte("module example\n\ngo 1.26.5\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateToolchain(module, "go1.26.5"); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateToolchain(module, "go0.0.0"); err == nil || !strings.Contains(err.Error(), "expected") {
+		t.Fatalf("wrong toolchain=%v", err)
+	}
+	if err := os.WriteFile(module, []byte("module example\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateToolchain(module, "go1.26.5"); err == nil || !strings.Contains(err.Error(), "no Go version") {
+		t.Fatalf("missing version=%v", err)
+	}
+	if err := validateToolchain(filepath.Join(tmp, "missing.mod"), "go1.26.5"); err == nil {
+		t.Fatal("missing go.mod accepted")
+	}
+
+	if err := validateReleaseReadiness("1.2.3-rc.1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateReleaseReadiness("1.2.3"); err == nil {
+		t.Fatal("unsigned GA accepted")
+	}
+	document := filepath.Join(tmp, "readiness.md")
+	if err := os.WriteFile(document, []byte("# Release readiness\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateReleaseReadinessDocument(document); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(document, []byte("Current status (2026-07-14)\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateReleaseReadinessDocument(document); err == nil {
+		t.Fatal("stale readiness document accepted")
+	}
+	if err := validateReleaseReadinessDocument(filepath.Join(tmp, "missing-readiness")); err == nil || !strings.Contains(err.Error(), "cannot read") {
+		t.Fatalf("missing readiness document=%v", err)
+	}
+}
+
+func TestRunReleasePolicyCommands(t *testing.T) {
+	tmp := t.TempDir()
+	module := filepath.Join(tmp, "go.mod")
+	if err := os.WriteFile(module, []byte("module example\n\ngo "+strings.TrimPrefix(runtime.Version(), "go")+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	document := filepath.Join(tmp, "readiness.md")
+	if err := os.WriteFile(document, []byte("# readiness\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	for _, args := range [][]string{
+		{"validate-toolchain", module},
+		{"validate-readiness", "1.2.3-rc.1"},
+		{"validate-readiness-doc", document},
+	} {
+		if err := run(args, &output); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	for _, args := range [][]string{
+		{"validate-toolchain"},
+		{"validate-readiness"},
+		{"validate-readiness-doc"},
+	} {
+		if err := run(args, &output); err == nil {
+			t.Fatalf("invalid invocation accepted: %v", args)
+		}
+	}
+}
+
+func writeArtifactFixture(t *testing.T, version string) string {
+	t.Helper()
+	directory := t.TempDir()
+	for _, name := range artifactNames(version) {
+		if name == "checksums.txt" {
+			continue
+		}
+		if err := os.WriteFile(filepath.Join(directory, name), []byte("fixture:"+name+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := rewriteChecksums(directory, version); err != nil {
+		t.Fatal(err)
+	}
+	return directory
 }
 
 func TestSameAuthorityNormalizesDefaultPorts(t *testing.T) {
@@ -27,6 +222,16 @@ func TestSameAuthorityNormalizesDefaultPorts(t *testing.T) {
 	}
 	if !got {
 		t.Fatal("default HTTPS port should identify the same authority")
+	}
+}
+
+func TestAuthorityNormalizesHTTPAndRejectsInvalidPort(t *testing.T) {
+	got, err := authority("http://EXAMPLE.test./asset")
+	if err != nil || got != "http://example.test:80" {
+		t.Fatalf("authority=%q err=%v", got, err)
+	}
+	if _, err := authority("https://example.test:bad"); err == nil {
+		t.Fatal("invalid port accepted")
 	}
 }
 
@@ -58,8 +263,27 @@ func TestVerifyGitLabReleaseWritesCanonicalAssetList(t *testing.T) {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
-	if len(lines) != 15 || !strings.HasPrefix(lines[0], "aigw_1.2.3_darwin_universal.pkg\t") {
+	if len(lines) != len(artifactNames("1.2.3")) || !strings.HasPrefix(lines[0], "aigw_1.2.3_darwin_amd64.tar.gz\t") {
 		t.Fatalf("asset list = %q", content)
+	}
+}
+
+func TestVerifyGitLabReleaseRejectsEqualSizeAssetSubstitution(t *testing.T) {
+	expected := releaseDocument("v1.2.3", "https://gitlab.example/assets")
+	actual := remoteRelease{TagName: expected.TagName}
+	for _, link := range expected.Assets.Links {
+		actual.Assets.Links = append(actual.Assets.Links, struct {
+			URL string `json:"url"`
+		}{URL: link.URL})
+	}
+	actual.Assets.Links[0].URL = "https://gitlab.example/assets/substitute.tar.gz"
+	tmp := t.TempDir()
+	expectedPath := filepath.Join(tmp, "expected.json")
+	actualPath := filepath.Join(tmp, "actual.json")
+	writeFixtureJSON(t, expectedPath, expected)
+	writeFixtureJSON(t, actualPath, actual)
+	if err := verifyGitLabRelease(expectedPath, actualPath, filepath.Join(tmp, "assets.tsv"), "v1.2.3"); err == nil || !strings.Contains(err.Error(), "missing asset") {
+		t.Fatalf("substituted asset error = %v", err)
 	}
 }
 
@@ -69,14 +293,14 @@ func TestProjectGitLabResponseModes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if complete.TagName != expected.TagName || len(complete.Assets.Links) != 15 {
+	if complete.TagName != expected.TagName || len(complete.Assets.Links) != len(artifactNames("1.2.3")) {
 		t.Fatalf("complete = %+v", complete)
 	}
 	missing, err := projectGitLabResponse(expected, "missing-asset")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(missing.Assets.Links) != 14 {
+	if len(missing.Assets.Links) != len(artifactNames("1.2.3"))-1 {
 		t.Fatalf("missing links = %d", len(missing.Assets.Links))
 	}
 	if _, err := projectGitLabResponse(expected, "unknown"); err == nil {
@@ -89,62 +313,9 @@ func TestValidateReleaseDocument(t *testing.T) {
 	if err := validateReleaseDocument(payload, "v1.2.3"); err != nil {
 		t.Fatal(err)
 	}
-	payload.Assets.Links = payload.Assets.Links[:14]
+	payload.Assets.Links = payload.Assets.Links[:len(payload.Assets.Links)-1]
 	if err := validateReleaseDocument(payload, "v1.2.3"); err == nil {
 		t.Fatal("incomplete release document accepted")
-	}
-}
-
-func TestWriteMSIMetadataRequiresDeterministicFields(t *testing.T) {
-	tmp := t.TempDir()
-	environment := filepath.Join(tmp, "Environment.idt")
-	summary := filepath.Join(tmp, "Summary.idt")
-	content := "Property\tValue\r\ni2\tl255\r\n_SummaryInformation\tProperty\r\n9\told\r\n12\told\r\n13\told\r\n"
-	if err := os.WriteFile(summary, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeMSIMetadata(environment, summary, "ENV-GUID", "PACKAGE-GUID", time.Unix(1784246400, 0).UTC()); err != nil {
-		t.Fatal(err)
-	}
-	got, err := os.ReadFile(summary)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(got), "9\tPACKAGE-GUID\r\n") || !strings.Contains(string(got), "12\t2026/07/17 00:00:00\r\n") {
-		t.Fatalf("summary = %q", got)
-	}
-}
-
-func TestCandidateManifestAndCommandDispatch(t *testing.T) {
-	manifest := candidateManifest{Schema: 1, Kind: "aigw-verified-candidate", Version: "1.2.3", Commit: strings.Repeat("a", 40), Tree: strings.Repeat("b", 40), CreatedUTC: "2026-08-07T00:00:00Z", ArtifactsDir: "artifacts", ChecksumsPath: "artifacts/checksums.txt", ChecksumsSHA256: strings.Repeat("c", 64), ArtifactCount: 15}
-	if err := validateCandidateManifest(manifest); err != nil {
-		t.Fatal(err)
-	}
-	for name, mutate := range map[string]func(*candidateManifest){
-		"fixed":    func(value *candidateManifest) { value.Schema = 2 },
-		"version":  func(value *candidateManifest) { value.Version = "bad value" },
-		"commit":   func(value *candidateManifest) { value.Commit = "bad" },
-		"checksum": func(value *candidateManifest) { value.ChecksumsSHA256 = "bad" },
-	} {
-		t.Run(name, func(t *testing.T) {
-			value := manifest
-			mutate(&value)
-			if err := validateCandidateManifest(value); err == nil {
-				t.Fatal("invalid manifest accepted")
-			}
-		})
-	}
-	tmp := t.TempDir()
-	candidate := filepath.Join(tmp, "candidate.json")
-	if err := writeJSON(candidate, manifest); err != nil {
-		t.Fatal(err)
-	}
-	var output bytes.Buffer
-	if err := run([]string{"validate-candidate-manifest", candidate}, &output); err != nil || !strings.Contains(output.String(), manifest.Version) {
-		t.Fatalf("validate output=%q err=%v", output.String(), err)
-	}
-	if err := run([]string{"unknown"}, &output); err == nil {
-		t.Fatal("unknown command accepted")
 	}
 }
 
@@ -206,9 +377,6 @@ func TestGitLabReleaseRejectsDrift(t *testing.T) {
 func TestRunCoversPublicCommands(t *testing.T) {
 	tmp := t.TempDir()
 	var output bytes.Buffer
-	if err := run([]string{"touch-timestamp", "0"}, &output); err != nil {
-		t.Fatal(err)
-	}
 	if err := run([]string{"same-authority", "https://example.test", "https://example.test:443/a"}, &output); err != nil {
 		t.Fatal(err)
 	}
@@ -230,17 +398,6 @@ func TestRunCoversPublicCommands(t *testing.T) {
 	if err := run([]string{"resolve-redirect", "https://example.test/base", headers}, &output); err != nil {
 		t.Fatal(err)
 	}
-	manifest := filepath.Join(tmp, "candidate.json")
-	if err := run([]string{"write-candidate-manifest", manifest, "1.2.3", strings.Repeat("a", 40), strings.Repeat("b", 40), "2026-08-07T00:00:00Z", strings.Repeat("c", 64), "15"}, &output); err != nil {
-		t.Fatal(err)
-	}
-	summary := filepath.Join(tmp, "Summary.idt")
-	if err := os.WriteFile(summary, []byte("Property\tValue\r\ni2\tl255\r\n_SummaryInformation\tProperty\r\n9\told\r\n12\told\r\n13\told\r\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := run([]string{"msi-metadata", "-environment", filepath.Join(tmp, "Environment.idt"), "-summary", summary, "-environment-guid", "ENV", "-package-guid", "PACKAGE", "-epoch", "0"}, &output); err != nil {
-		t.Fatal(err)
-	}
 	actual := filepath.Join(tmp, "actual.json")
 	if err := run([]string{"project-gitlab-response", releasePath, "complete", actual}, &output); err != nil {
 		t.Fatal(err)
@@ -248,10 +405,104 @@ func TestRunCoversPublicCommands(t *testing.T) {
 	if err := run([]string{"verify-gitlab-release", releasePath, actual, filepath.Join(tmp, "assets.tsv"), "v1.2.3"}, &output); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{nil, {"touch-timestamp"}, {"same-authority"}, {"resolve-redirect"}, {"write-gitlab-release"}, {"verify-gitlab-release"}, {"project-gitlab-response"}, {"validate-gitlab-release"}, {"write-candidate-manifest"}, {"validate-candidate-manifest"}, {"validate-release-sources", "extra"}} {
+	for _, args := range [][]string{nil, {"build"}, {"same-authority"}, {"resolve-redirect"}, {"write-gitlab-release"}, {"verify-gitlab-release"}, {"project-gitlab-response"}, {"validate-gitlab-release"}, {"validate-release-sources", "extra"}, {"unknown"}} {
 		if err := run(args, &output); err == nil {
 			t.Fatalf("invalid command accepted: %v", args)
 		}
+	}
+}
+
+func TestRunBuildCIAndTagReadinessInputBoundaries(t *testing.T) {
+	var output bytes.Buffer
+	for _, args := range [][]string{{"build-ci"}, {"upload-gitlab"}, {"validate-readiness-tag", "extra"}} {
+		if err := run(args, &output); err == nil {
+			t.Fatalf("invalid invocation accepted: %v", args)
+		}
+	}
+	t.Setenv("CI_COMMIT_TAG", "")
+	if err := run([]string{"validate-readiness-tag"}, &output); err == nil || !strings.Contains(err.Error(), "v<semver>") {
+		t.Fatalf("missing tag error = %v", err)
+	}
+	t.Setenv("CI_COMMIT_TAG", "v1.2.3-rc.1")
+	if err := run([]string{"validate-readiness-tag"}, &output); err != nil {
+		t.Fatal(err)
+	}
+
+	workspace := filepath.Join(t.TempDir(), "workspace")
+	outputPath := filepath.Join(t.TempDir(), "dist")
+	t.Setenv("CI_COMMIT_TAG", "")
+	t.Setenv("CI_COMMIT_SHORT_SHA", "")
+	if err := run([]string{"build-ci", workspace, outputPath}, &output); err == nil || !strings.Contains(err.Error(), "CI build requires") {
+		t.Fatalf("build-ci identity error = %v", err)
+	}
+}
+
+func TestRunPrintsDifferentAuthority(t *testing.T) {
+	var output bytes.Buffer
+	if err := run([]string{"same-authority", "https://left.example", "https://right.example"}, &output); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(output.String()) != "no" {
+		t.Fatalf("output = %q", output.String())
+	}
+}
+
+func TestRunBuildUsesPublicArgumentContract(t *testing.T) {
+	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "https://gitlab.example")
+	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "group/aigw-cli")
+	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example")
+	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "org/aigw-cli")
+	var output bytes.Buffer
+	err := run([]string{"build", "invalid-version", "1784246400", filepath.Join(t.TempDir(), "dist")}, &output)
+	if err == nil || !strings.Contains(err.Error(), "invalid release version") {
+		t.Fatalf("build error = %v", err)
+	}
+}
+
+func TestRunCoversPublishCommands(t *testing.T) {
+	artifacts := releaseFixture(t, "0.1.0")
+	remote := readReleaseFixture(t, artifacts, "0.1.0")
+	github := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if strings.HasPrefix(request.URL.Path, "/assets/") {
+			_, _ = response.Write(remote[strings.TrimPrefix(request.URL.Path, "/assets/")])
+			return
+		}
+		writeGitHubFixture(t, response, request.Host, remote)
+	}))
+	defer github.Close()
+	gitlab := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if strings.HasPrefix(request.URL.Path, "/packages/") {
+			_, _ = response.Write(remote[strings.TrimPrefix(request.URL.Path, "/packages/")])
+			return
+		}
+		writeGitLabFixture(t, response, "http://"+request.Host, remote)
+	}))
+	defer gitlab.Close()
+
+	t.Setenv("GITHUB_API_URL", github.URL)
+	t.Setenv("GITHUB_REPOSITORY", "acme/aigw")
+	t.Setenv("CI_COMMIT_TAG", "v0.1.0")
+	t.Setenv("GH_TOKEN", "secret")
+	var output bytes.Buffer
+	if err := run([]string{"publish-github", artifacts}, &output); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CI_API_V4_URL", gitlab.URL)
+	t.Setenv("CI_PROJECT_ID", "7")
+	t.Setenv("CI_JOB_TOKEN", "secret")
+	if err := run([]string{"publish-gitlab", artifacts}, &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"publish-github"}, {"publish-gitlab"}} {
+		if err := run(args, &output); err == nil {
+			t.Fatalf("invalid invocation accepted: %v", args)
+		}
+	}
+	if envDefault("MISSING_RELEASEKIT_ENV", "fallback") != "fallback" {
+		t.Fatal("environment fallback not applied")
+	}
+	if firstNonEmpty("", "value") != "value" || firstNonEmpty() != "" {
+		t.Fatal("firstNonEmpty failed")
 	}
 }
 
@@ -264,16 +515,16 @@ func TestRunReportsCommandFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := [][]string{
-		{"touch-timestamp", "invalid"},
-		{"msi-metadata", "-environment", "x"},
-		{"msi-metadata", "-environment", "x", "-summary", "y", "-environment-guid", "e", "-package-guid", "p", "-epoch", "invalid"},
 		{"same-authority", "https://example.test", "invalid"},
 		{"resolve-redirect", "https://example.test", missing},
 		{"project-gitlab-response", invalidRelease, "complete", missing},
 		{"project-gitlab-response", missing, "complete", missing},
 		{"validate-gitlab-release", invalidRelease, "v1"},
-		{"validate-candidate-manifest", invalidRelease},
-		{"write-candidate-manifest", missing, "v", "c", "t", "time", "sum", "invalid"},
+		{"validate-toolchain"},
+		{"validate-readiness"},
+		{"validate-readiness-doc"},
+		{"validate-artifacts"},
+		{"compare-artifacts"},
 	}
 	for _, args := range cases {
 		if err := run(args, &output); err == nil {
@@ -321,7 +572,7 @@ func TestReleaseValidationErrorDetails(t *testing.T) {
 	}
 
 	shortExpected := valid
-	shortExpected.Assets.Links = shortExpected.Assets.Links[:14]
+	shortExpected.Assets.Links = shortExpected.Assets.Links[:len(shortExpected.Assets.Links)-1]
 	shortExpectedPath := filepath.Join(tmp, "short-expected.json")
 	writeFixtureJSON(t, shortExpectedPath, shortExpected)
 	if err := verifyGitLabRelease(shortExpectedPath, actualPath, filepath.Join(tmp, "out"), "v1.2.3"); err == nil {
@@ -359,9 +610,6 @@ func TestFileAndURLFailurePaths(t *testing.T) {
 	if _, err := parseEpoch("-1"); err == nil {
 		t.Fatal("negative epoch accepted")
 	}
-	if _, err := touchTimestamp("invalid"); err == nil {
-		t.Fatal("invalid epoch accepted")
-	}
 	if _, err := authority("https://user@example.test"); err == nil {
 		t.Fatal("credentials accepted")
 	}
@@ -397,24 +645,6 @@ func TestFileAndURLFailurePaths(t *testing.T) {
 	var target map[string]any
 	if err := readJSON(filepath.Join(tmp, "missing.json"), &target); err == nil {
 		t.Fatal("missing JSON accepted")
-	}
-}
-
-func TestMSIMetadataFailurePaths(t *testing.T) {
-	tmp := t.TempDir()
-	missing := filepath.Join(tmp, "missing")
-	if err := writeMSIMetadata(filepath.Join(missing, "Environment.idt"), "unused", "E", "P", time.Unix(0, 0)); err == nil {
-		t.Fatal("missing environment directory accepted")
-	}
-	if err := writeMSIMetadata(filepath.Join(tmp, "Environment.idt"), filepath.Join(tmp, "missing.idt"), "E", "P", time.Unix(0, 0)); err == nil {
-		t.Fatal("missing summary accepted")
-	}
-	summary := filepath.Join(tmp, "Summary.idt")
-	if err := os.WriteFile(summary, []byte("Property\tValue\nmissing\tfields\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeMSIMetadata(filepath.Join(tmp, "Environment.idt"), summary, "E", "P", time.Unix(0, 0)); err == nil {
-		t.Fatal("incomplete summary accepted")
 	}
 }
 

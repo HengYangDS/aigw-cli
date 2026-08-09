@@ -1,16 +1,11 @@
 package main
 
 import (
-	"context"
+	"aigw-cli/internal/cli"
+	"aigw-cli/internal/presentation"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
-
-	"aigw-cli/internal/claude"
-	"aigw-cli/internal/cli"
-	"aigw-cli/internal/presentation"
 )
 
 func main() {
@@ -25,12 +20,7 @@ func run(program string, args []string, stdout, stderr io.Writer) int {
 	}
 	app.Out = stdout
 	app.Err = stderr
-	name := strings.TrimSuffix(strings.ToLower(filepath.Base(program)), ".exe")
-	if name == "claude" || name == "claude.cmd" {
-		err = claude.Run(context.Background(), app.Config, app.Secrets, app.Runner, args, app.Env)
-	} else {
-		err = cli.Execute(app, args)
-	}
+	err = cli.Execute(app, args)
 	if err != nil {
 		presentation.RenderError(app.Renderer(), err)
 		return 1

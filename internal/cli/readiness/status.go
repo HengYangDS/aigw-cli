@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 
+	"aigw-cli/internal/claude"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
@@ -209,19 +210,12 @@ func AdapterRouteReady(runtime invocation.Context, cfg configuration.Config, cli
 	}
 	switch client {
 	case configuration.ClientClaude:
-		ready, err := runtime.ClaudeLauncher.ClaudeLauncherReady()
+		ready, err := claude.Ready(adapter.Executable)
 		if err != nil {
-			return false, "Cannot read Claude launcher"
+			return false, "Cannot inspect Claude executable"
 		}
 		if !ready {
-			return false, "Claude launcher is missing"
-		}
-		active, err := runtime.ClaudeLauncher.ClaudeActivationReady()
-		if err != nil {
-			return false, "Cannot read Claude PATH activation"
-		}
-		if !active {
-			return false, "Claude PATH activation is missing"
+			return false, "Claude executable is unavailable"
 		}
 	case configuration.ClientCodex:
 		if len(adapter.Targets) == 0 {

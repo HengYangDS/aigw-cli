@@ -3,13 +3,11 @@ package adapter
 import (
 	"bytes"
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/claude"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -63,12 +61,13 @@ func adapterRuntime(t *testing.T, cfg configuration.Config) (invocation.Context,
 	secretStore := secrets.NewMemoryStore()
 	runner := &adapterRunner{}
 	return invocation.Context{
-		Config:    store,
-		Secrets:   secretStore,
-		Out:       out,
-		RenderOut: out,
-		Runner:    runner,
-		Discovery: adapterDiscovery{},
+		Config:             store,
+		ClaudeSettingsPath: filepath.Join(t.TempDir(), ".claude", "settings.json"),
+		Secrets:            secretStore,
+		Out:                out,
+		RenderOut:          out,
+		Runner:             runner,
+		Discovery:          adapterDiscovery{},
 	}, out, secretStore, runner
 }
 
@@ -165,15 +164,12 @@ func TestEnableRejectsInvalidConfigurationAndMissingSecret(t *testing.T) {
 	}
 }
 
-func TestEnableClaudePersistsAdapterAndLauncher(t *testing.T) {
+func TestEnableClaudePersistsOnlyTheRealExecutable(t *testing.T) {
 	cfg := adapterConfig()
 	runtime, out, secretStore, _ := adapterRuntime(t, cfg)
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	bin := filepath.Join(t.TempDir(), "bin")
-	runtime.ClaudeLauncher = claude.Launcher{GOOS: "windows", BinDir: bin, AIGWExecutable: `C:\Program Files\AIGW\aigw.exe`}
-
 	if err := executeAdapter(t, runtime, "enable", configuration.ClientClaude, "--executable", `C:\Program Files\Claude\claude.exe`); err != nil {
 		t.Fatal(err)
 	}
@@ -184,9 +180,6 @@ func TestEnableClaudePersistsAdapterAndLauncher(t *testing.T) {
 	adapter := got.Adapters[configuration.ClientClaude]
 	if !adapter.Enabled || adapter.Executable != `C:\Program Files\Claude\claude.exe` {
 		t.Fatalf("saved adapter = %#v", adapter)
-	}
-	if _, err := os.Stat(filepath.Join(bin, "claude.cmd")); err != nil {
-		t.Fatalf("launcher was not created: %v", err)
 	}
 	if !strings.Contains(out.String(), "Client enabled") {
 		t.Fatalf("output = %q", out.String())
@@ -266,28 +259,22 @@ func TestEnableCodexRejectsUnsafeTargetsAndUnavailableDiscovery(t *testing.T) {
 	}
 }
 
-func TestEnableClaudeRollsBackLauncherWhenCommitFails(t *testing.T) {
+func TestEnableClaudeDoesNotRequireAnAIGWLauncherDirectory(t *testing.T) {
 	cfg := adapterConfig()
 	runtime, _, secretStore, _ := adapterRuntime(t, cfg)
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	bin := filepath.Join(t.TempDir(), "bin")
-	if err := os.WriteFile(bin, []byte("not a directory"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	runtime.ClaudeLauncher = claude.Launcher{GOOS: "windows", BinDir: bin, AIGWExecutable: `C:\aigw.exe`}
-
 	err := executeAdapter(t, runtime, "enable", configuration.ClientClaude, "--executable", `C:\claude.exe`)
-	if err == nil {
-		t.Fatal("expected launcher creation error")
+	if err != nil {
+		t.Fatal(err)
 	}
 	got, loadErr := runtime.Config.Load()
 	if loadErr != nil {
 		t.Fatal(loadErr)
 	}
-	if got.Adapters[configuration.ClientClaude].Enabled {
-		t.Fatal("configuration changed despite launcher creation failure")
+	if !got.Adapters[configuration.ClientClaude].Enabled {
+		t.Fatal("Claude adapter was not enabled")
 	}
 }
 
@@ -338,17 +325,10 @@ func TestDisableHandlesUnknownAndAlreadyDisabledClients(t *testing.T) {
 	}
 }
 
-func TestDisableClaudeRemovesOwnedLauncherAndAdapter(t *testing.T) {
+func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	cfg := adapterConfig()
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: `C:\claude.exe`}
 	runtime, out, _, _ := adapterRuntime(t, cfg)
-	bin := filepath.Join(t.TempDir(), "bin")
-	launcher := claude.Launcher{GOOS: "windows", BinDir: bin, AIGWExecutable: `C:\aigw.exe`}
-	if _, err := launcher.EnableClaude(); err != nil {
-		t.Fatal(err)
-	}
-	runtime.ClaudeLauncher = launcher
-
 	if err := executeAdapter(t, runtime, "disable", configuration.ClientClaude); err != nil {
 		t.Fatal(err)
 	}
@@ -359,34 +339,25 @@ func TestDisableClaudeRemovesOwnedLauncherAndAdapter(t *testing.T) {
 	if _, ok := got.Adapters[configuration.ClientClaude]; ok {
 		t.Fatalf("adapter was not deleted: %#v", got.Adapters)
 	}
-	if _, err := os.Stat(filepath.Join(bin, "claude.cmd")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("launcher remains: %v", err)
-	}
 	if !strings.Contains(out.String(), "Client disabled") {
 		t.Fatalf("output = %q", out.String())
 	}
 }
 
-func TestDisableClaudePreservesConfigWhenLauncherIsUnowned(t *testing.T) {
+func TestDisableClaudeDoesNotInspectForeignFilesystemEntries(t *testing.T) {
 	cfg := adapterConfig()
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: `C:\claude.exe`}
 	runtime, _, _, _ := adapterRuntime(t, cfg)
-	bin := t.TempDir()
-	if err := os.WriteFile(filepath.Join(bin, "claude.cmd"), []byte("@echo off\r\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	runtime.ClaudeLauncher = claude.Launcher{GOOS: "windows", BinDir: bin, AIGWExecutable: `C:\aigw.exe`}
-
 	err := executeAdapter(t, runtime, "disable", configuration.ClientClaude)
-	if err == nil || !strings.Contains(err.Error(), "not owned") {
-		t.Fatalf("unowned launcher error = %v", err)
+	if err != nil {
+		t.Fatal(err)
 	}
 	got, loadErr := runtime.Config.Load()
 	if loadErr != nil {
 		t.Fatal(loadErr)
 	}
-	if !got.Adapters[configuration.ClientClaude].Enabled {
-		t.Fatal("config was changed despite launcher refusal")
+	if got.Adapters[configuration.ClientClaude].Enabled {
+		t.Fatal("Claude adapter remains enabled")
 	}
 }
 

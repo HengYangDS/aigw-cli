@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -16,11 +17,12 @@ import (
 	"time"
 
 	"aigw-cli/internal/account"
-	"aigw-cli/internal/claude"
 	accountcli "aigw-cli/internal/cli/account"
 	"aigw-cli/internal/cli/adapter"
 	"aigw-cli/internal/cli/catalog"
+	credentialcli "aigw-cli/internal/cli/credential"
 	"aigw-cli/internal/cli/doctor"
+	installcli "aigw-cli/internal/cli/install"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/cli/manifest"
 	"aigw-cli/internal/cli/onboarding"
@@ -65,26 +67,28 @@ type Updater interface {
 }
 
 type App struct {
-	GOOS           string
-	DataDir        string
-	Now            func() time.Time
-	Version        string
-	Config         configuration.Store
-	Secrets        secrets.Store
-	Accounts       account.Store
-	Env            []string
-	In             io.Reader
-	Out            io.Writer
-	Err            io.Writer
-	Interactive    bool
-	Color          bool
-	Runner         Runner
-	HTTP           HTTPDoer
-	ClaudeLauncher claude.Launcher
-	Prompt         Prompter
-	Discovery      discovery.Discoverer
-	Updater        Updater
-	renderErr      error
+	GOOS               string
+	DataDir            string
+	Now                func() time.Time
+	Version            string
+	Executable         string
+	InstallTarget      string
+	ClaudeSettingsPath string
+	Config             configuration.Store
+	Secrets            secrets.Store
+	Accounts           account.Store
+	Env                []string
+	In                 io.Reader
+	Out                io.Writer
+	Err                io.Writer
+	Interactive        bool
+	Color              bool
+	Runner             Runner
+	HTTP               HTTPDoer
+	Prompt             Prompter
+	Discovery          discovery.Discoverer
+	Updater            Updater
+	renderErr          error
 }
 
 // synchronizer is the CLI composition boundary for the synchronization
@@ -93,6 +97,7 @@ type App struct {
 func (a *App) synchronizer() synchronization.Synchronizer {
 	return synchronization.Synchronizer{
 		Config: a.Config, Secrets: a.Secrets, Runner: a.Runner, Discovery: a.Discovery,
+		ClaudeSettingsPath: a.ClaudeSettingsPath,
 	}
 }
 
@@ -130,6 +135,9 @@ func Execute(app *App, args []string) error {
 	root := NewRoot(app)
 	root.SetArgs(args)
 	err := root.Execute()
+	if err != nil && credentialInvocation(args) {
+		return err
+	}
 	if err == nil && app.renderErr != nil {
 		err = app.renderErr
 	}
@@ -147,6 +155,10 @@ func Execute(app *App, args []string) error {
 		return presentation.Presented(err)
 	}
 	return nil
+}
+
+func credentialInvocation(args []string) bool {
+	return len(args) > 0 && args[0] == "credential"
 }
 
 func mutationCommand(app *App, args []string) bool {
@@ -214,44 +226,48 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	claudeSettingsPath, err := platform.ClaudeSettingsPathFor(runtime.GOOS, env)
+	if err != nil {
+		return nil, err
+	}
 	executable, err := os.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
-	}
-	binDir, err := platform.DefaultLauncherDirFor(runtime.GOOS, env, executable)
-	if err != nil {
-		return nil, err
 	}
 	secretStore, err := secrets.Select(env["AIGW_SECRET_BACKEND"], os.Getenv)
 	if err != nil {
 		return nil, err
 	}
+	installDir, err := platform.UserBinDirFor(runtime.GOOS, env)
+	if err != nil {
+		return nil, err
+	}
+	installName := "aigw"
+	if runtime.GOOS == "windows" {
+		installName += ".exe"
+	}
 	return &App{
-		GOOS:        runtime.GOOS,
-		DataDir:     dataDir,
-		Now:         time.Now,
-		Version:     Version,
-		Config:      configuration.NewStore(path),
-		Secrets:     secretStore,
-		Accounts:    account.NewKeyringStore(),
-		Env:         os.Environ(),
-		In:          os.Stdin,
-		Out:         os.Stdout,
-		Err:         os.Stderr,
-		Interactive: console.Interactive(os.Stdin),
-		Color:       console.ColorEnabled(runtime.GOOS, env, console.Interactive(os.Stdout), console.EnableVirtualTerminal),
-		Runner:      process.Runner{},
-		HTTP:        &http.Client{},
-		ClaudeLauncher: claude.Launcher{
-			GOOS:           runtime.GOOS,
-			BinDir:         binDir,
-			Home:           env["HOME"],
-			Shell:          env["SHELL"],
-			AIGWExecutable: executable,
-		},
-		Prompt:    prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
-		Discovery: discovery.Current(),
-		Updater:   selfupdate.Current(executable),
+		GOOS:               runtime.GOOS,
+		DataDir:            dataDir,
+		Now:                time.Now,
+		Version:            Version,
+		Executable:         executable,
+		InstallTarget:      filepath.Join(installDir, installName),
+		ClaudeSettingsPath: claudeSettingsPath,
+		Config:             configuration.NewStore(path),
+		Secrets:            secretStore,
+		Accounts:           account.NewKeyringStore(),
+		Env:                os.Environ(),
+		In:                 os.Stdin,
+		Out:                os.Stdout,
+		Err:                os.Stderr,
+		Interactive:        console.Interactive(os.Stdin),
+		Color:              console.ColorEnabled(runtime.GOOS, env, console.Interactive(os.Stdout), console.EnableVirtualTerminal),
+		Runner:             process.Runner{},
+		HTTP:               &http.Client{},
+		Prompt:             prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
+		Discovery:          discovery.Current(),
+		Updater:            selfupdate.Current(executable),
 	}, nil
 }
 
@@ -271,7 +287,6 @@ func (a *App) doctorCommand() *cobra.Command {
 		Config: a.Config, Secrets: a.Secrets, Env: a.Env, Out: a.Out,
 		RenderOut: renderErrorWriter{writer: a.Out, err: &a.renderErr},
 		Color:     a.Color, Width: console.PresentationWidth(a.Out, environmentMap(a.Env)),
-		ClaudeLauncher: a.ClaudeLauncher,
 	})
 }
 
@@ -285,11 +300,13 @@ func (a *App) catalogDependencies() catalog.Dependencies {
 
 func (a *App) invocationContext() invocation.Context {
 	return invocation.Context{
-		Version: appVersion(a), Config: a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.Out,
+		Version: appVersion(a), Executable: a.Executable, InstallTarget: a.InstallTarget,
+		ClaudeSettingsPath: a.ClaudeSettingsPath,
+		Config:             a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.Out,
 		In:        a.In,
 		RenderOut: renderErrorWriter{writer: a.Out, err: &a.renderErr},
 		Color:     a.Color, Width: console.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
-		Runner: a.Runner, HTTP: a.HTTP, ClaudeLauncher: a.ClaudeLauncher, Prompt: a.Prompt,
+		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
 		Discovery: a.Discovery, Updater: a.Updater, Now: a.Now, Problem: presentation.ProblemError,
 	}
 }
@@ -347,7 +364,11 @@ func NewRoot(app *App) *cobra.Command {
 	runtime := app.invocationContext()
 	connect := []*cobra.Command{onboarding.NewCommand(runtime)}
 	daily := []*cobra.Command{readiness.NewStatusCommand(runtime), route.NewUseCommand(runtime), readiness.NewCheckCommand(runtime), accountcli.NewRotateCommand(runtime)}
-	recover := []*cobra.Command{app.doctorCommand(), recovery.NewRepairCommand(runtime), recovery.NewSyncCommand(runtime), recovery.NewRollbackCommand(runtime), updatecli.NewCommand(runtime)}
+	recover := []*cobra.Command{
+		app.doctorCommand(), recovery.NewRepairCommand(runtime), recovery.NewSyncCommand(runtime),
+		recovery.NewRollbackCommand(runtime), updatecli.NewCommand(runtime),
+		installcli.NewInstallCommand(runtime), installcli.NewUninstallCommand(runtime),
+	}
 	advanced := []*cobra.Command{
 		accountcli.NewAddCommand(runtime), accountcli.NewCommand(runtime, renaming.NewAccountCommand(app.renamingDependencies())),
 		profile.NewCommand(runtime, renaming.NewProfileCommand(app.renamingDependencies())),
@@ -366,20 +387,10 @@ func NewRoot(app *App) *cobra.Command {
 	}
 	completion := newCompletionCommand(root)
 	completion.GroupID = "advanced"
-	root.AddCommand(completion)
+	root.AddCommand(completion, credentialcli.NewCommand(runtime))
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return fmt.Errorf("%w", err)
 	})
-	hiddenClaude := &cobra.Command{
-		Use:    "__run-claude",
-		Hidden: true,
-		Args:   cobra.ArbitraryArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return claude.Run(cmd.Context(), app.Config, app.Secrets, app.Runner, args, app.Env)
-		},
-	}
-	hiddenClaude.DisableFlagParsing = true
-	root.AddCommand(hiddenClaude)
 	return root
 }
 

@@ -39,21 +39,6 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 		}
 	})
 
-	t.Run("launcher enable", func(t *testing.T) {
-		app, _, secretStore, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "m"})
-		_ = secretStore.Set("one", "token")
-		blocker := filepath.Join(t.TempDir(), "file")
-		if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		app.ClaudeLauncher.BinDir = filepath.Join(blocker, "bin")
-		app.ClaudeLauncher.AIGWExecutable = "/bin/aigw"
-		app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}}
-		if err := execute(t, app, "repair"); err == nil {
-			t.Fatal("expected launcher enable failure")
-		}
-	})
 }
 
 func TestRepairDiscoversAndEnablesInstalledClients(t *testing.T) {
@@ -65,14 +50,12 @@ func TestRepairDiscoversAndEnablesInstalledClients(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("dmx", "token")
-	shimDir := t.TempDir()
-	app.ClaudeLauncher.BinDir = shimDir
-	app.ClaudeLauncher.AIGWExecutable = filepath.Join(shimDir, "aigw")
+	claudeExecutable := executableFixture(t, "claude")
 	target := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude", configuration.ClientCodex: "/opt/codex"}, Surfaces: []discovery.Surface{{
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: claudeExecutable, configuration.ClientCodex: "/opt/codex"}, Surfaces: []discovery.Surface{{
 		ID:          string(surfaceidentity.CodexHomeDefault),
 		Authority:   string(surfaceidentity.AuthorityAIGW),
 		ConfigPath:  target,

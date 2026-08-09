@@ -3,7 +3,6 @@ package cli_test
 import (
 	"errors"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -117,24 +116,6 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
-}
-
-func TestSetupRollsBackSecretWhenDiscoveredClientEnablementFails(t *testing.T) {
-	app, _, secretStore, _ := testApp(t, "token\n")
-	blocker := filepath.Join(t.TempDir(), "blocker")
-	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	app.ClaudeLauncher.BinDir = filepath.Join(blocker, "bin")
-	app.ClaudeLauncher.AIGWExecutable = "/bin/aigw"
-	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}}
-	err := execute(t, app, "setup", "--profile", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--token-stdin")
-	if err == nil {
-		t.Fatal("expected Claude launcher enablement failure")
-	}
-	if secretStore.Has("one") {
-		t.Fatal("failed launcher enablement left the new token")
-	}
 }
 
 func TestSetupRollsBackConfigAndSecretWhenCodexProjectionFails(t *testing.T) {

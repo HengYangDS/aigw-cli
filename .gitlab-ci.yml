@@ -13,77 +13,21 @@ stages: [verify, package, publish, release]
 default:
   # Bootstrap identity is immutable and independent of the project version;
   # go.mod remains the sole owner of the selected project toolchain.
-  image: golang@sha256:2005724102f45917a63e9d092fc0e4ea56ea575048ce147caad5f5f61502c365
+  image: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
   tags: [$AIGW_GITLAB_RUNNER_TAG]
-  before_script:
-    # A pipe, rather than a comma, means Go may advance after a transient
-    # proxy failure such as a TLS handshake timeout. Keep GitLab's dependency
-    # path self-contained; GitHub Actions deliberately uses its own defaults.
-    - export GOPROXY="${AIGW_GOPROXY:-https://goproxy.cn|https://proxy.golang.org|direct}"; . scripts/forge/lib/prepare-ci-go-cache.sh
 
 variables:
   # Release chronology and branch-closeout proof need complete ancestry. Keep
   # this in source so a project-level shallow-clone setting cannot regress it.
   GIT_DEPTH: "0"
-  GITLAB_RELEASE_AUTHOR_EMAIL: $AIGW_RELEASE_AUTHOR_EMAIL
-  AIGW_GITLAB_ALLOWED_SIGNERS: $AIGW_RELEASE_ALLOWED_SIGNERS
+  GOPROXY: "https://goproxy.cn|https://proxy.golang.org|direct"
+  AIGW_FORGE_PROVIDER: gitlab
+  AIGW_RELEASE_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ALLOWED_SIGNERS
 
 verify:
   stage: verify
   script:
-    - sh scripts/checks/release/check-release-toolchain.sh
-    - go run ./tools/architecture --root .
-    - sh scripts/checks/governance/check-module-identity.sh
-    - sh scripts/tests/governance/test-module-identity.sh
-    - go run ./tools/coveragegate --race
-    - go vet ./...
-    - sh scripts/checks/quality/check-static-analysis.sh
-    - test -z "$(gofmt -l cmd internal tools)"
-    - for script in $(git ls-files 'scripts/*.sh'); do sh -n "$script"; done
-    - sh scripts/checks/release/check-package-safety.sh
-    - sh scripts/checks/governance/check-product-surface.sh
-    - sh scripts/checks/governance/check-portability.sh
-    - sh scripts/tests/governance/test-portability.sh
-    - sh scripts/checks/governance/check-english-text.sh
-    - sh scripts/checks/security/check-credential-literals.sh
-    - sh scripts/tests/security/test-credential-literals.sh
-    - sh scripts/checks/security/check-credential-fixtures.sh
-    - sh scripts/tests/security/test-credential-fixtures.sh
-    # Refresh and prune only GitLab's direct release-tag namespace. Qualified
-    # GitHub provenance below refs/tags/github/ remains untouched.
-    - git fetch --force --prune --no-tags origin '+refs/tags/v*:refs/tags/v*'
-    - AIGW_GITLAB_AUTHOR_EMAIL="$GITLAB_RELEASE_AUTHOR_EMAIL" sh scripts/checks/forge/check-commit-provenance.sh . gitlab
-    - 'if test -n "${CI_COMMIT_TAG:-}"; then sh scripts/checks/forge/check-release-tag-signature.sh . "$CI_COMMIT_TAG" gitlab; fi'
-    - sh scripts/checks/governance/check-governance.sh
-    - sh scripts/tests/governance/test-changelog.sh
-    - sh scripts/tests/forge/test-tag-namespace.sh
-    - sh scripts/tests/release/test-release-readiness.sh
-    - sh scripts/tests/release/test-release-artifacts.sh
-    - sh scripts/tests/release/test-publish-gitlab-release.sh
-    - sh scripts/tests/release/test-release-source-date-epoch.sh
-    - sh scripts/tests/forge/test-release-forge-sources.sh
-    - sh scripts/tests/release/test-release-toolchain.sh
-    - sh scripts/tests/release/test-verified-candidate.sh
-    - sh scripts/tests/release/test-publish-github-release.sh
-    - sh scripts/tests/forge/test-release-tag-signature.sh
-    - sh scripts/tests/forge/test-release-tag-signature-provider-selection.sh
-    - sh scripts/tests/release/test-package-runner-preflight.sh
-    - sh scripts/tests/install/test-linux-native-install-staging.sh
-    - sh scripts/tests/install/test-macos-native-install-staging.sh
-    - sh scripts/tests/release/test-msi-version.sh
-    - sh scripts/tests/ci/test-pipeline-gates.sh
-    - sh scripts/tests/ci/test-ci-go-proxy-policy.sh
-    - sh scripts/tests/ci/test-ci-go-cache-preparation.sh
-    - sh scripts/tests/ci/test-github-actions-contract.sh
-    - sh scripts/tests/ci/test-github-release-workflow.sh
-    - sh scripts/tests/forge/test-github-provider-projection.sh
-    - sh scripts/tests/forge/test-commit-provenance.sh
-    - go test ./tools/historyreplay
-    - sh scripts/tests/forge/test-branch-closeout.sh
-    - sh scripts/tests/forge/test-forge-sync.sh
-    - go build -o /tmp/aigw-install-smoke ./cmd/aigw
-    - sh scripts/tests/install/test-installers.sh /tmp/aigw-install-smoke
-    - sh scripts/tests/install/test-portable-install.sh /tmp/aigw-install-smoke
+    - mise exec --locked -- go run ./tools/civerify source
 
 package:
   stage: package
@@ -93,24 +37,7 @@ package:
       optional: true
   tags: [$AIGW_GITLAB_RUNNER_TAG]
   script:
-    - VERSION="${CI_COMMIT_TAG:-}"; VERSION="${VERSION#v}"; test -n "$VERSION" || VERSION="0.1.0-${CI_COMMIT_SHORT_SHA}"
-    - sh scripts/checks/release/check-release-toolchain.sh
-    - sh scripts/checks/release/check-package-runner.sh
-    - |
-      set -eu
-      SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
-      if test -n "${CI_COMMIT_TAG:-}"; then
-        SOURCE_DATE_EPOCH="$(sh scripts/release/lib/release-source-date-epoch.sh "$VERSION")"
-      fi
-      export SOURCE_DATE_EPOCH
-      export AIGW_GITLAB_RELEASE_ORIGIN="$CI_SERVER_URL"
-      export AIGW_GITLAB_RELEASE_REPOSITORY="$CI_PROJECT_PATH"
-      : "${AIGW_GITHUB_RELEASE_ORIGIN:?protected GitHub release origin is required}"
-      : "${AIGW_GITHUB_RELEASE_REPOSITORY:?protected GitHub release repository is required}"
-      : "${AIGW_PACKAGE_HOMEPAGE:?protected product homepage is required}"
-      sh scripts/tests/release/test-release-reproducibility.sh "$VERSION"
-      AIGW_REQUIRE_FULL_MATRIX=1 sh scripts/release/build/package.sh "$VERSION" dist
-    - sh scripts/tests/release/test-release-package-layout.sh dist "$VERSION"
+    - mise exec --locked -- go run ./tools/releasekit build-ci build/release dist
   artifacts:
     expire_in: 30 days
     paths: [dist/]
@@ -121,7 +48,7 @@ release-readiness:
     - if: '$CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\./'
     - when: never
   script:
-    - sh scripts/checks/release/check-release-readiness.sh "${CI_COMMIT_TAG#v}"
+    - mise exec --locked -- go run ./tools/releasekit validate-readiness-tag
 
 publish:
   stage: publish
@@ -131,13 +58,7 @@ publish:
   rules:
     - if: $CI_COMMIT_TAG
   script:
-    - VERSION="${CI_COMMIT_TAG#v}"
-    - |
-      for file in dist/*; do
-        name=$(basename "$file")
-        curl --fail --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "$file" \
-          "$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/aigw/$VERSION/$name"
-      done
+    - mise exec --locked -- go run ./tools/releasekit upload-gitlab dist
 
 release:
   stage: release
@@ -147,6 +68,5 @@ release:
       artifacts: true
   rules:
     - if: $CI_COMMIT_TAG
-  before_script: []
   script:
-    - sh scripts/release/publish/publish-gitlab-release.sh dist
+    - mise exec --locked -- go run ./tools/releasekit publish-gitlab dist

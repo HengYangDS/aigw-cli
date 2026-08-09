@@ -4,7 +4,6 @@ profile_id = "aigw-cli"
 material_paths = [
   ".config/**",
   ".ethos/**",
-  ".githooks/**",
   ".github/**",
   ".gitlab-ci.yml",
   "AGENTS.md",
@@ -22,7 +21,14 @@ material_paths = [
 ]
 
 [proof]
-code_correctness_gates = ["go-behavior", "go-static-analysis"]
+code_correctness_gates = [
+  "go-behavior",
+  "go-static-analysis",
+  "go-vet",
+  "staticcheck",
+  "errcheck",
+  "go-format",
+]
 
 [proof.code_correctness_map]
 behavior = "go-behavior"
@@ -31,7 +37,7 @@ static-analysis = "go-static-analysis"
 [[proof.gates]]
 id = "go-behavior"
 kind = "test"
-command = ["go", "run", "./tools/coveragegate", "--race"]
+command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/coveragegate", "--race"]
 dimensions = ["behavior", "test", "coverage"]
 evidence_class = "proof"
 trust_bearing = true
@@ -40,8 +46,44 @@ network_policy = "offline"
 [[proof.gates]]
 id = "go-static-analysis"
 kind = "static"
-command = ["sh", "-c", "go run ./tools/architecture --root . && go vet ./... && sh scripts/checks/quality/check-static-analysis.sh"]
-dimensions = ["static-analysis", "architecture", "vet"]
+command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/architecture", "--root", "."]
+dimensions = ["static-analysis", "architecture"]
+evidence_class = "proof"
+trust_bearing = true
+network_policy = "offline"
+
+[[proof.gates]]
+id = "go-format"
+kind = "static"
+command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/repositorycheck", "--root", ".", "go-format"]
+dimensions = ["format"]
+evidence_class = "proof"
+trust_bearing = true
+network_policy = "offline"
+
+[[proof.gates]]
+id = "go-vet"
+kind = "static"
+command = ["mise", "exec", "--locked", "--", "go", "vet", "./..."]
+dimensions = ["static-analysis", "vet"]
+evidence_class = "proof"
+trust_bearing = true
+network_policy = "offline"
+
+[[proof.gates]]
+id = "staticcheck"
+kind = "static"
+command = ["mise", "exec", "--locked", "--", "go", "tool", "staticcheck", "-checks=all,-ST1000,-ST1005", "./..."]
+dimensions = ["static-analysis", "lint"]
+evidence_class = "proof"
+trust_bearing = true
+network_policy = "offline"
+
+[[proof.gates]]
+id = "errcheck"
+kind = "static"
+command = ["mise", "exec", "--locked", "--", "go", "tool", "errcheck", "./..."]
+dimensions = ["static-analysis", "error-handling"]
 evidence_class = "proof"
 trust_bearing = true
 network_policy = "offline"
