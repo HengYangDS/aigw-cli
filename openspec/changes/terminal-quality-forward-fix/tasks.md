@@ -5,7 +5,7 @@
 ## 2. Verify
 
 - [x] 2.1 Run the repository architecture gate.
-- [ ] 2.2 Run exact-HEAD full proof.
+- [x] 2.2 Run exact-HEAD full proof.
 - [ ] 2.3 Archive and land through the public lifecycle.
 
 ## Requirement To Task To Proof
