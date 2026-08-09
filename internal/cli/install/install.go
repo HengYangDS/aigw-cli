@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
@@ -71,7 +72,7 @@ func Install(source, target string) error {
 	if err != nil {
 		return fmt.Errorf("inspect portable AIGW executable: %w", err)
 	}
-	if information.IsDir() || information.Mode().Perm()&0o111 == 0 {
+	if information.IsDir() || (runtime.GOOS != "windows" && information.Mode().Perm()&0o111 == 0) {
 		return errors.New("portable AIGW source is not executable")
 	}
 	data, err := os.ReadFile(sourcePath)

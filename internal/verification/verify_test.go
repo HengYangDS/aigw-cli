@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -67,6 +68,9 @@ func TestValidateFullReadiness(t *testing.T) {
 		t.Fatalf("missing executable error = %v", err)
 	}
 	claudeExecutable := filepath.Join(t.TempDir(), "claude")
+	if goruntime.GOOS == "windows" {
+		claudeExecutable += ".exe"
+	}
 	if err := os.WriteFile(claudeExecutable, []byte("fixture"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -107,6 +111,9 @@ func TestValidateFullReadinessReportsInspectionAndRouteErrors(t *testing.T) {
 	}
 
 	claudeExecutable := filepath.Join(t.TempDir(), "claude")
+	if goruntime.GOOS == "windows" {
+		claudeExecutable += ".exe"
+	}
 	if err := os.WriteFile(claudeExecutable, []byte("fixture"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -224,6 +231,9 @@ func TestVerifyClaude(t *testing.T) {
 		t.Fatalf("sentinel error = %v", err)
 	}
 	executable := filepath.Join(t.TempDir(), "claude")
+	if goruntime.GOOS == "windows" {
+		executable += ".exe"
+	}
 	if err := os.WriteFile(executable, []byte("fixture"), 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -230,6 +231,9 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 		t.Fatalf("adapter check = %#v", check)
 	}
 	executable := filepath.Join(t.TempDir(), "claude")
+	if runtime.GOOS == "windows" {
+		executable += ".exe"
+	}
 	if err := os.WriteFile(executable, []byte("binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
