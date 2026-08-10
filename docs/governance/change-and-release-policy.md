@@ -175,8 +175,15 @@ Architecture policy paths use one repository-relative grammar on every runner.
 POSIX roots, Windows drive, UNC or device roots, backslashes, empty segments,
 dot segments, and parent traversal are rejected independently of the host OS.
 
-Run `go run ./tools/forge project` with explicit protected identity and trust inputs from a clean canonical checkout
-to project a selected branch into the GitHub identity domain. It verifies every
+Run `go run ./tools/forge project` with explicit protected identity and trust
+inputs from a clean canonical checkout.
+Selecting `main` is one fail-closed transaction: all `main` and `dev` source,
+trust, target-history, and tag preconditions pass before one atomic remote push.
+Selecting `proposal/*` is an explicit single-branch projection; candidate,
+work, and arbitrary branches are not publication surfaces.
+
+The command projects the selected branch set into the GitHub identity domain.
+It verifies every
 reachable canonical and GitHub commit, verifies every
 GitHub release tag whose source tree is present on the selected canonical
 branch, retains the separate GitLab verification for a same-named canonical

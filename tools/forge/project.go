@@ -19,6 +19,10 @@ type projectionOptions struct {
 	signingKey, signingProgram, sourceSigners, targetSigners   string
 }
 
+type projectedBranch struct {
+	name, ref, target string
+}
+
 func runProjection(args []string) error {
 	var option projectionOptions
 	flags := flag.NewFlagSet("forge project", flag.ContinueOnError)
@@ -47,6 +51,9 @@ func project(option projectionOptions) error {
 	if option.signingProgram == "" {
 		option.signingProgram = "ssh-keygen"
 	}
+	if option.branch != "main" && !strings.HasPrefix(option.branch, "proposal/") {
+		return errors.New("projected branch must be main or proposal/*; main projects main and dev together")
+	}
 	repository, err := filepath.Abs(option.repository)
 	if err != nil {
 		return err
@@ -61,14 +68,6 @@ func project(option projectionOptions) error {
 	if status != "" {
 		return errors.New("refusing projection with a dirty canonical worktree")
 	}
-	branchRef, err := localBranch(repository, "source", option.branch)
-	if err != nil {
-		return err
-	}
-	canonical, err := gitOutput(repository, "rev-parse", branchRef)
-	if err != nil {
-		return err
-	}
 	remoteURL, err := gitOutput(repository, "config", "--local", "--get", "remote."+option.remote+".url")
 	if err != nil {
 		return fmt.Errorf("target remote is not configured: %s", option.remote)
@@ -76,55 +75,107 @@ func project(option projectionOptions) error {
 	if err := validateProjectionRemote(remoteURL); err != nil {
 		return err
 	}
-	if err := runCommitProvenance([]string{"--repository", repository, "--revision", branchRef, "--provider", option.sourceProvider, "--email", option.sourceEmail, "--allowed-signers", option.sourceSigners}); err != nil {
-		return err
+	branches := []string{option.branch}
+	if option.branch == "main" {
+		branches = []string{"main", "dev"}
 	}
 	workspace, err := os.MkdirTemp("", "aigw-forge-projection-*")
 	if err != nil {
 		return err
 	}
 	defer func() { _ = os.RemoveAll(workspace) }()
-	projection := filepath.Join(workspace, "repository.git")
-	replayOption := options{
-		source: repository, revision: canonical, output: projection, ref: branchRef,
-		actorName: option.actorName, actorEmail: option.actorEmail,
-		signingKey: option.signingKey, signingProgram: option.signingProgram,
-		allowedSigners: option.targetSigners,
+	projected := make([]projectedBranch, 0, len(branches))
+	for _, branch := range branches {
+		result, err := prepareProjection(repository, workspace, remoteURL, branch, option)
+		if err != nil {
+			return err
+		}
+		projected = append(projected, result)
 	}
-	if err := replay(replayOption); err != nil {
+	arguments := []string{"push", "--quiet"}
+	if len(projected) > 1 {
+		arguments = append(arguments, "--atomic")
+	}
+	arguments = append(arguments, "target")
+	for _, branch := range projected {
+		arguments = append(arguments, branch.target+":"+branch.ref)
+	}
+	if err := git(filepath.Join(workspace, "transaction.git"), nil, arguments...); err != nil {
 		return err
 	}
-	projected, err := gitOutput(projection, "rev-parse", branchRef)
+	for _, branch := range projected {
+		fmt.Printf("target provider projection synchronized: %s@%s\n", branch.name, branch.target)
+	}
+	return nil
+}
+
+func prepareProjection(repository, workspace, remoteURL, branch string, option projectionOptions) (projectedBranch, error) {
+	branchRef, err := localBranch(repository, "source", branch)
 	if err != nil {
-		return err
+		return projectedBranch{}, err
 	}
-	if err := git(projection, nil, "remote", "add", "target", remoteURL); err != nil {
-		return err
-	}
-	remoteTip, err := remoteHead(projection, option.branch)
+	canonical, err := gitOutput(repository, "rev-parse", branchRef)
 	if err != nil {
-		return err
+		return projectedBranch{}, err
+	}
+	if err := runCommitProvenance([]string{"--repository", repository, "--revision", branchRef, "--provider", option.sourceProvider, "--email", option.sourceEmail, "--allowed-signers", option.sourceSigners}); err != nil {
+		return projectedBranch{}, err
+	}
+	projection := filepath.Join(workspace, "transaction.git")
+	if _, err := os.Stat(projection); os.IsNotExist(err) {
+		replayOption := options{
+			source: repository, revision: canonical, output: projection, ref: branchRef,
+			actorName: option.actorName, actorEmail: option.actorEmail,
+			signingKey: option.signingKey, signingProgram: option.signingProgram,
+			allowedSigners: option.targetSigners,
+		}
+		if err := replay(replayOption); err != nil {
+			return projectedBranch{}, err
+		}
+		if err := git(projection, nil, "remote", "add", "target", remoteURL); err != nil {
+			return projectedBranch{}, err
+		}
+	} else if err != nil {
+		return projectedBranch{}, err
+	} else {
+		temporary := filepath.Join(workspace, strings.ReplaceAll(branch, "/", "-")+".git")
+		replayOption := options{
+			source: repository, revision: canonical, output: temporary, ref: branchRef,
+			actorName: option.actorName, actorEmail: option.actorEmail,
+			signingKey: option.signingKey, signingProgram: option.signingProgram,
+			allowedSigners: option.targetSigners,
+		}
+		if err := replay(replayOption); err != nil {
+			return projectedBranch{}, err
+		}
+		if err := git(projection, nil, "fetch", "--quiet", temporary, "+"+branchRef+":"+branchRef); err != nil {
+			return projectedBranch{}, err
+		}
+	}
+	target, err := gitOutput(projection, "rev-parse", branchRef)
+	if err != nil {
+		return projectedBranch{}, err
+	}
+	remoteTip, err := remoteHead(projection, branch)
+	if err != nil {
+		return projectedBranch{}, err
 	}
 	if remoteTip != "" {
-		remoteRef := "refs/remotes/target/" + option.branch
+		remoteRef := "refs/remotes/target/" + branch
 		if err := git(projection, nil, "fetch", "--quiet", "--no-tags", "target", branchRef+":"+remoteRef); err != nil {
-			return err
+			return projectedBranch{}, err
 		}
-		if err := git(projection, nil, "merge-base", "--is-ancestor", remoteTip, projected); err != nil {
-			return errors.New("target branch diverges from the complete canonical identity projection")
+		if err := git(projection, nil, "merge-base", "--is-ancestor", remoteTip, target); err != nil {
+			return projectedBranch{}, errors.New("target branch diverges from the complete canonical identity projection")
 		}
 		if err := runCommitProvenance([]string{"--repository", projection, "--revision", branchRef, "--provider", option.targetProvider, "--email", option.actorEmail, "--allowed-signers", option.targetSigners}); err != nil {
-			return err
+			return projectedBranch{}, err
 		}
 	}
 	if err := verifyProjectionTags(repository, projection, canonical, option); err != nil {
-		return err
+		return projectedBranch{}, err
 	}
-	if err := git(projection, []string{"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1"}, "push", "--quiet", "target", branchRef+":"+branchRef); err != nil {
-		return err
-	}
-	fmt.Printf("target provider projection synchronized: %s\n", projected)
-	return nil
+	return projectedBranch{name: branch, ref: branchRef, target: target}, nil
 }
 
 func validateProjectionRemote(raw string) error {
