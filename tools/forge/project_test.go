@@ -184,6 +184,24 @@ func TestProjectionCommandAndProviderBoundary(t *testing.T) {
 	}
 }
 
+func TestProjectionRejectsMissingDevAndAtomicPushFailure(t *testing.T) {
+	fixture := forgeFixture(t)
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	if output, err := exec.Command("git", "init", "-q", "--bare", remote).CombinedOutput(); err != nil {
+		t.Fatalf("git init bare: %v: %s", err, output)
+	}
+	gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+	option := projectionOption(fixture, "main", "peer")
+	if err := project(option); err == nil || !strings.Contains(err.Error(), "source ref is unavailable") {
+		t.Fatalf("missing dev branch=%v", err)
+	}
+	gitTest(t, fixture.repository, "branch", "dev", "main")
+	useGitWrapper(t, "push")
+	if err := project(option); err == nil {
+		t.Fatal("atomic push failure accepted")
+	}
+}
+
 func TestProjectionRejectsInvalidState(t *testing.T) {
 	fixture := forgeFixture(t)
 	option := projectionOptions{repository: fixture.repository, branch: "main", remote: "missing", sourceProvider: "gitlab", targetProvider: "github", sourceEmail: fixture.email, actorName: "Actor", actorEmail: fixture.email, signingKey: fixture.key, sourceSigners: fixture.allowedSigners, targetSigners: fixture.allowedSigners}
