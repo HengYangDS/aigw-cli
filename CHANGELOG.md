@@ -8,6 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- Confirm every direct Go dependency is current without pinning unneeded
+  transitive modules, and replace generated OpenSpec purpose placeholders with
+  concise product semantics.
+
 ## [0.1.0-rc.80] - 2026-08-05
 
 ### Fixed
