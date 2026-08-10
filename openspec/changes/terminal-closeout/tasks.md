@@ -15,4 +15,13 @@
 
 | Requirement | Task | Proof |
 | --- | --- | --- |
-| Terminal repository closure | `1.1`–`4.2` | Native gate, exact-HEAD proof, hosted CI, Forge Releases, installed runtime, governed retirement receipts |
+| `product-control-plane:Terminal repository closure` | `1.1` | `openspec-strict-and-spec-diff` |
+| `product-control-plane:Terminal repository closure` | `1.2` | `dependency-ownership-and-native-source` |
+| `product-control-plane:Terminal repository closure` | `1.3` | `portability-and-authority-audits` |
+| `product-control-plane:Terminal repository closure` | `2.1` | `native-quality-and-coverage` |
+| `product-control-plane:Terminal repository closure` | `2.2` | `exact-head-pre-and-post-archive-proof` |
+| `product-control-plane:Terminal repository closure` | `3.1` | `candidate-and-accepted-closeout` |
+| `product-control-plane:Terminal repository closure` | `3.2` | `same-commit-macos-linux-windows-ci` |
+| `product-control-plane:Terminal repository closure` | `3.3` | `independent-signed-forge-releases` |
+| `product-control-plane:Terminal repository closure` | `4.1` | `released-install-and-client-projections` |
+| `product-control-plane:Terminal repository closure` | `4.2` | `governed-retirement-and-housekeeping` |
