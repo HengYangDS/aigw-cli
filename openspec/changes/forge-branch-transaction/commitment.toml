@@ -1,5 +1,5 @@
 schema_version = 1
-id = "change:20260810-forge-branch-transaction"
+id = "change:forge-branch-transaction"
 intent = "Project main and dev as one fail-closed Forge branch transaction while preserving proposal branches as explicit single-branch projections."
 subjects = ["repository:self"]
 scope = [
