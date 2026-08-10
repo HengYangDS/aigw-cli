@@ -48,7 +48,7 @@ func execute(args []string, stderr *os.File) int {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: forge <replay|commits|tag|tags|sync|closeout|project>")
+		return errors.New("usage: forge <replay|commits|tag|tags|sync|closeout|promote-release|project>")
 	}
 	switch args[0] {
 	case "replay":
@@ -63,6 +63,8 @@ func run(args []string) error {
 		return runSync(args[1:], false)
 	case "closeout":
 		return runSync(args[1:], true)
+	case "promote-release":
+		return runReleasePromotion(args[1:])
 	case "project":
 		return runProjection(args[1:])
 	default:
