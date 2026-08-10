@@ -131,6 +131,17 @@ func TestPromoteReleaseCommandRequiresExactCoordinates(t *testing.T) {
 	if err := run([]string{"promote-release", "--repository", fixture.repository}); err == nil || !strings.Contains(err.Error(), "expect-main") {
 		t.Fatalf("missing exact coordinates=%v", err)
 	}
+	if err := runReleasePromotion([]string{"--unknown"}); err == nil || !strings.Contains(err.Error(), "usage") {
+		t.Fatalf("malformed promotion flags=%v", err)
+	}
+	if err := runReleasePromotion([]string{"--repository", fixture.repository, "--expect-main", "main", "--expect-dev", "dev", "extra"}); err == nil || !strings.Contains(err.Error(), "usage") {
+		t.Fatalf("promotion positional argument=%v", err)
+	}
+	gitTest(t, fixture.repository, "branch", "dev", "main")
+	tip := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/main")
+	if err := runReleasePromotion([]string{"--repository", fixture.repository, "--expect-main", tip, "--expect-dev", tip}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestPromoteReleaseRejectsDirtyRepository(t *testing.T) {
@@ -142,6 +153,32 @@ func TestPromoteReleaseRejectsDirtyRepository(t *testing.T) {
 	}
 	if err := promoteRelease(releasePromotionOptions{repository: fixture.repository, expectMain: main, expectDev: main}); err == nil || !strings.Contains(err.Error(), "dirty") {
 		t.Fatalf("dirty repository=%v", err)
+	}
+}
+
+func TestPromoteReleasePropagatesGitFailures(t *testing.T) {
+	for _, mode := range []string{"status", "rev-parse-commit", "merge-base"} {
+		t.Run(mode, func(t *testing.T) {
+			fixture := forgeFixture(t)
+			gitTest(t, fixture.repository, "branch", "dev", "main")
+			main := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/main")
+			dev := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/dev")
+			useGitWrapper(t, mode)
+			if err := promoteRelease(releasePromotionOptions{repository: fixture.repository, expectMain: main, expectDev: dev}); err == nil {
+				t.Fatalf("%s failure accepted", mode)
+			}
+		})
+	}
+	fixture := forgeFixture(t)
+	tip := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/main")
+	if err := promoteRelease(releasePromotionOptions{repository: fixture.repository, expectMain: tip, expectDev: tip}); err == nil {
+		t.Fatal("missing dev branch accepted")
+	}
+}
+
+func TestProjectionRejectsNonRepository(t *testing.T) {
+	if err := project(projectionOptions{repository: t.TempDir(), branch: "main"}); err == nil || !strings.Contains(err.Error(), "run inside a Git worktree") {
+		t.Fatalf("non-repository projection=%v", err)
 	}
 }
 
