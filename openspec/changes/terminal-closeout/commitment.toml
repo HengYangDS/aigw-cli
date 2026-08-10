@@ -20,13 +20,44 @@ scope = [
     "internal/**",
     "tools/**",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
+invariants = [
+    "aigw_remains_a_provider_neutral_codex_and_claude_code_configuration_control_plane",
+    "gitlab_and_github_remain_independent_publication_planes",
+    "no_proxy_workstation_jetbrains_or_conversation_state_authority_enters_aigw",
+    "no_legacy_compatibility_or_parallel_product_surface_survives_closeout",
+]
+acceptance = [
+    "canonical_specs_state_current_product_authority_without_placeholders",
+    "direct_dependencies_are_current_and_unneeded_transitive_modules_are_not_pinned",
+    "every_package_and_aggregate_statement_coverage_remain_strictly_above_ninety_five_percent",
+    "native_macos_linux_and_windows_source_verification_passes",
+    "gitlab_and_github_each_publish_and_verify_their_own_signed_release",
+    "the_released_artifact_is_installed_and_codex_and_claude_code_projections_are_verified",
+    "all_absorbed_work_lanes_and_obsolete_repository_residue_are_governedly_retired",
+]
+risks = [
+    "a_direct_or_transitive_dependency_is_misclassified",
+    "hosted_platform_evidence_does_not_match_the_release_commit",
+    "one_forge_is_mistaken_for_dual_forge_closure",
+    "installed_behavior_diverges_from_the_released_artifact",
+    "a_retired_lane_still_contains_unique_product_semantics",
+]
+authority_refs = [
+    "user_instruction",
+    "AGENTS.md",
+    "openspec/changes/terminal-closeout/proposal.md",
+    "openspec/changes/terminal-closeout/specs/product-control-plane/spec.md",
+    "openspec/changes/terminal-closeout/design.md",
+    "openspec/changes/terminal-closeout/tasks.md",
+    ".config/checks/coverage/policy.toml",
+    "docs/architecture/authority-and-projection-boundary.md",
+    "docs/governance/change-and-release-policy.md",
+]
 permissions = [
     "repository.read",
     "work-lane.write",
+    "local-proof.execute",
+    "git.ref.compare-and-swap",
 ]
 hypotheses = []
 dependencies = []
