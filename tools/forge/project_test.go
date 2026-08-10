@@ -74,6 +74,89 @@ func TestProjectionAdvancesMainAndDevWithOneAtomicPush(t *testing.T) {
 	}
 }
 
+func TestPromoteReleaseAdvancesMainToExactDevTip(t *testing.T) {
+	fixture := forgeFixture(t)
+	gitTest(t, fixture.repository, "branch", "dev", "main")
+	gitTest(t, fixture.repository, "switch", "-q", "dev")
+	writeCommit(t, fixture.repository, "release.txt", "ready\n", "prepare release")
+	dev := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/dev")
+
+	if err := promoteRelease(releasePromotionOptions{
+		repository: fixture.repository,
+		expectMain: gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/main"),
+		expectDev:  dev,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if main := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/main"); main != dev {
+		t.Fatalf("main=%s dev=%s", main, dev)
+	}
+}
+
+func TestPromoteReleaseFailsClosedWithoutChangingMain(t *testing.T) {
+	fixture := forgeFixture(t)
+	gitTest(t, fixture.repository, "branch", "dev", "main")
+	gitTest(t, fixture.repository, "switch", "-q", "dev")
+	writeCommit(t, fixture.repository, "release.txt", "ready\n", "prepare release")
+	main := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/main")
+	dev := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/dev")
+
+	for name, option := range map[string]releasePromotionOptions{
+		"stale main": {repository: fixture.repository, expectMain: strings.Repeat("0", 40), expectDev: dev},
+		"stale dev":  {repository: fixture.repository, expectMain: main, expectDev: strings.Repeat("0", 40)},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := promoteRelease(option); err == nil {
+				t.Fatal("stale release coordinates accepted")
+			}
+			if current := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/main"); current != main {
+				t.Fatalf("main moved: %s != %s", current, main)
+			}
+		})
+	}
+
+	gitTest(t, fixture.repository, "switch", "-q", "main")
+	writeCommit(t, fixture.repository, "diverged.txt", "diverged\n", "diverge main")
+	diverged := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/main")
+	if err := promoteRelease(releasePromotionOptions{repository: fixture.repository, expectMain: diverged, expectDev: dev}); err == nil {
+		t.Fatal("diverged main accepted")
+	}
+	if current := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/main"); current != diverged {
+		t.Fatalf("diverged main moved: %s != %s", current, diverged)
+	}
+}
+
+func TestPromoteReleaseCommandRequiresExactCoordinates(t *testing.T) {
+	fixture := forgeFixture(t)
+	if err := run([]string{"promote-release", "--repository", fixture.repository}); err == nil || !strings.Contains(err.Error(), "expect-main") {
+		t.Fatalf("missing exact coordinates=%v", err)
+	}
+}
+
+func TestPromoteReleaseRejectsDirtyRepository(t *testing.T) {
+	fixture := forgeFixture(t)
+	gitTest(t, fixture.repository, "branch", "dev", "main")
+	main := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/main")
+	if err := os.WriteFile(filepath.Join(fixture.repository, "dirty"), []byte("dirty\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := promoteRelease(releasePromotionOptions{repository: fixture.repository, expectMain: main, expectDev: main}); err == nil || !strings.Contains(err.Error(), "dirty") {
+		t.Fatalf("dirty repository=%v", err)
+	}
+}
+
+func TestPromoteReleaseIsIdempotentAtAcceptedTip(t *testing.T) {
+	fixture := forgeFixture(t)
+	gitTest(t, fixture.repository, "branch", "dev", "main")
+	tip := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/main")
+	if err := promoteRelease(releasePromotionOptions{repository: fixture.repository, expectMain: tip, expectDev: tip}); err != nil {
+		t.Fatal(err)
+	}
+	if main := gitTestOutput(t, fixture.repository, "rev-parse", "refs/heads/main"); main != tip {
+		t.Fatalf("main=%s tip=%s", main, tip)
+	}
+}
+
 func TestProjectionPreflightsMainAndDevBeforeAnyPush(t *testing.T) {
 	fixture := forgeFixture(t)
 	gitTest(t, fixture.repository, "branch", "dev", "main")
