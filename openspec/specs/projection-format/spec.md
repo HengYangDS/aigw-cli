@@ -1,7 +1,10 @@
 # projection-format Specification
 
 ## Purpose
-TBD - created by archiving change projection-format-hygiene. Update Purpose after archive.
+
+Define the canonical text layout of repository-projected specifications so
+generated and reviewed source remain byte-stable.
+
 ## Requirements
 ### Requirement: Projected specifications follow canonical text layout
 

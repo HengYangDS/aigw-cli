@@ -1,7 +1,10 @@
 # ci-diagnostics Specification
 
 ## Purpose
-TBD - created by archiving change ci-log-hygiene. Update Purpose after archive.
+
+Define quiet, deterministic hosted CI diagnostics that expose actionable
+failures without relying on runner-global state.
+
 ## Requirements
 ### Requirement: Hosted Git initialization is explicit
 
