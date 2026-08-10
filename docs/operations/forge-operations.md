@@ -32,8 +32,11 @@ ordered history with its own provider identity and signature.
 go run ./tools/forge project --help
 ```
 
-The projection is forward-only and fast-forward. It does not copy tags, force
-push, rewrite canonical refs, or use user-global URL rewrites.
+The projection is forward-only and fast-forward. Selecting `main` preflights
+both protected branches and advances `main` plus `dev` with one atomic push;
+selecting `proposal/*` advances only that explicit proposal. `candidate/dev`,
+`work/*`, and arbitrary branch names are rejected. It does not copy tags,
+force-push, rewrite canonical refs, or use user-global URL rewrites.
 
 ## Verification
 

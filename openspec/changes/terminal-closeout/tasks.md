@@ -4,6 +4,7 @@
 - [x] 1.2 Verify direct dependencies are current and reject unowned transitive pins.
 - [x] 1.3 Prove no personal path, identity, or private topology enters product source.
 - [x] 2.1 Run complete native source, architecture, repository, and coverage gates.
+- [x] 2.1a Make `main` and `dev` one fail-closed atomic Forge projection while retaining explicit `proposal/*` projection only.
 - [ ] 2.2 Execute exact-HEAD ETHOS proof, archive, and post-archive proof.
 - [ ] 3.1 Land to candidate and complete accepted closeout.
 - [ ] 3.2 Require native macOS, Linux, and Windows verification.

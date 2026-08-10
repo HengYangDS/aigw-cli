@@ -419,6 +419,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
@@ -431,6 +432,21 @@ func main() {
 		}
 	}
 	mode := os.Getenv("AIGW_TEST_GIT_MODE")
+	if log := os.Getenv("AIGW_TEST_GIT_LOG"); log != "" {
+		file, err := os.OpenFile(log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		if err != nil {
+			os.Exit(1)
+		}
+		_, _ = file.WriteString("git " + strings.Join(args, " ") + "\n")
+		_ = file.Close()
+	}
+	if mode == "fail-dev-preflight" {
+		for _, argument := range args {
+			if command == "rev-parse" && strings.Contains(argument, "dev") || command == "clone" && filepath.Base(argument) == "dev" {
+				os.Exit(1)
+			}
+		}
+	}
 	switch mode + ":" + command {
 	case "rev-parse:rev-parse", "rev-list:rev-list", "clone:clone", "for-each-ref:for-each-ref", "symbolic-ref:symbolic-ref", "cat-file:cat-file", "commit-tree:commit-tree", "verify-commit:verify-commit", "verify-tag:verify-tag", "show:show", "log:log", "status:status", "config:config", "remote:remote", "ls-remote:ls-remote", "fetch:fetch", "merge-base:merge-base", "push:push":
 		os.Exit(1)

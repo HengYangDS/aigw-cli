@@ -22,6 +22,12 @@ pins would create a second dependency authority.
 | Package and dependency topology | `tools/architecture` |
 | Repository conformance | `tools/repository` |
 
+Forge identity projection keeps one implementation and one remote transaction.
+A `main` selection prepares both protected branches in isolated object storage,
+validates both target histories, then publishes both refs with `git push
+--atomic`; `proposal/*` remains the only single-branch form. No product-owned
+rollback protocol or second publication stack is introduced.
+
 Do not revive the rejected `selfupdate`, `releasekit`, shell-wrapper, or
 candidate-carrier planes. Cross-package calls remain legal only in the declared
 one-way dependency graph; composition and repository tools do not become

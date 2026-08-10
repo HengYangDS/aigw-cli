@@ -28,6 +28,14 @@ GitLab plus GitHub each publish and verify their own signed release.
 - **THEN** terminal closeout SHALL fail until the purpose states current product
   semantics directly
 
+#### Scenario: Protected branches are projected
+
+- **WHEN** the operator selects `main` for a Forge identity projection
+- **THEN** every `main` and `dev` precondition SHALL pass before publication
+- **AND** one atomic push SHALL advance both protected branches or neither
+- **AND** only an explicit `proposal/*` selection MAY use single-branch projection
+- **AND** candidate, work, or arbitrary branches SHALL be rejected.
+
 #### Scenario: One Forge is unavailable
 
 - **WHEN** either GitLab or GitHub cannot publish or verify its release

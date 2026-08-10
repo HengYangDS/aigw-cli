@@ -38,6 +38,98 @@ func TestProjectionCreatesAndAdvancesTarget(t *testing.T) {
 	}
 }
 
+func TestProjectionAdvancesMainAndDevWithOneAtomicPush(t *testing.T) {
+	fixture := forgeFixture(t)
+	gitTest(t, fixture.repository, "branch", "dev", "main")
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	if output, err := exec.Command("git", "init", "-q", "--bare", remote).CombinedOutput(); err != nil {
+		t.Fatalf("git init bare: %v: %s", err, output)
+	}
+	gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+	log := filepath.Join(t.TempDir(), "git.log")
+	useGitWrapper(t, "record")
+	t.Setenv("AIGW_TEST_GIT_LOG", log)
+	if err := project(projectionOption(fixture, "main", "peer")); err != nil {
+		raw, _ := os.ReadFile(log)
+		t.Fatalf("%v\n%s", err, raw)
+	}
+	for _, branch := range []string{"main", "dev"} {
+		if tip := gitTestOutput(t, remote, "rev-parse", "refs/heads/"+branch); tip == "" {
+			t.Fatalf("projection did not create %s", branch)
+		}
+	}
+	raw, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pushes []string
+	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+		if strings.Contains(line, " push ") {
+			pushes = append(pushes, line)
+		}
+	}
+	if len(pushes) != 1 || !strings.Contains(pushes[0], "--atomic") || !strings.Contains(pushes[0], ":refs/heads/main") || !strings.Contains(pushes[0], ":refs/heads/dev") {
+		t.Fatalf("expected one atomic main/dev push, got %q", pushes)
+	}
+}
+
+func TestProjectionPreflightsMainAndDevBeforeAnyPush(t *testing.T) {
+	fixture := forgeFixture(t)
+	gitTest(t, fixture.repository, "branch", "dev", "main")
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	if output, err := exec.Command("git", "init", "-q", "--bare", remote).CombinedOutput(); err != nil {
+		t.Fatalf("git init bare: %v: %s", err, output)
+	}
+	gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+	log := filepath.Join(t.TempDir(), "git.log")
+	useGitWrapper(t, "fail-dev-preflight")
+	t.Setenv("AIGW_TEST_GIT_LOG", log)
+	if err := project(projectionOption(fixture, "main", "peer")); err == nil {
+		t.Fatal("dev preflight failure accepted")
+	}
+	if raw, err := os.ReadFile(log); err == nil {
+		for _, line := range strings.Split(string(raw), "\n") {
+			if strings.Contains(line, " push ") {
+				t.Fatalf("push occurred before all branch preconditions passed: %s", raw)
+			}
+		}
+	}
+	for _, branch := range []string{"main", "dev"} {
+		command := exec.Command("git", "-C", remote, "show-ref", "--verify", "refs/heads/"+branch)
+		if output, err := command.CombinedOutput(); err == nil {
+			t.Fatalf("%s moved despite failed transaction preflight: %s", branch, output)
+		}
+	}
+}
+
+func TestProjectionBranchPolicy(t *testing.T) {
+	fixture := forgeFixture(t)
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	if output, err := exec.Command("git", "init", "-q", "--bare", remote).CombinedOutput(); err != nil {
+		t.Fatalf("git init bare: %v: %s", err, output)
+	}
+	gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+	for _, branch := range []string{"work/change", "candidate/dev", "feature/freeform"} {
+		t.Run(strings.ReplaceAll(branch, "/", "_"), func(t *testing.T) {
+			gitTest(t, fixture.repository, "branch", branch, "main")
+			option := projectionOption(fixture, branch, "peer")
+			if err := project(option); err == nil || !strings.Contains(err.Error(), "main or proposal") {
+				t.Fatalf("branch %s: %v", branch, err)
+			}
+		})
+	}
+}
+
+func projectionOption(fixture forgeTestFixture, branch, remote string) projectionOptions {
+	return projectionOptions{
+		repository: fixture.repository, branch: branch, remote: remote,
+		sourceProvider: "gitlab", targetProvider: "github", sourceEmail: fixture.email,
+		actorName: "Peer Actor", actorEmail: fixture.email,
+		signingKey: fixture.key, signingProgram: "ssh-keygen",
+		sourceSigners: fixture.allowedSigners, targetSigners: fixture.allowedSigners,
+	}
+}
+
 func TestProjectionCreatesNonDefaultTargetBranch(t *testing.T) {
 	fixture := forgeFixture(t)
 	remote := filepath.Join(t.TempDir(), "remote.git")

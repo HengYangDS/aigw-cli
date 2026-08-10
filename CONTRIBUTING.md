@@ -65,10 +65,13 @@ not change external paths as a display-name cleanup.
 GitLab and GitHub are equivalent, independent Forge planes. Each plane receives
 its publication actor and trust material from protected execution context; the
 product does not select a maintainer, email, key, or account. Do not copy or
-overwrite signed tags between providers. From a clean owned canonical checkout, run
-`go run ./tools/forge project` with explicit protected identity and trust inputs to project a branch into the GitHub identity
-domain. It maps the existing GitHub tip to an equal canonical tree, appends each
-later source commit with the GitHub identity and trusted signature, and uses an
+overwrite signed tags between providers. From a clean owned canonical checkout,
+run
+`go run ./tools/forge project` with explicit protected identity and trust inputs.
+Selecting `main` preflights and atomically advances both `main` and `dev`;
+selecting `proposal/*` advances only that explicit proposal. Candidate, work,
+and arbitrary branches are rejected. The command maps the existing GitHub tip
+to an equal canonical tree and appends each later source commit with the GitHub identity and trusted signature, and uses an
 ordinary fast-forward push. It never rewrites history or pushes a tag. Do not
 force-push, create snapshot commits, or delete remote refs to manufacture
 convergence.
