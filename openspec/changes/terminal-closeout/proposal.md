@@ -11,16 +11,16 @@ product scope.
 - Replace placeholder specification purposes with concise authority statements.
 - Verify every direct Go dependency is current, and leave transitive selection
   with the resolver instead of pinning modules the main build does not need.
-- Re-run exact native and hosted verification, then publish independently to
-  GitLab and GitHub.
-- Install and verify the released product before governed lane retirement.
+- Produce one complete local release candidate and the exact commands needed
+  for native hosted verification and independent Forge publication.
 
 ## Capabilities
 
 ### Modified Capabilities
 
-- `product-control-plane`: make terminal quality, publication, runtime, and
-  repository-lifecycle closure explicit and reproducible.
+- `product-control-plane`: make terminal local release readiness explicit and
+  reproducible without pretending that later external effects are Change
+  inputs.
 
 ## Impact
 
@@ -31,4 +31,5 @@ product scope.
 - **Reuse:** the Go resolver and existing repository-native tools own dependency
   and release mechanics.
 - **Non-goals:** no Proxy, Workstation, JetBrains, Codex history, or session
-  ownership enters AIGW.
+  ownership enters AIGW. Landing, hosted CI, Forge publication, released-asset
+  installation, and lane retirement are post-Change lifecycle effects.
