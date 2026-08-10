@@ -10,6 +10,7 @@ import (
 
 func TestProjectionCreatesAndAdvancesTarget(t *testing.T) {
 	fixture := forgeFixture(t)
+	gitTest(t, fixture.repository, "branch", "dev", "main")
 	remote := filepath.Join(t.TempDir(), "remote.git")
 	if output, err := exec.Command("git", "init", "-q", "--bare", remote).CombinedOutput(); err != nil {
 		t.Fatalf("git init bare: %v: %s", err, output)
@@ -161,6 +162,7 @@ func TestProjectionCreatesNonDefaultTargetBranch(t *testing.T) {
 
 func TestProjectionCommandAndProviderBoundary(t *testing.T) {
 	fixture := forgeFixture(t)
+	gitTest(t, fixture.repository, "branch", "dev", "main")
 	remote := filepath.Join(t.TempDir(), "remote.git")
 	if output, err := exec.Command("git", "init", "-q", "--bare", remote).CombinedOutput(); err != nil {
 		t.Fatalf("git init bare: %v: %s", err, output)
