@@ -1,0 +1,32 @@
+schema_version = 1
+id = "change:terminal-closeout"
+intent = "Close remaining product-quality, publication, runtime, and repository-lifecycle gaps without preserving superseded semantics."
+subjects = [
+    "repository:self",
+]
+scope = [
+    "openspec/changes/terminal-closeout/**",
+    "openspec/specs/**",
+    "CHANGELOG.md",
+    "README.md",
+    "CONTRIBUTING.md",
+    "docs/**",
+    ".config/**",
+    ".ethos/**",
+    ".github/**",
+    ".gitlab-ci.yml",
+    "go.mod",
+    "go.sum",
+    "internal/**",
+    "tools/**",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+permissions = [
+    "repository.read",
+    "work-lane.write",
+]
+hypotheses = []
+dependencies = []
