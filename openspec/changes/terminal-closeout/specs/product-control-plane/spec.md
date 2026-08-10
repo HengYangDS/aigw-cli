@@ -1,13 +1,15 @@
 ## MODIFIED Requirements
 
-### Requirement: Terminal repository closure
+### Requirement: Terminal local release readiness
 
-AIGW SHALL admit a release only when canonical specifications contain no
-placeholder authority, every direct repository dependency is current and
-stable, transitive selection remains owned by those direct dependencies, every
-package and aggregate statement coverage remain strictly greater
-than 95 percent, native macOS, Linux, and Windows source verification pass, and
-GitLab plus GitHub each publish and verify their own signed release.
+AIGW SHALL admit a local release candidate only when canonical specifications
+contain no placeholder authority, every direct repository dependency is current
+and stable, transitive selection remains owned by those direct dependencies,
+every package and aggregate statement coverage remain strictly greater than 95
+percent, the native source gate passes, and the complete release matrix is
+reproducible and installable. Hosted CI, Forge publication, released-asset
+installation, and lane retirement SHALL consume the archived result rather than
+become prerequisites of the Change that produces it.
 
 #### Scenario: A stable direct dependency update is available
 
@@ -36,16 +38,11 @@ GitLab plus GitHub each publish and verify their own signed release.
 - **AND** only an explicit `proposal/*` selection MAY use single-branch projection
 - **AND** candidate, work, or arbitrary branches SHALL be rejected.
 
-#### Scenario: One Forge is unavailable
+#### Scenario: External delivery follows local readiness
 
-- **WHEN** either GitLab or GitHub cannot publish or verify its release
-- **THEN** the other Forge MAY remain independently usable
-- **AND** the product SHALL NOT claim dual-Forge closure
-
-#### Scenario: Accepted product delivery completes
-
-- **WHEN** both Forge releases and installed runtime behavior are verified
-- **THEN** absorbed Work Lanes SHALL be retired through the adopted ETHOS public
-  command
-- **AND** no work, candidate, compatibility, or historical implementation plane
-  SHALL remain as a product surface
+- **WHEN** the Change has passed exact-HEAD proof and has been archived and landed
+- **THEN** native macOS, Linux, and Windows hosted verification MAY consume that
+  exact accepted result
+- **AND** GitLab and GitHub MAY publish it independently after their own gates
+- **AND** released-asset installation and governed lane retirement occur only
+  after the corresponding external evidence exists.

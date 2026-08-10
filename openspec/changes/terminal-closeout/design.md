@@ -1,9 +1,10 @@
 ## Context
 
 AIGW is already a portable Codex and Claude Code configuration control plane.
-The remaining work is closure: remove placeholder truth, refresh the stable
-locked graph, prove all supported platforms, publish two independent histories,
-and retire absorbed lanes through the adopted ETHOS command.
+This Change owns the finite repository transformation that makes one local
+release candidate ready. Landing, hosted CI, publication, installation, and
+retirement consume that archived result; making them prerequisites of the
+Change would create a lifecycle cycle.
 
 ## Decision
 
@@ -37,8 +38,11 @@ alternate domain owners.
 
 1. Audit direct stable Go updates and inspect every reported transitive delta.
 2. Run the complete native source gate and architecture/conformance checks.
-3. Execute exact-HEAD ETHOS proof and archive the Change.
-4. Land, then require native macOS, Linux, and Windows hosted evidence.
-5. Publish and verify GitLab and GitHub independently.
-6. Install the accepted artifact, verify Codex and Claude Code projections, and
-   retire every absorbed lane using public ETHOS commands.
+3. Build the complete local candidate and verify its reproducibility and
+   installation contract.
+4. Execute exact-HEAD ETHOS proof and archive the Change.
+5. Land the archived result, then require native macOS, Linux, and Windows
+   hosted evidence before either Forge release.
+6. Publish and verify each Forge independently, install a released artifact,
+   verify Codex and Claude Code projections, and retire absorbed lanes through
+   public ETHOS commands.
