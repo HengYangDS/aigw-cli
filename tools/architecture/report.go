@@ -29,6 +29,8 @@ type DirectoryStats struct {
 	ProductionELOC       int      `json:"production_eloc"`
 	ProductionComplexity int      `json:"production_complexity"`
 	TestCount            int      `json:"test_count"`
+	TestELOC             int      `json:"test_eloc"`
+	TestComplexity       int      `json:"test_complexity"`
 	ProductionFiles      []string `json:"production_files,omitempty"`
 	TestFiles            []string `json:"test_files,omitempty"`
 }

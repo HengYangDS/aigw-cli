@@ -27,6 +27,8 @@ type policy struct {
 	MaxDirectoryELOC          int                 `toml:"max_directory_eloc"`
 	MaxFileComplexity         int                 `toml:"max_file_complexity"`
 	MaxDirectoryComplexity    int                 `toml:"max_directory_complexity"`
+	MaxTestFileELOC           int                 `toml:"max_test_file_eloc"`
+	MaxTestFileComplexity     int                 `toml:"max_test_file_complexity"`
 	SuffixFlatGroupMin        int                 `toml:"suffix_flat_group_min"`
 	PlatformBuildSuffixes     []string            `toml:"platform_build_suffixes"`
 	IgnoreRoots               []string            `toml:"ignore_roots"`
@@ -39,6 +41,7 @@ type policy struct {
 	CheckSemanticNames        bool                `toml:"check_semantic_names"`
 	CheckModuleIdentity       bool                `toml:"check_module_identity"`
 	CheckPortability          bool                `toml:"check_portability"`
+	RequireImportOwners       bool                `toml:"require_import_owners"`
 }
 
 func loadPolicy(path string) (policy, error) {
@@ -132,6 +135,9 @@ func validatePolicy(p policy) error {
 	}
 	if p.MaxFileComplexity < 1 || p.MaxDirectoryComplexity < p.MaxFileComplexity {
 		return fmt.Errorf("complexity limits must be positive and directory limit must be >= file limit")
+	}
+	if p.MaxTestFileELOC < 1 || p.MaxTestFileComplexity < 1 {
+		return fmt.Errorf("test source limits must be positive")
 	}
 	if p.SuffixFlatGroupMin < 2 {
 		return fmt.Errorf("suffix_flat_group_min must be >= 2")

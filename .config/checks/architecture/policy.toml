@@ -33,12 +33,52 @@ peer_package_roots = { "internal/cli" = ["invocation"] }
 # Repository tools are independent composition roots. They may use the standard
 # library and declared third-party libraries, but never product runtime packages.
 allowed_import_edges = {
-  "tools/architecture" = [],
-  "tools/ci" = [],
-  "tools/coverage" = [],
-  "tools/forge" = [],
-  "tools/release" = [],
+  "cmd/aigw" = ["internal/cli", "internal/presentation"],
+  "internal/transaction" = [],
+  "internal/credential" = ["internal/configuration"],
+  "internal/configuration" = ["internal/transaction"],
+  "internal/upgrade" = [],
+  "internal/renaming" = ["internal/account", "internal/configuration", "internal/presentation", "internal/prompt", "internal/providers", "internal/secrets", "internal/synchronization"],
+  "internal/synchronization" = ["internal/claude", "internal/codex", "internal/configuration", "internal/discovery", "internal/process", "internal/secrets", "internal/surface"],
+  "internal/secrets" = ["internal/configuration"],
+  "internal/claude" = ["internal/configuration", "internal/process", "internal/transaction"],
+  "internal/providers" = ["internal/account", "internal/configuration", "internal/providers/dmxapi"],
+  "internal/providers/dmxapi" = ["internal/account", "internal/configuration", "internal/redaction"],
+  "internal/platform" = [],
+  "internal/codex" = ["internal/configuration", "internal/process", "internal/surface", "internal/transaction"],
+  "internal/discovery" = ["internal/configuration", "internal/surface"],
+  "internal/surface" = [],
+  "internal/cli" = ["internal/account", "internal/cli/account", "internal/cli/adapter", "internal/cli/catalog", "internal/cli/credential", "internal/cli/doctor", "internal/cli/install", "internal/cli/invocation", "internal/cli/manifest", "internal/cli/onboarding", "internal/cli/profile", "internal/cli/readiness", "internal/cli/recovery", "internal/cli/route", "internal/cli/update", "internal/cli/verification", "internal/configuration", "internal/console", "internal/discovery", "internal/platform", "internal/presentation", "internal/process", "internal/prompt", "internal/renaming", "internal/secrets", "internal/synchronization", "internal/upgrade"],
+  "internal/cli/invocation" = ["internal/account", "internal/configuration", "internal/discovery", "internal/presentation", "internal/process", "internal/prompt", "internal/secrets", "internal/synchronization", "internal/upgrade"],
+  "internal/cli/credential" = ["internal/cli/invocation", "internal/configuration"],
+  "internal/cli/install" = ["internal/cli/invocation", "internal/transaction"],
+  "internal/cli/route" = ["internal/cli/invocation", "internal/configuration", "internal/credential", "internal/presentation", "internal/prompt"],
+  "internal/cli/update" = ["internal/cli/invocation", "internal/upgrade"],
+  "internal/cli/recovery" = ["internal/cli/invocation", "internal/codex", "internal/configuration", "internal/discovery", "internal/presentation", "internal/surface", "internal/synchronization"],
+  "internal/cli/catalog" = ["internal/configuration", "internal/presentation", "internal/secrets"],
+  "internal/cli/manifest" = ["internal/cli/invocation", "internal/configuration", "internal/presentation"],
+  "internal/cli/doctor" = ["internal/claude", "internal/codex", "internal/configuration", "internal/presentation", "internal/secrets"],
+  "internal/cli/adapter" = ["internal/cli/invocation", "internal/configuration", "internal/discovery", "internal/presentation", "internal/surface"],
+  "internal/cli/verification" = ["internal/cli/invocation", "internal/configuration", "internal/presentation", "internal/verification"],
+  "internal/cli/profile" = ["internal/cli/invocation", "internal/configuration", "internal/presentation", "internal/synchronization"],
+  "internal/cli/readiness" = ["internal/claude", "internal/cli/invocation", "internal/codex", "internal/configuration", "internal/diagnostics", "internal/presentation", "internal/providers"],
+  "internal/cli/account" = ["internal/account", "internal/cli/invocation", "internal/configuration", "internal/credential", "internal/presentation", "internal/providers", "internal/secrets", "internal/synchronization"],
+  "internal/cli/onboarding" = ["internal/cli/invocation", "internal/configuration", "internal/credential", "internal/presentation", "internal/prompt", "internal/secrets", "internal/verification"],
+  "internal/verification" = ["internal/claude", "internal/codex", "internal/configuration", "internal/process"],
+  "internal/prompt" = [],
+  "internal/redaction" = [],
+  "internal/diagnostics" = ["internal/configuration", "internal/redaction"],
+  "internal/winjob" = [],
+  "internal/account" = ["internal/configuration"],
+  "internal/presentation" = ["internal/configuration"],
+  "internal/process" = ["internal/winjob"],
+  "internal/console" = [],
   "tools/repository" = [],
+  "tools/ci" = [],
+  "tools/release" = [],
+  "tools/architecture" = [],
+  "tools/forge" = [],
+  "tools/coverage" = [],
 }
 
 # Production .go files per directory (test files reported separately).
@@ -50,6 +90,8 @@ max_file_eloc = 600
 max_directory_eloc = 3000
 max_file_complexity = 180
 max_directory_complexity = 900
+max_test_file_eloc = 800
+max_test_file_complexity = 200
 
 # Same prefix foo_*.go group size that fails (after platform-variant collapse).
 suffix_flat_group_min = 3
@@ -73,3 +115,4 @@ check_decision_records = true
 check_semantic_names = true
 check_module_identity = true
 check_portability = true
+require_import_owners = true
