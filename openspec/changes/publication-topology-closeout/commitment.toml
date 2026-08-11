@@ -1,0 +1,23 @@
+schema_version = 1
+id = "change:publication-topology-closeout"
+intent = "Declare one local-first publication topology with independent GitLab and GitHub peers, using repository-owned verification and installation commands."
+subjects = ["repository:self"]
+scope = [
+  ".ethos/release.toml",
+  "openspec/changes/publication-topology-closeout/**",
+  "openspec/changes/archive/**",
+]
+invariants = [
+  "local_verification_does_not_depend_on_a_forge",
+  "gitlab_and_github_publication_are_independent",
+  "candidate_and_work_branches_remain_local_only",
+]
+acceptance = [
+  "publication_topology_is_valid",
+  "local_verification_and_installation_commands_are_repository_owned",
+]
+risks = []
+authority_refs = ["user_instruction", "AGENTS.md", ".ethos/profile.toml"]
+permissions = ["repository.read", "work-lane.write", "git.ref.compare-and-swap"]
+hypotheses = []
+dependencies = []
