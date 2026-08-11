@@ -64,6 +64,7 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 		return Report{}, err
 	}
 	report.DirectoryStats = dirStats
+	checkImportOwners(goFiles, p, &report)
 	checkCompositionRoots(goFiles, p, &report)
 	if err := checkPeerPackageImports(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
@@ -78,6 +79,28 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 		return Report{}, err
 	}
 	return report, nil
+}
+
+func checkImportOwners(files []goFileInfo, p policy, report *Report) {
+	if !p.RequireImportOwners {
+		return
+	}
+	managed := make(map[string]bool, len(p.AllowedImportEdges))
+	for owner := range p.AllowedImportEdges {
+		managed[owner] = true
+	}
+	seen := map[string]bool{}
+	for _, file := range files {
+		if file.isTest || seen[file.dir] || managed[file.dir] {
+			continue
+		}
+		seen[file.dir] = true
+		report.addFinding(Finding{
+			Rule:    "unmanaged_import_owner",
+			Path:    file.dir,
+			Message: "production package is missing from allowed_import_edges",
+		})
+	}
 }
 
 func checkPackageChildren(root string, p policy, report *Report) error {
@@ -295,15 +318,15 @@ func collectGoFiles(root string, p policy) ([]goFileInfo, []DirectoryStats, erro
 				dir:     dirRel,
 				isTest:  isTest,
 			}
-			if !isTest {
-				info.eloc, info.complexity, err = sourceMetrics(path)
-				if err != nil {
-					return fmt.Errorf("measure %s: %w", relPOSIX, err)
-				}
+			info.eloc, info.complexity, err = sourceMetrics(path)
+			if err != nil {
+				return fmt.Errorf("measure %s: %w", relPOSIX, err)
 			}
 			files = append(files, info)
 			if isTest {
 				stat.TestCount++
+				stat.TestELOC += info.eloc
+				stat.TestComplexity += info.complexity
 				stat.TestFiles = append(stat.TestFiles, name)
 			} else {
 				stat.ProductionCount++
@@ -375,25 +398,28 @@ func sourceMetrics(path string) (int, int, error) {
 
 func checkSourceBudgets(files []goFileInfo, stats []DirectoryStats, p policy, report *Report) {
 	for _, file := range files {
+		elocLimit := p.MaxFileELOC
+		complexityLimit := p.MaxFileComplexity
 		if file.isTest {
-			continue
+			elocLimit = p.MaxTestFileELOC
+			complexityLimit = p.MaxTestFileComplexity
 		}
-		if file.eloc > p.MaxFileELOC {
+		if file.eloc > elocLimit {
 			report.addFinding(Finding{
 				Rule:    "file_eloc",
 				Path:    file.relPath,
 				Count:   file.eloc,
-				Limit:   p.MaxFileELOC,
-				Message: fmt.Sprintf("file has %d effective lines; limit is %d", file.eloc, p.MaxFileELOC),
+				Limit:   elocLimit,
+				Message: fmt.Sprintf("file has %d effective lines; limit is %d", file.eloc, elocLimit),
 			})
 		}
-		if file.complexity > p.MaxFileComplexity {
+		if file.complexity > complexityLimit {
 			report.addFinding(Finding{
 				Rule:    "file_complexity",
 				Path:    file.relPath,
 				Count:   file.complexity,
-				Limit:   p.MaxFileComplexity,
-				Message: fmt.Sprintf("file decision complexity is %d; limit is %d", file.complexity, p.MaxFileComplexity),
+				Limit:   complexityLimit,
+				Message: fmt.Sprintf("file decision complexity is %d; limit is %d", file.complexity, complexityLimit),
 			})
 		}
 	}

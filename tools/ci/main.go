@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"time"
 )
 
@@ -43,6 +44,17 @@ var sourceCommands = []command{
 	{Name: "go", Args: []string{"test", "./tools/forge"}},
 }
 
+func configuredStaticCommands() []command {
+	commands := make([]command, 0, len(sourceCommands)-1)
+	for _, call := range sourceCommands {
+		if call.Name == "go" && slices.Equal(call.Args, []string{"run", "./tools/coverage", "--race"}) {
+			continue
+		}
+		commands = append(commands, call)
+	}
+	return commands
+}
+
 func main() {
 	if err := run(os.Args[1:], os.Stdout, systemRunner); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
@@ -52,9 +64,14 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <source|native|trust-input|fetch-tags|toolchain|proxy-policy|github-verify|github-release|pipeline>")
+		return errors.New("usage: ci <source|static|native|trust-input|fetch-tags|toolchain|proxy-policy|github-verify|github-release|pipeline>")
 	}
 	switch args[0] {
+	case "static":
+		if len(args) != 1 {
+			return errors.New("usage: ci static")
+		}
+		return runCommands(configuredStaticCommands(), stdout, runner)
 	case "source":
 		if len(args) != 1 {
 			return errors.New("usage: ci source")
