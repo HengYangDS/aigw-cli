@@ -32,3 +32,11 @@ name, email, key, fingerprint, host path, or Forge credential.
 
 - **WHEN** a commit enters protected history
 - **THEN** its message and signature satisfy policy using external trust input.
+
+## Requirement To Task To Proof
+
+| Requirement | Task | Proof |
+| --- | --- | --- |
+| `product-quality:one complete quality graph` | `1.1` | `mise exec --locked -- go run ./tools/ci source` |
+| `product-quality:portable repository text` | `1.2` | `mise exec --locked -- go run ./tools/repository --root . governance` |
+| `product-quality:actor-independent contribution policy` | `1.3` | `ethos prove --execute --expect-head HEAD --json` |
