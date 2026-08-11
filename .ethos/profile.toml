@@ -1,39 +1,12 @@
 profile_id = "aigw-cli"
 
 [openspec]
-material_paths = [
-  ".config/**",
-  ".ethos/**",
-  ".github/**",
-  ".gitlab-ci.yml",
-  ".gitattributes",
-  ".editorconfig",
-  "AGENTS.md",
-  "CHANGELOG.md",
-  "CONTRIBUTING.md",
-  "README.md",
-  "cmd/**",
-  "docs/**",
-  "go.mod",
-  "go.sum",
-  "manifests/**",
-  "mise.lock",
-  "mise.toml",
-  "internal/**",
-  "openspec/**",
-  "packaging/**",
-  "scripts/**",
-  "tools/**",
-]
+material_paths = ["**"]
 
 [proof]
 code_correctness_gates = [
   "go-behavior",
   "go-static-analysis",
-  "go-vet",
-  "staticcheck",
-  "errcheck",
-  "go-format",
 ]
 
 [proof.code_correctness_map]
@@ -52,44 +25,8 @@ network_policy = "offline"
 [[proof.gates]]
 id = "go-static-analysis"
 kind = "static"
-command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/architecture", "--root", "."]
-dimensions = ["static-analysis", "architecture"]
-evidence_class = "proof"
-trust_bearing = true
-network_policy = "offline"
-
-[[proof.gates]]
-id = "go-format"
-kind = "static"
-command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/repository", "--root", ".", "go-format"]
-dimensions = ["format"]
-evidence_class = "proof"
-trust_bearing = true
-network_policy = "offline"
-
-[[proof.gates]]
-id = "go-vet"
-kind = "static"
-command = ["mise", "exec", "--locked", "--", "go", "vet", "./..."]
-dimensions = ["static-analysis", "vet"]
-evidence_class = "proof"
-trust_bearing = true
-network_policy = "offline"
-
-[[proof.gates]]
-id = "staticcheck"
-kind = "static"
-command = ["mise", "exec", "--locked", "--", "go", "tool", "staticcheck", "-checks=all,-ST1000,-ST1005", "./..."]
-dimensions = ["static-analysis", "lint"]
-evidence_class = "proof"
-trust_bearing = true
-network_policy = "offline"
-
-[[proof.gates]]
-id = "errcheck"
-kind = "static"
-command = ["mise", "exec", "--locked", "--", "go", "tool", "errcheck", "./..."]
-dimensions = ["static-analysis", "error-handling"]
+command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/ci", "static"]
+dimensions = ["static-analysis", "architecture", "format", "governance", "release"]
 evidence_class = "proof"
 trust_bearing = true
 network_policy = "offline"

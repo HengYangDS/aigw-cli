@@ -45,10 +45,6 @@ or a local proxy deployment to make a configuration test pass.
   operator, own their transport and lifecycle. AIGW treats them as ordinary
   Account endpoints and must not install, start, stop, reload, or configure
   them.
-- The governed deployment accepted for this closeout selects Codex Responses
-  Proxy endpoints for Codex traffic to UCloud, DMXAPI, and AIHubMix. This
-  deployment fact does not give AIGW Proxy lifecycle ownership or permit a
-  fixed product name, path, port, or process assumption in source.
 
 ## Analyzer isolation
 

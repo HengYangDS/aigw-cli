@@ -51,6 +51,25 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	}
 }
 
+func TestStaticRunsTheNonBehaviorGateSequence(t *testing.T) {
+	var got [][]string
+	runner := func(call command) error {
+		got = append(got, append([]string{call.Name}, call.Args...))
+		return nil
+	}
+	if err := run([]string{"static"}, &bytes.Buffer{}, runner); err != nil {
+		t.Fatal(err)
+	}
+	if slices.ContainsFunc(got, func(call []string) bool {
+		return slices.Equal(call, []string{"go", "run", "./tools/coverage", "--race"})
+	}) {
+		t.Fatalf("static gate duplicated behavior coverage: %#v", got)
+	}
+	if len(got) == 0 {
+		t.Fatal("static gate ran no checks")
+	}
+}
+
 func TestSourceStopsAtTheFirstFailedGate(t *testing.T) {
 	want := errors.New("failed")
 	calls := 0
