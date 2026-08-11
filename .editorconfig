@@ -13,3 +13,9 @@ indent_size = tab
 [*.{md,py,sh,yml,yaml,toml,ini,ps1,wxs}]
 indent_style = space
 indent_size = 2
+
+[*.{mod,sum,lock,env}]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true

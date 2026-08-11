@@ -4,6 +4,7 @@ intent = "Close the remaining product architecture, quality, portability, docume
 subjects = ["repository:self"]
 scope = [
   ".config/**",
+  ".editorconfig",
   ".ethos/**",
   ".github/**",
   ".gitattributes",
