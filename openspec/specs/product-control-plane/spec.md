@@ -389,23 +389,25 @@ path, or an undocumented environment variable.
 
 ### Requirement: Local-first independent publication topology
 
-AIGW SHALL declare one executable local verification command, one executable
-local installation command, and separate GitLab and GitHub remotes and CI
-surfaces. Publication admission MUST reject an incomplete declaration and MUST
-NOT require either Forge to operate the other. The specification carrying this
-contract SHALL use the canonical text form enforced by repository policy.
+AIGW SHALL declare one repository-owned local verification command, one
+repository-owned local installation command, and independent GitLab and GitHub
+publication peers. Each peer SHALL own its remote and CI surface. Publication
+admission MUST reject an incomplete declaration and MUST NOT make either Forge
+depend on the other.
 
 #### Scenario: One Forge is unavailable
 
 - **WHEN** local verification and one declared Forge remain available
-- **THEN** local acceptance and that Forge's publication path SHALL remain
-  independently inspectable without mutating or querying the unavailable Forge
+- **THEN** local acceptance and the available Forge publication path remain
+  independently operable without querying or mutating the unavailable Forge
 
 #### Scenario: The canonical specification is verified
 
-- **WHEN** the repository architecture gate reads the product-control-plane spec
+- **WHEN** the repository architecture gate reads the product-control-plane
+  specification
 - **THEN** it SHALL find exactly one terminal newline
-- **AND** the local-first independent publication requirement SHALL remain unchanged
+- **AND** the local-first independent publication requirement SHALL remain
+  unchanged
 
 ### Requirement: Latest stable repository-owned supply chain
 
