@@ -1,0 +1,6 @@
+- [x] 1.1 Add the tracked version carrier and make CLI/release/changelog checks consume it.
+- [x] 2.1 Add failing tests for version disagreement and missing carrier, then implement the smallest fix.
+- [ ] 3.1 Align editor/text/quality documentation and remove superseded version inference.
+- [ ] 4.1 Run local source gates, exact-head proof, and inspect hosted CI independently.
+- [ ] 5.1 Close `dev` into `main` through ETHOS, publish each Forge independently, and verify assets.
+- [ ] 6.1 Retire absorbed lanes/worktrees only after owner-bound evidence proves no unique value remains.
