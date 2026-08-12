@@ -82,15 +82,12 @@ func VerifyCodexResponse(ctx context.Context, client HTTPDoer, clientRuntime con
 	if clientRuntime.Model == "" {
 		return fmt.Errorf("Profile %q has no Codex model", clientRuntime.ProfileID)
 	}
-	body, err := json.Marshal(map[string]any{
+	body, _ := json.Marshal(map[string]any{
 		"model":             clientRuntime.Model,
 		"input":             "Reply with exactly: AIGW_OK",
 		"max_output_tokens": 16,
 		"store":             false,
 	})
-	if err != nil {
-		return fmt.Errorf("Failed to encode Codex verification request: %w", err)
-	}
 	requestURL := strings.TrimRight(clientRuntime.Endpoint, "/")
 	if !strings.HasSuffix(requestURL, "/responses") {
 		requestURL += "/responses"

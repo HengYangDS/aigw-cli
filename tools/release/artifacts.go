@@ -30,10 +30,15 @@ func validateArtifactMatrix(directory, version string) error {
 }
 
 func validatePortableArtifactMatrix(directory, version string) error {
+	_, err := verifiedArtifactDigests(directory, version)
+	return err
+}
+
+func verifiedArtifactDigests(directory, version string) (map[string]string, error) {
 	wanted := portableArtifactNames(version)
 	entries, err := os.ReadDir(directory)
 	if err != nil {
-		return fmt.Errorf("release artifact matrix: %w", err)
+		return nil, fmt.Errorf("release artifact matrix: %w", err)
 	}
 	actual := make([]string, 0, len(entries))
 	for _, entry := range entries {
@@ -47,61 +52,55 @@ func validatePortableArtifactMatrix(directory, version string) error {
 	for _, name := range wanted {
 		information, statErr := os.Stat(filepath.Join(directory, name))
 		if statErr != nil || information.Size() == 0 {
-			return fmt.Errorf("release artifact matrix: missing or empty artifact: %s", name)
+			return nil, fmt.Errorf("release artifact matrix: missing or empty artifact: %s", name)
 		}
 	}
 	if !slices.Equal(actual, expected) {
-		return fmt.Errorf("release artifact matrix: unexpected or missing files: %v", actual)
+		return nil, fmt.Errorf("release artifact matrix: unexpected or missing files: %v", actual)
 	}
 	manifest, err := os.ReadFile(filepath.Join(directory, "checksums.txt"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	digests := map[string]string{}
 	for line := range strings.Lines(string(manifest)) {
 		fields := strings.Fields(line)
 		if len(fields) != 2 || len(fields[0]) != 64 {
-			return errors.New("release artifact matrix: invalid checksum manifest format")
+			return nil, errors.New("release artifact matrix: invalid checksum manifest format")
 		}
 		name := strings.TrimPrefix(fields[1], "./")
 		if _, duplicate := digests[name]; duplicate {
-			return fmt.Errorf("release artifact matrix: duplicate checksum entry: %s", name)
+			return nil, fmt.Errorf("release artifact matrix: duplicate checksum entry: %s", name)
 		}
 		digests[name] = strings.ToLower(fields[0])
 	}
 	for _, name := range wanted[:len(wanted)-1] {
 		data, readErr := os.ReadFile(filepath.Join(directory, name))
 		if readErr != nil {
-			return readErr
+			return nil, readErr
 		}
 		actualDigest := fmt.Sprintf("%x", sha256.Sum256(data))
 		if digests[name] != actualDigest {
-			return fmt.Errorf("release artifact matrix: checksum mismatch for %s", name)
+			return nil, fmt.Errorf("release artifact matrix: checksum mismatch for %s", name)
 		}
 	}
 	if len(digests) != len(wanted)-1 {
-		return errors.New("release artifact matrix: checksum manifest has unexpected entries")
+		return nil, errors.New("release artifact matrix: checksum manifest has unexpected entries")
 	}
-	return nil
+	return digests, nil
 }
 
 func compareArtifactMatrices(left, right, version string) error {
-	if err := validateArtifactMatrix(left, version); err != nil {
+	leftDigests, err := verifiedArtifactDigests(left, version)
+	if err != nil {
 		return err
 	}
-	if err := validateArtifactMatrix(right, version); err != nil {
+	rightDigests, err := verifiedArtifactDigests(right, version)
+	if err != nil {
 		return err
 	}
-	for _, name := range artifactNames(version) {
-		leftData, err := os.ReadFile(filepath.Join(left, name))
-		if err != nil {
-			return err
-		}
-		rightData, err := os.ReadFile(filepath.Join(right, name))
-		if err != nil {
-			return err
-		}
-		if !slices.Equal(leftData, rightData) {
+	for _, name := range artifactNames(version)[:len(artifactNames(version))-1] {
+		if leftDigests[name] != rightDigests[name] {
 			return fmt.Errorf("release artifact differs across forge stages: %s", name)
 		}
 	}

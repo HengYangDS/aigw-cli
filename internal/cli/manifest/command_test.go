@@ -273,6 +273,22 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 	}
 }
 
+func TestImportReturnsConfigurationTransactionFailure(t *testing.T) {
+	runtime, path := savedRuntime(t, localConfig())
+	backup := path + ".bak"
+	if err := os.Mkdir(backup, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backup, "blocker"), []byte("occupied"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	command := newImportCommand(runtime)
+	command.SetArgs([]string{writeManifest(t, importManifest)})
+	if err := executeManifestCommand(command); err == nil {
+		t.Fatal("configuration transaction failure was accepted")
+	}
+}
+
 func savedRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")

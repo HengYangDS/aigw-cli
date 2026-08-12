@@ -60,6 +60,11 @@ func TestCodexSchedulerHelpersCoverTableBoundariesAndHashing(t *testing.T) {
 	if _, _, present := codexTableBounds(text, "missing"); present {
 		t.Fatal("missing table reported present")
 	}
+	withoutTrailingNewline := "[agents]\nmax_depth = 4\n[next]"
+	_, end, present = codexTableBounds(withoutTrailingNewline, "agents")
+	if !present || withoutTrailingNewline[end:] != "[next]" {
+		t.Fatalf("table without trailing newline ends at %d: %q", end, withoutTrailingNewline[end:])
+	}
 	if value, present, err := codexIntegerKey(text, "agents", "max_depth"); err != nil || !present || value != 4 {
 		t.Fatalf("integer key = %d, %v, %v", value, present, err)
 	}
@@ -68,12 +73,15 @@ func TestCodexSchedulerHelpersCoverTableBoundariesAndHashing(t *testing.T) {
 	}
 
 	oneLine := "[agents]"
-	updated, err := setCodexIntegerKey(oneLine, "agents", "max_depth", 1)
-	if err != nil || updated != "[agents]\nmax_depth = 1 # managed by AIGW\n" {
-		t.Fatalf("one-line table update = %q, %v", updated, err)
+	updated := setCodexIntegerKey(oneLine, "agents", "max_depth", 1)
+	if updated != "[agents]\nmax_depth = 1 # managed by AIGW\n" {
+		t.Fatalf("one-line table update = %q", updated)
 	}
-	if removed, err := removeCodexIntegerKey(text, "missing", "max_depth"); err != nil || removed != text {
-		t.Fatalf("remove from absent table = %q, %v", removed, err)
+	if updated := setCodexIntegerKey("external = true", "agents", "max_depth", 1); updated != "external = true\n\n[agents]\nmax_depth = 1 # managed by AIGW\n" {
+		t.Fatalf("append table without trailing newline = %q", updated)
+	}
+	if removed := removeCodexIntegerKey(text, "missing", "max_depth"); removed != text {
+		t.Fatalf("remove from absent table = %q", removed)
 	}
 	if got := removeEmptyCodexTable("[agents]\n# comment\n\n[next]\nvalue = 2\n", "agents"); got != "[next]\nvalue = 2\n" {
 		t.Fatalf("empty table removal = %q", got)
@@ -108,6 +116,9 @@ func TestCodexSchedulerHelpersCoverRemainingErrorPaths(t *testing.T) {
 	if err := validateCodexScheduler("[agents]\nmax_depth = 999999999999999999999999999999999999999999999999999999999999\n"); err == nil || !strings.Contains(err.Error(), "parse Codex scheduler key") {
 		t.Fatalf("scheduler integer overflow error = %v", err)
 	}
+	if _, err := captureCodexScheduler("[agents]\nmax_depth = 999999999999999999999999999999999999999999999999999999999999\n"); err == nil || !strings.Contains(err.Error(), "decimal number is too large") {
+		t.Fatalf("scheduler capture overflow error = %v", err)
+	}
 
 	codexSchedulerKeys = map[string]map[string]int{"bad[": {"max_depth": 1}}
 	if _, err := projectCodexScheduler(""); err == nil {
@@ -123,17 +134,14 @@ func projectedSchedulerFixture() string {
 	return "[agents]\nmax_concurrent_threads_per_session = 16\nmax_depth = 1\n\n[features.multi_agent_v2]\nmax_concurrent_threads_per_session = 16\n"
 }
 
-func TestCodexReconciliationHelpersCoverRecognizedState(t *testing.T) {
+func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 	state := codexState{
 		ProjectionMode: ProjectionFullSelection,
 		WriterID:       ProjectionWriterID,
 		TransactionID:  "transaction",
 	}
-	data, err := encodeCodexState(state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	parsed, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: data}, ProjectionFullSelection)
+	data := encodeCodexState(state)
+	parsed, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: data})
 	if err != nil || parsed.TransactionID != state.TransactionID {
 		t.Fatalf("state = %#v, err=%v", parsed, err)
 	}
@@ -149,13 +157,13 @@ func TestCodexReconciliationHelpersCoverRecognizedState(t *testing.T) {
 	if _, err := canonicalCodexTargetPath(config); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := newCodexTransactionID(); err != nil {
-		t.Fatal(err)
+	if transactionID := newCodexTransactionID(); len(transactionID) != 32 {
+		t.Fatalf("transaction ID = %q", transactionID)
 	}
-	if absent, err := codexStateForTarget(transaction.FileSnapshot{}, ProjectionFullSelection); err != nil || !reflect.DeepEqual(absent, codexState{}) {
+	if absent, err := codexStateForTarget(transaction.FileSnapshot{}); err != nil || !reflect.DeepEqual(absent, codexState{}) {
 		t.Fatalf("absent state = %#v, err %v", absent, err)
 	}
-	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte("{")}, ProjectionFullSelection); err == nil {
+	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte("{")}); err == nil {
 		t.Fatal("invalid state JSON was accepted")
 	}
 	if _, err := normalizeCodexTargets([]TargetRef{{}}); err == nil {
@@ -173,16 +181,19 @@ func TestCodexReconciliationHelpersCoverRecognizedState(t *testing.T) {
 	}}); err == nil {
 		t.Fatal("duplicate target was accepted")
 	}
-	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection"}`)}, ProjectionFullSelection); err == nil {
+	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection"}`)}); err == nil {
 		t.Fatal("incomplete state attribution was accepted")
 	}
-	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"other","writer_id":"aigw-cli","transaction_id":"x"}`)}, ProjectionFullSelection); err == nil {
+	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"other","writer_id":"aigw-cli","transaction_id":"x"}`)}); err == nil {
 		t.Fatal("unsupported projection mode was accepted")
 	}
-	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection","writer_id":"foreign","transaction_id":"x"}`)}, ProjectionFullSelection); err == nil {
+	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection","writer_id":"foreign","transaction_id":"x"}`)}); err == nil {
 		t.Fatal("foreign writer was accepted")
 	}
 
+}
+
+func TestCodexReconciliationReportsManagedDrift(t *testing.T) {
 	driftPath := t.TempDir() + "/drift.toml"
 	driftRuntime := configuration.Runtime{ProfileID: "p", ProfileLabel: "P", Endpoint: "https://example.test", Model: "m"}
 	if err := os.WriteFile(driftPath, nil, 0o600); err != nil {
@@ -218,20 +229,27 @@ func TestCodexReconciliationHelpersCoverRecognizedState(t *testing.T) {
 		t.Fatalf("restored drift inspection = %#v, %v", inspection, err)
 	}
 
+}
+
+func TestCodexReconciliationRejectsConflictsAndMalformedHelpers(t *testing.T) {
+	state := codexState{
+		ProjectionMode: ProjectionFullSelection,
+		WriterID:       ProjectionWriterID,
+		TransactionID:  "transaction",
+	}
+	driftRuntime := configuration.Runtime{ProfileID: "p", ProfileLabel: "P", Endpoint: "https://example.test", Model: "m"}
+
 	conflictPath := t.TempDir() + "/conflict.toml"
 	if err := os.WriteFile(conflictPath, []byte("model_provider = \"aigw\" # managed by AIGW\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	conflictState := state
 	conflictState.ProjectionMode = "unsupported"
-	conflictData, err := encodeCodexState(conflictState)
-	if err != nil {
-		t.Fatal(err)
-	}
+	conflictData := encodeCodexState(conflictState)
 	if err := os.WriteFile(codexStatePath(conflictPath), conflictData, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	inspection, err = InspectConfig(conflictPath)
+	inspection, err := InspectConfig(conflictPath)
 	if err != nil || inspection.State != "ownership-conflict" {
 		t.Fatalf("conflict inspection = %#v, %v", inspection, err)
 	}
@@ -243,10 +261,7 @@ func TestCodexReconciliationHelpersCoverRecognizedState(t *testing.T) {
 		t.Fatal(err)
 	}
 	unattributedState := codexState{ManagedBlockHash: hashText(unattributedBlock)}
-	unattributedData, err := encodeCodexState(unattributedState)
-	if err != nil {
-		t.Fatal(err)
-	}
+	unattributedData := encodeCodexState(unattributedState)
 	if err := os.WriteFile(codexStatePath(unattributedPath), unattributedData, 0o600); err != nil {
 		t.Fatal(err)
 	}

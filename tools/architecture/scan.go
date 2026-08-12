@@ -3,9 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"go/ast"
 	"go/parser"
-	"go/scanner"
 	"go/token"
 	"io/fs"
 	"os"
@@ -24,13 +22,11 @@ type goFileInfo struct {
 	isTest     bool
 	eloc       int
 	complexity int
+	functions  []functionMetric
 }
 
 func analyzeRepository(root string, p policy, policyPath string) (Report, error) {
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		return Report{}, fmt.Errorf("resolve root: %w", err)
-	}
+	absRoot := filepath.Clean(root)
 	report := newReport(policyPath, absRoot)
 	if p.CheckModuleIdentity {
 		if err := checkModuleIdentity(absRoot, &report); err != nil {
@@ -125,7 +121,7 @@ func checkPackageChildren(root string, p policy, report *Report) error {
 			allowed[child] = true
 		}
 		for _, entry := range entries {
-			if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+			if !entry.IsDir() || entry.Name()[0] == '.' {
 				continue
 			}
 			if !allowed[entry.Name()] {
@@ -168,10 +164,7 @@ func checkImportEdges(root string, files []goFileInfo, p policy, report *Report)
 			continue
 		}
 		for _, imported := range parsed.Imports {
-			importPath, err := strconv.Unquote(imported.Path.Value)
-			if err != nil {
-				continue
-			}
+			importPath, _ := strconv.Unquote(imported.Path.Value)
 			const modulePrefix = "aigw-cli/"
 			if !strings.HasPrefix(importPath, modulePrefix) {
 				continue
@@ -215,10 +208,7 @@ func checkPeerPackageImports(root string, files []goFileInfo, p policy, report *
 				continue
 			}
 			for _, imported := range parsed.Imports {
-				path, err := strconv.Unquote(imported.Path.Value)
-				if err != nil {
-					continue
-				}
+				path, _ := strconv.Unquote(imported.Path.Value)
 				marker := "/" + peerRoot + "/"
 				index := strings.Index(path, marker)
 				if index < 0 {
@@ -322,6 +312,10 @@ func collectGoFiles(root string, p policy) ([]goFileInfo, []DirectoryStats, erro
 			if err != nil {
 				return fmt.Errorf("measure %s: %w", relPOSIX, err)
 			}
+			info.functions, err = functionMetrics(path)
+			if err != nil {
+				return fmt.Errorf("measure functions in %s: %w", relPOSIX, err)
+			}
 			files = append(files, info)
 			if isTest {
 				stat.TestCount++
@@ -352,50 +346,6 @@ func collectGoFiles(root string, p policy) ([]goFileInfo, []DirectoryStats, erro
 	return files, dirStats, nil
 }
 
-func sourceMetrics(path string) (int, int, error) {
-	src, err := os.ReadFile(path)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	// The Go scanner omits comments by default. Counting the distinct source
-	// lines occupied by real tokens therefore handles block comments, mixed
-	// code/comment lines, and raw strings without a text-level approximation.
-	lineSet := map[int]struct{}{}
-	fset := token.NewFileSet()
-	file := fset.AddFile(path, fset.Base(), len(src))
-	var lexical scanner.Scanner
-	lexical.Init(file, src, nil, 0)
-	for {
-		pos, tok, _ := lexical.Scan()
-		if tok == token.EOF {
-			break
-		}
-		lineSet[fset.Position(pos).Line] = struct{}{}
-	}
-
-	parsed, err := parser.ParseFile(token.NewFileSet(), path, src, 0)
-	if err != nil {
-		// Syntax errors are reported as path-addressable go_parse_error findings
-		// by checkGoAST. Preserve the source-size measurement here so malformed
-		// files do not disappear from directory totals.
-		return len(lineSet), 0, nil
-	}
-	complexity := 0
-	ast.Inspect(parsed, func(node ast.Node) bool {
-		switch typed := node.(type) {
-		case *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt, *ast.CaseClause, *ast.CommClause:
-			complexity++
-		case *ast.BinaryExpr:
-			if typed.Op == token.LAND || typed.Op == token.LOR {
-				complexity++
-			}
-		}
-		return true
-	})
-	return len(lineSet), complexity, nil
-}
-
 func checkSourceBudgets(files []goFileInfo, stats []DirectoryStats, p policy, report *Report) {
 	for _, file := range files {
 		elocLimit := p.MaxFileELOC
@@ -421,6 +371,25 @@ func checkSourceBudgets(files []goFileInfo, stats []DirectoryStats, p policy, re
 				Limit:   complexityLimit,
 				Message: fmt.Sprintf("file decision complexity is %d; limit is %d", file.complexity, complexityLimit),
 			})
+		}
+		functionELOCLimit := p.MaxFunctionELOC
+		functionComplexityLimit := p.MaxFunctionComplexity
+		functionNestingLimit := p.MaxNestingDepth
+		if file.isTest {
+			functionELOCLimit = p.MaxTestFunctionELOC
+			functionComplexityLimit = p.MaxTestFunctionComplexity
+			functionNestingLimit = p.MaxTestNestingDepth
+		}
+		for _, function := range file.functions {
+			if function.ELOC > functionELOCLimit {
+				report.addFinding(Finding{Rule: "function_eloc", Path: file.relPath, Line: function.Line, Name: function.Name, Count: function.ELOC, Limit: functionELOCLimit, Message: fmt.Sprintf("function %s has %d effective lines; limit is %d", function.Name, function.ELOC, functionELOCLimit)})
+			}
+			if function.Complexity > functionComplexityLimit {
+				report.addFinding(Finding{Rule: "function_complexity", Path: file.relPath, Line: function.Line, Name: function.Name, Count: function.Complexity, Limit: functionComplexityLimit, Message: fmt.Sprintf("function %s decision complexity is %d; limit is %d", function.Name, function.Complexity, functionComplexityLimit)})
+			}
+			if function.Nesting > functionNestingLimit {
+				report.addFinding(Finding{Rule: "function_nesting", Path: file.relPath, Line: function.Line, Name: function.Name, Count: function.Nesting, Limit: functionNestingLimit, Message: fmt.Sprintf("function %s nesting depth is %d; limit is %d", function.Name, function.Nesting, functionNestingLimit)})
+			}
 		}
 	}
 	for _, stat := range stats {
@@ -482,10 +451,7 @@ func checkSuffixFlat(files []goFileInfo, p policy, report *Report) {
 		if semantic == "" || strings.HasPrefix(semantic, "_") || !strings.Contains(semantic, "_") {
 			continue
 		}
-		prefix, _, ok := strings.Cut(semantic, "_")
-		if !ok || prefix == "" {
-			continue
-		}
+		prefix, _, _ := strings.Cut(semantic, "_")
 		if !isIdentPrefix(prefix) {
 			continue
 		}

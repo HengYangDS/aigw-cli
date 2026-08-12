@@ -176,6 +176,19 @@ func TestPromoteReleasePropagatesGitFailures(t *testing.T) {
 	}
 }
 
+func TestPromoteReleasePropagatesAtomicRefFailure(t *testing.T) {
+	fixture := forgeFixture(t)
+	gitTest(t, fixture.repository, "branch", "dev", "main")
+	gitTest(t, fixture.repository, "switch", "-q", "dev")
+	writeCommit(t, fixture.repository, "release", "ready\n", "prepare release")
+	main := gitTestOutput(t, fixture.repository, "rev-parse", "main")
+	dev := gitTestOutput(t, fixture.repository, "rev-parse", "dev")
+	useGitWrapper(t, "update-ref-main")
+	if err := promoteRelease(releasePromotionOptions{repository: fixture.repository, expectMain: main, expectDev: dev}); err == nil {
+		t.Fatal("main ref update failure was accepted")
+	}
+}
+
 func TestProjectionRejectsNonRepository(t *testing.T) {
 	if err := project(projectionOptions{repository: t.TempDir(), branch: "main"}); err == nil || !strings.Contains(err.Error(), "run inside a Git worktree") {
 		t.Fatalf("non-repository projection=%v", err)
@@ -423,6 +436,68 @@ func TestProjectionGitFailureBoundaries(t *testing.T) {
 	}
 }
 
+func TestProjectionTransactionFailureBoundaries(t *testing.T) {
+	t.Run("temporary workspace", func(t *testing.T) {
+		fixture := forgeFixture(t)
+		gitTest(t, fixture.repository, "branch", "dev", "main")
+		remote := filepath.Join(t.TempDir(), "remote.git")
+		runExternal(t, "git", "init", "-q", "--bare", remote)
+		gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+		t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
+		if err := project(projectionOption(fixture, "main", "peer")); err == nil {
+			t.Fatal("unavailable temporary workspace was accepted")
+		}
+	})
+	t.Run("second branch fetch", func(t *testing.T) {
+		fixture := forgeFixture(t)
+		gitTest(t, fixture.repository, "branch", "dev", "main")
+		remote := filepath.Join(t.TempDir(), "remote.git")
+		runExternal(t, "git", "init", "-q", "--bare", remote)
+		gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+		useGitWrapper(t, "fetch-second-branch")
+		if err := project(projectionOption(fixture, "main", "peer")); err == nil {
+			t.Fatal("second branch fetch failure was accepted")
+		}
+	})
+	t.Run("second branch replay", func(t *testing.T) {
+		fixture := forgeFixture(t)
+		gitTest(t, fixture.repository, "branch", "dev", "main")
+		remote := filepath.Join(t.TempDir(), "remote.git")
+		runExternal(t, "git", "init", "-q", "--bare", remote)
+		gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+		useGitWrapper(t, "clone-second-branch")
+		if err := project(projectionOption(fixture, "main", "peer")); err == nil {
+			t.Fatal("second branch replay failure was accepted")
+		}
+	})
+	t.Run("projection state path", func(t *testing.T) {
+		fixture := forgeFixture(t)
+		workspace := t.TempDir()
+		if err := os.Symlink("missing-target", filepath.Join(workspace, "transaction.git")); err != nil {
+			t.Fatal(err)
+		}
+		option := projectionOption(fixture, "main", "peer")
+		if _, err := prepareProjection(fixture.repository, workspace, "file:///missing", "main", option); err == nil {
+			t.Fatal("unreadable projection state was accepted")
+		}
+	})
+	t.Run("projected target provenance", func(t *testing.T) {
+		fixture := forgeFixture(t)
+		remote := filepath.Join(t.TempDir(), "remote.git")
+		runExternal(t, "git", "init", "-q", "--bare", remote)
+		gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+		option := projectionOption(fixture, "proposal/trust", "peer")
+		gitTest(t, fixture.repository, "branch", option.branch, "main")
+		if err := project(option); err != nil {
+			t.Fatal(err)
+		}
+		option.targetSigners = forgeKey(t, "other@example.invalid").allowedSigners
+		if err := project(option); err == nil {
+			t.Fatalf("untrusted projected target=%v", err)
+		}
+	})
+}
+
 func TestProjectionRejectsUntrustedRemoteHistory(t *testing.T) {
 	fixture := forgeFixture(t)
 	remote := filepath.Join(t.TempDir(), "remote.git")
@@ -467,6 +542,12 @@ func TestProjectionTagVerificationBoundaries(t *testing.T) {
 			}
 		})
 	}
+	t.Run("canonical tree history", func(t *testing.T) {
+		useGitWrapper(t, "log")
+		if err := verifyProjectionTags(fixture.repository, repository, canonical, option); err == nil {
+			t.Fatal("canonical tree history failure was accepted")
+		}
+	})
 
 	lightweight := "v1.2.4"
 	gitTest(t, fixture.repository, "tag", lightweight)

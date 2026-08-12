@@ -23,6 +23,12 @@ max_file_complexity = 180
 max_directory_complexity = 900
 max_test_file_eloc = 800
 max_test_file_complexity = 200
+max_function_eloc = 200
+max_function_complexity = 100
+max_nesting_depth = 20
+max_test_function_eloc = 220
+max_test_function_complexity = 120
+max_test_nesting_depth = 20
 suffix_flat_group_min = 3
 platform_build_suffixes = ["unix", "windows", "darwin", "linux", "posix"]
 ignore_roots = ["vendor", ".git", "records", "build"]
@@ -154,6 +160,40 @@ func enabled(value bool) bool {
 	}
 	if !foundStats {
 		t.Fatalf("missing ELOC/complexity directory stats: %+v", report.DirectoryStats)
+	}
+}
+
+func TestRunDetectsFunctionBudgets(t *testing.T) {
+	root := t.TempDir()
+	body := strings.Replace(validPolicy, "max_test_function_eloc = 220", "max_test_function_eloc = 4", 1)
+	body = strings.Replace(body, "max_test_function_complexity = 120", "max_test_function_complexity = 1", 1)
+	body = strings.Replace(body, "max_test_nesting_depth = 20", "max_test_nesting_depth = 1", 1)
+	policyPath := writePolicy(t, root, body)
+	writeFile(t, filepath.Join(root, "internal", "domain", "behavior_test.go"), `package domain
+func TestBehavior(value int) bool {
+	if value > 0 {
+		if value > 1 {
+			return true
+		}
+	}
+	return false
+}
+func TestPeer(value int) bool {
+	if value < 0 { return true }
+	return false
+}
+`)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 {
+		t.Fatalf("code=%d want 1 stderr=%q stdout=%s", code, stderr.String(), stdout.String())
+	}
+	report := decodeReport(t, stdout.String())
+	for _, rule := range []string{"function_eloc", "function_complexity", "function_nesting"} {
+		if !hasRule(report, rule) {
+			t.Fatalf("missing rule %s in %v\nstdout=%s", rule, findingRules(report), stdout.String())
+		}
 	}
 }
 
@@ -389,6 +429,17 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 				t.Fatalf("stderr=%q want %q", stderr.String(), test.want)
 			}
 		})
+	}
+}
+
+func TestRunRejectsInvalidRootPath(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if code := run([]string{"-root", "invalid\x00root"}, &stdout, &stderr); code != 1 {
+		t.Fatalf("code=%d stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "invalid argument") {
+		t.Fatalf("stderr=%q", stderr.String())
 	}
 }
 

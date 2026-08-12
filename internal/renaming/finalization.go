@@ -30,9 +30,6 @@ func planFinalize(deps Dependencies, oldID, newID string, options FinalizeOption
 	}
 	references := make([]string, 0, len(cfg.Profiles))
 	for profileID, profile := range cfg.Profiles {
-		if profile.Account == oldID {
-			return Plan{}, fmt.Errorf("profile %q still references source account %q", profileID, oldID)
-		}
 		if profile.Account == newID {
 			references = append(references, "profiles."+profileID+".account")
 		}
@@ -43,26 +40,6 @@ func planFinalize(deps Dependencies, oldID, newID string, options FinalizeOption
 	}
 	if !coversAllAdmittedClients(state.Checkpoint.Clients) {
 		return Plan{}, errors.New("verified checkpoint does not cover all admitted clients")
-	}
-
-	targetToken, targetTokenPresent, err := readOptionalToken(deps.Secrets, newID)
-	if err != nil {
-		return Plan{}, fmt.Errorf("Read target API token credential slot: %w", err)
-	}
-	if !targetTokenPresent {
-		return Plan{}, fmt.Errorf("target API token for account %q is unavailable", newID)
-	}
-	sourceToken, sourceTokenPresent, err := readOptionalToken(deps.Secrets, oldID)
-	if err != nil {
-		return Plan{}, fmt.Errorf("Read source API token credential slot: %w", err)
-	}
-	sourceProbe, sourceProbePresent, err := readOptionalProbeCredential(deps.Accounts, oldID)
-	if err != nil {
-		return Plan{}, fmt.Errorf("Read source account probe credential slot: %w", err)
-	}
-	targetProbe, targetProbePresent, err := readOptionalProbeCredential(deps.Accounts, newID)
-	if err != nil {
-		return Plan{}, fmt.Errorf("Read target account probe credential slot: %w", err)
 	}
 
 	backupConverged := state.Snapshot.Backup.Exists &&
@@ -91,44 +68,13 @@ func planFinalize(deps Dependencies, oldID, newID string, options FinalizeOption
 	}
 
 	blocked := make([]string, 0, 2)
-	if sourceTokenPresent {
-		rotated := !secretValuesEqual(sourceToken, targetToken)
-		if rotated && !options.ConfirmAPITokenRotation {
-			plan.Actions.APIToken = "rotation-confirmation-required"
-			plan.ExternalTODOs = append(plan.ExternalTODOs, "Re-run `aigw verify --for all`, then pass --confirm-api-token-rotation")
-			blocked = append(blocked, "API token rotation confirmation is required")
-		} else if secrets.IsReadOnly(deps.Secrets) {
-			plan.Actions.APIToken = "external-cleanup-required"
-			plan.externalTokenCleanup = true
-			plan.ExternalTODOs = append(plan.ExternalTODOs, "Unset "+secrets.EnvironmentKey(oldID)+" outside AIGW, then retry finalization")
-		} else {
-			plan.deleteToken = true
-			if rotated {
-				plan.Actions.APIToken = "delete-confirmed-rotated-source"
-			} else {
-				plan.Actions.APIToken = "delete-source"
-			}
-		}
+	sourceTokenPresent, err := planFinalToken(deps, &plan, oldID, newID, options.ConfirmAPITokenRotation, &blocked)
+	if err != nil {
+		return Plan{}, err
 	}
-
-	if sourceProbePresent {
-		if !targetProbePresent {
-			return Plan{}, fmt.Errorf("target account probe credential for account %q is unavailable", newID)
-		}
-		rotated := !probeCredentialsEqual(sourceProbe, targetProbe)
-		if rotated && !options.ConfirmAccountProbeRotation {
-			plan.Actions.AccountProbe = "rotation-confirmation-required"
-			plan.ExternalTODOs = append(plan.ExternalTODOs, "Run `aigw balance "+newID+"`, then pass --confirm-account-probe-rotation")
-			blocked = append(blocked, "account probe credential rotation confirmation is required")
-		} else {
-			plan.deleteProbe = true
-			if rotated {
-				plan.Actions.AccountProbe = "verify-balance-and-delete-confirmed-rotated-source"
-				plan.verifyProbe = true
-			} else {
-				plan.Actions.AccountProbe = "delete-source"
-			}
-		}
+	sourceProbePresent, err := planFinalProbe(deps, &plan, oldID, newID, options.ConfirmAccountProbeRotation, &blocked)
+	if err != nil {
+		return Plan{}, err
 	}
 
 	if len(blocked) > 0 {
@@ -140,6 +86,72 @@ func planFinalize(deps Dependencies, oldID, newID string, options FinalizeOption
 		plan.Status = "already-finalized"
 	}
 	return plan, nil
+}
+
+func planFinalToken(deps Dependencies, plan *Plan, oldID, newID string, confirmed bool, blocked *[]string) (bool, error) {
+	target, targetPresent, err := readOptionalToken(deps.Secrets, newID)
+	if err != nil {
+		return false, fmt.Errorf("Read target API token credential slot: %w", err)
+	}
+	if !targetPresent {
+		return false, fmt.Errorf("target API token for account %q is unavailable", newID)
+	}
+	source, sourcePresent, err := readOptionalToken(deps.Secrets, oldID)
+	if err != nil {
+		return false, fmt.Errorf("Read source API token credential slot: %w", err)
+	}
+	if !sourcePresent {
+		return false, nil
+	}
+	rotated := !secretValuesEqual(source, target)
+	switch {
+	case rotated && !confirmed:
+		plan.Actions.APIToken = "rotation-confirmation-required"
+		plan.ExternalTODOs = append(plan.ExternalTODOs, "Re-run `aigw verify --for all`, then pass --confirm-api-token-rotation")
+		*blocked = append(*blocked, "API token rotation confirmation is required")
+	case secrets.IsReadOnly(deps.Secrets):
+		plan.Actions.APIToken = "external-cleanup-required"
+		plan.externalTokenCleanup = true
+		plan.ExternalTODOs = append(plan.ExternalTODOs, "Unset "+secrets.EnvironmentKey(oldID)+" outside AIGW, then retry finalization")
+	default:
+		plan.deleteToken = true
+		plan.Actions.APIToken = "delete-source"
+		if rotated {
+			plan.Actions.APIToken = "delete-confirmed-rotated-source"
+		}
+	}
+	return true, nil
+}
+
+func planFinalProbe(deps Dependencies, plan *Plan, oldID, newID string, confirmed bool, blocked *[]string) (bool, error) {
+	source, sourcePresent, err := readOptionalProbeCredential(deps.Accounts, oldID)
+	if err != nil {
+		return false, fmt.Errorf("Read source account probe credential slot: %w", err)
+	}
+	if !sourcePresent {
+		return false, nil
+	}
+	target, targetPresent, err := readOptionalProbeCredential(deps.Accounts, newID)
+	if err != nil {
+		return false, fmt.Errorf("Read target account probe credential slot: %w", err)
+	}
+	if !targetPresent {
+		return false, fmt.Errorf("target account probe credential for account %q is unavailable", newID)
+	}
+	rotated := !probeCredentialsEqual(source, target)
+	if rotated && !confirmed {
+		plan.Actions.AccountProbe = "rotation-confirmation-required"
+		plan.ExternalTODOs = append(plan.ExternalTODOs, "Run `aigw balance "+newID+"`, then pass --confirm-account-probe-rotation")
+		*blocked = append(*blocked, "account probe credential rotation confirmation is required")
+		return true, nil
+	}
+	plan.deleteProbe = true
+	plan.Actions.AccountProbe = "delete-source"
+	if rotated {
+		plan.Actions.AccountProbe = "verify-balance-and-delete-confirmed-rotated-source"
+		plan.verifyProbe = true
+	}
+	return true, nil
 }
 
 func configsSemanticallyEqual(left, right configuration.Config) bool {

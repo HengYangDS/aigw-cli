@@ -23,6 +23,8 @@ type commandRunner func(command) error
 
 var sourceCommands = []command{
 	{Name: "go", Args: []string{"run", "./tools/ci", "toolchain", "."}},
+	{Name: "openspec", Args: []string{"validate", "--all", "--strict", "--no-interactive"}},
+	{Name: "lychee", Args: []string{"--offline", "--hidden", "--no-progress", "--cache=false", "**/*.md"}},
 	{Name: "go", Args: []string{"run", "./tools/release", "validate-toolchain", "go.mod"}},
 	{Name: "go", Args: []string{"run", "./tools/release", "validate-release-sources"}},
 	{Name: "go", Args: []string{"run", "./tools/architecture", "--root", "."}},

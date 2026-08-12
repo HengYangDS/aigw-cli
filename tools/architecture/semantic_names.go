@@ -43,9 +43,7 @@ func checkSemanticNames(root string, report *Report) error {
 		if err := checkPythonExecution(root, relative, report); err != nil {
 			return err
 		}
-		if err := checkPortableText(root, relative, report); err != nil {
-			return err
-		}
+		checkPortableText(root, relative, report)
 		grammar, managed := semanticNameGrammars[strings.ToLower(path.Ext(name))]
 		if !managed || nativeCarrierNames[name] || isOpenSpecCarrier(relative, name) || isChronicleCarrier(relative, name) {
 			continue
@@ -83,14 +81,14 @@ func checkPythonExecution(root, relative string, report *Report) error {
 	return nil
 }
 
-func checkPortableText(root, relative string, report *Report) error {
+func checkPortableText(root, relative string, report *Report) {
 	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
 	if err != nil {
-		return nil
+		return
 	}
 	fixture := strings.HasPrefix(relative, "scripts/tests/") || strings.HasSuffix(relative, "_test.go") || strings.Contains("/"+relative+"/", "/testdata/") || strings.Contains("/"+relative+"/", "/fixtures/")
 	if fixture {
-		return nil
+		return
 	}
 	patterns := []struct {
 		rule, message string
@@ -108,7 +106,6 @@ func checkPortableText(root, relative string, report *Report) error {
 			}
 		}
 	}
-	return nil
 }
 
 func trackedFiles(root string) ([]string, error) {

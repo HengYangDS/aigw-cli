@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,7 +15,18 @@ import (
 	"aigw-cli/internal/account"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/synchronization"
 )
+
+type failingRenameConfigStore struct{ err error }
+
+func (store failingRenameConfigStore) CaptureSnapshot() (configuration.Snapshot, error) {
+	return configuration.Snapshot{}, store.err
+}
+func (failingRenameConfigStore) Save(configuration.Config) error { return nil }
+func (failingRenameConfigStore) RestoreSnapshot(configuration.Snapshot, configuration.Snapshot) error {
+	return nil
+}
 
 type renameCoveragePrompt struct {
 	selected  string
@@ -195,6 +207,140 @@ func TestResolveRenameIDsErrorBranches(t *testing.T) {
 	}
 }
 
+func TestRenameCommandsRejectInvalidInvocationAndCommitFailure(t *testing.T) {
+	validStore := configuration.NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	if err := validStore.Save(renameCoverageConfig()); err != nil {
+		t.Fatal(err)
+	}
+	failure := errors.New("injected commit failure")
+	base := Dependencies{
+		Config:       validStore,
+		Secrets:      &renameCoverageSecrets{},
+		Accounts:     &renameCoverageAccounts{},
+		Out:          &bytes.Buffer{},
+		Synchronizer: synchronization.Synchronizer{Config: failingRenameConfigStore{err: failure}},
+	}
+
+	for _, test := range []struct {
+		name string
+		new  func(Dependencies) interface {
+			SetArgs([]string)
+			Execute() error
+		}
+		deps Dependencies
+		args []string
+		want string
+	}{
+		{name: "profile needs explicit IDs", new: func(deps Dependencies) interface {
+			SetArgs([]string)
+			Execute() error
+		} {
+			return NewProfileCommand(deps)
+		}, deps: base, want: "requires <old> <new>"},
+		{name: "profile interactive selection fails", new: func(deps Dependencies) interface {
+			SetArgs([]string)
+			Execute() error
+		} {
+			return NewProfileCommand(deps)
+		}, deps: func() Dependencies {
+			value := base
+			value.Interactive = true
+			value.Prompt = renameCoveragePrompt{selectErr: failure}
+			return value
+		}(), want: "Select profile"},
+		{name: "profile commit fails", new: func(deps Dependencies) interface {
+			SetArgs([]string)
+			Execute() error
+		} {
+			return NewProfileCommand(deps)
+		}, deps: base, args: []string{"codex", "renamed"}, want: failure.Error()},
+		{name: "account finalize needs IDs", new: func(deps Dependencies) interface {
+			SetArgs([]string)
+			Execute() error
+		} {
+			return NewAccountCommand(deps)
+		}, deps: base, args: []string{"--finalize", "old"}, want: "requires explicit"},
+		{name: "account confirmation needs finalize", new: func(deps Dependencies) interface {
+			SetArgs([]string)
+			Execute() error
+		} {
+			return NewAccountCommand(deps)
+		}, deps: base, args: []string{"old", "new", "--confirm-api-token-rotation"}, want: "require --finalize"},
+		{name: "account interactive selection fails", new: func(deps Dependencies) interface {
+			SetArgs([]string)
+			Execute() error
+		} {
+			return NewAccountCommand(deps)
+		}, deps: func() Dependencies {
+			value := base
+			value.Interactive = true
+			value.Prompt = renameCoveragePrompt{selectErr: failure}
+			return value
+		}(), want: "Select account"},
+		{name: "account commit fails", new: func(deps Dependencies) interface {
+			SetArgs([]string)
+			Execute() error
+		} {
+			return NewAccountCommand(deps)
+		}, deps: base, args: []string{"old", "new"}, want: failure.Error()},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			command := test.new(test.deps)
+			command.SetArgs(test.args)
+			if err := command.Execute(); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Execute() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestRenameCommandsRejectUnreadableConfigurationAndInvalidPlans(t *testing.T) {
+	for _, constructor := range []struct {
+		name string
+		new  func(Dependencies) interface {
+			SetArgs([]string)
+			Execute() error
+		}
+	}{
+		{name: "profile", new: func(deps Dependencies) interface {
+			SetArgs([]string)
+			Execute() error
+		} {
+			return NewProfileCommand(deps)
+		}},
+		{name: "account", new: func(deps Dependencies) interface {
+			SetArgs([]string)
+			Execute() error
+		} {
+			return NewAccountCommand(deps)
+		}},
+	} {
+		t.Run(constructor.name+" unreadable configuration", func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "configuration.toml")
+			if err := os.Mkdir(path, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			command := constructor.new(Dependencies{Config: configuration.NewStore(path), Out: &bytes.Buffer{}})
+			command.SetArgs([]string{"old", "new"})
+			if err := command.Execute(); err == nil {
+				t.Fatal("unreadable configuration was accepted")
+			}
+		})
+
+		t.Run(constructor.name+" invalid plan", func(t *testing.T) {
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+			if err := store.Save(renameCoverageConfig()); err != nil {
+				t.Fatal(err)
+			}
+			command := constructor.new(Dependencies{Config: store, Secrets: &renameCoverageSecrets{}, Accounts: &renameCoverageAccounts{}, Out: &bytes.Buffer{}})
+			command.SetArgs([]string{"missing", "new"})
+			if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "Unknown") {
+				t.Fatalf("Execute() error = %v", err)
+			}
+		})
+	}
+}
+
 func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	cfg := renameCoverageConfig()
 	if _, err := planAccount(cfg, "missing", "new"); err == nil {
@@ -297,12 +443,48 @@ func TestPlanAccountFinalizeCredentialReadErrors(t *testing.T) {
 	}
 }
 
+func TestPlanAccountFinalizeRejectsIncompleteRenameState(t *testing.T) {
+	t.Run("source account remains", func(t *testing.T) {
+		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+		cfg := renameCoverageConfig()
+		if err := store.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.SaveVerifiedCheckpoint(cfg, configuration.AdmittedClientIDs()); err != nil {
+			t.Fatal(err)
+		}
+		deps := Dependencies{Config: store, Secrets: &renameCoverageSecrets{}, Accounts: &renameCoverageAccounts{}}
+		if _, err := planFinalize(deps, "old", "new", FinalizeOptions{}); err == nil || !strings.Contains(err.Error(), "still exists") {
+			t.Fatalf("planFinalize() error = %v", err)
+		}
+	})
+
+	t.Run("target account missing", func(t *testing.T) {
+		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+		cfg := renamedCoverageConfig()
+		if err := store.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.SaveVerifiedCheckpoint(cfg, configuration.AdmittedClientIDs()); err != nil {
+			t.Fatal(err)
+		}
+		deps := Dependencies{Config: store, Secrets: &renameCoverageSecrets{}, Accounts: &renameCoverageAccounts{}}
+		if _, err := planFinalize(deps, "old", "missing", FinalizeOptions{}); err == nil || !strings.Contains(err.Error(), "does not exist") {
+			t.Fatalf("planFinalize() error = %v", err)
+		}
+	})
+
+}
+
 func TestFinalizeClientCoverageValidation(t *testing.T) {
 	if coversAllAdmittedClients([]string{configuration.ClientCodex, configuration.ClientCodex}) {
 		t.Fatal("duplicate clients accepted")
 	}
 	if coversAllAdmittedClients([]string{configuration.ClientCodex, "future"}) {
 		t.Fatal("unknown client accepted")
+	}
+	if coversAllAdmittedClients([]string{configuration.ClientCodex}) {
+		t.Fatal("missing client accepted")
 	}
 }
 
@@ -318,6 +500,7 @@ func TestApplyAccountFinalizeCleanupFailures(t *testing.T) {
 		{name: "token verify read", plan: Plan{OldID: "old", deleteToken: true}, secrets: &renameCoverageSecrets{values: map[string]string{"old": "token"}, afterDeleteErr: want}, accounts: &renameCoverageAccounts{}},
 		{name: "token remains", plan: Plan{OldID: "old", deleteToken: true}, secrets: &renameCoverageSecrets{values: map[string]string{"old": "token"}, retainDelete: true}, accounts: &renameCoverageAccounts{}},
 		{name: "external read", plan: Plan{OldID: "old", externalTokenCleanup: true}, secrets: &renameCoverageSecrets{getErrors: map[string]error{"old": want}}, accounts: &renameCoverageAccounts{}},
+		{name: "external remains", plan: Plan{OldID: "old", externalTokenCleanup: true}, secrets: &renameCoverageSecrets{values: map[string]string{"old": "token"}}, accounts: &renameCoverageAccounts{}},
 		{name: "probe delete", plan: Plan{OldID: "old", deleteProbe: true}, secrets: &renameCoverageSecrets{}, accounts: &renameCoverageAccounts{deleteErr: want}},
 		{name: "probe verify read", plan: Plan{OldID: "old", deleteProbe: true}, secrets: &renameCoverageSecrets{}, accounts: &renameCoverageAccounts{values: map[string]account.Credential{"old": {SystemToken: "s", UserID: "u"}}, afterDeleteErr: want}},
 		{name: "probe remains", plan: Plan{OldID: "old", deleteProbe: true}, secrets: &renameCoverageSecrets{}, accounts: &renameCoverageAccounts{values: map[string]account.Credential{"old": {SystemToken: "s", UserID: "u"}}, retainDelete: true}},
@@ -340,6 +523,15 @@ func TestApplyAccountFinalizeCleanupFailures(t *testing.T) {
 			t.Fatalf("error = %v", err)
 		}
 	})
+}
+
+func TestApplyFinalizeStopsBeforeCleanupWhenProbeVerificationFails(t *testing.T) {
+	store, snapshot := renameFinalizationState(t)
+	plan := Plan{NewID: "new", verifyProbe: true, snapshot: snapshot, Account: configuration.Account{Label: "New"}}
+	deps := Dependencies{Config: store, Secrets: &renameCoverageSecrets{}, Accounts: &renameCoverageAccounts{}}
+	if _, err := applyFinalize(context.Background(), deps, plan); err == nil || !strings.Contains(err.Error(), "does not declare precise diagnostics") {
+		t.Fatalf("applyFinalize() error = %v", err)
+	}
 }
 
 func TestVerifyFinalizedAccountProbeFailures(t *testing.T) {
@@ -381,6 +573,8 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 		{Resource: "account", OldID: "old", NewID: "new", Status: "already-finalized", Finalize: true, Account: configuration.Account{Label: "New"}},
 		{Resource: "account", OldID: "old", NewID: "new", Status: "finalized", Finalize: true, Account: configuration.Account{Label: "New"}},
 		{Resource: "profile", OldID: "old", NewID: "new", Status: "planned", Profile: configuration.Profile{Account: "account"}, AffectedReferences: []string{"routes.default"}},
+		{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Account: configuration.Account{Label: "New"}, AffectedReferences: []string{"profiles.codex.account"}},
+		{Resource: "profile", OldID: "old", NewID: "new", Status: "applied", Profile: configuration.Profile{Account: "account"}},
 	}
 	for index, plan := range statuses {
 		t.Run(fmt.Sprintf("%d-%s", index, plan.Status), func(t *testing.T) {

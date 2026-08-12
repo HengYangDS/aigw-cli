@@ -409,7 +409,22 @@ func TestEndpointForRejectsUnknownClientAndMissingProtocolEndpoint(t *testing.T)
 	}
 }
 
+func TestResolveAccountRejectsProfileWithUnknownAccount(t *testing.T) {
+	cfg := NewConfig()
+	cfg.Profiles["orphan"] = Profile{Label: "Orphan", Account: "missing"}
+	_, _, err := cfg.ResolveAccount("orphan")
+	if err == nil || !strings.Contains(err.Error(), "references unknown account") {
+		t.Fatalf("orphan profile error = %v", err)
+	}
+}
+
 func TestDomainErrorTextAndProfileSelectionBranches(t *testing.T) {
+	if got := endpointProtocolName(ProtocolAnthropic); got != "Anthropic" {
+		t.Fatalf("Anthropic protocol name = %q", got)
+	}
+	if got := endpointProtocolName(ProtocolOpenAIResponses); got != "OpenAI Responses" {
+		t.Fatalf("Responses protocol name = %q", got)
+	}
 	if got := (&RuntimeProfileClientMismatchError{ProfileID: "one", ExpectedClient: "codex", ActualClient: "claude"}).Error(); !strings.Contains(got, "for codex") {
 		t.Fatalf("mismatch error = %q", got)
 	}

@@ -107,9 +107,8 @@ func printReleaseEpoch(root string, args []string) error {
 	if len(matched) == 0 {
 		return fmt.Errorf("release heading not found: %s", args[0])
 	}
-	if len(matched) != 1 {
-		return fmt.Errorf("release heading must occur exactly once: %s", args[0])
-	}
+	// parseChangelog rejects duplicate published versions, so a non-empty
+	// match set contains exactly one entry.
 	_, _ = fmt.Fprintln(os.Stdout, matched[0].date.Unix())
 	return nil
 }

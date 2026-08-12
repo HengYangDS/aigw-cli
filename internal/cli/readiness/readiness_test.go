@@ -2,7 +2,9 @@ package readiness
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -180,6 +182,10 @@ func TestAdapterRouteReadyCoversClaudeExecutableAndCodexOutcomes(t *testing.T) {
 	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || issue != "Claude executable is unavailable" {
 		t.Fatalf("missing executable ready=%v issue=%q", ready, issue)
 	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "\x00"}
+	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || issue != "Cannot inspect Claude executable" {
+		t.Fatalf("invalid executable ready=%v issue=%q", ready, issue)
+	}
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
 	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); !ready || issue != "" {
 		t.Fatalf("ready executable ready=%v issue=%q", ready, issue)
@@ -202,6 +208,83 @@ func TestAdapterRouteReadyCoversClaudeExecutableAndCodexOutcomes(t *testing.T) {
 	validateCodexConfig = func(string, configuration.Runtime) error { return nil }
 	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientCodex, codexRuntime); !ready || issue != "" {
 		t.Fatalf("ready Codex target ready=%v issue=%q", ready, issue)
+	}
+}
+
+func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
+	t.Run("enabled client route mismatch", func(t *testing.T) {
+		runtime, cfg := configuredReadinessRuntime(t)
+		runtime.Version = "1.0.0"
+		runtime.Problem = func(title, _, _, _ string, err error) error {
+			return fmt.Errorf("%s: %w", title, err)
+		}
+		if err := runtime.Secrets.Set("one", "token"); err != nil {
+			t.Fatal(err)
+		}
+		profile := cfg.Profiles["one"]
+		profile.Client = configuration.ClientCodex
+		delete(profile.Models, configuration.ClientClaude)
+		cfg.Profiles["one"] = profile
+		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+		if err := runtime.Config.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(err.Error(), "route cannot be resolved") {
+			t.Fatalf("RunCheck() error = %v", err)
+		}
+	})
+
+	t.Run("Codex projection drift", func(t *testing.T) {
+		runtime, cfg := configuredReadinessRuntime(t)
+		runtime.Version = "1.0.0"
+		if err := runtime.Secrets.Set("one", "token"); err != nil {
+			t.Fatal(err)
+		}
+		profile := cfg.Profiles["one"]
+		profile.Client = configuration.ClientCodex
+		delete(profile.Models, configuration.ClientClaude)
+		cfg.Profiles["one"] = profile
+		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+			Enabled:    true,
+			Executable: "/opt/codex",
+			Targets:    []string{filepath.Join(t.TempDir(), "missing.toml")},
+		}
+		if err := runtime.Config.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(err.Error(), "adapter not ready") {
+			t.Fatalf("RunCheck() error = %v", err)
+		}
+	})
+}
+
+func TestRunCheckShowsEnabledProviderDiagnostics(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	runtime.Version = "1.0.0"
+	if err := runtime.Secrets.Set("one", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.Accounts.Set("one", account.Credential{SystemToken: "system", UserID: "user"}); err != nil {
+		t.Fatal(err)
+	}
+	providerAccount := cfg.Accounts["one"]
+	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
+	cfg.Accounts["one"] = providerAccount
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
+	})
+	command := &cobra.Command{}
+	command.SetContext(context.Background())
+	if err := RunCheck(command, runtime); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Precise balance", "Enabled", "aigw balance one"} {
+		if !strings.Contains(output(runtime), want) {
+			t.Fatalf("health output lacks %q: %s", want, output(runtime))
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -72,6 +73,12 @@ func TestClientSpecResolvesItsDeclaredEndpoint(t *testing.T) {
 }
 
 func TestAdmittedClientUsageIsDerivedFromRegistry(t *testing.T) {
+	if got := naturalChoices(nil); got != "" {
+		t.Fatalf("empty choices = %q", got)
+	}
+	if got := naturalChoices([]string{"codex"}); got != "codex" {
+		t.Fatalf("single choice = %q", got)
+	}
 	if got := AdmittedClientUsage(); got != "claude or codex" {
 		t.Fatalf("usage = %q", got)
 	}
@@ -80,5 +87,12 @@ func TestAdmittedClientUsageIsDerivedFromRegistry(t *testing.T) {
 	}
 	if got := AdmittedClientLabelUsage("all"); got != "Claude, Codex, or all" {
 		t.Fatalf("label usage = %q", got)
+	}
+}
+
+func TestClientSpecRejectsUnimplementedProtocol(t *testing.T) {
+	_, err := (ClientSpec{ID: "future", EndpointProtocol: "future"}).Endpoint(Account{})
+	if err == nil || !strings.Contains(err.Error(), "unsupported endpoint protocol") {
+		t.Fatalf("unsupported protocol error = %v", err)
 	}
 }

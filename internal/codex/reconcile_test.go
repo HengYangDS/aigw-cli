@@ -137,6 +137,40 @@ func TestReconcileConfigsRollsBackMixedRestoreAndAdd(t *testing.T) {
 	}
 }
 
+func TestReconcileConfigsReportsRollbackFailureWithoutOverwritingExternalEdit(t *testing.T) {
+	dir := t.TempDir()
+	first := filepath.Join(dir, "first.toml")
+	second := filepath.Join(dir, "second.toml")
+	for _, path := range []string{first, second} {
+		if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	originalWrite := writeFileAtomicIfUnchanged
+	originalRestore := restoreFileAtomicIfPostimage
+	t.Cleanup(func() {
+		writeFileAtomicIfUnchanged = originalWrite
+		restoreFileAtomicIfPostimage = originalRestore
+	})
+	writes := 0
+	writeFileAtomicIfUnchanged = func(path string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+		writes++
+		if writes == 2 {
+			return transaction.FileSnapshot{}, errors.New("injected commit failure")
+		}
+		return originalWrite(path, expected, data, mode)
+	}
+	restoreFileAtomicIfPostimage = func(path string, preimage, postimage transaction.FileSnapshot) error {
+		return errors.New("injected rollback failure")
+	}
+
+	_, err := ReconcileConfigs(nil, []TargetRef{codexHomeTarget(first), codexHomeTarget(second)}, atomicTestRuntime())
+	if err == nil || !strings.Contains(err.Error(), "rollback also failed") || !strings.Contains(err.Error(), "injected rollback failure") {
+		t.Fatalf("ReconcileConfigs() error = %v", err)
+	}
+}
+
 func TestReconcileConfigsRejectsChangedPreimageWithoutOverwrite(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {

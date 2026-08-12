@@ -109,9 +109,15 @@ explicit automation or a deliberately selected secret backend:
 | `AIGW_SECRET_BACKEND=env` | Read token slots without writing them. |
 | `AIGW_TOKEN_<ACCOUNT>` | Token for an account when the `env` backend is selected; never commit it. |
 | `AIGW_ACCESSIBLE=1` | Use accessibility-oriented terminal output. |
+| `AIGW_GITLAB_RELEASE_ORIGIN` + `AIGW_GITLAB_RELEASE_REPOSITORY` | Override the GitLab update source as one complete `HTTPS origin + namespace/project` pair. |
+| `AIGW_GITHUB_RELEASE_ORIGIN` + `AIGW_GITHUB_RELEASE_REPOSITORY` | Override the GitHub update source as one complete `HTTPS origin + owner/repository` pair. |
+| `AIGW_GITHUB_TOKEN`, `GITHUB_TOKEN`, or `GH_TOKEN` | Authenticate a private GitHub release lookup; checked in this order and never persisted. |
+| `GITLAB_TOKEN` | Authenticate a private GitLab release lookup when `glab` credentials are unavailable; requires an explicit GitLab origin. |
 
 Release-origin and Forge-token variables belong to contributor and release
-operations, not normal product setup; see [CONTRIBUTING](CONTRIBUTING.md).
+operations, not normal product setup. Built-in official release coordinates
+remain the default; overrides replace a complete source tuple rather than
+partially combining sources. See [CONTRIBUTING](CONTRIBUTING.md).
 
 AIGW configures only supported clients that are present. Missing clients remain
 untouched and are reported as not configured.
@@ -211,9 +217,9 @@ checksums are not installation evidence.
 ## Verify a source checkout
 
 ```bash
-go run ./tools/ci source
-go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
-go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
+mise exec --locked -- go run ./tools/ci source
+mise exec --locked -- go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
+mise exec --locked -- go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
 ```
 
 ## Documentation

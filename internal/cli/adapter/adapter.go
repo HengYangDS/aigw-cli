@@ -91,9 +91,6 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if clientRuntime.Endpoint == "" {
-			return fmt.Errorf("Profile %q has no %s endpoint", clientRuntime.ProfileID, spec.Label)
-		}
 		if !runtime.Secrets.Has(clientRuntime.AccountID) {
 			return fmt.Errorf("Account %q is missing a token; run `aigw rotate %s`", clientRuntime.AccountID, clientRuntime.AccountID)
 		}

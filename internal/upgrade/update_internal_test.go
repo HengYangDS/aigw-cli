@@ -1,8 +1,10 @@
 package upgrade
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -48,6 +50,50 @@ func TestExecRunnerRunWithEnvPropagatesCommandFailure(t *testing.T) {
 	runner := ExecRunner{}
 	if _, err := runner.RunWithEnv(context.Background(), nil, "sh", "-c", "exit 4"); err == nil || !strings.Contains(err.Error(), "failed") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestBoundedWriterAndEnvironmentMergeEdges(t *testing.T) {
+	var output bytes.Buffer
+	writer := &limitedWriter{writer: &output, limit: 3}
+	if count, err := writer.Write([]byte("longer")); err != nil || count != len("longer") || output.String() != "lon" {
+		t.Fatalf("count=%d output=%q error=%v", count, output.String(), err)
+	}
+	if count, err := writer.Write([]byte("ignored")); err != nil || count != len("ignored") || output.String() != "lon" {
+		t.Fatalf("second write count=%d output=%q error=%v", count, output.String(), err)
+	}
+
+	merged := mergeEnvironment([]string{"A=old", "B=kept"}, []string{"invalid", "=empty", "A=new"})
+	if strings.Join(merged, ",") != "B=kept,A=new" {
+		t.Fatalf("merged environment = %v", merged)
+	}
+}
+
+func TestPortableInstallHelpersRejectEmptyTargetAndPreserveForeignSeparators(t *testing.T) {
+	if err := (Updater{}).replacePortableBinary([]byte("binary")); err == nil || !strings.Contains(err.Error(), "path is empty") {
+		t.Fatalf("empty target error = %v", err)
+	}
+	if got := rollbackPath(`C:\\tools\\aigw.exe`); got != `C:\\tools\\.aigw.previous.exe` {
+		t.Fatalf("Windows rollback path = %q", got)
+	}
+}
+
+type failingReadCloser struct{}
+
+func (failingReadCloser) Read([]byte) (int, error) { return 0, errors.New("body failed") }
+func (failingReadCloser) Close() error             { return nil }
+
+func TestGitHubDownloadReportsResponseBodyFailure(t *testing.T) {
+	client := &http.Client{Transport: githubRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Status: "200 OK", Header: make(http.Header), Body: failingReadCloser{}}, nil
+	})}
+	destination := filepath.Join(t.TempDir(), "asset")
+	u := Updater{HTTPClient: client}
+	if err := u.downloadGitHubAsset(context.Background(), "https://example.test/asset", destination); err == nil || !strings.Contains(err.Error(), "write downloaded asset") {
+		t.Fatalf("body failure = %v", err)
+	}
+	if _, err := io.ReadAll(bytes.NewReader(nil)); err != nil {
+		t.Fatal(err)
 	}
 }
 

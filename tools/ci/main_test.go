@@ -18,6 +18,8 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := [][]string{
 		{"go", "run", "./tools/ci", "toolchain", "."},
+		{"openspec", "validate", "--all", "--strict", "--no-interactive"},
+		{"lychee", "--offline", "--hidden", "--no-progress", "--cache=false", "**/*.md"},
 		{"go", "run", "./tools/release", "validate-toolchain", "go.mod"},
 		{"go", "run", "./tools/release", "validate-release-sources"},
 		{"go", "run", "./tools/architecture", "--root", "."},
@@ -127,6 +129,7 @@ func TestSourceConfigurationRejectsIncompleteForgeProvenance(t *testing.T) {
 
 func TestRunRejectsInvalidCommandShapes(t *testing.T) {
 	for _, args := range [][]string{
+		{"static", "extra"},
 		{"source", "extra"},
 		{"native", "--platform", "linux", "extra"},
 		{"trust-input"},
