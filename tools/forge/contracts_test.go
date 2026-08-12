@@ -116,6 +116,15 @@ func TestCommitProvenanceRejectsRepositoryAndTrustDrift(t *testing.T) {
 	if err := os.Remove(filepath.Join(fixture.repository, ".mailmap")); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Symlink(".mailmap", filepath.Join(fixture.repository, ".mailmap")); err != nil {
+		t.Fatal(err)
+	}
+	if err := runCommitProvenance([]string{"--repository", fixture.repository, "--provider", "gitlab", "--email", fixture.email, "--allowed-signers", fixture.allowedSigners}); err == nil {
+		t.Fatal("unreadable mailmap was accepted")
+	}
+	if err := os.Remove(filepath.Join(fixture.repository, ".mailmap")); err != nil {
+		t.Fatal(err)
+	}
 	rogue := forgeKey(t, "rogue@example.invalid")
 	if err := runCommitProvenance([]string{"--repository", fixture.repository, "--provider", "gitlab", "--email", fixture.email, "--allowed-signers", rogue.allowedSigners}); err == nil || !strings.Contains(err.Error(), "trusted signature") {
 		t.Fatalf("untrusted=%v", err)
@@ -130,6 +139,9 @@ func TestTagSignatureRejectsMissingLightweightUnsignedAndUntrusted(t *testing.T)
 	base := []string{"--repository", fixture.repository, "--provider", "gitlab", "--allowed-signers", fixture.allowedSigners}
 	if err := runTagSignature(append(base, "--tag", "v9.9.9")); err == nil || !strings.Contains(err.Error(), "does not exist") {
 		t.Fatalf("missing=%v", err)
+	}
+	if err := runTagSignature([]string{"--repository", fixture.repository, "--provider", "gitlab", "--tag", "v1.2.3", "--allowed-signers", "missing"}); err == nil || !strings.Contains(err.Error(), "trust input") {
+		t.Fatalf("missing trust input=%v", err)
 	}
 	gitTest(t, fixture.repository, "tag", "v1.2.4")
 	if err := runTagSignature(append(base, "--tag", "v1.2.4")); err == nil || !strings.Contains(err.Error(), "annotated") {
@@ -152,6 +164,11 @@ func TestTagSignatureRejectsMissingLightweightUnsignedAndUntrusted(t *testing.T)
 			}
 		})
 	}
+	fixture = forgeFixture(t)
+	useGitWrapper(t, "cat-file-pretty")
+	if err := runTagSignature([]string{"--repository", fixture.repository, "--provider", "gitlab", "--tag", "v1.2.3", "--allowed-signers", fixture.allowedSigners}); err == nil {
+		t.Fatal("annotated tag object read failure was accepted")
+	}
 }
 
 func TestTagNamespaceRejectsUnexpectedAndUntrustedTags(t *testing.T) {
@@ -167,6 +184,12 @@ func TestTagNamespaceRejectsUnexpectedAndUntrustedTags(t *testing.T) {
 	}
 	if err := runTagNamespace([]string{"--repository", fixture.repository, "--mode", "github", "--github-allowed-signers", fixture.allowedSigners}); err != nil {
 		t.Fatal(err)
+	}
+	if err := runTagNamespace([]string{"--repository", fixture.repository, "--mode", "github"}); err == nil || !strings.Contains(err.Error(), "GitHub trust") {
+		t.Fatalf("missing GitHub trust=%v", err)
+	}
+	if err := runTagNamespace([]string{"--repository", fixture.repository, "--mode", "local", "--gitlab-allowed-signers", fixture.allowedSigners}); err == nil || !strings.Contains(err.Error(), "GitHub trust") {
+		t.Fatalf("missing local GitHub trust=%v", err)
 	}
 }
 
@@ -266,6 +289,34 @@ func TestCloseoutGitFailureBoundaries(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSyncTreeAndCloseoutPeerFailures(t *testing.T) {
+	t.Run("missing peer", func(t *testing.T) {
+		fixture := forgeFixture(t)
+		if err := runSync([]string{"--repository", fixture.repository, "--canonical", "main", "--peer", "missing:missing:commit"}, false); err == nil || !strings.Contains(err.Error(), "peer missing is unavailable") {
+			t.Fatalf("missing peer=%v", err)
+		}
+	})
+	t.Run("peer tree read", func(t *testing.T) {
+		fixture := forgeFixture(t)
+		gitTest(t, fixture.repository, "branch", "dev", "main")
+		useGitWrapper(t, "log-peer")
+		if err := runSync([]string{"--repository", fixture.repository, "--canonical", "main", "--peer", "dev:dev:tree"}, false); err == nil {
+			t.Fatal("peer tree read failure was accepted")
+		}
+	})
+	t.Run("peer lacks absorbed source", func(t *testing.T) {
+		fixture := forgeFixture(t)
+		gitTest(t, fixture.repository, "branch", "peer", "main")
+		gitTest(t, fixture.repository, "branch", "work/test", "main")
+		gitTest(t, fixture.repository, "switch", "-q", "work/test")
+		writeCommit(t, fixture.repository, "work", "absorbed\n", "absorbed work")
+		gitTest(t, fixture.repository, "branch", "-f", "main", "work/test")
+		if err := runSync([]string{"--repository", fixture.repository, "--canonical", "main", "--source", "work/test", "--peer", "peer:peer:commit"}, true); err == nil || !strings.Contains(err.Error(), "peer peer does not contain source tip") {
+			t.Fatalf("unabsorbed peer=%v", err)
+		}
+	})
 }
 
 type forgeTestFixture struct{ repository, email, key, allowedSigners string }

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/transaction"
 )
 
 const (
@@ -124,7 +125,7 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 	if err := json.Unmarshal(stateData, &state); err != nil {
 		return fmt.Errorf("parse Codex adapter state: %w", err)
 	}
-	if err := validateCodexStateAttribution(state, ProjectionFullSelection); err != nil {
+	if err := validateCodexStateAttribution(state); err != nil {
 		return err
 	}
 	if isManagedSelection(modelProviderLine.FindString(text), "model_provider", "aigw") {
@@ -159,18 +160,13 @@ func DisableConfig(path string) error {
 	return err
 }
 
-func codexUserConfigAt(path, statePath string, runtime configuration.Runtime, expectedBlock string) (string, codexState, error) {
-	stateData, err := os.ReadFile(statePath)
-	if err == nil {
+func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot, runtime configuration.Runtime, expectedBlock string) (string, codexState, error) {
+	if stateSnapshot.Exists {
 		var state codexState
-		if err := json.Unmarshal(stateData, &state); err != nil {
+		if err := json.Unmarshal(stateSnapshot.Data, &state); err != nil {
 			return "", codexState{}, fmt.Errorf("parse Codex adapter state: %w", err)
 		}
-		current, err := os.ReadFile(path)
-		if err != nil {
-			return "", codexState{}, fmt.Errorf("read Codex config: %w", err)
-		}
-		currentText := string(current)
+		currentText := string(configSnapshot.Data)
 		base, err := removeCodexProjection(currentText, state)
 		if err != nil {
 			if repaired, ok := completeExactTruncatedCodexProjection(currentText, state, runtime, expectedBlock); ok {
@@ -187,20 +183,14 @@ func codexUserConfigAt(path, statePath string, runtime configuration.Runtime, ex
 		}
 		return base, state, nil
 	}
-	if !os.IsNotExist(err) {
-		return "", codexState{}, fmt.Errorf("read Codex adapter state: %w", err)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", codexState{}, fmt.Errorf("read Codex config: %w", err)
-	}
-	originalProvider := modelProviderLine.FindString(string(data))
-	originalModel := modelLine.FindString(string(data))
-	scheduler, err := captureCodexScheduler(string(data))
+	text := string(configSnapshot.Data)
+	originalProvider := modelProviderLine.FindString(text)
+	originalModel := modelLine.FindString(text)
+	scheduler, err := captureCodexScheduler(text)
 	if err != nil {
 		return "", codexState{}, err
 	}
-	return string(data), codexState{OriginalProvider: originalProvider, OriginalModel: originalModel, OriginalScheduler: scheduler}, nil
+	return text, codexState{OriginalProvider: originalProvider, OriginalModel: originalModel, OriginalScheduler: scheduler}, nil
 }
 
 // completeExactTruncatedCodexProjection admits only the known interrupted

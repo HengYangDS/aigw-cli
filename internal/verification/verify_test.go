@@ -221,6 +221,9 @@ func TestVerifyClaude(t *testing.T) {
 	if err := VerifyClaudeRuntime(context.Background(), nil, "claude", configuration.Runtime{ProfileID: "one"}, "token"); err == nil || !strings.Contains(err.Error(), "no Claude model") {
 		t.Fatalf("model error = %v", err)
 	}
+	if err := VerifyClaudeRuntime(context.Background(), nil, "", runtime, "token"); err == nil || !strings.Contains(err.Error(), "executable is not configured") {
+		t.Fatalf("plan error = %v", err)
+	}
 	if err := VerifyClaudeRuntime(context.Background(), basicRunner{}, "claude", runtime, "token"); err == nil || !strings.Contains(err.Error(), "runner is unavailable") {
 		t.Fatalf("runner error = %v", err)
 	}

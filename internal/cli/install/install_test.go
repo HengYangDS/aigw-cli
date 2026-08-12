@@ -47,7 +47,7 @@ func TestInstallCommandReportsUnavailableTargetAndCopyFailure(t *testing.T) {
 	}
 	command = NewInstallCommand(invocation.Context{Executable: filepath.Join(root, "missing"), InstallTarget: filepath.Join(root, "bin", "aigw")})
 	command.SetArgs(nil)
-	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "inspect portable") {
+	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "read portable") {
 		t.Fatalf("copy failure = %v", err)
 	}
 }
@@ -166,7 +166,7 @@ func TestInstallAcceptsPortableFileAndRejectsBlockedDestinations(t *testing.T) {
 
 func TestInstallRejectsDirectorySource(t *testing.T) {
 	root := t.TempDir()
-	if err := Install(root, filepath.Join(root, "target")); err == nil || !strings.Contains(err.Error(), "not executable") {
+	if err := Install(root, filepath.Join(root, "target")); err == nil || !strings.Contains(err.Error(), "read portable") {
 		t.Fatalf("directory source = %v", err)
 	}
 }
@@ -202,6 +202,23 @@ func TestInstallAndUninstallReportOwnedFileFailures(t *testing.T) {
 	}
 	if err := Uninstall(uninstallTarget); err == nil || !strings.Contains(err.Error(), "remove portable") {
 		t.Fatalf("non-empty owned path = %v", err)
+	}
+}
+
+func TestInstallReturnsAtomicTargetReplacementFailure(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	if err := os.WriteFile(source, []byte("current"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	blocked := filepath.Join(root, "blocked")
+	if err := os.Mkdir(blocked, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(blocked, 0o700) })
+	target := filepath.Join(blocked, "aigw")
+	if err := Install(source, target); err == nil {
+		t.Fatal("invalid atomic replacement target was accepted")
 	}
 }
 

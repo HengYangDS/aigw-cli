@@ -62,7 +62,8 @@ Worktree visibility or an apparently idle agent is not retirement authority.
 
 - `.config/checks/coverage/policy.toml` is the coverage SSOT. Every Go package
   under `./...` participates, no source or package exclusion is permitted, and
-  each package and the aggregate must be strictly greater than 95 percent.
+  statement and branch coverage must each be strictly greater than 95 percent
+  for every package and for the module aggregate.
 - Keep one semantic owner for each policy and behavior. Prefer cohesive domain
   packages, explicit dependency direction, and narrow interfaces; apply SSOT,
   DRY, MECE, and SOLID rather than duplicating policy across scripts or CI.
@@ -85,9 +86,9 @@ Worktree visibility or an apparently idle agent is not retirement authority.
 ## Required verification
 
 ```bash
-go run ./tools/ci source
-go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
-go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
+mise exec --locked -- go run ./tools/ci source
+mise exec --locked -- go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
+mise exec --locked -- go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
 ```
 
 Use `aigw sync --dry-run --json` before a configuration mutation where a target

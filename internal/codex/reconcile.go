@@ -88,7 +88,7 @@ func ReadProjectionIdentity(path string) (ProjectionIdentity, error) {
 	if err := json.Unmarshal(data, &state); err != nil {
 		return ProjectionIdentity{}, fmt.Errorf("parse Codex adapter state: %w", err)
 	}
-	if err := validateCodexStateAttribution(state, ""); err != nil {
+	if err := validateCodexStateAttribution(state); err != nil {
 		return ProjectionIdentity{}, err
 	}
 	return ProjectionIdentity{
@@ -146,17 +146,11 @@ func prepareCodexReconciliation(before, after []TargetRef, runtime configuration
 	if err != nil {
 		return nil, "", err
 	}
-	transactionID, err := newCodexTransactionID()
-	if err != nil {
-		return nil, "", err
-	}
+	transactionID := newCodexTransactionID()
 	endpoint := ""
 	needsEndpoint := false
 	for _, target := range targets {
-		if !target.desired {
-			continue
-		}
-		if target.ref.ProjectionMode == ProjectionFullSelection {
+		if target.desired {
 			needsEndpoint = true
 			break
 		}
@@ -194,21 +188,16 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 	if !target.desired {
 		return prepareCodexRestore(target.ref, configSnapshot, stateSnapshot)
 	}
-	switch target.ref.ProjectionMode {
-	case ProjectionFullSelection:
-		block := codexManagedBlock(runtime, endpoint)
-		return prepareCodexFullSelection(target.ref, runtime, block, configSnapshot, stateSnapshot, transactionID)
-	default:
-		return codexPreparedTarget{}, fmt.Errorf("unsupported Codex projection mode %q", target.ref.ProjectionMode)
-	}
+	block := codexManagedBlock(runtime, endpoint)
+	return prepareCodexFullSelection(target.ref, runtime, block, configSnapshot, stateSnapshot, transactionID)
 }
 
 func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, block string, configSnapshot, stateSnapshot transaction.FileSnapshot, transactionID string) (codexPreparedTarget, error) {
-	state, err := codexStateForTarget(stateSnapshot, ProjectionFullSelection)
+	state, err := codexStateForTarget(stateSnapshot)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	base, projectedState, err := codexUserConfigAt(target.Path, targetCodexStatePath(target), runtime, block)
+	base, projectedState, err := codexUserConfig(configSnapshot, stateSnapshot, runtime, block)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -222,16 +211,10 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 	state.ProjectedSchedulerHash = codexSchedulerHash(string(projected))
 	state.ProjectionMode = ProjectionFullSelection
 	state.WriterID = ProjectionWriterID
-	stateData, err := encodeCodexState(state)
-	if err != nil {
-		return codexPreparedTarget{}, err
-	}
+	stateData := encodeCodexState(state)
 	if !bytes.Equal(configSnapshot.Data, projected) || !bytes.Equal(stateSnapshot.Data, stateData) || !stateSnapshot.Exists {
 		state.TransactionID = transactionID
-		stateData, err = encodeCodexState(state)
-		if err != nil {
-			return codexPreparedTarget{}, err
-		}
+		stateData = encodeCodexState(state)
 	}
 	action := "update"
 	if bytes.Equal(configSnapshot.Data, projected) && stateSnapshot.Exists && bytes.Equal(stateSnapshot.Data, stateData) {
@@ -251,7 +234,7 @@ func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot transac
 	if !stateSnapshot.Exists {
 		return codexPreparedTarget{plan: ProjectionPlan{Target: target.Path, Action: "already-restored"}}, nil
 	}
-	state, err := codexStateForTarget(stateSnapshot, target.ProjectionMode)
+	state, err := codexStateForTarget(stateSnapshot)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -318,7 +301,7 @@ func hashBytes(data []byte) string {
 	return hashText(string(data))
 }
 
-func codexStateForTarget(snapshot transaction.FileSnapshot, expectedMode string) (codexState, error) {
+func codexStateForTarget(snapshot transaction.FileSnapshot) (codexState, error) {
 	if !snapshot.Exists {
 		return codexState{}, nil
 	}
@@ -326,21 +309,18 @@ func codexStateForTarget(snapshot transaction.FileSnapshot, expectedMode string)
 	if err := json.Unmarshal(snapshot.Data, &state); err != nil {
 		return codexState{}, fmt.Errorf("parse Codex adapter state: %w", err)
 	}
-	if err := validateCodexStateAttribution(state, expectedMode); err != nil {
+	if err := validateCodexStateAttribution(state); err != nil {
 		return codexState{}, err
 	}
 	return state, nil
 }
 
-func encodeCodexState(state codexState) ([]byte, error) {
-	data, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("encode Codex adapter state: %w", err)
-	}
-	return append(data, '\n'), nil
+func encodeCodexState(state codexState) []byte {
+	data, _ := json.MarshalIndent(state, "", "  ")
+	return append(data, '\n')
 }
 
-func validateCodexStateAttribution(state codexState, expectedMode string) error {
+func validateCodexStateAttribution(state codexState) error {
 	if state.ProjectionMode == "" || state.WriterID == "" || state.TransactionID == "" {
 		return fmt.Errorf("Codex sidecar attribution is incomplete")
 	}
@@ -349,9 +329,6 @@ func validateCodexStateAttribution(state codexState, expectedMode string) error 
 	}
 	if state.WriterID != ProjectionWriterID {
 		return fmt.Errorf("Codex sidecar is owned by foreign writer %q", state.WriterID)
-	}
-	if expectedMode != "" && state.ProjectionMode != expectedMode {
-		return fmt.Errorf("Codex sidecar projection mode is %q, want %q", state.ProjectionMode, expectedMode)
 	}
 	return nil
 }
@@ -411,10 +388,7 @@ func normalizeCodexTargets(values []TargetRef) ([]TargetRef, error) {
 }
 
 func canonicalCodexTargetPath(path string) (string, error) {
-	absolute, err := absoluteCodexTargetPath(path)
-	if err != nil {
-		return "", err
-	}
+	absolute := filepath.Clean(path)
 	resolved, err := filepath.EvalSymlinks(absolute)
 	if err == nil {
 		return filepath.Clean(resolved), nil
@@ -479,10 +453,8 @@ func codexHomeTargets(paths []string) []TargetRef {
 	return targets
 }
 
-func newCodexTransactionID() (string, error) {
+func newCodexTransactionID() string {
 	bytes := make([]byte, 16)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", fmt.Errorf("generate Codex transaction identifier: %w", err)
-	}
-	return hex.EncodeToString(bytes), nil
+	_, _ = rand.Read(bytes)
+	return hex.EncodeToString(bytes)
 }

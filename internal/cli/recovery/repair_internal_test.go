@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -103,5 +104,62 @@ func TestRepairDesiredConfigDropsUnusableCodexAndKeepsExplicitTargets(t *testing
 	want := []string{"/default-home", "/explicit"}
 	if len(targets) != len(want) || targets[0] != want[0] || targets[1] != want[1] {
 		t.Fatalf("targets = %#v, want %#v", targets, want)
+	}
+}
+
+func TestRunRepairReturnsConfigurationCommitFailure(t *testing.T) {
+	store, cfg := configuredRepairStore(t)
+	backup := store.Path() + ".bak"
+	if err := os.Mkdir(backup, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backup, "blocker"), []byte("occupied"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime := invocation.Context{
+		Config: store,
+		Discovery: staticDiscovery{result: discovery.Result{Executables: map[string]string{
+			configuration.ClientClaude: "/opt/claude",
+		}}},
+		ClaudeSettingsPath: filepath.Join(t.TempDir(), ".claude", "settings.json"),
+	}
+	if err := runRepair(context.Background(), runtime, false, false); err == nil {
+		t.Fatal("configuration commit failure was accepted")
+	}
+	got, err := store.Load()
+	if err != nil || got.Routes.Default != cfg.Routes.Default {
+		t.Fatalf("configuration changed: %#v, %v", got, err)
+	}
+}
+
+func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) {
+	tests := []struct {
+		name   string
+		dryRun bool
+	}{
+		{name: "dry-run plan", dryRun: true},
+		{name: "converged projection"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+			cfg := configuration.NewConfig()
+			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+			cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
+			cfg.Routes.Default = "one"
+			missingTarget := filepath.Join(t.TempDir(), "missing", "configuration.toml")
+			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{missingTarget}}
+			if err := store.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			runtime := invocation.Context{
+				Config:    store,
+				Discovery: staticDiscovery{result: discovery.Result{}},
+				Out:       &bytes.Buffer{},
+			}
+			if err := runRepair(context.Background(), runtime, test.dryRun, false); err == nil || !strings.Contains(err.Error(), "does not exist") {
+				t.Fatalf("repair error = %v", err)
+			}
+		})
 	}
 }

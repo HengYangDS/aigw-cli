@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -167,13 +169,75 @@ func TestRepositoryTextChecksReportUnavailableInputs(t *testing.T) {
 	if err := checkPythonExecution(missing, "missing.sh", &report); err == nil {
 		t.Fatal("missing shell carrier accepted")
 	}
-	if err := checkPortableText(missing, "missing.md", &report); err != nil {
-		t.Fatalf("missing portable-text carrier: %v", err)
-	}
+	checkPortableText(missing, "missing.md", &report)
 }
 
 func TestWorkspaceFilesReportsMissingRoot(t *testing.T) {
 	if _, err := workspaceFiles(filepath.Join(t.TempDir(), "missing")); err == nil {
 		t.Fatal("missing workspace root accepted")
+	}
+}
+
+func TestSemanticNamesReportsUnavailableShellCarrier(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init", "-q")
+	if err := os.Symlink("missing-target", filepath.Join(root, "check.sh")); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "add", "check.sh")
+	report := newReport("policy", root)
+	if err := checkSemanticNames(root, &report); err == nil || !strings.Contains(err.Error(), "read check.sh") {
+		t.Fatalf("error=%v", err)
+	}
+}
+
+func TestModuleIdentityHandlesIgnoredMalformedAndUnavailableSources(t *testing.T) {
+	t.Run("ignored vendor and malformed source", func(t *testing.T) {
+		root := t.TempDir()
+		writeFile(t, filepath.Join(root, "go.mod"), "module aigw-cli\n")
+		writeFile(t, filepath.Join(root, "vendor", "ignored.go"), "package ignored\n")
+		writeFile(t, filepath.Join(root, "internal", "broken", "broken.go"), "package broken\nfunc broken( {\n")
+		report := newReport("policy", root)
+		if err := checkModuleIdentity(root, &report); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("unavailable Go source", func(t *testing.T) {
+		root := t.TempDir()
+		writeFile(t, filepath.Join(root, "go.mod"), "module aigw-cli\n")
+		path := filepath.Join(root, "internal", "broken", "broken.go")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink("missing-target", path); err != nil {
+			t.Fatal(err)
+		}
+		report := newReport("policy", root)
+		if err := checkModuleIdentity(root, &report); err == nil {
+			t.Fatal("unavailable Go source was accepted")
+		}
+	})
+}
+
+func TestModuleIdentityReportsOversizedDeclaration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "go.mod")
+	if err := os.WriteFile(path, bytes.Repeat([]byte{'x'}, 70_000), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readModuleIdentity(path); err == nil {
+		t.Fatal("oversized module declaration was accepted")
+	}
+}
+
+func TestPortabilitySkipsUnavailableTrackedCarrier(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init", "-q")
+	if err := os.Symlink("missing-target", filepath.Join(root, "README.md")); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "add", "README.md")
+	report := newReport("policy", root)
+	if err := checkPortability(root, &report); err != nil {
+		t.Fatal(err)
 	}
 }

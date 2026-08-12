@@ -7,6 +7,53 @@ import (
 	"aigw-cli/internal/platform"
 )
 
+func TestHostPathsAreDerivedAsOnePlatformContract(t *testing.T) {
+	tests := []struct {
+		name        string
+		goos        string
+		env         map[string]string
+		config      string
+		data        string
+		claude      string
+		installDir  string
+		installName string
+	}{
+		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, config: "/Users/alex/Library/Application Support/aigw/config.toml", data: "/Users/alex/Library/Application Support/aigw", claude: "/Users/alex/.claude/settings.json", installDir: "/Users/alex/.local/bin", installName: "aigw"},
+		{name: "Linux", goos: "linux", env: map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg", "XDG_DATA_HOME": "/data"}, config: "/cfg/aigw/config.toml", data: "/data/aigw", claude: "/home/alex/.claude/settings.json", installDir: "/home/alex/.local/bin", installName: "aigw"},
+		{name: "Windows", goos: "windows", env: map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`, "LOCALAPPDATA": `C:\Users\alex\AppData\Local`, "USERPROFILE": `C:\Users\alex`}, config: `C:\Users\alex\AppData\Roaming\aigw\config.toml`, data: `C:\Users\alex\AppData\Local\aigw`, claude: `C:\Users\alex\.claude\settings.json`, installDir: `C:\Users\alex\AppData\Local\Programs\aigw\bin`, installName: "aigw.exe"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := platform.PathsFor(test.goos, test.env)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Config != test.config || got.Data != test.data || got.ClaudeSettings != test.claude || got.InstallDir != test.installDir || got.InstallName != test.installName {
+				t.Fatalf("PathsFor() = %#v", got)
+			}
+		})
+	}
+}
+
+func TestHostPathContractReportsTheFirstMissingPlatformInput(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		goos string
+		env  map[string]string
+		want string
+	}{
+		{name: "config", goos: "darwin", env: map[string]string{}, want: "HOME is not set"},
+		{name: "data", goos: "linux", env: map[string]string{"XDG_CONFIG_HOME": "/cfg"}, want: "HOME and XDG_DATA_HOME are not set"},
+		{name: "Claude", goos: "linux", env: map[string]string{"XDG_CONFIG_HOME": "/cfg", "XDG_DATA_HOME": "/data"}, want: "HOME is not set"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := platform.PathsFor(test.goos, test.env); err == nil || err.Error() != test.want {
+				t.Fatalf("PathsFor() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
 func TestConfigPathUsesPlatformConvention(t *testing.T) {
 	tests := []struct {
 		goos string
@@ -114,6 +161,17 @@ func TestUserBinDirRefusesMissingWindowsEnvOrUnsupportedOS(t *testing.T) {
 	}
 	if _, err := platform.UserBinDirFor("plan9", map[string]string{}); err == nil {
 		t.Fatal("unsupported operating system unexpectedly admitted")
+	}
+}
+
+func TestWindowsJoinPreservesRootedAndEmptyInputs(t *testing.T) {
+	got, err := platform.ConfigPathFor("windows", map[string]string{"APPDATA": `\\server\share`})
+	if err != nil || got != `\server\share\aigw\config.toml` {
+		t.Fatalf("rooted Windows config path = %q, %v", got, err)
+	}
+	got, err = platform.ConfigPathFor("windows", map[string]string{"APPDATA": `\\`})
+	if err != nil || got != `\aigw\config.toml` {
+		t.Fatalf("root-only Windows config path = %q, %v", got, err)
 	}
 }
 

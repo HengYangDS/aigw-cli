@@ -410,6 +410,74 @@ func TestEnglishTextFailureSurfaces(t *testing.T) {
 	}
 }
 
+func TestRepositoryReadersReportTrackedAndScannerFailures(t *testing.T) {
+	t.Run("tracked credential file disappears", func(t *testing.T) {
+		root := productSurfaceRepository(t)
+		path := filepath.Join(root, "internal", "gone.go")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("package internal\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		gitRepository(t, root, "add", "internal/gone.go")
+		if err := os.Remove(path); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join(root, "missing"), path); err != nil {
+			t.Skipf("symlink fixture unavailable: %v", err)
+		}
+		if err := checkCredentials(root); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("English scanner token too long", func(t *testing.T) {
+		root := t.TempDir()
+		gitRepository(t, root, "init", "-q")
+		path := filepath.Join(root, "README.md")
+		if err := os.WriteFile(path, []byte(strings.Repeat("a", 70*1024)), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		gitRepository(t, root, "add", "README.md")
+		if err := checkEnglishText(root); err == nil || !strings.Contains(err.Error(), "token too long") {
+			t.Fatalf("scanner error = %v", err)
+		}
+	})
+
+	t.Run("changelog scanner token too long", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "CHANGELOG.md")
+		content := "## [Unreleased]\n" + strings.Repeat("a", 70*1024)
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := parseChangelog(path); err == nil || !strings.Contains(err.Error(), "token too long") {
+			t.Fatalf("scanner error = %v", err)
+		}
+	})
+
+	t.Run("check changelog propagates parse failure", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("## [Unreleased]\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := checkChangelog(root, nil); err == nil || !strings.Contains(err.Error(), "missing published") {
+			t.Fatalf("parse error = %v", err)
+		}
+	})
+}
+
+func TestProductSurfaceReportsNestedReadFailure(t *testing.T) {
+	root := productSurfaceRepository(t)
+	path := filepath.Join(root, "docs", "dangling.md")
+	if err := os.Symlink(filepath.Join(root, "missing"), path); err != nil {
+		t.Skipf("symlink fixture unavailable: %v", err)
+	}
+	if err := checkProductSurface(root); err == nil {
+		t.Fatal("unreadable nested product document was accepted")
+	}
+}
+
 func initReleaseRepository(t *testing.T, version string) string {
 	t.Helper()
 	root := t.TempDir()

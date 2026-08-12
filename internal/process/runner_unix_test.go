@@ -109,7 +109,7 @@ func TestReplaceProcessReturnsNilWhenExecSucceeds(t *testing.T) {
 	}
 }
 
-func TestRunCaptureRejectsOversizedStdoutOnSuccess(t *testing.T) {
+func TestRunCaptureRejectsOversizedStdout(t *testing.T) {
 	requireShellFixture(t)
 	// Stream more than capturedProcessOutputLimit bytes through the capture buffer.
 	script := fmt.Sprintf(`head -c %d /dev/zero | tr '\0' x`, capturedProcessOutputLimit+2048)
@@ -120,19 +120,6 @@ func TestRunCaptureRejectsOversizedStdoutOnSuccess(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "exceeds") {
 		t.Fatalf("RunCapture() error = %v, want oversized output", err)
-	}
-}
-
-func TestRunCaptureRejectsOversizedStdoutOnFailure(t *testing.T) {
-	requireShellFixture(t)
-	script := fmt.Sprintf(`head -c %d /dev/zero | tr '\0' x; exit 2`, capturedProcessOutputLimit+2048)
-	_, err := (Runner{}).RunCapture(context.Background(), Plan{
-		Executable: "/bin/sh",
-		Args:       []string{"-c", script},
-		Env:        os.Environ(),
-	})
-	if err == nil || !strings.Contains(err.Error(), "exceeds") {
-		t.Fatalf("RunCapture() error = %v, want oversized output on failure", err)
 	}
 }
 

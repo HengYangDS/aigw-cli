@@ -59,11 +59,7 @@ func projectCodexScheduler(text string) (string, error) {
 		}
 		sort.Strings(keys)
 		for _, key := range keys {
-			var err error
-			result, err = setCodexIntegerKey(result, table, key, codexSchedulerKeys[table][key])
-			if err != nil {
-				return "", err
-			}
+			result = setCodexIntegerKey(result, table, key, codexSchedulerKeys[table][key])
 		}
 	}
 	return result, validateCodexTOML(result)
@@ -85,14 +81,10 @@ func restoreCodexScheduler(text string, original map[string]*int) (string, error
 			return "", fmt.Errorf("invalid Codex scheduler state key %q", name)
 		}
 		key = "max_" + key
-		var err error
 		if original[name] == nil {
-			result, err = removeCodexIntegerKey(result, table, key)
+			result = removeCodexIntegerKey(result, table, key)
 		} else {
-			result, err = setCodexIntegerKey(result, table, key, *original[name])
-		}
-		if err != nil {
-			return "", err
+			result = setCodexIntegerKey(result, table, key, *original[name])
 		}
 		result = removeEmptyCodexTable(result, table)
 	}
@@ -192,7 +184,7 @@ func codexIntegerKey(text, table, key string) (int, bool, error) {
 	return value, true, nil
 }
 
-func setCodexIntegerKey(text, table, key string, value int) (string, error) {
+func setCodexIntegerKey(text, table, key string, value int) string {
 	start, end, present := codexTableBounds(text, table)
 	assignment := fmt.Sprintf("%s = %d # managed by AIGW", key, value)
 	if !present {
@@ -203,7 +195,7 @@ func setCodexIntegerKey(text, table, key string, value int) (string, error) {
 		if strings.TrimSpace(text) != "" {
 			separator += "\n"
 		}
-		return text + separator + "[" + table + "]\n" + assignment + "\n", nil
+		return text + separator + "[" + table + "]\n" + assignment + "\n"
 	}
 	section := text[start:end]
 	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=.*$`)
@@ -218,18 +210,18 @@ func setCodexIntegerKey(text, table, key string, value int) (string, error) {
 			section = section[:headerEnd] + assignment + "\n" + section[headerEnd:]
 		}
 	}
-	return text[:start] + section + text[end:], nil
+	return text[:start] + section + text[end:]
 }
 
-func removeCodexIntegerKey(text, table, key string) (string, error) {
+func removeCodexIntegerKey(text, table, key string) string {
 	start, end, present := codexTableBounds(text, table)
 	if !present {
-		return text, nil
+		return text
 	}
 	section := text[start:end]
 	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=.*(?:\n|$)`)
 	section = pattern.ReplaceAllString(section, "")
-	return text[:start] + section + text[end:], nil
+	return text[:start] + section + text[end:]
 }
 
 func removeEmptyCodexTable(text, table string) string {

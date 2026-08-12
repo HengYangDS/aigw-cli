@@ -31,7 +31,7 @@ var governanceFiles = []string{
 }
 
 var localVerificationCommands = []string{
-	"go run ./tools/ci source",
+	"mise exec --locked -- go run ./tools/ci source",
 }
 
 func checkGovernance(root string) error {
@@ -61,10 +61,7 @@ func checkGovernance(root string) error {
 	if err != nil {
 		return err
 	}
-	if strings.Contains(strings.ToLower(releaseReadiness), "branch coverage") {
-		return fmt.Errorf("docs/operations/release-readiness.md claims unsupported branch coverage")
-	}
-	for _, term := range []string{"statement coverage", "strictly above 95 percent"} {
+	for _, term := range []string{"statement", "branch coverage", "strictly above 95 percent", "every package", "module aggregate"} {
 		if !strings.Contains(strings.ToLower(releaseReadiness), term) {
 			return fmt.Errorf("docs/operations/release-readiness.md is missing truthful coverage term %q", term)
 		}

@@ -40,9 +40,9 @@ the ordinary branch-closeout requirements below. Agent-list visibility alone
 is not liveness or retirement proof.
 
 ```bash
-go run ./tools/ci source
-go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
-go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
+mise exec --locked -- go run ./tools/ci source
+mise exec --locked -- go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
+mise exec --locked -- go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
 ```
 
 ## Projection changes
@@ -82,10 +82,23 @@ release context and, for an encrypted key, the approved
 `AIGW_GITHUB_SIGNING_PROGRAM`; repository-local `aigw.githubSigningKey` and
 `aigw.githubSigningProgram` provide the equivalent persistent configuration.
 
+The locked repository toolchain is declared once in `mise.toml` and resolved
+by `mise.lock`: Go, Node.js, OpenSpec, lychee, GoReleaser, and Syft. Use
+`mise exec --locked -- ...` for every repository command. Do not rely on a
+system `go`, `node`, `openspec`, `lychee`, `goreleaser`, or `syft` installation.
+
+Protected CI supplies `AIGW_FORGE_PROVIDER`, `AIGW_RELEASE_AUTHOR_EMAIL`,
+`AIGW_RELEASE_ALLOWED_SIGNERS`, and the generated
+`AIGW_RELEASE_ALLOWED_SIGNERS_FILE`. GitLab additionally owns
+`CI_API_V4_URL`, `CI_PROJECT_ID`, `CI_COMMIT_TAG`, and `CI_JOB_TOKEN`; GitHub
+owns `GITHUB_API_URL`, `GITHUB_REPOSITORY`, `GITHUB_TOKEN`, and `GH_TOKEN`.
+These are execution inputs, never product defaults or repository identity.
+
 Every descendant after the tracked provider floor must use its provider email
 for both author and committer and verify under that provider's SSH trust anchor.
 Keep coverage policy in `.config/checks/coverage/policy.toml`; each Go package
-under `./...` and the aggregate must execute strictly above 95 percent. Do not
+under `./...` and the aggregate must exceed 95 percent independently for
+statement and branch coverage. Do not
 introduce source compatibility shims, forwarding wrappers, alias-only packages,
 or re-exports in place of a semantic owner.
 

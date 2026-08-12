@@ -20,6 +20,13 @@ func TestManifestAccountNamesReturnsEveryCredentialOwnerOnce(t *testing.T) {
 	}
 }
 
+func TestCredentialDetectionDescendsIntoArrays(t *testing.T) {
+	value := []any{map[string]any{"metadata": map[string]any{"api_token": "secret"}}}
+	if got := findCredentialKey(value, "profiles"); got != "profiles.metadata.api_token" {
+		t.Fatalf("credential path = %q", got)
+	}
+}
+
 func TestExampleConfigurationManifestIsProviderNeutralVersionThree(t *testing.T) {
 	manifestDirectory := filepath.Join("..", "..", "manifests")
 	files, err := filepath.Glob(filepath.Join(manifestDirectory, "*.toml"))

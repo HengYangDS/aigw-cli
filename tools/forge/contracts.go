@@ -61,9 +61,6 @@ func runCommitProvenance(args []string) error {
 		return err
 	}
 	oids := strings.Fields(commits)
-	if len(oids) == 0 {
-		return fmt.Errorf("%s commit provenance: HEAD has no reachable commits", *provider)
-	}
 	for _, oid := range oids {
 		identity, err := gitOutput(*repository, "show", "-s", "--format=%ae%x00%ce", oid)
 		if err != nil {

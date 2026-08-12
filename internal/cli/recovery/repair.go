@@ -87,17 +87,17 @@ func repairDesiredConfig(runtime invocation.Context, before configuration.Config
 	if err != nil {
 		return configuration.Config{}, discovery.Result{}, err
 	}
-	claudeRuntime, _, claudeRouteErr := after.ResolveRuntime(configuration.ClientClaude, "")
-	codexRuntime, _, codexRouteErr := after.ResolveRuntime(configuration.ClientCodex, "")
+	_, _, claudeRouteErr := after.ResolveRuntime(configuration.ClientClaude, "")
+	_, _, codexRouteErr := after.ResolveRuntime(configuration.ClientCodex, "")
 	claudeAdapter := after.Adapters[configuration.ClientClaude]
 	claudeExecutable := claudeAdapter.Executable
 	if claudeExecutable == "" {
 		claudeExecutable = discovered.Executable(configuration.ClientClaude)
 	}
-	if claudeRouteErr == nil && claudeExecutable != "" && claudeRuntime.Endpoint != "" {
+	if claudeRouteErr == nil && claudeExecutable != "" {
 		after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 	}
-	if codexRouteErr == nil && codexRuntime.Endpoint != "" {
+	if codexRouteErr == nil {
 		currentCodex := after.Adapters[configuration.ClientCodex]
 		targets := repairCodexTargets(discovered, currentCodex.Targets)
 		executable := currentCodex.Executable
