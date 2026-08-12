@@ -2,7 +2,7 @@
 
 - [x] 1.1 Replace the retired flat remote declaration with two explicit peers.
 - [x] 1.2 Bind local verification and installation to repository-owned commands.
-- [ ] 2.1 Validate the complete change and execute exact-HEAD proof.
+- [x] 2.1 Validate the complete change and execute exact-HEAD proof.
 - [ ] 3.1 Land the change and re-evaluate independent remote publication.
 
 ## Requirement To Task To Proof
