@@ -202,6 +202,24 @@ func TestBuildCIResolvesTagVersionAndReproducibleEpoch(t *testing.T) {
 	}
 }
 
+func TestReadProductVersionRejectsMissingAndMalformedCarrier(t *testing.T) {
+	missing := t.TempDir()
+	if _, err := readProductVersion(missing); err == nil || !strings.Contains(err.Error(), "read VERSION") {
+		t.Fatalf("missing VERSION error = %v", err)
+	}
+	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
+	if err := buildCI(missing, t.TempDir(), t.TempDir(), nil, nil, nil); err == nil || !strings.Contains(err.Error(), "read VERSION") {
+		t.Fatalf("missing CI VERSION error = %v", err)
+	}
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("not-semver\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readProductVersion(root); err == nil || !strings.Contains(err.Error(), "invalid release version") {
+		t.Fatalf("malformed VERSION error = %v", err)
+	}
+}
+
 func TestBuildCIRejectsTagThatDisagreesWithVersionCarrier(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.4\n"), 0o600); err != nil {
