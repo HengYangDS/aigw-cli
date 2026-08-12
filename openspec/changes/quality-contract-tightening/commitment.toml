@@ -1,0 +1,57 @@
+schema_version = 1
+id = "change:quality-contract-tightening"
+intent = "Tighten one positive repository quality contract across source, tests, tools, CI, documentation, specifications, build, release, installation, and runtime evidence without adding parallel policy owners."
+subjects = ["repository:self"]
+scope = [
+  "openspec/changes/quality-contract-tightening/**",
+  "openspec/specs/**",
+  ".config/**",
+  ".github/**",
+  ".gitlab-ci.yml",
+  "AGENTS.md",
+  "CONTRIBUTING.md",
+  "README.md",
+  "docs/**",
+  "cmd/**",
+  "internal/**",
+  "tools/**",
+  "go.mod",
+  "go.sum",
+  "mise.toml",
+  "mise.lock",
+]
+invariants = [
+  "aigw_remains_a_portable_provider_neutral_codex_and_claude_code_configuration_control_plane",
+  "one_positive_policy_owner_drives_local_hooks_ci_and_release_verification",
+  "gitlab_and_github_remain_independent_publication_planes",
+  "no_personal_identity_host_path_workstation_proxy_jetbrains_or_session_state_enters_product_authority",
+  "no_compatibility_shell_forwarder_or_duplicate_policy_surface_is_added",
+]
+acceptance = [
+  "statement_branch_and_package_coverage_are_each_strictly_greater_than_ninety_five_percent",
+  "production_tests_tools_ci_docs_openspec_build_release_install_and_runtime_evidence_are_inside_the_quality_boundary",
+  "structural_limits_cover_production_and_tests_without_exemptions",
+  "native_macos_linux_and_windows_quality_projections_execute_the_same_authoritative_contract",
+  "documentation_links_examples_and_cli_contracts_are_current_concise_and_machine_verifiable",
+  "complete_exact_head_local_proof_passes",
+]
+risks = [
+  "go_statement_profiles_do_not_natively_prove_branch_coverage",
+  "overbroad_reorganization_increases_delivery_time_without_closing_a_measured_gap",
+]
+authority_refs = [
+  "user_instruction",
+  "AGENTS.md",
+  ".config/checks/coverage/policy.toml",
+  ".config/checks/architecture/policy.toml",
+  ".config/ci/verify-gates.toml",
+  "openspec/specs/product-quality/spec.md",
+]
+permissions = [
+  "repository.read",
+  "work-lane.write",
+  "local-proof.execute",
+  "git.ref.compare-and-swap",
+]
+hypotheses = []
+dependencies = []
