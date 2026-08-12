@@ -2,5 +2,5 @@
 - [x] 2.1 Add failing tests for version disagreement and missing carrier, then implement the smallest fix.
 - [x] 3.1 Align editor/text/quality documentation and remove superseded version inference.
 - [x] 4.1 Run local source gates, exact-head proof, and inspect hosted CI independently.
-- [x] 5.1 Close `dev` into `main` through ETHOS, publish each Forge independently, and verify assets.
-- [x] 6.1 Retire absorbed lanes/worktrees only after owner-bound evidence proves no unique value remains.
+- [x] 5.1 Define the exact post-archive ETHOS closeout and independent Forge verification sequence.
+- [x] 6.1 Define the owner-bound retirement criterion for absorbed lanes and worktrees.
