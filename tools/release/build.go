@@ -286,16 +286,19 @@ func parseBuildArguments(args []string) (buildRequest, error) {
 
 func buildCI(root, workspace, output string, build releaseBuilder, epoch releaseEpochResolver, compare artifactComparator) error {
 	tag := strings.TrimSpace(os.Getenv("CI_COMMIT_TAG"))
-	version := strings.TrimPrefix(tag, "v")
-	if version == "" {
-		short := strings.TrimSpace(os.Getenv("CI_COMMIT_SHORT_SHA"))
-		if short == "" {
-			return errors.New("CI build requires CI_COMMIT_TAG or CI_COMMIT_SHORT_SHA")
-		}
-		version = "0.1.0-" + short
+	if tag == "" {
+		return errors.New("CI build requires CI_COMMIT_TAG")
 	}
+	version := strings.TrimPrefix(tag, "v")
 	if !releaseVersion.MatchString(version) {
 		return fmt.Errorf("invalid CI release version %q", version)
+	}
+	carrier, err := readProductVersion(root)
+	if err != nil {
+		return err
+	}
+	if tag != "" && carrier != version {
+		return fmt.Errorf("CI tag version %q disagrees with VERSION %q", version, carrier)
 	}
 	releaseEpoch, err := epoch(root, version)
 	if err != nil {
@@ -320,6 +323,18 @@ func buildCI(root, workspace, output string, build releaseBuilder, epoch release
 		return err
 	}
 	return replaceDirectory(first, output)
+}
+
+func readProductVersion(root string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(root, "VERSION"))
+	if err != nil {
+		return "", fmt.Errorf("read VERSION: %w", err)
+	}
+	version := strings.TrimSpace(string(data))
+	if !releaseVersion.MatchString(version) {
+		return "", fmt.Errorf("VERSION contains invalid release version %q", version)
+	}
+	return version, nil
 }
 
 func resolveReleaseEpoch(root, version string) (string, error) {

@@ -163,6 +163,10 @@ func TestReleaseBuildRejectsInvalidOrPartialInputsBeforeLaunchingTools(t *testin
 }
 
 func TestBuildCIResolvesTagVersionAndReproducibleEpoch(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
 	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "https://gitlab.example")
 	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "group/aigw-cli")
@@ -185,7 +189,7 @@ func TestBuildCIResolvesTagVersionAndReproducibleEpoch(t *testing.T) {
 		}
 		return "1784246400", nil
 	}
-	if err := buildCI(t.TempDir(), filepath.Join(t.TempDir(), "build"), filepath.Join(t.TempDir(), "dist"), build, epoch, func(left, right, version string) error {
+	if err := buildCI(root, filepath.Join(t.TempDir(), "build"), filepath.Join(t.TempDir(), "dist"), build, epoch, func(left, right, version string) error {
 		if version != "1.2.3" {
 			t.Fatalf("compare version=%q", version)
 		}
@@ -198,23 +202,32 @@ func TestBuildCIResolvesTagVersionAndReproducibleEpoch(t *testing.T) {
 	}
 }
 
+func TestBuildCIRejectsTagThatDisagreesWithVersionCarrier(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.4\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
+
+	err := buildCI(root, filepath.Join(t.TempDir(), "build"), filepath.Join(t.TempDir(), "dist"), nil, nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "VERSION") {
+		t.Fatalf("error = %v, want VERSION mismatch", err)
+	}
+}
+
 func TestBuildCIFailsClosedAcrossUntaggedAndDependencyFailures(t *testing.T) {
 	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	workspace := filepath.Join(root, "workspace")
 	output := filepath.Join(root, "dist")
 
 	t.Setenv("CI_COMMIT_TAG", "")
-	t.Setenv("CI_COMMIT_SHORT_SHA", "")
 	if err := buildCI(root, workspace, output, nil, nil, nil); err == nil || !strings.Contains(err.Error(), "requires CI_COMMIT_TAG") {
 		t.Fatalf("missing identity error = %v", err)
 	}
-
-	t.Setenv("CI_COMMIT_SHORT_SHA", "bad/sha")
-	if err := buildCI(root, workspace, output, nil, nil, nil); err == nil || !strings.Contains(err.Error(), "invalid CI release version") {
-		t.Fatalf("invalid identity error = %v", err)
-	}
-
-	t.Setenv("CI_COMMIT_SHORT_SHA", "abc123")
+	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
 	want := errors.New("epoch failed")
 	if err := buildCI(root, workspace, output, nil, func(string, string) (string, error) { return "", want }, nil); !errors.Is(err, want) {
 		t.Fatalf("epoch error = %v", err)
