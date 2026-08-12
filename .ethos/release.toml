@@ -1,10 +1,22 @@
 [publication]
-local_verification_command = "go run ./tools/coverage --race"
-local_installation_command = "go run ./cmd/aigw install"
-gitlab_remote = "origin"
-gitlab_ci_surface = ".gitlab-ci.yml"
-github_remote = "github"
-github_ci_surface = ".github/workflows/verify.yml"
+local_verification_command = "mise exec --locked -- go run ./tools/ci source"
+local_installation_command = "mise exec --locked -- go run ./cmd/aigw install"
+
+[[publication.peers]]
+id = "gitlab"
+provider = "gitlab"
+role = "organization_collaboration"
+git_remote = "origin"
+capabilities = ["repository", "ci_cd", "publication"]
+ci_surface = ".gitlab-ci.yml"
+
+[[publication.peers]]
+id = "github"
+provider = "github"
+role = "public_distribution"
+git_remote = "github"
+capabilities = ["repository", "ci_cd", "publication"]
+ci_surface = ".github/workflows/verify.yml"
 
 [protected_refs]
 branches = ["main", "dev"]
