@@ -51,10 +51,7 @@ func Validate(ctx context.Context, httpClient HTTPDoer, account configuration.Ac
 			cancel()
 			return err
 		}
-		if err := authenticate(req, spec, token); err != nil {
-			cancel()
-			return err
-		}
+		authenticate(req, spec, token)
 		clientHTTP := withoutRedirects(httpClient)
 		resp, err := clientHTTP.Do(req)
 		if err != nil {
@@ -81,17 +78,14 @@ func Validate(ctx context.Context, httpClient HTTPDoer, account configuration.Ac
 	return nil
 }
 
-func authenticate(request *http.Request, spec configuration.ClientSpec, token string) error {
+func authenticate(request *http.Request, spec configuration.ClientSpec, token string) {
 	switch spec.EndpointProtocol {
 	case configuration.ProtocolAnthropic:
 		request.Header.Set("X-Api-Key", token)
 		request.Header.Set("Anthropic-Version", "2023-06-01")
 	case configuration.ProtocolOpenAIResponses:
 		request.Header.Set("Authorization", "Bearer "+token)
-	default:
-		return fmt.Errorf("%s endpoint protocol %q is unsupported", spec.ID, spec.EndpointProtocol)
 	}
-	return nil
 }
 
 func modelsEndpoint(endpoint string, protocol configuration.EndpointProtocol) string {

@@ -14,6 +14,7 @@ import (
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 )
@@ -90,6 +91,10 @@ func (body setupResponseBody) Close() error { return body.closeErr }
 type setupProcessRunner struct {
 	err error
 }
+
+type setupDiscovery struct{ result discovery.Result }
+
+func (candidate setupDiscovery) Discover() discovery.Result { return candidate.result }
 
 func (runner setupProcessRunner) Run(context.Context, process.Plan) error { return runner.err }
 func (runner setupProcessRunner) RunCapture(context.Context, process.Plan) ([]byte, error) {
@@ -341,5 +346,37 @@ func TestRollbackSetupRemovesSecretAndConfig(t *testing.T) {
 		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("%s remains: %v", path, err)
 		}
+	}
+}
+
+func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "configuration.toml")
+	store := configuration.NewStore(path)
+	secretStore := secrets.NewMemoryStore()
+	if err := secretStore.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	runtime := invocation.Context{
+		Config:             store,
+		Secrets:            secretStore,
+		Discovery:          setupDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}},
+		ClaudeSettingsPath: filepath.Join(t.TempDir(), ".claude", "settings.json"),
+		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
+		}),
+		Out:         io.Discard,
+		RenderOut:   io.Discard,
+		Interactive: false,
+	}
+	request := Request{Account: "team", Profile: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: configuration.ClientClaude, Model: "claude-test"}
+	if err := runSetup(context.Background(), runtime, request); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if adapter := cfg.Adapters[configuration.ClientClaude]; !adapter.Enabled || adapter.Executable != "/opt/claude" {
+		t.Fatalf("Claude adapter = %#v", adapter)
 	}
 }

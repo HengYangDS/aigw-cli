@@ -8,6 +8,40 @@ import (
 	"strings"
 )
 
+// Paths is the complete host-derived path contract for one AIGW process.
+type Paths struct {
+	Config         string
+	Data           string
+	ClaudeSettings string
+	InstallDir     string
+	InstallName    string
+}
+
+// PathsFor derives every host-owned path from one explicit platform snapshot.
+func PathsFor(goos string, env map[string]string) (Paths, error) {
+	config, err := ConfigPathFor(goos, env)
+	if err != nil {
+		return Paths{}, err
+	}
+	data, err := DataDirFor(goos, env)
+	if err != nil {
+		return Paths{}, err
+	}
+	claudeSettings, err := ClaudeSettingsPathFor(goos, env)
+	if err != nil {
+		return Paths{}, err
+	}
+	installDir, err := UserBinDirFor(goos, env)
+	if err != nil {
+		return Paths{}, err
+	}
+	installName := "aigw"
+	if goos == "windows" {
+		installName += ".exe"
+	}
+	return Paths{Config: config, Data: data, ClaudeSettings: claudeSettings, InstallDir: installDir, InstallName: installName}, nil
+}
+
 func ConfigPathFor(goos string, env map[string]string) (string, error) {
 	switch goos {
 	case "darwin":
@@ -117,9 +151,6 @@ func windowsJoin(parts ...string) string {
 		if part != "" {
 			clean = append(clean, part)
 		}
-	}
-	if len(clean) == 0 {
-		return ""
 	}
 	if len(parts[0]) > 0 && (strings.HasPrefix(parts[0], `\`) || strings.HasPrefix(parts[0], `/`)) {
 		return `\` + strings.Join(clean, `\`)

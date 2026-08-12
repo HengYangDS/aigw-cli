@@ -50,7 +50,7 @@ func InspectConfig(path string) (Inspection, error) {
 		inspection.AttributionState = "invalid"
 		return inspection, nil
 	}
-	if attributionErr := validateCodexStateAttribution(state, ""); attributionErr != nil {
+	if attributionErr := validateCodexStateAttribution(state); attributionErr != nil {
 		inspection.State = "ownership-conflict"
 		inspection.AttributionState = "foreign-or-incomplete"
 		inspection.ProjectionMode = state.ProjectionMode
@@ -58,14 +58,7 @@ func InspectConfig(path string) (Inspection, error) {
 	}
 	inspection.AttributionState = "recognized"
 	inspection.ProjectionMode = state.ProjectionMode
-	var block string
-	switch inspection.ProjectionMode {
-	case ProjectionFullSelection:
-		block, err = codexManagedBlockIn(text)
-	default:
-		inspection.State = "ownership-conflict"
-		return inspection, nil
-	}
+	block, err := codexManagedBlockIn(text)
 	if err != nil {
 		inspection.State = "stale-sidecar"
 		return inspection, nil
@@ -76,13 +69,10 @@ func InspectConfig(path string) (Inspection, error) {
 		return inspection, nil
 	}
 	inspection.AIGWManaged = true
-	switch inspection.ProjectionMode {
-	case ProjectionFullSelection:
-		if inspection.DiskSelection != "aigw-managed" {
-			inspection.State = "aigw-drift"
-		} else {
-			inspection.State = "aigw-managed"
-		}
+	if inspection.DiskSelection != "aigw-managed" {
+		inspection.State = "aigw-drift"
+	} else {
+		inspection.State = "aigw-managed"
 	}
 	return inspection, nil
 }
@@ -95,10 +85,7 @@ func classifyCodexDiskSelection(text string) string {
 	if isManagedSelection(line, "model_provider", "aigw") {
 		return "aigw-managed"
 	}
-	_, value, ok := strings.Cut(line, "=")
-	if !ok {
-		return "unrecognized"
-	}
+	_, value, _ := strings.Cut(line, "=")
 	value, _, _ = strings.Cut(value, "#")
 	value = strings.Trim(strings.TrimSpace(value), "\"")
 	if value == "aigw" || value == "aigw_fallback" {

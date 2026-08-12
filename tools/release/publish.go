@@ -148,11 +148,9 @@ func uploadGitLabArtifacts(ctx context.Context, client *http.Client, config gitL
 		if err != nil {
 			return err
 		}
-		request, err := http.NewRequestWithContext(ctx, http.MethodPut, base+"/"+url.PathEscape(name), file)
-		if err != nil {
-			_ = file.Close()
-			return err
-		}
+		// publishInputs validates the base URL and every dynamic path segment is
+		// escaped, so request construction has no remaining error domain.
+		request, _ := http.NewRequestWithContext(ctx, http.MethodPut, base+"/"+url.PathEscape(name), file)
 		request.Header.Set("JOB-TOKEN", config.Token)
 		response, err := client.Do(request)
 		_ = file.Close()
@@ -223,10 +221,8 @@ func uploadGitHubAssets(ctx context.Context, client *http.Client, config githubP
 		query := endpoint.Query()
 		query.Set("name", name)
 		endpoint.RawQuery = query.Encode()
-		request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(data))
-		if err != nil {
-			return err
-		}
+		// url.Parse above and Query.Encode establish a valid request URL.
+		request, _ := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(data))
 		request.Header.Set("Authorization", "Bearer "+config.Token)
 		request.Header.Set("Content-Type", mime.TypeByExtension(filepath.Ext(name)))
 		response, err := client.Do(request)
@@ -316,10 +312,9 @@ func verifyGitLabAssets(ctx context.Context, client *http.Client, config gitLabP
 		if !found {
 			return fmt.Errorf("GitLab release verification is missing asset %s", name)
 		}
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-		if err != nil {
-			return err
-		}
+		// lastPath accepted this URL as the exact expected asset name; request
+		// construction cannot fail before the stricter authority check below.
+		request, _ := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 		same, err := sameAuthority(config.APIBase, endpoint)
 		if err != nil {
 			return err

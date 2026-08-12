@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestAdapterReadAndValidationBranches(t *testing.T) {
+func TestAdapterListAndDiscoveryBranches(t *testing.T) {
 	t.Run("list load", func(t *testing.T) {
 		app, _, _, _ := testApp(t, "")
 		app.Config = configuration.NewStore(t.TempDir())
@@ -75,7 +75,9 @@ func TestAdapterReadAndValidationBranches(t *testing.T) {
 			}
 		}
 	})
+}
 
+func TestAdapterValidationBranches(t *testing.T) {
 	for _, test := range []struct {
 		name string
 		args []string
@@ -96,7 +98,9 @@ func TestAdapterReadAndValidationBranches(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestAdapterStateFailureBranches(t *testing.T) {
 	t.Run("enable already enabled", func(t *testing.T) {
 		app, _, secretStore, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "m"})

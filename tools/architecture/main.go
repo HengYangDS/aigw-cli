@@ -29,11 +29,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	absRoot, err := filepath.Abs(*root)
-	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "resolve root: %v\n", err)
-		return 1
-	}
+	absRoot, _ := filepath.Abs(*root)
 	resolvedPolicy := *policyPath
 	if !filepath.IsAbs(resolvedPolicy) {
 		resolvedPolicy = filepath.Join(absRoot, resolvedPolicy)

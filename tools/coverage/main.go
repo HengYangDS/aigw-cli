@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"io"
@@ -21,9 +22,11 @@ const defaultPolicyPath = ".config/checks/coverage/policy.toml"
 
 type coveragePolicy struct {
 	MinimumStatementPercent float64  `toml:"minimum_statement_percent"`
+	MinimumBranchPercent    float64  `toml:"minimum_branch_percent"`
 	Comparison              string   `toml:"comparison"`
 	CoverMode               string   `toml:"covermode"`
 	Packages                []string `toml:"packages"`
+	BranchAnalyzer          string   `toml:"branch_analyzer"`
 	Owner                   string   `toml:"owner"`
 	Source                  string   `toml:"source"`
 }
@@ -51,6 +54,10 @@ type commandRunner interface {
 	Run(name string, args []string, stdout, stderr io.Writer) error
 }
 
+type inputCommandRunner interface {
+	RunInput(name string, args []string, stdin io.Reader, stdout, stderr io.Writer) error
+}
+
 type systemRunner struct{}
 
 func (systemRunner) Run(name string, args []string, stdout, stderr io.Writer) error {
@@ -58,6 +65,19 @@ func (systemRunner) Run(name string, args []string, stdout, stderr io.Writer) er
 	command.Stdout = stdout
 	command.Stderr = stderr
 	return command.Run()
+}
+
+func (systemRunner) RunInput(name string, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	command := exec.Command(name, args...)
+	command.Stdin = stdin
+	command.Stdout = stdout
+	command.Stderr = stderr
+	return command.Run()
+}
+
+type packageInfo struct {
+	ImportPath string
+	ModulePath string
 }
 
 func main() {
@@ -94,17 +114,20 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int
 	// Pure acceptance-test packages intentionally own no production statements.
 	// They still run and contribute cross-package coverage, but only packages
 	// with production Go files participate in the per-package floor.
-	listArgs := append([]string{"list", "-f", "{{if .GoFiles}}{{.ImportPath}}{{end}}"}, policy.Packages...)
+	listArgs := append([]string{"list", "-f", "{{if .GoFiles}}{{.ImportPath}}\t{{.Module.Path}}{{end}}"}, policy.Packages...)
 	if err := runner.Run("go", listArgs, &packageOutput, stderr); err != nil {
 		_, _ = fmt.Fprintf(stderr, "go list failed: %v\n", err)
 		return 1
 	}
-	expectedPackages := strings.Fields(packageOutput.String())
+	expectedPackages, err := parsePackageList(packageOutput.String())
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "parse package list: %v\n", err)
+		return 1
+	}
 	if len(expectedPackages) == 0 {
 		_, _ = fmt.Fprintln(stderr, "go list returned no packages")
 		return 1
 	}
-	sort.Strings(expectedPackages)
 	profile, err := createCoverageProfile()
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "create coverage profile: %v\n", err)
@@ -139,10 +162,8 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int
 		return 1
 	}
 	packagesMissing := false
-	for index, name := range expectedPackages {
-		if index > 0 && name == expectedPackages[index-1] {
-			continue
-		}
+	for _, pkg := range expectedPackages {
+		name := pkg.ImportPath
 		if _, ok := result.Packages[name]; !ok {
 			_, _ = fmt.Fprintf(stderr, "package %s is absent from the coverage profile\n", name)
 			packagesMissing = true
@@ -172,7 +193,11 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int
 	if packagesFailed {
 		return 1
 	}
-	if _, err := fmt.Fprintf(stdout, "coverage: %.2f%% (%d/%d statements), required > %.2f%%\n", percent, result.Covered, result.Total, policy.MinimumStatementPercent); err != nil {
+	if err := runBranchCoverage(profilePath, expectedPackages, policy, stdout, stderr, runner); err != nil {
+		_, _ = fmt.Fprintf(stderr, "branch coverage failed: %v\n", err)
+		return 1
+	}
+	if _, err := fmt.Fprintf(stdout, "statement coverage: %.2f%% (%d/%d statements), required > %.2f%%\n", percent, result.Covered, result.Total, policy.MinimumStatementPercent); err != nil {
 		_, _ = fmt.Fprintf(stderr, "write coverage result: %v\n", err)
 		return 1
 	}
@@ -193,6 +218,9 @@ func loadPolicy(path string) (coveragePolicy, error) {
 	if policy.MinimumStatementPercent <= 0 || policy.MinimumStatementPercent >= 100 {
 		return coveragePolicy{}, fmt.Errorf("minimum_statement_percent must be greater than 0 and less than 100")
 	}
+	if policy.MinimumBranchPercent <= 0 || policy.MinimumBranchPercent >= 100 {
+		return coveragePolicy{}, fmt.Errorf("minimum_branch_percent must be greater than 0 and less than 100")
+	}
 	if policy.Comparison != "strictly-greater-than" {
 		return coveragePolicy{}, fmt.Errorf("comparison must be strictly-greater-than")
 	}
@@ -202,10 +230,160 @@ func loadPolicy(path string) (coveragePolicy, error) {
 	if len(policy.Packages) != 1 || policy.Packages[0] != "./..." {
 		return coveragePolicy{}, fmt.Errorf("packages must contain exactly ./...")
 	}
+	if policy.BranchAnalyzer != "go-bcov" {
+		return coveragePolicy{}, fmt.Errorf("branch_analyzer must be go-bcov")
+	}
 	if strings.TrimSpace(policy.Owner) == "" || strings.TrimSpace(policy.Source) == "" {
 		return coveragePolicy{}, fmt.Errorf("owner and source must be non-empty")
 	}
 	return policy, nil
+}
+
+func parsePackageList(output string) ([]packageInfo, error) {
+	seen := map[string]bool{}
+	var packages []packageInfo
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		fields := strings.Split(line, "\t")
+		if len(fields) != 2 || fields[0] == "" || fields[1] == "" {
+			return nil, fmt.Errorf("package row must contain import and module paths")
+		}
+		pkg := packageInfo{ImportPath: fields[0], ModulePath: fields[1]}
+		if pkg.ImportPath != pkg.ModulePath && !strings.HasPrefix(pkg.ImportPath, pkg.ModulePath+"/") {
+			return nil, fmt.Errorf("package %q is outside module %q", pkg.ImportPath, pkg.ModulePath)
+		}
+		if seen[pkg.ImportPath] {
+			continue
+		}
+		seen[pkg.ImportPath] = true
+		packages = append(packages, pkg)
+	}
+	sort.Slice(packages, func(i, j int) bool { return packages[i].ImportPath < packages[j].ImportPath })
+	return packages, nil
+}
+
+type branchXML struct {
+	Files []branchFile `xml:"file"`
+}
+
+type branchFile struct {
+	Path  string       `xml:"path,attr"`
+	Lines []branchLine `xml:"lineToCover"`
+}
+
+type branchLine struct {
+	Covered int64 `xml:"coveredBranches,attr"`
+	Total   int64 `xml:"branchesToCover,attr"`
+}
+
+func runBranchCoverage(profilePath string, packages []packageInfo, policy coveragePolicy, stdout, stderr io.Writer, runner commandRunner) error {
+	inputRunner, ok := runner.(inputCommandRunner)
+	if !ok {
+		return fmt.Errorf("branch analyzer runner does not support standard input")
+	}
+	profile, err := os.Open(profilePath)
+	if err != nil {
+		return fmt.Errorf("open coverage profile for branch analysis: %w", err)
+	}
+	defer func() { _ = profile.Close() }()
+	var output bytes.Buffer
+	if err := inputRunner.RunInput("go", []string{"tool", policy.BranchAnalyzer, "-format", "sonar-cover-report"}, profile, &output, stderr); err != nil {
+		return fmt.Errorf("analyzer execution: %w", err)
+	}
+	counts, err := parseBranchReport(output.Bytes(), packages)
+	if err != nil {
+		return err
+	}
+	var aggregate coverageCount
+	failed := false
+	for _, pkg := range packages {
+		count := counts[pkg.ImportPath]
+		percent := branchPercent(count)
+		if count.Total > 0 && percent <= policy.MinimumBranchPercent {
+			_, _ = fmt.Fprintf(stderr, "package %s branch coverage %.2f%% does not exceed %.2f%% (%d/%d branches)\n", pkg.ImportPath, percent, policy.MinimumBranchPercent, count.Covered, count.Total)
+			failed = true
+		}
+		aggregate.Covered += count.Covered
+		aggregate.Total += count.Total
+		_, _ = fmt.Fprintf(stdout, "package %s branch coverage: %.2f%% (%d/%d branches)\n", pkg.ImportPath, percent, count.Covered, count.Total)
+	}
+	percent := branchPercent(aggregate)
+	if aggregate.Total == 0 || percent <= policy.MinimumBranchPercent {
+		_, _ = fmt.Fprintf(stderr, "aggregate branch coverage %.2f%% does not exceed %.2f%% (%d/%d branches)\n", percent, policy.MinimumBranchPercent, aggregate.Covered, aggregate.Total)
+		failed = true
+	}
+	if failed {
+		return fmt.Errorf("branch coverage policy is not satisfied")
+	}
+	_, _ = fmt.Fprintf(stdout, "branch coverage: %.2f%% (%d/%d branches), required > %.2f%%\n", percent, aggregate.Covered, aggregate.Total, policy.MinimumBranchPercent)
+	return nil
+}
+
+func parseBranchReport(data []byte, packages []packageInfo) (map[string]coverageCount, error) {
+	var report branchXML
+	decoder := xml.NewDecoder(bytes.NewReader(data))
+	decoder.Strict = true
+	if err := decoder.Decode(&report); err != nil {
+		return nil, fmt.Errorf("decode branch report: %w", err)
+	}
+	counts := make(map[string]coverageCount, len(packages))
+	pathOwners := make(map[string]string, len(packages))
+	seenPackages := make(map[string]bool, len(packages))
+	for _, pkg := range packages {
+		counts[pkg.ImportPath] = coverageCount{}
+		relative := strings.TrimPrefix(pkg.ImportPath, pkg.ModulePath)
+		relative = strings.TrimPrefix(relative, "/")
+		pathOwners[relative] = pkg.ImportPath
+	}
+	seenFiles := map[string]bool{}
+	for _, file := range report.Files {
+		relative := strings.ReplaceAll(file.Path, `\`, "/")
+		relative = pathpkg.Clean(relative)
+		if relative == "." || pathpkg.IsAbs(relative) || strings.HasPrefix(relative, "../") || strings.Contains(relative, ":") || seenFiles[relative] {
+			return nil, fmt.Errorf("branch report contains invalid or repeated file path %q", file.Path)
+		}
+		seenFiles[relative] = true
+		owner, ok := pathOwners[pathpkg.Dir(relative)]
+		if !ok && pathpkg.Dir(relative) == "." {
+			owner, ok = pathOwners[""]
+		}
+		if !ok {
+			return nil, fmt.Errorf("branch report file %q has no listed package owner", file.Path)
+		}
+		count := counts[owner]
+		for _, line := range file.Lines {
+			if line.Total < 0 || line.Covered < 0 || line.Covered > line.Total {
+				return nil, fmt.Errorf("branch report file %q has invalid branch counts", file.Path)
+			}
+			count.Covered += line.Covered
+			count.Total += line.Total
+		}
+		seenPackages[owner] = true
+		counts[owner] = count
+	}
+	for _, pkg := range packages {
+		if !seenPackages[pkg.ImportPath] {
+			return nil, fmt.Errorf("package %q is absent from the branch report", pkg.ImportPath)
+		}
+	}
+	return counts, nil
+}
+
+func branchPercent(count coverageCount) float64 {
+	if count.Total == 0 {
+		return 100
+	}
+	return count.Percent()
+}
+
+func coveragePercent(covered, total int64) float64 {
+	if total == 0 {
+		return 0
+	}
+	return float64(covered) * 100 / float64(total)
 }
 
 func readCoverage(path, expectedMode string) (coverageResult, error) {

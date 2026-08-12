@@ -8,7 +8,7 @@ require go.yaml.in/yaml/v3 v3.0.5
 
 require (
 	charm.land/huh/v2 v2.0.3
-	charm.land/lipgloss/v2 v2.0.5
+	charm.land/lipgloss/v2 v2.0.6
 	github.com/creativeprojects/go-selfupdate v1.6.0
 	github.com/gofrs/flock v0.13.0
 	github.com/spf13/cobra v1.10.2
@@ -22,11 +22,12 @@ require (
 	charm.land/bubbles/v2 v2.1.1 // indirect
 	charm.land/bubbletea/v2 v2.0.8 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
+	github.com/alx99/go-bcov v1.0.4 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
-	github.com/charmbracelet/ultraviolet v0.0.0-20260810092200-402eeaa30986 // indirect
-	github.com/charmbracelet/x/ansi v0.11.7 // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20260812204455-68fa937c71be // indirect
+	github.com/charmbracelet/x/ansi v0.11.8 // indirect
 	github.com/charmbracelet/x/exp/golden v0.0.0-20260803091719-3755ebad01b1 // indirect
 	github.com/charmbracelet/x/exp/ordered v0.1.0 // indirect
 	github.com/charmbracelet/x/exp/strings v0.1.0 // indirect
@@ -58,6 +59,7 @@ require (
 )
 
 tool (
+	github.com/alx99/go-bcov
 	github.com/kisielk/errcheck
 	honnef.co/go/tools/cmd/staticcheck
 )

@@ -226,3 +226,11 @@ func TestProbeNetworkError(t *testing.T) {
 		t.Errorf("expected network error, got %v", err)
 	}
 }
+
+func TestProbeRejectsInvalidBaseURL(t *testing.T) {
+	providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "://bad"}}
+	_, err := dmxapi.Probe(context.Background(), nil, providerAccount, "api-token", account.Credential{})
+	if err == nil || !strings.Contains(err.Error(), "missing protocol scheme") {
+		t.Fatalf("invalid base URL error = %v", err)
+	}
+}

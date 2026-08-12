@@ -103,3 +103,16 @@ failure remains terminal.
 
 Publication actors, emails, signers, keys, and trust anchors come from protected
 execution context. Product source binds no individual contributor identity.
+
+| Protected input | Purpose |
+| --- | --- |
+| `AIGW_FORGE_PROVIDER` | Select the current independent provenance verifier: `gitlab` or `github`. |
+| `AIGW_RELEASE_AUTHOR_EMAIL` | Expected author and committer email for that Forge's history. |
+| `AIGW_RELEASE_ALLOWED_SIGNERS` | Protected SSH trust content materialized only in the runner workspace. |
+| `AIGW_RELEASE_ALLOWED_SIGNERS_FILE` | Path to the materialized trust file consumed by source verification. |
+| `AIGW_GITLAB_RELEASE_ORIGIN` + `AIGW_GITLAB_RELEASE_REPOSITORY` | GitLab origin and namespace/project embedded only when building that release. |
+| `AIGW_GITHUB_RELEASE_ORIGIN` + `AIGW_GITHUB_RELEASE_REPOSITORY` | GitHub origin and owner/repository embedded only when building that release. |
+
+Forge-native CI variables provide API coordinates and tokens to their own
+publisher. They do not enter the other Forge's job or the provider-neutral
+local build.

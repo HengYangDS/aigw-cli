@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/prompt"
+	"bytes"
 	"errors"
 	"io"
 	"net/http"
@@ -103,11 +104,21 @@ func assertManifestSetupLeavesNoConfig(t *testing.T, app *cli.App) {
 	}
 }
 
-func TestSetupFromConfigurationManifestPromptsOnlyForTokensAndKeepsThemSecret(t *testing.T) {
+type manifestSetupFixture struct {
+	app                *cli.App
+	out                *bytes.Buffer
+	secretStore        *secrets.MemoryStore
+	runner             *fakeRunner
+	prompt             *manifestSetupPrompt
+	validationRequests map[string]int
+}
+
+func newManifestSetupFixture(t *testing.T) manifestSetupFixture {
+	t.Helper()
 	t.Setenv("AIGW_TOKEN_UNRELATED", "aigw-test-unrelated-token")
 	app, out, secretStore, runner := testApp(t, "")
-	app.Interactive = true
 	prompt := &manifestSetupPrompt{secrets: []string{"aigw-test-aihubmix-token", "aigw-test-dmxapi-token"}}
+	app.Interactive = true
 	app.Prompt = prompt
 	codexTarget := filepath.Join(t.TempDir(), "codex", "configuration.toml")
 	if err := os.MkdirAll(filepath.Dir(codexTarget), 0o700); err != nil {
@@ -126,7 +137,7 @@ func TestSetupFromConfigurationManifestPromptsOnlyForTokensAndKeepsThemSecret(t 
 			AutoManaged: true,
 		}},
 	}}
-	validationRequests := map[string]int{}
+	requests := map[string]int{}
 	app.HTTP = &fakeHTTP{handler: func(req *http.Request) (*http.Response, error) {
 		auth := req.Header.Get("Authorization")
 		apiKey := req.Header.Get("X-Api-Key")
@@ -142,9 +153,15 @@ func TestSetupFromConfigurationManifestPromptsOnlyForTokensAndKeepsThemSecret(t 
 		if req.URL.Path != "/v1/models" {
 			t.Fatalf("credential verification URL = %s, want /v1/models", req.URL)
 		}
-		validationRequests[req.URL.Host+"/"+protocol]++
+		requests[req.URL.Host+"/"+protocol]++
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: req}, nil
 	}}
+	return manifestSetupFixture{app: app, out: out, secretStore: secretStore, runner: runner, prompt: prompt, validationRequests: requests}
+}
+
+func TestSetupFromConfigurationManifestPromptsOnlyForTokensAndKeepsThemSecret(t *testing.T) {
+	fixture := newManifestSetupFixture(t)
+	app, out, secretStore, runner, prompt := fixture.app, fixture.out, fixture.secretStore, fixture.runner, fixture.prompt
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
 	if err := execute(t, app, "setup", "--from", manifestPath); err != nil {
@@ -196,17 +213,22 @@ func TestSetupFromConfigurationManifestPromptsOnlyForTokensAndKeepsThemSecret(t 
 		"dmxapi.test/openai": 1,
 	}
 	for key, want := range wantValidationRequests {
-		if validationRequests[key] != want {
-			t.Errorf("validation request %s = %d, want %d; all=%#v", key, validationRequests[key], want, validationRequests)
+		if fixture.validationRequests[key] != want {
+			t.Errorf("validation request %s = %d, want %d; all=%#v", key, fixture.validationRequests[key], want, fixture.validationRequests)
 		}
 	}
-	if len(validationRequests) != len(wantValidationRequests) {
-		t.Fatalf("unexpected validation requests: %#v", validationRequests)
+	if len(fixture.validationRequests) != len(wantValidationRequests) {
+		t.Fatalf("unexpected validation requests: %#v", fixture.validationRequests)
 	}
 	if cfg.Profiles["aihubmix-claude"].Models["claude"] != "claude-test" || cfg.Profiles["dmxapi-gpt"].Models["codex"] != "gpt-test" {
 		t.Fatalf("manifest model matrix was not preserved: %#v", cfg.Profiles)
 	}
 
+	assertManifestSetupDoesNotLeakTokens(t, app, out)
+}
+
+func assertManifestSetupDoesNotLeakTokens(t *testing.T, app *cli.App, out *bytes.Buffer) {
+	t.Helper()
 	for _, path := range []string{app.Config.Path(), app.Config.Path() + ".bak"} {
 		data, readErr := os.ReadFile(path)
 		if errors.Is(readErr, os.ErrNotExist) {

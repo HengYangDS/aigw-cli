@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -15,6 +16,30 @@ import (
 
 var immutableAction = regexp.MustCompile(`^[^@]+@[0-9a-f]{40}$`)
 var immutableMiseImage = regexp.MustCompile(`^ghcr\.io/jdx/mise@sha256:[0-9a-f]{64}$`)
+
+var repositoryTools = []string{
+	"go",
+	"node",
+	"github:anchore/syft",
+	"github:goreleaser/goreleaser",
+	"github:lycheeverse/lychee",
+	"npm:@fission-ai/openspec",
+}
+
+type miseConfig struct {
+	Settings struct {
+		Locked bool `toml:"locked"`
+	} `toml:"settings"`
+	Tools map[string]string `toml:"tools"`
+}
+
+type miseLock struct {
+	Tools map[string][]miseLockedTool `toml:"tools"`
+}
+
+type miseLockedTool struct {
+	Version string `toml:"version"`
+}
 
 type gateConfig struct {
 	Toolchain struct {
@@ -375,11 +400,26 @@ func validateMiseProjection(root string, gates gateConfig) error {
 	if err != nil {
 		return err
 	}
-	if !strings.Contains(config, "[tools]") {
-		return errors.New("mise configuration must declare repository tools")
+	var selected miseConfig
+	if err := toml.Unmarshal([]byte(config), &selected); err != nil {
+		return fmt.Errorf("parse %s: %w", gates.Toolchain.MiseConfig, err)
 	}
-	if !strings.Contains(lock, "[[tools.go]]") {
-		return errors.New("mise lock must resolve the Go toolchain")
+	if !selected.Settings.Locked {
+		return errors.New("mise configuration must require locked execution")
+	}
+	var resolved miseLock
+	if err := toml.Unmarshal([]byte(lock), &resolved); err != nil {
+		return fmt.Errorf("parse %s: %w", gates.Toolchain.MiseLock, err)
+	}
+	for _, name := range repositoryTools {
+		version, selectedOK := selected.Tools[name]
+		entries, lockedOK := resolved.Tools[name]
+		if !selectedOK || version == "" {
+			return fmt.Errorf("mise configuration must select repository tool %q", name)
+		}
+		if !lockedOK || !slices.ContainsFunc(entries, func(tool miseLockedTool) bool { return tool.Version == version }) {
+			return fmt.Errorf("mise lock must resolve repository tool %q at %q", name, version)
+		}
 	}
 	for _, relative := range []string{".gitlab-ci.yml", ".github/workflows/verify.yml", ".github/workflows/release.yml"} {
 		text, err := read(root, relative)
@@ -393,7 +433,9 @@ func validateMiseProjection(root string, gates gateConfig) error {
 			}
 		}
 		for _, line := range strings.Split(text, "\n") {
-			if err := validateMiseCommand(strings.TrimSpace(strings.TrimPrefix(line, "-"))); err != nil {
+			command := strings.TrimSpace(strings.TrimPrefix(line, "-"))
+			command = strings.TrimSpace(strings.TrimPrefix(command, "run:"))
+			if err := validateMiseCommand(command); err != nil {
 				return fmt.Errorf("%s: %w", relative, err)
 			}
 		}

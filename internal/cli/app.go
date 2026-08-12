@@ -141,20 +141,26 @@ func Execute(app *App, args []string) error {
 	if err == nil && app.renderErr != nil {
 		err = app.renderErr
 	}
-	if unlock != nil {
-		if unlockErr := unlock(); unlockErr != nil {
-			if err == nil {
-				err = fmt.Errorf("release config lock: %w", unlockErr)
-			} else {
-				err = fmt.Errorf("%w; release config lock: %v", err, unlockErr)
-			}
-		}
-	}
+	err = finishExecution(err, unlock)
 	if err != nil {
 		presentation.RenderError(app.Renderer(), err)
 		return presentation.Presented(err)
 	}
 	return nil
+}
+
+func finishExecution(commandErr error, unlock func() error) error {
+	if unlock == nil {
+		return commandErr
+	}
+	unlockErr := unlock()
+	if unlockErr == nil {
+		return commandErr
+	}
+	if commandErr == nil {
+		return fmt.Errorf("release config lock: %w", unlockErr)
+	}
+	return fmt.Errorf("%w; release config lock: %v", commandErr, unlockErr)
 }
 
 func credentialInvocation(args []string) bool {
@@ -218,15 +224,7 @@ func boolArgumentEnabled(values []string, want string) bool {
 
 func NewDefault() (*App, error) {
 	env := environmentMap(os.Environ())
-	path, err := platform.ConfigPathFor(runtime.GOOS, env)
-	if err != nil {
-		return nil, err
-	}
-	dataDir, err := platform.DataDirFor(runtime.GOOS, env)
-	if err != nil {
-		return nil, err
-	}
-	claudeSettingsPath, err := platform.ClaudeSettingsPathFor(runtime.GOOS, env)
+	paths, err := platform.PathsFor(runtime.GOOS, env)
 	if err != nil {
 		return nil, err
 	}
@@ -238,23 +236,15 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	installDir, err := platform.UserBinDirFor(runtime.GOOS, env)
-	if err != nil {
-		return nil, err
-	}
-	installName := "aigw"
-	if runtime.GOOS == "windows" {
-		installName += ".exe"
-	}
 	return &App{
 		GOOS:               runtime.GOOS,
-		DataDir:            dataDir,
+		DataDir:            paths.Data,
 		Now:                time.Now,
 		Version:            Version,
 		Executable:         executable,
-		InstallTarget:      filepath.Join(installDir, installName),
-		ClaudeSettingsPath: claudeSettingsPath,
-		Config:             configuration.NewStore(path),
+		InstallTarget:      filepath.Join(paths.InstallDir, paths.InstallName),
+		ClaudeSettingsPath: paths.ClaudeSettings,
+		Config:             configuration.NewStore(paths.Config),
 		Secrets:            secretStore,
 		Accounts:           account.NewKeyringStore(),
 		Env:                os.Environ(),

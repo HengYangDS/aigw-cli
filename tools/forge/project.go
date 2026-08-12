@@ -54,10 +54,7 @@ func project(option projectionOptions) error {
 	if option.branch != "main" && !strings.HasPrefix(option.branch, "proposal/") {
 		return errors.New("projected branch must be main or proposal/*; main projects main and dev together")
 	}
-	repository, err := filepath.Abs(option.repository)
-	if err != nil {
-		return err
-	}
+	repository := filepath.Clean(option.repository)
 	if _, err := gitOutput(repository, "rev-parse", "--is-inside-work-tree"); err != nil {
 		return fmt.Errorf("run inside a Git worktree: %w", err)
 	}

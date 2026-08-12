@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
+	"go/scanner"
 	"go/token"
 	"os"
 	"path/filepath"
@@ -330,4 +332,157 @@ func isExportedIdent(name string) bool {
 	}
 	r, _ := utf8.DecodeRuneInString(name)
 	return unicode.IsUpper(r)
+}
+
+type functionMetric struct {
+	Name       string
+	Line       int
+	ELOC       int
+	Complexity int
+	Nesting    int
+}
+
+func functionMetrics(filePath string) ([]functionMetric, error) {
+	fset := token.NewFileSet()
+	parsed, err := parser.ParseFile(fset, filePath, nil, parser.SkipObjectResolution)
+	if err != nil {
+		var parseError scanner.ErrorList
+		if errors.As(err, &parseError) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var metrics []functionMetric
+	ast.Inspect(parsed, func(node ast.Node) bool {
+		fn, ok := node.(*ast.FuncDecl)
+		if !ok || fn.Body == nil {
+			return true
+		}
+		metric := functionMetric{Name: fn.Name.Name, Line: fset.Position(fn.Pos()).Line}
+		metric.ELOC = effectiveLines(fset, fn.Body)
+		metric.Complexity, metric.Nesting = decisionMetrics(fn.Body)
+		metrics = append(metrics, metric)
+		return false
+	})
+	return metrics, nil
+}
+
+func effectiveLines(fset *token.FileSet, node ast.Node) int {
+	lines := map[int]struct{}{}
+	ast.Inspect(node, func(current ast.Node) bool {
+		if current == nil {
+			return true
+		}
+		start := fset.Position(current.Pos()).Line
+		end := fset.Position(current.End()).Line
+		for line := start; line <= end; line++ {
+			if line > 0 {
+				lines[line] = struct{}{}
+			}
+		}
+		return true
+	})
+	return len(lines)
+}
+
+func decisionMetrics(node ast.Node) (int, int) {
+	complexity := 0
+	maximumNesting := 0
+	var visit func(ast.Node, int)
+	visit = func(current ast.Node, nesting int) {
+		if current == nil {
+			return
+		}
+		if statement, ok := current.(*ast.IfStmt); ok {
+			complexity++
+			branchNesting := nesting + 1
+			maximumNesting = max(maximumNesting, branchNesting)
+			visit(statement.Init, branchNesting)
+			visit(statement.Cond, branchNesting)
+			visit(statement.Body, branchNesting)
+			if alternate, ok := statement.Else.(*ast.IfStmt); ok {
+				// An else-if chain is one decision level, not progressively
+				// deeper nesting. Counting it as nested rewards mechanical
+				// rewrites that do not reduce cognitive load.
+				visit(alternate, nesting)
+			} else {
+				visit(statement.Else, branchNesting)
+			}
+			return
+		}
+		childNesting := nesting
+		switch typed := current.(type) {
+		case *ast.ForStmt, *ast.RangeStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt:
+			complexity++
+			childNesting++
+		case *ast.CaseClause, *ast.CommClause:
+			complexity++
+		case *ast.BinaryExpr:
+			if typed.Op == token.LAND || typed.Op == token.LOR {
+				complexity++
+			}
+		}
+		maximumNesting = max(maximumNesting, childNesting)
+		for _, child := range childNodes(current) {
+			visit(child, childNesting)
+		}
+	}
+	visit(node, 0)
+	return complexity, maximumNesting
+}
+
+func childNodes(node ast.Node) []ast.Node {
+	var children []ast.Node
+	ast.Inspect(node, func(child ast.Node) bool {
+		if child == nil || child == node {
+			return true
+		}
+		children = append(children, child)
+		return false
+	})
+	return children
+}
+
+func sourceMetrics(path string) (int, int, error) {
+	src, err := os.ReadFile(path)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	// The Go scanner omits comments by default. Counting the distinct source
+	// lines occupied by real tokens therefore handles block comments, mixed
+	// code/comment lines, and raw strings without a text-level approximation.
+	lineSet := map[int]struct{}{}
+	fset := token.NewFileSet()
+	file := fset.AddFile(path, fset.Base(), len(src))
+	var lexical scanner.Scanner
+	lexical.Init(file, src, nil, 0)
+	for {
+		pos, tok, _ := lexical.Scan()
+		if tok == token.EOF {
+			break
+		}
+		lineSet[fset.Position(pos).Line] = struct{}{}
+	}
+
+	parsed, err := parser.ParseFile(token.NewFileSet(), path, src, 0)
+	if err != nil {
+		// Syntax errors are reported as path-addressable go_parse_error findings
+		// by checkGoAST. Preserve the source-size measurement here so malformed
+		// files do not disappear from directory totals.
+		return len(lineSet), 0, nil
+	}
+	complexity := 0
+	ast.Inspect(parsed, func(node ast.Node) bool {
+		switch typed := node.(type) {
+		case *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt, *ast.CaseClause, *ast.CommClause:
+			complexity++
+		case *ast.BinaryExpr:
+			if typed.Op == token.LAND || typed.Op == token.LOR {
+				complexity++
+			}
+		}
+		return true
+	})
+	return len(lineSet), complexity, nil
 }

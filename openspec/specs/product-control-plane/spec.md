@@ -112,10 +112,10 @@ inputs owned by `go.mod` and CI policy.
 Each behavior and policy SHALL have one semantic owner; composition roots SHALL
 only assemble those owners. Source gates MUST reject compatibility shims,
 forwarding wrappers, alias-only packages, forbidden product references,
-unmanaged flat structure, host-dependent policy paths, and statement coverage
-of 95 percent or less for any package or the aggregate. Coverage claims MUST
-name their executable measure accurately and MUST NOT infer branch evidence
-from a Go statement profile.
+unmanaged flat structure, host-dependent policy paths, and statement or branch
+coverage of 95 percent or less for any package or the aggregate. Coverage
+claims MUST name their executable measure accurately and MUST NOT infer one
+measure from another.
 
 Package and repository-tool names MUST express one readable concept. Repository
 tooling MUST follow an explicit dependency direction and MUST NOT import product
@@ -139,8 +139,8 @@ provider extensibility below the provider domain.
 
 - **WHEN** no stable tool can measure the complete module once on every
   supported platform
-- **THEN** release evidence names only statement coverage and makes no branch
-  claim
+- **THEN** the required branch-coverage gate SHALL remain blocked rather than
+  substituting statement coverage
 
 #### Scenario: A tool needs shared release policy
 
@@ -385,7 +385,8 @@ path, or an undocumented environment variable.
 
 - **WHEN** native Linux, Windows, or macOS verification runs
 - **THEN** repository-controlled fixtures exercise equivalent product meaning
-- **AND** every package and the aggregate remain strictly above 95% coverage.
+- **AND** statement and branch coverage for every package and the aggregate
+  remain strictly above 95 percent.
 
 ### Requirement: Local-first independent publication topology
 
@@ -444,8 +445,8 @@ compare-and-swap authority bound to the complete accumulated lane delta.
 AIGW SHALL admit a local release candidate only when canonical specifications
 contain no placeholder authority, every direct repository dependency is current
 and stable, transitive selection remains owned by those direct dependencies,
-every package and aggregate statement coverage remain strictly greater than 95
-percent, the native source gate passes, and the complete release matrix is
+every package and aggregate remain strictly greater than 95 percent for both
+statement and branch coverage, the native source gate passes, and the complete release matrix is
 reproducible and installable. Hosted CI, Forge publication, released-asset
 installation, and lane retirement SHALL consume the archived result rather than
 become prerequisites of the Change that produces it.

@@ -26,7 +26,7 @@ func requireShellFixture(t *testing.T) {
 
 func TestRunCaptureBoundsPipeDrainAfterChildExit(t *testing.T) {
 	requireShellFixture(t)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), capturedProcessWaitDelay+3*time.Second)
 	defer cancel()
 	started := time.Now()
 	_, err := (Runner{}).RunCapture(ctx, Plan{

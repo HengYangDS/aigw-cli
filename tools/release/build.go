@@ -262,10 +262,9 @@ func normalizeSPDX(source, target, version string, instant time.Time) error {
 	creation["created"] = instant.Format(time.RFC3339)
 	digest := sha256.Sum256([]byte(version + "\x00" + instant.Format(time.RFC3339)))
 	document["documentNamespace"] = fmt.Sprintf("urn:sha256:%x", digest)
-	normalized, err := json.MarshalIndent(document, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode deterministic SPDX document: %w", err)
-	}
+	// A document decoded from JSON contains only values that encoding/json can
+	// encode again; MarshalIndent cannot fail for this closed value domain.
+	normalized, _ := json.MarshalIndent(document, "", "  ")
 	return os.WriteFile(target, append(normalized, '\n'), 0o600)
 }
 
@@ -289,6 +288,9 @@ func buildCI(root, workspace, output string, build releaseBuilder, epoch release
 	if tag == "" {
 		return errors.New("CI build requires CI_COMMIT_TAG")
 	}
+	if !strings.HasPrefix(tag, "v") {
+		return fmt.Errorf("invalid CI release tag %q", tag)
+	}
 	version := strings.TrimPrefix(tag, "v")
 	if !releaseVersion.MatchString(version) {
 		return fmt.Errorf("invalid CI release version %q", version)
@@ -297,7 +299,7 @@ func buildCI(root, workspace, output string, build releaseBuilder, epoch release
 	if err != nil {
 		return err
 	}
-	if tag != "" && carrier != version {
+	if carrier != version {
 		return fmt.Errorf("CI tag version %q disagrees with VERSION %q", version, carrier)
 	}
 	releaseEpoch, err := epoch(root, version)
