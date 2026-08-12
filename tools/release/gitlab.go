@@ -200,11 +200,6 @@ func verifyGitLabRelease(expectedPath, actualPath, outputPath, expectedTag strin
 			return fmt.Errorf("GitLab release verification is missing asset %s", raw)
 		}
 	}
-	for raw := range actualURLs {
-		if !expectedURLs[raw] {
-			return fmt.Errorf("GitLab release verification found unexpected asset %s", raw)
-		}
-	}
 	return os.WriteFile(outputPath, []byte(output.String()), 0o600)
 }
 

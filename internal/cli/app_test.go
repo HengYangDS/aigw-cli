@@ -83,3 +83,17 @@ func TestExecuteReturnsRendererFailureAfterSuccessfulCommand(t *testing.T) {
 		t.Fatalf("renderer error = %v", err)
 	}
 }
+
+func TestFinishExecutionPreservesCommandAndUnlockFailures(t *testing.T) {
+	commandErr := errors.New("command failed")
+	unlockErr := errors.New("unlock failed")
+	if err := finishExecution(commandErr, func() error { return unlockErr }); err == nil || !errors.Is(err, commandErr) || !strings.Contains(err.Error(), "release config lock") {
+		t.Fatalf("combined error = %v", err)
+	}
+	if err := finishExecution(nil, func() error { return unlockErr }); err == nil || !errors.Is(err, unlockErr) {
+		t.Fatalf("unlock error = %v", err)
+	}
+	if err := finishExecution(commandErr, nil); !errors.Is(err, commandErr) {
+		t.Fatalf("command error = %v", err)
+	}
+}

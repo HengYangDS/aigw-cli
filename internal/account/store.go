@@ -58,10 +58,9 @@ func (KeyringStore) Set(profile string, credential Credential) error {
 	if credential.SystemToken == "" || credential.UserID == "" {
 		return errors.New("system token and user ID are required")
 	}
-	data, err := json.Marshal(credential)
-	if err != nil {
-		return err
-	}
+	// Credential contains only strings, so encoding cannot fail. Keeping a
+	// synthetic error branch here would describe an impossible product state.
+	data, _ := json.Marshal(credential)
 	if err := keyring.Set(Service, profile, string(data)); err != nil {
 		return fmt.Errorf("write account probe credential: %w", err)
 	}

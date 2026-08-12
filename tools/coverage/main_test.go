@@ -22,6 +22,8 @@ type recordingRunner struct {
 	path           string
 	listedPackages []string
 	listErr        error
+	branchReport   string
+	branchErr      error
 }
 
 type rejectingWriter struct{}
@@ -40,7 +42,8 @@ func (r *recordingRunner) Run(name string, args []string, stdout, stderr io.Writ
 			packages = []string{"example/a"}
 		}
 		for _, packageName := range packages {
-			if _, err := fmt.Fprintln(stdout, packageName); err != nil {
+			module := strings.Split(packageName, "/")[0]
+			if _, err := fmt.Fprintf(stdout, "%s\t%s\n", packageName, module); err != nil {
 				return err
 			}
 		}
@@ -59,6 +62,41 @@ func (r *recordingRunner) Run(name string, args []string, stdout, stderr io.Writ
 		}
 	}
 	return r.err
+}
+
+func (r *recordingRunner) RunInput(name string, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	if r.branchErr != nil {
+		return r.branchErr
+	}
+	if _, err := io.Copy(io.Discard, stdin); err != nil {
+		return err
+	}
+	report := r.branchReport
+	if report == "" {
+		packages := r.listedPackages
+		if len(packages) == 0 {
+			packages = profilePackages(r.profile)
+		}
+		seen := map[string]bool{}
+		var body strings.Builder
+		body.WriteString(`<coverage version="1">`)
+		for _, packageName := range packages {
+			if seen[packageName] {
+				continue
+			}
+			seen[packageName] = true
+			relative := strings.TrimPrefix(packageName, strings.Split(packageName, "/")[0])
+			relative = strings.TrimPrefix(relative, "/")
+			if relative != "" {
+				relative += "/"
+			}
+			fmt.Fprintf(&body, `<file path="%sa.go"><lineToCover lineNumber="1" covered="true" branchesToCover="100" coveredBranches="100"/></file>`, relative)
+		}
+		body.WriteString(`</coverage>`)
+		report = body.String()
+	}
+	_, err := io.WriteString(stdout, report)
+	return err
 }
 
 func profilePackages(profile string) []string {
@@ -92,11 +130,13 @@ func writePolicy(t *testing.T, body string) string {
 }
 
 const validPolicy = `minimum_statement_percent = 95.0
+minimum_branch_percent = 95.0
 comparison = "strictly-greater-than"
 covermode = "atomic"
 packages = ["./..."]
+branch_analyzer = "go-bcov"
 owner = "product-toolchain"
-source = "go test coverage profile"
+source = "Go statement profile with go-bcov branch analysis"
 `
 
 func TestRealMainPassesOnlyStrictlyAbovePolicy(t *testing.T) {
@@ -126,7 +166,7 @@ func TestRealMainPassesOnlyStrictlyAbovePolicy(t *testing.T) {
 	if got := runner.args[len(runner.args)-1]; got != "./..." {
 		t.Fatalf("last argument = %q, want ./...", got)
 	}
-	if !strings.Contains(stdout.String(), "96.00%") || !strings.Contains(stdout.String(), "required > 95.00%") {
+	if !strings.Contains(stdout.String(), "statement coverage: 96.00%") || !strings.Contains(stdout.String(), "branch coverage: 100.00%") || !strings.Contains(stdout.String(), "required > 95.00%") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 	if _, err := os.Stat(runner.path); !errors.Is(err, os.ErrNotExist) {
@@ -333,6 +373,12 @@ func (emptyListRunner) Run(name string, args []string, stdout, stderr io.Writer)
 	return nil
 }
 
+type noInputRunner struct{}
+
+func (runner *noInputRunner) Run(name string, args []string, stdout, stderr io.Writer) error {
+	return nil
+}
+
 func TestRealMainRejectsEmptyPackageList(t *testing.T) {
 	policyPath := writePolicy(t, validPolicy)
 	var stdout bytes.Buffer
@@ -374,8 +420,10 @@ func TestRealMainRejectsInvalidArgumentsAndPolicy(t *testing.T) {
 		{name: "unknown field", body: validPolicy + "exclude = [\"tools\"]\n", want: "load coverage policy", code: 1},
 		{name: "wrong comparison", body: strings.Replace(validPolicy, "strictly-greater-than", "greater-than-or-equal", 1), want: "comparison", code: 1},
 		{name: "invalid floor", body: strings.Replace(validPolicy, "95.0", "101.0", 1), want: "minimum_statement_percent", code: 1},
+		{name: "invalid branch floor", body: strings.Replace(validPolicy, "minimum_branch_percent = 95.0", "minimum_branch_percent = 0", 1), want: "minimum_branch_percent", code: 1},
 		{name: "wrong mode", body: strings.Replace(validPolicy, "atomic", "set", 1), want: "covermode", code: 1},
 		{name: "no packages", body: strings.Replace(validPolicy, "[\"./...\"]", "[]", 1), want: "packages", code: 1},
+		{name: "wrong branch analyzer", body: strings.Replace(validPolicy, "go-bcov", "gobco", 1), want: "branch_analyzer", code: 1},
 		{name: "missing owner", body: strings.Replace(validPolicy, "product-toolchain", "", 1), want: "owner and source", code: 1},
 	}
 	for _, test := range tests {
@@ -429,6 +477,104 @@ func TestReadCoverageRejectsMalformedProfiles(t *testing.T) {
 func TestReadCoverageRejectsMissingFile(t *testing.T) {
 	if _, err := readCoverage(filepath.Join(t.TempDir(), "missing.out"), "atomic"); err == nil {
 		t.Fatal("readCoverage accepted a missing file")
+	}
+}
+
+func TestParsePackageList(t *testing.T) {
+	packages, err := parsePackageList("example/internal/a\texample\nexample\texample\nexample/internal/a\texample\n")
+	if err != nil || len(packages) != 2 || packages[0].ImportPath != "example" || packages[1].ImportPath != "example/internal/a" {
+		t.Fatalf("packages=%+v err=%v", packages, err)
+	}
+	for _, body := range []string{"broken\n", "foreign/pkg\texample\n"} {
+		if _, err := parsePackageList(body); err == nil {
+			t.Fatalf("invalid package list accepted: %q", body)
+		}
+	}
+}
+
+func TestParseBranchReportCountsEveryPackage(t *testing.T) {
+	packages := []packageInfo{{ImportPath: "example", ModulePath: "example"}, {ImportPath: "example/internal/a", ModulePath: "example"}}
+	report := `<coverage version="1"><file path="main.go"><lineToCover lineNumber="1" covered="true"/></file><file path="internal/a/a.go"><lineToCover lineNumber="2" covered="true" branchesToCover="4" coveredBranches="3"/></file></coverage>`
+	counts, err := parseBranchReport([]byte(report), packages)
+	if err != nil || counts["example"].Total != 0 || counts["example/internal/a"] != (coverageCount{Covered: 3, Total: 4}) {
+		t.Fatalf("counts=%+v err=%v", counts, err)
+	}
+}
+
+func TestParseBranchReportRejectsInvalidOrIncompleteEvidence(t *testing.T) {
+	packages := []packageInfo{{ImportPath: "example/internal/a", ModulePath: "example"}}
+	reports := []string{
+		`<coverage version="1"></coverage>`,
+		`<coverage version="1"><file path="foreign/a.go"/></coverage>`,
+		`<coverage version="1"><file path="../internal/a/a.go"/></coverage>`,
+		`<coverage version="1"><file path="internal/a/a.go"/><file path="internal/a/a.go"/></coverage>`,
+		`<coverage version="1"><file path="internal/a/a.go"><lineToCover branchesToCover="1" coveredBranches="2"/></file></coverage>`,
+		`not xml`,
+	}
+	for _, report := range reports {
+		if _, err := parseBranchReport([]byte(report), packages); err == nil {
+			t.Fatalf("invalid branch report accepted: %s", report)
+		}
+	}
+}
+
+func TestCoveragePercentHandlesEmptyTotal(t *testing.T) {
+	if coveragePercent(1, 0) != 0 {
+		t.Fatal("empty total must not produce coverage")
+	}
+}
+
+func TestRunBranchCoverageRejectsMissingInputCapabilityAndProfile(t *testing.T) {
+	policy, err := loadPolicy(writePolicy(t, validPolicy))
+	if err != nil {
+		t.Fatal(err)
+	}
+	packages := []packageInfo{{ImportPath: "example/a", ModulePath: "example"}}
+	if err := runBranchCoverage("missing", packages, policy, io.Discard, io.Discard, &noInputRunner{}); err == nil || !strings.Contains(err.Error(), "standard input") {
+		t.Fatalf("missing input capability error = %v", err)
+	}
+	if err := runBranchCoverage(filepath.Join(t.TempDir(), "missing.out"), packages, policy, io.Discard, io.Discard, &recordingRunner{}); err == nil || !strings.Contains(err.Error(), "open coverage profile") {
+		t.Fatalf("missing profile error = %v", err)
+	}
+}
+
+func TestRunBranchCoverageRejectsAnalyzerAndPolicyFailures(t *testing.T) {
+	profile := filepath.Join(t.TempDir(), "coverage.out")
+	if err := os.WriteFile(profile, []byte("mode: atomic\nexample/a.go:1.1,2.1 1 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	policy, err := loadPolicy(writePolicy(t, validPolicy))
+	if err != nil {
+		t.Fatal(err)
+	}
+	packages := []packageInfo{{ImportPath: "example/a", ModulePath: "example"}}
+	for _, test := range []struct {
+		name   string
+		runner *recordingRunner
+		want   string
+	}{
+		{name: "execution", runner: &recordingRunner{branchErr: errors.New("unavailable")}, want: "analyzer execution"},
+		{name: "report", runner: &recordingRunner{branchReport: "not xml"}, want: "decode branch report"},
+		{name: "package floor", runner: &recordingRunner{branchReport: `<coverage><file path="a/a.go"><lineToCover branchesToCover="100" coveredBranches="95"/></file></coverage>`}, want: "policy is not satisfied"},
+		{name: "aggregate empty", runner: &recordingRunner{branchReport: `<coverage><file path="a/a.go"><lineToCover/></file></coverage>`}, want: "policy is not satisfied"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			err := runBranchCoverage(profile, packages, policy, &stdout, &stderr, test.runner)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error=%v stdout=%q stderr=%q", err, stdout.String(), stderr.String())
+			}
+		})
+	}
+}
+
+func TestSystemRunnerExecutesInputCommand(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if err := (systemRunner{}).RunInput("go", []string{"env", "GOVERSION"}, strings.NewReader("ignored"), &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(stdout.String()), "go") {
+		t.Fatalf("stdout=%q stderr=%q", stdout.String(), stderr.String())
 	}
 }
 

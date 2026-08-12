@@ -60,7 +60,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "profile add"); err != nil {
 				return err
 			}
-			r := renderer(runtime)
+			r := invocation.Renderer(runtime)
 			r.ProductTitle("Model profile added")
 			r.Row("Configuration", profileName)
 			r.Row("Account", accountName)
@@ -89,7 +89,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			r := renderer(runtime)
+			r := invocation.Renderer(runtime)
 			r.ProductTitle("Service profiles")
 			r.Section("Available profiles")
 			for _, name := range cfg.ProfileIDs() {
@@ -99,9 +99,6 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				}
 				profile := cfg.Profiles[name]
 				accountName := profile.Account
-				if accountName == "" {
-					accountName = name
-				}
 				secret := "Token missing"
 				if runtime.Secrets.Has(accountName) {
 					secret = "Token available"
@@ -134,14 +131,11 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 				return fmt.Errorf("Unknown profile %q", args[0])
 			}
 			accountName := profile.Account
-			if accountName == "" {
-				accountName = args[0]
-			}
 			account := cfg.Accounts[accountName]
 			if jsonMode {
 				return json.NewEncoder(runtime.Out).Encode(map[string]any{"id": args[0], "label": profile.Label, "purpose": profile.Purpose, "account": accountName, "models": profile.Models, "endpoints": account.Endpoints, "secret_available": runtime.Secrets.Has(accountName)})
 			}
-			r := renderer(runtime)
+			r := invocation.Renderer(runtime)
 			r.ProductTitle("Service details")
 			r.Section("Service profiles")
 			r.Row("Profile ID", args[0])
@@ -200,7 +194,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "profile"); err != nil {
 				return err
 			}
-			r := renderer(runtime)
+			r := invocation.Renderer(runtime)
 			r.ProductTitle("Profile updated")
 			r.Row("Configuration", args[0])
 			if synchronization.ProjectionChanged(before, cfg) {
@@ -243,7 +237,7 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "profile remove"); err != nil {
 				return err
 			}
-			r := renderer(runtime)
+			r := invocation.Renderer(runtime)
 			r.ProductTitle("Profile removed")
 			r.Row("Configuration", name)
 			r.Row("Account", profile.Account)
@@ -255,19 +249,8 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 
 func choiceLabel(profile configuration.Profile) string {
 	label := profile.Label
-	if label == "" {
-		label = profile.ModelFor(profile.Client)
-	}
 	if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
 		return label + " · " + purpose
 	}
 	return label
-}
-
-func renderer(runtime invocation.Context) *presentation.Renderer {
-	out := runtime.RenderOut
-	if out == nil {
-		out = runtime.Out
-	}
-	return presentation.NewWithWidth(out, runtime.Color, runtime.Width)
 }

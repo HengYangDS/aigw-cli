@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -254,7 +256,7 @@ func TestReplayCleansPartialOutputAfterMalformedCommit(t *testing.T) {
 
 func TestReplayReportsGitBoundaryFailures(t *testing.T) {
 	for _, mode := range []string{
-		"rev-list", "clone", "alternates", "for-each-ref", "update-ref", "symbolic-ref", "cat-file", "commit-tree", "verify-commit", "show",
+		"rev-list", "clone", "alternates", "for-each-ref", "update-ref", "symbolic-ref", "replay-map-write", "replay-receipt-write", "cat-file", "commit-tree", "verify-commit", "show",
 	} {
 		t.Run(mode, func(t *testing.T) {
 			option := signedReplayFixture(t)
@@ -334,6 +336,11 @@ func TestVerifyReplayRejectsSemanticAndIdentityDrift(t *testing.T) {
 	if err := verifyReplay(option.output, source, "missing", map[string]string{}, option); err == nil {
 		t.Fatal("missing target accepted")
 	}
+	useGitWrapper(t, "cat-file-malformed")
+	if err := verifyReplay(option.output, source, targetOID, map[string]string{}, option); err == nil {
+		t.Fatal("malformed target commit was accepted")
+	}
+	t.Setenv("AIGW_TEST_GIT_MODE", "")
 	wrongTarget := source
 	wrongTarget.oid = targetOID
 	wrongTarget.authorDate = "@1 +0000"
@@ -384,33 +391,57 @@ func TestCommandUsesExplicitEnvironment(t *testing.T) {
 	}
 }
 
+var (
+	gitWrapperOnce sync.Once
+	gitWrapperPath string
+	gitWrapperRoot string
+	gitWrapperErr  error
+)
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if gitWrapperRoot != "" {
+		_ = os.RemoveAll(gitWrapperRoot)
+	}
+	os.Exit(code)
+}
+
 func useGitWrapper(t *testing.T, mode string) {
 	t.Helper()
 	realGit, err := exec.LookPath("git")
 	if err != nil {
 		t.Fatal(err)
 	}
-	directory := t.TempDir()
-	helperSource := filepath.Join(directory, "git-helper.go")
-	if err := os.WriteFile(helperSource, []byte(gitHelperSource), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	moduleFile := filepath.Join(directory, "go.mod")
-	if err := os.WriteFile(moduleFile, []byte("module git-helper\n\ngo 1.26.5\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	wrapper := filepath.Join(directory, "git")
-	if filepath.Separator == '\\' {
-		wrapper += ".exe"
-	}
-	build := exec.Command("go", "build", "-o", wrapper, helperSource)
-	build.Dir = directory
-	if output, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build git helper: %v: %s", err, output)
+	gitWrapperOnce.Do(func() {
+		gitWrapperRoot, gitWrapperErr = os.MkdirTemp("", "aigw-forge-git-helper-*")
+		if gitWrapperErr != nil {
+			return
+		}
+		helperSource := filepath.Join(gitWrapperRoot, "git-helper.go")
+		gitWrapperErr = os.WriteFile(helperSource, []byte(gitHelperSource), 0o600)
+		if gitWrapperErr != nil {
+			return
+		}
+		gitWrapperErr = os.WriteFile(filepath.Join(gitWrapperRoot, "go.mod"), []byte("module git-helper\n\ngo 1.26.5\n"), 0o600)
+		if gitWrapperErr != nil {
+			return
+		}
+		gitWrapperPath = filepath.Join(gitWrapperRoot, "git")
+		if filepath.Separator == '\\' {
+			gitWrapperPath += ".exe"
+		}
+		build := exec.Command("go", "build", "-o", gitWrapperPath, helperSource)
+		build.Dir = gitWrapperRoot
+		if output, err := build.CombinedOutput(); err != nil {
+			gitWrapperErr = fmt.Errorf("build git helper: %w: %s", err, output)
+		}
+	})
+	if gitWrapperErr != nil {
+		t.Fatal(gitWrapperErr)
 	}
 	t.Setenv("AIGW_TEST_GIT_MODE", mode)
 	t.Setenv("AIGW_TEST_REAL_GIT", realGit)
-	t.Setenv("PATH", directory+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("PATH", gitWrapperRoot+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
 const gitHelperSource = `package main
@@ -443,6 +474,33 @@ func main() {
 	if mode == "fail-dev-preflight" {
 		for _, argument := range args {
 			if command == "rev-parse" && strings.Contains(argument, "dev") || command == "clone" && filepath.Base(argument) == "dev" {
+				os.Exit(1)
+			}
+		}
+	}
+	if mode == "fetch-second-branch" && command == "fetch" {
+		for _, argument := range args {
+			if strings.Contains(argument, "refs/heads/dev") {
+				os.Exit(1)
+			}
+		}
+	}
+	if mode == "clone-second-branch" && command == "clone" {
+		output := args[len(args)-1]
+		if strings.Contains(filepath.Base(output), "dev") {
+			os.Exit(1)
+		}
+	}
+	if mode == "update-ref-main" && command == "update-ref" {
+		for _, argument := range args {
+			if argument == "refs/heads/main" {
+				os.Exit(1)
+			}
+		}
+	}
+	if mode == "log-peer" && command == "log" {
+		for _, argument := range args {
+			if argument == "dev" || strings.Contains(argument, "refs/heads/dev") {
 				os.Exit(1)
 			}
 		}
@@ -483,6 +541,45 @@ func main() {
 			os.Exit(1)
 		}
 		if err := os.WriteFile(filepath.Join(output, "objects", "info", "alternates"), nil, 0o600); err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	case "cat-file-pretty:cat-file":
+		for _, argument := range args {
+			if argument == "-p" {
+				os.Exit(1)
+			}
+		}
+	case "cat-file-malformed:cat-file":
+		_, _ = os.Stdout.WriteString("tree 0000000000000000000000000000000000000000\n\nmessage\n")
+		os.Exit(0)
+	case "replay-map-write:symbolic-ref":
+		if run(args) != 0 {
+			os.Exit(1)
+		}
+		output := ""
+		for index, argument := range args {
+			if argument == "-C" && index+1 < len(args) {
+				output = args[index+1]
+				break
+			}
+		}
+		if err := os.Mkdir(filepath.Join(output, "replay-map.tsv"), 0o700); err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	case "replay-receipt-write:symbolic-ref":
+		if run(args) != 0 {
+			os.Exit(1)
+		}
+		output := ""
+		for index, argument := range args {
+			if argument == "-C" && index+1 < len(args) {
+				output = args[index+1]
+				break
+			}
+		}
+		if err := os.Mkdir(filepath.Join(output, "replay-receipt.json"), 0o700); err != nil {
 			os.Exit(1)
 		}
 		os.Exit(0)

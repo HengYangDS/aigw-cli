@@ -2,6 +2,7 @@ package recovery
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,6 +12,15 @@ import (
 )
 
 func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
+	t.Run("configuration load", func(t *testing.T) {
+		command := NewSyncCommand(invocation.Context{Config: configuration.NewStore(t.TempDir())})
+		command.SilenceErrors = true
+		command.SilenceUsage = true
+		if err := command.Execute(); err == nil {
+			t.Fatal("configuration load failure was accepted")
+		}
+	})
+
 	for _, test := range []struct {
 		name string
 		args []string
@@ -52,4 +62,55 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRollbackCoversLoadCheckpointAndBackupFailures(t *testing.T) {
+	t.Run("current config load", func(t *testing.T) {
+		command := NewRollbackCommand(invocation.Context{Config: configuration.NewStore(t.TempDir())})
+		command.SilenceErrors = true
+		command.SilenceUsage = true
+		if err := command.Execute(); err == nil {
+			t.Fatal("current configuration load failure was accepted")
+		}
+	})
+
+	t.Run("invalid verified checkpoint", func(t *testing.T) {
+		store := rollbackStore(t)
+		if err := os.WriteFile(store.Path()+".verified.json", []byte("not-json"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		command := NewRollbackCommand(invocation.Context{Config: store})
+		command.SilenceErrors = true
+		command.SilenceUsage = true
+		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "parse verified checkpoint") {
+			t.Fatalf("rollback error = %v", err)
+		}
+	})
+
+	t.Run("invalid previous backup", func(t *testing.T) {
+		store := rollbackStore(t)
+		if err := os.WriteFile(store.Path()+".bak", []byte("not = [toml"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		command := NewRollbackCommand(invocation.Context{Config: store})
+		command.SilenceErrors = true
+		command.SilenceUsage = true
+		command.SetArgs([]string{"--last-change"})
+		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "parse config") {
+			t.Fatalf("rollback error = %v", err)
+		}
+	})
+}
+
+func rollbackStore(t *testing.T) configuration.Store {
+	t.Helper()
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	cfg := configuration.NewConfig()
+	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
+	cfg.Routes.Default = "one"
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	return store
 }

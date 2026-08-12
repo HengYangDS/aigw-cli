@@ -124,6 +124,48 @@ func TestVerifyAllWritesVerifiedCheckpoint(t *testing.T) {
 	}
 }
 
+func TestVerifyAllReturnsCheckpointWriteFailure(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	claudeExecutable := executableFixture(t, "claude")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
+	cfg.Routes.Default = "gpt"
+	cfg.Routes.Overrides[configuration.ClientClaude] = "claude"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
+	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
+	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	codexRuntime, _, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.SyncConfig(codexTarget, codexRuntime); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("dmx", "verify-token"); err != nil {
+		t.Fatal(err)
+	}
+	app.HTTP = &fakeHTTP{status: http.StatusOK, body: `{"status":"completed","output_text":"AIGW_OK"}`}
+	checkpoint := app.Config.Path() + ".verified.json"
+	if err := os.Mkdir(checkpoint, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(checkpoint, "blocker"), []byte("occupied"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "verify", "--for", "all"); err == nil {
+		t.Fatal("checkpoint write failure was accepted")
+	}
+}
+
 func TestVerifyRejectsMissingResponseSentinel(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()

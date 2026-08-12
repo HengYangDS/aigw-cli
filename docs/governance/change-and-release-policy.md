@@ -78,7 +78,8 @@ filesystem-shaped regressions.
 
 GitLab and GitHub are equivalent independent forge planes. Each has its own
 commit history and signed-tag provenance, and each publishes the same versioned
-15-artifact release matrix: platform packages, `checksums.txt`, and SPDX SBOM.
+eight-asset release matrix: six portable archives, `checksums.txt`, and an SPDX
+SBOM.
 Each CI/CD plane can build and publish independently. When both releases are
 reachable, tag name, manifest, and artifact disagreement is a fail-closed
 condition; one forge must never bypass an integrity, provenance, metadata, or
@@ -92,8 +93,9 @@ checkout, a loose binary, and a tag are not candidates.
 ## Engineering quality
 
 `.config/checks/coverage/policy.toml` is the coverage SSOT. The executable gate
-tests every Go package under `./...` with no exclusion surface and requires each
-package and the aggregate to remain strictly above 95 percent. One semantic
+tests every Go package under `./...` with no exclusion surface and requires
+statement and branch coverage to remain independently above 95 percent for
+every package and for the module aggregate. One semantic
 owner must govern each behavior and policy; source compatibility shims,
 forwarding wrappers, alias-only packages, and re-exports are not admitted
 substitutes for cohesive packages, explicit dependency direction, SSOT, DRY,
@@ -126,7 +128,7 @@ fixture only. The resolver validates every configured tuple before packaging.
 Thus product source remains independent of the publishing Forge, while a direct
 development `go build` has no implicit release source.
 
-Before publication, the complete 15-artifact matrix is built twice on the
+Before publication, the complete eight-asset matrix is built twice on the
 protected release runner with the same version, epoch, toolchain, and explicit
 Forge coordinates. The sorted filenames, every artifact byte, the checksum manifest,
 and the SPDX SBOM must match. Each Forge repeats the same source-neutral build contract in its own protected

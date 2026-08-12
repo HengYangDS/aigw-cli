@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -259,8 +260,9 @@ func TestSettingsNullDocumentBecomesAnEmptyObject(t *testing.T) {
 func TestSettingsStrictlyRejectsMalformedEnvironmentAndTrailingJSON(t *testing.T) {
 	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 	for name, content := range map[string]string{
-		"malformed env":  `{"env":"not-an-object"}`,
-		"trailing value": `{"theme":"dark"} {"theme":"light"}`,
+		"malformed document": `{`,
+		"malformed env":      `{"env":"not-an-object"}`,
+		"trailing value":     `{"theme":"dark"} {"theme":"light"}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
@@ -274,6 +276,24 @@ func TestSettingsStrictlyRejectsMalformedEnvironmentAndTrailingJSON(t *testing.T
 			after, err := os.ReadFile(path)
 			if err != nil || !reflect.DeepEqual(after, before) {
 				t.Fatalf("settings changed: %q error=%v", after, err)
+			}
+		})
+	}
+}
+
+func TestSettingsRejectsMalformedOwnedStateForUpdateAndDisable(t *testing.T) {
+	for _, disabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "update", true: "disable"}[disabled], func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "settings.json")
+			runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+			if _, err := ReconcileSettings(path, false, runtime); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path+settingsStateSuffix, []byte("{"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ReconcileSettings(path, disabled, runtime); err == nil || !strings.Contains(err.Error(), "parse Claude settings state") {
+				t.Fatalf("error=%v", err)
 			}
 		})
 	}
@@ -411,6 +431,46 @@ func TestSettingsDisableFailuresPreserveManagedProjection(t *testing.T) {
 			t.Fatalf("error=%v", err)
 		}
 	})
+
+	t.Run("state removal rollback failure", func(t *testing.T) {
+		withSettingsTransaction(t, captureSnapshot, writeGuarded,
+			func(string, transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+				return transaction.FileSnapshot{}, os.ErrPermission
+			},
+			func(string, transaction.FileSnapshot, transaction.FileSnapshot) error {
+				return errors.New("rollback failed")
+			},
+		)
+		if _, err := ReconcileSettings(path, true, configuration.Runtime{}); err == nil || !strings.Contains(err.Error(), "rollback failed") {
+			t.Fatalf("error=%v", err)
+		}
+	})
+}
+
+func TestSettingsDisableAbsentFileReportsRemovalFailures(t *testing.T) {
+	for _, failAt := range []int{1, 2} {
+		t.Run(fmt.Sprintf("remove-%d", failAt), func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "settings.json")
+			runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+			if _, err := ReconcileSettings(path, false, runtime); err != nil {
+				t.Fatal(err)
+			}
+			calls := 0
+			withSettingsTransaction(t, captureSnapshot, writeGuarded,
+				func(path string, before transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+					calls++
+					if calls == failAt {
+						return transaction.FileSnapshot{}, os.ErrPermission
+					}
+					return transaction.RemoveFileIfUnchanged(path, before)
+				},
+				restoreGuarded,
+			)
+			if _, err := ReconcileSettings(path, true, configuration.Runtime{}); err == nil {
+				t.Fatal("removal failure was accepted")
+			}
+		})
+	}
 }
 
 func TestSettingsStateValidationAndHelperBranches(t *testing.T) {

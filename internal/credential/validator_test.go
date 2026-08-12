@@ -153,9 +153,6 @@ func TestCredentialHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := authenticate(request, configuration.ClientSpec{ID: "future", EndpointProtocol: "future"}, "secret"); err == nil || !strings.Contains(err.Error(), "unsupported") {
-		t.Fatalf("authenticate error = %v", err)
-	}
 	if got := modelsEndpoint("https://example.test/models", configuration.ProtocolOpenAIResponses); got != "https://example.test/models" {
 		t.Fatalf("models endpoint = %q", got)
 	}

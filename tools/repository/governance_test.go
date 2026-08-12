@@ -56,13 +56,6 @@ func TestGovernanceRejectsInvalidOwnedSurfaces(t *testing.T) {
 			want: "bypasses the required coverage gate",
 		},
 		{
-			name: "unsupported branch claim",
-			edit: func(t *testing.T, root string) {
-				appendFixture(t, root, "docs/operations/release-readiness.md", "branch coverage\n")
-			},
-			want: "unsupported branch coverage",
-		},
-		{
 			name: "missing truthful coverage term",
 			edit: func(t *testing.T, root string) {
 				overwriteFixture(t, root, "docs/operations/release-readiness.md", "strictly above 95 percent\n")
@@ -203,6 +196,39 @@ func TestGovernanceHelpersCoverReadAndFilesystemErrorBoundaries(t *testing.T) {
 	}
 }
 
+func TestGovernanceReportsGitAndFilesystemObservationFailures(t *testing.T) {
+	t.Run("hook inventory unavailable", func(t *testing.T) {
+		root := governanceFixture(t)
+		if err := os.RemoveAll(filepath.Join(root, ".git")); err != nil {
+			t.Fatal(err)
+		}
+		if err := checkGovernance(root); err == nil || !strings.Contains(err.Error(), "inspect tracked hook runtime") {
+			t.Fatalf("hook inventory error = %v", err)
+		}
+	})
+
+	t.Run("retired path stat failure", func(t *testing.T) {
+		root := governanceFixture(t)
+		path := filepath.Join(root, "docs", "history")
+		if err := os.Symlink("history", path); err != nil {
+			t.Skipf("symlink fixture unavailable: %v", err)
+		}
+		if err := checkGovernance(root); err == nil {
+			t.Fatal("unobservable retired path was accepted")
+		}
+	})
+
+	t.Run("paths exist treats stat failure as present", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.Symlink("loop", filepath.Join(root, "loop")); err != nil {
+			t.Skipf("symlink fixture unavailable: %v", err)
+		}
+		if !pathsExist(root, []string{"loop"}) {
+			t.Fatal("stat failure was treated as absence")
+		}
+	})
+}
+
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", ".."))
@@ -226,7 +252,7 @@ func governanceFixture(t *testing.T) string {
 			}
 		}
 	}
-	if err := os.WriteFile(filepath.Join(root, "docs", "operations", "release-readiness.md"), []byte("strictly above 95 percent statement coverage\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "docs", "operations", "release-readiness.md"), []byte("every package and module aggregate strictly above 95 percent for statement and branch coverage\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	commands := strings.Join(localVerificationCommands, "\n") + "\n"

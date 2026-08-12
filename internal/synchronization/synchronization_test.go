@@ -164,6 +164,53 @@ func TestProjectionPlanningAndReconciliationNoOp(t *testing.T) {
 	}
 }
 
+func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
+	t.Run("missing Claude settings path", func(t *testing.T) {
+		before := configuration.NewConfig()
+		before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+		before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
+		before.Routes.Default = "claude"
+		after := before.Clone()
+		after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+		if err := (Synchronizer{}).Reconcile(context.Background(), before, after); err == nil || !strings.Contains(err.Error(), "settings path") {
+			t.Fatalf("Reconcile() error = %v", err)
+		}
+	})
+
+	t.Run("invalid enabled Codex runtime", func(t *testing.T) {
+		before := testConfig("/target")
+		after := before.Clone()
+		delete(before.Profiles, "gpt")
+		delete(after.Profiles, "gpt")
+		if ProjectionChanged(before, after) != true {
+			t.Fatal("invalid Codex runtime was treated as unchanged")
+		}
+	})
+
+	t.Run("Codex targets changed", func(t *testing.T) {
+		before := testConfig("/first")
+		after := before.Clone()
+		after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{"/second"}}
+		if !ProjectionChanged(before, after) {
+			t.Fatal("changed Codex target set was treated as unchanged")
+		}
+	})
+
+	t.Run("invalid enabled Claude runtime", func(t *testing.T) {
+		before := configuration.NewConfig()
+		before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+		before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
+		before.Routes.Default = "claude"
+		before.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+		after := before.Clone()
+		delete(before.Profiles, "claude")
+		delete(after.Profiles, "claude")
+		if ClaudeProjectionChanged(before, after) != true {
+			t.Fatal("invalid Claude runtime was treated as unchanged")
+		}
+	})
+}
+
 func TestBindAuthenticationSuccessAndFailures(t *testing.T) {
 	cfg := testConfig("/tmp/codex/configuration.toml")
 	secretStore := secrets.NewMemoryStore()

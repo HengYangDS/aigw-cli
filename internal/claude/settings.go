@@ -233,11 +233,7 @@ func projectSettings(document settingsDocument, runtime configuration.Runtime) {
 		delete(environment, key)
 	}
 	environment["ANTHROPIC_BASE_URL"] = encodeRaw(runtime.Endpoint)
-	if len(environment) == 0 {
-		delete(document, "env")
-	} else {
-		document["env"], _ = json.Marshal(environment)
-	}
+	document["env"], _ = json.Marshal(environment)
 	if runtime.Model == "" {
 		delete(document, "model")
 	} else {

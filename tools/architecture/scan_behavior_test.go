@@ -270,6 +270,18 @@ func TestSuffixFlatInvalidPrefixIgnored(t *testing.T) {
 	}
 }
 
+func TestSuffixFlatIgnoresEmptyPrefix(t *testing.T) {
+	report := newReport("policy", ".")
+	checkSuffixFlat(
+		[]goFileInfo{{dir: "internal/x", name: "_alpha.go"}, {dir: "internal/x", name: "_beta.go"}},
+		policy{SuffixFlatGroupMin: 2},
+		&report,
+	)
+	if report.Summary["suffix_flat"] != 0 {
+		t.Fatalf("empty prefixes produced findings: %+v", report.Findings)
+	}
+}
+
 func TestAnalyzeRepositoryDirect(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
@@ -280,6 +292,60 @@ func TestAnalyzeRepositoryDirect(t *testing.T) {
 	}
 	if !report.OK {
 		t.Fatalf("%+v", report.Findings)
+	}
+}
+
+func TestAnalyzeRepositoryReportsStageFailures(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "missing")
+	brokenDecisions := t.TempDir()
+	writeFile(t, filepath.Join(brokenDecisions, "docs", "decisions", "README.md"), "# Decisions\n")
+	if err := os.Chmod(filepath.Join(brokenDecisions, "docs", "decisions"), 0o111); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(filepath.Join(brokenDecisions, "docs", "decisions"), 0o700) })
+	tests := []struct {
+		name string
+		root string
+		set  func(*policy)
+	}{
+		{name: "module identity", root: t.TempDir(), set: func(p *policy) { p.CheckModuleIdentity = true }},
+		{name: "portability", root: missing, set: func(p *policy) { p.CheckPortability = true }},
+		{name: "decision records", root: brokenDecisions, set: func(p *policy) { p.CheckDecisionRecords = true }},
+		{name: "semantic names", root: missing, set: func(p *policy) { p.CheckSemanticNames = true }},
+		{name: "text layout", root: missing},
+		{name: "package children", root: t.TempDir(), set: func(p *policy) {
+			p.PackageChildren = map[string][]string{"invalid\x00root": {"child"}}
+		}},
+		{name: "Go roots", root: t.TempDir(), set: func(p *policy) { p.GoRoots = []string{"invalid\x00root"} }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p := policy{}
+			if test.set != nil {
+				test.set(&p)
+			}
+			if _, err := analyzeRepository(test.root, p, "policy.toml"); err == nil {
+				t.Fatal("stage failure was accepted")
+			}
+		})
+	}
+}
+
+func TestCollectGoFilesRejectsInvalidRoot(t *testing.T) {
+	if _, _, err := collectGoFiles(t.TempDir(), policy{GoRoots: []string{"invalid\x00root"}}); err == nil {
+		t.Fatal("invalid Go root was accepted")
+	}
+}
+
+func TestCollectGoFilesIgnoresConfiguredFilePath(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "internal", "ignored.go"), "package internal\n")
+	files, stats, err := collectGoFiles(root, policy{GoRoots: []string{"internal"}, IgnoreRoots: []string{"internal"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 0 || len(stats) != 0 {
+		t.Fatalf("ignored path collected: files=%+v stats=%+v", files, stats)
 	}
 }
 
@@ -459,5 +525,94 @@ func TestSelectorSameNameNilSel(t *testing.T) {
 	expr := &ast.SelectorExpr{X: ast.NewIdent("pkg"), Sel: nil}
 	if isFunctionAliasExpr(expr, "Foo", false) {
 		t.Fatal("nil sel")
+	}
+}
+
+func writeFixture(t *testing.T, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "fixture.go")
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestFunctionsMeasuresSizeComplexityAndNesting(t *testing.T) {
+	path := writeFixture(t, `package fixture
+func classify(value int) bool {
+	if value > 0 && value < 10 {
+		for value > 1 {
+			if value == 2 { return true }
+			value--
+		}
+	}
+	return false
+}
+`)
+	metrics, err := functionMetrics(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(metrics) != 1 {
+		t.Fatalf("metrics = %+v", metrics)
+	}
+	metric := metrics[0]
+	if metric.Name != "classify" || metric.Line != 2 || metric.ELOC < 9 || metric.Complexity != 4 || metric.Nesting != 3 {
+		t.Fatalf("metric = %+v", metric)
+	}
+}
+
+func TestElseIfChainKeepsOneNestingLevel(t *testing.T) {
+	path := writeFixture(t, `package fixture
+func classify(value int) bool {
+	if value == 1 { return true
+	} else if value == 2 { return true
+	} else if value == 3 { return true }
+	return false
+}
+`)
+	metrics, err := functionMetrics(path)
+	if err != nil || len(metrics) != 1 {
+		t.Fatalf("metrics=%+v err=%v", metrics, err)
+	}
+	if metrics[0].Complexity != 3 || metrics[0].Nesting != 1 {
+		t.Fatalf("metric=%+v", metrics[0])
+	}
+}
+
+func TestFunctionsRejectsMissingFileAndSkipsSyntaxError(t *testing.T) {
+	if _, err := functionMetrics(filepath.Join(t.TempDir(), "missing.go")); err == nil {
+		t.Fatal("missing source accepted")
+	}
+	metrics, err := functionMetrics(writeFixture(t, "package fixture\nfunc broken( {\n"))
+	if err != nil || metrics != nil {
+		t.Fatalf("metrics=%+v err=%v", metrics, err)
+	}
+}
+
+func TestSourceMeasuresTokensAndDecisionComplexity(t *testing.T) {
+	path := writeFixture(t, `package fixture
+// comment only
+func classify(value int) bool {
+	if value > 0 && value < 10 { return true }
+	return false
+}
+`)
+	eloc, complexity, err := sourceMetrics(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if eloc != 5 || complexity != 2 {
+		t.Fatalf("eloc=%d complexity=%d", eloc, complexity)
+	}
+}
+
+func TestSourcePreservesSizeForSyntaxError(t *testing.T) {
+	eloc, complexity, err := sourceMetrics(writeFixture(t, "package fixture\nfunc broken( {\n"))
+	if err != nil || eloc == 0 || complexity != 0 {
+		t.Fatalf("eloc=%d complexity=%d err=%v", eloc, complexity, err)
+	}
+	if _, _, err := sourceMetrics(filepath.Join(t.TempDir(), "missing.go")); err == nil {
+		t.Fatal("missing source accepted")
 	}
 }

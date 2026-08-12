@@ -81,6 +81,13 @@ func TestTerminalPromptSecretNonAccessibleSubmitsTrimmedValue(t *testing.T) {
 	}
 }
 
+func TestTerminalPromptSecretNonAccessibleCancelReturnsError(t *testing.T) {
+	prompt := Prompt{in: strings.NewReader("\x03"), out: &bytes.Buffer{}, accessible: false}
+	if _, err := runPrompt(t, func() (string, error) { return prompt.Secret("Token: ") }); err == nil || !strings.Contains(err.Error(), "input cancelled") {
+		t.Fatalf("Secret() error = %v", err)
+	}
+}
+
 func TestTerminalPromptSelectNonAccessibleReturnsChosenValue(t *testing.T) {
 	out := &bytes.Buffer{}
 	p := Prompt{in: strings.NewReader("\r"), out: out, accessible: false}
@@ -91,6 +98,14 @@ func TestTerminalPromptSelectNonAccessibleReturnsChosenValue(t *testing.T) {
 	}
 	if value != "a" {
 		t.Fatalf("Select() = %q, want the first option by default", value)
+	}
+}
+
+func TestTerminalPromptSelectNonAccessibleCancelReturnsError(t *testing.T) {
+	prompt := Prompt{in: strings.NewReader("\x03"), out: &bytes.Buffer{}, accessible: false}
+	choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
+	if _, err := runPrompt(t, func() (string, error) { return prompt.Select("Pick: ", choices) }); err == nil || !strings.Contains(err.Error(), "input cancelled") {
+		t.Fatalf("Select() error = %v", err)
 	}
 }
 
@@ -218,6 +233,36 @@ func TestTerminalPromptAccessibleSelectSurfacesLabelWriteFailure(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "render selection prompt") {
 		t.Fatalf("Select() error = %v", err)
 	}
+}
+
+type failAfterWriter struct {
+	writes int
+	err    error
+}
+
+func (writer *failAfterWriter) Write(data []byte) (int, error) {
+	writer.writes++
+	if writer.writes > 1 {
+		return 0, writer.err
+	}
+	return len(data), nil
+}
+
+func TestTerminalPromptAccessibleSelectSurfacesOptionAndInputFailures(t *testing.T) {
+	choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
+	t.Run("option output", func(t *testing.T) {
+		writer := &failAfterWriter{err: errors.New("closed pipe")}
+		prompt := Prompt{in: strings.NewReader("1\n"), out: writer, accessible: true}
+		if _, err := prompt.Select("Pick: ", choices); err == nil || !strings.Contains(err.Error(), "render selection option") {
+			t.Fatalf("Select() error = %v", err)
+		}
+	})
+	t.Run("selection input", func(t *testing.T) {
+		prompt := Prompt{in: errorReader{err: errors.New("broken pipe")}, out: &bytes.Buffer{}, accessible: true}
+		if _, err := prompt.Select("Pick: ", choices); err == nil || !strings.Contains(err.Error(), "read input") {
+			t.Fatalf("Select() error = %v", err)
+		}
+	})
 }
 
 func TestTerminalPromptAccessiblePlainInputSurfacesPromptWriteFailure(t *testing.T) {

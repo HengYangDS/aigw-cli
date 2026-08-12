@@ -6,4 +6,7 @@ locked = true
 [tools]
 go = "1.26.5"
 "github:goreleaser/goreleaser" = "2.17.1"
-"github:anchore/syft" = "1.50.0"
+"github:anchore/syft" = "1.51.0"
+"npm:@fission-ai/openspec" = "1.8.0"
+"github:lycheeverse/lychee" = "lychee-v0.24.2"
+node = "26.7.0"

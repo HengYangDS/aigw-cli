@@ -24,10 +24,7 @@ func runReleasePromotion(args []string) error {
 }
 
 func promoteRelease(option releasePromotionOptions) error {
-	repository, err := filepath.Abs(option.repository)
-	if err != nil {
-		return err
-	}
+	repository := filepath.Clean(option.repository)
 	status, err := gitOutput(repository, "status", "--porcelain", "--untracked-files=normal")
 	if err != nil {
 		return err

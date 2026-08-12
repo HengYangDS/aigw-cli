@@ -67,13 +67,6 @@ func Install(source, target string) error {
 	if sourcePath == targetPath {
 		return errors.New("source and target resolve to the same path")
 	}
-	information, err := os.Stat(sourcePath)
-	if err != nil {
-		return fmt.Errorf("inspect portable AIGW executable: %w", err)
-	}
-	if information.IsDir() {
-		return errors.New("portable AIGW source is not executable")
-	}
 	data, err := os.ReadFile(sourcePath)
 	if err != nil {
 		return fmt.Errorf("read portable AIGW executable: %w", err)
@@ -93,7 +86,7 @@ func Install(source, target string) error {
 		return fmt.Errorf("read installed portable AIGW executable: %w", err)
 	}
 	if err := transaction.WriteFileAtomic(targetPath, data, 0o755); err != nil {
-		return fmt.Errorf("install portable AIGW executable: %w", err)
+		return err
 	}
 	return os.Chmod(targetPath, 0o755)
 }

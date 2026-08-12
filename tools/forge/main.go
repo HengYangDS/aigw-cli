@@ -165,10 +165,7 @@ func replay(option options) (replayErr error) {
 		return err
 	}
 	receipt := map[string]any{"schema_version": 1, "source_tip": revision, "target_tip": tip, "target_ref": option.ref, "commit_count": len(oids), "root_count": roots, "merge_count": merges, "unterminated_message_count": unterminated, "semantic_fields": []string{"tree", "message_bytes", "author_timestamp", "committer_timestamp", "ordered_parents", "merge_topology"}}
-	encoded, err := json.MarshalIndent(receipt, "", "  ")
-	if err != nil {
-		return err
-	}
+	encoded, _ := json.MarshalIndent(receipt, "", "  ")
 	encoded = append(encoded, '\n')
 	if err := os.WriteFile(filepath.Join(output, "replay-receipt.json"), encoded, 0o600); err != nil {
 		return err

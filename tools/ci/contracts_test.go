@@ -52,6 +52,20 @@ func TestRunDispatchesWorkflowContracts(t *testing.T) {
 	}
 }
 
+func TestWorkflowContractsReportMissingGateAuthority(t *testing.T) {
+	root := t.TempDir()
+	for name, check := range map[string]func() error{
+		"toolchain":     func() error { return runContract([]string{"toolchain", root}) },
+		"GitHub verify": func() error { return githubWorkflowContract(root, false) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := check(); err == nil {
+				t.Fatal("missing gate authority was accepted")
+			}
+		})
+	}
+}
+
 func TestGitHubWorkflowContractRequiresDefaultBranchConfiguration(t *testing.T) {
 	for _, command := range []string{"github-verify", "github-release"} {
 		t.Run(command, func(t *testing.T) {
@@ -140,6 +154,19 @@ func TestPipelineContractRequiresImmutableOfficialGitLabMiseImage(t *testing.T) 
 				t.Fatalf("invalid GitLab mise image accepted: %v", err)
 			}
 		})
+	}
+}
+
+func TestPipelineContractRejectsMutableBootstrapAuthority(t *testing.T) {
+	files := fixtureFiles()
+	files[".config/ci/verify-gates.toml"] = strings.Replace(
+		files[".config/ci/verify-gates.toml"],
+		"bootstrap_image = \"ghcr.io/jdx/mise@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\"",
+		"bootstrap_image = \"ghcr.io/jdx/mise:latest\"",
+		1,
+	)
+	if err := pipelineContract(repository(t, files)); err == nil || !strings.Contains(err.Error(), "immutable digest-pinned") {
+		t.Fatalf("mutable bootstrap authority accepted: %v", err)
 	}
 }
 
@@ -337,6 +364,12 @@ func TestContractsRejectProjectionDrift(t *testing.T) {
 		"missing_locked_go": func(files map[string]string) {
 			files["mise.lock"] = "[[tools.other]]\nversion = \"1\"\n"
 		},
+		"missing_selected_node": func(files map[string]string) {
+			files["mise.toml"] = strings.Replace(files["mise.toml"], "node = \"26.7.0\"\n", "", 1)
+		},
+		"mismatched_locked_openspec": func(files map[string]string) {
+			files["mise.lock"] = strings.Replace(files["mise.lock"], "[[tools.\"npm:@fission-ai/openspec\"]]\nversion = \"1.8.0\"", "[[tools.\"npm:@fission-ai/openspec\"]]\nversion = \"1.7.0\"", 1)
+		},
 		"github_bypasses_mise": func(files map[string]string) {
 			files[".github/workflows/verify.yml"] = strings.Replace(files[".github/workflows/verify.yml"], "mise exec --locked -- go run ./tools/ci source", "go run ./tools/ci source", 1)
 		},
@@ -392,6 +425,40 @@ func TestContractsReportUnreadableAndMalformedOwnedInputs(t *testing.T) {
 	files[".config/ci/verify-gates.toml"] = strings.Replace(files[".config/ci/verify-gates.toml"], "[gitlab.commands]\nrequired = []", "[gitlab.commands]\nrequired = [\"missing-command\"]", 1)
 	if err := pipelineContract(repository(t, files)); err == nil {
 		t.Fatal("missing GitLab verification command accepted")
+	}
+}
+
+func TestMiseProjectionReportsOwnedInputFailures(t *testing.T) {
+	for name, mutate := range map[string]func(map[string]string){
+		"missing config":   func(files map[string]string) { delete(files, "mise.toml") },
+		"missing workflow": func(files map[string]string) { delete(files, ".github/workflows/release.yml") },
+		"unlocked command": func(files map[string]string) {
+			files[".github/workflows/verify.yml"] = strings.Replace(
+				files[".github/workflows/verify.yml"],
+				"run: mise exec --locked -- go run ./tools/ci source",
+				"run: mise exec -- go run ./tools/ci source",
+				1,
+			)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			files := fixtureFiles()
+			mutate(files)
+			root := repository(t, files)
+			gates, err := loadGates(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := validateMiseProjection(root, gates); err == nil {
+				t.Fatal("invalid mise projection was accepted")
+			}
+		})
+	}
+}
+
+func TestGitLabDefaultImageRejectsMalformedYAML(t *testing.T) {
+	if hasGitLabDefaultImage("default: [", "image") {
+		t.Fatal("malformed GitLab pipeline exposed a default image")
 	}
 }
 
@@ -540,9 +607,31 @@ jobs:
           cache: false
       - run: mise exec --locked -- go run ./tools/release publish-github dist
 `,
-		"go.mod":    "module aigw-cli\ngo 1.26.5\n",
-		"mise.toml": "min_version = \"2026.8.3\"\n[settings]\nlocked = true\n[tools]\ngo = \"1.26.5\"\n",
-		"mise.lock": "[[tools.go]]\nversion = \"1.26.5\"\nbackend = \"core:go\"\n",
+		"go.mod": "module aigw-cli\ngo 1.26.5\n",
+		"mise.toml": `min_version = "2026.8.3"
+[settings]
+locked = true
+[tools]
+go = "1.26.5"
+node = "26.7.0"
+"github:anchore/syft" = "1.51.0"
+"github:goreleaser/goreleaser" = "2.17.1"
+"github:lycheeverse/lychee" = "lychee-v0.24.2"
+"npm:@fission-ai/openspec" = "1.8.0"
+`,
+		"mise.lock": `[[tools.go]]
+version = "1.26.5"
+[[tools.node]]
+version = "26.7.0"
+[[tools."github:anchore/syft"]]
+version = "1.51.0"
+[[tools."github:goreleaser/goreleaser"]]
+version = "2.17.1"
+[[tools."github:lycheeverse/lychee"]]
+version = "lychee-v0.24.2"
+[[tools."npm:@fission-ai/openspec"]]
+version = "1.8.0"
+`,
 	}
 }
 
