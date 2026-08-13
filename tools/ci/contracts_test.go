@@ -157,6 +157,54 @@ func TestPipelineContractRequiresImmutableOfficialGitLabMiseImage(t *testing.T) 
 	}
 }
 
+func TestPipelineContractRequiresTagBoundGitLabPackaging(t *testing.T) {
+	files := fixtureFiles()
+	files[".gitlab-ci.yml"] = strings.Replace(
+		files[".gitlab-ci.yml"],
+		"package:\n  rules:\n    - if: $CI_COMMIT_TAG\n    - when: never\n  script: [true]",
+		"package:\n  script: [true]",
+		1,
+	)
+	if err := pipelineContract(repository(t, files)); err == nil || !strings.Contains(err.Error(), "tag-only") {
+		t.Fatalf("branch packaging accepted: %v", err)
+	}
+}
+
+func TestTagBoundGitLabPackagingRequiresExactFallback(t *testing.T) {
+	for name, mutate := range map[string]func(string) string{
+		"missing rules": func(text string) string {
+			return strings.Replace(text, "  rules:\n    - if: $CI_COMMIT_TAG\n    - when: never\n", "", 1)
+		},
+		"branch fallback": func(text string) string {
+			return strings.Replace(text, "    - when: never\n", "    - when: always\n", 1)
+		},
+		"extra rule": func(text string) string {
+			return strings.Replace(text, "    - when: never\n", "    - if: $CI_COMMIT_BRANCH\n    - when: never\n", 1)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			files := fixtureFiles()
+			files[".gitlab-ci.yml"] = mutate(files[".gitlab-ci.yml"])
+			if err := pipelineContract(repository(t, files)); err == nil || !strings.Contains(err.Error(), "tag-only") {
+				t.Fatalf("invalid package rules accepted: %v", err)
+			}
+		})
+	}
+}
+
+func TestTagBoundGitLabPackagingRejectsMalformedOrMissingJob(t *testing.T) {
+	for name, pipeline := range map[string]string{
+		"malformed": "package: [",
+		"missing":   "verify:\n  script: [true]\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if gitLabJobHasTagOnlyRules(pipeline, "package") {
+				t.Fatal("invalid package projection exposed tag-only rules")
+			}
+		})
+	}
+}
+
 func TestPipelineContractRejectsMutableBootstrapAuthority(t *testing.T) {
 	files := fixtureFiles()
 	files[".config/ci/verify-gates.toml"] = strings.Replace(
@@ -478,7 +526,7 @@ func TestContractsRejectEveryPolicyBoundary(t *testing.T) {
 			files[".gitlab-ci.yml"] = strings.Replace(files[".gitlab-ci.yml"], "    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\\//'\n      when: never\n", "", 1)
 		},
 		func(files map[string]string) {
-			files[".config/ci/verify-gates.toml"] = strings.Replace(files[".config/ci/verify-gates.toml"], "[gitlab.package]\nrequired = []", "[gitlab.package]\nrequired = [\"package-required\"]", 1)
+			files[".config/ci/verify-gates.toml"] = strings.Replace(files[".config/ci/verify-gates.toml"], "[gitlab.package]\ntag_only = true\nrequired = []", "[gitlab.package]\ntag_only = true\nrequired = [\"package-required\"]", 1)
 		},
 		func(files map[string]string) {
 			files[".config/ci/verify-gates.toml"] = strings.Replace(files[".config/ci/verify-gates.toml"], "[gitlab.release]\nrequired = []", "[gitlab.release]\nrequired = [\"release-required\"]", 1)
@@ -533,6 +581,7 @@ suppress_release_branch_merge_request = true
 [gitlab.commands]
 required = []
 [gitlab.package]
+tag_only = true
 required = []
 [gitlab.release]
 required = []
@@ -569,6 +618,9 @@ verify:
   script:
     - mise exec --locked -- go run ./tools/ci source
 package:
+  rules:
+    - if: $CI_COMMIT_TAG
+    - when: never
   script: [true]
 release:
   script: [true]

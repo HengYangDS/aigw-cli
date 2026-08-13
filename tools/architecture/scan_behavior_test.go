@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -297,12 +298,6 @@ func TestAnalyzeRepositoryDirect(t *testing.T) {
 
 func TestAnalyzeRepositoryReportsStageFailures(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing")
-	brokenDecisions := t.TempDir()
-	writeFile(t, filepath.Join(brokenDecisions, "docs", "decisions", "README.md"), "# Decisions\n")
-	if err := os.Chmod(filepath.Join(brokenDecisions, "docs", "decisions"), 0o111); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(filepath.Join(brokenDecisions, "docs", "decisions"), 0o700) })
 	tests := []struct {
 		name string
 		root string
@@ -310,7 +305,6 @@ func TestAnalyzeRepositoryReportsStageFailures(t *testing.T) {
 	}{
 		{name: "module identity", root: t.TempDir(), set: func(p *policy) { p.CheckModuleIdentity = true }},
 		{name: "portability", root: missing, set: func(p *policy) { p.CheckPortability = true }},
-		{name: "decision records", root: brokenDecisions, set: func(p *policy) { p.CheckDecisionRecords = true }},
 		{name: "semantic names", root: missing, set: func(p *policy) { p.CheckSemanticNames = true }},
 		{name: "text layout", root: missing},
 		{name: "package children", root: t.TempDir(), set: func(p *policy) {
@@ -326,6 +320,35 @@ func TestAnalyzeRepositoryReportsStageFailures(t *testing.T) {
 			}
 			if _, err := analyzeRepository(test.root, p, "policy.toml"); err == nil {
 				t.Fatal("stage failure was accepted")
+			}
+		})
+	}
+}
+
+func TestAnalyzeRepositoryPropagatesSemanticStageFailures(t *testing.T) {
+	original := repositoryAnalysis
+	t.Cleanup(func() { repositoryAnalysis = original })
+	want := errors.New("stage failed")
+	for name, configure := range map[string]func(){
+		"decision records": func() {
+			repositoryAnalysis.decisionRecords = func(string, *Report) error { return want }
+		},
+		"peer imports": func() {
+			repositoryAnalysis.peerImports = func(string, []goFileInfo, policy, *Report) error { return want }
+		},
+		"import edges": func() {
+			repositoryAnalysis.importEdges = func(string, []goFileInfo, policy, *Report) error { return want }
+		},
+		"Go AST": func() {
+			repositoryAnalysis.goAST = func(string, []goFileInfo, policy, *Report) error { return want }
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			repositoryAnalysis = original
+			configure()
+			p := policy{CheckDecisionRecords: name == "decision records"}
+			if _, err := analyzeRepository(t.TempDir(), p, "policy.toml"); !errors.Is(err, want) {
+				t.Fatalf("error = %v, want %v", err, want)
 			}
 		})
 	}

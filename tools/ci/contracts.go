@@ -65,8 +65,11 @@ type gateConfig struct {
 		ForbidMacOS       bool             `toml:"forbid_macos_native_acceptance_job"`
 		ForbidMirror      bool             `toml:"forbid_github_mirror_job"`
 		Commands          requiredCommands `toml:"commands"`
-		Package           requiredCommands `toml:"package"`
-		Release           requiredCommands `toml:"release"`
+		Package           struct {
+			TagOnly  bool     `toml:"tag_only"`
+			Required []string `toml:"required"`
+		} `toml:"package"`
+		Release requiredCommands `toml:"release"`
 	} `toml:"gitlab"`
 	GitHub struct {
 		Verify struct {
@@ -363,6 +366,9 @@ func pipelineContract(root string) error {
 			return fmt.Errorf("GitLab package plane is missing %q", token)
 		}
 	}
+	if gates.GitLab.Package.TagOnly && !gitLabJobHasTagOnlyRules(gitlab, "package") {
+		return errors.New("GitLab package plane must be tag-only")
+	}
 	for _, token := range gates.GitLab.Release.Required {
 		if !strings.Contains(gitlab, token) {
 			return fmt.Errorf("GitLab release plane is missing %q", token)
@@ -475,6 +481,26 @@ func hasGitLabDefaultImage(text, expected string) bool {
 		return false
 	}
 	return fmt.Sprint(defaults["image"]) == expected
+}
+
+func gitLabJobHasTagOnlyRules(text, name string) bool {
+	var document map[string]any
+	if err := yaml.Unmarshal([]byte(text), &document); err != nil {
+		return false
+	}
+	job, ok := document[name].(map[string]any)
+	if !ok {
+		return false
+	}
+	rules, ok := job["rules"].([]any)
+	if !ok || len(rules) != 2 {
+		return false
+	}
+	tag, tagOK := rules[0].(map[string]any)
+	fallback, fallbackOK := rules[1].(map[string]any)
+	return tagOK && fallbackOK &&
+		fmt.Sprint(tag["if"]) == "$CI_COMMIT_TAG" &&
+		fmt.Sprint(fallback["when"]) == "never"
 }
 
 func validateGitLabCommandProjection(root string) error {
