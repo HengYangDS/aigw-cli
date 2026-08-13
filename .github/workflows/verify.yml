@@ -35,7 +35,6 @@ jobs:
         with:
           install: true
           cache: false
-          mise_dir: ${{ runner.temp }}/aigw-mise
       - name: Refresh annotated release tags
         run: mise exec --locked -- go run ./tools/ci fetch-tags
       - name: Materialize provenance trust input
@@ -69,7 +68,6 @@ jobs:
         with:
           install: true
           cache: false
-          mise_dir: ${{ runner.temp }}/aigw-mise
       - name: Run native macOS acceptance
         run: mise exec --locked -- go run ./tools/ci native --platform darwin
 
@@ -87,7 +85,6 @@ jobs:
         with:
           install: true
           cache: false
-          mise_dir: ${{ runner.temp }}/aigw-mise
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
@@ -109,6 +106,5 @@ jobs:
         with:
           install: true
           cache: false
-          mise_dir: ${{ runner.temp }}/aigw-mise
       - name: Run native Windows acceptance
         run: mise exec --locked -- go run ./tools/ci native --platform windows
