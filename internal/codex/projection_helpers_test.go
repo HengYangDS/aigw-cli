@@ -309,6 +309,19 @@ func TestTargetCodexStatePathExtra(t *testing.T) {
 	}
 }
 
+func TestPreferredCodexStatePathUsesExistingCanonicalSidecar(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "alias.toml")
+	canonical := filepath.Join(root, "configuration.toml")
+	want := codexStatePath(canonical)
+	if err := os.WriteFile(want, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := preferredCodexStatePath(source, canonical); got != want {
+		t.Fatalf("preferredCodexStatePath() = %q, want %q", got, want)
+	}
+}
+
 func TestClassifyCodexDiskSelectionExtra(t *testing.T) {
 	cases := []struct {
 		input    string
