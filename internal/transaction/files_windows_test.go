@@ -34,6 +34,30 @@ func lockExclusive(t *testing.T, path string) func() {
 	return func() { _ = windows.CloseHandle(handle) }
 }
 
+// lockDeletion keeps the file readable while withholding delete sharing. This
+// lets the guarded operation observe the expected snapshot before Windows
+// rejects the actual removal with a sharing violation.
+func lockDeletion(t *testing.T, path string) func() {
+	t.Helper()
+	namePtr, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(
+		namePtr,
+		windows.GENERIC_READ,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE,
+		nil,
+		windows.OPEN_EXISTING,
+		windows.FILE_ATTRIBUTE_NORMAL,
+		0,
+	)
+	if err != nil {
+		t.Fatalf("CreateFile without delete sharing: %v", err)
+	}
+	return func() { _ = windows.CloseHandle(handle) }
+}
+
 // denyDirEveryone adds a deny ACE for the well-known Everyone SID on dir and
 // every entry created under it, then removes the ACE during cleanup so
 // t.TempDir() can still delete the tree afterward.
@@ -45,20 +69,6 @@ func denyDirEveryone(t *testing.T, dir, rights string) {
 	t.Cleanup(func() {
 		if out, err := exec.Command("icacls", dir, "/remove:d", "*S-1-1-0").CombinedOutput(); err != nil {
 			t.Errorf("remove temporary directory deny ACL: %v: %s", err, out)
-		}
-	})
-}
-
-// denyFileEveryone adds a deny ACE for the well-known Everyone SID on a
-// single file, then removes it during cleanup.
-func denyFileEveryone(t *testing.T, path, rights string) {
-	t.Helper()
-	if out, err := exec.Command("icacls", path, "/deny", "*S-1-1-0:"+rights).CombinedOutput(); err != nil {
-		t.Fatalf("icacls /deny %s on %s: %v: %s", rights, path, err, out)
-	}
-	t.Cleanup(func() {
-		if out, err := exec.Command("icacls", path, "/remove:d", "*S-1-1-0").CombinedOutput(); err != nil {
-			t.Errorf("remove temporary file deny ACL: %v: %s", err, out)
 		}
 	})
 }
@@ -115,7 +125,7 @@ func TestRemoveFileIfUnchangedRejectsUnreadableCurrentStateWhenLocked(t *testing
 	}
 }
 
-func TestRemoveFileIfUnchangedSurfacesRemovePermissionErrorWhenDeleteDenied(t *testing.T) {
+func TestRemoveFileIfUnchangedSurfacesRemoveFailureWhenDeletionIsLocked(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "file")
 	if err := os.WriteFile(path, []byte("prepared"), 0o600); err != nil {
 		t.Fatal(err)
@@ -124,9 +134,10 @@ func TestRemoveFileIfUnchangedSurfacesRemovePermissionErrorWhenDeleteDenied(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	denyFileEveryone(t, path, "(D)")
-	if _, err := transaction.RemoveFileIfUnchanged(path, expected); err == nil {
-		t.Fatal("RemoveFileIfUnchanged succeeded despite a delete-denied file")
+	unlock := lockDeletion(t, path)
+	defer unlock()
+	if _, err := transaction.RemoveFileIfUnchanged(path, expected); err == nil || !strings.Contains(err.Error(), "remove ") {
+		t.Fatalf("RemoveFileIfUnchanged() error = %v, want the removal failure", err)
 	}
 }
 
@@ -172,7 +183,7 @@ func TestRestoreFileAtomicIfPostimageRejectsUnreadableCurrentStateWhenLocked(t *
 	}
 }
 
-func TestRestoreFileAtomicIfPostimageSurfacesRemovePermissionErrorWhenDeleteDenied(t *testing.T) {
+func TestRestoreFileAtomicIfPostimageSurfacesRemoveFailureWhenDeletionIsLocked(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "file")
 	before, err := transaction.CaptureFileSnapshot(path)
 	if err != nil {
@@ -182,9 +193,10 @@ func TestRestoreFileAtomicIfPostimageSurfacesRemovePermissionErrorWhenDeleteDeni
 	if err != nil {
 		t.Fatal(err)
 	}
-	denyFileEveryone(t, path, "(D)")
-	if err := transaction.RestoreFileAtomicIfPostimage(path, before, postimage); err == nil {
-		t.Fatal("RestoreFileAtomicIfPostimage succeeded despite a delete-denied file")
+	unlock := lockDeletion(t, path)
+	defer unlock()
+	if err := transaction.RestoreFileAtomicIfPostimage(path, before, postimage); err == nil || !strings.Contains(err.Error(), "remove ") {
+		t.Fatalf("RestoreFileAtomicIfPostimage() error = %v, want the removal failure", err)
 	}
 }
 
