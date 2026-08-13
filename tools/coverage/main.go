@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	pathpkg "path"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -97,6 +98,7 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int
 	flags.SetOutput(stderr)
 	policyPath := flags.String("policy", defaultPolicyPath, "coverage policy TOML")
 	race := flags.Bool("race", false, "enable Go's race detector")
+	profileOutput := flags.String("profile-output", "", "retain the Go coverage profile at this path")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
@@ -195,6 +197,11 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int
 	}
 	if err := runBranchCoverage(profilePath, expectedPackages, policy, stdout, stderr, runner); err != nil {
 		_, _ = fmt.Fprintf(stderr, "branch coverage failed: %v\n", err)
+		_ = retainCoverageProfile(profilePath, *profileOutput)
+		return 1
+	}
+	if err := retainCoverageProfile(profilePath, *profileOutput); err != nil {
+		_, _ = fmt.Fprintf(stderr, "retain coverage profile: %v\n", err)
 		return 1
 	}
 	if _, err := fmt.Fprintf(stdout, "statement coverage: %.2f%% (%d/%d statements), required > %.2f%%\n", percent, result.Covered, result.Total, policy.MinimumStatementPercent); err != nil {
@@ -202,6 +209,18 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int
 		return 1
 	}
 	return 0
+}
+
+func retainCoverageProfile(source, target string) error {
+	if target == "" {
+		return nil
+	}
+	data, err := os.ReadFile(source)
+	if err != nil {
+		return err
+	}
+	_ = os.MkdirAll(filepath.Dir(target), 0o755)
+	return os.WriteFile(target, data, 0o600)
 }
 
 func loadPolicy(path string) (coveragePolicy, error) {

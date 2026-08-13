@@ -127,6 +127,16 @@ func TestSourceConfigurationRejectsIncompleteForgeProvenance(t *testing.T) {
 	}
 }
 
+func TestSourceReportsInvalidArgumentsAndConfiguredSourceFailure(t *testing.T) {
+	if err := run([]string{"source", "extra"}, &bytes.Buffer{}, func(command) error { return nil }); err == nil {
+		t.Fatal("source accepted an extra argument")
+	}
+	t.Setenv("AIGW_FORGE_PROVIDER", "unsupported")
+	if err := run([]string{"source"}, &bytes.Buffer{}, func(command) error { return nil }); err == nil || !strings.Contains(err.Error(), "gitlab or github") {
+		t.Fatalf("configured source error = %v", err)
+	}
+}
+
 func TestRunRejectsInvalidCommandShapes(t *testing.T) {
 	for _, args := range [][]string{
 		{"static", "extra"},
@@ -215,12 +225,16 @@ func TestNativeAcceptanceUsesPortablePaths(t *testing.T) {
 }
 
 func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
-	var calls int
-	if err := run([]string{"native", "--platform", runtime.GOOS}, &bytes.Buffer{}, func(command) error {
-		calls++
+	var calls []command
+	if err := run([]string{"native", "--platform", runtime.GOOS}, &bytes.Buffer{}, func(call command) error {
+		calls = append(calls, call)
 		return nil
-	}); err != nil || calls != 7 {
-		t.Fatalf("native host error=%v calls=%d", err, calls)
+	}); err != nil || len(calls) != 7 {
+		t.Fatalf("native host error=%v calls=%d", err, len(calls))
+	}
+	wantProfile := filepath.Join("build", "acceptance", "coverage-"+runtime.GOOS+".out")
+	if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"run", "./tools/coverage", "--race", "--profile-output", wantProfile}) {
+		t.Fatalf("native coverage command = %#v", got)
 	}
 	other := "linux"
 	if runtime.GOOS == other {
@@ -228,6 +242,19 @@ func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 	}
 	if err := run([]string{"native", "--platform", other}, &bytes.Buffer{}, func(command) error { return nil }); err == nil || !strings.Contains(err.Error(), "requires "+other+" host") {
 		t.Fatalf("cross-host native acceptance error = %v", err)
+	}
+}
+
+func TestNativeCommandsUsePortableArtifactNames(t *testing.T) {
+	windows := nativeCommands("windows")
+	if windows[2].Args[2] != filepath.Join("build", "acceptance", "aigw.exe") ||
+		windows[0].Args[4] != filepath.Join("build", "acceptance", "coverage-windows.out") {
+		t.Fatalf("Windows native commands = %#v", windows)
+	}
+	linux := nativeCommands("linux")
+	if linux[2].Args[2] != filepath.Join("build", "acceptance", "aigw") ||
+		linux[0].Args[4] != filepath.Join("build", "acceptance", "coverage-linux.out") {
+		t.Fatalf("Linux native commands = %#v", linux)
 	}
 }
 

@@ -242,7 +242,7 @@ func githubWorkflowContract(root string, release bool) error {
 				return fmt.Errorf("%s must invoke one portable owner per run step", relative)
 			}
 		}
-		if err := validateMiseBootstrapOrder(current.Steps, gates.Toolchain.GitHubAction.Mise); err != nil {
+		if err := validateMiseBootstrapOrder(current.Steps, gates.Toolchain.GitHubAction.Mise, fmt.Sprint(current.RunsOn) == runner); err != nil {
 			return fmt.Errorf("%s job %s: %w", relative, name, err)
 		}
 	}
@@ -271,13 +271,17 @@ func githubWorkflowContract(root string, release bool) error {
 	return nil
 }
 
-func validateMiseBootstrapOrder(steps []map[string]any, action string) error {
+func validateMiseBootstrapOrder(steps []map[string]any, action string, isolated bool) error {
 	bootstrapped := false
 	for _, step := range steps {
 		if uses, _ := step["uses"].(string); uses == action {
 			with, _ := step["with"].(map[string]any)
-			if fmt.Sprint(with["mise_dir"]) != githubMiseDirectory {
+			directory := fmt.Sprint(with["mise_dir"])
+			if isolated && directory != githubMiseDirectory {
 				return fmt.Errorf("mise bootstrap must isolate its installation under %s", githubMiseDirectory)
+			}
+			if !isolated && directory != "<nil>" {
+				return errors.New("hosted mise bootstrap must use its platform-native installation directory")
 			}
 			bootstrapped = true
 			continue

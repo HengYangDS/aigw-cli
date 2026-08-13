@@ -182,12 +182,13 @@ func supportedNativePlatform(platform string) bool {
 func nativeCommands(platform string) []command {
 	binary := filepath.Join("build", "acceptance", "aigw")
 	installed := filepath.Join("build", "acceptance", "installed", "aigw")
+	profile := filepath.Join("build", "acceptance", "coverage-"+platform+".out")
 	if platform == "windows" {
 		binary += ".exe"
 		installed += ".exe"
 	}
 	return []command{
-		{Name: "go", Args: []string{"run", "./tools/coverage", "--race"}},
+		{Name: "go", Args: []string{"run", "./tools/coverage", "--race", "--profile-output", profile}},
 		{Name: "go", Args: []string{"vet", "./..."}},
 		{Name: "go", Args: []string{"build", "-o", binary, "./cmd/aigw"}},
 		{Name: binary, Args: []string{"--version"}},
