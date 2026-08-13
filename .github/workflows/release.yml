@@ -38,7 +38,6 @@ jobs:
         with:
           install: true
           cache: false
-          mise_dir: ${{ runner.temp }}/aigw-mise
       - name: Run native macOS release acceptance
         run: mise exec --locked -- go run ./tools/ci native --platform darwin
 
@@ -57,7 +56,6 @@ jobs:
         with:
           install: true
           cache: false
-          mise_dir: ${{ runner.temp }}/aigw-mise
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
@@ -80,7 +78,6 @@ jobs:
         with:
           install: true
           cache: false
-          mise_dir: ${{ runner.temp }}/aigw-mise
       - name: Run native Windows release acceptance
         run: mise exec --locked -- go run ./tools/ci native --platform windows
 
@@ -102,7 +99,6 @@ jobs:
         with:
           install: true
           cache: false
-          mise_dir: ${{ runner.temp }}/aigw-mise
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
