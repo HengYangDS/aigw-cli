@@ -9,6 +9,6 @@
 
 ## 2. Verification
 
-- [ ] 2.1 Rebind the Work Lane to the exact migrated carrier.
-- [ ] 2.2 Pass strict OpenSpec validation and repository proof.
-- [ ] 2.3 Land and retire the Work Lane.
+- [x] 2.1 Rebind the Work Lane to the exact migrated carrier.
+- [x] 2.2 Pass strict OpenSpec validation and repository proof.
+- [x] 2.3 Confirm governed landing readiness.
