@@ -524,6 +524,34 @@ func TestCoveragePercentHandlesEmptyTotal(t *testing.T) {
 	}
 }
 
+func TestRetainCoverageProfile(t *testing.T) {
+	source := filepath.Join(t.TempDir(), "source.out")
+	if err := os.WriteFile(source, []byte("mode: atomic\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := retainCoverageProfile(source, ""); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "nested", "coverage.out")
+	if err := retainCoverageProfile(source, target); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil || string(data) != "mode: atomic\n" {
+		t.Fatalf("retained profile = %q, %v", data, err)
+	}
+	if err := retainCoverageProfile(filepath.Join(t.TempDir(), "missing"), target); err == nil {
+		t.Fatal("missing source was accepted")
+	}
+	blocked := filepath.Join(t.TempDir(), "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := retainCoverageProfile(source, filepath.Join(blocked, "coverage.out")); err == nil {
+		t.Fatal("invalid target parent was accepted")
+	}
+}
+
 func TestRunBranchCoverageRejectsMissingInputCapabilityAndProfile(t *testing.T) {
 	policy, err := loadPolicy(writePolicy(t, validPolicy))
 	if err != nil {
