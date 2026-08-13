@@ -391,6 +391,14 @@ func TestContractsRejectProjectionDrift(t *testing.T) {
 		"github_parse": func(files map[string]string) {
 			files[".github/workflows/verify.yml"] = "jobs: ["
 		},
+		"github_missing_configured_runner": func(files map[string]string) {
+			files[".github/workflows/verify.yml"] = strings.Replace(
+				files[".github/workflows/verify.yml"],
+				"runs-on: ${{ fromJSON(vars.AIGW_VERIFY_RUNNER) }}",
+				"runs-on: ubuntu-latest",
+				1,
+			)
+		},
 		"github_floating_action": func(files map[string]string) {
 			files[".github/workflows/verify.yml"] += "\n# @main\n"
 		},
@@ -423,6 +431,24 @@ func TestContractsRejectProjectionDrift(t *testing.T) {
 		},
 		"github_reuses_host_mise": func(files map[string]string) {
 			files[".github/workflows/verify.yml"] = strings.Replace(files[".github/workflows/verify.yml"], "          mise_dir: ${{ runner.temp }}/aigw-mise\n", "", 1)
+		},
+		"github_forces_hosted_mise_directory": func(files map[string]string) {
+			files[".github/workflows/verify.yml"] = strings.Replace(
+				files[".github/workflows/verify.yml"],
+				"[native.linux]\nrequired = []",
+				"[native.linux]\nrequired = [\"native-linux:\"]",
+				1,
+			)
+			files[".github/workflows/verify.yml"] += `
+  native-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: jdx/mise-action@1234567890abcdef1234567890abcdef12345678
+        with:
+          install: true
+          cache: false
+          mise_dir: ${{ runner.temp }}/aigw-mise
+`
 		},
 		"github_installs_tools_ad_hoc": func(files map[string]string) {
 			files[".github/workflows/release.yml"] += "\n# brew install goreleaser syft\n"
