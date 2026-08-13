@@ -154,3 +154,32 @@ func TestUpdateCandidateRejectsReplaceBinaryFailure(t *testing.T) {
 		t.Fatal("UpdateCandidate accepted a missing executable")
 	}
 }
+
+func TestUpdateCandidateUsesWindowsExecutableName(t *testing.T) {
+	directory := t.TempDir()
+	archiveName := "aigw_1.2.3_windows_amd64.zip"
+	archivePath := filepath.Join(directory, archiveName)
+	archive := zipArchive(t, []byte("aigw_1.2.3_windows_amd64/aigw.exe"), []byte("windows-binary"))
+	if err := os.WriteFile(archivePath, archive, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	checksumsPath := filepath.Join(directory, "checksums.txt")
+	if err := os.WriteFile(checksumsPath, []byte(fileSHA256ForTest(t, archivePath)+"  "+archiveName+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(directory, "aigw.exe")
+	if err := os.WriteFile(executable, []byte("old-binary"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	u := Updater{GOOS: "windows", GOARCH: "amd64", Executable: executable}
+	message, err := u.UpdateCandidate(context.Background(), "v1.0.0", CandidateArchive{ArchivePath: archivePath, ChecksumsPath: checksumsPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(message, "v1.2.3") {
+		t.Fatalf("message = %q", message)
+	}
+	if got, err := os.ReadFile(executable); err != nil || string(got) != "windows-binary" {
+		t.Fatalf("binary=%q err=%v", got, err)
+	}
+}
