@@ -91,6 +91,16 @@ func TestRunnerRunCaptureReturnsStdout(t *testing.T) {
 	}
 }
 
+func TestRunnerRunCaptureRejectsOversizedOutput(t *testing.T) {
+	_, err := (Runner{}).RunCapture(context.Background(), Plan{
+		Executable: "powershell.exe",
+		Args:       []string{"-NoProfile", "-NonInteractive", "-Command", `$OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new(); [Console]::Out.Write('x' * 70000)`},
+	})
+	if err == nil || !strings.Contains(err.Error(), "captured output from powershell.exe exceeds") {
+		t.Fatalf("RunCapture() error = %v, want bounded-output failure", err)
+	}
+}
+
 func TestStartCapturedProcessReportsMissingExecutable(t *testing.T) {
 	cleanup, err := startCapturedProcess(exec.Command("aigw-definitely-not-a-real-binary"))
 	if err == nil || cleanup != nil {
