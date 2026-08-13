@@ -35,6 +35,7 @@ jobs:
         with:
           install: true
           cache: false
+          mise_dir: ${{ runner.temp }}/aigw-mise
       - name: Refresh annotated release tags
         run: mise exec --locked -- go run ./tools/ci fetch-tags
       - name: Materialize provenance trust input
@@ -108,3 +109,10 @@ jobs:
           cache: false
       - name: Run native Windows acceptance
         run: mise exec --locked -- go run ./tools/ci native --platform windows
+      - name: Upload Windows coverage evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-coverage
+          path: build/acceptance/coverage-windows.out
+          if-no-files-found: warn
