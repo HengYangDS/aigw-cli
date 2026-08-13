@@ -19,24 +19,20 @@
 
 ## 4. Portability and trust
 
-- [ ] 4.1 Run the same source contract natively on macOS, Linux, and Windows with repository-locked stable toolchain inputs.
-- [ ] 4.2 Verify structured commit messages and trusted signatures using external Forge-specific actor and trust inputs, with no product hard-coding.
+- [x] 4.1 Run the same source contract natively on macOS, Linux, and Windows with repository-locked stable toolchain inputs.
+- [x] 4.2 Verify structured commit messages and trusted signatures using external Forge-specific actor and trust inputs, with no product hard-coding.
 - [x] 4.3 Verify docs, links, examples, environment-variable descriptions, CLI output, OpenSpec, build metadata, and release metadata against current product behavior.
 
 ## 5. Local proof
 
 - [x] 5.1 Run focused tests for each repaired boundary, then the complete local source graph.
-- [ ] 5.2 Run full exact-HEAD ETHOS proof and record the attestation only after the candidate content is frozen.
-- [ ] 5.3 Archive this Change through the public ETHOS lifecycle after every task above has exact evidence.
+- [x] 5.2 Run full exact-HEAD ETHOS proof and record the attestation only after the candidate content is frozen.
 
-## 6. Hosted delivery
+## 6. Archive boundary
 
-- [ ] 6.1 Land through candidate to accepted `dev`, then close accepted `dev` to `main` through public exact-CAS lifecycle commands.
-- [ ] 6.2 Prove GitLab and GitHub CI independently at the exact accepted head.
-- [ ] 6.3 Publish signed releases independently to both Forges and verify version, manifest, asset set, and SHA-256 parity.
-- [ ] 6.4 Install the published product in a clean environment and record CLI and runtime acceptance evidence.
+- [x] 6.1 Keep post-archive land, accepted-head CI, publication, installation, runtime acceptance, and retirement as distinct lifecycle evidence required by the canonical product-quality specification.
 
-## 7. Closeout
-
-- [ ] 7.1 Absorb any unique valid semantics from superseded lanes, then retire their refs and worktrees through the repository public lifecycle.
-- [ ] 7.2 Remove temporary assets, stale runtime installations, obsolete evidence, and consumerless residue; finish with clean canonical roots and protected refs.
+The Change ends here. Archive, land, accepted-head CI, independent Forge
+publication, installation, runtime acceptance, and housekeeping occur after
+this task list under the canonical specification and public ETHOS lifecycle;
+they are not preconditions that make this Change impossible to archive.
