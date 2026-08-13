@@ -17,6 +17,8 @@ import (
 var immutableAction = regexp.MustCompile(`^[^@]+@[0-9a-f]{40}$`)
 var immutableMiseImage = regexp.MustCompile(`^ghcr\.io/jdx/mise@sha256:[0-9a-f]{64}$`)
 
+const githubMiseDirectory = "${{ runner.temp }}/aigw-mise"
+
 var repositoryTools = []string{
 	"go",
 	"node",
@@ -270,6 +272,10 @@ func validateMiseBootstrapOrder(steps []map[string]any, action string) error {
 	bootstrapped := false
 	for _, step := range steps {
 		if uses, _ := step["uses"].(string); uses == action {
+			with, _ := step["with"].(map[string]any)
+			if fmt.Sprint(with["mise_dir"]) != githubMiseDirectory {
+				return fmt.Errorf("mise bootstrap must isolate its installation under %s", githubMiseDirectory)
+			}
 			bootstrapped = true
 			continue
 		}
