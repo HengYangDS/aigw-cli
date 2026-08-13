@@ -130,6 +130,18 @@ func TestRemoveFileIfUnchangedSurfacesRemovePermissionErrorWhenDeleteDenied(t *t
 	}
 }
 
+func TestRemoveFileIfUnchangedTreatsAbsentFileAsAlreadyRemoved(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "already-removed")
+	expected, err := transaction.CaptureFileSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	removed, err := transaction.RemoveFileIfUnchanged(path, expected)
+	if err != nil || removed.Exists {
+		t.Fatalf("RemoveFileIfUnchanged() = %#v, %v", removed, err)
+	}
+}
+
 func TestRestoreFileAtomicIfPostimageRejectsUnreadableCurrentStateWhenLocked(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "file")
 	if err := os.WriteFile(path, []byte("data"), 0o600); err != nil {
@@ -156,6 +168,17 @@ func TestRestoreFileAtomicIfPostimageSurfacesRemovePermissionErrorWhenDeleteDeni
 	denyFileEveryone(t, path, "(D)")
 	if err := transaction.RestoreFileAtomicIfPostimage(path, before, postimage); err == nil {
 		t.Fatal("RestoreFileAtomicIfPostimage succeeded despite a delete-denied file")
+	}
+}
+
+func TestRestoreFileAtomicIfPostimageTreatsAbsentFileAsAlreadyRestored(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "already-restored")
+	absent, err := transaction.CaptureFileSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.RestoreFileAtomicIfPostimage(path, absent, absent); err != nil {
+		t.Fatal(err)
 	}
 }
 
