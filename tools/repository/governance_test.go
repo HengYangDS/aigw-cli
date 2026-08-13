@@ -173,6 +173,9 @@ func TestGovernanceHelpersCoverReadAndFilesystemErrorBoundaries(t *testing.T) {
 	if pathsExist(root, []string{"missing"}) {
 		t.Fatal("missing path was reported present")
 	}
+	if !pathsExist(root, []string{"invalid\x00path"}) {
+		t.Fatal("unobservable path was treated as absent")
+	}
 
 	root = governanceFixture(t)
 	retired := filepath.Join(root, "docs", "history")
