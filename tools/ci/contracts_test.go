@@ -93,8 +93,8 @@ func TestGitHubWorkflowContractRequiresMiseBeforeEveryOwnedCommand(t *testing.T)
 	workflow := files[".github/workflows/verify.yml"]
 	workflow = strings.Replace(
 		workflow,
-		"      - uses: jdx/mise-action@1234567890abcdef1234567890abcdef12345678\n        with:\n          install: true\n          cache: false\n      - name: Run source and policy gates",
-		"      - name: Refresh annotated release tags\n        run: mise exec --locked -- go run ./tools/ci fetch-tags\n      - uses: jdx/mise-action@1234567890abcdef1234567890abcdef12345678\n        with:\n          install: true\n          cache: false\n      - name: Run source and policy gates",
+		"      - uses: jdx/mise-action@1234567890abcdef1234567890abcdef12345678\n        with:\n          install: true\n          cache: false\n          mise_dir: ${{ runner.temp }}/aigw-mise\n      - name: Run source and policy gates",
+		"      - name: Refresh annotated release tags\n        run: mise exec --locked -- go run ./tools/ci fetch-tags\n      - uses: jdx/mise-action@1234567890abcdef1234567890abcdef12345678\n        with:\n          install: true\n          cache: false\n          mise_dir: ${{ runner.temp }}/aigw-mise\n      - name: Run source and policy gates",
 		1,
 	)
 	files[".github/workflows/verify.yml"] = workflow
@@ -373,6 +373,9 @@ func TestContractsRejectProjectionDrift(t *testing.T) {
 		"github_bypasses_mise": func(files map[string]string) {
 			files[".github/workflows/verify.yml"] = strings.Replace(files[".github/workflows/verify.yml"], "mise exec --locked -- go run ./tools/ci source", "go run ./tools/ci source", 1)
 		},
+		"github_reuses_host_mise": func(files map[string]string) {
+			files[".github/workflows/verify.yml"] = strings.Replace(files[".github/workflows/verify.yml"], "          mise_dir: ${{ runner.temp }}/aigw-mise\n", "", 1)
+		},
 		"github_installs_tools_ad_hoc": func(files map[string]string) {
 			files[".github/workflows/release.yml"] += "\n# brew install goreleaser syft\n"
 		},
@@ -586,6 +589,7 @@ jobs:
         with:
           install: true
           cache: false
+          mise_dir: ${{ runner.temp }}/aigw-mise
       - name: Run source and policy gates
         run: mise exec --locked -- go run ./tools/ci source
 `,
@@ -605,6 +609,7 @@ jobs:
         with:
           install: true
           cache: false
+          mise_dir: ${{ runner.temp }}/aigw-mise
       - run: mise exec --locked -- go run ./tools/release publish-github dist
 `,
 		"go.mod": "module aigw-cli\ngo 1.26.5\n",
