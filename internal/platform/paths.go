@@ -4,7 +4,7 @@ package platform
 
 import (
 	"fmt"
-	"path/filepath"
+	"path"
 	"strings"
 )
 
@@ -49,16 +49,16 @@ func ConfigPathFor(goos string, env map[string]string) (string, error) {
 		if home == "" {
 			return "", fmt.Errorf("HOME is not set")
 		}
-		return filepath.Join(home, "Library", "Application Support", "aigw", "config.toml"), nil
+		return path.Join(home, "Library", "Application Support", "aigw", "config.toml"), nil
 	case "linux":
 		base := env["XDG_CONFIG_HOME"]
 		if base == "" {
 			if env["HOME"] == "" {
 				return "", fmt.Errorf("HOME and XDG_CONFIG_HOME are not set")
 			}
-			base = filepath.Join(env["HOME"], ".config")
+			base = path.Join(env["HOME"], ".config")
 		}
-		return filepath.Join(base, "aigw", "config.toml"), nil
+		return path.Join(base, "aigw", "config.toml"), nil
 	case "windows":
 		base := env["APPDATA"]
 		if base == "" {
@@ -76,16 +76,16 @@ func DataDirFor(goos string, env map[string]string) (string, error) {
 		if env["HOME"] == "" {
 			return "", fmt.Errorf("HOME is not set")
 		}
-		return filepath.Join(env["HOME"], "Library", "Application Support", "aigw"), nil
+		return path.Join(env["HOME"], "Library", "Application Support", "aigw"), nil
 	case "linux":
 		base := env["XDG_DATA_HOME"]
 		if base == "" {
 			if env["HOME"] == "" {
 				return "", fmt.Errorf("HOME and XDG_DATA_HOME are not set")
 			}
-			base = filepath.Join(env["HOME"], ".local", "share")
+			base = path.Join(env["HOME"], ".local", "share")
 		}
-		return filepath.Join(base, "aigw"), nil
+		return path.Join(base, "aigw"), nil
 	case "windows":
 		base := env["LOCALAPPDATA"]
 		if base == "" {
@@ -119,7 +119,7 @@ func ClaudeSettingsPathFor(goos string, env map[string]string) (string, error) {
 	if home == "" {
 		return "", fmt.Errorf("HOME is not set")
 	}
-	return filepath.Join(home, ".claude", "settings.json"), nil
+	return path.Join(home, ".claude", "settings.json"), nil
 }
 
 func UserBinDirFor(goos string, env map[string]string) (string, error) {
@@ -129,7 +129,7 @@ func UserBinDirFor(goos string, env map[string]string) (string, error) {
 		if home == "" {
 			return "", fmt.Errorf("HOME is not set")
 		}
-		return filepath.Join(home, ".local", "bin"), nil
+		return path.Join(home, ".local", "bin"), nil
 	case "windows":
 		base := env["LOCALAPPDATA"]
 		if base == "" {

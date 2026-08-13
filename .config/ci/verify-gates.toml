@@ -47,6 +47,9 @@ required = [
 ]
 
 [gitlab.package]
+# Release artifacts derive their identity from the signed tag; proposal and
+# integration branches verify source only.
+tag_only = true
 required = [
   "mise exec --locked -- go run ./tools/release build-ci build/release dist",
 ]

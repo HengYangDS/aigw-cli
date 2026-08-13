@@ -15,6 +15,18 @@ import (
 	"unicode"
 )
 
+var repositoryAnalysis = struct {
+	decisionRecords func(string, *Report) error
+	peerImports     func(string, []goFileInfo, policy, *Report) error
+	importEdges     func(string, []goFileInfo, policy, *Report) error
+	goAST           func(string, []goFileInfo, policy, *Report) error
+}{
+	decisionRecords: checkDecisionRecords,
+	peerImports:     checkPeerPackageImports,
+	importEdges:     checkImportEdges,
+	goAST:           checkGoAST,
+}
+
 type goFileInfo struct {
 	relPath    string
 	name       string
@@ -40,7 +52,7 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	}
 
 	if p.CheckDecisionRecords {
-		if err := checkDecisionRecords(absRoot, &report); err != nil {
+		if err := repositoryAnalysis.decisionRecords(absRoot, &report); err != nil {
 			return Report{}, err
 		}
 	}
@@ -62,16 +74,16 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	report.DirectoryStats = dirStats
 	checkImportOwners(goFiles, p, &report)
 	checkCompositionRoots(goFiles, p, &report)
-	if err := checkPeerPackageImports(absRoot, goFiles, p, &report); err != nil {
+	if err := repositoryAnalysis.peerImports(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}
-	if err := checkImportEdges(absRoot, goFiles, p, &report); err != nil {
+	if err := repositoryAnalysis.importEdges(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}
 	checkFlatDirectories(dirStats, p, &report)
 	checkSourceBudgets(goFiles, dirStats, p, &report)
 	checkSuffixFlat(goFiles, p, &report)
-	if err := checkGoAST(absRoot, goFiles, p, &report); err != nil {
+	if err := repositoryAnalysis.goAST(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}
 	return report, nil

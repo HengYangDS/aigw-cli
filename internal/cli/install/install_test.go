@@ -2,6 +2,7 @@ package install
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -205,20 +206,22 @@ func TestInstallAndUninstallReportOwnedFileFailures(t *testing.T) {
 	}
 }
 
-func TestInstallReturnsAtomicTargetReplacementFailure(t *testing.T) {
+func TestInstallReportsAtomicTargetReplacementFailure(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "source")
 	if err := os.WriteFile(source, []byte("current"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	blocked := filepath.Join(root, "blocked")
-	if err := os.Mkdir(blocked, 0o500); err != nil {
-		t.Fatal(err)
+	original := writeFileAtomic
+	writeFileAtomic = func(path string, data []byte, mode os.FileMode) error {
+		if path == filepath.Join(root, "aigw") {
+			return errors.New("replace failed")
+		}
+		return original(path, data, mode)
 	}
-	t.Cleanup(func() { _ = os.Chmod(blocked, 0o700) })
-	target := filepath.Join(blocked, "aigw")
-	if err := Install(source, target); err == nil {
-		t.Fatal("invalid atomic replacement target was accepted")
+	t.Cleanup(func() { writeFileAtomic = original })
+	if err := Install(source, filepath.Join(root, "aigw")); err == nil || !strings.Contains(err.Error(), "replace failed") {
+		t.Fatalf("atomic replacement error = %v", err)
 	}
 }
 
