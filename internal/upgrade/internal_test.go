@@ -4,9 +4,11 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/flate"
 	"compress/gzip"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -259,6 +261,28 @@ func TestExtractZipBinaryRejectsMissingEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := extractZipBinary(path, "aigw_1.2.3_windows_amd64/aigw.exe"); err == nil || !strings.Contains(err.Error(), "is missing from update archive") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestExtractZipBinaryRejectsUnsupportedCompression(t *testing.T) {
+	var archive bytes.Buffer
+	writer := zip.NewWriter(&archive)
+	writer.RegisterCompressor(99, func(destination io.Writer) (io.WriteCloser, error) {
+		return flate.NewWriter(destination, flate.NoCompression)
+	})
+	header := &zip.FileHeader{Name: "aigw_1.2.3_windows_amd64/aigw.exe", Method: 99}
+	if _, err := writer.CreateHeader(header); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "update.zip")
+	if err := os.WriteFile(path, archive.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := extractZipBinary(path, header.Name); err == nil || !strings.Contains(err.Error(), "open AIGW binary in zip") {
 		t.Fatalf("error = %v", err)
 	}
 }

@@ -130,8 +130,22 @@ func TestRemoveFileIfUnchangedSurfacesRemovePermissionErrorWhenDeleteDenied(t *t
 	}
 }
 
-func TestRemoveFileIfUnchangedTreatsAbsentFileAsAlreadyRemoved(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "already-removed")
+func TestRemoveFileIfUnchangedAcceptsAlreadyAbsentFileOnWindows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "absent")
+	absent, err := transaction.CaptureFileSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.RemoveFileIfUnchanged(path, absent); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRemoveFileIfUnchangedRemovesPreparedFileOnWindows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "prepared")
+	if err := os.WriteFile(path, []byte("prepared"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	expected, err := transaction.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
@@ -139,6 +153,9 @@ func TestRemoveFileIfUnchangedTreatsAbsentFileAsAlreadyRemoved(t *testing.T) {
 	removed, err := transaction.RemoveFileIfUnchanged(path, expected)
 	if err != nil || removed.Exists {
 		t.Fatalf("RemoveFileIfUnchanged() = %#v, %v", removed, err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("prepared file remains: %v", err)
 	}
 }
 
@@ -171,14 +188,32 @@ func TestRestoreFileAtomicIfPostimageSurfacesRemovePermissionErrorWhenDeleteDeni
 	}
 }
 
-func TestRestoreFileAtomicIfPostimageTreatsAbsentFileAsAlreadyRestored(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "already-restored")
+func TestRestoreFileAtomicIfPostimageAcceptsAlreadyAbsentFileOnWindows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "absent")
 	absent, err := transaction.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := transaction.RestoreFileAtomicIfPostimage(path, absent, absent); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRestoreFileAtomicIfPostimageRemovesCreatedFileOnWindows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "created")
+	absent, err := transaction.CaptureFileSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	postimage, err := transaction.WriteFileAtomicIfUnchanged(path, absent, []byte("projected"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.RestoreFileAtomicIfPostimage(path, absent, postimage); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("created file remains after restore: %v", err)
 	}
 }
 
