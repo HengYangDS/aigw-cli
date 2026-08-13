@@ -178,6 +178,22 @@ func TestGovernanceHelpersCoverReadAndFilesystemErrorBoundaries(t *testing.T) {
 	}
 
 	root = governanceFixture(t)
+	if err := os.Remove(filepath.Join(root, "docs", "operations", "release-readiness.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkGovernance(root); err == nil || !strings.Contains(err.Error(), "read docs/operations/release-readiness.md") {
+		t.Fatalf("missing release-readiness error = %v", err)
+	}
+
+	root = governanceFixture(t)
+	if err := os.Remove(filepath.Join(root, ".ethos", "profile.toml")); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkGovernance(root); err == nil || !strings.Contains(err.Error(), "read .ethos/profile.toml") {
+		t.Fatalf("missing profile error = %v", err)
+	}
+
+	root = governanceFixture(t)
 	retired := filepath.Join(root, "docs", "history")
 	if err := os.MkdirAll(retired, 0o700); err != nil {
 		t.Fatal(err)
@@ -253,6 +269,15 @@ func governanceFixture(t *testing.T) string {
 			if err := os.WriteFile(path, []byte("fixture\n"), 0o700); err != nil {
 				t.Fatal(err)
 			}
+		}
+	}
+	for _, relative := range []string{"docs/operations/release-readiness.md", ".ethos/profile.toml", ".ethos/release.toml"} {
+		path := filepath.Join(root, filepath.FromSlash(relative))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("fixture\n"), 0o600); err != nil {
+			t.Fatal(err)
 		}
 	}
 	if err := os.WriteFile(filepath.Join(root, "docs", "operations", "release-readiness.md"), []byte("every package and module aggregate strictly above 95 percent for statement and branch coverage\n"), 0o600); err != nil {

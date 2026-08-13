@@ -130,10 +130,8 @@ func rollbackPath(executable string) string {
 		suffix += ".exe"
 	}
 	if strings.Contains(executable, `\`) && !strings.Contains(executable, "/") {
-		if index := strings.LastIndex(executable, `\`); index >= 0 {
-			return executable[:index+1] + suffix
-		}
-		return suffix
+		index := strings.LastIndex(executable, `\`)
+		return executable[:index+1] + suffix
 	}
 	if index := strings.LastIndex(executable, "/"); index >= 0 {
 		return executable[:index+1] + suffix
