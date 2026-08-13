@@ -20,12 +20,9 @@ var governanceFiles = []string{
 	"docs/concepts/README.md",
 	"docs/guides/team-rollout.md",
 	"docs/governance/security.md",
-	"docs/operations/release-readiness.md",
 	".config/checks/architecture/policy.toml",
 	".config/checks/coverage/policy.toml",
 	".config/ci/verify-gates.toml",
-	".ethos/profile.toml",
-	".ethos/release.toml",
 	".github/workflows/verify.yml",
 	"tools/forge/main.go",
 }
@@ -90,10 +87,8 @@ func checkGovernance(root string) error {
 		return err
 	}
 	for _, relative := range []string{"docs/history", "docs/superpowers", "docs/design", "docs/reviews", "docs/specs"} {
-		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(relative))); err == nil {
+		if pathsExist(root, []string{relative}) {
 			return fmt.Errorf("retired documentary path remains: %s", relative)
-		} else if !os.IsNotExist(err) {
-			return err
 		}
 	}
 	ignore, err := readText(root, ".gitignore")

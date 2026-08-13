@@ -98,7 +98,10 @@ func RemoveFileIfUnchanged(path string, expected FileSnapshot) (FileSnapshot, er
 	if !sameFileSnapshot(current, expected) {
 		return FileSnapshot{}, fmt.Errorf("preimage changed for %s; refusing to overwrite newer state", path)
 	}
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+	if !current.Exists {
+		return FileSnapshot{}, nil
+	}
+	if err := os.Remove(path); err != nil {
 		return FileSnapshot{}, fmt.Errorf("remove %s: %w", path, err)
 	}
 	return FileSnapshot{}, nil
@@ -118,7 +121,10 @@ func RestoreFileAtomicIfPostimage(path string, preimage, postimage FileSnapshot)
 	if preimage.Exists {
 		return WriteFileAtomicExactMode(path, preimage.Data, preimage.Mode)
 	}
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+	if !current.Exists {
+		return nil
+	}
+	if err := os.Remove(path); err != nil {
 		return fmt.Errorf("remove %s: %w", path, err)
 	}
 	return nil
