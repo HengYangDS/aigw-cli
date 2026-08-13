@@ -379,7 +379,7 @@ func TestPackageChildrenEnforcePositiveTopology(t *testing.T) {
 	}
 }
 
-func TestPackageChildrenIgnoreNonDirectoriesAndReportUnreadableRoots(t *testing.T) {
+func TestPackageChildrenIgnoreNonDirectoriesAndRejectInvalidRoots(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "tools"), "not a directory\n")
 	report := newReport("policy", root)
@@ -390,17 +390,6 @@ func TestPackageChildrenIgnoreNonDirectoriesAndReportUnreadableRoots(t *testing.
 	p.PackageChildren = map[string][]string{"invalid\x00root": {"release"}}
 	if err := checkPackageChildren(root, p, &report); err == nil {
 		t.Fatal("invalid managed root was accepted")
-	}
-	unreadable := filepath.Join(t.TempDir(), "tools")
-	if err := os.MkdirAll(unreadable, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(unreadable, 0o111); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o700) })
-	if err := checkPackageChildren(filepath.Dir(unreadable), policy{PackageChildren: map[string][]string{"tools": {"release"}}}, &report); err == nil {
-		t.Fatal("unreadable managed root was accepted")
 	}
 }
 

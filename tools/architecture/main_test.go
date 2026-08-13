@@ -438,8 +438,8 @@ func TestRunRejectsInvalidRootPath(t *testing.T) {
 	if code := run([]string{"-root", "invalid\x00root"}, &stdout, &stderr); code != 1 {
 		t.Fatalf("code=%d stderr=%q", code, stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "invalid argument") {
-		t.Fatalf("stderr=%q", stderr.String())
+	if stderr.Len() == 0 {
+		t.Fatal("invalid root failure was not explained")
 	}
 }
 

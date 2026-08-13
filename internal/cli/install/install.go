@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var writeFileAtomic = transaction.WriteFileAtomic
+
 func NewInstallCommand(runtime invocation.Context) *cobra.Command {
 	target := runtime.InstallTarget
 	command := &cobra.Command{
@@ -79,13 +81,13 @@ func Install(source, target string) error {
 		if current, statErr := os.Stat(targetPath); statErr == nil {
 			mode = current.Mode().Perm()
 		}
-		if err := transaction.WriteFileAtomic(backupPath(targetPath), previous, mode); err != nil {
+		if err := writeFileAtomic(backupPath(targetPath), previous, mode); err != nil {
 			return fmt.Errorf("save previous portable AIGW executable: %w", err)
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("read installed portable AIGW executable: %w", err)
 	}
-	if err := transaction.WriteFileAtomic(targetPath, data, 0o755); err != nil {
+	if err := writeFileAtomic(targetPath, data, 0o755); err != nil {
 		return err
 	}
 	return os.Chmod(targetPath, 0o755)
