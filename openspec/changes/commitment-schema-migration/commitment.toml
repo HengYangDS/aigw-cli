@@ -2,7 +2,12 @@ schema_version = 1
 id = "change:commitment-schema-migration"
 intent = "Migrate the repository Commitment and retire the tracked local-state marker without changing product behavior."
 subjects = ["repository:aigw-cli"]
-scope = [".ethos/commitment.toml", ".ethos/state/.gitignore", "openspec/specs/README.md"]
+scope = [
+  ".ethos/commitment.toml",
+  ".ethos/state/.gitignore",
+  "openspec/changes/commitment-schema-migration/**",
+  "openspec/specs/README.md",
+]
 invariants = [
   "product_behavior_is_unchanged",
   "repository_authority_remains_portable",
@@ -15,5 +20,4 @@ acceptance = [
   "governed_plan_is_unblocked",
 ]
 authority_refs = ["user_instruction", "AGENTS.md", ".ethos/profile.toml"]
-permissions = ["repository.read", "work-lane.write", "git.ref.compare-and-swap"]
 dependencies = []

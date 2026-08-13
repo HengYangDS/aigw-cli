@@ -1,21 +1,22 @@
-schema_version = 1
 id = "repository:aigw-cli"
 intent = "Govern aigw-cli through one portable, evidence-bound repository contract."
-subjects = ["repository:aigw-cli"]
-scope = ["**"]
+subjects = [
+    "repository:aigw-cli",
+]
+scope = [
+    "**",
+]
 invariants = [
-  "repository_identity_is_stable_across_worktrees_hosts_and_forges",
-  "product_source_and_git_are_the_only_current_repository_truth",
-  "runtime_and_publication_are_recreatable_projections",
+    "repository_identity_is_stable_across_worktrees_hosts_and_forges",
+    "product_source_and_git_are_the_only_current_repository_truth",
+    "runtime_and_publication_are_recreatable_projections",
 ]
 acceptance = [
-  "repository_contract_valid",
-  "governed_transition_loop_available",
+    "repository_contract_valid",
+    "governed_transition_loop_available",
 ]
 authority_refs = [
-  "user_instruction",
-  "AGENTS.md",
-  ".ethos/profile.toml",
+    "user_instruction",
+    "AGENTS.md",
+    ".ethos/profile.toml",
 ]
-permissions = ["repository.read", "git.ref.compare-and-swap"]
-dependencies = []
