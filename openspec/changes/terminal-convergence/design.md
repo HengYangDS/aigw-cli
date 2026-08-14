@@ -28,6 +28,21 @@ For every historical lane:
 
 No historical tree is merged wholesale.
 
+The 2026-08-14 exact inventory leaves one current carrier:
+`work/terminal-convergence`. Historical lanes divide as follows:
+
+| Historical lane group | Disposition | Current authority |
+| --- | --- | --- |
+| 2026-07-31 reconstruction, decoupling, housekeeping, and Forge drafts | Discardable | Current source, decisions, and terminal Change already carry the accepted product boundary. |
+| `work/20260808-ci-log-hygiene` | Superseded | Current CI contracts fail on warnings and traceback leakage without retaining the old `cicontract` surface. |
+| `work/ci-log-hygiene` | Selectively absorbed | Current tree keeps the official Claude settings and credential-helper boundary and native Go quality owners; obsolete launcher, shell, and parallel release designs stay deleted. |
+| `work/quality-contract-tightening` | Outside delivery critical path | Current hooks enforce message shape; destructive historical identity reconstruction is not required for the terminal product release. |
+| `work/20260810-terminal-closeout` | Discardable carrier residue | It contains no product behavior beyond an obsolete Change carrier. |
+
+No historical lane contributes a product delta that warrants wholesale replay.
+Any later history-repair program must be an independently admitted change and
+must not delay this product delivery.
+
 ## Structure and dependencies
 
 | Concern | Owner | Rule |
