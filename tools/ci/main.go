@@ -23,7 +23,6 @@ type command struct {
 type commandRunner func(command) error
 
 var sourceCommands = []command{
-	{Name: "go", Args: []string{"run", "./tools/ci", "toolchain", "."}},
 	{Name: "openspec", Args: []string{"validate", "--all", "--strict", "--no-interactive"}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "links", "."}},
 	{Name: "go", Args: []string{"run", "./tools/release", "validate-toolchain", "go.mod"}},
@@ -41,9 +40,7 @@ var sourceCommands = []command{
 	{Name: "go", Args: []string{"test", "./tools/repository"}},
 	{Name: "go", Args: []string{"run", "./tools/repository", "--root", ".", "governance"}},
 	{Name: "go", Args: []string{"test", "./internal/upgrade", "./tools/release"}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "pipeline", "."}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "github-verify", "."}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "github-release", "."}},
+	{Name: "actionlint"},
 	{Name: "go", Args: []string{"test", "./tools/forge"}},
 }
 
@@ -67,7 +64,7 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <source|static|links|native|trust-input|fetch-tags|toolchain|proxy-policy|github-verify|github-release|pipeline>")
+		return errors.New("usage: ci <source|static|links|native|trust-input|fetch-tags>")
 	}
 	switch args[0] {
 	case "static":
@@ -121,8 +118,6 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 			return errors.New("usage: ci fetch-tags")
 		}
 		return fetchTags(runner)
-	case "toolchain", "proxy-policy", "github-verify", "github-release", "pipeline":
-		return runContract(args)
 	default:
 		return fmt.Errorf("unknown ci command: %s", args[0])
 	}

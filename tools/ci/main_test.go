@@ -18,7 +18,6 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := [][]string{
-		{"go", "run", "./tools/ci", "toolchain", "."},
 		{"openspec", "validate", "--all", "--strict", "--no-interactive"},
 		{"go", "run", "./tools/ci", "links", "."},
 		{"go", "run", "./tools/release", "validate-toolchain", "go.mod"},
@@ -36,9 +35,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "test", "./tools/repository"},
 		{"go", "run", "./tools/repository", "--root", ".", "governance"},
 		{"go", "test", "./internal/upgrade", "./tools/release"},
-		{"go", "run", "./tools/ci", "pipeline", "."},
-		{"go", "run", "./tools/ci", "github-verify", "."},
-		{"go", "run", "./tools/ci", "github-release", "."},
+		{"actionlint"},
 		{"go", "test", "./tools/forge"},
 	}
 	var got [][]string
@@ -99,8 +96,12 @@ func TestLinksChecksOnlyTrackedMarkdown(t *testing.T) {
 }
 
 func TestLinksRejectsInvalidRepositoriesAndEmptyMarkdownSets(t *testing.T) {
-	if _, err := trackedMarkdown(t.TempDir()); err == nil || !strings.Contains(err.Error(), "list tracked Markdown") {
+	invalidRoot := t.TempDir()
+	if _, err := trackedMarkdown(invalidRoot); err == nil || !strings.Contains(err.Error(), "list tracked Markdown") {
 		t.Fatalf("non-repository error = %v", err)
+	}
+	if err := run([]string{"links", invalidRoot}, &bytes.Buffer{}, func(command) error { return nil }); err == nil || !strings.Contains(err.Error(), "list tracked Markdown") {
+		t.Fatalf("links non-repository error = %v", err)
 	}
 
 	root := t.TempDir()
