@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -24,7 +25,7 @@ type commandRunner func(command) error
 var sourceCommands = []command{
 	{Name: "go", Args: []string{"run", "./tools/ci", "toolchain", "."}},
 	{Name: "openspec", Args: []string{"validate", "--all", "--strict", "--no-interactive"}},
-	{Name: "lychee", Args: []string{"--offline", "--hidden", "--no-progress", "--cache=false", "**/*.md"}},
+	{Name: "go", Args: []string{"run", "./tools/ci", "links", "."}},
 	{Name: "go", Args: []string{"run", "./tools/release", "validate-toolchain", "go.mod"}},
 	{Name: "go", Args: []string{"run", "./tools/release", "validate-release-sources"}},
 	{Name: "go", Args: []string{"run", "./tools/architecture", "--root", "."}},
@@ -66,7 +67,7 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <source|static|native|trust-input|fetch-tags|toolchain|proxy-policy|github-verify|github-release|pipeline>")
+		return errors.New("usage: ci <source|static|links|native|trust-input|fetch-tags|toolchain|proxy-policy|github-verify|github-release|pipeline>")
 	}
 	switch args[0] {
 	case "static":
@@ -83,6 +84,18 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 			return err
 		}
 		return runCommands(commands, stdout, runner)
+	case "links":
+		if len(args) != 2 {
+			return errors.New("usage: ci links <root>")
+		}
+		markdown, err := trackedMarkdown(args[1])
+		if err != nil {
+			return err
+		}
+		call := command{Name: "lychee", Args: append(
+			[]string{"--offline", "--no-progress", "--cache=false", "--"}, markdown...,
+		)}
+		return runner(call)
 	case "native":
 		flags := flag.NewFlagSet("ci native", flag.ContinueOnError)
 		flags.SetOutput(io.Discard)
@@ -113,6 +126,24 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 	default:
 		return fmt.Errorf("unknown ci command: %s", args[0])
 	}
+}
+
+func trackedMarkdown(root string) ([]string, error) {
+	output, err := exec.Command("git", "-C", root, "ls-files", "-z", "--", "*.md").Output()
+	if err != nil {
+		return nil, fmt.Errorf("list tracked Markdown: %w", err)
+	}
+	fields := bytes.Split(bytes.TrimSuffix(output, []byte{0}), []byte{0})
+	markdown := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if len(field) != 0 {
+			markdown = append(markdown, filepath.Join(root, string(field)))
+		}
+	}
+	if len(markdown) == 0 {
+		return nil, errors.New("repository contains no tracked Markdown")
+	}
+	return markdown, nil
 }
 
 func configuredSourceCommands() ([]command, error) {
