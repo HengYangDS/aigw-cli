@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -19,7 +20,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	want := [][]string{
 		{"go", "run", "./tools/ci", "toolchain", "."},
 		{"openspec", "validate", "--all", "--strict", "--no-interactive"},
-		{"lychee", "--offline", "--hidden", "--no-progress", "--cache=false", "**/*.md"},
+		{"go", "run", "./tools/ci", "links", "."},
 		{"go", "run", "./tools/release", "validate-toolchain", "go.mod"},
 		{"go", "run", "./tools/release", "validate-release-sources"},
 		{"go", "run", "./tools/architecture", "--root", "."},
@@ -50,6 +51,50 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("commands = %#v, want %#v", got, want)
+	}
+}
+
+func TestLinksChecksOnlyTrackedMarkdown(t *testing.T) {
+	root := t.TempDir()
+	git := func(args ...string) {
+		t.Helper()
+		process := exec.Command("git", append([]string{"-C", root}, args...)...)
+		if output, err := process.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v: %s", args, err, output)
+		}
+	}
+	write := func(relative, content string) {
+		t.Helper()
+		path := filepath.Join(root, relative)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	git("init", "--quiet")
+	write("README.md", "[valid](docs/guide.md)\n")
+	write("--literal.md", "# Literal\n")
+	write("docs/guide.md", "# Guide\n")
+	write("untracked.md", "[broken](missing.md)\n")
+	write(".git/private.md", "[broken](missing.md)\n")
+	git("add", "--", "README.md", "--literal.md", "docs/guide.md")
+
+	var got command
+	if err := run([]string{"links", root}, &bytes.Buffer{}, func(call command) error {
+		got = call
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	want := command{Name: "lychee", Args: []string{
+		"--offline", "--no-progress", "--cache=false", "--",
+		filepath.Join(root, "--literal.md"), filepath.Join(root, "README.md"),
+		filepath.Join(root, "docs/guide.md"),
+	}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("link command = %#v, want %#v", got, want)
 	}
 }
 
