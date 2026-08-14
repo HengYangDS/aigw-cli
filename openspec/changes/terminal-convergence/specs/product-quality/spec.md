@@ -1,37 +1,55 @@
 ## MODIFIED Requirements
 
-### Requirement: Coverage exceeds the product threshold
+### Requirement: one complete quality graph
 
-Every Go package under `./...` and the module aggregate SHALL have statement
-and branch coverage strictly greater than 95%. Package omission, generated
-substitution, and aggregate-only success SHALL not satisfy the gate.
+The repository SHALL expose one executable quality graph reused without policy
+duplication by local development, exact-HEAD governance proof, GitLab CI, and
+GitHub Actions. The graph SHALL positively classify and verify applicable
+formatting, vetting, static analysis, architecture, security, dependencies,
+documentation links, tests, product source, repository tools, CI, OpenSpec,
+build, release, installation, runtime acceptance, and native macOS, Linux, and
+Windows material. Each policy and behavior SHALL have one semantic owner;
+projections SHALL invoke that owner rather than restate it. Warnings, unavailable
+required runners, and skipped required platforms SHALL fail explicitly within a
+bounded interval rather than wait indefinitely or be represented as success.
 
-#### Scenario: A package falls to 95 percent
+#### Scenario: a new repository owner is added
 
-- **WHEN** statement or branch coverage for any package or the aggregate is at or below 95%
-- **THEN** quality verification fails
-- **AND** the release candidate cannot land.
+- **WHEN** tracked material is added or changed
+- **THEN** its semantic class SHALL select all applicable architecture, static-analysis, formatting, coverage, governance, portability, documentation, build, release, installation, and runtime-contract checks without adding an exclusion
 
-### Requirement: Quality is platform-complete
+#### Scenario: a new package or test owner is added
 
-Formatting, vetting, static analysis, architecture, security, dependencies,
-documentation links, tests, release, and native platform checks SHALL apply to
-the complete declared source surface with warnings treated as failures.
+- **WHEN** tracked Go source changes
+- **THEN** architecture, static analysis, formatting, coverage, governance, and cross-platform contracts SHALL evaluate the new owner without an exclusion list
 
-#### Scenario: A hosted platform lacks an admitted runner
+#### Scenario: a projection diverges
+
+- **WHEN** local, ETHOS, GitLab, or GitHub configuration omits or restates part of the source graph
+- **THEN** repository validation SHALL fail with the divergent projection and owner
+
+#### Scenario: A required native runner is unavailable
 
 - **WHEN** a required macOS, Linux, or Windows native job cannot execute
-- **THEN** CI reports an unavailable required gate rather than waiting indefinitely or succeeding
+- **THEN** CI reports an unavailable required gate within a bounded interval
 - **AND** no cross-compile result substitutes for the native check.
 
-### Requirement: Supply-chain versions have one maintained authority
+### Requirement: faithful quantitative quality evidence
 
-Go, tools, actions, and release dependencies SHALL use current stable versions
-through one repository-owned lock or declaration for each ecosystem. CI SHALL
-consume those declarations rather than duplicate version literals.
+The repository SHALL measure statement coverage and branch coverage
+independently. Each measure SHALL be strictly greater than 95 percent for every
+package and for the module aggregate. Package completeness SHALL prove that
+every package selected by the canonical module query appears exactly once in
+both results. Evidence SHALL retain package identity, raw covered and total
+counts, source revision and tree, analyzer identity, and policy digest; one
+measure SHALL NOT be inferred from another.
 
-#### Scenario: A stable dependency advances
+#### Scenario: any quantitative boundary is not met
 
-- **WHEN** the locked supply chain is refreshed
-- **THEN** local development, GitLab, and GitHub resolve the same declared versions
-- **AND** obsolete pins and compatibility fallbacks are removed.
+- **WHEN** a package or aggregate has statement or branch coverage of 95 percent or less, is absent, is duplicated, or lacks bound raw evidence
+- **THEN** local verification, exact-HEAD proof, and hosted CI SHALL fail before promotion
+
+#### Scenario: statement data is presented as branch evidence
+
+- **WHEN** a result derives a branch claim from a statement-only profile
+- **THEN** the evidence SHALL be rejected as semantically invalid
