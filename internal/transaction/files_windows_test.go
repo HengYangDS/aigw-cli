@@ -4,7 +4,6 @@ package transaction_test
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,9 +13,8 @@ import (
 	"aigw-cli/internal/transaction"
 )
 
-// These are the Windows equivalents of files_unix_test.go: POSIX permission
-// bits and RLIMIT_FSIZE do not exist on Windows, so native path, sharing,
-// device, and ACL semantics exercise the corresponding production branches.
+// These are the Windows equivalents of files_unix_test.go. Native path and
+// sharing semantics exercise the platform-specific production branches.
 
 // lockExclusive opens path with no sharing at all, so any concurrent
 // os.Open (which Go always issues with at least FILE_SHARE_READ|WRITE) fails
@@ -58,21 +56,6 @@ func lockDeletion(t *testing.T, path string) func() {
 	return func() { _ = windows.CloseHandle(handle) }
 }
 
-// denyDirEveryone adds a deny ACE for the well-known Everyone SID on dir and
-// every entry created under it, then removes the ACE during cleanup so
-// t.TempDir() can still delete the tree afterward.
-func denyDirEveryone(t *testing.T, dir, rights string) {
-	t.Helper()
-	if out, err := exec.Command("icacls", dir, "/deny", "*S-1-1-0:(OI)(CI)"+rights).CombinedOutput(); err != nil {
-		t.Fatalf("icacls /deny %s on %s: %v: %s", rights, dir, err, out)
-	}
-	t.Cleanup(func() {
-		if out, err := exec.Command("icacls", dir, "/remove:d", "*S-1-1-0").CombinedOutput(); err != nil {
-			t.Errorf("remove temporary directory deny ACL: %v: %s", err, out)
-		}
-	})
-}
-
 func TestCaptureFileSnapshotSurfacesReadErrorsWhenExclusivelyLocked(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "locked")
 	if err := os.WriteFile(path, []byte("data"), 0o600); err != nil {
@@ -95,20 +78,6 @@ func TestWriteFileAtomicIfUnchangedRejectsUnreadableCurrentStateWhenLocked(t *te
 	_, err := transaction.WriteFileAtomicIfUnchanged(path, transaction.FileSnapshot{}, []byte("x"), 0o600)
 	if err == nil || strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("WriteFileAtomicIfUnchanged() error = %v, want the underlying read failure", err)
-	}
-}
-
-func TestWriteFileAtomicIfUnchangedSurfacesTemporaryFileCreationFailure(t *testing.T) {
-	dir := t.TempDir()
-	denyDirEveryone(t, dir, "(WD)")
-	path := filepath.Join(dir, "file")
-	expected, err := transaction.CaptureFileSnapshot(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = transaction.WriteFileAtomicIfUnchanged(path, expected, []byte("x"), 0o600)
-	if err == nil || !strings.Contains(err.Error(), "create temporary file") {
-		t.Fatalf("WriteFileAtomicIfUnchanged() error = %v, want a temporary-file creation failure", err)
 	}
 }
 

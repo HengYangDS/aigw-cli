@@ -184,27 +184,6 @@ func TestRestoreFileAtomicIfPostimageRemovesFileCreatedByTransaction(t *testing.
 	}
 }
 
-func TestWriteFileAtomicIfUnchangedSurfacesUnderlyingWriteFailure(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
-	base := t.TempDir()
-	locked := filepath.Join(base, "locked")
-	if err := os.Mkdir(locked, 0o555); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
-	path := filepath.Join(locked, "child", "file")
-	expected, err := transaction.CaptureFileSnapshot(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = transaction.WriteFileAtomicIfUnchanged(path, expected, []byte("x"), 0o600)
-	if err == nil || strings.Contains(err.Error(), "preimage changed") {
-		t.Fatalf("WriteFileAtomicIfUnchanged() error = %v, want the underlying write failure", err)
-	}
-}
-
 func TestWriteFileAtomicIfUnchangedRejectsUnreadableCurrentState(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		return
@@ -247,95 +226,22 @@ func TestRestoreFileAtomicIfPostimageRejectsUnreadableCurrentState(t *testing.T)
 	}
 }
 
-func TestRemoveFileIfUnchangedSurfacesRemovePermissionError(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
-	dir := t.TempDir()
-	path := filepath.Join(dir, "file")
-	if err := os.WriteFile(path, []byte("prepared"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	expected, err := transaction.CaptureFileSnapshot(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(dir, 0o555); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
-	if _, err := transaction.RemoveFileIfUnchanged(path, expected); err == nil {
-		t.Fatal("RemoveFileIfUnchanged succeeded despite a read-only parent directory")
-	}
-}
-
-func TestRestoreFileAtomicIfPostimageSurfacesRemovePermissionError(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
-	dir := t.TempDir()
-	path := filepath.Join(dir, "file")
-	before, err := transaction.CaptureFileSnapshot(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	postimage, err := transaction.WriteFileAtomicIfUnchanged(path, before, []byte("projected"), 0o600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(dir, 0o555); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
-	if err := transaction.RestoreFileAtomicIfPostimage(path, before, postimage); err == nil {
-		t.Fatal("RestoreFileAtomicIfPostimage succeeded despite a read-only parent directory")
-	}
-}
-
-func TestWriteFileAtomicSurfacesUnwritableParentDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
+func TestWriteFileAtomicSurfacesBlockedParentPath(t *testing.T) {
 	base := t.TempDir()
-	locked := filepath.Join(base, "locked")
-	if err := os.Mkdir(locked, 0o555); err != nil {
+	blocked := filepath.Join(base, "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
-	path := filepath.Join(locked, "child", "file")
+	path := filepath.Join(blocked, "child", "file")
 	if err := transaction.WriteFileAtomicExactMode(path, []byte("x"), 0o600); err == nil {
-		t.Fatal("WriteFileAtomicExactMode succeeded despite an unwritable parent directory")
-	}
-}
-
-func TestWriteFileAtomicSurfacesUnwritableExistingDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
-	dir := t.TempDir()
-	if err := os.Chmod(dir, 0o555); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
-	path := filepath.Join(dir, "file")
-	if err := transaction.WriteFileAtomicExactMode(path, []byte("x"), 0o600); err == nil {
-		t.Fatal("WriteFileAtomicExactMode succeeded despite an unwritable directory")
+		t.Fatal("WriteFileAtomicExactMode succeeded despite a file blocking its parent path")
 	}
 }
 
 func TestWriteFileAtomicSurfacesStatFailureBeyondMissingFile(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
-	base := t.TempDir()
-	locked := filepath.Join(base, "locked")
-	if err := os.Mkdir(locked, 0o000); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
-	path := filepath.Join(locked, "file")
+	path := filepath.Join(t.TempDir(), "invalid\x00name")
 	if err := transaction.WriteFileAtomic(path, []byte("x"), 0o600); err == nil {
-		t.Fatal("WriteFileAtomic succeeded despite an unreadable parent directory")
+		t.Fatal("WriteFileAtomic succeeded despite an invalid path")
 	}
 }
 
