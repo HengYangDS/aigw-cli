@@ -349,15 +349,6 @@ func TestLoadBackupSurfacesMissingFile(t *testing.T) {
 	}
 }
 
-func TestSaveSurfacesTemporaryFileCreationFailure(t *testing.T) {
-	dir := t.TempDir()
-	denyDirectoryWrite(t, dir)
-	path := filepath.Join(dir, " toml")
-	if err := NewStore(path).Save(convergenceConfig("current")); err == nil {
-		t.Fatal("Save succeeded despite an unwritable existing config directory")
-	}
-}
-
 func TestSaveVerifiedCheckpointSurfacesRenameFailureOverExistingDirectory(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.Mkdir(path+".verified.json", 0o700); err != nil {

@@ -1,6 +1,6 @@
 schema_version = 1
 id = "change:linux-root-filesystem-test-portability"
-intent = "Replace privilege-sensitive permission tests with deterministic portable filesystem failure proofs"
+intent = "Replace privilege-sensitive permission tests with deterministic portable filesystem failure proofs."
 subjects = [
   "repository:self",
 ]
@@ -10,9 +10,15 @@ scope = [
   "internal/transaction/**",
   "internal/upgrade/**",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
+invariants = [
+  "tests_prove_the_intended_error_contract_without_assuming_a_non_privileged_runner",
+  "production_error_messages_and_compensation_semantics_remain_unchanged",
+]
+acceptance = [
+  "focused_filesystem_tests_pass_as_root_in_the_locked_linux_ci_environment",
+  "native_macOS_and_cross_platform_source_gates_remain_green",
+]
+risks = ["test_only_failure_construction_can_accidentally_stop_reaching_the_intended_branch"]
+authority_refs = ["mise.toml", ".config/ci/pipeline.cue", "AGENTS.md"]
 hypotheses = []
 dependencies = []

@@ -74,6 +74,16 @@ func captureOpenedFile(path string, file snapshotFile) (FileSnapshot, error) {
 // This is not a cross-process compare-and-swap; an uncooperative writer can
 // still race the subsequent atomic rename.
 func WriteFileAtomicIfUnchanged(path string, expected FileSnapshot, data []byte, defaultMode os.FileMode) (FileSnapshot, error) {
+	return writeFileAtomicIfUnchanged(path, expected, data, defaultMode, WriteFileAtomic)
+}
+
+func writeFileAtomicIfUnchanged(
+	path string,
+	expected FileSnapshot,
+	data []byte,
+	defaultMode os.FileMode,
+	write func(string, []byte, os.FileMode) error,
+) (FileSnapshot, error) {
 	current, err := CaptureFileSnapshot(path)
 	if err != nil {
 		return FileSnapshot{}, err
@@ -81,7 +91,7 @@ func WriteFileAtomicIfUnchanged(path string, expected FileSnapshot, data []byte,
 	if !sameFileSnapshot(current, expected) {
 		return FileSnapshot{}, fmt.Errorf("preimage changed for %s; refusing to overwrite newer state", path)
 	}
-	if err := WriteFileAtomic(path, data, defaultMode); err != nil {
+	if err := write(path, data, defaultMode); err != nil {
 		return FileSnapshot{}, err
 	}
 	return CaptureFileSnapshot(path)
@@ -91,6 +101,10 @@ func WriteFileAtomicIfUnchanged(path string, expected FileSnapshot, data []byte,
 // since preparation. It is used for sidecars that were absent before a
 // projection and must be absent again after a compensated rollback.
 func RemoveFileIfUnchanged(path string, expected FileSnapshot) (FileSnapshot, error) {
+	return removeFileIfUnchanged(path, expected, os.Remove)
+}
+
+func removeFileIfUnchanged(path string, expected FileSnapshot, remove func(string) error) (FileSnapshot, error) {
 	current, err := CaptureFileSnapshot(path)
 	if err != nil {
 		return FileSnapshot{}, err
@@ -101,7 +115,7 @@ func RemoveFileIfUnchanged(path string, expected FileSnapshot) (FileSnapshot, er
 	if !current.Exists {
 		return FileSnapshot{}, nil
 	}
-	if err := os.Remove(path); err != nil {
+	if err := remove(path); err != nil {
 		return FileSnapshot{}, fmt.Errorf("remove %s: %w", path, err)
 	}
 	return FileSnapshot{}, nil
@@ -111,6 +125,10 @@ func RemoveFileIfUnchanged(path string, expected FileSnapshot) (FileSnapshot, er
 // file still equals the transaction's own postimage. It never overwrites a
 // newer external edit.
 func RestoreFileAtomicIfPostimage(path string, preimage, postimage FileSnapshot) error {
+	return restoreFileAtomicIfPostimage(path, preimage, postimage, os.Remove)
+}
+
+func restoreFileAtomicIfPostimage(path string, preimage, postimage FileSnapshot, remove func(string) error) error {
 	current, err := CaptureFileSnapshot(path)
 	if err != nil {
 		return err
@@ -124,7 +142,7 @@ func RestoreFileAtomicIfPostimage(path string, preimage, postimage FileSnapshot)
 	if !current.Exists {
 		return nil
 	}
-	if err := os.Remove(path); err != nil {
+	if err := remove(path); err != nil {
 		return fmt.Errorf("remove %s: %w", path, err)
 	}
 	return nil
