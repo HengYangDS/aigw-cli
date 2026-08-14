@@ -12,7 +12,7 @@ package ci
 }
 
 commands: {
-	bootstrap: "mise self-update --yes --no-plugins"
+	bootstrap: "tools/ci/bootstrap-mise"
 	install: "mise install --locked"
 	source:  "mise exec --locked -- go run ./tools/ci source"
 	native: {
@@ -24,6 +24,8 @@ commands: {
 	upload:  "mise exec --locked -- go run ./tools/release upload-gitlab dist"
 	publish: "mise exec --locked -- go run ./tools/release publish-gitlab dist"
 }
+
+nativeToolchain: MISE_ENABLE_TOOLS: "go"
 
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser.yaml.
@@ -143,17 +145,20 @@ gitlab: {
 	"native-darwin": {
 		stage: graph["native-darwin"].stage
 		tags:  nativeEvidence.darwin.gitlab.tags
+		variables: nativeToolchain
 		script: [commands.install, commands.native.darwin]
 	}
 	"native-linux": {
 		stage: graph["native-linux"].stage
 		image: #MiseGitLabImage
 		tags:  nativeEvidence.linux.gitlab.tags
+		variables: nativeToolchain
 		script: [commands.bootstrap, commands.native.linux]
 	}
 	"native-windows": {
 		stage: graph["native-windows"].stage
 		tags:  nativeEvidence.windows.gitlab.tags
+		variables: nativeToolchain
 		script: [commands.install, commands.native.windows]
 	}
 	"release-readiness": {

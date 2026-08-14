@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+version=$(sed -n 's/^min_version = "\([^"]*\)"$/\1/p' mise.toml)
+if [ -z "$version" ]; then
+  echo "mise.toml must declare one min_version" >&2
+  exit 1
+fi
+
+installer=$(mktemp)
+trap 'rm -f "$installer"' EXIT HUP INT TERM
+curl --fail --silent --show-error --location \
+  "https://github.com/jdx/mise/releases/download/v${version}/install.sh" \
+  --output "$installer"
+MISE_VERSION="$version" MISE_INSTALL_PATH=/usr/local/bin/mise sh "$installer"
+mise --version
