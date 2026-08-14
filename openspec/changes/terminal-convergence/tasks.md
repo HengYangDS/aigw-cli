@@ -17,8 +17,8 @@
 
 - [ ] 3.1 Converge semantic packages, UX/DX surfaces, docs, decisions, and configuration SSOTs.
 - [ ] 3.2 Refresh the latest stable locked supply chain without duplicated CI pins.
-- [ ] 3.3 Prove formatting, vetting, static analysis, security, links, architecture, release, and native platforms.
-- [ ] 3.4 Prove statement, branch, package, and aggregate coverage are each strictly above 95%.
+- [x] 3.3 Prove formatting, vetting, static analysis, security, links, architecture, release, and native platforms.
+- [x] 3.4 Prove statement, branch, package, and aggregate coverage are each strictly above 95%.
 
 ## 4. Delivery and acceptance
 
