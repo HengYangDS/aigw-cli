@@ -47,6 +47,24 @@ asset production and SHALL NOT substitute for native execution evidence.
 - **THEN** every Forge-native file SHALL be produced deterministically
 - **AND** no separate parser or duplicated policy SHALL be required.
 
+#### Scenario: A GitLab job uses a toolchain container
+
+- **WHEN** the runner prepares a container-backed verification job
+- **THEN** the projected image configuration yields control to the runner shell
+- **AND** the image's own entrypoint cannot reinterpret runner shell arguments
+
+#### Scenario: Tests run inside a Forge job
+
+- **WHEN** a test verifies the generic source gate sequence
+- **THEN** it is independent of inherited Forge provenance variables
+- **AND** dedicated provenance tests supply their own complete inputs
+
+#### Scenario: A required native runner is misconfigured
+
+- **WHEN** its operating-system shell or locked toolchain cannot start
+- **THEN** the native gate fails explicitly
+- **AND** no cross-build or different operating system is reported as a substitute
+
 ### Requirement: portable repository text
 
 The repository SHALL define editor intent, checkout normalization, quality
