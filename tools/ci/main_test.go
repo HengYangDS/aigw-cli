@@ -148,7 +148,7 @@ githubRelease: {name: "Release"}
 	}
 }
 
-func TestGitLabContainerJobsRefreshMiseBeforeLockedExecution(t *testing.T) {
+func TestGitLabContainerJobsBootstrapRepositoryMiseBeforeLockedExecution(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -170,14 +170,40 @@ func TestGitLabContainerJobsRefreshMiseBeforeLockedExecution(t *testing.T) {
 		lockedExecution := slices.IndexFunc(job.Script, func(command string) bool {
 			return strings.HasPrefix(command, "mise exec --locked")
 		})
-		if len(job.Script) < 2 || job.Script[0] != "mise self-update --yes --no-plugins" || lockedExecution < 1 {
-			t.Fatalf("%s script does not refresh mise before locked execution: %q", name, job.Script)
+		if len(job.Script) < 2 || job.Script[0] != "tools/ci/bootstrap-mise" || lockedExecution < 1 {
+			t.Fatalf("%s script does not bootstrap repository mise before locked execution: %q", name, job.Script)
+		}
+	}
+}
+
+func TestNativeJobsEnableOnlyTheGoToolchain(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline struct {
+		NativeDarwin  gitLabJob `yaml:"native-darwin"`
+		NativeLinux   gitLabJob `yaml:"native-linux"`
+		NativeWindows gitLabJob `yaml:"native-windows"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	for name, job := range map[string]gitLabJob{
+		"native-darwin":  pipeline.NativeDarwin,
+		"native-linux":   pipeline.NativeLinux,
+		"native-windows": pipeline.NativeWindows,
+	} {
+		if job.Variables["MISE_ENABLE_TOOLS"] != "go" {
+			t.Fatalf("%s enabled tools = %q, want go", name, job.Variables["MISE_ENABLE_TOOLS"])
 		}
 	}
 }
 
 type gitLabJob struct {
-	Script []string `yaml:"script"`
+	Script    []string          `yaml:"script"`
+	Variables map[string]string `yaml:"variables"`
 }
 
 func TestGitLabForgeContextIsScopedToSourceGovernance(t *testing.T) {
