@@ -35,7 +35,7 @@ jobs:
         with:
           install: true
           cache: false
-          mise_dir: ${{ runner.temp }}/aigw-mise
+          mise_dir: ${{ runner.tool_cache }}/aigw-mise
       - name: Refresh annotated release tags
         run: mise exec --locked -- go run ./tools/ci fetch-tags
       - name: Materialize provenance trust input
