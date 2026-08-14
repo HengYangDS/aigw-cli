@@ -1,0 +1,19 @@
+schema_version = 1
+id = "change:native-ci-tool-closure"
+intent = "Align the native CI tool closure with the tools its acceptance command actually executes."
+subjects = [
+  "repository:self",
+]
+scope = [
+  "openspec/changes/native-ci-tool-closure/**",
+  ".config/ci/pipeline.cue",
+  ".gitlab-ci.yml",
+  ".github/workflows/*.yml",
+  "tools/ci/**",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+hypotheses = []
+dependencies = []
