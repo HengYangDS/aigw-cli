@@ -49,3 +49,8 @@ graph. Each Forge remains an independent publication plane.
 3. Execute exact-HEAD proof and integrate the owner lane.
 4. Require available native jobs independently on each Forge.
 5. Publish signed rc.80 tags and immutable assets independently.
+
+The Change closes after the repository implementation and local verification
+are frozen. Exact-HEAD proof and all later delivery stages execute against that
+frozen content through public lifecycle commands; they remain required for the
+delivery Goal but are not preconditions for archiving their own Change.
