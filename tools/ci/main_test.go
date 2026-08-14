@@ -98,6 +98,42 @@ func TestLinksChecksOnlyTrackedMarkdown(t *testing.T) {
 	}
 }
 
+func TestLinksRejectsInvalidRepositoriesAndEmptyMarkdownSets(t *testing.T) {
+	if _, err := trackedMarkdown(t.TempDir()); err == nil || !strings.Contains(err.Error(), "list tracked Markdown") {
+		t.Fatalf("non-repository error = %v", err)
+	}
+
+	root := t.TempDir()
+	process := exec.Command("git", "-C", root, "init", "--quiet")
+	if output, err := process.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, output)
+	}
+	if markdown, err := trackedMarkdown(root); err == nil || !strings.Contains(err.Error(), "no tracked Markdown") || markdown != nil {
+		t.Fatalf("empty Markdown set = %#v, error = %v", markdown, err)
+	}
+}
+
+func TestLinksPropagatesLycheeFailure(t *testing.T) {
+	root := t.TempDir()
+	process := exec.Command("git", "-C", root, "init", "--quiet")
+	if output, err := process.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, output)
+	}
+	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("# AIGW\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	process = exec.Command("git", "-C", root, "add", "--", "README.md")
+	if output, err := process.CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v: %s", err, output)
+	}
+
+	want := errors.New("lychee failed")
+	err := run([]string{"links", root}, &bytes.Buffer{}, func(command) error { return want })
+	if !errors.Is(err, want) {
+		t.Fatalf("link error = %v", err)
+	}
+}
+
 func TestStaticRunsTheNonBehaviorGateSequence(t *testing.T) {
 	var got [][]string
 	runner := func(call command) error {
@@ -186,6 +222,8 @@ func TestRunRejectsInvalidCommandShapes(t *testing.T) {
 	for _, args := range [][]string{
 		{"static", "extra"},
 		{"source", "extra"},
+		{"links"},
+		{"links", ".", "extra"},
 		{"native", "--platform", "linux", "extra"},
 		{"trust-input"},
 		{"trust-input", "--output", "out", "--github-env", "env", "extra"},
