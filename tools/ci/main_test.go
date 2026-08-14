@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"go.yaml.in/yaml/v3"
 )
 
 func TestSourceRunsThePortableGateSequence(t *testing.T) {
@@ -144,6 +146,38 @@ githubRelease: {name: "Release"}
 	if got := strings.Count(gitlab, "entrypoint:\n      - \"\""); got != 2 {
 		t.Fatalf("empty GitLab image entrypoints = %d, want 2:\n%s", got, gitlab)
 	}
+}
+
+func TestGitLabContainerJobsRefreshMiseBeforeLockedExecution(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline struct {
+		SourceAndGovernance gitLabJob `yaml:"source-and-governance"`
+		NativeLinux         gitLabJob `yaml:"native-linux"`
+		ReleaseReadiness    gitLabJob `yaml:"release-readiness"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	for name, job := range map[string]gitLabJob{
+		"source-and-governance": pipeline.SourceAndGovernance,
+		"native-linux":          pipeline.NativeLinux,
+		"release-readiness":     pipeline.ReleaseReadiness,
+	} {
+		lockedExecution := slices.IndexFunc(job.Script, func(command string) bool {
+			return strings.HasPrefix(command, "mise exec --locked")
+		})
+		if len(job.Script) < 2 || job.Script[0] != "mise self-update --yes --no-plugins" || lockedExecution < 1 {
+			t.Fatalf("%s script does not refresh mise before locked execution: %q", name, job.Script)
+		}
+	}
+}
+
+type gitLabJob struct {
+	Script []string `yaml:"script"`
 }
 
 func TestGitLabForgeContextIsScopedToSourceGovernance(t *testing.T) {
