@@ -35,9 +35,9 @@ completion depend on its own archive operation.
 | `product-control-plane:Independently admitted native clients` | `2.1` | `internal/codex; internal/claude` |
 | `product-control-plane:Declarative ordinary provider extension` | `2.3` | `internal/configuration; internal/providers` |
 | `product-control-plane:Portable source and user contract` | `2.4` | `tools/ci source; internal/cli/acceptance` |
-| `product-quality:Coverage exceeds the product threshold` | `3.4` | `tools/ci source` |
-| `product-quality:Quality is platform-complete` | `3.3` | `tools/ci source; hosted native jobs` |
-| `product-quality:Supply-chain versions have one maintained authority` | `3.2` | `mise exec --locked -- go run ./tools/ci source` |
+| `product-quality:one complete quality graph` | `3.1`, `3.3` | `tools/ci source; hosted native jobs` |
+| `product-quality:faithful quantitative quality evidence` | `3.4` | `tools/ci source` |
+| `product-control-plane:Latest stable repository-owned supply chain` | `3.2` | `mise exec --locked -- go run ./tools/ci source` |
 | `repository-organization:Portable repository quality surface` | `3.1` | `tools/ci source` |
 | `repository-organization:Governed release-branch convergence` | `3.3` | `tools/forge contracts; public lifecycle receipts after archive` |
 | `ci-diagnostics:Hosted Git initialization is explicit` | `3.3` | `tools/forge contracts; hosted pipelines` |
