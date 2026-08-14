@@ -22,7 +22,6 @@ var governanceFiles = []string{
 	"docs/governance/security.md",
 	".config/checks/architecture/policy.toml",
 	".config/checks/coverage/policy.toml",
-	".config/ci/verify-gates.toml",
 	".github/workflows/verify.yml",
 	"tools/forge/main.go",
 }

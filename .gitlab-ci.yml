@@ -1,75 +1,100 @@
 workflow:
   rules:
-    # Release headings are valid only after their signed tag exists. Suppress the
-    # transient untagged release/* pipeline; the tag is the sole release proof.
-    - if: '$CI_COMMIT_BRANCH =~ /^release\// && !$CI_COMMIT_TAG'
+    - if: $CI_COMMIT_BRANCH =~ /^release\// && !$CI_COMMIT_TAG
       when: never
-    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\//'
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\//
       when: never
     - when: always
-
-stages: [verify, package, publish, release]
-
-default:
-  # Bootstrap identity is immutable and independent of the project version;
-  # go.mod remains the sole owner of the selected project toolchain.
-  image: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
-  tags: [$AIGW_GITLAB_RUNNER_TAG]
-
+stages:
+  - verify
+  - package
+  - publish
+  - release
 variables:
-  # Release chronology and branch-closeout proof need complete ancestry. Keep
-  # this in source so a project-level shallow-clone setting cannot regress it.
   GIT_DEPTH: "0"
-  GOPROXY: "https://goproxy.cn|https://proxy.golang.org|direct"
+  GOPROXY: https://goproxy.cn|https://proxy.golang.org|direct
   AIGW_FORGE_PROVIDER: gitlab
-
-verify:
+source-and-governance:
   stage: verify
+  image: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
+  tags:
+    - $AIGW_GITLAB_LINUX_RUNNER_TAG
   script:
     - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
     - mise exec --locked -- go run ./tools/ci source
-
+native-darwin:
+  stage: verify
+  tags:
+    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+  script:
+    - mise install --locked
+    - mise exec --locked -- go run ./tools/ci native --platform darwin
+native-linux:
+  stage: verify
+  image: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
+  tags:
+    - $AIGW_GITLAB_LINUX_RUNNER_TAG
+  script:
+    - mise exec --locked -- go run ./tools/ci native --platform linux
+native-windows:
+  stage: verify
+  tags:
+    - $AIGW_GITLAB_WINDOWS_RUNNER_TAG
+  script:
+    - mise install --locked
+    - mise exec --locked -- go run ./tools/ci native --platform windows
+release-readiness:
+  stage: verify
+  image: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
+  tags:
+    - $AIGW_GITLAB_LINUX_RUNNER_TAG
+  rules:
+    - if: $CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\./
+    - when: never
+  script:
+    - mise exec --locked -- go run ./tools/release validate-readiness-tag
 package:
   stage: package
+  tags:
+    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
   rules:
     - if: $CI_COMMIT_TAG
     - when: never
   needs:
-    - job: verify
+    - job: source-and-governance
+    - job: native-darwin
+    - job: native-linux
+    - job: native-windows
     - job: release-readiness
       optional: true
-  tags: [$AIGW_GITLAB_RUNNER_TAG]
   script:
     - mise exec --locked -- go run ./tools/release build-ci build/release dist
   artifacts:
     expire_in: 30 days
-    paths: [dist/]
-
-release-readiness:
-  stage: verify
-  rules:
-    - if: '$CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\./'
-    - when: never
-  script:
-    - mise exec --locked -- go run ./tools/release validate-readiness-tag
-
+    paths:
+      - dist/
 publish:
   stage: publish
+  tags:
+    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+  rules:
+    - if: $CI_COMMIT_TAG
+    - when: never
   needs:
     - job: package
       artifacts: true
-  rules:
-    - if: $CI_COMMIT_TAG
   script:
     - mise exec --locked -- go run ./tools/release upload-gitlab dist
-
 release:
   stage: release
+  tags:
+    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+  rules:
+    - if: $CI_COMMIT_TAG
+    - when: never
   needs:
     - job: publish
     - job: package
       artifacts: true
-  rules:
-    - if: $CI_COMMIT_TAG
   script:
     - mise exec --locked -- go run ./tools/release publish-gitlab dist

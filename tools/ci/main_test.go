@@ -18,7 +18,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := [][]string{
-		{"go", "run", "./tools/ci", "toolchain", "."},
+		{"go", "run", "./tools/ci", "project", "--check"},
 		{"openspec", "validate", "--all", "--strict", "--no-interactive"},
 		{"go", "run", "./tools/ci", "links", "."},
 		{"go", "run", "./tools/release", "validate-toolchain", "go.mod"},
@@ -36,9 +36,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "test", "./tools/repository"},
 		{"go", "run", "./tools/repository", "--root", ".", "governance"},
 		{"go", "test", "./internal/upgrade", "./tools/release"},
-		{"go", "run", "./tools/ci", "pipeline", "."},
-		{"go", "run", "./tools/ci", "github-verify", "."},
-		{"go", "run", "./tools/ci", "github-release", "."},
+		{"actionlint"},
 		{"go", "test", "./tools/forge"},
 	}
 	var got [][]string
@@ -51,6 +49,114 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("commands = %#v, want %#v", got, want)
+	}
+}
+
+func TestProjectionReconciliationWritesAndChecksExactContent(t *testing.T) {
+	root := t.TempDir()
+	projections := []projection{
+		{Path: ".gitlab-ci.yml", Content: "stages: [verify]\n"},
+		{Path: ".github/workflows/verify.yml", Content: "name: Verify\n"},
+	}
+
+	if err := reconcileProjections(root, projections, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := reconcileProjections(root, projections, false); err != nil {
+		t.Fatalf("fresh projections drifted: %v", err)
+	}
+
+	drifted := filepath.Join(root, ".gitlab-ci.yml")
+	if err := os.WriteFile(drifted, []byte("manual: edit\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := reconcileProjections(root, projections, false); err == nil || !strings.Contains(err.Error(), ".gitlab-ci.yml") {
+		t.Fatalf("projection drift error = %v", err)
+	}
+}
+
+func TestProjectionReconciliationRejectsInvalidManifestPaths(t *testing.T) {
+	root := t.TempDir()
+	for _, path := range []string{"", "/tmp/workflow.yml", "../workflow.yml", ".github/../workflow.yml"} {
+		err := reconcileProjections(root, []projection{{Path: path, Content: "content\n"}}, true)
+		if err == nil {
+			t.Fatalf("accepted projection path %q", path)
+		}
+	}
+}
+
+func TestProjectCommandRendersAndChecksTheTrackedProjections(t *testing.T) {
+	root := t.TempDir()
+	model := filepath.Join(root, ".config", "ci", "pipeline.cue")
+	if err := os.MkdirAll(filepath.Dir(model), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := `package ci
+gitlab: {stages: ["verify"]}
+githubVerify: {name: "Verify"}
+githubRelease: {name: "Release"}
+`
+	if err := os.WriteFile(model, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := run([]string{"project", "--root", root}, &bytes.Buffer{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"project", "--check", "--root", root}, &bytes.Buffer{}, nil); err != nil {
+		t.Fatalf("fresh projection check: %v", err)
+	}
+	for _, item := range projectionExpressions {
+		path := filepath.Join(root, item.path)
+		if data, err := os.ReadFile(path); err != nil || len(data) == 0 {
+			t.Fatalf("projection %s: data=%q error=%v", item.path, data, err)
+		}
+	}
+}
+
+func TestProjectionRenderingReportsModelAndExecutableFailures(t *testing.T) {
+	root := t.TempDir()
+	model := filepath.Join(root, ".config", "ci", "pipeline.cue")
+	if err := os.MkdirAll(filepath.Dir(model), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(model, []byte("not valid CUE"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := renderProjections(root); err == nil || !strings.Contains(err.Error(), "render .gitlab-ci.yml") {
+		t.Fatalf("invalid model error = %v", err)
+	}
+	if err := run([]string{"project", "--root", root}, &bytes.Buffer{}, nil); err == nil || !strings.Contains(err.Error(), "render .gitlab-ci.yml") {
+		t.Fatalf("project command model error = %v", err)
+	}
+
+	t.Setenv("PATH", t.TempDir())
+	if _, err := renderProjections(root); err == nil || !strings.Contains(err.Error(), "executable file not found") {
+		t.Fatalf("missing CUE error = %v", err)
+	}
+}
+
+func TestProjectionReconciliationReportsReadAndWriteFailures(t *testing.T) {
+	root := t.TempDir()
+	missing := []projection{{Path: ".gitlab-ci.yml", Content: "content\n"}}
+	if err := reconcileProjections(root, missing, false); err == nil || !strings.Contains(err.Error(), "read projection") {
+		t.Fatalf("missing projection error = %v", err)
+	}
+
+	blockedRoot := filepath.Join(root, "blocked")
+	if err := os.WriteFile(blockedRoot, []byte("file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := reconcileProjections(blockedRoot, missing, true); err == nil || !strings.Contains(err.Error(), "create projection directory") {
+		t.Fatalf("directory creation error = %v", err)
+	}
+
+	directoryTarget := filepath.Join(root, "directory.yml")
+	if err := os.Mkdir(directoryTarget, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeProjection(directoryTarget, []byte("content\n")); err == nil || !strings.Contains(err.Error(), "write projection") {
+		t.Fatalf("projection write error = %v", err)
 	}
 }
 
@@ -99,8 +205,12 @@ func TestLinksChecksOnlyTrackedMarkdown(t *testing.T) {
 }
 
 func TestLinksRejectsInvalidRepositoriesAndEmptyMarkdownSets(t *testing.T) {
-	if _, err := trackedMarkdown(t.TempDir()); err == nil || !strings.Contains(err.Error(), "list tracked Markdown") {
+	invalidRoot := t.TempDir()
+	if _, err := trackedMarkdown(invalidRoot); err == nil || !strings.Contains(err.Error(), "list tracked Markdown") {
 		t.Fatalf("non-repository error = %v", err)
+	}
+	if err := run([]string{"links", invalidRoot}, &bytes.Buffer{}, func(command) error { return nil }); err == nil || !strings.Contains(err.Error(), "list tracked Markdown") {
+		t.Fatalf("links non-repository error = %v", err)
 	}
 
 	root := t.TempDir()
@@ -220,6 +330,7 @@ func TestSourceReportsInvalidArgumentsAndConfiguredSourceFailure(t *testing.T) {
 
 func TestRunRejectsInvalidCommandShapes(t *testing.T) {
 	for _, args := range [][]string{
+		{"project", "extra"},
 		{"static", "extra"},
 		{"source", "extra"},
 		{"links"},
