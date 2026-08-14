@@ -4,9 +4,18 @@ min_version = "2026.8.5"
 locked = true
 
 [tools]
+# Language runtimes
 go = "1.26.5"
+node = "26.7.0"
+
+# Specification and CI modeling
+cue = "0.17.1"
+"npm:@fission-ai/openspec" = "1.8.0"
+
+# Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.17.1"
 "github:anchore/syft" = "1.51.0"
-"npm:@fission-ai/openspec" = "1.8.0"
+
+# Static quality
+"github:rhysd/actionlint" = "1.7.12"
 "github:lycheeverse/lychee" = "lychee-v0.24.2"
-node = "26.7.0"

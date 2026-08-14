@@ -110,7 +110,7 @@ credential. A scheduled native source job is never an allowed failure.
 
 A release candidate advances to the current stable supported Go compiler, Go
 module graph, and CI Actions before it is frozen. `go.mod` owns the exact Go
-inputs and `.config/ci/verify-gates.toml` owns immutable Action revisions;
+inputs and each workflow owns its commit-pinned Action revisions;
 reproducibility repeats those selected versions and is not a reason to preserve
 obsolete versions.
 

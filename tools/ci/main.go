@@ -1,4 +1,4 @@
-// Command ci owns CI projection contracts and portable source acceptance.
+// Command ci owns portable quality execution and CI projection reconciliation.
 package main
 
 import (
@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -23,7 +24,7 @@ type command struct {
 type commandRunner func(command) error
 
 var sourceCommands = []command{
-	{Name: "go", Args: []string{"run", "./tools/ci", "toolchain", "."}},
+	{Name: "go", Args: []string{"run", "./tools/ci", "project", "--check"}},
 	{Name: "openspec", Args: []string{"validate", "--all", "--strict", "--no-interactive"}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "links", "."}},
 	{Name: "go", Args: []string{"run", "./tools/release", "validate-toolchain", "go.mod"}},
@@ -41,9 +42,7 @@ var sourceCommands = []command{
 	{Name: "go", Args: []string{"test", "./tools/repository"}},
 	{Name: "go", Args: []string{"run", "./tools/repository", "--root", ".", "governance"}},
 	{Name: "go", Args: []string{"test", "./internal/upgrade", "./tools/release"}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "pipeline", "."}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "github-verify", "."}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "github-release", "."}},
+	{Name: "actionlint"},
 	{Name: "go", Args: []string{"test", "./tools/forge"}},
 }
 
@@ -67,7 +66,7 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <source|static|links|native|trust-input|fetch-tags|toolchain|proxy-policy|github-verify|github-release|pipeline>")
+		return errors.New("usage: ci <project|source|static|links|native|trust-input|fetch-tags>")
 	}
 	switch args[0] {
 	case "static":
@@ -84,6 +83,19 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 			return err
 		}
 		return runCommands(commands, stdout, runner)
+	case "project":
+		flags := flag.NewFlagSet("ci project", flag.ContinueOnError)
+		flags.SetOutput(io.Discard)
+		check := flags.Bool("check", false, "verify tracked projections without writing")
+		root := flags.String("root", ".", "repository root")
+		if err := flags.Parse(args[1:]); err != nil || flags.NArg() != 0 {
+			return errors.New("usage: ci project [--check] [--root <path>]")
+		}
+		projections, err := renderProjections(*root)
+		if err != nil {
+			return err
+		}
+		return reconcileProjections(*root, projections, !*check)
 	case "links":
 		if len(args) != 2 {
 			return errors.New("usage: ci links <root>")
@@ -121,8 +133,6 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 			return errors.New("usage: ci fetch-tags")
 		}
 		return fetchTags(runner)
-	case "toolchain", "proxy-policy", "github-verify", "github-release", "pipeline":
-		return runContract(args)
 	default:
 		return fmt.Errorf("unknown ci command: %s", args[0])
 	}
@@ -144,6 +154,78 @@ func trackedMarkdown(root string) ([]string, error) {
 		return nil, errors.New("repository contains no tracked Markdown")
 	}
 	return markdown, nil
+}
+
+type projection struct {
+	Path    string
+	Content string
+}
+
+var projectionExpressions = []struct {
+	path       string
+	expression string
+}{
+	{path: ".gitlab-ci.yml", expression: "gitlab"},
+	{path: ".github/workflows/verify.yml", expression: "githubVerify"},
+	{path: ".github/workflows/release.yml", expression: "githubRelease"},
+}
+
+func renderProjections(root string) ([]projection, error) {
+	model := filepath.Join(root, ".config", "ci", "pipeline.cue")
+	projections := make([]projection, 0, len(projectionExpressions))
+	for _, item := range projectionExpressions {
+		process := exec.Command("cue", "export", model, "--expression", item.expression, "--out", "yaml")
+		output, err := process.Output()
+		if err != nil {
+			var exit *exec.ExitError
+			if errors.As(err, &exit) {
+				return nil, fmt.Errorf("render %s: %s", item.path, bytes.TrimSpace(exit.Stderr))
+			}
+			return nil, fmt.Errorf("render %s: %w", item.path, err)
+		}
+		projections = append(projections, projection{Path: item.path, Content: string(output)})
+	}
+	return projections, nil
+}
+
+func reconcileProjections(root string, projections []projection, write bool) error {
+	for _, item := range projections {
+		path, err := projectionPath(root, item.Path)
+		if err != nil {
+			return err
+		}
+		if write {
+			if err := writeProjection(path, []byte(item.Content)); err != nil {
+				return err
+			}
+			continue
+		}
+		tracked, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read projection %s: %w", item.Path, err)
+		}
+		if !bytes.Equal(tracked, []byte(item.Content)) {
+			return fmt.Errorf("projection drift: %s; run `mise exec --locked -- go run ./tools/ci project`", item.Path)
+		}
+	}
+	return nil
+}
+
+func projectionPath(root, relative string) (string, error) {
+	if relative == "" || filepath.IsAbs(relative) || filepath.Clean(relative) != relative || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("invalid projection path %q", relative)
+	}
+	return filepath.Join(root, relative), nil
+}
+
+func writeProjection(path string, content []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create projection directory: %w", err)
+	}
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		return fmt.Errorf("write projection: %w", err)
+	}
+	return nil
 }
 
 func configuredSourceCommands() ([]command, error) {
