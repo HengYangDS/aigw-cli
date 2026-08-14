@@ -35,7 +35,7 @@ commands: {
 	publish: "mise exec --locked -- go run ./tools/release publish-gitlab dist"
 }
 
-nativeToolchain: MISE_ENABLE_TOOLS: "go"
+nativeToolchain: MISE_ENABLE_TOOLS: "go,cue"
 
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser.yaml.

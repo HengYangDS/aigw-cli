@@ -181,7 +181,7 @@ func TestGitLabContainerJobsBootstrapRepositoryMiseBeforeLockedExecution(t *test
 	}
 }
 
-func TestNativeJobsEnableOnlyTheGoToolchain(t *testing.T) {
+func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -200,8 +200,8 @@ func TestNativeJobsEnableOnlyTheGoToolchain(t *testing.T) {
 		"native-linux":   pipeline.NativeLinux,
 		"native-windows": pipeline.NativeWindows,
 	} {
-		if job.Variables["MISE_ENABLE_TOOLS"] != "go" {
-			t.Fatalf("%s enabled tools = %q, want go", name, job.Variables["MISE_ENABLE_TOOLS"])
+		if job.Variables["MISE_ENABLE_TOOLS"] != "go,cue" {
+			t.Fatalf("%s enabled tools = %q, want go,cue", name, job.Variables["MISE_ENABLE_TOOLS"])
 		}
 	}
 }
