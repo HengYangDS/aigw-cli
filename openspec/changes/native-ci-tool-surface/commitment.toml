@@ -1,0 +1,19 @@
+schema_version = 1
+id = "change:native-ci-tool-surface"
+intent = "Constrain native CI jobs to the Go toolchain they execute so locked verification never installs unrelated release tools."
+subjects = [
+  "repository:self",
+]
+scope = [
+  "openspec/changes/native-ci-tool-surface/**",
+  ".config/ci/pipeline.cue",
+  ".gitlab-ci.yml",
+  ".github/workflows/*.yml",
+  "tools/ci/**",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+hypotheses = []
+dependencies = []
