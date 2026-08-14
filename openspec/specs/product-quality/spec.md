@@ -8,10 +8,13 @@ TBD - created by archiving change terminal-quality-convergence. Update Purpose a
 The repository SHALL expose one executable quality graph reused without policy
 duplication by local development, exact-HEAD governance proof, GitLab CI, and
 GitHub Actions. The graph SHALL positively classify and verify applicable
-product source, tests, repository tools, CI, documentation, OpenSpec, build,
-release, installation, and runtime-acceptance material. Each policy and behavior
-SHALL have one semantic owner; projections SHALL invoke that owner rather than
-restate it.
+formatting, vetting, static analysis, architecture, security, dependencies,
+documentation links, tests, product source, repository tools, CI, OpenSpec,
+build, release, installation, runtime acceptance, and native macOS, Linux, and
+Windows material. Each policy and behavior SHALL have one semantic owner;
+projections SHALL invoke that owner rather than restate it. Warnings, unavailable
+required runners, and skipped required platforms SHALL fail explicitly within a
+bounded interval rather than wait indefinitely or be represented as success.
 
 #### Scenario: a new repository owner is added
 
@@ -27,6 +30,12 @@ restate it.
 
 - **WHEN** local, ETHOS, GitLab, or GitHub configuration omits or restates part of the source graph
 - **THEN** repository validation SHALL fail with the divergent projection and owner
+
+#### Scenario: A required native runner is unavailable
+
+- **WHEN** a required macOS, Linux, or Windows native job cannot execute
+- **THEN** CI reports an unavailable required gate within a bounded interval
+- **AND** no cross-compile result substitutes for the native check.
 
 ### Requirement: portable repository text
 
