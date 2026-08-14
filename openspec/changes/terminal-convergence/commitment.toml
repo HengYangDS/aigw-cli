@@ -1,0 +1,11 @@
+schema_version = 1
+id = "change:terminal-convergence"
+intent = "Absorb the remaining valid AIGW product, quality, portability, and independent Forge delivery semantics into one terminal release candidate and delete superseded lanes."
+subjects = ["repository:aigw-cli"]
+scope = [".config/**", ".editorconfig", ".ethos/**", ".github/**", ".gitlab-ci.yml", "AGENTS.md", "CHANGELOG.md", "CONTRIBUTING.md", "README.md", "VERSION", "cmd/**", "docs/**", "go.mod", "go.sum", "internal/**", "manifests/**", "mise.lock", "mise.toml", "openspec/**", "packaging/**", "tools/**"]
+invariants = ["aigw_remains_the_portable_codex_and_claude_code_configuration_control_plane", "proxy_workstation_jetbrains_and_conversation_state_remain_outside_aigw_authority", "gitlab_and_github_remain_independent_peer_local_publication_planes", "one_current_semantic_owner_exists_for_each_behavior_and_policy", "personal_paths_identities_credentials_and_forge_dependencies_do_not_enter_product_behavior"]
+acceptance = ["all_unique_valid_lane_semantics_are_absorbed", "obsolete_compatibility_shell_and_forwarding_surfaces_are_deleted", "statement_branch_and_package_coverage_strictly_exceed_ninety_five_percent", "macos_linux_and_windows_use_the_same_repository_owned_quality_contract", "dev_main_and_independent_forge_delivery_close_from_one_proved_source"]
+risks = ["a_stale_lane_is_mistaken_for_current_product_authority", "deletion_removes_a_unique_cross_platform_behavior", "forge_or_host_details_leak_into_product_semantics"]
+authority_refs = ["user_instruction", "AGENTS.md", ".ethos/profile.toml", "openspec/specs/product-control-plane/spec.md"]
+hypotheses = []
+dependencies = []
