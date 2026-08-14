@@ -12,6 +12,7 @@ package ci
 }
 
 commands: {
+	bootstrap: "mise self-update --yes --no-plugins"
 	install: "mise install --locked"
 	source:  "mise exec --locked -- go run ./tools/ci source"
 	native: {
@@ -134,6 +135,7 @@ gitlab: {
 		tags:  nativeEvidence.linux.gitlab.tags
 		variables: AIGW_FORGE_PROVIDER: "gitlab"
 		script: [
+			commands.bootstrap,
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.source,
 		]
@@ -147,7 +149,7 @@ gitlab: {
 		stage: graph["native-linux"].stage
 		image: #MiseGitLabImage
 		tags:  nativeEvidence.linux.gitlab.tags
-		script: [commands.native.linux]
+		script: [commands.bootstrap, commands.native.linux]
 	}
 	"native-windows": {
 		stage: graph["native-windows"].stage
@@ -162,7 +164,7 @@ gitlab: {
 			{if: "$CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\\./"},
 			{when: "never"},
 		]
-		script: ["mise exec --locked -- go run ./tools/release validate-readiness-tag"]
+		script: [commands.bootstrap, "mise exec --locked -- go run ./tools/release validate-readiness-tag"]
 	}
 	package: {
 		stage: graph.package.stage

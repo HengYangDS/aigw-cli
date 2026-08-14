@@ -24,6 +24,7 @@ source-and-governance:
   variables:
     AIGW_FORGE_PROVIDER: gitlab
   script:
+    - mise self-update --yes --no-plugins
     - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
     - mise exec --locked -- go run ./tools/ci source
 native-darwin:
@@ -42,6 +43,7 @@ native-linux:
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   script:
+    - mise self-update --yes --no-plugins
     - mise exec --locked -- go run ./tools/ci native --platform linux
 native-windows:
   stage: verify
@@ -62,6 +64,7 @@ release-readiness:
     - if: $CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\./
     - when: never
   script:
+    - mise self-update --yes --no-plugins
     - mise exec --locked -- go run ./tools/release validate-readiness-tag
 package:
   stage: package
