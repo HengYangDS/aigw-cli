@@ -8,5 +8,5 @@
 ## 2. Verify and deliver
 
 - [x] 2.1 Pass focused tests and quota-exhausted Linux reproduction.
-- [ ] 2.2 Pass the complete local quality graph and exact-HEAD proof.
+- [x] 2.2 Pass the complete local quality graph and exact-HEAD proof.
 - [ ] 2.3 Land, close accepted refs, and pass hosted Linux execution.
