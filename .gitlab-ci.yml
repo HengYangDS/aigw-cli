@@ -41,7 +41,7 @@ native-darwin:
   tags:
     - $AIGW_GITLAB_DARWIN_RUNNER_TAG
   variables:
-    MISE_ENABLE_TOOLS: go
+    MISE_ENABLE_TOOLS: go,cue
   script:
     - mise install --locked
     - mise exec --locked -- go run ./tools/ci native --platform darwin
@@ -54,7 +54,7 @@ native-linux:
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   variables:
-    MISE_ENABLE_TOOLS: go
+    MISE_ENABLE_TOOLS: go,cue
   script:
     - |-
       version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
@@ -72,7 +72,7 @@ native-windows:
   tags:
     - $AIGW_GITLAB_WINDOWS_RUNNER_TAG
   variables:
-    MISE_ENABLE_TOOLS: go
+    MISE_ENABLE_TOOLS: go,cue
   script:
     - mise install --locked
     - mise exec --locked -- go run ./tools/ci native --platform windows
