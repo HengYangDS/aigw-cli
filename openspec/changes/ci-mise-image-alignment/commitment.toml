@@ -1,0 +1,16 @@
+schema_version = 1
+id = "change:ci-mise-image-alignment"
+intent = "Align the hermetic GitLab CI image with the repository-locked mise runtime so Linux verification executes instead of failing during tool bootstrap."
+subjects = [
+  "repository:self",
+]
+scope = [
+  "openspec/changes/ci-mise-image-alignment/**",
+  ".gitlab-ci.yml",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+hypotheses = []
+dependencies = []
