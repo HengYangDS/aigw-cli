@@ -13,12 +13,16 @@ stages:
 variables:
   GIT_DEPTH: "0"
   GOPROXY: https://goproxy.cn|https://proxy.golang.org|direct
-  AIGW_FORGE_PROVIDER: gitlab
 source-and-governance:
   stage: verify
-  image: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
+  image:
+    name: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
+    entrypoint:
+      - ""
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
+  variables:
+    AIGW_FORGE_PROVIDER: gitlab
   script:
     - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
     - mise exec --locked -- go run ./tools/ci source
@@ -31,7 +35,10 @@ native-darwin:
     - mise exec --locked -- go run ./tools/ci native --platform darwin
 native-linux:
   stage: verify
-  image: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
+  image:
+    name: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
+    entrypoint:
+      - ""
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   script:
@@ -45,7 +52,10 @@ native-windows:
     - mise exec --locked -- go run ./tools/ci native --platform windows
 release-readiness:
   stage: verify
-  image: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
+  image:
+    name: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
+    entrypoint:
+      - ""
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   rules:

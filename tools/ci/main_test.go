@@ -114,6 +114,71 @@ githubRelease: {name: "Release"}
 	}
 }
 
+func TestGitLabToolchainImagesYieldToTheRunnerShell(t *testing.T) {
+	root := t.TempDir()
+	model := filepath.Join(root, ".config", "ci", "pipeline.cue")
+	if err := os.MkdirAll(filepath.Dir(model), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := `package ci
+#ToolchainImage: {
+	name: "example.invalid/toolchain@sha256:fixture"
+	entrypoint: [""]
+}
+gitlab: {
+	"source-and-governance": {image: #ToolchainImage}
+	"native-linux": {image: #ToolchainImage}
+}
+githubVerify: {name: "Verify"}
+githubRelease: {name: "Release"}
+`
+	if err := os.WriteFile(model, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gitlab := projections[0].Content
+	if got := strings.Count(gitlab, "entrypoint:\n      - \"\""); got != 2 {
+		t.Fatalf("empty GitLab image entrypoints = %d, want 2:\n%s", got, gitlab)
+	}
+}
+
+func TestGitLabForgeContextIsScopedToSourceGovernance(t *testing.T) {
+	root := t.TempDir()
+	model := filepath.Join(root, ".config", "ci", "pipeline.cue")
+	if err := os.MkdirAll(filepath.Dir(model), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := `package ci
+gitlab: {
+	variables: {GIT_DEPTH: "0"}
+	"source-and-governance": {
+		variables: AIGW_FORGE_PROVIDER: "gitlab"
+	}
+	"native-darwin": {}
+	"native-linux": {}
+	"native-windows": {}
+}
+githubVerify: {name: "Verify"}
+githubRelease: {name: "Release"}
+`
+	if err := os.WriteFile(model, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gitlab := projections[0].Content
+	if got := strings.Count(gitlab, "AIGW_FORGE_PROVIDER: gitlab"); got != 1 {
+		t.Fatalf("GitLab Forge context occurrences = %d, want 1:\n%s", got, gitlab)
+	}
+}
+
 func TestProjectionRenderingReportsModelAndExecutableFailures(t *testing.T) {
 	root := t.TempDir()
 	model := filepath.Join(root, ".config", "ci", "pipeline.cue")
@@ -264,6 +329,9 @@ func TestStaticRunsTheNonBehaviorGateSequence(t *testing.T) {
 }
 
 func TestSourceStopsAtTheFirstFailedGate(t *testing.T) {
+	t.Setenv("AIGW_FORGE_PROVIDER", "")
+	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
+	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := errors.New("failed")
 	calls := 0
 	err := run([]string{"source"}, &bytes.Buffer{}, func(command) error {
