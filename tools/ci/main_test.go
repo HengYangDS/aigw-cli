@@ -170,7 +170,12 @@ func TestGitLabContainerJobsBootstrapRepositoryMiseBeforeLockedExecution(t *test
 		lockedExecution := slices.IndexFunc(job.Script, func(command string) bool {
 			return strings.HasPrefix(command, "mise exec --locked")
 		})
-		if len(job.Script) < 2 || job.Script[0] != "tools/ci/bootstrap-mise" || lockedExecution < 1 {
+		bootstrap := job.Script[0]
+		if len(job.Script) < 2 ||
+			!strings.Contains(bootstrap, `$1 == "min_version"`) ||
+			!strings.Contains(bootstrap, `releases/download/v${version}/install.sh`) ||
+			!strings.Contains(bootstrap, `MISE_VERSION="$version"`) ||
+			lockedExecution < 1 {
 			t.Fatalf("%s script does not bootstrap repository mise before locked execution: %q", name, job.Script)
 		}
 	}

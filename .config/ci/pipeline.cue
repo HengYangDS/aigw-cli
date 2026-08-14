@@ -12,7 +12,17 @@ package ci
 }
 
 commands: {
-	bootstrap: "tools/ci/bootstrap-mise"
+	bootstrap: #"""
+		version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
+		test -n "$version"
+		installer=$(mktemp)
+		trap 'rm -f "$installer"' EXIT HUP INT TERM
+		curl --fail --silent --show-error --location \
+		  "https://github.com/jdx/mise/releases/download/v${version}/install.sh" \
+		  --output "$installer"
+		MISE_VERSION="$version" MISE_INSTALL_PATH=/usr/local/bin/mise sh "$installer"
+		mise --version
+		"""#
 	install: "mise install --locked"
 	source:  "mise exec --locked -- go run ./tools/ci source"
 	native: {

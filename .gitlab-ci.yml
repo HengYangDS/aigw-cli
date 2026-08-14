@@ -24,7 +24,16 @@ source-and-governance:
   variables:
     AIGW_FORGE_PROVIDER: gitlab
   script:
-    - tools/ci/bootstrap-mise
+    - |-
+      version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
+      test -n "$version"
+      installer=$(mktemp)
+      trap 'rm -f "$installer"' EXIT HUP INT TERM
+      curl --fail --silent --show-error --location \
+        "https://github.com/jdx/mise/releases/download/v${version}/install.sh" \
+        --output "$installer"
+      MISE_VERSION="$version" MISE_INSTALL_PATH=/usr/local/bin/mise sh "$installer"
+      mise --version
     - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
     - mise exec --locked -- go run ./tools/ci source
 native-darwin:
@@ -47,7 +56,16 @@ native-linux:
   variables:
     MISE_ENABLE_TOOLS: go
   script:
-    - tools/ci/bootstrap-mise
+    - |-
+      version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
+      test -n "$version"
+      installer=$(mktemp)
+      trap 'rm -f "$installer"' EXIT HUP INT TERM
+      curl --fail --silent --show-error --location \
+        "https://github.com/jdx/mise/releases/download/v${version}/install.sh" \
+        --output "$installer"
+      MISE_VERSION="$version" MISE_INSTALL_PATH=/usr/local/bin/mise sh "$installer"
+      mise --version
     - mise exec --locked -- go run ./tools/ci native --platform linux
 native-windows:
   stage: verify
@@ -70,7 +88,16 @@ release-readiness:
     - if: $CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\./
     - when: never
   script:
-    - tools/ci/bootstrap-mise
+    - |-
+      version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
+      test -n "$version"
+      installer=$(mktemp)
+      trap 'rm -f "$installer"' EXIT HUP INT TERM
+      curl --fail --silent --show-error --location \
+        "https://github.com/jdx/mise/releases/download/v${version}/install.sh" \
+        --output "$installer"
+      MISE_VERSION="$version" MISE_INSTALL_PATH=/usr/local/bin/mise sh "$installer"
+      mise --version
     - mise exec --locked -- go run ./tools/release validate-readiness-tag
 package:
   stage: package
