@@ -9,4 +9,8 @@
 
 - [x] 2.1 Pass focused tests and quota-exhausted Linux reproduction.
 - [x] 2.2 Pass the complete local quality graph and exact-HEAD proof.
-- [ ] 2.3 Land, close accepted refs, and pass hosted Linux execution.
+
+## Delivery Boundary
+
+Archive, land, accepted closeout, and hosted Linux execution are lifecycle
+effects owned by their public receipts rather than source tasks in this Change.
