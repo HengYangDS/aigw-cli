@@ -70,6 +70,11 @@ _graphOrder: {
 
 miseImage: "ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6"
 
+#MiseGitLabImage: {
+	name:       miseImage
+	entrypoint: [""]
+}
+
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 	mise:     "jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654"
@@ -120,14 +125,14 @@ gitlab: {
 	]
 	stages: ["verify", "package", "publish", "release"]
 	variables: {
-		GIT_DEPTH:           "0"
-		GOPROXY:             "https://goproxy.cn|https://proxy.golang.org|direct"
-		AIGW_FORGE_PROVIDER: "gitlab"
+		GIT_DEPTH: "0"
+		GOPROXY:   "https://goproxy.cn|https://proxy.golang.org|direct"
 	}
 	"source-and-governance": {
 		stage: graph["source-and-governance"].stage
-		image: miseImage
+		image: #MiseGitLabImage
 		tags:  nativeEvidence.linux.gitlab.tags
+		variables: AIGW_FORGE_PROVIDER: "gitlab"
 		script: [
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.source,
@@ -140,7 +145,7 @@ gitlab: {
 	}
 	"native-linux": {
 		stage: graph["native-linux"].stage
-		image: miseImage
+		image: #MiseGitLabImage
 		tags:  nativeEvidence.linux.gitlab.tags
 		script: [commands.native.linux]
 	}
@@ -151,7 +156,7 @@ gitlab: {
 	}
 	"release-readiness": {
 		stage: graph["release-readiness"].stage
-		image: miseImage
+		image: #MiseGitLabImage
 		tags:  nativeEvidence.linux.gitlab.tags
 		rules: [
 			{if: "$CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\\./"},
