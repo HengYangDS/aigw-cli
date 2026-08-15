@@ -1,0 +1,22 @@
+schema_version = 1
+id = "change:gitlab-hermetic-toolchain-image"
+intent = "Replace repeated GitLab job-time mise downloads with one independently published, digest-pinned GitLab toolchain image that embeds the repository-required latest stable mise runtime."
+subjects = [
+  "repository:self",
+]
+scope = [
+  "openspec/changes/gitlab-hermetic-toolchain-image/**",
+  ".config/ci/**",
+  ".gitlab-ci.yml",
+  "tools/ci/**",
+  "mise.toml",
+  "mise.lock",
+  "docs/governance/**",
+  "openspec/**",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+hypotheses = []
+dependencies = []
