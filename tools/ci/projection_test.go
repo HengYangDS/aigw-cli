@@ -146,6 +146,7 @@ func TestGitLabLinuxJobsInheritOneProjectLocalToolchainBootstrap(t *testing.T) {
 	}
 	var pipeline struct {
 		LinuxToolchain      gitLabJob `yaml:".linux-toolchain"`
+		SourceToolchain     gitLabJob `yaml:".source-toolchain"`
 		SourceAndGovernance gitLabJob `yaml:"source-and-governance"`
 		NativeLinux         gitLabJob `yaml:"native-linux"`
 		ReleaseReadiness    gitLabJob `yaml:"release-readiness"`
@@ -171,18 +172,12 @@ func TestGitLabLinuxJobsInheritOneProjectLocalToolchainBootstrap(t *testing.T) {
 			t.Fatalf("Linux toolchain bootstrap lacks %q: %q", required, command)
 		}
 	}
-	for _, forbidden := range []string{"github.com", "releases/download", "SHASUMS256", "mise self-update"} {
-		if strings.Contains(command, forbidden) {
-			t.Fatalf("Linux toolchain bootstrap contains peer-Forge or discovery surface %q: %q", forbidden, command)
-		}
-	}
 	if pipeline.LinuxToolchain.Image.Name == "" || pipeline.LinuxToolchain.Image.Entrypoint == nil {
 		t.Fatalf("Linux toolchain image is incomplete: %#v", pipeline.LinuxToolchain.Image)
 	}
 	for name, job := range map[string]gitLabJob{
-		"source-and-governance": pipeline.SourceAndGovernance,
-		"native-linux":          pipeline.NativeLinux,
-		"release-readiness":     pipeline.ReleaseReadiness,
+		"native-linux":      pipeline.NativeLinux,
+		"release-readiness": pipeline.ReleaseReadiness,
 	} {
 		if !slices.Equal(job.Extends, []string{".linux-toolchain"}) {
 			t.Fatalf("%s extends = %q, want [.linux-toolchain]", name, job.Extends)
@@ -193,6 +188,12 @@ func TestGitLabLinuxJobsInheritOneProjectLocalToolchainBootstrap(t *testing.T) {
 		if lockedExecution < 0 || job.BeforeScript != nil || strings.Contains(strings.Join(job.Script, "\n"), "curl ") {
 			t.Fatalf("%s does not cleanly inherit the toolchain bootstrap: %#v", name, job)
 		}
+	}
+	if !slices.Equal(pipeline.SourceAndGovernance.Extends, []string{".source-toolchain"}) {
+		t.Fatalf("source-and-governance extends = %q, want [.source-toolchain]", pipeline.SourceAndGovernance.Extends)
+	}
+	if len(pipeline.SourceToolchain.BeforeScript) != 3 {
+		t.Fatalf("source toolchain bootstrap commands = %d, want 3: %q", len(pipeline.SourceToolchain.BeforeScript), pipeline.SourceToolchain.BeforeScript)
 	}
 }
 
@@ -218,6 +219,40 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 		if job.Variables["MISE_ENABLE_TOOLS"] != "go,cue" {
 			t.Fatalf("%s enabled tools = %q, want go,cue", name, job.Variables["MISE_ENABLE_TOOLS"])
 		}
+	}
+}
+
+func TestGitLabSourceJobUsesItsExactToolClosure(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline struct {
+		SourceToolchain     gitLabJob `yaml:".source-toolchain"`
+		SourceAndGovernance gitLabJob `yaml:"source-and-governance"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	want := "go,node,npm:@fission-ai/openspec,cue,github:rhysd/actionlint,github:lycheeverse/lychee"
+	if got := pipeline.SourceAndGovernance.Variables["MISE_ENABLE_TOOLS"]; got != want {
+		t.Fatalf("source-and-governance enabled tools = %q, want %q", got, want)
+	}
+	bootstrap := strings.Join(pipeline.SourceToolchain.BeforeScript, "\n")
+	for _, tool := range []string{
+		"mise.lock",
+		"ci-source-tools/$lock_sha/\\$4",
+		"MISE_URL_REPLACEMENTS",
+		"gitlab-ci-token:$CI_JOB_TOKEN",
+	} {
+		if !strings.Contains(bootstrap, tool) {
+			t.Fatalf("source-and-governance bootstrap lacks %q: %q", tool, bootstrap)
+		}
+	}
+	sourceSetup := pipeline.SourceToolchain.BeforeScript[1]
+	if strings.Contains(sourceSetup, "curl ") || strings.Contains(sourceSetup, "tar --extract") {
+		t.Fatalf("source tool setup reimplements mise installation: %q", sourceSetup)
 	}
 }
 

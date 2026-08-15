@@ -28,21 +28,27 @@ commands: {
 		esac
 		asset="mise-linux-$arch.tar.gz"
 		package_url="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/ci-mise/$version/$asset"
-		tmpdir=$(mktemp -d)
-		trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
+		mise_tmpdir=$(mktemp -d)
+		trap 'rm -rf "$mise_tmpdir"' EXIT HUP INT TERM
 		curl --fail --silent --show-error --location \
 		  --connect-timeout 5 --max-time 120 \
 		  --header "JOB-TOKEN: $CI_JOB_TOKEN" \
-		  "$package_url" --output "$tmpdir/$asset"
+		  "$package_url" --output "$mise_tmpdir/$asset"
 		(
-		  cd "$tmpdir"
+		  cd "$mise_tmpdir"
 		  printf '%s  %s\n' "$checksum" "$asset" | sha256sum --check --strict
 		  tar --extract --gzip --file "$asset"
 		)
-		install -m 0755 "$tmpdir/mise/bin/mise" /usr/local/bin/mise
+		install -m 0755 "$mise_tmpdir/mise/bin/mise" /usr/local/bin/mise
 		test "$(mise --version | awk '{print $1}')" = "$version"
 		"""#
 	install: "mise install --locked"
+	sourceMirror: #"""
+		lock_sha=$(sha256sum mise.lock | awk '{print $1}')
+		authenticated_api="$CI_SERVER_PROTOCOL://gitlab-ci-token:$CI_JOB_TOKEN@$CI_SERVER_HOST:$CI_SERVER_PORT/api/v4"
+		mirror="$authenticated_api/projects/$CI_PROJECT_ID/packages/generic/ci-source-tools/$lock_sha/\$4"
+		export MISE_URL_REPLACEMENTS="{\"regex:^https://github\\\\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/(.+)\$\":\"$mirror\"}"
+		"""#
 	source:  "mise exec --locked -- go run ./tools/ci source"
 	native: {
 		for platform in ["darwin", "linux", "windows"] {
@@ -55,6 +61,8 @@ commands: {
 }
 
 nativeToolchain: MISE_ENABLE_TOOLS: "go,cue"
+sourceToolchain: MISE_ENABLE_TOOLS: "go,node,npm:@fission-ai/openspec,cue,github:rhysd/actionlint,github:lycheeverse/lychee"
+releaseReadinessToolchain: MISE_ENABLE_TOOLS: "go"
 
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser.yaml.
@@ -164,11 +172,15 @@ gitlab: {
 		image: #MiseGitLabImage
 		"before_script": [commands.bootstrap]
 	}
+	".source-toolchain": {
+		image: #MiseGitLabImage
+		"before_script": [commands.bootstrap, commands.sourceMirror, commands.install]
+	}
 	"source-and-governance": {
 		stage: graph["source-and-governance"].stage
-		extends: [".linux-toolchain"]
+		extends: [".source-toolchain"]
 		tags:  nativeEvidence.linux.gitlab.tags
-		variables: AIGW_FORGE_PROVIDER: "gitlab"
+		variables: sourceToolchain & {AIGW_FORGE_PROVIDER: "gitlab"}
 		script: [
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.source,
@@ -197,6 +209,7 @@ gitlab: {
 		stage: graph["release-readiness"].stage
 		extends: [".linux-toolchain"]
 		tags:  nativeEvidence.linux.gitlab.tags
+		variables: releaseReadinessToolchain
 		rules: [
 			{if: "$CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\\./"},
 			{when: "never"},
