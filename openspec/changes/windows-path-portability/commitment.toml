@@ -1,0 +1,17 @@
+schema_version = 1
+id = "change:windows-path-portability"
+intent = "Make repository projection paths host-independent and run CUE projection from the repository root so native Windows verification is equivalent to macOS and Linux."
+subjects = [
+  "repository:self",
+]
+scope = [
+  "openspec/changes/windows-path-portability/**",
+  "tools/ci/**",
+  "openspec/changes/archive/*-windows-path-portability/**",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+hypotheses = []
+dependencies = []
