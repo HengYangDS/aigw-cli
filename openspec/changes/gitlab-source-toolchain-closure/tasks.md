@@ -14,3 +14,9 @@
 - [x] 3.1 Pass focused projection tests and the complete source gate.
 - [ ] 3.2 Commit and pass exact-HEAD proof.
 - [ ] 3.3 Land and prove GitLab source verification on `dev` and `main`.
+
+## Requirement To Task To Proof
+
+| Requirement | Task | Proof |
+| --- | --- | --- |
+| `ci-diagnostics:Hosted Git initialization is explicit` | `1.1`, `1.2`, `2.1`–`2.3`, `3.1`–`3.3` | `tools/ci/projection_test.go:TestGitLabSourceJobUsesItsExactToolClosure`; `mise exec --locked -- go run ./tools/ci source`; hosted GitLab `source-and-governance` |
