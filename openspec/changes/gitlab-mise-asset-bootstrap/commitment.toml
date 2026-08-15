@@ -1,0 +1,18 @@
+schema_version = 1
+id = "change:gitlab-mise-asset-bootstrap"
+intent = "Bootstrap the exact repository-pinned mise Linux asset with checksum verification and bounded HTTP/1.1 transport, eliminating the nested installer download failure."
+subjects = [
+  "repository:self",
+]
+scope = [
+  "openspec/changes/gitlab-mise-asset-bootstrap/**",
+  ".config/ci/pipeline.cue",
+  "tools/ci/projection_test.go",
+  ".gitlab-ci.yml",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+hypotheses = []
+dependencies = []
