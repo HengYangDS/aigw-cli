@@ -8,6 +8,16 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.82] - 2026-08-15
+
+### Fixed
+
+- Bind the selected GitHub release tag to the release builder's canonical
+  `CI_COMMIT_TAG` input, so packaging follows native macOS, Linux, and Windows
+  acceptance instead of failing at the publication boundary.
+- Limit GitHub source verification to the exact locked tool closure used by its
+  source and governance command.
+
 ## [0.1.0-rc.81] - 2026-08-15
 
 ### Fixed

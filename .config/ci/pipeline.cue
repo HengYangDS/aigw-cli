@@ -61,7 +61,7 @@ commands: {
 }
 
 nativeToolchain: MISE_ENABLE_TOOLS: "go,cue"
-sourceToolchain: MISE_ENABLE_TOOLS: "go,node,npm:@fission-ai/openspec,cue,github:rhysd/actionlint,github:lycheeverse/lychee"
+sourceToolchain: MISE_ENABLE_TOOLS: "go,node,cue,npm:@fission-ai/openspec,github:rhysd/actionlint,github:lycheeverse/lychee"
 releaseReadinessToolchain: MISE_ENABLE_TOOLS: "go"
 
 // This map owns native execution evidence only. Product release targets remain
@@ -266,6 +266,7 @@ githubVerify: {
 			name:              "Source and governance"
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 25
+			env:               sourceToolchain
 			steps: [
 				#SourceCheckout,
 				#Toolchain,
@@ -358,7 +359,7 @@ githubRelease: {
 				{
 					name: "Build the complete release matrix"
 					env: {
-						SELECTED_TAG:                   "${{ inputs.tag || github.ref_name }}"
+						CI_COMMIT_TAG:                  "${{ inputs.tag || github.ref_name }}"
 						AIGW_GITHUB_RELEASE_ORIGIN:     "${{ github.server_url }}"
 						AIGW_GITHUB_RELEASE_REPOSITORY: "${{ github.repository }}"
 					}
