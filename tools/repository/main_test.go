@@ -9,6 +9,18 @@ import (
 	"testing"
 )
 
+func TestMain(m *testing.M) {
+	for _, variable := range []string{
+		"AIGW_CHANGELOG_RELEASE_TAG",
+		"GITHUB_REF_TYPE",
+		"GITHUB_REF_NAME",
+		"CI_COMMIT_TAG",
+	} {
+		_ = os.Unsetenv(variable)
+	}
+	os.Exit(m.Run())
+}
+
 func TestParseChangelogOrdersSemanticVersions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "CHANGELOG.md")
 	content := "## [Unreleased]\n\n## [1.1.0] - 2026-08-06\n\n## [1.0.0] - 2026-08-05\n"

@@ -8,6 +8,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.81] - 2026-08-15
+
+### Fixed
+
+- Isolate generic repository tests from ambient GitHub and GitLab release-tag
+  variables while keeping dedicated provenance tests explicit, so the same
+  native source suite passes locally and inside release jobs.
+
 ### Changed
 
 - Confirm every direct Go dependency is current without pinning unneeded
