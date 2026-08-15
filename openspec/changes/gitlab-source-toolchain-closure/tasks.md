@@ -12,8 +12,13 @@
 ## 3. Prove delivery
 
 - [x] 3.1 Pass focused projection tests and the complete source gate.
-- [ ] 3.2 Commit and pass exact-HEAD proof.
-- [ ] 3.3 Land and prove GitLab source verification on `dev` and `main`.
+- [x] 3.2 Commit and pass exact-HEAD proof.
+
+## Delivery Boundary
+
+Archive, candidate integration, accepted closeout, peer publication, hosted CI,
+release, runtime installation, and lane retirement are lifecycle effects proven
+by their own receipts after this Change is complete.
 
 ## Requirement To Task To Proof
 
@@ -25,5 +30,4 @@
 | `ci-diagnostics:Hosted Git initialization is explicit` | `2.2` | GitLab package `ci-source-tools/<mise.lock-sha256>` |
 | `ci-diagnostics:Hosted Git initialization is explicit` | `2.3` | mise locked install with project-local URL replacement |
 | `ci-diagnostics:Hosted Git initialization is explicit` | `3.1` | `mise exec --locked -- go run ./tools/ci source` |
-| `ci-diagnostics:Hosted Git initialization is explicit` | `3.2` | exact-HEAD ETHOS proof |
-| `ci-diagnostics:Hosted Git initialization is explicit` | `3.3` | hosted GitLab `source-and-governance` on `dev` and `main` |
+| `ci-diagnostics:Hosted Git initialization is explicit` | `3.2` | exact-HEAD ETHOS proof `24d530bfd4d476a77c4531bbb183354d525e6a53bf438228d04cf13e3ab6e7cb` |
