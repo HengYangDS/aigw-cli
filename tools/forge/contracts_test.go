@@ -88,8 +88,57 @@ func TestForgeRejectsProvenanceAndTopologyDrift(t *testing.T) {
 	if err := run([]string{"sync", "--repository", fixture.repository, "--canonical", "main", "--peer", "dev:dev:commit"}); err == nil || !strings.Contains(err.Error(), "does not exactly match") {
 		t.Fatalf("sync drift=%v", err)
 	}
-	if err := run([]string{"sync", "--repository", fixture.repository, "--canonical", "main", "--peer", "dev:dev:tree"}); err == nil || !strings.Contains(err.Error(), "ordered source-tree") {
+	if err := run([]string{"sync", "--repository", fixture.repository, "--canonical", "main", "--peer", "dev:dev:tree"}); err == nil || !strings.Contains(err.Error(), "canonical source tree") {
 		t.Fatalf("tree drift=%v", err)
+	}
+}
+
+func TestForgeTreeParityAcceptsRepeatedSemanticCommits(t *testing.T) {
+	fixture := forgeFixture(t)
+	gitTest(t, fixture.repository, "branch", "peer", "main")
+	gitTest(t, fixture.repository, "switch", "-q", "main")
+	writeCommit(t, fixture.repository, "file", "second\n", "second")
+	writeCommit(t, fixture.repository, "file", "value\n", "restore")
+	if err := run([]string{"sync", "--repository", fixture.repository, "--canonical", "main", "--peer", "peer:peer:tree"}); err != nil {
+		t.Fatalf("equivalent current tree rejected: %v", err)
+	}
+}
+
+func TestReplayCollapsesDuplicateSemanticParents(t *testing.T) {
+	option := signedReplayFixture(t)
+	rootOID := gitTestOutput(t, option.source, "rev-parse", "HEAD")
+	raw, err := gitBytes(option.source, nil, "cat-file", "commit", rootOID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := parseSourceCommit(rootOID, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	duplicateEnvironment := append(os.Environ(),
+		"GIT_AUTHOR_NAME=Duplicate Source", "GIT_AUTHOR_EMAIL=duplicate@example.invalid", "GIT_AUTHOR_DATE="+root.authorDate,
+		"GIT_COMMITTER_NAME=Duplicate Source", "GIT_COMMITTER_EMAIL=duplicate@example.invalid", "GIT_COMMITTER_DATE="+root.committerDate,
+		"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1")
+	duplicateRaw, err := gitInput(option.source, duplicateEnvironment, root.message, "commit-tree", root.tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	duplicateOID := strings.TrimSpace(string(duplicateRaw))
+	mergeEnvironment := append(os.Environ(),
+		"GIT_AUTHOR_NAME=Source", "GIT_AUTHOR_EMAIL=source@example.com", "GIT_AUTHOR_DATE=@1700000100 +0000",
+		"GIT_COMMITTER_NAME=Source", "GIT_COMMITTER_EMAIL=source@example.com", "GIT_COMMITTER_DATE=@1700000100 +0000",
+		"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_NOSYSTEM=1")
+	mergeRaw, err := gitInput(option.source, mergeEnvironment, []byte("merge duplicate histories\n"), "commit-tree", root.tree, "-p", rootOID, "-p", duplicateOID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gitTest(t, option.source, "update-ref", "refs/heads/main", strings.TrimSpace(string(mergeRaw)), rootOID)
+
+	if err := replay(option); err != nil {
+		t.Fatal(err)
+	}
+	if count := gitTestOutput(t, option.output, "rev-list", "--count", "main"); count != "2" {
+		t.Fatalf("projected semantic graph contains %s commits, want 2", count)
 	}
 }
 
@@ -258,8 +307,8 @@ func TestForgeGitFailureBoundaries(t *testing.T) {
 			useGitWrapper(t, "rev-parse-commit")
 			return runSync([]string{"--repository", f.repository, "--peer", "peer:main:commit"}, false)
 		}},
-		{"sync-canonical", func(t *testing.T, f forgeTestFixture) error {
-			useGitWrapper(t, "log")
+		{"sync-canonical-tree", func(t *testing.T, f forgeTestFixture) error {
+			useGitWrapper(t, "rev-parse-tree")
 			return runSync([]string{"--repository", f.repository, "--peer", "peer:main:commit"}, false)
 		}},
 		{"sync-peer", func(t *testing.T, f forgeTestFixture) error {
@@ -278,7 +327,7 @@ func TestForgeGitFailureBoundaries(t *testing.T) {
 }
 
 func TestCloseoutGitFailureBoundaries(t *testing.T) {
-	for _, mode := range []string{"for-each-ref", "status", "merge-base", "log", "rev-parse-peer"} {
+	for _, mode := range []string{"for-each-ref", "status", "merge-base", "rev-parse-tree", "rev-parse-peer"} {
 		t.Run(mode, func(t *testing.T) {
 			fixture := forgeFixture(t)
 			gitTest(t, fixture.repository, "branch", "work/test")
@@ -301,7 +350,7 @@ func TestSyncTreeAndCloseoutPeerFailures(t *testing.T) {
 	t.Run("peer tree read", func(t *testing.T) {
 		fixture := forgeFixture(t)
 		gitTest(t, fixture.repository, "branch", "dev", "main")
-		useGitWrapper(t, "log-peer")
+		useGitWrapper(t, "rev-parse-peer")
 		if err := runSync([]string{"--repository", fixture.repository, "--canonical", "main", "--peer", "dev:dev:tree"}, false); err == nil {
 			t.Fatal("peer tree read failure was accepted")
 		}

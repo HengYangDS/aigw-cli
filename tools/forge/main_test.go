@@ -520,6 +520,12 @@ func main() {
 				os.Exit(1)
 			}
 		}
+	case "rev-parse-tree:rev-parse":
+		for _, argument := range args {
+			if strings.HasSuffix(argument, "^{tree}") {
+				os.Exit(1)
+			}
+		}
 	case "rev-parse-peer:rev-parse":
 		for _, argument := range args {
 			if argument == "--verify" {

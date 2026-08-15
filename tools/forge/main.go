@@ -190,12 +190,16 @@ func replayCommits(output string, sources []replaySource, option options) (map[s
 			unterminated++
 		}
 		commitArgs := []string{"-c", "gpg.format=ssh", "-c", "gpg.ssh.program=" + option.signingProgram, "-c", "user.signingkey=" + option.signingKey, "commit-tree", "-S", commit.tree}
+		seenParents := map[string]struct{}{}
 		for _, parent := range commit.parents {
 			mapped, ok := mapping[parent]
 			if !ok {
 				return nil, 0, 0, 0, fmt.Errorf("source parent is not mapped: %s", parent)
 			}
-			commitArgs = append(commitArgs, "-p", mapped)
+			if _, duplicate := seenParents[mapped]; !duplicate {
+				commitArgs = append(commitArgs, "-p", mapped)
+				seenParents[mapped] = struct{}{}
+			}
 		}
 		environment := append(os.Environ(),
 			"GIT_AUTHOR_NAME="+option.actorName, "GIT_AUTHOR_EMAIL="+option.actorEmail, "GIT_AUTHOR_DATE="+commit.authorDate,
@@ -266,9 +270,14 @@ func verifyReplay(repository string, source sourceCommit, targetOID string, mapp
 	if err != nil {
 		return err
 	}
-	expectedParents := make([]string, len(source.parents))
-	for index, parent := range source.parents {
-		expectedParents[index] = mapping[parent]
+	expectedParents := make([]string, 0, len(source.parents))
+	seenParents := map[string]struct{}{}
+	for _, parent := range source.parents {
+		mapped := mapping[parent]
+		if _, duplicate := seenParents[mapped]; !duplicate {
+			expectedParents = append(expectedParents, mapped)
+			seenParents[mapped] = struct{}{}
+		}
 	}
 	if target.tree != source.tree || !equalStrings(target.parents, expectedParents) || target.authorDate != source.authorDate || target.committerDate != source.committerDate || !bytes.Equal(target.message, source.message) {
 		return fmt.Errorf("semantic replay mismatch: %s -> %s tree=%t parents=%t author_date=%t committer_date=%t message=%t", source.oid, targetOID, target.tree == source.tree, equalStrings(target.parents, expectedParents), target.authorDate == source.authorDate, target.committerDate == source.committerDate, bytes.Equal(target.message, source.message))

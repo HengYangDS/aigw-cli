@@ -164,6 +164,9 @@ func TestGitLabContainerJobsBootstrapRepositoryMiseBeforeLockedExecution(t *test
 			!strings.Contains(bootstrap, `$1 == "min_version"`) ||
 			!strings.Contains(bootstrap, `releases/download/v${version}/install.sh`) ||
 			!strings.Contains(bootstrap, `MISE_VERSION="$version"`) ||
+			!strings.Contains(bootstrap, `--http1.1`) ||
+			!strings.Contains(bootstrap, `--retry 4`) ||
+			!strings.Contains(bootstrap, `--retry-all-errors`) ||
 			lockedExecution < 1 {
 			t.Fatalf("%s script does not bootstrap repository mise before locked execution: %q", name, job.Script)
 		}
