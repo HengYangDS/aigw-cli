@@ -6,11 +6,25 @@ subjects = [
 ]
 scope = [
   "openspec/changes/windows-forge-coverage/**",
+  "tools/forge/main_test.go",
   "tools/forge/project_test.go",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
+invariants = [
+  "The coverage floor remains strictly greater than 95 percent for every package and the aggregate.",
+  "The regression is platform-portable and exercises a real projection failure boundary.",
+]
+acceptance = [
+  "The new regression fails before the Git helper recognizes rev-parse-target.",
+  "The tools/forge package tests pass on the supported toolchain.",
+  "The complete repository coverage gate passes without changing the policy.",
+]
+risks = [
+  "A synthetic helper condition could accidentally match an earlier source revision lookup; the matcher is constrained to refs/heads/*.",
+]
+authority_refs = [
+  "AGENTS.md",
+  ".config/checks/coverage/policy.toml",
+  "openspec/specs/product-control-plane/spec.md",
+]
 hypotheses = []
 dependencies = []
