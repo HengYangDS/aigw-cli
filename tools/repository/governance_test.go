@@ -44,6 +44,21 @@ func TestGovernanceRejectsMissingFileAndCommand(t *testing.T) {
 	}
 }
 
+func TestGovernanceRequiresProofBoundReleaseTransition(t *testing.T) {
+	root := governanceFixture(t)
+	overwriteFixture(t, root, ".ethos/workspace.toml", `[branch_roles]
+release_branch = "main"
+accepted_branch = "dev"
+candidate_branch = "candidate/dev"
+work_branch_prefix = "work/"
+proposal_branch_prefix = "proposal/"
+transitions = []
+`)
+	if err := checkGovernance(root); err == nil || !strings.Contains(err.Error(), "accepted-to-release transition") {
+		t.Fatalf("release transition error = %v", err)
+	}
+}
+
 func TestGovernanceRejectsInvalidOwnedSurfaces(t *testing.T) {
 	tests := []struct {
 		name string
@@ -280,6 +295,22 @@ func governanceFixture(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
+	overwriteFixture(t, root, ".ethos/workspace.toml", `[branch_roles]
+release_branch = "main"
+accepted_branch = "dev"
+candidate_branch = "candidate/dev"
+work_branch_prefix = "work/"
+proposal_branch_prefix = "proposal/"
+
+[[branch_roles.transitions]]
+id = "accepted-to-release"
+source_role = "accepted_root"
+target_role = "release_root"
+capability = "repository.release"
+required_gates = []
+required_evidence = ["proof:execution"]
+coupled_with = ""
+`)
 	if err := os.WriteFile(filepath.Join(root, "docs", "operations", "release-readiness.md"), []byte("every package and module aggregate strictly above 95 percent for statement and branch coverage\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}

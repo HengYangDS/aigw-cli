@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 var governanceFiles = []string{
@@ -20,6 +22,7 @@ var governanceFiles = []string{
 	"docs/concepts/README.md",
 	"docs/guides/team-rollout.md",
 	"docs/governance/security.md",
+	".ethos/workspace.toml",
 	".config/checks/architecture/policy.toml",
 	".config/checks/coverage/policy.toml",
 	".github/workflows/verify.yml",
@@ -71,6 +74,9 @@ func checkGovernance(root string) error {
 			return fmt.Errorf("%s: shell-owned automation remains", relative)
 		}
 	}
+	if err := checkReleaseTransition(root); err != nil {
+		return err
+	}
 	if output, err := gitOutput(root, "ls-files", "--cached", "--others", "--exclude-standard", "--modified", ".githooks"); err != nil {
 		return fmt.Errorf("inspect tracked hook runtime: %w", err)
 	} else if pathsExist(root, strings.Fields(output)) {
@@ -98,6 +104,48 @@ func checkGovernance(root string) error {
 		return fmt.Errorf(".gitignore must exclude local Serena project metadata")
 	}
 	return nil
+}
+
+type workspacePolicy struct {
+	BranchRoles struct {
+		Transitions []struct {
+			ID               string   `toml:"id"`
+			SourceRole       string   `toml:"source_role"`
+			TargetRole       string   `toml:"target_role"`
+			Capability       string   `toml:"capability"`
+			RequiredEvidence []string `toml:"required_evidence"`
+		} `toml:"transitions"`
+	} `toml:"branch_roles"`
+}
+
+func checkReleaseTransition(root string) error {
+	text, err := readText(root, ".ethos/workspace.toml")
+	if err != nil {
+		return err
+	}
+	var policy workspacePolicy
+	if err := toml.Unmarshal([]byte(text), &policy); err != nil {
+		return fmt.Errorf("parse .ethos/workspace.toml: %w", err)
+	}
+	for _, transition := range policy.BranchRoles.Transitions {
+		if transition.ID == "accepted-to-release" &&
+			transition.SourceRole == "accepted_root" &&
+			transition.TargetRole == "release_root" &&
+			transition.Capability == "repository.release" &&
+			slicesContain(transition.RequiredEvidence, "proof:execution") {
+			return nil
+		}
+	}
+	return fmt.Errorf(".ethos/workspace.toml must declare the proof-bound accepted-to-release transition")
+}
+
+func slicesContain(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func pathsExist(root string, paths []string) bool {
