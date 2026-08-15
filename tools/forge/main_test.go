@@ -526,6 +526,12 @@ func main() {
 				os.Exit(1)
 			}
 		}
+	case "rev-parse-target:rev-parse":
+		for _, argument := range args {
+			if strings.HasPrefix(argument, "refs/heads/") {
+				os.Exit(1)
+			}
+		}
 	case "rev-parse-peer:rev-parse":
 		for _, argument := range args {
 			if argument == "--verify" {

@@ -518,6 +518,18 @@ func TestProjectionRejectsUntrustedRemoteHistory(t *testing.T) {
 	}
 }
 
+func TestPrepareProjectionReportsTargetRevisionFailure(t *testing.T) {
+	fixture := forgeFixture(t)
+	workspace := t.TempDir()
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	runExternal(t, "git", "init", "-q", "--bare", remote)
+	option := projectionOption(fixture, "main", "peer")
+	useGitWrapper(t, "rev-parse-target")
+	if _, err := prepareProjection(fixture.repository, workspace, remote, "main", option); err == nil {
+		t.Fatal("unreadable projected target revision was accepted")
+	}
+}
+
 func TestProjectionTagVerificationBoundaries(t *testing.T) {
 	fixture := forgeFixture(t)
 	remote := filepath.Join(t.TempDir(), "remote.git")
