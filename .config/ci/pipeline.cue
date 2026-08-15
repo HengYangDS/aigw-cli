@@ -16,32 +16,31 @@ commands: {
 		version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
 		test -n "$version"
 		case "$(uname -m)" in
-		  x86_64|amd64) arch=x64 ;;
-		  aarch64|arm64) arch=arm64 ;;
+		  x86_64|amd64)
+		    arch=x64
+		    checksum=cfe49784ec9683b38510846958cfecd9b59da84d4e8a38d18ffda19dc2941ead
+		    ;;
+		  aarch64|arm64)
+		    arch=arm64
+		    checksum=b92744ceb9a01f0bb198bfcf2ba49c36918c9e4353a34be50f23d5b6e93c28ee
+		    ;;
 		  *) echo "unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
 		esac
-		asset="mise-v${version}-linux-${arch}.tar.gz"
-		release_url="https://github.com/jdx/mise/releases/download/v${version}"
+		asset="mise-linux-$arch.tar.gz"
+		package_url="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/ci-mise/$version/$asset"
 		tmpdir=$(mktemp -d)
 		trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
-		curl --fail --silent --show-error --location --http1.1 \
-		  --connect-timeout 10 --max-time 120 \
-		  --continue-at - \
-		  --retry 4 --retry-delay 2 --retry-all-errors \
-		  "$release_url/$asset" --output "$tmpdir/$asset"
-		curl --fail --silent --show-error --location --http1.1 \
-		  --connect-timeout 10 --max-time 120 \
-		  --retry 4 --retry-delay 2 --retry-all-errors \
-		  "$release_url/SHASUMS256.txt" --output "$tmpdir/SHASUMS256.txt"
+		curl --fail --silent --show-error --location \
+		  --connect-timeout 5 --max-time 120 \
+		  --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+		  "$package_url" --output "$tmpdir/$asset"
 		(
 		  cd "$tmpdir"
-		  sed -n "s#  \./$asset$#  $asset#p" SHASUMS256.txt > "$asset.sha256"
-		  test -s "$asset.sha256"
-		  sha256sum --check "$asset.sha256"
+		  printf '%s  %s\n' "$checksum" "$asset" | sha256sum --check --strict
 		  tar --extract --gzip --file "$asset"
 		)
 		install -m 0755 "$tmpdir/mise/bin/mise" /usr/local/bin/mise
-		mise --version
+		test "$(mise --version | awk '{print $1}')" = "$version"
 		"""#
 	install: "mise install --locked"
 	source:  "mise exec --locked -- go run ./tools/ci source"
@@ -161,13 +160,16 @@ gitlab: {
 		GIT_DEPTH: "0"
 		GOPROXY:   "https://goproxy.cn|https://proxy.golang.org|direct"
 	}
+	".linux-toolchain": {
+		image: #MiseGitLabImage
+		"before_script": [commands.bootstrap]
+	}
 	"source-and-governance": {
 		stage: graph["source-and-governance"].stage
-		image: #MiseGitLabImage
+		extends: [".linux-toolchain"]
 		tags:  nativeEvidence.linux.gitlab.tags
 		variables: AIGW_FORGE_PROVIDER: "gitlab"
 		script: [
-			commands.bootstrap,
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.source,
 		]
@@ -180,10 +182,10 @@ gitlab: {
 	}
 	"native-linux": {
 		stage: graph["native-linux"].stage
-		image: #MiseGitLabImage
+		extends: [".linux-toolchain"]
 		tags:  nativeEvidence.linux.gitlab.tags
 		variables: nativeToolchain
-		script: [commands.bootstrap, commands.native.linux]
+		script: [commands.native.linux]
 	}
 	"native-windows": {
 		stage: graph["native-windows"].stage
@@ -193,13 +195,13 @@ gitlab: {
 	}
 	"release-readiness": {
 		stage: graph["release-readiness"].stage
-		image: #MiseGitLabImage
+		extends: [".linux-toolchain"]
 		tags:  nativeEvidence.linux.gitlab.tags
 		rules: [
 			{if: "$CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\\./"},
 			{when: "never"},
 		]
-		script: [commands.bootstrap, "mise exec --locked -- go run ./tools/release validate-readiness-tag"]
+		script: ["mise exec --locked -- go run ./tools/release validate-readiness-tag"]
 	}
 	package: {
 		stage: graph.package.stage

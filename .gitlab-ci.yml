@@ -13,47 +13,50 @@ stages:
 variables:
   GIT_DEPTH: "0"
   GOPROXY: https://goproxy.cn|https://proxy.golang.org|direct
-source-and-governance:
-  stage: verify
+.linux-toolchain:
   image:
     name: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
     entrypoint:
       - ""
+  before_script:
+    - |-
+      version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
+      test -n "$version"
+      case "$(uname -m)" in
+        x86_64|amd64)
+          arch=x64
+          checksum=cfe49784ec9683b38510846958cfecd9b59da84d4e8a38d18ffda19dc2941ead
+          ;;
+        aarch64|arm64)
+          arch=arm64
+          checksum=b92744ceb9a01f0bb198bfcf2ba49c36918c9e4353a34be50f23d5b6e93c28ee
+          ;;
+        *) echo "unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
+      esac
+      asset="mise-linux-$arch.tar.gz"
+      package_url="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/ci-mise/$version/$asset"
+      tmpdir=$(mktemp -d)
+      trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
+      curl --fail --silent --show-error --location \
+        --connect-timeout 5 --max-time 120 \
+        --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        "$package_url" --output "$tmpdir/$asset"
+      (
+        cd "$tmpdir"
+        printf '%s  %s\n' "$checksum" "$asset" | sha256sum --check --strict
+        tar --extract --gzip --file "$asset"
+      )
+      install -m 0755 "$tmpdir/mise/bin/mise" /usr/local/bin/mise
+      test "$(mise --version | awk '{print $1}')" = "$version"
+source-and-governance:
+  stage: verify
+  extends:
+    - .linux-toolchain
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   variables:
     AIGW_FORGE_PROVIDER: gitlab
   script:
-    - |-
-      version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
-      test -n "$version"
-      case "$(uname -m)" in
-        x86_64|amd64) arch=x64 ;;
-        aarch64|arm64) arch=arm64 ;;
-        *) echo "unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
-      esac
-      asset="mise-v${version}-linux-${arch}.tar.gz"
-      release_url="https://github.com/jdx/mise/releases/download/v${version}"
-      tmpdir=$(mktemp -d)
-      trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
-      curl --fail --silent --show-error --location --http1.1 \
-        --connect-timeout 10 --max-time 120 \
-        --continue-at - \
-        --retry 4 --retry-delay 2 --retry-all-errors \
-        "$release_url/$asset" --output "$tmpdir/$asset"
-      curl --fail --silent --show-error --location --http1.1 \
-        --connect-timeout 10 --max-time 120 \
-        --retry 4 --retry-delay 2 --retry-all-errors \
-        "$release_url/SHASUMS256.txt" --output "$tmpdir/SHASUMS256.txt"
-      (
-        cd "$tmpdir"
-        sed -n "s#  \./$asset$#  $asset#p" SHASUMS256.txt > "$asset.sha256"
-        test -s "$asset.sha256"
-        sha256sum --check "$asset.sha256"
-        tar --extract --gzip --file "$asset"
-      )
-      install -m 0755 "$tmpdir/mise/bin/mise" /usr/local/bin/mise
-      mise --version
     - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
     - mise exec --locked -- go run ./tools/ci source
 native-darwin:
@@ -67,45 +70,13 @@ native-darwin:
     - mise exec --locked -- go run ./tools/ci native --platform darwin
 native-linux:
   stage: verify
-  image:
-    name: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
-    entrypoint:
-      - ""
+  extends:
+    - .linux-toolchain
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   variables:
     MISE_ENABLE_TOOLS: go,cue
   script:
-    - |-
-      version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
-      test -n "$version"
-      case "$(uname -m)" in
-        x86_64|amd64) arch=x64 ;;
-        aarch64|arm64) arch=arm64 ;;
-        *) echo "unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
-      esac
-      asset="mise-v${version}-linux-${arch}.tar.gz"
-      release_url="https://github.com/jdx/mise/releases/download/v${version}"
-      tmpdir=$(mktemp -d)
-      trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
-      curl --fail --silent --show-error --location --http1.1 \
-        --connect-timeout 10 --max-time 120 \
-        --continue-at - \
-        --retry 4 --retry-delay 2 --retry-all-errors \
-        "$release_url/$asset" --output "$tmpdir/$asset"
-      curl --fail --silent --show-error --location --http1.1 \
-        --connect-timeout 10 --max-time 120 \
-        --retry 4 --retry-delay 2 --retry-all-errors \
-        "$release_url/SHASUMS256.txt" --output "$tmpdir/SHASUMS256.txt"
-      (
-        cd "$tmpdir"
-        sed -n "s#  \./$asset$#  $asset#p" SHASUMS256.txt > "$asset.sha256"
-        test -s "$asset.sha256"
-        sha256sum --check "$asset.sha256"
-        tar --extract --gzip --file "$asset"
-      )
-      install -m 0755 "$tmpdir/mise/bin/mise" /usr/local/bin/mise
-      mise --version
     - mise exec --locked -- go run ./tools/ci native --platform linux
 native-windows:
   stage: verify
@@ -118,46 +89,14 @@ native-windows:
     - mise exec --locked -- go run ./tools/ci native --platform windows
 release-readiness:
   stage: verify
-  image:
-    name: ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6
-    entrypoint:
-      - ""
+  extends:
+    - .linux-toolchain
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   rules:
     - if: $CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\./
     - when: never
   script:
-    - |-
-      version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
-      test -n "$version"
-      case "$(uname -m)" in
-        x86_64|amd64) arch=x64 ;;
-        aarch64|arm64) arch=arm64 ;;
-        *) echo "unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
-      esac
-      asset="mise-v${version}-linux-${arch}.tar.gz"
-      release_url="https://github.com/jdx/mise/releases/download/v${version}"
-      tmpdir=$(mktemp -d)
-      trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
-      curl --fail --silent --show-error --location --http1.1 \
-        --connect-timeout 10 --max-time 120 \
-        --continue-at - \
-        --retry 4 --retry-delay 2 --retry-all-errors \
-        "$release_url/$asset" --output "$tmpdir/$asset"
-      curl --fail --silent --show-error --location --http1.1 \
-        --connect-timeout 10 --max-time 120 \
-        --retry 4 --retry-delay 2 --retry-all-errors \
-        "$release_url/SHASUMS256.txt" --output "$tmpdir/SHASUMS256.txt"
-      (
-        cd "$tmpdir"
-        sed -n "s#  \./$asset$#  $asset#p" SHASUMS256.txt > "$asset.sha256"
-        test -s "$asset.sha256"
-        sha256sum --check "$asset.sha256"
-        tar --extract --gzip --file "$asset"
-      )
-      install -m 0755 "$tmpdir/mise/bin/mise" /usr/local/bin/mise
-      mise --version
     - mise exec --locked -- go run ./tools/release validate-readiness-tag
 package:
   stage: package

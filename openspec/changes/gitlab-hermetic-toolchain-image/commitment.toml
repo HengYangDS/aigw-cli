@@ -1,22 +1,39 @@
 schema_version = 1
 id = "change:gitlab-hermetic-toolchain-image"
-intent = "Replace repeated GitLab job-time mise downloads with one independently published, digest-pinned GitLab toolchain image that embeds the repository-required latest stable mise runtime."
+intent = "Replace repeated GitLab job-time peer-Forge downloads with one project-local, digest-pinned toolchain bootstrap that installs the repository-required latest stable mise runtime."
 subjects = [
   "repository:self",
 ]
 scope = [
   "openspec/changes/gitlab-hermetic-toolchain-image/**",
+  "openspec/specs/ci-diagnostics/spec.md",
   ".config/ci/**",
   ".gitlab-ci.yml",
-  "tools/ci/**",
+  "tools/ci/projection_test.go",
   "mise.toml",
-  "mise.lock",
-  "docs/governance/**",
-  "openspec/**",
+  "docs/governance/change-and-release-policy.md",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
-hypotheses = []
+invariants = [
+  "mise.toml remains the repository toolchain-version authority.",
+  "GitLab and GitHub remain independent CI and release planes.",
+  "No job contacts the peer Forge to bootstrap its toolchain.",
+]
+acceptance = [
+  "GitLab Linux jobs inherit one hidden toolchain template instead of duplicating bootstrap logic.",
+  "The template fetches the exact architecture asset from this project's Generic Package Registry with CI_JOB_TOKEN and verifies its immutable SHA-256.",
+  "The repository minimum mise runtime is the latest stable release and generated CI projections remain exact.",
+]
+risks = [
+  "A missing or altered package asset must fail before any repository command executes.",
+]
+authority_refs = [
+  "AGENTS.md",
+  ".ethos/profile.toml",
+  "mise.toml",
+  ".config/ci/pipeline.cue",
+  "openspec/specs/ci-diagnostics/spec.md",
+]
+hypotheses = [
+  "A project-local immutable package removes peer-Forge bootstrap failures without weakening exact-version verification.",
+]
 dependencies = []

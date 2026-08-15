@@ -117,8 +117,9 @@ func TestGitLabToolchainImagesYieldToTheRunnerShell(t *testing.T) {
 	entrypoint: [""]
 }
 gitlab: {
-	"source-and-governance": {image: #ToolchainImage}
-	"native-linux": {image: #ToolchainImage}
+	".linux-toolchain": {image: #ToolchainImage}
+	"source-and-governance": {extends: [".linux-toolchain"]}
+	"native-linux": {extends: [".linux-toolchain"]}
 }
 githubVerify: {name: "Verify"}
 githubRelease: {name: "Release"}
@@ -132,18 +133,19 @@ githubRelease: {name: "Release"}
 		t.Fatal(err)
 	}
 	gitlab := projections[0].Content
-	if got := strings.Count(gitlab, "entrypoint:\n      - \"\""); got != 2 {
-		t.Fatalf("empty GitLab image entrypoints = %d, want 2:\n%s", got, gitlab)
+	if got := strings.Count(gitlab, "entrypoint:\n      - \"\""); got != 1 {
+		t.Fatalf("empty GitLab image entrypoints = %d, want 1:\n%s", got, gitlab)
 	}
 }
 
-func TestGitLabContainerJobsBootstrapRepositoryMiseBeforeLockedExecution(t *testing.T) {
+func TestGitLabLinuxJobsInheritOneProjectLocalToolchainBootstrap(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var pipeline struct {
+		LinuxToolchain      gitLabJob `yaml:".linux-toolchain"`
 		SourceAndGovernance gitLabJob `yaml:"source-and-governance"`
 		NativeLinux         gitLabJob `yaml:"native-linux"`
 		ReleaseReadiness    gitLabJob `yaml:"release-readiness"`
@@ -151,33 +153,45 @@ func TestGitLabContainerJobsBootstrapRepositoryMiseBeforeLockedExecution(t *test
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
+	bootstrap := pipeline.LinuxToolchain.BeforeScript
+	if len(bootstrap) != 1 {
+		t.Fatalf("Linux toolchain bootstrap commands = %d, want 1: %q", len(bootstrap), bootstrap)
+	}
+	command := bootstrap[0]
+	for _, required := range []string{
+		`$1 == "min_version"`,
+		`$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/ci-mise/$version`,
+		`JOB-TOKEN: $CI_JOB_TOKEN`,
+		`mise-linux-$arch.tar.gz`,
+		`sha256sum --check`,
+		`tar --extract --gzip`,
+		`install -m 0755`,
+	} {
+		if !strings.Contains(command, required) {
+			t.Fatalf("Linux toolchain bootstrap lacks %q: %q", required, command)
+		}
+	}
+	for _, forbidden := range []string{"github.com", "releases/download", "SHASUMS256", "mise self-update"} {
+		if strings.Contains(command, forbidden) {
+			t.Fatalf("Linux toolchain bootstrap contains peer-Forge or discovery surface %q: %q", forbidden, command)
+		}
+	}
+	if pipeline.LinuxToolchain.Image.Name == "" || pipeline.LinuxToolchain.Image.Entrypoint == nil {
+		t.Fatalf("Linux toolchain image is incomplete: %#v", pipeline.LinuxToolchain.Image)
+	}
 	for name, job := range map[string]gitLabJob{
 		"source-and-governance": pipeline.SourceAndGovernance,
 		"native-linux":          pipeline.NativeLinux,
 		"release-readiness":     pipeline.ReleaseReadiness,
 	} {
+		if !slices.Equal(job.Extends, []string{".linux-toolchain"}) {
+			t.Fatalf("%s extends = %q, want [.linux-toolchain]", name, job.Extends)
+		}
 		lockedExecution := slices.IndexFunc(job.Script, func(command string) bool {
 			return strings.HasPrefix(command, "mise exec --locked")
 		})
-		bootstrap := job.Script[0]
-		if len(job.Script) < 2 ||
-			!strings.Contains(bootstrap, `$1 == "min_version"`) ||
-			!strings.Contains(bootstrap, `mise-v${version}-linux-${arch}.tar.gz`) ||
-			!strings.Contains(bootstrap, `SHASUMS256.txt`) ||
-			!strings.Contains(bootstrap, `sed -n`) ||
-			!strings.Contains(bootstrap, `sha256sum --check`) ||
-			!strings.Contains(bootstrap, `--connect-timeout 10`) ||
-			!strings.Contains(bootstrap, `--max-time 120`) ||
-			!strings.Contains(bootstrap, `--continue-at -`) ||
-			!strings.Contains(bootstrap, `tar --extract --gzip`) ||
-			!strings.Contains(bootstrap, `install -m 0755`) ||
-			!strings.Contains(bootstrap, `--http1.1`) ||
-			!strings.Contains(bootstrap, `--retry 4`) ||
-			!strings.Contains(bootstrap, `--retry-all-errors`) ||
-			strings.Contains(bootstrap, `install.sh`) ||
-			strings.Contains(bootstrap, `MISE_CURL_OPTS`) ||
-			lockedExecution < 1 {
-			t.Fatalf("%s script does not checksum and install the exact repository mise asset before locked execution: %q", name, job.Script)
+		if lockedExecution < 0 || job.BeforeScript != nil || strings.Contains(strings.Join(job.Script, "\n"), "curl ") {
+			t.Fatalf("%s does not cleanly inherit the toolchain bootstrap: %#v", name, job)
 		}
 	}
 }
@@ -208,8 +222,16 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 }
 
 type gitLabJob struct {
-	Script    []string          `yaml:"script"`
-	Variables map[string]string `yaml:"variables"`
+	BeforeScript []string          `yaml:"before_script"`
+	Extends      []string          `yaml:"extends"`
+	Image        gitLabImage       `yaml:"image"`
+	Script       []string          `yaml:"script"`
+	Variables    map[string]string `yaml:"variables"`
+}
+
+type gitLabImage struct {
+	Name       string   `yaml:"name"`
+	Entrypoint []string `yaml:"entrypoint"`
 }
 
 func TestGitLabForgeContextIsScopedToSourceGovernance(t *testing.T) {
