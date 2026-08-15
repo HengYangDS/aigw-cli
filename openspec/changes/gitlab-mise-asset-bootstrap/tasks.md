@@ -13,4 +13,7 @@
 
 - [x] 3.1 Pass focused CI projection tests.
 - [x] 3.2 Pass the complete local source and governance graph.
-- [ ] 3.3 Prove the forward fix in hosted GitLab Linux jobs.
+- [x] 3.3 Observe hosted GitLab transport reach the exact asset and reproduce
+      bounded-request interruption on the slow runner path.
+- [ ] 3.4 Prove resumable transfer and checksum verification in hosted GitLab
+      Linux jobs.

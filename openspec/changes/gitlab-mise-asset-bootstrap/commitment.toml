@@ -19,6 +19,7 @@ acceptance = [
   "generated GitLab Linux jobs download the exact official mise archive and checksum manifest",
   "the archive checksum is verified before extraction and installation",
   "all bootstrap requests use bounded HTTP/1.1 transport",
+  "interrupted archive requests resume without discarding received bytes",
   "the bootstrap contains no installer-script or GitHub API dependency",
   "the complete local source and governance graph passes",
 ]

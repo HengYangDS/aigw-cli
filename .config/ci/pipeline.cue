@@ -26,6 +26,7 @@ commands: {
 		trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
 		curl --fail --silent --show-error --location --http1.1 \
 		  --connect-timeout 10 --max-time 120 \
+		  --continue-at - \
 		  --retry 4 --retry-delay 2 --retry-all-errors \
 		  "$release_url/$asset" --output "$tmpdir/$asset"
 		curl --fail --silent --show-error --location --http1.1 \
