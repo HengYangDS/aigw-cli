@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -171,10 +172,9 @@ var projectionExpressions = []struct {
 }
 
 func renderProjections(root string) ([]projection, error) {
-	model := filepath.Join(root, ".config", "ci", "pipeline.cue")
 	projections := make([]projection, 0, len(projectionExpressions))
 	for _, item := range projectionExpressions {
-		process := exec.Command("cue", "export", model, "--expression", item.expression, "--out", "yaml")
+		process := projectionCommand(root, item.expression)
 		output, err := process.Output()
 		if err != nil {
 			var exit *exec.ExitError
@@ -186,6 +186,20 @@ func renderProjections(root string) ([]projection, error) {
 		projections = append(projections, projection{Path: item.path, Content: string(output)})
 	}
 	return projections, nil
+}
+
+func projectionCommand(root, expression string) *exec.Cmd {
+	process := exec.Command(
+		"cue",
+		"export",
+		filepath.FromSlash(".config/ci/pipeline.cue"),
+		"--expression",
+		expression,
+		"--out",
+		"yaml",
+	)
+	process.Dir = root
+	return process
 }
 
 func reconcileProjections(root string, projections []projection, write bool) error {
@@ -212,10 +226,14 @@ func reconcileProjections(root string, projections []projection, write bool) err
 }
 
 func projectionPath(root, relative string) (string, error) {
-	if relative == "" || filepath.IsAbs(relative) || filepath.Clean(relative) != relative || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+	if relative == "" || strings.Contains(relative, `\`) || path.IsAbs(relative) || path.Clean(relative) != relative || relative == ".." || strings.HasPrefix(relative, "../") || hasWindowsVolume(relative) {
 		return "", fmt.Errorf("invalid projection path %q", relative)
 	}
-	return filepath.Join(root, relative), nil
+	return filepath.Join(root, filepath.FromSlash(relative)), nil
+}
+
+func hasWindowsVolume(relative string) bool {
+	return len(relative) >= 2 && relative[1] == ':' && ((relative[0] >= 'A' && relative[0] <= 'Z') || (relative[0] >= 'a' && relative[0] <= 'z'))
 }
 
 func writeProjection(path string, content []byte) error {
