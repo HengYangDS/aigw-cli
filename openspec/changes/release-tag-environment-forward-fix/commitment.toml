@@ -1,0 +1,31 @@
+schema_version = 1
+id = "change:release-tag-environment-forward-fix"
+intent = "Restore hermetic native release tests under Forge tag environments and publish the immutable forward-fix release after the failed rc.80 evidence."
+subjects = ["repository:self"]
+scope = [
+  "openspec/changes/release-tag-environment-forward-fix/**",
+  "openspec/changes/archive/*-release-tag-environment-forward-fix/**",
+  "openspec/specs/**",
+  "VERSION",
+  "CHANGELOG.md",
+  "tools/repository/**",
+]
+invariants = [
+  "failed_release_tags_and_runs_remain_immutable",
+  "release_tests_do_not_inherit_forge_tag_selection_unless_the_test_explicitly_sets_it",
+  "gitlab_and_github_publication_remain_independent",
+]
+acceptance = [
+  "tag_environment_regression_fails_before_and_passes_after_the_fix",
+  "exact_tag_selected_native_source_gate_passes_before_publication",
+  "forward_fix_version_and_changelog_are_consistent",
+]
+risks = ["test_harness_isolation_could_hide_an_intended_release_tag_assertion"]
+authority_refs = [
+  "user_instruction",
+  "AGENTS.md",
+  "CHANGELOG.md",
+  "tools/repository/changelog.go",
+]
+hypotheses = []
+dependencies = []
