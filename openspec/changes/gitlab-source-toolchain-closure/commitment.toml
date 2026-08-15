@@ -11,9 +11,27 @@ scope = [
   ".gitlab-ci.yml",
   "tools/ci/projection_test.go",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
-hypotheses = []
+invariants = [
+  "mise.toml and mise.lock remain the tool/version and artifact authority.",
+  "GitLab source verification never depends on GitHub availability.",
+  "Release-only tools are not installed by source verification.",
+]
+acceptance = [
+  "The source job installs exactly Go, Node, OpenSpec, CUE, actionlint, and lychee.",
+  "CUE, actionlint, and lychee are fetched from an authenticated project-local package bound to the current mise.lock digest.",
+  "mise redirects locked GitHub release URLs to the project-local package and retains lockfile checksum verification and extraction.",
+]
+risks = [
+  "A missing, altered, or stale mirror package must fail mise's locked install before source gates execute.",
+]
+authority_refs = [
+  "AGENTS.md",
+  "mise.toml",
+  "mise.lock",
+  ".config/ci/pipeline.cue",
+  "openspec/specs/ci-diagnostics/spec.md",
+]
+hypotheses = [
+  "A lock-bound minimal source closure removes peer-Forge timeouts without weakening source verification.",
+]
 dependencies = []
