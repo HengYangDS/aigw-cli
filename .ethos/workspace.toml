@@ -1,0 +1,15 @@
+[branch_roles]
+release_branch = "main"
+accepted_branch = "dev"
+candidate_branch = "candidate/dev"
+work_branch_prefix = "work/"
+proposal_branch_prefix = "proposal/"
+
+[[branch_roles.transitions]]
+id = "accepted-to-release"
+source_role = "accepted_root"
+target_role = "release_root"
+capability = "repository.release"
+required_gates = []
+required_evidence = ["proof:execution"]
+coupled_with = ""
