@@ -99,7 +99,7 @@ jobs:
         run: mise exec --locked -- go run ./tools/ci source
       - name: Build the complete release matrix
         env:
-          SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
+          CI_COMMIT_TAG: ${{ inputs.tag || github.ref_name }}
           AIGW_GITHUB_RELEASE_ORIGIN: ${{ github.server_url }}
           AIGW_GITHUB_RELEASE_REPOSITORY: ${{ github.repository }}
         run: mise exec --locked -- go run ./tools/release build-ci build/release dist

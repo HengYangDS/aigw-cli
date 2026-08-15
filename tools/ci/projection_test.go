@@ -222,12 +222,13 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 	}
 }
 
-func TestGitLabSourceJobUsesItsExactToolClosure(t *testing.T) {
+func TestSourceJobsUseTheirExactToolClosure(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
 		t.Fatal(err)
 	}
+	const sourceTools = "go,node,cue,npm:@fission-ai/openspec,github:rhysd/actionlint,github:lycheeverse/lychee"
 	var pipeline struct {
 		SourceToolchain     gitLabJob `yaml:".source-toolchain"`
 		SourceAndGovernance gitLabJob `yaml:"source-and-governance"`
@@ -235,9 +236,8 @@ func TestGitLabSourceJobUsesItsExactToolClosure(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	want := "go,node,npm:@fission-ai/openspec,cue,github:rhysd/actionlint,github:lycheeverse/lychee"
-	if got := pipeline.SourceAndGovernance.Variables["MISE_ENABLE_TOOLS"]; got != want {
-		t.Fatalf("source-and-governance enabled tools = %q, want %q", got, want)
+	if got := pipeline.SourceAndGovernance.Variables["MISE_ENABLE_TOOLS"]; got != sourceTools {
+		t.Fatalf("GitLab source tools = %q, want %q", got, sourceTools)
 	}
 	bootstrap := strings.Join(pipeline.SourceToolchain.BeforeScript, "\n")
 	for _, tool := range []string{
@@ -253,6 +253,54 @@ func TestGitLabSourceJobUsesItsExactToolClosure(t *testing.T) {
 	sourceSetup := pipeline.SourceToolchain.BeforeScript[1]
 	if strings.Contains(sourceSetup, "curl ") || strings.Contains(sourceSetup, "tar --extract") {
 		t.Fatalf("source tool setup reimplements mise installation: %q", sourceSetup)
+	}
+
+	var github struct {
+		Jobs map[string]struct {
+			Env map[string]string `yaml:"env"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
+		t.Fatal(err)
+	}
+	if got := github.Jobs["source-and-governance"].Env["MISE_ENABLE_TOOLS"]; got != sourceTools {
+		t.Fatalf("GitHub source tools = %q, want %q", got, sourceTools)
+	}
+}
+
+func TestGitHubReleaseBuildUsesTheCanonicalTagInput(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Name string            `yaml:"name"`
+				Env  map[string]string `yaml:"env"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[2].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	steps := workflow.Jobs["package-and-publish"].Steps
+	index := slices.IndexFunc(steps, func(step struct {
+		Name string            `yaml:"name"`
+		Env  map[string]string `yaml:"env"`
+	}) bool {
+		return step.Name == "Build the complete release matrix"
+	})
+	if index < 0 {
+		t.Fatal("GitHub release build step is missing")
+	}
+	want := "${{ inputs.tag || github.ref_name }}"
+	if got := steps[index].Env["CI_COMMIT_TAG"]; got != want {
+		t.Fatalf("GitHub release build tag = %q, want %q", got, want)
+	}
+	if _, duplicated := steps[index].Env["SELECTED_TAG"]; duplicated {
+		t.Fatal("GitHub release build retains a parallel tag input")
 	}
 }
 

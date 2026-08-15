@@ -20,6 +20,8 @@ jobs:
     name: Source and governance
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      MISE_ENABLE_TOOLS: go,node,cue,npm:@fission-ai/openspec,github:rhysd/actionlint,github:lycheeverse/lychee
     steps:
       - name: Check out full history and tags
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
