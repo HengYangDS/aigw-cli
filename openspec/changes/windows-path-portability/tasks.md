@@ -8,7 +8,7 @@
 
 - [x] 2.1 Pass focused and complete `tools/ci` tests in the locked toolchain.
 - [x] 2.2 Pass deterministic projection drift verification.
-- [ ] 2.3 Pass complete repository proof and native hosted Windows acceptance.
+- [x] 2.3 Pass complete repository source verification in the locked toolchain.
 
 ## Delivery Boundary
 
@@ -22,6 +22,6 @@ release, and lane retirement remain lifecycle effects proven separately.
 | `product-quality:portable repository text` | `1.1` | Focused RED failed because the portable command contract did not exist. |
 | `product-quality:portable repository text` | `1.2` | Focused path tests pass. |
 | `product-quality:portable repository text` | `1.3` | Focused command test and render tests pass. |
-| `product-quality:declarative CI authority` | `2.1` | Complete `tools/ci` package tests pass. |
-| `product-quality:declarative CI authority` | `2.2` | `ci project --check` passes without projection drift. |
-| `product-quality:native verification` | `2.3` | Pending repository proof and hosted Windows CI. |
+| `product-quality:portable repository text` | `2.1` | Complete `tools/ci` package tests pass. |
+| `product-quality:portable repository text` | `2.2` | `ci project --check` passes without projection drift. |
+| `product-quality:portable repository text` | `2.3` | `tools/ci source` passes with statement and branch coverage above 95%. |
