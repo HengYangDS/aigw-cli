@@ -15,5 +15,3 @@
 
 - [x] 3.1 Run focused Forge and CI tests.
 - [x] 3.2 Run the complete source and governance graph.
-- [ ] 3.3 Execute ETHOS proof, archive, land, accepted closeout and independent Forge publication.
-- [ ] 3.4 Verify hosted Linux, macOS and Windows acceptance, then publish RC 80.
