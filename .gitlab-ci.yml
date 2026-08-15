@@ -27,15 +27,31 @@ source-and-governance:
     - |-
       version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
       test -n "$version"
-      installer=$(mktemp)
-      trap 'rm -f "$installer"' EXIT HUP INT TERM
+      case "$(uname -m)" in
+        x86_64|amd64) arch=x64 ;;
+        aarch64|arm64) arch=arm64 ;;
+        *) echo "unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
+      esac
+      asset="mise-v${version}-linux-${arch}.tar.gz"
+      release_url="https://github.com/jdx/mise/releases/download/v${version}"
+      tmpdir=$(mktemp -d)
+      trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
       curl --fail --silent --show-error --location --http1.1 \
+        --connect-timeout 10 --max-time 120 \
         --retry 4 --retry-delay 2 --retry-all-errors \
-        "https://github.com/jdx/mise/releases/download/v${version}/install.sh" \
-        --output "$installer"
-      MISE_VERSION="$version" MISE_INSTALL_PATH=/usr/local/bin/mise \
-        MISE_CURL_OPTS="--http1.1 --retry 4 --retry-delay 2 --retry-all-errors" \
-        sh "$installer"
+        "$release_url/$asset" --output "$tmpdir/$asset"
+      curl --fail --silent --show-error --location --http1.1 \
+        --connect-timeout 10 --max-time 120 \
+        --retry 4 --retry-delay 2 --retry-all-errors \
+        "$release_url/SHASUMS256.txt" --output "$tmpdir/SHASUMS256.txt"
+      (
+        cd "$tmpdir"
+        sed -n "s#  \./$asset$#  $asset#p" SHASUMS256.txt > "$asset.sha256"
+        test -s "$asset.sha256"
+        sha256sum --check "$asset.sha256"
+        tar --extract --gzip --file "$asset"
+      )
+      install -m 0755 "$tmpdir/mise/bin/mise" /usr/local/bin/mise
       mise --version
     - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
     - mise exec --locked -- go run ./tools/ci source
@@ -62,15 +78,31 @@ native-linux:
     - |-
       version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
       test -n "$version"
-      installer=$(mktemp)
-      trap 'rm -f "$installer"' EXIT HUP INT TERM
+      case "$(uname -m)" in
+        x86_64|amd64) arch=x64 ;;
+        aarch64|arm64) arch=arm64 ;;
+        *) echo "unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
+      esac
+      asset="mise-v${version}-linux-${arch}.tar.gz"
+      release_url="https://github.com/jdx/mise/releases/download/v${version}"
+      tmpdir=$(mktemp -d)
+      trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
       curl --fail --silent --show-error --location --http1.1 \
+        --connect-timeout 10 --max-time 120 \
         --retry 4 --retry-delay 2 --retry-all-errors \
-        "https://github.com/jdx/mise/releases/download/v${version}/install.sh" \
-        --output "$installer"
-      MISE_VERSION="$version" MISE_INSTALL_PATH=/usr/local/bin/mise \
-        MISE_CURL_OPTS="--http1.1 --retry 4 --retry-delay 2 --retry-all-errors" \
-        sh "$installer"
+        "$release_url/$asset" --output "$tmpdir/$asset"
+      curl --fail --silent --show-error --location --http1.1 \
+        --connect-timeout 10 --max-time 120 \
+        --retry 4 --retry-delay 2 --retry-all-errors \
+        "$release_url/SHASUMS256.txt" --output "$tmpdir/SHASUMS256.txt"
+      (
+        cd "$tmpdir"
+        sed -n "s#  \./$asset$#  $asset#p" SHASUMS256.txt > "$asset.sha256"
+        test -s "$asset.sha256"
+        sha256sum --check "$asset.sha256"
+        tar --extract --gzip --file "$asset"
+      )
+      install -m 0755 "$tmpdir/mise/bin/mise" /usr/local/bin/mise
       mise --version
     - mise exec --locked -- go run ./tools/ci native --platform linux
 native-windows:
@@ -97,15 +129,31 @@ release-readiness:
     - |-
       version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
       test -n "$version"
-      installer=$(mktemp)
-      trap 'rm -f "$installer"' EXIT HUP INT TERM
+      case "$(uname -m)" in
+        x86_64|amd64) arch=x64 ;;
+        aarch64|arm64) arch=arm64 ;;
+        *) echo "unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
+      esac
+      asset="mise-v${version}-linux-${arch}.tar.gz"
+      release_url="https://github.com/jdx/mise/releases/download/v${version}"
+      tmpdir=$(mktemp -d)
+      trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
       curl --fail --silent --show-error --location --http1.1 \
+        --connect-timeout 10 --max-time 120 \
         --retry 4 --retry-delay 2 --retry-all-errors \
-        "https://github.com/jdx/mise/releases/download/v${version}/install.sh" \
-        --output "$installer"
-      MISE_VERSION="$version" MISE_INSTALL_PATH=/usr/local/bin/mise \
-        MISE_CURL_OPTS="--http1.1 --retry 4 --retry-delay 2 --retry-all-errors" \
-        sh "$installer"
+        "$release_url/$asset" --output "$tmpdir/$asset"
+      curl --fail --silent --show-error --location --http1.1 \
+        --connect-timeout 10 --max-time 120 \
+        --retry 4 --retry-delay 2 --retry-all-errors \
+        "$release_url/SHASUMS256.txt" --output "$tmpdir/SHASUMS256.txt"
+      (
+        cd "$tmpdir"
+        sed -n "s#  \./$asset$#  $asset#p" SHASUMS256.txt > "$asset.sha256"
+        test -s "$asset.sha256"
+        sha256sum --check "$asset.sha256"
+        tar --extract --gzip --file "$asset"
+      )
+      install -m 0755 "$tmpdir/mise/bin/mise" /usr/local/bin/mise
       mise --version
     - mise exec --locked -- go run ./tools/release validate-readiness-tag
 package:
