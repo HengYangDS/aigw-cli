@@ -162,13 +162,21 @@ func TestGitLabContainerJobsBootstrapRepositoryMiseBeforeLockedExecution(t *test
 		bootstrap := job.Script[0]
 		if len(job.Script) < 2 ||
 			!strings.Contains(bootstrap, `$1 == "min_version"`) ||
-			!strings.Contains(bootstrap, `releases/download/v${version}/install.sh`) ||
-			!strings.Contains(bootstrap, `MISE_VERSION="$version"`) ||
+			!strings.Contains(bootstrap, `mise-v${version}-linux-${arch}.tar.gz`) ||
+			!strings.Contains(bootstrap, `SHASUMS256.txt`) ||
+			!strings.Contains(bootstrap, `sed -n`) ||
+			!strings.Contains(bootstrap, `sha256sum --check`) ||
+			!strings.Contains(bootstrap, `--connect-timeout 10`) ||
+			!strings.Contains(bootstrap, `--max-time 120`) ||
+			!strings.Contains(bootstrap, `tar --extract --gzip`) ||
+			!strings.Contains(bootstrap, `install -m 0755`) ||
 			!strings.Contains(bootstrap, `--http1.1`) ||
 			!strings.Contains(bootstrap, `--retry 4`) ||
 			!strings.Contains(bootstrap, `--retry-all-errors`) ||
+			strings.Contains(bootstrap, `install.sh`) ||
+			strings.Contains(bootstrap, `MISE_CURL_OPTS`) ||
 			lockedExecution < 1 {
-			t.Fatalf("%s script does not bootstrap repository mise before locked execution: %q", name, job.Script)
+			t.Fatalf("%s script does not checksum and install the exact repository mise asset before locked execution: %q", name, job.Script)
 		}
 	}
 }

@@ -10,9 +10,22 @@ scope = [
   "tools/ci/projection_test.go",
   ".gitlab-ci.yml",
 ]
-invariants = []
-acceptance = []
-risks = []
+invariants = [
+  "mise.toml remains the exact tool-version authority",
+  ".config/ci/pipeline.cue remains the sole CI command authority",
+  "GitLab and GitHub publication remain independent",
+]
+acceptance = [
+  "generated GitLab Linux jobs download the exact official mise archive and checksum manifest",
+  "the archive checksum is verified before extraction and installation",
+  "all bootstrap requests use bounded HTTP/1.1 transport",
+  "the bootstrap contains no installer-script or GitHub API dependency",
+  "the complete local source and governance graph passes",
+]
+risks = [
+  "an unsupported Linux architecture fails closed before download",
+  "release asset layout or checksum-manifest format drift fails closed before execution",
+]
 authority_refs = []
 hypotheses = []
 dependencies = []
