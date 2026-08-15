@@ -9,20 +9,11 @@ failures without relying on runner-global state.
 
 Every hosted job that runs Git-aware tooling SHALL initialize and verify its
 exact checkout, revision, platform, and repository-declared toolchain in the
-provider's own environment. GitLab Linux jobs SHALL inherit one toolchain
-template that obtains the exact repository-declared mise version from the
-current project's authenticated Generic Package Registry, verifies the
-architecture-specific immutable digest, and completes before any repository
-command. The GitLab source job SHALL additionally declare one exact tool
-closure and obtain peer-Forge-hosted source tools from an authenticated
-project-local package bound to the current `mise.lock` digest; its manifest and
-every asset SHALL retain mise's locked checksum verification. Release-only tools SHALL not
-enter that closure. Native jobs SHALL enable the complete, minimal runtime tool
-closure of their acceptance command. GitHub verification and release workflows SHALL
-declare `main` as Git's process-scoped default branch without changing
-runner-global configuration. Runner names, labels, and workspace paths SHALL
-follow project and platform semantics rather than a personal host layout or the
-peer Forge's conventions.
+provider's own environment. GitLab source verification SHALL declare one exact
+tool closure, obtain peer-Forge-hosted source tools from an authenticated
+project-local package bound to the current `mise.lock` digest, while retaining
+mise's locked checksum verification and extraction. Release-only tools SHALL
+remain outside the source closure.
 
 #### Scenario: A hosted action initializes a repository
 
