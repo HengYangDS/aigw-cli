@@ -9,7 +9,9 @@ variables intended for mise do not control that installer-internal curl.
 
 - Read the exact mise version from the existing `mise.toml` authority.
 - Map the native Linux machine architecture to the official asset name.
-- Fetch the exact archive and `SHASUMS256.txt` with bounded HTTP/1.1 requests.
+- Fetch the exact archive and `SHASUMS256.txt` with bounded HTTP/1.1 requests;
+  archive retries resume the verified target file instead of discarding bytes
+  already received on the slow GitLab runner path.
 - Select exactly one checksum entry, normalize its relative filename, verify it
   with `sha256sum`, then extract and install the verified executable.
 - Keep the command inline in the CUE model because extracting a standalone

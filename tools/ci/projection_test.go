@@ -168,6 +168,7 @@ func TestGitLabContainerJobsBootstrapRepositoryMiseBeforeLockedExecution(t *test
 			!strings.Contains(bootstrap, `sha256sum --check`) ||
 			!strings.Contains(bootstrap, `--connect-timeout 10`) ||
 			!strings.Contains(bootstrap, `--max-time 120`) ||
+			!strings.Contains(bootstrap, `--continue-at -`) ||
 			!strings.Contains(bootstrap, `tar --extract --gzip`) ||
 			!strings.Contains(bootstrap, `install -m 0755`) ||
 			!strings.Contains(bootstrap, `--http1.1`) ||
