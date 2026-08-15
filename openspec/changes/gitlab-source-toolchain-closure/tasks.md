@@ -19,4 +19,11 @@
 
 | Requirement | Task | Proof |
 | --- | --- | --- |
-| `ci-diagnostics:Hosted Git initialization is explicit` | `1.1`, `1.2`, `2.1`–`2.3`, `3.1`–`3.3` | `tools/ci/projection_test.go:TestGitLabSourceJobUsesItsExactToolClosure`; `mise exec --locked -- go run ./tools/ci source`; hosted GitLab `source-and-governance` |
+| `ci-diagnostics:Hosted Git initialization is explicit` | `1.1` | focused red/green `TestGitLabSourceJobUsesItsExactToolClosure` |
+| `ci-diagnostics:Hosted Git initialization is explicit` | `1.2` | exact CUE projection and generated `.gitlab-ci.yml` |
+| `ci-diagnostics:Hosted Git initialization is explicit` | `2.1` | upstream archive SHA-256 equals `mise.lock` |
+| `ci-diagnostics:Hosted Git initialization is explicit` | `2.2` | GitLab package `ci-source-tools/<mise.lock-sha256>` |
+| `ci-diagnostics:Hosted Git initialization is explicit` | `2.3` | mise locked install with project-local URL replacement |
+| `ci-diagnostics:Hosted Git initialization is explicit` | `3.1` | `mise exec --locked -- go run ./tools/ci source` |
+| `ci-diagnostics:Hosted Git initialization is explicit` | `3.2` | exact-HEAD ETHOS proof |
+| `ci-diagnostics:Hosted Git initialization is explicit` | `3.3` | hosted GitLab `source-and-governance` on `dev` and `main` |
