@@ -4,7 +4,7 @@
 - [x] 1.2 Declare the proof-bound accepted-to-release edge.
 - [x] 1.3 Enforce the declaration in repository governance.
 - [x] 1.4 Pass focused and repository gates.
-- [ ] 1.5 Prove, land, close out, and promote accepted source to main.
+- [x] 1.5 Prove, land, close out, and promote accepted source to main.
 
 ## Delivery Boundary
 
