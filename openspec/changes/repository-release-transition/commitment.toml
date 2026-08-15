@@ -10,9 +10,25 @@ scope = [
   "tools/repository/governance.go",
   "tools/repository/governance_test.go",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
-hypotheses = []
+invariants = [
+  "The tracked workspace policy is the single branch-role transition authority.",
+  "Release promotion requires exact accepted-source proof.",
+  "Remote publication remains independent from the local branch transition.",
+]
+acceptance = [
+  "The workspace policy declares exactly one proof-bound accepted-to-release edge.",
+  "Repository governance rejects a missing or weakened release transition.",
+  "The public transition command can advance verified dev source to main.",
+]
+risks = [
+  "A malformed or weakened edge must fail repository governance before promotion.",
+]
+authority_refs = [
+  "AGENTS.md",
+  ".ethos/workspace.toml",
+  "openspec/specs/repository-organization/spec.md",
+]
+hypotheses = [
+  "A single declared transition removes the release dead end without adding another lifecycle owner.",
+]
 dependencies = []
