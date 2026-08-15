@@ -1,0 +1,19 @@
+schema_version = 1
+id = "change:gitlab-source-toolchain-closure"
+intent = "Make GitLab source verification consume one minimal, project-local, digest-verified tool closure without peer-Forge runtime downloads."
+subjects = [
+  "repository:self",
+]
+scope = [
+  "openspec/changes/gitlab-source-toolchain-closure/**",
+  "openspec/specs/ci-diagnostics/spec.md",
+  ".config/ci/pipeline.cue",
+  ".gitlab-ci.yml",
+  "tools/ci/projection_test.go",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+hypotheses = []
+dependencies = []
