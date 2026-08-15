@@ -15,5 +15,5 @@
 - [x] 3.2 Pass the complete local source and governance graph.
 - [x] 3.3 Observe hosted GitLab transport reach the exact asset and reproduce
       bounded-request interruption on the slow runner path.
-- [ ] 3.4 Prove resumable transfer and checksum verification in hosted GitLab
+- [x] 3.4 Prove resumable transfer and checksum verification in hosted GitLab
       Linux jobs.
