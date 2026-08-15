@@ -1,0 +1,11 @@
+schema_version = 1
+id = "change:codex-profile-client-inference"
+intent = "Infer the client from an explicitly selected single-client profile so test and verify do not require redundant --for input."
+subjects = ["repository:self"]
+scope = [
+  "internal/configuration/**",
+  "internal/cli/readiness/**",
+  "internal/cli/verification/**",
+  "internal/cli/acceptance/**",
+  "openspec/changes/codex-profile-client-inference/**",
+]
