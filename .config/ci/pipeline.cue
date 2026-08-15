@@ -17,10 +17,13 @@ commands: {
 		test -n "$version"
 		installer=$(mktemp)
 		trap 'rm -f "$installer"' EXIT HUP INT TERM
-		curl --fail --silent --show-error --location \
+		curl --fail --silent --show-error --location --http1.1 \
+		  --retry 4 --retry-delay 2 --retry-all-errors \
 		  "https://github.com/jdx/mise/releases/download/v${version}/install.sh" \
 		  --output "$installer"
-		MISE_VERSION="$version" MISE_INSTALL_PATH=/usr/local/bin/mise sh "$installer"
+		MISE_VERSION="$version" MISE_INSTALL_PATH=/usr/local/bin/mise \
+		  MISE_CURL_OPTS="--http1.1 --retry 4 --retry-delay 2 --retry-all-errors" \
+		  sh "$installer"
 		mise --version
 		"""#
 	install: "mise install --locked"

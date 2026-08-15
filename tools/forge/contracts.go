@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strings"
 )
 
@@ -221,7 +220,7 @@ func runSync(args []string, closeout bool) error {
 			return fmt.Errorf("canonical ref does not contain source tip: %s <- %s", canonicalRef, sourceRef)
 		}
 	}
-	canonicalTrees, err := orderedTrees(*repository, canonicalRef)
+	canonicalTree, err := gitOutput(*repository, "rev-parse", canonicalRef+"^{tree}")
 	if err != nil {
 		return err
 	}
@@ -235,12 +234,12 @@ func runSync(args []string, closeout bool) error {
 			return fmt.Errorf("peer %s is unavailable: %s", peer.name, peer.ref)
 		}
 		if peer.mode == "tree" {
-			trees, treeErr := orderedTrees(*repository, peer.ref)
+			peerTree, treeErr := gitOutput(*repository, "rev-parse", peer.ref+"^{tree}")
 			if treeErr != nil {
 				return treeErr
 			}
-			if !slices.Equal(canonicalTrees, trees) {
-				return fmt.Errorf("peer %s does not preserve canonical ordered source-tree history", peer.name)
+			if peerTree != canonicalTree {
+				return fmt.Errorf("peer %s does not preserve the canonical source tree", peer.name)
 			}
 		} else if closeout {
 			if err := git(*repository, nil, "merge-base", "--is-ancestor", sourceRef, peer.ref); err != nil {

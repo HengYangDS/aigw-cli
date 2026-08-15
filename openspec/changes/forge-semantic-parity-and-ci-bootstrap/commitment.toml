@@ -7,12 +7,29 @@ subjects = [
 scope = [
   "openspec/changes/forge-semantic-parity-and-ci-bootstrap/**",
   ".config/ci/**",
+  ".gitlab-ci.yml",
   "tools/ci/**",
   "tools/forge/**",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
+invariants = [
+  "gitlab_and_github_remain_independent_publication_planes",
+  "tree_parity_never_substitutes_for_provider_native_signature_verification",
+  "pipeline_cue_remains_the_only_ci_command_authority",
+]
+acceptance = [
+  "semantic_duplicate_collapse_is_accepted_without_masking_real_tree_drift",
+  "gitlab_linux_bootstrap_retries_transient_transport_failures_without_foreign_api_calls",
+  "complete_source_governance_and_hosted_platform_acceptance_pass",
+]
+risks = [
+  "tree_only_parity_could_hide_unverified_history_if_provenance_checks_are_removed",
+  "upstream_asset_transport_can_remain_unavailable_after_bounded_retries",
+]
+authority_refs = [
+  "AGENTS.md",
+  ".config/ci/pipeline.cue",
+  "docs/governance/change-and-release-policy.md",
+  "openspec/specs/product-quality/spec.md",
+]
 hypotheses = []
 dependencies = []
