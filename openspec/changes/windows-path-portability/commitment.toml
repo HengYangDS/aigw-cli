@@ -9,9 +9,28 @@ scope = [
   "tools/ci/**",
   "openspec/changes/archive/*-windows-path-portability/**",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
-hypotheses = []
+invariants = [
+  "ci_topology_has_one_declarative_owner",
+  "projection_manifest_paths_are_repository_relative",
+  "native_verification_preserves_platform_equivalence",
+]
+acceptance = [
+  "slash_separated_projection_paths_resolve_on_every_host",
+  "backslash_or_volume_qualified_manifest_paths_fail_closed",
+  "cue_projection_uses_a_repository_relative_model_from_the_repository_root",
+  "focused_and_complete_ci_tool_tests_pass",
+]
+risks = [
+  "path_validation_accepts_host_specific_or_traversal_input",
+  "projection_rendering_depends_on_the_calling_process_directory_or_volume",
+]
+authority_refs = [
+  ".config/ci/pipeline.cue",
+  "openspec/specs/product-quality/spec.md",
+  "tools/ci/main.go",
+  "AGENTS.md",
+]
+hypotheses = [
+  "repository_relative_slash_paths_and_a_repository_bound_cue_process_remove_the_observed_windows_failures",
+]
 dependencies = []
