@@ -1,0 +1,26 @@
+schema_version = 1
+id = "change:rc85-signature-repair"
+intent = "Repair the unpushed post-rc.84 commit-identity suffix so every rc.85 release commit has the trusted GitLab signature while preserving source trees, messages, timestamps, and topology exactly."
+subjects = ["repository:self"]
+scope = [
+  "openspec/changes/rc85-signature-repair/**",
+  "openspec/changes/archive/*-rc85-signature-repair/**",
+]
+invariants = [
+  "published_rc_84_and_earlier_history_is_unchanged",
+  "identity_repair_preserves_each_unsigned_commit_payload_tree_message_timestamps_and_parent_topology",
+  "candidate_accepted_and_release_refs_move_only_by_one_receipt_bound_exact_cas",
+]
+acceptance = [
+  "all_commits_reachable_from_the_rc_85_release_tip_use_the_trusted_gitlab_identity_and_signature",
+  "the_repaired_suffix_preserves_the_complete_ordered_tree_history",
+  "exact_head_repository_proof_passes_after_repair_and_archive",
+]
+risks = ["any coordinate drift or semantic payload difference must abort before ref mutation"]
+authority_refs = [
+  "user_instruction",
+  "AGENTS.md",
+  "docs/governance/change-and-release-policy.md",
+]
+hypotheses = []
+dependencies = []
