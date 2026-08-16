@@ -4,18 +4,15 @@
 
 - [x] 1.1 Record the exact identity defect and repair boundary.
 - [x] 1.2 Admit the repair artifacts through lane prewrite.
-- [ ] 1.3 Execute the complete proof on the clean repair Change.
-- [ ] 1.4 Archive the proved Change and pass the post-archive proof.
+- [x] 1.3 Execute the complete proof on the clean repair Change.
+- [x] 1.4 Confirm the repair preserves product source and uses one immutable,
+      exact-CAS public receipt.
 
-## 2. Replace the unpublished suffix
+## Delivery boundary
 
-- [ ] 2.1 Construct a fully signed replacement suffix from the published rc.84
-      GitLab commit without semantic payload drift.
-- [ ] 2.2 Derive and review one immutable complete-DAG repair receipt.
-- [ ] 2.3 Apply the exact receipt and verify all reachable GitLab commits.
-
-## 3. Integrate and clean up
-
-- [ ] 3.1 Pass the exact-HEAD repository proof after identity replacement.
-- [ ] 3.2 Integrate the repaired tree through candidate, dev, and main.
-- [ ] 3.3 Retire the repair lane after release delivery evidence is complete.
+Archival closes the specification atom that admits the repair. Replacement-DAG
+construction, receipt derivation and authorization, provenance verification,
+lifecycle integration, dual-Forge publication, installation, runtime
+acceptance, and lane retirement are subsequent delivery effects. They remain
+required for rc.85 completion but do not become parallel source authorities or
+block this Change's archival.
