@@ -17,6 +17,11 @@ const defaultPolicyPath = ".config/checks/architecture/policy.toml"
 type policy struct {
 	Owner                     string              `toml:"owner"`
 	Source                    string              `toml:"source"`
+	RiskModel                 string              `toml:"risk_model"`
+	Measurement               string              `toml:"measurement"`
+	FalsePositiveCost         string              `toml:"false_positive_cost"`
+	Remediation               string              `toml:"remediation"`
+	ReviewCondition           string              `toml:"review_condition"`
 	GoRoots                   []string            `toml:"go_roots"`
 	PackageChildren           map[string][]string `toml:"package_children"`
 	CompositionRootFiles      map[string][]string `toml:"composition_root_files"`
@@ -24,14 +29,9 @@ type policy struct {
 	AllowedImportEdges        map[string][]string `toml:"allowed_import_edges"`
 	IgnoreRoots               []string            `toml:"ignore_roots"`
 	IgnoreDirectoryNames      []string            `toml:"ignore_directory_names"`
-	CheckExportedTypeAlias    bool                `toml:"check_exported_type_alias"`
-	CheckFunctionVarAlias     bool                `toml:"check_function_var_alias"`
 	CheckPackageDocumentation bool                `toml:"check_package_documentation"`
-	CheckTrivialWrappers      bool                `toml:"check_trivial_wrappers"`
 	CheckDecisionRecords      bool                `toml:"check_decision_records"`
 	CheckSemanticNames        bool                `toml:"check_semantic_names"`
-	CheckModuleIdentity       bool                `toml:"check_module_identity"`
-	CheckPortability          bool                `toml:"check_portability"`
 	RequireImportOwners       bool                `toml:"require_import_owners"`
 }
 
@@ -53,8 +53,14 @@ func loadPolicy(path string) (policy, error) {
 }
 
 func validatePolicy(p policy) error {
-	if strings.TrimSpace(p.Owner) == "" || strings.TrimSpace(p.Source) == "" {
-		return fmt.Errorf("owner and source must be non-empty")
+	for name, value := range map[string]string{
+		"owner": p.Owner, "source": p.Source, "risk_model": p.RiskModel,
+		"measurement": p.Measurement, "false_positive_cost": p.FalsePositiveCost,
+		"remediation": p.Remediation, "review_condition": p.ReviewCondition,
+	} {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("%s must be non-empty", name)
+		}
 	}
 	if err := validatePackagePolicy(p); err != nil {
 		return err

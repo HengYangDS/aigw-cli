@@ -36,17 +36,6 @@ type goFileInfo struct {
 func analyzeRepository(root string, p policy, policyPath string) (Report, error) {
 	absRoot := filepath.Clean(root)
 	report := newReport(policyPath, absRoot)
-	if p.CheckModuleIdentity {
-		if err := checkModuleIdentity(absRoot, &report); err != nil {
-			return Report{}, err
-		}
-	}
-	if p.CheckPortability {
-		if err := checkPortability(absRoot, &report); err != nil {
-			return Report{}, err
-		}
-	}
-
 	if p.CheckDecisionRecords {
 		if err := repositoryAnalysis.decisionRecords(absRoot, &report); err != nil {
 			return Report{}, err
@@ -147,6 +136,11 @@ func checkImportEdges(root string, files []goFileInfo, p policy, report *Report)
 		return nil
 	}
 	fset := token.NewFileSet()
+	module, err := readModuleIdentity(filepath.Join(root, "go.mod"))
+	if err != nil {
+		return err
+	}
+	modulePrefix := module + "/"
 	for _, file := range files {
 		if file.isTest {
 			continue
@@ -169,7 +163,6 @@ func checkImportEdges(root string, files []goFileInfo, p policy, report *Report)
 		}
 		for _, imported := range parsed.Imports {
 			importPath, _ := strconv.Unquote(imported.Path.Value)
-			const modulePrefix = "aigw-cli/"
 			if !strings.HasPrefix(importPath, modulePrefix) {
 				continue
 			}

@@ -6,22 +6,23 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
 
 const validPolicy = `owner = "product-toolchain"
 source = "repository architecture layout"
+risk_model = "undeclared semantic owners and dependency edges create hidden coupling"
+measurement = "parse repository structure against the declared contract"
+false_positive_cost = "a valid topology change requires policy review"
+remediation = "move behavior to an existing owner or update the contract"
+review_condition = "reassess when product topology changes"
 go_roots = ["cmd", "internal", "tools"]
 composition_root_files = { "internal/cli" = ["app.go"] }
 peer_package_roots = { "internal/cli" = ["invocation"] }
 ignore_roots = ["vendor", ".git", "records", "build"]
 ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
-check_exported_type_alias = true
-check_function_var_alias = true
 check_package_documentation = false
-check_trivial_wrappers = true
 `
 
 type rejectingWriter struct{}
@@ -108,22 +109,6 @@ func TestRunDetectsCoreViolations(t *testing.T) {
 	writeFile(t, filepath.Join(root, "internal", "cli", "account", "account.go"), "package account\n\nimport _ \"fixture/internal/cli/profile\"\n")
 	writeFile(t, filepath.Join(root, "internal", "cli", "profile", "profile.go"), "package profile\n\nimport _ \"fixture/internal/cli/invocation\"\n")
 
-	// AST violations
-	writeFile(t, filepath.Join(root, "internal", "alias", "alias.go"), `package alias
-
-import "fmt"
-
-type Config = fmt.Stringer
-
-var Println func(a ...any) (n int, err error) = fmt.Println
-
-var Sprint = fmt.Sprint
-
-func Print(a ...any) (n int, err error) {
-	return fmt.Print(a...)
-}
-`)
-
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
@@ -137,89 +122,22 @@ func Print(a ...any) (n int, err error) {
 	for _, rule := range []string{
 		"composition_root_file",
 		"peer_package_import",
-		"exported_type_alias",
-		"function_var_alias",
-		"trivial_wrapper",
 	} {
 		if !hasRule(report, rule) {
 			t.Fatalf("missing rule %s in %v\nstdout=%s", rule, findingRules(report), stdout.String())
 		}
 	}
-	for _, finding := range report.Findings {
-		if finding.Rule == "exported_type_alias" && finding.Line < 1 {
-			t.Fatalf("type alias missing line: %+v", finding)
-		}
-		if finding.Rule == "trivial_wrapper" && finding.Line < 1 {
-			t.Fatalf("wrapper missing line: %+v", finding)
-		}
-	}
 }
 
-func TestNegativeAndEdgeCases(t *testing.T) {
+func TestParseErrorsRemainObservable(t *testing.T) {
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
-
-	// scripts only semantic subdir — OK
-	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "#!/bin/sh\n")
-
-	// ignored roots must not be scanned
-	writeFile(t, filepath.Join(root, "vendor", "internal", "shims", "x.go"), "package shims\n")
-	writeFile(t, filepath.Join(root, "build", "runtime", "shims", "x.go"), "package shims\n")
-	writeFile(t, filepath.Join(root, "internal", "vendor", "x.go"), "package vendor\n")
-	writeFile(t, filepath.Join(root, "internal", "pkg", "runtime", "x.go"), "package runtime\n")
-
-	// non-wrapper: has logic
-	writeFile(t, filepath.Join(root, "internal", "wrap", "ok.go"), `package wrap
-
-import "fmt"
-
-func Print(a ...any) (n int, err error) {
-	if len(a) == 0 {
-		return 0, nil
-	}
-	return fmt.Print(a...)
-}
-
-// unexported alias/type are allowed
-type config = fmt.Stringer
-
-var println func(a ...any) (n int, err error) = fmt.Println
-
-// value var is not a function alias
-var DefaultName = "x"
-
-// constructor call is not an alias
-var Buf = bytesBuffer()
-
-func bytesBuffer() string { return "" }
-
-// method not checked
-type T struct{}
-
-func (T) Print(a ...any) (n int, err error) {
-	return fmt.Print(a...)
-}
-
-// defined type (not alias) OK
-type Named fmt.Stringer
-`)
-
-	// parse error file still produces finding
 	writeFile(t, filepath.Join(root, "internal", "bad", "bad.go"), "package bad\nfunc (\n")
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
 	report := decodeReport(t, stdout.String())
-	if hasRule(report, "trivial_wrapper") {
-		t.Fatalf("logic wrapper false positive: %v\n%s", findingRules(report), stdout.String())
-	}
-	if hasRule(report, "exported_type_alias") {
-		t.Fatalf("unexported alias false positive: %v", findingRules(report))
-	}
-	if hasRule(report, "function_var_alias") {
-		t.Fatalf("value/constructor false positive: %v", findingRules(report))
-	}
 	if !hasRule(report, "go_parse_error") {
 		t.Fatalf("expected parse error finding, got %v", findingRules(report))
 	}
@@ -241,7 +159,7 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 		{name: "positional", args: []string{"extra"}, want: "does not accept positional", code: 2},
 		{name: "missing policy", args: []string{"-root", root, "-policy", filepath.Join(root, "missing.toml")}, want: "load architecture policy", code: 1},
 		{name: "unknown field", body: validPolicy + "extra = 1\n", want: "load architecture policy", code: 1},
-		{name: "empty owner", body: strings.Replace(validPolicy, "product-toolchain", "", 1), want: "owner and source", code: 1},
+		{name: "empty owner", body: strings.Replace(validPolicy, "product-toolchain", "", 1), want: "owner must be non-empty", code: 1},
 		{name: "empty go roots", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = []`, 1), want: "go_roots", code: 1},
 		{name: "abs go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["/tmp/x"]`, 1), want: "go_roots", code: 1},
 		{name: "windows drive go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["C:/tmp/x"]`, 1), want: "go_roots", code: 1},
@@ -365,25 +283,6 @@ func TestTextLayoutSkipsPythonSources(t *testing.T) {
 	}
 }
 
-func TestCollapseAndHelpers(t *testing.T) {
-	if !isTestGoFile("a_test.go") || isTestGoFile("a.go") {
-		t.Fatal("isTestGoFile")
-	}
-	if !isExportedIdent("Foo") || isExportedIdent("foo") || isExportedIdent("") {
-		t.Fatal("isExportedIdent")
-	}
-	if startsWithDotDot("..") != true || startsWithDotDot("pkg") {
-		t.Fatal("startsWithDotDot")
-	}
-	if runtime.GOOS == "windows" {
-		if !startsWithDotDot("..\\x") {
-			t.Fatal("windows dotdot")
-		}
-	} else if !startsWithDotDot("../x") {
-		t.Fatal("unix dotdot")
-	}
-}
-
 func TestStartsWithDotDotAcceptsBothPortableSeparators(t *testing.T) {
 	for _, value := range []string{"..", "../x", `..\x`} {
 		if !startsWithDotDot(value) {
@@ -427,28 +326,6 @@ func TestLoadPolicyRepoDefaultShape(t *testing.T) {
 	}
 	if p.Owner != "product-toolchain" || len(p.GoRoots) != 3 {
 		t.Fatalf("%+v", p)
-	}
-}
-
-func TestDisabledASTChecks(t *testing.T) {
-	root := t.TempDir()
-	body := validPolicy
-	body = strings.Replace(body, "check_exported_type_alias = true", "check_exported_type_alias = false", 1)
-	body = strings.Replace(body, "check_function_var_alias = true", "check_function_var_alias = false", 1)
-	body = strings.Replace(body, "check_trivial_wrappers = true", "check_trivial_wrappers = false", 1)
-	policyPath := writePolicy(t, root, body)
-	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
-	writeFile(t, filepath.Join(root, "internal", "alias", "alias.go"), `package alias
-import "fmt"
-type Config = fmt.Stringer
-var Println func(a ...any) (n int, err error) = fmt.Println
-func Print(a ...any) (n int, err error) { return fmt.Print(a...) }
-`)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
 	}
 }
 

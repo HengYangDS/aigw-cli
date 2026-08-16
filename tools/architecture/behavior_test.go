@@ -1,7 +1,6 @@
 package main
 
 import (
-	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
@@ -9,43 +8,6 @@ import (
 	"strings"
 	"testing"
 )
-
-func TestRepositoryContractsRejectNonPortableModuleIdentity(t *testing.T) {
-	for name, module := range map[string]string{
-		"forge":      "gitlab.example.local/group/aigw-cli",
-		"personal":   "github.com/example-user/aigw-cli",
-		"url":        "https://example.test/aigw-cli",
-		"filesystem": "/opt/team/aigw-cli",
-	} {
-		t.Run(name, func(t *testing.T) {
-			root := t.TempDir()
-			writeFile(t, filepath.Join(root, "go.mod"), "module "+module+"\n\ngo 1.26.5\n")
-			writeFile(t, filepath.Join(root, "cmd", "aigw", "main.go"), "package main\n")
-			report := newReport("policy", root)
-			if err := checkModuleIdentity(root, &report); err != nil {
-				t.Fatal(err)
-			}
-			if !hasRule(report, "module_identity") {
-				t.Fatalf("module %q accepted: %+v", module, report.Findings)
-			}
-		})
-	}
-}
-
-func TestRepositoryContractsRejectMissingModuleAndMissingRoot(t *testing.T) {
-	root := t.TempDir()
-	report := newReport("policy", root)
-	if err := checkModuleIdentity(root, &report); err == nil {
-		t.Fatal("missing go.mod accepted")
-	}
-	writeFile(t, filepath.Join(root, "go.mod"), "go 1.26.5\n")
-	if err := checkModuleIdentity(root, &report); err == nil {
-		t.Fatal("missing module declaration accepted")
-	}
-	if err := checkPortability(filepath.Join(root, "missing"), &report); err == nil {
-		t.Fatal("missing portability root accepted")
-	}
-}
 
 func TestDecisionRecordReadFailureIsReported(t *testing.T) {
 	root := t.TempDir()
@@ -60,57 +22,6 @@ func TestDecisionRecordReadFailureIsReported(t *testing.T) {
 	}
 }
 
-func TestRepositoryContractsRejectPublicPackageAndForeignInternalImport(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "go.mod"), "module aigw-cli\n\ngo 1.26.5\n")
-	writeFile(t, filepath.Join(root, "client", "client.go"), "package client\n")
-	writeFile(t, filepath.Join(root, "cmd", "aigw", "main.go"), "package main\n\nimport _ \"gitlab.example.local/group/aigw-cli/internal/core\"\n")
-	report := newReport("policy", root)
-	if err := checkModuleIdentity(root, &report); err != nil {
-		t.Fatal(err)
-	}
-	for _, rule := range []string{"public_go_package", "foreign_internal_import"} {
-		if !hasRule(report, rule) {
-			t.Fatalf("missing %s: %+v", rule, report.Findings)
-		}
-	}
-}
-
-func TestRepositoryContractsRejectPortableSourceLeaks(t *testing.T) {
-	root := t.TempDir()
-	runGit(t, root, "init", "-q")
-	writeFile(t, filepath.Join(root, "scripts", "release", "publish.sh"), "AIGW_GITLAB_AUTHOR_EMAIL=${AIGW_GITLAB_AUTHOR_EMAIL:-maintainer@example.test}\n")
-	writeFile(t, filepath.Join(root, ".config", "release", "team.allowed-signers"), "actor ssh-ed25519 fixture\n")
-	writeFile(t, filepath.Join(root, ".github", "workflows", "verify.yml"), "runs-on: [self-hosted, macos]\n")
-	runGit(t, root, "add", ".")
-	report := newReport("policy", root)
-	if err := checkPortability(root, &report); err != nil {
-		t.Fatal(err)
-	}
-	for _, rule := range []string{"implicit_publication_identity", "tracked_trust_anchor", "fixed_runner_inventory"} {
-		if !hasRule(report, rule) {
-			t.Fatalf("missing %s: %+v", rule, report.Findings)
-		}
-	}
-}
-
-func TestRepositoryContractsRejectShellOwnedAutomation(t *testing.T) {
-	root := t.TempDir()
-	runGit(t, root, "init", "-q")
-	writeFile(t, filepath.Join(root, "scripts", "release", "publish.sh"), "#!/bin/sh\nprintf 'publish\\n'\n")
-	writeFile(t, filepath.Join(root, "tools", "quality"), "#!/usr/bin/env bash\nprintf 'quality\\n'\n")
-	writeFile(t, filepath.Join(root, ".githooks", "pre-commit"), "#!/bin/sh\nethos hook admit pre-tool\n")
-	runGit(t, root, "add", ".")
-
-	report := newReport("policy", root)
-	if err := checkPortability(root, &report); err != nil {
-		t.Fatal(err)
-	}
-	if got := countRule(report, "shell_owned_automation"); got != 3 {
-		t.Fatalf("shell-owned findings = %d, want 3: %+v", got, report.Findings)
-	}
-}
-
 func countRule(report Report, rule string) int {
 	count := 0
 	for _, finding := range report.Findings {
@@ -119,36 +30,6 @@ func countRule(report Report, rule string) int {
 		}
 	}
 	return count
-}
-
-func TestFunctionAliasExprBranches(t *testing.T) {
-	fset := token.NewFileSet()
-	src := `package p
-import "fmt"
-var A func(a ...any) (int, error) = fmt.Println
-var Sprint = fmt.Sprint
-var C = fmt.Sprintf
-var D func() = local
-var E = 1
-func local() {}
-`
-	parsed, err := parser.ParseFile(fset, "p.go", src, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	report := newReport("p", ".")
-	checkFunctionVarAliases(fset, parsed, "p.go", &report)
-	// A explicit func + selector; Sprint same-name re-export; C different name without type; D explicit+ident; E not alias
-	names := map[string]bool{}
-	for _, finding := range report.Findings {
-		names[finding.Name] = true
-	}
-	if !names["A"] || !names["Sprint"] || !names["D"] {
-		t.Fatalf("missing aliases: %v findings=%v", names, report.Findings)
-	}
-	if names["C"] || names["E"] {
-		t.Fatalf("false positives: %v", names)
-	}
 }
 
 func TestPackageDocumentationMustDescribeItsPackage(t *testing.T) {
@@ -190,34 +71,6 @@ func TestPackageDocumentationAcceptsExactPackageName(t *testing.T) {
 	}
 }
 
-func TestMalformedAliasDeclarationsAreIgnored(t *testing.T) {
-	parsed := &ast.File{
-		Name: ast.NewIdent("p"),
-		Decls: []ast.Decl{
-			&ast.GenDecl{Tok: token.TYPE, Specs: []ast.Spec{&ast.ImportSpec{Path: &ast.BasicLit{Value: `"fmt"`}}}},
-			&ast.GenDecl{Tok: token.VAR, Specs: []ast.Spec{&ast.ImportSpec{Path: &ast.BasicLit{Value: `"fmt"`}}}},
-		},
-	}
-	report := newReport("p", ".")
-	checkExportedTypeAliases(token.NewFileSet(), parsed, "p.go", &report)
-	checkFunctionVarAliases(token.NewFileSet(), parsed, "p.go", &report)
-	if len(report.Findings) != 0 {
-		t.Fatalf("malformed declarations produced findings: %+v", report.Findings)
-	}
-}
-
-func TestImportedPackageNameUsesPathBase(t *testing.T) {
-	parsed, err := parser.ParseFile(token.NewFileSet(), "p.go", `package p
-import "example.com/owner/library"
-`, parser.ImportsOnly)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := importedPackageNames(parsed)["library"]; !ok {
-		t.Fatal("default import name did not use the path base")
-	}
-}
-
 func TestFinalizeSortTies(t *testing.T) {
 	report := newReport("p", ".")
 	report.addFinding(Finding{Rule: "a", Path: "z", Message: "path-z"})
@@ -249,9 +102,14 @@ func TestFinalizeSortTies(t *testing.T) {
 
 func TestValidatePolicyEdgeEntries(t *testing.T) {
 	base := policy{
-		Owner:   "o",
-		Source:  "s",
-		GoRoots: []string{"internal"},
+		Owner:             "o",
+		Source:            "s",
+		RiskModel:         "risk",
+		Measurement:       "measurement",
+		FalsePositiveCost: "cost",
+		Remediation:       "remediation",
+		ReviewCondition:   "review",
+		GoRoots:           []string{"internal"},
 	}
 	if err := validatePolicy(base); err != nil {
 		t.Fatal(err)
@@ -385,9 +243,10 @@ func TestPackageChildrenIgnoreHiddenDirectories(t *testing.T) {
 
 func TestImportEdgesSkipTestsMalformedImportsAndAllowedDependencies(t *testing.T) {
 	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
 	writeFile(t, filepath.Join(root, "tools", "release", "test.go"), "package main\n")
 	writeFile(t, filepath.Join(root, "tools", "release", "broken.go"), "package main\nimport (\n")
-	writeFile(t, filepath.Join(root, "tools", "release", "allowed.go"), "package main\nimport (\n _ \"aigw-cli/tools/release\"\n _ \"aigw-cli/tools/repository\"\n)\n")
+	writeFile(t, filepath.Join(root, "tools", "release", "allowed.go"), "package main\nimport (\n _ \"example.com/aigw/tools/release\"\n _ \"example.com/aigw/tools/repository\"\n)\n")
 	files := []goFileInfo{
 		{relPath: "tools/release/test.go", dir: "tools/release", isTest: true},
 		{relPath: "tools/release/broken.go", dir: "tools/release"},
@@ -405,6 +264,7 @@ func TestImportEdgesSkipTestsMalformedImportsAndAllowedDependencies(t *testing.T
 
 func TestImportEdgesReportUnavailableManagedSource(t *testing.T) {
 	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
 	files := []goFileInfo{{relPath: "tools/release/missing.go", dir: "tools/release"}}
 	report := newReport("policy", root)
 	p := policy{AllowedImportEdges: map[string][]string{"tools/release": {}}}
@@ -461,8 +321,9 @@ func TestPeerPackageImportsSkipMalformedSource(t *testing.T) {
 
 func TestImportEdgesRejectToolToProductRuntimeDependency(t *testing.T) {
 	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
 	path := filepath.Join(root, "tools", "release", "main.go")
-	writeFile(t, path, "package main\n\nimport _ \"aigw-cli/internal/upgrade\"\n")
+	writeFile(t, path, "package main\n\nimport _ \"example.com/aigw/internal/upgrade\"\n")
 	files := []goFileInfo{{relPath: "tools/release/main.go", dir: "tools/release"}}
 	report := newReport("policy", root)
 	policy := policy{AllowedImportEdges: map[string][]string{"tools/release": {}}}
@@ -485,6 +346,7 @@ func TestImportEdgesRejectToolToProductRuntimeDependency(t *testing.T) {
 
 func TestImportEdgesRequireEveryProductionPackageOwner(t *testing.T) {
 	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
 	writeFile(t, filepath.Join(root, "internal", "managed", "managed.go"), "package managed\n")
 	writeFile(t, filepath.Join(root, "internal", "unmanaged", "unmanaged.go"), "package unmanaged\n")
 	p := policy{

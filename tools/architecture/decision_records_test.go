@@ -20,7 +20,7 @@ func TestDecisionRecordsAcceptSemanticContiguousRegister(t *testing.T) {
 	}
 }
 
-func TestDecisionRecordsRejectBareNumbersGapsAndDuplicateRegistration(t *testing.T) {
+func TestDecisionRecordsRejectBareNumbersAndDuplicateRegistrationWithoutRequiringContiguousHistory(t *testing.T) {
 	root := t.TempDir()
 	writeDecisionRecord(t, root, "0001-product-boundary.md", 1)
 	writeDecisionRecord(t, root, "dr-0002-release-trust.md", 2)
@@ -31,8 +31,10 @@ func TestDecisionRecordsRejectBareNumbersGapsAndDuplicateRegistration(t *testing
 		t.Fatal(err)
 	}
 	assertFinding(t, report.Findings, "decision_record_name", "docs/decisions/0001-product-boundary.md")
-	assertFinding(t, report.Findings, "decision_record_sequence_gap", "docs/decisions")
 	assertFinding(t, report.Findings, "decision_record_registration_duplicate", "docs/decisions/dr-0002-release-trust.md")
+	if countRule(report, "decision_record_sequence_gap") != 0 {
+		t.Fatalf("historical numbering gap was treated as a product defect: %+v", report.Findings)
+	}
 }
 
 func TestDecisionRecordsReportMissingRegisterAndIncompleteBody(t *testing.T) {

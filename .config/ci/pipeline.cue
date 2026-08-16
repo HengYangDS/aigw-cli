@@ -61,7 +61,7 @@ commands: {
 }
 
 nativeToolchain: MISE_ENABLE_TOOLS: "go,cue"
-sourceToolchain: MISE_ENABLE_TOOLS: "go,node,cue,npm:@fission-ai/openspec,github:rhysd/actionlint,github:lycheeverse/lychee"
+sourceToolchain: MISE_ENABLE_TOOLS: "go,node,cue,npm:@fission-ai/openspec,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
 releaseReadinessToolchain: MISE_ENABLE_TOOLS: "go"
 
 // This map owns native execution evidence only. Product release targets remain

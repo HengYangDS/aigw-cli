@@ -97,7 +97,7 @@ source-and-governance:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   variables:
     AIGW_FORGE_PROVIDER: gitlab
-    MISE_ENABLE_TOOLS: go,node,cue,npm:@fission-ai/openspec,github:rhysd/actionlint,github:lycheeverse/lychee
+    MISE_ENABLE_TOOLS: go,node,cue,npm:@fission-ai/openspec,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee
   script:
     - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
     - mise exec --locked -- go run ./tools/ci source

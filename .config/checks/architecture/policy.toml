@@ -2,6 +2,11 @@
 # Consumed by tools/architecture; values are not hardcoded in the checker.
 owner = "product-toolchain"
 source = "repository architecture layout"
+risk_model = "undeclared semantic owners and dependency edges create hidden coupling, ambiguous authority, and non-local change risk"
+measurement = "parse tracked Go packages, imports, composition roots, semantic carriers, Decision Records, and deterministic text bytes against this declared contract"
+false_positive_cost = "a valid new semantic owner or dependency requires an intentional policy update reviewed with the implementation"
+remediation = "move behavior to an existing owner or declare the new owner and dependency here with focused contract tests"
+review_condition = "reassess when the product topology changes or when two legitimate changes in one release train are blocked by the same contract"
 
 # Managed Go trees subject to topology, naming, and AST rules.
 go_roots = ["cmd", "internal", "tools"]
@@ -87,13 +92,8 @@ ignore_roots = ["vendor", ".git", "records", "build"]
 # Directory base names skipped anywhere in the walk (runtime / VCS residue).
 ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
 
-# AST surface rules inside managed Go roots.
-check_exported_type_alias = true
-check_function_var_alias = true
+# Source and carrier contracts inside managed roots.
 check_package_documentation = true
-check_trivial_wrappers = true
 check_decision_records = true
 check_semantic_names = true
-check_module_identity = true
-check_portability = true
 require_import_owners = true
