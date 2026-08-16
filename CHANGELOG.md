@@ -8,6 +8,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.85] - 2026-08-16
+
+### Changed
+
+- Enforce statement and branch coverage strictly above 95 percent for both the
+  complete module and every canonical Go package, using one machine-readable
+  policy and complete raw evidence.
+
 ## [0.1.0-rc.84] - 2026-08-16
 
 ### Fixed
