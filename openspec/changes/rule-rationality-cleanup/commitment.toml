@@ -1,0 +1,30 @@
+schema_version = 1
+id = "change:rule-rationality-cleanup"
+intent = "Replace arbitrary structural vetoes with semantic quality contracts while preserving measurable verification SLOs."
+subjects = ["repository:self"]
+scope = [
+  "openspec/changes/rule-rationality-cleanup/**",
+  ".config/checks/architecture/**",
+  "openspec/specs/product-quality/**",
+  "tools/architecture/**",
+]
+invariants = [
+  "semantic_topology_and_dependency_direction_remain_blocking",
+  "presentation_heuristics_require_an_admitted_risk_model_before_they_can_block",
+  "coverage_and_behavioral_verification_remain_unchanged",
+]
+acceptance = [
+  "arbitrary_structure_thresholds_and_private_metric_vetoes_are_removed",
+  "semantic_architecture_contracts_remain_enforced",
+  "the_complete_source_quality_graph_passes",
+]
+risks = [
+  "deleting threshold tests can expose semantic branches below the existing coverage SLO",
+]
+authority_refs = [
+  "AGENTS.md",
+  ".config/checks/architecture/policy.toml",
+  "openspec/specs/product-quality/spec.md",
+]
+hypotheses = []
+dependencies = []
