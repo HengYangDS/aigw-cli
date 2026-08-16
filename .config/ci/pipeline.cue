@@ -94,7 +94,7 @@ graph: {
 	package: {
 		stage: "package"
 		rank:  1
-		needs: ["source-and-governance", "native-darwin", "native-linux", "native-windows", "release-readiness"]
+		needs: ["source-and-governance", "native-darwin", "native-linux", "release-readiness"]
 	}
 	publish: {stage: "publish", rank: 2, needs: ["package"]}
 	release: {stage: "release", rank: 3, needs: ["publish"]}
@@ -200,8 +200,9 @@ gitlab: {
 		script: [commands.native.linux]
 	}
 	"native-windows": {
-		stage: graph["native-windows"].stage
-		tags:  nativeEvidence.windows.gitlab.tags
+		stage:         graph["native-windows"].stage
+		allow_failure: true
+		tags:          nativeEvidence.windows.gitlab.tags
 		variables: nativeToolchain
 		script: [commands.install, commands.native.windows]
 	}
@@ -224,7 +225,6 @@ gitlab: {
 			{job: "source-and-governance"},
 			{job: "native-darwin"},
 			{job: "native-linux"},
-			{job: "native-windows"},
 			{job: "release-readiness", optional: true},
 		]
 		script: [commands.build]

@@ -122,6 +122,7 @@ native-linux:
     - mise exec --locked -- go run ./tools/ci native --platform linux
 native-windows:
   stage: verify
+  allow_failure: true
   tags:
     - $AIGW_GITLAB_WINDOWS_RUNNER_TAG
   variables:
@@ -153,7 +154,6 @@ package:
     - job: source-and-governance
     - job: native-darwin
     - job: native-linux
-    - job: native-windows
     - job: release-readiness
       optional: true
   script:

@@ -305,16 +305,45 @@ func TestGitHubReleaseBuildUsesTheCanonicalTagInput(t *testing.T) {
 }
 
 type gitLabJob struct {
+	AllowFailure bool              `yaml:"allow_failure"`
 	BeforeScript []string          `yaml:"before_script"`
 	Extends      []string          `yaml:"extends"`
 	Image        gitLabImage       `yaml:"image"`
+	Needs        []gitLabNeed      `yaml:"needs"`
 	Script       []string          `yaml:"script"`
 	Variables    map[string]string `yaml:"variables"`
+}
+
+type gitLabNeed struct {
+	Job string `yaml:"job"`
 }
 
 type gitLabImage struct {
 	Name       string   `yaml:"name"`
 	Entrypoint []string `yaml:"entrypoint"`
+}
+
+func TestGitLabReleaseDoesNotDuplicateProductLevelWindowsAdmission(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pipeline struct {
+		NativeWindows gitLabJob `yaml:"native-windows"`
+		Package       gitLabJob `yaml:"package"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	if !pipeline.NativeWindows.AllowFailure {
+		t.Fatal("GitLab native Windows observation blocks the release graph")
+	}
+	for _, need := range pipeline.Package.Needs {
+		if need.Job == "native-windows" {
+			t.Fatal("GitLab package duplicates product-level native Windows admission")
+		}
+	}
 }
 
 func TestGitLabForgeContextIsScopedToSourceGovernance(t *testing.T) {

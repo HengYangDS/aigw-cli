@@ -101,10 +101,14 @@ forwarding wrappers, alias-only packages, and re-exports are not admitted
 substitutes for cohesive packages, explicit dependency direction, SSOT, DRY,
 MECE, and SOLID design.
 
-Native source verification on macOS, Linux, and Windows is blocking on trusted
-CI changes and RC releases. Rooted macOS package-lifecycle acceptance is a GA
-gate and is not scheduled when the runner lacks a dedicated administrator
-credential. A scheduled native source job is never an allowed failure.
+Trusted CI changes and RC releases require native source evidence for the same
+product tree on macOS, Linux, and Windows. The evidence is product-level: each
+Forge remains an independent publication endpoint, but does not need to
+duplicate every native executor. A Forge-local native job may therefore remain
+observable without blocking that Forge when the same product tree already has
+trusted native evidence elsewhere. Rooted macOS package-lifecycle acceptance is
+a GA gate and is not scheduled when the runner lacks a dedicated administrator
+credential.
 
 ## Reproducible release inputs
 
