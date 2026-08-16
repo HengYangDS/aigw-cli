@@ -35,7 +35,7 @@ var sourceCommands = []command{
 	{Name: "go", Args: []string{"test", "./tools/architecture"}},
 	{Name: "go", Args: []string{"run", "./tools/coverage", "--race"}},
 	{Name: "go", Args: []string{"vet", "./..."}},
-	{Name: "go", Args: []string{"tool", "staticcheck", "-checks=all,-ST1000,-ST1005", "./..."}},
+	{Name: "go", Args: []string{"tool", "staticcheck", "-checks=SA*,S1*", "./..."}},
 	{Name: "go", Args: []string{"tool", "errcheck", "./..."}},
 	{Name: "go", Args: []string{"run", "./tools/repository", "--root", ".", "go-format"}},
 	{Name: "go", Args: []string{"test", "./tools/repository"}},

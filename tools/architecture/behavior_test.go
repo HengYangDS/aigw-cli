@@ -1,8 +1,6 @@
 package main
 
 import (
-	"go/parser"
-	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,45 +28,6 @@ func countRule(report Report, rule string) int {
 		}
 	}
 	return count
-}
-
-func TestPackageDocumentationMustDescribeItsPackage(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "internal", "missing", "missing.go"), "package missing\n")
-	writeFile(t, filepath.Join(root, "internal", "wrong", "wrong.go"), "// Package other owns the wrong behavior.\npackage wrong\n")
-	writeFile(t, filepath.Join(root, "internal", "documented", "documented.go"), "// Package documented owns the fixture behavior.\npackage documented\n")
-	files := []goFileInfo{
-		{relPath: "internal/missing/missing.go", dir: "internal/missing"},
-		{relPath: "internal/wrong/wrong.go", dir: "internal/wrong"},
-		{relPath: "internal/documented/documented.go", dir: "internal/documented"},
-	}
-	report := newReport("policy", root)
-	p := policy{CheckPackageDocumentation: true}
-	if err := checkGoAST(root, files, p, &report); err != nil {
-		t.Fatal(err)
-	}
-	paths := map[string]bool{}
-	for _, finding := range report.Findings {
-		if finding.Rule == "package_documentation_missing" {
-			paths[finding.Path] = true
-		}
-	}
-	if !paths["internal/missing/missing.go"] || !paths["internal/wrong/wrong.go"] {
-		t.Fatalf("missing findings: %+v", report.Findings)
-	}
-	if paths["internal/documented/documented.go"] {
-		t.Fatalf("accurate package documentation was rejected: %+v", report.Findings)
-	}
-}
-
-func TestPackageDocumentationAcceptsExactPackageName(t *testing.T) {
-	parsed, err := parser.ParseFile(token.NewFileSet(), "p.go", "// Package p\npackage p\n", parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !hasPackageDocumentation(parsed) {
-		t.Fatal("exact package documentation was rejected")
-	}
 }
 
 func TestFinalizeSortTies(t *testing.T) {

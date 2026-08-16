@@ -11,6 +11,7 @@
 - [x] 2.4 Remove English-only and retired-directory-name vetoes.
 - [x] 2.5 Delete obsolete implementation and tests without a compatibility parser.
 - [x] 2.6 Make aggregate coverage the quantitative veto while retaining mandatory package observation and exact package diagnostics.
+- [x] 2.7 Replace negative Staticcheck exclusions and fixed-form package-comment admission with positive defect and topology contracts.
 
 ## 3. Verification
 
@@ -22,4 +23,5 @@
 
 | Requirement | Task | Proof |
 | --- | --- | --- |
-| `product-quality:semantic structure` | `2.1`-`2.5` | `focused-architecture-and-source-quality` |
+| `product-quality:semantic structure` | `2.1` | `focused-architecture-and-source-quality` |
+| `product-control-plane:Documented package ownership` | `2.7` | `focused-architecture-and-source-quality` |

@@ -93,7 +93,6 @@ ignore_roots = ["vendor", ".git", "records", "build"]
 ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
 
 # Source and carrier contracts inside managed roots.
-check_package_documentation = true
 check_decision_records = true
 check_semantic_names = true
 require_import_owners = true

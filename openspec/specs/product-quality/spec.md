@@ -165,8 +165,8 @@ threshold.
 ### Requirement: semantic structure
 
 Production, test, and repository-tool code SHALL follow the declared semantic
-topology and dependency direction. Naming, package documentation, import
-ownership, and composition roots SHALL express cohesive semantic owners. Shared
+topology and dependency direction. Naming, import ownership, and composition
+roots SHALL express cohesive semantic owners. Shared
 behavior SHALL live at the smallest stable owner rather than in a forwarding
 wrapper, alias-only package, or copied helper. Size, complexity, nesting, and
 other presentation heuristics MAY inform review, but SHALL NOT reject a change
