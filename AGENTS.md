@@ -78,10 +78,13 @@ Worktree visibility or an apparently idle agent is not retirement authority.
   explicitly authorized identity repair across both Forge-specific histories,
   tags, releases, and integrity evidence as one fail-closed operation; a partial
   rebuild is never an accepted state.
-- Native source verification on macOS, Linux, and Windows blocks trusted CI
-  changes and RC releases. Cross-compilation and package inspection cover
-  additional CPU targets but do not replace those native source runs. Rooted
-  macOS package-lifecycle acceptance remains a GA requirement.
+- Trusted CI changes and RC releases require native source evidence for the
+  same product tree on macOS, Linux, and Windows. A Forge may consume that
+  product-level evidence without duplicating every executor; its own runner
+  availability is an infrastructure signal, not a second product gate.
+  Cross-compilation and package inspection cover additional CPU targets but do
+  not replace native source evidence. Rooted macOS package-lifecycle acceptance
+  remains a GA requirement.
 
 ## Required verification
 
