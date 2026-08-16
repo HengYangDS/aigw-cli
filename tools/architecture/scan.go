@@ -93,6 +93,15 @@ func checkImportOwners(files []goFileInfo, p policy, report *Report) {
 }
 
 func checkPackageChildren(root string, p policy, report *Report) error {
+	return checkPackageChildrenWithReadDir(root, p, report, os.ReadDir)
+}
+
+func checkPackageChildrenWithReadDir(
+	root string,
+	p policy,
+	report *Report,
+	readDir func(string) ([]fs.DirEntry, error),
+) error {
 	for packageRoot, allowedChildren := range p.PackageChildren {
 		packageRootPath := filepath.Join(root, filepath.FromSlash(packageRoot))
 		info, err := os.Stat(packageRootPath)
@@ -105,7 +114,7 @@ func checkPackageChildren(root string, p policy, report *Report) error {
 		if !info.IsDir() {
 			continue
 		}
-		entries, err := os.ReadDir(packageRootPath)
+		entries, err := readDir(packageRootPath)
 		if err != nil {
 			return fmt.Errorf("read package root %s: %w", packageRoot, err)
 		}
