@@ -120,8 +120,10 @@ own actor and trust input independently.
 ### Requirement: faithful quantitative quality evidence
 
 The repository SHALL measure statement coverage and branch coverage
-independently. Each measure SHALL be strictly greater than 95 percent for every
-package and for the module aggregate. Package completeness SHALL prove that
+independently. Each measure SHALL satisfy the floor and comparison declared by
+the canonical coverage policy for every package and for the module aggregate.
+The policy SHALL state its risk model, exact measurement, false-positive cost,
+remediation path, and review condition. Package completeness SHALL prove that
 every package selected by the canonical module query appears exactly once in
 both results. Evidence SHALL retain package identity, raw covered and total
 counts, source revision and tree, analyzer identity, and policy digest; one
@@ -129,7 +131,7 @@ measure SHALL NOT be inferred from another.
 
 #### Scenario: any quantitative boundary is not met
 
-- **WHEN** a package or aggregate has statement or branch coverage of 95 percent or less, is absent, is duplicated, or lacks bound raw evidence
+- **WHEN** a package or aggregate misses the canonical policy, is absent, is duplicated, or lacks bound raw evidence
 - **THEN** local verification, exact-HEAD proof, and hosted CI SHALL fail before promotion
 
 #### Scenario: statement data is presented as branch evidence

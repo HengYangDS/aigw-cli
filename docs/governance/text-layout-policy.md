@@ -9,19 +9,16 @@ Go module metadata, Python, shell (including extensionless executable scripts),
 YAML, TOML, INI, EditorConfig, PowerShell, and WiX. Generated files and binary
 assets are outside its scope; binary files are detected by their NUL bytes.
 
-## Shared invariants
+## Enforced byte invariants
 
-- UTF-8, LF line endings, no trailing whitespace, and exactly one final newline.
-- A blank line separates adjacent logical blocks. The default is **one blank
-  line**. **Two blank lines are reserved for Python module-level declarations**;
-  no other tracked source or configuration surface uses them as a separator.
-- A blank line is not inserted inside a compact structure: a Markdown list,
-  table, fenced code block, YAML mapping or sequence, TOML table, shell command
-  continuation, or immediately after an opening delimiter.
+- UTF-8 text uses LF line endings.
+- Non-empty text ends with a newline.
+- Lines contain no trailing spaces or tabs.
 
-The rule is semantic rather than decorative: whitespace separates units that
-can be understood independently. It must not split one compact unit merely to
-make a file look airy.
+These rules are deterministic across editors and operating systems and prevent
+semantic or review-noise drift. The repository checker does not decide how many
+blank lines are aesthetically appropriate or require blank lines before TOML
+and INI tables.
 
 ## Language-specific meaning
 
@@ -34,14 +31,13 @@ make a file look airy.
 | YAML | Between top-level documents, jobs, or mappings | Never | Within one mapping or sequence |
 | TOML / INI | Before each table; also before a comment attached to that table | Never | Within one table or table-attached comment block |
 
-The checker enforces the mechanical floor: no trailing blank lines, no blank-run
-larger than the language permits, Python declaration spacing, Python function
-interior compactness, and TOML/INI table separation. Review still owns whether
-the remaining single separators express real logical boundaries.
+Language-native formatters own source layout where they define it. Markdown and
+configuration layout remains a review concern: spacing should reveal logical
+structure, but a presentation preference cannot reject an otherwise correct
+change without an admitted risk model.
 
 ## Generated configuration
 
-AIGW-generated TOML follows the same rule: one blank line before every table,
-including parent and child tables. It does not emit blank lines within a table
-or double separators. Any hand-edited configuration remains semantically valid
-TOML, but generated output is normalized to this presentation contract.
+AIGW-generated TOML remains deterministic and readable, but its serializer is
+the output owner. The repository-wide text checker does not duplicate serializer
+formatting policy.

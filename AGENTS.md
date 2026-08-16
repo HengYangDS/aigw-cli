@@ -60,10 +60,10 @@ Worktree visibility or an apparently idle agent is not retirement authority.
 
 ## Engineering quality
 
-- `.config/checks/coverage/policy.toml` is the coverage SSOT. Every Go package
-  under `./...` participates, no source or package exclusion is permitted, and
-  statement and branch coverage must each be strictly greater than 95 percent
-  for every package and for the module aggregate.
+- `.config/checks/coverage/policy.toml` is the coverage SSOT. Every canonical Go
+  package participates, no source or package exclusion is permitted, and the
+  policy owns the floor, comparison, measurement, remediation, and review
+  conditions for package and aggregate statement and branch evidence.
 - Keep one semantic owner for each policy and behavior. Prefer cohesive domain
   packages, explicit dependency direction, and narrow interfaces; apply SSOT,
   DRY, MECE, and SOLID rather than duplicating policy across scripts or CI.

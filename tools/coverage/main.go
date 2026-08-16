@@ -30,6 +30,11 @@ type coveragePolicy struct {
 	BranchAnalyzer          string   `toml:"branch_analyzer"`
 	Owner                   string   `toml:"owner"`
 	Source                  string   `toml:"source"`
+	RiskModel               string   `toml:"risk_model"`
+	Measurement             string   `toml:"measurement"`
+	FalsePositiveCost       string   `toml:"false_positive_cost"`
+	Remediation             string   `toml:"remediation"`
+	ReviewCondition         string   `toml:"review_condition"`
 }
 
 type coverageResult struct {
@@ -254,6 +259,13 @@ func loadPolicy(path string) (coveragePolicy, error) {
 	}
 	if strings.TrimSpace(policy.Owner) == "" || strings.TrimSpace(policy.Source) == "" {
 		return coveragePolicy{}, fmt.Errorf("owner and source must be non-empty")
+	}
+	if strings.TrimSpace(policy.RiskModel) == "" ||
+		strings.TrimSpace(policy.Measurement) == "" ||
+		strings.TrimSpace(policy.FalsePositiveCost) == "" ||
+		strings.TrimSpace(policy.Remediation) == "" ||
+		strings.TrimSpace(policy.ReviewCondition) == "" {
+		return coveragePolicy{}, fmt.Errorf("risk rationale fields must be non-empty")
 	}
 	return policy, nil
 }

@@ -21,7 +21,7 @@ func TestTextLayoutAcceptsReadableTrackedFiles(t *testing.T) {
 	}
 }
 
-func TestTextLayoutRejectsWhitespaceAndConfigBoundaryDefects(t *testing.T) {
+func TestTextLayoutRejectsOnlyDeterministicByteDefects(t *testing.T) {
 	root := t.TempDir()
 	runGit(t, root, "init", "-q")
 	writeFile(t, filepath.Join(root, "README.md"), "# Project \n\n\nParagraph.\n\n")
@@ -31,10 +31,11 @@ func TestTextLayoutRejectsWhitespaceAndConfigBoundaryDefects(t *testing.T) {
 	if err := checkTextLayout(root, &report); err != nil {
 		t.Fatal(err)
 	}
-	for _, rule := range []string{"text_trailing_whitespace", "text_blank_run", "text_trailing_blank_line", "config_table_boundary"} {
-		if !hasRule(report, rule) {
-			t.Fatalf("missing %s in %+v", rule, report.Findings)
-		}
+	if !hasRule(report, "text_trailing_whitespace") {
+		t.Fatalf("missing text_trailing_whitespace in %+v", report.Findings)
+	}
+	if len(report.Findings) != 1 {
+		t.Fatalf("findings=%+v, want only the deterministic byte defect", report.Findings)
 	}
 }
 
