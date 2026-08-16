@@ -116,6 +116,37 @@ func TestSemanticNamesIgnoreTrackedDeletion(t *testing.T) {
 	}
 }
 
+func TestTrackedFilesOmitsDeletedIndexEntries(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init", "-q")
+	removed := filepath.Join(root, "internal", "routing", "removed.go")
+	writeFile(t, removed, "package routing\n")
+	runGit(t, root, "add", ".")
+	if err := os.Remove(removed); err != nil {
+		t.Fatal(err)
+	}
+	files, err := trackedFiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 0 {
+		t.Fatalf("deleted index entries remained in the source inventory: %v", files)
+	}
+}
+
+func TestModuleIdentityIgnoresMalformedImportsForASTGate(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module aigw-cli\n")
+	writeFile(t, filepath.Join(root, "internal", "routing", "broken.go"), "package routing\nimport (\n")
+	report := newReport("policy", root)
+	if err := checkModuleIdentity(root, &report); err != nil {
+		t.Fatal(err)
+	}
+	if !report.OK {
+		t.Fatalf("syntax ownership belongs to the AST gate: %+v", report.Findings)
+	}
+}
+
 func TestSemanticNamesRecognizeOpenSpecCarriers(t *testing.T) {
 	for _, name := range []string{"design.md", "proposal.md", "spec.md", "tasks.md"} {
 		if !isOpenSpecCarrier("openspec/changes/example/"+name, name) {

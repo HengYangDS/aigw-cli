@@ -38,12 +38,6 @@ func TestIgnoreHelpers(t *testing.T) {
 	if shouldIgnoreRelPath("", p) {
 		t.Fatal("empty")
 	}
-	if !isIdentPrefix("_x") {
-		t.Fatal("underscore prefix ident")
-	}
-	if isIdentPrefix("foo-bar") {
-		t.Fatal("dash")
-	}
 }
 
 func TestRelativePolicyFromRoot(t *testing.T) {
@@ -69,23 +63,6 @@ func TestRelativePolicyFromRoot(t *testing.T) {
 	}
 }
 
-func TestSuffixFlatSkipsTestsAndPrivate(t *testing.T) {
-	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
-	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
-	writeFile(t, filepath.Join(root, "internal", "sfx", "foo_a_test.go"), "package sfx\n")
-	writeFile(t, filepath.Join(root, "internal", "sfx", "foo_b_test.go"), "package sfx\n")
-	writeFile(t, filepath.Join(root, "internal", "sfx", "foo_c_test.go"), "package sfx\n")
-	writeFile(t, filepath.Join(root, "internal", "sfx", "_foo_a.go"), "package sfx\n")
-	writeFile(t, filepath.Join(root, "internal", "sfx", "plain.go"), "package sfx\n")
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("code=%d stdout=%s stderr=%q", code, stdout.String(), stderr.String())
-	}
-}
-
 func TestCollectIgnoresNonGoAndRuntime(t *testing.T) {
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
@@ -101,10 +78,8 @@ func TestCollectIgnoresNonGoAndRuntime(t *testing.T) {
 		t.Fatalf("code=%d stdout=%s", code, stdout.String())
 	}
 	report := decodeReport(t, stdout.String())
-	for _, stat := range report.DirectoryStats {
-		if strings.Contains(stat.Path, "runtime") || strings.Contains(stat.Path, "records") {
-			t.Fatalf("should ignore %s", stat.Path)
-		}
+	if !report.OK {
+		t.Fatalf("ignored paths produced findings: %+v", report.Findings)
 	}
 }
 
@@ -172,6 +147,19 @@ func TestCheckGoASTReadError(t *testing.T) {
 	err := checkGoAST(t.TempDir(), []goFileInfo{{relPath: "missing.go", name: "missing.go", dir: ".", isTest: false}}, mustPolicy(t), &report)
 	if err == nil {
 		t.Fatal("expected read error")
+	}
+}
+
+func TestCheckGoASTSkipsTestFiles(t *testing.T) {
+	report := newReport("p", ".")
+	err := checkGoAST(
+		t.TempDir(),
+		[]goFileInfo{{relPath: "missing_test.go", name: "missing_test.go", dir: ".", isTest: true}},
+		mustPolicy(t),
+		&report,
+	)
+	if err != nil || !report.OK {
+		t.Fatalf("test-only source entered the production AST plane: report=%+v err=%v", report, err)
 	}
 }
 
@@ -258,31 +246,6 @@ func local() {}
 	}
 }
 
-func TestSuffixFlatInvalidPrefixIgnored(t *testing.T) {
-	files := []goFileInfo{
-		{relPath: "internal/x/1_a.go", name: "1_a.go", dir: "internal/x"},
-		{relPath: "internal/x/1_b.go", name: "1_b.go", dir: "internal/x"},
-		{relPath: "internal/x/1_c.go", name: "1_c.go", dir: "internal/x"},
-	}
-	report := newReport("p", ".")
-	checkSuffixFlat(files, mustPolicy(t), &report)
-	if hasRule(report, "suffix_flat") {
-		t.Fatalf("numeric prefix should be ignored: %+v", report.Findings)
-	}
-}
-
-func TestSuffixFlatIgnoresEmptyPrefix(t *testing.T) {
-	report := newReport("policy", ".")
-	checkSuffixFlat(
-		[]goFileInfo{{dir: "internal/x", name: "_alpha.go"}, {dir: "internal/x", name: "_beta.go"}},
-		policy{SuffixFlatGroupMin: 2},
-		&report,
-	)
-	if report.Summary["suffix_flat"] != 0 {
-		t.Fatalf("empty prefixes produced findings: %+v", report.Findings)
-	}
-}
-
 func TestAnalyzeRepositoryDirect(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
@@ -355,7 +318,7 @@ func TestAnalyzeRepositoryPropagatesSemanticStageFailures(t *testing.T) {
 }
 
 func TestCollectGoFilesRejectsInvalidRoot(t *testing.T) {
-	if _, _, err := collectGoFiles(t.TempDir(), policy{GoRoots: []string{"invalid\x00root"}}); err == nil {
+	if _, err := collectGoFiles(t.TempDir(), policy{GoRoots: []string{"invalid\x00root"}}); err == nil {
 		t.Fatal("invalid Go root was accepted")
 	}
 }
@@ -363,72 +326,18 @@ func TestCollectGoFilesRejectsInvalidRoot(t *testing.T) {
 func TestCollectGoFilesIgnoresConfiguredFilePath(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "internal", "ignored.go"), "package internal\n")
-	files, stats, err := collectGoFiles(root, policy{GoRoots: []string{"internal"}, IgnoreRoots: []string{"internal"}})
+	files, err := collectGoFiles(root, policy{GoRoots: []string{"internal"}, IgnoreRoots: []string{"internal"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 0 || len(stats) != 0 {
-		t.Fatalf("ignored path collected: files=%+v stats=%+v", files, stats)
-	}
-}
-
-func TestSourceMetricsCountTokensNotComments(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "metrics.go")
-	writeFile(t, path, `package metrics
-
-/*
-if commentOnly {
-	ignored()
-}
-*/
-func classify(value int) bool { // mixed code and comment
-	return value > 0 && value < 10
-}
-`)
-	eloc, complexity, err := sourceMetrics(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if eloc != 4 {
-		t.Fatalf("eloc=%d want 4", eloc)
-	}
-	if complexity != 1 {
-		t.Fatalf("complexity=%d want 1", complexity)
-	}
-}
-
-func TestSourceMetricsPreservesMalformedFileSize(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "malformed.go")
-	writeFile(t, path, "package broken\nfunc (\n")
-	eloc, complexity, err := sourceMetrics(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if eloc != 2 || complexity != 0 {
-		t.Fatalf("eloc=%d complexity=%d", eloc, complexity)
-	}
-}
-
-func TestSourceMetricsReadFailure(t *testing.T) {
-	if _, _, err := sourceMetrics(filepath.Join(t.TempDir(), "missing.go")); err == nil {
-		t.Fatal("expected read error")
+	if len(files) != 0 {
+		t.Fatalf("ignored path collected: files=%+v", files)
 	}
 }
 
 func TestIsFuncTypeNil(t *testing.T) {
 	if isFuncTypeExpr(nil) {
 		t.Fatal("nil")
-	}
-}
-
-func TestCollapseEmptyAndLeading(t *testing.T) {
-	platform := map[string]struct{}{"unix": {}}
-	if got := collapsePlatformSuffixes("_unix", platform); got != "" && got != "_unix" {
-		// idx <= 0 stops when prefix empty after strip attempts
-		_ = got
-	}
-	if got := collapsePlatformSuffixes("unix", platform); got != "unix" {
-		t.Fatalf("%q", got)
 	}
 }
 
@@ -548,94 +457,5 @@ func TestSelectorSameNameNilSel(t *testing.T) {
 	expr := &ast.SelectorExpr{X: ast.NewIdent("pkg"), Sel: nil}
 	if isFunctionAliasExpr(expr, "Foo", false) {
 		t.Fatal("nil sel")
-	}
-}
-
-func writeFixture(t *testing.T, body string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "fixture.go")
-	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
-
-func TestFunctionsMeasuresSizeComplexityAndNesting(t *testing.T) {
-	path := writeFixture(t, `package fixture
-func classify(value int) bool {
-	if value > 0 && value < 10 {
-		for value > 1 {
-			if value == 2 { return true }
-			value--
-		}
-	}
-	return false
-}
-`)
-	metrics, err := functionMetrics(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(metrics) != 1 {
-		t.Fatalf("metrics = %+v", metrics)
-	}
-	metric := metrics[0]
-	if metric.Name != "classify" || metric.Line != 2 || metric.ELOC < 9 || metric.Complexity != 4 || metric.Nesting != 3 {
-		t.Fatalf("metric = %+v", metric)
-	}
-}
-
-func TestElseIfChainKeepsOneNestingLevel(t *testing.T) {
-	path := writeFixture(t, `package fixture
-func classify(value int) bool {
-	if value == 1 { return true
-	} else if value == 2 { return true
-	} else if value == 3 { return true }
-	return false
-}
-`)
-	metrics, err := functionMetrics(path)
-	if err != nil || len(metrics) != 1 {
-		t.Fatalf("metrics=%+v err=%v", metrics, err)
-	}
-	if metrics[0].Complexity != 3 || metrics[0].Nesting != 1 {
-		t.Fatalf("metric=%+v", metrics[0])
-	}
-}
-
-func TestFunctionsRejectsMissingFileAndSkipsSyntaxError(t *testing.T) {
-	if _, err := functionMetrics(filepath.Join(t.TempDir(), "missing.go")); err == nil {
-		t.Fatal("missing source accepted")
-	}
-	metrics, err := functionMetrics(writeFixture(t, "package fixture\nfunc broken( {\n"))
-	if err != nil || metrics != nil {
-		t.Fatalf("metrics=%+v err=%v", metrics, err)
-	}
-}
-
-func TestSourceMeasuresTokensAndDecisionComplexity(t *testing.T) {
-	path := writeFixture(t, `package fixture
-// comment only
-func classify(value int) bool {
-	if value > 0 && value < 10 { return true }
-	return false
-}
-`)
-	eloc, complexity, err := sourceMetrics(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if eloc != 5 || complexity != 2 {
-		t.Fatalf("eloc=%d complexity=%d", eloc, complexity)
-	}
-}
-
-func TestSourcePreservesSizeForSyntaxError(t *testing.T) {
-	eloc, complexity, err := sourceMetrics(writeFixture(t, "package fixture\nfunc broken( {\n"))
-	if err != nil || eloc == 0 || complexity != 0 {
-		t.Fatalf("eloc=%d complexity=%d err=%v", eloc, complexity, err)
-	}
-	if _, _, err := sourceMetrics(filepath.Join(t.TempDir(), "missing.go")); err == nil {
-		t.Fatal("missing source accepted")
 	}
 }

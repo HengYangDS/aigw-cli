@@ -17,43 +17,26 @@ type Finding struct {
 	Files   []string `json:"files,omitempty"`
 	Prefix  string   `json:"prefix,omitempty"`
 	Count   int      `json:"count,omitempty"`
-	Limit   int      `json:"limit,omitempty"`
 	Name    string   `json:"name,omitempty"`
 	Package string   `json:"package,omitempty"`
 }
 
-// DirectoryStats records production vs test .go file counts for a directory.
-type DirectoryStats struct {
-	Path                 string   `json:"path"`
-	ProductionCount      int      `json:"production_count"`
-	ProductionELOC       int      `json:"production_eloc"`
-	ProductionComplexity int      `json:"production_complexity"`
-	TestCount            int      `json:"test_count"`
-	TestELOC             int      `json:"test_eloc"`
-	TestComplexity       int      `json:"test_complexity"`
-	ProductionFiles      []string `json:"production_files,omitempty"`
-	TestFiles            []string `json:"test_files,omitempty"`
-}
-
 // Report is the stable JSON document emitted by the gate.
 type Report struct {
-	OK              bool             `json:"ok"`
-	Policy          string           `json:"policy"`
-	Root            string           `json:"root"`
-	Summary         map[string]int   `json:"summary"`
-	Findings        []Finding        `json:"findings"`
-	DirectoryStats  []DirectoryStats `json:"directory_stats"`
-	FlatDirectories []DirectoryStats `json:"flat_directory_over_limit"`
+	OK       bool           `json:"ok"`
+	Policy   string         `json:"policy"`
+	Root     string         `json:"root"`
+	Summary  map[string]int `json:"summary"`
+	Findings []Finding      `json:"findings"`
 }
 
 func newReport(policyPath, root string) Report {
 	return Report{
-		OK:             true,
-		Policy:         toPOSIX(policyPath),
-		Root:           toPOSIX(root),
-		Summary:        map[string]int{},
-		Findings:       []Finding{},
-		DirectoryStats: []DirectoryStats{},
+		OK:       true,
+		Policy:   toPOSIX(policyPath),
+		Root:     toPOSIX(root),
+		Summary:  map[string]int{},
+		Findings: []Finding{},
 	}
 }
 
@@ -83,12 +66,6 @@ func (r *Report) finalize() {
 			return a.Name < b.Name
 		}
 		return a.Message < b.Message
-	})
-	sort.SliceStable(r.DirectoryStats, func(i, j int) bool {
-		return r.DirectoryStats[i].Path < r.DirectoryStats[j].Path
-	})
-	sort.SliceStable(r.FlatDirectories, func(i, j int) bool {
-		return r.FlatDirectories[i].Path < r.FlatDirectories[j].Path
 	})
 	if r.Summary == nil {
 		r.Summary = map[string]int{}

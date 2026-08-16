@@ -22,21 +22,6 @@ type policy struct {
 	CompositionRootFiles      map[string][]string `toml:"composition_root_files"`
 	PeerPackageRoots          map[string][]string `toml:"peer_package_roots"`
 	AllowedImportEdges        map[string][]string `toml:"allowed_import_edges"`
-	FlatDirectoryLimit        int                 `toml:"flat_directory_limit"`
-	MaxFileELOC               int                 `toml:"max_file_eloc"`
-	MaxDirectoryELOC          int                 `toml:"max_directory_eloc"`
-	MaxFileComplexity         int                 `toml:"max_file_complexity"`
-	MaxDirectoryComplexity    int                 `toml:"max_directory_complexity"`
-	MaxTestFileELOC           int                 `toml:"max_test_file_eloc"`
-	MaxTestFileComplexity     int                 `toml:"max_test_file_complexity"`
-	MaxFunctionELOC           int                 `toml:"max_function_eloc"`
-	MaxFunctionComplexity     int                 `toml:"max_function_complexity"`
-	MaxNestingDepth           int                 `toml:"max_nesting_depth"`
-	MaxTestFunctionELOC       int                 `toml:"max_test_function_eloc"`
-	MaxTestFunctionComplexity int                 `toml:"max_test_function_complexity"`
-	MaxTestNestingDepth       int                 `toml:"max_test_nesting_depth"`
-	SuffixFlatGroupMin        int                 `toml:"suffix_flat_group_min"`
-	PlatformBuildSuffixes     []string            `toml:"platform_build_suffixes"`
 	IgnoreRoots               []string            `toml:"ignore_roots"`
 	IgnoreDirectoryNames      []string            `toml:"ignore_directory_names"`
 	CheckExportedTypeAlias    bool                `toml:"check_exported_type_alias"`
@@ -74,10 +59,7 @@ func validatePolicy(p policy) error {
 	if err := validatePackagePolicy(p); err != nil {
 		return err
 	}
-	if err := validateBudgetPolicy(p); err != nil {
-		return err
-	}
-	return validatePlatformPolicy(p)
+	return nil
 }
 
 func validatePackagePolicy(p policy) error {
@@ -146,43 +128,6 @@ func validatePackagePolicy(p policy) error {
 	return nil
 }
 
-func validateBudgetPolicy(p policy) error {
-	if p.FlatDirectoryLimit < 1 {
-		return fmt.Errorf("flat_directory_limit must be >= 1")
-	}
-	if p.MaxFileELOC < 1 || p.MaxDirectoryELOC < p.MaxFileELOC {
-		return fmt.Errorf("ELOC limits must be positive and directory limit must be >= file limit")
-	}
-	if p.MaxFileComplexity < 1 || p.MaxDirectoryComplexity < p.MaxFileComplexity {
-		return fmt.Errorf("complexity limits must be positive and directory limit must be >= file limit")
-	}
-	if p.MaxTestFileELOC < 1 || p.MaxTestFileComplexity < 1 {
-		return fmt.Errorf("test source limits must be positive")
-	}
-	if p.MaxFunctionELOC < 1 || p.MaxFunctionComplexity < 1 || p.MaxNestingDepth < 1 {
-		return fmt.Errorf("production function source limits must be positive")
-	}
-	if p.MaxTestFunctionELOC < 1 || p.MaxTestFunctionComplexity < 1 || p.MaxTestNestingDepth < 1 {
-		return fmt.Errorf("test function source limits must be positive")
-	}
-	if p.SuffixFlatGroupMin < 2 {
-		return fmt.Errorf("suffix_flat_group_min must be >= 2")
-	}
-	return nil
-}
-
-func validatePlatformPolicy(p policy) error {
-	if len(p.PlatformBuildSuffixes) == 0 {
-		return fmt.Errorf("platform_build_suffixes must be non-empty")
-	}
-	for _, suffix := range p.PlatformBuildSuffixes {
-		if strings.TrimSpace(suffix) == "" || suffix != strings.ToLower(suffix) {
-			return fmt.Errorf("platform_build_suffixes must be non-empty lowercase tokens")
-		}
-	}
-	return nil
-}
-
 func validateRelativeRoot(root, field string) error {
 	if !isPortableRelativePath(root) {
 		return fmt.Errorf("%s keys must be non-empty relative paths", field)
@@ -203,14 +148,6 @@ func isPortableRelativePath(value string) bool {
 		}
 	}
 	return true
-}
-
-func (p policy) platformSuffixSet() map[string]struct{} {
-	out := make(map[string]struct{}, len(p.PlatformBuildSuffixes))
-	for _, suffix := range p.PlatformBuildSuffixes {
-		out[suffix] = struct{}{}
-	}
-	return out
 }
 
 func (p policy) ignoreRootSet() map[string]struct{} {

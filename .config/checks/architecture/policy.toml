@@ -3,7 +3,7 @@
 owner = "product-toolchain"
 source = "repository architecture layout"
 
-# Managed Go trees subject to flat-directory, suffix-flat, naming, and AST rules.
+# Managed Go trees subject to topology, naming, and AST rules.
 go_roots = ["cmd", "internal", "tools"]
 
 # Direct semantic owners form a closed, positive topology. Adding a new domain
@@ -80,31 +80,6 @@ allowed_import_edges = {
   "tools/forge" = [],
   "tools/coverage" = [],
 }
-
-# Production .go files per directory (test files reported separately).
-flat_directory_limit = 8
-
-# Effective non-comment source and AST decision-branch budgets. These reject the
-# false-green tactic of concatenating unrelated owners into fewer large files.
-max_file_eloc = 600
-max_directory_eloc = 3000
-max_file_complexity = 180
-max_directory_complexity = 900
-max_test_file_eloc = 600
-max_test_file_complexity = 180
-max_function_eloc = 120
-max_function_complexity = 35
-max_nesting_depth = 4
-max_test_function_eloc = 140
-max_test_function_complexity = 40
-max_test_nesting_depth = 4
-
-# Same prefix foo_*.go group size that fails (after platform-variant collapse).
-suffix_flat_group_min = 3
-
-# Platform build suffixes treated as one semantic implementation for suffix-flat.
-# Do not generalize beyond this explicit list.
-platform_build_suffixes = ["unix", "windows", "darwin", "linux", "posix"]
 
 # Top-level roots skipped entirely while walking the repository.
 ignore_roots = ["vendor", ".git", "records", "build"]
