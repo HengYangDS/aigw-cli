@@ -6,7 +6,7 @@
 ## 2. Source acceptance
 
 - [x] 2.1 Validate the complete release Change with OpenSpec strict mode.
-- [ ] 2.2 Execute the complete local proof on the final signed source HEAD.
+- [x] 2.2 Execute the complete local proof on the final signed source HEAD.
 
 ## Delivery boundary
 
