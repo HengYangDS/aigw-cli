@@ -113,11 +113,22 @@ surface are present. Missing and foreign clients remain untouched.
 AIGW keeps three change axes independent. A feature must enter through exactly
 the axis whose authority it changes.
 
-| Axis | Normal change | Code required when |
-| --- | --- | --- |
-| Provider Account | Endpoint, protocol capability, models, Token reference, and verification evidence | Authentication or discovery cannot use an admitted Account contract |
-| Client Adapter | Official configuration surface and its projection transaction | A new client is admitted |
-| Protocol dialect | Explicit endpoint selection | A proven wire incompatibility requires a separate data-plane product |
+```mermaid
+flowchart LR
+    N["New capability"] --> Q{"What authority changes?"}
+    Q -->|Provider access| A["Account admission"]
+    Q -->|Client configuration| C["Client Adapter admission"]
+    Q -->|Wire behavior| P["Protocol product decision"]
+```
+
+- **Account admission** owns endpoints, protocol capabilities, models, Token
+  references, and verification evidence. It needs code only when authentication
+  or discovery cannot use the admitted Account contract.
+- **Client Adapter admission** owns one client's official configuration surface
+  and projection transaction.
+- **Protocol product decisions** own proven wire incompatibilities. Selecting an
+  explicit endpoint is configuration; transport recovery belongs to a separate
+  data-plane product.
 
 An ordinary Bearer-authenticated OpenAI Responses or Anthropic endpoint is an
 Account admission, not a new provider class. An authentication system such as

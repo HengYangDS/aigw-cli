@@ -47,13 +47,13 @@ metadata.
 
 | Candidate | Correct classification | Status |
 | --- | --- | --- |
-| Z.AI GLM coding plans | Separate provider account; may use the admitted Claude protocol only after account verification | Provider evaluation only |
+| Z.AI GLM coding plans | Provider Account | Evaluation only |
 | Gemini CLI | Separate client adapter | Not admitted |
 | Qwen Code | Separate client adapter | Not admitted |
 | OpenCode | Separate client adapter | Not admitted |
 | Pi | Separate client adapter | Not admitted |
 | Hermes Agent | Separate client adapter | Not admitted |
-| Qoder | Separate client adapter; official third-party provider surface must be proved first | Capability evaluation only |
+| Qoder | Client Adapter; provider surface unproved | Capability evaluation only |
 | Perplexity | Research provider, not a Codex default | Not admitted |
 | Grok | Independent cross-check provider | Not admitted |
 
