@@ -1,0 +1,29 @@
+schema_version = 1
+id = "change:rc85-package-coverage-release"
+intent = "Publish the strict aggregate and per-package coverage contract as AIGW v0.1.0-rc.85 from one verified product tree on independent GitLab and GitHub release planes."
+subjects = ["repository:self"]
+scope = [
+  "VERSION",
+  "CHANGELOG.md",
+  "openspec/changes/rc85-package-coverage-release/**",
+  "openspec/changes/archive/*-rc85-package-coverage-release/**",
+]
+invariants = [
+  "release_identity_has_one_source_version",
+  "gitlab_and_github_publication_are_independent",
+  "failed_or_historical_release_evidence_is_not_rewritten",
+]
+acceptance = [
+  "version_and_changelog_identify_v0_1_0_rc_85",
+  "exact_head_repository_proof_passes",
+  "both_forges_may_publish_signed_tags_and_complete_assets_from_equivalent_product_trees",
+]
+risks = ["a_forge_or_runner_failure_can_defer_one_publication_plane_without_invalidating_the_other"]
+authority_refs = [
+  "user_instruction",
+  "AGENTS.md",
+  "CHANGELOG.md",
+  "VERSION",
+]
+hypotheses = []
+dependencies = []
