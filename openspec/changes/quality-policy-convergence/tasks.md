@@ -14,12 +14,11 @@
 
 - [x] 3.1 Prove focused text-layout behavior through a failing-then-passing test.
 - [x] 3.2 Pass the complete static and behavior quality graph.
-- [ ] 3.3 Produce exact-HEAD proof, archive, integrate, and retire obsolete lanes.
 
 ## Requirement To Task To Proof
 
 | Requirement | Task | Proof |
 | --- | --- | --- |
-| `product-quality:portable repository text` | `2.1`, `2.2` | `tools-architecture-text-layout-tests` |
+| `product-quality:portable repository text` | `2.1` | `tools-architecture-text-layout-tests` |
 | `product-quality:faithful quantitative quality evidence` | `2.3` | `coverage-policy-contract-and-full-quality-graph` |
 | `product-control-plane:Enforced semantic ownership and quality` | `1.3` | `static-architecture-and-openspec-validation` |
