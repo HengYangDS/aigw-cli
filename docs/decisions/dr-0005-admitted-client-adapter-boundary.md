@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-07
+- Last amended: 2026-08-16
 
 ## Context
 
@@ -21,6 +22,11 @@ Hermes, and every other agent remain outside the current adapter boundary.
 A new client requires one explicit adapter admission with configuration,
 secret, rollback, uninstall, platform, and real verification evidence. Provider
 support alone never admits a client.
+
+Every admitted adapter implements the same semantic slice: discover, plan,
+guard the observed preimage, project atomically, verify, rollback, and define
+uninstall ownership. The interface is shared; configuration paths, credentials,
+and client-specific policy are not.
 
 ## Consequences
 

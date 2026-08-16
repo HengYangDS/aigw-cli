@@ -13,6 +13,11 @@ Provider support for a protocol does not admit a new client. Only proven Claude
 and Codex adapters may be enabled. A model name, a shared configuration
 directory, or a generic "OpenAI-compatible" claim must never bypass admission.
 
+Provider Account and Client Adapter are independent extension axes. Ordinary
+Bearer-authenticated endpoints use the Account schema; they do not require a
+provider-specific package. A distinct authentication mechanism or wire
+protocol requires an explicit Adapter decision instead of name-based branching.
+
 The admitted clients live in one static registry. Status, diagnostics, profile
 validation, route validation, and adapter discovery read from that registry. A
 new model in an account catalog does not change it.
@@ -46,7 +51,9 @@ metadata.
 | Gemini CLI | Separate client adapter | Not admitted |
 | Qwen Code | Separate client adapter | Not admitted |
 | OpenCode | Separate client adapter | Not admitted |
+| Pi | Separate client adapter | Not admitted |
 | Hermes Agent | Separate client adapter | Not admitted |
+| Qoder | Separate client adapter; official third-party provider surface must be proved first | Capability evaluation only |
 | Perplexity | Research provider, not a Codex default | Not admitted |
 | Grok | Independent cross-check provider | Not admitted |
 
@@ -71,6 +78,12 @@ Every new adapter must supply all of the following before merge:
 8. A host-surface ownership record showing that every mutated key has one
    admitted writer and that generic discovery cannot silently adopt a foreign
    IDE or CLI surface.
+
+The implementation must expose one cohesive Adapter boundary for discovery,
+planning, guarded projection, verification, rollback, and uninstall. Client
+names do not belong in provider admission, route persistence, transaction, or
+presentation policy. A missing client is a successful no-op, not an invitation
+to create placeholder state.
 
 Connectivity probes are part of the protocol contract. An Anthropic probe sets
 `X-Api-Key` and must not set `Authorization`; an OpenAI Responses probe sets

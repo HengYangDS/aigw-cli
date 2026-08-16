@@ -3,6 +3,24 @@
 AIGW is a local control plane. It turns reviewed configuration into bounded
 native-client projections; it is not a model traffic gateway.
 
+## Product position
+
+AIGW minimizes the distance between an operator's intent and each client's
+official configuration surface. It deliberately avoids becoming a mandatory
+traffic hop, a client launcher, or an agent-state manager.
+
+| Concern | AIGW role | Other owner |
+| --- | --- | --- |
+| Provider service and endpoint capability | Record verified Account capabilities | Provider |
+| Token material | Store and retrieve an Account reference | OS credential store |
+| Client intent | Select a Profile through a Route | AIGW configuration |
+| Native client configuration | Project one admitted, bounded region | Client Adapter |
+| Wire compatibility | Select an explicit endpoint | Endpoint product |
+| Conversations, memory, tools, and GUI state | None | Client |
+
+This split is the product's advantage over an all-in-one gateway: normal client
+configuration remains direct, auditable, and usable when AIGW is not running.
+
 ## Product graph
 
 ```mermaid
@@ -89,6 +107,39 @@ the native `claude` command directly.
 
 Setup and repair touch only admitted clients whose required executable and
 surface are present. Missing and foreign clients remain untouched.
+
+## Extension model
+
+AIGW keeps three change axes independent. A feature must enter through exactly
+the axis whose authority it changes.
+
+| Axis | Normal change | Code required when |
+| --- | --- | --- |
+| Provider Account | Endpoint, protocol capability, models, Token reference, and verification evidence | Authentication or discovery cannot use an admitted Account contract |
+| Client Adapter | Official configuration surface and its projection transaction | A new client is admitted |
+| Protocol dialect | Explicit endpoint selection | A proven wire incompatibility requires a separate data-plane product |
+
+An ordinary Bearer-authenticated OpenAI Responses or Anthropic endpoint is an
+Account admission, not a new provider class. An authentication system such as
+request signing, or a non-native invocation protocol, requires a separately
+reviewed authentication or protocol Adapter; it must not be disguised as a
+Bearer Account.
+
+A Client Adapter is admitted only when it can perform this complete slice:
+
+```text
+discover -> plan -> guard preimage -> project atomically -> verify -> rollback
+```
+
+It must also define its uninstall boundary. OpenCode, Pi, Hermes Agent, Qoder,
+and later clients therefore extend AIGW through the same contract rather than
+through Codex or Claude Code conditionals. Hermes provider projection, for
+example, would never grant AIGW authority over Hermes tools, memory, sessions,
+or runtime lifecycle.
+
+The detailed admission evidence belongs to
+[Adapter Admission](../governance/adapter-admission.md). Provider-specific wire
+recovery remains outside AIGW.
 
 ## External endpoints
 
