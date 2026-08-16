@@ -173,17 +173,6 @@ assert its displayed percentage.
   does not match those counts, or its claim digest does not match the record
 - **THEN** governance verification SHALL fail before promotion
 
-### Requirement: Documented package ownership
-
-Every non-command production package MUST document its package contract at the
-implementation owner.
-
-#### Scenario: Package ownership is undocumented
-
-- **WHEN** a production package omits a `Package <name>` contract or documents
-  another package name
-- **THEN** architecture verification SHALL fail before publication
-
 ### Requirement: Quiet handled failures
 
 Handled CLI failures MUST NOT emit a framework usage banner, warning,
