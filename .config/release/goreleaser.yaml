@@ -33,6 +33,8 @@ archives:
     name_template: "aigw_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     wrap_in_directory: true
     builds_info:
+      owner: root
+      group: root
       mtime: "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
     format_overrides:
       - goos: windows
@@ -40,9 +42,13 @@ archives:
     files:
       - src: README.md
         info:
+          owner: root
+          group: root
           mtime: "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
       - src: LICENSE
         info:
+          owner: root
+          group: root
           mtime: "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
 
 checksum:

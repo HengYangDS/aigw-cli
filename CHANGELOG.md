@@ -8,6 +8,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.84] - 2026-08-16
+
+### Fixed
+
+- Normalize archive ownership metadata so independent GitLab and GitHub
+  builders produce byte-identical portable release assets from the same source
+  tree, epoch, toolchain, and release inputs.
+
 ## [0.1.0-rc.83] - 2026-08-16
 
 ### Fixed
