@@ -29,11 +29,13 @@ Neither path edits historical conversations.
 
 ## Alternatives Considered
 
-| Alternative | Reason not selected |
-| --- | --- |
-| Mandatory all-in-one AI gateway | Makes local client use depend on a traffic process and combines configuration, policy, and transport failure domains. |
-| Client-specific switcher as the canonical store | Couples Account and Token authority to one client's private layout. |
-| Provider-specific code for every compatible endpoint | Turns data admission into branching code and raises extension cost without a protocol need. |
+- **Mandatory all-in-one AI gateway:** rejected because local client use would
+  depend on a traffic process, combining configuration, policy, and transport
+  failure domains.
+- **Client-specific switcher as the canonical store:** rejected because it
+  couples Account and Token authority to one client's private layout.
+- **Provider-specific code for every compatible endpoint:** rejected because it
+  turns data admission into branching code without a protocol need.
 
 Adjacent gateways and client switchers remain useful references, but their
 feature breadth is not AIGW's product objective. AIGW optimizes for a small
