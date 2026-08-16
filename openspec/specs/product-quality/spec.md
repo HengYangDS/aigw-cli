@@ -146,24 +146,26 @@ behavior SHALL live at the smallest stable owner rather than in a forwarding
 wrapper, alias-only package, or copied helper. Size, complexity, nesting, and
 other presentation heuristics MAY inform review, but SHALL NOT reject a change
 without an independently justified risk model, defined measurement semantics,
-and an explicit review condition.
+false-positive cost, remediation path, and review trigger.
 
 #### Scenario: structure violates semantic ownership
 
 - **WHEN** production, test, or tool code violates the declared topology,
   dependency direction, composition root, naming, or ownership contract
-- **THEN** the architecture gate SHALL fail with the exact semantic violation
+- **THEN** the architecture gate SHALL fail with the exact semantic violation.
 
 #### Scenario: a heuristic changes
 
 - **WHEN** a size, complexity, nesting, or presentation heuristic is proposed
+  as a merge condition
 - **THEN** it SHALL remain review evidence unless its risk model, measurement,
-  false-positive cost, remediation path, and review trigger are admitted
+  false-positive cost, remediation path, and review trigger are admitted.
 
 #### Scenario: an ordinary provider is added
 
-- **WHEN** a provider can be represented by Account, endpoint, Profile, and Route data
-- **THEN** it SHALL require no provider-specific command, client projection, installer, service lifecycle, or core dependency branch
+- **WHEN** an ordinary provider implementation is added below the declared
+  provider owner without changing package topology or dependency direction
+- **THEN** no repository-shape allowance or threshold change SHALL be required.
 
 ### Requirement: complete delivery evidence
 
