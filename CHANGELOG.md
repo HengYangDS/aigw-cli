@@ -8,6 +8,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.83] - 2026-08-16
+
+### Fixed
+
+- Infer the target client from an explicitly selected single-client Profile,
+  so `aigw test` and `aigw verify` no longer require a redundant `--for`
+  argument. Unscoped Profiles still require an explicit client, and conflicting
+  selections fail before network access.
+
 ## [0.1.0-rc.82] - 2026-08-15
 
 ### Fixed
