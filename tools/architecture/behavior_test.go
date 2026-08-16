@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -172,18 +174,16 @@ func TestPackageChildrenIgnoreNonDirectoriesAndRejectInvalidRoots(t *testing.T) 
 
 func TestPackageChildrenReportsUnreadableManagedRoot(t *testing.T) {
 	root := t.TempDir()
-	managed := filepath.Join(root, "tools")
-	if err := os.Mkdir(managed, 0o700); err != nil {
+	if err := os.Mkdir(filepath.Join(root, "tools"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(managed, 0); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(managed, 0o700) })
 	report := newReport("policy", root)
 	p := policy{PackageChildren: map[string][]string{"tools": {"release"}}}
-	if err := checkPackageChildren(root, p, &report); err == nil {
-		t.Fatal("unreadable managed root was accepted")
+	readFailure := errors.New("deterministic read failure")
+	if err := checkPackageChildrenWithReadDir(root, p, &report, func(string) ([]fs.DirEntry, error) {
+		return nil, readFailure
+	}); !errors.Is(err, readFailure) {
+		t.Fatalf("directory read error = %v", err)
 	}
 }
 
