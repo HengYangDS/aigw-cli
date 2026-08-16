@@ -1,0 +1,36 @@
+schema_version = 1
+id = "change:quality-policy-convergence"
+intent = "Converge every enforced AIGW repository rule onto one justified product-risk contract and remove obsolete or duplicate vetoes."
+subjects = ["repository:aigw-cli"]
+scope = [
+  "AGENTS.md",
+  ".config/checks/**",
+  "docs/governance/**",
+  "openspec/changes/quality-policy-convergence/**",
+  "openspec/specs/**",
+  "tools/**",
+]
+invariants = [
+  "product correctness security credential boundaries state integrity portability and evidence authenticity remain protected",
+  "every merge veto has one semantic owner and a documented satisfiable risk model",
+  "presentation and maintainability heuristics cannot impersonate product correctness",
+  "repository-native verification remains deterministic across supported hosts",
+]
+acceptance = [
+  "obsolete contradictory negative and duplicate rule surfaces are removed",
+  "remaining quantitative vetoes define measurement semantics false-positive cost remediation and review conditions",
+  "text quality relies on deterministic byte invariants and mature formatters rather than hand-written aesthetic vetoes",
+  "the complete repository quality and behavior proof graph passes from the locked product toolchain",
+]
+risks = [
+  "removing a stale rule may reveal a real product invariant that must be restated positively",
+]
+authority_refs = [
+  "user_instruction",
+  "AGENTS.md",
+  ".ethos/profile.toml",
+  ".config/checks/**",
+  "openspec/specs/product-quality/spec.md",
+]
+hypotheses = []
+dependencies = []
