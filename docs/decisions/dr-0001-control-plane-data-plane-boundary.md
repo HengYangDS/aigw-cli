@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-14
+- Last amended: 2026-08-16
 
 ## Context
 
@@ -25,6 +26,19 @@ independent; AIGW neither depends on, configures, nor verifies them.
 Projection recovery happens through AIGW's all-target transaction. Transport
 recovery remains entirely within the selected service's product boundary.
 Neither path edits historical conversations.
+
+## Alternatives Considered
+
+| Alternative | Reason not selected |
+| --- | --- |
+| Mandatory all-in-one AI gateway | Makes local client use depend on a traffic process and combines configuration, policy, and transport failure domains. |
+| Client-specific switcher as the canonical store | Couples Account and Token authority to one client's private layout. |
+| Provider-specific code for every compatible endpoint | Turns data admission into branching code and raises extension cost without a protocol need. |
+
+Adjacent gateways and client switchers remain useful references, but their
+feature breadth is not AIGW's product objective. AIGW optimizes for a small
+authority surface, native-client configuration, explicit transactions, and
+independent endpoint products.
 
 ## Revisit Trigger
 
