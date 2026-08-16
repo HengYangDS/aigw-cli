@@ -99,6 +99,20 @@ func (c Config) ProfileIDs() []string {
 	return ids
 }
 
+// ClientForProfile returns the canonical client declared by a named
+// profile. Callers must not infer client scope from models, endpoints, routes,
+// or profile names when this declaration is absent.
+func (c Config) ClientForProfile(name string) (string, error) {
+	profile, ok := c.Profiles[name]
+	if !ok {
+		return "", fmt.Errorf("unknown profile %q", name)
+	}
+	if !IsAdmittedClient(profile.Client) {
+		return "", fmt.Errorf("profile %q does not declare a client; provide --for %s", name, AdmittedClientUsage())
+	}
+	return profile.Client, nil
+}
+
 // ResolveAccount accepts either an Account ID or a Profile ID and returns the
 // referenced Account with its map identity populated.
 func (c Config) ResolveAccount(reference string) (string, Account, error) {

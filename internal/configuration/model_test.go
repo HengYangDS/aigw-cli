@@ -198,6 +198,24 @@ func TestResolveRuntimeReturnsAccountEndpointAndModel(t *testing.T) {
 	}
 }
 
+func TestClientForProfileRequiresCanonicalScope(t *testing.T) {
+	cfg := NewConfig()
+	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Profiles["codex"] = Profile{Label: "Codex", Account: "dmx", Client: ClientCodex, Models: Models{ClientCodex: "gpt-5.6"}}
+	cfg.Profiles["shared"] = Profile{Label: "Shared", Account: "dmx", Models: Models{ClientCodex: "gpt-5.6"}}
+
+	client, err := cfg.ClientForProfile("codex")
+	if err != nil || client != ClientCodex {
+		t.Fatalf("ClientForProfile(codex) = %q, %v", client, err)
+	}
+	if _, err := cfg.ClientForProfile("shared"); err == nil || !strings.Contains(err.Error(), "--for") {
+		t.Fatalf("unscoped profile error = %v", err)
+	}
+	if _, err := cfg.ClientForProfile("missing"); err == nil || !strings.Contains(err.Error(), "unknown profile") {
+		t.Fatalf("unknown profile error = %v", err)
+	}
+}
+
 func TestValidateRejectsRuntimeProfileReferencingUnknownAccountOrWrongClient(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
