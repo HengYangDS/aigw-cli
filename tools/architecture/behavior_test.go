@@ -220,12 +220,12 @@ import "example.com/owner/library"
 
 func TestFinalizeSortTies(t *testing.T) {
 	report := newReport("p", ".")
-	report.DirectoryStats = []DirectoryStats{{Path: "b"}, {Path: "a"}}
-	report.FlatDirectories = []DirectoryStats{{Path: "b"}, {Path: "a"}}
+	report.addFinding(Finding{Rule: "a", Path: "z", Message: "path-z"})
+	report.addFinding(Finding{Rule: "a", Path: "a", Message: "path-a"})
 	report.addFinding(Finding{Rule: "a", Path: "p", Line: 1, Prefix: "b", Name: "n2", Message: "m2"})
 	report.addFinding(Finding{Rule: "a", Path: "p", Line: 1, Prefix: "a", Name: "n1", Message: "m1"})
 	report.addFinding(Finding{Rule: "a", Path: "p", Line: 1, Prefix: "a", Name: "n1", Message: "m0"})
-	if report.Summary["total"] != 3 {
+	if report.Summary["total"] != 5 {
 		t.Fatalf("pre-summary=%v", report.Summary)
 	}
 	// Defensive path: nil summary becomes empty with total=0 (counts live on findings).
@@ -234,10 +234,7 @@ func TestFinalizeSortTies(t *testing.T) {
 	if report.Summary["total"] != 0 {
 		t.Fatalf("summary=%v", report.Summary)
 	}
-	if report.DirectoryStats[0].Path != "a" || report.FlatDirectories[0].Path != "a" {
-		t.Fatalf("dir sort failed")
-	}
-	if report.Findings[0].Prefix != "a" || report.Findings[0].Message != "m0" {
+	if report.Findings[0].Path != "a" || report.Findings[1].Prefix != "a" || report.Findings[1].Message != "m0" {
 		t.Fatalf("findings=%+v", report.Findings)
 	}
 	// Keep a non-nil summary path covered too.
@@ -252,38 +249,14 @@ func TestFinalizeSortTies(t *testing.T) {
 
 func TestValidatePolicyEdgeEntries(t *testing.T) {
 	base := policy{
-		Owner:                     "o",
-		Source:                    "s",
-		GoRoots:                   []string{"internal"},
-		FlatDirectoryLimit:        8,
-		MaxFileELOC:               700,
-		MaxDirectoryELOC:          3600,
-		MaxFileComplexity:         180,
-		MaxDirectoryComplexity:    900,
-		MaxTestFileELOC:           800,
-		MaxTestFileComplexity:     200,
-		MaxFunctionELOC:           200,
-		MaxFunctionComplexity:     100,
-		MaxNestingDepth:           20,
-		MaxTestFunctionELOC:       220,
-		MaxTestFunctionComplexity: 120,
-		MaxTestNestingDepth:       20,
-		SuffixFlatGroupMin:        3,
-		PlatformBuildSuffixes:     []string{"unix"},
+		Owner:   "o",
+		Source:  "s",
+		GoRoots: []string{"internal"},
 	}
 	if err := validatePolicy(base); err != nil {
 		t.Fatal(err)
 	}
 	bad := base
-	bad.PlatformBuildSuffixes = []string{"UNIX"}
-	if err := validatePolicy(bad); err == nil {
-		t.Fatal("upper platform")
-	}
-	bad = base
-	bad.PlatformBuildSuffixes = []string{""}
-	if err := validatePolicy(bad); err == nil {
-		t.Fatal("empty platform token")
-	}
 	bad = base
 	bad.GoRoots = []string{"internal/../x"}
 	if err := validatePolicy(bad); err == nil {
@@ -339,19 +312,6 @@ func TestValidatePolicyEdgeEntries(t *testing.T) {
 	if err := validatePolicy(bad); err == nil {
 		t.Fatal("invalid import edge target")
 	}
-	for name, mutate := range map[string]func(*policy){
-		"test file ELOC":           func(p *policy) { p.MaxTestFileELOC = 0 },
-		"production function ELOC": func(p *policy) { p.MaxFunctionELOC = 0 },
-		"test function complexity": func(p *policy) { p.MaxTestFunctionComplexity = 0 },
-	} {
-		t.Run(name, func(t *testing.T) {
-			bad := base
-			mutate(&bad)
-			if err := validatePolicy(bad); err == nil {
-				t.Fatal("invalid budget accepted")
-			}
-		})
-	}
 }
 
 func TestPackageChildrenEnforcePositiveTopology(t *testing.T) {
@@ -390,6 +350,23 @@ func TestPackageChildrenIgnoreNonDirectoriesAndRejectInvalidRoots(t *testing.T) 
 	p.PackageChildren = map[string][]string{"invalid\x00root": {"release"}}
 	if err := checkPackageChildren(root, p, &report); err == nil {
 		t.Fatal("invalid managed root was accepted")
+	}
+}
+
+func TestPackageChildrenReportsUnreadableManagedRoot(t *testing.T) {
+	root := t.TempDir()
+	managed := filepath.Join(root, "tools")
+	if err := os.Mkdir(managed, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(managed, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(managed, 0o700) })
+	report := newReport("policy", root)
+	p := policy{PackageChildren: map[string][]string{"tools": {"release"}}}
+	if err := checkPackageChildren(root, p, &report); err == nil {
+		t.Fatal("unreadable managed root was accepted")
 	}
 }
 
@@ -511,24 +488,9 @@ func TestImportEdgesRequireEveryProductionPackageOwner(t *testing.T) {
 	writeFile(t, filepath.Join(root, "internal", "managed", "managed.go"), "package managed\n")
 	writeFile(t, filepath.Join(root, "internal", "unmanaged", "unmanaged.go"), "package unmanaged\n")
 	p := policy{
-		GoRoots:                   []string{"internal"},
-		AllowedImportEdges:        map[string][]string{"internal/managed": {}},
-		FlatDirectoryLimit:        8,
-		MaxFileELOC:               100,
-		MaxDirectoryELOC:          100,
-		MaxFileComplexity:         100,
-		MaxDirectoryComplexity:    100,
-		MaxTestFileELOC:           100,
-		MaxTestFileComplexity:     100,
-		MaxFunctionELOC:           200,
-		MaxFunctionComplexity:     100,
-		MaxNestingDepth:           20,
-		MaxTestFunctionELOC:       220,
-		MaxTestFunctionComplexity: 120,
-		MaxTestNestingDepth:       20,
-		SuffixFlatGroupMin:        3,
-		PlatformBuildSuffixes:     []string{"unix", "windows"},
-		RequireImportOwners:       true,
+		GoRoots:             []string{"internal"},
+		AllowedImportEdges:  map[string][]string{"internal/managed": {}},
+		RequireImportOwners: true,
 	}
 	report, err := analyzeRepository(root, p, "policy.toml")
 	if err != nil {
@@ -536,36 +498,5 @@ func TestImportEdgesRequireEveryProductionPackageOwner(t *testing.T) {
 	}
 	if countRule(report, "unmanaged_import_owner") != 1 {
 		t.Fatalf("findings = %+v", report.Findings)
-	}
-}
-
-func TestSourceBudgetsIncludeTestFiles(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "internal", "domain", "large_test.go"), "package domain\nfunc TestLarge() {\nprintln(1)\nprintln(2)\n}\n")
-	p := policy{
-		GoRoots:                   []string{"internal"},
-		AllowedImportEdges:        map[string][]string{"internal/domain": {}},
-		FlatDirectoryLimit:        8,
-		MaxFileELOC:               100,
-		MaxDirectoryELOC:          100,
-		MaxFileComplexity:         100,
-		MaxDirectoryComplexity:    100,
-		MaxTestFileELOC:           3,
-		MaxTestFileComplexity:     100,
-		MaxFunctionELOC:           200,
-		MaxFunctionComplexity:     100,
-		MaxNestingDepth:           20,
-		MaxTestFunctionELOC:       220,
-		MaxTestFunctionComplexity: 120,
-		MaxTestNestingDepth:       20,
-		SuffixFlatGroupMin:        3,
-		PlatformBuildSuffixes:     []string{"unix", "windows"},
-	}
-	report, err := analyzeRepository(root, p, "policy.toml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if countRule(report, "file_eloc") != 1 || report.DirectoryStats[0].TestELOC == 0 {
-		t.Fatalf("report = %+v", report)
 	}
 }

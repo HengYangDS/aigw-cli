@@ -16,21 +16,6 @@ source = "repository architecture layout"
 go_roots = ["cmd", "internal", "tools"]
 composition_root_files = { "internal/cli" = ["app.go"] }
 peer_package_roots = { "internal/cli" = ["invocation"] }
-flat_directory_limit = 8
-max_file_eloc = 700
-max_directory_eloc = 3600
-max_file_complexity = 180
-max_directory_complexity = 900
-max_test_file_eloc = 800
-max_test_file_complexity = 200
-max_function_eloc = 200
-max_function_complexity = 100
-max_nesting_depth = 20
-max_test_function_eloc = 220
-max_test_function_complexity = 120
-max_test_nesting_depth = 20
-suffix_flat_group_min = 3
-platform_build_suffixes = ["unix", "windows", "darwin", "linux", "posix"]
 ignore_roots = ["vendor", ".git", "records", "build"]
 ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
 check_exported_type_alias = true
@@ -110,110 +95,9 @@ func TestRunCleanFixture(t *testing.T) {
 	}
 }
 
-func TestRunDetectsELOCAndComplexityDebt(t *testing.T) {
-	root := t.TempDir()
-	body := strings.Replace(validPolicy, "max_file_eloc = 700", "max_file_eloc = 4", 1)
-	body = strings.Replace(body, "max_directory_eloc = 3600", "max_directory_eloc = 9", 1)
-	body = strings.Replace(body, "max_file_complexity = 180", "max_file_complexity = 1", 1)
-	body = strings.Replace(body, "max_directory_complexity = 900", "max_directory_complexity = 2", 1)
-	policyPath := writePolicy(t, root, body)
-	writeFile(t, filepath.Join(root, "scripts", "check", "ok.sh"), "#!/bin/sh\n")
-	writeFile(t, filepath.Join(root, "internal", "mixed", "large.go"), `package mixed
-
-func classify(value int) string {
-	if value < 0 {
-		return "negative"
-	}
-	if value == 0 {
-		return "zero"
-	}
-	return "positive"
-}
-`)
-	writeFile(t, filepath.Join(root, "internal", "mixed", "peer.go"), `package mixed
-
-func enabled(value bool) bool {
-	if value {
-		return true
-	}
-	return false
-}
-`)
-
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 1 {
-		t.Fatalf("code=%d want 1 stderr=%q stdout=%s", code, stderr.String(), stdout.String())
-	}
-	report := decodeReport(t, stdout.String())
-	for _, rule := range []string{"file_eloc", "directory_eloc", "file_complexity", "directory_complexity"} {
-		if !hasRule(report, rule) {
-			t.Fatalf("missing rule %s in %v\nstdout=%s", rule, findingRules(report), stdout.String())
-		}
-	}
-	var foundStats bool
-	for _, stat := range report.DirectoryStats {
-		if stat.Path == "internal/mixed" {
-			foundStats = stat.ProductionELOC > 0 && stat.ProductionComplexity > 0
-		}
-	}
-	if !foundStats {
-		t.Fatalf("missing ELOC/complexity directory stats: %+v", report.DirectoryStats)
-	}
-}
-
-func TestRunDetectsFunctionBudgets(t *testing.T) {
-	root := t.TempDir()
-	body := strings.Replace(validPolicy, "max_test_function_eloc = 220", "max_test_function_eloc = 4", 1)
-	body = strings.Replace(body, "max_test_function_complexity = 120", "max_test_function_complexity = 1", 1)
-	body = strings.Replace(body, "max_test_nesting_depth = 20", "max_test_nesting_depth = 1", 1)
-	policyPath := writePolicy(t, root, body)
-	writeFile(t, filepath.Join(root, "internal", "domain", "behavior_test.go"), `package domain
-func TestBehavior(value int) bool {
-	if value > 0 {
-		if value > 1 {
-			return true
-		}
-	}
-	return false
-}
-func TestPeer(value int) bool {
-	if value < 0 { return true }
-	return false
-}
-`)
-
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 {
-		t.Fatalf("code=%d want 1 stderr=%q stdout=%s", code, stderr.String(), stdout.String())
-	}
-	report := decodeReport(t, stdout.String())
-	for _, rule := range []string{"function_eloc", "function_complexity", "function_nesting"} {
-		if !hasRule(report, rule) {
-			t.Fatalf("missing rule %s in %v\nstdout=%s", rule, findingRules(report), stdout.String())
-		}
-	}
-}
-
 func TestRunDetectsCoreViolations(t *testing.T) {
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
-
-	// flat directory over limit (9 production files)
-	for i := 1; i <= 9; i++ {
-		writeFile(t, filepath.Join(root, "internal", "flat", "f"+itoa(i)+".go"), "package flat\n")
-	}
-	// many tests must not hide production flatness
-	for i := 1; i <= 5; i++ {
-		writeFile(t, filepath.Join(root, "internal", "flat", "f"+itoa(i)+"_test.go"), "package flat\n")
-	}
-
-	// suffix-flat group
-	writeFile(t, filepath.Join(root, "internal", "sfx", "foo_a.go"), "package sfx\n")
-	writeFile(t, filepath.Join(root, "internal", "sfx", "foo_b.go"), "package sfx\n")
-	writeFile(t, filepath.Join(root, "internal", "sfx", "foo_c.go"), "package sfx\n")
 
 	// forbidden directory name
 	writeFile(t, filepath.Join(root, "internal", "shims", "launcher.go"), "package shims\n\nfunc X() {}\n")
@@ -251,8 +135,6 @@ func Print(a ...any) (n int, err error) {
 		t.Fatal("expected ok=false")
 	}
 	for _, rule := range []string{
-		"flat_directory",
-		"suffix_flat",
 		"composition_root_file",
 		"peer_package_import",
 		"exported_type_alias",
@@ -263,27 +145,13 @@ func Print(a ...any) (n int, err error) {
 			t.Fatalf("missing rule %s in %v\nstdout=%s", rule, findingRules(report), stdout.String())
 		}
 	}
-	// flat finding should include production count and not use tests to pass
-	foundFlat := false
 	for _, finding := range report.Findings {
-		if finding.Rule == "flat_directory" {
-			foundFlat = true
-			if finding.Count != 9 || finding.Limit != 8 {
-				t.Fatalf("flat finding=%+v", finding)
-			}
-			if finding.Line != 0 && finding.Path == "" {
-				t.Fatal("flat path missing")
-			}
-		}
 		if finding.Rule == "exported_type_alias" && finding.Line < 1 {
 			t.Fatalf("type alias missing line: %+v", finding)
 		}
 		if finding.Rule == "trivial_wrapper" && finding.Line < 1 {
 			t.Fatalf("wrapper missing line: %+v", finding)
 		}
-	}
-	if !foundFlat {
-		t.Fatal("missing flat_directory finding details")
 	}
 }
 
@@ -293,22 +161,6 @@ func TestNegativeAndEdgeCases(t *testing.T) {
 
 	// scripts only semantic subdir — OK
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "#!/bin/sh\n")
-
-	// platform variants collapse — not suffix-flat
-	writeFile(t, filepath.Join(root, "internal", "plat", "files_unix.go"), "package plat\n")
-	writeFile(t, filepath.Join(root, "internal", "plat", "files_windows.go"), "package plat\n")
-	writeFile(t, filepath.Join(root, "internal", "plat", "files_darwin.go"), "package plat\n")
-	writeFile(t, filepath.Join(root, "internal", "plat", "files_linux.go"), "package plat\n")
-	writeFile(t, filepath.Join(root, "internal", "plat", "files_posix.go"), "package plat\n")
-
-	// two suffix modules only — under threshold
-	writeFile(t, filepath.Join(root, "internal", "pair", "foo_a.go"), "package pair\n")
-	writeFile(t, filepath.Join(root, "internal", "pair", "foo_b.go"), "package pair\n")
-
-	// exactly 8 production files — OK
-	for i := 1; i <= 8; i++ {
-		writeFile(t, filepath.Join(root, "internal", "limit", "f"+itoa(i)+".go"), "package limit\n")
-	}
 
 	// ignored roots must not be scanned
 	writeFile(t, filepath.Join(root, "vendor", "internal", "shims", "x.go"), "package shims\n")
@@ -359,12 +211,6 @@ type Named fmt.Stringer
 	var stderr bytes.Buffer
 	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
 	report := decodeReport(t, stdout.String())
-	if hasRule(report, "suffix_flat") {
-		t.Fatalf("platform/pair should not suffix-flat: %v", findingRules(report))
-	}
-	if hasRule(report, "flat_directory") {
-		t.Fatalf("limit-8 should pass: %v", findingRules(report))
-	}
 	if hasRule(report, "trivial_wrapper") {
 		t.Fatalf("logic wrapper false positive: %v\n%s", findingRules(report), stdout.String())
 	}
@@ -397,12 +243,6 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 		{name: "unknown field", body: validPolicy + "extra = 1\n", want: "load architecture policy", code: 1},
 		{name: "empty owner", body: strings.Replace(validPolicy, "product-toolchain", "", 1), want: "owner and source", code: 1},
 		{name: "empty go roots", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = []`, 1), want: "go_roots", code: 1},
-		{name: "bad flat limit", body: strings.Replace(validPolicy, "flat_directory_limit = 8", "flat_directory_limit = 0", 1), want: "flat_directory_limit", code: 1},
-		{name: "bad file ELOC", body: strings.Replace(validPolicy, "max_file_eloc = 700", "max_file_eloc = 0", 1), want: "ELOC limits", code: 1},
-		{name: "bad directory ELOC", body: strings.Replace(validPolicy, "max_directory_eloc = 3600", "max_directory_eloc = 699", 1), want: "ELOC limits", code: 1},
-		{name: "bad file complexity", body: strings.Replace(validPolicy, "max_file_complexity = 180", "max_file_complexity = 0", 1), want: "complexity limits", code: 1},
-		{name: "bad directory complexity", body: strings.Replace(validPolicy, "max_directory_complexity = 900", "max_directory_complexity = 179", 1), want: "complexity limits", code: 1},
-		{name: "bad suffix min", body: strings.Replace(validPolicy, "suffix_flat_group_min = 3", "suffix_flat_group_min = 1", 1), want: "suffix_flat_group_min", code: 1},
 		{name: "abs go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["/tmp/x"]`, 1), want: "go_roots", code: 1},
 		{name: "windows drive go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["C:/tmp/x"]`, 1), want: "go_roots", code: 1},
 		{name: "windows relative drive go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["C:tmp/x"]`, 1), want: "go_roots", code: 1},
@@ -411,7 +251,6 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 		{name: "windows composition root", body: strings.Replace(validPolicy, `composition_root_files = { "internal/cli" = ["app.go"] }`, `composition_root_files = { "C:/internal/cli" = ["app.go"] }`, 1), want: "composition_root_files", code: 1},
 		{name: "duplicate composition file", body: strings.Replace(validPolicy, `composition_root_files = { "internal/cli" = ["app.go"] }`, `composition_root_files = { "internal/cli" = ["app.go", "app.go"] }`, 1), want: "composition_root_files", code: 1},
 		{name: "parent peer root", body: strings.Replace(validPolicy, `peer_package_roots = { "internal/cli" = ["invocation"] }`, `peer_package_roots = { "internal/../cli" = ["invocation"] }`, 1), want: "peer_package_roots", code: 1},
-		{name: "empty platform", body: strings.Replace(validPolicy, `platform_build_suffixes = ["unix", "windows", "darwin", "linux", "posix"]`, `platform_build_suffixes = []`, 1), want: "platform_build_suffixes", code: 1},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -526,48 +365,9 @@ func TestTextLayoutSkipsPythonSources(t *testing.T) {
 	}
 }
 
-func TestSuffixFlatPlatformPartialStillGroupsSemantic(t *testing.T) {
-	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
-	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
-	// foo_report platform variants collapse to one semantic key; plus foo_native and foo_index => 3
-	writeFile(t, filepath.Join(root, "internal", "sfx", "foo_report_unix.go"), "package sfx\n")
-	writeFile(t, filepath.Join(root, "internal", "sfx", "foo_report_windows.go"), "package sfx\n")
-	writeFile(t, filepath.Join(root, "internal", "sfx", "foo_native.go"), "package sfx\n")
-	writeFile(t, filepath.Join(root, "internal", "sfx", "foo_index.go"), "package sfx\n")
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 1 {
-		t.Fatalf("code=%d", code)
-	}
-	report := decodeReport(t, stdout.String())
-	if !hasRule(report, "suffix_flat") {
-		t.Fatalf("expected suffix_flat, got %v", findingRules(report))
-	}
-	for _, finding := range report.Findings {
-		if finding.Rule == "suffix_flat" && finding.Count != 3 {
-			t.Fatalf("count=%d want 3 files=%v", finding.Count, finding.Files)
-		}
-	}
-}
-
 func TestCollapseAndHelpers(t *testing.T) {
-	platform := map[string]struct{}{"unix": {}, "windows": {}}
-	if got := collapsePlatformSuffixes("files_unix", platform); got != "files" {
-		t.Fatalf("got %q", got)
-	}
-	if got := collapsePlatformSuffixes("files_unix_windows", platform); got != "files" {
-		t.Fatalf("got %q", got)
-	}
-	if got := collapsePlatformSuffixes("foo_report", platform); got != "foo_report" {
-		t.Fatalf("got %q", got)
-	}
 	if !isTestGoFile("a_test.go") || isTestGoFile("a.go") {
 		t.Fatal("isTestGoFile")
-	}
-	if !isIdentPrefix("foo") || isIdentPrefix("") || isIdentPrefix("1x") {
-		t.Fatal("isIdentPrefix")
 	}
 	if !isExportedIdent("Foo") || isExportedIdent("foo") || isExportedIdent("") {
 		t.Fatal("isExportedIdent")
@@ -625,7 +425,7 @@ func TestLoadPolicyRepoDefaultShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.FlatDirectoryLimit != 8 || p.MaxFileELOC != 700 || p.MaxDirectoryELOC != 3600 || p.MaxFileComplexity != 180 || p.MaxDirectoryComplexity != 900 || p.SuffixFlatGroupMin != 3 {
+	if p.Owner != "product-toolchain" || len(p.GoRoots) != 3 {
 		t.Fatalf("%+v", p)
 	}
 }
@@ -675,18 +475,4 @@ func TestGoRootFileIgnored(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
 	}
-}
-
-func itoa(v int) string {
-	if v == 0 {
-		return "0"
-	}
-	var buf [16]byte
-	i := len(buf)
-	for v > 0 {
-		i--
-		buf[i] = byte('0' + v%10)
-		v /= 10
-	}
-	return string(buf[i:])
 }

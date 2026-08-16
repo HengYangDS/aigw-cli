@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"unicode"
 )
 
 var repositoryAnalysis = struct {
@@ -28,13 +27,10 @@ var repositoryAnalysis = struct {
 }
 
 type goFileInfo struct {
-	relPath    string
-	name       string
-	dir        string
-	isTest     bool
-	eloc       int
-	complexity int
-	functions  []functionMetric
+	relPath string
+	name    string
+	dir     string
+	isTest  bool
 }
 
 func analyzeRepository(root string, p policy, policyPath string) (Report, error) {
@@ -67,11 +63,10 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	if err := checkPackageChildren(absRoot, p, &report); err != nil {
 		return Report{}, err
 	}
-	goFiles, dirStats, err := collectGoFiles(absRoot, p)
+	goFiles, err := collectGoFiles(absRoot, p)
 	if err != nil {
 		return Report{}, err
 	}
-	report.DirectoryStats = dirStats
 	checkImportOwners(goFiles, p, &report)
 	checkCompositionRoots(goFiles, p, &report)
 	if err := repositoryAnalysis.peerImports(absRoot, goFiles, p, &report); err != nil {
@@ -80,9 +75,6 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	if err := repositoryAnalysis.importEdges(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}
-	checkFlatDirectories(dirStats, p, &report)
-	checkSourceBudgets(goFiles, dirStats, p, &report)
-	checkSuffixFlat(goFiles, p, &report)
 	if err := repositoryAnalysis.goAST(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}
@@ -266,9 +258,8 @@ func checkCompositionRoots(files []goFileInfo, p policy, report *Report) {
 	}
 }
 
-func collectGoFiles(root string, p policy) ([]goFileInfo, []DirectoryStats, error) {
+func collectGoFiles(root string, p policy) ([]goFileInfo, error) {
 	var files []goFileInfo
-	statsByDir := map[string]*DirectoryStats{}
 
 	for _, goRoot := range p.GoRoots {
 		abs := filepath.Join(root, filepath.FromSlash(goRoot))
@@ -277,7 +268,7 @@ func collectGoFiles(root string, p policy) ([]goFileInfo, []DirectoryStats, erro
 			if os.IsNotExist(err) {
 				continue
 			}
-			return nil, nil, fmt.Errorf("stat go root %s: %w", goRoot, err)
+			return nil, fmt.Errorf("stat go root %s: %w", goRoot, err)
 		}
 		if !info.IsDir() {
 			continue
@@ -307,249 +298,27 @@ func collectGoFiles(root string, p policy) ([]goFileInfo, []DirectoryStats, erro
 			if shouldIgnoreRelPath(relPOSIX, p) {
 				return nil
 			}
-			dirRel := toPOSIX(filepath.Dir(rel))
-			stat := statsByDir[dirRel]
-			if stat == nil {
-				stat = &DirectoryStats{Path: dirRel}
-				statsByDir[dirRel] = stat
-			}
 			isTest := isTestGoFile(name)
 			info := goFileInfo{
 				relPath: relPOSIX,
 				name:    name,
-				dir:     dirRel,
+				dir:     toPOSIX(filepath.Dir(rel)),
 				isTest:  isTest,
 			}
-			info.eloc, info.complexity, err = sourceMetrics(path)
-			if err != nil {
-				return fmt.Errorf("measure %s: %w", relPOSIX, err)
-			}
-			info.functions, err = functionMetrics(path)
-			if err != nil {
-				return fmt.Errorf("measure functions in %s: %w", relPOSIX, err)
-			}
 			files = append(files, info)
-			if isTest {
-				stat.TestCount++
-				stat.TestELOC += info.eloc
-				stat.TestComplexity += info.complexity
-				stat.TestFiles = append(stat.TestFiles, name)
-			} else {
-				stat.ProductionCount++
-				stat.ProductionELOC += info.eloc
-				stat.ProductionComplexity += info.complexity
-				stat.ProductionFiles = append(stat.ProductionFiles, name)
-			}
 			return nil
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("walk go root %s: %w", goRoot, err)
+			return nil, fmt.Errorf("walk go root %s: %w", goRoot, err)
 		}
 	}
 
-	dirStats := make([]DirectoryStats, 0, len(statsByDir))
-	for _, stat := range statsByDir {
-		sort.Strings(stat.ProductionFiles)
-		sort.Strings(stat.TestFiles)
-		dirStats = append(dirStats, *stat)
-	}
-	sort.Slice(dirStats, func(i, j int) bool { return dirStats[i].Path < dirStats[j].Path })
 	sort.Slice(files, func(i, j int) bool { return files[i].relPath < files[j].relPath })
-	return files, dirStats, nil
-}
-
-func checkSourceBudgets(files []goFileInfo, stats []DirectoryStats, p policy, report *Report) {
-	for _, file := range files {
-		elocLimit := p.MaxFileELOC
-		complexityLimit := p.MaxFileComplexity
-		if file.isTest {
-			elocLimit = p.MaxTestFileELOC
-			complexityLimit = p.MaxTestFileComplexity
-		}
-		if file.eloc > elocLimit {
-			report.addFinding(Finding{
-				Rule:    "file_eloc",
-				Path:    file.relPath,
-				Count:   file.eloc,
-				Limit:   elocLimit,
-				Message: fmt.Sprintf("file has %d effective lines; limit is %d", file.eloc, elocLimit),
-			})
-		}
-		if file.complexity > complexityLimit {
-			report.addFinding(Finding{
-				Rule:    "file_complexity",
-				Path:    file.relPath,
-				Count:   file.complexity,
-				Limit:   complexityLimit,
-				Message: fmt.Sprintf("file decision complexity is %d; limit is %d", file.complexity, complexityLimit),
-			})
-		}
-		functionELOCLimit := p.MaxFunctionELOC
-		functionComplexityLimit := p.MaxFunctionComplexity
-		functionNestingLimit := p.MaxNestingDepth
-		if file.isTest {
-			functionELOCLimit = p.MaxTestFunctionELOC
-			functionComplexityLimit = p.MaxTestFunctionComplexity
-			functionNestingLimit = p.MaxTestNestingDepth
-		}
-		for _, function := range file.functions {
-			if function.ELOC > functionELOCLimit {
-				report.addFinding(Finding{Rule: "function_eloc", Path: file.relPath, Line: function.Line, Name: function.Name, Count: function.ELOC, Limit: functionELOCLimit, Message: fmt.Sprintf("function %s has %d effective lines; limit is %d", function.Name, function.ELOC, functionELOCLimit)})
-			}
-			if function.Complexity > functionComplexityLimit {
-				report.addFinding(Finding{Rule: "function_complexity", Path: file.relPath, Line: function.Line, Name: function.Name, Count: function.Complexity, Limit: functionComplexityLimit, Message: fmt.Sprintf("function %s decision complexity is %d; limit is %d", function.Name, function.Complexity, functionComplexityLimit)})
-			}
-			if function.Nesting > functionNestingLimit {
-				report.addFinding(Finding{Rule: "function_nesting", Path: file.relPath, Line: function.Line, Name: function.Name, Count: function.Nesting, Limit: functionNestingLimit, Message: fmt.Sprintf("function %s nesting depth is %d; limit is %d", function.Name, function.Nesting, functionNestingLimit)})
-			}
-		}
-	}
-	for _, stat := range stats {
-		if stat.ProductionELOC > p.MaxDirectoryELOC {
-			report.addFinding(Finding{
-				Rule:    "directory_eloc",
-				Path:    stat.Path,
-				Count:   stat.ProductionELOC,
-				Limit:   p.MaxDirectoryELOC,
-				Message: fmt.Sprintf("directory has %d effective lines; limit is %d", stat.ProductionELOC, p.MaxDirectoryELOC),
-			})
-		}
-		if stat.ProductionComplexity > p.MaxDirectoryComplexity {
-			report.addFinding(Finding{
-				Rule:    "directory_complexity",
-				Path:    stat.Path,
-				Count:   stat.ProductionComplexity,
-				Limit:   p.MaxDirectoryComplexity,
-				Message: fmt.Sprintf("directory decision complexity is %d; limit is %d", stat.ProductionComplexity, p.MaxDirectoryComplexity),
-			})
-		}
-	}
-}
-
-func checkFlatDirectories(stats []DirectoryStats, p policy, report *Report) {
-	for _, stat := range stats {
-		// Always keep directory stats on the report; only production count gates.
-		if stat.ProductionCount <= p.FlatDirectoryLimit {
-			continue
-		}
-		files := append([]string(nil), stat.ProductionFiles...)
-		report.FlatDirectories = append(report.FlatDirectories, stat)
-		report.addFinding(Finding{
-			Rule:    "flat_directory",
-			Path:    stat.Path,
-			Message: fmt.Sprintf("directory has %d production .go files; limit is %d (test files=%d, reported separately)", stat.ProductionCount, p.FlatDirectoryLimit, stat.TestCount),
-			Files:   files,
-			Count:   stat.ProductionCount,
-			Limit:   p.FlatDirectoryLimit,
-		})
-	}
-}
-
-func checkSuffixFlat(files []goFileInfo, p policy, report *Report) {
-	platform := p.platformSuffixSet()
-	// dir -> prefix -> set of semantic keys + example files
-	type group struct {
-		keys  map[string]struct{}
-		files map[string]struct{}
-	}
-	grouped := map[string]map[string]*group{}
-
-	for _, file := range files {
-		if file.isTest {
-			continue
-		}
-		stem := strings.TrimSuffix(file.name, ".go")
-		semantic := collapsePlatformSuffixes(stem, platform)
-		if semantic == "" || strings.HasPrefix(semantic, "_") || !strings.Contains(semantic, "_") {
-			continue
-		}
-		prefix, _, _ := strings.Cut(semantic, "_")
-		if !isIdentPrefix(prefix) {
-			continue
-		}
-		byPrefix := grouped[file.dir]
-		if byPrefix == nil {
-			byPrefix = map[string]*group{}
-			grouped[file.dir] = byPrefix
-		}
-		g := byPrefix[prefix]
-		if g == nil {
-			g = &group{keys: map[string]struct{}{}, files: map[string]struct{}{}}
-			byPrefix[prefix] = g
-		}
-		g.keys[semantic] = struct{}{}
-		g.files[file.name] = struct{}{}
-	}
-
-	dirs := make([]string, 0, len(grouped))
-	for dir := range grouped {
-		dirs = append(dirs, dir)
-	}
-	sort.Strings(dirs)
-	for _, dir := range dirs {
-		prefixes := make([]string, 0, len(grouped[dir]))
-		for prefix := range grouped[dir] {
-			prefixes = append(prefixes, prefix)
-		}
-		sort.Strings(prefixes)
-		for _, prefix := range prefixes {
-			g := grouped[dir][prefix]
-			if len(g.keys) < p.SuffixFlatGroupMin {
-				continue
-			}
-			fileList := make([]string, 0, len(g.files))
-			for name := range g.files {
-				fileList = append(fileList, name)
-			}
-			sort.Strings(fileList)
-			report.addFinding(Finding{
-				Rule:    "suffix_flat",
-				Path:    dir,
-				Prefix:  prefix,
-				Files:   fileList,
-				Count:   len(g.keys),
-				Limit:   p.SuffixFlatGroupMin,
-				Message: fmt.Sprintf("suffix-flat group %q has %d semantic modules (threshold %d); prefer a %s/ subpackage", prefix, len(g.keys), p.SuffixFlatGroupMin, prefix),
-			})
-		}
-	}
-}
-
-func collapsePlatformSuffixes(stem string, platform map[string]struct{}) string {
-	// Strip trailing _<platform> segments only. Do not strip arbitrary suffixes.
-	for {
-		idx := strings.LastIndex(stem, "_")
-		if idx <= 0 {
-			return stem
-		}
-		suffix := stem[idx+1:]
-		if _, ok := platform[suffix]; !ok {
-			return stem
-		}
-		stem = stem[:idx]
-	}
+	return files, nil
 }
 
 func isTestGoFile(name string) bool {
 	return strings.HasSuffix(name, "_test.go")
-}
-
-func isIdentPrefix(prefix string) bool {
-	if prefix == "" {
-		return false
-	}
-	for i, r := range prefix {
-		if i == 0 {
-			if !unicode.IsLetter(r) && r != '_' {
-				return false
-			}
-			continue
-		}
-		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' {
-			return false
-		}
-	}
-	return true
 }
 
 func shouldIgnoreDirName(name string, p policy) bool {

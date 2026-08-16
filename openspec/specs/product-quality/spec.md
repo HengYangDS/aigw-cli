@@ -1,7 +1,10 @@
 # product-quality Specification
 
 ## Purpose
-TBD - created by archiving change terminal-quality-convergence. Update Purpose after archive.
+
+Define the product invariants that make AIGW verifiable, portable, and
+independently publishable without turning presentation preferences or
+repository-specific measurements into arbitrary merge vetoes.
 ## Requirements
 ### Requirement: one complete quality graph
 
@@ -134,19 +137,28 @@ measure SHALL NOT be inferred from another.
 - **WHEN** a result derives a branch claim from a statement-only profile
 - **THEN** the evidence SHALL be rejected as semantically invalid
 
-### Requirement: bounded semantic structure
+### Requirement: semantic structure
 
 Production, test, and repository-tool code SHALL follow the declared semantic
-topology and dependency direction. Enforced limits SHALL cover file and
-directory size, function size, decision complexity, nesting, naming, package
-documentation, and import ownership. Composition roots SHALL assemble cohesive
-owners; shared behavior SHALL live at the smallest stable semantic owner rather
-than in a forwarding wrapper, alias-only package, or copied helper.
+topology and dependency direction. Naming, package documentation, import
+ownership, and composition roots SHALL express cohesive semantic owners. Shared
+behavior SHALL live at the smallest stable owner rather than in a forwarding
+wrapper, alias-only package, or copied helper. Size, complexity, nesting, and
+other presentation heuristics MAY inform review, but SHALL NOT reject a change
+without an independently justified risk model, defined measurement semantics,
+and an explicit review condition.
 
-#### Scenario: structure exceeds an admitted bound
+#### Scenario: structure violates semantic ownership
 
-- **WHEN** production, test, or tool code exceeds a declared structural limit or violates semantic ownership
-- **THEN** the architecture gate SHALL fail with the exact owner and measured bound
+- **WHEN** production, test, or tool code violates the declared topology,
+  dependency direction, composition root, naming, or ownership contract
+- **THEN** the architecture gate SHALL fail with the exact semantic violation
+
+#### Scenario: a heuristic changes
+
+- **WHEN** a size, complexity, nesting, or presentation heuristic is proposed
+- **THEN** it SHALL remain review evidence unless its risk model, measurement,
+  false-positive cost, remediation path, and review trigger are admitted
 
 #### Scenario: an ordinary provider is added
 
