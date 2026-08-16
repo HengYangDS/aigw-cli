@@ -1,0 +1,35 @@
+schema_version = 1
+id = "change:rule-rationality-completion"
+intent = "Complete the AIGW rule audit by replacing repository-shape and portability blacklists with one positive, configurable architecture contract."
+subjects = ["repository:aigw-cli"]
+scope = [
+  "AGENTS.md",
+  ".config/checks/architecture/**",
+  "docs/governance/**",
+  "openspec/changes/rule-rationality-completion/**",
+  "openspec/specs/product-quality/spec.md",
+  "tools/architecture/**",
+]
+invariants = [
+  "product boundaries dependency direction deterministic text and evidence integrity remain enforced",
+  "product identity and topology have one declarative owner rather than checker literals",
+  "heuristics and historical blacklists do not act as unconditional merge vetoes",
+  "every mandatory architecture rule has a measurable risk model remediation and review condition",
+]
+acceptance = [
+  "generic architecture code contains no product author runner address language or shell blacklist",
+  "positive topology and dependency rules remain exact and tested",
+  "deterministic byte invariants and semantic file naming remain enforced",
+  "the locked repository quality proof passes on the exact signed head",
+]
+risks = [
+  "removing a broad blacklist can expose a missing positive contract that must be restated at its semantic owner",
+]
+authority_refs = [
+  "user_instruction",
+  "AGENTS.md",
+  ".config/checks/architecture/policy.toml",
+  "openspec/specs/product-quality/spec.md",
+]
+hypotheses = []
+dependencies = []
