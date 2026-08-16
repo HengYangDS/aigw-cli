@@ -137,6 +137,11 @@ packages = ["./..."]
 branch_analyzer = "go-bcov"
 owner = "product-toolchain"
 source = "Go statement profile with go-bcov branch analysis"
+risk_model = "uncovered control-flow can corrupt credentials or projections"
+measurement = "exact statement and branch counts per package and aggregate"
+false_positive_cost = "small packages may require complete coverage"
+remediation = "test behavior, remove unreachable code, or simplify the owner"
+review_condition = "reassess after repeated denominator-only blocks"
 `
 
 func TestRealMainPassesOnlyStrictlyAbovePolicy(t *testing.T) {
@@ -425,6 +430,11 @@ func TestRealMainRejectsInvalidArgumentsAndPolicy(t *testing.T) {
 		{name: "no packages", body: strings.Replace(validPolicy, "[\"./...\"]", "[]", 1), want: "packages", code: 1},
 		{name: "wrong branch analyzer", body: strings.Replace(validPolicy, "go-bcov", "gobco", 1), want: "branch_analyzer", code: 1},
 		{name: "missing owner", body: strings.Replace(validPolicy, "product-toolchain", "", 1), want: "owner and source", code: 1},
+		{name: "missing risk model", body: strings.Replace(validPolicy, "uncovered control-flow can corrupt credentials or projections", "", 1), want: "risk rationale", code: 1},
+		{name: "missing measurement", body: strings.Replace(validPolicy, "exact statement and branch counts per package and aggregate", "", 1), want: "risk rationale", code: 1},
+		{name: "missing false-positive cost", body: strings.Replace(validPolicy, "small packages may require complete coverage", "", 1), want: "risk rationale", code: 1},
+		{name: "missing remediation", body: strings.Replace(validPolicy, "test behavior, remove unreachable code, or simplify the owner", "", 1), want: "risk rationale", code: 1},
+		{name: "missing review condition", body: strings.Replace(validPolicy, "reassess after repeated denominator-only blocks", "", 1), want: "risk rationale", code: 1},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

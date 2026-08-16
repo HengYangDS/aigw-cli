@@ -1,5 +1,6 @@
-# Go coverage policy truth boundary. The threshold applies independently to
-# every package and to the aggregate; packages and source files cannot be excluded.
+# Go coverage policy truth boundary. The floor limits unobserved behavior in a
+# credential and configuration control plane while package scope prevents a
+# well-tested package from hiding a blind spot in another semantic owner.
 minimum_statement_percent = 95.0
 minimum_branch_percent = 95.0
 comparison = "strictly-greater-than"
@@ -8,3 +9,8 @@ packages = ["./..."]
 branch_analyzer = "go-bcov"
 owner = "product-toolchain"
 source = "Go statement profile with go-bcov branch analysis"
+risk_model = "uncovered control-flow can corrupt credentials, routes, or client projections without an observable regression"
+measurement = "exact covered and total statement and branch counts for every canonical Go package and the module aggregate"
+false_positive_cost = "small packages may require complete coverage; prefer direct behavior tests and semantic package consolidation over exclusions"
+remediation = "add a behavior test, remove unreachable code, or simplify the responsible semantic owner; exclusions are not accepted"
+review_condition = "reassess when three legitimate changes within one release train are blocked solely by denominator granularity or when the product risk boundary changes"
