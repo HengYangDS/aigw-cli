@@ -228,7 +228,7 @@ func TestSourceJobsUseTheirExactToolClosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const sourceTools = "go,node,cue,npm:@fission-ai/openspec,github:rhysd/actionlint,github:lycheeverse/lychee"
+	const sourceTools = "go,node,cue,npm:@fission-ai/openspec,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
 	var pipeline struct {
 		SourceToolchain     gitLabJob `yaml:".source-toolchain"`
 		SourceAndGovernance gitLabJob `yaml:"source-and-governance"`

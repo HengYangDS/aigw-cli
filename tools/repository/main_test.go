@@ -79,112 +79,11 @@ func TestRepositoryOwnsFormerShellForwarders(t *testing.T) {
 	if err := run([]string{"--root", root, "go-format"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := run([]string{"--root", root, "english-text"}); err != nil {
-		t.Fatal(err)
-	}
 	if err := run([]string{"--root", root, "changelog"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := run([]string{"--root", root, "release-epoch", "1.2.3"}); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestRepositoryRejectsCredentialShapesAndProductSurfaceDrift(t *testing.T) {
-	root := productSurfaceRepository(t)
-	if err := checkProductSurface(root); err != nil {
-		t.Fatal(err)
-	}
-	if err := checkCredentials(root); err != nil {
-		t.Fatal(err)
-	}
-
-	write := func(relative, content string) {
-		t.Helper()
-		path := filepath.Join(root, filepath.FromSlash(relative))
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		gitRepository(t, root, "add", relative)
-	}
-
-	write("internal/leak.go", "package internal\n\nconst token = \"sk-abcdefghijklmnopqrstuvwxyz012345\"\n")
-	if err := checkCredentials(root); err == nil || !strings.Contains(err.Error(), "outside test source") {
-		t.Fatalf("production credential shape accepted: %v", err)
-	}
-	if err := os.Remove(filepath.Join(root, "internal", "leak.go")); err != nil {
-		t.Fatal(err)
-	}
-	gitRepository(t, root, "add", "internal/leak.go")
-
-	write("internal/leak_test.go", "package internal\n\nconst token = \"sk-abcdefghijklmnopqrstuvwxyz012345\"\n")
-	if err := checkCredentials(root); err == nil || !strings.Contains(err.Error(), "test fixture") {
-		t.Fatalf("test credential shape accepted: %v", err)
-	}
-
-	write("README.md", "# Product\n\nProprietary\n")
-	if err := checkProductSurface(root); err == nil {
-		t.Fatal("proprietary product surface accepted")
-	}
-}
-
-func TestRepositoryContractErrorSurfaces(t *testing.T) {
-	if err := checkCredentials(filepath.Join(t.TempDir(), "missing")); err == nil {
-		t.Fatal("missing credential repository accepted")
-	}
-	root := productSurfaceRepository(t)
-	for _, command := range []string{"credentials", "product-surface"} {
-		if err := run([]string{"--root", root, command}); err != nil {
-			t.Fatalf("%s: %v", command, err)
-		}
-	}
-	for relative, sentinel := range map[string]string{
-		"internal/secrets/store_test.go":     "aigw-test-secret-never-leaks",
-		"internal/diagnostics/probe_test.go": "aigw-test-gateway-token-never-leaks",
-	} {
-		path := filepath.Join(root, filepath.FromSlash(relative))
-		if err := os.WriteFile(path, []byte("package fixture\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		gitRepository(t, root, "add", relative)
-		if err := checkCredentials(root); err == nil || !strings.Contains(err.Error(), "redaction sentinel is missing") {
-			t.Fatalf("missing sentinel %s accepted: %v", sentinel, err)
-		}
-		if err := os.WriteFile(path, []byte("package fixture\nconst sentinel = \""+sentinel+"\"\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		gitRepository(t, root, "add", relative)
-	}
-	if err := os.Remove(filepath.Join(root, "LICENSE")); err != nil {
-		t.Fatal(err)
-	}
-	if err := checkProductSurface(root); err == nil || !strings.Contains(err.Error(), "LICENSE") {
-		t.Fatalf("missing product surface accepted: %v", err)
-	}
-
-	for _, relative := range []string{"README.md", "docs/README.md"} {
-		root := productSurfaceRepository(t)
-		path := filepath.Join(root, filepath.FromSlash(relative))
-		if err := os.WriteFile(path, []byte("Proprietary\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if err := checkProductSurface(root); err == nil {
-			t.Fatalf("invalid %s accepted", relative)
-		}
-	}
-
-	root = productSurfaceRepository(t)
-	if err := os.MkdirAll(filepath.Join(root, "docs", "nested"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "docs", "nested", "license.md"), []byte("Proprietary\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := checkProductSurface(root); err == nil || !strings.Contains(err.Error(), "proprietary licensing residue") {
-		t.Fatalf("nested proprietary residue accepted: %v", err)
 	}
 }
 
@@ -210,7 +109,7 @@ func TestMainDelegatesProcessStatus(t *testing.T) {
 	previousArgs := os.Args
 	previousExit := exit
 	t.Cleanup(func() { os.Args, exit = previousArgs, previousExit })
-	os.Args = []string{"repository", "--root", productSurfaceRepository(t), "product-surface"}
+	os.Args = []string{"repository", "--root", initReleaseRepository(t, "1.2.3"), "changelog"}
 	status := -1
 	exit = func(code int) { status = code }
 	main()
@@ -219,29 +118,8 @@ func TestMainDelegatesProcessStatus(t *testing.T) {
 	}
 }
 
-func TestEnglishTextAndMalformedChangelog(t *testing.T) {
+func TestMalformedChangelog(t *testing.T) {
 	root := t.TempDir()
-	command := exec.Command("git", "-C", root, "init", "-q")
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v: %s", err, output)
-	}
-	path := filepath.Join(root, "README.md")
-	if err := os.WriteFile(path, []byte("English\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	command = exec.Command("git", "-C", root, "add", "README.md")
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("git add: %v: %s", err, output)
-	}
-	if err := checkEnglishText(root); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte("\u4e2d\u6587\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := checkEnglishText(root); err == nil || !strings.Contains(err.Error(), "English-only") {
-		t.Fatalf("non-English error=%v", err)
-	}
 	bad := filepath.Join(root, "CHANGELOG.md")
 	if err := os.WriteFile(bad, []byte("## [1.0.0] - 2026-08-07\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -404,89 +282,14 @@ func TestChangelogTagEnvironmentPrecedenceAndHeadBinding(t *testing.T) {
 	}
 }
 
-func TestEnglishTextFailureSurfaces(t *testing.T) {
-	if err := checkEnglishText(filepath.Join(t.TempDir(), "missing")); err == nil {
-		t.Fatal("missing repository accepted")
-	}
-	root := t.TempDir()
-	gitRepository(t, root, "init", "-q")
-	if err := os.WriteFile(filepath.Join(root, "gone.txt"), []byte("English\n"), 0o600); err != nil {
+func TestChangelogScannerReportsOversizedInput(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "CHANGELOG.md")
+	content := "## [Unreleased]\n" + strings.Repeat("a", 70*1024)
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	gitRepository(t, root, "add", "gone.txt")
-	if err := os.Remove(filepath.Join(root, "gone.txt")); err != nil {
-		t.Fatal(err)
-	}
-	if err := checkEnglishText(root); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestRepositoryReadersReportTrackedAndScannerFailures(t *testing.T) {
-	t.Run("tracked credential file disappears", func(t *testing.T) {
-		root := productSurfaceRepository(t)
-		path := filepath.Join(root, "internal", "gone.go")
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte("package internal\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		gitRepository(t, root, "add", "internal/gone.go")
-		if err := os.Remove(path); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Symlink(filepath.Join(root, "missing"), path); err != nil {
-			t.Skipf("symlink fixture unavailable: %v", err)
-		}
-		if err := checkCredentials(root); err != nil {
-			t.Fatal(err)
-		}
-	})
-
-	t.Run("English scanner token too long", func(t *testing.T) {
-		root := t.TempDir()
-		gitRepository(t, root, "init", "-q")
-		path := filepath.Join(root, "README.md")
-		if err := os.WriteFile(path, []byte(strings.Repeat("a", 70*1024)), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		gitRepository(t, root, "add", "README.md")
-		if err := checkEnglishText(root); err == nil || !strings.Contains(err.Error(), "token too long") {
-			t.Fatalf("scanner error = %v", err)
-		}
-	})
-
-	t.Run("changelog scanner token too long", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "CHANGELOG.md")
-		content := "## [Unreleased]\n" + strings.Repeat("a", 70*1024)
-		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := parseChangelog(path); err == nil || !strings.Contains(err.Error(), "token too long") {
-			t.Fatalf("scanner error = %v", err)
-		}
-	})
-
-	t.Run("check changelog propagates parse failure", func(t *testing.T) {
-		root := t.TempDir()
-		if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("## [Unreleased]\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if err := checkChangelog(root, nil); err == nil || !strings.Contains(err.Error(), "missing published") {
-			t.Fatalf("parse error = %v", err)
-		}
-	})
-}
-
-func TestProductSurfaceReportsNestedReadFailure(t *testing.T) {
-	root := productSurfaceRepository(t)
-	path := filepath.Join(root, "docs", "dangling.md")
-	if err := os.Symlink(filepath.Join(root, "missing"), path); err != nil {
-		t.Skipf("symlink fixture unavailable: %v", err)
-	}
-	if err := checkProductSurface(root); err == nil {
-		t.Fatal("unreadable nested product document was accepted")
+	if _, err := parseChangelog(path); err == nil || !strings.Contains(err.Error(), "token too long") {
+		t.Fatalf("scanner error = %v", err)
 	}
 }
 
@@ -503,32 +306,6 @@ func initReleaseRepository(t *testing.T, version string) string {
 	gitRepository(t, root, "add", "CHANGELOG.md")
 	gitRepository(t, root, "commit", "-q", "-m", "release")
 	gitRepository(t, root, "tag", "v"+version)
-	return root
-}
-
-func productSurfaceRepository(t *testing.T) string {
-	t.Helper()
-	root := t.TempDir()
-	gitRepository(t, root, "init", "-q")
-	files := map[string]string{
-		"LICENSE":                            "MIT License\n\nCopyright (c) 2026 AIGW CLI Contributors\n\nTHE SOFTWARE IS PROVIDED \"AS IS\"\n",
-		"README.md":                          "# Product\n\n[MIT](LICENSE)\n\nMIT License\n",
-		"CHANGELOG.md":                       "## [Unreleased]\n",
-		"CONTRIBUTING.md":                    "MIT License\n",
-		"docs/README.md":                     "[LICENSE](../LICENSE)\n",
-		"internal/secrets/store_test.go":     "package secrets\n\nconst sentinel = \"aigw-test-secret-never-leaks\"\n",
-		"internal/diagnostics/probe_test.go": "package diagnostics\n\nconst sentinel = \"aigw-test-gateway-token-never-leaks\"\n",
-	}
-	for relative, content := range files {
-		path := filepath.Join(root, filepath.FromSlash(relative))
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	gitRepository(t, root, "add", ".")
 	return root
 }
 

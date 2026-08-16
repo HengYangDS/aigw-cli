@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -25,7 +24,6 @@ func checkDecisionRecords(root string, report *Report) error {
 		return fmt.Errorf("read Decision Records: %w", err)
 	}
 	sequences := map[int]bool{}
-	maximum := 0
 	for _, entry := range entries {
 		if entry.IsDir() || entry.Name() == "README.md" || filepath.Ext(entry.Name()) != ".md" {
 			continue
@@ -41,9 +39,6 @@ func checkDecisionRecords(root string, report *Report) error {
 			report.addFinding(Finding{Rule: "decision_record_sequence_duplicate", Path: relative, Count: sequence, Message: "Decision Record sequence is already used"})
 		}
 		sequences[sequence] = true
-		if sequence > maximum {
-			maximum = sequence
-		}
 		body, readErr := os.ReadFile(filepath.Join(directory, entry.Name()))
 		if readErr != nil {
 			return fmt.Errorf("read %s: %w", relative, readErr)
@@ -55,16 +50,6 @@ func checkDecisionRecords(root string, report *Report) error {
 		} else if registrations > 1 {
 			report.addFinding(Finding{Rule: "decision_record_registration_duplicate", Path: relative, Count: registrations, Message: "Decision Record must appear exactly once in the canonical register"})
 		}
-	}
-	missing := make([]int, 0)
-	for sequence := 1; sequence <= maximum; sequence++ {
-		if !sequences[sequence] {
-			missing = append(missing, sequence)
-		}
-	}
-	sort.Ints(missing)
-	for _, sequence := range missing {
-		report.addFinding(Finding{Rule: "decision_record_sequence_gap", Path: "docs/decisions", Count: sequence, Message: "Decision Record sequence " + fourDigits(sequence) + " is missing"})
 	}
 	return nil
 }

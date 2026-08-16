@@ -124,21 +124,25 @@ own actor and trust input independently.
 ### Requirement: faithful quantitative quality evidence
 
 The repository SHALL measure statement and branch coverage independently. The
-canonical machine policy SHALL own the floor, comparison, exact package and
-aggregate scope, risk model, false-positive cost, remediation path, and review
-condition. Evidence SHALL retain raw counts, package identity, source revision
-and tree, analyzer identity, and policy digest. No prose, CI projection, or
-tool-native formatting file SHALL own a competing threshold.
+canonical machine policy SHALL own the aggregate floors, package-observation
+contract, risk model, false-positive cost, remediation path, and review
+condition. Every production package SHALL appear in the evidence and execute
+statements plus any branches it owns. Evidence SHALL retain raw counts, package
+identity, source revision and tree, analyzer identity, and policy digest. Exact
+package ratios SHALL remain diagnostic rather than independent merge vetoes. No
+prose, CI projection, or tool-native formatting file SHALL own a competing
+threshold.
 
 #### Scenario: quantitative evidence is evaluated
 
-- **WHEN** package or aggregate coverage is admitted for promotion
-- **THEN** the exact raw evidence satisfies the canonical machine policy
+- **WHEN** coverage is admitted for promotion
+- **THEN** the aggregate statement and branch evidence satisfies the canonical machine policy
+- **AND** every production package has non-zero execution evidence and an exact diagnostic ratio
 - **AND** the verdict is independent of duplicated literals or inferred metrics.
 
-#### Scenario: any quantitative boundary is not met
+#### Scenario: a quantitative boundary or observation contract is not met
 
-- **WHEN** a package or aggregate misses the canonical policy, is absent, is duplicated, or lacks bound raw evidence
+- **WHEN** aggregate coverage misses the canonical policy, or a package is absent, wholly unexecuted, duplicated, or lacks bound raw evidence
 - **THEN** local verification, exact-HEAD proof, and hosted CI SHALL fail before promotion.
 
 #### Scenario: statement data is presented as branch evidence
@@ -152,6 +156,12 @@ tool-native formatting file SHALL own a competing threshold.
 - **THEN** maintainers review the canonical policy against its recorded risk model and cost
 - **AND** no package exclusion or local override is introduced.
 
+#### Scenario: a small package has a volatile ratio
+
+- **WHEN** a package has executed evidence but a small denominator produces a volatile percentage
+- **THEN** its exact ratio remains visible for review
+- **AND** only the aggregate floor and the package-observation contract decide quantitative admission.
+
 ### Requirement: semantic structure
 
 Production, test, and repository-tool code SHALL follow the declared semantic
@@ -162,6 +172,12 @@ wrapper, alias-only package, or copied helper. Size, complexity, nesting, and
 other presentation heuristics MAY inform review, but SHALL NOT reject a change
 without an independently justified risk model, defined measurement semantics,
 false-positive cost, remediation path, and review trigger.
+
+The machine architecture policy SHALL state that rationale once for its positive
+contract. Its checker SHALL derive repository identity from canonical project
+metadata and SHALL NOT encode product names, authors, hosts, languages, shells,
+addresses, runner inventories, or historical implementation shapes as generic
+merge blacklists.
 
 #### Scenario: structure violates semantic ownership
 
@@ -181,6 +197,14 @@ false-positive cost, remediation path, and review trigger.
 - **WHEN** an ordinary provider implementation is added below the declared
   provider owner without changing package topology or dependency direction
 - **THEN** no repository-shape allowance or threshold change SHALL be required.
+
+#### Scenario: an implementation technique changes
+
+- **WHEN** a bounded change introduces another language, shell carrier, alias,
+  adapter, address example, or local path example
+- **THEN** that syntax alone SHALL NOT decide merge admission
+- **AND** the positive owner, dependency, portability, security, and evidence
+  contracts SHALL determine the verdict.
 
 ### Requirement: complete delivery evidence
 

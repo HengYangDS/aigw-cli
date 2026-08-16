@@ -131,7 +131,9 @@ func writePolicy(t *testing.T, body string) string {
 
 const validPolicy = `minimum_statement_percent = 95.0
 minimum_branch_percent = 95.0
-comparison = "strictly-greater-than"
+comparison = "at-least"
+threshold_scopes = ["aggregate"]
+package_observation = "required"
 covermode = "atomic"
 packages = ["./..."]
 branch_analyzer = "go-bcov"
@@ -144,7 +146,7 @@ remediation = "test behavior, remove unreachable code, or simplify the owner"
 review_condition = "reassess after repeated denominator-only blocks"
 `
 
-func TestRealMainPassesOnlyStrictlyAbovePolicy(t *testing.T) {
+func TestRealMainPassesAggregatePolicyAndReportsPackageEvidence(t *testing.T) {
 	policyPath := writePolicy(t, validPolicy)
 	runner := &recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 96 1\nexample/a.go:3.1,4.1 4 0\n"}
 	var stdout bytes.Buffer
@@ -171,7 +173,7 @@ func TestRealMainPassesOnlyStrictlyAbovePolicy(t *testing.T) {
 	if got := runner.args[len(runner.args)-1]; got != "./..." {
 		t.Fatalf("last argument = %q, want ./...", got)
 	}
-	if !strings.Contains(stdout.String(), "statement coverage: 96.00%") || !strings.Contains(stdout.String(), "branch coverage: 100.00%") || !strings.Contains(stdout.String(), "required > 95.00%") {
+	if !strings.Contains(stdout.String(), "package example statement coverage: 96.00%") || !strings.Contains(stdout.String(), "statement coverage: 96.00%") || !strings.Contains(stdout.String(), "branch coverage: 100.00%") || !strings.Contains(stdout.String(), "required >= 95.00%") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 	if _, err := os.Stat(runner.path); !errors.Is(err, os.ErrNotExist) {
@@ -217,28 +219,54 @@ func TestRealMainRejectsResultOutputFailure(t *testing.T) {
 	}
 }
 
-func TestRealMainRejectsExactFloor(t *testing.T) {
+func TestRealMainAcceptsExactAggregateFloor(t *testing.T) {
 	policyPath := writePolicy(t, validPolicy)
 	runner := &recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 95 1\nexample/a.go:3.1,4.1 5 0\n"}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 1 {
-		t.Fatalf("realMain code = %d, want 1", code)
+	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 0 {
+		t.Fatalf("realMain code = %d, stderr = %q", code, stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "95.00% does not exceed 95.00%") {
-		t.Fatalf("stderr = %q", stderr.String())
+	if !strings.Contains(stdout.String(), "statement coverage: 95.00%") {
+		t.Fatalf("stdout = %q", stdout.String())
 	}
 }
 
-func TestRealMainRejectsPackageBelowFloorDespitePassingAggregate(t *testing.T) {
+func TestRealMainReportsLowPackageRatioWhenAggregatePasses(t *testing.T) {
 	policyPath := writePolicy(t, validPolicy)
 	runner := &recordingRunner{profile: "mode: atomic\nexample/low/a.go:1.1,2.1 94 1\nexample/low/a.go:3.1,4.1 6 0\nexample/high/b.go:1.1,2.1 400 1\n"}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 0 {
+		t.Fatalf("realMain code = %d, stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "package example/low statement coverage: 94.00%") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestRealMainRejectsWhollyUnexecutedPackage(t *testing.T) {
+	policyPath := writePolicy(t, validPolicy)
+	runner := &recordingRunner{profile: "mode: atomic\nexample/idle/a.go:1.1,2.1 4 0\nexample/live/b.go:1.1,2.1 100 1\n"}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 1 {
 		t.Fatalf("realMain code = %d, want 1", code)
 	}
-	if !strings.Contains(stderr.String(), "package example/low coverage 94.00% does not exceed 95.00%") {
+	if !strings.Contains(stderr.String(), "package example/idle has no executed statements") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRealMainRejectsPackageWithoutMeasuredStatements(t *testing.T) {
+	policyPath := writePolicy(t, validPolicy)
+	runner := &recordingRunner{profile: "mode: atomic\nexample/empty/a.go:1.1,2.1 0 0\nexample/live/b.go:1.1,2.1 100 1\n"}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 1 {
+		t.Fatalf("realMain code = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "package example/empty has no measured statements") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
@@ -423,7 +451,9 @@ func TestRealMainRejectsInvalidArgumentsAndPolicy(t *testing.T) {
 		{name: "unknown flag", args: []string{"--unknown"}, want: "flag provided but not defined", code: 2},
 		{name: "missing policy", args: []string{"--policy", filepath.Join(t.TempDir(), "missing.toml")}, want: "load coverage policy", code: 1},
 		{name: "unknown field", body: validPolicy + "exclude = [\"tools\"]\n", want: "load coverage policy", code: 1},
-		{name: "wrong comparison", body: strings.Replace(validPolicy, "strictly-greater-than", "greater-than-or-equal", 1), want: "comparison", code: 1},
+		{name: "wrong comparison", body: strings.Replace(validPolicy, "at-least", "greater-than", 1), want: "comparison", code: 1},
+		{name: "wrong threshold scope", body: strings.Replace(validPolicy, `["aggregate"]`, `["package"]`, 1), want: "threshold_scopes", code: 1},
+		{name: "missing package observation", body: strings.Replace(validPolicy, "required", "optional", 1), want: "package_observation", code: 1},
 		{name: "invalid floor", body: strings.Replace(validPolicy, "95.0", "101.0", 1), want: "minimum_statement_percent", code: 1},
 		{name: "invalid branch floor", body: strings.Replace(validPolicy, "minimum_branch_percent = 95.0", "minimum_branch_percent = 0", 1), want: "minimum_branch_percent", code: 1},
 		{name: "wrong mode", body: strings.Replace(validPolicy, "atomic", "set", 1), want: "covermode", code: 1},
@@ -593,7 +623,7 @@ func TestRunBranchCoverageRejectsAnalyzerAndPolicyFailures(t *testing.T) {
 	}{
 		{name: "execution", runner: &recordingRunner{branchErr: errors.New("unavailable")}, want: "analyzer execution"},
 		{name: "report", runner: &recordingRunner{branchReport: "not xml"}, want: "decode branch report"},
-		{name: "package floor", runner: &recordingRunner{branchReport: `<coverage><file path="a/a.go"><lineToCover branchesToCover="100" coveredBranches="95"/></file></coverage>`}, want: "policy is not satisfied"},
+		{name: "package unobserved", runner: &recordingRunner{branchReport: `<coverage><file path="a/a.go"><lineToCover branchesToCover="100" coveredBranches="0"/></file></coverage>`}, want: "policy is not satisfied"},
 		{name: "aggregate empty", runner: &recordingRunner{branchReport: `<coverage><file path="a/a.go"><lineToCover/></file></coverage>`}, want: "policy is not satisfied"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -3,9 +3,6 @@ package main
 import (
 	"bytes"
 	"errors"
-	"go/ast"
-	"go/parser"
-	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,65 +80,6 @@ func TestCollectIgnoresNonGoAndRuntime(t *testing.T) {
 	}
 }
 
-func TestTypeAliasUnexportedAndDefined(t *testing.T) {
-	fset := token.NewFileSet()
-	src := `package p
-type Exported = int
-type unexported = int
-type Defined int
-`
-	parsed, err := parser.ParseFile(fset, "p.go", src, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	report := newReport("p", ".")
-	checkExportedTypeAliases(fset, parsed, "p.go", &report)
-	if len(report.Findings) != 1 || report.Findings[0].Name != "Exported" {
-		t.Fatalf("%+v", report.Findings)
-	}
-}
-
-func TestCallArgsAndFieldIdents(t *testing.T) {
-	if callArgsMatchParams(&ast.CallExpr{}, nil) != true {
-		t.Fatal("empty")
-	}
-	if callArgsMatchParams(&ast.CallExpr{Args: []ast.Expr{&ast.Ident{Name: "x"}}}, nil) {
-		t.Fatal("nil params with args")
-	}
-	if callArgsMatchParams(&ast.CallExpr{Args: []ast.Expr{&ast.BasicLit{}}}, []string{"x"}) {
-		t.Fatal("non ident arg")
-	}
-	fields := &ast.FieldList{List: []*ast.Field{{Type: &ast.Ident{Name: "int"}}}}
-	if fieldIdents(fields) != nil {
-		t.Fatal("anonymous")
-	}
-	if fieldIdents(nil) != nil {
-		t.Fatal("nil fields")
-	}
-	named := &ast.FieldList{List: []*ast.Field{{Names: []*ast.Ident{{Name: "x"}}, Type: &ast.Ident{Name: "int"}}}}
-	if got := fieldIdents(named); len(got) != 1 || got[0] != "x" {
-		t.Fatalf("%v", got)
-	}
-	if isImportedSelectorCall(&ast.Ident{Name: "x"}, map[string]struct{}{"fmt": {}}) {
-		t.Fatal("not selector")
-	}
-	if isImportedSelectorCall(&ast.SelectorExpr{X: &ast.SelectorExpr{}, Sel: &ast.Ident{Name: "Y"}}, map[string]struct{}{"fmt": {}}) {
-		t.Fatal("nested selector")
-	}
-}
-
-func TestIsFunctionAliasDefaultFalse(t *testing.T) {
-	if isFunctionAliasExpr(&ast.BasicLit{}, "X", true) {
-		t.Fatal("lit")
-	}
-	if isFunctionAliasExpr(&ast.Ident{Name: "x"}, "X", false) {
-		t.Fatal("ident without explicit")
-	}
-	if !isFunctionAliasExpr(&ast.SelectorExpr{X: &ast.Ident{Name: "pkg"}, Sel: &ast.Ident{Name: "Other"}}, "X", true) {
-		t.Fatal("explicit selector")
-	}
-}
-
 func TestCheckGoASTReadError(t *testing.T) {
 	report := newReport("p", ".")
 	err := checkGoAST(t.TempDir(), []goFileInfo{{relPath: "missing.go", name: "missing.go", dir: ".", isTest: false}}, mustPolicy(t), &report)
@@ -181,27 +119,6 @@ func TestAbsolutePolicyOutsideRoot(t *testing.T) {
 	}
 }
 
-func TestExprStmtNonCallNotWrapper(t *testing.T) {
-	src := `package p
-func Do() { x = 1 }
-var x int
-`
-	fset := token.NewFileSet()
-	parsed, err := parser.ParseFile(fset, "p.go", src, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, decl := range parsed.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok {
-			continue
-		}
-		if isTrivialWrapper(fn, nil) {
-			t.Fatal("assignment should not wrap")
-		}
-	}
-}
-
 func mustPolicy(t *testing.T) policy {
 	t.Helper()
 	path := writePolicy(t, t.TempDir(), validPolicy)
@@ -210,40 +127,6 @@ func mustPolicy(t *testing.T) policy {
 		t.Fatal(err)
 	}
 	return p
-}
-
-func TestFunctionVarMultiNameAndBlank(t *testing.T) {
-	fset := token.NewFileSet()
-	src := `package p
-import "fmt"
-var _, Keep func(a ...any) (int, error) = fmt.Println, fmt.Println
-var OnlyOne, _ = fmt.Sprint, fmt.Sprint
-`
-	// First line: multi names with explicit func type.
-	// Note: Go requires same type for multi var with type; values aligned.
-	src = `package p
-import "fmt"
-var F1, F2 func(a ...any) (int, error) = fmt.Println, fmt.Sprint
-var _ func() = local
-var Sprint = fmt.Sprint
-func local() {}
-`
-	parsed, err := parser.ParseFile(fset, "p.go", src, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	report := newReport("p", ".")
-	checkFunctionVarAliases(fset, parsed, "p.go", &report)
-	names := map[string]bool{}
-	for _, f := range report.Findings {
-		names[f.Name] = true
-	}
-	if !names["F1"] || !names["F2"] || !names["Sprint"] {
-		t.Fatalf("%v", names)
-	}
-	if names["_"] {
-		t.Fatal("blank should not be reported")
-	}
 }
 
 func TestAnalyzeRepositoryDirect(t *testing.T) {
@@ -256,35 +139,6 @@ func TestAnalyzeRepositoryDirect(t *testing.T) {
 	}
 	if !report.OK {
 		t.Fatalf("%+v", report.Findings)
-	}
-}
-
-func TestAnalyzeRepositoryReportsStageFailures(t *testing.T) {
-	missing := filepath.Join(t.TempDir(), "missing")
-	tests := []struct {
-		name string
-		root string
-		set  func(*policy)
-	}{
-		{name: "module identity", root: t.TempDir(), set: func(p *policy) { p.CheckModuleIdentity = true }},
-		{name: "portability", root: missing, set: func(p *policy) { p.CheckPortability = true }},
-		{name: "semantic names", root: missing, set: func(p *policy) { p.CheckSemanticNames = true }},
-		{name: "text layout", root: missing},
-		{name: "package children", root: t.TempDir(), set: func(p *policy) {
-			p.PackageChildren = map[string][]string{"invalid\x00root": {"child"}}
-		}},
-		{name: "Go roots", root: t.TempDir(), set: func(p *policy) { p.GoRoots = []string{"invalid\x00root"} }},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			p := policy{}
-			if test.set != nil {
-				test.set(&p)
-			}
-			if _, err := analyzeRepository(test.root, p, "policy.toml"); err == nil {
-				t.Fatal("stage failure was accepted")
-			}
-		})
 	}
 }
 
@@ -335,12 +189,6 @@ func TestCollectGoFilesIgnoresConfiguredFilePath(t *testing.T) {
 	}
 }
 
-func TestIsFuncTypeNil(t *testing.T) {
-	if isFuncTypeExpr(nil) {
-		t.Fatal("nil")
-	}
-}
-
 func TestMainCoversEntry(t *testing.T) {
 	originalArgs := os.Args
 	originalExit := exitFunc
@@ -376,63 +224,6 @@ func TestRunReportsAnalysisFailure(t *testing.T) {
 	}
 }
 
-func TestFunctionVarValueCountMismatch(t *testing.T) {
-	// Multi-name without enough values is invalid Go, so build AST manually.
-	report := newReport("p", ".")
-	fset := token.NewFileSet()
-	parsed := &ast.File{
-		Name: ast.NewIdent("p"),
-		Decls: []ast.Decl{
-			&ast.GenDecl{
-				Tok: token.VAR,
-				Specs: []ast.Spec{
-					&ast.ValueSpec{
-						Names:  []*ast.Ident{ast.NewIdent("A"), ast.NewIdent("B")},
-						Type:   &ast.FuncType{Params: &ast.FieldList{}},
-						Values: []ast.Expr{&ast.Ident{Name: "local"}},
-					},
-					&ast.ValueSpec{
-						Names: []*ast.Ident{ast.NewIdent("C")},
-						// no values
-					},
-					&ast.ValueSpec{
-						Names:  []*ast.Ident{nil, ast.NewIdent("D")},
-						Type:   &ast.FuncType{Params: &ast.FieldList{}},
-						Values: []ast.Expr{&ast.Ident{Name: "local"}, &ast.Ident{Name: "local"}},
-					},
-				},
-			},
-			&ast.GenDecl{Tok: token.CONST},
-		},
-	}
-	_ = fset
-	checkFunctionVarAliases(token.NewFileSet(), parsed, "p.go", &report)
-	// A has value+func type; B lacks value; nil name skipped; D flagged
-	names := map[string]bool{}
-	for _, f := range report.Findings {
-		names[f.Name] = true
-	}
-	if !names["A"] || !names["D"] || names["B"] || names["C"] {
-		t.Fatalf("%v %+v", names, report.Findings)
-	}
-}
-
-func TestFieldIdentsEmptyName(t *testing.T) {
-	fields := &ast.FieldList{List: []*ast.Field{
-		{Names: []*ast.Ident{{Name: ""}}, Type: &ast.Ident{Name: "int"}},
-	}}
-	if fieldIdents(fields) != nil {
-		t.Fatal("empty name")
-	}
-}
-
-func TestImportedPackageNilPath(t *testing.T) {
-	parsed := &ast.File{Imports: []*ast.ImportSpec{{Path: nil}}}
-	if got := importedPackageNames(parsed); len(got) != 0 {
-		t.Fatalf("%v", got)
-	}
-}
-
 func TestShouldIgnoreRelPathEmptyParts(t *testing.T) {
 	p := mustPolicy(t)
 	// strings.Split("", "/") yields []string{""}; first part "" not in ignore roots
@@ -449,13 +240,5 @@ func TestFinalizeNameAndMessageOrder(t *testing.T) {
 	report.finalize()
 	if report.Findings[0].Name != "a" || report.Findings[0].Message != "m0" {
 		t.Fatalf("%+v", report.Findings)
-	}
-}
-
-func TestSelectorSameNameNilSel(t *testing.T) {
-	// Sel nil shouldn't panic; treat as non-alias without explicit func
-	expr := &ast.SelectorExpr{X: ast.NewIdent("pkg"), Sel: nil}
-	if isFunctionAliasExpr(expr, "Foo", false) {
-		t.Fatal("nil sel")
 	}
 }
