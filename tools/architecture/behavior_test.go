@@ -22,6 +22,20 @@ func TestDecisionRecordReadFailureIsReported(t *testing.T) {
 	}
 }
 
+func TestDecisionRecordDirectoryReadFailureIsReported(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "docs", "decisions")
+	writeFile(t, filepath.Join(directory, "README.md"), "# Decisions\n")
+	want := errors.New("directory read failed")
+	report := newReport("policy", root)
+	err := checkDecisionRecordsWithReadDir(root, &report, func(string) ([]os.DirEntry, error) {
+		return nil, want
+	})
+	if !errors.Is(err, want) || !strings.Contains(err.Error(), "read Decision Records") {
+		t.Fatalf("directory read error = %v", err)
+	}
+}
+
 func countRule(report Report, rule string) int {
 	count := 0
 	for _, finding := range report.Findings {
@@ -229,6 +243,15 @@ func TestImportEdgesReportUnavailableManagedSource(t *testing.T) {
 	p := policy{AllowedImportEdges: map[string][]string{"tools/release": {}}}
 	if err := checkImportEdges(root, files, p, &report); err == nil {
 		t.Fatal("missing managed source was accepted")
+	}
+}
+
+func TestImportEdgesRequireModuleIdentity(t *testing.T) {
+	root := t.TempDir()
+	report := newReport("policy", root)
+	p := policy{AllowedImportEdges: map[string][]string{"tools/release": {}}}
+	if err := checkImportEdges(root, nil, p, &report); err == nil || !strings.Contains(err.Error(), "read go.mod") {
+		t.Fatalf("module identity error = %v", err)
 	}
 }
 

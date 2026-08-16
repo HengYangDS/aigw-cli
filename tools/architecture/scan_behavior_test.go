@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -142,6 +143,24 @@ func TestAnalyzeRepositoryDirect(t *testing.T) {
 	}
 }
 
+func TestSemanticAndTextStagesRejectBrokenRepositoryMetadata(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for name, check := range map[string]func(string, *Report) error{
+		"semantic names": checkSemanticNames,
+		"text layout":    checkTextLayout,
+	} {
+		t.Run(name, func(t *testing.T) {
+			report := newReport("policy", root)
+			if err := check(root, &report); err == nil || !strings.Contains(err.Error(), "list tracked files") {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
 func TestAnalyzeRepositoryPropagatesSemanticStageFailures(t *testing.T) {
 	original := repositoryAnalysis
 	t.Cleanup(func() { repositoryAnalysis = original })
@@ -149,6 +168,18 @@ func TestAnalyzeRepositoryPropagatesSemanticStageFailures(t *testing.T) {
 	for name, configure := range map[string]func(){
 		"decision records": func() {
 			repositoryAnalysis.decisionRecords = func(string, *Report) error { return want }
+		},
+		"semantic names": func() {
+			repositoryAnalysis.semanticNames = func(string, *Report) error { return want }
+		},
+		"text layout": func() {
+			repositoryAnalysis.textLayout = func(string, *Report) error { return want }
+		},
+		"package children": func() {
+			repositoryAnalysis.packageChildren = func(string, policy, *Report) error { return want }
+		},
+		"Go files": func() {
+			repositoryAnalysis.goFiles = func(string, policy) ([]goFileInfo, error) { return nil, want }
 		},
 		"peer imports": func() {
 			repositoryAnalysis.peerImports = func(string, []goFileInfo, policy, *Report) error { return want }
@@ -163,7 +194,10 @@ func TestAnalyzeRepositoryPropagatesSemanticStageFailures(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			repositoryAnalysis = original
 			configure()
-			p := policy{CheckDecisionRecords: name == "decision records"}
+			p := policy{
+				CheckDecisionRecords: name == "decision records",
+				CheckSemanticNames:   name == "semantic names",
+			}
 			if _, err := analyzeRepository(t.TempDir(), p, "policy.toml"); !errors.Is(err, want) {
 				t.Fatalf("error = %v, want %v", err, want)
 			}
@@ -176,6 +210,39 @@ func TestCollectGoFilesRejectsInvalidRoot(t *testing.T) {
 		t.Fatal("invalid Go root was accepted")
 	}
 }
+
+func TestCollectGoFilesPropagatesWalkAndRelativeFailures(t *testing.T) {
+	root := t.TempDir()
+	goRoot := filepath.Join(root, "internal")
+	writeFile(t, filepath.Join(goRoot, "owner.go"), "package internal\n")
+	walkFailure := errors.New("walk failed")
+	if _, err := collectGoFilesWith(root, policy{GoRoots: []string{"internal"}}, func(string, fs.WalkDirFunc) error {
+		return walkFailure
+	}, filepath.Rel); !errors.Is(err, walkFailure) {
+		t.Fatalf("walk error = %v", err)
+	}
+	relativeFailure := errors.New("relative path failed")
+	if _, err := collectGoFilesWith(root, policy{GoRoots: []string{"internal"}}, filepath.WalkDir, func(string, string) (string, error) {
+		return "", relativeFailure
+	}); !errors.Is(err, relativeFailure) {
+		t.Fatalf("relative error = %v", err)
+	}
+	if _, err := collectGoFilesWith(root, policy{GoRoots: []string{"internal"}}, func(path string, visit fs.WalkDirFunc) error {
+		entry, statErr := os.Stat(path)
+		if statErr != nil {
+			return statErr
+		}
+		return visit(path, fileInfoDirEntry{entry}, walkFailure)
+	}, filepath.Rel); !errors.Is(err, walkFailure) {
+		t.Fatalf("visit error = %v", err)
+	}
+}
+
+type fileInfoDirEntry struct{ os.FileInfo }
+
+func (entry fileInfoDirEntry) Type() os.FileMode { return entry.Mode().Type() }
+
+func (entry fileInfoDirEntry) Info() (os.FileInfo, error) { return entry.FileInfo, nil }
 
 func TestCollectGoFilesIgnoresConfiguredFilePath(t *testing.T) {
 	root := t.TempDir()

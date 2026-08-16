@@ -3,16 +3,16 @@
 # well-tested package from hiding a blind spot in another semantic owner.
 minimum_statement_percent = 95.0
 minimum_branch_percent = 95.0
-comparison = "at-least"
-threshold_scopes = ["aggregate"]
+comparison = "greater-than"
+threshold_scopes = ["aggregate", "package"]
 package_observation = "required"
 covermode = "atomic"
 packages = ["./..."]
 branch_analyzer = "go-bcov"
 owner = "product-toolchain"
 source = "Go statement profile with go-bcov branch analysis"
-risk_model = "broad unobserved control-flow or a wholly unexecuted package can corrupt credentials routes client projections or publication behavior without an observable regression"
-measurement = "exact aggregate statement and branch counts plus non-zero execution evidence and diagnostic ratios for every canonical Go package"
-false_positive_cost = "aggregate floors can still encourage low-risk tests while per-package ratios are too volatile to act as independent vetoes"
+risk_model = "unobserved control-flow in any semantic owner can corrupt credentials routes client projections or publication behavior without an observable regression"
+measurement = "one complete profile with exact aggregate and canonical-package statement and branch counts"
+false_positive_cost = "small package denominators can require near-complete coverage even when the changed behavior is low risk"
 remediation = "test meaningful behavior remove unreachable code or simplify the responsible semantic owner; package exclusions are not accepted"
-review_condition = "reassess when escaped defects show the aggregate and package-observation model misses a stable product-risk boundary or when three legitimate changes are blocked only by the aggregate denominator"
+review_condition = "reassess when three legitimate changes are blocked only by package denominator granularity or escaped defects show the boundary is insufficient"

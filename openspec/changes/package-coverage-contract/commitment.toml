@@ -6,9 +6,11 @@ scope = [
   ".config/checks/coverage/**",
   "AGENTS.md",
   "docs/governance/**",
+  "docs/operations/release-readiness.md",
   "openspec/changes/package-coverage-contract/**",
   "openspec/changes/archive/*-package-coverage-contract/**",
   "openspec/specs/product-quality/**",
+  "openspec/specs/product-control-plane/spec.md",
   "tools/architecture/**",
   "tools/coverage/**",
 ]
@@ -20,7 +22,7 @@ invariants = [
 ]
 acceptance = [
   "policy_enforces_strictly_greater_than_95_percent_for_statement_and_branch_coverage_at_aggregate_and_package_scopes",
-  "tools_architecture_and_tools_coverage_meet_the_policy without synthetic no-op tests",
+  "tools_architecture_and_tools_coverage_meet_the_policy_without_synthetic_no_op_tests",
   "exact_head_full_repository_proof_passes",
 ]
 risks = [

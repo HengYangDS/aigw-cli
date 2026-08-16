@@ -7,7 +7,7 @@ an old log, branch name, runner incident, tag, or signing identity for proof.
 
 | Claim | Required current evidence | Insufficient evidence |
 | --- | --- | --- |
-| Source is releasable | Clean target revision; aggregate statement and branch coverage each at least 95 percent; every package present with non-zero execution evidence and an exact diagnostic ratio; race detection; static analysis; provider commit verification | An old log, excluded package, wholly unexecuted owner, statement-only evidence, or aggregate evidence without package observation |
+| Source is releasable | Clean target revision; aggregate and per-package statement and branch coverage each strictly above 95 percent with exact raw counts; race detection; static analysis; provider commit verification | An old log, excluded package, wholly unexecuted owner, statement-only evidence, or aggregate evidence without package thresholds |
 | Artifact matrix is complete | Two builds from one version, epoch, Go toolchain, and explicit Forge coordinates; byte-identical six platform archives, SPDX SBOM, and checksum manifest | A partial set, implicit deployment tuple, or semantically similar bytes |
 | Installation works | Native macOS, Linux, and Windows execution of `aigw install`, update, rollback, and uninstall against the candidate archive | Cross-compilation or archive inspection alone |
 | Windows runtime works | Blocking managed Windows build, install, execution, upgrade, rollback, and uninstall evidence | Non-Windows PowerShell syntax or an allowed failure |
