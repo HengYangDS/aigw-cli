@@ -182,8 +182,8 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int
 		return 1
 	}
 	percent := result.Percent()
-	if percent < policy.MinimumStatementPercent {
-		_, _ = fmt.Fprintf(stderr, "coverage %.2f%% is below %.2f%% (%d/%d statements)\n", percent, policy.MinimumStatementPercent, result.Covered, result.Total)
+	if percent <= policy.MinimumStatementPercent {
+		_, _ = fmt.Fprintf(stderr, "coverage %.2f%% does not exceed %.2f%% (%d/%d statements)\n", percent, policy.MinimumStatementPercent, result.Covered, result.Total)
 		return 1
 	}
 	packageNames := make([]string, 0, len(result.Packages))
@@ -200,6 +200,9 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int
 		} else if count.Covered == 0 {
 			_, _ = fmt.Fprintf(stderr, "package %s has no executed statements (%d total)\n", name, count.Total)
 			packagesFailed = true
+		} else if count.Percent() <= policy.MinimumStatementPercent {
+			_, _ = fmt.Fprintf(stderr, "package %s statement coverage %.2f%% does not exceed %.2f%% (%d/%d statements)\n", name, count.Percent(), policy.MinimumStatementPercent, count.Covered, count.Total)
+			packagesFailed = true
 		}
 		_, _ = fmt.Fprintf(stdout, "package %s statement coverage: %.2f%% (%d/%d statements)\n", name, count.Percent(), count.Covered, count.Total)
 	}
@@ -215,7 +218,7 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) int
 		_, _ = fmt.Fprintf(stderr, "retain coverage profile: %v\n", err)
 		return 1
 	}
-	if _, err := fmt.Fprintf(stdout, "statement coverage: %.2f%% (%d/%d statements), required >= %.2f%%\n", percent, result.Covered, result.Total, policy.MinimumStatementPercent); err != nil {
+	if _, err := fmt.Fprintf(stdout, "statement coverage: %.2f%% (%d/%d statements), required > %.2f%%\n", percent, result.Covered, result.Total, policy.MinimumStatementPercent); err != nil {
 		_, _ = fmt.Fprintf(stderr, "write coverage result: %v\n", err)
 		return 1
 	}
@@ -251,11 +254,11 @@ func loadPolicy(path string) (coveragePolicy, error) {
 	if policy.MinimumBranchPercent <= 0 || policy.MinimumBranchPercent >= 100 {
 		return coveragePolicy{}, fmt.Errorf("minimum_branch_percent must be greater than 0 and less than 100")
 	}
-	if policy.Comparison != "at-least" {
-		return coveragePolicy{}, fmt.Errorf("comparison must be at-least")
+	if policy.Comparison != "greater-than" {
+		return coveragePolicy{}, fmt.Errorf("comparison must be greater-than")
 	}
-	if len(policy.ThresholdScopes) != 1 || policy.ThresholdScopes[0] != "aggregate" {
-		return coveragePolicy{}, fmt.Errorf("threshold_scopes must contain exactly aggregate")
+	if len(policy.ThresholdScopes) != 2 || policy.ThresholdScopes[0] != "aggregate" || policy.ThresholdScopes[1] != "package" {
+		return coveragePolicy{}, fmt.Errorf("threshold_scopes must contain aggregate then package")
 	}
 	if policy.PackageObservation != "required" {
 		return coveragePolicy{}, fmt.Errorf("package_observation must be required")
@@ -348,20 +351,23 @@ func runBranchCoverage(profilePath string, packages []packageInfo, policy covera
 		if count.Total > 0 && count.Covered == 0 {
 			_, _ = fmt.Fprintf(stderr, "package %s has no executed branches (%d total)\n", pkg.ImportPath, count.Total)
 			failed = true
+		} else if percent <= policy.MinimumBranchPercent {
+			_, _ = fmt.Fprintf(stderr, "package %s branch coverage %.2f%% does not exceed %.2f%% (%d/%d branches)\n", pkg.ImportPath, percent, policy.MinimumBranchPercent, count.Covered, count.Total)
+			failed = true
 		}
 		aggregate.Covered += count.Covered
 		aggregate.Total += count.Total
 		_, _ = fmt.Fprintf(stdout, "package %s branch coverage: %.2f%% (%d/%d branches)\n", pkg.ImportPath, percent, count.Covered, count.Total)
 	}
 	percent := branchPercent(aggregate)
-	if aggregate.Total == 0 || percent < policy.MinimumBranchPercent {
-		_, _ = fmt.Fprintf(stderr, "aggregate branch coverage %.2f%% is below %.2f%% (%d/%d branches)\n", percent, policy.MinimumBranchPercent, aggregate.Covered, aggregate.Total)
+	if aggregate.Total == 0 || percent <= policy.MinimumBranchPercent {
+		_, _ = fmt.Fprintf(stderr, "aggregate branch coverage %.2f%% does not exceed %.2f%% (%d/%d branches)\n", percent, policy.MinimumBranchPercent, aggregate.Covered, aggregate.Total)
 		failed = true
 	}
 	if failed {
 		return fmt.Errorf("branch coverage policy is not satisfied")
 	}
-	_, _ = fmt.Fprintf(stdout, "branch coverage: %.2f%% (%d/%d branches), required >= %.2f%%\n", percent, aggregate.Covered, aggregate.Total, policy.MinimumBranchPercent)
+	_, _ = fmt.Fprintf(stdout, "branch coverage: %.2f%% (%d/%d branches), required > %.2f%%\n", percent, aggregate.Covered, aggregate.Total, policy.MinimumBranchPercent)
 	return nil
 }
 

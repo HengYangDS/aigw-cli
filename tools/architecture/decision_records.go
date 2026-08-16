@@ -12,6 +12,14 @@ import (
 var decisionRecordName = regexp.MustCompile(`^dr-([0-9]{4})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$`)
 
 func checkDecisionRecords(root string, report *Report) error {
+	return checkDecisionRecordsWithReadDir(root, report, os.ReadDir)
+}
+
+func checkDecisionRecordsWithReadDir(
+	root string,
+	report *Report,
+	readDir func(string) ([]os.DirEntry, error),
+) error {
 	directory := filepath.Join(root, "docs", "decisions")
 	registerPath := filepath.Join(directory, "README.md")
 	register, err := os.ReadFile(registerPath)
@@ -19,7 +27,7 @@ func checkDecisionRecords(root string, report *Report) error {
 		report.addFinding(Finding{Rule: "decision_record_register_missing", Path: "docs/decisions/README.md", Message: "Decision Records require one canonical register"})
 		return nil
 	}
-	entries, err := os.ReadDir(directory)
+	entries, err := readDir(directory)
 	if err != nil {
 		return fmt.Errorf("read Decision Records: %w", err)
 	}

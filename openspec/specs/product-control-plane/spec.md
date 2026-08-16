@@ -384,8 +384,8 @@ the user surface; repository tools remain developer surfaces.
 
 - **WHEN** native Linux, Windows, or macOS verification runs
 - **THEN** repository-controlled fixtures exercise equivalent product meaning
-- **AND** aggregate statement and branch coverage remain at least 95 percent
-- **AND** every package has current non-zero execution evidence and an exact diagnostic ratio.
+- **AND** aggregate and per-package statement and branch coverage remain strictly above 95 percent
+- **AND** every package has current bound raw evidence.
 
 #### Scenario: Another team installs AIGW
 
@@ -458,8 +458,8 @@ compare-and-swap authority bound to the complete accumulated lane delta.
 AIGW SHALL admit a local release candidate only when canonical specifications
 contain no placeholder authority, every direct repository dependency is current
 and stable, transitive selection remains owned by those direct dependencies,
-aggregate statement and branch coverage remain at least 95 percent, every
-package has current non-zero execution evidence, the native source gate passes,
+aggregate and per-package statement and branch coverage remain strictly above
+95 percent with current bound evidence, the native source gate passes,
 and the complete release matrix is
 reproducible and installable. Hosted CI, Forge publication, released-asset
 installation, and lane retirement SHALL consume the archived result rather than
@@ -534,16 +534,15 @@ change `dev`.
 ### Requirement: Native cross-platform release admission
 
 AIGW SHALL require native source verification on Windows, Linux, and macOS
-before a trusted release. The module aggregate SHALL maintain statement and
-branch coverage at or above 95 percent under the single repository coverage
-policy. Every production package SHALL appear in current evidence and execute
-statements plus any branches it owns, without platform exclusions or duplicated
-test stacks. Package percentages remain diagnostic review evidence.
+before a trusted release. The module aggregate and every canonical package
+SHALL maintain statement and branch coverage strictly above 95 percent under
+the single repository coverage policy. Every production package SHALL appear
+in current evidence without platform exclusions or duplicated test stacks.
 
 #### Scenario: A platform exposes an unobserved package or failure boundary
 
 - **WHEN** one native platform reports a wholly unexecuted production package or
-  aggregate coverage below the floor
+  an aggregate or package ratio at or below the floor
 - **THEN** a portable regression SHALL exercise a real behavior or failure
   boundary
 - **AND** the coverage policy SHALL remain unchanged

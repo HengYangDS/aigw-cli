@@ -62,8 +62,8 @@ Worktree visibility or an apparently idle agent is not retirement authority.
 
 - `.config/checks/coverage/policy.toml` is the coverage SSOT. Every canonical Go
   package participates, no source or package exclusion is permitted, and the
-  policy owns aggregate floors, package-observation requirements, measurement,
-  remediation, and review conditions. Exact package ratios remain diagnostic.
+  policy owns aggregate and package floors, comparison semantics, measurement,
+  remediation, and review conditions.
 - Keep one semantic owner for each policy and behavior. Prefer cohesive domain
   packages, explicit dependency direction, and narrow interfaces; apply SSOT,
   DRY, MECE, and SOLID rather than duplicating policy across scripts or CI.

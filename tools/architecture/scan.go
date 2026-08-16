@@ -16,11 +16,19 @@ import (
 
 var repositoryAnalysis = struct {
 	decisionRecords func(string, *Report) error
+	semanticNames   func(string, *Report) error
+	textLayout      func(string, *Report) error
+	packageChildren func(string, policy, *Report) error
+	goFiles         func(string, policy) ([]goFileInfo, error)
 	peerImports     func(string, []goFileInfo, policy, *Report) error
 	importEdges     func(string, []goFileInfo, policy, *Report) error
 	goAST           func(string, []goFileInfo, policy, *Report) error
 }{
 	decisionRecords: checkDecisionRecords,
+	semanticNames:   checkSemanticNames,
+	textLayout:      checkTextLayout,
+	packageChildren: checkPackageChildren,
+	goFiles:         collectGoFiles,
 	peerImports:     checkPeerPackageImports,
 	importEdges:     checkImportEdges,
 	goAST:           checkGoAST,
@@ -42,17 +50,17 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 		}
 	}
 	if p.CheckSemanticNames {
-		if err := checkSemanticNames(absRoot, &report); err != nil {
+		if err := repositoryAnalysis.semanticNames(absRoot, &report); err != nil {
 			return Report{}, err
 		}
 	}
-	if err := checkTextLayout(absRoot, &report); err != nil {
+	if err := repositoryAnalysis.textLayout(absRoot, &report); err != nil {
 		return Report{}, err
 	}
-	if err := checkPackageChildren(absRoot, p, &report); err != nil {
+	if err := repositoryAnalysis.packageChildren(absRoot, p, &report); err != nil {
 		return Report{}, err
 	}
-	goFiles, err := collectGoFiles(absRoot, p)
+	goFiles, err := repositoryAnalysis.goFiles(absRoot, p)
 	if err != nil {
 		return Report{}, err
 	}
@@ -261,6 +269,15 @@ func checkCompositionRoots(files []goFileInfo, p policy, report *Report) {
 }
 
 func collectGoFiles(root string, p policy) ([]goFileInfo, error) {
+	return collectGoFilesWith(root, p, filepath.WalkDir, filepath.Rel)
+}
+
+func collectGoFilesWith(
+	root string,
+	p policy,
+	walkDir func(string, fs.WalkDirFunc) error,
+	relative func(string, string) (string, error),
+) ([]goFileInfo, error) {
 	var files []goFileInfo
 
 	for _, goRoot := range p.GoRoots {
@@ -275,12 +292,12 @@ func collectGoFiles(root string, p policy) ([]goFileInfo, error) {
 		if !info.IsDir() {
 			continue
 		}
-		err = filepath.WalkDir(abs, func(path string, d fs.DirEntry, walkErr error) error {
+		err = walkDir(abs, func(path string, d fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
 			name := d.Name()
-			rel, err := filepath.Rel(root, path)
+			rel, err := relative(root, path)
 			if err != nil {
 				return err
 			}
