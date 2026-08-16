@@ -22,7 +22,6 @@ composition_root_files = { "internal/cli" = ["app.go"] }
 peer_package_roots = { "internal/cli" = ["invocation"] }
 ignore_roots = ["vendor", ".git", "records", "build"]
 ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
-check_package_documentation = false
 `
 
 type rejectingWriter struct{}

@@ -15,24 +15,23 @@ const defaultPolicyPath = ".config/checks/architecture/policy.toml"
 // policy is the declarative SSOT loaded from TOML. Checker behavior must
 // follow these fields rather than hardcoded repository layout constants.
 type policy struct {
-	Owner                     string              `toml:"owner"`
-	Source                    string              `toml:"source"`
-	RiskModel                 string              `toml:"risk_model"`
-	Measurement               string              `toml:"measurement"`
-	FalsePositiveCost         string              `toml:"false_positive_cost"`
-	Remediation               string              `toml:"remediation"`
-	ReviewCondition           string              `toml:"review_condition"`
-	GoRoots                   []string            `toml:"go_roots"`
-	PackageChildren           map[string][]string `toml:"package_children"`
-	CompositionRootFiles      map[string][]string `toml:"composition_root_files"`
-	PeerPackageRoots          map[string][]string `toml:"peer_package_roots"`
-	AllowedImportEdges        map[string][]string `toml:"allowed_import_edges"`
-	IgnoreRoots               []string            `toml:"ignore_roots"`
-	IgnoreDirectoryNames      []string            `toml:"ignore_directory_names"`
-	CheckPackageDocumentation bool                `toml:"check_package_documentation"`
-	CheckDecisionRecords      bool                `toml:"check_decision_records"`
-	CheckSemanticNames        bool                `toml:"check_semantic_names"`
-	RequireImportOwners       bool                `toml:"require_import_owners"`
+	Owner                string              `toml:"owner"`
+	Source               string              `toml:"source"`
+	RiskModel            string              `toml:"risk_model"`
+	Measurement          string              `toml:"measurement"`
+	FalsePositiveCost    string              `toml:"false_positive_cost"`
+	Remediation          string              `toml:"remediation"`
+	ReviewCondition      string              `toml:"review_condition"`
+	GoRoots              []string            `toml:"go_roots"`
+	PackageChildren      map[string][]string `toml:"package_children"`
+	CompositionRootFiles map[string][]string `toml:"composition_root_files"`
+	PeerPackageRoots     map[string][]string `toml:"peer_package_roots"`
+	AllowedImportEdges   map[string][]string `toml:"allowed_import_edges"`
+	IgnoreRoots          []string            `toml:"ignore_roots"`
+	IgnoreDirectoryNames []string            `toml:"ignore_directory_names"`
+	CheckDecisionRecords bool                `toml:"check_decision_records"`
+	CheckSemanticNames   bool                `toml:"check_semantic_names"`
+	RequireImportOwners  bool                `toml:"require_import_owners"`
 }
 
 func loadPolicy(path string) (policy, error) {

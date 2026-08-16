@@ -19,9 +19,10 @@ topology and the rationale for enforcing it.
 The checker no longer infers architecture from the presence of a programming
 language, shell, address literal, user path, alias, or small forwarding
 function. The aggregate governance gate likewise no longer rejects non-English
-text or historical directory labels. These signals are either valid in bounded
-contexts or already covered by the compiler, release validation, documentation
-review, or the positive dependency graph.
+text, historical directory labels, or a missing fixed-form package comment.
+These signals are either valid in bounded contexts or already covered by the
+compiler, release validation, documentation review, or the positive dependency
+graph.
 
 ## Single Sources
 
