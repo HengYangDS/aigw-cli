@@ -349,6 +349,45 @@ func TestEndpointTestCommandCoversSuccessAndTransportFailures(t *testing.T) {
 }
 
 func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
+	t.Run("profile infers client", func(t *testing.T) {
+		runtime, cfg := configuredReadinessRuntime(t)
+		profile := cfg.Profiles["one"]
+		profile.Client = configuration.ClientCodex
+		delete(profile.Models, configuration.ClientClaude)
+		cfg.Profiles["one"] = profile
+		if err := runtime.Config.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := runtime.Secrets.Set("one", "token"); err != nil {
+			t.Fatal(err)
+		}
+		var requests int
+		runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			requests++
+			if request.URL.Path != "/v1/models" {
+				t.Fatalf("request path = %q", request.URL.Path)
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
+		})
+		command := NewTestCommand(runtime)
+		command.SetArgs([]string{"--profile", "one"})
+		if err := executeCommand(command); err != nil {
+			t.Fatal(err)
+		}
+		if requests != 1 {
+			t.Fatalf("requests = %d, want 1", requests)
+		}
+	})
+
+	t.Run("unscoped profile requires client", func(t *testing.T) {
+		runtime, _ := configuredReadinessRuntime(t)
+		command := NewTestCommand(runtime)
+		command.SetArgs([]string{"--profile", "one"})
+		if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), "--for") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
 	t.Run("invalid client", func(t *testing.T) {
 		runtime, _ := configuredReadinessRuntime(t)
 		command := NewTestCommand(runtime)

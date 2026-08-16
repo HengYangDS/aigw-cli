@@ -25,6 +25,12 @@ func TestVerifyCommandRejectsInvalidInputsAndMissingState(t *testing.T) {
 		{name: "unknown profile", args: []string{"verify", "--for", "codex", "--profile", "missing"}, prep: func(app *cli.App) {
 			saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt"})
 		}, want: "unknown profile"},
+		{name: "unscoped profile without client", args: []string{"verify", "--profile", "one"}, prep: func(app *cli.App) {
+			saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, "", configuration.Models{configuration.ClientCodex: "gpt"})
+		}, want: "does not declare a client"},
+		{name: "missing target", args: []string{"verify"}, prep: func(app *cli.App) {
+			saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt"})
+		}, want: "--for must be"},
 		{name: "missing token", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) {
 			saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt"})
 		}, want: "is unavailable"},
@@ -76,6 +82,32 @@ func TestVerifyCodexPerformsBoundedResponsesRequest(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "verify-token") || !strings.Contains(out.String(), "Live protocol verification") {
 		t.Fatalf("verify output = %s", out.String())
+	}
+}
+
+func TestVerifyInfersClientFromExplicitProfile(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
+	cfg.Routes.Default = "gpt"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("dmx", "verify-token"); err != nil {
+		t.Fatal(err)
+	}
+	requests := 0
+	app.HTTP = &fakeHTTP{status: http.StatusOK, handler: func(req *http.Request) (*http.Response, error) {
+		requests++
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"status":"completed","output_text":"AIGW_OK"}`)), Request: req}, nil
+	}}
+
+	if err := execute(t, app, "verify", "--profile", "gpt"); err != nil {
+		t.Fatal(err)
+	}
+	if requests != 1 {
+		t.Fatalf("requests = %d, want 1", requests)
 	}
 }
 

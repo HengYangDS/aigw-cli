@@ -24,6 +24,12 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if profileName != "" && client == "" {
+				client, err = cfg.ClientForProfile(profileName)
+				if err != nil {
+					return err
+				}
+			}
 			clients := configuration.AdmittedClientSpecs()
 			if client != "" {
 				spec, ok := configuration.ClientSpecFor(client)
@@ -104,7 +110,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&client, "for", "", "Test only Claude or Codex")
-	cmd.Flags().StringVar(&profileName, "profile", "", "Test a specified profile without changing routes")
+	cmd.Flags().StringVar(&profileName, "profile", "", "Test a specified profile without changing routes; infer its declared client when --for is omitted")
 	return cmd
 }
 

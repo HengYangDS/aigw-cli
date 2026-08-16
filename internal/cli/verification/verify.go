@@ -20,6 +20,19 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Short: "Run one minimal live request to verify the model protocol path",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if client != "" && !configuration.IsAdmittedClient(client) && client != "all" {
+				return fmt.Errorf("--for must be %s; run `aigw verify --help`", configuration.AdmittedClientUsage("all"))
+			}
+			cfg, err := runtime.Config.Load()
+			if err != nil {
+				return err
+			}
+			if profileName != "" && client == "" {
+				client, err = cfg.ClientForProfile(profileName)
+				if err != nil {
+					return err
+				}
+			}
 			var clients []string
 			switch {
 			case configuration.IsAdmittedClient(client):
@@ -31,10 +44,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				clients = configuration.AdmittedClientIDs()
 			default:
 				return fmt.Errorf("--for must be %s; run `aigw verify --help`", configuration.AdmittedClientUsage("all"))
-			}
-			cfg, err := runtime.Config.Load()
-			if err != nil {
-				return err
 			}
 			if client == "all" {
 				if err := domainverification.ValidateFullReadiness(cfg); err != nil {
@@ -78,6 +87,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&client, "for", "", "Verify "+configuration.AdmittedClientLabelUsage("all")+" clients")
-	cmd.Flags().StringVar(&profileName, "profile", "", "Verify a specified profile without changing routes")
+	cmd.Flags().StringVar(&profileName, "profile", "", "Verify a specified profile without changing routes; infer its declared client when --for is omitted")
 	return cmd
 }
