@@ -1,0 +1,19 @@
+schema_version = 1
+id = "change:forge-capability-projection"
+intent = "Project each Forge only onto its available native executors while retaining one product evidence model."
+subjects = [
+  "repository:self",
+]
+scope = [
+  "openspec/changes/forge-capability-projection/**",
+  ".config/ci/pipeline.cue",
+  ".gitlab-ci.yml",
+  "tools/ci/projection_test.go",
+  "openspec/changes/archive/*-forge-capability-projection/**",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+hypotheses = []
+dependencies = []
