@@ -1,0 +1,17 @@
+schema_version = 1
+id = "change:documentation-information-architecture"
+intent = "Align documentation semantics, navigation, and physical organization without redundant index surfaces."
+subjects = [
+  "repository:self",
+]
+scope = [
+  "openspec/changes/documentation-information-architecture/**",
+  "docs/**",
+  "AGENTS.md",
+]
+invariants = []
+acceptance = []
+risks = []
+authority_refs = []
+hypotheses = []
+dependencies = []
