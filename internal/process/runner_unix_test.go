@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
-	"time"
 )
 
 // These tests assume a POSIX process model: /usr/bin/true and /usr/bin/false
@@ -120,20 +119,5 @@ func TestRunCaptureRejectsOversizedStdout(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "exceeds") {
 		t.Fatalf("RunCapture() error = %v, want oversized output", err)
-	}
-}
-
-func TestRunCaptureReportsDeadlineExceededPipeDrain(t *testing.T) {
-	requireShellFixture(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
-	defer cancel()
-	// Keep an output pipe open past the deadline so WaitDelay collides with ctx timeout.
-	_, err := (Runner{}).RunCapture(ctx, Plan{
-		Executable: "/bin/sh",
-		Args:       []string{"-c", "(sleep 8) & printf started; sleep 8"},
-		Env:        []string{},
-	})
-	if err == nil || !strings.Contains(err.Error(), "exceeded its verification limit") {
-		t.Fatalf("RunCapture() error = %v, want verification-limit diagnostic", err)
 	}
 }

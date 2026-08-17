@@ -92,7 +92,7 @@ func (Runner) RunCapture(ctx context.Context, plan Plan) ([]byte, error) {
 		if stdout.overflow || stderr.overflow || errors.Is(err, errCapturedProcessOutputLimit) {
 			return nil, fmt.Errorf("captured output from %s exceeds %d bytes", plan.Executable, capturedProcessOutputLimit)
 		}
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) && stdout.Len()+stderr.Len() > 0 {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return nil, fmt.Errorf("%s exceeded its verification limit and its output pipes did not close within %s: %w", plan.Executable, capturedProcessWaitDelay, err)
 		}
 		if errors.Is(err, exec.ErrWaitDelay) {
