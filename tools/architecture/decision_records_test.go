@@ -10,7 +10,7 @@ func TestDecisionRecordsAcceptSemanticContiguousRegister(t *testing.T) {
 	root := t.TempDir()
 	writeDecisionRecord(t, root, "dr-0001-product-boundary.md", 1)
 	writeDecisionRecord(t, root, "dr-0002-release-trust.md", 2)
-	writeFile(t, filepath.Join(root, "docs", "decisions", "README.md"), "[DR-0001](dr-0001-product-boundary.md)\n[DR-0002](dr-0002-release-trust.md)\n")
+	writeFile(t, filepath.Join(root, "docs", "decisions", decisionRegister), "[DR-0001](dr-0001-product-boundary.md)\n[DR-0002](dr-0002-release-trust.md)\n")
 	report := newReport("policy", root)
 	if err := checkDecisionRecords(root, &report); err != nil {
 		t.Fatal(err)
@@ -25,7 +25,7 @@ func TestDecisionRecordsRejectBareNumbersAndDuplicateRegistrationWithoutRequirin
 	writeDecisionRecord(t, root, "0001-product-boundary.md", 1)
 	writeDecisionRecord(t, root, "dr-0002-release-trust.md", 2)
 	writeDecisionRecord(t, root, "dr-0004-portability.md", 4)
-	writeFile(t, filepath.Join(root, "docs", "decisions", "README.md"), "[DR-0002](dr-0002-release-trust.md)\n[again](dr-0002-release-trust.md)\n[DR-0004](dr-0004-portability.md)\n")
+	writeFile(t, filepath.Join(root, "docs", "decisions", decisionRegister), "[DR-0002](dr-0002-release-trust.md)\n[again](dr-0002-release-trust.md)\n[DR-0004](dr-0004-portability.md)\n")
 	report := newReport("policy", root)
 	if err := checkDecisionRecords(root, &report); err != nil {
 		t.Fatal(err)
@@ -50,9 +50,9 @@ func TestDecisionRecordsReportMissingRegisterAndIncompleteBody(t *testing.T) {
 	if err := checkDecisionRecords(root, &report); err != nil {
 		t.Fatal(err)
 	}
-	assertFinding(t, report.Findings, "decision_record_register_missing", "docs/decisions/README.md")
+	assertFinding(t, report.Findings, "decision_record_register_missing", "docs/decisions/decision-register.md")
 
-	writeFile(t, filepath.Join(root, "docs", "decisions", "README.md"), "# Decision Records\n")
+	writeFile(t, filepath.Join(root, "docs", "decisions", decisionRegister), "# Decision Records\n")
 	report = newReport("policy", root)
 	if err := checkDecisionRecords(root, &report); err != nil {
 		t.Fatal(err)

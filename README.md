@@ -226,12 +226,12 @@ mise exec --locked -- go run ./tools/forge tags --mode local --gitlab-allowed-si
 
 | Need | Source of truth |
 | --- | --- |
-| Concepts | [Account, Profile, Route, Adapter](docs/concepts/README.md) |
+| Concepts | [Account, Profile, Route, Adapter](docs/concepts/product-concepts.md) |
 | Client and control-plane boundaries | [Architecture](docs/architecture/authority-and-projection-boundary.md) |
-| Human terminal behavior | [Terminal experience](docs/governance/terminal-experience-contract.md) |
-| Security | [Security model](docs/governance/security.md) |
+| Human terminal behavior | [Terminal experience](docs/experience/terminal-experience.md) |
+| Security | [Security model](docs/architecture/security-model.md) |
 | Team adoption | [Team rollout](docs/guides/team-rollout.md) |
-| Release evidence | [Release readiness](docs/operations/release-readiness.md) |
+| Release evidence | [Release readiness](docs/evidence/release-evidence.md) |
 | Development | [CONTRIBUTING](CONTRIBUTING.md) |
 | Full index | [Documentation root](docs/README.md) |
 

@@ -12,7 +12,7 @@ import (
 func TestDecisionRecordReadFailureIsReported(t *testing.T) {
 	root := t.TempDir()
 	directory := filepath.Join(root, "docs", "decisions")
-	writeFile(t, filepath.Join(directory, "README.md"), "# Decisions\n")
+	writeFile(t, filepath.Join(directory, decisionRegister), "# Decisions\n")
 	if err := os.Symlink(filepath.Join(root, "missing-record"), filepath.Join(directory, "dr-0001-missing.md")); err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestDecisionRecordReadFailureIsReported(t *testing.T) {
 func TestDecisionRecordDirectoryReadFailureIsReported(t *testing.T) {
 	root := t.TempDir()
 	directory := filepath.Join(root, "docs", "decisions")
-	writeFile(t, filepath.Join(directory, "README.md"), "# Decisions\n")
+	writeFile(t, filepath.Join(directory, decisionRegister), "# Decisions\n")
 	want := errors.New("directory read failed")
 	report := newReport("policy", root)
 	err := checkDecisionRecordsWithReadDir(root, &report, func(string) ([]os.DirEntry, error) {

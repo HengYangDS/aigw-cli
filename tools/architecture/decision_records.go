@@ -11,6 +11,8 @@ import (
 
 var decisionRecordName = regexp.MustCompile(`^dr-([0-9]{4})-([a-z0-9]+(?:-[a-z0-9]+)*)\.md$`)
 
+const decisionRegister = "decision-register.md"
+
 func checkDecisionRecords(root string, report *Report) error {
 	return checkDecisionRecordsWithReadDir(root, report, os.ReadDir)
 }
@@ -21,10 +23,10 @@ func checkDecisionRecordsWithReadDir(
 	readDir func(string) ([]os.DirEntry, error),
 ) error {
 	directory := filepath.Join(root, "docs", "decisions")
-	registerPath := filepath.Join(directory, "README.md")
+	registerPath := filepath.Join(directory, decisionRegister)
 	register, err := os.ReadFile(registerPath)
 	if err != nil {
-		report.addFinding(Finding{Rule: "decision_record_register_missing", Path: "docs/decisions/README.md", Message: "Decision Records require one canonical register"})
+		report.addFinding(Finding{Rule: "decision_record_register_missing", Path: "docs/decisions/" + decisionRegister, Message: "Decision Records require one canonical register"})
 		return nil
 	}
 	entries, err := readDir(directory)
@@ -33,7 +35,7 @@ func checkDecisionRecordsWithReadDir(
 	}
 	sequences := map[int]bool{}
 	for _, entry := range entries {
-		if entry.IsDir() || entry.Name() == "README.md" || filepath.Ext(entry.Name()) != ".md" {
+		if entry.IsDir() || entry.Name() == decisionRegister || filepath.Ext(entry.Name()) != ".md" {
 			continue
 		}
 		relative := "docs/decisions/" + entry.Name()
