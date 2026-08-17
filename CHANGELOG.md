@@ -8,6 +8,13 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.86] - 2026-08-17
+
+### Changed
+
+- Refresh the locked Go module graph to the current stable releases and rerun
+  the complete cross-platform source, coverage, and release proof.
+
 ## [0.1.0-rc.85] - 2026-08-17
 
 ### Changed
