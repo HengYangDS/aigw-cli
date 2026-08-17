@@ -1,0 +1,26 @@
+schema_version = 1
+id = "change:rc85-identity-delivery"
+intent = "Execute the approved rc.85 identity-only replacement through one fresh public Work Lane without changing AIGW product semantics."
+subjects = ["repository:self"]
+scope = [
+  "openspec/changes/rc85-identity-delivery/**",
+  "openspec/changes/archive/*-rc85-identity-delivery/**",
+]
+invariants = [
+  "published_rc_84_and_earlier_history_is_unchanged",
+  "replacement_preserves_each_original_tree_message_author_and_timestamps",
+  "local_role_refs_move_only_by_one_receipt_bound_exact_cas",
+]
+acceptance = [
+  "all_replacement_commits_are_trusted_by_the_gitlab_release_anchor",
+  "candidate_accepted_and_release_roles_point_to_the_same_repaired_product_tree",
+  "the_temporary_delivery_lane_is_retired_after_remote_convergence",
+]
+risks = ["any ref payload proof or signature drift aborts before mutation"]
+authority_refs = [
+  "user_instruction",
+  "openspec/changes/archive/2026-08-16-rc85-signature-repair/",
+  "docs/governance/change-and-release-policy.md",
+]
+hypotheses = []
+dependencies = []
