@@ -11,9 +11,21 @@ scope = [
   "tools/ci/projection_test.go",
   "openspec/changes/archive/*-forge-capability-projection/**",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
+invariants = [
+  "one_cue_model_remains_the_only_ci_topology_authority",
+  "product_native_evidence_is_distinct_from_forge_executor_capacity",
+  "github_and_gitlab_remain_independent_publication_planes",
+]
+acceptance = [
+  "gitlab_projects_only_macos_and_linux_native_jobs_while_no_windows_executor_is_available",
+  "github_retains_required_macos_linux_and_windows_native_jobs",
+  "generated_forge_files_match_the_cue_authority_exactly",
+]
+risks = ["a_forge_capability_is_confused_with_product_support"]
+authority_refs = [
+  "AGENTS.md",
+  "openspec/specs/product-quality/spec.md",
+  "docs/governance/change-and-release-policy.md",
+]
 hypotheses = []
 dependencies = []

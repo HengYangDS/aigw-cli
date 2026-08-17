@@ -204,17 +204,15 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 		t.Fatal(err)
 	}
 	var pipeline struct {
-		NativeDarwin  gitLabJob `yaml:"native-darwin"`
-		NativeLinux   gitLabJob `yaml:"native-linux"`
-		NativeWindows gitLabJob `yaml:"native-windows"`
+		NativeDarwin gitLabJob `yaml:"native-darwin"`
+		NativeLinux  gitLabJob `yaml:"native-linux"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
 	for name, job := range map[string]gitLabJob{
-		"native-darwin":  pipeline.NativeDarwin,
-		"native-linux":   pipeline.NativeLinux,
-		"native-windows": pipeline.NativeWindows,
+		"native-darwin": pipeline.NativeDarwin,
+		"native-linux":  pipeline.NativeLinux,
 	} {
 		if job.Variables["MISE_ENABLE_TOOLS"] != "go,cue" {
 			t.Fatalf("%s enabled tools = %q, want go,cue", name, job.Variables["MISE_ENABLE_TOOLS"])
@@ -305,7 +303,6 @@ func TestGitHubReleaseBuildUsesTheCanonicalTagInput(t *testing.T) {
 }
 
 type gitLabJob struct {
-	AllowFailure bool              `yaml:"allow_failure"`
 	BeforeScript []string          `yaml:"before_script"`
 	Extends      []string          `yaml:"extends"`
 	Image        gitLabImage       `yaml:"image"`
@@ -323,25 +320,41 @@ type gitLabImage struct {
 	Entrypoint []string `yaml:"entrypoint"`
 }
 
-func TestGitLabReleaseDoesNotDuplicateProductLevelWindowsAdmission(t *testing.T) {
+func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var pipeline struct {
-		NativeWindows gitLabJob `yaml:"native-windows"`
-		Package       gitLabJob `yaml:"package"`
+	var gitlab struct {
+		NativeWindows *gitLabJob `yaml:"native-windows"`
+		Package       gitLabJob  `yaml:"package"`
 	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	if !pipeline.NativeWindows.AllowFailure {
-		t.Fatal("GitLab native Windows observation blocks the release graph")
+	if gitlab.NativeWindows != nil {
+		t.Fatal("GitLab projection contains Windows without declared execution capacity")
 	}
-	for _, need := range pipeline.Package.Needs {
+	if strings.Contains(projections[0].Content, "AIGW_GITLAB_WINDOWS_RUNNER_TAG") ||
+		strings.Contains(projections[0].Content, "allow_failure:") {
+		t.Fatal("GitLab projection retains a disabled Windows runner surface")
+	}
+	for _, need := range gitlab.Package.Needs {
 		if need.Job == "native-windows" {
 			t.Fatal("GitLab package duplicates product-level native Windows admission")
+		}
+	}
+
+	for _, projectionIndex := range []int{1, 2} {
+		var github struct {
+			Jobs map[string]any `yaml:"jobs"`
+		}
+		if err := yaml.Unmarshal([]byte(projections[projectionIndex].Content), &github); err != nil {
+			t.Fatal(err)
+		}
+		if _, present := github.Jobs["native-windows"]; !present {
+			t.Fatalf("GitHub projection %d lacks required native Windows evidence", projectionIndex)
 		}
 	}
 }
