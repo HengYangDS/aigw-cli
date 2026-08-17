@@ -49,7 +49,7 @@ commands: {
 		mirror="$authenticated_api/projects/$CI_PROJECT_ID/packages/generic/ci-source-tools/$lock_sha/\$4"
 		export MISE_URL_REPLACEMENTS="{\"regex:^https://github\\\\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/(.+)\$\":\"$mirror\"}"
 		"""#
-	source:  "mise exec --locked -- go run ./tools/ci source"
+	source: "mise exec --locked -- go run ./tools/ci source"
 	native: {
 		for platform in ["darwin", "linux", "windows"] {
 			(platform): "mise exec --locked -- go run ./tools/ci native --platform \(platform)"
@@ -60,9 +60,27 @@ commands: {
 	publish: "mise exec --locked -- go run ./tools/release publish-gitlab dist"
 }
 
-nativeToolchain: MISE_ENABLE_TOOLS: "go,cue"
-sourceToolchain: MISE_ENABLE_TOOLS: "go,node,cue,npm:@fission-ai/openspec,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
+nativeToolchain: MISE_ENABLE_TOOLS:           "go,cue"
+sourceToolchain: MISE_ENABLE_TOOLS:           "go,node,cue,npm:@fission-ai/openspec,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
 releaseReadinessToolchain: MISE_ENABLE_TOOLS: "go"
+
+// Product evidence and Forge execution capacity are separate facts. A Forge
+// projects only the native jobs it can execute; product-level evidence remains
+// complete across the independent publication planes.
+productEvidence: native: ["darwin", "linux", "windows"]
+
+forgeCapabilities: {
+	gitlab: {
+		darwin:  true
+		linux:   true
+		windows: false
+	}
+	github: {
+		for platform in productEvidence.native {
+			(platform): true
+		}
+	}
+}
 
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser.yaml.
@@ -79,7 +97,6 @@ nativeEvidence: {
 	}
 	windows: {
 		name: "Windows"
-		gitlab: tags: ["$AIGW_GITLAB_WINDOWS_RUNNER_TAG"]
 		github: runner: "windows-latest"
 	}
 }
@@ -111,7 +128,7 @@ _graphOrder: {
 miseImage: "ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6"
 
 #MiseGitLabImage: {
-	name:       miseImage
+	name: miseImage
 	entrypoint: [""]
 }
 
@@ -157,6 +174,20 @@ actions: {
 	]
 }
 
+#NativeGitLabJob: {
+	_platform: #OperatingSystem
+	stage:     graph["native-\(_platform)"].stage
+	tags:      nativeEvidence[_platform].gitlab.tags
+	variables: nativeToolchain
+	if _platform == "linux" {
+		extends: [".linux-toolchain"]
+		script: [commands.native[_platform]]
+	}
+	if _platform != "linux" {
+		script: [commands.install, commands.native[_platform]]
+	}
+}
+
 gitlab: {
 	workflow: rules: [
 		{if: "$CI_COMMIT_BRANCH =~ /^release\\// && !$CI_COMMIT_TAG", when: "never"},
@@ -179,37 +210,22 @@ gitlab: {
 	"source-and-governance": {
 		stage: graph["source-and-governance"].stage
 		extends: [".source-toolchain"]
-		tags:  nativeEvidence.linux.gitlab.tags
+		tags: nativeEvidence.linux.gitlab.tags
 		variables: sourceToolchain & {AIGW_FORGE_PROVIDER: "gitlab"}
 		script: [
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.source,
 		]
 	}
-	"native-darwin": {
-		stage: graph["native-darwin"].stage
-		tags:  nativeEvidence.darwin.gitlab.tags
-		variables: nativeToolchain
-		script: [commands.install, commands.native.darwin]
-	}
-	"native-linux": {
-		stage: graph["native-linux"].stage
-		extends: [".linux-toolchain"]
-		tags:  nativeEvidence.linux.gitlab.tags
-		variables: nativeToolchain
-		script: [commands.native.linux]
-	}
-	"native-windows": {
-		stage:         graph["native-windows"].stage
-		allow_failure: true
-		tags:          nativeEvidence.windows.gitlab.tags
-		variables: nativeToolchain
-		script: [commands.install, commands.native.windows]
+	"native-darwin": #NativeGitLabJob & {_platform: "darwin"}
+	"native-linux": #NativeGitLabJob & {_platform: "linux"}
+	if forgeCapabilities.gitlab.windows {
+		"native-windows": #NativeGitLabJob & {_platform: "windows"}
 	}
 	"release-readiness": {
 		stage: graph["release-readiness"].stage
 		extends: [".linux-toolchain"]
-		tags:  nativeEvidence.linux.gitlab.tags
+		tags:      nativeEvidence.linux.gitlab.tags
 		variables: releaseReadinessToolchain
 		rules: [
 			{if: "$CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\\./"},

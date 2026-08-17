@@ -102,34 +102,24 @@ source-and-governance:
     - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
     - mise exec --locked -- go run ./tools/ci source
 native-darwin:
+  script:
+    - mise install --locked
+    - mise exec --locked -- go run ./tools/ci native --platform darwin
   stage: verify
   tags:
     - $AIGW_GITLAB_DARWIN_RUNNER_TAG
   variables:
     MISE_ENABLE_TOOLS: go,cue
-  script:
-    - mise install --locked
-    - mise exec --locked -- go run ./tools/ci native --platform darwin
 native-linux:
-  stage: verify
   extends:
     - .linux-toolchain
+  script:
+    - mise exec --locked -- go run ./tools/ci native --platform linux
+  stage: verify
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   variables:
     MISE_ENABLE_TOOLS: go,cue
-  script:
-    - mise exec --locked -- go run ./tools/ci native --platform linux
-native-windows:
-  stage: verify
-  allow_failure: true
-  tags:
-    - $AIGW_GITLAB_WINDOWS_RUNNER_TAG
-  variables:
-    MISE_ENABLE_TOOLS: go,cue
-  script:
-    - mise install --locked
-    - mise exec --locked -- go run ./tools/ci native --platform windows
 release-readiness:
   stage: verify
   extends:
