@@ -10,8 +10,8 @@ dr-<four-digit-sequence>-<concise-kebab-case-description>.md
 ```
 
 Sequences are stable and never reused. Records are amended or superseded, not
-silently repurposed. Tool-mandated names such as `README.md`, `go.mod`,
-`spec.md`, and OpenSpec carrier names keep their native grammar.
+silently repurposed. Tool-mandated names such as `go.mod`, `spec.md`, and
+OpenSpec carrier names keep their native grammar.
 
 ## Required sections
 

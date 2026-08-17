@@ -234,7 +234,7 @@ func TestAbsolutePolicyPath(t *testing.T) {
 func TestDecisionRecordDuplicateSequence(t *testing.T) {
 	root := t.TempDir()
 	directory := filepath.Join(root, "docs", "decisions")
-	writeFile(t, filepath.Join(directory, "README.md"), "[A](dr-0001-a.md)\n[B](dr-0001-b.md)\n")
+	writeFile(t, filepath.Join(directory, decisionRegister), "[A](dr-0001-a.md)\n[B](dr-0001-b.md)\n")
 	body := "# DR-0001: Fixture\n\n- Status: Accepted\n- Date: 2026-08-08\n\n## Context\nX\n\n## Decision\nX\n\n## Consequences\nX\n\n## Revisit Trigger\nX\n"
 	writeFile(t, filepath.Join(directory, "dr-0001-a.md"), body)
 	writeFile(t, filepath.Join(directory, "dr-0001-b.md"), body)

@@ -6,12 +6,31 @@ subjects = [
 ]
 scope = [
   "openspec/changes/documentation-information-architecture/**",
+  "README.md",
   "docs/**",
   "AGENTS.md",
+  "tools/architecture/decision_records.go",
+  "tools/architecture/decision_records_test.go",
+  "tools/architecture/behavior_test.go",
+  "tools/architecture/main_test.go",
+  "openspec/changes/archive/*-documentation-information-architecture/**",
 ]
-invariants = []
-acceptance = []
-risks = []
-authority_refs = []
+invariants = [
+  "docs_readme_is_the_only_readme_below_docs",
+  "directory_names_express_information_domains",
+  "document_names_express_content_not_container_convention",
+  "navigation_has_one_global_owner_without_redirect_only_indexes",
+]
+acceptance = [
+  "every_canonical_document_is_reachable_from_the_documentation_root_or_its_semantic_register",
+  "all_repository_links_resolve_after_the_move",
+  "repository_quality_gates_accept_the_reorganized_tree",
+]
+risks = ["moved_documents_leave_stale_links_or_duplicate_navigation"]
+authority_refs = [
+  "AGENTS.md",
+  "docs/README.md",
+  "openspec/specs/repository-organization/spec.md",
+]
 hypotheses = []
 dependencies = []
