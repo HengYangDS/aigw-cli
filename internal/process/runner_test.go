@@ -42,7 +42,7 @@ func TestRunCaptureBoundsPipeDrainAfterChildExit(t *testing.T) {
 	}
 }
 
-func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
+func TestRunCaptureReportsDeadlineAfterPipeDrain(t *testing.T) {
 	requireShellFixture(t)
 	fixtureDir := t.TempDir()
 	marker, err := os.CreateTemp(fixtureDir, "pipe-drain-child-")
@@ -84,7 +84,7 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 	go func() {
 		_, runErr := (Runner{}).RunCapture(ctx, Plan{
 			Executable: "/bin/sh",
-			Args:       []string{"-c", "(sleep 30) & printf '%s\\n' \"$!\" > \"$1\"; : > \"$2\"; printf started; while [ ! -f \"$3\" ]; do sleep 0.01; done; sleep 30", "sh", marker.Name(), ready.Name(), fixtureDir + "/expire"},
+			Args:       []string{"-c", "(sleep 30) & printf '%s\\n' \"$!\" > \"$1\"; : > \"$2\"; while [ ! -f \"$3\" ]; do sleep 0.01; done; sleep 30", "sh", marker.Name(), ready.Name(), fixtureDir + "/expire"},
 			Env:        []string{},
 		})
 		result <- runErr
@@ -115,7 +115,7 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 	case <-time.After(capturedProcessWaitDelay + time.Second):
 		t.Fatal("RunCapture did not return after the bounded pipe-drain delay")
 	}
-	if runErr == nil || !strings.Contains(runErr.Error(), "output pipes did not close within") {
-		t.Fatalf("RunCapture error = %v, want pipe-drain diagnostic", runErr)
+	if runErr == nil || !strings.Contains(runErr.Error(), "exceeded its verification limit and its output pipes did not close within") {
+		t.Fatalf("RunCapture error = %v, want deadline and pipe-drain diagnostic", runErr)
 	}
 }
