@@ -1,0 +1,36 @@
+schema_version = 1
+id = "change:rc86-supply-chain-refresh"
+intent = "Advance AIGW to the current stable dependency graph and publish the verified source as v0.1.0-rc.86 without changing product boundaries."
+subjects = ["repository:aigw-cli"]
+scope = [
+  "CHANGELOG.md",
+  "VERSION",
+  "go.mod",
+  "go.sum",
+  "openspec/changes/archive/*-rc86-supply-chain-refresh/**",
+  "openspec/changes/rc86-supply-chain-refresh/**",
+]
+invariants = [
+  "aigw_remains_a_codex_and_claude_code_configuration_control_plane",
+  "gitlab_and_github_remain_independent_release_planes",
+  "no_workstation_jetbrains_proxy_or_conversation_state_authority_enters_aigw",
+  "version_identity_has_one_owner",
+]
+acceptance = [
+  "complete_local_quality_and_coverage_gates_pass",
+  "exact_head_repository_proof_passes",
+  "gitlab_and_github_publish_complete_v0_1_0_rc_86_releases_from_the_same_source_tree",
+  "the_installed_aigw_reports_v0_1_0_rc_86_and_doctor_passes",
+  "the_locked_go_dependency_graph_uses_current_stable_versions",
+]
+risks = [
+  "a_transitive_dependency_update_can_change_runtime_behavior",
+  "one_forge_can_publish_before_the_other",
+]
+authority_refs = [
+  ".config/checks/coverage/policy.toml",
+  "AGENTS.md",
+  "docs/governance/change-and-release-policy.md",
+]
+hypotheses = []
+dependencies = []
