@@ -4,4 +4,4 @@
 - [x] Add regressions for deadline termination with and without captured output.
 - [x] Stress the focused process package on macOS.
 - [x] Run native source gates.
-- [ ] Produce exact-HEAD proof after the implementation commit.
+- [x] Produce exact-HEAD proof for the completed change.
