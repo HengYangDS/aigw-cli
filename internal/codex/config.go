@@ -22,9 +22,11 @@ const (
 	codexBegin     = "# >>> AIGW managed provider >>>"
 	codexEnd       = "# <<< AIGW managed provider <<<"
 	// Codex owns scheduling; AIGW projects the bounded client policy while the
-	// selected endpoint remains an ordinary provider concern. The current Codex
-	// schema calls this a per-session limit; do not replace it with the retired
-	// max_threads spelling or a proxy-side session limiter.
+	// selected endpoint remains an ordinary provider concern. Codex reads
+	// [agents].max_threads as the session concurrency field and treats
+	// [agents].max_concurrent_threads_per_session as its retired alias, so the two
+	// cannot share a table; the feature-gated table still uses the per-session
+	// spelling. Do not replace either with a proxy-side session limiter.
 	codexSessionConcurrency = 16
 	codexAgentDepth         = 1
 )
@@ -147,7 +149,7 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 		if err := validateCodexScheduler(text); err != nil {
 			return err
 		}
-		if state.ProjectedSchedulerHash != "" && state.ProjectedSchedulerHash != codexSchedulerHash(text) {
+		if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, text) {
 			return fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
 		}
 		return nil
@@ -178,6 +180,10 @@ func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot, run
 			return "", codexState{}, err
 		}
 		base, err = restoreCodexScheduler(base, state.OriginalScheduler)
+		if err != nil {
+			return "", codexState{}, err
+		}
+		state.OriginalScheduler, err = backfillCodexScheduler(state.OriginalScheduler, base)
 		if err != nil {
 			return "", codexState{}, err
 		}
@@ -289,7 +295,7 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 	if !managedBlockHashMatches(state.ManagedBlockHash, block) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits")
 	}
-	if state.ProjectedSchedulerHash != "" && state.ProjectedSchedulerHash != codexSchedulerHash(current) {
+	if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, current) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
 	}
 	providerStart := strings.Index(current, "[model_providers.aigw]")
