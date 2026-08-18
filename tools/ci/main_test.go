@@ -21,7 +21,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "run", "./tools/ci", "project", "--check"},
 		{"openspec", "validate", "--all", "--strict", "--no-interactive"},
 		{"go", "run", "./tools/ci", "links", "."},
-		{"gitleaks", "git", "--redact", "--no-banner", "--platform", "gitlab", "."},
+		{"gitleaks", "dir", "--redact", "--no-banner", "."},
 		{"go", "run", "./tools/release", "validate-toolchain", "go.mod"},
 		{"go", "run", "./tools/release", "validate-release-sources"},
 		{"go", "run", "./tools/architecture", "--root", "."},
@@ -186,7 +186,7 @@ func TestSourceIncludesForgeSpecificProvenanceWhenConfigured(t *testing.T) {
 	if !slices.ContainsFunc(got, func(call command) bool { return reflect.DeepEqual(call, want) }) {
 		t.Fatalf("missing provenance command: %#v", got)
 	}
-	gitleaks := command{Name: "gitleaks", Args: []string{"git", "--redact", "--no-banner", "--platform", "github", "."}}
+	gitleaks := command{Name: "gitleaks", Args: []string{"dir", "--redact", "--no-banner", "."}}
 	if !slices.ContainsFunc(got, func(call command) bool { return reflect.DeepEqual(call, gitleaks) }) {
 		t.Fatalf("missing Forge-scoped gitleaks command: %#v", got)
 	}
@@ -200,7 +200,7 @@ func TestGitleaksPlatformFollowsTheSelectedForge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := command{Name: "gitleaks", Args: []string{"git", "--redact", "--no-banner", "--platform", "github", "."}}
+	want := command{Name: "gitleaks", Args: []string{"dir", "--redact", "--no-banner", "."}}
 	if !slices.ContainsFunc(commands, func(call command) bool { return reflect.DeepEqual(call, want) }) {
 		t.Fatalf("commands = %#v", commands)
 	}

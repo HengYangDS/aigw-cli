@@ -28,7 +28,7 @@ var sourceCommands = []command{
 	{Name: "go", Args: []string{"run", "./tools/ci", "project", "--check"}},
 	{Name: "openspec", Args: []string{"validate", "--all", "--strict", "--no-interactive"}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "links", "."}},
-	{Name: "gitleaks", Args: []string{"git", "--redact", "--no-banner", "."}},
+	{Name: "gitleaks", Args: []string{"dir", "--redact", "--no-banner", "."}},
 	{Name: "go", Args: []string{"run", "./tools/release", "validate-toolchain", "go.mod"}},
 	{Name: "go", Args: []string{"run", "./tools/release", "validate-release-sources"}},
 	{Name: "go", Args: []string{"run", "./tools/architecture", "--root", "."}},
@@ -247,19 +247,8 @@ func writeProjection(path string, content []byte) error {
 func configuredSourceCommands() ([]command, error) {
 	commands := append([]command(nil), sourceCommands...)
 	provider := os.Getenv("AIGW_FORGE_PROVIDER")
-	platform := provider
-	if platform == "" {
-		platform = "gitlab"
-	}
-	if platform != "gitlab" && platform != "github" {
+	if provider != "" && provider != "gitlab" && provider != "github" {
 		return nil, errors.New("AIGW_FORGE_PROVIDER must be gitlab or github")
-	}
-	for index, call := range commands {
-		if call.Name == "gitleaks" {
-			args := append([]string(nil), call.Args...)
-			args = append(args[:len(args)-1], "--platform", platform, args[len(args)-1])
-			commands[index] = command{Name: call.Name, Args: args}
-		}
 	}
 	if provider == "" {
 		return commands, nil
