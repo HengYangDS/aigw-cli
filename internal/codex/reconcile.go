@@ -23,11 +23,15 @@ const (
 
 // TargetRef identifies a persistent configuration file together with the
 // host surface and ownership mode that authorizes AIGW to change it.
+// Executable is the client this target's configuration is read by. It is the
+// only source of client-specific facts, such as the bundled model catalog, so a
+// target without one is projected without them rather than against a guess.
 type TargetRef struct {
 	SurfaceID      string
 	Authority      string
 	ProjectionMode string
 	Path           string
+	Executable     string
 	statePath      string
 }
 
@@ -56,6 +60,9 @@ type codexPreparedArtifact struct {
 	path    string
 	before  transaction.FileSnapshot
 	desired transaction.FileSnapshot
+	// exactMode writes the desired mode instead of inheriting the one already on
+	// disk. It is set for artifacts whose permissions AIGW owns.
+	exactMode bool
 }
 
 type codexPreparedTarget struct {
@@ -71,6 +78,7 @@ type committedCodexArtifact struct {
 // These seams let the reconciliation tests inject deterministic write failure
 // and concurrent-edit scenarios. Production calls the transaction package.
 var writeFileAtomicIfUnchanged = transaction.WriteFileAtomicIfUnchanged
+var writeFileAtomicExactModeIfUnchanged = transaction.WriteFileAtomicExactModeIfUnchanged
 var removeFileIfUnchanged = transaction.RemoveFileIfUnchanged
 var restoreFileAtomicIfPostimage = transaction.RestoreFileAtomicIfPostimage
 
@@ -185,14 +193,18 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
+	catalogSnapshot, err := transaction.CaptureFileSnapshot(targetCodexCatalogPath(target.ref))
+	if err != nil {
+		return codexPreparedTarget{}, err
+	}
 	if !target.desired {
-		return prepareCodexRestore(target.ref, configSnapshot, stateSnapshot)
+		return prepareCodexRestore(target.ref, configSnapshot, stateSnapshot, catalogSnapshot)
 	}
 	block := codexManagedBlock(runtime, endpoint)
-	return prepareCodexFullSelection(target.ref, runtime, block, configSnapshot, stateSnapshot, transactionID)
+	return prepareCodexFullSelection(target.ref, runtime, block, configSnapshot, stateSnapshot, catalogSnapshot, transactionID)
 }
 
-func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, block string, configSnapshot, stateSnapshot transaction.FileSnapshot, transactionID string) (codexPreparedTarget, error) {
+func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, block string, configSnapshot, stateSnapshot, catalogSnapshot transaction.FileSnapshot, transactionID string) (codexPreparedTarget, error) {
 	state, err := codexStateForTarget(stateSnapshot)
 	if err != nil {
 		return codexPreparedTarget{}, err
@@ -202,22 +214,33 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 		return codexPreparedTarget{}, err
 	}
 	state = projectedState
-	projection, err := projectCodex(base, block, runtime.Model)
+	// The hash AIGW recorded writing is read before the state is updated: it is
+	// the only proof of which catalog bytes are AIGW's own, and therefore the only
+	// safe authorization to remove the file.
+	ownedCatalogHash := state.CatalogHash
+	catalog := codexCatalogProjection(target, runtime.Model, base, state, catalogSnapshot)
+	projection, err := projectCodex(base, block, runtime.Model, catalog.path)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
 	projected := []byte(projection)
+	applyCodexCatalogState(&state, catalog)
+	catalogDesired, err := codexCatalogDesiredSnapshot(catalog, catalogSnapshot, ownedCatalogHash)
+	if err != nil {
+		return codexPreparedTarget{}, err
+	}
 	state.ManagedBlockHash = hashText(block)
 	state.ProjectedSchedulerHash = codexSchedulerHash(string(projected))
 	state.ProjectionMode = ProjectionFullSelection
 	state.WriterID = ProjectionWriterID
 	stateData := encodeCodexState(state)
-	if !bytes.Equal(configSnapshot.Data, projected) || !bytes.Equal(stateSnapshot.Data, stateData) || !stateSnapshot.Exists {
+	catalogConverged := sameCodexSnapshot(catalogSnapshot, catalogDesired)
+	if !bytes.Equal(configSnapshot.Data, projected) || !bytes.Equal(stateSnapshot.Data, stateData) || !stateSnapshot.Exists || !catalogConverged {
 		state.TransactionID = transactionID
 		stateData = encodeCodexState(state)
 	}
 	action := "update"
-	if bytes.Equal(configSnapshot.Data, projected) && stateSnapshot.Exists && bytes.Equal(stateSnapshot.Data, stateData) {
+	if bytes.Equal(configSnapshot.Data, projected) && stateSnapshot.Exists && bytes.Equal(stateSnapshot.Data, stateData) && catalogConverged {
 		action = "already-converged"
 	} else if !stateSnapshot.Exists {
 		action = "initial-project"
@@ -226,11 +249,11 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 	}
 	return codexPreparedTarget{
 		plan:      ProjectionPlan{Target: target.Path, Action: action},
-		artifacts: codexArtifactsForDesiredState(target.Path, targetCodexStatePath(target), configSnapshot, projected, stateSnapshot, stateData),
+		artifacts: codexArtifactsForDesiredState(target, configSnapshot, projected, stateSnapshot, stateData, catalogSnapshot, catalogDesired),
 	}, nil
 }
 
-func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot transaction.FileSnapshot) (codexPreparedTarget, error) {
+func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalogSnapshot transaction.FileSnapshot) (codexPreparedTarget, error) {
 	if !stateSnapshot.Exists {
 		return codexPreparedTarget{plan: ProjectionPlan{Target: target.Path, Action: "already-restored"}}, nil
 	}
@@ -242,17 +265,31 @@ func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot transac
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
+	catalogDesired, err := codexCatalogDesiredSnapshot(codexCatalogPlan{}, catalogSnapshot, state.CatalogHash)
+	if err != nil {
+		return codexPreparedTarget{}, err
+	}
 	return codexPreparedTarget{
 		plan:      ProjectionPlan{Target: target.Path, Action: "restore-external"},
-		artifacts: codexArtifactsForDesiredState(target.Path, targetCodexStatePath(target), configSnapshot, []byte(restored), stateSnapshot, nil),
+		artifacts: codexArtifactsForDesiredState(target, configSnapshot, []byte(restored), stateSnapshot, nil, catalogSnapshot, catalogDesired),
 	}, nil
 }
 
-func codexArtifactsForDesiredState(configPath, statePath string, configBefore transaction.FileSnapshot, configData []byte, stateBefore transaction.FileSnapshot, stateData []byte) []codexPreparedArtifact {
-	artifacts := make([]codexPreparedArtifact, 0, 2)
+// codexArtifactsForDesiredState orders one target's writes along their
+// dependency direction. A configuration that names a catalog file must never be
+// readable before that file exists, because the client refuses to start when the
+// reference cannot be resolved; a withdrawal therefore runs the other way and
+// deletes the file only after nothing refers to it.
+func codexArtifactsForDesiredState(target TargetRef, configBefore transaction.FileSnapshot, configData []byte, stateBefore transaction.FileSnapshot, stateData []byte, catalogBefore, catalogDesired transaction.FileSnapshot) []codexPreparedArtifact {
+	artifacts := make([]codexPreparedArtifact, 0, 3)
+	catalog := codexPreparedArtifact{path: targetCodexCatalogPath(target), before: catalogBefore, desired: catalogDesired, exactMode: true}
+	catalogChanged := !sameCodexSnapshot(catalogBefore, catalogDesired)
+	if catalogChanged && catalogDesired.Exists {
+		artifacts = append(artifacts, catalog)
+	}
 	configDesired := desiredCodexSnapshot(configData, configBefore.Mode)
 	if !sameCodexSnapshot(configBefore, configDesired) {
-		artifacts = append(artifacts, codexPreparedArtifact{path: configPath, before: configBefore, desired: configDesired})
+		artifacts = append(artifacts, codexPreparedArtifact{path: target.Path, before: configBefore, desired: configDesired})
 	}
 	stateDesired := transaction.FileSnapshot{}
 	if stateData != nil {
@@ -263,13 +300,19 @@ func codexArtifactsForDesiredState(configPath, statePath string, configBefore tr
 		stateDesired = desiredCodexSnapshot(stateData, stateMode)
 	}
 	if !sameCodexSnapshot(stateBefore, stateDesired) {
-		artifacts = append(artifacts, codexPreparedArtifact{path: statePath, before: stateBefore, desired: stateDesired})
+		artifacts = append(artifacts, codexPreparedArtifact{path: targetCodexStatePath(target), before: stateBefore, desired: stateDesired})
+	}
+	if catalogChanged && !catalogDesired.Exists {
+		artifacts = append(artifacts, catalog)
 	}
 	return artifacts
 }
 
 func commitCodexArtifact(artifact codexPreparedArtifact) (transaction.FileSnapshot, error) {
 	if artifact.desired.Exists {
+		if artifact.exactMode {
+			return writeFileAtomicExactModeIfUnchanged(artifact.path, artifact.before, artifact.desired.Data, artifact.desired.Mode)
+		}
 		return writeFileAtomicIfUnchanged(artifact.path, artifact.before, artifact.desired.Data, artifact.desired.Mode)
 	}
 	return removeFileIfUnchanged(artifact.path, artifact.before)

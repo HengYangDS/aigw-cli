@@ -307,7 +307,7 @@ func TestReconcileConfigsRejectsUnattributedSidecarBesideSymlinkTarget(t *testin
 	}
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	projection, err := projectCodex(original, block, runtime.Model)
+	projection, err := projectCodex(original, block, runtime.Model, "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -93,9 +93,9 @@ checkout, a loose binary, and a tag are not candidates.
 ## Engineering quality
 
 `.config/checks/coverage/policy.toml` is the coverage SSOT. The executable gate
-tests every Go package under `./...` with no exclusion surface. Aggregate and
-per-package statement and branch coverage must each remain strictly above 95
-percent, with exact raw counts retained. One semantic
+tests every Go package under `./...` with no exclusion surface. Aggregate
+statement and branch coverage must each remain strictly above 95 percent; every
+package remains mandatory, executed, and visible with exact raw counts. One semantic
 owner must govern each behavior and policy; source compatibility shims,
 forwarding wrappers, alias-only packages, and re-exports are not admitted
 substitutes for cohesive packages, explicit dependency direction, SSOT, DRY,

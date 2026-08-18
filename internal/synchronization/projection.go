@@ -65,11 +65,11 @@ func (s Synchronizer) reconciliationInputs(before, after configuration.Config) (
 	if err != nil {
 		return nil, nil, configuration.Runtime{}, err
 	}
-	beforeRefs, err := codexTargetRefs(discovered, beforeAdapter.Targets)
+	beforeRefs, err := codexTargetRefs(discovered, beforeAdapter.Targets, codexExecutable(discovered, beforeAdapter))
 	if err != nil {
 		return nil, nil, configuration.Runtime{}, err
 	}
-	afterRefs, err := codexTargetRefs(discovered, afterAdapter.Targets)
+	afterRefs, err := codexTargetRefs(discovered, afterAdapter.Targets, codexExecutable(discovered, afterAdapter))
 	if err != nil {
 		return nil, nil, configuration.Runtime{}, err
 	}
@@ -90,7 +90,17 @@ func (s Synchronizer) discoveredResult() (discovery.Result, error) {
 	return s.Discovery.Discover(), nil
 }
 
-func codexTargetRefs(discovered discovery.Result, paths []string) ([]codex.TargetRef, error) {
+// codexExecutable prefers the client the configuration explicitly names and
+// falls back to the discovered one, matching how the repair workflow resolves
+// the same client.
+func codexExecutable(discovered discovery.Result, adapter configuration.AdapterConfig) string {
+	if adapter.Executable != "" {
+		return adapter.Executable
+	}
+	return discovered.Executable(configuration.ClientCodex)
+}
+
+func codexTargetRefs(discovered discovery.Result, paths []string, executable string) ([]codex.TargetRef, error) {
 	refs := make([]codex.TargetRef, 0, len(paths))
 	for _, path := range paths {
 		if path == "" {
@@ -102,6 +112,7 @@ func codexTargetRefs(discovered discovery.Result, paths []string) ([]codex.Targe
 				Authority:      surface.Authority,
 				ProjectionMode: codex.ProjectionFullSelection,
 				Path:           path,
+				Executable:     executable,
 			})
 			continue
 		}
@@ -111,6 +122,7 @@ func codexTargetRefs(discovered discovery.Result, paths []string) ([]codex.Targe
 			Authority:      string(surfaceidentity.AuthorityAIGW),
 			ProjectionMode: codex.ProjectionFullSelection,
 			Path:           path,
+			Executable:     executable,
 		})
 	}
 	return refs, nil

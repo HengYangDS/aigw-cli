@@ -8,6 +8,19 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.89] - 2026-08-18
+
+### Added
+
+- Project provider-prefixed Codex model metadata from the installed client's
+  complete bundled catalog, with exact client identity binding and a real-client
+  verification command that makes no model request.
+
+### Changed
+
+- Use aggregate statement and branch coverage as the quantitative release veto;
+  keep every package present, executed, and visible with exact diagnostics.
+
 ## [0.1.0-rc.88] - 2026-08-18
 
 ### Fixed

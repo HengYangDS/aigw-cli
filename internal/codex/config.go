@@ -33,6 +33,7 @@ const (
 
 var modelProviderLine = regexp.MustCompile(`(?m)^[ \t]*model_provider[ \t]*=.*$`)
 var modelLine = regexp.MustCompile(`(?m)^[ \t]*model[ \t]*=.*$`)
+var modelCatalogLine = regexp.MustCompile(`(?m)^[ \t]*model_catalog_json[ \t]*=.*$`)
 
 type codexState struct {
 	OriginalProvider       string          `json:"original_provider,omitempty"`
@@ -40,6 +41,10 @@ type codexState struct {
 	ManagedBlockHash       string          `json:"managed_block_hash"`
 	OriginalScheduler      map[string]*int `json:"original_scheduler,omitempty"`
 	ProjectedSchedulerHash string          `json:"projected_scheduler_hash,omitempty"`
+	CatalogState           string          `json:"catalog_state,omitempty"`
+	CatalogHash            string          `json:"catalog_hash,omitempty"`
+	CatalogClientVersion   string          `json:"catalog_client_version,omitempty"`
+	CatalogClientSHA256    string          `json:"catalog_client_sha256,omitempty"`
 	ProjectionMode         string          `json:"projection_mode,omitempty"`
 	WriterID               string          `json:"writer_id,omitempty"`
 	TransactionID          string          `json:"transaction_id,omitempty"`
@@ -152,9 +157,69 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 		if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, text) {
 			return fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
 		}
-		return nil
+		return validateCodexCatalog(path, text, state)
 	}
 	return fmt.Errorf("Codex config provider selection does not match AIGW")
+}
+
+// validateCodexCatalog verifies the model catalog AIGW owns for one target. A
+// withdrawn catalog is reported rather than passed over: routing still works, so
+// nothing else would notice that the client has silently returned to fallback
+// metadata for a provider-prefixed model.
+func validateCodexCatalog(path, text string, state codexState) error {
+	if state.CatalogState == catalogStateStale {
+		return fmt.Errorf("Codex model catalog is stale: it was copied from Codex %q and no longer matches the installed client; run aigw sync", state.CatalogClientVersion)
+	}
+	line := modelCatalogLine.FindString(text)
+	if state.CatalogHash == "" {
+		if line != "" && strings.Contains(line, "# managed by AIGW") {
+			return fmt.Errorf("Codex config references an AIGW-managed model catalog that AIGW does not own")
+		}
+		return nil
+	}
+	// The catalog is written beside the canonical configuration path, because that
+	// is the identity the projection transaction resolves targets to. Validation
+	// resolves the caller's path the same way, so a symlinked configuration
+	// directory does not read as a mismatch.
+	canonical, err := canonicalCodexTargetPath(path)
+	if err != nil {
+		return err
+	}
+	catalogPath := codexCatalogPath(canonical)
+	quoted, err := codexTOMLString(catalogPath)
+	if err != nil {
+		return err
+	}
+	if !isManagedAssignment(line, "model_catalog_json", quoted) {
+		return fmt.Errorf("Codex config model catalog selection does not match AIGW")
+	}
+	// The catalog's type and permissions are as much a part of what AIGW owns as
+	// its bytes, so they are checked before the contents: a symlink or a widened
+	// mode at the managed path is a drift worth reporting on its own.
+	info, err := os.Lstat(catalogPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("Codex model catalog is missing")
+		}
+		return fmt.Errorf("read Codex model catalog: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("Codex model catalog is not a regular file: %s", info.Mode())
+	}
+	if catalogModeIsEnforceable() && info.Mode().Perm() != 0o600 {
+		return fmt.Errorf("Codex model catalog is not owner-only: %s", info.Mode().Perm())
+	}
+	data, err := os.ReadFile(catalogPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("Codex model catalog is missing")
+		}
+		return fmt.Errorf("read Codex model catalog: %w", err)
+	}
+	if hashBytes(data) != state.CatalogHash {
+		return fmt.Errorf("Codex config conflict: AIGW-managed model catalog changed; refusing to overwrite user edits")
+	}
+	return nil
 }
 
 func DisableConfig(path string) error {
@@ -247,7 +312,7 @@ func codexEndpoint(runtime configuration.Runtime) (string, error) {
 	return runtime.Endpoint, nil
 }
 
-func projectCodex(original, block, model string) (string, error) {
+func projectCodex(original, block, model, catalogPath string) (string, error) {
 	base, err := projectCodexScheduler(original)
 	if err != nil {
 		return "", err
@@ -265,6 +330,23 @@ func projectCodex(original, block, model string) (string, error) {
 		} else {
 			base = selection + "\n" + base
 		}
+	}
+	// The catalog reference is projected only when AIGW owns a catalog for this
+	// target. A stale reference is worse than none: the client refuses to start
+	// when model_catalog_json names a file it cannot read.
+	if catalogPath != "" {
+		quoted, err := codexTOMLString(catalogPath)
+		if err != nil {
+			return "", err
+		}
+		selection := "model_catalog_json = " + quoted + " # managed by AIGW"
+		if modelCatalogLine.MatchString(base) {
+			base = modelCatalogLine.ReplaceAllString(base, selection)
+		} else {
+			base = selection + "\n" + base
+		}
+	} else {
+		base = removeManagedCodexModelCatalog(base)
 	}
 	// A managed projection owns the provider block, not the incidental number
 	// of blank lines before its ownership marker.  Keep the separator canonical
@@ -314,6 +396,11 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 	} else {
 		base = removeManagedModelSelection(base)
 	}
+	// The catalog reference is AIGW's own line and its file is AIGW's own
+	// artifact, so a restore removes the reference here and the transaction
+	// removes the file. A user-authored model_catalog_json was never projected
+	// and is therefore not matched.
+	base = removeManagedCodexModelCatalog(base)
 	base, err = restoreCodexScheduler(base+"\n", state.OriginalScheduler)
 	if err != nil {
 		return "", err
@@ -330,7 +417,14 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 // top-level assignments written by the client. Values and the ownership marker
 // must still match exactly, so a semantic edit remains a conflict.
 func isManagedSelection(line, key, value string) bool {
-	pattern := `^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*"` + regexp.QuoteMeta(value) + `"[ \t]*#[ \t]*managed by AIGW[ \t]*$`
+	return isManagedAssignment(line, key, `"`+value+`"`)
+}
+
+// isManagedAssignment is the same check for a value that is already rendered as
+// a TOML string, which a path must be: it may contain characters that require
+// escaping and so cannot be compared as a bare literal.
+func isManagedAssignment(line, key, encoded string) bool {
+	pattern := `^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*` + regexp.QuoteMeta(encoded) + `[ \t]*#[ \t]*managed by AIGW[ \t]*$`
 	return regexp.MustCompile(pattern).MatchString(line)
 }
 
@@ -378,27 +472,30 @@ func restoreModelSelection(base, originalModel string) string {
 		}
 		return originalModel + "\n" + base
 	}
-	lines := strings.Split(base, "\n")
-	kept := lines[:0]
-	for _, line := range lines {
-		if strings.Contains(line, "# managed by AIGW") && strings.HasPrefix(strings.TrimSpace(line), "model") {
-			continue
-		}
-		kept = append(kept, line)
-	}
-	return strings.Join(kept, "\n")
+	return removeManagedModelSelection(base)
 }
 
 func removeManagedModelSelection(base string) string {
-	lines := strings.Split(base, "\n")
-	kept := lines[:0]
-	for _, line := range lines {
-		if strings.Contains(line, "# managed by AIGW") && strings.HasPrefix(strings.TrimSpace(line), "model") {
-			continue
-		}
-		kept = append(kept, line)
+	return removeManagedCodexLine(base, "model")
+}
+
+func removeManagedCodexModelCatalog(base string) string {
+	return removeManagedCodexLine(base, "model_catalog_json")
+}
+
+// removeManagedCodexLine drops the top-level assignment AIGW owns for one key.
+// The key is matched exactly, because model and model_catalog_json are separate
+// settings with separate owners and a prefix match would let a restore of one
+// silently discard the other.
+func removeManagedCodexLine(base, key string) string {
+	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=.*#[ \t]*managed by AIGW[ \t]*(?:\r?\n|$)`)
+	trimmed := pattern.ReplaceAllString(base, "")
+	// Removing the document's final line also removes the newline that separated
+	// it, so a document that did not end in a newline still does not.
+	if !strings.HasSuffix(base, "\n") {
+		return strings.TrimSuffix(trimmed, "\n")
 	}
-	return strings.Join(kept, "\n")
+	return trimmed
 }
 
 func codexStatePath(path string) string { return path + ".aigw-state.json" }

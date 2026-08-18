@@ -48,7 +48,7 @@ func TestInspectConfigReachableStates(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		runtime := atomicTestRuntime()
 		block := codexManagedBlock(runtime, runtime.Endpoint)
-		projection, err := projectCodex("model_provider = \"native\"\n", block, "")
+		projection, err := projectCodex("model_provider = \"native\"\n", block, "", "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -84,7 +84,7 @@ func TestInspectConfigReachableStates(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		runtime := atomicTestRuntime()
 		block := codexManagedBlock(runtime, runtime.Endpoint)
-		projection, err := projectCodex("external = true\n", block, runtime.Model)
+		projection, err := projectCodex("external = true\n", block, runtime.Model, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -109,7 +109,7 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 
 	t.Run("sidecar is directory", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		projection, err := projectCodex("", block, runtime.Model)
+		projection, err := projectCodex("", block, runtime.Model, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -124,7 +124,7 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 
 	t.Run("invalid sidecar", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		projection, err := projectCodex("", block, runtime.Model)
+		projection, err := projectCodex("", block, runtime.Model, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -147,7 +147,7 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 	t.Run("provider profile mismatch", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		otherBlock := codexManagedBlock(runtime, "https://other.example/v1")
-		projection, err := projectCodex("", otherBlock, runtime.Model)
+		projection, err := projectCodex("", otherBlock, runtime.Model, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -169,7 +169,7 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 
 	t.Run("scheduler key missing", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		projection, err := projectCodex("", block, runtime.Model)
+		projection, err := projectCodex("", block, runtime.Model, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -183,7 +183,7 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 
 	t.Run("scheduler state hash mismatch", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		projection, err := projectCodex("", block, runtime.Model)
+		projection, err := projectCodex("", block, runtime.Model, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -210,7 +210,7 @@ func TestCodexUserConfigRejectsInvalidState(t *testing.T) {
 func TestCodexUserConfigRejectsInvalidCapturedSchedulerState(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	projection, err := projectCodex("external = true\n", block, runtime.Model)
+	projection, err := projectCodex("external = true\n", block, runtime.Model, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +230,7 @@ func TestCodexUserConfigRejectsInvalidCapturedSchedulerState(t *testing.T) {
 func TestCodexUserConfigRejectsSchedulerRestoreError(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	projection, err := projectCodex("external = true\n", block, runtime.Model)
+	projection, err := projectCodex("external = true\n", block, runtime.Model, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +343,7 @@ func TestCompleteExactTruncatedProjectionRejectsForeignContentAfterValidPrefix(t
 func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	current, err := projectCodex("external = true\n", block, runtime.Model)
+	current, err := projectCodex("external = true\n", block, runtime.Model, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -367,7 +367,7 @@ func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 func TestRemoveCodexProjectionRestoresAbsentOriginalSelection(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	current, err := projectCodex("external = true\n", block, runtime.Model)
+	current, err := projectCodex("external = true\n", block, runtime.Model, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func TestRemoveCodexProjectionRestoresAbsentOriginalSelection(t *testing.T) {
 func TestRemoveCodexProjectionRejectsChangedManagedBlock(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	current, err := projectCodex("external = true\n", block, runtime.Model)
+	current, err := projectCodex("external = true\n", block, runtime.Model, "")
 	if err != nil {
 		t.Fatal(err)
 	}

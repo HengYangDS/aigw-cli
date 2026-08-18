@@ -53,6 +53,30 @@ session, or write config/sidecar state. `aigw sync` prepares every configured
 Codex target before its first write and rolls every target back if a commit
 fails.
 
+The projected Codex model catalog is the one projection whose effect only the
+client itself can confirm, because only the client can report which model
+metadata it selected. Changing that projection, or qualifying a new client
+build, requires running the verification command against a real installation
+and recording the client version and checksum it printed:
+
+```bash
+mise exec --locked -- go run ./tools/modelcatalog -model '<provider-prefixed model id>'
+```
+
+It asks the client only which input it would send, through a throwaway client
+home, so it makes no model request and leaves the machine's own Codex
+configuration untouched. Exit code 2 means the client is missing, which is a
+prerequisite to satisfy rather than a passing or failing verification. Every
+catalog decision a fake client can pin is covered by the package tests instead,
+which always run.
+
+The on-screen metadata miss the client reports is a separate matter. The client
+announces it only where a person can see it, and reproducing that announcement
+non-interactively requires supervising the client's own process tree, which is
+outside this repository's scope. Treat its disappearance as an observation to
+record with the client version that produced it, not as something this command
+measures.
+
 ## Release and metadata
 
 Use focused Conventional Commits. Keep `CHANGELOG.md` with `## [Unreleased]` as
@@ -96,9 +120,10 @@ These are execution inputs, never product defaults or repository identity.
 
 Every descendant after the tracked provider floor must use its provider email
 for both author and committer and verify under that provider's SSH trust anchor.
-Keep coverage policy in `.config/checks/coverage/policy.toml`; each Go package
-under `./...` and the aggregate must exceed 95 percent independently for
-statement and branch coverage. Do not
+Keep coverage policy in `.config/checks/coverage/policy.toml`; the aggregate
+must exceed 95 percent independently for statement and branch coverage. Every
+Go package under `./...` remains mandatory, executed, and visible with exact
+diagnostic ratios. Do not
 introduce source compatibility shims, forwarding wrappers, alias-only packages,
 or re-exports in place of a semantic owner.
 

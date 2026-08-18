@@ -132,7 +132,7 @@ func writePolicy(t *testing.T, body string) string {
 const validPolicy = `minimum_statement_percent = 95.0
 minimum_branch_percent = 95.0
 comparison = "greater-than"
-threshold_scopes = ["aggregate", "package"]
+threshold_scopes = ["aggregate"]
 package_observation = "required"
 covermode = "atomic"
 packages = ["./..."]
@@ -140,8 +140,8 @@ branch_analyzer = "go-bcov"
 owner = "product-toolchain"
 source = "Go statement profile with go-bcov branch analysis"
 risk_model = "uncovered control-flow can corrupt credentials or projections"
-measurement = "exact statement and branch counts per package and aggregate"
-false_positive_cost = "small packages may require complete coverage"
+measurement = "exact aggregate statement and branch counts plus package observation diagnostics"
+false_positive_cost = "aggregate evidence can hide a local blind spot unless package execution and ratios remain visible"
 remediation = "test behavior, remove unreachable code, or simplify the owner"
 review_condition = "reassess after repeated denominator-only blocks"
 `
@@ -232,20 +232,20 @@ func TestRealMainRejectsExactAggregateFloor(t *testing.T) {
 	}
 }
 
-func TestRealMainRejectsLowPackageRatioWhenAggregatePasses(t *testing.T) {
+func TestRealMainReportsLowPackageRatioWhenAggregatePasses(t *testing.T) {
 	policyPath := writePolicy(t, validPolicy)
 	runner := &recordingRunner{profile: "mode: atomic\nexample/low/a.go:1.1,2.1 94 1\nexample/low/a.go:3.1,4.1 6 0\nexample/high/b.go:1.1,2.1 400 1\n"}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 1 {
-		t.Fatalf("realMain code = %d, want 1", code)
+	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 0 {
+		t.Fatalf("realMain code = %d, stderr = %q", code, stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "package example/low statement coverage 94.00% does not exceed 95.00%") {
-		t.Fatalf("stderr = %q", stderr.String())
+	if !strings.Contains(stdout.String(), "package example/low statement coverage: 94.00%") {
+		t.Fatalf("stdout = %q", stdout.String())
 	}
 }
 
-func TestRunBranchCoverageRejectsExactAndLowPackageFloors(t *testing.T) {
+func TestRunBranchCoverageReportsExactAndLowPackageRatiosWhenAggregatePasses(t *testing.T) {
 	profile := filepath.Join(t.TempDir(), "coverage.out")
 	if err := os.WriteFile(profile, []byte("mode: atomic\nexample/low/a.go:1.1,2.1 1 1\nexample/high/b.go:1.1,2.1 1 1\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -269,7 +269,7 @@ func TestRunBranchCoverageRejectsExactAndLowPackageFloors(t *testing.T) {
 			report := fmt.Sprintf(`<coverage><file path="low/a.go"><lineToCover branchesToCover="100" coveredBranches="%d"/></file><file path="high/b.go"><lineToCover branchesToCover="400" coveredBranches="400"/></file></coverage>`, test.covered)
 			var stdout, stderr bytes.Buffer
 			err := runBranchCoverage(profile, packages, policy, &stdout, &stderr, &recordingRunner{branchReport: report})
-			if err == nil || !strings.Contains(stderr.String(), "package example/low branch coverage") {
+			if err != nil || !strings.Contains(stdout.String(), "package example/low branch coverage") {
 				t.Fatalf("error=%v stdout=%q stderr=%q", err, stdout.String(), stderr.String())
 			}
 		})
@@ -483,7 +483,7 @@ func TestRealMainRejectsInvalidArgumentsAndPolicy(t *testing.T) {
 		{name: "missing policy", args: []string{"--policy", filepath.Join(t.TempDir(), "missing.toml")}, want: "load coverage policy", code: 1},
 		{name: "unknown field", body: validPolicy + "exclude = [\"tools\"]\n", want: "load coverage policy", code: 1},
 		{name: "wrong comparison", body: strings.Replace(validPolicy, "greater-than", "at-least", 1), want: "comparison", code: 1},
-		{name: "wrong threshold scope", body: strings.Replace(validPolicy, `["aggregate", "package"]`, `["aggregate"]`, 1), want: "threshold_scopes", code: 1},
+		{name: "wrong threshold scope", body: strings.Replace(validPolicy, `["aggregate"]`, `["package"]`, 1), want: "threshold_scopes", code: 1},
 		{name: "missing package observation", body: strings.Replace(validPolicy, "required", "optional", 1), want: "package_observation", code: 1},
 		{name: "invalid floor", body: strings.Replace(validPolicy, "95.0", "101.0", 1), want: "minimum_statement_percent", code: 1},
 		{name: "invalid branch floor", body: strings.Replace(validPolicy, "minimum_branch_percent = 95.0", "minimum_branch_percent = 0", 1), want: "minimum_branch_percent", code: 1},
@@ -492,8 +492,8 @@ func TestRealMainRejectsInvalidArgumentsAndPolicy(t *testing.T) {
 		{name: "wrong branch analyzer", body: strings.Replace(validPolicy, "go-bcov", "gobco", 1), want: "branch_analyzer", code: 1},
 		{name: "missing owner", body: strings.Replace(validPolicy, "product-toolchain", "", 1), want: "owner and source", code: 1},
 		{name: "missing risk model", body: strings.Replace(validPolicy, "uncovered control-flow can corrupt credentials or projections", "", 1), want: "risk rationale", code: 1},
-		{name: "missing measurement", body: strings.Replace(validPolicy, "exact statement and branch counts per package and aggregate", "", 1), want: "risk rationale", code: 1},
-		{name: "missing false-positive cost", body: strings.Replace(validPolicy, "small packages may require complete coverage", "", 1), want: "risk rationale", code: 1},
+		{name: "missing measurement", body: strings.Replace(validPolicy, "exact aggregate statement and branch counts plus package observation diagnostics", "", 1), want: "risk rationale", code: 1},
+		{name: "missing false-positive cost", body: strings.Replace(validPolicy, "aggregate evidence can hide a local blind spot unless package execution and ratios remain visible", "", 1), want: "risk rationale", code: 1},
 		{name: "missing remediation", body: strings.Replace(validPolicy, "test behavior, remove unreachable code, or simplify the owner", "", 1), want: "risk rationale", code: 1},
 		{name: "missing review condition", body: strings.Replace(validPolicy, "reassess after repeated denominator-only blocks", "", 1), want: "risk rationale", code: 1},
 	}

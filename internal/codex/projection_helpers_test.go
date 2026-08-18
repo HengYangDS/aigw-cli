@@ -71,7 +71,7 @@ func TestRestoreModelSelectionExtra(t *testing.T) {
 }
 
 func TestProjectCodexRejectsMalformedUserConfiguration(t *testing.T) {
-	if _, err := projectCodex("[broken", "", ""); err == nil || !strings.Contains(err.Error(), "parse Codex config") {
+	if _, err := projectCodex("[broken", "", "", ""); err == nil || !strings.Contains(err.Error(), "parse Codex config") {
 		t.Fatalf("projectCodex() error = %v", err)
 	}
 }
@@ -79,7 +79,7 @@ func TestProjectCodexRejectsMalformedUserConfiguration(t *testing.T) {
 func TestRemoveCodexProjectionRejectsInvalidCapturedSchedulerState(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	current, err := projectCodex("external = true\n", block, runtime.Model)
+	current, err := projectCodex("external = true\n", block, runtime.Model, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -407,7 +407,7 @@ func TestPrepareCodexRestoreExtra(t *testing.T) {
 	stateSnap := transaction.FileSnapshot{Exists: false}
 
 	// Already restored
-	plan, err := prepareCodexRestore(target, configSnap, stateSnap)
+	plan, err := prepareCodexRestore(target, configSnap, stateSnap, transaction.FileSnapshot{})
 	if err != nil || plan.plan.Action != "already-restored" {
 		t.Errorf("expected already-restored, got %+v, err %v", plan, err)
 	}
@@ -416,7 +416,7 @@ func TestPrepareCodexRestoreExtra(t *testing.T) {
 	state := codexState{ProjectionMode: "invalid", WriterID: ProjectionWriterID, TransactionID: "t"}
 	data, _ := json.Marshal(state)
 	stateSnap = transaction.FileSnapshot{Exists: true, Data: data}
-	_, err = prepareCodexRestore(target, configSnap, stateSnap)
+	_, err = prepareCodexRestore(target, configSnap, stateSnap, transaction.FileSnapshot{})
 	if err == nil || !strings.Contains(err.Error(), "unsupported") {
 		t.Errorf("expected unsupported error, got %v", err)
 	}

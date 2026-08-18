@@ -77,6 +77,14 @@ func WriteFileAtomicIfUnchanged(path string, expected FileSnapshot, data []byte,
 	return writeFileAtomicIfUnchanged(path, expected, data, defaultMode, WriteFileAtomic)
 }
 
+// WriteFileAtomicExactModeIfUnchanged is the same guarded write with the mode
+// taken as given rather than inherited from the file already there. An artifact
+// whose permissions are part of its contract uses this, so a mode that drifted
+// wider is corrected instead of carried forward.
+func WriteFileAtomicExactModeIfUnchanged(path string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
+	return writeFileAtomicIfUnchanged(path, expected, data, mode, WriteFileAtomicExactMode)
+}
+
 func writeFileAtomicIfUnchanged(
 	path string,
 	expected FileSnapshot,
@@ -160,7 +168,9 @@ func WriteFileAtomic(path string, data []byte, defaultMode os.FileMode) error {
 }
 
 // WriteFileAtomicExactMode replaces a file without inheriting the current
-// target mode. It is reserved for byte-and-mode-exact transaction rollback.
+// target mode. It is used where the mode is part of what is being written:
+// byte-and-mode-exact transaction rollback, and artifacts whose permissions are
+// a contract rather than a user preference.
 func WriteFileAtomicExactMode(path string, data []byte, mode os.FileMode) error {
 	return writeFileAtomic(path, data, mode, false)
 }

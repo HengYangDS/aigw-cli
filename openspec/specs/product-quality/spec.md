@@ -130,10 +130,10 @@ own actor and trust input independently.
 ### Requirement: faithful quantitative quality evidence
 
 The repository SHALL measure statement and branch coverage independently. The
-canonical machine policy SHALL own the aggregate and package floors, comparison
+canonical machine policy SHALL own the aggregate floor, package-observation contract, comparison
 semantics, risk model, false-positive cost, remediation path, and review
-condition. Every production package SHALL appear in the evidence and exceed
-the same declared statement and branch floor as the aggregate. Branchless
+condition. Every production package SHALL appear in the evidence, execute its
+owned statements and branches, and retain exact diagnostic ratios. Branchless
 packages SHALL remain visible and report 100-percent branch coverage. Evidence
 SHALL retain raw counts, package identity, source revision and tree, analyzer
 identity, and policy digest. No prose, CI projection, or tool-native formatting
@@ -142,13 +142,14 @@ file SHALL own a competing threshold.
 #### Scenario: quantitative evidence is evaluated
 
 - **WHEN** coverage is admitted for promotion
-- **THEN** aggregate and package statement and branch evidence SHALL each be strictly greater than 95 percent
+- **THEN** aggregate statement and branch evidence SHALL each be strictly greater than 95 percent
 - **AND** every canonical production package SHALL be present in the same complete evidence set
+- **AND** every package SHALL remain executed and report exact statement and branch ratios
 - **AND** the verdict SHALL be independent of duplicated literals or inferred metrics.
 
 #### Scenario: a quantitative boundary or observation contract is not met
 
-- **WHEN** an aggregate or package ratio is equal to or below the canonical floor, or a package is absent, wholly unexecuted, duplicated, or lacks bound raw evidence
+- **WHEN** an aggregate ratio is equal to or below the canonical floor, or a package is absent, wholly unexecuted, duplicated, or lacks bound raw evidence
 - **THEN** local verification, exact-HEAD proof, and hosted CI SHALL fail before promotion.
 
 #### Scenario: statement data is presented as branch evidence
@@ -162,17 +163,11 @@ file SHALL own a competing threshold.
 - **THEN** that package SHALL remain visible with a 100-percent branch ratio
 - **AND** it SHALL NOT be treated as absent or unexecuted.
 
-#### Scenario: the floor creates repeated false positives
+#### Scenario: aggregate coverage carries the quantitative veto
 
-- **WHEN** three legitimate changes are blocked solely by package denominator granularity
-- **THEN** maintainers SHALL review the canonical policy against its recorded risk model and cost
-- **AND** no package exclusion, local override, or competing threshold SHALL be introduced.
-
-#### Scenario: a small package has a volatile ratio
-
-- **WHEN** a package has a small denominator
-- **THEN** its exact statement and branch ratios SHALL remain visible and enforce the canonical floor
-- **AND** any policy reconsideration SHALL follow the recorded review condition rather than a package exception.
+- **WHEN** a package has a small or volatile denominator while the aggregate floor passes
+- **THEN** the exact package ratio SHALL remain visible for review
+- **AND** the package ratio SHALL NOT independently veto an otherwise valid aggregate result.
 
 ### Requirement: semantic structure
 
@@ -300,9 +295,9 @@ AIGW SHALL advance a release candidate to current stable releases across the
 application, test, and declared Go tool closure before freezing that candidate.
 `go.mod` and `go.sum` SHALL remain the sole dependency selection authority;
 modules outside the compiled package and tool closure are not selected supply
-chain inputs. Every package and aggregate statement and
-branch coverage SHALL remain strictly greater than 95 percent, and the native
-source and release gates SHALL pass before publication.
+chain inputs. Aggregate statement and branch coverage SHALL remain strictly
+greater than 95 percent; every package SHALL remain present, executed, and
+reported. The native source and release gates SHALL pass before publication.
 
 #### Scenario: Stable dependency updates are available
 

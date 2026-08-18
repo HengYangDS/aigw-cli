@@ -62,8 +62,8 @@ Worktree visibility or an apparently idle agent is not retirement authority.
 
 - `.config/checks/coverage/policy.toml` is the coverage SSOT. Every canonical Go
   package participates, no source or package exclusion is permitted, and the
-  policy owns aggregate and package floors, comparison semantics, measurement,
-  remediation, and review conditions.
+  policy owns the aggregate floor, package-observation contract, comparison
+  semantics, measurement, remediation, and review conditions.
 - Keep one semantic owner for each policy and behavior. Prefer cohesive domain
   packages, explicit dependency direction, and narrow interfaces; apply SSOT,
   DRY, MECE, and SOLID rather than duplicating policy across scripts or CI.
@@ -85,6 +85,10 @@ Worktree visibility or an apparently idle agent is not retirement authority.
   Cross-compilation and package inspection cover additional CPU targets but do
   not replace native source evidence. Rooted macOS package-lifecycle acceptance
   remains a GA requirement.
+- A claim only a real client can settle must be evidenced by a tracked
+  verification command that records the client identity it measured, never by a
+  test that skips itself when the client is absent. The Codex model catalog
+  projection is verified this way; see [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Required verification
 

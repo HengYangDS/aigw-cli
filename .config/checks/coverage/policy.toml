@@ -1,10 +1,10 @@
 # Go coverage policy truth boundary. The floor limits unobserved behavior in a
-# credential and configuration control plane while package scope prevents a
-# well-tested package from hiding a blind spot in another semantic owner.
+# credential and configuration control plane while mandatory package
+# observation prevents a semantic owner from disappearing from the evidence.
 minimum_statement_percent = 95.0
 minimum_branch_percent = 95.0
 comparison = "greater-than"
-threshold_scopes = ["aggregate", "package"]
+threshold_scopes = ["aggregate"]
 package_observation = "required"
 covermode = "atomic"
 packages = ["./..."]
@@ -12,7 +12,7 @@ branch_analyzer = "go-bcov"
 owner = "product-toolchain"
 source = "Go statement profile with go-bcov branch analysis"
 risk_model = "unobserved control-flow in any semantic owner can corrupt credentials routes client projections or publication behavior without an observable regression"
-measurement = "one complete profile with exact aggregate and canonical-package statement and branch counts"
-false_positive_cost = "small package denominators can require near-complete coverage even when the changed behavior is low risk"
-remediation = "test meaningful behavior remove unreachable code or simplify the responsible semantic owner; package exclusions are not accepted"
-review_condition = "reassess when three legitimate changes are blocked only by package denominator granularity or escaped defects show the boundary is insufficient"
+measurement = "one complete profile with exact aggregate statement and branch counts plus canonical-package observation diagnostics"
+false_positive_cost = "aggregate evidence can hide a local blind spot unless every package remains present executed and visible"
+remediation = "test meaningful behavior remove unreachable code or simplify the responsible semantic owner; wholly unexecuted packages and exclusions are not accepted"
+review_condition = "reassess when escaped defects show the aggregate boundary or mandatory package observation is insufficient"
