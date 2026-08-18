@@ -8,6 +8,13 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.88] - 2026-08-18
+
+### Fixed
+
+- Isolate Forge test repositories from host Git signing and hook configuration
+  so native macOS acceptance cannot wait on workstation Keychain state.
+
 ## [0.1.0-rc.87] - 2026-08-18
 
 ### Fixed
