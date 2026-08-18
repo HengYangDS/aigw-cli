@@ -337,9 +337,15 @@ func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 	}); err != nil || len(calls) != 7 {
 		t.Fatalf("native host error=%v calls=%d", err, len(calls))
 	}
-	wantProfile := filepath.Join("build", "acceptance", "coverage-"+runtime.GOOS+".out")
-	if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"run", "./tools/coverage", "--race", "--profile-output", wantProfile}) {
-		t.Fatalf("native coverage command = %#v", got)
+	if runtime.GOOS == "windows" {
+		if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"test", "./..."}) {
+			t.Fatalf("native Windows test command = %#v", got)
+		}
+	} else {
+		wantProfile := filepath.Join("build", "acceptance", "coverage-"+runtime.GOOS+".out")
+		if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"run", "./tools/coverage", "--race", "--profile-output", wantProfile}) {
+			t.Fatalf("native coverage command = %#v", got)
+		}
 	}
 	other := "linux"
 	if runtime.GOOS == other {
@@ -353,7 +359,7 @@ func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 func TestNativeCommandsUsePortableArtifactNames(t *testing.T) {
 	windows := nativeCommands("windows")
 	if windows[2].Args[2] != filepath.Join("build", "acceptance", "aigw.exe") ||
-		windows[0].Args[4] != filepath.Join("build", "acceptance", "coverage-windows.out") {
+		!slices.Equal(windows[0].Args, []string{"test", "./..."}) {
 		t.Fatalf("Windows native commands = %#v", windows)
 	}
 	linux := nativeCommands("linux")

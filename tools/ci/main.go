@@ -316,8 +316,7 @@ func nativeCommands(platform string) []command {
 		binary += ".exe"
 		installed += ".exe"
 	}
-	return []command{
-		{Name: "go", Args: []string{"run", "./tools/coverage", "--race", "--profile-output", profile}},
+	commands := []command{
 		{Name: "go", Args: []string{"vet", "./..."}},
 		{Name: "go", Args: []string{"build", "-o", binary, "./cmd/aigw"}},
 		{Name: binary, Args: []string{"--version"}},
@@ -325,6 +324,13 @@ func nativeCommands(platform string) []command {
 		{Name: installed, Args: []string{"--version"}},
 		{Name: binary, Args: []string{"uninstall", "--target", installed}},
 	}
+	if platform == "windows" {
+		// Windows proves native behavior and lifecycle portability. Aggregate
+		// branch coverage runs once on the canonical source executor; repeating
+		// that global threshold per OS makes the result platform-dependent.
+		return append([]command{{Name: "go", Args: []string{"test", "./..."}}}, commands...)
+	}
+	return append([]command{{Name: "go", Args: []string{"run", "./tools/coverage", "--race", "--profile-output", profile}}}, commands...)
 }
 
 func systemRunner(call command) error {

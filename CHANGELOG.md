@@ -8,6 +8,11 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep Windows native acceptance focused on build, execution, installation, and
+  uninstallation; aggregate coverage remains a single source-governance gate.
+
 ## [0.1.0-rc.89] - 2026-08-18
 
 ### Added
