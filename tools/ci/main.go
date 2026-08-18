@@ -246,11 +246,22 @@ func writeProjection(path string, content []byte) error {
 func configuredSourceCommands() ([]command, error) {
 	commands := append([]command(nil), sourceCommands...)
 	provider := os.Getenv("AIGW_FORGE_PROVIDER")
+	platform := provider
+	if platform == "" {
+		platform = "gitlab"
+	}
+	if platform != "gitlab" && platform != "github" {
+		return nil, errors.New("AIGW_FORGE_PROVIDER must be gitlab or github")
+	}
+	for index, call := range commands {
+		if call.Name == "gitleaks" {
+			args := append([]string(nil), call.Args...)
+			args = append(args[:len(args)-1], "--platform", platform, args[len(args)-1])
+			commands[index] = command{Name: call.Name, Args: args}
+		}
+	}
 	if provider == "" {
 		return commands, nil
-	}
-	if provider != "gitlab" && provider != "github" {
-		return nil, errors.New("AIGW_FORGE_PROVIDER must be gitlab or github")
 	}
 	email := os.Getenv("AIGW_RELEASE_AUTHOR_EMAIL")
 	signers := os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")

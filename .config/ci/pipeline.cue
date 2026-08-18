@@ -267,6 +267,11 @@ gitlab: {
 
 githubVerify: {
 	name: "Verify"
+	env: {
+		GIT_CONFIG_COUNT:   "1"
+		GIT_CONFIG_KEY_0:   "init.defaultBranch"
+		GIT_CONFIG_VALUE_0: "main"
+	}
 	"on": {
 		push: branches: ["main", "dev", "proposal/**"]
 		"pull_request": branches: ["main", "dev"]
@@ -331,6 +336,11 @@ githubVerify: {
 
 githubRelease: {
 	name: "Release"
+	env: {
+		GIT_CONFIG_COUNT:   "1"
+		GIT_CONFIG_KEY_0:   "init.defaultBranch"
+		GIT_CONFIG_VALUE_0: "main"
+	}
 	"on": {
 		push: tags: ["v*"]
 		"workflow_dispatch": inputs: tag: {

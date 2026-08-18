@@ -266,6 +266,30 @@ func TestSourceJobsUseTheirExactToolClosure(t *testing.T) {
 	}
 }
 
+func TestGitHubWorkflowsDeclareTheCanonicalInitialBranch(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, index := range []int{1, 2} {
+		var workflow struct {
+			Env map[string]string `yaml:"env"`
+		}
+		if err := yaml.Unmarshal([]byte(projections[index].Content), &workflow); err != nil {
+			t.Fatal(err)
+		}
+		want := map[string]string{
+			"GIT_CONFIG_COUNT":   "1",
+			"GIT_CONFIG_KEY_0":   "init.defaultBranch",
+			"GIT_CONFIG_VALUE_0": "main",
+		}
+		if !reflect.DeepEqual(workflow.Env, want) {
+			t.Fatalf("GitHub projection %d Git environment = %#v, want %#v", index, workflow.Env, want)
+		}
+	}
+}
+
 func TestGitHubReleaseBuildUsesTheCanonicalTagInput(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	projections, err := renderProjections(root)
