@@ -64,13 +64,21 @@ func TestTeamConfigurationManifestIsReviewedVersionThree(t *testing.T) {
 			t.Fatalf("team manifest missing account %q", accountID)
 		}
 	}
-	for _, profileID := range []string{"dmxapi-gpt-5.6-sol", "dmxapi-claude-fable-5"} {
-		if _, ok := parsedManifest.Profiles[profileID]; !ok {
-			t.Fatalf("team manifest missing reviewed profile %q", profileID)
+	for _, client := range []string{ClientClaude, ClientCodex} {
+		profileID, ok := parsedManifest.RecommendedRoutes[client]
+		if !ok {
+			t.Fatalf("team manifest missing recommended route for %q", client)
+		}
+		profile, ok := parsedManifest.Profiles[profileID]
+		if !ok || profile.Account != "dmxapi" || profile.Client != client {
+			t.Fatalf("recommended %q route = profile %q with invalid ownership: %#v", client, profileID, profile)
+		}
+		if strings.TrimSpace(profile.Models[client]) == "" {
+			t.Fatalf("recommended %q profile %q has no model", client, profileID)
 		}
 	}
-	if parsedManifest.RecommendedDefault != "dmxapi-gpt-5.6-sol" {
-		t.Fatalf("team manifest default = %q", parsedManifest.RecommendedDefault)
+	if parsedManifest.RecommendedDefault != parsedManifest.RecommendedRoutes[ClientCodex] {
+		t.Fatalf("team manifest default %q does not match the Codex recommendation %q", parsedManifest.RecommendedDefault, parsedManifest.RecommendedRoutes[ClientCodex])
 	}
 	if len(parsedManifest.RecommendedRoutes) != 2 {
 		t.Fatalf("team manifest recommended routes = %#v", parsedManifest.RecommendedRoutes)
