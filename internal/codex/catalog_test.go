@@ -451,7 +451,11 @@ func TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(projected), "model_catalog_json = \""+catalogPath+"\" # managed by AIGW") {
+	quotedCatalogPath, err := codexTOMLString(catalogPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(projected), "model_catalog_json = "+quotedCatalogPath+" # managed by AIGW") {
 		t.Fatalf("config does not reference the catalog:\n%s", projected)
 	}
 	// The wire id keeps its provider prefix: it is the routing identifier, and a
