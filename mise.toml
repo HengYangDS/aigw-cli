@@ -10,7 +10,7 @@ node = "26.7.0"
 
 # Specification and CI modeling
 cue = "0.17.1"
-"npm:@fission-ai/openspec" = "1.8.0"
+"npm:@fission-ai/openspec" = "1.9.0"
 
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.17.1"
