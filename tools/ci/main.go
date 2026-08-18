@@ -39,6 +39,7 @@ var sourceCommands = []command{
 	{Name: "go", Args: []string{"tool", "errcheck", "./..."}},
 	{Name: "go", Args: []string{"run", "./tools/repository", "--root", ".", "go-format"}},
 	{Name: "go", Args: []string{"test", "./tools/repository"}},
+	{Name: "go", Args: []string{"run", "./tools/repository", "--root", ".", "protected-lifecycle"}},
 	{Name: "go", Args: []string{"test", "./internal/upgrade", "./tools/release"}},
 	{Name: "actionlint"},
 	{Name: "go", Args: []string{"test", "./tools/forge"}},

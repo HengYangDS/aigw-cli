@@ -16,10 +16,11 @@
 - [x] 3.1 Pass focused catalog, transaction, coverage, and OpenSpec validation.
 - [x] 3.2 Measure the installed Codex client without a model request.
 - [x] 3.3 Pass the complete locked source, architecture, coverage, and CI-projection graph.
-- [ ] 3.4 Produce a clean signed release commit and exact product-tree evidence.
+- [x] 3.4 Produce a clean signed release commit and exact product-tree evidence.
 
-## 4. Delivery
+## Post-archive delivery
 
-- [ ] 4.1 Publish the next release candidate independently on GitLab and GitHub.
-- [ ] 4.2 Verify both Forge branch tips, tags, CI, release assets, and installation.
-- [ ] 4.3 Delete the absorbed remote work branch and complete local housekeeping.
+Publication, release verification, installation, absorbed-branch deletion, and
+local housekeeping are subsequent delivery effects. They remain mandatory for
+release closeout, but do not keep this implementation Change open or create a
+second source authority.

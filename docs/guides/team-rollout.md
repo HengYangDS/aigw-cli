@@ -14,7 +14,8 @@ flowchart LR
 
 ## Maintainer
 
-1. Start from [`manifests/example.toml`](../../manifests/example.toml).
+1. Download [`manifests/team.toml`](../../manifests/team.toml), the reviewed
+   token-free team manifest.
 2. Add only reviewed Account endpoints and admitted Profiles.
 3. Keep Tokens, personal paths, identities, and release credentials out.
 4. Validate the manifest in a clean repository environment.

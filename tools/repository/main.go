@@ -26,7 +26,7 @@ func run(args []string) error {
 		return err
 	}
 	if flags.NArg() == 0 {
-		return fmt.Errorf("usage: repository [--root path] <changelog|release-epoch|go-format>")
+		return fmt.Errorf("usage: repository [--root path] <changelog|release-epoch|go-format|protected-lifecycle>")
 	}
 	switch flags.Arg(0) {
 	case "changelog":
@@ -35,6 +35,8 @@ func run(args []string) error {
 		return printReleaseEpoch(*root, flags.Args()[1:])
 	case "go-format":
 		return checkGoFormat(*root)
+	case "protected-lifecycle":
+		return checkProtectedLifecycle(*root)
 	default:
 		return fmt.Errorf("unknown repository check: %s", flags.Arg(0))
 	}

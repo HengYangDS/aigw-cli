@@ -5,7 +5,9 @@
 Define the product invariants that make AIGW verifiable, portable, and
 independently publishable without turning presentation preferences or
 repository-specific measurements into arbitrary merge vetoes.
+
 ## Requirements
+
 ### Requirement: one complete quality graph
 
 The repository SHALL expose one logical quality graph reused by local
@@ -130,14 +132,14 @@ own actor and trust input independently.
 ### Requirement: faithful quantitative quality evidence
 
 The repository SHALL measure statement and branch coverage independently. The
-canonical machine policy SHALL own the aggregate floor, package-observation contract, comparison
-semantics, risk model, false-positive cost, remediation path, and review
-condition. Every production package SHALL appear in the evidence, execute its
-owned statements and branches, and retain exact diagnostic ratios. Branchless
-packages SHALL remain visible and report 100-percent branch coverage. Evidence
-SHALL retain raw counts, package identity, source revision and tree, analyzer
-identity, and policy digest. No prose, CI projection, or tool-native formatting
-file SHALL own a competing threshold.
+canonical machine policy SHALL own the aggregate floor, package-observation
+contract, comparison semantics, risk model, false-positive cost, remediation
+path, and review condition. Every production package SHALL appear in the
+evidence, execute its owned statements and branches, and retain exact diagnostic
+ratios. Branchless packages SHALL remain visible and report 100-percent branch
+coverage. Evidence SHALL retain raw counts, package identity, source revision
+and tree, analyzer identity, and policy digest. No prose, CI projection, or
+tool-native formatting file SHALL own a competing threshold.
 
 #### Scenario: quantitative evidence is evaluated
 
@@ -312,3 +314,15 @@ reported. The native source and release gates SHALL pass before publication.
 - **THEN** GitLab and GitHub MAY construct their own signed commit and tag provenance
 - **AND** both Forge histories SHALL represent the same verified source tree
 - **AND** each Forge SHALL publish its complete release asset matrix independently
+
+### Requirement: Accepted publication trees contain only archived Changes
+
+The source gate SHALL admit an accepted publication tree only when
+`openspec/changes/` contains no active Change directories. Completed Change
+artifacts SHALL be archived before `dev`, `main`, or a release tag is accepted.
+
+#### Scenario: Active Change reaches source verification
+
+- **WHEN** source verification observes an active Change directory
+- **THEN** verification SHALL fail with the active Change names
+- **AND** SHALL direct the maintainer to archive completed Changes before publication

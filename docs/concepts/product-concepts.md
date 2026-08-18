@@ -29,31 +29,16 @@ An Account contains:
 - one logical Token stored by the operating system;
 - an optional provider-native diagnostic declaration.
 
-```toml
-[accounts.team]
-label = "Team Gateway"
-
-[accounts.team.endpoints]
-openai_responses = "https://gateway.example/v1"
-anthropic = "https://gateway.example"
-```
-
 Configuration and manifests never contain the Token.
+The reviewed distribution is [`manifests/team.toml`](../../manifests/team.toml);
+it is the sole tracked team configuration and is directly consumable by
+`aigw setup --from`.
 
 ## Profile
 
-A Profile is the daily model choice for one client.
-
-```toml
-[profiles.codex-default]
-label = "Codex Default"
-purpose = "Reviewed daily profile"
-account = "team"
-client = "codex"
-
-[profiles.codex-default.models]
-codex = "model-id"
-```
+A Profile is the daily model choice for one client. The team manifest carries
+the reviewed profile IDs and model IDs; operators select those IDs directly
+instead of copying a second illustrative configuration.
 
 Profile and model IDs are transparent operator-defined strings. AIGW does not
 infer a provider, capability, or version policy from their spelling.
@@ -61,8 +46,8 @@ infer a provider, capability, or version policy from their spelling.
 ## Route
 
 ```bash
-aigw use codex-default --for codex
-aigw use claude-default --for claude
+aigw use dmxapi-gpt-5.6-sol --for codex
+aigw use dmxapi-claude-fable-5 --for claude
 aigw route reset claude
 ```
 

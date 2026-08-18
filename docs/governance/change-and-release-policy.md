@@ -215,6 +215,12 @@ provider-specific historical tag absence.
 
 ## Branch closeout
 
+An accepted `dev` or `main` tree is a publication tree, not an authoring lane.
+It contains archived OpenSpec history and current specifications; an active
+Change belongs to a work or candidate lane. The protected lifecycle gate checks
+this boundary before source verification, so a completed implementation cannot
+be published while its Change remains active.
+
 Merged source branches are disposable delivery artifacts, not project history.
 GitLab must enable automatic source-branch deletion after merge. Direct release
 or maintenance merges must delete their remote source branch in the same

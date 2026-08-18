@@ -132,7 +132,7 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 	plan.request.Profile = strings.TrimSpace(plan.request.Profile)
 	plan.request.Account = strings.TrimSpace(plan.request.Account)
 	if plan.request.Profile == "" {
-		return setupPlan{}, fmt.Errorf("--profile is required; for example: `aigw setup --account team-gateway --profile gpt-5.6 --for codex --model gpt-5.6 --openai-url https://gateway.example/v1`")
+		return setupPlan{}, fmt.Errorf("--profile is required; import the reviewed team manifest with `aigw setup --from <path>` or run `aigw setup --help`")
 	}
 	if plan.request.Account == "" {
 		plan.request.Account = plan.request.Profile

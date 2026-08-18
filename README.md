@@ -94,9 +94,9 @@ A team can distribute a reviewed, token-free manifest:
 aigw setup --from manifest.toml
 ```
 
-Start from [`manifests/example.toml`](manifests/example.toml). Product source
-contains no real provider endpoint, model recommendation, Token, contributor
-identity, or organization-specific Forge coordinate.
+Start from [`manifests/team.toml`](manifests/team.toml). It contains the
+reviewed team Accounts, Profiles, and recommended Routes, but no Token or
+workstation-specific client path.
 
 ### Environment variables
 

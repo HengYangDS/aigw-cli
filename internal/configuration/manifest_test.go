@@ -27,14 +27,14 @@ func TestCredentialDetectionDescendsIntoArrays(t *testing.T) {
 	}
 }
 
-func TestExampleConfigurationManifestIsProviderNeutralVersionThree(t *testing.T) {
+func TestTeamConfigurationManifestIsReviewedVersionThree(t *testing.T) {
 	manifestDirectory := filepath.Join("..", "..", "manifests")
 	files, err := filepath.Glob(filepath.Join(manifestDirectory, "*.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 1 || filepath.Base(files[0]) != "example.toml" {
-		t.Fatalf("product manifests = %v, want only the fictitious format example", files)
+	if len(files) != 1 || filepath.Base(files[0]) != "team.toml" {
+		t.Fatalf("product manifests = %v, want only the reviewed team manifest", files)
 	}
 
 	data, err := os.ReadFile(files[0])
@@ -45,18 +45,35 @@ func TestExampleConfigurationManifestIsProviderNeutralVersionThree(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsedManifest.Version != 3 || len(parsedManifest.Accounts) != 1 || len(parsedManifest.Profiles) != 2 {
-		t.Fatalf("neutral example = version %d, %d Accounts, %d profiles", parsedManifest.Version, len(parsedManifest.Accounts), len(parsedManifest.Profiles))
+	if parsedManifest.Version != 3 || len(parsedManifest.Accounts) != 3 || len(parsedManifest.Profiles) == 0 {
+		t.Fatalf("team manifest = version %d, %d Accounts, %d profiles", parsedManifest.Version, len(parsedManifest.Accounts), len(parsedManifest.Profiles))
 	}
-	account := parsedManifest.Accounts["team-gateway"]
-	for _, endpoint := range []string{account.Endpoints.OpenAIResponses, account.Endpoints.Anthropic} {
-		parsed, parseErr := url.Parse(endpoint)
-		if parseErr != nil || !strings.HasSuffix(parsed.Hostname(), ".example") {
-			t.Fatalf("product example contains non-fictitious endpoint %q", endpoint)
+	for accountID, account := range parsedManifest.Accounts {
+		for _, endpoint := range []string{account.Endpoints.OpenAIResponses, account.Endpoints.Anthropic} {
+			if endpoint == "" {
+				continue
+			}
+			parsed, parseErr := url.Parse(endpoint)
+			if parseErr != nil || parsed.Hostname() == "" {
+				t.Fatalf("team account %q contains invalid endpoint %q", accountID, endpoint)
+			}
 		}
 	}
-	if parsedManifest.Profiles["codex-default"].Models[ClientCodex] != "codex-model-id" || parsedManifest.Profiles["claude-default"].Models[ClientClaude] != "claude-model-id" {
-		t.Fatalf("neutral example profiles = %#v", parsedManifest.Profiles)
+	for _, accountID := range []string{"aihubmix", "dmxapi", "ucloud"} {
+		if _, ok := parsedManifest.Accounts[accountID]; !ok {
+			t.Fatalf("team manifest missing account %q", accountID)
+		}
+	}
+	for _, profileID := range []string{"dmxapi-gpt-5.6-sol", "dmxapi-claude-fable-5"} {
+		if _, ok := parsedManifest.Profiles[profileID]; !ok {
+			t.Fatalf("team manifest missing reviewed profile %q", profileID)
+		}
+	}
+	if parsedManifest.RecommendedDefault != "dmxapi-gpt-5.6-sol" {
+		t.Fatalf("team manifest default = %q", parsedManifest.RecommendedDefault)
+	}
+	if len(parsedManifest.RecommendedRoutes) != 2 {
+		t.Fatalf("team manifest recommended routes = %#v", parsedManifest.RecommendedRoutes)
 	}
 }
 

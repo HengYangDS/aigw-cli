@@ -32,6 +32,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "tool", "errcheck", "./..."},
 		{"go", "run", "./tools/repository", "--root", ".", "go-format"},
 		{"go", "test", "./tools/repository"},
+		{"go", "run", "./tools/repository", "--root", ".", "protected-lifecycle"},
 		{"go", "test", "./internal/upgrade", "./tools/release"},
 		{"actionlint"},
 		{"go", "test", "./tools/forge"},
