@@ -150,6 +150,31 @@ func TestReplayCreatesSignedGraph(t *testing.T) {
 	}
 }
 
+func TestReplayFixtureIgnoresHostSigningAndHooks(t *testing.T) {
+	hostConfig := filepath.Join(t.TempDir(), "host.gitconfig")
+	contents := `[commit]
+	gpgSign = true
+[tag]
+	gpgSign = true
+[gpg]
+	format = ssh
+[gpg "ssh"]
+	program = /missing/host-signing-program
+[user]
+	signingKey = /missing/host-signing-key.pub
+[core]
+	hooksPath = /missing/host-hooks
+`
+	if err := os.WriteFile(hostConfig, []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", hostConfig)
+	option := signedReplayFixture(t)
+	if err := replay(option); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestReplayPreservesMergeTopology(t *testing.T) {
 	option := signedReplayFixture(t)
 	source := option.source
@@ -641,6 +666,9 @@ func signedReplayFixture(t *testing.T) options {
 	gitTest(t, source, "init", "-q", "-b", "main")
 	gitTest(t, source, "config", "user.name", "Source")
 	gitTest(t, source, "config", "user.email", "source@example.com")
+	gitTest(t, source, "config", "commit.gpgsign", "false")
+	gitTest(t, source, "config", "tag.gpgsign", "false")
+	gitTest(t, source, "config", "core.hooksPath", filepath.Join(source, ".disabled-hooks"))
 	writeCommit(t, source, "file.txt", "value\n", "message")
 	key := filepath.Join(t.TempDir(), "signing-key")
 	command := exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key)
