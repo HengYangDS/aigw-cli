@@ -227,6 +227,29 @@ func TestCodexUserConfigRejectsInvalidCapturedSchedulerState(t *testing.T) {
 	}
 }
 
+func TestCodexUserConfigRejectsSchedulerRestoreError(t *testing.T) {
+	runtime := atomicTestRuntime()
+	block := codexManagedBlock(runtime, runtime.Endpoint)
+	projection, err := projectCodex("external = true\n", block, runtime.Model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := attributedExtraCodexState(ProjectionFullSelection, block)
+	state.OriginalScheduler = map[string]*int{"invalid": nil}
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := codexUserConfig(
+		transaction.FileSnapshot{Exists: true, Data: []byte(projection)},
+		transaction.FileSnapshot{Exists: true, Data: data},
+		runtime,
+		block,
+	); err == nil || !strings.Contains(err.Error(), "invalid Codex scheduler state key") {
+		t.Fatalf("codexUserConfig() error = %v", err)
+	}
+}
+
 func TestCompleteExactTruncatedCodexProjectionRejectsAmbiguities(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
@@ -306,6 +329,17 @@ func TestCompleteExactTruncatedCodexProjectionRejectsAmbiguities(t *testing.T) {
 	}
 }
 
+func TestCompleteExactTruncatedProjectionRejectsForeignContentAfterValidPrefix(t *testing.T) {
+	runtime := atomicTestRuntime()
+	block := codexManagedBlock(runtime, runtime.Endpoint)
+	state := codexState{ManagedBlockHash: hashText(block)}
+	truncated := strings.TrimSuffix(block, codexEnd+"\n")
+	current := codexSelection + "\n" + fmt.Sprintf("model = %q # managed by AIGW\n", runtime.Model) + codexBegin + "\n" + truncated + "foreign = true\n[other]\n"
+	if completed, ok := completeExactTruncatedCodexProjection(current, state, runtime, block); ok {
+		t.Fatalf("foreign content was admitted:\n%s", completed)
+	}
+}
+
 func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
@@ -339,6 +373,9 @@ func TestRemoveCodexProjectionRestoresAbsentOriginalSelection(t *testing.T) {
 	}
 	state := codexState{
 		ManagedBlockHash: hashText(block),
+		// The older projected key set, i.e. a sidecar written before the [agents]
+		// alias was retired. Removal must still clear AIGW's own max_threads even
+		// though this state records no original for it.
 		OriginalScheduler: map[string]*int{
 			"agents.max_concurrent_threads_per_session":                  nil,
 			"agents.max_depth":                                           nil,

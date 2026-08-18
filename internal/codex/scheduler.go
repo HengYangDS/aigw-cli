@@ -9,7 +9,32 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
+// codexSchedulerKeys are the scheduler keys AIGW projects and validates. Codex
+// reads [agents].max_threads as the session concurrency field and treats
+// [agents].max_concurrent_threads_per_session as its retired alias, so a table
+// carrying both is rejected by Codex. AIGW therefore binds exactly one member of
+// that pair per table.
 var codexSchedulerKeys = map[string]map[string]int{
+	"agents": {
+		"max_threads": codexSessionConcurrency,
+		"max_depth":   codexAgentDepth,
+	},
+	"features.multi_agent_v2": {
+		"max_concurrent_threads_per_session": codexSessionConcurrency,
+	},
+}
+
+// codexRetiredSchedulerKeys are keys AIGW must clear rather than bind, because
+// the table's projected key already carries their meaning. They are captured
+// before removal so a restore still returns the user's original bytes.
+var codexRetiredSchedulerKeys = map[string][]string{
+	"agents": {"max_concurrent_threads_per_session"},
+}
+
+// codexLegacySchedulerKeys is the key set an older AIGW projected. It is never
+// projected or validated. It exists only so a projection hash recorded by that
+// older AIGW is still recognized as AIGW's own work instead of a user edit.
+var codexLegacySchedulerKeys = map[string]map[string]int{
 	"agents": {
 		"max_concurrent_threads_per_session": codexSessionConcurrency,
 		"max_depth":                          codexAgentDepth,
@@ -19,27 +44,68 @@ var codexSchedulerKeys = map[string]map[string]int{
 	},
 }
 
+// codexSchedulerTargets lists every table and key AIGW either projects or
+// retires, in a deterministic order.
+func codexSchedulerTargets() [][2]string {
+	targets := make([][2]string, 0, len(codexSchedulerKeys)+len(codexRetiredSchedulerKeys))
+	for table, keys := range codexSchedulerKeys {
+		for key := range keys {
+			targets = append(targets, [2]string{table, key})
+		}
+	}
+	for table, keys := range codexRetiredSchedulerKeys {
+		for _, key := range keys {
+			targets = append(targets, [2]string{table, key})
+		}
+	}
+	sort.Slice(targets, func(i, j int) bool {
+		if targets[i][0] != targets[j][0] {
+			return targets[i][0] < targets[j][0]
+		}
+		return targets[i][1] < targets[j][1]
+	})
+	return targets
+}
+
 func captureCodexScheduler(text string) (map[string]*int, error) {
 	if err := validateCodexTOML(text); err != nil {
 		return nil, err
 	}
-	original := make(map[string]*int)
-	for table, keys := range codexSchedulerKeys {
-		for key := range keys {
-			value, present, err := codexIntegerKey(text, table, key)
-			if err != nil {
-				return nil, err
-			}
-			name := table + "." + key
-			if present {
-				copied := value
-				original[name] = &copied
-			} else {
-				original[name] = nil
-			}
+	return captureCodexSchedulerInto(make(map[string]*int), text)
+}
+
+// captureCodexSchedulerInto records the current value of every projected and
+// retired key that is not recorded yet. An absent key is recorded as absent so a
+// restore removes it instead of leaving AIGW's value behind.
+func captureCodexSchedulerInto(original map[string]*int, text string) (map[string]*int, error) {
+	for _, target := range codexSchedulerTargets() {
+		name := target[0] + "." + target[1]
+		if _, recorded := original[name]; recorded {
+			continue
+		}
+		value, present, err := codexIntegerKey(text, target[0], target[1])
+		if err != nil {
+			return nil, err
+		}
+		if present {
+			copied := value
+			original[name] = &copied
+		} else {
+			original[name] = nil
 		}
 	}
 	return original, nil
+}
+
+// backfillCodexScheduler records originals for keys AIGW projects now but did
+// not project when this state was written. Without it an upgrade would overwrite
+// a user's own [agents].max_threads with no record of the value to restore.
+// State that never tracked scheduler keys at all is left untouched.
+func backfillCodexScheduler(original map[string]*int, base string) (map[string]*int, error) {
+	if len(original) == 0 {
+		return original, nil
+	}
+	return captureCodexSchedulerInto(original, base)
 }
 
 func projectCodexScheduler(text string) (string, error) {
@@ -60,6 +126,20 @@ func projectCodexScheduler(text string) (string, error) {
 		sort.Strings(keys)
 		for _, key := range keys {
 			result = setCodexIntegerKey(result, table, key, codexSchedulerKeys[table][key])
+		}
+	}
+	// A projected key and its retired alias cannot share a table: Codex reads the
+	// pair as one field declared twice and refuses to start.
+	retiredTables := make([]string, 0, len(codexRetiredSchedulerKeys))
+	for table := range codexRetiredSchedulerKeys {
+		retiredTables = append(retiredTables, table)
+	}
+	sort.Strings(retiredTables)
+	for _, table := range retiredTables {
+		keys := append([]string(nil), codexRetiredSchedulerKeys[table]...)
+		sort.Strings(keys)
+		for _, key := range keys {
+			result = removeCodexIntegerKey(result, table, key)
 		}
 	}
 	return result, validateCodexTOML(result)
@@ -88,13 +168,39 @@ func restoreCodexScheduler(text string, original map[string]*int) (string, error
 		}
 		result = removeEmptyCodexTable(result, table)
 	}
-	result = regexp.MustCompile(`(?m)^([ \t]*max_(?:concurrent_threads_per_session|depth)[ \t]*=[ \t]*[0-9]+)[ \t]*#[ \t]*managed by AIGW[ \t]*$`).ReplaceAllString(result, "$1")
+	// State written before a key joined the projected set records nothing for it,
+	// which would leave AIGW's own value behind after a restore. Remove such a key
+	// only while it still carries AIGW's value and managed marker, so a
+	// user-authored value is never discarded.
+	for _, target := range codexSchedulerTargets() {
+		table, key := target[0], target[1]
+		expected, managed := codexSchedulerKeys[table][key]
+		if !managed {
+			continue
+		}
+		if _, recorded := original[table+"."+key]; recorded {
+			continue
+		}
+		result = removeManagedCodexIntegerKey(result, table, key, expected)
+		result = removeEmptyCodexTable(result, table)
+	}
+	result = regexp.MustCompile(`(?m)^([ \t]*max_(?:concurrent_threads_per_session|depth|threads)[ \t]*=[ \t]*[0-9]+)[ \t]*#[ \t]*managed by AIGW[ \t]*$`).ReplaceAllString(result, "$1")
 	return result, validateCodexTOML(result)
 }
 
 func codexSchedulerHash(text string) string {
+	return codexSchedulerHashFor(codexSchedulerKeys, codexRetiredSchedulerKeys, text)
+}
+
+// codexSchedulerHashFor fingerprints one key set. Retired keys join the
+// fingerprint because AIGW owns their absence as much as it owns a projected
+// value: an alias that reappears beside the projected key recreates the pair
+// Codex rejects, so it has to read as drift rather than as AIGW's own work.
+// The legacy key set is fingerprinted without retired keys, exactly as the older
+// AIGW recorded it.
+func codexSchedulerHashFor(schedulerKeys map[string]map[string]int, retiredKeys map[string][]string, text string) string {
 	values := make([]string, 0)
-	for table, keys := range codexSchedulerKeys {
+	for table, keys := range schedulerKeys {
 		for key := range keys {
 			value, present, err := codexIntegerKey(text, table, key)
 			if err != nil || !present {
@@ -104,8 +210,32 @@ func codexSchedulerHash(text string) string {
 			values = append(values, fmt.Sprintf("%s.%s=%d", table, key, value))
 		}
 	}
+	// A retired key is owned by its absence, so the fingerprint records only
+	// whether it exists. Any value at all is drift, not just an integer AIGW
+	// itself could have written.
+	for table, keys := range retiredKeys {
+		for _, key := range keys {
+			state := "<missing>"
+			if present, err := codexKeyPresent(text, table, key); err != nil || present {
+				state = "<present>"
+			}
+			values = append(values, table+"."+key+"="+state)
+		}
+	}
 	sort.Strings(values)
 	return hashText(strings.Join(values, "\n"))
+}
+
+// codexSchedulerHashMatches reports whether a recorded projection hash is one
+// AIGW itself wrote. A sidecar written before the [agents] alias was retired
+// recorded its hash over the older key set, so accepting that hash too keeps an
+// upgrade from misreading AIGW's own projection as a user edit and refusing to
+// synchronize the very configuration it needs to correct.
+func codexSchedulerHashMatches(recorded, text string) bool {
+	if recorded == "" {
+		return true
+	}
+	return recorded == codexSchedulerHash(text) || recorded == codexSchedulerHashFor(codexLegacySchedulerKeys, nil, text)
 }
 
 func validateCodexScheduler(text string) error {
@@ -120,7 +250,45 @@ func validateCodexScheduler(text string) error {
 			}
 		}
 	}
+	// A retired key must stay absent. Codex rejects a table carrying both members
+	// of the alias pair, so a key that reappears after projection is drift and is
+	// reported here rather than removed: validation reads configuration, and
+	// clearing a key the user may have written belongs to synchronization.
+	for table, keys := range codexRetiredSchedulerKeys {
+		for _, key := range keys {
+			present, err := codexKeyPresent(text, table, key)
+			if err != nil {
+				return err
+			}
+			if present {
+				return fmt.Errorf("Codex config scheduler key %s.%s is retired but present beside the key AIGW projects", table, key)
+			}
+		}
+	}
 	return nil
+}
+
+// codexKeyPresent reports whether a table assigns key at all. It asks the TOML
+// parser instead of matching an assignment pattern, because an absence invariant
+// has to hold for every shape the parser accepts — a string, a boolean, an array,
+// a quoted key — not only for the integer assignment AIGW itself would write.
+// A document that does not parse cannot prove absence, so the error is returned
+// and every caller treats it as unproven rather than as absent.
+func codexKeyPresent(text, table, key string) (bool, error) {
+	var document map[string]any
+	if err := toml.Unmarshal([]byte(text), &document); err != nil {
+		return false, fmt.Errorf("parse Codex config: %w", err)
+	}
+	current := document
+	for _, segment := range strings.Split(table, ".") {
+		nested, ok := current[segment].(map[string]any)
+		if !ok {
+			return false, nil
+		}
+		current = nested
+	}
+	_, present := current[key]
+	return present, nil
 }
 
 func validateCodexTOML(text string) error {
@@ -220,6 +388,20 @@ func removeCodexIntegerKey(text, table, key string) string {
 	}
 	section := text[start:end]
 	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=.*(?:\n|$)`)
+	section = pattern.ReplaceAllString(section, "")
+	return text[:start] + section + text[end:]
+}
+
+// removeManagedCodexIntegerKey removes a key only while it still carries AIGW's
+// own value and ownership marker. The marker is the evidence that AIGW wrote the
+// line, so a user-authored value of any kind survives.
+func removeManagedCodexIntegerKey(text, table, key string, value int) string {
+	start, end, present := codexTableBounds(text, table)
+	if !present {
+		return text
+	}
+	section := text[start:end]
+	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*` + fmt.Sprintf("%d", value) + `[ \t]*#[ \t]*managed by AIGW[ \t]*(?:\n|$)`)
 	section = pattern.ReplaceAllString(section, "")
 	return text[:start] + section + text[end:]
 }

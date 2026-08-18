@@ -101,7 +101,7 @@ func repairDesiredConfig(runtime invocation.Context, before configuration.Config
 		currentCodex := after.Adapters[configuration.ClientCodex]
 		targets := repairCodexTargets(discovered, currentCodex.Targets)
 		executable := currentCodex.Executable
-		if discovered.Executable(configuration.ClientCodex) != "" {
+		if executable == "" {
 			executable = discovered.Executable(configuration.ClientCodex)
 		}
 		if executable != "" && len(targets) > 0 {
