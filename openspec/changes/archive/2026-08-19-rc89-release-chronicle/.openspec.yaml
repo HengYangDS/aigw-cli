@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-08-19
+goal: Complete the rc.89 release chronicle for the exact product object.
+
+skip_specs: true

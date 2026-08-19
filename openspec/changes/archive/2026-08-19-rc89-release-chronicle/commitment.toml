@@ -1,0 +1,11 @@
+schema_version = 1
+id = "change:rc89-release-chronicle"
+intent = "Complete the unpublished rc.89 release chronicle before tagging."
+subjects = ["repository:aigw-cli"]
+scope = ["CHANGELOG.md", "openspec/changes/rc89-release-chronicle/**"]
+invariants = ["version_ssot_remains_VERSION", "published_chronology_remains_semver_ordered"]
+acceptance = ["changelog_gate_passes", "complete_source_gate_passes", "rc89_tag_is_minted_only_after_this_change"]
+risks = []
+authority_refs = ["VERSION", "CHANGELOG.md", "docs/governance/change-and-release-policy.md"]
+hypotheses = []
+dependencies = []

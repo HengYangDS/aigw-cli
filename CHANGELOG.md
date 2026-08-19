@@ -12,6 +12,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Make Windows and Linux hosted verification use host-native, deterministic
+  fixtures without weakening executable-path or publication rejection checks.
 - Keep Windows native acceptance focused on build, execution, installation, and
   uninstallation; aggregate coverage remains a single source-governance gate.
 - Bind Claude Code credential lookup to the installed AIGW executable so GUI
@@ -25,6 +27,10 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Changed
 
+- Make local Git the only signed commit and tag authority, with GitLab and
+  GitHub as independent peers that receive the exact same product objects.
+- Remove Forge-specific history replay, identity rewriting, tag namespaces,
+  tree-only parity, and duplicate branch-lifecycle commands.
 - Use aggregate statement and branch coverage as the quantitative release veto;
   keep every package present, executed, and visible with exact diagnostics.
 
