@@ -8,12 +8,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.89] - 2026-08-19
+
 ### Fixed
 
 - Keep Windows native acceptance focused on build, execution, installation, and
   uninstallation; aggregate coverage remains a single source-governance gate.
-
-## [0.1.0-rc.89] - 2026-08-18
+- Bind Claude Code credential lookup to the installed AIGW executable so GUI
+  and service launches do not depend on shell `PATH`.
 
 ### Added
 

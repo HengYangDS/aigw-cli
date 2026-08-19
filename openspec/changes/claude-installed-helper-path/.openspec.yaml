@@ -1,2 +1,4 @@
 schema: spec-driven
 created: 2026-08-19
+goal: Make Claude Code credential retrieval stable across GUI and shell launch
+  environments.
