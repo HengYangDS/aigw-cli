@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-08-19
+goal: Assert host-native helper semantics independently of JSON serialization.
+
+skip_specs: true

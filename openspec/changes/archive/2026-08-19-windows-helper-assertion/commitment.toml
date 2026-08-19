@@ -1,0 +1,11 @@
+schema_version = 1
+id = "change:windows-helper-assertion"
+intent = "Assert the semantic Claude helper value independently of JSON path escaping."
+subjects = ["repository:aigw-cli"]
+scope = ["internal/synchronization/synchronization_test.go", "openspec/changes/windows-helper-assertion/**"]
+invariants = ["production_behavior_is_unchanged", "host_native_paths_remain_required"]
+acceptance = ["focused_tests_pass", "complete_source_gate_passes", "hosted_windows_acceptance_passes"]
+risks = []
+authority_refs = ["AGENTS.md", "CONTRIBUTING.md"]
+hypotheses = []
+dependencies = []

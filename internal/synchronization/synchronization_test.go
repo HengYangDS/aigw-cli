@@ -3,6 +3,7 @@ package synchronization
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -468,8 +469,16 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(settingsPath)
-	if err != nil || !strings.Contains(string(projected), `"ANTHROPIC_BASE_URL": "https://gateway.test"`) || !strings.Contains(string(projected), aigwExecutable) {
+	if err != nil || !strings.Contains(string(projected), `"ANTHROPIC_BASE_URL": "https://gateway.test"`) {
 		t.Fatalf("projected settings = %s, %v", projected, err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(projected, &document); err != nil {
+		t.Fatal(err)
+	}
+	helper, ok := document["apiKeyHelper"].(string)
+	if !ok || !strings.Contains(helper, aigwExecutable) || !strings.HasSuffix(helper, " credential claude") {
+		t.Fatalf("apiKeyHelper = %#v", document["apiKeyHelper"])
 	}
 	if strings.Contains(string(projected), "token") || strings.Contains(string(projected), "secret") {
 		t.Fatalf("projected settings leaked credential material: %s", projected)
