@@ -13,32 +13,17 @@ import (
 
 var semanticTag = regexp.MustCompile(`^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
 
-type repeatedFlag []string
-
-func (values *repeatedFlag) String() string { return strings.Join(*values, ",") }
-func (values *repeatedFlag) Set(value string) error {
-	*values = append(*values, value)
-	return nil
-}
-
-type peerSpec struct{ name, ref, mode string }
-
-func runCommitProvenance(args []string) error {
+func runCommitVerification(arguments []string) error {
 	flags := flag.NewFlagSet("forge commits", flag.ContinueOnError)
 	repository := flags.String("repository", ".", "Git repository")
 	revision := flags.String("revision", "HEAD", "commit revision to verify")
-	provider := flags.String("provider", "", "gitlab or github")
 	email := flags.String("email", "", "required author and committer email")
 	allowedSigners := flags.String("allowed-signers", "", "SSH allowed signers file")
-	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || *provider == "" || *email == "" || *allowedSigners == "" {
-		return errors.New("usage: forge commits --provider <gitlab|github> --email <email> --allowed-signers <path> [--repository <path>]")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *email == "" || *allowedSigners == "" {
+		return errors.New("usage: forge commits --email <email> --allowed-signers <path> [--repository <path>] [--revision <revision>]")
 	}
-	if *provider != "gitlab" && *provider != "github" {
-		return errors.New("provider must be gitlab or github")
-	}
-	address, err := mail.ParseAddress(*email)
-	if err != nil || address.Address != *email || !strings.Contains(*email, ".") {
-		return errors.New("author email is malformed")
+	if err := validateEmail(*email); err != nil {
+		return err
 	}
 	if err := requireRegularFile(*allowedSigners, "allowed signers"); err != nil {
 		return err
@@ -47,7 +32,7 @@ func runCommitProvenance(args []string) error {
 		return fmt.Errorf("not a Git repository: %s", *repository)
 	}
 	if _, err := os.Stat(filepath.Join(*repository, ".mailmap")); err == nil {
-		return errors.New(".mailmap is forbidden because provider identities must be stored in commit objects")
+		return errors.New(".mailmap is forbidden because product identities belong in commit objects")
 	} else if !os.IsNotExist(err) {
 		return err
 	}
@@ -55,232 +40,104 @@ func runCommitProvenance(args []string) error {
 	if err != nil {
 		return err
 	}
-	commits, err := gitOutput(*repository, "rev-list", "--reverse", "--topo-order", head)
+	list, err := gitOutput(*repository, "rev-list", "--reverse", "--topo-order", head)
 	if err != nil {
 		return err
 	}
-	oids := strings.Fields(commits)
-	for _, oid := range oids {
-		identity, err := gitOutput(*repository, "show", "-s", "--format=%ae%x00%ce", oid)
+	commits := strings.Fields(list)
+	for _, commit := range commits {
+		identity, err := gitOutput(*repository, "show", "-s", "--format=%ae%x00%ce", commit)
 		if err != nil {
 			return err
 		}
 		if identity != *email+"\x00"+*email {
-			return fmt.Errorf("%s commit %s must use %s for author and committer", *provider, oid, *email)
+			return fmt.Errorf("product commit %s must use %s for author and committer", commit, *email)
 		}
-		if err := verifySSH(*repository, *allowedSigners, "verify-commit", oid); err != nil {
-			return fmt.Errorf("%s commit %s does not have a trusted signature: %w", *provider, oid, err)
+		if err := verifySSH(*repository, *allowedSigners, "verify-commit", commit); err != nil {
+			return fmt.Errorf("product commit %s does not have a trusted signature: %w", commit, err)
 		}
 	}
-	fmt.Printf("%s commit provenance: %d verified commit(s)\n", *provider, len(oids))
+	fmt.Printf("product commit provenance: %d verified commit(s)\n", len(commits))
 	return nil
 }
 
-func runTagSignature(args []string) error {
+func runTagVerification(arguments []string) error {
 	flags := flag.NewFlagSet("forge tag", flag.ContinueOnError)
 	repository := flags.String("repository", ".", "Git repository")
-	provider := flags.String("provider", "", "gitlab or github")
 	tag := flags.String("tag", "", "release tag")
 	allowedSigners := flags.String("allowed-signers", "", "SSH allowed signers file")
-	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || *tag == "" {
-		return errors.New("usage: forge tag --provider <gitlab|github> --tag <tag> --allowed-signers <path> [--repository <path>]")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *tag == "" || *allowedSigners == "" {
+		return errors.New("usage: forge tag --tag <tag> --allowed-signers <path> [--repository <path>]")
 	}
-	if *provider != "gitlab" && *provider != "github" {
-		return errors.New("release tag provider must be gitlab or github")
-	}
-	if err := validateTagForProvider(*tag, *provider); err != nil {
-		return err
-	}
-	if err := requireRegularFile(*allowedSigners, "release tag trust input"); err != nil {
-		return err
-	}
-	if _, err := gitOutput(*repository, "rev-parse", "--verify", "refs/tags/"+*tag); err != nil {
-		return fmt.Errorf("release tag does not exist: %s", *tag)
-	}
-	kind, err := gitOutput(*repository, "cat-file", "-t", *tag)
-	if err != nil || kind != "tag" {
-		return fmt.Errorf("release tag must be annotated: %s", *tag)
-	}
-	object, err := gitOutput(*repository, "cat-file", "-p", *tag)
-	if err != nil {
-		return err
-	}
-	if !strings.Contains(object, "-----BEGIN SSH SIGNATURE-----") || !strings.Contains(object, "-----END SSH SIGNATURE-----") {
-		return fmt.Errorf("release tag is not SSH signed: %s", *tag)
-	}
-	if err := verifySSH(*repository, *allowedSigners, "verify-tag", *tag); err != nil {
-		return err
-	}
-	fmt.Printf("release tag SSH signature: OK (%s %s)\n", *provider, *tag)
-	return nil
+	return verifyTag(*repository, *tag, *allowedSigners)
 }
 
-func validateTagForProvider(tag, provider string) error {
-	qualified := strings.HasPrefix(tag, "github/")
-	plain := strings.TrimPrefix(tag, "github/")
-	if !semanticTag.MatchString(plain) {
-		return fmt.Errorf("release tag is malformed: %s", tag)
-	}
-	if qualified && provider != "github" {
-		return fmt.Errorf("qualified GitHub tag requires github provider: %s", tag)
-	}
-	return nil
-}
-
-func runTagNamespace(args []string) error {
+func runTagSetVerification(arguments []string) error {
 	flags := flag.NewFlagSet("forge tags", flag.ContinueOnError)
 	repository := flags.String("repository", ".", "Git repository")
-	mode := flags.String("mode", "", "local, gitlab, or github")
-	gitlabSigners := flags.String("gitlab-allowed-signers", "", "GitLab SSH allowed signers")
-	githubSigners := flags.String("github-allowed-signers", "", "GitHub SSH allowed signers")
-	if err := flags.Parse(args); err != nil || flags.NArg() != 0 {
-		return errors.New("usage: forge tags --mode <local|gitlab|github> [trust inputs] [--repository <path>]")
-	}
-	if *mode != "local" && *mode != "gitlab" && *mode != "github" {
-		return errors.New("tag namespace mode must be local, gitlab, or github")
-	}
-	if (*mode == "local" || *mode == "gitlab") && *gitlabSigners == "" {
-		return errors.New("GitLab trust input is required")
-	}
-	if (*mode == "local" || *mode == "github") && *githubSigners == "" {
-		return errors.New("GitHub trust input is required")
+	allowedSigners := flags.String("allowed-signers", "", "SSH allowed signers file")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *allowedSigners == "" {
+		return errors.New("usage: forge tags --allowed-signers <path> [--repository <path>]")
 	}
 	tags, err := gitOutput(*repository, "for-each-ref", "--format=%(refname:short)", "refs/tags")
 	if err != nil {
 		return err
 	}
 	for _, tag := range strings.Fields(tags) {
-		provider, signers := "gitlab", *gitlabSigners
-		switch {
-		case strings.HasPrefix(tag, "github/"):
-			if *mode != "local" {
-				return fmt.Errorf("qualified GitHub provenance is only valid in a local canonical checkout: %s", tag)
-			}
-			provider, signers = "github", *githubSigners
-		case semanticTag.MatchString(tag):
-			if *mode == "github" {
-				provider, signers = "github", *githubSigners
-			}
-		default:
-			return fmt.Errorf("unexpected release tag namespace: %s", tag)
+		if !semanticTag.MatchString(tag) {
+			return fmt.Errorf("unexpected release tag: %s", tag)
 		}
-		if err := verifySSH(*repository, signers, "verify-tag", tag); err != nil {
-			return fmt.Errorf("%s tag does not verify: %s", provider, tag)
+		if err := verifyTag(*repository, tag, *allowedSigners); err != nil {
+			return err
 		}
 	}
-	fmt.Printf("release tag namespace: OK (%s)\n", *mode)
+	fmt.Println("product release tag set: verified")
 	return nil
 }
 
-func runSync(args []string, closeout bool) error {
-	name := "forge sync"
-	if closeout {
-		name = "forge closeout"
+func verifyTag(repository, tag, allowedSigners string) error {
+	if !semanticTag.MatchString(tag) {
+		return fmt.Errorf("release tag is malformed: %s", tag)
 	}
-	flags := flag.NewFlagSet(name, flag.ContinueOnError)
-	repository := flags.String("repository", ".", "Git repository")
-	canonical := flags.String("canonical", "main", "canonical local branch")
-	source := flags.String("source", "", "source local branch")
-	var peers repeatedFlag
-	flags.Var(&peers, "peer", "name:ref:commit|tree")
-	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || len(peers) == 0 || closeout && *source == "" {
-		return fmt.Errorf("usage: %s [--repository <path>] [--canonical <branch>] %s--peer <name:ref:mode>...", name, map[bool]string{true: "--source <branch> ", false: ""}[closeout])
-	}
-	canonicalRef, err := localBranch(*repository, "canonical", *canonical)
-	if err != nil {
+	if err := requireRegularFile(allowedSigners, "release tag trust input"); err != nil {
 		return err
 	}
-	canonicalCommit, err := gitOutput(*repository, "rev-parse", canonicalRef+"^{commit}")
-	if err != nil {
-		return err
+	ref := "refs/tags/" + tag
+	if _, err := gitOutput(repository, "rev-parse", "--verify", ref); err != nil {
+		return fmt.Errorf("release tag does not exist: %s", tag)
 	}
-	var sourceRef string
-	if closeout {
-		sourceRef, err = localBranch(*repository, "source", *source)
-		if err != nil {
-			return err
-		}
-		if sourceRef == canonicalRef {
-			return fmt.Errorf("source branch must differ from canonical branch: %s", sourceRef)
-		}
-		worktree, err := gitOutput(*repository, "for-each-ref", "--format=%(worktreepath)", sourceRef)
-		if err != nil {
-			return err
-		}
-		if worktree != "" {
-			status, statusErr := gitOutput(worktree, "status", "--porcelain", "--untracked-files=normal")
-			if statusErr != nil {
-				return fmt.Errorf("source branch worktree cannot be inspected: %s (%s)", sourceRef, worktree)
-			}
-			if status != "" {
-				return fmt.Errorf("source branch worktree is not clean: %s (%s)", sourceRef, worktree)
-			}
-		}
-		if err := git(*repository, nil, "merge-base", "--is-ancestor", sourceRef, canonicalRef); err != nil {
-			return fmt.Errorf("canonical ref does not contain source tip: %s <- %s", canonicalRef, sourceRef)
-		}
+	kind, err := gitOutput(repository, "cat-file", "-t", ref)
+	if err != nil || kind != "tag" {
+		return fmt.Errorf("release tag must be annotated: %s", tag)
 	}
-	canonicalTree, err := gitOutput(*repository, "rev-parse", canonicalRef+"^{tree}")
-	if err != nil {
-		return err
+	if err := verifySSH(repository, allowedSigners, "verify-tag", ref); err != nil {
+		return fmt.Errorf("release tag does not have a trusted signature: %s: %w", tag, err)
 	}
-	for _, raw := range peers {
-		peer, err := parsePeer(raw)
-		if err != nil {
-			return err
-		}
-		peerCommit, err := gitOutput(*repository, "rev-parse", "--verify", peer.ref+"^{commit}")
-		if err != nil {
-			return fmt.Errorf("peer %s is unavailable: %s", peer.name, peer.ref)
-		}
-		if peer.mode == "tree" {
-			peerTree, treeErr := gitOutput(*repository, "rev-parse", peer.ref+"^{tree}")
-			if treeErr != nil {
-				return treeErr
-			}
-			if peerTree != canonicalTree {
-				return fmt.Errorf("peer %s does not preserve the canonical source tree", peer.name)
-			}
-		} else if closeout {
-			if err := git(*repository, nil, "merge-base", "--is-ancestor", sourceRef, peer.ref); err != nil {
-				return fmt.Errorf("peer %s does not contain source tip: %s <- %s", peer.name, peer.ref, sourceRef)
-			}
-		} else if peerCommit != canonicalCommit {
-			return fmt.Errorf("peer %s does not exactly match canonical %s: %s@%s, expected %s", peer.name, canonicalRef, peer.ref, peerCommit, canonicalCommit)
-		}
-		fmt.Printf("%s peer: %s (%s) OK\n", strings.TrimPrefix(name, "forge "), peer.name, peer.mode)
-	}
+	fmt.Printf("product release tag signature: verified (%s)\n", tag)
 	return nil
-}
-
-func localBranch(repository, label, raw string) (string, error) {
-	ref, err := gitOutput(repository, "rev-parse", "--symbolic-full-name", "--verify", raw)
-	if err != nil || !strings.HasPrefix(ref, "refs/heads/") {
-		return "", fmt.Errorf("%s ref is unavailable or is not a local branch: %s", label, raw)
-	}
-	return ref, nil
-}
-
-func parsePeer(raw string) (peerSpec, error) {
-	parts := strings.Split(raw, ":")
-	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] != "commit" && parts[2] != "tree" {
-		return peerSpec{}, fmt.Errorf("peer specification must be name:ref:commit|tree: %s", raw)
-	}
-	return peerSpec{name: parts[0], ref: parts[1], mode: parts[2]}, nil
-}
-
-func orderedTrees(repository, revision string) ([]string, error) {
-	output, err := gitOutput(repository, "log", "--reverse", "--topo-order", "--format=%T", revision, "--")
-	return strings.Fields(output), err
 }
 
 func verifySSH(repository, allowedSigners, operation, object string) error {
-	return git(repository, nil, "-c", "gpg.format=ssh", "-c", "gpg.ssh.program=ssh-keygen", "-c", "gpg.ssh.allowedSignersFile="+allowedSigners, operation, object)
+	return gitRun(
+		repository,
+		"-c", "gpg.format=ssh",
+		"-c", "gpg.ssh.program=ssh-keygen",
+		"-c", "gpg.ssh.allowedSignersFile="+allowedSigners,
+		operation, object,
+	)
+}
+
+func validateEmail(value string) error {
+	address, err := mail.ParseAddress(value)
+	if err != nil || address.Address != value || !strings.Contains(value, ".") {
+		return errors.New("author email is malformed")
+	}
+	return nil
 }
 
 func requireRegularFile(path, label string) error {
-	info, err := os.Stat(path)
-	if err != nil || !info.Mode().IsRegular() {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
 		return fmt.Errorf("%s is missing: %s", label, path)
 	}
 	return nil

@@ -1,32 +1,45 @@
-# DR-0007: Keep Local Closure and Independent Forge Publication
+# DR-0007: Local Product Objects and Independent Forge Peers
 
 - Status: accepted
-- Date: 2026-08-07
+- Date: 2026-08-19
+- Owner: Release maintainers
 
 ## Context
 
-GitLab and GitHub have separate identities, trust inputs, CI, tags, Release
-records, and outages. Coupling either publication to the other would create a
-common failure path and make local development depend on remote availability.
+Forge-specific identity replay created different commit and tag objects for
+the same product source. It made cross-Forge parity weaker than Git object
+identity, duplicated signing and repair logic, and coupled two publication
+planes that must remain independently usable.
 
 ## Decision
 
-Local source can build, test, package, install, and verify without a Forge.
-GitLab and GitHub independently project and sign provider-native histories and
-publish complete release assets. Neither pipeline queries, authenticates to,
-downloads from, or publishes through the other.
+Local Git is the sole product-object authority. A commit or annotated release
+tag is constructed and signed once, then published unchanged to any selected
+GitLab or GitHub peer.
 
-When both publications are present, a read-only audit compares their source
-semantics and common asset bytes. One-sided availability may supply a fully
-verified update, but it never proves dual publication.
+The invariants are:
+
+- exact commit OID across local Git and selected peers;
+- exact annotated tag OID, peeled commit, and tree for new releases;
+- product signing independent from SSH, PAT, OIDC, or other transport
+  authentication;
+- no history replay, identity rewrite, provider-qualified tags, commit maps,
+  or tree-only parity;
+- peer-local compare-and-swap publication and post-push observation;
+- zero peers remains a complete local product topology.
+
+Additional organizational approval uses detached attestations rather than
+changing the product object.
 
 ## Consequences
 
-Either release plane remains useful during a peer outage. Publication actors,
-emails, signers, keys, fingerprints, credentials, and coordinates stay in the
-protected execution context rather than product source.
+Each Forge may show a different account-level verification presentation and
+use different credentials, while still hosting the same signed object. A peer
+failure never blocks local acceptance or the other peer. Existing divergent
+history requires one bounded cutover; old formal releases are not rewritten
+without a separate explicit retention and migration decision.
 
 ## Revisit Trigger
 
-Revisit if a Forge is retired or one external release authority formally
-replaces both provider-native publication domains.
+Revisit only if local Git stops being the product-object authority or a future
+distribution system cannot transport an existing signed Git object unchanged.

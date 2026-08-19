@@ -14,7 +14,6 @@ import (
 	"runtime"
 	"slices"
 	"strings"
-	"time"
 )
 
 type command struct {
@@ -65,7 +64,7 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <project|source|static|links|native|trust-input|fetch-tags>")
+		return errors.New("usage: ci <project|source|static|links|native|trust-input>")
 	}
 	switch args[0] {
 	case "static":
@@ -127,11 +126,6 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 			return errors.New("usage: ci trust-input --output <path> --github-env <path>")
 		}
 		return writeTrustInput(*output, *githubEnvironment)
-	case "fetch-tags":
-		if len(args) != 1 {
-			return errors.New("usage: ci fetch-tags")
-		}
-		return fetchTags(runner)
 	default:
 		return fmt.Errorf("unknown ci command: %s", args[0])
 	}
@@ -246,19 +240,15 @@ func writeProjection(path string, content []byte) error {
 
 func configuredSourceCommands() ([]command, error) {
 	commands := append([]command(nil), sourceCommands...)
-	provider := os.Getenv("AIGW_FORGE_PROVIDER")
-	if provider != "" && provider != "gitlab" && provider != "github" {
-		return nil, errors.New("AIGW_FORGE_PROVIDER must be gitlab or github")
-	}
-	if provider == "" {
-		return commands, nil
-	}
 	email := os.Getenv("AIGW_RELEASE_AUTHOR_EMAIL")
 	signers := os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")
-	if email == "" || signers == "" {
-		return nil, errors.New("Forge verification requires author email and allowed signers file")
+	if email == "" && signers == "" {
+		return commands, nil
 	}
-	provenance := command{Name: "go", Args: []string{"run", "./tools/forge", "commits", "--provider", provider, "--email", email, "--allowed-signers", signers}}
+	if email == "" || signers == "" {
+		return nil, errors.New("product provenance verification requires author email and allowed signers file")
+	}
+	provenance := command{Name: "go", Args: []string{"run", "./tools/forge", "commits", "--email", email, "--allowed-signers", signers}}
 	commands = append([]command{provenance}, commands...)
 	return commands, nil
 }
@@ -276,22 +266,8 @@ func writeTrustInput(output, githubEnvironment string) error {
 		return fmt.Errorf("open GitHub environment: %w", err)
 	}
 	defer func() { _ = file.Close() }()
-	_, err = fmt.Fprintf(file, "AIGW_GITHUB_ALLOWED_SIGNERS=%s\n", output)
+	_, err = fmt.Fprintf(file, "AIGW_RELEASE_ALLOWED_SIGNERS_FILE=%s\n", output)
 	return err
-}
-
-func fetchTags(runner commandRunner) error {
-	call := command{Name: "git", Args: []string{"fetch", "--force", "--tags", "origin"}}
-	var err error
-	for attempt := 1; attempt <= 3; attempt++ {
-		if err = runner(call); err == nil {
-			return nil
-		}
-		if attempt < 3 {
-			time.Sleep(time.Duration(attempt) * time.Millisecond)
-		}
-	}
-	return fmt.Errorf("fetch annotated release tags: %w", err)
 }
 
 func runCommands(commands []command, stdout io.Writer, runner commandRunner) error {

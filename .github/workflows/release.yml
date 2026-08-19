@@ -97,9 +97,8 @@ jobs:
         env:
           SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
           AIGW_CHANGELOG_RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-          AIGW_FORGE_PROVIDER: github
           AIGW_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
-          AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_GITHUB_ALLOWED_SIGNERS }}
+          AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}
         run: mise exec --locked -- go run ./tools/ci source
       - name: Build the complete release matrix
         env:

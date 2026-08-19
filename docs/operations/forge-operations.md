@@ -1,118 +1,91 @@
 # Forge Operations
 
-GitLab and GitHub are independent publication planes. Local development remains
-complete without either one.
+## Authority
 
 ```mermaid
 flowchart LR
-    L["Accepted local source"] --> G["GitLab release"]
-    L --> H["GitHub release"]
-    G --> A["Read-only parity audit"]
-    H --> A
+    Local[Local signed product object] --> GitLab[GitLab peer]
+    Local --> GitHub[GitHub peer]
 ```
 
-## Plane boundaries
+Local Git is the only commit and annotated-tag authority. GitLab and GitHub are
+independent optional publication peers. Neither peer is an input to the other.
 
-| Plane | Owns |
-| --- | --- |
-| Local | Source, tests, build, candidate installation, runtime proof |
-| GitLab | Provider-native commits, CI, tag, Release, assets |
-| GitHub | Provider-native commits, CI, tag, Release, assets |
-| Audit | Post-publication comparison only |
+| Concern | Authority |
+|---|---|
+| Commit and tag bytes | Local Git |
+| Product object trust | Explicit allowed-signers file |
+| GitLab transport | Git/SSH or GitLab credential context |
+| GitHub transport | Git/SSH or GitHub credential context |
+| Hosted `Verified` display | Each Forge account projection |
+| Release assets and records | Each selected peer, independently |
 
-Neither Forge waits for, downloads from, authenticates to, or publishes through
-the other.
+Transport credentials never construct, rewrite, or sign product objects.
 
-## Source projection
+## Verify Local Objects
 
-GitLab carries the canonical commit identity. GitHub carries an equal-tree,
-ordered history with its own provider identity and signature.
+```sh
+mise exec --locked -- go run ./tools/forge commits \
+  --email "$AIGW_RELEASE_AUTHOR_EMAIL" \
+  --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
 
-```bash
-go run ./tools/forge project --help
+mise exec --locked -- go run ./tools/forge tags \
+  --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
 ```
 
-The projection is forward-only and fast-forward. Selecting `main` preflights
-both protected branches and advances `main` plus `dev` with one atomic push;
-selecting `proposal/*` advances only that explicit proposal. `candidate/dev`,
-`work/*`, and arbitrary branch names are rejected. It does not copy tags,
-force-push, rewrite canonical refs, or use user-global URL rewrites.
+## Publish a Branch
 
-## Verification
+`main` publishes the same exact commit atomically to peer `main` and `dev`.
+`proposal/*` publishes only its matching ref. No other branch is admissible.
 
-Refresh only the required tracking refs, then run the offline checker:
-
-```bash
-git fetch --no-prune --no-prune-tags --no-tags origin \
-  refs/heads/main:refs/remotes/origin/main
-git fetch --no-prune --no-prune-tags --no-tags github \
-  refs/heads/main:refs/remotes/github/main
-go run ./tools/forge sync \
-  --canonical main \
-  --peer gitlab:refs/remotes/origin/main:commit \
-  --peer github:refs/remotes/github/main:tree
+```sh
+mise exec --locked -- go run ./tools/forge project \
+  --remote origin \
+  --source main \
+  --email "$AIGW_RELEASE_AUTHOR_EMAIL" \
+  --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
 ```
 
-A stale tracking ref is not current remote evidence. Provider-native tags remain
-in their own namespaces and are verified independently.
+A fast-forward or equal tip needs no destructive option. A one-time divergent
+cutover requires every fresh observed peer tip:
 
-## Runners
+```sh
+mise exec --locked -- go run ./tools/forge project \
+  --remote github \
+  --source main \
+  --email "$AIGW_RELEASE_AUTHOR_EMAIL" \
+  --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE" \
+  --expect-remote-tip "main=$OLD_MAIN" \
+  --expect-remote-tip "dev=$OLD_DEV"
+```
 
-A runner belongs to one `Forge × repository × platform × executor × purpose`
-tuple.
+The operator temporarily authorizes protected-branch force push, runs the exact
+compare-and-swap transaction, verifies the two remote OIDs, and immediately
+restores force push to disabled. A changed tip invalidates the prepared command.
 
-- Verification and release privileges are separate.
-- Descriptions identify the project and real host/executor role.
-- Tags express required target capabilities.
-- Jobs prove actual OS and architecture before build or package work.
-- Runner absence or mismatch blocks the required job.
-- A runner is not shared implicitly across repositories or Forges.
+## Publish a Tag
 
-## Release
+Create and sign an annotated tag once in local Git. Publish that exact tag
+object independently:
 
-Each signed tag triggers the publishing Forge's own pipeline. The pipeline:
+```sh
+mise exec --locked -- go run ./tools/forge publish-tag \
+  --remote origin \
+  --tag "$TAG" \
+  --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
 
-1. verifies provider-native commit and tag trust;
-2. reads the exact Go patch version from `go.mod`;
-3. builds the complete artifact matrix twice;
-4. requires byte-identical results;
-5. verifies checksums, SBOM, package layout, and platform evidence;
-6. publishes or read-only verifies its own Release.
+mise exec --locked -- go run ./tools/forge publish-tag \
+  --remote github \
+  --tag "$TAG" \
+  --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
+```
 
-A one-sided outage leaves the other Forge usable. It does not authorize a false
-dual-publication claim.
+An equal remote tag is idempotent. A different object fails closed unless its
+exact OID is supplied through `--expect-remote-tag` for an explicitly approved
+cutover.
 
-## Artifact parity
+## Completion
 
-| Compared | Requirement |
-| --- | --- |
-| Version | Equal |
-| Source | Equal tree and ordered history semantics |
-| Common assets | Equal bytes and checksums |
-| Provider signatures | Independently valid; not byte-equal |
-| Provider-only metadata | Valid on its own Forge |
-
-A Forge release embeds only that Forge's update-source tuple; a local build
-embeds none. If an installation is configured with both peers and both are
-reachable, version and current-platform artifact bytes must agree. If one is
-unreachable, the reachable peer may supply the complete verified update.
-Authorization, malformed metadata, checksum, archive, downgrade, or redirect
-failure remains terminal.
-
-## Identity
-
-Publication actors, emails, signers, keys, and trust anchors come from protected
-execution context. Product source binds no individual contributor identity.
-
-| Protected input | Purpose |
-| --- | --- |
-| `AIGW_FORGE_PROVIDER` | Select the current independent provenance verifier: `gitlab` or `github`. |
-| `AIGW_RELEASE_AUTHOR_EMAIL` | Expected author and committer email for that Forge's history. |
-| `AIGW_RELEASE_ALLOWED_SIGNERS` | Protected SSH trust content materialized only in the runner workspace. |
-| `AIGW_RELEASE_ALLOWED_SIGNERS_FILE` | Path to the materialized trust file consumed by source verification. |
-| `AIGW_GITLAB_RELEASE_ORIGIN` + `AIGW_GITLAB_RELEASE_REPOSITORY` | GitLab origin and namespace/project embedded only when building that release. |
-| `AIGW_GITHUB_RELEASE_ORIGIN` + `AIGW_GITHUB_RELEASE_REPOSITORY` | GitHub origin and owner/repository embedded only when building that release. |
-
-Forge-native CI variables provide API coordinates and tokens to their own
-publisher. They do not enter the other Forge's job or the provider-neutral
-local build.
+Branch or tag publication is complete only when local Git and every selected
+peer expose the same object OID. Hosted CI, Release records, assets, checksums,
+installation, and runtime acceptance remain separate evidence boundaries.

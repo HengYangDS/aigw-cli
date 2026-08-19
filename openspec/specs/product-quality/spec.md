@@ -116,18 +116,21 @@ does not implement that permission model.
 
 The repository SHALL require structured commit messages and trusted signatures
 without binding a personal name, email, key, fingerprint, host path, signing
-program, or Forge credential. Each Forge's protected context SHALL supply its
-own actor and trust input independently.
+program, or Forge credential in source. Product identity and trust SHALL be
+explicit publication inputs; each peer SHALL independently supply only its
+transport credential and hosted account verification.
 
 #### Scenario: an admitted team contributor commits
 
-- **WHEN** a commit enters protected history
-- **THEN** its message and signature SHALL satisfy repository policy using the explicit publication context for that Forge
+- **WHEN** a commit enters protected product history
+- **THEN** its unchanged message, identities, and signature SHALL satisfy the
+  explicit product trust policy.
 
 #### Scenario: one Forge is unavailable
 
 - **WHEN** GitLab or GitHub cannot verify or publish
-- **THEN** the other Forge's verification and publication SHALL remain independently executable and SHALL NOT claim success for the unavailable plane
+- **THEN** local verification and the other peer SHALL remain independently
+  executable and SHALL NOT claim success for the unavailable peer.
 
 ### Requirement: faithful quantitative quality evidence
 
@@ -218,46 +221,59 @@ merge blacklists.
 ### Requirement: complete delivery evidence
 
 Quality completion SHALL require distinct evidence for the complete local
-graph, exact-HEAD proof, native hosted CI, independent Forge publication, asset
-integrity, installation, runtime acceptance, and repository housekeeping. A
-release SHALL be complete only when its signed tag, immutable assets, checksums,
-Forge-native release record, and supported-platform acceptance are verified
-independently on each declared publication plane.
-
-#### Scenario: local proof passes but delivery is incomplete
-
-- **WHEN** hosted CI, a publication plane, asset parity, installation, runtime acceptance, or lane retirement remains unverified
-- **THEN** the repository SHALL report that stage as incomplete and SHALL NOT claim terminal completion.
-
-#### Scenario: terminal closeout succeeds
-
-- **WHEN** every delivery stage passes for the exact accepted head and obsolete lanes, policies, compatibility paths, temporary assets, and stale runtime residue are retired
-- **THEN** the repository MAY report completion with receipts for each independent boundary.
-
-#### Scenario: release metadata exists without publication
-
-- **WHEN** VERSION and CHANGELOG name a release but either Forge lacks its signed tag, release record, or assets
-- **THEN** delivery SHALL remain incomplete.
+graph, exact-HEAD proof, native hosted CI, independent peer publication, exact
+branch and tag identity, asset integrity, installation, runtime acceptance, and
+repository housekeeping. A release SHALL be complete only when its one signed
+tag object, immutable assets, checksums, peer-native Release records, and
+supported-platform acceptance are verified independently on each declared
+publication plane.
 
 #### Scenario: both publication planes complete
 
-- **WHEN** GitLab and GitHub independently verify and publish the same source tree
-- **THEN** their commit and tag object identifiers MAY differ
-- **AND** their source tree, version, asset manifest, and supported-platform semantics SHALL agree.
+- **WHEN** GitLab and GitHub independently publish one accepted product release
+- **THEN** their commit and annotated tag object identifiers SHALL equal local
+  Git exactly
+- **AND** their asset manifests and supported-platform semantics SHALL agree.
+
+#### Scenario: local proof passes but delivery is incomplete
+
+- **WHEN** hosted CI, a selected peer, exact object identity, asset integrity,
+  installation, runtime acceptance, or lane retirement remains unverified
+- **THEN** the repository SHALL report that stage as incomplete and SHALL NOT
+  claim terminal completion.
+
+#### Scenario: terminal closeout succeeds
+
+- **WHEN** every delivery stage passes for the exact accepted product object
+  and obsolete lanes, policies, compatibility paths, temporary assets, and
+  stale runtime residue are retired
+- **THEN** the repository MAY report completion with receipts for each
+  independent boundary.
+
+#### Scenario: release metadata exists without publication
+
+- **WHEN** `VERSION` and `CHANGELOG` name a release but either selected peer
+  lacks its exact signed tag object, Release record, or assets
+- **THEN** delivery SHALL remain incomplete.
 
 ### Requirement: Independent Forge parity
 
-GitLab and GitHub SHALL remain independent publication planes. A provider-specific identity projection SHALL prove exact accepted tip-tree parity and independently verify the complete target commit provenance and release-tag trust. Deterministic collapse of semantically duplicate source commits SHALL NOT be treated as source drift.
+GitLab and GitHub SHALL be independent projections of one local Git object
+authority. For every newly published product branch and formal release, local
+Git and each selected peer SHALL expose the exact same commit OID, annotated tag
+object OID, peeled commit, and tree. Tree-only equality, provider-qualified tag
+namespaces, identity replay, and commit maps SHALL NOT be accepted as parity.
 
 #### Scenario: Equivalent provider projection
 
-- **WHEN** provider identity normalization maps duplicate semantic commits or parents to the same target object
-- **THEN** the projected branch is accepted only when its tip tree exactly equals the canonical accepted tip tree and all provider-native provenance checks pass
+- **WHEN** one signed local commit or annotated tag is published to both peers
+- **THEN** the complete object identity SHALL be exactly equal on local Git,
+  GitLab, and GitHub.
 
 #### Scenario: Real source drift
 
-- **WHEN** a projected branch tip resolves to a different tree
-- **THEN** synchronization fails before publication
+- **WHEN** a peer commit or tag has an equal tree but a different object OID
+- **THEN** synchronization SHALL fail as real product-object drift.
 
 ### Requirement: Portable exact-version CI bootstrap
 

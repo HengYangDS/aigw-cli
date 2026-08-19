@@ -122,23 +122,32 @@ service lifecycle. CI SHALL provide trust material only from protected context.
 
 ### Requirement: Complete Forge commit provenance
 
-Each Forge's protected publication context SHALL provide its actor, signer,
-trust anchor, and remote coordinates. Every commit reachable from a published
-branch tip MUST store that Forge actor as author and committer and verify with
-the explicit trust input. Source and CI SHALL use current stable supported build
-inputs owned by `go.mod` and CI policy.
+Every published branch tip MUST identify the exact locally constructed product
+commit. The complete reachable product history MUST preserve its original
+author and committer identities and MUST verify with the explicit product trust
+input. A Forge protected context SHALL provide only its independent transport
+credential, remote coordinate, and hosted verification; it SHALL NOT construct,
+rewrite, or re-sign a product commit.
 
 #### Scenario: Reachable history contains invalid provenance
 
-- **WHEN** any reachable commit has a different author or committer, lacks a
-  trusted signature, or is hidden behind a floor or mailmap
-- **THEN** commit-provenance verification SHALL fail and publication SHALL stop
+- **WHEN** any reachable commit has a different author or committer from its
+  local product object, lacks a trusted signature, or is hidden behind a floor
+  or mailmap
+- **THEN** commit-provenance verification SHALL fail and publication SHALL stop.
+
+#### Scenario: The same product commit reaches two peers
+
+- **WHEN** GitLab and GitHub publish one accepted local revision
+- **THEN** both branch tips SHALL equal the local commit OID exactly
+- **AND** each peer MAY use different transport credentials without changing
+  the product object.
 
 #### Scenario: Stable inputs advance
 
 - **WHEN** a newer stable supported compiler, module, or CI action is selected
-- **THEN** the owning source SHALL record the exact version and all native and
-  repository gates SHALL pass before publication
+- **THEN** its repository-owned authority SHALL record the exact version
+- **AND** all native and repository gates SHALL pass before publication.
 
 ### Requirement: Enforced semantic ownership and quality
 
@@ -217,57 +226,40 @@ traceback, or false completion message.
 - **THEN** the command SHALL return that error without usage, warning,
   traceback, or completion residue
 
-### Requirement: Semantic Forge history projection
-
-A Forge-specific history projection MUST preserve every source commit's tree,
-exact message bytes, author and committer timestamps, ordered parents, and
-merge topology while replacing only author identity, committer identity,
-signature, and parent object references required by the target graph. The
-projection MUST be constructed and verified in an isolated object database
-before a canonical or remote ref is changed.
-
-#### Scenario: Replay complete history into another Forge identity
-
-- **WHEN** an authorized publication operation projects a source graph into a
-  target Forge identity domain
-- **THEN** the target graph SHALL have one mapped commit per source commit, the
-  same ordered semantic history, and a trusted target-Forge signature on every
-  mapped commit
-
-#### Scenario: Projection cannot prove exact semantics
-
-- **WHEN** a source commit lacks a mapped parent, message bytes or timestamps
-  differ, parent order or merge arity changes, object storage is shared, or a
-  generated signature does not verify
-- **THEN** projection SHALL fail before changing any canonical or remote ref
-
 ### Requirement: Recoverable published-history repair
 
-An explicitly authorized repair of published history MUST capture immutable
-recovery evidence before mutation. Local ref replacement MUST compare the
-expected old object, and remote replacement MUST use the captured remote tip as
-a lease.
+An explicitly authorized repair of a divergent published ref MUST capture its
+exact current object before mutation. Remote replacement MUST use that object
+as a compare-and-swap lease, and the peer MUST be re-observed after the push.
 
 #### Scenario: A remote advances during prepared repair
 
-- **WHEN** a branch or tag no longer equals the old object captured by the
-  recovery record
-- **THEN** replacement SHALL stop without overwriting that ref and the repair
-  SHALL remain incomplete
+- **WHEN** a branch or tag no longer equals the object captured by the repair
+- **THEN** replacement SHALL stop without overwriting that ref
+- **AND** a fresh observation SHALL be required.
 
 ### Requirement: Atomic published-history replacement
 
-An authorized repair MUST treat all affected branches, provider-native
-annotated tags, releases, hosted CI, release assets, integrity records, and
-active commit-bound evidence as one fail-closed operation. Completion MUST NOT
-be claimed while an affected Forge still exposes invalid or mixed provenance.
+An authorized cutover MUST project one exact local product object to every
+selected ref in a single atomic peer transaction. GitLab and GitHub SHALL be
+cut over and verified independently; neither peer SHALL be read as authority
+for the other.
+
+#### Scenario: A protected peer is cut over
+
+- **WHEN** exact old tips, the signed local object, and temporary destructive
+  authorization are all present
+- **THEN** remote `main` and `dev` SHALL move atomically to that exact object
+- **AND** force-push authorization SHALL be restored to disabled immediately
+  after re-observation.
 
 #### Scenario: Both Forge graphs have been replaced
 
-- **WHEN** every affected ref maps to a verified Forge-specific graph
-- **THEN** completion SHALL additionally require exact-tip hosted CI, rebuilt
-  provider-native releases, matching cross-Forge asset digests, refreshed
-  active evidence bindings, and a verified recovery record
+- **WHEN** both peers complete an explicitly authorized historical cutover
+- **THEN** each selected branch and formal release tag SHALL equal the same
+  local product objects exactly
+- **AND** completion SHALL additionally require exact-tip hosted CI, matching
+  asset digests, refreshed active evidence bindings, and the cutover receipts.
 
 ### Requirement: Declarative ordinary provider extension
 
@@ -392,19 +384,28 @@ or control foreign applications or their private runtime state.
   applications, their configuration, sessions, caches, and runtime
 
 ### Requirement: Hosted evidence identity is Forge-portable
-A hosted governance job SHALL validate tracked evidence by its recorded content
-tree within the current Forge's own history.
+
+Hosted governance SHALL bind tracked evidence to the exact product commit and
+tree. Because every publication peer receives the same object, verification
+MUST NOT use tree-only substitution, peer fetches, or commit maps.
+
+#### Scenario: Evidence names the accepted product commit
+
+- **WHEN** a hosted job verifies tracked evidence
+- **THEN** the recorded commit and tree SHALL equal the current product object
+  and its tree exactly.
 
 #### Scenario: Evidence records a commit from the peer Forge
-- **WHEN** tracked evidence names a commit object absent from the current Forge
-- **THEN** the job SHALL accept the evidence only if the recorded tree exists in
-  the current `HEAD` ancestry
-- **AND** it SHALL NOT fetch the peer Forge or require a cross-Forge commit map.
+
+- **WHEN** tracked evidence names a commit observed on either peer
+- **THEN** that commit SHALL resolve to the exact local product object
+- **AND** the job SHALL NOT fetch the other peer or consult a commit map.
 
 #### Scenario: The recorded commit object is locally available
+
 - **WHEN** the recorded commit resolves in the current repository
 - **THEN** its tree SHALL equal the recorded tree
-- **AND** the recorded tree SHALL still exist in the current `HEAD` ancestry.
+- **AND** the object SHALL still exist in the current `HEAD` ancestry.
 
 ### Requirement: Native client fixtures are repository-controlled
 Cross-platform tests SHALL construct client executables from test-owned
@@ -445,25 +446,41 @@ the user surface; repository tools remain developer surfaces.
 
 ### Requirement: Local-first independent publication topology
 
-AIGW SHALL declare one repository-owned local verification command, one
-repository-owned local installation command, and independent GitLab and GitHub
-publication peers. Each peer SHALL own its remote and CI surface. Publication
-admission MUST reject an incomplete declaration and MUST NOT make either Forge
-depend on the other.
+AIGW SHALL have one local product-object authority and zero, one, or two
+independent optional GitLab and GitHub publication peers. Each peer SHALL own
+only its remote transport, hosted CI, Release record, and assets. Publication
+MUST push the exact locally signed commit and annotated tag and MUST NOT query,
+rewrite, or depend on the other peer.
+
+#### Scenario: No Forge is configured
+
+- **WHEN** the repository is used with zero remote peers
+- **THEN** verification, signing, build, installation, upgrade, uninstall, and
+  runtime acceptance SHALL remain complete locally.
 
 #### Scenario: One Forge is unavailable
 
-- **WHEN** local verification and one declared Forge remain available
-- **THEN** local acceptance and the available Forge publication path remain
-  independently operable without querying or mutating the unavailable Forge
+- **WHEN** local verification and one declared peer remain available
+- **THEN** the available publication path SHALL remain independently operable
+- **AND** the unavailable peer SHALL be reported as incomplete rather than
+  weakening or blocking the local product lifecycle.
+
+#### Scenario: Main is published
+
+- **WHEN** an operator selects local `main`
+- **THEN** one atomic peer push SHALL set remote `main` and `dev` to that exact
+  commit or change neither
+- **AND** only an explicit `proposal/*` selection MAY publish one matching ref
+- **AND** `candidate/*`, `work/*`, and arbitrary branches SHALL not be
+  publication inputs.
 
 #### Scenario: The canonical specification is verified
 
 - **WHEN** the repository architecture gate reads the product-control-plane
   specification
 - **THEN** it SHALL find exactly one terminal newline
-- **AND** the local-first independent publication requirement SHALL remain
-  unchanged
+- **AND** the local-first exact-object publication requirement SHALL remain
+  unchanged.
 
 ### Requirement: Latest stable repository-owned supply chain
 
@@ -506,80 +523,50 @@ compare-and-swap authority bound to the complete accumulated lane delta.
 ### Requirement: Terminal local release readiness
 
 AIGW SHALL admit a local release candidate only when canonical specifications
-contain no placeholder authority, every direct repository dependency is current
-and stable, transitive selection remains owned by those direct dependencies,
-aggregate statement and branch coverage remain strictly above 95 percent with
-current bound evidence, every package remains present and executed, the native source gate passes,
-and the complete release matrix is
-reproducible and installable. Hosted CI, Forge publication, released-asset
-installation, and lane retirement SHALL consume the archived result rather than
-become prerequisites of the Change that produces it.
+contain no placeholder authority, every direct repository dependency is
+current and stable, aggregate statement and branch coverage remain strictly
+above 95 percent with current bound evidence, every package remains present and
+executed, the native source gate passes, and the complete release matrix is
+reproducible and installable. Hosted CI, peer publication, released-asset
+installation, and lane retirement SHALL consume the archived local result
+rather than become prerequisites of the Change that produces it.
 
 #### Scenario: A stable direct dependency update is available
 
-- **WHEN** the declared Go toolchain reports a newer stable direct module version
+- **WHEN** the declared Go toolchain reports a newer stable direct module
+  version
 - **THEN** `go.mod` and `go.sum` SHALL be refreshed together
-- **AND** the complete native source gate SHALL pass before integration
+- **AND** the complete native source gate SHALL pass before integration.
 
 #### Scenario: Only an unneeded transitive update is reported
 
 - **WHEN** the module query reports a newer transitive version but `go mod why`
-  shows that the main module does not need that module
+  shows the main module does not need it
 - **THEN** AIGW SHALL leave selection with the direct dependency owner
-- **AND** SHALL NOT add an explicit pin merely to display the newest version
+- **AND** SHALL NOT add an explicit pin merely to display the newest version.
 
 #### Scenario: A canonical document contains placeholder authority
 
-- **WHEN** a specification purpose remains `TBD` or describes generation history
-- **THEN** terminal closeout SHALL fail until the purpose states current product
-  semantics directly
+- **WHEN** a specification purpose remains `TBD` or describes generation
+  history
+- **THEN** terminal closeout SHALL fail until the purpose states current
+  product semantics directly.
 
 #### Scenario: Protected branches are projected
 
-- **WHEN** the operator selects `main` for a Forge identity projection
-- **THEN** every `main` and `dev` precondition SHALL pass before publication
-- **AND** one atomic push SHALL advance both protected branches or neither
-- **AND** only an explicit `proposal/*` selection MAY use single-branch projection
-- **AND** candidate, work, or arbitrary branches SHALL be rejected.
+- **WHEN** a proven accepted local `main` is selected for one peer
+- **THEN** its signature and exact object SHALL be verified before publication
+- **AND** remote `main` and `dev` SHALL advance atomically to that object
+- **AND** the other peer SHALL not be queried or mutated.
 
 #### Scenario: External delivery follows local readiness
 
-- **WHEN** the Change has passed exact-HEAD proof and has been archived and landed
-- **THEN** native macOS, Linux, and Windows hosted verification MAY consume that
-  exact accepted result
-- **AND** GitLab and GitHub MAY publish it independently after their own gates
+- **WHEN** the Change has passed exact-HEAD proof and has been archived and
+  landed
+- **THEN** native hosted verification and each optional peer MAY independently
+  consume that exact accepted result
 - **AND** released-asset installation and governed lane retirement occur only
-  after the corresponding external evidence exists.
-
-### Requirement: Local release-root promotion
-
-AIGW SHALL advance local release `main` from accepted `dev` only through one
-explicit exact compare-and-swap transaction. The transaction SHALL verify a
-clean repository, exact observed `main` and `dev` commits, and ancestry before
-moving `main`. It SHALL NOT push a remote, create a tag, publish a release, or
-change `dev`.
-
-#### Scenario: Accepted dev is ready for release
-
-- **WHEN** `main` and `dev` match the operator's exact observations
-- **AND** `main` is an ancestor of `dev`
-- **THEN** one compare-and-swap SHALL advance `main` to exactly `dev`
-- **AND** `dev` SHALL remain unchanged.
-
-#### Scenario: Release coordinates drift
-
-- **WHEN** observed `main` or `dev` differs from the supplied coordinate
-- **THEN** promotion SHALL fail before any ref update.
-
-#### Scenario: Release history diverges
-
-- **WHEN** local `main` is not an ancestor of accepted `dev`
-- **THEN** promotion SHALL fail before any ref update.
-
-#### Scenario: Release main already equals accepted dev
-
-- **WHEN** exact `main` and `dev` identify the same commit
-- **THEN** promotion SHALL report an idempotent success without changing refs.
+  after their corresponding external evidence exists.
 
 ### Requirement: Native cross-platform release admission
 

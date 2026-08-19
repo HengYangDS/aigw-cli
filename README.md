@@ -218,8 +218,8 @@ checksums are not installation evidence.
 
 ```bash
 mise exec --locked -- go run ./tools/ci source
-mise exec --locked -- go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
-mise exec --locked -- go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
+mise exec --locked -- go run ./tools/forge commits --email '<product author email>' --allowed-signers '<path>'
+mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 ```
 
 ## Documentation

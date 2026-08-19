@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-19
+goal: Make local product authority independent from zero, one, or two optional
+  Forge peers.

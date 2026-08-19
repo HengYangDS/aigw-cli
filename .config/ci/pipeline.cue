@@ -210,8 +210,8 @@ gitlab: {
 	"source-and-governance": {
 		stage: graph["source-and-governance"].stage
 		extends: [".source-toolchain"]
-		tags: nativeEvidence.linux.gitlab.tags
-		variables: sourceToolchain & {AIGW_FORGE_PROVIDER: "gitlab"}
+		tags:      nativeEvidence.linux.gitlab.tags
+		variables: sourceToolchain
 		script: [
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.source,
@@ -291,7 +291,6 @@ githubVerify: {
 			steps: [
 				#SourceCheckout,
 				#Toolchain,
-				{name: "Refresh annotated release tags", run: "mise exec --locked -- go run ./tools/ci fetch-tags"},
 				{
 					name: "Materialize provenance trust input"
 					env: AIGW_RELEASE_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}"
@@ -301,15 +300,14 @@ githubVerify: {
 					name: "Verify pushed release tag provenance"
 					if:   "github.ref_type == 'tag'"
 					env: SELECTED_TAG: "${{ github.ref_name }}"
-					run: "mise exec --locked -- go run ./tools/forge tag --provider github --tag \"$SELECTED_TAG\" --allowed-signers \"$AIGW_GITHUB_ALLOWED_SIGNERS\""
+					run: "mise exec --locked -- go run ./tools/forge tag --tag \"$SELECTED_TAG\" --allowed-signers \"$AIGW_RELEASE_ALLOWED_SIGNERS_FILE\""
 				},
 				{
 					name: "Run source and governance"
 					env: {
 						CGO_ENABLED:                       "1"
-						AIGW_FORGE_PROVIDER:               "github"
 						AIGW_RELEASE_AUTHOR_EMAIL:         "${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}"
-						AIGW_RELEASE_ALLOWED_SIGNERS_FILE: "${{ env.AIGW_GITHUB_ALLOWED_SIGNERS }}"
+						AIGW_RELEASE_ALLOWED_SIGNERS_FILE: "${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}"
 						AIGW_CHANGELOG_RELEASE_TAG:        "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
 					}
 					run: commands.source
@@ -376,9 +374,8 @@ githubRelease: {
 					env: {
 						SELECTED_TAG:                      "${{ inputs.tag || github.ref_name }}"
 						AIGW_CHANGELOG_RELEASE_TAG:        "${{ inputs.tag || github.ref_name }}"
-						AIGW_FORGE_PROVIDER:               "github"
 						AIGW_RELEASE_AUTHOR_EMAIL:         "${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}"
-						AIGW_RELEASE_ALLOWED_SIGNERS_FILE: "${{ env.AIGW_GITHUB_ALLOWED_SIGNERS }}"
+						AIGW_RELEASE_ALLOWED_SIGNERS_FILE: "${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}"
 					}
 					run: commands.source
 				},

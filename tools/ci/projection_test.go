@@ -383,7 +383,7 @@ func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
 	}
 }
 
-func TestGitLabForgeContextIsScopedToSourceGovernance(t *testing.T) {
+func TestGitLabSourceGovernanceCarriesProductProvenanceIdentity(t *testing.T) {
 	root := t.TempDir()
 	model := filepath.Join(root, ".config", "ci", "pipeline.cue")
 	if err := os.MkdirAll(filepath.Dir(model), 0o755); err != nil {
@@ -393,7 +393,7 @@ func TestGitLabForgeContextIsScopedToSourceGovernance(t *testing.T) {
 gitlab: {
 	variables: {GIT_DEPTH: "0"}
 	"source-and-governance": {
-		variables: AIGW_FORGE_PROVIDER: "gitlab"
+		variables: {AIGW_RELEASE_AUTHOR_EMAIL: "team@example.invalid"}
 	}
 	"native-darwin": {}
 	"native-linux": {}
@@ -411,8 +411,8 @@ githubRelease: {name: "Release"}
 		t.Fatal(err)
 	}
 	gitlab := projections[0].Content
-	if got := strings.Count(gitlab, "AIGW_FORGE_PROVIDER: gitlab"); got != 1 {
-		t.Fatalf("GitLab Forge context occurrences = %d, want 1:\n%s", got, gitlab)
+	if !strings.Contains(gitlab, "AIGW_RELEASE_AUTHOR_EMAIL") {
+		t.Fatalf("GitLab projection lost product provenance identity:\n%s", gitlab)
 	}
 }
 

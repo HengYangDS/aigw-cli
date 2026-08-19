@@ -36,8 +36,6 @@ jobs:
         with:
           install: true
           cache: false
-      - name: Refresh annotated release tags
-        run: mise exec --locked -- go run ./tools/ci fetch-tags
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
@@ -46,13 +44,12 @@ jobs:
         if: github.ref_type == 'tag'
         env:
           SELECTED_TAG: ${{ github.ref_name }}
-        run: mise exec --locked -- go run ./tools/forge tag --provider github --tag "$SELECTED_TAG" --allowed-signers "$AIGW_GITHUB_ALLOWED_SIGNERS"
+        run: mise exec --locked -- go run ./tools/forge tag --tag "$SELECTED_TAG" --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
       - name: Run source and governance
         env:
           CGO_ENABLED: "1"
-          AIGW_FORGE_PROVIDER: github
           AIGW_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
-          AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_GITHUB_ALLOWED_SIGNERS }}
+          AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}
           AIGW_CHANGELOG_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: mise exec --locked -- go run ./tools/ci source
   native-darwin:

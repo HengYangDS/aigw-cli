@@ -4,236 +4,206 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net/url"
-	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
 )
 
-var scpLikeRemote = regexp.MustCompile(`^[^@/:]+@[^/:]+:.+$`)
+type repeatedFlag []string
 
-type projectionOptions struct {
-	repository, branch, remote, sourceProvider, targetProvider string
-	sourceEmail, actorName, actorEmail                         string
-	signingKey, signingProgram, sourceSigners, targetSigners   string
-}
-
-type projectedBranch struct {
-	name, ref, target string
-}
-
-func runProjection(args []string) error {
-	var option projectionOptions
-	flags := flag.NewFlagSet("forge project", flag.ContinueOnError)
-	flags.StringVar(&option.repository, "repository", ".", "canonical Git repository")
-	flags.StringVar(&option.branch, "branch", "main", "branch to project")
-	flags.StringVar(&option.remote, "remote", "", "target Git remote")
-	flags.StringVar(&option.sourceProvider, "source-provider", "", "source Forge identity")
-	flags.StringVar(&option.targetProvider, "target-provider", "", "target Forge identity")
-	flags.StringVar(&option.sourceEmail, "source-email", "", "source commit email")
-	flags.StringVar(&option.actorName, "actor-name", "", "target actor name")
-	flags.StringVar(&option.actorEmail, "actor-email", "", "target actor email")
-	flags.StringVar(&option.signingKey, "signing-key", "", "target SSH signing key")
-	flags.StringVar(&option.signingProgram, "signing-program", "ssh-keygen", "SSH signing program")
-	flags.StringVar(&option.sourceSigners, "source-allowed-signers", "", "source SSH trust input")
-	flags.StringVar(&option.targetSigners, "target-allowed-signers", "", "target SSH trust input")
-	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || option.remote == "" || option.sourceProvider == "" || option.targetProvider == "" || option.sourceEmail == "" || option.actorName == "" || option.actorEmail == "" || option.signingKey == "" || option.sourceSigners == "" || option.targetSigners == "" {
-		return errors.New("usage: forge project --remote <name> --source-provider <gitlab|github> --target-provider <gitlab|github> --source-email <email> --actor-name <name> --actor-email <email> --signing-key <path> --source-allowed-signers <path> --target-allowed-signers <path> [options]")
-	}
-	if option.sourceProvider == option.targetProvider {
-		return errors.New("source and target providers must differ")
-	}
-	return project(option)
-}
-
-func project(option projectionOptions) error {
-	if option.signingProgram == "" {
-		option.signingProgram = "ssh-keygen"
-	}
-	if option.branch != "main" && !strings.HasPrefix(option.branch, "proposal/") {
-		return errors.New("projected branch must be main or proposal/*; main projects main and dev together")
-	}
-	repository := filepath.Clean(option.repository)
-	if _, err := gitOutput(repository, "rev-parse", "--is-inside-work-tree"); err != nil {
-		return fmt.Errorf("run inside a Git worktree: %w", err)
-	}
-	status, err := gitOutput(repository, "status", "--porcelain", "--untracked-files=normal")
-	if err != nil {
-		return err
-	}
-	if status != "" {
-		return errors.New("refusing projection with a dirty canonical worktree")
-	}
-	remoteURL, err := gitOutput(repository, "config", "--local", "--get", "remote."+option.remote+".url")
-	if err != nil {
-		return fmt.Errorf("target remote is not configured: %s", option.remote)
-	}
-	if err := validateProjectionRemote(remoteURL); err != nil {
-		return err
-	}
-	branches := []string{option.branch}
-	if option.branch == "main" {
-		branches = []string{"main", "dev"}
-	}
-	workspace, err := os.MkdirTemp("", "aigw-forge-projection-*")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = os.RemoveAll(workspace) }()
-	projected := make([]projectedBranch, 0, len(branches))
-	for _, branch := range branches {
-		result, err := prepareProjection(repository, workspace, remoteURL, branch, option)
-		if err != nil {
-			return err
-		}
-		projected = append(projected, result)
-	}
-	arguments := []string{"push", "--quiet"}
-	if len(projected) > 1 {
-		arguments = append(arguments, "--atomic")
-	}
-	arguments = append(arguments, "target")
-	for _, branch := range projected {
-		arguments = append(arguments, branch.target+":"+branch.ref)
-	}
-	if err := git(filepath.Join(workspace, "transaction.git"), nil, arguments...); err != nil {
-		return err
-	}
-	for _, branch := range projected {
-		fmt.Printf("target provider projection synchronized: %s@%s\n", branch.name, branch.target)
-	}
+func (values *repeatedFlag) String() string { return strings.Join(*values, ",") }
+func (values *repeatedFlag) Set(value string) error {
+	*values = append(*values, value)
 	return nil
 }
 
-func prepareProjection(repository, workspace, remoteURL, branch string, option projectionOptions) (projectedBranch, error) {
-	branchRef, err := localBranch(repository, "source", branch)
-	if err != nil {
-		return projectedBranch{}, err
-	}
-	canonical, err := gitOutput(repository, "rev-parse", branchRef)
-	if err != nil {
-		return projectedBranch{}, err
-	}
-	if err := runCommitProvenance([]string{"--repository", repository, "--revision", branchRef, "--provider", option.sourceProvider, "--email", option.sourceEmail, "--allowed-signers", option.sourceSigners}); err != nil {
-		return projectedBranch{}, err
-	}
-	projection := filepath.Join(workspace, "transaction.git")
-	if _, err := os.Stat(projection); os.IsNotExist(err) {
-		replayOption := options{
-			source: repository, revision: canonical, output: projection, ref: branchRef,
-			actorName: option.actorName, actorEmail: option.actorEmail,
-			signingKey: option.signingKey, signingProgram: option.signingProgram,
-			allowedSigners: option.targetSigners,
-		}
-		if err := replay(replayOption); err != nil {
-			return projectedBranch{}, err
-		}
-		if err := git(projection, nil, "remote", "add", "target", remoteURL); err != nil {
-			return projectedBranch{}, err
-		}
-	} else if err != nil {
-		return projectedBranch{}, err
-	} else {
-		temporary := filepath.Join(workspace, strings.ReplaceAll(branch, "/", "-")+".git")
-		replayOption := options{
-			source: repository, revision: canonical, output: temporary, ref: branchRef,
-			actorName: option.actorName, actorEmail: option.actorEmail,
-			signingKey: option.signingKey, signingProgram: option.signingProgram,
-			allowedSigners: option.targetSigners,
-		}
-		if err := replay(replayOption); err != nil {
-			return projectedBranch{}, err
-		}
-		if err := git(projection, nil, "fetch", "--quiet", temporary, "+"+branchRef+":"+branchRef); err != nil {
-			return projectedBranch{}, err
-		}
-	}
-	target, err := gitOutput(projection, "rev-parse", branchRef)
-	if err != nil {
-		return projectedBranch{}, err
-	}
-	remoteTip, err := remoteHead(projection, branch)
-	if err != nil {
-		return projectedBranch{}, err
-	}
-	if remoteTip != "" {
-		remoteRef := "refs/remotes/target/" + branch
-		if err := git(projection, nil, "fetch", "--quiet", "--no-tags", "target", branchRef+":"+remoteRef); err != nil {
-			return projectedBranch{}, err
-		}
-		if err := git(projection, nil, "merge-base", "--is-ancestor", remoteTip, target); err != nil {
-			return projectedBranch{}, errors.New("target branch diverges from the complete canonical identity projection")
-		}
-		if err := runCommitProvenance([]string{"--repository", projection, "--revision", branchRef, "--provider", option.targetProvider, "--email", option.actorEmail, "--allowed-signers", option.targetSigners}); err != nil {
-			return projectedBranch{}, err
-		}
-	}
-	if err := verifyProjectionTags(repository, projection, canonical, option); err != nil {
-		return projectedBranch{}, err
-	}
-	return projectedBranch{name: branch, ref: branchRef, target: target}, nil
+type projectionOptions struct {
+	repository     string
+	source         string
+	remote         string
+	email          string
+	allowedSigners string
+	expectedTips   map[string]string
 }
 
-func validateProjectionRemote(raw string) error {
-	if strings.HasPrefix(raw, "file://") || filepath.IsAbs(raw) {
-		return nil
+func runProjection(arguments []string) error {
+	var expected repeatedFlag
+	flags := flag.NewFlagSet("forge project", flag.ContinueOnError)
+	repository := flags.String("repository", ".", "canonical local Git repository")
+	source := flags.String("source", "main", "local publication branch")
+	remote := flags.String("remote", "", "target Git remote")
+	email := flags.String("email", "", "product author and committer email")
+	allowedSigners := flags.String("allowed-signers", "", "product SSH trust input")
+	flags.Var(&expected, "expect-remote-tip", "branch=OID divergent cutover lease")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *remote == "" || *email == "" || *allowedSigners == "" {
+		return errors.New("usage: forge project --remote <name> --email <email> --allowed-signers <path> [--source <main|proposal/*>] [--expect-remote-tip <branch=OID>]...")
 	}
-	parsed, err := url.Parse(raw)
-	if err == nil && (parsed.Scheme == "https" || parsed.Scheme == "ssh") && parsed.Hostname() != "" && parsed.RawQuery == "" && parsed.Fragment == "" {
-		return nil
-	}
-	if scpLikeRemote.MatchString(raw) {
-		return nil
-	}
-	return errors.New("target remote must use an explicit local, HTTPS, SSH, or SCP-like Git URL")
-}
-
-func remoteHead(repository, branch string) (string, error) {
-	output, err := gitOutput(repository, "ls-remote", "--heads", "target", "refs/heads/"+branch)
-	if err != nil || output == "" {
-		return "", err
-	}
-	return strings.Fields(output)[0], nil
-}
-
-func verifyProjectionTags(canonicalRepository, projection, canonical string, option projectionOptions) error {
-	output, err := gitOutput(projection, "ls-remote", "--tags", "target", "v[0-9]*")
+	tips, err := parseExpectedTips(expected)
 	if err != nil {
 		return err
 	}
-	canonicalTrees, err := orderedTrees(canonicalRepository, canonical)
+	return project(projectionOptions{
+		repository:     *repository,
+		source:         *source,
+		remote:         *remote,
+		email:          *email,
+		allowedSigners: *allowedSigners,
+		expectedTips:   tips,
+	})
+}
+
+func project(options projectionOptions) error {
+	if options.source != "main" && !strings.HasPrefix(options.source, "proposal/") {
+		return errors.New("publication branch must be main or proposal/*")
+	}
+	if status, err := gitOutput(options.repository, "status", "--porcelain", "--untracked-files=normal"); err != nil {
+		return err
+	} else if status != "" {
+		return errors.New("refusing publication with a dirty local checkout")
+	}
+	if _, err := gitOutput(options.repository, "remote", "get-url", options.remote); err != nil {
+		return fmt.Errorf("publication remote is not configured: %s", options.remote)
+	}
+	sourceRef, sourceCommit, err := localPublicationSource(options.repository, options.source)
 	if err != nil {
 		return err
 	}
-	treeSet := make(map[string]struct{}, len(canonicalTrees))
-	for _, tree := range canonicalTrees {
-		treeSet[tree] = struct{}{}
+	if err := runCommitVerification([]string{
+		"--repository", options.repository,
+		"--revision", sourceRef,
+		"--email", options.email,
+		"--allowed-signers", options.allowedSigners,
+	}); err != nil {
+		return err
 	}
-	for _, line := range strings.Split(output, "\n") {
-		fields := strings.Fields(line)
-		if len(fields) != 2 || strings.HasSuffix(fields[1], "^{}") {
-			continue
-		}
-		tag := strings.TrimPrefix(fields[1], "refs/tags/")
-		qualified := "github/" + tag
-		if err := git(projection, nil, "fetch", "--quiet", "--no-tags", "target", "refs/tags/"+tag+":refs/tags/"+qualified); err != nil {
-			return err
-		}
-		kind, err := gitOutput(projection, "cat-file", "-t", qualified)
-		if err != nil || kind != "tag" {
-			return fmt.Errorf("target release tag must be annotated: %s", tag)
-		}
-		tree, err := gitOutput(projection, "rev-parse", qualified+"^{}^{tree}")
+	targets := []string{options.source}
+	if options.source == "main" {
+		targets = []string{"main", "dev"}
+	}
+	arguments := []string{"push", "--atomic"}
+	for _, branch := range targets {
+		remoteTip, err := remoteReference(options.repository, options.remote, "refs/heads/"+branch)
 		if err != nil {
 			return err
 		}
-		if _, relevant := treeSet[tree]; !relevant {
-			continue
-		}
-		if err := verifySSH(projection, option.targetSigners, "verify-tag", qualified); err != nil {
-			return fmt.Errorf("target provenance tag does not verify: %s", tag)
+		switch {
+		case remoteTip == "":
+			arguments = append(arguments, "--force-with-lease=refs/heads/"+branch+":"+strings.Repeat("0", len(sourceCommit)))
+		case remoteTip == sourceCommit:
+		case isAncestor(options.repository, options.remote, branch, remoteTip, sourceCommit):
+		default:
+			if options.expectedTips[branch] != remoteTip {
+				return fmt.Errorf("remote %s diverges; exact expected tip is required for cutover", branch)
+			}
+			arguments = append(arguments, "--force-with-lease=refs/heads/"+branch+":"+remoteTip)
 		}
 	}
+	arguments = append(arguments, options.remote)
+	for _, branch := range targets {
+		arguments = append(arguments, sourceCommit+":refs/heads/"+branch)
+	}
+	if err := gitRun(options.repository, arguments...); err != nil {
+		return err
+	}
+	for _, branch := range targets {
+		remoteTip, err := remoteReference(options.repository, options.remote, "refs/heads/"+branch)
+		if err != nil {
+			return err
+		}
+		if remoteTip != sourceCommit {
+			return fmt.Errorf("remote %s does not equal the local product commit", branch)
+		}
+	}
+	fmt.Printf("product commit published unchanged: %s@%s\n", options.source, sourceCommit)
+	return nil
+}
+
+func localPublicationSource(repository, branch string) (string, string, error) {
+	ref, err := gitOutput(repository, "rev-parse", "--symbolic-full-name", "--verify", branch)
+	if err != nil || ref != "refs/heads/"+branch {
+		return "", "", fmt.Errorf("publication source is not a local branch: %s", branch)
+	}
+	commit, err := gitOutput(repository, "rev-parse", "--verify", ref+"^{commit}")
+	return ref, commit, err
+}
+
+func remoteReference(repository, remote, ref string) (string, error) {
+	output, err := gitOutput(repository, "ls-remote", remote, ref)
+	if err != nil {
+		return "", err
+	}
+	if output == "" {
+		return "", nil
+	}
+	fields := strings.Fields(output)
+	if len(fields) != 2 || fields[1] != ref {
+		return "", fmt.Errorf("remote reference observation is malformed: %s", ref)
+	}
+	return fields[0], nil
+}
+
+func isAncestor(repository, remote, branch, ancestor, descendant string) bool {
+	remoteRef := "refs/aigw/forge-observation/" + strings.ReplaceAll(branch, "/", "-")
+	if err := gitRun(repository, "fetch", "--quiet", "--no-tags", remote, "+refs/heads/"+branch+":"+remoteRef); err != nil {
+		return false
+	}
+	defer func() { _ = gitRun(repository, "update-ref", "-d", remoteRef) }()
+	return gitRun(repository, "merge-base", "--is-ancestor", ancestor, descendant) == nil
+}
+
+func parseExpectedTips(values []string) (map[string]string, error) {
+	result := make(map[string]string, len(values))
+	for _, value := range values {
+		branch, oid, ok := strings.Cut(value, "=")
+		if !ok || branch == "" || oid == "" || result[branch] != "" {
+			return nil, errors.New("expected remote tip must be a unique branch=OID value")
+		}
+		result[branch] = oid
+	}
+	return result, nil
+}
+
+func runTagPublication(arguments []string) error {
+	flags := flag.NewFlagSet("forge publish-tag", flag.ContinueOnError)
+	repository := flags.String("repository", ".", "canonical local Git repository")
+	remote := flags.String("remote", "", "target Git remote")
+	tag := flags.String("tag", "", "product release tag")
+	allowedSigners := flags.String("allowed-signers", "", "product SSH trust input")
+	expected := flags.String("expect-remote-tag", "", "exact divergent remote tag object")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *remote == "" || *tag == "" || *allowedSigners == "" {
+		return errors.New("usage: forge publish-tag --remote <name> --tag <tag> --allowed-signers <path> [--expect-remote-tag <OID>]")
+	}
+	if err := verifyTag(*repository, *tag, *allowedSigners); err != nil {
+		return err
+	}
+	ref := "refs/tags/" + *tag
+	local, err := gitOutput(*repository, "rev-parse", "--verify", ref)
+	if err != nil {
+		return err
+	}
+	remoteObject, err := remoteReference(*repository, *remote, ref)
+	if err != nil {
+		return err
+	}
+	if remoteObject == local {
+		fmt.Printf("product release tag already current: %s@%s\n", *tag, local)
+		return nil
+	}
+	lease := strings.Repeat("0", len(local))
+	if remoteObject != "" {
+		if *expected != remoteObject {
+			return errors.New("remote release tag diverges; exact expected object is required for cutover")
+		}
+		lease = remoteObject
+	}
+	if err := gitRun(*repository, "push", "--force-with-lease="+ref+":"+lease, *remote, local+":"+ref); err != nil {
+		return err
+	}
+	observed, err := remoteReference(*repository, *remote, ref)
+	if err != nil {
+		return err
+	}
+	if observed != local {
+		return errors.New("remote release tag does not equal the local product tag object")
+	}
+	fmt.Printf("product release tag published unchanged: %s@%s\n", *tag, local)
 	return nil
 }

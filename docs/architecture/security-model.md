@@ -70,10 +70,11 @@ Errors name the problem, bounded evidence, impact, and one recommended action.
 
 ## Update boundary
 
-Each Forge supplies a complete provider-native tag, checksum manifest, and
-artifact. AIGW never combines these elements across providers. Authentication,
-metadata, checksum, archive-layout, downgrade, and redirect failures are
-terminal.
+Local Git supplies the single signed product tag. Each selected Forge receives
+that exact tag object and independently supplies its Release record and assets.
+AIGW never combines a tag, checksum manifest, or artifact across peers.
+Authentication, object identity, metadata, checksum, archive-layout, downgrade,
+and redirect failures are terminal.
 
 ## Uninstall
 

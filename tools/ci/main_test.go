@@ -14,7 +14,6 @@ import (
 )
 
 func TestSourceRunsThePortableGateSequence(t *testing.T) {
-	t.Setenv("AIGW_FORGE_PROVIDER", "")
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := [][]string{
@@ -154,7 +153,6 @@ func TestStaticRunsTheNonBehaviorGateSequence(t *testing.T) {
 }
 
 func TestSourceStopsAtTheFirstFailedGate(t *testing.T) {
-	t.Setenv("AIGW_FORGE_PROVIDER", "")
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := errors.New("failed")
@@ -171,8 +169,7 @@ func TestSourceStopsAtTheFirstFailedGate(t *testing.T) {
 	}
 }
 
-func TestSourceIncludesForgeSpecificProvenanceWhenConfigured(t *testing.T) {
-	t.Setenv("AIGW_FORGE_PROVIDER", "github")
+func TestSourceIncludesProductProvenanceWhenConfigured(t *testing.T) {
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "maintainer@example.com")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "trust/allowed-signers")
 	var got []command
@@ -182,7 +179,7 @@ func TestSourceIncludesForgeSpecificProvenanceWhenConfigured(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	want := command{Name: "go", Args: []string{"run", "./tools/forge", "commits", "--provider", "github", "--email", "maintainer@example.com", "--allowed-signers", "trust/allowed-signers"}}
+	want := command{Name: "go", Args: []string{"run", "./tools/forge", "commits", "--email", "maintainer@example.com", "--allowed-signers", "trust/allowed-signers"}}
 	if !slices.ContainsFunc(got, func(call command) bool { return reflect.DeepEqual(call, want) }) {
 		t.Fatalf("missing provenance command: %#v", got)
 	}
@@ -192,8 +189,7 @@ func TestSourceIncludesForgeSpecificProvenanceWhenConfigured(t *testing.T) {
 	}
 }
 
-func TestGitleaksPlatformFollowsTheSelectedForge(t *testing.T) {
-	t.Setenv("AIGW_FORGE_PROVIDER", "github")
+func TestGitleaksRemainsInProductSourceGraph(t *testing.T) {
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "maintainer@example.com")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "trust/allowed-signers")
 	commands, err := configuredSourceCommands()
@@ -206,15 +202,9 @@ func TestGitleaksPlatformFollowsTheSelectedForge(t *testing.T) {
 	}
 }
 
-func TestSourceConfigurationRejectsIncompleteForgeProvenance(t *testing.T) {
-	t.Setenv("AIGW_FORGE_PROVIDER", "unsupported")
-	if _, err := configuredSourceCommands(); err == nil || !strings.Contains(err.Error(), "must be gitlab or github") {
-		t.Fatalf("invalid provider error = %v", err)
-	}
-
+func TestSourceConfigurationRejectsIncompleteProductProvenance(t *testing.T) {
 	for _, missing := range []string{"email", "signers"} {
 		t.Run(missing, func(t *testing.T) {
-			t.Setenv("AIGW_FORGE_PROVIDER", "gitlab")
 			t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "maintainer@example.com")
 			t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "trust/allowed-signers")
 			if missing == "email" {
@@ -233,8 +223,9 @@ func TestSourceReportsInvalidArgumentsAndConfiguredSourceFailure(t *testing.T) {
 	if err := run([]string{"source", "extra"}, &bytes.Buffer{}, func(command) error { return nil }); err == nil {
 		t.Fatal("source accepted an extra argument")
 	}
-	t.Setenv("AIGW_FORGE_PROVIDER", "unsupported")
-	if err := run([]string{"source"}, &bytes.Buffer{}, func(command) error { return nil }); err == nil || !strings.Contains(err.Error(), "gitlab or github") {
+	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "maintainer@example.com")
+	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
+	if err := run([]string{"source"}, &bytes.Buffer{}, func(command) error { return nil }); err == nil || !strings.Contains(err.Error(), "allowed signers") {
 		t.Fatalf("configured source error = %v", err)
 	}
 }
@@ -249,7 +240,6 @@ func TestRunRejectsInvalidCommandShapes(t *testing.T) {
 		{"native", "--platform", "linux", "extra"},
 		{"trust-input"},
 		{"trust-input", "--output", "out", "--github-env", "env", "extra"},
-		{"fetch-tags", "extra"},
 	} {
 		if err := run(args, &bytes.Buffer{}, func(command) error { return nil }); err == nil {
 			t.Fatalf("accepted %#v", args)
@@ -394,28 +384,8 @@ func TestTrustInputWritesPrivateFileAndGitHubEnvironment(t *testing.T) {
 		t.Fatalf("trust mode=%v error=%v", info, err)
 	}
 	envData, err := os.ReadFile(environment)
-	if err != nil || string(envData) != "AIGW_GITHUB_ALLOWED_SIGNERS="+output+"\n" {
+	if err != nil || string(envData) != "AIGW_RELEASE_ALLOWED_SIGNERS_FILE="+output+"\n" {
 		t.Fatalf("GitHub environment=%q error=%v", envData, err)
-	}
-}
-
-func TestFetchTagsRetriesBoundedly(t *testing.T) {
-	attempts := 0
-	if err := run([]string{"fetch-tags"}, &bytes.Buffer{}, func(call command) error {
-		attempts++
-		if attempts < 3 {
-			return errors.New("transient")
-		}
-		return nil
-	}); err != nil || attempts != 3 {
-		t.Fatalf("error=%v attempts=%d", err, attempts)
-	}
-	attempts = 0
-	if err := run([]string{"fetch-tags"}, &bytes.Buffer{}, func(command) error {
-		attempts++
-		return errors.New("persistent")
-	}); err == nil || attempts != 3 {
-		t.Fatalf("error=%v attempts=%d", err, attempts)
 	}
 }
 

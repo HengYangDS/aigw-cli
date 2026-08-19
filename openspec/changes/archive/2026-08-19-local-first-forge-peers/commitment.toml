@@ -1,0 +1,11 @@
+schema_version = 1
+id = "change:local-first-forge-peers"
+intent = "Publish one locally signed product Git object unchanged to independent optional Forge peers."
+subjects = ["repository:aigw-cli"]
+scope = [".config/**", ".github/**", ".gitlab-ci.yml", "AGENTS.md", "CONTRIBUTING.md", "docs/**", "openspec/**", "tools/ci/**", "tools/forge/**"]
+invariants = ["local_git_is_product_object_authority", "forge_peers_are_independent", "transport_authentication_does_not_construct_product_objects", "codex_private_state_is_untouched"]
+acceptance = ["replay_and_provider_specific_object_semantics_are_absent", "local_and_peer_branch_objects_are_exact", "new_release_tag_objects_are_exact", "local_and_hosted_quality_gates_pass"]
+risks = ["bounded_destructive_remote_cutover"]
+authority_refs = ["AGENTS.md", "docs/decisions/dr-0007-local-first-independent-forge-release.md", "openspec/specs/product-control-plane/spec.md", "openspec/specs/product-quality/spec.md"]
+hypotheses = []
+dependencies = []

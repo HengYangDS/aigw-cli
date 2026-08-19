@@ -41,8 +41,8 @@ is not liveness or retirement proof.
 
 ```bash
 mise exec --locked -- go run ./tools/ci source
-mise exec --locked -- go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
-mise exec --locked -- go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
+mise exec --locked -- go run ./tools/forge commits --email '<product author email>' --allowed-signers '<path>'
+mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 ```
 
 ## Projection changes
@@ -86,40 +86,35 @@ its tag date; run `go run ./tools/repository --root . changelog` before requesti
 GitLab **Project Name** is `AIGW CLI`; stable clone **Path** is `aigw-cli`. Do
 not change external paths as a display-name cleanup.
 
-GitLab and GitHub are equivalent, independent Forge planes. Each plane receives
-its publication actor and trust material from protected execution context; the
-product does not select a maintainer, email, key, or account. Do not copy or
-overwrite signed tags between providers. From a clean owned canonical checkout,
-run
-`go run ./tools/forge project` with explicit protected identity and trust inputs.
-Selecting `main` preflights and atomically advances both `main` and `dev`;
-selecting `proposal/*` advances only that explicit proposal. Candidate, work,
-and arbitrary branches are rejected. The command maps the existing GitHub tip
-to an equal canonical tree and appends each later source commit with the GitHub identity and trusted signature, and uses an
-ordinary fast-forward push. It never rewrites history or pushes a tag. Do not
-force-push, create snapshot commits, or delete remote refs to manufacture
-convergence.
+Local Git owns one signed product commit and annotated tag. GitLab and GitHub
+are equivalent, independent, optional publication peers that receive those
+exact objects. Product signing and trust use `AIGW_RELEASE_AUTHOR_EMAIL` and
+`AIGW_RELEASE_ALLOWED_SIGNERS_FILE`; peer transport authentication remains in
+Git, SSH, or the protected host credential context. No peer-specific actor,
+signing key, tag namespace, history replay, or tree-only equivalence is valid.
 
-Set `AIGW_GITLAB_AUTHOR_EMAIL`, `AIGW_GITHUB_AUTHOR_NAME`,
-`AIGW_GITHUB_AUTHOR_EMAIL`, and `AIGW_GITHUB_SIGNING_KEY` through protected
-release context and, for an encrypted key, the approved
-`AIGW_GITHUB_SIGNING_PROGRAM`; repository-local `aigw.githubSigningKey` and
-`aigw.githubSigningProgram` provide the equivalent persistent configuration.
+From a clean canonical checkout, `go run ./tools/forge project` publishes
+`main` atomically to peer `main` and `dev`, or one explicit `proposal/*` to its
+matching ref. Candidate, work, and arbitrary branches are rejected. Ordinary
+fast-forward and idempotent publication need no destructive option. A divergent
+one-time cutover requires every exact observed remote tip and
+`--force-with-lease`; restore protected-branch force push immediately after the
+post-push observation. See [Forge Operations](docs/operations/forge-operations.md).
 
 The locked repository toolchain is declared once in `mise.toml` and resolved
 by `mise.lock`: Go, Node.js, OpenSpec, lychee, GoReleaser, and Syft. Use
 `mise exec --locked -- ...` for every repository command. Do not rely on a
 system `go`, `node`, `openspec`, `lychee`, `goreleaser`, or `syft` installation.
 
-Protected CI supplies `AIGW_FORGE_PROVIDER`, `AIGW_RELEASE_AUTHOR_EMAIL`,
+Protected CI supplies `AIGW_RELEASE_AUTHOR_EMAIL`,
 `AIGW_RELEASE_ALLOWED_SIGNERS`, and the generated
 `AIGW_RELEASE_ALLOWED_SIGNERS_FILE`. GitLab additionally owns
 `CI_API_V4_URL`, `CI_PROJECT_ID`, `CI_COMMIT_TAG`, and `CI_JOB_TOKEN`; GitHub
 owns `GITHUB_API_URL`, `GITHUB_REPOSITORY`, `GITHUB_TOKEN`, and `GH_TOKEN`.
 These are execution inputs, never product defaults or repository identity.
 
-Every descendant after the tracked provider floor must use its provider email
-for both author and committer and verify under that provider's SSH trust anchor.
+Every reachable product commit must preserve its local author and committer
+email and verify under the explicit product SSH trust anchor.
 Keep coverage policy in `.config/checks/coverage/policy.toml`; the aggregate
 must exceed 95 percent independently for statement and branch coverage. Every
 Go package under `./...` remains mandatory, executed, and visible with exact
@@ -127,31 +122,9 @@ diagnostic ratios. Do not
 introduce source compatibility shims, forwarding wrappers, alias-only packages,
 or re-exports in place of a semantic owner.
 
-Steady-state forge verification is distinct from delivery-branch closeout.
-After explicitly refreshing the required remote-tracking refs without pruning
-tags, run the read-only mirror checker:
-
-```sh
-git fetch --no-prune --no-prune-tags --no-tags origin \
-  refs/heads/main:refs/remotes/origin/main
-git fetch --no-prune --no-prune-tags --no-tags github \
-  refs/heads/main:refs/remotes/github/main
-go run ./tools/forge sync \
-  --canonical main \
-  --peer gitlab:refs/remotes/origin/main:commit \
-  --peer github:refs/remotes/github/main:tree
-```
-
-The checker never fetches or writes refs. Its result proves only the refs named
-by the caller: remote freshness comes from the preceding successful fetches,
-while tag provenance, release records, and artifact bytes retain their separate
-verification gates.
-
-The public GitHub distribution peer may enforce host rules independently, but
-release acceptance never relies on a Forge-specific tag ruleset.
-Describe its release tags as signed and independently verified provenance, not
-as host-enforced immutable refs. AIGW automation still never updates or deletes
-a provider-native release tag.
+Verify peer state directly with current `git ls-remote` observations. A branch
+or tag is synchronized only when its full OID equals the local product object.
+Hosted Release records and artifact bytes retain separate verification gates.
 
 ## Merge closeout
 
@@ -162,9 +135,7 @@ release merges, remove the corresponding remote branch explicitly. Before
 removing any branch or worktree, prove all four conditions:
 
 1. its tip is reachable from local `main`;
-2. every reachable peer contains the corresponding proven content: the same
-   commit for a non-rewriting peer, or the same ordered source-tree history for
-   an identity-rewriting projection;
+2. every reachable selected peer contains that exact commit;
 3. its worktree is clean and no longer needed; and
 4. it is neither `main` nor an active, unmerged delivery branch.
 
@@ -172,18 +143,6 @@ Retire the worktree before its local branch. Tags remain release evidence and
 are not branch residue. A locally unreachable peer is not evidence of absence:
 record the failed probe and defer only that peer's publication or remote-ref
 cleanup.
-
-After refreshing reachable peer refs, run the closeout verifier from the
-canonical checkout. Use `commit` for GitLab's canonical history and `tree` for
-GitHub's identity-rewriting projection:
-
-```sh
-go run ./tools/forge closeout \
-  --source work/<delivery-branch> \
-  --canonical main \
-  --peer gitlab:refs/remotes/origin/main:commit \
-  --peer github:refs/remotes/github/main:tree
-```
 
 If a peer cannot be reached, do not invent a matching ref. Record that failed
 probe, verify the remaining reachable planes, and defer the unavailable peer's

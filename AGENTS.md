@@ -71,13 +71,11 @@ Worktree visibility or an apparently idle agent is not retirement authority.
   alias-only packages, or re-exports. Claude Code uses its official user
   settings projection and credential-helper contract; AIGW never intercepts
   the `claude` command or mutates shell profiles.
-- Every commit reachable from a published branch tip must use the publication
-  actor supplied by that Forge's protected release context and a trusted
-  signature from its explicit trust input. No floor, mailmap, or suffix-only
-  exception is permitted. Published history may be rebuilt only for an
-  explicitly authorized identity repair across both Forge-specific histories,
-  tags, releases, and integrity evidence as one fail-closed operation; a partial
-  rebuild is never an accepted state.
+- Every commit reachable from a published branch tip must equal the locally
+  constructed product object and verify against an explicit product trust
+  input. Object signing and peer transport authentication are separate. A
+  Forge may verify and host an object but must never rewrite identity, rebuild
+  history, or re-sign a tag.
 - Trusted CI changes and RC releases require native source evidence for the
   same product tree on macOS, Linux, and Windows. A Forge may consume that
   product-level evidence without duplicating every executor; its own runner
@@ -94,8 +92,8 @@ Worktree visibility or an apparently idle agent is not retirement authority.
 
 ```bash
 mise exec --locked -- go run ./tools/ci source
-mise exec --locked -- go run ./tools/forge commits --provider gitlab --email '<release actor email>' --allowed-signers '<path>'
-mise exec --locked -- go run ./tools/forge tags --mode local --gitlab-allowed-signers '<path>' --github-allowed-signers '<path>'
+mise exec --locked -- go run ./tools/forge commits --email '<product author email>' --allowed-signers '<path>'
+mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 ```
 
 Use `aigw sync --dry-run --json` before a configuration mutation where a target

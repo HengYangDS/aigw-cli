@@ -1,36 +1,36 @@
-# DR-0002: Accept Signed GitHub Release Provenance
+# DR-0002: GitHub as an Independent Release Peer
 
-- Status: accepted
+- Status: superseded by [DR-0007](dr-0007-local-first-independent-forge-release.md)
 - Date: 2026-07-17
 - Owner: Release maintainers
 
 ## Context
 
-The GitHub publication peer is public. GitHub host rules are useful hardening,
-but they are not portable release evidence and may differ from GitLab controls.
+The original decision established that GitHub release trust could not depend on
+GitLab availability or a host-specific immutability claim. That independence
+remains correct, but allowing a Forge to construct its own tag created
+different product objects for the same release.
 
 ## Decision
 
-Use GitHub as the public distribution peer. GitHub release tags are accepted as
-signed, independently verified provenance records rather than delegating trust
-to a host-specific ruleset. AIGW automation must continue to avoid copying,
-overwriting, deleting, or regenerating a provider-native release tag.
+GitHub remains an independent public distribution peer. It now receives the
+same locally signed commit and annotated tag object as every selected peer.
+GitHub independently runs hosted CI, creates its Release record, publishes the
+asset matrix, and verifies its checksums. It neither downloads from GitLab nor
+constructs a GitHub-specific product object.
+
+Transport credentials and GitHub's account-level `Verified` presentation do not
+own product identity. The exact local object and explicit product trust anchor
+do.
 
 ## Consequences
 
-GitHub release acceptance requires the current remote tag to verify against the
-protected GitHub trust input and the complete GitHub artifact matrix to pass
-its own checksums and installation tests. A GitHub release never waits for or
-downloads from GitLab. When both releases exist, a separate read-only audit may
-establish cross-Forge asset parity; that audit is evidence about two completed
-publications, not an input to either publication.
-
-A manual GitHub tag mutation remains possible at the hosting layer and is
-treated as a detected provenance failure, not as an impossible state. No
-release or host-route claim may state that the GitHub tag is host-enforced
-immutable.
+GitHub remains independently releasable and auditable, but it no longer owns a
+distinct commit or tag identity. Existing formal release records remain
+historical evidence; duplicate local tag aliases are not product authority.
+All new formal releases use exact local product objects.
 
 ## Revisit Trigger
 
-Revisit this decision only if the product stops using GitHub as a public
-distribution peer or the cross-Forge provenance model changes.
+Revisit only if GitHub stops being a supported publication peer or the product
+ceases to use Git object identity as its release authority.
