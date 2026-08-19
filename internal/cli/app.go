@@ -98,6 +98,7 @@ func (a *App) synchronizer() synchronization.Synchronizer {
 	return synchronization.Synchronizer{
 		Config: a.Config, Secrets: a.Secrets, Runner: a.Runner, Discovery: a.Discovery,
 		ClaudeSettingsPath: a.ClaudeSettingsPath,
+		AIGWExecutable:     a.Executable,
 	}
 }
 

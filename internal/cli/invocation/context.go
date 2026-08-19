@@ -136,5 +136,6 @@ func Synchronizer(runtime Context) synchronization.Synchronizer {
 		Runner:             runtime.Runner,
 		Discovery:          runtime.Discovery,
 		ClaudeSettingsPath: runtime.ClaudeSettingsPath,
+		AIGWExecutable:     runtime.Executable,
 	}
 }

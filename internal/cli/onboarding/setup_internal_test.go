@@ -116,7 +116,8 @@ func TestCollectManifestSetupCredentialsErrorAndPromptBranches(t *testing.T) {
 
 	t.Run("secret backend error", func(t *testing.T) {
 		want := errors.New("backend failed")
-		app := invocation.Context{Secrets: &scriptedSecretStore{getErr: want}}
+		app := invocation.Context{
+			Executable: filepath.Join(t.TempDir(), "aigw"), Secrets: &scriptedSecretStore{getErr: want}}
 		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, false); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
@@ -357,6 +358,7 @@ func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := invocation.Context{
+		Executable:         filepath.Join(t.TempDir(), "aigw"),
 		Config:             store,
 		Secrets:            secretStore,
 		Discovery:          setupDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}},

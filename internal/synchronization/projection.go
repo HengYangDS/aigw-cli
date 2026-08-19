@@ -44,14 +44,14 @@ func (s Synchronizer) Reconcile(_ context.Context, before, after configuration.C
 	}
 	adapter := after.Adapters[configuration.ClientClaude]
 	if !adapter.Enabled {
-		_, err = claude.ReconcileSettings(s.ClaudeSettingsPath, true, configuration.Runtime{})
+		_, err = claude.ReconcileSettings(s.ClaudeSettingsPath, true, configuration.Runtime{}, "")
 		return err
 	}
 	claudeRuntime, _, err := after.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
 		return err
 	}
-	_, err = claude.ReconcileSettings(s.ClaudeSettingsPath, false, claudeRuntime)
+	_, err = claude.ReconcileSettings(s.ClaudeSettingsPath, false, claudeRuntime, s.AIGWExecutable)
 	return err
 }
 

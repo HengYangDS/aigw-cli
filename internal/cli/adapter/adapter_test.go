@@ -61,6 +61,7 @@ func adapterRuntime(t *testing.T, cfg configuration.Config) (invocation.Context,
 	secretStore := secrets.NewMemoryStore()
 	runner := &adapterRunner{}
 	return invocation.Context{
+		Executable:         filepath.Join(t.TempDir(), "aigw"),
 		Config:             store,
 		ClaudeSettingsPath: filepath.Join(t.TempDir(), ".claude", "settings.json"),
 		Secrets:            secretStore,

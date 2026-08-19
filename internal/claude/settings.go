@@ -8,7 +8,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
+	"unicode"
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/transaction"
@@ -16,7 +19,6 @@ import (
 
 const (
 	settingsStateSuffix = ".aigw-state.json"
-	credentialHelper    = "aigw credential claude"
 )
 
 var (
@@ -62,7 +64,7 @@ type settingsDocument map[string]json.RawMessage
 // ReconcileSettings atomically projects or removes AIGW-owned Claude Code
 // user settings. It preserves every foreign setting, never writes a token, and
 // fails closed when the owned projection has been changed externally.
-func ReconcileSettings(path string, disabled bool, runtime configuration.Runtime) (SettingsReceipt, error) {
+func ReconcileSettings(path string, disabled bool, runtime configuration.Runtime, executable string) (SettingsReceipt, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return SettingsReceipt{}, errors.New("Claude settings path is empty")
@@ -90,12 +92,16 @@ func ReconcileSettings(path string, disabled bool, runtime configuration.Runtime
 	if runtime.AccountID == "" {
 		return SettingsReceipt{}, fmt.Errorf("profile %q has no account", runtime.ProfileID)
 	}
+	executable, err = validateExecutable(executable)
+	if err != nil {
+		return SettingsReceipt{}, err
+	}
 
 	state, err := prepareSettingsState(document, settingsBefore, stateBefore)
 	if err != nil {
 		return SettingsReceipt{}, err
 	}
-	projectSettings(document, runtime)
+	projectSettings(document, runtime, executable)
 	settingsData := encodeSettings(document)
 	state.ManagedSHA256 = managedSettingsHash(document)
 	stateData := encodeSettingsState(state)
@@ -227,7 +233,7 @@ func encodeRaw(value string) json.RawMessage {
 	return data
 }
 
-func projectSettings(document settingsDocument, runtime configuration.Runtime) {
+func projectSettings(document settingsDocument, runtime configuration.Runtime, executable string) {
 	environment, _ := decodeEnvironment(document)
 	for _, key := range managedEnvironmentKeys {
 		delete(environment, key)
@@ -239,7 +245,25 @@ func projectSettings(document settingsDocument, runtime configuration.Runtime) {
 	} else {
 		document["model"] = encodeRaw(runtime.Model)
 	}
-	document["apiKeyHelper"] = encodeRaw(credentialHelper)
+	document["apiKeyHelper"] = encodeRaw(credentialHelper(executable))
+}
+
+func validateExecutable(executable string) (string, error) {
+	if strings.IndexFunc(executable, unicode.IsControl) >= 0 {
+		return "", errors.New("AIGW executable path contains control characters")
+	}
+	executable = strings.TrimSpace(executable)
+	if executable == "" || !filepath.IsAbs(executable) {
+		return "", errors.New("AIGW executable path must be absolute")
+	}
+	return executable, nil
+}
+
+func credentialHelper(executable string) string {
+	if runtime.GOOS == "windows" {
+		return `"` + strings.ReplaceAll(executable, `"`, `\"`) + `" credential claude`
+	}
+	return "'" + strings.ReplaceAll(executable, "'", "'\\''") + "' credential claude"
 }
 
 func captureOriginalSettings(document settingsDocument, fileExisted bool) originalSettings {

@@ -35,4 +35,5 @@ type Synchronizer struct {
 	Runner             Runner
 	Discovery          discovery.Discoverer
 	ClaudeSettingsPath string
+	AIGWExecutable     string
 }

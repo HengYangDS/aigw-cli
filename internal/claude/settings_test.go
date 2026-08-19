@@ -30,7 +30,7 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 		ProfileID: "team-claude", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team",
 	}
 
-	receipt, err := ReconcileSettings(path, false, runtime)
+	receipt, err := ReconcileSettings(path, false, runtime, "/Users/yheng/.local/bin/aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 	if _, ok := env["ANTHROPIC_API_KEY"]; ok {
 		t.Fatalf("stale credential remained: %#v", env)
 	}
-	if got["model"] != "claude-team" || got["apiKeyHelper"] != `aigw credential claude` {
+	if got["model"] != "claude-team" || got["apiKeyHelper"] != `'/Users/yheng/.local/bin/aigw' credential claude` {
 		t.Fatalf("managed settings = %#v", got)
 	}
 
@@ -71,6 +71,38 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 	}
 }
 
+func TestSettingsRejectsRelativeExecutableAndProjectsAbsoluteHelper(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	if _, err := ReconcileSettings(path, false, runtime, "aigw"); err == nil || !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("relative executable error = %v", err)
+	}
+	if _, err := ReconcileSettings(path, false, runtime, "/Applications/AIGW CLI/aigw"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(data, &document); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := document["apiKeyHelper"], `'/Applications/AIGW CLI/aigw' credential claude`; got != want {
+		t.Fatalf("apiKeyHelper = %#v, want %#v", got, want)
+	}
+}
+
+func TestSettingsRejectsControlCharactersInExecutablePath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	for _, executable := range []string{"/usr/local/bin/aigw\x00", "/usr/local/bin/aigw\n"} {
+		if _, err := ReconcileSettings(path, false, runtime, executable); err == nil || !strings.Contains(err.Error(), "control") {
+			t.Fatalf("executable %q error = %v", executable, err)
+		}
+	}
+}
+
 func TestSettingsDisableRestoresOnlyCapturedValues(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	before := []byte(`{"theme":"dark","env":{"TEAM_VALUE":"kept"},"model":"native"}` + "\n")
@@ -78,10 +110,10 @@ func TestSettingsDisableRestoresOnlyCapturedValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
-	if _, err := ReconcileSettings(path, false, runtime); err != nil {
+	if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReconcileSettings(path, true, configuration.Runtime{}); err != nil {
+	if _, err := ReconcileSettings(path, true, configuration.Runtime{}, ""); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(path)
@@ -106,10 +138,10 @@ func TestSettingsDisableRestoresOnlyCapturedValues(t *testing.T) {
 func TestSettingsDisableRestoresAnAbsentSettingsFileToAbsent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-	if _, err := ReconcileSettings(path, false, runtime); err != nil {
+	if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReconcileSettings(path, true, configuration.Runtime{}); err != nil {
+	if _, err := ReconcileSettings(path, true, configuration.Runtime{}, ""); err != nil {
 		t.Fatal(err)
 	}
 	for _, candidate := range []string{path, path + settingsStateSuffix} {
@@ -122,7 +154,7 @@ func TestSettingsDisableRestoresAnAbsentSettingsFileToAbsent(t *testing.T) {
 func TestSettingsUpdatePreservesForeignEditsMadeAfterProjection(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
-	if _, err := ReconcileSettings(path, false, runtime); err != nil {
+	if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err != nil {
 		t.Fatal(err)
 	}
 	var document map[string]any
@@ -142,7 +174,7 @@ func TestSettingsUpdatePreservesForeignEditsMadeAfterProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Endpoint = "https://next.test"
-	if _, err := ReconcileSettings(path, false, runtime); err != nil {
+	if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err != nil {
 		t.Fatal(err)
 	}
 	data, err = os.ReadFile(path)
@@ -167,7 +199,7 @@ func TestSettingsRejectsForeignMutationOfManagedValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
-	if _, err := ReconcileSettings(path, false, runtime); err != nil {
+	if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -178,7 +210,7 @@ func TestSettingsRejectsForeignMutationOfManagedValues(t *testing.T) {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err = ReconcileSettings(path, false, runtime)
+	_, err = ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw")
 	if err == nil || !strings.Contains(err.Error(), "managed Claude settings changed") {
 		t.Fatalf("error = %v", err)
 	}
@@ -195,7 +227,7 @@ func TestSettingsRejectsPlaintextCredentialOrForeignHelperWithoutWriting(t *test
 		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		_, err := ReconcileSettings(path, false, runtime)
+		_, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw")
 		if err == nil || !strings.Contains(err.Error(), "credential ownership conflict") {
 			t.Fatalf("error = %v", err)
 		}
@@ -208,11 +240,11 @@ func TestSettingsRejectsPlaintextCredentialOrForeignHelperWithoutWriting(t *test
 func TestSettingsProjectionIsIdempotentAndRejectsInvalidInput(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-	first, err := ReconcileSettings(path, false, runtime)
+	first, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := ReconcileSettings(path, false, runtime)
+	second, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +262,7 @@ func TestSettingsProjectionIsIdempotentAndRejectsInvalidInput(t *testing.T) {
 		{name: "missing account", path: path, runtime: configuration.Runtime{ProfileID: "team", Endpoint: "https://gateway.test"}, want: "no account"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := ReconcileSettings(test.path, false, test.runtime)
+			_, err := ReconcileSettings(test.path, false, test.runtime, "/usr/local/bin/aigw")
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
@@ -240,7 +272,7 @@ func TestSettingsProjectionIsIdempotentAndRejectsInvalidInput(t *testing.T) {
 
 func TestSettingsDisableWithoutOwnedStateIsAlreadyRestored(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	receipt, err := ReconcileSettings(path, true, configuration.Runtime{})
+	receipt, err := ReconcileSettings(path, true, configuration.Runtime{}, "")
 	if err != nil || receipt.Action != "already-restored" {
 		t.Fatalf("receipt=%#v error=%v", receipt, err)
 	}
@@ -252,7 +284,7 @@ func TestSettingsNullDocumentBecomesAnEmptyObject(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-	if _, err := ReconcileSettings(path, false, runtime); err != nil {
+	if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -270,7 +302,7 @@ func TestSettingsStrictlyRejectsMalformedEnvironmentAndTrailingJSON(t *testing.T
 			if err := os.WriteFile(path, before, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := ReconcileSettings(path, false, runtime); err == nil {
+			if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err == nil {
 				t.Fatal("invalid settings accepted")
 			}
 			after, err := os.ReadFile(path)
@@ -286,13 +318,13 @@ func TestSettingsRejectsMalformedOwnedStateForUpdateAndDisable(t *testing.T) {
 		t.Run(map[bool]string{false: "update", true: "disable"}[disabled], func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
 			runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-			if _, err := ReconcileSettings(path, false, runtime); err != nil {
+			if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(path+settingsStateSuffix, []byte("{"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := ReconcileSettings(path, disabled, runtime); err == nil || !strings.Contains(err.Error(), "parse Claude settings state") {
+			if _, err := ReconcileSettings(path, disabled, runtime, "/usr/local/bin/aigw"); err == nil || !strings.Contains(err.Error(), "parse Claude settings state") {
 				t.Fatalf("error=%v", err)
 			}
 		})
@@ -308,7 +340,7 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 			func(string) (transaction.FileSnapshot, error) { return transaction.FileSnapshot{}, os.ErrPermission },
 			writeGuarded, removeGuarded, restoreGuarded,
 		)
-		if _, err := ReconcileSettings(path, false, runtime); err == nil || !strings.Contains(err.Error(), "read Claude settings") {
+		if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err == nil || !strings.Contains(err.Error(), "read Claude settings") {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -325,7 +357,7 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 			},
 			writeGuarded, removeGuarded, restoreGuarded,
 		)
-		if _, err := ReconcileSettings(path, false, runtime); err == nil || !strings.Contains(err.Error(), "read Claude settings state") {
+		if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err == nil || !strings.Contains(err.Error(), "read Claude settings state") {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -337,7 +369,7 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 			},
 			removeGuarded, restoreGuarded,
 		)
-		if _, err := ReconcileSettings(path, false, runtime); err == nil || !strings.Contains(err.Error(), "write Claude settings") {
+		if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err == nil || !strings.Contains(err.Error(), "write Claude settings") {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -359,7 +391,7 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 				return transaction.RestoreFileAtomicIfPostimage(path, before, after)
 			},
 		)
-		if _, err := ReconcileSettings(path, false, runtime); err == nil || !strings.Contains(err.Error(), "write Claude settings state") || !rolledBack {
+		if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err == nil || !strings.Contains(err.Error(), "write Claude settings state") || !rolledBack {
 			t.Fatalf("error=%v rolledBack=%t", err, rolledBack)
 		}
 	})
@@ -379,7 +411,7 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 				return errors.New("rollback failed")
 			},
 		)
-		if _, err := ReconcileSettings(path, false, runtime); err == nil || !strings.Contains(err.Error(), "rollback failed") {
+		if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err == nil || !strings.Contains(err.Error(), "rollback failed") {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -391,7 +423,7 @@ func TestSettingsDisableFailuresPreserveManagedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-	if _, err := ReconcileSettings(path, false, runtime); err != nil {
+	if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -400,7 +432,7 @@ func TestSettingsDisableFailuresPreserveManagedProjection(t *testing.T) {
 		if err := os.WriteFile(path, bytes.Replace(data, []byte("gateway.test"), []byte("foreign.test"), 1), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := ReconcileSettings(path, true, configuration.Runtime{}); err == nil || !strings.Contains(err.Error(), "refusing to remove") {
+		if _, err := ReconcileSettings(path, true, configuration.Runtime{}, ""); err == nil || !strings.Contains(err.Error(), "refusing to remove") {
 			t.Fatalf("error=%v", err)
 		}
 		if err := os.WriteFile(path, data, 0o600); err != nil {
@@ -415,7 +447,7 @@ func TestSettingsDisableFailuresPreserveManagedProjection(t *testing.T) {
 			},
 			removeGuarded, restoreGuarded,
 		)
-		if _, err := ReconcileSettings(path, true, configuration.Runtime{}); err == nil || !strings.Contains(err.Error(), "restore Claude settings") {
+		if _, err := ReconcileSettings(path, true, configuration.Runtime{}, ""); err == nil || !strings.Contains(err.Error(), "restore Claude settings") {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -427,7 +459,7 @@ func TestSettingsDisableFailuresPreserveManagedProjection(t *testing.T) {
 			},
 			restoreGuarded,
 		)
-		if _, err := ReconcileSettings(path, true, configuration.Runtime{}); err == nil || !strings.Contains(err.Error(), "remove Claude settings state") {
+		if _, err := ReconcileSettings(path, true, configuration.Runtime{}, ""); err == nil || !strings.Contains(err.Error(), "remove Claude settings state") {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -441,7 +473,7 @@ func TestSettingsDisableFailuresPreserveManagedProjection(t *testing.T) {
 				return errors.New("rollback failed")
 			},
 		)
-		if _, err := ReconcileSettings(path, true, configuration.Runtime{}); err == nil || !strings.Contains(err.Error(), "rollback failed") {
+		if _, err := ReconcileSettings(path, true, configuration.Runtime{}, ""); err == nil || !strings.Contains(err.Error(), "rollback failed") {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -452,7 +484,7 @@ func TestSettingsDisableAbsentFileReportsRemovalFailures(t *testing.T) {
 		t.Run(fmt.Sprintf("remove-%d", failAt), func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
 			runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-			if _, err := ReconcileSettings(path, false, runtime); err != nil {
+			if _, err := ReconcileSettings(path, false, runtime, "/usr/local/bin/aigw"); err != nil {
 				t.Fatal(err)
 			}
 			calls := 0
@@ -466,7 +498,7 @@ func TestSettingsDisableAbsentFileReportsRemovalFailures(t *testing.T) {
 				},
 				restoreGuarded,
 			)
-			if _, err := ReconcileSettings(path, true, configuration.Runtime{}); err == nil {
+			if _, err := ReconcileSettings(path, true, configuration.Runtime{}, ""); err == nil {
 				t.Fatal("removal failure was accepted")
 			}
 		})
@@ -506,11 +538,11 @@ func TestSettingsStateValidationAndHelperBranches(t *testing.T) {
 	if !hasCredentialOwnershipConflict(settingsDocument{"env": json.RawMessage(`"bad"`)}) {
 		t.Fatal("malformed environment did not fail closed")
 	}
-	projectSettings(document, configuration.Runtime{Endpoint: "https://gateway.test"})
+	projectSettings(document, configuration.Runtime{Endpoint: "https://gateway.test"}, "/usr/local/bin/aigw")
 	if _, ok := document["model"]; ok {
 		t.Fatal("empty model was retained")
 	}
-	projectSettings(settingsDocument{}, configuration.Runtime{Endpoint: "https://gateway.test"})
+	projectSettings(settingsDocument{}, configuration.Runtime{Endpoint: "https://gateway.test"}, "/usr/local/bin/aigw")
 	original := captureOriginalSettings(settingsDocument{"env": json.RawMessage(`{"ANTHROPIC_MODEL":"legacy"}`)}, true)
 	if !original.Environment["ANTHROPIC_MODEL"].Present {
 		t.Fatal("managed environment value was not captured")
