@@ -462,12 +462,13 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Config: store, ClaudeSettingsPath: settingsPath, AIGWExecutable: "/usr/local/bin/aigw"}
+	aigwExecutable := filepath.Join(t.TempDir(), "aigw")
+	syncer := Synchronizer{Config: store, ClaudeSettingsPath: settingsPath, AIGWExecutable: aigwExecutable}
 	if err := syncer.Commit(context.Background(), before, after, "enable Claude"); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(settingsPath)
-	if err != nil || !strings.Contains(string(projected), `"ANTHROPIC_BASE_URL": "https://gateway.test"`) || !strings.Contains(string(projected), `"apiKeyHelper": "'/usr/local/bin/aigw' credential claude"`) {
+	if err != nil || !strings.Contains(string(projected), `"ANTHROPIC_BASE_URL": "https://gateway.test"`) || !strings.Contains(string(projected), aigwExecutable) {
 		t.Fatalf("projected settings = %s, %v", projected, err)
 	}
 	if strings.Contains(string(projected), "token") || strings.Contains(string(projected), "secret") {

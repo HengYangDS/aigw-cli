@@ -371,12 +371,12 @@ func TestProjectionRejectsDirtyStatusFailureAndPushFailure(t *testing.T) {
 	if err := project(projectionOptions{repository: "missing", source: "main", remote: "peer", email: fixture.email, allowedSigners: fixture.allowedSigners}); err == nil {
 		t.Fatal("unreadable status accepted")
 	}
-	if err := os.Chmod(remote, 0o500); err != nil {
+	hook := filepath.Join(remote, "hooks", "pre-receive")
+	if err := os.WriteFile(hook, []byte("#!/bin/sh\nexit 1\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(remote, 0o700) })
 	if err := project(base); err == nil {
-		t.Fatal("unwritable peer accepted")
+		t.Fatal("rejected peer accepted")
 	}
 }
 

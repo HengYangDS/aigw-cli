@@ -1,0 +1,11 @@
+schema_version = 1
+id = "change:hosted-ci-portability"
+intent = "Make hosted Windows and Linux verification exercise deterministic host-native fixtures."
+subjects = ["repository:aigw-cli"]
+scope = ["internal/synchronization/synchronization_test.go", "tools/forge/forge_test.go", "openspec/changes/hosted-ci-portability/**"]
+invariants = ["production_behavior_is_unchanged", "absolute_path_validation_remains_strict", "publication_rejection_remains_fail_closed"]
+acceptance = ["focused_tests_pass", "complete_source_gate_passes", "hosted_native_and_source_jobs_pass"]
+risks = []
+authority_refs = ["AGENTS.md", "CONTRIBUTING.md"]
+hypotheses = []
+dependencies = []

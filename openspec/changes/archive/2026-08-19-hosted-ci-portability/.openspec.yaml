@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-08-19
+goal: Make hosted native verification use deterministic host-native fixtures.
+
+skip_specs: true
