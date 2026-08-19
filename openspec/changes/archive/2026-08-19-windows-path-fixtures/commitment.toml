@@ -1,0 +1,11 @@
+schema_version = 1
+id = "change:windows-path-fixtures"
+intent = "Make native Windows verification exercise the existing absolute executable contract with host-native fixtures."
+subjects = ["repository:aigw-cli"]
+scope = ["internal/claude/settings_test.go", "openspec/changes/windows-path-fixtures/**"]
+invariants = ["absolute_executable_validation_remains_strict", "production_behavior_and_client_state_are_unchanged"]
+acceptance = ["focused_claude_tests_pass", "source_quality_and_coverage_gates_pass", "github_windows_native_acceptance_passes"]
+risks = []
+authority_refs = ["AGENTS.md", "CONTRIBUTING.md"]
+hypotheses = []
+dependencies = []

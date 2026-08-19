@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-19
+goal: Make native Windows verification use host-native absolute path fixtures
+  without changing product behavior.
+
+skip_specs: true
