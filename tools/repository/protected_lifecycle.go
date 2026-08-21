@@ -13,7 +13,10 @@ import (
 // OpenSpec Changes. Implementation Changes belong to work/candidate lanes;
 // an accepted tree carries only archived history and current specifications.
 func checkProtectedLifecycle(root string) error {
-	branch := publicationRef(root)
+	return checkProtectedLifecycleForRef(root, publicationRef(root))
+}
+
+func checkProtectedLifecycleForRef(root, branch string) error {
 	if branch != "" && (strings.HasPrefix(branch, "work/") || strings.HasPrefix(branch, "proposal/") || branch == "candidate/dev") {
 		return nil
 	}
