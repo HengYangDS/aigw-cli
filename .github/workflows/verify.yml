@@ -67,6 +67,7 @@ jobs:
           cache: false
       - name: Run native macOS acceptance
         env:
+          AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
         run: mise exec --locked -- go run ./tools/ci native --platform darwin
     timeout-minutes: 25
@@ -84,7 +85,7 @@ jobs:
           install: true
           cache: false
       - name: Install Secret Service
-        run: sudo apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq dbus-x11 gnome-keyring
+        run: sudo -- sh -c 'apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq dbus-x11 gnome-keyring'
       - name: Run native Linux acceptance
         run: dbus-run-session -- sh -c 'printf \"\\n\" | gnome-keyring-daemon --unlock >/dev/null; export AIGW_VERIFY_SYSTEM_KEYRING=1; mise exec --locked -- go run ./tools/ci native --platform linux'
     timeout-minutes: 25

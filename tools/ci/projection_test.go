@@ -220,6 +220,80 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 	}
 }
 
+func TestGitHubLinuxSecretServiceInstallationKeepsBothPackageCommandsPrivileged(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Name string `yaml:"name"`
+				Run  string `yaml:"run"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	steps := workflow.Jobs["native-linux"].Steps
+	index := slices.IndexFunc(steps, func(step struct {
+		Name string `yaml:"name"`
+		Run  string `yaml:"run"`
+	}) bool {
+		return step.Name == "Install Secret Service"
+	})
+	if index < 0 {
+		t.Fatal("GitHub native Linux job lacks Secret Service installation")
+	}
+	command := steps[index].Run
+	if !strings.HasPrefix(command, "sudo -- sh -c '") {
+		t.Fatalf("Secret Service installation does not elevate the complete transaction: %q", command)
+	}
+	for _, operation := range []string{"apt-get update", "DEBIAN_FRONTEND=noninteractive apt-get install"} {
+		if !strings.Contains(command, operation) {
+			t.Fatalf("Secret Service installation lacks %q: %q", operation, command)
+		}
+	}
+}
+
+func TestGitHubDarwinSystemCredentialJourneyRequiresAnEphemeralHost(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Name string            `yaml:"name"`
+				Env  map[string]string `yaml:"env"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	steps := workflow.Jobs["native-darwin"].Steps
+	index := slices.IndexFunc(steps, func(step struct {
+		Name string            `yaml:"name"`
+		Env  map[string]string `yaml:"env"`
+	}) bool {
+		return step.Name == "Run native macOS acceptance"
+	})
+	if index < 0 {
+		t.Fatal("GitHub native macOS acceptance step is missing")
+	}
+	want := map[string]string{
+		"AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE": "ephemeral-host",
+		"AIGW_VERIFY_SYSTEM_KEYRING":        "1",
+	}
+	if !reflect.DeepEqual(steps[index].Env, want) {
+		t.Fatalf("GitHub native macOS credential admission = %#v, want %#v", steps[index].Env, want)
+	}
+}
+
 func TestSourceJobsUseTheirExactToolClosure(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	projections, err := renderProjections(root)

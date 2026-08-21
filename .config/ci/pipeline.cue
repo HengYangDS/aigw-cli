@@ -175,7 +175,7 @@ actions: {
 		steps: [
 			#SourceCheckout,
 			#Toolchain,
-			{name: "Install Secret Service", run: "sudo \(commands.systemKeyring.linux.prepare)"},
+			{name: "Install Secret Service", run: "sudo -- sh -c '\(commands.systemKeyring.linux.prepare)'"},
 			{name: "Run native Linux acceptance", run: commands.systemKeyring.linux.run},
 		]
 	}
@@ -185,7 +185,12 @@ actions: {
 			#Toolchain,
 			{
 				name: "Run native \(nativeEvidence[_platform].name) acceptance"
-				env: AIGW_VERIFY_SYSTEM_KEYRING: "1"
+				env: {
+					AIGW_VERIFY_SYSTEM_KEYRING: "1"
+					if _platform == "darwin" {
+						AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
+					}
+				}
 				run: commands.native[_platform]
 			},
 		]

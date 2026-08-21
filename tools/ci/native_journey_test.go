@@ -70,7 +70,7 @@ func TestNativeProductJourney(t *testing.T) {
 	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
 		t.Run("system credential store", func(t *testing.T) {
 			journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
-			journey.environment = environmentWithout(journey.environment, "AIGW_SECRET_BACKEND")
+			journey.enableSystemCredentialStore()
 			store := secrets.NewKeyringStore()
 			t.Cleanup(func() {
 				if err := store.Delete("native-system-keyring-probe"); err != nil {
@@ -90,6 +90,75 @@ func TestNativeProductJourney(t *testing.T) {
 			journey.uninstallAndRequireOwnedFilesAbsent()
 		})
 	}
+}
+
+func TestSystemCredentialEnvironmentPreservesDarwinLoginHome(t *testing.T) {
+	temporaryHome := filepath.Join(t.TempDir(), "isolated-home")
+	hostHome := "/Users/runner"
+	environment, err := systemCredentialEnvironment(
+		"darwin",
+		[]string{"HOME=" + temporaryHome, "USERPROFILE=" + temporaryHome, "AIGW_SECRET_BACKEND=env"},
+		hostHome,
+		"ephemeral-host",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := environmentValues(environment)
+	if values["HOME"] != hostHome || values["USERPROFILE"] != hostHome {
+		t.Fatalf("Darwin system credential environment = %#v, want login home %q", values, hostHome)
+	}
+	if _, present := values["AIGW_SECRET_BACKEND"]; present {
+		t.Fatal("system credential environment retained the environment backend")
+	}
+}
+
+func TestSystemCredentialEnvironmentRequiresEphemeralDarwinHost(t *testing.T) {
+	for _, scope := range []string{"", "persistent-host"} {
+		if _, err := systemCredentialEnvironment("darwin", []string{"HOME=/tmp/isolated"}, "/Users/runner", scope); err == nil {
+			t.Fatalf("Darwin system credential environment admitted scope %q", scope)
+		}
+	}
+	if _, err := systemCredentialEnvironment("darwin", nil, "", "ephemeral-host"); err == nil {
+		t.Fatal("Darwin system credential environment admitted an empty login home")
+	}
+}
+
+func (j *journeyFixture) enableSystemCredentialStore() {
+	j.testing.Helper()
+	environment, err := systemCredentialEnvironment(runtime.GOOS, j.environment, os.Getenv("HOME"), os.Getenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"))
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	j.environment = environment
+}
+
+func systemCredentialEnvironment(goos string, current []string, hostHome, scope string) ([]string, error) {
+	environment := environmentWithout(current, "AIGW_SECRET_BACKEND")
+	if goos != "darwin" {
+		return environment, nil
+	}
+	if scope != "ephemeral-host" {
+		return nil, fmt.Errorf("Darwin system credential verification requires an explicitly ephemeral host")
+	}
+	if hostHome == "" {
+		return nil, fmt.Errorf("Darwin system credential verification requires the login HOME")
+	}
+	return environmentWith(environment, map[string]string{
+		"HOME":        hostHome,
+		"USERPROFILE": hostHome,
+	}), nil
+}
+
+func environmentValues(environment []string) map[string]string {
+	values := make(map[string]string, len(environment))
+	for _, entry := range environment {
+		key, value, present := strings.Cut(entry, "=")
+		if present {
+			values[key] = value
+		}
+	}
+	return values
 }
 
 type journeyFixture struct {
