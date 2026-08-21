@@ -55,6 +55,10 @@ commands: {
 			(platform): "mise exec --locked -- go run ./tools/ci native --platform \(platform)"
 		}
 	}
+	systemKeyring: linux: {
+		prepare: "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq dbus-x11 gnome-keyring"
+		run:     "dbus-run-session -- sh -c 'printf \\\"\\\\n\\\" | gnome-keyring-daemon --unlock >/dev/null; export AIGW_VERIFY_SYSTEM_KEYRING=1; \(native.linux)'"
+	}
 	build:   "mise exec --locked -- go run ./tools/release build-ci build/release dist"
 	upload:  "mise exec --locked -- go run ./tools/release upload-gitlab dist"
 	publish: "mise exec --locked -- go run ./tools/release publish-gitlab dist"
@@ -167,11 +171,25 @@ actions: {
 	name:              "Native \(nativeEvidence[_platform].name) acceptance"
 	"runs-on":         nativeEvidence[_platform].github.runner
 	"timeout-minutes": 25
-	steps: [
-		#SourceCheckout,
-		#Toolchain,
-		{name: "Run native \(nativeEvidence[_platform].name) acceptance", run: commands.native[_platform]},
-	]
+	if _platform == "linux" {
+		steps: [
+			#SourceCheckout,
+			#Toolchain,
+			{name: "Install Secret Service", run: "sudo \(commands.systemKeyring.linux.prepare)"},
+			{name: "Run native Linux acceptance", run: commands.systemKeyring.linux.run},
+		]
+	}
+	if _platform != "linux" {
+		steps: [
+			#SourceCheckout,
+			#Toolchain,
+			{
+				name: "Run native \(nativeEvidence[_platform].name) acceptance"
+				env: AIGW_VERIFY_SYSTEM_KEYRING: "1"
+				run: commands.native[_platform]
+			},
+		]
+	}
 }
 
 #NativeGitLabJob: {
@@ -181,7 +199,7 @@ actions: {
 	variables: nativeToolchain
 	if _platform == "linux" {
 		extends: [".linux-toolchain"]
-		script: [commands.native[_platform]]
+		script: [commands.systemKeyring.linux.prepare, commands.systemKeyring.linux.run]
 	}
 	if _platform != "linux" {
 		script: [commands.install, commands.native[_platform]]

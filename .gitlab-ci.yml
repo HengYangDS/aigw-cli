@@ -113,7 +113,8 @@ native-linux:
   extends:
     - .linux-toolchain
   script:
-    - mise exec --locked -- go run ./tools/ci native --platform linux
+    - apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq dbus-x11 gnome-keyring
+    - dbus-run-session -- sh -c 'printf \"\\n\" | gnome-keyring-daemon --unlock >/dev/null; export AIGW_VERIFY_SYSTEM_KEYRING=1; mise exec --locked -- go run ./tools/ci native --platform linux'
   stage: verify
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG

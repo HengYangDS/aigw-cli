@@ -14,15 +14,15 @@
 
 ## 3. Cross-platform user journey
 
-- [ ] 3.1 Prove Windows executable discovery and invocation for native `.exe`, `.cmd`, and `.bat` boundaries on a native Windows runner.
+- [x] 3.1 Prove Windows executable discovery and invocation for native `.exe`, `.cmd`, and `.bat` boundaries on a native Windows runner.
 - [x] 3.2 Add one native black-box journey using the built product, isolated user directories, the environment secret backend, setup, projection, check, and uninstall.
 - [x] 3.3 Execute that journey on macOS and verify installation, deferred activation, projection, check, uninstall, and retained catalogue state.
-- [ ] 3.4 Execute that journey on native Linux and native Windows runners.
+- [x] 3.4 Execute that journey on native Linux and native Windows runners.
 - [ ] 3.5 Verify the real macOS Keychain, Linux Secret Service, and Windows Credential Manager backends separately; environment-backend evidence MUST NOT stand in for an OS credential backend.
 
 ## 4. Documentation and evidence
 
 - [x] 4.1 Rewrite setup and team rollout around the progressive journey and implementation-neutral endpoint dependency.
 - [ ] 4.2 Validate OpenSpec strictly and update canonical specifications through archive.
-- [ ] 4.3 Run focused tests, source gates, native/release gates, exact-asset installation, and runtime verification.
+- [x] 4.3 Run focused tests, source gates, native/release gates, exact-asset installation, and runtime verification.
 - [ ] 4.4 Publish and verify the same signed product revision on both Forges, then retire the owned lane without residue.

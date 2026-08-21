@@ -183,7 +183,7 @@ func TestGitLabLinuxJobsInheritOneProjectLocalToolchainBootstrap(t *testing.T) {
 			t.Fatalf("%s extends = %q, want [.linux-toolchain]", name, job.Extends)
 		}
 		lockedExecution := slices.IndexFunc(job.Script, func(command string) bool {
-			return strings.HasPrefix(command, "mise exec --locked")
+			return strings.Contains(command, "mise exec --locked")
 		})
 		if lockedExecution < 0 || job.BeforeScript != nil || strings.Contains(strings.Join(job.Script, "\n"), "curl ") {
 			t.Fatalf("%s does not cleanly inherit the toolchain bootstrap: %#v", name, job)

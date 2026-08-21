@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/secrets"
 )
 
 func TestNativeProductJourney(t *testing.T) {
@@ -36,13 +39,13 @@ func TestNativeProductJourney(t *testing.T) {
 	t.Run("delayed token and client activation", func(t *testing.T) {
 		journey := newNativeJourney(t, artifact, server.URL+"/v1", false)
 		journey.run("setup", "--from", journey.manifest)
-		journey.requireConfigContains("team-claude", "unused-claude")
+		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 		journey.requireNoClaudeProjection()
 
 		journey.installClaudeFixture()
 		journey.run("sync")
 		journey.requireNoClaudeProjection()
-		journey.setEnvironment("AIGW_TOKEN_TEAM", "native-journey-token")
+		journey.setEnvironment("AIGW_TOKEN_NATIVE_SYSTEM_KEYRING_PROBE", "native-journey-token")
 		preview := journey.run("sync", "--dry-run", "--json")
 		if !json.Valid(preview) {
 			t.Fatalf("sync preview is not JSON: %s", preview)
@@ -51,18 +54,42 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.requireClaudeProjection()
 		journey.run("check")
 		journey.uninstallAndRequireOwnedFilesAbsent()
-		journey.requireConfigContains("team-claude", "unused-claude")
+		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 	})
 
 	t.Run("one selected account does not require every token", func(t *testing.T) {
 		journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
-		journey.setEnvironment("AIGW_TOKEN_TEAM", "native-journey-token")
-		journey.run("setup", "--from", journey.manifest, "--account", "team")
-		journey.requireConfigContains("team-claude", "unused-claude")
+		journey.setEnvironment("AIGW_TOKEN_NATIVE_SYSTEM_KEYRING_PROBE", "native-journey-token")
+		journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 		journey.requireClaudeProjection()
 		journey.run("check")
 		journey.uninstallAndRequireOwnedFilesAbsent()
 	})
+
+	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
+		t.Run("system credential store", func(t *testing.T) {
+			journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
+			journey.environment = environmentWithout(journey.environment, "AIGW_SECRET_BACKEND")
+			store := secrets.NewKeyringStore()
+			t.Cleanup(func() {
+				if err := store.Delete("native-system-keyring-probe"); err != nil {
+					t.Errorf("clean system credential store: %v", err)
+				}
+			})
+			journey.runInput("native-system-keyring-token\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
+			if got := strings.TrimSpace(string(journey.run("credential", "claude"))); got != "native-system-keyring-token" {
+				t.Fatalf("credential = %q", got)
+			}
+			if err := store.Delete("native-system-keyring-probe"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := store.Get("native-system-keyring-probe"); !errors.Is(err, secrets.ErrNotFound) {
+				t.Fatalf("deleted credential remains: %v", err)
+			}
+			journey.uninstallAndRequireOwnedFilesAbsent()
+		})
+	}
 }
 
 type journeyFixture struct {
@@ -119,7 +146,7 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 		"AIGW_SECRET_BACKEND": "env",
 		"NO_COLOR":            "1",
 	})
-	manifest := fmt.Sprintf("version = 3\nrecommended_default = 'team-claude'\n\n[recommended_routes]\nclaude = 'team-claude'\n\n[accounts.team]\nlabel = 'Team'\n\n[accounts.team.endpoints]\nanthropic = %q\n\n[accounts.unused]\nlabel = 'Unused'\n\n[accounts.unused.endpoints]\nanthropic = %q\n\n[profiles.team-claude]\nlabel = 'Team Claude'\naccount = 'team'\nclient = 'claude'\n\n[profiles.team-claude.models]\nclaude = 'claude-test'\n\n[profiles.unused-claude]\nlabel = 'Unused Claude'\naccount = 'unused'\nclient = 'claude'\n\n[profiles.unused-claude.models]\nclaude = 'claude-test'\n", endpoint, endpoint)
+	manifest := fmt.Sprintf("version = 3\nrecommended_default = 'native-system-keyring-probe-claude'\n\n[recommended_routes]\nclaude = 'native-system-keyring-probe-claude'\n\n[accounts.native-system-keyring-probe]\nlabel = 'Native System Keyring Probe'\n\n[accounts.native-system-keyring-probe.endpoints]\nanthropic = %q\n\n[accounts.unused]\nlabel = 'Unused'\n\n[accounts.unused.endpoints]\nanthropic = %q\n\n[profiles.native-system-keyring-probe-claude]\nlabel = 'Native System Keyring Probe Claude'\naccount = 'native-system-keyring-probe'\nclient = 'claude'\n\n[profiles.native-system-keyring-probe-claude.models]\nclaude = 'claude-test'\n\n[profiles.unused-claude]\nlabel = 'Unused Claude'\naccount = 'unused'\nclient = 'claude'\n\n[profiles.unused-claude.models]\nclaude = 'claude-test'\n", endpoint, endpoint)
 	if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -149,13 +176,24 @@ func (j *journeyFixture) setEnvironment(key, value string) {
 
 func (j *journeyFixture) run(args ...string) []byte {
 	j.testing.Helper()
-	return j.runWith(j.binary, args...)
+	return j.runWithInput(j.binary, "", args...)
 }
 
 func (j *journeyFixture) runWith(binary string, args ...string) []byte {
 	j.testing.Helper()
+	return j.runWithInput(binary, "", args...)
+}
+
+func (j *journeyFixture) runInput(input string, args ...string) []byte {
+	j.testing.Helper()
+	return j.runWithInput(j.binary, input, args...)
+}
+
+func (j *journeyFixture) runWithInput(binary, input string, args ...string) []byte {
+	j.testing.Helper()
 	command := exec.Command(binary, args...)
 	command.Env = j.environment
+	command.Stdin = strings.NewReader(input)
 	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
 	command.Stdout, command.Stderr = stdout, stderr
 	if err := command.Run(); err != nil {
@@ -237,6 +275,22 @@ func environmentWith(current []string, replacements map[string]string) []string 
 	}
 	for key, value := range replacements {
 		result = append(result, key+"="+value)
+	}
+	return result
+}
+
+func environmentWithout(current []string, removed ...string) []string {
+	keys := make(map[string]struct{}, len(removed))
+	for _, key := range removed {
+		keys[key] = struct{}{}
+	}
+	result := make([]string, 0, len(current))
+	for _, item := range current {
+		key, _, found := strings.Cut(item, "=")
+		if _, remove := keys[key]; found && remove {
+			continue
+		}
+		result = append(result, item)
 	}
 	return result
 }

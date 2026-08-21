@@ -55,7 +55,6 @@ jobs:
   native-darwin:
     name: Native macOS acceptance
     runs-on: macos-latest
-    timeout-minutes: 25
     steps:
       - name: Check out full history and tags
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -67,11 +66,13 @@ jobs:
           install: true
           cache: false
       - name: Run native macOS acceptance
+        env:
+          AIGW_VERIFY_SYSTEM_KEYRING: "1"
         run: mise exec --locked -- go run ./tools/ci native --platform darwin
+    timeout-minutes: 25
   native-linux:
     name: Native Linux acceptance
     runs-on: ubuntu-latest
-    timeout-minutes: 25
     steps:
       - name: Check out full history and tags
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -82,12 +83,14 @@ jobs:
         with:
           install: true
           cache: false
+      - name: Install Secret Service
+        run: sudo apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq dbus-x11 gnome-keyring
       - name: Run native Linux acceptance
-        run: mise exec --locked -- go run ./tools/ci native --platform linux
+        run: dbus-run-session -- sh -c 'printf \"\\n\" | gnome-keyring-daemon --unlock >/dev/null; export AIGW_VERIFY_SYSTEM_KEYRING=1; mise exec --locked -- go run ./tools/ci native --platform linux'
+    timeout-minutes: 25
   native-windows:
     name: Native Windows acceptance
     runs-on: windows-latest
-    timeout-minutes: 25
     steps:
       - name: Check out full history and tags
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -99,4 +102,7 @@ jobs:
           install: true
           cache: false
       - name: Run native Windows acceptance
+        env:
+          AIGW_VERIFY_SYSTEM_KEYRING: "1"
         run: mise exec --locked -- go run ./tools/ci native --platform windows
+    timeout-minutes: 25
