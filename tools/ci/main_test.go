@@ -49,7 +49,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	}
 }
 
-func TestLinksChecksOnlyTrackedMarkdown(t *testing.T) {
+func TestLinksChecksCurrentRepositoryMarkdown(t *testing.T) {
 	root := t.TempDir()
 	git := func(args ...string) {
 		t.Helper()
@@ -72,9 +72,13 @@ func TestLinksChecksOnlyTrackedMarkdown(t *testing.T) {
 	write("README.md", "[valid](docs/guide.md)\n")
 	write("--literal.md", "# Literal\n")
 	write("docs/guide.md", "# Guide\n")
-	write("untracked.md", "[broken](missing.md)\n")
+	write("new-guide.md", "# New guide\n")
+	write("retired.md", "# Retired\n")
 	write(".git/private.md", "[broken](missing.md)\n")
-	git("add", "--", "README.md", "--literal.md", "docs/guide.md")
+	git("add", "--", "README.md", "--literal.md", "docs/guide.md", "retired.md")
+	if err := os.Remove(filepath.Join(root, "retired.md")); err != nil {
+		t.Fatal(err)
+	}
 
 	var got command
 	if err := run([]string{"links", root}, &bytes.Buffer{}, func(call command) error {
@@ -86,7 +90,7 @@ func TestLinksChecksOnlyTrackedMarkdown(t *testing.T) {
 	want := command{Name: "lychee", Args: []string{
 		"--offline", "--no-progress", "--cache=false", "--",
 		filepath.Join(root, "--literal.md"), filepath.Join(root, "README.md"),
-		filepath.Join(root, "docs/guide.md"),
+		filepath.Join(root, "docs/guide.md"), filepath.Join(root, "new-guide.md"),
 	}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("link command = %#v, want %#v", got, want)
@@ -95,10 +99,10 @@ func TestLinksChecksOnlyTrackedMarkdown(t *testing.T) {
 
 func TestLinksRejectsInvalidRepositoriesAndEmptyMarkdownSets(t *testing.T) {
 	invalidRoot := t.TempDir()
-	if _, err := trackedMarkdown(invalidRoot); err == nil || !strings.Contains(err.Error(), "list tracked Markdown") {
+	if _, err := currentRepositoryMarkdown(invalidRoot); err == nil || !strings.Contains(err.Error(), "list repository Markdown") {
 		t.Fatalf("non-repository error = %v", err)
 	}
-	if err := run([]string{"links", invalidRoot}, &bytes.Buffer{}, func(command) error { return nil }); err == nil || !strings.Contains(err.Error(), "list tracked Markdown") {
+	if err := run([]string{"links", invalidRoot}, &bytes.Buffer{}, func(command) error { return nil }); err == nil || !strings.Contains(err.Error(), "list repository Markdown") {
 		t.Fatalf("links non-repository error = %v", err)
 	}
 
@@ -107,7 +111,7 @@ func TestLinksRejectsInvalidRepositoriesAndEmptyMarkdownSets(t *testing.T) {
 	if output, err := process.CombinedOutput(); err != nil {
 		t.Fatalf("git init: %v: %s", err, output)
 	}
-	if markdown, err := trackedMarkdown(root); err == nil || !strings.Contains(err.Error(), "no tracked Markdown") || markdown != nil {
+	if markdown, err := currentRepositoryMarkdown(root); err == nil || !strings.Contains(err.Error(), "no current Markdown") || markdown != nil {
 		t.Fatalf("empty Markdown set = %#v, error = %v", markdown, err)
 	}
 }

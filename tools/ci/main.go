@@ -98,7 +98,7 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 		if len(args) != 2 {
 			return errors.New("usage: ci links <root>")
 		}
-		markdown, err := trackedMarkdown(args[1])
+		markdown, err := currentRepositoryMarkdown(args[1])
 		if err != nil {
 			return err
 		}
@@ -135,21 +135,35 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 	}
 }
 
-func trackedMarkdown(root string) ([]string, error) {
-	output, err := exec.Command("git", "-C", root, "ls-files", "-z", "--", "*.md").Output()
+func currentRepositoryMarkdown(root string) ([]string, error) {
+	output, err := exec.Command(
+		"git", "-C", root, "ls-files", "-z", "--cached", "--others",
+		"--exclude-standard", "--deduplicate", "--", "*.md",
+	).Output()
 	if err != nil {
-		return nil, fmt.Errorf("list tracked Markdown: %w", err)
+		return nil, fmt.Errorf("list repository Markdown: %w", err)
 	}
 	fields := bytes.Split(bytes.TrimSuffix(output, []byte{0}), []byte{0})
 	markdown := make([]string, 0, len(fields))
 	for _, field := range fields {
-		if len(field) != 0 {
-			markdown = append(markdown, filepath.Join(root, string(field)))
+		if len(field) == 0 {
+			continue
+		}
+		filename := filepath.Join(root, string(field))
+		info, statErr := os.Stat(filename)
+		switch {
+		case statErr == nil && !info.IsDir():
+			markdown = append(markdown, filename)
+		case errors.Is(statErr, os.ErrNotExist):
+			continue
+		case statErr != nil:
+			return nil, fmt.Errorf("inspect repository Markdown %s: %w", field, statErr)
 		}
 	}
 	if len(markdown) == 0 {
-		return nil, errors.New("repository contains no tracked Markdown")
+		return nil, errors.New("repository contains no current Markdown")
 	}
+	slices.Sort(markdown)
 	return markdown, nil
 }
 
