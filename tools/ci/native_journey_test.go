@@ -178,7 +178,20 @@ func (j *journeyFixture) requireNoClaudeProjection() {
 
 func (j *journeyFixture) requireClaudeProjection() {
 	j.testing.Helper()
-	requireFileContains(j.testing, j.settings, j.endpoint, "claude-test", j.binary, "apiKeyHelper")
+	requireFileContains(j.testing, j.settings, j.endpoint, "claude-test", "apiKeyHelper")
+	data, err := os.ReadFile(j.settings)
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	var settings struct {
+		APIKeyHelper string `json:"apiKeyHelper"`
+	}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		j.testing.Fatalf("decode Claude settings: %v", err)
+	}
+	if !strings.Contains(settings.APIKeyHelper, j.binary) {
+		j.testing.Fatalf("Claude apiKeyHelper %q lacks %q", settings.APIKeyHelper, j.binary)
+	}
 }
 
 func (j *journeyFixture) uninstallAndRequireOwnedFilesAbsent() {

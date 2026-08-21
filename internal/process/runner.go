@@ -57,7 +57,7 @@ func (Runner) Run(ctx context.Context, plan Plan) error {
 	if plan.Replace {
 		return replaceProcess(plan)
 	}
-	cmd := exec.CommandContext(ctx, plan.Executable, plan.Args...)
+	cmd := commandContext(ctx, plan)
 	cmd.Env = plan.Env
 	cmd.Stdin = strings.NewReader(plan.Stdin)
 	cmd.Stdout = os.Stdout
@@ -75,7 +75,7 @@ func (Runner) RunCapture(ctx context.Context, plan Plan) ([]byte, error) {
 	if plan.Replace {
 		return nil, fmt.Errorf("a captured process cannot replace the current process")
 	}
-	cmd := exec.CommandContext(ctx, plan.Executable, plan.Args...)
+	cmd := commandContext(ctx, plan)
 	cmd.Env = plan.Env
 	cmd.Stdin = strings.NewReader(plan.Stdin)
 	cmd.WaitDelay = capturedProcessWaitDelay
