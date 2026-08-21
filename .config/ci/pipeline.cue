@@ -113,9 +113,12 @@ actions: {
 }
 
 #SourceCheckout: {
-	name: "Check out full history and tags"
+	name: "Check out the exact product commit"
 	uses: actions.checkout
-	with: "fetch-depth": 0
+	with: {
+		ref:           "${{ github.event.pull_request.head.sha || github.sha }}"
+		"fetch-depth": 0
+	}
 }
 
 #ReleaseCheckout: {

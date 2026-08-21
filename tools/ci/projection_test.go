@@ -330,6 +330,40 @@ func TestSourceJobsUseTheirExactToolClosure(t *testing.T) {
 	}
 }
 
+func TestGitHubVerificationChecksOutTheExactProductCommit(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Uses string            `yaml:"uses"`
+				With map[string]string `yaml:"with"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	const productRef = "${{ github.event.pull_request.head.sha || github.sha }}"
+	for name, job := range workflow.Jobs {
+		index := slices.IndexFunc(job.Steps, func(step struct {
+			Uses string            `yaml:"uses"`
+			With map[string]string `yaml:"with"`
+		}) bool {
+			return strings.HasPrefix(step.Uses, "actions/checkout@")
+		})
+		if index < 0 {
+			t.Fatalf("%s lacks checkout", name)
+		}
+		if got := job.Steps[index].With["ref"]; got != productRef {
+			t.Fatalf("%s checkout ref = %q, want exact product ref %q", name, got, productRef)
+		}
+	}
+}
+
 func TestGitHubWorkflowsDeclareTheCanonicalInitialBranch(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	projections, err := renderProjections(root)
