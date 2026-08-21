@@ -11,6 +11,7 @@ func TestClaudePlanInjectsOnlyProcessLocalAnthropicVariables(t *testing.T) {
 	runtime := configuration.Runtime{ProfileID: "dmx", AccountID: "dmx", Endpoint: "https://example.test"}
 	plan, err := claude.Plan("/usr/local/bin/claude-real", []string{"--version"}, []string{
 		"PATH=/usr/bin", "ANTHROPIC_API_KEY=stale", "ANTHROPIC_AUTH_TOKEN=stale", "ANTHROPIC_BASE_URL=stale",
+		"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=stale",
 		"AIGW_TOKEN_AIHUBMIX=unrelated", "AIGW_TOKEN_DMXAPI=unrelated",
 	}, runtime, "fresh-secret")
 	if err != nil {
@@ -37,6 +38,9 @@ func TestClaudePlanInjectsOnlyProcessLocalAnthropicVariables(t *testing.T) {
 	}
 	if env["AIGW_PROFILE"] != "dmx" {
 		t.Fatalf("AIGW_PROFILE = %q", env["AIGW_PROFILE"])
+	}
+	if env["CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS"] != "1" {
+		t.Fatalf("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS = %q", env["CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS"])
 	}
 }
 

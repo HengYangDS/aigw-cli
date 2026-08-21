@@ -8,6 +8,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.90] - 2026-08-21
+
+### Fixed
+
+- Use Claude Code's non-experimental compatibility mode for every AIGW-owned
+  invocation, allowing admitted Anthropic-compatible providers to work without
+  optional beta support while keeping the setting process-local.
+
 ## [0.1.0-rc.89] - 2026-08-19
 
 ### Fixed

@@ -316,8 +316,10 @@ Codex and Claude Code SHALL be the admitted native clients. Each adapter SHALL
 own discovery, supported configuration or process planning, authentication,
 rollback, verification, status, and uninstall of only its AIGW-owned state.
 Claude Code's owned credential helper SHALL invoke the installed AIGW
-executable by an absolute, shell-safe path. Adding a future client MUST NOT
-change provider policy or another adapter.
+executable by an absolute, shell-safe path. AIGW-owned Claude invocations SHALL
+use Claude Code's non-experimental compatibility mode so an ordinary admitted
+Anthropic endpoint is not required to implement optional beta negotiation.
+Adding a future client MUST NOT change provider policy or another adapter.
 
 #### Scenario: One admitted client is absent
 
@@ -331,6 +333,13 @@ change provider policy or another adapter.
 - **THEN** `apiKeyHelper` SHALL invoke the exact installed AIGW executable
 - **AND** credential retrieval SHALL not depend on the caller's PATH
 - **AND** the projected settings SHALL contain no plaintext Token
+
+#### Scenario: Claude uses an Anthropic-compatible provider
+
+- **WHEN** AIGW launches Claude Code for an admitted Claude Profile
+- **THEN** the process SHALL disable optional experimental beta negotiation
+- **AND** an ambient compatibility value SHALL NOT override the AIGW-owned value
+- **AND** the setting SHALL remain process-local
 
 #### Scenario: The installed executable path is invalid
 
@@ -349,8 +358,8 @@ change provider policy or another adapter.
 #### Scenario: Codex CLI and Desktop share one home
 
 - **WHEN** Codex uses the same configuration home for CLI and Desktop
-- **THEN** AIGW writes one atomic marked projection
-- **AND** does not invent a separate Desktop configuration authority.
+- **THEN** AIGW SHALL project the selected Profile once into that shared home
+- **AND** SHALL NOT create a second Desktop-specific configuration authority
 
 ### Requirement: Independent product composition
 

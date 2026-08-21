@@ -18,10 +18,11 @@ func Plan(executable string, args, currentEnv []string, runtime configuration.Ru
 	if runtime.Endpoint == "" {
 		return process.Plan{}, fmt.Errorf("profile %q has no Claude endpoint", runtime.ProfileID)
 	}
-	env := removeEnvironment(currentEnv, "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "AIGW_ACCOUNT", "AIGW_PROFILE")
+	env := removeEnvironment(currentEnv, "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", "AIGW_ACCOUNT", "AIGW_PROFILE")
 	env = append(env,
 		"ANTHROPIC_AUTH_TOKEN="+token,
 		"ANTHROPIC_BASE_URL="+runtime.Endpoint,
+		"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1",
 		"AIGW_ACCOUNT="+runtime.AccountID,
 		"AIGW_PROFILE="+runtime.ProfileID,
 	)
