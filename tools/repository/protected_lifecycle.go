@@ -13,7 +13,7 @@ import (
 // OpenSpec Changes. Implementation Changes belong to work/candidate lanes;
 // an accepted tree carries only archived history and current specifications.
 func checkProtectedLifecycle(root string) error {
-	branch := repositoryBranch(root)
+	branch := publicationRef(root)
 	if branch != "" && (strings.HasPrefix(branch, "work/") || strings.HasPrefix(branch, "proposal/") || branch == "candidate/dev") {
 		return nil
 	}
@@ -34,6 +34,15 @@ func checkProtectedLifecycle(root string) error {
 		return fmt.Errorf("accepted publication tree contains active OpenSpec Changes: %v; archive completed Changes before publication", active)
 	}
 	return nil
+}
+
+func publicationRef(root string) string {
+	for _, variable := range []string{"CI_MERGE_REQUEST_SOURCE_BRANCH_NAME", "CI_COMMIT_BRANCH", "GITHUB_HEAD_REF", "GITHUB_REF_NAME"} {
+		if value := strings.TrimSpace(os.Getenv(variable)); value != "" {
+			return value
+		}
+	}
+	return repositoryBranch(root)
 }
 
 func repositoryBranch(root string) string {

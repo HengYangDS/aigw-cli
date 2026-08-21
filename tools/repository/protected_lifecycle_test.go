@@ -43,3 +43,30 @@ func TestCheckProtectedLifecycleAllowsAuthoringLanes(t *testing.T) {
 		t.Fatalf("authoring lane rejected: %v", err)
 	}
 }
+
+func TestCheckProtectedLifecycleAllowsDetachedForgeProposal(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "openspec", "changes", "active-change"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name     string
+		variable string
+	}{
+		{name: "GitLab branch pipeline", variable: "CI_COMMIT_BRANCH"},
+		{name: "GitLab merge request", variable: "CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"},
+		{name: "GitHub pull request", variable: "GITHUB_HEAD_REF"},
+		{name: "GitHub branch pipeline", variable: "GITHUB_REF_NAME"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			for _, variable := range []string{"CI_MERGE_REQUEST_SOURCE_BRANCH_NAME", "CI_COMMIT_BRANCH", "GITHUB_HEAD_REF", "GITHUB_REF_NAME"} {
+				t.Setenv(variable, "")
+			}
+			t.Setenv(test.variable, "proposal/example")
+			if err := checkProtectedLifecycle(root); err != nil {
+				t.Fatalf("detached proposal rejected: %v", err)
+			}
+		})
+	}
+}
