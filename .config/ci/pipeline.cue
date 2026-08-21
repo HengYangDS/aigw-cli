@@ -138,7 +138,7 @@ miseImage: "ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f4
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
-	mise:     "jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654"
+	mise:     "jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518"
 	upload:   "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
 }
 
