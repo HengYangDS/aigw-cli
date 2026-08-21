@@ -15,7 +15,7 @@ hygiene only. It neither changes forge history nor proves remote publication.
 
 - **Projection evidence:** dry-run plan, all-target transaction tests,
   byte-exact rollback tests, and `aigw doctor` validation.
-- **Transport evidence:** proxy manifest, verified listener identity, and its
+- **Transport evidence:** declared endpoint, verified protocol identity, and its
   own service tests; these are outside AIGW lifecycle ownership.
 - **Authentication-stability evidence:** `aigw check` treats an initial 401 as
   transient only after three healthy recovery observations, and treats it as a

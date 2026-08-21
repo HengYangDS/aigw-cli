@@ -33,15 +33,19 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			request.From = strings.TrimSpace(request.From)
+			request.Account = strings.TrimSpace(request.Account)
 			if cmd.Flags().Changed("from") {
 				if request.From == "" {
 					return fmt.Errorf("--from requires a configuration manifest path")
 				}
-				for _, name := range []string{"account", "profile", "label", "openai-url", "anthropic-url", "for", "model"} {
+				if cmd.Flags().Changed("account") && request.Account == "" {
+					return fmt.Errorf("--account requires an Account ID from the configuration manifest")
+				}
+				for _, name := range []string{"profile", "label", "openai-url", "anthropic-url", "for", "model"} {
 					if !cmd.Flags().Changed(name) {
 						continue
 					}
-					return fmt.Errorf("--from cannot be combined with --account, --profile, --label, --openai-url, --anthropic-url, --for, or --model")
+					return fmt.Errorf("--from cannot be combined with --profile, --label, --openai-url, --anthropic-url, --for, or --model")
 				}
 				return runManifestSetup(cmd.Context(), runtime, request)
 			}
@@ -59,7 +63,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&request.From, "from", "", "Set up all profiles from a token-free configuration manifest")
-	cmd.Flags().StringVar(&request.Account, "account", "", "Account ID; defaults to --profile")
+	cmd.Flags().StringVar(&request.Account, "account", "", "Account ID to connect; defaults to --profile outside manifest setup")
 	cmd.Flags().StringVar(&request.Profile, "profile", "", "First profile ID")
 	cmd.Flags().StringVar(&request.Label, "label", "", "Provider display name")
 	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")

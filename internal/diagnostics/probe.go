@@ -156,7 +156,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := client.Do(req)
 	if err != nil {
-		return Result{Kind: NetworkFailure, Summary: "Cannot reach the gateway", Detail: sanitize(err.Error(), token), Fix: "Check the network, proxy, and gateway URL, then try again", Retryable: true}
+		return Result{Kind: NetworkFailure, Summary: "Cannot reach the endpoint", Detail: sanitize(err.Error(), token), Fix: "Check the configured endpoint and network, then try again", Retryable: true}
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
@@ -165,7 +165,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 			Kind:       NetworkFailure,
 			Summary:    "Cannot read the gateway response",
 			Detail:     sanitize(readErr.Error(), token),
-			Fix:        "Check the network, proxy, and gateway URL, then try again",
+			Fix:        "Check the configured endpoint and network, then try again",
 			HTTPStatus: resp.StatusCode,
 			Retryable:  true,
 		}

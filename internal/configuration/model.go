@@ -160,6 +160,83 @@ func (c Config) RouteUsesAccount(client, accountID string) bool {
 	return err == nil && runtime.AccountID != "" && runtime.AccountID == accountID
 }
 
+// SelectRoutesForConnectedAccounts preserves the complete capability catalogue
+// while choosing routes that can use one of the locally connected Accounts.
+// The existing recommendation wins whenever it is already usable; otherwise
+// lexical Profile order makes the fallback deterministic.
+func (c Config) SelectRoutesForConnectedAccounts(accountIDs []string) (Config, error) {
+	selected := c.Clone()
+	connected := make(map[string]bool, len(accountIDs))
+	for _, accountID := range accountIDs {
+		if _, ok := selected.Accounts[accountID]; !ok {
+			return Config{}, fmt.Errorf("unknown account %q", accountID)
+		}
+		connected[accountID] = true
+	}
+	if len(connected) == 0 {
+		return selected, nil
+	}
+
+	for _, client := range AdmittedClientIDs() {
+		if selected.routeUsesConnectedAccount(client, connected) {
+			continue
+		}
+		profileID := selected.firstProfileForConnectedClient(client, connected)
+		if profileID == "" {
+			delete(selected.Routes.Overrides, client)
+			continue
+		}
+		selected.Routes.Overrides[client] = profileID
+	}
+
+	if !selected.profileUsesConnectedAccount(selected.Routes.Default, connected) {
+		defaultClient := ""
+		if profile, ok := selected.Profiles[selected.Routes.Default]; ok {
+			defaultClient = profile.Client
+		}
+		if defaultClient != "" {
+			selected.Routes.Default = selected.Routes.Overrides[defaultClient]
+		}
+		if selected.Routes.Default == "" || !selected.profileUsesConnectedAccount(selected.Routes.Default, connected) {
+			for _, client := range AdmittedClientIDs() {
+				if profileID := selected.Routes.Overrides[client]; profileID != "" {
+					selected.Routes.Default = profileID
+					break
+				}
+			}
+		}
+	}
+	return selected, nil
+}
+
+func (c Config) routeUsesConnectedAccount(client string, connected map[string]bool) bool {
+	runtime, _, err := c.ResolveRuntime(client, "")
+	return err == nil && connected[runtime.AccountID]
+}
+
+func (c Config) profileUsesConnectedAccount(profileID string, connected map[string]bool) bool {
+	profile, ok := c.Profiles[profileID]
+	return ok && connected[profile.Account]
+}
+
+func (c Config) firstProfileForConnectedClient(client string, connected map[string]bool) string {
+	for _, profileID := range c.ProfileIDs() {
+		profile := c.Profiles[profileID]
+		if !connected[profile.Account] || (profile.Client != "" && profile.Client != client) {
+			continue
+		}
+		account := c.Accounts[profile.Account]
+		account.ID = profile.Account
+		if _, err := account.EndpointFor(client); err != nil {
+			continue
+		}
+		if profile.Client == "" || profile.ModelFor(client) != "" {
+			return profileID
+		}
+	}
+	return ""
+}
+
 func ValidProfileName(name string) bool { return profileNamePattern.MatchString(name) }
 
 func (c *Config) Normalize() {

@@ -88,6 +88,119 @@ func TestSyncReconcilesCodexConfigWithoutRebindingCredentials(t *testing.T) {
 	}
 }
 
+func TestSyncDiscoversAndProjectsCodexInstalledAfterSetup(t *testing.T) {
+	app, _, secretStore, runner := testApp(t, "")
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{configuration.ClientCodex: "/usr/local/bin/codex"},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surfaceidentity.CodexHomeDefault),
+			Authority:   string(surfaceidentity.AuthorityAIGW),
+			ConfigPath:  target,
+			Present:     true,
+			AutoManaged: true,
+		}},
+	}}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["dmx"] = configuration.Account{
+		Label:     "DMXAPI",
+		Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
+	}
+	cfg.Profiles["gpt"] = configuration.Profile{
+		Label:   "GPT",
+		Account: "dmx",
+		Client:  configuration.ClientCodex,
+		Models:  configuration.Models{configuration.ClientCodex: "gpt-test"},
+	}
+	cfg.Routes.Default = "gpt"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("dmx", "test-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatalf("sync after installing Codex: %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("sync started credential binding plans: %#v", runner.plans)
+	}
+	after, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := after.Adapters[configuration.ClientCodex]
+	if !adapter.Enabled || adapter.Executable != "/usr/local/bin/codex" || len(adapter.Targets) != 1 {
+		t.Fatalf("Codex adapter after sync = %#v", adapter)
+	}
+	assertSameExistingPath(t, adapter.Targets[0], target)
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {
+		t.Fatalf("sync did not project newly discovered Codex target:\n%s", data)
+	}
+}
+
+func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) {
+	app, _, _, runner := testApp(t, "")
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{configuration.ClientCodex: "/usr/local/bin/codex"},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surfaceidentity.CodexHomeDefault),
+			Authority:   string(surfaceidentity.AuthorityAIGW),
+			ConfigPath:  target,
+			Present:     true,
+			AutoManaged: true,
+		}},
+	}}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["dmx"] = configuration.Account{
+		Label:     "DMXAPI",
+		Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
+	}
+	cfg.Profiles["gpt"] = configuration.Profile{
+		Label:   "GPT",
+		Account: "dmx",
+		Client:  configuration.ClientCodex,
+		Models:  configuration.Models{configuration.ClientCodex: "gpt-test"},
+	}
+	cfg.Routes.Default = "gpt"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatalf("sync with an unconnected Account: %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("sync started credential binding plans: %#v", runner.plans)
+	}
+	after, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if adapter := after.Adapters[configuration.ClientCodex]; adapter.Enabled {
+		t.Fatalf("Codex adapter was enabled before Account connection: %#v", adapter)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "model_provider = \"native\"\n" {
+		t.Fatalf("sync projected an unconnected Account:\n%s", data)
+	}
+}
+
 func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()

@@ -293,7 +293,7 @@ func TestSystemRunnerPropagatesSetupAndCommandFailures(t *testing.T) {
 func TestNativeAcceptanceUsesPortablePaths(t *testing.T) {
 	for _, platform := range []string{"darwin", "linux", "windows"} {
 		t.Run(platform, func(t *testing.T) {
-			calls := nativeCommands(platform)
+			calls := nativeCommands(platform, "1.2.3")
 			if len(calls) != 7 {
 				t.Fatalf("%s commands = %d, want 7", platform, len(calls))
 			}
@@ -315,11 +315,23 @@ func TestNativeAcceptanceUsesPortablePaths(t *testing.T) {
 			if got := calls[6]; len(got.Args) != 3 || got.Args[0] != "uninstall" || got.Args[2] != installed {
 				t.Fatalf("portable uninstall = %#v", got)
 			}
+			if got := calls[2]; !slices.Contains(got.Args, "-ldflags=-X=aigw-cli/internal/cli.Version=1.2.3") {
+				t.Fatalf("native build lacks VERSION-derived identity: %#v", got)
+			}
 		})
 	}
 }
 
 func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
+	root := repositoryRoot(t)
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(previous) })
 	var calls []command
 	if err := run([]string{"native", "--platform", runtime.GOOS}, &bytes.Buffer{}, func(call command) error {
 		calls = append(calls, call)
@@ -346,14 +358,56 @@ func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 	}
 }
 
+func TestSourceVersionUsesOneValidatedSSOT(t *testing.T) {
+	root := t.TempDir()
+	valid := filepath.Join(root, "valid")
+	if err := os.WriteFile(valid, []byte("1.2.3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := sourceVersion(valid); err != nil || got != "1.2.3" {
+		t.Fatalf("valid source version = %q, %v", got, err)
+	}
+	for name, content := range map[string]string{"empty": "\n", "spaced": "1.2.3 invalid\n"} {
+		path := filepath.Join(root, name)
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := sourceVersion(path); err == nil || !strings.Contains(err.Error(), "invalid source version") {
+			t.Fatalf("%s source version error = %v", name, err)
+		}
+	}
+	if _, err := sourceVersion(filepath.Join(root, "missing")); err == nil || !strings.Contains(err.Error(), "read source version") {
+		t.Fatalf("missing source version error = %v", err)
+	}
+}
+
+func TestNativeAcceptanceRefusesARepositoryWithoutVersionTruth(t *testing.T) {
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(previous) })
+	calls := 0
+	err = run([]string{"native", "--platform", runtime.GOOS}, &bytes.Buffer{}, func(command) error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "read source version") || calls != 0 {
+		t.Fatalf("missing VERSION error=%v calls=%d", err, calls)
+	}
+}
+
 func TestNativeCommandsUsePortableArtifactNames(t *testing.T) {
-	windows := nativeCommands("windows")
-	if windows[2].Args[2] != filepath.Join("build", "acceptance", "aigw.exe") ||
+	windows := nativeCommands("windows", "1.2.3")
+	if windows[2].Args[3] != filepath.Join("build", "acceptance", "aigw.exe") ||
 		!slices.Equal(windows[0].Args, []string{"test", "./..."}) {
 		t.Fatalf("Windows native commands = %#v", windows)
 	}
-	linux := nativeCommands("linux")
-	if linux[2].Args[2] != filepath.Join("build", "acceptance", "aigw") ||
+	linux := nativeCommands("linux", "1.2.3")
+	if linux[2].Args[3] != filepath.Join("build", "acceptance", "aigw") ||
 		linux[0].Args[4] != filepath.Join("build", "acceptance", "coverage-linux.out") {
 		t.Fatalf("Linux native commands = %#v", linux)
 	}

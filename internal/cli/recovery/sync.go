@@ -9,6 +9,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/synchronization"
 	"github.com/spf13/cobra"
 )
 
@@ -20,12 +21,16 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 		Short: "Resynchronize client configuration",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := runtime.Config.Load()
+			before, err := runtime.Config.Load()
+			if err != nil {
+				return err
+			}
+			after, _, err := desiredClientConfig(runtime, before)
 			if err != nil {
 				return err
 			}
 			if dryRun {
-				plans, err := invocation.Synchronizer(runtime).Plan(cfg, cfg)
+				plans, err := invocation.Synchronizer(runtime).Plan(before, after)
 				if err != nil {
 					return err
 				}
@@ -47,8 +52,14 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				r.Next("aigw sync")
 				return nil
 			}
-			if err := invocation.Synchronizer(runtime).Reconcile(cmd.Context(), cfg, cfg); err != nil {
+			synchronizer := invocation.Synchronizer(runtime)
+			if err := synchronizer.CommitProjection(cmd.Context(), before, after, "sync"); err != nil {
 				return err
+			}
+			if !synchronization.ProjectionChanged(before, after) && !synchronization.ClaudeProjectionChanged(before, after) {
+				if err := synchronizer.Reconcile(cmd.Context(), after, after); err != nil {
+					return err
+				}
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Synchronization completed")

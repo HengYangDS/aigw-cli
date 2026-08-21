@@ -116,7 +116,11 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 		if *platform != runtime.GOOS {
 			return fmt.Errorf("native acceptance requires %s host, running on %s", *platform, runtime.GOOS)
 		}
-		return runCommands(nativeCommands(*platform), stdout, runner)
+		version, err := sourceVersion("VERSION")
+		if err != nil {
+			return err
+		}
+		return runCommands(nativeCommands(*platform, version), stdout, runner)
 	case "trust-input":
 		flags := flag.NewFlagSet("ci trust-input", flag.ContinueOnError)
 		flags.SetOutput(io.Discard)
@@ -284,7 +288,7 @@ func supportedNativePlatform(platform string) bool {
 	return platform == "darwin" || platform == "linux" || platform == "windows"
 }
 
-func nativeCommands(platform string) []command {
+func nativeCommands(platform, version string) []command {
 	binary := filepath.Join("build", "acceptance", "aigw")
 	installed := filepath.Join("build", "acceptance", "installed", "aigw")
 	profile := filepath.Join("build", "acceptance", "coverage-"+platform+".out")
@@ -294,7 +298,7 @@ func nativeCommands(platform string) []command {
 	}
 	commands := []command{
 		{Name: "go", Args: []string{"vet", "./..."}},
-		{Name: "go", Args: []string{"build", "-o", binary, "./cmd/aigw"}},
+		{Name: "go", Args: []string{"build", "-ldflags=-X=aigw-cli/internal/cli.Version=" + version, "-o", binary, "./cmd/aigw"}},
 		{Name: binary, Args: []string{"--version"}},
 		{Name: binary, Args: []string{"install", "--target", installed}},
 		{Name: installed, Args: []string{"--version"}},
@@ -307,6 +311,18 @@ func nativeCommands(platform string) []command {
 		return append([]command{{Name: "go", Args: []string{"test", "./..."}}}, commands...)
 	}
 	return append([]command{{Name: "go", Args: []string{"run", "./tools/coverage", "--race", "--profile-output", profile}}}, commands...)
+}
+
+func sourceVersion(filename string) (string, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return "", fmt.Errorf("read source version: %w", err)
+	}
+	version := strings.TrimSpace(string(data))
+	if version == "" || strings.ContainsAny(version, " \t\r\n") {
+		return "", fmt.Errorf("invalid source version %q", version)
+	}
+	return version, nil
 }
 
 func systemRunner(call command) error {

@@ -10,9 +10,12 @@ AIGW keeps credentials local, mutations bounded, and client ownership explicit.
 | Optional diagnostic credential | `AIGW_ACCOUNT/<account>` | Never |
 | Forge publication credential | Protected CI or operator process | Never tracked |
 
-Linux without a usable Secret Service fails explicitly. CI may select the
-read-only environment backend; it validates pre-provisioned values but cannot
-persist or rotate them.
+The default backend delegates to the native credential service: macOS Keychain,
+Windows Credential Manager, or the Secret Service D-Bus API on Linux/BSD.
+Linux without a usable Secret Service fails explicitly instead of storing a
+plaintext fallback. Controlled automation may select the read-only environment
+backend; it reads `AIGW_TOKEN_<ACCOUNT>` values supplied to that process but
+cannot persist, rotate, or delete them.
 
 ## Configuration boundary
 

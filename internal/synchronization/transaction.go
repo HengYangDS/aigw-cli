@@ -11,6 +11,16 @@ import (
 // Codex projection and native authentication target. Any downstream failure
 // restores both configuration and projections to their verified preimages.
 func (s Synchronizer) Commit(ctx context.Context, before, after configuration.Config, subject string) error {
+	return s.commit(ctx, before, after, subject, true)
+}
+
+// CommitProjection persists one configuration transition and converges its
+// client projections without changing native client authentication.
+func (s Synchronizer) CommitProjection(ctx context.Context, before, after configuration.Config, subject string) error {
+	return s.commit(ctx, before, after, subject, false)
+}
+
+func (s Synchronizer) commit(ctx context.Context, before, after configuration.Config, subject string, bindAuthentication bool) error {
 	configBefore, err := s.Config.CaptureSnapshot()
 	if err != nil {
 		return err
@@ -31,7 +41,7 @@ func (s Synchronizer) Commit(ctx context.Context, before, after configuration.Co
 			return fmt.Errorf("%s synchronization failed and was rolled back: %w", subject, err)
 		}
 	}
-	if AuthenticationChanged(before, after) {
+	if bindAuthentication && AuthenticationChanged(before, after) {
 		if err := s.BindAuthentication(ctx, after); err != nil {
 			rollbackErr := s.rollback(ctx, before, after, configBefore, configAfter, true)
 			if rollbackErr != nil {

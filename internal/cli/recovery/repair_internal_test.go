@@ -89,7 +89,7 @@ func TestRepairDesiredConfigDropsUnusableCodexAndKeepsExplicitTargets(t *testing
 	before.Routes.Default = "one"
 	before.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/old"}
 	runtime := invocation.Context{Discovery: staticDiscovery{result: discovery.Result{}}}
-	after, _, err := repairDesiredConfig(runtime, before)
+	after, _, err := desiredClientConfig(runtime, before)
 	if err != nil {
 		t.Fatal(err)
 	}

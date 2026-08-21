@@ -10,14 +10,14 @@ codex = 'dmxapi-gpt-5.6-sol'
 label = 'AIHubMix'
 
 [accounts.aihubmix.endpoints]
-openai_responses = 'http://127.0.0.1:8792/aihubmix/v1'
+openai_responses = 'https://aihubmix.com/v1'
 anthropic = 'https://aihubmix.com'
 
 [accounts.dmxapi]
 label = 'DMXAPI'
 
 [accounts.dmxapi.endpoints]
-openai_responses = 'http://127.0.0.1:8792/dmxapi/v1'
+openai_responses = 'https://www.dmxapi.cn/v1'
 anthropic = 'https://www.dmxapi.cn'
 
 [accounts.dmxapi.account_probe]
@@ -28,7 +28,7 @@ base_url = 'https://www.dmxapi.cn'
 label = 'UCloud'
 
 [accounts.ucloud.endpoints]
-openai_responses = 'http://127.0.0.1:8792/ucloud/v1'
+openai_responses = 'https://api.modelverse.cn/v1'
 anthropic = 'https://api.modelverse.cn'
 
 [profiles]

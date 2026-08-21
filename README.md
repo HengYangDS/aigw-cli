@@ -28,7 +28,7 @@ flowchart LR
 | Select a profile | `aigw use <profile>` | `aigw check` |
 | Replace an Account Token | `aigw rotate <account>` | `aigw check` |
 | Diagnose local integration | `aigw doctor` | Run its recommended action |
-| Import reviewed team settings | `aigw setup --from manifest.toml` | Supply missing Tokens |
+| Import reviewed team settings | `aigw setup --from team.toml` | Connect any one Account when needed |
 
 The daily path is deliberately small:
 
@@ -91,12 +91,40 @@ aigw setup
 A team can distribute a reviewed, token-free manifest:
 
 ```bash
-aigw setup --from manifest.toml
+aigw setup --from team.toml
 ```
 
 Start from [`manifests/team.toml`](manifests/team.toml). It contains the
 reviewed team Accounts, Profiles, and recommended Routes, but no Token or
-workstation-specific client path.
+workstation-specific client path. Import does not require a Token or an
+installed client, so the same file works for a new workstation and for a
+machine where Claude Code or Codex will be installed later.
+
+To connect one Account while importing, name its manifest ID. Other Accounts
+remain available without becoming setup requirements:
+
+```bash
+aigw setup --from team.toml --account dmxapi
+```
+
+For non-interactive automation, one stdin Token must have one explicit owner:
+
+```bash
+printf '%s\n' "$DMXAPI_TOKEN" \
+  | aigw setup --from team.toml --account dmxapi --token-stdin
+```
+
+If the catalogue was imported without a Token, connect an Account later and
+select any of its Profiles:
+
+```bash
+aigw rotate dmxapi
+aigw use dmxapi-gpt-5.6-sol --for codex
+```
+
+If a supported client is installed after setup, `aigw sync` discovers it and
+creates only AIGW-owned projection state. Synchronization does not ask for or
+replace a Token.
 
 ### Environment variables
 
@@ -105,9 +133,9 @@ explicit automation or a deliberately selected secret backend:
 
 | Variable | Meaning |
 | --- | --- |
-| `AIGW_SECRET_BACKEND=keyring` | Use the operating-system credential store (default). |
-| `AIGW_SECRET_BACKEND=env` | Read token slots without writing them. |
-| `AIGW_TOKEN_<ACCOUNT>` | Token for an account when the `env` backend is selected; never commit it. |
+| `AIGW_SECRET_BACKEND=keyring` | Use the operating-system credential store (default): macOS Keychain, Windows Credential Manager, or Secret Service on Linux/BSD. |
+| `AIGW_SECRET_BACKEND=env` | Read Tokens from the current process environment without persisting, rotating, or deleting them. Intended for CI and other controlled automation. |
+| `AIGW_TOKEN_<ACCOUNT>` | Token for one manifest Account when `AIGW_SECRET_BACKEND=env`; uppercase the Account ID and replace each run of non-alphanumeric characters with `_` (for example, `dmx-api` becomes `AIGW_TOKEN_DMX_API`). |
 | `AIGW_ACCESSIBLE=1` | Use accessibility-oriented terminal output. |
 | `AIGW_GITLAB_RELEASE_ORIGIN` + `AIGW_GITLAB_RELEASE_REPOSITORY` | Override the GitLab update source as one complete `HTTPS origin + namespace/project` pair. |
 | `AIGW_GITHUB_RELEASE_ORIGIN` + `AIGW_GITHUB_RELEASE_REPOSITORY` | Override the GitHub update source as one complete `HTTPS origin + owner/repository` pair. |

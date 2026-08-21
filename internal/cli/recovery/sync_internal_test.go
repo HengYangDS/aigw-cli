@@ -9,7 +9,12 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/discovery"
 )
+
+type syncDiscovery struct{ result discovery.Result }
+
+func (candidate syncDiscovery) Discover() discovery.Result { return candidate.result }
 
 func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 	t.Run("configuration load", func(t *testing.T) {
@@ -61,6 +66,65 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
+	t.Run("planning", func(t *testing.T) {
+		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+		cfg := configuration.NewConfig()
+		cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+		cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
+		cfg.Routes.Default = "one"
+		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{""}}
+		if err := store.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		command := NewSyncCommand(invocation.Context{Config: store, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
+		command.SilenceErrors = true
+		command.SilenceUsage = true
+		command.SetArgs([]string{"--dry-run"})
+		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "target is empty") {
+			t.Fatalf("planning error = %v", err)
+		}
+	})
+
+	t.Run("apply", func(t *testing.T) {
+		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+		target := t.TempDir()
+		cfg := configuration.NewConfig()
+		cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+		cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
+		cfg.Routes.Default = "one"
+		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+		if err := store.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		command := NewSyncCommand(invocation.Context{Config: store, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
+		command.SilenceErrors = true
+		command.SilenceUsage = true
+		if err := command.Execute(); err == nil {
+			t.Fatal("projection apply failure was accepted")
+		}
+	})
+}
+
+func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	target := t.TempDir()
+	cfg := configuration.NewConfig()
+	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
+	cfg.Routes.Default = "one"
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	command := NewSyncCommand(invocation.Context{Config: store, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
+	command.SilenceErrors = true
+	command.SilenceUsage = true
+	if err := command.Execute(); err == nil {
+		t.Fatal("existing projection repair failure was accepted")
 	}
 }
 

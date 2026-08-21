@@ -26,18 +26,39 @@ are discovery input, not automatic routing policy.
 
 ## New member
 
+Import the reviewed catalogue without requiring every provider Token or either
+supported client:
+
 ```bash
-aigw setup --from manifest.toml
-aigw check
+aigw setup --from team.toml
 ```
 
 Setup:
 
 - validates all public metadata first;
-- prompts once per missing Account Token;
-- writes Tokens only to the OS credential store;
+- preserves every reviewed Account and Profile;
+- connects no Account unless a Token already exists or the user selects one;
 - configures only installed admitted clients;
 - rolls back AIGW-owned changes if a required projection fails.
+
+Connect any one Account; the rest remain optional:
+
+```bash
+aigw setup --from team.toml --account dmxapi
+aigw check
+```
+
+The interactive command prompts only for the selected Account. Automation may
+pipe exactly one Token by adding `--token-stdin`; it must keep `--account` so
+the Token owner is explicit.
+
+If the catalogue is already imported, use `aigw rotate <account>` to add or
+replace that Account's Token, then select the desired Profile with
+`aigw use <profile> --for <client>`.
+
+Claude Code and Codex are not setup prerequisites. After installing either
+client, run `aigw sync`; AIGW rediscovers supported clients and converges only
+its owned configuration. It does not alter authentication during sync.
 
 ## Existing member
 
@@ -104,3 +125,9 @@ aigw check
 
 CI uses synthetic endpoints, fixtures, and read-only environment Tokens. It
 must not require a maintainer's OS credential store or real provider account.
+
+Set `AIGW_SECRET_BACKEND=env` and provide only the Accounts exercised by that
+job. Environment names use `AIGW_TOKEN_<ACCOUNT>` with the manifest Account ID
+uppercased and non-alphanumeric runs replaced by `_`. This backend is
+deliberately read-only: setup may consume present values, but rotation and
+deletion fail explicitly.

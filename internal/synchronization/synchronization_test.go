@@ -403,6 +403,48 @@ func TestCommitReportsAuthenticationRollbackFailure(t *testing.T) {
 	}
 }
 
+func TestCommitProjectionDoesNotBindNativeAuthentication(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before := testConfig(target)
+	delete(before.Adapters, configuration.ClientCodex)
+	after := testConfig(target)
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	if err := store.Save(before); err != nil {
+		t.Fatal(err)
+	}
+	runner := &recordingRunner{}
+	syncer := Synchronizer{
+		Config:    store,
+		Secrets:   fixedSecrets{},
+		Runner:    runner,
+		Discovery: targetDiscovery(target),
+	}
+
+	if err := syncer.CommitProjection(context.Background(), before, after, "sync"); err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("projection-only commit started authentication: %#v", runner.plans)
+	}
+	stored, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stored.Adapters[configuration.ClientCodex].Enabled {
+		t.Fatal("projection-only commit did not persist the discovered adapter")
+	}
+	projected, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(projected), "# managed by AIGW") {
+		t.Fatalf("projection-only commit did not converge the target:\n%s", projected)
+	}
+}
+
 func TestRollbackReconcilesAndRebinds(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "configuration.toml")

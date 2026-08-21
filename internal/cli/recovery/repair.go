@@ -48,7 +48,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	if len(before.Profiles) == 0 {
 		return presentation.ProblemError("Not configured", "No service profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
-	after, discovered, err := repairDesiredConfig(runtime, before)
+	after, discovered, err := desiredClientConfig(runtime, before)
 	if err != nil {
 		return err
 	}
@@ -81,20 +81,20 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	return nil
 }
 
-func repairDesiredConfig(runtime invocation.Context, before configuration.Config) (configuration.Config, discovery.Result, error) {
+func desiredClientConfig(runtime invocation.Context, before configuration.Config) (configuration.Config, discovery.Result, error) {
 	after := before.Clone()
 	discovered, err := invocation.Discover(runtime)
 	if err != nil {
 		return configuration.Config{}, discovery.Result{}, err
 	}
-	_, _, claudeRouteErr := after.ResolveRuntime(configuration.ClientClaude, "")
-	_, _, codexRouteErr := after.ResolveRuntime(configuration.ClientCodex, "")
+	claudeRuntime, _, claudeRouteErr := after.ResolveRuntime(configuration.ClientClaude, "")
+	codexRuntime, _, codexRouteErr := after.ResolveRuntime(configuration.ClientCodex, "")
 	claudeAdapter := after.Adapters[configuration.ClientClaude]
 	claudeExecutable := claudeAdapter.Executable
 	if claudeExecutable == "" {
 		claudeExecutable = discovered.Executable(configuration.ClientClaude)
 	}
-	if claudeRouteErr == nil && claudeExecutable != "" {
+	if claudeRouteErr == nil && claudeExecutable != "" && (claudeAdapter.Enabled || secretAvailable(runtime, claudeRuntime.AccountID)) {
 		after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 	}
 	if codexRouteErr == nil {
@@ -104,13 +104,17 @@ func repairDesiredConfig(runtime invocation.Context, before configuration.Config
 		if executable == "" {
 			executable = discovered.Executable(configuration.ClientCodex)
 		}
-		if executable != "" && len(targets) > 0 {
+		if executable != "" && len(targets) > 0 && (currentCodex.Enabled || secretAvailable(runtime, codexRuntime.AccountID)) {
 			after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: targets}
 		} else if currentCodex.Enabled && len(targets) == 0 {
 			delete(after.Adapters, configuration.ClientCodex)
 		}
 	}
 	return after, discovered, nil
+}
+
+func secretAvailable(runtime invocation.Context, accountID string) bool {
+	return runtime.Secrets != nil && runtime.Secrets.Has(accountID)
 }
 
 func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, after configuration.Config, discovered discovery.Result, plans []codex.ProjectionPlan) error {

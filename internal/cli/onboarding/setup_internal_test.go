@@ -118,28 +118,28 @@ func TestCollectManifestSetupCredentialsErrorAndPromptBranches(t *testing.T) {
 		want := errors.New("backend failed")
 		app := invocation.Context{
 			Executable: filepath.Join(t.TempDir(), "aigw"), Secrets: &scriptedSecretStore{getErr: want}}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, false); !errors.Is(err, want) {
+		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
 
 	t.Run("stdin read-only", func(t *testing.T) {
 		app := invocation.Context{Secrets: secrets.NewEnvironmentStore(func(string) string { return "" }), In: strings.NewReader("token\n")}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, true); err == nil || !strings.Contains(err.Error(), "read-only") {
+		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", true); err == nil || !strings.Contains(err.Error(), "read-only") {
 			t.Fatalf("error = %v", err)
 		}
 	})
 
 	t.Run("stdin read", func(t *testing.T) {
 		app := invocation.Context{Secrets: secrets.NewMemoryStore(), In: strings.NewReader("")}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, true); err == nil {
+		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", true); err == nil {
 			t.Fatal("expected stdin read failure")
 		}
 	})
 
 	t.Run("missing read-only", func(t *testing.T) {
 		app := invocation.Context{Secrets: secrets.NewEnvironmentStore(func(string) string { return "" })}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, false); err == nil || !strings.Contains(err.Error(), "pre-provision") {
+		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); err == nil || !strings.Contains(err.Error(), "AIGW_TOKEN_TEAM") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -147,25 +147,73 @@ func TestCollectManifestSetupCredentialsErrorAndPromptBranches(t *testing.T) {
 	t.Run("prompt error", func(t *testing.T) {
 		want := errors.New("cancelled")
 		app := invocation.Context{Secrets: secrets.NewMemoryStore(), Interactive: true, Prompt: scriptedSetupPrompt{err: want}}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, false); !errors.Is(err, want) {
+		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
 
 	t.Run("empty prompt", func(t *testing.T) {
 		app := invocation.Context{Secrets: secrets.NewMemoryStore(), Interactive: true, Prompt: scriptedSetupPrompt{}}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, false); err == nil || !strings.Contains(err.Error(), "empty Token") {
+		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); err == nil || !strings.Contains(err.Error(), "empty Token") {
 			t.Fatalf("error = %v", err)
 		}
 	})
 
 	t.Run("stdin success", func(t *testing.T) {
 		app := invocation.Context{Secrets: secrets.NewMemoryStore(), In: strings.NewReader("new-token\n")}
-		credentials, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, true)
+		credentials, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", true)
 		if err != nil || len(credentials) != 1 || !credentials[0].write || credentials[0].token != "new-token" {
 			t.Fatalf("credentials=%#v error=%v", credentials, err)
 		}
 	})
+
+	t.Run("unknown selected account", func(t *testing.T) {
+		app := invocation.Context{Secrets: secrets.NewMemoryStore()}
+		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "missing", false); err == nil || !strings.Contains(err.Error(), "unknown Account") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("selected account needs an explicit token outside an interactive terminal", func(t *testing.T) {
+		app := invocation.Context{Secrets: secrets.NewMemoryStore()}
+		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); err == nil || !strings.Contains(err.Error(), "not connected") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+}
+
+func TestManifestSetupClientSelectionRequiresConnectedRouteAndUsableSurface(t *testing.T) {
+	cfg := manifestSetupConfig()
+	connected := map[string]manifestSetupCredential{"team": {account: "team", token: "token"}}
+
+	withoutCodexSurface := manifestSetupSelectedClients(cfg, connected, map[string]bool{
+		configuration.ClientClaude: true,
+	})
+	if len(withoutCodexSurface) != 1 || withoutCodexSurface[0] != configuration.ClientClaude {
+		t.Fatalf("clients without Codex surface = %#v", withoutCodexSurface)
+	}
+
+	if clients := manifestSetupSelectedClients(cfg, map[string]manifestSetupCredential{}, map[string]bool{
+		configuration.ClientClaude: true,
+	}); len(clients) != 0 {
+		t.Fatalf("unconnected route selected clients = %#v", clients)
+	}
+}
+
+func TestManifestCredentialVerificationSkipsRoutesOwnedByAnotherAccount(t *testing.T) {
+	cfg := manifestSetupConfig()
+	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{OpenAIResponses: "https://other.test/v1"}}
+	calls := 0
+	runtime := invocation.Context{HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
+		calls++
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
+	})}
+	if err := verifyManifestSetupCredential(context.Background(), runtime, cfg, "other", "token", "", configuration.ClientCodex); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatalf("verification called another Account's route %d times", calls)
+	}
 }
 
 func TestWriteAndRollbackManifestSetupCredentialsBranches(t *testing.T) {
@@ -320,7 +368,7 @@ func TestSetupClaudeVerificationHelper(t *testing.T) {
 	cfg := manifestSetupConfig()
 	want := errors.New("capture failed")
 	app := invocation.Context{Runner: setupProcessRunner{err: want}}
-	if err := verifyManifestSetupCredential(context.Background(), app, cfg, "team", "token", "/opt/claude"); !errors.Is(err, want) {
+	if err := verifyManifestSetupCredential(context.Background(), app, cfg, "team", "token", "/opt/claude", configuration.ClientClaude); !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}
 }

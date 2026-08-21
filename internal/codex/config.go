@@ -26,7 +26,7 @@ const (
 	// [agents].max_threads as the session concurrency field and treats
 	// [agents].max_concurrent_threads_per_session as its retired alias, so the two
 	// cannot share a table; the feature-gated table still uses the per-session
-	// spelling. Do not replace either with a proxy-side session limiter.
+	// spelling. Do not replace either with endpoint-side session policy.
 	codexSessionConcurrency = 16
 	codexAgentDepth         = 1
 )

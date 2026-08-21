@@ -52,28 +52,53 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	discoveredClaude := discovered.Executable(configuration.ClientClaude)
 	discoveredCodex := discovered.Executable(configuration.ClientCodex)
 	discoveredTargets := discovered.AutoManagedCodexTargets()
-	if _, _, resolveErr := cfg.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && discoveredCodex != "" && len(discoveredTargets) > 1 {
-		return fmt.Errorf("configuration setup found multiple auto-managed Codex targets; automatic native credential binding is not atomic across targets, so reduce the admitted target set before setup or import the manifest without first-time client binding")
-	}
 	for _, accountName := range accountNames {
 		if len(configuredClientsForAccount(cfg, accountName)) == 0 {
 			return fmt.Errorf("Account %q is not referenced by any configuration profile; remove it or add an explicit client profile before setup", accountName)
 		}
 	}
-	credentials, err := collectManifestSetupCredentials(runtime, cfg, accountNames, request.TokenStdin)
+	if request.Account != "" {
+		preflight, selectErr := cfg.SelectRoutesForConnectedAccounts([]string{request.Account})
+		if selectErr != nil {
+			return selectErr
+		}
+		if _, _, resolveErr := preflight.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && discoveredCodex != "" && len(discoveredTargets) > 1 {
+			return fmt.Errorf("configuration setup found multiple auto-managed Codex targets; automatic native credential binding is not atomic across targets, so reduce the admitted target set before setup or import the manifest without first-time client binding")
+		}
+	}
+	credentials, err := collectManifestSetupCredentials(runtime, cfg, accountNames, request.Account, request.TokenStdin)
 	if err != nil {
 		return err
 	}
+	connectedAccounts := make([]string, 0, len(credentials))
+	for _, item := range credentials {
+		connectedAccounts = append(connectedAccounts, item.account)
+	}
+	cfg, err = cfg.SelectRoutesForConnectedAccounts(connectedAccounts)
+	if err != nil {
+		return err
+	}
+	connected := make(map[string]manifestSetupCredential, len(credentials))
+	for _, item := range credentials {
+		connected[item.account] = item
+	}
+	selectedClients := manifestSetupSelectedClients(cfg, connected, map[string]bool{
+		configuration.ClientClaude: discoveredClaude != "",
+		configuration.ClientCodex:  discoveredCodex != "" && len(discoveredTargets) > 0,
+	})
+	if containsClient(selectedClients, configuration.ClientCodex) && len(discoveredTargets) > 1 {
+		return fmt.Errorf("configuration setup found multiple auto-managed Codex targets; automatic native credential binding is not atomic across targets, so reduce the admitted target set before setup or import the manifest without first-time client binding")
+	}
 	for _, credential := range credentials {
-		if err := verifyManifestSetupCredential(ctx, runtime, cfg, credential.account, credential.token, discoveredClaude); err != nil {
+		if err := verifyManifestSetupCredential(ctx, runtime, cfg, credential.account, credential.token, discoveredClaude, selectedClients...); err != nil {
 			return fmt.Errorf("Token validation failed for Account %q: %w", credential.account, err)
 		}
 	}
 
-	if _, _, resolveErr := cfg.ResolveRuntime(configuration.ClientClaude, ""); resolveErr == nil && discoveredClaude != "" {
+	if containsClient(selectedClients, configuration.ClientClaude) {
 		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: discoveredClaude}
 	}
-	if _, _, resolveErr := cfg.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && discoveredCodex != "" && len(discoveredTargets) > 0 {
+	if containsClient(selectedClients, configuration.ClientCodex) {
 		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: discoveredCodex, Targets: discoveredTargets}
 	}
 
@@ -89,37 +114,54 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	}
 
 	r := invocation.Renderer(runtime)
-	r.ProductTitle("Configuration setup")
-	r.Section("Configuration manifest")
+	r.ProductTitle("Configuration catalogue imported")
+	r.Section("Team catalogue")
 	r.Row("Accounts", fmt.Sprintf("%d", len(accountNames)))
 	r.Row("Model profiles", fmt.Sprintf("%d", len(manifest.Profiles)))
-	r.Row("Default profile", cfg.Routes.Default)
-	r.Section("Credentials")
+	r.Row("Connected accounts", fmt.Sprintf("%d of %d", len(credentials), len(accountNames)))
+	r.Section("Accounts")
 	for _, name := range accountNames {
-		r.Status(presentation.OK, name, "Token validated")
+		if _, ok := connected[name]; ok {
+			r.Status(presentation.OK, name, "Connected")
+		} else {
+			r.Status(presentation.Info, name, "Not connected")
+		}
 	}
 	r.Section("Clients")
-	if cfg.Adapters[configuration.ClientClaude].Enabled {
-		r.Status(presentation.OK, "Claude", "Configured")
-	} else {
-		r.Status(presentation.Info, "Claude", "Not selected")
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		switch {
+		case cfg.Adapters[spec.ID].Enabled:
+			r.Status(presentation.OK, spec.Label, "Configured")
+		case discovered.Executable(spec.ID) == "":
+			r.Status(presentation.Info, spec.Label, "Not installed")
+		default:
+			r.Status(presentation.Info, spec.Label, "Installed · connect a compatible Account to configure")
+		}
 	}
-	if cfg.Adapters[configuration.ClientCodex].Enabled {
-		r.Status(presentation.OK, "Codex", "Configured")
-	} else {
-		r.Status(presentation.Info, "Codex", "Not selected")
+	r.Success("Reviewed Accounts and Profiles are available; Tokens remain outside configuration")
+	switch {
+	case len(credentials) == 0:
+		r.Next("aigw rotate <account>")
+	case len(selectedClients) == 0:
+		r.Detail("After installing Claude Code or Codex, run `aigw sync`")
+		r.Next("aigw status")
+	default:
+		r.Next("aigw check")
 	}
-	r.Success("Configuration manifest saved; Tokens remain in system secret storage")
-	r.Next("aigw check")
 	return nil
 }
 
-func collectManifestSetupCredentials(runtime invocation.Context, cfg configuration.Config, accountNames []string, tokenStdin bool) ([]manifestSetupCredential, error) {
-	if tokenStdin && len(accountNames) != 1 {
-		return nil, fmt.Errorf("--token-stdin cannot assign one Token to a configuration manifest with multiple accounts; run setup interactively or pre-provision each Account Token")
+func collectManifestSetupCredentials(runtime invocation.Context, cfg configuration.Config, accountNames []string, selectedAccount string, tokenStdin bool) ([]manifestSetupCredential, error) {
+	if tokenStdin && selectedAccount == "" {
+		return nil, fmt.Errorf("--token-stdin requires --account so one Token has one unambiguous owner")
+	}
+	if selectedAccount != "" {
+		if _, ok := cfg.Accounts[selectedAccount]; !ok {
+			return nil, fmt.Errorf("unknown Account %q; choose one of %s", selectedAccount, strings.Join(accountNames, ", "))
+		}
+		accountNames = []string{selectedAccount}
 	}
 	credentials := make([]manifestSetupCredential, 0, len(accountNames))
-	missing := make([]int, 0, len(accountNames))
 	for _, name := range accountNames {
 		credential := manifestSetupCredential{account: name}
 		previous, err := runtime.Secrets.Get(name)
@@ -128,12 +170,12 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg configurati
 			credential.token = previous
 			credential.previous = previous
 			credential.hadPrevious = true
+			credentials = append(credentials, credential)
 		case errors.Is(err, secrets.ErrNotFound):
-			missing = append(missing, len(credentials))
+			continue
 		default:
 			return nil, err
 		}
-		credentials = append(credentials, credential)
 	}
 
 	if tokenStdin {
@@ -144,36 +186,31 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg configurati
 		if err != nil {
 			return nil, err
 		}
+		if len(credentials) == 0 {
+			credentials = append(credentials, manifestSetupCredential{account: selectedAccount})
+		}
 		credentials[0].token = token
 		credentials[0].write = true
 		return credentials, nil
 	}
-	if len(missing) == 0 {
+	if selectedAccount == "" || len(credentials) > 0 {
 		return credentials, nil
 	}
-	missingNames := make([]string, 0, len(missing))
-	for _, index := range missing {
-		missingNames = append(missingNames, credentials[index].account)
-	}
 	if secrets.IsReadOnly(runtime.Secrets) {
-		return nil, fmt.Errorf("read-only environment secret backend is missing Tokens for Accounts %s; pre-provision each AIGW_TOKEN_<ACCOUNT> value", strings.Join(missingNames, ", "))
+		return nil, fmt.Errorf("environment Token %s is not set; provide it or choose another Account", secrets.EnvironmentKey(selectedAccount))
 	}
 	if !runtime.Interactive {
-		return nil, fmt.Errorf("Accounts %s are missing Tokens; run `aigw setup --from <configuration.toml>` in an interactive terminal or pre-provision each Account Token", strings.Join(missingNames, ", "))
+		return nil, fmt.Errorf("Account %q is not connected; run setup interactively or add --token-stdin", selectedAccount)
 	}
-	for _, index := range missing {
-		account := cfg.Accounts[credentials[index].account]
-		token, err := runtime.Prompt.Secret("Paste " + account.Label + " token: ")
-		if err != nil {
-			return nil, err
-		}
-		if token == "" {
-			return nil, fmt.Errorf("empty Token refused for Account %q", credentials[index].account)
-		}
-		credentials[index].token = token
-		credentials[index].write = true
+	account := cfg.Accounts[selectedAccount]
+	token, err := runtime.Prompt.Secret("Paste " + account.Label + " token: ")
+	if err != nil {
+		return nil, err
 	}
-	return credentials, nil
+	if token == "" {
+		return nil, fmt.Errorf("empty Token refused for Account %q", selectedAccount)
+	}
+	return []manifestSetupCredential{{account: selectedAccount, token: token, write: true}}, nil
 }
 
 func writeManifestSetupCredentials(runtime invocation.Context, credentials []manifestSetupCredential) ([]int, error) {
@@ -252,23 +289,49 @@ func configuredClientsForAccount(cfg configuration.Config, accountName string) [
 	return clients
 }
 
-func verifyManifestSetupCredential(ctx context.Context, runtime invocation.Context, cfg configuration.Config, accountName, token, claudeExecutable string) error {
+func verifyManifestSetupCredential(ctx context.Context, runtime invocation.Context, cfg configuration.Config, accountName, token, claudeExecutable string, selectedClients ...string) error {
 	account := cfg.Accounts[accountName]
 	account.ID = accountName
-	for _, client := range configuredClientsForAccount(cfg, accountName) {
+	for _, client := range selectedClients {
+		clientRuntime, _, resolveErr := cfg.ResolveRuntime(client, "")
+		if resolveErr != nil || clientRuntime.AccountID != accountName {
+			continue
+		}
 		if client == configuration.ClientClaude && claudeExecutable != "" {
-			if clientRuntime, ok := firstRuntimeForAccountClient(cfg, accountName, client); ok {
-				if err := domainverification.VerifyClaudeRuntime(ctx, runtime.Runner, claudeExecutable, clientRuntime, token); err != nil {
-					return err
-				}
-				continue
+			if err := domainverification.VerifyClaudeRuntime(ctx, runtime.Runner, claudeExecutable, clientRuntime, token); err != nil {
+				return err
 			}
+			continue
 		}
 		if err := credential.Validate(ctx, runtime.HTTP, account, token, client); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func manifestSetupSelectedClients(cfg configuration.Config, connected map[string]manifestSetupCredential, available map[string]bool) []string {
+	clients := make([]string, 0, len(configuration.AdmittedClientIDs()))
+	for _, client := range configuration.AdmittedClientIDs() {
+		runtime, _, err := cfg.ResolveRuntime(client, "")
+		if err != nil || runtime.AccountID == "" {
+			continue
+		}
+		if _, ok := connected[runtime.AccountID]; !ok || !available[client] {
+			continue
+		}
+		clients = append(clients, client)
+	}
+	return clients
+}
+
+func containsClient(clients []string, target string) bool {
+	for _, client := range clients {
+		if client == target {
+			return true
+		}
+	}
+	return false
 }
 
 func firstRuntimeForAccountClient(cfg configuration.Config, accountName, client string) (configuration.Runtime, bool) {
