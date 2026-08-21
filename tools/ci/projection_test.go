@@ -138,39 +138,29 @@ githubRelease: {name: "Release"}
 	}
 }
 
-func TestGitLabLinuxJobsInheritOneProjectLocalToolchainBootstrap(t *testing.T) {
+func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var pipeline struct {
-		LinuxToolchain      gitLabJob `yaml:".linux-toolchain"`
-		SourceToolchain     gitLabJob `yaml:".source-toolchain"`
-		SourceAndGovernance gitLabJob `yaml:"source-and-governance"`
-		NativeLinux         gitLabJob `yaml:"native-linux"`
-		ReleaseReadiness    gitLabJob `yaml:"release-readiness"`
+		Variables           map[string]string `yaml:"variables"`
+		LinuxToolchain      gitLabJob         `yaml:".linux-toolchain"`
+		SourceToolchain     gitLabJob         `yaml:".source-toolchain"`
+		SourceAndGovernance gitLabJob         `yaml:"source-and-governance"`
+		NativeLinux         gitLabJob         `yaml:"native-linux"`
+		ReleaseReadiness    gitLabJob         `yaml:"release-readiness"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	bootstrap := pipeline.LinuxToolchain.BeforeScript
-	if len(bootstrap) != 1 {
-		t.Fatalf("Linux toolchain bootstrap commands = %d, want 1: %q", len(bootstrap), bootstrap)
+	if got := pipeline.Variables["MISE_GLOBAL_CONFIG_FILE"]; got != "$CI_PROJECT_DIR/.config/ci/empty-mise-global.toml" {
+		t.Fatalf("GitLab mise global config = %q, want repository-owned empty config", got)
 	}
-	command := bootstrap[0]
-	for _, required := range []string{
-		`$1 == "min_version"`,
-		`$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/ci-mise/$version`,
-		`JOB-TOKEN: $CI_JOB_TOKEN`,
-		`mise-linux-$arch.tar.gz`,
-		`sha256sum --check`,
-		`tar --extract --gzip`,
-		`install -m 0755`,
-	} {
-		if !strings.Contains(command, required) {
-			t.Fatalf("Linux toolchain bootstrap lacks %q: %q", required, command)
-		}
+	bootstrap := pipeline.LinuxToolchain.BeforeScript
+	if len(bootstrap) != 0 {
+		t.Fatalf("Linux jobs must use the exact locked mise image without a second bootstrap: %q", bootstrap)
 	}
 	if pipeline.LinuxToolchain.Image.Name == "" || pipeline.LinuxToolchain.Image.Entrypoint == nil {
 		t.Fatalf("Linux toolchain image is incomplete: %#v", pipeline.LinuxToolchain.Image)
@@ -192,8 +182,8 @@ func TestGitLabLinuxJobsInheritOneProjectLocalToolchainBootstrap(t *testing.T) {
 	if !slices.Equal(pipeline.SourceAndGovernance.Extends, []string{".source-toolchain"}) {
 		t.Fatalf("source-and-governance extends = %q, want [.source-toolchain]", pipeline.SourceAndGovernance.Extends)
 	}
-	if len(pipeline.SourceToolchain.BeforeScript) != 3 {
-		t.Fatalf("source toolchain bootstrap commands = %d, want 3: %q", len(pipeline.SourceToolchain.BeforeScript), pipeline.SourceToolchain.BeforeScript)
+	if len(pipeline.SourceToolchain.BeforeScript) != 2 {
+		t.Fatalf("source toolchain bootstrap commands = %d, want 2: %q", len(pipeline.SourceToolchain.BeforeScript), pipeline.SourceToolchain.BeforeScript)
 	}
 }
 
@@ -322,9 +312,9 @@ func TestSourceJobsUseTheirExactToolClosure(t *testing.T) {
 			t.Fatalf("source-and-governance bootstrap lacks %q: %q", tool, bootstrap)
 		}
 	}
-	sourceSetup := pipeline.SourceToolchain.BeforeScript[1]
-	if strings.Contains(sourceSetup, "curl ") || strings.Contains(sourceSetup, "tar --extract") {
-		t.Fatalf("source tool setup reimplements mise installation: %q", sourceSetup)
+	sourceMirror := pipeline.SourceToolchain.BeforeScript[0]
+	if strings.Contains(sourceMirror, "curl ") || strings.Contains(sourceMirror, "tar --extract") {
+		t.Fatalf("source tool mirror reimplements mise installation: %q", sourceMirror)
 	}
 
 	var github struct {

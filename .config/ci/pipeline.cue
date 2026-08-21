@@ -12,36 +12,6 @@ package ci
 }
 
 commands: {
-	bootstrap: #"""
-		version=$(awk '$1 == "min_version" {gsub(/"/, "", $3); print $3}' mise.toml)
-		test -n "$version"
-		case "$(uname -m)" in
-		  x86_64|amd64)
-		    arch=x64
-		    checksum=cfe49784ec9683b38510846958cfecd9b59da84d4e8a38d18ffda19dc2941ead
-		    ;;
-		  aarch64|arm64)
-		    arch=arm64
-		    checksum=b92744ceb9a01f0bb198bfcf2ba49c36918c9e4353a34be50f23d5b6e93c28ee
-		    ;;
-		  *) echo "unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
-		esac
-		asset="mise-linux-$arch.tar.gz"
-		package_url="$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/ci-mise/$version/$asset"
-		mise_tmpdir=$(mktemp -d)
-		trap 'rm -rf "$mise_tmpdir"' EXIT HUP INT TERM
-		curl --fail --silent --show-error --location \
-		  --connect-timeout 5 --max-time 120 \
-		  --header "JOB-TOKEN: $CI_JOB_TOKEN" \
-		  "$package_url" --output "$mise_tmpdir/$asset"
-		(
-		  cd "$mise_tmpdir"
-		  printf '%s  %s\n' "$checksum" "$asset" | sha256sum --check --strict
-		  tar --extract --gzip --file "$asset"
-		)
-		install -m 0755 "$mise_tmpdir/mise/bin/mise" /usr/local/bin/mise
-		test "$(mise --version | awk '{print $1}')" = "$version"
-		"""#
 	install: "mise install --locked"
 	sourceMirror: #"""
 		lock_sha=$(sha256sum mise.lock | awk '{print $1}')
@@ -129,7 +99,7 @@ _graphOrder: {
 	}
 }
 
-miseImage: "ghcr.io/jdx/mise@sha256:92dbc3f2573926d8974e4641ad8449f16c323130b9f41c39aff19b7b2f500ef6"
+miseImage: "ghcr.io/jdx/mise@sha256:f2d637d5e5189f7ec177b73bce5cd5db7e7b17a4f466f887c1b88ac2dd431129"
 
 #MiseGitLabImage: {
 	name: miseImage
@@ -212,23 +182,23 @@ actions: {
 }
 
 gitlab: {
+	variables: {
+		GIT_DEPTH: "0"
+		GOPROXY: "https://goproxy.cn|https://proxy.golang.org|direct"
+		MISE_GLOBAL_CONFIG_FILE: "$CI_PROJECT_DIR/.config/ci/empty-mise-global.toml"
+	}
 	workflow: rules: [
 		{if: "$CI_COMMIT_BRANCH =~ /^release\\// && !$CI_COMMIT_TAG", when: "never"},
 		{if: "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\\//", when: "never"},
 		{when: "always"},
 	]
 	stages: ["verify", "package", "publish", "release"]
-	variables: {
-		GIT_DEPTH: "0"
-		GOPROXY:   "https://goproxy.cn|https://proxy.golang.org|direct"
-	}
 	".linux-toolchain": {
 		image: #MiseGitLabImage
-		"before_script": [commands.bootstrap]
 	}
 	".source-toolchain": {
 		image: #MiseGitLabImage
-		"before_script": [commands.bootstrap, commands.sourceMirror, commands.install]
+		"before_script": [commands.sourceMirror, commands.install]
 	}
 	"source-and-governance": {
 		stage: graph["source-and-governance"].stage
