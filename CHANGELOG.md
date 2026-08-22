@@ -8,6 +8,28 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.91] - 2026-08-22
+
+### Added
+
+- Support progressive team setup: import the credential-free catalogue first,
+  activate any available provider independently, and adopt Claude Code or Codex
+  later through synchronization without re-importing the manifest.
+- Exercise the complete isolated setup, projection, diagnostics, installation,
+  and removal journey on native macOS, Linux, and Windows, including each
+  platform's system credential store.
+
+### Fixed
+
+- Execute Windows client shims through their native command boundary.
+- Verify the exact signed product commit in Forge review pipelines and isolate
+  release jobs from ambient lifecycle and credential state.
+
+### Changed
+
+- Refresh the locked stable language, specification, CI, build, and
+  supply-chain toolsets while keeping `mise.toml` and `mise.lock` authoritative.
+
 ## [0.1.0-rc.90] - 2026-08-21
 
 ### Fixed

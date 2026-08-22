@@ -1,0 +1,28 @@
+schema_version = 1
+id = "change:rc91-progressive-onboarding-release"
+intent = "Publish the accepted progressive onboarding product as rc.91."
+subjects = ["repository:aigw-cli"]
+scope = [
+  "VERSION",
+  "CHANGELOG.md",
+  "openspec/changes/rc91-progressive-onboarding-release/**",
+]
+invariants = [
+  "version_ssot_remains_VERSION",
+  "published_chronology_remains_semver_ordered",
+  "product_behavior_remains_unchanged",
+]
+acceptance = [
+  "source_gate_passes",
+  "release_matrix_is_reproducible",
+  "release_change_is_archived",
+]
+risks = []
+authority_refs = [
+  "VERSION",
+  "CHANGELOG.md",
+  "docs/governance/change-and-release-policy.md",
+  "docs/evidence/release-evidence.md",
+]
+hypotheses = []
+dependencies = []
