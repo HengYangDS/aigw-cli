@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -312,46 +311,25 @@ func TestBuildCIFailsClosedAcrossUntaggedAndDependencyFailures(t *testing.T) {
 	}
 }
 
-func TestResolveReleaseEpochUsesCommitOrChangelogAuthority(t *testing.T) {
+func TestResolveReleaseEpochUsesChangelogAuthorityInEveryEnvironment(t *testing.T) {
 	root := t.TempDir()
-	command := exec.Command("git", "init", "-q", root)
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v: %s", err, output)
-	}
-	for _, args := range [][]string{{"-C", root, "config", "user.name", "Fixture"}, {"-C", root, "config", "user.email", "fixture@example.test"}} {
-		if output, err := exec.Command("git", args...).CombinedOutput(); err != nil {
-			t.Fatalf("git config: %v: %s", err, output)
-		}
-	}
-	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("fixture\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	for _, args := range [][]string{{"-C", root, "add", "README.md"}, {"-C", root, "commit", "-q", "-m", "fixture"}} {
-		if output, err := exec.Command("git", args...).CombinedOutput(); err != nil {
-			t.Fatalf("git commit: %v: %s", err, output)
-		}
-	}
-	t.Setenv("CI_COMMIT_TAG", "")
-	if epoch, err := resolveReleaseEpoch(root, "0.1.0-dev"); err != nil || epoch == "" {
-		t.Fatalf("commit epoch=%q error=%v", epoch, err)
-	}
-	if _, err := resolveReleaseEpoch(t.TempDir(), "0.1.0-dev"); err == nil || !strings.Contains(err.Error(), "read source commit epoch") {
-		t.Fatalf("missing commit error = %v", err)
-	}
-
-	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
-	if _, err := resolveReleaseEpoch(t.TempDir(), "1.2.3"); err == nil || !strings.Contains(err.Error(), "open CHANGELOG") {
-		t.Fatalf("missing changelog error = %v", err)
-	}
 	changelog := filepath.Join(root, "CHANGELOG.md")
 	if err := os.WriteFile(changelog, []byte("## [1.2.3] - 2026-08-09\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if epoch, err := resolveReleaseEpoch(root, "1.2.3"); err != nil || epoch != "1786233600" {
-		t.Fatalf("release epoch=%q error=%v", epoch, err)
+		t.Fatalf("local release epoch=%q error=%v", epoch, err)
+	}
+
+	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
+	if epoch, err := resolveReleaseEpoch(root, "1.2.3"); err != nil || epoch != "1786233600" {
+		t.Fatalf("tagged release epoch=%q error=%v", epoch, err)
 	}
 	if _, err := resolveReleaseEpoch(root, "9.9.9"); err == nil || !strings.Contains(err.Error(), "heading not found") {
 		t.Fatalf("missing heading error = %v", err)
+	}
+	if _, err := resolveReleaseEpoch(t.TempDir(), "1.2.3"); err == nil || !strings.Contains(err.Error(), "open CHANGELOG") {
+		t.Fatalf("missing changelog error=%v", err)
 	}
 }
 

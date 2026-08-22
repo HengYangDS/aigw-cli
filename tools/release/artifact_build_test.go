@@ -392,9 +392,24 @@ func TestReleaseBuildArgumentAndSPDXEdges(t *testing.T) {
 	if _, err := parseBuildArguments(nil); err == nil || !strings.Contains(err.Error(), "usage") {
 		t.Fatalf("argument error = %v", err)
 	}
-	if _, err := parseBuildArguments([]string{"1.2.3", "bad-epoch", "dist"}); err != nil {
-		t.Fatalf("argument parsing should defer semantic validation: %v", err)
+	if _, err := parseBuildArguments([]string{"1.2.3", "1784246400", "dist"}); err == nil || !strings.Contains(err.Error(), "usage") {
+		t.Fatalf("legacy explicit release inputs were accepted: %v", err)
 	}
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("## [1.2.3] - 2026-08-09\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(previous) })
 	for name, value := range map[string]string{
 		"AIGW_GITLAB_RELEASE_ORIGIN":     "https://gitlab.example",
 		"AIGW_GITLAB_RELEASE_REPOSITORY": "group/aigw-cli",
@@ -403,21 +418,43 @@ func TestReleaseBuildArgumentAndSPDXEdges(t *testing.T) {
 	} {
 		t.Setenv(name, value)
 	}
-	request, err := parseBuildArguments([]string{"1.2.3", "1784246400", "dist"})
+	request, err := parseBuildArguments([]string{"dist"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if request.Version != "1.2.3" || request.Output != "dist" || request.Root == "" {
+	requestRoot, requestRootErr := os.Stat(request.Root)
+	wantRoot, wantRootErr := os.Stat(root)
+	if request.Version != "1.2.3" || request.Epoch != "1786233600" || request.Output != "dist" || requestRootErr != nil || wantRootErr != nil || !os.SameFile(requestRoot, wantRoot) {
 		t.Fatalf("request = %#v", request)
 	}
+	missingVersion := t.TempDir()
+	if err := os.Chdir(missingVersion); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parseBuildArguments([]string{"dist"}); err == nil || !strings.Contains(err.Error(), "read VERSION") {
+		t.Fatalf("missing VERSION error = %v", err)
+	}
+	missingChronology := t.TempDir()
+	if err := os.WriteFile(filepath.Join(missingChronology, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(missingChronology); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parseBuildArguments([]string{"dist"}); err == nil || !strings.Contains(err.Error(), "open CHANGELOG") {
+		t.Fatalf("missing release chronology error = %v", err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
 
-	root := t.TempDir()
+	spdxRoot := t.TempDir()
 	instant := time.Unix(1784246400, 0).UTC()
-	missingCreation := filepath.Join(root, "missing-creation.json")
+	missingCreation := filepath.Join(spdxRoot, "missing-creation.json")
 	if err := os.WriteFile(missingCreation, []byte(`{"spdxVersion":"SPDX-2.3"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(root, "normalized.json")
+	target := filepath.Join(spdxRoot, "normalized.json")
 	if err := normalizeSPDX(missingCreation, target, "1.2.3", instant); err != nil {
 		t.Fatal(err)
 	}
@@ -425,19 +462,19 @@ func TestReleaseBuildArgumentAndSPDXEdges(t *testing.T) {
 	if err != nil || !bytes.Contains(data, []byte(`"creationInfo"`)) {
 		t.Fatalf("normalized SPDX = %s error=%v", data, err)
 	}
-	malformed := filepath.Join(root, "malformed.json")
+	malformed := filepath.Join(spdxRoot, "malformed.json")
 	if err := os.WriteFile(malformed, []byte("{"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := normalizeSPDX(malformed, target, "1.2.3", instant); err == nil || !strings.Contains(err.Error(), "decode") {
 		t.Fatalf("malformed SPDX error = %v", err)
 	}
-	if err := normalizeSPDX(filepath.Join(root, "absent.json"), target, "1.2.3", instant); err == nil || !strings.Contains(err.Error(), "read Syft") {
+	if err := normalizeSPDX(filepath.Join(spdxRoot, "absent.json"), target, "1.2.3", instant); err == nil || !strings.Contains(err.Error(), "read Syft") {
 		t.Fatalf("missing SPDX error = %v", err)
 	}
 
 	if runtime.GOOS != "windows" {
-		stage := filepath.Join(root, "stage")
+		stage := filepath.Join(spdxRoot, "stage")
 		if err := os.MkdirAll(filepath.Join(stage, "portable_linux_amd64"), 0o700); err != nil {
 			t.Fatal(err)
 		}

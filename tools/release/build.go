@@ -269,15 +269,23 @@ func normalizeSPDX(source, target, version string, instant time.Time) error {
 }
 
 func parseBuildArguments(args []string) (buildRequest, error) {
-	if len(args) != 3 {
-		return buildRequest{}, errors.New("usage: release build <version> <source-date-epoch> <output-directory>")
+	if len(args) != 1 {
+		return buildRequest{}, errors.New("usage: release build <output-directory>")
 	}
 	root, err := os.Getwd()
 	if err != nil {
 		return buildRequest{}, err
 	}
+	version, err := readProductVersion(root)
+	if err != nil {
+		return buildRequest{}, err
+	}
+	epoch, err := resolveReleaseEpoch(root, version)
+	if err != nil {
+		return buildRequest{}, err
+	}
 	return buildRequest{
-		Root: root, Version: args[0], Epoch: args[1], Output: args[2],
+		Root: root, Version: version, Epoch: epoch, Output: args[0],
 		GitLabOrigin: os.Getenv("AIGW_GITLAB_RELEASE_ORIGIN"), GitLabRepository: os.Getenv("AIGW_GITLAB_RELEASE_REPOSITORY"),
 		GitHubOrigin: os.Getenv("AIGW_GITHUB_RELEASE_ORIGIN"), GitHubRepository: os.Getenv("AIGW_GITHUB_RELEASE_REPOSITORY"),
 	}, nil
@@ -340,14 +348,6 @@ func readProductVersion(root string) (string, error) {
 }
 
 func resolveReleaseEpoch(root, version string) (string, error) {
-	if os.Getenv("CI_COMMIT_TAG") == "" {
-		command := exec.Command("git", "-C", root, "log", "-1", "--format=%ct")
-		output, err := command.Output()
-		if err != nil {
-			return "", fmt.Errorf("read source commit epoch: %w", err)
-		}
-		return strings.TrimSpace(string(output)), nil
-	}
 	file, err := os.Open(filepath.Join(root, "CHANGELOG.md"))
 	if err != nil {
 		return "", fmt.Errorf("open CHANGELOG.md: %w", err)

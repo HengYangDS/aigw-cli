@@ -111,8 +111,20 @@ func TestRunBuildUsesPublicArgumentContract(t *testing.T) {
 	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "group/aigw-cli")
 	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example")
 	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "org/aigw-cli")
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("invalid-version\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(previous) })
 	var output bytes.Buffer
-	err := run([]string{"build", "invalid-version", "1784246400", filepath.Join(t.TempDir(), "dist")}, &output)
+	err = run([]string{"build", filepath.Join(t.TempDir(), "dist")}, &output)
 	if err == nil || !strings.Contains(err.Error(), "invalid release version") {
 		t.Fatalf("build error = %v", err)
 	}
