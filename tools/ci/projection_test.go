@@ -105,6 +105,69 @@ func TestProjectionCommandUsesRepositoryRelativeModel(t *testing.T) {
 	}
 }
 
+func TestVerificationRoutingRunsOncePerProductCommit(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var gitlab struct {
+		Workflow struct {
+			Rules []struct {
+				If   string `yaml:"if"`
+				When string `yaml:"when"`
+			} `yaml:"rules"`
+		} `yaml:"workflow"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	wantGitLab := []struct {
+		If   string
+		When string
+	}{
+		{If: "$CI_COMMIT_TAG"},
+		{If: `$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"`},
+		{If: `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"`},
+		{If: `$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"`},
+		{When: "never"},
+	}
+	if len(gitlab.Workflow.Rules) != len(wantGitLab) {
+		t.Fatalf("GitLab verification routes = %#v, want %#v", gitlab.Workflow.Rules, wantGitLab)
+	}
+	for index, want := range wantGitLab {
+		got := gitlab.Workflow.Rules[index]
+		if got.If != want.If || got.When != want.When {
+			t.Fatalf("GitLab verification route %d = %#v, want %#v", index, got, want)
+		}
+	}
+
+	var github struct {
+		On struct {
+			Push struct {
+				Branches []string `yaml:"branches"`
+			} `yaml:"push"`
+			PullRequest struct {
+				Branches []string `yaml:"branches"`
+			} `yaml:"pull_request"`
+			WorkflowDispatch any `yaml:"workflow_dispatch"`
+		} `yaml:"on"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(github.On.Push.Branches, []string{"main"}) {
+		t.Fatalf("GitHub accepted-publication routes = %q, want [main]", github.On.Push.Branches)
+	}
+	if !slices.Equal(github.On.PullRequest.Branches, []string{"dev"}) {
+		t.Fatalf("GitHub review targets = %q, want [dev]", github.On.PullRequest.Branches)
+	}
+	if github.On.WorkflowDispatch == nil {
+		t.Fatal("GitHub verification lacks the explicit maintainer dispatch route")
+	}
+}
+
 func TestGitLabToolchainImagesYieldToTheRunnerShell(t *testing.T) {
 	root := t.TempDir()
 	model := filepath.Join(root, ".config", "ci", "pipeline.cue")

@@ -126,6 +126,13 @@ assets are never an input to the other peer's build.
 The CUE CI authority projects GitLab and GitHub workflow syntax from one logical
 quality graph. Product evidence and a Forge's runner capacity are distinct:
 
+- a developer proposal is verified on review into `dev`, not once on push and
+  again on review;
+- a maintainer publication verifies the exact accepted object on `main`, while
+  the equal `dev` ref remains a distribution peer rather than a second evidence
+  owner;
+- tags and explicit manual dispatches remain distinct release and diagnostic
+  lifecycle stages;
 - macOS, Linux, and Windows product support requires native evidence across the
   admitted aggregate evidence set;
 - a Forge without a qualified executor omits that job rather than creating an

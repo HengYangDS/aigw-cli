@@ -17,7 +17,9 @@ Generated files SHALL NOT own policy. Executable behavior SHALL remain in
 repository-owned commands. Projection drift SHALL fail before other source
 gates. Product targets, release assets, native acceptance, and developer-host
 compatibility SHALL be distinct claims. Cross-compilation SHALL prove only
-asset production and SHALL NOT substitute for native execution evidence.
+asset production and SHALL NOT substitute for native execution evidence. Each
+Forge SHALL execute the complete verification graph at most once for one
+product commit in one lifecycle stage.
 
 #### Scenario: a new repository owner is added
 
@@ -69,6 +71,23 @@ asset production and SHALL NOT substitute for native execution evidence.
 - **WHEN** its operating-system shell or locked toolchain cannot start
 - **THEN** the native gate fails explicitly
 - **AND** no cross-build or different operating system is reported as a substitute
+
+#### Scenario: a developer submits a proposal for review
+
+- **WHEN** a proposal targets `dev` through a pull request or merge request
+- **THEN** the review head SHA SHALL receive the complete verification graph
+- **AND** the proposal branch push SHALL NOT start a parallel copy of that graph.
+
+#### Scenario: a maintainer publishes an accepted product object
+
+- **WHEN** local accepted `main` is projected unchanged to peer `main` and `dev`
+- **THEN** the peer SHALL verify the `main` publication
+- **AND** the equal `dev` projection SHALL NOT start another copy of the graph.
+
+#### Scenario: explicit diagnosis is required
+
+- **WHEN** a maintainer explicitly dispatches verification
+- **THEN** the selected Forge SHALL run the complete graph for the selected ref.
 
 ### Requirement: portable repository text
 

@@ -33,3 +33,4 @@ trust, security posture, or another costly-to-reverse ruling.
 | [DR-0007](dr-0007-local-first-independent-forge-release.md) | Publish one local signed product object to independent Forge peers. |
 | [DR-0008](dr-0008-non-fetchable-product-build-identity.md) | Use a non-fetchable product build identity. |
 | [DR-0009](dr-0009-forward-only-current-product-semantics.md) | Keep only current product semantics. |
+| [DR-0010](dr-0010-lifecycle-scoped-ci-evidence.md) | Route one CI execution to each product lifecycle stage. |

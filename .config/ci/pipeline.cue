@@ -38,6 +38,11 @@ nativeToolchain: MISE_ENABLE_TOOLS:           "go,cue"
 sourceToolchain: MISE_ENABLE_TOOLS:           "go,node,cue,npm:@fission-ai/openspec,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
 releaseReadinessToolchain: MISE_ENABLE_TOOLS: "go"
 
+lifecycle: {
+	acceptedBranch: "main"
+	reviewBranch:   "dev"
+}
+
 // Product evidence and Forge execution capacity are separate facts. A Forge
 // projects only the native jobs it can execute; product-level evidence remains
 // complete across the independent publication planes.
@@ -191,9 +196,11 @@ gitlab: {
 		MISE_GLOBAL_CONFIG_FILE: "$CI_PROJECT_DIR/.config/ci/empty-mise-global.toml"
 	}
 	workflow: rules: [
-		{if: "$CI_COMMIT_BRANCH =~ /^release\\// && !$CI_COMMIT_TAG", when: "never"},
-		{if: "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\\//", when: "never"},
-		{when: "always"},
+		{if: "$CI_COMMIT_TAG"},
+		{if: "$CI_PIPELINE_SOURCE == \"merge_request_event\" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.reviewBranch)\""},
+		{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\""},
+		{if: "$CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\""},
+		{when: "never"},
 	]
 	stages: ["verify", "package", "publish", "release"]
 	".linux-toolchain": {
@@ -269,8 +276,8 @@ githubVerify: {
 		GIT_CONFIG_VALUE_0: "main"
 	}
 	"on": {
-		push: branches: ["main", "dev", "proposal/**"]
-		"pull_request": branches: ["main", "dev"]
+		push: branches: [lifecycle.acceptedBranch]
+		"pull_request": branches: [lifecycle.reviewBranch]
 		"workflow_dispatch": {}
 	}
 	permissions: contents: "read"
