@@ -1,0 +1,29 @@
+schema_version = 1
+id = "change:rc92-release-closure"
+intent = "Publish the exact accepted post-rc.91 product as rc.92."
+subjects = ["repository:aigw-cli"]
+scope = [
+  "VERSION",
+  "CHANGELOG.md",
+  "openspec/changes/rc92-release-closure/**",
+]
+invariants = [
+  "version_ssot_remains_VERSION",
+  "published_chronology_remains_semver_ordered",
+  "product_behavior_remains_unchanged",
+  "forge_peers_receive_identical_product_objects",
+]
+acceptance = [
+  "source_gate_passes",
+  "release_matrix_is_reproducible",
+  "release_change_is_archived",
+]
+risks = []
+authority_refs = [
+  "VERSION",
+  "CHANGELOG.md",
+  "docs/governance/change-and-release-policy.md",
+  "docs/evidence/release-evidence.md",
+]
+hypotheses = []
+dependencies = []

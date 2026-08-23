@@ -8,6 +8,17 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.92] - 2026-08-23
+
+### Fixed
+
+- Derive reproducible release timestamps from repository history instead of an
+  ambient or duplicated build value.
+- Route hosted evidence by review, accepted-branch, and release lifecycle stage
+  so one product revision does not run redundant copies of the same graph.
+- Keep archived OpenSpec chronology and temporary Git policy fixtures isolated
+  from host state, hooks, and signing configuration.
+
 ## [0.1.0-rc.91] - 2026-08-22
 
 ### Added
