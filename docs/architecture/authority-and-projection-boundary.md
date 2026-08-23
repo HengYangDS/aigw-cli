@@ -93,7 +93,10 @@ A newer writer is never overwritten.
 
 Codex CLI and Desktop share one Codex Home. AIGW owns only its marked provider
 and model projection, sidecar, and native credential binding. Dry-run exposes
-the plan without reading credentials or changing files.
+the plan without reading credentials or changing files. A Codex-scoped Profile
+may select one explicit native provider identity. AIGW then projects that exact
+table with the Account endpoint and an absolute command-authentication helper;
+the Account still owns the Token and Codex still owns conversation state.
 
 ### Claude Code
 

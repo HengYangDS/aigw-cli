@@ -188,7 +188,7 @@ dumps, or unrelated usage text.
 | Entity | Owns | Does not own |
 | --- | --- | --- |
 | Account | Provider endpoints and one logical Token boundary | Client selection |
-| Profile | `account + client + model` | Endpoint credentials |
+| Profile | `account + client + model` and an optional Codex-native provider identity | Endpoint credentials |
 | Route | Default or client-specific Profile selection | Provider fallback |
 | Adapter | One native client projection | Another client's state |
 
@@ -223,6 +223,28 @@ provider name and are not configured by the current release.
 AIGW never edits Codex history or Desktop-only GUI state. A loopback endpoint is
 an ordinary Account endpoint; AIGW does not start, stop, configure, or diagnose
 the process listening there.
+
+### Native Codex providers
+
+Most Codex Profiles omit `model_provider` and use AIGW's canonical provider
+projection. When an endpoint requires its own Codex-native provider identity,
+declare it on that Codex Profile:
+
+```toml
+[profiles.aws-codex]
+label = "AWS Codex"
+account = "aws"
+client = "codex"
+model_provider = "amazon-bedrock"
+
+[profiles.aws-codex.models]
+codex = "openai.gpt-5.6-sol"
+```
+
+AIGW then projects the Account endpoint and an absolute `aigw credential codex`
+authentication command into the shared Codex Home. The Token remains in AIGW's
+selected Token store. The field is Codex-only; it does not install or identify
+a proxy and it never changes Codex conversation state.
 
 ## Team rollout
 

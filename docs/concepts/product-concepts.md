@@ -16,7 +16,7 @@ flowchart LR
 | Entity | Meaning | Cardinal rule |
 | --- | --- | --- |
 | Account | One provider endpoint and logical Token boundary | Token belongs to the Account, not a Profile |
-| Profile | One `account + client + model` choice | Client scope is explicit |
+| Profile | One `account + client + model` choice and optional Codex-native provider identity | Client scope is explicit |
 | Route | Default or client-specific Profile selection | No hidden provider fallback |
 | Adapter | Projection into one native client | Never writes another client's surface |
 
@@ -41,7 +41,10 @@ the reviewed profile IDs and model IDs; operators select those IDs directly
 instead of copying a second illustrative configuration.
 
 Profile and model IDs are transparent operator-defined strings. AIGW does not
-infer a provider, capability, or version policy from their spelling.
+infer a provider, capability, or version policy from their spelling. A
+Codex-scoped Profile may explicitly select one safe `model_provider`; omission
+selects the canonical `aigw` provider. The selection is Profile-owned and never
+falls back from Account metadata.
 
 ## Route
 
@@ -59,7 +62,7 @@ service or model.
 
 | Adapter | Projection |
 | --- | --- |
-| Codex | AIGW-marked provider/model configuration and native credential binding |
+| Codex | AIGW-marked provider/model configuration; canonical login or explicit command authentication |
 | Claude Code | Official user-settings endpoint/model projection and credential helper |
 
 Adapters do not own provider behavior. Missing clients remain untouched.

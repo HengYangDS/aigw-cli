@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-24
+goal: Let one Codex-scoped Profile select one native model provider while AIGW
+  remains the sole owner of Account credentials and client projection.

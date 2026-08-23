@@ -10,7 +10,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	configuration "aigw-cli/internal/configuration"
@@ -45,6 +47,7 @@ type codexState struct {
 	CatalogHash            string          `json:"catalog_hash,omitempty"`
 	CatalogClientVersion   string          `json:"catalog_client_version,omitempty"`
 	CatalogClientSHA256    string          `json:"catalog_client_sha256,omitempty"`
+	ProjectedProvider      string          `json:"projected_provider,omitempty"`
 	ProjectionMode         string          `json:"projection_mode,omitempty"`
 	WriterID               string          `json:"writer_id,omitempty"`
 	TransactionID          string          `json:"transaction_id,omitempty"`
@@ -111,6 +114,13 @@ func isExactTruncatedCodexProjection(current string, stateData []byte, runtime c
 // AIGW profile. It never changes the target; callers can safely use it for
 // diagnostics before offering an explicit sync.
 func ValidateConfig(path string, runtime configuration.Runtime) error {
+	if codexRuntimeProvider(runtime) != configuration.ModelProviderAIGW && runtime.CredentialCommand == "" {
+		executable, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("resolve AIGW executable: %w", err)
+		}
+		runtime.CredentialCommand = executable
+	}
 	endpoint, err := codexEndpoint(runtime)
 	if err != nil {
 		return err
@@ -135,13 +145,14 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 	if err := validateCodexStateAttribution(state); err != nil {
 		return err
 	}
-	if isManagedSelection(modelProviderLine.FindString(text), "model_provider", "aigw") {
+	provider := codexStateProvider(state)
+	if isManagedSelection(modelProviderLine.FindString(text), "model_provider", provider) {
 		if model := runtime.Model; model != "" {
 			if !isManagedSelection(modelLine.FindString(text), "model", strings.ReplaceAll(model, "\"", "'")) {
 				return fmt.Errorf("Codex config model selection does not match profile %q", runtime.ProfileID)
 			}
 		}
-		actualBlock, err := codexManagedBlockIn(text)
+		actualBlock, err := codexManagedBlockForProviderIn(text, provider)
 		if err != nil {
 			return err
 		}
@@ -269,7 +280,8 @@ func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot, run
 // ownership marker omitted. It returns an in-memory completion so the caller's
 // normal atomic projection transaction remains the sole write path.
 func completeExactTruncatedCodexProjection(current string, state codexState, runtime configuration.Runtime, expectedBlock string) (string, bool) {
-	if !isManagedSelection(modelProviderLine.FindString(current), "model_provider", "aigw") {
+	provider := codexStateProvider(state)
+	if !isManagedSelection(modelProviderLine.FindString(current), "model_provider", provider) {
 		return "", false
 	}
 	if runtime.Model != "" && !isManagedSelection(modelLine.FindString(current), "model", strings.ReplaceAll(runtime.Model, "\"", "'")) {
@@ -279,7 +291,7 @@ func completeExactTruncatedCodexProjection(current string, state codexState, run
 	if marker < 0 {
 		return "", false
 	}
-	providerRel := strings.Index(current[marker:], "[model_providers.aigw]")
+	providerRel := strings.Index(current[marker:], codexProviderTable(provider))
 	if providerRel < 0 {
 		return "", false
 	}
@@ -309,19 +321,32 @@ func codexEndpoint(runtime configuration.Runtime) (string, error) {
 	if runtime.Endpoint == "" {
 		return "", fmt.Errorf("profile %q has no Codex endpoint", runtime.ProfileID)
 	}
+	if codexRuntimeProvider(runtime) != configuration.ModelProviderAIGW {
+		if runtime.CredentialCommand == "" {
+			return "", fmt.Errorf("profile %q native Codex provider requires a credential command", runtime.ProfileID)
+		}
+		if !filepath.IsAbs(runtime.CredentialCommand) {
+			return "", fmt.Errorf("profile %q native Codex provider credential command must be absolute", runtime.ProfileID)
+		}
+	}
 	return runtime.Endpoint, nil
 }
 
 func projectCodex(original, block, model, catalogPath string) (string, error) {
+	return projectCodexForProvider(original, block, model, catalogPath, configuration.ModelProviderAIGW)
+}
+
+func projectCodexForProvider(original, block, model, catalogPath, provider string) (string, error) {
 	base, err := projectCodexScheduler(original)
 	if err != nil {
 		return "", err
 	}
 	base = strings.TrimRight(base, "\r\n")
+	selection := fmt.Sprintf(`model_provider = "%s" # managed by AIGW`, provider)
 	if modelProviderLine.MatchString(base) {
-		base = modelProviderLine.ReplaceAllString(base, codexSelection)
+		base = modelProviderLine.ReplaceAllString(base, selection)
 	} else {
-		base = codexSelection + "\n" + base
+		base = selection + "\n" + base
 	}
 	if model != "" {
 		selection := fmt.Sprintf("model = \"%s\" # managed by AIGW", strings.ReplaceAll(model, `"`, `'`))
@@ -356,6 +381,16 @@ func projectCodex(original, block, model, catalogPath string) (string, error) {
 }
 
 func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
+	provider := codexRuntimeProvider(runtime)
+	if provider != configuration.ModelProviderAIGW {
+		return codexProviderTable(provider) + "\n" +
+			fmt.Sprintf("base_url = \"%s\"\n", endpoint) +
+			"wire_api = \"responses\"\n\n" +
+			"[model_providers." + provider + ".auth]\n" +
+			fmt.Sprintf("command = %s\n", strconv.Quote(runtime.CredentialCommand)) +
+			"args = [\"credential\", \"codex\"]\n" +
+			codexEnd + "\n"
+	}
 	name := "AIGW: " + runtime.ProfileLabel
 	name = strings.ReplaceAll(name, `"`, `'`)
 	return "[model_providers.aigw]\n" +
@@ -367,10 +402,11 @@ func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 }
 
 func removeCodexProjection(current string, state codexState) (string, error) {
-	if !modelProviderLine.MatchString(current) || !isManagedSelection(modelProviderLine.FindString(current), "model_provider", "aigw") {
+	provider := codexStateProvider(state)
+	if !modelProviderLine.MatchString(current) || !isManagedSelection(modelProviderLine.FindString(current), "model_provider", provider) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits")
 	}
-	block, err := codexManagedBlockIn(current)
+	block, err := codexManagedBlockForProviderIn(current, provider)
 	if err != nil {
 		return "", err
 	}
@@ -380,7 +416,7 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 	if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, current) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
 	}
-	providerStart := strings.Index(current, "[model_providers.aigw]")
+	providerStart := strings.Index(current, codexProviderTable(provider))
 	providerEnd := providerStart + len(block)
 	base := strings.TrimRight(current[:providerStart]+current[providerEnd:], "\r\n")
 	base = removeCodexBeginMarker(base)
@@ -429,11 +465,15 @@ func isManagedAssignment(line, key, encoded string) bool {
 }
 
 func codexManagedBlockIn(current string) (string, error) {
+	return codexManagedBlockForProviderIn(current, configuration.ModelProviderAIGW)
+}
+
+func codexManagedBlockForProviderIn(current, provider string) (string, error) {
 	marker := strings.Index(current, codexBegin)
 	if marker < 0 {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block is missing")
 	}
-	providerRel := strings.Index(current[marker:], "[model_providers.aigw]")
+	providerRel := strings.Index(current[marker:], codexProviderTable(provider))
 	if providerRel < 0 {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider table is missing")
 	}
@@ -450,6 +490,24 @@ func codexManagedBlockIn(current string) (string, error) {
 		end++
 	}
 	return current[start:end], nil
+}
+
+func codexRuntimeProvider(runtime configuration.Runtime) string {
+	if runtime.ModelProvider == "" {
+		return configuration.ModelProviderAIGW
+	}
+	return runtime.ModelProvider
+}
+
+func codexStateProvider(state codexState) string {
+	if state.ProjectedProvider == "" {
+		return configuration.ModelProviderAIGW
+	}
+	return state.ProjectedProvider
+}
+
+func codexProviderTable(provider string) string {
+	return "[model_providers." + provider + "]"
 }
 
 func managedBlockHashMatches(stateHash, block string) bool {

@@ -1,0 +1,42 @@
+schema_version = 2
+id = "change:codex-model-provider"
+intent = "Allow each Codex Profile to project one explicit native model_provider without coupling AIGW to a proxy implementation."
+subjects = ["repository:aigw-cli"]
+scope = [
+  "CHANGELOG.md",
+  "README.md",
+  "docs/**",
+  "internal/codex/**",
+  "internal/configuration/**",
+  "internal/synchronization/**",
+  "openspec/changes/archive/*-codex-model-provider/**",
+  "openspec/changes/codex-model-provider/**",
+  "openspec/specs/product-control-plane/**",
+]
+invariants = [
+  "aigw_owns_only_provider_account_profile_route_and_client_projection",
+  "codex_private_session_state_is_never_read_or_modified",
+  "one_profile_projects_one_explicit_native_codex_provider_identity",
+  "proxy_endpoints_remain_ordinary_account_endpoints",
+]
+acceptance = [
+  "default_profiles_preserve_the_canonical_aigw_provider_projection",
+  "explicit_codex_provider_names_project_and_reconcile_without_parallel_generic_blocks",
+  "profile_validation_rejects_invalid_provider_names_and_non_codex_use",
+  "source_and_cross_platform_gates_pass",
+]
+risks = [
+  "invalid_operator_names_escape_toml_table_syntax",
+  "provider_identity_drift_leaves_stale_codex_tables",
+]
+authority_refs = [
+  ".ethos/profile.toml",
+  "AGENTS.md",
+  "docs/architecture/authority-and-projection-boundary.md",
+]
+predecessors = []
+selected_attestations = []
+dependencies = []
+hypotheses = []
+falsifiers = []
+experiment_protocols = []

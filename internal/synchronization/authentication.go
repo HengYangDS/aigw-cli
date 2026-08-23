@@ -29,12 +29,15 @@ func (s Synchronizer) BindAuthenticationTargets(ctx context.Context, cfg configu
 	if !adapter.Enabled {
 		return fmt.Errorf("Codex authentication requires an enabled adapter")
 	}
-	if adapter.Executable == "" || s.Runner == nil {
-		return fmt.Errorf("Codex authentication requires an enabled adapter executable")
-	}
 	runtime, _, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		return err
+	}
+	if runtime.ModelProvider != configuration.ModelProviderAIGW {
+		return nil
+	}
+	if adapter.Executable == "" || s.Runner == nil {
+		return fmt.Errorf("Codex authentication requires an enabled adapter executable")
 	}
 	if s.Secrets == nil {
 		return fmt.Errorf("Token for the Codex route is unavailable: secret store is unavailable")
@@ -85,6 +88,18 @@ func AuthenticationChanged(before, after configuration.Config) bool {
 		return false
 	}
 	if !beforeAdapter.Enabled || !slices.Equal(beforeAdapter.Targets, afterAdapter.Targets) {
+		runtime, _, err := after.ResolveRuntime(configuration.ClientCodex, "")
+		return err != nil || runtime.ModelProvider == configuration.ModelProviderAIGW
+	}
+	beforeRuntime, _, beforeErr := before.ResolveRuntime(configuration.ClientCodex, "")
+	afterRuntime, _, afterErr := after.ResolveRuntime(configuration.ClientCodex, "")
+	if afterErr != nil {
+		return true
+	}
+	if afterRuntime.ModelProvider != configuration.ModelProviderAIGW {
+		return false
+	}
+	if beforeErr != nil || beforeRuntime.ModelProvider != configuration.ModelProviderAIGW {
 		return true
 	}
 	beforeAccount, beforeOK := RouteAccount(before)

@@ -10,6 +10,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Added
 
+- Allow a Codex-scoped Profile to select one explicit native
+  `model_provider`, projected transactionally with command-backed AIGW Token
+  retrieval while preserving the canonical `aigw` default.
 - Persist Account Tokens in an owner-only local store on macOS or Linux when
   the native credential service is unavailable, while keeping Windows
   Credential Manager as the native default and environment Tokens read-only.

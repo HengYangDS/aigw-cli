@@ -218,8 +218,13 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 	// the only proof of which catalog bytes are AIGW's own, and therefore the only
 	// safe authorization to remove the file.
 	ownedCatalogHash := state.CatalogHash
-	catalog := codexCatalogProjection(target, runtime.Model, base, state, catalogSnapshot)
-	projection, err := projectCodex(base, block, runtime.Model, catalog.path)
+	provider := codexRuntimeProvider(runtime)
+	catalogModel := runtime.Model
+	if provider != configuration.ModelProviderAIGW {
+		catalogModel = ""
+	}
+	catalog := codexCatalogProjection(target, catalogModel, base, state, catalogSnapshot)
+	projection, err := projectCodexForProvider(base, block, runtime.Model, catalog.path, provider)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -230,6 +235,11 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 		return codexPreparedTarget{}, err
 	}
 	state.ManagedBlockHash = hashText(block)
+	if provider == configuration.ModelProviderAIGW {
+		state.ProjectedProvider = ""
+	} else {
+		state.ProjectedProvider = provider
+	}
 	state.ProjectedSchedulerHash = codexSchedulerHash(string(projected))
 	state.ProjectionMode = ProjectionFullSelection
 	state.WriterID = ProjectionWriterID

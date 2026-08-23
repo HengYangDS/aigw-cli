@@ -80,6 +80,7 @@ func (s Synchronizer) reconciliationInputs(before, after configuration.Config) (
 	if err != nil {
 		return nil, nil, configuration.Runtime{}, err
 	}
+	runtime.CredentialCommand = s.AIGWExecutable
 	return beforeRefs, afterRefs, runtime, nil
 }
 
@@ -150,7 +151,8 @@ func ProjectionChanged(before, after configuration.Config) bool {
 	return beforeRuntime.ProfileID != afterRuntime.ProfileID ||
 		beforeRuntime.ProfileLabel != afterRuntime.ProfileLabel ||
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
-		beforeRuntime.Model != afterRuntime.Model
+		beforeRuntime.Model != afterRuntime.Model ||
+		beforeRuntime.ModelProvider != afterRuntime.ModelProvider
 }
 
 // ClaudeProjectionChanged reports whether a transition changes the persistent

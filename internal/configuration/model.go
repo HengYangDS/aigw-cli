@@ -12,12 +12,14 @@ import (
 )
 
 const (
-	ConfigVersion = 2
-	ClientClaude  = "claude"
-	ClientCodex   = "codex"
+	ConfigVersion     = 2
+	ClientClaude      = "claude"
+	ClientCodex       = "codex"
+	ModelProviderAIGW = "aigw"
 )
 
 var profileNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+var modelProviderPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 
 type Config struct {
 	Version  int                      `toml:"version" json:"version"`
@@ -35,12 +37,13 @@ type Account struct {
 }
 
 type Profile struct {
-	ID      string `toml:"-" json:"id,omitempty"`
-	Label   string `toml:"label" json:"label"`
-	Purpose string `toml:"purpose,omitempty" json:"purpose,omitempty"`
-	Account string `toml:"account" json:"account"`
-	Client  string `toml:"client,omitempty" json:"client,omitempty"`
-	Models  Models `toml:"models,omitempty" json:"models,omitempty"`
+	ID            string `toml:"-" json:"id,omitempty"`
+	Label         string `toml:"label" json:"label"`
+	Purpose       string `toml:"purpose,omitempty" json:"purpose,omitempty"`
+	Account       string `toml:"account" json:"account"`
+	Client        string `toml:"client,omitempty" json:"client,omitempty"`
+	ModelProvider string `toml:"model_provider,omitempty" json:"model_provider,omitempty"`
+	Models        Models `toml:"models,omitempty" json:"models,omitempty"`
 }
 
 // Models maps an admitted client ID to the upstream model ID it should use.
@@ -48,13 +51,15 @@ type Profile struct {
 type Models map[string]string
 
 type Runtime struct {
-	ProfileID    string `json:"profile_id"`
-	ProfileLabel string `json:"profile_label"`
-	AccountID    string `json:"account_id"`
-	AccountLabel string `json:"account_label"`
-	Client       string `json:"client"`
-	Endpoint     string `json:"endpoint"`
-	Model        string `json:"model,omitempty"`
+	ProfileID         string `json:"profile_id"`
+	ProfileLabel      string `json:"profile_label"`
+	AccountID         string `json:"account_id"`
+	AccountLabel      string `json:"account_label"`
+	Client            string `json:"client"`
+	Endpoint          string `json:"endpoint"`
+	Model             string `json:"model,omitempty"`
+	ModelProvider     string `json:"model_provider"`
+	CredentialCommand string `json:"-"`
 }
 
 type AccountProbe struct {
@@ -353,6 +358,14 @@ func (c Config) Validate() error {
 		if profile.Client != "" && !IsAdmittedClient(profile.Client) {
 			return fmt.Errorf("profile %q has unknown client %q", name, profile.Client)
 		}
+		if profile.ModelProvider != "" {
+			if !modelProviderPattern.MatchString(profile.ModelProvider) {
+				return fmt.Errorf("profile %q has invalid model provider %q", name, profile.ModelProvider)
+			}
+			if profile.Client != ClientCodex {
+				return fmt.Errorf("profile %q model_provider is only supported for codex-scoped profiles", name)
+			}
+		}
 		for client, model := range profile.Models {
 			if !IsAdmittedClient(client) {
 				return fmt.Errorf("profile %q defines a model for unadmitted client %q", name, client)
@@ -379,6 +392,16 @@ func (c Config) Validate() error {
 		}
 	}
 	return nil
+}
+
+func resolvedModelProvider(client string, profile Profile) string {
+	if client != ClientCodex {
+		return ""
+	}
+	if profile.ModelProvider != "" {
+		return profile.ModelProvider
+	}
+	return ModelProviderAIGW
 }
 
 func validateEndpoints(owner, name string, endpoints Endpoints) error {
@@ -443,13 +466,14 @@ func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, bool, e
 		return Runtime{}, inherited, err
 	}
 	return Runtime{
-		ProfileID:    name,
-		ProfileLabel: profile.Label,
-		AccountID:    account.ID,
-		AccountLabel: account.Label,
-		Client:       client,
-		Endpoint:     endpoint,
-		Model:        profile.ModelFor(client),
+		ProfileID:     name,
+		ProfileLabel:  profile.Label,
+		AccountID:     account.ID,
+		AccountLabel:  account.Label,
+		Client:        client,
+		Endpoint:      endpoint,
+		Model:         profile.ModelFor(client),
+		ModelProvider: resolvedModelProvider(client, profile),
 	}, inherited, nil
 }
 

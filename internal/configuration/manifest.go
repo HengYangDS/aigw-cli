@@ -225,7 +225,7 @@ func equivalentProbe(left, right *AccountProbe) bool {
 func normalizeEndpoint(value string) string { return strings.TrimRight(strings.TrimSpace(value), "/") }
 
 func equivalentProfile(left, right Profile) bool {
-	if left.Label != right.Label || left.Purpose != right.Purpose || left.Account != right.Account || left.Client != right.Client || len(left.Models) != len(right.Models) {
+	if left.Label != right.Label || left.Purpose != right.Purpose || left.Account != right.Account || left.Client != right.Client || left.ModelProvider != right.ModelProvider || len(left.Models) != len(right.Models) {
 		return false
 	}
 	for client, model := range left.Models {

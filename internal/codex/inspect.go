@@ -58,7 +58,9 @@ func InspectConfig(path string) (Inspection, error) {
 	}
 	inspection.AttributionState = "recognized"
 	inspection.ProjectionMode = state.ProjectionMode
-	block, err := codexManagedBlockIn(text)
+	provider := codexStateProvider(state)
+	inspection.DiskSelection = classifyCodexDiskSelectionForProvider(text, provider)
+	block, err := codexManagedBlockForProviderIn(text, provider)
 	if err != nil {
 		inspection.State = "stale-sidecar"
 		return inspection, nil
@@ -78,11 +80,15 @@ func InspectConfig(path string) (Inspection, error) {
 }
 
 func classifyCodexDiskSelection(text string) string {
+	return classifyCodexDiskSelectionForProvider(text, "aigw")
+}
+
+func classifyCodexDiskSelectionForProvider(text, provider string) string {
 	line := modelProviderLine.FindString(text)
 	if line == "" {
 		return "unset"
 	}
-	if isManagedSelection(line, "model_provider", "aigw") {
+	if isManagedSelection(line, "model_provider", provider) {
 		return "aigw-managed"
 	}
 	_, value, _ := strings.Cut(line, "=")
