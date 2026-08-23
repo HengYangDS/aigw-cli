@@ -11,7 +11,8 @@ AIGW SHALL model Accounts, Profiles, Routes, protocol endpoints, and native
 client model choices without provider identity hacks, named gateway products,
 or deployment topology. Configuration manifests MUST remain credential-free
 and SHALL describe available capability rather than requiring every Account to
-be connected during import.
+be connected during import. Diagnostics SHALL require a credential only for an
+Account selected by an active admitted-client Route.
 
 #### Scenario: Import a multi-provider team catalogue
 
@@ -19,6 +20,19 @@ be connected during import.
 - **THEN** AIGW SHALL preserve all reviewed public capability
 - **AND** SHALL allow zero or any subset of Account Tokens to be connected
 - **AND** SHALL NOT require an unselected provider or absent client.
+
+#### Scenario: Diagnose a partially connected team catalogue
+
+- **WHEN** a reviewed catalogue contains multiple Accounts
+- **AND** every Account selected by an active client Route has its Token
+- **THEN** `aigw doctor` SHALL report the credential state as healthy
+- **AND** SHALL NOT fail for an unselected Account whose Token is absent.
+
+#### Scenario: Diagnose a selected Account without a Token
+
+- **WHEN** an active client Route selects an Account whose Token is absent
+- **THEN** `aigw doctor` SHALL report that Account as unhealthy
+- **AND** SHALL provide the account-scoped rotation action.
 
 #### Scenario: Add an ordinary provider
 

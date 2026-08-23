@@ -160,6 +160,26 @@ func (c Config) RouteUsesAccount(client, accountID string) bool {
 	return err == nil && runtime.AccountID != "" && runtime.AccountID == accountID
 }
 
+// RoutedAccountIDs returns the stable set of Accounts selected by resolvable
+// admitted-client Routes. Catalogue Accounts that no active Route selects are
+// capabilities available for later connection, not current runtime
+// dependencies.
+func (c Config) RoutedAccountIDs() []string {
+	selected := map[string]bool{}
+	for _, client := range AdmittedClientIDs() {
+		runtime, _, err := c.ResolveRuntime(client, "")
+		if err == nil && runtime.AccountID != "" {
+			selected[runtime.AccountID] = true
+		}
+	}
+	accountIDs := make([]string, 0, len(selected))
+	for accountID := range selected {
+		accountIDs = append(accountIDs, accountID)
+	}
+	sort.Strings(accountIDs)
+	return accountIDs
+}
+
 // SelectRoutesForConnectedAccounts preserves the complete capability catalogue
 // while choosing routes that can use one of the locally connected Accounts.
 // The existing recommendation wins whenever it is already usable; otherwise

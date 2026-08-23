@@ -117,7 +117,7 @@ func Collect(deps Dependencies) []Check {
 	} else {
 		checks = append(checks, Check{"config", true, "valid", ""})
 	}
-	for _, name := range sortedDoctorAccountNames(cfg) {
+	for _, name := range cfg.RoutedAccountIDs() {
 		ok := deps.Secrets.Has(name)
 		fix := ""
 		if !ok {
@@ -183,15 +183,6 @@ func codexProjectionChecks(cfg configuration.Config) []Check {
 		checks = append(checks, check)
 	}
 	return checks
-}
-
-func sortedDoctorAccountNames(cfg configuration.Config) []string {
-	names := make([]string, 0, len(cfg.Accounts))
-	for name := range cfg.Accounts {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
 }
 
 // Label maps a diagnostic identity to a stable human label.

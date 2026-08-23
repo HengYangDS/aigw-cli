@@ -64,6 +64,15 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 		journey.requireClaudeProjection()
 		journey.run("check")
+		var diagnosis struct {
+			OK bool `json:"ok"`
+		}
+		if err := json.Unmarshal(journey.run("doctor", "--json"), &diagnosis); err != nil {
+			t.Fatal(err)
+		}
+		if !diagnosis.OK {
+			t.Fatal("doctor rejected a healthy partially connected catalogue")
+		}
 		journey.uninstallAndRequireOwnedFilesAbsent()
 	})
 

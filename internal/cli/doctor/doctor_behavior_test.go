@@ -205,10 +205,6 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	if check.OK || check.Detail != "enabled but no Codex config target is configured" || check.Fix != "run `aigw repair`" {
 		t.Fatalf("Codex adapter check = %#v", check)
 	}
-	if got := sortedDoctorAccountNames(configuration.Config{Accounts: map[string]configuration.Account{"z": {}, "a": {}}}); strings.Join(got, ",") != "a,z" {
-		t.Fatalf("sorted accounts = %v", got)
-	}
-
 	bad := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	if err := os.MkdirAll(bad.Path(), 0o700); err != nil {
 		t.Fatal(err)
@@ -216,6 +212,42 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	broken := Collect(Dependencies{Config: bad, Secrets: secrets.NewMemoryStore()})
 	if check := findCheck(t, broken, "config"); check.OK || !strings.Contains(check.Fix, bad.Path()) {
 		t.Fatalf("config check = %#v", check)
+	}
+}
+
+func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.T) {
+	cfg := validDoctorConfig()
+	cfg.Accounts["optional"] = configuration.Account{
+		Label: "Optional",
+		Endpoints: configuration.Endpoints{
+			Anthropic:       "https://optional.test",
+			OpenAIResponses: "https://optional.test/v1",
+		},
+	}
+	cfg.Profiles["optional"] = configuration.Profile{
+		Label:   "Optional",
+		Account: "optional",
+		Models: configuration.Models{
+			configuration.ClientClaude: "claude-optional",
+			configuration.ClientCodex:  "gpt-optional",
+		},
+	}
+	deps, _, secretStore := doctorDependencies(t, cfg)
+	if err := secretStore.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+
+	checks := Collect(deps)
+	if !AllOK(checks) {
+		t.Fatalf("optional unconnected Account made doctor unhealthy: %#v", checks)
+	}
+	if check := findCheck(t, checks, "secret:team"); !check.OK {
+		t.Fatalf("selected Account secret = %#v", check)
+	}
+	for _, check := range checks {
+		if check.Name == "secret:optional" {
+			t.Fatalf("unselected Account received a required secret check: %#v", check)
+		}
 	}
 }
 

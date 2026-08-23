@@ -8,6 +8,11 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Diagnose credentials only for Accounts selected by active client Routes, so
+  optional providers in the reviewed team catalogue can remain unconnected.
+
 ## [0.1.0-rc.92] - 2026-08-23
 
 ### Fixed

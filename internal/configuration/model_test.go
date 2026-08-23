@@ -450,6 +450,21 @@ func TestSelectRoutesForConnectedAccountsKeepsCapabilityAndChoosesUsableProfiles
 	}
 }
 
+func TestRoutedAccountIDsReturnsUniqueStableActiveAccounts(t *testing.T) {
+	cfg := NewConfig()
+	cfg.Accounts["alpha"] = Account{Label: "Alpha", Endpoints: Endpoints{Anthropic: "https://alpha.test", OpenAIResponses: "https://alpha.test/v1"}}
+	cfg.Accounts["optional"] = Account{Label: "Optional", Endpoints: Endpoints{OpenAIResponses: "https://optional.test/v1"}}
+	cfg.Profiles["alpha"] = Profile{Label: "Alpha", Account: "alpha", Models: Models{ClientClaude: "claude-test", ClientCodex: "gpt-test"}}
+	cfg.Profiles["optional"] = Profile{Label: "Optional", Account: "optional", Client: ClientCodex, Models: Models{ClientCodex: "gpt-optional"}}
+	cfg.Routes.Default = "alpha"
+	cfg.Routes.Overrides[ClientClaude] = "alpha"
+	cfg.Routes.Overrides[ClientCodex] = "alpha"
+
+	if got := cfg.RoutedAccountIDs(); !reflect.DeepEqual(got, []string{"alpha"}) {
+		t.Fatalf("RoutedAccountIDs() = %#v", got)
+	}
+}
+
 func TestSelectRoutesForConnectedAccountFallsBackToAnyUsableClient(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["claude-only"] = Account{Label: "Claude only", Endpoints: Endpoints{Anthropic: "https://claude.test"}}
