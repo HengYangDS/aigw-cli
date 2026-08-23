@@ -1,0 +1,33 @@
+schema_version = 2
+id = "change:rc93-doctor-connected-accounts-release"
+intent = "Publish the exact routed-account diagnostic correction as rc.93."
+subjects = ["repository:aigw-cli"]
+scope = [
+  "CHANGELOG.md",
+  "VERSION",
+  "openspec/changes/archive/*-rc93-doctor-connected-accounts-release/**",
+  "openspec/changes/rc93-doctor-connected-accounts-release/**",
+]
+invariants = [
+  "forge_peers_receive_identical_product_objects",
+  "published_chronology_remains_semver_ordered",
+  "version_ssot_remains_VERSION",
+]
+acceptance = [
+  "release_change_is_archived",
+  "release_matrix_is_reproducible",
+  "source_gate_passes",
+]
+risks = []
+authority_refs = [
+  "CHANGELOG.md",
+  "VERSION",
+  "docs/evidence/release-evidence.md",
+  "docs/governance/change-and-release-policy.md",
+]
+predecessors = []
+selected_attestations = []
+dependencies = []
+hypotheses = []
+falsifiers = []
+experiment_protocols = []

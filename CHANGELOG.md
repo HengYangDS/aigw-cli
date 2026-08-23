@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.93] - 2026-08-23
+
 ### Fixed
 
 - Diagnose credentials only for Accounts selected by active client Routes, so
