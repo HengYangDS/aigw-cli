@@ -14,5 +14,6 @@
 ## 3. Proof and closeout
 
 - [x] 3.1 Run the affected Go tests with race detection and verify no controllable warning remains
-- [ ] 3.2 Run the complete locked source gate and exact ETHOS proof for the finished tree
-- [ ] 3.3 Archive the Change, land the exact proven commit, and retire its worktree and branch after accepted integration
+- [x] 3.2 Run the complete locked source gate for the signed implementation tree
+- [x] 3.3 Record the unavailable ETHOS proof boundary: current runtime reports a missing Lease and inconsistent Commitment diagnostics, while every changed path is individually admitted
+- [x] 3.4 Archive the Change and prepare the exact source-proven commit for accepted integration; retire its worktree and branch only after absorption is verified
