@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-08-24
+goal: Make setup and later client synchronization usable on macOS, Linux, and
+  Windows without requiring every provider Token or a continuously available
+  keyring.

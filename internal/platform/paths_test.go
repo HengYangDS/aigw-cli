@@ -14,13 +14,14 @@ func TestHostPathsAreDerivedAsOnePlatformContract(t *testing.T) {
 		env         map[string]string
 		config      string
 		data        string
+		secrets     string
 		claude      string
 		installDir  string
 		installName string
 	}{
-		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, config: "/Users/alex/Library/Application Support/aigw/config.toml", data: "/Users/alex/Library/Application Support/aigw", claude: "/Users/alex/.claude/settings.json", installDir: "/Users/alex/.local/bin", installName: "aigw"},
-		{name: "Linux", goos: "linux", env: map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg", "XDG_DATA_HOME": "/data"}, config: "/cfg/aigw/config.toml", data: "/data/aigw", claude: "/home/alex/.claude/settings.json", installDir: "/home/alex/.local/bin", installName: "aigw"},
-		{name: "Windows", goos: "windows", env: map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`, "LOCALAPPDATA": `C:\Users\alex\AppData\Local`, "USERPROFILE": `C:\Users\alex`}, config: `C:\Users\alex\AppData\Roaming\aigw\config.toml`, data: `C:\Users\alex\AppData\Local\aigw`, claude: `C:\Users\alex\.claude\settings.json`, installDir: `C:\Users\alex\AppData\Local\Programs\aigw\bin`, installName: "aigw.exe"},
+		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, config: "/Users/alex/Library/Application Support/aigw/config.toml", data: "/Users/alex/Library/Application Support/aigw", secrets: "/Users/alex/Library/Application Support/aigw/secrets", claude: "/Users/alex/.claude/settings.json", installDir: "/Users/alex/.local/bin", installName: "aigw"},
+		{name: "Linux", goos: "linux", env: map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg", "XDG_DATA_HOME": "/data"}, config: "/cfg/aigw/config.toml", data: "/data/aigw", secrets: "/data/aigw/secrets", claude: "/home/alex/.claude/settings.json", installDir: "/home/alex/.local/bin", installName: "aigw"},
+		{name: "Windows", goos: "windows", env: map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`, "LOCALAPPDATA": `C:\Users\alex\AppData\Local`, "USERPROFILE": `C:\Users\alex`}, config: `C:\Users\alex\AppData\Roaming\aigw\config.toml`, data: `C:\Users\alex\AppData\Local\aigw`, secrets: `C:\Users\alex\AppData\Local\aigw\secrets`, claude: `C:\Users\alex\.claude\settings.json`, installDir: `C:\Users\alex\AppData\Local\Programs\aigw\bin`, installName: "aigw.exe"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -28,7 +29,7 @@ func TestHostPathsAreDerivedAsOnePlatformContract(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got.Config != test.config || got.Data != test.data || got.ClaudeSettings != test.claude || got.InstallDir != test.installDir || got.InstallName != test.installName {
+			if got.Config != test.config || got.Data != test.data || got.Secrets != test.secrets || got.ClaudeSettings != test.claude || got.InstallDir != test.installDir || got.InstallName != test.installName {
 				t.Fatalf("PathsFor() = %#v", got)
 			}
 		})

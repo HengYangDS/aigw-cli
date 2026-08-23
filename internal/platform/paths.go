@@ -12,6 +12,7 @@ import (
 type Paths struct {
 	Config         string
 	Data           string
+	Secrets        string
 	ClaudeSettings string
 	InstallDir     string
 	InstallName    string
@@ -36,10 +37,19 @@ func PathsFor(goos string, env map[string]string) (Paths, error) {
 		return Paths{}, err
 	}
 	installName := "aigw"
+	secrets := path.Join(data, "secrets")
 	if goos == "windows" {
 		installName += ".exe"
+		secrets = windowsJoin(data, "secrets")
 	}
-	return Paths{Config: config, Data: data, ClaudeSettings: claudeSettings, InstallDir: installDir, InstallName: installName}, nil
+	return Paths{
+		Config:         config,
+		Data:           data,
+		Secrets:        secrets,
+		ClaudeSettings: claudeSettings,
+		InstallDir:     installDir,
+		InstallName:    installName,
+	}, nil
 }
 
 func ConfigPathFor(goos string, env map[string]string) (string, error) {

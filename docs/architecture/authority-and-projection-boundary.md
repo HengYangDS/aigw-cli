@@ -12,7 +12,7 @@ traffic hop, a client launcher, or an agent-state manager.
 | Concern | AIGW role | Other owner |
 | --- | --- | --- |
 | Provider service and endpoint capability | Record verified Account capabilities | Provider |
-| Token material | Store and retrieve an Account reference | OS credential store |
+| Token material | Select and use one Account Token backend | Native credential service or AIGW owner-only store |
 | Client intent | Select a Profile through a Route | AIGW configuration |
 | Native client configuration | Project one admitted, bounded region | Client Adapter |
 | Wire compatibility | Select an explicit endpoint | Endpoint product |
@@ -26,7 +26,7 @@ configuration remains direct, auditable, and usable when AIGW is not running.
 ```mermaid
 flowchart LR
     O["Operator"] --> A["AIGW control plane"]
-    A --> K["OS credential store"]
+    A --> K["Selected local Token store"]
     A --> C["Codex Home projection"]
     A --> L["Claude Code settings"]
     C --> R["Responses endpoint"]
@@ -39,7 +39,7 @@ flowchart LR
 | Owner | Authoritative state |
 | --- | --- |
 | AIGW configuration | Accounts, Profiles, Routes, Adapter declarations |
-| OS credential store | Account Tokens and optional diagnostic credentials |
+| Selected Token store | Account Tokens; the selection policy belongs to AIGW |
 | Codex | Conversations, JSONL, SQLite, model metadata, Desktop GUI state |
 | Claude Code | Session and client runtime behavior |
 | External endpoint product | Traffic normalization, retries, service lifecycle |
@@ -99,7 +99,7 @@ the plan without reading credentials or changing files.
 
 AIGW projects the selected endpoint and model into Claude Code's official
 per-user `settings.json`. `apiKeyHelper` retrieves the active Account Token from
-the AIGW credential store when Claude Code requests it; the Token is never
+the selected AIGW Token store when Claude Code requests it; the Token is never
 written to settings, shell profiles, arguments, or logs. Users continue to run
 the native `claude` command directly.
 

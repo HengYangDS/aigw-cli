@@ -7,7 +7,7 @@ locally.
 flowchart LR
     R["Review manifest"] --> P["Publish token-free file"]
     P --> S["Member setup"]
-    S --> K["Local OS credential store"]
+    S --> K["Selected local Token store"]
     S --> C["Installed client projections"]
     C --> V["Member check"]
 ```
@@ -124,7 +124,8 @@ aigw check
 ## CI boundary
 
 CI uses synthetic endpoints, fixtures, and read-only environment Tokens. It
-must not require a maintainer's OS credential store or real provider account.
+must not require a maintainer's native credential service or real provider
+account.
 
 Set `AIGW_SECRET_BACKEND=env` and provide only the Accounts exercised by that
 job. Environment names use `AIGW_TOKEN_<ACCOUNT>` with the manifest Account ID

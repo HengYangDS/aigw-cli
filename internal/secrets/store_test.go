@@ -99,14 +99,12 @@ func TestMemoryStoreIsNotReportedReadOnly(t *testing.T) {
 }
 
 func TestSelectDefaultsToKeyringBackend(t *testing.T) {
-	for _, backend := range []string{"", "keyring"} {
-		store, err := Select(backend, func(string) string { return "" })
-		if err != nil {
-			t.Fatalf("Select(%q) error = %v", backend, err)
-		}
-		if _, ok := store.(KeyringStore); !ok {
-			t.Fatalf("Select(%q) = %T, want KeyringStore", backend, store)
-		}
+	store, err := Select(Selection{Backend: "keyring", GOOS: "linux", Root: t.TempDir(), KeyringProbe: func(Store) error { return nil }})
+	if err != nil {
+		t.Fatalf("Select(keyring) error = %v", err)
+	}
+	if _, ok := store.(KeyringStore); !ok {
+		t.Fatalf("Select(keyring) = %T, want KeyringStore", store)
 	}
 }
 
@@ -120,14 +118,14 @@ func TestErrorsNeverContainSecret(t *testing.T) {
 }
 
 func TestSelectStoreRequiresExplicitSupportedBackend(t *testing.T) {
-	store, err := Select("env", func(key string) string { return map[string]string{"AIGW_TOKEN_DMX": "ci-secret"}[key] })
+	store, err := Select(Selection{Backend: "env", Getenv: func(key string) string { return map[string]string{"AIGW_TOKEN_DMX": "ci-secret"}[key] }})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if value, err := store.Get("dmx"); err != nil || value != "ci-secret" {
 		t.Fatalf("environment selection = %q, %v", value, err)
 	}
-	if _, err := Select("plaintext", func(string) string { return "" }); err == nil || !strings.Contains(err.Error(), "supported") {
+	if _, err := Select(Selection{Backend: "plaintext"}); err == nil || !strings.Contains(err.Error(), "supported") {
 		t.Fatalf("unsupported backend error = %v", err)
 	}
 }

@@ -8,6 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Added
+
+- Persist Account Tokens in an owner-only local store on macOS or Linux when
+  the native credential service is unavailable, while keeping Windows
+  Credential Manager as the native default and environment Tokens read-only.
+
 ## [0.1.0-rc.93] - 2026-08-23
 
 ### Fixed

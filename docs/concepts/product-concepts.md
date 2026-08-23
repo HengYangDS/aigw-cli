@@ -7,7 +7,7 @@ flowchart LR
     A["Account"] --> P["Profile"]
     P --> R["Route"]
     R --> D["Adapter"]
-    A --> K["OS Token slot"]
+    A --> K["Selected Token slot"]
     D --> C["Native client"]
 ```
 
@@ -26,7 +26,7 @@ An Account contains:
 
 - a human label;
 - an OpenAI Responses endpoint, an Anthropic endpoint, or both;
-- one logical Token stored by the operating system;
+- one logical Token stored by the selected local backend;
 - an optional provider-native diagnostic declaration.
 
 Configuration and manifests never contain the Token.

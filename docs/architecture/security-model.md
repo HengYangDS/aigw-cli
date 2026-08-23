@@ -6,16 +6,20 @@ AIGW keeps credentials local, mutations bounded, and client ownership explicit.
 
 | Secret | Store | Repository/config exposure |
 | --- | --- | --- |
-| Account Token | `AIGW_TOKEN/<account>` in the OS credential store | Never |
+| Account Token | One selected local backend: native credential service or AIGW owner-only files | Never |
 | Optional diagnostic credential | `AIGW_ACCOUNT/<account>` | Never |
 | Forge publication credential | Protected CI or operator process | Never tracked |
 
-The default backend delegates to the native credential service: macOS Keychain,
-Windows Credential Manager, or the Secret Service D-Bus API on Linux/BSD.
-Linux without a usable Secret Service fails explicitly instead of storing a
-plaintext fallback. Controlled automation may select the read-only environment
-backend; it reads `AIGW_TOKEN_<ACCOUNT>` values supplied to that process but
-cannot persist, rotate, or delete them.
+Windows uses Credential Manager by default. On macOS and Linux, automatic
+selection proves whether the native credential service is reachable and pins
+either that service or an AIGW-owned file store. The file store uses an
+owner-only directory, one owner-only regular file per Account, same-directory
+atomic replacement, and rejects links, ambiguous ownership, and unsafe
+permissions. AIGW never searches or writes both stores. Explicit `keyring`
+selection fails closed when the service is unavailable. Controlled automation
+may select the read-only environment backend; it reads
+`AIGW_TOKEN_<ACCOUNT>` values supplied to that process but cannot persist,
+rotate, or delete them.
 
 ## Configuration boundary
 
