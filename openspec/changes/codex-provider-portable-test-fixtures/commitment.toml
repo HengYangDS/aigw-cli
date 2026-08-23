@@ -1,0 +1,29 @@
+schema_version = 1
+id = "change:codex-provider-portable-test-fixtures"
+intent = "Make native-provider test fixtures express absolute executable paths portably on every supported host."
+subjects = ["repository:aigw-cli"]
+scope = [
+  "internal/codex/model_provider_test.go",
+  "internal/synchronization/model_provider_test.go",
+  "openspec/changes/codex-provider-portable-test-fixtures/**",
+]
+invariants = [
+  "production_absolute_path_validation_is_unchanged",
+  "native_provider_projection_semantics_are_unchanged",
+  "fixture_expectations_follow_platform_native_paths",
+]
+acceptance = [
+  "focused_tests_pass",
+  "windows_test_binaries_cross_compile",
+  "complete_source_gate_passes",
+  "native_windows_hosted_acceptance_passes",
+  "change_is_archived",
+]
+risks = []
+authority_refs = [
+  "AGENTS.md",
+  "CONTRIBUTING.md",
+  "openspec/specs/product-quality/spec.md",
+]
+hypotheses = []
+dependencies = []

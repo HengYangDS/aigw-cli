@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 
 func TestNativeModelProviderChangesProjectionAndUsesCredentialHelper(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "config.toml")
+	credentialCommand := filepath.Join(t.TempDir(), "aigw")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +27,7 @@ func TestNativeModelProviderChangesProjectionAndUsesCredentialHelper(t *testing.
 	if !ProjectionChanged(before, after) {
 		t.Fatal("model provider change must change the projection")
 	}
-	syncer := Synchronizer{Discovery: targetDiscovery(target), AIGWExecutable: "/opt/aigw"}
+	syncer := Synchronizer{Discovery: targetDiscovery(target), AIGWExecutable: credentialCommand}
 	if err := syncer.Reconcile(context.Background(), before, after); err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +36,7 @@ func TestNativeModelProviderChangesProjectionAndUsesCredentialHelper(t *testing.
 		t.Fatal(err)
 	}
 	text := string(data)
-	if !strings.Contains(text, `model_provider = "amazon-bedrock"`) || !strings.Contains(text, `command = "/opt/aigw"`) {
+	if !strings.Contains(text, `model_provider = "amazon-bedrock"`) || !strings.Contains(text, "command = "+strconv.Quote(credentialCommand)) {
 		t.Fatalf("native projection missing provider or helper:\n%s", text)
 	}
 }

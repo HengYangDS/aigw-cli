@@ -3,6 +3,7 @@ package codex_test
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -12,13 +13,14 @@ import (
 
 func TestCodexSyncProjectsExplicitProviderAndRestoresOriginal(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
+	credentialCommand := filepath.Join(t.TempDir(), "aigw")
 	original := "model_provider = \"native\"\nmodel = \"gpt-native\"\n"
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	runtime := codexRuntime("aws", "AWS", "https://gateway.test/openai/v1", "openai.gpt-5.6-sol")
 	runtime.ModelProvider = "amazon-bedrock"
-	runtime.CredentialCommand = "/opt/aigw"
+	runtime.CredentialCommand = credentialCommand
 
 	if err := codex.SyncConfig(path, runtime); err != nil {
 		t.Fatal(err)
@@ -35,7 +37,7 @@ func TestCodexSyncProjectsExplicitProviderAndRestoresOriginal(t *testing.T) {
 		`base_url = "https://gateway.test/openai/v1"`,
 		`wire_api = "responses"`,
 		`[model_providers.amazon-bedrock.auth]`,
-		`command = "/opt/aigw"`,
+		"command = " + strconv.Quote(credentialCommand),
 		`args = ["credential", "codex"]`,
 	} {
 		if !strings.Contains(text, want) {
@@ -86,7 +88,7 @@ func TestCodexSyncPreservesDefaultProjectionAndTransitionsFromNative(t *testing.
 	}
 	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
 	runtime.ModelProvider = "amazon-bedrock"
-	runtime.CredentialCommand = "/opt/aigw"
+	runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
 	if err := codex.SyncConfig(path, runtime); err != nil {
 		t.Fatal(err)
 	}
