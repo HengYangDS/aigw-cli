@@ -454,6 +454,7 @@ func TestTagPublicationRejectsInvalidPeerRepository(t *testing.T) {
 }
 
 func TestPublicationRejectsPeerHookMutation(t *testing.T) {
+	setHostileGitHooks(t)
 	fixture := newForgeFixture(t)
 	remote := newBareRepository(t)
 	gitTest(t, fixture.repository, "remote", "add", "peer", remote)
@@ -530,7 +531,19 @@ func newBareRepository(t *testing.T) string {
 	t.Helper()
 	repository := filepath.Join(t.TempDir(), "peer.git")
 	runCommand(t, "git", "init", "-q", "--bare", repository)
+	gitTest(t, repository, "config", "core.hooksPath", filepath.Join(repository, "hooks"))
 	return repository
+}
+
+func setHostileGitHooks(t *testing.T) {
+	t.Helper()
+	config := filepath.Join(t.TempDir(), "config")
+	command := exec.Command("git", "config", "--file", config, "core.hooksPath", filepath.Join(t.TempDir(), "host-hooks"))
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("hostile git config: %v: %s", err, output)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", config)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 }
 
 func seedRemoteBranches(t *testing.T, remote string) {

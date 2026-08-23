@@ -130,26 +130,15 @@ func TestMalformedChangelog(t *testing.T) {
 }
 
 func TestChangelogTagBindingAndVersionEdges(t *testing.T) {
+	setHostileGitConfig(t)
 	root := t.TempDir()
-	command := exec.Command("git", "-C", root, "init", "-q")
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v: %s", err, output)
-	}
-	for _, setting := range [][]string{{"user.name", "Actor"}, {"user.email", "actor@example.com"}} {
-		command = exec.Command("git", "-C", root, "config", setting[0], setting[1])
-		if output, err := command.CombinedOutput(); err != nil {
-			t.Fatalf("git config: %v: %s", err, output)
-		}
-	}
+	initUnsignedRepository(t, root)
 	changelog := "## [Unreleased]\n\n## [1.2.3] - 2026-08-07\n"
 	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(changelog), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"add", "CHANGELOG.md"}, {"commit", "-q", "-m", "release"}, {"tag", "v1.2.3"}} {
-		command = exec.Command("git", append([]string{"-C", root}, args...)...)
-		if output, err := command.CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v: %s", args, err, output)
-		}
+		gitRepository(t, root, args...)
 	}
 	if err := checkChangelog(root, []string{"CHANGELOG.md", "v1.2.3"}); err != nil {
 		t.Fatal(err)
@@ -296,9 +285,7 @@ func TestChangelogScannerReportsOversizedInput(t *testing.T) {
 func initReleaseRepository(t *testing.T, version string) string {
 	t.Helper()
 	root := t.TempDir()
-	gitRepository(t, root, "init", "-q")
-	gitRepository(t, root, "config", "user.name", "Actor")
-	gitRepository(t, root, "config", "user.email", "actor@example.com")
+	initUnsignedRepository(t, root)
 	content := fmt.Sprintf("## [Unreleased]\n\n## [%s] - 2026-08-07\n", version)
 	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(content), 0o600); err != nil {
 		t.Fatal(err)
@@ -307,6 +294,47 @@ func initReleaseRepository(t *testing.T, version string) string {
 	gitRepository(t, root, "commit", "-q", "-m", "release")
 	gitRepository(t, root, "tag", "v"+version)
 	return root
+}
+
+func initUnsignedRepository(t *testing.T, root string) {
+	t.Helper()
+	gitRepository(t, root, "init", "-q")
+	for _, setting := range [][2]string{
+		{"user.name", "Actor"},
+		{"user.email", "actor@example.com"},
+		{"commit.gpgsign", "false"},
+		{"tag.gpgsign", "false"},
+		{"core.hooksPath", filepath.Join(root, ".disabled-hooks")},
+	} {
+		gitRepository(t, root, "config", setting[0], setting[1])
+	}
+}
+
+func setHostileGitConfig(t *testing.T) {
+	t.Helper()
+	root := t.TempDir()
+	hooks := filepath.Join(root, "hooks")
+	if err := os.Mkdir(hooks, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(hooks, "pre-commit"), []byte("#!/bin/sh\nexit 97\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	config := filepath.Join(root, "config")
+	for _, setting := range [][2]string{
+		{"commit.gpgsign", "true"},
+		{"core.hooksPath", hooks},
+		{"gpg.format", "ssh"},
+		{"tag.gpgsign", "true"},
+		{"user.signingkey", filepath.Join(root, "missing-signing-key")},
+	} {
+		command := exec.Command("git", "config", "--file", config, setting[0], setting[1])
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("hostile git config: %v: %s", err, output)
+		}
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", config)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 }
 
 func gitRepository(t *testing.T, root string, args ...string) {

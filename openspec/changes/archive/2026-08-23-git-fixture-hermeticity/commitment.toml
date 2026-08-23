@@ -1,0 +1,29 @@
+schema_version = 1
+id = "change:git-fixture-hermeticity"
+intent = "Make every temporary Git repository define its own signing and hook policy instead of inheriting workstation state."
+subjects = ["repository:aigw-cli"]
+scope = [
+  "tools/forge/forge_test.go",
+  "tools/repository/main_test.go",
+  "openspec/changes/git-fixture-hermeticity/**",
+]
+invariants = [
+  "production_git_and_release_policy_remain_unchanged",
+  "signature_tests_continue_to_use_fixture_owned_keys",
+  "temporary_bare_remotes_use_their_own_hook_directory",
+  "temporary_unsigned_repositories_disable_signing_and_host_hooks",
+]
+acceptance = [
+  "focused_regressions_pass_with_hostile_global_git_configuration",
+  "complete_test_suite_passes_with_hostile_global_git_configuration",
+  "source_gate_passes_with_hostile_global_git_configuration",
+  "change_is_archived",
+]
+risks = []
+authority_refs = [
+  "AGENTS.md",
+  "CONTRIBUTING.md",
+  "docs/governance/change-and-release-policy.md",
+]
+hypotheses = []
+dependencies = []
