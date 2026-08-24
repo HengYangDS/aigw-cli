@@ -10,12 +10,14 @@ import (
 	"os"
 	"path/filepath"
 	goruntime "runtime"
+	"slices"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/account"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 
 	"github.com/spf13/cobra"
@@ -32,6 +34,18 @@ func (reader failingReader) Read([]byte) (int, error) { return 0, reader.err }
 type closeErrorBody struct{ io.Reader }
 
 func (closeErrorBody) Close() error { return errors.New("close failed") }
+
+type readinessProcessRunner struct {
+	plans []process.Plan
+	err   error
+}
+
+func (runner *readinessProcessRunner) Run(context.Context, process.Plan) error { return nil }
+
+func (runner *readinessProcessRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
+	runner.plans = append(runner.plans, plan)
+	return nil, runner.err
+}
 
 func configuredReadinessRuntime(t *testing.T) (invocation.Context, configuration.Config) {
 	t.Helper()
@@ -77,10 +91,15 @@ func executeCommand(command *cobra.Command) error {
 func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
 	originalProbe := probeAdapterRoute
-	t.Cleanup(func() { probeAdapterRoute = originalProbe })
+	originalAuthentication := probeCodexAuthentication
+	t.Cleanup(func() {
+		probeAdapterRoute = originalProbe
+		probeCodexAuthentication = originalAuthentication
+	})
 	probeAdapterRoute = func(invocation.Context, configuration.Config, string, configuration.Runtime) (bool, string) {
 		return true, ""
 	}
+	probeCodexAuthentication = func(invocation.Context, string, []string) bool { return true }
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -208,6 +227,131 @@ func TestAdapterRouteReadyCoversClaudeExecutableAndCodexOutcomes(t *testing.T) {
 	validateCodexConfig = func(string, configuration.Runtime) error { return nil }
 	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientCodex, codexRuntime); !ready || issue != "" {
 		t.Fatalf("ready Codex target ready=%v issue=%q", ready, issue)
+	}
+}
+
+func TestCodexAuthenticationProofUsesThePublicStatusCommandForEveryTarget(t *testing.T) {
+	runner := &readinessProcessRunner{}
+	targets := []string{
+		filepath.Join(t.TempDir(), "first", "config.toml"),
+		filepath.Join(t.TempDir(), "second", "config.toml"),
+	}
+	runtime := invocation.Context{Runner: runner}
+	if !CodexAuthenticationProven(runtime, "codex", targets) {
+		t.Fatal("successful native status probes did not prove authentication")
+	}
+	if len(runner.plans) != len(targets) {
+		t.Fatalf("status plans = %d, want %d", len(runner.plans), len(targets))
+	}
+	for index, plan := range runner.plans {
+		if !slices.Equal(plan.Args, []string{"login", "status"}) {
+			t.Fatalf("status args = %#v", plan.Args)
+		}
+		wantHome := filepath.Dir(targets[index])
+		if !slices.Contains(plan.Env, "CODEX_HOME="+wantHome) {
+			t.Fatalf("status environment does not select %q: %#v", wantHome, plan.Env)
+		}
+		if plan.Stdin != "" {
+			t.Fatalf("status probe received secret input: %#v", plan)
+		}
+	}
+
+	runner.err = errors.New("not logged in")
+	if CodexAuthenticationProven(runtime, "codex", targets[:1]) {
+		t.Fatal("failed native status probe proved authentication")
+	}
+	if CodexAuthenticationProven(runtime, "codex", nil) {
+		t.Fatal("an empty target set proved authentication")
+	}
+	if CodexAuthenticationProven(runtime, "", targets[:1]) {
+		t.Fatal("an empty executable proved authentication")
+	}
+	if CodexAuthenticationProven(invocation.Context{}, "codex", targets[:1]) {
+		t.Fatal("missing capture capability proved authentication")
+	}
+}
+
+func TestStatusSeparatesCodexProjectionFromNativeAuthentication(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	if err := runtime.Secrets.Set("one", "token"); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "config.toml")
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+		Enabled: true, Executable: "codex", Targets: []string{target},
+	}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	originalValidate := validateCodexConfig
+	originalAuthentication := probeCodexAuthentication
+	originalAdapter := probeAdapterRoute
+	t.Cleanup(func() {
+		validateCodexConfig = originalValidate
+		probeCodexAuthentication = originalAuthentication
+		probeAdapterRoute = originalAdapter
+	})
+	validateCodexConfig = func(string, configuration.Runtime) error { return nil }
+	probeAdapterRoute = func(invocation.Context, configuration.Config, string, configuration.Runtime) (bool, string) {
+		return true, ""
+	}
+	probeCodexAuthentication = func(invocation.Context, string, []string) bool { return false }
+
+	if err := RunStatus(runtime, false); err != nil {
+		t.Fatal(err)
+	}
+	got := output(runtime)
+	if !strings.Contains(got, "Projection ready") || !strings.Contains(got, "Native authentication not proven") {
+		t.Fatalf("status does not separate readiness facts: %q", got)
+	}
+	if !strings.Contains(got, "aigw adapter auth codex") || strings.Contains(got, "aigw repair") {
+		t.Fatalf("status next action = %q", got)
+	}
+
+	runtime.Out.(*bytes.Buffer).Reset()
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	jsonStatus := output(runtime)
+	if !strings.Contains(jsonStatus, `"adapter_ready": true`) ||
+		!strings.Contains(jsonStatus, `"native_authentication": "not_proven"`) {
+		t.Fatalf("JSON readiness facts = %q", jsonStatus)
+	}
+
+	probeCodexAuthentication = func(invocation.Context, string, []string) bool { return true }
+	runtime.Out.(*bytes.Buffer).Reset()
+	if err := RunStatus(runtime, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := output(runtime); !strings.Contains(got, "Ready") || !strings.Contains(got, "aigw check") {
+		t.Fatalf("proved authentication status = %q", got)
+	}
+	runtime.Out.(*bytes.Buffer).Reset()
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := output(runtime); !strings.Contains(got, `"native_authentication": "present"`) {
+		t.Fatalf("proved native authentication status = %q", got)
+	}
+
+	profile := cfg.Profiles["one"]
+	profile.Client = configuration.ClientCodex
+	delete(profile.Models, configuration.ClientClaude)
+	profile.ModelProvider = "amazon-bedrock"
+	cfg.Profiles["one"] = profile
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	probeCodexAuthentication = func(invocation.Context, string, []string) bool {
+		t.Fatal("native Codex provider must not require AIGW authentication")
+		return false
+	}
+	runtime.Out.(*bytes.Buffer).Reset()
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := output(runtime); !strings.Contains(got, `"native_authentication": "not_required"`) {
+		t.Fatalf("native provider authentication status = %q", got)
 	}
 }
 

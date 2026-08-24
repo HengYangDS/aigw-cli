@@ -17,6 +17,12 @@ platform acceptance, signing, and GA status remain separate evidence.
   the native credential service is unavailable, while keeping Windows
   Credential Manager as the native default and environment Tokens read-only.
 
+### Fixed
+
+- Distinguish Codex configuration projection from native authentication in
+  status output, using Codex's public read-only login status and recommending
+  the explicit authentication command instead of reporting unproved readiness.
+
 ## [0.1.0-rc.93] - 2026-08-23
 
 ### Fixed

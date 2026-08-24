@@ -114,6 +114,7 @@ func codexTargetRefs(discovered discovery.Result, paths []string, executable str
 				ProjectionMode: codex.ProjectionFullSelection,
 				Path:           path,
 				Executable:     executable,
+				CreateIfAbsent: surface.AutoManaged,
 			})
 			continue
 		}

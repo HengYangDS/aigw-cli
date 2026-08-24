@@ -6,6 +6,12 @@ AIGW human output answers three questions:
 2. Is it ready?
 3. What is the next safe action?
 
+Readiness is decomposed rather than inferred. For Codex, a valid AIGW-owned
+projection and a readable Account Token do not prove native authentication.
+`status` observes the public `codex login status` surface for each selected
+Codex Home and recommends `aigw adapter auth codex` when authentication remains
+unproved. `sync` never performs that mutation.
+
 ## Navigation
 
 | Intent | Commands |

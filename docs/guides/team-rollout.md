@@ -58,7 +58,18 @@ replace that Account's Token, then select the desired Profile with
 
 Claude Code and Codex are not setup prerequisites. After installing either
 client, run `aigw sync`; AIGW rediscovers supported clients and converges only
-its owned configuration. It does not alter authentication during sync.
+its owned configuration. It does not alter authentication during sync. Codex
+authentication is a separate, explicit step:
+
+```bash
+aigw sync
+aigw adapter auth codex
+aigw check
+```
+
+`aigw status` reports whether the projection is ready and whether Codex's
+public login-status command proves native authentication for every selected
+Codex Home. An unproved state is actionable, not silently called ready.
 
 ## Existing member
 

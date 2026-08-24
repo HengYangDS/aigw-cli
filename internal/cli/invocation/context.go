@@ -25,6 +25,17 @@ type Runner interface {
 	Run(context.Context, process.Plan) error
 }
 
+// RunCapture executes a bounded read-only child-process probe through the
+// invocation capability boundary. Commands that do not receive capture
+// capability fail explicitly instead of depending on a concrete runner.
+func RunCapture(runtime Context, ctx context.Context, plan process.Plan) ([]byte, error) {
+	runner, ok := runtime.Runner.(process.CaptureRunner)
+	if !ok {
+		return nil, fmt.Errorf("captured process execution is unavailable")
+	}
+	return runner.RunCapture(ctx, plan)
+}
+
 // HTTPDoer executes one HTTP request.
 type HTTPDoer interface {
 	Do(*http.Request) (*http.Response, error)

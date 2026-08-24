@@ -22,12 +22,14 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	r.ProductTitle("Ready view")
 	r.Text("The active service, client readiness, and the smallest next action.")
 	accountName, account := renderActiveService(r, cfg, result)
-	attention, selectionCommand := renderClientStatus(r, result)
+	attention, selectionCommand, authenticationCommand := renderClientStatus(r, result)
 	renderTransportStatus(r, result)
 	renderDiagnosticStatus(runtime, r, accountName, account)
 	switch {
 	case selectionCommand != "":
 		r.Next(selectionCommand)
+	case authenticationCommand != "":
+		r.Next(authenticationCommand)
 	case attention:
 		r.Next("aigw repair")
 	default:
@@ -55,10 +57,11 @@ func renderActiveService(r *presentation.Renderer, cfg configuration.Config, res
 	return accountName, account
 }
 
-func renderClientStatus(r *presentation.Renderer, result statusOutput) (bool, string) {
+func renderClientStatus(r *presentation.Renderer, result statusOutput) (bool, string, string) {
 	r.Section("Clients")
 	attention := false
 	selectionCommand := ""
+	authenticationCommand := ""
 	for _, client := range admittedClientIDs() {
 		route := result.Routes[client]
 		if route.NeedsSelection {
@@ -87,10 +90,14 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput) (bool, st
 			}
 			state = presentation.Warn
 			attention = true
+		} else if route.NativeAuthentication == "not_proven" {
+			readiness = route.Profile + " · " + mode + " · Projection ready · Native authentication not proven"
+			state = presentation.Warn
+			authenticationCommand = "aigw adapter auth codex"
 		}
 		r.Status(state, invocation.Title(client), readiness)
 	}
-	return attention, selectionCommand
+	return attention, selectionCommand, authenticationCommand
 }
 
 func renderTransportStatus(r *presentation.Renderer, result statusOutput) {

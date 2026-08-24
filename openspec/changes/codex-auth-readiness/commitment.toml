@@ -1,0 +1,51 @@
+schema_version = 2
+id = "change:codex-auth-readiness"
+intent = "Make AIGW distinguish client projection readiness from Codex native authentication and guide the operator to the exact next action without merging credential ownership into sync."
+subjects = [
+  "repository:aigw-cli",
+]
+scope = [
+  "CHANGELOG.md",
+  "README.md",
+  "docs/**",
+  "internal/cli/acceptance/**/*test.go",
+  "internal/cli/adapter/**",
+  "internal/cli/invocation/**",
+  "internal/cli/readiness/**",
+  "internal/codex/**",
+  "internal/synchronization/**",
+  "openspec/changes/archive/*-codex-auth-readiness/**",
+  "openspec/changes/codex-auth-readiness/**",
+  "openspec/specs/product-control-plane/**",
+  "openspec/specs/progressive-team-onboarding/**",
+]
+invariants = [
+  "adapter_auth_codex_remains_the_only_explicit_native_authentication_mutation",
+  "aigw_never_reads_or_writes_codex_conversation_state_model_metadata_or_proxy_lifecycle",
+  "human_and_json_surfaces_express_the_same_bounded_readiness_facts",
+  "status_never_claims_codex_native_authentication_without_current_read_only_evidence",
+  "sync_remains_projection_only_and_never_writes_native_client_credentials",
+]
+acceptance = [
+  "a_newly_projected_codex_route_with_a_token_points_to_aigw_adapter_auth_codex",
+  "documentation_explains_setup_sync_auth_check_and_status_as_distinct_steps",
+  "focused_acceptance_tests_and_complete_source_gates_pass_without_warnings",
+  "status_distinguishes_projection_readiness_from_unverified_native_authentication",
+  "sync_with_no_token_or_no_client_remains_safe_and_deferred",
+]
+risks = [
+  "native_codex_authentication_state_may_not_have_a_stable_read_only_public_probe",
+  "overloading_status_with_unprovable_native_state_would_replace_one_false_claim_with_another",
+]
+authority_refs = [
+  ".ethos/profile.toml",
+  "AGENTS.md",
+  "docs/architecture/authority-and-projection-boundary.md",
+  "docs/governance/change-and-release-policy.md",
+]
+predecessors = []
+selected_attestations = []
+dependencies = []
+hypotheses = []
+falsifiers = []
+experiment_protocols = []

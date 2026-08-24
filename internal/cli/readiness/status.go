@@ -1,9 +1,12 @@
 package readiness
 
 import (
+	"context"
 	"encoding/json"
 	"net/url"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"aigw-cli/internal/claude"
 	"aigw-cli/internal/cli/invocation"
@@ -14,16 +17,17 @@ import (
 )
 
 type routeStatus struct {
-	Profile          string `json:"profile,omitempty"`
-	Inherited        bool   `json:"inherited"`
-	SecretAvailable  bool   `json:"secret_available"`
-	EndpointReady    bool   `json:"endpoint_ready"`
-	Transport        string `json:"transport,omitempty"`
-	TransportReady   bool   `json:"transport_ready,omitempty"`
-	AdapterReady     bool   `json:"adapter_ready"`
-	AdapterIssue     string `json:"adapter_issue,omitempty"`
-	NeedsSelection   bool   `json:"needs_selection,omitempty"`
-	SuggestedProfile string `json:"suggested_profile,omitempty"`
+	Profile              string `json:"profile,omitempty"`
+	Inherited            bool   `json:"inherited"`
+	SecretAvailable      bool   `json:"secret_available"`
+	EndpointReady        bool   `json:"endpoint_ready"`
+	Transport            string `json:"transport,omitempty"`
+	TransportReady       bool   `json:"transport_ready,omitempty"`
+	AdapterReady         bool   `json:"adapter_ready"`
+	AdapterIssue         string `json:"adapter_issue,omitempty"`
+	NativeAuthentication string `json:"native_authentication,omitempty"`
+	NeedsSelection       bool   `json:"needs_selection,omitempty"`
+	SuggestedProfile     string `json:"suggested_profile,omitempty"`
 }
 
 type endpointTestResult struct {
@@ -41,10 +45,13 @@ type statusOutput struct {
 }
 
 var (
-	admittedClientIDs   = configuration.AdmittedClientIDs
-	validateCodexConfig = codex.ValidateConfig
-	probeAdapterRoute   = AdapterRouteReady
+	admittedClientIDs        = configuration.AdmittedClientIDs
+	validateCodexConfig      = codex.ValidateConfig
+	probeAdapterRoute        = AdapterRouteReady
+	probeCodexAuthentication = CodexAuthenticationProven
 )
+
+const codexAuthenticationInspectionTimeout = 5 * time.Second
 
 func NewStatusCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
@@ -80,17 +87,51 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 		}
 		adapterReady, adapterIssue := probeAdapterRoute(runtime, cfg, client, clientRuntime)
 		transport := TransportStatus(clientRuntime.Endpoint)
+		nativeAuthentication := ""
+		if client == configuration.ClientCodex && adapterReady {
+			switch {
+			case clientRuntime.ModelProvider != configuration.ModelProviderAIGW:
+				nativeAuthentication = "not_required"
+			case probeCodexAuthentication(runtime, cfg.Adapters[client].Executable, cfg.Adapters[client].Targets):
+				nativeAuthentication = "present"
+			default:
+				nativeAuthentication = "not_proven"
+			}
+		}
 		result.Routes[client] = routeStatus{
-			Profile:         clientRuntime.ProfileID,
-			Inherited:       inherited,
-			SecretAvailable: runtime.Secrets.Has(clientRuntime.AccountID),
-			EndpointReady:   clientRuntime.Endpoint != "",
-			Transport:       transport.Kind,
-			AdapterReady:    adapterReady,
-			AdapterIssue:    adapterIssue,
+			Profile:              clientRuntime.ProfileID,
+			Inherited:            inherited,
+			SecretAvailable:      runtime.Secrets.Has(clientRuntime.AccountID),
+			EndpointReady:        clientRuntime.Endpoint != "",
+			Transport:            transport.Kind,
+			AdapterReady:         adapterReady,
+			AdapterIssue:         adapterIssue,
+			NativeAuthentication: nativeAuthentication,
 		}
 	}
 	return result
+}
+
+// CodexAuthenticationProven returns true only when Codex's public read-only
+// status command succeeds for every selected target. It never reads native
+// credential files or creates a second authentication-state authority.
+func CodexAuthenticationProven(runtime invocation.Context, executable string, targets []string) bool {
+	if len(targets) == 0 {
+		return false
+	}
+	for _, target := range targets {
+		plan, err := codex.LoginStatusPlan(executable, filepath.Dir(target))
+		if err != nil {
+			return false
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), codexAuthenticationInspectionTimeout)
+		_, err = invocation.RunCapture(runtime, ctx, plan)
+		cancel()
+		if err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 type transportState struct {

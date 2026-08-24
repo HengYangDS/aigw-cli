@@ -124,7 +124,18 @@ aigw use dmxapi-gpt-5.6-sol --for codex
 
 If a supported client is installed after setup, `aigw sync` discovers it and
 creates only AIGW-owned projection state. Synchronization does not ask for or
-replace a Token.
+replace a Token or write native client credentials. For Codex, finish the
+explicit native authentication step and then verify the route:
+
+```bash
+aigw sync
+aigw adapter auth codex
+aigw check
+```
+
+`aigw status` reports projection readiness and Codex native authentication as
+separate facts. It never infers authentication merely because a Token and a
+configuration projection exist.
 
 ### Environment variables
 
@@ -171,7 +182,7 @@ aigw rotate [account]
 
 | Command | Purpose |
 | --- | --- |
-| `status` | Show selection, readiness, and one next action |
+| `status` | Show selection, projection readiness, native authentication, and one next action |
 | `check` | Verify configuration, client projection, and endpoint passage |
 | `doctor` | Explain a problem without mutation |
 | `repair` | Reconcile bounded AIGW-owned client state |

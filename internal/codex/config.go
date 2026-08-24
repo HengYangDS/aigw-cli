@@ -38,19 +38,20 @@ var modelLine = regexp.MustCompile(`(?m)^[ \t]*model[ \t]*=.*$`)
 var modelCatalogLine = regexp.MustCompile(`(?m)^[ \t]*model_catalog_json[ \t]*=.*$`)
 
 type codexState struct {
-	OriginalProvider       string          `json:"original_provider,omitempty"`
-	OriginalModel          string          `json:"original_model,omitempty"`
-	ManagedBlockHash       string          `json:"managed_block_hash"`
-	OriginalScheduler      map[string]*int `json:"original_scheduler,omitempty"`
-	ProjectedSchedulerHash string          `json:"projected_scheduler_hash,omitempty"`
-	CatalogState           string          `json:"catalog_state,omitempty"`
-	CatalogHash            string          `json:"catalog_hash,omitempty"`
-	CatalogClientVersion   string          `json:"catalog_client_version,omitempty"`
-	CatalogClientSHA256    string          `json:"catalog_client_sha256,omitempty"`
-	ProjectedProvider      string          `json:"projected_provider,omitempty"`
-	ProjectionMode         string          `json:"projection_mode,omitempty"`
-	WriterID               string          `json:"writer_id,omitempty"`
-	TransactionID          string          `json:"transaction_id,omitempty"`
+	ConfigAbsentBeforeProjection bool            `json:"config_absent_before_projection,omitempty"`
+	OriginalProvider             string          `json:"original_provider,omitempty"`
+	OriginalModel                string          `json:"original_model,omitempty"`
+	ManagedBlockHash             string          `json:"managed_block_hash"`
+	OriginalScheduler            map[string]*int `json:"original_scheduler,omitempty"`
+	ProjectedSchedulerHash       string          `json:"projected_scheduler_hash,omitempty"`
+	CatalogState                 string          `json:"catalog_state,omitempty"`
+	CatalogHash                  string          `json:"catalog_hash,omitempty"`
+	CatalogClientVersion         string          `json:"catalog_client_version,omitempty"`
+	CatalogClientSHA256          string          `json:"catalog_client_sha256,omitempty"`
+	ProjectedProvider            string          `json:"projected_provider,omitempty"`
+	ProjectionMode               string          `json:"projection_mode,omitempty"`
+	WriterID                     string          `json:"writer_id,omitempty"`
+	TransactionID                string          `json:"transaction_id,omitempty"`
 }
 
 // ProjectionPlan is a non-secret, read-only rendering of one target's
@@ -78,6 +79,24 @@ func LoginPlan(executable, codexHome, token string) (process.Plan, error) {
 		Args:       []string{"login", "--with-api-key"},
 		Env:        env,
 		Stdin:      token + "\n",
+	}, nil
+}
+
+// LoginStatusPlan inspects Codex native authentication through its public,
+// read-only command surface for one explicit Codex Home.
+func LoginStatusPlan(executable, codexHome string) (process.Plan, error) {
+	if executable == "" {
+		return process.Plan{}, fmt.Errorf("Codex executable is not configured")
+	}
+	env := os.Environ()
+	if codexHome != "" {
+		env = removeEnvironment(env, "CODEX_HOME")
+		env = append(env, "CODEX_HOME="+codexHome)
+	}
+	return process.Plan{
+		Executable: executable,
+		Args:       []string{"login", "status"},
+		Env:        env,
 	}, nil
 }
 
@@ -272,7 +291,12 @@ func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot, run
 	if err != nil {
 		return "", codexState{}, err
 	}
-	return text, codexState{OriginalProvider: originalProvider, OriginalModel: originalModel, OriginalScheduler: scheduler}, nil
+	return text, codexState{
+		ConfigAbsentBeforeProjection: !configSnapshot.Exists,
+		OriginalProvider:             originalProvider,
+		OriginalModel:                originalModel,
+		OriginalScheduler:            scheduler,
+	}, nil
 }
 
 // completeExactTruncatedCodexProjection admits only the known interrupted

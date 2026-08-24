@@ -159,9 +159,31 @@ func TestSynchronizerPreservesInvocationCapabilities(t *testing.T) {
 	}
 }
 
+func TestRunCaptureUsesOnlyAnExplicitCaptureCapability(t *testing.T) {
+	runner := captureRunner{output: []byte("ready")}
+	got, err := RunCapture(Context{Runner: runner}, context.Background(), process.Plan{Executable: "codex"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "ready" {
+		t.Fatalf("captured output = %q", got)
+	}
+	if _, err := RunCapture(Context{Runner: fakeRunner{}}, context.Background(), process.Plan{Executable: "codex"}); err == nil {
+		t.Fatal("runner without capture capability was accepted")
+	}
+}
+
 type fakeRunner struct{}
 
 func (fakeRunner) Run(context.Context, process.Plan) error { return nil }
+
+type captureRunner struct{ output []byte }
+
+func (runner captureRunner) Run(context.Context, process.Plan) error { return nil }
+
+func (runner captureRunner) RunCapture(context.Context, process.Plan) ([]byte, error) {
+	return runner.output, nil
+}
 
 type fakeDiscoverer struct{}
 

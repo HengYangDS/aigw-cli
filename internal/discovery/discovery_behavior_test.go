@@ -88,4 +88,7 @@ func TestLinuxDiscoveryContainsOnlyDefaultCodexHome(t *testing.T) {
 	if surface.ID != string(surfacepkg.CodexHomeDefault) || surface.ConfigPath != wantConfig || surface.Present {
 		t.Fatalf("default Codex Home = %#v", surface)
 	}
+	if targets := result.AutoManagedCodexTargets(); len(targets) != 1 || targets[0] != wantConfig {
+		t.Fatalf("auto-managed targets = %#v, want absent but creatable default %q", targets, wantConfig)
+	}
 }

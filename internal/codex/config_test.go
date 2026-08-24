@@ -3,6 +3,7 @@ package codex_test
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -283,6 +284,25 @@ func TestLoginPlanPassesTokenOnStdinNotArguments(t *testing.T) {
 	}
 	if envMap(plan.Env)["CODEX_HOME"] != "/tmp/codex-home" {
 		t.Fatalf("env = %#v", plan.Env)
+	}
+}
+
+func TestLoginStatusPlanIsReadOnlyAndTargetScoped(t *testing.T) {
+	plan, err := codex.LoginStatusPlan("/usr/local/bin/codex", "/tmp/codex-home")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(plan.Args, []string{"login", "status"}) {
+		t.Fatalf("status args = %#v", plan.Args)
+	}
+	if plan.Stdin != "" || plan.Replace {
+		t.Fatalf("status plan is not read-only: %#v", plan)
+	}
+	if envMap(plan.Env)["CODEX_HOME"] != "/tmp/codex-home" {
+		t.Fatalf("env = %#v", plan.Env)
+	}
+	if _, err := codex.LoginStatusPlan("", "/tmp/codex-home"); err == nil {
+		t.Fatal("empty executable was accepted")
 	}
 }
 

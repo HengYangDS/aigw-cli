@@ -66,6 +66,63 @@ func TestReconcileConfigsRestoresRemovedFullSelectionTarget(t *testing.T) {
 	}
 }
 
+func TestReconcileConfigsCreatesAndRestoresAnAdmittedDefaultTarget(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		userContent string
+		wantConfig  bool
+	}{
+		{name: "empty pre-state returns to absence"},
+		{name: "later user content survives withdrawal", userContent: "user_setting = true\n", wantConfig: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), ".codex", "config.toml")
+			target := codexHomeTarget(path)
+			target.CreateIfAbsent = true
+
+			if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime()); err != nil {
+				t.Fatalf("create admitted default target: %v", err)
+			}
+			info, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if info.Mode().Perm() != 0o600 {
+				t.Fatalf("created config mode = %s, want 0600", info.Mode().Perm())
+			}
+			if test.userContent != "" {
+				projected, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				projected = append([]byte(test.userContent), projected...)
+				if err := os.WriteFile(path, projected, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := ReconcileConfigs([]TargetRef{target}, nil, atomicTestRuntime()); err != nil {
+				t.Fatalf("restore absent pre-state: %v", err)
+			}
+			if test.wantConfig {
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if string(data) != test.userContent {
+					t.Fatalf("restored config = %q, want %q", data, test.userContent)
+				}
+			} else if _, err := os.Stat(path); !os.IsNotExist(err) {
+				t.Fatalf("AIGW-created config remains at %s: %v", path, err)
+			}
+			for _, ownedPath := range []string{codexStatePath(path), codexCatalogPath(path)} {
+				if _, err := os.Stat(ownedPath); !os.IsNotExist(err) {
+					t.Fatalf("owned artifact remains at %s: %v", ownedPath, err)
+				}
+			}
+		})
+	}
+}
+
 func TestReconcileConfigsRollsBackMixedRestoreAndAdd(t *testing.T) {
 	dir := t.TempDir()
 	restoredPath := filepath.Join(dir, "restore.toml")

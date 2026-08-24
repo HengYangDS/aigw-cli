@@ -67,11 +67,13 @@ func (r Result) SurfaceForExecutablePath(path string) (Surface, bool) {
 	return Surface{}, false
 }
 
-// AutoManagedCodexTargets returns existing AIGW-owned Codex homes.
+// AutoManagedCodexTargets returns Codex homes that AIGW may project without
+// further operator admission. Presence remains an observed readiness fact; it
+// does not determine whether the declared default surface may be created.
 func (r Result) AutoManagedCodexTargets() []string {
 	targets := make([]string, 0)
 	for _, surface := range r.Surfaces {
-		if surface.Present && surface.AutoManaged && surface.ConfigPath != "" {
+		if surface.AutoManaged && surface.ConfigPath != "" {
 			targets = append(targets, surface.ConfigPath)
 		}
 	}

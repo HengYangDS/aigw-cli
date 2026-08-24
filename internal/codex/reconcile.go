@@ -32,6 +32,7 @@ type TargetRef struct {
 	ProjectionMode string
 	Path           string
 	Executable     string
+	CreateIfAbsent bool
 	statePath      string
 }
 
@@ -185,7 +186,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	if !configSnapshot.Exists {
+	if !configSnapshot.Exists && !(target.desired && target.ref.CreateIfAbsent) {
 		return codexPreparedTarget{}, fmt.Errorf("Codex config does not exist")
 	}
 	statePath := targetCodexStatePath(target.ref)
@@ -279,9 +280,18 @@ func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalo
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
+	artifacts := codexArtifactsForDesiredState(target, configSnapshot, []byte(restored), stateSnapshot, nil, catalogSnapshot, catalogDesired)
+	if state.ConfigAbsentBeforeProjection && strings.TrimSpace(restored) == "" {
+		for index := range artifacts {
+			if artifacts[index].path == target.Path {
+				artifacts[index].desired = transaction.FileSnapshot{}
+				break
+			}
+		}
+	}
 	return codexPreparedTarget{
 		plan:      ProjectionPlan{Target: target.Path, Action: "restore-external"},
-		artifacts: codexArtifactsForDesiredState(target, configSnapshot, []byte(restored), stateSnapshot, nil, catalogSnapshot, catalogDesired),
+		artifacts: artifacts,
 	}, nil
 }
 
@@ -297,7 +307,11 @@ func codexArtifactsForDesiredState(target TargetRef, configBefore transaction.Fi
 	if catalogChanged && catalogDesired.Exists {
 		artifacts = append(artifacts, catalog)
 	}
-	configDesired := desiredCodexSnapshot(configData, configBefore.Mode)
+	configMode := configBefore.Mode
+	if !configBefore.Exists {
+		configMode = 0o600
+	}
+	configDesired := desiredCodexSnapshot(configData, configMode)
 	if !sameCodexSnapshot(configBefore, configDesired) {
 		artifacts = append(artifacts, codexPreparedArtifact{path: target.Path, before: configBefore, desired: configDesired})
 	}
