@@ -17,12 +17,13 @@ to `CI_COMMIT_SHA` or `github.sha`.
 The check proves only accepted-ref parity. It does not claim a second native,
 source, release, or runtime execution.
 
-### Separate Markdown parsing, presentation, and navigation concerns
+### Give each text-quality concern one mature owner
 
-Prettier owns deterministic Markdown presentation and markdownlint owns
-parser-visible semantic conventions. The repository architecture gate owns the
-two concerns neither tool can prove alone: a delimiter-shaped row must agree
-with its preceding header before it can silently fall outside GFM table parsing,
-and every canonical product document must be reachable from a declared reader
-entrypoint. OpenSpec archives remain immutable historical records and are not
-rewritten by the current-document formatter.
+EditorConfig Checker owns portable byte-level invariants from `.editorconfig`.
+Prettier owns deterministic current-Markdown presentation, markdownlint owns
+Markdown structure and conventions, and lychee owns explicit-link validity.
+The curated documentation index remains the navigation authority instead of a
+second crawler attempting to infer missing author intent. Repository-specific
+checks remain reserved for product rules no maintained tool can express.
+OpenSpec archives are immutable historical records and are not rewritten by the
+current-document formatter.

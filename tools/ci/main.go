@@ -26,6 +26,7 @@ type commandRunner func(command) error
 var sourceCommands = []command{
 	{Name: "go", Args: []string{"run", "./tools/ci", "project", "--check"}},
 	{Name: "openspec", Args: []string{"validate", "--all", "--strict", "--no-interactive"}},
+	{Name: "ec", Args: []string{"-disable-indentation", "-disable-indent-size"}},
 	{Name: "prettier", Args: []string{"--check", "--config", ".config/checks/markdown/prettier.json", "--ignore-path", ".config/checks/markdown/prettier-ignore", "*.md", "docs/**/*.md", "openspec/**/*.md"}},
 	{Name: "markdownlint-cli2", Args: []string{"--config", ".config/checks/markdown/policy.yaml"}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "links", "."}},

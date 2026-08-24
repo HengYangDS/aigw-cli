@@ -143,21 +143,14 @@ func TestAnalyzeRepositoryDirect(t *testing.T) {
 	}
 }
 
-func TestSemanticAndTextStagesRejectBrokenRepositoryMetadata(t *testing.T) {
+func TestSemanticStageRejectsBrokenRepositoryMetadata(t *testing.T) {
 	root := t.TempDir()
 	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for name, check := range map[string]func(string, *Report) error{
-		"semantic names": checkSemanticNames,
-		"text layout":    checkTextLayout,
-	} {
-		t.Run(name, func(t *testing.T) {
-			report := newReport("policy", root)
-			if err := check(root, &report); err == nil || !strings.Contains(err.Error(), "list tracked files") {
-				t.Fatalf("error = %v", err)
-			}
-		})
+	report := newReport("policy", root)
+	if err := checkSemanticNames(root, &report); err == nil || !strings.Contains(err.Error(), "list tracked files") {
+		t.Fatalf("error = %v", err)
 	}
 }
 
@@ -171,12 +164,6 @@ func TestAnalyzeRepositoryPropagatesSemanticStageFailures(t *testing.T) {
 		},
 		"semantic names": func() {
 			repositoryAnalysis.semanticNames = func(string, *Report) error { return want }
-		},
-		"text layout": func() {
-			repositoryAnalysis.textLayout = func(string, *Report) error { return want }
-		},
-		"documentation navigation": func() {
-			repositoryAnalysis.documentation = func(string, policy, *Report) error { return want }
 		},
 		"package children": func() {
 			repositoryAnalysis.packageChildren = func(string, policy, *Report) error { return want }

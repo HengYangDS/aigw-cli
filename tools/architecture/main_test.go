@@ -270,18 +270,6 @@ func TestWorkspaceFilesSkipsGitMetadataDirectories(t *testing.T) {
 	}
 }
 
-func TestTextLayoutSkipsPythonSources(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "fixture.py"), "print('fixture')\r\n")
-	report := newReport("policy", root)
-	if err := checkTextLayout(root, &report); err != nil {
-		t.Fatal(err)
-	}
-	if len(report.Findings) != 0 {
-		t.Fatalf("Python source entered the text-layout plane: %+v", report.Findings)
-	}
-}
-
 func TestStartsWithDotDotAcceptsBothPortableSeparators(t *testing.T) {
 	for _, value := range []string{"..", "../x", `..\x`} {
 		if !startsWithDotDot(value) {

@@ -17,8 +17,6 @@ import (
 var repositoryAnalysis = struct {
 	decisionRecords func(string, *Report) error
 	semanticNames   func(string, *Report) error
-	textLayout      func(string, *Report) error
-	documentation   func(string, policy, *Report) error
 	packageChildren func(string, policy, *Report) error
 	goFiles         func(string, policy) ([]goFileInfo, error)
 	peerImports     func(string, []goFileInfo, policy, *Report) error
@@ -27,8 +25,6 @@ var repositoryAnalysis = struct {
 }{
 	decisionRecords: checkDecisionRecords,
 	semanticNames:   checkSemanticNames,
-	textLayout:      checkTextLayout,
-	documentation:   checkDocumentationNavigation,
 	packageChildren: checkPackageChildren,
 	goFiles:         collectGoFiles,
 	peerImports:     checkPeerPackageImports,
@@ -55,12 +51,6 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 		if err := repositoryAnalysis.semanticNames(absRoot, &report); err != nil {
 			return Report{}, err
 		}
-	}
-	if err := repositoryAnalysis.textLayout(absRoot, &report); err != nil {
-		return Report{}, err
-	}
-	if err := repositoryAnalysis.documentation(absRoot, p, &report); err != nil {
-		return Report{}, err
 	}
 	if err := repositoryAnalysis.packageChildren(absRoot, p, &report); err != nil {
 		return Report{}, err

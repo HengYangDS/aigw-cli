@@ -39,7 +39,7 @@ commands: {
 }
 
 nativeToolchain: MISE_ENABLE_TOOLS:           "go,cue"
-sourceToolchain: MISE_ENABLE_TOOLS:           "go,node,cue,npm:@fission-ai/openspec,npm:markdownlint-cli2,npm:prettier,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
+sourceToolchain: MISE_ENABLE_TOOLS:           "go,node,cue,editorconfig-checker,npm:@fission-ai/openspec,npm:markdownlint-cli2,npm:prettier,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
 releaseReadinessToolchain: MISE_ENABLE_TOOLS: "go"
 
 lifecycle: {

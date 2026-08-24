@@ -14,8 +14,9 @@
 
 - [x] 3.1 Repair the malformed text-layout table and normalize current Markdown.
 - [x] 3.2 Add locked Markdown formatting and semantic lint to the source graph.
-- [x] 3.3 Reject malformed table structure before parser-based lint.
-- [x] 3.4 Prove every canonical product document is reachable from a declared entrypoint.
+- [x] 3.3 Replace repository-specific byte-layout checks with locked EditorConfig Checker.
+- [x] 3.4 Keep explicit-link validation and the curated documentation index as
+      the sole navigation surfaces; remove the parallel inferred-link crawler.
 
 ## 4. Closeout
 

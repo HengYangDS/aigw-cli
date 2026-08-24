@@ -10,10 +10,9 @@ but only the `main` event receives a visible pipeline. The product should retain
 one expensive verification graph per product commit while exposing a bounded
 `dev` confirmation that the peer refs name the same already-verified object.
 
-Repository Markdown also lacked a semantic format gate. A malformed table could
-therefore remain invisible to both the formatter and table-specific lint rules,
-and the documented requirement that every canonical document be reachable from
-the documentation map had no executable proof.
+Repository Markdown also lacked locked presentation and semantic gates, while
+portable byte invariants were maintained by repository-specific code despite
+having a mature cross-platform implementation.
 
 ## What Changes
 
@@ -22,9 +21,8 @@ the documentation map had no executable proof.
   representation.
 - Add one lightweight `dev` push projection that verifies exact equality with
   the peer `main` object, without rerunning the complete product graph.
-- Add locked Markdown format and lint gates, reject malformed table structure
-  before parser-based lint, and prove canonical documentation is reachable from
-  the declared reader entrypoints.
+- Add locked EditorConfig, Markdown format, Markdown lint, and explicit-link
+  gates, with one mature owner per concern and no parallel documentation parser.
 - Generate both Forge workflows from the existing CUE authority.
 
 ## Capabilities
@@ -37,6 +35,6 @@ the documentation map had no executable proof.
 ## Impact
 
 This change affects native acceptance tests, CI topology, generated Forge
-workflows, Markdown presentation, documentation navigation, and their canonical
-quality contract. It changes no credentials, client state, provider behavior,
-release payload, or runtime configuration.
+workflows, text and Markdown quality, and their canonical quality contract. It
+changes no credentials, client state, provider behavior, release payload, or
+runtime configuration.

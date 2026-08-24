@@ -17,23 +17,18 @@ or runtime verification.
 - **AND** that check SHALL require both protected refs to equal the event commit
 - **AND** no complete verification job SHALL run again for the `dev` event.
 
-### Requirement: canonical Markdown has executable structure and navigation proof
+### Requirement: repository text quality has one mature owner per concern
 
-Current product Markdown SHALL be formatted and linted by locked tools. The
-repository gate SHALL reject delimiter-shaped table rows whose column count does
-not match the preceding header, even when a Markdown parser would otherwise
-treat the lines as ordinary prose. Every canonical product document SHALL be
-reachable from a declared reader entrypoint. Immutable OpenSpec archives SHALL
-remain outside current-document rewriting.
+Portable byte invariants SHALL be declared in `.editorconfig` and verified by a
+locked cross-platform EditorConfig implementation. Current product Markdown
+SHALL be formatted by Prettier, linted by markdownlint, and checked for explicit
+link validity by lychee. Repository-specific analyzers SHALL NOT duplicate
+those responsibilities or infer links that an author did not declare.
+Immutable OpenSpec archives SHALL remain outside current-document rewriting.
 
-#### Scenario: a malformed table bypasses parser-based formatting
+#### Scenario: a current text artifact violates its declared contract
 
-- **WHEN** a Markdown header and its delimiter row declare different column counts
-- **THEN** repository verification SHALL reject the file before publication
-- **AND** the diagnostic SHALL identify the file and delimiter row.
-
-#### Scenario: a canonical document loses navigation
-
-- **WHEN** a canonical product document is no longer reachable from any declared entrypoint
-- **THEN** repository verification SHALL reject the orphan document
-- **AND** external lifecycle carriers SHALL remain governed by their own entrypoints.
+- **WHEN** a tracked text file violates `.editorconfig` or a current Markdown
+  file violates the locked formatter, linter, or explicit-link contract
+- **THEN** repository verification SHALL reject the exact artifact
+- **AND** the responsible mature tool SHALL emit the diagnostic.

@@ -16,9 +16,10 @@ assets are outside its scope; binary files are detected by their NUL bytes.
 - Lines contain no trailing spaces or tabs.
 
 These rules are deterministic across editors and operating systems and prevent
-semantic or review-noise drift. The repository checker does not decide how many
-blank lines are aesthetically appropriate or require blank lines before TOML
-and INI tables.
+semantic or review-noise drift. The locked EditorConfig Checker enforces them
+from `.editorconfig`; language formatters retain ownership of indentation. No
+repository-specific parser duplicates those mature responsibilities or decides
+how many blank lines are aesthetically appropriate.
 
 ## Language-specific meaning
 
@@ -32,10 +33,11 @@ and INI tables.
 | TOML / INI         | Before each table; also before a comment attached to that table      | Never                                       | Within one table or table-attached comment block                   |
 
 Language-native formatters own source layout where they define it. Locked
-Prettier owns current Markdown presentation; markdownlint owns parser-visible
-structure and conventions; the repository architecture gate detects malformed
-table candidates before parser-based tools can silently treat them as prose.
-OpenSpec archives remain immutable and outside current-document rewriting.
+Prettier owns current Markdown presentation, markdownlint owns Markdown
+structure and conventions, and lychee owns explicit-link validity. The
+documentation index is the human navigation authority; no parallel crawler
+attempts to infer which links authors intended to create. OpenSpec archives
+remain immutable and outside current-document rewriting.
 
 ## Generated configuration
 

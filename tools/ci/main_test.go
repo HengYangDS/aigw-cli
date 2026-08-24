@@ -19,6 +19,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	want := [][]string{
 		{"go", "run", "./tools/ci", "project", "--check"},
 		{"openspec", "validate", "--all", "--strict", "--no-interactive"},
+		{"ec", "-disable-indentation", "-disable-indent-size"},
 		{"prettier", "--check", "--config", ".config/checks/markdown/prettier.json", "--ignore-path", ".config/checks/markdown/prettier-ignore", "*.md", "docs/**/*.md", "openspec/**/*.md"},
 		{"markdownlint-cli2", "--config", ".config/checks/markdown/policy.yaml"},
 		{"go", "run", "./tools/ci", "links", "."},
