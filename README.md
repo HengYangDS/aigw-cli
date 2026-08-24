@@ -5,9 +5,9 @@ A local-first control plane for teams using reviewed third-party AI services.
 AIGW manages Accounts, Tokens, Profiles, Routes, and native client projections.
 It does **not** relay model traffic, run a gateway, or own conversation state.
 
-| GitLab metadata | Value |
-| --- | --- |
-| **Project Name** | `AIGW CLI` |
+| GitLab metadata            | Value      |
+| -------------------------- | ---------- |
+| **Project Name**           | `AIGW CLI` |
 | **Stable repository Path** | `aigw-cli` |
 
 ```mermaid
@@ -21,13 +21,13 @@ flowchart LR
 
 ## Start here
 
-| Goal | Command | Next step |
-| --- | --- | --- |
-| Connect the first service | `aigw setup` | `aigw check` |
-| Inspect the active selection | `aigw` | Follow **Next** |
-| Select a profile | `aigw use <profile>` | `aigw check` |
-| Replace an Account Token | `aigw rotate <account>` | `aigw check` |
-| Diagnose local integration | `aigw doctor` | Run its recommended action |
+| Goal                          | Command                       | Next step                           |
+| ----------------------------- | ----------------------------- | ----------------------------------- |
+| Connect the first service     | `aigw setup`                  | `aigw check`                        |
+| Inspect the active selection  | `aigw`                        | Follow **Next**                     |
+| Select a profile              | `aigw use <profile>`          | `aigw check`                        |
+| Replace an Account Token      | `aigw rotate <account>`       | `aigw check`                        |
+| Diagnose local integration    | `aigw doctor`                 | Run its recommended action          |
 | Import reviewed team settings | `aigw setup --from team.toml` | Connect any one Account when needed |
 
 The daily path is deliberately small:
@@ -148,17 +148,17 @@ persisted; AIGW never searches multiple stores for the same Token.
 Use these variables only for explicit automation or a deliberately selected
 backend:
 
-| Variable | Meaning |
-| --- | --- |
-| `AIGW_SECRET_BACKEND=keyring` | Require the native credential service: macOS Keychain, Windows Credential Manager, or Secret Service on Linux. Failure is explicit; no fallback occurs. |
-| `AIGW_SECRET_BACKEND=file` | Require AIGW's owner-only file store on macOS or Linux. Windows rejects this backend because Credential Manager owns writable Token persistence there. |
-| `AIGW_SECRET_BACKEND=env` | Read Tokens from the current process environment without persisting, rotating, or deleting them. Intended for CI and other controlled automation. |
-| `AIGW_TOKEN_<ACCOUNT>` | Token for one manifest Account when `AIGW_SECRET_BACKEND=env`; uppercase the Account ID and replace each run of non-alphanumeric characters with `_` (for example, `dmx-api` becomes `AIGW_TOKEN_DMX_API`). |
-| `AIGW_ACCESSIBLE=1` | Use accessibility-oriented terminal output. |
-| `AIGW_GITLAB_RELEASE_ORIGIN` + `AIGW_GITLAB_RELEASE_REPOSITORY` | Override the GitLab update source as one complete `HTTPS origin + namespace/project` pair. |
-| `AIGW_GITHUB_RELEASE_ORIGIN` + `AIGW_GITHUB_RELEASE_REPOSITORY` | Override the GitHub update source as one complete `HTTPS origin + owner/repository` pair. |
-| `AIGW_GITHUB_TOKEN`, `GITHUB_TOKEN`, or `GH_TOKEN` | Authenticate a private GitHub release lookup; checked in this order and never persisted. |
-| `GITLAB_TOKEN` | Authenticate a private GitLab release lookup when `glab` credentials are unavailable; requires an explicit GitLab origin. |
+| Variable                                                        | Meaning                                                                                                                                                                                                     |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AIGW_SECRET_BACKEND=keyring`                                   | Require the native credential service: macOS Keychain, Windows Credential Manager, or Secret Service on Linux. Failure is explicit; no fallback occurs.                                                     |
+| `AIGW_SECRET_BACKEND=file`                                      | Require AIGW's owner-only file store on macOS or Linux. Windows rejects this backend because Credential Manager owns writable Token persistence there.                                                      |
+| `AIGW_SECRET_BACKEND=env`                                       | Read Tokens from the current process environment without persisting, rotating, or deleting them. Intended for CI and other controlled automation.                                                           |
+| `AIGW_TOKEN_<ACCOUNT>`                                          | Token for one manifest Account when `AIGW_SECRET_BACKEND=env`; uppercase the Account ID and replace each run of non-alphanumeric characters with `_` (for example, `dmx-api` becomes `AIGW_TOKEN_DMX_API`). |
+| `AIGW_ACCESSIBLE=1`                                             | Use accessibility-oriented terminal output.                                                                                                                                                                 |
+| `AIGW_GITLAB_RELEASE_ORIGIN` + `AIGW_GITLAB_RELEASE_REPOSITORY` | Override the GitLab update source as one complete `HTTPS origin + namespace/project` pair.                                                                                                                  |
+| `AIGW_GITHUB_RELEASE_ORIGIN` + `AIGW_GITHUB_RELEASE_REPOSITORY` | Override the GitHub update source as one complete `HTTPS origin + owner/repository` pair.                                                                                                                   |
+| `AIGW_GITHUB_TOKEN`, `GITHUB_TOKEN`, or `GH_TOKEN`              | Authenticate a private GitHub release lookup; checked in this order and never persisted.                                                                                                                    |
+| `GITLAB_TOKEN`                                                  | Authenticate a private GitLab release lookup when `glab` credentials are unavailable; requires an explicit GitLab origin.                                                                                   |
 
 Release-origin and Forge-token variables belong to contributor and release
 operations, not normal product setup. Built-in official release coordinates
@@ -180,15 +180,15 @@ aigw repair
 aigw rotate [account]
 ```
 
-| Command | Purpose |
-| --- | --- |
-| `status` | Show selection, projection readiness, native authentication, and one next action |
-| `check` | Verify configuration, client projection, and endpoint passage |
-| `doctor` | Explain a problem without mutation |
-| `repair` | Reconcile bounded AIGW-owned client state |
-| `test` | Test configured connectivity and authentication |
-| `verify` | Make an explicit minimal model request that may consume quota |
-| `rollback` | Restore AIGW-managed configuration only |
+| Command    | Purpose                                                                          |
+| ---------- | -------------------------------------------------------------------------------- |
+| `status`   | Show selection, projection readiness, native authentication, and one next action |
+| `check`    | Verify configuration, client projection, and endpoint passage                    |
+| `doctor`   | Explain a problem without mutation                                               |
+| `repair`   | Reconcile bounded AIGW-owned client state                                        |
+| `test`     | Test configured connectivity and authentication                                  |
+| `verify`   | Make an explicit minimal model request that may consume quota                    |
+| `rollback` | Restore AIGW-managed configuration only                                          |
 
 Human output is task-oriented and terminal-width aware. Automation uses stable
 JSON flags where available. Expected failures do not emit tracebacks, warning
@@ -196,12 +196,12 @@ dumps, or unrelated usage text.
 
 ## Product model
 
-| Entity | Owns | Does not own |
-| --- | --- | --- |
-| Account | Provider endpoints and one logical Token boundary | Client selection |
-| Profile | `account + client + model` and an optional Codex-native provider identity | Endpoint credentials |
-| Route | Default or client-specific Profile selection | Provider fallback |
-| Adapter | One native client projection | Another client's state |
+| Entity  | Owns                                                                      | Does not own           |
+| ------- | ------------------------------------------------------------------------- | ---------------------- |
+| Account | Provider endpoints and one logical Token boundary                         | Client selection       |
+| Profile | `account + client + model` and an optional Codex-native provider identity | Endpoint credentials   |
+| Route   | Default or client-specific Profile selection                              | Provider fallback      |
+| Adapter | One native client projection                                              | Another client's state |
 
 ```mermaid
 flowchart LR
@@ -221,15 +221,15 @@ provider name and are not configured by the current release.
 
 ## Ownership boundaries
 
-| Surface | Owner |
-| --- | --- |
-| Account metadata, Tokens, Profiles, Routes | AIGW |
-| AIGW-marked Codex provider/model projection | AIGW |
-| AIGW-owned Claude Code endpoint/model keys and credential helper | AIGW |
-| Codex conversations, JSONL, SQLite, model metadata | Codex |
-| Claude session behavior | Claude Code |
-| External gateway or compatibility process | Its own product/operator |
-| IDE and ACP configuration | The IDE or ACP product |
+| Surface                                                          | Owner                    |
+| ---------------------------------------------------------------- | ------------------------ |
+| Account metadata, Tokens, Profiles, Routes                       | AIGW                     |
+| AIGW-marked Codex provider/model projection                      | AIGW                     |
+| AIGW-owned Claude Code endpoint/model keys and credential helper | AIGW                     |
+| Codex conversations, JSONL, SQLite, model metadata               | Codex                    |
+| Claude session behavior                                          | Claude Code              |
+| External gateway or compatibility process                        | Its own product/operator |
+| IDE and ACP configuration                                        | The IDE or ACP product   |
 
 AIGW never edits Codex history or Desktop-only GUI state. A loopback endpoint is
 an ordinary Account endpoint; AIGW does not start, stop, configure, or diagnose
@@ -292,15 +292,15 @@ mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 
 ## Documentation
 
-| Need | Source of truth |
-| --- | --- |
-| Concepts | [Account, Profile, Route, Adapter](docs/concepts/product-concepts.md) |
+| Need                                | Source of truth                                                        |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| Concepts                            | [Account, Profile, Route, Adapter](docs/concepts/product-concepts.md)  |
 | Client and control-plane boundaries | [Architecture](docs/architecture/authority-and-projection-boundary.md) |
-| Human terminal behavior | [Terminal experience](docs/experience/terminal-experience.md) |
-| Security | [Security model](docs/architecture/security-model.md) |
-| Team adoption | [Team rollout](docs/guides/team-rollout.md) |
-| Release evidence | [Release readiness](docs/evidence/release-evidence.md) |
-| Development | [CONTRIBUTING](CONTRIBUTING.md) |
-| Full index | [Documentation root](docs/README.md) |
+| Human terminal behavior             | [Terminal experience](docs/experience/terminal-experience.md)          |
+| Security                            | [Security model](docs/architecture/security-model.md)                  |
+| Team adoption                       | [Team rollout](docs/guides/team-rollout.md)                            |
+| Release evidence                    | [Release readiness](docs/evidence/release-evidence.md)                 |
+| Development                         | [CONTRIBUTING](CONTRIBUTING.md)                                        |
+| Full index                          | [Documentation root](docs/README.md)                                   |
 
 Licensed under the MIT License: [MIT](LICENSE).

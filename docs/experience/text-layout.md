@@ -22,19 +22,20 @@ and INI tables.
 
 ## Language-specific meaning
 
-| Surface | Single blank line | Two blank lines | No blank line |
-| --- | --- | --- |
-| Markdown | Between headings, paragraphs, lists, tables, blockquotes, and fences | Never | Within one list, table, fenced block, or paragraph continuation |
-| Go | Between top-level declarations and logical function sections | Never | Import groups, short guard clauses, and tightly coupled statements |
-| Python | Between class methods and logical sections in a function | Only between module-level classes/functions | Inside a compact function or class section |
-| Shell / PowerShell | Between functions and logical command phases | Never | Command continuations, `case` arms, pipelines, and tight guards |
-| YAML | Between top-level documents, jobs, or mappings | Never | Within one mapping or sequence |
-| TOML / INI | Before each table; also before a comment attached to that table | Never | Within one table or table-attached comment block |
+| Surface            | Single blank line                                                    | Two blank lines                             | No blank line                                                      |
+| ------------------ | -------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
+| Markdown           | Between headings, paragraphs, lists, tables, blockquotes, and fences | Never                                       | Within one list, table, fenced block, or paragraph continuation    |
+| Go                 | Between top-level declarations and logical function sections         | Never                                       | Import groups, short guard clauses, and tightly coupled statements |
+| Python             | Between class methods and logical sections in a function             | Only between module-level classes/functions | Inside a compact function or class section                         |
+| Shell / PowerShell | Between functions and logical command phases                         | Never                                       | Command continuations, `case` arms, pipelines, and tight guards    |
+| YAML               | Between top-level documents, jobs, or mappings                       | Never                                       | Within one mapping or sequence                                     |
+| TOML / INI         | Before each table; also before a comment attached to that table      | Never                                       | Within one table or table-attached comment block                   |
 
-Language-native formatters own source layout where they define it. Markdown and
-configuration layout remains a review concern: spacing should reveal logical
-structure, but a presentation preference cannot reject an otherwise correct
-change without an admitted risk model.
+Language-native formatters own source layout where they define it. Locked
+Prettier owns current Markdown presentation; markdownlint owns parser-visible
+structure and conventions; the repository architecture gate detects malformed
+table candidates before parser-based tools can silently treat them as prose.
+OpenSpec archives remain immutable and outside current-document rewriting.
 
 ## Generated configuration
 

@@ -23,7 +23,7 @@ func execute(arguments []string, stderr *os.File) int {
 
 func run(arguments []string) error {
 	if len(arguments) == 0 {
-		return errors.New("usage: forge <commits|tag|tags|project|publish-tag>")
+		return errors.New("usage: forge <commits|tag|tags|refs|project|publish-tag>")
 	}
 	switch arguments[0] {
 	case "commits":
@@ -32,6 +32,8 @@ func run(arguments []string) error {
 		return runTagVerification(arguments[1:])
 	case "tags":
 		return runTagSetVerification(arguments[1:])
+	case "refs":
+		return runRefVerification(arguments[1:])
 	case "project":
 		return runProjection(arguments[1:])
 	case "publish-tag":

@@ -1,8 +1,11 @@
 # repository-organization Specification
 
 ## Purpose
+
 TBD - created by archiving change aigw-repository-organization-convergence. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: One repository version source
 
 AIGW SHALL expose one tracked, machine-readable product version source used by CLI version output, changelog validation, artifact naming, and release checks.

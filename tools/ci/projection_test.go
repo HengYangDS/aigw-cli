@@ -129,6 +129,7 @@ func TestVerificationRoutingRunsOncePerProductCommit(t *testing.T) {
 	}{
 		{If: "$CI_COMMIT_TAG"},
 		{If: `$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"`},
+		{If: `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"`, When: "always"},
 		{If: `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"`},
 		{If: `$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"`},
 		{When: "never"},
@@ -157,14 +158,82 @@ func TestVerificationRoutingRunsOncePerProductCommit(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(github.On.Push.Branches, []string{"main"}) {
-		t.Fatalf("GitHub accepted-publication routes = %q, want [main]", github.On.Push.Branches)
+	if !slices.Equal(github.On.Push.Branches, []string{"main", "dev"}) {
+		t.Fatalf("GitHub accepted-publication routes = %q, want [main dev]", github.On.Push.Branches)
 	}
 	if !slices.Equal(github.On.PullRequest.Branches, []string{"dev"}) {
 		t.Fatalf("GitHub review targets = %q, want [dev]", github.On.PullRequest.Branches)
 	}
 	if github.On.WorkflowDispatch == nil {
 		t.Fatal("GitHub verification lacks the explicit maintainer dispatch route")
+	}
+}
+
+func TestDevPushRunsOnlyExactAcceptedRefParity(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var gitlab struct {
+		AcceptedRefParity gitLabJob `yaml:"accepted-ref-parity"`
+		Source            gitLabJob `yaml:"source-and-governance"`
+		Darwin            gitLabJob `yaml:"native-darwin"`
+		Linux             gitLabJob `yaml:"native-linux"`
+		Package           gitLabJob `yaml:"package"`
+		Publish           gitLabJob `yaml:"publish"`
+		Release           gitLabJob `yaml:"release"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	parity := gitlab.AcceptedRefParity
+	if len(parity.Script) == 0 {
+		t.Fatal("GitLab projection lacks accepted-ref-parity")
+	}
+	if len(parity.Rules) != 2 ||
+		parity.Rules[0].If != `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` ||
+		parity.Rules[1].When != "never" {
+		t.Fatalf("GitLab dev parity rules = %#v", parity.Rules)
+	}
+	for name, job := range map[string]gitLabJob{
+		"source-and-governance": gitlab.Source,
+		"native-darwin":         gitlab.Darwin,
+		"native-linux":          gitlab.Linux,
+		"package":               gitlab.Package,
+		"publish":               gitlab.Publish,
+		"release":               gitlab.Release,
+	} {
+		devRuleSeen := false
+		for _, rule := range job.Rules {
+			if rule.If == `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
+				devRuleSeen = true
+			}
+		}
+		if devRuleSeen {
+			t.Fatalf("GitLab %s encodes a negative dev exception instead of positive lifecycle admission", name)
+		}
+	}
+
+	var github struct {
+		Jobs map[string]struct {
+			If string `yaml:"if"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
+		t.Fatal(err)
+	}
+	if got := github.Jobs["accepted-ref-parity"].If; got != "github.event_name == 'push' && github.ref_name == 'dev'" {
+		t.Fatalf("GitHub dev parity condition = %q", got)
+	}
+	for name, job := range github.Jobs {
+		if name == "accepted-ref-parity" {
+			continue
+		}
+		if job.If != "github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'" {
+			t.Fatalf("GitHub %s does not positively admit the full verification lifecycle: %q", name, job.If)
+		}
 	}
 }
 
@@ -353,7 +422,7 @@ func TestSourceJobsUseTheirExactToolClosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const sourceTools = "go,node,cue,npm:@fission-ai/openspec,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
+	const sourceTools = "go,node,cue,npm:@fission-ai/openspec,npm:markdownlint-cli2,npm:prettier,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
 	var pipeline struct {
 		SourceToolchain     gitLabJob `yaml:".source-toolchain"`
 		SourceAndGovernance gitLabJob `yaml:"source-and-governance"`
@@ -494,6 +563,10 @@ type gitLabJob struct {
 	Needs        []gitLabNeed      `yaml:"needs"`
 	Script       []string          `yaml:"script"`
 	Variables    map[string]string `yaml:"variables"`
+	Rules        []struct {
+		If   string `yaml:"if"`
+		When string `yaml:"when"`
+	} `yaml:"rules"`
 }
 
 type gitLabNeed struct {

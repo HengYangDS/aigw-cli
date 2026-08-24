@@ -18,25 +18,25 @@ Implement a two-phase "copy-then-delete" migration for `aigw account rename`:
 
 `aigw account rename [old] [new]` performs the following:
 
-1.  **Configuration Migration**: Moves the Account key in the TOML configuration and updates all `Profile.Account` references to the new ID.
-2.  **Credential Adoption**: For the Token and optional account-probe credential, a missing target slot is copied from the old slot and read back before configuration is committed.
-3.  **Fail-Closed Consistency**:
-    - If a target credential slot already contains the same value, the migration is resumable.
-    - If a target slot contains a different value, the command fails closed without changing the source configuration or old slot.
-    - If the `env` backend is active, equal target environment variables must be externally pre-provisioned because that backend is read-only.
-4.  **Retention**: After success, the old Account key is absent from the current TOML and remains only in the single `.bak` configuration preimage. Phase 1 never deletes the old credential slots, whether it succeeds or fails.
-5.  **Dry-Run**: `--dry-run` renders the plan without taking the mutation lock or writing configuration, `.bak`, credentials, or client state.
+1. **Configuration Migration**: Moves the Account key in the TOML configuration and updates all `Profile.Account` references to the new ID.
+2. **Credential Adoption**: For the Token and optional account-probe credential, a missing target slot is copied from the old slot and read back before configuration is committed.
+3. **Fail-Closed Consistency**:
+   - If a target credential slot already contains the same value, the migration is resumable.
+   - If a target slot contains a different value, the command fails closed without changing the source configuration or old slot.
+   - If the `env` backend is active, equal target environment variables must be externally pre-provisioned because that backend is read-only.
+4. **Retention**: After success, the old Account key is absent from the current TOML and remains only in the single `.bak` configuration preimage. Phase 1 never deletes the old credential slots, whether it succeeds or fails.
+5. **Dry-Run**: `--dry-run` renders the plan without taking the mutation lock or writing configuration, `.bak`, credentials, or client state.
 
 ### Phase 2: Finalization and Cleanup
 
 `aigw account rename <old> <new> --finalize` performs the following:
 
-1.  **Strict Verification**: Requires explicit old and new IDs, semantic agreement between the current configuration and the complete admitted-client verified checkpoint, and an available target Token.
-2.  **Backup Convergence**: Before deleting an old slot, uses a three-file exact-preimage check to converge the single `.bak` to the verified current TOML.
-3.  **Rotation Confirmation**: Requires `--confirm-api-token-rotation` only when the old and new Token slots differ, and `--confirm-account-probe-rotation` only when the corresponding probe slots differ.
-4.  **Probe Execution**: If probe credentials differ during apply, executes the target provider probe live before cleanup.
-5.  **Credential Cleanup**: Removes the old credential slots only after the preceding checks. Partial deletion is retryable; with the `env` backend, old variables must be unset externally and the non-zero, incomplete finalization retried.
-6.  **Idempotency**: Dry-run JSON after successful finalization reports `already-finalized`.
+1. **Strict Verification**: Requires explicit old and new IDs, semantic agreement between the current configuration and the complete admitted-client verified checkpoint, and an available target Token.
+2. **Backup Convergence**: Before deleting an old slot, uses a three-file exact-preimage check to converge the single `.bak` to the verified current TOML.
+3. **Rotation Confirmation**: Requires `--confirm-api-token-rotation` only when the old and new Token slots differ, and `--confirm-account-probe-rotation` only when the corresponding probe slots differ.
+4. **Probe Execution**: If probe credentials differ during apply, executes the target provider probe live before cleanup.
+5. **Credential Cleanup**: Removes the old credential slots only after the preceding checks. Partial deletion is retryable; with the `env` backend, old variables must be unset externally and the non-zero, incomplete finalization retried.
+6. **Idempotency**: Dry-run JSON after successful finalization reports `already-finalized`.
 
 ## Consequences
 
@@ -48,6 +48,7 @@ Implement a two-phase "copy-then-delete" migration for `aigw account rename`:
 ## Evidence
 
 Regression suites cover:
+
 - 0/1/2 argument handling in interactive and non-interactive modes.
 - Token and probe credential copying and comparison logic.
 - Fail-closed behavior for credential mismatches and `env` backend requirements.

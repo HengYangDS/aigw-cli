@@ -9,14 +9,14 @@ AIGW minimizes the distance between an operator's intent and each client's
 official configuration surface. It deliberately avoids becoming a mandatory
 traffic hop, a client launcher, or an agent-state manager.
 
-| Concern | AIGW role | Other owner |
-| --- | --- | --- |
-| Provider service and endpoint capability | Record verified Account capabilities | Provider |
-| Token material | Select and use one Account Token backend | Native credential service or AIGW owner-only store |
-| Client intent | Select a Profile through a Route | AIGW configuration |
-| Native client configuration | Project one admitted, bounded region | Client Adapter |
-| Wire compatibility | Select an explicit endpoint | Endpoint product |
-| Conversations, memory, tools, and GUI state | None | Client |
+| Concern                                     | AIGW role                                | Other owner                                        |
+| ------------------------------------------- | ---------------------------------------- | -------------------------------------------------- |
+| Provider service and endpoint capability    | Record verified Account capabilities     | Provider                                           |
+| Token material                              | Select and use one Account Token backend | Native credential service or AIGW owner-only store |
+| Client intent                               | Select a Profile through a Route         | AIGW configuration                                 |
+| Native client configuration                 | Project one admitted, bounded region     | Client Adapter                                     |
+| Wire compatibility                          | Select an explicit endpoint              | Endpoint product                                   |
+| Conversations, memory, tools, and GUI state | None                                     | Client                                             |
 
 This split is the product's advantage over an all-in-one gateway: normal client
 configuration remains direct, auditable, and usable when AIGW is not running.
@@ -36,32 +36,32 @@ flowchart LR
 
 ## Authority
 
-| Owner | Authoritative state |
-| --- | --- |
-| AIGW configuration | Accounts, Profiles, Routes, Adapter declarations |
-| Selected Token store | Account Tokens; the selection policy belongs to AIGW |
-| Codex | Conversations, JSONL, SQLite, model metadata, Desktop GUI state |
-| Claude Code | Session and client runtime behavior |
-| External endpoint product | Traffic normalization, retries, service lifecycle |
-| GitLab / GitHub | Independent CI, tags, releases, and assets |
+| Owner                     | Authoritative state                                             |
+| ------------------------- | --------------------------------------------------------------- |
+| AIGW configuration        | Accounts, Profiles, Routes, Adapter declarations                |
+| Selected Token store      | Account Tokens; the selection policy belongs to AIGW            |
+| Codex                     | Conversations, JSONL, SQLite, model metadata, Desktop GUI state |
+| Claude Code               | Session and client runtime behavior                             |
+| External endpoint product | Traffic normalization, retries, service lifecycle               |
+| GitLab / GitHub           | Independent CI, tags, releases, and assets                      |
 
 AIGW never edits conversation state and never manages an external endpoint
 process.
 
 ## Semantic packages
 
-| Package | Responsibility |
-| --- | --- |
-| `internal/configuration` | Account, Profile, Route, Adapter schema and persistence |
-| `internal/secrets` | Token storage backends |
-| `internal/codex` | Codex projection planning and reconciliation |
-| `internal/claude` | Claude Code settings projection, credential-safe process plans, and readiness |
-| `internal/credential` | Provider-neutral endpoint authentication validation |
-| `internal/providers` | Optional provider-native diagnostics only |
-| `internal/presentation` | Human projection of command results |
-| `internal/cli` | Command composition; domain behavior remains in semantic owners |
-| `internal/transaction` | Guarded filesystem mutation and rollback |
-| `internal/upgrade` | Independent-Forge update verification and installation |
+| Package                  | Responsibility                                                                |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| `internal/configuration` | Account, Profile, Route, Adapter schema and persistence                       |
+| `internal/secrets`       | Token storage backends                                                        |
+| `internal/codex`         | Codex projection planning and reconciliation                                  |
+| `internal/claude`        | Claude Code settings projection, credential-safe process plans, and readiness |
+| `internal/credential`    | Provider-neutral endpoint authentication validation                           |
+| `internal/providers`     | Optional provider-native diagnostics only                                     |
+| `internal/presentation`  | Human projection of command results                                           |
+| `internal/cli`           | Command composition; domain behavior remains in semantic owners               |
+| `internal/transaction`   | Guarded filesystem mutation and rollback                                      |
+| `internal/upgrade`       | Independent-Forge update verification and installation                        |
 
 Dependency direction is toward domain owners. Presentation, CLI composition,
 Forge code, and host discovery do not define product semantics.

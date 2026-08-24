@@ -102,7 +102,8 @@ one-time cutover requires every exact observed remote tip and
 post-push observation. See [Forge Operations](docs/operations/forge-operations.md).
 
 The locked repository toolchain is declared once in `mise.toml` and resolved
-by `mise.lock`: Go, Node.js, OpenSpec, lychee, GoReleaser, and Syft. Use
+by `mise.lock`: Go, Node.js, OpenSpec, Prettier, markdownlint, lychee,
+GoReleaser, and Syft. Use
 `mise exec --locked -- ...` for every repository command. Do not rely on a
 system `go`, `node`, `openspec`, `lychee`, `goreleaser`, or `syft` installation.
 

@@ -175,6 +175,9 @@ func TestAnalyzeRepositoryPropagatesSemanticStageFailures(t *testing.T) {
 		"text layout": func() {
 			repositoryAnalysis.textLayout = func(string, *Report) error { return want }
 		},
+		"documentation navigation": func() {
+			repositoryAnalysis.documentation = func(string, policy, *Report) error { return want }
+		},
 		"package children": func() {
 			repositoryAnalysis.packageChildren = func(string, policy, *Report) error { return want }
 		},

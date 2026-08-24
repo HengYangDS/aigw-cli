@@ -1,6 +1,7 @@
 # progressive-team-onboarding Specification
 
 ## Purpose
+
 TBD - created by archiving change windows-team-setup. Update Purpose after archive.
 
 ## Requirements

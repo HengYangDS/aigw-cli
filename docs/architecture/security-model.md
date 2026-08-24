@@ -4,11 +4,11 @@ AIGW keeps credentials local, mutations bounded, and client ownership explicit.
 
 ## Secret boundary
 
-| Secret | Store | Repository/config exposure |
-| --- | --- | --- |
-| Account Token | One selected local backend: native credential service or AIGW owner-only files | Never |
-| Optional diagnostic credential | `AIGW_ACCOUNT/<account>` | Never |
-| Forge publication credential | Protected CI or operator process | Never tracked |
+| Secret                         | Store                                                                          | Repository/config exposure |
+| ------------------------------ | ------------------------------------------------------------------------------ | -------------------------- |
+| Account Token                  | One selected local backend: native credential service or AIGW owner-only files | Never                      |
+| Optional diagnostic credential | `AIGW_ACCOUNT/<account>`                                                       | Never                      |
+| Forge publication credential   | Protected CI or operator process                                               | Never tracked              |
 
 Windows uses Credential Manager by default. On macOS and Linux, automatic
 selection proves whether the native credential service is reachable and pins
@@ -36,11 +36,11 @@ Replacing Account metadata never redirects or overwrites the existing Token.
 
 ## Client boundary
 
-| Client | AIGW may write | AIGW never writes |
-| --- | --- | --- |
-| Codex | Marked provider/model block, sidecar, official credential binding | Conversation JSONL, SQLite, history, item records, model metadata, Desktop GUI state |
-| Claude Code | AIGW-owned endpoint/model keys, sidecar, and credential helper | Plaintext Token, shell profiles, command interception, sessions, or unrelated settings |
-| Missing/foreign client | Nothing | Directories, launch state, configuration |
+| Client                 | AIGW may write                                                    | AIGW never writes                                                                      |
+| ---------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Codex                  | Marked provider/model block, sidecar, official credential binding | Conversation JSONL, SQLite, history, item records, model metadata, Desktop GUI state   |
+| Claude Code            | AIGW-owned endpoint/model keys, sidecar, and credential helper    | Plaintext Token, shell profiles, command interception, sessions, or unrelated settings |
+| Missing/foreign client | Nothing                                                           | Directories, launch state, configuration                                               |
 
 ## Transaction boundary
 

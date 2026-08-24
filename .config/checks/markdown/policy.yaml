@@ -1,0 +1,55 @@
+---
+globs:
+  - "*.md"
+  - "docs/**/*.md"
+  - "openspec/**/*.md"
+
+ignores:
+  - "openspec/changes/archive/**/*.md"
+
+noInlineConfig: true
+
+config:
+  default: false
+  MD001: true
+  MD003: { style: atx }
+  MD004: { style: dash }
+  MD005: true
+  MD009: true
+  MD010: true
+  MD011: true
+  MD012: { maximum: 1 }
+  MD014: true
+  MD018: true
+  MD019: true
+  MD020: true
+  MD021: true
+  MD022: true
+  MD023: true
+  MD027: true
+  MD028: true
+  MD029: { style: one_or_ordered }
+  MD030: true
+  MD031: true
+  MD032: true
+  MD034: true
+  MD037: true
+  MD038: true
+  MD039: true
+  MD042: true
+  MD044: true
+  MD045: true
+  MD046: { style: fenced }
+  MD047: true
+  MD048: { style: backtick }
+  MD049: { style: asterisk }
+  MD050: { style: asterisk }
+  MD051: true
+  MD052: true
+  MD053: true
+  MD054: true
+  MD055: true
+  MD056: true
+  MD058: true
+  MD059: true
+  MD060: { style: aligned }

@@ -7,6 +7,7 @@ env:
   push:
     branches:
       - main
+      - dev
   pull_request:
     branches:
       - dev
@@ -17,12 +18,31 @@ concurrency:
   group: verify-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  accepted-ref-parity:
+    name: Accepted ref parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'push' && github.ref_name == 'dev'
+    steps:
+      - name: Check out the exact product commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Install the locked toolchain
+        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        with:
+          install: true
+          cache: false
+      - name: Verify main and dev name the same product object
+        run: mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=${{ github.sha }}" --expect "dev=${{ github.sha }}"
   source-and-governance:
     name: Source and governance
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'
     env:
-      MISE_ENABLE_TOOLS: go,node,cue,npm:@fission-ai/openspec,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee
+      MISE_ENABLE_TOOLS: go,node,cue,npm:@fission-ai/openspec,npm:markdownlint-cli2,npm:prettier,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -70,6 +90,7 @@ jobs:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
         run: mise exec --locked -- go run ./tools/ci native --platform darwin
     timeout-minutes: 25
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'
   native-linux:
     name: Native Linux acceptance
     runs-on: ubuntu-latest
@@ -89,6 +110,7 @@ jobs:
       - name: Run native Linux acceptance
         run: dbus-run-session -- sh -c 'printf \"\\n\" | gnome-keyring-daemon --unlock >/dev/null; export AIGW_VERIFY_SYSTEM_KEYRING=1; mise exec --locked -- go run ./tools/ci native --platform linux'
     timeout-minutes: 25
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'
   native-windows:
     name: Native Windows acceptance
     runs-on: windows-latest
@@ -108,3 +130,4 @@ jobs:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
         run: mise exec --locked -- go run ./tools/ci native --platform windows
     timeout-minutes: 25
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'

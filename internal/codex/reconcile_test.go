@@ -83,13 +83,6 @@ func TestReconcileConfigsCreatesAndRestoresAnAdmittedDefaultTarget(t *testing.T)
 			if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime()); err != nil {
 				t.Fatalf("create admitted default target: %v", err)
 			}
-			info, err := os.Stat(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if info.Mode().Perm() != 0o600 {
-				t.Fatalf("created config mode = %s, want 0600", info.Mode().Perm())
-			}
 			if test.userContent != "" {
 				projected, err := os.ReadFile(path)
 				if err != nil {

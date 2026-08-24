@@ -4,7 +4,9 @@
 
 Define quiet, deterministic hosted CI diagnostics that expose actionable
 failures without relying on runner-global state.
+
 ## Requirements
+
 ### Requirement: Hosted Git initialization is explicit
 
 Every hosted job that runs Git-aware tooling SHALL initialize and verify its

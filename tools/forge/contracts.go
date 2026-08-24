@@ -12,6 +12,43 @@ import (
 )
 
 var semanticTag = regexp.MustCompile(`^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
+var branchName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]*$`)
+
+func runRefVerification(arguments []string) error {
+	var expected repeatedFlag
+	flags := flag.NewFlagSet("forge refs", flag.ContinueOnError)
+	repository := flags.String("repository", ".", "Git repository")
+	remote := flags.String("remote", "", "target Git remote")
+	flags.Var(&expected, "expect", "branch=OID expected remote object")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *remote == "" || len(expected) == 0 {
+		return errors.New("usage: forge refs --remote <name> --expect <branch=OID>... [--repository <path>]")
+	}
+	if _, err := gitOutput(*repository, "remote", "get-url", *remote); err != nil {
+		return fmt.Errorf("publication remote is not configured: %s", *remote)
+	}
+	wanted, err := parseExpectedTips(expected)
+	if err != nil {
+		return err
+	}
+	for branch, oid := range wanted {
+		if !branchName.MatchString(branch) || strings.Contains(branch, "..") || strings.Contains(branch, "//") {
+			return fmt.Errorf("expected remote branch is malformed: %s", branch)
+		}
+		commit, resolveErr := gitOutput(*repository, "rev-parse", "--verify", oid+"^{commit}")
+		if resolveErr != nil || commit != oid {
+			return fmt.Errorf("expected object is not an exact local commit: %s", oid)
+		}
+		actual, observeErr := remoteReference(*repository, *remote, "refs/heads/"+branch)
+		if observeErr != nil {
+			return observeErr
+		}
+		if actual != oid {
+			return fmt.Errorf("remote %s is %s, want %s", branch, actual, oid)
+		}
+	}
+	fmt.Printf("remote branch objects verified: %s (%d ref(s))\n", *remote, len(wanted))
+	return nil
+}
 
 func runCommitVerification(arguments []string) error {
 	flags := flag.NewFlagSet("forge commits", flag.ContinueOnError)

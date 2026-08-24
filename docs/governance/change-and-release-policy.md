@@ -2,17 +2,17 @@
 
 ## Authority Map
 
-| Surface | Authority |
-|---|---|
-| Product version | `VERSION` |
-| Release chronology | `CHANGELOG.md` |
-| Product commit and tag objects | Local Git |
-| Change intent and behavioral deltas | Active OpenSpec Change |
-| Accepted behavior | `openspec/specs/` |
-| Toolchain versions | `go.mod`, `go.sum`, `mise.toml`, `mise.lock` |
-| CI topology | `.config/ci/pipeline.cue` |
-| Coverage policy | `.config/checks/coverage/policy.toml` |
-| Release assets | Repository release tools and their manifests |
+| Surface                             | Authority                                    |
+| ----------------------------------- | -------------------------------------------- |
+| Product version                     | `VERSION`                                    |
+| Release chronology                  | `CHANGELOG.md`                               |
+| Product commit and tag objects      | Local Git                                    |
+| Change intent and behavioral deltas | Active OpenSpec Change                       |
+| Accepted behavior                   | `openspec/specs/`                            |
+| Toolchain versions                  | `go.mod`, `go.sum`, `mise.toml`, `mise.lock` |
+| CI topology                         | `.config/ci/pipeline.cue`                    |
+| Coverage policy                     | `.config/checks/coverage/policy.toml`        |
+| Release assets                      | Repository release tools and their manifests |
 
 Generated workflows, installed binaries, host caches, IDE state, Forge pages,
 and remote refs are projections—not competing authorities.

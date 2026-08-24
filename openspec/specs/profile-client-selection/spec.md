@@ -1,8 +1,11 @@
 # profile-client-selection Specification
 
 ## Purpose
+
 TBD - created by archiving change codex-profile-client-inference. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: An explicit client-scoped profile is self-describing
 
 When an operator selects a profile without selecting a client, the CLI SHALL

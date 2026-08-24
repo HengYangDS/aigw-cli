@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -36,6 +37,52 @@ func TestTextLayoutRejectsOnlyDeterministicByteDefects(t *testing.T) {
 	}
 	if len(report.Findings) != 1 {
 		t.Fatalf("findings=%+v, want only the deterministic byte defect", report.Findings)
+	}
+}
+
+func TestTextLayoutRejectsMalformedMarkdownTableStructure(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init", "-q")
+	writeFile(t, filepath.Join(root, "README.md"), "# Project\n\n| First | Second | Third |\n| --- | --- |\n| A | B | C |\n")
+	runGit(t, root, "add", ".")
+	report := newReport("policy", root)
+	if err := checkTextLayout(root, &report); err != nil {
+		t.Fatal(err)
+	}
+	assertFinding(t, report.Findings, "markdown_table_structure", "README.md")
+}
+
+func TestMarkdownTableStructureAcceptsValidTablesAndIgnoresFences(t *testing.T) {
+	report := newReport("policy", ".")
+	checkTextFile("README.md", []byte(strings.Join([]string{
+		"| First | Second |",
+		"| --- | :---: |",
+		"| A | B |",
+		"",
+		"```markdown",
+		"| First | Second | Third |",
+		"| --- | --- |",
+		"```",
+		"",
+		"~~~markdown",
+		"| First | Second | Third |",
+		"| --- | --- |",
+		"~~~",
+		"",
+	}, "\n")), &report)
+	if !report.OK {
+		t.Fatalf("findings=%+v", report.Findings)
+	}
+}
+
+func TestMarkdownTableHelpersHandleEscapesAndRejectNonDelimiters(t *testing.T) {
+	if got := markdownTableColumns(`| one \| literal | two |`); got != 2 {
+		t.Fatalf("escaped-pipe columns = %d", got)
+	}
+	for _, line := range []string{"plain text", "| -- | --- |", "| --- | text |"} {
+		if count, ok := markdownTableDelimiterColumns(line); ok || count != 0 {
+			t.Fatalf("delimiter %q = %d,%v", line, count, ok)
+		}
 	}
 }
 

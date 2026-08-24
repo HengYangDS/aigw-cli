@@ -6,6 +6,7 @@ Define the canonical text layout of repository-projected specifications so
 generated and reviewed source remain byte-stable.
 
 ## Requirements
+
 ### Requirement: Projected specifications follow canonical text layout
 
 A projected OpenSpec specification SHALL end with exactly one newline and no

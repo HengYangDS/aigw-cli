@@ -93,6 +93,12 @@ ignore_roots = ["vendor", ".git", "records", "build"]
 # Directory base names skipped anywhere in the walk (runtime / VCS residue).
 ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
 
+# Canonical product documentation is a connected graph rooted in the two
+# reader entrypoints. Agent-only instructions and OpenSpec lifecycle carriers
+# have their own entrypoints and are not part of this product-document graph.
+documentation_roots = ["README.md", "CONTRIBUTING.md", "CHANGELOG.md", "docs"]
+documentation_entrypoints = ["README.md", "docs/README.md"]
+
 # Source and carrier contracts inside managed roots.
 check_decision_records = true
 check_semantic_names = true

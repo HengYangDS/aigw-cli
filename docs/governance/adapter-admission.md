@@ -24,10 +24,10 @@ new model in an account catalog does not change it.
 
 ## Admitted clients
 
-| Client | Configuration and authentication boundary | Required account capability |
-| --- | --- | --- |
-| Claude Code | Official per-user settings projection; Token is read on demand through `aigw credential claude` | Verified Anthropic-compatible endpoint |
-| Codex CLI and Codex Desktop | AIGW-owned `config.toml` projection in the shared Codex Home; official `codex login --with-api-key` binding | Verified OpenAI Responses endpoint |
+| Client                      | Configuration and authentication boundary                                                                   | Required account capability            |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Claude Code                 | Official per-user settings projection; Token is read on demand through `aigw credential claude`             | Verified Anthropic-compatible endpoint |
+| Codex CLI and Codex Desktop | AIGW-owned `config.toml` projection in the shared Codex Home; official `codex login --with-api-key` binding | Verified OpenAI Responses endpoint     |
 
 Each account retains one system token. Switching profiles within an account does
 not copy a token; switching accounts does not write a token into client files.
@@ -45,17 +45,17 @@ metadata.
 
 ## Candidate status
 
-| Candidate | Correct classification | Status |
-| --- | --- | --- |
-| Z.AI GLM coding plans | Provider Account | Evaluation only |
-| Gemini CLI | Separate client adapter | Not admitted |
-| Qwen Code | Separate client adapter | Not admitted |
-| OpenCode | Separate client adapter | Not admitted |
-| Pi | Separate client adapter | Not admitted |
-| Hermes Agent | Separate client adapter | Not admitted |
-| Qoder | Client Adapter; provider surface unproved | Capability evaluation only |
-| Perplexity | Research provider, not a Codex default | Not admitted |
-| Grok | Independent cross-check provider | Not admitted |
+| Candidate             | Correct classification                    | Status                     |
+| --------------------- | ----------------------------------------- | -------------------------- |
+| Z.AI GLM coding plans | Provider Account                          | Evaluation only            |
+| Gemini CLI            | Separate client adapter                   | Not admitted               |
+| Qwen Code             | Separate client adapter                   | Not admitted               |
+| OpenCode              | Separate client adapter                   | Not admitted               |
+| Pi                    | Separate client adapter                   | Not admitted               |
+| Hermes Agent          | Separate client adapter                   | Not admitted               |
+| Qoder                 | Client Adapter; provider surface unproved | Capability evaluation only |
+| Perplexity            | Research provider, not a Codex default    | Not admitted               |
+| Grok                  | Independent cross-check provider          | Not admitted               |
 
 Official protocol documentation may prove an entry point, but it is not proof of
 an AIGW adapter, tool compatibility, quality, or operational readiness.

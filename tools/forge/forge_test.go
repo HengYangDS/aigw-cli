@@ -76,6 +76,53 @@ func TestMainPublicationPreservesOneExactCommit(t *testing.T) {
 	}
 }
 
+func TestReferenceVerificationRequiresEveryExpectedRemoteObject(t *testing.T) {
+	fixture := newForgeFixture(t)
+	remote := newBareRepository(t)
+	gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+	want := gitOutputForTest(t, fixture.repository, "rev-parse", "main")
+	gitTest(t, fixture.repository, "push", "-q", "peer", "main:main", "main:dev")
+
+	arguments := []string{
+		"refs", "--repository", fixture.repository, "--remote", "peer",
+		"--expect", "main=" + want, "--expect", "dev=" + want,
+	}
+	if err := run(arguments); err != nil {
+		t.Fatal(err)
+	}
+
+	writeCommitForTest(t, fixture.repository, "next", "next\n")
+	newer := gitOutputForTest(t, fixture.repository, "rev-parse", "main")
+	if err := run([]string{
+		"refs", "--repository", fixture.repository, "--remote", "peer",
+		"--expect", "main=" + newer, "--expect", "dev=" + newer,
+	}); err == nil || !strings.Contains(err.Error(), "remote ") {
+		t.Fatalf("stale peer refs accepted: %v", err)
+	}
+}
+
+func TestReferenceVerificationRejectsInvalidInput(t *testing.T) {
+	fixture := newForgeFixture(t)
+	remote := newBareRepository(t)
+	gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+	want := gitOutputForTest(t, fixture.repository, "rev-parse", "main")
+
+	for name, arguments := range map[string][]string{
+		"usage":        {"refs"},
+		"remote":       {"refs", "--repository", fixture.repository, "--remote", "missing", "--expect", "main=" + want},
+		"expectation":  {"refs", "--repository", fixture.repository, "--remote", "peer", "--expect", "bad"},
+		"duplicate":    {"refs", "--repository", fixture.repository, "--remote", "peer", "--expect", "main=" + want, "--expect", "main=" + want},
+		"branch":       {"refs", "--repository", fixture.repository, "--remote", "peer", "--expect", "-bad=" + want},
+		"not a commit": {"refs", "--repository", fixture.repository, "--remote", "peer", "--expect", "main=deadbeef"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := run(arguments); err == nil {
+				t.Fatal("invalid reference verification accepted")
+			}
+		})
+	}
+}
+
 func TestProposalPublicationUsesOnlyItsMatchingRef(t *testing.T) {
 	fixture := newForgeFixture(t)
 	remote := newBareRepository(t)

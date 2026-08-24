@@ -13,12 +13,12 @@ flowchart LR
 
 ## Core entities
 
-| Entity | Meaning | Cardinal rule |
-| --- | --- | --- |
-| Account | One provider endpoint and logical Token boundary | Token belongs to the Account, not a Profile |
-| Profile | One `account + client + model` choice and optional Codex-native provider identity | Client scope is explicit |
-| Route | Default or client-specific Profile selection | No hidden provider fallback |
-| Adapter | Projection into one native client | Never writes another client's surface |
+| Entity  | Meaning                                                                           | Cardinal rule                               |
+| ------- | --------------------------------------------------------------------------------- | ------------------------------------------- |
+| Account | One provider endpoint and logical Token boundary                                  | Token belongs to the Account, not a Profile |
+| Profile | One `account + client + model` choice and optional Codex-native provider identity | Client scope is explicit                    |
+| Route   | Default or client-specific Profile selection                                      | No hidden provider fallback                 |
+| Adapter | Projection into one native client                                                 | Never writes another client's surface       |
 
 ## Account
 
@@ -60,10 +60,10 @@ service or model.
 
 ## Adapter
 
-| Adapter | Projection |
-| --- | --- |
-| Codex | AIGW-marked provider/model configuration; canonical login or explicit command authentication |
-| Claude Code | Official user-settings endpoint/model projection and credential helper |
+| Adapter     | Projection                                                                                   |
+| ----------- | -------------------------------------------------------------------------------------------- |
+| Codex       | AIGW-marked provider/model configuration; canonical login or explicit command authentication |
+| Claude Code | Official user-settings endpoint/model projection and credential helper                       |
 
 Adapters do not own provider behavior. Missing clients remain untouched.
 
@@ -91,10 +91,10 @@ replacement changes metadata only; it never changes the Token slot.
 
 ## Rename
 
-| Operation | Changes | Preserves |
-| --- | --- | --- |
-| `profile rename` | Profile ID and Route references | Account and Token |
-| `account rename` | Account ID and Profile references | Token through a two-phase migration |
+| Operation                   | Changes                               | Preserves                            |
+| --------------------------- | ------------------------------------- | ------------------------------------ |
+| `profile rename`            | Profile ID and Route references       | Account and Token                    |
+| `account rename`            | Account ID and Profile references     | Token through a two-phase migration  |
 | `account rename --finalize` | Removes verified old credential slots | Current configuration and checkpoint |
 
 Finalize fails closed if credential equality or checkpoint proof is incomplete.

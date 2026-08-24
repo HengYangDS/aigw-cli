@@ -29,6 +29,8 @@ type policy struct {
 	AllowedImportEdges   map[string][]string `toml:"allowed_import_edges"`
 	IgnoreRoots          []string            `toml:"ignore_roots"`
 	IgnoreDirectoryNames []string            `toml:"ignore_directory_names"`
+	DocumentationRoots   []string            `toml:"documentation_roots"`
+	DocumentationEntries []string            `toml:"documentation_entrypoints"`
 	CheckDecisionRecords bool                `toml:"check_decision_records"`
 	CheckSemanticNames   bool                `toml:"check_semantic_names"`
 	RequireImportOwners  bool                `toml:"require_import_owners"`
@@ -63,6 +65,31 @@ func validatePolicy(p policy) error {
 	}
 	if err := validatePackagePolicy(p); err != nil {
 		return err
+	}
+	if err := validateDocumentationPolicy(p); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateDocumentationPolicy(p policy) error {
+	for _, field := range []struct {
+		name   string
+		values []string
+	}{
+		{name: "documentation_roots", values: p.DocumentationRoots},
+		{name: "documentation_entrypoints", values: p.DocumentationEntries},
+	} {
+		seen := map[string]bool{}
+		for _, value := range field.values {
+			if !isPortableRelativePath(value) || seen[value] {
+				return fmt.Errorf("%s values must be unique relative paths", field.name)
+			}
+			seen[value] = true
+		}
+	}
+	if len(p.DocumentationRoots) > 0 && len(p.DocumentationEntries) == 0 {
+		return fmt.Errorf("documentation_entrypoints must be non-empty when documentation_roots are declared")
 	}
 	return nil
 }

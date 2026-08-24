@@ -11,14 +11,14 @@ flowchart LR
 Local Git is the only commit and annotated-tag authority. GitLab and GitHub are
 independent optional publication peers. Neither peer is an input to the other.
 
-| Concern | Authority |
-|---|---|
-| Commit and tag bytes | Local Git |
-| Product object trust | Explicit allowed-signers file |
-| GitLab transport | Git/SSH or GitLab credential context |
-| GitHub transport | Git/SSH or GitHub credential context |
-| Hosted `Verified` display | Each Forge account projection |
-| Release assets and records | Each selected peer, independently |
+| Concern                    | Authority                            |
+| -------------------------- | ------------------------------------ |
+| Commit and tag bytes       | Local Git                            |
+| Product object trust       | Explicit allowed-signers file        |
+| GitLab transport           | Git/SSH or GitLab credential context |
+| GitHub transport           | Git/SSH or GitHub credential context |
+| Hosted `Verified` display  | Each Forge account projection        |
+| Release assets and records | Each selected peer, independently    |
 
 Transport credentials never construct, rewrite, or sign product objects.
 

@@ -1,6 +1,7 @@
 # secret-storage Specification
 
 ## Purpose
+
 Define secure, deterministic Account Token storage that remains usable across
 supported operating systems without making a native credential service a
 continuous runtime prerequisite.

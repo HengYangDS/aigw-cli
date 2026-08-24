@@ -3,7 +3,7 @@ package ci
 // pipeline.cue owns CI topology. Forge files are generated projections.
 
 #OperatingSystem: "darwin" | "linux" | "windows"
-#JobID:           "source-and-governance" | "native-darwin" | "native-linux" | "native-windows" | "release-readiness" | "package" | "publish" | "release"
+#JobID:           "accepted-ref-parity" | "source-and-governance" | "native-darwin" | "native-linux" | "native-windows" | "release-readiness" | "package" | "publish" | "release"
 
 #Job: {
 	stage: "verify" | "package" | "publish" | "release"
@@ -32,15 +32,20 @@ commands: {
 	build:   "mise exec --locked -- go run ./tools/release build-ci build/release dist"
 	upload:  "mise exec --locked -- go run ./tools/release upload-gitlab dist"
 	publish: "mise exec --locked -- go run ./tools/release publish-gitlab dist"
+	acceptedRefParity: {
+		gitlab: "mise exec --locked -- go run ./tools/forge refs --remote \(lifecycle.checkoutRemote) --expect \"\(lifecycle.acceptedBranch)=$CI_COMMIT_SHA\" --expect \"\(lifecycle.reviewBranch)=$CI_COMMIT_SHA\""
+		github: "mise exec --locked -- go run ./tools/forge refs --remote \(lifecycle.checkoutRemote) --expect \"\(lifecycle.acceptedBranch)=${{ github.sha }}\" --expect \"\(lifecycle.reviewBranch)=${{ github.sha }}\""
+	}
 }
 
 nativeToolchain: MISE_ENABLE_TOOLS:           "go,cue"
-sourceToolchain: MISE_ENABLE_TOOLS:           "go,node,cue,npm:@fission-ai/openspec,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
+sourceToolchain: MISE_ENABLE_TOOLS:           "go,node,cue,npm:@fission-ai/openspec,npm:markdownlint-cli2,npm:prettier,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
 releaseReadinessToolchain: MISE_ENABLE_TOOLS: "go"
 
 lifecycle: {
 	acceptedBranch: "main"
 	reviewBranch:   "dev"
+	checkoutRemote: "origin"
 }
 
 // Product evidence and Forge execution capacity are separate facts. A Forge
@@ -82,6 +87,7 @@ nativeEvidence: {
 
 graph: {
 	[#JobID]: #Job
+	"accepted-ref-parity": {stage: "verify", rank: 0, needs: []}
 	"source-and-governance": {stage: "verify", rank: 0, needs: []}
 	"native-darwin": {stage: "verify", rank: 0, needs: []}
 	"native-linux": {stage: "verify", rank: 0, needs: []}
@@ -95,6 +101,16 @@ graph: {
 	publish: {stage: "publish", rank: 2, needs: ["package"]}
 	release: {stage: "release", rank: 3, needs: ["publish"]}
 }
+
+gitlabFullVerificationRules: [
+	{if: "$CI_COMMIT_TAG"},
+	{if: "$CI_PIPELINE_SOURCE == \"merge_request_event\" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.reviewBranch)\""},
+	{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\""},
+	{if: "$CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\""},
+	{when: "never"},
+]
+
+githubFullVerificationCondition: "github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == '\(lifecycle.acceptedBranch)'"
 
 _graphOrder: {
 	for id, job in graph {
@@ -149,6 +165,7 @@ actions: {
 	name:              "Native \(nativeEvidence[_platform].name) acceptance"
 	"runs-on":         nativeEvidence[_platform].github.runner
 	"timeout-minutes": 25
+	if:                githubFullVerificationCondition
 	if _platform == "linux" {
 		steps: [
 			#SourceCheckout,
@@ -180,6 +197,7 @@ actions: {
 	stage:     graph["native-\(_platform)"].stage
 	tags:      nativeEvidence[_platform].gitlab.tags
 	variables: nativeToolchain
+	rules:     gitlabFullVerificationRules
 	if _platform == "linux" {
 		extends: [".linux-toolchain"]
 		script: [commands.systemKeyring.linux.prepare, commands.systemKeyring.linux.run]
@@ -191,13 +209,14 @@ actions: {
 
 gitlab: {
 	variables: {
-		GIT_DEPTH: "0"
-		GOPROXY: "https://goproxy.cn|https://proxy.golang.org|direct"
+		GIT_DEPTH:               "0"
+		GOPROXY:                 "https://goproxy.cn|https://proxy.golang.org|direct"
 		MISE_GLOBAL_CONFIG_FILE: "$CI_PROJECT_DIR/.config/ci/empty-mise-global.toml"
 	}
 	workflow: rules: [
 		{if: "$CI_COMMIT_TAG"},
 		{if: "$CI_PIPELINE_SOURCE == \"merge_request_event\" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.reviewBranch)\""},
+		{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.reviewBranch)\"", when: "always"},
 		{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\""},
 		{if: "$CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\""},
 		{when: "never"},
@@ -215,10 +234,22 @@ gitlab: {
 		extends: [".source-toolchain"]
 		tags:      nativeEvidence.linux.gitlab.tags
 		variables: sourceToolchain
+		rules:     gitlabFullVerificationRules
 		script: [
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.source,
 		]
+	}
+	"accepted-ref-parity": {
+		stage: graph["accepted-ref-parity"].stage
+		extends: [".linux-toolchain"]
+		tags:      nativeEvidence.linux.gitlab.tags
+		variables: releaseReadinessToolchain
+		rules: [
+			{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.reviewBranch)\""},
+			{when: "never"},
+		]
+		script: [commands.install, commands.acceptedRefParity.gitlab]
 	}
 	"native-darwin": #NativeGitLabJob & {_platform: "darwin"}
 	"native-linux": #NativeGitLabJob & {_platform: "linux"}
@@ -239,7 +270,10 @@ gitlab: {
 	package: {
 		stage: graph.package.stage
 		tags:  nativeEvidence.darwin.gitlab.tags
-		rules: [{if: "$CI_COMMIT_TAG"}, {when: "never"}]
+		rules: [
+			{if: "$CI_COMMIT_TAG"},
+			{when: "never"},
+		]
 		needs: [
 			{job: "source-and-governance"},
 			{job: "native-darwin"},
@@ -255,14 +289,20 @@ gitlab: {
 	publish: {
 		stage: graph.publish.stage
 		tags:  nativeEvidence.darwin.gitlab.tags
-		rules: [{if: "$CI_COMMIT_TAG"}, {when: "never"}]
+		rules: [
+			{if: "$CI_COMMIT_TAG"},
+			{when: "never"},
+		]
 		needs: [{job: "package", artifacts: true}]
 		script: [commands.upload]
 	}
 	release: {
 		stage: graph.release.stage
 		tags:  nativeEvidence.darwin.gitlab.tags
-		rules: [{if: "$CI_COMMIT_TAG"}, {when: "never"}]
+		rules: [
+			{if: "$CI_COMMIT_TAG"},
+			{when: "never"},
+		]
 		needs: [{job: "publish"}, {job: "package", artifacts: true}]
 		script: [commands.publish]
 	}
@@ -276,7 +316,7 @@ githubVerify: {
 		GIT_CONFIG_VALUE_0: "main"
 	}
 	"on": {
-		push: branches: [lifecycle.acceptedBranch]
+		push: branches: [lifecycle.acceptedBranch, lifecycle.reviewBranch]
 		"pull_request": branches: [lifecycle.reviewBranch]
 		"workflow_dispatch": {}
 	}
@@ -286,10 +326,22 @@ githubVerify: {
 		"cancel-in-progress": true
 	}
 	jobs: {
+		"accepted-ref-parity": {
+			name:              "Accepted ref parity"
+			"runs-on":         nativeEvidence.linux.github.runner
+			"timeout-minutes": 5
+			if:                "github.event_name == 'push' && github.ref_name == '\(lifecycle.reviewBranch)'"
+			steps: [
+				#SourceCheckout,
+				#Toolchain,
+				{name: "Verify main and dev name the same product object", run: commands.acceptedRefParity.github},
+			]
+		}
 		"source-and-governance": {
 			name:              "Source and governance"
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 25
+			if:                githubFullVerificationCondition
 			env:               sourceToolchain
 			steps: [
 				#SourceCheckout,

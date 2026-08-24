@@ -14,12 +14,12 @@ unproved. `sync` never performs that mutation.
 
 ## Navigation
 
-| Intent | Commands |
-| --- | --- |
-| Connect | `setup` |
-| Daily use | `status`, `use`, `check`, `rotate` |
-| Recover | `doctor`, `repair`, `sync`, `rollback`, `update` |
-| Advanced | `account`, `profile`, `route`, `adapter`, `config`, `catalog`, `models`, `test`, `verify` |
+| Intent    | Commands                                                                                  |
+| --------- | ----------------------------------------------------------------------------------------- |
+| Connect   | `setup`                                                                                   |
+| Daily use | `status`, `use`, `check`, `rotate`                                                        |
+| Recover   | `doctor`, `repair`, `sync`, `rollback`, `update`                                          |
+| Advanced  | `account`, `profile`, `route`, `adapter`, `config`, `catalog`, `models`, `test`, `verify` |
 
 No alias exists only for presentation. The command grammar remains the
 automation contract.
@@ -33,12 +33,12 @@ flowchart LR
     R --> J["JSON view"]
 ```
 
-| Surface | Contract |
-| --- | --- |
-| Human | Task-first, aligned, width-aware, one safe next action |
-| JSON | Stable machine fields; no terminal styling or width dependency |
-| Error | **Problem → Evidence → Impact → Recommended action** |
-| Pipeline | Plain text, no ANSI control sequences |
+| Surface  | Contract                                                       |
+| -------- | -------------------------------------------------------------- |
+| Human    | Task-first, aligned, width-aware, one safe next action         |
+| JSON     | Stable machine fields; no terminal styling or width dependency |
+| Error    | **Problem → Evidence → Impact → Recommended action**           |
+| Pipeline | Plain text, no ANSI control sequences                          |
 
 ## Layout
 
@@ -53,12 +53,12 @@ flowchart LR
 
 ## Interaction
 
-| Context | Behavior |
-| --- | --- |
-| Interactive, missing rename arguments | Prompt only for missing values |
-| Non-interactive, missing arguments | Fail immediately with an actionable message |
-| `--dry-run` | No mutation lock, credential binding, or client execution |
-| `--json` | No prompt, style, secret, or private path |
+| Context                               | Behavior                                                  |
+| ------------------------------------- | --------------------------------------------------------- |
+| Interactive, missing rename arguments | Prompt only for missing values                            |
+| Non-interactive, missing arguments    | Fail immediately with an actionable message               |
+| `--dry-run`                           | No mutation lock, credential binding, or client execution |
+| `--json`                              | No prompt, style, secret, or private path                 |
 
 ## Boundary language
 

@@ -145,6 +145,28 @@ func TestValidatePolicyEdgeEntries(t *testing.T) {
 	if err := validatePolicy(bad); err == nil {
 		t.Fatal("invalid import edge target")
 	}
+	bad = base
+	bad.DocumentationRoots = []string{"docs"}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("documentation roots without entrypoints")
+	}
+	bad = base
+	bad.DocumentationRoots = []string{"docs", "docs"}
+	bad.DocumentationEntries = []string{"README.md"}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("duplicate documentation root")
+	}
+	bad = base
+	bad.DocumentationRoots = []string{"../docs"}
+	bad.DocumentationEntries = []string{"README.md"}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("invalid documentation root")
+	}
+	bad = base
+	bad.DocumentationEntries = []string{"README.md", "README.md"}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("duplicate documentation entrypoint")
+	}
 }
 
 func TestPackageChildrenEnforcePositiveTopology(t *testing.T) {

@@ -277,3 +277,11 @@ url = "https://nodejs.org/dist/v26.7.0/node-v26.7.0-win-x64.zip"
 [[tools."npm:@fission-ai/openspec"]]
 version = "1.10.0"
 backend = "npm:@fission-ai/openspec"
+
+[[tools."npm:markdownlint-cli2"]]
+version = "0.23.2"
+backend = "npm:markdownlint-cli2"
+
+[[tools."npm:prettier"]]
+version = "3.9.6"
+backend = "npm:prettier"

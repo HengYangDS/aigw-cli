@@ -1,9 +1,9 @@
 # Changelog
 
-All notable, user-relevant changes are recorded here.  This chronicle follows
+All notable, user-relevant changes are recorded here. This chronicle follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and Semantic
-Versioning.  A published section must correspond to an existing Git tag; it is
-not a plan, a branch name, or an inferred version.  Artifact publication,
+Versioning. A published section must correspond to an existing Git tag; it is
+not a plan, a branch name, or an inferred version. Artifact publication,
 platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]

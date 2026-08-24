@@ -80,12 +80,12 @@ aigw config import manifest.toml --dry-run --json
 aigw config import manifest.toml
 ```
 
-| Collision | Default behavior | Explicit action |
-| --- | --- | --- |
-| Same semantic Account/Profile | Reuse | None |
+| Collision                          | Default behavior     | Explicit action                          |
+| ---------------------------------- | -------------------- | ---------------------------------------- |
+| Same semantic Account/Profile      | Reuse                | None                                     |
 | Same ID, different public metadata | Stop before mutation | Review and use the specific replace flag |
-| Local-only Profile not in manifest | Preserve | Remove explicitly if obsolete |
-| Existing Token | Preserve | Rotate explicitly if required |
+| Local-only Profile not in manifest | Preserve             | Remove explicitly if obsolete            |
+| Existing Token                     | Preserve             | Rotate explicitly if required            |
 
 Import does not change Routes unless the command explicitly requests that
 operation.
@@ -108,11 +108,11 @@ Future clients require a separately reviewed adapter with:
 GitLab and GitHub are independent release sources. Verify one complete artifact
 set from one source; do not mix a tag, checksum file, and archive across Forges.
 
-| Platform | Install asset |
-| --- | --- |
-| macOS | Matching Darwin archive and checksum manifest |
-| Linux | Matching Linux archive and checksum manifest |
-| Windows | Matching Windows archive and checksum manifest |
+| Platform | Install asset                                  |
+| -------- | ---------------------------------------------- |
+| macOS    | Matching Darwin archive and checksum manifest  |
+| Linux    | Matching Linux archive and checksum manifest   |
+| Windows  | Matching Windows archive and checksum manifest |
 
 After installation:
 
@@ -124,13 +124,13 @@ aigw check
 
 ## Staged rollout
 
-| Stage | Evidence |
-| --- | --- |
-| Manifest review | Token-free diff and semantic validation |
-| Pilot | Clean install, setup, check, and rollback on each required platform |
-| Team release | Protected Forge publication and artifact verification |
-| Member adoption | Local setup/check results; no shared Token collection |
-| Closeout | Deprecated manifest/profile references removed intentionally |
+| Stage           | Evidence                                                            |
+| --------------- | ------------------------------------------------------------------- |
+| Manifest review | Token-free diff and semantic validation                             |
+| Pilot           | Clean install, setup, check, and rollback on each required platform |
+| Team release    | Protected Forge publication and artifact verification               |
+| Member adoption | Local setup/check results; no shared Token collection               |
+| Closeout        | Deprecated manifest/profile references removed intentionally        |
 
 ## CI boundary
 
