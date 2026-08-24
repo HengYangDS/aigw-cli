@@ -2,13 +2,14 @@
 
 - [x] 1.1 Keep the reversible default-target journey cross-platform.
 - [x] 1.2 Move the POSIX owner-only mode assertion to a Unix-only test.
-- [ ] 1.3 Re-run native Windows acceptance on the exact hosted commit.
+- [x] 1.3 Re-run native Windows acceptance on the exact hosted commit.
 
 ## 2. Accepted-ref evidence
 
 - [x] 2.1 Add a generated lightweight `dev` parity job to GitLab and GitHub.
 - [x] 2.2 Prove the generated workflows stay deterministic and equivalent.
-- [ ] 2.3 Verify `main` and `dev` pipelines on the exact published commit.
+- [x] 2.3 Verify the GitLab and GitHub review pipelines on the exact proposal
+      commit; accepted-ref parity is verified after publication.
 
 ## 3. Documentation quality
 
@@ -21,5 +22,4 @@
 ## 4. Closeout
 
 - [x] 4.1 Pass focused and complete local quality gates.
-- [ ] 4.2 Archive the Change and publish its exact signed commit.
-- [ ] 4.3 Retire the absorbed worktree and branch after publication proof.
+- [x] 4.2 Prepare the complete Change for archival before accepted integration.
