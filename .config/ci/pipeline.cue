@@ -216,7 +216,6 @@ gitlab: {
 	workflow: rules: [
 		{if: "$CI_COMMIT_TAG"},
 		{if: "$CI_PIPELINE_SOURCE == \"merge_request_event\" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.reviewBranch)\""},
-		{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.reviewBranch)\"", when: "always"},
 		{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\""},
 		{if: "$CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\""},
 		{when: "never"},
@@ -246,7 +245,7 @@ gitlab: {
 		tags:      nativeEvidence.linux.gitlab.tags
 		variables: releaseReadinessToolchain
 		rules: [
-			{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.reviewBranch)\""},
+			{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\""},
 			{when: "never"},
 		]
 		script: [commands.install, commands.acceptedRefParity.gitlab]
@@ -316,7 +315,7 @@ githubVerify: {
 		GIT_CONFIG_VALUE_0: "main"
 	}
 	"on": {
-		push: branches: [lifecycle.acceptedBranch, lifecycle.reviewBranch]
+		push: branches: [lifecycle.acceptedBranch]
 		"pull_request": branches: [lifecycle.reviewBranch]
 		"workflow_dispatch": {}
 	}
@@ -326,11 +325,11 @@ githubVerify: {
 		"cancel-in-progress": true
 	}
 	jobs: {
-		"accepted-ref-parity": {
+	"accepted-ref-parity": {
 			name:              "Accepted ref parity"
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 5
-			if:                "github.event_name == 'push' && github.ref_name == '\(lifecycle.reviewBranch)'"
+		if:                "github.event_name == 'push' && github.ref_name == '\(lifecycle.acceptedBranch)'"
 			steps: [
 				#SourceCheckout,
 				#Toolchain,

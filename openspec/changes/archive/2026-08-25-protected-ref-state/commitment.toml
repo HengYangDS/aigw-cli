@@ -1,0 +1,40 @@
+schema_version = 2
+id = "change:protected-ref-state"
+intent = "Make CI evidence reflect review and accepted publication states without an expected-failure dev pipeline."
+subjects = ["repository:aigw-cli"]
+scope = [
+  ".config/ci/pipeline.cue",
+  ".github/workflows/verify.yml",
+  ".gitlab-ci.yml",
+  "tools/ci/projection_test.go",
+  "docs/decisions/dr-0010-lifecycle-scoped-ci-evidence.md",
+  "openspec/specs/product-quality/spec.md",
+  "openspec/changes/protected-ref-state/**",
+  "openspec/changes/archive/*-protected-ref-state/**",
+]
+invariants = [
+  "ci_topology_remains_CUE_owned",
+  "developer_review_targets_dev",
+  "accepted_publication_uses_exact_product_object",
+  "forge_projection_semantics_remain_symmetric",
+  "quality_gate_scope_is_unchanged",
+]
+acceptance = [
+  "proposal_merge_does_not_fail_main_parity",
+  "accepted_main_event_proves_main_and_dev_parity",
+  "accepted_main_event_runs_the_complete_graph",
+  "source_gate_passes",
+  "change_is_archived",
+]
+risks = ["incorrect_event_routing_could_omit_required_publication_evidence"]
+authority_refs = [
+  ".config/ci/pipeline.cue",
+  "docs/decisions/dr-0010-lifecycle-scoped-ci-evidence.md",
+  "openspec/specs/product-quality/spec.md",
+]
+predecessors = []
+selected_attestations = []
+dependencies = []
+hypotheses = []
+falsifiers = []
+experiment_protocols = []

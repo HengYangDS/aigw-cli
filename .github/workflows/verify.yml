@@ -7,7 +7,6 @@ env:
   push:
     branches:
       - main
-      - dev
   pull_request:
     branches:
       - dev
@@ -22,7 +21,7 @@ jobs:
     name: Accepted ref parity
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: github.event_name == 'push' && github.ref_name == 'dev'
+    if: github.event_name == 'push' && github.ref_name == 'main'
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

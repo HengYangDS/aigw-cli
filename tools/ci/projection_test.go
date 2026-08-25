@@ -129,7 +129,6 @@ func TestVerificationRoutingRunsOncePerProductCommit(t *testing.T) {
 	}{
 		{If: "$CI_COMMIT_TAG"},
 		{If: `$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"`},
-		{If: `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"`, When: "always"},
 		{If: `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"`},
 		{If: `$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"`},
 		{When: "never"},
@@ -158,8 +157,8 @@ func TestVerificationRoutingRunsOncePerProductCommit(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(github.On.Push.Branches, []string{"main", "dev"}) {
-		t.Fatalf("GitHub accepted-publication routes = %q, want [main dev]", github.On.Push.Branches)
+	if !slices.Equal(github.On.Push.Branches, []string{"main"}) {
+		t.Fatalf("GitHub accepted-publication routes = %q, want [main]", github.On.Push.Branches)
 	}
 	if !slices.Equal(github.On.PullRequest.Branches, []string{"dev"}) {
 		t.Fatalf("GitHub review targets = %q, want [dev]", github.On.PullRequest.Branches)
@@ -169,7 +168,7 @@ func TestVerificationRoutingRunsOncePerProductCommit(t *testing.T) {
 	}
 }
 
-func TestDevPushRunsOnlyExactAcceptedRefParity(t *testing.T) {
+func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -193,9 +192,9 @@ func TestDevPushRunsOnlyExactAcceptedRefParity(t *testing.T) {
 		t.Fatal("GitLab projection lacks accepted-ref-parity")
 	}
 	if len(parity.Rules) != 2 ||
-		parity.Rules[0].If != `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` ||
+		parity.Rules[0].If != `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"` ||
 		parity.Rules[1].When != "never" {
-		t.Fatalf("GitLab dev parity rules = %#v", parity.Rules)
+		t.Fatalf("GitLab accepted parity rules = %#v", parity.Rules)
 	}
 	for name, job := range map[string]gitLabJob{
 		"source-and-governance": gitlab.Source,
@@ -212,7 +211,7 @@ func TestDevPushRunsOnlyExactAcceptedRefParity(t *testing.T) {
 			}
 		}
 		if devRuleSeen {
-			t.Fatalf("GitLab %s encodes a negative dev exception instead of positive lifecycle admission", name)
+			t.Fatalf("GitLab %s unexpectedly admits an unowned dev push", name)
 		}
 	}
 
@@ -224,8 +223,8 @@ func TestDevPushRunsOnlyExactAcceptedRefParity(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
 		t.Fatal(err)
 	}
-	if got := github.Jobs["accepted-ref-parity"].If; got != "github.event_name == 'push' && github.ref_name == 'dev'" {
-		t.Fatalf("GitHub dev parity condition = %q", got)
+	if got := github.Jobs["accepted-ref-parity"].If; got != "github.event_name == 'push' && github.ref_name == 'main'" {
+		t.Fatalf("GitHub accepted parity condition = %q", got)
 	}
 	for name, job := range github.Jobs {
 		if name == "accepted-ref-parity" {

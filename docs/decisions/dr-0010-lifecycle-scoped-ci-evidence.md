@@ -20,17 +20,21 @@ CI execution is routed by product lifecycle stage:
 - release tags use the release pipeline;
 - explicit manual dispatch remains available for diagnosis.
 
-Proposal pushes and the accepted `dev` mirror do not independently own
-verification. The CUE CI model remains the sole topology authority and projects
-these semantics into GitHub and GitLab syntax. Every job still checks out and
-measures the exact product commit selected by its lifecycle event.
+Proposal pushes and the resulting `dev` update do not independently own
+verification. The atomic maintainer publication's `main` event owns both the
+complete graph and the assertion that peer `main` and `dev` resolve to that
+exact accepted object. The CUE CI model remains the sole topology authority and
+projects these semantics into GitHub and GitLab syntax. Every job still checks
+out and measures the exact product commit selected by its lifecycle event.
 
 ## Consequences
 
 One product commit produces one complete verification graph per Forge and
-lifecycle stage. Review updates continue to retrigger verification. Maintainers
-can publish a locally accepted object without manufacturing a review event, and
-the equal `dev` ref remains available without duplicating accepted evidence.
+lifecycle stage. Review updates continue to retrigger verification. A proposal
+merge no longer produces an expected-failure parity result before acceptance.
+Maintainers can publish a locally accepted object without manufacturing a
+review event, and the equal `dev` ref remains available without duplicating
+accepted evidence.
 
 ## Revisit Trigger
 
