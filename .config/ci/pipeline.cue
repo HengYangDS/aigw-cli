@@ -325,11 +325,11 @@ githubVerify: {
 		"cancel-in-progress": true
 	}
 	jobs: {
-	"accepted-ref-parity": {
+		"accepted-ref-parity": {
 			name:              "Accepted ref parity"
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 5
-		if:                "github.event_name == 'push' && github.ref_name == '\(lifecycle.acceptedBranch)'"
+			if:                "github.event_name == 'push' && github.ref_name == '\(lifecycle.acceptedBranch)'"
 			steps: [
 				#SourceCheckout,
 				#Toolchain,

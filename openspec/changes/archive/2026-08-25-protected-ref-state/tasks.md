@@ -5,6 +5,7 @@
 - [x] 1.2 Move protected-ref parity from the `dev` event to the accepted `main`
       event in the CUE authority.
 - [x] 1.3 Regenerate both Forge projections from the same authority.
+- [x] 1.4 Enforce official CUE formatting in the portable source gate.
 
 ## 2. Contract and verification
 

@@ -13,6 +13,7 @@ later maintainer promotion repairs the refs.
   atomic maintainer publication on `main`.
 - Stop creating an expected-failure `dev` pipeline between review and accepted
   publication.
+- Enforce official CUE formatting before comparing generated Forge projections.
 
 ## Capabilities
 
@@ -27,6 +28,6 @@ None.
 
 ## Impact
 
-The CUE CI authority, its GitHub and GitLab projections, focused projection
-tests, the product-quality contract, and the existing lifecycle decision record
-change. Product gates and supported platforms do not change.
+The CUE CI authority, its GitHub and GitLab projections, focused CI tests, the
+product-quality contract, and the existing lifecycle decision record change.
+Product gates and supported platforms do not change.

@@ -17,6 +17,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := [][]string{
+		{"cue", "fmt", "--check", "--files", ".config/ci"},
 		{"go", "run", "./tools/ci", "project", "--check"},
 		{"openspec", "validate", "--all", "--strict", "--no-interactive"},
 		{"ec", "-disable-indentation", "-disable-indent-size"},

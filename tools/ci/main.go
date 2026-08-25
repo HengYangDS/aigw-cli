@@ -24,6 +24,7 @@ type command struct {
 type commandRunner func(command) error
 
 var sourceCommands = []command{
+	{Name: "cue", Args: []string{"fmt", "--check", "--files", ".config/ci"}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "project", "--check"}},
 	{Name: "openspec", Args: []string{"validate", "--all", "--strict", "--no-interactive"}},
 	{Name: "ec", Args: []string{"-disable-indentation", "-disable-indent-size"}},

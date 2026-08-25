@@ -13,3 +13,7 @@ are never interpreted as already accepted releases.
 
 The CUE model remains the only CI topology authority. GitHub Actions and GitLab
 CI are generated projections of the same lifecycle model.
+
+The source gate runs the official CUE formatter in check mode before projection
+comparison. This makes the authority's own syntax and layout deterministic
+without adding a repository-specific formatter.
