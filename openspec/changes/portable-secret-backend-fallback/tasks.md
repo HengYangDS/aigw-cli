@@ -12,7 +12,7 @@
 
 ## 3. Closeout
 
-- [ ] 3.1 Run repository proof, archive the change, and land it to `candidate/dev`.
+- [x] 3.1 Run repository proof, archive the change, and land it to `candidate/dev`.
 
 ## Requirement To Task To Proof
 
