@@ -140,10 +140,11 @@ configuration projection exist.
 ### Environment variables
 
 Interactive users do not need environment variables. Without an override,
-AIGW uses Windows Credential Manager on Windows. On macOS and Linux it uses the
-native credential service when available and otherwise selects one owner-only
-file store beneath the platform AIGW data directory. The automatic choice is
-persisted; AIGW never searches multiple stores for the same Token.
+AIGW first proves that the platform credential service is usable. If it is
+not, AIGW selects one platform-local fallback beneath the AIGW data directory:
+an owner-only store on macOS and Linux, or a Windows DPAPI-protected store.
+The automatic choice is persisted; AIGW never searches multiple stores for the
+same Token.
 
 Use these variables only for explicit automation or a deliberately selected
 backend:
@@ -151,7 +152,7 @@ backend:
 | Variable                                                        | Meaning                                                                                                                                                                                                     |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AIGW_SECRET_BACKEND=keyring`                                   | Require the native credential service: macOS Keychain, Windows Credential Manager, or Secret Service on Linux. Failure is explicit; no fallback occurs.                                                     |
-| `AIGW_SECRET_BACKEND=file`                                      | Require AIGW's owner-only file store on macOS or Linux. Windows rejects this backend because Credential Manager owns writable Token persistence there.                                                      |
+| `AIGW_SECRET_BACKEND=file`                                      | Require AIGW's platform-local fallback store. macOS and Linux use owner-only files; Windows encrypts each Token with current-user DPAPI before writing it.                                                  |
 | `AIGW_SECRET_BACKEND=env`                                       | Read Tokens from the current process environment without persisting, rotating, or deleting them. Intended for CI and other controlled automation.                                                           |
 | `AIGW_TOKEN_<ACCOUNT>`                                          | Token for one manifest Account when `AIGW_SECRET_BACKEND=env`; uppercase the Account ID and replace each run of non-alphanumeric characters with `_` (for example, `dmx-api` becomes `AIGW_TOKEN_DMX_API`). |
 | `AIGW_ACCESSIBLE=1`                                             | Use accessibility-oriented terminal output.                                                                                                                                                                 |

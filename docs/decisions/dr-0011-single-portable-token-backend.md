@@ -12,17 +12,19 @@ Searching both a keyring and a file store would make Token authority ambiguous.
 
 ## Decision
 
-Each installation uses one Account Token backend. Windows defaults to
-Credential Manager. macOS and Linux prove native-service availability on first
-Token access and otherwise select an AIGW-owned file store. The automatic
-choice is persisted before a successful Token operation returns. Explicit
-`keyring`, `file`, and read-only `env` selections never fall through to another
-backend.
+Each installation uses one Account Token backend. Every supported platform
+proves native-service availability on first Token access. If unavailable, AIGW
+selects one AIGW-owned fallback store: owner-only files on macOS and Linux, or
+current-user DPAPI-protected files on Windows. The automatic choice is persisted
+before a successful Token operation returns. Explicit `keyring`, `file`, and
+read-only `env` selections never fall through to another backend.
 
-The file backend accepts only current-user-owned directories and regular files,
-requires modes `0700` and `0600`, rejects symbolic and multiply linked files,
-and commits replacements atomically within the owning directory. It neither
-reads nor migrates another product's credential state.
+The Unix file backend accepts only current-user-owned directories and regular
+files, requires modes `0700` and `0600`, rejects symbolic and multiply linked
+files, and commits replacements atomically within the owning directory. The
+Windows file backend binds encryption to the current Windows user through DPAPI
+and uses bounded directory handles and same-directory replacement. Neither
+implementation reads or migrates another product's credential state.
 
 ## Consequences
 

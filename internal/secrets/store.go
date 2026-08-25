@@ -73,10 +73,7 @@ func Select(selection Selection) (Store, error) {
 	case "env":
 		return NewEnvironmentStore(getenv), nil
 	case "file":
-		if selection.GOOS == "windows" {
-			return nil, errors.New("file secret backend is not supported on Windows")
-		}
-		if selection.GOOS != "darwin" && selection.GOOS != "linux" {
+		if selection.GOOS != "darwin" && selection.GOOS != "linux" && selection.GOOS != "windows" {
 			return nil, fmt.Errorf("file secret backend is not supported on operating system %q", selection.GOOS)
 		}
 		if selection.Root == "" {
@@ -84,10 +81,7 @@ func Select(selection Selection) (Store, error) {
 		}
 		return newFileStore(filepath.Join(selection.Root, "tokens")), nil
 	case "":
-		if selection.GOOS == "windows" {
-			return NewKeyringStore(), nil
-		}
-		if selection.GOOS != "darwin" && selection.GOOS != "linux" {
+		if selection.GOOS != "darwin" && selection.GOOS != "linux" && selection.GOOS != "windows" {
 			return nil, fmt.Errorf("unsupported operating system %q", selection.GOOS)
 		}
 		if selection.Root == "" {

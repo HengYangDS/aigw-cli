@@ -14,7 +14,7 @@ func (probeStore) Set(string, string) error         { return nil }
 func (probeStore) Delete(string) error              { return nil }
 func (probeStore) Has(string) bool                  { return false }
 
-func TestAutomaticSelectionKeepsWindowsKeyring(t *testing.T) {
+func TestAutomaticSelectionFallsBackWhenWindowsKeyringIsUnavailable(t *testing.T) {
 	store, err := Select(Selection{
 		GOOS:         "windows",
 		Root:         filepath.Join(t.TempDir(), "secrets"),
@@ -24,8 +24,16 @@ func TestAutomaticSelectionKeepsWindowsKeyring(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Select() error = %v", err)
 	}
-	if _, ok := store.(KeyringStore); !ok {
-		t.Fatalf("Select() = %T, want KeyringStore", store)
+	automatic, ok := store.(*automaticStore)
+	if !ok {
+		t.Fatalf("Select() = %T, want *automaticStore", store)
+	}
+	selected, err := automatic.resolve(false)
+	if err != nil {
+		t.Fatalf("resolve() error = %v", err)
+	}
+	if _, ok := selected.(*fileStore); !ok {
+		t.Fatalf("resolve() = %T, want *fileStore", selected)
 	}
 }
 
@@ -42,10 +50,13 @@ func TestExplicitKeyringFailureDoesNotFallback(t *testing.T) {
 	}
 }
 
-func TestExplicitFileBackendRejectsWindows(t *testing.T) {
-	_, err := Select(Selection{Backend: "file", GOOS: "windows", Root: t.TempDir()})
-	if err == nil || !strings.Contains(err.Error(), "not supported on Windows") {
+func TestExplicitFileBackendSupportsWindows(t *testing.T) {
+	store, err := Select(Selection{Backend: "file", GOOS: "windows", Root: t.TempDir()})
+	if err != nil {
 		t.Fatalf("Select() error = %v", err)
+	}
+	if _, ok := store.(*fileStore); !ok {
+		t.Fatalf("Select() = %T, want *fileStore", store)
 	}
 }
 

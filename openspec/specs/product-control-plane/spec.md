@@ -90,6 +90,30 @@ diagnosed only through its declared protocol when that Route is activated.
 - **THEN** AIGW SHALL treat it exactly as an external endpoint
 - **AND** SHALL NOT acquire lifecycle or state ownership over that service.
 
+### Requirement: Portable single-backend Token storage
+
+AIGW SHALL select exactly one Account Token backend for each installation.
+Automatic selection SHALL probe the native credential service on macOS, Linux,
+and Windows. When that service is unavailable, AIGW SHALL pin one
+platform-protected fallback without searching both stores. The Windows fallback
+SHALL protect Token bytes with current-user DPAPI before persistence. Explicit
+`keyring` selection SHALL fail closed, and explicit `env` selection SHALL remain
+read-only and process-scoped.
+
+#### Scenario: Native credential service is unavailable
+
+- **WHEN** the native credential service cannot be used on a supported platform
+- **THEN** automatic selection SHALL pin exactly one platform-protected fallback
+- **AND** setup with one Provider Account Token SHALL not require another Account
+- **AND** AIGW SHALL NOT search both native and fallback stores.
+
+#### Scenario: Windows fallback persists a Token
+
+- **WHEN** automatic selection falls back on Windows
+- **THEN** the stored Token bytes SHALL be protected by current-user DPAPI
+- **AND** a subsequent process SHALL recover the Token through the pinned backend
+- **AND** explicit `keyring` selection SHALL remain fail-closed.
+
 ### Requirement: Transactional and inspectable projection
 
 AIGW SHALL prepare and validate every selected client target before mutation,
