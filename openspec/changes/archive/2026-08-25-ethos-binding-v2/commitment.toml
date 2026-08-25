@@ -1,0 +1,30 @@
+schema_version = 2
+id = "change:ethos-binding-v2"
+intent = "Migrate the AIGW repository Commitment to the current ETHOS schema without weakening its semantics."
+subjects = ["repository:aigw-cli"]
+scope = [
+  ".ethos/commitment.toml",
+  "openspec/changes/archive/*-ethos-binding-v2/**",
+  "openspec/changes/ethos-binding-v2/**",
+]
+invariants = [
+  "no_compatibility_carrier_is_added",
+  "repository_commitment_meaning_is_preserved",
+  "repository_identity_remains_stable",
+]
+acceptance = [
+  "current_ethos_plan_passes",
+  "current_ethos_status_passes",
+  "normal_lane_start_and_prewrite_are_available",
+]
+risks = ["an_incomplete_migration_could_block_all_governed_mutation"]
+authority_refs = [
+  ".ethos/commitment.toml",
+  "AGENTS.md",
+]
+predecessors = []
+selected_attestations = []
+dependencies = []
+hypotheses = []
+falsifiers = []
+experiment_protocols = []
