@@ -206,7 +206,7 @@ func (c Config) SelectRoutesForConnectedAccounts(accountIDs []string) (Config, e
 		if selected.routeUsesConnectedAccount(client, connected) {
 			continue
 		}
-		profileID := selected.firstProfileForConnectedClient(client, connected)
+		profileID := selected.profileForConnectedClient(client, connected)
 		if profileID == "" {
 			delete(selected.Routes.Overrides, client)
 			continue
@@ -244,7 +244,12 @@ func (c Config) profileUsesConnectedAccount(profileID string, connected map[stri
 	return ok && connected[profile.Account]
 }
 
-func (c Config) firstProfileForConnectedClient(client string, connected map[string]bool) string {
+func (c Config) profileForConnectedClient(client string, connected map[string]bool) string {
+	preferredModel := ""
+	if runtime, _, err := c.ResolveRuntime(client, ""); err == nil {
+		preferredModel = runtime.Model
+	}
+	fallback := ""
 	for _, profileID := range c.ProfileIDs() {
 		profile := c.Profiles[profileID]
 		if !connected[profile.Account] || (profile.Client != "" && profile.Client != client) {
@@ -256,10 +261,15 @@ func (c Config) firstProfileForConnectedClient(client string, connected map[stri
 			continue
 		}
 		if profile.Client == "" || profile.ModelFor(client) != "" {
-			return profileID
+			if preferredModel != "" && profile.ModelFor(client) == preferredModel {
+				return profileID
+			}
+			if fallback == "" {
+				fallback = profileID
+			}
 		}
 	}
-	return ""
+	return fallback
 }
 
 func ValidProfileName(name string) bool { return profileNamePattern.MatchString(name) }

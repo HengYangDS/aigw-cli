@@ -83,6 +83,29 @@ func TestTeamConfigurationManifestIsReviewedVersionThree(t *testing.T) {
 	if len(parsedManifest.RecommendedRoutes) != 2 {
 		t.Fatalf("team manifest recommended routes = %#v", parsedManifest.RecommendedRoutes)
 	}
+	recommendedModels := map[string]string{
+		ClientClaude: parsedManifest.Profiles[parsedManifest.RecommendedRoutes[ClientClaude]].ModelFor(ClientClaude),
+		ClientCodex:  parsedManifest.Profiles[parsedManifest.RecommendedRoutes[ClientCodex]].ModelFor(ClientCodex),
+	}
+	for accountID := range parsedManifest.Accounts {
+		cfg, mergeErr := Merge(NewConfig(), parsedManifest)
+		if mergeErr != nil {
+			t.Fatal(mergeErr)
+		}
+		selected, selectErr := cfg.SelectRoutesForConnectedAccounts([]string{accountID})
+		if selectErr != nil {
+			t.Fatal(selectErr)
+		}
+		for client, wantModel := range recommendedModels {
+			runtime, _, resolveErr := selected.ResolveRuntime(client, "")
+			if resolveErr != nil {
+				t.Fatalf("resolve %s route for Account %q: %v", client, accountID, resolveErr)
+			}
+			if runtime.AccountID != accountID || runtime.Model != wantModel {
+				t.Fatalf("%s route for Account %q = Account %q model %q, want model %q", client, accountID, runtime.AccountID, runtime.Model, wantModel)
+			}
+		}
+	}
 }
 
 func TestRecommendedRoutesAreValidatedExportedAndDoNotOverridePersonalChoices(t *testing.T) {

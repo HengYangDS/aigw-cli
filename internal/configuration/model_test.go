@@ -450,6 +450,31 @@ func TestSelectRoutesForConnectedAccountsKeepsCapabilityAndChoosesUsableProfiles
 	}
 }
 
+func TestSelectRoutesForConnectedAccountsPreservesRecommendedModels(t *testing.T) {
+	cfg := NewConfig()
+	cfg.Accounts["preferred"] = Account{Label: "Preferred", Endpoints: Endpoints{Anthropic: "https://preferred.test", OpenAIResponses: "https://preferred.test/v1"}}
+	cfg.Accounts["connected"] = Account{Label: "Connected", Endpoints: Endpoints{Anthropic: "https://connected.test", OpenAIResponses: "https://connected.test/v1"}}
+	cfg.Profiles["preferred-claude"] = Profile{Label: "Preferred Claude", Account: "preferred", Client: ClientClaude, Models: Models{ClientClaude: "claude-fable-5"}}
+	cfg.Profiles["preferred-codex"] = Profile{Label: "Preferred Codex", Account: "preferred", Client: ClientCodex, Models: Models{ClientCodex: "gpt-5.6-sol"}}
+	cfg.Profiles["connected-claude"] = Profile{Label: "Connected Claude", Account: "connected", Client: ClientClaude, Models: Models{ClientClaude: "claude-fable-5"}}
+	cfg.Profiles["connected-codex-luna"] = Profile{Label: "Connected Codex Luna", Account: "connected", Client: ClientCodex, Models: Models{ClientCodex: "gpt-5.6-luna"}}
+	cfg.Profiles["connected-codex-sol"] = Profile{Label: "Connected Codex Sol", Account: "connected", Client: ClientCodex, Models: Models{ClientCodex: "gpt-5.6-sol"}}
+	cfg.Routes.Default = "preferred-codex"
+	cfg.Routes.Overrides[ClientClaude] = "preferred-claude"
+	cfg.Routes.Overrides[ClientCodex] = "preferred-codex"
+
+	selected, err := cfg.SelectRoutesForConnectedAccounts([]string{"connected"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected.Routes.Default != "connected-codex-sol" || selected.Routes.Overrides[ClientCodex] != "connected-codex-sol" {
+		t.Fatalf("Codex route lost the recommended model: %#v", selected.Routes)
+	}
+	if selected.Routes.Overrides[ClientClaude] != "connected-claude" {
+		t.Fatalf("Claude route = %q", selected.Routes.Overrides[ClientClaude])
+	}
+}
+
 func TestRoutedAccountIDsReturnsUniqueStableActiveAccounts(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["alpha"] = Account{Label: "Alpha", Endpoints: Endpoints{Anthropic: "https://alpha.test", OpenAIResponses: "https://alpha.test/v1"}}
