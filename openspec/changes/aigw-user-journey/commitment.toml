@@ -1,0 +1,47 @@
+schema_version = 2
+id = "change:aigw-user-journey"
+intent = "Prove and correct the complete team-manifest, single-Account Token, deferred client discovery, and portable credential user journey."
+subjects = ["repository:aigw-cli"]
+scope = [
+  "CHANGELOG.md",
+  "README.md",
+  "docs/**",
+  "internal/cli/**",
+  "internal/configuration/**",
+  "internal/discovery/**",
+  "internal/platform/**",
+  "internal/secrets/**",
+  "manifests/team.toml",
+  "openspec/changes/aigw-user-journey/**",
+  "openspec/changes/archive/*-aigw-user-journey/**",
+  "openspec/specs/**",
+]
+invariants = [
+  "aigw_remains_a_local_control_plane",
+  "later_sync_projects_only_installed_clients",
+  "missing_clients_do_not_block_catalogue_setup",
+  "one_provider_token_is_sufficient",
+  "tokens_never_enter_tracked_configuration",
+]
+acceptance = [
+  "affected_source_gates_pass",
+  "deferred_codex_and_claude_sync_passes",
+  "each_single_provider_token_path_passes",
+  "native_and_environment_or_file_secret_backends_are_verified",
+  "token_free_team_manifest_import_passes",
+]
+risks = [
+  "host_client_discovery_may_escape_the_isolated_test_environment",
+  "platform_path_assumptions_may_hide_windows_or_linux_failures",
+]
+authority_refs = [
+  ".ethos/profile.toml",
+  "AGENTS.md",
+  "docs/architecture/authority-and-projection-boundary.md",
+]
+predecessors = []
+selected_attestations = []
+dependencies = []
+hypotheses = []
+falsifiers = []
+experiment_protocols = []
