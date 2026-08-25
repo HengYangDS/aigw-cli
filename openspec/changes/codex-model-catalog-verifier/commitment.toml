@@ -1,0 +1,33 @@
+schema_version = 2
+id = "change:codex-model-catalog-verifier"
+intent = "Replace the removed Codex config-lockfile verifier with direct isolated model-catalog observation and exact alias semantics."
+subjects = ["repository:aigw-cli"]
+scope = [
+  "internal/codex/catalog_verify.go",
+  "internal/codex/catalog_verify_test.go",
+  "openspec/changes/codex-model-catalog-verifier/**",
+]
+invariants = [
+  "catalog_loading_and_alias_semantics_are_proven_separately",
+  "codex_verification_uses_only_current_public_client_commands",
+  "verification_never_mutates_user_codex_state_or_sends_model_requests",
+]
+acceptance = [
+  "current_codex_catalog_verification_passes",
+  "focused_and_repository_gates_pass",
+  "removed_config_lockfile_and_prompt_shape_heuristics_are_absent",
+]
+risks = [
+  "future_codex_debug_models_output_schema_changes",
+]
+authority_refs = [
+  "AGENTS.md",
+  "docs/architecture/authority-and-projection-boundary.md",
+  "user_instruction",
+]
+predecessors = []
+selected_attestations = []
+dependencies = []
+hypotheses = []
+falsifiers = []
+experiment_protocols = []
