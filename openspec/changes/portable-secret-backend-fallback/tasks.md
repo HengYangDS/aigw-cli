@@ -8,7 +8,7 @@
 
 - [x] 2.1 Add focused selection regression coverage.
 - [x] 2.2 Update security and environment documentation.
-- [ ] 2.3 Execute the native Windows DPAPI round trip and setup journey in hosted CI.
+- [x] 2.3 Execute the native Windows DPAPI round trip and setup journey in hosted CI.
 
 ## 3. Closeout
 
