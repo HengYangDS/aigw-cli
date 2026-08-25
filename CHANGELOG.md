@@ -8,6 +8,25 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.95] - 2026-08-25
+
+### Added
+
+- Preview every configured Claude Code and Codex projection in
+  `aigw sync --dry-run --json`, without credentials, client restart, or target
+  mutation.
+- Protect the Windows fallback Token store with current-user DPAPI while
+  retaining native keyring discovery and the explicit read-only environment
+  backend.
+
+### Fixed
+
+- Preserve each Provider's recommended model when importing a team manifest,
+  rather than allowing a later Provider to replace an earlier recommendation.
+- Separate developer review, accepted publication, and protected-ref parity in
+  the CUE-owned CI lifecycle, while enforcing canonical CUE formatting before
+  projecting GitHub and GitLab workflows.
+
 ## [0.1.0-rc.94] - 2026-08-24
 
 ### Added

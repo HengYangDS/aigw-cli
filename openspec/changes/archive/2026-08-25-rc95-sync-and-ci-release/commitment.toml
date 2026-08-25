@@ -1,0 +1,34 @@
+schema_version = 2
+id = "change:rc95-sync-and-ci-release"
+intent = "Publish the verified post-rc.94 AIGW product as the unique rc.95 release."
+subjects = ["repository:aigw-cli"]
+scope = [
+  "CHANGELOG.md",
+  "VERSION",
+  "openspec/changes/archive/*-rc95-sync-and-ci-release/**",
+  "openspec/changes/rc95-sync-and-ci-release/**",
+]
+invariants = [
+  "forge_peers_receive_identical_product_objects",
+  "release_commit_adds_no_product_behavior",
+  "published_chronology_remains_semver_ordered",
+  "version_ssot_remains_VERSION",
+]
+acceptance = [
+  "release_change_is_archived",
+  "release_matrix_is_reproducible_and_byte_identical_across_forges",
+  "source_gate_passes",
+]
+risks = []
+authority_refs = [
+  "CHANGELOG.md",
+  "VERSION",
+  "docs/evidence/release-evidence.md",
+  "docs/governance/change-and-release-policy.md",
+]
+predecessors = []
+selected_attestations = []
+dependencies = []
+hypotheses = []
+falsifiers = []
+experiment_protocols = []
