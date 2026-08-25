@@ -1,0 +1,30 @@
+schema_version = 2
+id = "change:workspace-policy-v2"
+intent = "Migrate AIGW branch-role policy to the current exact ETHOS workspace contract."
+subjects = ["repository:aigw-cli"]
+scope = [
+  ".ethos/workspace.toml",
+  "openspec/changes/archive/*-workspace-policy-v2/**",
+  "openspec/changes/workspace-policy-v2/**",
+]
+invariants = [
+  "branch_roles_remain_semantically_stable",
+  "no_compatibility_carrier_is_added",
+  "remote_peers_remain_independent",
+]
+acceptance = [
+  "accepted_closeout_policy_compiles",
+  "normal_lane_start_and_prewrite_are_available",
+  "repository_status_and_plan_pass",
+]
+risks = ["an_incomplete_policy_table_could_block_protected_ref_lifecycle"]
+authority_refs = [
+  ".ethos/workspace.toml",
+  "docs/governance/change-and-release-policy.md",
+]
+predecessors = []
+selected_attestations = []
+dependencies = []
+hypotheses = []
+falsifiers = []
+experiment_protocols = []
