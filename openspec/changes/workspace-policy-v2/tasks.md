@@ -8,4 +8,4 @@
 
 - [x] 2.1 Prove status, plan, prewrite, and closeout readiness with the current runtime.
 - [x] 2.2 Pass strict OpenSpec and the complete source gate.
-- [ ] 2.3 Archive the Change, land it, and verify normal rc.95 lane creation.
+- [x] 2.3 Archive the Change, land it, and verify normal rc.95 lane creation.
