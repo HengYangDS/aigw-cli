@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	surfaceidentity "aigw-cli/internal/surface"
+	"aigw-cli/internal/synchronization"
 )
 
 type staticDiscovery struct{ result discovery.Result }
@@ -27,7 +27,10 @@ func TestRenderRepairPreviewIncludesKnownAndExplicitSurfaces(t *testing.T) {
 	after := before.Clone()
 	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/codex", Targets: []string{"/known", "/explicit"}}
 	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: "/known", Present: true}}}
-	plans := []codex.ProjectionPlan{{Target: "/known", Action: "update"}, {Target: "/explicit", Action: "create"}}
+	plans := []synchronization.ProjectionPlan{
+		{Client: configuration.ClientCodex, Target: "/known", Action: "update"},
+		{Client: configuration.ClientCodex, Target: "/explicit", Action: "create"},
+	}
 	if err := renderRepairPreview(runtime, false, before, after, discovered, plans); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +48,7 @@ func TestRenderRepairPreviewJSONReportsTheSameSemanticPlan(t *testing.T) {
 	after := before.Clone()
 	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
 	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: "/known"}}}
-	plans := []codex.ProjectionPlan{{Target: "/known", Action: "update"}}
+	plans := []synchronization.ProjectionPlan{{Client: configuration.ClientCodex, Target: "/known", Action: "update"}}
 
 	if err := renderRepairPreview(runtime, true, before, after, discovered, plans); err != nil {
 		t.Fatal(err)
@@ -54,7 +57,7 @@ func TestRenderRepairPreviewJSONReportsTheSameSemanticPlan(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if !got.DryRun || got.ConfigurationAction != "update" || len(got.Codex) != 1 || got.Codex[0].SurfaceID != string(surfaceidentity.CodexHomeDefault) {
+	if !got.DryRun || got.ConfigurationAction != "update" || len(got.Projections) != 1 || got.Projections[0].Client != configuration.ClientCodex || got.Projections[0].SurfaceID != string(surfaceidentity.CodexHomeDefault) {
 		t.Fatalf("preview = %#v", got)
 	}
 }

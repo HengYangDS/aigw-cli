@@ -9,7 +9,6 @@ import (
 	"reflect"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
@@ -32,10 +31,11 @@ func NewRepairCommand(runtime invocation.Context) *cobra.Command {
 type repairPreview struct {
 	DryRun              bool                      `json:"dry_run"`
 	ConfigurationAction string                    `json:"configuration_action"`
-	Codex               []repairProjectionPreview `json:"codex"`
+	Projections         []repairProjectionPreview `json:"projections"`
 }
 
 type repairProjectionPreview struct {
+	Client    string `json:"client"`
 	SurfaceID string `json:"surface_id"`
 	Action    string `json:"action"`
 }
@@ -117,17 +117,20 @@ func secretAvailable(runtime invocation.Context, accountID string) bool {
 	return runtime.Secrets != nil && runtime.Secrets.Has(accountID)
 }
 
-func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, after configuration.Config, discovered discovery.Result, plans []codex.ProjectionPlan) error {
-	preview := repairPreview{DryRun: true, ConfigurationAction: "already-converged", Codex: make([]repairProjectionPreview, 0, len(plans))}
+func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, after configuration.Config, discovered discovery.Result, plans []synchronization.ProjectionPlan) error {
+	preview := repairPreview{DryRun: true, ConfigurationAction: "already-converged", Projections: make([]repairProjectionPreview, 0, len(plans))}
 	if !reflect.DeepEqual(before, after) {
 		preview.ConfigurationAction = "update"
 	}
 	for _, plan := range plans {
-		surfaceID := "codex-home-explicit"
-		if surface, ok := discovered.SurfaceForConfigPath(plan.Target); ok {
-			surfaceID = surface.ID
+		surfaceID := "claude-settings"
+		if plan.Client == configuration.ClientCodex {
+			surfaceID = "codex-home-explicit"
+			if surface, ok := discovered.SurfaceForConfigPath(plan.Target); ok {
+				surfaceID = surface.ID
+			}
 		}
-		preview.Codex = append(preview.Codex, repairProjectionPreview{SurfaceID: surfaceID, Action: plan.Action})
+		preview.Projections = append(preview.Projections, repairProjectionPreview{Client: plan.Client, SurfaceID: surfaceID, Action: plan.Action})
 	}
 	if jsonMode {
 		encoder := json.NewEncoder(runtime.Out)
@@ -137,8 +140,8 @@ func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, afte
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("Repair preview")
 	r.Row("Configuration", preview.ConfigurationAction)
-	for _, plan := range preview.Codex {
-		r.Row(plan.SurfaceID, plan.Action)
+	for _, plan := range preview.Projections {
+		r.Row(plan.Client+" · "+plan.SurfaceID, plan.Action)
 	}
 	r.Success("Preview did not write configuration, state files, authentication, client executables, or conversations")
 	r.Next("aigw repair")

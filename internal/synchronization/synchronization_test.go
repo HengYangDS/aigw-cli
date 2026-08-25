@@ -165,6 +165,54 @@ func TestProjectionPlanningAndReconciliationNoOp(t *testing.T) {
 	}
 }
 
+func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+	before := configuration.NewConfig()
+	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-team"}}
+	before.Routes.Default = "claude"
+	after := before.Clone()
+	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	syncer := Synchronizer{Discovery: staticDiscovery{}, ClaudeSettingsPath: settingsPath, AIGWExecutable: filepath.Join(dir, "aigw")}
+
+	plans, err := syncer.Plan(before, after)
+	if err != nil || len(plans) != 1 || plans[0].Client != configuration.ClientClaude || plans[0].Target != settingsPath || plans[0].Action != "project" {
+		t.Fatalf("project plans = %#v, %v", plans, err)
+	}
+	if _, err := os.Stat(settingsPath); !os.IsNotExist(err) {
+		t.Fatalf("planning wrote Claude settings: %v", err)
+	}
+	if err := syncer.Reconcile(context.Background(), before, after); err != nil {
+		t.Fatal(err)
+	}
+	plans, err = syncer.Plan(after, before)
+	if err != nil || len(plans) != 1 || plans[0].Client != configuration.ClientClaude || plans[0].Action != "restore" {
+		t.Fatalf("restore plans = %#v, %v", plans, err)
+	}
+}
+
+func TestPlanReportsClaudePlanningFailures(t *testing.T) {
+	before := configuration.NewConfig()
+	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-team"}}
+	before.Routes.Default = "claude"
+	after := before.Clone()
+	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+
+	if _, err := (Synchronizer{Discovery: staticDiscovery{}}).Plan(before, after); err == nil || !strings.Contains(err.Error(), "settings path") {
+		t.Fatalf("missing settings path error = %v", err)
+	}
+	if _, err := (Synchronizer{Discovery: staticDiscovery{}, ClaudeSettingsPath: "/settings"}).Plan(before, after); err == nil || !strings.Contains(err.Error(), "executable path") {
+		t.Fatalf("missing AIGW executable error = %v", err)
+	}
+	invalid := after.Clone()
+	delete(invalid.Profiles, "claude")
+	if _, err := (Synchronizer{Discovery: staticDiscovery{}, ClaudeSettingsPath: "/settings", AIGWExecutable: "/aigw"}).Plan(before, invalid); err == nil {
+		t.Fatal("invalid enabled Claude runtime was accepted")
+	}
+}
+
 func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 	t.Run("missing Claude settings path", func(t *testing.T) {
 		before := configuration.NewConfig()

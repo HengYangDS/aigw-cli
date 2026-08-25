@@ -277,6 +277,50 @@ func TestSettingsProjectionIsIdempotentAndRejectsInvalidInput(t *testing.T) {
 	}
 }
 
+func TestPlanSettingsMatchesApplyWithoutMutation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
+	executable := testExecutable()
+
+	plan, err := PlanSettings(path, false, runtime, executable)
+	if err != nil || plan.Action != "project" || plan.Target != path {
+		t.Fatalf("initial plan = %#v, %v", plan, err)
+	}
+	for _, candidate := range []string{path, path + settingsStateSuffix} {
+		if _, err := os.Stat(candidate); !os.IsNotExist(err) {
+			t.Fatalf("planning wrote %s: %v", candidate, err)
+		}
+	}
+	if _, err := ReconcileSettings(path, false, runtime, executable); err != nil {
+		t.Fatal(err)
+	}
+	settingsBefore, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateBefore, err := os.ReadFile(path + settingsStateSuffix)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err = PlanSettings(path, false, runtime, executable)
+	if err != nil || plan.Action != "already-converged" {
+		t.Fatalf("converged plan = %#v, %v", plan, err)
+	}
+	plan, err = PlanSettings(path, true, configuration.Runtime{}, "")
+	if err != nil || plan.Action != "restore" {
+		t.Fatalf("restore plan = %#v, %v", plan, err)
+	}
+	settingsAfter, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(settingsAfter, settingsBefore) {
+		t.Fatalf("settings changed during planning: %q, %v", settingsAfter, err)
+	}
+	stateAfter, err := os.ReadFile(path + settingsStateSuffix)
+	if err != nil || !bytes.Equal(stateAfter, stateBefore) {
+		t.Fatalf("state changed during planning: %q, %v", stateAfter, err)
+	}
+}
+
 func TestSettingsDisableWithoutOwnedStateIsAlreadyRestored(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	receipt, err := ReconcileSettings(path, true, configuration.Runtime{}, "")

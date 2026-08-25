@@ -15,14 +15,47 @@ import (
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
-// Plan returns the side-effect-free Codex projection changes for a
+// ProjectionPlan describes one non-secret client configuration mutation.
+type ProjectionPlan struct {
+	Client string `json:"client"`
+	Target string `json:"target"`
+	Action string `json:"action"`
+}
+
+// Plan returns every side-effect-free client projection change for a
 // configuration transition, including target removals.
-func (s Synchronizer) Plan(before, after configuration.Config) ([]codex.ProjectionPlan, error) {
+func (s Synchronizer) Plan(before, after configuration.Config) ([]ProjectionPlan, error) {
 	beforeRefs, afterRefs, runtime, err := s.reconciliationInputs(before, after)
 	if err != nil {
 		return nil, err
 	}
-	return codex.PlanReconciliation(beforeRefs, afterRefs, runtime)
+	codexPlans, err := codex.PlanReconciliation(beforeRefs, afterRefs, runtime)
+	if err != nil {
+		return nil, err
+	}
+	plans := make([]ProjectionPlan, 0, len(codexPlans)+1)
+	for _, plan := range codexPlans {
+		plans = append(plans, ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: plan.Action})
+	}
+	if !ClaudeProjectionChanged(before, after) {
+		return plans, nil
+	}
+	if s.ClaudeSettingsPath == "" {
+		return nil, fmt.Errorf("Claude settings path is unavailable")
+	}
+	disabled := !after.Adapters[configuration.ClientClaude].Enabled
+	var claudeRuntime configuration.Runtime
+	if !disabled {
+		claudeRuntime, _, err = after.ResolveRuntime(configuration.ClientClaude, "")
+		if err != nil {
+			return nil, err
+		}
+	}
+	claudePlan, err := claude.PlanSettings(s.ClaudeSettingsPath, disabled, claudeRuntime, s.AIGWExecutable)
+	if err != nil {
+		return nil, err
+	}
+	return append(plans, ProjectionPlan{Client: configuration.ClientClaude, Target: claudePlan.Target, Action: claudePlan.Action}), nil
 }
 
 // Reconcile applies every admitted client projection for one configuration

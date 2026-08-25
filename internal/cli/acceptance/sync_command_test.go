@@ -279,15 +279,20 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.toml")
 	second := filepath.Join(dir, "second.toml")
+	claudeSettings := filepath.Join(dir, "settings.json")
+	app.ClaudeSettingsPath = claudeSettings
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/usr/local/bin/claude"}}}
 	for _, target := range []string{first, second} {
 		if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	cfg := configuration.NewConfig()
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "http://127.0.0.1:8791/v1"}}
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "http://127.0.0.1:8791/v1", Anthropic: "https://gateway.test"}}
 	cfg.Profiles["terra"] = configuration.Profile{Label: "GPT-5.6 Terra", Account: "gateway", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-5.6-terra"}}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
 	cfg.Routes.Default = "terra"
+	cfg.Routes.Overrides[configuration.ClientClaude] = "claude"
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{first, second}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -311,9 +316,16 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 			t.Fatalf("dry-run wrote sidecar %s: %v", target, err)
 		}
 	}
+	if _, err := os.Stat(claudeSettings); !os.IsNotExist(err) {
+		t.Fatalf("dry-run wrote Claude settings %s: %v", claudeSettings, err)
+	}
+	if _, err := os.Stat(claudeSettings + ".aigw-state.json"); !os.IsNotExist(err) {
+		t.Fatalf("dry-run wrote Claude settings state %s: %v", claudeSettings, err)
+	}
 	var preview struct {
 		DryRun  bool `json:"dry_run"`
 		Targets []struct {
+			Client string `json:"client"`
 			Target string `json:"target"`
 			Action string `json:"action"`
 		} `json:"targets"`
@@ -321,14 +333,23 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatalf("decode sync dry-run JSON: %v\n%s", err, out.String())
 	}
-	wantTargets := []string{first, second}
+	wantTargets := []string{first, second, claudeSettings}
+	wantClients := []string{configuration.ClientCodex, configuration.ClientCodex, configuration.ClientClaude}
+	wantActions := []string{"initial-project", "initial-project", "project"}
 	if !preview.DryRun || len(preview.Targets) != len(wantTargets) {
 		t.Fatalf("sync dry-run preview = %#v", preview)
 	}
 	for index, want := range wantTargets {
-		if preview.Targets[index].Action != "initial-project" {
-			t.Fatalf("target %d action = %q, want initial-project", index, preview.Targets[index].Action)
+		if preview.Targets[index].Client != wantClients[index] {
+			t.Fatalf("target %d client = %q, want %q", index, preview.Targets[index].Client, wantClients[index])
 		}
-		assertSameExistingPath(t, preview.Targets[index].Target, want)
+		if preview.Targets[index].Action != wantActions[index] {
+			t.Fatalf("target %d action = %q, want %q", index, preview.Targets[index].Action, wantActions[index])
+		}
+		if index < 2 {
+			assertSameExistingPath(t, preview.Targets[index].Target, want)
+		} else if preview.Targets[index].Target != want {
+			t.Fatalf("target %d = %q, want %q", index, preview.Targets[index].Target, want)
+		}
 	}
 }

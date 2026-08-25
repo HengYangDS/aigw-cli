@@ -54,64 +54,133 @@ type settingsState struct {
 	ManagedSHA256 string           `json:"managed_sha256"`
 }
 
-type SettingsReceipt struct {
+type SettingsPlan struct {
 	Action string `json:"action"`
 	Target string `json:"target"`
 }
 
+type SettingsReceipt SettingsPlan
+
 type settingsDocument map[string]json.RawMessage
+
+type settingsChange struct {
+	plan           SettingsPlan
+	path           string
+	statePath      string
+	settingsBefore transaction.FileSnapshot
+	stateBefore    transaction.FileSnapshot
+	settingsData   []byte
+	stateData      []byte
+	removeSettings bool
+}
+
+// PlanSettings returns the exact non-secret Claude Code settings change that
+// ReconcileSettings would apply without writing either the settings file or
+// its ownership state.
+func PlanSettings(path string, disabled bool, runtime configuration.Runtime, executable string) (SettingsPlan, error) {
+	change, err := prepareSettingsChange(path, disabled, runtime, executable)
+	if err != nil {
+		return SettingsPlan{}, err
+	}
+	return change.plan, nil
+}
 
 // ReconcileSettings atomically projects or removes AIGW-owned Claude Code
 // user settings. It preserves every foreign setting, never writes a token, and
 // fails closed when the owned projection has been changed externally.
 func ReconcileSettings(path string, disabled bool, runtime configuration.Runtime, executable string) (SettingsReceipt, error) {
+	change, err := prepareSettingsChange(path, disabled, runtime, executable)
+	if err != nil {
+		return SettingsReceipt{}, err
+	}
+	switch change.plan.Action {
+	case "already-converged", "already-restored":
+		return SettingsReceipt(change.plan), nil
+	case "project":
+		if err := commitSettings(change.path, change.statePath, change.settingsBefore, change.settingsData, change.stateBefore, change.stateData); err != nil {
+			return SettingsReceipt{}, err
+		}
+	case "restore":
+		if err := applySettingsRestore(change); err != nil {
+			return SettingsReceipt{}, err
+		}
+	default:
+		return SettingsReceipt{}, fmt.Errorf("unsupported Claude settings action %q", change.plan.Action)
+	}
+	return SettingsReceipt(change.plan), nil
+}
+
+func prepareSettingsChange(path string, disabled bool, runtime configuration.Runtime, executable string) (settingsChange, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
-		return SettingsReceipt{}, errors.New("Claude settings path is empty")
+		return settingsChange{}, errors.New("Claude settings path is empty")
 	}
 	statePath := path + settingsStateSuffix
 	settingsBefore, err := captureSnapshot(path)
 	if err != nil {
-		return SettingsReceipt{}, fmt.Errorf("read Claude settings: %w", err)
+		return settingsChange{}, fmt.Errorf("read Claude settings: %w", err)
 	}
 	stateBefore, err := captureSnapshot(statePath)
 	if err != nil {
-		return SettingsReceipt{}, fmt.Errorf("read Claude settings state: %w", err)
+		return settingsChange{}, fmt.Errorf("read Claude settings state: %w", err)
 	}
 	document, err := decodeSettings(settingsBefore)
 	if err != nil {
-		return SettingsReceipt{}, err
+		return settingsChange{}, err
+	}
+	change := settingsChange{
+		path:           path,
+		statePath:      statePath,
+		settingsBefore: settingsBefore,
+		stateBefore:    stateBefore,
 	}
 
 	if disabled {
-		return disableSettings(path, statePath, document, settingsBefore, stateBefore)
+		if !stateBefore.Exists {
+			change.plan = SettingsPlan{Action: "already-restored", Target: path}
+			return change, nil
+		}
+		state, err := decodeSettingsState(stateBefore.Data)
+		if err != nil {
+			return settingsChange{}, err
+		}
+		if state.ManagedSHA256 != managedSettingsHash(document) {
+			return settingsChange{}, errors.New("managed Claude settings changed outside AIGW; refusing to remove user edits")
+		}
+		change.plan = SettingsPlan{Action: "restore", Target: path}
+		if !state.Original.FileExisted {
+			change.removeSettings = true
+			return change, nil
+		}
+		restoreOriginalSettings(document, state.Original)
+		change.settingsData = encodeSettings(document)
+		return change, nil
 	}
 	if runtime.Endpoint == "" {
-		return SettingsReceipt{}, fmt.Errorf("profile %q has no Claude endpoint", runtime.ProfileID)
+		return settingsChange{}, fmt.Errorf("profile %q has no Claude endpoint", runtime.ProfileID)
 	}
 	if runtime.AccountID == "" {
-		return SettingsReceipt{}, fmt.Errorf("profile %q has no account", runtime.ProfileID)
+		return settingsChange{}, fmt.Errorf("profile %q has no account", runtime.ProfileID)
 	}
 	executable, err = validateExecutable(executable)
 	if err != nil {
-		return SettingsReceipt{}, err
+		return settingsChange{}, err
 	}
 
 	state, err := prepareSettingsState(document, settingsBefore, stateBefore)
 	if err != nil {
-		return SettingsReceipt{}, err
+		return settingsChange{}, err
 	}
 	projectSettings(document, runtime, executable)
-	settingsData := encodeSettings(document)
+	change.settingsData = encodeSettings(document)
 	state.ManagedSHA256 = managedSettingsHash(document)
-	stateData := encodeSettingsState(state)
-	if snapshotDataEqual(settingsBefore, settingsData) && snapshotDataEqual(stateBefore, stateData) {
-		return SettingsReceipt{Action: "already-converged", Target: path}, nil
+	change.stateData = encodeSettingsState(state)
+	if snapshotDataEqual(settingsBefore, change.settingsData) && snapshotDataEqual(stateBefore, change.stateData) {
+		change.plan = SettingsPlan{Action: "already-converged", Target: path}
+		return change, nil
 	}
-	if err := commitSettings(path, statePath, settingsBefore, settingsData, stateBefore, stateData); err != nil {
-		return SettingsReceipt{}, err
-	}
-	return SettingsReceipt{Action: "project", Target: path}, nil
+	change.plan = SettingsPlan{Action: "project", Target: path}
+	return change, nil
 }
 
 func prepareSettingsState(document settingsDocument, settingsBefore, stateBefore transaction.FileSnapshot) (settingsState, error) {
@@ -135,43 +204,31 @@ func prepareSettingsState(document settingsDocument, settingsBefore, stateBefore
 	return state, nil
 }
 
-func disableSettings(path, statePath string, document settingsDocument, settingsBefore, stateBefore transaction.FileSnapshot) (SettingsReceipt, error) {
-	if !stateBefore.Exists {
-		return SettingsReceipt{Action: "already-restored", Target: path}, nil
-	}
-	state, err := decodeSettingsState(stateBefore.Data)
-	if err != nil {
-		return SettingsReceipt{}, err
-	}
-	if state.ManagedSHA256 != managedSettingsHash(document) {
-		return SettingsReceipt{}, errors.New("managed Claude settings changed outside AIGW; refusing to remove user edits")
-	}
-	if !state.Original.FileExisted {
-		if _, err := removeGuarded(path, settingsBefore); err != nil {
-			return SettingsReceipt{}, fmt.Errorf("restore absent Claude settings: %w", err)
+func applySettingsRestore(change settingsChange) error {
+	if change.removeSettings {
+		if _, err := removeGuarded(change.path, change.settingsBefore); err != nil {
+			return fmt.Errorf("restore absent Claude settings: %w", err)
 		}
-		if _, err := removeGuarded(statePath, stateBefore); err != nil {
-			if rollbackErr := transaction.WriteFileAtomic(path, settingsBefore.Data, 0o600); rollbackErr != nil {
-				return SettingsReceipt{}, fmt.Errorf("remove Claude settings state: %w; settings rollback failed: %v", err, rollbackErr)
+		if _, err := removeGuarded(change.statePath, change.stateBefore); err != nil {
+			if rollbackErr := transaction.WriteFileAtomic(change.path, change.settingsBefore.Data, 0o600); rollbackErr != nil {
+				return fmt.Errorf("remove Claude settings state: %w; settings rollback failed: %v", err, rollbackErr)
 			}
-			return SettingsReceipt{}, fmt.Errorf("remove Claude settings state: %w", err)
+			return fmt.Errorf("remove Claude settings state: %w", err)
 		}
-		return SettingsReceipt{Action: "restore", Target: path}, nil
+		return nil
 	}
-	restoreOriginalSettings(document, state.Original)
-	settingsData := encodeSettings(document)
-	settingsAfter, err := writeGuarded(path, settingsBefore, settingsData, 0o600)
+	settingsAfter, err := writeGuarded(change.path, change.settingsBefore, change.settingsData, 0o600)
 	if err != nil {
-		return SettingsReceipt{}, fmt.Errorf("restore Claude settings: %w", err)
+		return fmt.Errorf("restore Claude settings: %w", err)
 	}
-	if _, err := removeGuarded(statePath, stateBefore); err != nil {
-		rollbackErr := restoreGuarded(path, settingsBefore, settingsAfter)
+	if _, err := removeGuarded(change.statePath, change.stateBefore); err != nil {
+		rollbackErr := restoreGuarded(change.path, change.settingsBefore, settingsAfter)
 		if rollbackErr != nil {
-			return SettingsReceipt{}, fmt.Errorf("remove Claude settings state: %w; settings rollback failed: %v", err, rollbackErr)
+			return fmt.Errorf("remove Claude settings state: %w; settings rollback failed: %v", err, rollbackErr)
 		}
-		return SettingsReceipt{}, fmt.Errorf("remove Claude settings state: %w", err)
+		return fmt.Errorf("remove Claude settings state: %w", err)
 	}
-	return SettingsReceipt{Action: "restore", Target: path}, nil
+	return nil
 }
 
 func commitSettings(path, statePath string, settingsBefore transaction.FileSnapshot, settingsData []byte, stateBefore transaction.FileSnapshot, stateData []byte) error {
