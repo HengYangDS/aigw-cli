@@ -3,9 +3,12 @@ id = "change:codex-model-catalog-verifier"
 intent = "Replace the removed Codex config-lockfile verifier with direct isolated model-catalog observation and exact alias semantics."
 subjects = ["repository:aigw-cli"]
 scope = [
+  "CONTRIBUTING.md",
   "internal/codex/catalog_verify.go",
   "internal/codex/catalog_verify_test.go",
   "openspec/changes/codex-model-catalog-verifier/**",
+  "tools/modelcatalog/main.go",
+  "tools/modelcatalog/main_test.go",
 ]
 invariants = [
   "catalog_loading_and_alias_semantics_are_proven_separately",
