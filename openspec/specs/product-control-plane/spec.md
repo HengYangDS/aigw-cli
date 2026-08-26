@@ -160,10 +160,21 @@ foreign file at its managed path.
 #### Scenario: A real client qualifies the projection
 
 - **WHEN** a contributor runs the tracked catalog verification command
-- **THEN** it SHALL record client version and executable digest
-- **AND** SHALL prove the adapted model resolves like its base slug while an
-  unknown model retains fallback behavior
+- **THEN** it SHALL use the client's public model-catalog command surface
+- **AND** SHALL record the exact client version and executable digest
+- **AND** SHALL prove the generated alias is present in the effective catalog
+- **AND** SHALL prove all alias metadata except `slug` equals the bundled base
+  metadata
+- **AND** SHALL prove the bundled catalog did not already contain that alias
+- **AND** SHALL prove an unrelated unknown entry remains absent
 - **AND** SHALL send no model request and alter no persistent Codex home.
+
+#### Scenario: The client no longer exposes a compatible catalog surface
+
+- **WHEN** the installed client rejects the command or returns an invalid catalog
+- **THEN** verification SHALL fail explicitly
+- **AND** SHALL NOT substitute prompt shape, item counts, private debug settings,
+  or a locally maintained model schema.
 
 ### Requirement: Portable source
 

@@ -15,4 +15,10 @@
 - [x] 3.1 Pass focused verifier and developer-command tests.
 - [x] 3.2 Pass the verifier against the installed Codex client.
 - [x] 3.3 Pass the complete locked source and OpenSpec gates.
-- [ ] 3.4 Produce exact-HEAD hosted evidence before publication.
+
+## Post-archive lifecycle
+
+Produce exact-HEAD GitHub and GitLab evidence for the archived source before
+promotion. Hosted verification and publication are external effects of the
+accepted source tree; they remain incomplete until their current receipts
+exist.
