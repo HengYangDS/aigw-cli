@@ -53,22 +53,21 @@ session, or write config/sidecar state. `aigw sync` prepares every configured
 Codex target before its first write and rolls every target back if a commit
 fails.
 
-The projected Codex model catalog is the one projection whose effect only the
-client itself can confirm, because only the client can report which model
-metadata it selected. Changing that projection, or qualifying a new client
+The projected Codex model catalog is the one projection whose loading only the
+client itself can confirm. Changing that projection, or qualifying a new client
 build, requires running the verification command against a real installation
-and recording the client version and checksum it printed:
+and recording the client version, executable checksum, and model-entry digests:
 
 ```bash
 mise exec --locked -- go run ./tools/modelcatalog -model '<provider-prefixed model id>'
 ```
 
-It asks the client only which input it would send, through a throwaway client
-home, so it makes no model request and leaves the machine's own Codex
-configuration untouched. Exit code 2 means the client is missing, which is a
-prerequisite to satisfy rather than a passing or failing verification. Every
-catalog decision a fake client can pin is covered by the package tests instead,
-which always run.
+It asks the client to render the effective catalog through a throwaway client
+home, then proves that the provider-prefixed entry is identical to its bundled
+base entry apart from `slug`. It makes no model request and leaves the user's
+Codex configuration untouched. Exit code 2 means the client is missing, which
+is a prerequisite to satisfy rather than a passing or failing verification.
+Every deterministic catalog decision is also covered by package tests.
 
 The on-screen metadata miss the client reports is a separate matter. The client
 announces it only where a person can see it, and reproducing that announcement

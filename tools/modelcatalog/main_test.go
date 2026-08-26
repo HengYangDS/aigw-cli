@@ -118,7 +118,7 @@ func TestRunSeparatesMeasurementAndVerdictFailures(t *testing.T) {
 			value := sampleVerification()
 			value.Adapted = value.Unadapted
 			return value
-		}(), nil, "resolved"},
+		}(), nil, "absent from the effective catalog"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			stubVerifier(t, testCase.verification, testCase.verifyError)
@@ -196,8 +196,8 @@ func TestReportRendersEveryMeasuredSelection(t *testing.T) {
 		"prefixed, no catalog",
 		"prefixed, generated catalog",
 		"unknown model, generated catalog",
-		"17767",
-		"20904",
+		"present",
+		"134063e133f0b4244fa3b251acf973d4fe4b4aeeacbdc135211bf480f59f1477",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("report lacks %q:\n%s", want, text)
@@ -220,8 +220,8 @@ func TestReportEmitsMachineReadableMeasurements(t *testing.T) {
 }
 
 func sampleVerification() codex.ModelCatalogVerification {
-	resolved := codex.ModelCatalogProbe{Model: "gpt-5.6-sol", Instructions: 17767, Items: 5, MultiAgent: 2}
-	fallback := codex.ModelCatalogProbe{Model: "openai.gpt-5.6-sol", Instructions: 20904, Items: 3}
+	resolved := codex.ModelCatalogProbe{Model: "gpt-5.6-sol", Present: true, MetadataSHA256: "134063e133f0b4244fa3b251acf973d4fe4b4aeeacbdc135211bf480f59f1477"}
+	fallback := codex.ModelCatalogProbe{Model: "openai.gpt-5.6-sol"}
 	adapted := resolved
 	adapted.Model = "openai.gpt-5.6-sol"
 	unknown := fallback

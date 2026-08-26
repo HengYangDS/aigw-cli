@@ -1,80 +1,72 @@
 package codex
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
-// ModelCatalogProbe is what one client invocation reveals about the metadata it
-// selected for one model. The numbers are read from the input the client says it
-// would send, so they describe the client's own resolution rather than any
-// AIGW-side assumption. Placeholder metadata yields different instructions and
-// drops the session features a model's own metadata enables, which is what makes
-// these three numbers able to separate the states.
+// ModelCatalogProbe records direct evidence from a Codex model catalog. The
+// digest covers the complete model entry after removing only its slug, so an
+// alias proves semantic identity without depending on a private config export,
+// prompt layout, or a hand-maintained list of model fields.
 type ModelCatalogProbe struct {
-	Model        string `json:"model"`
-	Instructions int    `json:"instructions"`
-	Items        int    `json:"items"`
-	MultiAgent   int    `json:"multi_agent"`
+	Model          string `json:"model"`
+	Present        bool   `json:"present"`
+	MetadataSHA256 string `json:"metadata_sha256,omitempty"`
 }
 
 func (p ModelCatalogProbe) String() string {
-	return fmt.Sprintf("%d instruction bytes, %d input items, %d multi-agent mentions", p.Instructions, p.Items, p.MultiAgent)
+	if !p.Present {
+		return "absent"
+	}
+	return "present, metadata sha256 " + p.MetadataSHA256
 }
 
-func (p ModelCatalogProbe) same(other ModelCatalogProbe) bool {
-	return p.Instructions == other.Instructions && p.Items == other.Items && p.MultiAgent == other.MultiAgent
-}
-
-// ModelCatalogVerification is the evidence that an installed client resolves a
-// provider-prefixed model id exactly as it resolves the slug that id wraps, and
-// that a model the client genuinely does not know still falls back.
+// ModelCatalogVerification separates four claims: the installed client knows
+// the base slug, does not already know the provider-prefixed alias, loads the
+// generated catalog, and leaves an unrelated unknown id absent.
 type ModelCatalogVerification struct {
-	ClientVersion string `json:"client_version"`
-	ClientSHA256  string `json:"client_sha256"`
-	Model         string `json:"model"`
-	BaseSlug      string `json:"base_slug"`
-	// Reference is the base slug read through the client's own bundled table:
-	// the behavior a bare-name profile already gets.
-	Reference ModelCatalogProbe `json:"reference"`
-	// Unadapted is the prefixed id without a catalog: the reported defect.
-	Unadapted ModelCatalogProbe `json:"unadapted"`
-	// Adapted is the prefixed id through the generated catalog: the claim.
-	Adapted ModelCatalogProbe `json:"adapted"`
-	// Unknown is a model the client cannot know, asked with the same generated
-	// catalog in place, so the alias set is shown not to answer for ids it was
-	// never given.
-	Unknown ModelCatalogProbe `json:"unknown"`
+	ClientVersion string            `json:"client_version"`
+	ClientSHA256  string            `json:"client_sha256"`
+	Model         string            `json:"model"`
+	BaseSlug      string            `json:"base_slug"`
+	Reference     ModelCatalogProbe `json:"reference"`
+	Unadapted     ModelCatalogProbe `json:"unadapted"`
+	Adapted       ModelCatalogProbe `json:"adapted"`
+	Unknown       ModelCatalogProbe `json:"unknown"`
 }
 
-// unknownProbeModel is an id no client can describe. It is asked for alongside
-// the real one so a silenced warning cannot pass as a fixed one.
 const unknownProbeModel = "aigw-model-catalog-verification-no-such-model"
 
-// Check reports whether the measurements support the claim. It is separate from
-// the measurement so a caller can present the numbers either way.
+// Check reports whether the direct catalog observations prove the projection.
 func (v ModelCatalogVerification) Check() error {
-	if v.Unadapted.same(v.Reference) {
-		return fmt.Errorf("%q already resolves like %q without a catalog, so this measurement cannot show what a catalog changes", v.Model, v.BaseSlug)
+	if !v.Reference.Present {
+		return fmt.Errorf("base model %q is absent from the bundled catalog", v.BaseSlug)
 	}
-	if !v.Adapted.same(v.Reference) {
-		return fmt.Errorf("%q resolved %s through the generated catalog, but %q resolves %s", v.Model, v.Adapted, v.BaseSlug, v.Reference)
+	if v.Unadapted.Present {
+		return fmt.Errorf("%q already exists in the bundled catalog, so no AIGW alias is required", v.Model)
 	}
-	if !v.Unknown.same(v.Unadapted) {
-		return fmt.Errorf("%q resolved %s through the generated catalog instead of the client's fallback %s", unknownProbeModel, v.Unknown, v.Unadapted)
+	if !v.Adapted.Present {
+		return fmt.Errorf("%q is absent from the effective catalog after loading the generated catalog", v.Model)
+	}
+	if v.Adapted.MetadataSHA256 != v.Reference.MetadataSHA256 {
+		return fmt.Errorf("%q metadata digest %s differs from %q metadata digest %s", v.Model, v.Adapted.MetadataSHA256, v.BaseSlug, v.Reference.MetadataSHA256)
+	}
+	if v.Unknown.Present {
+		return fmt.Errorf("%q unexpectedly exists in the effective catalog", unknownProbeModel)
 	}
 	return nil
 }
 
-// VerifyModelCatalog measures how an installed client resolves one
-// provider-prefixed model id, with and without the catalog AIGW would project
-// for it. It writes nothing outside temporary directories, reads throwaway
-// client homes, and never sends anything to a model, so it costs no model
-// request.
+// VerifyModelCatalog uses only the current public `codex debug models` surface.
+// Every invocation gets a throwaway CODEX_HOME, and the configured probe names
+// the generated catalog explicitly, so the user's configuration is neither
+// read nor changed and no model request is sent.
 func VerifyModelCatalog(executable, model string) (ModelCatalogVerification, error) {
 	client, bundled, err := codexBundledCatalog(executable)
 	if err != nil {
@@ -85,11 +77,11 @@ func VerifyModelCatalog(executable, model string) (ModelCatalogVerification, err
 		ClientSHA256:  client.SHA256,
 		Model:         model,
 	}
-	var document codexCatalogDocument
-	if err := json.Unmarshal(bundled, &document); err != nil {
-		return verification, fmt.Errorf("parse Codex bundled model catalog: %w", err)
+	bundledDocument, err := decodeCodexCatalog(bundled, "bundled")
+	if err != nil {
+		return verification, err
 	}
-	slugs, err := codexCatalogSlugs(document)
+	slugs, err := codexCatalogSlugs(bundledDocument)
 	if err != nil {
 		return verification, err
 	}
@@ -114,85 +106,84 @@ func VerifyModelCatalog(executable, model string) (ModelCatalogVerification, err
 	if err := os.WriteFile(catalogPath, catalog, 0o600); err != nil {
 		return verification, fmt.Errorf("write Codex verification catalog: %w", err)
 	}
-	for _, probe := range []struct {
-		into    *ModelCatalogProbe
-		model   string
-		catalog string
-	}{
-		{&verification.Reference, verification.BaseSlug, ""},
-		{&verification.Unadapted, model, ""},
-		{&verification.Adapted, model, catalogPath},
-		{&verification.Unknown, unknownProbeModel, catalogPath},
-	} {
-		measured, err := probeCodexModel(executable, probe.model, probe.catalog)
-		if err != nil {
-			return verification, err
-		}
-		*probe.into = measured
+	effectiveDocument, err := probeCodexCatalog(executable, catalogPath)
+	if err != nil {
+		return verification, err
+	}
+	verification.Reference, err = catalogProbe(bundledDocument, verification.BaseSlug)
+	if err != nil {
+		return verification, err
+	}
+	verification.Unadapted, err = catalogProbe(bundledDocument, model)
+	if err != nil {
+		return verification, err
+	}
+	verification.Adapted, err = catalogProbe(effectiveDocument, model)
+	if err != nil {
+		return verification, err
+	}
+	verification.Unknown, err = catalogProbe(effectiveDocument, unknownProbeModel)
+	if err != nil {
+		return verification, err
 	}
 	return verification, nil
 }
 
-// resolvedInstructions matches the base instructions in a configuration the
-// client exported for one invocation. The value spans lines, so the match starts
-// at a line boundary and runs to its closing delimiter; TOML admits either
-// multiline delimiter and the client picks whichever its content allows.
-var resolvedInstructions = regexp.MustCompile(`(?ms)^instructions = ("""|''')(.*?)("""|''')`)
-
-// probeCodexModel asks the client which input it would send for one model, and
-// which configuration it resolved to produce it.
-func probeCodexModel(executable, model, catalogPath string) (ModelCatalogProbe, error) {
-	exportDir, err := os.MkdirTemp("", "aigw-codex-catalog-export-")
-	if err != nil {
-		return ModelCatalogProbe{}, fmt.Errorf("create Codex export directory: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(exportDir) }()
-	args := []string{
-		"debug", "prompt-input", "hi",
-		"-c", "model=" + model,
-		"-c", "debug.config_lockfile.export_dir=" + exportDir,
-	}
+func probeCodexCatalog(executable, catalogPath string) (codexCatalogDocument, error) {
+	args := []string{"debug", "models"}
 	if catalogPath != "" {
-		args = append(args, "-c", "model_catalog_json="+catalogPath)
+		quoted, err := codexTOMLString(catalogPath)
+		if err != nil {
+			return codexCatalogDocument{}, err
+		}
+		args = append(args, "-c", "model_catalog_json="+quoted)
 	}
 	output, err := runCodexReadOnly(executable, args...)
 	if err != nil {
-		return ModelCatalogProbe{}, err
+		return codexCatalogDocument{}, err
 	}
-	var items []json.RawMessage
-	if err := json.Unmarshal(output, &items); err != nil {
-		return ModelCatalogProbe{}, fmt.Errorf("parse Codex input for %q: %w", model, err)
-	}
-	instructions, err := resolvedInstructionLength(exportDir)
-	if err != nil {
-		return ModelCatalogProbe{}, fmt.Errorf("read resolved configuration for %q: %w", model, err)
-	}
-	return ModelCatalogProbe{
-		Model:        model,
-		Instructions: instructions,
-		Items:        len(items),
-		MultiAgent:   strings.Count(string(output), "multi_agent"),
-	}, nil
+	return decodeCodexCatalog(output, "effective")
 }
 
-func resolvedInstructionLength(exportDir string) (int, error) {
-	entries, err := os.ReadDir(exportDir)
-	if err != nil {
-		return 0, err
+func decodeCodexCatalog(data []byte, kind string) (codexCatalogDocument, error) {
+	var document codexCatalogDocument
+	if err := json.Unmarshal(data, &document); err != nil {
+		return codexCatalogDocument{}, fmt.Errorf("parse Codex %s model catalog: %w", kind, err)
 	}
-	for _, entry := range entries {
-		if !strings.HasSuffix(entry.Name(), ".toml") {
+	if _, err := codexCatalogSlugs(document); err != nil {
+		return codexCatalogDocument{}, fmt.Errorf("validate Codex %s model catalog: %w", kind, err)
+	}
+	return document, nil
+}
+
+func catalogProbe(document codexCatalogDocument, model string) (ModelCatalogProbe, error) {
+	probe := ModelCatalogProbe{Model: model}
+	for _, entry := range document.Models {
+		rawSlug, present := entry["slug"]
+		if !present {
+			return ModelCatalogProbe{}, fmt.Errorf("Codex model catalog entry has no slug")
+		}
+		var slug string
+		if err := json.Unmarshal(rawSlug, &slug); err != nil {
+			return ModelCatalogProbe{}, fmt.Errorf("parse Codex model catalog slug: %w", err)
+		}
+		if slug != model {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(exportDir, entry.Name()))
+		metadata := make(map[string]json.RawMessage, len(entry)-1)
+		for key, value := range entry {
+			if key != "slug" {
+				metadata[key] = value
+			}
+		}
+		canonical, err := json.Marshal(metadata)
 		if err != nil {
-			return 0, err
+			return ModelCatalogProbe{}, fmt.Errorf("encode Codex metadata for %q: %w", model, err)
 		}
-		match := resolvedInstructions.FindSubmatch(data)
-		if match == nil {
-			return 0, fmt.Errorf("exported configuration declares no instructions")
-		}
-		return len(match[2]), nil
+		digest := sha256.Sum256(canonical)
+		probe.Present = true
+		probe.MetadataSHA256 = hex.EncodeToString(digest[:])
+		return probe, nil
 	}
-	return 0, fmt.Errorf("the client exported no configuration")
+	return probe, nil
 }

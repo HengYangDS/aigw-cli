@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -8,49 +9,40 @@ import (
 	"testing"
 )
 
-// fakeCodexClient writes a client that answers the read-only questions the
-// verification asks. It resolves a model the same way the real client does — from
-// its own table, or from a projected catalog when one is named — and then both
-// reports shorter instructions with fewer input items, which are the differences
-// the verification measures.
-func fakeCodexClient(t *testing.T, resolution string) string {
+const fakeBundledCatalog = `{"models":[{"slug":"gpt-5.6-sol","display_name":"Sol","priority":1},{"slug":"gpt-5.5","display_name":"Five","priority":2}]}`
+
+// fakeCodexClient writes the smallest executable that implements the public
+// Codex surfaces the verifier consumes. Production code is portable; this
+// shell fixture is skipped on Windows, whose release lane uses a real client.
+func fakeCodexClient(t *testing.T, useConfiguredCatalog bool) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
-		t.Skip("the fake client is a POSIX shell script")
+		t.Skip("the fake client fixture is a POSIX shell script")
+	}
+	configured := `cat "$catalog"`
+	if !useConfiguredCatalog {
+		configured = `printf '%s\n' "$bundled"`
 	}
 	script := `#!/bin/sh
 if [ "$1" = "--version" ]; then echo 'codex-cli 0.0.0-fake'; exit 0; fi
-if [ "$1" = "debug" ] && [ "$2" = "models" ]; then
-  echo '{"models":[{"slug":"gpt-5.6-sol","display_name":"Sol"},{"slug":"gpt-5.5","display_name":"Five"}]}'
-  exit 0
-fi
-model=""
-catalog=""
-export_dir=""
-while [ $# -gt 0 ]; do
-  case "$1" in
-    model=*) model=${1#model=} ;;
-    model_catalog_json=*) catalog=${1#model_catalog_json=} ;;
-    debug.config_lockfile.export_dir=*) export_dir=${1#debug.config_lockfile.export_dir=} ;;
+if [ "$1" != "debug" ] || [ "$2" != "models" ]; then exit 64; fi
+bundled='BUNDLED'
+catalog=''
+for arg in "$@"; do
+  case "$arg" in
+    model_catalog_json=*) catalog=${arg#model_catalog_json=} ;;
   esac
-  shift
 done
-[ -n "$CODEX_HOME" ] || exit 65
-resolved=no
-case "$model" in gpt-5.6-sol|gpt-5.5) resolved=yes ;; esac
-RESOLUTION
-[ -n "$export_dir" ] || exit 64
-if [ "$resolved" = yes ]; then
-  body='the model'"'"'s own instructions, which are longer'
-  items='[{"a":1},{"b":2},{"c":"multi_agent"},{"d":"multi_agent"},{"e":5}]'
+catalog=${catalog#\"}
+catalog=${catalog%\"}
+if [ -n "$catalog" ]; then
+  CONFIGURED
 else
-  body='placeholder'
-  items='[{"a":1},{"b":2},{"c":3}]'
+  printf '%s\n' "$bundled"
 fi
-printf 'version = 1\nmodel = "%s"\ninstructions = """\n%s\n"""\n' "$model" "$body" > "$export_dir/session.config.lock.toml"
-echo "$items"
 `
-	script = strings.Replace(script, "RESOLUTION", resolution, 1)
+	script = strings.Replace(script, "BUNDLED", fakeBundledCatalog, 1)
+	script = strings.Replace(script, "CONFIGURED", configured, 1)
 	executable := filepath.Join(t.TempDir(), "codex")
 	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
@@ -58,13 +50,8 @@ echo "$items"
 	return executable
 }
 
-// resolvesThroughCatalog is how a correct client behaves: an id it does not know
-// is resolved only when the named catalog actually declares it.
-const resolvesThroughCatalog = `if [ "$resolved" = no ] && [ -n "$catalog" ] && grep -q "\"$model\"" "$catalog"; then resolved=yes; fi`
-
-func TestVerifyModelCatalogMeasuresTheClientsOwnResolution(t *testing.T) {
-	executable := fakeCodexClient(t, resolvesThroughCatalog)
-	verification, err := VerifyModelCatalog(executable, "openai.gpt-5.6-sol")
+func TestVerifyModelCatalogObservesTheClientsEffectiveCatalog(t *testing.T) {
+	verification, err := VerifyModelCatalog(fakeCodexClient(t, true), "openai.gpt-5.6-sol")
 	if err != nil {
 		t.Fatalf("VerifyModelCatalog() error = %v", err)
 	}
@@ -77,70 +64,96 @@ func TestVerifyModelCatalogMeasuresTheClientsOwnResolution(t *testing.T) {
 	if verification.ClientVersion != "codex-cli 0.0.0-fake" || verification.ClientSHA256 == "" {
 		t.Fatalf("client identity = %q / %q", verification.ClientVersion, verification.ClientSHA256)
 	}
-	// The prefixed id must reach the base slug's own resolution, and the
-	// unadapted and unknown selections must both stay on the client's fallback.
-	if !verification.Adapted.same(verification.Reference) {
-		t.Fatalf("adapted = %s, reference = %s", verification.Adapted, verification.Reference)
+	if !verification.Reference.Present || verification.Unadapted.Present || !verification.Adapted.Present || verification.Unknown.Present {
+		t.Fatalf("unexpected catalog membership: %+v", verification)
 	}
-	if verification.Unadapted.same(verification.Reference) {
-		t.Fatalf("unadapted = %s, which does not differ from the reference", verification.Unadapted)
-	}
-	if !verification.Unknown.same(verification.Unadapted) {
-		t.Fatalf("unknown = %s, fallback = %s", verification.Unknown, verification.Unadapted)
-	}
-	if verification.Reference.Items != 5 || verification.Reference.MultiAgent != 2 || verification.Unadapted.Items != 3 || verification.Unadapted.MultiAgent != 0 {
-		t.Fatalf("probes did not separate the states: %+v", verification)
-	}
-	if verification.Reference.Instructions <= verification.Unadapted.Instructions {
-		t.Fatalf("instruction lengths did not separate the states: %+v", verification)
+	if verification.Reference.MetadataSHA256 == "" || verification.Adapted.MetadataSHA256 != verification.Reference.MetadataSHA256 {
+		t.Fatalf("alias metadata differs from base metadata: %+v", verification)
 	}
 }
 
-// TestVerifyModelCatalogRejectsAClientThatAnswersForAnythingIsTheWholePoint:
-// a catalog that made unknown models resolve would have silenced the client's
-// warning rather than fixed the prefixed id, and the check must say so.
-func TestVerifyModelCatalogRejectsASilencedWarning(t *testing.T) {
-	permissive := `if [ -n "$catalog" ]; then resolved=yes; fi`
-	verification, err := VerifyModelCatalog(fakeCodexClient(t, permissive), "openai.gpt-5.6-sol")
+func TestVerifyModelCatalogRejectsAClientThatIgnoresTheConfiguredCatalog(t *testing.T) {
+	verification, err := VerifyModelCatalog(fakeCodexClient(t, false), "openai.gpt-5.6-sol")
 	if err != nil {
 		t.Fatalf("VerifyModelCatalog() error = %v", err)
 	}
 	err = verification.Check()
-	if err == nil || !strings.Contains(err.Error(), "instead of the client's fallback") {
+	if err == nil || !strings.Contains(err.Error(), "is absent from the effective catalog") {
 		t.Fatalf("Check() error = %v", err)
 	}
 }
 
-func TestVerifyModelCatalogRejectsACatalogThatChangesNothing(t *testing.T) {
-	ignored := ``
-	verification, err := VerifyModelCatalog(fakeCodexClient(t, ignored), "openai.gpt-5.6-sol")
-	if err != nil {
-		t.Fatalf("VerifyModelCatalog() error = %v", err)
-	}
-	err = verification.Check()
-	if err == nil || !strings.Contains(err.Error(), "through the generated catalog, but") {
-		t.Fatalf("Check() error = %v", err)
-	}
-}
-
-func TestCheckRejectsAMeasurementThatCannotSeparateTheStates(t *testing.T) {
-	resolved := ModelCatalogProbe{Model: "gpt-5.6-sol", Instructions: 100, Items: 5, MultiAgent: 2}
+func TestCheckRejectsAliasMetadataDrift(t *testing.T) {
+	reference := ModelCatalogProbe{Model: "gpt-5.6-sol", Present: true, MetadataSHA256: "base"}
 	verification := ModelCatalogVerification{
 		Model:     "openai.gpt-5.6-sol",
 		BaseSlug:  "gpt-5.6-sol",
-		Reference: resolved,
-		Unadapted: resolved,
-		Adapted:   resolved,
-		Unknown:   resolved,
+		Reference: reference,
+		Unadapted: ModelCatalogProbe{Model: "openai.gpt-5.6-sol"},
+		Adapted:   ModelCatalogProbe{Model: "openai.gpt-5.6-sol", Present: true, MetadataSHA256: "different"},
+		Unknown:   ModelCatalogProbe{Model: unknownProbeModel},
 	}
 	err := verification.Check()
-	if err == nil || !strings.Contains(err.Error(), "already resolves like") {
+	if err == nil || !strings.Contains(err.Error(), "metadata digest") {
+		t.Fatalf("Check() error = %v", err)
+	}
+}
+
+func TestCheckRejectsAnAliasAlreadyPresentInTheBundledCatalog(t *testing.T) {
+	reference := ModelCatalogProbe{Model: "gpt-5.6-sol", Present: true, MetadataSHA256: "base"}
+	verification := ModelCatalogVerification{
+		Model:     "openai.gpt-5.6-sol",
+		BaseSlug:  "gpt-5.6-sol",
+		Reference: reference,
+		Unadapted: ModelCatalogProbe{Model: "openai.gpt-5.6-sol", Present: true, MetadataSHA256: "base"},
+		Adapted:   ModelCatalogProbe{Model: "openai.gpt-5.6-sol", Present: true, MetadataSHA256: "base"},
+		Unknown:   ModelCatalogProbe{Model: unknownProbeModel},
+	}
+	err := verification.Check()
+	if err == nil || !strings.Contains(err.Error(), "already exists in the bundled catalog") {
+		t.Fatalf("Check() error = %v", err)
+	}
+}
+
+func TestCheckRejectsAnUnknownModelInTheEffectiveCatalog(t *testing.T) {
+	reference := ModelCatalogProbe{Model: "gpt-5.6-sol", Present: true, MetadataSHA256: "base"}
+	verification := ModelCatalogVerification{
+		Model:     "openai.gpt-5.6-sol",
+		BaseSlug:  "gpt-5.6-sol",
+		Reference: reference,
+		Unadapted: ModelCatalogProbe{Model: "openai.gpt-5.6-sol"},
+		Adapted:   ModelCatalogProbe{Model: "openai.gpt-5.6-sol", Present: true, MetadataSHA256: "base"},
+		Unknown:   ModelCatalogProbe{Model: unknownProbeModel, Present: true, MetadataSHA256: "unknown"},
+	}
+	err := verification.Check()
+	if err == nil || !strings.Contains(err.Error(), "unexpectedly exists in the effective catalog") {
+		t.Fatalf("Check() error = %v", err)
+	}
+}
+
+func TestModelCatalogProbeStringReportsPresence(t *testing.T) {
+	if got := (ModelCatalogProbe{Model: "missing"}).String(); got != "absent" {
+		t.Fatalf("absent probe = %q", got)
+	}
+	if got := (ModelCatalogProbe{Model: "present", Present: true, MetadataSHA256: "abc"}).String(); got != "present, metadata sha256 abc" {
+		t.Fatalf("present probe = %q", got)
+	}
+}
+
+func TestCheckRejectsAMissingBundledBase(t *testing.T) {
+	verification := ModelCatalogVerification{
+		Model:     "openai.gpt-5.6-sol",
+		BaseSlug:  "gpt-5.6-sol",
+		Reference: ModelCatalogProbe{Model: "gpt-5.6-sol"},
+	}
+	err := verification.Check()
+	if err == nil || !strings.Contains(err.Error(), "absent from the bundled catalog") {
 		t.Fatalf("Check() error = %v", err)
 	}
 }
 
 func TestVerifyModelCatalogReportsWhatItCannotVerify(t *testing.T) {
-	executable := fakeCodexClient(t, resolvesThroughCatalog)
+	executable := fakeCodexClient(t, true)
 	for _, testCase := range []struct {
 		name       string
 		executable string
@@ -160,48 +173,56 @@ func TestVerifyModelCatalogReportsWhatItCannotVerify(t *testing.T) {
 	}
 }
 
-// TestProbeCodexModelRequiresAnExportedConfiguration keeps the measurement
-// honest: an instruction length of zero would compare equal across states and
-// report a pass, so a client that exports nothing is an error instead.
-func TestProbeCodexModelRequiresAnExportedConfiguration(t *testing.T) {
+func TestProbeCodexCatalogRejectsMalformedOutput(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("the fake client is a POSIX shell script")
+		t.Skip("the fake client fixture is a POSIX shell script")
 	}
-	dir := t.TempDir()
-	executable := filepath.Join(dir, "codex")
-	silent := "#!/bin/sh\necho '[]'\n"
-	if err := os.WriteFile(executable, []byte(silent), 0o700); err != nil {
+	executable := filepath.Join(t.TempDir(), "codex")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\necho 'not json'\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := probeCodexModel(executable, "gpt-5.6-sol", ""); err == nil || !strings.Contains(err.Error(), "exported no configuration") {
-		t.Fatalf("probeCodexModel() error = %v", err)
-	}
-
-	empty := filepath.Join(dir, "codex-no-instructions")
-	script := "#!/bin/sh\nfor a in \"$@\"; do case \"$a\" in debug.config_lockfile.export_dir=*) d=${a#debug.config_lockfile.export_dir=} ;; esac; done\nprintf 'version = 1\\n' > \"$d/s.config.lock.toml\"\necho '[]'\n"
-	if err := os.WriteFile(empty, []byte(script), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := probeCodexModel(empty, "gpt-5.6-sol", ""); err == nil || !strings.Contains(err.Error(), "declares no instructions") {
-		t.Fatalf("probeCodexModel() error = %v", err)
+	if _, err := probeCodexCatalog(executable, ""); err == nil || !strings.Contains(err.Error(), "parse Codex effective model catalog") {
+		t.Fatalf("probeCodexCatalog() error = %v", err)
 	}
 }
 
-func TestResolvedInstructionsAcceptsEitherTOMLDelimiter(t *testing.T) {
-	for _, body := range []string{
-		"version = 1\ninstructions = \"\"\"\nabcd\n\"\"\"\n",
-		"version = 1\ninstructions = '''\nabcd\n'''\n",
+func TestProbeCodexCatalogCanReadTheClientsDefaultCatalog(t *testing.T) {
+	document, err := probeCodexCatalog(fakeCodexClient(t, true), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe, err := catalogProbe(document, "gpt-5.6-sol")
+	if err != nil || !probe.Present {
+		t.Fatalf("catalogProbe() = %+v, %v", probe, err)
+	}
+}
+
+func TestDecodeCodexCatalogRejectsInvalidEntries(t *testing.T) {
+	for _, data := range []string{
+		`{"models":[{"display_name":"missing slug"}]}`,
+		`{"models":[{"slug":"same"},{"slug":"same"}]}`,
 	} {
-		dir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(dir, "s.config.lock.toml"), []byte(body), 0o600); err != nil {
-			t.Fatal(err)
+		if _, err := decodeCodexCatalog([]byte(data), "effective"); err == nil || !strings.Contains(err.Error(), "validate Codex effective model catalog") {
+			t.Fatalf("decodeCodexCatalog(%s) error = %v", data, err)
 		}
-		length, err := resolvedInstructionLength(dir)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if length != len("\nabcd\n") {
-			t.Fatalf("instruction length = %d for %q", length, body)
-		}
+	}
+}
+
+func TestCatalogProbeRejectsMalformedEntries(t *testing.T) {
+	for _, testCase := range []struct {
+		name  string
+		entry map[string]json.RawMessage
+		want  string
+	}{
+		{"missing slug", map[string]json.RawMessage{"name": json.RawMessage(`"x"`)}, "has no slug"},
+		{"invalid slug", map[string]json.RawMessage{"slug": json.RawMessage(`{`)}, "parse Codex model catalog slug"},
+		{"invalid metadata", map[string]json.RawMessage{"slug": json.RawMessage(`"target"`), "metadata": json.RawMessage(`{`)}, "encode Codex metadata"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := catalogProbe(codexCatalogDocument{Models: []map[string]json.RawMessage{testCase.entry}}, "target")
+			if err == nil || !strings.Contains(err.Error(), testCase.want) {
+				t.Fatalf("catalogProbe() error = %v", err)
+			}
+		})
 	}
 }

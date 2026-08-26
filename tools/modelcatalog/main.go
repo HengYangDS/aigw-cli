@@ -1,18 +1,17 @@
 // Command modelcatalog verifies, against a real installed Codex client, that the
-// model catalog AIGW projects makes a provider-prefixed model id resolve exactly
-// as the client resolves the slug that id wraps.
+// model catalog AIGW projects makes a provider-prefixed model entry identical
+// to the bundled entry whose slug it wraps.
 //
 // It exists because that claim cannot be proven against a fake client: the
 // package tests pin the catalog's content and every decision around it, but only
-// the client itself can say which metadata it selected. Run it as evidence when
+// the client itself can show that it loaded the projected catalog. Run it when
 // changing the catalog projection or when qualifying a new client build:
 //
 //	go run ./tools/modelcatalog -model openai.gpt-5.6-sol
 //
-// The client is asked only which input it would send, through a throwaway client
-// home, so the run makes no model request and costs nothing. Nothing outside a
-// temporary directory is written, and the machine's own Codex configuration is
-// neither read nor changed.
+// The client renders its effective model catalog through a throwaway client
+// home, so the run makes no model request. Nothing outside a temporary directory
+// is written, and the user's Codex configuration is neither read nor changed.
 package main
 
 import (
@@ -110,7 +109,7 @@ func report(out io.Writer, verification codex.ModelCatalogVerification, asJSON b
 	}
 	var rendered bytes.Buffer
 	table := tabwriter.NewWriter(&rendered, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(table, "selection\tmodel\tinstructions\titems\tmulti-agent")
+	_, _ = fmt.Fprintln(table, "selection\tmodel\tstate\tmetadata sha256")
 	for _, row := range []struct {
 		label string
 		probe codex.ModelCatalogProbe
@@ -120,7 +119,11 @@ func report(out io.Writer, verification codex.ModelCatalogVerification, asJSON b
 		{"prefixed, generated catalog", verification.Adapted},
 		{"unknown model, generated catalog", verification.Unknown},
 	} {
-		_, _ = fmt.Fprintf(table, "%s\t%s\t%d\t%d\t%d\n", row.label, row.probe.Model, row.probe.Instructions, row.probe.Items, row.probe.MultiAgent)
+		state := "absent"
+		if row.probe.Present {
+			state = "present"
+		}
+		_, _ = fmt.Fprintf(table, "%s\t%s\t%s\t%s\n", row.label, row.probe.Model, state, row.probe.MetadataSHA256)
 	}
 	_ = table.Flush()
 	_, err := rendered.WriteTo(out)
