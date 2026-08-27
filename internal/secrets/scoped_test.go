@@ -119,13 +119,18 @@ func TestFileBackendCredentialKindsCannotCollideWithAccountIDs(t *testing.T) {
 	if err := diagnostics.Set("dmx", diagnosticValue); err != nil {
 		t.Fatal(err)
 	}
-	for path, want := range map[string]string{
-		filepath.Join(root, "tokens", "diagnostic-dmx"): "api-token",
-		filepath.Join(root, "tokens", "diagnostic@dmx"): diagnosticValue,
+	for _, path := range []string{
+		filepath.Join(root, "tokens", "diagnostic-dmx"),
+		filepath.Join(root, "tokens", "diagnostic@dmx"),
 	} {
-		got, err := os.ReadFile(path)
-		if err != nil || string(got) != want {
-			t.Fatalf("credential file %q = %q, %v", path, got, err)
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("credential slot %q: %v", path, err)
 		}
+	}
+	if got, err := backend.Get("diagnostic-dmx"); err != nil || got != "api-token" {
+		t.Fatalf("API token = %q, %v", got, err)
+	}
+	if got, err := diagnostics.Get("dmx"); err != nil || got != diagnosticValue {
+		t.Fatalf("diagnostic credential = %q, %v", got, err)
 	}
 }
