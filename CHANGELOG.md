@@ -8,6 +8,26 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.96] - 2026-08-27
+
+### Added
+
+- Verify the effective Codex model catalog through the installed client's
+  public model inspection command, with exact client and catalog identity.
+
+### Changed
+
+- Use one portable, typed credential authority for API Tokens and provider
+  diagnostic credentials across native keyrings, protected files, and the
+  explicit read-only environment backend.
+- Require canonical lowercase Account IDs so every credential slot has one
+  collision-free environment projection.
+
+### Fixed
+
+- Allow team setup with any available provider, no installed clients, and
+  deferred `aigw sync` after Claude Code or Codex is installed.
+
 ## [0.1.0-rc.95] - 2026-08-25
 
 ### Added
