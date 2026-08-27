@@ -8,7 +8,7 @@
 
 Renaming a provider Account ID requires migrating both its configuration in the AIGW TOML and its associated credentials (API Tokens and optional probe credentials) in the operating-system secret store. A single-step rename that immediately deletes the old credential slot risks permanent loss of access or inconsistent state if the configuration write is interrupted or if a client integration remains bound to the old ID.
 
-The `AIGW_TOKEN/<account>` Token slot and optional `AIGW_ACCOUNT/<account>` account-probe slot cannot be committed atomically with configuration. Phase 1 therefore retains the old slots; finalization separately verifies the current configuration, its single `.bak` preimage, and the complete admitted-client verified checkpoint.
+The API-token slot and optional provider-diagnostic slot in the selected AIGW credential backend cannot be committed atomically with configuration. Phase 1 therefore retains the old slots; finalization separately verifies the current configuration, its single `.bak` preimage, and the complete admitted-client verified checkpoint.
 
 ## Decision
 

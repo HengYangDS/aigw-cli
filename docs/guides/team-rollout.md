@@ -140,6 +140,7 @@ account.
 
 Set `AIGW_SECRET_BACKEND=env` and provide only the Accounts exercised by that
 job. Environment names use `AIGW_TOKEN_<ACCOUNT>` with the manifest Account ID
-uppercased and non-alphanumeric runs replaced by `_`. This backend is
-deliberately read-only: setup may consume present values, but rotation and
-deletion fail explicitly.
+uppercased and punctuation encoded by ASCII hex (`-` becomes `_2D`, `.` becomes
+`_2E`, and `_` becomes `_5F`). This reversible mapping prevents two distinct
+Account IDs from sharing a variable. The backend is deliberately read-only:
+setup may consume present values, but rotation and deletion fail explicitly.

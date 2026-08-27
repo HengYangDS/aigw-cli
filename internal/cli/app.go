@@ -242,6 +242,10 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	diagnosticStore, err := secrets.ForKind(secretStore, secrets.ProviderDiagnostic)
+	if err != nil {
+		return nil, err
+	}
 	return &App{
 		GOOS:               runtime.GOOS,
 		DataDir:            paths.Data,
@@ -252,7 +256,7 @@ func NewDefault() (*App, error) {
 		ClaudeSettingsPath: paths.ClaudeSettings,
 		Config:             configuration.NewStore(paths.Config),
 		Secrets:            secretStore,
-		Accounts:           account.NewKeyringStore(),
+		Accounts:           account.NewBackendStore(diagnosticStore, secrets.IsNotFound),
 		Env:                os.Environ(),
 		In:                 os.Stdin,
 		Out:                os.Stdout,

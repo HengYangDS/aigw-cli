@@ -7,10 +7,7 @@ import (
 	"sync"
 
 	configuration "aigw-cli/internal/configuration"
-	keyring "github.com/zalando/go-keyring"
 )
-
-const Service = "AIGW_ACCOUNT"
 
 var ErrNotFound = errors.New("account probe credential not found")
 
@@ -26,24 +23,34 @@ type Store interface {
 	Has(profile string) bool
 }
 
-type KeyringStore struct{}
+type stringStore interface {
+	Get(string) (string, error)
+	Set(string, string) error
+	Delete(string) error
+}
 
-func NewKeyringStore() KeyringStore { return KeyringStore{} }
+// BackendStore serializes provider-diagnostic credentials into one typed view
+// of the same backend that owns API tokens.
+type BackendStore struct {
+	backend    stringStore
+	isNotFound func(error) bool
+}
 
-func (KeyringStore) Get(profile string) (Credential, error) {
-	if !configuration.ValidProfileName(profile) {
-		return Credential{}, fmt.Errorf("invalid profile name %q", profile)
-	}
-	value, err := keyring.Get(Service, profile)
-	if errors.Is(err, keyring.ErrNotFound) {
+func NewBackendStore(backend stringStore, isNotFound func(error) bool) BackendStore {
+	return BackendStore{backend: backend, isNotFound: isNotFound}
+}
+
+func (store BackendStore) Get(profile string) (Credential, error) {
+	value, err := store.backend.Get(profile)
+	if err != nil && store.isNotFound != nil && store.isNotFound(err) {
 		return Credential{}, ErrNotFound
 	}
 	if err != nil {
-		return Credential{}, fmt.Errorf("read account probe credential: %w", err)
+		return Credential{}, fmt.Errorf("read provider diagnostic credential: %w", err)
 	}
 	var credential Credential
 	if err := json.Unmarshal([]byte(value), &credential); err != nil {
-		return Credential{}, fmt.Errorf("parse account probe credential: %w", err)
+		return Credential{}, fmt.Errorf("parse provider diagnostic credential: %w", err)
 	}
 	if credential.SystemToken == "" || credential.UserID == "" {
 		return Credential{}, ErrNotFound
@@ -51,31 +58,20 @@ func (KeyringStore) Get(profile string) (Credential, error) {
 	return credential, nil
 }
 
-func (KeyringStore) Set(profile string, credential Credential) error {
+func (store BackendStore) Set(profile string, credential Credential) error {
 	if !configuration.ValidProfileName(profile) {
 		return fmt.Errorf("invalid profile name %q", profile)
 	}
 	if credential.SystemToken == "" || credential.UserID == "" {
 		return errors.New("system token and user ID are required")
 	}
-	// Credential contains only strings, so encoding cannot fail. Keeping a
-	// synthetic error branch here would describe an impossible product state.
-	data, _ := json.Marshal(credential)
-	if err := keyring.Set(Service, profile, string(data)); err != nil {
-		return fmt.Errorf("write account probe credential: %w", err)
-	}
-	return nil
+	value, _ := json.Marshal(credential)
+	return store.backend.Set(profile, string(value))
 }
 
-func (KeyringStore) Delete(profile string) error {
-	err := keyring.Delete(Service, profile)
-	if errors.Is(err, keyring.ErrNotFound) {
-		return nil
-	}
-	return err
-}
+func (store BackendStore) Delete(profile string) error { return store.backend.Delete(profile) }
 
-func (s KeyringStore) Has(profile string) bool { _, err := s.Get(profile); return err == nil }
+func (store BackendStore) Has(profile string) bool { _, err := store.Get(profile); return err == nil }
 
 type MemoryStore struct {
 	mu     sync.RWMutex

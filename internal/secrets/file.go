@@ -15,9 +15,14 @@ type fileStore struct{ root string }
 func newFileStore(root string) Store { return &fileStore{root: root} }
 
 func (store *fileStore) Get(profile string) (string, error) {
+	return store.get(APIToken, profile)
+}
+
+func (store *fileStore) get(kind Kind, profile string) (string, error) {
 	if err := validate(profile, "", false); err != nil {
 		return "", err
 	}
+	name := slotName(kind, profile)
 	root, err := openSecureRoot(store.root, false)
 	if err != nil {
 		return "", err
@@ -26,7 +31,7 @@ func (store *fileStore) Get(profile string) (string, error) {
 		return "", ErrNotFound
 	}
 	defer func() { _ = root.Close() }()
-	value, err := readSecureFile(root, profile)
+	value, err := readSecureFile(root, name)
 	if errors.Is(err, os.ErrNotExist) {
 		return "", ErrNotFound
 	}
@@ -40,6 +45,10 @@ func (store *fileStore) Get(profile string) (string, error) {
 }
 
 func (store *fileStore) Set(profile, value string) error {
+	return store.set(APIToken, profile, value)
+}
+
+func (store *fileStore) set(kind Kind, profile, value string) error {
 	if err := validate(profile, value, true); err != nil {
 		return err
 	}
@@ -48,13 +57,18 @@ func (store *fileStore) Set(profile, value string) error {
 		return err
 	}
 	defer func() { _ = root.Close() }()
-	if err := validateOptionalOwnedFile(root, profile); err != nil {
+	name := slotName(kind, profile)
+	if err := validateOptionalOwnedFile(root, name); err != nil {
 		return err
 	}
-	return writeSecureFile(root, profile, []byte(value))
+	return writeSecureFile(root, name, []byte(value))
 }
 
 func (store *fileStore) Delete(profile string) error {
+	return store.delete(APIToken, profile)
+}
+
+func (store *fileStore) delete(kind Kind, profile string) error {
 	if err := validate(profile, "", false); err != nil {
 		return err
 	}
@@ -66,7 +80,8 @@ func (store *fileStore) Delete(profile string) error {
 		return nil
 	}
 	defer func() { _ = root.Close() }()
-	info, err := root.Lstat(profile)
+	name := slotName(kind, profile)
+	info, err := root.Lstat(name)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
@@ -76,7 +91,7 @@ func (store *fileStore) Delete(profile string) error {
 	if err := validateOwnedFile(info); err != nil {
 		return err
 	}
-	if err := root.Remove(profile); err != nil {
+	if err := root.Remove(name); err != nil {
 		return fmt.Errorf("delete Token file: %w", err)
 	}
 	return syncRoot(root)

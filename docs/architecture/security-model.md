@@ -7,7 +7,7 @@ AIGW keeps credentials local, mutations bounded, and client ownership explicit.
 | Secret                         | Store                                                                                  | Repository/config exposure |
 | ------------------------------ | -------------------------------------------------------------------------------------- | -------------------------- |
 | Account Token                  | One selected local backend: native credential service or platform-protected AIGW files | Never                      |
-| Optional diagnostic credential | `AIGW_ACCOUNT/<account>`                                                               | Never                      |
+| Optional diagnostic credential | The selected AIGW credential backend, under `diagnostic@<account>`                     | Never                      |
 | Forge publication credential   | Protected CI or operator process                                                       | Never tracked              |
 
 On every supported platform, automatic selection proves whether the native
@@ -20,7 +20,11 @@ never searches or writes both stores. Explicit `keyring` selection fails closed
 when the service is unavailable. Controlled automation may select the read-only
 environment backend; it reads
 `AIGW_TOKEN_<ACCOUNT>` values supplied to that process but cannot persist,
-rotate, or delete them.
+rotate, or delete them. The optional provider-diagnostic pair uses
+`AIGW_DIAGNOSTIC_SYSTEM_TOKEN_<ACCOUNT>` and
+`AIGW_DIAGNOSTIC_USER_ID_<ACCOUNT>` under the same reversible Account-ID
+encoding; both values are required, and neither can substitute for the API
+Token.
 
 ## Configuration boundary
 

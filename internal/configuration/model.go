@@ -340,6 +340,9 @@ func (c Config) Validate() error {
 		if !ValidProfileName(name) {
 			return fmt.Errorf("invalid account name %q; use letters, numbers, dot, dash, or underscore", name)
 		}
+		if name != strings.ToLower(name) {
+			return fmt.Errorf("invalid account name %q; environment-backed account IDs must be lowercase", name)
+		}
 		if strings.TrimSpace(account.Label) == "" {
 			return fmt.Errorf("account %q has an empty label", name)
 		}

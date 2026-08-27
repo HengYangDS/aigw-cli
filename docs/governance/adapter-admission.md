@@ -69,8 +69,9 @@ Every new adapter must supply all of the following before merge:
    directory reuse.
 3. Protocol contract: authentication, model selection, streaming, tools, and
    required image or long-context behavior.
-4. Secret proof: tokens come only from `AIGW_TOKEN/<account>` and never appear
-   in files, logs, arguments, manifests, or backups.
+4. Secret proof: tokens come only from the selected AIGW credential backend's
+   API-token slot for the Account and never appear in public configuration,
+   logs, arguments, manifests, or backups.
 5. Rollback proof: byte-exact owned-state restoration; user drift fails closed.
 6. User-authorized minimal real verification with non-sensitive evidence.
 7. A decision covering quality, stability, cost, regional reachability,

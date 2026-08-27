@@ -49,7 +49,7 @@ func TestStoresRejectInvalidProfileAndEmptySecret(t *testing.T) {
 }
 
 func TestEnvironmentStoreUsesNormalizedReadOnlyVariable(t *testing.T) {
-	env := map[string]string{"AIGW_TOKEN_DMX_TEAM_1": "from-environment"}
+	env := map[string]string{"AIGW_TOKEN_DMX_2DTEAM_2E1": "from-environment"}
 	store := NewEnvironmentStore(func(key string) string { return env[key] })
 	got, err := store.Get("dmx-team.1")
 	if err != nil || got != "from-environment" {

@@ -125,6 +125,7 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 		want string
 	}{
 		{"invalid profile name", func(c *Config) { c.Profiles["bad name"] = c.Profiles["dmx"] }, "profile name"},
+		{"uppercase account name", func(c *Config) { c.Accounts["DMX"] = c.Accounts["dmx"] }, "must be lowercase"},
 		{"unknown default", func(c *Config) { c.Routes.Default = "missing" }, "unknown profile"},
 		{"unknown client", func(c *Config) { c.Routes.Overrides["chat"] = "dmx" }, "unknown route"},
 		{"url user info", func(c *Config) {

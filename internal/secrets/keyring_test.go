@@ -7,36 +7,44 @@ import (
 	keyring "github.com/zalando/go-keyring"
 )
 
-func TestKeyringStoreLifecycleUsesMockedSystemKeyring(t *testing.T) {
+func TestKeyringCredentialKindsShareOneServiceWithoutSharingSlots(t *testing.T) {
+	keyring.MockInit()
+	store := NewKeyringStore()
+	if err := store.set(APIToken, "dmx", "api-token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.set(ProviderDiagnostic, "dmx", diagnosticValue); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := keyring.Get(Service, "dmx"); err != nil || got != "api-token" {
+		t.Fatalf("API token slot = %q, %v", got, err)
+	}
+	if got, err := keyring.Get(Service, "diagnostic@dmx"); err != nil || got != diagnosticValue {
+		t.Fatalf("diagnostic slot = %q, %v", got, err)
+	}
+}
+
+func TestKeyringStoreLifecycleAndValidation(t *testing.T) {
 	keyring.MockInit()
 	store := NewKeyringStore()
 	if store.Has("dmx") {
-		t.Fatal("new mocked keyring unexpectedly has secret")
+		t.Fatal("new mocked keyring unexpectedly has a token")
 	}
-	if err := store.Set("dmx", "top-secret-value"); err != nil {
-		t.Fatal(err)
+	if err := store.Set("dmx", "api-token"); err != nil || !store.Has("dmx") {
+		t.Fatalf("set token = %v, has=%v", err, store.Has("dmx"))
 	}
-	if !store.Has("dmx") {
-		t.Fatal("stored secret not found")
-	}
-	got, err := store.Get("dmx")
-	if err != nil || got != "top-secret-value" {
-		t.Fatalf("Get = %q, %v", got, err)
+	if got, err := store.Get("dmx"); err != nil || got != "api-token" {
+		t.Fatalf("token = %q, %v", got, err)
 	}
 	if err := store.Delete("dmx"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.Get("dmx"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("missing error = %v", err)
+		t.Fatalf("missing token error = %v", err)
 	}
 	if err := store.Delete("dmx"); err != nil {
-		t.Fatalf("deleting an absent secret must not error: %v", err)
+		t.Fatalf("delete absent token = %v", err)
 	}
-}
-
-func TestKeyringStoreRejectsInvalidProfileAndEmptyValue(t *testing.T) {
-	keyring.MockInit()
-	store := NewKeyringStore()
 	for _, name := range []string{"bad name", "", "../escape"} {
 		if _, err := store.Get(name); err == nil {
 			t.Errorf("Get(%q) succeeded", name)
@@ -49,32 +57,45 @@ func TestKeyringStoreRejectsInvalidProfileAndEmptyValue(t *testing.T) {
 		}
 	}
 	if err := store.Set("dmx", ""); err == nil {
-		t.Fatal("empty secret accepted")
+		t.Fatal("empty token accepted")
 	}
 }
 
-func TestKeyringStoreTreatsEmptyProviderValueAsNotFound(t *testing.T) {
+func TestKeyringStoreMapsEmptyValuesAndProviderErrors(t *testing.T) {
 	keyring.MockInit()
 	if err := keyring.Set(Service, "dmx", ""); err != nil {
 		t.Fatal(err)
 	}
-	store := NewKeyringStore()
-	if _, err := store.Get("dmx"); !errors.Is(err, ErrNotFound) {
+	if _, err := NewKeyringStore().Get("dmx"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("empty provider value error = %v", err)
+	}
+	want := errors.New("keyring unavailable")
+	keyring.MockInitWithError(want)
+	t.Cleanup(keyring.MockInit)
+	store := NewKeyringStore()
+	if _, err := store.Get("dmx"); !errors.Is(err, want) {
+		t.Fatalf("Get error = %v", err)
+	}
+	if err := store.Set("dmx", "value"); !errors.Is(err, want) {
+		t.Fatalf("Set error = %v", err)
+	}
+	if err := store.Delete("dmx"); !errors.Is(err, want) {
+		t.Fatalf("Delete error = %v", err)
 	}
 }
 
-func TestKeyringStoreSurfacesUnderlyingKeyringErrors(t *testing.T) {
-	keyring.MockInitWithError(errors.New("keyring unavailable"))
-	t.Cleanup(keyring.MockInit)
-	store := NewKeyringStore()
-	if _, err := store.Get("dmx"); err == nil {
-		t.Fatal("Get succeeded despite keyring failure")
+type untypedStore struct{}
+
+func (untypedStore) Get(string) (string, error) { return "", ErrNotFound }
+func (untypedStore) Set(string, string) error   { return nil }
+func (untypedStore) Delete(string) error        { return nil }
+func (untypedStore) Has(string) bool            { return false }
+
+func TestForKindRejectsUntypedStoreAndUnknownKind(t *testing.T) {
+	if _, err := ForKind(untypedStore{}, APIToken); err == nil {
+		t.Fatal("untyped store accepted")
 	}
-	if err := store.Set("dmx", "value"); err == nil {
-		t.Fatal("Set succeeded despite keyring failure")
-	}
-	if err := store.Delete("dmx"); err == nil {
-		t.Fatal("Delete succeeded despite keyring failure")
+	if _, err := ForKind(NewMemoryStore(), Kind(255)); err == nil {
+		t.Fatal("unknown credential kind accepted")
 	}
 }

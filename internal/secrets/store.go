@@ -25,6 +25,13 @@ type Store interface {
 	Has(profile string) bool
 }
 
+type typedStore interface {
+	Store
+	get(kind Kind, account string) (string, error)
+	set(kind Kind, account, value string) error
+	delete(kind Kind, account string) error
+}
+
 // Selection is the complete host snapshot used to select one Token store.
 type Selection struct {
 	Backend      string
@@ -47,6 +54,8 @@ func IsReadOnly(store Store) bool {
 	reporter, ok := store.(interface{ ReadOnly() bool })
 	return ok && reporter.ReadOnly()
 }
+
+func IsNotFound(err error) bool { return errors.Is(err, ErrNotFound) }
 
 func validate(profile, value string, requireValue bool) error {
 	if !configuration.ValidProfileName(profile) {
@@ -97,11 +106,15 @@ func Select(selection Selection) (Store, error) {
 }
 
 func (store *automaticStore) Get(profile string) (string, error) {
+	return store.get(APIToken, profile)
+}
+
+func (store *automaticStore) get(kind Kind, profile string) (string, error) {
 	selected, err := store.resolve(false)
 	if err != nil {
 		return "", err
 	}
-	value, err := selected.Get(profile)
+	value, err := selected.get(kind, profile)
 	if err != nil {
 		return "", err
 	}
@@ -112,6 +125,10 @@ func (store *automaticStore) Get(profile string) (string, error) {
 }
 
 func (store *automaticStore) Set(profile, value string) error {
+	return store.set(APIToken, profile, value)
+}
+
+func (store *automaticStore) set(kind Kind, profile, value string) error {
 	if err := validate(profile, value, true); err != nil {
 		return err
 	}
@@ -119,10 +136,14 @@ func (store *automaticStore) Set(profile, value string) error {
 	if err != nil {
 		return err
 	}
-	return selected.Set(profile, value)
+	return selected.set(kind, profile, value)
 }
 
 func (store *automaticStore) Delete(profile string) error {
+	return store.delete(APIToken, profile)
+}
+
+func (store *automaticStore) delete(kind Kind, profile string) error {
 	if err := validate(profile, "", false); err != nil {
 		return err
 	}
@@ -130,7 +151,7 @@ func (store *automaticStore) Delete(profile string) error {
 	if err != nil {
 		return err
 	}
-	return selected.Delete(profile)
+	return selected.delete(kind, profile)
 }
 
 func (store *automaticStore) Has(profile string) bool {
@@ -138,7 +159,7 @@ func (store *automaticStore) Has(profile string) bool {
 	return err == nil
 }
 
-func (store *automaticStore) resolve(persist bool) (Store, error) {
+func (store *automaticStore) resolve(persist bool) (typedStore, error) {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 	if store.selected != nil {
@@ -148,7 +169,7 @@ func (store *automaticStore) resolve(persist bool) (Store, error) {
 			}
 			store.selectionPersisted = true
 		}
-		return store.selected, nil
+		return requireTypedStore(store.selected)
 	}
 	backend, err := store.choice.Read()
 	persisted := err == nil
@@ -179,7 +200,15 @@ func (store *automaticStore) resolve(persist bool) (Store, error) {
 	store.selected = selected
 	store.selectedBackend = backend
 	store.selectionPersisted = persisted
-	return selected, nil
+	return requireTypedStore(selected)
+}
+
+func requireTypedStore(store Store) (typedStore, error) {
+	typed, ok := store.(typedStore)
+	if !ok {
+		return nil, fmt.Errorf("credential backend %T does not support typed slots", store)
+	}
+	return typed, nil
 }
 
 func (store *automaticStore) persistSelection() error {

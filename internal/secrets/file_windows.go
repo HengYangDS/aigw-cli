@@ -19,6 +19,10 @@ type fileStore struct{ root string }
 func newFileStore(root string) Store { return &fileStore{root: root} }
 
 func (store *fileStore) Get(profile string) (string, error) {
+	return store.get(APIToken, profile)
+}
+
+func (store *fileStore) get(kind Kind, profile string) (string, error) {
 	if err := validate(profile, "", false); err != nil {
 		return "", err
 	}
@@ -30,7 +34,7 @@ func (store *fileStore) Get(profile string) (string, error) {
 		return "", ErrNotFound
 	}
 	defer func() { _ = root.Close() }()
-	file, err := root.Open(profile)
+	file, err := root.Open(slotName(kind, profile))
 	if errors.Is(err, os.ErrNotExist) {
 		return "", ErrNotFound
 	}
@@ -61,6 +65,10 @@ func (store *fileStore) Get(profile string) (string, error) {
 }
 
 func (store *fileStore) Set(profile, value string) error {
+	return store.set(APIToken, profile, value)
+}
+
+func (store *fileStore) set(kind Kind, profile, value string) error {
 	if err := validate(profile, value, true); err != nil {
 		return err
 	}
@@ -94,7 +102,7 @@ func (store *fileStore) Set(profile, value string) error {
 	if err := file.Close(); err != nil {
 		return fmt.Errorf("close protected Token file: %w", err)
 	}
-	if err := root.Rename(temporary, profile); err != nil {
+	if err := root.Rename(temporary, slotName(kind, profile)); err != nil {
 		return fmt.Errorf("replace protected Token file: %w", err)
 	}
 	committed = true
@@ -102,6 +110,10 @@ func (store *fileStore) Set(profile, value string) error {
 }
 
 func (store *fileStore) Delete(profile string) error {
+	return store.delete(APIToken, profile)
+}
+
+func (store *fileStore) delete(kind Kind, profile string) error {
 	if err := validate(profile, "", false); err != nil {
 		return err
 	}
@@ -113,7 +125,7 @@ func (store *fileStore) Delete(profile string) error {
 		return nil
 	}
 	defer func() { _ = root.Close() }()
-	if err := root.Remove(profile); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := root.Remove(slotName(kind, profile)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("delete Token file: %w", err)
 	}
 	return nil
