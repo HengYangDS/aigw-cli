@@ -8,6 +8,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.98] - 2026-08-29
+
+### Changed
+
+- Refresh the locked stable Node, GoReleaser, Syft, editorconfig-checker,
+  file-locking, terminal-component, and static-analysis toolchain.
+- Rebuild the six-platform mise lock and retain only the minimal consumed Go
+  dependency closure.
+
 ## [0.1.0-rc.97] - 2026-08-29
 
 ### Changed
