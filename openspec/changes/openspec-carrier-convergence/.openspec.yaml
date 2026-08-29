@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-30
+goal: Remove obsolete tracked ETHOS Commitment carriers after their semantics
+  moved to official OpenSpec and transient compilation.
