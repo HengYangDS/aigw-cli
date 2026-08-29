@@ -41,7 +41,7 @@ jobs:
     timeout-minutes: 25
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'
     env:
-      MISE_ENABLE_TOOLS: go,node,cue,editorconfig-checker,npm:@fission-ai/openspec,npm:markdownlint-cli2,npm:prettier,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee
+      MISE_ENABLE_TOOLS: go,node,cue,editorconfig-checker,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -53,6 +53,8 @@ jobs:
         with:
           install: true
           cache: false
+      - name: Install locked npm tools
+        run: npm ci --ignore-scripts
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}

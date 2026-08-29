@@ -19,6 +19,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	want := [][]string{
 		{"cue", "fmt", "--check", "--files", ".config/ci"},
 		{"go", "run", "./tools/ci", "project", "--check"},
+		{"npm", "audit", "signatures"},
 		{"openspec", "validate", "--all", "--strict", "--no-interactive"},
 		{"ec", "-disable-indentation", "-disable-indent-size"},
 		{"prettier", "--check", "--config", ".config/checks/markdown/prettier.json", "--ignore-path", ".config/checks/markdown/prettier-ignore", "*.md", "docs/**/*.md", "openspec/**/*.md"},
@@ -50,6 +51,46 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("commands = %#v, want %#v", got, want)
+	}
+}
+
+func TestRepositoryExecutablePrefersTheProjectLocalNpmTool(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "node_modules", ".bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tool := filepath.Join(bin, "openspec")
+	if err := os.WriteFile(tool, []byte("tool"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := repositoryExecutable(root, "openspec", "darwin"); got != tool {
+		t.Fatalf("repository executable = %q, want %q", got, tool)
+	}
+	if got := repositoryExecutable(root, "go", "darwin"); got != "go" {
+		t.Fatalf("ambient executable = %q, want go", got)
+	}
+	missing := filepath.Join(root, "node_modules", ".bin", "prettier")
+	if got := repositoryExecutable(root, "prettier", "darwin"); got != missing {
+		t.Fatalf("missing repository executable = %q, want %q", got, missing)
+	}
+	if got := repositoryExecutable(root, filepath.Join("build", "aigw"), "darwin"); got != filepath.Join("build", "aigw") {
+		t.Fatalf("relative product executable = %q", got)
+	}
+}
+
+func TestRepositoryExecutableUsesTheWindowsCommandShim(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "node_modules", ".bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tool := filepath.Join(bin, "prettier.cmd")
+	if err := os.WriteFile(tool, []byte("tool"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := repositoryExecutable(root, "prettier", "windows"); got != tool {
+		t.Fatalf("Windows repository executable = %q, want %q", got, tool)
 	}
 }
 

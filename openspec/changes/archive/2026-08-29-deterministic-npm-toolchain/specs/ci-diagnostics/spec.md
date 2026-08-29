@@ -1,11 +1,4 @@
-# ci-diagnostics Specification
-
-## Purpose
-
-Define quiet, deterministic hosted CI diagnostics that expose actionable
-failures without relying on runner-global state.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Hosted Git initialization is explicit
 

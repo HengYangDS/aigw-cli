@@ -5,6 +5,7 @@
 *.out
 .DS_Store
 /build/
+/node_modules/
 
 # Local linked worktrees
 .worktrees/

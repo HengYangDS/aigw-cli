@@ -89,6 +89,8 @@ jobs:
         with:
           install: true
           cache: false
+      - name: Install locked npm tools
+        run: npm ci --ignore-scripts
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}

@@ -12,7 +12,8 @@ package ci
 }
 
 commands: {
-	install: "mise install --locked"
+	install:         "mise install --locked"
+	installNpmTools: "npm ci --ignore-scripts"
 	sourceMirror: #"""
 		lock_sha=$(sha256sum mise.lock | awk '{print $1}')
 		authenticated_api="$CI_SERVER_PROTOCOL://gitlab-ci-token:$CI_JOB_TOKEN@$CI_SERVER_HOST:$CI_SERVER_PORT/api/v4"
@@ -39,7 +40,7 @@ commands: {
 }
 
 nativeToolchain: MISE_ENABLE_TOOLS:           "go,cue"
-sourceToolchain: MISE_ENABLE_TOOLS:           "go,node,cue,editorconfig-checker,npm:@fission-ai/openspec,npm:markdownlint-cli2,npm:prettier,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
+sourceToolchain: MISE_ENABLE_TOOLS:           "go,node,cue,editorconfig-checker,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
 releaseReadinessToolchain: MISE_ENABLE_TOOLS: "go"
 
 lifecycle: {
@@ -235,6 +236,7 @@ gitlab: {
 		variables: sourceToolchain
 		rules:     gitlabFullVerificationRules
 		script: [
+			commands.installNpmTools,
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
 			commands.source,
 		]
@@ -345,6 +347,7 @@ githubVerify: {
 			steps: [
 				#SourceCheckout,
 				#Toolchain,
+				{name: "Install locked npm tools", run: commands.installNpmTools},
 				{
 					name: "Materialize provenance trust input"
 					env: AIGW_RELEASE_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}"
@@ -418,6 +421,7 @@ githubRelease: {
 			steps: [
 				#ReleaseCheckout,
 				#Toolchain,
+				{name: "Install locked npm tools", run: commands.installNpmTools},
 				{
 					name: "Materialize provenance trust input"
 					env: AIGW_RELEASE_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}"

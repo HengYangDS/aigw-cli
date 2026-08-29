@@ -2,7 +2,9 @@
 
 ## Purpose
 
-TBD - created by archiving change codex-profile-client-inference. Update Purpose after archive.
+Define deterministic client selection from explicit operator input and the
+selected Profile's declared client, without inference from incidental names or
+provider details.
 
 ## Requirements
 

@@ -91,6 +91,8 @@ Worktree visibility or an apparently idle agent is not retirement authority.
 ## Required verification
 
 ```bash
+mise install --locked
+npm ci --ignore-scripts
 mise exec --locked -- go run ./tools/ci source
 mise exec --locked -- go run ./tools/forge commits --email '<product author email>' --allowed-signers '<path>'
 mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'

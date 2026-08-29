@@ -9,7 +9,9 @@
 | Product commit and tag objects      | Local Git                                    |
 | Change intent and behavioral deltas | Active OpenSpec Change                       |
 | Accepted behavior                   | `openspec/specs/`                            |
-| Toolchain versions                  | `go.mod`, `go.sum`, `mise.toml`, `mise.lock` |
+| Go dependency closure               | `go.mod`, `go.sum`                           |
+| Runtime and standalone tools        | `mise.toml`, `mise.lock`                     |
+| npm repository tools                | `package.json`, `package-lock.json`          |
 | CI topology                         | `.config/ci/pipeline.cue`                    |
 | Coverage policy                     | `.config/checks/coverage/policy.toml`        |
 | Release assets                      | Repository release tools and their manifests |
@@ -111,9 +113,10 @@ claims require separate current evidence.
 
 ## Reproducible Assets
 
-The formal release derives its exact compiler from `go.mod`, dependency closure
-from `go.sum`, repository tools from `mise.toml` and `mise.lock`, and
-`SOURCE_DATE_EPOCH` from the committed Changelog date. The build emits the
+The formal release derives its exact compiler and Go closure from `go.mod` and
+`go.sum`, language runtimes and standalone tools from `mise.toml` and
+`mise.lock`, npm repository tools from `package.json` and `package-lock.json`,
+and `SOURCE_DATE_EPOCH` from the committed Changelog date. The build emits the
 complete portable archive matrix, checksums, and SPDX SBOM. Repeating the build
 with the same inputs must produce identical bytes.
 

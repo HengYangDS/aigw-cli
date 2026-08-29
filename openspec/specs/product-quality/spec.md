@@ -329,19 +329,30 @@ substitute and SHALL NOT weaken product support.
 ### Requirement: Terminal local release readiness
 
 AIGW SHALL advance a release candidate to current stable releases across the
-application, test, and declared Go tool closure before freezing that candidate.
-`go.mod` and `go.sum` SHALL remain the sole dependency selection authority;
-modules outside the compiled package and tool closure are not selected supply
-chain inputs. Aggregate statement and branch coverage SHALL remain strictly
-greater than 95 percent; every package SHALL remain present, executed, and
-reported. The native source and release gates SHALL pass before publication.
+application, test, and declared repository-tool closure before freezing that
+candidate. `go.mod` and `go.sum` SHALL own the compiled Go closure;
+`mise.toml` and `mise.lock` SHALL own language runtimes and standalone tools;
+`package.json` and `package-lock.json` SHALL own direct and transitive npm
+repository tools. A clean runner MUST NOT select an npm transitive dependency
+outside the committed lock. Aggregate statement and branch coverage SHALL
+remain strictly greater than 95 percent; every package SHALL remain present,
+executed, and reported. The native source and release gates SHALL pass before
+publication.
 
 #### Scenario: Stable dependency updates are available
 
-- **WHEN** the compiled application, test, or declared tool closure reports newer stable releases
-- **THEN** AIGW SHALL refresh `go.mod` and `go.sum` together
+- **WHEN** the application, test, or declared repository-tool closure reports newer stable releases
+- **THEN** AIGW SHALL refresh the owning ecosystem declaration and lock together
 - **AND** SHALL run the complete source, coverage, and release gates
 - **AND** SHALL NOT preserve the older graph as a compatibility target
+
+#### Scenario: A clean runner materializes npm tools
+
+- **WHEN** source verification starts without an existing npm installation
+- **THEN** the runner SHALL install the exact committed npm dependency graph
+- **AND** install scripts SHALL remain disabled
+- **AND** no direct or transitive npm version SHALL be selected outside `package-lock.json`
+- **AND** registry signatures SHALL verify through the ecosystem's standard verifier
 
 #### Scenario: The verified release is published
 

@@ -100,12 +100,18 @@ one-time cutover requires every exact observed remote tip and
 `--force-with-lease`; restore protected-branch force push immediately after the
 post-push observation. See [Forge Operations](docs/operations/forge-operations.md).
 
-The locked repository toolchain is declared once in `mise.toml` and resolved
-by `mise.lock`: Go, Node.js, OpenSpec, EditorConfig Checker, Prettier,
-markdownlint, lychee, GoReleaser, and Syft. Use
-`mise exec --locked -- ...` for every repository command. Do not rely on a
-system `go`, `node`, `openspec`, `ec`, `lychee`, `goreleaser`, or `syft`
-installation.
+Install the locked repository toolchain with:
+
+```bash
+mise install --locked
+npm ci --ignore-scripts
+```
+
+`mise.toml` and `mise.lock` own language runtimes and standalone tools.
+`package.json` and `package-lock.json` own OpenSpec, Prettier, markdownlint, and
+their complete npm dependency graph. Run Go and standalone tools through
+`mise exec --locked -- ...`; invoke npm tools through `./node_modules/.bin/` so
+the command cannot fall back to an ambient installation.
 
 Protected CI supplies `AIGW_RELEASE_AUTHOR_EMAIL`,
 `AIGW_RELEASE_ALLOWED_SIGNERS`, and the generated

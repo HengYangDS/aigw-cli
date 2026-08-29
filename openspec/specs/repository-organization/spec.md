@@ -2,7 +2,9 @@
 
 ## Purpose
 
-TBD - created by archiving change aigw-repository-organization-convergence. Update Purpose after archive.
+Define the repository's product-version, lifecycle, semantic ownership,
+documentation, and portable quality boundaries so every governed surface has
+one discoverable authority.
 
 ## Requirements
 

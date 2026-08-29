@@ -421,7 +421,7 @@ func TestSourceJobsUseTheirExactToolClosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const sourceTools = "go,node,cue,editorconfig-checker,npm:@fission-ai/openspec,npm:markdownlint-cli2,npm:prettier,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
+	const sourceTools = "go,node,cue,editorconfig-checker,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
 	var pipeline struct {
 		SourceToolchain     gitLabJob `yaml:".source-toolchain"`
 		SourceAndGovernance gitLabJob `yaml:"source-and-governance"`
@@ -431,6 +431,9 @@ func TestSourceJobsUseTheirExactToolClosure(t *testing.T) {
 	}
 	if got := pipeline.SourceAndGovernance.Variables["MISE_ENABLE_TOOLS"]; got != sourceTools {
 		t.Fatalf("GitLab source tools = %q, want %q", got, sourceTools)
+	}
+	if !slices.Contains(pipeline.SourceAndGovernance.Script, "npm ci --ignore-scripts") {
+		t.Fatalf("GitLab source job lacks locked npm installation: %q", pipeline.SourceAndGovernance.Script)
 	}
 	bootstrap := strings.Join(pipeline.SourceToolchain.BeforeScript, "\n")
 	for _, tool := range []string{
@@ -450,7 +453,11 @@ func TestSourceJobsUseTheirExactToolClosure(t *testing.T) {
 
 	var github struct {
 		Jobs map[string]struct {
-			Env map[string]string `yaml:"env"`
+			Env   map[string]string `yaml:"env"`
+			Steps []struct {
+				Name string `yaml:"name"`
+				Run  string `yaml:"run"`
+			} `yaml:"steps"`
 		} `yaml:"jobs"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
@@ -458,6 +465,15 @@ func TestSourceJobsUseTheirExactToolClosure(t *testing.T) {
 	}
 	if got := github.Jobs["source-and-governance"].Env["MISE_ENABLE_TOOLS"]; got != sourceTools {
 		t.Fatalf("GitHub source tools = %q, want %q", got, sourceTools)
+	}
+	steps := github.Jobs["source-and-governance"].Steps
+	if !slices.ContainsFunc(steps, func(step struct {
+		Name string `yaml:"name"`
+		Run  string `yaml:"run"`
+	}) bool {
+		return step.Name == "Install locked npm tools" && step.Run == "npm ci --ignore-scripts"
+	}) {
+		t.Fatalf("GitHub source job lacks locked npm installation: %#v", steps)
 	}
 }
 

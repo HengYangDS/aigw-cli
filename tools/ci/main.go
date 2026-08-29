@@ -26,6 +26,7 @@ type commandRunner func(command) error
 var sourceCommands = []command{
 	{Name: "cue", Args: []string{"fmt", "--check", "--files", ".config/ci"}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "project", "--check"}},
+	{Name: "npm", Args: []string{"audit", "signatures"}},
 	{Name: "openspec", Args: []string{"validate", "--all", "--strict", "--no-interactive"}},
 	{Name: "ec", Args: []string{"-disable-indentation", "-disable-indent-size"}},
 	{Name: "prettier", Args: []string{"--check", "--config", ".config/checks/markdown/prettier.json", "--ignore-path", ".config/checks/markdown/prettier-ignore", "*.md", "docs/**/*.md", "openspec/**/*.md"}},
@@ -347,8 +348,22 @@ func systemRunner(call command) error {
 	if err := os.MkdirAll(filepath.Join("build", "acceptance"), 0o755); err != nil {
 		return err
 	}
-	process := exec.Command(call.Name, call.Args...)
+	process := exec.Command(repositoryExecutable(".", call.Name, runtime.GOOS), call.Args...)
 	process.Stdout = os.Stdout
 	process.Stderr = os.Stderr
 	return process.Run()
+}
+
+func repositoryExecutable(root, name, operatingSystem string) string {
+	if filepath.Base(name) != name {
+		return name
+	}
+	if !slices.Contains([]string{"markdownlint-cli2", "openspec", "prettier"}, name) {
+		return name
+	}
+	extension := ""
+	if operatingSystem == "windows" {
+		extension = ".cmd"
+	}
+	return filepath.Join(root, "node_modules", ".bin", name+extension)
 }
