@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-29
+goal: Publish the accepted environment-credential recovery UX as one immutable
+  cross-platform release.
+
+skip_specs: true

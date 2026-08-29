@@ -8,6 +8,20 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.99] - 2026-08-29
+
+### Fixed
+
+- Give environment-backed Accounts the exact `AIGW_TOKEN_<ACCOUNT>` recovery
+  action across setup, use, diagnostics, verification, and adapters.
+- Reject environment-backed Token rotation before reading input, validating a
+  replacement, opening a credential prompt, or attempting persistence.
+
+### Changed
+
+- Remove obsolete OpenSpec summaries, scope carriers, and capability shells
+  after their unique product semantics were absorbed by canonical sources.
+
 ## [0.1.0-rc.98] - 2026-08-29
 
 ### Changed
