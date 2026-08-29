@@ -8,6 +8,22 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.97] - 2026-08-29
+
+### Changed
+
+- Lock OpenSpec, Prettier, markdownlint, and their complete npm dependency
+  graph with the standard npm lockfile while retaining mise as the sole owner
+  of language runtimes and standalone tools.
+- Upgrade OpenSpec to 1.11.0 and replace archived placeholder purposes with
+  current product semantics.
+
+### Fixed
+
+- Make clean local, GitHub, and GitLab source verification install identical
+  npm tool bytes, verify registry signatures, and avoid ambient command
+  fallback on macOS, Linux, and Windows.
+
 ## [0.1.0-rc.96] - 2026-08-27
 
 ### Added
