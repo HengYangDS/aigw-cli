@@ -6,17 +6,17 @@ locked = true
 [tools]
 # Language runtimes
 go = "1.27.0"
-node = "26.7.0"
+node = "26.8.1"
 
 # Specification and CI modeling
 cue = "0.17.1"
 
 # Build and supply-chain evidence
-"github:goreleaser/goreleaser" = "2.17.1"
-"github:anchore/syft" = "1.51.0"
+"github:goreleaser/goreleaser" = "2.18.0"
+"github:anchore/syft" = "1.51.1"
 
 # Static quality
-editorconfig-checker = "3.11.1"
+editorconfig-checker = "3.11.2"
 "github:gitleaks/gitleaks" = "8.30.1"
 "github:rhysd/actionlint" = "1.7.12"
 "github:lycheeverse/lychee" = "lychee-v0.24.2"
