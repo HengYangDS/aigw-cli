@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 	"errors"
 	"io"
 	"net/http"
@@ -10,6 +11,26 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestRotateRejectsReadOnlyEnvironmentBackendBeforeInput(t *testing.T) {
+	app, out, _, _ := testApp(t, "must-not-be-read\n")
+	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, "", configuration.Models{})
+	app.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
+	app.Interactive = true
+	app.Prompt = &fakePrompt{secretErr: errors.New("prompt must not run")}
+
+	err := execute(t, app, "rotate", "one", "--token-stdin")
+	if err == nil || !strings.Contains(err.Error(), "cannot be rotated") {
+		t.Fatalf("error = %v", err)
+	}
+	text := out.String()
+	if !strings.Contains(text, secrets.EnvironmentKey("one")) || !strings.Contains(text, "No Token was read, validated, or changed") {
+		t.Fatalf("output = %q", text)
+	}
+	if strings.Contains(err.Error(), "prompt must not run") || strings.Contains(text, "aigw check") {
+		t.Fatalf("rotate prompted before rejecting the read-only backend: %v", err)
+	}
+}
 
 func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 	t.Run("config load", func(t *testing.T) {

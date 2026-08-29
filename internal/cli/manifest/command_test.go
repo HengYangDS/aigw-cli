@@ -147,6 +147,24 @@ func TestImportMergesConfigurationAndReportsOneMissingToken(t *testing.T) {
 	}
 }
 
+func TestImportNamesEnvironmentTokenInsteadOfRotate(t *testing.T) {
+	runtime, _ := savedRuntime(t, localConfig())
+	runtime.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
+	command := NewCommand(runtime)
+	command.SetArgs([]string{"import", writeManifest(t, importManifest)})
+	if err := executeManifestCommand(command); err != nil {
+		t.Fatal(err)
+	}
+
+	output := runtime.RenderOut.(*bytes.Buffer).String()
+	if !strings.Contains(output, secrets.EnvironmentKey("gateway")) || !strings.Contains(output, "aigw use remote") {
+		t.Fatalf("environment remediation is incomplete: %q", output)
+	}
+	if strings.Contains(output, "aigw rotate") {
+		t.Fatalf("read-only environment backend received impossible rotate guidance: %q", output)
+	}
+}
+
 func TestImportSelectsNextStepFromCredentialAvailability(t *testing.T) {
 	tests := []struct {
 		name     string

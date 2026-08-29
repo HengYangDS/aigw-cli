@@ -186,6 +186,26 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 	}
 }
 
+func TestSetupFromConfigurationManifestNamesEnvironmentTokensInsteadOfRotate(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	app.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
+	app.Discovery = emptyDiscovery{}
+	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
+
+	if err := execute(t, app, "setup", "--from", manifestPath); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	for _, want := range []string{secrets.EnvironmentKey("aihubmix"), secrets.EnvironmentKey("dmxapi"), "aigw use dmxapi-gpt"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("output missing %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "aigw rotate") {
+		t.Fatalf("read-only environment backend received impossible rotate guidance:\n%s", text)
+	}
+}
+
 func TestSetupFromConfigurationManifestReportsInstalledClientWaitingForAnAccount(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	app.Discovery = fakeDiscovery{result: discovery.Result{

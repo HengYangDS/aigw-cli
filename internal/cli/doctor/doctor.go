@@ -11,6 +11,7 @@ import (
 	"aigw-cli/internal/claude"
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	"github.com/spf13/cobra"
@@ -121,7 +122,7 @@ func Collect(deps Dependencies) []Check {
 		ok := deps.Secrets.Has(name)
 		fix := ""
 		if !ok {
-			fix = "run `aigw rotate " + name + "`"
+			fix, _ = credential.TokenRecovery(deps.Secrets, name)
 		}
 		detail := "missing"
 		if ok {

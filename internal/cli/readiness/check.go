@@ -8,6 +8,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
@@ -43,7 +44,8 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	providerAccount := cfg.Accounts[accountName]
 	token, err := runtime.Secrets.Get(accountName)
 	if err != nil {
-		return fmt.Errorf("System secret is missing\nFix: aigw rotate %s", accountName)
+		instruction, _ := credential.TokenRecovery(runtime.Secrets, accountName)
+		return fmt.Errorf("System secret is missing\nFix: %s", instruction)
 	}
 	renderer := Renderer(runtime)
 	renderer.ProductTitle("Health check")

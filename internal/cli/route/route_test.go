@@ -401,6 +401,23 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 	}
 }
 
+func TestUseNamesMissingEnvironmentTokenWithoutPrompting(t *testing.T) {
+	runtime, _, _ := configuredRuntime(t)
+	runtime.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
+	runtime.Interactive = true
+	runtime.Prompt = &promptStub{err: errors.New("prompt must not run")}
+
+	command := NewUseCommand(runtime)
+	command.SetArgs([]string{"shared"})
+	err := command.Execute()
+	if err == nil || !strings.Contains(err.Error(), secrets.EnvironmentKey("gateway")) || !strings.Contains(err.Error(), "aigw use shared") {
+		t.Fatalf("error = %v", err)
+	}
+	if strings.Contains(err.Error(), "aigw rotate") || strings.Contains(err.Error(), "prompt must not run") {
+		t.Fatalf("read-only environment backend followed a writable remediation path: %v", err)
+	}
+}
+
 func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 	runtime, _, _ := configuredRuntime(t)
 	runtime.Secrets = failingSecretStore{setErr: errors.New("store failed")}

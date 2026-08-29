@@ -11,9 +11,19 @@ import (
 	"time"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 )
 
 const validationTimeout = 12 * time.Second
+
+// TokenRecovery names the executable recovery owned by the selected secret
+// backend and reports whether the backend can persist a replacement Token.
+func TokenRecovery(store secrets.Store, account string) (instruction string, writable bool) {
+	if secrets.IsReadOnly(store) {
+		return "set environment variable " + secrets.EnvironmentKey(account), false
+	}
+	return "run `aigw rotate " + account + "`", true
+}
 
 // HTTPDoer executes one validation request.
 type HTTPDoer interface {

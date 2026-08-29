@@ -6,6 +6,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
 	surfaceidentity "aigw-cli/internal/surface"
@@ -92,7 +93,8 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		}
 		if !runtime.Secrets.Has(clientRuntime.AccountID) {
-			return fmt.Errorf("Account %q is missing a token; run `aigw rotate %s`", clientRuntime.AccountID, clientRuntime.AccountID)
+			instruction, _ := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
+			return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.AccountID, instruction)
 		}
 		if client == configuration.ClientCodex {
 			discovered, err := discover(runtime)

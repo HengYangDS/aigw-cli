@@ -56,8 +56,12 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			}
 			addedToken := false
 			if !runtime.Secrets.Has(accountID) {
+				instruction, writable := credential.TokenRecovery(runtime.Secrets, accountID)
+				if !writable {
+					return fmt.Errorf("Account %q is missing a token; %s; then run `aigw use %s`", accountID, instruction, name)
+				}
 				if !runtime.Interactive {
-					return fmt.Errorf("Account %q is missing a token; run `aigw rotate %s`", accountID, accountID)
+					return fmt.Errorf("Account %q is missing a token; %s", accountID, instruction)
 				}
 				token, err := runtime.Prompt.Secret("Paste " + providerAccount.Label + " token: ")
 				if err != nil {

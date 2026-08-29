@@ -8,6 +8,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	domainverification "aigw-cli/internal/verification"
 	"github.com/spf13/cobra"
@@ -62,7 +63,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				accountName := clientRuntime.AccountID
 				token, err := runtime.Secrets.Get(accountName)
 				if err != nil {
-					return fmt.Errorf("Token for account %q is unavailable: %w; run `aigw rotate %s`", accountName, err, accountName)
+					instruction, _ := credential.TokenRecovery(runtime.Secrets, accountName)
+					return fmt.Errorf("Token for account %q is unavailable: %w; %s", accountName, err, instruction)
 				}
 				ctx, cancel := context.WithTimeout(cmd.Context(), domainverification.ProtocolTimeout)
 				if target == configuration.ClientCodex {

@@ -148,6 +148,17 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if instruction, writable := credential.TokenRecovery(runtime.Secrets, accountName); !writable {
+				cause := fmt.Errorf("credential backend is read-only")
+				return invocation.Problem(
+					runtime,
+					"Token cannot be rotated by this credential backend",
+					"The selected environment backend reads Tokens from the parent process and does not persist changes.",
+					"No Token was read, validated, or changed.",
+					instruction,
+					cause,
+				)
+			}
 			oldToken, oldErr := runtime.Secrets.Get(accountName)
 			if oldErr != nil && !errors.Is(oldErr, secrets.ErrNotFound) {
 				return oldErr

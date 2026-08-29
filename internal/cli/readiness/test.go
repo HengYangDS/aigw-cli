@@ -9,6 +9,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	"github.com/spf13/cobra"
 )
@@ -63,7 +64,8 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				token, err := runtime.Secrets.Get(accountName)
 				if err != nil {
 					cancel()
-					return fmt.Errorf("Token for account %q is unavailable: %w; run `aigw rotate %s`", accountName, err, accountName)
+					instruction, _ := credential.TokenRecovery(runtime.Secrets, accountName)
+					return fmt.Errorf("Token for account %q is unavailable: %w; %s", accountName, err, instruction)
 				}
 				if err := authenticateRequest(req, spec, token); err != nil {
 					cancel()
@@ -85,7 +87,8 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				}
 				cancel()
 				if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-					return fmt.Errorf("%s authentication was rejected (HTTP %d); run `aigw rotate %s`", invocation.Title(target), resp.StatusCode, accountName)
+					instruction, _ := credential.TokenRecovery(runtime.Secrets, accountName)
+					return fmt.Errorf("%s authentication was rejected (HTTP %d); %s", invocation.Title(target), resp.StatusCode, instruction)
 				}
 				detail := ""
 				if resp.StatusCode == http.StatusNotFound && target == configuration.ClientClaude {

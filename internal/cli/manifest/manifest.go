@@ -8,7 +8,9 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/secrets"
 	"github.com/spf13/cobra"
 )
 
@@ -84,9 +86,12 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 				continue
 			}
 			missing = append(missing, name)
-			r.Status(presentation.Warn, name, "Token required")
+			instruction, _ := credential.TokenRecovery(runtime.Secrets, name)
+			r.Status(presentation.Warn, name, "Token required · "+instruction)
 		}
-		if len(missing) == 1 {
+		if len(missing) > 0 && secrets.IsReadOnly(runtime.Secrets) {
+			r.Next("aigw use " + incoming.RecommendedDefault)
+		} else if len(missing) == 1 {
 			r.Next("aigw rotate " + missing[0])
 		} else if len(missing) > 1 {
 			r.Next("aigw rotate <account>")

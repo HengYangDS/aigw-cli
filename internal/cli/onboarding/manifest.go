@@ -141,7 +141,15 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	r.Success("Reviewed Accounts and Profiles are available; Tokens remain outside configuration")
 	switch {
 	case len(credentials) == 0:
-		r.Next("aigw rotate <account>")
+		if secrets.IsReadOnly(runtime.Secrets) {
+			for _, account := range accountNames {
+				instruction, _ := credential.TokenRecovery(runtime.Secrets, account)
+				r.Detail(instruction)
+			}
+			r.Next("aigw use " + manifest.RecommendedDefault)
+		} else {
+			r.Next("aigw rotate <account>")
+		}
 	case len(selectedClients) == 0:
 		r.Detail("After installing Claude Code or Codex, run `aigw sync`")
 		r.Next("aigw status")
