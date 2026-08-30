@@ -19,16 +19,12 @@ import (
 
 func TestNativeProductJourney(t *testing.T) {
 	root := repositoryRoot(t)
-	version, err := sourceVersion(filepath.Join(root, "VERSION"))
+	newVersion, err := sourceVersion(filepath.Join(root, "VERSION"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	artifact := filepath.Join(t.TempDir(), executableName())
-	build := exec.Command("go", "build", "-ldflags=-X=aigw-cli/internal/cli.Version="+version, "-o", artifact, "./cmd/aigw")
-	build.Dir = root
-	if output, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build native product: %v: %s", err, output)
-	}
+	const oldVersion = "0.0.0"
+	artifact := buildNativeProgram(t, root, oldVersion)
 
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
@@ -76,6 +72,10 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.uninstallAndRequireOwnedFilesAbsent()
 	})
 
+	t.Run("released artifact lifecycle", func(t *testing.T) {
+		runNativeReleaseLifecycle(t, root, artifact, newVersion, server.URL+"/v1")
+	})
+
 	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
 		t.Run("system credential store", func(t *testing.T) {
 			journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
@@ -99,6 +99,17 @@ func TestNativeProductJourney(t *testing.T) {
 			journey.uninstallAndRequireOwnedFilesAbsent()
 		})
 	}
+}
+
+func buildNativeProgram(t *testing.T, root, version string) string {
+	t.Helper()
+	artifact := filepath.Join(t.TempDir(), executableName())
+	build := exec.Command("go", "build", "-ldflags=-X=aigw-cli/internal/cli.Version="+version, "-o", artifact, "./cmd/aigw")
+	build.Dir = root
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build native product %s: %v: %s", version, err, output)
+	}
+	return artifact
 }
 
 func TestSystemCredentialEnvironmentPreservesDarwinLoginHome(t *testing.T) {
@@ -313,6 +324,11 @@ func (j *journeyFixture) requireClaudeProjection() {
 func (j *journeyFixture) uninstallAndRequireOwnedFilesAbsent() {
 	j.testing.Helper()
 	j.runWith(j.source, "uninstall", "--target", j.binary)
+	j.requireOwnedFilesAbsent()
+}
+
+func (j *journeyFixture) requireOwnedFilesAbsent() {
+	j.testing.Helper()
 	backup := filepath.Join(filepath.Dir(j.binary), ".aigw.previous")
 	if runtime.GOOS == "windows" {
 		backup += ".exe"
@@ -321,6 +337,13 @@ func (j *journeyFixture) uninstallAndRequireOwnedFilesAbsent() {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			j.testing.Fatalf("uninstall retained owned file %s: %v", path, err)
 		}
+	}
+	entries, err := os.ReadDir(filepath.Dir(j.binary))
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	if len(entries) != 0 {
+		j.testing.Fatalf("uninstall retained lifecycle residue: %#v", entryNames(entries))
 	}
 }
 
@@ -384,4 +407,12 @@ func requireFileContains(t *testing.T, path string, values ...string) {
 			t.Fatalf("%s lacks %q:\n%s", path, value, data)
 		}
 	}
+}
+
+func entryNames(entries []os.DirEntry) []string {
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	return names
 }
