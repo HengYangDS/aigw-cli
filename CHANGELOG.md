@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.102] - 2026-08-30
+
 ### Changed
 
 - Make each admitted client select exactly one compatible Profile through its
