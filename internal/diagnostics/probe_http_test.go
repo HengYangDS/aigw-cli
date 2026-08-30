@@ -29,7 +29,7 @@ func TestProbeStableUsesRealHTTPRecoveryBoundary(t *testing.T) {
 		}))
 		defer server.Close()
 
-		result := diagnostics.ProbeStable(context.Background(), server.Client(), configuration.Runtime{Endpoint: server.URL + "/v1"}, secret, diagnostics.StabilityPolicy{
+		result := diagnostics.ProbeStable(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL + "/v1"}, secret, diagnostics.StabilityPolicy{
 			RecoveryDelays: []time.Duration{time.Millisecond},
 			AttemptTimeout: time.Second,
 		})
@@ -55,7 +55,7 @@ func TestProbeStableUsesRealHTTPRecoveryBoundary(t *testing.T) {
 		}))
 		defer server.Close()
 
-		result := diagnostics.ProbeStable(context.Background(), server.Client(), configuration.Runtime{Endpoint: server.URL + "/v1"}, "secret", diagnostics.StabilityPolicy{
+		result := diagnostics.ProbeStable(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL + "/v1"}, "secret", diagnostics.StabilityPolicy{
 			RecoveryDelays: []time.Duration{time.Millisecond, 2 * time.Millisecond},
 			AttemptTimeout: time.Second,
 		})
@@ -63,6 +63,62 @@ func TestProbeStableUsesRealHTTPRecoveryBoundary(t *testing.T) {
 			t.Fatalf("result = %#v, calls = %d", result, calls.Load())
 		}
 	})
+}
+
+func TestProbeUsesDeclaredClientProtocol(t *testing.T) {
+	tests := []struct {
+		name              string
+		client            string
+		endpointSuffix    string
+		wantAuthorization string
+		wantAPIKey        string
+		wantVersion       string
+	}{
+		{
+			name:           "Claude uses Anthropic authentication",
+			client:         configuration.ClientClaude,
+			endpointSuffix: "",
+			wantAPIKey:     "secret",
+			wantVersion:    "2023-06-01",
+		},
+		{
+			name:              "Codex uses Responses authentication",
+			client:            configuration.ClientCodex,
+			endpointSuffix:    "/v1",
+			wantAuthorization: "Bearer secret",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				if request.Method != http.MethodGet || request.URL.Path != "/v1/models" {
+					t.Errorf("request = %s %s, want GET /v1/models", request.Method, request.URL.Path)
+				}
+				if got := request.Header.Get("Authorization"); got != test.wantAuthorization {
+					t.Errorf("Authorization = %q, want %q", got, test.wantAuthorization)
+				}
+				if got := request.Header.Get("X-Api-Key"); got != test.wantAPIKey {
+					t.Errorf("X-Api-Key = %q, want %q", got, test.wantAPIKey)
+				}
+				if got := request.Header.Get("Anthropic-Version"); got != test.wantVersion {
+					t.Errorf("Anthropic-Version = %q, want %q", got, test.wantVersion)
+				}
+				writer.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+
+			result := diagnostics.Probe(
+				context.Background(),
+				server.Client(),
+				configuration.Runtime{Client: test.client, Endpoint: server.URL + test.endpointSuffix},
+				"secret",
+			)
+			if result.Kind != diagnostics.Healthy {
+				t.Fatalf("result = %#v, want healthy", result)
+			}
+		})
+	}
 }
 
 func TestProbeClassifiesRealHTTPResponses(t *testing.T) {
@@ -91,7 +147,7 @@ func TestProbeClassifiesRealHTTPResponses(t *testing.T) {
 			}))
 			defer server.Close()
 
-			result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Endpoint: server.URL}, "secret")
+			result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL}, "secret")
 			if result.Kind != tt.kind || result.HTTPStatus != tt.status || result.Summary == "" || result.Fix == "" {
 				t.Fatalf("Probe() = %#v", result)
 			}
@@ -130,7 +186,7 @@ func TestProbeReportsTruncatedHTTPResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Endpoint: server.URL}, secret)
+	result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL}, secret)
 	if result.Kind != diagnostics.NetworkFailure || result.HTTPStatus != http.StatusOK || !result.Retryable || !strings.Contains(result.Detail, "unexpected EOF") {
 		t.Fatalf("Probe() = %#v", result)
 	}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/redaction"
 )
 
@@ -141,19 +142,13 @@ func unstableAuthentication(attempts int, detail string) Result {
 }
 
 func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string) Result {
-	endpoint := strings.TrimRight(runtime.Endpoint, "/")
-	if endpoint == "" {
+	if strings.TrimSpace(runtime.Endpoint) == "" {
 		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Fix: "Check the protocol endpoint for the current profile's account"}
 	}
-	if strings.HasSuffix(endpoint, "/v1") {
-		endpoint += "/models"
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := credential.ProbeRequest(ctx, runtime.Client, runtime.Endpoint, token)
 	if err != nil {
 		return Result{Kind: EndpointMismatch, Summary: "Invalid API URL", Detail: err.Error(), Fix: "Check the endpoint for the active profile"}
 	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := client.Do(req)
 	if err != nil {
 		return Result{Kind: NetworkFailure, Summary: "Cannot reach the endpoint", Detail: sanitize(err.Error(), token), Fix: "Check the configured endpoint and network, then try again", Retryable: true}

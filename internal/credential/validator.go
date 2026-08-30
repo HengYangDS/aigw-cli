@@ -46,22 +46,19 @@ func Validate(ctx context.Context, httpClient HTTPDoer, account configuration.Ac
 			continue
 		}
 		seen[client] = true
-		spec, ok := configuration.ClientSpecFor(client)
-		if !ok {
+		if _, ok := configuration.ClientSpecFor(client); !ok {
 			return fmt.Errorf("unsupported credential validation client %q", client)
 		}
 		endpoint, err := account.EndpointFor(client)
 		if err != nil {
 			return err
 		}
-		requestURL := modelsEndpoint(endpoint, spec.EndpointProtocol)
 		checkCtx, cancel := context.WithTimeout(ctx, validationTimeout)
-		req, err := http.NewRequestWithContext(checkCtx, http.MethodGet, requestURL, nil)
+		req, err := ProbeRequest(checkCtx, client, endpoint, token)
 		if err != nil {
 			cancel()
 			return err
 		}
-		authenticate(req, spec, token)
 		clientHTTP := withoutRedirects(httpClient)
 		resp, err := clientHTTP.Do(req)
 		if err != nil {
@@ -86,6 +83,22 @@ func Validate(ctx context.Context, httpClient HTTPDoer, account configuration.Ac
 		}
 	}
 	return nil
+}
+
+// ProbeRequest constructs the authentication request declared by one admitted
+// client's endpoint protocol.
+func ProbeRequest(ctx context.Context, client, endpoint, token string) (*http.Request, error) {
+	spec, ok := configuration.ClientSpecFor(client)
+	if !ok {
+		return nil, fmt.Errorf("unsupported credential validation client %q", client)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsEndpoint(endpoint, spec.EndpointProtocol), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	authenticate(req, spec, token)
+	return req, nil
 }
 
 func authenticate(request *http.Request, spec configuration.ClientSpec, token string) {

@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-30
+goal: Make AIGW health checks validate each enabled client through its declared
+  protocol without duplicating protocol request semantics.

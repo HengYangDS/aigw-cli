@@ -135,6 +135,14 @@ func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 	}
 }
 
+func TestProbeRequestRejectsUnknownClient(t *testing.T) {
+	t.Parallel()
+
+	if _, err := ProbeRequest(context.Background(), "unknown", "https://gateway.example", "secret"); err == nil || !strings.Contains(err.Error(), `unsupported credential validation client "unknown"`) {
+		t.Fatalf("error = %v, want unsupported client", err)
+	}
+}
+
 func TestValidateHTTPClientDoesNotFollowRedirects(t *testing.T) {
 	t.Parallel()
 
