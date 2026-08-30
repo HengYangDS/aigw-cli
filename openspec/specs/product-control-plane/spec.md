@@ -395,11 +395,16 @@ endpoint verification MUST remain functional without them.
 Codex and Claude Code SHALL be the admitted native clients. Each adapter SHALL
 own discovery, supported configuration or process planning, authentication,
 rollback, verification, status, and uninstall of only its AIGW-owned state.
-Claude Code's owned credential helper SHALL invoke the installed AIGW
-executable by an absolute, shell-safe path. AIGW-owned Claude invocations SHALL
-use Claude Code's non-experimental compatibility mode so an ordinary admitted
-Anthropic endpoint is not required to implement optional beta negotiation.
-Adding a future client MUST NOT change provider policy or another adapter.
+Credential retrieval for an admitted client SHALL resolve that client's active
+Profile and selected Account through the single AIGW Token authority. Claude
+Code's owned credential helper and an explicit Codex native-provider
+authentication command SHALL invoke the installed AIGW executable by an
+absolute, shell-safe path and SHALL NOT place a plaintext Token in client
+configuration. AIGW-owned Claude invocations SHALL use Claude Code's
+non-experimental compatibility mode so an ordinary admitted
+Anthropic-compatible endpoint is not required to implement optional beta
+negotiation. Adding a future client MUST NOT change provider policy or another
+adapter.
 
 #### Scenario: One admitted client is absent
 
@@ -414,6 +419,15 @@ Adding a future client MUST NOT change provider policy or another adapter.
 - **AND** credential retrieval SHALL not depend on the caller's PATH
 - **AND** the projected settings SHALL contain no plaintext Token
 
+#### Scenario: Codex authenticates an explicit native provider
+
+- **WHEN** an enabled Codex Profile selects an explicit native provider identity
+- **THEN** the projected authentication command SHALL invoke the exact installed
+  AIGW executable for the Codex client
+- **AND** it SHALL return only the Token of the Account selected by the active
+  Codex Route
+- **AND** the projected Codex configuration SHALL contain no plaintext Token
+
 #### Scenario: Claude uses an Anthropic-compatible provider
 
 - **WHEN** AIGW launches Claude Code for an admitted Claude Profile
@@ -423,10 +437,17 @@ Adding a future client MUST NOT change provider policy or another adapter.
 
 #### Scenario: The installed executable path is invalid
 
-- **WHEN** a Claude projection is prepared with a relative path or control
-  character in the AIGW executable path
+- **WHEN** a client credential projection is prepared with a relative path or
+  control character in the AIGW executable path
 - **THEN** the transaction SHALL fail before writing the owned projection
 - **AND** existing user-owned settings SHALL remain unchanged
+
+#### Scenario: Credential retrieval is not admitted
+
+- **WHEN** a credential request names an unsupported client, a disabled adapter,
+  an unresolved Route, or an Account without a Token
+- **THEN** the request SHALL fail without writing credential bytes to standard
+  output
 
 #### Scenario: A future agent is admitted
 
