@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-30
+goal: Make every admitted native client credential projection resolve the
+  selected Account token through the single AIGW credential authority.

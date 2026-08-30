@@ -12,32 +12,36 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-func TestClaudeCredentialHelperPrintsOnlyTheActiveToken(t *testing.T) {
-	runtime := helperRuntime(t, true)
-	if err := runtime.Secrets.Set("gateway", "secret-token"); err != nil {
-		t.Fatal(err)
-	}
-	command := NewCommand(runtime)
-	if !command.Hidden {
-		t.Fatal("credential helper must remain hidden")
-	}
-	if err := command.RunE(command, []string{configuration.ClientClaude}); err != nil {
-		t.Fatal(err)
-	}
-	if got := runtime.Out.(*bytes.Buffer).String(); got != "secret-token\n" {
-		t.Fatalf("stdout=%q", got)
+func TestCredentialHelperPrintsOnlyTheActiveClientToken(t *testing.T) {
+	for _, client := range configuration.AdmittedClientIDs() {
+		t.Run(client, func(t *testing.T) {
+			runtime := helperRuntime(t, client, true)
+			if err := runtime.Secrets.Set("gateway", "secret-token"); err != nil {
+				t.Fatal(err)
+			}
+			command := NewCommand(runtime)
+			if !command.Hidden {
+				t.Fatal("credential helper must remain hidden")
+			}
+			if err := command.RunE(command, []string{client}); err != nil {
+				t.Fatal(err)
+			}
+			if got := runtime.Out.(*bytes.Buffer).String(); got != "secret-token\n" {
+				t.Fatalf("stdout=%q", got)
+			}
+		})
 	}
 }
 
 func TestClaudeCredentialHelperFailsClosedWithoutWritingStdout(t *testing.T) {
 	for name := range map[string]bool{"wrong client": true, "load": true, "disabled": true, "route": true, "secret": true} {
 		t.Run(name, func(t *testing.T) {
-			runtime := helperRuntime(t, true)
+			runtime := helperRuntime(t, configuration.ClientClaude, true)
 			switch name {
 			case "load":
 				runtime.Config = configuration.NewStore(t.TempDir())
 			case "disabled":
-				runtime = helperRuntime(t, false)
+				runtime = helperRuntime(t, configuration.ClientClaude, false)
 			case "route":
 				cfg := configuration.NewConfig()
 				cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
@@ -50,7 +54,7 @@ func TestClaudeCredentialHelperFailsClosedWithoutWritingStdout(t *testing.T) {
 			}
 			argument := configuration.ClientClaude
 			if name == "wrong client" {
-				argument = configuration.ClientCodex
+				argument = "unsupported"
 			}
 			command := NewCommand(runtime)
 			err := command.RunE(command, []string{argument})
@@ -62,7 +66,7 @@ func TestClaudeCredentialHelperFailsClosedWithoutWritingStdout(t *testing.T) {
 }
 
 func TestClaudeCredentialHelperPropagatesOutputFailure(t *testing.T) {
-	runtime := helperRuntime(t, true)
+	runtime := helperRuntime(t, configuration.ClientClaude, true)
 	if err := runtime.Secrets.Set("gateway", "secret-token"); err != nil {
 		t.Fatal(err)
 	}
@@ -73,14 +77,20 @@ func TestClaudeCredentialHelperPropagatesOutputFailure(t *testing.T) {
 	}
 }
 
-func helperRuntime(t *testing.T, enabled bool) invocation.Context {
+func helperRuntime(t *testing.T, client string, enabled bool) invocation.Context {
 	t.Helper()
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	cfg := configuration.NewConfig()
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-team"}}
-	cfg.Routes.Default = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: enabled, Executable: "claude"}
+	account := configuration.Account{Label: "Gateway"}
+	if client == configuration.ClientClaude {
+		account.Endpoints.Anthropic = "https://gateway.test"
+	} else {
+		account.Endpoints.OpenAIResponses = "https://gateway.test/v1"
+	}
+	cfg.Accounts["gateway"] = account
+	cfg.Profiles[client] = configuration.Profile{Label: client, Account: "gateway", Client: client, Models: configuration.Models{client: client + "-team"}}
+	cfg.Routes.Default = client
+	cfg.Adapters[client] = configuration.AdapterConfig{Enabled: enabled, Executable: client}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
