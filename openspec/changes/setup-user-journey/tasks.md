@@ -15,6 +15,6 @@
 
 ## 3. Closeout
 
-- [ ] 3.1 Run the affected source and policy gates and produce exact-HEAD proof.
-- [ ] 3.2 Archive the completed official Change, land it through the governed
+- [x] 3.1 Run the affected source and policy gates and produce exact-HEAD proof.
+- [x] 3.2 Archive the completed official Change, land it through the governed
       path, and retire the work lane without leaving a proposal or work ref.
