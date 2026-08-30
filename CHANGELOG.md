@@ -8,6 +8,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.103] - 2026-08-30
+
+### Fixed
+
+- Derive each Route health request from its client protocol, including the
+  protocol-specific model path and authentication headers used by Claude Code
+  and Codex.
+
 ## [0.1.0-rc.102] - 2026-08-30
 
 ### Changed
