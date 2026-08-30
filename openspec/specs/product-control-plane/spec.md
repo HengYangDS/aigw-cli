@@ -12,7 +12,9 @@ client model choices without provider identity hacks, named gateway products,
 or deployment topology. Configuration manifests MUST remain credential-free
 and SHALL describe available capability rather than requiring every Account to
 be connected during import. Diagnostics SHALL require a credential only for an
-Account selected by an active admitted-client Route.
+Account selected by an active admitted-client Route. `aigw check` SHALL NOT
+claim overall health unless every enabled admitted-client Route has its selected
+Account Token.
 
 #### Scenario: Import a multi-provider team catalogue
 
@@ -33,6 +35,14 @@ Account selected by an active admitted-client Route.
 - **WHEN** an active client Route selects an Account whose Token is absent
 - **THEN** `aigw doctor` SHALL report that Account as unhealthy
 - **AND** SHALL provide the account-scoped rotation action.
+
+#### Scenario: Check every enabled client Route
+
+- **WHEN** one enabled admitted-client Route has its selected Account Token
+- **AND** another enabled admitted-client Route lacks its selected Account Token
+- **THEN** `aigw check` SHALL fail before claiming overall health
+- **AND** SHALL identify the affected client and Account
+- **AND** SHALL provide the Account Token recovery action.
 
 #### Scenario: Add an ordinary provider
 
