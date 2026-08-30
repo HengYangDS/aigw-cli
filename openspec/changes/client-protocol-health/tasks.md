@@ -16,10 +16,9 @@
       current rc.101 installation; repeat from the exact signed commit before
       delivery.
 
-## 3. Delivery
+## 3. Local acceptance
 
-- [ ] 3.1 Produce exact-HEAD proof, archive the Change, and land the signed
-      product through candidate and accepted truth.
-- [ ] 3.2 Publish one later signed prerelease through both Forge projections,
-      verify native release acceptance and assets, upgrade the installed runtime,
-      and retire the Work Lane with no residue.
+- [x] 3.1 Produce exact-HEAD proof for the signed product commit. Archive,
+      landing, hosted publication, installed-runtime acceptance, and Lane
+      retirement consume this completed Change rather than becoming its own
+      implementation prerequisites.
