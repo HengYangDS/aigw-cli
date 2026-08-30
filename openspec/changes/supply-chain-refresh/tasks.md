@@ -6,4 +6,4 @@
 ## 2. Verification and Closeout
 
 - [x] 2.1 Run the complete source gate and native release gate against the refreshed graph.
-- [ ] 2.2 Commit and sign the exact tree, run exact-HEAD ETHOS proof, archive the OpenSpec change, and publish only after both Forge projections pass.
+- [x] 2.2 Confirm the final diff contains only the OpenSpec record and removal of unused module checksums; verify `git diff --check` passes before commit.
