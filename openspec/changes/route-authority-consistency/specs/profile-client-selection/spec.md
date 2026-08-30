@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Ambiguous or redundant selection fails closed
+### Requirement: Ambiguous or conflicting selection fails closed
 
 Client selection SHALL have exactly one authority per invocation. A named
 Profile SHALL supply its declared client; otherwise an explicit client SHALL
@@ -13,11 +13,18 @@ names, models, endpoints, providers, or the other client's Route.
 - **THEN** the command SHALL fail before credential or network access
 - **AND** SHALL instruct the operator to keep exactly one selector.
 
-#### Scenario: Named Profile supplies its client
+#### Scenario: Selected profile has no declared client
 
-- **WHEN** an operator supplies `--profile <profile>` without `--for`
-- **THEN** the command SHALL use the Profile's required client declaration
-- **AND** SHALL reject an unknown Profile without guessing.
+- **WHEN** `--profile` selects an invalid Profile without an admitted client
+- **THEN** the command SHALL fail before credential or network access
+- **AND** SHALL report that the Profile lacks its required client declaration.
+
+#### Scenario: Explicit client conflicts with the profile
+
+- **WHEN** an operator supplies both `--for` and `--profile`, whether or not
+  their client values would match
+- **THEN** the command SHALL reject the redundant selectors
+- **AND** SHALL instruct the operator to keep exactly one selector.
 
 #### Scenario: Explicit client uses its selected Route
 
