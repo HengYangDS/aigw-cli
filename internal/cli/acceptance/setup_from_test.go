@@ -3,6 +3,7 @@ package cli_test
 import (
 	"aigw-cli/internal/prompt"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -182,6 +183,55 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 	for _, want := range []string{"Configuration catalogue imported", "Connected accounts", "0 of 2", "Clients", "Not installed", "aigw rotate <account>"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output missing %q:\n%s", want, out.String())
+		}
+	}
+}
+
+func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	app.Discovery = emptyDiscovery{}
+	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
+
+	if err := execute(t, app, "setup", "--from", manifestPath, "--json"); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Catalogue struct {
+			Accounts int `json:"accounts"`
+			Profiles int `json:"profiles"`
+		} `json:"catalogue"`
+		Accounts []struct {
+			ID        string `json:"id"`
+			Connected bool   `json:"connected"`
+		} `json:"accounts"`
+		Routes     map[string]string `json:"routes"`
+		Clients    map[string]string `json:"clients"`
+		Deferred   []string          `json:"deferred"`
+		NextAction string            `json:"next_action"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
+	}
+	if result.Catalogue.Accounts != 2 || result.Catalogue.Profiles != 3 || len(result.Accounts) != 2 {
+		t.Fatalf("setup JSON catalogue state = %#v", result)
+	}
+	for _, account := range result.Accounts {
+		if account.Connected {
+			t.Fatalf("setup JSON unexpectedly connected Account %#v", account)
+		}
+	}
+	if result.Routes[configuration.ClientClaude] != "aihubmix-claude" || result.Routes[configuration.ClientCodex] != "dmxapi-gpt" {
+		t.Fatalf("setup JSON routes = %#v", result.Routes)
+	}
+	if result.Clients[configuration.ClientClaude] != "not_installed" || result.Clients[configuration.ClientCodex] != "not_installed" {
+		t.Fatalf("setup JSON clients = %#v", result.Clients)
+	}
+	if len(result.Deferred) != 0 || result.NextAction != "aigw rotate <account>" {
+		t.Fatalf("setup JSON continuation = %#v", result)
+	}
+	for _, forbidden := range []string{"aigw-test", "token", "secret"} {
+		if strings.Contains(strings.ToLower(out.String()), forbidden) {
+			t.Fatalf("setup JSON exposed credential material %q: %s", forbidden, out.String())
 		}
 	}
 }

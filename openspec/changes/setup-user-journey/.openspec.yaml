@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-30
+goal: Make setup, credentials, deferred client projection, and optional external
+  transport compose naturally with any usable provider.

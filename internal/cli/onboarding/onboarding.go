@@ -23,6 +23,7 @@ type Request struct {
 	Client, Model                 string
 	TokenStdin                    bool
 	PromptToken                   bool
+	JSON                          bool
 }
 
 func NewCommand(runtime invocation.Context) *cobra.Command {
@@ -49,6 +50,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 				return runManifestSetup(cmd.Context(), runtime, request)
 			}
+			if request.JSON {
+				return fmt.Errorf("--json requires --from")
+			}
 			if runtime.Interactive && request.Account == "" && request.Profile == "" && request.Label == "" && request.OpenAIURL == "" && request.AnthropicURL == "" && request.Client == "" && request.Model == "" && !request.TokenStdin {
 				cfg, err := runtime.Config.Load()
 				if err != nil {
@@ -71,6 +75,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first profile: "+configuration.AdmittedClientUsage())
 	cmd.Flags().StringVar(&request.Model, "model", "", "Upstream model ID for --for")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
+	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the manifest setup result as JSON")
 	return cmd
 }
 

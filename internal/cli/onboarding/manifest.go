@@ -8,6 +8,7 @@ import (
 	"aigw-cli/internal/secrets"
 	domainverification "aigw-cli/internal/verification"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -20,6 +21,25 @@ type manifestSetupCredential struct {
 	previous    string
 	hadPrevious bool
 	write       bool
+}
+
+type manifestSetupCatalogue struct {
+	Accounts int `json:"accounts"`
+	Profiles int `json:"profiles"`
+}
+
+type manifestSetupAccount struct {
+	ID        string `json:"id"`
+	Connected bool   `json:"connected"`
+}
+
+type manifestSetupResult struct {
+	Catalogue  manifestSetupCatalogue `json:"catalogue"`
+	Accounts   []manifestSetupAccount `json:"accounts"`
+	Routes     map[string]string      `json:"routes"`
+	Clients    map[string]string      `json:"clients"`
+	Deferred   []string               `json:"deferred,omitempty"`
+	NextAction string                 `json:"next_action"`
 }
 
 func runManifestSetup(ctx context.Context, runtime invocation.Context, request Request) error {
@@ -113,50 +133,109 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 		return fmt.Errorf("Configuration setup failed and credentials were rolled back: %w", err)
 	}
 
+	availableClients := make(map[string]bool, len(configuration.AdmittedClientIDs()))
+	for _, client := range configuration.AdmittedClientIDs() {
+		availableClients[client] = discovered.Executable(client) != ""
+	}
+	result := buildManifestSetupResult(runtime, manifest, cfg, accountNames, connected, availableClients, selectedClients)
+	if request.JSON {
+		encoder := json.NewEncoder(runtime.Out)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(result)
+	}
+	renderManifestSetupResult(runtime, result)
+	return nil
+}
+
+func buildManifestSetupResult(
+	runtime invocation.Context,
+	manifest configuration.Manifest,
+	cfg configuration.Config,
+	accountNames []string,
+	connected map[string]manifestSetupCredential,
+	availableClients map[string]bool,
+	selectedClients []string,
+) manifestSetupResult {
+	result := manifestSetupResult{
+		Catalogue: manifestSetupCatalogue{Accounts: len(accountNames), Profiles: len(manifest.Profiles)},
+		Accounts:  make([]manifestSetupAccount, 0, len(accountNames)),
+		Routes:    make(map[string]string, len(cfg.Routes.Overrides)),
+		Clients:   make(map[string]string, len(configuration.AdmittedClientIDs())),
+	}
+	for _, name := range accountNames {
+		_, isConnected := connected[name]
+		result.Accounts = append(result.Accounts, manifestSetupAccount{ID: name, Connected: isConnected})
+	}
+	for client, profile := range cfg.Routes.Overrides {
+		result.Routes[client] = profile
+	}
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		switch {
+		case cfg.Adapters[spec.ID].Enabled:
+			result.Clients[spec.ID] = "configured"
+		case !availableClients[spec.ID]:
+			result.Clients[spec.ID] = "not_installed"
+		default:
+			result.Clients[spec.ID] = "waiting_for_account"
+		}
+	}
+	switch {
+	case len(connected) == 0:
+		if secrets.IsReadOnly(runtime.Secrets) {
+			for _, account := range accountNames {
+				instruction, _ := credential.TokenRecovery(runtime.Secrets, account)
+				result.Deferred = append(result.Deferred, instruction)
+			}
+			result.NextAction = "aigw use " + manifest.RecommendedDefault
+		} else {
+			result.NextAction = "aigw rotate <account>"
+		}
+	case len(selectedClients) == 0:
+		result.Deferred = append(result.Deferred, "After installing Claude Code or Codex, run `aigw sync`")
+		result.NextAction = "aigw status"
+	default:
+		result.NextAction = "aigw check"
+	}
+	return result
+}
+
+func renderManifestSetupResult(runtime invocation.Context, result manifestSetupResult) {
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("Configuration catalogue imported")
 	r.Section("Team catalogue")
-	r.Row("Accounts", fmt.Sprintf("%d", len(accountNames)))
-	r.Row("Model profiles", fmt.Sprintf("%d", len(manifest.Profiles)))
-	r.Row("Connected accounts", fmt.Sprintf("%d of %d", len(credentials), len(accountNames)))
+	r.Row("Accounts", fmt.Sprintf("%d", result.Catalogue.Accounts))
+	r.Row("Model profiles", fmt.Sprintf("%d", result.Catalogue.Profiles))
+	connectedCount := 0
+	for _, account := range result.Accounts {
+		if account.Connected {
+			connectedCount++
+		}
+	}
+	r.Row("Connected accounts", fmt.Sprintf("%d of %d", connectedCount, result.Catalogue.Accounts))
 	r.Section("Accounts")
-	for _, name := range accountNames {
-		if _, ok := connected[name]; ok {
-			r.Status(presentation.OK, name, "Connected")
+	for _, account := range result.Accounts {
+		if account.Connected {
+			r.Status(presentation.OK, account.ID, "Connected")
 		} else {
-			r.Status(presentation.Info, name, "Not connected")
+			r.Status(presentation.Info, account.ID, "Not connected")
 		}
 	}
 	r.Section("Clients")
 	for _, spec := range configuration.AdmittedClientSpecs() {
-		switch {
-		case cfg.Adapters[spec.ID].Enabled:
+		switch result.Clients[spec.ID] {
+		case "configured":
 			r.Status(presentation.OK, spec.Label, "Configured")
-		case discovered.Executable(spec.ID) == "":
+		case "not_installed":
 			r.Status(presentation.Info, spec.Label, "Not installed")
 		default:
 			r.Status(presentation.Info, spec.Label, "Installed · connect a compatible Account to configure")
 		}
 	}
 	r.Success("Reviewed Accounts and Profiles are available; Tokens remain outside configuration")
-	switch {
-	case len(credentials) == 0:
-		if secrets.IsReadOnly(runtime.Secrets) {
-			for _, account := range accountNames {
-				instruction, _ := credential.TokenRecovery(runtime.Secrets, account)
-				r.Detail(instruction)
-			}
-			r.Next("aigw use " + manifest.RecommendedDefault)
-		} else {
-			r.Next("aigw rotate <account>")
-		}
-	case len(selectedClients) == 0:
-		r.Detail("After installing Claude Code or Codex, run `aigw sync`")
-		r.Next("aigw status")
-	default:
-		r.Next("aigw check")
+	for _, detail := range result.Deferred {
+		r.Detail(detail)
 	}
-	return nil
+	r.Next(result.NextAction)
 }
 
 func collectManifestSetupCredentials(runtime invocation.Context, cfg configuration.Config, accountNames []string, selectedAccount string, tokenStdin bool) ([]manifestSetupCredential, error) {
