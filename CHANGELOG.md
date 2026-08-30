@@ -8,6 +8,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.101] - 2026-08-30
+
+### Fixed
+
+- Make the projected Codex native-provider authentication command resolve the
+  selected Route, Account, and Token through the same fail-closed credential
+  authority used by Claude Code.
+
 ## [0.1.0-rc.100] - 2026-08-30
 
 ### Fixed
