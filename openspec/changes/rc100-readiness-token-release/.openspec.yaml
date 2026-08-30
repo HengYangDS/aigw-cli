@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-30
+goal: Publish the accepted all-active-route token readiness correction as one
+  immutable cross-platform release.
+
+skip_specs: true

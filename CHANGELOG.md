@@ -8,6 +8,13 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.100] - 2026-08-30
+
+### Fixed
+
+- Make `aigw check` validate the selected Account Token for every enabled
+  admitted-client Route before reporting the client or overall system ready.
+
 ## [0.1.0-rc.99] - 2026-08-29
 
 ### Fixed
