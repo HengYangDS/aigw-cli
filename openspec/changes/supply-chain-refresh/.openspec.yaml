@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-08-30
+goal: Upgrade all direct AIGW toolchain and Go dependencies to their current
+  stable releases under one deterministic lock and preserve source, native, and
+  dual-Forge behavior.
+skip_specs: true
