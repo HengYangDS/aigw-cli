@@ -43,21 +43,35 @@ Profile rather than require or accept a second client selection.
 
 ### Requirement: Ambiguous or conflicting selection fails closed
 
-Client selection SHALL use only the canonical profile client declaration and
-SHALL NOT infer from names, models, endpoints, routes, or providers.
+Client selection SHALL have exactly one authority per invocation. A named
+Profile SHALL supply its declared client; otherwise an explicit client SHALL
+select that client's current Route. AIGW SHALL NOT infer either value from
+names, models, endpoints, providers, or the other client's Route.
+
+#### Scenario: Profile and client selectors are combined
+
+- **WHEN** an operator supplies both `--profile` and `--for`
+- **THEN** the command SHALL fail before credential or network access
+- **AND** SHALL instruct the operator to keep exactly one selector.
 
 #### Scenario: Selected profile has no declared client
 
-- **WHEN** `--profile` is supplied without `--for`
-- **AND** the profile has no declared client
-- **THEN** the command fails before a network request
-- **AND** the error instructs the operator to provide `--for`
+- **WHEN** `--profile` selects an invalid Profile without an admitted client
+- **THEN** the command SHALL fail before credential or network access
+- **AND** SHALL report that the Profile lacks its required client declaration.
 
 #### Scenario: Explicit client conflicts with the profile
 
-- **WHEN** `--for` and `--profile` select different clients
-- **THEN** the command rejects the conflict
-- **AND** neither input is silently overridden
+- **WHEN** an operator supplies both `--for` and `--profile`, whether or not
+  their client values would match
+- **THEN** the command SHALL reject the redundant selectors
+- **AND** SHALL instruct the operator to keep exactly one selector.
+
+#### Scenario: Explicit client uses its selected Route
+
+- **WHEN** an operator supplies `--for <client>` without `--profile`
+- **THEN** the command SHALL use only that client's selected Route
+- **AND** SHALL report the exact missing Route when none is selected.
 
 ### Requirement: Unselected-profile behavior remains stable
 
