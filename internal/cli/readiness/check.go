@@ -65,6 +65,17 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		if resolveErr != nil {
 			return invocation.Problem(runtime, invocation.Title(client)+" route cannot be resolved", resolveErr.Error(), invocation.Title(client)+" cannot determine which profile to use.", "aigw use <profile> --for "+client, resolveErr)
 		}
+		if !runtime.Secrets.Has(clientRuntime.AccountID) {
+			instruction, _ := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
+			return invocation.Problem(
+				runtime,
+				invocation.Title(client)+" account token is unavailable",
+				"Account "+clientRuntime.AccountID+" has no available Token.",
+				invocation.Title(client)+" cannot authenticate to its selected gateway.",
+				instruction,
+				fmt.Errorf("%s account token unavailable", client),
+			)
+		}
 		ready, issue := AdapterRouteReady(runtime, cfg, client, clientRuntime)
 		if !ready {
 			fix := "aigw repair"

@@ -43,6 +43,36 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 	}
 }
 
+func TestCheckRejectsAnEnabledClientRouteWithoutItsAccountToken(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "claude-test"})
+	addAccountProfile(&cfg, "codex", "codex-account", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt-test"})
+	cfg.Routes.Default = "claude"
+	cfg.Routes.Overrides[configuration.ClientCodex] = "codex"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("claude-account", "claude-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	err := execute(t, app, "check")
+	if err == nil {
+		t.Fatal("check accepted an enabled Codex route without its account token")
+	}
+	for _, want := range []string{"Codex account token is unavailable", "codex-account", "aigw rotate codex-account"} {
+		if !strings.Contains(out.String(), want) && !strings.Contains(err.Error(), want) {
+			t.Fatalf("check output lacks %q:\n%s\nerror: %v", want, out.String(), err)
+		}
+	}
+	if strings.Contains(out.String(), "Everything is healthy") {
+		t.Fatalf("check claimed health without every enabled route token:\n%s", out.String())
+	}
+}
+
 func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
 	tests := []struct {
 		name       string

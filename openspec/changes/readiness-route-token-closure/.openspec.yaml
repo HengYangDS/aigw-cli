@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-30
+goal: Prevent health checks from claiming success when an enabled client route
+  lacks its account token.
