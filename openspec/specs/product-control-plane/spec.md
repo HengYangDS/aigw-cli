@@ -36,6 +36,8 @@ its distinct authentication target has passed the bounded health probe.
 
 - **WHEN** Claude and Codex are enabled with distinct selected Routes
 - **THEN** `aigw check` SHALL validate both effective Routes
+- **AND** SHALL derive each authentication request from that Route's declared
+  client protocol
 - **AND** SHALL not inspect an unselected historical Profile as a fallback
 - **AND** MAY coalesce only authentication probes with an identical Account,
   endpoint, and protocol identity.
