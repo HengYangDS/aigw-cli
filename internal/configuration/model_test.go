@@ -209,7 +209,7 @@ func TestClientForProfileRequiresCanonicalScope(t *testing.T) {
 	if err != nil || client != ClientCodex {
 		t.Fatalf("ClientForProfile(codex) = %q, %v", client, err)
 	}
-	if _, err := cfg.ClientForProfile("shared"); err == nil || !strings.Contains(err.Error(), "--for") {
+	if _, err := cfg.ClientForProfile("shared"); err == nil || !strings.Contains(err.Error(), "does not declare exactly one admitted client") {
 		t.Fatalf("unscoped profile error = %v", err)
 	}
 	if _, err := cfg.ClientForProfile("missing"); err == nil || !strings.Contains(err.Error(), "unknown profile") {

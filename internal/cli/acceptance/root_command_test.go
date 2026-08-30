@@ -85,7 +85,7 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		want []string
 	}{
 		{args: []string{"setup", "--help"}, want: []string{"Account ID", "First profile ID", "Read one token line from standard input"}},
-		{args: []string{"verify", "--help"}, want: []string{"Verify Claude, Codex, or all clients", "Verify a specified profile without changing routes"}},
+		{args: []string{"verify", "--help"}, want: []string{"Verify the selected Route for Claude, Codex, or all", "Verify one Profile using its declared client without changing Routes"}},
 		{args: []string{"rollback", "--help"}, want: []string{"Restore only the immediately previous configuration backup"}},
 		{args: []string{"config", "import", "--help"}, want: []string{"Merge a secret-free configuration manifest", "Explicitly replace conflicting account metadata", "system tokens remain unchanged"}},
 		{args: []string{"adapter", "auth", "--help"}, want: []string{"Bind the current account token to Codex"}},

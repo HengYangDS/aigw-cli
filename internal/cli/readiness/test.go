@@ -21,6 +21,9 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 		Short: "Test current service endpoints",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if profileName != "" && client != "" {
+				return fmt.Errorf("choose either --profile or --for, not both")
+			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
@@ -112,8 +115,8 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Test only Claude or Codex")
-	cmd.Flags().StringVar(&profileName, "profile", "", "Test a specified profile without changing routes; infer its declared client when --for is omitted")
+	cmd.Flags().StringVar(&client, "for", "", "Test the selected Route for Claude or Codex")
+	cmd.Flags().StringVar(&profileName, "profile", "", "Test one Profile using its declared client without changing Routes")
 	return cmd
 }
 

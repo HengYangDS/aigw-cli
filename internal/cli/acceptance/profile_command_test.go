@@ -373,7 +373,7 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexProfile(t *testing.T) {
 	}
 }
 
-func TestTerminalErrorLocalizesResolvedProfileClientMismatch(t *testing.T) {
+func TestTerminalErrorRejectsRedundantProfileAndClientSelectors(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
@@ -388,7 +388,7 @@ func TestTerminalErrorLocalizesResolvedProfileClientMismatch(t *testing.T) {
 		t.Fatal("test command unexpectedly succeeded")
 	}
 	text := out.String()
-	for _, want := range []string{"profile \"gpt\" is for codex, not claude", "Recommended action", "aigw check"} {
+	for _, want := range []string{"choose either --profile or --for, not both", "Recommended action", "aigw check"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("localized terminal error lacks %q:\n%s", want, text)
 		}

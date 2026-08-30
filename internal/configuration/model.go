@@ -109,7 +109,7 @@ func (c Config) ClientForProfile(name string) (string, error) {
 		return "", fmt.Errorf("unknown profile %q", name)
 	}
 	if !IsAdmittedClient(profile.Client) {
-		return "", fmt.Errorf("profile %q does not declare a client; provide --for %s", name, AdmittedClientUsage())
+		return "", fmt.Errorf("profile %q does not declare exactly one admitted client", name)
 	}
 	return profile.Client, nil
 }

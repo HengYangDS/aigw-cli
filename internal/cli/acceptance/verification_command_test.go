@@ -20,9 +20,10 @@ func TestVerifyCommandRejectsInvalidInputsAndMissingState(t *testing.T) {
 		want string
 	}{
 		{name: "unknown client", args: []string{"verify", "--for", "bogus"}, want: "--for must be"},
-		{name: "profile with all", args: []string{"verify", "--for", "all", "--profile", "one"}, want: "--profile cannot be used"},
+		{name: "profile with client", args: []string{"verify", "--for", "codex", "--profile", "one"}, want: "choose either --profile or --for, not both"},
+		{name: "profile with all", args: []string{"verify", "--for", "all", "--profile", "one"}, want: "choose either --profile or --for, not both"},
 		{name: "config load", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) { app.Config = configuration.NewStore(t.TempDir()) }, want: "read config"},
-		{name: "unknown profile", args: []string{"verify", "--for", "codex", "--profile", "missing"}, prep: func(app *cli.App) {
+		{name: "unknown profile", args: []string{"verify", "--profile", "missing"}, prep: func(app *cli.App) {
 			saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		}, want: "unknown profile"},
 		{name: "missing target", args: []string{"verify"}, prep: func(app *cli.App) {

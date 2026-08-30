@@ -105,6 +105,24 @@ func TestTestCommandExplainsUnconfiguredStateBeforeResolvingRoutes(t *testing.T)
 	}
 }
 
+func TestTestCommandRejectsProfileAndClientBeforeCredentialOrNetworkAccess(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if secretStore.Has("gateway") {
+		t.Fatal("test fixture unexpectedly has a credential")
+	}
+
+	err := execute(t, app, "test", "--profile", "gpt", "--for", "codex")
+	if err == nil || !strings.Contains(err.Error(), "choose either --profile or --for, not both") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestUseForClaudeDoesNotRequireOrRewriteCodexTargets(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
