@@ -24,7 +24,7 @@ func TestCommandBoundaryTargetAndNamingBranches(t *testing.T) {
 	if err := adapter.ValidateCodexTarget(discovered, configPath); err == nil || !strings.Contains(err.Error(), "future-surface") {
 		t.Fatalf("surface error = %v", err)
 	}
-	if names := configuration.ManifestAccountNames(configuration.Manifest{Profiles: map[string]configuration.Profile{"implicit": {}}}); len(names) != 1 || names[0] != "implicit" {
+	if names := configuration.ManifestAccountNames(configuration.Manifest{Accounts: map[string]configuration.Account{"explicit": {}}}); len(names) != 1 || names[0] != "explicit" {
 		t.Fatalf("account names = %#v", names)
 	}
 	if got := invocation.Title(""); got != "" {

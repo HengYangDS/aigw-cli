@@ -54,7 +54,7 @@ the Token owner is explicit.
 
 If the catalogue is already imported, use `aigw rotate <account>` to add or
 replace that Account's Token, then select the desired Profile with
-`aigw use <profile> --for <client>`.
+`aigw use <profile>`; the Profile itself declares its client.
 
 Claude Code and Codex are not setup prerequisites. After installing either
 client, run `aigw sync`; AIGW rediscovers supported clients and converges only

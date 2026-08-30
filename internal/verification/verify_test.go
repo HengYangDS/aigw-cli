@@ -51,10 +51,10 @@ func verificationConfig() configuration.Config {
 		OpenAIResponses: "https://one.test/v1",
 		Anthropic:       "https://one.test",
 	}}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
-	cfg.Routes.Default = "codex"
-	cfg.Routes.Overrides[configuration.ClientClaude] = "claude"
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Routes[configuration.ClientClaude] = "claude"
 	return cfg
 }
 
@@ -86,7 +86,7 @@ func TestValidateFullReadiness(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	codexRuntime, _, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	codexRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,8 +119,8 @@ func TestValidateFullReadinessReportsInspectionAndRouteErrors(t *testing.T) {
 	}
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{"unused"}}
-	cfg.Routes.Default = "missing"
-	delete(cfg.Routes.Overrides, configuration.ClientCodex)
+	cfg.Routes[configuration.ClientCodex] = "missing"
+	delete(cfg.Routes, configuration.ClientCodex)
 	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "resolve the Codex route") {
 		t.Fatalf("Codex route error = %v", err)
 	}
@@ -198,7 +198,7 @@ func TestHasResponseSentinel(t *testing.T) {
 
 func TestVerifyClaude(t *testing.T) {
 	cfg := verificationConfig()
-	runtime, _, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+	runtime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
 		t.Fatal(err)
 	}

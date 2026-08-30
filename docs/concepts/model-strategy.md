@@ -14,6 +14,11 @@ minimum profile set its users need, including purpose labels and route
 recommendations. A model ID becomes a local profile only after account catalog,
 protocol, permission, cost, and client evidence are accepted.
 
+There is no global default Profile or model. Claude Code and Codex occupy
+different protocol and model spaces, so each client owns an independent Route
+to one compatible Profile. Profiles may share an Account, but they never share
+runtime selection state.
+
 ## Admission order
 
 1. Define an isolated client adapter and its uninstall boundary.

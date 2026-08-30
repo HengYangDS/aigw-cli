@@ -30,7 +30,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if !adapter.Enabled {
 				return fmt.Errorf("%s adapter is not enabled", client)
 			}
-			clientRuntime, _, err := cfg.ResolveRuntime(client, "")
+			clientRuntime, err := cfg.ResolveRuntime(client, "")
 			if err != nil {
 				return err
 			}

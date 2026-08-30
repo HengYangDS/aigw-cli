@@ -65,7 +65,7 @@ func ValidateFullReadiness(cfg configuration.Config) error {
 	if !codexAdapter.Enabled || codexAdapter.Executable == "" || len(codexAdapter.Targets) == 0 {
 		return fmt.Errorf("Full verification requires an enabled Codex adapter with at least one configuration target; run `aigw repair`")
 	}
-	clientRuntime, _, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		return fmt.Errorf("Failed to resolve the Codex route required for full verification: %w", err)
 	}

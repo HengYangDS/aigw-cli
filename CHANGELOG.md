@@ -8,6 +8,24 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- Make each admitted client select exactly one compatible Profile through its
+  own explicit Route, so Claude Code and Codex can be configured independently
+  without a global default or cross-client inheritance.
+- Make `aigw check` validate every enabled client's selected Route while
+  treating a machine with no enabled clients as a healthy deferred-setup
+  state.
+- Upgrade team manifests to schema v4 and local configuration to schema v3,
+  with one deterministic migration at the read boundary rather than parallel
+  legacy behavior.
+
+### Removed
+
+- Remove `aigw use --all`, `aigw use --for`, Route reset, and implicit Profile
+  fallback because they duplicate or contradict explicit client Route
+  authority.
+
 ## [0.1.0-rc.101] - 2026-08-30
 
 ### Fixed

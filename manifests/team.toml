@@ -1,5 +1,4 @@
-version = 3
-recommended_default = 'dmxapi-gpt-5.6-sol'
+version = 4
 
 [recommended_routes]
 claude = 'dmxapi-claude-fable-5'
@@ -36,218 +35,164 @@ anthropic = 'https://api.modelverse.cn'
 label = 'AIHubMix · Claude Fable 5'
 account = 'aihubmix'
 client = 'claude'
-
-[profiles.aihubmix-claude-fable-5.models]
-claude = 'claude-fable-5'
+model = 'claude-fable-5'
 
 [profiles.aihubmix-claude-opus-5]
 label = 'AIHubMix · Claude Opus 5'
 account = 'aihubmix'
 client = 'claude'
-
-[profiles.aihubmix-claude-opus-5.models]
-claude = 'claude-opus-5'
+model = 'claude-opus-5'
 
 [profiles.aihubmix-claude-sonnet-5]
 label = 'AIHubMix · Claude Sonnet 5'
 account = 'aihubmix'
 client = 'claude'
-
-[profiles.aihubmix-claude-sonnet-5.models]
-claude = 'claude-sonnet-5'
+model = 'claude-sonnet-5'
 
 [profiles.'aihubmix-gpt-5.6-luna']
 label = 'AIHubMix · GPT-5.6 Luna'
 account = 'aihubmix'
 client = 'codex'
-
-[profiles.'aihubmix-gpt-5.6-luna'.models]
-codex = 'gpt-5.6-luna'
+model = 'gpt-5.6-luna'
 
 [profiles.'aihubmix-gpt-5.6-sol']
 label = 'AIHubMix · GPT-5.6 Sol'
 account = 'aihubmix'
 client = 'codex'
-
-[profiles.'aihubmix-gpt-5.6-sol'.models]
-codex = 'gpt-5.6-sol'
+model = 'gpt-5.6-sol'
 
 [profiles.'aihubmix-gpt-5.6-terra']
 label = 'AIHubMix · GPT-5.6 Terra'
 account = 'aihubmix'
 client = 'codex'
-
-[profiles.'aihubmix-gpt-5.6-terra'.models]
-codex = 'gpt-5.6-terra'
+model = 'gpt-5.6-terra'
 
 [profiles.dmxapi-claude-fable-5]
 label = 'DMXAPI · Claude Fable 5 · 基线'
-purpose = 'independent Claude daily baseline; keep as default'
+purpose = 'independent Claude daily baseline'
 account = 'dmxapi'
 client = 'claude'
-
-[profiles.dmxapi-claude-fable-5.models]
-claude = 'claude-fable-5'
+model = 'claude-fable-5'
 
 [profiles.dmxapi-claude-fable-5-cc]
 label = 'DMXAPI · Claude Fable 5 CC'
 account = 'dmxapi'
 client = 'claude'
-
-[profiles.dmxapi-claude-fable-5-cc.models]
-claude = 'claude-fable-5-cc'
+model = 'claude-fable-5-cc'
 
 [profiles.dmxapi-claude-fable-5-ssvip]
 label = 'DMXAPI · Claude Fable 5 SSVIP'
 account = 'dmxapi'
 client = 'claude'
-
-[profiles.dmxapi-claude-fable-5-ssvip.models]
-claude = 'claude-fable-5-ssvip'
+model = 'claude-fable-5-ssvip'
 
 [profiles.dmxapi-claude-opus-5]
 label = 'DMXAPI · Claude Opus 5'
 account = 'dmxapi'
 client = 'claude'
-
-[profiles.dmxapi-claude-opus-5.models]
-claude = 'claude-opus-5'
+model = 'claude-opus-5'
 
 [profiles.dmxapi-claude-opus-5-cc]
 label = 'DMXAPI · Claude Opus 5 CC'
 account = 'dmxapi'
 client = 'claude'
-
-[profiles.dmxapi-claude-opus-5-cc.models]
-claude = 'claude-opus-5-cc'
+model = 'claude-opus-5-cc'
 
 [profiles.dmxapi-claude-opus-5-ssvip]
 label = 'DMXAPI · Claude Opus 5 SSVIP'
 account = 'dmxapi'
 client = 'claude'
-
-[profiles.dmxapi-claude-opus-5-ssvip.models]
-claude = 'claude-opus-5-ssvip'
+model = 'claude-opus-5-ssvip'
 
 [profiles.dmxapi-claude-sonnet-5]
 label = 'DMXAPI · Claude Sonnet 5'
 account = 'dmxapi'
 client = 'claude'
-
-[profiles.dmxapi-claude-sonnet-5.models]
-claude = 'claude-sonnet-5'
+model = 'claude-sonnet-5'
 
 [profiles.dmxapi-claude-sonnet-5-cc]
 label = 'DMXAPI · Claude Sonnet 5 CC'
 account = 'dmxapi'
 client = 'claude'
-
-[profiles.dmxapi-claude-sonnet-5-cc.models]
-claude = 'claude-sonnet-5-cc'
+model = 'claude-sonnet-5-cc'
 
 [profiles.dmxapi-claude-sonnet-5-ssvip]
 label = 'DMXAPI · Claude Sonnet 5 SSVIP'
 account = 'dmxapi'
 client = 'claude'
-
-[profiles.dmxapi-claude-sonnet-5-ssvip.models]
-claude = 'claude-sonnet-5-ssvip'
+model = 'claude-sonnet-5-ssvip'
 
 [profiles.'dmxapi-gpt-5.6-luna']
 label = 'DMXAPI · GPT-5.6 Luna'
 purpose = 'native Codex picker task selection for high-throughput routine work; never replaces Terra globally'
 account = 'dmxapi'
 client = 'codex'
-
-[profiles.'dmxapi-gpt-5.6-luna'.models]
-codex = 'gpt-5.6-luna'
+model = 'gpt-5.6-luna'
 
 [profiles.'dmxapi-gpt-5.6-luna-ssvip']
 label = 'DMXAPI · GPT-5.6 Luna SSVIP'
 account = 'dmxapi'
 client = 'codex'
-
-[profiles.'dmxapi-gpt-5.6-luna-ssvip'.models]
-codex = 'gpt-5.6-luna-ssvip'
+model = 'gpt-5.6-luna-ssvip'
 
 [profiles.'dmxapi-gpt-5.6-sol']
 label = 'DMXAPI · GPT-5.6 Sol'
-purpose = 'reviewed Codex default for complex coding and deep reasoning'
+purpose = 'reviewed Codex profile for complex coding and deep reasoning'
 account = 'dmxapi'
 client = 'codex'
-
-[profiles.'dmxapi-gpt-5.6-sol'.models]
-codex = 'gpt-5.6-sol'
+model = 'gpt-5.6-sol'
 
 [profiles.'dmxapi-gpt-5.6-sol-ssvip']
 label = 'DMXAPI · GPT-5.6 Sol SSVIP'
 account = 'dmxapi'
 client = 'codex'
-
-[profiles.'dmxapi-gpt-5.6-sol-ssvip'.models]
-codex = 'gpt-5.6-sol-ssvip'
+model = 'gpt-5.6-sol-ssvip'
 
 [profiles.'dmxapi-gpt-5.6-terra']
 label = 'DMXAPI · GPT-5.6 Terra'
-purpose = 'native Codex picker-aligned daily default; broad coding and orchestration baseline'
+purpose = 'native Codex picker-aligned profile for broad coding and orchestration'
 account = 'dmxapi'
 client = 'codex'
-
-[profiles.'dmxapi-gpt-5.6-terra'.models]
-codex = 'gpt-5.6-terra'
+model = 'gpt-5.6-terra'
 
 [profiles.'dmxapi-gpt-5.6-terra-ssvip']
 label = 'DMXAPI · GPT-5.6 Terra SSVIP'
 account = 'dmxapi'
 client = 'codex'
-
-[profiles.'dmxapi-gpt-5.6-terra-ssvip'.models]
-codex = 'gpt-5.6-terra-ssvip'
+model = 'gpt-5.6-terra-ssvip'
 
 [profiles.ucloud-claude-fable-5]
 label = 'UCloud · Claude Fable 5'
 account = 'ucloud'
 client = 'claude'
-
-[profiles.ucloud-claude-fable-5.models]
-claude = 'claude-fable-5'
+model = 'claude-fable-5'
 
 [profiles.ucloud-claude-opus-5]
 label = 'UCloud · Claude Opus 5'
 account = 'ucloud'
 client = 'claude'
-
-[profiles.ucloud-claude-opus-5.models]
-claude = 'claude-opus-5'
+model = 'claude-opus-5'
 
 [profiles.ucloud-claude-sonnet-5]
 label = 'UCloud · Claude Sonnet 5'
 account = 'ucloud'
 client = 'claude'
-
-[profiles.ucloud-claude-sonnet-5.models]
-claude = 'claude-sonnet-5'
+model = 'claude-sonnet-5'
 
 [profiles.'ucloud-gpt-5.6-luna']
 label = 'UCloud · GPT-5.6 Luna'
 account = 'ucloud'
 client = 'codex'
-
-[profiles.'ucloud-gpt-5.6-luna'.models]
-codex = 'gpt-5.6-luna'
+model = 'gpt-5.6-luna'
 
 [profiles.'ucloud-gpt-5.6-sol']
 label = 'UCloud · GPT-5.6 Sol'
 account = 'ucloud'
 client = 'codex'
-
-[profiles.'ucloud-gpt-5.6-sol'.models]
-codex = 'gpt-5.6-sol'
+model = 'gpt-5.6-sol'
 
 [profiles.'ucloud-gpt-5.6-terra']
 label = 'UCloud · GPT-5.6 Terra'
 account = 'ucloud'
 client = 'codex'
-
-[profiles.'ucloud-gpt-5.6-terra'.models]
-codex = 'gpt-5.6-terra'
+model = 'gpt-5.6-terra'

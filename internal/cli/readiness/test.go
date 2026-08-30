@@ -45,7 +45,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 			results := make([]endpointTestResult, 0, len(clients))
 			for _, spec := range clients {
 				target := spec.ID
-				clientRuntime, _, err := cfg.ResolveRuntime(target, profileName)
+				clientRuntime, err := cfg.ResolveRuntime(target, profileName)
 				if err != nil {
 					return err
 				}

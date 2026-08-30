@@ -16,19 +16,11 @@ import (
 
 // NewUseCommand constructs the daily route-selection command.
 func NewUseCommand(runtime invocation.Context) *cobra.Command {
-	var client string
-	var all bool
 	cmd := &cobra.Command{
 		Use:   "use <profile>",
-		Short: "Switch the active AI service",
+		Short: "Select a profile for its declared client",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if all && client != "" {
-				return fmt.Errorf("--all and --for cannot be used together; run `aigw use --help`")
-			}
-			if client != "" && !configuration.IsAdmittedClient(client) {
-				return fmt.Errorf("--for must be %s; run `aigw use --help`", configuration.AdmittedClientUsage())
-			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
@@ -50,10 +42,9 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if !ok {
 				return fmt.Errorf("Unknown profile %q; run `aigw profile list`", name)
 			}
-			accountID, providerAccount, err := cfg.ResolveAccount(name)
-			if err != nil {
-				return err
-			}
+			client := profile.Client
+			accountID := profile.Account
+			providerAccount := cfg.Accounts[accountID]
 			addedToken := false
 			if !runtime.Secrets.Has(accountID) {
 				instruction, writable := credential.TokenRecovery(runtime.Secrets, accountID)
@@ -68,7 +59,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 				providerAccount.ID = accountID
-				if err := credential.Validate(context.Background(), runtime.HTTP, providerAccount, token); err != nil {
+				if err := credential.Validate(context.Background(), runtime.HTTP, providerAccount, token, client); err != nil {
 					return fmt.Errorf("Token validation failed: %w", err)
 				}
 				if err := runtime.Secrets.Set(accountID, token); err != nil {
@@ -76,15 +67,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 				}
 				addedToken = true
 			}
-			switch {
-			case all:
-				cfg.Routes.Default = name
-				cfg.Routes.Overrides = map[string]string{}
-			case client != "":
-				cfg.Routes.Overrides[client] = name
-			default:
-				cfg.Routes.Default = name
-			}
+			cfg.Routes[client] = name
 			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "route"); err != nil {
 				if addedToken {
 					_ = runtime.Secrets.Delete(accountID)
@@ -98,31 +81,29 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
 				r.Row("Purpose", purpose)
 			}
-			scope := "Default route"
-			if client != "" {
-				scope = invocation.Title(client)
-			} else if all {
-				scope = "All clients"
-			}
-			r.Row("Scope", scope)
+			r.Row("Client", invocation.Title(client))
 			r.Success("Client configuration synchronized")
 			r.Next("aigw check")
 			return r.Err()
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Set only "+configuration.AdmittedClientUsage())
-	cmd.Flags().BoolVar(&all, "all", false, "Set the default route and clear client overrides")
 	return cmd
 }
 
 // NewCommand constructs the route command tree.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	root := &cobra.Command{Use: "route", Short: "Manage client routes"}
+	root := &cobra.Command{
+		Use:   "route",
+		Short: "Manage client routes",
+		Args:  cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return fmt.Errorf("Choose a route subcommand; run `aigw route --help`")
+		},
+	}
 	root.AddCommand(
-		&cobra.Command{Use: "list", Short: "Show the default route and client overrides", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
+		&cobra.Command{Use: "list", Short: "Show each client's selected profile", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
 			return runList(runtime)
 		}},
-		newResetCommand(runtime),
 	)
 	return root
 }
@@ -135,22 +116,18 @@ func runList(runtime invocation.Context) error {
 		return err
 	}
 	if len(cfg.Profiles) == 0 {
-		return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "No default route or client override is available to inspect.", "aigw setup", fmt.Errorf("not configured"))
+		return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "No client route is available to inspect.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	r := renderer(runtime)
 	r.ProductTitle("Current routes")
-	r.Section("Default route")
-	profile := cfg.Profiles[cfg.Routes.Default]
-	r.Status(presentation.OK, "Default profile", cfg.Routes.Default)
-	r.Detail(profileChoiceLabel(profile))
-	r.Section("Client")
+	r.Section("Clients")
 	nextCommand := ""
 	for _, client := range configuration.AdmittedClientIDs() {
-		clientRuntime, inherited, resolveErr := cfg.ResolveRuntime(client, "")
+		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
 		if resolveErr != nil {
 			message := "No " + invocation.Title(client) + " profile selected"
 			if suggested := cfg.FirstProfileForClient(client); suggested != "" {
-				command := "aigw use " + suggested + " --for " + client
+				command := "aigw use " + suggested
 				message += " · " + command
 				if nextCommand == "" {
 					nextCommand = command
@@ -159,54 +136,19 @@ func runList(runtime invocation.Context) error {
 			r.Status(presentation.Warn, invocation.Title(client), message)
 			continue
 		}
-		mode := "Inherits default"
-		if !inherited {
-			mode = "Explicit override"
-		}
 		profile := cfg.Profiles[clientRuntime.ProfileID]
-		r.Status(presentation.OK, invocation.Title(client), clientRuntime.ProfileID+" · "+mode)
+		r.Status(presentation.OK, invocation.Title(client), clientRuntime.ProfileID)
 		r.Detail(profileChoiceLabel(profile))
 	}
 	if nextCommand == "" {
-		nextCommand = "aigw use <profile> --for <" + strings.Join(configuration.AdmittedClientIDs(), "|") + ">"
+		nextCommand = "aigw use <profile>"
 	}
 	r.Next(nextCommand)
 	return nil
 }
 
-func newResetCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{
-		Use: "reset <client>", Short: "Restore a client's inheritance of the default route", Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client := args[0]
-			if !configuration.IsAdmittedClient(client) {
-				return fmt.Errorf("Client must be %s; run `aigw route reset --help`", configuration.AdmittedClientUsage())
-			}
-			cfg, err := runtime.Config.Load()
-			if err != nil {
-				return err
-			}
-			before := cfg.Clone()
-			delete(cfg.Routes.Overrides, client)
-			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "route reset"); err != nil {
-				return err
-			}
-			r := renderer(runtime)
-			r.ProductTitle("Route reset")
-			r.Row("Client", invocation.Title(client))
-			r.Success("Now inherits the default service")
-			r.Next("aigw check")
-			return r.Err()
-		},
-	}
-}
-
 func renderer(runtime invocation.Context) *presentation.Renderer {
-	out := runtime.RenderOut
-	if out == nil {
-		out = runtime.Out
-	}
-	return presentation.NewWithWidth(out, runtime.Color, runtime.Width)
+	return invocation.Renderer(runtime)
 }
 
 func chooseProfile(runtime invocation.Context, cfg configuration.Config, label string) (string, error) {

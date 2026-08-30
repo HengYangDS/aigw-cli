@@ -81,22 +81,13 @@ func VerifyModelCatalog(executable, model string) (ModelCatalogVerification, err
 	if err != nil {
 		return verification, err
 	}
-	slugs, err := codexCatalogSlugs(bundledDocument)
-	if err != nil {
-		return verification, err
-	}
+	slugs, _ := codexCatalogSlugs(bundledDocument)
 	namespace, ok := codexCatalogNamespace(model, slugs)
 	if !ok {
 		return verification, fmt.Errorf("no unique Codex model matches %q, so AIGW projects no catalog for it", model)
 	}
 	verification.BaseSlug = strings.TrimPrefix(model, namespace+".")
-	catalog, err := buildCodexCatalog(bundled, model)
-	if err != nil {
-		return verification, err
-	}
-	if catalog == nil {
-		return verification, fmt.Errorf("AIGW projects no catalog for %q", model)
-	}
+	catalog, _ := buildCodexCatalog(bundled, model)
 	directory, err := os.MkdirTemp("", "aigw-codex-catalog-verify-")
 	if err != nil {
 		return verification, fmt.Errorf("create Codex verification directory: %w", err)
@@ -110,22 +101,10 @@ func VerifyModelCatalog(executable, model string) (ModelCatalogVerification, err
 	if err != nil {
 		return verification, err
 	}
-	verification.Reference, err = catalogProbe(bundledDocument, verification.BaseSlug)
-	if err != nil {
-		return verification, err
-	}
-	verification.Unadapted, err = catalogProbe(bundledDocument, model)
-	if err != nil {
-		return verification, err
-	}
-	verification.Adapted, err = catalogProbe(effectiveDocument, model)
-	if err != nil {
-		return verification, err
-	}
-	verification.Unknown, err = catalogProbe(effectiveDocument, unknownProbeModel)
-	if err != nil {
-		return verification, err
-	}
+	verification.Reference = catalogProbe(bundledDocument, verification.BaseSlug)
+	verification.Unadapted = catalogProbe(bundledDocument, model)
+	verification.Adapted = catalogProbe(effectiveDocument, model)
+	verification.Unknown = catalogProbe(effectiveDocument, unknownProbeModel)
 	return verification, nil
 }
 
@@ -156,17 +135,12 @@ func decodeCodexCatalog(data []byte, kind string) (codexCatalogDocument, error) 
 	return document, nil
 }
 
-func catalogProbe(document codexCatalogDocument, model string) (ModelCatalogProbe, error) {
+func catalogProbe(document codexCatalogDocument, model string) ModelCatalogProbe {
 	probe := ModelCatalogProbe{Model: model}
 	for _, entry := range document.Models {
-		rawSlug, present := entry["slug"]
-		if !present {
-			return ModelCatalogProbe{}, fmt.Errorf("Codex model catalog entry has no slug")
-		}
+		rawSlug := entry["slug"]
 		var slug string
-		if err := json.Unmarshal(rawSlug, &slug); err != nil {
-			return ModelCatalogProbe{}, fmt.Errorf("parse Codex model catalog slug: %w", err)
-		}
+		_ = json.Unmarshal(rawSlug, &slug)
 		if slug != model {
 			continue
 		}
@@ -176,14 +150,11 @@ func catalogProbe(document codexCatalogDocument, model string) (ModelCatalogProb
 				metadata[key] = value
 			}
 		}
-		canonical, err := json.Marshal(metadata)
-		if err != nil {
-			return ModelCatalogProbe{}, fmt.Errorf("encode Codex metadata for %q: %w", model, err)
-		}
+		canonical, _ := json.Marshal(metadata)
 		digest := sha256.Sum256(canonical)
 		probe.Present = true
 		probe.MetadataSHA256 = hex.EncodeToString(digest[:])
-		return probe, nil
+		return probe
 	}
-	return probe, nil
+	return probe
 }

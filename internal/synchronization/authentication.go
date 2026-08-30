@@ -29,7 +29,7 @@ func (s Synchronizer) BindAuthenticationTargets(ctx context.Context, cfg configu
 	if !adapter.Enabled {
 		return fmt.Errorf("Codex authentication requires an enabled adapter")
 	}
-	runtime, _, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func RouteAccount(cfg configuration.Config) (string, bool) {
 	if !cfg.Adapters[configuration.ClientCodex].Enabled {
 		return "", false
 	}
-	runtime, _, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		return "", false
 	}
@@ -88,11 +88,11 @@ func AuthenticationChanged(before, after configuration.Config) bool {
 		return false
 	}
 	if !beforeAdapter.Enabled || !slices.Equal(beforeAdapter.Targets, afterAdapter.Targets) {
-		runtime, _, err := after.ResolveRuntime(configuration.ClientCodex, "")
+		runtime, err := after.ResolveRuntime(configuration.ClientCodex, "")
 		return err != nil || runtime.ModelProvider == configuration.ModelProviderAIGW
 	}
-	beforeRuntime, _, beforeErr := before.ResolveRuntime(configuration.ClientCodex, "")
-	afterRuntime, _, afterErr := after.ResolveRuntime(configuration.ClientCodex, "")
+	beforeRuntime, beforeErr := before.ResolveRuntime(configuration.ClientCodex, "")
+	afterRuntime, afterErr := after.ResolveRuntime(configuration.ClientCodex, "")
 	if afterErr != nil {
 		return true
 	}

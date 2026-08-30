@@ -46,7 +46,7 @@ func (s Synchronizer) Plan(before, after configuration.Config) ([]ProjectionPlan
 	disabled := !after.Adapters[configuration.ClientClaude].Enabled
 	var claudeRuntime configuration.Runtime
 	if !disabled {
-		claudeRuntime, _, err = after.ResolveRuntime(configuration.ClientClaude, "")
+		claudeRuntime, err = after.ResolveRuntime(configuration.ClientClaude, "")
 		if err != nil {
 			return nil, err
 		}
@@ -80,7 +80,7 @@ func (s Synchronizer) Reconcile(_ context.Context, before, after configuration.C
 		_, err = claude.ReconcileSettings(s.ClaudeSettingsPath, true, configuration.Runtime{}, "")
 		return err
 	}
-	claudeRuntime, _, err := after.ResolveRuntime(configuration.ClientClaude, "")
+	claudeRuntime, err := after.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (s Synchronizer) reconciliationInputs(before, after configuration.Config) (
 	if !afterAdapter.Enabled {
 		return beforeRefs, nil, configuration.Runtime{}, nil
 	}
-	runtime, _, err := after.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := after.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		return nil, nil, configuration.Runtime{}, err
 	}
@@ -177,8 +177,8 @@ func ProjectionChanged(before, after configuration.Config) bool {
 	if !beforeAdapter.Enabled || !slices.Equal(beforeAdapter.Targets, afterAdapter.Targets) {
 		return true
 	}
-	beforeRuntime, _, beforeErr := before.ResolveRuntime(configuration.ClientCodex, "")
-	afterRuntime, _, afterErr := after.ResolveRuntime(configuration.ClientCodex, "")
+	beforeRuntime, beforeErr := before.ResolveRuntime(configuration.ClientCodex, "")
+	afterRuntime, afterErr := after.ResolveRuntime(configuration.ClientCodex, "")
 	if beforeErr != nil || afterErr != nil {
 		return true
 	}
@@ -201,8 +201,8 @@ func ClaudeProjectionChanged(before, after configuration.Config) bool {
 	if !afterAdapter.Enabled {
 		return false
 	}
-	beforeRuntime, _, beforeErr := before.ResolveRuntime(configuration.ClientClaude, "")
-	afterRuntime, _, afterErr := after.ResolveRuntime(configuration.ClientClaude, "")
+	beforeRuntime, beforeErr := before.ResolveRuntime(configuration.ClientClaude, "")
+	afterRuntime, afterErr := after.ResolveRuntime(configuration.ClientClaude, "")
 	if beforeErr != nil || afterErr != nil {
 		return true
 	}

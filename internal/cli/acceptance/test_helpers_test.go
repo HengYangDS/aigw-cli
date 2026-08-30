@@ -156,11 +156,11 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, *secrets.Memo
 	return app, out, secretStore, runner
 }
 
-func addAccountProfile(cfg *configuration.Config, profileName, accountName, label string, endpoints configuration.Endpoints, client string, models configuration.Models) {
+func addAccountProfile(cfg *configuration.Config, profileName, accountName, label string, endpoints configuration.Endpoints, client, model string) {
 	if _, exists := cfg.Accounts[accountName]; !exists {
 		cfg.Accounts[accountName] = configuration.Account{Label: label, Endpoints: endpoints}
 	}
-	cfg.Profiles[profileName] = configuration.Profile{Label: label, Account: accountName, Client: client, Models: models}
+	cfg.Profiles[profileName] = configuration.Profile{Label: label, Account: accountName, Client: client, Model: model}
 }
 
 func execute(t *testing.T, app *cli.App, args ...string) error {
@@ -187,11 +187,11 @@ type closeFailingBody struct {
 
 func (body closeFailingBody) Close() error { return body.err }
 
-func saveCommandProfile(t *testing.T, app *cli.App, endpoints configuration.Endpoints, client string, models configuration.Models) {
+func saveCommandProfile(t *testing.T, app *cli.App, endpoints configuration.Endpoints, client, model string) {
 	t.Helper()
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", endpoints, client, models)
-	cfg.Routes.Default = "one"
+	addAccountProfile(&cfg, "one", "one", "One", endpoints, client, model)
+	cfg.Routes[client] = "one"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -215,8 +215,8 @@ func saveProbeProfile(t *testing.T, appConfig configuration.Store) {
 		Endpoints:    configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 		AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"},
 	}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-	cfg.Routes.Default = "gpt"
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Routes[configuration.ClientCodex] = "gpt"
 	if err := appConfig.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -253,9 +253,9 @@ func (u *fakeUpdater) Rollback(_ context.Context) (string, error) {
 
 func twoProfileConfig() configuration.Config {
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One Gateway", configuration.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, "", configuration.Models{})
-	addAccountProfile(&cfg, "two", "two", "Two Gateway", configuration.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, "", configuration.Models{})
-	cfg.Routes.Default = "one"
+	addAccountProfile(&cfg, "one", "one", "One Gateway", configuration.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "model-one")
+	addAccountProfile(&cfg, "two", "two", "Two Gateway", configuration.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, configuration.ClientCodex, "model-two")
+	cfg.Routes[configuration.ClientCodex] = "one"
 	return cfg
 }
 

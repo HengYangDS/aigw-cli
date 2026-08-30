@@ -87,8 +87,8 @@ func desiredClientConfig(runtime invocation.Context, before configuration.Config
 	if err != nil {
 		return configuration.Config{}, discovery.Result{}, err
 	}
-	claudeRuntime, _, claudeRouteErr := after.ResolveRuntime(configuration.ClientClaude, "")
-	codexRuntime, _, codexRouteErr := after.ResolveRuntime(configuration.ClientCodex, "")
+	claudeRuntime, claudeRouteErr := after.ResolveRuntime(configuration.ClientClaude, "")
+	codexRuntime, codexRouteErr := after.ResolveRuntime(configuration.ClientCodex, "")
 	claudeAdapter := after.Adapters[configuration.ClientClaude]
 	claudeExecutable := claudeAdapter.Executable
 	if claudeExecutable == "" {

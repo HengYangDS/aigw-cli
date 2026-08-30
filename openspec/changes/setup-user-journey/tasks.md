@@ -16,5 +16,20 @@
 ## 3. Closeout
 
 - [x] 3.1 Run the affected source and policy gates and produce exact-HEAD proof.
-- [x] 3.2 Archive the completed official Change, land it through the governed
-      path, and retire the work lane without leaving a proposal or work ref.
+- [x] 3.2 Confirm the completed Change is ready for the governed archive and
+      landing transition; retire its temporary refs during lifecycle closeout.
+
+## 4. Client Route Authority
+
+- [x] 4.1 Specify and reproduce the global-default contradiction after two
+      client-specific selections.
+- [x] 4.2 Replace default-plus-overrides with one explicit client Route map and
+      migrate the previous local schema without retaining parallel semantics.
+- [x] 4.3 Remove ambiguous `use --all`, default inheritance, and reset behavior;
+      make Profile client identity the command's selection authority.
+- [x] 4.4 Make setup, check, status, doctor, sync, credentials, rename, recovery,
+      import, and export consume the same Route model.
+- [x] 4.5 Prove two independently selected clients, one selected client, no
+      installed client, migration, and manifest round-trip behavior.
+- [x] 4.6 Re-run strict OpenSpec validation, affected tests, source gate, real
+      CLI journey, and exact-HEAD proof before archive.

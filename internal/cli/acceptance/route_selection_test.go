@@ -9,18 +9,18 @@ import (
 	configuration "aigw-cli/internal/configuration"
 )
 
-func TestUseRejectsCombiningAllAndFor(t *testing.T) {
+func TestUseRejectsRemovedAllFlag(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
-	err := execute(t, app, "use", "one", "--all", "--for", "codex")
-	if err == nil || !strings.Contains(err.Error(), "--all and --for cannot be used together") {
+	err := execute(t, app, "use", "one", "--all")
+	if err == nil || !strings.Contains(err.Error(), "unknown flag: --all") {
 		t.Fatalf("error = %v", err)
 	}
 }
 
-func TestUseRejectsUnknownClientFlag(t *testing.T) {
+func TestUseRejectsRemovedForFlag(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
-	err := execute(t, app, "use", "one", "--for", "bogus")
-	if err == nil || !strings.Contains(err.Error(), "--for must be claude or codex") {
+	err := execute(t, app, "use", "one", "--for", "codex")
+	if err == nil || !strings.Contains(err.Error(), "unknown flag: --for") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -37,8 +37,8 @@ func TestUseSurfacesConfigLoadFailure(t *testing.T) {
 func TestUseWithoutProfileRequiresInteractiveTerminal(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, "", configuration.Models{})
-	cfg.Routes.Default = "one"
+	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
+	cfg.Routes[configuration.ClientClaude] = "one"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -52,9 +52,9 @@ func TestUseWithoutProfileRequiresInteractiveTerminal(t *testing.T) {
 func TestUseWithoutProfilePromptsInteractively(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, "", configuration.Models{})
-	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, "", configuration.Models{})
-	cfg.Routes.Default = "one"
+	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
+	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
+	cfg.Routes[configuration.ClientClaude] = "one"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestUseWithoutProfilePromptsInteractively(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Routes.Default != "two" {
+	if got.Routes[configuration.ClientClaude] != "two" {
 		t.Fatalf("routes = %#v, want the interactively chosen profile", got.Routes)
 	}
 }
@@ -77,8 +77,8 @@ func TestUseWithoutProfilePromptsInteractively(t *testing.T) {
 func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, "", configuration.Models{})
-	cfg.Routes.Default = "one"
+	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
+	cfg.Routes[configuration.ClientClaude] = "one"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -95,8 +95,8 @@ func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
 func TestUseRejectsUnknownProfile(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, "", configuration.Models{})
-	cfg.Routes.Default = "one"
+	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
+	cfg.Routes[configuration.ClientClaude] = "one"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -111,8 +111,8 @@ func TestUseSurfacesUnknownAccountReference(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one"}
-	cfg.Routes.Default = "one"
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientClaude, Model: "claude-one"}
+	cfg.Routes[configuration.ClientClaude] = "one"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestUseSurfacesUnknownAccountReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data = append(data, []byte("\n[profiles.broken]\nlabel = \"Broken\"\naccount = \"ghost\"\n")...)
+	data = append(data, []byte("\n[profiles.broken]\nlabel = \"Broken\"\naccount = \"ghost\"\nclient = \"claude\"\nmodel = \"claude-broken\"\n")...)
 	if err := os.WriteFile(app.Config.Path(), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -137,9 +137,9 @@ func TestUseSurfacesUnknownAccountReference(t *testing.T) {
 func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, "", configuration.Models{})
-	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, "", configuration.Models{})
-	cfg.Routes.Default = "one"
+	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
+	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
+	cfg.Routes[configuration.ClientClaude] = "one"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -152,9 +152,9 @@ func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, "", configuration.Models{})
-	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, "", configuration.Models{})
-	cfg.Routes.Default = "one"
+	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
+	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
+	cfg.Routes[configuration.ClientClaude] = "one"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -169,9 +169,9 @@ func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, "", configuration.Models{})
-	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, "", configuration.Models{})
-	cfg.Routes.Default = "one"
+	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
+	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
+	cfg.Routes[configuration.ClientClaude] = "one"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -191,9 +191,9 @@ func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, "", configuration.Models{})
-	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, "", configuration.Models{})
-	cfg.Routes.Default = "one"
+	addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
+	addAccountProfile(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-two")
+	cfg.Routes[configuration.ClientClaude] = "one"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -169,9 +169,9 @@ func codexProjectionChecks(cfg configuration.Config) []Check {
 	if !adapter.Enabled {
 		return nil
 	}
-	runtime, _, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
-		return []Check{{"projection:codex", false, err.Error(), "run `aigw use <codex-profile> --for codex`"}}
+		return []Check{{"projection:codex", false, err.Error(), "run `aigw use <codex-profile>`"}}
 	}
 	checks := make([]Check, 0, len(adapter.Targets))
 	for index, target := range adapter.Targets {

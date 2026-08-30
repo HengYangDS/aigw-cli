@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	ConfigVersion     = 2
+	ConfigVersion     = 3
 	ClientClaude      = "claude"
 	ClientCodex       = "codex"
 	ModelProviderAIGW = "aigw"
@@ -41,14 +41,10 @@ type Profile struct {
 	Label         string `toml:"label" json:"label"`
 	Purpose       string `toml:"purpose,omitempty" json:"purpose,omitempty"`
 	Account       string `toml:"account" json:"account"`
-	Client        string `toml:"client,omitempty" json:"client,omitempty"`
+	Client        string `toml:"client" json:"client"`
+	Model         string `toml:"model" json:"model"`
 	ModelProvider string `toml:"model_provider,omitempty" json:"model_provider,omitempty"`
-	Models        Models `toml:"models,omitempty" json:"models,omitempty"`
 }
-
-// Models maps an admitted client ID to the upstream model ID it should use.
-// The TOML shape remains [profiles.<id>.models] with client IDs as keys.
-type Models map[string]string
 
 type Runtime struct {
 	ProfileID         string `json:"profile_id"`
@@ -72,10 +68,10 @@ type Endpoints struct {
 	Anthropic       string `toml:"anthropic,omitempty" json:"anthropic,omitempty"`
 }
 
-type Routes struct {
-	Default   string            `toml:"default" json:"default"`
-	Overrides map[string]string `toml:"overrides,omitempty" json:"overrides,omitempty"`
-}
+// Routes maps each admitted client to its selected Profile. There is no global
+// fallback because a client-scoped Profile cannot represent another client's
+// protocol or model.
+type Routes map[string]string
 
 type AdapterConfig struct {
 	Enabled    bool     `toml:"enabled" json:"enabled"`
@@ -84,7 +80,7 @@ type AdapterConfig struct {
 }
 
 func NewConfig() Config {
-	return Config{Version: ConfigVersion, Accounts: map[string]Account{}, Profiles: map[string]Profile{}, Routes: Routes{Overrides: map[string]string{}}, Adapters: map[string]AdapterConfig{}}
+	return Config{Version: ConfigVersion, Accounts: map[string]Account{}, Profiles: map[string]Profile{}, Routes: Routes{}, Adapters: map[string]AdapterConfig{}}
 }
 
 // Clone returns an independent configuration value. Config is the semantic
@@ -145,7 +141,7 @@ func (c Config) FirstProfileForClient(client string) string {
 		if profile.Client != "" && profile.Client != client {
 			continue
 		}
-		if profile.ModelFor(client) != "" {
+		if profile.Model != "" {
 			return id
 		}
 		if account, ok := c.Accounts[profile.Account]; ok {
@@ -161,7 +157,7 @@ func (c Config) FirstProfileForClient(client string) string {
 // RouteUsesAccount reports whether the resolved route for client selects the
 // given Account.
 func (c Config) RouteUsesAccount(client, accountID string) bool {
-	runtime, _, err := c.ResolveRuntime(client, "")
+	runtime, err := c.ResolveRuntime(client, "")
 	return err == nil && runtime.AccountID != "" && runtime.AccountID == accountID
 }
 
@@ -172,7 +168,7 @@ func (c Config) RouteUsesAccount(client, accountID string) bool {
 func (c Config) RoutedAccountIDs() []string {
 	selected := map[string]bool{}
 	for _, client := range AdmittedClientIDs() {
-		runtime, _, err := c.ResolveRuntime(client, "")
+		runtime, err := c.ResolveRuntime(client, "")
 		if err == nil && runtime.AccountID != "" {
 			selected[runtime.AccountID] = true
 		}
@@ -188,7 +184,7 @@ func (c Config) RoutedAccountIDs() []string {
 // SelectRoutesForConnectedAccounts preserves the complete capability catalogue
 // while choosing routes that can use one of the locally connected Accounts.
 // The existing recommendation wins whenever it is already usable; otherwise
-// lexical Profile order makes the fallback deterministic.
+// lexical Profile order makes the replacement deterministic.
 func (c Config) SelectRoutesForConnectedAccounts(accountIDs []string) (Config, error) {
 	selected := c.Clone()
 	connected := make(map[string]bool, len(accountIDs))
@@ -208,51 +204,28 @@ func (c Config) SelectRoutesForConnectedAccounts(accountIDs []string) (Config, e
 		}
 		profileID := selected.profileForConnectedClient(client, connected)
 		if profileID == "" {
-			delete(selected.Routes.Overrides, client)
+			delete(selected.Routes, client)
 			continue
 		}
-		selected.Routes.Overrides[client] = profileID
-	}
-
-	if !selected.profileUsesConnectedAccount(selected.Routes.Default, connected) {
-		defaultClient := ""
-		if profile, ok := selected.Profiles[selected.Routes.Default]; ok {
-			defaultClient = profile.Client
-		}
-		if defaultClient != "" {
-			selected.Routes.Default = selected.Routes.Overrides[defaultClient]
-		}
-		if selected.Routes.Default == "" || !selected.profileUsesConnectedAccount(selected.Routes.Default, connected) {
-			for _, client := range AdmittedClientIDs() {
-				if profileID := selected.Routes.Overrides[client]; profileID != "" {
-					selected.Routes.Default = profileID
-					break
-				}
-			}
-		}
+		selected.Routes[client] = profileID
 	}
 	return selected, nil
 }
 
 func (c Config) routeUsesConnectedAccount(client string, connected map[string]bool) bool {
-	runtime, _, err := c.ResolveRuntime(client, "")
+	runtime, err := c.ResolveRuntime(client, "")
 	return err == nil && connected[runtime.AccountID]
-}
-
-func (c Config) profileUsesConnectedAccount(profileID string, connected map[string]bool) bool {
-	profile, ok := c.Profiles[profileID]
-	return ok && connected[profile.Account]
 }
 
 func (c Config) profileForConnectedClient(client string, connected map[string]bool) string {
 	preferredModel := ""
-	if runtime, _, err := c.ResolveRuntime(client, ""); err == nil {
+	if runtime, err := c.ResolveRuntime(client, ""); err == nil {
 		preferredModel = runtime.Model
 	}
-	fallback := ""
+	replacement := ""
 	for _, profileID := range c.ProfileIDs() {
 		profile := c.Profiles[profileID]
-		if !connected[profile.Account] || (profile.Client != "" && profile.Client != client) {
+		if !connected[profile.Account] || profile.Client != client {
 			continue
 		}
 		account := c.Accounts[profile.Account]
@@ -260,16 +233,16 @@ func (c Config) profileForConnectedClient(client string, connected map[string]bo
 		if _, err := account.EndpointFor(client); err != nil {
 			continue
 		}
-		if profile.Client == "" || profile.ModelFor(client) != "" {
-			if preferredModel != "" && profile.ModelFor(client) == preferredModel {
+		if profile.Model != "" {
+			if preferredModel != "" && profile.Model == preferredModel {
 				return profileID
 			}
-			if fallback == "" {
-				fallback = profileID
+			if replacement == "" {
+				replacement = profileID
 			}
 		}
 	}
-	return fallback
+	return replacement
 }
 
 func ValidProfileName(name string) bool { return profileNamePattern.MatchString(name) }
@@ -281,8 +254,8 @@ func (c *Config) Normalize() {
 	if c.Profiles == nil {
 		c.Profiles = map[string]Profile{}
 	}
-	if c.Routes.Overrides == nil {
-		c.Routes.Overrides = map[string]string{}
+	if c.Routes == nil {
+		c.Routes = Routes{}
 	}
 	if c.Adapters == nil {
 		c.Adapters = map[string]AdapterConfig{}
@@ -294,10 +267,7 @@ func (c Config) normalizedCopy() Config {
 		Version:  c.Version,
 		Accounts: map[string]Account{},
 		Profiles: map[string]Profile{},
-		Routes: Routes{
-			Default:   c.Routes.Default,
-			Overrides: map[string]string{},
-		},
+		Routes:   Routes{},
 		Adapters: map[string]AdapterConfig{},
 	}
 	for name, account := range c.Accounts {
@@ -306,8 +276,8 @@ func (c Config) normalizedCopy() Config {
 	for name, profile := range c.Profiles {
 		out.Profiles[name] = profile
 	}
-	for name, route := range c.Routes.Overrides {
-		out.Routes.Overrides[name] = route
+	for name, route := range c.Routes {
+		out.Routes[name] = route
 	}
 	for name, adapter := range c.Adapters {
 		adapter.Targets = append([]string(nil), adapter.Targets...)
@@ -368,8 +338,11 @@ func (c Config) Validate() error {
 		if _, ok := c.Accounts[profile.Account]; !ok {
 			return fmt.Errorf("profile %q references unknown account %q", name, profile.Account)
 		}
-		if profile.Client != "" && !IsAdmittedClient(profile.Client) {
+		if !IsAdmittedClient(profile.Client) {
 			return fmt.Errorf("profile %q has unknown client %q", name, profile.Client)
+		}
+		if strings.TrimSpace(profile.Model) == "" {
+			return fmt.Errorf("profile %q must define a model", name)
 		}
 		if profile.ModelProvider != "" {
 			if !modelProviderPattern.MatchString(profile.ModelProvider) {
@@ -379,24 +352,17 @@ func (c Config) Validate() error {
 				return fmt.Errorf("profile %q model_provider is only supported for codex-scoped profiles", name)
 			}
 		}
-		for client, model := range profile.Models {
-			if !IsAdmittedClient(client) {
-				return fmt.Errorf("profile %q defines a model for unadmitted client %q", name, client)
-			}
-			if profile.Client != "" && client != profile.Client && strings.TrimSpace(model) != "" {
-				return fmt.Errorf("profile %q is %s-scoped; define a model for %s, not %s", name, profile.Client, profile.Client, client)
-			}
-		}
 	}
-	if _, ok := c.Profiles[c.Routes.Default]; !ok {
-		return fmt.Errorf("default route references unknown profile %q", c.Routes.Default)
-	}
-	for client, profile := range c.Routes.Overrides {
+	for client, profile := range c.Routes {
 		if !IsAdmittedClient(client) {
 			return fmt.Errorf("unknown route %q; supported routes are %s", client, AdmittedClientUsage())
 		}
-		if _, ok := c.Profiles[profile]; !ok {
+		selected, ok := c.Profiles[profile]
+		if !ok {
 			return fmt.Errorf("route %q references unknown profile %q", client, profile)
+		}
+		if selected.Client != client {
+			return fmt.Errorf("route %q selects profile %q for %q", client, profile, selected.Client)
 		}
 	}
 	for name := range c.Adapters {
@@ -449,34 +415,31 @@ func validateEndpoint(raw string) error {
 	return nil
 }
 
-func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, bool, error) {
+func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, error) {
 	c = c.normalizedCopy()
 	name := explicitProfile
-	inherited := false
 	if name == "" {
-		var overridden bool
-		name, overridden = c.Routes.Overrides[client]
-		if !overridden {
-			name = c.Routes.Default
-			inherited = true
+		name = c.Routes[client]
+		if name == "" {
+			return Runtime{}, fmt.Errorf("no route selected for client %q", client)
 		}
 	}
 	profile, ok := c.Profiles[name]
 	if !ok {
-		return Runtime{}, inherited, fmt.Errorf("unknown profile %q", name)
+		return Runtime{}, fmt.Errorf("unknown profile %q", name)
 	}
 	profile.ID = name
-	if profile.Client != "" && client != "" && profile.Client != client {
-		return Runtime{}, inherited, &RuntimeProfileClientMismatchError{ProfileID: name, ExpectedClient: profile.Client, ActualClient: client}
+	if profile.Client != client {
+		return Runtime{}, &RuntimeProfileClientMismatchError{ProfileID: name, ExpectedClient: profile.Client, ActualClient: client}
 	}
 	account, ok := c.Accounts[profile.Account]
 	if !ok {
-		return Runtime{}, inherited, &RuntimeProfileUnknownAccountError{ProfileID: name, AccountID: profile.Account}
+		return Runtime{}, &RuntimeProfileUnknownAccountError{ProfileID: name, AccountID: profile.Account}
 	}
 	account.ID = profile.Account
 	endpoint, err := account.EndpointFor(client)
 	if err != nil {
-		return Runtime{}, inherited, err
+		return Runtime{}, err
 	}
 	return Runtime{
 		ProfileID:     name,
@@ -485,13 +448,9 @@ func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, bool, e
 		AccountLabel:  account.Label,
 		Client:        client,
 		Endpoint:      endpoint,
-		Model:         profile.ModelFor(client),
+		Model:         profile.Model,
 		ModelProvider: resolvedModelProvider(client, profile),
-	}, inherited, nil
-}
-
-func (p Profile) ModelFor(client string) string {
-	return p.Models[client]
+	}, nil
 }
 
 func (a Account) EndpointFor(client string) (string, error) {

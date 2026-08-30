@@ -56,7 +56,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			r.Section("Minimal request")
 			r.Detail("This makes one minimal model request; it does not modify client configuration or restart clients.")
 			for _, target := range clients {
-				clientRuntime, _, err := cfg.ResolveRuntime(target, profileName)
+				clientRuntime, err := cfg.ResolveRuntime(target, profileName)
 				if err != nil {
 					return err
 				}

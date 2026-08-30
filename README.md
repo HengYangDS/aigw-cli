@@ -119,7 +119,7 @@ select any of its Profiles:
 
 ```bash
 aigw rotate dmxapi
-aigw use dmxapi-gpt-5.6-sol --for codex
+aigw use dmxapi-gpt-5.6-sol
 ```
 
 If a supported client is installed after setup, `aigw sync` discovers it and
@@ -203,7 +203,7 @@ dumps, or unrelated usage text.
 | ------- | ------------------------------------------------------------------------- | ---------------------- |
 | Account | Provider endpoints and one logical Token boundary                         | Client selection       |
 | Profile | `account + client + model` and an optional Codex-native provider identity | Endpoint credentials   |
-| Route   | Default or client-specific Profile selection                              | Provider fallback      |
+| Route   | One client's explicit Profile selection                                   | Provider fallback      |
 | Adapter | One native client projection                                              | Another client's state |
 
 ```mermaid
@@ -249,10 +249,8 @@ declare it on that Codex Profile:
 label = "AWS Codex"
 account = "aws"
 client = "codex"
+model = "openai.gpt-5.6-sol"
 model_provider = "amazon-bedrock"
-
-[profiles.aws-codex.models]
-codex = "openai.gpt-5.6-sol"
 ```
 
 AIGW then projects the Account endpoint and an absolute `aigw credential codex`

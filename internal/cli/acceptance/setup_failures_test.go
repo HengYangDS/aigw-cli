@@ -20,16 +20,17 @@ func TestSetupRejectsInvalidFlagCombinationsAndValues(t *testing.T) {
 		want string
 	}{
 		{name: "empty from", args: []string{"setup", "--from="}, want: "--from requires"},
+		{name: "json without manifest", args: []string{"setup", "--json"}, want: "--json requires --from"},
 		{name: "missing profile", args: []string{"setup"}, want: "--profile is required"},
 		{name: "invalid account", args: []string{"setup", "--profile", "one", "--account", "bad id"}, want: "Invalid account ID"},
 		{name: "invalid profile", args: []string{"setup", "--profile", "bad id", "--account", "one"}, want: "Invalid profile ID"},
-		{name: "model without client", args: []string{"setup", "--profile", "one", "--model", "m"}, want: "--model requires"},
+		{name: "model without client", args: []string{"setup", "--profile", "one", "--model", "m"}, want: "--for is required"},
 		{name: "claude endpoint", args: []string{"setup", "--profile", "one", "--for", "claude", "--model", "m"}, want: "requires --anthropic-url"},
 		{name: "claude model", args: []string{"setup", "--profile", "one", "--for", "claude", "--anthropic-url", "https://one.test"}, want: "requires --model"},
 		{name: "codex endpoint", args: []string{"setup", "--profile", "one", "--for", "codex", "--model", "m"}, want: "requires --openai-url"},
 		{name: "codex model", args: []string{"setup", "--profile", "one", "--for", "codex", "--openai-url", "https://one.test/v1"}, want: "requires --model"},
 		{name: "unknown client", args: []string{"setup", "--profile", "one", "--for", "other"}, want: "--for must be"},
-		{name: "invalid empty endpoints", args: []string{"setup", "--profile", "one"}, want: "at least one endpoint"},
+		{name: "invalid unused endpoint", args: []string{"setup", "--profile", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--openai-url", "http://remote.test/v1"}, want: "plain HTTP is allowed only"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -53,7 +54,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 
 	t.Run("already configured", func(t *testing.T) {
 		app, _, _, _ := testApp(t, "token\n")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "m"})
+		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		err := execute(t, app, "setup", "--profile", "two", "--for", "claude", "--model", "m", "--anthropic-url", "https://two.test", "--token-stdin")
 		if err == nil || !strings.Contains(err.Error(), "already configured") {
 			t.Fatalf("error = %v", err)
@@ -72,7 +73,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("interactive already configured", func(t *testing.T) {
 		app, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "m"})
+		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		err := execute(t, app, "setup")
 		if err == nil || !strings.Contains(err.Error(), "already configured") {
 			t.Fatalf("error = %v", err)
@@ -161,7 +162,7 @@ func TestManifestSetupSurfacesManifestAndConfigFailures(t *testing.T) {
 
 	t.Run("already configured", func(t *testing.T) {
 		app, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "m"})
+		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		path := writeConfigurationManifest(t, configurationManifestFixture)
 		err := execute(t, app, "setup", "--from", path)
 		if err == nil || !strings.Contains(err.Error(), "already configured") {

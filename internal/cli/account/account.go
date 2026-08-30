@@ -21,7 +21,7 @@ import (
 )
 
 func NewAddCommand(runtime invocation.Context) *cobra.Command {
-	var label, openAIURL, anthropicURL string
+	var label, openAIURL, anthropicURL, client, model string
 	var tokenStdin bool
 	cmd := &cobra.Command{
 		Use:   "add <profile>",
@@ -42,20 +42,25 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 			if label == "" {
 				label = name
 			}
+			if !configuration.IsAdmittedClient(client) || strings.TrimSpace(model) == "" {
+				return fmt.Errorf("--for and --model are required; --for must be %s", configuration.AdmittedClientUsage())
+			}
 			account := configuration.Account{Label: label, Endpoints: configuration.Endpoints{
 				OpenAIResponses: strings.TrimRight(openAIURL, "/"),
 				Anthropic:       strings.TrimRight(anthropicURL, "/"),
 			}}
-			profile := configuration.Profile{Label: label, Account: name}
+			account.ID = name
+			if _, err := account.EndpointFor(client); err != nil {
+				return err
+			}
+			profile := configuration.Profile{Label: label, Account: name, Client: client, Model: strings.TrimSpace(model)}
 			token, err := invocation.ReadToken(runtime, tokenStdin, true)
 			if err != nil {
 				return err
 			}
 			cfg.Accounts[name] = account
 			cfg.Profiles[name] = profile
-			if cfg.Routes.Default == "" {
-				cfg.Routes.Default = name
-			}
+			cfg.Routes[client] = name
 			if err := cfg.Validate(); err != nil {
 				return err
 			}
@@ -79,6 +84,8 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&label, "label", "", "Provider display name")
 	cmd.Flags().StringVar(&openAIURL, "openai-url", "", "OpenAI Responses base URL")
 	cmd.Flags().StringVar(&anthropicURL, "anthropic-url", "", "Anthropic base URL")
+	cmd.Flags().StringVar(&client, "for", "", "Client: "+configuration.AdmittedClientUsage())
+	cmd.Flags().StringVar(&model, "model", "", "Upstream model ID")
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one token line from standard input")
 	return cmd
 }
@@ -140,9 +147,9 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			name := cfg.Routes.Default
-			if len(args) == 1 {
-				name = args[0]
+			name, err := accountReference(cfg, args)
+			if err != nil {
+				return err
 			}
 			accountName, account, err := cfg.ResolveAccount(name)
 			if err != nil {
@@ -248,9 +255,9 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 			if err != nil {
 				return err
 			}
-			name := cfg.Routes.Default
-			if len(args) == 1 {
-				name = args[0]
+			name, err := accountReference(cfg, args)
+			if err != nil {
+				return err
 			}
 			accountName, providerAccount, err := cfg.ResolveAccount(name)
 			if err != nil {
@@ -286,9 +293,9 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 			if err != nil {
 				return err
 			}
-			name := cfg.Routes.Default
-			if len(args) == 1 {
-				name = args[0]
+			name, err := accountReference(cfg, args)
+			if err != nil {
+				return err
 			}
 			accountName, _, err := cfg.ResolveAccount(name)
 			if err != nil {
@@ -312,9 +319,9 @@ func NewBalanceCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		name := cfg.Routes.Default
-		if len(args) == 1 {
-			name = args[0]
+		name, err := accountReference(cfg, args)
+		if err != nil {
+			return err
 		}
 		accountName, providerAccount, err := cfg.ResolveAccount(name)
 		if err != nil {
@@ -374,4 +381,17 @@ func NewBalanceCommand(runtime invocation.Context) *cobra.Command {
 		r.Next("aigw check")
 		return nil
 	}}
+}
+
+func accountReference(cfg configuration.Config, args []string) (string, error) {
+	if len(args) == 1 {
+		return args[0], nil
+	}
+	if len(cfg.Accounts) != 1 {
+		return "", fmt.Errorf("account is required when configuration contains %d accounts", len(cfg.Accounts))
+	}
+	for accountID := range cfg.Accounts {
+		return accountID, nil
+	}
+	return "", fmt.Errorf("no account is configured")
 }

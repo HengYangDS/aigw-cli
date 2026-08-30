@@ -90,7 +90,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			r.Status(presentation.Warn, name, "Token required · "+instruction)
 		}
 		if len(missing) > 0 && secrets.IsReadOnly(runtime.Secrets) {
-			r.Next("aigw use " + incoming.RecommendedDefault)
+			r.Next("Set the listed environment variables, then run `aigw check`")
 		} else if len(missing) == 1 {
 			r.Next("aigw rotate " + missing[0])
 		} else if len(missing) > 1 {

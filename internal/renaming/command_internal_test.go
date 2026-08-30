@@ -146,10 +146,10 @@ func (store *renameCoverageAccounts) Has(id string) bool { _, err := store.Get(i
 func renameCoverageConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "old", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "old", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude"}}
-	cfg.Routes.Default = "codex"
-	cfg.Routes.Overrides[configuration.ClientClaude] = "claude"
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "old", Client: configuration.ClientCodex, Model: "gpt"}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "old", Client: configuration.ClientClaude, Model: "claude"}
+	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Routes[configuration.ClientClaude] = "claude"
 	return cfg
 }
 
@@ -351,7 +351,7 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	}
 
 	invalid := cfg.Clone()
-	invalid.Routes.Default = "missing"
+	invalid.Routes[configuration.ClientCodex] = "missing"
 	if _, err := planAccount(invalid, "old", "new"); err == nil || !strings.Contains(err.Error(), "Validate") {
 		t.Fatalf("account error = %v", err)
 	}
@@ -360,7 +360,7 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	}
 
 	plan, err := planProfile(cfg, "codex", "new-codex")
-	if err != nil || plan.Config.Routes.Overrides[configuration.ClientClaude] != "claude" {
+	if err != nil || plan.Config.Routes[configuration.ClientClaude] != "claude" {
 		t.Fatalf("plan=%#v error=%v", plan, err)
 	}
 }

@@ -21,7 +21,7 @@ func TestNativeModelProviderChangesProjectionAndUsesCredentialHelper(t *testing.
 	after := before.Clone()
 	profile := after.Profiles["gpt"]
 	profile.ModelProvider = "amazon-bedrock"
-	profile.Models[configuration.ClientCodex] = "openai.gpt-5.6-sol"
+	profile.Model = "openai.gpt-5.6-sol"
 	after.Profiles["gpt"] = profile
 
 	if !ProjectionChanged(before, after) {

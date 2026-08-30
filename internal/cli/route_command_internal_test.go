@@ -37,7 +37,7 @@ func TestRouteAndAdapterReadinessHelpers(t *testing.T) {
 	}
 
 	cfg := configuredCommandState()
-	runtime, _, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestRouteAndAdapterReadinessHelpers(t *testing.T) {
 		t.Fatalf("ready=%v issue=%q", ready, issue)
 	}
 
-	claudeRuntime, _, _ := cfg.ResolveRuntime(configuration.ClientClaude, "")
+	claudeRuntime, _ := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "claude"}
 	if ready, issue := readiness.AdapterRouteReady(app.invocationContext(), cfg, configuration.ClientClaude, claudeRuntime); ready || !strings.Contains(issue, "executable is unavailable") {
 		t.Fatalf("ready=%v issue=%q", ready, issue)
@@ -63,7 +63,7 @@ func TestRouteAndAdapterReadinessHelpers(t *testing.T) {
 
 	profiles := configuration.NewConfig()
 	profiles.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
-	profiles.Profiles["skip"] = configuration.Profile{Account: "one", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude"}}
+	profiles.Profiles["skip"] = configuration.Profile{Account: "one", Client: configuration.ClientClaude, Model: "claude"}
 	profiles.Profiles["generic"] = configuration.Profile{Account: "one"}
 	if got := profiles.FirstProfileForClient(configuration.ClientCodex); got != "" {
 		t.Fatalf("unexpected Codex profile %q", got)

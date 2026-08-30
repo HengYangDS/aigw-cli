@@ -15,9 +15,10 @@ func TestCatalogDiscoversSortedModelsWithoutWritingConfigOrLeakingToken(t *testi
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-configured"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-5.6"}}
-	cfg.Profiles["claude-configured"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "gpt-5.6"}}
-	cfg.Routes.Default = "gpt-configured"
+	cfg.Profiles["gpt-configured"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-5.6"}
+	cfg.Profiles["claude-configured"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Model: "gpt-5.6"}
+	cfg.Routes[configuration.ClientCodex] = "gpt-configured"
+	cfg.Routes[configuration.ClientClaude] = "claude-configured"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -75,8 +76,8 @@ func TestCatalogDefaultHumanOutputShowsOnlyConfiguredModels(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Profiles["configured"] = configuration.Profile{Label: "Configured", Account: "gateway", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "configured-model"}}
-	cfg.Routes.Default = "configured"
+	cfg.Profiles["configured"] = configuration.Profile{Label: "Configured", Account: "gateway", Client: configuration.ClientCodex, Model: "configured-model"}
+	cfg.Routes[configuration.ClientCodex] = "configured"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -105,8 +106,8 @@ func TestCatalogAllHumanOutputIncludesEveryModelAsReadableRecord(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Profiles["configured"] = configuration.Profile{Label: "Configured", Account: "gateway", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "configured-model"}}
-	cfg.Routes.Default = "configured"
+	cfg.Profiles["configured"] = configuration.Profile{Label: "Configured", Account: "gateway", Client: configuration.ClientCodex, Model: "configured-model"}
+	cfg.Routes[configuration.ClientCodex] = "configured"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -145,8 +146,8 @@ func TestCatalogReportsUnavailableAccountWithoutBlockingHealthyAccount(t *testin
 	cfg.Accounts["healthy"] = configuration.Account{Label: "Healthy", Endpoints: configuration.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
 	cfg.Accounts["missing-token"] = configuration.Account{Label: "Missing Token", Endpoints: configuration.Endpoints{OpenAIResponses: "https://missing.test/v1"}}
 	cfg.Accounts["anthropic-only"] = configuration.Account{Label: "Anthropic Only", Endpoints: configuration.Endpoints{Anthropic: "https://anthropic.test"}}
-	cfg.Profiles["healthy-model"] = configuration.Profile{Label: "Healthy", Account: "healthy", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "healthy-model"}}
-	cfg.Routes.Default = "healthy-model"
+	cfg.Profiles["healthy-model"] = configuration.Profile{Label: "Healthy", Account: "healthy", Client: configuration.ClientCodex, Model: "healthy-model"}
+	cfg.Routes[configuration.ClientCodex] = "healthy-model"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -175,8 +176,8 @@ func TestCatalogReportsMalformedAccountPayloadWithoutBlockingHealthyAccount(t *t
 	cfg := configuration.NewConfig()
 	cfg.Accounts["broken"] = configuration.Account{Label: "Broken", Endpoints: configuration.Endpoints{OpenAIResponses: "https://broken.test/v1"}}
 	cfg.Accounts["healthy"] = configuration.Account{Label: "Healthy", Endpoints: configuration.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
-	cfg.Profiles["healthy-model"] = configuration.Profile{Label: "Healthy", Account: "healthy", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "healthy-model"}}
-	cfg.Routes.Default = "healthy-model"
+	cfg.Profiles["healthy-model"] = configuration.Profile{Label: "Healthy", Account: "healthy", Client: configuration.ClientCodex, Model: "healthy-model"}
+	cfg.Routes[configuration.ClientCodex] = "healthy-model"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -207,9 +208,9 @@ func TestModelsCommandReportsReachabilityFromGatewayModelList(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["gpt-5.6-sol"] = configuration.Profile{Label: "GPT-5.6 Sol Codex", Account: "dmx", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-5.6-sol"}}
-	cfg.Profiles["gpt-5.6"] = configuration.Profile{Label: "GPT-5.6", Account: "dmx", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-5.6"}}
-	cfg.Routes.Default = "gpt-5.6-sol"
+	cfg.Profiles["gpt-5.6-sol"] = configuration.Profile{Label: "GPT-5.6 Sol Codex", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-5.6-sol"}
+	cfg.Profiles["gpt-5.6"] = configuration.Profile{Label: "GPT-5.6", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-5.6"}
+	cfg.Routes[configuration.ClientCodex] = "gpt-5.6-sol"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -234,8 +235,8 @@ func TestModelsCommandKeepsLongProfileNamesOnOneLine(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Profiles["claude-opus-5"] = configuration.Profile{Label: "Claude Opus 5", Account: "dmx", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-opus-5"}}
-	cfg.Routes.Default = "claude-opus-5"
+	cfg.Profiles["claude-opus-5"] = configuration.Profile{Label: "Claude Opus 5", Account: "dmx", Client: configuration.ClientClaude, Model: "claude-opus-5"}
+	cfg.Routes[configuration.ClientClaude] = "claude-opus-5"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

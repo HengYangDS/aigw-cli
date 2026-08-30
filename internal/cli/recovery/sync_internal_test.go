@@ -37,8 +37,8 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 			cfg := configuration.NewConfig()
 			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-			cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-			cfg.Routes.Default = "one"
+			cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
+			cfg.Routes[configuration.ClientCodex] = "one"
 			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/portable/codex", Targets: []string{"/portable/config.toml"}}
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -74,8 +74,8 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 		cfg := configuration.NewConfig()
 		cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-		cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-		cfg.Routes.Default = "one"
+		cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
+		cfg.Routes[configuration.ClientCodex] = "one"
 		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{""}}
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
@@ -94,8 +94,8 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 		target := t.TempDir()
 		cfg := configuration.NewConfig()
 		cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-		cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-		cfg.Routes.Default = "one"
+		cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
+		cfg.Routes[configuration.ClientCodex] = "one"
 		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
@@ -114,8 +114,8 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 	target := t.TempDir()
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-	cfg.Routes.Default = "one"
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Routes[configuration.ClientCodex] = "one"
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -171,8 +171,8 @@ func rollbackStore(t *testing.T) configuration.Store {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
-	cfg.Routes.Default = "one"
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Routes[configuration.ClientClaude] = "one"
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

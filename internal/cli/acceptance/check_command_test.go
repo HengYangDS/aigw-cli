@@ -1,19 +1,29 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestCheckSurfacesMissingDefaultRuntimeAndToken(t *testing.T) {
+func TestCheckSurfacesMissingSelectedRouteToken(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
-	saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt"})
-	err := execute(t, app, "check")
-	if err == nil || !strings.Contains(err.Error(), "System secret is missing") {
+	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	err = execute(t, app, "check")
+	if err == nil || !strings.Contains(err.Error(), "Claude account token is unavailable") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -21,22 +31,17 @@ func TestCheckSurfacesMissingDefaultRuntimeAndToken(t *testing.T) {
 func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, "", configuration.Models{})
-	cfg.Routes.Default = "dmx"
-	cfg.Adapters["claude"] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	addAccountProfile(&cfg, "claude", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("dmx", "token")
-	claudeExecutable := executableFixture(t, "claude")
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
 	if err := execute(t, app, "check"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Configuration file", "System secret", "Gateway", "Authentication healthy", "Everything is healthy"} {
+	for _, want := range []string{"Configuration file", "Claude", "Ready", "Every enabled client route is healthy"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("check lacks %q:\n%s", want, out.String())
 		}
@@ -46,10 +51,10 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 func TestCheckRejectsAnEnabledClientRouteWithoutItsAccountToken(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "claude-test"})
-	addAccountProfile(&cfg, "codex", "codex-account", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt-test"})
-	cfg.Routes.Default = "claude"
-	cfg.Routes.Overrides[configuration.ClientCodex] = "codex"
+	addAccountProfile(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
+	addAccountProfile(&cfg, "codex", "codex-account", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, "gpt-test")
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Routes[configuration.ClientCodex] = "codex"
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
 	if err := app.Config.Save(cfg); err != nil {
@@ -73,6 +78,52 @@ func TestCheckRejectsAnEnabledClientRouteWithoutItsAccountToken(t *testing.T) {
 	}
 }
 
+func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedProfile(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "stale", "stale-account", "Stale", configuration.Endpoints{OpenAIResponses: "https://stale.test/v1"}, configuration.ClientCodex, "stale-model")
+	addAccountProfile(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
+	addAccountProfile(&cfg, "codex", "codex-account", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, "gpt-test")
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
+	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	codexRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.SyncConfig(codexTarget, codexRuntime); err != nil {
+		t.Fatal(err)
+	}
+	for account, token := range map[string]string{"claude-account": "claude-token", "codex-account": "codex-token"} {
+		if err := secretStore.Set(account, token); err != nil {
+			t.Fatal(err)
+		}
+	}
+	seen := map[string]int{}
+	app.HTTP.(*fakeHTTP).handler = func(req *http.Request) (*http.Response, error) {
+		seen[req.URL.Host]++
+		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody, Request: req}, nil
+	}
+
+	if err := execute(t, app, "check"); err != nil {
+		t.Fatal(err)
+	}
+	if seen["claude.test"] != 1 || seen["codex.test"] != 1 || seen["stale.test"] != 0 {
+		t.Fatalf("probed endpoints = %#v", seen)
+	}
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Codex") || strings.Contains(out.String(), "Stale") {
+		t.Fatalf("check output does not describe active client Routes:\n%s", out.String())
+	}
+}
+
 func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -84,13 +135,13 @@ func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
 		{
 			name:       "healthy first observation",
 			statuses:   []int{http.StatusOK},
-			wantText:   []string{"Authentication healthy", "Everything is healthy"},
+			wantText:   []string{"Claude", "Ready", "Every enabled client route is healthy"},
 			rejectText: []string{"transient response", "aigw rotate"},
 		},
 		{
 			name:       "recovered transient",
 			statuses:   []int{http.StatusUnauthorized, http.StatusOK, http.StatusOK, http.StatusOK},
-			wantText:   []string{"Authentication healthy", "Authentication recovered after a transient response", "Everything is healthy"},
+			wantText:   []string{"Claude", "Ready", "Claude authentication recovered after a transient response", "Every enabled client route is healthy"},
 			rejectText: []string{"aigw rotate"},
 		},
 		{
@@ -112,8 +163,9 @@ func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			app, out, secretStore, _ := testApp(t, "")
 			cfg := configuration.NewConfig()
-			addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt-test"})
-			cfg.Routes.Default = "dmx"
+			addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
+			cfg.Routes[configuration.ClientClaude] = "dmx"
+			cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -174,8 +226,9 @@ func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
 func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "local", "local", "Local Compatibility Layer", configuration.Endpoints{OpenAIResponses: "http://127.0.0.1:4567/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "model-test"})
-	cfg.Routes.Default = "local"
+	addAccountProfile(&cfg, "local", "local", "Local Compatibility Layer", configuration.Endpoints{Anthropic: "http://127.0.0.1:4567"}, configuration.ClientClaude, "model-test")
+	cfg.Routes[configuration.ClientClaude] = "local"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +239,7 @@ func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *tes
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"Transport", "External loopback compatibility layer", "Codex requests use the external listener", "AIGW does not start, stop, or configure it"} {
+	for _, want := range []string{"Claude", "external loopback compatibility layer that AIGW does not manage"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("check lacks %q:\n%s", want, text)
 		}
@@ -199,8 +252,9 @@ func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *tes
 func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "remote", "remote", "Remote Gateway", configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "model-test"})
-	cfg.Routes.Default = "remote"
+	addAccountProfile(&cfg, "remote", "remote", "Remote Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, configuration.ClientClaude, "model-test")
+	cfg.Routes[configuration.ClientClaude] = "remote"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -248,11 +302,12 @@ func TestCheckKeepsGenericHealthAvailableWhenExactDiagnosticDriverIsNotBundled(t
 	cfg := configuration.NewConfig()
 	cfg.Accounts["future"] = configuration.Account{
 		Label:        "Future Gateway",
-		Endpoints:    configuration.Endpoints{OpenAIResponses: "https://future.test/v1"},
+		Endpoints:    configuration.Endpoints{Anthropic: "https://future.test"},
 		AccountProbe: &configuration.AccountProbe{Kind: "future-provider", BaseURL: "https://future.test"},
 	}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "future", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-	cfg.Routes.Default = "gpt"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "future", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -262,7 +317,7 @@ func TestCheckKeepsGenericHealthAvailableWhenExactDiagnosticDriverIsNotBundled(t
 	if err := execute(t, app, "check"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "This version does not provide diagnostics for this provider") || strings.Contains(out.String(), "aigw balance") {
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Ready") || strings.Contains(out.String(), "aigw balance") {
 		t.Fatalf("check output = %s", out.String())
 	}
 }

@@ -21,8 +21,8 @@ func TestStatusKeepsTheFirstRunNextActionSimple(t *testing.T) {
 func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "claude-test"})
-	cfg.Routes.Default = "claude"
+	addAccountProfile(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-test")
+	cfg.Routes[configuration.ClientClaude] = "claude"
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -38,11 +38,13 @@ func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 	}
 }
 
-func TestStatusShowsInheritanceAndJSONNeverContainsToken(t *testing.T) {
+func TestStatusShowsIndependentRoutesAndJSONNeverContainsToken(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMX", configuration.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, "", configuration.Models{})
-	cfg.Routes.Default = "dmx"
+	addAccountProfile(&cfg, "codex", "dmx", "Codex", configuration.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, configuration.ClientCodex, "gpt-test")
+	addAccountProfile(&cfg, "claude", "dmx", "Claude", configuration.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, configuration.ClientClaude, "claude-test")
+	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Routes[configuration.ClientClaude] = "claude"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +52,7 @@ func TestStatusShowsInheritanceAndJSONNeverContainsToken(t *testing.T) {
 	if err := execute(t, app); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Inherits default") {
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Codex") || strings.Contains(out.String(), "Inherits default") {
 		t.Fatalf("human status = %s", out.String())
 	}
 	out.Reset()
@@ -65,8 +67,8 @@ func TestStatusShowsInheritanceAndJSONNeverContainsToken(t *testing.T) {
 func TestStatusMarksExternalLoopbackTransportWithoutExposingEndpoint(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "local", "local", "Local Compatibility Layer", configuration.Endpoints{OpenAIResponses: "http://localhost:4567/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "model-test"})
-	cfg.Routes.Default = "local"
+	addAccountProfile(&cfg, "local", "local", "Local Compatibility Layer", configuration.Endpoints{OpenAIResponses: "http://localhost:4567/v1"}, configuration.ClientCodex, "model-test")
+	cfg.Routes[configuration.ClientCodex] = "local"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -93,8 +95,8 @@ func TestStatusMarksExternalLoopbackTransportWithoutExposingEndpoint(t *testing.
 func TestStatusMarksHTTPSLoopbackTransportWithoutExposingEndpoint(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "local", "local", "Local Compatibility Layer", configuration.Endpoints{OpenAIResponses: "https://[::1]:4567/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "model-test"})
-	cfg.Routes.Default = "local"
+	addAccountProfile(&cfg, "local", "local", "Local Compatibility Layer", configuration.Endpoints{OpenAIResponses: "https://[::1]:4567/v1"}, configuration.ClientCodex, "model-test")
+	cfg.Routes[configuration.ClientCodex] = "local"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -112,8 +114,8 @@ func TestStatusMarksHTTPSLoopbackTransportWithoutExposingEndpoint(t *testing.T) 
 func TestStatusDoesNotClassifyRemoteHTTPAsExternalLoopbackTransport(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "remote", "remote", "Remote Development Gateway", configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "model-test"})
-	cfg.Routes.Default = "remote"
+	addAccountProfile(&cfg, "remote", "remote", "Remote Development Gateway", configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}, configuration.ClientCodex, "model-test")
+	cfg.Routes[configuration.ClientCodex] = "remote"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -132,10 +134,10 @@ func TestStatusLabelsProfileCountAsModelConfigurations(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "team", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
-	cfg.Routes.Default = "gpt"
-	cfg.Routes.Overrides[configuration.ClientClaude] = "claude"
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "team", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Routes[configuration.ClientCodex] = "gpt"
+	cfg.Routes[configuration.ClientClaude] = "claude"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +149,7 @@ func TestStatusLabelsProfileCountAsModelConfigurations(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "Model profiles       2") {
+	if !strings.Contains(text, "claude") || !strings.Contains(text, "gpt") {
 		t.Fatalf("status did not identify configuration count:\n%s", text)
 	}
 	if strings.Contains(text, "configured service") {

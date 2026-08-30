@@ -45,8 +45,8 @@ func TestClaudeCredentialHelperFailsClosedWithoutWritingStdout(t *testing.T) {
 			case "route":
 				cfg := configuration.NewConfig()
 				cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-				cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt"}}
-				cfg.Routes.Default = "codex"
+				cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt"}
+				cfg.Routes[configuration.ClientCodex] = "codex"
 				cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "claude"}
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
@@ -88,8 +88,8 @@ func helperRuntime(t *testing.T, client string, enabled bool) invocation.Context
 		account.Endpoints.OpenAIResponses = "https://gateway.test/v1"
 	}
 	cfg.Accounts["gateway"] = account
-	cfg.Profiles[client] = configuration.Profile{Label: client, Account: "gateway", Client: client, Models: configuration.Models{client: client + "-team"}}
-	cfg.Routes.Default = client
+	cfg.Profiles[client] = configuration.Profile{Label: client, Account: "gateway", Client: client, Model: client + "-team"}
+	cfg.Routes[client] = client
 	cfg.Adapters[client] = configuration.AdapterConfig{Enabled: enabled, Executable: client}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)

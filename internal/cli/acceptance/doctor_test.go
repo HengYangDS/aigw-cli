@@ -16,11 +16,11 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	profile := configuration.Profile{Label: "GPT 5.6 Sol Codex", Account: "dmx", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-5.6-sol"}}
+	profile := configuration.Profile{Label: "GPT 5.6 Sol Codex", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-5.6-sol"}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Profiles["gpt-5.6-sol"] = profile
-	cfg.Routes.Default = "gpt-5.6-sol"
+	cfg.Routes[configuration.ClientCodex] = "gpt-5.6-sol"
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -28,7 +28,7 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	if err := secretStore.Set("dmx", "test-token"); err != nil {
 		t.Fatal(err)
 	}
-	runtime, _, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,8 +108,8 @@ func TestDoctorHumanOutputUsesConciseCheckLabels(t *testing.T) {
 func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "claude-test"})
-	cfg.Routes.Default = "team"
+	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
+	cfg.Routes[configuration.ClientClaude] = "team"
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -136,11 +136,11 @@ func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T
 func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "configuration.toml")
-	profile := configuration.Profile{Label: "GPT", Account: "team", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
+	profile := configuration.Profile{Label: "GPT", Account: "team", Client: configuration.ClientCodex, Model: "gpt-test"}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}}
 	cfg.Profiles["gpt"] = profile
-	cfg.Routes.Default = "gpt"
+	cfg.Routes[configuration.ClientCodex] = "gpt"
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -205,8 +205,8 @@ func TestDoctorHumanOutputTranslatesUnreadableConfigWithoutLeakingPath(t *testin
 func TestDoctorJSONKeepsMachineDiagnosticValues(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "claude-test"})
-	cfg.Routes.Default = "team"
+	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
+	cfg.Routes[configuration.ClientClaude] = "team"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

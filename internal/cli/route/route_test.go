@@ -49,16 +49,13 @@ func configuredRuntime(t *testing.T) (invocation.Context, configuration.Config, 
 			OpenAIResponses: "https://gateway.example.test/v1",
 		},
 	}
-	cfg.Profiles["shared"] = configuration.Profile{
-		Label:   "Shared",
+	cfg.Profiles["codex"] = configuration.Profile{
+		Label:   "Codex",
 		Account: "gateway",
-		Models: configuration.Models{
-			configuration.ClientClaude: "claude-test",
-			configuration.ClientCodex:  "gpt-test",
-		},
+		Client:  configuration.ClientCodex,
+		Model:   "gpt-test",
 	}
-	cfg.Routes.Default = "shared"
-	cfg.Routes.Overrides[configuration.ClientCodex] = "shared"
+	cfg.Routes[configuration.ClientCodex] = "codex"
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -77,13 +74,13 @@ func execute(commandArgs []string, runtime invocation.Context) error {
 func TestCommandTreeAndList(t *testing.T) {
 	runtime, _, out := configuredRuntime(t)
 	command := NewCommand(runtime)
-	if command.Use != "route" || len(command.Commands()) != 2 {
+	if command.Use != "route" || len(command.Commands()) != 1 {
 		t.Fatalf("route command = %q with %d children", command.Use, len(command.Commands()))
 	}
 	if err := execute([]string{"list"}, runtime); err != nil {
 		t.Fatal(err)
 	}
-	if got := out.String(); !strings.Contains(got, "Current routes") || !strings.Contains(got, "Explicit override") {
+	if got := out.String(); !strings.Contains(got, "Current routes") || !strings.Contains(got, "Codex") {
 		t.Fatalf("route list = %q", got)
 	}
 }
@@ -107,19 +104,19 @@ func TestListCoversLoadEmptySuggestedAndFallbackViews(t *testing.T) {
 	}
 
 	runtime, cfg, out := configuredRuntime(t)
-	delete(cfg.Routes.Overrides, configuration.ClientCodex)
+	delete(cfg.Routes, configuration.ClientCodex)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := runList(runtime); err != nil {
 		t.Fatal(err)
 	}
-	if got := out.String(); !strings.Contains(got, "aigw use <profile> --for <claude|codex>") {
+	if got := out.String(); !strings.Contains(got, "aigw use codex") {
 		t.Fatalf("fallback route view = %q", got)
 	}
 
-	cfg.Profiles["codex-only"] = configuration.Profile{Label: "Codex only", Account: "gateway", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-	cfg.Profiles["shared"] = configuration.Profile{Label: "Claude only", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
+	cfg.Profiles["codex-only"] = configuration.Profile{Label: "Codex only", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude only", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -127,88 +124,12 @@ func TestListCoversLoadEmptySuggestedAndFallbackViews(t *testing.T) {
 	if err := runList(runtime); err != nil {
 		t.Fatal(err)
 	}
-	if got := out.String(); !strings.Contains(got, "aigw use codex-only --for codex") {
+	if got := out.String(); !strings.Contains(got, "aigw use claude") || !strings.Contains(got, "aigw use codex") {
 		t.Fatalf("suggested route view = %q", got)
 	}
 }
 
-func TestResetRejectsArgumentsAndUnknownClients(t *testing.T) {
-	runtime, _, _ := configuredRuntime(t)
-	if err := execute([]string{"reset"}, runtime); err == nil {
-		t.Fatal("route reset accepted a missing client")
-	}
-	if err := execute([]string{"reset", "codex", "extra"}, runtime); err == nil {
-		t.Fatal("route reset accepted an extra argument")
-	}
-	err := execute([]string{"reset", "future-client"}, runtime)
-	if err == nil || !strings.Contains(err.Error(), "Client must be claude or codex") {
-		t.Fatalf("unknown-client error = %v", err)
-	}
-}
-
-func TestResetLoadsPersistsAndRenders(t *testing.T) {
-	runtime, cfg, out := configuredRuntime(t)
-	runtime.RenderOut = nil
-	if err := execute([]string{"reset", configuration.ClientCodex}, runtime); err != nil {
-		t.Fatal(err)
-	}
-	got, err := runtime.Config.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, exists := got.Routes.Overrides[configuration.ClientCodex]; exists {
-		t.Fatalf("Codex override remains: %#v", got.Routes.Overrides)
-	}
-	if got.Routes.Default != cfg.Routes.Default {
-		t.Fatalf("default route changed from %q to %q", cfg.Routes.Default, got.Routes.Default)
-	}
-	for _, want := range []string{"Route reset", "Codex", "Now inherits the default service", "aigw check"} {
-		if !strings.Contains(out.String(), want) {
-			t.Fatalf("reset output lacks %q: %q", want, out.String())
-		}
-	}
-}
-
-func TestResetSurfacesLoadCommitAndOutputFailures(t *testing.T) {
-	t.Run("load", func(t *testing.T) {
-		runtime := invocation.Context{Config: configuration.NewStore(t.TempDir()), Out: io.Discard}
-		if err := execute([]string{"reset", configuration.ClientCodex}, runtime); err == nil {
-			t.Fatal("route reset accepted an unreadable configuration")
-		}
-	})
-
-	t.Run("commit", func(t *testing.T) {
-		runtime, cfg, _ := configuredRuntime(t)
-		codexTarget := filepath.Join(t.TempDir(), "missing", "configuration.toml")
-		cfg.Profiles["default"] = configuration.Profile{
-			Label:   "Default",
-			Account: "gateway",
-			Models: configuration.Models{
-				configuration.ClientClaude: "claude-default",
-				configuration.ClientCodex:  "gpt-default",
-			},
-		}
-		cfg.Routes.Default = "default"
-		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{codexTarget}}
-		if err := runtime.Config.Save(cfg); err != nil {
-			t.Fatal(err)
-		}
-		if err := execute([]string{"reset", configuration.ClientCodex}, runtime); err == nil {
-			t.Fatal("route reset ignored a projection synchronization failure")
-		}
-	})
-
-	t.Run("output", func(t *testing.T) {
-		runtime, _, _ := configuredRuntime(t)
-		want := errors.New("write failed")
-		runtime.RenderOut = failingWriter{err: want}
-		if err := execute([]string{"reset", configuration.ClientCodex}, runtime); !errors.Is(err, want) {
-			t.Fatalf("output error = %v", err)
-		}
-	})
-}
-
-func TestUseSetsDefaultOverrideAndAllRoutes(t *testing.T) {
+func TestUseSelectsOnlyTheProfilesDeclaredClient(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
 	secretStore := secrets.NewMemoryStore()
 	runtime.Secrets = secretStore
@@ -217,50 +138,33 @@ func TestUseSetsDefaultOverrideAndAllRoutes(t *testing.T) {
 	}
 	cfg.Profiles["claude"] = configuration.Profile{
 		Label:   "Claude",
-		Purpose: "Team default",
+		Purpose: "Team reviewer",
 		Account: "gateway",
 		Client:  configuration.ClientClaude,
-		Models:  configuration.Models{configuration.ClientClaude: "claude-next"},
+		Model:   "claude-next",
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	for _, test := range []struct {
-		name          string
-		args          []string
-		wantDefault   string
-		wantClaude    string
-		wantOverrides int
-	}{
-		{name: "default", args: []string{"claude"}, wantDefault: "claude", wantOverrides: 1},
-		{name: "client", args: []string{"claude", "--for", "claude"}, wantDefault: "shared", wantClaude: "claude", wantOverrides: 2},
-		{name: "all", args: []string{"claude", "--all"}, wantDefault: "claude", wantOverrides: 0},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if err := runtime.Config.Save(cfg); err != nil {
-				t.Fatal(err)
-			}
-			out.Reset()
-			command := NewUseCommand(runtime)
-			command.SilenceErrors = true
-			command.SilenceUsage = true
-			command.SetArgs(test.args)
-			if err := command.Execute(); err != nil {
-				t.Fatal(err)
-			}
-			got, err := runtime.Config.Load()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got.Routes.Default != test.wantDefault || got.Routes.Overrides[configuration.ClientClaude] != test.wantClaude || len(got.Routes.Overrides) != test.wantOverrides {
-				t.Fatalf("routes = %#v", got.Routes)
-			}
-			for _, want := range []string{"Service switched", "Claude", "Team default", "Client configuration synchronized", "aigw check"} {
-				if !strings.Contains(out.String(), want) {
-					t.Fatalf("output lacks %q: %q", want, out.String())
-				}
-			}
-		})
+
+	command := NewUseCommand(runtime)
+	command.SilenceErrors = true
+	command.SilenceUsage = true
+	command.SetArgs([]string{"claude"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := runtime.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Routes[configuration.ClientClaude] != "claude" || got.Routes[configuration.ClientCodex] != "codex" || len(got.Routes) != 2 {
+		t.Fatalf("routes = %#v", got.Routes)
+	}
+	for _, want := range []string{"Service switched", "Claude", "Team reviewer", "Client configuration synchronized", "aigw check"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("output lacks %q: %q", want, out.String())
+		}
 	}
 }
 
@@ -268,13 +172,13 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
 	secretStore := secrets.NewMemoryStore()
 	runtime.Secrets = secretStore
-	selector := &promptStub{selected: "shared"}
+	selector := &promptStub{selected: "codex"}
 	runtime.Prompt = selector
 	runtime.Interactive = true
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Profiles["purpose"] = configuration.Profile{Label: "Purpose", Purpose: "Research", Account: "gateway"}
+	cfg.Profiles["purpose"] = configuration.Profile{Label: "Purpose", Purpose: "Research", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-research"}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +189,7 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if len(selector.choices) != 2 || selector.choices[0].Value != "purpose" || selector.choices[0].Label != "Purpose · Research" || selector.choices[1].Label != "Shared" {
+	if len(selector.choices) != 2 || selector.choices[0].Value != "codex" || selector.choices[0].Label != "Codex" || selector.choices[1].Value != "purpose" || selector.choices[1].Label != "Purpose · Research" {
 		t.Fatalf("choices = %#v", selector.choices)
 	}
 
@@ -295,11 +199,9 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 		runtime func(invocation.Context) invocation.Context
 		want    string
 	}{
-		{name: "conflicting scope", args: []string{"shared", "--all", "--for", "codex"}, want: "--all and --for"},
-		{name: "unknown client", args: []string{"shared", "--for", "future"}, want: "--for must be"},
 		{name: "profile required", runtime: func(value invocation.Context) invocation.Context { value.Interactive = false; return value }, want: "requires a profile"},
 		{name: "unknown profile", args: []string{"missing"}, want: "Unknown profile"},
-		{name: "load", args: []string{"shared"}, runtime: func(value invocation.Context) invocation.Context {
+		{name: "load", args: []string{"codex"}, runtime: func(value invocation.Context) invocation.Context {
 			value.Config = configuration.NewStore(t.TempDir())
 			return value
 		}, want: "read"},
@@ -342,7 +244,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		runtime, _, store := newRuntime(t)
 		command := NewUseCommand(runtime)
-		command.SetArgs([]string{"shared"})
+		command.SetArgs([]string{"codex"})
 		if err := command.Execute(); err != nil {
 			t.Fatal(err)
 		}
@@ -371,7 +273,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			return value
 		}, want: "Token validation failed"},
 		{name: "commit", prepare: func(value invocation.Context, cfg configuration.Config) invocation.Context {
-			cfg.Profiles["next"] = configuration.Profile{Label: "Next", Account: "gateway", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-next"}}
+			cfg.Profiles["next"] = configuration.Profile{Label: "Next", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-next"}
 			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "missing-configuration.toml")}}
 			if err := value.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -385,9 +287,9 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			command := NewUseCommand(runtime)
 			command.SilenceErrors = true
 			command.SilenceUsage = true
-			args := []string{"shared"}
+			args := []string{"codex"}
 			if test.name == "commit" {
-				args = []string{"next", "--for", "codex"}
+				args = []string{"next"}
 			}
 			command.SetArgs(args)
 			err := command.Execute()
@@ -408,9 +310,9 @@ func TestUseNamesMissingEnvironmentTokenWithoutPrompting(t *testing.T) {
 	runtime.Prompt = &promptStub{err: errors.New("prompt must not run")}
 
 	command := NewUseCommand(runtime)
-	command.SetArgs([]string{"shared"})
+	command.SetArgs([]string{"codex"})
 	err := command.Execute()
-	if err == nil || !strings.Contains(err.Error(), secrets.EnvironmentKey("gateway")) || !strings.Contains(err.Error(), "aigw use shared") {
+	if err == nil || !strings.Contains(err.Error(), secrets.EnvironmentKey("gateway")) || !strings.Contains(err.Error(), "aigw use codex") {
 		t.Fatalf("error = %v", err)
 	}
 	if strings.Contains(err.Error(), "aigw rotate") || strings.Contains(err.Error(), "prompt must not run") {
@@ -429,7 +331,7 @@ func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 	command := NewUseCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"shared"})
+	command.SetArgs([]string{"codex"})
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "store failed") {
 		t.Fatalf("store error = %v", err)
 	}
@@ -444,7 +346,7 @@ func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 	command = NewUseCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"shared"})
+	command.SetArgs([]string{"codex"})
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "write failed") {
 		t.Fatalf("output error = %v", err)
 	}

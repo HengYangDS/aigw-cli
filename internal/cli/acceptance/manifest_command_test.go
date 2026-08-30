@@ -30,7 +30,7 @@ func TestConfigCommandIOFailures(t *testing.T) {
 
 	t.Run("export output", func(t *testing.T) {
 		app, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "m"})
+		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		want := errors.New("output failed")
 		app.Out = failingOutput{err: want}
 		if err := execute(t, app, "config", "export"); !errors.Is(err, want) {
@@ -60,8 +60,9 @@ func TestConfigCommandIOFailures(t *testing.T) {
 func TestConfigImportAndExportAreSecretFree(t *testing.T) {
 	app, out, secrets, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 3
-recommended_default = "team"
+	manifest := `version = 4
+[recommended_routes]
+claude = "team"
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
@@ -70,6 +71,8 @@ anthropic = "https://team.test"
 label = "Team Gateway"
 purpose = "Default agent"
 account = "team"
+client = "claude"
+model = "claude-model"
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
@@ -118,8 +121,8 @@ func TestCodexSyncReconcilesEachConfiguredHomeWithoutLoggingIn(t *testing.T) {
 		}
 	}
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, "", configuration.Models{})
-	cfg.Routes.Default = "team"
+	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "team-model")
+	cfg.Routes[configuration.ClientCodex] = "team"
 	cfg.Adapters["codex"] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex-real", Targets: targets}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -155,8 +158,8 @@ func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, "", configuration.Models{})
-	cfg.Routes.Default = "claude"
+	addAccountProfile(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-model")
+	cfg.Routes[configuration.ClientClaude] = "claude"
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -192,7 +195,7 @@ func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
 		t.Fatal("status unexpectedly succeeded")
 	}
 	text := out.String()
-	for _, want := range []string{"unsupported configuration version: found 0, expected 2", "Recommended action", "aigw check"} {
+	for _, want := range []string{"unsupported configuration version: found 0, expected 3", "Recommended action", "aigw check"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("localized configuration error lacks %q:\n%s", want, text)
 		}

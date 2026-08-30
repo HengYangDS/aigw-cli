@@ -18,7 +18,6 @@ import (
 
 type routeStatus struct {
 	Profile              string `json:"profile,omitempty"`
-	Inherited            bool   `json:"inherited"`
 	SecretAvailable      bool   `json:"secret_available"`
 	EndpointReady        bool   `json:"endpoint_ready"`
 	Transport            string `json:"transport,omitempty"`
@@ -39,7 +38,6 @@ type endpointTestResult struct {
 
 type statusOutput struct {
 	ConfigPath string                 `json:"config_path"`
-	Default    string                 `json:"default,omitempty"`
 	Routes     map[string]routeStatus `json:"routes"`
 	Profiles   int                    `json:"profiles"`
 }
@@ -77,12 +75,12 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 }
 
 func collectStatus(runtime invocation.Context, cfg configuration.Config) statusOutput {
-	result := statusOutput{ConfigPath: runtime.Config.Path(), Default: cfg.Routes.Default, Profiles: len(cfg.Profiles), Routes: map[string]routeStatus{}}
+	result := statusOutput{ConfigPath: runtime.Config.Path(), Profiles: len(cfg.Profiles), Routes: map[string]routeStatus{}}
 	for _, client := range admittedClientIDs() {
-		clientRuntime, inherited, resolveErr := cfg.ResolveRuntime(client, "")
+		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
 		if resolveErr != nil {
 			suggested := cfg.FirstProfileForClient(client)
-			result.Routes[client] = routeStatus{Inherited: true, NeedsSelection: suggested != "", SuggestedProfile: suggested}
+			result.Routes[client] = routeStatus{NeedsSelection: suggested != "", SuggestedProfile: suggested}
 			continue
 		}
 		adapterReady, adapterIssue := probeAdapterRoute(runtime, cfg, client, clientRuntime)
@@ -100,7 +98,6 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 		}
 		result.Routes[client] = routeStatus{
 			Profile:              clientRuntime.ProfileID,
-			Inherited:            inherited,
 			SecretAvailable:      runtime.Secrets.Has(clientRuntime.AccountID),
 			EndpointReady:        clientRuntime.Endpoint != "",
 			Transport:            transport.Kind,

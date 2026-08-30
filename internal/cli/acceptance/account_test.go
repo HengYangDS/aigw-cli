@@ -24,8 +24,9 @@ func dmxBalanceHandler(t *testing.T) func(*http.Request) (*http.Response, error)
 func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, "", configuration.Models{})
-	cfg.Routes.Default = "dmx"
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
+	cfg.Routes[configuration.ClientClaude] = "dmx"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -41,11 +42,11 @@ func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, "", configuration.Models{})
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-test")
 	account := cfg.Accounts["dmx"]
 	account.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
 	cfg.Accounts["dmx"] = account
-	cfg.Routes.Default = "dmx"
+	cfg.Routes[configuration.ClientCodex] = "dmx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -60,11 +61,11 @@ func TestAccountConnectStoresSeparateCredentialAndBalanceShowsDetails(t *testing
 	accountStore := account.NewMemoryStore()
 	app.Accounts = accountStore
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, "", configuration.Models{})
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-test")
 	providerAccount := cfg.Accounts["dmx"]
 	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
 	cfg.Accounts["dmx"] = providerAccount
-	cfg.Routes.Default = "dmx"
+	cfg.Routes[configuration.ClientCodex] = "dmx"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

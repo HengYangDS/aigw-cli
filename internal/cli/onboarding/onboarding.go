@@ -112,10 +112,10 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	discoveredClaude := discovered.Executable(configuration.ClientClaude)
 	discoveredCodex := discovered.Executable(configuration.ClientCodex)
 	discoveredTargets := discovered.AutoManagedCodexTargets()
-	if _, _, resolveErr := plan.config.ResolveRuntime(configuration.ClientClaude, ""); resolveErr == nil && discoveredClaude != "" {
+	if _, resolveErr := plan.config.ResolveRuntime(configuration.ClientClaude, ""); resolveErr == nil && discoveredClaude != "" {
 		plan.config.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: discoveredClaude}
 	}
-	if _, _, resolveErr := plan.config.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && discoveredCodex != "" && len(discoveredTargets) > 0 {
+	if _, resolveErr := plan.config.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && discoveredCodex != "" && len(discoveredTargets) > 0 {
 		plan.config.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: discoveredCodex, Targets: discoveredTargets}
 	}
 
@@ -159,11 +159,8 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 		OpenAIResponses: strings.TrimRight(strings.TrimSpace(plan.request.OpenAIURL), "/"),
 		Anthropic:       strings.TrimRight(strings.TrimSpace(plan.request.AnthropicURL), "/"),
 	}
-	models := configuration.Models{}
 	if plan.request.Client == "" {
-		if plan.request.Model != "" {
-			return setupPlan{}, fmt.Errorf("--model requires --for %s", configuration.AdmittedClientUsage())
-		}
+		return setupPlan{}, fmt.Errorf("--for is required and must be %s; a model profile belongs to exactly one client", configuration.AdmittedClientUsage())
 	} else {
 		spec, ok := configuration.ClientSpecFor(plan.request.Client)
 		if !ok {
@@ -180,16 +177,15 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 		if strings.TrimSpace(plan.request.Model) == "" {
 			return setupPlan{}, fmt.Errorf("--for %s requires --model", plan.request.Client)
 		}
-		models[plan.request.Client] = strings.TrimSpace(plan.request.Model)
 		plan.validationClients = append(plan.validationClients, plan.request.Client)
 	}
 	storedAccount := configuration.Account{Label: plan.request.Label, Endpoints: endpoints}
 	plan.account = storedAccount
 	plan.account.ID = plan.request.Account
-	plan.profile = configuration.Profile{Label: plan.request.Label, Account: plan.request.Account, Client: plan.request.Client, Models: models}
+	plan.profile = configuration.Profile{Label: plan.request.Label, Account: plan.request.Account, Client: plan.request.Client, Model: strings.TrimSpace(plan.request.Model)}
 	plan.config.Accounts[plan.request.Account] = storedAccount
 	plan.config.Profiles[plan.request.Profile] = plan.profile
-	plan.config.Routes.Default = plan.request.Profile
+	plan.config.Routes[plan.request.Client] = plan.request.Profile
 	if err := plan.config.Validate(); err != nil {
 		return setupPlan{}, err
 	}
@@ -202,7 +198,7 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 	r.Section("Service")
 	r.Row("Account", plan.request.Account)
 	r.Row("Profile", plan.request.Profile)
-	r.Row("model", plan.profile.ModelFor(plan.request.Client))
+	r.Row("Model", plan.profile.Model)
 	r.Status(presentation.OK, "API Token", "Validated")
 }
 

@@ -62,9 +62,9 @@ func blockedProfileRuntime(t *testing.T) invocation.Context {
 		Label:   "Current",
 		Account: "current",
 		Client:  configuration.ClientCodex,
-		Models:  configuration.Models{configuration.ClientCodex: "gpt-current"},
+		Model:   "gpt-current",
 	}
-	cfg.Routes.Default = "current"
+	cfg.Routes[configuration.ClientCodex] = "current"
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

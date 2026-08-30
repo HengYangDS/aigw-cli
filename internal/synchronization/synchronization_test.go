@@ -71,8 +71,8 @@ func (s *configStoreStub) RestoreSnapshot(before, after configuration.Snapshot) 
 func testConfig(target string) configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "gateway", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-	cfg.Routes.Default = "gpt"
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Routes[configuration.ClientCodex] = "gpt"
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }
@@ -170,8 +170,8 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	settingsPath := filepath.Join(dir, "settings.json")
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-team"}}
-	before.Routes.Default = "claude"
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-team"}
+	before.Routes[configuration.ClientClaude] = "claude"
 	after := before.Clone()
 	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
 	syncer := Synchronizer{Discovery: staticDiscovery{}, ClaudeSettingsPath: settingsPath, AIGWExecutable: filepath.Join(dir, "aigw")}
@@ -195,8 +195,8 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 func TestPlanReportsClaudePlanningFailures(t *testing.T) {
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-team"}}
-	before.Routes.Default = "claude"
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-team"}
+	before.Routes[configuration.ClientClaude] = "claude"
 	after := before.Clone()
 	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
 
@@ -217,8 +217,8 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 	t.Run("missing Claude settings path", func(t *testing.T) {
 		before := configuration.NewConfig()
 		before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-		before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
-		before.Routes.Default = "claude"
+		before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+		before.Routes[configuration.ClientClaude] = "claude"
 		after := before.Clone()
 		after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
 		if err := (Synchronizer{}).Reconcile(context.Background(), before, after); err == nil || !strings.Contains(err.Error(), "settings path") {
@@ -248,8 +248,8 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 	t.Run("invalid enabled Claude runtime", func(t *testing.T) {
 		before := configuration.NewConfig()
 		before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-		before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
-		before.Routes.Default = "claude"
+		before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+		before.Routes[configuration.ClientClaude] = "claude"
 		before.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
 		after := before.Clone()
 		delete(before.Profiles, "claude")
@@ -279,7 +279,7 @@ func TestBindAuthenticationSuccessAndFailures(t *testing.T) {
 	}
 
 	badRuntime := cfg.Clone()
-	badRuntime.Routes.Default = "missing"
+	badRuntime.Routes[configuration.ClientCodex] = "missing"
 	if err := syncer.BindAuthenticationTargets(context.Background(), badRuntime, nil); err == nil {
 		t.Fatal("authentication accepted an invalid runtime")
 	}
@@ -308,7 +308,7 @@ func TestCommitRestoresTargetRemovedFromAdapter(t *testing.T) {
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	runtime, _, err := before.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := before.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -502,7 +502,7 @@ func TestRollbackReconcilesAndRebinds(t *testing.T) {
 	before := testConfig(target)
 	after := before.Clone()
 	profile := after.Profiles["gpt"]
-	profile.Models[configuration.ClientCodex] = "gpt-next"
+	profile.Model = "gpt-next"
 	after.Profiles["gpt"] = profile
 	secretStore := secrets.NewMemoryStore()
 	if err := secretStore.Set("gateway", "token"); err != nil {
@@ -545,8 +545,8 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	}
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-team"}}
-	before.Routes.Default = "claude"
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-team"}
+	before.Routes[configuration.ClientClaude] = "claude"
 	after := before.Clone()
 	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
 	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
@@ -596,8 +596,8 @@ func TestCommitRollsBackConfigurationWhenClaudeProjectionFails(t *testing.T) {
 	}
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude}
-	before.Routes.Default = "claude"
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-team"}
+	before.Routes[configuration.ClientClaude] = "claude"
 	after := before.Clone()
 	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
 	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))

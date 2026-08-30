@@ -30,7 +30,7 @@ func (s *failingSecretsStore) Has(string) bool { return s.has }
 
 func TestAddRejectsInvalidProfileName(t *testing.T) {
 	app, _, _, _ := testApp(t, "token\n")
-	err := execute(t, app, "add", "not valid!", "--anthropic-url", "https://example.test", "--token-stdin")
+	err := execute(t, app, "add", "not valid!", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin")
 	if err == nil || !strings.Contains(err.Error(), "Invalid service ID") {
 		t.Fatalf("error = %v", err)
 	}
@@ -42,7 +42,7 @@ func TestAddSurfacesConfigLoadFailure(t *testing.T) {
 	// fail with something other than os.ErrNotExist.
 	dir := t.TempDir()
 	app.Config = configuration.NewStore(dir)
-	err := execute(t, app, "add", "dmx", "--anthropic-url", "https://example.test", "--token-stdin")
+	err := execute(t, app, "add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin")
 	if err == nil || strings.Contains(err.Error(), "Invalid service ID") {
 		t.Fatalf("error = %v, want a config load failure", err)
 	}
@@ -50,10 +50,10 @@ func TestAddSurfacesConfigLoadFailure(t *testing.T) {
 
 func TestAddRejectsDuplicateProfile(t *testing.T) {
 	app, _, _, _ := testApp(t, "token\n")
-	if err := execute(t, app, "add", "dmx", "--anthropic-url", "https://example.test", "--token-stdin"); err != nil {
+	if err := execute(t, app, "add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"); err != nil {
 		t.Fatal(err)
 	}
-	err := execute(t, app, "add", "dmx", "--anthropic-url", "https://example.test", "--token-stdin")
+	err := execute(t, app, "add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin")
 	if err == nil || !strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("error = %v", err)
 	}
@@ -61,7 +61,7 @@ func TestAddRejectsDuplicateProfile(t *testing.T) {
 
 func TestAddWithoutLabelDefaultsToProfileName(t *testing.T) {
 	app, _, _, _ := testApp(t, "token\n")
-	if err := execute(t, app, "add", "dmx", "--anthropic-url", "https://example.test", "--token-stdin"); err != nil {
+	if err := execute(t, app, "add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := app.Config.Load()
@@ -75,10 +75,10 @@ func TestAddWithoutLabelDefaultsToProfileName(t *testing.T) {
 
 func TestAddRejectsConfigThatFailsValidation(t *testing.T) {
 	app, _, _, _ := testApp(t, "token\n")
-	// Omitting both endpoint flags produces an account with no endpoint at
-	// all, which configuration.Config.Validate rejects.
-	err := execute(t, app, "add", "dmx", "--token-stdin")
-	if err == nil || !strings.Contains(err.Error(), "must define at least one endpoint") {
+	// Omitting both endpoint flags cannot satisfy the selected client's
+	// endpoint contract.
+	err := execute(t, app, "add", "dmx", "--for", "claude", "--model", "claude-test", "--token-stdin")
+	if err == nil || !strings.Contains(err.Error(), "has no Anthropic endpoint") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -87,7 +87,7 @@ func TestAddSurfacesSecretStoreSetFailure(t *testing.T) {
 	app, _, _, _ := testApp(t, "token\n")
 	want := errors.New("keychain unavailable")
 	app.Secrets = &failingSecretsStore{setErr: want}
-	err := execute(t, app, "add", "dmx", "--anthropic-url", "https://example.test", "--token-stdin")
+	err := execute(t, app, "add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin")
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}
@@ -110,7 +110,7 @@ func TestAddRollsBackSecretWhenConfigSaveFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Config = configuration.NewStore(filepath.Join(blocker, "nested", "configuration.toml"))
-	err := execute(t, app, "add", "dmx", "--anthropic-url", "https://example.test", "--token-stdin")
+	err := execute(t, app, "add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin")
 	if err == nil {
 		t.Fatal("expected a config save failure")
 	}
@@ -121,7 +121,7 @@ func TestAddRollsBackSecretWhenConfigSaveFails(t *testing.T) {
 
 func TestAddWithTokenStdinCreatesProfileWithoutPrintingSecret(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "top-secret\n")
-	err := execute(t, app, "add", "dmx", "--label", "DMXAPI", "--openai-url", "https://example.test/v1", "--anthropic-url", "https://example.test", "--token-stdin")
+	err := execute(t, app, "add", "dmx", "--label", "DMXAPI", "--openai-url", "https://example.test/v1", "--anthropic-url", "https://example.test", "--for", "codex", "--model", "gpt-test", "--token-stdin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,14 +132,14 @@ func TestAddWithTokenStdinCreatesProfileWithoutPrintingSecret(t *testing.T) {
 		t.Fatalf("secret leaked in output: %s", out.String())
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || cfg.Routes.Default != "dmx" || cfg.Profiles["dmx"].Label != "DMXAPI" {
+	if err != nil || cfg.Routes[configuration.ClientCodex] != "dmx" || cfg.Profiles["dmx"].Label != "DMXAPI" {
 		t.Fatalf("config = %#v, %v", cfg, err)
 	}
 }
 
 func TestAddRefusesNonInteractiveImplicitTokenInput(t *testing.T) {
 	app, _, _, _ := testApp(t, "top-secret\n")
-	err := execute(t, app, "add", "dmx", "--label", "DMX", "--anthropic-url", "https://example.test")
+	err := execute(t, app, "add", "dmx", "--label", "DMX", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test")
 	if err == nil || !strings.Contains(err.Error(), "--token-stdin") {
 		t.Fatalf("error = %v", err)
 	}

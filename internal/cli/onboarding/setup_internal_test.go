@@ -104,10 +104,10 @@ func (runner setupProcessRunner) RunCapture(context.Context, process.Plan) ([]by
 func manifestSetupConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-	cfg.Routes.Default = "codex"
-	cfg.Routes.Overrides[configuration.ClientClaude] = "claude"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Routes[configuration.ClientClaude] = "claude"
 	return cfg
 }
 
@@ -265,15 +265,15 @@ func TestSetupAccountClientAndRuntimeHelpers(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["legacy"] = configuration.Account{Label: "Legacy", Endpoints: configuration.Endpoints{OpenAIResponses: "https://legacy.test/v1", Anthropic: "https://legacy.test"}}
 	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{Anthropic: "https://other.test"}}
-	cfg.Profiles["legacy"] = configuration.Profile{Label: "Legacy"}
-	cfg.Profiles["other"] = configuration.Profile{Label: "Other", Account: "other", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test", "future": "ignored", configuration.ClientCodex: ""}}
-	cfg.Routes.Default = "legacy"
+	cfg.Profiles["legacy"] = configuration.Profile{Label: "Legacy", Account: "legacy", Client: configuration.ClientCodex, Model: "gpt-legacy"}
+	cfg.Profiles["other"] = configuration.Profile{Label: "Other", Account: "other", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Routes[configuration.ClientCodex] = "legacy"
 
 	clients := configuredClientsForAccount(cfg, "legacy")
-	if len(clients) != 2 || clients[0] != configuration.ClientClaude || clients[1] != configuration.ClientCodex {
+	if len(clients) != 1 || clients[0] != configuration.ClientCodex {
 		t.Fatalf("clients = %#v", clients)
 	}
-	if runtime, ok := firstRuntimeForAccountClient(cfg, "legacy", configuration.ClientCodex); ok || runtime != (configuration.Runtime{}) {
+	if runtime, ok := firstRuntimeForAccountClient(cfg, "legacy", configuration.ClientCodex); !ok || runtime.Model != "gpt-legacy" {
 		t.Fatalf("runtime = %#v, ok=%v", runtime, ok)
 	}
 	if runtime, ok := firstRuntimeForAccountClient(cfg, "other", configuration.ClientClaude); !ok || runtime.Model != "claude-test" {

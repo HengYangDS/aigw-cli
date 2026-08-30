@@ -16,8 +16,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const importManifest = `version = 3
-recommended_default = "remote"
+const importManifest = `version = 4
+
+[recommended_routes]
+codex = "remote"
 
 [accounts.gateway]
 label = "Gateway"
@@ -29,9 +31,7 @@ openai_responses = "https://gateway.example/v1"
 label = "Remote"
 account = "gateway"
 client = "codex"
-
-[profiles.remote.models]
-codex = "gpt-remote"
+model = "gpt-remote"
 `
 
 func executeManifestCommand(command *cobra.Command) error {
@@ -89,7 +89,7 @@ func TestExportWritesASecretFreeRoundTripManifest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse exported manifest: %v\n%s", err, data)
 	}
-	if parsed.RecommendedDefault != "local" || parsed.Profiles["local"].Account != "local" {
+	if parsed.RecommendedRoutes[configuration.ClientCodex] != "local" || parsed.Profiles["local"].Account != "local" {
 		t.Fatalf("exported manifest = %#v", parsed)
 	}
 }
@@ -157,7 +157,7 @@ func TestImportNamesEnvironmentTokenInsteadOfRotate(t *testing.T) {
 	}
 
 	output := runtime.RenderOut.(*bytes.Buffer).String()
-	if !strings.Contains(output, secrets.EnvironmentKey("gateway")) || !strings.Contains(output, "aigw use remote") {
+	if !strings.Contains(output, secrets.EnvironmentKey("gateway")) || !strings.Contains(output, "aigw check") {
 		t.Fatalf("environment remediation is incomplete: %q", output)
 	}
 	if strings.Contains(output, "aigw rotate") {
@@ -328,8 +328,8 @@ func savedRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, s
 func localConfig() configuration.Config {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["local"] = configuration.Account{Label: "Local", Endpoints: configuration.Endpoints{OpenAIResponses: "https://local.example/v1"}}
-	cfg.Profiles["local"] = configuration.Profile{Label: "Local", Account: "local", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-local"}}
-	cfg.Routes.Default = "local"
+	cfg.Profiles["local"] = configuration.Profile{Label: "Local", Account: "local", Client: configuration.ClientCodex, Model: "gpt-local"}
+	cfg.Routes[configuration.ClientCodex] = "local"
 	return cfg
 }
 
@@ -353,9 +353,7 @@ openai_responses = "https://backup.example/v1"
 label = "Backup"
 account = "backup"
 client = "codex"
-
-[profiles.backup.models]
-codex = "gpt-backup"
+model = "gpt-backup"
 
 [profiles.remote]`, 1)
 }

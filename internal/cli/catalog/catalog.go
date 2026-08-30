@@ -113,20 +113,15 @@ func modelRows(cfg configuration.Config, modelSets map[string]map[string]bool) [
 	rows := []modelRow{}
 	for _, name := range sortedProfileNames(cfg) {
 		profile := cfg.Profiles[name]
-		for _, spec := range configuration.AdmittedClientSpecs() {
-			model := profile.ModelFor(spec.ID)
-			if model == "" {
-				continue
+		model := profile.Model
+		reach := "Unknown"
+		if set, ok := modelSets[profile.Account]; ok {
+			reach = "Unavailable"
+			if set[model] {
+				reach = "Reachable"
 			}
-			reach := "Unknown"
-			if set, ok := modelSets[profile.Account]; ok {
-				reach = "Unavailable"
-				if set[model] {
-					reach = "Reachable"
-				}
-			}
-			rows = append(rows, modelRow{name, profile.Account, spec.ID, model, reach})
 		}
+		rows = append(rows, modelRow{name, profile.Account, profile.Client, model, reach})
 	}
 	return rows
 }
@@ -247,11 +242,8 @@ func ConfiguredProfiles(cfg configuration.Config, accountName, model string) []s
 		if profile.Account != accountName {
 			continue
 		}
-		for _, configuredModel := range profile.Models {
-			if configuredModel == model {
-				profiles = append(profiles, name)
-				break
-			}
+		if profile.Model == model {
+			profiles = append(profiles, name)
 		}
 	}
 	sort.Strings(profiles)

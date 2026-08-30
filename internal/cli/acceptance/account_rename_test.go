@@ -55,7 +55,7 @@ func TestAccountRenameInteractiveCopiesCredentialsAndUpdatesEveryProfile(t *test
 		if profile.Account != "zeta-new" {
 			t.Fatalf("profile %q account = %q, want zeta-new", profileID, profile.Account)
 		}
-		if !reflect.DeepEqual(profile.Models, cfg.Profiles[profileID].Models) || profile.Label != cfg.Profiles[profileID].Label {
+		if profile.Model != cfg.Profiles[profileID].Model || profile.Label != cfg.Profiles[profileID].Label {
 			t.Fatalf("profile %q changed beyond its account reference: %#v", profileID, profile)
 		}
 	}
@@ -455,8 +455,8 @@ func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) 
 	app, _, secretStore, runner := testApp(t, "")
 	cfg := accountRenameConfig()
 	cfg.Accounts["active"] = configuration.Account{Label: "Active", Endpoints: configuration.Endpoints{OpenAIResponses: "https://active.test/v1"}}
-	cfg.Profiles["active-profile"] = configuration.Profile{Label: "Active", Account: "active", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "active-model"}}
-	cfg.Routes.Default = "active-profile"
+	cfg.Profiles["active-profile"] = configuration.Profile{Label: "Active", Account: "active", Client: configuration.ClientCodex, Model: "active-model"}
+	cfg.Routes[configuration.ClientCodex] = "active-profile"
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -533,9 +533,9 @@ func accountRenameConfig() configuration.Config {
 		},
 		AccountProbe: &configuration.AccountProbe{Kind: "future-provider", BaseURL: "https://probe.zeta.test"},
 	}
-	cfg.Profiles["codex-profile"] = configuration.Profile{Label: "Codex", Purpose: "Codex purpose", Account: "zeta-old", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "codex-model"}}
-	cfg.Profiles["claude-profile"] = configuration.Profile{Label: "Claude", Purpose: "Claude purpose", Account: "zeta-old", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-model"}}
-	cfg.Routes.Default = "codex-profile"
-	cfg.Routes.Overrides[configuration.ClientClaude] = "claude-profile"
+	cfg.Profiles["codex-profile"] = configuration.Profile{Label: "Codex", Purpose: "Codex purpose", Account: "zeta-old", Client: configuration.ClientCodex, Model: "codex-model"}
+	cfg.Profiles["claude-profile"] = configuration.Profile{Label: "Claude", Purpose: "Claude purpose", Account: "zeta-old", Client: configuration.ClientClaude, Model: "claude-model"}
+	cfg.Routes[configuration.ClientCodex] = "codex-profile"
+	cfg.Routes[configuration.ClientClaude] = "claude-profile"
 	return cfg
 }

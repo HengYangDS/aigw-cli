@@ -16,10 +16,10 @@ func TestStatusHumanTransportAndProbeBranches(t *testing.T) {
 		credential bool
 		want       string
 	}{
-		{name: "none", want: "Provider does not expose a probe"},
-		{name: "unsupported", probe: &configuration.AccountProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "does not provide diagnostics"},
-		{name: "supported missing", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Disabled"},
-		{name: "supported present", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Enabled"},
+		{name: "none", want: "Provider does not expose a balance probe"},
+		{name: "unsupported", probe: &configuration.AccountProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "Provider diagnostics unavailable in this version"},
+		{name: "supported missing", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance disabled"},
+		{name: "supported present", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Precise balance enabled"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

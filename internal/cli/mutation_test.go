@@ -45,7 +45,6 @@ func TestMutationCommandLocksEveryConfigurationWriter(t *testing.T) {
 		{name: "bare account", args: []string{"account"}, want: false},
 		{name: "bare profile", args: []string{"profile"}, want: false},
 		{name: "bare route", args: []string{"route"}, want: false},
-		{name: "route reset", args: []string{"route", "reset"}, want: true},
 		{name: "route unknown verb", args: []string{"route", "unknown"}, want: false},
 		{name: "bare adapter", args: []string{"adapter"}, want: false},
 		{name: "adapter enable", args: []string{"adapter", "enable", "codex"}, want: true},
@@ -82,8 +81,8 @@ func TestMutationCommandWithNoArgsChecksInteractiveOnboarding(t *testing.T) {
 	store := configuration.NewStore(path)
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-	cfg.Routes.Default = "gpt"
+	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Routes[configuration.ClientCodex] = "gpt"
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

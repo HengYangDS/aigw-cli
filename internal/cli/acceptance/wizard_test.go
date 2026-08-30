@@ -109,7 +109,7 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes.Default != "gpt-5.6-terra" || cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
+	if cfg.Routes[configuration.ClientCodex] != "gpt-5.6-terra" || cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
 		t.Fatalf("configured state = %#v", cfg)
 	}
 	if len(runner.plans) != 1 || runner.plans[0].Executable != "/opt/codex-real" {
@@ -152,7 +152,7 @@ func TestFirstRunCreatesExplicitGenericAccountWithoutBundledProviderDefault(t *t
 		t.Fatal("generic Account Token was not stored")
 	}
 	profile, ok := cfg.Profiles["gpt-5.6-terra"]
-	if !ok || profile.Account != "team-gateway" || profile.Client != "codex" || profile.Models[configuration.ClientCodex] != "gpt-5.6-terra" {
+	if !ok || profile.Account != "team-gateway" || profile.Client != "codex" || profile.Model != "gpt-5.6-terra" {
 		t.Fatalf("generic profile = %#v", profile)
 	}
 	if _, exists := cfg.Accounts["dmx"]; exists {
@@ -182,7 +182,7 @@ func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !secretStore.Has("team-gateway") || cfg.Routes.Default != "claude-sonnet-5" {
+	if !secretStore.Has("team-gateway") || cfg.Routes[configuration.ClientClaude] != "claude-sonnet-5" {
 		t.Fatalf("setup state = %#v", cfg)
 	}
 }
@@ -192,8 +192,8 @@ func TestSetupWithoutFlagsRefusesBeforePromptingWhenAlreadyConfigured(t *testing
 	app.Interactive = true
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
-	cfg.Routes.Default = "claude"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Routes[configuration.ClientClaude] = "claude"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

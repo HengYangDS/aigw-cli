@@ -43,7 +43,7 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 
 	t.Run("discovery", func(t *testing.T) {
 		app, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt"})
+		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		app.Discovery = nil
 		if err := execute(t, app, "repair", "--dry-run"); err == nil || !strings.Contains(err.Error(), "discovery") {
 			t.Fatalf("error = %v", err)
@@ -52,7 +52,7 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 
 	t.Run("human preview", func(t *testing.T) {
 		app, out, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt"})
+		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		if err := execute(t, app, "repair", "--dry-run"); err != nil {
 			t.Fatal(err)
 		}
@@ -66,8 +66,10 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 func TestRepairDiscoversAndEnablesInstalledClients(t *testing.T) {
 	app, out, secretStore, runner := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, "", configuration.Models{})
-	cfg.Routes.Default = "dmx"
+	addAccountProfile(&cfg, "dmx-claude", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientClaude, "claude-model")
+	addAccountProfile(&cfg, "dmx-codex", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-model")
+	cfg.Routes[configuration.ClientClaude] = "dmx-claude"
+	cfg.Routes[configuration.ClientCodex] = "dmx-codex"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -115,8 +117,8 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 	}
 
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt-test"})
-	cfg.Routes.Default = "dmx"
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-test")
+	cfg.Routes[configuration.ClientCodex] = "dmx"
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: trustedExecutable, Targets: []string{existingTarget}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

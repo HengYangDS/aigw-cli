@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -80,6 +81,206 @@ default = "agent"
 	}
 }
 
+func TestLoadMigratesVersionTwoRoutesToExplicitClientBindings(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	raw := `version = 2
+
+[accounts.gateway]
+label = "Gateway"
+
+[accounts.gateway.endpoints]
+openai_responses = "https://gateway.test/v1"
+anthropic = "https://gateway.test"
+
+[profiles.claude]
+label = "Claude"
+account = "gateway"
+client = "claude"
+
+[profiles.claude.models]
+claude = "claude-test"
+
+[profiles.codex]
+label = "Codex"
+account = "gateway"
+client = "codex"
+
+[profiles.codex.models]
+codex = "gpt-test"
+
+[routes]
+default = "claude"
+
+[routes.overrides]
+codex = "codex"
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := NewStore(path).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Version != ConfigVersion {
+		t.Fatalf("migrated version = %d, want %d", cfg.Version, ConfigVersion)
+	}
+	want := Routes{ClientClaude: "claude", ClientCodex: "codex"}
+	if !reflect.DeepEqual(cfg.Routes, want) {
+		t.Fatalf("migrated routes = %#v, want %#v", cfg.Routes, want)
+	}
+}
+
+func TestLoadVersionTwoOverrideWinsOverDefaultForTheSameClient(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	raw := `version = 2
+
+[accounts.gateway]
+label = "Gateway"
+
+[accounts.gateway.endpoints]
+anthropic = "https://gateway.test"
+
+[profiles.old]
+label = "Old Claude"
+account = "gateway"
+client = "claude"
+
+[profiles.old.models]
+claude = "claude-old"
+
+[profiles.selected]
+label = "Selected Claude"
+account = "gateway"
+client = "claude"
+
+[profiles.selected.models]
+claude = "claude-selected"
+
+[routes]
+default = "old"
+
+[routes.overrides]
+claude = "selected"
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := NewStore(path).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(cfg.Routes, Routes{ClientClaude: "selected"}) {
+		t.Fatalf("migrated routes = %#v", cfg.Routes)
+	}
+}
+
+func TestLoadRejectsAmbiguousVersionTwoDefault(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	raw := `version = 2
+
+[accounts.gateway]
+label = "Gateway"
+
+[accounts.gateway.endpoints]
+openai_responses = "https://gateway.test/v1"
+anthropic = "https://gateway.test"
+
+[profiles.shared]
+label = "Shared"
+account = "gateway"
+
+[profiles.shared.models]
+claude = "claude-test"
+codex = "gpt-test"
+
+[routes]
+default = "shared"
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := NewStore(path).Load()
+	if err == nil || !strings.Contains(err.Error(), `cannot migrate profile "shared" because it does not declare exactly one client and model`) {
+		t.Fatalf("ambiguous migration error = %v", err)
+	}
+}
+
+func TestLoadRejectsUnknownVersionTwoDefaultRoute(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	raw := `version = 2
+[accounts.gateway]
+label = "Gateway"
+[accounts.gateway.endpoints]
+anthropic = "https://gateway.test"
+[profiles.claude]
+label = "Claude"
+account = "gateway"
+client = "claude"
+[profiles.claude.models]
+claude = "claude-test"
+[routes]
+default = "missing"
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := NewStore(path).Load()
+	if err == nil || !strings.Contains(err.Error(), `unknown profile "missing"`) {
+		t.Fatalf("unknown default migration error = %v", err)
+	}
+}
+
+func TestLoadRejectsInvalidVersionTwoOverrideAfterMigration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	raw := `version = 2
+[accounts.gateway]
+label = "Gateway"
+[accounts.gateway.endpoints]
+anthropic = "https://gateway.test"
+[profiles.claude]
+label = "Claude"
+account = "gateway"
+client = "claude"
+[profiles.claude.models]
+claude = "claude-test"
+[routes.overrides]
+unknown = "claude"
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := NewStore(path).Load()
+	if err == nil || !strings.Contains(err.Error(), `unknown route "unknown"`) {
+		t.Fatalf("invalid migrated override error = %v", err)
+	}
+}
+
+func TestLoadRejectsUnknownVersionThreeField(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	raw := `version = 3
+unexpected = true
+[accounts.gateway]
+label = "Gateway"
+[accounts.gateway.endpoints]
+anthropic = "https://gateway.test"
+[profiles.claude]
+label = "Claude"
+account = "gateway"
+client = "claude"
+model = "claude-test"
+[routes]
+claude = "claude"
+`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := NewStore(path).Load()
+	var loadErr *LoadError
+	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseParse {
+		t.Fatalf("unknown field load error = %v", err)
+	}
+}
+
 func TestLockSerializesMutations(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
 	unlock, err := store.Lock(context.Background())
@@ -105,8 +306,8 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	want := Config{
 		Version:  ConfigVersion,
 		Accounts: map[string]Account{"dmx": {Label: "DMXAPI", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
-		Profiles: map[string]Profile{"dmx": {Label: "DMXAPI", Account: "dmx"}},
-		Routes:   Routes{Default: "dmx", Overrides: map[string]string{}},
+		Profiles: map[string]Profile{"dmx": {Label: "DMXAPI", Account: "dmx", Client: ClientClaude, Model: "claude-test"}},
+		Routes:   Routes{ClientClaude: "dmx"},
 	}
 	if err := store.Save(want); err != nil {
 		t.Fatal(err)
@@ -122,7 +323,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["dmx"].Endpoints.Anthropic != "https://example.test" || got.Routes.Default != "dmx" {
+	if got.Accounts["dmx"].Endpoints.Anthropic != "https://example.test" || got.Routes[ClientClaude] != "dmx" {
 		t.Fatalf("round trip = %#v", got)
 	}
 }
@@ -140,10 +341,10 @@ func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 				Label:   "Claude",
 				Account: "dmx",
 				Client:  ClientClaude,
-				Models:  Models{ClientClaude: "claude-test"},
+				Model:   "claude-test",
 			},
 		},
-		Routes: Routes{Default: "claude", Overrides: map[string]string{}},
+		Routes: Routes{ClientClaude: "claude"},
 	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -172,7 +373,7 @@ func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 	}
 }
 
-func TestLoadPreservesAdmittedClaudeAndCodexModelKeysAsClientMap(t *testing.T) {
+func TestLoadRejectsVersionTwoMultiClientProfile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	data := `version = 2
 [accounts.gateway]
@@ -192,15 +393,9 @@ default = "both"
 	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := NewStore(path).Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := cfg.Profiles["both"].ModelFor(ClientClaude); got != "claude-test" {
-		t.Fatalf("Claude model = %q", got)
-	}
-	if got := cfg.Profiles["both"].ModelFor(ClientCodex); got != "gpt-test" {
-		t.Fatalf("Codex model = %q", got)
+	_, err := NewStore(path).Load()
+	if err == nil || !strings.Contains(err.Error(), "does not declare exactly one client and model") {
+		t.Fatalf("multi-client migration error = %v", err)
 	}
 }
 
@@ -229,8 +424,8 @@ func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
 	cfg := Config{
 		Version:  ConfigVersion,
 		Accounts: map[string]Account{"gateway": {Label: "Gateway", Endpoints: Endpoints{Anthropic: "https://gateway.test"}}},
-		Profiles: map[string]Profile{"gateway": {Label: "Gateway", Account: "gateway"}},
-		Routes:   Routes{Default: "gateway", Overrides: map[string]string{}},
+		Profiles: map[string]Profile{"gateway": {Label: "Gateway", Account: "gateway", Client: ClientClaude, Model: "claude-test"}},
+		Routes:   Routes{ClientClaude: "gateway"},
 	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -256,16 +451,16 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	first := Config{
 		Version:  ConfigVersion,
 		Accounts: map[string]Account{"one": {Label: "One", Endpoints: Endpoints{Anthropic: "https://one.test"}}},
-		Profiles: map[string]Profile{"one": {Label: "One", Account: "one"}},
-		Routes:   Routes{Default: "one", Overrides: map[string]string{}},
+		Profiles: map[string]Profile{"one": {Label: "One", Account: "one", Client: ClientClaude, Model: "claude-one"}},
+		Routes:   Routes{ClientClaude: "one"},
 	}
 	if err := store.Save(first); err != nil {
 		t.Fatal(err)
 	}
 	second := first
 	second.Accounts = map[string]Account{"two": {Label: "Two", Endpoints: Endpoints{Anthropic: "https://two.test"}}}
-	second.Profiles = map[string]Profile{"two": {Label: "Two", Account: "two"}}
-	second.Routes.Default = "two"
+	second.Profiles = map[string]Profile{"two": {Label: "Two", Account: "two", Client: ClientClaude, Model: "claude-two"}}
+	second.Routes = Routes{ClientClaude: "two"}
 	if err := store.Save(second); err != nil {
 		t.Fatal(err)
 	}
@@ -284,8 +479,8 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	cfg := Config{
 		Version:  ConfigVersion,
 		Accounts: map[string]Account{"dmx": {Label: "DMX", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
-		Profiles: map[string]Profile{"claude": {Label: "Claude", Account: "dmx", Models: Models{ClientClaude: "claude-test"}}},
-		Routes:   Routes{Default: "claude", Overrides: map[string]string{}},
+		Profiles: map[string]Profile{"claude": {Label: "Claude", Account: "dmx", Client: ClientClaude, Model: "claude-test"}},
+		Routes:   Routes{ClientClaude: "claude"},
 	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -297,7 +492,7 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if checkpoint.Config.Routes.Default != "claude" || len(checkpoint.Clients) != 2 || checkpoint.VerifiedAt.IsZero() {
+	if checkpoint.Config.Routes[ClientClaude] != "claude" || len(checkpoint.Clients) != 2 || checkpoint.VerifiedAt.IsZero() {
 		t.Fatalf("checkpoint = %#v", checkpoint)
 	}
 	data, err := os.ReadFile(path + ".verified.json")
@@ -490,7 +685,7 @@ func securePersistedFileMode() os.FileMode {
 func convergenceConfig(id string) Config {
 	cfg := NewConfig()
 	cfg.Accounts[id] = Account{Label: strings.ToUpper(id), Endpoints: Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
-	cfg.Profiles[id] = Profile{Label: strings.ToUpper(id), Account: id, Client: ClientCodex, Models: Models{ClientCodex: id + "-model"}}
-	cfg.Routes.Default = id
+	cfg.Profiles[id] = Profile{Label: strings.ToUpper(id), Account: id, Client: ClientCodex, Model: id + "-model"}
+	cfg.Routes[ClientCodex] = id
 	return cfg
 }

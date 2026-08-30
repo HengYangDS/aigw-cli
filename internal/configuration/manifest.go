@@ -11,14 +11,13 @@ import (
 
 var credentialKey = regexp.MustCompile(`(?i)(token|secret|password|api[_-]?key|auth(?:orization)?(?:[_-]?header)?|credential)`)
 
-const currentVersion = 3
+const currentVersion = 4
 
 type Manifest struct {
-	Version            int                `toml:"version"`
-	RecommendedDefault string             `toml:"recommended_default"`
-	RecommendedRoutes  map[string]string  `toml:"recommended_routes,omitempty"`
-	Accounts           map[string]Account `toml:"accounts,omitempty"`
-	Profiles           map[string]Profile `toml:"profiles"`
+	Version           int                `toml:"version"`
+	RecommendedRoutes map[string]string  `toml:"recommended_routes,omitempty"`
+	Accounts          map[string]Account `toml:"accounts,omitempty"`
+	Profiles          map[string]Profile `toml:"profiles"`
 }
 
 // MergeOptions makes every local-identity replacement explicit. Configuration
@@ -34,19 +33,8 @@ type MergeOptions struct {
 // so all consumers share this definition instead of depending on a CLI command
 // package.
 func ManifestAccountNames(incoming Manifest) []string {
-	seen := map[string]bool{}
+	names := make([]string, 0, len(incoming.Accounts))
 	for name := range incoming.Accounts {
-		seen[name] = true
-	}
-	for name, profile := range incoming.Profiles {
-		accountName := profile.Account
-		if accountName == "" {
-			accountName = name
-		}
-		seen[accountName] = true
-	}
-	names := make([]string, 0, len(seen))
-	for name := range seen {
 		names = append(names, name)
 	}
 	sort.Strings(names)
@@ -79,22 +67,9 @@ func Parse(data []byte) (Manifest, error) {
 	if len(result.Profiles) == 0 {
 		return Manifest{}, fmt.Errorf("configuration manifest must define at least one profile")
 	}
-	if result.RecommendedDefault != "" {
-		if _, ok := result.Profiles[result.RecommendedDefault]; !ok {
-			return Manifest{}, fmt.Errorf("recommended default references unknown profile %q", result.RecommendedDefault)
-		}
-	}
 	check := NewConfig()
 	check.Accounts = result.Accounts
 	check.Profiles = result.Profiles
-	if result.RecommendedDefault != "" {
-		check.Routes.Default = result.RecommendedDefault
-	} else {
-		for name := range result.Profiles {
-			check.Routes.Default = name
-			break
-		}
-	}
 	for client, profile := range result.RecommendedRoutes {
 		if !IsAdmittedClient(client) {
 			return Manifest{}, fmt.Errorf("recommended route uses unsupported client %q", client)
@@ -102,15 +77,10 @@ func Parse(data []byte) (Manifest, error) {
 		if _, ok := result.Profiles[profile]; !ok {
 			return Manifest{}, fmt.Errorf("recommended %s route references unknown profile %q", client, profile)
 		}
-		check.Routes.Overrides[client] = profile
+		check.Routes[client] = profile
 	}
 	if err := check.Validate(); err != nil {
 		return Manifest{}, fmt.Errorf("invalid configuration manifest: %w", err)
-	}
-	for client := range result.RecommendedRoutes {
-		if _, _, err := check.ResolveRuntime(client, ""); err != nil {
-			return Manifest{}, fmt.Errorf("invalid recommended %s route: %w", client, err)
-		}
 	}
 	return result, nil
 }
@@ -174,18 +144,9 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 		}
 		merged.Profiles[name] = profile
 	}
-	if merged.Routes.Default == "" {
-		merged.Routes.Default = incoming.RecommendedDefault
-		if merged.Routes.Default == "" {
-			for name := range incoming.Profiles {
-				merged.Routes.Default = name
-				break
-			}
-		}
-	}
 	for client, profile := range incoming.RecommendedRoutes {
-		if merged.Routes.Overrides[client] == "" {
-			merged.Routes.Overrides[client] = profile
+		if merged.Routes[client] == "" {
+			merged.Routes[client] = profile
 		}
 	}
 	if err := merged.Validate(); err != nil {
@@ -225,26 +186,23 @@ func equivalentProbe(left, right *AccountProbe) bool {
 func normalizeEndpoint(value string) string { return strings.TrimRight(strings.TrimSpace(value), "/") }
 
 func equivalentProfile(left, right Profile) bool {
-	if left.Label != right.Label || left.Purpose != right.Purpose || left.Account != right.Account || left.Client != right.Client || left.ModelProvider != right.ModelProvider || len(left.Models) != len(right.Models) {
-		return false
-	}
-	for client, model := range left.Models {
-		if right.Models[client] != model {
-			return false
-		}
-	}
-	return true
+	return left.Label == right.Label &&
+		left.Purpose == right.Purpose &&
+		left.Account == right.Account &&
+		left.Client == right.Client &&
+		left.Model == right.Model &&
+		left.ModelProvider == right.ModelProvider
 }
 
 func Export(cfg Config) ([]byte, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	recommendedRoutes := make(map[string]string, len(cfg.Routes.Overrides))
-	for client, profile := range cfg.Routes.Overrides {
+	recommendedRoutes := make(map[string]string, len(cfg.Routes))
+	for client, profile := range cfg.Routes {
 		recommendedRoutes[client] = profile
 	}
-	data, err := toml.Marshal(Manifest{Version: currentVersion, RecommendedDefault: cfg.Routes.Default, RecommendedRoutes: recommendedRoutes, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
+	data, err := toml.Marshal(Manifest{Version: currentVersion, RecommendedRoutes: recommendedRoutes, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
 	if err != nil {
 		return nil, err
 	}

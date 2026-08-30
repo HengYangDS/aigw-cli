@@ -56,7 +56,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 				label = profileName
 			}
 			before := cfg.Clone()
-			cfg.Profiles[profileName] = configuration.Profile{Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Client: client, Models: configuration.Models{client: model}}
+			cfg.Profiles[profileName] = configuration.Profile{Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Client: client, Model: model}
 			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "profile add"); err != nil {
 				return err
 			}
@@ -69,7 +69,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 				r.Row("Purpose", purpose)
 			}
 			r.Success("Reused the existing account token; current route was not changed")
-			r.Next("aigw use " + profileName + " --for " + client)
+			r.Next("aigw use " + profileName)
 			return nil
 		},
 	}
@@ -94,10 +94,10 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			r.Section("Available profiles")
 			for _, name := range cfg.ProfileIDs() {
 				state, stateText := presentation.Info, "Available"
-				if name == cfg.Routes.Default {
-					state, stateText = presentation.OK, "Current"
-				}
 				profile := cfg.Profiles[name]
+				if cfg.Routes[profile.Client] == name {
+					state, stateText = presentation.OK, "Selected for "+invocation.Title(profile.Client)
+				}
 				accountName := profile.Account
 				secret := "Token missing"
 				if runtime.Secrets.Has(accountName) {
@@ -133,7 +133,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			accountName := profile.Account
 			account := cfg.Accounts[accountName]
 			if jsonMode {
-				return json.NewEncoder(runtime.Out).Encode(map[string]any{"id": args[0], "label": profile.Label, "purpose": profile.Purpose, "account": accountName, "models": profile.Models, "endpoints": account.Endpoints, "secret_available": runtime.Secrets.Has(accountName)})
+				return json.NewEncoder(runtime.Out).Encode(map[string]any{"id": args[0], "label": profile.Label, "purpose": profile.Purpose, "account": accountName, "client": profile.Client, "model": profile.Model, "endpoints": account.Endpoints, "secret_available": runtime.Secrets.Has(accountName)})
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Service details")
@@ -144,11 +144,8 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 				r.Row("Purpose", purpose)
 			}
 			r.Row("Account", accountName)
-			for _, spec := range configuration.AdmittedClientSpecs() {
-				if model := profile.ModelFor(spec.ID); model != "" {
-					r.Row(spec.Label+" model", model)
-				}
-			}
+			r.Row("Client", invocation.Title(profile.Client))
+			r.Row("Model", profile.Model)
 			if account.Endpoints.OpenAIResponses != "" {
 				r.Row("OpenAI", account.Endpoints.OpenAIResponses)
 			}
@@ -225,12 +222,9 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			if !ok {
 				return fmt.Errorf("Unknown profile %q", name)
 			}
-			if cfg.Routes.Default == name {
-				return fmt.Errorf("Profile %q is the default route; first run `aigw use <other>`", name)
-			}
-			for client, route := range cfg.Routes.Overrides {
+			for client, route := range cfg.Routes {
 				if route == name {
-					return fmt.Errorf("Profile %q is used by %s; first run `aigw route reset %s`", name, client, client)
+					return fmt.Errorf("Profile %q is selected for %s; first run `aigw use <other-%s-profile>`", name, client, client)
 				}
 			}
 			delete(cfg.Profiles, name)

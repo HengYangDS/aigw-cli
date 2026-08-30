@@ -14,14 +14,14 @@ func TestProfileModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 		Account:       "gateway",
 		Client:        ClientCodex,
 		ModelProvider: "amazon-bedrock",
-		Models:        Models{ClientCodex: "openai.gpt-5.6-sol"},
+		Model:         "openai.gpt-5.6-sol",
 	}
-	cfg.Routes.Overrides[ClientCodex] = "native"
+	cfg.Routes[ClientCodex] = "native"
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	runtime, _, err := cfg.ResolveRuntime(ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,8 +29,10 @@ func TestProfileModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 		t.Fatalf("model provider = %q", runtime.ModelProvider)
 	}
 
-	delete(cfg.Routes.Overrides, ClientCodex)
-	runtime, _, err = cfg.ResolveRuntime(ClientCodex, "")
+	profile := cfg.Profiles["default"]
+	profile.ModelProvider = ""
+	cfg.Profiles["default"] = profile
+	runtime, err = cfg.ResolveRuntime(ClientCodex, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,11 +41,12 @@ func TestProfileModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	}
 
 	claude := modelProviderConfig()
-	profile := claude.Profiles["default"]
+	profile = claude.Profiles["default"]
 	profile.Client = ClientClaude
-	profile.Models = Models{ClientClaude: "claude-fable-5"}
+	profile.Model = "claude-fable-5"
+	profile.ModelProvider = ""
 	claude.Profiles["default"] = profile
-	runtime, _, err = claude.ResolveRuntime(ClientClaude, "")
+	runtime, err = claude.ResolveRuntime(ClientClaude, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +110,7 @@ func TestProfileModelProviderRejectsUnsafeOrNonCodexValues(t *testing.T) {
 			profile := cfg.Profiles["default"]
 			profile.Client = testCase.client
 			profile.ModelProvider = testCase.provider
-			profile.Models = Models{testCase.client: "model"}
+			profile.Model = "model"
 			cfg.Profiles["default"] = profile
 			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), testCase.want) {
 				t.Fatalf("validation error = %v, want %q", err, testCase.want)
@@ -129,8 +132,8 @@ func modelProviderConfig() Config {
 		Label:   "Default",
 		Account: "gateway",
 		Client:  ClientCodex,
-		Models:  Models{ClientCodex: "gpt-5.6-sol"},
+		Model:   "gpt-5.6-sol",
 	}
-	cfg.Routes.Default = "default"
+	cfg.Routes[ClientCodex] = "default"
 	return cfg
 }

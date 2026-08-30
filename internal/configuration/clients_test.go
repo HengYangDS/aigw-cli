@@ -33,13 +33,10 @@ func TestAdmittedClientRegistryReturnsDefensiveCopies(t *testing.T) {
 	}
 }
 
-func TestProfileModelsUseAdmittedClientIDsAsKeys(t *testing.T) {
-	profile := Profile{Models: Models{
-		ClientClaude: "claude-test",
-		ClientCodex:  "gpt-test",
-	}}
-	if profile.ModelFor(ClientClaude) != "claude-test" || profile.ModelFor(ClientCodex) != "gpt-test" {
-		t.Fatalf("models = %#v", profile.Models)
+func TestProfileOwnsOneClientAndOneModel(t *testing.T) {
+	profile := Profile{Client: ClientClaude, Model: "claude-test"}
+	if profile.Client != ClientClaude || profile.Model != "claude-test" {
+		t.Fatalf("profile = %#v", profile)
 	}
 }
 

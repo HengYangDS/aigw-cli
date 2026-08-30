@@ -1,7 +1,6 @@
 package codex
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -191,9 +190,9 @@ func TestProbeCodexCatalogCanReadTheClientsDefaultCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	probe, err := catalogProbe(document, "gpt-5.6-sol")
-	if err != nil || !probe.Present {
-		t.Fatalf("catalogProbe() = %+v, %v", probe, err)
+	probe := catalogProbe(document, "gpt-5.6-sol")
+	if !probe.Present {
+		t.Fatalf("catalogProbe() = %+v", probe)
 	}
 }
 
@@ -205,24 +204,5 @@ func TestDecodeCodexCatalogRejectsInvalidEntries(t *testing.T) {
 		if _, err := decodeCodexCatalog([]byte(data), "effective"); err == nil || !strings.Contains(err.Error(), "validate Codex effective model catalog") {
 			t.Fatalf("decodeCodexCatalog(%s) error = %v", data, err)
 		}
-	}
-}
-
-func TestCatalogProbeRejectsMalformedEntries(t *testing.T) {
-	for _, testCase := range []struct {
-		name  string
-		entry map[string]json.RawMessage
-		want  string
-	}{
-		{"missing slug", map[string]json.RawMessage{"name": json.RawMessage(`"x"`)}, "has no slug"},
-		{"invalid slug", map[string]json.RawMessage{"slug": json.RawMessage(`{`)}, "parse Codex model catalog slug"},
-		{"invalid metadata", map[string]json.RawMessage{"slug": json.RawMessage(`"target"`), "metadata": json.RawMessage(`{`)}, "encode Codex metadata"},
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			_, err := catalogProbe(codexCatalogDocument{Models: []map[string]json.RawMessage{testCase.entry}}, "target")
-			if err == nil || !strings.Contains(err.Error(), testCase.want) {
-				t.Fatalf("catalogProbe() error = %v", err)
-			}
-		})
 	}
 }

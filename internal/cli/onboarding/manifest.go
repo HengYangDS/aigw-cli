@@ -82,7 +82,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 		if selectErr != nil {
 			return selectErr
 		}
-		if _, _, resolveErr := preflight.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && discoveredCodex != "" && len(discoveredTargets) > 1 {
+		if _, resolveErr := preflight.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && discoveredCodex != "" && len(discoveredTargets) > 1 {
 			return fmt.Errorf("configuration setup found multiple auto-managed Codex targets; automatic native credential binding is not atomic across targets, so reduce the admitted target set before setup or import the manifest without first-time client binding")
 		}
 	}
@@ -159,14 +159,14 @@ func buildManifestSetupResult(
 	result := manifestSetupResult{
 		Catalogue: manifestSetupCatalogue{Accounts: len(accountNames), Profiles: len(manifest.Profiles)},
 		Accounts:  make([]manifestSetupAccount, 0, len(accountNames)),
-		Routes:    make(map[string]string, len(cfg.Routes.Overrides)),
+		Routes:    make(map[string]string, len(cfg.Routes)),
 		Clients:   make(map[string]string, len(configuration.AdmittedClientIDs())),
 	}
 	for _, name := range accountNames {
 		_, isConnected := connected[name]
 		result.Accounts = append(result.Accounts, manifestSetupAccount{ID: name, Connected: isConnected})
 	}
-	for client, profile := range cfg.Routes.Overrides {
+	for client, profile := range cfg.Routes {
 		result.Routes[client] = profile
 	}
 	for _, spec := range configuration.AdmittedClientSpecs() {
@@ -186,7 +186,7 @@ func buildManifestSetupResult(
 				instruction, _ := credential.TokenRecovery(runtime.Secrets, account)
 				result.Deferred = append(result.Deferred, instruction)
 			}
-			result.NextAction = "aigw use " + manifest.RecommendedDefault
+			result.NextAction = "Set the listed environment variables, then run `aigw check`"
 		} else {
 			result.NextAction = "aigw rotate <account>"
 		}
@@ -336,35 +336,12 @@ func rollbackManifestSetupCredentials(runtime invocation.Context, credentials []
 
 func configuredClientsForAccount(cfg configuration.Config, accountName string) []string {
 	seen := map[string]bool{}
-	genericProfile := false
-	for profileName, profile := range cfg.Profiles {
-		owner := profile.Account
-		if owner == "" {
-			owner = profileName
-		}
-		if owner != accountName {
+	for _, profile := range cfg.Profiles {
+		if profile.Account != accountName {
 			continue
 		}
-		specificClient := false
 		if configuration.IsAdmittedClient(profile.Client) {
 			seen[profile.Client] = true
-			specificClient = true
-		}
-		for client, model := range profile.Models {
-			if configuration.IsAdmittedClient(client) && strings.TrimSpace(model) != "" {
-				seen[client] = true
-				specificClient = true
-			}
-		}
-		genericProfile = genericProfile || !specificClient
-	}
-	if genericProfile {
-		account := cfg.Accounts[accountName]
-		if account.Endpoints.Anthropic != "" {
-			seen[configuration.ClientClaude] = true
-		}
-		if account.Endpoints.OpenAIResponses != "" {
-			seen[configuration.ClientCodex] = true
 		}
 	}
 	clients := make([]string, 0, len(seen))
@@ -380,7 +357,7 @@ func verifyManifestSetupCredential(ctx context.Context, runtime invocation.Conte
 	account := cfg.Accounts[accountName]
 	account.ID = accountName
 	for _, client := range selectedClients {
-		clientRuntime, _, resolveErr := cfg.ResolveRuntime(client, "")
+		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
 		if resolveErr != nil || clientRuntime.AccountID != accountName {
 			continue
 		}
@@ -400,7 +377,7 @@ func verifyManifestSetupCredential(ctx context.Context, runtime invocation.Conte
 func manifestSetupSelectedClients(cfg configuration.Config, connected map[string]manifestSetupCredential, available map[string]bool) []string {
 	clients := make([]string, 0, len(configuration.AdmittedClientIDs()))
 	for _, client := range configuration.AdmittedClientIDs() {
-		runtime, _, err := cfg.ResolveRuntime(client, "")
+		runtime, err := cfg.ResolveRuntime(client, "")
 		if err != nil || runtime.AccountID == "" {
 			continue
 		}
@@ -424,14 +401,10 @@ func containsClient(clients []string, target string) bool {
 func firstRuntimeForAccountClient(cfg configuration.Config, accountName, client string) (configuration.Runtime, bool) {
 	for _, profileName := range cfg.ProfileIDs() {
 		profile := cfg.Profiles[profileName]
-		owner := profile.Account
-		if owner == "" {
-			owner = profileName
-		}
-		if owner != accountName {
+		if profile.Account != accountName {
 			continue
 		}
-		runtime, _, err := cfg.ResolveRuntime(client, profileName)
+		runtime, err := cfg.ResolveRuntime(client, profileName)
 		if err == nil && runtime.Model != "" {
 			return runtime, true
 		}

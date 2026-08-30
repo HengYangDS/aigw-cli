@@ -113,7 +113,7 @@ func TestCommonCommandFailuresUseEnglishGuidance(t *testing.T) {
 	}{
 		{args: []string{"config"}, want: "Choose a config subcommand; run `aigw config --help`", fix: "aigw config --help"},
 		{args: []string{"adapter", "auth", "claude"}, want: "Native credential binding is available only for codex", fix: "aigw adapter auth codex"},
-		{args: []string{"use", "--for", "other", "one"}, want: "--for must be claude or codex", fix: "aigw use --help"},
+		{args: []string{"use", "--for", "other", "one"}, want: "unknown option --for", fix: "aigw --help"},
 	} {
 		out.Reset()
 		err := execute(t, app, tc.args...)
@@ -149,7 +149,7 @@ func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 		{args: []string{"verify", "--for", "other"}, want: "--for must be claude, codex, or all"},
 		{args: []string{"setup", "--profile", "new-profile", "--for", "other"}, want: "--for must be claude or codex"},
 		{args: []string{"profile", "add", "new-profile"}, want: "--account, --for, and --model are required"},
-		{args: []string{"route", "reset", "other"}, want: "Client must be claude or codex"},
+		{args: []string{"route", "reset", "other"}, want: "unknown command \"reset\""},
 		{args: []string{"adapter", "enable", "other"}, want: "Client must be claude or codex"},
 	} {
 		out.Reset()

@@ -17,7 +17,7 @@ flowchart LR
 | ------- | --------------------------------------------------------------------------------- | ------------------------------------------- |
 | Account | One provider endpoint and logical Token boundary                                  | Token belongs to the Account, not a Profile |
 | Profile | One `account + client + model` choice and optional Codex-native provider identity | Client scope is explicit                    |
-| Route   | Default or client-specific Profile selection                                      | No hidden provider fallback                 |
+| Route   | One client's explicit Profile selection                                           | No hidden provider fallback                 |
 | Adapter | Projection into one native client                                                 | Never writes another client's surface       |
 
 ## Account
@@ -49,12 +49,11 @@ falls back from Account metadata.
 ## Route
 
 ```bash
-aigw use dmxapi-gpt-5.6-sol --for codex
-aigw use dmxapi-claude-fable-5 --for claude
-aigw route reset claude
+aigw use dmxapi-gpt-5.6-sol
+aigw use dmxapi-claude-fable-5
 ```
 
-A client-specific route overrides the default. Reset removes only that override.
+Each Profile declares exactly one client. Selecting it replaces only that client's Route. There is no global default, inheritance, or cross-client fallback.
 AIGW selects before the request; it does not retry traffic through another
 service or model.
 

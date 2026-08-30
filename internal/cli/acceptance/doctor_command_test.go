@@ -10,9 +10,10 @@ func TestDoctorChecksAccountTokenOnceForSharedProfiles(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Profiles["alpha-model"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "alpha-model"}}
-	cfg.Profiles["beta-model"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "beta-model"}}
-	cfg.Routes.Default = "alpha-model"
+	cfg.Profiles["alpha-model"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "alpha-model"}
+	cfg.Profiles["beta-model"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Model: "beta-model"}
+	cfg.Routes[configuration.ClientCodex] = "alpha-model"
+	cfg.Routes[configuration.ClientClaude] = "beta-model"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -32,8 +33,8 @@ func TestDoctorChecksAccountTokenOnceForSharedProfiles(t *testing.T) {
 func TestDoctorAcceptsConfiguredClaudeExecutableWithoutDiscovery(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, "", configuration.Models{})
-	cfg.Routes.Default = "dmx"
+	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-model")
+	cfg.Routes[configuration.ClientClaude] = "dmx"
 	cfg.Adapters["claude"] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

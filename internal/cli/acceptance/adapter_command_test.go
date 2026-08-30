@@ -22,7 +22,7 @@ func TestAdapterListAndDiscoveryBranches(t *testing.T) {
 
 	t.Run("list enabled executable", func(t *testing.T) {
 		app, out, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "m"})
+		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		cfg, _ := app.Config.Load()
 		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
 		if err := app.Config.Save(cfg); err != nil {
@@ -103,7 +103,7 @@ func TestAdapterValidationBranches(t *testing.T) {
 func TestAdapterStateFailureBranches(t *testing.T) {
 	t.Run("enable already enabled", func(t *testing.T) {
 		app, _, secretStore, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "m"})
+		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		cfg, _ := app.Config.Load()
 		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/old"}
 		if err := app.Config.Save(cfg); err != nil {
@@ -118,17 +118,17 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 
 	t.Run("enable unresolved route", func(t *testing.T) {
 		app, _, secretStore, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt"})
+		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		_ = secretStore.Set("one", "token")
 		err := execute(t, app, "adapter", "enable", "claude", "--executable", "/x")
-		if err == nil || !strings.Contains(err.Error(), "is for codex") {
+		if err == nil || !strings.Contains(err.Error(), "no route selected for client \"claude\"") {
 			t.Fatalf("error = %v", err)
 		}
 	})
 
 	t.Run("enable missing token", func(t *testing.T) {
 		app, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, configuration.Models{configuration.ClientClaude: "m"})
+		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
 		err := execute(t, app, "adapter", "enable", "claude", "--executable", "/x")
 		if err == nil || !strings.Contains(err.Error(), "missing a token") {
 			t.Fatalf("error = %v", err)
@@ -137,7 +137,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 
 	t.Run("enable missing discovery", func(t *testing.T) {
 		app, _, secretStore, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt"})
+		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		_ = secretStore.Set("one", "token")
 		app.Discovery = nil
 		err := execute(t, app, "adapter", "enable", "codex", "--executable", "/x", "--target", filepath.Join(t.TempDir(), "configuration.toml"))
@@ -148,7 +148,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 
 	t.Run("auth bind failure", func(t *testing.T) {
 		app, _, _, _ := testApp(t, "")
-		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt"})
+		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		cfg, _ := app.Config.Load()
 		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/x", Targets: []string{filepath.Join(t.TempDir(), "configuration.toml")}}
 		if err := app.Config.Save(cfg); err != nil {
@@ -175,8 +175,8 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, "", configuration.Models{})
-	cfg.Routes.Default = "team"
+	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-model")
+	cfg.Routes[configuration.ClientClaude] = "team"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -202,8 +202,8 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 func TestAdapterCommandsListOnlyAdmittedClients(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}, "", configuration.Models{})
-	cfg.Routes.Default = "team"
+	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}, configuration.ClientClaude, "claude-model")
+	cfg.Routes[configuration.ClientClaude] = "team"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -236,8 +236,8 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, "", configuration.Models{})
-	cfg.Routes.Default = "team"
+	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "gpt-model")
+	cfg.Routes[configuration.ClientCodex] = "team"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -279,8 +279,8 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 			t.Fatal(err)
 		}
 		cfg := configuration.NewConfig()
-		addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, configuration.Models{configuration.ClientCodex: "gpt"})
-		cfg.Routes.Default = "one"
+		addAccountProfile(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		cfg.Routes[configuration.ClientCodex] = "one"
 		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
@@ -306,8 +306,8 @@ func TestStatusWarnsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{Anthropic: "https://example.test"}}
-	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-fable-5"}}
-	cfg.Routes.Default = "claude-fable-5"
+	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Client: configuration.ClientClaude, Model: "claude-fable-5"}
+	cfg.Routes[configuration.ClientClaude] = "claude-fable-5"
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -329,8 +329,8 @@ func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T)
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-fable-5"}}
-	cfg.Routes.Default = "claude-fable-5"
+	cfg.Profiles["claude-fable-5"] = configuration.Profile{Label: "Claude Fable", Account: "dmx", Client: configuration.ClientClaude, Model: "claude-fable-5"}
+	cfg.Routes[configuration.ClientClaude] = "claude-fable-5"
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude-real"}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

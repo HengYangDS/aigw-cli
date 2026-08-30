@@ -88,7 +88,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if before.Adapters[client].Enabled {
 			return fmt.Errorf("%s adapter is already enabled; disable it before changing the executable or config targets", spec.Label)
 		}
-		clientRuntime, _, err := cfg.ResolveRuntime(client, "")
+		clientRuntime, err := cfg.ResolveRuntime(client, "")
 		if err != nil {
 			return err
 		}

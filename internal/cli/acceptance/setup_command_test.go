@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 	"strings"
 	"testing"
@@ -33,7 +34,7 @@ func TestSetupReusesReadOnlyEnvironmentSecretWithoutPromptingOrPersisting(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes.Default != "gpt-5.6-terra" || cfg.Profiles["gpt-5.6-terra"].Account != "dmx" {
+	if cfg.Routes[configuration.ClientCodex] != "gpt-5.6-terra" || cfg.Profiles["gpt-5.6-terra"].Account != "dmx" {
 		t.Fatalf("setup config = %#v", cfg)
 	}
 	if strings.Contains(out.String(), "environment-only-token") {

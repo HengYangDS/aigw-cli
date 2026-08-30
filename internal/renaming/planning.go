@@ -140,17 +140,13 @@ func planProfile(cfg configuration.Config, oldID, newID string) (Plan, error) {
 	next := cfg.Clone()
 	delete(next.Profiles, oldID)
 	next.Profiles[newID] = profile
-	references := make([]string, 0, 1+len(next.Routes.Overrides))
-	if next.Routes.Default == oldID {
-		next.Routes.Default = newID
-		references = append(references, "routes.default")
-	}
-	for client, profileID := range next.Routes.Overrides {
+	references := make([]string, 0, len(next.Routes))
+	for client, profileID := range next.Routes {
 		if profileID != oldID {
 			continue
 		}
-		next.Routes.Overrides[client] = newID
-		references = append(references, "routes.overrides."+client)
+		next.Routes[client] = newID
+		references = append(references, "routes."+client)
 	}
 	sort.Strings(references)
 	if err := next.Validate(); err != nil {

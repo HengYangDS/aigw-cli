@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -35,6 +34,13 @@ type closeErrorBody struct{ io.Reader }
 
 func (closeErrorBody) Close() error { return errors.New("close failed") }
 
+type presentFailingSecretStore struct{ err error }
+
+func (store presentFailingSecretStore) Get(string) (string, error) { return "", store.err }
+func (presentFailingSecretStore) Set(string, string) error         { return nil }
+func (presentFailingSecretStore) Delete(string) error              { return nil }
+func (presentFailingSecretStore) Has(string) bool                  { return true }
+
 type readinessProcessRunner struct {
 	plans []process.Plan
 	err   error
@@ -59,15 +65,10 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, configuration
 			OpenAIResponses: "https://codex.example.test/v1",
 		},
 	}
-	cfg.Profiles["one"] = configuration.Profile{
-		Label:   "One",
-		Account: "one",
-		Models: configuration.Models{
-			configuration.ClientClaude: "claude-test",
-			configuration.ClientCodex:  "gpt-test",
-		},
-	}
-	cfg.Routes.Default = "one"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Routes[configuration.ClientCodex] = "codex"
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -130,12 +131,13 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := output(runtime); !strings.Contains(got, "Precise balance") || !strings.Contains(got, "Enabled") {
+	if got := output(runtime); !strings.Contains(got, "Precise balance enabled") {
 		t.Fatalf("enabled diagnostic status = %q", got)
 	}
 
-	cfg.Profiles["codex-only"] = configuration.Profile{Label: "Codex only", Purpose: "Selection", Account: "one", Client: configuration.ClientCodex, Models: configuration.Models{configuration.ClientCodex: "gpt-test"}}
-	cfg.Profiles["one"] = configuration.Profile{Label: "Claude only", Account: "one", Client: configuration.ClientClaude, Models: configuration.Models{configuration.ClientClaude: "claude-test"}}
+	cfg.Profiles["codex-only"] = configuration.Profile{Label: "Codex only", Purpose: "Selection", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
+	delete(cfg.Routes, configuration.ClientCodex)
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude only", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +145,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := output(runtime); !strings.Contains(got, "aigw use codex-only --for codex") {
+	if got := output(runtime); !strings.Contains(got, "aigw use codex") {
 		t.Fatalf("route selection status = %q", got)
 	}
 }
@@ -178,7 +180,7 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 
 func TestAdapterRouteReadyCoversClaudeExecutableAndCodexOutcomes(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
-	clientRuntime, _, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +212,7 @@ func TestAdapterRouteReadyCoversClaudeExecutableAndCodexOutcomes(t *testing.T) {
 		t.Fatalf("ready executable ready=%v issue=%q", ready, issue)
 	}
 
-	codexRuntime, _, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	codexRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,11 +336,9 @@ func TestStatusSeparatesCodexProjectionFromNativeAuthentication(t *testing.T) {
 		t.Fatalf("proved native authentication status = %q", got)
 	}
 
-	profile := cfg.Profiles["one"]
-	profile.Client = configuration.ClientCodex
-	delete(profile.Models, configuration.ClientClaude)
+	profile := cfg.Profiles["codex"]
 	profile.ModelProvider = "amazon-bedrock"
-	cfg.Profiles["one"] = profile
+	cfg.Profiles["codex"] = profile
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -356,25 +356,41 @@ func TestStatusSeparatesCodexProjectionFromNativeAuthentication(t *testing.T) {
 }
 
 func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
+	t.Run("no enabled clients", func(t *testing.T) {
+		runtime, _ := configuredReadinessRuntime(t)
+		runtime.Version = "1.0.0"
+		if err := RunCheck(&cobra.Command{}, runtime); err != nil {
+			t.Fatal(err)
+		}
+		if got := output(runtime); !strings.Contains(got, "no clients are enabled") {
+			t.Fatalf("RunCheck() output = %q", got)
+		}
+	})
+
 	t.Run("enabled client route mismatch", func(t *testing.T) {
 		runtime, cfg := configuredReadinessRuntime(t)
 		runtime.Version = "1.0.0"
-		runtime.Problem = func(title, _, _, _ string, err error) error {
-			return fmt.Errorf("%s: %w", title, err)
-		}
-		if err := runtime.Secrets.Set("one", "token"); err != nil {
-			t.Fatal(err)
-		}
-		profile := cfg.Profiles["one"]
-		profile.Client = configuration.ClientCodex
-		delete(profile.Models, configuration.ClientClaude)
-		cfg.Profiles["one"] = profile
-		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+		delete(cfg.Routes, configuration.ClientClaude)
+		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
 		if err := runtime.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
-		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(err.Error(), "route cannot be resolved") {
+		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(err.Error(), `no route selected for client "claude"`) {
 			t.Fatalf("RunCheck() error = %v", err)
+		}
+	})
+
+	t.Run("token lookup failure", func(t *testing.T) {
+		runtime, cfg := configuredReadinessRuntime(t)
+		runtime.Version = "1.0.0"
+		want := errors.New("credential backend unavailable")
+		runtime.Secrets = presentFailingSecretStore{err: want}
+		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
+		if err := runtime.Config.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := RunCheck(&cobra.Command{}, runtime); !errors.Is(err, want) {
+			t.Fatalf("RunCheck() error = %v, want %v", err, want)
 		}
 	})
 
@@ -384,10 +400,6 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 		if err := runtime.Secrets.Set("one", "token"); err != nil {
 			t.Fatal(err)
 		}
-		profile := cfg.Profiles["one"]
-		profile.Client = configuration.ClientCodex
-		delete(profile.Models, configuration.ClientClaude)
-		cfg.Profiles["one"] = profile
 		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
 			Enabled:    true,
 			Executable: "/opt/codex",
@@ -411,6 +423,14 @@ func TestRunCheckShowsEnabledProviderDiagnostics(t *testing.T) {
 	if err := runtime.Accounts.Set("one", account.Credential{SystemToken: "system", UserID: "user"}); err != nil {
 		t.Fatal(err)
 	}
+	claudeExecutable := filepath.Join(t.TempDir(), "claude")
+	if goruntime.GOOS == "windows" {
+		claudeExecutable += ".exe"
+	}
+	if err := os.WriteFile(claudeExecutable, []byte("fixture"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
 	providerAccount := cfg.Accounts["one"]
 	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
 	cfg.Accounts["one"] = providerAccount
@@ -425,8 +445,8 @@ func TestRunCheckShowsEnabledProviderDiagnostics(t *testing.T) {
 	if err := RunCheck(command, runtime); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Precise balance", "Enabled", "aigw balance one"} {
-		if !strings.Contains(output(runtime), want) {
+	for _, want := range []string{"precise balance enabled"} {
+		if !strings.Contains(strings.ToLower(output(runtime)), want) {
 			t.Fatalf("health output lacks %q: %s", want, output(runtime))
 		}
 	}
@@ -494,14 +514,7 @@ func TestEndpointTestCommandCoversSuccessAndTransportFailures(t *testing.T) {
 
 func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 	t.Run("profile infers client", func(t *testing.T) {
-		runtime, cfg := configuredReadinessRuntime(t)
-		profile := cfg.Profiles["one"]
-		profile.Client = configuration.ClientCodex
-		delete(profile.Models, configuration.ClientClaude)
-		cfg.Profiles["one"] = profile
-		if err := runtime.Config.Save(cfg); err != nil {
-			t.Fatal(err)
-		}
+		runtime, _ := configuredReadinessRuntime(t)
 		if err := runtime.Secrets.Set("one", "token"); err != nil {
 			t.Fatal(err)
 		}
@@ -514,7 +527,7 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
 		})
 		command := NewTestCommand(runtime)
-		command.SetArgs([]string{"--profile", "one"})
+		command.SetArgs([]string{"--profile", "codex"})
 		if err := executeCommand(command); err != nil {
 			t.Fatal(err)
 		}
@@ -523,11 +536,11 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 		}
 	})
 
-	t.Run("unscoped profile requires client", func(t *testing.T) {
+	t.Run("unknown profile is rejected", func(t *testing.T) {
 		runtime, _ := configuredReadinessRuntime(t)
 		command := NewTestCommand(runtime)
-		command.SetArgs([]string{"--profile", "one"})
-		if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), "--for") {
+		command.SetArgs([]string{"--profile", "missing"})
+		if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), "unknown profile") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -584,25 +597,7 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 
 }
 
-func TestReadinessSmallHelpers(t *testing.T) {
-	for configuredClients, want := range map[int]string{
-		0: "The current API route is unavailable.",
-		1: "The configured AI client is unavailable.",
-		2: "2 configured AI clients are unavailable.",
-	} {
-		if got := healthImpact(configuredClients); got != want {
-			t.Fatalf("healthImpact(%d) = %q, want %q", configuredClients, got, want)
-		}
-	}
-	if _, err := firstCheckRuntime(configuration.NewConfig()); err == nil || !strings.Contains(err.Error(), "no testable endpoint") {
-		t.Fatalf("empty default route error = %v", err)
-	}
-	missingAccount := configuration.NewConfig()
-	missingAccount.Profiles["missing"] = configuration.Profile{Account: "absent", Client: configuration.ClientCodex}
-	missingAccount.Routes.Default = "missing"
-	if _, err := firstCheckRuntime(missingAccount); err == nil || !strings.Contains(err.Error(), "no testable endpoint") {
-		t.Fatalf("unresolvable default route error = %v", err)
-	}
+func TestReadinessTransportHelpers(t *testing.T) {
 	if got := TransportStatus("%"); got.Kind != "" {
 		t.Fatalf("invalid transport = %#v", got)
 	}

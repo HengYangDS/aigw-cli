@@ -20,9 +20,7 @@ import (
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
-const configurationManifestFixture = `version = 3
-recommended_default = "dmxapi-gpt"
-
+const configurationManifestFixture = `version = 4
 [recommended_routes]
 claude = "aihubmix-claude"
 codex = "dmxapi-gpt"
@@ -43,22 +41,19 @@ anthropic = "https://dmxapi.test"
 label = "AIHubMix Claude"
 account = "aihubmix"
 client = "claude"
-[profiles.aihubmix-claude.models]
-claude = "claude-test"
+model = "claude-test"
 
 [profiles.dmxapi-claude]
 label = "DMXAPI Claude"
 account = "dmxapi"
 client = "claude"
-[profiles.dmxapi-claude.models]
-claude = "claude-test"
+model = "claude-test"
 
 [profiles.dmxapi-gpt]
 label = "DMXAPI GPT"
 account = "dmxapi"
 client = "codex"
-[profiles.dmxapi-gpt.models]
-codex = "gpt-test"
+model = "gpt-test"
 `
 
 type manifestSetupPrompt struct {
@@ -246,7 +241,7 @@ func TestSetupFromConfigurationManifestNamesEnvironmentTokensInsteadOfRotate(t *
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{secrets.EnvironmentKey("aihubmix"), secrets.EnvironmentKey("dmxapi"), "aigw use dmxapi-gpt"} {
+	for _, want := range []string{secrets.EnvironmentKey("aihubmix"), secrets.EnvironmentKey("dmxapi"), "aigw check"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("output missing %q:\n%s", want, text)
 		}
@@ -330,7 +325,7 @@ func TestSetupFromConfigurationManifestConnectsOnlySelectedAccount(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes.Overrides[configuration.ClientClaude] != "dmxapi-claude" || cfg.Routes.Overrides[configuration.ClientCodex] != "dmxapi-gpt" {
+	if cfg.Routes[configuration.ClientClaude] != "dmxapi-claude" || cfg.Routes[configuration.ClientCodex] != "dmxapi-gpt" {
 		t.Fatalf("selected Account routes = %#v", cfg.Routes)
 	}
 	if !strings.Contains(fixture.out.String(), "aihubmix") || !strings.Contains(fixture.out.String(), "Not connected") {
@@ -370,7 +365,7 @@ func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes.Overrides[configuration.ClientClaude] != "dmxapi-claude" || cfg.Routes.Overrides[configuration.ClientCodex] != "dmxapi-gpt" {
+	if cfg.Routes[configuration.ClientClaude] != "dmxapi-claude" || cfg.Routes[configuration.ClientCodex] != "dmxapi-gpt" {
 		t.Fatalf("available Account did not become usable: %#v", cfg.Routes)
 	}
 }
@@ -413,11 +408,11 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Accounts) != 2 || len(cfg.Profiles) != 3 || cfg.Routes.Default != "dmxapi-gpt" {
+	if len(cfg.Accounts) != 2 || len(cfg.Profiles) != 3 || cfg.Routes[configuration.ClientCodex] != "dmxapi-gpt" {
 		t.Fatalf("team config = %#v", cfg)
 	}
-	if cfg.Routes.Overrides["claude"] != "dmxapi-claude" || cfg.Routes.Overrides["codex"] != "dmxapi-gpt" {
-		t.Fatalf("connected Account routes = %#v", cfg.Routes.Overrides)
+	if cfg.Routes["claude"] != "dmxapi-claude" || cfg.Routes["codex"] != "dmxapi-gpt" {
+		t.Fatalf("connected Account routes = %#v", cfg.Routes)
 	}
 	if !cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
 		t.Fatalf("discovered clients were not configured: %#v", cfg.Adapters)
@@ -450,7 +445,7 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if len(fixture.validationRequests) != len(wantValidationRequests) {
 		t.Fatalf("unexpected validation requests: %#v", fixture.validationRequests)
 	}
-	if cfg.Profiles["aihubmix-claude"].Models["claude"] != "claude-test" || cfg.Profiles["dmxapi-gpt"].Models["codex"] != "gpt-test" {
+	if cfg.Profiles["aihubmix-claude"].Model != "claude-test" || cfg.Profiles["dmxapi-gpt"].Model != "gpt-test" {
 		t.Fatalf("manifest model matrix was not preserved: %#v", cfg.Profiles)
 	}
 
@@ -503,7 +498,7 @@ func TestSetupFromConfigurationManifestReusesEnvironmentTokensWithoutPrompting(t
 		t.Fatal(err)
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || len(cfg.Profiles) != 3 || cfg.Routes.Default != "dmxapi-gpt" {
+	if err != nil || len(cfg.Profiles) != 3 || cfg.Routes[configuration.ClientCodex] != "dmxapi-gpt" {
 		t.Fatalf("team config = %#v, %v", cfg, err)
 	}
 }
@@ -673,8 +668,9 @@ func TestSetupFromConfigurationManifestDoesNotFollowCredentialProbeRedirects(t *
 	app.Interactive = true
 	app.Prompt = &manifestSetupPrompt{secrets: []string{"aigw-test-team-token"}}
 	app.HTTP = &http.Client{}
-	manifestPath := writeConfigurationManifest(t, `version = 3
-recommended_default = "team-claude"
+	manifestPath := writeConfigurationManifest(t, `version = 4
+[recommended_routes]
+claude = "team-claude"
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
@@ -683,8 +679,7 @@ anthropic = "`+source.URL+`"
 label = "Team Claude"
 account = "team"
 client = "claude"
-[profiles.team-claude.models]
-claude = "claude-test"
+model = "claude-test"
 `)
 
 	if err := execute(t, app, "setup", "--from", manifestPath, "--account", "team"); err != nil {
@@ -703,8 +698,9 @@ func TestSetupFromConfigurationManifestRejectsUnreferencedAccountBeforePrompt(t 
 	app.Interactive = true
 	prompt := &manifestSetupPrompt{secrets: []string{"must-not-be-read"}}
 	app.Prompt = prompt
-	manifestPath := writeConfigurationManifest(t, `version = 3
-recommended_default = "used"
+	manifestPath := writeConfigurationManifest(t, `version = 4
+[recommended_routes]
+claude = "used"
 [accounts.used]
 label = "Used"
 [accounts.used.endpoints]
@@ -717,8 +713,7 @@ anthropic = "https://unused.test"
 label = "Used"
 account = "used"
 client = "claude"
-[profiles.used.models]
-claude = "claude-test"
+model = "claude-test"
 `)
 
 	err := execute(t, app, "setup", "--from", manifestPath)
@@ -731,22 +726,11 @@ claude = "claude-test"
 	assertManifestSetupLeavesNoConfig(t, app)
 }
 
-func TestSetupFromLegacyGenericProfileValidatesBothAccountProtocols(t *testing.T) {
-	app, _, _, _ := testApp(t, "")
-	app.Interactive = true
-	app.Prompt = &manifestSetupPrompt{secrets: []string{"aigw-test-team-token"}}
-	requests := map[string]int{}
-	app.HTTP = &fakeHTTP{handler: func(req *http.Request) (*http.Response, error) {
-		if req.Header.Get("X-Api-Key") != "" {
-			requests["anthropic"]++
-		}
-		if req.Header.Get("Authorization") != "" {
-			requests["openai"]++
-		}
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: req}, nil
-	}}
-	manifestPath := writeConfigurationManifest(t, `version = 3
-recommended_default = "team"
+func TestSetupFromConfigurationManifestRejectsProfileWithoutClient(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	manifestPath := writeConfigurationManifest(t, `version = 4
+[recommended_routes]
+claude = "team"
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
@@ -757,12 +741,14 @@ label = "Team"
 account = "team"
 `)
 
-	if err := execute(t, app, "setup", "--from", manifestPath, "--account", "team"); err != nil {
-		t.Fatal(err)
+	err := execute(t, app, "setup", "--from", manifestPath, "--account", "team")
+	if err == nil || !strings.Contains(err.Error(), `profile "team" has unknown client ""`) {
+		t.Fatalf("error = %v", err)
 	}
-	if len(requests) != 0 {
-		t.Fatalf("absent clients triggered validation requests = %#v", requests)
+	if secretStore.Has("team") {
+		t.Fatal("invalid manifest wrote a Token")
 	}
+	assertManifestSetupLeavesNoConfig(t, app)
 }
 
 func TestSetupFromConfigurationManifestClientFailureRollsBackCredentialsAndConfig(t *testing.T) {

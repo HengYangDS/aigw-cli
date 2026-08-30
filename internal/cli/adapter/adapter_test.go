@@ -39,15 +39,10 @@ func adapterConfig() configuration.Config {
 			OpenAIResponses: "https://gateway.test/v1",
 		},
 	}
-	cfg.Profiles["default"] = configuration.Profile{
-		Label:   "Default",
-		Account: "gateway",
-		Models: configuration.Models{
-			configuration.ClientClaude: "claude-test",
-			configuration.ClientCodex:  "codex-test",
-		},
-	}
-	cfg.Routes.Default = "default"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "codex-test"}
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Routes[configuration.ClientCodex] = "codex"
 	return cfg
 }
 
@@ -432,16 +427,13 @@ func TestCommandsPropagateConfigurationLoadErrors(t *testing.T) {
 
 func TestEnablePropagatesRuntimeResolutionError(t *testing.T) {
 	cfg := adapterConfig()
-	profile := cfg.Profiles["default"]
-	profile.Client = configuration.ClientCodex
-	delete(profile.Models, configuration.ClientClaude)
-	cfg.Profiles["default"] = profile
+	delete(cfg.Routes, configuration.ClientClaude)
 	runtime, _, secretStore, _ := adapterRuntime(t, cfg)
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
 	err := executeAdapter(t, runtime, "enable", configuration.ClientClaude, "--executable", "/opt/claude")
-	if err == nil || !strings.Contains(err.Error(), "profile") {
+	if err == nil || !strings.Contains(err.Error(), "no route selected") {
 		t.Fatalf("runtime error = %v", err)
 	}
 }

@@ -36,15 +36,10 @@ func validDoctorConfig() configuration.Config {
 			OpenAIResponses: "https://team.test/v1",
 		},
 	}
-	cfg.Profiles["team"] = configuration.Profile{
-		Label:   "Team",
-		Account: "team",
-		Models: configuration.Models{
-			configuration.ClientClaude: "claude-test",
-			configuration.ClientCodex:  "gpt-test",
-		},
-	}
-	cfg.Routes.Default = "team"
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Routes[configuration.ClientCodex] = "codex"
 	return cfg
 }
 
@@ -224,14 +219,7 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 			OpenAIResponses: "https://optional.test/v1",
 		},
 	}
-	cfg.Profiles["optional"] = configuration.Profile{
-		Label:   "Optional",
-		Account: "optional",
-		Models: configuration.Models{
-			configuration.ClientClaude: "claude-optional",
-			configuration.ClientCodex:  "gpt-optional",
-		},
-	}
+	cfg.Profiles["optional"] = configuration.Profile{Label: "Optional", Account: "optional", Client: configuration.ClientCodex, Model: "gpt-optional"}
 	deps, _, secretStore := doctorDependencies(t, cfg)
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
