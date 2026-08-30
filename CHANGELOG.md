@@ -8,6 +8,17 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.104] - 2026-08-30
+
+### Changed
+
+- Make each client Route the sole Profile-selection authority; connectivity
+  commands now reject redundant profile/client selectors instead of reconciling
+  parallel intent.
+- Prove install, update, rollback, forward recovery, and uninstall through the
+  shipped executable on macOS, Linux, and Windows while retaining user state.
+- Reduce the locked Go module graph to its current, consumed dependency closure.
+
 ## [0.1.0-rc.103] - 2026-08-30
 
 ### Fixed
