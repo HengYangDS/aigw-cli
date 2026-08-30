@@ -7,42 +7,74 @@ transactional client projections, and no ownership of API traffic or sessions.
 
 ### Requirement: Provider-neutral configuration
 
-AIGW SHALL model Accounts, Profiles, Routes, protocol endpoints, and native
-client model choices without provider identity hacks, named gateway products,
-or deployment topology. Configuration manifests MUST remain credential-free
-and SHALL describe available capability rather than requiring every Account to
-be connected during import. Diagnostics SHALL require a credential only for an
-Account selected by an active admitted-client Route. `aigw check` SHALL NOT
-claim overall health unless every enabled admitted-client Route has its selected
-Account Token.
+AIGW SHALL model Accounts, client-scoped Profiles, explicit client Routes,
+protocol endpoints, and native client model choices without provider identity
+hacks, named gateway products, deployment topology, or a global Profile
+fallback. A Route SHALL map one admitted client to one compatible Profile.
+Configuration manifests MUST remain credential-free and SHALL describe
+available capability rather than requiring every Account to be connected during
+import. Diagnostics SHALL require a credential only for an Account selected by
+an enabled admitted-client Route. `aigw check` SHALL NOT claim overall health
+unless every enabled admitted-client Route has its selected Account Token and
+its distinct authentication target has passed the bounded health probe.
+
+#### Scenario: Select independent Claude and Codex services
+
+- **WHEN** an operator selects a Claude Profile and a Codex Profile
+- **THEN** each client SHALL retain its own explicit Route
+- **AND** no global default or implicit inheritance SHALL participate in
+  resolution, readiness, or projection.
+
+#### Scenario: Select a Profile without repeating its client
+
+- **WHEN** an operator runs `aigw use <profile>`
+- **THEN** AIGW SHALL derive the target client from the Profile's declared
+  client
+- **AND** SHALL reject a Profile whose client is absent or unadmitted.
+
+#### Scenario: Check every enabled client Route
+
+- **WHEN** Claude and Codex are enabled with distinct selected Routes
+- **THEN** `aigw check` SHALL validate both effective Routes
+- **AND** SHALL not inspect an unselected historical Profile as a fallback
+- **AND** MAY coalesce only authentication probes with an identical Account,
+  endpoint, and protocol identity.
+
+#### Scenario: No client is enabled
+
+- **WHEN** configuration is valid but no admitted client Adapter is enabled
+- **THEN** `aigw check` SHALL report configuration readiness
+- **AND** SHALL not claim that an arbitrary gateway or model is healthy.
+
+#### Scenario: Read previous local configuration
+
+- **WHEN** a previous schema contains client overrides and a global default
+- **THEN** every override SHALL migrate directly to the same client Route
+- **AND** an unclaimed default SHALL migrate only to the client explicitly
+  declared by that Profile
+- **AND** an ambiguous default SHALL require explicit operator selection rather
+  than being guessed or retained as a compatibility fallback.
 
 #### Scenario: Import a multi-provider team catalogue
 
-- **WHEN** an operator imports Accounts and Profiles for several providers
-- **THEN** AIGW SHALL preserve all reviewed public capability
-- **AND** SHALL allow zero or any subset of Account Tokens to be connected
-- **AND** SHALL NOT require an unselected provider or absent client.
+- **WHEN** a team manifest declares recommended Routes for admitted clients
+- **THEN** setup SHALL materialize those per-client selections without a
+  separate recommended global default
+- **AND** a future client SHALL remain unselected until its own Route is
+  explicitly admitted.
 
 #### Scenario: Diagnose a partially connected team catalogue
 
 - **WHEN** a reviewed catalogue contains multiple Accounts
-- **AND** every Account selected by an active client Route has its Token
+- **AND** every Account selected by an enabled client Route has its Token
 - **THEN** `aigw doctor` SHALL report the credential state as healthy
 - **AND** SHALL NOT fail for an unselected Account whose Token is absent.
 
 #### Scenario: Diagnose a selected Account without a Token
 
-- **WHEN** an active client Route selects an Account whose Token is absent
+- **WHEN** an enabled client Route selects an Account whose Token is absent
 - **THEN** `aigw doctor` SHALL report that Account as unhealthy
 - **AND** SHALL provide the account-scoped rotation action.
-
-#### Scenario: Check every enabled client Route
-
-- **WHEN** one enabled admitted-client Route has its selected Account Token
-- **AND** another enabled admitted-client Route lacks its selected Account Token
-- **THEN** `aigw check` SHALL fail before claiming overall health
-- **AND** SHALL identify the affected client and Account
-- **AND** SHALL provide the Account Token recovery action.
 
 #### Scenario: Add an ordinary provider
 
