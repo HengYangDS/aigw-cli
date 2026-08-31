@@ -99,6 +99,13 @@ result without exposing credential material.
 - **AND** SHALL direct the operator to run `aigw sync` after setting it
 - **AND** SHALL state that any one compatible Account is sufficient.
 
+#### Scenario: Connected Account precedes client installation
+
+- **WHEN** setup connects an Account and no admitted client is installed
+- **THEN** its human and machine-readable results SHALL identify `aigw sync` as
+  the next action after client installation
+- **AND** SHALL NOT identify an observational command as the activation action.
+
 #### Scenario: Manifest setup is consumed by automation
 
 - **WHEN** an operator runs manifest-based setup with `--json`

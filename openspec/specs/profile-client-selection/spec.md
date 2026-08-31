@@ -12,7 +12,9 @@ provider details.
 
 Every Profile SHALL declare exactly one admitted client and exactly one model.
 Commands that receive a Profile SHALL derive the target client from that
-Profile rather than require or accept a second client selection.
+Profile rather than require or accept a second client selection. Selecting a
+Profile SHALL converge the selected client's available adapter and projection
+in the same transaction without enabling or changing another client.
 
 #### Scenario: Connectivity test selects a Codex profile
 
@@ -32,7 +34,8 @@ Profile rather than require or accept a second client selection.
 
 - **WHEN** the operator runs `aigw use <profile>`
 - **THEN** AIGW SHALL update only the Route for the Profile's declared client
-- **AND** SHALL leave every other client Route unchanged.
+- **AND** SHALL converge that client's available adapter and projection
+- **AND** SHALL leave every other client Route and adapter unchanged.
 
 #### Scenario: Test or verify a named Profile
 
