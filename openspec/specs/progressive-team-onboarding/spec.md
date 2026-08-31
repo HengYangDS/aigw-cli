@@ -65,14 +65,16 @@ manifest re-import.
 
 Human and JSON results SHALL distinguish imported Accounts and Profiles,
 connected Accounts, selected Routes, configured clients, and deferred work.
-Every incomplete state SHALL expose one smallest safe next action. When no
-Account is connected, that action SHALL identify one Account to connect rather
-than imply that every catalogue Account is mandatory. After an Account Token or
-client becomes available, setup guidance SHALL direct the operator to
-`aigw sync`; `aigw check` SHALL remain verification of already enabled client
-Routes, not an activation command. The setup command SHALL accept `--json` for
-manifest-based setup and SHALL derive both representations from one semantic
-result without exposing credential material.
+Every incomplete state SHALL expose the smallest safe next action. When no
+Account is connected through the environment backend, setup SHALL enumerate
+the environment variables for all compatible Accounts as alternative choices
+and state that any one is sufficient; it SHALL NOT present an arbitrary first
+Account as the default. After an Account Token or client becomes available,
+setup guidance SHALL direct the operator to `aigw sync`; `aigw check` SHALL
+remain verification of already enabled client Routes, not an activation
+command. The setup command SHALL accept `--json` for manifest-based setup and
+SHALL derive both representations from one semantic result without exposing
+credential material.
 
 #### Scenario: Selected Responses endpoint is unavailable
 
@@ -94,10 +96,19 @@ result without exposing credential material.
 
 - **WHEN** a valid team manifest is imported with the read-only environment
   backend and no Account Token is available
-- **THEN** setup SHALL name the environment variable for one Account as an
-  example activation choice
-- **AND** SHALL direct the operator to run `aigw sync` after setting it
+- **THEN** setup SHALL enumerate the environment variable for every compatible
+  Account as an alternative activation choice
+- **AND** SHALL direct the operator to run `aigw sync` after setting one
 - **AND** SHALL state that any one compatible Account is sufficient.
+
+#### Scenario: Environment Account becomes available later
+
+- **WHEN** a team catalogue was imported without a connected Account
+- **AND** exactly one compatible Account Token later becomes available through
+  the environment backend
+- **THEN** `aigw sync` SHALL activate Routes compatible with that Account
+- **AND** SHALL NOT require the previously recommended Account or any unrelated
+  Account Token.
 
 #### Scenario: Connected Account precedes client installation
 
@@ -110,8 +121,8 @@ result without exposing credential material.
 
 - **WHEN** an operator runs manifest-based setup with `--json`
 - **THEN** setup SHALL return the imported Account and Profile counts,
-  connected Accounts, client states, and next safe action as machine-readable
-  data
+  connected Accounts, client states, alternative activation choices, and next
+  safe action as machine-readable data
 - **AND** SHALL NOT include an Account Token or credential value.
 
 ### Requirement: Deferred client activation remains explicit
