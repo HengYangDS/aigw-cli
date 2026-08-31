@@ -8,6 +8,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.106] - 2026-08-31
+
+### Fixed
+
+- Converge a newly installed supported client when its Profile is selected,
+  without requiring unrelated Accounts or clients.
+- Direct deferred-client setup to `aigw sync`, the command that activates
+  clients installed after initial setup.
+
 ## [0.1.0-rc.105] - 2026-08-31
 
 ### Fixed
