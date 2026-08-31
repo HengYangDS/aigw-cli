@@ -18,9 +18,33 @@ Bearer-authenticated endpoints use the Account schema; they do not require a
 provider-specific package. A distinct authentication mechanism or wire
 protocol requires an explicit Adapter decision instead of name-based branching.
 
+## Extension decision
+
+Classify the changed authority before adding code:
+
+| Need                           | Owner                  | Admission result          |
+| ------------------------------ | ---------------------- | ------------------------- |
+| Compatible endpoint or model   | Account schema         | Data only                 |
+| Distinct credential exchange   | Account authentication | Authentication extension  |
+| New local client configuration | Client Adapter         | Complete client lifecycle |
+| Incompatible wire behavior     | Independent data plane | Explicit Account endpoint |
+
+General gateways and narrow compatibility services remain optional Account
+endpoints. AIGW does not embed, supervise, configure, or copy their traffic
+policy. Provider identity must not select behavior, and a client integration
+must not branch through another client's Adapter.
+
 The admitted clients live in one static registry. Status, diagnostics, profile
 validation, route validation, and adapter discovery read from that registry. A
 new model in an account catalog does not change it.
+
+## Dependency admission
+
+Prefer a mature library or framework only when it replaces an AIGW-owned
+boundary and yields a net reduction in source, tests, dependencies, and runtime
+states. Admission must preserve the portable binary, deterministic configuration,
+credential boundary, and compensated projection transaction. Popularity,
+feature count, or overlap with a general gateway is not sufficient.
 
 ## Admitted clients
 

@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-31
+goal: Clarify AIGW's control-plane value, optional data-plane composition, and
+  minimum-cost Provider and Client extension paths.

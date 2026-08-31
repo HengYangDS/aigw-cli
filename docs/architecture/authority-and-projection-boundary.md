@@ -18,8 +18,11 @@ traffic hop, a client launcher, or an agent-state manager.
 | Wire compatibility                          | Select an explicit endpoint              | Endpoint product                                   |
 | Conversations, memory, tools, and GUI state | None                                     | Client                                             |
 
-This split is the product's advantage over an all-in-one gateway: normal client
+This split is the product's advantage over a traffic gateway: normal client
 configuration remains direct, auditable, and usable when AIGW is not running.
+Products such as LiteLLM, One API/New API, Kong AI Gateway, and Portkey may own
+provider aggregation, traffic policy, metering, or observability; they compose
+with AIGW as endpoints rather than becoming part of its control plane.
 
 ## Product graph
 
@@ -124,14 +127,18 @@ flowchart LR
     Q -->|Wire behavior| P["Protocol product decision"]
 ```
 
-- **Account admission** owns endpoints, protocol capabilities, models, Token
-  references, and verification evidence. It needs code only when authentication
-  or discovery cannot use the admitted Account contract.
-- **Client Adapter admission** owns one client's official configuration surface
-  and projection transaction.
-- **Protocol product decisions** own proven wire incompatibilities. Selecting an
-  explicit endpoint is configuration; transport recovery belongs to a separate
-  data-plane product.
+| Change requested                          | Extension path         | AIGW implementation consequence                   |
+| ----------------------------------------- | ---------------------- | ------------------------------------------------- |
+| Compatible endpoint or model              | Account data           | Configuration only                                |
+| Distinct credential exchange              | Account authentication | Extend the authentication owner                   |
+| New local configuration target            | Client Adapter         | Add one complete client transaction               |
+| Incompatible request or response behavior | Independent data plane | Select its endpoint; do not add transport to AIGW |
+
+Account admission owns endpoints, protocol capabilities, models, Token
+references, and verification evidence. It needs code only when authentication
+or discovery cannot use the admitted Account contract. Client Adapter admission
+owns one client's official configuration surface and complete projection
+transaction. Protocol products own proven wire incompatibilities.
 
 An ordinary Bearer-authenticated OpenAI Responses or Anthropic endpoint is an
 Account admission, not a new provider class. An authentication system such as
@@ -160,4 +167,7 @@ recovery remains outside AIGW.
 An Account endpoint may be direct HTTPS or an explicit loopback URL. The
 endpoint value is operator input. AIGW does not infer provider behavior from an
 Account name, manage the listener, or duplicate its retry and concurrency
-policy.
+policy. Codex Responses Proxy and general gateways therefore have the same AIGW
+relationship: either can be selected explicitly, neither is installed or
+required by AIGW, and removing either does not change AIGW's configuration
+model.
