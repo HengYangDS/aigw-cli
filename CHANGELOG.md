@@ -8,6 +8,18 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.105] - 2026-08-31
+
+### Fixed
+
+- Make progressive setup actionable when credentials or supported clients are
+  intentionally deferred, while keeping `aigw check` a read-only verifier.
+
+### Changed
+
+- Define the stable extension boundary for provider Accounts, client adapters,
+  and optional external Responses services without coupling AIGW to a proxy.
+
 ## [0.1.0-rc.104] - 2026-08-30
 
 ### Changed
