@@ -7,4 +7,4 @@
 
 - [x] 2.1 Cover configured, deferred, missing-token, unavailable-adapter, and provider-failure journeys with acceptance tests
 - [x] 2.2 Run `mise exec --locked -- go test ./internal/cli/... ./internal/configuration/...` and `mise exec --locked -- go run ./tools/ci source`
-- [ ] 2.3 Run the exact-head ETHOS proof for this change and record the receipt before landing
+- [x] 2.3 Run the exact-head ETHOS proof for this change and record the receipt before landing
