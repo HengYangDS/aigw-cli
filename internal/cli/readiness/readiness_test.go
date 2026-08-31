@@ -30,6 +30,10 @@ type failingReader struct{ err error }
 
 func (reader failingReader) Read([]byte) (int, error) { return 0, reader.err }
 
+type failingOutputWriter struct{ err error }
+
+func (writer failingOutputWriter) Write([]byte) (int, error) { return 0, writer.err }
+
 type closeErrorBody struct{ io.Reader }
 
 func (closeErrorBody) Close() error { return errors.New("close failed") }
@@ -175,6 +179,21 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	badRuntime := invocation.Context{Config: configuration.NewStore(badPath), Out: io.Discard}
 	if err := RunStatus(badRuntime, false); err == nil {
 		t.Fatal("malformed configuration was accepted")
+	}
+}
+
+func TestCheckJSONReportsOutputFailure(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	cfg.Adapters = map[string]configuration.AdapterConfig{}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("output failed")
+	runtime.Out = failingOutputWriter{err: want}
+	command := NewCheckCommand(runtime)
+	command.SetArgs([]string{"--json"})
+	if err := executeCommand(command); !errors.Is(err, want) {
+		t.Fatalf("check --json output error = %v", err)
 	}
 }
 
