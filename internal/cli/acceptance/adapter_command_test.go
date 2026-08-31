@@ -267,7 +267,7 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 		if err := execute(t, app, "sync", "--dry-run"); err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(out.String(), "Adapter is disabled") {
+		if !strings.Contains(out.String(), "No client configuration needs changing") {
 			t.Fatalf("output = %q", out.String())
 		}
 	})

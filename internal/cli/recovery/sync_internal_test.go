@@ -10,6 +10,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/secrets"
 )
 
 type syncDiscovery struct{ result discovery.Result }
@@ -107,6 +108,38 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 			t.Fatal("projection apply failure was accepted")
 		}
 	})
+}
+
+func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	cfg := configuration.NewConfig()
+	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	cfg.Accounts["two"] = configuration.Account{Label: "Two", Endpoints: configuration.Endpoints{OpenAIResponses: "https://two.test/v1"}}
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Profiles["two"] = configuration.Profile{Label: "Two", Account: "two", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Routes[configuration.ClientCodex] = "one"
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{t.TempDir()}}
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	secretStore := secrets.NewMemoryStore()
+	if err := secretStore.Set("two", "token"); err != nil {
+		t.Fatal(err)
+	}
+	command := NewSyncCommand(invocation.Context{Config: store, Secrets: secretStore, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
+	command.SilenceErrors = true
+	command.SilenceUsage = true
+
+	if err := command.Execute(); err == nil {
+		t.Fatal("projection failure after Route selection was accepted")
+	}
+	after, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := after.Routes[configuration.ClientCodex]; got != "one" {
+		t.Fatalf("failed sync left Route %q, want rolled-back route one", got)
+	}
 }
 
 func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {

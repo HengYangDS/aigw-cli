@@ -4,6 +4,7 @@ package synchronization
 
 import (
 	"context"
+	"sort"
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -41,15 +42,15 @@ type Synchronizer struct {
 
 // DesiredClientConfiguration discovers the requested clients and returns the
 // configuration that can be activated with the currently available
-// executables, surfaces, routes, and credentials. An empty client list means
+// executables, surfaces, and selected routes. An empty client list means
 // every admitted client; an explicit list leaves every other adapter unchanged.
 func (s Synchronizer) DesiredClientConfiguration(before configuration.Config, clients ...string) (configuration.Config, discovery.Result, error) {
+	if len(clients) == 0 {
+		clients = configuration.AdmittedClientIDs()
+	}
 	discovered, err := s.discoveredResult()
 	if err != nil {
 		return configuration.Config{}, discovery.Result{}, err
-	}
-	if len(clients) == 0 {
-		clients = configuration.AdmittedClientIDs()
 	}
 	after := before.Clone()
 	for _, client := range clients {
@@ -61,6 +62,20 @@ func (s Synchronizer) DesiredClientConfiguration(before configuration.Config, cl
 		}
 	}
 	return after, discovered, nil
+}
+
+// SelectRoutesForAvailableAccounts applies the configuration domain's Route
+// selection policy to every configured Account available from the credential
+// backend. It observes availability only and never returns credential values.
+func (s Synchronizer) SelectRoutesForAvailableAccounts(before configuration.Config) (configuration.Config, error) {
+	availableAccounts := make([]string, 0, len(before.Accounts))
+	for accountID := range before.Accounts {
+		if s.secretAvailable(accountID) {
+			availableAccounts = append(availableAccounts, accountID)
+		}
+	}
+	sort.Strings(availableAccounts)
+	return before.SelectRoutesForConnectedAccounts(availableAccounts)
 }
 
 func (s Synchronizer) convergeClaude(cfg *configuration.Config, discovered discovery.Result) {

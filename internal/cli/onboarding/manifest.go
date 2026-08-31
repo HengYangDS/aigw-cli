@@ -182,7 +182,11 @@ func buildManifestSetupResult(
 	switch {
 	case len(connected) == 0:
 		if secrets.IsReadOnly(runtime.Secrets) {
-			result.Deferred = append(result.Deferred, fmt.Sprintf("Set %s for any one compatible Account", secrets.EnvironmentKey(accountNames[0])))
+			keys := make([]string, 0, len(accountNames))
+			for _, accountName := range accountNames {
+				keys = append(keys, secrets.EnvironmentKey(accountName))
+			}
+			result.Deferred = append(result.Deferred, "Set one compatible Account variable: "+strings.Join(keys, " or "))
 			result.NextAction = "aigw sync"
 		} else {
 			result.NextAction = "aigw rotate <account>"

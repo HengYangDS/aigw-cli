@@ -25,24 +25,37 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			after, _, err := invocation.Synchronizer(runtime).DesiredClientConfiguration(before)
+			synchronizer := invocation.Synchronizer(runtime)
+			selected, err := synchronizer.SelectRoutesForAvailableAccounts(before)
+			if err != nil {
+				return err
+			}
+			after, _, err := synchronizer.DesiredClientConfiguration(selected)
 			if err != nil {
 				return err
 			}
 			if dryRun {
-				plans, err := invocation.Synchronizer(runtime).Plan(before, after)
+				plans, err := synchronizer.Plan(before, after)
 				if err != nil {
 					return err
 				}
+				preview := struct {
+					DryRun  bool                             `json:"dry_run"`
+					Routes  map[string]string                `json:"routes"`
+					Targets []synchronization.ProjectionPlan `json:"targets"`
+				}{DryRun: true, Routes: after.Routes, Targets: plans}
 				if jsonMode {
 					enc := json.NewEncoder(runtime.Out)
 					enc.SetIndent("", "  ")
-					return enc.Encode(map[string]any{"dry_run": true, "targets": plans})
+					return enc.Encode(preview)
 				}
 				r := invocation.Renderer(runtime)
 				r.ProductTitle("Synchronization preview")
+				for _, client := range configuration.AdmittedClientIDs() {
+					r.Row("Route · "+client, after.Routes[client])
+				}
 				if len(plans) == 0 {
-					r.Status(presentation.OK, "Codex", "Adapter is disabled; no configuration projection needs changing")
+					r.Status(presentation.OK, "Projection", "No client configuration needs changing")
 				} else {
 					for _, plan := range plans {
 						r.Row(plan.Target, plan.Action)
@@ -52,7 +65,6 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				r.Next("aigw sync")
 				return nil
 			}
-			synchronizer := invocation.Synchronizer(runtime)
 			if err := synchronizer.CommitProjection(cmd.Context(), before, after, "sync"); err != nil {
 				return err
 			}

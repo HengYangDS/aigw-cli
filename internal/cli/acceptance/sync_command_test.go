@@ -6,6 +6,8 @@ import (
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
 	"encoding/json"
+	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -198,7 +200,7 @@ func TestSyncCreatesDefaultCodexProjectionWhenClientIsInstalledAfterManifestSetu
 }
 
 func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
-	app, _, _, runner := testApp(t, "")
+	app, out, _, runner := testApp(t, "")
 	tokens := map[string]string{}
 	app.Secrets = secrets.NewEnvironmentStore(func(key string) string { return tokens[key] })
 	app.Discovery = emptyDiscovery{}
@@ -207,21 +209,61 @@ func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
 		t.Fatalf("initial manifest setup: %v", err)
 	}
 
-	target := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	settingsPath := filepath.Join(t.TempDir(), "settings.json")
+	app.ClaudeSettingsPath = settingsPath
 	tokens[secrets.EnvironmentKey("dmxapi")] = "test-token"
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: "/usr/local/bin/codex"},
-		Surfaces: []discovery.Surface{{
-			ID:          string(surfaceidentity.CodexHomeDefault),
-			Authority:   string(surfaceidentity.AuthorityAIGW),
-			ConfigPath:  target,
-			Present:     true,
-			AutoManaged: true,
-		}},
+		Executables: map[string]string{configuration.ClientClaude: "/usr/local/bin/claude"},
 	}}
+	before, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if err := execute(t, app, "sync", "--dry-run", "--json"); err != nil {
+		t.Fatalf("preview sync after setting one environment Token: %v", err)
+	}
+	var preview struct {
+		DryRun  bool              `json:"dry_run"`
+		Routes  map[string]string `json:"routes"`
+		Targets []struct {
+			Client string `json:"client"`
+			Target string `json:"target"`
+			Action string `json:"action"`
+		} `json:"targets"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
+		t.Fatalf("decode sync preview: %v\n%s", err, out.String())
+	}
+	if !preview.DryRun || len(preview.Targets) != 1 || preview.Targets[0].Client != configuration.ClientClaude || preview.Targets[0].Target != settingsPath || preview.Targets[0].Action != "project" {
+		t.Fatalf("sync preview = %#v", preview)
+	}
+	wantRoutes := map[string]string{
+		configuration.ClientClaude: "dmxapi-claude",
+		configuration.ClientCodex:  "dmxapi-gpt",
+	}
+	if !maps.Equal(preview.Routes, wantRoutes) {
+		t.Fatalf("sync preview routes = %#v, want %#v", preview.Routes, wantRoutes)
+	}
+	out.Reset()
+	if err := execute(t, app, "sync", "--dry-run"); err != nil {
+		t.Fatalf("render sync preview after setting one environment Token: %v", err)
+	}
+	for client, profile := range wantRoutes {
+		if !strings.Contains(out.String(), "Route · "+client) || !strings.Contains(out.String(), profile) {
+			t.Fatalf("sync preview omitted %s route %s:\n%s", client, profile, out.String())
+		}
+	}
+	afterPreview, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := afterPreview.Routes[configuration.ClientClaude]; got != before.Routes[configuration.ClientClaude] {
+		t.Fatalf("dry-run changed Claude route from %q to %q", before.Routes[configuration.ClientClaude], got)
+	}
+	if _, err := os.Stat(settingsPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("dry-run wrote Claude settings: %v", err)
+	}
 
 	if err := execute(t, app, "sync"); err != nil {
 		t.Fatalf("sync after setting one environment Token: %v", err)
@@ -233,18 +275,21 @@ func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if got := after.Routes[configuration.ClientClaude]; got != "dmxapi-claude" {
+		t.Fatalf("Claude route = %q, want dmxapi-claude", got)
+	}
 	if got := after.Routes[configuration.ClientCodex]; got != "dmxapi-gpt" {
 		t.Fatalf("Codex route = %q, want dmxapi-gpt", got)
 	}
-	adapter := after.Adapters[configuration.ClientCodex]
-	if !adapter.Enabled || adapter.Executable != "/usr/local/bin/codex" || len(adapter.Targets) != 1 {
-		t.Fatalf("Codex adapter after sync = %#v", adapter)
+	adapter := after.Adapters[configuration.ClientClaude]
+	if !adapter.Enabled || adapter.Executable != "/usr/local/bin/claude" {
+		t.Fatalf("Claude adapter after sync = %#v", adapter)
 	}
-	data, err := os.ReadFile(target)
+	data, err := os.ReadFile(settingsPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {
+	if !strings.Contains(string(data), `"ANTHROPIC_BASE_URL": "https://dmxapi.test"`) {
 		t.Fatalf("sync did not project the environment-backed Account:\n%s", data)
 	}
 }
