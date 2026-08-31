@@ -3,6 +3,7 @@
 package readiness
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -17,10 +18,155 @@ import (
 
 // NewCheckCommand builds the read-only health check for every enabled client.
 func NewCheckCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{
+	var jsonMode bool
+	cmd := &cobra.Command{
 		Use: "check", Short: "Check configuration, tokens, clients, and gateway", Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error { return RunCheck(cmd, runtime) },
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if jsonMode {
+				return runJSONCheck(cmd, runtime)
+			}
+			return RunCheck(cmd, runtime)
+		},
 	}
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
+	return cmd
+}
+
+type checkJSON struct {
+	ConfigPath string                `json:"config_path"`
+	Routes     map[string]checkRoute `json:"routes"`
+	OK         bool                  `json:"ok"`
+}
+
+type checkRoute struct {
+	Client         string `json:"client"`
+	Profile        string `json:"profile,omitempty"`
+	Account        string `json:"account,omitempty"`
+	EndpointReady  bool   `json:"endpoint_ready"`
+	AdapterReady   bool   `json:"adapter_ready"`
+	Ready          bool   `json:"ready"`
+	Issue          string `json:"issue,omitempty"`
+	DiagnosticKind string `json:"diagnostic_kind,omitempty"`
+	Fix            string `json:"fix,omitempty"`
+	Attempts       int    `json:"attempts,omitempty"`
+	Retryable      bool   `json:"retryable,omitempty"`
+	runtime        configuration.Runtime
+	resolveErr     error
+	credentialErr  error
+	tokenAvailable bool
+	fix            string
+	diagnostic     diagnostics.Result
+}
+
+type checkEvaluation struct {
+	configPath string
+	routes     []checkRoute
+}
+
+func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config) checkEvaluation {
+	evaluation := checkEvaluation{configPath: runtime.Config.Path()}
+	for _, client := range configuration.AdmittedClientIDs() {
+		if !cfg.Adapters[client].Enabled {
+			continue
+		}
+		evaluation.routes = append(evaluation.routes, evaluateRoute(cmd, runtime, cfg, client))
+	}
+	return evaluation
+}
+
+func evaluateRoute(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config, client string) checkRoute {
+	route := checkRoute{Client: client}
+	clientRuntime, err := cfg.ResolveRuntime(client, "")
+	if err != nil {
+		route.resolveErr = err
+		route.Issue = err.Error()
+		return route
+	}
+	route.runtime = clientRuntime
+	route.Profile = clientRuntime.ProfileID
+	route.Account = clientRuntime.AccountID
+	route.EndpointReady = strings.TrimSpace(clientRuntime.Endpoint) != ""
+	route.AdapterReady, route.Issue = AdapterRouteReady(runtime, cfg, client, clientRuntime)
+	if !route.AdapterReady {
+		route.fix = "aigw repair"
+		if client == configuration.ClientCodex && strings.Contains(route.Issue, "projection") {
+			route.fix = "aigw sync"
+		}
+	}
+	if !runtime.Secrets.Has(clientRuntime.AccountID) {
+		route.Issue = "account token is unavailable"
+		route.fix = "aigw rotate " + clientRuntime.AccountID
+		return route
+	}
+	token, tokenErr := runtime.Secrets.Get(clientRuntime.AccountID)
+	if tokenErr != nil {
+		route.credentialErr = tokenErr
+		route.Issue = "account token is unavailable"
+		route.fix = "aigw rotate " + clientRuntime.AccountID
+		return route
+	}
+	route.tokenAvailable = true
+	if !route.AdapterReady {
+		return route
+	}
+	route.diagnostic = diagnostics.ProbeStable(cmd.Context(), runtime.HTTP, clientRuntime, token, diagnostics.DefaultStabilityPolicy())
+	if route.diagnostic.Kind != diagnostics.Healthy {
+		route.Issue = route.diagnostic.Summary
+		route.fix = route.diagnostic.Fix
+	}
+	route.Ready = route.Issue == ""
+	return route
+}
+
+func (e checkEvaluation) ok() bool {
+	for _, route := range e.routes {
+		if !route.Ready {
+			return false
+		}
+	}
+	return true
+}
+
+func (e checkEvaluation) route(client string) (checkRoute, bool) {
+	for _, route := range e.routes {
+		if route.Client == client {
+			return route, true
+		}
+	}
+	return checkRoute{}, false
+}
+
+func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
+	if isLocalProgramBuild(runtime.Version) {
+		return invocation.Problem(runtime, "Local program is not an official release", "Detected local build marker: "+runtime.Version, "A local development build must not replace a verified team release.", "aigw update", fmt.Errorf("local program build"))
+	}
+	cfg, err := runtime.Config.Load()
+	if err != nil {
+		return err
+	}
+	if len(cfg.Profiles) == 0 {
+		return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
+	}
+	evaluation := evaluateCheck(cmd, runtime, cfg)
+	result := checkJSON{ConfigPath: evaluation.configPath, Routes: map[string]checkRoute{}, OK: evaluation.ok()}
+	for _, route := range evaluation.routes {
+		route.DiagnosticKind = string(route.diagnostic.Kind)
+		route.Fix = route.fix
+		route.Attempts = route.diagnostic.Attempts
+		route.Retryable = route.diagnostic.Retryable
+		result.Routes[route.Client] = route
+	}
+	if err := json.NewEncoder(runtime.Out).Encode(result); err != nil {
+		return err
+	}
+	if !result.OK {
+		// JSON is a protocol, not a prelude to human error rendering. Mark the
+		// already-serialized failure as presented so the root command preserves
+		// one valid JSON document on stdout while still returning a non-zero
+		// result to callers.
+		return presentation.Presented(fmt.Errorf("one or more enabled routes are not ready"))
+	}
+	return nil
 }
 
 // RunCheck verifies the selected route, configured client projections, and
@@ -36,6 +182,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if len(cfg.Profiles) == 0 {
 		return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
+	evaluation := evaluateCheck(cmd, runtime, cfg)
 	renderer := Renderer(runtime)
 	renderer.ProductTitle("Health check")
 	renderer.Section("Configuration")
@@ -50,27 +197,26 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			renderer.Status(presentation.Info, invocation.Title(client), "Disabled")
 			continue
 		}
-		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
-		if resolveErr != nil {
-			return invocation.Problem(runtime, invocation.Title(client)+" route cannot be resolved", resolveErr.Error(), invocation.Title(client)+" cannot determine which profile to use.", "aigw use <"+client+"-profile>", resolveErr)
+		route, _ := evaluation.route(client)
+		if route.resolveErr != nil {
+			return invocation.Problem(runtime, invocation.Title(client)+" route cannot be resolved", route.resolveErr.Error(), invocation.Title(client)+" cannot determine which profile to use.", "aigw use <"+client+"-profile>", route.resolveErr)
 		}
-		if !runtime.Secrets.Has(clientRuntime.AccountID) {
-			instruction, _ := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
+		if !route.tokenAvailable {
+			if route.credentialErr != nil {
+				return route.credentialErr
+			}
+			instruction, _ := credential.TokenRecovery(runtime.Secrets, route.runtime.AccountID)
 			return invocation.Problem(
 				runtime,
 				invocation.Title(client)+" account token is unavailable",
-				"Account "+clientRuntime.AccountID+" has no available Token.",
+				"Account "+route.runtime.AccountID+" has no available Token.",
 				invocation.Title(client)+" cannot authenticate to its selected gateway.",
 				instruction,
 				fmt.Errorf("%s account token unavailable", client),
 			)
 		}
-		token, tokenErr := runtime.Secrets.Get(clientRuntime.AccountID)
-		if tokenErr != nil {
-			return tokenErr
-		}
-		ready, issue := AdapterRouteReady(runtime, cfg, client, clientRuntime)
-		if !ready {
+		if !route.AdapterReady {
+			issue := route.Issue
 			fix := "aigw repair"
 			impact := invocation.Title(client) + " cannot inherit AIGW routes, tokens, or configuration projections."
 			if client == configuration.ClientCodex && strings.Contains(issue, "projection") {
@@ -79,7 +225,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			}
 			return invocation.Problem(runtime, invocation.Title(client)+" adapter is not ready", issue, impact, fix, fmt.Errorf("%s adapter not ready", client))
 		}
-		result := diagnostics.ProbeStable(cmd.Context(), runtime.HTTP, clientRuntime, token, diagnostics.DefaultStabilityPolicy())
+		result := route.diagnostic
 		if result.Kind != diagnostics.Healthy {
 			evidence := result.Detail
 			if result.HTTPStatus != 0 {
@@ -90,25 +236,25 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			}
 			return invocation.Problem(runtime, result.Summary, evidence, invocation.Title(client)+" is unavailable.", result.Fix, fmt.Errorf("%s diagnostic kind %s", client, result.Kind))
 		}
-		renderer.Status(presentation.OK, invocation.Title(client), clientRuntime.ProfileLabel+" · Ready")
+		renderer.Status(presentation.OK, invocation.Title(client), route.runtime.ProfileLabel+" · Ready")
 		if result.RecoveredTransient {
 			renderer.Detail(invocation.Title(client) + " authentication recovered after a transient response")
 		}
-		if transport := TransportStatus(clientRuntime.Endpoint); transport.Kind == "external_loopback" {
+		if transport := TransportStatus(route.runtime.Endpoint); transport.Kind == "external_loopback" {
 			renderer.Detail(invocation.Title(client) + " uses an external loopback compatibility layer that AIGW does not manage")
 		}
-		if !diagnosticAccounts[clientRuntime.AccountID] {
-			diagnosticAccounts[clientRuntime.AccountID] = true
-			providerAccount := cfg.Accounts[clientRuntime.AccountID]
+		if !diagnosticAccounts[route.runtime.AccountID] {
+			diagnosticAccounts[route.runtime.AccountID] = true
+			providerAccount := cfg.Accounts[route.runtime.AccountID]
 			if providerAccount.AccountProbe != nil && providers.Supports(providerAccount.AccountProbe.Kind) {
-				balanceCommands = append(balanceCommands, "aigw balance "+clientRuntime.AccountID)
-				if runtime.Accounts.Has(clientRuntime.AccountID) {
-					renderer.Detail(clientRuntime.AccountLabel + " precise balance enabled")
+				balanceCommands = append(balanceCommands, "aigw balance "+route.runtime.AccountID)
+				if runtime.Accounts.Has(route.runtime.AccountID) {
+					renderer.Detail(route.runtime.AccountLabel + " precise balance enabled")
 				} else {
-					renderer.Detail("aigw account connect " + clientRuntime.AccountID)
+					renderer.Detail("aigw account connect " + route.runtime.AccountID)
 				}
 			} else if providerAccount.AccountProbe != nil {
-				renderer.Detail(clientRuntime.AccountLabel + " has no diagnostic driver in this version")
+				renderer.Detail(route.runtime.AccountLabel + " has no diagnostic driver in this version")
 			}
 		}
 		clientCount++

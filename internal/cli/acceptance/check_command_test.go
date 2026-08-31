@@ -1,15 +1,87 @@
 package cli_test
 
 import (
-	"aigw-cli/internal/codex"
-	configuration "aigw-cli/internal/configuration"
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/codex"
+	configuration "aigw-cli/internal/configuration"
 )
+
+func TestCheckJSONReportsOnlyActiveRoutes(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
+	addAccountProfile(&cfg, "unused", "unused-account", "Unused", configuration.Endpoints{Anthropic: "https://unused.test"}, configuration.ClientClaude, "unused-test")
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("claude-account", "claude-token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "check", "--json"); err != nil {
+		t.Fatalf("check --json failed: %v\n%s", err, out.String())
+	}
+	var result struct {
+		Routes map[string]struct {
+			Profile string `json:"profile"`
+			Account string `json:"account"`
+			Ready   bool   `json:"ready"`
+		} `json:"routes"`
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("decode check --json: %v\n%s", err, out.String())
+	}
+	route, ok := result.Routes[configuration.ClientClaude]
+	if !ok || !route.Ready || route.Profile != "claude" || route.Account != "claude-account" || !result.OK {
+		t.Fatalf("JSON readiness = %#v", result)
+	}
+	if _, present := result.Routes["unused"]; present {
+		t.Fatalf("JSON readiness exposed an inactive profile: %#v", result.Routes)
+	}
+	if strings.Contains(out.String(), "claude-token") {
+		t.Fatal("check --json exposed credential material")
+	}
+}
+
+func TestCheckJSONMakesMissingActiveCredentialActionable(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "check", "--json"); err == nil {
+		t.Fatal("check --json accepted an active route without its account token")
+	}
+	var result struct {
+		Routes map[string]struct {
+			Account string `json:"account"`
+			Issue   string `json:"issue"`
+			Fix     string `json:"fix"`
+			Ready   bool   `json:"ready"`
+		} `json:"routes"`
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("decode check --json: %v\n%s", err, out.String())
+	}
+	route := result.Routes[configuration.ClientClaude]
+	if result.OK || route.Ready || route.Account != "claude-account" || route.Issue != "account token is unavailable" || route.Fix != "aigw rotate claude-account" {
+		t.Fatalf("JSON missing-token result = %#v", result)
+	}
+}
 
 func TestCheckSurfacesMissingSelectedRouteToken(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
