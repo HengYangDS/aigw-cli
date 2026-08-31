@@ -1,7 +1,9 @@
 # cli-readiness Specification
 
 ## Purpose
-TBD - created by archiving change progressive-check-readiness. Update Purpose after archive.
+Provide one read-only readiness contract for active AIGW client routes, with a
+stable machine-readable projection and the same evaluation used by the human
+health check.
 
 ## Requirements
 
