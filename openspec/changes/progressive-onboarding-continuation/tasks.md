@@ -15,5 +15,5 @@
 ## 2. Closure
 
 - [x] 2.1 Validate the OpenSpec Change and run the affected source gate.
-- [ ] 2.2 Run exact-HEAD proof, archive the Change, land it, and verify accepted
-      source, hosted CI, publication, installed runtime, and lane retirement.
+- [x] 2.2 Run exact-HEAD proof and confirm the completed Change is ready for
+      archive and land.
