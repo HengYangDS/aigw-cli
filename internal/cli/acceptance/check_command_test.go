@@ -83,6 +83,69 @@ func TestCheckJSONMakesMissingActiveCredentialActionable(t *testing.T) {
 	}
 }
 
+func TestCheckJSONKeepsLocalBuildFailureMachineReadable(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	app.Version = "0.1.0-dev"
+
+	if err := execute(t, app, "check", "--json"); err == nil {
+		t.Fatal("check --json accepted a local build")
+	}
+	var result struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+		Fix   string `json:"fix"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("decode local-build check --json: %v\n%s", err, out.String())
+	}
+	if result.OK || result.Error != "local program is not an official release" || result.Fix != "aigw update" {
+		t.Fatalf("local-build JSON result = %#v", result)
+	}
+}
+
+func TestCheckJSONKeepsUnconfiguredFailureMachineReadable(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	app.Version = "1.0.0"
+
+	if err := execute(t, app, "check", "--json"); err == nil {
+		t.Fatal("check --json accepted an unconfigured application")
+	}
+	var result struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+		Fix   string `json:"fix"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("decode unconfigured check --json: %v\n%s", err, out.String())
+	}
+	if result.OK || result.Error != "not configured" || result.Fix != "aigw setup" {
+		t.Fatalf("unconfigured JSON result = %#v", result)
+	}
+}
+
+func TestCheckJSONKeepsConfigurationFailureMachineReadable(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	app.Version = "1.0.0"
+	if err := os.WriteFile(app.Config.Path(), []byte("version = ["), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "check", "--json"); err == nil {
+		t.Fatal("check --json accepted malformed configuration")
+	}
+	var result struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+		Fix   string `json:"fix"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("decode malformed-configuration check --json: %v\n%s", err, out.String())
+	}
+	if result.OK || result.Error == "" || result.Fix != "aigw doctor" {
+		t.Fatalf("malformed-configuration JSON result = %#v", result)
+	}
+}
+
 func TestCheckSurfacesMissingSelectedRouteToken(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")

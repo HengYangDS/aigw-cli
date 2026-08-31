@@ -36,6 +36,8 @@ type checkJSON struct {
 	ConfigPath string                `json:"config_path"`
 	Routes     map[string]checkRoute `json:"routes"`
 	OK         bool                  `json:"ok"`
+	Error      string                `json:"error,omitempty"`
+	Fix        string                `json:"fix,omitempty"`
 }
 
 type checkRoute struct {
@@ -144,14 +146,14 @@ func (e checkEvaluation) route(client string) (evaluatedRoute, bool) {
 
 func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if isLocalProgramBuild(runtime.Version) {
-		return invocation.Problem(runtime, "Local program is not an official release", "Detected local build marker: "+runtime.Version, "A local development build must not replace a verified team release.", "aigw update", fmt.Errorf("local program build"))
+		return writeJSONFailure(runtime, "local program is not an official release", "aigw update", fmt.Errorf("local program build"))
 	}
 	cfg, err := runtime.Config.Load()
 	if err != nil {
-		return err
+		return writeJSONFailure(runtime, "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it", "aigw doctor", err)
 	}
 	if len(cfg.Profiles) == 0 {
-		return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
+		return writeJSONFailure(runtime, "not configured", "aigw setup", fmt.Errorf("not configured"))
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
 	result := checkJSON{ConfigPath: evaluation.configPath, Routes: map[string]checkRoute{}, OK: evaluation.ok()}
@@ -174,6 +176,14 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		return presentation.Presented(fmt.Errorf("one or more enabled routes are not ready"))
 	}
 	return nil
+}
+
+func writeJSONFailure(runtime invocation.Context, message, fix string, cause error) error {
+	result := checkJSON{Routes: map[string]checkRoute{}, Error: message, Fix: fix}
+	if err := json.NewEncoder(runtime.Out).Encode(result); err != nil {
+		return err
+	}
+	return presentation.Presented(cause)
 }
 
 // RunCheck verifies the selected route, configured client projections, and
