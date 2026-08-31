@@ -50,17 +50,25 @@ type checkRoute struct {
 	Fix            string `json:"fix,omitempty"`
 	Attempts       int    `json:"attempts,omitempty"`
 	Retryable      bool   `json:"retryable,omitempty"`
+}
+
+type evaluatedRoute struct {
+	client         string
 	runtime        configuration.Runtime
 	resolveErr     error
 	credentialErr  error
 	tokenAvailable bool
 	fix            string
+	ready          bool
+	issue          string
+	adapter        bool
+	endpoint       bool
 	diagnostic     diagnostics.Result
 }
 
 type checkEvaluation struct {
 	configPath string
-	routes     []checkRoute
+	routes     []evaluatedRoute
 }
 
 func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config) checkEvaluation {
@@ -74,66 +82,64 @@ func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configura
 	return evaluation
 }
 
-func evaluateRoute(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config, client string) checkRoute {
-	route := checkRoute{Client: client}
+func evaluateRoute(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config, client string) evaluatedRoute {
+	route := evaluatedRoute{client: client}
 	clientRuntime, err := cfg.ResolveRuntime(client, "")
 	if err != nil {
 		route.resolveErr = err
-		route.Issue = err.Error()
+		route.issue = err.Error()
 		return route
 	}
 	route.runtime = clientRuntime
-	route.Profile = clientRuntime.ProfileID
-	route.Account = clientRuntime.AccountID
-	route.EndpointReady = strings.TrimSpace(clientRuntime.Endpoint) != ""
-	route.AdapterReady, route.Issue = AdapterRouteReady(runtime, cfg, client, clientRuntime)
-	if !route.AdapterReady {
+	route.endpoint = strings.TrimSpace(clientRuntime.Endpoint) != ""
+	route.adapter, route.issue = AdapterRouteReady(runtime, cfg, client, clientRuntime)
+	if !route.adapter {
 		route.fix = "aigw repair"
-		if client == configuration.ClientCodex && strings.Contains(route.Issue, "projection") {
+		if client == configuration.ClientCodex && strings.Contains(route.issue, "projection") {
 			route.fix = "aigw sync"
 		}
 	}
 	if !runtime.Secrets.Has(clientRuntime.AccountID) {
-		route.Issue = "account token is unavailable"
+		route.issue = "account token is unavailable"
 		route.fix = "aigw rotate " + clientRuntime.AccountID
 		return route
 	}
 	token, tokenErr := runtime.Secrets.Get(clientRuntime.AccountID)
 	if tokenErr != nil {
 		route.credentialErr = tokenErr
-		route.Issue = "account token is unavailable"
+		route.issue = "account token is unavailable"
 		route.fix = "aigw rotate " + clientRuntime.AccountID
 		return route
 	}
 	route.tokenAvailable = true
-	if !route.AdapterReady {
+	if !route.adapter {
 		return route
 	}
 	route.diagnostic = diagnostics.ProbeStable(cmd.Context(), runtime.HTTP, clientRuntime, token, diagnostics.DefaultStabilityPolicy())
 	if route.diagnostic.Kind != diagnostics.Healthy {
-		route.Issue = route.diagnostic.Summary
+		route.issue = route.diagnostic.Summary
 		route.fix = route.diagnostic.Fix
 	}
-	route.Ready = route.Issue == ""
+	route.ready = route.issue == ""
 	return route
 }
 
 func (e checkEvaluation) ok() bool {
 	for _, route := range e.routes {
-		if !route.Ready {
+		if !route.ready {
 			return false
 		}
 	}
 	return true
 }
 
-func (e checkEvaluation) route(client string) (checkRoute, bool) {
+func (e checkEvaluation) route(client string) (evaluatedRoute, bool) {
 	for _, route := range e.routes {
-		if route.Client == client {
+		if route.client == client {
 			return route, true
 		}
 	}
-	return checkRoute{}, false
+	return evaluatedRoute{}, false
 }
 
 func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
@@ -150,11 +156,12 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	evaluation := evaluateCheck(cmd, runtime, cfg)
 	result := checkJSON{ConfigPath: evaluation.configPath, Routes: map[string]checkRoute{}, OK: evaluation.ok()}
 	for _, route := range evaluation.routes {
-		route.DiagnosticKind = string(route.diagnostic.Kind)
-		route.Fix = route.fix
-		route.Attempts = route.diagnostic.Attempts
-		route.Retryable = route.diagnostic.Retryable
-		result.Routes[route.Client] = route
+		result.Routes[route.client] = checkRoute{
+			Client: route.client, Profile: route.runtime.ProfileID, Account: route.runtime.AccountID,
+			EndpointReady: route.endpoint, AdapterReady: route.adapter, Ready: route.ready, Issue: route.issue,
+			DiagnosticKind: string(route.diagnostic.Kind), Fix: route.fix,
+			Attempts: route.diagnostic.Attempts, Retryable: route.diagnostic.Retryable,
+		}
 	}
 	if err := json.NewEncoder(runtime.Out).Encode(result); err != nil {
 		return err
@@ -215,8 +222,8 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 				fmt.Errorf("%s account token unavailable", client),
 			)
 		}
-		if !route.AdapterReady {
-			issue := route.Issue
+		if !route.adapter {
+			issue := route.issue
 			fix := "aigw repair"
 			impact := invocation.Title(client) + " cannot inherit AIGW routes, tokens, or configuration projections."
 			if client == configuration.ClientCodex && strings.Contains(issue, "projection") {
