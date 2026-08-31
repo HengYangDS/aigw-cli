@@ -1,6 +1,7 @@
 # cli-readiness Specification
 
 ## Purpose
+
 Provide one read-only readiness contract for active AIGW client routes, with a
 stable machine-readable projection and the same evaluation used by the human
 health check.
