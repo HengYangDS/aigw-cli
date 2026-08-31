@@ -12,7 +12,6 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
-	surfaceidentity "aigw-cli/internal/surface"
 	"aigw-cli/internal/synchronization"
 	"github.com/spf13/cobra"
 )
@@ -48,7 +47,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	if len(before.Profiles) == 0 {
 		return presentation.ProblemError("Not configured", "No service profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
-	after, discovered, err := desiredClientConfig(runtime, before)
+	after, discovered, err := invocation.Synchronizer(runtime).DesiredClientConfiguration(before)
 	if err != nil {
 		return err
 	}
@@ -81,42 +80,6 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	return nil
 }
 
-func desiredClientConfig(runtime invocation.Context, before configuration.Config) (configuration.Config, discovery.Result, error) {
-	after := before.Clone()
-	discovered, err := invocation.Discover(runtime)
-	if err != nil {
-		return configuration.Config{}, discovery.Result{}, err
-	}
-	claudeRuntime, claudeRouteErr := after.ResolveRuntime(configuration.ClientClaude, "")
-	codexRuntime, codexRouteErr := after.ResolveRuntime(configuration.ClientCodex, "")
-	claudeAdapter := after.Adapters[configuration.ClientClaude]
-	claudeExecutable := claudeAdapter.Executable
-	if claudeExecutable == "" {
-		claudeExecutable = discovered.Executable(configuration.ClientClaude)
-	}
-	if claudeRouteErr == nil && claudeExecutable != "" && (claudeAdapter.Enabled || secretAvailable(runtime, claudeRuntime.AccountID)) {
-		after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
-	}
-	if codexRouteErr == nil {
-		currentCodex := after.Adapters[configuration.ClientCodex]
-		targets := repairCodexTargets(discovered, currentCodex.Targets)
-		executable := currentCodex.Executable
-		if executable == "" {
-			executable = discovered.Executable(configuration.ClientCodex)
-		}
-		if executable != "" && len(targets) > 0 && (currentCodex.Enabled || secretAvailable(runtime, codexRuntime.AccountID)) {
-			after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: targets}
-		} else if currentCodex.Enabled && len(targets) == 0 {
-			delete(after.Adapters, configuration.ClientCodex)
-		}
-	}
-	return after, discovered, nil
-}
-
-func secretAvailable(runtime invocation.Context, accountID string) bool {
-	return runtime.Secrets != nil && runtime.Secrets.Has(accountID)
-}
-
 func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, after configuration.Config, discovered discovery.Result, plans []synchronization.ProjectionPlan) error {
 	preview := repairPreview{DryRun: true, ConfigurationAction: "already-converged", Projections: make([]repairProjectionPreview, 0, len(plans))}
 	if !reflect.DeepEqual(before, after) {
@@ -146,30 +109,4 @@ func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, afte
 	r.Success("Preview did not write configuration, state files, authentication, client executables, or conversations")
 	r.Next("aigw repair")
 	return nil
-}
-
-func repairCodexTargets(discovered discovery.Result, current []string) []string {
-	seen := map[string]bool{}
-	targets := make([]string, 0, len(current)+len(discovered.Surfaces))
-	appendTarget := func(path string) {
-		if path != "" && !seen[path] {
-			seen[path] = true
-			targets = append(targets, path)
-		}
-	}
-	for _, path := range discovered.AutoManagedCodexTargets() {
-		appendTarget(path)
-	}
-	for _, path := range current {
-		if surface, ok := discovered.SurfaceForConfigPath(path); ok {
-			if surface.ID == string(surfaceidentity.CodexHomeDefault) {
-				appendTarget(path)
-			}
-			continue
-		}
-		// An unknown existing target was explicitly configured by the user. It
-		// remains an explicit AIGW-owned Codex Home candidate.
-		appendTarget(path)
-	}
-	return targets
 }

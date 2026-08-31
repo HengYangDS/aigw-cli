@@ -25,7 +25,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			after, _, err := desiredClientConfig(runtime, before)
+			after, _, err := invocation.Synchronizer(runtime).DesiredClientConfiguration(before)
 			if err != nil {
 				return err
 			}

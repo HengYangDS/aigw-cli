@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	configuration "aigw-cli/internal/configuration"
 	"errors"
 	"io"
 	"net/http"
@@ -9,6 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/discovery"
 )
 
 func TestRouteListIsNarrowHumanRouteView(t *testing.T) {
@@ -149,6 +151,50 @@ func TestUseForClaudeDoesNotRequireOrRewriteCodexTargets(t *testing.T) {
 	}
 	if got.Routes[configuration.ClientCodex] != "gpt" || got.Routes[configuration.ClientClaude] != "claude-sonnet" {
 		t.Fatalf("routes = %#v", got.Routes)
+	}
+}
+
+func TestUseActivatesClaudeInstalledAfterManifestSetup(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
+	if err := execute(t, app, "setup", "--from", manifestPath); err != nil {
+		t.Fatalf("initial manifest setup: %v", err)
+	}
+
+	claudeExecutable := executableFixture(t, "claude")
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{
+		configuration.ClientClaude: claudeExecutable,
+	}}}
+	if err := secretStore.Set("dmxapi", "test-token"); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+
+	if err := execute(t, app, "use", "dmxapi-claude"); err != nil {
+		t.Fatalf("use after installing Claude: %v", err)
+	}
+	after, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := after.Adapters[configuration.ClientClaude]
+	if !adapter.Enabled || adapter.Executable != claudeExecutable {
+		t.Fatalf("Claude adapter after use = %#v", adapter)
+	}
+	settings, err := os.ReadFile(app.ClaudeSettingsPath)
+	if err != nil {
+		t.Fatalf("read Claude projection: %v", err)
+	}
+	if !strings.Contains(string(settings), "https://dmxapi.test") || !strings.Contains(string(settings), "claude-test") {
+		t.Fatalf("use did not project the selected Claude profile:\n%s", settings)
+	}
+
+	out.Reset()
+	if err := execute(t, app, "check"); err != nil {
+		t.Fatalf("check after use: %v", err)
+	}
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Ready") || strings.Contains(out.String(), "no clients are enabled") {
+		t.Fatalf("check did not verify the activated Claude route:\n%s", out.String())
 	}
 }
 

@@ -68,7 +68,15 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 				addedToken = true
 			}
 			cfg.Routes[client] = name
-			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "route"); err != nil {
+			synchronizer := invocation.Synchronizer(runtime)
+			cfg, _, err = synchronizer.DesiredClientConfiguration(cfg, client)
+			if err != nil {
+				if addedToken {
+					_ = runtime.Secrets.Delete(accountID)
+				}
+				return err
+			}
+			if err := synchronizer.Commit(cmd.Context(), before, cfg, "route"); err != nil {
 				if addedToken {
 					_ = runtime.Secrets.Delete(accountID)
 				}

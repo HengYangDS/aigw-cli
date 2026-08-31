@@ -189,7 +189,7 @@ func buildManifestSetupResult(
 		}
 	case len(selectedClients) == 0:
 		result.Deferred = append(result.Deferred, "After installing Claude Code or Codex, run `aigw sync`")
-		result.NextAction = "aigw status"
+		result.NextAction = "aigw sync"
 	default:
 		result.NextAction = "aigw check"
 	}

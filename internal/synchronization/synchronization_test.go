@@ -84,6 +84,38 @@ func targetDiscovery(target string) staticDiscovery {
 	}}}}
 }
 
+func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T) {
+	claudeExecutable := filepath.Join(t.TempDir(), "claude")
+	before := configuration.NewConfig()
+	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
+		Anthropic:       "https://gateway.test",
+		OpenAIResponses: "https://gateway.test/v1",
+	}}
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
+	before.Routes[configuration.ClientClaude] = "claude"
+	before.Routes[configuration.ClientCodex] = "codex"
+	before.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/existing/codex", Targets: []string{"/explicit/config.toml"}}
+	secretStore := secrets.NewMemoryStore()
+	if err := secretStore.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	syncer := Synchronizer{Secrets: secretStore, Discovery: staticDiscovery{result: discovery.Result{Executables: map[string]string{
+		configuration.ClientClaude: claudeExecutable,
+	}}}}
+
+	after, _, err := syncer.DesiredClientConfiguration(before, configuration.ClientClaude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if adapter := after.Adapters[configuration.ClientClaude]; !adapter.Enabled || adapter.Executable != claudeExecutable {
+		t.Fatalf("Claude adapter = %#v", adapter)
+	}
+	if got := after.Adapters[configuration.ClientCodex]; !got.Enabled || got.Executable != "/existing/codex" || len(got.Targets) != 1 || got.Targets[0] != "/explicit/config.toml" {
+		t.Fatalf("unselected Codex adapter changed: %#v", got)
+	}
+}
+
 func TestProjectionChangedForPersistentCodexSemantics(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "configuration.toml")
 	before := testConfig(target)
@@ -128,6 +160,11 @@ func TestRouteAndAuthenticationSemantics(t *testing.T) {
 	}
 	if AuthenticationChanged(configured, configured.Clone()) {
 		t.Fatal("unchanged route must not bind authentication")
+	}
+	invalidAfter := configured.Clone()
+	delete(invalidAfter.Profiles, "gpt")
+	if !AuthenticationChanged(configured, invalidAfter) {
+		t.Fatal("an invalid resulting Codex runtime must require authentication recovery")
 	}
 	movedTarget := configured.Clone()
 	movedTarget.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{"/other"}}
@@ -256,6 +293,19 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 		delete(after.Profiles, "claude")
 		if ClaudeProjectionChanged(before, after) != true {
 			t.Fatal("invalid Claude runtime was treated as unchanged")
+		}
+	})
+
+	t.Run("invalid resulting Claude runtime", func(t *testing.T) {
+		before := configuration.NewConfig()
+		before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+		before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+		before.Routes[configuration.ClientClaude] = "claude"
+		before.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+		after := before.Clone()
+		delete(after.Profiles, "claude")
+		if err := (Synchronizer{Discovery: staticDiscovery{}, ClaudeSettingsPath: "/settings", AIGWExecutable: "/aigw"}).Reconcile(context.Background(), before, after); err == nil {
+			t.Fatal("reconciliation accepted an invalid resulting Claude runtime")
 		}
 	})
 }

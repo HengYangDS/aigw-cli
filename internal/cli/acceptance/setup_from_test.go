@@ -377,7 +377,7 @@ func TestSetupFromConfigurationManifestLeavesNoConfigWhenTokenStorageFails(t *te
 }
 
 func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testing.T) {
-	app, _, _, _ := testApp(t, "")
+	app, out, _, _ := testApp(t, "")
 	app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
 		if key == secrets.EnvironmentKey("dmxapi") {
 			return "aigw-test-dmxapi-env-token"
@@ -395,6 +395,14 @@ func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testi
 	}
 	if cfg.Routes[configuration.ClientClaude] != "dmxapi-claude" || cfg.Routes[configuration.ClientCodex] != "dmxapi-gpt" {
 		t.Fatalf("available Account did not become usable: %#v", cfg.Routes)
+	}
+	for _, want := range []string{"After installing Claude Code or Codex, run `aigw sync`", "Next", "aigw sync"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output missing %q:\n%s", want, out.String())
+		}
+	}
+	if strings.Contains(out.String(), "aigw status") {
+		t.Fatalf("setup pointed to an observational command instead of activation:\n%s", out.String())
 	}
 }
 

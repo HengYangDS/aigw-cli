@@ -92,7 +92,7 @@ func TestRepairDesiredConfigDropsUnusableCodexAndKeepsExplicitTargets(t *testing
 	before.Routes[configuration.ClientCodex] = "one"
 	before.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/old"}
 	runtime := invocation.Context{Discovery: staticDiscovery{result: discovery.Result{}}}
-	after, _, err := desiredClientConfig(runtime, before)
+	after, _, err := invocation.Synchronizer(runtime).DesiredClientConfiguration(before)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,14 +100,6 @@ func TestRepairDesiredConfigDropsUnusableCodexAndKeepsExplicitTargets(t *testing
 		t.Fatalf("unusable adapter remains: %#v", after.Adapters)
 	}
 
-	discovered := discovery.Result{Surfaces: []discovery.Surface{
-		{ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: "/default-home", Present: true, AutoManaged: true},
-	}}
-	targets := repairCodexTargets(discovered, []string{"", "/default-home", "/explicit", "/explicit"})
-	want := []string{"/default-home", "/explicit"}
-	if len(targets) != len(want) || targets[0] != want[0] || targets[1] != want[1] {
-		t.Fatalf("targets = %#v, want %#v", targets, want)
-	}
 }
 
 func TestRunRepairReturnsConfigurationCommitFailure(t *testing.T) {
