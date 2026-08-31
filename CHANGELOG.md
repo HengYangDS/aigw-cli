@@ -8,6 +8,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.108] - 2026-08-31
+
+### Fixed
+
+- Present every compatible Account environment variable as an alternative
+  during token-free setup, so any one available credential is sufficient.
+- Re-evaluate available Accounts during `aigw sync`, activate compatible
+  Routes, and project clients installed after initial setup.
+
 ## [0.1.0-rc.107] - 2026-08-31
 
 ### Fixed
