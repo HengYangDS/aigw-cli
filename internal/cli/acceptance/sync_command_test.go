@@ -3,6 +3,7 @@ package cli_test
 import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
 	"encoding/json"
 	"os"
@@ -193,6 +194,58 @@ func TestSyncCreatesDefaultCodexProjectionWhenClientIsInstalledAfterManifestSetu
 	}
 	if !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {
 		t.Fatalf("sync did not create the newly discovered Codex target:\n%s", data)
+	}
+}
+
+func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
+	app, _, _, runner := testApp(t, "")
+	tokens := map[string]string{}
+	app.Secrets = secrets.NewEnvironmentStore(func(key string) string { return tokens[key] })
+	app.Discovery = emptyDiscovery{}
+	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
+	if err := execute(t, app, "setup", "--from", manifestPath); err != nil {
+		t.Fatalf("initial manifest setup: %v", err)
+	}
+
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tokens[secrets.EnvironmentKey("dmxapi")] = "test-token"
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{configuration.ClientCodex: "/usr/local/bin/codex"},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surfaceidentity.CodexHomeDefault),
+			Authority:   string(surfaceidentity.AuthorityAIGW),
+			ConfigPath:  target,
+			Present:     true,
+			AutoManaged: true,
+		}},
+	}}
+
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatalf("sync after setting one environment Token: %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("sync started credential binding plans: %#v", runner.plans)
+	}
+	after, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := after.Routes[configuration.ClientCodex]; got != "dmxapi-gpt" {
+		t.Fatalf("Codex route = %q, want dmxapi-gpt", got)
+	}
+	adapter := after.Adapters[configuration.ClientCodex]
+	if !adapter.Enabled || adapter.Executable != "/usr/local/bin/codex" || len(adapter.Targets) != 1 {
+		t.Fatalf("Codex adapter after sync = %#v", adapter)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {
+		t.Fatalf("sync did not project the environment-backed Account:\n%s", data)
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -241,13 +242,40 @@ func TestSetupFromConfigurationManifestNamesEnvironmentTokensInsteadOfRotate(t *
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{secrets.EnvironmentKey("aihubmix"), secrets.EnvironmentKey("dmxapi"), "aigw check"} {
+	for _, want := range []string{secrets.EnvironmentKey("aihubmix"), "any one compatible Account", "aigw sync"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("output missing %q:\n%s", want, text)
 		}
 	}
-	if strings.Contains(text, "aigw rotate") {
-		t.Fatalf("read-only environment backend received impossible rotate guidance:\n%s", text)
+	for _, forbidden := range []string{secrets.EnvironmentKey("dmxapi"), "listed environment variables", "aigw check", "aigw rotate"} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("read-only environment backend received misleading guidance %q:\n%s", forbidden, text)
+		}
+	}
+}
+
+func TestSetupFromConfigurationManifestJSONNamesOneEnvironmentActivationChoice(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	app.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
+	app.Discovery = emptyDiscovery{}
+	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
+
+	if err := execute(t, app, "setup", "--from", manifestPath, "--json"); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Deferred   []string `json:"deferred"`
+		NextAction string   `json:"next_action"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
+	}
+	wantDeferred := []string{"Set " + secrets.EnvironmentKey("aihubmix") + " for any one compatible Account"}
+	if !slices.Equal(result.Deferred, wantDeferred) || result.NextAction != "aigw sync" {
+		t.Fatalf("setup JSON continuation = %#v", result)
+	}
+	if strings.Contains(out.String(), secrets.EnvironmentKey("dmxapi")) || strings.Contains(out.String(), "aigw check") {
+		t.Fatalf("setup JSON implied all Tokens or verification-as-activation: %s", out.String())
 	}
 }
 

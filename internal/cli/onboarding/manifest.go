@@ -182,11 +182,8 @@ func buildManifestSetupResult(
 	switch {
 	case len(connected) == 0:
 		if secrets.IsReadOnly(runtime.Secrets) {
-			for _, account := range accountNames {
-				instruction, _ := credential.TokenRecovery(runtime.Secrets, account)
-				result.Deferred = append(result.Deferred, instruction)
-			}
-			result.NextAction = "Set the listed environment variables, then run `aigw check`"
+			result.Deferred = append(result.Deferred, fmt.Sprintf("Set %s for any one compatible Account", secrets.EnvironmentKey(accountNames[0])))
+			result.NextAction = "aigw sync"
 		} else {
 			result.NextAction = "aigw rotate <account>"
 		}

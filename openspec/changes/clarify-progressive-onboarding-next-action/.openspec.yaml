@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-31
+goal: Make token-free team import lead to one truthful account-scoped activation
+  action without implying every provider Token is required.
