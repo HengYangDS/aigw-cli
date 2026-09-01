@@ -25,6 +25,26 @@ func TestAdapterEnableSurfacesCredentialObservationFailure(t *testing.T) {
 	}
 }
 
+func TestAdapterEnableReportsConfigurationCommitFailure(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	if err := secretStore.Set("one", "token"); err != nil {
+		t.Fatal(err)
+	}
+	backupPath := app.Config.Path() + ".bak"
+	if err := os.Remove(backupPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(backupPath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	err := execute(t, app, "adapter", "enable", "claude", "--executable", executableFixture(t, "claude"))
+	if err == nil || !strings.Contains(err.Error(), "Adapter enablement failed and was rolled back") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestAdapterListAndDiscoveryBranches(t *testing.T) {
 	t.Run("list load", func(t *testing.T) {
 		app, _, _, _ := testApp(t, "")

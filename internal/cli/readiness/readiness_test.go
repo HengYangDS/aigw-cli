@@ -238,6 +238,19 @@ func TestStatusPreservesCredentialObservationFailure(t *testing.T) {
 	if store.getCalls != 0 {
 		t.Fatalf("status read credential %d times after observation failed", store.getCalls)
 	}
+	if err := RunStatus(runtime, false); !errors.Is(err, want) {
+		t.Fatalf("RunStatus error = %v, want %v", err, want)
+	}
+}
+
+func TestCheckEvaluationRouteLookupDistinguishesMissingClient(t *testing.T) {
+	evaluation := checkEvaluation{routes: []evaluatedRoute{{client: configuration.ClientClaude}}}
+	if route, ok := evaluation.route(configuration.ClientClaude); !ok || route.client != configuration.ClientClaude {
+		t.Fatalf("Claude route = %#v, %v", route, ok)
+	}
+	if route, ok := evaluation.route(configuration.ClientCodex); ok || route != (evaluatedRoute{}) {
+		t.Fatalf("missing Codex route = %#v, %v", route, ok)
+	}
 }
 
 func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
