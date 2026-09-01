@@ -18,8 +18,12 @@ func observeKeyringItem(service, slot string) (bool, error) {
 		"service":  service,
 		"username": slot,
 	})
+	return classifySecretServiceObservation(len(items), err)
+}
+
+func classifySecretServiceObservation(matches int, err error) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("search Secret Service item metadata: %w", err)
 	}
-	return len(items) > 0, nil
+	return matches > 0, nil
 }

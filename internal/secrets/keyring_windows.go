@@ -40,7 +40,7 @@ func observeKeyringItem(service, slot string) (bool, error) {
 	}
 
 	var count uint32
-	var credentialsPointer uintptr
+	var credentialsPointer unsafe.Pointer
 	result, _, callErr := syscall.SyscallN(
 		credentialEnumerate.Addr(),
 		uintptr(unsafe.Pointer(filter)),
@@ -55,9 +55,9 @@ func observeKeyringItem(service, slot string) (bool, error) {
 		}
 		return false, fmt.Errorf("enumerate Windows credential metadata: %w", callErr)
 	}
-	defer credentialFree.Call(credentialsPointer)
+	defer credentialFree.Call(uintptr(credentialsPointer))
 
-	credentials := unsafe.Slice((**windowsCredential)(unsafe.Pointer(credentialsPointer)), count)
+	credentials := unsafe.Slice((**windowsCredential)(credentialsPointer), count)
 	for _, credential := range credentials {
 		if credential != nil && windows.UTF16PtrToString(credential.TargetName) == target {
 			return true, nil
