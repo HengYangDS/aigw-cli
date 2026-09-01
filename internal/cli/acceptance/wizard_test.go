@@ -161,7 +161,7 @@ func TestFirstRunCreatesExplicitGenericAccountWithoutBundledProviderDefault(t *t
 }
 
 func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
-	app, _, secretStore, _ := testApp(t, "")
+	app, out, secretStore, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &fakePrompt{
 		selected: "claude",
@@ -184,6 +184,10 @@ func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 	}
 	if !secretExists(t, secretStore, "team-gateway") || cfg.Routes[configuration.ClientClaude] != "claude-sonnet-5" {
 		t.Fatalf("setup state = %#v", cfg)
+	}
+	text := out.String()
+	if !strings.Contains(text, "aigw sync") || strings.Contains(text, "aigw check") {
+		t.Fatalf("setup continuation = %q", text)
 	}
 }
 

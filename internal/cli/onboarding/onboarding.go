@@ -205,12 +205,19 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 func renderSetupClients(runtime invocation.Context, cfg configuration.Config) {
 	r := invocation.Renderer(runtime)
 	r.Section("Clients")
+	configured := false
 	for _, client := range configuration.AdmittedClientIDs() {
 		if cfg.Adapters[client].Enabled {
+			configured = true
 			r.Status(presentation.OK, invocation.Title(client), "Configured")
 		} else {
 			r.Status(presentation.Info, invocation.Title(client), "Not configured")
 		}
+	}
+	if !configured {
+		r.Success("Account ready. Install Claude Code or Codex when needed, then synchronize its configuration.")
+		r.Next("aigw sync")
+		return
 	}
 	r.Success("Ready. You can add more model profiles for this account.")
 	r.Next("aigw check")

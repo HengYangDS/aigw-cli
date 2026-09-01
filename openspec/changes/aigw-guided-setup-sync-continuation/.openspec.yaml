@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-09-01
+goal: A completed account setup remains useful without an installed client and
+  gives one accurate continuation for later client discovery.
