@@ -36,6 +36,8 @@ NOT acquire AIGW state.
 - **THEN** AIGW SHALL report only the selected endpoint's observed failure
 - **AND** SHALL NOT install, start, stop, repair, or reconfigure the gateway
 
+## ADDED Requirements
+
 ### Requirement: Real Codex client route verification
 
 AIGW SHALL verify a selected Codex Profile by running the configured and
