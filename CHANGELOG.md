@@ -8,6 +8,13 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.109] - 2026-09-01
+
+### Fixed
+
+- Report credential availability without exposing secret values or treating
+  an unavailable credential backend as an absent Account.
+
 ## [0.1.0-rc.108] - 2026-08-31
 
 ### Fixed
