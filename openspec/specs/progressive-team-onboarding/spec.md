@@ -76,6 +76,14 @@ command. The setup command SHALL accept `--json` for manifest-based setup and
 SHALL derive both representations from one semantic result without exposing
 credential material.
 
+#### Scenario: Guided setup completes before client installation
+
+- **WHEN** guided setup connects an Account while neither Claude Code nor Codex
+  is installed
+- **THEN** setup SHALL identify `aigw sync` as the next action after installing
+  a supported client
+- **AND** SHALL NOT identify `aigw check` as the activation action.
+
 #### Scenario: Selected Responses endpoint is unavailable
 
 - **WHEN** an installed Codex route selects a Responses endpoint that is not
