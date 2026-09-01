@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-09-02
+goal: Close the direct Codex composition evidence gap while preserving one AIGW
+  control-plane authority and no new lifecycle state machine.

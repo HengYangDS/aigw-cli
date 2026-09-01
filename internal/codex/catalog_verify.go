@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -8,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"aigw-cli/internal/process"
 )
 
 // ModelCatalogProbe records direct evidence from a Codex model catalog. The
@@ -117,7 +120,14 @@ func probeCodexCatalog(executable, catalogPath string) (codexCatalogDocument, er
 		}
 		args = append(args, "-c", "model_catalog_json="+quoted)
 	}
-	output, err := runCodexReadOnly(executable, args...)
+	home, err := os.MkdirTemp("", "aigw-codex-catalog-verify-")
+	if err != nil {
+		return codexCatalogDocument{}, fmt.Errorf("create Codex probe home: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(home) }()
+	ctx, cancel := context.WithTimeout(context.Background(), codexCatalogTimeout)
+	defer cancel()
+	output, err := runCodexReadOnly(ctx, process.Runner{}, executable, home, args...)
 	if err != nil {
 		return codexCatalogDocument{}, err
 	}

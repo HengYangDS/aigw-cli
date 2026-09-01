@@ -60,16 +60,21 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				accountName := clientRuntime.AccountID
-				token, err := runtime.Secrets.Get(accountName)
-				if err != nil {
-					instruction, _ := credential.TokenRecovery(runtime.Secrets, accountName)
-					return fmt.Errorf("Token for account %q is unavailable: %w; %s", accountName, err, instruction)
-				}
 				ctx, cancel := context.WithTimeout(cmd.Context(), domainverification.ProtocolTimeout)
 				if target == configuration.ClientCodex {
-					err = domainverification.VerifyCodexResponse(ctx, runtime.HTTP, clientRuntime, token)
+					identity, verifyErr := domainverification.VerifyCodexInvocation(ctx, runtime.Runner, cfg, clientRuntime)
+					err = verifyErr
+					if verifyErr == nil {
+						r.Detail(fmt.Sprintf("Codex client: %s · SHA-256 %s", identity.Version, identity.SHA256))
+					}
 				} else {
+					accountName := clientRuntime.AccountID
+					token, tokenErr := runtime.Secrets.Get(accountName)
+					if tokenErr != nil {
+						cancel()
+						instruction, _ := credential.TokenRecovery(runtime.Secrets, accountName)
+						return fmt.Errorf("Token for account %q is unavailable: %w; %s", accountName, tokenErr, instruction)
+					}
 					err = domainverification.VerifyClaudeInvocation(ctx, runtime.Runner, cfg, clientRuntime, token)
 				}
 				cancel()

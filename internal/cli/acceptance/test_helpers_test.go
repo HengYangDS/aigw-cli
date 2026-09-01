@@ -40,10 +40,42 @@ func (r *fakeRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte,
 	if r.capture != nil {
 		return nil, r.capture
 	}
+	if len(plan.Args) == 1 && plan.Args[0] == "--version" {
+		return []byte("codex-cli 0.0.0-test\n"), nil
+	}
+	if outputPath := planArgumentValue(plan.Args, "--output-last-message"); outputPath != "" {
+		output := r.output
+		if output == nil {
+			output = []byte("AIGW_OK\n")
+		}
+		if err := os.WriteFile(outputPath, output, 0o600); err != nil {
+			return nil, err
+		}
+		return []byte("non-authoritative diagnostic output\n"), nil
+	}
 	if r.output == nil {
 		return []byte("AIGW_OK\n"), nil
 	}
 	return append([]byte(nil), r.output...), nil
+}
+
+func planArgumentValue(arguments []string, name string) string {
+	for index, argument := range arguments {
+		if argument == name && index+1 < len(arguments) {
+			return arguments[index+1]
+		}
+	}
+	return ""
+}
+
+func planEnvironmentValue(environment []string, name string) string {
+	prefix := name + "="
+	for _, value := range environment {
+		if strings.HasPrefix(value, prefix) {
+			return strings.TrimPrefix(value, prefix)
+		}
+	}
+	return ""
 }
 
 type failingRunner struct {

@@ -3,11 +3,11 @@ package verification
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,11 +16,6 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 )
-
-// HTTPDoer executes one HTTP request.
-type HTTPDoer interface {
-	Do(*http.Request) (*http.Response, error)
-}
 
 // Runner is the ordinary process capability carried by a CLI invocation. Live
 // verification additionally requires that the concrete runner implement
@@ -34,18 +29,7 @@ type Runner interface {
 const ProtocolTimeout = time.Minute
 
 const responseSentinel = "AIGW_OK"
-const responseLimit = 256 * 1024
-
-type response struct {
-	Status     string `json:"status"`
-	OutputText string `json:"output_text"`
-	Output     []struct {
-		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
-		} `json:"content"`
-	} `json:"output"`
-}
+const responseLimit int64 = int64(len(responseSentinel) + 2)
 
 // ValidateFullReadiness checks the local preconditions for verifying both
 // supported clients without performing a model request.
@@ -77,72 +61,76 @@ func ValidateFullReadiness(cfg configuration.Config) error {
 	return nil
 }
 
-// VerifyCodexResponse performs one bounded OpenAI Responses request.
-func VerifyCodexResponse(ctx context.Context, client HTTPDoer, clientRuntime configuration.Runtime, token string) error {
+// VerifyCodexInvocation validates one synchronized Codex target, measures the
+// configured executable, and makes exactly one non-persistent client request.
+func VerifyCodexInvocation(ctx context.Context, runner Runner, cfg configuration.Config, clientRuntime configuration.Runtime) (codex.ExecutableIdentity, error) {
+	adapter := cfg.Adapters[configuration.ClientCodex]
+	if !adapter.Enabled {
+		return codex.ExecutableIdentity{}, fmt.Errorf("Codex adapter is disabled; run `aigw repair`")
+	}
+	if adapter.Executable == "" {
+		return codex.ExecutableIdentity{}, fmt.Errorf("Codex executable is not configured; run `aigw repair`")
+	}
+	if len(adapter.Targets) == 0 {
+		return codex.ExecutableIdentity{}, fmt.Errorf("Codex configuration target is missing; run `aigw repair`")
+	}
 	if clientRuntime.Model == "" {
-		return fmt.Errorf("Profile %q has no Codex model", clientRuntime.ProfileID)
+		return codex.ExecutableIdentity{}, fmt.Errorf("Profile %q has no Codex model", clientRuntime.ProfileID)
 	}
-	body, _ := json.Marshal(map[string]any{
-		"model":             clientRuntime.Model,
-		"input":             "Reply with exactly: AIGW_OK",
-		"max_output_tokens": 16,
-		"store":             false,
-	})
-	requestURL := strings.TrimRight(clientRuntime.Endpoint, "/")
-	if !strings.HasSuffix(requestURL, "/responses") {
-		requestURL += "/responses"
+	targets := append([]string(nil), adapter.Targets...)
+	sort.Strings(targets)
+	target := targets[0]
+	if err := codex.ValidateConfig(target, clientRuntime); err != nil {
+		return codex.ExecutableIdentity{}, fmt.Errorf("Codex configuration target is not synchronized: %w; run `aigw sync`", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, strings.NewReader(string(body)))
+	captureRunner, ok := runner.(process.CaptureRunner)
+	if !ok {
+		return codex.ExecutableIdentity{}, fmt.Errorf("Codex verification capture runner is unavailable")
+	}
+	identity, err := codex.IdentifyExecutable(ctx, captureRunner, adapter.Executable, filepath.Dir(target))
 	if err != nil {
-		return err
+		return codex.ExecutableIdentity{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(req)
+	output, err := os.CreateTemp("", "aigw-codex-verification-*.txt")
 	if err != nil {
-		return fmt.Errorf("Codex model request failed: %w", err)
+		return codex.ExecutableIdentity{}, fmt.Errorf("create Codex verification output: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
-	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, responseLimit+1))
+	outputPath := output.Name()
+	defer func() { _ = os.Remove(outputPath) }()
+	if err := output.Close(); err != nil {
+		return codex.ExecutableIdentity{}, fmt.Errorf("close Codex verification output: %w", err)
+	}
+	plan, err := codex.VerificationPlan(adapter.Executable, target, outputPath, clientRuntime)
 	if err != nil {
-		return fmt.Errorf("Failed to read Codex verification response: %w", err)
+		return codex.ExecutableIdentity{}, err
 	}
-	if len(responseBody) > responseLimit {
-		return fmt.Errorf("Codex verification response exceeds %d bytes", responseLimit)
+	if _, err := captureRunner.RunCapture(ctx, plan); err != nil {
+		return codex.ExecutableIdentity{}, fmt.Errorf("Codex minimal verification request failed: %w", err)
 	}
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return fmt.Errorf("Codex model authentication was rejected (HTTP %d); run `aigw rotate %s`", resp.StatusCode, clientRuntime.AccountID)
+	finalMessage, err := readBoundedFile(outputPath, responseLimit)
+	if err != nil {
+		return codex.ExecutableIdentity{}, fmt.Errorf("read Codex final response: %w", err)
 	}
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("Codex model request returned HTTP %d", resp.StatusCode)
+	if strings.TrimSpace(string(finalMessage)) != responseSentinel {
+		return codex.ExecutableIdentity{}, fmt.Errorf("Codex model response did not return the expected AIGW_OK verification marker")
 	}
-	if !HasResponseSentinel(responseBody) {
-		return fmt.Errorf("Codex model response did not return the expected AIGW_OK verification marker")
-	}
-	return nil
+	return identity, nil
 }
 
-// HasResponseSentinel checks supported Responses projections for the exact
-// bounded verification marker.
-func HasResponseSentinel(data []byte) bool {
-	var decoded response
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		return false
+func readBoundedFile(path string, limit int64) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
 	}
-	if decoded.Status != "" && decoded.Status != "completed" {
-		return false
+	defer func() { _ = file.Close() }()
+	data, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil {
+		return nil, err
 	}
-	if strings.TrimSpace(decoded.OutputText) == responseSentinel {
-		return true
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("response exceeds %d bytes", limit)
 	}
-	for _, output := range decoded.Output {
-		for _, content := range output.Content {
-			if (content.Type == "output_text" || content.Type == "text") && strings.TrimSpace(content.Text) == responseSentinel {
-				return true
-			}
-		}
-	}
-	return false
+	return data, nil
 }
 
 // VerifyClaudeInvocation checks native executable admission before executing the

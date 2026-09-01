@@ -4,10 +4,12 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
-	"io"
+	"crypto/sha256"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -29,9 +31,20 @@ func TestVerifyCommandRejectsInvalidInputsAndMissingState(t *testing.T) {
 		{name: "missing target", args: []string{"verify"}, prep: func(app *cli.App) {
 			saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		}, want: "--for must be"},
-		{name: "missing token", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) {
+		{name: "disabled Codex adapter", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) {
 			saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
-		}, want: "is unavailable"},
+		}, want: "Codex adapter is disabled"},
+		{name: "missing Claude token", args: []string{"verify", "--for", "claude"}, prep: func(app *cli.App) {
+			saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			cfg, err := app.Config.Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+		}, want: "Token for account"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -47,65 +60,101 @@ func TestVerifyCommandRejectsInvalidInputsAndMissingState(t *testing.T) {
 	}
 }
 
-func TestVerifyCodexPerformsBoundedResponsesRequest(t *testing.T) {
-	app, out, secretStore, _ := testApp(t, "")
+func TestVerifyCodexRunsTheConfiguredClientOnceAndReportsItsIdentity(t *testing.T) {
+	app, out, _, runner := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
 	cfg.Routes[configuration.ClientCodex] = "gpt"
+	executable := executableFixture(t, "codex")
+	root := t.TempDir()
+	targets := []string{
+		filepath.Join(root, "z", "config.toml"),
+		filepath.Join(root, "a", "config.toml"),
+	}
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range targets {
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := codex.SyncConfig(target, runtime); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: targets}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := secretStore.Set("dmx", "verify-token"); err != nil {
-		t.Fatal(err)
-	}
-	var requestBody string
+	httpRequests := 0
 	app.HTTP = &fakeHTTP{status: 200, handler: func(req *http.Request) (*http.Response, error) {
-		if req.Method != http.MethodPost || req.URL.Path != "/v1/responses" {
-			t.Fatalf("request = %s %s", req.Method, req.URL)
-		}
-		data, err := io.ReadAll(req.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		requestBody = string(data)
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"status":"completed","output":[{"content":[{"type":"output_text","text":"AIGW_OK"}]}]}`)), Request: req}, nil
+		httpRequests++
+		return nil, fmt.Errorf("unexpected HTTP request to %s", req.URL)
 	}}
 
 	if err := execute(t, app, "verify", "--for", "codex"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(requestBody, `"model":"gpt-test"`) || !strings.Contains(requestBody, `"store":false`) || !strings.Contains(requestBody, "AIGW_OK") {
-		t.Fatalf("verify body = %s", requestBody)
+	if httpRequests != 0 {
+		t.Fatalf("HTTP requests = %d, want 0", httpRequests)
 	}
-	if strings.Contains(out.String(), "verify-token") || !strings.Contains(out.String(), "Live protocol verification") {
+	if len(runner.plans) != 2 || !slices.Equal(runner.plans[0].Args, []string{"--version"}) {
+		t.Fatalf("plans = %#v", runner.plans)
+	}
+	execPlan := runner.plans[1]
+	if execPlan.Executable != executable || planArgumentValue(execPlan.Args, "--output-last-message") == "" || planArgumentValue(execPlan.Args, "--model") != "gpt-test" {
+		t.Fatalf("Codex execution plan = %#v", execPlan)
+	}
+	if got := planEnvironmentValue(execPlan.Env, "CODEX_HOME"); got != filepath.Dir(targets[1]) {
+		t.Fatalf("CODEX_HOME = %q", got)
+	}
+	executableBytes, err := os.ReadFile(executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantSHA256 := fmt.Sprintf("%x", sha256.Sum256(executableBytes))
+	if strings.Contains(out.String(), "verify-token") || strings.Contains(out.String(), "AIGW_OK") || !strings.Contains(out.String(), "codex-cli 0.0.0-test") || !strings.Contains(out.String(), wantSHA256) {
 		t.Fatalf("verify output = %s", out.String())
 	}
 }
 
 func TestVerifyInfersClientFromExplicitProfile(t *testing.T) {
-	app, _, secretStore, _ := testApp(t, "")
+	app, _, _, runner := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
 	cfg.Routes[configuration.ClientCodex] = "gpt"
-	if err := app.Config.Save(cfg); err != nil {
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := secretStore.Set("dmx", "verify-token"); err != nil {
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.SyncConfig(target, runtime); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
+	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	requests := 0
 	app.HTTP = &fakeHTTP{status: http.StatusOK, handler: func(req *http.Request) (*http.Response, error) {
 		requests++
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"status":"completed","output_text":"AIGW_OK"}`)), Request: req}, nil
+		return nil, fmt.Errorf("unexpected HTTP request to %s", req.URL)
 	}}
 
 	if err := execute(t, app, "verify", "--profile", "gpt"); err != nil {
 		t.Fatal(err)
 	}
-	if requests != 1 {
-		t.Fatalf("requests = %d, want 1", requests)
+	if requests != 0 || len(runner.plans) != 2 {
+		t.Fatalf("requests = %d, plans = %#v", requests, runner.plans)
 	}
 }
 
@@ -123,7 +172,7 @@ func TestVerifyAllWritesVerifiedCheckpoint(t *testing.T) {
 	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{codexTarget}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -137,13 +186,16 @@ func TestVerifyAllWritesVerifiedCheckpoint(t *testing.T) {
 	if err := secretStore.Set("dmx", "verify-token"); err != nil {
 		t.Fatal(err)
 	}
-	app.HTTP = &fakeHTTP{status: http.StatusOK, body: `{"status":"completed","output_text":"AIGW_OK"}`}
+	app.HTTP = &fakeHTTP{status: http.StatusOK, handler: func(req *http.Request) (*http.Response, error) {
+		t.Fatalf("unexpected HTTP request to %s", req.URL)
+		return nil, nil
+	}}
 
 	if err := execute(t, app, "verify", "--for", "all"); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.plans) != 1 {
-		t.Fatalf("Claude verification plans = %#v", runner.plans)
+	if len(runner.plans) != 3 {
+		t.Fatalf("verification plans = %#v", runner.plans)
 	}
 	checkpoint, err := app.Config.LoadVerifiedCheckpoint()
 	if err != nil {
@@ -168,7 +220,7 @@ func TestVerifyAllReturnsCheckpointWriteFailure(t *testing.T) {
 	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{codexTarget}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +234,10 @@ func TestVerifyAllReturnsCheckpointWriteFailure(t *testing.T) {
 	if err := secretStore.Set("dmx", "verify-token"); err != nil {
 		t.Fatal(err)
 	}
-	app.HTTP = &fakeHTTP{status: http.StatusOK, body: `{"status":"completed","output_text":"AIGW_OK"}`}
+	app.HTTP = &fakeHTTP{status: http.StatusOK, handler: func(req *http.Request) (*http.Response, error) {
+		t.Fatalf("unexpected HTTP request to %s", req.URL)
+		return nil, nil
+	}}
 	checkpoint := app.Config.Path() + ".verified.json"
 	if err := os.Mkdir(checkpoint, 0o700); err != nil {
 		t.Fatal(err)
@@ -197,19 +252,28 @@ func TestVerifyAllReturnsCheckpointWriteFailure(t *testing.T) {
 }
 
 func TestVerifyRejectsMissingResponseSentinel(t *testing.T) {
-	app, _, secretStore, _ := testApp(t, "")
+	app, _, _, runner := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
 	cfg.Routes[configuration.ClientCodex] = "gpt"
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.SyncConfig(target, runtime); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := secretStore.Set("dmx", "verify-token"); err != nil {
-		t.Fatal(err)
-	}
-	app.HTTP = &fakeHTTP{status: http.StatusOK, body: `{"status":"completed","output_text":"not-the-sentinel"}`}
-	err := execute(t, app, "verify", "--for", "codex")
+	runner.output = []byte("wrong\n")
+	err = execute(t, app, "verify", "--for", "codex")
 	if err == nil || !strings.Contains(err.Error(), "did not return the expected AIGW_OK verification marker") {
 		t.Fatalf("error = %v", err)
 	}

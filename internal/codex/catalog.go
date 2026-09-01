@@ -1,21 +1,16 @@
 package codex
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
 	"time"
 
+	"aigw-cli/internal/process"
 	"aigw-cli/internal/transaction"
 )
 
@@ -32,21 +27,6 @@ const (
 	codexCatalogTimeout = 30 * time.Second
 )
 
-// codexClient identifies one installed Codex build by the two facts AIGW can
-// verify locally. A bundled catalog copy replaces the client's own table instead
-// of merging with it, so a copy is only ever reusable for the exact build it was
-// taken from.
-type codexClient struct {
-	Version string
-	SHA256  string
-}
-
-func (c codexClient) known() bool { return c.Version != "" && c.SHA256 != "" }
-
-// same reports whether two identities describe the same build. An unknown
-// identity never matches, so an unreadable client cannot authorize reuse.
-func (c codexClient) same(other codexClient) bool { return c.known() && c == other }
-
 // codexBundledCatalog reads the installed client's own bundled model catalog.
 // It is a package seam so tests can supply a catalog without an installed
 // client; production reads the client itself.
@@ -58,7 +38,7 @@ var codexBundledCatalog = readCodexBundledCatalog
 type codexCatalogPlan struct {
 	path   string
 	data   []byte
-	client codexClient
+	client ExecutableIdentity
 	state  string
 }
 
@@ -91,7 +71,7 @@ func codexCatalogProjection(target TargetRef, model, base string, state codexSta
 	// describes the installed build: after an upgrade the old snapshot would
 	// override the client's newer bundled table, which is a worse failure than
 	// the fallback it was meant to prevent.
-	recorded := codexClient{Version: state.CatalogClientVersion, SHA256: state.CatalogClientSHA256}
+	recorded := ExecutableIdentity{Version: state.CatalogClientVersion, SHA256: state.CatalogClientSHA256}
 	if state.CatalogHash != "" && live.same(recorded) && before.Exists && hashBytes(before.Data) == state.CatalogHash {
 		return codexCatalogPlan{path: targetCodexCatalogPath(target), data: before.Data, client: recorded, state: catalogStateProjected}
 	}
@@ -277,63 +257,26 @@ func codexCatalogNamespace(model string, slugs map[string]int) (string, bool) {
 // catalog. The identity is returned even when the catalog read fails, because
 // deciding whether a previous copy may be reused requires knowing which build is
 // installed now.
-func readCodexBundledCatalog(executable string) (codexClient, []byte, error) {
+func readCodexBundledCatalog(executable string) (ExecutableIdentity, []byte, error) {
 	if strings.TrimSpace(executable) == "" {
-		return codexClient{}, nil, fmt.Errorf("Codex executable is not configured")
+		return ExecutableIdentity{}, nil, fmt.Errorf("Codex executable is not configured")
 	}
-	sum, err := codexFileSHA256(executable)
-	if err != nil {
-		return codexClient{}, nil, err
-	}
-	version, err := runCodexReadOnly(executable, "--version")
-	if err != nil {
-		return codexClient{}, nil, err
-	}
-	client := codexClient{Version: strings.TrimSpace(string(version)), SHA256: sum}
-	if client.Version == "" {
-		return codexClient{}, nil, fmt.Errorf("Codex reported no version")
-	}
-	catalog, err := runCodexReadOnly(executable, "debug", "models", "--bundled")
-	if err != nil {
-		return client, nil, err
-	}
-	return client, catalog, nil
-}
-
-// runCodexReadOnly runs one read-only client command against a throwaway Codex
-// home. The empty home is what makes the result trustworthy: the bundled table
-// cannot be read through a configuration AIGW itself projected, so regeneration
-// can never feed on its own previous output.
-func runCodexReadOnly(executable string, args ...string) ([]byte, error) {
 	home, err := os.MkdirTemp("", "aigw-codex-catalog-")
 	if err != nil {
-		return nil, fmt.Errorf("create Codex probe home: %w", err)
+		return ExecutableIdentity{}, nil, fmt.Errorf("create Codex probe home: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(home) }()
 	ctx, cancel := context.WithTimeout(context.Background(), codexCatalogTimeout)
 	defer cancel()
-	command := exec.CommandContext(ctx, executable, args...)
-	command.Env = append(removeEnvironment(os.Environ(), "CODEX_HOME"), "CODEX_HOME="+home)
-	stdout := &bytes.Buffer{}
-	command.Stdout = stdout
-	command.Stderr = io.Discard
-	if err := command.Run(); err != nil {
-		return nil, fmt.Errorf("run %s %s: %w", filepath.Base(executable), strings.Join(args, " "), err)
-	}
-	return stdout.Bytes(), nil
-}
-
-func codexFileSHA256(path string) (string, error) {
-	file, err := os.Open(path)
+	client, err := IdentifyExecutable(ctx, process.Runner{}, executable, home)
 	if err != nil {
-		return "", fmt.Errorf("read Codex executable: %w", err)
+		return ExecutableIdentity{}, nil, err
 	}
-	defer func() { _ = file.Close() }()
-	digest := sha256.New()
-	if _, err := io.Copy(digest, file); err != nil {
-		return "", fmt.Errorf("hash Codex executable: %w", err)
+	catalog, err := runCodexReadOnly(ctx, process.Runner{}, executable, home, "debug", "models", "--bundled")
+	if err != nil {
+		return client, nil, err
 	}
-	return hex.EncodeToString(digest.Sum(nil)), nil
+	return client, catalog, nil
 }
 
 // codexTOMLString quotes a value as a TOML basic string. A control character

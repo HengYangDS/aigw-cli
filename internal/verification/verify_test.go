@@ -2,12 +2,13 @@ package verification
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
-	"io"
-	"net/http"
+	"fmt"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -15,17 +16,6 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 )
-
-type httpDoer func(*http.Request) (*http.Response, error)
-
-func (do httpDoer) Do(request *http.Request) (*http.Response, error) { return do(request) }
-
-type responseBody struct {
-	io.Reader
-	closeErr error
-}
-
-func (body responseBody) Close() error { return body.closeErr }
 
 type basicRunner struct{ err error }
 
@@ -41,9 +31,60 @@ func (runner captureRunner) RunCapture(context.Context, process.Plan) ([]byte, e
 	return runner.output, runner.err
 }
 
-type failingReader struct{ err error }
+type recordingCaptureRunner struct {
+	plans              []process.Plan
+	version            string
+	marker             string
+	removeFinalMessage bool
+	requestErr         error
+}
 
-func (reader failingReader) Read([]byte) (int, error) { return 0, reader.err }
+func (runner *recordingCaptureRunner) Run(context.Context, process.Plan) error {
+	return runner.requestErr
+}
+
+func (runner *recordingCaptureRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
+	runner.plans = append(runner.plans, plan)
+	if slices.Equal(plan.Args, []string{"--version"}) {
+		return []byte(runner.version + "\n"), nil
+	}
+	if runner.requestErr != nil {
+		return nil, runner.requestErr
+	}
+	outputPath := argumentValue(plan.Args, "--output-last-message")
+	if outputPath == "" {
+		return nil, errors.New("verification output path is missing")
+	}
+	if runner.removeFinalMessage {
+		if err := os.Remove(outputPath); err != nil {
+			return nil, err
+		}
+		return []byte("non-authoritative diagnostic output\n"), nil
+	}
+	if err := os.WriteFile(outputPath, []byte(runner.marker+"\n"), 0o600); err != nil {
+		return nil, err
+	}
+	return []byte("non-authoritative diagnostic output\n"), nil
+}
+
+func argumentValue(arguments []string, name string) string {
+	for index, argument := range arguments {
+		if argument == name && index+1 < len(arguments) {
+			return arguments[index+1]
+		}
+	}
+	return ""
+}
+
+func environmentValue(environment []string, name string) string {
+	prefix := name + "="
+	for _, value := range environment {
+		if strings.HasPrefix(value, prefix) {
+			return strings.TrimPrefix(value, prefix)
+		}
+	}
+	return ""
+}
 
 func verificationConfig() configuration.Config {
 	cfg := configuration.NewConfig()
@@ -126,73 +167,159 @@ func TestValidateFullReadinessReportsInspectionAndRouteErrors(t *testing.T) {
 	}
 }
 
-func TestVerifyCodexResponse(t *testing.T) {
-	runtime := configuration.Runtime{ProfileID: "one", AccountID: "one", Endpoint: "https://one.test/v1", Model: "gpt"}
-	if err := VerifyCodexResponse(context.Background(), nil, configuration.Runtime{ProfileID: "one"}, "token"); err == nil || !strings.Contains(err.Error(), "no Codex model") {
-		t.Fatalf("model error = %v", err)
+func TestVerifyCodexUsesConfiguredClientAndOneSynchronizedTarget(t *testing.T) {
+	cfg := verificationConfig()
+	root := t.TempDir()
+	first := filepath.Join(root, "a", "config.toml")
+	second := filepath.Join(root, "z", "config.toml")
+	for _, target := range []string{first, second} {
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := codex.SyncConfig(target, runtime); err != nil {
+			t.Fatal(err)
+		}
 	}
-	runtime.Endpoint = "://bad"
-	if err := VerifyCodexResponse(context.Background(), nil, runtime, "token"); err == nil {
-		t.Fatal("invalid URL accepted")
+	executable := filepath.Join(t.TempDir(), "codex")
+	if goruntime.GOOS == "windows" {
+		executable += ".exe"
 	}
-	runtime.Endpoint = "https://one.test/v1"
-	want := errors.New("network failed")
-	if err := VerifyCodexResponse(context.Background(), httpDoer(func(*http.Request) (*http.Response, error) { return nil, want }), runtime, "token"); !errors.Is(err, want) {
-		t.Fatalf("network error = %v", err)
-	}
-
-	tests := []struct {
-		name   string
-		status int
-		body   io.ReadCloser
-		want   string
-	}{
-		{name: "read", status: 200, body: responseBody{Reader: failingReader{err: want}}, want: "read Codex"},
-		{name: "oversized", status: 200, body: io.NopCloser(strings.NewReader(strings.Repeat("x", responseLimit+1))), want: "exceeds"},
-		{name: "authentication", status: 401, body: io.NopCloser(strings.NewReader(`{}`)), want: "authentication"},
-		{name: "server", status: 500, body: io.NopCloser(strings.NewReader(`{}`)), want: "HTTP 500"},
-		{name: "sentinel", status: 200, body: io.NopCloser(strings.NewReader(`{}`)), want: "expected AIGW_OK"},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			doer := httpDoer(func(request *http.Request) (*http.Response, error) {
-				return &http.Response{StatusCode: test.status, Body: test.body, Request: request}, nil
-			})
-			if err := VerifyCodexResponse(context.Background(), doer, runtime, "token"); err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("error = %v, want %q", err, test.want)
-			}
-		})
-	}
-	var request *http.Request
-	doer := httpDoer(func(candidate *http.Request) (*http.Response, error) {
-		request = candidate
-		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"status":"completed","output_text":"AIGW_OK"}`)), Request: candidate}, nil
-	})
-	if err := VerifyCodexResponse(context.Background(), doer, runtime, "token"); err != nil {
+	executableBytes := []byte("codex fixture")
+	if err := os.WriteFile(executable, executableBytes, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if request.URL.Path != "/v1/responses" || request.Header.Get("Authorization") != "Bearer token" {
-		t.Fatalf("request = %#v", request)
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+		Enabled:    true,
+		Executable: executable,
+		Targets:    []string{first, second},
+	}
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK"}
+	identity, err := VerifyCodexInvocation(context.Background(), runner, cfg, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantSHA256 := sha256.Sum256(executableBytes)
+	if identity.Version != "codex-cli 9.9.9" || identity.SHA256 != fmt.Sprintf("%x", wantSHA256) {
+		t.Fatalf("identity = %#v", identity)
+	}
+	if len(runner.plans) != 2 {
+		t.Fatalf("plans = %#v", runner.plans)
+	}
+	if !slices.Equal(runner.plans[0].Args, []string{"--version"}) {
+		t.Fatalf("identity plan = %#v", runner.plans[0])
+	}
+	plan := runner.plans[1]
+	outputPath := argumentValue(plan.Args, "--output-last-message")
+	wantArgs := []string{"exec", "--ephemeral", "--ignore-rules", "--skip-git-repo-check", "--strict-config", "--sandbox", "read-only", "--color", "never", "--cd", filepath.Dir(outputPath), "--output-last-message", outputPath, "--model", "gpt-test", "Reply with exactly: AIGW_OK"}
+	if plan.Executable != executable || outputPath == "" || !slices.Equal(plan.Args, wantArgs) {
+		t.Fatalf("plan = %#v", plan)
+	}
+	if got := environmentValue(plan.Env, "CODEX_HOME"); got != filepath.Dir(first) {
+		t.Fatalf("CODEX_HOME = %q", got)
+	}
+	if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
+		t.Fatalf("verification output remains after success: %v", err)
 	}
 }
 
-func TestHasResponseSentinel(t *testing.T) {
-	for _, data := range [][]byte{
-		[]byte("not-json"),
-		[]byte(`{"status":"failed","output_text":"AIGW_OK"}`),
-		[]byte(`{"status":"completed","output_text":"wrong"}`),
-	} {
-		if HasResponseSentinel(data) {
-			t.Fatalf("invalid response accepted: %s", data)
-		}
+func TestVerifyCodexRejectsUnavailableCapabilityAndWrongFinalMessage(t *testing.T) {
+	cfg := verificationConfig()
+	target := filepath.Join(t.TempDir(), "codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		t.Fatal(err)
 	}
-	for _, data := range [][]byte{
-		[]byte(`{"output_text":" AIGW_OK "}`),
-		[]byte(`{"output":[{"content":[{"type":"text","text":" AIGW_OK "}]}]}`),
-	} {
-		if !HasResponseSentinel(data) {
-			t.Fatalf("valid response rejected: %s", data)
-		}
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.SyncConfig(target, runtime); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(t.TempDir(), "codex")
+	if goruntime.GOOS == "windows" {
+		executable += ".exe"
+	}
+	if err := os.WriteFile(executable, []byte("codex fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: []string{target}}
+
+	disabled := cfg.Clone()
+	disabled.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{}
+	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, disabled, runtime); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
+		t.Fatalf("disabled adapter error = %v", err)
+	}
+	missingExecutable := cfg.Clone()
+	missingExecutable.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{target}}
+	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, missingExecutable, runtime); err == nil || !strings.Contains(err.Error(), "executable is not configured") {
+		t.Fatalf("missing executable error = %v", err)
+	}
+	missingTarget := cfg.Clone()
+	missingTarget.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executable}
+	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, missingTarget, runtime); err == nil || !strings.Contains(err.Error(), "configuration target is missing") {
+		t.Fatalf("missing target error = %v", err)
+	}
+	missingModel := runtime
+	missingModel.Model = ""
+	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, cfg, missingModel); err == nil || !strings.Contains(err.Error(), "has no Codex model") {
+		t.Fatalf("missing model error = %v", err)
+	}
+	if _, err := VerifyCodexInvocation(context.Background(), basicRunner{}, cfg, runtime); err == nil || !strings.Contains(err.Error(), "capture") {
+		t.Fatalf("capture error = %v", err)
+	}
+	missingOnDisk := cfg.Clone()
+	missingOnDisk.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing-codex"), Targets: []string{target}}
+	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, missingOnDisk, runtime); err == nil || !strings.Contains(err.Error(), "read Codex executable") {
+		t.Fatalf("missing executable file error = %v", err)
+	}
+	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "wrong"}, cfg, runtime); err == nil || !strings.Contains(err.Error(), "expected AIGW_OK") {
+		t.Fatalf("marker error = %v", err)
+	}
+	requestFailure := &recordingCaptureRunner{version: "codex-cli 9.9.9", requestErr: errors.New("request failed")}
+	if _, err := VerifyCodexInvocation(context.Background(), requestFailure, cfg, runtime); err == nil || !strings.Contains(err.Error(), "minimal verification request failed") {
+		t.Fatalf("request error = %v", err)
+	}
+	if outputPath := argumentValue(requestFailure.plans[len(requestFailure.plans)-1].Args, "--output-last-message"); outputPath == "" {
+		t.Fatal("failed request plan has no output path")
+	} else if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
+		t.Fatalf("verification output remains after failed request: %v", err)
+	}
+	missing := &recordingCaptureRunner{version: "codex-cli 9.9.9", removeFinalMessage: true}
+	if _, err := VerifyCodexInvocation(context.Background(), missing, cfg, runtime); err == nil || !strings.Contains(err.Error(), "read Codex final response") {
+		t.Fatalf("missing final message error = %v", err)
+	}
+	if outputPath := argumentValue(missing.plans[len(missing.plans)-1].Args, "--output-last-message"); outputPath == "" {
+		t.Fatal("missing final message plan has no output path")
+	} else if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
+		t.Fatalf("verification output remains after missing response: %v", err)
+	}
+	oversized := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: strings.Repeat("x", 1024)}
+	if _, err := VerifyCodexInvocation(context.Background(), oversized, cfg, runtime); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("oversized final message error = %v", err)
+	}
+	if outputPath := argumentValue(oversized.plans[len(oversized.plans)-1].Args, "--output-last-message"); outputPath == "" {
+		t.Fatal("oversized final message plan has no output path")
+	} else if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
+		t.Fatalf("verification output remains after oversized response: %v", err)
+	}
+	drifted := cfg.Clone()
+	drifted.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Model: "other"}
+	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, drifted, configuration.Runtime{ProfileID: "codex", Model: "other"}); err == nil || !strings.Contains(err.Error(), "synchronized") {
+		t.Fatalf("projection error = %v", err)
 	}
 }
 

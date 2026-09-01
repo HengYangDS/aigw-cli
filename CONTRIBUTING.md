@@ -69,6 +69,21 @@ Codex configuration untouched. Exit code 2 means the client is missing, which
 is a prerequisite to satisfy rather than a passing or failing verification.
 Every deterministic catalog decision is also covered by package tests.
 
+Catalog inspection does not prove that the selected Account, credential, model,
+and synchronized projection work through the real client. That quota-consuming
+claim has one public authority:
+
+```bash
+aigw verify --for codex
+```
+
+The command runs the configured Codex executable once with an ephemeral
+session, one deterministic synchronized target, and the selected Profile. A
+successful result reports the measured client version and executable SHA-256;
+it does not print the Account Token or model response. Do not replace this
+evidence with a direct HTTP probe, a mocked client, or a skipped test when Codex
+is unavailable.
+
 The on-screen metadata miss the client reports is a separate matter. The client
 announces it only where a person can see it, and reproducing that announcement
 non-interactively requires supervising the client's own process tree, which is

@@ -31,7 +31,7 @@ func testBundledCatalog(slugs ...string) []byte {
 
 // emptyCatalogPlan reports that AIGW decided to own nothing for a target.
 func emptyCatalogPlan(plan codexCatalogPlan) bool {
-	return plan.path == "" && plan.data == nil && plan.state == "" && plan.client == codexClient{}
+	return plan.path == "" && plan.data == nil && plan.state == "" && plan.client == ExecutableIdentity{}
 }
 
 func catalogSlugList(t *testing.T, data []byte) []string {
@@ -252,8 +252,8 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 
 	// Same identity, regeneration unavailable: the copy still describes the
 	// installed build, so it is reused.
-	codexBundledCatalog = func(string) (codexClient, []byte, error) {
-		return codexClient{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
+	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
+		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
 	}
 	plan := codexCatalogProjection(target, "openai.gpt-5.5", "", state, before)
 	if plan.state != catalogStateProjected || string(plan.data) != string(owned) {
@@ -261,12 +261,12 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 	}
 
 	// Upgraded client, regeneration unavailable: refuse the copy and report it.
-	for _, live := range []codexClient{
+	for _, live := range []ExecutableIdentity{
 		{Version: "1.1.0", SHA256: "aaaa"},
 		{Version: "1.0.0", SHA256: "bbbb"},
 		{},
 	} {
-		codexBundledCatalog = func(string) (codexClient, []byte, error) {
+		codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 			return live, nil, fmt.Errorf("dump failed")
 		}
 		plan = codexCatalogProjection(target, "openai.gpt-5.5", "", state, before)
@@ -277,8 +277,8 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 
 	// Same identity but the file on disk is no longer the one AIGW recorded
 	// writing: it is not AIGW's to reuse.
-	codexBundledCatalog = func(string) (codexClient, []byte, error) {
-		return codexClient{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
+	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
+		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
 	}
 	edited := transaction.FileSnapshot{Exists: true, Data: []byte("{}"), SHA256: hashBytes([]byte("{}")), Mode: 0o600}
 	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", state, edited); plan.state != catalogStateStale {
@@ -300,8 +300,8 @@ func TestCodexCatalogProjectionYieldsToUserAuthoredCatalog(t *testing.T) {
 	target.Executable = filepath.Join(dir, "codex")
 	original := codexBundledCatalog
 	defer func() { codexBundledCatalog = original }()
-	codexBundledCatalog = func(string) (codexClient, []byte, error) {
-		return codexClient{Version: "1.0.0", SHA256: "aaaa"}, testBundledCatalog("gpt-5.5"), nil
+	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
+		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, testBundledCatalog("gpt-5.5"), nil
 	}
 	base := "model_catalog_json = \"/home/user/own-catalog.json\"\n"
 	if plan := codexCatalogProjection(target, "openai.gpt-5.5", base, codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
@@ -382,11 +382,11 @@ func catalogTestRuntime(model string) configuration.Runtime {
 	return runtime
 }
 
-func stubCodexBundledCatalog(t *testing.T, client codexClient, slugs ...string) {
+func stubCodexBundledCatalog(t *testing.T, client ExecutableIdentity, slugs ...string) {
 	t.Helper()
 	original := codexBundledCatalog
 	t.Cleanup(func() { codexBundledCatalog = original })
-	codexBundledCatalog = func(string) (codexClient, []byte, error) {
+	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 		return client, testBundledCatalog(slugs...), nil
 	}
 }
@@ -433,7 +433,7 @@ func readCodexSidecar(t *testing.T, path string) codexState {
 // TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog is the end-to-end
 // lifecycle: project, converge, validate, then withdraw without a trace.
 func TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog(t *testing.T) {
-	stubCodexBundledCatalog(t, codexClient{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol", "gpt-5.5")
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol", "gpt-5.5")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\nuser_setting = true\n")
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
@@ -506,7 +506,7 @@ func TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog(t *testing.T) {
 // TestReconcileConfigsLeavesBareModelSelectionsAlone is the no-regression guard
 // for every profile whose id the client already knows.
 func TestReconcileConfigsLeavesBareModelSelectionsAlone(t *testing.T) {
-	stubCodexBundledCatalog(t, codexClient{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol", "gpt-5.5")
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol", "gpt-5.5")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
@@ -537,7 +537,7 @@ func TestReconcileConfigsLeavesBareModelSelectionsAlone(t *testing.T) {
 // path in both directions: a newer client rebuilds, and a newer client whose
 // table cannot be read withdraws instead of reusing the old snapshot.
 func TestReconcileConfigsRebuildsTheCatalogAfterAClientUpgrade(t *testing.T) {
-	stubCodexBundledCatalog(t, codexClient{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
@@ -550,7 +550,7 @@ func TestReconcileConfigsRebuildsTheCatalogAfterAClientUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stubCodexBundledCatalog(t, codexClient{Version: "2.0.0", SHA256: "bbbb"}, "gpt-5.6-sol", "gpt-6")
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "2.0.0", SHA256: "bbbb"}, "gpt-5.6-sol", "gpt-6")
 	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig); err != nil {
 		t.Fatal(err)
 	}
@@ -572,8 +572,8 @@ func TestReconcileConfigsRebuildsTheCatalogAfterAClientUpgrade(t *testing.T) {
 	// a build that is gone, so the reference is withdrawn and reported.
 	original := codexBundledCatalog
 	t.Cleanup(func() { codexBundledCatalog = original })
-	codexBundledCatalog = func(string) (codexClient, []byte, error) {
-		return codexClient{Version: "3.0.0", SHA256: "cccc"}, nil, fmt.Errorf("dump failed")
+	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
+		return ExecutableIdentity{Version: "3.0.0", SHA256: "cccc"}, nil, fmt.Errorf("dump failed")
 	}
 	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig); err != nil {
 		t.Fatal(err)
@@ -601,7 +601,7 @@ func TestReconcileConfigsRebuildsTheCatalogAfterAClientUpgrade(t *testing.T) {
 // TestReconcileConfigsKeepsUserAuthoredCatalogSelections is the disable-and-switch
 // case for a target AIGW must not adopt.
 func TestReconcileConfigsKeepsUserAuthoredCatalogSelections(t *testing.T) {
-	stubCodexBundledCatalog(t, codexClient{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	own := "/home/user/own-catalog.json"
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\nmodel_catalog_json = \""+own+"\"\n")
 	target := codexHomeTarget(path)
@@ -644,7 +644,7 @@ func TestReconcileConfigsConvergesDriftedCatalogPermissions(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows does not represent owner-only permissions in a file mode")
 	}
-	stubCodexBundledCatalog(t, codexClient{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
@@ -699,7 +699,7 @@ func TestReconcileConfigsConvergesDriftedCatalogPermissions(t *testing.T) {
 // direction: a file at the managed path that the sidecar cannot account for is
 // somebody else's, and overwriting it would destroy content AIGW never wrote.
 func TestReconcileConfigsRefusesToAdoptAForeignCatalogFile(t *testing.T) {
-	stubCodexBundledCatalog(t, codexClient{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	original := "model_provider = \"native\"\nuser_setting = true\n"
 	path := writeCodexTestConfig(t, original)
 	target := codexHomeTarget(path)
@@ -793,7 +793,7 @@ func artifactPaths(artifacts []codexPreparedArtifact) []string {
 // artifacts one transaction: a partial projection would leave a configuration
 // and a catalog that disagree about which models exist.
 func TestReconcileConfigsRollsBackConfigStateAndCatalogTogether(t *testing.T) {
-	stubCodexBundledCatalog(t, codexClient{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	original := "model_provider = \"native\"\nuser_setting = true\n"
 	path := writeCodexTestConfig(t, original)
 	target := codexHomeTarget(path)
@@ -845,7 +845,7 @@ func TestReconcileConfigsRollsBackConfigStateAndCatalogTogether(t *testing.T) {
 }
 
 func TestValidateConfigReportsCatalogDrift(t *testing.T) {
-	stubCodexBundledCatalog(t, codexClient{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
@@ -887,7 +887,7 @@ func TestValidateConfigReportsCatalogDrift(t *testing.T) {
 // line the sidecar does not account for, which is the shape a foreign writer or
 // a partially reverted projection leaves behind.
 func TestValidateConfigRejectsUnownedManagedCatalogLine(t *testing.T) {
-	stubCodexBundledCatalog(t, codexClient{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
@@ -986,7 +986,7 @@ func TestReadCodexBundledCatalogReportsIdentityWhenTheDumpFails(t *testing.T) {
 	if catalog != nil {
 		t.Fatalf("catalog = %s", catalog)
 	}
-	if !client.same(codexClient{Version: "1.2.3", SHA256: hashText(script)}) {
+	if !client.same(ExecutableIdentity{Version: "1.2.3", SHA256: hashText(script)}) {
 		t.Fatalf("client identity = %+v", client)
 	}
 }
