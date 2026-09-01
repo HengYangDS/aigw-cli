@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-09-01
+goal: Publish the accepted AIGW setup, direct Codex verification, and Linux
+  Secret Service evidence as one immutable 0.1.0-rc.110 product release.
+skip_specs: true

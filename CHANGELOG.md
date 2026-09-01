@@ -8,6 +8,22 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.110] - 2026-09-01
+
+### Added
+
+- Verify a selected Codex route through the configured Codex executable and
+  report the measured client identity without persisting a session.
+
+### Fixed
+
+- Direct setup without an installed supported client to install one and run
+  `aigw sync`, while preserving `aigw check` for configured clients.
+- Treat direct provider endpoints and independently operated gateways as
+  equivalent Account endpoints without coupling AIGW to proxy lifecycle.
+- Prove that an unavailable Linux Secret Service fails explicitly without
+  reading secret values, choosing a fallback backend, or prompting the user.
+
 ## [0.1.0-rc.109] - 2026-09-01
 
 ### Fixed
