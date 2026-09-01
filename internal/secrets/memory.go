@@ -58,7 +58,16 @@ func (s *MemoryStore) delete(kind Kind, profile string) error {
 	return nil
 }
 
-func (s *MemoryStore) Has(profile string) bool {
-	_, err := s.Get(profile)
-	return err == nil
+func (s *MemoryStore) Exists(profile string) (bool, error) {
+	return s.exists(APIToken, profile)
+}
+
+func (s *MemoryStore) exists(kind Kind, profile string) (bool, error) {
+	if err := validate(profile, "", false); err != nil {
+		return false, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	value, ok := s.values[kind][profile]
+	return ok && value != "", nil
 }

@@ -92,7 +92,11 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if !runtime.Secrets.Has(clientRuntime.AccountID) {
+		available, err := runtime.Secrets.Exists(clientRuntime.AccountID)
+		if err != nil {
+			return fmt.Errorf("Cannot inspect Account %q credential: %w", clientRuntime.AccountID, err)
+		}
+		if !available {
 			instruction, _ := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
 			return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.AccountID, instruction)
 		}

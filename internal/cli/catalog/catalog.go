@@ -75,7 +75,7 @@ func NewModelsCommand(deps Dependencies) *cobra.Command {
 			}
 			modelSets := map[string]map[string]bool{}
 			for accountName, account := range cfg.Accounts {
-				if account.Endpoints.OpenAIResponses == "" || !deps.Secrets.Has(accountName) {
+				if account.Endpoints.OpenAIResponses == "" {
 					continue
 				}
 				token, err := deps.Secrets.Get(accountName)
@@ -174,10 +174,14 @@ func discoverCatalog(ctx context.Context, deps Dependencies, cfg configuration.C
 	result := catalogOutput{Accounts: make([]catalogAccount, 0, len(cfg.Accounts))}
 	for _, accountName := range sortedModelAccountNames(cfg) {
 		account := cfg.Accounts[accountName]
-		entry := catalogAccount{ID: accountName, Label: account.Label, Source: "openai_responses", SecretAvailable: deps.Secrets.Has(accountName), Models: []catalogModel{}}
+		entry := catalogAccount{ID: accountName, Label: account.Label, Source: "openai_responses", Models: []catalogModel{}}
+		secretAvailable, observationErr := deps.Secrets.Exists(accountName)
+		entry.SecretAvailable = secretAvailable
 		switch {
 		case account.Endpoints.OpenAIResponses == "":
 			entry.Status = "openai_responses_unavailable"
+		case observationErr != nil:
+			entry.Status = "credential_backend_failed"
 		case !entry.SecretAvailable:
 			entry.Status = "token_unavailable"
 		default:

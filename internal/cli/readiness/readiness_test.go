@@ -43,7 +43,34 @@ type presentFailingSecretStore struct{ err error }
 func (store presentFailingSecretStore) Get(string) (string, error) { return "", store.err }
 func (presentFailingSecretStore) Set(string, string) error         { return nil }
 func (presentFailingSecretStore) Delete(string) error              { return nil }
-func (presentFailingSecretStore) Has(string) bool                  { return true }
+func (presentFailingSecretStore) Exists(string) (bool, error)      { return true, nil }
+
+type observingSecretStore struct {
+	value       string
+	getErr      error
+	existsErr   error
+	getCalls    int
+	existsCalls int
+}
+
+func (store *observingSecretStore) Get(string) (string, error) {
+	store.getCalls++
+	if store.getErr != nil {
+		return "", store.getErr
+	}
+	if store.value == "" {
+		return "", secrets.ErrNotFound
+	}
+	return store.value, nil
+}
+
+func (*observingSecretStore) Set(string, string) error { return nil }
+func (*observingSecretStore) Delete(string) error      { return nil }
+
+func (store *observingSecretStore) Exists(string) (bool, error) {
+	store.existsCalls++
+	return store.value != "", store.existsErr
+}
 
 type readinessProcessRunner struct {
 	plans []process.Plan
@@ -179,6 +206,54 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	badRuntime := invocation.Context{Config: configuration.NewStore(badPath), Out: io.Discard}
 	if err := RunStatus(badRuntime, false); err == nil {
 		t.Fatal("malformed configuration was accepted")
+	}
+}
+
+func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	store := &observingSecretStore{value: "must-not-be-read"}
+	runtime.Secrets = store
+	originalProbe := probeAdapterRoute
+	t.Cleanup(func() { probeAdapterRoute = originalProbe })
+	probeAdapterRoute = func(invocation.Context, configuration.Config, string, configuration.Runtime) (bool, string) {
+		return true, ""
+	}
+
+	if _, err := collectStatus(runtime, cfg); err != nil {
+		t.Fatal(err)
+	}
+	if store.existsCalls != len(configuration.AdmittedClientIDs()) || store.getCalls != 0 {
+		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
+	}
+}
+
+func TestStatusPreservesCredentialObservationFailure(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	want := errors.New("credential metadata unavailable")
+	store := &observingSecretStore{existsErr: want}
+	runtime.Secrets = store
+	if _, err := collectStatus(runtime, cfg); !errors.Is(err, want) {
+		t.Fatalf("collectStatus error = %v, want %v", err, want)
+	}
+	if store.getCalls != 0 {
+		t.Fatalf("status read credential %d times after observation failed", store.getCalls)
+	}
+}
+
+func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	store := &observingSecretStore{value: "token"}
+	runtime.Secrets = store
+	for _, client := range configuration.AdmittedClientIDs() {
+		cfg.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+	}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	command := NewCheckCommand(runtime)
+	_ = evaluateCheck(command, runtime, cfg)
+	if store.existsCalls != 0 || store.getCalls != len(configuration.AdmittedClientIDs()) {
+		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
 	}
 }
 

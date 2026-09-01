@@ -119,7 +119,11 @@ func Collect(deps Dependencies) []Check {
 		checks = append(checks, Check{"config", true, "valid", ""})
 	}
 	for _, name := range cfg.RoutedAccountIDs() {
-		ok := deps.Secrets.Has(name)
+		ok, observationErr := deps.Secrets.Exists(name)
+		if observationErr != nil {
+			checks = append(checks, Check{"secret:" + name, false, "credential backend failed: " + observationErr.Error(), "inspect the selected credential backend"})
+			continue
+		}
 		fix := ""
 		if !ok {
 			fix, _ = credential.TokenRecovery(deps.Secrets, name)

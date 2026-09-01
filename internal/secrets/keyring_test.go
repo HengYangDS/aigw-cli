@@ -27,11 +27,12 @@ func TestKeyringCredentialKindsShareOneServiceWithoutSharingSlots(t *testing.T) 
 func TestKeyringStoreLifecycleAndValidation(t *testing.T) {
 	keyring.MockInit()
 	store := NewKeyringStore()
-	if store.Has("dmx") {
+	store.observe = mockKeyringObserver
+	if mustExist(t, store, "dmx") {
 		t.Fatal("new mocked keyring unexpectedly has a token")
 	}
-	if err := store.Set("dmx", "api-token"); err != nil || !store.Has("dmx") {
-		t.Fatalf("set token = %v, has=%v", err, store.Has("dmx"))
+	if err := store.Set("dmx", "api-token"); err != nil || !mustExist(t, store, "dmx") {
+		t.Fatalf("set token = %v, exists=%v", err, mustExist(t, store, "dmx"))
 	}
 	if got, err := store.Get("dmx"); err != nil || got != "api-token" {
 		t.Fatalf("token = %q, %v", got, err)
@@ -86,10 +87,18 @@ func TestKeyringStoreMapsEmptyValuesAndProviderErrors(t *testing.T) {
 
 type untypedStore struct{}
 
-func (untypedStore) Get(string) (string, error) { return "", ErrNotFound }
-func (untypedStore) Set(string, string) error   { return nil }
-func (untypedStore) Delete(string) error        { return nil }
-func (untypedStore) Has(string) bool            { return false }
+func (untypedStore) Get(string) (string, error)  { return "", ErrNotFound }
+func (untypedStore) Set(string, string) error    { return nil }
+func (untypedStore) Delete(string) error         { return nil }
+func (untypedStore) Exists(string) (bool, error) { return false, nil }
+
+func mockKeyringObserver(service, slot string) (bool, error) {
+	_, err := keyring.Get(service, slot)
+	if errors.Is(err, keyring.ErrNotFound) {
+		return false, nil
+	}
+	return err == nil, err
+}
 
 func TestForKindRejectsUntypedStoreAndUnknownKind(t *testing.T) {
 	if _, err := ForKind(untypedStore{}, APIToken); err == nil {

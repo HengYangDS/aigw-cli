@@ -8,13 +8,13 @@ import (
 
 func TestMemoryStoreLifecycle(t *testing.T) {
 	store := NewMemoryStore()
-	if store.Has("dmx") {
+	if mustExist(t, store, "dmx") {
 		t.Fatal("new store unexpectedly has secret")
 	}
 	if err := store.Set("dmx", "top-secret-value"); err != nil {
 		t.Fatal(err)
 	}
-	if !store.Has("dmx") {
+	if !mustExist(t, store, "dmx") {
 		t.Fatal("stored secret not found")
 	}
 	got, err := store.Get("dmx")
@@ -55,8 +55,8 @@ func TestEnvironmentStoreUsesNormalizedReadOnlyVariable(t *testing.T) {
 	if err != nil || got != "from-environment" {
 		t.Fatalf("Get = %q, %v", got, err)
 	}
-	if !store.Has("dmx-team.1") || store.Has("missing") {
-		t.Fatalf("Has(dmx-team.1) = %v, Has(missing) = %v", store.Has("dmx-team.1"), store.Has("missing"))
+	if !mustExist(t, store, "dmx-team.1") || mustExist(t, store, "missing") {
+		t.Fatalf("unexpected environment credential presence")
 	}
 	if !store.ReadOnly() {
 		t.Fatal("environment store must report read-only")

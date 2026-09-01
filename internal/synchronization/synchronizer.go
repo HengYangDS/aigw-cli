@@ -56,9 +56,13 @@ func (s Synchronizer) DesiredClientConfiguration(before configuration.Config, cl
 	for _, client := range clients {
 		switch client {
 		case configuration.ClientClaude:
-			s.convergeClaude(&after, discovered)
+			if err := s.convergeClaude(&after, discovered); err != nil {
+				return configuration.Config{}, discovery.Result{}, err
+			}
 		case configuration.ClientCodex:
-			s.convergeCodex(&after, discovered)
+			if err := s.convergeCodex(&after, discovered); err != nil {
+				return configuration.Config{}, discovery.Result{}, err
+			}
 		}
 	}
 	return after, discovered, nil
@@ -70,7 +74,11 @@ func (s Synchronizer) DesiredClientConfiguration(before configuration.Config, cl
 func (s Synchronizer) SelectRoutesForAvailableAccounts(before configuration.Config) (configuration.Config, error) {
 	availableAccounts := make([]string, 0, len(before.Accounts))
 	for accountID := range before.Accounts {
-		if s.secretAvailable(accountID) {
+		available, err := s.secretAvailable(accountID)
+		if err != nil {
+			return configuration.Config{}, err
+		}
+		if available {
 			availableAccounts = append(availableAccounts, accountID)
 		}
 	}
@@ -78,25 +86,30 @@ func (s Synchronizer) SelectRoutesForAvailableAccounts(before configuration.Conf
 	return before.SelectRoutesForConnectedAccounts(availableAccounts)
 }
 
-func (s Synchronizer) convergeClaude(cfg *configuration.Config, discovered discovery.Result) {
+func (s Synchronizer) convergeClaude(cfg *configuration.Config, discovered discovery.Result) error {
 	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
-		return
+		return nil
 	}
 	adapter := cfg.Adapters[configuration.ClientClaude]
 	executable := adapter.Executable
 	if executable == "" {
 		executable = discovered.Executable(configuration.ClientClaude)
 	}
-	if executable != "" && (adapter.Enabled || s.secretAvailable(clientRuntime.AccountID)) {
+	available, err := s.secretAvailable(clientRuntime.AccountID)
+	if err != nil {
+		return err
+	}
+	if executable != "" && (adapter.Enabled || available) {
 		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
 	}
+	return nil
 }
 
-func (s Synchronizer) convergeCodex(cfg *configuration.Config, discovered discovery.Result) {
+func (s Synchronizer) convergeCodex(cfg *configuration.Config, discovered discovery.Result) error {
 	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
-		return
+		return nil
 	}
 	adapter := cfg.Adapters[configuration.ClientCodex]
 	targets := codexTargets(discovered, adapter.Targets)
@@ -104,15 +117,23 @@ func (s Synchronizer) convergeCodex(cfg *configuration.Config, discovered discov
 	if executable == "" {
 		executable = discovered.Executable(configuration.ClientCodex)
 	}
-	if executable != "" && len(targets) > 0 && (adapter.Enabled || s.secretAvailable(clientRuntime.AccountID)) {
+	available, err := s.secretAvailable(clientRuntime.AccountID)
+	if err != nil {
+		return err
+	}
+	if executable != "" && len(targets) > 0 && (adapter.Enabled || available) {
 		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: targets}
 	} else if adapter.Enabled && len(targets) == 0 {
 		delete(cfg.Adapters, configuration.ClientCodex)
 	}
+	return nil
 }
 
-func (s Synchronizer) secretAvailable(accountID string) bool {
-	return s.Secrets != nil && s.Secrets.Has(accountID)
+func (s Synchronizer) secretAvailable(accountID string) (bool, error) {
+	if s.Secrets == nil {
+		return false, nil
+	}
+	return s.Secrets.Exists(accountID)
 }
 
 func codexTargets(discovered discovery.Result, current []string) []string {

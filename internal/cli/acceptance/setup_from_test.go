@@ -170,7 +170,7 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 	if len(cfg.Accounts) != 2 || len(cfg.Profiles) != 3 {
 		t.Fatalf("imported catalogue = %#v", cfg)
 	}
-	if secretStore.Has("aihubmix") || secretStore.Has("dmxapi") {
+	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 		t.Fatal("catalogue import wrote a Token")
 	}
 	if len(cfg.Adapters) != 0 || len(runner.plans) != 0 {
@@ -309,7 +309,7 @@ func TestSetupFromConfigurationManifestRejectsUnknownSelectedAccountBeforeMutati
 	if err == nil || !strings.Contains(err.Error(), "unknown account") {
 		t.Fatalf("error = %v", err)
 	}
-	if secretStore.Has("aihubmix") || secretStore.Has("dmxapi") {
+	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 		t.Fatal("unknown selected Account mutated credentials")
 	}
 	assertManifestSetupLeavesNoConfig(t, app)
@@ -350,7 +350,7 @@ func TestSetupFromConfigurationManifestConnectsOnlySelectedAccount(t *testing.T)
 	if got := fixture.prompt.secretCalls; len(got) != 1 || !strings.Contains(got[0], "DMXAPI") {
 		t.Fatalf("secret prompts = %#v, want only DMXAPI", got)
 	}
-	if fixture.secretStore.Has("aihubmix") {
+	if secretExists(t, fixture.secretStore, "aihubmix") {
 		t.Fatal("setup required an unselected AIHubMix Token")
 	}
 	if token, err := fixture.secretStore.Get("dmxapi"); err != nil || token != "aigw-test-dmxapi-token" {
@@ -421,7 +421,7 @@ func TestSetupFromConfigurationManifestRequiresAccountForTokenStdin(t *testing.T
 	if err == nil || !strings.Contains(err.Error(), "--account") {
 		t.Fatalf("error = %v", err)
 	}
-	if secretStore.Has("aihubmix") || secretStore.Has("dmxapi") {
+	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 		t.Fatal("ambiguous stdin Token was stored")
 	}
 }
@@ -441,7 +441,7 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if len(prompt.secretCalls) != 1 || !strings.Contains(prompt.secretCalls[0], "DMXAPI") {
 		t.Fatalf("secret prompts = %#v, want only the selected Account", prompt.secretCalls)
 	}
-	if secretStore.Has("aihubmix") {
+	if secretExists(t, secretStore, "aihubmix") {
 		t.Fatal("setup stored an unselected Account Token")
 	}
 	if got, err := secretStore.Get("dmxapi"); err != nil || got != "aigw-test-dmxapi-token" {
@@ -557,7 +557,7 @@ func TestSetupFromConfigurationManifestRejectsCredentialsBeforePromptOrWrite(t *
 	if err == nil || !strings.Contains(err.Error(), "forbidden credential") {
 		t.Fatalf("error = %v", err)
 	}
-	if len(prompt.secretCalls) != 0 || secretStore.Has("aihubmix") || secretStore.Has("dmxapi") {
+	if len(prompt.secretCalls) != 0 || secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 		t.Fatalf("invalid manifest touched credentials: prompts=%#v", prompt.secretCalls)
 	}
 	assertManifestSetupLeavesNoConfig(t, app)
@@ -570,7 +570,7 @@ func TestSetupFromConfigurationManifestNonInteractiveImportDoesNotRequireTokens(
 	if err := execute(t, app, "setup", "--from", manifestPath); err != nil {
 		t.Fatal(err)
 	}
-	if secretStore.Has("aihubmix") || secretStore.Has("dmxapi") {
+	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 		t.Fatal("non-interactive rejection wrote a token")
 	}
 	if cfg, err := app.Config.Load(); err != nil || len(cfg.Profiles) != 3 {
@@ -586,7 +586,7 @@ func TestSetupFromConfigurationManifestRejectsStdinTokenWithoutAccountOwner(t *t
 	if err == nil || !strings.Contains(err.Error(), "--account") {
 		t.Fatalf("error = %v", err)
 	}
-	if secretStore.Has("aihubmix") || secretStore.Has("dmxapi") {
+	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 		t.Fatal("ambiguous stdin token was stored")
 	}
 	assertManifestSetupLeavesNoConfig(t, app)
@@ -621,7 +621,7 @@ func TestSetupFromConfigurationManifestRefusesMultipleCodexTargetsBeforePromptOr
 	if err == nil || !strings.Contains(err.Error(), "multiple auto-managed Codex targets") {
 		t.Fatalf("error = %v", err)
 	}
-	if len(prompt.secretCalls) != 0 || secretStore.Has("aihubmix") || secretStore.Has("dmxapi") {
+	if len(prompt.secretCalls) != 0 || secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 		t.Fatalf("multi-target preflight touched credentials: prompts=%#v", prompt.secretCalls)
 	}
 	assertManifestSetupLeavesNoConfig(t, app)
@@ -664,7 +664,7 @@ func TestSetupFromConfigurationManifestValidationFailureLeavesNoCredentialsOrCon
 	if requests != 1 {
 		t.Fatalf("validation requests = %d, want 1", requests)
 	}
-	if secretStore.Has("aihubmix") || secretStore.Has("dmxapi") {
+	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 		t.Fatal("failed validation left a token")
 	}
 	assertManifestSetupLeavesNoConfig(t, app)
@@ -688,7 +688,7 @@ func TestSetupFromConfigurationManifestDefersValidationWhenClientIsAbsent(t *tes
 			if err := execute(t, app, "setup", "--from", manifestPath, "--account", "aihubmix"); err != nil {
 				t.Fatal(err)
 			}
-			if !secretStore.Has("aihubmix") || secretStore.Has("dmxapi") {
+			if !secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 				t.Fatal("setup did not preserve only the explicitly connected Account")
 			}
 		})
@@ -731,7 +731,7 @@ model = "claude-test"
 	if targetSawToken {
 		t.Fatal("credential probe forwarded X-Api-Key across a redirect")
 	}
-	if !secretStore.Has("team") {
+	if !secretExists(t, secretStore, "team") {
 		t.Fatal("explicitly connected Account Token was not stored")
 	}
 }
@@ -763,7 +763,7 @@ model = "claude-test"
 	if err == nil || !strings.Contains(err.Error(), "Account \"unused\" is not referenced") {
 		t.Fatalf("error = %v", err)
 	}
-	if len(prompt.secretCalls) != 0 || secretStore.Has("used") || secretStore.Has("unused") {
+	if len(prompt.secretCalls) != 0 || secretExists(t, secretStore, "used") || secretExists(t, secretStore, "unused") {
 		t.Fatalf("unreferenced Account preflight touched credentials: prompts=%#v", prompt.secretCalls)
 	}
 	assertManifestSetupLeavesNoConfig(t, app)
@@ -788,7 +788,7 @@ account = "team"
 	if err == nil || !strings.Contains(err.Error(), `profile "team" has unknown client ""`) {
 		t.Fatalf("error = %v", err)
 	}
-	if secretStore.Has("team") {
+	if secretExists(t, secretStore, "team") {
 		t.Fatal("invalid manifest wrote a Token")
 	}
 	assertManifestSetupLeavesNoConfig(t, app)
@@ -820,7 +820,7 @@ func TestSetupFromConfigurationManifestClientFailureRollsBackCredentialsAndConfi
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("error = %v", err)
 	}
-	if secretStore.Has("aihubmix") || secretStore.Has("dmxapi") {
+	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 		t.Fatal("failed setup left an Account Token")
 	}
 	assertManifestSetupLeavesNoConfig(t, app)
@@ -860,7 +860,7 @@ func TestSetupFromConfigurationManifestClientFailurePreservesForeignClaudeExecut
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("error = %v", err)
 	}
-	if secretStore.Has("aihubmix") || secretStore.Has("dmxapi") {
+	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 		t.Fatal("failed setup left an Account Token")
 	}
 	gotExecutable, readErr := os.ReadFile(claudeExecutable)

@@ -58,6 +58,15 @@ type emptyDiscovery struct{}
 
 func (emptyDiscovery) Discover() discovery.Result { return discovery.Result{} }
 
+func secretExists(t testing.TB, store secrets.Store, account string) bool {
+	t.Helper()
+	present, err := store.Exists(account)
+	if err != nil {
+		t.Fatalf("observe credential for %q: %v", account, err)
+	}
+	return present
+}
+
 func assertSameExistingPath(t *testing.T, got, want string) {
 	t.Helper()
 	gotInfo, err := os.Stat(got)
@@ -206,6 +215,15 @@ type failingAccountStore struct {
 func (store failingAccountStore) Set(string, account.Credential) error { return store.setErr }
 
 func (store failingAccountStore) Delete(string) error { return store.deleteErr }
+
+type observationFailureStore struct {
+	secrets.Store
+	err error
+}
+
+func (store observationFailureStore) Exists(string) (bool, error) {
+	return false, store.err
+}
 
 func saveProbeProfile(t *testing.T, appConfig configuration.Store) {
 	t.Helper()

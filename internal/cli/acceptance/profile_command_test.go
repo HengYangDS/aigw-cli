@@ -3,11 +3,26 @@ package cli_test
 import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/secrets"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestProfileReadsSurfaceCredentialObservationFailure(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+	want := errors.New("credential observation failed")
+	app.Secrets = observationFailureStore{Store: secrets.NewMemoryStore(), err: want}
+
+	for _, args := range [][]string{{"profile", "list"}, {"profile", "show", "one"}} {
+		if err := execute(t, app, args...); !errors.Is(err, want) {
+			t.Fatalf("%v error = %v, want %v", args, err, want)
+		}
+	}
+}
 
 func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
@@ -321,8 +336,8 @@ func TestUseWithoutNameSelectsProfileAndCollectsMissingToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg, _ := app.Config.Load()
-	if cfg.Routes[configuration.ClientCodex] != "two" || !secretStore.Has("two") || prompt.secretCalls != 1 {
-		t.Fatalf("config=%#v hasSecret=%v prompts=%d", cfg, secretStore.Has("two"), prompt.secretCalls)
+	if cfg.Routes[configuration.ClientCodex] != "two" || !secretExists(t, secretStore, "two") || prompt.secretCalls != 1 {
+		t.Fatalf("config=%#v hasSecret=%v prompts=%d", cfg, secretExists(t, secretStore, "two"), prompt.secretCalls)
 	}
 }
 

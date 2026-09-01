@@ -81,7 +81,12 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		r.Row("Profiles", fmt.Sprintf("%d", len(incoming.Profiles)))
 		r.Row("Accounts", fmt.Sprintf("%d", len(accountNames)))
 		for _, name := range accountNames {
-			if runtime.Secrets.Has(name) {
+			available, observationErr := runtime.Secrets.Exists(name)
+			if observationErr != nil {
+				r.Status(presentation.Warn, name, "Credential status unavailable · "+observationErr.Error())
+				continue
+			}
+			if available {
 				r.Status(presentation.OK, "System secret", name+" Token available")
 				continue
 			}

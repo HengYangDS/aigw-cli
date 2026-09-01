@@ -11,7 +11,19 @@ import (
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/secrets"
 )
+
+func TestUseSurfacesCredentialObservationFailure(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	want := errors.New("credential observation failed")
+	app.Secrets = observationFailureStore{Store: secrets.NewMemoryStore(), err: want}
+
+	if err := execute(t, app, "use", "one"); !errors.Is(err, want) {
+		t.Fatalf("error = %v, want %v", err, want)
+	}
+}
 
 func TestRouteListIsNarrowHumanRouteView(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
@@ -115,7 +127,7 @@ func TestTestCommandRejectsProfileAndClientBeforeCredentialOrNetworkAccess(t *te
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if secretStore.Has("gateway") {
+	if secretExists(t, secretStore, "gateway") {
 		t.Fatal("test fixture unexpectedly has a credential")
 	}
 

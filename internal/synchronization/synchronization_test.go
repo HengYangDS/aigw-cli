@@ -137,6 +137,26 @@ func TestDesiredClientConfigurationDoesNotReselectRoutes(t *testing.T) {
 	}
 }
 
+func TestDesiredClientConfigurationSurfacesCredentialObservationFailures(t *testing.T) {
+	before := configuration.NewConfig()
+	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
+		Anthropic:       "https://gateway.test",
+		OpenAIResponses: "https://gateway.test/v1",
+	}}
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
+	before.Routes[configuration.ClientClaude] = "claude"
+	before.Routes[configuration.ClientCodex] = "codex"
+	want := errors.New("credential observation failed")
+	syncer := Synchronizer{Secrets: failingSecrets{err: want}, Discovery: staticDiscovery{}}
+
+	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+		if _, _, err := syncer.DesiredClientConfiguration(before, client); !errors.Is(err, want) {
+			t.Fatalf("DesiredClientConfiguration(%q) error = %v, want %v", client, err, want)
+		}
+	}
+}
+
 func TestSelectRoutesForAvailableAccountsUsesTheConfigurationAuthority(t *testing.T) {
 	before := configuration.NewConfig()
 	before.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
@@ -613,17 +633,17 @@ func TestRollbackReconcilesAndRebinds(t *testing.T) {
 
 type failingSecrets struct{ err error }
 
-func (s failingSecrets) Get(string) (string, error) { return "", s.err }
-func (failingSecrets) Set(string, string) error     { return nil }
-func (failingSecrets) Delete(string) error          { return nil }
-func (failingSecrets) Has(string) bool              { return false }
+func (s failingSecrets) Get(string) (string, error)  { return "", s.err }
+func (failingSecrets) Set(string, string) error      { return nil }
+func (failingSecrets) Delete(string) error           { return nil }
+func (s failingSecrets) Exists(string) (bool, error) { return false, s.err }
 
 type fixedSecrets struct{}
 
-func (fixedSecrets) Get(string) (string, error) { return "", nil }
-func (fixedSecrets) Set(string, string) error   { return nil }
-func (fixedSecrets) Delete(string) error        { return nil }
-func (fixedSecrets) Has(string) bool            { return true }
+func (fixedSecrets) Get(string) (string, error)  { return "", nil }
+func (fixedSecrets) Set(string, string) error    { return nil }
+func (fixedSecrets) Delete(string) error         { return nil }
+func (fixedSecrets) Exists(string) (bool, error) { return true, nil }
 
 func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	dir := t.TempDir()

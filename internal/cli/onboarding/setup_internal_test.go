@@ -22,12 +22,16 @@ import (
 type scriptedSecretStore struct {
 	values       map[string]string
 	getErr       error
+	existsErr    error
 	setErrors    map[int]error
 	deleteErrors map[string]error
+	getCalls     int
+	existsCalls  int
 	setCalls     int
 }
 
 func (store *scriptedSecretStore) Get(name string) (string, error) {
+	store.getCalls++
 	if store.getErr != nil {
 		return "", store.getErr
 	}
@@ -57,9 +61,22 @@ func (store *scriptedSecretStore) Delete(name string) error {
 	return nil
 }
 
-func (store *scriptedSecretStore) Has(name string) bool {
+func (store *scriptedSecretStore) Exists(name string) (bool, error) {
+	store.existsCalls++
+	if store.existsErr != nil {
+		return false, store.existsErr
+	}
 	_, ok := store.values[name]
-	return ok
+	return ok, nil
+}
+
+func secretExists(t testing.TB, store secrets.Store, account string) bool {
+	t.Helper()
+	present, err := store.Exists(account)
+	if err != nil {
+		t.Fatalf("observe credential for %q: %v", account, err)
+	}
+	return present
 }
 
 type scriptedSetupPrompt struct {
@@ -117,9 +134,43 @@ func TestCollectManifestSetupCredentialsErrorAndPromptBranches(t *testing.T) {
 	t.Run("secret backend error", func(t *testing.T) {
 		want := errors.New("backend failed")
 		app := invocation.Context{
-			Executable: filepath.Join(t.TempDir(), "aigw"), Secrets: &scriptedSecretStore{getErr: want}}
+			Executable: filepath.Join(t.TempDir(), "aigw"), Secrets: &scriptedSecretStore{existsErr: want}}
 		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
+		}
+	})
+
+	t.Run("missing token is observed without reading", func(t *testing.T) {
+		store := &scriptedSecretStore{values: map[string]string{}}
+		app := invocation.Context{Secrets: store, Interactive: true, Prompt: scriptedSetupPrompt{value: "new-token"}}
+		credentials, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false)
+		if err != nil || len(credentials) != 1 || credentials[0].token != "new-token" {
+			t.Fatalf("credentials=%#v error=%v", credentials, err)
+		}
+		if store.existsCalls != 1 || store.getCalls != 0 {
+			t.Fatalf("exists calls=%d get calls=%d, want 1 and 0", store.existsCalls, store.getCalls)
+		}
+	})
+
+	t.Run("connected token is read once", func(t *testing.T) {
+		store := &scriptedSecretStore{values: map[string]string{"team": "existing-token"}}
+		credentials, err := collectManifestSetupCredentials(invocation.Context{Secrets: store}, cfg, []string{"team"}, "team", false)
+		if err != nil || len(credentials) != 1 || credentials[0].token != "existing-token" {
+			t.Fatalf("credentials=%#v error=%v", credentials, err)
+		}
+		if store.existsCalls != 1 || store.getCalls != 1 {
+			t.Fatalf("exists calls=%d get calls=%d, want 1 and 1", store.existsCalls, store.getCalls)
+		}
+	})
+
+	t.Run("connected token read failure", func(t *testing.T) {
+		want := errors.New("credential read failed")
+		store := &scriptedSecretStore{values: map[string]string{"team": "existing-token"}, getErr: want}
+		if _, err := collectManifestSetupCredentials(invocation.Context{Secrets: store}, cfg, []string{"team"}, "team", false); !errors.Is(err, want) {
+			t.Fatalf("error = %v, want %v", err, want)
+		}
+		if store.existsCalls != 1 || store.getCalls != 1 {
+			t.Fatalf("exists calls=%d get calls=%d, want 1 and 1", store.existsCalls, store.getCalls)
 		}
 	})
 
@@ -246,7 +297,7 @@ func TestWriteAndRollbackManifestSetupCredentialsBranches(t *testing.T) {
 	t.Run("restore previous and delete new", func(t *testing.T) {
 		store := &scriptedSecretStore{values: map[string]string{"old": "new-old", "new": "new-value"}}
 		err := rollbackManifestSetupCredentials(invocation.Context{Secrets: store}, credentials, []int{0, 1})
-		if err != nil || store.values["old"] != "old-value" || store.Has("new") {
+		if err != nil || store.values["old"] != "old-value" || secretExists(t, store, "new") {
 			t.Fatalf("values=%#v error=%v", store.values, err)
 		}
 	})
@@ -388,7 +439,7 @@ func TestRollbackSetupRemovesSecretAndConfig(t *testing.T) {
 	}
 	app := invocation.Context{Secrets: store, Config: configuration.NewStore(configPath)}
 	rollbackSetup(app, "one", true)
-	if store.Has("one") {
+	if secretExists(t, store, "one") {
 		t.Fatal("secret remains")
 	}
 	for _, path := range []string{configPath, configPath + ".bak"} {

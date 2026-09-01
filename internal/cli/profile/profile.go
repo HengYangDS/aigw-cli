@@ -99,8 +99,12 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 					state, stateText = presentation.OK, "Selected for "+invocation.Title(profile.Client)
 				}
 				accountName := profile.Account
+				available, err := runtime.Secrets.Exists(accountName)
+				if err != nil {
+					return fmt.Errorf("observe credential for Account %q: %w", accountName, err)
+				}
 				secret := "Token missing"
-				if runtime.Secrets.Has(accountName) {
+				if available {
 					secret = "Token available"
 				}
 				detail := []string{}
@@ -132,8 +136,12 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			}
 			accountName := profile.Account
 			account := cfg.Accounts[accountName]
+			available, err := runtime.Secrets.Exists(accountName)
+			if err != nil {
+				return fmt.Errorf("observe credential for Account %q: %w", accountName, err)
+			}
 			if jsonMode {
-				return json.NewEncoder(runtime.Out).Encode(map[string]any{"id": args[0], "label": profile.Label, "purpose": profile.Purpose, "account": accountName, "client": profile.Client, "model": profile.Model, "endpoints": account.Endpoints, "secret_available": runtime.Secrets.Has(accountName)})
+				return json.NewEncoder(runtime.Out).Encode(map[string]any{"id": args[0], "label": profile.Label, "purpose": profile.Purpose, "account": accountName, "client": profile.Client, "model": profile.Model, "endpoints": account.Endpoints, "secret_available": available})
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Service details")
@@ -153,7 +161,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 				r.Row("Anthropic", account.Endpoints.Anthropic)
 			}
 			state, text := presentation.Warn, "Missing"
-			if runtime.Secrets.Has(accountName) {
+			if available {
 				state, text = presentation.OK, "Available"
 			}
 			r.Status(state, "System secret", text)

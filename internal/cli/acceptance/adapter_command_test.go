@@ -3,6 +3,8 @@ package cli_test
 import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/secrets"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +12,18 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestAdapterEnableSurfacesCredentialObservationFailure(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	want := errors.New("credential observation failed")
+	app.Secrets = observationFailureStore{Store: secrets.NewMemoryStore(), err: want}
+
+	err := execute(t, app, "adapter", "enable", "claude", "--executable", executableFixture(t, "claude"))
+	if !errors.Is(err, want) {
+		t.Fatalf("error = %v, want %v", err, want)
+	}
+}
 
 func TestAdapterListAndDiscoveryBranches(t *testing.T) {
 	t.Run("list load", func(t *testing.T) {

@@ -103,6 +103,9 @@ func TestFileStoreRejectsSymlink(t *testing.T) {
 	if _, err := store.Get("alpha"); err == nil {
 		t.Fatal("Get() accepted a symlink")
 	}
+	if present, err := store.Exists("alpha"); err == nil || present {
+		t.Fatal("Exists() accepted a symlink")
+	}
 	if err := store.Set("alpha", "replacement"); err == nil {
 		t.Fatal("Set() replaced a symlink")
 	}
@@ -119,6 +122,9 @@ func TestFileStoreRejectsUnsafePermissions(t *testing.T) {
 	}
 	if _, err := newFileStore(root).Get("alpha"); err == nil {
 		t.Fatal("Get() accepted group/world-readable Token")
+	}
+	if present, err := newFileStore(root).Exists("alpha"); err == nil || present {
+		t.Fatal("Exists() accepted group/world-readable Token")
 	}
 }
 
@@ -146,6 +152,9 @@ func TestFileStoreRejectsUnsafeDirectoryPermissions(t *testing.T) {
 	}
 	if _, err := newFileStore(root).Get("alpha"); err == nil {
 		t.Fatal("Get() accepted group/world-accessible Token directory")
+	}
+	if present, err := newFileStore(root).Exists("alpha"); err == nil || present {
+		t.Fatal("Exists() accepted group/world-accessible Token directory")
 	}
 }
 
@@ -186,11 +195,14 @@ func TestFileStoreReadAndDeleteBoundaries(t *testing.T) {
 	if err := store.Delete("missing"); err != nil {
 		t.Fatalf("Delete() missing error = %v", err)
 	}
-	if store.Has("missing") {
+	if mustExist(t, store, "missing") {
 		t.Fatal("Has() reported a missing Token")
 	}
 	if err := os.Mkdir(root, 0o700); err != nil {
 		t.Fatal(err)
+	}
+	if mustExist(t, store, "still-missing") {
+		t.Fatal("Exists() reported an absent Token file")
 	}
 	if err := store.Delete("still-missing"); err != nil {
 		t.Fatalf("Delete() absent Token error = %v", err)
@@ -207,7 +219,7 @@ func TestFileStoreReadAndDeleteBoundaries(t *testing.T) {
 	if err := store.Set("present", "replacement"); err != nil {
 		t.Fatalf("replace Token error = %v", err)
 	}
-	if !store.Has("present") {
+	if !mustExist(t, store, "present") {
 		t.Fatal("Has() did not report the stored Token")
 	}
 }

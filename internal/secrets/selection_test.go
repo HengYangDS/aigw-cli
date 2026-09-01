@@ -145,7 +145,7 @@ func TestAutomaticSelectionCachesAndPersistsOneBackend(t *testing.T) {
 	if err := store.Set("beta", "token"); err != nil {
 		t.Fatalf("second Set() error = %v", err)
 	}
-	if !store.Has("alpha") {
+	if !mustExist(t, store, "alpha") {
 		t.Fatal("Has() did not reuse selected backend")
 	}
 	if value, err := store.Get("beta"); err != nil || value != "token" {
@@ -214,6 +214,9 @@ func TestAutomaticSelectionRejectsInvalidPersistedChoice(t *testing.T) {
 	}
 	if _, err := store.Get("alpha"); err == nil || !strings.Contains(err.Error(), "invalid persisted") {
 		t.Fatalf("Get() error = %v", err)
+	}
+	if present, err := store.Exists("alpha"); err == nil || present || !strings.Contains(err.Error(), "invalid persisted") {
+		t.Fatalf("Exists() = %v, %v", present, err)
 	}
 }
 

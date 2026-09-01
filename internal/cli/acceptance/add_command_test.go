@@ -26,7 +26,7 @@ func (s *failingSecretsStore) Delete(profile string) error {
 	s.deleted = append(s.deleted, profile)
 	return s.deleteErr
 }
-func (s *failingSecretsStore) Has(string) bool { return s.has }
+func (s *failingSecretsStore) Exists(string) (bool, error) { return s.has, nil }
 
 func TestAddRejectsInvalidProfileName(t *testing.T) {
 	app, _, _, _ := testApp(t, "token\n")
@@ -114,7 +114,7 @@ func TestAddRollsBackSecretWhenConfigSaveFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a config save failure")
 	}
-	if secretStore.Has("dmx") {
+	if secretExists(t, secretStore, "dmx") {
 		t.Fatal("a failed config save must roll back the newly stored secret")
 	}
 }
@@ -125,7 +125,7 @@ func TestAddWithTokenStdinCreatesProfileWithoutPrintingSecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !secretStore.Has("dmx") {
+	if !secretExists(t, secretStore, "dmx") {
 		t.Fatal("secret not stored")
 	}
 	if strings.Contains(out.String(), "top-secret") {

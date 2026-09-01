@@ -101,11 +101,6 @@ func evaluateRoute(cmd *cobra.Command, runtime invocation.Context, cfg configura
 			route.fix = "aigw sync"
 		}
 	}
-	if !runtime.Secrets.Has(clientRuntime.AccountID) {
-		route.issue = "account token is unavailable"
-		route.fix = "aigw rotate " + clientRuntime.AccountID
-		return route
-	}
 	token, tokenErr := runtime.Secrets.Get(clientRuntime.AccountID)
 	if tokenErr != nil {
 		route.credentialErr = tokenErr
@@ -219,9 +214,6 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			return invocation.Problem(runtime, invocation.Title(client)+" route cannot be resolved", route.resolveErr.Error(), invocation.Title(client)+" cannot determine which profile to use.", "aigw use <"+client+"-profile>", route.resolveErr)
 		}
 		if !route.tokenAvailable {
-			if route.credentialErr != nil {
-				return route.credentialErr
-			}
 			instruction, _ := credential.TokenRecovery(runtime.Secrets, route.runtime.AccountID)
 			return invocation.Problem(
 				runtime,
@@ -229,7 +221,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 				"Account "+route.runtime.AccountID+" has no available Token.",
 				invocation.Title(client)+" cannot authenticate to its selected gateway.",
 				instruction,
-				fmt.Errorf("%s account token unavailable", client),
+				fmt.Errorf("%s account token unavailable: %w", client, route.credentialErr),
 			)
 		}
 		if !route.adapter {

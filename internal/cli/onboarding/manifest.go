@@ -252,18 +252,21 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg configurati
 	credentials := make([]manifestSetupCredential, 0, len(accountNames))
 	for _, name := range accountNames {
 		credential := manifestSetupCredential{account: name}
-		previous, err := runtime.Secrets.Get(name)
-		switch {
-		case err == nil:
-			credential.token = previous
-			credential.previous = previous
-			credential.hadPrevious = true
-			credentials = append(credentials, credential)
-		case errors.Is(err, secrets.ErrNotFound):
-			continue
-		default:
-			return nil, err
+		available, err := runtime.Secrets.Exists(name)
+		if err != nil {
+			return nil, fmt.Errorf("observe Token for Account %q: %w", name, err)
 		}
+		if !available {
+			continue
+		}
+		previous, err := runtime.Secrets.Get(name)
+		if err != nil {
+			return nil, fmt.Errorf("read Token for connected Account %q: %w", name, err)
+		}
+		credential.token = previous
+		credential.previous = previous
+		credential.hadPrevious = true
+		credentials = append(credentials, credential)
 	}
 
 	if tokenStdin {

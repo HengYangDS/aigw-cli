@@ -130,7 +130,7 @@ func TestSetupRollsBackConfigAndSecretWhenCodexProjectionFails(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("error = %v", err)
 	}
-	if secretStore.Has("one") {
+	if secretExists(t, secretStore, "one") {
 		t.Fatal("failed setup left the new token")
 	}
 }

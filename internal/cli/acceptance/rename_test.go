@@ -51,7 +51,7 @@ func TestProfileRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing
 	if token, err := secretStore.Get("gateway"); err != nil || token != "account-token" {
 		t.Fatalf("account token changed: %q, %v", token, err)
 	}
-	if secretStore.Has("zeta-old") || secretStore.Has("zeta-new") {
+	if secretExists(t, secretStore, "zeta-old") || secretExists(t, secretStore, "zeta-new") {
 		t.Fatal("profile rename created profile-level secret slots")
 	}
 }

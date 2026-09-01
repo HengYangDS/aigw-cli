@@ -148,7 +148,7 @@ func TestAccountRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	if got := directoryNames(t, filepath.Dir(app.Config.Path())); !reflect.DeepEqual(got, beforeFiles) {
 		t.Fatalf("dry-run changed config directory entries: before %q, after %q", beforeFiles, got)
 	}
-	if secretStore.Has("zeta-new") || app.Accounts.Has("zeta-new") {
+	if secretExists(t, secretStore, "zeta-new") || app.Accounts.Has("zeta-new") {
 		t.Fatal("dry-run created target credential slots")
 	}
 	if len(runner.plans) != 0 {
@@ -389,8 +389,8 @@ func TestAccountRenameRefusesUnverifiedTokenCopy(t *testing.T) {
 	if !reflect.DeepEqual(after, before) {
 		t.Fatal("unverified token copy changed configuration")
 	}
-	if !secretStore.Has("zeta-old") || secretStore.Has("zeta-new") {
-		t.Fatalf("token slots after failed copy: source=%v target=%v", secretStore.Has("zeta-old"), secretStore.Has("zeta-new"))
+	if !secretExists(t, secretStore, "zeta-old") || secretExists(t, secretStore, "zeta-new") {
+		t.Fatalf("token slots after failed copy: source=%v target=%v", secretExists(t, secretStore, "zeta-old"), secretExists(t, secretStore, "zeta-new"))
 	}
 	if strings.Contains(out.String(), token) || strings.Contains(err.Error(), token) {
 		t.Fatalf("failed copy leaked token: output=%s error=%v", out.String(), err)
@@ -496,7 +496,7 @@ func TestAccountRenameRefusesInvalidOrExistingTargetWithoutMutation(t *testing.T
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(after, before) || !secretStore.Has("zeta-old") {
+			if !reflect.DeepEqual(after, before) || !secretExists(t, secretStore, "zeta-old") {
 				t.Fatalf("refused target %q changed state", target)
 			}
 		})

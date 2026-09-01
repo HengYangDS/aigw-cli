@@ -277,7 +277,7 @@ func TestProfileRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 	if got, err := secretStore.Get("dmx"); err != nil || got != "account-token" {
 		t.Fatalf("account token changed: %q %v", got, err)
 	}
-	if secretStore.Has("gpt-new") || secretStore.Has("gpt-old") {
+	if secretExists(t, secretStore, "gpt-new") || secretExists(t, secretStore, "gpt-old") {
 		t.Fatalf("profile rename created profile-level secret slots")
 	}
 	got, _ := app.Config.Load()
@@ -332,8 +332,8 @@ func TestProfileAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 	if profile.Account != "dmx" || profile.Client != configuration.ClientClaude || profile.Model != "claude-test" {
 		t.Fatalf("added profile = %#v", profile)
 	}
-	if got.Routes[configuration.ClientCodex] != "gpt" || !secretStore.Has("dmx") || secretStore.Has("claude") {
-		t.Fatalf("route or token slots changed: routes=%#v dmx=%v claude=%v", got.Routes, secretStore.Has("dmx"), secretStore.Has("claude"))
+	if got.Routes[configuration.ClientCodex] != "gpt" || !secretExists(t, secretStore, "dmx") || secretExists(t, secretStore, "claude") {
+		t.Fatalf("route or token slots changed: routes=%#v dmx=%v claude=%v", got.Routes, secretExists(t, secretStore, "dmx"), secretExists(t, secretStore, "claude"))
 	}
 }
 

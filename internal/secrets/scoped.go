@@ -41,9 +41,8 @@ func (view scopedView) Delete(account string) error {
 	return view.store.delete(view.kind, account)
 }
 
-func (view scopedView) Has(account string) bool {
-	_, err := view.Get(account)
-	return err == nil
+func (view scopedView) Exists(account string) (bool, error) {
+	return view.store.exists(view.kind, account)
 }
 
 func (view scopedView) ReadOnly() bool { return IsReadOnly(view.store) }

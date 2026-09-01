@@ -232,9 +232,12 @@ func (store *faultingSecrets) Get(account string) (string, error) {
 
 func (*faultingSecrets) Set(string, string) error { return nil }
 func (*faultingSecrets) Delete(string) error      { return nil }
-func (store *faultingSecrets) Has(account string) bool {
+func (store *faultingSecrets) Exists(account string) (bool, error) {
+	if store.getErr != nil && (store.failAccount == "" || store.failAccount == account) {
+		return false, store.getErr
+	}
 	_, ok := store.values[account]
-	return ok
+	return ok, nil
 }
 
 func saveCatalogConfig(t *testing.T, cfg configuration.Config) configuration.Store {

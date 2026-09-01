@@ -183,7 +183,7 @@ func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "Token validation failed") {
 		t.Fatalf("error = %v", err)
 	}
-	if secretStore.Has("two") {
+	if secretExists(t, secretStore, "two") {
 		t.Fatal("a failed verification must not persist the newly entered token")
 	}
 }

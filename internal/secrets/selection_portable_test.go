@@ -12,7 +12,12 @@ type probeStore struct{ err error }
 func (store probeStore) Get(string) (string, error) { return "", store.err }
 func (probeStore) Set(string, string) error         { return nil }
 func (probeStore) Delete(string) error              { return nil }
-func (probeStore) Has(string) bool                  { return false }
+func (store probeStore) Exists(string) (bool, error) {
+	if errors.Is(store.err, ErrNotFound) {
+		return false, nil
+	}
+	return false, store.err
+}
 
 func TestAutomaticSelectionFallsBackWhenWindowsKeyringIsUnavailable(t *testing.T) {
 	store, err := Select(Selection{

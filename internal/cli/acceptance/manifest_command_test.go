@@ -8,7 +8,23 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/secrets"
 )
+
+func TestConfigImportReportsCredentialObservationFailureWithoutInventingAbsence(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	want := errors.New("credential observation failed")
+	app.Secrets = observationFailureStore{Store: secrets.NewMemoryStore(), err: want}
+
+	if err := execute(t, app, "config", "import", writeConfigurationManifest(t, configurationManifestFixture)); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "Credential status unavailable") || !strings.Contains(text, want.Error()) {
+		t.Fatalf("import output = %q", text)
+	}
+}
 
 func TestConfigCommandIOFailures(t *testing.T) {
 	t.Run("path output", func(t *testing.T) {
@@ -80,7 +96,7 @@ model = "claude-model"
 	if err := execute(t, app, "config", "import", manifestPath); err != nil {
 		t.Fatal(err)
 	}
-	if secrets.Has("team") {
+	if secretExists(t, secrets, "team") {
 		t.Fatal("manifest import invented a secret")
 	}
 	out.Reset()

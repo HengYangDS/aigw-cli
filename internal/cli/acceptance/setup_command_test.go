@@ -27,7 +27,7 @@ func TestSetupReusesReadOnlyEnvironmentSecretWithoutPromptingOrPersisting(t *tes
 	); err != nil {
 		t.Fatalf("setup with existing environment secret: %v", err)
 	}
-	if !app.Secrets.Has("dmx") {
+	if !secretExists(t, app.Secrets, "dmx") {
 		t.Fatal("environment secret was not retained as the active credential")
 	}
 	cfg, err := app.Config.Load()

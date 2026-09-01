@@ -100,7 +100,7 @@ func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
 	if !bytes.Equal(readFile(t, app.Config.Path()), configBefore) || !bytes.Equal(readFile(t, app.Config.Path()+".bak"), backupBefore) || !bytes.Equal(readFile(t, app.Config.Path()+".verified.json"), checkpointBefore) {
 		t.Fatal("finalize dry-run changed configuration state")
 	}
-	if !secretStore.Has("zeta-old") || !app.Accounts.Has("zeta-old") {
+	if !secretExists(t, secretStore, "zeta-old") || !app.Accounts.Has("zeta-old") {
 		t.Fatal("finalize dry-run deleted source credentials")
 	}
 
@@ -111,7 +111,7 @@ func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
 	if !bytes.Equal(readFile(t, app.Config.Path()), configBefore) || !bytes.Equal(readFile(t, app.Config.Path()+".bak"), configBefore) || !bytes.Equal(readFile(t, app.Config.Path()+".verified.json"), checkpointBefore) {
 		t.Fatal("finalize did not converge only the backup to current bytes")
 	}
-	if secretStore.Has("zeta-old") || app.Accounts.Has("zeta-old") {
+	if secretExists(t, secretStore, "zeta-old") || app.Accounts.Has("zeta-old") {
 		t.Fatal("finalize retained source credentials")
 	}
 	if got, err := secretStore.Get("zeta-new"); err != nil || got != token {
@@ -146,7 +146,7 @@ func TestAccountFinalizeRequiresTargetAPIToken(t *testing.T) {
 
 	assertFinalizeRefused(t, app, "target API token")
 
-	if !bytes.Equal(readFile(t, app.Config.Path()+".bak"), backupBefore) || !secretStore.Has("zeta-old") {
+	if !bytes.Equal(readFile(t, app.Config.Path()+".bak"), backupBefore) || !secretExists(t, secretStore, "zeta-old") {
 		t.Fatal("missing target token changed backup or source token")
 	}
 }
@@ -214,7 +214,7 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 	if err == nil || !strings.Contains(err.Error(), "confirmation") {
 		t.Fatalf("unconfirmed rotation error = %v", err)
 	}
-	if requests != 0 || !secretStore.Has("zeta-old") || !app.Accounts.Has("zeta-old") {
+	if requests != 0 || !secretExists(t, secretStore, "zeta-old") || !app.Accounts.Has("zeta-old") {
 		t.Fatal("unconfirmed rotation changed credentials or performed a probe")
 	}
 
@@ -222,8 +222,8 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 	if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--finalize", "--confirm-api-token-rotation", "--confirm-account-probe-rotation"); err != nil {
 		t.Fatal(err)
 	}
-	if requests != 2 || secretStore.Has("zeta-old") || app.Accounts.Has("zeta-old") {
-		t.Fatalf("confirmed rotation requests=%d source_token=%v source_probe=%v", requests, secretStore.Has("zeta-old"), app.Accounts.Has("zeta-old"))
+	if requests != 2 || secretExists(t, secretStore, "zeta-old") || app.Accounts.Has("zeta-old") {
+		t.Fatalf("confirmed rotation requests=%d source_token=%v source_probe=%v", requests, secretExists(t, secretStore, "zeta-old"), app.Accounts.Has("zeta-old"))
 	}
 	for _, forbidden := range []string{oldToken, newToken, oldProbe.SystemToken, oldProbe.UserID, newProbe.SystemToken, newProbe.UserID} {
 		if strings.Contains(out.String(), forbidden) {
@@ -251,8 +251,8 @@ func TestAccountFinalizePartialDeleteCanRetryAfterBackupConvergence(t *testing.T
 	if err == nil || !strings.Contains(err.Error(), "finalization incomplete") {
 		t.Fatalf("partial delete error = %v", err)
 	}
-	if secretStore.Has("zeta-old") || !baseAccounts.Has("zeta-old") {
-		t.Fatalf("partial delete state: source_token=%v source_probe=%v", secretStore.Has("zeta-old"), baseAccounts.Has("zeta-old"))
+	if secretExists(t, secretStore, "zeta-old") || !baseAccounts.Has("zeta-old") {
+		t.Fatalf("partial delete state: source_token=%v source_probe=%v", secretExists(t, secretStore, "zeta-old"), baseAccounts.Has("zeta-old"))
 	}
 	if !bytes.Equal(readFile(t, app.Config.Path()), readFile(t, app.Config.Path()+".bak")) {
 		t.Fatal("partial deletion occurred before backup convergence")

@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,7 +9,24 @@ import (
 
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 )
+
+func TestDoctorReportsCredentialObservationFailure(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	want := errors.New("credential observation failed")
+	app.Secrets = observationFailureStore{Store: secrets.NewMemoryStore(), err: want}
+
+	if err := execute(t, app, "doctor", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range []string{`"name": "secret:one"`, `"ok": false`, "credential backend failed", want.Error()} {
+		if !strings.Contains(out.String(), fragment) {
+			t.Fatalf("doctor output lacks %q: %s", fragment, out.String())
+		}
+	}
+}
 
 func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")

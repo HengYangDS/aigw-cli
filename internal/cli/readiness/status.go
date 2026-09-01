@@ -3,6 +3,7 @@ package readiness
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -64,7 +65,10 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 	if err != nil {
 		return err
 	}
-	result := collectStatus(runtime, cfg)
+	result, err := collectStatus(runtime, cfg)
+	if err != nil {
+		return err
+	}
 	if jsonMode {
 		enc := json.NewEncoder(runtime.Out)
 		enc.SetIndent("", "  ")
@@ -74,7 +78,7 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 	return nil
 }
 
-func collectStatus(runtime invocation.Context, cfg configuration.Config) statusOutput {
+func collectStatus(runtime invocation.Context, cfg configuration.Config) (statusOutput, error) {
 	result := statusOutput{ConfigPath: runtime.Config.Path(), Profiles: len(cfg.Profiles), Routes: map[string]routeStatus{}}
 	for _, client := range admittedClientIDs() {
 		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
@@ -82,6 +86,10 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 			suggested := cfg.FirstProfileForClient(client)
 			result.Routes[client] = routeStatus{NeedsSelection: suggested != "", SuggestedProfile: suggested}
 			continue
+		}
+		secretAvailable, err := runtime.Secrets.Exists(clientRuntime.AccountID)
+		if err != nil {
+			return statusOutput{}, fmt.Errorf("observe credential for Account %q: %w", clientRuntime.AccountID, err)
 		}
 		adapterReady, adapterIssue := probeAdapterRoute(runtime, cfg, client, clientRuntime)
 		transport := TransportStatus(clientRuntime.Endpoint)
@@ -98,7 +106,7 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 		}
 		result.Routes[client] = routeStatus{
 			Profile:              clientRuntime.ProfileID,
-			SecretAvailable:      runtime.Secrets.Has(clientRuntime.AccountID),
+			SecretAvailable:      secretAvailable,
 			EndpointReady:        clientRuntime.Endpoint != "",
 			Transport:            transport.Kind,
 			AdapterReady:         adapterReady,
@@ -106,7 +114,7 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 			NativeAuthentication: nativeAuthentication,
 		}
 	}
-	return result
+	return result, nil
 }
 
 // CodexAuthenticationProven returns true only when Codex's public read-only

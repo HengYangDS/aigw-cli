@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-09-01
+goal: AIGW status, setup, sync, and route selection can observe credential
+  availability without secret disclosure or Keychain prompts on macOS, Linux,
+  and Windows.

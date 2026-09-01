@@ -131,9 +131,33 @@ func (store *fileStore) delete(kind Kind, profile string) error {
 	return nil
 }
 
-func (store *fileStore) Has(profile string) bool {
-	_, err := store.Get(profile)
-	return err == nil
+func (store *fileStore) Exists(profile string) (bool, error) {
+	return store.exists(APIToken, profile)
+}
+
+func (store *fileStore) exists(kind Kind, profile string) (bool, error) {
+	if err := validate(profile, "", false); err != nil {
+		return false, err
+	}
+	root, err := openWindowsRoot(store.root, false)
+	if err != nil {
+		return false, err
+	}
+	if root == nil {
+		return false, nil
+	}
+	defer func() { _ = root.Close() }()
+	info, err := root.Lstat(slotName(kind, profile))
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("inspect Token file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return false, errors.New("Token path must be a regular file")
+	}
+	return true, nil
 }
 
 func openWindowsRoot(path string, create bool) (*os.Root, error) {

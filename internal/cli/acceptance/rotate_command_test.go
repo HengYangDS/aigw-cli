@@ -140,7 +140,7 @@ func TestRotateDeletesNewTokenWhenAuthenticationRollbackStartsWithoutOldToken(t 
 	if err == nil || !strings.Contains(err.Error(), "rollback also failed") {
 		t.Fatalf("error = %v", err)
 	}
-	if secretStore.Has("one") {
+	if secretExists(t, secretStore, "one") {
 		t.Fatal("new token remains after rollback")
 	}
 }
@@ -161,7 +161,7 @@ func TestRotateSynchronizesCodexAuthenticationOnSuccess(t *testing.T) {
 	if err := execute(t, app, "rotate", "one", "--token-stdin"); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.plans) != 1 || !secretStore.Has("one") || !strings.Contains(out.String(), "Codex authentication synchronized") {
+	if len(runner.plans) != 1 || !secretExists(t, secretStore, "one") || !strings.Contains(out.String(), "Codex authentication synchronized") {
 		t.Fatalf("plans=%#v output=%q", runner.plans, out.String())
 	}
 }

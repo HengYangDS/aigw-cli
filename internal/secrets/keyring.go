@@ -7,12 +7,14 @@ import (
 	keyring "github.com/zalando/go-keyring"
 )
 
-type KeyringStore struct{}
+type KeyringStore struct {
+	observe func(service, slot string) (bool, error)
+}
 
-func NewKeyringStore() KeyringStore { return KeyringStore{} }
+func NewKeyringStore() KeyringStore { return KeyringStore{observe: observeKeyringItem} }
 
-func (KeyringStore) Get(profile string) (string, error) {
-	return KeyringStore{}.get(APIToken, profile)
+func (store KeyringStore) Get(profile string) (string, error) {
+	return store.get(APIToken, profile)
 }
 
 func (KeyringStore) get(kind Kind, profile string) (string, error) {
@@ -33,8 +35,8 @@ func (KeyringStore) get(kind Kind, profile string) (string, error) {
 	return value, nil
 }
 
-func (KeyringStore) Set(profile, value string) error {
-	return KeyringStore{}.set(APIToken, profile, value)
+func (store KeyringStore) Set(profile, value string) error {
+	return store.set(APIToken, profile, value)
 }
 
 func (KeyringStore) set(kind Kind, profile, value string) error {
@@ -48,8 +50,8 @@ func (KeyringStore) set(kind Kind, profile, value string) error {
 	return nil
 }
 
-func (KeyringStore) Delete(profile string) error {
-	return KeyringStore{}.delete(APIToken, profile)
+func (store KeyringStore) Delete(profile string) error {
+	return store.delete(APIToken, profile)
 }
 
 func (KeyringStore) delete(kind Kind, profile string) error {
@@ -67,7 +69,17 @@ func (KeyringStore) delete(kind Kind, profile string) error {
 	return nil
 }
 
-func (s KeyringStore) Has(profile string) bool {
-	_, err := s.Get(profile)
-	return err == nil
+func (store KeyringStore) Exists(profile string) (bool, error) {
+	return store.exists(APIToken, profile)
+}
+
+func (store KeyringStore) exists(kind Kind, profile string) (bool, error) {
+	if err := validate(profile, "", false); err != nil {
+		return false, err
+	}
+	present, err := store.observe(Service, slotName(kind, profile))
+	if err != nil {
+		return false, fmt.Errorf("observe %s/%s in system keyring: %w", Service, slotName(kind, profile), err)
+	}
+	return present, nil
 }

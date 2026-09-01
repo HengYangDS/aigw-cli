@@ -22,7 +22,7 @@ type Store interface {
 	Get(profile string) (string, error)
 	Set(profile, value string) error
 	Delete(profile string) error
-	Has(profile string) bool
+	Exists(profile string) (bool, error)
 }
 
 type typedStore interface {
@@ -30,6 +30,7 @@ type typedStore interface {
 	get(kind Kind, account string) (string, error)
 	set(kind Kind, account, value string) error
 	delete(kind Kind, account string) error
+	exists(kind Kind, account string) (bool, error)
 }
 
 // Selection is the complete host snapshot used to select one Token store.
@@ -154,9 +155,16 @@ func (store *automaticStore) delete(kind Kind, profile string) error {
 	return selected.delete(kind, profile)
 }
 
-func (store *automaticStore) Has(profile string) bool {
-	_, err := store.Get(profile)
-	return err == nil
+func (store *automaticStore) Exists(profile string) (bool, error) {
+	return store.exists(APIToken, profile)
+}
+
+func (store *automaticStore) exists(kind Kind, profile string) (bool, error) {
+	selected, err := store.resolve(false)
+	if err != nil {
+		return false, err
+	}
+	return selected.exists(kind, profile)
 }
 
 func (store *automaticStore) resolve(persist bool) (typedStore, error) {
@@ -228,9 +236,6 @@ func probeKeyring(store Store, probe func(Store) error) error {
 	if probe != nil {
 		return probe(store)
 	}
-	_, err := store.Get("aigw-backend-probe")
-	if errors.Is(err, ErrNotFound) {
-		return nil
-	}
+	_, err := store.Exists("aigw-backend-probe")
 	return err
 }

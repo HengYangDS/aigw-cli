@@ -102,7 +102,7 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	if prompt.secretCalls != 1 {
 		t.Fatalf("token prompts = %d, want 1", prompt.secretCalls)
 	}
-	if !secretStore.Has("team-gateway") {
+	if !secretExists(t, secretStore, "team-gateway") {
 		t.Fatal("generic Account Token was not stored")
 	}
 	cfg, err := app.Config.Load()
@@ -145,10 +145,10 @@ func TestFirstRunCreatesExplicitGenericAccountWithoutBundledProviderDefault(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if secretStore.Has("dmx") {
+	if secretExists(t, secretStore, "dmx") {
 		t.Fatal("first-run wizard seeded a DMX Token slot")
 	}
-	if !secretStore.Has("team-gateway") {
+	if !secretExists(t, secretStore, "team-gateway") {
 		t.Fatal("generic Account Token was not stored")
 	}
 	profile, ok := cfg.Profiles["gpt-5.6-terra"]
@@ -182,7 +182,7 @@ func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !secretStore.Has("team-gateway") || cfg.Routes[configuration.ClientClaude] != "claude-sonnet-5" {
+	if !secretExists(t, secretStore, "team-gateway") || cfg.Routes[configuration.ClientClaude] != "claude-sonnet-5" {
 		t.Fatalf("setup state = %#v", cfg)
 	}
 }
@@ -237,7 +237,7 @@ func TestWizardFailureLeavesNoProfileSecretOrClientProjection(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "was rolled back") {
 		t.Fatalf("error = %v", err)
 	}
-	if secretStore.Has("team-gateway") {
+	if secretExists(t, secretStore, "team-gateway") {
 		t.Fatal("failed wizard left secret")
 	}
 	if _, err := os.Stat(app.Config.Path()); !os.IsNotExist(err) {

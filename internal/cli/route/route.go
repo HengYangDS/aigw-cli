@@ -46,7 +46,11 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			accountID := profile.Account
 			providerAccount := cfg.Accounts[accountID]
 			addedToken := false
-			if !runtime.Secrets.Has(accountID) {
+			available, err := runtime.Secrets.Exists(accountID)
+			if err != nil {
+				return fmt.Errorf("Cannot inspect Account %q credential: %w", accountID, err)
+			}
+			if !available {
 				instruction, writable := credential.TokenRecovery(runtime.Secrets, accountID)
 				if !writable {
 					return fmt.Errorf("Account %q is missing a token; %s; then run `aigw use %s`", accountID, instruction, name)

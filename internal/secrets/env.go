@@ -85,9 +85,19 @@ func (EnvironmentStore) delete(_ Kind, profile string) error {
 	return ErrReadOnly
 }
 
-func (s EnvironmentStore) Has(profile string) bool {
-	_, err := s.Get(profile)
-	return err == nil
+func (s EnvironmentStore) Exists(profile string) (bool, error) {
+	return s.exists(APIToken, profile)
+}
+
+func (s EnvironmentStore) exists(kind Kind, profile string) (bool, error) {
+	if err := validate(profile, "", false); err != nil {
+		return false, err
+	}
+	if kind == ProviderDiagnostic {
+		return s.getenv(DiagnosticSystemTokenEnvironmentKey(profile)) != "" &&
+			s.getenv(DiagnosticUserIDEnvironmentKey(profile)) != "", nil
+	}
+	return s.getenv(EnvironmentKey(profile)) != "", nil
 }
 
 func (EnvironmentStore) ReadOnly() bool { return true }

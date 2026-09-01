@@ -13,6 +13,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func secretExists(t testing.TB, store secrets.Store, account string) bool {
+	t.Helper()
+	present, err := store.Exists(account)
+	if err != nil {
+		t.Fatalf("observe credential for %q: %v", account, err)
+	}
+	return present
+}
+
 func TestAccountReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -83,7 +92,7 @@ func TestAddRollsBackTokenWhenConfigurationCannotBeSaved(t *testing.T) {
 	if err := command.Execute(); err == nil {
 		t.Fatal("configuration save failure was accepted")
 	}
-	if secretStore.Has("new") {
+	if secretExists(t, secretStore, "new") {
 		t.Fatal("token remained after configuration save failure")
 	}
 }

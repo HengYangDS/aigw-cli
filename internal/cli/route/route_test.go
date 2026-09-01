@@ -20,6 +20,15 @@ type staticDiscovery struct{}
 
 func (staticDiscovery) Discover() discovery.Result { return discovery.Result{} }
 
+func secretExists(t testing.TB, store secrets.Store, account string) bool {
+	t.Helper()
+	present, err := store.Exists(account)
+	if err != nil {
+		t.Fatalf("observe credential for %q: %v", account, err)
+	}
+	return present
+}
+
 type promptStub struct {
 	secret   string
 	selected string
@@ -296,7 +305,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
-			if test.name == "commit" && store.Has("gateway") {
+			if test.name == "commit" && secretExists(t, store, "gateway") {
 				t.Fatal("failed commit retained newly acquired token")
 			}
 		})
@@ -357,7 +366,7 @@ type failingSecretStore struct{ setErr error }
 func (failingSecretStore) Get(string) (string, error)     { return "", secrets.ErrNotFound }
 func (store failingSecretStore) Set(string, string) error { return store.setErr }
 func (failingSecretStore) Delete(string) error            { return nil }
-func (failingSecretStore) Has(string) bool                { return false }
+func (failingSecretStore) Exists(string) (bool, error)    { return false, nil }
 
 type failingWriter struct{ err error }
 

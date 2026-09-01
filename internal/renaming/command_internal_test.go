@@ -90,7 +90,13 @@ func (store *renameCoverageSecrets) Delete(id string) error {
 	return nil
 }
 
-func (store *renameCoverageSecrets) Has(id string) bool { _, err := store.Get(id); return err == nil }
+func (store *renameCoverageSecrets) Exists(id string) (bool, error) {
+	_, err := store.Get(id)
+	if errors.Is(err, secrets.ErrNotFound) {
+		return false, nil
+	}
+	return err == nil, err
+}
 
 type renameCoverageAccounts struct {
 	values         map[string]account.Credential
