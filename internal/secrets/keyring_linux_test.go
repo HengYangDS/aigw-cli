@@ -28,3 +28,17 @@ func TestClassifySecretServiceObservation(t *testing.T) {
 		})
 	}
 }
+
+func TestSecretServiceCloseErrorPreservesPrimaryFailure(t *testing.T) {
+	primary := errors.New("search failed")
+	closeFailure := errors.New("close failed")
+	if err := secretServiceCloseError(primary, closeFailure); !errors.Is(err, primary) {
+		t.Fatalf("primary error = %v", err)
+	}
+	if err := secretServiceCloseError(nil, closeFailure); !errors.Is(err, closeFailure) {
+		t.Fatalf("close error = %v", err)
+	}
+	if err := secretServiceCloseError(nil, nil); err != nil {
+		t.Fatalf("successful close error = %v", err)
+	}
+}
