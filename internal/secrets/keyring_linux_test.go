@@ -4,8 +4,22 @@ package secrets
 
 import (
 	"errors"
+	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestObserveKeyringItemReportsSecretServiceConnectionFailure(t *testing.T) {
+	t.Setenv(
+		"DBUS_SESSION_BUS_ADDRESS",
+		"unix:path="+filepath.Join(t.TempDir(), "missing-session-bus.sock"),
+	)
+
+	_, err := observeKeyringItem("aigw-test", "missing")
+	if err == nil || !strings.Contains(err.Error(), "connect to Secret Service") {
+		t.Fatalf("observeKeyringItem() error = %v", err)
+	}
+}
 
 func TestClassifySecretServiceObservation(t *testing.T) {
 	want := errors.New("search failed")
