@@ -81,7 +81,7 @@ func TestCaptureVerifiedBackupStateSurfacesConfigDecodeErrors(t *testing.T) {
 	if err := os.WriteFile(path, []byte("not = [valid\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path+".verified.json", []byte(`{"config":{"version":2,"accounts":{},"profiles":{},"routes":{"default":""}},"clients":["codex"],"verified_at":"2026-07-11T00:00:00Z"}`), 0o600); err != nil {
+	if err := os.WriteFile(path+".verified.json", []byte(`{}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := NewStore(path).CaptureVerifiedBackupState()
@@ -296,7 +296,7 @@ func TestLoadVerifiedCheckpointSurfacesMissingFile(t *testing.T) {
 
 func TestLoadVerifiedCheckpointRejectsIncompleteCheckpoint(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(path+".verified.json", []byte(`{"config":{"version":2,"accounts":{},"profiles":{},"routes":{"default":""}},"clients":[],"verified_at":"0001-01-01T00:00:00Z"}`), 0o600); err != nil {
+	if err := os.WriteFile(path+".verified.json", []byte(`{}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := NewStore(path).LoadVerifiedCheckpoint(); err == nil || !strings.Contains(err.Error(), "incomplete") {

@@ -473,7 +473,6 @@ func TestSelectRoutesForConnectedAccountsPreservesRecommendedModels(t *testing.T
 	cfg.Profiles["connected-claude"] = Profile{Label: "Connected Claude", Account: "connected", Client: ClientClaude, Model: "claude-fable-5"}
 	cfg.Profiles["connected-codex-luna"] = Profile{Label: "Connected Codex Luna", Account: "connected", Client: ClientCodex, Model: "gpt-5.6-luna"}
 	cfg.Profiles["connected-codex-sol"] = Profile{Label: "Connected Codex Sol", Account: "connected", Client: ClientCodex, Model: "gpt-5.6-sol"}
-	cfg.Routes[ClientCodex] = "preferred-codex"
 	cfg.Routes[ClientClaude] = "preferred-claude"
 	cfg.Routes[ClientCodex] = "preferred-codex"
 
@@ -504,13 +503,12 @@ func TestRoutedAccountIDsReturnsUniqueStableActiveAccounts(t *testing.T) {
 	}
 }
 
-func TestSelectRoutesForConnectedAccountFallsBackToAnyUsableClient(t *testing.T) {
+func TestSelectRoutesForConnectedAccountsSelectsACompatibleProfileForAnUnselectedClient(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["claude-only"] = Account{Label: "Claude only", Endpoints: Endpoints{Anthropic: "https://claude.test"}}
 	cfg.Accounts["codex"] = Account{Label: "Codex", Endpoints: Endpoints{OpenAIResponses: "https://codex.test/v1"}}
 	cfg.Profiles["claude"] = Profile{Label: "Claude", Account: "claude-only", Client: ClientClaude, Model: "claude-test"}
 	cfg.Profiles["codex"] = Profile{Label: "Codex", Account: "codex", Client: ClientCodex, Model: "gpt-test"}
-	cfg.Routes[ClientCodex] = "codex"
 	cfg.Routes[ClientCodex] = "codex"
 
 	got, err := cfg.SelectRoutesForConnectedAccounts([]string{"claude-only"})
@@ -518,7 +516,7 @@ func TestSelectRoutesForConnectedAccountFallsBackToAnyUsableClient(t *testing.T)
 		t.Fatal(err)
 	}
 	if got.Routes[ClientClaude] != "claude" {
-		t.Fatalf("fallback routes = %#v", got.Routes)
+		t.Fatalf("selected routes = %#v", got.Routes)
 	}
 }
 
@@ -526,6 +524,7 @@ func TestSelectRoutesForConnectedAccountsSkipsProfilesWithoutTheClientEndpoint(t
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test"}}
 	cfg.Profiles["generic"] = Profile{Label: "Generic", Account: "team", Client: ClientClaude, Model: "claude-test"}
+	cfg.Profiles["invalid-codex"] = Profile{Label: "Invalid Codex", Account: "team", Client: ClientCodex, Model: "gpt-test"}
 
 	selected, err := cfg.SelectRoutesForConnectedAccounts([]string{"team"})
 	if err != nil {

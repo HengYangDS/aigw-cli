@@ -25,3 +25,21 @@ required for readiness.
   state
 - **THEN** the operation succeeds as an observable no-op
 - **AND** does not rewrite files, credentials, or verification checkpoints.
+
+## REMOVED Requirements
+
+### Requirement: Previous local configuration migrates once
+
+**Reason:** The previous default-plus-overrides schema is no longer a supported
+runtime input. Retaining its decoder preserves a second Route authority and can
+silently reinterpret an obsolete global selection as current user intent.
+
+**Migration:** Replace an earlier configuration explicitly with the reviewed
+current schema. AIGW reports the encountered and required versions and does not
+guess per-client Routes.
+
+#### Scenario: Read an earlier local schema
+
+- **WHEN** AIGW reads a configuration whose version is not current
+- **THEN** it reports the encountered and required versions
+- **AND** performs no migration, persistence, credential access, or projection.

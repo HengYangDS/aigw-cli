@@ -260,7 +260,7 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 	if err := execute(t, app, "check"); err != nil {
 		t.Fatalf("check after independent selections: %v\n%s", err, out.String())
 	}
-	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Codex") || strings.Contains(out.String(), "use --all") {
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Codex") {
 		t.Fatalf("check did not accept both independently selected Routes:\n%s", out.String())
 	}
 }

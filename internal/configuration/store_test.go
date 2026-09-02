@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -15,7 +15,7 @@ import (
 
 func TestLoadRejectsProfileOwnedEndpointResidue(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 2
+	raw := `version = 3
 
 [accounts.gateway]
 label = "Gateway"
@@ -27,19 +27,13 @@ openai_responses = "https://gateway.test/v1"
 label = "GPT"
 account = "gateway"
 client = "codex"
-
-[profiles.gpt.models]
-codex = "gpt-test"
+model = "gpt-test"
 
 [profiles.gpt.endpoints]
 openai_responses = "https://duplicate.test/v1"
 
-[profiles.gpt.account_probe]
-kind = "dmxapi"
-base_url = "https://duplicate.test"
-
 [routes]
-default = "gpt"
+codex = "gpt"
 `
 	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
@@ -50,23 +44,10 @@ default = "gpt"
 	}
 }
 
-func TestLoadRejectsNonCanonicalSchemaVersion(t *testing.T) {
+func TestLoadRequiresCanonicalSchemaVersion(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 1
-
-[accounts.gateway]
-label = "Gateway"
-
-[accounts.gateway.endpoints]
-anthropic = "https://gateway.test"
-
-[profiles.agent]
-label = "Agent"
-account = "gateway"
-
-[routes]
-default = "agent"
-`
+	previousVersion := ConfigVersion - 1
+	raw := fmt.Appendf(nil, "version = %d\n", previousVersion)
 	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -74,184 +55,10 @@ default = "agent"
 	var loadErr *LoadError
 	var versionErr *UnsupportedConfigVersionError
 	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseValidate || !errors.As(err, &versionErr) {
-		t.Fatalf("version 1 load error = %v", err)
+		t.Fatalf("previous-version load error = %v", err)
 	}
-	if versionErr.Version != 1 || versionErr.ExpectedVersion != ConfigVersion || !strings.Contains(err.Error(), "unsupported config version 1") {
-		t.Fatalf("version 1 load error context = %#v, %v", versionErr, err)
-	}
-}
-
-func TestLoadMigratesVersionTwoRoutesToExplicitClientBindings(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 2
-
-[accounts.gateway]
-label = "Gateway"
-
-[accounts.gateway.endpoints]
-openai_responses = "https://gateway.test/v1"
-anthropic = "https://gateway.test"
-
-[profiles.claude]
-label = "Claude"
-account = "gateway"
-client = "claude"
-
-[profiles.claude.models]
-claude = "claude-test"
-
-[profiles.codex]
-label = "Codex"
-account = "gateway"
-client = "codex"
-
-[profiles.codex.models]
-codex = "gpt-test"
-
-[routes]
-default = "claude"
-
-[routes.overrides]
-codex = "codex"
-`
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := NewStore(path).Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.Version != ConfigVersion {
-		t.Fatalf("migrated version = %d, want %d", cfg.Version, ConfigVersion)
-	}
-	want := Routes{ClientClaude: "claude", ClientCodex: "codex"}
-	if !reflect.DeepEqual(cfg.Routes, want) {
-		t.Fatalf("migrated routes = %#v, want %#v", cfg.Routes, want)
-	}
-}
-
-func TestLoadVersionTwoOverrideWinsOverDefaultForTheSameClient(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 2
-
-[accounts.gateway]
-label = "Gateway"
-
-[accounts.gateway.endpoints]
-anthropic = "https://gateway.test"
-
-[profiles.old]
-label = "Old Claude"
-account = "gateway"
-client = "claude"
-
-[profiles.old.models]
-claude = "claude-old"
-
-[profiles.selected]
-label = "Selected Claude"
-account = "gateway"
-client = "claude"
-
-[profiles.selected.models]
-claude = "claude-selected"
-
-[routes]
-default = "old"
-
-[routes.overrides]
-claude = "selected"
-`
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := NewStore(path).Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(cfg.Routes, Routes{ClientClaude: "selected"}) {
-		t.Fatalf("migrated routes = %#v", cfg.Routes)
-	}
-}
-
-func TestLoadRejectsAmbiguousVersionTwoDefault(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 2
-
-[accounts.gateway]
-label = "Gateway"
-
-[accounts.gateway.endpoints]
-openai_responses = "https://gateway.test/v1"
-anthropic = "https://gateway.test"
-
-[profiles.shared]
-label = "Shared"
-account = "gateway"
-
-[profiles.shared.models]
-claude = "claude-test"
-codex = "gpt-test"
-
-[routes]
-default = "shared"
-`
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := NewStore(path).Load()
-	if err == nil || !strings.Contains(err.Error(), `cannot migrate profile "shared" because it does not declare exactly one client and model`) {
-		t.Fatalf("ambiguous migration error = %v", err)
-	}
-}
-
-func TestLoadRejectsUnknownVersionTwoDefaultRoute(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 2
-[accounts.gateway]
-label = "Gateway"
-[accounts.gateway.endpoints]
-anthropic = "https://gateway.test"
-[profiles.claude]
-label = "Claude"
-account = "gateway"
-client = "claude"
-[profiles.claude.models]
-claude = "claude-test"
-[routes]
-default = "missing"
-`
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := NewStore(path).Load()
-	if err == nil || !strings.Contains(err.Error(), `unknown profile "missing"`) {
-		t.Fatalf("unknown default migration error = %v", err)
-	}
-}
-
-func TestLoadRejectsInvalidVersionTwoOverrideAfterMigration(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 2
-[accounts.gateway]
-label = "Gateway"
-[accounts.gateway.endpoints]
-anthropic = "https://gateway.test"
-[profiles.claude]
-label = "Claude"
-account = "gateway"
-client = "claude"
-[profiles.claude.models]
-claude = "claude-test"
-[routes.overrides]
-unknown = "claude"
-`
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := NewStore(path).Load()
-	if err == nil || !strings.Contains(err.Error(), `unknown route "unknown"`) {
-		t.Fatalf("invalid migrated override error = %v", err)
+	if versionErr.Version != previousVersion || versionErr.ExpectedVersion != ConfigVersion {
+		t.Fatalf("previous-version load error context = %#v, %v", versionErr, err)
 	}
 }
 
@@ -370,32 +177,6 @@ func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 			t.Fatalf("table %q at line %d has a double separator:\n%s", line, index+1, data)
 		}
 		previousTable = index
-	}
-}
-
-func TestLoadRejectsVersionTwoMultiClientProfile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	data := `version = 2
-[accounts.gateway]
-label = "Gateway"
-[accounts.gateway.endpoints]
-openai_responses = "https://gateway.test/v1"
-anthropic = "https://gateway.test"
-[profiles.both]
-label = "Both"
-account = "gateway"
-[profiles.both.models]
-claude = "claude-test"
-codex = "gpt-test"
-[routes]
-default = "both"
-`
-	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := NewStore(path).Load()
-	if err == nil || !strings.Contains(err.Error(), "does not declare exactly one client and model") {
-		t.Fatalf("multi-client migration error = %v", err)
 	}
 }
 

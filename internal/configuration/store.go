@@ -270,18 +270,11 @@ func decodeTOMLConfig(data []byte) (Config, error) {
 	if err := toml.Unmarshal(data, &header); err != nil {
 		return Config{}, newLoadError(LoadPhaseParse, err)
 	}
-	if header.Version == 2 {
-		var legacy versionTwoConfig
-		decoder := toml.NewDecoder(bytes.NewReader(data))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&legacy); err != nil {
-			return Config{}, newLoadError(LoadPhaseParse, err)
-		}
-		cfg, err := migrateVersionTwoConfig(legacy)
-		if err != nil {
-			return Config{}, newLoadError(LoadPhaseValidate, err)
-		}
-		return cfg, nil
+	if header.Version != ConfigVersion {
+		return Config{}, newLoadError(LoadPhaseValidate, &UnsupportedConfigVersionError{
+			Version:         header.Version,
+			ExpectedVersion: ConfigVersion,
+		})
 	}
 
 	var cfg Config
@@ -293,64 +286,6 @@ func decodeTOMLConfig(data []byte) (Config, error) {
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
 		return Config{}, newLoadError(LoadPhaseValidate, err)
-	}
-	return cfg, nil
-}
-
-type versionTwoConfig struct {
-	Version  int                          `toml:"version"`
-	Accounts map[string]Account           `toml:"accounts,omitempty"`
-	Profiles map[string]versionTwoProfile `toml:"profiles"`
-	Routes   versionTwoRoutes             `toml:"routes"`
-	Adapters map[string]AdapterConfig     `toml:"adapters,omitempty"`
-}
-
-type versionTwoProfile struct {
-	Label         string            `toml:"label"`
-	Purpose       string            `toml:"purpose,omitempty"`
-	Account       string            `toml:"account"`
-	Client        string            `toml:"client,omitempty"`
-	ModelProvider string            `toml:"model_provider,omitempty"`
-	Models        map[string]string `toml:"models,omitempty"`
-}
-
-type versionTwoRoutes struct {
-	Default   string            `toml:"default"`
-	Overrides map[string]string `toml:"overrides,omitempty"`
-}
-
-func migrateVersionTwoConfig(legacy versionTwoConfig) (Config, error) {
-	cfg := NewConfig()
-	cfg.Accounts = legacy.Accounts
-	cfg.Adapters = legacy.Adapters
-	for profileID, oldProfile := range legacy.Profiles {
-		if !IsAdmittedClient(oldProfile.Client) || len(oldProfile.Models) != 1 || strings.TrimSpace(oldProfile.Models[oldProfile.Client]) == "" {
-			return Config{}, fmt.Errorf("cannot migrate profile %q because it does not declare exactly one client and model", profileID)
-		}
-		cfg.Profiles[profileID] = Profile{
-			Label:         oldProfile.Label,
-			Purpose:       oldProfile.Purpose,
-			Account:       oldProfile.Account,
-			Client:        oldProfile.Client,
-			Model:         oldProfile.Models[oldProfile.Client],
-			ModelProvider: oldProfile.ModelProvider,
-		}
-	}
-	for client, profileID := range legacy.Routes.Overrides {
-		cfg.Routes[client] = profileID
-	}
-	if legacy.Routes.Default != "" {
-		profile, ok := cfg.Profiles[legacy.Routes.Default]
-		if !ok {
-			return Config{}, fmt.Errorf("cannot migrate default route because it references unknown profile %q", legacy.Routes.Default)
-		}
-		if cfg.Routes[profile.Client] == "" {
-			cfg.Routes[profile.Client] = legacy.Routes.Default
-		}
-	}
-	cfg.Normalize()
-	if err := cfg.Validate(); err != nil {
-		return Config{}, err
 	}
 	return cfg, nil
 }

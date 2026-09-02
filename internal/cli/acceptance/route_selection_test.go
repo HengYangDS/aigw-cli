@@ -9,22 +9,6 @@ import (
 	configuration "aigw-cli/internal/configuration"
 )
 
-func TestUseRejectsRemovedAllFlag(t *testing.T) {
-	app, _, _, _ := testApp(t, "")
-	err := execute(t, app, "use", "one", "--all")
-	if err == nil || !strings.Contains(err.Error(), "unknown flag: --all") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestUseRejectsRemovedForFlag(t *testing.T) {
-	app, _, _, _ := testApp(t, "")
-	err := execute(t, app, "use", "one", "--for", "codex")
-	if err == nil || !strings.Contains(err.Error(), "unknown flag: --for") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
 func TestUseSurfacesConfigLoadFailure(t *testing.T) {
 	app, _, _, _ := testApp(t, "")
 	app.Config = configuration.NewStore(t.TempDir())

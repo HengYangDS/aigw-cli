@@ -578,7 +578,7 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 		{Resource: "account", OldID: "old", NewID: "new", Status: "planned", Finalize: true, Account: configuration.Account{Label: "New"}},
 		{Resource: "account", OldID: "old", NewID: "new", Status: "already-finalized", Finalize: true, Account: configuration.Account{Label: "New"}},
 		{Resource: "account", OldID: "old", NewID: "new", Status: "finalized", Finalize: true, Account: configuration.Account{Label: "New"}},
-		{Resource: "profile", OldID: "old", NewID: "new", Status: "planned", Profile: configuration.Profile{Account: "account"}, AffectedReferences: []string{"routes.default"}},
+		{Resource: "profile", OldID: "old", NewID: "new", Status: "planned", Profile: configuration.Profile{Account: "account"}, AffectedReferences: []string{"routes.codex"}},
 		{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Account: configuration.Account{Label: "New"}, AffectedReferences: []string{"profiles.codex.account"}},
 		{Resource: "profile", OldID: "old", NewID: "new", Status: "applied", Profile: configuration.Profile{Account: "account"}},
 	}
