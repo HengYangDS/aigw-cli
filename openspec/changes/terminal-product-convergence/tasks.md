@@ -25,7 +25,7 @@
 - [x] 3.5 Make `sync` observe a Token supplied after setup and activate only compatible selected or recommended Routes without changing independent user selections.
 - [x] 3.6 Remove hidden default, aggregate selection, `--all`, cross-client fallback, and duplicated route-resolution residue from runtime, migration, tests, and docs.
 - [x] 3.7 Unify `status`, `check`, and `doctor` classification of configured, deferred, ready, degraded, invalid, and unavailable state.
-- [ ] 3.8 Replace journal- or implementation-shaped recovery errors with the failed user boundary, current state, and one safe next action.
+- [x] 3.8 Replace journal- or implementation-shaped recovery errors with the failed user boundary, current state, and one safe next action.
 - [ ] 3.9 Prove read-only commands do not mutate, start clients, open credential prompts, or read secret values except for an explicitly declared authenticated probe.
 
 ## 4. Credential portability and safety

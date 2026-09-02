@@ -49,7 +49,14 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	}
 	after, discovered, err := invocation.Synchronizer(runtime).DesiredClientConfiguration(before)
 	if err != nil {
-		return err
+		return invocation.Problem(
+			runtime,
+			"Repair prerequisites are unavailable",
+			"AIGW could not inspect the current clients and configuration needed to plan a repair.",
+			"Configuration and client projections remain unchanged.",
+			"aigw doctor",
+			err,
+		)
 	}
 	if dryRun {
 		plans, err := invocation.Synchronizer(runtime).Plan(before, after)

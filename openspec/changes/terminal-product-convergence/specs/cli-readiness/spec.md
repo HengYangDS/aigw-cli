@@ -36,10 +36,19 @@ safe next action.
 
 - **WHEN** no valid checkpoint, predecessor, or owned projection exists for a
   recovery command
-- **THEN** the command reports healthy absence or unavailable recovery as
-  appropriate
-- **AND** does not describe the internal journal representation as the user
-  problem.
+- **THEN** the command identifies the failed recovery boundary and states that
+  the current configuration or program remains the only confirmed state
+- **AND** presents exactly one safe next action
+- **AND** preserves the underlying storage or transaction error only as a
+  diagnostic cause rather than describing its internal representation as the
+  user problem.
+
+#### Scenario: A lower-priority recovery source remains valid
+
+- **WHEN** the preferred verified configuration is absent or invalid but the
+  immediate predecessor is valid
+- **THEN** configuration rollback restores that predecessor
+- **AND** does not fail merely because the preferred source was unusable.
 
 ### Requirement: Read-only commands remain non-interactive
 

@@ -405,13 +405,26 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 }
 
 func TestSyncSurfacesCredentialObservationFailure(t *testing.T) {
-	app, _, _, _ := testApp(t, "")
+	app, out, _, _ := testApp(t, "")
 	saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
 	want := errors.New("credential observation failed")
 	app.Secrets = observationFailureStore{Store: secrets.NewMemoryStore(), err: want}
 
-	if err := execute(t, app, "sync"); !errors.Is(err, want) {
+	if err := execute(t, app, "sync"); err == nil || err.Error() != "Synchronization prerequisites are unavailable" || !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
+	}
+	for _, expected := range []string{
+		"Synchronization prerequisites are unavailable",
+		"AIGW could not determine which selected Routes can be projected with the currently available clients and credentials.",
+		"Configuration and client projections remain unchanged.",
+		"aigw doctor",
+	} {
+		if !strings.Contains(out.String(), expected) {
+			t.Fatalf("output missing %q:\n%s", expected, out.String())
+		}
+	}
+	if strings.Contains(out.String(), want.Error()) {
+		t.Fatalf("output exposes implementation error:\n%s", out.String())
 	}
 }
 

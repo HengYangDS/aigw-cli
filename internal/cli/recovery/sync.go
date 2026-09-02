@@ -3,8 +3,6 @@ package recovery
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"os"
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
@@ -28,7 +26,14 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			synchronizer := invocation.Synchronizer(runtime)
 			after, _, err := synchronizer.DesiredClientConfiguration(before)
 			if err != nil {
-				return err
+				return invocation.Problem(
+					runtime,
+					"Synchronization prerequisites are unavailable",
+					"AIGW could not determine which selected Routes can be projected with the currently available clients and credentials.",
+					"Configuration and client projections remain unchanged.",
+					"aigw doctor",
+					err,
+				)
 			}
 			if dryRun {
 				plans, err := synchronizer.Plan(before, after)
@@ -94,27 +99,43 @@ func NewRollbackCommand(runtime invocation.Context) *cobra.Command {
 			}
 			restored := configuration.Config{}
 			source := ""
+			var checkpointErr error
 			if !lastChange {
-				checkpoint, checkpointErr := runtime.Config.LoadVerifiedCheckpoint()
+				checkpoint, loadErr := runtime.Config.LoadVerifiedCheckpoint()
+				checkpointErr = loadErr
 				if checkpointErr == nil {
 					restored = checkpoint.Config
 					source = "Latest fully verified configuration"
-				} else if !errors.Is(checkpointErr, os.ErrNotExist) {
-					return checkpointErr
 				}
 			}
 			if source == "" {
-				restored, err = runtime.Config.LoadBackup()
-				if err != nil {
-					if errors.Is(err, os.ErrNotExist) {
-						return fmt.Errorf("No fully verified checkpoint or previous configuration backup is available")
+				var backupErr error
+				restored, backupErr = runtime.Config.LoadBackup()
+				if backupErr != nil {
+					cause := backupErr
+					if checkpointErr != nil {
+						cause = errors.Join(checkpointErr, backupErr)
 					}
-					return err
+					return invocation.Problem(
+						runtime,
+						"Configuration rollback is unavailable",
+						"No valid recovery source is available for the current configuration.",
+						"The current configuration remains active and unchanged.",
+						"aigw doctor",
+						cause,
+					)
 				}
 				source = "Previous configuration"
 			}
 			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), current, restored, "rollback"); err != nil {
-				return err
+				return invocation.Problem(
+					runtime,
+					"Configuration rollback did not complete",
+					"AIGW could not restore the selected configuration and its client projections.",
+					"A rolled-back configuration was not confirmed.",
+					"aigw doctor",
+					err,
+				)
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Rolled back safely")

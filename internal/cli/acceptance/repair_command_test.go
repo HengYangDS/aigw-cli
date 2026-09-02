@@ -42,11 +42,24 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 	})
 
 	t.Run("discovery", func(t *testing.T) {
-		app, _, _, _ := testApp(t, "")
+		app, out, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		app.Discovery = nil
-		if err := execute(t, app, "repair", "--dry-run"); err == nil || !strings.Contains(err.Error(), "discovery") {
+		if err := execute(t, app, "repair", "--dry-run"); err == nil || err.Error() != "Repair prerequisites are unavailable" {
 			t.Fatalf("error = %v", err)
+		}
+		for _, want := range []string{
+			"Repair prerequisites are unavailable",
+			"AIGW could not inspect the current clients and configuration needed to plan a repair.",
+			"Configuration and client projections remain unchanged.",
+			"aigw doctor",
+		} {
+			if !strings.Contains(out.String(), want) {
+				t.Fatalf("output missing %q:\n%s", want, out.String())
+			}
+		}
+		if strings.Contains(out.String(), "discovery is unavailable") {
+			t.Fatalf("output exposes implementation error:\n%s", out.String())
 		}
 	})
 

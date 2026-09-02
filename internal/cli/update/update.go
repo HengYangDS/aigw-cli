@@ -35,6 +35,16 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				result, err = runtime.Updater.Update(ctx.Context(), runtime.Version)
 			}
 			if err != nil {
+				if rollback {
+					return invocation.Problem(
+						runtime,
+						"Program rollback did not complete",
+						"AIGW could not activate the retained previous program.",
+						"No previous program version was confirmed active.",
+						"aigw check",
+						err,
+					)
+				}
 				return err
 			}
 			r := invocation.Renderer(runtime)
