@@ -13,6 +13,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
+	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 	"github.com/spf13/cobra"
 )
@@ -22,6 +23,7 @@ type Dependencies struct {
 	Config    configuration.Store
 	Secrets   secrets.Store
 	Env       []string
+	Inspect   func(configuration.Config) map[string]domainreadiness.Client
 	Out       io.Writer
 	Color     bool
 	Width     int
@@ -51,13 +53,16 @@ func NewCommand(deps Dependencies) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			checks := Collect(deps)
+			clients := inspectClients(deps)
 			if jsonMode {
+				result := map[string]any{"checks": checks, "clients": clients, "ok": AllOK(checks)}
 				enc := json.NewEncoder(deps.Out)
 				enc.SetIndent("", "  ")
-				return enc.Encode(map[string]any{"checks": checks, "ok": AllOK(checks)})
+				return enc.Encode(result)
 			}
 			r := presentation.NewWithWidth(renderWriter(deps), deps.Color, deps.Width)
 			r.ProductTitle("Detailed diagnostics")
+			renderClients(r, clients)
 			r.Section("Checks")
 			for _, check := range checks {
 				state := presentation.OK
@@ -83,6 +88,39 @@ func NewCommand(deps Dependencies) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
 	return cmd
+}
+
+func inspectClients(deps Dependencies) map[string]domainreadiness.Client {
+	if deps.Inspect == nil {
+		return map[string]domainreadiness.Client{}
+	}
+	cfg, err := deps.Config.Load()
+	if err != nil {
+		return map[string]domainreadiness.Client{}
+	}
+	clients := deps.Inspect(cfg)
+	return clients
+}
+
+func renderClients(renderer *presentation.Renderer, clients map[string]domainreadiness.Client) {
+	if len(clients) == 0 {
+		return
+	}
+	renderer.Section("Clients")
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		client, ok := clients[spec.ID]
+		if !ok {
+			continue
+		}
+		state := presentation.Info
+		switch client.State {
+		case domainreadiness.Ready:
+			state = presentation.OK
+		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
+			state = presentation.Warn
+		}
+		renderer.Status(state, spec.Label, client.State.Label())
+	}
 }
 
 func renderWriter(deps Dependencies) io.Writer {

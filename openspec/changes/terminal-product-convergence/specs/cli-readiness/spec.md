@@ -2,17 +2,28 @@
 
 ### Requirement: Operational commands share one state vocabulary
 
-`setup`, `use`, `sync`, `status`, `check`, `doctor`, and `verify` SHALL classify
-the same observed state as configured, deferred, ready, degraded, invalid, or
-unavailable. Human and JSON output SHALL identify the affected Account, Profile,
-Route, client, backend, or endpoint and exactly one safe next action.
+`setup`, `use`, `sync`, `status`, `check`, `doctor`, and `verify` SHALL use
+configured, deferred, ready, degraded, invalid, and unavailable as one shared
+state vocabulary. Commands SHALL classify only the evidence they actually
+observe: a deeper authenticated probe may refine configured into ready,
+degraded, invalid, or unavailable. Human and JSON output SHALL identify the
+affected Account, Profile, Route, client, backend, or endpoint and exactly one
+safe next action.
 
-#### Scenario: A selected client is ready
+#### Scenario: Local client prerequisites are configured
 
 - **WHEN** its Route resolves, its Account Token is available, its Adapter
-  projection matches, and its bounded endpoint probe succeeds
-- **THEN** status and check report that client as ready
+  projection matches, and the command performs no authenticated endpoint probe
+- **THEN** status and doctor report that client as configured
 - **AND** no unrelated unselected Account or absent client changes the result.
+
+#### Scenario: An authenticated probe refines readiness
+
+- **WHEN** check observes a configured client through its bounded authenticated
+  endpoint probe
+- **THEN** a successful probe reports ready
+- **AND** a typed probe failure reports degraded, invalid, or unavailable
+  without changing the underlying local configuration.
 
 #### Scenario: A capability is intentionally deferred
 

@@ -11,14 +11,16 @@ import (
 	"testing"
 
 	configuration "aigw-cli/internal/configuration"
+	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 
 	"github.com/spf13/cobra"
 )
 
 type commandResult struct {
-	Checks []Check `json:"checks"`
-	OK     bool    `json:"ok"`
+	Checks  []Check                           `json:"checks"`
+	Clients map[string]domainreadiness.Client `json:"clients"`
+	OK      bool                              `json:"ok"`
 }
 
 func executeDoctorCommand(command *cobra.Command) error {
@@ -298,12 +300,21 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 func TestCommandHumanAndJSONPaths(t *testing.T) {
 	cfg := validDoctorConfig()
 	deps, out, secretStore := doctorDependencies(t, cfg)
+	deps.Inspect = func(configuration.Config) map[string]domainreadiness.Client {
+		return map[string]domainreadiness.Client{
+			configuration.ClientClaude: {State: domainreadiness.Configured, Profile: "claude", Account: "team"},
+			configuration.ClientCodex:  {State: domainreadiness.Deferred, NextAction: "aigw sync"},
+		}
+	}
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
 	result := executeJSON(t, deps)
 	if !result.OK || !AllOK(result.Checks) {
 		t.Fatalf("result = %#v", result)
+	}
+	if result.Clients[configuration.ClientClaude].State != domainreadiness.Configured {
+		t.Fatalf("canonical clients = %#v", result.Clients)
 	}
 
 	out.Reset()
@@ -332,7 +343,9 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	if err := executeDoctorCommand(NewCommand(deps)); err != nil {
 		t.Fatal(err)
 	}
-	if out.Len() != 0 || !strings.Contains(render.String(), "No problems found") {
+	if out.Len() != 0 || !strings.Contains(render.String(), "No problems found") ||
+		!strings.Contains(render.String(), "Claude") || !strings.Contains(render.String(), "Configured") ||
+		!strings.Contains(render.String(), "Codex") || !strings.Contains(render.String(), "Deferred") {
 		t.Fatalf("out=%q render=%q", out.String(), render.String())
 	}
 
@@ -340,6 +353,39 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	cmd.SetArgs([]string{"unexpected"})
 	if err := executeDoctorCommand(cmd); err == nil {
 		t.Fatal("doctor accepted a positional argument")
+	}
+}
+
+func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
+	cfg := validDoctorConfig()
+	deps, out, secretStore := doctorDependencies(t, cfg)
+	if err := secretStore.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	deps.Inspect = func(configuration.Config) map[string]domainreadiness.Client {
+		return map[string]domainreadiness.Client{
+			configuration.ClientClaude: {
+				State:      domainreadiness.Unavailable,
+				Profile:    "claude",
+				Account:    "team",
+				Detail:     "Credential metadata is unavailable",
+				NextAction: "aigw doctor",
+			},
+		}
+	}
+
+	result := executeJSON(t, deps)
+	state, ok := result.Clients[configuration.ClientClaude]
+	if !ok || state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" {
+		t.Fatalf("canonical clients = %#v\n%s", result.Clients, out.String())
+	}
+
+	out.Reset()
+	if err := executeDoctorCommand(NewCommand(deps)); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Unavailable") || strings.Contains(out.String(), "credential metadata unavailable") {
+		t.Fatalf("human output = %s", out.String())
 	}
 }
 

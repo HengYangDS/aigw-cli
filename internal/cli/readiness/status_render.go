@@ -5,6 +5,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
+	domainreadiness "aigw-cli/internal/readiness"
 )
 
 func renderStatus(runtime invocation.Context, cfg configuration.Config, result statusOutput) {
@@ -18,14 +19,12 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	}
 	r.ProductTitle("Ready view")
 	r.Text("The active service, client readiness, and the smallest next action.")
-	attention, selectionCommand, authenticationCommand := renderClientStatus(r, result)
+	attention, nextAction := renderClientStatus(r, result)
 	renderTransportStatus(r, result)
 	renderDiagnosticStatus(runtime, r, cfg)
 	switch {
-	case selectionCommand != "":
-		r.Next(selectionCommand)
-	case authenticationCommand != "":
-		r.Next(authenticationCommand)
+	case nextAction != "":
+		r.Next(nextAction)
 	case attention:
 		r.Next("aigw repair")
 	default:
@@ -33,43 +32,44 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	}
 }
 
-func renderClientStatus(r *presentation.Renderer, result statusOutput) (bool, string, string) {
+func renderClientStatus(r *presentation.Renderer, result statusOutput) (bool, string) {
 	r.Section("Clients")
 	attention := false
-	selectionCommand := ""
-	authenticationCommand := ""
+	nextAction := ""
 	for _, client := range admittedClientIDs() {
 		route := result.Routes[client]
-		if route.NeedsSelection {
-			message := "No " + invocation.Title(client) + " profile selected"
-			if route.SuggestedProfile != "" {
-				command := "aigw use " + route.SuggestedProfile
-				message += " · " + command
-				if selectionCommand == "" {
-					selectionCommand = command
-				}
+		message := route.Profile + " · " + route.State.Label()
+		state := presentation.Info
+		switch route.State {
+		case domainreadiness.Ready:
+			state = presentation.OK
+		case domainreadiness.Configured:
+			state = presentation.Info
+		case domainreadiness.Deferred:
+			if route.Profile == "" {
+				message = "No " + invocation.Title(client) + " profile selected"
 			}
-			r.Status(presentation.Warn, invocation.Title(client), message)
-			attention = true
-			continue
-		}
-		readiness := route.Profile + " · Ready"
-		state := presentation.OK
-		if !route.SecretAvailable || !route.EndpointReady || !route.AdapterReady {
-			readiness = route.Profile + " · Action required"
-			if route.AdapterIssue != "" {
-				readiness = route.Profile + " · " + route.AdapterIssue
-			}
+		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
 			state = presentation.Warn
 			attention = true
-		} else if route.NativeAuthentication == "not_proven" {
-			readiness = route.Profile + " · Projection ready · Native authentication not proven"
-			state = presentation.Warn
-			authenticationCommand = "aigw adapter auth codex"
 		}
-		r.Status(state, invocation.Title(client), readiness)
+		if route.Detail != "" && route.Profile != "" {
+			message = route.Profile + " · " + route.State.Label() + " · " + route.Detail
+		}
+		if route.NativeAuthentication == "not_proven" {
+			message = route.Profile + " · Projection ready · Native authentication not proven"
+			state = presentation.Warn
+			attention = true
+			if nextAction == "" {
+				nextAction = "aigw adapter auth codex"
+			}
+		}
+		if nextAction == "" && route.NextAction != "" {
+			nextAction = route.NextAction
+		}
+		r.Status(state, invocation.Title(client), message)
 	}
-	return attention, selectionCommand, authenticationCommand
+	return attention, nextAction
 }
 
 func renderTransportStatus(r *presentation.Renderer, result statusOutput) {

@@ -17,6 +17,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
+	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 
 	"github.com/spf13/cobra"
@@ -135,6 +136,12 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
+	for _, client := range configuration.AdmittedClientIDs() {
+		cfg.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+	}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
@@ -209,6 +216,23 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	}
 }
 
+func TestStatusFallsBackToRepairForUnclassifiedAttention(t *testing.T) {
+	out := &bytes.Buffer{}
+	runtime := invocation.Context{Out: out, RenderOut: out, Width: 120, Accounts: account.NewMemoryStore()}
+	cfg := configuration.NewConfig()
+	cfg.Profiles["available"] = configuration.Profile{Label: "Available"}
+	routes := map[string]routeStatus{}
+	for _, client := range configuration.AdmittedClientIDs() {
+		routes[client] = routeStatus{Client: domainreadiness.Client{State: domainreadiness.Invalid}}
+	}
+
+	renderStatus(runtime, cfg, statusOutput{Routes: routes})
+	got := out.String()
+	if !strings.Contains(got, "aigw repair") || !strings.Contains(got, "No selected account") {
+		t.Fatalf("status fallback = %q", got)
+	}
+}
+
 func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
 	store := &observingSecretStore{value: "must-not-be-read"}
@@ -219,27 +243,32 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 		return true, ""
 	}
 
-	if _, err := collectStatus(runtime, cfg); err != nil {
-		t.Fatal(err)
-	}
+	collectStatus(runtime, cfg)
 	if store.existsCalls != len(configuration.AdmittedClientIDs()) || store.getCalls != 0 {
 		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
 	}
 }
 
-func TestStatusPreservesCredentialObservationFailure(t *testing.T) {
+func TestStatusClassifiesCredentialObservationFailureWithoutReadingValues(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
 	want := errors.New("credential metadata unavailable")
 	store := &observingSecretStore{existsErr: want}
 	runtime.Secrets = store
-	if _, err := collectStatus(runtime, cfg); !errors.Is(err, want) {
-		t.Fatalf("collectStatus error = %v, want %v", err, want)
+	result := collectStatus(runtime, cfg)
+	for _, client := range configuration.AdmittedClientIDs() {
+		state := result.Clients[client]
+		if state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" || !strings.Contains(strings.ToLower(state.Detail), "credential metadata") {
+			t.Fatalf("%s state = %#v", client, state)
+		}
 	}
 	if store.getCalls != 0 {
 		t.Fatalf("status read credential %d times after observation failed", store.getCalls)
 	}
-	if err := RunStatus(runtime, false); !errors.Is(err, want) {
-		t.Fatalf("RunStatus error = %v, want %v", err, want)
+	if err := RunStatus(runtime, false); err != nil {
+		t.Fatalf("RunStatus error = %v", err)
+	}
+	if !strings.Contains(output(runtime), "Unavailable") || !strings.Contains(output(runtime), "aigw doctor") {
+		t.Fatalf("RunStatus output = %q", output(runtime))
 	}
 }
 
@@ -386,6 +415,7 @@ func TestStatusSeparatesCodexProjectionFromNativeAuthentication(t *testing.T) {
 		t.Fatal(err)
 	}
 	target := filepath.Join(t.TempDir(), "config.toml")
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
 		Enabled: true, Executable: "codex", Targets: []string{target},
 	}
