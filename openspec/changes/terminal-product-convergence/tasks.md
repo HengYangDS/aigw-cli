@@ -18,7 +18,7 @@
 
 ## 3. Route, synchronization, and readiness semantics
 
-- [ ] 3.1 Add RED acceptance for separate `aigw use` operations selecting Codex and Claude, followed directly by a successful `aigw check` without a bulk or global selection.
+- [x] 3.1 Add RED acceptance for separate `aigw use` operations selecting Codex and Claude, followed directly by a successful `aigw check` without a bulk or global selection.
 - [ ] 3.2 Make `use` update exactly the selected Profile's declared client Route and projection; prove the other client remains byte-identical.
 - [ ] 3.3 Make repeated `use` of the active Profile a no-op with no configuration, credential, checkpoint, or client-file rewrite.
 - [ ] 3.4 Make `sync` discover a client installed after setup and activate its existing eligible Route without repeating setup.

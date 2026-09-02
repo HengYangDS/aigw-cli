@@ -12,6 +12,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/surface"
 )
 
 func TestUseSurfacesCredentialObservationFailure(t *testing.T) {
@@ -163,6 +164,68 @@ func TestUseForClaudeDoesNotRequireOrRewriteCodexTargets(t *testing.T) {
 	}
 	if got.Routes[configuration.ClientCodex] != "gpt" || got.Routes[configuration.ClientClaude] != "claude-sonnet" {
 		t.Fatalf("routes = %#v", got.Routes)
+	}
+}
+
+func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	claudeExecutable := executableFixture(t, "claude")
+	codexExecutable := executableFixture(t, "codex")
+	codexTarget := filepath.Join(t.TempDir(), "config.toml")
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{
+			configuration.ClientClaude: claudeExecutable,
+			configuration.ClientCodex:  codexExecutable,
+		},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surface.CodexHomeDefault),
+			Authority:   string(surface.AuthorityAIGW),
+			ConfigPath:  codexTarget,
+			AutoManaged: true,
+		}},
+	}}
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "claude", "gateway", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
+	addAccountProfile(&cfg, "codex", "gateway", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, "gpt-test")
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "test-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "use", "claude"); err != nil {
+		t.Fatalf("select Claude route: %v", err)
+	}
+	claudeProjection, err := os.ReadFile(app.ClaudeSettingsPath)
+	if err != nil {
+		t.Fatalf("read Claude projection: %v", err)
+	}
+
+	if err := execute(t, app, "use", "codex"); err != nil {
+		t.Fatalf("select Codex route: %v", err)
+	}
+	claudeAfterCodex, err := os.ReadFile(app.ClaudeSettingsPath)
+	if err != nil {
+		t.Fatalf("read Claude projection after Codex selection: %v", err)
+	}
+	if string(claudeAfterCodex) != string(claudeProjection) {
+		t.Fatal("Codex selection rewrote the independent Claude projection")
+	}
+	selected, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected.Routes[configuration.ClientClaude] != "claude" || selected.Routes[configuration.ClientCodex] != "codex" {
+		t.Fatalf("independent routes = %#v", selected.Routes)
+	}
+
+	out.Reset()
+	if err := execute(t, app, "check"); err != nil {
+		t.Fatalf("check after independent selections: %v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Codex") || strings.Contains(out.String(), "use --all") {
+		t.Fatalf("check did not accept both independently selected Routes:\n%s", out.String())
 	}
 }
 
