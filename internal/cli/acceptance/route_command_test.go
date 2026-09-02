@@ -139,8 +139,12 @@ func TestTestCommandRejectsProfileAndClientBeforeCredentialOrNetworkAccess(t *te
 	}
 }
 
-func TestUseForClaudeDoesNotRequireOrRewriteCodexTargets(t *testing.T) {
+func TestUseForClaudeDoesNotRewriteCodexProjection(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
+	target := filepath.Join(t.TempDir(), "configuration.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
@@ -148,12 +152,23 @@ func TestUseForClaudeDoesNotRequireOrRewriteCodexTargets(t *testing.T) {
 	cfg.Profiles["claude-sonnet"] = configuration.Profile{Label: "Claude Sonnet", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-sonnet"}
 	cfg.Routes[configuration.ClientCodex] = "gpt"
 	cfg.Routes[configuration.ClientClaude] = "claude-fable"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "unavailable-codex-configuration.toml")}}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := secretStore.Set("gateway", "test-token"); err != nil {
 		t.Fatal(err)
+	}
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatalf("project initial Codex route: %v", err)
+	}
+	codexProjection, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("read initial Codex projection: %v", err)
+	}
+	codexState, err := os.ReadFile(target + ".aigw-state.json")
+	if err != nil {
+		t.Fatalf("read initial Codex state: %v", err)
 	}
 
 	if err := execute(t, app, "use", "claude-sonnet"); err != nil {
@@ -165,6 +180,12 @@ func TestUseForClaudeDoesNotRequireOrRewriteCodexTargets(t *testing.T) {
 	}
 	if got.Routes[configuration.ClientCodex] != "gpt" || got.Routes[configuration.ClientClaude] != "claude-sonnet" {
 		t.Fatalf("routes = %#v", got.Routes)
+	}
+	if after := readFile(t, target); !bytes.Equal(after, codexProjection) {
+		t.Fatal("Claude selection rewrote the independent Codex projection")
+	}
+	if after := readFile(t, target+".aigw-state.json"); !bytes.Equal(after, codexState) {
+		t.Fatal("Claude selection rewrote the independent Codex projection state")
 	}
 }
 
@@ -186,13 +207,15 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 		}},
 	}}
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "claude", "gateway", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
-	addAccountProfile(&cfg, "codex", "gateway", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, "gpt-test")
+	addAccountProfile(&cfg, "claude", "claude-gateway", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
+	addAccountProfile(&cfg, "codex", "codex-gateway", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, "gpt-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := secretStore.Set("gateway", "test-token"); err != nil {
-		t.Fatal(err)
+	for account, token := range map[string]string{"claude-gateway": "claude-token", "codex-gateway": "codex-token"} {
+		if err := secretStore.Set(account, token); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	if err := execute(t, app, "use", "claude"); err != nil {
@@ -202,6 +225,10 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 	if err != nil {
 		t.Fatalf("read Claude projection: %v", err)
 	}
+	claudeState, err := os.ReadFile(app.ClaudeSettingsPath + ".aigw-state.json")
+	if err != nil {
+		t.Fatalf("read Claude projection state: %v", err)
+	}
 
 	if err := execute(t, app, "use", "codex"); err != nil {
 		t.Fatalf("select Codex route: %v", err)
@@ -210,8 +237,11 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 	if err != nil {
 		t.Fatalf("read Claude projection after Codex selection: %v", err)
 	}
-	if string(claudeAfterCodex) != string(claudeProjection) {
+	if !bytes.Equal(claudeAfterCodex, claudeProjection) {
 		t.Fatal("Codex selection rewrote the independent Claude projection")
+	}
+	if after := readFile(t, app.ClaudeSettingsPath+".aigw-state.json"); !bytes.Equal(after, claudeState) {
+		t.Fatal("Codex selection rewrote the independent Claude projection state")
 	}
 	selected, err := app.Config.Load()
 	if err != nil {
@@ -219,6 +249,11 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 	}
 	if selected.Routes[configuration.ClientClaude] != "claude" || selected.Routes[configuration.ClientCodex] != "codex" {
 		t.Fatalf("independent routes = %#v", selected.Routes)
+	}
+	for account, want := range map[string]string{"claude-gateway": "claude-token", "codex-gateway": "codex-token"} {
+		if got, err := secretStore.Get(account); err != nil || got != want {
+			t.Fatalf("credential %s = %q, %v; want unchanged", account, got, err)
+		}
 	}
 
 	out.Reset()
