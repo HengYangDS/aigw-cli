@@ -148,7 +148,7 @@ func TestAccountRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	if got := directoryNames(t, filepath.Dir(app.Config.Path())); !reflect.DeepEqual(got, beforeFiles) {
 		t.Fatalf("dry-run changed config directory entries: before %q, after %q", beforeFiles, got)
 	}
-	if secretExists(t, secretStore, "zeta-new") || app.Accounts.Has("zeta-new") {
+	if secretExists(t, secretStore, "zeta-new") || accountCredentialExists(t, app.Accounts, "zeta-new") {
 		t.Fatal("dry-run created target credential slots")
 	}
 	if len(runner.plans) != 0 {

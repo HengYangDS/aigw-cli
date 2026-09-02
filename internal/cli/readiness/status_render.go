@@ -94,15 +94,22 @@ func renderDiagnosticStatus(runtime invocation.Context, r *presentation.Renderer
 	}
 	for _, accountName := range accountIDs {
 		account := cfg.Accounts[accountName]
-		switch {
-		case account.AccountProbe != nil && providers.Supports(account.AccountProbe.Kind) && runtime.Accounts.Has(accountName):
-			r.Status(presentation.OK, accountName, "Precise balance enabled")
-		case account.AccountProbe != nil && providers.Supports(account.AccountProbe.Kind):
-			r.Status(presentation.Warn, accountName, "Precise balance disabled · aigw account connect "+accountName)
-		case account.AccountProbe != nil:
-			r.Status(presentation.Info, accountName, "Provider diagnostics unavailable in this version")
-		default:
+		if account.AccountProbe == nil {
 			r.Status(presentation.Info, accountName, "Provider does not expose a balance probe")
+			continue
+		}
+		if !providers.Supports(account.AccountProbe.Kind) {
+			r.Status(presentation.Info, accountName, "Provider diagnostics unavailable in this version")
+			continue
+		}
+		available, err := runtime.Accounts.Exists(accountName)
+		switch {
+		case err != nil:
+			r.Status(presentation.Warn, accountName, "Credential metadata unavailable · aigw doctor")
+		case available:
+			r.Status(presentation.OK, accountName, "Precise balance enabled")
+		default:
+			r.Status(presentation.Warn, accountName, "Precise balance disabled · aigw account connect "+accountName)
 		}
 	}
 }

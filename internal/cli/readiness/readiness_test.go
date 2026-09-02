@@ -74,14 +74,17 @@ func (store *observingSecretStore) Exists(string) (bool, error) {
 }
 
 type readinessProcessRunner struct {
-	plans []process.Plan
-	err   error
+	plans     []process.Plan
+	deadlines []bool
+	err       error
 }
 
 func (runner *readinessProcessRunner) Run(context.Context, process.Plan) error { return nil }
 
-func (runner *readinessProcessRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
+func (runner *readinessProcessRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
 	runner.plans = append(runner.plans, plan)
+	_, hasDeadline := ctx.Deadline()
+	runner.deadlines = append(runner.deadlines, hasDeadline)
 	return nil, runner.err
 }
 
@@ -389,8 +392,11 @@ func TestCodexAuthenticationProofUsesThePublicStatusCommandForEveryTarget(t *tes
 		if !slices.Contains(plan.Env, "CODEX_HOME="+wantHome) {
 			t.Fatalf("status environment does not select %q: %#v", wantHome, plan.Env)
 		}
-		if plan.Stdin != "" {
+		if plan.Stdin != "" || plan.Replace {
 			t.Fatalf("status probe received secret input: %#v", plan)
+		}
+		if !runner.deadlines[index] {
+			t.Fatalf("status probe for %q has no deadline", targets[index])
 		}
 	}
 

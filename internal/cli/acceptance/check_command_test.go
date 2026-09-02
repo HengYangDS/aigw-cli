@@ -1,16 +1,20 @@
 package cli_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/account"
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 )
 
 func TestCheckJSONReportsOnlyActiveRoutes(t *testing.T) {
@@ -214,11 +218,16 @@ func TestCheckRejectsAnEnabledClientRouteWithoutItsAccountToken(t *testing.T) {
 }
 
 func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedProfile(t *testing.T) {
-	app, out, secretStore, _ := testApp(t, "")
+	app, out, secretStore, runner := testApp(t, "")
 	cfg := configuration.NewConfig()
 	addAccountProfile(&cfg, "stale", "stale-account", "Stale", configuration.Endpoints{OpenAIResponses: "https://stale.test/v1"}, configuration.ClientCodex, "stale-model")
 	addAccountProfile(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
 	addAccountProfile(&cfg, "codex", "codex-account", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, "gpt-test")
+	for _, accountID := range []string{"stale-account", "claude-account", "codex-account"} {
+		providerAccount := cfg.Accounts[accountID]
+		providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}
+		cfg.Accounts[accountID] = providerAccount
+	}
 	cfg.Routes[configuration.ClientClaude] = "claude"
 	cfg.Routes[configuration.ClientCodex] = "codex"
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
@@ -237,11 +246,45 @@ func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedProfile(t *testin
 	if err := codex.SyncConfig(codexTarget, codexRuntime); err != nil {
 		t.Fatal(err)
 	}
+	if err := app.Config.SaveVerifiedCheckpoint(cfg, configuration.AdmittedClientIDs()); err != nil {
+		t.Fatal(err)
+	}
 	for account, token := range map[string]string{"claude-account": "claude-token", "codex-account": "codex-token"} {
 		if err := secretStore.Set(account, token); err != nil {
 			t.Fatal(err)
 		}
 	}
+	if err := secretStore.Set("stale-account", "stale-token"); err != nil {
+		t.Fatal(err)
+	}
+	diagnosticStore, err := secrets.ForKind(secretStore, secrets.ProviderDiagnostic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, accountID := range []string{"claude-account", "codex-account", "stale-account"} {
+		if err := account.NewBackendStore(diagnosticStore, secrets.IsNotFound).Set(accountID, account.Credential{SystemToken: "system", UserID: "user"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tokenObservation := &recordingSecretStore{Store: secretStore}
+	diagnosticObservation := &recordingSecretStore{Store: diagnosticStore}
+	app.Secrets = tokenObservation
+	app.Accounts = account.NewBackendStore(diagnosticObservation, secrets.IsNotFound)
+	prompt := &recordingPrompt{}
+	app.Interactive = true
+	app.Prompt = prompt
+	ownedPaths := []string{
+		app.Config.Path(),
+		app.Config.Path() + ".verified.json",
+		codexTarget,
+		codexTarget + ".aigw-state.json",
+	}
+	before := make(map[string][]byte, len(ownedPaths))
+	for _, path := range ownedPaths {
+		before[path] = readFile(t, path)
+	}
+	beforeConfigFiles := directoryNames(t, filepath.Dir(app.Config.Path()))
+	beforeTargetFiles := directoryNames(t, filepath.Dir(codexTarget))
 	seen := map[string]int{}
 	app.HTTP.(*fakeHTTP).handler = func(req *http.Request) (*http.Response, error) {
 		seen[req.URL.Host]++
@@ -253,6 +296,32 @@ func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedProfile(t *testin
 	}
 	if seen["claude.test"] != 1 || seen["codex.test"] != 1 || seen["stale.test"] != 0 {
 		t.Fatalf("probed endpoints = %#v", seen)
+	}
+	if !slices.Equal(tokenObservation.getCalls, []string{"claude-account", "codex-account"}) {
+		t.Fatalf("Token reads = %q, want only enabled Route Accounts", tokenObservation.getCalls)
+	}
+	if len(diagnosticObservation.getCalls) != 0 || !slices.Equal(diagnosticObservation.existsCalls, []string{"claude-account", "codex-account"}) {
+		t.Fatalf("diagnostic observations: reads=%q metadata=%q", diagnosticObservation.getCalls, diagnosticObservation.existsCalls)
+	}
+	if len(tokenObservation.setCalls) != 0 || len(tokenObservation.deleteCalls) != 0 || len(diagnosticObservation.setCalls) != 0 || len(diagnosticObservation.deleteCalls) != 0 {
+		t.Fatalf("check mutated credentials: Token set=%q delete=%q; diagnostic set=%q delete=%q", tokenObservation.setCalls, tokenObservation.deleteCalls, diagnosticObservation.setCalls, diagnosticObservation.deleteCalls)
+	}
+	if prompt.calls != 0 {
+		t.Fatalf("check prompted %d times", prompt.calls)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("check started a client process: %#v", runner.plans)
+	}
+	for _, path := range ownedPaths {
+		if after := readFile(t, path); !bytes.Equal(after, before[path]) {
+			t.Fatalf("check changed %s", path)
+		}
+	}
+	if after := directoryNames(t, filepath.Dir(app.Config.Path())); !slices.Equal(after, beforeConfigFiles) {
+		t.Fatalf("check changed configuration directory entries: before=%q after=%q", beforeConfigFiles, after)
+	}
+	if after := directoryNames(t, filepath.Dir(codexTarget)); !slices.Equal(after, beforeTargetFiles) {
+		t.Fatalf("check changed Codex target directory entries: before=%q after=%q", beforeTargetFiles, after)
 	}
 	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Codex") || strings.Contains(out.String(), "Stale") {
 		t.Fatalf("check output does not describe active client Routes:\n%s", out.String())

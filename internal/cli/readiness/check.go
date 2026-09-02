@@ -271,7 +271,11 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			providerAccount := cfg.Accounts[route.runtime.AccountID]
 			if providerAccount.AccountProbe != nil && providers.Supports(providerAccount.AccountProbe.Kind) {
 				balanceCommands = append(balanceCommands, "aigw balance "+route.runtime.AccountID)
-				if runtime.Accounts.Has(route.runtime.AccountID) {
+				available, err := runtime.Accounts.Exists(route.runtime.AccountID)
+				if err != nil {
+					return invocation.Problem(runtime, "Provider diagnostic credential metadata is unavailable", err.Error(), "AIGW cannot determine whether precise balance diagnostics are configured.", "aigw doctor", err)
+				}
+				if available {
 					renderer.Detail(route.runtime.AccountLabel + " precise balance enabled")
 				} else {
 					renderer.Detail("aigw account connect " + route.runtime.AccountID)

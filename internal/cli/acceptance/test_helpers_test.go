@@ -23,6 +23,8 @@ import (
 
 type fakeRunner struct {
 	plans            []process.Plan
+	runPlans         []process.Plan
+	capturePlans     []process.Plan
 	captureDeadlines []bool
 	output           []byte
 	capture          error
@@ -30,11 +32,13 @@ type fakeRunner struct {
 
 func (r *fakeRunner) Run(_ context.Context, plan process.Plan) error {
 	r.plans = append(r.plans, plan)
+	r.runPlans = append(r.runPlans, plan)
 	return nil
 }
 
 func (r *fakeRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
 	r.plans = append(r.plans, plan)
+	r.capturePlans = append(r.capturePlans, plan)
 	_, hasDeadline := ctx.Deadline()
 	r.captureDeadlines = append(r.captureDeadlines, hasDeadline)
 	if r.capture != nil {
@@ -99,6 +103,15 @@ func secretExists(t testing.TB, store secrets.Store, account string) bool {
 	return present
 }
 
+func accountCredentialExists(t testing.TB, store account.Store, accountID string) bool {
+	t.Helper()
+	present, err := store.Exists(accountID)
+	if err != nil {
+		t.Fatalf("observe provider diagnostic credential for %q: %v", accountID, err)
+	}
+	return present
+}
+
 func assertSameExistingPath(t *testing.T, got, want string) {
 	t.Helper()
 	gotInfo, err := os.Stat(got)
@@ -127,6 +140,7 @@ func (r *failingRunner) RunCapture(_ context.Context, _ process.Plan) ([]byte, e
 }
 
 type fakeHTTP struct {
+	calls   int
 	status  int
 	headers http.Header
 	body    string
@@ -160,6 +174,7 @@ func (body *contextBoundReadCloser) Read(data []byte) (int, error) {
 func (body *contextBoundReadCloser) Close() error { return nil }
 
 func (f *fakeHTTP) Do(req *http.Request) (*http.Response, error) {
+	f.calls++
 	f.headers = req.Header.Clone()
 	if f.handler != nil {
 		return f.handler(req)
@@ -255,6 +270,34 @@ type observationFailureStore struct {
 
 func (store observationFailureStore) Exists(string) (bool, error) {
 	return false, store.err
+}
+
+type recordingSecretStore struct {
+	secrets.Store
+	getCalls    []string
+	existsCalls []string
+	setCalls    []string
+	deleteCalls []string
+}
+
+func (store *recordingSecretStore) Get(account string) (string, error) {
+	store.getCalls = append(store.getCalls, account)
+	return store.Store.Get(account)
+}
+
+func (store *recordingSecretStore) Set(account, value string) error {
+	store.setCalls = append(store.setCalls, account)
+	return store.Store.Set(account, value)
+}
+
+func (store *recordingSecretStore) Delete(account string) error {
+	store.deleteCalls = append(store.deleteCalls, account)
+	return store.Store.Delete(account)
+}
+
+func (store *recordingSecretStore) Exists(account string) (bool, error) {
+	store.existsCalls = append(store.existsCalls, account)
+	return store.Store.Exists(account)
 }
 
 func saveProbeProfile(t *testing.T, appConfig configuration.Store) {

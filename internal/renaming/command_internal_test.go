@@ -147,7 +147,13 @@ func (store *renameCoverageAccounts) Delete(id string) error {
 	return nil
 }
 
-func (store *renameCoverageAccounts) Has(id string) bool { _, err := store.Get(id); return err == nil }
+func (store *renameCoverageAccounts) Exists(id string) (bool, error) {
+	_, err := store.Get(id)
+	if errors.Is(err, account.ErrNotFound) {
+		return false, nil
+	}
+	return err == nil, err
+}
 
 func renameCoverageConfig() configuration.Config {
 	cfg := configuration.NewConfig()

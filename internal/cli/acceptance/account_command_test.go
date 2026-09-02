@@ -507,8 +507,8 @@ func TestAccountDisconnectBranches(t *testing.T) {
 		if err := execute(t, app, "account", "disconnect", "dmx"); err != nil {
 			t.Fatal(err)
 		}
-		if store.Has("dmx") || !strings.Contains(out.String(), "credentials were removed") {
-			t.Fatalf("output=%q has=%v", out.String(), store.Has("dmx"))
+		if accountCredentialExists(t, store, "dmx") || !strings.Contains(out.String(), "credentials were removed") {
+			t.Fatalf("output=%q", out.String())
 		}
 	})
 }
