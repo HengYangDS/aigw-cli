@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"net/http"
@@ -226,6 +227,94 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 	}
 	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Codex") || strings.Contains(out.String(), "use --all") {
 		t.Fatalf("check did not accept both independently selected Routes:\n%s", out.String())
+	}
+}
+
+func TestRepeatedUseOfActiveProfileDoesNotRewriteOwnedState(t *testing.T) {
+	app, out, _, runner := testApp(t, "")
+	app.Secrets = &failingSecretsStore{
+		has:       true,
+		setErr:    errors.New("credential rewrite"),
+		deleteErr: errors.New("credential deletion"),
+	}
+	claudeExecutable := executableFixture(t, "claude")
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{
+		configuration.ClientClaude: claudeExecutable,
+	}}}
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "claude", "gateway", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "use", "claude"); err != nil {
+		t.Fatalf("initial selection: %v", err)
+	}
+	selected, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Config.SaveVerifiedCheckpoint(selected, []string{configuration.ClientClaude}); err != nil {
+		t.Fatal(err)
+	}
+
+	ownedPaths := []string{
+		app.Config.Path(),
+		app.Config.Path() + ".bak",
+		app.Config.Path() + ".verified.json",
+		app.ClaudeSettingsPath,
+		app.ClaudeSettingsPath + ".aigw-state.json",
+	}
+	type fileState struct {
+		info os.FileInfo
+		data []byte
+	}
+	before := make(map[string]fileState, len(ownedPaths))
+	for _, path := range ownedPaths {
+		info, err := os.Stat(path)
+		if err == nil {
+			data, readErr := os.ReadFile(path)
+			if readErr != nil {
+				t.Fatalf("read %s before repeated use: %v", path, readErr)
+			}
+			before[path] = fileState{info: info, data: data}
+			continue
+		}
+		if !os.IsNotExist(err) {
+			t.Fatalf("inspect %s before repeated use: %v", path, err)
+		}
+	}
+	plansBefore := len(runner.plans)
+	out.Reset()
+
+	if err := execute(t, app, "use", "claude"); err != nil {
+		t.Fatalf("repeat active selection: %v", err)
+	}
+	if text := out.String(); !strings.Contains(text, "Service already selected") || strings.Contains(text, "Service switched") {
+		t.Fatalf("repeated use did not report its no-op semantics:\n%s", text)
+	}
+
+	for _, path := range ownedPaths {
+		beforeState, existed := before[path]
+		afterInfo, err := os.Stat(path)
+		if !existed {
+			if !os.IsNotExist(err) {
+				t.Fatalf("repeated use created %s", path)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("inspect %s after repeated use: %v", path, err)
+		}
+		afterData, readErr := os.ReadFile(path)
+		if readErr != nil {
+			t.Fatalf("read %s after repeated use: %v", path, readErr)
+		}
+		if !os.SameFile(beforeState.info, afterInfo) || !bytes.Equal(beforeState.data, afterData) {
+			t.Fatalf("repeated use replaced %s", path)
+		}
+	}
+	if len(runner.plans) != plansBefore {
+		t.Fatalf("repeated use rebound native authentication: plans %d -> %d", plansBefore, len(runner.plans))
 	}
 }
 

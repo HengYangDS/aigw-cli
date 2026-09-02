@@ -20,7 +20,7 @@
 
 - [x] 3.1 Add RED acceptance for separate `aigw use` operations selecting Codex and Claude, followed directly by a successful `aigw check` without a bulk or global selection.
 - [ ] 3.2 Make `use` update exactly the selected Profile's declared client Route and projection; prove the other client remains byte-identical.
-- [ ] 3.3 Make repeated `use` of the active Profile a no-op with no configuration, credential, checkpoint, or client-file rewrite.
+- [x] 3.3 Make repeated `use` of the active Profile a no-op with no configuration, credential, checkpoint, or client-file rewrite.
 - [ ] 3.4 Make `sync` discover a client installed after setup and activate its existing eligible Route without repeating setup.
 - [ ] 3.5 Make `sync` observe a Token supplied after setup and activate only compatible selected or recommended Routes without changing independent user selections.
 - [ ] 3.6 Remove hidden default, aggregate selection, `--all`, cross-client fallback, and duplicated route-resolution residue from runtime, migration, tests, and docs.

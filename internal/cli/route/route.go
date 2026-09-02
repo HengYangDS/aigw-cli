@@ -4,6 +4,7 @@ package route
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
@@ -79,6 +80,15 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 					_ = runtime.Secrets.Delete(accountID)
 				}
 				return err
+			}
+			if reflect.DeepEqual(before, cfg) {
+				r := renderer(runtime)
+				r.ProductTitle("Service already selected")
+				r.Row("Service", profile.Label)
+				r.Row("Client", invocation.Title(client))
+				r.Success("Configuration, credentials, and client files were unchanged")
+				r.Next("aigw check")
+				return r.Err()
 			}
 			if err := synchronizer.Commit(cmd.Context(), before, cfg, "route"); err != nil {
 				if addedToken {
