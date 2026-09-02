@@ -199,7 +199,7 @@ func TestSyncCreatesDefaultCodexProjectionWhenClientIsInstalledAfterManifestSetu
 	}
 }
 
-func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
+func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T) {
 	app, out, _, runner := testApp(t, "")
 	tokens := map[string]string{}
 	app.Secrets = secrets.NewEnvironmentStore(func(key string) string { return tokens[key] })
@@ -211,7 +211,7 @@ func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
 
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
 	app.ClaudeSettingsPath = settingsPath
-	tokens[secrets.EnvironmentKey("dmxapi")] = "test-token"
+	tokens[secrets.EnvironmentKey("aihubmix")] = "test-token"
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{configuration.ClientClaude: "/usr/local/bin/claude"},
 	}}
@@ -239,7 +239,7 @@ func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
 		t.Fatalf("sync preview = %#v", preview)
 	}
 	wantRoutes := map[string]string{
-		configuration.ClientClaude: "dmxapi-claude",
+		configuration.ClientClaude: "aihubmix-claude",
 		configuration.ClientCodex:  "dmxapi-gpt",
 	}
 	if !maps.Equal(preview.Routes, wantRoutes) {
@@ -275,8 +275,8 @@ func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := after.Routes[configuration.ClientClaude]; got != "dmxapi-claude" {
-		t.Fatalf("Claude route = %q, want dmxapi-claude", got)
+	if got := after.Routes[configuration.ClientClaude]; got != "aihubmix-claude" {
+		t.Fatalf("Claude route = %q, want aihubmix-claude", got)
 	}
 	if got := after.Routes[configuration.ClientCodex]; got != "dmxapi-gpt" {
 		t.Fatalf("Codex route = %q, want dmxapi-gpt", got)
@@ -289,8 +289,64 @@ func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `"ANTHROPIC_BASE_URL": "https://dmxapi.test"`) {
+	if !strings.Contains(string(data), `"ANTHROPIC_BASE_URL": "https://aihubmix.test"`) {
 		t.Fatalf("sync did not project the environment-backed Account:\n%s", data)
+	}
+}
+
+func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
+	app, _, secretStore, runner := testApp(t, "")
+	app.Discovery = emptyDiscovery{}
+	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
+	if err := execute(t, app, "setup", "--from", manifestPath); err != nil {
+		t.Fatalf("initial manifest setup: %v", err)
+	}
+	before, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	codexTarget := filepath.Join(t.TempDir(), "config.toml")
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{
+			configuration.ClientClaude: executableFixture(t, "claude"),
+			configuration.ClientCodex:  executableFixture(t, "codex"),
+		},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surfaceidentity.CodexHomeDefault),
+			Authority:   string(surfaceidentity.AuthorityAIGW),
+			ConfigPath:  codexTarget,
+			AutoManaged: true,
+		}},
+	}}
+	if err := secretStore.Set("dmxapi", "team-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatalf("sync after Token became available: %v", err)
+	}
+	after, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !maps.Equal(after.Routes, before.Routes) {
+		t.Fatalf("sync changed independent Routes: got %#v, want %#v", after.Routes, before.Routes)
+	}
+	if after.Adapters[configuration.ClientClaude].Enabled {
+		t.Fatalf("sync activated Claude through an unselected Account: %#v", after.Adapters[configuration.ClientClaude])
+	}
+	if adapter := after.Adapters[configuration.ClientCodex]; !adapter.Enabled || adapter.Executable == "" || len(adapter.Targets) != 1 {
+		t.Fatalf("sync did not activate the selected Codex Route: %#v", adapter)
+	}
+	if data := readFile(t, codexTarget); !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {
+		t.Fatalf("sync did not project the selected Codex Route:\n%s", data)
+	}
+	if _, err := os.Stat(app.ClaudeSettingsPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("sync projected the unready Claude Route: %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("sync rebound native authentication: %#v", runner.plans)
 	}
 }
 

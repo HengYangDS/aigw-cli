@@ -4,7 +4,6 @@ package synchronization
 
 import (
 	"context"
-	"sort"
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -66,24 +65,6 @@ func (s Synchronizer) DesiredClientConfiguration(before configuration.Config, cl
 		}
 	}
 	return after, discovered, nil
-}
-
-// SelectRoutesForAvailableAccounts applies the configuration domain's Route
-// selection policy to every configured Account available from the credential
-// backend. It observes availability only and never returns credential values.
-func (s Synchronizer) SelectRoutesForAvailableAccounts(before configuration.Config) (configuration.Config, error) {
-	availableAccounts := make([]string, 0, len(before.Accounts))
-	for accountID := range before.Accounts {
-		available, err := s.secretAvailable(accountID)
-		if err != nil {
-			return configuration.Config{}, err
-		}
-		if available {
-			availableAccounts = append(availableAccounts, accountID)
-		}
-	}
-	sort.Strings(availableAccounts)
-	return before.SelectRoutesForConnectedAccounts(availableAccounts)
 }
 
 func (s Synchronizer) convergeClaude(cfg *configuration.Config, discovered discovery.Result) error {

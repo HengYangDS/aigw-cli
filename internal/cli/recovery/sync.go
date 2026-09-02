@@ -26,11 +26,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			synchronizer := invocation.Synchronizer(runtime)
-			selected, err := synchronizer.SelectRoutesForAvailableAccounts(before)
-			if err != nil {
-				return err
-			}
-			after, _, err := synchronizer.DesiredClientConfiguration(selected)
+			after, _, err := synchronizer.DesiredClientConfiguration(before)
 			if err != nil {
 				return err
 			}

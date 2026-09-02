@@ -157,27 +157,6 @@ func TestDesiredClientConfigurationSurfacesCredentialObservationFailures(t *test
 	}
 }
 
-func TestSelectRoutesForAvailableAccountsUsesTheConfigurationAuthority(t *testing.T) {
-	before := configuration.NewConfig()
-	before.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
-	before.Accounts["two"] = configuration.Account{Label: "Two", Endpoints: configuration.Endpoints{Anthropic: "https://two.test"}}
-	before.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
-	before.Profiles["two"] = configuration.Profile{Label: "Two", Account: "two", Client: configuration.ClientClaude, Model: "claude-test"}
-	before.Routes[configuration.ClientClaude] = "one"
-	secretStore := secrets.NewMemoryStore()
-	if err := secretStore.Set("two", "token"); err != nil {
-		t.Fatal(err)
-	}
-
-	after, err := (Synchronizer{Secrets: secretStore}).SelectRoutesForAvailableAccounts(before)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := after.Routes[configuration.ClientClaude]; got != "two" {
-		t.Fatalf("selected route = %q, want two", got)
-	}
-}
-
 func TestProjectionChangedForPersistentCodexSemantics(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "configuration.toml")
 	before := testConfig(target)
