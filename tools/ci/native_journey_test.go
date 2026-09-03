@@ -81,21 +81,30 @@ func TestNativeProductJourney(t *testing.T) {
 			journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
 			journey.enableSystemCredentialStore()
 			store := secrets.NewKeyringStore()
-			const token = "native-system-keyring-token"
+			const (
+				token       = "native-system-keyring-token"
+				replacement = "native-system-keyring-replacement"
+			)
+			backend := secrets.BackendSelection{
+				Kind:         "keyring",
+				Availability: "available",
+				Mutability:   "read_write",
+				Persistence:  "persisted",
+			}
 			t.Cleanup(func() {
 				if err := store.Delete("native-system-keyring-probe"); err != nil {
 					t.Errorf("clean system credential store: %v", err)
 				}
 			})
 			journey.runInput(token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
-			journey.requireCredentialBackend(token, secrets.BackendSelection{
-				Kind:         "keyring",
-				Availability: "available",
-				Mutability:   "read_write",
-				Persistence:  "persisted",
-			})
+			journey.requireCredentialBackend(token, backend)
 			if got := strings.TrimSpace(string(journey.run("credential", "claude"))); got != token {
 				t.Fatalf("credential = %q", got)
+			}
+			journey.runInput(replacement+"\n", "rotate", "native-system-keyring-probe", "--token-stdin")
+			journey.requireCredentialBackend(replacement, backend)
+			if got, err := store.Get("native-system-keyring-probe"); err != nil || got != replacement {
+				t.Fatalf("replaced credential = %q, %v", got, err)
 			}
 			if err := store.Delete("native-system-keyring-probe"); err != nil {
 				t.Fatal(err)
