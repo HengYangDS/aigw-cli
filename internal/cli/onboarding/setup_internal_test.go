@@ -301,6 +301,28 @@ func TestWriteAndRollbackSetupCredentialsBranches(t *testing.T) {
 		}
 	})
 
+	t.Run("preserve a newer replacement", func(t *testing.T) {
+		store := &scriptedSecretStore{values: map[string]string{"old": "newer-value"}}
+		err := rollbackSetupCredentials(invocation.Context{Secrets: store}, credentials, []int{0})
+		if err == nil || !strings.Contains(err.Error(), "credential postimage changed") {
+			t.Fatalf("error = %v", err)
+		}
+		if store.values["old"] != "newer-value" {
+			t.Fatalf("credential = %q, want newer-value", store.values["old"])
+		}
+	})
+
+	t.Run("preserve a replacement for a newly created credential", func(t *testing.T) {
+		store := &scriptedSecretStore{values: map[string]string{"new": "newer-value"}}
+		err := rollbackSetupCredentials(invocation.Context{Secrets: store}, credentials, []int{1})
+		if err == nil || !strings.Contains(err.Error(), "credential postimage changed") {
+			t.Fatalf("error = %v", err)
+		}
+		if store.values["new"] != "newer-value" {
+			t.Fatalf("credential = %q, want newer-value", store.values["new"])
+		}
+	})
+
 	t.Run("delete rollback error", func(t *testing.T) {
 		want := errors.New("delete failed")
 		store := &scriptedSecretStore{values: map[string]string{"new": "new-value"}, deleteErrors: map[string]error{"new": want}}

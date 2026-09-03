@@ -1,10 +1,12 @@
 package onboarding
 
 import (
+	"crypto/subtle"
 	"errors"
 	"fmt"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/secrets"
 )
 
 type setupCredential struct {
@@ -36,7 +38,20 @@ func rollbackSetupCredentials(runtime invocation.Context, credentials []setupCre
 	var rollbackErr error
 	for position := len(written) - 1; position >= 0; position-- {
 		credential := credentials[written[position]]
-		var err error
+		current, err := runtime.Secrets.Get(credential.account)
+		if err != nil {
+			if errors.Is(err, secrets.ErrNotFound) {
+				err = fmt.Errorf("credential postimage changed for Account %q; refusing to overwrite newer state", credential.account)
+			} else {
+				err = fmt.Errorf("observe Token for Account %q before rollback: %w", credential.account, err)
+			}
+			rollbackErr = errors.Join(rollbackErr, err)
+			continue
+		}
+		if subtle.ConstantTimeCompare([]byte(current), []byte(credential.token)) != 1 {
+			rollbackErr = errors.Join(rollbackErr, fmt.Errorf("credential postimage changed for Account %q; refusing to overwrite newer state", credential.account))
+			continue
+		}
 		if credential.hadPrevious {
 			err = runtime.Secrets.Set(credential.account, credential.previous)
 		} else {
