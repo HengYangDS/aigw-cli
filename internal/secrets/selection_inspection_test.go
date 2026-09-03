@@ -143,7 +143,7 @@ func TestInspectAutomaticSelectionIsValueFreeAndDoesNotPersist(t *testing.T) {
 
 func TestInspectAutomaticPersistedSelectionDoesNotProbeAnotherBackend(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
-	if err := newBackendChoice(root).Write("file"); err != nil {
+	if _, _, err := newBackendChoice(root).Persist("file"); err != nil {
 		t.Fatal(err)
 	}
 	store, err := Select(Selection{

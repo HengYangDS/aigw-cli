@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -299,6 +300,80 @@ func TestCommitRestoresPreparedSnapshotWhenPostimageCaptureFails(t *testing.T) {
 	}
 	if !reflect.DeepEqual(after, before) {
 		t.Fatalf("snapshot after failed commit = %#v, want %#v", after, before)
+	}
+}
+
+func TestCommitLeavesConfigurationUntouchedWhenBackupWriteFails(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path)
+	if err := store.Save(convergenceConfig("old")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("backup write failed")
+	originalWrite := writeConfigurationFileIfUnchanged
+	t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
+	writeConfigurationFileIfUnchanged = func(target string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+		if target == path+".bak" {
+			return transaction.FileSnapshot{}, want
+		}
+		return originalWrite(target, expected, data, mode)
+	}
+
+	if _, err := store.Commit(before, convergenceConfig("current")); !errors.Is(err, want) || !strings.Contains(err.Error(), "back up current config") {
+		t.Fatalf("Commit() error = %v, want backup write failure", err)
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(after, before) {
+		t.Fatalf("snapshot after failed backup = %#v, want %#v", after, before)
+	}
+}
+
+func TestCommitPreservesNewerBackupWhenConfigurationWriteAndCompensationConflict(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path)
+	if err := store.Save(convergenceConfig("old")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("config write failed")
+	newerBackup := []byte("newer backup\n")
+	originalWrite := writeConfigurationFileIfUnchanged
+	t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
+	writeConfigurationFileIfUnchanged = func(target string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+		if target == path {
+			return transaction.FileSnapshot{}, want
+		}
+		postimage, writeErr := originalWrite(target, expected, data, mode)
+		if writeErr != nil {
+			return transaction.FileSnapshot{}, writeErr
+		}
+		if err := os.WriteFile(target, newerBackup, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return postimage, nil
+	}
+
+	_, err = store.Commit(before, convergenceConfig("current"))
+	if !errors.Is(err, want) || !strings.Contains(err.Error(), "restore config backup") || !strings.Contains(err.Error(), "postimage changed") {
+		t.Fatalf("Commit() error = %v, want write and compensation conflict", err)
+	}
+	current, readErr := os.ReadFile(path)
+	if readErr != nil || !bytes.Equal(current, before.Config.Data) {
+		t.Fatalf("configuration after failed commit = %q, %v", current, readErr)
+	}
+	backup, readErr := os.ReadFile(path + ".bak")
+	if readErr != nil || !bytes.Equal(backup, newerBackup) {
+		t.Fatalf("newer backup after rejected compensation = %q, %v", backup, readErr)
 	}
 }
 

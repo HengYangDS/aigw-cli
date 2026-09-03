@@ -1,5 +1,3 @@
-//go:build !windows
-
 package secrets
 
 import (
@@ -9,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 type syncWriter interface {
@@ -34,11 +33,22 @@ type writeRoot interface {
 }
 
 type credentialFileSnapshot struct {
-	value  []byte
-	exists bool
+	value    []byte
+	identity fileIdentity
+	exists   bool
+}
+
+type fileIdentity struct {
+	info     os.FileInfo
+	size     int64
+	mode     os.FileMode
+	modified int64
 }
 
 func openSecureRoot(path string, create bool) (*os.Root, error) {
+	if strings.TrimSpace(path) == "" {
+		return nil, errors.New("file secret backend requires an AIGW storage root")
+	}
 	if create {
 		if err := os.MkdirAll(path, 0o700); err != nil {
 			return nil, fmt.Errorf("create Token directory: %w", err)
@@ -55,13 +65,6 @@ func openSecureRoot(path string, create bool) (*os.Root, error) {
 		return nil, err
 	}
 	return openVerifiedRoot(path, before)
-}
-
-func validateSecureRoot(info os.FileInfo) error {
-	if !info.IsDir() || info.Mode().Perm() != 0o700 {
-		return errors.New("Token directory must be an owner-only directory")
-	}
-	return validateOwner(info)
 }
 
 func openVerifiedRoot(path string, before os.FileInfo) (*os.Root, error) {
@@ -107,23 +110,39 @@ func openVerifiedFile(root readRoot, name string, before os.FileInfo) (*os.File,
 }
 
 func writeSecureFile(root writeRoot, name string, value []byte) error {
-	preimage, err := captureOptionalSecureFile(root, name)
-	if err != nil {
-		return err
-	}
-	defer clear(preimage.value)
-	committed, err := replaceSecureFile(root, name, value)
-	if err == nil || !committed {
-		return err
-	}
-	return restoreSecureFile(root, name, preimage, credentialFileSnapshot{value: value, exists: true}, err)
+	postimage, err := writeSecureFileWithPostimage(root, name, value)
+	clear(postimage.value)
+	return err
 }
 
-func replaceSecureFile(root writeRoot, name string, value []byte) (bool, error) {
+func writeSecureFileWithPostimage(root writeRoot, name string, value []byte) (credentialFileSnapshot, error) {
+	preimage, err := captureOptionalSecureFile(root, name)
+	if err != nil {
+		return credentialFileSnapshot{}, err
+	}
+	return writeSecureFileFromPreimage(root, name, preimage, value)
+}
+
+func writeSecureFileFromPreimage(root writeRoot, name string, preimage credentialFileSnapshot, value []byte) (credentialFileSnapshot, error) {
+	defer clear(preimage.value)
+	postimage, committed, err := replaceSecureFile(root, name, value)
+	if err == nil {
+		return postimage, err
+	}
+	if !committed {
+		clear(postimage.value)
+		return credentialFileSnapshot{}, err
+	}
+	rollbackErr := restoreSecureFile(root, name, preimage, postimage, err)
+	clear(postimage.value)
+	return credentialFileSnapshot{}, rollbackErr
+}
+
+func replaceSecureFile(root writeRoot, name string, value []byte) (credentialFileSnapshot, bool, error) {
 	temporaryName := ".token-" + rand.Text()
 	temporary, err := root.OpenFile(temporaryName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		return false, err
+		return credentialFileSnapshot{}, false, err
 	}
 	closed := false
 	defer func() {
@@ -133,19 +152,24 @@ func replaceSecureFile(root writeRoot, name string, value []byte) (bool, error) 
 	}()
 	defer func() { _ = root.Remove(temporaryName) }()
 	if err := writeAndSync(temporary, value); err != nil {
-		return false, err
+		return credentialFileSnapshot{}, false, err
+	}
+	info, err := temporary.Stat()
+	if err != nil {
+		return credentialFileSnapshot{}, false, err
 	}
 	if err := temporary.Close(); err != nil {
-		return false, err
+		return credentialFileSnapshot{}, false, err
 	}
 	closed = true
 	if err := root.Rename(temporaryName, name); err != nil {
-		return false, err
+		return credentialFileSnapshot{}, false, err
 	}
+	postimage := credentialFileSnapshot{value: append([]byte(nil), value...), identity: identifyFile(info), exists: true}
 	if err := syncRoot(root); err != nil {
-		return true, err
+		return postimage, true, err
 	}
-	return true, nil
+	return postimage, true, nil
 }
 
 func deleteSecureFile(root writeRoot, name string) error {
@@ -166,6 +190,43 @@ func deleteSecureFile(root writeRoot, name string) error {
 	return nil
 }
 
+func deleteSecureFileIf(root writeRoot, name string, expected credentialFileSnapshot) error {
+	current, err := captureOptionalSecureFile(root, name)
+	if err != nil {
+		return err
+	}
+	defer clear(current.value)
+	if !sameCredentialFileSnapshot(current, expected) {
+		return errors.New("secret backend selection changed; refusing to remove newer state")
+	}
+	if err := root.Remove(name); err != nil {
+		return err
+	}
+	if err := syncRoot(root); err != nil {
+		return restoreSecureFile(root, name, current, credentialFileSnapshot{}, err)
+	}
+	return nil
+}
+
+func secureFileExists(root writeRoot, name string) (bool, error) {
+	info, err := root.Lstat(name)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("inspect Token file: %w", err)
+	}
+	if err := validateOwnedFile(info); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func validateOptionalOwnedFile(root writeRoot, name string) error {
+	_, err := secureFileExists(root, name)
+	return err
+}
+
 func captureOptionalSecureFile(root writeRoot, name string) (credentialFileSnapshot, error) {
 	info, err := root.Lstat(name)
 	if errors.Is(err, os.ErrNotExist) {
@@ -181,7 +242,7 @@ func captureOptionalSecureFile(root writeRoot, name string) (credentialFileSnaps
 	if err != nil {
 		return credentialFileSnapshot{}, err
 	}
-	return credentialFileSnapshot{value: value, exists: true}, nil
+	return credentialFileSnapshot{value: value, identity: identifyFile(info), exists: true}, nil
 }
 
 func restoreSecureFile(root writeRoot, name string, preimage, postimage credentialFileSnapshot, cause error) error {
@@ -202,15 +263,36 @@ func restoreSecureFile(root writeRoot, name string, preimage, postimage credenti
 		}
 		return cause
 	}
-	if _, err := replaceSecureFile(root, name, preimage.value); err != nil {
+	restored, _, err := replaceSecureFile(root, name, preimage.value)
+	clear(restored.value)
+	if err != nil {
 		return fmt.Errorf("%w; restore previous Token: %v", cause, err)
 	}
 	return cause
 }
 
 func sameCredentialFileSnapshot(left, right credentialFileSnapshot) bool {
-	return left.exists == right.exists &&
-		(!left.exists || subtle.ConstantTimeCompare(left.value, right.value) == 1)
+	if left.exists != right.exists {
+		return false
+	}
+	if !left.exists {
+		return true
+	}
+	if subtle.ConstantTimeCompare(left.value, right.value) != 1 {
+		return false
+	}
+	if right.identity.info == nil {
+		return true
+	}
+	return left.identity.info != nil &&
+		os.SameFile(left.identity.info, right.identity.info) &&
+		left.identity.mode == right.identity.mode &&
+		left.identity.size == right.identity.size &&
+		left.identity.modified == right.identity.modified
+}
+
+func identifyFile(info os.FileInfo) fileIdentity {
+	return fileIdentity{info: info, size: info.Size(), mode: info.Mode(), modified: info.ModTime().UnixNano()}
 }
 
 func writeAndSync(target syncWriter, value []byte) error {
@@ -231,4 +313,4 @@ func syncRoot(root interface {
 	return syncDirectory(directory)
 }
 
-func syncDirectory(directory syncer) error { return directory.Sync() }
+func syncDirectory(directory syncer) error { return syncCredentialDirectory(directory) }

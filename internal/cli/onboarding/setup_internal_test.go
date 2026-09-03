@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	surfaceidentity "aigw-cli/internal/surface"
 )
 
 type scriptedSecretStore struct {
@@ -347,6 +349,34 @@ func TestWriteAndRollbackSetupCredentialsBranches(t *testing.T) {
 		}
 	})
 
+	t.Run("preserve a removed postimage", func(t *testing.T) {
+		store := &scriptedSecretStore{
+			values: map[string]string{"new": "new-value"},
+			onGet: func(store *scriptedSecretStore, account string) {
+				delete(store.values, account)
+			},
+		}
+		err := rollbackSetupCredentials(invocation.Context{Secrets: store}, credentials, []int{1})
+		if err == nil || !strings.Contains(err.Error(), "credential postimage changed") {
+			t.Fatalf("error = %v", err)
+		}
+		if secretExists(t, store, "new") {
+			t.Fatal("rollback recreated a removed credential")
+		}
+	})
+
+	t.Run("surface an observation failure", func(t *testing.T) {
+		want := errors.New("credential observation failed")
+		store := &scriptedSecretStore{values: map[string]string{"new": "new-value"}, getErr: want}
+		err := rollbackSetupCredentials(invocation.Context{Secrets: store}, credentials, []int{1})
+		if !errors.Is(err, want) || !strings.Contains(err.Error(), "observe Token") {
+			t.Fatalf("error = %v, want observation failure", err)
+		}
+		if store.values["new"] != "new-value" {
+			t.Fatalf("credential = %q, want unchanged postimage", store.values["new"])
+		}
+	})
+
 	t.Run("delete rollback error", func(t *testing.T) {
 		want := errors.New("delete failed")
 		store := &scriptedSecretStore{values: map[string]string{"new": "new-value"}, deleteErrors: map[string]error{"new": want}}
@@ -355,6 +385,103 @@ func TestWriteAndRollbackSetupCredentialsBranches(t *testing.T) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
+}
+
+func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "configuration.toml")
+	store := &scriptedSecretStore{
+		values: map[string]string{},
+		onGet: func(store *scriptedSecretStore, account string) {
+			if store.getCalls == 2 {
+				delete(store.values, account)
+			}
+		},
+	}
+	runtime := invocation.Context{
+		Executable: filepath.Join(t.TempDir(), "aigw"),
+		Config:     configuration.NewStore(configPath),
+		Secrets:    store,
+		Discovery:  setupDiscovery{},
+		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
+			if err := os.Mkdir(configPath, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
+		}),
+		In:        strings.NewReader("token\n"),
+		Out:       io.Discard,
+		RenderOut: io.Discard,
+	}
+	request := Request{Account: "team", Profile: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: configuration.ClientClaude, Model: "claude-test", TokenStdin: true}
+
+	err := runSetup(context.Background(), runtime, request)
+	if err == nil || !strings.Contains(err.Error(), "client configuration failed") || !strings.Contains(err.Error(), "credential rollback also failed") || !strings.Contains(err.Error(), "credential postimage changed") {
+		t.Fatalf("error = %v, want configuration failure with rollback drift", err)
+	}
+	if secretExists(t, store, "team") {
+		t.Fatal("rollback recreated a credential removed before compensation")
+	}
+}
+
+func TestManifestSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "configuration.toml")
+	manifestPath := filepath.Join(t.TempDir(), "team.toml")
+	manifest := `version = 4
+[recommended_routes]
+codex = "gpt"
+
+[accounts.team]
+label = "Team"
+[accounts.team.endpoints]
+openai_responses = "https://team.test/v1"
+
+[profiles.gpt]
+label = "GPT"
+account = "team"
+client = "codex"
+model = "gpt-test"
+`
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := &scriptedSecretStore{
+		values: map[string]string{},
+		onGet: func(store *scriptedSecretStore, account string) {
+			delete(store.values, account)
+		},
+	}
+	runtime := invocation.Context{
+		Executable: filepath.Join(t.TempDir(), "aigw"),
+		Config:     configuration.NewStore(configPath),
+		Secrets:    store,
+		Discovery: setupDiscovery{result: discovery.Result{
+			Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
+			Surfaces: []discovery.Surface{{
+				ID:          string(surfaceidentity.CodexHomeDefault),
+				Authority:   string(surfaceidentity.AuthorityAIGW),
+				ConfigPath:  filepath.Join(t.TempDir(), "codex", "configuration.toml"),
+				Present:     true,
+				AutoManaged: true,
+			}},
+		}},
+		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
+			if err := os.Mkdir(configPath, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
+		}),
+		In:        strings.NewReader("token\n"),
+		Out:       io.Discard,
+		RenderOut: io.Discard,
+	}
+
+	err := runManifestSetup(context.Background(), runtime, Request{From: manifestPath, Account: "team", TokenStdin: true})
+	if err == nil || !strings.Contains(err.Error(), "configuration setup failed") || !strings.Contains(err.Error(), "credential rollback also failed") || !strings.Contains(err.Error(), "credential postimage changed") {
+		t.Fatalf("error = %v, want configuration failure with rollback drift", err)
+	}
+	if secretExists(t, store, "team") {
+		t.Fatal("rollback recreated a credential removed before compensation")
+	}
 }
 
 func TestBackendSelectionCompensationReportsTheOperationAndRollbackFailures(t *testing.T) {

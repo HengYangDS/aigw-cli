@@ -5,22 +5,33 @@
 AIGW SHALL expose the selected credential backend, its availability, and its
 read/write capability without disclosing or retrieving credential values.
 Automatic selection SHALL be deterministic for the installation and SHALL NOT
-silently cross-read another backend.
+silently cross-read another backend. Read-only observation and credential reads
+SHALL NOT persist a previously unrecorded automatic selection; the first
+credential mutation SHALL persist it before changing credential state.
 
 #### Scenario: Native credential storage is usable
 
-- **WHEN** the supported platform's native credential service passes a bounded
-  non-interactive capability probe
-- **THEN** automatic selection records that native backend
+- **WHEN** a credential mutation follows a bounded non-interactive capability
+  probe that admits the supported platform's native credential service
+- **THEN** automatic selection records that native backend before changing the
+  credential
 - **AND** later commands reuse it without opening an access prompt merely to
   test presence.
 
 #### Scenario: Native credential storage is unavailable
 
-- **WHEN** automatic selection proves the native service unavailable
-- **THEN** AIGW selects the declared platform-safe fallback or reports that no
-  writable backend is available
+- **WHEN** automatic selection proves the native service unavailable during a
+  credential mutation
+- **THEN** AIGW records the declared platform-safe fallback before changing the
+  credential, or reports that no writable backend is available
 - **AND** the result names the exact recovery action without repeated prompts.
+
+#### Scenario: Read-only access resolves an unrecorded backend
+
+- **WHEN** a read-only command or credential read resolves an automatic backend
+  that has not yet been persisted
+- **THEN** it may use that backend for the current invocation
+- **AND** the backend-selection state remains absent.
 
 #### Scenario: Environment credentials are selected
 

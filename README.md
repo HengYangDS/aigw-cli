@@ -143,8 +143,9 @@ Interactive users do not need environment variables. Without an override,
 AIGW first proves that the platform credential service is usable. If it is
 not, AIGW selects one platform-local fallback beneath the AIGW data directory:
 an owner-only store on macOS and Linux, or a Windows DPAPI-protected store.
-The automatic choice is persisted; AIGW never searches multiple stores for the
-same Token.
+The first credential mutation persists the automatic choice before changing a
+Token. Read-only commands and credential reads do not create selection state;
+AIGW never searches multiple stores for the same Token.
 
 Use these variables only for explicit automation or a deliberately selected
 backend:

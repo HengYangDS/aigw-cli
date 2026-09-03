@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/transaction"
 )
 
 const Service = "AIGW_TOKEN"
@@ -66,7 +65,7 @@ type automaticStore struct {
 	selectedBackend    string
 	selectionPersisted bool
 	selectionWrites    uint64
-	selectionPostimage transaction.FileSnapshot
+	selectionPostimage credentialFileSnapshot
 }
 
 // PrepareBackendSelectionRollback captures the automatic backend selection
@@ -95,12 +94,12 @@ func PrepareBackendSelectionRollback(store Store) (func() error, error) {
 		if automatic.selectionWrites == preparedWrites {
 			return nil
 		}
-		selectionPath := filepath.Join(automatic.selection.Root, "backend")
-		if err := transaction.RestoreFileAtomicIfPostimage(selectionPath, transaction.FileSnapshot{}, automatic.selectionPostimage); err != nil {
+		if err := automatic.choice.Rollback(automatic.selectionPostimage); err != nil {
 			return fmt.Errorf("restore automatic credential backend selection: %w", err)
 		}
 		automatic.selectionPersisted = false
 		automatic.selectionWrites = preparedWrites
+		automatic.selectionPostimage = credentialFileSnapshot{}
 		return nil
 	}, nil
 }
@@ -185,15 +184,12 @@ func (store *automaticStore) Get(profile string) (string, error) {
 }
 
 func (store *automaticStore) get(kind Kind, profile string) (string, error) {
-	selected, err := store.resolve(false)
+	selected, err := store.resolve()
 	if err != nil {
 		return "", err
 	}
 	value, err := selected.get(kind, profile)
 	if err != nil {
-		return "", err
-	}
-	if err := store.persistSelection(); err != nil {
 		return "", err
 	}
 	return value, nil
@@ -207,11 +203,9 @@ func (store *automaticStore) set(kind Kind, profile, value string) error {
 	if err := validate(profile, value, true); err != nil {
 		return err
 	}
-	selected, err := store.resolve(true)
-	if err != nil {
-		return err
-	}
-	return selected.set(kind, profile, value)
+	return store.mutate(func(selected typedStore) error {
+		return selected.set(kind, profile, value)
+	})
 }
 
 func (store *automaticStore) Delete(profile string) error {
@@ -222,11 +216,9 @@ func (store *automaticStore) delete(kind Kind, profile string) error {
 	if err := validate(profile, "", false); err != nil {
 		return err
 	}
-	selected, err := store.resolve(true)
-	if err != nil {
-		return err
-	}
-	return selected.delete(kind, profile)
+	return store.mutate(func(selected typedStore) error {
+		return selected.delete(kind, profile)
+	})
 }
 
 func (store *automaticStore) Exists(profile string) (bool, error) {
@@ -234,25 +226,21 @@ func (store *automaticStore) Exists(profile string) (bool, error) {
 }
 
 func (store *automaticStore) exists(kind Kind, profile string) (bool, error) {
-	selected, err := store.resolve(false)
+	selected, err := store.resolve()
 	if err != nil {
 		return false, err
 	}
 	return selected.exists(kind, profile)
 }
 
-func (store *automaticStore) resolve(persist bool) (typedStore, error) {
+func (store *automaticStore) resolve() (typedStore, error) {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
+	return store.resolveLocked()
+}
+
+func (store *automaticStore) resolveLocked() (typedStore, error) {
 	if store.selected != nil {
-		if persist && !store.selectionPersisted {
-			if err := store.choice.Write(store.selectedBackend); err != nil {
-				return nil, err
-			}
-			store.selectionPersisted = true
-			store.selectionWrites++
-			store.selectionPostimage = transaction.ExactModeWritePostimage([]byte(store.selectedBackend+"\n"), 0o600)
-		}
 		return requireTypedStore(store.selected)
 	}
 	backend, err := store.choice.Read()
@@ -275,22 +263,40 @@ func (store *automaticStore) resolve(persist bool) (typedStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	if persist && !persisted {
-		if err := store.choice.Write(backend); err != nil {
-			return nil, err
-		}
-		persisted = true
-		store.selectionWrites++
-		store.selectionPostimage = transaction.ExactModeWritePostimage([]byte(backend+"\n"), 0o600)
-	}
 	store.selected = selected
 	store.selectedBackend = backend
 	store.selectionPersisted = persisted
 	return requireTypedStore(selected)
 }
 
+func (store *automaticStore) mutate(operation func(typedStore) error) error {
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+	selected, err := store.resolveLocked()
+	if err != nil {
+		return err
+	}
+	wroteSelection, err := store.persistSelectionLocked()
+	if err != nil {
+		return err
+	}
+	if err := operation(selected); err != nil {
+		if !wroteSelection {
+			return err
+		}
+		if rollbackErr := store.choice.Rollback(store.selectionPostimage); rollbackErr != nil {
+			return errors.Join(err, fmt.Errorf("restore automatic credential backend selection: %w", rollbackErr))
+		}
+		store.selectionPersisted = false
+		store.selectionWrites--
+		store.selectionPostimage = credentialFileSnapshot{}
+		return err
+	}
+	return nil
+}
+
 func (store *automaticStore) inspectBackend() (BackendSelection, error) {
-	selected, err := store.resolve(false)
+	selected, err := store.resolve()
 	if err != nil {
 		return unavailableBackendSelection(), err
 	}
@@ -350,19 +356,20 @@ func requireTypedStore(store Store) (typedStore, error) {
 	return typed, nil
 }
 
-func (store *automaticStore) persistSelection() error {
-	store.mutex.Lock()
-	defer store.mutex.Unlock()
+func (store *automaticStore) persistSelectionLocked() (bool, error) {
 	if store.selectionPersisted {
-		return nil
+		return false, nil
 	}
-	if err := store.choice.Write(store.selectedBackend); err != nil {
-		return err
+	postimage, written, err := store.choice.Persist(store.selectedBackend)
+	if err != nil {
+		return false, err
 	}
 	store.selectionPersisted = true
-	store.selectionWrites++
-	store.selectionPostimage = transaction.ExactModeWritePostimage([]byte(store.selectedBackend+"\n"), 0o600)
-	return nil
+	if written {
+		store.selectionWrites++
+		store.selectionPostimage = postimage
+	}
+	return written, nil
 }
 
 func probeKeyring(store Store, probe func(Store) error) error {
