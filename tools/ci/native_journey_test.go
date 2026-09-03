@@ -34,6 +34,12 @@ func TestNativeProductJourney(t *testing.T) {
 
 	t.Run("delayed token and client activation", func(t *testing.T) {
 		journey := newNativeJourney(t, artifact, server.URL+"/v1", false)
+		if runtime.GOOS == "linux" {
+			journey.setEnvironment(
+				"DBUS_SESSION_BUS_ADDRESS",
+				"unix:path="+filepath.Join(journey.root, "missing-session-bus.sock"),
+			)
+		}
 		journey.run("setup", "--from", journey.manifest)
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 		journey.requireNoClaudeProjection()
@@ -48,7 +54,17 @@ func TestNativeProductJourney(t *testing.T) {
 		}
 		journey.run("sync")
 		journey.requireClaudeProjection()
+		journey.requireCredentialBackend("native-journey-token", secrets.BackendSelection{
+			Kind:         "env",
+			Availability: "available",
+			Mutability:   "read_only",
+			Persistence:  "explicit",
+		})
+		if got := strings.TrimSpace(string(journey.run("credential", "claude"))); got != "native-journey-token" {
+			t.Fatalf("credential = %q", got)
+		}
 		journey.run("check")
+		journey.run("verify", "--for", "claude")
 		journey.uninstallAndRequireOwnedFilesAbsent()
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 	})
