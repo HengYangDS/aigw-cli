@@ -63,6 +63,33 @@ func (s Store) CaptureSnapshot() (Snapshot, error) {
 	return Snapshot{Config: configSnapshot, Backup: backupSnapshot}, nil
 }
 
+// Commit saves one configuration and returns the exact postimage needed for a
+// guarded rollback. If postimage observation fails, it restores the prepared
+// preimage before returning the error.
+func (s Store) Commit(before Snapshot, cfg Config) (Snapshot, error) {
+	data, err := encodeConfig(cfg)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	backupAfter := before.Backup
+	if before.Config.Exists {
+		backupAfter, err = writeConfigurationFileIfUnchanged(s.path+".bak", before.Backup, before.Config.Data, 0o600)
+		if err != nil {
+			return Snapshot{}, fmt.Errorf("back up current config: %w", err)
+		}
+	}
+	configAfter, err := writeConfigurationFileIfUnchanged(s.path, before.Config, data, 0o600)
+	if err == nil {
+		return Snapshot{Config: configAfter, Backup: backupAfter}, nil
+	}
+	if before.Config.Exists {
+		if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, backupAfter); restoreErr != nil {
+			return Snapshot{}, fmt.Errorf("write config: %w; restore config backup: %v", err, restoreErr)
+		}
+	}
+	return Snapshot{}, fmt.Errorf("write config: %w", err)
+}
+
 func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
 	configSnapshot, err := transaction.CaptureFileSnapshot(s.path)
 	if err != nil {
@@ -169,26 +196,26 @@ func (s Store) Load() (Config, error) {
 }
 
 func (s Store) Save(cfg Config) error {
+	before, err := s.CaptureSnapshot()
+	if err != nil {
+		return fmt.Errorf("capture current config: %w", err)
+	}
+	_, err = s.Commit(before, cfg)
+	return err
+}
+
+var writeConfigurationFileIfUnchanged = transaction.WriteFileAtomicExactModeIfUnchanged
+
+func encodeConfig(cfg Config) ([]byte, error) {
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("refuse invalid config: %w", err)
+		return nil, fmt.Errorf("refuse invalid config: %w", err)
 	}
 	data, err := toml.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("encode config: %w", err)
+		return nil, fmt.Errorf("encode config: %w", err)
 	}
-	data = separateTOMLTableBlocks(data)
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {
-		return fmt.Errorf("create config directory: %w", err)
-	}
-	if current, err := os.ReadFile(s.path); err == nil {
-		if err := transaction.WriteFileAtomicExactMode(s.path+".bak", current, 0o600); err != nil {
-			return fmt.Errorf("back up current config: %w", err)
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("read current config for backup: %w", err)
-	}
-	return transaction.WriteFileAtomicExactMode(s.path, data, 0o600)
+	return separateTOMLTableBlocks(data), nil
 }
 
 // separateTOMLTableBlocks inserts exactly one separator before each generated

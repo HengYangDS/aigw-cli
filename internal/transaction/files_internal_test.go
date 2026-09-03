@@ -142,7 +142,7 @@ func TestGuardedWriteSurfacesDeterministicWriteError(t *testing.T) {
 		t.Fatal(err)
 	}
 	write := func(string, []byte, os.FileMode) error { return errors.New("write failure") }
-	if _, err := writeFileAtomicIfUnchanged(path, expected, []byte("desired"), 0o600, write); err == nil || !strings.Contains(err.Error(), "write failure") {
+	if _, err := writeFileAtomicIfUnchanged(path, expected, []byte("desired"), 0o600, false, write); err == nil || !strings.Contains(err.Error(), "write failure") {
 		t.Fatalf("writeFileAtomicIfUnchanged() error = %v, want write failure", err)
 	}
 }

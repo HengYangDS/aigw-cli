@@ -63,6 +63,13 @@ func (s *configStoreStub) Save(cfg configuration.Config) error {
 	return s.saveErr
 }
 
+func (s *configStoreStub) Commit(_ configuration.Snapshot, cfg configuration.Config) (configuration.Snapshot, error) {
+	if err := s.Save(cfg); err != nil {
+		return configuration.Snapshot{}, err
+	}
+	return s.CaptureSnapshot()
+}
+
 func (s *configStoreStub) RestoreSnapshot(before, after configuration.Snapshot) error {
 	s.restored = append(s.restored, [2]configuration.Snapshot{before, after})
 	return s.restoreErr

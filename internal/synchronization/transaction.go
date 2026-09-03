@@ -25,10 +25,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 	if err != nil {
 		return err
 	}
-	if err := s.Config.Save(after); err != nil {
-		return err
-	}
-	configAfter, err := s.Config.CaptureSnapshot()
+	configAfter, err := s.Config.Commit(configBefore, after)
 	if err != nil {
 		return err
 	}

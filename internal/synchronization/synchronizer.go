@@ -23,7 +23,7 @@ type Runner interface {
 // behavior.
 type ConfigStore interface {
 	CaptureSnapshot() (configuration.Snapshot, error)
-	Save(configuration.Config) error
+	Commit(configuration.Snapshot, configuration.Config) (configuration.Snapshot, error)
 	RestoreSnapshot(configuration.Snapshot, configuration.Snapshot) error
 }
 

@@ -5,8 +5,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/transaction"
 )
 
 func TestPathReturnsConfiguredPath(t *testing.T) {
@@ -254,15 +257,48 @@ func TestSaveSurfacesBackupWriteFailures(t *testing.T) {
 	if err := os.Mkdir(path+".bak", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Save(convergenceConfig("current")); err == nil || !strings.Contains(err.Error(), "back up current config") {
+	if err := store.Save(convergenceConfig("current")); err == nil || !strings.Contains(err.Error(), "capture current config") {
 		t.Fatalf("backup write failure error = %v", err)
 	}
 }
 
 func TestSaveSurfacesUnderlyingCurrentReadErrors(t *testing.T) {
 	path := t.TempDir()
-	if err := NewStore(path).Save(convergenceConfig("current")); err == nil || !strings.Contains(err.Error(), "read current config for backup") {
+	if err := NewStore(path).Save(convergenceConfig("current")); err == nil || !strings.Contains(err.Error(), "capture current config") {
 		t.Fatalf("Save(directory) error = %v", err)
+	}
+}
+
+func TestCommitRestoresPreparedSnapshotWhenPostimageCaptureFails(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path)
+	if err := store.Save(convergenceConfig("old")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalWrite := writeConfigurationFileIfUnchanged
+	t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
+	writes := 0
+	writeConfigurationFileIfUnchanged = func(target string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+		writes++
+		if writes == 2 {
+			return transaction.FileSnapshot{}, errors.New("write config failed")
+		}
+		return originalWrite(target, expected, data, mode)
+	}
+	result, err := store.Commit(before, convergenceConfig("current"))
+	if err == nil || !strings.Contains(err.Error(), "write config") {
+		t.Fatalf("Commit() = %#v, %v; want config write failure", result, err)
+	}
+	after, captureErr := store.CaptureSnapshot()
+	if captureErr != nil {
+		t.Fatal(captureErr)
+	}
+	if !reflect.DeepEqual(after, before) {
+		t.Fatalf("snapshot after failed commit = %#v, want %#v", after, before)
 	}
 }
 

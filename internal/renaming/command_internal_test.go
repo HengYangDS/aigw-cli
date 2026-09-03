@@ -24,6 +24,9 @@ func (store failingRenameConfigStore) CaptureSnapshot() (configuration.Snapshot,
 	return configuration.Snapshot{}, store.err
 }
 func (failingRenameConfigStore) Save(configuration.Config) error { return nil }
+func (store failingRenameConfigStore) Commit(before configuration.Snapshot, _ configuration.Config) (configuration.Snapshot, error) {
+	return before, store.err
+}
 func (failingRenameConfigStore) RestoreSnapshot(configuration.Snapshot, configuration.Snapshot) error {
 	return nil
 }
