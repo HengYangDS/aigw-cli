@@ -30,7 +30,7 @@
 
 ## 4. Credential portability and safety
 
-- [ ] 4.1 Define one inspectable backend-selection result containing backend kind, availability, mutability, persistence, and recovery action without secret material.
+- [x] 4.1 Define one inspectable backend-selection result containing backend kind, availability, mutability, persistence, and recovery action without secret material.
 - [ ] 4.2 Prove automatic native backend selection and value-free observation on macOS Keychain without an access prompt.
 - [ ] 4.3 Prove Linux Secret Service selection on a real user bus and deterministic secure-file fallback when the bus is unavailable.
 - [ ] 4.4 Prove Windows Credential Manager selection, metadata observation, persistence, replacement, and deletion from a native Windows build.

@@ -18,9 +18,10 @@ import (
 )
 
 type commandResult struct {
-	Checks  []Check                           `json:"checks"`
-	Clients map[string]domainreadiness.Client `json:"clients"`
-	OK      bool                              `json:"ok"`
+	CredentialBackend secrets.BackendSelection          `json:"credential_backend"`
+	Checks            []Check                           `json:"checks"`
+	Clients           map[string]domainreadiness.Client `json:"clients"`
+	OK                bool                              `json:"ok"`
 }
 
 func executeDoctorCommand(command *cobra.Command) error {
@@ -120,6 +121,7 @@ func TestHumanFormattingBranches(t *testing.T) {
 	labels := map[string]string{
 		"environment:client-token": "Client token environment",
 		"config":                   "Local configuration",
+		"credential:backend":       "Credential backend",
 		"secret:team":              "System secret",
 		"adapter:claude":           "Claude adapter",
 		"adapter:codex":            "Codex adapter",
@@ -141,6 +143,7 @@ func TestHumanFormattingBranches(t *testing.T) {
 		{Check{Name: "config", Detail: "valid"}, "Configuration is valid"},
 		{Check{Name: "config", Detail: "not configured"}, "First-time setup is incomplete"},
 		{Check{Name: "config", Detail: "read config: denied"}, "Cannot read or validate configuration"},
+		{Check{Name: "credential:backend"}, "Credential storage is unavailable"},
 		{Check{Name: "secret:team", OK: true}, "team · available"},
 		{Check{Name: "secret:team"}, "team · missing"},
 		{Check{Name: "adapter:claude", OK: true, Detail: "enabled"}, "Enabled"},
@@ -159,8 +162,9 @@ func TestHumanFormattingBranches(t *testing.T) {
 		t.Fatalf("generic run fix = %q", got)
 	}
 	for raw, want := range map[string]string{
-		"run `aigw setup`":                             "aigw setup",
-		"run `aigw repair`":                            "aigw repair",
+		"aigw doctor":       "aigw doctor",
+		"run `aigw setup`":  "aigw setup",
+		"run `aigw repair`": "aigw repair",
 		"run `aigw sync` to reconcile this target":     "aigw sync",
 		"remove them from the parent environment; now": "Remove the variables above from the parent environment that launched this terminal",
 		"inspect or restore /private/configuration":    "Inspect or restore the local configuration file",
@@ -353,6 +357,61 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	cmd.SetArgs([]string{"unexpected"})
 	if err := executeDoctorCommand(cmd); err == nil {
 		t.Fatal("doctor accepted a positional argument")
+	}
+}
+
+func TestCommandJSONExposesTheCanonicalCredentialBackendSelection(t *testing.T) {
+	cfg := validDoctorConfig()
+	deps, _, _ := doctorDependencies(t, cfg)
+	root := filepath.Join(t.TempDir(), "secrets")
+	store, err := secrets.Select(secrets.Selection{
+		GOOS:         runtime.GOOS,
+		Root:         root,
+		KeyringProbe: func(secrets.Store) error { return errors.New("service unavailable") },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps.Secrets = store
+
+	result := executeJSON(t, deps)
+	want := secrets.BackendSelection{
+		Kind:         "file",
+		Availability: "available",
+		Mutability:   "read_write",
+		Persistence:  "deferred",
+	}
+	if result.CredentialBackend != want {
+		t.Fatalf("credential backend = %#v, want %#v", result.CredentialBackend, want)
+	}
+	if _, err := os.Stat(filepath.Join(root, "backend")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("doctor persisted automatic selection: %v", err)
+	}
+}
+
+func TestCommandJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
+	cfg := validDoctorConfig()
+	deps, _, _ := doctorDependencies(t, cfg)
+	root := filepath.Join(t.TempDir(), "secrets")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "backend"), []byte("retired\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := secrets.Select(secrets.Selection{GOOS: runtime.GOOS, Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps.Secrets = store
+
+	result := executeJSON(t, deps)
+	if result.CredentialBackend.Availability != "unavailable" || result.CredentialBackend.RecoveryAction != "aigw doctor" {
+		t.Fatalf("credential backend = %#v", result.CredentialBackend)
+	}
+	check := findCheck(t, result.Checks, "credential:backend")
+	if check.OK || check.Fix != "aigw doctor" || !strings.Contains(check.Detail, "invalid persisted") {
+		t.Fatalf("credential backend check = %#v", check)
 	}
 }
 

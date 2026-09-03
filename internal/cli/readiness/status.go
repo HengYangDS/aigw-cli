@@ -15,6 +15,7 @@ import (
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
+	"aigw-cli/internal/secrets"
 	"github.com/spf13/cobra"
 )
 
@@ -36,10 +37,11 @@ type endpointTestResult struct {
 }
 
 type statusOutput struct {
-	ConfigPath string                            `json:"config_path"`
-	Clients    map[string]domainreadiness.Client `json:"clients"`
-	Routes     map[string]routeStatus            `json:"routes"`
-	Profiles   int                               `json:"profiles"`
+	ConfigPath        string                            `json:"config_path"`
+	CredentialBackend secrets.BackendSelection          `json:"credential_backend"`
+	Clients           map[string]domainreadiness.Client `json:"clients"`
+	Routes            map[string]routeStatus            `json:"routes"`
+	Profiles          int                               `json:"profiles"`
 }
 
 var (
@@ -160,12 +162,22 @@ func InspectClients(runtime invocation.Context, cfg configuration.Config) map[st
 }
 
 func collectStatus(runtime invocation.Context, cfg configuration.Config) statusOutput {
+	backend, backendErr := secrets.Inspect(runtime.Secrets)
+	if backendErr != nil {
+		backend.RecoveryAction = domainreadiness.CredentialBackendRecovery
+	}
 	routes := inspectStatusClients(runtime, cfg)
 	clients := make(map[string]domainreadiness.Client, len(routes))
 	for client, route := range routes {
 		clients[client] = route.Client
 	}
-	return statusOutput{ConfigPath: runtime.Config.Path(), Clients: clients, Profiles: len(cfg.Profiles), Routes: routes}
+	return statusOutput{
+		ConfigPath:        runtime.Config.Path(),
+		CredentialBackend: backend,
+		Clients:           clients,
+		Profiles:          len(cfg.Profiles),
+		Routes:            routes,
+	}
 }
 
 // CodexAuthenticationProven returns true only when Codex's public read-only

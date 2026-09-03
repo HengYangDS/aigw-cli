@@ -42,6 +42,21 @@ type Selection struct {
 	KeyringProbe func(Store) error
 }
 
+// BackendSelection is a secret-free observation of the one credential
+// backend selected for this invocation. Persistence describes how the
+// selection itself is retained, not whether credential values are durable.
+type BackendSelection struct {
+	Kind           string `json:"kind"`
+	Availability   string `json:"availability"`
+	Mutability     string `json:"mutability"`
+	Persistence    string `json:"persistence"`
+	RecoveryAction string `json:"recovery_action"`
+}
+
+type backendInspector interface {
+	inspectBackend() (BackendSelection, error)
+}
+
 type automaticStore struct {
 	selection          Selection
 	choice             backendChoice
@@ -54,6 +69,26 @@ type automaticStore struct {
 func IsReadOnly(store Store) bool {
 	reporter, ok := store.(interface{ ReadOnly() bool })
 	return ok && reporter.ReadOnly()
+}
+
+// Inspect reports backend capability without reading credential values or
+// persisting an automatic selection.
+func Inspect(store Store) (BackendSelection, error) {
+	if store == nil {
+		err := errors.New("credential backend is unavailable")
+		return unavailableBackendSelection(), err
+	}
+	if inspector, ok := store.(backendInspector); ok {
+		return inspector.inspectBackend()
+	}
+	if view, ok := store.(scopedView); ok {
+		return Inspect(view.store)
+	}
+	persistence := "explicit"
+	if _, ok := store.(*MemoryStore); ok {
+		persistence = "ephemeral"
+	}
+	return availableBackendSelection(backendKind(store), IsReadOnly(store), persistence), nil
 }
 
 func IsNotFound(err error) bool { return errors.Is(err, ErrNotFound) }
@@ -209,6 +244,59 @@ func (store *automaticStore) resolve(persist bool) (typedStore, error) {
 	store.selectedBackend = backend
 	store.selectionPersisted = persisted
 	return requireTypedStore(selected)
+}
+
+func (store *automaticStore) inspectBackend() (BackendSelection, error) {
+	selected, err := store.resolve(false)
+	if err != nil {
+		return unavailableBackendSelection(), err
+	}
+	store.mutex.Lock()
+	backend := store.selectedBackend
+	persistence := "deferred"
+	if store.selectionPersisted {
+		persistence = "persisted"
+	}
+	store.mutex.Unlock()
+	return availableBackendSelection(backend, IsReadOnly(selected), persistence), nil
+}
+
+func backendKind(store Store) string {
+	switch store.(type) {
+	case KeyringStore:
+		return "keyring"
+	case EnvironmentStore:
+		return "env"
+	case *fileStore:
+		return "file"
+	case *MemoryStore:
+		return "memory"
+	default:
+		return "unknown"
+	}
+}
+
+func availableBackendSelection(kind string, readOnly bool, persistence string) BackendSelection {
+	mutability := "read_write"
+	if readOnly {
+		mutability = "read_only"
+	}
+	return BackendSelection{
+		Kind:         kind,
+		Availability: "available",
+		Mutability:   mutability,
+		Persistence:  persistence,
+	}
+}
+
+func unavailableBackendSelection() BackendSelection {
+	return BackendSelection{
+		Kind:           "unknown",
+		Availability:   "unavailable",
+		Mutability:     "unknown",
+		Persistence:    "unknown",
+		RecoveryAction: "aigw doctor",
+	}
 }
 
 func requireTypedStore(store Store) (typedStore, error) {

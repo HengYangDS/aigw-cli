@@ -3,6 +3,7 @@ package readiness
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -216,6 +217,78 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	badRuntime := invocation.Context{Config: configuration.NewStore(badPath), Out: io.Discard}
 	if err := RunStatus(badRuntime, false); err == nil {
 		t.Fatal("malformed configuration was accepted")
+	}
+}
+
+func TestStatusJSONExposesAutomaticCredentialBackendWithoutPersistingSelection(t *testing.T) {
+	runtime, _ := configuredReadinessRuntime(t)
+	root := filepath.Join(t.TempDir(), "secrets")
+	store, err := secrets.Select(secrets.Selection{
+		GOOS:         goruntime.GOOS,
+		Root:         root,
+		KeyringProbe: func(secrets.Store) error { return errors.New("service unavailable") },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime.Secrets = store
+
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		CredentialBackend secrets.BackendSelection `json:"credential_backend"`
+	}
+	if err := json.Unmarshal([]byte(output(runtime)), &result); err != nil {
+		t.Fatal(err)
+	}
+	want := secrets.BackendSelection{
+		Kind:         "file",
+		Availability: "available",
+		Mutability:   "read_write",
+		Persistence:  "deferred",
+	}
+	if result.CredentialBackend != want {
+		t.Fatalf("credential backend = %#v, want %#v", result.CredentialBackend, want)
+	}
+	if _, err := os.Stat(filepath.Join(root, "backend")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("status persisted automatic selection: %v", err)
+	}
+}
+
+func TestStatusJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
+	runtime, _ := configuredReadinessRuntime(t)
+	root := filepath.Join(t.TempDir(), "secrets")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "backend"), []byte("retired\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := secrets.Select(secrets.Selection{GOOS: goruntime.GOOS, Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime.Secrets = store
+
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		CredentialBackend secrets.BackendSelection `json:"credential_backend"`
+	}
+	if err := json.Unmarshal([]byte(output(runtime)), &result); err != nil {
+		t.Fatal(err)
+	}
+	want := secrets.BackendSelection{
+		Kind:           "unknown",
+		Availability:   "unavailable",
+		Mutability:     "unknown",
+		Persistence:    "unknown",
+		RecoveryAction: domainreadiness.CredentialBackendRecovery,
+	}
+	if result.CredentialBackend != want {
+		t.Fatalf("credential backend = %#v, want %#v", result.CredentialBackend, want)
 	}
 }
 

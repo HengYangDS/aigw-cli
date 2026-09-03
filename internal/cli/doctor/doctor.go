@@ -52,10 +52,23 @@ func NewCommand(deps Dependencies) *cobra.Command {
 		Short: "Show detailed diagnostics for configuration, secrets, and adapters",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
+			credentialBackend, backendErr := secrets.Inspect(deps.Secrets)
 			checks := Collect(deps)
+			if backendErr != nil {
+				checks = append([]Check{{
+					Name:   "credential:backend",
+					Detail: "credential backend is unavailable: " + backendErr.Error(),
+					Fix:    credentialBackend.RecoveryAction,
+				}}, checks...)
+			}
 			clients := inspectClients(deps)
 			if jsonMode {
-				result := map[string]any{"checks": checks, "clients": clients, "ok": AllOK(checks)}
+				result := map[string]any{
+					"checks":             checks,
+					"clients":            clients,
+					"credential_backend": credentialBackend,
+					"ok":                 AllOK(checks),
+				}
 				enc := json.NewEncoder(deps.Out)
 				enc.SetIndent("", "  ")
 				return enc.Encode(result)
@@ -235,6 +248,8 @@ func Label(name string) string {
 		return "Client token environment"
 	case name == "config":
 		return "Local configuration"
+	case name == "credential:backend":
+		return "Credential backend"
 	case strings.HasPrefix(name, "secret:"):
 		return "System secret"
 	case name == "adapter:claude":
@@ -270,6 +285,8 @@ func Detail(check Check) string {
 			return "First-time setup is incomplete"
 		}
 		return "Cannot read or validate configuration"
+	case name == "credential:backend":
+		return "Credential storage is unavailable"
 	case strings.HasPrefix(name, "secret:"):
 		account := strings.TrimPrefix(name, "secret:")
 		if check.OK {
@@ -310,6 +327,8 @@ func doctorTitle(value string) string {
 // Fix returns a safe actionable command without exposing local paths.
 func Fix(check Check) string {
 	switch check.Fix {
+	case "aigw doctor":
+		return "aigw doctor"
 	case "run `aigw setup`":
 		return "aigw setup"
 	case "run `aigw repair`":
