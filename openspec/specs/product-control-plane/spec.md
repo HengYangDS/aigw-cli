@@ -120,7 +120,7 @@ diagnosed only through its declared protocol when that Route is activated.
 - **THEN** it SHALL project its marked selection into that shared `config.toml`
   without editing application-managed history or GUI state.
 
-#### Scenario: Codex uses the selected Proxy
+#### Scenario: Codex uses the selected endpoint
 
 - **WHEN** an Account selects an implementation-neutral Responses endpoint
 - **THEN** AIGW SHALL treat it as an ordinary endpoint
@@ -487,8 +487,8 @@ adapter.
 
 - **WHEN** Hermes or another agent supporting third-party LLM APIs is proposed
 - **THEN** admission SHALL require only that agent's adapter, declaration, and
-  fixtures and SHALL NOT change provider policy, Proxy behavior, command roots,
-  or an existing adapter
+  fixtures and SHALL NOT change provider policy, external-gateway behavior,
+  command roots, or an existing adapter
 
 #### Scenario: Codex CLI and Desktop share one home
 
@@ -499,10 +499,10 @@ adapter.
 ### Requirement: Independent product composition
 
 AIGW SHALL treat every valid Account endpoint as an endpoint choice, whether it
-is a direct provider HTTPS endpoint or an independently operated gateway such
-as Codex Responses Proxy. AIGW MUST NOT import, invoke, install, configure,
-diagnose, reload, uninstall, or roll back that gateway, and the gateway MUST
-NOT acquire AIGW state.
+is a direct provider HTTPS endpoint or an independently operated gateway. AIGW
+MUST NOT identify, import, invoke, install, configure, diagnose, reload,
+uninstall, or roll back the product behind that endpoint, and the external
+gateway MUST NOT acquire AIGW state.
 
 #### Scenario: An Account selects direct HTTPS
 
@@ -517,7 +517,7 @@ NOT acquire AIGW state.
 - **THEN** AIGW SHALL treat it only as an external endpoint without product,
   fixed-port, path, or lifecycle assumptions
 
-#### Scenario: Governed Codex deployment uses the Proxy
+#### Scenario: Governed Codex deployment uses an external gateway
 
 - **WHEN** a governed deployment selects gateway endpoints for one or more
   Codex Profiles
@@ -534,12 +534,12 @@ NOT acquire AIGW state.
 
 ### Requirement: Foreign applications remain independent
 
-AIGW and Proxy SHALL NOT depend on, discover, configure, align, verify, repair,
-or control foreign applications or their private runtime state.
+AIGW SHALL NOT depend on, discover, configure, align, verify, repair, or control
+foreign applications or their private runtime state.
 
 #### Scenario: A foreign application is installed
 
-- **WHEN** AIGW or Proxy runs on a machine with unrelated applications
+- **WHEN** AIGW runs on a machine with unrelated applications
 - **THEN** product behavior and acceptance SHALL remain independent of those
   applications, their configuration, sessions, caches, and runtime
 
@@ -893,7 +893,7 @@ owned lifecycle residue after uninstall.
 
 - **WHEN** native acceptance exercises update, rollback, forward recovery, or uninstall
 - **THEN** it SHALL invoke the public AIGW command for that transition
-- **AND** SHALL NOT substitute a package-level helper, platform-specific script state machine, Forge API, or external Proxy lifecycle.
+- **AND** SHALL NOT substitute a package-level helper, platform-specific script state machine, Forge API, or external-gateway lifecycle.
 
 ### Requirement: Composable extension boundary
 

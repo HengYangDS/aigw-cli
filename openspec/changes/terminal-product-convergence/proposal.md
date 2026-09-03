@@ -23,9 +23,9 @@ extensions reduce rather than compound accidental complexity.
 - Keep credential storage portable and intentional: native stores are used only
   when available, environment credentials remain an explicit read-only mode,
   and ordinary observation never opens a prompt or reads secret values.
-- Preserve AIGW as a narrow control plane. External gateways, including Codex
-  Responses Proxy, are ordinary optional endpoints; AIGW does not import,
-  install, supervise, or encode the lifecycle of another product.
+- Preserve AIGW as a narrow control plane. External gateways are ordinary
+  optional endpoints; AIGW neither identifies nor owns the product behind an
+  endpoint and does not import, install, supervise, or encode its lifecycle.
 - Establish low-cost Provider and client extension contracts whose ordinary
   path is declarative metadata plus a narrow adapter and conformance tests, not
   core branching or copied workflows.
@@ -91,5 +91,5 @@ credential-backend selection, package boundaries, repository paths, CI jobs,
 release metadata, and documentation links. Existing working installations stay
 untouched until a candidate has passed source, native-platform, released-binary,
 upgrade, rollback, uninstall, credential, and real-client acceptance. No change
-may make Proxy, a Forge, a particular Provider, or a currently installed client
-an AIGW runtime dependency.
+may make an external gateway, a Forge, a particular Provider, or a currently
+installed client an AIGW runtime dependency.

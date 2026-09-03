@@ -47,8 +47,8 @@
 - [x] 5.4 Prove missing Codex, missing Claude, later installation, changed executable path, multiple Codex homes, malformed user configuration, and foreign managed-state conflicts.
 - [x] 5.5 Prove client projection preparation is complete before writes and multi-target failure compensates only unchanged AIGW-owned postimages.
 - [x] 5.6 Make disable and uninstall remove only AIGW-owned blocks, sidecars, helpers, checkpoints, and command projections while preserving all neighboring user state.
-- [ ] 5.7 Prove direct HTTPS and an explicit loopback compatibility endpoint are ordinary interchangeable Account choices.
-- [ ] 5.8 Delete every Proxy name, port, install path, lifecycle action, or implicit dependency from AIGW source, team manifests, tests, and docs unless it appears solely as a neutral composition example.
+- [x] 5.7 Prove direct HTTPS and an explicit loopback compatibility endpoint are ordinary interchangeable Account choices.
+- [x] 5.8 Delete every external-gateway product name, fixed port, install path, lifecycle action, or implicit dependency from AIGW source, team manifests, tests, and docs; retain only implementation-neutral composition semantics.
 
 ## 6. Provider and future-client extension
 
@@ -110,7 +110,7 @@
 
 - [ ] 11.1 Derive documentation information architecture from audiences and journeys: evaluation, installation, first setup, daily selection, synchronization, credentials, troubleshooting, extension, contribution, release, and governance.
 - [ ] 11.2 Make every directory index purposeful, remove empty or redirect-only README files, and ensure internal concepts, commands, decisions, evidence, and stable external standards use valid descriptive links.
-- [ ] 11.3 Rewrite setup, team manifest, credential backend, client-later-installation, direct endpoint, optional Proxy composition, recovery, and uninstall journeys in precise natural language.
+- [ ] 11.3 Rewrite setup, team manifest, credential backend, client-later-installation, direct endpoint, optional external-gateway composition, recovery, and uninstall journeys in precise natural language.
 - [ ] 11.4 Generate CLI reference from the command surface or verify it against source; audit every command name, default, option, exit code, JSON field, error, and next action for narrow semantics.
 - [ ] 11.5 Normalize configuration, tables, ordering, headings, examples, terminology, compounds, and visual hierarchy across code, schemas, manifests, docs, help, and generated projections.
 - [ ] 11.6 Replace toy manifests with one reviewed directly consumable team profile while keeping credentials out of version control and documenting safe local overrides.

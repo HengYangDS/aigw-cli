@@ -167,7 +167,6 @@ recovery remains outside AIGW.
 An Account endpoint may be direct HTTPS or an explicit loopback URL. The
 endpoint value is operator input. AIGW does not infer provider behavior from an
 Account name, manage the listener, or duplicate its retry and concurrency
-policy. Codex Responses Proxy and general gateways therefore have the same AIGW
-relationship: either can be selected explicitly, neither is installed or
-required by AIGW, and removing either does not change AIGW's configuration
-model.
+policy. Every external gateway therefore has the same AIGW relationship: it may
+be selected explicitly, is neither installed nor required by AIGW, and may be
+removed without changing AIGW's configuration model.

@@ -25,8 +25,8 @@ Route, or the presence of an external compatibility product.
 
 - **WHEN** no local compatibility service is installed
 - **THEN** AIGW remains usable with any configured native HTTPS endpoint
-- **AND** no Proxy-specific file, process, service, port, or lifecycle state is
-  required.
+- **AND** no external-gateway file, process, service, port, or lifecycle state
+  is required.
 
 ### Requirement: Extension preserves the control-plane core
 

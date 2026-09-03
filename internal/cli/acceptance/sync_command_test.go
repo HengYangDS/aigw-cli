@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"maps"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -89,6 +90,66 @@ func TestSyncReconcilesCodexConfigWithoutRebindingCredentials(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {
 		t.Fatalf("sync did not reconcile Codex config:\n%s", data)
+	}
+}
+
+func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryAccountChoices(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+	}{
+		{name: "direct HTTPS", endpoint: "https://provider.test/v1"},
+		{name: "explicit loopback", endpoint: "http://127.0.0.1:48721/v1"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app, out, secretStore, runner := testApp(t, "")
+			target := filepath.Join(t.TempDir(), "configuration.toml")
+			if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			cfg := configuration.NewConfig()
+			addAccountProfile(&cfg, "codex", "provider", "Provider", configuration.Endpoints{OpenAIResponses: test.endpoint}, configuration.ClientCodex, "gpt-test")
+			cfg.Routes[configuration.ClientCodex] = "codex"
+			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{target}}
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := secretStore.Set("provider", "test-token"); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := execute(t, app, "sync"); err != nil {
+				t.Fatalf("sync: %v", err)
+			}
+			projection, err := os.ReadFile(target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(projection), `base_url = "`+test.endpoint+`"`) {
+				t.Fatalf("projection does not contain selected Account endpoint:\n%s", projection)
+			}
+			if len(runner.plans) != 0 {
+				t.Fatalf("sync started an external process: %#v", runner.plans)
+			}
+
+			var requestURL string
+			app.HTTP.(*fakeHTTP).handler = func(request *http.Request) (*http.Response, error) {
+				requestURL = request.URL.String()
+				return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody, Request: request}, nil
+			}
+			out.Reset()
+			if err := execute(t, app, "check"); err != nil {
+				t.Fatalf("check: %v\n%s", err, out.String())
+			}
+			if want := strings.TrimRight(test.endpoint, "/") + "/models"; requestURL != want {
+				t.Fatalf("diagnostic URL = %q, want %q", requestURL, want)
+			}
+			if len(runner.plans) != 0 {
+				t.Fatalf("check started an external process: %#v", runner.plans)
+			}
+		})
 	}
 }
 

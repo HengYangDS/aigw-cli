@@ -81,14 +81,15 @@ Alternative considered: search native, file, and environment stores on every
 read. Rejected because it creates several authorities, unpredictable prompts,
 and platform-dependent results.
 
-### Proxy and every other gateway remain ordinary endpoints
+### External gateways remain ordinary endpoints
 
-AIGW may project any admitted HTTP endpoint. It does not name, install, inspect,
-start, stop, update, or uninstall Codex Responses Proxy. A team manifest carries
-the real upstream endpoint chosen by the team; selecting a local Proxy is an
-operator-owned Account choice, not an AIGW default.
+AIGW may project any admitted HTTP endpoint. It neither identifies nor owns the
+product behind an endpoint and does not install, inspect, start, stop, update,
+or uninstall it. A team manifest carries the endpoint chosen by the team;
+selecting a loopback gateway is an operator-owned Account choice, not an AIGW
+default.
 
-Alternative considered: bundle or automatically configure Proxy. Rejected
+Alternative considered: bundle or automatically configure an external gateway. Rejected
 because it violates the control-plane/data-plane boundary and prevents each
 product from being useful independently.
 
