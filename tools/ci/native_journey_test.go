@@ -81,13 +81,35 @@ func TestNativeProductJourney(t *testing.T) {
 			journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
 			journey.enableSystemCredentialStore()
 			store := secrets.NewKeyringStore()
+			const token = "native-system-keyring-token"
 			t.Cleanup(func() {
 				if err := store.Delete("native-system-keyring-probe"); err != nil {
 					t.Errorf("clean system credential store: %v", err)
 				}
 			})
-			journey.runInput("native-system-keyring-token\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
-			if got := strings.TrimSpace(string(journey.run("credential", "claude"))); got != "native-system-keyring-token" {
+			journey.runInput(token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
+			for _, command := range [][]string{{"status", "--json"}, {"doctor", "--json"}} {
+				output := journey.run(command...)
+				if bytes.Contains(output, []byte(token)) {
+					t.Fatalf("%s disclosed the system credential", strings.Join(command, " "))
+				}
+				var result struct {
+					CredentialBackend secrets.BackendSelection `json:"credential_backend"`
+				}
+				if err := json.Unmarshal(output, &result); err != nil {
+					t.Fatalf("decode %s: %v", strings.Join(command, " "), err)
+				}
+				want := secrets.BackendSelection{
+					Kind:         "keyring",
+					Availability: "available",
+					Mutability:   "read_write",
+					Persistence:  "persisted",
+				}
+				if result.CredentialBackend != want {
+					t.Fatalf("%s credential backend = %#v, want %#v", strings.Join(command, " "), result.CredentialBackend, want)
+				}
+			}
+			if got := strings.TrimSpace(string(journey.run("credential", "claude"))); got != token {
 				t.Fatalf("credential = %q", got)
 			}
 			if err := store.Delete("native-system-keyring-probe"); err != nil {
