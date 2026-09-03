@@ -8,11 +8,11 @@
 
 ## 2. Natural setup and activation journey
 
-- [ ] 2.1 Add RED acceptance for importing the reviewed team manifest with no Tokens and no clients; require successful capability import and precise deferred actions.
-- [ ] 2.2 Add RED acceptance for setup with exactly one available Account Token from each supported backend; require unrelated Accounts to remain optional.
-- [ ] 2.3 Add RED acceptance for one installed client, both installed clients, and neither client; require activation only where Token, Route, and client capability intersect.
-- [ ] 2.4 Remove any setup validation, prompt, or loop that treats every manifest Account or both clients as mandatory.
-- [ ] 2.5 Make setup human and JSON results distinguish imported Accounts and Profiles, connected Accounts, selected Routes, projected clients, and deferred continuations.
+- [x] 2.1 Add RED acceptance for importing the reviewed team manifest with no Tokens and no clients; require successful capability import and precise deferred actions.
+- [x] 2.2 Prove through the setup Store contract that exactly one available Account Token is sufficient, and compose that evidence with each supported backend's conformance and native-platform proof; require unrelated Accounts to remain optional without making setup tests touch host credentials.
+- [x] 2.3 Add RED acceptance for one installed client, both installed clients, and neither client; require activation only where Token, Route, and client capability intersect.
+- [x] 2.4 Remove any setup validation, prompt, or loop that treats every manifest Account or both clients as mandatory.
+- [x] 2.5 Make setup human and JSON results distinguish imported Accounts and Profiles, connected Accounts, selected Routes, projected clients, and deferred continuations.
 - [x] 2.6 Prove setup failure before commit leaves configuration, credential slots, client files, and checkpoints byte-identical.
 - [x] 2.7 Prove setup commit failure compensates every AIGW-owned write and retains no temporary file, lock, partial credential, or projection.
 

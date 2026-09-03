@@ -14,23 +14,18 @@ import (
 	"strings"
 )
 
-type manifestSetupCatalogue struct {
-	Accounts int `json:"accounts"`
-	Profiles int `json:"profiles"`
-}
-
-type manifestSetupAccount struct {
-	ID        string `json:"id"`
-	Connected bool   `json:"connected"`
+type manifestSetupImported struct {
+	Accounts []string `json:"accounts"`
+	Profiles []string `json:"profiles"`
 }
 
 type manifestSetupResult struct {
-	Catalogue  manifestSetupCatalogue `json:"catalogue"`
-	Accounts   []manifestSetupAccount `json:"accounts"`
-	Routes     map[string]string      `json:"routes"`
-	Clients    map[string]string      `json:"clients"`
-	Deferred   []string               `json:"deferred,omitempty"`
-	NextAction string                 `json:"next_action"`
+	Imported          manifestSetupImported `json:"imported"`
+	ConnectedAccounts []string              `json:"connected_accounts"`
+	SelectedRoutes    map[string]string     `json:"selected_routes"`
+	ProjectedClients  []string              `json:"projected_clients"`
+	DeferredActions   []string              `json:"deferred_actions,omitempty"`
+	NextAction        string                `json:"next_action"`
 }
 
 func runManifestSetup(ctx context.Context, runtime invocation.Context, request Request) (resultErr error) {
@@ -135,7 +130,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	for _, client := range configuration.AdmittedClientIDs() {
 		availableClients[client] = discovered.Executable(client) != ""
 	}
-	result := buildManifestSetupResult(runtime, manifest, cfg, accountNames, connected, availableClients, selectedClients)
+	result := buildManifestSetupResult(runtime, cfg, accountNames, connected, availableClients, selectedClients)
 	if request.JSON {
 		encoder := json.NewEncoder(runtime.Out)
 		encoder.SetIndent("", "  ")
@@ -147,7 +142,6 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 
 func buildManifestSetupResult(
 	runtime invocation.Context,
-	manifest configuration.Manifest,
 	cfg configuration.Config,
 	accountNames []string,
 	connected map[string]setupCredential,
@@ -155,27 +149,21 @@ func buildManifestSetupResult(
 	selectedClients []string,
 ) manifestSetupResult {
 	result := manifestSetupResult{
-		Catalogue: manifestSetupCatalogue{Accounts: len(accountNames), Profiles: len(manifest.Profiles)},
-		Accounts:  make([]manifestSetupAccount, 0, len(accountNames)),
-		Routes:    make(map[string]string, len(cfg.Routes)),
-		Clients:   make(map[string]string, len(configuration.AdmittedClientIDs())),
+		Imported: manifestSetupImported{
+			Accounts: append([]string(nil), accountNames...),
+			Profiles: cfg.ProfileIDs(),
+		},
+		ConnectedAccounts: make([]string, 0, len(connected)),
+		SelectedRoutes:    make(map[string]string, len(cfg.Routes)),
+		ProjectedClients:  append([]string(nil), selectedClients...),
 	}
 	for _, name := range accountNames {
-		_, isConnected := connected[name]
-		result.Accounts = append(result.Accounts, manifestSetupAccount{ID: name, Connected: isConnected})
+		if _, isConnected := connected[name]; isConnected {
+			result.ConnectedAccounts = append(result.ConnectedAccounts, name)
+		}
 	}
 	for client, profile := range cfg.Routes {
-		result.Routes[client] = profile
-	}
-	for _, spec := range configuration.AdmittedClientSpecs() {
-		switch {
-		case cfg.Adapters[spec.ID].Enabled:
-			result.Clients[spec.ID] = "configured"
-		case !availableClients[spec.ID]:
-			result.Clients[spec.ID] = "not_installed"
-		default:
-			result.Clients[spec.ID] = "waiting_for_account"
-		}
+		result.SelectedRoutes[client] = profile
 	}
 	switch {
 	case len(connected) == 0:
@@ -184,16 +172,28 @@ func buildManifestSetupResult(
 			for _, accountName := range accountNames {
 				keys = append(keys, secrets.EnvironmentKey(accountName))
 			}
-			result.Deferred = append(result.Deferred, "Set one compatible Account variable: "+strings.Join(keys, " or "))
+			result.DeferredActions = append(result.DeferredActions, "Set one compatible Account variable: "+strings.Join(keys, " or "))
 			result.NextAction = "aigw sync"
 		} else {
+			result.DeferredActions = append(result.DeferredActions, "Connect one compatible Account")
 			result.NextAction = "aigw rotate <account>"
 		}
-	case len(selectedClients) == 0:
-		result.Deferred = append(result.Deferred, "After installing Claude Code or Codex, run `aigw sync`")
-		result.NextAction = "aigw sync"
 	default:
-		result.NextAction = "aigw check"
+		if len(selectedClients) == len(configuration.AdmittedClientIDs()) {
+			result.NextAction = "aigw check"
+		} else {
+			result.NextAction = "aigw sync"
+		}
+	}
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if containsClient(selectedClients, spec.ID) {
+			continue
+		}
+		if !availableClients[spec.ID] {
+			result.DeferredActions = append(result.DeferredActions, "Install "+spec.Label+", then run `aigw sync`")
+			continue
+		}
+		result.DeferredActions = append(result.DeferredActions, "Connect an Account compatible with "+spec.Label+", then run `aigw sync`")
 	}
 	return result
 }
@@ -201,37 +201,37 @@ func buildManifestSetupResult(
 func renderManifestSetupResult(runtime invocation.Context, result manifestSetupResult) {
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("Configuration catalogue imported")
-	r.Section("Team catalogue")
-	r.Row("Accounts", fmt.Sprintf("%d", result.Catalogue.Accounts))
-	r.Row("Model profiles", fmt.Sprintf("%d", result.Catalogue.Profiles))
-	connectedCount := 0
-	for _, account := range result.Accounts {
-		if account.Connected {
-			connectedCount++
-		}
-	}
-	r.Row("Connected accounts", fmt.Sprintf("%d of %d", connectedCount, result.Catalogue.Accounts))
-	r.Section("Accounts")
-	for _, account := range result.Accounts {
-		if account.Connected {
-			r.Status(presentation.OK, account.ID, "Connected")
+	r.Section("Imported capability")
+	r.Row("Accounts", strings.Join(result.Imported.Accounts, ", "))
+	r.Row("Profiles", strings.Join(result.Imported.Profiles, ", "))
+	r.Row("Connected accounts", fmt.Sprintf("%d of %d", len(result.ConnectedAccounts), len(result.Imported.Accounts)))
+	r.Section("Account connections")
+	for _, account := range result.Imported.Accounts {
+		if containsClient(result.ConnectedAccounts, account) {
+			r.Status(presentation.OK, account, "Connected")
 		} else {
-			r.Status(presentation.Info, account.ID, "Not connected")
+			r.Status(presentation.Info, account, "Deferred")
 		}
 	}
-	r.Section("Clients")
+	r.Section("Selected routes")
 	for _, spec := range configuration.AdmittedClientSpecs() {
-		switch result.Clients[spec.ID] {
-		case "configured":
-			r.Status(presentation.OK, spec.Label, "Configured")
-		case "not_installed":
-			r.Status(presentation.Info, spec.Label, "Not installed")
-		default:
-			r.Status(presentation.Info, spec.Label, "Installed · connect a compatible Account to configure")
+		profile, selected := result.SelectedRoutes[spec.ID]
+		if !selected {
+			r.Status(presentation.Info, spec.Label, "Deferred")
+			continue
 		}
+		r.Status(presentation.OK, spec.Label, profile)
+	}
+	r.Section("Projected clients")
+	if len(result.ProjectedClients) == 0 {
+		r.Status(presentation.Info, "None", "Deferred")
+	}
+	for _, client := range result.ProjectedClients {
+		spec, _ := configuration.ClientSpecFor(client)
+		r.Status(presentation.OK, spec.Label, "Projected")
 	}
 	r.Success("Reviewed Accounts and Profiles are available; Tokens remain outside configuration")
-	for _, detail := range result.Deferred {
+	for _, detail := range result.DeferredActions {
 		r.Detail(detail)
 	}
 	r.Next(result.NextAction)

@@ -177,7 +177,16 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 	if len(cfg.Adapters) != 0 || len(runner.plans) != 0 {
 		t.Fatalf("catalogue import activated absent clients: adapters=%#v plans=%#v", cfg.Adapters, runner.plans)
 	}
-	for _, want := range []string{"Configuration catalogue imported", "Connected accounts", "0 of 2", "Clients", "Not installed", "aigw rotate <account>"} {
+	for _, want := range []string{
+		"Configuration catalogue imported",
+		"Imported capability",
+		"Connected accounts",
+		"0 of 2",
+		"Selected routes",
+		"Projected clients",
+		"Connect one compatible Account",
+		"aigw rotate <account>",
+	} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output missing %q:\n%s", want, out.String())
 		}
@@ -193,43 +202,136 @@ func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *test
 		t.Fatal(err)
 	}
 	var result struct {
-		Catalogue struct {
-			Accounts int `json:"accounts"`
-			Profiles int `json:"profiles"`
-		} `json:"catalogue"`
-		Accounts []struct {
-			ID        string `json:"id"`
-			Connected bool   `json:"connected"`
-		} `json:"accounts"`
-		Routes     map[string]string `json:"routes"`
-		Clients    map[string]string `json:"clients"`
-		Deferred   []string          `json:"deferred"`
-		NextAction string            `json:"next_action"`
+		Imported struct {
+			Accounts []string `json:"accounts"`
+			Profiles []string `json:"profiles"`
+		} `json:"imported"`
+		ConnectedAccounts []string          `json:"connected_accounts"`
+		SelectedRoutes    map[string]string `json:"selected_routes"`
+		ProjectedClients  []string          `json:"projected_clients"`
+		DeferredActions   []string          `json:"deferred_actions"`
+		NextAction        string            `json:"next_action"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
 	}
-	if result.Catalogue.Accounts != 2 || result.Catalogue.Profiles != 3 || len(result.Accounts) != 2 {
+	if !slices.Equal(result.Imported.Accounts, []string{"aihubmix", "dmxapi"}) ||
+		!slices.Equal(result.Imported.Profiles, []string{"aihubmix-claude", "dmxapi-claude", "dmxapi-gpt"}) ||
+		len(result.ConnectedAccounts) != 0 {
 		t.Fatalf("setup JSON catalogue state = %#v", result)
 	}
-	for _, account := range result.Accounts {
-		if account.Connected {
-			t.Fatalf("setup JSON unexpectedly connected Account %#v", account)
-		}
+	if result.SelectedRoutes[configuration.ClientClaude] != "aihubmix-claude" || result.SelectedRoutes[configuration.ClientCodex] != "dmxapi-gpt" {
+		t.Fatalf("setup JSON routes = %#v", result.SelectedRoutes)
 	}
-	if result.Routes[configuration.ClientClaude] != "aihubmix-claude" || result.Routes[configuration.ClientCodex] != "dmxapi-gpt" {
-		t.Fatalf("setup JSON routes = %#v", result.Routes)
+	if len(result.ProjectedClients) != 0 {
+		t.Fatalf("setup JSON projected clients = %#v", result.ProjectedClients)
 	}
-	if result.Clients[configuration.ClientClaude] != "not_installed" || result.Clients[configuration.ClientCodex] != "not_installed" {
-		t.Fatalf("setup JSON clients = %#v", result.Clients)
+	wantDeferred := []string{
+		"Connect one compatible Account",
+		"Install Claude, then run `aigw sync`",
+		"Install Codex, then run `aigw sync`",
 	}
-	if len(result.Deferred) != 0 || result.NextAction != "aigw rotate <account>" {
+	if !slices.Equal(result.DeferredActions, wantDeferred) || result.NextAction != "aigw rotate <account>" {
 		t.Fatalf("setup JSON continuation = %#v", result)
 	}
 	for _, forbidden := range []string{"aigw-test", "token", "secret"} {
 		if strings.Contains(strings.ToLower(out.String()), forbidden) {
 			t.Fatalf("setup JSON exposed credential material %q: %s", forbidden, out.String())
 		}
+	}
+}
+
+func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t *testing.T) {
+	tests := []struct {
+		name      string
+		installed map[string]string
+	}{
+		{name: "neither client", installed: map[string]string{}},
+		{name: "Claude only", installed: map[string]string{configuration.ClientClaude: "/opt/claude"}},
+		{name: "Codex only", installed: map[string]string{configuration.ClientCodex: "/opt/codex"}},
+		{name: "both clients", installed: map[string]string{configuration.ClientClaude: "/opt/claude", configuration.ClientCodex: "/opt/codex"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app, out, _, _ := testApp(t, "")
+			app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
+				if key == secrets.EnvironmentKey("dmxapi") {
+					return "aigw-test-dmxapi-token"
+				}
+				return ""
+			})
+			discovered := discovery.Result{Executables: test.installed}
+			if _, installed := test.installed[configuration.ClientCodex]; installed {
+				target := filepath.Join(t.TempDir(), "codex", "configuration.toml")
+				if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				discovered.Surfaces = []discovery.Surface{{
+					ID:          string(surfaceidentity.CodexHomeDefault),
+					Authority:   string(surfaceidentity.AuthorityAIGW),
+					ConfigPath:  target,
+					Present:     true,
+					AutoManaged: true,
+				}}
+			}
+			app.Discovery = fakeDiscovery{result: discovered}
+			manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
+
+			if err := execute(t, app, "setup", "--from", manifestPath, "--json"); err != nil {
+				t.Fatal(err)
+			}
+			var result struct {
+				SelectedRoutes   map[string]string `json:"selected_routes"`
+				ProjectedClients []string          `json:"projected_clients"`
+			}
+			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+				t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
+			}
+			if result.SelectedRoutes[configuration.ClientClaude] != "dmxapi-claude" || result.SelectedRoutes[configuration.ClientCodex] != "dmxapi-gpt" {
+				t.Fatalf("selected routes = %#v", result.SelectedRoutes)
+			}
+			cfg, err := app.Config.Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, client := range configuration.AdmittedClientIDs() {
+				_, installed := test.installed[client]
+				if cfg.Adapters[client].Enabled != installed {
+					t.Errorf("%s adapter enabled = %v, want %v", client, cfg.Adapters[client].Enabled, installed)
+				}
+				if slices.Contains(result.ProjectedClients, client) != installed {
+					t.Errorf("%s projected = %v, want %v", client, slices.Contains(result.ProjectedClients, client), installed)
+				}
+			}
+		})
+	}
+}
+
+func TestSetupFromConfigurationManifestAcceptsOneConnectedAccount(t *testing.T) {
+	app, out, store, _ := testApp(t, "")
+	if err := store.Set("dmxapi", "aigw-test-dmxapi-token"); err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
+
+	if err := execute(t, app, "setup", "--from", manifestPath, "--json"); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		ConnectedAccounts []string `json:"connected_accounts"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
+	}
+	if !slices.Equal(result.ConnectedAccounts, []string{"dmxapi"}) {
+		t.Fatalf("connected Accounts = %#v", result.ConnectedAccounts)
+	}
+	if secretExists(t, store, "aihubmix") {
+		t.Fatal("setup required an unrelated Account Token")
 	}
 }
 
@@ -270,16 +372,18 @@ func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice
 		t.Fatal(err)
 	}
 	var result struct {
-		Deferred   []string `json:"deferred"`
-		NextAction string   `json:"next_action"`
+		DeferredActions []string `json:"deferred_actions"`
+		NextAction      string   `json:"next_action"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
 	}
 	wantDeferred := []string{
 		"Set one compatible Account variable: " + secrets.EnvironmentKey("aihubmix") + " or " + secrets.EnvironmentKey("dmxapi"),
+		"Install Claude, then run `aigw sync`",
+		"Install Codex, then run `aigw sync`",
 	}
-	if !slices.Equal(result.Deferred, wantDeferred) || result.NextAction != "aigw sync" {
+	if !slices.Equal(result.DeferredActions, wantDeferred) || result.NextAction != "aigw sync" {
 		t.Fatalf("setup JSON continuation = %#v", result)
 	}
 	if strings.Contains(out.String(), "aigw check") {
@@ -297,7 +401,7 @@ func TestSetupFromConfigurationManifestReportsInstalledClientWaitingForAnAccount
 	if err := execute(t, app, "setup", "--from", manifestPath); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Installed · connect a compatible Account to configure") {
+	if !strings.Contains(out.String(), "Connect an Account compatible with Claude, then run `aigw sync`") {
 		t.Fatalf("installed but deferred client is not explained:\n%s", out.String())
 	}
 }
@@ -364,8 +468,30 @@ func TestSetupFromConfigurationManifestConnectsOnlySelectedAccount(t *testing.T)
 	if cfg.Routes[configuration.ClientClaude] != "dmxapi-claude" || cfg.Routes[configuration.ClientCodex] != "dmxapi-gpt" {
 		t.Fatalf("selected Account routes = %#v", cfg.Routes)
 	}
-	if !strings.Contains(fixture.out.String(), "aihubmix") || !strings.Contains(fixture.out.String(), "Not connected") {
+	if !strings.Contains(fixture.out.String(), "aihubmix") || !strings.Contains(fixture.out.String(), "Deferred") {
 		t.Fatalf("deferred Account is not explained:\n%s", fixture.out.String())
+	}
+}
+
+func TestSetupFromConfigurationManifestReportsSelectedRoutesAndProjectedClients(t *testing.T) {
+	fixture := newManifestSetupFixture(t)
+	fixture.prompt.secrets = []string{"aigw-test-dmxapi-token"}
+	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
+
+	if err := execute(t, fixture.app, "setup", "--from", manifestPath, "--account", "dmxapi"); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"Selected routes",
+		"Claude",
+		"dmxapi-claude",
+		"Codex",
+		"dmxapi-gpt",
+		"Projected",
+	} {
+		if !strings.Contains(fixture.out.String(), want) {
+			t.Errorf("setup output missing %q:\n%s", want, fixture.out.String())
+		}
 	}
 }
 
@@ -404,7 +530,7 @@ func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testi
 	if cfg.Routes[configuration.ClientClaude] != "dmxapi-claude" || cfg.Routes[configuration.ClientCodex] != "dmxapi-gpt" {
 		t.Fatalf("available Account did not become usable: %#v", cfg.Routes)
 	}
-	for _, want := range []string{"After installing Claude Code or Codex, run `aigw sync`", "Next", "aigw sync"} {
+	for _, want := range []string{"Install Claude, then run `aigw sync`", "Install Codex, then run `aigw sync`", "Next", "aigw sync"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output missing %q:\n%s", want, out.String())
 		}
