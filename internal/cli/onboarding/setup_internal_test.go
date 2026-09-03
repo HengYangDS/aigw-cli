@@ -24,6 +24,7 @@ type scriptedSecretStore struct {
 	existsErr    error
 	setErrors    map[int]error
 	deleteErrors map[string]error
+	onGet        func(*scriptedSecretStore, string)
 	getCalls     int
 	existsCalls  int
 	setCalls     int
@@ -31,6 +32,9 @@ type scriptedSecretStore struct {
 
 func (store *scriptedSecretStore) Get(name string) (string, error) {
 	store.getCalls++
+	if store.onGet != nil {
+		store.onGet(store, name)
+	}
 	if store.getErr != nil {
 		return "", store.getErr
 	}
@@ -290,6 +294,26 @@ func TestWriteAndRollbackSetupCredentialsBranches(t *testing.T) {
 		_, err := writeSetupCredentials(invocation.Context{Secrets: store}, credentials)
 		if !errors.Is(err, writeErr) || !strings.Contains(err.Error(), "rollback also failed") {
 			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("partial write rollback preserves a newer replacement", func(t *testing.T) {
+		writeErr := errors.New("second write failed")
+		store := &scriptedSecretStore{
+			values:    map[string]string{"old": "old-value"},
+			setErrors: map[int]error{2: writeErr},
+			onGet: func(store *scriptedSecretStore, account string) {
+				if store.getCalls == 1 && account == "old" {
+					store.values[account] = "newer-value"
+				}
+			},
+		}
+		_, err := writeSetupCredentials(invocation.Context{Secrets: store}, credentials)
+		if !errors.Is(err, writeErr) || !strings.Contains(err.Error(), "credential rollback also failed") || !strings.Contains(err.Error(), "credential postimage changed") {
+			t.Fatalf("error = %v", err)
+		}
+		if store.values["old"] != "newer-value" {
+			t.Fatalf("credential = %q, want newer-value", store.values["old"])
 		}
 	})
 
