@@ -50,15 +50,32 @@ type readRootStub struct {
 func (root readRootStub) Lstat(string) (os.FileInfo, error) { return root.info, nil }
 func (root readRootStub) Open(string) (*os.File, error)     { return nil, root.err }
 
-type writeRootStub struct{ file *os.File }
+type writeRootStub struct {
+	file    *os.File
+	openErr error
+}
 
-func (root writeRootStub) OpenFile(string, int, os.FileMode) (*os.File, error) {
+func (root *writeRootStub) OpenFile(string, int, os.FileMode) (*os.File, error) {
 	return root.file, nil
 }
-func (writeRootStub) Remove(string) error         { return nil }
-func (writeRootStub) Rename(string, string) error { return nil }
-func (writeRootStub) Open(string) (*os.File, error) {
-	return nil, errors.New("unexpected directory sync")
+func (*writeRootStub) Lstat(string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+func (*writeRootStub) Remove(string) error               { return nil }
+func (*writeRootStub) Rename(string, string) error       { return nil }
+func (root *writeRootStub) Open(string) (*os.File, error) {
+	return nil, root.openErr
+}
+
+type failingDirectorySyncRoot struct {
+	*os.Root
+	remainingFailures int
+}
+
+func (root *failingDirectorySyncRoot) Open(name string) (*os.File, error) {
+	if name == "." && root.remainingFailures > 0 {
+		root.remainingFailures--
+		return nil, errors.New("directory sync failed")
+	}
+	return root.Root.Open(name)
 }
 
 func TestFileStoreCRUDUsesOwnerOnlyFiles(t *testing.T) {
@@ -396,8 +413,79 @@ func TestSecureFilePropagatesOpenAndWriteFailures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := writeSecureFile(writeRootStub{file: readOnly}, "alpha", []byte("replacement")); err == nil {
+	if err := writeSecureFile(&writeRootStub{file: readOnly, openErr: errors.New("unexpected directory sync")}, "alpha", []byte("replacement")); err == nil {
 		t.Fatal("writeSecureFile() ignored a write failure")
+	}
+}
+
+func TestWriteSecureFileRestoresPreimageWhenDirectorySyncFails(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "secrets")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "alpha")
+	if err := os.WriteFile(path, []byte("old-token"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = opened.Close() }()
+	root := &failingDirectorySyncRoot{Root: opened, remainingFailures: 1}
+	if err := writeSecureFile(root, "alpha", []byte("new-token")); err == nil {
+		t.Fatal("writeSecureFile() ignored a post-rename directory sync failure")
+	}
+	value, err := os.ReadFile(path)
+	if err != nil || string(value) != "old-token" {
+		t.Fatalf("Token after failed replacement = %q, %v; want old-token", value, err)
+	}
+	temporary, err := filepath.Glob(filepath.Join(directory, ".token-*"))
+	if err != nil || len(temporary) != 0 {
+		t.Fatalf("temporary files after failed replacement = %#v, %v", temporary, err)
+	}
+}
+
+func TestWriteSecureFileRemovesCreatedPostimageWhenDirectorySyncFails(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "secrets")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = opened.Close() }()
+	root := &failingDirectorySyncRoot{Root: opened, remainingFailures: 1}
+	if err := writeSecureFile(root, "alpha", []byte("new-token")); err == nil {
+		t.Fatal("writeSecureFile() ignored a post-rename directory sync failure")
+	}
+	if _, err := os.Stat(filepath.Join(directory, "alpha")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("new Token remains after failed write: %v", err)
+	}
+}
+
+func TestDeleteSecureFileRestoresPreimageWhenDirectorySyncFails(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "secrets")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "alpha")
+	if err := os.WriteFile(path, []byte("old-token"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = opened.Close() }()
+	root := &failingDirectorySyncRoot{Root: opened, remainingFailures: 1}
+	if err := deleteSecureFile(root, "alpha"); err == nil {
+		t.Fatal("deleteSecureFile() ignored a post-removal directory sync failure")
+	}
+	value, err := os.ReadFile(path)
+	if err != nil || string(value) != "old-token" {
+		t.Fatalf("Token after failed deletion = %q, %v; want old-token", value, err)
 	}
 }
 

@@ -91,10 +91,10 @@ func (store *fileStore) delete(kind Kind, profile string) error {
 	if err := validateOwnedFile(info); err != nil {
 		return err
 	}
-	if err := root.Remove(name); err != nil {
+	if err := deleteSecureFile(root, name); err != nil {
 		return fmt.Errorf("delete Token file: %w", err)
 	}
-	return syncRoot(root)
+	return nil
 }
 
 func (store *fileStore) Exists(profile string) (bool, error) {

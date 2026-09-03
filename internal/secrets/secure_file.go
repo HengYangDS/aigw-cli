@@ -25,6 +25,7 @@ type readRoot interface {
 }
 
 type writeRoot interface {
+	Lstat(string) (os.FileInfo, error)
 	OpenFile(string, int, os.FileMode) (*os.File, error)
 	Remove(string) error
 	Rename(string, string) error
@@ -100,26 +101,97 @@ func openVerifiedFile(root readRoot, name string, before os.FileInfo) (*os.File,
 }
 
 func writeSecureFile(root writeRoot, name string, value []byte) error {
-	temporaryName := ".token-" + rand.Text()
-	temporary, err := root.OpenFile(temporaryName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	preimage, existed, err := captureOptionalSecureFile(root, name)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = temporary.Close() }()
-	committed := false
+	defer clear(preimage)
+	committed, err := replaceSecureFile(root, name, value)
+	if err == nil || !committed {
+		return err
+	}
+	return restoreSecureFile(root, name, preimage, existed, err)
+}
+
+func replaceSecureFile(root writeRoot, name string, value []byte) (bool, error) {
+	temporaryName := ".token-" + rand.Text()
+	temporary, err := root.OpenFile(temporaryName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return false, err
+	}
+	closed := false
 	defer func() {
-		if !committed {
-			_ = root.Remove(temporaryName)
+		if !closed {
+			_ = temporary.Close()
 		}
 	}()
+	defer func() { _ = root.Remove(temporaryName) }()
 	if err := writeAndSync(temporary, value); err != nil {
-		return err
+		return false, err
 	}
+	if err := temporary.Close(); err != nil {
+		return false, err
+	}
+	closed = true
 	if err := root.Rename(temporaryName, name); err != nil {
+		return false, err
+	}
+	if err := syncRoot(root); err != nil {
+		return true, err
+	}
+	return true, nil
+}
+
+func deleteSecureFile(root writeRoot, name string) error {
+	preimage, existed, err := captureOptionalSecureFile(root, name)
+	if err != nil {
 		return err
 	}
-	committed = true
-	return syncRoot(root)
+	defer clear(preimage)
+	if !existed {
+		return nil
+	}
+	if err := root.Remove(name); err != nil {
+		return err
+	}
+	if err := syncRoot(root); err != nil {
+		return restoreSecureFile(root, name, preimage, true, err)
+	}
+	return nil
+}
+
+func captureOptionalSecureFile(root writeRoot, name string) ([]byte, bool, error) {
+	info, err := root.Lstat(name)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if err := validateOwnedFile(info); err != nil {
+		return nil, false, err
+	}
+	value, err := readSecureFile(root, name)
+	if err != nil {
+		return nil, false, err
+	}
+	return value, true, nil
+}
+
+func restoreSecureFile(root writeRoot, name string, preimage []byte, existed bool, cause error) error {
+	if !existed {
+		if err := root.Remove(name); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%w; remove uncommitted Token: %v", cause, err)
+		}
+		if err := syncRoot(root); err != nil {
+			return fmt.Errorf("%w; sync restored Token state: %v", cause, err)
+		}
+		return cause
+	}
+	if _, err := replaceSecureFile(root, name, preimage); err != nil {
+		return fmt.Errorf("%w; restore previous Token: %v", cause, err)
+	}
+	return cause
 }
 
 func writeAndSync(target syncWriter, value []byte) error {
