@@ -32,7 +32,7 @@
 
 - [x] 4.1 Define one inspectable backend-selection result containing backend kind, availability, mutability, persistence, and recovery action without secret material.
 - [x] 4.2 Prove automatic native backend selection and value-free observation on macOS Keychain without an access prompt.
-- [ ] 4.3 Prove Linux Secret Service selection on a real user bus and deterministic secure-file fallback when the bus is unavailable.
+- [x] 4.3 Prove Linux Secret Service selection on a real user bus and deterministic secure-file fallback when the bus is unavailable.
 - [ ] 4.4 Prove Windows Credential Manager selection, metadata observation, persistence, replacement, and deletion from a native Windows build.
 - [ ] 4.5 Prove explicit environment mode across setup, sync, check, credential helpers, and live verification; require stable operation when no native keyring exists.
 - [ ] 4.6 Ensure API Tokens and Provider diagnostic credentials use distinct typed slots in one selected backend and never cross-read or substitute values.
