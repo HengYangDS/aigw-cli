@@ -39,7 +39,7 @@ func reconcileClientProjections(
 	if err != nil {
 		return err
 	}
-	if !ClaudeProjectionChanged(before, after) {
+	if !claudeProjectionRequired(before, after) {
 		return nil
 	}
 	adapter := after.Adapters[configuration.ClientClaude]
@@ -76,7 +76,7 @@ func (s Synchronizer) Plan(before, after configuration.Config) ([]ProjectionPlan
 	for _, plan := range codexPlans {
 		plans = append(plans, ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: plan.Action})
 	}
-	if !ClaudeProjectionChanged(before, after) {
+	if !claudeProjectionRequired(before, after) {
 		return plans, nil
 	}
 	if s.ClaudeSettingsPath == "" {
@@ -228,4 +228,8 @@ func ClaudeProjectionChanged(before, after configuration.Config) bool {
 	return beforeRuntime.AccountID != afterRuntime.AccountID ||
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
 		beforeRuntime.Model != afterRuntime.Model
+}
+
+func claudeProjectionRequired(before, after configuration.Config) bool {
+	return before.Adapters[configuration.ClientClaude].Enabled || after.Adapters[configuration.ClientClaude].Enabled
 }

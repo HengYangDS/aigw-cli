@@ -221,6 +221,67 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	}
 }
 
+func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
+	app, _, secretStore, runner := testApp(t, "")
+	settingsPath := filepath.Join(t.TempDir(), "settings.json")
+	app.ClaudeSettingsPath = settingsPath
+	claudeExecutable := executableFixture(t, configuration.ClientClaude)
+	oldAIGWExecutable := executableFixture(t, "aigw-old")
+	newAIGWExecutable := executableFixture(t, "aigw-new")
+	app.Executable = oldAIGWExecutable
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{
+		configuration.ClientClaude: claudeExecutable,
+	}}}
+
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "claude", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, configuration.ClientClaude, "claude-team")
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "token-must-not-be-projected"); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatal(err)
+	}
+
+	app.Executable = newAIGWExecutable
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatalf("sync after AIGW moved: %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("sync started a client or credential command: %#v", runner.plans)
+	}
+	after, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !maps.Equal(after.Profiles, cfg.Profiles) || !maps.Equal(after.Routes, cfg.Routes) {
+		t.Fatalf("sync changed Profile or Route authority: profiles=%#v routes=%#v", after.Profiles, after.Routes)
+	}
+	if after.Adapters[configuration.ClientClaude].Executable != claudeExecutable {
+		t.Fatalf("sync changed the Claude executable: %#v", after.Adapters[configuration.ClientClaude])
+	}
+
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var settings struct {
+		APIKeyHelper string `json:"apiKeyHelper"`
+	}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(settings.APIKeyHelper, newAIGWExecutable) || strings.Contains(settings.APIKeyHelper, oldAIGWExecutable) {
+		t.Fatalf("Claude helper did not follow the installed AIGW executable: %q", settings.APIKeyHelper)
+	}
+	if strings.Contains(string(data), "token-must-not-be-projected") {
+		t.Fatalf("Claude settings contain credential material: %s", data)
+	}
+}
+
 func TestSyncDiscoversAndProjectsCodexInstalledAfterSetup(t *testing.T) {
 	app, _, secretStore, runner := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")

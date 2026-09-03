@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -90,6 +91,48 @@ func targetDiscovery(target string) staticDiscovery {
 		ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
 		ConfigPath: target, Present: true, AutoManaged: true,
 	}}}}
+}
+
+func TestResolveExecutableRetainsUnavailablePathWithoutReplacementAndReportsInspectionFailure(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "missing")
+	if got, err := resolveExecutable(configuration.ClientClaude, missing, ""); err != nil || got != missing {
+		t.Fatalf("resolveExecutable(missing, empty) = %q, %v", got, err)
+	}
+	if got, err := resolveExecutable(configuration.ClientClaude, "", ""); err != nil || got != "" {
+		t.Fatalf("resolveExecutable(empty, empty) = %q, %v", got, err)
+	}
+	if runtime.GOOS == "windows" {
+		return
+	}
+	loop := filepath.Join(t.TempDir(), "loop")
+	if err := os.Symlink(loop, loop); err != nil {
+		t.Skipf("symbolic link unavailable: %v", err)
+	}
+	if _, err := resolveExecutable(configuration.ClientClaude, loop, "/replacement/claude"); err == nil || !strings.Contains(err.Error(), "inspect configured claude executable") {
+		t.Fatalf("resolveExecutable(loop) error = %v", err)
+	}
+
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{
+		Anthropic:       "https://gateway.test",
+		OpenAIResponses: "https://gateway.test/v1",
+	}}
+	cfg.Profiles["claude"] = configuration.Profile{Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Profiles["codex"] = configuration.Profile{Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: loop}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: loop, Targets: []string{"/target"}}
+	discovered := discovery.Result{Executables: map[string]string{
+		configuration.ClientClaude: "/replacement/claude",
+		configuration.ClientCodex:  "/replacement/codex",
+	}}
+	if err := (Synchronizer{}).convergeClaude(&cfg, discovered); err == nil || !strings.Contains(err.Error(), "inspect configured claude executable") {
+		t.Fatalf("convergeClaude(loop) error = %v", err)
+	}
+	if err := (Synchronizer{}).convergeCodex(&cfg, discovered); err == nil || !strings.Contains(err.Error(), "inspect configured codex executable") {
+		t.Fatalf("convergeCodex(loop) error = %v", err)
+	}
 }
 
 func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T) {

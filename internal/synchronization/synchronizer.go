@@ -4,6 +4,7 @@ package synchronization
 
 import (
 	"context"
+	"fmt"
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -73,9 +74,9 @@ func (s Synchronizer) convergeClaude(cfg *configuration.Config, discovered disco
 		return nil
 	}
 	adapter := cfg.Adapters[configuration.ClientClaude]
-	executable := adapter.Executable
-	if executable == "" {
-		executable = discovered.Executable(configuration.ClientClaude)
+	executable, err := resolveExecutable(configuration.ClientClaude, adapter.Executable, discovered.Executable(configuration.ClientClaude))
+	if err != nil {
+		return err
 	}
 	available, err := s.secretAvailable(clientRuntime.AccountID)
 	if err != nil {
@@ -94,9 +95,9 @@ func (s Synchronizer) convergeCodex(cfg *configuration.Config, discovered discov
 	}
 	adapter := cfg.Adapters[configuration.ClientCodex]
 	targets := codexTargets(discovered, adapter.Targets)
-	executable := adapter.Executable
-	if executable == "" {
-		executable = discovered.Executable(configuration.ClientCodex)
+	executable, err := resolveExecutable(configuration.ClientCodex, adapter.Executable, discovered.Executable(configuration.ClientCodex))
+	if err != nil {
+		return err
 	}
 	available, err := s.secretAvailable(clientRuntime.AccountID)
 	if err != nil {
@@ -108,6 +109,17 @@ func (s Synchronizer) convergeCodex(cfg *configuration.Config, discovered discov
 		delete(cfg.Adapters, configuration.ClientCodex)
 	}
 	return nil
+}
+
+func resolveExecutable(client, configured, discovered string) (string, error) {
+	available, err := discovery.ExecutableAvailable(configured)
+	if err != nil {
+		return "", fmt.Errorf("inspect configured %s executable: %w", client, err)
+	}
+	if available || discovered == "" {
+		return configured, nil
+	}
+	return discovered, nil
 }
 
 func (s Synchronizer) secretAvailable(accountID string) (bool, error) {
