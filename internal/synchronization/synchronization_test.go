@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/claude"
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -295,6 +296,216 @@ func TestPlanReportsClaudePlanningFailures(t *testing.T) {
 	delete(invalid.Profiles, "claude")
 	if _, err := (Synchronizer{Discovery: staticDiscovery{}, ClaudeSettingsPath: "/settings", AIGWExecutable: "/aigw"}).Plan(before, invalid); err == nil {
 		t.Fatal("invalid enabled Claude runtime was accepted")
+	}
+}
+
+func TestReconcilePreparesEveryClientBeforeWriting(t *testing.T) {
+	dir := t.TempDir()
+	codexTarget := filepath.Join(dir, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(codexTarget), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	originalCodex := []byte("model_provider = \"native\"\n")
+	if err := os.WriteFile(codexTarget, originalCodex, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	claudeSettings := filepath.Join(dir, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(claudeSettings), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(claudeSettings, []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	before := configuration.NewConfig()
+	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
+		Anthropic:       "https://gateway.test",
+		OpenAIResponses: "https://gateway.test/v1",
+	}}
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
+	before.Routes[configuration.ClientClaude] = "claude"
+	before.Routes[configuration.ClientCodex] = "codex"
+	after := before.Clone()
+	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}}
+	syncer := Synchronizer{
+		Discovery:          targetDiscovery(codexTarget),
+		ClaudeSettingsPath: claudeSettings,
+		AIGWExecutable:     "/opt/aigw",
+	}
+
+	err := syncer.Reconcile(context.Background(), before, after)
+	if err == nil || !strings.Contains(err.Error(), "parse Claude settings") {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+	got, readErr := os.ReadFile(codexTarget)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if !bytes.Equal(got, originalCodex) {
+		t.Fatalf("Codex changed before Claude preparation completed:\n%s", got)
+	}
+	for _, path := range []string{codexTarget + ".aigw-state.json", filepath.Join(filepath.Dir(codexTarget), "models.json")} {
+		if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+			t.Fatalf("Codex artifact %s exists after preparation failure: %v", path, statErr)
+		}
+	}
+}
+
+func TestReconcileRollsBackCodexWhenClaudeCommitFails(t *testing.T) {
+	dir := t.TempDir()
+	codexTarget := filepath.Join(dir, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(codexTarget), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	originalCodex := []byte("model_provider = \"native\"\n")
+	if err := os.WriteFile(codexTarget, originalCodex, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	claudeSettings := filepath.Join(dir, ".claude", "settings.json")
+
+	before := configuration.NewConfig()
+	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
+		Anthropic:       "https://gateway.test",
+		OpenAIResponses: "https://gateway.test/v1",
+	}}
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
+	before.Routes[configuration.ClientClaude] = "claude"
+	before.Routes[configuration.ClientCodex] = "codex"
+	after := before.Clone()
+	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}}
+	syncer := Synchronizer{
+		Discovery:          targetDiscovery(codexTarget),
+		ClaudeSettingsPath: claudeSettings,
+		AIGWExecutable:     "/opt/aigw",
+	}
+
+	reconcileClaude := func(string, bool, configuration.Runtime, string) (claude.SettingsReceipt, error) {
+		return claude.SettingsReceipt{}, errors.New("write Claude settings: permission denied")
+	}
+
+	err := reconcileClientProjections(syncer, before, after, codex.ReconcileConfigs, reconcileClaude)
+	if err == nil || !strings.Contains(err.Error(), "Codex was rolled back") {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+	got, readErr := os.ReadFile(codexTarget)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if !bytes.Equal(got, originalCodex) {
+		t.Fatalf("Codex remained changed after Claude failure:\n%s", got)
+	}
+	assertCodexDirectoryRestored(t, filepath.Dir(codexTarget), filepath.Base(codexTarget))
+}
+
+func TestReconcileDoesNotOverwriteConcurrentCodexEditWhenClaudeFails(t *testing.T) {
+	dir := t.TempDir()
+	codexTarget := filepath.Join(dir, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(codexTarget), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	claudeSettings := filepath.Join(dir, ".claude", "settings.json")
+
+	before := configuration.NewConfig()
+	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
+		Anthropic:       "https://gateway.test",
+		OpenAIResponses: "https://gateway.test/v1",
+	}}
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
+	before.Routes[configuration.ClientClaude] = "claude"
+	before.Routes[configuration.ClientCodex] = "codex"
+	after := before.Clone()
+	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}}
+	syncer := Synchronizer{
+		Discovery:          targetDiscovery(codexTarget),
+		ClaudeSettingsPath: claudeSettings,
+		AIGWExecutable:     "/opt/aigw",
+	}
+
+	externalCodex := []byte("model_provider = \"external\"\n")
+	reconcileClaude := func(string, bool, configuration.Runtime, string) (claude.SettingsReceipt, error) {
+		if err := os.WriteFile(codexTarget, externalCodex, 0o600); err != nil {
+			t.Fatalf("write concurrent Codex edit: %v", err)
+		}
+		return claude.SettingsReceipt{}, errors.New("write Claude settings: permission denied")
+	}
+
+	err := reconcileClientProjections(syncer, before, after, codex.ReconcileConfigs, reconcileClaude)
+	if err == nil || !strings.Contains(err.Error(), "Codex rollback also failed") || !strings.Contains(err.Error(), "postimage changed") {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+	got, readErr := os.ReadFile(codexTarget)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if !bytes.Equal(got, externalCodex) {
+		t.Fatalf("concurrent Codex edit was overwritten:\n%s", got)
+	}
+}
+
+func TestClientProjectionCommitRejectsInvalidStateWithoutWriting(t *testing.T) {
+	t.Run("reconciliation inputs become unavailable", func(t *testing.T) {
+		before := testConfig("/missing/config.toml")
+		after := before.Clone()
+		reconcileCodex := func([]codex.TargetRef, []codex.TargetRef, configuration.Runtime) (codex.ReconciliationReceipt, error) {
+			t.Fatal("Codex reconciliation must not run without discovered surfaces")
+			return codex.ReconciliationReceipt{}, nil
+		}
+
+		err := reconcileClientProjections(Synchronizer{}, before, after, reconcileCodex, claude.ReconcileSettings)
+		if err == nil || !strings.Contains(err.Error(), "Codex surface discovery is unavailable") {
+			t.Fatalf("reconcile error = %v", err)
+		}
+	})
+
+	t.Run("Codex commit fails", func(t *testing.T) {
+		dir := t.TempDir()
+		codexTarget := filepath.Join(dir, "config.toml")
+		if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		before := testConfig(codexTarget)
+		after := before.Clone()
+		profile := after.Profiles["gpt"]
+		profile.Model = "gpt-next"
+		after.Profiles["gpt"] = profile
+		syncer := Synchronizer{Discovery: targetDiscovery(codexTarget), AIGWExecutable: "/opt/aigw"}
+
+		want := errors.New("commit Codex projection: permission denied")
+		reconcileCodex := func([]codex.TargetRef, []codex.TargetRef, configuration.Runtime) (codex.ReconciliationReceipt, error) {
+			return codex.ReconciliationReceipt{}, want
+		}
+		reconcileClaude := func(string, bool, configuration.Runtime, string) (claude.SettingsReceipt, error) {
+			t.Fatal("Claude reconciliation must not run after Codex failure")
+			return claude.SettingsReceipt{}, nil
+		}
+
+		if err := reconcileClientProjections(syncer, before, after, reconcileCodex, reconcileClaude); !errors.Is(err, want) {
+			t.Fatalf("reconcile error = %v, want %v", err, want)
+		}
+	})
+}
+
+func assertCodexDirectoryRestored(t *testing.T, directory, configName string) {
+	t.Helper()
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != configName {
+		names := make([]string, 0, len(entries))
+		for _, entry := range entries {
+			names = append(names, entry.Name())
+		}
+		t.Fatalf("Codex directory retained transaction artifacts: %v", names)
 	}
 }
 

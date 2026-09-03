@@ -15,11 +15,50 @@ import (
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
+type claudeSettingsReconciler func(string, bool, configuration.Runtime, string) (claude.SettingsReceipt, error)
+type codexConfigReconciler func([]codex.TargetRef, []codex.TargetRef, configuration.Runtime) (codex.ReconciliationReceipt, error)
+
 // ProjectionPlan describes one non-secret client configuration mutation.
 type ProjectionPlan struct {
 	Client string `json:"client"`
 	Target string `json:"target"`
 	Action string `json:"action"`
+}
+
+func reconcileClientProjections(
+	s Synchronizer,
+	before, after configuration.Config,
+	reconcileCodex codexConfigReconciler,
+	reconcileClaude claudeSettingsReconciler,
+) error {
+	beforeRefs, afterRefs, runtime, err := s.reconciliationInputs(before, after)
+	if err != nil {
+		return err
+	}
+	codexReceipt, err := reconcileCodex(beforeRefs, afterRefs, runtime)
+	if err != nil {
+		return err
+	}
+	if !ClaudeProjectionChanged(before, after) {
+		return nil
+	}
+	adapter := after.Adapters[configuration.ClientClaude]
+	var claudeRuntime configuration.Runtime
+	if !adapter.Enabled {
+		claudeRuntime = configuration.Runtime{}
+	} else {
+		claudeRuntime, err = after.ResolveRuntime(configuration.ClientClaude, "")
+	}
+	if err == nil {
+		_, err = reconcileClaude(s.ClaudeSettingsPath, !adapter.Enabled, claudeRuntime, s.AIGWExecutable)
+	}
+	if err == nil {
+		return nil
+	}
+	if rollbackErr := codexReceipt.Rollback(); rollbackErr != nil {
+		return fmt.Errorf("Claude reconciliation failed: %w; Codex rollback also failed: %v", err, rollbackErr)
+	}
+	return fmt.Errorf("Claude reconciliation failed and Codex was rolled back: %w", err)
 }
 
 // Plan returns every side-effect-free client projection change for a
@@ -62,30 +101,10 @@ func (s Synchronizer) Plan(before, after configuration.Config) ([]ProjectionPlan
 // transition. Codex and Claude retain separate format owners while this package
 // provides the single transaction boundary.
 func (s Synchronizer) Reconcile(_ context.Context, before, after configuration.Config) error {
-	beforeRefs, afterRefs, runtime, err := s.reconciliationInputs(before, after)
-	if err != nil {
+	if _, err := s.Plan(before, after); err != nil {
 		return err
 	}
-	if _, err = codex.ReconcileConfigs(beforeRefs, afterRefs, runtime); err != nil {
-		return err
-	}
-	if !ClaudeProjectionChanged(before, after) {
-		return nil
-	}
-	if s.ClaudeSettingsPath == "" {
-		return fmt.Errorf("Claude settings path is unavailable")
-	}
-	adapter := after.Adapters[configuration.ClientClaude]
-	if !adapter.Enabled {
-		_, err = claude.ReconcileSettings(s.ClaudeSettingsPath, true, configuration.Runtime{}, "")
-		return err
-	}
-	claudeRuntime, err := after.ResolveRuntime(configuration.ClientClaude, "")
-	if err != nil {
-		return err
-	}
-	_, err = claude.ReconcileSettings(s.ClaudeSettingsPath, false, claudeRuntime, s.AIGWExecutable)
-	return err
+	return reconcileClientProjections(s, before, after, codex.ReconcileConfigs, claude.ReconcileSettings)
 }
 
 func (s Synchronizer) reconciliationInputs(before, after configuration.Config) ([]codex.TargetRef, []codex.TargetRef, configuration.Runtime, error) {

@@ -41,6 +41,13 @@ type TargetRef struct {
 type ReconciliationReceipt struct {
 	TransactionID string           `json:"transaction_id"`
 	Plans         []ProjectionPlan `json:"plans"`
+	committed     []committedCodexArtifact
+}
+
+// Rollback restores the exact preimages captured by this reconciliation while
+// each artifact still equals the postimage written by this transaction.
+func (r ReconciliationReceipt) Rollback() error {
+	return rollbackCodexArtifacts(r.committed)
 }
 
 // ProjectionIdentity is the bounded sidecar identity used by surface
@@ -147,6 +154,7 @@ func ReconcileConfigs(before, after []TargetRef, runtime configuration.Runtime) 
 			committed = append(committed, committedCodexArtifact{prepared: artifact, post: post})
 		}
 	}
+	receipt.committed = committed
 	return receipt, nil
 }
 
