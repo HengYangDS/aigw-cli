@@ -4,6 +4,7 @@ package secrets
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"io"
@@ -30,6 +31,11 @@ type writeRoot interface {
 	Remove(string) error
 	Rename(string, string) error
 	Open(string) (*os.File, error)
+}
+
+type credentialFileSnapshot struct {
+	value  []byte
+	exists bool
 }
 
 func openSecureRoot(path string, create bool) (*os.Root, error) {
@@ -101,16 +107,16 @@ func openVerifiedFile(root readRoot, name string, before os.FileInfo) (*os.File,
 }
 
 func writeSecureFile(root writeRoot, name string, value []byte) error {
-	preimage, existed, err := captureOptionalSecureFile(root, name)
+	preimage, err := captureOptionalSecureFile(root, name)
 	if err != nil {
 		return err
 	}
-	defer clear(preimage)
+	defer clear(preimage.value)
 	committed, err := replaceSecureFile(root, name, value)
 	if err == nil || !committed {
 		return err
 	}
-	return restoreSecureFile(root, name, preimage, existed, err)
+	return restoreSecureFile(root, name, preimage, credentialFileSnapshot{value: value, exists: true}, err)
 }
 
 func replaceSecureFile(root writeRoot, name string, value []byte) (bool, error) {
@@ -143,43 +149,51 @@ func replaceSecureFile(root writeRoot, name string, value []byte) (bool, error) 
 }
 
 func deleteSecureFile(root writeRoot, name string) error {
-	preimage, existed, err := captureOptionalSecureFile(root, name)
+	preimage, err := captureOptionalSecureFile(root, name)
 	if err != nil {
 		return err
 	}
-	defer clear(preimage)
-	if !existed {
+	defer clear(preimage.value)
+	if !preimage.exists {
 		return nil
 	}
 	if err := root.Remove(name); err != nil {
 		return err
 	}
 	if err := syncRoot(root); err != nil {
-		return restoreSecureFile(root, name, preimage, true, err)
+		return restoreSecureFile(root, name, preimage, credentialFileSnapshot{}, err)
 	}
 	return nil
 }
 
-func captureOptionalSecureFile(root writeRoot, name string) ([]byte, bool, error) {
+func captureOptionalSecureFile(root writeRoot, name string) (credentialFileSnapshot, error) {
 	info, err := root.Lstat(name)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, false, nil
+		return credentialFileSnapshot{}, nil
 	}
 	if err != nil {
-		return nil, false, err
+		return credentialFileSnapshot{}, err
 	}
 	if err := validateOwnedFile(info); err != nil {
-		return nil, false, err
+		return credentialFileSnapshot{}, err
 	}
 	value, err := readSecureFile(root, name)
 	if err != nil {
-		return nil, false, err
+		return credentialFileSnapshot{}, err
 	}
-	return value, true, nil
+	return credentialFileSnapshot{value: value, exists: true}, nil
 }
 
-func restoreSecureFile(root writeRoot, name string, preimage []byte, existed bool, cause error) error {
-	if !existed {
+func restoreSecureFile(root writeRoot, name string, preimage, postimage credentialFileSnapshot, cause error) error {
+	current, err := captureOptionalSecureFile(root, name)
+	if err != nil {
+		return fmt.Errorf("%w; inspect Token postimage before compensation: %v", cause, err)
+	}
+	defer clear(current.value)
+	if !sameCredentialFileSnapshot(current, postimage) {
+		return fmt.Errorf("%w; Token postimage changed; refusing to overwrite newer state", cause)
+	}
+	if !preimage.exists {
 		if err := root.Remove(name); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("%w; remove uncommitted Token: %v", cause, err)
 		}
@@ -188,10 +202,15 @@ func restoreSecureFile(root writeRoot, name string, preimage []byte, existed boo
 		}
 		return cause
 	}
-	if _, err := replaceSecureFile(root, name, preimage); err != nil {
+	if _, err := replaceSecureFile(root, name, preimage.value); err != nil {
 		return fmt.Errorf("%w; restore previous Token: %v", cause, err)
 	}
 	return cause
+}
+
+func sameCredentialFileSnapshot(left, right credentialFileSnapshot) bool {
+	return left.exists == right.exists &&
+		(!left.exists || subtle.ConstantTimeCompare(left.value, right.value) == 1)
 }
 
 func writeAndSync(target syncWriter, value []byte) error {

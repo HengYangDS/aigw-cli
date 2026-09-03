@@ -68,11 +68,15 @@ func (root *writeRootStub) Open(string) (*os.File, error) {
 type failingDirectorySyncRoot struct {
 	*os.Root
 	remainingFailures int
+	onFailure         func()
 }
 
 func (root *failingDirectorySyncRoot) Open(name string) (*os.File, error) {
 	if name == "." && root.remainingFailures > 0 {
 		root.remainingFailures--
+		if root.onFailure != nil {
+			root.onFailure()
+		}
 		return nil, errors.New("directory sync failed")
 	}
 	return root.Root.Open(name)
@@ -486,6 +490,72 @@ func TestDeleteSecureFileRestoresPreimageWhenDirectorySyncFails(t *testing.T) {
 	value, err := os.ReadFile(path)
 	if err != nil || string(value) != "old-token" {
 		t.Fatalf("Token after failed deletion = %q, %v; want old-token", value, err)
+	}
+}
+
+func TestWriteSecureFilePreservesNewerValueWhenCompensationObservesDrift(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "secrets")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "alpha")
+	if err := os.WriteFile(path, []byte("old-token"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = opened.Close() }()
+	root := &failingDirectorySyncRoot{
+		Root:              opened,
+		remainingFailures: 1,
+		onFailure: func() {
+			if writeErr := os.WriteFile(path, []byte("newer-token"), 0o600); writeErr != nil {
+				t.Fatalf("inject newer Token: %v", writeErr)
+			}
+		},
+	}
+	err = writeSecureFile(root, "alpha", []byte("transaction-token"))
+	if err == nil || !strings.Contains(err.Error(), "postimage changed") {
+		t.Fatalf("writeSecureFile() error = %v, want postimage drift", err)
+	}
+	value, readErr := os.ReadFile(path)
+	if readErr != nil || string(value) != "newer-token" {
+		t.Fatalf("Token after guarded compensation = %q, %v; want newer-token", value, readErr)
+	}
+}
+
+func TestDeleteSecureFilePreservesRecreatedValueWhenCompensationObservesDrift(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "secrets")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "alpha")
+	if err := os.WriteFile(path, []byte("old-token"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = opened.Close() }()
+	root := &failingDirectorySyncRoot{
+		Root:              opened,
+		remainingFailures: 1,
+		onFailure: func() {
+			if writeErr := os.WriteFile(path, []byte("newer-token"), 0o600); writeErr != nil {
+				t.Fatalf("inject recreated Token: %v", writeErr)
+			}
+		},
+	}
+	err = deleteSecureFile(root, "alpha")
+	if err == nil || !strings.Contains(err.Error(), "postimage changed") {
+		t.Fatalf("deleteSecureFile() error = %v, want postimage drift", err)
+	}
+	value, readErr := os.ReadFile(path)
+	if readErr != nil || string(value) != "newer-token" {
+		t.Fatalf("Token after guarded compensation = %q, %v; want newer-token", value, readErr)
 	}
 }
 
