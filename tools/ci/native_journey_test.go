@@ -376,8 +376,10 @@ func (j *journeyFixture) requireConfigContains(values ...string) {
 
 func (j *journeyFixture) requireNoClaudeProjection() {
 	j.testing.Helper()
-	if _, err := os.Stat(j.settings); !os.IsNotExist(err) {
-		j.testing.Fatalf("Claude settings unexpectedly exist: %v", err)
+	for _, path := range []string{j.settings, j.settings + ".aigw-state.json"} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			j.testing.Fatalf("Claude projection unexpectedly exists at %s: %v", path, err)
+		}
 	}
 }
 
@@ -403,6 +405,10 @@ func (j *journeyFixture) uninstallAndRequireOwnedFilesAbsent() {
 	j.testing.Helper()
 	j.runWith(j.source, "uninstall", "--target", j.binary)
 	j.requireOwnedFilesAbsent()
+	j.requireNoClaudeProjection()
+	if _, err := os.Stat(j.config + ".verified.json"); !os.IsNotExist(err) {
+		j.testing.Fatalf("uninstall retained verified checkpoint: %v", err)
+	}
 }
 
 func (j *journeyFixture) requireOwnedFilesAbsent() {

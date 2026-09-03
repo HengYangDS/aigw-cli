@@ -90,6 +90,8 @@ and redirect failures are terminal.
 
 ## Uninstall
 
-Uninstall removes only AIGW-owned configuration markers, Claude settings state,
-credentials, and program files for the selected installation channel. It does
-not remove client conversations, provider accounts, or another product.
+Uninstall first withdraws AIGW-owned client projections, including marked
+configuration blocks, sidecars, generated catalogues, and credential helpers.
+It then removes the selected program and its rollback copy. Accounts, Profiles,
+Routes, Tokens, explicit configuration backup, client conversations, and
+neighboring user-authored settings remain intact.

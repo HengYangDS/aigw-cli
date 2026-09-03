@@ -36,8 +36,15 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 		if err := app.Config.SaveVerifiedCheckpoint(before, configuration.AdmittedClientIDs()); err != nil {
 			t.Fatal(err)
 		}
+		staleCheckpoint, err := os.ReadFile(app.Config.Path() + ".verified.json")
+		if err != nil {
+			t.Fatal(err)
+		}
 		current := renamedAccountConfig(before)
 		if err := app.Config.Save(current); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(app.Config.Path()+".verified.json", staleCheckpoint, 0o600); err != nil {
 			t.Fatal(err)
 		}
 		if err := secretStore.Set("zeta-new", "target-token"); err != nil {

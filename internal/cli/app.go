@@ -175,7 +175,7 @@ func mutationCommand(app *App, args []string) bool {
 		return err == nil && len(cfg.Profiles) == 0 && app.Interactive
 	}
 	switch args[0] {
-	case "setup", "add", "use", "rotate", "rollback":
+	case "setup", "add", "use", "rotate", "rollback", "uninstall":
 		return true
 	case "sync":
 		return !boolArgumentEnabled(args[1:], "--dry-run")

@@ -37,6 +37,16 @@ func TestCaptureSnapshotSurfacesBackupReadErrors(t *testing.T) {
 	}
 }
 
+func TestCaptureSnapshotSurfacesVerifiedCheckpointReadErrors(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.Mkdir(path+".verified.json", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewStore(path).CaptureSnapshot(); err == nil {
+		t.Fatal("CaptureSnapshot succeeded despite a directory at the verified checkpoint path")
+	}
+}
+
 func TestCaptureVerifiedBackupStateRequiresExistingConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	_, err := NewStore(path).CaptureVerifiedBackupState()
@@ -374,6 +384,127 @@ func TestCommitPreservesNewerBackupWhenConfigurationWriteAndCompensationConflict
 	backup, readErr := os.ReadFile(path + ".bak")
 	if readErr != nil || !bytes.Equal(backup, newerBackup) {
 		t.Fatalf("newer backup after rejected compensation = %q, %v", backup, readErr)
+	}
+}
+
+func TestCommitRestoresConfigurationWhenVerifiedCheckpointInvalidationFails(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path)
+	beforeConfig := convergenceConfig("before")
+	if err := store.Save(beforeConfig); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveVerifiedCheckpoint(beforeConfig, []string{ClientClaude}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("checkpoint removal failed")
+	originalRemove := removeConfigurationFileIfUnchanged
+	t.Cleanup(func() { removeConfigurationFileIfUnchanged = originalRemove })
+	removeConfigurationFileIfUnchanged = func(string, transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+		return transaction.FileSnapshot{}, want
+	}
+
+	if _, err := store.Commit(before, convergenceConfig("after")); !errors.Is(err, want) || !strings.Contains(err.Error(), "invalidate verified checkpoint") {
+		t.Fatalf("Commit() error = %v", err)
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(after, before) {
+		t.Fatalf("snapshot after failed checkpoint invalidation = %#v, want %#v", after, before)
+	}
+}
+
+func TestCommitReportsConfigurationRestoreFailureAfterCheckpointInvalidationFailure(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path)
+	if err := store.Save(convergenceConfig("before")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalRemove := removeConfigurationFileIfUnchanged
+	originalWrite := writeConfigurationFileIfUnchanged
+	t.Cleanup(func() {
+		removeConfigurationFileIfUnchanged = originalRemove
+		writeConfigurationFileIfUnchanged = originalWrite
+	})
+	removeConfigurationFileIfUnchanged = func(string, transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+		return transaction.FileSnapshot{}, errors.New("checkpoint removal failed")
+	}
+	writes := 0
+	writeConfigurationFileIfUnchanged = func(target string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+		writes++
+		return originalWrite(target, expected, data, mode)
+	}
+	// Mutating the just-written config makes the guarded compensation refuse
+	// to overwrite a newer writer, which is the failure this branch reports.
+	removeConfigurationFileIfUnchanged = func(string, transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+		if err := os.WriteFile(path, []byte("newer writer"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return transaction.FileSnapshot{}, errors.New("checkpoint removal failed")
+	}
+	_, err = store.Commit(before, convergenceConfig("after"))
+	if err == nil || !strings.Contains(err.Error(), "restore config") || writes == 0 {
+		t.Fatalf("Commit() error = %v", err)
+	}
+}
+
+func TestCommitReportsBackupRestoreFailureAfterCheckpointInvalidationFailure(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path)
+	if err := store.Save(convergenceConfig("before")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalRemove := removeConfigurationFileIfUnchanged
+	t.Cleanup(func() { removeConfigurationFileIfUnchanged = originalRemove })
+	removeConfigurationFileIfUnchanged = func(string, transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+		if err := os.WriteFile(path+".bak", []byte("newer backup"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return transaction.FileSnapshot{}, errors.New("checkpoint removal failed")
+	}
+	_, err = store.Commit(before, convergenceConfig("after"))
+	if err == nil || !strings.Contains(err.Error(), "restore config backup") {
+		t.Fatalf("Commit() error = %v", err)
+	}
+}
+
+func TestRestoreSnapshotSurfacesVerifiedCheckpointPostimageMismatch(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path)
+	beforeConfig := convergenceConfig("before")
+	if err := store.Save(beforeConfig); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveVerifiedCheckpoint(beforeConfig, []string{ClientCodex}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.Commit(before, convergenceConfig("after"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path+".verified.json", []byte("newer checkpoint"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RestoreSnapshot(before, after); err == nil || !strings.Contains(err.Error(), "restore verified checkpoint snapshot") {
+		t.Fatalf("verified checkpoint postimage mismatch error = %v", err)
 	}
 }
 

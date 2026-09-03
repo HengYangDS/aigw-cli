@@ -46,7 +46,7 @@
 - [x] 5.3 Make Claude Code projection use its official settings and credential-helper surfaces without a shell wrapper, PATH dependency, profile mutation, or plaintext Token.
 - [x] 5.4 Prove missing Codex, missing Claude, later installation, changed executable path, multiple Codex homes, malformed user configuration, and foreign managed-state conflicts.
 - [x] 5.5 Prove client projection preparation is complete before writes and multi-target failure compensates only unchanged AIGW-owned postimages.
-- [ ] 5.6 Make disable and uninstall remove only AIGW-owned blocks, sidecars, helpers, checkpoints, and command projections while preserving all neighboring user state.
+- [x] 5.6 Make disable and uninstall remove only AIGW-owned blocks, sidecars, helpers, checkpoints, and command projections while preserving all neighboring user state.
 - [ ] 5.7 Prove direct HTTPS and an explicit loopback compatibility endpoint are ordinary interchangeable Account choices.
 - [ ] 5.8 Delete every Proxy name, port, install path, lifecycle action, or implicit dependency from AIGW source, team manifests, tests, and docs unless it appears solely as a neutral composition example.
 

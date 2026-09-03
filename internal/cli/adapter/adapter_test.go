@@ -323,8 +323,26 @@ func TestDisableHandlesUnknownAndAlreadyDisabledClients(t *testing.T) {
 
 func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	cfg := adapterConfig()
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: `C:\claude.exe`}
-	runtime, out, _, _ := adapterRuntime(t, cfg)
+	runtime, out, secretStore, _ := adapterRuntime(t, cfg)
+	if err := os.MkdirAll(filepath.Dir(runtime.ClaudeSettingsPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(runtime.ClaudeSettingsPath, []byte("{\n  \"theme\": \"dark\"\n}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := executeAdapter(t, runtime, "enable", configuration.ClientClaude, "--executable", `C:\claude.exe`); err != nil {
+		t.Fatal(err)
+	}
+	verified, err := runtime.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.Config.SaveVerifiedCheckpoint(verified, []string{configuration.ClientClaude}); err != nil {
+		t.Fatal(err)
+	}
 	if err := executeAdapter(t, runtime, "disable", configuration.ClientClaude); err != nil {
 		t.Fatal(err)
 	}
@@ -334,6 +352,28 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	}
 	if _, ok := got.Adapters[configuration.ClientClaude]; ok {
 		t.Fatalf("adapter was not deleted: %#v", got.Adapters)
+	}
+	if got.Routes[configuration.ClientClaude] != "claude" || got.Profiles["claude"].Account != "gateway" {
+		t.Fatalf("capability configuration changed: %#v", got)
+	}
+	if token, err := secretStore.Get("gateway"); err != nil || token != "token" {
+		t.Fatalf("credential = %q, %v; want preserved", token, err)
+	}
+	settings, err := os.ReadFile(runtime.ClaudeSettingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(settings), `"theme": "dark"`) || strings.Contains(string(settings), "apiKeyHelper") || strings.Contains(string(settings), "ANTHROPIC_BASE_URL") {
+		t.Fatalf("restored Claude settings = %s", settings)
+	}
+	for _, path := range []string{runtime.ClaudeSettingsPath + ".aigw-state.json", runtime.Config.Path() + ".verified.json"} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("retired AIGW state remains at %s: %v", path, err)
+		}
+	}
+	backup, err := runtime.Config.LoadBackup()
+	if err != nil || !backup.Adapters[configuration.ClientClaude].Enabled {
+		t.Fatalf("explicit previous configuration = %#v, %v", backup, err)
 	}
 	if !strings.Contains(out.String(), "Client disabled") {
 		t.Fatalf("output = %q", out.String())

@@ -50,6 +50,39 @@ projection, or make an optional product a dependency.
   verification, and uninstall contract
 - **AND** existing Provider data and client Adapters remain unchanged.
 
+### Requirement: Client deactivation is ownership-bounded
+
+AIGW SHALL withdraw client integration through the same guarded projection
+transaction that created it. Disabling one Adapter SHALL remove only that
+client's AIGW-owned configuration block, sidecar, generated catalogue, and
+credential-helper or command projection. Portable uninstall SHALL first disable
+every enabled Adapter and SHALL remove the executable only after client
+withdrawal succeeds. Both operations SHALL preserve Accounts, Profiles, Routes,
+Tokens, other enabled Adapters, and neighboring user-authored client state.
+
+A successful disable or uninstall SHALL remove the verified checkpoint because
+it describes client projections that are no longer present. The single previous
+configuration backup MAY remain as an explicit operator-selected rollback
+source; it MUST NOT be treated as current state or applied implicitly.
+
+#### Scenario: Disable one client
+
+- **WHEN** an operator disables one enabled client Adapter
+- **THEN** only that client's AIGW-owned projection and ownership state are
+  withdrawn
+- **AND** the other client, capability configuration, credentials, and
+  user-authored client settings remain unchanged
+- **AND** the stale verified checkpoint is absent.
+
+#### Scenario: Uninstall the portable program
+
+- **WHEN** an operator uninstalls AIGW with one or more enabled client Adapters
+- **THEN** every AIGW-owned client projection is withdrawn before the executable
+  and its program rollback copy are removed
+- **AND** capability configuration, credentials, neighboring user state, and the
+  explicit previous-configuration backup remain available
+- **AND** no verified checkpoint continues to claim the withdrawn projections.
+
 ## MODIFIED Requirements
 
 ### Requirement: Provider-neutral configuration

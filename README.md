@@ -70,9 +70,10 @@ directory on Windows. An explicit destination is available for isolated use:
 
 `aigw install` copies only the running executable and retains one predecessor
 for rollback. It does not edit shell startup files, retrieve a release, store
-credentials, configure clients, or start another product. `aigw uninstall`
-removes only the installed executable and that rollback copy; configuration and
-credential-store secrets remain intact.
+credentials, configure clients, or start another product. `aigw uninstall` first withdraws every AIGW-owned client projection, then
+removes the installed executable and that rollback copy. Accounts, Profiles,
+Routes, Tokens, user-authored client settings, and the explicit configuration
+backup remain intact.
 
 GitLab and GitHub publish independently. Either release plane may supply a
 verified installation. When both are reachable during update, AIGW requires

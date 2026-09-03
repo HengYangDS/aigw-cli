@@ -3,16 +3,17 @@ package main
 import (
 	"archive/tar"
 	"archive/zip"
-	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
 
+	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
 
@@ -24,7 +25,10 @@ func runNativeReleaseLifecycle(t *testing.T, root, oldArtifact, newVersion, endp
 	journey := newNativeJourney(t, oldArtifact, endpoint, true)
 	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
-	configuration := readFile(t, journey.config)
+	before, err := configuration.NewStore(journey.config).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	journey.requireVersion(oldVersion)
 	journey.updateFrom(archive, checksums)
@@ -34,10 +38,15 @@ func runNativeReleaseLifecycle(t *testing.T, root, oldArtifact, newVersion, endp
 	journey.updateFrom(archive, checksums)
 	journey.requireHealthyVersion(newVersion)
 
-	journey.runWith(journey.source, "uninstall", "--target", journey.binary)
-	journey.requireOwnedFilesAbsent()
-	if retained := readFile(t, journey.config); !bytes.Equal(retained, configuration) {
-		t.Fatalf("configuration changed across program lifecycle\nbefore:\n%s\nafter:\n%s", configuration, retained)
+	journey.uninstallAndRequireOwnedFilesAbsent()
+	retained, err := configuration.NewStore(journey.config).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := before.Clone()
+	clear(expected.Adapters)
+	if !reflect.DeepEqual(retained, expected) {
+		t.Fatalf("capability configuration changed across program lifecycle\nwant: %#v\ngot: %#v", expected, retained)
 	}
 }
 

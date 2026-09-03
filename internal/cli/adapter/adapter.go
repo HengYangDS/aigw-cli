@@ -170,7 +170,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		}
 		delete(cfg.Adapters, client)
-		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "adapter disable"); err != nil {
+		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "adapter disable"); err != nil {
 			return err
 		}
 		r := renderer(runtime)

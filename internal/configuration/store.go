@@ -23,8 +23,9 @@ type Store struct{ path string }
 // pre-setup state is not a valid  Config and cannot be restored through
 // Save.
 type Snapshot struct {
-	Config transaction.FileSnapshot
-	Backup transaction.FileSnapshot
+	Config   transaction.FileSnapshot
+	Backup   transaction.FileSnapshot
+	Verified transaction.FileSnapshot
 }
 
 type VerifiedBackupSnapshot struct {
@@ -60,7 +61,11 @@ func (s Store) CaptureSnapshot() (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	return Snapshot{Config: configSnapshot, Backup: backupSnapshot}, nil
+	verifiedSnapshot, err := transaction.CaptureFileSnapshot(s.path + ".verified.json")
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return Snapshot{Config: configSnapshot, Backup: backupSnapshot, Verified: verifiedSnapshot}, nil
 }
 
 // Commit saves one configuration and returns the exact postimage needed for a
@@ -79,15 +84,27 @@ func (s Store) Commit(before Snapshot, cfg Config) (Snapshot, error) {
 		}
 	}
 	configAfter, err := writeConfigurationFileIfUnchanged(s.path, before.Config, data, 0o600)
+	if err != nil {
+		if before.Config.Exists {
+			if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, backupAfter); restoreErr != nil {
+				return Snapshot{}, fmt.Errorf("write config: %w; restore config backup: %v", err, restoreErr)
+			}
+		}
+		return Snapshot{}, fmt.Errorf("write config: %w", err)
+	}
+	verifiedAfter, err := removeConfigurationFileIfUnchanged(s.path+".verified.json", before.Verified)
 	if err == nil {
-		return Snapshot{Config: configAfter, Backup: backupAfter}, nil
+		return Snapshot{Config: configAfter, Backup: backupAfter, Verified: verifiedAfter}, nil
+	}
+	if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path, before.Config, configAfter); restoreErr != nil {
+		return Snapshot{}, fmt.Errorf("invalidate verified checkpoint: %w; restore config: %v", err, restoreErr)
 	}
 	if before.Config.Exists {
 		if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, backupAfter); restoreErr != nil {
-			return Snapshot{}, fmt.Errorf("write config: %w; restore config backup: %v", err, restoreErr)
+			return Snapshot{}, fmt.Errorf("invalidate verified checkpoint: %w; restore config backup: %v", err, restoreErr)
 		}
 	}
-	return Snapshot{}, fmt.Errorf("write config: %w", err)
+	return Snapshot{}, fmt.Errorf("invalidate verified checkpoint: %w", err)
 }
 
 func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
@@ -166,6 +183,9 @@ func (s Store) RestoreSnapshot(before, after Snapshot) error {
 	if err := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, after.Backup); err != nil {
 		return fmt.Errorf("restore config backup snapshot: %w", err)
 	}
+	if err := transaction.RestoreFileAtomicIfPostimage(s.path+".verified.json", before.Verified, after.Verified); err != nil {
+		return fmt.Errorf("restore verified checkpoint snapshot: %w", err)
+	}
 	return nil
 }
 
@@ -205,6 +225,7 @@ func (s Store) Save(cfg Config) error {
 }
 
 var writeConfigurationFileIfUnchanged = transaction.WriteFileAtomicExactModeIfUnchanged
+var removeConfigurationFileIfUnchanged = transaction.RemoveFileIfUnchanged
 
 func encodeConfig(cfg Config) ([]byte, error) {
 	cfg.Normalize()

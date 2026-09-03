@@ -226,6 +226,39 @@ func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
 	}
 }
 
+func TestCommitInvalidatesAndRestoreSnapshotRecoversVerifiedCheckpoint(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path)
+	beforeConfig := convergenceConfig("before")
+	if err := store.Save(beforeConfig); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveVerifiedCheckpoint(beforeConfig, []string{ClientClaude}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.Commit(before, convergenceConfig("after"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path + ".verified.json"); !os.IsNotExist(err) {
+		t.Fatalf("verified checkpoint remains after configuration change: %v", err)
+	}
+	if err := store.RestoreSnapshot(before, after); err != nil {
+		t.Fatal(err)
+	}
+	checkpoint, err := store.LoadVerifiedCheckpoint()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checkpoint.Config.Accounts["before"].Label != "BEFORE" {
+		t.Fatalf("restored checkpoint = %#v", checkpoint)
+	}
+}
+
 func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := NewStore(path)
