@@ -13,7 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
-	"os"
 	"strings"
 )
 
@@ -97,11 +96,11 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	if err != nil {
 		return err
 	}
-	token, secretAlreadyManaged, err := setupToken(runtime, plan.request)
+	credentialChange, err := setupToken(runtime, plan.request)
 	if err != nil {
 		return err
 	}
-	if err := credential.Validate(ctx, runtime.HTTP, plan.account, token, plan.validationClients...); err != nil {
+	if err := credential.Validate(ctx, runtime.HTTP, plan.account, credentialChange.token, plan.validationClients...); err != nil {
 		return fmt.Errorf("Token validation failed: %w", err)
 	}
 
@@ -120,13 +119,14 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	}
 
 	renderSetupService(runtime, plan)
-	if !secretAlreadyManaged {
-		if err := runtime.Secrets.Set(plan.request.Account, token); err != nil {
-			return err
-		}
+	written, err := writeSetupCredentials(runtime, []setupCredential{credentialChange})
+	if err != nil {
+		return err
 	}
 	if err := invocation.Synchronizer(runtime).Commit(ctx, plan.before, plan.config, "setup"); err != nil {
-		rollbackSetup(runtime, plan.request.Account, !secretAlreadyManaged)
+		if rollbackErr := rollbackSetupCredentials(runtime, []setupCredential{credentialChange}, written); rollbackErr != nil {
+			return fmt.Errorf("client configuration failed: %w; credential rollback also failed: %v", err, rollbackErr)
+		}
 		return fmt.Errorf("Client configuration failed and was rolled back: %w", err)
 	}
 	renderSetupClients(runtime, plan.config)
@@ -235,30 +235,31 @@ func setupEndpointFlag(protocol configuration.EndpointProtocol) string {
 // AIGW_SECRET_BACKEND=env: the environment store is intentionally read-only,
 // so setup must validate and reference its token rather than asking for a
 // second copy and attempting to persist it.
-func setupToken(runtime invocation.Context, request Request) (token string, alreadyManaged bool, err error) {
+func setupToken(runtime invocation.Context, request Request) (setupCredential, error) {
+	credential := setupCredential{account: request.Account}
+	previous, err := runtime.Secrets.Get(request.Account)
+	if err == nil {
+		credential.previous = previous
+		credential.hadPrevious = true
+	} else if !errors.Is(err, secrets.ErrNotFound) {
+		return setupCredential{}, err
+	}
 	if !request.PromptToken && !request.TokenStdin {
-		token, err = runtime.Secrets.Get(request.Account)
-		if err == nil {
-			return token, true, nil
-		}
-		if !errors.Is(err, secrets.ErrNotFound) {
-			return "", false, err
+		if credential.hadPrevious {
+			credential.token = credential.previous
+			return credential, nil
 		}
 	}
 	if request.PromptToken {
-		token, err = runtime.Prompt.Secret("Paste " + request.Label + " token: ")
-		return token, false, err
+		credential.token, err = runtime.Prompt.Secret("Paste " + request.Label + " token: ")
+	} else {
+		credential.token, err = invocation.ReadToken(runtime, request.TokenStdin, true)
 	}
-	token, err = invocation.ReadToken(runtime, request.TokenStdin, true)
-	return token, false, err
-}
-
-func rollbackSetup(runtime invocation.Context, account string, deleteNewSecret bool) {
-	if deleteNewSecret {
-		_ = runtime.Secrets.Delete(account)
+	if err != nil {
+		return setupCredential{}, err
 	}
-	_ = os.Remove(runtime.Config.Path())
-	_ = os.Remove(runtime.Config.Path() + ".bak")
+	credential.write = true
+	return credential, nil
 }
 
 // RunWizard is deliberately provider-neutral. AIGW never assumes a gateway,

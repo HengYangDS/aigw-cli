@@ -135,6 +135,25 @@ func TestSetupRollsBackConfigAndSecretWhenCodexProjectionFails(t *testing.T) {
 	}
 }
 
+func TestSetupRestoresExistingSecretWhenCodexProjectionFails(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "new-token\n")
+	if err := secretStore.Set("one", "old-token"); err != nil {
+		t.Fatal(err)
+	}
+	target := t.TempDir()
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
+		Surfaces:    []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
+	}}
+	err := execute(t, app, "setup", "--profile", "one", "--for", "codex", "--model", "m", "--openai-url", "https://one.test/v1", "--token-stdin")
+	if err == nil || !strings.Contains(err.Error(), "rolled back") {
+		t.Fatalf("error = %v", err)
+	}
+	if token, getErr := secretStore.Get("one"); getErr != nil || token != "old-token" {
+		t.Fatalf("Token after rollback = %q, %v; want old-token", token, getErr)
+	}
+}
+
 func TestManifestSetupSurfacesManifestAndConfigFailures(t *testing.T) {
 	t.Run("read", func(t *testing.T) {
 		app, _, _, _ := testApp(t, "")

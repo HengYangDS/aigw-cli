@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -235,7 +234,7 @@ func TestCollectManifestSetupCredentialsErrorAndPromptBranches(t *testing.T) {
 
 func TestManifestSetupClientSelectionRequiresConnectedRouteAndUsableSurface(t *testing.T) {
 	cfg := manifestSetupConfig()
-	connected := map[string]manifestSetupCredential{"team": {account: "team", token: "token"}}
+	connected := map[string]setupCredential{"team": {account: "team", token: "token"}}
 
 	withoutCodexSurface := manifestSetupSelectedClients(cfg, connected, map[string]bool{
 		configuration.ClientClaude: true,
@@ -244,7 +243,7 @@ func TestManifestSetupClientSelectionRequiresConnectedRouteAndUsableSurface(t *t
 		t.Fatalf("clients without Codex surface = %#v", withoutCodexSurface)
 	}
 
-	if clients := manifestSetupSelectedClients(cfg, map[string]manifestSetupCredential{}, map[string]bool{
+	if clients := manifestSetupSelectedClients(cfg, map[string]setupCredential{}, map[string]bool{
 		configuration.ClientClaude: true,
 	}); len(clients) != 0 {
 		t.Fatalf("unconnected route selected clients = %#v", clients)
@@ -267,8 +266,8 @@ func TestManifestCredentialVerificationSkipsRoutesOwnedByAnotherAccount(t *testi
 	}
 }
 
-func TestWriteAndRollbackManifestSetupCredentialsBranches(t *testing.T) {
-	credentials := []manifestSetupCredential{
+func TestWriteAndRollbackSetupCredentialsBranches(t *testing.T) {
+	credentials := []setupCredential{
 		{account: "old", token: "new-old", previous: "old-value", hadPrevious: true, write: true},
 		{account: "new", token: "new-value", write: true},
 	}
@@ -276,7 +275,7 @@ func TestWriteAndRollbackManifestSetupCredentialsBranches(t *testing.T) {
 	t.Run("first write fails", func(t *testing.T) {
 		want := errors.New("write failed")
 		store := &scriptedSecretStore{values: map[string]string{}, setErrors: map[int]error{1: want}}
-		if _, err := writeManifestSetupCredentials(invocation.Context{Secrets: store}, credentials); !errors.Is(err, want) || strings.Contains(err.Error(), "rollback also failed") {
+		if _, err := writeSetupCredentials(invocation.Context{Secrets: store}, credentials); !errors.Is(err, want) || strings.Contains(err.Error(), "rollback also failed") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -288,7 +287,7 @@ func TestWriteAndRollbackManifestSetupCredentialsBranches(t *testing.T) {
 			values:    map[string]string{"old": "old-value"},
 			setErrors: map[int]error{2: writeErr, 3: rollbackErr},
 		}
-		_, err := writeManifestSetupCredentials(invocation.Context{Secrets: store}, credentials)
+		_, err := writeSetupCredentials(invocation.Context{Secrets: store}, credentials)
 		if !errors.Is(err, writeErr) || !strings.Contains(err.Error(), "rollback also failed") {
 			t.Fatalf("error = %v", err)
 		}
@@ -296,7 +295,7 @@ func TestWriteAndRollbackManifestSetupCredentialsBranches(t *testing.T) {
 
 	t.Run("restore previous and delete new", func(t *testing.T) {
 		store := &scriptedSecretStore{values: map[string]string{"old": "new-old", "new": "new-value"}}
-		err := rollbackManifestSetupCredentials(invocation.Context{Secrets: store}, credentials, []int{0, 1})
+		err := rollbackSetupCredentials(invocation.Context{Secrets: store}, credentials, []int{0, 1})
 		if err != nil || store.values["old"] != "old-value" || secretExists(t, store, "new") {
 			t.Fatalf("values=%#v error=%v", store.values, err)
 		}
@@ -305,7 +304,7 @@ func TestWriteAndRollbackManifestSetupCredentialsBranches(t *testing.T) {
 	t.Run("delete rollback error", func(t *testing.T) {
 		want := errors.New("delete failed")
 		store := &scriptedSecretStore{values: map[string]string{"new": "new-value"}, deleteErrors: map[string]error{"new": want}}
-		err := rollbackManifestSetupCredentials(invocation.Context{Secrets: store}, credentials, []int{1})
+		err := rollbackSetupCredentials(invocation.Context{Secrets: store}, credentials, []int{1})
 		if !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
@@ -336,16 +335,16 @@ func TestSetupTokenPromptAndBackendErrors(t *testing.T) {
 	t.Run("backend error", func(t *testing.T) {
 		want := errors.New("backend failed")
 		app := invocation.Context{Secrets: &scriptedSecretStore{getErr: want}}
-		if _, _, err := setupToken(app, Request{Account: "one"}); !errors.Is(err, want) {
+		if _, err := setupToken(app, Request{Account: "one"}); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
 
 	t.Run("prompt", func(t *testing.T) {
-		app := invocation.Context{Prompt: scriptedSetupPrompt{value: "prompt-token"}}
-		token, managed, err := setupToken(app, Request{PromptToken: true, Label: "One"})
-		if err != nil || managed || token != "prompt-token" {
-			t.Fatalf("token=%q managed=%v error=%v", token, managed, err)
+		app := invocation.Context{Secrets: secrets.NewMemoryStore(), Prompt: scriptedSetupPrompt{value: "prompt-token"}}
+		credential, err := setupToken(app, Request{Account: "one", PromptToken: true, Label: "One"})
+		if err != nil || credential.hadPrevious || !credential.write || credential.token != "prompt-token" {
+			t.Fatalf("credential=%#v error=%v", credential, err)
 		}
 	})
 }
@@ -421,31 +420,6 @@ func TestSetupClaudeVerificationHelper(t *testing.T) {
 	app := invocation.Context{Runner: setupProcessRunner{err: want}}
 	if err := verifyManifestSetupCredential(context.Background(), app, cfg, "team", "token", "/opt/claude", configuration.ClientClaude); !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
-	}
-}
-
-func TestRollbackSetupRemovesSecretAndConfig(t *testing.T) {
-	dir := t.TempDir()
-	store := secrets.NewMemoryStore()
-	if err := store.Set("one", "token"); err != nil {
-		t.Fatal(err)
-	}
-	configPath := filepath.Join(dir, "configuration.toml")
-	if err := os.WriteFile(configPath, []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(configPath+".bak", []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	app := invocation.Context{Secrets: store, Config: configuration.NewStore(configPath)}
-	rollbackSetup(app, "one", true)
-	if secretExists(t, store, "one") {
-		t.Fatal("secret remains")
-	}
-	for _, path := range []string{configPath, configPath + ".bak"} {
-		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-			t.Fatalf("%s remains: %v", path, err)
-		}
 	}
 }
 

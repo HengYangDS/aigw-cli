@@ -9,19 +9,10 @@ import (
 	domainverification "aigw-cli/internal/verification"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
 )
-
-type manifestSetupCredential struct {
-	account     string
-	token       string
-	previous    string
-	hadPrevious bool
-	write       bool
-}
 
 type manifestSetupCatalogue struct {
 	Accounts int `json:"accounts"`
@@ -98,7 +89,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	if err != nil {
 		return err
 	}
-	connected := make(map[string]manifestSetupCredential, len(credentials))
+	connected := make(map[string]setupCredential, len(credentials))
 	for _, item := range credentials {
 		connected[item.account] = item
 	}
@@ -122,12 +113,12 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: discoveredCodex, Targets: discoveredTargets}
 	}
 
-	written, err := writeManifestSetupCredentials(runtime, credentials)
+	written, err := writeSetupCredentials(runtime, credentials)
 	if err != nil {
 		return err
 	}
 	if err := invocation.Synchronizer(runtime).Commit(ctx, before, cfg, "configuration setup"); err != nil {
-		if rollbackErr := rollbackManifestSetupCredentials(runtime, credentials, written); rollbackErr != nil {
+		if rollbackErr := rollbackSetupCredentials(runtime, credentials, written); rollbackErr != nil {
 			return fmt.Errorf("configuration setup failed: %w; credential rollback also failed: %v", err, rollbackErr)
 		}
 		return fmt.Errorf("Configuration setup failed and credentials were rolled back: %w", err)
@@ -152,7 +143,7 @@ func buildManifestSetupResult(
 	manifest configuration.Manifest,
 	cfg configuration.Config,
 	accountNames []string,
-	connected map[string]manifestSetupCredential,
+	connected map[string]setupCredential,
 	availableClients map[string]bool,
 	selectedClients []string,
 ) manifestSetupResult {
@@ -239,7 +230,7 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 	r.Next(result.NextAction)
 }
 
-func collectManifestSetupCredentials(runtime invocation.Context, cfg configuration.Config, accountNames []string, selectedAccount string, tokenStdin bool) ([]manifestSetupCredential, error) {
+func collectManifestSetupCredentials(runtime invocation.Context, cfg configuration.Config, accountNames []string, selectedAccount string, tokenStdin bool) ([]setupCredential, error) {
 	if tokenStdin && selectedAccount == "" {
 		return nil, fmt.Errorf("--token-stdin requires --account so one Token has one unambiguous owner")
 	}
@@ -249,9 +240,9 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg configurati
 		}
 		accountNames = []string{selectedAccount}
 	}
-	credentials := make([]manifestSetupCredential, 0, len(accountNames))
+	credentials := make([]setupCredential, 0, len(accountNames))
 	for _, name := range accountNames {
-		credential := manifestSetupCredential{account: name}
+		credential := setupCredential{account: name}
 		available, err := runtime.Secrets.Exists(name)
 		if err != nil {
 			return nil, fmt.Errorf("observe Token for Account %q: %w", name, err)
@@ -278,7 +269,7 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg configurati
 			return nil, err
 		}
 		if len(credentials) == 0 {
-			credentials = append(credentials, manifestSetupCredential{account: selectedAccount})
+			credentials = append(credentials, setupCredential{account: selectedAccount})
 		}
 		credentials[0].token = token
 		credentials[0].write = true
@@ -301,41 +292,7 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg configurati
 	if token == "" {
 		return nil, fmt.Errorf("empty Token refused for Account %q", selectedAccount)
 	}
-	return []manifestSetupCredential{{account: selectedAccount, token: token, write: true}}, nil
-}
-
-func writeManifestSetupCredentials(runtime invocation.Context, credentials []manifestSetupCredential) ([]int, error) {
-	written := make([]int, 0, len(credentials))
-	for index, credential := range credentials {
-		if !credential.write {
-			continue
-		}
-		if err := runtime.Secrets.Set(credential.account, credential.token); err != nil {
-			if rollbackErr := rollbackManifestSetupCredentials(runtime, credentials, written); rollbackErr != nil {
-				return nil, fmt.Errorf("store Token for Account %q: %w; credential rollback also failed: %v", credential.account, err, rollbackErr)
-			}
-			return nil, fmt.Errorf("store Token for Account %q: %w", credential.account, err)
-		}
-		written = append(written, index)
-	}
-	return written, nil
-}
-
-func rollbackManifestSetupCredentials(runtime invocation.Context, credentials []manifestSetupCredential, written []int) error {
-	var rollbackErr error
-	for position := len(written) - 1; position >= 0; position-- {
-		credential := credentials[written[position]]
-		var err error
-		if credential.hadPrevious {
-			err = runtime.Secrets.Set(credential.account, credential.previous)
-		} else {
-			err = runtime.Secrets.Delete(credential.account)
-		}
-		if err != nil {
-			rollbackErr = errors.Join(rollbackErr, fmt.Errorf("restore Token for Account %q: %w", credential.account, err))
-		}
-	}
-	return rollbackErr
+	return []setupCredential{{account: selectedAccount, token: token, write: true}}, nil
 }
 
 func configuredClientsForAccount(cfg configuration.Config, accountName string) []string {
@@ -378,7 +335,7 @@ func verifyManifestSetupCredential(ctx context.Context, runtime invocation.Conte
 	return nil
 }
 
-func manifestSetupSelectedClients(cfg configuration.Config, connected map[string]manifestSetupCredential, available map[string]bool) []string {
+func manifestSetupSelectedClients(cfg configuration.Config, connected map[string]setupCredential, available map[string]bool) []string {
 	clients := make([]string, 0, len(configuration.AdmittedClientIDs()))
 	for _, client := range configuration.AdmittedClientIDs() {
 		runtime, err := cfg.ResolveRuntime(client, "")
