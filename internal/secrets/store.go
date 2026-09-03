@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/transaction"
 )
 
 const Service = "AIGW_TOKEN"
@@ -64,6 +65,44 @@ type automaticStore struct {
 	selected           Store
 	selectedBackend    string
 	selectionPersisted bool
+	selectionWrites    uint64
+	selectionPostimage transaction.FileSnapshot
+}
+
+// PrepareBackendSelectionRollback captures the automatic backend selection
+// before a larger transaction first observes credentials. The returned
+// compensation removes only a selection written by that transaction and
+// refuses to overwrite a newer external choice. Explicit stores have no
+// automatic selection to compensate.
+func PrepareBackendSelectionRollback(store Store) (func() error, error) {
+	automatic, ok := store.(*automaticStore)
+	if !ok {
+		return func() error { return nil }, nil
+	}
+	automatic.mutex.Lock()
+	defer automatic.mutex.Unlock()
+	_, err := automatic.choice.Read()
+	if err == nil {
+		return func() error { return nil }, nil
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return nil, fmt.Errorf("observe automatic credential backend selection: %w", err)
+	}
+	preparedWrites := automatic.selectionWrites
+	return func() error {
+		automatic.mutex.Lock()
+		defer automatic.mutex.Unlock()
+		if automatic.selectionWrites == preparedWrites {
+			return nil
+		}
+		selectionPath := filepath.Join(automatic.selection.Root, "backend")
+		if err := transaction.RestoreFileAtomicIfPostimage(selectionPath, transaction.FileSnapshot{}, automatic.selectionPostimage); err != nil {
+			return fmt.Errorf("restore automatic credential backend selection: %w", err)
+		}
+		automatic.selectionPersisted = false
+		automatic.selectionWrites = preparedWrites
+		return nil
+	}, nil
 }
 
 func IsReadOnly(store Store) bool {
@@ -211,6 +250,8 @@ func (store *automaticStore) resolve(persist bool) (typedStore, error) {
 				return nil, err
 			}
 			store.selectionPersisted = true
+			store.selectionWrites++
+			store.selectionPostimage = transaction.ExactModeWritePostimage([]byte(store.selectedBackend+"\n"), 0o600)
 		}
 		return requireTypedStore(store.selected)
 	}
@@ -234,11 +275,13 @@ func (store *automaticStore) resolve(persist bool) (typedStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	if persist {
+	if persist && !persisted {
 		if err := store.choice.Write(backend); err != nil {
 			return nil, err
 		}
 		persisted = true
+		store.selectionWrites++
+		store.selectionPostimage = transaction.ExactModeWritePostimage([]byte(backend+"\n"), 0o600)
 	}
 	store.selected = selected
 	store.selectedBackend = backend
@@ -317,6 +360,8 @@ func (store *automaticStore) persistSelection() error {
 		return err
 	}
 	store.selectionPersisted = true
+	store.selectionWrites++
+	store.selectionPostimage = transaction.ExactModeWritePostimage([]byte(store.selectedBackend+"\n"), 0o600)
 	return nil
 }
 

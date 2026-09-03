@@ -39,3 +39,28 @@ Routes, projected clients, and deferred actions in both human and JSON output.
 - **WHEN** no Token or supported client is available
 - **THEN** setup reports the catalogue as imported
 - **AND** does not claim any endpoint, credential, or client is ready.
+
+### Requirement: Setup has one explicit commit boundary
+
+Setup SHALL treat configuration, credential slots, backend selection, client
+projections, checkpoints, locks, and temporary files as one owned transaction
+until the canonical configuration commit succeeds. Failure before that boundary
+SHALL compensate only unchanged state written by the current transaction. A
+presentation or output failure after that boundary SHALL report the error
+without undoing committed product state.
+
+#### Scenario: Setup fails before commit
+
+- **WHEN** either guided or manifest setup fails before configuration commit
+- **THEN** every AIGW-owned preexisting state remains byte-identical and every
+  new owned artifact from that attempt is absent
+- **AND** a concurrently changed credential or backend selection remains
+  unchanged and the compensation conflict is reported.
+
+#### Scenario: Setup output fails after commit
+
+- **WHEN** setup commits configuration, credentials, backend selection, and
+  client projections but result rendering fails
+- **THEN** the committed product state remains available
+- **AND** the command reports only the output failure rather than claiming that
+  setup was rolled back.

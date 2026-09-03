@@ -33,7 +33,7 @@ type manifestSetupResult struct {
 	NextAction string                 `json:"next_action"`
 }
 
-func runManifestSetup(ctx context.Context, runtime invocation.Context, request Request) error {
+func runManifestSetup(ctx context.Context, runtime invocation.Context, request Request) (resultErr error) {
 	data, err := os.ReadFile(request.From)
 	if err != nil {
 		return fmt.Errorf("Failed to read configuration manifest: %w", err)
@@ -77,6 +77,12 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 			return fmt.Errorf("configuration setup found multiple auto-managed Codex targets; automatic native credential binding is not atomic across targets, so reduce the admitted target set before setup or import the manifest without first-time client binding")
 		}
 	}
+	rollbackBackendSelection, err := secrets.PrepareBackendSelectionRollback(runtime.Secrets)
+	if err != nil {
+		return err
+	}
+	committed := false
+	defer func() { compensateBackendSelectionOnFailure(&resultErr, committed, rollbackBackendSelection) }()
 	credentials, err := collectManifestSetupCredentials(runtime, cfg, accountNames, request.Account, request.TokenStdin)
 	if err != nil {
 		return err
@@ -123,6 +129,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 		}
 		return fmt.Errorf("Configuration setup failed and credentials were rolled back: %w", err)
 	}
+	committed = true
 
 	availableClients := make(map[string]bool, len(configuration.AdmittedClientIDs()))
 	for _, client := range configuration.AdmittedClientIDs() {

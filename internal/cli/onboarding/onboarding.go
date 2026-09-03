@@ -87,7 +87,7 @@ type setupPlan struct {
 	validationClients []string
 }
 
-func runSetup(ctx context.Context, runtime invocation.Context, request Request) error {
+func runSetup(ctx context.Context, runtime invocation.Context, request Request) (resultErr error) {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
 		return err
@@ -96,6 +96,12 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	if err != nil {
 		return err
 	}
+	rollbackBackendSelection, err := secrets.PrepareBackendSelectionRollback(runtime.Secrets)
+	if err != nil {
+		return err
+	}
+	committed := false
+	defer func() { compensateBackendSelectionOnFailure(&resultErr, committed, rollbackBackendSelection) }()
 	credentialChange, err := setupToken(runtime, plan.request)
 	if err != nil {
 		return err
@@ -129,6 +135,7 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 		}
 		return fmt.Errorf("Client configuration failed and was rolled back: %w", err)
 	}
+	committed = true
 	renderSetupClients(runtime, plan.config)
 	return nil
 }

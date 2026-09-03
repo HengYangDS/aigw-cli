@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -795,7 +796,17 @@ account = "team"
 }
 
 func TestSetupFromConfigurationManifestClientFailureRollsBackCredentialsAndConfig(t *testing.T) {
-	app, _, secretStore, _ := testApp(t, "")
+	app, _, _, _ := testApp(t, "")
+	secretsRoot := filepath.Join(t.TempDir(), "secrets")
+	secretStore, err := secrets.Select(secrets.Selection{
+		GOOS:         runtime.GOOS,
+		Root:         secretsRoot,
+		KeyringProbe: func(secrets.Store) error { return errors.New("native credential service unavailable") },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.Secrets = secretStore
 	app.Interactive = true
 	app.Prompt = &manifestSetupPrompt{secrets: []string{"aigw-test-dmxapi-token"}}
 	app.Runner = &failingRunner{err: errors.New("Codex login failed"), remaining: 1}
@@ -816,17 +827,59 @@ func TestSetupFromConfigurationManifestClientFailureRollsBackCredentialsAndConfi
 	}}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
-	err := execute(t, app, "setup", "--from", manifestPath, "--account", "dmxapi")
+	err = execute(t, app, "setup", "--from", manifestPath, "--account", "dmxapi")
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("error = %v", err)
 	}
 	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
 		t.Fatal("failed setup left an Account Token")
 	}
+	if _, err := os.Stat(filepath.Join(secretsRoot, "backend")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("failed setup left the automatic backend selection: %v", err)
+	}
 	assertManifestSetupLeavesNoConfig(t, app)
 	data, err := os.ReadFile(codexTarget)
 	if err != nil || string(data) != original {
 		t.Fatalf("failed setup changed Codex config: %q, %v", data, err)
+	}
+	assertSetupTransactionClosed(
+		t,
+		app.Config,
+		codexTarget+".aigw-state.json",
+		app.ClaudeSettingsPath,
+		app.ClaudeSettingsPath+".aigw-state.json",
+	)
+}
+
+func TestSetupFromConfigurationManifestOutputFailureKeepsCommittedAutomaticBackendSelection(t *testing.T) {
+	app, _, _, _ := testApp(t, "token\n")
+	secretsRoot := filepath.Join(t.TempDir(), "secrets")
+	secretStore, err := secrets.Select(secrets.Selection{
+		GOOS:         runtime.GOOS,
+		Root:         secretsRoot,
+		KeyringProbe: func(secrets.Store) error { return errors.New("native credential service unavailable") },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.Secrets = secretStore
+	want := errors.New("output failed")
+	app.Out = failingOutput{err: want}
+	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
+
+	err = execute(t, app, "setup", "--from", manifestPath, "--account", "dmxapi", "--token-stdin", "--json")
+	if !errors.Is(err, want) {
+		t.Fatalf("error = %v, want %v", err, want)
+	}
+	if !secretExists(t, secretStore, "dmxapi") {
+		t.Fatal("output failure removed the committed Account Token")
+	}
+	selected, err := os.ReadFile(filepath.Join(secretsRoot, "backend"))
+	if err != nil || string(selected) != "file\n" {
+		t.Fatalf("committed backend selection = %q, %v; want file", selected, err)
+	}
+	if _, err := app.Config.Load(); err != nil {
+		t.Fatalf("output failure removed the committed configuration: %v", err)
 	}
 }
 

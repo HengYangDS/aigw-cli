@@ -357,6 +357,18 @@ func TestWriteAndRollbackSetupCredentialsBranches(t *testing.T) {
 	})
 }
 
+func TestBackendSelectionCompensationReportsTheOperationAndRollbackFailures(t *testing.T) {
+	operationErr := errors.New("setup failed")
+	rollbackErr := errors.New("backend selection changed")
+	result := error(operationErr)
+
+	compensateBackendSelectionOnFailure(&result, false, func() error { return rollbackErr })
+
+	if !errors.Is(result, operationErr) || !errors.Is(result, rollbackErr) {
+		t.Fatalf("error = %v; want both operation and rollback failures", result)
+	}
+}
+
 func TestSetupAccountClientAndRuntimeHelpers(t *testing.T) {
 	cfg := configuration.NewConfig()
 	cfg.Accounts["legacy"] = configuration.Account{Label: "Legacy", Endpoints: configuration.Endpoints{OpenAIResponses: "https://legacy.test/v1", Anthropic: "https://legacy.test"}}

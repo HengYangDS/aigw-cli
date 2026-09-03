@@ -2,7 +2,9 @@ package secrets
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -104,5 +106,147 @@ func TestDefaultKeyringProbeRecognizesReachableAndFailedStores(t *testing.T) {
 	want := errors.New("service unavailable")
 	if err := probeKeyring(probeStore{err: want}, nil); !errors.Is(err, want) {
 		t.Fatalf("probeKeyring() error = %v, want %v", err, want)
+	}
+}
+
+func TestAutomaticBackendSelectionRollbackRemovesOnlyTheTransactionSelection(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	store, err := Select(Selection{
+		GOOS:         runtime.GOOS,
+		Root:         root,
+		KeyringProbe: func(Store) error { return errors.New("unavailable") },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollback, err := PrepareBackendSelectionRollback(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "backend")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("backend selection remains after rollback: %v", err)
+	}
+}
+
+func TestAutomaticBackendSelectionRollbackRemovesSelectionPersistedByRead(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	if err := newFileStore(filepath.Join(root, "tokens")).Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	store, err := Select(Selection{
+		GOOS:         runtime.GOOS,
+		Root:         root,
+		KeyringProbe: func(Store) error { return errors.New("unavailable") },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollback, err := PrepareBackendSelectionRollback(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value, err := store.Get("team"); err != nil || value != "token" {
+		t.Fatalf("Get() = %q, %v", value, err)
+	}
+	if err := rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "backend")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("backend selection remains after rollback: %v", err)
+	}
+}
+
+func TestAutomaticBackendSelectionRollbackPreservesExistingSelection(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	choice := newBackendChoice(root)
+	if err := choice.Write("file"); err != nil {
+		t.Fatal(err)
+	}
+	store, err := Select(Selection{GOOS: runtime.GOOS, Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollback, err := PrepareBackendSelectionRollback(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if selected, err := choice.Read(); err != nil || selected != "file" {
+		t.Fatalf("backend selection = %q, %v; want file", selected, err)
+	}
+}
+
+func TestAutomaticBackendSelectionRollbackPreservesDrift(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	choice := newBackendChoice(root)
+	store, err := Select(Selection{
+		GOOS:         runtime.GOOS,
+		Root:         root,
+		KeyringProbe: func(Store) error { return errors.New("unavailable") },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollback, err := PrepareBackendSelectionRollback(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := choice.Write("keyring"); err != nil {
+		t.Fatal(err)
+	}
+	if err := rollback(); err == nil || !strings.Contains(err.Error(), "changed") {
+		t.Fatalf("rollback error = %v; want drift rejection", err)
+	}
+	if selected, err := choice.Read(); err != nil || selected != "keyring" {
+		t.Fatalf("backend selection = %q, %v; want newer keyring", selected, err)
+	}
+}
+
+func TestAutomaticBackendSelectionRollbackPreservesSelectionCreatedByAnotherWriter(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	choice := newBackendChoice(root)
+	store, err := Select(Selection{GOOS: runtime.GOOS, Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollback, err := PrepareBackendSelectionRollback(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := choice.Write("file"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if selected, err := choice.Read(); err != nil || selected != "file" {
+		t.Fatalf("backend selection = %q, %v; want externally created file selection", selected, err)
+	}
+}
+
+func TestExplicitBackendSelectionRollbackIsNoOp(t *testing.T) {
+	rollback, err := PrepareBackendSelectionRollback(NewMemoryStore())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rollback(); err != nil {
+		t.Fatal(err)
 	}
 }

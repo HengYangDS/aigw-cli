@@ -1,6 +1,7 @@
 package transaction_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -19,6 +20,18 @@ func TestCaptureFileSnapshotOfMissingFileIsEmptyNotError(t *testing.T) {
 	}
 	if snapshot.Exists || len(snapshot.Data) != 0 || snapshot.SHA256 != "" {
 		t.Fatalf("snapshot of missing file = %#v", snapshot)
+	}
+}
+
+func TestExactModeWritePostimageDescribesThePersistedFile(t *testing.T) {
+	want := []byte("file\n")
+	wantMode := os.FileMode(0o600)
+	if runtime.GOOS == "windows" {
+		wantMode = 0o666
+	}
+	snapshot := transaction.ExactModeWritePostimage(want, 0o600)
+	if !snapshot.Exists || !bytes.Equal(snapshot.Data, want) || snapshot.Mode != wantMode {
+		t.Fatalf("snapshot = %#v", snapshot)
 	}
 }
 

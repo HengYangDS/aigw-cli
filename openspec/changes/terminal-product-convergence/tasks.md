@@ -13,8 +13,8 @@
 - [ ] 2.3 Add RED acceptance for one installed client, both installed clients, and neither client; require activation only where Token, Route, and client capability intersect.
 - [ ] 2.4 Remove any setup validation, prompt, or loop that treats every manifest Account or both clients as mandatory.
 - [ ] 2.5 Make setup human and JSON results distinguish imported Accounts and Profiles, connected Accounts, selected Routes, projected clients, and deferred continuations.
-- [ ] 2.6 Prove setup failure before commit leaves configuration, credential slots, client files, and checkpoints byte-identical.
-- [ ] 2.7 Prove setup commit failure compensates every AIGW-owned write and retains no temporary file, lock, partial credential, or projection.
+- [x] 2.6 Prove setup failure before commit leaves configuration, credential slots, client files, and checkpoints byte-identical.
+- [x] 2.7 Prove setup commit failure compensates every AIGW-owned write and retains no temporary file, lock, partial credential, or projection.
 
 ## 3. Route, synchronization, and readiness semantics
 

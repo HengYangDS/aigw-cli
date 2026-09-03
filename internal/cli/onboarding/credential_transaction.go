@@ -17,6 +17,13 @@ type setupCredential struct {
 	write       bool
 }
 
+func compensateBackendSelectionOnFailure(result *error, committed bool, rollback func() error) {
+	if *result == nil || committed {
+		return
+	}
+	*result = errors.Join(*result, rollback())
+}
+
 func writeSetupCredentials(runtime invocation.Context, credentials []setupCredential) ([]int, error) {
 	written := make([]int, 0, len(credentials))
 	for index, credential := range credentials {
