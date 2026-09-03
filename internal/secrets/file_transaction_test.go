@@ -30,34 +30,22 @@ type readRootStub struct {
 func (root readRootStub) Lstat(string) (os.FileInfo, error) { return root.info, nil }
 func (root readRootStub) Open(string) (*os.File, error)     { return nil, root.err }
 
-type writeRootStub struct {
-	file    *os.File
-	openErr error
-}
-
-func (root *writeRootStub) OpenFile(string, int, os.FileMode) (*os.File, error) {
-	return root.file, nil
-}
-func (*writeRootStub) Lstat(string) (os.FileInfo, error) { return nil, os.ErrNotExist }
-func (*writeRootStub) Remove(string) error               { return nil }
-func (*writeRootStub) Rename(string, string) error       { return nil }
-func (root *writeRootStub) Open(string) (*os.File, error) {
-	return nil, root.openErr
-}
-
 type failingDirectorySyncRoot struct {
 	*os.Root
 	remainingFailures int
 	onFailure         func()
+	recoveryObserved  bool
 }
 
 type faultRoot struct {
 	*os.Root
 	lstatErr    error
 	openFileErr error
+	openFile    *os.File
 	removeErr   error
 	renameErr   error
 	openErrors  map[string]error
+	openedFile  *os.File
 }
 
 func (root *faultRoot) Lstat(name string) (os.FileInfo, error) {
@@ -70,6 +58,9 @@ func (root *faultRoot) Lstat(name string) (os.FileInfo, error) {
 func (root *faultRoot) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
 	if root.openFileErr != nil {
 		return nil, root.openFileErr
+	}
+	if root.openFile != nil {
+		return root.openFile, nil
 	}
 	return root.Root.OpenFile(name, flag, perm)
 }
@@ -92,10 +83,17 @@ func (root *faultRoot) Open(name string) (*os.File, error) {
 	if err := root.openErrors[name]; err != nil {
 		return nil, err
 	}
+	if root.openedFile != nil {
+		return root.openedFile, nil
+	}
 	return root.Root.Open(name)
 }
 
 func (root *failingDirectorySyncRoot) Open(name string) (*os.File, error) {
+	if name == "." && !root.recoveryObserved {
+		root.recoveryObserved = true
+		return root.Root.Open(name)
+	}
 	if name == "." && root.remainingFailures > 0 {
 		root.remainingFailures--
 		if root.onFailure != nil {
@@ -275,7 +273,8 @@ func TestCredentialSnapshotComparisonSupportsContentOnlyExpectations(t *testing.
 }
 
 func TestSecureFilePropagatesOpenAndWriteFailures(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "alpha")
+	directory := t.TempDir()
+	path := filepath.Join(directory, "alpha")
 	if err := os.WriteFile(path, []byte("token"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +290,12 @@ func TestSecureFilePropagatesOpenAndWriteFailures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := writeSecureFile(&writeRootStub{file: readOnly, openErr: errors.New("unexpected directory sync")}, "alpha", []byte("replacement")); err == nil {
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	if err := writeSecureFile(&faultRoot{Root: root, openFile: readOnly}, "alpha", []byte("replacement")); err == nil {
 		t.Fatal("writeSecureFile() ignored a write failure")
 	}
 }

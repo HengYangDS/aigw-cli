@@ -3,12 +3,15 @@ package secrets
 import (
 	"crypto/rand"
 	"crypto/subtle"
+	"encoding/base32"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 )
+
+const credentialStagingPrefix = ".token-"
 
 type syncWriter interface {
 	Write([]byte) (int, error)
@@ -139,7 +142,10 @@ func writeSecureFileFromPreimage(root writeRoot, name string, preimage credentia
 }
 
 func replaceSecureFile(root writeRoot, name string, value []byte) (credentialFileSnapshot, bool, error) {
-	temporaryName := ".token-" + rand.Text()
+	if err := recoverCredentialStaging(root); err != nil {
+		return credentialFileSnapshot{}, false, err
+	}
+	temporaryName := credentialStagingPrefix + rand.Text()
 	temporary, err := root.OpenFile(temporaryName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return credentialFileSnapshot{}, false, err
@@ -173,6 +179,9 @@ func replaceSecureFile(root writeRoot, name string, value []byte) (credentialFil
 }
 
 func deleteSecureFile(root writeRoot, name string) error {
+	if err := recoverCredentialStaging(root); err != nil {
+		return err
+	}
 	preimage, err := captureOptionalSecureFile(root, name)
 	if err != nil {
 		return err
@@ -191,6 +200,9 @@ func deleteSecureFile(root writeRoot, name string) error {
 }
 
 func deleteSecureFileIf(root writeRoot, name string, expected credentialFileSnapshot) error {
+	if err := recoverCredentialStaging(root); err != nil {
+		return err
+	}
 	current, err := captureOptionalSecureFile(root, name)
 	if err != nil {
 		return err
@@ -293,6 +305,52 @@ func sameCredentialFileSnapshot(left, right credentialFileSnapshot) bool {
 
 func identifyFile(info os.FileInfo) fileIdentity {
 	return fileIdentity{info: info, size: info.Size(), mode: info.Mode(), modified: info.ModTime().UnixNano()}
+}
+
+func recoverCredentialStaging(root writeRoot) error {
+	directory, err := root.Open(".")
+	if err != nil {
+		return fmt.Errorf("open Token directory for recovery: %w", err)
+	}
+	defer func() { _ = directory.Close() }()
+	entries, err := directory.ReadDir(-1)
+	if err != nil {
+		return fmt.Errorf("inspect Token staging files: %w", err)
+	}
+	removed := false
+	for _, entry := range entries {
+		name := entry.Name()
+		if !isCredentialStagingName(name) {
+			continue
+		}
+		before, err := root.Lstat(name)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("inspect Token staging file %q: %w", name, err)
+		}
+		if err := validateOwnedFile(before); err != nil {
+			return fmt.Errorf("Token staging path %q is not an owned regular file: %w", name, err)
+		}
+		if err := root.Remove(name); err != nil {
+			return fmt.Errorf("remove Token staging file %q: %w", name, err)
+		}
+		removed = true
+	}
+	if removed {
+		return syncRoot(root)
+	}
+	return nil
+}
+
+func isCredentialStagingName(name string) bool {
+	random, ok := strings.CutPrefix(name, credentialStagingPrefix)
+	if !ok {
+		return false
+	}
+	decoded, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(random)
+	return err == nil && len(decoded) >= 16
 }
 
 func writeAndSync(target syncWriter, value []byte) error {

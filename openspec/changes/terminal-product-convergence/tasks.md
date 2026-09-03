@@ -36,8 +36,8 @@
 - [x] 4.4 Prove Windows Credential Manager selection, metadata observation, persistence, replacement, and deletion from a native Windows build.
 - [x] 4.5 Prove explicit environment mode across setup, sync, check, credential helpers, and live verification; require stable operation when no native keyring exists.
 - [x] 4.6 Ensure API Tokens and Provider diagnostic credentials use distinct typed slots in one selected backend and never cross-read or substitute values.
-- [ ] 4.7 Remove backend fallback searches, legacy key names, duplicate state markers, stale credential files, and damaged owned entries after migration evidence identifies no consumer.
-- [ ] 4.8 Prove interruption and failure leave no partial credential or backend-selection state and do not delete unowned credentials.
+- [x] 4.7 Remove backend fallback searches, legacy key names, duplicate state markers, stale credential files, and damaged owned entries after migration evidence identifies no consumer.
+- [x] 4.8 Prove interruption and failure leave no partial credential or backend-selection state and do not delete unowned credentials.
 
 ## 5. Client projection and product boundary
 
