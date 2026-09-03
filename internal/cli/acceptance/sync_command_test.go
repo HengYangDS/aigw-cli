@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -88,6 +89,135 @@ func TestSyncReconcilesCodexConfigWithoutRebindingCredentials(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {
 		t.Fatalf("sync did not reconcile Codex config:\n%s", data)
+	}
+}
+
+func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientState(t *testing.T) {
+	home := t.TempDir()
+	bin := filepath.Join(home, "bin")
+	if err := os.MkdirAll(bin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	executableName := func(name string) string {
+		if runtime.GOOS == "windows" {
+			return name + ".exe"
+		}
+		return name
+	}
+	for _, name := range []string{"aigw", configuration.ClientClaude, configuration.ClientCodex} {
+		if err := os.WriteFile(filepath.Join(bin, executableName(name)), []byte("native executable fixture"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	codexHome := filepath.Join(home, ".codex")
+	codexTarget := filepath.Join(codexHome, "config.toml")
+	if err := os.MkdirAll(codexHome, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\ndesktop_feature = true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	preserved := map[string][]byte{
+		filepath.Join(codexHome, "sessions", "existing.jsonl"): []byte("{\"model\":\"gpt-existing\"}\n"),
+		filepath.Join(codexHome, "state_5.sqlite"):             []byte("SQLite format 3\x00existing state"),
+		filepath.Join(codexHome, "desktop-settings.json"):      []byte("{\"theme\":\"system\"}\n"),
+		filepath.Join(home, ".zshrc"):                          []byte("export TEAM_VALUE=kept\n"),
+	}
+	for path, data := range preserved {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	claudeSettings := filepath.Join(home, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(claudeSettings), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(claudeSettings, []byte(`{"theme":"dark","permissions":{"allow":["Read"]},"env":{"TEAM_VALUE":"kept"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	app, _, secretStore, runner := testApp(t, "")
+	app.Executable = filepath.Join(bin, executableName("aigw"))
+	app.ClaudeSettingsPath = claudeSettings
+	app.Discovery = discovery.System{GOOS: runtime.GOOS, Home: home, Path: bin}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
+		Anthropic:       "https://gateway.test",
+		OpenAIResponses: "https://gateway.test/v1",
+	}}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-team"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-team"}
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Routes[configuration.ClientCodex] = "codex"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "plaintext-token-must-not-be-projected"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("sync started a client or credential command: %#v", runner.plans)
+	}
+	after, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !maps.Equal(after.Profiles, cfg.Profiles) || !maps.Equal(after.Routes, cfg.Routes) {
+		t.Fatalf("sync changed Profile or Route authority: profiles=%#v routes=%#v", after.Profiles, after.Routes)
+	}
+	adapter := after.Adapters[configuration.ClientCodex]
+	if !adapter.Enabled || len(adapter.Targets) != 1 || adapter.Targets[0] != codexTarget {
+		t.Fatalf("Codex did not use the single discovered shared home: %#v", adapter)
+	}
+	codexConfig, err := os.ReadFile(codexTarget)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(codexConfig), "desktop_feature = true") || !strings.Contains(string(codexConfig), `model = "gpt-team" # managed by AIGW`) {
+		t.Fatalf("Codex projection did not preserve foreign configuration:\n%s", codexConfig)
+	}
+	if strings.Contains(string(codexConfig), "plaintext-token-must-not-be-projected") {
+		t.Fatal("Codex projection contains the Account Token")
+	}
+	for path, want := range preserved {
+		got, readErr := os.ReadFile(path)
+		if readErr != nil || string(got) != string(want) {
+			t.Fatalf("client-owned state changed at %s: %q, %v", path, got, readErr)
+		}
+	}
+	var settings struct {
+		APIKeyHelper string              `json:"apiKeyHelper"`
+		Model        string              `json:"model"`
+		Theme        string              `json:"theme"`
+		Permissions  map[string][]string `json:"permissions"`
+		Environment  map[string]string   `json:"env"`
+	}
+	data, err := os.ReadFile(claudeSettings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings.Theme != "dark" || len(settings.Permissions["allow"]) != 1 || settings.Permissions["allow"][0] != "Read" || settings.Environment["TEAM_VALUE"] != "kept" {
+		t.Fatalf("foreign Claude settings changed: %#v", settings)
+	}
+	if settings.Model != "claude-team" || settings.Environment["ANTHROPIC_BASE_URL"] != "https://gateway.test" {
+		t.Fatalf("Claude settings projection = %#v", settings)
+	}
+	if !strings.Contains(settings.APIKeyHelper, app.Executable) || !strings.HasSuffix(settings.APIKeyHelper, " credential claude") {
+		t.Fatalf("Claude helper is not the absolute AIGW credential command: %q", settings.APIKeyHelper)
+	}
+	if strings.Contains(string(data), "plaintext-token-must-not-be-projected") || settings.Environment["ANTHROPIC_API_KEY"] != "" || settings.Environment["ANTHROPIC_AUTH_TOKEN"] != "" {
+		t.Fatalf("Claude settings contain credential material: %s", data)
 	}
 }
 

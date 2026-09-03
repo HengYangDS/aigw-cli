@@ -42,8 +42,8 @@
 ## 5. Client projection and product boundary
 
 - [ ] 5.1 Derive one admitted-client contract for discovery, configuration planning, credential binding, atomic projection, status, verification, rollback, and uninstall.
-- [ ] 5.2 Make Codex CLI and Desktop use the same discovered Codex Home while preserving Desktop-only settings, sessions, models chosen by existing conversations, JSONL, and SQLite.
-- [ ] 5.3 Make Claude Code projection use its official settings and credential-helper surfaces without a shell wrapper, PATH dependency, profile mutation, or plaintext Token.
+- [x] 5.2 Make Codex CLI and Desktop use the same discovered Codex Home while preserving Desktop-only settings, sessions, models chosen by existing conversations, JSONL, and SQLite.
+- [x] 5.3 Make Claude Code projection use its official settings and credential-helper surfaces without a shell wrapper, PATH dependency, profile mutation, or plaintext Token.
 - [ ] 5.4 Prove missing Codex, missing Claude, later installation, changed executable path, multiple Codex homes, malformed user configuration, and foreign managed-state conflicts.
 - [x] 5.5 Prove client projection preparation is complete before writes and multi-target failure compensates only unchanged AIGW-owned postimages.
 - [ ] 5.6 Make disable and uninstall remove only AIGW-owned blocks, sidecars, helpers, checkpoints, and command projections while preserving all neighboring user state.
