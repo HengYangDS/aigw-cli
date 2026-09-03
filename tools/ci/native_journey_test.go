@@ -88,27 +88,12 @@ func TestNativeProductJourney(t *testing.T) {
 				}
 			})
 			journey.runInput(token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
-			for _, command := range [][]string{{"status", "--json"}, {"doctor", "--json"}} {
-				output := journey.run(command...)
-				if bytes.Contains(output, []byte(token)) {
-					t.Fatalf("%s disclosed the system credential", strings.Join(command, " "))
-				}
-				var result struct {
-					CredentialBackend secrets.BackendSelection `json:"credential_backend"`
-				}
-				if err := json.Unmarshal(output, &result); err != nil {
-					t.Fatalf("decode %s: %v", strings.Join(command, " "), err)
-				}
-				want := secrets.BackendSelection{
-					Kind:         "keyring",
-					Availability: "available",
-					Mutability:   "read_write",
-					Persistence:  "persisted",
-				}
-				if result.CredentialBackend != want {
-					t.Fatalf("%s credential backend = %#v, want %#v", strings.Join(command, " "), result.CredentialBackend, want)
-				}
-			}
+			journey.requireCredentialBackend(token, secrets.BackendSelection{
+				Kind:         "keyring",
+				Availability: "available",
+				Mutability:   "read_write",
+				Persistence:  "persisted",
+			})
 			if got := strings.TrimSpace(string(journey.run("credential", "claude"))); got != token {
 				t.Fatalf("credential = %q", got)
 			}
@@ -117,6 +102,33 @@ func TestNativeProductJourney(t *testing.T) {
 			}
 			if _, err := store.Get("native-system-keyring-probe"); !errors.Is(err, secrets.ErrNotFound) {
 				t.Fatalf("deleted credential remains: %v", err)
+			}
+			journey.uninstallAndRequireOwnedFilesAbsent()
+		})
+	}
+
+	if runtime.GOOS == "linux" && os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
+		t.Run("secure file fallback without session bus", func(t *testing.T) {
+			journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
+			journey.enableSystemCredentialStore()
+			journey.setEnvironment(
+				"DBUS_SESSION_BUS_ADDRESS",
+				"unix:path="+filepath.Join(journey.root, "missing-session-bus.sock"),
+			)
+			const token = "native-secure-file-token"
+			journey.runInput(token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
+			journey.requireCredentialBackend(token, secrets.BackendSelection{
+				Kind:         "file",
+				Availability: "available",
+				Mutability:   "read_write",
+				Persistence:  "persisted",
+			})
+			if got := strings.TrimSpace(string(journey.run("credential", "claude"))); got != token {
+				t.Fatalf("credential = %q", got)
+			}
+			backend := filepath.Join(journey.root, "data", "aigw", "secrets", "backend")
+			if got := strings.TrimSpace(string(readFile(t, backend))); got != "file" {
+				t.Fatalf("persisted backend = %q, want file", got)
 			}
 			journey.uninstallAndRequireOwnedFilesAbsent()
 		})
@@ -311,6 +323,25 @@ func (j *journeyFixture) runWithInput(binary, input string, args ...string) []by
 		j.testing.Fatalf("%s %s: %v\nstdout:\n%s\nstderr:\n%s", binary, strings.Join(args, " "), err, stdout, stderr)
 	}
 	return stdout.Bytes()
+}
+
+func (j *journeyFixture) requireCredentialBackend(token string, want secrets.BackendSelection) {
+	j.testing.Helper()
+	for _, command := range [][]string{{"status", "--json"}, {"doctor", "--json"}} {
+		output := j.run(command...)
+		if bytes.Contains(output, []byte(token)) {
+			j.testing.Fatalf("%s disclosed the credential", strings.Join(command, " "))
+		}
+		var result struct {
+			CredentialBackend secrets.BackendSelection `json:"credential_backend"`
+		}
+		if err := json.Unmarshal(output, &result); err != nil {
+			j.testing.Fatalf("decode %s: %v", strings.Join(command, " "), err)
+		}
+		if result.CredentialBackend != want {
+			j.testing.Fatalf("%s credential backend = %#v, want %#v", strings.Join(command, " "), result.CredentialBackend, want)
+		}
+	}
 }
 
 func (j *journeyFixture) requireConfigContains(values ...string) {
