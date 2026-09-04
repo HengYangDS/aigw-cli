@@ -109,6 +109,9 @@ func TestSecureFileHelpersRejectInvalidResources(t *testing.T) {
 		t.Fatal("openSecureRoot() accepted an empty storage root")
 	}
 	parent := t.TempDir()
+	if _, err := openSecureRoot(filepath.Join(parent, "invalid\x00root"), false); err == nil {
+		t.Fatal("openSecureRoot() accepted an invalid storage root")
+	}
 	regular := filepath.Join(parent, "regular")
 	if err := os.WriteFile(regular, []byte("not a directory"), 0o600); err != nil {
 		t.Fatal(err)
@@ -118,9 +121,6 @@ func TestSecureFileHelpersRejectInvalidResources(t *testing.T) {
 	}
 	if _, err := openSecureRoot(filepath.Join(regular, "child"), true); err == nil {
 		t.Fatal("openSecureRoot() created beneath a regular file")
-	}
-	if _, err := openSecureRoot(filepath.Join(regular, "child"), false); err == nil {
-		t.Fatal("openSecureRoot() inspected beneath a regular file")
 	}
 
 	rootPath := filepath.Join(parent, "root")

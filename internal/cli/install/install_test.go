@@ -91,17 +91,13 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 
 	t.Run("configuration inspection", func(t *testing.T) {
 		root := t.TempDir()
-		blocked := filepath.Join(root, "blocked")
-		if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
-			t.Fatal(err)
-		}
 		target := filepath.Join(root, "aigw")
 		if err := os.WriteFile(target, []byte("current"), 0o755); err != nil {
 			t.Fatal(err)
 		}
 		command := NewUninstallCommand(invocation.Context{
 			Executable: target,
-			Config:     configuration.NewStore(filepath.Join(blocked, "configuration.toml")),
+			Config:     configuration.NewStore(filepath.Join(root, "invalid\x00configuration.toml")),
 		})
 		command.SetArgs(nil)
 		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "inspect AIGW configuration") {

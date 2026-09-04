@@ -186,7 +186,14 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 	if err != nil {
 		t.Fatalf("read repaired Claude projection: %v", err)
 	}
-	if !strings.Contains(string(data), "https://one.test") || !strings.Contains(string(data), executable) {
+	var settings struct {
+		APIKeyHelper string            `json:"apiKeyHelper"`
+		Environment  map[string]string `json:"env"`
+	}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("decode repaired Claude projection: %v", err)
+	}
+	if settings.Environment["ANTHROPIC_BASE_URL"] != "https://one.test" || !strings.Contains(settings.APIKeyHelper, executable) {
 		t.Fatalf("Claude projection = %s", data)
 	}
 }

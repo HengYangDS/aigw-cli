@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"github.com/pelletier/go-toml/v2"
 )
 
 type runOnlyAdapterRunner struct{}
@@ -196,7 +197,17 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *tes
 			if err != nil {
 				t.Fatal(err)
 			}
-			hasCommand := strings.Contains(string(projected), command)
+			var document struct {
+				ModelProviders map[string]struct {
+					Auth struct {
+						Command string `toml:"command"`
+					} `toml:"auth"`
+				} `toml:"model_providers"`
+			}
+			if err := toml.Unmarshal(projected, &document); err != nil {
+				t.Fatalf("decode Codex projection: %v", err)
+			}
+			hasCommand := document.ModelProviders["amazon-bedrock"].Auth.Command == command
 			if hasCommand != test.wantCommand {
 				t.Fatalf("credential command present = %t, want %t:\n%s", hasCommand, test.wantCommand, projected)
 			}
