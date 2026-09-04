@@ -207,6 +207,56 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 	}
 }
 
+func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing.T) {
+	baselineClientIDs := DefaultRegistry().IDs()
+	before := configuration.NewConfig()
+	before.Accounts["direct"] = configuration.Account{
+		Label: "Direct",
+		Endpoints: configuration.Endpoints{
+			Anthropic:       "https://direct.example.test",
+			OpenAIResponses: "https://direct.example.test/v1",
+		},
+	}
+	before.Accounts["gateway"] = configuration.Account{
+		Label: "External gateway",
+		Endpoints: configuration.Endpoints{
+			Anthropic:       "http://127.0.0.1:9876",
+			OpenAIResponses: "http://127.0.0.1:9876/v1",
+		},
+	}
+	before.Profiles["claude"] = configuration.Profile{Account: "direct", Client: configuration.ClientClaude, Model: "claude-test"}
+	before.Profiles["codex"] = configuration.Profile{Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
+	before.Routes[configuration.ClientClaude] = "claude"
+	before.Routes[configuration.ClientCodex] = "codex"
+	before.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/clients/claude"}
+	before.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/clients/codex", Targets: []string{"/clients/codex.toml"}}
+	wantUnchanged := before.Clone()
+
+	future := &recordingAdapter{}
+	specs := append(configuration.AdmittedClientSpecs(), future.Spec())
+	registry, err := NewRegistry(specs, codexAdapter{}, claudeAdapter{}, future)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := registry.Converge(Dependencies{}, before, discovery.Result{}, future.Spec().ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !after.Adapters[future.Spec().ID].Enabled {
+		t.Fatal("future client was not admitted through its adapter")
+	}
+	delete(after.Adapters, future.Spec().ID)
+	if !reflect.DeepEqual(after, wantUnchanged) {
+		t.Fatalf("future client changed existing client or Provider state:\n got %#v\nwant %#v", after, wantUnchanged)
+	}
+	if !reflect.DeepEqual(before, wantUnchanged) {
+		t.Fatal("future client admission mutated its input configuration")
+	}
+	if got := DefaultRegistry().IDs(); !reflect.DeepEqual(got, baselineClientIDs) {
+		t.Fatalf("built-in registry changed: got %v, want %v", got, baselineClientIDs)
+	}
+}
+
 func TestRegistryCompensatesAppliedAdaptersInReverseOrder(t *testing.T) {
 	events := []string{}
 	failure := errors.New("second adapter failed")

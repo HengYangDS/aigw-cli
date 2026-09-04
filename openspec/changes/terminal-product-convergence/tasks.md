@@ -52,11 +52,11 @@
 
 ## 6. Provider and future-client extension
 
-- [ ] 6.1 Define the minimal Provider declaration for endpoint protocols, Profiles, models, explicit authentication ownership, and optional diagnostic capability.
-- [ ] 6.2 Add a synthetic ordinary Provider using data and shared conformance fixtures only; prove no core branch, command, installer case, or policy edit is required.
-- [ ] 6.3 Model AWS Bedrock or another signing-based service through client-native authentication when the admitted client already owns its credential chain and signer; prove AIGW adds neither credential storage nor a signing Adapter.
-- [ ] 6.4 Define the client Adapter contract and conformance suite for future Hermes, OpenCode, Pi, Qoder, and other clients without coupling them to Provider policy.
-- [ ] 6.5 Prove one representative future-client fixture can be admitted without changing existing Codex, Claude, Provider, or external-gateway behavior.
+- [x] 6.1 Define the minimal Provider declaration for endpoint protocols, Profiles, models, explicit authentication ownership, and optional diagnostic capability.
+- [x] 6.2 Add a synthetic ordinary Provider using data and shared conformance fixtures only; prove no core branch, command, installer case, or policy edit is required.
+- [x] 6.3 Model AWS Bedrock or another signing-based service through client-native authentication when the admitted client already owns its credential chain and signer; prove AIGW adds neither credential storage nor a signing Adapter.
+- [x] 6.4 Define the client Adapter contract and conformance suite for future Hermes, OpenCode, Pi, Qoder, and other clients without coupling them to Provider policy.
+- [x] 6.5 Prove one representative future-client fixture can be admitted without changing existing Codex, Claude, Provider, or external-gateway behavior.
 - [ ] 6.6 Evaluate maintained libraries and frameworks for configuration, secrets, rendering, update, packaging, protocol, and testing against measured deletion, dependency, security, and maintenance value.
 - [ ] 6.7 Adopt only candidates with positive net value and delete the superseded custom mechanics in the same closure; record concise decisions for retained custom product semantics.
 
