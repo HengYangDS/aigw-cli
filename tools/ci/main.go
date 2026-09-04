@@ -114,7 +114,7 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 	case "native":
 		flags := flag.NewFlagSet("ci native", flag.ContinueOnError)
 		flags.SetOutput(io.Discard)
-		platform := flags.String("platform", "", "darwin, linux, or windows")
+		platform := flags.String("platform", runtime.GOOS, "darwin, linux, or windows")
 		if err := flags.Parse(args[1:]); err != nil || flags.NArg() != 0 || !supportedNativePlatform(*platform) {
 			return errors.New("usage: ci native --platform <darwin|linux|windows>")
 		}

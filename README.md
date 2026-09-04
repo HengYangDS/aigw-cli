@@ -288,10 +288,18 @@ checksums are not installation evidence.
 ## Verify a source checkout
 
 ```bash
-mise exec --locked -- go run ./tools/ci source
+mise run bootstrap
+mise run check
+mise run native
+mise run release
 mise exec --locked -- go run ./tools/forge commits --email '<product author email>' --allowed-signers '<path>'
 mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 ```
+
+These four tasks are the portable development entrypoints. `bootstrap`
+reconstructs this Work Lane's locked repository dependencies; `check` runs the
+complete source and governance gate; `native` proves the current host; and
+`release` builds deterministic artifacts in `dist` without publishing them.
 
 ## Documentation
 

@@ -381,21 +381,24 @@ func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chdir(previous) })
-	var calls []command
-	if err := run([]string{"native", "--platform", runtime.GOOS}, &bytes.Buffer{}, func(call command) error {
-		calls = append(calls, call)
-		return nil
-	}); err != nil || len(calls) != 7 {
-		t.Fatalf("native host error=%v calls=%d", err, len(calls))
-	}
-	if runtime.GOOS == "windows" {
-		if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"test", "./..."}) {
-			t.Fatalf("native Windows test command = %#v", got)
+
+	for _, args := range [][]string{{"native"}, {"native", "--platform", runtime.GOOS}} {
+		var calls []command
+		if err := run(args, &bytes.Buffer{}, func(call command) error {
+			calls = append(calls, call)
+			return nil
+		}); err != nil || len(calls) != 7 {
+			t.Fatalf("native host args=%v error=%v calls=%d", args, err, len(calls))
 		}
-	} else {
-		wantProfile := filepath.Join("build", "acceptance", "coverage-"+runtime.GOOS+".out")
-		if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"run", "./tools/coverage", "--race", "--profile-output", wantProfile}) {
-			t.Fatalf("native coverage command = %#v", got)
+		if runtime.GOOS == "windows" {
+			if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"test", "./..."}) {
+				t.Fatalf("native Windows test command = %#v", got)
+			}
+		} else {
+			wantProfile := filepath.Join("build", "acceptance", "coverage-"+runtime.GOOS+".out")
+			if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"run", "./tools/coverage", "--race", "--profile-output", wantProfile}) {
+				t.Fatalf("native coverage command = %#v", got)
+			}
 		}
 	}
 	other := "linux"

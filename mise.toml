@@ -20,3 +20,19 @@ editorconfig-checker = "3.11.2"
 "github:gitleaks/gitleaks" = "8.30.1"
 "github:rhysd/actionlint" = "1.7.12"
 "github:lycheeverse/lychee" = "lychee-v0.24.2"
+
+[tasks.bootstrap]
+description = "Install this Work Lane's locked repository dependencies."
+run = "npm ci --ignore-scripts"
+
+[tasks.check]
+description = "Run the complete source and governance gate."
+run = "go run ./tools/ci source"
+
+[tasks.native]
+description = "Run native acceptance on the current host platform."
+run = "go run ./tools/ci native"
+
+[tasks.release]
+description = "Build the deterministic portable release matrix without publishing."
+run = "go run ./tools/release build dist"
