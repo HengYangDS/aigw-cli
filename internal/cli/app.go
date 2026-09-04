@@ -32,6 +32,7 @@ import (
 	"aigw-cli/internal/cli/route"
 	updatecli "aigw-cli/internal/cli/update"
 	"aigw-cli/internal/cli/verification"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/console"
 	"aigw-cli/internal/discovery"
@@ -267,7 +268,7 @@ func NewDefault() (*App, error) {
 		Runner:             process.Runner{},
 		HTTP:               &http.Client{},
 		Prompt:             prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
-		Discovery:          discovery.Current(),
+		Discovery:          client.NewDiscoverer(client.DefaultRegistry(), discovery.Current()),
 		Updater:            upgrade.Current(executable),
 	}, nil
 }
@@ -285,7 +286,7 @@ func environmentMap(values []string) map[string]string {
 
 func (a *App) doctorCommand() *cobra.Command {
 	return doctor.NewCommand(doctor.Dependencies{
-		Config: a.Config, Secrets: a.Secrets, Env: a.Env, Out: a.Out,
+		Config: a.Config, Secrets: a.Secrets, Clients: invocation.Synchronizer(a.invocationContext()), Env: a.Env, Out: a.Out,
 		Inspect: func(cfg configuration.Config) map[string]domainreadiness.Client {
 			return readiness.InspectClients(a.invocationContext(), cfg)
 		},

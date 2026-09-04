@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -99,7 +100,7 @@ func TestAdapterListAndDiscoveryBranches(t *testing.T) {
 			resolved[name] = path
 		}
 		app, out, _, _ := testApp(t, "")
-		app.Discovery = discovery.System{GOOS: runtime.GOOS, Home: t.TempDir(), Path: dir}
+		app.Discovery = client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: runtime.GOOS, Home: t.TempDir(), Path: dir})
 		if err := execute(t, app, "adapter", "discover"); err != nil {
 			t.Fatal(err)
 		}

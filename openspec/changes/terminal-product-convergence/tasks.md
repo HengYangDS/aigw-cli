@@ -41,7 +41,7 @@
 
 ## 5. Client projection and product boundary
 
-- [ ] 5.1 Derive one admitted-client contract for discovery, configuration planning, credential binding, atomic projection, status, verification, rollback, and uninstall.
+- [x] 5.1 Derive one admitted-client contract for discovery, configuration planning, credential binding, atomic projection, status, verification, rollback, and uninstall.
 - [x] 5.2 Make Codex CLI and Desktop use the same discovered Codex Home while preserving Desktop-only settings, sessions, models chosen by existing conversations, JSONL, and SQLite.
 - [x] 5.3 Make Claude Code projection use its official settings and credential-helper surfaces without a shell wrapper, PATH dependency, profile mutation, or plaintext Token.
 - [x] 5.4 Prove missing Codex, missing Claude, later installation, changed executable path, multiple Codex homes, malformed user configuration, and foreign managed-state conflicts.

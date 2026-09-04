@@ -31,36 +31,6 @@ const ProtocolTimeout = time.Minute
 const responseSentinel = "AIGW_OK"
 const responseLimit int64 = int64(len(responseSentinel) + 2)
 
-// ValidateFullReadiness checks the local preconditions for verifying both
-// supported clients without performing a model request.
-func ValidateFullReadiness(cfg configuration.Config) error {
-	claudeAdapter := cfg.Adapters[configuration.ClientClaude]
-	if !claudeAdapter.Enabled || claudeAdapter.Executable == "" {
-		return fmt.Errorf("Full verification requires an enabled Claude adapter; run `aigw repair`")
-	}
-	ready, err := claude.Ready(claudeAdapter.Executable)
-	if err != nil {
-		return fmt.Errorf("Failed to inspect Claude executable: %w", err)
-	}
-	if !ready {
-		return fmt.Errorf("Full verification requires an available Claude executable; run `aigw repair`")
-	}
-	codexAdapter := cfg.Adapters[configuration.ClientCodex]
-	if !codexAdapter.Enabled || codexAdapter.Executable == "" || len(codexAdapter.Targets) == 0 {
-		return fmt.Errorf("Full verification requires an enabled Codex adapter with at least one configuration target; run `aigw repair`")
-	}
-	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		return fmt.Errorf("Failed to resolve the Codex route required for full verification: %w", err)
-	}
-	for _, target := range codexAdapter.Targets {
-		if err := codex.ValidateConfig(target, clientRuntime); err != nil {
-			return fmt.Errorf("Full verification requires a synchronized Codex configuration target %s: %w; run `aigw sync`", target, err)
-		}
-	}
-	return nil
-}
-
 // VerifyCodexInvocation validates one synchronized Codex target, measures the
 // configured executable, and makes exactly one non-persistent client request.
 func VerifyCodexInvocation(ctx context.Context, runner Runner, cfg configuration.Config, clientRuntime configuration.Runtime) (codex.ExecutableIdentity, error) {
@@ -164,9 +134,7 @@ func VerifyClaudeRuntime(ctx context.Context, runner Runner, executable string, 
 	if !ok {
 		return fmt.Errorf("Claude verification runner is unavailable")
 	}
-	verifyCtx, cancel := context.WithTimeout(ctx, ProtocolTimeout)
-	defer cancel()
-	output, err := captureRunner.RunCapture(verifyCtx, plan)
+	output, err := captureRunner.RunCapture(ctx, plan)
 	if err != nil {
 		return fmt.Errorf("Claude minimal verification request failed: %w", err)
 	}

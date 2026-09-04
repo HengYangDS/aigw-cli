@@ -24,7 +24,7 @@ func TestNativeModelProviderChangesProjectionAndUsesCredentialHelper(t *testing.
 	profile.Model = "openai.gpt-5.6-sol"
 	after.Profiles["gpt"] = profile
 
-	if !ProjectionChanged(before, after) {
+	if !(Synchronizer{}).ProjectionChanged(before, after) {
 		t.Fatal("model provider change must change the projection")
 	}
 	syncer := Synchronizer{Discovery: targetDiscovery(target), AIGWExecutable: credentialCommand}
@@ -47,10 +47,11 @@ func TestNativeModelProviderSkipsGenericLoginAndDefaultTransitionRebindsIt(t *te
 	profile.ModelProvider = "amazon-bedrock"
 	native.Profiles["gpt"] = profile
 
-	if AuthenticationChanged(configuration.NewConfig(), native) {
+	syncer := Synchronizer{}
+	if syncer.CredentialBindingChanged(configuration.NewConfig(), native) {
 		t.Fatal("native provider must not request generic Codex login")
 	}
-	if err := (Synchronizer{}).BindAuthenticationTargets(context.Background(), native, nil); err != nil {
+	if err := syncer.BindCredential(context.Background(), native, configuration.ClientCodex, nil); err != nil {
 		t.Fatalf("native provider authentication = %v", err)
 	}
 
@@ -58,10 +59,10 @@ func TestNativeModelProviderSkipsGenericLoginAndDefaultTransitionRebindsIt(t *te
 	profile = defaultProvider.Profiles["gpt"]
 	profile.ModelProvider = ""
 	defaultProvider.Profiles["gpt"] = profile
-	if !AuthenticationChanged(native, defaultProvider) {
+	if !syncer.CredentialBindingChanged(native, defaultProvider) {
 		t.Fatal("transition to default provider must bind generic Codex authentication")
 	}
-	if AuthenticationChanged(defaultProvider, native) {
+	if syncer.CredentialBindingChanged(defaultProvider, native) {
 		t.Fatal("transition to command-authenticated provider must not bind generic Codex authentication")
 	}
 }

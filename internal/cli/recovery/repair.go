@@ -9,10 +9,10 @@ import (
 	"reflect"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/synchronization"
 	"github.com/spf13/cobra"
 )
 
@@ -68,9 +68,10 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	if err := invocation.Synchronizer(runtime).Commit(ctx, before, after, "repair"); err != nil {
 		return err
 	}
-	if after.Adapters[configuration.ClientCodex].Enabled && !synchronization.ProjectionChanged(before, after) {
-		if err := invocation.Synchronizer(runtime).Reconcile(ctx, after, after); err != nil {
-			return fmt.Errorf("Failed to repair Codex configuration projection: %w", err)
+	synchronizer := invocation.Synchronizer(runtime)
+	if !synchronizer.ProjectionChanged(before, after) {
+		if err := synchronizer.Reconcile(ctx, after, after); err != nil {
+			return fmt.Errorf("Failed to reconcile client projections: %w", err)
 		}
 	}
 	r := invocation.Renderer(runtime)
@@ -79,7 +80,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	r.Status(presentation.OK, "Client", "Rediscovered")
 	r.Status(presentation.OK, "Configuration", "Synchronized")
 	authentication := "Unchanged"
-	if synchronization.AuthenticationChanged(before, after) {
+	if synchronizer.CredentialBindingChanged(before, after) {
 		authentication = "Bound"
 	}
 	r.Status(presentation.OK, "Authentication", authentication)
@@ -87,7 +88,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	return nil
 }
 
-func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, after configuration.Config, discovered discovery.Result, plans []synchronization.ProjectionPlan) error {
+func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, after configuration.Config, discovered discovery.Result, plans []client.ProjectionPlan) error {
 	preview := repairPreview{DryRun: true, ConfigurationAction: "already-converged", Projections: make([]repairProjectionPreview, 0, len(plans))}
 	if !reflect.DeepEqual(before, after) {
 		preview.ConfigurationAction = "update"

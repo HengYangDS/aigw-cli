@@ -52,17 +52,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				endpoint := clientRuntime.Endpoint
-				testURL := endpoint
-				if target == configuration.ClientCodex {
-					testURL = CodexModelsEndpoint(endpoint)
-				}
 				ctx, cancel := context.WithTimeout(cmd.Context(), 12*time.Second)
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, testURL, nil)
-				if err != nil {
-					cancel()
-					return err
-				}
 				accountName := clientRuntime.AccountID
 				token, err := runtime.Secrets.Get(accountName)
 				if err != nil {
@@ -70,7 +60,8 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 					instruction, _ := credential.TokenRecovery(runtime.Secrets, accountName)
 					return fmt.Errorf("Token for account %q is unavailable: %w; %s", accountName, err, instruction)
 				}
-				if err := authenticateRequest(req, spec, token); err != nil {
+				req, err := credential.ProbeRequest(ctx, target, clientRuntime.Endpoint, token)
+				if err != nil {
 					cancel()
 					return err
 				}
@@ -118,16 +109,4 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&client, "for", "", "Test the selected Route for Claude or Codex")
 	cmd.Flags().StringVar(&profileName, "profile", "", "Test one Profile using its declared client without changing Routes")
 	return cmd
-}
-
-func authenticateRequest(request *http.Request, spec configuration.ClientSpec, token string) error {
-	switch spec.EndpointProtocol {
-	case configuration.ProtocolAnthropic:
-		request.Header.Set("X-Api-Key", token)
-	case configuration.ProtocolOpenAIResponses:
-		request.Header.Set("Authorization", "Bearer "+token)
-	default:
-		return fmt.Errorf("%s endpoint protocol %q is unsupported", spec.ID, spec.EndpointProtocol)
-	}
-	return nil
 }

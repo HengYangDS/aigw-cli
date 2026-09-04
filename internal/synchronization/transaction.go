@@ -29,7 +29,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 	if err != nil {
 		return err
 	}
-	if ProjectionChanged(before, after) || ClaudeProjectionChanged(before, after) {
+	if s.ProjectionChanged(before, after) {
 		if err := s.Reconcile(ctx, before, after); err != nil {
 			rollbackErr := s.rollback(ctx, before, after, configBefore, configAfter, false)
 			if rollbackErr != nil {
@@ -38,8 +38,8 @@ func (s Synchronizer) commit(ctx context.Context, before, after configuration.Co
 			return fmt.Errorf("%s synchronization failed and was rolled back: %w", subject, err)
 		}
 	}
-	if bindAuthentication && AuthenticationChanged(before, after) {
-		if err := s.BindAuthentication(ctx, after); err != nil {
+	if bindAuthentication && s.CredentialBindingChanged(before, after) {
+		if err := s.BindChangedCredentials(ctx, before, after); err != nil {
 			rollbackErr := s.rollback(ctx, before, after, configBefore, configAfter, true)
 			if rollbackErr != nil {
 				return fmt.Errorf("%s authentication failed: %w; rollback also failed: %v", subject, err, rollbackErr)
@@ -58,7 +58,7 @@ func (s Synchronizer) rollback(ctx context.Context, before, after configuration.
 		return err
 	}
 	if rebindNativeAuthentication {
-		return s.BindAuthentication(ctx, before)
+		return s.BindChangedCredentials(ctx, after, before)
 	}
 	return nil
 }

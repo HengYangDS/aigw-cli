@@ -19,8 +19,9 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	}
 	r.ProductTitle("Ready view")
 	r.Text("The active service, client readiness, and the smallest next action.")
-	attention, nextAction := renderClientStatus(r, result)
-	renderTransportStatus(r, result)
+	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
+	attention, nextAction := renderClientStatus(r, result, clientIDs)
+	renderTransportStatus(r, result, clientIDs)
 	renderDiagnosticStatus(runtime, r, cfg)
 	switch {
 	case nextAction != "":
@@ -32,11 +33,11 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	}
 }
 
-func renderClientStatus(r *presentation.Renderer, result statusOutput) (bool, string) {
+func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) (bool, string) {
 	r.Section("Clients")
 	attention := false
 	nextAction := ""
-	for _, client := range admittedClientIDs() {
+	for _, client := range clientIDs {
 		route := result.Routes[client]
 		message := route.Profile + " · " + route.State.Label()
 		state := presentation.Info
@@ -72,8 +73,8 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput) (bool, st
 	return attention, nextAction
 }
 
-func renderTransportStatus(r *presentation.Renderer, result statusOutput) {
-	for _, client := range admittedClientIDs() {
+func renderTransportStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {
+	for _, client := range clientIDs {
 		if result.Routes[client].Transport != "external_loopback" {
 			continue
 		}

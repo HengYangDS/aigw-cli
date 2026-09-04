@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
+	clientdomain "aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/diagnostics"
@@ -79,7 +80,7 @@ type checkEvaluation struct {
 
 func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config) checkEvaluation {
 	evaluation := checkEvaluation{configPath: runtime.Config.Path()}
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
 		if !cfg.Adapters[client].Enabled {
 			continue
 		}
@@ -98,13 +99,10 @@ func evaluateRoute(cmd *cobra.Command, runtime invocation.Context, cfg configura
 	}
 	route.runtime = clientRuntime
 	route.endpoint = strings.TrimSpace(clientRuntime.Endpoint) != ""
-	route.adapter, route.issue = AdapterRouteReady(runtime, cfg, client, clientRuntime)
-	if !route.adapter {
-		route.fix = "aigw repair"
-		if client == configuration.ClientCodex && strings.Contains(route.issue, "projection") {
-			route.fix = "aigw sync"
-		}
-	}
+	status := invocation.Synchronizer(runtime).Inspect(cmd.Context(), cfg, client, clientRuntime, clientdomain.InspectionOptions{})
+	route.adapter = status.Ready
+	route.issue = status.Issue
+	route.fix = status.RepairAction
 	token, tokenErr := runtime.Secrets.Get(clientRuntime.AccountID)
 	if tokenErr != nil {
 		route.credentialErr = tokenErr
@@ -217,7 +215,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	clientCount := 0
 	diagnosticAccounts := map[string]bool{}
 	balanceCommands := []string{}
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
 		adapter := cfg.Adapters[client]
 		if !adapter.Enabled {
 			renderer.Status(presentation.Info, invocation.Title(client), "Disabled")
@@ -240,12 +238,8 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		}
 		if !route.adapter {
 			issue := route.issue
-			fix := "aigw repair"
+			fix := route.fix
 			impact := invocation.Title(client) + " cannot inherit AIGW routes, tokens, or configuration projections."
-			if client == configuration.ClientCodex && strings.Contains(issue, "projection") {
-				fix = "aigw sync"
-				impact = "Codex may use the wrong model or endpoint."
-			}
 			return invocation.Problem(runtime, invocation.Title(client)+" adapter is not ready", issue, impact, fix, fmt.Errorf("%s adapter not ready", client))
 		}
 		result := route.diagnostic

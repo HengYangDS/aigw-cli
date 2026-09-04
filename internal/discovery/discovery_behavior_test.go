@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"testing"
 
+	"aigw-cli/internal/client"
 	"aigw-cli/internal/discovery"
 	surfacepkg "aigw-cli/internal/surface"
 )
@@ -79,7 +80,7 @@ func TestResultFindsKnownSurfaceByEachIdentity(t *testing.T) {
 
 func TestLinuxDiscoveryContainsOnlyDefaultCodexHome(t *testing.T) {
 	home := t.TempDir()
-	result := (discovery.System{GOOS: "linux", Home: home}).Discover()
+	result := client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: "linux", Home: home}).Discover()
 	if len(result.Surfaces) != 1 {
 		t.Fatalf("Linux surfaces = %#v", result.Surfaces)
 	}

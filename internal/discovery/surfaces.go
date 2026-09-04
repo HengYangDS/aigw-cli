@@ -1,11 +1,8 @@
 package discovery
 
 import (
-	"os"
 	"path/filepath"
 	"sort"
-
-	"aigw-cli/internal/surface"
 )
 
 // Surface is a stable host classification. Discovery only inspects paths; it
@@ -19,25 +16,6 @@ type Surface struct {
 	Present               bool   `json:"present"`
 	AutoManaged           bool   `json:"auto_managed"`
 	ManualFallbackAllowed bool   `json:"manual_fallback_allowed"`
-}
-
-func (s System) surfaceCatalog() []Surface {
-	return []Surface{{
-		ID:          string(surface.CodexHomeDefault),
-		Product:     "Codex",
-		Authority:   string(surface.AuthorityAIGW),
-		ConfigPath:  filepath.Join(s.Home, ".codex", "config.toml"),
-		AutoManaged: true,
-	}}
-}
-
-func (s System) discoverSurfaces() []Surface {
-	surfaces := s.surfaceCatalog()
-	for index := range surfaces {
-		info, err := os.Lstat(surfaces[index].ConfigPath)
-		surfaces[index].Present = err == nil && !info.IsDir()
-	}
-	return surfaces
 }
 
 func (r Result) Surface(id string) (Surface, bool) {

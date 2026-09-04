@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"testing"
 
+	"aigw-cli/internal/client"
 	"aigw-cli/internal/discovery"
 )
 
@@ -33,7 +34,7 @@ func TestDiscoverFindsClientsAndAutoManagedCodexTargets(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	d := discovery.System{GOOS: goos, Home: home, Path: bin}
+	d := client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: goos, Home: home, Path: bin})
 	got := d.Discover()
 	wantClaude, wantCodex := filepath.Join(bin, names[0]), filepath.Join(bin, names[1])
 	if got.Executable("claude") != wantClaude || got.Executable("codex") != wantCodex {
@@ -57,7 +58,7 @@ func TestDiscoverReturnsClaudeExecutableWithoutPrivateMarkers(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\nnative Claude fixture\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	got := (discovery.System{GOOS: goos, Home: home, Path: bin}).Discover()
+	got := client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: goos, Home: home, Path: bin}).Discover()
 	want, err := filepath.Abs(filepath.Join(bin, name))
 	if err != nil {
 		t.Fatal(err)

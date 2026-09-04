@@ -1,12 +1,14 @@
 package cli
 
 import (
-	"aigw-cli/internal/cli/readiness"
-	configuration "aigw-cli/internal/configuration"
 	"context"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/cli/readiness"
+	clientdomain "aigw-cli/internal/client"
+	configuration "aigw-cli/internal/configuration"
 )
 
 func TestCommandBoundaryRouteAndReconciliationErrors(t *testing.T) {
@@ -32,10 +34,6 @@ func TestRouteAndAdapterReadinessHelpers(t *testing.T) {
 	if readiness.TransportStatus("%").Kind != "" {
 		t.Fatal("invalid URL has transport state")
 	}
-	if got := readiness.CodexModelsEndpoint("https://one.test/models/"); got != "https://one.test/models" {
-		t.Fatalf("models endpoint = %q", got)
-	}
-
 	cfg := configuredCommandState()
 	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
@@ -43,22 +41,22 @@ func TestRouteAndAdapterReadinessHelpers(t *testing.T) {
 	}
 	app := &App{}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
-	if ready, issue := readiness.AdapterRouteReady(app.invocationContext(), cfg, configuration.ClientCodex, runtime); ready || !strings.Contains(issue, "executable") {
-		t.Fatalf("ready=%v issue=%q", ready, issue)
+	if status := app.synchronizer().Inspect(context.Background(), cfg, configuration.ClientCodex, runtime, clientdomain.InspectionOptions{}); status.Ready || !strings.Contains(status.Issue, "executable") {
+		t.Fatalf("status=%#v", status)
 	}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex"}
-	if ready, issue := readiness.AdapterRouteReady(app.invocationContext(), cfg, configuration.ClientCodex, runtime); ready || !strings.Contains(issue, "target") {
-		t.Fatalf("ready=%v issue=%q", ready, issue)
+	if status := app.synchronizer().Inspect(context.Background(), cfg, configuration.ClientCodex, runtime, clientdomain.InspectionOptions{}); status.Ready || !strings.Contains(status.Issue, "target") {
+		t.Fatalf("status=%#v", status)
 	}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
-	if ready, issue := readiness.AdapterRouteReady(app.invocationContext(), cfg, configuration.ClientCodex, runtime); ready || !strings.Contains(issue, "drift") {
-		t.Fatalf("ready=%v issue=%q", ready, issue)
+	if status := app.synchronizer().Inspect(context.Background(), cfg, configuration.ClientCodex, runtime, clientdomain.InspectionOptions{}); status.Ready || !strings.Contains(status.Issue, "drift") {
+		t.Fatalf("status=%#v", status)
 	}
 
 	claudeRuntime, _ := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "claude"}
-	if ready, issue := readiness.AdapterRouteReady(app.invocationContext(), cfg, configuration.ClientClaude, claudeRuntime); ready || !strings.Contains(issue, "executable is unavailable") {
-		t.Fatalf("ready=%v issue=%q", ready, issue)
+	if status := app.synchronizer().Inspect(context.Background(), cfg, configuration.ClientClaude, claudeRuntime, clientdomain.InspectionOptions{}); status.Ready || !strings.Contains(status.Issue, "executable is unavailable") {
+		t.Fatalf("status=%#v", status)
 	}
 
 	profiles := configuration.NewConfig()

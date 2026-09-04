@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	configuration "aigw-cli/internal/configuration"
 )
 
 type Result struct {
@@ -35,15 +33,16 @@ func Current() System {
 	return System{GOOS: runtime.GOOS, Home: home, Path: os.Getenv("PATH")}
 }
 
-func (s System) Discover() Result {
-	result := Result{
-		Executables: map[string]string{
-			configuration.ClientClaude: s.find(configuration.ClientClaude),
-			configuration.ClientCodex:  s.find(configuration.ClientCodex),
-		},
-		Surfaces: s.discoverSurfaces(),
-	}
-	return result
+// Executable returns the first runnable command with name on this host.
+func (s System) Executable(name string) string { return s.find(name) }
+
+// HomeDirectory returns the user home observed by this discovery source.
+func (s System) HomeDirectory() string { return s.Home }
+
+// FilePresent reports whether path currently names a non-directory entry.
+func (s System) FilePresent(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && !info.IsDir()
 }
 
 // ExecutableAvailable reports whether path identifies a runnable executable on

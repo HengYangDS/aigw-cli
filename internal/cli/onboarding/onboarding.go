@@ -110,32 +110,26 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 		return fmt.Errorf("Token validation failed: %w", err)
 	}
 
-	discovered, err := invocation.Discover(runtime)
-	if err != nil {
-		return err
-	}
-	discoveredClaude := discovered.Executable(configuration.ClientClaude)
-	discoveredCodex := discovered.Executable(configuration.ClientCodex)
-	discoveredTargets := discovered.AutoManagedCodexTargets()
-	if _, resolveErr := plan.config.ResolveRuntime(configuration.ClientClaude, ""); resolveErr == nil && discoveredClaude != "" {
-		plan.config.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: discoveredClaude}
-	}
-	if _, resolveErr := plan.config.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && discoveredCodex != "" && len(discoveredTargets) > 0 {
-		plan.config.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: discoveredCodex, Targets: discoveredTargets}
-	}
-
-	renderSetupService(runtime, plan)
 	written, err := writeSetupCredentials(runtime, []setupCredential{credentialChange})
 	if err != nil {
 		return err
 	}
-	if err := invocation.Synchronizer(runtime).Commit(ctx, plan.before, plan.config, "setup"); err != nil {
+	synchronizer := invocation.Synchronizer(runtime)
+	plan.config, _, err = synchronizer.DesiredClientConfiguration(plan.config, plan.request.Client)
+	if err != nil {
+		if rollbackErr := rollbackSetupCredentials(runtime, []setupCredential{credentialChange}, written); rollbackErr != nil {
+			return fmt.Errorf("client configuration failed: %w; credential rollback also failed: %v", err, rollbackErr)
+		}
+		return fmt.Errorf("Client configuration failed and credentials were rolled back: %w", err)
+	}
+	if err := synchronizer.Commit(ctx, plan.before, plan.config, "setup"); err != nil {
 		if rollbackErr := rollbackSetupCredentials(runtime, []setupCredential{credentialChange}, written); rollbackErr != nil {
 			return fmt.Errorf("client configuration failed: %w; credential rollback also failed: %v", err, rollbackErr)
 		}
 		return fmt.Errorf("Client configuration failed and was rolled back: %w", err)
 	}
 	committed = true
+	renderSetupService(runtime, plan)
 	renderSetupClients(runtime, plan.config)
 	return nil
 }

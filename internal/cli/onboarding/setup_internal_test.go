@@ -15,7 +15,6 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
 )
@@ -110,18 +109,9 @@ type setupResponseBody struct {
 
 func (body setupResponseBody) Close() error { return body.closeErr }
 
-type setupProcessRunner struct {
-	err error
-}
-
 type setupDiscovery struct{ result discovery.Result }
 
 func (candidate setupDiscovery) Discover() discovery.Result { return candidate.result }
-
-func (runner setupProcessRunner) Run(context.Context, process.Plan) error { return runner.err }
-func (runner setupProcessRunner) RunCapture(context.Context, process.Plan) ([]byte, error) {
-	return nil, runner.err
-}
 
 func manifestSetupConfig() configuration.Config {
 	cfg := configuration.NewConfig()
@@ -597,15 +587,6 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 			t.Fatalf("calls=%d error=%v", calls, err)
 		}
 	})
-}
-
-func TestSetupClaudeVerificationHelper(t *testing.T) {
-	cfg := manifestSetupConfig()
-	want := errors.New("capture failed")
-	app := invocation.Context{Runner: setupProcessRunner{err: want}}
-	if err := verifyManifestSetupCredential(context.Background(), app, cfg, "team", "token", "/opt/claude", configuration.ClientClaude); !errors.Is(err, want) {
-		t.Fatalf("error = %v, want %v", err, want)
-	}
 }
 
 func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {

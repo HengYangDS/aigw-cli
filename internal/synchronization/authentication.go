@@ -2,107 +2,35 @@ package synchronization
 
 import (
 	"context"
-	"fmt"
-	"path/filepath"
-	"slices"
-	"time"
 
-	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 )
 
-const codexAuthenticationTimeout = 20 * time.Second
-
-// BindAuthentication updates Codex native authentication for all configured
-// targets without starting or restarting a Codex client.
-func (s Synchronizer) BindAuthentication(ctx context.Context, cfg configuration.Config) error {
-	adapter := cfg.Adapters[configuration.ClientCodex]
-	if !adapter.Enabled {
-		return nil
-	}
-	return s.BindAuthenticationTargets(ctx, cfg, adapter.Targets)
+// BindCredential updates one admitted client's native credential projection.
+func (s Synchronizer) BindCredential(ctx context.Context, cfg configuration.Config, clientID string, targets []string) error {
+	return s.registry().BindCredential(ctx, s.clientDependencies(), cfg, clientID, targets)
 }
 
-// BindAuthenticationTargets binds one explicit set of Codex homes.
-func (s Synchronizer) BindAuthenticationTargets(ctx context.Context, cfg configuration.Config, targets []string) error {
-	adapter := cfg.Adapters[configuration.ClientCodex]
-	if !adapter.Enabled {
-		return fmt.Errorf("Codex authentication requires an enabled adapter")
-	}
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		return err
-	}
-	if runtime.ModelProvider != configuration.ModelProviderAIGW {
-		return nil
-	}
-	if adapter.Executable == "" || s.Runner == nil {
-		return fmt.Errorf("Codex authentication requires an enabled adapter executable")
-	}
-	if s.Secrets == nil {
-		return fmt.Errorf("Token for the Codex route is unavailable: secret store is unavailable")
-	}
-	token, err := s.Secrets.Get(runtime.AccountID)
-	if err != nil {
-		return fmt.Errorf("Token for the Codex route is unavailable: %w", err)
-	}
-	for _, target := range targets {
-		plan, err := codex.LoginPlan(adapter.Executable, filepath.Dir(target), token)
-		if err != nil {
-			return err
-		}
-		targetCtx, cancel := context.WithTimeout(ctx, codexAuthenticationTimeout)
-		err = s.Runner.Run(targetCtx, plan)
-		cancel()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+// BindChangedCredentials updates every native credential binding affected by
+// a configuration transition.
+func (s Synchronizer) BindChangedCredentials(ctx context.Context, before, after configuration.Config) error {
+	return s.registry().BindChangedCredentials(ctx, s.clientDependencies(), before, after)
 }
 
-// RouteAccount resolves the account used by the active Codex route.
-func RouteAccount(cfg configuration.Config) (string, bool) {
-	if !cfg.Adapters[configuration.ClientCodex].Enabled {
-		return "", false
-	}
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		return "", false
-	}
-	return runtime.AccountID, runtime.AccountID != ""
+// BindCredentialsForAccount refreshes every native credential projection that
+// currently depends on accountID.
+func (s Synchronizer) BindCredentialsForAccount(ctx context.Context, cfg configuration.Config, accountID string) error {
+	return s.registry().BindCredentialsForAccount(ctx, s.clientDependencies(), cfg, accountID)
 }
 
-// RouteUsesAccount reports whether Codex currently resolves through accountID.
-func RouteUsesAccount(cfg configuration.Config, accountID string) bool {
-	activeAccount, ok := RouteAccount(cfg)
-	return ok && activeAccount == accountID
+// CredentialBindingChanged reports whether any admitted adapter must refresh
+// native authentication for a configuration transition.
+func (s Synchronizer) CredentialBindingChanged(before, after configuration.Config) bool {
+	return s.registry().CredentialBindingChanged(before, after)
 }
 
-// AuthenticationChanged reports whether a transition requires rebinding Codex
-// native authentication.
-func AuthenticationChanged(before, after configuration.Config) bool {
-	beforeAdapter := before.Adapters[configuration.ClientCodex]
-	afterAdapter := after.Adapters[configuration.ClientCodex]
-	if !afterAdapter.Enabled {
-		return false
-	}
-	if !beforeAdapter.Enabled || !slices.Equal(beforeAdapter.Targets, afterAdapter.Targets) {
-		runtime, err := after.ResolveRuntime(configuration.ClientCodex, "")
-		return err != nil || runtime.ModelProvider == configuration.ModelProviderAIGW
-	}
-	beforeRuntime, beforeErr := before.ResolveRuntime(configuration.ClientCodex, "")
-	afterRuntime, afterErr := after.ResolveRuntime(configuration.ClientCodex, "")
-	if afterErr != nil {
-		return true
-	}
-	if afterRuntime.ModelProvider != configuration.ModelProviderAIGW {
-		return false
-	}
-	if beforeErr != nil || beforeRuntime.ModelProvider != configuration.ModelProviderAIGW {
-		return true
-	}
-	beforeAccount, beforeOK := RouteAccount(before)
-	afterAccount, afterOK := RouteAccount(after)
-	return afterOK && (!beforeOK || beforeAccount != afterAccount)
+// UsesCredentialAccount reports whether accountID backs a native client
+// credential projection.
+func (s Synchronizer) UsesCredentialAccount(cfg configuration.Config, accountID string) bool {
+	return s.registry().UsesCredentialAccount(cfg, accountID)
 }

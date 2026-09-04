@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -10,9 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/synchronization"
 
 	"github.com/spf13/cobra"
 )
@@ -54,7 +57,9 @@ func doctorDependencies(t *testing.T, cfg configuration.Config) (Dependencies, *
 	}
 	out := &bytes.Buffer{}
 	secretStore := secrets.NewMemoryStore()
-	return Dependencies{Config: store, Secrets: secretStore, Out: out}, out, secretStore
+	return Dependencies{
+		Config: store, Secrets: secretStore, Clients: synchronization.Synchronizer{Registry: client.DefaultRegistry()}, Out: out,
+	}, out, secretStore
 }
 
 func executeJSON(t *testing.T, deps Dependencies) commandResult {
@@ -165,7 +170,6 @@ func TestHumanFormattingBranches(t *testing.T) {
 		"aigw doctor":       "aigw doctor",
 		"run `aigw setup`":  "aigw setup",
 		"run `aigw repair`": "aigw repair",
-		"run `aigw sync` to reconcile this target":     "aigw sync",
 		"remove them from the parent environment; now": "Remove the variables above from the parent environment that launched this terminal",
 		"inspect or restore /private/configuration":    "Inspect or restore the local configuration file",
 	} {
@@ -186,14 +190,14 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
 	deps, _, _ := doctorDependencies(t, cfg)
-	checks := Collect(deps)
+	checks := Collect(context.Background(), deps)
 	for _, name := range []string{"secret:team", "adapter:claude", "adapter:codex"} {
 		check := findCheck(t, checks, name)
 		if check.OK || check.Fix == "" {
 			t.Fatalf("%s = %#v", name, check)
 		}
 	}
-	if findCheck(t, checks, "adapter:claude").Detail != "enabled but executable is missing" {
+	if findCheck(t, checks, "adapter:claude").Detail != "Claude executable is not configured" {
 		t.Fatalf("checks = %#v", checks)
 	}
 
@@ -202,15 +206,15 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 		Executable: "codex",
 	}
 	deps, _, _ = doctorDependencies(t, cfg)
-	check := findCheck(t, Collect(deps), "adapter:codex")
-	if check.OK || check.Detail != "enabled but no Codex config target is configured" || check.Fix != "run `aigw repair`" {
+	check := findCheck(t, Collect(context.Background(), deps), "adapter:codex")
+	if check.OK || check.Detail != "Codex configuration target is missing" || check.Fix != "run `aigw repair`" {
 		t.Fatalf("Codex adapter check = %#v", check)
 	}
 	bad := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 	if err := os.MkdirAll(bad.Path(), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	broken := Collect(Dependencies{Config: bad, Secrets: secrets.NewMemoryStore()})
+	broken := Collect(context.Background(), Dependencies{Config: bad, Secrets: secrets.NewMemoryStore(), Clients: synchronization.Synchronizer{Registry: client.DefaultRegistry()}})
 	if check := findCheck(t, broken, "config"); check.OK || !strings.Contains(check.Fix, bad.Path()) {
 		t.Fatalf("config check = %#v", check)
 	}
@@ -231,7 +235,7 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 		t.Fatal(err)
 	}
 
-	checks := Collect(deps)
+	checks := Collect(context.Background(), deps)
 	if !AllOK(checks) {
 		t.Fatalf("optional unconnected Account made doctor unhealthy: %#v", checks)
 	}
@@ -252,7 +256,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if err := secretsStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	checks := Collect(deps)
+	checks := Collect(context.Background(), deps)
 	if check := findCheck(t, checks, "adapter:claude"); check.OK || !strings.Contains(check.Detail, "executable is unavailable") {
 		t.Fatalf("adapter check = %#v", check)
 	}
@@ -265,25 +269,25 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	}
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
 	deps, _, _ = doctorDependencies(t, cfg)
-	checks = Collect(deps)
+	checks = Collect(context.Background(), deps)
 	if check := findCheck(t, checks, "adapter:claude"); !check.OK {
 		t.Fatalf("adapter check = %#v", check)
 	}
 
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
 	deps, _, _ = doctorDependencies(t, cfg)
-	check := findCheck(t, Collect(deps), "codex:target-1")
-	if check.OK || !strings.Contains(check.Detail, "read Codex config") || check.Fix != "run `aigw sync` to reconcile this target" {
+	check := findCheck(t, Collect(context.Background(), deps), "codex:target-1")
+	if check.OK || !strings.Contains(check.Detail, "read Codex config") || check.Fix != "run `aigw sync`" {
 		t.Fatalf("projection check = %#v", check)
 	}
 
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{"unused"}}
 	delete(cfg.Accounts, "team")
-	if checks := codexProjectionChecks(cfg); len(checks) != 1 || checks[0].Name != "projection:codex" || checks[0].OK {
-		t.Fatalf("route checks = %#v", checks)
+	if check := findCheck(t, adapterChecks(context.Background(), deps.Clients, cfg), "projection:codex"); check.OK {
+		t.Fatalf("route check = %#v", check)
 	}
-	if got := codexProjectionChecks(configuration.NewConfig()); got != nil {
-		t.Fatalf("disabled projection checks = %#v", got)
+	if got := adapterChecks(context.Background(), deps.Clients, configuration.NewConfig()); len(got) != len(configuration.AdmittedClientIDs()) {
+		t.Fatalf("disabled adapter checks = %#v", got)
 	}
 }
 
@@ -295,7 +299,7 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 	}
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: blocked}
 	deps, _, _ := doctorDependencies(t, cfg)
-	check := findCheck(t, Collect(deps), "adapter:claude")
+	check := findCheck(t, Collect(context.Background(), deps), "adapter:claude")
 	if check.OK || !strings.Contains(check.Detail, "unavailable") {
 		t.Fatalf("adapter = %#v", check)
 	}
@@ -471,6 +475,16 @@ func TestCommandPropagatesWriterFailures(t *testing.T) {
 	}
 }
 
+func TestCommandPropagatesWriterFailureWhilePresentingProblems(t *testing.T) {
+	cfg := validDoctorConfig()
+	deps, _, _ := doctorDependencies(t, cfg)
+	want := errors.New("write failed")
+	deps.RenderOut = failingWriter{err: want}
+	if err := executeDoctorCommand(NewCommand(deps)); !errors.Is(err, want) {
+		t.Fatalf("problem render error = %v", err)
+	}
+}
+
 func TestAllOKAndNextActionBranches(t *testing.T) {
 	if !AllOK(nil) || AllOK([]Check{{Name: "bad"}}) {
 		t.Fatal("AllOK result mismatch")
@@ -480,7 +494,7 @@ func TestAllOKAndNextActionBranches(t *testing.T) {
 		want   string
 	}{
 		{[]Check{{Name: "config", Detail: "not configured"}}, "aigw setup"},
-		{[]Check{{Name: "healthy", OK: true}, {Name: "codex:target-1", Fix: "run `aigw sync` to reconcile this target"}}, "aigw sync"},
+		{[]Check{{Name: "healthy", OK: true}, {Name: "codex:target-1", Fix: "run `aigw sync`"}}, "aigw sync"},
 		{nil, "aigw repair"},
 	} {
 		if got := NextAction(test.checks); got != test.want {

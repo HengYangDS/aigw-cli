@@ -587,25 +587,19 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if !cfg.Adapters["claude"].Enabled || !cfg.Adapters["codex"].Enabled {
 		t.Fatalf("discovered clients were not configured: %#v", cfg.Adapters)
 	}
-	if len(runner.plans) != 2 || runner.plans[0].Executable != "/opt/claude-real" || runner.plans[1].Executable != "/opt/codex-real" {
+	if len(runner.plans) != 1 || runner.plans[0].Executable != "/opt/codex-real" {
 		executables := make([]string, 0, len(runner.plans))
 		for _, plan := range runner.plans {
 			executables = append(executables, plan.Executable)
 		}
 		t.Fatalf("client plan executables = %#v", executables)
 	}
-	if len(runner.captureDeadlines) != 1 || !runner.captureDeadlines[0] {
-		t.Fatalf("Claude validation deadlines = %#v", runner.captureDeadlines)
-	}
-	for _, plan := range runner.plans[:1] {
-		for _, value := range plan.Env {
-			if strings.HasPrefix(value, "AIGW_TOKEN_") || strings.Contains(value, "aigw-test-unrelated-token") {
-				t.Fatal("Claude validation inherited an unrelated Account Token")
-			}
-		}
+	if len(runner.captureDeadlines) != 0 {
+		t.Fatalf("setup ran a live client verification: %#v", runner.captureDeadlines)
 	}
 	wantValidationRequests := map[string]int{
-		"dmxapi.test/openai": 1,
+		"dmxapi.test/anthropic": 1,
+		"dmxapi.test/openai":    1,
 	}
 	for key, want := range wantValidationRequests {
 		if fixture.validationRequests[key] != want {

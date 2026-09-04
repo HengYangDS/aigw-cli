@@ -45,6 +45,17 @@ func TestVerifyCommandRejectsInvalidInputsAndMissingState(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, want: "Token for account"},
+		{name: "all with unresolved route", args: []string{"verify", "--for", "all"}, prep: func(app *cli.App) {
+			cfg := configuration.NewConfig()
+			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}}
+			cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
+			cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
+			cfg.Routes[configuration.ClientClaude] = "claude"
+			cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+		}, want: `no route selected for client "codex"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

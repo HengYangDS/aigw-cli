@@ -102,7 +102,7 @@ func planAccount(cfg configuration.Config, oldID, newID string) (Plan, error) {
 		return Plan{}, fmt.Errorf("Validate account rename: %w", err)
 	}
 	authenticationAction := "unchanged"
-	if synchronization.AuthenticationChanged(cfg, next) {
+	if (synchronization.Synchronizer{}).CredentialBindingChanged(cfg, next) {
 		authenticationAction = "rebind-codex"
 	}
 

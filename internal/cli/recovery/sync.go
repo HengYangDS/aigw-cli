@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/synchronization"
 	"github.com/spf13/cobra"
 )
 
@@ -41,9 +41,9 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 				preview := struct {
-					DryRun  bool                             `json:"dry_run"`
-					Routes  map[string]string                `json:"routes"`
-					Targets []synchronization.ProjectionPlan `json:"targets"`
+					DryRun  bool                    `json:"dry_run"`
+					Routes  map[string]string       `json:"routes"`
+					Targets []client.ProjectionPlan `json:"targets"`
 				}{DryRun: true, Routes: after.Routes, Targets: plans}
 				if jsonMode {
 					enc := json.NewEncoder(runtime.Out)
@@ -69,7 +69,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			if err := synchronizer.CommitProjection(cmd.Context(), before, after, "sync"); err != nil {
 				return err
 			}
-			if !synchronization.ProjectionChanged(before, after) && !synchronization.ClaudeProjectionChanged(before, after) {
+			if !synchronizer.ProjectionChanged(before, after) {
 				if err := synchronizer.Reconcile(cmd.Context(), after, after); err != nil {
 					return err
 				}

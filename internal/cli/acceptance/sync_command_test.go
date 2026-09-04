@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -204,7 +205,7 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	app, _, secretStore, runner := testApp(t, "")
 	app.Executable = filepath.Join(bin, executableName("aigw"))
 	app.ClaudeSettingsPath = claudeSettings
-	app.Discovery = discovery.System{GOOS: runtime.GOOS, Home: home, Path: bin}
+	app.Discovery = client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: runtime.GOOS, Home: home, Path: bin})
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
 		Anthropic:       "https://gateway.test",
@@ -696,7 +697,7 @@ func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := execute(t, app, "verify", "--for", "all")
-	if err == nil || !strings.Contains(err.Error(), "Full verification requires an enabled Codex adapter with at least one configuration target") {
+	if err == nil || !strings.Contains(err.Error(), "Full verification requires a ready Codex adapter") || !strings.Contains(err.Error(), "Codex adapter is disabled") {
 		t.Fatalf("error = %v", err)
 	}
 	if _, checkpointErr := app.Config.LoadVerifiedCheckpoint(); checkpointErr == nil {

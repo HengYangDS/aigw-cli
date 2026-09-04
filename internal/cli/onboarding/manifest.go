@@ -6,7 +6,6 @@ import (
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
-	domainverification "aigw-cli/internal/verification"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -55,8 +54,6 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	if err != nil {
 		return err
 	}
-	discoveredClaude := discovered.Executable(configuration.ClientClaude)
-	discoveredCodex := discovered.Executable(configuration.ClientCodex)
 	discoveredTargets := discovered.AutoManagedCodexTargets()
 	for _, accountName := range accountNames {
 		if len(configuredClientsForAccount(cfg, accountName)) == 0 {
@@ -68,7 +65,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 		if selectErr != nil {
 			return selectErr
 		}
-		if _, resolveErr := preflight.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && discoveredCodex != "" && len(discoveredTargets) > 1 {
+		if _, resolveErr := preflight.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && discovered.Executable(configuration.ClientCodex) != "" && len(discoveredTargets) > 1 {
 			return fmt.Errorf("configuration setup found multiple auto-managed Codex targets; automatic native credential binding is not atomic across targets, so reduce the admitted target set before setup or import the manifest without first-time client binding")
 		}
 	}
@@ -95,30 +92,33 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 		connected[item.account] = item
 	}
 	selectedClients := manifestSetupSelectedClients(cfg, connected, map[string]bool{
-		configuration.ClientClaude: discoveredClaude != "",
-		configuration.ClientCodex:  discoveredCodex != "" && len(discoveredTargets) > 0,
+		configuration.ClientClaude: discovered.Executable(configuration.ClientClaude) != "",
+		configuration.ClientCodex:  discovered.Executable(configuration.ClientCodex) != "" && len(discoveredTargets) > 0,
 	})
 	if containsClient(selectedClients, configuration.ClientCodex) && len(discoveredTargets) > 1 {
 		return fmt.Errorf("configuration setup found multiple auto-managed Codex targets; automatic native credential binding is not atomic across targets, so reduce the admitted target set before setup or import the manifest without first-time client binding")
 	}
 	for _, credential := range credentials {
-		if err := verifyManifestSetupCredential(ctx, runtime, cfg, credential.account, credential.token, discoveredClaude, selectedClients...); err != nil {
+		if err := verifyManifestSetupCredential(ctx, runtime, cfg, credential.account, credential.token, selectedClients...); err != nil {
 			return fmt.Errorf("Token validation failed for Account %q: %w", credential.account, err)
 		}
-	}
-
-	if containsClient(selectedClients, configuration.ClientClaude) {
-		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: discoveredClaude}
-	}
-	if containsClient(selectedClients, configuration.ClientCodex) {
-		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: discoveredCodex, Targets: discoveredTargets}
 	}
 
 	written, err := writeSetupCredentials(runtime, credentials)
 	if err != nil {
 		return err
 	}
-	if err := invocation.Synchronizer(runtime).Commit(ctx, before, cfg, "configuration setup"); err != nil {
+	synchronizer := invocation.Synchronizer(runtime)
+	if len(selectedClients) > 0 {
+		cfg, _, err = synchronizer.DesiredClientConfiguration(cfg, selectedClients...)
+		if err != nil {
+			if rollbackErr := rollbackSetupCredentials(runtime, credentials, written); rollbackErr != nil {
+				return fmt.Errorf("configuration setup failed: %w; credential rollback also failed: %v", err, rollbackErr)
+			}
+			return fmt.Errorf("Configuration setup failed and credentials were rolled back: %w", err)
+		}
+	}
+	if err := synchronizer.Commit(ctx, before, cfg, "configuration setup"); err != nil {
 		if rollbackErr := rollbackSetupCredentials(runtime, credentials, written); rollbackErr != nil {
 			return fmt.Errorf("configuration setup failed: %w; credential rollback also failed: %v", err, rollbackErr)
 		}
@@ -130,7 +130,13 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	for _, client := range configuration.AdmittedClientIDs() {
 		availableClients[client] = discovered.Executable(client) != ""
 	}
-	result := buildManifestSetupResult(runtime, cfg, accountNames, connected, availableClients, selectedClients)
+	projectedClients := make([]string, 0, len(selectedClients))
+	for _, client := range selectedClients {
+		if cfg.Adapters[client].Enabled {
+			projectedClients = append(projectedClients, client)
+		}
+	}
+	result := buildManifestSetupResult(runtime, cfg, accountNames, connected, availableClients, projectedClients)
 	if request.JSON {
 		encoder := json.NewEncoder(runtime.Out)
 		encoder.SetIndent("", "  ")
@@ -321,18 +327,12 @@ func configuredClientsForAccount(cfg configuration.Config, accountName string) [
 	return clients
 }
 
-func verifyManifestSetupCredential(ctx context.Context, runtime invocation.Context, cfg configuration.Config, accountName, token, claudeExecutable string, selectedClients ...string) error {
+func verifyManifestSetupCredential(ctx context.Context, runtime invocation.Context, cfg configuration.Config, accountName, token string, selectedClients ...string) error {
 	account := cfg.Accounts[accountName]
 	account.ID = accountName
 	for _, client := range selectedClients {
 		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
 		if resolveErr != nil || clientRuntime.AccountID != accountName {
-			continue
-		}
-		if client == configuration.ClientClaude && claudeExecutable != "" {
-			if err := domainverification.VerifyClaudeRuntime(ctx, runtime.Runner, claudeExecutable, clientRuntime, token); err != nil {
-				return err
-			}
 			continue
 		}
 		if err := credential.Validate(ctx, runtime.HTTP, account, token, client); err != nil {

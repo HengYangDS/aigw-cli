@@ -10,14 +10,13 @@ import (
 	"os"
 	"path/filepath"
 	goruntime "runtime"
-	"slices"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/account"
 	"aigw-cli/internal/cli/invocation"
+	clientdomain "aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/process"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 
@@ -47,6 +46,15 @@ func (presentFailingSecretStore) Set(string, string) error         { return nil 
 func (presentFailingSecretStore) Delete(string) error              { return nil }
 func (presentFailingSecretStore) Exists(string) (bool, error)      { return true, nil }
 
+type failingAccountObservationStore struct{ err error }
+
+func (store failingAccountObservationStore) Get(string) (account.Credential, error) {
+	return account.Credential{}, store.err
+}
+func (failingAccountObservationStore) Set(string, account.Credential) error { return nil }
+func (failingAccountObservationStore) Delete(string) error                  { return nil }
+func (store failingAccountObservationStore) Exists(string) (bool, error)    { return false, store.err }
+
 type observingSecretStore struct {
 	value       string
 	getErr      error
@@ -72,21 +80,6 @@ func (*observingSecretStore) Delete(string) error      { return nil }
 func (store *observingSecretStore) Exists(string) (bool, error) {
 	store.existsCalls++
 	return store.value != "", store.existsErr
-}
-
-type readinessProcessRunner struct {
-	plans     []process.Plan
-	deadlines []bool
-	err       error
-}
-
-func (runner *readinessProcessRunner) Run(context.Context, process.Plan) error { return nil }
-
-func (runner *readinessProcessRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
-	runner.plans = append(runner.plans, plan)
-	_, hasDeadline := ctx.Deadline()
-	runner.deadlines = append(runner.deadlines, hasDeadline)
-	return nil, runner.err
 }
 
 func configuredReadinessRuntime(t *testing.T) (invocation.Context, configuration.Config) {
@@ -127,16 +120,11 @@ func executeCommand(command *cobra.Command) error {
 
 func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
-	originalProbe := probeAdapterRoute
-	originalAuthentication := probeCodexAuthentication
-	t.Cleanup(func() {
-		probeAdapterRoute = originalProbe
-		probeCodexAuthentication = originalAuthentication
-	})
-	probeAdapterRoute = func(invocation.Context, configuration.Config, string, configuration.Runtime) (bool, string) {
-		return true, ""
+	originalInspect := inspectAdapter
+	t.Cleanup(func() { inspectAdapter = originalInspect })
+	inspectAdapter = func(context.Context, invocation.Context, configuration.Config, string, configuration.Runtime, clientdomain.InspectionOptions) clientdomain.Status {
+		return clientdomain.Status{Ready: true, NativeAuthentication: "present"}
 	}
-	probeCodexAuthentication = func(invocation.Context, string, []string) bool { return true }
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -309,14 +297,43 @@ func TestStatusFallsBackToRepairForUnclassifiedAttention(t *testing.T) {
 	}
 }
 
+func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
+	runtime := invocation.Context{Out: &bytes.Buffer{}, Width: 120}
+	for _, state := range []domainreadiness.State{
+		domainreadiness.Ready,
+		domainreadiness.Configured,
+		domainreadiness.Deferred,
+		domainreadiness.Invalid,
+	} {
+		clientID := string(state)
+		attention, _ := renderClientStatus(
+			Renderer(runtime),
+			statusOutput{Routes: map[string]routeStatus{clientID: {Client: domainreadiness.Client{State: state}}}},
+			[]string{clientID},
+		)
+		if attention != (state == domainreadiness.Invalid) {
+			t.Fatalf("state %s attention = %v", state, attention)
+		}
+	}
+}
+
+func TestStatusReportsSelectedUnknownProfile(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	cfg.Routes[configuration.ClientClaude] = "missing"
+	state := inspectStatusClients(runtime, cfg)[configuration.ClientClaude]
+	if state.State != domainreadiness.Invalid || state.Profile != "missing" || !strings.Contains(state.Detail, `unknown profile "missing"`) {
+		t.Fatalf("Claude status = %#v", state)
+	}
+}
+
 func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
 	store := &observingSecretStore{value: "must-not-be-read"}
 	runtime.Secrets = store
-	originalProbe := probeAdapterRoute
-	t.Cleanup(func() { probeAdapterRoute = originalProbe })
-	probeAdapterRoute = func(invocation.Context, configuration.Config, string, configuration.Runtime) (bool, string) {
-		return true, ""
+	originalInspect := inspectAdapter
+	t.Cleanup(func() { inspectAdapter = originalInspect })
+	inspectAdapter = func(context.Context, invocation.Context, configuration.Config, string, configuration.Runtime, clientdomain.InspectionOptions) clientdomain.Status {
+		return clientdomain.Status{Ready: true}
 	}
 
 	collectStatus(runtime, cfg)
@@ -390,104 +407,6 @@ func TestCheckJSONReportsOutputFailure(t *testing.T) {
 	}
 }
 
-func TestAdapterRouteReadyCoversClaudeExecutableAndCodexOutcomes(t *testing.T) {
-	runtime, cfg := configuredReadinessRuntime(t)
-	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || !strings.Contains(issue, "disabled") {
-		t.Fatalf("disabled adapter ready=%v issue=%q", ready, issue)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || !strings.Contains(issue, "executable") {
-		t.Fatalf("missing executable ready=%v issue=%q", ready, issue)
-	}
-
-	executable := filepath.Join(t.TempDir(), "claude")
-	if goruntime.GOOS == "windows" {
-		executable += ".exe"
-	}
-	if err := os.WriteFile(executable, []byte("binary"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || issue != "Claude executable is unavailable" {
-		t.Fatalf("missing executable ready=%v issue=%q", ready, issue)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "\x00"}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || issue != "Cannot inspect Claude executable" {
-		t.Fatalf("invalid executable ready=%v issue=%q", ready, issue)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); !ready || issue != "" {
-		t.Fatalf("ready executable ready=%v issue=%q", ready, issue)
-	}
-
-	codexRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex"}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientCodex, codexRuntime); ready || !strings.Contains(issue, "target") {
-		t.Fatalf("missing Codex target ready=%v issue=%q", ready, issue)
-	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientCodex, codexRuntime); ready || !strings.Contains(issue, "projection drift") {
-		t.Fatalf("drifted Codex target ready=%v issue=%q", ready, issue)
-	}
-	originalValidate := validateCodexConfig
-	t.Cleanup(func() { validateCodexConfig = originalValidate })
-	validateCodexConfig = func(string, configuration.Runtime) error { return nil }
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientCodex, codexRuntime); !ready || issue != "" {
-		t.Fatalf("ready Codex target ready=%v issue=%q", ready, issue)
-	}
-}
-
-func TestCodexAuthenticationProofUsesThePublicStatusCommandForEveryTarget(t *testing.T) {
-	runner := &readinessProcessRunner{}
-	targets := []string{
-		filepath.Join(t.TempDir(), "first", "config.toml"),
-		filepath.Join(t.TempDir(), "second", "config.toml"),
-	}
-	runtime := invocation.Context{Runner: runner}
-	if !CodexAuthenticationProven(runtime, "codex", targets) {
-		t.Fatal("successful native status probes did not prove authentication")
-	}
-	if len(runner.plans) != len(targets) {
-		t.Fatalf("status plans = %d, want %d", len(runner.plans), len(targets))
-	}
-	for index, plan := range runner.plans {
-		if !slices.Equal(plan.Args, []string{"login", "status"}) {
-			t.Fatalf("status args = %#v", plan.Args)
-		}
-		wantHome := filepath.Dir(targets[index])
-		if !slices.Contains(plan.Env, "CODEX_HOME="+wantHome) {
-			t.Fatalf("status environment does not select %q: %#v", wantHome, plan.Env)
-		}
-		if plan.Stdin != "" || plan.Replace {
-			t.Fatalf("status probe received secret input: %#v", plan)
-		}
-		if !runner.deadlines[index] {
-			t.Fatalf("status probe for %q has no deadline", targets[index])
-		}
-	}
-
-	runner.err = errors.New("not logged in")
-	if CodexAuthenticationProven(runtime, "codex", targets[:1]) {
-		t.Fatal("failed native status probe proved authentication")
-	}
-	if CodexAuthenticationProven(runtime, "codex", nil) {
-		t.Fatal("an empty target set proved authentication")
-	}
-	if CodexAuthenticationProven(runtime, "", targets[:1]) {
-		t.Fatal("an empty executable proved authentication")
-	}
-	if CodexAuthenticationProven(invocation.Context{}, "codex", targets[:1]) {
-		t.Fatal("missing capture capability proved authentication")
-	}
-}
-
 func TestStatusSeparatesCodexProjectionFromNativeAuthentication(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
@@ -501,19 +420,15 @@ func TestStatusSeparatesCodexProjectionFromNativeAuthentication(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	originalValidate := validateCodexConfig
-	originalAuthentication := probeCodexAuthentication
-	originalAdapter := probeAdapterRoute
-	t.Cleanup(func() {
-		validateCodexConfig = originalValidate
-		probeCodexAuthentication = originalAuthentication
-		probeAdapterRoute = originalAdapter
-	})
-	validateCodexConfig = func(string, configuration.Runtime) error { return nil }
-	probeAdapterRoute = func(invocation.Context, configuration.Config, string, configuration.Runtime) (bool, string) {
-		return true, ""
+	originalInspect := inspectAdapter
+	t.Cleanup(func() { inspectAdapter = originalInspect })
+	inspectAdapter = func(_ context.Context, _ invocation.Context, _ configuration.Config, clientID string, _ configuration.Runtime, _ clientdomain.InspectionOptions) clientdomain.Status {
+		status := clientdomain.Status{Ready: true}
+		if clientID == configuration.ClientCodex {
+			status.NativeAuthentication = "not_proven"
+		}
+		return status
 	}
-	probeCodexAuthentication = func(invocation.Context, string, []string) bool { return false }
 
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
@@ -536,7 +451,13 @@ func TestStatusSeparatesCodexProjectionFromNativeAuthentication(t *testing.T) {
 		t.Fatalf("JSON readiness facts = %q", jsonStatus)
 	}
 
-	probeCodexAuthentication = func(invocation.Context, string, []string) bool { return true }
+	inspectAdapter = func(_ context.Context, _ invocation.Context, _ configuration.Config, clientID string, _ configuration.Runtime, _ clientdomain.InspectionOptions) clientdomain.Status {
+		status := clientdomain.Status{Ready: true}
+		if clientID == configuration.ClientCodex {
+			status.NativeAuthentication = "present"
+		}
+		return status
+	}
 	runtime.Out.(*bytes.Buffer).Reset()
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
@@ -558,9 +479,12 @@ func TestStatusSeparatesCodexProjectionFromNativeAuthentication(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	probeCodexAuthentication = func(invocation.Context, string, []string) bool {
-		t.Fatal("native Codex provider must not require AIGW authentication")
-		return false
+	inspectAdapter = func(_ context.Context, _ invocation.Context, _ configuration.Config, clientID string, _ configuration.Runtime, _ clientdomain.InspectionOptions) clientdomain.Status {
+		status := clientdomain.Status{Ready: true}
+		if clientID == configuration.ClientCodex {
+			status.NativeAuthentication = "not_required"
+		}
+		return status
 	}
 	runtime.Out.(*bytes.Buffer).Reset()
 	if err := RunStatus(runtime, true); err != nil {
@@ -665,6 +589,38 @@ func TestRunCheckShowsEnabledProviderDiagnostics(t *testing.T) {
 		if !strings.Contains(strings.ToLower(output(runtime)), want) {
 			t.Fatalf("health output lacks %q: %s", want, output(runtime))
 		}
+	}
+}
+
+func TestRunCheckReportsProviderDiagnosticCredentialObservationFailure(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	runtime.Version = "1.0.0"
+	if err := runtime.Secrets.Set("one", "token"); err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("credential metadata unavailable")
+	runtime.Accounts = failingAccountObservationStore{err: want}
+	claudeExecutable := filepath.Join(t.TempDir(), "claude")
+	if goruntime.GOOS == "windows" {
+		claudeExecutable += ".exe"
+	}
+	if err := os.WriteFile(claudeExecutable, []byte("fixture"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
+	providerAccount := cfg.Accounts["one"]
+	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
+	cfg.Accounts["one"] = providerAccount
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
+	})
+	command := &cobra.Command{}
+	command.SetContext(context.Background())
+	if err := RunCheck(command, runtime); !errors.Is(err, want) {
+		t.Fatalf("RunCheck() error = %v, want %v", err, want)
 	}
 }
 
@@ -822,19 +778,6 @@ func TestReadinessTransportHelpers(t *testing.T) {
 	}
 	if got := TransportStatus("https://api.example.test/v1"); got.Kind != "" {
 		t.Fatalf("remote transport = %#v", got)
-	}
-	if got := CodexModelsEndpoint("https://api.example.test/v1/"); got != "https://api.example.test/v1/models" {
-		t.Fatalf("models endpoint = %q", got)
-	}
-	if got := CodexModelsEndpoint("https://api.example.test/models/"); got != "https://api.example.test/models" {
-		t.Fatalf("existing models endpoint = %q", got)
-	}
-	request, err := http.NewRequest(http.MethodGet, "https://example.test", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := authenticateRequest(request, configuration.ClientSpec{ID: "future", EndpointProtocol: configuration.EndpointProtocol("future")}, "token"); err == nil || !strings.Contains(err.Error(), "unsupported") {
-		t.Fatalf("unsupported protocol error = %v", err)
 	}
 	buffer := &bytes.Buffer{}
 	renderer := Renderer(invocation.Context{Out: buffer})

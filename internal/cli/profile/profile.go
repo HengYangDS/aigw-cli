@@ -9,7 +9,6 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/synchronization"
 	"github.com/spf13/cobra"
 )
 
@@ -202,7 +201,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Profile updated")
 			r.Row("Configuration", args[0])
-			if synchronization.ProjectionChanged(before, cfg) {
+			if invocation.Synchronizer(runtime).ProjectionChanged(before, cfg) {
 				r.Success("Client configuration synchronized")
 			} else {
 				r.Success("Display metadata saved; client configuration was not changed")

@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	surfaceidentity "aigw-cli/internal/surface"
-	"aigw-cli/internal/synchronization"
 )
 
 type staticDiscovery struct{ result discovery.Result }
@@ -27,7 +27,7 @@ func TestRenderRepairPreviewIncludesKnownAndExplicitSurfaces(t *testing.T) {
 	after := before.Clone()
 	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/codex", Targets: []string{"/known", "/explicit"}}
 	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: "/known", Present: true}}}
-	plans := []synchronization.ProjectionPlan{
+	plans := []client.ProjectionPlan{
 		{Client: configuration.ClientCodex, Target: "/known", Action: "update"},
 		{Client: configuration.ClientCodex, Target: "/explicit", Action: "create"},
 	}
@@ -48,7 +48,7 @@ func TestRenderRepairPreviewJSONReportsTheSameSemanticPlan(t *testing.T) {
 	after := before.Clone()
 	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
 	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: "/known"}}}
-	plans := []synchronization.ProjectionPlan{{Client: configuration.ClientCodex, Target: "/known", Action: "update"}}
+	plans := []client.ProjectionPlan{{Client: configuration.ClientCodex, Target: "/known", Action: "update"}}
 
 	if err := renderRepairPreview(runtime, true, before, after, discovered, plans); err != nil {
 		t.Fatal(err)
@@ -156,5 +156,37 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 				t.Fatalf("repair error = %v", err)
 			}
 		})
+	}
+}
+
+func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *testing.T) {
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	settingsPath := filepath.Join(t.TempDir(), ".claude", "settings.json")
+	executable := filepath.Join(t.TempDir(), "aigw")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Routes[configuration.ClientClaude] = "one"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	runtime := invocation.Context{
+		Executable:         executable,
+		Config:             store,
+		Discovery:          staticDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}},
+		ClaudeSettingsPath: settingsPath,
+		Out:                &bytes.Buffer{},
+	}
+
+	if err := runRepair(context.Background(), runtime, false, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("read repaired Claude projection: %v", err)
+	}
+	if !strings.Contains(string(data), "https://one.test") || !strings.Contains(string(data), executable) {
+		t.Fatalf("Claude projection = %s", data)
 	}
 }

@@ -55,8 +55,11 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 				after := before.Clone()
-				clear(after.Adapters)
-				if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, after, "uninstall"); err != nil {
+				synchronizer := invocation.Synchronizer(runtime)
+				if err := synchronizer.Withdraw(&after); err != nil {
+					return err
+				}
+				if err := synchronizer.CommitProjection(cmd.Context(), before, after, "uninstall"); err != nil {
 					return err
 				}
 			} else if !errors.Is(err, os.ErrNotExist) {
