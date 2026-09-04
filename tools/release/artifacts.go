@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func portableArtifactNames(version string) []string {
+func artifactNames(version string) []string {
 	return []string{
 		"aigw_" + version + "_darwin_amd64.tar.gz",
 		"aigw_" + version + "_darwin_arm64.tar.gz",
@@ -23,19 +23,13 @@ func portableArtifactNames(version string) []string {
 	}
 }
 
-func artifactNames(version string) []string { return portableArtifactNames(version) }
-
 func validateArtifactMatrix(directory, version string) error {
-	return validatePortableArtifactMatrix(directory, version)
-}
-
-func validatePortableArtifactMatrix(directory, version string) error {
 	_, err := verifiedArtifactDigests(directory, version)
 	return err
 }
 
 func verifiedArtifactDigests(directory, version string) (map[string]string, error) {
-	wanted := portableArtifactNames(version)
+	wanted := artifactNames(version)
 	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return nil, fmt.Errorf("release artifact matrix: %w", err)
@@ -108,12 +102,8 @@ func compareArtifactMatrices(left, right, version string) error {
 }
 
 func rewriteChecksums(directory, version string) error {
-	return rewritePortableChecksums(directory, version)
-}
-
-func rewritePortableChecksums(directory, version string) error {
 	var output strings.Builder
-	for _, name := range portableArtifactNames(version)[:len(portableArtifactNames(version))-1] {
+	for _, name := range artifactNames(version)[:len(artifactNames(version))-1] {
 		data, err := os.ReadFile(filepath.Join(directory, name))
 		if err != nil {
 			return err

@@ -51,7 +51,7 @@ func TestNormalizedSPDXIsDeterministicAndPortable(t *testing.T) {
 func TestPortableArtifactMatrixRejectsNativePackagesAndCorruption(t *testing.T) {
 	directory := t.TempDir()
 	version := "1.2.3"
-	for _, name := range portableArtifactNames(version) {
+	for _, name := range artifactNames(version) {
 		if strings.HasSuffix(name, ".spdx.json") {
 			if err := os.WriteFile(filepath.Join(directory, name), []byte(`{"spdxVersion":"SPDX-2.3"}`), 0o600); err != nil {
 				t.Fatal(err)
@@ -64,16 +64,16 @@ func TestPortableArtifactMatrixRejectsNativePackagesAndCorruption(t *testing.T) 
 			}
 		}
 	}
-	if err := rewritePortableChecksums(directory, version); err != nil {
+	if err := rewriteChecksums(directory, version); err != nil {
 		t.Fatal(err)
 	}
-	if err := validatePortableArtifactMatrix(directory, version); err != nil {
+	if err := validateArtifactMatrix(directory, version); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(directory, "aigw_1.2.3_linux_amd64.deb"), []byte("legacy"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := validatePortableArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected") {
+	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected") {
 		t.Fatalf("native package accepted: %v", err)
 	}
 	if err := os.Remove(filepath.Join(directory, "aigw_1.2.3_linux_amd64.deb")); err != nil {
@@ -83,7 +83,7 @@ func TestPortableArtifactMatrixRejectsNativePackagesAndCorruption(t *testing.T) 
 	if err := os.WriteFile(archive, bytes.Repeat([]byte("x"), 3), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := validatePortableArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "checksum") {
+	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "checksum") {
 		t.Fatalf("corruption accepted: %v", err)
 	}
 }
@@ -147,7 +147,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 			if err := os.MkdirAll(stage, 0o700); err != nil {
 				return err
 			}
-			for _, name := range portableArtifactNames(valid.Version) {
+			for _, name := range artifactNames(valid.Version) {
 				if name == "checksums.txt" || strings.HasSuffix(name, ".spdx.json") {
 					continue
 				}
@@ -190,7 +190,7 @@ func populatePortableStage(t *testing.T, call toolCall, version string) error {
 	if err := os.MkdirAll(stage, 0o700); err != nil {
 		return err
 	}
-	for _, name := range portableArtifactNames(version) {
+	for _, name := range artifactNames(version) {
 		if name == "checksums.txt" || strings.HasSuffix(name, ".spdx.json") {
 			continue
 		}
@@ -215,7 +215,7 @@ func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 			}
 			raw := strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json=")
 			candidate := filepath.Join(filepath.Dir(filepath.Dir(raw)), "artifacts")
-			if err := os.Remove(filepath.Join(candidate, portableArtifactNames(valid.Version)[0])); err != nil {
+			if err := os.Remove(filepath.Join(candidate, artifactNames(valid.Version)[0])); err != nil {
 				return err
 			}
 			return os.WriteFile(raw, []byte(`{"spdxVersion":"SPDX-2.3"}`), 0o600)
@@ -255,7 +255,7 @@ func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
 			if err := os.MkdirAll(stage, 0o700); err != nil {
 				return err
 			}
-			for _, name := range portableArtifactNames(valid.Version) {
+			for _, name := range artifactNames(valid.Version) {
 				if name == "checksums.txt" || strings.HasSuffix(name, ".spdx.json") {
 					continue
 				}
@@ -343,13 +343,13 @@ func TestArtifactComparisonAndChecksumReadFailures(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(right, "aigw_1.2.3_linux_amd64.tar.gz"), []byte("different"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := rewritePortableChecksums(right, "1.2.3"); err != nil {
+	if err := rewriteChecksums(right, "1.2.3"); err != nil {
 		t.Fatal(err)
 	}
 	if err := compareArtifactMatrices(left, right, "1.2.3"); err == nil || !strings.Contains(err.Error(), "differs") {
 		t.Fatalf("different artifact matrices error = %v", err)
 	}
-	if err := rewritePortableChecksums(t.TempDir(), "1.2.3"); err == nil {
+	if err := rewriteChecksums(t.TempDir(), "1.2.3"); err == nil {
 		t.Fatal("missing checksum input was accepted")
 	}
 }
@@ -363,13 +363,13 @@ func TestArtifactMatrixReportsManifestAndComparisonReadFailures(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(directory, "checksums.txt"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := validatePortableArtifactMatrix(directory, version); err == nil {
+	if err := validateArtifactMatrix(directory, version); err == nil {
 		t.Fatal("unreadable checksum manifest accepted")
 	}
 
 	left := releaseFixture(t, version)
 	right := releaseFixture(t, version)
-	name := portableArtifactNames(version)[0]
+	name := artifactNames(version)[0]
 	if err := os.Remove(filepath.Join(left, name)); err != nil {
 		t.Fatal(err)
 	}

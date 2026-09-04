@@ -73,7 +73,7 @@ func buildRelease(request buildRequest, run toolRunner) error {
 	if err := os.MkdirAll(candidate, 0o755); err != nil {
 		return fmt.Errorf("create release candidate: %w", err)
 	}
-	for _, name := range portableArtifactNames(request.Version) {
+	for _, name := range artifactNames(request.Version) {
 		if name == "checksums.txt" || strings.HasSuffix(name, ".spdx.json") {
 			continue
 		}
@@ -93,10 +93,10 @@ func buildRelease(request buildRequest, run toolRunner) error {
 	if err := normalizeSPDX(rawSBOM, sbom, request.Version, instant); err != nil {
 		return err
 	}
-	if err := rewritePortableChecksums(candidate, request.Version); err != nil {
+	if err := rewriteChecksums(candidate, request.Version); err != nil {
 		return err
 	}
-	if err := validatePortableArtifactMatrix(candidate, request.Version); err != nil {
+	if err := validateArtifactMatrix(candidate, request.Version); err != nil {
 		return err
 	}
 	return replaceDirectory(candidate, output)
