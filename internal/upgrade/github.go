@@ -89,7 +89,7 @@ func (u Updater) latestTagFromGitHubRelease(ctx context.Context, source ReleaseS
 		if prereleaseErr == nil {
 			return tag, nil
 		}
-		if !isGitHubNotFound(prereleaseErr) {
+		if !isHTTPStatus(prereleaseErr, http.StatusNotFound) {
 			return "", prereleaseErr
 		}
 		if tag, cliErr := u.latestTagFromGitHubCLI(ctx, source); cliErr == nil {
@@ -309,8 +309,4 @@ func (u Updater) runGitHubCLI(ctx context.Context, args ...string) ([]byte, erro
 
 func githubCLIFallbackAllowed(source ReleaseSource) bool {
 	return strings.EqualFold(strings.TrimRight(source.Origin, "/"), "https://github.com")
-}
-
-func isGitHubNotFound(err error) bool {
-	return isHTTPStatus(err, http.StatusNotFound)
 }
