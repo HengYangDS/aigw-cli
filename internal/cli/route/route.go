@@ -89,7 +89,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if reflect.DeepEqual(before, cfg) {
-				r := renderer(runtime)
+				r := invocation.Renderer(runtime)
 				r.ProductTitle("Service already selected")
 				r.Row("Service", profile.Label)
 				r.Row("Client", invocation.Title(client))
@@ -103,7 +103,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 				}
 				return err
 			}
-			r := renderer(runtime)
+			r := invocation.Renderer(runtime)
 			r.ProductTitle("Service switched")
 			r.Section("Current selection")
 			r.Row("Service", profile.Label)
@@ -147,7 +147,7 @@ func runList(runtime invocation.Context) error {
 	if len(cfg.Profiles) == 0 {
 		return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "No client route is available to inspect.", "aigw setup", fmt.Errorf("not configured"))
 	}
-	r := renderer(runtime)
+	r := invocation.Renderer(runtime)
 	r.ProductTitle("Current routes")
 	r.Section("Clients")
 	nextCommand := ""
@@ -174,10 +174,6 @@ func runList(runtime invocation.Context) error {
 	}
 	r.Next(nextCommand)
 	return nil
-}
-
-func renderer(runtime invocation.Context) *presentation.Renderer {
-	return invocation.Renderer(runtime)
 }
 
 func chooseProfile(runtime invocation.Context, cfg configuration.Config, label string) (string, error) {
