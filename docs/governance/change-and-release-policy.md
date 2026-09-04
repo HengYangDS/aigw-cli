@@ -19,6 +19,31 @@
 Generated workflows, installed binaries, host caches, IDE state, Forge pages,
 and remote refs are projections—not competing authorities.
 
+## Dependency and Framework Admission
+
+Dependencies must remove more product-owned complexity than they introduce.
+The comparison includes production code, tests, transitive dependencies,
+runtime state, security boundary, platform behavior, and upgrade burden. A
+candidate that merely moves AIGW semantics behind a generic framework has no
+net value.
+
+The terminal-convergence review reached these decisions:
+
+| Boundary                     | Retained authority                                                | Evaluated alternative                                                       | Net result                                                                                                                                                |
+| ---------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI and terminal interaction | Cobra, pflag, Huh, and Lip Gloss                                  | another command or terminal framework                                       | Retain: the mature libraries already own parsing and presentation; replacement deletes no AIGW domain behavior.                                           |
+| Configuration                | `go-toml/v2` plus the Account, Profile, Route, and Adapter domain | Viper, Koanf, or a schema framework                                         | Retain: parsing could move, but validation, merge, ownership, and atomic persistence remain; the change adds another configuration authority.             |
+| Tokens                       | `go-keyring` plus one selected portable fallback                  | a multi-backend keyring abstraction or external secret service              | Retain: no candidate replaces the single-backend policy, non-interactive selection, Unix file invariants, and Windows DPAPI boundary together.            |
+| Update and packaging         | `go-selfupdate` and GoReleaser                                    | a custom installer, PyInstaller-style bundle, or platform package framework | Retain: the current tools already remove archive replacement and release-matrix mechanics while preserving a portable Go binary.                          |
+| Provider protocol            | Go standard HTTP plus leaf diagnostics                            | provider SDKs or an HTTP application framework                              | Retain: AIGW is not a server, and SDKs would add provider branches, credential chains, and transitive dependencies without deleting the Account contract. |
+| Tests                        | Go testing, repository fixtures, and mature static analyzers      | an assertion framework or a second test orchestrator                        | Retain: another assertion vocabulary rewrites tests but removes no product state or proof owner.                                                          |
+
+This review admits no new dependency. A future candidate must demonstrate its
+deletion in the same change; replacement and superseded custom mechanics may
+not coexist. The decision is revisited when a maintained candidate can remove
+an entire semantic owner or materially reduce a proven security or portability
+risk.
+
 ## Change Lifecycle
 
 An accepted `dev` or `main` tree contains only archived Changes and canonical
