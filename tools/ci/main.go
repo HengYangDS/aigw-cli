@@ -19,6 +19,7 @@ import (
 type command struct {
 	Name string
 	Args []string
+	Env  []string
 }
 
 type commandRunner func(command) error
@@ -308,20 +309,31 @@ func supportedNativePlatform(platform string) bool {
 }
 
 func nativeCommands(platform, version string) []command {
-	binary := filepath.Join("build", "acceptance", "aigw")
-	installed := filepath.Join("build", "acceptance", "installed", "aigw")
-	profile := filepath.Join("build", "acceptance", "coverage-"+platform+".out")
+	acceptance := filepath.Join("build", "acceptance")
+	binary := filepath.Join(acceptance, "aigw")
+	installed := filepath.Join(acceptance, "installed", "aigw")
+	profile := filepath.Join(acceptance, "coverage-"+platform+".out")
 	if platform == "windows" {
 		binary += ".exe"
 		installed += ".exe"
 	}
+	productEnvironment := []string{
+		"AIGW_SECRET_BACKEND=env",
+		"HOME=" + filepath.Join(acceptance, "home"),
+		"XDG_CONFIG_HOME=" + filepath.Join(acceptance, "config"),
+		"XDG_DATA_HOME=" + filepath.Join(acceptance, "data"),
+		"APPDATA=" + filepath.Join(acceptance, "app-data"),
+		"LOCALAPPDATA=" + filepath.Join(acceptance, "local-app-data"),
+		"USERPROFILE=" + filepath.Join(acceptance, "user-profile"),
+		"CODEX_HOME=" + filepath.Join(acceptance, "codex"),
+	}
 	commands := []command{
 		{Name: "go", Args: []string{"vet", "./..."}},
 		{Name: "go", Args: []string{"build", "-ldflags=-X=aigw-cli/internal/cli.Version=" + version, "-o", binary, "./cmd/aigw"}},
-		{Name: binary, Args: []string{"--version"}},
-		{Name: binary, Args: []string{"install", "--target", installed}},
-		{Name: installed, Args: []string{"--version"}},
-		{Name: binary, Args: []string{"uninstall", "--target", installed}},
+		{Name: binary, Args: []string{"--version"}, Env: productEnvironment},
+		{Name: binary, Args: []string{"install", "--target", installed}, Env: productEnvironment},
+		{Name: installed, Args: []string{"--version"}, Env: productEnvironment},
+		{Name: binary, Args: []string{"uninstall", "--target", installed}, Env: productEnvironment},
 	}
 	if platform == "windows" {
 		// Windows proves native behavior and lifecycle portability. Aggregate
@@ -349,6 +361,7 @@ func systemRunner(call command) error {
 		return err
 	}
 	process := exec.Command(repositoryExecutable(".", call.Name, runtime.GOOS), call.Args...)
+	process.Env = append(os.Environ(), call.Env...)
 	process.Stdout = os.Stdout
 	process.Stderr = os.Stderr
 	return process.Run()

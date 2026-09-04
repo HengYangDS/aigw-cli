@@ -367,6 +367,23 @@ func TestNativeAcceptanceUsesPortablePaths(t *testing.T) {
 			if got := calls[2]; !slices.Contains(got.Args, "-ldflags=-X=aigw-cli/internal/cli.Version=1.2.3") {
 				t.Fatalf("native build lacks VERSION-derived identity: %#v", got)
 			}
+			for _, call := range calls[3:] {
+				environment := map[string]string{}
+				for _, entry := range call.Env {
+					name, value, ok := strings.Cut(entry, "=")
+					if ok {
+						environment[name] = value
+					}
+				}
+				if environment["AIGW_SECRET_BACKEND"] != "env" {
+					t.Fatalf("product command uses ambient credential backend: %#v", call)
+				}
+				for _, name := range []string{"HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "APPDATA", "LOCALAPPDATA", "USERPROFILE", "CODEX_HOME"} {
+					if !strings.HasPrefix(environment[name], filepath.Join("build", "acceptance")) {
+						t.Fatalf("product command uses ambient %s: %#v", name, call)
+					}
+				}
+			}
 		})
 	}
 }
@@ -510,5 +527,12 @@ func TestSystemRunnerCreatesOnlyRepositoryLocalBuildState(t *testing.T) {
 	}
 	if info, err := os.Stat(filepath.Join(root, "build", "acceptance")); err != nil || !info.IsDir() {
 		t.Fatalf("repository-local build directory: info=%v error=%v", info, err)
+	}
+	helper := filepath.Join(root, "environment.go")
+	if err := os.WriteFile(helper, []byte("package main\nimport \"os\"\nfunc main(){ if os.Getenv(\"AIGW_CI_TEST\") != \"isolated\" { os.Exit(1) } }\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := systemRunner(command{Name: "go", Args: []string{"run", helper}, Env: []string{"AIGW_CI_TEST=isolated"}}); err != nil {
+		t.Fatalf("systemRunner did not project the command environment: %v", err)
 	}
 }
