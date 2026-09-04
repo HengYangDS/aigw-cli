@@ -27,7 +27,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 		Use: "add <profile>", Short: "Add a model profile to an existing account", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			profileName := args[0]
-			if !configuration.ValidProfileName(profileName) {
+			if !configuration.ValidIdentifier(profileName) {
 				return fmt.Errorf("Invalid profile ID %q; use letters, numbers, dots, hyphens, or underscores", profileName)
 			}
 			if accountName == "" || client == "" || model == "" {

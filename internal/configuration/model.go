@@ -271,7 +271,7 @@ func (c Config) profileForAvailableAuthentication(client string, connected map[s
 	return replacement
 }
 
-func ValidProfileName(name string) bool { return profileNamePattern.MatchString(name) }
+func ValidIdentifier(name string) bool { return profileNamePattern.MatchString(name) }
 
 func (c *Config) Normalize() {
 	if c.Accounts == nil {
@@ -325,7 +325,7 @@ func (c Config) Validate() error {
 		return errors.New("at least one account is required")
 	}
 	for name, profile := range c.Profiles {
-		if !ValidProfileName(name) {
+		if !ValidIdentifier(name) {
 			return fmt.Errorf("invalid profile name %q; use letters, numbers, dot, dash, or underscore", name)
 		}
 		if strings.TrimSpace(profile.Label) == "" {
@@ -333,7 +333,7 @@ func (c Config) Validate() error {
 		}
 	}
 	for name, account := range c.Accounts {
-		if !ValidProfileName(name) {
+		if !ValidIdentifier(name) {
 			return fmt.Errorf("invalid account name %q; use letters, numbers, dot, dash, or underscore", name)
 		}
 		if name != strings.ToLower(name) {
@@ -349,7 +349,7 @@ func (c Config) Validate() error {
 			return err
 		}
 		if account.AccountProbe != nil {
-			if !ValidProfileName(account.AccountProbe.Kind) {
+			if !ValidIdentifier(account.AccountProbe.Kind) {
 				return fmt.Errorf("account %q has invalid account probe provider %q", name, account.AccountProbe.Kind)
 			}
 			if err := validateEndpoint(account.AccountProbe.BaseURL); err != nil {

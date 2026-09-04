@@ -147,10 +147,10 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 	if plan.request.Account == "" {
 		plan.request.Account = plan.request.Profile
 	}
-	if !configuration.ValidProfileName(plan.request.Account) {
+	if !configuration.ValidIdentifier(plan.request.Account) {
 		return setupPlan{}, fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Account)
 	}
-	if !configuration.ValidProfileName(plan.request.Profile) {
+	if !configuration.ValidIdentifier(plan.request.Profile) {
 		return setupPlan{}, fmt.Errorf("Invalid profile ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Profile)
 	}
 	if plan.request.Label == "" {
@@ -271,7 +271,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	if !configuration.ValidProfileName(account) {
+	if !configuration.ValidIdentifier(account) {
 		return fmt.Errorf("invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", account)
 	}
 	label, err := runtime.Prompt.Text("Provider display name: ")

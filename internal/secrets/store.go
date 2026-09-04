@@ -132,7 +132,7 @@ func Inspect(store Store) (BackendSelection, error) {
 func IsNotFound(err error) bool { return errors.Is(err, ErrNotFound) }
 
 func validate(profile, value string, requireValue bool) error {
-	if !configuration.ValidProfileName(profile) {
+	if !configuration.ValidIdentifier(profile) {
 		return fmt.Errorf("invalid profile name %q", profile)
 	}
 	if requireValue && value == "" {

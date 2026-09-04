@@ -28,7 +28,7 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
-			if !configuration.ValidProfileName(name) {
+			if !configuration.ValidIdentifier(name) {
 				return fmt.Errorf("Invalid service ID %q; use letters, numbers, dots, hyphens, or underscores", name)
 			}
 			cfg, err := runtime.Config.Load()

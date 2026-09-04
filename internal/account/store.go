@@ -60,7 +60,7 @@ func (store BackendStore) Get(profile string) (Credential, error) {
 }
 
 func (store BackendStore) Set(profile string, credential Credential) error {
-	if !configuration.ValidProfileName(profile) {
+	if !configuration.ValidIdentifier(profile) {
 		return fmt.Errorf("invalid profile name %q", profile)
 	}
 	if credential.SystemToken == "" || credential.UserID == "" {
@@ -101,7 +101,7 @@ func (s *MemoryStore) Get(profile string) (Credential, error) {
 }
 
 func (s *MemoryStore) Set(profile string, credential Credential) error {
-	if !configuration.ValidProfileName(profile) || credential.SystemToken == "" || credential.UserID == "" {
+	if !configuration.ValidIdentifier(profile) || credential.SystemToken == "" || credential.UserID == "" {
 		return errors.New("valid profile, system token and user ID are required")
 	}
 	s.mu.Lock()
