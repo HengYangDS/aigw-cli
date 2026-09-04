@@ -254,8 +254,6 @@ func (u Updater) downloadGitHubAsset(ctx context.Context, rawURL, destination st
 	return nil
 }
 
-func isGitHubUnavailable(err error) bool { return isSourceUnavailable(err) }
-
 func (u Updater) githubAPIURL(source ReleaseSource, path string) string {
 	origin := strings.TrimRight(source.Origin, "/")
 	if strings.EqualFold(origin, "https://github.com") {

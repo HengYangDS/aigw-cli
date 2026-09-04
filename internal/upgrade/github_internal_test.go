@@ -76,7 +76,7 @@ func TestLatestPrereleaseTagFromGitHubReportsUnavailableOnConnectionFailure(t *t
 	u := Updater{HTTPClient: &http.Client{}}
 	source := ReleaseSource{Origin: closedListenerURL(t), Repository: "o/r"}
 	_, err := u.latestPrereleaseTagFromGitHub(context.Background(), source, githubNotFoundError())
-	if err == nil || !isGitHubUnavailable(err) {
+	if err == nil || !isSourceUnavailable(err) {
 		t.Fatalf("error = %v, want unavailable", err)
 	}
 }
@@ -89,7 +89,7 @@ func TestLatestPrereleaseTagFromGitHubReportsUnavailableOnRateLimit(t *testing.T
 	u := Updater{HTTPClient: server.Client()}
 	source := ReleaseSource{Origin: server.URL, Repository: "o/r"}
 	_, err := u.latestPrereleaseTagFromGitHub(context.Background(), source, githubNotFoundError())
-	if err == nil || !isGitHubUnavailable(err) {
+	if err == nil || !isSourceUnavailable(err) {
 		t.Fatalf("error = %v, want unavailable", err)
 	}
 }
@@ -214,7 +214,7 @@ func TestGithubReleasePropagatesAuthorizationFailure(t *testing.T) {
 func TestGithubReleaseReportsUnavailableOnConnectionFailure(t *testing.T) {
 	u := Updater{HTTPClient: &http.Client{}}
 	source := ReleaseSource{Origin: closedListenerURL(t), Repository: "o/r"}
-	if _, err := u.githubRelease(context.Background(), source, "releases/latest"); err == nil || !isGitHubUnavailable(err) {
+	if _, err := u.githubRelease(context.Background(), source, "releases/latest"); err == nil || !isSourceUnavailable(err) {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -226,7 +226,7 @@ func TestGithubReleaseReportsUnavailableOnServerError(t *testing.T) {
 	defer server.Close()
 	u := Updater{HTTPClient: server.Client()}
 	source := ReleaseSource{Origin: server.URL, Repository: "o/r"}
-	if _, err := u.githubRelease(context.Background(), source, "releases/latest"); err == nil || !isGitHubUnavailable(err) {
+	if _, err := u.githubRelease(context.Background(), source, "releases/latest"); err == nil || !isSourceUnavailable(err) {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -353,7 +353,7 @@ func TestDownloadGitHubAssetPropagatesAuthorizationFailure(t *testing.T) {
 
 func TestDownloadGitHubAssetReportsUnavailableOnConnectionFailure(t *testing.T) {
 	u := Updater{HTTPClient: &http.Client{}}
-	if err := u.downloadGitHubAsset(context.Background(), closedListenerURL(t)+"/a", filepath.Join(t.TempDir(), "a")); err == nil || !isGitHubUnavailable(err) {
+	if err := u.downloadGitHubAsset(context.Background(), closedListenerURL(t)+"/a", filepath.Join(t.TempDir(), "a")); err == nil || !isSourceUnavailable(err) {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -364,7 +364,7 @@ func TestDownloadGitHubAssetReportsUnavailableOnServerError(t *testing.T) {
 	}))
 	defer server.Close()
 	u := Updater{HTTPClient: server.Client()}
-	if err := u.downloadGitHubAsset(context.Background(), server.URL+"/a", filepath.Join(t.TempDir(), "a")); err == nil || !isGitHubUnavailable(err) {
+	if err := u.downloadGitHubAsset(context.Background(), server.URL+"/a", filepath.Join(t.TempDir(), "a")); err == nil || !isSourceUnavailable(err) {
 		t.Fatalf("error = %v", err)
 	}
 }

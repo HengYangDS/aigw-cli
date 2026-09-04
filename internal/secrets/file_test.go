@@ -253,8 +253,8 @@ func TestOwnedFileValidationRejectsAmbiguousOrForeignMetadata(t *testing.T) {
 
 func TestUnixDirectorySyncFailureIsExplicit(t *testing.T) {
 	want := errors.New("injected failure")
-	if err := syncDirectory(syncerStub{err: want}); !errors.Is(err, want) {
-		t.Fatalf("syncDirectory() error = %v", err)
+	if err := syncCredentialDirectory(syncerStub{err: want}); !errors.Is(err, want) {
+		t.Fatalf("syncCredentialDirectory() error = %v", err)
 	}
 }
 

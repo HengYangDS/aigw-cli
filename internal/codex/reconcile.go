@@ -202,7 +202,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	catalogSnapshot, err := transaction.CaptureFileSnapshot(targetCodexCatalogPath(target.ref))
+	catalogSnapshot, err := transaction.CaptureFileSnapshot(codexCatalogPath(target.ref.Path))
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -310,7 +310,7 @@ func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalo
 // deletes the file only after nothing refers to it.
 func codexArtifactsForDesiredState(target TargetRef, configBefore transaction.FileSnapshot, configData []byte, stateBefore transaction.FileSnapshot, stateData []byte, catalogBefore, catalogDesired transaction.FileSnapshot) []codexPreparedArtifact {
 	artifacts := make([]codexPreparedArtifact, 0, 3)
-	catalog := codexPreparedArtifact{path: targetCodexCatalogPath(target), before: catalogBefore, desired: catalogDesired, exactMode: true}
+	catalog := codexPreparedArtifact{path: codexCatalogPath(target.Path), before: catalogBefore, desired: catalogDesired, exactMode: true}
 	catalogChanged := !sameCodexSnapshot(catalogBefore, catalogDesired)
 	if catalogChanged && catalogDesired.Exists {
 		artifacts = append(artifacts, catalog)

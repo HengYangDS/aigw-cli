@@ -121,8 +121,6 @@ func (a *App) Renderer() *presentation.Renderer {
 	return presentation.NewWithWidth(renderErrorWriter{writer: a.Out, err: &a.renderErr}, a.Color, console.PresentationWidth(a.Out, environmentMap(a.Env)))
 }
 
-func renderer(app *App) *presentation.Renderer { return app.Renderer() }
-
 func Execute(app *App, args []string) error {
 	app.renderErr = nil
 	var unlock func() error
@@ -407,7 +405,7 @@ func appVersion(app *App) string {
 }
 
 func renderCommandHelp(app *App, command *cobra.Command) {
-	r := renderer(app)
+	r := app.Renderer()
 	title := "Command help"
 	if command.Parent() != nil {
 		title = command.CommandPath()

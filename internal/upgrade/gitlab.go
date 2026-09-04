@@ -25,7 +25,7 @@ func (u Updater) downloadReleaseAssetsFromExactSource(ctx context.Context, sourc
 		return isGlabUnavailable(err), err
 	case ReleaseProviderGitHub:
 		err := u.downloadReleaseAssetsFromGitHub(ctx, source, tag, directory, assets...)
-		return isGitHubUnavailable(err), err
+		return isSourceUnavailable(err), err
 	default:
 		return false, fmt.Errorf("unsupported release provider %q", source.Provider)
 	}
@@ -183,7 +183,7 @@ func (u Updater) latestTagFromSource(ctx context.Context, source ReleaseSource) 
 	case ReleaseProviderGitHub:
 		tag, err := u.latestTagFromGitHubRelease(ctx, source)
 		if err != nil {
-			return "", isGitHubUnavailable(err), err
+			return "", isSourceUnavailable(err), err
 		}
 		return tag, false, nil
 	default:

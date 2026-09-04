@@ -368,7 +368,5 @@ func syncRoot(root interface {
 		return fmt.Errorf("open Token directory: %w", err)
 	}
 	defer func() { _ = directory.Close() }()
-	return syncDirectory(directory)
+	return syncCredentialDirectory(directory)
 }
-
-func syncDirectory(directory syncer) error { return syncCredentialDirectory(directory) }
