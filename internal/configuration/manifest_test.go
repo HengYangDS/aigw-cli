@@ -197,6 +197,40 @@ model = "synthetic-model"
 	}
 }
 
+func TestSyntheticProviderUsesOnlyManifestDataAcrossParseMergeAndRouteResolution(t *testing.T) {
+	incoming, err := Parse([]byte(`version = 4
+[recommended_routes]
+codex = "northstar-codex"
+
+[accounts.northstar]
+label = "Northstar"
+[accounts.northstar.endpoints]
+openai_responses = "https://northstar.example.test/v1"
+
+[profiles.northstar-codex]
+label = "Northstar Codex"
+account = "northstar"
+client = "codex"
+model = "northstar-model"
+model_provider = "northstar"
+authentication = "account-token"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged, err := Merge(NewConfig(), incoming)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := merged.ResolveRuntime(ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.AccountID != "northstar" || runtime.Endpoint != "https://northstar.example.test/v1" || runtime.Model != "northstar-model" || runtime.ModelProvider != "northstar" || runtime.Authentication != AuthenticationAccountToken || !runtime.RequiresAccountToken() {
+		t.Fatalf("runtime = %#v", runtime)
+	}
+}
+
 func TestParseRejectsIncompatibleRecommendedRoute(t *testing.T) {
 	raw := []byte(`version = 4
 [recommended_routes]

@@ -171,7 +171,7 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 	} else {
 		checks = append(checks, Check{"config", true, "valid", ""})
 	}
-	for _, name := range cfg.RoutedAccountIDs() {
+	for _, name := range cfg.RequiredAccountTokenIDs() {
 		ok, observationErr := deps.Secrets.Exists(name)
 		if observationErr != nil {
 			checks = append(checks, Check{"secret:" + name, false, "credential backend failed: " + observationErr.Error(), "inspect the selected credential backend"})

@@ -100,3 +100,50 @@ func helperRuntime(t *testing.T, client string, enabled bool) invocation.Context
 type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }
+
+type refusingSecretStore struct {
+	getCalls    int
+	existsCalls int
+}
+
+func (store *refusingSecretStore) Get(string) (string, error) {
+	store.getCalls++
+	return "", errors.New("credential access is forbidden")
+}
+
+func (*refusingSecretStore) Set(string, string) error { return nil }
+func (*refusingSecretStore) Delete(string) error      { return nil }
+
+func (store *refusingSecretStore) Exists(string) (bool, error) {
+	store.existsCalls++
+	return false, errors.New("credential observation is forbidden")
+}
+
+func TestCredentialHelperRejectsClientNativeBeforeSecretAccess(t *testing.T) {
+	runtime := helperRuntime(t, configuration.ClientCodex, true)
+	cfg, err := runtime.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := cfg.Profiles[configuration.ClientCodex]
+	profile.ModelProvider = "amazon-bedrock"
+	profile.Authentication = configuration.AuthenticationClientNative
+	cfg.Profiles[configuration.ClientCodex] = profile
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := &refusingSecretStore{}
+	runtime.Secrets = store
+	command := NewCommand(runtime)
+
+	err = command.RunE(command, []string{configuration.ClientCodex})
+	if err == nil || !strings.Contains(err.Error(), "client-owned authentication") || !strings.Contains(err.Error(), "aigw verify --for codex") {
+		t.Fatalf("credential helper error = %v", err)
+	}
+	if store.getCalls != 0 || store.existsCalls != 0 {
+		t.Fatalf("credential helper accessed client-native credentials: get=%d exists=%d", store.getCalls, store.existsCalls)
+	}
+	if runtime.Out.(*bytes.Buffer).Len() != 0 {
+		t.Fatalf("credential helper wrote stdout: %q", runtime.Out.(*bytes.Buffer).String())
+	}
+}

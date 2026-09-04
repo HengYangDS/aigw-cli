@@ -16,6 +16,7 @@ import (
 	"aigw-cli/internal/account"
 	"aigw-cli/internal/cli/invocation"
 	clientdomain "aigw-cli/internal/client"
+	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
@@ -342,6 +343,53 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 	}
 }
 
+func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	profile := cfg.Profiles["codex"]
+	profile.ModelProvider = "amazon-bedrock"
+	profile.Authentication = configuration.AuthenticationClientNative
+	cfg.Profiles["codex"] = profile
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := &observingSecretStore{value: "account-token"}
+	runtime.Secrets = store
+	originalInspect := inspectAdapter
+	t.Cleanup(func() { inspectAdapter = originalInspect })
+	inspectAdapter = func(context.Context, invocation.Context, configuration.Config, string, configuration.Runtime, clientdomain.InspectionOptions) clientdomain.Status {
+		return clientdomain.Status{Ready: true, NativeAuthentication: "not_required"}
+	}
+
+	if err := RunStatus(runtime, false); err != nil {
+		t.Fatal(err)
+	}
+	human := output(runtime)
+	if store.existsCalls != 1 || store.getCalls != 0 {
+		t.Fatalf("status credential observations = exists %d, get %d; want only the Claude Account-Token lookup", store.existsCalls, store.getCalls)
+	}
+	for _, want := range []string{"Client-owned authentication", "aigw verify --for codex"} {
+		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
+			t.Fatalf("client-native status = %q, want %q", human, want)
+		}
+	}
+	for _, unwanted := range []string{"Token", "aigw rotate", "aigw adapter auth"} {
+		if strings.Contains(human, unwanted) {
+			t.Fatalf("client-native status = %q, contains %q", human, unwanted)
+		}
+	}
+
+	runtime.Out.(*bytes.Buffer).Reset()
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	machine := output(runtime)
+	if !strings.Contains(machine, `"authentication": "client-native"`) || strings.Contains(machine, `"secret_available"`) {
+		t.Fatalf("client-native JSON status = %q", machine)
+	}
+}
+
 func TestStatusClassifiesCredentialObservationFailureWithoutReadingValues(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
 	want := errors.New("credential metadata unavailable")
@@ -392,8 +440,87 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	}
 }
 
+func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	runtime.Version = "1.0.0"
+	profile := cfg.Profiles["codex"]
+	profile.ModelProvider = "amazon-bedrock"
+	profile.Authentication = configuration.AuthenticationClientNative
+	cfg.Profiles["codex"] = profile
+	delete(cfg.Routes, configuration.ClientClaude)
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+		Enabled: true, Executable: "codex", Targets: []string{target},
+	}
+	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.SyncConfig(target, clientRuntime); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := &observingSecretStore{getErr: errors.New("client-native credential access")}
+	runtime.Secrets = store
+	requests := 0
+	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		requests++
+		return nil, errors.New("client-native endpoint probe")
+	})
+	command := &cobra.Command{}
+	command.SetContext(context.Background())
+
+	if err := RunCheck(command, runtime); err != nil {
+		t.Fatalf("client-native check error = %v", err)
+	}
+	if store.getCalls != 0 || store.existsCalls != 0 || requests != 0 {
+		t.Fatalf("client-native check used AIGW authentication capabilities: get=%d exists=%d HTTP=%d", store.getCalls, store.existsCalls, requests)
+	}
+	human := output(runtime)
+	for _, want := range []string{"Local readiness", "Client-owned authentication", "aigw verify --for codex"} {
+		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
+			t.Fatalf("client-native check output = %q, want %q", human, want)
+		}
+	}
+	for _, forbidden := range []string{"Every enabled client route is healthy", "remote authentication succeeded", "model request succeeded"} {
+		if strings.Contains(human, forbidden) {
+			t.Fatalf("client-native check output = %q, contains %q", human, forbidden)
+		}
+	}
+
+	runtime.Out.(*bytes.Buffer).Reset()
+	if err := runJSONCheck(command, runtime); err != nil {
+		t.Fatalf("client-native check --json error = %v", err)
+	}
+	var machine struct {
+		OK     bool `json:"ok"`
+		Routes map[string]struct {
+			Authentication configuration.Authentication `json:"authentication"`
+			Ready          bool                         `json:"ready"`
+			Fix            string                       `json:"fix"`
+			DiagnosticKind string                       `json:"diagnostic_kind"`
+		} `json:"routes"`
+	}
+	if err := json.Unmarshal(runtime.Out.(*bytes.Buffer).Bytes(), &machine); err != nil {
+		t.Fatal(err)
+	}
+	route := machine.Routes[configuration.ClientCodex]
+	if !machine.OK || !route.Ready || route.Authentication != configuration.AuthenticationClientNative || route.Fix != "aigw verify --for codex" || route.DiagnosticKind != "" {
+		t.Fatalf("client-native JSON check = %#v", machine)
+	}
+	if store.getCalls != 0 || store.existsCalls != 0 || requests != 0 {
+		t.Fatalf("client-native JSON check used AIGW authentication capabilities: get=%d exists=%d HTTP=%d", store.getCalls, store.existsCalls, requests)
+	}
+}
+
 func TestCheckJSONReportsOutputFailure(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
+	runtime.Version = "1.0.0"
 	cfg.Adapters = map[string]configuration.AdapterConfig{}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -681,6 +808,34 @@ func TestEndpointTestCommandCoversSuccessAndTransportFailures(t *testing.T) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
 		})
+	}
+}
+
+func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	profile := cfg.Profiles["codex"]
+	profile.ModelProvider = "amazon-bedrock"
+	profile.Authentication = configuration.AuthenticationClientNative
+	cfg.Profiles["codex"] = profile
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := &observingSecretStore{getErr: errors.New("client-native credential access")}
+	runtime.Secrets = store
+	requests := 0
+	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		requests++
+		return nil, errors.New("client-native endpoint probe")
+	})
+	command := NewTestCommand(runtime)
+	command.SetArgs([]string{"--for", configuration.ClientCodex})
+
+	err := executeCommand(command)
+	if err == nil || !strings.Contains(err.Error(), "aigw verify --for codex") {
+		t.Fatalf("client-native endpoint test error = %v", err)
+	}
+	if store.getCalls != 0 || store.existsCalls != 0 || requests != 0 {
+		t.Fatalf("client-native endpoint test used AIGW authentication capabilities: get=%d exists=%d HTTP=%d", store.getCalls, store.existsCalls, requests)
 	}
 }
 

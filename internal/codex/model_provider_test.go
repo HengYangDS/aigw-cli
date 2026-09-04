@@ -3,7 +3,6 @@ package codex_test
 import (
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -20,6 +19,7 @@ func TestCodexSyncProjectsExplicitProviderAndRestoresOriginal(t *testing.T) {
 	}
 	runtime := codexRuntime("aws", "AWS", "https://gateway.test/openai/v1", "openai.gpt-5.6-sol")
 	runtime.ModelProvider = "amazon-bedrock"
+	runtime.Authentication = configuration.AuthenticationClientNative
 	runtime.CredentialCommand = credentialCommand
 
 	if err := codex.SyncConfig(path, runtime); err != nil {
@@ -36,15 +36,12 @@ func TestCodexSyncProjectsExplicitProviderAndRestoresOriginal(t *testing.T) {
 		`[model_providers.amazon-bedrock]`,
 		`base_url = "https://gateway.test/openai/v1"`,
 		`wire_api = "responses"`,
-		`[model_providers.amazon-bedrock.auth]`,
-		"command = " + strconv.Quote(credentialCommand),
-		`args = ["credential", "codex"]`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("projection lacks %q:\n%s", want, text)
 		}
 	}
-	for _, forbidden := range []string{`[model_providers.aigw]`, `requires_openai_auth`, `model_catalog_json`} {
+	for _, forbidden := range []string{`[model_providers.aigw]`, `[model_providers.amazon-bedrock.auth]`, credentialCommand, `credential`, `requires_openai_auth`, `model_catalog_json`} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("projection contains %q:\n%s", forbidden, text)
 		}
@@ -88,6 +85,7 @@ func TestCodexSyncPreservesDefaultProjectionAndTransitionsFromNative(t *testing.
 	}
 	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
 	runtime.ModelProvider = "amazon-bedrock"
+	runtime.Authentication = configuration.AuthenticationClientNative
 	runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
 	if err := codex.SyncConfig(path, runtime); err != nil {
 		t.Fatal(err)
@@ -120,18 +118,32 @@ func TestCodexSyncPreservesDefaultProjectionAndTransitionsFromNative(t *testing.
 	}
 }
 
-func TestCodexSyncRejectsInvalidNativeCredentialCommand(t *testing.T) {
+func TestCodexSyncRejectsAccountTokenProviderWithoutCredentialCommand(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
+	runtime.ModelProvider = "synthetic-provider"
+	runtime.Authentication = configuration.AuthenticationAccountToken
+	for _, command := range []string{"", "aigw"} {
+		runtime.CredentialCommand = command
+		if err := codex.SyncConfig(path, runtime); err == nil {
+			t.Fatalf("credential command %q was accepted", command)
+		}
+	}
+}
+
+func TestCodexSyncAcceptsClientNativeProviderWithoutCredentialCommand(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(path, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
 	runtime.ModelProvider = "amazon-bedrock"
-	for _, command := range []string{"", "aigw"} {
-		runtime.CredentialCommand = command
-		if err := codex.SyncConfig(path, runtime); err == nil {
-			t.Fatalf("credential command %q was accepted", command)
-		}
+	runtime.Authentication = configuration.AuthenticationClientNative
+	if err := codex.SyncConfig(path, runtime); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -145,7 +157,8 @@ func TestCodexValidateResolvesCurrentAIGWExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
-	runtime.ModelProvider = "amazon-bedrock"
+	runtime.ModelProvider = "synthetic-provider"
+	runtime.Authentication = configuration.AuthenticationAccountToken
 	runtime.CredentialCommand = executable
 	if err := codex.SyncConfig(path, runtime); err != nil {
 		t.Fatal(err)

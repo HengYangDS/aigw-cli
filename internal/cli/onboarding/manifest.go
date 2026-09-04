@@ -171,28 +171,31 @@ func buildManifestSetupResult(
 	for client, profile := range cfg.Routes {
 		result.SelectedRoutes[client] = profile
 	}
-	switch {
-	case len(connected) == 0:
+	needsAccountToken := false
+	for _, accountName := range accountNames {
+		if accountHasTokenAuthenticatedProfile(cfg, accountName) {
+			needsAccountToken = true
+			break
+		}
+	}
+	if len(connected) == 0 && needsAccountToken {
 		if secrets.IsReadOnly(runtime.Secrets) {
 			keys := make([]string, 0, len(accountNames))
 			for _, accountName := range accountNames {
-				keys = append(keys, secrets.EnvironmentKey(accountName))
+				if accountHasTokenAuthenticatedProfile(cfg, accountName) {
+					keys = append(keys, secrets.EnvironmentKey(accountName))
+				}
 			}
 			result.DeferredActions = append(result.DeferredActions, "Set one compatible Account variable: "+strings.Join(keys, " or "))
-			result.NextAction = "aigw sync"
 		} else {
 			result.DeferredActions = append(result.DeferredActions, "Connect one compatible Account")
-			result.NextAction = "aigw rotate <account>"
-		}
-	default:
-		if len(selectedClients) == len(configuration.AdmittedClientIDs()) {
-			result.NextAction = "aigw check"
-		} else {
-			result.NextAction = "aigw sync"
 		}
 	}
 	for _, spec := range configuration.AdmittedClientSpecs() {
 		if containsClient(selectedClients, spec.ID) {
+			continue
+		}
+		if cfg.FirstProfileForClient(spec.ID) == "" {
 			continue
 		}
 		if !availableClients[spec.ID] {
@@ -200,6 +203,14 @@ func buildManifestSetupResult(
 			continue
 		}
 		result.DeferredActions = append(result.DeferredActions, "Connect an Account compatible with "+spec.Label+", then run `aigw sync`")
+	}
+	switch {
+	case len(result.DeferredActions) == 0:
+		result.NextAction = "aigw check"
+	case len(connected) == 0 && needsAccountToken && !secrets.IsReadOnly(runtime.Secrets):
+		result.NextAction = "aigw rotate <account>"
+	default:
+		result.NextAction = "aigw sync"
 	}
 	return result
 }
@@ -255,6 +266,9 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg configurati
 	}
 	credentials := make([]setupCredential, 0, len(accountNames))
 	for _, name := range accountNames {
+		if !accountHasTokenAuthenticatedProfile(cfg, name) {
+			continue
+		}
 		credential := setupCredential{account: name}
 		available, err := runtime.Secrets.Exists(name)
 		if err != nil {
@@ -327,12 +341,26 @@ func configuredClientsForAccount(cfg configuration.Config, accountName string) [
 	return clients
 }
 
+func accountHasTokenAuthenticatedProfile(cfg configuration.Config, accountName string) bool {
+	for _, profileName := range cfg.ProfileIDs() {
+		profile := cfg.Profiles[profileName]
+		if profile.Account != accountName {
+			continue
+		}
+		runtime, err := cfg.ResolveRuntime(profile.Client, profileName)
+		if err == nil && runtime.RequiresAccountToken() {
+			return true
+		}
+	}
+	return false
+}
+
 func verifyManifestSetupCredential(ctx context.Context, runtime invocation.Context, cfg configuration.Config, accountName, token string, selectedClients ...string) error {
 	account := cfg.Accounts[accountName]
 	account.ID = accountName
 	for _, client := range selectedClients {
 		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
-		if resolveErr != nil || clientRuntime.AccountID != accountName {
+		if resolveErr != nil || clientRuntime.AccountID != accountName || !clientRuntime.RequiresAccountToken() {
 			continue
 		}
 		if err := credential.Validate(ctx, runtime.HTTP, account, token, client); err != nil {
@@ -349,8 +377,13 @@ func manifestSetupSelectedClients(cfg configuration.Config, connected map[string
 		if err != nil || runtime.AccountID == "" {
 			continue
 		}
-		if _, ok := connected[runtime.AccountID]; !ok || !available[client] {
+		if !available[client] {
 			continue
+		}
+		if runtime.RequiresAccountToken() {
+			if _, ok := connected[runtime.AccountID]; !ok {
+				continue
+			}
 		}
 		clients = append(clients, client)
 	}

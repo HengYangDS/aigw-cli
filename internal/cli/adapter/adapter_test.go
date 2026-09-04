@@ -3,6 +3,7 @@ package adapter
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -227,6 +228,33 @@ func TestEnableCodexValidatesTargetsAndPersistsProjection(t *testing.T) {
 	}
 }
 
+func TestEnableCodexWithClientNativeAuthenticationDoesNotAccessAccountTokens(t *testing.T) {
+	cfg := adapterConfig()
+	profile := cfg.Profiles[configuration.ClientCodex]
+	profile.ModelProvider = "amazon-bedrock"
+	profile.Authentication = configuration.AuthenticationClientNative
+	cfg.Profiles[configuration.ClientCodex] = profile
+	runtime, _, _, runner := adapterRuntime(t, cfg)
+	runtime.Secrets = unavailableAdapterSecretStore{}
+	target := filepath.Join(t.TempDir(), "configuration.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
+		ID:         string(surfaceidentity.CodexHomeDefault),
+		Authority:  string(surfaceidentity.AuthorityAIGW),
+		ConfigPath: target,
+		Present:    true,
+	}}}}
+
+	if err := executeAdapter(t, runtime, "enable", configuration.ClientCodex, "--executable", "/opt/codex", "--target", target); err != nil {
+		t.Fatalf("enable client-native Codex: %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("client-native enable attempted credential binding: %#v", runner.plans)
+	}
+}
+
 func TestEnableCodexRejectsUnsafeTargetsAndUnavailableDiscovery(t *testing.T) {
 	cfg := adapterConfig()
 	runtime, _, secretStore, _ := adapterRuntime(t, cfg)
@@ -305,6 +333,58 @@ func TestAuthValidatesClientAndBindsCodex(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "Failed to bind") {
 		t.Fatalf("runner error = %v", err)
 	}
+}
+
+func TestAuthReportsClientNativeOwnershipWithoutBinding(t *testing.T) {
+	cfg := adapterConfig()
+	profile := cfg.Profiles[configuration.ClientCodex]
+	profile.ModelProvider = "amazon-bedrock"
+	profile.Authentication = configuration.AuthenticationClientNative
+	cfg.Profiles[configuration.ClientCodex] = profile
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+		Enabled:    true,
+		Executable: "/opt/codex",
+		Targets:    []string{filepath.Join(t.TempDir(), "configuration.toml")},
+	}
+	runtime, out, _, runner := adapterRuntime(t, cfg)
+	runtime.Secrets = unavailableAdapterSecretStore{}
+	runner.err = os.ErrPermission
+
+	if err := executeAdapter(t, runtime, "auth", configuration.ClientCodex); err != nil {
+		t.Fatalf("inspect client-native authentication: %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("client-native auth attempted binding: %#v", runner.plans)
+	}
+	text := out.String()
+	for _, want := range []string{"Client-owned authentication", "aigw verify --for codex"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("auth output lacks %q:\n%s", want, text)
+		}
+	}
+	for _, forbidden := range []string{"account token was written", "authentication bound"} {
+		if strings.Contains(strings.ToLower(text), forbidden) {
+			t.Fatalf("auth output falsely claims %q:\n%s", forbidden, text)
+		}
+	}
+}
+
+type unavailableAdapterSecretStore struct{}
+
+func (unavailableAdapterSecretStore) Get(string) (string, error) {
+	return "", errors.New("secret store must not be accessed")
+}
+
+func (unavailableAdapterSecretStore) Set(string, string) error {
+	return errors.New("secret store must not be accessed")
+}
+
+func (unavailableAdapterSecretStore) Delete(string) error {
+	return errors.New("secret store must not be accessed")
+}
+
+func (unavailableAdapterSecretStore) Exists(string) (bool, error) {
+	return false, errors.New("secret store must not be accessed")
 }
 
 func TestDisableHandlesUnknownAndAlreadyDisabledClients(t *testing.T) {

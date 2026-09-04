@@ -10,6 +10,7 @@ import (
 
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 )
@@ -17,6 +18,10 @@ import (
 type runOnlyAdapterRunner struct{}
 
 func (runOnlyAdapterRunner) Run(context.Context, process.Plan) error { return nil }
+
+type fixedDiscoverer struct{ result discovery.Result }
+
+func (discoverer fixedDiscoverer) Discover() discovery.Result { return discoverer.result }
 
 type captureAdapterRunner struct {
 	err       error
@@ -144,6 +149,58 @@ func TestCodexAdapterApplyRequiresDiscovery(t *testing.T) {
 	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
 	if _, err := (codexAdapter{}).Apply(context.Background(), Dependencies{}, configuration.NewConfig(), after); err == nil || !strings.Contains(err.Error(), "surface discovery is unavailable") {
 		t.Fatalf("Apply() error = %v", err)
+	}
+}
+
+func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *testing.T) {
+	for _, test := range []struct {
+		name           string
+		authentication configuration.Authentication
+		wantCommand    bool
+	}{
+		{name: "account token", authentication: configuration.AuthenticationAccountToken, wantCommand: true},
+		{name: "client native", authentication: configuration.AuthenticationClientNative},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			target := filepath.Join(t.TempDir(), "config.toml")
+			cfg := configuration.NewConfig()
+			cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+			cfg.Profiles["codex"] = configuration.Profile{
+				Label:          "Codex",
+				Account:        "gateway",
+				Client:         configuration.ClientCodex,
+				Model:          "gpt-test",
+				ModelProvider:  "amazon-bedrock",
+				Authentication: test.authentication,
+			}
+			cfg.Routes[configuration.ClientCodex] = "codex"
+			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/usr/bin/codex", Targets: []string{target}}
+			discovered := discovery.Result{
+				Executables: map[string]string{configuration.ClientCodex: "/usr/bin/codex"},
+				Surfaces: []discovery.Surface{{
+					ID:          "codex-home-default",
+					Authority:   "aigw",
+					ConfigPath:  target,
+					AutoManaged: true,
+				}},
+			}
+			command := filepath.Join(t.TempDir(), "aigw")
+			_, err := (codexAdapter{}).Apply(context.Background(), Dependencies{
+				Discovery:      fixedDiscoverer{result: discovered},
+				AIGWExecutable: command,
+			}, configuration.NewConfig(), cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			projected, err := os.ReadFile(target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			hasCommand := strings.Contains(string(projected), command)
+			if hasCommand != test.wantCommand {
+				t.Fatalf("credential command present = %t, want %t:\n%s", hasCommand, test.wantCommand, projected)
+			}
+		})
 	}
 }
 

@@ -58,8 +58,9 @@ type ClientFacts struct {
 	RouteIssue                 string
 	RouteAction                string
 	CredentialObservationIssue string
-	TokenAvailable             bool
-	TokenAction                string
+	CredentialRequired         bool
+	CredentialAvailable        bool
+	CredentialAction           string
 	AdapterEnabled             bool
 	AdapterReady               bool
 	AdapterIssue               string
@@ -84,14 +85,14 @@ func ClassifyClient(facts ClientFacts) Client {
 		} else {
 			state.NextAction = "aigw profile add"
 		}
-	case facts.CredentialObservationIssue != "":
+	case facts.CredentialRequired && facts.CredentialObservationIssue != "":
 		state.State = Unavailable
 		state.Detail = facts.CredentialObservationIssue
 		state.NextAction = CredentialBackendRecovery
-	case !facts.TokenAvailable:
+	case facts.CredentialRequired && !facts.CredentialAvailable:
 		state.State = Deferred
 		state.Detail = "The selected Account has no available Token"
-		state.NextAction = facts.TokenAction
+		state.NextAction = facts.CredentialAction
 		if state.NextAction == "" {
 			state.NextAction = "aigw rotate " + facts.Account
 		}

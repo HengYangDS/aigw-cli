@@ -27,6 +27,59 @@ func TestUseSurfacesCredentialObservationFailure(t *testing.T) {
 	}
 }
 
+func TestUseSelectsClientNativeProfileWithoutAccessingAccountTokens(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	app.Secrets = observationFailureStore{Store: secrets.NewMemoryStore(), err: errors.New("secret store must not be accessed")}
+	target := filepath.Join(t.TempDir(), "config.toml")
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{configuration.ClientCodex: executableFixture(t, "codex")},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surface.CodexHomeDefault),
+			Authority:   string(surface.AuthorityAIGW),
+			ConfigPath:  target,
+			AutoManaged: true,
+		}},
+	}}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["aws"] = configuration.Account{
+		Label:     "AWS Bedrock",
+		Endpoints: configuration.Endpoints{OpenAIResponses: "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"},
+	}
+	cfg.Profiles["bedrock"] = configuration.Profile{
+		Label:          "AWS Bedrock",
+		Account:        "aws",
+		Client:         configuration.ClientCodex,
+		Model:          "openai.gpt-5.6-sol",
+		ModelProvider:  "amazon-bedrock",
+		Authentication: configuration.AuthenticationClientNative,
+	}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "use", "bedrock"); err != nil {
+		t.Fatalf("select client-native profile: %v", err)
+	}
+	selected, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := selected.Routes[configuration.ClientCodex]; got != "bedrock" {
+		t.Fatalf("Codex route = %q", got)
+	}
+	projection := string(readFile(t, target))
+	for _, want := range []string{`model_provider = "amazon-bedrock"`, `[model_providers.amazon-bedrock]`} {
+		if !strings.Contains(projection, want) {
+			t.Fatalf("Codex projection lacks %q:\n%s", want, projection)
+		}
+	}
+	for _, forbidden := range []string{"credential", "auth]"} {
+		if strings.Contains(projection, forbidden) {
+			t.Fatalf("Codex projection contains AIGW Token material %q:\n%s", forbidden, projection)
+		}
+	}
+}
+
 func TestRouteListIsNarrowHumanRouteView(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()

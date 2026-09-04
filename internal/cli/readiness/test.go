@@ -45,13 +45,26 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 			if len(cfg.Profiles) == 0 {
 				return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "No client endpoint is available to test.", "aigw setup", fmt.Errorf("not configured"))
 			}
-			results := make([]endpointTestResult, 0, len(clients))
+			resolved := make(map[string]configuration.Runtime, len(clients))
 			for _, spec := range clients {
-				target := spec.ID
-				clientRuntime, err := cfg.ResolveRuntime(target, profileName)
+				clientRuntime, err := cfg.ResolveRuntime(spec.ID, profileName)
 				if err != nil {
 					return err
 				}
+				if !clientRuntime.RequiresAccountToken() {
+					return fmt.Errorf(
+						"Profile %q uses client-owned authentication; run `aigw verify --for %s` to test it through %s",
+						clientRuntime.ProfileID,
+						spec.ID,
+						spec.Label,
+					)
+				}
+				resolved[spec.ID] = clientRuntime
+			}
+			results := make([]endpointTestResult, 0, len(clients))
+			for _, spec := range clients {
+				target := spec.ID
+				clientRuntime := resolved[target]
 				ctx, cancel := context.WithTimeout(cmd.Context(), 12*time.Second)
 				accountName := clientRuntime.AccountID
 				token, err := runtime.Secrets.Get(accountName)

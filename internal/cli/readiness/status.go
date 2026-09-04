@@ -18,12 +18,12 @@ import (
 
 type routeStatus struct {
 	domainreadiness.Client
-	SecretAvailable      bool   `json:"secret_available"`
-	EndpointReady        bool   `json:"endpoint_ready"`
-	Transport            string `json:"transport,omitempty"`
-	TransportReady       bool   `json:"transport_ready,omitempty"`
-	AdapterReady         bool   `json:"adapter_ready"`
-	NativeAuthentication string `json:"native_authentication,omitempty"`
+	Authentication       configuration.Authentication `json:"authentication"`
+	EndpointReady        bool                         `json:"endpoint_ready"`
+	Transport            string                       `json:"transport,omitempty"`
+	TransportReady       bool                         `json:"transport_ready,omitempty"`
+	AdapterReady         bool                         `json:"adapter_ready"`
+	NativeAuthentication string                       `json:"native_authentication,omitempty"`
 }
 
 type endpointTestResult struct {
@@ -88,41 +88,53 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 			routes[clientID] = routeStatus{Client: state}
 			continue
 		}
-		secretAvailable, err := runtime.Secrets.Exists(clientRuntime.AccountID)
-		if err != nil {
-			state := domainreadiness.ClassifyClient(domainreadiness.ClientFacts{
-				Profile:                    clientRuntime.ProfileID,
-				Account:                    clientRuntime.AccountID,
-				CredentialObservationIssue: "Credential metadata is unavailable",
-			})
-			routes[clientID] = routeStatus{
-				Client:        state,
-				EndpointReady: strings.TrimSpace(clientRuntime.Endpoint) != "",
-				Transport:     TransportStatus(clientRuntime.Endpoint).Kind,
+		credentialAvailable := true
+		credentialAction := ""
+		if clientRuntime.RequiresAccountToken() {
+			available, observationErr := runtime.Secrets.Exists(clientRuntime.AccountID)
+			if observationErr != nil {
+				state := domainreadiness.ClassifyClient(domainreadiness.ClientFacts{
+					Profile:                    clientRuntime.ProfileID,
+					Account:                    clientRuntime.AccountID,
+					CredentialRequired:         true,
+					CredentialObservationIssue: "Credential metadata is unavailable",
+				})
+				routes[clientID] = routeStatus{
+					Client:         state,
+					Authentication: clientRuntime.Authentication,
+					EndpointReady:  strings.TrimSpace(clientRuntime.Endpoint) != "",
+					Transport:      TransportStatus(clientRuntime.Endpoint).Kind,
+				}
+				continue
 			}
-			continue
+			credentialAvailable = available
+			credentialAction, _ = credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
 		}
 		adapterStatus := inspectAdapter(context.Background(), runtime, cfg, clientID, clientRuntime, clientdomain.InspectionOptions{NativeAuthentication: true})
-		tokenAction, _ := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
 		state := domainreadiness.ClassifyClient(domainreadiness.ClientFacts{
-			Profile:        clientRuntime.ProfileID,
-			Account:        clientRuntime.AccountID,
-			TokenAvailable: secretAvailable,
-			TokenAction:    tokenAction,
-			AdapterEnabled: cfg.Adapters[clientID].Enabled,
-			AdapterReady:   adapterStatus.Ready,
-			AdapterIssue:   adapterStatus.Issue,
-			AdapterAction:  adapterStatus.RepairAction,
+			Profile:             clientRuntime.ProfileID,
+			Account:             clientRuntime.AccountID,
+			CredentialRequired:  clientRuntime.RequiresAccountToken(),
+			CredentialAvailable: credentialAvailable,
+			CredentialAction:    credentialAction,
+			AdapterEnabled:      cfg.Adapters[clientID].Enabled,
+			AdapterReady:        adapterStatus.Ready,
+			AdapterIssue:        adapterStatus.Issue,
+			AdapterAction:       adapterStatus.RepairAction,
 		})
 		route := routeStatus{
 			Client:               state,
-			SecretAvailable:      secretAvailable,
+			Authentication:       clientRuntime.Authentication,
 			EndpointReady:        strings.TrimSpace(clientRuntime.Endpoint) != "",
 			Transport:            TransportStatus(clientRuntime.Endpoint).Kind,
 			AdapterReady:         adapterStatus.Ready,
 			NativeAuthentication: adapterStatus.NativeAuthentication,
 		}
-		if adapterStatus.Ready && adapterStatus.NativeAuthentication == "not_proven" {
+		if adapterStatus.Ready && !clientRuntime.RequiresAccountToken() {
+			route.State = domainreadiness.Configured
+			route.Detail = "Projection ready; client-owned authentication is not proven"
+			route.NextAction = "aigw verify --for " + clientID
+		} else if adapterStatus.Ready && adapterStatus.NativeAuthentication == "not_proven" {
 			route.State = domainreadiness.Configured
 			route.Detail = "Projection ready; native authentication is not proven"
 			route.NextAction = "aigw adapter auth " + clientID

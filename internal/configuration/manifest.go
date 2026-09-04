@@ -9,7 +9,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-var credentialKey = regexp.MustCompile(`(?i)(token|secret|password|api[_-]?key|auth(?:orization)?(?:[_-]?header)?|credential)`)
+var credentialKey = regexp.MustCompile(`(?i)(^|[_-])(token|secret|password|api[_-]?key|auth|authorization(?:[_-]?header)?|credential)($|[_-])`)
 
 const currentVersion = 4
 
@@ -191,7 +191,8 @@ func equivalentProfile(left, right Profile) bool {
 		left.Account == right.Account &&
 		left.Client == right.Client &&
 		left.Model == right.Model &&
-		left.ModelProvider == right.ModelProvider
+		left.ModelProvider == right.ModelProvider &&
+		resolvedAuthentication(left) == resolvedAuthentication(right)
 }
 
 func Export(cfg Config) ([]byte, error) {

@@ -62,6 +62,16 @@ func doctorDependencies(t *testing.T, cfg configuration.Config) (Dependencies, *
 	}, out, secretStore
 }
 
+type observingDoctorSecrets struct {
+	secrets.Store
+	existsCalls []string
+}
+
+func (store *observingDoctorSecrets) Exists(accountID string) (bool, error) {
+	store.existsCalls = append(store.existsCalls, accountID)
+	return store.Store.Exists(accountID)
+}
+
 func executeJSON(t *testing.T, deps Dependencies) commandResult {
 	t.Helper()
 	cmd := NewCommand(deps)
@@ -245,6 +255,41 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 	for _, check := range checks {
 		if check.Name == "secret:optional" {
 			t.Fatalf("unselected Account received a required secret check: %#v", check)
+		}
+	}
+}
+
+func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
+	cfg := validDoctorConfig()
+	cfg.Accounts["native"] = configuration.Account{
+		Label: "Native",
+		Endpoints: configuration.Endpoints{
+			OpenAIResponses: "https://native.test/v1",
+		},
+	}
+	cfg.Profiles["native"] = configuration.Profile{
+		Label:          "Native",
+		Account:        "native",
+		Client:         configuration.ClientCodex,
+		Model:          "native-model",
+		ModelProvider:  "amazon-bedrock",
+		Authentication: configuration.AuthenticationClientNative,
+	}
+	cfg.Routes[configuration.ClientCodex] = "native"
+	deps, _, secretStore := doctorDependencies(t, cfg)
+	if err := secretStore.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	observed := &observingDoctorSecrets{Store: secretStore}
+	deps.Secrets = observed
+
+	checks := Collect(context.Background(), deps)
+	if len(observed.existsCalls) != 1 || observed.existsCalls[0] != "team" {
+		t.Fatalf("doctor credential observations = %q, want only the Account-Token route", observed.existsCalls)
+	}
+	for _, check := range checks {
+		if check.Name == "secret:native" {
+			t.Fatalf("client-native Account received an AIGW Token check: %#v", check)
 		}
 	}
 }

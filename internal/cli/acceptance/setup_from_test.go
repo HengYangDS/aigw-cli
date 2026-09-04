@@ -193,6 +193,77 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 	}
 }
 
+func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutAccountToken(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	app.Secrets = observationFailureStore{Store: secrets.NewMemoryStore(), err: errors.New("secret store must not be accessed")}
+	httpCalls := 0
+	app.HTTP = &fakeHTTP{handler: func(*http.Request) (*http.Response, error) {
+		httpCalls++
+		return nil, errors.New("account-token probe must not run")
+	}}
+	target := filepath.Join(t.TempDir(), "codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{configuration.ClientCodex: executableFixture(t, "codex")},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surfaceidentity.CodexHomeDefault),
+			Authority:   string(surfaceidentity.AuthorityAIGW),
+			ConfigPath:  target,
+			Present:     true,
+			AutoManaged: true,
+		}},
+	}}
+	manifestPath := writeConfigurationManifest(t, `version = 4
+[recommended_routes]
+codex = "bedrock"
+
+[accounts.aws]
+label = "AWS"
+[accounts.aws.endpoints]
+openai_responses = "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"
+
+[profiles.bedrock]
+label = "AWS Bedrock"
+account = "aws"
+client = "codex"
+model = "openai.gpt-5.6-sol"
+model_provider = "amazon-bedrock"
+authentication = "client-native"
+`)
+
+	if err := execute(t, app, "setup", "--from", manifestPath, "--json"); err != nil {
+		t.Fatalf("setup client-native Codex: %v", err)
+	}
+	if httpCalls != 0 {
+		t.Fatalf("setup made %d account-token probes", httpCalls)
+	}
+	var result struct {
+		ConnectedAccounts []string          `json:"connected_accounts"`
+		SelectedRoutes    map[string]string `json:"selected_routes"`
+		ProjectedClients  []string          `json:"projected_clients"`
+		DeferredActions   []string          `json:"deferred_actions"`
+		NextAction        string            `json:"next_action"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatalf("decode setup result: %v\n%s", err, out.String())
+	}
+	if len(result.ConnectedAccounts) != 0 || result.SelectedRoutes[configuration.ClientCodex] != "bedrock" || !slices.Equal(result.ProjectedClients, []string{configuration.ClientCodex}) {
+		t.Fatalf("setup state = %#v", result)
+	}
+	if len(result.DeferredActions) != 0 || result.NextAction != "aigw check" {
+		t.Fatalf("setup continuation = %#v", result)
+	}
+	projection := string(readFile(t, target))
+	if !strings.Contains(projection, `model_provider = "amazon-bedrock"`) || strings.Contains(projection, "credential") || strings.Contains(projection, ".auth]") {
+		t.Fatalf("client-native Codex projection is not self-owned:\n%s", projection)
+	}
+}
+
 func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	app.Discovery = emptyDiscovery{}

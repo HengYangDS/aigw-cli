@@ -133,7 +133,7 @@ func isExactTruncatedCodexProjection(current string, stateData []byte, runtime c
 // AIGW profile. It never changes the target; callers can safely use it for
 // diagnostics before offering an explicit sync.
 func ValidateConfig(path string, runtime configuration.Runtime) error {
-	if codexRuntimeProvider(runtime) != configuration.ModelProviderAIGW && runtime.CredentialCommand == "" {
+	if runtime.RequiresAccountToken() && codexRuntimeProvider(runtime) != configuration.ModelProviderAIGW && runtime.CredentialCommand == "" {
 		executable, err := os.Executable()
 		if err != nil {
 			return fmt.Errorf("resolve AIGW executable: %w", err)
@@ -345,12 +345,12 @@ func codexEndpoint(runtime configuration.Runtime) (string, error) {
 	if runtime.Endpoint == "" {
 		return "", fmt.Errorf("profile %q has no Codex endpoint", runtime.ProfileID)
 	}
-	if codexRuntimeProvider(runtime) != configuration.ModelProviderAIGW {
+	if runtime.RequiresAccountToken() && codexRuntimeProvider(runtime) != configuration.ModelProviderAIGW {
 		if runtime.CredentialCommand == "" {
-			return "", fmt.Errorf("profile %q native Codex provider requires a credential command", runtime.ProfileID)
+			return "", fmt.Errorf("profile %q account-token Codex provider requires a credential command", runtime.ProfileID)
 		}
 		if !filepath.IsAbs(runtime.CredentialCommand) {
-			return "", fmt.Errorf("profile %q native Codex provider credential command must be absolute", runtime.ProfileID)
+			return "", fmt.Errorf("profile %q account-token Codex provider credential command must be absolute", runtime.ProfileID)
 		}
 	}
 	return runtime.Endpoint, nil
@@ -407,13 +407,15 @@ func projectCodexForProvider(original, block, model, catalogPath, provider strin
 func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 	provider := codexRuntimeProvider(runtime)
 	if provider != configuration.ModelProviderAIGW {
-		return codexProviderTable(provider) + "\n" +
+		block := codexProviderTable(provider) + "\n" +
 			fmt.Sprintf("base_url = \"%s\"\n", endpoint) +
-			"wire_api = \"responses\"\n\n" +
-			"[model_providers." + provider + ".auth]\n" +
-			fmt.Sprintf("command = %s\n", strconv.Quote(runtime.CredentialCommand)) +
-			"args = [\"credential\", \"codex\"]\n" +
-			codexEnd + "\n"
+			"wire_api = \"responses\"\n"
+		if runtime.RequiresAccountToken() {
+			block += "\n[model_providers." + provider + ".auth]\n" +
+				fmt.Sprintf("command = %s\n", strconv.Quote(runtime.CredentialCommand)) +
+				"args = [\"credential\", \"codex\"]\n"
+		}
+		return block + codexEnd + "\n"
 	}
 	name := "AIGW: " + runtime.ProfileLabel
 	name = strings.ReplaceAll(name, `"`, `'`)

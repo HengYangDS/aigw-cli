@@ -52,17 +52,21 @@ and make deletion conditional on several overlapping branches.
 
 ### Accounts, Profiles, Routes, and Adapters are the complete control model
 
-An Account owns endpoint capability and one Token identity. A Profile binds an
-Account, one admitted client, and one model. A Route selects one Profile for one
+An Account owns endpoint capability. A Profile binds an Account, one admitted
+client, one model, and one authentication owner: `account-token` means AIGW owns
+the Account Token, while `client-native` means the selected client and its SDK
+own credentials and request signing. A Route selects one Profile for one
 client. An Adapter owns only discovery and transactional projection for that
 client. There is no global Profile, `use --all`, implicit cross-client fallback,
 or Provider-name behavior switch.
 
 `setup --from` imports capability and may connect a chosen subset. `use` changes
-one client Route. `sync` observes current Tokens and installed clients, then
-converges eligible existing Routes and projections. `status` describes state;
-`check` validates only enabled Routes; `doctor` expands evidence without
-inventing another state model.
+one client Route. `sync` observes only AIGW-owned Tokens plus installed clients,
+then converges eligible existing Routes and projections. `status` describes
+local state; `check` probes AIGW-owned Account-Token Routes but only proves local
+readiness for client-native Routes; `verify` is the sole live client-owned
+authentication proof. `doctor` expands the same evidence without inventing
+another state model.
 
 Alternative considered: retain a global default for convenience. Rejected
 because one Profile cannot truthfully select models for clients with different
@@ -95,9 +99,11 @@ product from being useful independently.
 
 ### Extensions narrow as they approach the core
 
-Ordinary Providers are declarative. Only protocol-specific request validation,
-cloud signing, or Provider-native diagnostics may add a leaf Adapter. New
-clients implement a small contract for discovery, projection, credential
+Ordinary Providers are declarative. Only protocol-specific request validation
+or Provider-native diagnostics may add a leaf Adapter. Cloud credentials and
+request signing remain client-native whenever the admitted client already owns
+that capability; AIGW does not duplicate an SDK credential chain or signer.
+New clients implement a small contract for discovery, projection, credential
 binding, status, rollback, verification, and uninstall, then pass the shared
 conformance suite. Existing client or Provider code is not modified unless the
 common contract itself changes.

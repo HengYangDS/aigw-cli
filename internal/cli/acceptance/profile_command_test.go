@@ -24,6 +24,65 @@ func TestProfileReadsSurfaceCredentialObservationFailure(t *testing.T) {
 	}
 }
 
+func TestProfileReadsHonorClientNativeAuthenticationOwnership(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["native"] = configuration.Account{
+		Label: "Native",
+		Endpoints: configuration.Endpoints{
+			OpenAIResponses: "https://native.test/v1",
+		},
+	}
+	cfg.Profiles["native"] = configuration.Profile{
+		Label:          "Native",
+		Account:        "native",
+		Client:         configuration.ClientCodex,
+		Model:          "native-model",
+		ModelProvider:  "amazon-bedrock",
+		Authentication: configuration.AuthenticationClientNative,
+	}
+	cfg.Routes[configuration.ClientCodex] = "native"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	observed := &recordingSecretStore{Store: secretStore}
+	app.Secrets = observed
+
+	if err := execute(t, app, "profile", "list"); err != nil {
+		t.Fatal(err)
+	}
+	if len(observed.existsCalls) != 0 || len(observed.getCalls) != 0 {
+		t.Fatalf("profile list accessed client-native credentials: exists=%q get=%q", observed.existsCalls, observed.getCalls)
+	}
+	if text := out.String(); !strings.Contains(text, "Client-owned authentication") || strings.Contains(text, "Token missing") {
+		t.Fatalf("profile list = %q", text)
+	}
+
+	out.Reset()
+	if err := execute(t, app, "profile", "show", "native", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	if len(observed.existsCalls) != 0 || len(observed.getCalls) != 0 {
+		t.Fatalf("profile show accessed client-native credentials: exists=%q get=%q", observed.existsCalls, observed.getCalls)
+	}
+	for _, want := range []string{`"authentication":"client-native"`, `"model_provider":"amazon-bedrock"`} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("profile JSON lacks %q: %s", want, out.String())
+		}
+	}
+	if strings.Contains(out.String(), "secret_available") {
+		t.Fatalf("profile JSON projected an AIGW Token fact for client-native authentication: %s", out.String())
+	}
+
+	out.Reset()
+	if err := execute(t, app, "profile", "show", "native"); err != nil {
+		t.Fatal(err)
+	}
+	if text := out.String(); !strings.Contains(text, "Authentication") || !strings.Contains(text, "Client-owned") {
+		t.Fatalf("profile show = %q", text)
+	}
+}
+
 func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
 	app, out, secretStore, _ := testApp(t, "")
 	cfg := configuration.NewConfig()

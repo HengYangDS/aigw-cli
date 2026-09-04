@@ -36,12 +36,14 @@ admitted client Adapter and its conformance fixtures. Neither extension SHALL
 introduce Provider-name branching in the core, reuse another client's
 projection, or make an optional product a dependency.
 
-#### Scenario: Add an AWS model service
+#### Scenario: Add a client-native cloud model service
 
-- **WHEN** an AWS model service exposes an admitted client protocol
+- **WHEN** an AWS model service exposes an admitted client protocol and the
+  client already owns its credential chain and request signing
 - **THEN** its Account and Profiles use the ordinary manifest path
-- **AND** only an irreducibly Provider-specific diagnostic or signing adapter
-  requires code.
+- **AND** the Profile declares client-native authentication
+- **AND** AIGW neither stores the cloud credential nor implements a signing
+  Adapter.
 
 #### Scenario: Add another agent client
 
@@ -88,18 +90,23 @@ source; it MUST NOT be treated as current state or applied implicitly.
 ### Requirement: Provider-neutral configuration
 
 AIGW SHALL model Accounts, client-scoped Profiles, explicit client Routes,
-protocol endpoints, and native client model choices without provider identity
-hacks, named gateway products, deployment topology, or a global Profile
-fallback. A Route SHALL map one admitted client to one compatible Profile.
+protocol endpoints, authentication ownership, and native client model choices
+without provider identity hacks, named gateway products, deployment topology,
+or a global Profile fallback. An Account SHALL own endpoint capability. A
+Profile SHALL declare whether authentication is owned by AIGW as an Account
+Token or by the selected client. A Route SHALL map one admitted client to one
+compatible Profile.
 The current configuration schema SHALL be the only executable local schema;
 earlier schemas require an explicit operator-led replacement rather than an
 embedded migration path. Configuration manifests MUST remain credential-free
 and SHALL describe available capability rather than requiring every Account to
-be connected during import. Diagnostics SHALL require a credential only for an
-Account selected by an enabled admitted-client Route. `aigw check` SHALL NOT
-claim overall health unless every enabled admitted-client Route has its selected
-Account Token and its distinct authentication target has passed the bounded
-health probe.
+be connected during import. AIGW SHALL inspect or read an Account Token only
+when an enabled selected Profile declares Account-Token authentication.
+`aigw check` SHALL perform a bounded authenticated endpoint probe for such a
+Profile. For client-native authentication it SHALL prove only the local Route,
+projection, and observable client prerequisites, SHALL NOT read the AIGW Secret
+Store or issue a direct endpoint probe, and SHALL direct the operator to
+`aigw verify --for <client>` for live client-owned authentication evidence.
 
 #### Scenario: Select independent Claude and Codex services
 
@@ -119,11 +126,22 @@ health probe.
 
 - **WHEN** Claude and Codex are enabled with distinct selected Routes
 - **THEN** `aigw check` SHALL validate both effective Routes
-- **AND** SHALL derive each authentication request from that Route's declared
-  client protocol
+- **AND** SHALL derive each AIGW-owned authentication request from that Route's
+  declared client protocol and authentication mode
+- **AND** SHALL not issue an AIGW-owned authentication request for a
+  client-native Route
 - **AND** SHALL not inspect an unselected historical Profile as a fallback
 - **AND** MAY coalesce only authentication probes with an identical Account,
   endpoint, and protocol identity.
+
+#### Scenario: Check a client-native Route
+
+- **WHEN** an enabled Route selects a client-native Profile whose local client
+  projection is valid
+- **THEN** `aigw check` SHALL report local readiness without claiming that the
+  remote authentication or model request succeeded
+- **AND** SHALL provide `aigw verify --for <client>` as the explicit live-proof
+  continuation.
 
 #### Scenario: No client is enabled
 
@@ -155,9 +173,18 @@ health probe.
 
 #### Scenario: Diagnose a selected Account without a Token
 
-- **WHEN** an enabled client Route selects an Account whose Token is absent
+- **WHEN** an enabled client Route selects an Account-Token Profile whose Token
+  is absent
 - **THEN** `aigw doctor` SHALL report that Account as unhealthy
 - **AND** SHALL provide the account-scoped rotation action.
+
+#### Scenario: Diagnose a client-native Profile
+
+- **WHEN** an enabled client Route selects a client-native Profile
+- **THEN** `status`, `check`, `doctor`, `test`, `credential`, and Profile
+  inspection SHALL NOT query the AIGW Account Token store for that Profile
+- **AND** read-only output SHALL identify client-owned authentication and use
+  `aigw verify --for <client>` for live proof where applicable.
 
 #### Scenario: Add an ordinary provider
 

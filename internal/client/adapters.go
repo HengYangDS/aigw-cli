@@ -77,9 +77,12 @@ func (codexAdapter) Converge(deps Dependencies, cfg *configuration.Config, disco
 	if err != nil {
 		return err
 	}
-	available, err := secretAvailable(deps.Secrets, runtime.AccountID)
-	if err != nil {
-		return err
+	available := !runtime.RequiresAccountToken()
+	if runtime.RequiresAccountToken() {
+		available, err = secretAvailable(deps.Secrets, runtime.AccountID)
+		if err != nil {
+			return err
+		}
 	}
 	if executable != "" && len(targets) > 0 && (adapter.Enabled || available) {
 		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: targets}
@@ -134,7 +137,8 @@ func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
 		beforeRuntime.ProfileLabel != afterRuntime.ProfileLabel ||
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
 		beforeRuntime.Model != afterRuntime.Model ||
-		beforeRuntime.ModelProvider != afterRuntime.ModelProvider
+		beforeRuntime.ModelProvider != afterRuntime.ModelProvider ||
+		beforeRuntime.Authentication != afterRuntime.Authentication
 }
 
 func (codexAdapter) CredentialBindingChanged(before, after configuration.Config) bool {
@@ -145,17 +149,17 @@ func (codexAdapter) CredentialBindingChanged(before, after configuration.Config)
 	}
 	if !beforeAdapter.Enabled || !slices.Equal(beforeAdapter.Targets, afterAdapter.Targets) {
 		runtime, err := after.ResolveRuntime(configuration.ClientCodex, "")
-		return err != nil || runtime.ModelProvider == configuration.ModelProviderAIGW
+		return err != nil || runtime.RequiresAccountToken() && runtime.ModelProvider == configuration.ModelProviderAIGW
 	}
 	beforeRuntime, beforeErr := before.ResolveRuntime(configuration.ClientCodex, "")
 	afterRuntime, afterErr := after.ResolveRuntime(configuration.ClientCodex, "")
 	if afterErr != nil {
 		return true
 	}
-	if afterRuntime.ModelProvider != configuration.ModelProviderAIGW {
+	if !afterRuntime.RequiresAccountToken() || afterRuntime.ModelProvider != configuration.ModelProviderAIGW {
 		return false
 	}
-	return beforeErr != nil || beforeRuntime.ModelProvider != configuration.ModelProviderAIGW || beforeRuntime.AccountID != afterRuntime.AccountID
+	return beforeErr != nil || !beforeRuntime.RequiresAccountToken() || beforeRuntime.ModelProvider != configuration.ModelProviderAIGW || beforeRuntime.AccountID != afterRuntime.AccountID
 }
 
 func (codexAdapter) UsesCredentialAccount(cfg configuration.Config, accountID string) bool {
@@ -164,7 +168,7 @@ func (codexAdapter) UsesCredentialAccount(cfg configuration.Config, accountID st
 		return false
 	}
 	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	return err == nil && runtime.AccountID == accountID
+	return err == nil && runtime.RequiresAccountToken() && runtime.ModelProvider == configuration.ModelProviderAIGW && runtime.AccountID == accountID
 }
 
 func (codexAdapter) BindCredential(ctx context.Context, deps Dependencies, cfg configuration.Config, targets []string) error {
@@ -179,7 +183,7 @@ func (codexAdapter) BindCredential(ctx context.Context, deps Dependencies, cfg c
 	if err != nil {
 		return err
 	}
-	if runtime.ModelProvider != configuration.ModelProviderAIGW {
+	if !runtime.RequiresAccountToken() || runtime.ModelProvider != configuration.ModelProviderAIGW {
 		return nil
 	}
 	if adapter.Executable == "" || deps.Runner == nil {
@@ -237,7 +241,7 @@ func (codexAdapter) Inspect(ctx context.Context, deps Dependencies, cfg configur
 	if !options.NativeAuthentication {
 		return status
 	}
-	if runtime.ModelProvider != configuration.ModelProviderAIGW {
+	if !runtime.RequiresAccountToken() || runtime.ModelProvider != configuration.ModelProviderAIGW {
 		status.NativeAuthentication = "not_required"
 		return status
 	}
@@ -485,7 +489,9 @@ func codexReconciliationInputs(deps Dependencies, before, after configuration.Co
 	if err != nil {
 		return nil, nil, configuration.Runtime{}, err
 	}
-	runtime.CredentialCommand = deps.AIGWExecutable
+	if runtime.RequiresAccountToken() && runtime.ModelProvider != configuration.ModelProviderAIGW {
+		runtime.CredentialCommand = deps.AIGWExecutable
+	}
 	return beforeRefs, afterRefs, runtime, nil
 }
 
