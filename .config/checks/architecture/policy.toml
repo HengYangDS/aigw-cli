@@ -24,7 +24,8 @@ package_children = {
     "verification",
     "winjob",
   ],
-  "tools" = ["architecture", "ci", "coverage", "forge", "modelcatalog", "release", "repository"],
+  "tools" = ["architecture", "ci", "codex", "coverage", "forge", "release", "repository"],
+  "tools/codex" = ["catalog"],
 }
 
 # Composition roots may contain only their declared production files. Command
@@ -96,7 +97,7 @@ allowed_import_edges = {
   "tools/release" = [],
   "tools/architecture" = [],
   "tools/forge" = [],
-  "tools/modelcatalog" = ["internal/codex"],
+  "tools/codex/catalog" = ["internal/codex"],
   "tools/coverage" = [],
 }
 

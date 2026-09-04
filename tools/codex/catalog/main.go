@@ -1,4 +1,4 @@
-// Command modelcatalog verifies, against a real installed Codex client, that the
+// Command catalog verifies, against a real installed Codex client, that the
 // model catalog AIGW projects makes a provider-prefixed model entry identical
 // to the bundled entry whose slug it wraps.
 //
@@ -7,7 +7,7 @@
 // the client itself can show that it loaded the projected catalog. Run it when
 // changing the catalog projection or when qualifying a new client build:
 //
-//	go run ./tools/modelcatalog -model openai.gpt-5.6-sol
+//	go run ./tools/codex/catalog -model openai.gpt-5.6-sol
 //
 // The client renders its effective model catalog through a throwaway client
 // home, so the run makes no model request. Nothing outside a temporary directory
@@ -45,13 +45,13 @@ func main() { os.Exit(execute(os.Args[1:], os.Stdout, os.Stderr)) }
 func execute(args []string, out, errOut io.Writer) int {
 	code, err := run(args, out)
 	if err != nil {
-		_, _ = fmt.Fprintf(errOut, "modelcatalog: %v\n", err)
+		_, _ = fmt.Fprintf(errOut, "codex catalog: %v\n", err)
 	}
 	return code
 }
 
 func run(args []string, out io.Writer) (int, error) {
-	flags := flag.NewFlagSet("modelcatalog", flag.ContinueOnError)
+	flags := flag.NewFlagSet("codex-catalog", flag.ContinueOnError)
 	flags.SetOutput(out)
 	model := flags.String("model", "", "provider-prefixed model id to verify, for example openai.gpt-5.6-sol")
 	executable := flags.String("codex", "", "path to the Codex executable (default: codex from PATH)")

@@ -69,6 +69,13 @@ process.
 Dependency direction is toward domain owners. Presentation, CLI composition,
 Forge code, and host discovery do not define product semantics.
 
+Repository-only executables follow the same ontology: `tools/ci`,
+`tools/coverage`, `tools/forge`, `tools/release`, and `tools/repository` own
+cross-cutting repository concerns, while client-specific verification is nested
+under its client owner. The Codex catalogue verifier therefore lives at
+`tools/codex/catalog`; the retired flat `tools/modelcatalog` name is not a
+second supported entry point.
+
 ## Configuration flow
 
 ```mermaid

@@ -59,7 +59,7 @@ build, requires running the verification command against a real installation
 and recording the client version, executable checksum, and model-entry digests:
 
 ```bash
-mise exec --locked -- go run ./tools/modelcatalog -model '<provider-prefixed model id>'
+mise exec --locked -- go run ./tools/codex/catalog -model '<provider-prefixed model id>'
 ```
 
 It asks the client to render the effective catalog through a throwaway client
