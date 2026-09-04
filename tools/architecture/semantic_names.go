@@ -25,8 +25,6 @@ var nativeCarrierNames = map[string]bool{
 	"AGENTS.md": true, "CHANGELOG.md": true, "CONTRIBUTING.md": true, "README.md": true,
 }
 
-var chronicleDateName = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}\.md$`)
-
 func checkSemanticNames(root string, report *Report) error {
 	files, err := trackedFiles(root)
 	if err != nil {
@@ -35,7 +33,7 @@ func checkSemanticNames(root string, report *Report) error {
 	for _, relative := range files {
 		name := path.Base(relative)
 		grammar, managed := semanticNameGrammars[strings.ToLower(path.Ext(name))]
-		if !managed || nativeCarrierNames[name] || isOpenSpecCarrier(relative, name) || isChronicleCarrier(relative, name) {
+		if !managed || nativeCarrierNames[name] || isOpenSpecCarrier(relative, name) {
 			continue
 		}
 		if !grammar.pattern.MatchString(name) {
@@ -43,10 +41,6 @@ func checkSemanticNames(root string, report *Report) error {
 		}
 	}
 	return nil
-}
-
-func isChronicleCarrier(relative, name string) bool {
-	return strings.HasPrefix(relative, "evidence/chronicle/") && chronicleDateName.MatchString(name)
 }
 
 func trackedFiles(root string) ([]string, error) {

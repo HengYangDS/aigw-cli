@@ -32,20 +32,6 @@ func TestSemanticNamesAcceptNativeCarrierGrammars(t *testing.T) {
 	}
 }
 
-func TestSemanticNamesAcceptDatedChronicleCarrier(t *testing.T) {
-	root := t.TempDir()
-	runGit(t, root, "init", "-q")
-	writeFile(t, filepath.Join(root, "evidence", "chronicle", "product-convergence", "2026-07-31.md"), "# Chronicle\n")
-	runGit(t, root, "add", ".")
-	report := newReport("policy", root)
-	if err := checkSemanticNames(root, &report); err != nil {
-		t.Fatal(err)
-	}
-	if !report.OK {
-		t.Fatalf("dated chronicle findings=%+v", report.Findings)
-	}
-}
-
 func TestSemanticNamesIgnoreUntrackedHostFiles(t *testing.T) {
 	root := t.TempDir()
 	runGit(t, root, "init", "-q")
