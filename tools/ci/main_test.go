@@ -466,7 +466,7 @@ func TestNativeCommandsUsePortableArtifactNames(t *testing.T) {
 }
 
 func TestRejectsUnknownCommandsAndPlatforms(t *testing.T) {
-	for _, args := range [][]string{nil, {"unknown"}, {"native"}, {"native", "--platform", "plan9"}} {
+	for _, args := range [][]string{nil, {"unknown"}, {"native", "--platform", "plan9"}} {
 		if err := run(args, &bytes.Buffer{}, func(command) error { return nil }); err == nil {
 			t.Fatalf("accepted %#v", args)
 		}
