@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/presentation"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type failingWriter struct{ err error }
@@ -105,7 +106,7 @@ func TestRendererColorIsOptionalAndNeverAffectsSpacing(t *testing.T) {
 	if strings.Contains(plain.String(), "\x1b[") {
 		t.Fatalf("plain output contains ANSI: %q", plain.String())
 	}
-	stripped := presentation.StripANSI(colored.String())
+	stripped := ansi.Strip(colored.String())
 	if stripped != plain.String() {
 		t.Fatalf("color changed layout: plain=%q color=%q stripped=%q", plain.String(), colored.String(), stripped)
 	}
