@@ -191,8 +191,9 @@ func TestRemoveCodexProjectionRejectsInvalidCapturedSchedulerState(t *testing.T)
 		t.Fatal(err)
 	}
 	state := codexState{
-		ManagedBlockHash:  hashText(block),
-		OriginalScheduler: map[string]*int{"invalid": nil},
+		ManagedBlockHash:       hashText(block),
+		OriginalScheduler:      map[string]*int{"invalid": nil},
+		ProjectedSchedulerHash: codexSchedulerHash(current),
 	}
 	if _, err := removeCodexProjection(current, state); err == nil || !strings.Contains(err.Error(), "invalid Codex scheduler state key") {
 		t.Fatalf("removeCodexProjection() error = %v", err)
@@ -562,10 +563,20 @@ func writeExtraCodexState(t *testing.T, path string, state codexState) {
 }
 
 func attributedExtraCodexState(mode, block string) codexState {
+	originalScheduler, err := captureCodexScheduler("")
+	if err != nil {
+		panic(err)
+	}
+	projectedScheduler, err := projectCodexScheduler("")
+	if err != nil {
+		panic(err)
+	}
 	return codexState{
-		ManagedBlockHash: hashText(block),
-		ProjectionMode:   mode,
-		WriterID:         ProjectionWriterID,
-		TransactionID:    "test-transaction",
+		ManagedBlockHash:       hashText(block),
+		OriginalScheduler:      originalScheduler,
+		ProjectedSchedulerHash: codexSchedulerHash(projectedScheduler),
+		ProjectionMode:         mode,
+		WriterID:               ProjectionWriterID,
+		TransactionID:          "test-transaction",
 	}
 }

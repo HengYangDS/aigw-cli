@@ -274,14 +274,6 @@ func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot, run
 		if err != nil {
 			return "", codexState{}, err
 		}
-		base, err = restoreCodexScheduler(base, state.OriginalScheduler)
-		if err != nil {
-			return "", codexState{}, err
-		}
-		state.OriginalScheduler, err = backfillCodexScheduler(state.OriginalScheduler, base)
-		if err != nil {
-			return "", codexState{}, err
-		}
 		return base, state, nil
 	}
 	text := string(configSnapshot.Data)

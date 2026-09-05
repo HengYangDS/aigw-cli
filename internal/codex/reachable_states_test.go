@@ -227,29 +227,6 @@ func TestCodexUserConfigRejectsInvalidCapturedSchedulerState(t *testing.T) {
 	}
 }
 
-func TestCodexUserConfigRejectsSchedulerRestoreError(t *testing.T) {
-	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime, runtime.Endpoint)
-	projection, err := projectCodex("external = true\n", block, runtime.Model, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	state := attributedExtraCodexState(ProjectionFullSelection, block)
-	state.OriginalScheduler = map[string]*int{"invalid": nil}
-	data, err := json.Marshal(state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := codexUserConfig(
-		transaction.FileSnapshot{Exists: true, Data: []byte(projection)},
-		transaction.FileSnapshot{Exists: true, Data: data},
-		runtime,
-		block,
-	); err == nil || !strings.Contains(err.Error(), "invalid Codex scheduler state key") {
-		t.Fatalf("codexUserConfig() error = %v", err)
-	}
-}
-
 func TestCompleteExactTruncatedCodexProjectionRejectsAmbiguities(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
@@ -347,10 +324,8 @@ func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := codexState{
-		OriginalModel:    `model = "native-model"`,
-		ManagedBlockHash: hashText(block),
-	}
+	state := attributedExtraCodexState(ProjectionFullSelection, block)
+	state.OriginalModel = `model = "native-model"`
 
 	restored, err := removeCodexProjection(current, state)
 	if err != nil {
@@ -364,31 +339,22 @@ func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 	}
 }
 
-func TestRemoveCodexProjectionRestoresAbsentOriginalSelection(t *testing.T) {
+func TestRemoveCodexProjectionRejectsIncompleteSchedulerState(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
 	current, err := projectCodex("external = true\n", block, runtime.Model, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := codexState{
-		ManagedBlockHash: hashText(block),
-		// The older projected key set, i.e. a sidecar written before the [agents]
-		// alias was retired. Removal must still clear AIGW's own max_threads even
-		// though this state records no original for it.
-		OriginalScheduler: map[string]*int{
-			"agents.max_concurrent_threads_per_session":                  nil,
-			"agents.max_depth":                                           nil,
-			"features.multi_agent_v2.max_concurrent_threads_per_session": nil,
-		},
+	state := attributedExtraCodexState(ProjectionFullSelection, block)
+	state.OriginalScheduler = map[string]*int{
+		"agents.max_concurrent_threads_per_session":                  nil,
+		"agents.max_depth":                                           nil,
+		"features.multi_agent_v2.max_concurrent_threads_per_session": nil,
 	}
 
-	restored, err := removeCodexProjection(current, state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if restored != "external = true\n" {
-		t.Fatalf("restored config = %q", restored)
+	if _, err := removeCodexProjection(current, state); err == nil || !strings.Contains(err.Error(), "incomplete Codex scheduler state") {
+		t.Fatalf("removeCodexProjection() error = %v", err)
 	}
 }
 
