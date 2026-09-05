@@ -22,7 +22,7 @@ import (
 func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
 	cmd := &cobra.Command{
-		Use: "check", Short: "Check configuration, tokens, clients, and gateway", Args: cobra.NoArgs,
+		Use: "check", Short: "Check routes, credentials, clients, and endpoints", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if jsonMode {
 				return runJSONCheck(cmd, runtime)

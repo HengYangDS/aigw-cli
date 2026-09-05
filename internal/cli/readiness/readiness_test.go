@@ -28,6 +28,13 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (fn roundTripFunc) Do(request *http.Request) (*http.Response, error) { return fn(request) }
 
+func TestCheckCommandDescribesItsProductBoundary(t *testing.T) {
+	command := NewCheckCommand(invocation.Context{})
+	if command.Short != "Check routes, credentials, clients, and endpoints" {
+		t.Fatalf("check summary = %q", command.Short)
+	}
+}
+
 type failingReader struct{ err error }
 
 func (reader failingReader) Read([]byte) (int, error) { return 0, reader.err }
