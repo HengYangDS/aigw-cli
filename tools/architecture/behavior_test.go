@@ -85,11 +85,47 @@ func TestValidatePolicyEdgeEntries(t *testing.T) {
 		Remediation:       "remediation",
 		ReviewCondition:   "review",
 		GoRoots:           []string{"internal"},
+		TrackedCarrierOwners: map[string]map[string]string{
+			".": {"internal": "product"},
+		},
 	}
 	if err := validatePolicy(base); err != nil {
 		t.Fatal(err)
 	}
 	bad := base
+	bad = base
+	bad.TrackedCarrierOwners = nil
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("missing tracked carrier owners")
+	}
+	bad = base
+	bad.TrackedCarrierOwners = map[string]map[string]string{"internal": {"file.go": "product"}}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("missing repository root owner map")
+	}
+	bad = base
+	bad.TrackedCarrierOwners = map[string]map[string]string{
+		".":           {"internal": "product"},
+		"../internal": {"file.go": "product"},
+	}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("non-portable tracked carrier parent")
+	}
+	bad = base
+	bad.TrackedCarrierOwners = map[string]map[string]string{".": {}}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("empty tracked carrier child map")
+	}
+	bad = base
+	bad.TrackedCarrierOwners = map[string]map[string]string{".": {"bad/name": "product"}}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("nested tracked carrier name")
+	}
+	bad = base
+	bad.TrackedCarrierOwners = map[string]map[string]string{".": {"internal": ""}}
+	if err := validatePolicy(bad); err == nil {
+		t.Fatal("empty tracked carrier responsibility")
+	}
 	bad = base
 	bad.GoRoots = []string{"internal/../x"}
 	if err := validatePolicy(bad); err == nil {
@@ -169,6 +205,53 @@ func TestPackageChildrenEnforcePositiveTopology(t *testing.T) {
 	}
 	if got := report.Summary["package_child"]; got != 0 {
 		t.Fatalf("absent managed roots produced findings: %+v", report.Findings)
+	}
+}
+
+func TestTrackedCarrierOwnersFormAClosedPositiveTopology(t *testing.T) {
+	files := []string{
+		".config/checks/architecture/policy.toml",
+		".config/ci/pipeline.cue",
+		"records/local.json",
+		"README.md",
+		"cmd/aigw/main.go",
+		"docs/README.md",
+	}
+	p := policy{
+		IgnoreRoots: []string{"records"},
+		TrackedCarrierOwners: map[string]map[string]string{
+			".": {
+				".config":   "repository policy",
+				"README.md": "product entry point",
+				"cmd":       "command composition",
+				"docs":      "documentation",
+			},
+			".config": {
+				"checks": "quality policy",
+				"ci":     "continuous integration model",
+			},
+		},
+	}
+	report := newReport("policy", ".")
+	checkTrackedCarrierOwners(files, p, &report)
+	if got := countRule(report, "tracked_carrier_owner"); got != 0 {
+		t.Fatalf("tracked carrier findings = %d, want none: %+v", got, report.Findings)
+	}
+
+	files = append(files, ".config/release/goreleaser.yaml", "orphan.toml")
+	report = newReport("policy", ".")
+	checkTrackedCarrierOwners(files, p, &report)
+	if got := countRule(report, "tracked_carrier_owner"); got != 2 {
+		t.Fatalf("tracked carrier findings = %d, want two undeclared children: %+v", got, report.Findings)
+	}
+	paths := map[string]bool{}
+	for _, finding := range report.Findings {
+		paths[finding.Path] = true
+	}
+	for _, want := range []string{".config/release", "orphan.toml"} {
+		if !paths[want] {
+			t.Fatalf("tracked carrier findings = %+v, missing %q", report.Findings, want)
+		}
 	}
 }
 

@@ -117,3 +117,39 @@ ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"
 check_decision_records = true
 check_semantic_names = true
 require_import_owners = true
+
+# Every tracked carrier at the repository root and under .config has one
+# positive responsibility. The closed maps prevent unreviewed policy files,
+# generated projections, or historical buckets from accumulating silently.
+[tracked_carrier_owners."."]
+".config" = "repository policy and generated-projection sources"
+".editorconfig" = "editor-neutral text conventions"
+".ethos" = "ETHOS adoption binding"
+".gitattributes" = "Git content handling"
+".github" = "GitHub projection"
+".gitignore" = "repository-local generated-state exclusions"
+".gitlab-ci.yml" = "GitLab pipeline projection"
+".npmrc" = "Node dependency-install policy"
+"AGENTS.md" = "agent entry point"
+"CHANGELOG.md" = "released change history"
+"CONTRIBUTING.md" = "contributor journey"
+"LICENSE" = "software license"
+"README.md" = "product entry point"
+"VERSION" = "product version authority"
+"cmd" = "AIGW executable composition"
+"docs" = "product and engineering documentation"
+"go.mod" = "Go dependency declaration"
+"go.sum" = "Go dependency integrity lock"
+"internal" = "product implementation"
+"manifests" = "reviewed team configuration"
+"mise.lock" = "repository tool integrity lock"
+"mise.toml" = "cross-platform development entry point"
+"openspec" = "active product change intent"
+"package-lock.json" = "Node dependency integrity lock"
+"package.json" = "Node quality-tool declaration"
+"tools" = "repository engineering executables"
+
+[tracked_carrier_owners.".config"]
+"checks" = "quality policy"
+"ci" = "continuous-integration source model"
+"release" = "release construction and Forge metadata"

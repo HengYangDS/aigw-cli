@@ -18,6 +18,7 @@ false_positive_cost = "a valid topology change requires policy review"
 remediation = "move behavior to an existing owner or update the contract"
 review_condition = "reassess when product topology changes"
 go_roots = ["cmd", "internal", "tools"]
+tracked_carrier_owners = { "." = { ".config" = "configuration", "cmd" = "command", "internal" = "product", "policy.toml" = "policy", "scripts" = "scripts", "tools" = "tooling" } }
 composition_root_files = { "internal/cli" = ["app.go"], "tools/release" = ["commands.go", "main.go"] }
 peer_package_roots = { "internal/cli" = ["invocation"] }
 ignore_roots = ["vendor", ".git", "records", "build"]

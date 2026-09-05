@@ -15,23 +15,24 @@ const defaultPolicyPath = ".config/checks/architecture/policy.toml"
 // policy is the declarative SSOT loaded from TOML. Checker behavior must
 // follow these fields rather than hardcoded repository layout constants.
 type policy struct {
-	Owner                string              `toml:"owner"`
-	Source               string              `toml:"source"`
-	RiskModel            string              `toml:"risk_model"`
-	Measurement          string              `toml:"measurement"`
-	FalsePositiveCost    string              `toml:"false_positive_cost"`
-	Remediation          string              `toml:"remediation"`
-	ReviewCondition      string              `toml:"review_condition"`
-	GoRoots              []string            `toml:"go_roots"`
-	PackageChildren      map[string][]string `toml:"package_children"`
-	CompositionRootFiles map[string][]string `toml:"composition_root_files"`
-	PeerPackageRoots     map[string][]string `toml:"peer_package_roots"`
-	AllowedImportEdges   map[string][]string `toml:"allowed_import_edges"`
-	IgnoreRoots          []string            `toml:"ignore_roots"`
-	IgnoreDirectoryNames []string            `toml:"ignore_directory_names"`
-	CheckDecisionRecords bool                `toml:"check_decision_records"`
-	CheckSemanticNames   bool                `toml:"check_semantic_names"`
-	RequireImportOwners  bool                `toml:"require_import_owners"`
+	Owner                string                       `toml:"owner"`
+	Source               string                       `toml:"source"`
+	RiskModel            string                       `toml:"risk_model"`
+	Measurement          string                       `toml:"measurement"`
+	FalsePositiveCost    string                       `toml:"false_positive_cost"`
+	Remediation          string                       `toml:"remediation"`
+	ReviewCondition      string                       `toml:"review_condition"`
+	GoRoots              []string                     `toml:"go_roots"`
+	TrackedCarrierOwners map[string]map[string]string `toml:"tracked_carrier_owners"`
+	PackageChildren      map[string][]string          `toml:"package_children"`
+	CompositionRootFiles map[string][]string          `toml:"composition_root_files"`
+	PeerPackageRoots     map[string][]string          `toml:"peer_package_roots"`
+	AllowedImportEdges   map[string][]string          `toml:"allowed_import_edges"`
+	IgnoreRoots          []string                     `toml:"ignore_roots"`
+	IgnoreDirectoryNames []string                     `toml:"ignore_directory_names"`
+	CheckDecisionRecords bool                         `toml:"check_decision_records"`
+	CheckSemanticNames   bool                         `toml:"check_semantic_names"`
+	RequireImportOwners  bool                         `toml:"require_import_owners"`
 }
 
 func loadPolicy(path string) (policy, error) {
@@ -63,6 +64,35 @@ func validatePolicy(p policy) error {
 	}
 	if err := validatePackagePolicy(p); err != nil {
 		return err
+	}
+	if err := validateTrackedCarrierOwners(p.TrackedCarrierOwners); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateTrackedCarrierOwners(owners map[string]map[string]string) error {
+	if len(owners) == 0 {
+		return fmt.Errorf("tracked_carrier_owners must be non-empty")
+	}
+	if _, ok := owners["."]; !ok {
+		return fmt.Errorf("tracked_carrier_owners must declare the repository root")
+	}
+	for parent, children := range owners {
+		if parent != "." && !isPortableRelativePath(parent) {
+			return fmt.Errorf("tracked_carrier_owners keys must be the repository root or relative paths")
+		}
+		if len(children) == 0 {
+			return fmt.Errorf("tracked_carrier_owners values must be non-empty")
+		}
+		for child, responsibility := range children {
+			if strings.TrimSpace(child) == "" || path.Base(child) != child || strings.ContainsAny(child, `/\\`) {
+				return fmt.Errorf("tracked_carrier_owners entries must be direct child names")
+			}
+			if strings.TrimSpace(responsibility) == "" {
+				return fmt.Errorf("tracked_carrier_owners responsibilities must be non-empty")
+			}
+		}
 	}
 	return nil
 }
