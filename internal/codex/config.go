@@ -101,15 +101,7 @@ func LoginStatusPlan(executable, codexHome string) (process.Plan, error) {
 }
 
 func SyncConfig(path string, runtime configuration.Runtime) error {
-	return SyncConfigs([]string{path}, runtime)
-}
-
-// SyncConfigs is an all-target transaction. It prepares every target
-// before the first write; a later conflict therefore cannot leave an earlier
-// profile half-synchronized. If any atomic write fails, every configuration and
-// sidecar returns to its byte-exact pre-state, including an absent sidecar.
-func SyncConfigs(paths []string, runtime configuration.Runtime) error {
-	_, err := ReconcileConfigs(nil, codexHomeTargets(paths), runtime)
+	_, err := ReconcileConfigs(nil, codexHomeTargets([]string{path}), runtime)
 	return err
 }
 
