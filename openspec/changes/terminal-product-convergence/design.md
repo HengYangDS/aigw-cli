@@ -36,6 +36,50 @@ journey.
 - Historical intermediate artifacts will not be retained merely because they
   once existed.
 
+## Authority inventory
+
+The inventory is rule-based rather than a second per-file ledger. Every tracked
+path inherits the responsibility of its longest matching carrier in
+`.config/checks/architecture/policy.toml`; Go code narrows further through the
+declared package topology and import direction. An unlisted peer carrier is a
+gate failure. A generated projection is never authoritative and points back to
+the source named below.
+
+| Surface                                                   | Semantic owner and source of truth                                                            | Consumers and dependency direction                                               | Change and retirement rule                                                                                 |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Product behavior                                          | The narrow `internal` domain package; `cmd/aigw` only composes it                             | CLI journey → domain → client or Provider leaf                                   | Change for a product invariant; retire when no invariant, caller, or test consumes it                      |
+| Public commands, options, and results                     | The matching `internal/cli/<journey>` constructor and result type                             | Human and JSON clients → CLI owner → domain owner                                | Change with the journey contract; retire together when the journey is removed                              |
+| Configuration, manifest fields, and environment variables | `internal/configuration`, the reviewed manifest, or the domain package declaring the variable | Input → validation → typed model → transactional projection                      | Change only with the owning schema or capability; retire after supported state has no reader               |
+| Client and native resources                               | The admitted client Adapter plus `internal/platform` for OS-neutral facts                     | Configuration → complete plan → atomic OS/client projection                      | Change for an admitted client contract; remove exactly owned state on disable or uninstall                 |
+| Repository tools and quality policy                       | The semantic `tools/<concern>` package plus `.config/checks/<concern>`                        | Policy → focused tool → `mise` gate → CI                                         | Change for a measured repository risk; retire when a mature owner supersedes it or the risk disappears     |
+| CI projections                                            | `.config/ci/pipeline.cue`                                                                     | CUE model → `.github/workflows/*` and `.gitlab-ci.yml` → Forge runners           | Change in CUE; regenerate projections; retire a job when it proves no unique fact                          |
+| Release identity and artifacts                            | `VERSION`, `CHANGELOG.md`, `.config/release`, and `tools/release`                             | Version and source object → deterministic artifacts → Forge Releases → installer | Change once per release identity; retire unreferenced failed artifacts and obsolete tags                   |
+| Product intent, documentation, and journeys               | Active OpenSpec requirements plus the nearest canonical documentation entry point             | Product semantics → acceptance tests and user/contributor guidance               | Reconcile with implementation in the same Change; archive intent and delete stale guidance when superseded |
+| Team configuration                                        | `manifests/team.toml` without credentials                                                     | Reviewed capability → setup import → local Account, Profile, and Route state     | Change when team capability changes; retire examples or fields without an active consumer                  |
+| Repository governance and local exclusions                | `.ethos`, `AGENTS.md`, Git metadata files, and `.gitignore`                                   | Repository policy → developer and agent entry points                             | Change only at the owning governance boundary; remove obsolete exceptions and host-tool residue rules      |
+
+This resolution also covers generated host projections: Codex and Claude files
+are transactional outputs of their Adapters, while build products and Forge
+files are outputs of the release and CI sources above. Host caches, Tokens,
+installed binaries, and Forge observations are evidence or state, never a
+tracked source of truth.
+
+### Reconciliation findings
+
+The baseline found the following concrete disagreements. Each is assigned to
+one existing closure rather than spawning another plan or compatibility path.
+
+| Current disagreement                                                                                            | Owning closure                                |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `aigw check --help` still says “gateway” although the product model is endpoint-neutral                         | 11.4 CLI semantics                            |
+| Direct pushes to `dev` do not currently enter either Forge verification graph                                   | 10.3 event coverage                           |
+| Architecture scanning still exempts historical `records` and nested `runtime` names                             | 7.6 and 13.1 residue removal                  |
+| Host-local semantic indexes other than `.serena` are not explicitly excluded                                    | 13.2 repository hygiene                       |
+| Root-level CLI tests still mix several evidence scopes beside the composition root                              | 7.3 test topology                             |
+| Canonical specifications still contain superseded default-route migration text until this delta is archived     | 13.6 archive and land                         |
+| The work candidate and installed release both report `0.1.0-rc.110` although they are different product objects | 13.6 unique release identity before packaging |
+| Evidence policy is split across a generic directory whose final audience placement is unresolved                | 11.1 and 11.7 documentation topology          |
+
 ## Decisions
 
 ### One Change, ordered semantic closures

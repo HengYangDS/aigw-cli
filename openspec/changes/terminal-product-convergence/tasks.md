@@ -2,9 +2,9 @@
 
 - [x] 1.1 Record exact Work Lane HEAD, tree, Lease, active Change, installed AIGW version and digest, configuration schema, selected backend, client discovery, Routes, local branches, both Forge refs, proposals, tags, Releases, CI results, and owned residue.
 - [x] 1.2 Preserve the current healthy installation, user configuration, Tokens, Codex and Claude projections, and any selected external endpoint as an immutable rollback baseline.
-- [ ] 1.3 Map every tracked file and generated projection to one semantic owner, consumer, source of truth, reason to change, dependency direction, and retirement condition.
-- [ ] 1.4 Map every public command, option, result, schema field, environment variable, native resource, release artifact, documentation entrypoint, and supported user journey to one product invariant and implementation owner.
-- [ ] 1.5 Reconcile source, tests, canonical specs, this Change, documentation, quality policy, CUE, Forge projections, release metadata, and installed behavior; add every contradiction to this task list before implementation expands.
+- [x] 1.3 Map every tracked file and generated projection to one semantic owner, consumer, source of truth, reason to change, dependency direction, and retirement condition.
+- [x] 1.4 Map every public command, option, result, schema field, environment variable, native resource, release artifact, documentation entrypoint, and supported user journey to one product invariant and implementation owner.
+- [x] 1.5 Reconcile source, tests, canonical specs, this Change, documentation, quality policy, CUE, Forge projections, release metadata, and installed behavior; add every contradiction to this task list before implementation expands.
 
 ## 2. Natural setup and activation journey
 
@@ -64,15 +64,15 @@
 
 - [x] 7.1 Derive a terminal package and repository map from the product ontology and one-way dependency rules before moving files.
 - [ ] 7.2 Replace flat suffix families, concatenated compounds, and ambiguous buckets across `internal`, `cmd`, `tools`, tests, configuration, and docs with cohesive semantic owners.
-- [ ] 7.3 Keep tests organized by behavior and evidence scope rather than mirroring incidental filenames; isolate unit, integration, native, release, and end-to-end contracts.
+- [ ] 7.3 Keep tests organized by behavior and evidence scope rather than mirroring incidental filenames; isolate unit, integration, native, release, and end-to-end contracts, including the mixed root-level CLI tests.
 - [x] 7.4 Enforce dependency direction so product packages cannot import repository tooling, tests, Forge code, ETHOS internals, or another client's implementation.
 - [ ] 7.5 Remove duplicate constants, schemas, renderers, validators, state models, fixtures, wrappers, aliases, re-exports, unused dependencies, empty directories, and unreachable code.
-- [ ] 7.6 Audit every root file and `.config` carrier for correct ownership and placement; relocate or delete historical residue and compatibility-oriented ignores.
+- [ ] 7.6 Audit every root file and `.config` carrier for correct ownership and placement; remove the `records` and nested `runtime` scan exemptions, then relocate or delete historical residue and compatibility-oriented ignores.
 - [ ] 7.7 Prove tracked entity count and duplicate ownership decrease while every required invariant retains one reachable implementation and test.
 
 ## 8. Quality authority
 
-- [ ] 8.1 Build one positive responsibility map covering every tracked file type and semantic concern with no uncovered or multiply owned carrier.
+- [ ] 8.1 Enforce the design's single responsibility-resolution rules for every tracked file type and semantic concern, with no uncovered or multiply owned carrier and no second inventory.
 - [ ] 8.2 Consolidate Go format, vet, static analysis, modernization, naming, documentation, error, logging, security, complexity, import, and architecture policy into comprehensible owners.
 - [ ] 8.3 Adopt mature tools for dead code, dependency hygiene, vulnerabilities, secrets, licenses, SBOM, Markdown format and lint, links, TOML, YAML, JSON, CUE, Actions, and GitLab syntax where they provide net value.
 - [ ] 8.4 Remove custom generic checks superseded by mature tools and retain custom checks only for explicit AIGW product or repository invariants.
@@ -98,7 +98,7 @@
 
 - [ ] 10.1 Define the complete semantic CI graph in CUE: fast quality, Go matrix, native source evidence, artifact construction, lifecycle acceptance, release metadata, publication, and parity.
 - [ ] 10.2 Generate GitHub Actions and GitLab CI from that model; reject hand-edited drift while preserving only provider syntax and runner-capability deltas.
-- [ ] 10.3 Cover proposal creation and update, review commit, maintainer fast-forward, `dev`, `main`, and tag events with required exact-commit evidence.
+- [ ] 10.3 Cover proposal creation and update, review commit, maintainer fast-forward, direct `dev` push, `main`, and tag events with required exact-commit evidence; close the current direct-`dev` trigger gap on both Forges.
 - [ ] 10.4 Separate independently useful jobs and parallelize safe matrices; remove monolithic verification and duplicate jobs that prove no additional fact.
 - [ ] 10.5 Define exact conditions for evidence reuse and require rerun when source, platform, environment, lock, toolchain, release, or claimed fact changes.
 - [ ] 10.6 Assign Windows product proof to an available native runner without requiring a symmetric but unavailable GitLab Windows runner.
@@ -108,13 +108,13 @@
 
 ## 11. Documentation and user experience
 
-- [ ] 11.1 Derive documentation information architecture from audiences and journeys: evaluation, installation, first setup, daily selection, synchronization, credentials, troubleshooting, extension, contribution, release, and governance.
+- [ ] 11.1 Derive documentation information architecture from audiences and journeys: evaluation, installation, first setup, daily selection, synchronization, credentials, troubleshooting, extension, contribution, release, governance, and the final audience-owned placement of evidence policy.
 - [ ] 11.2 Make every directory index purposeful, remove empty or redirect-only README files, and ensure internal concepts, commands, decisions, evidence, and stable external standards use valid descriptive links.
 - [ ] 11.3 Rewrite setup, team manifest, credential backend, client-later-installation, direct endpoint, optional external-gateway composition, recovery, and uninstall journeys in precise natural language.
-- [ ] 11.4 Generate CLI reference from the command surface or verify it against source; audit every command name, default, option, exit code, JSON field, error, and next action for narrow semantics.
+- [ ] 11.4 Generate CLI reference from the command surface or verify it against source; audit every command name, default, option, exit code, JSON field, error, and next action for narrow semantics, including removal of endpoint-ambiguous “gateway” wording from `check`.
 - [ ] 11.5 Normalize configuration, tables, ordering, headings, examples, terminology, compounds, and visual hierarchy across code, schemas, manifests, docs, help, and generated projections.
 - [ ] 11.6 Replace toy manifests with one reviewed directly consumable team profile while keeping credentials out of version control and documenting safe local overrides.
-- [ ] 11.7 Remove stale claims, contradictory instructions, historical workarounds, compatibility notes without consumers, and evidence directories that do not own durable product facts.
+- [ ] 11.7 Remove stale claims, contradictory instructions, historical workarounds, compatibility notes without consumers, and evidence directories that do not own durable product facts; retain policy only under its actual audience owner.
 - [ ] 11.8 Verify links, rendered Markdown, terminal layouts, narrow consoles, JSON stability, accessibility, copy-and-paste commands, and fresh-user journeys.
 
 ## 12. Cross-platform product and release evidence
@@ -132,9 +132,9 @@
 ## 13. Destructive cleanup and terminal closeout
 
 - [ ] 13.1 Re-run the semantic inventory and delete every obsolete implementation, migration path, schema reader, wrapper, alias, generated file, cache, runtime, temporary service, branch, tag, Release, or record with no current consumer.
-- [ ] 13.2 Verify `.gitignore`, attributes, editor settings, root metadata, `.config`, OpenSpec, docs, tests, tools, and package layout contain only current intentional carriers in stable logical order.
+- [ ] 13.2 Verify `.gitignore`, attributes, editor settings, root metadata, `.config`, OpenSpec, docs, tests, tools, and package layout contain only current intentional carriers in stable logical order; keep `.serena`, `.code-memory`, and `.codebase-memory` host-local where present.
 - [ ] 13.3 Verify every user feedback item in this Change maps once to an implemented invariant and exact evidence; disclose every remaining external unknown without duplicating work.
 - [ ] 13.4 Run all format, lint, type, architecture, dependency, security, documentation, configuration, behavior, native, release, and installed-runtime gates from a pristine candidate.
 - [ ] 13.5 Verify signed clean candidate HEAD, exact tree, complete OpenSpec progress, current ETHOS proof, no P0 or P1 defect, and no warning or hidden skipped required gate.
-- [ ] 13.6 Archive this Change through current ETHOS, land the signed candidate, align local and both Forge `main` and `dev`, publish and verify the signed tag and identical release assets, and confirm all required CI is green.
+- [ ] 13.6 Give the candidate one version identity distinct from the installed rollback baseline, archive this Change through current ETHOS so canonical specs lose superseded route semantics, land the signed candidate, align local and both Forge `main` and `dev`, publish and verify the signed tag and identical release assets, and confirm all required CI is green.
 - [ ] 13.7 Delete the merged proposal, retire the Work Lane, prune obsolete local and remote refs and owned runtime residue, and verify the repository family and installed product are clean and healthy.
