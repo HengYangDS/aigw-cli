@@ -244,20 +244,40 @@ func TestClaudeAdapterApplyReportsPreparationAndRollbackFailures(t *testing.T) {
 }
 
 func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
+	runtime := configuration.Runtime{AccountID: "gateway"}
+	secretStore := secrets.NewMemoryStore()
+	if err := secretStore.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	dependencies := Dependencies{Secrets: secretStore}
+	cfg := configuration.NewConfig()
+	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
+		t.Fatalf("Verify() disabled error = %v", err)
+	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
+	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
+		t.Fatalf("Verify() unconfigured error = %v", err)
+	}
+
 	loop := filepath.Join(t.TempDir(), "loop")
 	if err := os.Symlink(loop, loop); err != nil {
 		t.Skipf("symbolic link unavailable: %v", err)
 	}
-	cfg := configuration.NewConfig()
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: loop}
 	status := (claudeAdapter{}).Inspect(context.Background(), Dependencies{}, cfg, configuration.Runtime{}, InspectionOptions{})
 	if status.Ready || status.Issue != "Cannot inspect Claude executable" {
 		t.Fatalf("status = %#v", status)
 	}
 
-	runtime := configuration.Runtime{AccountID: "gateway"}
 	if _, err := (claudeAdapter{}).Verify(context.Background(), Dependencies{}, cfg, runtime); err == nil || !strings.Contains(err.Error(), "secret store is unavailable") {
 		t.Fatalf("Verify() error = %v", err)
+	}
+	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime); err == nil || !strings.Contains(err.Error(), "inspect Claude executable") {
+		t.Fatalf("Verify() inspection error = %v", err)
+	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
+	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime); err == nil || !strings.Contains(err.Error(), "executable is unavailable") {
+		t.Fatalf("Verify() unavailable error = %v", err)
 	}
 }
 

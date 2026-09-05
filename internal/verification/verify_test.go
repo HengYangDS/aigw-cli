@@ -280,21 +280,6 @@ func TestVerifyClaude(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := VerifyClaudeInvocation(context.Background(), nil, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "disabled") {
-		t.Fatalf("disabled error = %v", err)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
-	if err := VerifyClaudeInvocation(context.Background(), nil, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "executable is unavailable") {
-		t.Fatalf("missing executable error = %v", err)
-	}
-	loop := filepath.Join(t.TempDir(), "claude")
-	if err := os.Symlink(loop, loop); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: loop}
-	if err := VerifyClaudeInvocation(context.Background(), nil, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "inspect Claude executable") {
-		t.Fatalf("inspection error = %v", err)
-	}
 	want := errors.New("launcher failed")
 	if err := VerifyClaudeRuntime(context.Background(), nil, "claude", configuration.Runtime{ProfileID: "one"}, "token"); err == nil || !strings.Contains(err.Error(), "no Claude model") {
 		t.Fatalf("model error = %v", err)
@@ -318,8 +303,7 @@ func TestVerifyClaude(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("fixture"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
-	if err := VerifyClaudeInvocation(context.Background(), captureRunner{output: []byte(" AIGW_OK \n")}, cfg, runtime, "token"); err != nil {
+	if err := VerifyClaudeRuntime(context.Background(), captureRunner{output: []byte(" AIGW_OK \n")}, executable, runtime, "token"); err != nil {
 		t.Fatal(err)
 	}
 }

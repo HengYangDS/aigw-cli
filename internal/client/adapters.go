@@ -378,7 +378,7 @@ func (claudeAdapter) Inspect(_ context.Context, _ Dependencies, cfg configuratio
 	if adapter.Executable == "" {
 		return Status{Issue: "Claude executable is not configured", RepairAction: "aigw repair"}
 	}
-	ready, err := claude.Ready(adapter.Executable)
+	ready, err := discovery.ExecutableAvailable(adapter.Executable)
 	if err != nil {
 		return Status{Issue: "Cannot inspect Claude executable", RepairAction: "aigw repair"}
 	}
@@ -397,9 +397,20 @@ func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configur
 		instruction, _ := credential.TokenRecovery(deps.Secrets, runtime.AccountID)
 		return Verification{}, fmt.Errorf("Token for account %q is unavailable: %w; %s", runtime.AccountID, err, instruction)
 	}
+	adapter := cfg.Adapters[configuration.ClientClaude]
+	if !adapter.Enabled || adapter.Executable == "" {
+		return Verification{}, fmt.Errorf("Claude adapter is disabled; run `aigw repair`")
+	}
+	ready, err := discovery.ExecutableAvailable(adapter.Executable)
+	if err != nil {
+		return Verification{}, fmt.Errorf("inspect Claude executable: %w", err)
+	}
+	if !ready {
+		return Verification{}, fmt.Errorf("Claude executable is unavailable; run `aigw repair`")
+	}
 	verifyCtx, cancel := context.WithTimeout(ctx, domainverification.ProtocolTimeout)
 	defer cancel()
-	return Verification{}, domainverification.VerifyClaudeInvocation(verifyCtx, deps.Runner, cfg, runtime, token)
+	return Verification{}, domainverification.VerifyClaudeRuntime(verifyCtx, deps.Runner, adapter.Executable, runtime, token)
 }
 
 func (claudeAdapter) Withdraw(cfg *configuration.Config) {

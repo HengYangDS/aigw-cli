@@ -105,23 +105,6 @@ func readBoundedFile(path string, limit int64) ([]byte, error) {
 	return data, nil
 }
 
-// VerifyClaudeInvocation checks native executable admission before executing the
-// configured Claude adapter.
-func VerifyClaudeInvocation(ctx context.Context, runner Runner, cfg configuration.Config, clientRuntime configuration.Runtime, token string) error {
-	adapter := cfg.Adapters[configuration.ClientClaude]
-	if !adapter.Enabled || adapter.Executable == "" {
-		return fmt.Errorf("Claude adapter is disabled; run `aigw repair`")
-	}
-	ready, err := claude.Ready(adapter.Executable)
-	if err != nil {
-		return err
-	}
-	if !ready {
-		return fmt.Errorf("Claude executable is unavailable; run `aigw repair`")
-	}
-	return VerifyClaudeRuntime(ctx, runner, adapter.Executable, clientRuntime, token)
-}
-
 // VerifyClaudeRuntime performs one bounded Claude CLI request.
 func VerifyClaudeRuntime(ctx context.Context, runner Runner, executable string, clientRuntime configuration.Runtime, token string) error {
 	if clientRuntime.Model == "" {
