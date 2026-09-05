@@ -15,7 +15,7 @@ each linked document owns one subject.
 1. [Publish or import a token-free manifest](guides/team-rollout.md)
 2. [Understand secure local boundaries](architecture/security-model.md)
 3. [Operate independent GitLab and GitHub release planes](operations/forge-operations.md)
-4. [Review release evidence and its limits](evidence/release-evidence.md)
+4. [Review release evidence and its limits](governance/change-and-release-policy.md#quality-and-platform-evidence)
 
 ## Reference map
 
@@ -26,12 +26,10 @@ each linked document owns one subject.
 | Concepts     | [Product concepts](concepts/product-concepts.md)                                       | Account, Profile, Route, Adapter, endpoint, and update model.          |
 | Concepts     | [Model strategy](concepts/model-strategy.md)                                           | Curated capability set and admitted model baselines.                   |
 | Decisions    | [Decision register](decisions/decision-register.md)                                    | Decision grammar, coverage rule, and durable rulings.                  |
-| Evidence     | [Evidence policy](evidence/evidence-policy.md)                                         | Proof limits and local Git-object housekeeping.                        |
-| Evidence     | [Release evidence](evidence/release-evidence.md)                                       | Local, hosted, artifact, and installation evidence boundaries.         |
 | Experience   | [Terminal experience](experience/terminal-experience.md)                               | Task-first navigation, narrow-terminal layout, and recovery language.  |
 | Experience   | [Text layout](experience/text-layout.md)                                               | Stable rendering and readable terminal presentation.                   |
 | Governance   | [Adapter admission](governance/adapter-admission.md)                                   | Admission evidence for client adapters.                                |
-| Governance   | [Change and release policy](governance/change-and-release-policy.md)                   | Change, release, and contributor policy.                               |
+| Governance   | [Change and release policy](governance/change-and-release-policy.md)                   | Change, release, proof, and closeout policy.                           |
 | Guides       | [Team rollout](guides/team-rollout.md)                                                 | Configuration manifests, member setup, release artifacts, and updates. |
 | Operations   | [Forge operations](operations/forge-operations.md)                                     | Independent GitLab and GitHub operation.                               |
 | History      | [Changelog](../CHANGELOG.md)                                                           | Published release history.                                             |

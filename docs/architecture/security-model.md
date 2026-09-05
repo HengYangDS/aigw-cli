@@ -68,6 +68,13 @@ This prevents rollback from overwriting a newer writer.
 - A loopback endpoint is not proof of listener health or ownership.
 - `aigw verify` may consume quota only when the operator requests it.
 
+An initial 401 is transient only when three bounded observations recover, and a
+Token is classified as persistently invalid only after three further 401
+responses. Mixed results or cancellation remain retryable instability. This
+single-command observation covers one configured endpoint and in-memory Token;
+it does not prove direct-upstream health, account or billing state, or a later
+request.
+
 ## Output boundary
 
 Human, JSON, logs, and diagnostics exclude:

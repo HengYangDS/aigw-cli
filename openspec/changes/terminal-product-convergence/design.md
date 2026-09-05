@@ -78,7 +78,6 @@ one existing closure rather than spawning another plan or compatibility path.
 | Root-level CLI tests still mix several evidence scopes beside the composition root                              | 7.3 test topology                             |
 | Canonical specifications still contain superseded default-route migration text until this delta is archived     | 13.6 archive and land                         |
 | The work candidate and installed release both report `0.1.0-rc.110` although they are different product objects | 13.6 unique release identity before packaging |
-| Evidence policy is split across a generic directory whose final audience placement is unresolved                | 11.1 and 11.7 documentation topology          |
 
 ## Decisions
 

@@ -14,7 +14,6 @@ conversation state.
 - [Change and release policy](docs/governance/change-and-release-policy.md)
 - [Decision register](docs/decisions/decision-register.md)
 - [DR-0001](docs/decisions/dr-0001-control-plane-data-plane-boundary.md)
-- [Evidence policy](docs/evidence/evidence-policy.md)
 - [Release history](CHANGELOG.md)
 
 ## Authority Order

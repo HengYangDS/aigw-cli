@@ -303,15 +303,15 @@ complete source and governance gate; `native` proves the current host; and
 
 ## Documentation
 
-| Need                                | Source of truth                                                        |
-| ----------------------------------- | ---------------------------------------------------------------------- |
-| Concepts                            | [Account, Profile, Route, Adapter](docs/concepts/product-concepts.md)  |
-| Client and control-plane boundaries | [Architecture](docs/architecture/authority-and-projection-boundary.md) |
-| Human terminal behavior             | [Terminal experience](docs/experience/terminal-experience.md)          |
-| Security                            | [Security model](docs/architecture/security-model.md)                  |
-| Team adoption                       | [Team rollout](docs/guides/team-rollout.md)                            |
-| Release evidence                    | [Release readiness](docs/evidence/release-evidence.md)                 |
-| Development                         | [CONTRIBUTING](CONTRIBUTING.md)                                        |
-| Full index                          | [Documentation root](docs/README.md)                                   |
+| Need                                | Source of truth                                                                                             |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Concepts                            | [Account, Profile, Route, Adapter](docs/concepts/product-concepts.md)                                       |
+| Client and control-plane boundaries | [Architecture](docs/architecture/authority-and-projection-boundary.md)                                      |
+| Human terminal behavior             | [Terminal experience](docs/experience/terminal-experience.md)                                               |
+| Security                            | [Security model](docs/architecture/security-model.md)                                                       |
+| Team adoption                       | [Team rollout](docs/guides/team-rollout.md)                                                                 |
+| Release evidence                    | [Quality and platform evidence](docs/governance/change-and-release-policy.md#quality-and-platform-evidence) |
+| Development                         | [CONTRIBUTING](CONTRIBUTING.md)                                                                             |
+| Full index                          | [Documentation root](docs/README.md)                                                                        |
 
 Licensed under the MIT License: [MIT](LICENSE).

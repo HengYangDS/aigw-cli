@@ -173,6 +173,25 @@ must each remain strictly above 95 percent with exact raw evidence. Formatting,
 static analysis, documentation links, OpenSpec validation, architecture,
 security, release construction, and installation are independent gates.
 
+Every completion claim names its scope, verifier, current evidence, and limit.
+The minimum release claim ladder is:
+
+| Claim                       | Required evidence                                                                                                                                | What does not prove it                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Source is releasable        | Clean exact revision, complete quality graph, package-observed statement and branch coverage, race detection, and product-signature verification | An old log, excluded package, or aggregate-only coverage           |
+| Artifact matrix is complete | Two deterministic builds from one version, epoch, toolchain, and source object; identical archives, checksums, and SPDX SBOM                     | A partial matrix or merely equivalent content                      |
+| Installation works          | Native installation, update, rollback, and uninstall from the candidate archive on each supported operating system                               | Cross-compilation or archive inspection                            |
+| Client integration works    | Real Codex and Claude invocations using the exact installed product and selected Route                                                           | Valid configuration, an endpoint probe, or a new unrelated session |
+| Release is published        | Successful tag pipeline plus independent inspection of the Release record and every asset on each selected Forge                                 | A local `dist` directory or source tag                             |
+| GA is trusted               | Protected verification of the signing policy and post-signature checksums for the exact published assets                                         | An unsigned prerelease or local identity inspection                |
+
+Projection evidence consists of the dry-run plan, all-target transaction proof,
+byte-exact rollback proof, and resulting AIGW diagnostics. Transport evidence
+belongs to the endpoint owner and includes its protocol and service health; a
+configured loopback URL does not provide it. A user-visible client claim
+requires observation in the named client context and cannot be inferred from
+configuration or transport health.
+
 ## Branch and Worktree Closeout
 
 A merged delivery branch is disposable. Remove its worktree before deleting
@@ -186,6 +205,12 @@ that:
 
 An unreachable peer warrants a recorded incomplete probe, not invented parity.
 Release tags remain product evidence and are not branch residue.
+
+Local object cleanup begins only after recording refs and worktrees. A
+canonical checkout may remove only objects named by
+`git prune --dry-run --verbose`; the closeout records the pre/post ref sets,
+object counts, Git version, exact command, and final `git fsck --full`. This
+proves local object-database hygiene only, not Forge publication.
 
 ## Product Boundary
 
