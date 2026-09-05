@@ -208,31 +208,35 @@ func TestAutomaticBackendSelectionRollbackRejectsInvalidSelectionState(t *testin
 }
 
 func TestAutomaticBackendSelectionRollbackPreservesDrift(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "secrets")
-	choice := newBackendChoice(root)
-	store, err := Select(Selection{
-		GOOS:         runtime.GOOS,
-		Root:         root,
-		KeyringProbe: func(Store) error { return errors.New("unavailable") },
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	rollback, err := PrepareBackendSelectionRollback(store)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Set("team", "token"); err != nil {
-		t.Fatal(err)
-	}
-	if err := replaceBackendChoice(choice, "keyring"); err != nil {
-		t.Fatal(err)
-	}
-	if err := rollback(); err == nil || !strings.Contains(err.Error(), "changed") {
-		t.Fatalf("rollback error = %v; want drift rejection", err)
-	}
-	if selected, err := choice.Read(); err != nil || selected != "keyring" {
-		t.Fatalf("backend selection = %q, %v; want newer keyring", selected, err)
+	for _, replacement := range []string{"keyring", "file"} {
+		t.Run(replacement, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "secrets")
+			choice := newBackendChoice(root)
+			store, err := Select(Selection{
+				GOOS:         runtime.GOOS,
+				Root:         root,
+				KeyringProbe: func(Store) error { return errors.New("unavailable") },
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			rollback, err := PrepareBackendSelectionRollback(store)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := store.Set("team", "token"); err != nil {
+				t.Fatal(err)
+			}
+			if err := replaceBackendChoice(choice, replacement); err != nil {
+				t.Fatal(err)
+			}
+			if err := rollback(); err == nil || !strings.Contains(err.Error(), "changed") {
+				t.Fatalf("rollback error = %v; want drift rejection", err)
+			}
+			if selected, err := choice.Read(); err != nil || selected != replacement {
+				t.Fatalf("backend selection = %q, %v; want %s", selected, err, replacement)
+			}
+		})
 	}
 }
 
@@ -258,35 +262,6 @@ func TestAutomaticBackendSelectionRollbackPreservesSelectionCreatedByAnotherWrit
 	}
 	if selected, err := choice.Read(); err != nil || selected != "file" {
 		t.Fatalf("backend selection = %q, %v; want externally created file selection", selected, err)
-	}
-}
-
-func TestAutomaticBackendSelectionRollbackPreservesSameBackendReplacedByAnotherWriter(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "secrets")
-	choice := newBackendChoice(root)
-	store, err := Select(Selection{
-		GOOS:         runtime.GOOS,
-		Root:         root,
-		KeyringProbe: func(Store) error { return errors.New("unavailable") },
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	rollback, err := PrepareBackendSelectionRollback(store)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Set("team", "token"); err != nil {
-		t.Fatal(err)
-	}
-	if err := replaceBackendChoice(choice, "file"); err != nil {
-		t.Fatal(err)
-	}
-	if err := rollback(); err == nil || !strings.Contains(err.Error(), "changed") {
-		t.Fatalf("rollback error = %v; want same-value replacement rejection", err)
-	}
-	if selected, err := choice.Read(); err != nil || selected != "file" {
-		t.Fatalf("backend selection = %q, %v; want external file selection", selected, err)
 	}
 }
 

@@ -329,10 +329,10 @@ func TestAuthorizeGitHubRequestRejectsControlCharacterInEachTokenName(t *testing
 	}
 }
 
-func TestGithubHTTPClientStripsAuthorizationOnCrossHostRedirect(t *testing.T) {
-	forwarded := make(chan string, 1)
+func TestReleaseHTTPClientStripsCredentialsOnCrossHostRedirect(t *testing.T) {
+	forwarded := make(chan http.Header, 1)
 	target := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		forwarded <- r.Header.Get("Authorization")
+		forwarded <- r.Header.Clone()
 	}))
 	defer target.Close()
 	origin := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -342,23 +342,27 @@ func TestGithubHTTPClientStripsAuthorizationOnCrossHostRedirect(t *testing.T) {
 	transport := origin.Client().Transport.(*http.Transport).Clone()
 	transport.TLSClientConfig = target.Client().Transport.(*http.Transport).TLSClientConfig.Clone()
 	u := Updater{HTTPClient: &http.Client{Transport: transport}}
-	client := u.githubHTTPClient()
+	client := u.releaseHTTPClient()
 	request, err := http.NewRequest(http.MethodGet, origin.URL, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	request.Header.Set("Authorization", "Bearer secret")
+	request.Header.Set("PRIVATE-TOKEN", "secret")
 	response, err := client.Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_ = response.Body.Close()
-	if got := <-forwarded; got != "" {
-		t.Fatalf("Authorization forwarded across hosts: %q", got)
+	headers := <-forwarded
+	for _, name := range []string{"Authorization", "PRIVATE-TOKEN"} {
+		if got := headers.Get(name); got != "" {
+			t.Fatalf("%s forwarded across hosts: %q", name, got)
+		}
 	}
 }
 
-func TestGithubHTTPClientRejectsHTTPSDowngradeRedirect(t *testing.T) {
+func TestReleaseHTTPClientRejectsHTTPSDowngradeRedirect(t *testing.T) {
 	plainCalled := make(chan struct{}, 1)
 	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		plainCalled <- struct{}{}
@@ -369,7 +373,7 @@ func TestGithubHTTPClientRejectsHTTPSDowngradeRedirect(t *testing.T) {
 	}))
 	defer origin.Close()
 	u := Updater{HTTPClient: origin.Client()}
-	client := u.githubHTTPClient()
+	client := u.releaseHTTPClient()
 	_, err := client.Get(origin.URL)
 	if err == nil || !strings.Contains(err.Error(), "HTTPS to HTTP") {
 		t.Fatalf("error = %v", err)
@@ -381,7 +385,7 @@ func TestGithubHTTPClientRejectsHTTPSDowngradeRedirect(t *testing.T) {
 	}
 }
 
-func TestGithubHTTPClientChainsExistingCheckRedirect(t *testing.T) {
+func TestReleaseHTTPClientChainsExistingCheckRedirect(t *testing.T) {
 	called := false
 	base := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
 		called = true
@@ -396,7 +400,7 @@ func TestGithubHTTPClientChainsExistingCheckRedirect(t *testing.T) {
 	}))
 	defer server.Close()
 	u := Updater{HTTPClient: base}
-	client := u.githubHTTPClient()
+	client := u.releaseHTTPClient()
 	response, err := client.Get(server.URL + "/start")
 	if err != nil {
 		t.Fatal(err)
@@ -407,9 +411,9 @@ func TestGithubHTTPClientChainsExistingCheckRedirect(t *testing.T) {
 	}
 }
 
-func TestGithubHTTPClientDefaultsClientWhenUnset(t *testing.T) {
+func TestReleaseHTTPClientDefaultsClientWhenUnset(t *testing.T) {
 	u := Updater{}
-	client := u.githubHTTPClient()
+	client := u.releaseHTTPClient()
 	if client.Timeout != releaseRequestTimeout {
 		t.Fatalf("timeout = %v, want %v", client.Timeout, releaseRequestTimeout)
 	}

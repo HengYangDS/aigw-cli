@@ -437,37 +437,3 @@ func TestValidateTokenFallbackHostAcceptsPlainHTTPSOrigin(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-func TestGitLabHTTPClientChainsExistingCheckRedirect(t *testing.T) {
-	called := false
-	base := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
-		called = true
-		return nil
-	}}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/start" {
-			http.Redirect(w, r, "/end", http.StatusFound)
-			return
-		}
-		_, _ = w.Write([]byte("ok"))
-	}))
-	defer server.Close()
-	u := Updater{HTTPClient: base}
-	client := u.gitLabHTTPClient()
-	response, err := client.Get(server.URL + "/start")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = response.Body.Close()
-	if !called {
-		t.Fatal("existing CheckRedirect was not invoked")
-	}
-}
-
-func TestGitLabHTTPClientDefaultsClientWhenUnset(t *testing.T) {
-	u := Updater{}
-	client := u.gitLabHTTPClient()
-	if client.Timeout != releaseRequestTimeout {
-		t.Fatalf("timeout = %v", client.Timeout)
-	}
-}
