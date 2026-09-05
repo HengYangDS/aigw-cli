@@ -43,7 +43,6 @@ import (
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/renaming"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/synchronization"
 	"aigw-cli/internal/upgrade"
 	"github.com/spf13/cobra"
 )
@@ -76,14 +75,6 @@ type App struct {
 // synchronizer is the CLI composition boundary for the synchronization
 // domain. It assembles dependencies only; synchronization behavior remains in
 // internal/synchronization.
-func (a *App) synchronizer() synchronization.Synchronizer {
-	return synchronization.Synchronizer{
-		Config: a.Config, Secrets: a.Secrets, Runner: a.Runner, Discovery: a.Discovery,
-		ClaudeSettingsPath: a.ClaudeSettingsPath,
-		AIGWExecutable:     a.Executable,
-	}
-}
-
 type renderErrorWriter struct {
 	writer io.Writer
 	err    *error
@@ -300,7 +291,7 @@ func (a *App) renamingDependencies() renaming.Dependencies {
 		Out:   renderErrorWriter{writer: a.Out, err: &a.renderErr},
 		Color: a.Color, Width: console.PresentationWidth(a.Out, environmentMap(a.Env)),
 		Interactive: a.Interactive, Prompt: a.Prompt, HTTP: a.HTTP,
-		Synchronizer: a.synchronizer(),
+		Synchronizer: invocation.Synchronizer(a.invocationContext()),
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/cli/readiness"
 	clientdomain "aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
@@ -14,10 +15,10 @@ import (
 func TestCommandBoundaryRouteAndReconciliationErrors(t *testing.T) {
 	cfg := configuredCommandState()
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "configuration.toml")}}
-	if _, err := (&App{}).synchronizer().Plan(cfg, cfg); err == nil {
+	if _, err := invocation.Synchronizer((&App{}).invocationContext()).Plan(cfg, cfg); err == nil {
 		t.Fatal("expected reconciliation planning error")
 	}
-	if err := (&App{}).synchronizer().Reconcile(context.Background(), cfg, cfg); err == nil {
+	if err := invocation.Synchronizer((&App{}).invocationContext()).Reconcile(context.Background(), cfg, cfg); err == nil {
 		t.Fatal("expected reconciliation error")
 	}
 
@@ -41,21 +42,21 @@ func TestRouteAndAdapterReadinessHelpers(t *testing.T) {
 	}
 	app := &App{}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
-	if status := app.synchronizer().Inspect(context.Background(), cfg, configuration.ClientCodex, runtime, clientdomain.InspectionOptions{}); status.Ready || !strings.Contains(status.Issue, "executable") {
+	if status := invocation.Synchronizer(app.invocationContext()).Inspect(context.Background(), cfg, configuration.ClientCodex, runtime, clientdomain.InspectionOptions{}); status.Ready || !strings.Contains(status.Issue, "executable") {
 		t.Fatalf("status=%#v", status)
 	}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex"}
-	if status := app.synchronizer().Inspect(context.Background(), cfg, configuration.ClientCodex, runtime, clientdomain.InspectionOptions{}); status.Ready || !strings.Contains(status.Issue, "target") {
+	if status := invocation.Synchronizer(app.invocationContext()).Inspect(context.Background(), cfg, configuration.ClientCodex, runtime, clientdomain.InspectionOptions{}); status.Ready || !strings.Contains(status.Issue, "target") {
 		t.Fatalf("status=%#v", status)
 	}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
-	if status := app.synchronizer().Inspect(context.Background(), cfg, configuration.ClientCodex, runtime, clientdomain.InspectionOptions{}); status.Ready || !strings.Contains(status.Issue, "drift") {
+	if status := invocation.Synchronizer(app.invocationContext()).Inspect(context.Background(), cfg, configuration.ClientCodex, runtime, clientdomain.InspectionOptions{}); status.Ready || !strings.Contains(status.Issue, "drift") {
 		t.Fatalf("status=%#v", status)
 	}
 
 	claudeRuntime, _ := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "claude"}
-	if status := app.synchronizer().Inspect(context.Background(), cfg, configuration.ClientClaude, claudeRuntime, clientdomain.InspectionOptions{}); status.Ready || !strings.Contains(status.Issue, "executable is unavailable") {
+	if status := invocation.Synchronizer(app.invocationContext()).Inspect(context.Background(), cfg, configuration.ClientClaude, claudeRuntime, clientdomain.InspectionOptions{}); status.Ready || !strings.Contains(status.Issue, "executable is unavailable") {
 		t.Fatalf("status=%#v", status)
 	}
 
