@@ -89,24 +89,13 @@ source; it MUST NOT be treated as current state or applied implicitly.
 
 ### Requirement: Provider-neutral configuration
 
-AIGW SHALL model Accounts, client-scoped Profiles, explicit client Routes,
-protocol endpoints, authentication ownership, and native client model choices
-without provider identity hacks, named gateway products, deployment topology,
-or a global Profile fallback. An Account SHALL own endpoint capability. A
-Profile SHALL declare whether authentication is owned by AIGW as an Account
-Token or by the selected client. A Route SHALL map one admitted client to one
-compatible Profile.
-The current configuration schema SHALL be the only executable local schema;
-earlier schemas require an explicit operator-led replacement rather than an
-embedded migration path. Configuration manifests MUST remain credential-free
-and SHALL describe available capability rather than requiring every Account to
-be connected during import. AIGW SHALL inspect or read an Account Token only
-when an enabled selected Profile declares Account-Token authentication.
-`aigw check` SHALL perform a bounded authenticated endpoint probe for such a
-Profile. For client-native authentication it SHALL prove only the local Route,
-projection, and observable client prerequisites, SHALL NOT read the AIGW Secret
-Store or issue a direct endpoint probe, and SHALL direct the operator to
-`aigw verify --for <client>` for live client-owned authentication evidence.
+AIGW SHALL model Accounts, Profiles, Routes, endpoints, authentication
+ownership, and native models without provider identity hacks, named gateways,
+deployment topology, or global fallback. Each Route MUST bind one admitted
+client to one compatible Profile. Only the current schema is executable; old
+schemas need replacement. Manifests MUST omit credentials. Readiness SHALL
+follow authentication ownership: a bounded Account-Token probe, or local
+client-native prerequisites plus `aigw verify`.
 
 #### Scenario: Select independent Claude and Codex services
 

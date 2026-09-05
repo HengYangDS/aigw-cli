@@ -3,6 +3,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -23,12 +24,13 @@ type command struct {
 }
 
 type commandRunner func(command) error
+type outputRunner func(command) ([]byte, error)
 
 var sourceCommands = []command{
 	{Name: "cue", Args: []string{"fmt", "--check", "--files", ".config/ci"}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "project", "--check"}},
 	{Name: "npm", Args: []string{"audit", "signatures"}},
-	{Name: "openspec", Args: []string{"validate", "--all", "--strict", "--no-interactive"}},
+	{Name: "go", Args: []string{"run", "./tools/ci", "openspec"}},
 	{Name: "editorconfig-checker", Args: []string{"-disable-indentation", "-disable-indent-size"}},
 	{Name: "prettier", Args: []string{"--check", "--config", ".config/checks/markdown/prettier.json", "--ignore-path", ".config/checks/markdown/prettier-ignore", "*.md", "docs/**/*.md", "openspec/**/*.md"}},
 	{Name: "markdownlint-cli2", Args: []string{"--config", ".config/checks/markdown/policy.yaml"}},
@@ -70,7 +72,7 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <project|source|static|links|native|trust-input>")
+		return errors.New("usage: ci <project|source|static|openspec|links|native|trust-input>")
 	}
 	switch args[0] {
 	case "static":
@@ -87,6 +89,11 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 			return err
 		}
 		return runCommands(commands, stdout, runner)
+	case "openspec":
+		if len(args) != 1 {
+			return errors.New("usage: ci openspec")
+		}
+		return runOpenSpecValidation(stdout, systemOutputRunner)
 	case "project":
 		flags := flag.NewFlagSet("ci project", flag.ContinueOnError)
 		flags.SetOutput(io.Discard)
@@ -139,6 +146,62 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 	default:
 		return fmt.Errorf("unknown ci command: %s", args[0])
 	}
+}
+
+type openSpecValidationReport struct {
+	Report struct {
+		Kind          string `json:"kind"`
+		ReturnedItems int    `json:"returnedItems"`
+		TotalItems    int    `json:"totalItems"`
+	} `json:"report"`
+	ItemFindings []struct {
+		ID     string `json:"id"`
+		Issues []struct {
+			Level   string `json:"level"`
+			Path    string `json:"path"`
+			Message string `json:"message"`
+		} `json:"issues"`
+	} `json:"itemFindings"`
+}
+
+func runOpenSpecValidation(stdout io.Writer, runner outputRunner) error {
+	output, err := runner(command{
+		Name: "openspec",
+		Args: []string{"validate", "--all", "--strict", "--report", "findings", "--json", "--no-interactive"},
+	})
+	if err != nil {
+		return fmt.Errorf("OpenSpec validation failed: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+	return validateOpenSpecReport(output, stdout)
+}
+
+func systemOutputRunner(call command) ([]byte, error) {
+	return exec.Command(repositoryExecutable(".", call.Name, runtime.GOOS), call.Args...).CombinedOutput()
+}
+
+func validateOpenSpecReport(raw []byte, stdout io.Writer) error {
+	var report openSpecValidationReport
+	if err := json.Unmarshal(raw, &report); err != nil {
+		return fmt.Errorf("decode OpenSpec validation report: %w", err)
+	}
+	if report.Report.Kind != "validation-findings" || report.Report.ReturnedItems != len(report.ItemFindings) {
+		return errors.New("unexpected OpenSpec validation report")
+	}
+	if len(report.ItemFindings) == 0 {
+		_, _ = fmt.Fprintf(stdout, "OpenSpec: %d items, 0 findings\n", report.Report.TotalItems)
+		return nil
+	}
+
+	findings := make([]string, 0, report.Report.ReturnedItems)
+	for _, item := range report.ItemFindings {
+		for _, issue := range item.Issues {
+			findings = append(findings, fmt.Sprintf("%s %s [%s]: %s", item.ID, issue.Path, issue.Level, issue.Message))
+		}
+	}
+	if len(findings) == 0 {
+		return errors.New("unexpected OpenSpec validation report")
+	}
+	return fmt.Errorf("OpenSpec validation findings:\n%s", strings.Join(findings, "\n"))
 }
 
 func currentRepositoryMarkdown(root string) ([]string, error) {
