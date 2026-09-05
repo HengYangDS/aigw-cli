@@ -210,9 +210,9 @@ actions: {
 
 gitlab: {
 	variables: {
-		GIT_DEPTH:               "0"
-		GOPROXY:                 "https://goproxy.cn|https://proxy.golang.org|direct"
-		MISE_GLOBAL_CONFIG_FILE: "$CI_PROJECT_DIR/.config/ci/empty-mise-global.toml"
+		GIT_DEPTH:       "0"
+		GOPROXY:         "https://goproxy.cn|https://proxy.golang.org|direct"
+		MISE_CONFIG_DIR: "$CI_PROJECT_DIR/.config/ci"
 	}
 	workflow: rules: [
 		{if: "$CI_COMMIT_TAG"},
@@ -315,6 +315,7 @@ githubVerify: {
 		GIT_CONFIG_COUNT:   "1"
 		GIT_CONFIG_KEY_0:   "init.defaultBranch"
 		GIT_CONFIG_VALUE_0: "main"
+		MISE_CONFIG_DIR:    "${{ github.workspace }}/.config/ci"
 	}
 	"on": {
 		push: branches: [lifecycle.acceptedBranch]
@@ -395,6 +396,7 @@ githubRelease: {
 		GIT_CONFIG_COUNT:   "1"
 		GIT_CONFIG_KEY_0:   "init.defaultBranch"
 		GIT_CONFIG_VALUE_0: "main"
+		MISE_CONFIG_DIR:    "${{ github.workspace }}/.config/ci"
 	}
 	"on": {
 		push: tags: ["v*"]

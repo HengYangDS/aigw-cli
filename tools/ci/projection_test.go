@@ -286,8 +286,11 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	if got := pipeline.Variables["MISE_GLOBAL_CONFIG_FILE"]; got != "$CI_PROJECT_DIR/.config/ci/empty-mise-global.toml" {
-		t.Fatalf("GitLab mise global config = %q, want repository-owned empty config", got)
+	if got := pipeline.Variables["MISE_CONFIG_DIR"]; got != "$CI_PROJECT_DIR/.config/ci" {
+		t.Fatalf("GitLab mise config directory = %q, want repository-owned config directory", got)
+	}
+	if got := pipeline.Variables["MISE_GLOBAL_CONFIG_FILE"]; got != "" {
+		t.Fatalf("GitLab must not project a missing global config file: %q", got)
 	}
 	bootstrap := pipeline.LinuxToolchain.BeforeScript
 	if len(bootstrap) != 0 {
@@ -315,6 +318,28 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 	}
 	if len(pipeline.SourceToolchain.BeforeScript) != 2 {
 		t.Fatalf("source toolchain bootstrap commands = %d, want 2: %q", len(pipeline.SourceToolchain.BeforeScript), pipeline.SourceToolchain.BeforeScript)
+	}
+}
+
+func TestGitHubWorkflowsUseOnlyRepositoryMiseConfiguration(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, index := range []int{1, 2} {
+		var workflow struct {
+			Env map[string]string `yaml:"env"`
+		}
+		if err := yaml.Unmarshal([]byte(projections[index].Content), &workflow); err != nil {
+			t.Fatal(err)
+		}
+		if got := workflow.Env["MISE_CONFIG_DIR"]; got != "${{ github.workspace }}/.config/ci" {
+			t.Fatalf("GitHub projection %d mise config directory = %q, want repository-owned config directory", index, got)
+		}
+		if got := workflow.Env["MISE_GLOBAL_CONFIG_FILE"]; got != "" {
+			t.Fatalf("GitHub projection %d must not project a global config file: %q", index, got)
+		}
 	}
 }
 
@@ -529,8 +554,10 @@ func TestGitHubWorkflowsDeclareTheCanonicalInitialBranch(t *testing.T) {
 			"GIT_CONFIG_KEY_0":   "init.defaultBranch",
 			"GIT_CONFIG_VALUE_0": "main",
 		}
-		if !reflect.DeepEqual(workflow.Env, want) {
-			t.Fatalf("GitHub projection %d Git environment = %#v, want %#v", index, workflow.Env, want)
+		for name, value := range want {
+			if got := workflow.Env[name]; got != value {
+				t.Fatalf("GitHub projection %d %s = %q, want %q", index, name, got, value)
+			}
 		}
 	}
 }
