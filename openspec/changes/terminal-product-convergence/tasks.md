@@ -67,7 +67,7 @@
 - [ ] 7.3 Keep tests organized by behavior and evidence scope rather than mirroring incidental filenames; isolate unit, integration, native, release, and end-to-end contracts, including the mixed root-level CLI tests.
 - [x] 7.4 Enforce dependency direction so product packages cannot import repository tooling, tests, Forge code, ETHOS internals, or another client's implementation.
 - [ ] 7.5 Remove duplicate constants, schemas, renderers, validators, state models, fixtures, wrappers, aliases, re-exports, unused dependencies, empty directories, and unreachable code.
-- [ ] 7.6 Audit every root file and `.config` carrier for correct ownership and placement; remove the `records` and nested `runtime` scan exemptions, then relocate or delete historical residue and compatibility-oriented ignores.
+- [x] 7.6 Audit every root file and `.config` carrier for correct ownership and placement; remove the `records` and nested `runtime` scan exemptions, then relocate or delete historical residue and compatibility-oriented ignores.
 - [ ] 7.7 Prove tracked entity count and duplicate ownership decrease while every required invariant retains one reachable implementation and test.
 
 ## 8. Quality authority

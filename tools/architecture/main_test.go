@@ -21,8 +21,8 @@ go_roots = ["cmd", "internal", "tools"]
 tracked_carrier_owners = { "." = { ".config" = "configuration", "cmd" = "command", "internal" = "product", "policy.toml" = "policy", "scripts" = "scripts", "tools" = "tooling" } }
 composition_root_files = { "internal/cli" = ["app.go"], "tools/release" = ["commands.go", "main.go"] }
 peer_package_roots = { "internal/cli" = ["invocation"] }
-ignore_roots = ["vendor", ".git", "records", "build"]
-ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
+ignore_roots = ["vendor", ".git", "build"]
+ignore_directory_names = ["vendor", ".git", "node_modules"]
 `
 
 type rejectingWriter struct{}

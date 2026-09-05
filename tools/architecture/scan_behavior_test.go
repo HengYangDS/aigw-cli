@@ -27,8 +27,11 @@ func TestIgnoreHelpers(t *testing.T) {
 	if !shouldIgnoreRelPath("vendor/pkg/a.go", p) {
 		t.Fatal("ignore root")
 	}
-	if !shouldIgnoreRelPath("internal/runtime/x.go", p) {
-		t.Fatal("ignore dir name")
+	if shouldIgnoreRelPath("internal/runtime/x.go", p) {
+		t.Fatal("runtime must not receive a historical exemption")
+	}
+	if shouldIgnoreRelPath("records/internal/x.go", p) {
+		t.Fatal("records must not receive a historical exemption")
 	}
 	if shouldIgnoreRelPath("internal/pkg/a.go", p) {
 		t.Fatal("normal path")
@@ -61,14 +64,12 @@ func TestRelativePolicyFromRoot(t *testing.T) {
 	}
 }
 
-func TestCollectIgnoresNonGoAndRuntime(t *testing.T) {
+func TestCollectIgnoresNonGoFiles(t *testing.T) {
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "note.txt"), "x")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
-	writeFile(t, filepath.Join(root, "internal", "pkg", "runtime", "hidden.go"), "package runtime\n")
-	writeFile(t, filepath.Join(root, "records", "internal", "x.go"), "package x\n")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
