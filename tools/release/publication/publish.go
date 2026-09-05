@@ -1,3 +1,4 @@
+// Package publication publishes verified release artifacts to configured forges.
 package publication
 
 import (

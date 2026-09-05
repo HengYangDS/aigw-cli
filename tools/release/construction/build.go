@@ -1,3 +1,4 @@
+// Package construction builds reproducible AIGW release artifacts.
 package construction
 
 import (

@@ -1,3 +1,4 @@
+// Package claude owns Claude Code command and settings projection.
 package claude
 
 import (
