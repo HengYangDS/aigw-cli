@@ -32,7 +32,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "test", "./tools/architecture"},
 		{"go", "run", "./tools/coverage", "--race"},
 		{"go", "vet", "./..."},
-		{"go", "tool", "staticcheck", "-checks=SA*,S1*", "./..."},
+		{"go", "tool", "staticcheck", "-checks=SA*,S1*,U*", "./..."},
 		{"go", "tool", "errcheck", "./..."},
 		{"go", "run", "./tools/repository", "--root", ".", "go-format"},
 		{"go", "test", "./tools/repository"},
