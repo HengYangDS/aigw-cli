@@ -405,28 +405,45 @@ func TestCodexSyncRepairsOnlyAnExactTruncatedOwnedProjection(t *testing.T) {
 	}
 }
 
-func TestCodexSyncRefusesATruncatedProjectionWithExtraContent(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "configuration.toml")
-	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	profile := codexRuntime("gpt-5.6-terra", "GPT-5.6 Terra Codex", "https://example.test/v1", "gpt-5.6-terra")
-	if err := codex.SyncConfig(path, profile); err != nil {
-		t.Fatal(err)
-	}
-	projected, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	truncated := strings.Replace(string(projected), "# <<< AIGW managed provider <<<\n", "foreign = \"do-not-overwrite\"\n", 1)
-	if err := os.WriteFile(path, []byte(truncated), 0o600); err != nil {
-		t.Fatal(err)
+func TestCodexProjectionRejectsUnownedChanges(t *testing.T) {
+	profile := codexRuntime("gpt-5.6-sol", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol")
+	project := func(t *testing.T) (string, string) {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "configuration.toml")
+		if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := codex.SyncConfig(path, profile); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return path, string(data)
 	}
 
-	err = codex.SyncConfig(path, profile)
-	if err == nil || !strings.Contains(err.Error(), "incomplete") {
-		t.Fatalf("SyncConfig() error = %v, want incomplete owned-projection conflict", err)
-	}
+	t.Run("foreign content replaces a managed marker", func(t *testing.T) {
+		path, projected := project(t)
+		truncated := strings.Replace(projected, "# <<< AIGW managed provider <<<\n", "foreign = \"do-not-overwrite\"\n", 1)
+		if err := os.WriteFile(path, []byte(truncated), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := codex.SyncConfig(path, profile); err == nil || !strings.Contains(err.Error(), "incomplete") {
+			t.Fatalf("SyncConfig() error = %v, want incomplete owned-projection conflict", err)
+		}
+	})
+
+	t.Run("managed model drifts", func(t *testing.T) {
+		path, projected := project(t)
+		drifted := strings.Replace(projected, `model = "gpt-5.6-sol" # managed by AIGW`, `model = "gpt-5.6-terra" # managed by AIGW`, 1)
+		if err := os.WriteFile(path, []byte(drifted), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := codex.ValidateConfig(path, profile); err == nil || !strings.Contains(err.Error(), "model selection") {
+			t.Fatalf("ValidateConfig() error = %v, want managed model drift", err)
+		}
+	})
 }
 
 func TestCodexSyncRepairsExactTruncationBeforeUnrelatedConfig(t *testing.T) {
@@ -459,30 +476,6 @@ func TestCodexSyncRepairsExactTruncationBeforeUnrelatedConfig(t *testing.T) {
 	}
 	if err := codex.ValidateConfig(path, profile); err != nil {
 		t.Fatalf("ValidateConfig() rejected repaired projection: %v", err)
-	}
-}
-
-func TestValidateConfigDetectsManagedModelDrift(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "configuration.toml")
-	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	profile := codexRuntime("gpt-5.6-sol", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol")
-	if err := codex.SyncConfig(path, profile); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	drifted := strings.Replace(string(data), `model = "gpt-5.6-sol" # managed by AIGW`, `model = "gpt-5.6-terra" # managed by AIGW`, 1)
-	if err := os.WriteFile(path, []byte(drifted), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	err = codex.ValidateConfig(path, profile)
-	if err == nil || !strings.Contains(err.Error(), "model selection") {
-		t.Fatalf("ValidateConfig() error = %v, want managed model drift", err)
 	}
 }
 
