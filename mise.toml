@@ -1,11 +1,11 @@
-min_version = "2026.8.10"
+min_version = "2026.9.1"
 
 [settings]
 locked = true
 
 [tools]
 # Language runtimes
-go = "1.27.0"
+go = "1.27.1"
 node = "26.8.1"
 
 # Specification and CI modeling
@@ -16,7 +16,7 @@ cue = "0.17.1"
 "github:anchore/syft" = "1.51.1"
 
 # Static quality
-editorconfig-checker = "3.11.2"
+"github:editorconfig-checker/editorconfig-checker" = "4.0.1"
 "github:gitleaks/gitleaks" = "8.30.1"
 "github:rhysd/actionlint" = "1.7.12"
 "github:lycheeverse/lychee" = "lychee-v0.24.2"

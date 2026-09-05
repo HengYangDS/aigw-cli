@@ -40,7 +40,7 @@ commands: {
 }
 
 nativeToolchain: MISE_ENABLE_TOOLS:           "go,cue"
-sourceToolchain: MISE_ENABLE_TOOLS:           "go,node,cue,editorconfig-checker,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
+sourceToolchain: MISE_ENABLE_TOOLS:           "go,node,cue,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
 releaseReadinessToolchain: MISE_ENABLE_TOOLS: "go"
 
 lifecycle: {
@@ -121,7 +121,7 @@ _graphOrder: {
 	}
 }
 
-miseImage: "ghcr.io/jdx/mise@sha256:f2d637d5e5189f7ec177b73bce5cd5db7e7b17a4f466f887c1b88ac2dd431129"
+miseImage: "ghcr.io/jdx/mise@sha256:df5adf538c92d86f9807e738c7c7a9b32a1ae06edf441ede141333e3fe6a2cd9"
 
 #MiseGitLabImage: {
 	name: miseImage
@@ -130,7 +130,7 @@ miseImage: "ghcr.io/jdx/mise@sha256:f2d637d5e5189f7ec177b73bce5cd5db7e7b17a4f466
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
-	mise:     "jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518"
+	mise:     "jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c"
 	upload:   "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
 }
 

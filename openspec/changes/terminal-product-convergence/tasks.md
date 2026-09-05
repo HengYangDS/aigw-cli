@@ -87,8 +87,8 @@
 - [x] 9.1 Add minimal cross-platform `mise` tasks named `bootstrap`, `check`, `native`, and `release`; each delegates to existing ecosystem owners and no shell wrapper or parallel task runner remains.
 - [ ] 9.2 Prove a fresh Work Lane reconstructs independent dependencies, build, coverage, and temporary state from committed locks while sharing only content-addressed caches.
 - [ ] 9.3 Remove ambient interpreter, user-site, global mise configuration, system package, sibling checkout, and unpinned network discovery from successful local and hosted paths.
-- [ ] 9.4 Audit every direct runtime, development, OpenSpec, Go, Node, mise, packaging, documentation, CI Action, and release dependency against current stable releases.
-- [ ] 9.5 Advance compatible direct dependencies in their existing single sources of truth and regenerate `go.sum`, `package-lock.json`, and `mise.lock` deterministically.
+- [x] 9.4 Audit every direct runtime, development, OpenSpec, Go, Node, mise, packaging, documentation, CI Action, and release dependency against current stable releases.
+- [x] 9.5 Advance compatible direct dependencies in their existing single sources of truth and regenerate `go.sum`, `package-lock.json`, and `mise.lock` deterministically.
 - [ ] 9.6 Prove a second clean resolution is byte-clean and every tool reports the locked version on macOS, Linux, and Windows.
 - [ ] 9.7 Configure one dependency-update proposal owner with release-age policy, safe grouping, vulnerability priority, automatic merge criteria, and no competing proposal on the peer Forge.
 - [ ] 9.8 Generate and verify SBOM, vulnerability, license, checksum, signature, and provenance outputs without checkout paths, timestamps, credentials, or installer-local metadata.
