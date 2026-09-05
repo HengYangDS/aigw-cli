@@ -85,7 +85,7 @@
 ## 9. Development environment and supply chain
 
 - [x] 9.1 Add minimal cross-platform `mise` tasks named `bootstrap`, `check`, `native`, and `release`; each delegates to existing ecosystem owners and no shell wrapper or parallel task runner remains.
-- [ ] 9.2 Prove a fresh Work Lane reconstructs independent dependencies, build, coverage, and temporary state from committed locks while sharing only content-addressed caches.
+- [x] 9.2 Prove a fresh Work Lane reconstructs independent dependencies, build, coverage, and temporary state from committed locks while sharing only content-addressed caches.
 - [ ] 9.3 Remove ambient interpreter, user-site, global mise configuration, system package, sibling checkout, and unpinned network discovery from successful local and hosted paths.
 - [x] 9.4 Audit every direct runtime, development, OpenSpec, Go, Node, mise, packaging, documentation, CI Action, and release dependency against current stable releases.
 - [x] 9.5 Advance compatible direct dependencies in their existing single sources of truth and regenerate `go.sum`, `package-lock.json`, and `mise.lock` deterministically.
