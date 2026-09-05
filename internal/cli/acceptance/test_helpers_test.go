@@ -41,11 +41,11 @@ func (r *fakeRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte,
 	r.capturePlans = append(r.capturePlans, plan)
 	_, hasDeadline := ctx.Deadline()
 	r.captureDeadlines = append(r.captureDeadlines, hasDeadline)
-	if r.capture != nil {
-		return nil, r.capture
-	}
 	if len(plan.Args) == 1 && plan.Args[0] == "--version" {
 		return []byte("codex-cli 0.0.0-test\n"), nil
+	}
+	if r.capture != nil {
+		return append([]byte(nil), r.output...), r.capture
 	}
 	if outputPath := planArgumentValue(plan.Args, "--output-last-message"); outputPath != "" {
 		output := r.output

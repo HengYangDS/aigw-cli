@@ -5,6 +5,7 @@ import (
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -131,6 +132,63 @@ func TestVerifyCodexRunsTheConfiguredClientOnceAndReportsItsIdentity(t *testing.
 	wantSHA256 := fmt.Sprintf("%x", sha256.Sum256(executableBytes))
 	if strings.Contains(out.String(), "verify-token") || strings.Contains(out.String(), "AIGW_OK") || !strings.Contains(out.String(), "codex-cli 0.0.0-test") || !strings.Contains(out.String(), wantSHA256) {
 		t.Fatalf("verify output = %s", out.String())
+	}
+}
+
+func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
+	app, out, _, runner := testApp(t, "")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["dmx"] = configuration.Account{
+		Label: "DMX",
+		Endpoints: configuration.Endpoints{
+			OpenAIResponses: "https://example.test/v1",
+		},
+	}
+	cfg.Profiles["gpt"] = configuration.Profile{
+		Label:   "GPT",
+		Account: "dmx",
+		Client:  configuration.ClientCodex,
+		Model:   "gpt-test",
+	}
+	cfg.Routes[configuration.ClientCodex] = "gpt"
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.SyncConfig(target, runtime); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+		Enabled:    true,
+		Executable: executableFixture(t, "codex"),
+		Targets:    []string{target},
+	}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	runner.output = []byte("Error loading config.toml: unknown configuration field mcp_servers.github.disabled_reason\n")
+	runner.capture = errors.New("exit status 1")
+
+	err = execute(t, app, "verify", "--for", "codex")
+	if err == nil {
+		t.Fatal("failed Codex verification was accepted")
+	}
+	text := out.String()
+	for _, want := range []string{
+		"Codex minimal verification request failed",
+		"unknown configuration field mcp_servers.github.disabled_reason",
+		"aigw verify --for codex",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("verification output lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "aigw check") {
+		t.Fatalf("verification output retained the unrelated check loop:\n%s", text)
 	}
 }
 

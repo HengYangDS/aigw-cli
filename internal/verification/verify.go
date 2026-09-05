@@ -15,6 +15,7 @@ import (
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
+	"aigw-cli/internal/redaction"
 )
 
 // Runner is the ordinary process capability carried by a CLI invocation. Live
@@ -74,8 +75,9 @@ func VerifyCodexInvocation(ctx context.Context, runner Runner, cfg configuration
 	if err != nil {
 		return codex.ExecutableIdentity{}, err
 	}
-	if _, err := captureRunner.RunCapture(ctx, plan); err != nil {
-		return codex.ExecutableIdentity{}, fmt.Errorf("Codex minimal verification request failed: %w", err)
+	diagnostic, err := captureRunner.RunCapture(ctx, plan)
+	if err != nil {
+		return codex.ExecutableIdentity{}, verificationFailure("Codex", configuration.ClientCodex, diagnostic, err)
 	}
 	finalMessage, err := readBoundedFile(outputPath, responseLimit)
 	if err != nil {
@@ -136,10 +138,19 @@ func VerifyClaudeRuntime(ctx context.Context, runner Runner, executable string, 
 	}
 	output, err := captureRunner.RunCapture(ctx, plan)
 	if err != nil {
-		return fmt.Errorf("Claude minimal verification request failed: %w", err)
+		return verificationFailure("Claude", configuration.ClientClaude, output, err, token)
 	}
 	if strings.TrimSpace(string(output)) != responseSentinel {
 		return fmt.Errorf("Claude model response did not return the expected AIGW_OK verification marker")
 	}
 	return nil
+}
+
+func verificationFailure(label, client string, diagnostic []byte, cause error, secrets ...string) error {
+	detail := strings.Join(strings.Fields(redaction.Text(string(diagnostic), secrets...)), " ")
+	next := "aigw verify --for " + client
+	if detail == "" {
+		return fmt.Errorf("%s minimal verification request failed: %w; inspect the client error, then run `%s`", label, cause, next)
+	}
+	return fmt.Errorf("%s minimal verification request failed: %s; correct the reported client error, then run `%s`: %w", label, detail, next, cause)
 }

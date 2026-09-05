@@ -13,7 +13,8 @@ import (
 
 type Runner struct{}
 
-// CaptureRunner runs a bounded process and returns its standard output.
+// CaptureRunner runs a bounded process. It returns standard output on success
+// and standard error with an execution error.
 type CaptureRunner interface {
 	RunCapture(context.Context, Plan) ([]byte, error)
 }
@@ -68,9 +69,9 @@ func (Runner) Run(ctx context.Context, plan Plan) error {
 	return nil
 }
 
-// RunCapture runs a bounded, non-interactive process invocation. It never
-// embeds captured output in returned errors, so a misbehaving client cannot
-// accidentally surface process environment or response material.
+// RunCapture runs a bounded, non-interactive process invocation. It returns
+// standard output on success and standard error with a child-process failure.
+// Captured bytes remain untrusted until the owning caller redacts them.
 func (Runner) RunCapture(ctx context.Context, plan Plan) ([]byte, error) {
 	if plan.Replace {
 		return nil, fmt.Errorf("a captured process cannot replace the current process")
@@ -98,7 +99,7 @@ func (Runner) RunCapture(ctx context.Context, plan Plan) ([]byte, error) {
 		if errors.Is(err, exec.ErrWaitDelay) {
 			return nil, fmt.Errorf("output pipes for %s did not close within %s: %w", plan.Executable, capturedProcessWaitDelay, err)
 		}
-		return nil, fmt.Errorf("run %s: %w", plan.Executable, err)
+		return append([]byte(nil), stderr.Bytes()...), fmt.Errorf("run %s: %w", plan.Executable, err)
 	}
 	return append([]byte(nil), stdout.Bytes()...), nil
 }

@@ -36,6 +36,7 @@ type recordingCaptureRunner struct {
 	version            string
 	marker             string
 	removeFinalMessage bool
+	requestOutput      []byte
 	requestErr         error
 }
 
@@ -49,7 +50,7 @@ func (runner *recordingCaptureRunner) RunCapture(_ context.Context, plan process
 		return []byte(runner.version + "\n"), nil
 	}
 	if runner.requestErr != nil {
-		return nil, runner.requestErr
+		return append([]byte(nil), runner.requestOutput...), runner.requestErr
 	}
 	outputPath := argumentValue(plan.Args, "--output-last-message")
 	if outputPath == "" {
@@ -221,9 +222,27 @@ func TestVerifyCodexRejectsUnavailableCapabilityAndWrongFinalMessage(t *testing.
 	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "wrong"}, cfg, runtime); err == nil || !strings.Contains(err.Error(), "expected AIGW_OK") {
 		t.Fatalf("marker error = %v", err)
 	}
-	requestFailure := &recordingCaptureRunner{version: "codex-cli 9.9.9", requestErr: errors.New("request failed")}
-	if _, err := VerifyCodexInvocation(context.Background(), requestFailure, cfg, runtime); err == nil || !strings.Contains(err.Error(), "minimal verification request failed") {
-		t.Fatalf("request error = %v", err)
+	requestFailure := &recordingCaptureRunner{
+		version:       "codex-cli 9.9.9",
+		requestOutput: []byte("Error loading config.toml: unknown configuration field mcp_servers.github.disabled_reason; token=must-not-leak\n"),
+		requestErr:    errors.New("exit status 1"),
+	}
+	_, err = VerifyCodexInvocation(context.Background(), requestFailure, cfg, runtime)
+	if err == nil {
+		t.Fatal("failed Codex request was accepted")
+	}
+	for _, want := range []string{
+		"Codex minimal verification request failed",
+		"unknown configuration field mcp_servers.github.disabled_reason",
+		"token=[REDACTED]",
+		"aigw verify --for codex",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("request error lacks %q: %v", want, err)
+		}
+	}
+	if strings.Contains(err.Error(), "must-not-leak") {
+		t.Fatalf("request error exposed a credential: %v", err)
 	}
 	if outputPath := argumentValue(requestFailure.plans[len(requestFailure.plans)-1].Args, "--output-last-message"); outputPath == "" {
 		t.Fatal("failed request plan has no output path")

@@ -82,7 +82,7 @@ allowed_import_edges = {
   ],
   "internal/cli/account" = ["internal/account", "internal/cli/invocation", "internal/configuration", "internal/credential", "internal/presentation", "internal/providers", "internal/secrets", "internal/synchronization"],
   "internal/cli/onboarding" = ["internal/cli/invocation", "internal/configuration", "internal/credential", "internal/presentation", "internal/prompt", "internal/secrets"],
-  "internal/verification" = ["internal/claude", "internal/codex", "internal/configuration", "internal/process"],
+  "internal/verification" = ["internal/claude", "internal/codex", "internal/configuration", "internal/process", "internal/redaction"],
   "internal/prompt" = [],
   "internal/redaction" = [],
   "internal/diagnostics" = ["internal/configuration", "internal/credential", "internal/redaction"],
