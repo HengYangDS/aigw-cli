@@ -2,13 +2,13 @@ package main
 
 import (
 	"aigw-cli/tools/release/artifact"
-	"aigw-cli/tools/release/construction"
 	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -62,59 +62,51 @@ func TestRunBuildUsesPublicArgumentContract(t *testing.T) {
 	}
 }
 
-func TestValidateBuildReleaseSources(t *testing.T) {
-	for _, name := range []string{"AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY", "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY"} {
-		t.Setenv(name, "")
-	}
-	if err := construction.ValidateSources(); err != nil {
+func TestRunArtifactCommands(t *testing.T) {
+	version := "1.2.3"
+	left, right := writeArtifactFixture(t, version), writeArtifactFixture(t, version)
+	var output bytes.Buffer
+	if err := run([]string{"validate-artifacts", left, version}, &output); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "https://gitlab.example.test")
-	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "group/project")
-	if err := construction.ValidateSources(); err != nil {
+	if err := run([]string{"compare-artifacts", left, right, version}, &output); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
-	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
-	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example.test")
-	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "owner/project")
-	if err := construction.ValidateSources(); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "")
-	if err := construction.ValidateSources(); err == nil || !strings.Contains(err.Error(), "GitHub release source is incomplete") {
-		t.Fatalf("partial source error = %v", err)
+	for _, args := range [][]string{{"validate-artifacts"}, {"compare-artifacts"}} {
+		if err := run(args, &output); err == nil {
+			t.Fatalf("invalid invocation accepted: %v", args)
+		}
 	}
 }
 
-func TestValidateBuildReleaseSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
-	for _, name := range []string{"AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY", "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY"} {
-		t.Setenv(name, "")
+func TestRunReleasePolicyCommands(t *testing.T) {
+	tmp := t.TempDir()
+	module := filepath.Join(tmp, "go.mod")
+	if err := os.WriteFile(module, []byte("module example\n\ngo "+strings.TrimPrefix(runtime.Version(), "go")+"\n"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	cases := []struct {
-		name, origin, repository, want string
-	}{
-		{"http origin", "http://gitlab.example.test", "group/project", "HTTPS authority"},
-		{"origin path", "https://gitlab.example.test/api", "group/project", "HTTPS authority"},
-		{"repository edge slash", "https://gitlab.example.test", "/group/project", "namespace/project path"},
-		{"repository query", "https://gitlab.example.test", "group/project?x", "namespace/project path"},
-		{"repository empty segment", "https://gitlab.example.test", "group//project", "namespace/project path"},
+	document := filepath.Join(tmp, "readiness.md")
+	if err := os.WriteFile(document, []byte("# readiness\n"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", tc.origin)
-			t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", tc.repository)
-			if err := construction.ValidateSources(); err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("error = %v, want %q", err, tc.want)
-			}
-		})
+	var output bytes.Buffer
+	for _, args := range [][]string{
+		{"validate-toolchain", module},
+		{"validate-readiness", "1.2.3-rc.1"},
+		{"validate-readiness-doc", document},
+	} {
+		if err := run(args, &output); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
 	}
-	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
-	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
-	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example.test")
-	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "group/subgroup/project")
-	if err := construction.ValidateSources(); err == nil || !strings.Contains(err.Error(), "owner/repository") {
-		t.Fatalf("nested GitHub repository error = %v", err)
+	for _, args := range [][]string{
+		{"validate-toolchain"},
+		{"validate-readiness"},
+		{"validate-readiness-doc"},
+	} {
+		if err := run(args, &output); err == nil {
+			t.Fatalf("invalid invocation accepted: %v", args)
+		}
 	}
 }
 
@@ -200,4 +192,21 @@ func TestRunReportsCommandFailures(t *testing.T) {
 			t.Errorf("invalid command accepted: %v", args)
 		}
 	}
+}
+
+func writeArtifactFixture(t *testing.T, version string) string {
+	t.Helper()
+	directory := t.TempDir()
+	for _, name := range artifact.Names(version) {
+		if name == "checksums.txt" {
+			continue
+		}
+		if err := os.WriteFile(filepath.Join(directory, name), []byte("fixture:"+name+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := artifact.RewriteChecksums(directory, version); err != nil {
+		t.Fatal(err)
+	}
+	return directory
 }

@@ -198,6 +198,62 @@ func TestReleaseBuildRejectsInvalidOrPartialInputsBeforeLaunchingTools(t *testin
 	}
 }
 
+func TestValidateSourcesAcceptsLocalOrOneCompleteForge(t *testing.T) {
+	for _, name := range []string{"AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY", "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY"} {
+		t.Setenv(name, "")
+	}
+	if err := ValidateSources(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "https://gitlab.example.test")
+	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "group/project")
+	if err := ValidateSources(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
+	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
+	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example.test")
+	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "owner/project")
+	if err := ValidateSources(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "")
+	if err := ValidateSources(); err == nil || !strings.Contains(err.Error(), "GitHub release source is incomplete") {
+		t.Fatalf("partial source error = %v", err)
+	}
+}
+
+func TestValidateSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
+	for _, name := range []string{"AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY", "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY"} {
+		t.Setenv(name, "")
+	}
+	cases := []struct {
+		name, origin, repository, want string
+	}{
+		{"http origin", "http://gitlab.example.test", "group/project", "HTTPS authority"},
+		{"origin path", "https://gitlab.example.test/api", "group/project", "HTTPS authority"},
+		{"repository edge slash", "https://gitlab.example.test", "/group/project", "namespace/project path"},
+		{"repository query", "https://gitlab.example.test", "group/project?x", "namespace/project path"},
+		{"repository empty segment", "https://gitlab.example.test", "group//project", "namespace/project path"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", tc.origin)
+			t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", tc.repository)
+			if err := ValidateSources(); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
+	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
+	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example.test")
+	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "group/subgroup/project")
+	if err := ValidateSources(); err == nil || !strings.Contains(err.Error(), "owner/repository") {
+		t.Fatalf("nested GitHub repository error = %v", err)
+	}
+}
+
 func TestBuildCIResolvesTagVersionAndReproducibleEpoch(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
