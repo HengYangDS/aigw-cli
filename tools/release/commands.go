@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/readiness"
 	"context"
 	"errors"
 	"fmt"
@@ -45,13 +46,13 @@ func policyCommands() commandSet {
 			if err := requireArguments(args, 1, "usage: release validate-toolchain <go.mod>"); err != nil {
 				return err
 			}
-			return validateToolchain(args[0], runtime.Version())
+			return readiness.ValidateToolchain(args[0], runtime.Version())
 		},
 		"validate-readiness": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release validate-readiness <version>"); err != nil {
 				return err
 			}
-			return validateReleaseReadiness(args[0])
+			return readiness.ValidateVersion(args[0])
 		},
 		"validate-readiness-tag": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 0, "usage: release validate-readiness-tag"); err != nil {
@@ -61,13 +62,13 @@ func policyCommands() commandSet {
 			if !strings.HasPrefix(tag, "v") {
 				return errors.New("CI_COMMIT_TAG must use v<semver>")
 			}
-			return validateReleaseReadiness(strings.TrimPrefix(tag, "v"))
+			return readiness.ValidateVersion(strings.TrimPrefix(tag, "v"))
 		},
 		"validate-readiness-doc": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release validate-readiness-doc <document>"); err != nil {
 				return err
 			}
-			return validateReleaseReadinessDocument(args[0])
+			return readiness.ValidateDocument(args[0])
 		},
 	}
 }

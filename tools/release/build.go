@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/readiness"
 	"bufio"
 	"crypto/sha256"
 	"encoding/json"
@@ -39,7 +40,7 @@ func buildRelease(request buildRequest, run toolRunner) error {
 	if err := validateBuildRequest(request); err != nil {
 		return err
 	}
-	instant, _ := parseEpoch(request.Epoch)
+	instant, _ := readiness.ParseEpoch(request.Epoch)
 	output, err := filepath.Abs(request.Output)
 	if err != nil {
 		return fmt.Errorf("resolve release output: %w", err)
@@ -120,7 +121,7 @@ func validateBuildRequest(request buildRequest) error {
 	if !releaseVersion.MatchString(request.Version) {
 		return fmt.Errorf("invalid release version %q", request.Version)
 	}
-	if _, err := parseEpoch(request.Epoch); err != nil {
+	if _, err := readiness.ParseEpoch(request.Epoch); err != nil {
 		return err
 	}
 	for name, tuple := range map[string][2]string{

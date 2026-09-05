@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -334,7 +335,7 @@ func TestReleaseValidationErrorDetails(t *testing.T) {
 }
 
 func TestFileAndURLFailurePaths(t *testing.T) {
-	if _, err := parseEpoch("-1"); err == nil {
+	if _, err := readiness.ParseEpoch("-1"); err == nil {
 		t.Fatal("negative epoch accepted")
 	}
 	if _, err := authority("https://user@example.test"); err == nil {

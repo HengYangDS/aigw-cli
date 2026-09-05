@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"errors"
 	"os"
@@ -18,7 +19,7 @@ func TestNormalizedSPDXIsDeterministicAndPortable(t *testing.T) {
 	if err := os.WriteFile(source, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	instant, err := parseEpoch("1784246400")
+	instant, err := readiness.ParseEpoch("1784246400")
 	if err != nil {
 		t.Fatal(err)
 	}

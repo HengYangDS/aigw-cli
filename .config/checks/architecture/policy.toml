@@ -25,11 +25,23 @@ package_children = {
   ],
   "tools" = ["architecture", "ci", "codex", "coverage", "forge", "release", "repository"],
   "tools/codex" = ["catalog"],
+  "tools/release" = ["readiness"],
 }
 
 # Composition roots may contain only their declared production files. Command
 # behavior belongs to semantic subpackages, never beside the root assembler.
-composition_root_files = { "internal/cli" = ["app.go"] }
+composition_root_files = {
+  "internal/cli" = ["app.go"],
+  "tools/release" = [
+    "artifacts.go",
+    "build.go",
+    "commands.go",
+    "forge_commands.go",
+    "gitlab.go",
+    "main.go",
+    "publish.go",
+  ],
+}
 
 # CLI leaf packages are peers. They may depend on the invocation capability
 # contract, but never on another command leaf; shared behavior belongs to a
@@ -92,7 +104,8 @@ allowed_import_edges = {
   "internal/console" = [],
   "tools/repository" = [],
   "tools/ci" = [],
-  "tools/release" = [],
+  "tools/release" = ["tools/release/readiness"],
+  "tools/release/readiness" = [],
   "tools/architecture" = [],
   "tools/forge" = [],
   "tools/codex/catalog" = ["internal/codex"],
