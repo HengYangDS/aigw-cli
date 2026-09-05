@@ -108,10 +108,10 @@ allowed_import_edges = {
 }
 
 # Top-level roots skipped entirely while walking the repository.
-ignore_roots = ["vendor", ".git", "records", "build"]
+ignore_roots = ["vendor", ".git", "build"]
 
 # Directory base names skipped anywhere in the walk (runtime / VCS residue).
-ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
+ignore_directory_names = ["vendor", ".git", "node_modules"]
 
 # Source and carrier contracts inside managed roots.
 check_decision_records = true
