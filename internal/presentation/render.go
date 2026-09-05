@@ -320,11 +320,4 @@ func (r *Renderer) fixedLabel(style lipgloss.Style, label string, width int) str
 	return style.Render(label + " ")
 }
 
-func min(left, right int) int {
-	if left < right {
-		return left
-	}
-	return right
-}
-
 func DisplayWidth(value string) int { return lipgloss.Width(value) }
