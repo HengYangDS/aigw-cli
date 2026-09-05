@@ -1,7 +1,7 @@
 ## 1. Baseline and authority
 
-- [ ] 1.1 Record exact Work Lane HEAD, tree, Lease, active Change, installed AIGW version and digest, configuration schema, selected backend, client discovery, Routes, local branches, both Forge refs, proposals, tags, Releases, CI results, and owned residue.
-- [ ] 1.2 Preserve the current healthy installation, user configuration, Tokens, Codex and Claude projections, and any selected external endpoint as an immutable rollback baseline.
+- [x] 1.1 Record exact Work Lane HEAD, tree, Lease, active Change, installed AIGW version and digest, configuration schema, selected backend, client discovery, Routes, local branches, both Forge refs, proposals, tags, Releases, CI results, and owned residue.
+- [x] 1.2 Preserve the current healthy installation, user configuration, Tokens, Codex and Claude projections, and any selected external endpoint as an immutable rollback baseline.
 - [ ] 1.3 Map every tracked file and generated projection to one semantic owner, consumer, source of truth, reason to change, dependency direction, and retirement condition.
 - [ ] 1.4 Map every public command, option, result, schema field, environment variable, native resource, release artifact, documentation entrypoint, and supported user journey to one product invariant and implementation owner.
 - [ ] 1.5 Reconcile source, tests, canonical specs, this Change, documentation, quality policy, CUE, Forge projections, release metadata, and installed behavior; add every contradiction to this task list before implementation expands.
