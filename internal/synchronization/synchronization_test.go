@@ -539,6 +539,9 @@ func TestPlanningAndAuthenticationRejectIncompleteDependencies(t *testing.T) {
 	if _, err := (Synchronizer{}).Plan(base, base); err == nil {
 		t.Fatal("expected discovery error")
 	}
+	if err := (Synchronizer{}).Reconcile(context.Background(), base, base); err == nil {
+		t.Fatal("expected discovery error")
+	}
 	syncer := Synchronizer{Discovery: staticDiscovery{}}
 	before := base.Clone()
 	before.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{""}}

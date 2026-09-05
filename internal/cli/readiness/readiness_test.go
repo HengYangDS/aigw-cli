@@ -188,6 +188,46 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	}
 }
 
+func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		probe      *configuration.AccountProbe
+		credential bool
+		want       string
+	}{
+		{name: "no probe", want: "Provider does not expose a balance probe"},
+		{name: "unsupported probe", probe: &configuration.AccountProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "Provider diagnostics unavailable in this version"},
+		{name: "missing probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance disabled"},
+		{name: "available probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Precise balance enabled"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runtime, cfg := configuredReadinessRuntime(t)
+			providerAccount := cfg.Accounts["one"]
+			providerAccount.Endpoints.OpenAIResponses = "http://127.0.0.1:1234/v1"
+			providerAccount.AccountProbe = test.probe
+			cfg.Accounts["one"] = providerAccount
+			if err := runtime.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := runtime.Secrets.Set("one", "token"); err != nil {
+				t.Fatal(err)
+			}
+			if test.credential {
+				if err := runtime.Accounts.Set("one", account.Credential{SystemToken: "system", UserID: "user"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := RunStatus(runtime, false); err != nil {
+				t.Fatal(err)
+			}
+			output := output(runtime)
+			if !strings.Contains(output, test.want) || !strings.Contains(output, "External loopback compatibility layer") {
+				t.Fatalf("output = %q", output)
+			}
+		})
+	}
+}
+
 func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	emptyPath := filepath.Join(t.TempDir(), "configuration.toml")
 	emptyOut := &bytes.Buffer{}

@@ -11,11 +11,18 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 )
+
+func TestProtocolTimeoutAllowsColdClientStartup(t *testing.T) {
+	if ProtocolTimeout < time.Minute {
+		t.Fatalf("ProtocolTimeout = %s, want at least %s", ProtocolTimeout, time.Minute)
+	}
+}
 
 type basicRunner struct{ err error }
 

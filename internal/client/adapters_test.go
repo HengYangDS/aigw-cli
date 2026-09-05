@@ -96,7 +96,7 @@ func codexVerificationFixture(t *testing.T) (configuration.Config, configuration
 	return cfg, runtime
 }
 
-func TestCodexAdapterReportsNativeAuthenticationStates(t *testing.T) {
+func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	newFixture := func(t *testing.T, provider string) (configuration.Config, configuration.Runtime) {
 		t.Helper()
 		target := filepath.Join(t.TempDir(), "config.toml")
@@ -118,6 +118,39 @@ func TestCodexAdapterReportsNativeAuthenticationStates(t *testing.T) {
 		}
 		return cfg, runtime
 	}
+
+	t.Run("missing executable", func(t *testing.T) {
+		cfg, runtime := newFixture(t, configuration.ModelProviderAIGW)
+		adapter := cfg.Adapters[configuration.ClientCodex]
+		adapter.Executable = ""
+		cfg.Adapters[configuration.ClientCodex] = adapter
+		status := (codexAdapter{}).Inspect(context.Background(), Dependencies{}, cfg, runtime, InspectionOptions{})
+		if status.Ready || !strings.Contains(status.Issue, "executable") {
+			t.Fatalf("status = %#v", status)
+		}
+	})
+
+	t.Run("missing target", func(t *testing.T) {
+		cfg, runtime := newFixture(t, configuration.ModelProviderAIGW)
+		adapter := cfg.Adapters[configuration.ClientCodex]
+		adapter.Targets = nil
+		cfg.Adapters[configuration.ClientCodex] = adapter
+		status := (codexAdapter{}).Inspect(context.Background(), Dependencies{}, cfg, runtime, InspectionOptions{})
+		if status.Ready || !strings.Contains(status.Issue, "target") {
+			t.Fatalf("status = %#v", status)
+		}
+	})
+
+	t.Run("projection drift", func(t *testing.T) {
+		cfg, runtime := newFixture(t, configuration.ModelProviderAIGW)
+		adapter := cfg.Adapters[configuration.ClientCodex]
+		adapter.Targets = []string{filepath.Join(t.TempDir(), "missing.toml")}
+		cfg.Adapters[configuration.ClientCodex] = adapter
+		status := (codexAdapter{}).Inspect(context.Background(), Dependencies{}, cfg, runtime, InspectionOptions{})
+		if status.Ready || !strings.Contains(status.Issue, "projection drift") {
+			t.Fatalf("status = %#v", status)
+		}
+	})
 
 	t.Run("external provider", func(t *testing.T) {
 		cfg, runtime := newFixture(t, "amazon-bedrock")
