@@ -48,26 +48,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type Runner interface {
-	Run(context.Context, process.Plan) error
-}
-
-type HTTPDoer interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
-type Prompter interface {
-	Secret(label string) (string, error)
-	Text(label string) (string, error)
-	Select(label string, choices []prompt.Choice) (string, error)
-}
-
-type Updater interface {
-	Update(context.Context, string) (string, error)
-	UpdateCandidate(context.Context, string, upgrade.CandidateArchive) (string, error)
-	Rollback(context.Context) (string, error)
-}
-
 type App struct {
 	GOOS               string
 	DataDir            string
@@ -85,11 +65,11 @@ type App struct {
 	Err                io.Writer
 	Interactive        bool
 	Color              bool
-	Runner             Runner
-	HTTP               HTTPDoer
-	Prompt             Prompter
+	Runner             invocation.Runner
+	HTTP               invocation.HTTPDoer
+	Prompt             invocation.Prompter
 	Discovery          discovery.Discoverer
-	Updater            Updater
+	Updater            invocation.Updater
 	renderErr          error
 }
 
