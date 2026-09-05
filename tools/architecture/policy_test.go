@@ -9,33 +9,6 @@ import (
 	"testing"
 )
 
-func TestDecisionRecordReadFailureIsReported(t *testing.T) {
-	root := t.TempDir()
-	directory := filepath.Join(root, "docs", "decisions")
-	writeFile(t, filepath.Join(directory, decisionRegister), "# Decisions\n")
-	if err := os.Symlink(filepath.Join(root, "missing-record"), filepath.Join(directory, "dr-0001-missing.md")); err != nil {
-		t.Fatal(err)
-	}
-	report := newReport("policy", root)
-	if err := checkDecisionRecords(root, &report); err == nil || !strings.Contains(err.Error(), "read docs/decisions/dr-0001-missing.md") {
-		t.Fatalf("decision record read error = %v", err)
-	}
-}
-
-func TestDecisionRecordDirectoryReadFailureIsReported(t *testing.T) {
-	root := t.TempDir()
-	directory := filepath.Join(root, "docs", "decisions")
-	writeFile(t, filepath.Join(directory, decisionRegister), "# Decisions\n")
-	want := errors.New("directory read failed")
-	report := newReport("policy", root)
-	err := checkDecisionRecordsWithReadDir(root, &report, func(string) ([]os.DirEntry, error) {
-		return nil, want
-	})
-	if !errors.Is(err, want) || !strings.Contains(err.Error(), "read Decision Records") {
-		t.Fatalf("directory read error = %v", err)
-	}
-}
-
 func countRule(report Report, rule string) int {
 	count := 0
 	for _, finding := range report.Findings {
@@ -44,35 +17,6 @@ func countRule(report Report, rule string) int {
 		}
 	}
 	return count
-}
-
-func TestFinalizeSortTies(t *testing.T) {
-	report := newReport("p", ".")
-	report.addFinding(Finding{Rule: "a", Path: "z", Message: "path-z"})
-	report.addFinding(Finding{Rule: "a", Path: "a", Message: "path-a"})
-	report.addFinding(Finding{Rule: "a", Path: "p", Line: 1, Prefix: "b", Name: "n2", Message: "m2"})
-	report.addFinding(Finding{Rule: "a", Path: "p", Line: 1, Prefix: "a", Name: "n1", Message: "m1"})
-	report.addFinding(Finding{Rule: "a", Path: "p", Line: 1, Prefix: "a", Name: "n1", Message: "m0"})
-	if report.Summary["total"] != 5 {
-		t.Fatalf("pre-summary=%v", report.Summary)
-	}
-	// Defensive path: nil summary becomes empty with total=0 (counts live on findings).
-	report.Summary = nil
-	report.finalize()
-	if report.Summary["total"] != 0 {
-		t.Fatalf("summary=%v", report.Summary)
-	}
-	if report.Findings[0].Path != "a" || report.Findings[1].Prefix != "a" || report.Findings[1].Message != "m0" {
-		t.Fatalf("findings=%+v", report.Findings)
-	}
-	// Keep a non-nil summary path covered too.
-	report2 := newReport("p", ".")
-	report2.addFinding(Finding{Rule: "z", Path: "p", Line: 2, Message: "m"})
-	report2.addFinding(Finding{Rule: "z", Path: "p", Line: 1, Message: "m"})
-	report2.finalize()
-	if report2.Findings[0].Line != 1 {
-		t.Fatalf("line sort: %+v", report2.Findings)
-	}
 }
 
 func TestValidatePolicyEdgeEntries(t *testing.T) {

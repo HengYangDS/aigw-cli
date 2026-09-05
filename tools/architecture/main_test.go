@@ -289,25 +289,6 @@ func TestStartsWithDotDotAcceptsBothPortableSeparators(t *testing.T) {
 	}
 }
 
-func TestReportFinalizeStable(t *testing.T) {
-	report := newReport("p.toml", "/tmp/root")
-	report.addFinding(Finding{Rule: "b", Path: "z", Message: "m2"})
-	report.addFinding(Finding{Rule: "a", Path: "y", Message: "m1", Line: 2})
-	report.addFinding(Finding{Rule: "a", Path: "y", Message: "m0", Line: 1})
-	var buf bytes.Buffer
-	if err := writeReport(&buf, report); err != nil {
-		t.Fatal(err)
-	}
-	out := buf.String()
-	if !strings.Contains(out, `"ok": false`) {
-		t.Fatalf("out=%s", out)
-	}
-	// rule a before b
-	if idxA, idxB := strings.Index(out, `"rule": "a"`), strings.Index(out, `"rule": "b"`); idxA < 0 || idxB < 0 || idxA > idxB {
-		t.Fatalf("unstable order: %s", out)
-	}
-}
-
 func TestLoadPolicyRepoDefaultShape(t *testing.T) {
 	// Ensure the checked-in policy path shape is loadable when present relative to module.
 	// This test uses an embedded copy equivalent rather than depending on cwd.

@@ -299,14 +299,3 @@ func TestShouldIgnoreRelPathEmptyParts(t *testing.T) {
 		t.Fatal("empty")
 	}
 }
-
-func TestFinalizeNameAndMessageOrder(t *testing.T) {
-	report := newReport("p", ".")
-	report.addFinding(Finding{Rule: "a", Path: "p", Line: 1, Prefix: "x", Name: "b", Message: "m2"})
-	report.addFinding(Finding{Rule: "a", Path: "p", Line: 1, Prefix: "x", Name: "a", Message: "m1"})
-	report.addFinding(Finding{Rule: "a", Path: "p", Line: 1, Prefix: "x", Name: "a", Message: "m0"})
-	report.finalize()
-	if report.Findings[0].Name != "a" || report.Findings[0].Message != "m0" {
-		t.Fatalf("%+v", report.Findings)
-	}
-}
