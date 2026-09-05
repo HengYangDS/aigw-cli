@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
 	"context"
 	"errors"
@@ -29,7 +30,7 @@ func buildCommands() commandSet {
 			if err != nil {
 				return err
 			}
-			return buildCI(root, args[0], args[1], func(request buildRequest) error { return buildRelease(request, execTool) }, resolveReleaseEpoch, compareArtifactMatrices)
+			return buildCI(root, args[0], args[1], func(request buildRequest) error { return buildRelease(request, execTool) }, resolveReleaseEpoch, artifact.CompareMatrices)
 		},
 	}
 }
@@ -79,13 +80,13 @@ func artifactCommands() commandSet {
 			if err := requireArguments(args, 2, "usage: release validate-artifacts <directory> <version>"); err != nil {
 				return err
 			}
-			return validateArtifactMatrix(args[0], args[1])
+			return artifact.ValidateMatrix(args[0], args[1])
 		},
 		"compare-artifacts": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 3, "usage: release compare-artifacts <left-directory> <right-directory> <version>"); err != nil {
 				return err
 			}
-			return compareArtifactMatrices(args[0], args[1], args[2])
+			return artifact.CompareMatrices(args[0], args[1], args[2])
 		},
 	}
 }

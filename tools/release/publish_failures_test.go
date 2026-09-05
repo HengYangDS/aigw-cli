@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/artifact"
 	"context"
 	"encoding/json"
 	"errors"
@@ -117,11 +118,11 @@ func TestGitLabPublisherRejectsMissingAndMismatchedAssets(t *testing.T) {
 	artifacts := releaseFixture(t, "0.1.0")
 	for name, mutate := range map[string]func(map[string][]byte){
 		"missing": func(remote map[string][]byte) {
-			delete(remote, artifactNames("0.1.0")[0])
+			delete(remote, artifact.Names("0.1.0")[0])
 			remote["unexpected.bin"] = []byte("unexpected")
 		},
 		"mismatch": func(remote map[string][]byte) {
-			remote[artifactNames("0.1.0")[0]] = []byte("tampered")
+			remote[artifact.Names("0.1.0")[0]] = []byte("tampered")
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -280,7 +281,7 @@ func TestGitLabAssetVerificationRejectsInvalidAuthorityAndDownload(t *testing.T)
 	config := gitLabPublishConfig{APIBase: "https://example.test", Tag: "v" + version, Token: "secret", Artifacts: releaseFixture(t, version)}
 
 	relative := remoteRelease{TagName: config.Tag}
-	for _, name := range artifactNames(version) {
+	for _, name := range artifact.Names(version) {
 		relative.Assets.Links = append(relative.Assets.Links, struct {
 			URL string `json:"url"`
 		}{URL: name})
@@ -294,7 +295,7 @@ func TestGitLabAssetVerificationRejectsInvalidAuthorityAndDownload(t *testing.T)
 	}))
 	defer server.Close()
 	remote := remoteRelease{TagName: config.Tag}
-	for _, name := range artifactNames(version) {
+	for _, name := range artifact.Names(version) {
 		remote.Assets.Links = append(remote.Assets.Links, struct {
 			URL string `json:"url"`
 		}{URL: server.URL + "/" + name})
@@ -341,7 +342,7 @@ func TestGitHubAssetHelpersFailClosed(t *testing.T) {
 	}
 
 	release := githubRelease{}
-	for _, name := range artifactNames("0.1.0") {
+	for _, name := range artifact.Names("0.1.0") {
 		release.Assets = append(release.Assets, struct {
 			Name string `json:"name"`
 			URL  string `json:"url"`
@@ -355,7 +356,7 @@ func TestGitHubAssetHelpersFailClosed(t *testing.T) {
 func TestVerificationReportsLocalArtifactReadFailures(t *testing.T) {
 	version := "0.1.0"
 	artifacts := releaseFixture(t, version)
-	name := artifactNames(version)[0]
+	name := artifact.Names(version)[0]
 	if err := os.Remove(filepath.Join(artifacts, name)); err != nil {
 		t.Fatal(err)
 	}
@@ -368,7 +369,7 @@ func TestVerificationReportsLocalArtifactReadFailures(t *testing.T) {
 	}))
 	defer server.Close()
 	github := githubRelease{}
-	for _, current := range artifactNames(version) {
+	for _, current := range artifact.Names(version) {
 		github.Assets = append(github.Assets, struct {
 			Name string `json:"name"`
 			URL  string `json:"url"`
@@ -409,7 +410,7 @@ func TestGitLabAssetHelperErrorPaths(t *testing.T) {
 		_, _ = response.Write([]byte(filepath.Base(request.URL.Path) + "\n"))
 	}))
 	defer server.Close()
-	for _, name := range artifactNames(version) {
+	for _, name := range artifact.Names(version) {
 		actual.Assets.Links = append(actual.Assets.Links, struct {
 			URL string `json:"url"`
 		}{URL: server.URL + "/" + name})
@@ -432,12 +433,12 @@ func response(status int, body string) *http.Response {
 func releaseFixture(t *testing.T, version string) string {
 	t.Helper()
 	directory := t.TempDir()
-	for _, name := range artifactNames(version)[:len(artifactNames(version))-1] {
+	for _, name := range artifact.Names(version)[:len(artifact.Names(version))-1] {
 		if err := os.WriteFile(filepath.Join(directory, name), []byte(name+"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := rewriteChecksums(directory, version); err != nil {
+	if err := artifact.RewriteChecksums(directory, version); err != nil {
 		t.Fatal(err)
 	}
 	return directory
@@ -446,7 +447,7 @@ func releaseFixture(t *testing.T, version string) string {
 func readReleaseFixture(t *testing.T, directory, version string) map[string][]byte {
 	t.Helper()
 	result := map[string][]byte{}
-	for _, name := range artifactNames(version) {
+	for _, name := range artifact.Names(version) {
 		data, err := os.ReadFile(filepath.Join(directory, name))
 		if err != nil {
 			t.Fatal(err)

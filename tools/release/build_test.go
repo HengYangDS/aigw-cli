@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/artifact"
 	"errors"
 	"os"
 	"path/filepath"
@@ -65,7 +66,7 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 			if err := os.MkdirAll(stage, 0o700); err != nil {
 				return err
 			}
-			for _, name := range artifactNames("1.2.3") {
+			for _, name := range artifact.Names("1.2.3") {
 				if name == "checksums.txt" || strings.HasSuffix(name, ".spdx.json") {
 					continue
 				}
@@ -103,7 +104,7 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 			t.Fatalf("GoReleaser environment missing %q: %v", expected, calls[0].Env)
 		}
 	}
-	if err := validateArtifactMatrix(output, "1.2.3"); err != nil {
+	if err := artifact.ValidateMatrix(output, "1.2.3"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -349,7 +350,7 @@ func TestReleaseBuildPropagatesToolFailureAndNeverPublishesPartialMatrix(t *test
 			if mkdirErr := os.MkdirAll(stage, 0o700); mkdirErr != nil {
 				return mkdirErr
 			}
-			for _, name := range artifactNames("1.2.3") {
+			for _, name := range artifact.Names("1.2.3") {
 				if name == "checksums.txt" || strings.HasSuffix(name, ".spdx.json") {
 					continue
 				}

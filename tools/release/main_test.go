@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/artifact"
 	"bytes"
 	"os"
 	"path/filepath"
@@ -23,17 +24,17 @@ func TestExecuteReturnsPortableProcessStatus(t *testing.T) {
 
 func TestArtifactMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	version := "1.2.3"
-	if err := validateArtifactMatrix(filepath.Join(t.TempDir(), "missing"), version); err == nil {
+	if err := artifact.ValidateMatrix(filepath.Join(t.TempDir(), "missing"), version); err == nil {
 		t.Fatal("missing matrix accepted")
 	}
 	directory := writeArtifactFixture(t, version)
-	if err := validateArtifactMatrix(directory, version); err != nil {
+	if err := artifact.ValidateMatrix(directory, version); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Remove(filepath.Join(directory, artifactNames(version)[0])); err != nil {
+	if err := os.Remove(filepath.Join(directory, artifact.Names(version)[0])); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "missing or empty") {
+	if err := artifact.ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "missing or empty") {
 		t.Fatalf("missing artifact=%v", err)
 	}
 
@@ -41,15 +42,15 @@ func TestArtifactMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(directory, "unexpected"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected") {
+	if err := artifact.ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected") {
 		t.Fatalf("extra artifact=%v", err)
 	}
 
 	directory = writeArtifactFixture(t, version)
-	if err := os.WriteFile(filepath.Join(directory, artifactNames(version)[0]), []byte("corrupt"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(directory, artifact.Names(version)[0]), []byte("corrupt"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+	if err := artifact.ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
 		t.Fatalf("corrupt artifact=%v", err)
 	}
 
@@ -58,7 +59,7 @@ func TestArtifactMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	if err := os.WriteFile(checksumPath, []byte("bad\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "invalid checksum") {
+	if err := artifact.ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "invalid checksum") {
 		t.Fatalf("invalid checksum manifest=%v", err)
 	}
 
@@ -71,7 +72,7 @@ func TestArtifactMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(directory, "checksums.txt"), append(content, []byte(first+"\n")...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "duplicate checksum") {
+	if err := artifact.ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "duplicate checksum") {
 		t.Fatalf("duplicate checksum=%v", err)
 	}
 
@@ -79,7 +80,7 @@ func TestArtifactMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(directory, "checksums.txt"), append(content, []byte(strings.Repeat("0", 64)+"  unknown\n")...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateArtifactMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected entries") {
+	if err := artifact.ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected entries") {
 		t.Fatalf("unexpected checksum=%v", err)
 	}
 }
@@ -87,16 +88,16 @@ func TestArtifactMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 func TestCompareArtifactMatrices(t *testing.T) {
 	version := "1.2.3"
 	left, right := writeArtifactFixture(t, version), writeArtifactFixture(t, version)
-	if err := compareArtifactMatrices(left, right, version); err != nil {
+	if err := artifact.CompareMatrices(left, right, version); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(right, artifactNames(version)[0]), []byte("different"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(right, artifact.Names(version)[0]), []byte("different"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := rewriteChecksums(right, version); err != nil {
+	if err := artifact.RewriteChecksums(right, version); err != nil {
 		t.Fatal(err)
 	}
-	if err := compareArtifactMatrices(left, right, version); err == nil || !strings.Contains(err.Error(), "differs") {
+	if err := artifact.CompareMatrices(left, right, version); err == nil || !strings.Contains(err.Error(), "differs") {
 		t.Fatalf("different matrix=%v", err)
 	}
 }
@@ -152,7 +153,7 @@ func TestRunReleasePolicyCommands(t *testing.T) {
 func writeArtifactFixture(t *testing.T, version string) string {
 	t.Helper()
 	directory := t.TempDir()
-	for _, name := range artifactNames(version) {
+	for _, name := range artifact.Names(version) {
 		if name == "checksums.txt" {
 			continue
 		}
@@ -160,7 +161,7 @@ func writeArtifactFixture(t *testing.T, version string) string {
 			t.Fatal(err)
 		}
 	}
-	if err := rewriteChecksums(directory, version); err != nil {
+	if err := artifact.RewriteChecksums(directory, version); err != nil {
 		t.Fatal(err)
 	}
 	return directory
@@ -214,7 +215,7 @@ func TestVerifyGitLabReleaseWritesCanonicalAssetList(t *testing.T) {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
-	if len(lines) != len(artifactNames("1.2.3")) || !strings.HasPrefix(lines[0], "aigw_1.2.3_darwin_amd64.tar.gz\t") {
+	if len(lines) != len(artifact.Names("1.2.3")) || !strings.HasPrefix(lines[0], "aigw_1.2.3_darwin_amd64.tar.gz\t") {
 		t.Fatalf("asset list = %q", content)
 	}
 }
@@ -244,14 +245,14 @@ func TestProjectGitLabResponseModes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if complete.TagName != expected.TagName || len(complete.Assets.Links) != len(artifactNames("1.2.3")) {
+	if complete.TagName != expected.TagName || len(complete.Assets.Links) != len(artifact.Names("1.2.3")) {
 		t.Fatalf("complete = %+v", complete)
 	}
 	missing, err := projectGitLabResponse(expected, "missing-asset")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(missing.Assets.Links) != len(artifactNames("1.2.3"))-1 {
+	if len(missing.Assets.Links) != len(artifact.Names("1.2.3"))-1 {
 		t.Fatalf("missing links = %d", len(missing.Assets.Links))
 	}
 	if _, err := projectGitLabResponse(expected, "unknown"); err == nil {

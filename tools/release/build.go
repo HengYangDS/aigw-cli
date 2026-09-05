@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
 	"bufio"
 	"crypto/sha256"
@@ -74,7 +75,7 @@ func buildRelease(request buildRequest, run toolRunner) error {
 	if err := os.MkdirAll(candidate, 0o755); err != nil {
 		return fmt.Errorf("create release candidate: %w", err)
 	}
-	for _, name := range artifactNames(request.Version) {
+	for _, name := range artifact.Names(request.Version) {
 		if name == "checksums.txt" || strings.HasSuffix(name, ".spdx.json") {
 			continue
 		}
@@ -94,10 +95,10 @@ func buildRelease(request buildRequest, run toolRunner) error {
 	if err := normalizeSPDX(rawSBOM, sbom, request.Version, instant); err != nil {
 		return err
 	}
-	if err := rewriteChecksums(candidate, request.Version); err != nil {
+	if err := artifact.RewriteChecksums(candidate, request.Version); err != nil {
 		return err
 	}
-	if err := validateArtifactMatrix(candidate, request.Version); err != nil {
+	if err := artifact.ValidateMatrix(candidate, request.Version); err != nil {
 		return err
 	}
 	return replaceDirectory(candidate, output)

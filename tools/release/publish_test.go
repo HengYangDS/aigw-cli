@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/artifact"
 	"context"
 	"encoding/json"
 	"errors"
@@ -127,7 +128,7 @@ func TestGitHubPublisherCreatesAndVerifiesImmutableRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !createdNow || len(remote) != len(artifactNames("0.1.0-rc.1")) {
+	if !createdNow || len(remote) != len(artifact.Names("0.1.0-rc.1")) {
 		t.Fatalf("created=%v remote assets=%d", createdNow, len(remote))
 	}
 }
@@ -135,7 +136,7 @@ func TestGitHubPublisherCreatesAndVerifiesImmutableRelease(t *testing.T) {
 func TestGitHubPublisherRejectsExistingMismatchWithoutMutation(t *testing.T) {
 	artifacts := releaseFixture(t, "0.1.0")
 	remote := readReleaseFixture(t, artifacts, "0.1.0")
-	remote[artifactNames("0.1.0")[0]] = []byte("tampered")
+	remote[artifact.Names("0.1.0")[0]] = []byte("tampered")
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.Method == http.MethodPost {
 			t.Fatal("existing release must never be mutated")

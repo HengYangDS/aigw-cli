@@ -1,4 +1,5 @@
-package main
+// Package artifact defines and verifies the portable release artifact matrix.
+package artifact
 
 import (
 	"crypto/sha256"
@@ -10,7 +11,8 @@ import (
 	"strings"
 )
 
-func artifactNames(version string) []string {
+// Names returns the complete release artifact matrix for version.
+func Names(version string) []string {
 	return []string{
 		"aigw_" + version + "_darwin_amd64.tar.gz",
 		"aigw_" + version + "_darwin_arm64.tar.gz",
@@ -23,13 +25,14 @@ func artifactNames(version string) []string {
 	}
 }
 
-func validateArtifactMatrix(directory, version string) error {
-	_, err := verifiedArtifactDigests(directory, version)
+// ValidateMatrix verifies membership, non-empty files, and checksums.
+func ValidateMatrix(directory, version string) error {
+	_, err := verifiedDigests(directory, version)
 	return err
 }
 
-func verifiedArtifactDigests(directory, version string) (map[string]string, error) {
-	wanted := artifactNames(version)
+func verifiedDigests(directory, version string) (map[string]string, error) {
+	wanted := Names(version)
 	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return nil, fmt.Errorf("release artifact matrix: %w", err)
@@ -84,16 +87,17 @@ func verifiedArtifactDigests(directory, version string) (map[string]string, erro
 	return digests, nil
 }
 
-func compareArtifactMatrices(left, right, version string) error {
-	leftDigests, err := verifiedArtifactDigests(left, version)
+// CompareMatrices verifies two complete matrices and compares their content.
+func CompareMatrices(left, right, version string) error {
+	leftDigests, err := verifiedDigests(left, version)
 	if err != nil {
 		return err
 	}
-	rightDigests, err := verifiedArtifactDigests(right, version)
+	rightDigests, err := verifiedDigests(right, version)
 	if err != nil {
 		return err
 	}
-	for _, name := range artifactNames(version)[:len(artifactNames(version))-1] {
+	for _, name := range Names(version)[:len(Names(version))-1] {
 		if leftDigests[name] != rightDigests[name] {
 			return fmt.Errorf("release artifact differs across forge stages: %s", name)
 		}
@@ -101,9 +105,10 @@ func compareArtifactMatrices(left, right, version string) error {
 	return nil
 }
 
-func rewriteChecksums(directory, version string) error {
+// RewriteChecksums writes the canonical checksum manifest for a matrix.
+func RewriteChecksums(directory, version string) error {
 	var output strings.Builder
-	for _, name := range artifactNames(version)[:len(artifactNames(version))-1] {
+	for _, name := range Names(version)[:len(Names(version))-1] {
 		data, err := os.ReadFile(filepath.Join(directory, name))
 		if err != nil {
 			return err

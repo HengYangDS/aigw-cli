@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/artifact"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -46,7 +47,7 @@ func publishGitHubRelease(ctx context.Context, client *http.Client, config githu
 	if err != nil {
 		return false, err
 	}
-	if err := validateArtifactMatrix(config.Artifacts, version); err != nil {
+	if err := artifact.ValidateMatrix(config.Artifacts, version); err != nil {
 		return false, err
 	}
 	base := strings.TrimSuffix(config.APIBase, "/")
@@ -93,7 +94,7 @@ func publishGitLabRelease(ctx context.Context, client *http.Client, config gitLa
 	if err != nil {
 		return false, err
 	}
-	if err := validateArtifactMatrix(config.Artifacts, version); err != nil {
+	if err := artifact.ValidateMatrix(config.Artifacts, version); err != nil {
 		return false, err
 	}
 	base := strings.TrimSuffix(config.APIBase, "/") + "/projects/" + url.PathEscape(config.ProjectID)
@@ -209,7 +210,7 @@ func uploadGitHubAssets(ctx context.Context, client *http.Client, config githubP
 	if uploadURL == "" {
 		return errors.New("GitHub release response has no upload URL")
 	}
-	for _, name := range artifactNames(strings.TrimPrefix(config.Tag, "v")) {
+	for _, name := range artifact.Names(strings.TrimPrefix(config.Tag, "v")) {
 		data, err := os.ReadFile(filepath.Join(config.Artifacts, name))
 		if err != nil {
 			return err
@@ -238,7 +239,7 @@ func uploadGitHubAssets(ctx context.Context, client *http.Client, config githubP
 }
 
 func verifyGitHubAssets(ctx context.Context, client *http.Client, config githubPublishConfig, release githubRelease, version string) error {
-	expected := artifactNames(version)
+	expected := artifact.Names(version)
 	actual := make([]string, 0, len(release.Assets))
 	assets := map[string]string{}
 	for _, asset := range release.Assets {
@@ -307,7 +308,7 @@ func verifyGitLabAssets(ctx context.Context, client *http.Client, config gitLabP
 	for _, link := range actual.Assets.Links {
 		remote[lastPath(link.URL)] = link.URL
 	}
-	for _, name := range artifactNames(version) {
+	for _, name := range artifact.Names(version) {
 		endpoint, found := remote[name]
 		if !found {
 			return fmt.Errorf("GitLab release verification is missing asset %s", name)

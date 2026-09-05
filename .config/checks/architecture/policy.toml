@@ -25,7 +25,7 @@ package_children = {
   ],
   "tools" = ["architecture", "ci", "codex", "coverage", "forge", "release", "repository"],
   "tools/codex" = ["catalog"],
-  "tools/release" = ["readiness"],
+  "tools/release" = ["artifact", "readiness"],
 }
 
 # Composition roots may contain only their declared production files. Command
@@ -33,7 +33,6 @@ package_children = {
 composition_root_files = {
   "internal/cli" = ["app.go"],
   "tools/release" = [
-    "artifacts.go",
     "build.go",
     "commands.go",
     "forge_commands.go",
@@ -104,7 +103,8 @@ allowed_import_edges = {
   "internal/console" = [],
   "tools/repository" = [],
   "tools/ci" = [],
-  "tools/release" = ["tools/release/readiness"],
+  "tools/release" = ["tools/release/artifact", "tools/release/readiness"],
+  "tools/release/artifact" = [],
   "tools/release/readiness" = [],
   "tools/architecture" = [],
   "tools/forge" = [],

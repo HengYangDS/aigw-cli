@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/artifact"
 	"bufio"
 	"encoding/json"
 	"errors"
@@ -134,8 +135,8 @@ func validateReleaseDocument(payload releasePayload, expectedTag string) error {
 	if payload.TagName != expectedTag {
 		return errors.New("release document has the wrong tag")
 	}
-	if len(payload.Assets.Links) != len(artifactNames(strings.TrimPrefix(expectedTag, "v"))) {
-		return fmt.Errorf("release document must contain %d asset links, found %d", len(artifactNames(strings.TrimPrefix(expectedTag, "v"))), len(payload.Assets.Links))
+	if len(payload.Assets.Links) != len(artifact.Names(strings.TrimPrefix(expectedTag, "v"))) {
+		return fmt.Errorf("release document must contain %d asset links, found %d", len(artifact.Names(strings.TrimPrefix(expectedTag, "v"))), len(payload.Assets.Links))
 	}
 	for _, link := range payload.Assets.Links {
 		if link.Name == "" || link.URL == "" || !strings.HasPrefix(link.DirectAssetPath, "/") {
@@ -165,7 +166,7 @@ func verifyGitLabRelease(expectedPath, actualPath, outputPath, expectedTag strin
 	if actual.TagName != expectedTag {
 		return errors.New("GitLab release verification returned the wrong tag")
 	}
-	wanted := len(artifactNames(strings.TrimPrefix(expectedTag, "v")))
+	wanted := len(artifact.Names(strings.TrimPrefix(expectedTag, "v")))
 	if len(expected.Assets.Links) != wanted {
 		return fmt.Errorf("GitLab release verification expected %d local asset links, found %d", wanted, len(expected.Assets.Links))
 	}
