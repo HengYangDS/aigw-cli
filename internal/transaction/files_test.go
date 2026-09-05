@@ -23,18 +23,6 @@ func TestCaptureFileSnapshotOfMissingFileIsEmptyNotError(t *testing.T) {
 	}
 }
 
-func TestExactModeWritePostimageDescribesThePersistedFile(t *testing.T) {
-	want := []byte("file\n")
-	wantMode := os.FileMode(0o600)
-	if runtime.GOOS == "windows" {
-		wantMode = 0o666
-	}
-	snapshot := transaction.ExactModeWritePostimage(want, 0o600)
-	if !snapshot.Exists || !bytes.Equal(snapshot.Data, want) || snapshot.Mode != wantMode {
-		t.Fatalf("snapshot = %#v", snapshot)
-	}
-}
-
 func TestCaptureFileSnapshotSurfacesReadErrors(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		dir := t.TempDir()
@@ -201,9 +189,6 @@ func TestRestoreFileAtomicIfPostimageRemovesFileCreatedByTransaction(t *testing.
 // difference from the ordinary guarded write: the mode is written rather than
 // inherited, which is what lets an artifact treat its permissions as a contract.
 func TestWriteFileAtomicExactModeIfUnchangedCorrectsADriftedMode(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows does not represent owner-only permissions in a file mode")
-	}
 	path := filepath.Join(t.TempDir(), "file")
 	if err := os.WriteFile(path, []byte("before"), 0o644); err != nil {
 		t.Fatal(err)
@@ -216,15 +201,21 @@ func TestWriteFileAtomicExactModeIfUnchangedCorrectsADriftedMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if post.Mode.Perm() != 0o600 || string(post.Data) != "desired" {
+	wantMode := os.FileMode(0o600)
+	if runtime.GOOS == "windows" {
+		wantMode = 0o666
+	}
+	if !post.Exists || !bytes.Equal(post.Data, []byte("desired")) || post.Mode.Perm() != wantMode {
 		t.Fatalf("postimage = %#v", post)
 	}
-	info, err := os.Lstat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("mode on disk = %v, want 0600", info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		info, err := os.Lstat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != wantMode {
+			t.Fatalf("mode on disk = %v, want %v", info.Mode().Perm(), wantMode)
+		}
 	}
 	// The preimage guard is not weakened by writing the mode exactly.
 	if err := os.WriteFile(path, []byte("newer"), 0o600); err != nil {

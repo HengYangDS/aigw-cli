@@ -121,12 +121,6 @@ func snapshotOf(data []byte, mode os.FileMode) FileSnapshot {
 	}
 }
 
-// ExactModeWritePostimage returns the byte-and-mode result of an exact-mode
-// atomic write on the current platform.
-func ExactModeWritePostimage(data []byte, mode os.FileMode) FileSnapshot {
-	return snapshotOf(data, persistedMode(mode))
-}
-
 func persistedMode(mode os.FileMode) os.FileMode {
 	if runtime.GOOS != "windows" {
 		return mode.Perm()
