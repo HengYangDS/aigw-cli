@@ -32,6 +32,7 @@ import (
 	"aigw-cli/internal/cli/route"
 	updatecli "aigw-cli/internal/cli/update"
 	"aigw-cli/internal/cli/verification"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/console"
 	"aigw-cli/internal/discovery"
@@ -39,32 +40,12 @@ import (
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/prompt"
+	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/renaming"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/synchronization"
 	"aigw-cli/internal/upgrade"
 	"github.com/spf13/cobra"
 )
-
-type Runner interface {
-	Run(context.Context, process.Plan) error
-}
-
-type HTTPDoer interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
-type Prompter interface {
-	Secret(label string) (string, error)
-	Text(label string) (string, error)
-	Select(label string, choices []prompt.Choice) (string, error)
-}
-
-type Updater interface {
-	Update(context.Context, string) (string, error)
-	UpdateCandidate(context.Context, string, upgrade.CandidateArchive) (string, error)
-	Rollback(context.Context) (string, error)
-}
 
 type App struct {
 	GOOS               string
@@ -83,25 +64,17 @@ type App struct {
 	Err                io.Writer
 	Interactive        bool
 	Color              bool
-	Runner             Runner
-	HTTP               HTTPDoer
-	Prompt             Prompter
+	Runner             invocation.Runner
+	HTTP               invocation.HTTPDoer
+	Prompt             invocation.Prompter
 	Discovery          discovery.Discoverer
-	Updater            Updater
+	Updater            invocation.Updater
 	renderErr          error
 }
 
 // synchronizer is the CLI composition boundary for the synchronization
 // domain. It assembles dependencies only; synchronization behavior remains in
 // internal/synchronization.
-func (a *App) synchronizer() synchronization.Synchronizer {
-	return synchronization.Synchronizer{
-		Config: a.Config, Secrets: a.Secrets, Runner: a.Runner, Discovery: a.Discovery,
-		ClaudeSettingsPath: a.ClaudeSettingsPath,
-		AIGWExecutable:     a.Executable,
-	}
-}
-
 type renderErrorWriter struct {
 	writer io.Writer
 	err    *error
@@ -118,8 +91,6 @@ func (w renderErrorWriter) Write(data []byte) (int, error) {
 func (a *App) Renderer() *presentation.Renderer {
 	return presentation.NewWithWidth(renderErrorWriter{writer: a.Out, err: &a.renderErr}, a.Color, console.PresentationWidth(a.Out, environmentMap(a.Env)))
 }
-
-func renderer(app *App) *presentation.Renderer { return app.Renderer() }
 
 func Execute(app *App, args []string) error {
 	app.renderErr = nil
@@ -174,7 +145,7 @@ func mutationCommand(app *App, args []string) bool {
 		return err == nil && len(cfg.Profiles) == 0 && app.Interactive
 	}
 	switch args[0] {
-	case "setup", "add", "use", "rotate", "rollback":
+	case "setup", "add", "use", "rotate", "rollback", "uninstall":
 		return true
 	case "sync":
 		return !boolArgumentEnabled(args[1:], "--dry-run")
@@ -266,7 +237,7 @@ func NewDefault() (*App, error) {
 		Runner:             process.Runner{},
 		HTTP:               &http.Client{},
 		Prompt:             prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
-		Discovery:          discovery.Current(),
+		Discovery:          client.NewDiscoverer(client.DefaultRegistry(), discovery.Current()),
 		Updater:            upgrade.Current(executable),
 	}, nil
 }
@@ -284,7 +255,10 @@ func environmentMap(values []string) map[string]string {
 
 func (a *App) doctorCommand() *cobra.Command {
 	return doctor.NewCommand(doctor.Dependencies{
-		Config: a.Config, Secrets: a.Secrets, Env: a.Env, Out: a.Out,
+		Config: a.Config, Secrets: a.Secrets, Clients: invocation.Synchronizer(a.invocationContext()), Env: a.Env, Out: a.Out,
+		Inspect: func(cfg configuration.Config) map[string]domainreadiness.Client {
+			return readiness.InspectClients(a.invocationContext(), cfg)
+		},
 		RenderOut: renderErrorWriter{writer: a.Out, err: &a.renderErr},
 		Color:     a.Color, Width: console.PresentationWidth(a.Out, environmentMap(a.Env)),
 	})
@@ -317,7 +291,7 @@ func (a *App) renamingDependencies() renaming.Dependencies {
 		Out:   renderErrorWriter{writer: a.Out, err: &a.renderErr},
 		Color: a.Color, Width: console.PresentationWidth(a.Out, environmentMap(a.Env)),
 		Interactive: a.Interactive, Prompt: a.Prompt, HTTP: a.HTTP,
-		Synchronizer: a.synchronizer(),
+		Synchronizer: invocation.Synchronizer(a.invocationContext()),
 	}
 }
 
@@ -402,7 +376,7 @@ func appVersion(app *App) string {
 }
 
 func renderCommandHelp(app *App, command *cobra.Command) {
-	r := renderer(app)
+	r := app.Renderer()
 	title := "Command help"
 	if command.Parent() != nil {
 		title = command.CommandPath()

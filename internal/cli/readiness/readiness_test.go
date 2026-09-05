@@ -3,20 +3,22 @@ package readiness
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
-	"slices"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/account"
 	"aigw-cli/internal/cli/invocation"
+	clientdomain "aigw-cli/internal/client"
+	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/process"
+	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 
 	"github.com/spf13/cobra"
@@ -25,6 +27,13 @@ import (
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (fn roundTripFunc) Do(request *http.Request) (*http.Response, error) { return fn(request) }
+
+func TestCheckCommandDescribesItsProductBoundary(t *testing.T) {
+	command := NewCheckCommand(invocation.Context{})
+	if command.Short != "Check routes, credentials, clients, and endpoints" {
+		t.Fatalf("check summary = %q", command.Short)
+	}
+}
 
 type failingReader struct{ err error }
 
@@ -44,6 +53,15 @@ func (store presentFailingSecretStore) Get(string) (string, error) { return "", 
 func (presentFailingSecretStore) Set(string, string) error         { return nil }
 func (presentFailingSecretStore) Delete(string) error              { return nil }
 func (presentFailingSecretStore) Exists(string) (bool, error)      { return true, nil }
+
+type failingAccountObservationStore struct{ err error }
+
+func (store failingAccountObservationStore) Get(string) (account.Credential, error) {
+	return account.Credential{}, store.err
+}
+func (failingAccountObservationStore) Set(string, account.Credential) error { return nil }
+func (failingAccountObservationStore) Delete(string) error                  { return nil }
+func (store failingAccountObservationStore) Exists(string) (bool, error)    { return false, store.err }
 
 type observingSecretStore struct {
 	value       string
@@ -70,18 +88,6 @@ func (*observingSecretStore) Delete(string) error      { return nil }
 func (store *observingSecretStore) Exists(string) (bool, error) {
 	store.existsCalls++
 	return store.value != "", store.existsErr
-}
-
-type readinessProcessRunner struct {
-	plans []process.Plan
-	err   error
-}
-
-func (runner *readinessProcessRunner) Run(context.Context, process.Plan) error { return nil }
-
-func (runner *readinessProcessRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
-	runner.plans = append(runner.plans, plan)
-	return nil, runner.err
 }
 
 func configuredReadinessRuntime(t *testing.T) (invocation.Context, configuration.Config) {
@@ -122,17 +128,18 @@ func executeCommand(command *cobra.Command) error {
 
 func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
-	originalProbe := probeAdapterRoute
-	originalAuthentication := probeCodexAuthentication
-	t.Cleanup(func() {
-		probeAdapterRoute = originalProbe
-		probeCodexAuthentication = originalAuthentication
-	})
-	probeAdapterRoute = func(invocation.Context, configuration.Config, string, configuration.Runtime) (bool, string) {
-		return true, ""
+	originalInspect := inspectAdapter
+	t.Cleanup(func() { inspectAdapter = originalInspect })
+	inspectAdapter = func(context.Context, invocation.Context, configuration.Config, string, configuration.Runtime, clientdomain.InspectionOptions) clientdomain.Status {
+		return clientdomain.Status{Ready: true, NativeAuthentication: "present"}
 	}
-	probeCodexAuthentication = func(invocation.Context, string, []string) bool { return true }
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
+		t.Fatal(err)
+	}
+	for _, client := range configuration.AdmittedClientIDs() {
+		cfg.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+	}
+	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := RunStatus(runtime, false); err != nil {
@@ -181,6 +188,46 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	}
 }
 
+func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		probe      *configuration.AccountProbe
+		credential bool
+		want       string
+	}{
+		{name: "no probe", want: "Provider does not expose a balance probe"},
+		{name: "unsupported probe", probe: &configuration.AccountProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "Provider diagnostics unavailable in this version"},
+		{name: "missing probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance disabled"},
+		{name: "available probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Precise balance enabled"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runtime, cfg := configuredReadinessRuntime(t)
+			providerAccount := cfg.Accounts["one"]
+			providerAccount.Endpoints.OpenAIResponses = "http://127.0.0.1:1234/v1"
+			providerAccount.AccountProbe = test.probe
+			cfg.Accounts["one"] = providerAccount
+			if err := runtime.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := runtime.Secrets.Set("one", "token"); err != nil {
+				t.Fatal(err)
+			}
+			if test.credential {
+				if err := runtime.Accounts.Set("one", account.Credential{SystemToken: "system", UserID: "user"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := RunStatus(runtime, false); err != nil {
+				t.Fatal(err)
+			}
+			output := output(runtime)
+			if !strings.Contains(output, test.want) || !strings.Contains(output, "External loopback compatibility layer") {
+				t.Fatalf("output = %q", output)
+			}
+		})
+	}
+}
+
 func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	emptyPath := filepath.Join(t.TempDir(), "configuration.toml")
 	emptyOut := &bytes.Buffer{}
@@ -209,37 +256,207 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	}
 }
 
+func TestStatusJSONExposesAutomaticCredentialBackendWithoutPersistingSelection(t *testing.T) {
+	runtime, _ := configuredReadinessRuntime(t)
+	root := filepath.Join(t.TempDir(), "secrets")
+	store, err := secrets.Select(secrets.Selection{
+		GOOS:         goruntime.GOOS,
+		Root:         root,
+		KeyringProbe: func(secrets.Store) error { return errors.New("service unavailable") },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime.Secrets = store
+
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		CredentialBackend secrets.BackendSelection `json:"credential_backend"`
+	}
+	if err := json.Unmarshal([]byte(output(runtime)), &result); err != nil {
+		t.Fatal(err)
+	}
+	want := secrets.BackendSelection{
+		Kind:         "file",
+		Availability: "available",
+		Mutability:   "read_write",
+		Persistence:  "deferred",
+	}
+	if result.CredentialBackend != want {
+		t.Fatalf("credential backend = %#v, want %#v", result.CredentialBackend, want)
+	}
+	if _, err := os.Stat(filepath.Join(root, "backend")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("status persisted automatic selection: %v", err)
+	}
+}
+
+func TestStatusJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
+	runtime, _ := configuredReadinessRuntime(t)
+	root := filepath.Join(t.TempDir(), "secrets")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "backend"), []byte("retired\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := secrets.Select(secrets.Selection{GOOS: goruntime.GOOS, Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime.Secrets = store
+
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		CredentialBackend secrets.BackendSelection `json:"credential_backend"`
+	}
+	if err := json.Unmarshal([]byte(output(runtime)), &result); err != nil {
+		t.Fatal(err)
+	}
+	want := secrets.BackendSelection{
+		Kind:           "unknown",
+		Availability:   "unavailable",
+		Mutability:     "unknown",
+		Persistence:    "unknown",
+		RecoveryAction: domainreadiness.CredentialBackendRecovery,
+	}
+	if result.CredentialBackend != want {
+		t.Fatalf("credential backend = %#v, want %#v", result.CredentialBackend, want)
+	}
+}
+
+func TestStatusFallsBackToRepairForUnclassifiedAttention(t *testing.T) {
+	out := &bytes.Buffer{}
+	runtime := invocation.Context{Out: out, RenderOut: out, Width: 120, Accounts: account.NewMemoryStore()}
+	cfg := configuration.NewConfig()
+	cfg.Profiles["available"] = configuration.Profile{Label: "Available"}
+	routes := map[string]routeStatus{}
+	for _, client := range configuration.AdmittedClientIDs() {
+		routes[client] = routeStatus{Client: domainreadiness.Client{State: domainreadiness.Invalid}}
+	}
+
+	renderStatus(runtime, cfg, statusOutput{Routes: routes})
+	got := out.String()
+	if !strings.Contains(got, "aigw repair") || !strings.Contains(got, "No selected account") {
+		t.Fatalf("status fallback = %q", got)
+	}
+}
+
+func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
+	runtime := invocation.Context{Out: &bytes.Buffer{}, Width: 120}
+	for _, state := range []domainreadiness.State{
+		domainreadiness.Ready,
+		domainreadiness.Configured,
+		domainreadiness.Deferred,
+		domainreadiness.Invalid,
+	} {
+		clientID := string(state)
+		attention, _ := renderClientStatus(
+			Renderer(runtime),
+			statusOutput{Routes: map[string]routeStatus{clientID: {Client: domainreadiness.Client{State: state}}}},
+			[]string{clientID},
+		)
+		if attention != (state == domainreadiness.Invalid) {
+			t.Fatalf("state %s attention = %v", state, attention)
+		}
+	}
+}
+
+func TestStatusReportsSelectedUnknownProfile(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	cfg.Routes[configuration.ClientClaude] = "missing"
+	state := inspectStatusClients(runtime, cfg)[configuration.ClientClaude]
+	if state.State != domainreadiness.Invalid || state.Profile != "missing" || !strings.Contains(state.Detail, `unknown profile "missing"`) {
+		t.Fatalf("Claude status = %#v", state)
+	}
+}
+
 func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
 	store := &observingSecretStore{value: "must-not-be-read"}
 	runtime.Secrets = store
-	originalProbe := probeAdapterRoute
-	t.Cleanup(func() { probeAdapterRoute = originalProbe })
-	probeAdapterRoute = func(invocation.Context, configuration.Config, string, configuration.Runtime) (bool, string) {
-		return true, ""
+	originalInspect := inspectAdapter
+	t.Cleanup(func() { inspectAdapter = originalInspect })
+	inspectAdapter = func(context.Context, invocation.Context, configuration.Config, string, configuration.Runtime, clientdomain.InspectionOptions) clientdomain.Status {
+		return clientdomain.Status{Ready: true}
 	}
 
-	if _, err := collectStatus(runtime, cfg); err != nil {
-		t.Fatal(err)
-	}
+	collectStatus(runtime, cfg)
 	if store.existsCalls != len(configuration.AdmittedClientIDs()) || store.getCalls != 0 {
 		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
 	}
 }
 
-func TestStatusPreservesCredentialObservationFailure(t *testing.T) {
+func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	profile := cfg.Profiles["codex"]
+	profile.ModelProvider = "amazon-bedrock"
+	profile.Authentication = configuration.AuthenticationClientNative
+	cfg.Profiles["codex"] = profile
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := &observingSecretStore{value: "account-token"}
+	runtime.Secrets = store
+	originalInspect := inspectAdapter
+	t.Cleanup(func() { inspectAdapter = originalInspect })
+	inspectAdapter = func(context.Context, invocation.Context, configuration.Config, string, configuration.Runtime, clientdomain.InspectionOptions) clientdomain.Status {
+		return clientdomain.Status{Ready: true, NativeAuthentication: "not_required"}
+	}
+
+	if err := RunStatus(runtime, false); err != nil {
+		t.Fatal(err)
+	}
+	human := output(runtime)
+	if store.existsCalls != 1 || store.getCalls != 0 {
+		t.Fatalf("status credential observations = exists %d, get %d; want only the Claude Account-Token lookup", store.existsCalls, store.getCalls)
+	}
+	for _, want := range []string{"Client-owned authentication", "aigw verify --for codex"} {
+		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
+			t.Fatalf("client-native status = %q, want %q", human, want)
+		}
+	}
+	for _, unwanted := range []string{"Token", "aigw rotate", "aigw adapter auth"} {
+		if strings.Contains(human, unwanted) {
+			t.Fatalf("client-native status = %q, contains %q", human, unwanted)
+		}
+	}
+
+	runtime.Out.(*bytes.Buffer).Reset()
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	machine := output(runtime)
+	if !strings.Contains(machine, `"authentication": "client-native"`) || strings.Contains(machine, `"secret_available"`) {
+		t.Fatalf("client-native JSON status = %q", machine)
+	}
+}
+
+func TestStatusClassifiesCredentialObservationFailureWithoutReadingValues(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
 	want := errors.New("credential metadata unavailable")
 	store := &observingSecretStore{existsErr: want}
 	runtime.Secrets = store
-	if _, err := collectStatus(runtime, cfg); !errors.Is(err, want) {
-		t.Fatalf("collectStatus error = %v, want %v", err, want)
+	result := collectStatus(runtime, cfg)
+	for _, client := range configuration.AdmittedClientIDs() {
+		state := result.Clients[client]
+		if state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" || !strings.Contains(strings.ToLower(state.Detail), "credential metadata") {
+			t.Fatalf("%s state = %#v", client, state)
+		}
 	}
 	if store.getCalls != 0 {
 		t.Fatalf("status read credential %d times after observation failed", store.getCalls)
 	}
-	if err := RunStatus(runtime, false); !errors.Is(err, want) {
-		t.Fatalf("RunStatus error = %v, want %v", err, want)
+	if err := RunStatus(runtime, false); err != nil {
+		t.Fatalf("RunStatus error = %v", err)
+	}
+	if !strings.Contains(output(runtime), "Unavailable") || !strings.Contains(output(runtime), "aigw doctor") {
+		t.Fatalf("RunStatus output = %q", output(runtime))
 	}
 }
 
@@ -270,8 +487,87 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	}
 }
 
+func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	runtime.Version = "1.0.0"
+	profile := cfg.Profiles["codex"]
+	profile.ModelProvider = "amazon-bedrock"
+	profile.Authentication = configuration.AuthenticationClientNative
+	cfg.Profiles["codex"] = profile
+	delete(cfg.Routes, configuration.ClientClaude)
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+		Enabled: true, Executable: "codex", Targets: []string{target},
+	}
+	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := codex.SyncConfig(target, clientRuntime); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := &observingSecretStore{getErr: errors.New("client-native credential access")}
+	runtime.Secrets = store
+	requests := 0
+	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		requests++
+		return nil, errors.New("client-native endpoint probe")
+	})
+	command := &cobra.Command{}
+	command.SetContext(context.Background())
+
+	if err := RunCheck(command, runtime); err != nil {
+		t.Fatalf("client-native check error = %v", err)
+	}
+	if store.getCalls != 0 || store.existsCalls != 0 || requests != 0 {
+		t.Fatalf("client-native check used AIGW authentication capabilities: get=%d exists=%d HTTP=%d", store.getCalls, store.existsCalls, requests)
+	}
+	human := output(runtime)
+	for _, want := range []string{"Local readiness", "Client-owned authentication", "aigw verify --for codex"} {
+		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
+			t.Fatalf("client-native check output = %q, want %q", human, want)
+		}
+	}
+	for _, forbidden := range []string{"Every enabled client route is healthy", "remote authentication succeeded", "model request succeeded"} {
+		if strings.Contains(human, forbidden) {
+			t.Fatalf("client-native check output = %q, contains %q", human, forbidden)
+		}
+	}
+
+	runtime.Out.(*bytes.Buffer).Reset()
+	if err := runJSONCheck(command, runtime); err != nil {
+		t.Fatalf("client-native check --json error = %v", err)
+	}
+	var machine struct {
+		OK     bool `json:"ok"`
+		Routes map[string]struct {
+			Authentication configuration.Authentication `json:"authentication"`
+			Ready          bool                         `json:"ready"`
+			Fix            string                       `json:"fix"`
+			DiagnosticKind string                       `json:"diagnostic_kind"`
+		} `json:"routes"`
+	}
+	if err := json.Unmarshal(runtime.Out.(*bytes.Buffer).Bytes(), &machine); err != nil {
+		t.Fatal(err)
+	}
+	route := machine.Routes[configuration.ClientCodex]
+	if !machine.OK || !route.Ready || route.Authentication != configuration.AuthenticationClientNative || route.Fix != "aigw verify --for codex" || route.DiagnosticKind != "" {
+		t.Fatalf("client-native JSON check = %#v", machine)
+	}
+	if store.getCalls != 0 || store.existsCalls != 0 || requests != 0 {
+		t.Fatalf("client-native JSON check used AIGW authentication capabilities: get=%d exists=%d HTTP=%d", store.getCalls, store.existsCalls, requests)
+	}
+}
+
 func TestCheckJSONReportsOutputFailure(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
+	runtime.Version = "1.0.0"
 	cfg.Adapters = map[string]configuration.AdapterConfig{}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -285,126 +581,28 @@ func TestCheckJSONReportsOutputFailure(t *testing.T) {
 	}
 }
 
-func TestAdapterRouteReadyCoversClaudeExecutableAndCodexOutcomes(t *testing.T) {
-	runtime, cfg := configuredReadinessRuntime(t)
-	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || !strings.Contains(issue, "disabled") {
-		t.Fatalf("disabled adapter ready=%v issue=%q", ready, issue)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || !strings.Contains(issue, "executable") {
-		t.Fatalf("missing executable ready=%v issue=%q", ready, issue)
-	}
-
-	executable := filepath.Join(t.TempDir(), "claude")
-	if goruntime.GOOS == "windows" {
-		executable += ".exe"
-	}
-	if err := os.WriteFile(executable, []byte("binary"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || issue != "Claude executable is unavailable" {
-		t.Fatalf("missing executable ready=%v issue=%q", ready, issue)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "\x00"}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); ready || issue != "Cannot inspect Claude executable" {
-		t.Fatalf("invalid executable ready=%v issue=%q", ready, issue)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientClaude, clientRuntime); !ready || issue != "" {
-		t.Fatalf("ready executable ready=%v issue=%q", ready, issue)
-	}
-
-	codexRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex"}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientCodex, codexRuntime); ready || !strings.Contains(issue, "target") {
-		t.Fatalf("missing Codex target ready=%v issue=%q", ready, issue)
-	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientCodex, codexRuntime); ready || !strings.Contains(issue, "projection drift") {
-		t.Fatalf("drifted Codex target ready=%v issue=%q", ready, issue)
-	}
-	originalValidate := validateCodexConfig
-	t.Cleanup(func() { validateCodexConfig = originalValidate })
-	validateCodexConfig = func(string, configuration.Runtime) error { return nil }
-	if ready, issue := AdapterRouteReady(runtime, cfg, configuration.ClientCodex, codexRuntime); !ready || issue != "" {
-		t.Fatalf("ready Codex target ready=%v issue=%q", ready, issue)
-	}
-}
-
-func TestCodexAuthenticationProofUsesThePublicStatusCommandForEveryTarget(t *testing.T) {
-	runner := &readinessProcessRunner{}
-	targets := []string{
-		filepath.Join(t.TempDir(), "first", "config.toml"),
-		filepath.Join(t.TempDir(), "second", "config.toml"),
-	}
-	runtime := invocation.Context{Runner: runner}
-	if !CodexAuthenticationProven(runtime, "codex", targets) {
-		t.Fatal("successful native status probes did not prove authentication")
-	}
-	if len(runner.plans) != len(targets) {
-		t.Fatalf("status plans = %d, want %d", len(runner.plans), len(targets))
-	}
-	for index, plan := range runner.plans {
-		if !slices.Equal(plan.Args, []string{"login", "status"}) {
-			t.Fatalf("status args = %#v", plan.Args)
-		}
-		wantHome := filepath.Dir(targets[index])
-		if !slices.Contains(plan.Env, "CODEX_HOME="+wantHome) {
-			t.Fatalf("status environment does not select %q: %#v", wantHome, plan.Env)
-		}
-		if plan.Stdin != "" {
-			t.Fatalf("status probe received secret input: %#v", plan)
-		}
-	}
-
-	runner.err = errors.New("not logged in")
-	if CodexAuthenticationProven(runtime, "codex", targets[:1]) {
-		t.Fatal("failed native status probe proved authentication")
-	}
-	if CodexAuthenticationProven(runtime, "codex", nil) {
-		t.Fatal("an empty target set proved authentication")
-	}
-	if CodexAuthenticationProven(runtime, "", targets[:1]) {
-		t.Fatal("an empty executable proved authentication")
-	}
-	if CodexAuthenticationProven(invocation.Context{}, "codex", targets[:1]) {
-		t.Fatal("missing capture capability proved authentication")
-	}
-}
-
 func TestStatusSeparatesCodexProjectionFromNativeAuthentication(t *testing.T) {
 	runtime, cfg := configuredReadinessRuntime(t)
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
 	target := filepath.Join(t.TempDir(), "config.toml")
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
 	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
 		Enabled: true, Executable: "codex", Targets: []string{target},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	originalValidate := validateCodexConfig
-	originalAuthentication := probeCodexAuthentication
-	originalAdapter := probeAdapterRoute
-	t.Cleanup(func() {
-		validateCodexConfig = originalValidate
-		probeCodexAuthentication = originalAuthentication
-		probeAdapterRoute = originalAdapter
-	})
-	validateCodexConfig = func(string, configuration.Runtime) error { return nil }
-	probeAdapterRoute = func(invocation.Context, configuration.Config, string, configuration.Runtime) (bool, string) {
-		return true, ""
+	originalInspect := inspectAdapter
+	t.Cleanup(func() { inspectAdapter = originalInspect })
+	inspectAdapter = func(_ context.Context, _ invocation.Context, _ configuration.Config, clientID string, _ configuration.Runtime, _ clientdomain.InspectionOptions) clientdomain.Status {
+		status := clientdomain.Status{Ready: true}
+		if clientID == configuration.ClientCodex {
+			status.NativeAuthentication = "not_proven"
+		}
+		return status
 	}
-	probeCodexAuthentication = func(invocation.Context, string, []string) bool { return false }
 
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
@@ -427,7 +625,13 @@ func TestStatusSeparatesCodexProjectionFromNativeAuthentication(t *testing.T) {
 		t.Fatalf("JSON readiness facts = %q", jsonStatus)
 	}
 
-	probeCodexAuthentication = func(invocation.Context, string, []string) bool { return true }
+	inspectAdapter = func(_ context.Context, _ invocation.Context, _ configuration.Config, clientID string, _ configuration.Runtime, _ clientdomain.InspectionOptions) clientdomain.Status {
+		status := clientdomain.Status{Ready: true}
+		if clientID == configuration.ClientCodex {
+			status.NativeAuthentication = "present"
+		}
+		return status
+	}
 	runtime.Out.(*bytes.Buffer).Reset()
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
@@ -449,9 +653,12 @@ func TestStatusSeparatesCodexProjectionFromNativeAuthentication(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	probeCodexAuthentication = func(invocation.Context, string, []string) bool {
-		t.Fatal("native Codex provider must not require AIGW authentication")
-		return false
+	inspectAdapter = func(_ context.Context, _ invocation.Context, _ configuration.Config, clientID string, _ configuration.Runtime, _ clientdomain.InspectionOptions) clientdomain.Status {
+		status := clientdomain.Status{Ready: true}
+		if clientID == configuration.ClientCodex {
+			status.NativeAuthentication = "not_required"
+		}
+		return status
 	}
 	runtime.Out.(*bytes.Buffer).Reset()
 	if err := RunStatus(runtime, true); err != nil {
@@ -559,6 +766,38 @@ func TestRunCheckShowsEnabledProviderDiagnostics(t *testing.T) {
 	}
 }
 
+func TestRunCheckReportsProviderDiagnosticCredentialObservationFailure(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	runtime.Version = "1.0.0"
+	if err := runtime.Secrets.Set("one", "token"); err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("credential metadata unavailable")
+	runtime.Accounts = failingAccountObservationStore{err: want}
+	claudeExecutable := filepath.Join(t.TempDir(), "claude")
+	if goruntime.GOOS == "windows" {
+		claudeExecutable += ".exe"
+	}
+	if err := os.WriteFile(claudeExecutable, []byte("fixture"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
+	providerAccount := cfg.Accounts["one"]
+	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
+	cfg.Accounts["one"] = providerAccount
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
+	})
+	command := &cobra.Command{}
+	command.SetContext(context.Background())
+	if err := RunCheck(command, runtime); !errors.Is(err, want) {
+		t.Fatalf("RunCheck() error = %v, want %v", err, want)
+	}
+}
+
 func TestEndpointTestCommandCoversSuccessAndTransportFailures(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		runtime, _ := configuredReadinessRuntime(t)
@@ -616,6 +855,34 @@ func TestEndpointTestCommandCoversSuccessAndTransportFailures(t *testing.T) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
 		})
+	}
+}
+
+func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testing.T) {
+	runtime, cfg := configuredReadinessRuntime(t)
+	profile := cfg.Profiles["codex"]
+	profile.ModelProvider = "amazon-bedrock"
+	profile.Authentication = configuration.AuthenticationClientNative
+	cfg.Profiles["codex"] = profile
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := &observingSecretStore{getErr: errors.New("client-native credential access")}
+	runtime.Secrets = store
+	requests := 0
+	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		requests++
+		return nil, errors.New("client-native endpoint probe")
+	})
+	command := NewTestCommand(runtime)
+	command.SetArgs([]string{"--for", configuration.ClientCodex})
+
+	err := executeCommand(command)
+	if err == nil || !strings.Contains(err.Error(), "aigw verify --for codex") {
+		t.Fatalf("client-native endpoint test error = %v", err)
+	}
+	if store.getCalls != 0 || store.existsCalls != 0 || requests != 0 {
+		t.Fatalf("client-native endpoint test used AIGW authentication capabilities: get=%d exists=%d HTTP=%d", store.getCalls, store.existsCalls, requests)
 	}
 }
 
@@ -713,19 +980,6 @@ func TestReadinessTransportHelpers(t *testing.T) {
 	}
 	if got := TransportStatus("https://api.example.test/v1"); got.Kind != "" {
 		t.Fatalf("remote transport = %#v", got)
-	}
-	if got := CodexModelsEndpoint("https://api.example.test/v1/"); got != "https://api.example.test/v1/models" {
-		t.Fatalf("models endpoint = %q", got)
-	}
-	if got := CodexModelsEndpoint("https://api.example.test/models/"); got != "https://api.example.test/models" {
-		t.Fatalf("existing models endpoint = %q", got)
-	}
-	request, err := http.NewRequest(http.MethodGet, "https://example.test", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := authenticateRequest(request, configuration.ClientSpec{ID: "future", EndpointProtocol: configuration.EndpointProtocol("future")}, "token"); err == nil || !strings.Contains(err.Error(), "unsupported") {
-		t.Fatalf("unsupported protocol error = %v", err)
 	}
 	buffer := &bytes.Buffer{}
 	renderer := Renderer(invocation.Context{Out: buffer})

@@ -156,6 +156,32 @@ const (
 	ReleaseProviderGitHub ReleaseProvider = "github"
 )
 
+func (u Updater) releaseHTTPClient() *http.Client {
+	base := u.HTTPClient
+	if base == nil {
+		base = http.DefaultClient
+	}
+	client := *base
+	if client.Timeout == 0 {
+		client.Timeout = releaseRequestTimeout
+	}
+	defaultCheckRedirect := client.CheckRedirect
+	client.CheckRedirect = func(request *http.Request, previous []*http.Request) error {
+		if len(previous) > 0 && !strings.EqualFold(request.URL.Host, previous[0].URL.Host) {
+			request.Header.Del("Authorization")
+			request.Header.Del("PRIVATE-TOKEN")
+		}
+		if len(previous) > 0 && previous[0].URL.Scheme == "https" && request.URL.Scheme != "https" {
+			return fmt.Errorf("refusing release update redirect from HTTPS to HTTP")
+		}
+		if defaultCheckRedirect != nil {
+			return defaultCheckRedirect(request, previous)
+		}
+		return nil
+	}
+	return &client
+}
+
 // ReleaseSource identifies one release namespace. It contains no credential.
 // Configured sources are equal peers; neither is subordinate to the other.
 type ReleaseSource struct {

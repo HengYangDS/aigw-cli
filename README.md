@@ -70,9 +70,10 @@ directory on Windows. An explicit destination is available for isolated use:
 
 `aigw install` copies only the running executable and retains one predecessor
 for rollback. It does not edit shell startup files, retrieve a release, store
-credentials, configure clients, or start another product. `aigw uninstall`
-removes only the installed executable and that rollback copy; configuration and
-credential-store secrets remain intact.
+credentials, configure clients, or start another product. `aigw uninstall` first withdraws every AIGW-owned client projection, then
+removes the installed executable and that rollback copy. Accounts, Profiles,
+Routes, Tokens, user-authored client settings, and the explicit configuration
+backup remain intact.
 
 GitLab and GitHub publish independently. Either release plane may supply a
 verified installation. When both are reachable during update, AIGW requires
@@ -143,8 +144,9 @@ Interactive users do not need environment variables. Without an override,
 AIGW first proves that the platform credential service is usable. If it is
 not, AIGW selects one platform-local fallback beneath the AIGW data directory:
 an owner-only store on macOS and Linux, or a Windows DPAPI-protected store.
-The automatic choice is persisted; AIGW never searches multiple stores for the
-same Token.
+The first credential mutation persists the automatic choice before changing a
+Token. Read-only commands and credential reads do not create selection state;
+AIGW never searches multiple stores for the same Token.
 
 Use these variables only for explicit automation or a deliberately selected
 backend:
@@ -286,22 +288,30 @@ checksums are not installation evidence.
 ## Verify a source checkout
 
 ```bash
-mise exec --locked -- go run ./tools/ci source
+mise run bootstrap
+mise run check
+mise run native
+mise run release
 mise exec --locked -- go run ./tools/forge commits --email '<product author email>' --allowed-signers '<path>'
 mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 ```
 
+These four tasks are the portable development entrypoints. `bootstrap`
+reconstructs this Work Lane's locked repository dependencies; `check` runs the
+complete source and governance gate; `native` proves the current host; and
+`release` builds deterministic artifacts in `dist` without publishing them.
+
 ## Documentation
 
-| Need                                | Source of truth                                                        |
-| ----------------------------------- | ---------------------------------------------------------------------- |
-| Concepts                            | [Account, Profile, Route, Adapter](docs/concepts/product-concepts.md)  |
-| Client and control-plane boundaries | [Architecture](docs/architecture/authority-and-projection-boundary.md) |
-| Human terminal behavior             | [Terminal experience](docs/experience/terminal-experience.md)          |
-| Security                            | [Security model](docs/architecture/security-model.md)                  |
-| Team adoption                       | [Team rollout](docs/guides/team-rollout.md)                            |
-| Release evidence                    | [Release readiness](docs/evidence/release-evidence.md)                 |
-| Development                         | [CONTRIBUTING](CONTRIBUTING.md)                                        |
-| Full index                          | [Documentation root](docs/README.md)                                   |
+| Need                                | Source of truth                                                                                             |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Concepts                            | [Account, Profile, Route, Adapter](docs/concepts/product-concepts.md)                                       |
+| Client and control-plane boundaries | [Architecture](docs/architecture/authority-and-projection-boundary.md)                                      |
+| Human terminal behavior             | [Terminal experience](docs/experience/terminal-experience.md)                                               |
+| Security                            | [Security model](docs/architecture/security-model.md)                                                       |
+| Team adoption                       | [Team rollout](docs/guides/team-rollout.md)                                                                 |
+| Release evidence                    | [Quality and platform evidence](docs/governance/change-and-release-policy.md#quality-and-platform-evidence) |
+| Development                         | [CONTRIBUTING](CONTRIBUTING.md)                                                                             |
+| Full index                          | [Documentation root](docs/README.md)                                                                        |
 
 Licensed under the MIT License: [MIT](LICENSE).

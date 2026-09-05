@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	configuration "aigw-cli/internal/configuration"
 )
 
 func TestInstallCommandUsesPlatformDefaultTarget(t *testing.T) {
@@ -76,6 +77,69 @@ func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "target is empty") {
 		t.Fatalf("empty target error = %v", err)
 	}
+}
+
+func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T) {
+	t.Run("configuration load", func(t *testing.T) {
+		root := t.TempDir()
+		command := NewUninstallCommand(invocation.Context{Executable: filepath.Join(root, "aigw"), Config: configuration.NewStore(root)})
+		command.SetArgs(nil)
+		if err := command.Execute(); err == nil {
+			t.Fatal("uninstall succeeded despite an unreadable configuration path")
+		}
+	})
+
+	t.Run("configuration inspection", func(t *testing.T) {
+		root := t.TempDir()
+		target := filepath.Join(root, "aigw")
+		if err := os.WriteFile(target, []byte("current"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		command := NewUninstallCommand(invocation.Context{
+			Executable: target,
+			Config:     configuration.NewStore(filepath.Join(root, "invalid\x00configuration.toml")),
+		})
+		command.SetArgs(nil)
+		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "inspect AIGW configuration") {
+			t.Fatalf("configuration inspection error = %v", err)
+		}
+		if _, err := os.Stat(target); err != nil {
+			t.Fatalf("program was removed after failed configuration inspection: %v", err)
+		}
+	})
+
+	t.Run("client withdrawal", func(t *testing.T) {
+		root := t.TempDir()
+		target := filepath.Join(root, "aigw")
+		if err := os.WriteFile(target, []byte("current"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		store := configuration.NewStore(filepath.Join(root, "configuration.toml"))
+		cfg := configuration.NewConfig()
+		cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+		cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+		cfg.Routes[configuration.ClientClaude] = "claude"
+		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+		if err := store.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		blockedSettings := filepath.Join(root, "blocked-settings")
+		if err := os.Mkdir(blockedSettings, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		command := NewUninstallCommand(invocation.Context{
+			Executable:         target,
+			Config:             store,
+			ClaudeSettingsPath: blockedSettings,
+		})
+		command.SetArgs(nil)
+		if err := command.Execute(); err == nil {
+			t.Fatal("uninstall succeeded despite failed client withdrawal")
+		}
+		if _, err := os.Stat(target); err != nil {
+			t.Fatalf("program was removed after failed client withdrawal: %v", err)
+		}
+	})
 }
 
 func TestInstallCopiesCurrentExecutableAndPreservesOnePredecessor(t *testing.T) {

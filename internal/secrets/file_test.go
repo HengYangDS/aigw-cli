@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -24,42 +23,9 @@ func (info fileInfoStub) ModTime() time.Time { return time.Time{} }
 func (info fileInfoStub) IsDir() bool        { return info.mode.IsDir() }
 func (info fileInfoStub) Sys() any           { return info.stat }
 
-type syncWriterStub struct {
-	writeErr error
-	syncErr  error
-}
-
-func (writer syncWriterStub) Write([]byte) (int, error) {
-	if writer.writeErr != nil {
-		return 0, writer.writeErr
-	}
-	return 1, nil
-}
-
-func (writer syncWriterStub) Sync() error { return writer.syncErr }
-
 type syncerStub struct{ err error }
 
 func (syncer syncerStub) Sync() error { return syncer.err }
-
-type readRootStub struct {
-	info os.FileInfo
-	err  error
-}
-
-func (root readRootStub) Lstat(string) (os.FileInfo, error) { return root.info, nil }
-func (root readRootStub) Open(string) (*os.File, error)     { return nil, root.err }
-
-type writeRootStub struct{ file *os.File }
-
-func (root writeRootStub) OpenFile(string, int, os.FileMode) (*os.File, error) {
-	return root.file, nil
-}
-func (writeRootStub) Remove(string) error         { return nil }
-func (writeRootStub) Rename(string, string) error { return nil }
-func (writeRootStub) Open(string) (*os.File, error) {
-	return nil, errors.New("unexpected directory sync")
-}
 
 func TestFileStoreCRUDUsesOwnerOnlyFiles(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
@@ -272,87 +238,6 @@ func TestFileStoreRejectsInvalidAccountNames(t *testing.T) {
 	}
 }
 
-func TestBackendChoiceLifecycleAndValidation(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "secrets")
-	choice := newBackendChoice(root)
-	if _, err := choice.Read(); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("Read() missing error = %v", err)
-	}
-	if err := choice.Write("unknown"); err == nil {
-		t.Fatal("Write() accepted an unknown backend")
-	}
-	if err := choice.Write("file"); err != nil {
-		t.Fatalf("Write() error = %v", err)
-	}
-	backend, err := choice.Read()
-	if err != nil || backend != "file" {
-		t.Fatalf("Read() = %q, %v", backend, err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "backend"), []byte("unknown\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := choice.Read(); err == nil || !strings.Contains(err.Error(), "invalid persisted") {
-		t.Fatalf("Read() invalid marker error = %v", err)
-	}
-}
-
-func TestBackendChoiceReportsAtomicWriteFailure(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "secrets")
-	if err := os.Mkdir(root, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(root, "backend"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := newBackendChoice(root).Write("file"); err == nil {
-		t.Fatal("Write() replaced a backend directory")
-	}
-}
-
-func TestSecureFileHelpersRejectInvalidResources(t *testing.T) {
-	parent := t.TempDir()
-	regular := filepath.Join(parent, "regular")
-	if err := os.WriteFile(regular, []byte("not a directory"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := openSecureRoot(regular, false); err == nil {
-		t.Fatal("openSecureRoot() accepted a regular file")
-	}
-	if _, err := openSecureRoot(filepath.Join(regular, "child"), true); err == nil {
-		t.Fatal("openSecureRoot() created beneath a regular file")
-	}
-	if _, err := openSecureRoot(filepath.Join(regular, "child"), false); err == nil {
-		t.Fatal("openSecureRoot() inspected beneath a regular file")
-	}
-
-	rootPath := filepath.Join(parent, "root")
-	if err := os.Mkdir(rootPath, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	root, err := os.OpenRoot(rootPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(rootPath, "occupied"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeSecureFile(root, "occupied", []byte("token")); err == nil {
-		t.Fatal("writeSecureFile() replaced a directory")
-	}
-	if err := root.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := readSecureFile(root, "missing"); err == nil {
-		t.Fatal("readSecureFile() used a closed root")
-	}
-	if err := writeSecureFile(root, "alpha", []byte("token")); err == nil {
-		t.Fatal("writeSecureFile() used a closed root")
-	}
-	if err := syncRoot(root); err == nil {
-		t.Fatal("syncRoot() used a closed root")
-	}
-}
-
 func TestOwnedFileValidationRejectsAmbiguousOrForeignMetadata(t *testing.T) {
 	uid := uint32(os.Geteuid())
 	if err := validateOwnedFile(fileInfoStub{mode: 0o600, stat: &syscall.Stat_t{Uid: uid, Nlink: 2}}); err == nil {
@@ -366,84 +251,10 @@ func TestOwnedFileValidationRejectsAmbiguousOrForeignMetadata(t *testing.T) {
 	}
 }
 
-func TestSecureFilePrimitiveFailuresAreExplicit(t *testing.T) {
+func TestUnixDirectorySyncFailureIsExplicit(t *testing.T) {
 	want := errors.New("injected failure")
-	if err := writeAndSync(syncWriterStub{writeErr: want}, []byte("token")); !errors.Is(err, want) {
-		t.Fatalf("writeAndSync() write error = %v", err)
-	}
-	if err := writeAndSync(syncWriterStub{syncErr: want}, []byte("token")); !errors.Is(err, want) {
-		t.Fatalf("writeAndSync() sync error = %v", err)
-	}
-	if err := syncDirectory(syncerStub{err: want}); !errors.Is(err, want) {
-		t.Fatalf("syncDirectory() error = %v", err)
-	}
-}
-
-func TestSecureFilePropagatesOpenAndWriteFailures(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "alpha")
-	if err := os.WriteFile(path, []byte("token"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := errors.New("injected open failure")
-	if _, err := readSecureFile(readRootStub{info: info, err: want}, "alpha"); !errors.Is(err, want) {
-		t.Fatalf("readSecureFile() error = %v, want %v", err, want)
-	}
-	readOnly, err := os.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := writeSecureFile(writeRootStub{file: readOnly}, "alpha", []byte("replacement")); err == nil {
-		t.Fatal("writeSecureFile() ignored a write failure")
-	}
-}
-
-func TestSecureRootAndFileIdentityAreStable(t *testing.T) {
-	parent := t.TempDir()
-	first := filepath.Join(parent, "first")
-	second := filepath.Join(parent, "second")
-	if err := os.Mkdir(first, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(second, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	firstInfo, err := os.Stat(first)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := openVerifiedRoot(filepath.Join(parent, "missing"), firstInfo); err == nil {
-		t.Fatal("openVerifiedRoot() accepted a missing root")
-	}
-	if _, err := openVerifiedRoot(second, firstInfo); err == nil {
-		t.Fatal("openVerifiedRoot() accepted a changed root")
-	}
-
-	root, err := os.OpenRoot(first)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = root.Close() }()
-	if _, err := openVerifiedFile(root, "missing", firstInfo); err == nil {
-		t.Fatal("openVerifiedFile() accepted a missing file")
-	}
-	for _, name := range []string{"alpha", "beta"} {
-		if err := os.WriteFile(filepath.Join(first, name), []byte(name), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	alpha, err := os.Stat(filepath.Join(first, "alpha"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := openVerifiedFile(root, "beta", alpha); err == nil {
-		t.Fatal("openVerifiedFile() accepted a changed file")
-	}
-	if _, err := readSecureFile(root, "beta"); err != nil {
-		t.Fatalf("readSecureFile() error = %v", err)
+	if err := syncCredentialDirectory(syncerStub{err: want}); !errors.Is(err, want) {
+		t.Fatalf("syncCredentialDirectory() error = %v", err)
 	}
 }
 

@@ -3,6 +3,7 @@ env:
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
+  MISE_CONFIG_DIR: ${{ github.workspace }}/.config/ci
 "on":
   push:
     tags:
@@ -30,7 +31,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
           install: true
           cache: false
@@ -47,7 +48,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
           install: true
           cache: false
@@ -64,7 +65,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
           install: true
           cache: false
@@ -85,7 +86,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
           install: true
           cache: false

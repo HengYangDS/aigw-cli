@@ -25,7 +25,7 @@ func (u Updater) downloadReleaseAssetsFromExactSource(ctx context.Context, sourc
 		return isGlabUnavailable(err), err
 	case ReleaseProviderGitHub:
 		err := u.downloadReleaseAssetsFromGitHub(ctx, source, tag, directory, assets...)
-		return isGitHubUnavailable(err), err
+		return isSourceUnavailable(err), err
 	default:
 		return false, fmt.Errorf("unsupported release provider %q", source.Provider)
 	}
@@ -148,7 +148,7 @@ func (u Updater) downloadReleaseAssetFromGitLabAPI(ctx context.Context, tag, ass
 		return fmt.Errorf("create GitLab release-download request: %w", err)
 	}
 	request.Header.Set("PRIVATE-TOKEN", token)
-	response, err := u.gitLabHTTPClient().Do(request)
+	response, err := u.releaseHTTPClient().Do(request)
 	if err != nil {
 		return fmt.Errorf("download release asset %s: %w", asset, err)
 	}
@@ -183,7 +183,7 @@ func (u Updater) latestTagFromSource(ctx context.Context, source ReleaseSource) 
 	case ReleaseProviderGitHub:
 		tag, err := u.latestTagFromGitHubRelease(ctx, source)
 		if err != nil {
-			return "", isGitHubUnavailable(err), err
+			return "", isSourceUnavailable(err), err
 		}
 		return tag, false, nil
 	default:
@@ -273,7 +273,7 @@ func (u Updater) latestTagFromGitLabAPI(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("create GitLab latest-release request: %w", err)
 	}
 	request.Header.Set("PRIVATE-TOKEN", token)
-	response, err := u.gitLabHTTPClient().Do(request)
+	response, err := u.releaseHTTPClient().Do(request)
 	if err != nil {
 		return "", unavailable(fmt.Errorf("query GitLab latest release: %w", err))
 	}
@@ -348,29 +348,4 @@ func (u Updater) validateTokenFallbackHost() error {
 		return fmt.Errorf("GITLAB_TOKEN fallback requires AIGW_GITLAB_RELEASE_ORIGIN to be an HTTPS origin without credentials, path, query, or fragment")
 	}
 	return nil
-}
-
-func (u Updater) gitLabHTTPClient() *http.Client {
-	base := u.HTTPClient
-	if base == nil {
-		base = http.DefaultClient
-	}
-	client := *base
-	if client.Timeout == 0 {
-		client.Timeout = releaseRequestTimeout
-	}
-	defaultCheckRedirect := client.CheckRedirect
-	client.CheckRedirect = func(request *http.Request, previous []*http.Request) error {
-		if len(previous) > 0 && !strings.EqualFold(request.URL.Host, previous[0].URL.Host) {
-			request.Header.Del("PRIVATE-TOKEN")
-		}
-		if len(previous) > 0 && previous[0].URL.Scheme == "https" && request.URL.Scheme != "https" {
-			return fmt.Errorf("refusing GitLab update redirect from HTTPS to HTTP")
-		}
-		if defaultCheckRedirect != nil {
-			return defaultCheckRedirect(request, previous)
-		}
-		return nil
-	}
-	return &client
 }

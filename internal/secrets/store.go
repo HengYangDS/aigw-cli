@@ -42,6 +42,21 @@ type Selection struct {
 	KeyringProbe func(Store) error
 }
 
+// BackendSelection is a secret-free observation of the one credential
+// backend selected for this invocation. Persistence describes how the
+// selection itself is retained, not whether credential values are durable.
+type BackendSelection struct {
+	Kind           string `json:"kind"`
+	Availability   string `json:"availability"`
+	Mutability     string `json:"mutability"`
+	Persistence    string `json:"persistence"`
+	RecoveryAction string `json:"recovery_action"`
+}
+
+type backendInspector interface {
+	inspectBackend() (BackendSelection, error)
+}
+
 type automaticStore struct {
 	selection          Selection
 	choice             backendChoice
@@ -49,6 +64,44 @@ type automaticStore struct {
 	selected           Store
 	selectedBackend    string
 	selectionPersisted bool
+	selectionWrites    uint64
+	selectionPostimage credentialFileSnapshot
+}
+
+// PrepareBackendSelectionRollback captures the automatic backend selection
+// before a larger transaction first observes credentials. The returned
+// compensation removes only a selection written by that transaction and
+// refuses to overwrite a newer external choice. Explicit stores have no
+// automatic selection to compensate.
+func PrepareBackendSelectionRollback(store Store) (func() error, error) {
+	automatic, ok := store.(*automaticStore)
+	if !ok {
+		return func() error { return nil }, nil
+	}
+	automatic.mutex.Lock()
+	defer automatic.mutex.Unlock()
+	_, err := automatic.choice.Read()
+	if err == nil {
+		return func() error { return nil }, nil
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return nil, fmt.Errorf("observe automatic credential backend selection: %w", err)
+	}
+	preparedWrites := automatic.selectionWrites
+	return func() error {
+		automatic.mutex.Lock()
+		defer automatic.mutex.Unlock()
+		if automatic.selectionWrites == preparedWrites {
+			return nil
+		}
+		if err := automatic.choice.Rollback(automatic.selectionPostimage); err != nil {
+			return fmt.Errorf("restore automatic credential backend selection: %w", err)
+		}
+		automatic.selectionPersisted = false
+		automatic.selectionWrites = preparedWrites
+		automatic.selectionPostimage = credentialFileSnapshot{}
+		return nil
+	}, nil
 }
 
 func IsReadOnly(store Store) bool {
@@ -56,10 +109,30 @@ func IsReadOnly(store Store) bool {
 	return ok && reporter.ReadOnly()
 }
 
+// Inspect reports backend capability without reading credential values or
+// persisting an automatic selection.
+func Inspect(store Store) (BackendSelection, error) {
+	if store == nil {
+		err := errors.New("credential backend is unavailable")
+		return unavailableBackendSelection(), err
+	}
+	if inspector, ok := store.(backendInspector); ok {
+		return inspector.inspectBackend()
+	}
+	if view, ok := store.(scopedView); ok {
+		return Inspect(view.store)
+	}
+	persistence := "explicit"
+	if _, ok := store.(*MemoryStore); ok {
+		persistence = "ephemeral"
+	}
+	return availableBackendSelection(backendKind(store), IsReadOnly(store), persistence), nil
+}
+
 func IsNotFound(err error) bool { return errors.Is(err, ErrNotFound) }
 
 func validate(profile, value string, requireValue bool) error {
-	if !configuration.ValidProfileName(profile) {
+	if !configuration.ValidIdentifier(profile) {
 		return fmt.Errorf("invalid profile name %q", profile)
 	}
 	if requireValue && value == "" {
@@ -111,15 +184,12 @@ func (store *automaticStore) Get(profile string) (string, error) {
 }
 
 func (store *automaticStore) get(kind Kind, profile string) (string, error) {
-	selected, err := store.resolve(false)
+	selected, err := store.resolve()
 	if err != nil {
 		return "", err
 	}
 	value, err := selected.get(kind, profile)
 	if err != nil {
-		return "", err
-	}
-	if err := store.persistSelection(); err != nil {
 		return "", err
 	}
 	return value, nil
@@ -133,11 +203,9 @@ func (store *automaticStore) set(kind Kind, profile, value string) error {
 	if err := validate(profile, value, true); err != nil {
 		return err
 	}
-	selected, err := store.resolve(true)
-	if err != nil {
-		return err
-	}
-	return selected.set(kind, profile, value)
+	return store.mutate(func(selected typedStore) error {
+		return selected.set(kind, profile, value)
+	})
 }
 
 func (store *automaticStore) Delete(profile string) error {
@@ -148,11 +216,9 @@ func (store *automaticStore) delete(kind Kind, profile string) error {
 	if err := validate(profile, "", false); err != nil {
 		return err
 	}
-	selected, err := store.resolve(true)
-	if err != nil {
-		return err
-	}
-	return selected.delete(kind, profile)
+	return store.mutate(func(selected typedStore) error {
+		return selected.delete(kind, profile)
+	})
 }
 
 func (store *automaticStore) Exists(profile string) (bool, error) {
@@ -160,23 +226,21 @@ func (store *automaticStore) Exists(profile string) (bool, error) {
 }
 
 func (store *automaticStore) exists(kind Kind, profile string) (bool, error) {
-	selected, err := store.resolve(false)
+	selected, err := store.resolve()
 	if err != nil {
 		return false, err
 	}
 	return selected.exists(kind, profile)
 }
 
-func (store *automaticStore) resolve(persist bool) (typedStore, error) {
+func (store *automaticStore) resolve() (typedStore, error) {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
+	return store.resolveLocked()
+}
+
+func (store *automaticStore) resolveLocked() (typedStore, error) {
 	if store.selected != nil {
-		if persist && !store.selectionPersisted {
-			if err := store.choice.Write(store.selectedBackend); err != nil {
-				return nil, err
-			}
-			store.selectionPersisted = true
-		}
 		return requireTypedStore(store.selected)
 	}
 	backend, err := store.choice.Read()
@@ -199,16 +263,89 @@ func (store *automaticStore) resolve(persist bool) (typedStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	if persist {
-		if err := store.choice.Write(backend); err != nil {
-			return nil, err
-		}
-		persisted = true
-	}
 	store.selected = selected
 	store.selectedBackend = backend
 	store.selectionPersisted = persisted
 	return requireTypedStore(selected)
+}
+
+func (store *automaticStore) mutate(operation func(typedStore) error) error {
+	store.mutex.Lock()
+	defer store.mutex.Unlock()
+	selected, err := store.resolveLocked()
+	if err != nil {
+		return err
+	}
+	wroteSelection, err := store.persistSelectionLocked()
+	if err != nil {
+		return err
+	}
+	if err := operation(selected); err != nil {
+		if !wroteSelection {
+			return err
+		}
+		if rollbackErr := store.choice.Rollback(store.selectionPostimage); rollbackErr != nil {
+			return errors.Join(err, fmt.Errorf("restore automatic credential backend selection: %w", rollbackErr))
+		}
+		store.selectionPersisted = false
+		store.selectionWrites--
+		store.selectionPostimage = credentialFileSnapshot{}
+		return err
+	}
+	return nil
+}
+
+func (store *automaticStore) inspectBackend() (BackendSelection, error) {
+	selected, err := store.resolve()
+	if err != nil {
+		return unavailableBackendSelection(), err
+	}
+	store.mutex.Lock()
+	backend := store.selectedBackend
+	persistence := "deferred"
+	if store.selectionPersisted {
+		persistence = "persisted"
+	}
+	store.mutex.Unlock()
+	return availableBackendSelection(backend, IsReadOnly(selected), persistence), nil
+}
+
+func backendKind(store Store) string {
+	switch store.(type) {
+	case KeyringStore:
+		return "keyring"
+	case EnvironmentStore:
+		return "env"
+	case *fileStore:
+		return "file"
+	case *MemoryStore:
+		return "memory"
+	default:
+		return "unknown"
+	}
+}
+
+func availableBackendSelection(kind string, readOnly bool, persistence string) BackendSelection {
+	mutability := "read_write"
+	if readOnly {
+		mutability = "read_only"
+	}
+	return BackendSelection{
+		Kind:         kind,
+		Availability: "available",
+		Mutability:   mutability,
+		Persistence:  persistence,
+	}
+}
+
+func unavailableBackendSelection() BackendSelection {
+	return BackendSelection{
+		Kind:           "unknown",
+		Availability:   "unavailable",
+		Mutability:     "unknown",
+		Persistence:    "unknown",
+		RecoveryAction: "aigw doctor",
+	}
 }
 
 func requireTypedStore(store Store) (typedStore, error) {
@@ -219,17 +356,20 @@ func requireTypedStore(store Store) (typedStore, error) {
 	return typed, nil
 }
 
-func (store *automaticStore) persistSelection() error {
-	store.mutex.Lock()
-	defer store.mutex.Unlock()
+func (store *automaticStore) persistSelectionLocked() (bool, error) {
 	if store.selectionPersisted {
-		return nil
+		return false, nil
 	}
-	if err := store.choice.Write(store.selectedBackend); err != nil {
-		return err
+	postimage, written, err := store.choice.Persist(store.selectedBackend)
+	if err != nil {
+		return false, err
 	}
 	store.selectionPersisted = true
-	return nil
+	if written {
+		store.selectionWrites++
+		store.selectionPostimage = postimage
+	}
+	return written, nil
 }
 
 func probeKeyring(store Store, probe func(Store) error) error {

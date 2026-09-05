@@ -76,7 +76,7 @@ func TestAccountConnectStoresSeparateCredentialAndBalanceShowsDetails(t *testing
 	if err := execute(t, app, "account", "connect"); err != nil {
 		t.Fatal(err)
 	}
-	if !accountStore.Has("dmx") {
+	if !accountCredentialExists(t, accountStore, "dmx") {
 		t.Fatal("account credential not stored")
 	}
 	out.Reset()

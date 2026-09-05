@@ -8,11 +8,13 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
+	clientdomain "aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
+	domainreadiness "aigw-cli/internal/readiness"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +22,7 @@ import (
 func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
 	cmd := &cobra.Command{
-		Use: "check", Short: "Check configuration, tokens, clients, and gateway", Args: cobra.NoArgs,
+		Use: "check", Short: "Check routes, credentials, clients, and endpoints", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if jsonMode {
 				return runJSONCheck(cmd, runtime)
@@ -33,25 +35,29 @@ func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 }
 
 type checkJSON struct {
-	ConfigPath string                `json:"config_path"`
-	Routes     map[string]checkRoute `json:"routes"`
-	OK         bool                  `json:"ok"`
-	Error      string                `json:"error,omitempty"`
-	Fix        string                `json:"fix,omitempty"`
+	ConfigPath string                            `json:"config_path"`
+	Routes     map[string]checkRoute             `json:"routes"`
+	Clients    map[string]domainreadiness.Client `json:"clients"`
+	OK         bool                              `json:"ok"`
+	State      domainreadiness.State             `json:"state,omitempty"`
+	NextAction string                            `json:"next_action,omitempty"`
+	Error      string                            `json:"error,omitempty"`
+	Fix        string                            `json:"fix,omitempty"`
 }
 
 type checkRoute struct {
-	Client         string `json:"client"`
-	Profile        string `json:"profile,omitempty"`
-	Account        string `json:"account,omitempty"`
-	EndpointReady  bool   `json:"endpoint_ready"`
-	AdapterReady   bool   `json:"adapter_ready"`
-	Ready          bool   `json:"ready"`
-	Issue          string `json:"issue,omitempty"`
-	DiagnosticKind string `json:"diagnostic_kind,omitempty"`
-	Fix            string `json:"fix,omitempty"`
-	Attempts       int    `json:"attempts,omitempty"`
-	Retryable      bool   `json:"retryable,omitempty"`
+	Client         string                       `json:"client"`
+	Profile        string                       `json:"profile,omitempty"`
+	Account        string                       `json:"account,omitempty"`
+	Authentication configuration.Authentication `json:"authentication,omitempty"`
+	EndpointReady  bool                         `json:"endpoint_ready"`
+	AdapterReady   bool                         `json:"adapter_ready"`
+	Ready          bool                         `json:"ready"`
+	Issue          string                       `json:"issue,omitempty"`
+	DiagnosticKind string                       `json:"diagnostic_kind,omitempty"`
+	Fix            string                       `json:"fix,omitempty"`
+	Attempts       int                          `json:"attempts,omitempty"`
+	Retryable      bool                         `json:"retryable,omitempty"`
 }
 
 type evaluatedRoute struct {
@@ -75,7 +81,7 @@ type checkEvaluation struct {
 
 func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config) checkEvaluation {
 	evaluation := checkEvaluation{configPath: runtime.Config.Path()}
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
 		if !cfg.Adapters[client].Enabled {
 			continue
 		}
@@ -94,22 +100,28 @@ func evaluateRoute(cmd *cobra.Command, runtime invocation.Context, cfg configura
 	}
 	route.runtime = clientRuntime
 	route.endpoint = strings.TrimSpace(clientRuntime.Endpoint) != ""
-	route.adapter, route.issue = AdapterRouteReady(runtime, cfg, client, clientRuntime)
-	if !route.adapter {
-		route.fix = "aigw repair"
-		if client == configuration.ClientCodex && strings.Contains(route.issue, "projection") {
-			route.fix = "aigw sync"
+	var token string
+	if clientRuntime.RequiresAccountToken() {
+		var tokenErr error
+		token, tokenErr = runtime.Secrets.Get(clientRuntime.AccountID)
+		if tokenErr != nil {
+			route.credentialErr = tokenErr
+			route.issue = "account token is unavailable"
+			route.fix = "aigw rotate " + clientRuntime.AccountID
+			return route
 		}
+		route.tokenAvailable = true
 	}
-	token, tokenErr := runtime.Secrets.Get(clientRuntime.AccountID)
-	if tokenErr != nil {
-		route.credentialErr = tokenErr
-		route.issue = "account token is unavailable"
-		route.fix = "aigw rotate " + clientRuntime.AccountID
+	status := invocation.Synchronizer(runtime).Inspect(cmd.Context(), cfg, client, clientRuntime, clientdomain.InspectionOptions{})
+	route.adapter = status.Ready
+	route.issue = status.Issue
+	route.fix = status.RepairAction
+	if !route.adapter {
 		return route
 	}
-	route.tokenAvailable = true
-	if !route.adapter {
+	if !clientRuntime.RequiresAccountToken() {
+		route.ready = true
+		route.fix = "aigw verify --for " + client
 		return route
 	}
 	route.diagnostic = diagnostics.ProbeStable(cmd.Context(), runtime.HTTP, clientRuntime, token, diagnostics.DefaultStabilityPolicy())
@@ -141,23 +153,34 @@ func (e checkEvaluation) route(client string) (evaluatedRoute, bool) {
 
 func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if isLocalProgramBuild(runtime.Version) {
-		return writeJSONFailure(runtime, "local program is not an official release", "aigw update", fmt.Errorf("local program build"))
+		return writeJSONFailure(runtime, domainreadiness.Invalid, "local program is not an official release", "aigw update", fmt.Errorf("local program build"))
 	}
 	cfg, err := runtime.Config.Load()
 	if err != nil {
-		return writeJSONFailure(runtime, "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it", "aigw doctor", err)
+		return writeJSONFailure(runtime, domainreadiness.Invalid, "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it", "aigw doctor", err)
 	}
 	if len(cfg.Profiles) == 0 {
-		return writeJSONFailure(runtime, "not configured", "aigw setup", fmt.Errorf("not configured"))
+		return writeJSONFailure(runtime, domainreadiness.Deferred, "not configured", "aigw setup", fmt.Errorf("not configured"))
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
-	result := checkJSON{ConfigPath: evaluation.configPath, Routes: map[string]checkRoute{}, OK: evaluation.ok()}
+	clients := InspectClients(runtime, cfg)
+	result := checkJSON{
+		ConfigPath: evaluation.configPath,
+		Routes:     map[string]checkRoute{},
+		Clients:    clients,
+		OK:         evaluation.ok(),
+	}
 	for _, route := range evaluation.routes {
 		result.Routes[route.client] = checkRoute{
 			Client: route.client, Profile: route.runtime.ProfileID, Account: route.runtime.AccountID,
-			EndpointReady: route.endpoint, AdapterReady: route.adapter, Ready: route.ready, Issue: route.issue,
+			Authentication: route.runtime.Authentication,
+			EndpointReady:  route.endpoint, AdapterReady: route.adapter, Ready: route.ready, Issue: route.issue,
 			DiagnosticKind: string(route.diagnostic.Kind), Fix: route.fix,
 			Attempts: route.diagnostic.Attempts, Retryable: route.diagnostic.Retryable,
+		}
+		state := clients[route.client]
+		if route.runtime.ProfileID != "" && route.runtime.RequiresAccountToken() && state.State == domainreadiness.Configured {
+			clients[route.client] = domainreadiness.WithProbe(state, route.diagnostic)
 		}
 	}
 	if err := json.NewEncoder(runtime.Out).Encode(result); err != nil {
@@ -173,8 +196,8 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	return nil
 }
 
-func writeJSONFailure(runtime invocation.Context, message, fix string, cause error) error {
-	result := checkJSON{Routes: map[string]checkRoute{}, Error: message, Fix: fix}
+func writeJSONFailure(runtime invocation.Context, state domainreadiness.State, message, fix string, cause error) error {
+	result := checkJSON{Routes: map[string]checkRoute{}, Clients: map[string]domainreadiness.Client{}, State: state, NextAction: fix, Error: message, Fix: fix}
 	if err := json.NewEncoder(runtime.Out).Encode(result); err != nil {
 		return err
 	}
@@ -201,9 +224,11 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	renderer.Status(presentation.OK, "Configuration file", "Healthy")
 	renderer.Section("Client")
 	clientCount := 0
+	localOnlyCount := 0
 	diagnosticAccounts := map[string]bool{}
 	balanceCommands := []string{}
-	for _, client := range configuration.AdmittedClientIDs() {
+	verificationCommands := []string{}
+	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
 		adapter := cfg.Adapters[client]
 		if !adapter.Enabled {
 			renderer.Status(presentation.Info, invocation.Title(client), "Disabled")
@@ -213,7 +238,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		if route.resolveErr != nil {
 			return invocation.Problem(runtime, invocation.Title(client)+" route cannot be resolved", route.resolveErr.Error(), invocation.Title(client)+" cannot determine which profile to use.", "aigw use <"+client+"-profile>", route.resolveErr)
 		}
-		if !route.tokenAvailable {
+		if route.runtime.RequiresAccountToken() && !route.tokenAvailable {
 			instruction, _ := credential.TokenRecovery(runtime.Secrets, route.runtime.AccountID)
 			return invocation.Problem(
 				runtime,
@@ -226,13 +251,17 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		}
 		if !route.adapter {
 			issue := route.issue
-			fix := "aigw repair"
+			fix := route.fix
 			impact := invocation.Title(client) + " cannot inherit AIGW routes, tokens, or configuration projections."
-			if client == configuration.ClientCodex && strings.Contains(issue, "projection") {
-				fix = "aigw sync"
-				impact = "Codex may use the wrong model or endpoint."
-			}
 			return invocation.Problem(runtime, invocation.Title(client)+" adapter is not ready", issue, impact, fix, fmt.Errorf("%s adapter not ready", client))
+		}
+		if !route.runtime.RequiresAccountToken() {
+			renderer.Status(presentation.OK, invocation.Title(client), route.runtime.ProfileLabel+" · Local readiness")
+			renderer.Detail("Client-owned authentication requires an explicit live verification")
+			verificationCommands = append(verificationCommands, route.fix)
+			localOnlyCount++
+			clientCount++
+			continue
 		}
 		result := route.diagnostic
 		if result.Kind != diagnostics.Healthy {
@@ -257,7 +286,11 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			providerAccount := cfg.Accounts[route.runtime.AccountID]
 			if providerAccount.AccountProbe != nil && providers.Supports(providerAccount.AccountProbe.Kind) {
 				balanceCommands = append(balanceCommands, "aigw balance "+route.runtime.AccountID)
-				if runtime.Accounts.Has(route.runtime.AccountID) {
+				available, err := runtime.Accounts.Exists(route.runtime.AccountID)
+				if err != nil {
+					return invocation.Problem(runtime, "Provider diagnostic credential metadata is unavailable", err.Error(), "AIGW cannot determine whether precise balance diagnostics are configured.", "aigw doctor", err)
+				}
+				if available {
 					renderer.Detail(route.runtime.AccountLabel + " precise balance enabled")
 				} else {
 					renderer.Detail("aigw account connect " + route.runtime.AccountID)
@@ -273,7 +306,14 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		renderer.Success("Configuration is healthy; no clients are enabled")
 		return nil
 	}
-	renderer.Success("Every enabled client route is healthy")
+	if localOnlyCount == 0 {
+		renderer.Success("Every enabled client route is healthy")
+	} else {
+		renderer.Success("Every enabled client route satisfies its local readiness requirements")
+	}
+	for _, command := range verificationCommands {
+		renderer.Next(command)
+	}
 	for _, command := range balanceCommands {
 		renderer.Next(command)
 	}

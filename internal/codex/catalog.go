@@ -44,8 +44,6 @@ type codexCatalogPlan struct {
 
 func codexCatalogPath(configPath string) string { return configPath + ".aigw-model-catalog.json" }
 
-func targetCodexCatalogPath(target TargetRef) string { return codexCatalogPath(target.Path) }
-
 // codexCatalogProjection decides what AIGW owns for one target without writing
 // anything. It withholds a catalog whenever it cannot prove the adaptation is
 // both needed and correct, so an unrecognized model keeps the client's own
@@ -64,7 +62,7 @@ func codexCatalogProjection(target TargetRef, model, base string, state codexSta
 			if data == nil {
 				return codexCatalogPlan{}
 			}
-			return codexCatalogPlan{path: targetCodexCatalogPath(target), data: data, client: live, state: catalogStateProjected}
+			return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, state: catalogStateProjected}
 		}
 	}
 	// Regeneration failed. A previous copy is reusable only while it still
@@ -73,7 +71,7 @@ func codexCatalogProjection(target TargetRef, model, base string, state codexSta
 	// the fallback it was meant to prevent.
 	recorded := ExecutableIdentity{Version: state.CatalogClientVersion, SHA256: state.CatalogClientSHA256}
 	if state.CatalogHash != "" && live.same(recorded) && before.Exists && hashBytes(before.Data) == state.CatalogHash {
-		return codexCatalogPlan{path: targetCodexCatalogPath(target), data: before.Data, client: recorded, state: catalogStateProjected}
+		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: before.Data, client: recorded, state: catalogStateProjected}
 	}
 	if state.CatalogHash == "" && state.CatalogState == "" {
 		// AIGW never owned a catalog here, so nothing was lost and there is

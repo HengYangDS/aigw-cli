@@ -59,7 +59,7 @@ func TestStatusShowsIndependentRoutesAndJSONNeverContainsToken(t *testing.T) {
 	if err := execute(t, app, "status", "--json"); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out.String(), "never-print-this-secret") || !strings.Contains(out.String(), `"secret_available": true`) {
+	if strings.Contains(out.String(), "never-print-this-secret") || !strings.Contains(out.String(), `"authentication": "account-token"`) {
 		t.Fatalf("unsafe JSON status = %s", out.String())
 	}
 }

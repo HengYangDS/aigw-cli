@@ -10,9 +10,27 @@ import (
 	"testing"
 	"time"
 
+	"aigw-cli/internal/account"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
+	"aigw-cli/internal/secrets"
+
+	"github.com/spf13/cobra"
 )
+
+func configuredApp(t *testing.T) *App {
+	t.Helper()
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	cfg := configuration.NewConfig()
+	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "http://127.0.0.1:1234/v1", Anthropic: "https://one.test"}}
+	cfg.Profiles["one"] = configuration.Profile{Label: "One", Purpose: "Primary", Account: "one", Client: configuration.ClientCodex, Model: "gpt"}
+	cfg.Routes[configuration.ClientCodex] = "one"
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	out := &bytes.Buffer{}
+	return &App{Config: store, Secrets: secrets.NewMemoryStore(), Accounts: account.NewMemoryStore(), Out: out, Err: out}
+}
 
 func TestNewDefaultBuildsAFunctioningApp(t *testing.T) {
 	app, err := NewDefault()
@@ -65,7 +83,7 @@ type failingWriter struct{ err error }
 func (writer failingWriter) Write([]byte) (int, error) { return 0, writer.err }
 
 func TestExecuteCredentialFailureStaysMachineReadable(t *testing.T) {
-	app := configuredCommandApp(t, configuredCommandState())
+	app := configuredApp(t)
 	var stderr bytes.Buffer
 	app.Err = &stderr
 	err := Execute(app, []string{"credential", "unsupported"})
@@ -76,7 +94,7 @@ func TestExecuteCredentialFailureStaysMachineReadable(t *testing.T) {
 
 func TestExecuteReturnsRendererFailureAfterSuccessfulCommand(t *testing.T) {
 	want := errors.New("output unavailable")
-	app := configuredCommandApp(t, configuredCommandState())
+	app := configuredApp(t)
 	app.Out = failingWriter{err: want}
 	app.Err = io.Discard
 	if err := Execute(app, []string{"status"}); err == nil || !errors.Is(err, want) {
@@ -95,5 +113,41 @@ func TestFinishExecutionPreservesCommandAndUnlockFailures(t *testing.T) {
 	}
 	if err := finishExecution(commandErr, nil); !errors.Is(err, commandErr) {
 		t.Fatalf("command error = %v", err)
+	}
+}
+
+func TestExecuteReturnsConfigurationLoadFailure(t *testing.T) {
+	out := new(bytes.Buffer)
+	app := &App{Config: configuration.NewStore(t.TempDir()), Out: out, Err: out}
+	if err := Execute(app, nil); err == nil {
+		t.Fatal("expected configuration load error")
+	}
+}
+
+func TestRenderCommandHelpOrdersExtensionsAndShowsPublicOptions(t *testing.T) {
+	out := new(bytes.Buffer)
+	app := &App{Out: out, Err: out}
+	command := &cobra.Command{Use: "extension", Short: "extension help"}
+	command.AddCommand(
+		&cobra.Command{Use: "zeta", Short: "Z", Run: func(*cobra.Command, []string) {}},
+		&cobra.Command{Use: "alpha", Short: "A", Run: func(*cobra.Command, []string) {}},
+		&cobra.Command{Use: "internal", Hidden: true, Run: func(*cobra.Command, []string) {}},
+	)
+	command.Flags().String("visible", "", "visible option")
+	command.Flags().String("internal", "", "internal option")
+	if err := command.Flags().MarkHidden("internal"); err != nil {
+		t.Fatal(err)
+	}
+
+	renderCommandHelp(app, command)
+	help := out.String()
+	if !strings.Contains(help, "Commands") || !strings.Contains(help, "visible option") {
+		t.Fatalf("help lacks public extension surface: %q", help)
+	}
+	if strings.Index(help, "alpha") > strings.Index(help, "zeta") {
+		t.Fatalf("extension commands are not ordered: %q", help)
+	}
+	if strings.Contains(help, "internal option") || strings.Contains(help, "internal  ") {
+		t.Fatalf("help exposes an internal surface: %q", help)
 	}
 }

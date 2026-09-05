@@ -42,11 +42,24 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 	})
 
 	t.Run("discovery", func(t *testing.T) {
-		app, _, _, _ := testApp(t, "")
+		app, out, _, _ := testApp(t, "")
 		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		app.Discovery = nil
-		if err := execute(t, app, "repair", "--dry-run"); err == nil || !strings.Contains(err.Error(), "discovery") {
+		if err := execute(t, app, "repair", "--dry-run"); err == nil || err.Error() != "Repair prerequisites are unavailable" {
 			t.Fatalf("error = %v", err)
+		}
+		for _, want := range []string{
+			"Repair prerequisites are unavailable",
+			"AIGW could not inspect the current clients and configuration needed to plan a repair.",
+			"Configuration and client projections remain unchanged.",
+			"aigw doctor",
+		} {
+			if !strings.Contains(out.String(), want) {
+				t.Fatalf("output missing %q:\n%s", want, out.String())
+			}
+		}
+		if strings.Contains(out.String(), "discovery is unavailable") {
+			t.Fatalf("output exposes implementation error:\n%s", out.String())
 		}
 	})
 
@@ -100,7 +113,7 @@ func TestRepairDiscoversAndEnablesInstalledClients(t *testing.T) {
 
 func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
-	trustedExecutable := "/opt/codex-trusted"
+	trustedExecutable := executableFixture(t, "codex-trusted")
 	shadowExecutable := "/tmp/shadow/codex"
 	runner := &repairLoginRunner{trustedExecutable: trustedExecutable, shadowExecutable: shadowExecutable}
 	app.Runner = runner
@@ -168,5 +181,59 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 	}
 	if runner.shadowCalls != 0 || runner.trustedCalls != 2 {
 		t.Fatalf("repeated repair rebound authentication: trusted=%d shadow=%d", runner.trustedCalls, runner.shadowCalls)
+	}
+}
+
+func TestRepairMigratesMissingClientExecutables(t *testing.T) {
+	app, _, secretStore, _ := testApp(t, "")
+	missingRoot := t.TempDir()
+	oldClaude := filepath.Join(missingRoot, "old-claude")
+	oldCodex := filepath.Join(missingRoot, "old-codex")
+	newClaude := executableFixture(t, "claude")
+	newCodex := executableFixture(t, "codex")
+	target := filepath.Join(t.TempDir(), "configuration.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "claude", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, configuration.ClientClaude, "claude-model")
+	addAccountProfile(&cfg, "codex", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, configuration.ClientCodex, "gpt-model")
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: oldClaude}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: oldCodex, Targets: []string{target}}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{
+			configuration.ClientClaude: newClaude,
+			configuration.ClientCodex:  newCodex,
+		},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surfaceidentity.CodexHomeDefault),
+			Authority:   string(surfaceidentity.AuthorityAIGW),
+			ConfigPath:  target,
+			Present:     true,
+			AutoManaged: true,
+		}},
+	}}
+
+	if err := execute(t, app, "repair"); err != nil {
+		t.Fatalf("repair after clients moved: %v", err)
+	}
+	after, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := after.Adapters[configuration.ClientClaude].Executable; got != newClaude {
+		t.Fatalf("Claude executable = %q, want %q", got, newClaude)
+	}
+	if got := after.Adapters[configuration.ClientCodex].Executable; got != newCodex {
+		t.Fatalf("Codex executable = %q, want %q", got, newCodex)
 	}
 }

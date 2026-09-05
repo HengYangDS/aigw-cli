@@ -9,7 +9,6 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/synchronization"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +27,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 		Use: "add <profile>", Short: "Add a model profile to an existing account", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			profileName := args[0]
-			if !configuration.ValidProfileName(profileName) {
+			if !configuration.ValidIdentifier(profileName) {
 				return fmt.Errorf("Invalid profile ID %q; use letters, numbers, dots, hyphens, or underscores", profileName)
 			}
 			if accountName == "" || client == "" || model == "" {
@@ -95,23 +94,30 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			for _, name := range cfg.ProfileIDs() {
 				state, stateText := presentation.Info, "Available"
 				profile := cfg.Profiles[name]
+				profileRuntime, err := cfg.ResolveRuntime(profile.Client, name)
+				if err != nil {
+					return err
+				}
 				if cfg.Routes[profile.Client] == name {
 					state, stateText = presentation.OK, "Selected for "+invocation.Title(profile.Client)
 				}
 				accountName := profile.Account
-				available, err := runtime.Secrets.Exists(accountName)
-				if err != nil {
-					return fmt.Errorf("observe credential for Account %q: %w", accountName, err)
-				}
-				secret := "Token missing"
-				if available {
-					secret = "Token available"
+				authentication := "Client-owned authentication"
+				if profileRuntime.RequiresAccountToken() {
+					available, observationErr := runtime.Secrets.Exists(accountName)
+					if observationErr != nil {
+						return fmt.Errorf("observe credential for Account %q: %w", accountName, observationErr)
+					}
+					authentication = "Token missing"
+					if available {
+						authentication = "Token available"
+					}
 				}
 				detail := []string{}
 				if profile.Client != "" {
 					detail = append(detail, invocation.Title(profile.Client))
 				}
-				detail = append(detail, choiceLabel(profile), stateText, "Account "+accountName, secret)
+				detail = append(detail, choiceLabel(profile), stateText, "Account "+accountName, authentication)
 				r.StatusLine(state, "Configuration", name)
 				r.Detail(strings.Join(detail, " · "))
 			}
@@ -136,12 +142,28 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			}
 			accountName := profile.Account
 			account := cfg.Accounts[accountName]
-			available, err := runtime.Secrets.Exists(accountName)
+			profileRuntime, err := cfg.ResolveRuntime(profile.Client, args[0])
 			if err != nil {
-				return fmt.Errorf("observe credential for Account %q: %w", accountName, err)
+				return err
+			}
+			available := false
+			if profileRuntime.RequiresAccountToken() {
+				available, err = runtime.Secrets.Exists(accountName)
+				if err != nil {
+					return fmt.Errorf("observe credential for Account %q: %w", accountName, err)
+				}
 			}
 			if jsonMode {
-				return json.NewEncoder(runtime.Out).Encode(map[string]any{"id": args[0], "label": profile.Label, "purpose": profile.Purpose, "account": accountName, "client": profile.Client, "model": profile.Model, "endpoints": account.Endpoints, "secret_available": available})
+				result := map[string]any{
+					"id": args[0], "label": profile.Label, "purpose": profile.Purpose,
+					"account": accountName, "client": profile.Client, "model": profile.Model,
+					"model_provider": profileRuntime.ModelProvider, "authentication": profileRuntime.Authentication,
+					"endpoints": account.Endpoints,
+				}
+				if profileRuntime.RequiresAccountToken() {
+					result["secret_available"] = available
+				}
+				return json.NewEncoder(runtime.Out).Encode(result)
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Service details")
@@ -160,11 +182,15 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			if account.Endpoints.Anthropic != "" {
 				r.Row("Anthropic", account.Endpoints.Anthropic)
 			}
-			state, text := presentation.Warn, "Missing"
-			if available {
-				state, text = presentation.OK, "Available"
+			if profileRuntime.RequiresAccountToken() {
+				state, text := presentation.Warn, "Missing"
+				if available {
+					state, text = presentation.OK, "Available"
+				}
+				r.Status(state, "System secret", text)
+			} else {
+				r.Row("Authentication", "Client-owned")
 			}
-			r.Status(state, "System secret", text)
 			return nil
 		},
 	}
@@ -202,7 +228,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Profile updated")
 			r.Row("Configuration", args[0])
-			if synchronization.ProjectionChanged(before, cfg) {
+			if invocation.Synchronizer(runtime).ProjectionChanged(before, cfg) {
 				r.Success("Client configuration synchronized")
 			} else {
 				r.Success("Display metadata saved; client configuration was not changed")

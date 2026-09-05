@@ -3,14 +3,13 @@
 package verification
 
 import (
-	"context"
 	"fmt"
+	"slices"
 
 	"aigw-cli/internal/cli/invocation"
+	clientdomain "aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
-	domainverification "aigw-cli/internal/verification"
 	"github.com/spf13/cobra"
 )
 
@@ -21,10 +20,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Short: "Run one minimal live request to verify the model protocol path",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			synchronizer := invocation.Synchronizer(runtime)
+			admittedClients := synchronizer.ClientIDs()
 			if profileName != "" && client != "" {
 				return fmt.Errorf("choose either --profile or --for, not both")
 			}
-			if client != "" && !configuration.IsAdmittedClient(client) && client != "all" {
+			if client != "" && !slices.Contains(admittedClients, client) && client != "all" {
 				return fmt.Errorf("--for must be %s; run `aigw verify --help`", configuration.AdmittedClientUsage("all"))
 			}
 			cfg, err := runtime.Config.Load()
@@ -39,16 +40,26 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			var clients []string
 			switch {
-			case configuration.IsAdmittedClient(client):
+			case slices.Contains(admittedClients, client):
 				clients = []string{client}
 			case client == "all":
-				clients = configuration.AdmittedClientIDs()
+				clients = admittedClients
 			default:
 				return fmt.Errorf("--for must be %s; run `aigw verify --help`", configuration.AdmittedClientUsage("all"))
 			}
-			if client == "all" {
-				if err := domainverification.ValidateFullReadiness(cfg); err != nil {
+			clientRuntimes := make(map[string]configuration.Runtime, len(clients))
+			for _, target := range clients {
+				clientRuntime, err := cfg.ResolveRuntime(target, profileName)
+				if err != nil {
 					return err
+				}
+				clientRuntimes[target] = clientRuntime
+				if client != "all" {
+					continue
+				}
+				status := synchronizer.Inspect(cmd.Context(), cfg, target, clientRuntime, clientdomain.InspectionOptions{})
+				if !status.Ready {
+					return fmt.Errorf("Full verification requires a ready %s adapter: %s; run `%s`", invocation.Title(target), status.Issue, status.RepairAction)
 				}
 			}
 			r := invocation.Renderer(runtime)
@@ -56,30 +67,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			r.Section("Minimal request")
 			r.Detail("This makes one minimal model request; it does not modify client configuration or restart clients.")
 			for _, target := range clients {
-				clientRuntime, err := cfg.ResolveRuntime(target, profileName)
+				clientRuntime := clientRuntimes[target]
+				result, err := synchronizer.Verify(cmd.Context(), cfg, target, clientRuntime)
 				if err != nil {
 					return err
 				}
-				ctx, cancel := context.WithTimeout(cmd.Context(), domainverification.ProtocolTimeout)
-				if target == configuration.ClientCodex {
-					identity, verifyErr := domainverification.VerifyCodexInvocation(ctx, runtime.Runner, cfg, clientRuntime)
-					err = verifyErr
-					if verifyErr == nil {
-						r.Detail(fmt.Sprintf("Codex client: %s · SHA-256 %s", identity.Version, identity.SHA256))
-					}
-				} else {
-					accountName := clientRuntime.AccountID
-					token, tokenErr := runtime.Secrets.Get(accountName)
-					if tokenErr != nil {
-						cancel()
-						instruction, _ := credential.TokenRecovery(runtime.Secrets, accountName)
-						return fmt.Errorf("Token for account %q is unavailable: %w; %s", accountName, tokenErr, instruction)
-					}
-					err = domainverification.VerifyClaudeInvocation(ctx, runtime.Runner, cfg, clientRuntime, token)
-				}
-				cancel()
-				if err != nil {
-					return err
+				if result.Version != "" || result.SHA256 != "" {
+					r.Detail(fmt.Sprintf("%s client: %s · SHA-256 %s", invocation.Title(target), result.Version, result.SHA256))
 				}
 				r.Status(presentation.OK, invocation.Title(target), clientRuntime.ProfileID+" · Completed")
 			}

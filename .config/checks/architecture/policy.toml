@@ -17,18 +17,23 @@ go_roots = ["cmd", "internal", "tools"]
 package_children = {
   "cmd" = ["aigw"],
   "internal" = [
-    "account", "claude", "cli", "codex", "configuration", "console",
+    "account", "claude", "cli", "client", "codex", "configuration", "console",
     "credential", "diagnostics", "discovery", "platform", "presentation",
-    "process", "prompt", "providers", "redaction", "renaming", "secrets",
-    "surface", "synchronization", "transaction", "upgrade", "verification",
-    "winjob",
+    "process", "prompt", "providers", "readiness", "redaction", "renaming",
+    "secrets", "surface", "synchronization", "transaction", "upgrade",
+    "verification",
   ],
-  "tools" = ["architecture", "ci", "coverage", "forge", "modelcatalog", "release", "repository"],
+  "tools" = ["architecture", "ci", "codex", "coverage", "forge", "release", "repository"],
+  "tools/codex" = ["catalog"],
+  "tools/release" = ["artifact", "construction", "publication", "readiness"],
 }
 
 # Composition roots may contain only their declared production files. Command
 # behavior belongs to semantic subpackages, never beside the root assembler.
-composition_root_files = { "internal/cli" = ["app.go"] }
+composition_root_files = {
+  "internal/cli" = ["app.go"],
+  "tools/release" = ["commands.go", "main.go"],
+}
 
 # CLI leaf packages are peers. They may depend on the invocation capability
 # contract, but never on another command leaf; shared behavior belongs to a
@@ -42,10 +47,11 @@ allowed_import_edges = {
   "internal/transaction" = [],
   "internal/credential" = ["internal/configuration", "internal/secrets"],
   "internal/configuration" = ["internal/transaction"],
+  "internal/client" = ["internal/claude", "internal/codex", "internal/configuration", "internal/credential", "internal/discovery", "internal/process", "internal/secrets", "internal/surface", "internal/verification"],
   "internal/upgrade" = [],
   "internal/renaming" = ["internal/account", "internal/configuration", "internal/presentation", "internal/prompt", "internal/providers", "internal/secrets", "internal/synchronization"],
-  "internal/synchronization" = ["internal/claude", "internal/codex", "internal/configuration", "internal/discovery", "internal/process", "internal/secrets", "internal/surface"],
-  "internal/secrets" = ["internal/configuration"],
+  "internal/synchronization" = ["internal/client", "internal/configuration", "internal/discovery", "internal/secrets"],
+  "internal/secrets" = ["internal/configuration", "internal/transaction"],
   "internal/claude" = ["internal/configuration", "internal/process", "internal/transaction"],
   "internal/providers" = ["internal/account", "internal/configuration", "internal/providers/dmxapi"],
   "internal/providers/dmxapi" = ["internal/account", "internal/configuration", "internal/redaction"],
@@ -53,56 +59,97 @@ allowed_import_edges = {
   "internal/codex" = ["internal/configuration", "internal/process", "internal/surface", "internal/transaction"],
   "internal/discovery" = ["internal/configuration", "internal/surface"],
   "internal/surface" = [],
-  "internal/cli" = ["internal/account", "internal/cli/account", "internal/cli/adapter", "internal/cli/catalog", "internal/cli/credential", "internal/cli/doctor", "internal/cli/install", "internal/cli/invocation", "internal/cli/manifest", "internal/cli/onboarding", "internal/cli/profile", "internal/cli/readiness", "internal/cli/recovery", "internal/cli/route", "internal/cli/update", "internal/cli/verification", "internal/configuration", "internal/console", "internal/discovery", "internal/platform", "internal/presentation", "internal/process", "internal/prompt", "internal/renaming", "internal/secrets", "internal/synchronization", "internal/upgrade"],
+  "internal/readiness" = ["internal/diagnostics"],
+  "internal/cli" = ["internal/account", "internal/cli/account", "internal/cli/adapter", "internal/cli/catalog", "internal/cli/credential", "internal/cli/doctor", "internal/cli/install", "internal/cli/invocation", "internal/cli/manifest", "internal/cli/onboarding", "internal/cli/profile", "internal/cli/readiness", "internal/cli/recovery", "internal/cli/route", "internal/cli/update", "internal/cli/verification", "internal/client", "internal/configuration", "internal/console", "internal/discovery", "internal/platform", "internal/presentation", "internal/process", "internal/prompt", "internal/readiness", "internal/renaming", "internal/secrets", "internal/synchronization", "internal/upgrade"],
   "internal/cli/invocation" = ["internal/account", "internal/configuration", "internal/discovery", "internal/presentation", "internal/process", "internal/prompt", "internal/secrets", "internal/synchronization", "internal/upgrade"],
   "internal/cli/credential" = ["internal/cli/invocation", "internal/configuration"],
   "internal/cli/install" = ["internal/cli/invocation", "internal/transaction"],
   "internal/cli/route" = ["internal/cli/invocation", "internal/configuration", "internal/credential", "internal/presentation", "internal/prompt"],
   "internal/cli/update" = ["internal/cli/invocation", "internal/upgrade"],
-  "internal/cli/recovery" = ["internal/cli/invocation", "internal/codex", "internal/configuration", "internal/discovery", "internal/presentation", "internal/surface", "internal/synchronization"],
+  "internal/cli/recovery" = ["internal/cli/invocation", "internal/client", "internal/configuration", "internal/discovery", "internal/presentation"],
   "internal/cli/catalog" = ["internal/configuration", "internal/presentation", "internal/secrets"],
   "internal/cli/manifest" = ["internal/cli/invocation", "internal/configuration", "internal/credential", "internal/presentation", "internal/secrets"],
-  "internal/cli/doctor" = ["internal/claude", "internal/codex", "internal/configuration", "internal/credential", "internal/presentation", "internal/secrets"],
+  "internal/cli/doctor" = ["internal/client", "internal/configuration", "internal/credential", "internal/presentation", "internal/readiness", "internal/secrets", "internal/synchronization"],
   "internal/cli/adapter" = ["internal/cli/invocation", "internal/configuration", "internal/credential", "internal/discovery", "internal/presentation", "internal/surface"],
-  "internal/cli/verification" = ["internal/cli/invocation", "internal/configuration", "internal/credential", "internal/presentation", "internal/verification"],
+  "internal/cli/verification" = ["internal/cli/invocation", "internal/client", "internal/configuration", "internal/presentation"],
   "internal/cli/profile" = ["internal/cli/invocation", "internal/configuration", "internal/presentation", "internal/synchronization"],
   "internal/cli/readiness" = [
-    "internal/claude",
     "internal/cli/invocation",
-    "internal/codex",
+    "internal/client",
     "internal/configuration",
     "internal/credential",
     "internal/diagnostics",
     "internal/presentation",
     "internal/providers",
+    "internal/readiness",
+    "internal/secrets",
   ],
   "internal/cli/account" = ["internal/account", "internal/cli/invocation", "internal/configuration", "internal/credential", "internal/presentation", "internal/providers", "internal/secrets", "internal/synchronization"],
-  "internal/cli/onboarding" = ["internal/cli/invocation", "internal/configuration", "internal/credential", "internal/presentation", "internal/prompt", "internal/secrets", "internal/verification"],
-  "internal/verification" = ["internal/claude", "internal/codex", "internal/configuration", "internal/process"],
+  "internal/cli/onboarding" = ["internal/cli/invocation", "internal/configuration", "internal/credential", "internal/presentation", "internal/prompt", "internal/secrets"],
+  "internal/verification" = ["internal/claude", "internal/codex", "internal/configuration", "internal/process", "internal/redaction"],
   "internal/prompt" = [],
   "internal/redaction" = [],
   "internal/diagnostics" = ["internal/configuration", "internal/credential", "internal/redaction"],
-  "internal/winjob" = [],
   "internal/account" = ["internal/configuration"],
   "internal/presentation" = ["internal/configuration"],
-  "internal/process" = ["internal/winjob"],
+  "internal/process" = [],
   "internal/console" = [],
   "tools/repository" = [],
   "tools/ci" = [],
-  "tools/release" = [],
+  "tools/release" = ["tools/release/artifact", "tools/release/construction", "tools/release/publication", "tools/release/readiness"],
+  "tools/release/artifact" = [],
+  "tools/release/construction" = ["tools/release/artifact", "tools/release/readiness"],
+  "tools/release/publication" = ["tools/release/artifact"],
+  "tools/release/readiness" = [],
   "tools/architecture" = [],
   "tools/forge" = [],
-  "tools/modelcatalog" = ["internal/codex"],
+  "tools/codex/catalog" = ["internal/codex"],
   "tools/coverage" = [],
 }
 
 # Top-level roots skipped entirely while walking the repository.
-ignore_roots = ["vendor", ".git", "records", "build"]
+ignore_roots = ["vendor", ".git", "build"]
 
 # Directory base names skipped anywhere in the walk (runtime / VCS residue).
-ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
+ignore_directory_names = ["vendor", ".git", "node_modules"]
 
 # Source and carrier contracts inside managed roots.
 check_decision_records = true
 check_semantic_names = true
 require_import_owners = true
+
+# Every tracked carrier at the repository root and under .config has one
+# positive responsibility. The closed maps prevent unreviewed policy files,
+# generated projections, or historical buckets from accumulating silently.
+[tracked_carrier_owners."."]
+".config" = "repository policy and generated-projection sources"
+".editorconfig" = "editor-neutral text conventions"
+".ethos" = "ETHOS adoption binding"
+".gitattributes" = "Git content handling"
+".github" = "GitHub projection"
+".gitignore" = "repository-local generated-state exclusions"
+".gitlab-ci.yml" = "GitLab pipeline projection"
+".npmrc" = "Node dependency-install policy"
+"AGENTS.md" = "agent entry point"
+"CHANGELOG.md" = "released change history"
+"CONTRIBUTING.md" = "contributor journey"
+"LICENSE" = "software license"
+"README.md" = "product entry point"
+"VERSION" = "product version authority"
+"cmd" = "AIGW executable composition"
+"docs" = "product and engineering documentation"
+"go.mod" = "Go dependency declaration"
+"go.sum" = "Go dependency integrity lock"
+"internal" = "product implementation"
+"manifests" = "reviewed team configuration"
+"mise.lock" = "repository tool integrity lock"
+"mise.toml" = "cross-platform development entry point"
+"openspec" = "active product change intent"
+"package-lock.json" = "Node dependency integrity lock"
+"package.json" = "Node quality-tool declaration"
+"tools" = "repository engineering executables"
+
+[tracked_carrier_owners.".config"]
+"checks" = "quality policy"
+"ci" = "continuous-integration source model"
+"release" = "release construction and Forge metadata"

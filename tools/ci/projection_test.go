@@ -105,7 +105,7 @@ func TestProjectionCommandUsesRepositoryRelativeModel(t *testing.T) {
 	}
 }
 
-func TestVerificationRoutingRunsOncePerProductCommit(t *testing.T) {
+func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -129,7 +129,7 @@ func TestVerificationRoutingRunsOncePerProductCommit(t *testing.T) {
 	}{
 		{If: "$CI_COMMIT_TAG"},
 		{If: `$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"`},
-		{If: `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"`},
+		{If: `$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")`},
 		{If: `$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"`},
 		{When: "never"},
 	}
@@ -157,8 +157,8 @@ func TestVerificationRoutingRunsOncePerProductCommit(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(github.On.Push.Branches, []string{"main"}) {
-		t.Fatalf("GitHub accepted-publication routes = %q, want [main]", github.On.Push.Branches)
+	if !slices.Equal(github.On.Push.Branches, []string{"dev", "main"}) {
+		t.Fatalf("GitHub protected-branch routes = %q, want [dev main]", github.On.Push.Branches)
 	}
 	if !slices.Equal(github.On.PullRequest.Branches, []string{"dev"}) {
 		t.Fatalf("GitHub review targets = %q, want [dev]", github.On.PullRequest.Branches)
@@ -200,18 +200,26 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		"source-and-governance": gitlab.Source,
 		"native-darwin":         gitlab.Darwin,
 		"native-linux":          gitlab.Linux,
-		"package":               gitlab.Package,
-		"publish":               gitlab.Publish,
-		"release":               gitlab.Release,
 	} {
-		devRuleSeen := false
+		protectedPushRuleSeen := false
 		for _, rule := range job.Rules {
-			if rule.If == `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
-				devRuleSeen = true
+			if rule.If == `$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")` {
+				protectedPushRuleSeen = true
 			}
 		}
-		if devRuleSeen {
-			t.Fatalf("GitLab %s unexpectedly admits an unowned dev push", name)
+		if !protectedPushRuleSeen {
+			t.Fatalf("GitLab %s does not admit a maintainer dev push", name)
+		}
+	}
+	for name, job := range map[string]gitLabJob{
+		"package": gitlab.Package,
+		"publish": gitlab.Publish,
+		"release": gitlab.Release,
+	} {
+		for _, rule := range job.Rules {
+			if rule.If == `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
+				t.Fatalf("GitLab %s must remain tag-only, got dev rule", name)
+			}
 		}
 	}
 
@@ -230,7 +238,7 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		if name == "accepted-ref-parity" {
 			continue
 		}
-		if job.If != "github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'" {
+		if job.If != "github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'" {
 			t.Fatalf("GitHub %s does not positively admit the full verification lifecycle: %q", name, job.If)
 		}
 	}
@@ -286,8 +294,11 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	if got := pipeline.Variables["MISE_GLOBAL_CONFIG_FILE"]; got != "$CI_PROJECT_DIR/.config/ci/empty-mise-global.toml" {
-		t.Fatalf("GitLab mise global config = %q, want repository-owned empty config", got)
+	if got := pipeline.Variables["MISE_CONFIG_DIR"]; got != "$CI_PROJECT_DIR/.config/ci" {
+		t.Fatalf("GitLab mise config directory = %q, want repository-owned config directory", got)
+	}
+	if got := pipeline.Variables["MISE_GLOBAL_CONFIG_FILE"]; got != "" {
+		t.Fatalf("GitLab must not project a missing global config file: %q", got)
 	}
 	bootstrap := pipeline.LinuxToolchain.BeforeScript
 	if len(bootstrap) != 0 {
@@ -315,6 +326,28 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 	}
 	if len(pipeline.SourceToolchain.BeforeScript) != 2 {
 		t.Fatalf("source toolchain bootstrap commands = %d, want 2: %q", len(pipeline.SourceToolchain.BeforeScript), pipeline.SourceToolchain.BeforeScript)
+	}
+}
+
+func TestGitHubWorkflowsUseOnlyRepositoryMiseConfiguration(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, index := range []int{1, 2} {
+		var workflow struct {
+			Env map[string]string `yaml:"env"`
+		}
+		if err := yaml.Unmarshal([]byte(projections[index].Content), &workflow); err != nil {
+			t.Fatal(err)
+		}
+		if got := workflow.Env["MISE_CONFIG_DIR"]; got != "${{ github.workspace }}/.config/ci" {
+			t.Fatalf("GitHub projection %d mise config directory = %q, want repository-owned config directory", index, got)
+		}
+		if got := workflow.Env["MISE_GLOBAL_CONFIG_FILE"]; got != "" {
+			t.Fatalf("GitHub projection %d must not project a global config file: %q", index, got)
+		}
 	}
 }
 
@@ -421,7 +454,7 @@ func TestSourceJobsUseTheirExactToolClosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const sourceTools = "go,node,cue,editorconfig-checker,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
+	const sourceTools = "go,node,cue,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
 	var pipeline struct {
 		SourceToolchain     gitLabJob `yaml:".source-toolchain"`
 		SourceAndGovernance gitLabJob `yaml:"source-and-governance"`
@@ -529,8 +562,10 @@ func TestGitHubWorkflowsDeclareTheCanonicalInitialBranch(t *testing.T) {
 			"GIT_CONFIG_KEY_0":   "init.defaultBranch",
 			"GIT_CONFIG_VALUE_0": "main",
 		}
-		if !reflect.DeepEqual(workflow.Env, want) {
-			t.Fatalf("GitHub projection %d Git environment = %#v, want %#v", index, workflow.Env, want)
+		for name, value := range want {
+			if got := workflow.Env[name]; got != value {
+				t.Fatalf("GitHub projection %d %s = %q, want %q", index, name, got, value)
+			}
 		}
 	}
 }

@@ -52,6 +52,11 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 			return Report{}, err
 		}
 	}
+	tracked, err := trackedFiles(absRoot)
+	if err != nil {
+		return Report{}, err
+	}
+	checkTrackedCarrierOwners(tracked, p, &report)
 	if err := repositoryAnalysis.packageChildren(absRoot, p, &report); err != nil {
 		return Report{}, err
 	}
@@ -71,6 +76,48 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 		return Report{}, err
 	}
 	return report, nil
+}
+
+func checkTrackedCarrierOwners(files []string, p policy, report *Report) {
+	ignoredRoots := p.ignoreRootSet()
+	for parent, expected := range p.TrackedCarrierOwners {
+		actual := map[string]bool{}
+		prefix := ""
+		if parent != "." {
+			prefix = parent + "/"
+		}
+		for _, file := range files {
+			if !strings.HasPrefix(file, prefix) {
+				continue
+			}
+			remainder := strings.TrimPrefix(file, prefix)
+			child, _, _ := strings.Cut(remainder, "/")
+			if parent == "." {
+				if _, ignored := ignoredRoots[child]; ignored {
+					continue
+				}
+			}
+			actual[child] = true
+		}
+		for child := range actual {
+			if _, ok := expected[child]; ok {
+				continue
+			}
+			report.addFinding(Finding{
+				Rule:    "tracked_carrier_owner",
+				Path:    carrierPath(parent, child),
+				Name:    child,
+				Message: "tracked carrier has no declared repository responsibility",
+			})
+		}
+	}
+}
+
+func carrierPath(parent, child string) string {
+	if parent == "." {
+		return child
+	}
+	return path.Join(parent, child)
 }
 
 func checkImportOwners(files []goFileInfo, p policy, report *Report) {

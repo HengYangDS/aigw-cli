@@ -4,6 +4,7 @@ package route
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
@@ -46,11 +47,18 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			accountID := profile.Account
 			providerAccount := cfg.Accounts[accountID]
 			addedToken := false
-			available, err := runtime.Secrets.Exists(accountID)
+			clientRuntime, err := cfg.ResolveRuntime(client, name)
 			if err != nil {
-				return fmt.Errorf("Cannot inspect Account %q credential: %w", accountID, err)
+				return err
 			}
-			if !available {
+			available := !clientRuntime.RequiresAccountToken()
+			if clientRuntime.RequiresAccountToken() {
+				available, err = runtime.Secrets.Exists(accountID)
+				if err != nil {
+					return fmt.Errorf("Cannot inspect Account %q credential: %w", accountID, err)
+				}
+			}
+			if clientRuntime.RequiresAccountToken() && !available {
 				instruction, writable := credential.TokenRecovery(runtime.Secrets, accountID)
 				if !writable {
 					return fmt.Errorf("Account %q is missing a token; %s; then run `aigw use %s`", accountID, instruction, name)
@@ -80,13 +88,22 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 				}
 				return err
 			}
+			if reflect.DeepEqual(before, cfg) {
+				r := invocation.Renderer(runtime)
+				r.ProductTitle("Service already selected")
+				r.Row("Service", profile.Label)
+				r.Row("Client", invocation.Title(client))
+				r.Success("Configuration, credentials, and client files were unchanged")
+				r.Next("aigw check")
+				return r.Err()
+			}
 			if err := synchronizer.Commit(cmd.Context(), before, cfg, "route"); err != nil {
 				if addedToken {
 					_ = runtime.Secrets.Delete(accountID)
 				}
 				return err
 			}
-			r := renderer(runtime)
+			r := invocation.Renderer(runtime)
 			r.ProductTitle("Service switched")
 			r.Section("Current selection")
 			r.Row("Service", profile.Label)
@@ -130,7 +147,7 @@ func runList(runtime invocation.Context) error {
 	if len(cfg.Profiles) == 0 {
 		return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "No client route is available to inspect.", "aigw setup", fmt.Errorf("not configured"))
 	}
-	r := renderer(runtime)
+	r := invocation.Renderer(runtime)
 	r.ProductTitle("Current routes")
 	r.Section("Clients")
 	nextCommand := ""
@@ -157,10 +174,6 @@ func runList(runtime invocation.Context) error {
 	}
 	r.Next(nextCommand)
 	return nil
-}
-
-func renderer(runtime invocation.Context) *presentation.Renderer {
-	return invocation.Renderer(runtime)
 }
 
 func chooseProfile(runtime invocation.Context, cfg configuration.Config, label string) (string, error) {

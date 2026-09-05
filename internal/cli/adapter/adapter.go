@@ -92,13 +92,15 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		available, err := runtime.Secrets.Exists(clientRuntime.AccountID)
-		if err != nil {
-			return fmt.Errorf("Cannot inspect Account %q credential: %w", clientRuntime.AccountID, err)
-		}
-		if !available {
-			instruction, _ := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
-			return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.AccountID, instruction)
+		if clientRuntime.RequiresAccountToken() {
+			available, err := runtime.Secrets.Exists(clientRuntime.AccountID)
+			if err != nil {
+				return fmt.Errorf("Cannot inspect Account %q credential: %w", clientRuntime.AccountID, err)
+			}
+			if !available {
+				instruction, _ := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
+				return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.AccountID, instruction)
+			}
 		}
 		if client == configuration.ClientCodex {
 			discovered, err := discover(runtime)
@@ -139,7 +141,18 @@ func newAuthCommand(runtime invocation.Context) *cobra.Command {
 		if !cfg.Adapters[configuration.ClientCodex].Enabled {
 			return fmt.Errorf("Codex adapter is not enabled; first run `aigw adapter enable codex ...`")
 		}
-		if err := invocation.Synchronizer(runtime).BindAuthentication(cmd.Context(), cfg); err != nil {
+		clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+		if err != nil {
+			return err
+		}
+		if !clientRuntime.RequiresAccountToken() {
+			r := renderer(runtime)
+			r.ProductTitle("Client-owned authentication")
+			r.Success("Codex owns authentication for the selected profile; AIGW did not read or write an Account Token")
+			r.Next("aigw verify --for codex")
+			return nil
+		}
+		if err := invocation.Synchronizer(runtime).BindCredential(cmd.Context(), cfg, args[0], nil); err != nil {
 			return fmt.Errorf("Failed to bind Codex authentication: %w", err)
 		}
 		r := renderer(runtime)
@@ -169,8 +182,10 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 			r.Status(presentation.Info, spec.Label, "Already disabled")
 			return nil
 		}
-		delete(cfg.Adapters, client)
-		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "adapter disable"); err != nil {
+		if err := invocation.Synchronizer(runtime).Withdraw(&cfg, client); err != nil {
+			return err
+		}
+		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "adapter disable"); err != nil {
 			return err
 		}
 		r := renderer(runtime)

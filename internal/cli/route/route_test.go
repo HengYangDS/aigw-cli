@@ -281,6 +281,10 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			})
 			return value
 		}, want: "Token validation failed"},
+		{name: "client convergence", prepare: func(value invocation.Context, _ configuration.Config) invocation.Context {
+			value.Discovery = nil
+			return value
+		}, want: "client discovery is unavailable"},
 		{name: "commit", prepare: func(value invocation.Context, cfg configuration.Config) invocation.Context {
 			cfg.Profiles["next"] = configuration.Profile{Label: "Next", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-next"}
 			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "missing-configuration.toml")}}
@@ -305,8 +309,8 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
-			if test.name == "commit" && secretExists(t, store, "gateway") {
-				t.Fatal("failed commit retained newly acquired token")
+			if secretExists(t, store, "gateway") {
+				t.Fatalf("failed %s retained newly acquired token", test.name)
 			}
 		})
 	}

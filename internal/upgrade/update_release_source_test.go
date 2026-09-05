@@ -144,51 +144,46 @@ func TestUpdateUsesAuthenticatedGHCLIForPrivatePublishedPrerelease(t *testing.T)
 	}
 }
 
-func TestUpdateDoesNotUseGHCLIForCustomGitHubOrigin(t *testing.T) {
-	runner := &githubKeyringRunner{}
-	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusNotFound, Status: "404 Not Found", Body: io.NopCloser(strings.NewReader(`{"message":"Not Found"}`)), Header: make(http.Header), Request: request}, nil
-	})}
-	u := upgrade.Updater{
-		GOOS:       "darwin",
-		GOARCH:     "arm64",
-		Executable: filepath.Join(t.TempDir(), "aigw"),
-		Runner:     runner,
-		HTTPClient: client,
-		GitHub:     upgrade.ReleaseSource{Provider: upgrade.ReleaseProviderGitHub, Origin: "https://github.example.test", Repository: "example-owner/aigw-cli"},
+func TestUpdateDoesNotUseGHCLIOutsideTheSupportedFallback(t *testing.T) {
+	tests := []struct {
+		name   string
+		origin string
+		status int
+	}{
+		{name: "custom origin", origin: "https://github.example.test", status: http.StatusNotFound},
+		{name: "non-not-found failure", origin: "https://github.com", status: http.StatusInternalServerError},
 	}
-	_, err := u.Update(context.Background(), "0.1.0")
-	if err == nil || !strings.Contains(err.Error(), "404") {
-		t.Fatalf("error = %v", err)
-	}
-	for _, call := range runner.calls {
-		if call[0] == "gh" {
-			t.Fatalf("custom origin unexpectedly invoked gh: %v", runner.calls)
-		}
-	}
-}
-
-func TestUpdateDoesNotUseGHCLIForNonNotFoundGitHubFailure(t *testing.T) {
-	runner := &githubKeyringRunner{}
-	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusInternalServerError, Status: "500 Internal Server Error", Body: io.NopCloser(strings.NewReader(`{"message":"Internal Server Error"}`)), Header: make(http.Header), Request: request}, nil
-	})}
-	u := upgrade.Updater{
-		GOOS:       "darwin",
-		GOARCH:     "arm64",
-		Executable: filepath.Join(t.TempDir(), "aigw"),
-		Runner:     runner,
-		HTTPClient: client,
-		GitHub:     upgrade.ReleaseSource{Provider: upgrade.ReleaseProviderGitHub, Origin: "https://github.com", Repository: "example-owner/aigw-cli"},
-	}
-	_, err := u.Update(context.Background(), "0.1.0")
-	if err == nil || !strings.Contains(err.Error(), "500") {
-		t.Fatalf("error = %v", err)
-	}
-	for _, call := range runner.calls {
-		if call[0] == "gh" {
-			t.Fatalf("non-404 failure unexpectedly invoked gh: %v", runner.calls)
-		}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			runner := &githubKeyringRunner{}
+			statusText := http.StatusText(test.status)
+			client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: test.status,
+					Status:     fmt.Sprintf("%d %s", test.status, statusText),
+					Body:       io.NopCloser(strings.NewReader(fmt.Sprintf(`{"message":%q}`, statusText))),
+					Header:     make(http.Header),
+					Request:    request,
+				}, nil
+			})}
+			u := upgrade.Updater{
+				GOOS:       "darwin",
+				GOARCH:     "arm64",
+				Executable: filepath.Join(t.TempDir(), "aigw"),
+				Runner:     runner,
+				HTTPClient: client,
+				GitHub:     upgrade.ReleaseSource{Provider: upgrade.ReleaseProviderGitHub, Origin: test.origin, Repository: "example-owner/aigw-cli"},
+			}
+			_, err := u.Update(context.Background(), "0.1.0")
+			if err == nil || !strings.Contains(err.Error(), fmt.Sprint(test.status)) {
+				t.Fatalf("error = %v", err)
+			}
+			for _, call := range runner.calls {
+				if call[0] == "gh" {
+					t.Fatalf("unsupported fallback unexpectedly invoked gh: %v", runner.calls)
+				}
+			}
+		})
 	}
 }
 
@@ -289,47 +284,39 @@ func TestUpdateRefusesOlderPrereleaseWithoutReplacingBinary(t *testing.T) {
 	}
 }
 
-func TestUpdateAcceptsStableReleaseAfterPrerelease(t *testing.T) {
-	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("stable-release-binary"))
-	sum := sha256.Sum256(archive)
-	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
-	binary := filepath.Join(t.TempDir(), "aigw")
-	if err := os.WriteFile(binary, []byte("prerelease-binary"), 0o755); err != nil {
-		t.Fatal(err)
+func TestUpdateAcceptsNewerSemanticVersion(t *testing.T) {
+	tests := []struct {
+		name           string
+		currentVersion string
+		tag            string
+		binary         string
+	}{
+		{name: "stable after prerelease", currentVersion: "0.2.0-rc.2", tag: "v0.2.0", binary: "stable-release-binary"},
+		{name: "numerically newer prerelease", currentVersion: "0.2.0-rc.9", tag: "v0.2.0-rc.10", binary: "newer-prerelease-binary"},
 	}
-	runner := &fakeRunner{archive: archive, checksum: fmt.Sprintf("%x  ./%s\n", sum, archiveName), tag: "v0.2.0"}
-	u := upgrade.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: runner}
-	if _, err := u.Update(context.Background(), "0.2.0-rc.2"); err != nil {
-		t.Fatal(err)
-	}
-	got, readErr := os.ReadFile(binary)
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	if string(got) != "stable-release-binary" {
-		t.Fatalf("binary = %q", got)
-	}
-}
-
-func TestUpdateAcceptsNumericallyNewerPrerelease(t *testing.T) {
-	archive := tarGz(t, "aigw_0.2.0-rc.10_darwin_arm64/aigw", []byte("newer-prerelease-binary"))
-	sum := sha256.Sum256(archive)
-	archiveName := "aigw_0.2.0-rc.10_darwin_arm64.tar.gz"
-	binary := filepath.Join(t.TempDir(), "aigw")
-	if err := os.WriteFile(binary, []byte("older-prerelease-binary"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	runner := &fakeRunner{archive: archive, checksum: fmt.Sprintf("%x  ./%s\n", sum, archiveName), tag: "v0.2.0-rc.10"}
-	u := upgrade.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: runner}
-	if _, err := u.Update(context.Background(), "0.2.0-rc.9"); err != nil {
-		t.Fatal(err)
-	}
-	got, readErr := os.ReadFile(binary)
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	if string(got) != "newer-prerelease-binary" {
-		t.Fatalf("binary = %q", got)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			version := strings.TrimPrefix(test.tag, "v")
+			archiveName := fmt.Sprintf("aigw_%s_darwin_arm64.tar.gz", version)
+			archive := tarGz(t, fmt.Sprintf("aigw_%s_darwin_arm64/aigw", version), []byte(test.binary))
+			sum := sha256.Sum256(archive)
+			binary := filepath.Join(t.TempDir(), "aigw")
+			if err := os.WriteFile(binary, []byte("current-binary"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			runner := &fakeRunner{archive: archive, checksum: fmt.Sprintf("%x  ./%s\n", sum, archiveName), tag: test.tag}
+			u := upgrade.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: runner}
+			if _, err := u.Update(context.Background(), test.currentVersion); err != nil {
+				t.Fatal(err)
+			}
+			got, readErr := os.ReadFile(binary)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if string(got) != test.binary {
+				t.Fatalf("binary = %q, want %q", got, test.binary)
+			}
+		})
 	}
 }
 

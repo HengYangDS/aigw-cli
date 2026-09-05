@@ -71,16 +71,13 @@ policy SHALL not create parallel authority.
 
 ### Requirement: Semantic documentation architecture
 
-Repository documentation SHALL use one global entry point and SHALL organize
-content by semantic information domain. Official OpenSpec artifacts SHALL be
-the sole tracked authority for product change intent. ETHOS SHALL derive a
-transient Commitment containing only `schema_version`, `id`, and `acceptance`
-from the selected OpenSpec projection when governance evaluation requires it.
-Document filenames SHALL identify their subject. Container-named local indexes
-and additional tracked carriers SHALL exist only when they own semantics that
-official OpenSpec artifacts, the global entry point, and existing authorities
-cannot represent, and SHALL name their owner, current consumer, replaced
-authority, and retirement condition.
+Documentation SHALL have one global entry point and semantic organization.
+Official OpenSpec artifacts are the sole tracked change-intent authority; ETHOS
+may derive only a transient Commitment containing `schema_version`, `id`, and
+`acceptance`. Filenames MUST name their subjects. Local indexes or extra
+carriers MAY exist only for semantics not representable by OpenSpec, the global
+entry point, or existing authorities, and MUST declare owner, consumer,
+replaced authority, and retirement.
 
 #### Scenario: Reader enters the documentation
 

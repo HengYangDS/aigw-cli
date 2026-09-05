@@ -63,18 +63,13 @@ manifest re-import.
 
 ### Requirement: Onboarding state is explicit and actionable
 
-Human and JSON results SHALL distinguish imported Accounts and Profiles,
-connected Accounts, selected Routes, configured clients, and deferred work.
-Every incomplete state SHALL expose the smallest safe next action. When no
-Account is connected through the environment backend, setup SHALL enumerate
-the environment variables for all compatible Accounts as alternative choices
-and state that any one is sufficient; it SHALL NOT present an arbitrary first
-Account as the default. After an Account Token or client becomes available,
-setup guidance SHALL direct the operator to `aigw sync`; `aigw check` SHALL
-remain verification of already enabled client Routes, not an activation
-command. The setup command SHALL accept `--json` for manifest-based setup and
-SHALL derive both representations from one semantic result without exposing
-credential material.
+Setup results SHALL distinguish imported capability, connected Accounts,
+selected Routes, configured clients, and deferred work, and expose the smallest
+safe next action. With environment credentials, setup SHALL list every
+compatible variable as an equal choice and state that one is sufficient. After
+a Token or client appears, continuation is `aigw sync`; `aigw check` only
+verifies enabled Routes. Manifest setup MUST support `--json`, share one
+semantic result, and never expose credentials.
 
 #### Scenario: Guided setup completes before client installation
 

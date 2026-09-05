@@ -5,7 +5,6 @@ package presentation
 import (
 	"fmt"
 	"io"
-	"regexp"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -319,17 +318,6 @@ func (r *Renderer) fixedLabel(style lipgloss.Style, label string, width int) str
 		return label + " "
 	}
 	return style.Render(label + " ")
-}
-
-var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
-
-func StripANSI(value string) string { return ansiPattern.ReplaceAllString(value, "") }
-
-func min(left, right int) int {
-	if left < right {
-		return left
-	}
-	return right
 }
 
 func DisplayWidth(value string) int { return lipgloss.Width(value) }

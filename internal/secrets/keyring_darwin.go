@@ -11,13 +11,17 @@ import (
 const keychainItemNotFoundExitCode = 44
 
 func observeKeyringItem(service, slot string) (bool, error) {
-	output, err := exec.Command(
+	output, err := keychainMetadataCommand(service, slot).CombinedOutput()
+	return classifyKeychainObservation(output, err)
+}
+
+func keychainMetadataCommand(service, slot string) *exec.Cmd {
+	return exec.Command(
 		"/usr/bin/security",
 		"find-generic-password",
 		"-s", service,
 		"-a", slot,
-	).CombinedOutput()
-	return classifyKeychainObservation(output, err)
+	)
 }
 
 func classifyKeychainObservation(output []byte, err error) (bool, error) {

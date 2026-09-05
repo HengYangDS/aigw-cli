@@ -65,12 +65,16 @@ func InspectConfig(path string) (Inspection, error) {
 		inspection.State = "stale-sidecar"
 		return inspection, nil
 	}
+	inspection.AIGWManaged = true
 	inspection.SidecarHashMatches = managedBlockHashMatches(state.ManagedBlockHash, block)
 	if !inspection.SidecarHashMatches {
 		inspection.State = "aigw-drift"
 		return inspection, nil
 	}
-	inspection.AIGWManaged = true
+	if err := validateCodexSchedulerOwnership(state, text); err != nil {
+		inspection.State = "aigw-drift"
+		return inspection, nil
+	}
 	if inspection.DiskSelection != "aigw-managed" {
 		inspection.State = "aigw-drift"
 	} else {

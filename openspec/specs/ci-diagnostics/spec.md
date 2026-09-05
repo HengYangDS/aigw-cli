@@ -9,14 +9,12 @@ failures without relying on runner-global state.
 
 ### Requirement: Hosted Git initialization is explicit
 
-Every hosted job that runs Git-aware tooling SHALL initialize and verify its
-exact checkout, revision, platform, and repository-declared toolchain in the
-provider's own environment. GitLab source verification SHALL obtain
-standalone source tools from an authenticated project-local package bound to
-the current `mise.lock` digest while retaining mise's checksum verification.
-Both Forges SHALL materialize npm repository tools from the exact committed
-`package-lock.json` before source verification. Release-only tools SHALL remain
-outside the source closure.
+Every hosted Git-aware job SHALL verify its checkout, revision, platform, and
+repository-locked toolchain in the Forge environment. GitLab source
+verification SHALL install standalone tools from an authenticated project
+package bound to `mise.lock` while retaining checksum verification. Both Forges
+SHALL install npm source tools from `package-lock.json`. Release-only tools
+MUST remain outside the source closure.
 
 #### Scenario: A hosted action initializes a repository
 

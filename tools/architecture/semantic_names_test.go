@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,20 +31,6 @@ func TestSemanticNamesAcceptNativeCarrierGrammars(t *testing.T) {
 	}
 	if !report.OK {
 		t.Fatalf("findings=%+v", report.Findings)
-	}
-}
-
-func TestSemanticNamesAcceptDatedChronicleCarrier(t *testing.T) {
-	root := t.TempDir()
-	runGit(t, root, "init", "-q")
-	writeFile(t, filepath.Join(root, "evidence", "chronicle", "product-convergence", "2026-07-31.md"), "# Chronicle\n")
-	runGit(t, root, "add", ".")
-	report := newReport("policy", root)
-	if err := checkSemanticNames(root, &report); err != nil {
-		t.Fatal(err)
-	}
-	if !report.OK {
-		t.Fatalf("dated chronicle findings=%+v", report.Findings)
 	}
 }
 
@@ -144,6 +132,20 @@ func TestSemanticNamesRecognizeOpenSpecCarriers(t *testing.T) {
 	}
 	if isOpenSpecCarrier("docs/spec.md", "spec.md") || isOpenSpecCarrier("openspec/notes.md", "notes.md") {
 		t.Fatal("only canonical OpenSpec carrier names are exempt")
+	}
+}
+
+func TestReadModuleIdentityReportsScannerFailure(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "go.mod")
+	line := make([]byte, 64*1024+1)
+	for index := range line {
+		line[index] = 'x'
+	}
+	if err := os.WriteFile(path, line, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readModuleIdentity(path); !errors.Is(err, bufio.ErrTooLong) {
+		t.Fatalf("error = %v", err)
 	}
 }
 

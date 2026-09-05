@@ -34,6 +34,12 @@ func TestNativeProductJourney(t *testing.T) {
 
 	t.Run("delayed token and client activation", func(t *testing.T) {
 		journey := newNativeJourney(t, artifact, server.URL+"/v1", false)
+		if runtime.GOOS == "linux" {
+			journey.setEnvironment(
+				"DBUS_SESSION_BUS_ADDRESS",
+				"unix:path="+filepath.Join(journey.root, "missing-session-bus.sock"),
+			)
+		}
 		journey.run("setup", "--from", journey.manifest)
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 		journey.requireNoClaudeProjection()
@@ -48,7 +54,17 @@ func TestNativeProductJourney(t *testing.T) {
 		}
 		journey.run("sync")
 		journey.requireClaudeProjection()
+		journey.requireCredentialBackend("native-journey-token", secrets.BackendSelection{
+			Kind:         "env",
+			Availability: "available",
+			Mutability:   "read_only",
+			Persistence:  "explicit",
+		})
+		if got := strings.TrimSpace(string(journey.run("credential", "claude"))); got != "native-journey-token" {
+			t.Fatalf("credential = %q", got)
+		}
 		journey.run("check")
+		journey.run("verify", "--for", "claude")
 		journey.uninstallAndRequireOwnedFilesAbsent()
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 	})
@@ -81,20 +97,63 @@ func TestNativeProductJourney(t *testing.T) {
 			journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
 			journey.enableSystemCredentialStore()
 			store := secrets.NewKeyringStore()
+			const (
+				token       = "native-system-keyring-token"
+				replacement = "native-system-keyring-replacement"
+			)
+			backend := secrets.BackendSelection{
+				Kind:         "keyring",
+				Availability: "available",
+				Mutability:   "read_write",
+				Persistence:  "persisted",
+			}
 			t.Cleanup(func() {
 				if err := store.Delete("native-system-keyring-probe"); err != nil {
 					t.Errorf("clean system credential store: %v", err)
 				}
 			})
-			journey.runInput("native-system-keyring-token\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
-			if got := strings.TrimSpace(string(journey.run("credential", "claude"))); got != "native-system-keyring-token" {
+			journey.runInput(token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
+			journey.requireCredentialBackend(token, backend)
+			if got := strings.TrimSpace(string(journey.run("credential", "claude"))); got != token {
 				t.Fatalf("credential = %q", got)
+			}
+			journey.runInput(replacement+"\n", "rotate", "native-system-keyring-probe", "--token-stdin")
+			journey.requireCredentialBackend(replacement, backend)
+			if got, err := store.Get("native-system-keyring-probe"); err != nil || got != replacement {
+				t.Fatalf("replaced credential = %q, %v", got, err)
 			}
 			if err := store.Delete("native-system-keyring-probe"); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := store.Get("native-system-keyring-probe"); !errors.Is(err, secrets.ErrNotFound) {
 				t.Fatalf("deleted credential remains: %v", err)
+			}
+			journey.uninstallAndRequireOwnedFilesAbsent()
+		})
+	}
+
+	if runtime.GOOS == "linux" && os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
+		t.Run("secure file fallback without session bus", func(t *testing.T) {
+			journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
+			journey.enableSystemCredentialStore()
+			journey.setEnvironment(
+				"DBUS_SESSION_BUS_ADDRESS",
+				"unix:path="+filepath.Join(journey.root, "missing-session-bus.sock"),
+			)
+			const token = "native-secure-file-token"
+			journey.runInput(token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
+			journey.requireCredentialBackend(token, secrets.BackendSelection{
+				Kind:         "file",
+				Availability: "available",
+				Mutability:   "read_write",
+				Persistence:  "persisted",
+			})
+			if got := strings.TrimSpace(string(journey.run("credential", "claude"))); got != token {
+				t.Fatalf("credential = %q", got)
+			}
+			backend := filepath.Join(journey.root, "data", "aigw", "secrets", "backend")
+			if got := strings.TrimSpace(string(readFile(t, backend))); got != "file" {
+				t.Fatalf("persisted backend = %q, want file", got)
 			}
 			journey.uninstallAndRequireOwnedFilesAbsent()
 		})
@@ -291,6 +350,25 @@ func (j *journeyFixture) runWithInput(binary, input string, args ...string) []by
 	return stdout.Bytes()
 }
 
+func (j *journeyFixture) requireCredentialBackend(token string, want secrets.BackendSelection) {
+	j.testing.Helper()
+	for _, command := range [][]string{{"status", "--json"}, {"doctor", "--json"}} {
+		output := j.run(command...)
+		if bytes.Contains(output, []byte(token)) {
+			j.testing.Fatalf("%s disclosed the credential", strings.Join(command, " "))
+		}
+		var result struct {
+			CredentialBackend secrets.BackendSelection `json:"credential_backend"`
+		}
+		if err := json.Unmarshal(output, &result); err != nil {
+			j.testing.Fatalf("decode %s: %v", strings.Join(command, " "), err)
+		}
+		if result.CredentialBackend != want {
+			j.testing.Fatalf("%s credential backend = %#v, want %#v", strings.Join(command, " "), result.CredentialBackend, want)
+		}
+	}
+}
+
 func (j *journeyFixture) requireConfigContains(values ...string) {
 	j.testing.Helper()
 	requireFileContains(j.testing, j.config, values...)
@@ -298,8 +376,10 @@ func (j *journeyFixture) requireConfigContains(values ...string) {
 
 func (j *journeyFixture) requireNoClaudeProjection() {
 	j.testing.Helper()
-	if _, err := os.Stat(j.settings); !os.IsNotExist(err) {
-		j.testing.Fatalf("Claude settings unexpectedly exist: %v", err)
+	for _, path := range []string{j.settings, j.settings + ".aigw-state.json"} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			j.testing.Fatalf("Claude projection unexpectedly exists at %s: %v", path, err)
+		}
 	}
 }
 
@@ -325,6 +405,10 @@ func (j *journeyFixture) uninstallAndRequireOwnedFilesAbsent() {
 	j.testing.Helper()
 	j.runWith(j.source, "uninstall", "--target", j.binary)
 	j.requireOwnedFilesAbsent()
+	j.requireNoClaudeProjection()
+	if _, err := os.Stat(j.config + ".verified.json"); !os.IsNotExist(err) {
+		j.testing.Fatalf("uninstall retained verified checkpoint: %v", err)
+	}
 }
 
 func (j *journeyFixture) requireOwnedFilesAbsent() {

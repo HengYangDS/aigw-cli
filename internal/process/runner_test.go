@@ -79,7 +79,7 @@ func TestRunCaptureReportsDeadlineAfterPipeDrain(t *testing.T) {
 		}
 	})
 
-	ctx := newDeadlineSignalContext()
+	ctx := newControllableDeadlineContext()
 	result := make(chan error, 1)
 	go func() {
 		_, runErr := (Runner{}).RunCapture(ctx, Plan{
@@ -89,7 +89,7 @@ func TestRunCaptureReportsDeadlineAfterPipeDrain(t *testing.T) {
 		})
 		result <- runErr
 	}()
-	if err := waitForFixtureFile(marker.Name(), time.Second); err != nil {
+	if err := awaitFixtureFile(marker.Name(), time.Second); err != nil {
 		ctx.expire()
 		select {
 		case <-result:
@@ -97,7 +97,7 @@ func TestRunCaptureReportsDeadlineAfterPipeDrain(t *testing.T) {
 		}
 		t.Fatalf("background descendant did not inherit output before deadline: %v", err)
 	}
-	if err := waitForFixtureFile(ready.Name(), time.Second); err != nil {
+	if err := awaitFixtureFile(ready.Name(), time.Second); err != nil {
 		ctx.expire()
 		select {
 		case <-result:

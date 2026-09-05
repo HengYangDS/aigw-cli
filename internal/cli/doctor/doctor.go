@@ -2,18 +2,20 @@
 package doctor
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
 	"strings"
 
-	"aigw-cli/internal/claude"
-	"aigw-cli/internal/codex"
+	clientdomain "aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
+	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/synchronization"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +23,9 @@ import (
 type Dependencies struct {
 	Config    configuration.Store
 	Secrets   secrets.Store
+	Clients   synchronization.Synchronizer
 	Env       []string
+	Inspect   func(configuration.Config) map[string]domainreadiness.Client
 	Out       io.Writer
 	Color     bool
 	Width     int
@@ -49,15 +53,31 @@ func NewCommand(deps Dependencies) *cobra.Command {
 		Use:   "doctor",
 		Short: "Show detailed diagnostics for configuration, secrets, and adapters",
 		Args:  cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			checks := Collect(deps)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			credentialBackend, backendErr := secrets.Inspect(deps.Secrets)
+			checks := Collect(cmd.Context(), deps)
+			if backendErr != nil {
+				checks = append([]Check{{
+					Name:   "credential:backend",
+					Detail: "credential backend is unavailable: " + backendErr.Error(),
+					Fix:    credentialBackend.RecoveryAction,
+				}}, checks...)
+			}
+			clients := inspectClients(deps)
 			if jsonMode {
+				result := map[string]any{
+					"checks":             checks,
+					"clients":            clients,
+					"credential_backend": credentialBackend,
+					"ok":                 AllOK(checks),
+				}
 				enc := json.NewEncoder(deps.Out)
 				enc.SetIndent("", "  ")
-				return enc.Encode(map[string]any{"checks": checks, "ok": AllOK(checks)})
+				return enc.Encode(result)
 			}
 			r := presentation.NewWithWidth(renderWriter(deps), deps.Color, deps.Width)
 			r.ProductTitle("Detailed diagnostics")
+			renderClients(r, clients)
 			r.Section("Checks")
 			for _, check := range checks {
 				state := presentation.OK
@@ -85,6 +105,39 @@ func NewCommand(deps Dependencies) *cobra.Command {
 	return cmd
 }
 
+func inspectClients(deps Dependencies) map[string]domainreadiness.Client {
+	if deps.Inspect == nil {
+		return map[string]domainreadiness.Client{}
+	}
+	cfg, err := deps.Config.Load()
+	if err != nil {
+		return map[string]domainreadiness.Client{}
+	}
+	clients := deps.Inspect(cfg)
+	return clients
+}
+
+func renderClients(renderer *presentation.Renderer, clients map[string]domainreadiness.Client) {
+	if len(clients) == 0 {
+		return
+	}
+	renderer.Section("Clients")
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		client, ok := clients[spec.ID]
+		if !ok {
+			continue
+		}
+		state := presentation.Info
+		switch client.State {
+		case domainreadiness.Ready:
+			state = presentation.OK
+		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
+			state = presentation.Warn
+		}
+		renderer.Status(state, spec.Label, client.State.Label())
+	}
+}
+
 func renderWriter(deps Dependencies) io.Writer {
 	if deps.RenderOut != nil {
 		return deps.RenderOut
@@ -94,7 +147,7 @@ func renderWriter(deps Dependencies) io.Writer {
 
 // Collect evaluates configuration, credentials, client executables, and
 // projections.
-func Collect(deps Dependencies) []Check {
+func Collect(ctx context.Context, deps Dependencies) []Check {
 	checks := []Check{}
 	if names := ForbiddenClientTokenEnvironment(deps.Env); len(names) > 0 {
 		checks = append(checks, Check{
@@ -118,7 +171,7 @@ func Collect(deps Dependencies) []Check {
 	} else {
 		checks = append(checks, Check{"config", true, "valid", ""})
 	}
-	for _, name := range cfg.RoutedAccountIDs() {
+	for _, name := range cfg.RequiredAccountTokenIDs() {
 		ok, observationErr := deps.Secrets.Exists(name)
 		if observationErr != nil {
 			checks = append(checks, Check{"secret:" + name, false, "credential backend failed: " + observationErr.Error(), "inspect the selected credential backend"})
@@ -134,60 +187,45 @@ func Collect(deps Dependencies) []Check {
 		}
 		checks = append(checks, Check{"secret:" + name, ok, detail, fix})
 	}
-	for _, client := range configuration.AdmittedClientIDs() {
-		adapter := cfg.Adapters[client]
-		detail := "disabled"
-		ok := true
-		fix := ""
-		if adapter.Enabled {
-			detail = "enabled"
-			if adapter.Executable == "" {
-				ok = false
-				detail = "enabled but executable is missing"
-				fix = "run `aigw repair`"
-			} else if client == configuration.ClientClaude {
-				ready, integrationErr := claude.Ready(adapter.Executable)
-				if integrationErr != nil {
-					ok = false
-					detail = integrationErr.Error()
-					fix = "run `aigw repair`"
-				} else if !ready {
-					ok = false
-					detail = "enabled but the configured Claude executable is unavailable"
-					fix = "run `aigw repair`"
-				}
-			} else if len(adapter.Targets) == 0 {
-				ok = false
-				detail = "enabled but no Codex config target is configured"
-				fix = "run `aigw repair`"
-			}
-		}
-		checks = append(checks, Check{"adapter:" + client, ok, detail, fix})
-	}
-	checks = append(checks, codexProjectionChecks(cfg)...)
+	checks = append(checks, adapterChecks(ctx, deps.Clients, cfg)...)
 	return checks
 }
 
-func codexProjectionChecks(cfg configuration.Config) []Check {
-	adapter := cfg.Adapters[configuration.ClientCodex]
-	if !adapter.Enabled {
-		return nil
-	}
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		return []Check{{"projection:codex", false, err.Error(), "run `aigw use <codex-profile>`"}}
-	}
-	checks := make([]Check, 0, len(adapter.Targets))
-	for index, target := range adapter.Targets {
-		check := Check{Name: fmt.Sprintf("codex:target-%d", index+1), OK: true, Detail: "profile " + runtime.ProfileID}
-		if err := codex.ValidateConfig(target, runtime); err != nil {
-			check.OK = false
-			check.Detail = err.Error()
-			check.Fix = "run `aigw sync` to reconcile this target"
+func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cfg configuration.Config) []Check {
+	checks := make([]Check, 0)
+	for _, clientID := range clients.ClientIDs() {
+		adapter := cfg.Adapters[clientID]
+		if !adapter.Enabled {
+			checks = append(checks, Check{Name: "adapter:" + clientID, OK: true, Detail: "disabled"})
+			continue
 		}
-		checks = append(checks, check)
+		runtime, err := cfg.ResolveRuntime(clientID, "")
+		if err != nil {
+			checks = append(checks, Check{Name: "projection:" + clientID, Detail: err.Error(), Fix: "run `aigw use <" + clientID + "-profile>`"})
+			continue
+		}
+		status := clients.Inspect(ctx, cfg, clientID, runtime, clientdomain.InspectionOptions{})
+		adapterReady := status.Ready || len(status.Checks) > 0
+		detail, fix := "enabled", ""
+		if !adapterReady {
+			detail, fix = status.Issue, commandFix(status.RepairAction)
+		}
+		checks = append(checks, Check{Name: "adapter:" + clientID, OK: adapterReady, Detail: detail, Fix: fix})
+		for _, observation := range status.Checks {
+			checks = append(checks, Check{
+				Name: observation.ID, OK: observation.Ready, Detail: observation.Detail,
+				Fix: commandFix(observation.RepairAction),
+			})
+		}
 	}
 	return checks
+}
+
+func commandFix(action string) string {
+	if action == "" {
+		return ""
+	}
+	return "run `" + action + "`"
 }
 
 // Label maps a diagnostic identity to a stable human label.
@@ -197,6 +235,8 @@ func Label(name string) string {
 		return "Client token environment"
 	case name == "config":
 		return "Local configuration"
+	case name == "credential:backend":
+		return "Credential backend"
 	case strings.HasPrefix(name, "secret:"):
 		return "System secret"
 	case name == "adapter:claude":
@@ -232,6 +272,8 @@ func Detail(check Check) string {
 			return "First-time setup is incomplete"
 		}
 		return "Cannot read or validate configuration"
+	case name == "credential:backend":
+		return "Credential storage is unavailable"
 	case strings.HasPrefix(name, "secret:"):
 		account := strings.TrimPrefix(name, "secret:")
 		if check.OK {
@@ -242,10 +284,10 @@ func Detail(check Check) string {
 		if check.OK {
 			return doctorTitle(detail)
 		}
-		if strings.Contains(detail, "executable is missing") {
+		if strings.Contains(detail, "executable is missing") || strings.Contains(detail, "executable is not configured") {
 			return "Enabled, but no executable is configured"
 		}
-		if strings.Contains(detail, "no Codex config target") {
+		if strings.Contains(detail, "no Codex config target") || strings.Contains(detail, "configuration target is missing") {
 			return "Enabled, but no Codex configuration file is configured"
 		}
 	case name == "projection:codex":
@@ -272,12 +314,12 @@ func doctorTitle(value string) string {
 // Fix returns a safe actionable command without exposing local paths.
 func Fix(check Check) string {
 	switch check.Fix {
+	case "aigw doctor":
+		return "aigw doctor"
 	case "run `aigw setup`":
 		return "aigw setup"
 	case "run `aigw repair`":
 		return "aigw repair"
-	case "run `aigw sync` to reconcile this target":
-		return "aigw sync"
 	}
 	if strings.HasPrefix(check.Fix, "remove them from the parent environment") {
 		return "Remove the variables above from the parent environment that launched this terminal"

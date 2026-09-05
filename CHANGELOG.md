@@ -8,6 +8,13 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- Advance the locked Go, mise, editorconfig-checker, mise Action, and CI image
+  inputs to their current stable releases across the supported build targets.
+- Use editorconfig-checker's upstream executable and artifact identity instead
+  of the retired `ec` asset convention.
+
 ## [0.1.0-rc.110] - 2026-09-01
 
 ### Added

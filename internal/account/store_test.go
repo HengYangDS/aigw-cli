@@ -10,7 +10,7 @@ import (
 func TestMemoryStoreKeepsAccountProbeCredentialSeparate(t *testing.T) {
 	store := account.NewMemoryStore()
 	want := account.Credential{SystemToken: "system-secret", UserID: "10000"}
-	if store.Has("dmx") {
+	if exists, err := store.Exists("dmx"); err != nil || exists {
 		t.Fatal("new store unexpectedly has credential")
 	}
 	if err := store.Set("dmx", want); err != nil {
@@ -20,14 +20,18 @@ func TestMemoryStoreKeepsAccountProbeCredentialSeparate(t *testing.T) {
 	if err != nil || got != want {
 		t.Fatalf("Get = %#v, %v", got, err)
 	}
-	if err := store.Delete("dmx"); err != nil || store.Has("dmx") {
-		t.Fatalf("delete = %v, has=%v", err, store.Has("dmx"))
+	if err := store.Delete("dmx"); err != nil {
+		t.Fatal(err)
+	}
+	if exists, err := store.Exists("dmx"); err != nil || exists {
+		t.Fatalf("Exists after delete = %v, %v", exists, err)
 	}
 }
 
 type stringMemory struct {
 	value     string
 	err       error
+	existsErr error
 	setErr    error
 	deleteErr error
 }
@@ -50,6 +54,13 @@ func (store *stringMemory) Delete(string) error {
 	return nil
 }
 
+func (store *stringMemory) Exists(string) (bool, error) {
+	if store.existsErr != nil {
+		return false, store.existsErr
+	}
+	return store.value != "", nil
+}
+
 func TestBackendStoreMapsTypedBackendAndDomainErrors(t *testing.T) {
 	backendMissing := errors.New("backend missing")
 	backend := &stringMemory{err: backendMissing}
@@ -57,13 +68,19 @@ func TestBackendStoreMapsTypedBackendAndDomainErrors(t *testing.T) {
 	if _, err := store.Get("dmx"); !errors.Is(err, account.ErrNotFound) {
 		t.Fatalf("missing error = %v", err)
 	}
+	backend.existsErr = backendMissing
+	if exists, err := store.Exists("dmx"); err != nil || exists {
+		t.Fatalf("missing observation = %v, %v", exists, err)
+	}
+	backend.existsErr = nil
 	want := account.Credential{SystemToken: "system", UserID: "42"}
 	if err := store.Set("dmx", want); err != nil {
 		t.Fatal(err)
 	}
 	got, err := store.Get("dmx")
-	if err != nil || got != want || !store.Has("dmx") {
-		t.Fatalf("credential = %#v, %v, has=%v", got, err, store.Has("dmx"))
+	exists, existsErr := store.Exists("dmx")
+	if err != nil || got != want || existsErr != nil || !exists {
+		t.Fatalf("credential = %#v, get=%v, exists=%v, observation=%v", got, err, exists, existsErr)
 	}
 	backend.value = "not-json"
 	if _, err := store.Get("dmx"); err == nil {
@@ -95,6 +112,10 @@ func TestBackendStoreMapsTypedBackendAndDomainErrors(t *testing.T) {
 	backend.deleteErr = wantBackendErr
 	if err := store.Delete("dmx"); !errors.Is(err, wantBackendErr) {
 		t.Fatalf("backend Delete error = %v", err)
+	}
+	backend.existsErr = wantBackendErr
+	if _, err := store.Exists("dmx"); !errors.Is(err, wantBackendErr) {
+		t.Fatalf("backend Exists error = %v", err)
 	}
 }
 

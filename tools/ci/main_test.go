@@ -20,8 +20,8 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"cue", "fmt", "--check", "--files", ".config/ci"},
 		{"go", "run", "./tools/ci", "project", "--check"},
 		{"npm", "audit", "signatures"},
-		{"openspec", "validate", "--all", "--strict", "--no-interactive"},
-		{"ec", "-disable-indentation", "-disable-indent-size"},
+		{"go", "run", "./tools/ci", "openspec"},
+		{"editorconfig-checker", "-disable-indentation", "-disable-indent-size"},
 		{"prettier", "--check", "--config", ".config/checks/markdown/prettier.json", "--ignore-path", ".config/checks/markdown/prettier-ignore", "*.md", "docs/**/*.md", "openspec/**/*.md"},
 		{"markdownlint-cli2", "--config", ".config/checks/markdown/policy.yaml"},
 		{"go", "run", "./tools/ci", "links", "."},
@@ -32,7 +32,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "test", "./tools/architecture"},
 		{"go", "run", "./tools/coverage", "--race"},
 		{"go", "vet", "./..."},
-		{"go", "tool", "staticcheck", "-checks=SA*,S1*", "./..."},
+		{"go", "tool", "staticcheck", "-checks=SA*,S1*,ST1000,U*", "./..."},
 		{"go", "tool", "errcheck", "./..."},
 		{"go", "run", "./tools/repository", "--root", ".", "go-format"},
 		{"go", "test", "./tools/repository"},
@@ -218,6 +218,102 @@ func TestSourceStopsAtTheFirstFailedGate(t *testing.T) {
 	}
 }
 
+func TestOpenSpecValidationRejectsEveryFinding(t *testing.T) {
+	tests := []struct {
+		name    string
+		report  string
+		wantErr string
+	}{
+		{
+			name:   "clean",
+			report: `{"report":{"kind":"validation-findings","returnedItems":0,"totalItems":10},"itemFindings":[]}`,
+		},
+		{
+			name:    "information",
+			report:  `{"report":{"kind":"validation-findings","returnedItems":1,"totalItems":10},"itemFindings":[{"id":"product-quality","type":"spec","issues":[{"level":"INFO","path":"requirements[0]","message":"too long"}]}]}`,
+			wantErr: "product-quality requirements[0] [INFO]: too long",
+		},
+		{
+			name:    "malformed JSON",
+			report:  `{`,
+			wantErr: "decode OpenSpec validation report",
+		},
+		{
+			name:    "invalid report",
+			report:  `{"report":{"kind":"unexpected"},"itemFindings":[]}`,
+			wantErr: "unexpected OpenSpec validation report",
+		},
+		{
+			name:    "inconsistent finding count",
+			report:  `{"report":{"kind":"validation-findings","returnedItems":1},"itemFindings":[]}`,
+			wantErr: "unexpected OpenSpec validation report",
+		},
+		{
+			name:    "finding without an issue",
+			report:  `{"report":{"kind":"validation-findings","returnedItems":1},"itemFindings":[{"id":"product-quality","issues":[]}]}`,
+			wantErr: "unexpected OpenSpec validation report",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateOpenSpecReport([]byte(test.report), &bytes.Buffer{})
+			if test.wantErr == "" && err != nil {
+				t.Fatal(err)
+			}
+			if test.wantErr != "" && (err == nil || !strings.Contains(err.Error(), test.wantErr)) {
+				t.Fatalf("error = %v, want containing %q", err, test.wantErr)
+			}
+		})
+	}
+}
+
+func TestOpenSpecCommandAcceptsAReportWithoutFindings(t *testing.T) {
+	var stdout bytes.Buffer
+	if err := runOpenSpecValidation(&stdout, func(call command) ([]byte, error) {
+		want := []string{"validate", "--all", "--strict", "--report", "findings", "--json", "--no-interactive"}
+		if call.Name != "openspec" || !reflect.DeepEqual(call.Args, want) {
+			t.Fatalf("call = %#v", call)
+		}
+		return []byte(`{"report":{"kind":"validation-findings","returnedItems":0,"totalItems":10},"itemFindings":[]}`), nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got := stdout.String(); !strings.Contains(got, "0 findings") {
+		t.Fatalf("output = %q", got)
+	}
+}
+
+func TestRunDispatchesOpenSpecValidation(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	bin := filepath.Join(root, "node_modules", ".bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	name := "openspec"
+	content := "#!/bin/sh\nprintf '%s' '{\"report\":{\"kind\":\"validation-findings\",\"returnedItems\":0,\"totalItems\":10},\"itemFindings\":[]}'\n"
+	if runtime.GOOS == "windows" {
+		name += ".cmd"
+		content = "@echo off\r\necho {\"report\":{\"kind\":\"validation-findings\",\"returnedItems\":0,\"totalItems\":10},\"itemFindings\":[]}\r\n"
+	}
+	if err := os.WriteFile(filepath.Join(bin, name), []byte(content), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"openspec"}, &bytes.Buffer{}, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOpenSpecCommandReportsAnUnavailableValidator(t *testing.T) {
+	err := runOpenSpecValidation(&bytes.Buffer{}, func(command) ([]byte, error) {
+		return []byte("validator unavailable"), errors.New("not found")
+	})
+	if err == nil || !strings.Contains(err.Error(), "OpenSpec validation failed") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestSourceIncludesProductProvenanceWhenConfigured(t *testing.T) {
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "maintainer@example.com")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "trust/allowed-signers")
@@ -284,6 +380,7 @@ func TestRunRejectsInvalidCommandShapes(t *testing.T) {
 		{"project", "extra"},
 		{"static", "extra"},
 		{"source", "extra"},
+		{"openspec", "extra"},
 		{"links"},
 		{"links", ".", "extra"},
 		{"native", "--platform", "linux", "extra"},
@@ -367,6 +464,23 @@ func TestNativeAcceptanceUsesPortablePaths(t *testing.T) {
 			if got := calls[2]; !slices.Contains(got.Args, "-ldflags=-X=aigw-cli/internal/cli.Version=1.2.3") {
 				t.Fatalf("native build lacks VERSION-derived identity: %#v", got)
 			}
+			for _, call := range calls[3:] {
+				environment := map[string]string{}
+				for _, entry := range call.Env {
+					name, value, ok := strings.Cut(entry, "=")
+					if ok {
+						environment[name] = value
+					}
+				}
+				if environment["AIGW_SECRET_BACKEND"] != "env" {
+					t.Fatalf("product command uses ambient credential backend: %#v", call)
+				}
+				for _, name := range []string{"HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "APPDATA", "LOCALAPPDATA", "USERPROFILE", "CODEX_HOME"} {
+					if !strings.HasPrefix(environment[name], filepath.Join("build", "acceptance")) {
+						t.Fatalf("product command uses ambient %s: %#v", name, call)
+					}
+				}
+			}
 		})
 	}
 }
@@ -381,21 +495,24 @@ func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chdir(previous) })
-	var calls []command
-	if err := run([]string{"native", "--platform", runtime.GOOS}, &bytes.Buffer{}, func(call command) error {
-		calls = append(calls, call)
-		return nil
-	}); err != nil || len(calls) != 7 {
-		t.Fatalf("native host error=%v calls=%d", err, len(calls))
-	}
-	if runtime.GOOS == "windows" {
-		if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"test", "./..."}) {
-			t.Fatalf("native Windows test command = %#v", got)
+
+	for _, args := range [][]string{{"native"}, {"native", "--platform", runtime.GOOS}} {
+		var calls []command
+		if err := run(args, &bytes.Buffer{}, func(call command) error {
+			calls = append(calls, call)
+			return nil
+		}); err != nil || len(calls) != 7 {
+			t.Fatalf("native host args=%v error=%v calls=%d", args, err, len(calls))
 		}
-	} else {
-		wantProfile := filepath.Join("build", "acceptance", "coverage-"+runtime.GOOS+".out")
-		if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"run", "./tools/coverage", "--race", "--profile-output", wantProfile}) {
-			t.Fatalf("native coverage command = %#v", got)
+		if runtime.GOOS == "windows" {
+			if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"test", "./..."}) {
+				t.Fatalf("native Windows test command = %#v", got)
+			}
+		} else {
+			wantProfile := filepath.Join("build", "acceptance", "coverage-"+runtime.GOOS+".out")
+			if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"run", "./tools/coverage", "--race", "--profile-output", wantProfile}) {
+				t.Fatalf("native coverage command = %#v", got)
+			}
 		}
 	}
 	other := "linux"
@@ -463,7 +580,7 @@ func TestNativeCommandsUsePortableArtifactNames(t *testing.T) {
 }
 
 func TestRejectsUnknownCommandsAndPlatforms(t *testing.T) {
-	for _, args := range [][]string{nil, {"unknown"}, {"native"}, {"native", "--platform", "plan9"}} {
+	for _, args := range [][]string{nil, {"unknown"}, {"native", "--platform", "plan9"}} {
 		if err := run(args, &bytes.Buffer{}, func(command) error { return nil }); err == nil {
 			t.Fatalf("accepted %#v", args)
 		}
@@ -507,5 +624,12 @@ func TestSystemRunnerCreatesOnlyRepositoryLocalBuildState(t *testing.T) {
 	}
 	if info, err := os.Stat(filepath.Join(root, "build", "acceptance")); err != nil || !info.IsDir() {
 		t.Fatalf("repository-local build directory: info=%v error=%v", info, err)
+	}
+	helper := filepath.Join(root, "environment.go")
+	if err := os.WriteFile(helper, []byte("package main\nimport \"os\"\nfunc main(){ if os.Getenv(\"AIGW_CI_TEST\") != \"isolated\" { os.Exit(1) } }\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := systemRunner(command{Name: "go", Args: []string{"run", helper}, Env: []string{"AIGW_CI_TEST=isolated"}}); err != nil {
+		t.Fatalf("systemRunner did not project the command environment: %v", err)
 	}
 }

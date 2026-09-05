@@ -16,7 +16,6 @@ import (
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/synchronization"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +28,7 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
-			if !configuration.ValidProfileName(name) {
+			if !configuration.ValidIdentifier(name) {
 				return fmt.Errorf("Invalid service ID %q; use letters, numbers, dots, hyphens, or underscores", name)
 			}
 			cfg, err := runtime.Config.Load()
@@ -188,9 +187,10 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 			if err := runtime.Secrets.Set(accountName, token); err != nil {
 				return err
 			}
-			syncCodex := synchronization.RouteUsesAccount(cfg, accountName)
-			if syncCodex {
-				if err := invocation.Synchronizer(runtime).Reconcile(cmd.Context(), cfg, cfg); err != nil {
+			synchronizer := invocation.Synchronizer(runtime)
+			syncCredentials := synchronizer.UsesCredentialAccount(cfg, accountName)
+			if syncCredentials {
+				if err := synchronizer.Reconcile(cmd.Context(), cfg, cfg); err != nil {
 					var rollbackErr error
 					if errors.Is(oldErr, secrets.ErrNotFound) {
 						rollbackErr = runtime.Secrets.Delete(accountName)
@@ -198,14 +198,14 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 						rollbackErr = runtime.Secrets.Set(accountName, oldToken)
 					}
 					if rollbackErr == nil {
-						rollbackErr = invocation.Synchronizer(runtime).Reconcile(cmd.Context(), cfg, cfg)
+						rollbackErr = synchronizer.Reconcile(cmd.Context(), cfg, cfg)
 					}
 					if rollbackErr != nil {
 						return fmt.Errorf("Token synchronization failed: %w; rollback also failed: %v", err, rollbackErr)
 					}
 					return fmt.Errorf("Token synchronization failed and was rolled back: %w", err)
 				}
-				if err := invocation.Synchronizer(runtime).BindAuthentication(cmd.Context(), cfg); err != nil {
+				if err := synchronizer.BindCredentialsForAccount(cmd.Context(), cfg, accountName); err != nil {
 					var rollbackErr error
 					if errors.Is(oldErr, secrets.ErrNotFound) {
 						rollbackErr = runtime.Secrets.Delete(accountName)
@@ -213,9 +213,9 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 						rollbackErr = runtime.Secrets.Set(accountName, oldToken)
 					}
 					if rollbackErr == nil {
-						rollbackErr = invocation.Synchronizer(runtime).Reconcile(cmd.Context(), cfg, cfg)
+						rollbackErr = synchronizer.Reconcile(cmd.Context(), cfg, cfg)
 						if rollbackErr == nil {
-							rollbackErr = invocation.Synchronizer(runtime).BindAuthentication(cmd.Context(), cfg)
+							rollbackErr = synchronizer.BindCredentialsForAccount(cmd.Context(), cfg, accountName)
 						}
 					}
 					if rollbackErr != nil {
@@ -230,10 +230,10 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 			r.Row("Account", account.Label)
 			r.Row("Account", accountName)
 			r.Status(presentation.OK, "Token", "Validated and securely stored")
-			if syncCodex {
-				r.Success("Codex authentication synchronized")
+			if syncCredentials {
+				r.Success("Client authentication synchronized")
 			} else {
-				r.Success("Not related to Codex; Codex configuration and authentication were not changed")
+				r.Success("No native client credential projection uses this Account")
 			}
 			r.Next("aigw check")
 			return nil

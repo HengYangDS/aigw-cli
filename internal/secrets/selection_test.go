@@ -63,7 +63,7 @@ func TestAutomaticSelectionMissingTokenDoesNotPersist(t *testing.T) {
 	}
 }
 
-func TestAutomaticSelectionSuccessfulGetPersists(t *testing.T) {
+func TestAutomaticSelectionSuccessfulGetDoesNotPersist(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
 	if err := newFileStore(filepath.Join(root, "tokens")).Set("alpha", "token"); err != nil {
 		t.Fatalf("seed file Token: %v", err)
@@ -80,16 +80,15 @@ func TestAutomaticSelectionSuccessfulGetPersists(t *testing.T) {
 	if err != nil || value != "token" {
 		t.Fatalf("Get() = %q, %v", value, err)
 	}
-	selected, err := os.ReadFile(filepath.Join(root, "backend"))
-	if err != nil || string(selected) != "file\n" {
-		t.Fatalf("persisted backend = %q, %v", selected, err)
+	if _, err := os.Stat(filepath.Join(root, backendChoiceName)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("read-only Get() persisted backend selection: %v", err)
 	}
 }
 
 func TestAutomaticSelectionPersistedKeyringNeverFallsBack(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
 	choice := newBackendChoice(root)
-	if err := choice.Write("keyring"); err != nil {
+	if _, _, err := choice.Persist("keyring"); err != nil {
 		t.Fatalf("persist keyring selection: %v", err)
 	}
 	store, err := Select(Selection{
@@ -177,7 +176,7 @@ func TestAutomaticSelectionReportsInitialMarkerFailure(t *testing.T) {
 	}
 }
 
-func TestAutomaticSuccessfulReadReportsDeferredMarkerFailure(t *testing.T) {
+func TestAutomaticSuccessfulReadDoesNotTouchSelectionStorage(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
 	memory := NewMemoryStore()
 	if err := memory.Set("alpha", "token"); err != nil {
@@ -195,8 +194,9 @@ func TestAutomaticSuccessfulReadReportsDeferredMarkerFailure(t *testing.T) {
 		selected:        memory,
 		selectedBackend: "file",
 	}
-	if _, err := store.Get("alpha"); err == nil {
-		t.Fatal("Get() ignored deferred selection marker failure")
+	value, err := store.Get("alpha")
+	if err != nil || value != "token" {
+		t.Fatalf("Get() = %q, %v; want token without a selection write", value, err)
 	}
 }
 

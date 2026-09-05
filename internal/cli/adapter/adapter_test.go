@@ -3,6 +3,7 @@ package adapter
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -227,6 +228,33 @@ func TestEnableCodexValidatesTargetsAndPersistsProjection(t *testing.T) {
 	}
 }
 
+func TestEnableCodexWithClientNativeAuthenticationDoesNotAccessAccountTokens(t *testing.T) {
+	cfg := adapterConfig()
+	profile := cfg.Profiles[configuration.ClientCodex]
+	profile.ModelProvider = "amazon-bedrock"
+	profile.Authentication = configuration.AuthenticationClientNative
+	cfg.Profiles[configuration.ClientCodex] = profile
+	runtime, _, _, runner := adapterRuntime(t, cfg)
+	runtime.Secrets = unavailableAdapterSecretStore{}
+	target := filepath.Join(t.TempDir(), "configuration.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
+		ID:         string(surfaceidentity.CodexHomeDefault),
+		Authority:  string(surfaceidentity.AuthorityAIGW),
+		ConfigPath: target,
+		Present:    true,
+	}}}}
+
+	if err := executeAdapter(t, runtime, "enable", configuration.ClientCodex, "--executable", "/opt/codex", "--target", target); err != nil {
+		t.Fatalf("enable client-native Codex: %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("client-native enable attempted credential binding: %#v", runner.plans)
+	}
+}
+
 func TestEnableCodexRejectsUnsafeTargetsAndUnavailableDiscovery(t *testing.T) {
 	cfg := adapterConfig()
 	runtime, _, secretStore, _ := adapterRuntime(t, cfg)
@@ -307,6 +335,58 @@ func TestAuthValidatesClientAndBindsCodex(t *testing.T) {
 	}
 }
 
+func TestAuthReportsClientNativeOwnershipWithoutBinding(t *testing.T) {
+	cfg := adapterConfig()
+	profile := cfg.Profiles[configuration.ClientCodex]
+	profile.ModelProvider = "amazon-bedrock"
+	profile.Authentication = configuration.AuthenticationClientNative
+	cfg.Profiles[configuration.ClientCodex] = profile
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
+		Enabled:    true,
+		Executable: "/opt/codex",
+		Targets:    []string{filepath.Join(t.TempDir(), "configuration.toml")},
+	}
+	runtime, out, _, runner := adapterRuntime(t, cfg)
+	runtime.Secrets = unavailableAdapterSecretStore{}
+	runner.err = os.ErrPermission
+
+	if err := executeAdapter(t, runtime, "auth", configuration.ClientCodex); err != nil {
+		t.Fatalf("inspect client-native authentication: %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("client-native auth attempted binding: %#v", runner.plans)
+	}
+	text := out.String()
+	for _, want := range []string{"Client-owned authentication", "aigw verify --for codex"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("auth output lacks %q:\n%s", want, text)
+		}
+	}
+	for _, forbidden := range []string{"account token was written", "authentication bound"} {
+		if strings.Contains(strings.ToLower(text), forbidden) {
+			t.Fatalf("auth output falsely claims %q:\n%s", forbidden, text)
+		}
+	}
+}
+
+type unavailableAdapterSecretStore struct{}
+
+func (unavailableAdapterSecretStore) Get(string) (string, error) {
+	return "", errors.New("secret store must not be accessed")
+}
+
+func (unavailableAdapterSecretStore) Set(string, string) error {
+	return errors.New("secret store must not be accessed")
+}
+
+func (unavailableAdapterSecretStore) Delete(string) error {
+	return errors.New("secret store must not be accessed")
+}
+
+func (unavailableAdapterSecretStore) Exists(string) (bool, error) {
+	return false, errors.New("secret store must not be accessed")
+}
+
 func TestDisableHandlesUnknownAndAlreadyDisabledClients(t *testing.T) {
 	runtime, out, _, _ := adapterRuntime(t, adapterConfig())
 	err := executeAdapter(t, runtime, "disable", "future")
@@ -323,8 +403,26 @@ func TestDisableHandlesUnknownAndAlreadyDisabledClients(t *testing.T) {
 
 func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	cfg := adapterConfig()
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: `C:\claude.exe`}
-	runtime, out, _, _ := adapterRuntime(t, cfg)
+	runtime, out, secretStore, _ := adapterRuntime(t, cfg)
+	if err := os.MkdirAll(filepath.Dir(runtime.ClaudeSettingsPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(runtime.ClaudeSettingsPath, []byte("{\n  \"theme\": \"dark\"\n}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := executeAdapter(t, runtime, "enable", configuration.ClientClaude, "--executable", `C:\claude.exe`); err != nil {
+		t.Fatal(err)
+	}
+	verified, err := runtime.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.Config.SaveVerifiedCheckpoint(verified, []string{configuration.ClientClaude}); err != nil {
+		t.Fatal(err)
+	}
 	if err := executeAdapter(t, runtime, "disable", configuration.ClientClaude); err != nil {
 		t.Fatal(err)
 	}
@@ -334,6 +432,28 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	}
 	if _, ok := got.Adapters[configuration.ClientClaude]; ok {
 		t.Fatalf("adapter was not deleted: %#v", got.Adapters)
+	}
+	if got.Routes[configuration.ClientClaude] != "claude" || got.Profiles["claude"].Account != "gateway" {
+		t.Fatalf("capability configuration changed: %#v", got)
+	}
+	if token, err := secretStore.Get("gateway"); err != nil || token != "token" {
+		t.Fatalf("credential = %q, %v; want preserved", token, err)
+	}
+	settings, err := os.ReadFile(runtime.ClaudeSettingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(settings), `"theme": "dark"`) || strings.Contains(string(settings), "apiKeyHelper") || strings.Contains(string(settings), "ANTHROPIC_BASE_URL") {
+		t.Fatalf("restored Claude settings = %s", settings)
+	}
+	for _, path := range []string{runtime.ClaudeSettingsPath + ".aigw-state.json", runtime.Config.Path() + ".verified.json"} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("retired AIGW state remains at %s: %v", path, err)
+		}
+	}
+	backup, err := runtime.Config.LoadBackup()
+	if err != nil || !backup.Adapters[configuration.ClientClaude].Enabled {
+		t.Fatalf("explicit previous configuration = %#v, %v", backup, err)
 	}
 	if !strings.Contains(out.String(), "Client disabled") {
 		t.Fatalf("output = %q", out.String())

@@ -41,6 +41,13 @@ type TargetRef struct {
 type ReconciliationReceipt struct {
 	TransactionID string           `json:"transaction_id"`
 	Plans         []ProjectionPlan `json:"plans"`
+	committed     []committedCodexArtifact
+}
+
+// Rollback restores the exact preimages captured by this reconciliation while
+// each artifact still equals the postimage written by this transaction.
+func (r ReconciliationReceipt) Rollback() error {
+	return rollbackCodexArtifacts(r.committed)
 }
 
 // ProjectionIdentity is the bounded sidecar identity used by surface
@@ -147,6 +154,7 @@ func ReconcileConfigs(before, after []TargetRef, runtime configuration.Runtime) 
 			committed = append(committed, committedCodexArtifact{prepared: artifact, post: post})
 		}
 	}
+	receipt.committed = committed
 	return receipt, nil
 }
 
@@ -194,7 +202,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	catalogSnapshot, err := transaction.CaptureFileSnapshot(targetCodexCatalogPath(target.ref))
+	catalogSnapshot, err := transaction.CaptureFileSnapshot(codexCatalogPath(target.ref.Path))
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -302,7 +310,7 @@ func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalo
 // deletes the file only after nothing refers to it.
 func codexArtifactsForDesiredState(target TargetRef, configBefore transaction.FileSnapshot, configData []byte, stateBefore transaction.FileSnapshot, stateData []byte, catalogBefore, catalogDesired transaction.FileSnapshot) []codexPreparedArtifact {
 	artifacts := make([]codexPreparedArtifact, 0, 3)
-	catalog := codexPreparedArtifact{path: targetCodexCatalogPath(target), before: catalogBefore, desired: catalogDesired, exactMode: true}
+	catalog := codexPreparedArtifact{path: codexCatalogPath(target.Path), before: catalogBefore, desired: catalogDesired, exactMode: true}
 	catalogChanged := !sameCodexSnapshot(catalogBefore, catalogDesired)
 	if catalogChanged && catalogDesired.Exists {
 		artifacts = append(artifacts, catalog)

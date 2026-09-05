@@ -3,31 +3,27 @@ package readiness
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/url"
-	"path/filepath"
 	"strings"
-	"time"
 
-	"aigw-cli/internal/claude"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/codex"
+	clientdomain "aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
+	domainreadiness "aigw-cli/internal/readiness"
+	"aigw-cli/internal/secrets"
 	"github.com/spf13/cobra"
 )
 
 type routeStatus struct {
-	Profile              string `json:"profile,omitempty"`
-	SecretAvailable      bool   `json:"secret_available"`
-	EndpointReady        bool   `json:"endpoint_ready"`
-	Transport            string `json:"transport,omitempty"`
-	TransportReady       bool   `json:"transport_ready,omitempty"`
-	AdapterReady         bool   `json:"adapter_ready"`
-	AdapterIssue         string `json:"adapter_issue,omitempty"`
-	NativeAuthentication string `json:"native_authentication,omitempty"`
-	NeedsSelection       bool   `json:"needs_selection,omitempty"`
-	SuggestedProfile     string `json:"suggested_profile,omitempty"`
+	domainreadiness.Client
+	Authentication       configuration.Authentication `json:"authentication"`
+	EndpointReady        bool                         `json:"endpoint_ready"`
+	Transport            string                       `json:"transport,omitempty"`
+	TransportReady       bool                         `json:"transport_ready,omitempty"`
+	AdapterReady         bool                         `json:"adapter_ready"`
+	NativeAuthentication string                       `json:"native_authentication,omitempty"`
 }
 
 type endpointTestResult struct {
@@ -38,19 +34,16 @@ type endpointTestResult struct {
 }
 
 type statusOutput struct {
-	ConfigPath string                 `json:"config_path"`
-	Routes     map[string]routeStatus `json:"routes"`
-	Profiles   int                    `json:"profiles"`
+	ConfigPath        string                            `json:"config_path"`
+	CredentialBackend secrets.BackendSelection          `json:"credential_backend"`
+	Clients           map[string]domainreadiness.Client `json:"clients"`
+	Routes            map[string]routeStatus            `json:"routes"`
+	Profiles          int                               `json:"profiles"`
 }
 
-var (
-	admittedClientIDs        = configuration.AdmittedClientIDs
-	validateCodexConfig      = codex.ValidateConfig
-	probeAdapterRoute        = AdapterRouteReady
-	probeCodexAuthentication = CodexAuthenticationProven
-)
-
-const codexAuthenticationInspectionTimeout = 5 * time.Second
+var inspectAdapter = func(ctx context.Context, runtime invocation.Context, cfg configuration.Config, clientID string, clientRuntime configuration.Runtime, options clientdomain.InspectionOptions) clientdomain.Status {
+	return invocation.Synchronizer(runtime).Inspect(ctx, cfg, clientID, clientRuntime, options)
+}
 
 func NewStatusCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
@@ -65,10 +58,7 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 	if err != nil {
 		return err
 	}
-	result, err := collectStatus(runtime, cfg)
-	if err != nil {
-		return err
-	}
+	result := collectStatus(runtime, cfg)
 	if jsonMode {
 		enc := json.NewEncoder(runtime.Out)
 		enc.SetIndent("", "  ")
@@ -78,65 +68,110 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 	return nil
 }
 
-func collectStatus(runtime invocation.Context, cfg configuration.Config) (statusOutput, error) {
-	result := statusOutput{ConfigPath: runtime.Config.Path(), Profiles: len(cfg.Profiles), Routes: map[string]routeStatus{}}
-	for _, client := range admittedClientIDs() {
-		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
+// inspectStatusClients observes every admitted client without authenticating
+// an endpoint or reading Token values.
+func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) map[string]routeStatus {
+	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
+	routes := make(map[string]routeStatus, len(clientIDs))
+	for _, clientID := range clientIDs {
+		clientRuntime, resolveErr := cfg.ResolveRuntime(clientID, "")
 		if resolveErr != nil {
-			suggested := cfg.FirstProfileForClient(client)
-			result.Routes[client] = routeStatus{NeedsSelection: suggested != "", SuggestedProfile: suggested}
+			facts := domainreadiness.ClientFacts{}
+			if profile := cfg.Routes[clientID]; profile != "" {
+				facts.Profile = profile
+				facts.RouteIssue = resolveErr.Error()
+				facts.RouteAction = "aigw use <" + clientID + "-profile>"
+			} else {
+				facts.SuggestedProfile = cfg.FirstProfileForClient(clientID)
+			}
+			state := domainreadiness.ClassifyClient(facts)
+			routes[clientID] = routeStatus{Client: state}
 			continue
 		}
-		secretAvailable, err := runtime.Secrets.Exists(clientRuntime.AccountID)
-		if err != nil {
-			return statusOutput{}, fmt.Errorf("observe credential for Account %q: %w", clientRuntime.AccountID, err)
-		}
-		adapterReady, adapterIssue := probeAdapterRoute(runtime, cfg, client, clientRuntime)
-		transport := TransportStatus(clientRuntime.Endpoint)
-		nativeAuthentication := ""
-		if client == configuration.ClientCodex && adapterReady {
-			switch {
-			case clientRuntime.ModelProvider != configuration.ModelProviderAIGW:
-				nativeAuthentication = "not_required"
-			case probeCodexAuthentication(runtime, cfg.Adapters[client].Executable, cfg.Adapters[client].Targets):
-				nativeAuthentication = "present"
-			default:
-				nativeAuthentication = "not_proven"
+		credentialAvailable := true
+		credentialAction := ""
+		if clientRuntime.RequiresAccountToken() {
+			available, observationErr := runtime.Secrets.Exists(clientRuntime.AccountID)
+			if observationErr != nil {
+				state := domainreadiness.ClassifyClient(domainreadiness.ClientFacts{
+					Profile:                    clientRuntime.ProfileID,
+					Account:                    clientRuntime.AccountID,
+					CredentialRequired:         true,
+					CredentialObservationIssue: "Credential metadata is unavailable",
+				})
+				routes[clientID] = routeStatus{
+					Client:         state,
+					Authentication: clientRuntime.Authentication,
+					EndpointReady:  strings.TrimSpace(clientRuntime.Endpoint) != "",
+					Transport:      TransportStatus(clientRuntime.Endpoint).Kind,
+				}
+				continue
 			}
+			credentialAvailable = available
+			credentialAction, _ = credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
 		}
-		result.Routes[client] = routeStatus{
-			Profile:              clientRuntime.ProfileID,
-			SecretAvailable:      secretAvailable,
-			EndpointReady:        clientRuntime.Endpoint != "",
-			Transport:            transport.Kind,
-			AdapterReady:         adapterReady,
-			AdapterIssue:         adapterIssue,
-			NativeAuthentication: nativeAuthentication,
+		adapterStatus := inspectAdapter(context.Background(), runtime, cfg, clientID, clientRuntime, clientdomain.InspectionOptions{NativeAuthentication: true})
+		state := domainreadiness.ClassifyClient(domainreadiness.ClientFacts{
+			Profile:             clientRuntime.ProfileID,
+			Account:             clientRuntime.AccountID,
+			CredentialRequired:  clientRuntime.RequiresAccountToken(),
+			CredentialAvailable: credentialAvailable,
+			CredentialAction:    credentialAction,
+			AdapterEnabled:      cfg.Adapters[clientID].Enabled,
+			AdapterReady:        adapterStatus.Ready,
+			AdapterIssue:        adapterStatus.Issue,
+			AdapterAction:       adapterStatus.RepairAction,
+		})
+		route := routeStatus{
+			Client:               state,
+			Authentication:       clientRuntime.Authentication,
+			EndpointReady:        strings.TrimSpace(clientRuntime.Endpoint) != "",
+			Transport:            TransportStatus(clientRuntime.Endpoint).Kind,
+			AdapterReady:         adapterStatus.Ready,
+			NativeAuthentication: adapterStatus.NativeAuthentication,
 		}
+		if adapterStatus.Ready && !clientRuntime.RequiresAccountToken() {
+			route.State = domainreadiness.Configured
+			route.Detail = "Projection ready; client-owned authentication is not proven"
+			route.NextAction = "aigw verify --for " + clientID
+		} else if adapterStatus.Ready && adapterStatus.NativeAuthentication == "not_proven" {
+			route.State = domainreadiness.Configured
+			route.Detail = "Projection ready; native authentication is not proven"
+			route.NextAction = "aigw adapter auth " + clientID
+		}
+		routes[clientID] = route
 	}
-	return result, nil
+	return routes
 }
 
-// CodexAuthenticationProven returns true only when Codex's public read-only
-// status command succeeds for every selected target. It never reads native
-// credential files or creates a second authentication-state authority.
-func CodexAuthenticationProven(runtime invocation.Context, executable string, targets []string) bool {
-	if len(targets) == 0 {
-		return false
+// InspectClients returns the canonical, secret-free local state of every
+// admitted client without authenticating an endpoint or reading Token values.
+func InspectClients(runtime invocation.Context, cfg configuration.Config) map[string]domainreadiness.Client {
+	routes := inspectStatusClients(runtime, cfg)
+	clients := make(map[string]domainreadiness.Client, len(routes))
+	for client, route := range routes {
+		clients[client] = route.Client
 	}
-	for _, target := range targets {
-		plan, err := codex.LoginStatusPlan(executable, filepath.Dir(target))
-		if err != nil {
-			return false
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), codexAuthenticationInspectionTimeout)
-		_, err = invocation.RunCapture(runtime, ctx, plan)
-		cancel()
-		if err != nil {
-			return false
-		}
+	return clients
+}
+
+func collectStatus(runtime invocation.Context, cfg configuration.Config) statusOutput {
+	backend, backendErr := secrets.Inspect(runtime.Secrets)
+	if backendErr != nil {
+		backend.RecoveryAction = domainreadiness.CredentialBackendRecovery
 	}
-	return true
+	routes := inspectStatusClients(runtime, cfg)
+	clients := make(map[string]domainreadiness.Client, len(routes))
+	for client, route := range routes {
+		clients[client] = route.Client
+	}
+	return statusOutput{
+		ConfigPath:        runtime.Config.Path(),
+		CredentialBackend: backend,
+		Clients:           clients,
+		Profiles:          len(cfg.Profiles),
+		Routes:            routes,
+	}
 }
 
 type transportState struct {
@@ -154,47 +189,6 @@ func TransportStatus(endpoint string) transportState {
 	default:
 		return transportState{}
 	}
-}
-
-// AdapterRouteReady checks all local conditions that make an enabled adapter
-// usable by the selected route. It is deliberately read-only and never starts
-// or reloads a client process.
-func AdapterRouteReady(runtime invocation.Context, cfg configuration.Config, client string, clientRuntime configuration.Runtime) (bool, string) {
-	adapter := cfg.Adapters[client]
-	if !adapter.Enabled {
-		return false, invocation.Title(client) + " adapter is disabled"
-	}
-	if adapter.Executable == "" {
-		return false, invocation.Title(client) + " executable is not configured"
-	}
-	switch client {
-	case configuration.ClientClaude:
-		ready, err := claude.Ready(adapter.Executable)
-		if err != nil {
-			return false, "Cannot inspect Claude executable"
-		}
-		if !ready {
-			return false, "Claude executable is unavailable"
-		}
-	case configuration.ClientCodex:
-		if len(adapter.Targets) == 0 {
-			return false, "Codex configuration target is missing"
-		}
-		for _, target := range adapter.Targets {
-			if err := validateCodexConfig(target, clientRuntime); err != nil {
-				return false, "Codex configuration projection drift: " + err.Error()
-			}
-		}
-	}
-	return true, ""
-}
-
-func CodexModelsEndpoint(endpoint string) string {
-	endpoint = strings.TrimRight(endpoint, "/")
-	if strings.HasSuffix(endpoint, "/models") {
-		return endpoint
-	}
-	return endpoint + "/models"
 }
 
 func Renderer(runtime invocation.Context) *presentation.Renderer {

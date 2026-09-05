@@ -63,6 +63,13 @@ func (s *configStoreStub) Save(cfg configuration.Config) error {
 	return s.saveErr
 }
 
+func (s *configStoreStub) Commit(_ configuration.Snapshot, cfg configuration.Config) (configuration.Snapshot, error) {
+	if err := s.Save(cfg); err != nil {
+		return configuration.Snapshot{}, err
+	}
+	return s.CaptureSnapshot()
+}
+
 func (s *configStoreStub) RestoreSnapshot(before, after configuration.Snapshot) error {
 	s.restored = append(s.restored, [2]configuration.Snapshot{before, after})
 	return s.restoreErr
@@ -82,6 +89,23 @@ func targetDiscovery(target string) staticDiscovery {
 		ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
 		ConfigPath: target, Present: true, AutoManaged: true,
 	}}}}
+}
+
+func TestWithdrawDefaultsToEveryAdmittedClientAndRejectsUnknownClients(t *testing.T) {
+	syncer := Synchronizer{}
+	cfg := configuration.NewConfig()
+	for _, clientID := range syncer.ClientIDs() {
+		cfg.Adapters[clientID] = configuration.AdapterConfig{Enabled: true}
+	}
+	if err := syncer.Withdraw(&cfg); err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Adapters) != 0 {
+		t.Fatalf("adapters after full withdrawal = %#v", cfg.Adapters)
+	}
+	if err := syncer.Withdraw(&cfg, "unknown"); err == nil || !strings.Contains(err.Error(), "no admitted operational adapter") {
+		t.Fatalf("unknown withdrawal error = %v", err)
+	}
 }
 
 func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T) {
@@ -157,34 +181,14 @@ func TestDesiredClientConfigurationSurfacesCredentialObservationFailures(t *test
 	}
 }
 
-func TestSelectRoutesForAvailableAccountsUsesTheConfigurationAuthority(t *testing.T) {
-	before := configuration.NewConfig()
-	before.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
-	before.Accounts["two"] = configuration.Account{Label: "Two", Endpoints: configuration.Endpoints{Anthropic: "https://two.test"}}
-	before.Profiles["one"] = configuration.Profile{Label: "One", Account: "one", Client: configuration.ClientClaude, Model: "claude-test"}
-	before.Profiles["two"] = configuration.Profile{Label: "Two", Account: "two", Client: configuration.ClientClaude, Model: "claude-test"}
-	before.Routes[configuration.ClientClaude] = "one"
-	secretStore := secrets.NewMemoryStore()
-	if err := secretStore.Set("two", "token"); err != nil {
-		t.Fatal(err)
-	}
-
-	after, err := (Synchronizer{Secrets: secretStore}).SelectRoutesForAvailableAccounts(before)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := after.Routes[configuration.ClientClaude]; got != "two" {
-		t.Fatalf("selected route = %q, want two", got)
-	}
-}
-
 func TestProjectionChangedForPersistentCodexSemantics(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "configuration.toml")
 	before := testConfig(target)
 
 	disabled := before.Clone()
 	delete(disabled.Adapters, configuration.ClientCodex)
-	if !ProjectionChanged(before, disabled) {
+	syncer := Synchronizer{}
+	if !syncer.ProjectionChanged(before, disabled) {
 		t.Fatal("adapter removal must change the projection")
 	}
 
@@ -192,45 +196,43 @@ func TestProjectionChangedForPersistentCodexSemantics(t *testing.T) {
 	profile := purpose.Profiles["gpt"]
 	profile.Purpose = "display only"
 	purpose.Profiles["gpt"] = profile
-	if ProjectionChanged(before, purpose) {
+	if syncer.ProjectionChanged(before, purpose) {
 		t.Fatal("display-only purpose must not change the projection")
 	}
 }
 
-func TestRouteAndAuthenticationSemantics(t *testing.T) {
+func TestCredentialBindingSemantics(t *testing.T) {
+	syncer := Synchronizer{}
 	disabled := configuration.NewConfig()
-	if accountID, ok := RouteAccount(disabled); ok || accountID != "" {
-		t.Fatalf("disabled route = %q, %v", accountID, ok)
+	if syncer.UsesCredentialAccount(disabled, "gateway") {
+		t.Fatal("disabled adapter uses a credential account")
 	}
 	invalid := configuration.NewConfig()
 	invalid.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
-	if accountID, ok := RouteAccount(invalid); ok || accountID != "" {
-		t.Fatalf("invalid route = %q, %v", accountID, ok)
+	if syncer.UsesCredentialAccount(invalid, "gateway") {
+		t.Fatal("invalid route uses a credential account")
 	}
 	configured := testConfig("/target")
-	if accountID, ok := RouteAccount(configured); !ok || accountID != "gateway" {
-		t.Fatalf("configured route = %q, %v", accountID, ok)
-	}
-	if !RouteUsesAccount(configured, "gateway") || RouteUsesAccount(configured, "other") {
+	if !syncer.UsesCredentialAccount(configured, "gateway") || syncer.UsesCredentialAccount(configured, "other") {
 		t.Fatal("route account membership is incorrect")
 	}
-	if AuthenticationChanged(configured, disabled) {
+	if syncer.CredentialBindingChanged(configured, disabled) {
 		t.Fatal("disabling Codex must not attempt authentication")
 	}
-	if !AuthenticationChanged(disabled, configured) {
+	if !syncer.CredentialBindingChanged(disabled, configured) {
 		t.Fatal("enabling Codex must bind authentication")
 	}
-	if AuthenticationChanged(configured, configured.Clone()) {
+	if syncer.CredentialBindingChanged(configured, configured.Clone()) {
 		t.Fatal("unchanged route must not bind authentication")
 	}
 	invalidAfter := configured.Clone()
 	delete(invalidAfter.Profiles, "gpt")
-	if !AuthenticationChanged(configured, invalidAfter) {
+	if !syncer.CredentialBindingChanged(configured, invalidAfter) {
 		t.Fatal("an invalid resulting Codex runtime must require authentication recovery")
 	}
 	movedTarget := configured.Clone()
 	movedTarget.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{"/other"}}
-	if !AuthenticationChanged(configured, movedTarget) {
+	if !syncer.CredentialBindingChanged(configured, movedTarget) {
 		t.Fatal("changed targets must bind authentication")
 	}
 	changedAccount := configured.Clone()
@@ -238,7 +240,7 @@ func TestRouteAndAuthenticationSemantics(t *testing.T) {
 	profile := changedAccount.Profiles["gpt"]
 	profile.Account = "next"
 	changedAccount.Profiles["gpt"] = profile
-	if !AuthenticationChanged(configured, changedAccount) {
+	if !syncer.CredentialBindingChanged(configured, changedAccount) {
 		t.Fatal("changed route account must bind authentication")
 	}
 }
@@ -312,6 +314,60 @@ func TestPlanReportsClaudePlanningFailures(t *testing.T) {
 	}
 }
 
+func TestReconcilePreparesEveryClientBeforeWriting(t *testing.T) {
+	dir := t.TempDir()
+	codexTarget := filepath.Join(dir, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(codexTarget), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	originalCodex := []byte("model_provider = \"native\"\n")
+	if err := os.WriteFile(codexTarget, originalCodex, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	claudeSettings := filepath.Join(dir, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(claudeSettings), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(claudeSettings, []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	before := configuration.NewConfig()
+	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
+		Anthropic:       "https://gateway.test",
+		OpenAIResponses: "https://gateway.test/v1",
+	}}
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
+	before.Routes[configuration.ClientClaude] = "claude"
+	before.Routes[configuration.ClientCodex] = "codex"
+	after := before.Clone()
+	after.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+	after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}}
+	syncer := Synchronizer{
+		Discovery:          targetDiscovery(codexTarget),
+		ClaudeSettingsPath: claudeSettings,
+		AIGWExecutable:     "/opt/aigw",
+	}
+
+	err := syncer.Reconcile(context.Background(), before, after)
+	if err == nil || !strings.Contains(err.Error(), "parse Claude settings") {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+	got, readErr := os.ReadFile(codexTarget)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if !bytes.Equal(got, originalCodex) {
+		t.Fatalf("Codex changed before Claude preparation completed:\n%s", got)
+	}
+	for _, path := range []string{codexTarget + ".aigw-state.json", filepath.Join(filepath.Dir(codexTarget), "models.json")} {
+		if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+			t.Fatalf("Codex artifact %s exists after preparation failure: %v", path, statErr)
+		}
+	}
+}
+
 func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 	t.Run("missing Claude settings path", func(t *testing.T) {
 		before := configuration.NewConfig()
@@ -330,7 +386,7 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 		after := before.Clone()
 		delete(before.Profiles, "gpt")
 		delete(after.Profiles, "gpt")
-		if ProjectionChanged(before, after) != true {
+		if !(Synchronizer{}).ProjectionChanged(before, after) {
 			t.Fatal("invalid Codex runtime was treated as unchanged")
 		}
 	})
@@ -339,7 +395,7 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 		before := testConfig("/first")
 		after := before.Clone()
 		after.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/codex", Targets: []string{"/second"}}
-		if !ProjectionChanged(before, after) {
+		if !(Synchronizer{}).ProjectionChanged(before, after) {
 			t.Fatal("changed Codex target set was treated as unchanged")
 		}
 	})
@@ -353,7 +409,7 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 		after := before.Clone()
 		delete(before.Profiles, "claude")
 		delete(after.Profiles, "claude")
-		if ClaudeProjectionChanged(before, after) != true {
+		if !(Synchronizer{}).ProjectionChanged(before, after) {
 			t.Fatal("invalid Claude runtime was treated as unchanged")
 		}
 	})
@@ -372,7 +428,7 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 	})
 }
 
-func TestBindAuthenticationSuccessAndFailures(t *testing.T) {
+func TestBindCredentialSuccessAndFailures(t *testing.T) {
 	cfg := testConfig("/tmp/codex/configuration.toml")
 	secretStore := secrets.NewMemoryStore()
 	if err := secretStore.Set("gateway", "token"); err != nil {
@@ -380,26 +436,26 @@ func TestBindAuthenticationSuccessAndFailures(t *testing.T) {
 	}
 	runner := &recordingRunner{}
 	syncer := Synchronizer{Secrets: secretStore, Runner: runner}
-	if err := syncer.BindAuthentication(context.Background(), cfg); err != nil {
+	if err := syncer.BindCredential(context.Background(), cfg, configuration.ClientCodex, nil); err != nil {
 		t.Fatal(err)
 	}
 	if len(runner.plans) != 1 || runner.plans[0].Executable != "/opt/codex" || runner.plans[0].Stdin != "token\n" {
 		t.Fatalf("authentication plans = %#v", runner.plans)
 	}
-	if err := syncer.BindAuthentication(context.Background(), configuration.NewConfig()); err != nil {
-		t.Fatalf("disabled authentication = %v", err)
+	if err := syncer.BindCredential(context.Background(), configuration.NewConfig(), configuration.ClientCodex, nil); err == nil || !strings.Contains(err.Error(), "enabled adapter") {
+		t.Fatalf("disabled authentication error = %v", err)
 	}
 
 	badRuntime := cfg.Clone()
 	badRuntime.Routes[configuration.ClientCodex] = "missing"
-	if err := syncer.BindAuthenticationTargets(context.Background(), badRuntime, nil); err == nil {
+	if err := syncer.BindCredential(context.Background(), badRuntime, configuration.ClientCodex, nil); err == nil {
 		t.Fatal("authentication accepted an invalid runtime")
 	}
-	if err := (Synchronizer{Secrets: fixedSecrets{}, Runner: runner}).BindAuthenticationTargets(context.Background(), cfg, cfg.Adapters[configuration.ClientCodex].Targets); err == nil || !strings.Contains(err.Error(), "empty") {
+	if err := (Synchronizer{Secrets: fixedSecrets{}, Runner: runner}).BindCredential(context.Background(), cfg, configuration.ClientCodex, cfg.Adapters[configuration.ClientCodex].Targets); err == nil || !strings.Contains(err.Error(), "empty") {
 		t.Fatalf("empty-token error = %v", err)
 	}
 	runner.err = errors.New("login failed")
-	if err := syncer.BindAuthenticationTargets(context.Background(), cfg, cfg.Adapters[configuration.ClientCodex].Targets); !errors.Is(err, runner.err) {
+	if err := syncer.BindCredential(context.Background(), cfg, configuration.ClientCodex, cfg.Adapters[configuration.ClientCodex].Targets); !errors.Is(err, runner.err) {
 		t.Fatalf("runner error = %v", err)
 	}
 }
@@ -483,6 +539,9 @@ func TestPlanningAndAuthenticationRejectIncompleteDependencies(t *testing.T) {
 	if _, err := (Synchronizer{}).Plan(base, base); err == nil {
 		t.Fatal("expected discovery error")
 	}
+	if err := (Synchronizer{}).Reconcile(context.Background(), base, base); err == nil {
+		t.Fatal("expected discovery error")
+	}
 	syncer := Synchronizer{Discovery: staticDiscovery{}}
 	before := base.Clone()
 	before.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{""}}
@@ -494,19 +553,19 @@ func TestPlanningAndAuthenticationRejectIncompleteDependencies(t *testing.T) {
 	if _, err := syncer.Plan(base, after); err == nil {
 		t.Fatal("expected after-target error")
 	}
-	if err := (Synchronizer{}).BindAuthenticationTargets(context.Background(), configuration.NewConfig(), nil); err == nil || !strings.Contains(err.Error(), "enabled adapter") {
+	if err := (Synchronizer{}).BindCredential(context.Background(), configuration.NewConfig(), configuration.ClientCodex, nil); err == nil || !strings.Contains(err.Error(), "enabled adapter") {
 		t.Fatalf("disabled authentication error = %v", err)
 	}
 	missingExecutable := base.Clone()
 	missingExecutable.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
-	if err := (Synchronizer{}).BindAuthenticationTargets(context.Background(), missingExecutable, nil); err == nil || !strings.Contains(err.Error(), "executable") {
+	if err := (Synchronizer{}).BindCredential(context.Background(), missingExecutable, configuration.ClientCodex, nil); err == nil || !strings.Contains(err.Error(), "executable") {
 		t.Fatalf("executable error = %v", err)
 	}
-	if err := (Synchronizer{Runner: failingRunner{}}).BindAuthenticationTargets(context.Background(), base, nil); err == nil || !strings.Contains(err.Error(), "secret store") {
+	if err := (Synchronizer{Runner: failingRunner{}}).BindCredential(context.Background(), base, configuration.ClientCodex, nil); err == nil || !strings.Contains(err.Error(), "secret store") {
 		t.Fatalf("secret-store error = %v", err)
 	}
 	want := errors.New("token unavailable")
-	if err := (Synchronizer{Runner: failingRunner{}, Secrets: failingSecrets{err: want}}).BindAuthenticationTargets(context.Background(), base, nil); !errors.Is(err, want) {
+	if err := (Synchronizer{Runner: failingRunner{}, Secrets: failingSecrets{err: want}}).BindCredential(context.Background(), base, configuration.ClientCodex, nil); !errors.Is(err, want) {
 		t.Fatalf("token error = %v", err)
 	}
 }
@@ -613,7 +672,9 @@ func TestRollbackReconcilesAndRebinds(t *testing.T) {
 	}
 	before := testConfig(target)
 	after := before.Clone()
+	after.Accounts["next"] = configuration.Account{Label: "Next", Endpoints: configuration.Endpoints{OpenAIResponses: "https://next.test/v1"}}
 	profile := after.Profiles["gpt"]
+	profile.Account = "next"
 	profile.Model = "gpt-next"
 	after.Profiles["gpt"] = profile
 	secretStore := secrets.NewMemoryStore()

@@ -46,8 +46,8 @@ func TestCodexSchedulerHelpersCoverAbsentAndMalformedShapes(t *testing.T) {
 	if _, err := projectCodexScheduler("[agents\n"); err == nil {
 		t.Fatal("projection accepted malformed TOML")
 	}
-	if _, err := restoreCodexScheduler("", map[string]*int{"invalid": nil}); err == nil {
-		t.Fatal("restore accepted an invalid scheduler state key")
+	if err := validateCodexSchedulerState(map[string]*int{"invalid": nil}); err == nil {
+		t.Fatal("scheduler state validation accepted an invalid key")
 	}
 }
 
@@ -130,13 +130,7 @@ func TestCodexSchedulerHelpersCoverRemainingErrorPaths(t *testing.T) {
 	}
 }
 
-func TestCodexSchedulerCoversEmptyBackfillAndManagedRemovalBoundaries(t *testing.T) {
-	if got, err := backfillCodexScheduler(map[string]*int{}, ""); err != nil || len(got) != 0 {
-		t.Fatalf("empty scheduler backfill = %#v, %v", got, err)
-	}
-	if got := removeManagedCodexIntegerKey("external = true\n", "agents", "max_threads", codexSessionConcurrency); got != "external = true\n" {
-		t.Fatalf("managed removal changed an absent table: %q", got)
-	}
+func TestCodexSchedulerRejectsMalformedKeyInspection(t *testing.T) {
 	if _, err := codexKeyPresent("[agents\n", "agents", "max_threads"); err == nil {
 		t.Fatal("codexKeyPresent accepted malformed TOML")
 	}
@@ -197,127 +191,16 @@ func TestCodexSchedulerBindsOneKeyOfTheAliasPairPerTable(t *testing.T) {
 	}
 }
 
-// TestCodexSchedulerHashRecognizesLegacyProjections covers the upgrade path. A
-// sidecar written before the alias was retired recorded its projection hash over
-// the older key set; refusing that hash would make sync report a user edit on
-// exactly the machines that need the correction.
-func TestCodexSchedulerHashRecognizesLegacyProjections(t *testing.T) {
-	legacyProjection := "[agents]\nmax_concurrent_threads_per_session = 16\nmax_depth = 1\n\n[features.multi_agent_v2]\nmax_concurrent_threads_per_session = 16\n"
-	legacyHash := codexSchedulerHashFor(codexLegacySchedulerKeys, nil, legacyProjection)
-	if !codexSchedulerHashMatches(legacyHash, legacyProjection) {
-		t.Fatal("a hash written by the older projection was rejected as a user edit")
-	}
+func TestCodexSchedulerHashAdmitsOnlyCurrentProjection(t *testing.T) {
 	current := projectedSchedulerFixture()
 	if !codexSchedulerHashMatches(codexSchedulerHash(current), current) {
 		t.Fatal("the current projection hash was rejected")
 	}
-	if !codexSchedulerHashMatches("", current) {
-		t.Fatal("an unrecorded hash must not be treated as a conflict")
+	if codexSchedulerHashMatches("", current) {
+		t.Fatal("an absent projection hash proved ownership")
 	}
 	if codexSchedulerHashMatches("foreign", current) {
 		t.Fatal("a foreign hash was accepted")
-	}
-}
-
-// TestRestoreClearsAIGWKeysMissingFromLegacyState covers a state written before
-// max_threads joined the projected set: it records no original for that key, so
-// a restore must still remove AIGW's own value instead of leaving it behind, and
-// must keep a user-authored value that carries no ownership marker.
-func TestRestoreClearsAIGWKeysMissingFromLegacyState(t *testing.T) {
-	legacyState := map[string]*int{
-		"agents.max_concurrent_threads_per_session":                  nil,
-		"agents.max_depth":                                           nil,
-		"features.multi_agent_v2.max_concurrent_threads_per_session": nil,
-	}
-	projected, err := projectCodexScheduler("external = true\n")
-	if err != nil {
-		t.Fatal(err)
-	}
-	restored, err := restoreCodexScheduler(projected, legacyState)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(restored, "max_threads") || strings.Contains(restored, "[agents]") {
-		t.Fatalf("restore left AIGW's own scheduler value behind: %q", restored)
-	}
-	if strings.TrimRight(restored, "\n") != "external = true" {
-		t.Fatalf("restore changed unrelated content: %q", restored)
-	}
-
-	userOwned := "external = true\n\n[agents]\nmax_threads = 6\n"
-	restored, err = restoreCodexScheduler(userOwned, legacyState)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(restored, "max_threads = 6") {
-		t.Fatalf("restore discarded a user-authored value: %q", restored)
-	}
-}
-
-// TestCodexSyncUpgradesALegacyProjectionWithoutLosingUserMaxThreads covers the
-// upgrade this change ships into: a machine already synchronized by the AIGW that
-// projected the retired [agents] alias and did not own max_threads. The legacy
-// sidecar records no original for that key, so the upgrade has to record it before
-// taking ownership or the user's own value would be lost with no way back. The
-// legacy state is produced by the real projection code with the older key set
-// rather than a hand-written fixture.
-func TestCodexSyncUpgradesALegacyProjectionWithoutLosingUserMaxThreads(t *testing.T) {
-	path := t.TempDir() + "/configuration.toml"
-	original := "model_provider = \"native\"\n\n[agents]\nmax_threads = 6\n"
-	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	runtime := atomicTestRuntime()
-
-	func() {
-		originalKeys, originalRetired := codexSchedulerKeys, codexRetiredSchedulerKeys
-		defer func() { codexSchedulerKeys, codexRetiredSchedulerKeys = originalKeys, originalRetired }()
-		codexSchedulerKeys = codexLegacySchedulerKeys
-		codexRetiredSchedulerKeys = map[string][]string{}
-		if err := SyncConfig(path, runtime); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	legacy, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(legacy), "max_concurrent_threads_per_session = 16 # managed by AIGW") {
-		t.Fatalf("the older projection was not reproduced:\n%s", legacy)
-	}
-	if !strings.Contains(string(legacy), "max_threads = 6") {
-		t.Fatalf("the older projection was expected to leave max_threads alone:\n%s", legacy)
-	}
-
-	if err := SyncConfig(path, runtime); err != nil {
-		t.Fatalf("upgrade sync refused AIGW's own older projection: %v", err)
-	}
-	upgraded, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(upgraded)
-	if !strings.Contains(text, "max_threads = 16 # managed by AIGW") {
-		t.Fatalf("upgrade did not take ownership of max_threads:\n%s", text)
-	}
-	agents := text[strings.Index(text, "[agents]"):strings.Index(text, "[features.multi_agent_v2]")]
-	if strings.Contains(agents, "max_concurrent_threads_per_session") {
-		t.Fatalf("upgrade left the retired alias beside max_threads:\n%s", text)
-	}
-	if err := ValidateConfig(path, runtime); err != nil {
-		t.Fatalf("validation rejected the upgraded projection: %v", err)
-	}
-
-	if err := DisableConfig(path); err != nil {
-		t.Fatal(err)
-	}
-	restored, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(restored) != original {
-		t.Fatalf("upgrade lost the user's own scheduler value\nwant:\n%s\ngot:\n%s", original, restored)
 	}
 }
 

@@ -3,13 +3,11 @@ package recovery
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"os"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/synchronization"
 	"github.com/spf13/cobra"
 )
 
@@ -26,13 +24,16 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			synchronizer := invocation.Synchronizer(runtime)
-			selected, err := synchronizer.SelectRoutesForAvailableAccounts(before)
+			after, _, err := synchronizer.DesiredClientConfiguration(before)
 			if err != nil {
-				return err
-			}
-			after, _, err := synchronizer.DesiredClientConfiguration(selected)
-			if err != nil {
-				return err
+				return invocation.Problem(
+					runtime,
+					"Synchronization prerequisites are unavailable",
+					"AIGW could not determine which selected Routes can be projected with the currently available clients and credentials.",
+					"Configuration and client projections remain unchanged.",
+					"aigw doctor",
+					err,
+				)
 			}
 			if dryRun {
 				plans, err := synchronizer.Plan(before, after)
@@ -40,9 +41,9 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 				preview := struct {
-					DryRun  bool                             `json:"dry_run"`
-					Routes  map[string]string                `json:"routes"`
-					Targets []synchronization.ProjectionPlan `json:"targets"`
+					DryRun  bool                    `json:"dry_run"`
+					Routes  map[string]string       `json:"routes"`
+					Targets []client.ProjectionPlan `json:"targets"`
 				}{DryRun: true, Routes: after.Routes, Targets: plans}
 				if jsonMode {
 					enc := json.NewEncoder(runtime.Out)
@@ -68,7 +69,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			if err := synchronizer.CommitProjection(cmd.Context(), before, after, "sync"); err != nil {
 				return err
 			}
-			if !synchronization.ProjectionChanged(before, after) && !synchronization.ClaudeProjectionChanged(before, after) {
+			if !synchronizer.ProjectionChanged(before, after) {
 				if err := synchronizer.Reconcile(cmd.Context(), after, after); err != nil {
 					return err
 				}
@@ -98,27 +99,43 @@ func NewRollbackCommand(runtime invocation.Context) *cobra.Command {
 			}
 			restored := configuration.Config{}
 			source := ""
+			var checkpointErr error
 			if !lastChange {
-				checkpoint, checkpointErr := runtime.Config.LoadVerifiedCheckpoint()
+				checkpoint, loadErr := runtime.Config.LoadVerifiedCheckpoint()
+				checkpointErr = loadErr
 				if checkpointErr == nil {
 					restored = checkpoint.Config
 					source = "Latest fully verified configuration"
-				} else if !errors.Is(checkpointErr, os.ErrNotExist) {
-					return checkpointErr
 				}
 			}
 			if source == "" {
-				restored, err = runtime.Config.LoadBackup()
-				if err != nil {
-					if errors.Is(err, os.ErrNotExist) {
-						return fmt.Errorf("No fully verified checkpoint or previous configuration backup is available")
+				var backupErr error
+				restored, backupErr = runtime.Config.LoadBackup()
+				if backupErr != nil {
+					cause := backupErr
+					if checkpointErr != nil {
+						cause = errors.Join(checkpointErr, backupErr)
 					}
-					return err
+					return invocation.Problem(
+						runtime,
+						"Configuration rollback is unavailable",
+						"No valid recovery source is available for the current configuration.",
+						"The current configuration remains active and unchanged.",
+						"aigw doctor",
+						cause,
+					)
 				}
 				source = "Previous configuration"
 			}
 			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), current, restored, "rollback"); err != nil {
-				return err
+				return invocation.Problem(
+					runtime,
+					"Configuration rollback did not complete",
+					"AIGW could not restore the selected configuration and its client projections.",
+					"A rolled-back configuration was not confirmed.",
+					"aigw doctor",
+					err,
+				)
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Rolled back safely")

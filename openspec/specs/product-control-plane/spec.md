@@ -7,16 +7,13 @@ transactional client projections, and no ownership of API traffic or sessions.
 
 ### Requirement: Provider-neutral configuration
 
-AIGW SHALL model Accounts, client-scoped Profiles, explicit client Routes,
-protocol endpoints, and native client model choices without provider identity
-hacks, named gateway products, deployment topology, or a global Profile
-fallback. A Route SHALL map one admitted client to one compatible Profile.
-Configuration manifests MUST remain credential-free and SHALL describe
-available capability rather than requiring every Account to be connected during
-import. Diagnostics SHALL require a credential only for an Account selected by
-an enabled admitted-client Route. `aigw check` SHALL NOT claim overall health
-unless every enabled admitted-client Route has its selected Account Token and
-its distinct authentication target has passed the bounded health probe.
+AIGW SHALL model Accounts, client-scoped Profiles, explicit Routes, protocol
+endpoints, and native model choices without provider-identity hacks, named
+gateways, deployment topology, or global fallback. Each Route MUST bind one
+admitted client to one compatible Profile. Manifests MUST be credential-free.
+Diagnostics SHALL require Tokens only for selected enabled Routes, and `aigw
+check` SHALL report health only after every such Route's authentication target
+passes a bounded probe.
 
 #### Scenario: Select independent Claude and Codex services
 
@@ -120,7 +117,7 @@ diagnosed only through its declared protocol when that Route is activated.
 - **THEN** it SHALL project its marked selection into that shared `config.toml`
   without editing application-managed history or GUI state.
 
-#### Scenario: Codex uses the selected Proxy
+#### Scenario: Codex uses the selected endpoint
 
 - **WHEN** an Account selects an implementation-neutral Responses endpoint
 - **THEN** AIGW SHALL treat it as an ordinary endpoint
@@ -160,19 +157,13 @@ read-only and process-scoped.
 
 ### Requirement: Transactional and inspectable projection
 
-AIGW SHALL prepare and validate every selected client target before mutation,
-apply only owned marked projections, and compensate a failed multi-target
-operation without overwriting a newer writer. A dry run MUST expose the planned
-actions without reading credentials, authenticating, starting a client, or
-changing files.
-
-For a provider-prefixed Codex model whose base slug has exactly one match in the
-installed client's bundled model table, AIGW SHALL derive a complete catalog
-mirror with namespace aliases, bind it to the exact client version and
-executable digest, and preserve the selected wire model ID. The catalog,
-configuration reference, and sidecar SHALL share the existing compensated
-projection transaction. AIGW SHALL NOT adopt a user-authored catalog or a
-foreign file at its managed path.
+AIGW SHALL atomically prepare and validate selected client targets, mutate only
+owned projections, compensate failures only while postimages remain
+transaction-owned, and expose credential-free, side-effect-free dry runs. For a
+uniquely matched provider-prefixed Codex model, it SHALL derive a full
+bundled-catalogue alias mirror bound to client version and digest, preserve the
+wire model ID, and update all three atomically. Foreign or user-authored
+catalogues MUST remain untouched.
 
 #### Scenario: Multi-target projection fails
 
@@ -426,19 +417,13 @@ endpoint verification MUST remain functional without them.
 
 ### Requirement: Independently admitted native clients
 
-Codex and Claude Code SHALL be the admitted native clients. Each adapter SHALL
-own discovery, supported configuration or process planning, authentication,
-rollback, verification, status, and uninstall of only its AIGW-owned state.
-Credential retrieval for an admitted client SHALL resolve that client's active
-Profile and selected Account through the single AIGW Token authority. Claude
-Code's owned credential helper and an explicit Codex native-provider
-authentication command SHALL invoke the installed AIGW executable by an
-absolute, shell-safe path and SHALL NOT place a plaintext Token in client
-configuration. AIGW-owned Claude invocations SHALL use Claude Code's
-non-experimental compatibility mode so an ordinary admitted
-Anthropic-compatible endpoint is not required to implement optional beta
-negotiation. Adding a future client MUST NOT change provider policy or another
-adapter.
+Codex and Claude Code SHALL be independent Adapters owning discovery,
+projection, authentication, rollback, verification, status, and removal of
+AIGW-owned state. AIGW credential commands MUST use the absolute installed
+executable, keep Tokens out of client configuration, and resolve them through
+the active Route. Claude launch MUST disable optional beta negotiation
+process-locally. A future client MUST add one Adapter without changing provider
+policy or existing Adapters.
 
 #### Scenario: One admitted client is absent
 
@@ -487,8 +472,8 @@ adapter.
 
 - **WHEN** Hermes or another agent supporting third-party LLM APIs is proposed
 - **THEN** admission SHALL require only that agent's adapter, declaration, and
-  fixtures and SHALL NOT change provider policy, Proxy behavior, command roots,
-  or an existing adapter
+  fixtures and SHALL NOT change provider policy, external-gateway behavior,
+  command roots, or an existing adapter
 
 #### Scenario: Codex CLI and Desktop share one home
 
@@ -499,10 +484,10 @@ adapter.
 ### Requirement: Independent product composition
 
 AIGW SHALL treat every valid Account endpoint as an endpoint choice, whether it
-is a direct provider HTTPS endpoint or an independently operated gateway such
-as Codex Responses Proxy. AIGW MUST NOT import, invoke, install, configure,
-diagnose, reload, uninstall, or roll back that gateway, and the gateway MUST
-NOT acquire AIGW state.
+is a direct provider HTTPS endpoint or an independently operated gateway. AIGW
+MUST NOT identify, import, invoke, install, configure, diagnose, reload,
+uninstall, or roll back the product behind that endpoint, and the external
+gateway MUST NOT acquire AIGW state.
 
 #### Scenario: An Account selects direct HTTPS
 
@@ -517,7 +502,7 @@ NOT acquire AIGW state.
 - **THEN** AIGW SHALL treat it only as an external endpoint without product,
   fixed-port, path, or lifecycle assumptions
 
-#### Scenario: Governed Codex deployment uses the Proxy
+#### Scenario: Governed Codex deployment uses an external gateway
 
 - **WHEN** a governed deployment selects gateway endpoints for one or more
   Codex Profiles
@@ -534,12 +519,12 @@ NOT acquire AIGW state.
 
 ### Requirement: Foreign applications remain independent
 
-AIGW and Proxy SHALL NOT depend on, discover, configure, align, verify, repair,
-or control foreign applications or their private runtime state.
+AIGW SHALL NOT depend on, discover, configure, align, verify, repair, or control
+foreign applications or their private runtime state.
 
 #### Scenario: A foreign application is installed
 
-- **WHEN** AIGW or Proxy runs on a machine with unrelated applications
+- **WHEN** AIGW runs on a machine with unrelated applications
 - **THEN** product behavior and acceptance SHALL remain independent of those
   applications, their configuration, sessions, caches, and runtime
 
@@ -684,14 +669,13 @@ compare-and-swap authority bound to the complete accumulated lane delta.
 
 ### Requirement: Terminal local release readiness
 
-AIGW SHALL admit a local release candidate only when canonical specifications
-contain no placeholder authority, every direct repository dependency is
-current and stable, aggregate statement and branch coverage remain strictly
-above 95 percent with current bound evidence, every package remains present and
-executed, the native source gate passes, and the complete release matrix is
-reproducible and installable. Hosted CI, peer publication, released-asset
-installation, and lane retirement SHALL consume the archived local result
-rather than become prerequisites of the Change that produces it.
+AIGW SHALL admit a local release candidate only after canonical specifications
+have no placeholder authority; direct repository dependencies are current and
+stable; bound aggregate statement and branch coverage exceed 95 percent with
+every package present and executed; native source gates pass; and the release
+matrix is reproducible and installable. Hosted CI, peer publication,
+installed-asset proof, and lane retirement SHALL consume, rather than block
+production of, the archived local result.
 
 #### Scenario: A stable direct dependency update is available
 
@@ -749,17 +733,13 @@ in current evidence without platform exclusions or duplicated test stacks.
 
 ### Requirement: Reviewed team configuration is directly consumable
 
-The repository SHALL publish exactly one token-free team manifest containing
-the reviewed Accounts, Profiles, and recommended client Routes. It SHALL be
-directly consumable by `aigw setup --from` without requiring a Token or an
-installed client and SHALL NOT contain fictitious providers, credentials,
-workstation paths, or a parallel example manifest. When one or more Accounts
-are connected, AIGW SHALL preserve each reviewed Route's client and model
-intent while selecting an equivalent Profile owned by an available Account. A
-later `aigw sync` SHALL re-evaluate the Accounts currently available through
-the configured credential backend, select compatible Routes, discover
-supported clients, and project only AIGW-owned configuration without exposing,
-moving, or rebinding credential values.
+The repository SHALL publish one token-free manifest of reviewed Accounts,
+Profiles, and recommended Routes, directly consumable by `aigw setup --from`
+without credentials or installed clients. Setup and later `aigw sync` SHALL
+preserve client and model intent while selecting compatible Profiles only from
+currently connected Accounts, project only AIGW-owned client state, and never
+expose or rebind Tokens. Fictitious providers, workstation paths, and parallel
+example manifests MUST NOT remain.
 
 #### Scenario: Team member imports reviewed settings
 
@@ -870,14 +850,12 @@ Codex status command proves authentication for the selected target.
 
 ### Requirement: Native released-artifact lifecycle acceptance
 
-AIGW SHALL prove the public installed-program lifecycle on macOS, Linux, and
-Windows using portable archives and checksum manifests with the same shape as
-published release assets. Each native journey SHALL install an older program,
-update to a newer program, roll back to the immediate predecessor, recover
-forward to the newer program, and uninstall. The journey SHALL preserve user
-configuration and credentials according to the existing retention contract and
-SHALL leave no installed executable, rollback copy, staging file, or other
-owned lifecycle residue after uninstall.
+On macOS, Linux, and Windows, AIGW SHALL prove the public installed-program
+lifecycle using portable archives and checksums shaped like release assets:
+install the older program, update, roll back, recover forward, and uninstall.
+The journey MUST preserve declared configuration and credentials and finish
+without an installed executable, rollback copy, staging file, or other owned
+lifecycle residue.
 
 #### Scenario: Released program completes the reversible lifecycle
 
@@ -893,21 +871,17 @@ owned lifecycle residue after uninstall.
 
 - **WHEN** native acceptance exercises update, rollback, forward recovery, or uninstall
 - **THEN** it SHALL invoke the public AIGW command for that transition
-- **AND** SHALL NOT substitute a package-level helper, platform-specific script state machine, Forge API, or external Proxy lifecycle.
+- **AND** SHALL NOT substitute a package-level helper, platform-specific script state machine, Forge API, or external-gateway lifecycle.
 
 ### Requirement: Composable extension boundary
 
-AIGW SHALL keep local configuration and client projection independent from API
-traffic processing. A compatible endpoint or model SHALL enter as Account data;
-a distinct credential exchange SHALL extend Account authentication; a new local
-client SHALL enter through one complete Client Adapter; and incompatible wire
-behavior SHALL remain in an independently operated data-plane product. An
-external gateway or compatibility service MUST remain an optional Account
-endpoint and MUST NOT become an AIGW runtime dependency.
-
-A mature dependency SHALL be admitted only when it preserves these authority
-boundaries and removes more owned implementation, tests, dependencies, and
-operational states than it introduces.
+AIGW SHALL separate local configuration and client projection from API traffic.
+Compatible endpoints and models enter as Account data; distinct credential
+exchange extends Account authentication; new clients enter through complete
+Adapters; and incompatible wire behavior stays in an independent data plane.
+External gateways remain optional endpoints, never runtime dependencies. A
+mature dependency MAY be admitted only when the boundary holds and total owned
+complexity decreases.
 
 #### Scenario: Add a compatible Provider endpoint
 

@@ -13,7 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
-	"os"
 	"strings"
 )
 
@@ -88,7 +87,7 @@ type setupPlan struct {
 	validationClients []string
 }
 
-func runSetup(ctx context.Context, runtime invocation.Context, request Request) error {
+func runSetup(ctx context.Context, runtime invocation.Context, request Request) (resultErr error) {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
 		return err
@@ -97,38 +96,40 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	if err != nil {
 		return err
 	}
-	token, secretAlreadyManaged, err := setupToken(runtime, plan.request)
+	rollbackBackendSelection, err := secrets.PrepareBackendSelectionRollback(runtime.Secrets)
 	if err != nil {
 		return err
 	}
-	if err := credential.Validate(ctx, runtime.HTTP, plan.account, token, plan.validationClients...); err != nil {
+	committed := false
+	defer func() { compensateBackendSelectionOnFailure(&resultErr, committed, rollbackBackendSelection) }()
+	credentialChange, err := setupToken(runtime, plan.request)
+	if err != nil {
+		return err
+	}
+	if err := credential.Validate(ctx, runtime.HTTP, plan.account, credentialChange.token, plan.validationClients...); err != nil {
 		return fmt.Errorf("Token validation failed: %w", err)
 	}
 
-	discovered, err := invocation.Discover(runtime)
+	written, err := writeSetupCredentials(runtime, []setupCredential{credentialChange})
 	if err != nil {
 		return err
 	}
-	discoveredClaude := discovered.Executable(configuration.ClientClaude)
-	discoveredCodex := discovered.Executable(configuration.ClientCodex)
-	discoveredTargets := discovered.AutoManagedCodexTargets()
-	if _, resolveErr := plan.config.ResolveRuntime(configuration.ClientClaude, ""); resolveErr == nil && discoveredClaude != "" {
-		plan.config.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: discoveredClaude}
-	}
-	if _, resolveErr := plan.config.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && discoveredCodex != "" && len(discoveredTargets) > 0 {
-		plan.config.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: discoveredCodex, Targets: discoveredTargets}
-	}
-
-	renderSetupService(runtime, plan)
-	if !secretAlreadyManaged {
-		if err := runtime.Secrets.Set(plan.request.Account, token); err != nil {
-			return err
+	synchronizer := invocation.Synchronizer(runtime)
+	plan.config, _, err = synchronizer.DesiredClientConfiguration(plan.config, plan.request.Client)
+	if err != nil {
+		if rollbackErr := rollbackSetupCredentials(runtime, []setupCredential{credentialChange}, written); rollbackErr != nil {
+			return fmt.Errorf("client configuration failed: %w; credential rollback also failed: %v", err, rollbackErr)
 		}
+		return fmt.Errorf("Client configuration failed and credentials were rolled back: %w", err)
 	}
-	if err := invocation.Synchronizer(runtime).Commit(ctx, plan.before, plan.config, "setup"); err != nil {
-		rollbackSetup(runtime, plan.request.Account, !secretAlreadyManaged)
+	if err := synchronizer.Commit(ctx, plan.before, plan.config, "setup"); err != nil {
+		if rollbackErr := rollbackSetupCredentials(runtime, []setupCredential{credentialChange}, written); rollbackErr != nil {
+			return fmt.Errorf("client configuration failed: %w; credential rollback also failed: %v", err, rollbackErr)
+		}
 		return fmt.Errorf("Client configuration failed and was rolled back: %w", err)
 	}
+	committed = true
+	renderSetupService(runtime, plan)
 	renderSetupClients(runtime, plan.config)
 	return nil
 }
@@ -146,10 +147,10 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 	if plan.request.Account == "" {
 		plan.request.Account = plan.request.Profile
 	}
-	if !configuration.ValidProfileName(plan.request.Account) {
+	if !configuration.ValidIdentifier(plan.request.Account) {
 		return setupPlan{}, fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Account)
 	}
-	if !configuration.ValidProfileName(plan.request.Profile) {
+	if !configuration.ValidIdentifier(plan.request.Profile) {
 		return setupPlan{}, fmt.Errorf("Invalid profile ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Profile)
 	}
 	if plan.request.Label == "" {
@@ -235,30 +236,31 @@ func setupEndpointFlag(protocol configuration.EndpointProtocol) string {
 // AIGW_SECRET_BACKEND=env: the environment store is intentionally read-only,
 // so setup must validate and reference its token rather than asking for a
 // second copy and attempting to persist it.
-func setupToken(runtime invocation.Context, request Request) (token string, alreadyManaged bool, err error) {
+func setupToken(runtime invocation.Context, request Request) (setupCredential, error) {
+	credential := setupCredential{account: request.Account}
+	previous, err := runtime.Secrets.Get(request.Account)
+	if err == nil {
+		credential.previous = previous
+		credential.hadPrevious = true
+	} else if !errors.Is(err, secrets.ErrNotFound) {
+		return setupCredential{}, err
+	}
 	if !request.PromptToken && !request.TokenStdin {
-		token, err = runtime.Secrets.Get(request.Account)
-		if err == nil {
-			return token, true, nil
-		}
-		if !errors.Is(err, secrets.ErrNotFound) {
-			return "", false, err
+		if credential.hadPrevious {
+			credential.token = credential.previous
+			return credential, nil
 		}
 	}
 	if request.PromptToken {
-		token, err = runtime.Prompt.Secret("Paste " + request.Label + " token: ")
-		return token, false, err
+		credential.token, err = runtime.Prompt.Secret("Paste " + request.Label + " token: ")
+	} else {
+		credential.token, err = invocation.ReadToken(runtime, request.TokenStdin, true)
 	}
-	token, err = invocation.ReadToken(runtime, request.TokenStdin, true)
-	return token, false, err
-}
-
-func rollbackSetup(runtime invocation.Context, account string, deleteNewSecret bool) {
-	if deleteNewSecret {
-		_ = runtime.Secrets.Delete(account)
+	if err != nil {
+		return setupCredential{}, err
 	}
-	_ = os.Remove(runtime.Config.Path())
-	_ = os.Remove(runtime.Config.Path() + ".bak")
+	credential.write = true
+	return credential, nil
 }
 
 // RunWizard is deliberately provider-neutral. AIGW never assumes a gateway,
@@ -269,7 +271,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	if !configuration.ValidProfileName(account) {
+	if !configuration.ValidIdentifier(account) {
 		return fmt.Errorf("invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", account)
 	}
 	label, err := runtime.Prompt.Text("Provider display name: ")

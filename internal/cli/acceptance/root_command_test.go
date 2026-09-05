@@ -104,6 +104,22 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 	}
 }
 
+func TestCompletionSupportsDocumentedShells(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	for _, shell := range []string{"bash", "zsh", "fish", "powershell"} {
+		out.Reset()
+		if err := execute(t, app, "completion", shell); err != nil {
+			t.Fatalf("%s completion: %v", shell, err)
+		}
+		if out.Len() == 0 {
+			t.Fatalf("%s completion produced no output", shell)
+		}
+	}
+	if err := execute(t, app, "completion", "unsupported"); err == nil {
+		t.Fatal("expected unsupported shell error")
+	}
+}
+
 func TestCommonCommandFailuresUseEnglishGuidance(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	for _, tc := range []struct {
@@ -168,5 +184,16 @@ func TestExecuteReturnsHumanOutputFailure(t *testing.T) {
 	err := execute(t, app, "adapter", "discover")
 	if !errors.Is(err, want) {
 		t.Fatalf("Execute() error = %v, want %v", err, want)
+	}
+}
+
+func TestFailureSuggestionUsesCommandNamedInEnglishGuidance(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	if err := app.Config.Save(twoProfileConfig()); err != nil {
+		t.Fatal(err)
+	}
+	err := execute(t, app, "setup", "--profile", "new-profile")
+	if err == nil || !strings.Contains(out.String(), "AIGW is already configured") || !strings.Contains(out.String(), "aigw add") {
+		t.Fatalf("err=%v output=%s", err, out.String())
 	}
 }

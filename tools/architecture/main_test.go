@@ -18,10 +18,11 @@ false_positive_cost = "a valid topology change requires policy review"
 remediation = "move behavior to an existing owner or update the contract"
 review_condition = "reassess when product topology changes"
 go_roots = ["cmd", "internal", "tools"]
-composition_root_files = { "internal/cli" = ["app.go"] }
+tracked_carrier_owners = { "." = { ".config" = "configuration", "cmd" = "command", "internal" = "product", "policy.toml" = "policy", "scripts" = "scripts", "tools" = "tooling" } }
+composition_root_files = { "internal/cli" = ["app.go"], "tools/release" = ["commands.go", "main.go"] }
 peer_package_roots = { "internal/cli" = ["invocation"] }
-ignore_roots = ["vendor", ".git", "records", "build"]
-ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
+ignore_roots = ["vendor", ".git", "build"]
+ignore_directory_names = ["vendor", ".git", "node_modules"]
 `
 
 type rejectingWriter struct{}
@@ -105,6 +106,8 @@ func TestRunDetectsCoreViolations(t *testing.T) {
 	// composition root behavior outside its declared assembler
 	writeFile(t, filepath.Join(root, "internal", "cli", "app.go"), "package cli\n")
 	writeFile(t, filepath.Join(root, "internal", "cli", "setup.go"), "package cli\n")
+	writeFile(t, filepath.Join(root, "tools", "release", "main.go"), "package main\n")
+	writeFile(t, filepath.Join(root, "tools", "release", "legacy.go"), "package main\n")
 	writeFile(t, filepath.Join(root, "internal", "cli", "account", "account.go"), "package account\n\nimport _ \"fixture/internal/cli/profile\"\n")
 	writeFile(t, filepath.Join(root, "internal", "cli", "profile", "profile.go"), "package profile\n\nimport _ \"fixture/internal/cli/invocation\"\n")
 
@@ -125,6 +128,9 @@ func TestRunDetectsCoreViolations(t *testing.T) {
 		if !hasRule(report, rule) {
 			t.Fatalf("missing rule %s in %v\nstdout=%s", rule, findingRules(report), stdout.String())
 		}
+	}
+	if report.Summary["composition_root_file"] != 2 {
+		t.Fatalf("composition root findings=%d want 2: %+v", report.Summary["composition_root_file"], report.Findings)
 	}
 }
 
@@ -165,8 +171,8 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 		{name: "windows relative drive go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["C:tmp/x"]`, 1), want: "go_roots", code: 1},
 		{name: "unc go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["//server/share"]`, 1), want: "go_roots", code: 1},
 		{name: "parent traversal go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["internal/../cmd"]`, 1), want: "go_roots", code: 1},
-		{name: "windows composition root", body: strings.Replace(validPolicy, `composition_root_files = { "internal/cli" = ["app.go"] }`, `composition_root_files = { "C:/internal/cli" = ["app.go"] }`, 1), want: "composition_root_files", code: 1},
-		{name: "duplicate composition file", body: strings.Replace(validPolicy, `composition_root_files = { "internal/cli" = ["app.go"] }`, `composition_root_files = { "internal/cli" = ["app.go", "app.go"] }`, 1), want: "composition_root_files", code: 1},
+		{name: "windows composition root", body: strings.Replace(validPolicy, `"internal/cli" = ["app.go"]`, `"C:/internal/cli" = ["app.go"]`, 1), want: "composition_root_files", code: 1},
+		{name: "duplicate composition file", body: strings.Replace(validPolicy, `"internal/cli" = ["app.go"]`, `"internal/cli" = ["app.go", "app.go"]`, 1), want: "composition_root_files", code: 1},
 		{name: "parent peer root", body: strings.Replace(validPolicy, `peer_package_roots = { "internal/cli" = ["invocation"] }`, `peer_package_roots = { "internal/../cli" = ["invocation"] }`, 1), want: "peer_package_roots", code: 1},
 	}
 	for _, test := range tests {
@@ -280,25 +286,6 @@ func TestStartsWithDotDotAcceptsBothPortableSeparators(t *testing.T) {
 		if startsWithDotDot(value) {
 			t.Fatalf("%q was recognized", value)
 		}
-	}
-}
-
-func TestReportFinalizeStable(t *testing.T) {
-	report := newReport("p.toml", "/tmp/root")
-	report.addFinding(Finding{Rule: "b", Path: "z", Message: "m2"})
-	report.addFinding(Finding{Rule: "a", Path: "y", Message: "m1", Line: 2})
-	report.addFinding(Finding{Rule: "a", Path: "y", Message: "m0", Line: 1})
-	var buf bytes.Buffer
-	if err := writeReport(&buf, report); err != nil {
-		t.Fatal(err)
-	}
-	out := buf.String()
-	if !strings.Contains(out, `"ok": false`) {
-		t.Fatalf("out=%s", out)
-	}
-	// rule a before b
-	if idxA, idxB := strings.Index(out, `"rule": "a"`), strings.Index(out, `"rule": "b"`); idxA < 0 || idxB < 0 || idxA > idxB {
-		t.Fatalf("unstable order: %s", out)
 	}
 }
 

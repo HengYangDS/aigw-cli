@@ -34,6 +34,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if !clientRuntime.RequiresAccountToken() {
+				return fmt.Errorf(
+					"%s uses client-owned authentication; run `aigw verify --for %s` to verify it through the client",
+					clientRuntime.ProfileID,
+					client,
+				)
+			}
 			token, err := runtime.Secrets.Get(clientRuntime.AccountID)
 			if err != nil {
 				return fmt.Errorf("%s gateway credential is unavailable: %w", client, err)

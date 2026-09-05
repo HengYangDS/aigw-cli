@@ -45,16 +45,32 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 		Use:   "uninstall",
 		Short: "Remove one portable AIGW installation",
 		Args:  cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(target) == "" {
 				target = runtime.Executable
+			}
+			if _, err := os.Stat(runtime.Config.Path()); err == nil {
+				before, err := runtime.Config.Load()
+				if err != nil {
+					return err
+				}
+				after := before.Clone()
+				synchronizer := invocation.Synchronizer(runtime)
+				if err := synchronizer.Withdraw(&after); err != nil {
+					return err
+				}
+				if err := synchronizer.CommitProjection(cmd.Context(), before, after, "uninstall"); err != nil {
+					return err
+				}
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("inspect AIGW configuration: %w", err)
 			}
 			if err := Uninstall(target); err != nil {
 				return err
 			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Portable uninstall")
-			render.Success("Removed AIGW executable and its single rollback copy")
+			render.Success("Removed AIGW client projections, executable, and its single rollback copy")
 			render.Text("Configuration and credential-store secrets were preserved.")
 			return nil
 		},

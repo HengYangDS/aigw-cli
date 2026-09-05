@@ -73,7 +73,7 @@ func accountChoices(cfg configuration.Config) []prompt.Choice {
 }
 
 func planAccount(cfg configuration.Config, oldID, newID string) (Plan, error) {
-	if !configuration.ValidProfileName(newID) {
+	if !configuration.ValidIdentifier(newID) {
 		return Plan{}, fmt.Errorf("Invalid new account ID %q", newID)
 	}
 	providerAccount, ok := cfg.Accounts[oldID]
@@ -102,7 +102,7 @@ func planAccount(cfg configuration.Config, oldID, newID string) (Plan, error) {
 		return Plan{}, fmt.Errorf("Validate account rename: %w", err)
 	}
 	authenticationAction := "unchanged"
-	if synchronization.AuthenticationChanged(cfg, next) {
+	if (synchronization.Synchronizer{}).CredentialBindingChanged(cfg, next) {
 		authenticationAction = "rebind-codex"
 	}
 
@@ -126,7 +126,7 @@ func planAccount(cfg configuration.Config, oldID, newID string) (Plan, error) {
 }
 
 func planProfile(cfg configuration.Config, oldID, newID string) (Plan, error) {
-	if !configuration.ValidProfileName(newID) {
+	if !configuration.ValidIdentifier(newID) {
 		return Plan{}, fmt.Errorf("Invalid new profile ID %q", newID)
 	}
 	profile, ok := cfg.Profiles[oldID]

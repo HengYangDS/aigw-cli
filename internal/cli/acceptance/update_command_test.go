@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -28,5 +29,15 @@ func TestUpdateCandidateUsesExplicitOfflineInputs(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Verified local candidate") {
 		t.Fatalf("output = %s", out.String())
+	}
+}
+
+func TestUpdatePreservesReleaseFailureAsItsCause(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	cause := errors.New("release lookup failed")
+	app.Updater = &fakeUpdater{updateErr: cause}
+
+	if err := execute(t, app, "update"); !errors.Is(err, cause) {
+		t.Fatalf("error = %v, want %v", err, cause)
 	}
 }

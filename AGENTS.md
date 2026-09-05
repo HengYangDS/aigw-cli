@@ -14,7 +14,6 @@ conversation state.
 - [Change and release policy](docs/governance/change-and-release-policy.md)
 - [Decision register](docs/decisions/decision-register.md)
 - [DR-0001](docs/decisions/dr-0001-control-plane-data-plane-boundary.md)
-- [Evidence policy](docs/evidence/evidence-policy.md)
 - [Release history](CHANGELOG.md)
 
 ## Authority Order
@@ -92,8 +91,9 @@ Worktree visibility or an apparently idle agent is not retirement authority.
 
 ```bash
 mise install --locked
-npm ci --ignore-scripts
-mise exec --locked -- go run ./tools/ci source
+mise run bootstrap
+mise run check
+mise run native
 mise exec --locked -- go run ./tools/forge commits --email '<product author email>' --allowed-signers '<path>'
 mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 ```

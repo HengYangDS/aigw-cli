@@ -23,8 +23,9 @@ type Store struct{ path string }
 // pre-setup state is not a valid  Config and cannot be restored through
 // Save.
 type Snapshot struct {
-	Config transaction.FileSnapshot
-	Backup transaction.FileSnapshot
+	Config   transaction.FileSnapshot
+	Backup   transaction.FileSnapshot
+	Verified transaction.FileSnapshot
 }
 
 type VerifiedBackupSnapshot struct {
@@ -60,7 +61,50 @@ func (s Store) CaptureSnapshot() (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	return Snapshot{Config: configSnapshot, Backup: backupSnapshot}, nil
+	verifiedSnapshot, err := transaction.CaptureFileSnapshot(s.path + ".verified.json")
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return Snapshot{Config: configSnapshot, Backup: backupSnapshot, Verified: verifiedSnapshot}, nil
+}
+
+// Commit saves one configuration and returns the exact postimage needed for a
+// guarded rollback. If postimage observation fails, it restores the prepared
+// preimage before returning the error.
+func (s Store) Commit(before Snapshot, cfg Config) (Snapshot, error) {
+	data, err := encodeConfig(cfg)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	backupAfter := before.Backup
+	if before.Config.Exists {
+		backupAfter, err = writeConfigurationFileIfUnchanged(s.path+".bak", before.Backup, before.Config.Data, 0o600)
+		if err != nil {
+			return Snapshot{}, fmt.Errorf("back up current config: %w", err)
+		}
+	}
+	configAfter, err := writeConfigurationFileIfUnchanged(s.path, before.Config, data, 0o600)
+	if err != nil {
+		if before.Config.Exists {
+			if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, backupAfter); restoreErr != nil {
+				return Snapshot{}, fmt.Errorf("write config: %w; restore config backup: %v", err, restoreErr)
+			}
+		}
+		return Snapshot{}, fmt.Errorf("write config: %w", err)
+	}
+	verifiedAfter, err := removeConfigurationFileIfUnchanged(s.path+".verified.json", before.Verified)
+	if err == nil {
+		return Snapshot{Config: configAfter, Backup: backupAfter, Verified: verifiedAfter}, nil
+	}
+	if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path, before.Config, configAfter); restoreErr != nil {
+		return Snapshot{}, fmt.Errorf("invalidate verified checkpoint: %w; restore config: %v", err, restoreErr)
+	}
+	if before.Config.Exists {
+		if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, backupAfter); restoreErr != nil {
+			return Snapshot{}, fmt.Errorf("invalidate verified checkpoint: %w; restore config backup: %v", err, restoreErr)
+		}
+	}
+	return Snapshot{}, fmt.Errorf("invalidate verified checkpoint: %w", err)
 }
 
 func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
@@ -139,6 +183,9 @@ func (s Store) RestoreSnapshot(before, after Snapshot) error {
 	if err := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, after.Backup); err != nil {
 		return fmt.Errorf("restore config backup snapshot: %w", err)
 	}
+	if err := transaction.RestoreFileAtomicIfPostimage(s.path+".verified.json", before.Verified, after.Verified); err != nil {
+		return fmt.Errorf("restore verified checkpoint snapshot: %w", err)
+	}
 	return nil
 }
 
@@ -169,26 +216,27 @@ func (s Store) Load() (Config, error) {
 }
 
 func (s Store) Save(cfg Config) error {
+	before, err := s.CaptureSnapshot()
+	if err != nil {
+		return fmt.Errorf("capture current config: %w", err)
+	}
+	_, err = s.Commit(before, cfg)
+	return err
+}
+
+var writeConfigurationFileIfUnchanged = transaction.WriteFileAtomicExactModeIfUnchanged
+var removeConfigurationFileIfUnchanged = transaction.RemoveFileIfUnchanged
+
+func encodeConfig(cfg Config) ([]byte, error) {
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("refuse invalid config: %w", err)
+		return nil, fmt.Errorf("refuse invalid config: %w", err)
 	}
 	data, err := toml.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("encode config: %w", err)
+		return nil, fmt.Errorf("encode config: %w", err)
 	}
-	data = separateTOMLTableBlocks(data)
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {
-		return fmt.Errorf("create config directory: %w", err)
-	}
-	if current, err := os.ReadFile(s.path); err == nil {
-		if err := transaction.WriteFileAtomicExactMode(s.path+".bak", current, 0o600); err != nil {
-			return fmt.Errorf("back up current config: %w", err)
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("read current config for backup: %w", err)
-	}
-	return transaction.WriteFileAtomicExactMode(s.path, data, 0o600)
+	return separateTOMLTableBlocks(data), nil
 }
 
 // separateTOMLTableBlocks inserts exactly one separator before each generated
@@ -270,18 +318,11 @@ func decodeTOMLConfig(data []byte) (Config, error) {
 	if err := toml.Unmarshal(data, &header); err != nil {
 		return Config{}, newLoadError(LoadPhaseParse, err)
 	}
-	if header.Version == 2 {
-		var legacy versionTwoConfig
-		decoder := toml.NewDecoder(bytes.NewReader(data))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&legacy); err != nil {
-			return Config{}, newLoadError(LoadPhaseParse, err)
-		}
-		cfg, err := migrateVersionTwoConfig(legacy)
-		if err != nil {
-			return Config{}, newLoadError(LoadPhaseValidate, err)
-		}
-		return cfg, nil
+	if header.Version != ConfigVersion {
+		return Config{}, newLoadError(LoadPhaseValidate, &UnsupportedConfigVersionError{
+			Version:         header.Version,
+			ExpectedVersion: ConfigVersion,
+		})
 	}
 
 	var cfg Config
@@ -293,64 +334,6 @@ func decodeTOMLConfig(data []byte) (Config, error) {
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
 		return Config{}, newLoadError(LoadPhaseValidate, err)
-	}
-	return cfg, nil
-}
-
-type versionTwoConfig struct {
-	Version  int                          `toml:"version"`
-	Accounts map[string]Account           `toml:"accounts,omitempty"`
-	Profiles map[string]versionTwoProfile `toml:"profiles"`
-	Routes   versionTwoRoutes             `toml:"routes"`
-	Adapters map[string]AdapterConfig     `toml:"adapters,omitempty"`
-}
-
-type versionTwoProfile struct {
-	Label         string            `toml:"label"`
-	Purpose       string            `toml:"purpose,omitempty"`
-	Account       string            `toml:"account"`
-	Client        string            `toml:"client,omitempty"`
-	ModelProvider string            `toml:"model_provider,omitempty"`
-	Models        map[string]string `toml:"models,omitempty"`
-}
-
-type versionTwoRoutes struct {
-	Default   string            `toml:"default"`
-	Overrides map[string]string `toml:"overrides,omitempty"`
-}
-
-func migrateVersionTwoConfig(legacy versionTwoConfig) (Config, error) {
-	cfg := NewConfig()
-	cfg.Accounts = legacy.Accounts
-	cfg.Adapters = legacy.Adapters
-	for profileID, oldProfile := range legacy.Profiles {
-		if !IsAdmittedClient(oldProfile.Client) || len(oldProfile.Models) != 1 || strings.TrimSpace(oldProfile.Models[oldProfile.Client]) == "" {
-			return Config{}, fmt.Errorf("cannot migrate profile %q because it does not declare exactly one client and model", profileID)
-		}
-		cfg.Profiles[profileID] = Profile{
-			Label:         oldProfile.Label,
-			Purpose:       oldProfile.Purpose,
-			Account:       oldProfile.Account,
-			Client:        oldProfile.Client,
-			Model:         oldProfile.Models[oldProfile.Client],
-			ModelProvider: oldProfile.ModelProvider,
-		}
-	}
-	for client, profileID := range legacy.Routes.Overrides {
-		cfg.Routes[client] = profileID
-	}
-	if legacy.Routes.Default != "" {
-		profile, ok := cfg.Profiles[legacy.Routes.Default]
-		if !ok {
-			return Config{}, fmt.Errorf("cannot migrate default route because it references unknown profile %q", legacy.Routes.Default)
-		}
-		if cfg.Routes[profile.Client] == "" {
-			cfg.Routes[profile.Client] = legacy.Routes.Default
-		}
-	}
-	cfg.Normalize()
-	if err := cfg.Validate(); err != nil {
-		return Config{}, err
 	}
 	return cfg, nil
 }

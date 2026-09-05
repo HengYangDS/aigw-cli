@@ -40,7 +40,8 @@ the ordinary branch-closeout requirements below. Agent-list visibility alone
 is not liveness or retirement proof.
 
 ```bash
-mise exec --locked -- go run ./tools/ci source
+mise run check
+mise run native
 mise exec --locked -- go run ./tools/forge commits --email '<product author email>' --allowed-signers '<path>'
 mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 ```
@@ -59,7 +60,7 @@ build, requires running the verification command against a real installation
 and recording the client version, executable checksum, and model-entry digests:
 
 ```bash
-mise exec --locked -- go run ./tools/modelcatalog -model '<provider-prefixed model id>'
+mise exec --locked -- go run ./tools/codex/catalog -model '<provider-prefixed model id>'
 ```
 
 It asks the client to render the effective catalog through a throwaway client
@@ -115,18 +116,21 @@ one-time cutover requires every exact observed remote tip and
 `--force-with-lease`; restore protected-branch force push immediately after the
 post-push observation. See [Forge Operations](docs/operations/forge-operations.md).
 
-Install the locked repository toolchain with:
+Install the locked repository toolchain and this Work Lane's npm dependencies
+with:
 
 ```bash
 mise install --locked
-npm ci --ignore-scripts
+mise run bootstrap
 ```
 
 `mise.toml` and `mise.lock` own language runtimes and standalone tools.
 `package.json` and `package-lock.json` own OpenSpec, Prettier, markdownlint, and
-their complete npm dependency graph. Run Go and standalone tools through
-`mise exec --locked -- ...`; invoke npm tools through `./node_modules/.bin/` so
-the command cannot fall back to an ambient installation.
+their complete npm dependency graph. Use `mise run check` for the complete
+source gate, `mise run native` for current-host acceptance, and `mise run
+release` for a deterministic non-publishing build. The tasks delegate to the
+existing Go and npm owners rather than duplicating their behavior in shell
+wrappers or a second task system.
 
 Protected CI supplies `AIGW_RELEASE_AUTHOR_EMAIL`,
 `AIGW_RELEASE_ALLOWED_SIGNERS`, and the generated

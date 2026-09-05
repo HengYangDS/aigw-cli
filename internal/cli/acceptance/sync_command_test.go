@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -8,8 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"maps"
+	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -88,6 +91,256 @@ func TestSyncReconcilesCodexConfigWithoutRebindingCredentials(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {
 		t.Fatalf("sync did not reconcile Codex config:\n%s", data)
+	}
+}
+
+func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryAccountChoices(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+	}{
+		{name: "direct HTTPS", endpoint: "https://provider.test/v1"},
+		{name: "explicit loopback", endpoint: "http://127.0.0.1:48721/v1"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app, out, secretStore, runner := testApp(t, "")
+			target := filepath.Join(t.TempDir(), "configuration.toml")
+			if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			cfg := configuration.NewConfig()
+			addAccountProfile(&cfg, "codex", "provider", "Provider", configuration.Endpoints{OpenAIResponses: test.endpoint}, configuration.ClientCodex, "gpt-test")
+			cfg.Routes[configuration.ClientCodex] = "codex"
+			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "/usr/local/bin/codex", Targets: []string{target}}
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := secretStore.Set("provider", "test-token"); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := execute(t, app, "sync"); err != nil {
+				t.Fatalf("sync: %v", err)
+			}
+			projection, err := os.ReadFile(target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(projection), `base_url = "`+test.endpoint+`"`) {
+				t.Fatalf("projection does not contain selected Account endpoint:\n%s", projection)
+			}
+			if len(runner.plans) != 0 {
+				t.Fatalf("sync started an external process: %#v", runner.plans)
+			}
+
+			var requestURL string
+			app.HTTP.(*fakeHTTP).handler = func(request *http.Request) (*http.Response, error) {
+				requestURL = request.URL.String()
+				return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody, Request: request}, nil
+			}
+			out.Reset()
+			if err := execute(t, app, "check"); err != nil {
+				t.Fatalf("check: %v\n%s", err, out.String())
+			}
+			if want := strings.TrimRight(test.endpoint, "/") + "/models"; requestURL != want {
+				t.Fatalf("diagnostic URL = %q, want %q", requestURL, want)
+			}
+			if len(runner.plans) != 0 {
+				t.Fatalf("check started an external process: %#v", runner.plans)
+			}
+		})
+	}
+}
+
+func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientState(t *testing.T) {
+	home := t.TempDir()
+	bin := filepath.Join(home, "bin")
+	if err := os.MkdirAll(bin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	executableName := func(name string) string {
+		if runtime.GOOS == "windows" {
+			return name + ".exe"
+		}
+		return name
+	}
+	for _, name := range []string{"aigw", configuration.ClientClaude, configuration.ClientCodex} {
+		if err := os.WriteFile(filepath.Join(bin, executableName(name)), []byte("native executable fixture"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	codexHome := filepath.Join(home, ".codex")
+	codexTarget := filepath.Join(codexHome, "config.toml")
+	if err := os.MkdirAll(codexHome, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\ndesktop_feature = true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	preserved := map[string][]byte{
+		filepath.Join(codexHome, "sessions", "existing.jsonl"): []byte("{\"model\":\"gpt-existing\"}\n"),
+		filepath.Join(codexHome, "state_5.sqlite"):             []byte("SQLite format 3\x00existing state"),
+		filepath.Join(codexHome, "desktop-settings.json"):      []byte("{\"theme\":\"system\"}\n"),
+		filepath.Join(home, ".zshrc"):                          []byte("export TEAM_VALUE=kept\n"),
+	}
+	for path, data := range preserved {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	claudeSettings := filepath.Join(home, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(claudeSettings), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(claudeSettings, []byte(`{"theme":"dark","permissions":{"allow":["Read"]},"env":{"TEAM_VALUE":"kept"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	app, _, secretStore, runner := testApp(t, "")
+	app.Executable = filepath.Join(bin, executableName("aigw"))
+	app.ClaudeSettingsPath = claudeSettings
+	app.Discovery = client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: runtime.GOOS, Home: home, Path: bin})
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
+		Anthropic:       "https://gateway.test",
+		OpenAIResponses: "https://gateway.test/v1",
+	}}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-team"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-team"}
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Routes[configuration.ClientCodex] = "codex"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "plaintext-token-must-not-be-projected"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("sync started a client or credential command: %#v", runner.plans)
+	}
+	after, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !maps.Equal(after.Profiles, cfg.Profiles) || !maps.Equal(after.Routes, cfg.Routes) {
+		t.Fatalf("sync changed Profile or Route authority: profiles=%#v routes=%#v", after.Profiles, after.Routes)
+	}
+	adapter := after.Adapters[configuration.ClientCodex]
+	if !adapter.Enabled || len(adapter.Targets) != 1 || adapter.Targets[0] != codexTarget {
+		t.Fatalf("Codex did not use the single discovered shared home: %#v", adapter)
+	}
+	codexConfig, err := os.ReadFile(codexTarget)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(codexConfig), "desktop_feature = true") || !strings.Contains(string(codexConfig), `model = "gpt-team" # managed by AIGW`) {
+		t.Fatalf("Codex projection did not preserve foreign configuration:\n%s", codexConfig)
+	}
+	if strings.Contains(string(codexConfig), "plaintext-token-must-not-be-projected") {
+		t.Fatal("Codex projection contains the Account Token")
+	}
+	for path, want := range preserved {
+		got, readErr := os.ReadFile(path)
+		if readErr != nil || string(got) != string(want) {
+			t.Fatalf("client-owned state changed at %s: %q, %v", path, got, readErr)
+		}
+	}
+	var settings struct {
+		APIKeyHelper string              `json:"apiKeyHelper"`
+		Model        string              `json:"model"`
+		Theme        string              `json:"theme"`
+		Permissions  map[string][]string `json:"permissions"`
+		Environment  map[string]string   `json:"env"`
+	}
+	data, err := os.ReadFile(claudeSettings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings.Theme != "dark" || len(settings.Permissions["allow"]) != 1 || settings.Permissions["allow"][0] != "Read" || settings.Environment["TEAM_VALUE"] != "kept" {
+		t.Fatalf("foreign Claude settings changed: %#v", settings)
+	}
+	if settings.Model != "claude-team" || settings.Environment["ANTHROPIC_BASE_URL"] != "https://gateway.test" {
+		t.Fatalf("Claude settings projection = %#v", settings)
+	}
+	if !strings.Contains(settings.APIKeyHelper, app.Executable) || !strings.HasSuffix(settings.APIKeyHelper, " credential claude") {
+		t.Fatalf("Claude helper is not the absolute AIGW credential command: %q", settings.APIKeyHelper)
+	}
+	if strings.Contains(string(data), "plaintext-token-must-not-be-projected") || settings.Environment["ANTHROPIC_API_KEY"] != "" || settings.Environment["ANTHROPIC_AUTH_TOKEN"] != "" {
+		t.Fatalf("Claude settings contain credential material: %s", data)
+	}
+}
+
+func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
+	app, _, secretStore, runner := testApp(t, "")
+	settingsPath := filepath.Join(t.TempDir(), "settings.json")
+	app.ClaudeSettingsPath = settingsPath
+	claudeExecutable := executableFixture(t, configuration.ClientClaude)
+	oldAIGWExecutable := executableFixture(t, "aigw-old")
+	newAIGWExecutable := executableFixture(t, "aigw-new")
+	app.Executable = oldAIGWExecutable
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{
+		configuration.ClientClaude: claudeExecutable,
+	}}}
+
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "claude", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, configuration.ClientClaude, "claude-team")
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("gateway", "token-must-not-be-projected"); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatal(err)
+	}
+
+	app.Executable = newAIGWExecutable
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatalf("sync after AIGW moved: %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("sync started a client or credential command: %#v", runner.plans)
+	}
+	after, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !maps.Equal(after.Profiles, cfg.Profiles) || !maps.Equal(after.Routes, cfg.Routes) {
+		t.Fatalf("sync changed Profile or Route authority: profiles=%#v routes=%#v", after.Profiles, after.Routes)
+	}
+	if after.Adapters[configuration.ClientClaude].Executable != claudeExecutable {
+		t.Fatalf("sync changed the Claude executable: %#v", after.Adapters[configuration.ClientClaude])
+	}
+
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var settings struct {
+		APIKeyHelper string `json:"apiKeyHelper"`
+	}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(settings.APIKeyHelper, newAIGWExecutable) || strings.Contains(settings.APIKeyHelper, oldAIGWExecutable) {
+		t.Fatalf("Claude helper did not follow the installed AIGW executable: %q", settings.APIKeyHelper)
+	}
+	if strings.Contains(string(data), "token-must-not-be-projected") {
+		t.Fatalf("Claude settings contain credential material: %s", data)
 	}
 }
 
@@ -199,7 +452,7 @@ func TestSyncCreatesDefaultCodexProjectionWhenClientIsInstalledAfterManifestSetu
 	}
 }
 
-func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
+func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T) {
 	app, out, _, runner := testApp(t, "")
 	tokens := map[string]string{}
 	app.Secrets = secrets.NewEnvironmentStore(func(key string) string { return tokens[key] })
@@ -211,7 +464,7 @@ func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
 
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
 	app.ClaudeSettingsPath = settingsPath
-	tokens[secrets.EnvironmentKey("dmxapi")] = "test-token"
+	tokens[secrets.EnvironmentKey("aihubmix")] = "test-token"
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{configuration.ClientClaude: "/usr/local/bin/claude"},
 	}}
@@ -239,7 +492,7 @@ func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
 		t.Fatalf("sync preview = %#v", preview)
 	}
 	wantRoutes := map[string]string{
-		configuration.ClientClaude: "dmxapi-claude",
+		configuration.ClientClaude: "aihubmix-claude",
 		configuration.ClientCodex:  "dmxapi-gpt",
 	}
 	if !maps.Equal(preview.Routes, wantRoutes) {
@@ -275,8 +528,8 @@ func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := after.Routes[configuration.ClientClaude]; got != "dmxapi-claude" {
-		t.Fatalf("Claude route = %q, want dmxapi-claude", got)
+	if got := after.Routes[configuration.ClientClaude]; got != "aihubmix-claude" {
+		t.Fatalf("Claude route = %q, want aihubmix-claude", got)
 	}
 	if got := after.Routes[configuration.ClientCodex]; got != "dmxapi-gpt" {
 		t.Fatalf("Codex route = %q, want dmxapi-gpt", got)
@@ -289,8 +542,64 @@ func TestSyncActivatesEnvironmentAccountAfterManifestSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `"ANTHROPIC_BASE_URL": "https://dmxapi.test"`) {
+	if !strings.Contains(string(data), `"ANTHROPIC_BASE_URL": "https://aihubmix.test"`) {
 		t.Fatalf("sync did not project the environment-backed Account:\n%s", data)
+	}
+}
+
+func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
+	app, _, secretStore, runner := testApp(t, "")
+	app.Discovery = emptyDiscovery{}
+	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
+	if err := execute(t, app, "setup", "--from", manifestPath); err != nil {
+		t.Fatalf("initial manifest setup: %v", err)
+	}
+	before, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	codexTarget := filepath.Join(t.TempDir(), "config.toml")
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{
+			configuration.ClientClaude: executableFixture(t, "claude"),
+			configuration.ClientCodex:  executableFixture(t, "codex"),
+		},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surfaceidentity.CodexHomeDefault),
+			Authority:   string(surfaceidentity.AuthorityAIGW),
+			ConfigPath:  codexTarget,
+			AutoManaged: true,
+		}},
+	}}
+	if err := secretStore.Set("dmxapi", "team-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatalf("sync after Token became available: %v", err)
+	}
+	after, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !maps.Equal(after.Routes, before.Routes) {
+		t.Fatalf("sync changed independent Routes: got %#v, want %#v", after.Routes, before.Routes)
+	}
+	if after.Adapters[configuration.ClientClaude].Enabled {
+		t.Fatalf("sync activated Claude through an unselected Account: %#v", after.Adapters[configuration.ClientClaude])
+	}
+	if adapter := after.Adapters[configuration.ClientCodex]; !adapter.Enabled || adapter.Executable == "" || len(adapter.Targets) != 1 {
+		t.Fatalf("sync did not activate the selected Codex Route: %#v", adapter)
+	}
+	if data := readFile(t, codexTarget); !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {
+		t.Fatalf("sync did not project the selected Codex Route:\n%s", data)
+	}
+	if _, err := os.Stat(app.ClaudeSettingsPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("sync projected the unready Claude Route: %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatalf("sync rebound native authentication: %#v", runner.plans)
 	}
 }
 
@@ -349,13 +658,26 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 }
 
 func TestSyncSurfacesCredentialObservationFailure(t *testing.T) {
-	app, _, _, _ := testApp(t, "")
+	app, out, _, _ := testApp(t, "")
 	saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
 	want := errors.New("credential observation failed")
 	app.Secrets = observationFailureStore{Store: secrets.NewMemoryStore(), err: want}
 
-	if err := execute(t, app, "sync"); !errors.Is(err, want) {
+	if err := execute(t, app, "sync"); err == nil || err.Error() != "Synchronization prerequisites are unavailable" || !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
+	}
+	for _, expected := range []string{
+		"Synchronization prerequisites are unavailable",
+		"AIGW could not determine which selected Routes can be projected with the currently available clients and credentials.",
+		"Configuration and client projections remain unchanged.",
+		"aigw doctor",
+	} {
+		if !strings.Contains(out.String(), expected) {
+			t.Fatalf("output missing %q:\n%s", expected, out.String())
+		}
+	}
+	if strings.Contains(out.String(), want.Error()) {
+		t.Fatalf("output exposes implementation error:\n%s", out.String())
 	}
 }
 
@@ -375,7 +697,7 @@ func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := execute(t, app, "verify", "--for", "all")
-	if err == nil || !strings.Contains(err.Error(), "Full verification requires an enabled Codex adapter with at least one configuration target") {
+	if err == nil || !strings.Contains(err.Error(), "Full verification requires a ready Codex adapter") || !strings.Contains(err.Error(), "Codex adapter is disabled") {
 		t.Fatalf("error = %v", err)
 	}
 	if _, checkpointErr := app.Config.LoadVerifiedCheckpoint(); checkpointErr == nil {

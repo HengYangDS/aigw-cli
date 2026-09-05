@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 // FileSnapshot is the exact file state observed during transaction
@@ -74,7 +75,7 @@ func captureOpenedFile(path string, file snapshotFile) (FileSnapshot, error) {
 // This is not a cross-process compare-and-swap; an uncooperative writer can
 // still race the subsequent atomic rename.
 func WriteFileAtomicIfUnchanged(path string, expected FileSnapshot, data []byte, defaultMode os.FileMode) (FileSnapshot, error) {
-	return writeFileAtomicIfUnchanged(path, expected, data, defaultMode, WriteFileAtomic)
+	return writeFileAtomicIfUnchanged(path, expected, data, defaultMode, true, WriteFileAtomic)
 }
 
 // WriteFileAtomicExactModeIfUnchanged is the same guarded write with the mode
@@ -82,7 +83,7 @@ func WriteFileAtomicIfUnchanged(path string, expected FileSnapshot, data []byte,
 // whose permissions are part of its contract uses this, so a mode that drifted
 // wider is corrected instead of carried forward.
 func WriteFileAtomicExactModeIfUnchanged(path string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
-	return writeFileAtomicIfUnchanged(path, expected, data, mode, WriteFileAtomicExactMode)
+	return writeFileAtomicIfUnchanged(path, expected, data, mode, false, WriteFileAtomicExactMode)
 }
 
 func writeFileAtomicIfUnchanged(
@@ -90,6 +91,7 @@ func writeFileAtomicIfUnchanged(
 	expected FileSnapshot,
 	data []byte,
 	defaultMode os.FileMode,
+	preserveExistingMode bool,
 	write func(string, []byte, os.FileMode) error,
 ) (FileSnapshot, error) {
 	current, err := CaptureFileSnapshot(path)
@@ -102,7 +104,31 @@ func writeFileAtomicIfUnchanged(
 	if err := write(path, data, defaultMode); err != nil {
 		return FileSnapshot{}, err
 	}
-	return CaptureFileSnapshot(path)
+	mode := defaultMode
+	if preserveExistingMode && expected.Exists {
+		mode = expected.Mode
+	}
+	return snapshotOf(data, persistedMode(mode)), nil
+}
+
+func snapshotOf(data []byte, mode os.FileMode) FileSnapshot {
+	sum := sha256.Sum256(data)
+	return FileSnapshot{
+		Exists: true,
+		Data:   append([]byte(nil), data...),
+		SHA256: hex.EncodeToString(sum[:]),
+		Mode:   mode.Perm(),
+	}
+}
+
+func persistedMode(mode os.FileMode) os.FileMode {
+	if runtime.GOOS != "windows" {
+		return mode.Perm()
+	}
+	if mode.Perm()&0o200 == 0 {
+		return 0o444
+	}
+	return 0o666
 }
 
 // RemoveFileIfUnchanged removes a prepared file only when it has not changed

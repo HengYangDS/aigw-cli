@@ -68,6 +68,13 @@ This prevents rollback from overwriting a newer writer.
 - A loopback endpoint is not proof of listener health or ownership.
 - `aigw verify` may consume quota only when the operator requests it.
 
+An initial 401 is transient only when three bounded observations recover, and a
+Token is classified as persistently invalid only after three further 401
+responses. Mixed results or cancellation remain retryable instability. This
+single-command observation covers one configured endpoint and in-memory Token;
+it does not prove direct-upstream health, account or billing state, or a later
+request.
+
 ## Output boundary
 
 Human, JSON, logs, and diagnostics exclude:
@@ -90,6 +97,8 @@ and redirect failures are terminal.
 
 ## Uninstall
 
-Uninstall removes only AIGW-owned configuration markers, Claude settings state,
-credentials, and program files for the selected installation channel. It does
-not remove client conversations, provider accounts, or another product.
+Uninstall first withdraws AIGW-owned client projections, including marked
+configuration blocks, sidecars, generated catalogues, and credential helpers.
+It then removes the selected program and its rollback copy. Accounts, Profiles,
+Routes, Tokens, explicit configuration backup, client conversations, and
+neighboring user-authored settings remain intact.

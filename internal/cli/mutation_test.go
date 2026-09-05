@@ -42,6 +42,7 @@ func TestMutationCommandLocksEveryConfigurationWriter(t *testing.T) {
 		{name: "sync dry-run equals", args: []string{"sync", "--dry-run=true"}, want: false},
 		{name: "sync dry-run false", args: []string{"sync", "--dry-run=false"}, want: true},
 		{name: "update", args: []string{"update"}, want: true},
+		{name: "uninstall", args: []string{"uninstall"}, want: true},
 		{name: "bare account", args: []string{"account"}, want: false},
 		{name: "bare profile", args: []string{"profile"}, want: false},
 		{name: "bare route", args: []string{"route"}, want: false},

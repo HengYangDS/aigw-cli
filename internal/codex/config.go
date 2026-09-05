@@ -101,22 +101,7 @@ func LoginStatusPlan(executable, codexHome string) (process.Plan, error) {
 }
 
 func SyncConfig(path string, runtime configuration.Runtime) error {
-	return SyncConfigs([]string{path}, runtime)
-}
-
-// PlanConfigs performs every projection read and conflict check without
-// writing. It is the dry-run boundary used by the CLI and callers that need
-// evidence before mutation.
-func PlanConfigs(paths []string, runtime configuration.Runtime) ([]ProjectionPlan, error) {
-	return PlanReconciliation(nil, codexHomeTargets(paths), runtime)
-}
-
-// SyncConfigs is an all-target transaction. It prepares every target
-// before the first write; a later conflict therefore cannot leave an earlier
-// profile half-synchronized. If any atomic write fails, every configuration and
-// sidecar returns to its byte-exact pre-state, including an absent sidecar.
-func SyncConfigs(paths []string, runtime configuration.Runtime) error {
-	_, err := ReconcileConfigs(nil, codexHomeTargets(paths), runtime)
+	_, err := ReconcileConfigs(nil, codexHomeTargets([]string{path}), runtime)
 	return err
 }
 
@@ -133,7 +118,7 @@ func isExactTruncatedCodexProjection(current string, stateData []byte, runtime c
 // AIGW profile. It never changes the target; callers can safely use it for
 // diagnostics before offering an explicit sync.
 func ValidateConfig(path string, runtime configuration.Runtime) error {
-	if codexRuntimeProvider(runtime) != configuration.ModelProviderAIGW && runtime.CredentialCommand == "" {
+	if runtime.RequiresAccountToken() && codexRuntimeProvider(runtime) != configuration.ModelProviderAIGW && runtime.CredentialCommand == "" {
 		executable, err := os.Executable()
 		if err != nil {
 			return fmt.Errorf("resolve AIGW executable: %w", err)
@@ -184,8 +169,8 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 		if err := validateCodexScheduler(text); err != nil {
 			return err
 		}
-		if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, text) {
-			return fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
+		if err := validateCodexSchedulerOwnership(state, text); err != nil {
+			return err
 		}
 		return validateCodexCatalog(path, text, state)
 	}
@@ -274,14 +259,6 @@ func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot, run
 		if err != nil {
 			return "", codexState{}, err
 		}
-		base, err = restoreCodexScheduler(base, state.OriginalScheduler)
-		if err != nil {
-			return "", codexState{}, err
-		}
-		state.OriginalScheduler, err = backfillCodexScheduler(state.OriginalScheduler, base)
-		if err != nil {
-			return "", codexState{}, err
-		}
 		return base, state, nil
 	}
 	text := string(configSnapshot.Data)
@@ -345,12 +322,12 @@ func codexEndpoint(runtime configuration.Runtime) (string, error) {
 	if runtime.Endpoint == "" {
 		return "", fmt.Errorf("profile %q has no Codex endpoint", runtime.ProfileID)
 	}
-	if codexRuntimeProvider(runtime) != configuration.ModelProviderAIGW {
+	if runtime.RequiresAccountToken() && codexRuntimeProvider(runtime) != configuration.ModelProviderAIGW {
 		if runtime.CredentialCommand == "" {
-			return "", fmt.Errorf("profile %q native Codex provider requires a credential command", runtime.ProfileID)
+			return "", fmt.Errorf("profile %q account-token Codex provider requires a credential command", runtime.ProfileID)
 		}
 		if !filepath.IsAbs(runtime.CredentialCommand) {
-			return "", fmt.Errorf("profile %q native Codex provider credential command must be absolute", runtime.ProfileID)
+			return "", fmt.Errorf("profile %q account-token Codex provider credential command must be absolute", runtime.ProfileID)
 		}
 	}
 	return runtime.Endpoint, nil
@@ -407,13 +384,15 @@ func projectCodexForProvider(original, block, model, catalogPath, provider strin
 func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 	provider := codexRuntimeProvider(runtime)
 	if provider != configuration.ModelProviderAIGW {
-		return codexProviderTable(provider) + "\n" +
+		block := codexProviderTable(provider) + "\n" +
 			fmt.Sprintf("base_url = \"%s\"\n", endpoint) +
-			"wire_api = \"responses\"\n\n" +
-			"[model_providers." + provider + ".auth]\n" +
-			fmt.Sprintf("command = %s\n", strconv.Quote(runtime.CredentialCommand)) +
-			"args = [\"credential\", \"codex\"]\n" +
-			codexEnd + "\n"
+			"wire_api = \"responses\"\n"
+		if runtime.RequiresAccountToken() {
+			block += "\n[model_providers." + provider + ".auth]\n" +
+				fmt.Sprintf("command = %s\n", strconv.Quote(runtime.CredentialCommand)) +
+				"args = [\"credential\", \"codex\"]\n"
+		}
+		return block + codexEnd + "\n"
 	}
 	name := "AIGW: " + runtime.ProfileLabel
 	name = strings.ReplaceAll(name, `"`, `'`)
@@ -430,18 +409,17 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 	if !modelProviderLine.MatchString(current) || !isManagedSelection(modelProviderLine.FindString(current), "model_provider", provider) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits")
 	}
-	block, err := codexManagedBlockForProviderIn(current, provider)
+	providerStart, providerEnd, err := codexManagedBlockBoundsForProviderIn(current, provider)
 	if err != nil {
 		return "", err
 	}
+	block := current[providerStart:providerEnd]
 	if !managedBlockHashMatches(state.ManagedBlockHash, block) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits")
 	}
-	if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, current) {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
+	if err := validateCodexSchedulerOwnership(state, current); err != nil {
+		return "", err
 	}
-	providerStart := strings.Index(current, codexProviderTable(provider))
-	providerEnd := providerStart + len(block)
 	base := strings.TrimRight(current[:providerStart]+current[providerEnd:], "\r\n")
 	base = removeCodexBeginMarker(base)
 	base = strings.TrimRight(base, "\r\n")
@@ -493,18 +471,26 @@ func codexManagedBlockIn(current string) (string, error) {
 }
 
 func codexManagedBlockForProviderIn(current, provider string) (string, error) {
+	start, end, err := codexManagedBlockBoundsForProviderIn(current, provider)
+	if err != nil {
+		return "", err
+	}
+	return current[start:end], nil
+}
+
+func codexManagedBlockBoundsForProviderIn(current, provider string) (int, int, error) {
 	marker := strings.Index(current, codexBegin)
 	if marker < 0 {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block is missing")
+		return 0, 0, fmt.Errorf("Codex config conflict: AIGW-managed provider block is missing")
 	}
 	providerRel := strings.Index(current[marker:], codexProviderTable(provider))
 	if providerRel < 0 {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider table is missing")
+		return 0, 0, fmt.Errorf("Codex config conflict: AIGW-managed provider table is missing")
 	}
 	start := marker + providerRel
 	endRel := strings.Index(current[start:], codexEnd)
 	if endRel < 0 {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block is incomplete")
+		return 0, 0, fmt.Errorf("Codex config conflict: AIGW-managed provider block is incomplete")
 	}
 	end := start + endRel + len(codexEnd)
 	if end < len(current) && current[end] == '\r' {
@@ -513,7 +499,7 @@ func codexManagedBlockForProviderIn(current, provider string) (string, error) {
 	if end < len(current) && current[end] == '\n' {
 		end++
 	}
-	return current[start:end], nil
+	return start, end, nil
 }
 
 func codexRuntimeProvider(runtime configuration.Runtime) string {

@@ -161,7 +161,7 @@ func TestRotateSynchronizesCodexAuthenticationOnSuccess(t *testing.T) {
 	if err := execute(t, app, "rotate", "one", "--token-stdin"); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.plans) != 1 || !secretExists(t, secretStore, "one") || !strings.Contains(out.String(), "Codex authentication synchronized") {
+	if len(runner.plans) != 1 || !secretExists(t, secretStore, "one") || !strings.Contains(out.String(), "Client authentication synchronized") {
 		t.Fatalf("plans=%#v output=%q", runner.plans, out.String())
 	}
 }

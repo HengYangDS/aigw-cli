@@ -19,6 +19,31 @@
 Generated workflows, installed binaries, host caches, IDE state, Forge pages,
 and remote refs are projections—not competing authorities.
 
+## Dependency and Framework Admission
+
+Dependencies must remove more product-owned complexity than they introduce.
+The comparison includes production code, tests, transitive dependencies,
+runtime state, security boundary, platform behavior, and upgrade burden. A
+candidate that merely moves AIGW semantics behind a generic framework has no
+net value.
+
+The terminal-convergence review reached these decisions:
+
+| Boundary                     | Retained authority                                                | Evaluated alternative                                                       | Net result                                                                                                                                                |
+| ---------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI and terminal interaction | Cobra, pflag, Huh, and Lip Gloss                                  | another command or terminal framework                                       | Retain: the mature libraries already own parsing and presentation; replacement deletes no AIGW domain behavior.                                           |
+| Configuration                | `go-toml/v2` plus the Account, Profile, Route, and Adapter domain | Viper, Koanf, or a schema framework                                         | Retain: parsing could move, but validation, merge, ownership, and atomic persistence remain; the change adds another configuration authority.             |
+| Tokens                       | `go-keyring` plus one selected portable fallback                  | a multi-backend keyring abstraction or external secret service              | Retain: no candidate replaces the single-backend policy, non-interactive selection, Unix file invariants, and Windows DPAPI boundary together.            |
+| Update and packaging         | `go-selfupdate` and GoReleaser                                    | a custom installer, PyInstaller-style bundle, or platform package framework | Retain: the current tools already remove archive replacement and release-matrix mechanics while preserving a portable Go binary.                          |
+| Provider protocol            | Go standard HTTP plus leaf diagnostics                            | provider SDKs or an HTTP application framework                              | Retain: AIGW is not a server, and SDKs would add provider branches, credential chains, and transitive dependencies without deleting the Account contract. |
+| Tests                        | Go testing, repository fixtures, and mature static analyzers      | an assertion framework or a second test orchestrator                        | Retain: another assertion vocabulary rewrites tests but removes no product state or proof owner.                                                          |
+
+This review admits no new dependency. A future candidate must demonstrate its
+deletion in the same change; replacement and superseded custom mechanics may
+not coexist. The decision is revisited when a maintained candidate can remove
+an entire semantic owner or materially reduce a proven security or portability
+risk.
+
 ## Change Lifecycle
 
 An accepted `dev` or `main` tree contains only archived Changes and canonical
@@ -148,6 +173,25 @@ must each remain strictly above 95 percent with exact raw evidence. Formatting,
 static analysis, documentation links, OpenSpec validation, architecture,
 security, release construction, and installation are independent gates.
 
+Every completion claim names its scope, verifier, current evidence, and limit.
+The minimum release claim ladder is:
+
+| Claim                       | Required evidence                                                                                                                                | What does not prove it                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Source is releasable        | Clean exact revision, complete quality graph, package-observed statement and branch coverage, race detection, and product-signature verification | An old log, excluded package, or aggregate-only coverage           |
+| Artifact matrix is complete | Two deterministic builds from one version, epoch, toolchain, and source object; identical archives, checksums, and SPDX SBOM                     | A partial matrix or merely equivalent content                      |
+| Installation works          | Native installation, update, rollback, and uninstall from the candidate archive on each supported operating system                               | Cross-compilation or archive inspection                            |
+| Client integration works    | Real Codex and Claude invocations using the exact installed product and selected Route                                                           | Valid configuration, an endpoint probe, or a new unrelated session |
+| Release is published        | Successful tag pipeline plus independent inspection of the Release record and every asset on each selected Forge                                 | A local `dist` directory or source tag                             |
+| GA is trusted               | Protected verification of the signing policy and post-signature checksums for the exact published assets                                         | An unsigned prerelease or local identity inspection                |
+
+Projection evidence consists of the dry-run plan, all-target transaction proof,
+byte-exact rollback proof, and resulting AIGW diagnostics. Transport evidence
+belongs to the endpoint owner and includes its protocol and service health; a
+configured loopback URL does not provide it. A user-visible client claim
+requires observation in the named client context and cannot be inferred from
+configuration or transport health.
+
 ## Branch and Worktree Closeout
 
 A merged delivery branch is disposable. Remove its worktree before deleting
@@ -161,6 +205,12 @@ that:
 
 An unreachable peer warrants a recorded incomplete probe, not invented parity.
 Release tags remain product evidence and are not branch residue.
+
+Local object cleanup begins only after recording refs and worktrees. A
+canonical checkout may remove only objects named by
+`git prune --dry-run --verbose`; the closeout records the pre/post ref sets,
+object counts, Git version, exact command, and final `git fsck --full`. This
+proves local object-database hygiene only, not Forge publication.
 
 ## Product Boundary
 

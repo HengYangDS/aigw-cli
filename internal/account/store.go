@@ -20,13 +20,14 @@ type Store interface {
 	Get(profile string) (Credential, error)
 	Set(profile string, credential Credential) error
 	Delete(profile string) error
-	Has(profile string) bool
+	Exists(profile string) (bool, error)
 }
 
 type stringStore interface {
 	Get(string) (string, error)
 	Set(string, string) error
 	Delete(string) error
+	Exists(string) (bool, error)
 }
 
 // BackendStore serializes provider-diagnostic credentials into one typed view
@@ -59,7 +60,7 @@ func (store BackendStore) Get(profile string) (Credential, error) {
 }
 
 func (store BackendStore) Set(profile string, credential Credential) error {
-	if !configuration.ValidProfileName(profile) {
+	if !configuration.ValidIdentifier(profile) {
 		return fmt.Errorf("invalid profile name %q", profile)
 	}
 	if credential.SystemToken == "" || credential.UserID == "" {
@@ -71,7 +72,16 @@ func (store BackendStore) Set(profile string, credential Credential) error {
 
 func (store BackendStore) Delete(profile string) error { return store.backend.Delete(profile) }
 
-func (store BackendStore) Has(profile string) bool { _, err := store.Get(profile); return err == nil }
+func (store BackendStore) Exists(profile string) (bool, error) {
+	present, err := store.backend.Exists(profile)
+	if err != nil && store.isNotFound != nil && store.isNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("observe provider diagnostic credential: %w", err)
+	}
+	return present, nil
+}
 
 type MemoryStore struct {
 	mu     sync.RWMutex
@@ -91,7 +101,7 @@ func (s *MemoryStore) Get(profile string) (Credential, error) {
 }
 
 func (s *MemoryStore) Set(profile string, credential Credential) error {
-	if !configuration.ValidProfileName(profile) || credential.SystemToken == "" || credential.UserID == "" {
+	if !configuration.ValidIdentifier(profile) || credential.SystemToken == "" || credential.UserID == "" {
 		return errors.New("valid profile, system token and user ID are required")
 	}
 	s.mu.Lock()
@@ -107,4 +117,9 @@ func (s *MemoryStore) Delete(profile string) error {
 	return nil
 }
 
-func (s *MemoryStore) Has(profile string) bool { _, err := s.Get(profile); return err == nil }
+func (s *MemoryStore) Exists(profile string) (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	credential, ok := s.values[profile]
+	return ok && credential.SystemToken != "" && credential.UserID != "", nil
+}

@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/surface"
 )
 
 func TestUseSurfacesCredentialObservationFailure(t *testing.T) {
@@ -22,6 +24,59 @@ func TestUseSurfacesCredentialObservationFailure(t *testing.T) {
 
 	if err := execute(t, app, "use", "one"); !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
+	}
+}
+
+func TestUseSelectsClientNativeProfileWithoutAccessingAccountTokens(t *testing.T) {
+	app, _, _, _ := testApp(t, "")
+	app.Secrets = observationFailureStore{Store: secrets.NewMemoryStore(), err: errors.New("secret store must not be accessed")}
+	target := filepath.Join(t.TempDir(), "config.toml")
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{configuration.ClientCodex: executableFixture(t, "codex")},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surface.CodexHomeDefault),
+			Authority:   string(surface.AuthorityAIGW),
+			ConfigPath:  target,
+			AutoManaged: true,
+		}},
+	}}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["aws"] = configuration.Account{
+		Label:     "AWS Bedrock",
+		Endpoints: configuration.Endpoints{OpenAIResponses: "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"},
+	}
+	cfg.Profiles["bedrock"] = configuration.Profile{
+		Label:          "AWS Bedrock",
+		Account:        "aws",
+		Client:         configuration.ClientCodex,
+		Model:          "openai.gpt-5.6-sol",
+		ModelProvider:  "amazon-bedrock",
+		Authentication: configuration.AuthenticationClientNative,
+	}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := execute(t, app, "use", "bedrock"); err != nil {
+		t.Fatalf("select client-native profile: %v", err)
+	}
+	selected, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := selected.Routes[configuration.ClientCodex]; got != "bedrock" {
+		t.Fatalf("Codex route = %q", got)
+	}
+	projection := string(readFile(t, target))
+	for _, want := range []string{`model_provider = "amazon-bedrock"`, `[model_providers.amazon-bedrock]`} {
+		if !strings.Contains(projection, want) {
+			t.Fatalf("Codex projection lacks %q:\n%s", want, projection)
+		}
+	}
+	for _, forbidden := range []string{"credential", "auth]"} {
+		if strings.Contains(projection, forbidden) {
+			t.Fatalf("Codex projection contains AIGW Token material %q:\n%s", forbidden, projection)
+		}
 	}
 }
 
@@ -137,8 +192,12 @@ func TestTestCommandRejectsProfileAndClientBeforeCredentialOrNetworkAccess(t *te
 	}
 }
 
-func TestUseForClaudeDoesNotRequireOrRewriteCodexTargets(t *testing.T) {
+func TestUseForClaudeDoesNotRewriteCodexProjection(t *testing.T) {
 	app, _, secretStore, _ := testApp(t, "")
+	target := filepath.Join(t.TempDir(), "configuration.toml")
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-test"}
@@ -146,12 +205,23 @@ func TestUseForClaudeDoesNotRequireOrRewriteCodexTargets(t *testing.T) {
 	cfg.Profiles["claude-sonnet"] = configuration.Profile{Label: "Claude Sonnet", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-sonnet"}
 	cfg.Routes[configuration.ClientCodex] = "gpt"
 	cfg.Routes[configuration.ClientClaude] = "claude-fable"
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "unavailable-codex-configuration.toml")}}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := secretStore.Set("gateway", "test-token"); err != nil {
 		t.Fatal(err)
+	}
+	if err := execute(t, app, "sync"); err != nil {
+		t.Fatalf("project initial Codex route: %v", err)
+	}
+	codexProjection, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("read initial Codex projection: %v", err)
+	}
+	codexState, err := os.ReadFile(target + ".aigw-state.json")
+	if err != nil {
+		t.Fatalf("read initial Codex state: %v", err)
 	}
 
 	if err := execute(t, app, "use", "claude-sonnet"); err != nil {
@@ -163,6 +233,176 @@ func TestUseForClaudeDoesNotRequireOrRewriteCodexTargets(t *testing.T) {
 	}
 	if got.Routes[configuration.ClientCodex] != "gpt" || got.Routes[configuration.ClientClaude] != "claude-sonnet" {
 		t.Fatalf("routes = %#v", got.Routes)
+	}
+	if after := readFile(t, target); !bytes.Equal(after, codexProjection) {
+		t.Fatal("Claude selection rewrote the independent Codex projection")
+	}
+	if after := readFile(t, target+".aigw-state.json"); !bytes.Equal(after, codexState) {
+		t.Fatal("Claude selection rewrote the independent Codex projection state")
+	}
+}
+
+func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testing.T) {
+	app, out, secretStore, _ := testApp(t, "")
+	claudeExecutable := executableFixture(t, "claude")
+	codexExecutable := executableFixture(t, "codex")
+	codexTarget := filepath.Join(t.TempDir(), "config.toml")
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{
+			configuration.ClientClaude: claudeExecutable,
+			configuration.ClientCodex:  codexExecutable,
+		},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surface.CodexHomeDefault),
+			Authority:   string(surface.AuthorityAIGW),
+			ConfigPath:  codexTarget,
+			AutoManaged: true,
+		}},
+	}}
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "claude", "claude-gateway", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
+	addAccountProfile(&cfg, "codex", "codex-gateway", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, "gpt-test")
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	for account, token := range map[string]string{"claude-gateway": "claude-token", "codex-gateway": "codex-token"} {
+		if err := secretStore.Set(account, token); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := execute(t, app, "use", "claude"); err != nil {
+		t.Fatalf("select Claude route: %v", err)
+	}
+	claudeProjection, err := os.ReadFile(app.ClaudeSettingsPath)
+	if err != nil {
+		t.Fatalf("read Claude projection: %v", err)
+	}
+	claudeState, err := os.ReadFile(app.ClaudeSettingsPath + ".aigw-state.json")
+	if err != nil {
+		t.Fatalf("read Claude projection state: %v", err)
+	}
+
+	if err := execute(t, app, "use", "codex"); err != nil {
+		t.Fatalf("select Codex route: %v", err)
+	}
+	claudeAfterCodex, err := os.ReadFile(app.ClaudeSettingsPath)
+	if err != nil {
+		t.Fatalf("read Claude projection after Codex selection: %v", err)
+	}
+	if !bytes.Equal(claudeAfterCodex, claudeProjection) {
+		t.Fatal("Codex selection rewrote the independent Claude projection")
+	}
+	if after := readFile(t, app.ClaudeSettingsPath+".aigw-state.json"); !bytes.Equal(after, claudeState) {
+		t.Fatal("Codex selection rewrote the independent Claude projection state")
+	}
+	selected, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected.Routes[configuration.ClientClaude] != "claude" || selected.Routes[configuration.ClientCodex] != "codex" {
+		t.Fatalf("independent routes = %#v", selected.Routes)
+	}
+	for account, want := range map[string]string{"claude-gateway": "claude-token", "codex-gateway": "codex-token"} {
+		if got, err := secretStore.Get(account); err != nil || got != want {
+			t.Fatalf("credential %s = %q, %v; want unchanged", account, got, err)
+		}
+	}
+
+	out.Reset()
+	if err := execute(t, app, "check"); err != nil {
+		t.Fatalf("check after independent selections: %v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Codex") {
+		t.Fatalf("check did not accept both independently selected Routes:\n%s", out.String())
+	}
+}
+
+func TestRepeatedUseOfActiveProfileDoesNotRewriteOwnedState(t *testing.T) {
+	app, out, _, runner := testApp(t, "")
+	app.Secrets = &failingSecretsStore{
+		has:       true,
+		setErr:    errors.New("credential rewrite"),
+		deleteErr: errors.New("credential deletion"),
+	}
+	claudeExecutable := executableFixture(t, "claude")
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{
+		configuration.ClientClaude: claudeExecutable,
+	}}}
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "claude", "gateway", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(t, app, "use", "claude"); err != nil {
+		t.Fatalf("initial selection: %v", err)
+	}
+	selected, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Config.SaveVerifiedCheckpoint(selected, []string{configuration.ClientClaude}); err != nil {
+		t.Fatal(err)
+	}
+
+	ownedPaths := []string{
+		app.Config.Path(),
+		app.Config.Path() + ".bak",
+		app.Config.Path() + ".verified.json",
+		app.ClaudeSettingsPath,
+		app.ClaudeSettingsPath + ".aigw-state.json",
+	}
+	type fileState struct {
+		info os.FileInfo
+		data []byte
+	}
+	before := make(map[string]fileState, len(ownedPaths))
+	for _, path := range ownedPaths {
+		info, err := os.Stat(path)
+		if err == nil {
+			data, readErr := os.ReadFile(path)
+			if readErr != nil {
+				t.Fatalf("read %s before repeated use: %v", path, readErr)
+			}
+			before[path] = fileState{info: info, data: data}
+			continue
+		}
+		if !os.IsNotExist(err) {
+			t.Fatalf("inspect %s before repeated use: %v", path, err)
+		}
+	}
+	plansBefore := len(runner.plans)
+	out.Reset()
+
+	if err := execute(t, app, "use", "claude"); err != nil {
+		t.Fatalf("repeat active selection: %v", err)
+	}
+	if text := out.String(); !strings.Contains(text, "Service already selected") || strings.Contains(text, "Service switched") {
+		t.Fatalf("repeated use did not report its no-op semantics:\n%s", text)
+	}
+
+	for _, path := range ownedPaths {
+		beforeState, existed := before[path]
+		afterInfo, err := os.Stat(path)
+		if !existed {
+			if !os.IsNotExist(err) {
+				t.Fatalf("repeated use created %s", path)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("inspect %s after repeated use: %v", path, err)
+		}
+		afterData, readErr := os.ReadFile(path)
+		if readErr != nil {
+			t.Fatalf("read %s after repeated use: %v", path, readErr)
+		}
+		if !os.SameFile(beforeState.info, afterInfo) || !bytes.Equal(beforeState.data, afterData) {
+			t.Fatalf("repeated use replaced %s", path)
+		}
+	}
+	if len(runner.plans) != plansBefore {
+		t.Fatalf("repeated use rebound native authentication: plans %d -> %d", plansBefore, len(runner.plans))
 	}
 }
 

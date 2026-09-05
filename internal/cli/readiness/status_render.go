@@ -5,6 +5,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
+	domainreadiness "aigw-cli/internal/readiness"
 )
 
 func renderStatus(runtime invocation.Context, cfg configuration.Config, result statusOutput) {
@@ -18,14 +19,13 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	}
 	r.ProductTitle("Ready view")
 	r.Text("The active service, client readiness, and the smallest next action.")
-	attention, selectionCommand, authenticationCommand := renderClientStatus(r, result)
-	renderTransportStatus(r, result)
+	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
+	attention, nextAction := renderClientStatus(r, result, clientIDs)
+	renderTransportStatus(r, result, clientIDs)
 	renderDiagnosticStatus(runtime, r, cfg)
 	switch {
-	case selectionCommand != "":
-		r.Next(selectionCommand)
-	case authenticationCommand != "":
-		r.Next(authenticationCommand)
+	case nextAction != "":
+		r.Next(nextAction)
 	case attention:
 		r.Next("aigw repair")
 	default:
@@ -33,47 +33,48 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	}
 }
 
-func renderClientStatus(r *presentation.Renderer, result statusOutput) (bool, string, string) {
+func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) (bool, string) {
 	r.Section("Clients")
 	attention := false
-	selectionCommand := ""
-	authenticationCommand := ""
-	for _, client := range admittedClientIDs() {
+	nextAction := ""
+	for _, client := range clientIDs {
 		route := result.Routes[client]
-		if route.NeedsSelection {
-			message := "No " + invocation.Title(client) + " profile selected"
-			if route.SuggestedProfile != "" {
-				command := "aigw use " + route.SuggestedProfile
-				message += " · " + command
-				if selectionCommand == "" {
-					selectionCommand = command
-				}
+		message := route.Profile + " · " + route.State.Label()
+		state := presentation.Info
+		switch route.State {
+		case domainreadiness.Ready:
+			state = presentation.OK
+		case domainreadiness.Configured:
+			state = presentation.Info
+		case domainreadiness.Deferred:
+			if route.Profile == "" {
+				message = "No " + invocation.Title(client) + " profile selected"
 			}
-			r.Status(presentation.Warn, invocation.Title(client), message)
-			attention = true
-			continue
-		}
-		readiness := route.Profile + " · Ready"
-		state := presentation.OK
-		if !route.SecretAvailable || !route.EndpointReady || !route.AdapterReady {
-			readiness = route.Profile + " · Action required"
-			if route.AdapterIssue != "" {
-				readiness = route.Profile + " · " + route.AdapterIssue
-			}
+		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
 			state = presentation.Warn
 			attention = true
-		} else if route.NativeAuthentication == "not_proven" {
-			readiness = route.Profile + " · Projection ready · Native authentication not proven"
-			state = presentation.Warn
-			authenticationCommand = "aigw adapter auth codex"
 		}
-		r.Status(state, invocation.Title(client), readiness)
+		if route.Detail != "" && route.Profile != "" {
+			message = route.Profile + " · " + route.State.Label() + " · " + route.Detail
+		}
+		if route.NativeAuthentication == "not_proven" {
+			message = route.Profile + " · Projection ready · Native authentication not proven"
+			state = presentation.Warn
+			attention = true
+			if nextAction == "" {
+				nextAction = "aigw adapter auth codex"
+			}
+		}
+		if nextAction == "" && route.NextAction != "" {
+			nextAction = route.NextAction
+		}
+		r.Status(state, invocation.Title(client), message)
 	}
-	return attention, selectionCommand, authenticationCommand
+	return attention, nextAction
 }
 
-func renderTransportStatus(r *presentation.Renderer, result statusOutput) {
-	for _, client := range admittedClientIDs() {
+func renderTransportStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {
+	for _, client := range clientIDs {
 		if result.Routes[client].Transport != "external_loopback" {
 			continue
 		}
@@ -94,15 +95,22 @@ func renderDiagnosticStatus(runtime invocation.Context, r *presentation.Renderer
 	}
 	for _, accountName := range accountIDs {
 		account := cfg.Accounts[accountName]
-		switch {
-		case account.AccountProbe != nil && providers.Supports(account.AccountProbe.Kind) && runtime.Accounts.Has(accountName):
-			r.Status(presentation.OK, accountName, "Precise balance enabled")
-		case account.AccountProbe != nil && providers.Supports(account.AccountProbe.Kind):
-			r.Status(presentation.Warn, accountName, "Precise balance disabled · aigw account connect "+accountName)
-		case account.AccountProbe != nil:
-			r.Status(presentation.Info, accountName, "Provider diagnostics unavailable in this version")
-		default:
+		if account.AccountProbe == nil {
 			r.Status(presentation.Info, accountName, "Provider does not expose a balance probe")
+			continue
+		}
+		if !providers.Supports(account.AccountProbe.Kind) {
+			r.Status(presentation.Info, accountName, "Provider diagnostics unavailable in this version")
+			continue
+		}
+		available, err := runtime.Accounts.Exists(accountName)
+		switch {
+		case err != nil:
+			r.Status(presentation.Warn, accountName, "Credential metadata unavailable · aigw doctor")
+		case available:
+			r.Status(presentation.OK, accountName, "Precise balance enabled")
+		default:
+			r.Status(presentation.Warn, accountName, "Precise balance disabled · aigw account connect "+accountName)
 		}
 	}
 }

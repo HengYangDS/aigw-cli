@@ -151,7 +151,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return Result{Kind: NetworkFailure, Summary: "Cannot reach the endpoint", Detail: sanitize(err.Error(), token), Fix: "Check the configured endpoint and network, then try again", Retryable: true}
+		return Result{Kind: NetworkFailure, Summary: "Cannot reach the endpoint", Detail: redaction.Text(err.Error(), token), Fix: "Check the configured endpoint and network, then try again", Retryable: true}
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
@@ -159,7 +159,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 		return Result{
 			Kind:       NetworkFailure,
 			Summary:    "Cannot read the gateway response",
-			Detail:     sanitize(readErr.Error(), token),
+			Detail:     redaction.Text(readErr.Error(), token),
 			Fix:        "Check the configured endpoint and network, then try again",
 			HTTPStatus: resp.StatusCode,
 			Retryable:  true,
@@ -217,9 +217,5 @@ func compact(value string, secrets ...string) string {
 	if len(value) > 500 {
 		value = value[:500] + "…"
 	}
-	return sanitize(value, secrets...)
-}
-
-func sanitize(value string, secrets ...string) string {
 	return redaction.Text(value, secrets...)
 }
