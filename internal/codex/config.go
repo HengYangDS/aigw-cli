@@ -104,13 +104,6 @@ func SyncConfig(path string, runtime configuration.Runtime) error {
 	return SyncConfigs([]string{path}, runtime)
 }
 
-// PlanConfigs performs every projection read and conflict check without
-// writing. It is the dry-run boundary used by the CLI and callers that need
-// evidence before mutation.
-func PlanConfigs(paths []string, runtime configuration.Runtime) ([]ProjectionPlan, error) {
-	return PlanReconciliation(nil, codexHomeTargets(paths), runtime)
-}
-
 // SyncConfigs is an all-target transaction. It prepares every target
 // before the first write; a later conflict therefore cannot leave an earlier
 // profile half-synchronized. If any atomic write fails, every configuration and

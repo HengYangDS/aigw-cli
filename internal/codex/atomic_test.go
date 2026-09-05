@@ -100,13 +100,14 @@ func TestSyncConfigsPreflightRejectsLaterConflictWithoutChangingEarlierTarget(t 
 	}
 }
 
-func TestPlanConfigsClassifiesInitialConvergedAndExactTruncationRepair(t *testing.T) {
+func TestPlanReconciliationClassifiesInitialConvergedAndExactTruncationRepair(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	runtime := atomicTestRuntime()
-	plans, err := PlanConfigs([]string{path}, runtime)
+	targets := codexHomeTargets([]string{path})
+	plans, err := PlanReconciliation(nil, targets, runtime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +117,7 @@ func TestPlanConfigsClassifiesInitialConvergedAndExactTruncationRepair(t *testin
 	if err := SyncConfigs([]string{path}, runtime); err != nil {
 		t.Fatal(err)
 	}
-	plans, err = PlanConfigs([]string{path}, runtime)
+	plans, err = PlanReconciliation(nil, targets, runtime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +132,7 @@ func TestPlanConfigsClassifiesInitialConvergedAndExactTruncationRepair(t *testin
 	if err := os.WriteFile(path, []byte(truncated), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	plans, err = PlanConfigs([]string{path}, runtime)
+	plans, err = PlanReconciliation(nil, targets, runtime)
 	if err != nil {
 		t.Fatal(err)
 	}
