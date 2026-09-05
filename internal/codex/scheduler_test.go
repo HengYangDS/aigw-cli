@@ -46,8 +46,8 @@ func TestCodexSchedulerHelpersCoverAbsentAndMalformedShapes(t *testing.T) {
 	if _, err := projectCodexScheduler("[agents\n"); err == nil {
 		t.Fatal("projection accepted malformed TOML")
 	}
-	if _, err := restoreCodexScheduler("", map[string]*int{"invalid": nil}); err == nil {
-		t.Fatal("restore accepted an invalid scheduler state key")
+	if err := validateCodexSchedulerState(map[string]*int{"invalid": nil}); err == nil {
+		t.Fatal("scheduler state validation accepted an invalid key")
 	}
 }
 

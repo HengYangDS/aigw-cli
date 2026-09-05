@@ -122,22 +122,8 @@ func projectCodexScheduler(text string) (string, error) {
 }
 
 func restoreCodexScheduler(text string, original map[string]*int) (string, error) {
-	targets := codexSchedulerTargets()
-	expected := make(map[string]struct{}, len(targets))
-	for _, target := range targets {
-		expected[target[0]+"."+target[1]] = struct{}{}
-	}
-	for name := range original {
-		if _, ok := expected[name]; !ok {
-			return "", fmt.Errorf("invalid Codex scheduler state key %q", name)
-		}
-	}
-	if len(original) != len(expected) {
-		return "", fmt.Errorf("incomplete Codex scheduler state")
-	}
-
 	result := text
-	for _, target := range targets {
+	for _, target := range codexSchedulerTargets() {
 		table, key := target[0], target[1]
 		name := table + "." + key
 		if original[name] == nil {
@@ -149,6 +135,23 @@ func restoreCodexScheduler(text string, original map[string]*int) (string, error
 	}
 	result = regexp.MustCompile(`(?m)^([ \t]*max_(?:concurrent_threads_per_session|depth|threads)[ \t]*=[ \t]*[0-9]+)[ \t]*#[ \t]*managed by AIGW[ \t]*$`).ReplaceAllString(result, "$1")
 	return result, validateCodexTOML(result)
+}
+
+func validateCodexSchedulerState(original map[string]*int) error {
+	targets := codexSchedulerTargets()
+	expected := make(map[string]struct{}, len(targets))
+	for _, target := range targets {
+		expected[target[0]+"."+target[1]] = struct{}{}
+	}
+	for name := range original {
+		if _, ok := expected[name]; !ok {
+			return fmt.Errorf("invalid Codex scheduler state key %q", name)
+		}
+	}
+	if len(original) != len(expected) {
+		return fmt.Errorf("incomplete Codex scheduler state")
+	}
+	return nil
 }
 
 func codexSchedulerHash(text string) string {
@@ -182,6 +185,16 @@ func codexSchedulerHash(text string) string {
 // codexSchedulerHashMatches accepts only the current projection identity.
 func codexSchedulerHashMatches(recorded, text string) bool {
 	return recorded != "" && recorded == codexSchedulerHash(text)
+}
+
+func validateCodexSchedulerOwnership(state codexState, text string) error {
+	if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, text) {
+		return fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
+	}
+	if err := validateCodexSchedulerState(state.OriginalScheduler); err != nil {
+		return fmt.Errorf("Codex config conflict: %w", err)
+	}
+	return nil
 }
 
 func validateCodexScheduler(text string) error {

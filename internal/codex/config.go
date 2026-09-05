@@ -184,8 +184,8 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 		if err := validateCodexScheduler(text); err != nil {
 			return err
 		}
-		if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, text) {
-			return fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
+		if err := validateCodexSchedulerOwnership(state, text); err != nil {
+			return err
 		}
 		return validateCodexCatalog(path, text, state)
 	}
@@ -432,8 +432,8 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 	if !managedBlockHashMatches(state.ManagedBlockHash, block) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits")
 	}
-	if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, current) {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
+	if err := validateCodexSchedulerOwnership(state, current); err != nil {
+		return "", err
 	}
 	base := strings.TrimRight(current[:providerStart]+current[providerEnd:], "\r\n")
 	base = removeCodexBeginMarker(base)

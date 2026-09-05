@@ -68,7 +68,12 @@ func TestInspectConfigReachableStates(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		runtime := atomicTestRuntime()
 		block := codexManagedBlock(runtime, runtime.Endpoint)
-		writeExtraCodexFile(t, path, "model_provider = \"native\"\n"+codexBegin+"\n"+block)
+		projection, err := projectCodex("", block, "", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		projection = modelProviderLine.ReplaceAllString(projection, `model_provider = "native"`)
+		writeExtraCodexFile(t, path, projection)
 		writeExtraCodexState(t, path, attributedExtraCodexState(ProjectionFullSelection, block))
 
 		inspection, err := InspectConfig(path)
@@ -97,6 +102,34 @@ func TestInspectConfigReachableStates(t *testing.T) {
 		}
 		if inspection.State != "aigw-managed" || !inspection.AIGWManaged || !inspection.SidecarHashMatches {
 			t.Fatalf("inspection = %#v", inspection)
+		}
+	})
+
+	t.Run("scheduler ownership drift", func(t *testing.T) {
+		runtime := atomicTestRuntime()
+		block := codexManagedBlock(runtime, runtime.Endpoint)
+		projection, err := projectCodex("external = true\n", block, runtime.Model, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, mutate := range []func(*codexState){
+			func(state *codexState) { state.ProjectedSchedulerHash = "" },
+			func(state *codexState) { state.OriginalScheduler = nil },
+			func(state *codexState) { delete(state.OriginalScheduler, "agents.max_threads") },
+		} {
+			path := filepath.Join(t.TempDir(), "configuration.toml")
+			state := attributedExtraCodexState(ProjectionFullSelection, block)
+			mutate(&state)
+			writeExtraCodexFile(t, path, projection)
+			writeExtraCodexState(t, path, state)
+
+			inspection, err := InspectConfig(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if inspection.State != "aigw-drift" || !inspection.AIGWManaged || !inspection.SidecarHashMatches {
+				t.Fatalf("inspection = %#v", inspection)
+			}
 		}
 	})
 
