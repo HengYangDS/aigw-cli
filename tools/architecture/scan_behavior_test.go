@@ -196,6 +196,16 @@ func TestAnalyzeRepositoryPropagatesSemanticStageFailures(t *testing.T) {
 	}
 }
 
+func TestAnalyzeRepositoryRejectsBrokenRepositoryMetadata(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := analyzeRepository(root, policy{}, "policy.toml"); err == nil || !strings.Contains(err.Error(), "list tracked files") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestCollectGoFilesRejectsInvalidRoot(t *testing.T) {
 	if _, err := collectGoFiles(t.TempDir(), policy{GoRoots: []string{"invalid\x00root"}}); err == nil {
 		t.Fatal("invalid Go root was accepted")
