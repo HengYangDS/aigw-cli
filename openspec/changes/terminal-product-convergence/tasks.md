@@ -98,7 +98,7 @@
 
 - [ ] 10.1 Define the complete semantic CI graph in CUE: fast quality, Go matrix, native source evidence, artifact construction, lifecycle acceptance, release metadata, publication, and parity.
 - [ ] 10.2 Generate GitHub Actions and GitLab CI from that model; reject hand-edited drift while preserving only provider syntax and runner-capability deltas.
-- [ ] 10.3 Cover proposal creation and update, review commit, maintainer fast-forward, direct `dev` push, `main`, and tag events with required exact-commit evidence; close the current direct-`dev` trigger gap on both Forges.
+- [x] 10.3 Cover proposal creation and update, review commit, maintainer fast-forward, direct `dev` push, `main`, and tag events with required exact-commit evidence; close the current direct-`dev` trigger gap on both Forges.
 - [ ] 10.4 Separate independently useful jobs and parallelize safe matrices; remove monolithic verification and duplicate jobs that prove no additional fact.
 - [ ] 10.5 Define exact conditions for evidence reuse and require rerun when source, platform, environment, lock, toolchain, release, or claimed fact changes.
 - [ ] 10.6 Assign Windows product proof to an available native runner without requiring a symmetric but unavailable GitLab Windows runner.

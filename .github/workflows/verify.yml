@@ -7,6 +7,7 @@ env:
 "on":
   push:
     branches:
+      - dev
       - main
   pull_request:
     branches:
@@ -40,7 +41,7 @@ jobs:
     name: Source and governance
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
     env:
       MISE_ENABLE_TOOLS: go,node,cue,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee
     steps:
@@ -92,7 +93,7 @@ jobs:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
         run: mise exec --locked -- go run ./tools/ci native --platform darwin
     timeout-minutes: 25
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
   native-linux:
     name: Native Linux acceptance
     runs-on: ubuntu-latest
@@ -112,7 +113,7 @@ jobs:
       - name: Run native Linux acceptance
         run: dbus-run-session -- sh -c 'printf \"\\n\" | gnome-keyring-daemon --unlock >/dev/null; export AIGW_VERIFY_SYSTEM_KEYRING=1; mise exec --locked -- go run ./tools/ci native --platform linux'
     timeout-minutes: 25
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
   native-windows:
     name: Native Windows acceptance
     runs-on: windows-latest
@@ -132,4 +133,4 @@ jobs:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
         run: mise exec --locked -- go run ./tools/ci native --platform windows
     timeout-minutes: 25
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'

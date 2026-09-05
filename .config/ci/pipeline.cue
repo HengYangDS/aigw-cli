@@ -106,12 +106,12 @@ graph: {
 gitlabFullVerificationRules: [
 	{if: "$CI_COMMIT_TAG"},
 	{if: "$CI_PIPELINE_SOURCE == \"merge_request_event\" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.reviewBranch)\""},
-	{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\""},
+	{if: "$CI_PIPELINE_SOURCE == \"push\" && ($CI_COMMIT_BRANCH == \"\(lifecycle.reviewBranch)\" || $CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\")"},
 	{if: "$CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\""},
 	{when: "never"},
 ]
 
-githubFullVerificationCondition: "github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == '\(lifecycle.acceptedBranch)'"
+githubFullVerificationCondition: "github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == '\(lifecycle.reviewBranch)' || github.ref_name == '\(lifecycle.acceptedBranch)'"
 
 _graphOrder: {
 	for id, job in graph {
@@ -217,7 +217,7 @@ gitlab: {
 	workflow: rules: [
 		{if: "$CI_COMMIT_TAG"},
 		{if: "$CI_PIPELINE_SOURCE == \"merge_request_event\" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == \"\(lifecycle.reviewBranch)\""},
-		{if: "$CI_PIPELINE_SOURCE == \"push\" && $CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\""},
+		{if: "$CI_PIPELINE_SOURCE == \"push\" && ($CI_COMMIT_BRANCH == \"\(lifecycle.reviewBranch)\" || $CI_COMMIT_BRANCH == \"\(lifecycle.acceptedBranch)\")"},
 		{if: "$CI_PIPELINE_SOURCE == \"web\" || $CI_PIPELINE_SOURCE == \"api\""},
 		{when: "never"},
 	]
@@ -318,7 +318,7 @@ githubVerify: {
 		MISE_CONFIG_DIR:    "${{ github.workspace }}/.config/ci"
 	}
 	"on": {
-		push: branches: [lifecycle.acceptedBranch]
+		push: branches: [lifecycle.reviewBranch, lifecycle.acceptedBranch]
 		"pull_request": branches: [lifecycle.reviewBranch]
 		"workflow_dispatch": {}
 	}

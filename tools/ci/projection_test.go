@@ -105,7 +105,7 @@ func TestProjectionCommandUsesRepositoryRelativeModel(t *testing.T) {
 	}
 }
 
-func TestVerificationRoutingRunsOncePerProductCommit(t *testing.T) {
+func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
 	projections, err := renderProjections(root)
 	if err != nil {
@@ -129,7 +129,7 @@ func TestVerificationRoutingRunsOncePerProductCommit(t *testing.T) {
 	}{
 		{If: "$CI_COMMIT_TAG"},
 		{If: `$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"`},
-		{If: `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"`},
+		{If: `$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")`},
 		{If: `$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"`},
 		{When: "never"},
 	}
@@ -157,8 +157,8 @@ func TestVerificationRoutingRunsOncePerProductCommit(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(github.On.Push.Branches, []string{"main"}) {
-		t.Fatalf("GitHub accepted-publication routes = %q, want [main]", github.On.Push.Branches)
+	if !slices.Equal(github.On.Push.Branches, []string{"dev", "main"}) {
+		t.Fatalf("GitHub protected-branch routes = %q, want [dev main]", github.On.Push.Branches)
 	}
 	if !slices.Equal(github.On.PullRequest.Branches, []string{"dev"}) {
 		t.Fatalf("GitHub review targets = %q, want [dev]", github.On.PullRequest.Branches)
@@ -200,18 +200,26 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		"source-and-governance": gitlab.Source,
 		"native-darwin":         gitlab.Darwin,
 		"native-linux":          gitlab.Linux,
-		"package":               gitlab.Package,
-		"publish":               gitlab.Publish,
-		"release":               gitlab.Release,
 	} {
-		devRuleSeen := false
+		protectedPushRuleSeen := false
 		for _, rule := range job.Rules {
-			if rule.If == `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
-				devRuleSeen = true
+			if rule.If == `$CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")` {
+				protectedPushRuleSeen = true
 			}
 		}
-		if devRuleSeen {
-			t.Fatalf("GitLab %s unexpectedly admits an unowned dev push", name)
+		if !protectedPushRuleSeen {
+			t.Fatalf("GitLab %s does not admit a maintainer dev push", name)
+		}
+	}
+	for name, job := range map[string]gitLabJob{
+		"package": gitlab.Package,
+		"publish": gitlab.Publish,
+		"release": gitlab.Release,
+	} {
+		for _, rule := range job.Rules {
+			if rule.If == `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
+				t.Fatalf("GitLab %s must remain tag-only, got dev rule", name)
+			}
 		}
 	}
 
@@ -230,7 +238,7 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		if name == "accepted-ref-parity" {
 			continue
 		}
-		if job.If != "github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'" {
+		if job.If != "github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'" {
 			t.Fatalf("GitHub %s does not positively admit the full verification lifecycle: %q", name, job.If)
 		}
 	}
