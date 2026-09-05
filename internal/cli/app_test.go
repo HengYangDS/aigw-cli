@@ -14,6 +14,8 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+
+	"github.com/spf13/cobra"
 )
 
 func configuredApp(t *testing.T) *App {
@@ -111,5 +113,41 @@ func TestFinishExecutionPreservesCommandAndUnlockFailures(t *testing.T) {
 	}
 	if err := finishExecution(commandErr, nil); !errors.Is(err, commandErr) {
 		t.Fatalf("command error = %v", err)
+	}
+}
+
+func TestExecuteReturnsConfigurationLoadFailure(t *testing.T) {
+	out := new(bytes.Buffer)
+	app := &App{Config: configuration.NewStore(t.TempDir()), Out: out, Err: out}
+	if err := Execute(app, nil); err == nil {
+		t.Fatal("expected configuration load error")
+	}
+}
+
+func TestRenderCommandHelpOrdersExtensionsAndShowsPublicOptions(t *testing.T) {
+	out := new(bytes.Buffer)
+	app := &App{Out: out, Err: out}
+	command := &cobra.Command{Use: "extension", Short: "extension help"}
+	command.AddCommand(
+		&cobra.Command{Use: "zeta", Short: "Z", Run: func(*cobra.Command, []string) {}},
+		&cobra.Command{Use: "alpha", Short: "A", Run: func(*cobra.Command, []string) {}},
+		&cobra.Command{Use: "internal", Hidden: true, Run: func(*cobra.Command, []string) {}},
+	)
+	command.Flags().String("visible", "", "visible option")
+	command.Flags().String("internal", "", "internal option")
+	if err := command.Flags().MarkHidden("internal"); err != nil {
+		t.Fatal(err)
+	}
+
+	renderCommandHelp(app, command)
+	help := out.String()
+	if !strings.Contains(help, "Commands") || !strings.Contains(help, "visible option") {
+		t.Fatalf("help lacks public extension surface: %q", help)
+	}
+	if strings.Index(help, "alpha") > strings.Index(help, "zeta") {
+		t.Fatalf("extension commands are not ordered: %q", help)
+	}
+	if strings.Contains(help, "internal option") || strings.Contains(help, "internal  ") {
+		t.Fatalf("help exposes an internal surface: %q", help)
 	}
 }

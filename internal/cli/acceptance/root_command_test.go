@@ -104,6 +104,22 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 	}
 }
 
+func TestCompletionSupportsDocumentedShells(t *testing.T) {
+	app, out, _, _ := testApp(t, "")
+	for _, shell := range []string{"bash", "zsh", "fish", "powershell"} {
+		out.Reset()
+		if err := execute(t, app, "completion", shell); err != nil {
+			t.Fatalf("%s completion: %v", shell, err)
+		}
+		if out.Len() == 0 {
+			t.Fatalf("%s completion produced no output", shell)
+		}
+	}
+	if err := execute(t, app, "completion", "unsupported"); err == nil {
+		t.Fatal("expected unsupported shell error")
+	}
+}
+
 func TestCommonCommandFailuresUseEnglishGuidance(t *testing.T) {
 	app, out, _, _ := testApp(t, "")
 	for _, tc := range []struct {
