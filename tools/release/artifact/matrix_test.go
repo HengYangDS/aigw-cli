@@ -24,6 +24,14 @@ func TestMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	}
 
 	directory = writeFixture(t, version)
+	if err := os.WriteFile(filepath.Join(directory, Names(version)[0]), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "missing or empty") {
+		t.Fatalf("empty artifact=%v", err)
+	}
+
+	directory = writeFixture(t, version)
 	if err := os.WriteFile(filepath.Join(directory, "unexpected"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -76,6 +84,9 @@ func TestCompareMatrices(t *testing.T) {
 	if err := CompareMatrices(left, right, version); err != nil {
 		t.Fatal(err)
 	}
+	if err := CompareMatrices(filepath.Join(t.TempDir(), "missing"), right, version); err == nil {
+		t.Fatal("missing left matrix accepted")
+	}
 	if err := os.WriteFile(filepath.Join(right, Names(version)[0]), []byte("different"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -84,6 +95,32 @@ func TestCompareMatrices(t *testing.T) {
 	}
 	if err := CompareMatrices(left, right, version); err == nil || !strings.Contains(err.Error(), "differs") {
 		t.Fatalf("different matrix=%v", err)
+	}
+	if err := CompareMatrices(left, filepath.Join(t.TempDir(), "missing"), version); err == nil {
+		t.Fatal("missing right matrix accepted")
+	}
+}
+
+func TestRewriteChecksumsReportsInputAndOutputFailures(t *testing.T) {
+	version := "1.2.3"
+	directory := writeFixture(t, version)
+	if err := os.Remove(filepath.Join(directory, Names(version)[0])); err != nil {
+		t.Fatal(err)
+	}
+	if err := RewriteChecksums(directory, version); err == nil {
+		t.Fatal("missing checksum input accepted")
+	}
+
+	directory = writeFixture(t, version)
+	manifest := filepath.Join(directory, "checksums.txt")
+	if err := os.Remove(manifest); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(manifest, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := RewriteChecksums(directory, version); err == nil {
+		t.Fatal("unwritable checksum destination accepted")
 	}
 }
 

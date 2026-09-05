@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"encoding/json"
@@ -135,23 +136,23 @@ func TestValidateBuildReleaseSources(t *testing.T) {
 	for _, name := range []string{"AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY", "AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY"} {
 		t.Setenv(name, "")
 	}
-	if err := validateBuildReleaseSources(); err != nil {
+	if err := construction.ValidateSources(); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "https://gitlab.example.test")
 	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "group/project")
-	if err := validateBuildReleaseSources(); err != nil {
+	if err := construction.ValidateSources(); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
 	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
 	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example.test")
 	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "owner/project")
-	if err := validateBuildReleaseSources(); err != nil {
+	if err := construction.ValidateSources(); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "")
-	if err := validateBuildReleaseSources(); err == nil || !strings.Contains(err.Error(), "GitHub release source is incomplete") {
+	if err := construction.ValidateSources(); err == nil || !strings.Contains(err.Error(), "GitHub release source is incomplete") {
 		t.Fatalf("partial source error = %v", err)
 	}
 }
@@ -173,7 +174,7 @@ func TestValidateBuildReleaseSourcesRejectsInvalidAuthoritiesAndRepositories(t *
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", tc.origin)
 			t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", tc.repository)
-			if err := validateBuildReleaseSources(); err == nil || !strings.Contains(err.Error(), tc.want) {
+			if err := construction.ValidateSources(); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
 		})
@@ -182,7 +183,7 @@ func TestValidateBuildReleaseSourcesRejectsInvalidAuthoritiesAndRepositories(t *
 	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
 	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example.test")
 	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "group/subgroup/project")
-	if err := validateBuildReleaseSources(); err == nil || !strings.Contains(err.Error(), "owner/repository") {
+	if err := construction.ValidateSources(); err == nil || !strings.Contains(err.Error(), "owner/repository") {
 		t.Fatalf("nested GitHub repository error = %v", err)
 	}
 }

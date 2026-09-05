@@ -1,4 +1,4 @@
-package main
+package construction
 
 import (
 	"aigw-cli/tools/release/artifact"
@@ -14,7 +14,7 @@ import (
 )
 
 func TestGoReleaserArchiveMetadataIsHostIndependent(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", ".config", "release", "goreleaser.yaml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "release", "goreleaser.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestReleaseBuildAcceptsLocalOrSingleForgeContext(t *testing.T) {
 		"github": {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if err := validateBuildRequest(request); err != nil {
+			if err := validateRequest(request); err != nil {
 				t.Fatal(err)
 			}
 		})

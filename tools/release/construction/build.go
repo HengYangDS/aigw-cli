@@ -1,4 +1,4 @@
-package main
+package construction
 
 import (
 	"aigw-cli/tools/release/artifact"
@@ -38,7 +38,7 @@ type artifactComparator func(left, right, version string) error
 var releaseVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$`)
 
 func buildRelease(request buildRequest, run toolRunner) error {
-	if err := validateBuildRequest(request); err != nil {
+	if err := validateRequest(request); err != nil {
 		return err
 	}
 	instant, _ := readiness.ParseEpoch(request.Epoch)
@@ -118,7 +118,7 @@ func renderGoReleaserConfig(root, workspace, stage string) (string, error) {
 	return config, nil
 }
 
-func validateBuildRequest(request buildRequest) error {
+func validateRequest(request buildRequest) error {
 	if !releaseVersion.MatchString(request.Version) {
 		return fmt.Errorf("invalid release version %q", request.Version)
 	}
@@ -146,9 +146,9 @@ func validateBuildRequest(request buildRequest) error {
 	return nil
 }
 
-// validateBuildReleaseSources validates independently configured Forge tuples.
+// ValidateSources validates independently configured Forge tuples.
 // Local builds may configure neither source; either Forge may configure itself.
-func validateBuildReleaseSources() error {
+func ValidateSources() error {
 	request := buildRequest{
 		GitLabOrigin:     os.Getenv("AIGW_GITLAB_RELEASE_ORIGIN"),
 		GitLabRepository: os.Getenv("AIGW_GITLAB_RELEASE_REPOSITORY"),
@@ -225,7 +225,7 @@ func replaceDirectory(source, target string) error {
 	return nil
 }
 
-func execTool(call toolCall) error {
+func executeTool(call toolCall) error {
 	command := exec.Command(call.Name, call.Args...)
 	command.Dir = call.Directory
 	command.Env = append(os.Environ(), call.Env...)
@@ -270,10 +270,23 @@ func normalizeSPDX(source, target, version string, instant time.Time) error {
 	return os.WriteFile(target, append(normalized, '\n'), 0o600)
 }
 
-func parseBuildArguments(args []string) (buildRequest, error) {
-	if len(args) != 1 {
-		return buildRequest{}, errors.New("usage: release build <output-directory>")
+// Build constructs the portable release matrix for the current repository.
+func Build(output string) error {
+	request, err := buildRequestFromEnvironment(output)
+	if err != nil {
+		return err
 	}
+	return buildRelease(request, executeTool)
+}
+
+// BuildCI constructs the release twice and admits only an identical matrix.
+func BuildCI(root, workspace, output string) error {
+	return buildCI(root, workspace, output, func(request buildRequest) error {
+		return buildRelease(request, executeTool)
+	}, resolveReleaseEpoch, artifact.CompareMatrices)
+}
+
+func buildRequestFromEnvironment(output string) (buildRequest, error) {
 	root, err := os.Getwd()
 	if err != nil {
 		return buildRequest{}, err
@@ -287,7 +300,7 @@ func parseBuildArguments(args []string) (buildRequest, error) {
 		return buildRequest{}, err
 	}
 	return buildRequest{
-		Root: root, Version: version, Epoch: epoch, Output: args[0],
+		Root: root, Version: version, Epoch: epoch, Output: output,
 		GitLabOrigin: os.Getenv("AIGW_GITLAB_RELEASE_ORIGIN"), GitLabRepository: os.Getenv("AIGW_GITLAB_RELEASE_REPOSITORY"),
 		GitHubOrigin: os.Getenv("AIGW_GITHUB_RELEASE_ORIGIN"), GitHubRepository: os.Getenv("AIGW_GITHUB_RELEASE_REPOSITORY"),
 	}, nil

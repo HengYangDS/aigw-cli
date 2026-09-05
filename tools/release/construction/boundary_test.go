@@ -1,4 +1,4 @@
-package main
+package construction
 
 import (
 	"aigw-cli/tools/release/artifact"
@@ -50,46 +50,6 @@ func TestNormalizedSPDXIsDeterministicAndPortable(t *testing.T) {
 	}
 }
 
-func TestPortableArtifactMatrixRejectsNativePackagesAndCorruption(t *testing.T) {
-	directory := t.TempDir()
-	version := "1.2.3"
-	for _, name := range artifact.Names(version) {
-		if strings.HasSuffix(name, ".spdx.json") {
-			if err := os.WriteFile(filepath.Join(directory, name), []byte(`{"spdxVersion":"SPDX-2.3"}`), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			continue
-		}
-		if name != "checksums.txt" {
-			if err := os.WriteFile(filepath.Join(directory, name), []byte(name), 0o600); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-	if err := artifact.RewriteChecksums(directory, version); err != nil {
-		t.Fatal(err)
-	}
-	if err := artifact.ValidateMatrix(directory, version); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(directory, "aigw_1.2.3_linux_amd64.deb"), []byte("legacy"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := artifact.ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected") {
-		t.Fatalf("native package accepted: %v", err)
-	}
-	if err := os.Remove(filepath.Join(directory, "aigw_1.2.3_linux_amd64.deb")); err != nil {
-		t.Fatal(err)
-	}
-	archive := filepath.Join(directory, "aigw_1.2.3_linux_amd64.tar.gz")
-	if err := os.WriteFile(archive, bytes.Repeat([]byte("x"), 3), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := artifact.ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "checksum") {
-		t.Fatalf("corruption accepted: %v", err)
-	}
-}
-
 func TestReleaseBuildBoundaryFailures(t *testing.T) {
 	valid := buildRequest{
 		Root: releaseRoot(t), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400",
@@ -100,7 +60,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 	t.Run("repository whitespace", func(t *testing.T) {
 		request := valid
 		request.GitHubRepository = "org/aigw cli"
-		if err := validateBuildRequest(request); err == nil || !strings.Contains(err.Error(), "whitespace") {
+		if err := validateRequest(request); err == nil || !strings.Contains(err.Error(), "whitespace") {
 			t.Fatalf("whitespace error = %v", err)
 		}
 	})
@@ -328,75 +288,15 @@ func TestReleaseBuildHelpersCoverAtomicReplacementAndCommands(t *testing.T) {
 	}
 
 	command := toolCall{Name: "go", Directory: root, Args: []string{"version"}, Env: []string{"AIGW_TEST_VALUE=present"}}
-	if err := execTool(command); err != nil {
+	if err := executeTool(command); err != nil {
 		t.Fatal(err)
 	}
-	if err := execTool(toolCall{Name: filepath.Join(root, "missing-command")}); err == nil {
+	if err := executeTool(toolCall{Name: filepath.Join(root, "missing-command")}); err == nil {
 		t.Fatal("missing command succeeded")
 	}
 }
 
-func TestArtifactComparisonAndChecksumReadFailures(t *testing.T) {
-	if err := artifact.CompareMatrices(filepath.Join(t.TempDir(), "missing"), t.TempDir(), "1.2.3"); err == nil {
-		t.Fatal("missing left artifact matrix was accepted")
-	}
-	left := releaseFixture(t, "1.2.3")
-	right := releaseFixture(t, "1.2.3")
-	if err := os.WriteFile(filepath.Join(right, "aigw_1.2.3_linux_amd64.tar.gz"), []byte("different"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := artifact.RewriteChecksums(right, "1.2.3"); err != nil {
-		t.Fatal(err)
-	}
-	if err := artifact.CompareMatrices(left, right, "1.2.3"); err == nil || !strings.Contains(err.Error(), "differs") {
-		t.Fatalf("different artifact matrices error = %v", err)
-	}
-	if err := artifact.RewriteChecksums(t.TempDir(), "1.2.3"); err == nil {
-		t.Fatal("missing checksum input was accepted")
-	}
-}
-
-func TestArtifactMatrixReportsManifestAndComparisonReadFailures(t *testing.T) {
-	version := "1.2.3"
-	directory := releaseFixture(t, version)
-	if err := os.Remove(filepath.Join(directory, "checksums.txt")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(directory, "checksums.txt"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := artifact.ValidateMatrix(directory, version); err == nil {
-		t.Fatal("unreadable checksum manifest accepted")
-	}
-
-	left := releaseFixture(t, version)
-	right := releaseFixture(t, version)
-	name := artifact.Names(version)[0]
-	if err := os.Remove(filepath.Join(left, name)); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(left, name), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := artifact.CompareMatrices(left, right, version); err == nil {
-		t.Fatal("unreadable left artifact accepted")
-	}
-}
-
-func TestArtifactComparisonValidatesRightSideBeforeReading(t *testing.T) {
-	left := releaseFixture(t, "1.2.3")
-	if err := artifact.CompareMatrices(left, filepath.Join(t.TempDir(), "missing"), "1.2.3"); err == nil {
-		t.Fatal("missing right artifact matrix was accepted")
-	}
-}
-
-func TestReleaseBuildArgumentAndSPDXEdges(t *testing.T) {
-	if _, err := parseBuildArguments(nil); err == nil || !strings.Contains(err.Error(), "usage") {
-		t.Fatalf("argument error = %v", err)
-	}
-	if _, err := parseBuildArguments([]string{"1.2.3", "1784246400", "dist"}); err == nil || !strings.Contains(err.Error(), "usage") {
-		t.Fatalf("legacy explicit release inputs were accepted: %v", err)
-	}
+func TestReleaseBuildEnvironmentAndSPDXEdges(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -420,7 +320,7 @@ func TestReleaseBuildArgumentAndSPDXEdges(t *testing.T) {
 	} {
 		t.Setenv(name, value)
 	}
-	request, err := parseBuildArguments([]string{"dist"})
+	request, err := buildRequestFromEnvironment("dist")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -433,7 +333,7 @@ func TestReleaseBuildArgumentAndSPDXEdges(t *testing.T) {
 	if err := os.Chdir(missingVersion); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := parseBuildArguments([]string{"dist"}); err == nil || !strings.Contains(err.Error(), "read VERSION") {
+	if _, err := buildRequestFromEnvironment("dist"); err == nil || !strings.Contains(err.Error(), "read VERSION") {
 		t.Fatalf("missing VERSION error = %v", err)
 	}
 	missingChronology := t.TempDir()
@@ -443,7 +343,7 @@ func TestReleaseBuildArgumentAndSPDXEdges(t *testing.T) {
 	if err := os.Chdir(missingChronology); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := parseBuildArguments([]string{"dist"}); err == nil || !strings.Contains(err.Error(), "open CHANGELOG") {
+	if _, err := buildRequestFromEnvironment("dist"); err == nil || !strings.Contains(err.Error(), "open CHANGELOG") {
 		t.Fatalf("missing release chronology error = %v", err)
 	}
 	if err := os.Chdir(root); err != nil {

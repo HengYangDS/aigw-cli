@@ -2,6 +2,7 @@ package main
 
 import (
 	"aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 	"context"
 	"errors"
@@ -16,11 +17,10 @@ import (
 func buildCommands() commandSet {
 	return commandSet{
 		"build": func(args []string, _ io.Writer) error {
-			request, err := parseBuildArguments(args)
-			if err != nil {
+			if err := requireArguments(args, 1, "usage: release build <output-directory>"); err != nil {
 				return err
 			}
-			return buildRelease(request, execTool)
+			return construction.Build(args[0])
 		},
 		"build-ci": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 2, "usage: release build-ci <workspace> <output-directory>"); err != nil {
@@ -30,7 +30,7 @@ func buildCommands() commandSet {
 			if err != nil {
 				return err
 			}
-			return buildCI(root, args[0], args[1], func(request buildRequest) error { return buildRelease(request, execTool) }, resolveReleaseEpoch, artifact.CompareMatrices)
+			return construction.BuildCI(root, args[0], args[1])
 		},
 	}
 }
@@ -41,7 +41,7 @@ func policyCommands() commandSet {
 			if err := requireArguments(args, 0, "usage: release validate-release-sources"); err != nil {
 				return err
 			}
-			return validateBuildReleaseSources()
+			return construction.ValidateSources()
 		},
 		"validate-toolchain": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release validate-toolchain <go.mod>"); err != nil {
