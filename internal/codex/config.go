@@ -432,18 +432,17 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 	if !modelProviderLine.MatchString(current) || !isManagedSelection(modelProviderLine.FindString(current), "model_provider", provider) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits")
 	}
-	block, err := codexManagedBlockForProviderIn(current, provider)
+	providerStart, providerEnd, err := codexManagedBlockBoundsForProviderIn(current, provider)
 	if err != nil {
 		return "", err
 	}
+	block := current[providerStart:providerEnd]
 	if !managedBlockHashMatches(state.ManagedBlockHash, block) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits")
 	}
 	if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, current) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
 	}
-	providerStart := strings.Index(current, codexProviderTable(provider))
-	providerEnd := providerStart + len(block)
 	base := strings.TrimRight(current[:providerStart]+current[providerEnd:], "\r\n")
 	base = removeCodexBeginMarker(base)
 	base = strings.TrimRight(base, "\r\n")
@@ -495,18 +494,26 @@ func codexManagedBlockIn(current string) (string, error) {
 }
 
 func codexManagedBlockForProviderIn(current, provider string) (string, error) {
+	start, end, err := codexManagedBlockBoundsForProviderIn(current, provider)
+	if err != nil {
+		return "", err
+	}
+	return current[start:end], nil
+}
+
+func codexManagedBlockBoundsForProviderIn(current, provider string) (int, int, error) {
 	marker := strings.Index(current, codexBegin)
 	if marker < 0 {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block is missing")
+		return 0, 0, fmt.Errorf("Codex config conflict: AIGW-managed provider block is missing")
 	}
 	providerRel := strings.Index(current[marker:], codexProviderTable(provider))
 	if providerRel < 0 {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider table is missing")
+		return 0, 0, fmt.Errorf("Codex config conflict: AIGW-managed provider table is missing")
 	}
 	start := marker + providerRel
 	endRel := strings.Index(current[start:], codexEnd)
 	if endRel < 0 {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block is incomplete")
+		return 0, 0, fmt.Errorf("Codex config conflict: AIGW-managed provider block is incomplete")
 	}
 	end := start + endRel + len(codexEnd)
 	if end < len(current) && current[end] == '\r' {
@@ -515,7 +522,7 @@ func codexManagedBlockForProviderIn(current, provider string) (string, error) {
 	if end < len(current) && current[end] == '\n' {
 		end++
 	}
-	return current[start:end], nil
+	return start, end, nil
 }
 
 func codexRuntimeProvider(runtime configuration.Runtime) string {

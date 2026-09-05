@@ -52,6 +52,29 @@ func TestCodexSyncProjectsOwnedProviderAndPreservesOtherSettings(t *testing.T) {
 	}
 }
 
+func TestCodexDisablePreservesEarlierProviderTableReference(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "configuration.toml")
+	original := "# See [model_providers.aigw] in the generated section below.\nmodel_provider = \"native\"\nmodel = \"gpt-original\"\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
+	if err := codex.SyncConfig(path, profile); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := codex.DisableConfig(path); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(restored) != original {
+		t.Fatalf("disable changed user content around an earlier provider-table reference\nwant:\n%s\ngot:\n%s", original, restored)
+	}
+}
+
 // TestCodexSyncRetiresTheAgentsAliasWhenBindingMaxThreads starts from a user
 // configuration that already carries the retired [agents] alias. Codex reads
 // max_threads as the session concurrency field and the alias as a second
