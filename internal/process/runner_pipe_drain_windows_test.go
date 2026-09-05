@@ -69,7 +69,7 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 		return
 	}
 	fixture := newWindowsPipeDrainFixture(t, "TestRunCaptureReportsPipeDrainAfterContextDeadline", "direct-deadline")
-	ctx := newDeadlineSignalContext()
+	ctx := newControllableDeadlineContext()
 	result := make(chan error, 1)
 	go func() {
 		_, err := (Runner{}).RunCapture(ctx, fixture.plan)
@@ -80,7 +80,7 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 		ctx.expire()
 		t.Fatal(err)
 	}
-	if err := waitForFixtureFile(fixture.barrier, 5*time.Second); err != nil {
+	if err := awaitFixtureFile(fixture.barrier, 5*time.Second); err != nil {
 		ctx.expire()
 		t.Fatalf("Windows pipe-drain fixture did not reach the deadline barrier: %v", err)
 	}
@@ -142,7 +142,7 @@ func newWindowsPipeDrainFixture(t *testing.T, testName, role string) windowsPipe
 }
 
 func releaseWindowsPipeDrainChild(fixture windowsPipeDrainFixture) error {
-	if err := waitForFixtureFile(fixture.childReady, 5*time.Second); err != nil {
+	if err := awaitFixtureFile(fixture.childReady, 5*time.Second); err != nil {
 		return fmt.Errorf("Windows pipe-drain child did not start: %w", err)
 	}
 	time.Sleep(100 * time.Millisecond)
@@ -171,7 +171,7 @@ func runWindowsPipeDrainHelper(t *testing.T, testName string) bool {
 	if err := os.WriteFile(os.Getenv(windowsPipeDrainChildReadyEnvironment), []byte(strconv.Itoa(os.Getpid())), 0o600); err != nil {
 		t.Fatalf("write Windows pipe-drain child readiness: %v", err)
 	}
-	if err := waitForFixtureFile(os.Getenv(windowsPipeDrainReleaseEnvironment), 5*time.Second); err != nil {
+	if err := awaitFixtureFile(os.Getenv(windowsPipeDrainReleaseEnvironment), 5*time.Second); err != nil {
 		t.Fatalf("wait for Windows pipe-drain child release: %v", err)
 	}
 	descendant := exec.Command(os.Args[0], "-test.run=^"+testName+"$")
@@ -181,7 +181,7 @@ func runWindowsPipeDrainHelper(t *testing.T, testName string) bool {
 	if err := descendant.Start(); err != nil {
 		t.Fatalf("start Windows pipe-drain descendant: %v", err)
 	}
-	if err := waitForFixtureFile(os.Getenv(windowsPipeDrainPIDEnvironment), 5*time.Second); err != nil {
+	if err := awaitFixtureFile(os.Getenv(windowsPipeDrainPIDEnvironment), 5*time.Second); err != nil {
 		t.Fatalf("wait for Windows pipe-drain descendant: %v", err)
 	}
 	if _, err := fmt.Fprint(os.Stdout, "AIGW_OK"); err != nil {

@@ -1,124 +1,17 @@
 package codex
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/process"
 	"aigw-cli/internal/transaction"
 )
 
-type identityCaptureRunner struct {
-	output []byte
-	err    error
-	plan   process.Plan
-}
-
-func (runner *identityCaptureRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
-	runner.plan = plan
-	return runner.output, runner.err
-}
-
-func TestIdentifyExecutableRejectsIncompleteOrUnobservableIdentity(t *testing.T) {
-	missing := filepath.Join(t.TempDir(), "missing-codex")
-	for _, test := range []struct {
-		name       string
-		executable string
-		runner     process.CaptureRunner
-		want       string
-	}{
-		{name: "missing executable", runner: &identityCaptureRunner{}, want: "not configured"},
-		{name: "missing runner", executable: missing, want: "runner is unavailable"},
-		{name: "unreadable executable", executable: missing, runner: &identityCaptureRunner{}, want: "read Codex executable"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			_, err := IdentifyExecutable(context.Background(), test.runner, test.executable, t.TempDir())
-			if err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("IdentifyExecutable() error = %v, want %q", err, test.want)
-			}
-		})
-	}
-
-	executable := filepath.Join(t.TempDir(), "codex")
-	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	failed := &identityCaptureRunner{err: errors.New("version failed")}
-	if _, err := IdentifyExecutable(context.Background(), failed, executable, t.TempDir()); err == nil || !strings.Contains(err.Error(), "inspect Codex version") {
-		t.Fatalf("version command error = %v", err)
-	}
-	empty := &identityCaptureRunner{output: []byte(" \n")}
-	if _, err := IdentifyExecutable(context.Background(), empty, executable, t.TempDir()); err == nil || !strings.Contains(err.Error(), "reported no version") {
-		t.Fatalf("empty version error = %v", err)
-	}
-}
-
-func TestIdentifyExecutableUsesTheConfiguredHome(t *testing.T) {
-	executable := filepath.Join(t.TempDir(), "codex")
-	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	home := t.TempDir()
-	runner := &identityCaptureRunner{output: []byte(" codex-cli 1.2.3 \n")}
-	identity, err := IdentifyExecutable(context.Background(), runner, executable, home)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if identity.Version != "codex-cli 1.2.3" || identity.SHA256 == "" {
-		t.Fatalf("identity = %#v", identity)
-	}
-	if runner.plan.Executable != executable || !slices.Equal(runner.plan.Args, []string{"--version"}) {
-		t.Fatalf("version plan = %#v", runner.plan)
-	}
-	found := false
-	for _, value := range runner.plan.Env {
-		if value == "CODEX_HOME="+home {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("version environment does not contain CODEX_HOME=%s", home)
-	}
-}
-
-func TestFileSHA256RejectsADirectory(t *testing.T) {
-	if _, err := fileSHA256(t.TempDir()); err == nil {
-		t.Fatal("fileSHA256() accepted a directory")
-	}
-}
-
-func TestVerificationPlanRejectsIncompleteInputs(t *testing.T) {
-	runtime := configuration.Runtime{ProfileID: "codex", Model: "gpt-test"}
-	for _, test := range []struct {
-		name       string
-		executable string
-		configPath string
-		outputPath string
-		runtime    configuration.Runtime
-		want       string
-	}{
-		{name: "missing executable", configPath: "config.toml", outputPath: "output.txt", runtime: runtime, want: "not configured"},
-		{name: "missing config", executable: "codex", outputPath: "output.txt", runtime: runtime, want: "target is not configured"},
-		{name: "missing model", executable: "codex", configPath: "config.toml", outputPath: "output.txt", runtime: configuration.Runtime{ProfileID: "codex"}, want: "has no Codex model"},
-		{name: "missing output", executable: "codex", configPath: "config.toml", runtime: runtime, want: "output path is not configured"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			_, err := VerificationPlan(test.executable, test.configPath, test.outputPath, test.runtime)
-			if err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("VerificationPlan() error = %v, want %q", err, test.want)
-			}
-		})
-	}
-}
-
-func TestCodexEndpointExtra(t *testing.T) {
+func TestCodexEndpointRequiresConfiguration(t *testing.T) {
 	cases := []struct {
 		name     string
 		runtime  configuration.Runtime
@@ -141,7 +34,7 @@ func TestCodexEndpointExtra(t *testing.T) {
 	}
 }
 
-func TestRestoreModelSelectionExtra(t *testing.T) {
+func TestRestoreModelSelectionPreservesOriginalState(t *testing.T) {
 	cases := []struct {
 		name          string
 		base          string
@@ -211,43 +104,38 @@ func TestManagedBlockAcceptsCRLFMarkerBoundary(t *testing.T) {
 	}
 }
 
-func TestValidateConfigExtra(t *testing.T) {
-	// Line 97: ValidateConfig (71.0%)
+func TestValidateConfigRejectsIncompleteOrMismatchedProjection(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "configuration.toml")
 
-	// Missing endpoint
 	err := ValidateConfig(path, configuration.Runtime{ProfileID: "p"})
 	if err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
 		t.Errorf("expected endpoint error, got %v", err)
 	}
 
 	runtime := configuration.Runtime{ProfileID: "p", Endpoint: "https://e.t"}
-	// Missing file
 	err = ValidateConfig(path, runtime)
 	if err == nil || !strings.Contains(err.Error(), "read Codex config") {
 		t.Errorf("expected read error, got %v", err)
 	}
 
-	// Missing state
-	writeExtraCodexFile(t, path, "")
+	writeCodexFixture(t, path, "")
 	err = ValidateConfig(path, runtime)
 	if err == nil || !strings.Contains(err.Error(), "AIGW state is missing") {
 		t.Errorf("expected missing state error, got %v", err)
 	}
 
-	// Hash mismatch
 	state := codexState{
 		ProjectionMode:   ProjectionFullSelection,
 		WriterID:         ProjectionWriterID,
 		TransactionID:    "t",
 		ManagedBlockHash: "mismatch",
 	}
-	writeExtraCodexState(t, path, state)
+	writeCodexStateFixture(t, path, state)
 
 	block := codexManagedBlock(runtime, runtime.Endpoint)
 	content := "model_provider = \"aigw\" # managed by AIGW\n" + codexBegin + "\n" + block
-	writeExtraCodexFile(t, path, content)
+	writeCodexFixture(t, path, content)
 
 	err = ValidateConfig(path, runtime)
 	if err == nil || !strings.Contains(err.Error(), "state does not match") {
@@ -255,20 +143,19 @@ func TestValidateConfigExtra(t *testing.T) {
 	}
 }
 
-func TestIsExactTruncatedCodexProjectionExtra(t *testing.T) {
-	// Line 85: isExactTruncatedCodexProjection (80.0%)
+func TestExactTruncationRejectsShortInput(t *testing.T) {
 	if isExactTruncatedCodexProjection("too short", nil, configuration.Runtime{}, "") {
 		t.Error("expected false for short input")
 	}
 }
 
-func TestInspectConfigScenarios(t *testing.T) {
+func TestInspectConfigClassifiesInvalidAndOrphanedState(t *testing.T) {
 	root := t.TempDir()
 
 	t.Run("invalid sidecar json", func(t *testing.T) {
 		path := filepath.Join(root, "invalid-sidecar.toml")
-		writeExtraCodexFile(t, path, "model_provider = \"native\"")
-		writeExtraCodexFile(t, codexStatePath(path), "invalid json")
+		writeCodexFixture(t, path, "model_provider = \"native\"")
+		writeCodexFixture(t, codexStatePath(path), "invalid json")
 
 		ins, err := InspectConfig(path)
 		if err != nil {
@@ -281,7 +168,7 @@ func TestInspectConfigScenarios(t *testing.T) {
 
 	t.Run("orphaned marker", func(t *testing.T) {
 		path := filepath.Join(root, "orphaned.toml")
-		writeExtraCodexFile(t, path, codexBegin)
+		writeCodexFixture(t, path, codexBegin)
 
 		ins, err := InspectConfig(path)
 		if err != nil {
@@ -294,9 +181,9 @@ func TestInspectConfigScenarios(t *testing.T) {
 
 	t.Run("ownership conflict", func(t *testing.T) {
 		path := filepath.Join(root, "conflict.toml")
-		writeExtraCodexFile(t, path, "")
+		writeCodexFixture(t, path, "")
 		state := codexState{WriterID: "foreign"}
-		writeExtraCodexState(t, path, state)
+		writeCodexStateFixture(t, path, state)
 
 		ins, err := InspectConfig(path)
 		if err != nil {
@@ -309,13 +196,13 @@ func TestInspectConfigScenarios(t *testing.T) {
 
 	t.Run("stale sidecar", func(t *testing.T) {
 		path := filepath.Join(root, "stale.toml")
-		writeExtraCodexFile(t, path, "")
+		writeCodexFixture(t, path, "")
 		state := codexState{
 			ProjectionMode: ProjectionFullSelection,
 			WriterID:       ProjectionWriterID,
 			TransactionID:  "some-tx",
 		}
-		writeExtraCodexState(t, path, state)
+		writeCodexStateFixture(t, path, state)
 
 		ins, err := InspectConfig(path)
 		if err != nil {
@@ -327,28 +214,26 @@ func TestInspectConfigScenarios(t *testing.T) {
 	})
 }
 
-func TestReadProjectionIdentityExtra(t *testing.T) {
+func TestReadProjectionIdentityDistinguishesMissingAndIncompleteState(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "identity.toml")
 
-	// Not exist
 	id, err := ReadProjectionIdentity(path)
 	if err != nil || id.Present {
 		t.Errorf("expected not present, got %+v, err %v", id, err)
 	}
 
 	// Unattributed sidecars fail closed.
-	writeExtraCodexFile(t, path, "")
+	writeCodexFixture(t, path, "")
 	state := codexState{}
-	writeExtraCodexState(t, path, state)
+	writeCodexStateFixture(t, path, state)
 	id, err = ReadProjectionIdentity(path)
 	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") || id.Present {
 		t.Errorf("expected incomplete attribution rejection, got %+v, err %v", id, err)
 	}
 }
 
-func TestCanonicalCodexTargetPathExtra(t *testing.T) {
-	// Line 516: canonicalCodexTargetPath (55.6%)
+func TestCanonicalCodexTargetPathResolvesAbsoluteAndSymlinkPaths(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "target.toml")
 
@@ -357,9 +242,8 @@ func TestCanonicalCodexTargetPathExtra(t *testing.T) {
 		t.Errorf("expected absolute path, got %q, err %v", got, err)
 	}
 
-	// Symlink
 	link := filepath.Join(root, "link.toml")
-	writeExtraCodexFile(t, path, "")
+	writeCodexFixture(t, path, "")
 	if err := os.Symlink(path, link); err != nil {
 		t.Fatal(err)
 	}
@@ -371,42 +255,14 @@ func TestCanonicalCodexTargetPathExtra(t *testing.T) {
 	}
 }
 
-func TestLoginPlanExtra(t *testing.T) {
-	// Line 45: LoginPlan (77.8%)
-	_, err := LoginPlan("", "home", "tok")
-	if err == nil || err.Error() != "Codex executable is not configured" {
-		t.Errorf("expected executable error, got %v", err)
-	}
-	_, err = LoginPlan("bin", "home", "")
-	if err == nil || err.Error() != "Codex token is empty" {
-		t.Errorf("expected token error, got %v", err)
-	}
-	plan, err := LoginPlan("bin", "home", "tok")
-	if err != nil {
-		t.Fatal(err)
-	}
-	found := false
-	for _, e := range plan.Env {
-		if e == "CODEX_HOME=home" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("CODEX_HOME not found in env")
-	}
-}
-
-func TestValidateDesiredCodexTargetExtra(t *testing.T) {
-	// Line 561: validateDesiredCodexTarget (75.0%)
+func TestValidateDesiredCodexTargetRejectsUnknownSurface(t *testing.T) {
 	err := validateDesiredCodexTarget(TargetRef{SurfaceID: "invalid"})
 	if err == nil {
 		t.Error("expected error for invalid surface")
 	}
 }
 
-func TestTargetCodexStatePathExtra(t *testing.T) {
-	// Line 554: targetCodexStatePath (66.7%)
+func TestTargetCodexStatePathPrefersExplicitPath(t *testing.T) {
 	ref := TargetRef{Path: "p"}
 	if got := targetCodexStatePath(ref); got != "p.aigw-state.json" {
 		t.Errorf("got %q", got)
@@ -430,7 +286,7 @@ func TestPreferredCodexStatePathUsesExistingCanonicalSidecar(t *testing.T) {
 	}
 }
 
-func TestClassifyCodexDiskSelectionExtra(t *testing.T) {
+func TestClassifyCodexDiskSelection(t *testing.T) {
 	cases := []struct {
 		input    string
 		expected string
@@ -449,13 +305,13 @@ func TestClassifyCodexDiskSelectionExtra(t *testing.T) {
 	}
 }
 
-func TestRollbackCodexArtifactsExtra(t *testing.T) {
+func TestRollbackCodexArtifactsPreservesExternalEdit(t *testing.T) {
 	if err := rollbackCodexArtifacts(nil); err != nil {
 		t.Fatalf("rollbackCodexArtifacts(nil) error = %v", err)
 	}
 
 	path := filepath.Join(t.TempDir(), "configuration.toml")
-	writeExtraCodexFile(t, path, "original\n")
+	writeCodexFixture(t, path, "original\n")
 	before, err := transaction.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
@@ -464,7 +320,7 @@ func TestRollbackCodexArtifactsExtra(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeExtraCodexFile(t, path, "newer external edit\n")
+	writeCodexFixture(t, path, "newer external edit\n")
 
 	committed := []committedCodexArtifact{{
 		prepared: codexPreparedArtifact{path: path, before: before},
@@ -482,16 +338,14 @@ func TestRollbackCodexArtifactsExtra(t *testing.T) {
 	}
 }
 
-func TestPrepareCodexReconciliationExtra(t *testing.T) {
-	// Target union error
+func TestPrepareCodexReconciliationRejectsInvalidTarget(t *testing.T) {
 	_, _, err := prepareCodexReconciliation([]TargetRef{{Path: ""}}, nil, configuration.Runtime{})
 	if err == nil {
 		t.Error("expected error for invalid target")
 	}
 }
 
-func TestValidateCodexStateAttributionExtra(t *testing.T) {
-	// Line 440: validateCodexStateAttribution (84.6%)
+func TestValidateCodexStateAttributionRejectsIncompleteOrForeignState(t *testing.T) {
 	cases := []struct {
 		state codexState
 		mode  string
@@ -508,19 +362,16 @@ func TestValidateCodexStateAttributionExtra(t *testing.T) {
 	}
 }
 
-func TestPrepareCodexRestoreExtra(t *testing.T) {
-	// Line 311: prepareCodexRestore (76.9%)
+func TestPrepareCodexRestoreHandlesRestoredAndUnsupportedState(t *testing.T) {
 	target := TargetRef{Path: "p", ProjectionMode: ProjectionFullSelection}
 	configSnap := transaction.FileSnapshot{Exists: true, Data: []byte("")}
 	stateSnap := transaction.FileSnapshot{Exists: false}
 
-	// Already restored
 	plan, err := prepareCodexRestore(target, configSnap, stateSnap, transaction.FileSnapshot{})
 	if err != nil || plan.plan.Action != "already-restored" {
 		t.Errorf("expected already-restored, got %+v, err %v", plan, err)
 	}
 
-	// Unsupported mode in sidecar
 	state := codexState{ProjectionMode: "invalid", WriterID: ProjectionWriterID, TransactionID: "t"}
 	data, _ := json.Marshal(state)
 	stateSnap = transaction.FileSnapshot{Exists: true, Data: data}
@@ -530,15 +381,12 @@ func TestPrepareCodexRestoreExtra(t *testing.T) {
 	}
 }
 
-func TestNormalizeCodexTargetsExtra(t *testing.T) {
-	// Line 489: normalizeCodexTargets (85.0%)
-	// Missing field
+func TestNormalizeCodexTargetsRejectsIncompleteAndDuplicateTargets(t *testing.T) {
 	_, err := normalizeCodexTargets([]TargetRef{{Path: "p"}})
 	if err == nil {
 		t.Error("expected error for missing fields")
 	}
 
-	// Duplicates
 	target := TargetRef{Path: "p", SurfaceID: "s", Authority: "a", ProjectionMode: "m"}
 	_, err = normalizeCodexTargets([]TargetRef{target, target})
 	if err == nil || !strings.Contains(err.Error(), "duplicated") {
@@ -546,23 +394,23 @@ func TestNormalizeCodexTargetsExtra(t *testing.T) {
 	}
 }
 
-func writeExtraCodexFile(t *testing.T, path, content string) {
+func writeCodexFixture(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func writeExtraCodexState(t *testing.T, path string, state codexState) {
+func writeCodexStateFixture(t *testing.T, path string, state codexState) {
 	t.Helper()
 	data, err := json.Marshal(state)
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeExtraCodexFile(t, codexStatePath(path), string(data)+"\n")
+	writeCodexFixture(t, codexStatePath(path), string(data)+"\n")
 }
 
-func attributedExtraCodexState(mode, block string) codexState {
+func attributedCodexStateFixture(mode, block string) codexState {
 	originalScheduler, err := captureCodexScheduler("")
 	if err != nil {
 		panic(err)

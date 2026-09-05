@@ -35,7 +35,7 @@ func TestInspectConfigReachableStates(t *testing.T) {
 
 	t.Run("sidecar is directory", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeExtraCodexFile(t, path, "model_provider = \"native\"\n")
+		writeCodexFixture(t, path, "model_provider = \"native\"\n")
 		if err := os.Mkdir(codexStatePath(path), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -52,8 +52,8 @@ func TestInspectConfigReachableStates(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeExtraCodexFile(t, path, projection)
-		writeExtraCodexState(t, path, codexState{ManagedBlockHash: hashText(block)})
+		writeCodexFixture(t, path, projection)
+		writeCodexStateFixture(t, path, codexState{ManagedBlockHash: hashText(block)})
 
 		inspection, err := InspectConfig(path)
 		if err != nil {
@@ -73,8 +73,8 @@ func TestInspectConfigReachableStates(t *testing.T) {
 			t.Fatal(err)
 		}
 		projection = modelProviderLine.ReplaceAllString(projection, `model_provider = "native"`)
-		writeExtraCodexFile(t, path, projection)
-		writeExtraCodexState(t, path, attributedExtraCodexState(ProjectionFullSelection, block))
+		writeCodexFixture(t, path, projection)
+		writeCodexStateFixture(t, path, attributedCodexStateFixture(ProjectionFullSelection, block))
 
 		inspection, err := InspectConfig(path)
 		if err != nil {
@@ -93,8 +93,8 @@ func TestInspectConfigReachableStates(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeExtraCodexFile(t, path, projection)
-		writeExtraCodexState(t, path, attributedExtraCodexState(ProjectionFullSelection, block))
+		writeCodexFixture(t, path, projection)
+		writeCodexStateFixture(t, path, attributedCodexStateFixture(ProjectionFullSelection, block))
 
 		inspection, err := InspectConfig(path)
 		if err != nil {
@@ -118,10 +118,10 @@ func TestInspectConfigReachableStates(t *testing.T) {
 			func(state *codexState) { delete(state.OriginalScheduler, "agents.max_threads") },
 		} {
 			path := filepath.Join(t.TempDir(), "configuration.toml")
-			state := attributedExtraCodexState(ProjectionFullSelection, block)
+			state := attributedCodexStateFixture(ProjectionFullSelection, block)
 			mutate(&state)
-			writeExtraCodexFile(t, path, projection)
-			writeExtraCodexState(t, path, state)
+			writeCodexFixture(t, path, projection)
+			writeCodexStateFixture(t, path, state)
 
 			inspection, err := InspectConfig(path)
 			if err != nil {
@@ -138,7 +138,7 @@ func TestInspectConfigReachableStates(t *testing.T) {
 func TestValidateConfigReachableErrors(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	validState := attributedExtraCodexState(ProjectionFullSelection, block)
+	validState := attributedCodexStateFixture(ProjectionFullSelection, block)
 
 	t.Run("sidecar is directory", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
@@ -146,7 +146,7 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeExtraCodexFile(t, path, projection)
+		writeCodexFixture(t, path, projection)
 		if err := os.Mkdir(codexStatePath(path), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -161,8 +161,8 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeExtraCodexFile(t, path, projection)
-		writeExtraCodexFile(t, codexStatePath(path), "{")
+		writeCodexFixture(t, path, projection)
+		writeCodexFixture(t, codexStatePath(path), "{")
 		if err := ValidateConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "parse Codex adapter state") {
 			t.Fatalf("ValidateConfig() error = %v", err)
 		}
@@ -170,8 +170,8 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 
 	t.Run("managed block missing", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeExtraCodexFile(t, path, fmt.Sprintf("model = %q # managed by AIGW\n%s\n", runtime.Model, codexSelection))
-		writeExtraCodexState(t, path, validState)
+		writeCodexFixture(t, path, fmt.Sprintf("model = %q # managed by AIGW\n%s\n", runtime.Model, codexSelection))
+		writeCodexStateFixture(t, path, validState)
 		if err := ValidateConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "provider block is missing") {
 			t.Fatalf("ValidateConfig() error = %v", err)
 		}
@@ -184,8 +184,8 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeExtraCodexFile(t, path, projection)
-		writeExtraCodexState(t, path, attributedExtraCodexState(ProjectionFullSelection, otherBlock))
+		writeCodexFixture(t, path, projection)
+		writeCodexStateFixture(t, path, attributedCodexStateFixture(ProjectionFullSelection, otherBlock))
 		if err := ValidateConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "provider block does not match") {
 			t.Fatalf("ValidateConfig() error = %v", err)
 		}
@@ -193,8 +193,8 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 
 	t.Run("provider selection mismatch", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeExtraCodexFile(t, path, "model_provider = \"native\"\n"+codexBegin+"\n"+block)
-		writeExtraCodexState(t, path, validState)
+		writeCodexFixture(t, path, "model_provider = \"native\"\n"+codexBegin+"\n"+block)
+		writeCodexStateFixture(t, path, validState)
 		if err := ValidateConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "provider selection does not match") {
 			t.Fatalf("ValidateConfig() error = %v", err)
 		}
@@ -207,8 +207,8 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 			t.Fatal(err)
 		}
 		projection = strings.Replace(projection, "max_depth = 1 # managed by AIGW\n", "", 1)
-		writeExtraCodexFile(t, path, projection)
-		writeExtraCodexState(t, path, validState)
+		writeCodexFixture(t, path, projection)
+		writeCodexStateFixture(t, path, validState)
 		if err := ValidateConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "scheduler key") {
 			t.Fatalf("ValidateConfig() error = %v", err)
 		}
@@ -222,8 +222,8 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 		}
 		state := validState
 		state.ProjectedSchedulerHash = "changed"
-		writeExtraCodexFile(t, path, projection)
-		writeExtraCodexState(t, path, state)
+		writeCodexFixture(t, path, projection)
+		writeCodexStateFixture(t, path, state)
 		if err := ValidateConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "scheduler keys changed") {
 			t.Fatalf("ValidateConfig() error = %v", err)
 		}
@@ -247,7 +247,7 @@ func TestCodexUserConfigRejectsInvalidCapturedSchedulerState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := attributedExtraCodexState(ProjectionFullSelection, block)
+	state := attributedCodexStateFixture(ProjectionFullSelection, block)
 	state.OriginalScheduler = map[string]*int{"invalid": nil}
 	stateData, err := json.Marshal(state)
 	if err != nil {
@@ -357,7 +357,7 @@ func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := attributedExtraCodexState(ProjectionFullSelection, block)
+	state := attributedCodexStateFixture(ProjectionFullSelection, block)
 	state.OriginalModel = `model = "native-model"`
 
 	restored, err := removeCodexProjection(current, state)
@@ -379,7 +379,7 @@ func TestRemoveCodexProjectionRejectsIncompleteSchedulerState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := attributedExtraCodexState(ProjectionFullSelection, block)
+	state := attributedCodexStateFixture(ProjectionFullSelection, block)
 	state.OriginalScheduler = map[string]*int{
 		"agents.max_concurrent_threads_per_session":                  nil,
 		"agents.max_depth":                                           nil,
@@ -419,7 +419,7 @@ func TestReadProjectionIdentityErrors(t *testing.T) {
 
 	t.Run("invalid sidecar", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeExtraCodexFile(t, codexStatePath(path), "{")
+		writeCodexFixture(t, codexStatePath(path), "{")
 		if _, err := ReadProjectionIdentity(path); err == nil || !strings.Contains(err.Error(), "parse Codex adapter state") {
 			t.Fatalf("ReadProjectionIdentity() error = %v", err)
 		}
@@ -427,7 +427,7 @@ func TestReadProjectionIdentityErrors(t *testing.T) {
 
 	t.Run("foreign attribution", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeExtraCodexState(t, path, codexState{
+		writeCodexStateFixture(t, path, codexState{
 			ProjectionMode: ProjectionFullSelection,
 			WriterID:       "foreign",
 			TransactionID:  "foreign-transaction",
@@ -447,7 +447,7 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 
 	t.Run("endpoint missing", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeExtraCodexFile(t, path, "external = true\n")
+		writeCodexFixture(t, path, "external = true\n")
 		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, configuration.Runtime{ProfileID: "missing-endpoint"}); err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
 			t.Fatalf("PlanReconciliation() error = %v", err)
 		}
@@ -472,7 +472,7 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 
 	t.Run("sidecar is directory", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeExtraCodexFile(t, path, "external = true\n")
+		writeCodexFixture(t, path, "external = true\n")
 		if err := os.Mkdir(codexStatePath(path), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -483,7 +483,7 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 
 	t.Run("desired mode must be validated before preparation", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeExtraCodexFile(t, path, "external = true\n")
+		writeCodexFixture(t, path, "external = true\n")
 		target := codexHomeTarget(path)
 		target.ProjectionMode = "unsupported"
 		if _, err := PlanReconciliation(nil, []TargetRef{target}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "cannot use authority") {
@@ -493,7 +493,7 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 
 	t.Run("invalid desired authority", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeExtraCodexFile(t, path, "external = true\n")
+		writeCodexFixture(t, path, "external = true\n")
 		target := codexHomeTarget(path)
 		target.Authority = "foreign"
 		if _, err := PlanReconciliation(nil, []TargetRef{target}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "cannot use authority") {
