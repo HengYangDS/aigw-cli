@@ -3,6 +3,7 @@ package main
 import (
 	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/construction"
+	"aigw-cli/tools/release/publication"
 	"aigw-cli/tools/release/readiness"
 	"context"
 	"errors"
@@ -97,7 +98,7 @@ func publicationCommands() commandSet {
 			if err := requireArguments(args, 1, "usage: release publish-github <artifact-directory>"); err != nil {
 				return err
 			}
-			created, err := publishGitHubRelease(context.Background(), http.DefaultClient, githubPublishConfig{
+			created, err := publication.PublishGitHub(context.Background(), http.DefaultClient, publication.GitHubConfig{
 				APIBase: envDefault("GITHUB_API_URL", "https://api.github.com"), Repository: os.Getenv("GITHUB_REPOSITORY"),
 				Tag: os.Getenv("CI_COMMIT_TAG"), Token: firstNonEmpty(os.Getenv("GH_TOKEN"), os.Getenv("GITHUB_TOKEN")), Artifacts: args[0],
 			})
@@ -110,7 +111,7 @@ func publicationCommands() commandSet {
 			if err := requireArguments(args, 1, "usage: release upload-gitlab <artifact-directory>"); err != nil {
 				return err
 			}
-			return uploadGitLabArtifacts(context.Background(), http.DefaultClient, gitLabPublishConfig{
+			return publication.UploadGitLab(context.Background(), http.DefaultClient, publication.GitLabConfig{
 				APIBase: os.Getenv("CI_API_V4_URL"), ProjectID: os.Getenv("CI_PROJECT_ID"), Tag: os.Getenv("CI_COMMIT_TAG"),
 				Token: os.Getenv("CI_JOB_TOKEN"), Artifacts: args[0],
 			})
@@ -119,7 +120,7 @@ func publicationCommands() commandSet {
 			if err := requireArguments(args, 1, "usage: release publish-gitlab <artifact-directory>"); err != nil {
 				return err
 			}
-			created, err := publishGitLabRelease(context.Background(), http.DefaultClient, gitLabPublishConfig{
+			created, err := publication.PublishGitLab(context.Background(), http.DefaultClient, publication.GitLabConfig{
 				APIBase: os.Getenv("CI_API_V4_URL"), ProjectID: os.Getenv("CI_PROJECT_ID"), Tag: os.Getenv("CI_COMMIT_TAG"),
 				Token: os.Getenv("CI_JOB_TOKEN"), Artifacts: args[0],
 			})

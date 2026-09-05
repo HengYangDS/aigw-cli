@@ -46,18 +46,21 @@ func verifiedDigests(directory, version string) (map[string]string, error) {
 	slices.Sort(actual)
 	expected := slices.Clone(wanted)
 	slices.Sort(expected)
+	localDigests := make(map[string]string, len(wanted)-1)
+	var manifest []byte
 	for _, name := range wanted {
-		information, statErr := os.Stat(filepath.Join(directory, name))
-		if statErr != nil || information.Size() == 0 {
+		data, readErr := os.ReadFile(filepath.Join(directory, name))
+		if readErr != nil || len(data) == 0 {
 			return nil, fmt.Errorf("release artifact matrix: missing or empty artifact: %s", name)
+		}
+		if name == "checksums.txt" {
+			manifest = data
+		} else {
+			localDigests[name] = fmt.Sprintf("%x", sha256.Sum256(data))
 		}
 	}
 	if !slices.Equal(actual, expected) {
 		return nil, fmt.Errorf("release artifact matrix: unexpected or missing files: %v", actual)
-	}
-	manifest, err := os.ReadFile(filepath.Join(directory, "checksums.txt"))
-	if err != nil {
-		return nil, err
 	}
 	digests := map[string]string{}
 	for line := range strings.Lines(string(manifest)) {
@@ -72,12 +75,7 @@ func verifiedDigests(directory, version string) (map[string]string, error) {
 		digests[name] = strings.ToLower(fields[0])
 	}
 	for _, name := range wanted[:len(wanted)-1] {
-		data, readErr := os.ReadFile(filepath.Join(directory, name))
-		if readErr != nil {
-			return nil, readErr
-		}
-		actualDigest := fmt.Sprintf("%x", sha256.Sum256(data))
-		if digests[name] != actualDigest {
+		if digests[name] != localDigests[name] {
 			return nil, fmt.Errorf("release artifact matrix: checksum mismatch for %s", name)
 		}
 	}

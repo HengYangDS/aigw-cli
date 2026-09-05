@@ -1,4 +1,4 @@
-package main
+package publication
 
 import (
 	"aigw-cli/tools/release/artifact"
@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-type githubPublishConfig struct {
+type GitHubConfig struct {
 	APIBase    string
 	Repository string
 	Tag        string
@@ -25,7 +25,7 @@ type githubPublishConfig struct {
 	Artifacts  string
 }
 
-type gitLabPublishConfig struct {
+type GitLabConfig struct {
 	APIBase   string
 	ProjectID string
 	Tag       string
@@ -42,7 +42,7 @@ type githubRelease struct {
 	} `json:"assets"`
 }
 
-func publishGitHubRelease(ctx context.Context, client *http.Client, config githubPublishConfig) (bool, error) {
+func PublishGitHub(ctx context.Context, client *http.Client, config GitHubConfig) (bool, error) {
 	version, err := publishInputs(config.APIBase, config.Repository, config.Tag, config.Token, config.Artifacts)
 	if err != nil {
 		return false, err
@@ -89,7 +89,7 @@ func publishGitHubRelease(ctx context.Context, client *http.Client, config githu
 	return created, nil
 }
 
-func publishGitLabRelease(ctx context.Context, client *http.Client, config gitLabPublishConfig) (bool, error) {
+func PublishGitLab(ctx context.Context, client *http.Client, config GitLabConfig) (bool, error) {
 	version, err := publishInputs(config.APIBase, config.ProjectID, config.Tag, config.Token, config.Artifacts)
 	if err != nil {
 		return false, err
@@ -130,7 +130,7 @@ func publishGitLabRelease(ctx context.Context, client *http.Client, config gitLa
 	return created, nil
 }
 
-func uploadGitLabArtifacts(ctx context.Context, client *http.Client, config gitLabPublishConfig) error {
+func UploadGitLab(ctx context.Context, client *http.Client, config GitLabConfig) error {
 	version, err := publishInputs(config.APIBase, config.ProjectID, config.Tag, config.Token, config.Artifacts)
 	if err != nil {
 		return err
@@ -205,7 +205,7 @@ func githubRequest(ctx context.Context, client *http.Client, method, endpoint, t
 	return release, response.StatusCode, nil
 }
 
-func uploadGitHubAssets(ctx context.Context, client *http.Client, config githubPublishConfig, release githubRelease) error {
+func uploadGitHubAssets(ctx context.Context, client *http.Client, config GitHubConfig, release githubRelease) error {
 	uploadURL := strings.Split(release.UploadURL, "{")[0]
 	if uploadURL == "" {
 		return errors.New("GitHub release response has no upload URL")
@@ -238,7 +238,7 @@ func uploadGitHubAssets(ctx context.Context, client *http.Client, config githubP
 	return nil
 }
 
-func verifyGitHubAssets(ctx context.Context, client *http.Client, config githubPublishConfig, release githubRelease, version string) error {
+func verifyGitHubAssets(ctx context.Context, client *http.Client, config GitHubConfig, release githubRelease, version string) error {
 	expected := artifact.Names(version)
 	actual := make([]string, 0, len(release.Assets))
 	assets := map[string]string{}
@@ -297,7 +297,7 @@ func gitLabRequest(ctx context.Context, client *http.Client, method, endpoint, t
 	return release, response.StatusCode, nil
 }
 
-func verifyGitLabAssets(ctx context.Context, client *http.Client, config gitLabPublishConfig, expected releasePayload, actual remoteRelease, version string) error {
+func verifyGitLabAssets(ctx context.Context, client *http.Client, config GitLabConfig, expected releasePayload, actual remoteRelease, version string) error {
 	if actual.TagName != config.Tag {
 		return errors.New("GitLab release verification returned the wrong tag")
 	}

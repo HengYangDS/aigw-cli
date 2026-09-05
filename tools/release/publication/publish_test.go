@@ -1,4 +1,4 @@
-package main
+package publication
 
 import (
 	"aigw-cli/tools/release/artifact"
@@ -34,19 +34,19 @@ func TestUploadGitLabArtifactsUsesGenericPackageAPI(t *testing.T) {
 		response.WriteHeader(http.StatusCreated)
 	}))
 	defer server.Close()
-	if err := uploadGitLabArtifacts(context.Background(), server.Client(), gitLabPublishConfig{APIBase: server.URL, ProjectID: "7", Tag: "v1.2.3", Token: "token", Artifacts: directory}); err != nil {
+	if err := UploadGitLab(context.Background(), server.Client(), GitLabConfig{APIBase: server.URL, ProjectID: "7", Tag: "v1.2.3", Token: "token", Artifacts: directory}); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestUploadGitLabArtifactsFailsClosedAtEveryBoundary(t *testing.T) {
-	valid := gitLabPublishConfig{APIBase: "https://example.test/api/v4", ProjectID: "7", Tag: "v1.2.3", Token: "token", Artifacts: t.TempDir()}
-	if err := uploadGitLabArtifacts(context.Background(), http.DefaultClient, gitLabPublishConfig{}); err == nil {
+	valid := GitLabConfig{APIBase: "https://example.test/api/v4", ProjectID: "7", Tag: "v1.2.3", Token: "token", Artifacts: t.TempDir()}
+	if err := UploadGitLab(context.Background(), http.DefaultClient, GitLabConfig{}); err == nil {
 		t.Fatal("invalid upload inputs accepted")
 	}
 	missing := valid
 	missing.Artifacts = filepath.Join(t.TempDir(), "missing")
-	if err := uploadGitLabArtifacts(context.Background(), http.DefaultClient, missing); err == nil {
+	if err := UploadGitLab(context.Background(), http.DefaultClient, missing); err == nil {
 		t.Fatal("missing artifact directory accepted")
 	}
 	if err := os.Mkdir(filepath.Join(valid.Artifacts, "nested"), 0o700); err != nil {
@@ -58,13 +58,13 @@ func TestUploadGitLabArtifactsFailsClosedAtEveryBoundary(t *testing.T) {
 	transport := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 		return nil, errors.New("upload unavailable")
 	})}
-	if err := uploadGitLabArtifacts(context.Background(), transport, valid); err == nil || !strings.Contains(err.Error(), "upload unavailable") {
+	if err := UploadGitLab(context.Background(), transport, valid); err == nil || !strings.Contains(err.Error(), "upload unavailable") {
 		t.Fatalf("transport error = %v", err)
 	}
 	status := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 		return response(http.StatusConflict, ""), nil
 	})}
-	if err := uploadGitLabArtifacts(context.Background(), status, valid); err == nil || !strings.Contains(err.Error(), "HTTP 409") {
+	if err := UploadGitLab(context.Background(), status, valid); err == nil || !strings.Contains(err.Error(), "HTTP 409") {
 		t.Fatalf("status error = %v", err)
 	}
 }
@@ -118,7 +118,7 @@ func TestGitHubPublisherCreatesAndVerifiesImmutableRelease(t *testing.T) {
 	}))
 	defer server.Close()
 
-	createdNow, err := publishGitHubRelease(context.Background(), server.Client(), githubPublishConfig{
+	createdNow, err := PublishGitHub(context.Background(), server.Client(), GitHubConfig{
 		APIBase:    server.URL,
 		Repository: "acme/aigw",
 		Tag:        "v0.1.0-rc.1",
@@ -149,7 +149,7 @@ func TestGitHubPublisherRejectsExistingMismatchWithoutMutation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if _, err := publishGitHubRelease(context.Background(), server.Client(), githubPublishConfig{
+	if _, err := PublishGitHub(context.Background(), server.Client(), GitHubConfig{
 		APIBase: server.URL, Repository: "acme/aigw", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts,
 	}); err == nil || !strings.Contains(err.Error(), "differs") {
 		t.Fatalf("mismatch accepted: %v", err)
@@ -171,7 +171,7 @@ func TestGitHubPublisherAcceptsExistingExactRelease(t *testing.T) {
 	}))
 	defer server.Close()
 
-	created, err := publishGitHubRelease(context.Background(), server.Client(), githubPublishConfig{
+	created, err := PublishGitHub(context.Background(), server.Client(), GitHubConfig{
 		APIBase: server.URL, Repository: "acme/aigw", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts,
 	})
 	if err != nil || created {
@@ -205,7 +205,7 @@ func TestGitLabPublisherCreatesAndVerifiesImmutableRelease(t *testing.T) {
 	}))
 	defer server.Close()
 
-	createdNow, err := publishGitLabRelease(context.Background(), server.Client(), gitLabPublishConfig{
+	createdNow, err := PublishGitLab(context.Background(), server.Client(), GitLabConfig{
 		APIBase: server.URL + "/api/v4", ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts,
 	})
 	if err != nil {
@@ -231,7 +231,7 @@ func TestGitLabPublisherAcceptsExistingExactRelease(t *testing.T) {
 	}))
 	defer server.Close()
 
-	created, err := publishGitLabRelease(context.Background(), server.Client(), gitLabPublishConfig{
+	created, err := PublishGitLab(context.Background(), server.Client(), GitLabConfig{
 		APIBase: server.URL + "/api/v4", ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts,
 	})
 	if err != nil || created {
@@ -261,12 +261,12 @@ func TestPublishersRejectUnexpectedRemoteStates(t *testing.T) {
 		_, _ = response.Write([]byte(`{"message":"failed"}`))
 	}))
 	defer server.Close()
-	if _, err := publishGitHubRelease(context.Background(), server.Client(), githubPublishConfig{
+	if _, err := PublishGitHub(context.Background(), server.Client(), GitHubConfig{
 		APIBase: server.URL, Repository: "acme/aigw", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts,
 	}); err == nil {
 		t.Fatal("GitHub 500 accepted")
 	}
-	if _, err := publishGitLabRelease(context.Background(), server.Client(), gitLabPublishConfig{
+	if _, err := PublishGitLab(context.Background(), server.Client(), GitLabConfig{
 		APIBase: server.URL, ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts,
 	}); err == nil {
 		t.Fatal("GitLab 500 accepted")
@@ -280,13 +280,13 @@ func TestPublishersRejectInvalidArtifactsAndTransportFailure(t *testing.T) {
 	})}
 	for name, publish := range map[string]func(string, *http.Client) error{
 		"github": func(artifacts string, client *http.Client) error {
-			_, err := publishGitHubRelease(context.Background(), client, githubPublishConfig{
+			_, err := PublishGitHub(context.Background(), client, GitHubConfig{
 				APIBase: "https://example.test", Repository: "acme/aigw", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts,
 			})
 			return err
 		},
 		"gitlab": func(artifacts string, client *http.Client) error {
-			_, err := publishGitLabRelease(context.Background(), client, gitLabPublishConfig{
+			_, err := PublishGitLab(context.Background(), client, GitLabConfig{
 				APIBase: "https://example.test/api/v4", ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts,
 			})
 			return err
