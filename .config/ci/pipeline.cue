@@ -40,7 +40,7 @@ commands: {
 }
 
 nativeToolchain: MISE_ENABLE_TOOLS:           "go,cue"
-sourceToolchain: MISE_ENABLE_TOOLS:           "go,node,cue,editorconfig-checker,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
+sourceToolchain: MISE_ENABLE_TOOLS:           "go,node,cue,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee"
 releaseReadinessToolchain: MISE_ENABLE_TOOLS: "go"
 
 lifecycle: {
