@@ -1,0 +1,3 @@
+# Quality and release scans use complete dependency evidence, without local filters.
+IgnoredVulns = []
+PackageOverrides = []

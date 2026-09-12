@@ -33,7 +33,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "run", "./tools/ci", "check-toml", "."},
 		{"go", "mod", "tidy", "-diff"},
 		{"go", "mod", "verify"},
-		{"osv-scanner", "scan", "source", "--lockfile", "go.mod", "--lockfile", "package-lock.json", "--format", "table", "--verbosity", "warn", "."},
+		{"osv-scanner", "scan", "source", "--config", ".config/checks/dependencies/policy.toml", "--lockfile", "go.mod", "--lockfile", "package-lock.json", "--format", "table", "--verbosity", "warn", "."},
 		{"go", "run", "./tools/ci", "check-secrets", "."},
 		{"go", "run", "./tools/release", "validate-toolchain", "go.mod"},
 		{"go", "run", "./tools/release", "validate-release-sources"},

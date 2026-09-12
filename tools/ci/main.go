@@ -31,7 +31,7 @@ var qualityCommands = []command{
 	{Name: "go", Args: []string{"run", "./tools/ci", "check-toml", "."}},
 	{Name: "go", Args: []string{"mod", "tidy", "-diff"}},
 	{Name: "go", Args: []string{"mod", "verify"}},
-	{Name: "osv-scanner", Args: []string{"scan", "source", "--lockfile", "go.mod", "--lockfile", "package-lock.json", "--format", "table", "--verbosity", "warn", "."}},
+	{Name: "osv-scanner", Args: []string{"scan", "source", "--config", ".config/checks/dependencies/policy.toml", "--lockfile", "go.mod", "--lockfile", "package-lock.json", "--format", "table", "--verbosity", "warn", "."}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "check-secrets", "."}},
 	{Name: "go", Args: []string{"run", "./tools/release", "validate-toolchain", "go.mod"}},
 	{Name: "go", Args: []string{"run", "./tools/release", "validate-release-sources"}},

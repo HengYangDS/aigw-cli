@@ -100,6 +100,7 @@ func buildRelease(request buildRequest, run toolRunner) (result error) {
 		Name: "osv-scanner", Directory: request.Root,
 		Args: []string{
 			"scan", "source",
+			"--config", filepath.Join(request.Root, ".config", "checks", "dependencies", "policy.toml"),
 			"--lockfile", lockfiles[0],
 			"--lockfile", lockfiles[1],
 			"--no-call-analysis=go", "--format", "json", "--all-packages", "--licenses=",

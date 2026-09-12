@@ -1,6 +1,9 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -143,11 +146,85 @@ func TestSourceCommandsKeepSuccessfulOutputQuietWithoutSuppressingWarnings(t *te
 		t.Fatal(err)
 	}
 	want := []command{
-		{Name: "osv-scanner", Args: []string{"scan", "source", "--lockfile", "go.mod", "--lockfile", "package-lock.json", "--format", "table", "--verbosity", "warn", "."}},
+		{Name: "osv-scanner", Args: []string{"scan", "source", "--config", ".config/checks/dependencies/policy.toml", "--lockfile", "go.mod", "--lockfile", "package-lock.json", "--format", "table", "--verbosity", "warn", "."}},
 	}
 	for _, expected := range want {
 		if !slices.ContainsFunc(commands, func(call command) bool { return reflect.DeepEqual(call, expected) }) {
 			t.Fatalf("source commands lack quiet-success contract %#v: %#v", expected, commands)
+		}
+	}
+}
+
+func TestDependencyScanUsesOwnedPolicyWithoutChangingCallerFilters(t *testing.T) {
+	policy := ".config/checks/dependencies/policy.toml"
+	content := readFile(t, filepath.Join(repositoryRoot(t), filepath.FromSlash(policy)))
+	root := t.TempDir()
+	filter := "[[PackageOverrides]]\nignore = true\n"
+	inputs := map[string][]byte{
+		policy:              content,
+		"go.mod":            []byte("module example.com/fixture\ngo 1.23.0\nrequire example.com/dependency v1.0.0\n"),
+		"package-lock.json": []byte(`{"name":"fixture","version":"1.0.0","lockfileVersion":3,"packages":{"node_modules/dependency":{"version":"1.0.0"}}}`),
+		"osv-scanner.toml":  []byte(filter),
+	}
+	// Native offline databases make this configuration test independent of the network.
+	var database bytes.Buffer
+	if err := zip.NewWriter(&database).Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, ecosystem := range []string{"Go", "npm"} {
+		inputs[filepath.Join("cache", "osv-scalibr", ecosystem, "all.zip")] = database.Bytes()
+	}
+	for name, data := range inputs {
+		path := filepath.Join(root, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	commands, err := configuredSourceCommands()
+	if err != nil {
+		t.Fatal(err)
+	}
+	index := slices.IndexFunc(commands, func(call command) bool { return call.Name == "osv-scanner" })
+	if index < 0 {
+		t.Fatal("source gate has no dependency scan")
+	}
+	call := commands[index]
+	call.Dir = root
+	call.Env = []string{"OSV_SCALIBR_LOCAL_DB_CACHE_DIRECTORY=" + filepath.Join(root, "cache")}
+	// The private test checkout lives beneath the repository's ignored build tree.
+	call.Args = append(slices.Clone(call.Args), "--no-ignore", "--offline", "--no-call-analysis=go", "--format=json", "--all-packages")
+	output, err := systemOutputRunner(call)
+	if err != nil {
+		t.Fatalf("native dependency scan failed: %v\n%s", err, output)
+	}
+	var report struct {
+		Results []struct {
+			Packages []struct {
+				Package struct {
+					Name string `json:"name"`
+				} `json:"package"`
+			} `json:"packages"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(output, &report); err != nil {
+		t.Fatalf("decode native dependency scan: %v\n%s", err, output)
+	}
+	var names []string
+	for _, result := range report.Results {
+		for _, item := range result.Packages {
+			names = append(names, item.Package.Name)
+		}
+	}
+	slices.Sort(names)
+	if !slices.Equal(names, []string{"dependency", "example.com/dependency"}) {
+		t.Fatalf("dependency inventory = %v, want both unfiltered lockfiles", names)
+	}
+	for name, expected := range inputs {
+		if actual := readFile(t, filepath.Join(root, filepath.FromSlash(name))); !bytes.Equal(actual, expected) {
+			t.Fatalf("dependency scan changed %s", name)
 		}
 	}
 }

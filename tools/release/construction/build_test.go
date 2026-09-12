@@ -133,7 +133,7 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 		t.Fatalf("calls = %#v", calls)
 	}
 	osv := calls[slices.IndexFunc(calls, func(call toolCall) bool { return call.Name == "osv-scanner" })]
-	for _, expected := range []string{"scan", "source", "--lockfile", filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json"), "--no-call-analysis=go", "--all-packages", "--licenses="} {
+	for _, expected := range []string{"scan", "source", "--config", filepath.Join(root, ".config", "checks", "dependencies", "policy.toml"), "--lockfile", filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json"), "--no-call-analysis=go", "--all-packages", "--licenses="} {
 		if !slices.Contains(osv.Args, expected) {
 			t.Fatalf("OSV arguments missing %q: %v", expected, osv.Args)
 		}
