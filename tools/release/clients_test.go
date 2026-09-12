@@ -120,7 +120,11 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 		t.Run(client, func(t *testing.T) {
 			var completions atomic.Int64
 			path := map[string]string{"claude": "/v1/messages", "codex": "/v1/responses"}[client]
-			request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"stream":true}`))
+			body := map[string]string{
+				"codex":  `{"stream":true,"reasoning":{"effort":"high"}}`,
+				"claude": `{"stream":true,"output_config":{"effort":"high"}}`,
+			}[client]
+			request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 			request.Header.Set("Authorization", "Bearer synthetic")
 			response := httptest.NewRecorder()
 			clientResponseHandler(client, "synthetic", &completions).ServeHTTP(response, request)
@@ -135,6 +139,8 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 				{http.MethodPost, "/wrong", "synthetic", `{"stream":true}`, http.StatusNotFound},
 				{http.MethodGet, path, "synthetic", `{"stream":true}`, http.StatusMethodNotAllowed},
 				{http.MethodPost, path, "synthetic", `{"stream":false}`, http.StatusBadRequest},
+				{http.MethodPost, path, "synthetic", `{"stream":true}`, http.StatusBadRequest},
+				{http.MethodPost, path, "synthetic", strings.ReplaceAll(body, "high", "low"), http.StatusBadRequest},
 			} {
 				request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
 				request.Header.Set("Authorization", "Bearer "+test.credential)
@@ -214,6 +220,7 @@ func TestNativeClientJourney(t *testing.T) {
 					journey.requireProgramBytes(step.program)
 					count := completions.Load()
 					journey.run("verify", "--for", client)
+					journey.requireNativePreferences(client)
 					if completions.Load() <= count {
 						t.Fatal("client returned without an authenticated streaming request")
 					}
@@ -227,6 +234,7 @@ func TestNativeClientJourney(t *testing.T) {
 			journey.testing = t
 			journey.runWith(candidate, "uninstall", "--target", journey.binary)
 			journey.requireOwnedFilesAbsent()
+			journey.requireNativePreferences(client)
 			if err := before(); err != nil {
 				t.Fatal(err)
 			}
@@ -240,6 +248,20 @@ func (j *journeyFixture) prepareNativeClient(client, executable string) {
 	j.environment = environmentWithout(j.environment, "CODEX_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL")
 	j.setEnvironment("CODEX_HOME", filepath.Join(home, ".codex"))
 	j.setEnvironment("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
+	preferences := map[string]string{
+		configuration.ClientCodex:  "model_reasoning_effort = 'high'\nmodel_context_window = 500000\nmodel_auto_compact_token_limit = 450000\n",
+		configuration.ClientClaude: `{"effortLevel":"high","autoCompactWindow":180000}`,
+	}
+	path := j.settings
+	if client == configuration.ClientCodex {
+		path = filepath.Join(home, ".codex", "config.toml")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		j.testing.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(preferences[client]), 0o600); err != nil {
+		j.testing.Fatal(err)
+	}
 	manifest, err := configuration.Parse(readFile(j.testing, j.manifest))
 	if err != nil {
 		j.testing.Fatal(err)
@@ -274,6 +296,35 @@ func (j *journeyFixture) enableNativeClient(client, executable string) {
 	j.run(args...)
 	j.run("sync")
 	j.testing.Logf("client %s version=%s", client, strings.TrimSpace(string(j.runWith(executable, "--version"))))
+}
+
+func (j *journeyFixture) requireNativePreferences(client string) {
+	j.testing.Helper()
+	if client == configuration.ClientCodex {
+		var preferences struct {
+			Effort  string `toml:"model_reasoning_effort"`
+			Window  int    `toml:"model_context_window"`
+			Compact int    `toml:"model_auto_compact_token_limit"`
+		}
+		path := filepath.Join(j.root, "home", ".codex", "config.toml")
+		if err := toml.Unmarshal(readFile(j.testing, path), &preferences); err != nil {
+			j.testing.Fatal(err)
+		}
+		if preferences.Effort != "high" || preferences.Window != 500000 || preferences.Compact != 450000 {
+			j.testing.Fatalf("Codex preferences changed: %+v", preferences)
+		}
+		return
+	}
+	var preferences struct {
+		Effort  string `json:"effortLevel"`
+		Compact int    `json:"autoCompactWindow"`
+	}
+	if err := json.Unmarshal(readFile(j.testing, j.settings), &preferences); err != nil {
+		j.testing.Fatal(err)
+	}
+	if preferences.Effort != "high" || preferences.Compact != 180000 {
+		j.testing.Fatalf("Claude preferences changed: %+v", preferences)
+	}
 }
 
 func (j *journeyFixture) preserveClientFiles(client string) func() error {
@@ -328,10 +379,24 @@ func clientResponseHandler(client, token string, completions *atomic.Int64) http
 	path := map[string]string{"claude": "/v1/messages", "codex": "/v1/responses"}[client]
 	mux.HandleFunc("POST "+path, func(response http.ResponseWriter, request *http.Request) {
 		var input struct {
-			Stream bool `json:"stream"`
+			Stream    bool `json:"stream"`
+			Reasoning struct {
+				Effort string `json:"effort"`
+			} `json:"reasoning"`
+			OutputConfig struct {
+				Effort string `json:"effort"`
+			} `json:"output_config"`
 		}
 		if err := json.NewDecoder(request.Body).Decode(&input); err != nil || !input.Stream {
 			http.Error(response, "stream required", http.StatusBadRequest)
+			return
+		}
+		effort := input.Reasoning.Effort
+		if client == configuration.ClientClaude {
+			effort = input.OutputConfig.Effort
+		}
+		if effort != "high" {
+			http.Error(response, "configured high effort required", http.StatusBadRequest)
 			return
 		}
 		response.Header().Set("Content-Type", "text/event-stream")

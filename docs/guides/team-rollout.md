@@ -108,6 +108,12 @@ client's model metadata unless the selected provider's larger limit has been
 verified. A catalog listing or a successful short request does not prove a
 full-window request will succeed.
 
+The native client lifecycle acceptance preserves these user-owned settings
+through setup, synchronization, upgrade, rollback and uninstall. Its controlled
+upstream requires the selected `high` effort in actual Codex and Claude
+requests. Preserving context and compaction values does not establish a
+provider's maximum context capacity or prove that compaction has executed.
+
 ### Client compatibility
 
 Check `codex --version` or `claude --version` and run `aigw verify --for <client>`
