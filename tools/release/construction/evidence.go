@@ -1,6 +1,7 @@
 package construction
 
 import (
+	"aigw-cli/tools/release/artifact"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -201,6 +202,10 @@ func normalizeSPDX(source, target, version string, instant time.Time) error {
 	var document map[string]any
 	if err := json.Unmarshal(data, &document); err != nil {
 		return fmt.Errorf("decode Syft SPDX document: %w", err)
+	}
+	files, ok := document["files"].([]any)
+	if !ok || len(files) != len(artifact.Archives(version)) {
+		return errors.New("Syft SPDX document must describe the complete release binary matrix")
 	}
 	creation, _ := document["creationInfo"].(map[string]any)
 	if creation == nil {

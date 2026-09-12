@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -63,6 +62,10 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 
 	t.Run("missing portable binary", func(t *testing.T) {
 		err := buildRelease(valid, func(call toolCall) error {
+			if call.Name == "syft" {
+				path := strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json=")
+				return os.WriteFile(path, []byte(`{"spdxVersion":"SPDX-2.3"}`), 0o600)
+			}
 			if call.Name != "goreleaser" {
 				return nil
 			}
@@ -77,7 +80,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 			}
 			return nil
 		})
-		if err == nil || !strings.Contains(err.Error(), "no portable binary") {
+		if err == nil || !strings.Contains(err.Error(), "binary matrix") {
 			t.Fatalf("missing binary error = %v", err)
 		}
 	})
@@ -135,7 +138,7 @@ func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 			if err := os.Remove(filepath.Join(candidate, artifact.Names(valid.Version)[0])); err != nil {
 				return err
 			}
-			return os.WriteFile(raw, []byte(`{"spdxVersion":"SPDX-2.3"}`), 0o600)
+			return os.WriteFile(raw, spdxFixture("1.2.3"), 0o600)
 		})
 		if err == nil {
 			t.Fatal("missing checksum input was accepted")
@@ -152,7 +155,7 @@ func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(candidate, "unexpected.bin"), []byte("unexpected"), 0o600); err != nil {
 				return err
 			}
-			return os.WriteFile(raw, []byte(`{"spdxVersion":"SPDX-2.3"}`), 0o600)
+			return os.WriteFile(raw, spdxFixture("1.2.3"), 0o600)
 		})
 		if err == nil || !strings.Contains(err.Error(), "unexpected") {
 			t.Fatalf("unexpected matrix error = %v", err)
@@ -286,23 +289,6 @@ func TestReleaseBuildEnvironment(t *testing.T) {
 	}
 	if _, err := buildRequestFromEnvironment("dist"); err == nil || !strings.Contains(err.Error(), "open CHANGELOG") {
 		t.Fatalf("missing release chronology error = %v", err)
-	}
-}
-
-func TestPortableBinaryDiscovery(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("this fixture provides a Unix executable")
-	}
-	stage := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(stage, "portable_linux_amd64"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	binary := filepath.Join(stage, "portable_linux_amd64", "aigw")
-	if err := os.WriteFile(binary, []byte("binary"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if got, err := firstPortableBinary(stage); err != nil || got != binary {
-		t.Fatalf("binary = %q error=%v", got, err)
 	}
 }
 

@@ -296,6 +296,15 @@ and `SOURCE_DATE_EPOCH` from the committed Changelog date. The build emits the
 complete portable archive matrix, checksums, and SPDX SBOM. Repeating the build
 with the same inputs must produce identical bytes.
 
+The SPDX SBOM catalogs every emitted native binary in the isolated GoReleaser
+stage, including platform-specific dependencies. Syft's Go-binary and file
+catalogers own discovery and checksums; scanning only the first binary or the
+compressed archive directory is insufficient. Native conformance compares every
+reported binary path and SHA-256 with the complete generated matrix. Missing
+or additional binary entries fail normalization before signing. This runtime
+inventory is distinct from the license and vulnerability evidence for the full
+Go and npm dependency locks.
+
 An untagged candidate uses the distinct version in `VERSION`. Until that
 version has a published Changelog entry, its reproducible timestamp comes from
 the exact source commit, not the wall clock or an invented release heading.

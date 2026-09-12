@@ -165,6 +165,23 @@ be narrow, justified, and owned by the same authority.
 - **AND** table-column alignment SHALL be checked by the native rule rather
   than a repository-specific parser.
 
+### Requirement: Release SBOM covers the native binary matrix
+
+The release builder SHALL catalog every emitted native executable through the
+locked Syft Go-binary and file catalogers. It SHALL retain platform-specific
+dependencies and file digests in one SPDX document without a custom SBOM merger.
+
+#### Scenario: Native release evidence is constructed
+
+- **WHEN** the portable release matrix is built
+- **THEN** native conformance SHALL compare every SBOM binary path and SHA-256
+  with the emitted executable matrix
+- **AND** a missing or extra binary count SHALL fail before release signing
+- **AND** a single selected binary or a scan of compressed archives SHALL NOT
+  establish complete platform coverage
+- **AND** full-lock license and vulnerability evidence SHALL remain distinct
+  from the binary runtime inventory.
+
 ### Requirement: Quantitative policy is evidence-derived
 
 Complexity, executable lines, nesting, parameters, coverage, performance, and

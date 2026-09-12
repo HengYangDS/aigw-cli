@@ -86,13 +86,9 @@ func buildRelease(request buildRequest, run toolRunner) (result error) {
 			return err
 		}
 	}
-	binary, err := firstPortableBinary(stage)
-	if err != nil {
-		return err
-	}
 	sbom := filepath.Join(candidate, "aigw_"+request.Version+".spdx.json")
 	rawSBOM := filepath.Join(stage, "aigw.spdx.json")
-	if err := run(toolCall{Name: "syft", Directory: request.Root, Args: []string{"scan", "file:" + binary, "--source-name", "aigw", "--source-version", request.Version, "-o", "spdx-json=" + rawSBOM}}); err != nil {
+	if err := run(toolCall{Name: "syft", Directory: request.Root, Args: []string{"scan", "dir:" + stage, "--override-default-catalogers", "go-module-binary-cataloger,file", "--source-name", "aigw", "--source-version", request.Version, "-o", "spdx-json=" + rawSBOM}}); err != nil {
 		return fmt.Errorf("generate release SBOM: %w", err)
 	}
 	if err := normalizeSPDX(rawSBOM, sbom, request.Version, instant); err != nil {
@@ -327,14 +323,6 @@ func ensureCleanSource(root string, run toolRunner) error {
 		return errors.New("release construction requires committed source")
 	}
 	return nil
-}
-
-func firstPortableBinary(stage string) (string, error) {
-	matches, err := filepath.Glob(filepath.Join(stage, "portable_*", "aigw*"))
-	if err != nil || len(matches) == 0 {
-		return "", errors.New("GoReleaser produced no portable binary for SBOM generation")
-	}
-	return matches[0], nil
 }
 
 // Build constructs the portable release matrix for the current repository.

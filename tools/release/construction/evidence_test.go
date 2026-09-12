@@ -1,16 +1,30 @@
 package construction
 
 import (
+	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 )
+
+func spdxFixture(version string) []byte {
+	files := make([]string, 0, len(artifact.Archives(version)))
+	for _, archive := range artifact.Archives(version) {
+		name := strings.TrimSuffix(strings.TrimSuffix(archive, ".tar.gz"), ".zip")
+		files = append(files, fmt.Sprintf(`{"fileName":%q}`, name+"/aigw"))
+	}
+	return []byte(`{"spdxVersion":"SPDX-2.3","documentNamespace":"https://volatile.invalid/random","creationInfo":{"created":"2099-01-01T00:00:00Z"},"files":[` + strings.Join(files, ",") + `]}`)
+}
 
 type osvFixtureReport struct {
 	ExperimentalConfig map[string]string  `json:"experimental_config,omitempty"`
@@ -166,8 +180,7 @@ func TestNormalizeDependencyEvidenceRemovesHostAndVolatileMetadata(t *testing.T)
 func TestNormalizedSPDXIsDeterministicAndPortable(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "raw.json")
-	raw := `{"spdxVersion":"SPDX-2.3","documentNamespace":"https://volatile.invalid/random","creationInfo":{"created":"2099-01-01T00:00:00Z"},"files":[{"fileName":"aigw","sourceInfo":"acquired from /aigw"}]}`
-	if err := os.WriteFile(source, []byte(raw), 0o600); err != nil {
+	if err := os.WriteFile(source, spdxFixture("1.2.3"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	instant, err := readiness.ParseEpoch("1784246400")
@@ -204,7 +217,8 @@ func TestSPDXInputFailures(t *testing.T) {
 	spdxRoot := t.TempDir()
 	instant := time.Unix(1784246400, 0).UTC()
 	missingCreation := filepath.Join(spdxRoot, "missing-creation.json")
-	if err := os.WriteFile(missingCreation, []byte(`{"spdxVersion":"SPDX-2.3"}`), 0o600); err != nil {
+	raw := bytes.Replace(spdxFixture("1.2.3"), []byte(`"creationInfo":{"created":"2099-01-01T00:00:00Z"},`), nil, 1)
+	if err := os.WriteFile(missingCreation, raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	target := filepath.Join(spdxRoot, "normalized.json")
@@ -224,5 +238,122 @@ func TestSPDXInputFailures(t *testing.T) {
 	}
 	if err := normalizeSPDX(filepath.Join(spdxRoot, "absent.json"), target, "1.2.3", instant); err == nil || !strings.Contains(err.Error(), "read Syft") {
 		t.Fatalf("missing SPDX error = %v", err)
+	}
+}
+
+func TestSPDXRequiresTheCompletePlatformMatrix(t *testing.T) {
+	root := t.TempDir()
+	source, target := filepath.Join(root, "raw.json"), filepath.Join(root, "normalized.json")
+	for _, count := range []int{0, 1, len(artifact.Archives("1.2.3")) - 1, len(artifact.Archives("1.2.3")) + 1} {
+		files := make([]map[string]string, count)
+		for index := range files {
+			files[index] = map[string]string{"fileName": fmt.Sprintf("platform-%d/aigw", index)}
+		}
+		encoded, err := json.Marshal(map[string]any{"spdxVersion": "SPDX-2.3", "files": files})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(source, encoded, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := normalizeSPDX(source, target, "1.2.3", time.Unix(1784246400, 0).UTC()); err == nil || !strings.Contains(err.Error(), "binary matrix") {
+			t.Fatalf("incomplete or extra platform inventory (%d): %v", count, err)
+		}
+		if _, err := os.Stat(target); !os.IsNotExist(err) {
+			t.Fatalf("invalid matrix created an accepted SBOM: %v", err)
+		}
+	}
+}
+
+func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
+	root := releaseRoot(t)
+	for name, content := range map[string]string{
+		"go.mod": "module fixture\n", "main.go": "package main\nfunc main() {}\n",
+	} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	version := "1.2.3"
+	expected := make(map[string]string)
+	var sbom []byte
+	observed := errors.New("native SBOM observed before other release evidence")
+	err := buildRelease(buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: version, Epoch: "1784246400", SigningKey: "unused"}, func(call toolCall) error {
+		switch call.Name {
+		case "git":
+			return nil
+		case "goreleaser":
+			stage := goReleaserStage(t, call.Args)
+			for _, archive := range artifact.Archives(version) {
+				platform := strings.Split(strings.TrimSuffix(strings.TrimSuffix(archive, ".tar.gz"), ".zip"), "_")
+				name := "aigw"
+				if platform[2] == "windows" {
+					name += ".exe"
+				}
+				relative := filepath.Join(platform[2]+"-"+platform[3], name)
+				target := filepath.Join(stage, relative)
+				command := exec.Command("go", "build", "-trimpath", "-o", target, ".")
+				command.Dir = root
+				command.Env = append(os.Environ(), "GOOS="+platform[2], "GOARCH="+platform[3], "CGO_ENABLED=0")
+				if output, err := command.CombinedOutput(); err != nil {
+					t.Fatalf("build native fixture %s: %v\n%s", relative, err, output)
+				}
+				data, err := os.ReadFile(target)
+				if err != nil {
+					t.Fatal(err)
+				}
+				expected[filepath.ToSlash(relative)] = fmt.Sprintf("%x", sha256.Sum256(data))
+				if err := os.WriteFile(filepath.Join(stage, archive), []byte(archive), 0o600); err != nil {
+					return err
+				}
+			}
+			return nil
+		case "syft":
+			command := exec.Command(call.Name, call.Args...)
+			command.Dir = call.Directory
+			if output, err := command.CombinedOutput(); err != nil || len(output) != 0 {
+				t.Fatalf("native Syft failed or emitted diagnostics: %v\n%s", err, output)
+			}
+			source := strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json=")
+			data, err := os.ReadFile(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sbom = data
+			return nil
+		case "osv-scanner":
+			return observed
+		default:
+			return fmt.Errorf("unexpected release tool %s", call.Name)
+		}
+	})
+	if !errors.Is(err, observed) {
+		t.Fatalf("release did not reach native SBOM acceptance: %v", err)
+	}
+	var document struct {
+		Files []struct {
+			Name      string `json:"fileName"`
+			Checksums []struct {
+				Algorithm string `json:"algorithm"`
+				Value     string `json:"checksumValue"`
+			} `json:"checksums"`
+		} `json:"files"`
+	}
+	if err := json.Unmarshal(sbom, &document); err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range document.Files {
+		for _, sum := range file.Checksums {
+			if sum.Algorithm != "SHA256" {
+				continue
+			}
+			if expected[file.Name] != sum.Value {
+				t.Fatalf("SBOM file not bound to native artifact: %+v", file)
+			}
+			delete(expected, file.Name)
+		}
+	}
+	if len(expected) != 0 {
+		t.Fatalf("SBOM omitted platform artifacts: %v", expected)
 	}
 }
