@@ -80,11 +80,20 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 func newEditCommand(runtime invocation.Context) *cobra.Command {
 	var label, openAIURL, anthropicURL string
 	cmd := &cobra.Command{
-		Use: "edit <account>", Short: "Update account metadata and protocol endpoints", Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if label == "" && openAIURL == "" && anthropicURL == "" {
-				return fmt.Errorf("Nothing to update; provide --label, --openai-url, or --anthropic-url")
+		Use: "edit <account>", Short: "Update account metadata and protocol endpoints",
+		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
+			if !configuration.ValidIdentifier(args[0]) {
+				return fmt.Errorf("Invalid account ID %q; run `%s --help`", args[0], cmd.CommandPath())
 			}
+			for _, name := range []string{"label", "openai-url", "anthropic-url"} {
+				flag := cmd.Flags().Lookup(name)
+				if flag.Changed && strings.TrimSpace(flag.Value.String()) == "" {
+					return fmt.Errorf("--%s requires a non-empty value; run `%s --help`", name, cmd.CommandPath())
+				}
+			}
+			return nil
+		}),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
@@ -118,6 +127,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&label, "label", "", "New display name")
 	cmd.Flags().StringVar(&openAIURL, "openai-url", "", "New OpenAI Responses URL")
 	cmd.Flags().StringVar(&anthropicURL, "anthropic-url", "", "New Anthropic URL")
+	cmd.MarkFlagsOneRequired("label", "openai-url", "anthropic-url")
 	return cmd
 }
 
@@ -195,10 +205,12 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 	root.AddCommand(
 		newEditCommand(runtime),
 		renameCommand,
-		&cobra.Command{Use: "connect [account]", Short: "Bind provider platform credentials to query precise balance", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+		&cobra.Command{Use: "connect [account]", Short: "Bind provider platform credentials to query precise balance", Args: cobra.MatchAll(cobra.MaximumNArgs(1), func(cmd *cobra.Command, _ []string) error {
 			if !runtime.Interactive {
-				return fmt.Errorf("Binding platform credentials requires an interactive terminal")
+				return fmt.Errorf("Binding platform credentials requires an interactive terminal; run `%s --help`", cmd.CommandPath())
 			}
+			return nil
+		}), RunE: func(_ *cobra.Command, args []string) error {
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err

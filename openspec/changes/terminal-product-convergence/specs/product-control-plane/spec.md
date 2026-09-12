@@ -646,6 +646,18 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 - **THEN** the command SHALL reject the invocation with actionable guidance
   before creating configuration storage or accessing credentials.
 
+#### Scenario: Supply invalid metadata edit intent
+
+- **WHEN** Account or Profile editing supplies no editable flag, an invalid
+  identifier or a blank label or endpoint, Profile removal supplies an invalid
+  identifier, or platform-credential connection lacks an interactive terminal
+- **THEN** admission SHALL reject the invocation before configuration access or
+  creation, mutation-lock acquisition or credential access
+- **AND** native flag-group failures SHALL identify the invoked command's help,
+  not an unrelated readiness check
+- **AND** explicit empty Profile purpose SHALL remain a valid request to clear
+  that optional display field.
+
 ### Requirement: Program replacement has an explicit client reconciliation boundary
 
 Successful program update or rollback SHALL direct the operator to execute

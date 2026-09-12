@@ -49,6 +49,16 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		{[]string{"profile", "add", "new", "--account", "account", "--for", "unknown", "--model", "model"}, "--for must be", "aigw profile add --help"},
 		{[]string{"profile", "add", "new", "--account", "account", "--for", "codex", "--model", " "}, "--account, --for, and --model are required", "aigw profile add --help"},
 		{[]string{"config", "import", " "}, "manifest path must not be blank", "aigw config import --help"},
+		{[]string{"account", "edit", "account"}, "at least one of the flags", "aigw account edit --help"},
+		{[]string{"account", "edit", "bad id", "--label", "Name"}, "Invalid account ID", "aigw account edit --help"},
+		{[]string{"account", "edit", "account", "--label", " "}, "--label requires a non-empty value", "aigw account edit --help"},
+		{[]string{"account", "edit", "account", "--openai-url", ""}, "--openai-url requires a non-empty value", "aigw account edit --help"},
+		{[]string{"account", "edit", "account", "--anthropic-url", " "}, "--anthropic-url requires a non-empty value", "aigw account edit --help"},
+		{[]string{"profile", "edit", "profile"}, "at least one of the flags", "aigw profile edit --help"},
+		{[]string{"profile", "edit", "bad id", "--label", "Name"}, "Invalid profile ID", "aigw profile edit --help"},
+		{[]string{"profile", "edit", "profile", "--label", " "}, "--label requires a non-empty value", "aigw profile edit --help"},
+		{[]string{"profile", "remove", " "}, "Invalid profile ID", "aigw profile remove --help"},
+		{[]string{"account", "connect", "account"}, "requires an interactive terminal", "aigw account connect --help"},
 	} {
 		t.Run(strings.Join(test.args, "/"), func(t *testing.T) {
 			root := filepath.Join(t.TempDir(), "configuration")

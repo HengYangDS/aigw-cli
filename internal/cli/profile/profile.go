@@ -208,11 +208,17 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 func newEditCommand(runtime invocation.Context) *cobra.Command {
 	var label, purpose string
 	cmd := &cobra.Command{
-		Use: "edit <profile>", Short: "Update profile display metadata", Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if label == "" && !cmd.Flags().Changed("purpose") {
-				return fmt.Errorf("Nothing to update; provide --label or --purpose; use `aigw account edit <account>` for endpoints")
+		Use: "edit <profile>", Short: "Update profile display metadata",
+		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
+			if !configuration.ValidIdentifier(args[0]) {
+				return fmt.Errorf("Invalid profile ID %q; run `%s --help`", args[0], cmd.CommandPath())
 			}
+			if cmd.Flags().Changed("label") && strings.TrimSpace(label) == "" {
+				return fmt.Errorf("--label requires a non-empty value; run `%s --help`", cmd.CommandPath())
+			}
+			return nil
+		}),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
@@ -242,12 +248,19 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&label, "label", "", "New display name")
 	cmd.Flags().StringVar(&purpose, "purpose", "", "Purpose note (pass an empty value to clear)")
+	cmd.MarkFlagsOneRequired("label", "purpose")
 	return cmd
 }
 
 func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 	return &cobra.Command{
-		Use: "remove <profile>", Short: "Remove an unused profile", Args: cobra.ExactArgs(1),
+		Use: "remove <profile>", Short: "Remove an unused profile",
+		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
+			if !configuration.ValidIdentifier(args[0]) {
+				return fmt.Errorf("Invalid profile ID %q; run `%s --help`", args[0], cmd.CommandPath())
+			}
+			return nil
+		}),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := runtime.Config.Load()
 			if err != nil {

@@ -115,10 +115,10 @@ func Execute(app *App, args []string) error {
 	root.PersistentPreRunE = func(command *cobra.Command, _ []string) error {
 		// Cobra normally validates flag relationships after this mutation boundary.
 		if err := command.ValidateRequiredFlags(); err != nil {
-			return err
+			return fmt.Errorf("%w; run `%s --help`", err, command.CommandPath())
 		}
 		if err := command.ValidateFlagGroups(); err != nil {
-			return err
+			return fmt.Errorf("%w; run `%s --help`", err, command.CommandPath())
 		}
 		if !requiresConfigurationLock(app, command) {
 			return nil
