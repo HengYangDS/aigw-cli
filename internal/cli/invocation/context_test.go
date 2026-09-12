@@ -94,7 +94,7 @@ func TestProblemUsesStructuredProblemFactory(t *testing.T) {
 		if title != "Unavailable" || evidence != "probe failed" || impact != "cannot test" || fix != "check endpoint" {
 			t.Fatalf("unexpected problem fields: %q, %q, %q, %q", title, evidence, impact, fix)
 		}
-		if got != cause {
+		if !errors.Is(got, cause) {
 			t.Fatalf("cause = %v, want %v", got, cause)
 		}
 		return fmt.Errorf("structured: %w", got)
@@ -108,7 +108,7 @@ func TestProblemUsesStructuredProblemFactory(t *testing.T) {
 
 func TestProblemFallsBackToCause(t *testing.T) {
 	cause := errors.New("not configured")
-	if got := Problem(Context{}, "ignored", "ignored", "ignored", "ignored", cause); got != cause {
+	if got := Problem(Context{}, "ignored", "ignored", "ignored", "ignored", cause); !errors.Is(got, cause) {
 		t.Fatalf("Problem() = %v, want original cause %v", got, cause)
 	}
 }
@@ -159,31 +159,9 @@ func TestSynchronizerPreservesInvocationCapabilities(t *testing.T) {
 	}
 }
 
-func TestRunCaptureUsesOnlyAnExplicitCaptureCapability(t *testing.T) {
-	runner := captureRunner{output: []byte("ready")}
-	got, err := RunCapture(Context{Runner: runner}, context.Background(), process.Plan{Executable: "codex"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != "ready" {
-		t.Fatalf("captured output = %q", got)
-	}
-	if _, err := RunCapture(Context{Runner: fakeRunner{}}, context.Background(), process.Plan{Executable: "codex"}); err == nil {
-		t.Fatal("runner without capture capability was accepted")
-	}
-}
-
 type fakeRunner struct{}
 
-func (fakeRunner) Run(context.Context, process.Plan) error { return nil }
-
-type captureRunner struct{ output []byte }
-
-func (runner captureRunner) Run(context.Context, process.Plan) error { return nil }
-
-func (runner captureRunner) RunCapture(context.Context, process.Plan) ([]byte, error) {
-	return runner.output, nil
-}
+func (fakeRunner) RunCapture(context.Context, process.Plan) ([]byte, error) { return nil, nil }
 
 type fakeDiscoverer struct{}
 

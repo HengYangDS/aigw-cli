@@ -6,16 +6,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	"aigw-cli/internal/transaction"
+
 	"github.com/gofrs/flock"
 	"github.com/pelletier/go-toml/v2"
 )
 
+// Store owns the canonical configuration file, lock, verified checkpoint, and rollback backup at one path.
 type Store struct{ path string }
 
 // Snapshot captures the exact config and one-version backup state around a
@@ -23,18 +27,14 @@ type Store struct{ path string }
 // pre-setup state is not a valid  Config and cannot be restored through
 // Save.
 type Snapshot struct {
-	Config transaction.FileSnapshot
-	Backup transaction.FileSnapshot
-}
-
-type VerifiedBackupSnapshot struct {
 	Config   transaction.FileSnapshot
 	Backup   transaction.FileSnapshot
 	Verified transaction.FileSnapshot
 }
 
+// VerifiedBackupState pairs verified backup bytes with the currently loaded typed configuration.
 type VerifiedBackupState struct {
-	Snapshot   VerifiedBackupSnapshot
+	Snapshot   Snapshot
 	Current    Config
 	Checkpoint VerifiedCheckpoint
 }
@@ -48,9 +48,13 @@ type VerifiedCheckpoint struct {
 	VerifiedAt time.Time `json:"verified_at"`
 }
 
+// NewStore binds configuration persistence to one canonical path.
 func NewStore(path string) Store { return Store{path: path} }
-func (s Store) Path() string     { return s.path }
 
+// Path returns the canonical configuration path owned by the Store.
+func (s Store) Path() string { return s.path }
+
+// CaptureSnapshot reads the current configuration and owned recovery files without mutation.
 func (s Store) CaptureSnapshot() (Snapshot, error) {
 	configSnapshot, err := transaction.CaptureFileSnapshot(s.path)
 	if err != nil {
@@ -60,89 +64,127 @@ func (s Store) CaptureSnapshot() (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	return Snapshot{Config: configSnapshot, Backup: backupSnapshot}, nil
-}
-
-func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
-	configSnapshot, err := transaction.CaptureFileSnapshot(s.path)
-	if err != nil {
-		return VerifiedBackupState{}, err
-	}
-	if !configSnapshot.Exists {
-		return VerifiedBackupState{}, fmt.Errorf("current config is unavailable: %w", os.ErrNotExist)
-	}
-	backupSnapshot, err := transaction.CaptureFileSnapshot(s.path + ".bak")
-	if err != nil {
-		return VerifiedBackupState{}, err
-	}
 	verifiedSnapshot, err := transaction.CaptureFileSnapshot(s.path + ".verified.json")
 	if err != nil {
+		return Snapshot{}, err
+	}
+	return Snapshot{Config: configSnapshot, Backup: backupSnapshot, Verified: verifiedSnapshot}, nil
+}
+
+// Commit saves one configuration and returns the exact postimage needed for a
+// guarded rollback. If postimage observation fails, it restores the prepared
+// preimage before returning the error.
+func (s Store) Commit(before Snapshot, cfg Config) (Snapshot, error) {
+	data, err := encodeConfig(cfg)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	backupAfter := before.Backup
+	if before.Config.Exists {
+		backupAfter, err = writeConfigurationFileIfUnchanged(s.path+".bak", before.Backup, before.Config.Data, 0o600)
+		if err != nil {
+			return Snapshot{}, fmt.Errorf("back up current config: %w", err)
+		}
+	}
+	configAfter, err := writeConfigurationFileIfUnchanged(s.path, before.Config, data, 0o600)
+	if err != nil {
+		if before.Config.Exists {
+			if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, backupAfter); restoreErr != nil {
+				return Snapshot{}, fmt.Errorf("write config: %w; restore config backup: %w", err, restoreErr)
+			}
+		}
+		return Snapshot{}, fmt.Errorf("write config: %w", err)
+	}
+	verifiedAfter, err := removeConfigurationFileIfUnchanged(s.path+".verified.json", before.Verified)
+	if err == nil {
+		return Snapshot{Config: configAfter, Backup: backupAfter, Verified: verifiedAfter}, nil
+	}
+	failures := []error{fmt.Errorf("invalidate verified checkpoint: %w", err)}
+	if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path, before.Config, configAfter); restoreErr != nil {
+		failures = append(failures, fmt.Errorf("restore config: %w", restoreErr))
+	}
+	if before.Config.Exists {
+		if restoreErr := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, backupAfter); restoreErr != nil {
+			failures = append(failures, fmt.Errorf("restore config backup: %w", restoreErr))
+		}
+	}
+	return Snapshot{}, errors.Join(failures...)
+}
+
+// CaptureVerifiedBackupState validates that current configuration still matches its verified checkpoint before returning recovery state.
+func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
+	snapshot, err := s.CaptureSnapshot()
+	if err != nil {
 		return VerifiedBackupState{}, err
 	}
-	if !verifiedSnapshot.Exists {
+	if !snapshot.Config.Exists {
+		return VerifiedBackupState{}, fmt.Errorf("current config is unavailable: %w", os.ErrNotExist)
+	}
+	if !snapshot.Verified.Exists {
 		return VerifiedBackupState{}, fmt.Errorf("verified checkpoint is unavailable: %w", os.ErrNotExist)
 	}
-	current, err := decodeTOMLConfig(configSnapshot.Data)
+	current, err := decodeTOMLConfig(snapshot.Config.Data)
 	if err != nil {
 		return VerifiedBackupState{}, fmt.Errorf("decode current config snapshot: %w", err)
 	}
-	checkpoint, err := decodeVerifiedCheckpoint(verifiedSnapshot.Data)
+	checkpoint, err := decodeVerifiedCheckpoint(snapshot.Verified.Data)
 	if err != nil {
 		return VerifiedBackupState{}, err
 	}
-	return VerifiedBackupState{
-		Snapshot: VerifiedBackupSnapshot{
-			Config:   configSnapshot,
-			Backup:   backupSnapshot,
-			Verified: verifiedSnapshot,
-		},
-		Current:    current,
-		Checkpoint: checkpoint,
-	}, nil
+	currentData, currentErr := encodeConfig(current)
+	verifiedData, verifiedErr := encodeConfig(checkpoint.Config)
+	if err := errors.Join(currentErr, verifiedErr); err != nil {
+		return VerifiedBackupState{}, err
+	}
+	if !bytes.Equal(currentData, verifiedData) {
+		return VerifiedBackupState{}, errors.New("verified checkpoint does not match current configuration")
+	}
+	return VerifiedBackupState{Snapshot: snapshot, Current: current, Checkpoint: checkpoint}, nil
 }
 
-func (s Store) ConvergeVerifiedBackup(expected VerifiedBackupSnapshot) (VerifiedBackupSnapshot, error) {
+// ConvergeVerifiedBackup makes the verified backup match an expected snapshot without altering unrelated files.
+func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
 	currentConfig, err := transaction.CaptureFileSnapshot(s.path)
 	if err != nil {
-		return VerifiedBackupSnapshot{}, err
+		return err
 	}
-	if !sameFileSnapshot(currentConfig, expected.Config) {
-		return VerifiedBackupSnapshot{}, errors.New("config preimage changed; refusing to converge backup")
+	if !currentConfig.Equal(expected.Config) {
+		return errors.New("config preimage changed; refusing to converge backup")
 	}
 	currentVerified, err := transaction.CaptureFileSnapshot(s.path + ".verified.json")
 	if err != nil {
-		return VerifiedBackupSnapshot{}, err
+		return err
 	}
-	if !sameFileSnapshot(currentVerified, expected.Verified) {
-		return VerifiedBackupSnapshot{}, errors.New("verified checkpoint preimage changed; refusing to converge backup")
+	if !currentVerified.Equal(expected.Verified) {
+		return errors.New("verified checkpoint preimage changed; refusing to converge backup")
 	}
-	if _, err := transaction.WriteFileAtomicIfUnchanged(s.path+".bak", expected.Backup, expected.Config.Data, 0o600); err != nil {
-		return VerifiedBackupSnapshot{}, fmt.Errorf("converge verified config backup: %w", err)
-	}
-	if err := os.Chmod(s.path+".bak", 0o600); err != nil {
-		return VerifiedBackupSnapshot{}, fmt.Errorf("secure verified config backup: %w", err)
-	}
-	currentBackup, err := transaction.CaptureFileSnapshot(s.path + ".bak")
-	if err != nil {
-		return VerifiedBackupSnapshot{}, err
-	}
-	return VerifiedBackupSnapshot{Config: currentConfig, Backup: currentBackup, Verified: currentVerified}, nil
-}
-
-// RestoreSnapshot restores a captured config and backup only if both files
-// still equal the postimages produced by the current mutation. This protects a
-// newer external writer from being overwritten during compensation.
-func (s Store) RestoreSnapshot(before, after Snapshot) error {
-	if err := transaction.RestoreFileAtomicIfPostimage(s.path, before.Config, after.Config); err != nil {
-		return fmt.Errorf("restore config snapshot: %w", err)
-	}
-	if err := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, after.Backup); err != nil {
-		return fmt.Errorf("restore config backup snapshot: %w", err)
+	if _, err := transaction.WriteFileAtomicExactModeIfUnchanged(s.path+".bak", expected.Backup, expected.Config.Data, 0o600); err != nil {
+		return fmt.Errorf("converge verified config backup: %w", err)
 	}
 	return nil
 }
 
+// RestoreSnapshot independently restores configuration, backup and checkpoint
+// while each still matches its written postimage. Conflicts preserve newer
+// state without suppressing other restoration attempts or their errors.
+func (s Store) RestoreSnapshot(before, after Snapshot) error {
+	var failures []error
+	if err := transaction.RestoreFileAtomicIfPostimage(s.path, before.Config, after.Config); err != nil {
+		failures = append(failures, fmt.Errorf("restore config snapshot: %w", err))
+	}
+	if err := transaction.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, after.Backup); err != nil {
+		failures = append(failures, fmt.Errorf("restore config backup snapshot: %w", err))
+	}
+	if err := transaction.RestoreFileAtomicIfPostimage(s.path+".verified.json", before.Verified, after.Verified); err != nil {
+		failures = append(failures, fmt.Errorf("restore verified checkpoint snapshot: %w", err))
+	}
+	return errors.Join(failures...)
+}
+
+// Lock acquires the bounded configuration mutation lock and returns its release function.
 func (s Store) Lock(ctx context.Context) (func() error, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {
 		return nil, fmt.Errorf("create config directory for lock: %w", err)
 	}
@@ -157,6 +199,7 @@ func (s Store) Lock(ctx context.Context) (func() error, error) {
 	return guard.Unlock, nil
 }
 
+// Load reads, parses, normalizes, and validates the current configuration.
 func (s Store) Load() (Config, error) {
 	data, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -168,27 +211,29 @@ func (s Store) Load() (Config, error) {
 	return decodeTOMLConfig(data)
 }
 
+// Save validates and atomically persists configuration while maintaining its recovery boundary.
 func (s Store) Save(cfg Config) error {
+	before, err := s.CaptureSnapshot()
+	if err != nil {
+		return fmt.Errorf("capture current config: %w", err)
+	}
+	_, err = s.Commit(before, cfg)
+	return err
+}
+
+var writeConfigurationFileIfUnchanged = transaction.WriteFileAtomicExactModeIfUnchanged
+var removeConfigurationFileIfUnchanged = transaction.RemoveFileIfUnchanged
+
+func encodeConfig(cfg Config) ([]byte, error) {
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("refuse invalid config: %w", err)
+		return nil, fmt.Errorf("refuse invalid config: %w", err)
 	}
 	data, err := toml.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("encode config: %w", err)
+		return nil, fmt.Errorf("encode config: %w", err)
 	}
-	data = separateTOMLTableBlocks(data)
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {
-		return fmt.Errorf("create config directory: %w", err)
-	}
-	if current, err := os.ReadFile(s.path); err == nil {
-		if err := transaction.WriteFileAtomicExactMode(s.path+".bak", current, 0o600); err != nil {
-			return fmt.Errorf("back up current config: %w", err)
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("read current config for backup: %w", err)
-	}
-	return transaction.WriteFileAtomicExactMode(s.path, data, 0o600)
+	return separateTOMLTableBlocks(data), nil
 }
 
 // separateTOMLTableBlocks inserts exactly one separator before each generated
@@ -210,13 +255,51 @@ func separateTOMLTableBlocks(data []byte) []byte {
 	return []byte(strings.Join(formatted, "\n"))
 }
 
-func (s Store) SaveVerifiedCheckpoint(cfg Config, clients []string) error {
-	cfg.Normalize()
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("refuse invalid verified checkpoint: %w", err)
+// SaveVerifiedCheckpoint records a completed verification only while its
+// configuration remains current. It serializes with AIGW mutations, preserves
+// newer checkpoints, and compensates observed external configuration changes.
+func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg Config, clients []string) (resultErr error) {
+	if err := validateCheckpointClients(clients); err != nil {
+		return err
+	}
+	expected, err := encodeConfig(cfg)
+	if err != nil {
+		return err
+	}
+	unlock, err := s.Lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := unlock(); err != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("release checkpoint lock: %w", err))
+		}
+	}()
+	configBefore, err := transaction.CaptureFileSnapshot(s.path)
+	if err != nil {
+		return err
+	}
+	if !configBefore.Exists {
+		return errors.New("configuration is unavailable; verification checkpoint was not saved")
+	}
+	current, err := decodeTOMLConfig(configBefore.Data)
+	if err != nil {
+		return err
+	}
+	currentData, err := encodeConfig(current)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(expected, currentData) {
+		return errors.New("configuration changed during verification; run `aigw verify --for all` again")
+	}
+	checkpointPath := s.path + ".verified.json"
+	checkpointBefore, err := transaction.CaptureFileSnapshot(checkpointPath)
+	if err != nil {
+		return err
 	}
 	checkpoint := VerifiedCheckpoint{
-		Config:     cfg,
+		Config:     current,
 		Clients:    append([]string(nil), clients...),
 		VerifiedAt: time.Now().UTC(),
 	}
@@ -224,12 +307,25 @@ func (s Store) SaveVerifiedCheckpoint(cfg Config, clients []string) error {
 	if err != nil {
 		return fmt.Errorf("encode verified checkpoint: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {
-		return fmt.Errorf("create config directory for verified checkpoint: %w", err)
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-	return transaction.WriteFileAtomicExactMode(s.path+".verified.json", append(data, '\n'), 0o600)
+	checkpointAfter, err := writeConfigurationFileIfUnchanged(checkpointPath, checkpointBefore, append(data, '\n'), 0o600)
+	if err != nil {
+		return err
+	}
+	configAfter, err := transaction.CaptureFileSnapshot(s.path)
+	if err == nil && configBefore.Equal(configAfter) {
+		return nil
+	}
+	if err == nil {
+		err = errors.New("configuration changed during checkpoint commit; run `aigw verify --for all` again")
+	}
+	rollbackErr := transaction.RestoreFileAtomicIfPostimage(checkpointPath, checkpointBefore, checkpointAfter)
+	return errors.Join(err, rollbackErr)
 }
 
+// LoadVerifiedCheckpoint returns the last complete verified configuration checkpoint.
 func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
 	data, err := os.ReadFile(s.path + ".verified.json")
 	if err != nil {
@@ -245,8 +341,14 @@ func decodeVerifiedCheckpoint(data []byte) (VerifiedCheckpoint, error) {
 	if err := decoder.Decode(&checkpoint); err != nil {
 		return VerifiedCheckpoint{}, fmt.Errorf("parse verified checkpoint: %w", err)
 	}
-	if checkpoint.VerifiedAt.IsZero() || len(checkpoint.Clients) == 0 {
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return VerifiedCheckpoint{}, errors.New("parse verified checkpoint: expected one complete JSON document")
+	}
+	if checkpoint.VerifiedAt.IsZero() {
 		return VerifiedCheckpoint{}, errors.New("verified checkpoint is incomplete")
+	}
+	if err := validateCheckpointClients(checkpoint.Clients); err != nil {
+		return VerifiedCheckpoint{}, err
 	}
 	checkpoint.Config.Normalize()
 	if err := checkpoint.Config.Validate(); err != nil {
@@ -255,6 +357,22 @@ func decodeVerifiedCheckpoint(data []byte) (VerifiedCheckpoint, error) {
 	return checkpoint, nil
 }
 
+func validateCheckpointClients(clients []string) error {
+	if len(clients) == 0 {
+		return errors.New("verified checkpoint is incomplete: no clients")
+	}
+	for index, client := range clients {
+		if !IsAdmittedClient(client) {
+			return fmt.Errorf("verified checkpoint contains unknown client %q", client)
+		}
+		if slices.Contains(clients[:index], client) {
+			return fmt.Errorf("verified checkpoint repeats client %q", client)
+		}
+	}
+	return nil
+}
+
+// LoadBackup returns the validated rollback configuration retained by the Store.
 func (s Store) LoadBackup() (Config, error) {
 	data, err := os.ReadFile(s.path + ".bak")
 	if err != nil {
@@ -270,18 +388,11 @@ func decodeTOMLConfig(data []byte) (Config, error) {
 	if err := toml.Unmarshal(data, &header); err != nil {
 		return Config{}, newLoadError(LoadPhaseParse, err)
 	}
-	if header.Version == 2 {
-		var legacy versionTwoConfig
-		decoder := toml.NewDecoder(bytes.NewReader(data))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&legacy); err != nil {
-			return Config{}, newLoadError(LoadPhaseParse, err)
-		}
-		cfg, err := migrateVersionTwoConfig(legacy)
-		if err != nil {
-			return Config{}, newLoadError(LoadPhaseValidate, err)
-		}
-		return cfg, nil
+	if header.Version != ConfigVersion {
+		return Config{}, newLoadError(LoadPhaseValidate, &UnsupportedConfigVersionError{
+			Version:         header.Version,
+			ExpectedVersion: ConfigVersion,
+		})
 	}
 
 	var cfg Config
@@ -295,69 +406,4 @@ func decodeTOMLConfig(data []byte) (Config, error) {
 		return Config{}, newLoadError(LoadPhaseValidate, err)
 	}
 	return cfg, nil
-}
-
-type versionTwoConfig struct {
-	Version  int                          `toml:"version"`
-	Accounts map[string]Account           `toml:"accounts,omitempty"`
-	Profiles map[string]versionTwoProfile `toml:"profiles"`
-	Routes   versionTwoRoutes             `toml:"routes"`
-	Adapters map[string]AdapterConfig     `toml:"adapters,omitempty"`
-}
-
-type versionTwoProfile struct {
-	Label         string            `toml:"label"`
-	Purpose       string            `toml:"purpose,omitempty"`
-	Account       string            `toml:"account"`
-	Client        string            `toml:"client,omitempty"`
-	ModelProvider string            `toml:"model_provider,omitempty"`
-	Models        map[string]string `toml:"models,omitempty"`
-}
-
-type versionTwoRoutes struct {
-	Default   string            `toml:"default"`
-	Overrides map[string]string `toml:"overrides,omitempty"`
-}
-
-func migrateVersionTwoConfig(legacy versionTwoConfig) (Config, error) {
-	cfg := NewConfig()
-	cfg.Accounts = legacy.Accounts
-	cfg.Adapters = legacy.Adapters
-	for profileID, oldProfile := range legacy.Profiles {
-		if !IsAdmittedClient(oldProfile.Client) || len(oldProfile.Models) != 1 || strings.TrimSpace(oldProfile.Models[oldProfile.Client]) == "" {
-			return Config{}, fmt.Errorf("cannot migrate profile %q because it does not declare exactly one client and model", profileID)
-		}
-		cfg.Profiles[profileID] = Profile{
-			Label:         oldProfile.Label,
-			Purpose:       oldProfile.Purpose,
-			Account:       oldProfile.Account,
-			Client:        oldProfile.Client,
-			Model:         oldProfile.Models[oldProfile.Client],
-			ModelProvider: oldProfile.ModelProvider,
-		}
-	}
-	for client, profileID := range legacy.Routes.Overrides {
-		cfg.Routes[client] = profileID
-	}
-	if legacy.Routes.Default != "" {
-		profile, ok := cfg.Profiles[legacy.Routes.Default]
-		if !ok {
-			return Config{}, fmt.Errorf("cannot migrate default route because it references unknown profile %q", legacy.Routes.Default)
-		}
-		if cfg.Routes[profile.Client] == "" {
-			cfg.Routes[profile.Client] = legacy.Routes.Default
-		}
-	}
-	cfg.Normalize()
-	if err := cfg.Validate(); err != nil {
-		return Config{}, err
-	}
-	return cfg, nil
-}
-
-func sameFileSnapshot(left, right transaction.FileSnapshot) bool {
-	return left.Exists == right.Exists &&
-		left.SHA256 == right.SHA256 &&
-		left.Mode == right.Mode &&
-		bytes.Equal(left.Data, right.Data)
 }

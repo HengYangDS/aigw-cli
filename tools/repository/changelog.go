@@ -7,32 +7,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"sort"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 var releaseHeading = regexp.MustCompile(`^## \[([^]]+)] - (\d{4}-\d{2}-\d{2})$`)
-var semanticVersion = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$`)
-var releaseTag = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
-
-type versionPart struct {
-	numeric bool
-	number  int
-	text    string
-}
-
-type versionKey struct {
-	major, minor, patch int
-	release             bool
-	prerelease          []versionPart
-}
 
 type releaseEntry struct {
-	version string
+	version *semver.Version
 	date    time.Time
-	key     versionKey
 }
 
 func checkChangelog(root string, args []string) error {
@@ -66,10 +51,11 @@ func checkChangelog(root string, args []string) error {
 	if selectedTag == "" {
 		return nil
 	}
-	if !releaseTag.MatchString(selectedTag) {
+	version, prefixed := strings.CutPrefix(selectedTag, "v")
+	if _, err := semver.StrictNewVersion(version); !prefixed || err != nil {
 		return fmt.Errorf("CHANGELOG.md: selected release tag is malformed: %s", selectedTag)
 	}
-	if entries[0].version != strings.TrimPrefix(selectedTag, "v") {
+	if entries[0].version.Original() != version {
 		return fmt.Errorf("CHANGELOG.md: first published section must identify selected release tag: %s", selectedTag)
 	}
 	tagCommit, err := gitOutput(root, "rev-parse", "refs/tags/"+selectedTag+"^{}")
@@ -98,19 +84,13 @@ func printReleaseEpoch(root string, args []string) error {
 	if err != nil {
 		return err
 	}
-	matched := []releaseEntry{}
 	for _, entry := range entries {
-		if entry.version == args[0] {
-			matched = append(matched, entry)
+		if entry.version.Original() == args[0] {
+			_, err := fmt.Fprintln(os.Stdout, entry.date.Unix())
+			return err
 		}
 	}
-	if len(matched) == 0 {
-		return fmt.Errorf("release heading not found: %s", args[0])
-	}
-	// parseChangelog rejects duplicate published versions, so a non-empty
-	// match set contains exactly one entry.
-	_, _ = fmt.Fprintln(os.Stdout, matched[0].date.Unix())
-	return nil
+	return fmt.Errorf("release heading not found: %s", args[0])
 }
 
 func parseChangelog(path string) ([]releaseEntry, error) {
@@ -121,7 +101,6 @@ func parseChangelog(path string) ([]releaseEntry, error) {
 	defer func() { _ = file.Close() }()
 	firstHeading := ""
 	entries := []releaseEntry{}
-	seen := map[string]bool{}
 	scanner := bufio.NewScanner(file)
 	lineNumber := 0
 	for scanner.Scan() {
@@ -137,19 +116,18 @@ func parseChangelog(path string) ([]releaseEntry, error) {
 		if match == nil {
 			return nil, fmt.Errorf("CHANGELOG.md: malformed published heading at line %d: %s", lineNumber, line)
 		}
-		key, err := parseVersion(match[1])
+		version, err := semver.StrictNewVersion(match[1])
 		if err != nil {
-			return nil, fmt.Errorf("CHANGELOG.md: %w", err)
+			return nil, fmt.Errorf("CHANGELOG.md: invalid semantic version %q: %w", match[1], err)
 		}
 		date, err := time.Parse("2006-01-02", match[2])
 		if err != nil {
 			return nil, fmt.Errorf("invalid release date: %s", match[2])
 		}
-		if seen[match[1]] {
-			return nil, fmt.Errorf("CHANGELOG.md: duplicate published version at line %d: %s", lineNumber, match[1])
+		if len(entries) > 0 && !entries[len(entries)-1].version.GreaterThan(version) {
+			return nil, fmt.Errorf("CHANGELOG.md: published releases must appear once in strict descending semantic-version order")
 		}
-		seen[match[1]] = true
-		entries = append(entries, releaseEntry{version: match[1], date: date, key: key})
+		entries = append(entries, releaseEntry{version: version, date: date})
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
@@ -160,81 +138,8 @@ func parseChangelog(path string) ([]releaseEntry, error) {
 	if len(entries) == 0 {
 		return nil, fmt.Errorf("CHANGELOG.md: missing published release heading")
 	}
-	sorted := append([]releaseEntry(nil), entries...)
-	sort.SliceStable(sorted, func(i, j int) bool { return compareVersion(sorted[i].key, sorted[j].key) > 0 })
-	for index := range entries {
-		if entries[index].version != sorted[index].version {
-			return nil, fmt.Errorf("CHANGELOG.md: published releases must appear once in strict descending semantic-version order")
-		}
-	}
 	return entries, nil
 }
-
-func parseVersion(raw string) (versionKey, error) {
-	match := semanticVersion.FindStringSubmatch(raw)
-	if match == nil {
-		return versionKey{}, fmt.Errorf("invalid semantic version: %s", raw)
-	}
-	key := versionKey{major: atoi(match[1]), minor: atoi(match[2]), patch: atoi(match[3]), release: match[4] == ""}
-	for _, part := range strings.Split(match[4], ".") {
-		if part == "" {
-			continue
-		}
-		if number, err := strconv.Atoi(part); err == nil {
-			key.prerelease = append(key.prerelease, versionPart{numeric: true, number: number})
-		} else {
-			key.prerelease = append(key.prerelease, versionPart{text: part})
-		}
-	}
-	return key, nil
-}
-
-func compareVersion(left, right versionKey) int {
-	for _, pair := range [][2]int{{left.major, right.major}, {left.minor, right.minor}, {left.patch, right.patch}} {
-		if pair[0] != pair[1] {
-			if pair[0] > pair[1] {
-				return 1
-			}
-			return -1
-		}
-	}
-	if left.release != right.release {
-		if left.release {
-			return 1
-		}
-		return -1
-	}
-	for index := 0; index < len(left.prerelease) && index < len(right.prerelease); index++ {
-		a, b := left.prerelease[index], right.prerelease[index]
-		if a.numeric && b.numeric && a.number != b.number {
-			if a.number > b.number {
-				return 1
-			}
-			return -1
-		}
-		if a.numeric != b.numeric {
-			if a.numeric {
-				return -1
-			}
-			return 1
-		}
-		if a.text != b.text {
-			if a.text > b.text {
-				return 1
-			}
-			return -1
-		}
-	}
-	if len(left.prerelease) > len(right.prerelease) {
-		return 1
-	}
-	if len(left.prerelease) < len(right.prerelease) {
-		return -1
-	}
-	return 0
-}
-
-func atoi(raw string) int { value, _ := strconv.Atoi(raw); return value }
 
 func gitOutput(root string, args ...string) (string, error) {
 	command := exec.Command("git", append([]string{"-C", root}, args...)...)

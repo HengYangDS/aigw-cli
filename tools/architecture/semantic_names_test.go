@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -13,6 +16,44 @@ func runGit(t *testing.T, root string, args ...string) {
 	command.Dir = root
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, output)
+	}
+}
+
+func TestWorkspaceScanIsIndependentOfParentRepository(t *testing.T) {
+	parent := t.TempDir()
+	runGit(t, parent, "init", "-q")
+	root := filepath.Join(parent, "fixture")
+	writeFile(t, filepath.Join(root, "owned.go"), "package fixture\n")
+	files, err := trackedFiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 || files[0] != "owned.go" {
+		t.Fatalf("workspace files = %v, want owned.go", files)
+	}
+}
+
+func TestTrackedInventoryUsesTheRequestedCheckoutIndex(t *testing.T) {
+	root, foreign := t.TempDir(), t.TempDir()
+	for _, directory := range []string{root, foreign} {
+		runGit(t, directory, "init", "-q")
+		writeFile(t, filepath.Join(directory, "README.md"), "# Project\n")
+		runGit(t, directory, "add", "README.md")
+	}
+	writeFile(t, filepath.Join(root, "owned.md"), "# Owned source\n")
+	writeFile(t, filepath.Join(root, "untracked.md"), "# Local notes\n")
+	runGit(t, root, "add", "owned.md")
+	for _, binding := range []struct{ name, value string }{
+		{"GIT_INDEX_FILE", filepath.Join(foreign, ".git", "index")},
+		{"GIT_COMMON_DIR", filepath.Join(foreign, ".git")},
+	} {
+		t.Run(binding.name, func(t *testing.T) {
+			t.Setenv(binding.name, binding.value)
+			files, err := trackedFiles(root)
+			if err != nil || !slices.Equal(files, []string{"README.md", "owned.md"}) {
+				t.Fatalf("requested checkout inventory = %v, %v", files, err)
+			}
+		})
 	}
 }
 
@@ -29,20 +70,6 @@ func TestSemanticNamesAcceptNativeCarrierGrammars(t *testing.T) {
 	}
 	if !report.OK {
 		t.Fatalf("findings=%+v", report.Findings)
-	}
-}
-
-func TestSemanticNamesAcceptDatedChronicleCarrier(t *testing.T) {
-	root := t.TempDir()
-	runGit(t, root, "init", "-q")
-	writeFile(t, filepath.Join(root, "evidence", "chronicle", "product-convergence", "2026-07-31.md"), "# Chronicle\n")
-	runGit(t, root, "add", ".")
-	report := newReport("policy", root)
-	if err := checkSemanticNames(root, &report); err != nil {
-		t.Fatal(err)
-	}
-	if !report.OK {
-		t.Fatalf("dated chronicle findings=%+v", report.Findings)
 	}
 }
 
@@ -144,6 +171,20 @@ func TestSemanticNamesRecognizeOpenSpecCarriers(t *testing.T) {
 	}
 	if isOpenSpecCarrier("docs/spec.md", "spec.md") || isOpenSpecCarrier("openspec/notes.md", "notes.md") {
 		t.Fatal("only canonical OpenSpec carrier names are exempt")
+	}
+}
+
+func TestReadModuleIdentityReportsScannerFailure(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "go.mod")
+	line := make([]byte, 64*1024+1)
+	for index := range line {
+		line[index] = 'x'
+	}
+	if err := os.WriteFile(path, line, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readModuleIdentity(path); !errors.Is(err, bufio.ErrTooLong) {
+		t.Fatalf("error = %v", err)
 	}
 }
 

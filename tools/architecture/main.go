@@ -1,3 +1,4 @@
+// Package main verifies AIGW's repository architecture and ownership policy.
 package main
 
 import (

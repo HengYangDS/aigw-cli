@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
 	"sort"
 	"strings"
@@ -9,10 +10,11 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-var credentialKey = regexp.MustCompile(`(?i)(token|secret|password|api[_-]?key|auth(?:orization)?(?:[_-]?header)?|credential)`)
+var credentialKey = regexp.MustCompile(`(?i)(^|[_-])(token|secret|password|api[_-]?key|auth|authorization(?:[_-]?header)?|credential)($|[_-])`)
 
 const currentVersion = 4
 
+// Manifest is the credential-free team capability document accepted by setup and export.
 type Manifest struct {
 	Version           int                `toml:"version"`
 	RecommendedRoutes map[string]string  `toml:"recommended_routes,omitempty"`
@@ -41,6 +43,7 @@ func ManifestAccountNames(incoming Manifest) []string {
 	return names
 }
 
+// Parse decodes and validates one complete team manifest without applying it.
 func Parse(data []byte) (Manifest, error) {
 	var raw map[string]any
 	if err := toml.Unmarshal(data, &raw); err != nil {
@@ -110,10 +113,12 @@ func findCredentialKey(value any, prefix string) string {
 	return ""
 }
 
+// Merge combines a manifest with existing configuration while preserving conflicting owned entries.
 func Merge(cfg Config, incoming Manifest) (Config, error) {
 	return MergeWithOptions(cfg, incoming, MergeOptions{})
 }
 
+// MergeWithOptions combines a manifest under explicit conflict-replacement policy.
 func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Config, error) {
 	if incoming.Version != currentVersion {
 		return Config{}, fmt.Errorf("unsupported configuration manifest version %d; expected %d", incoming.Version, currentVersion)
@@ -191,17 +196,17 @@ func equivalentProfile(left, right Profile) bool {
 		left.Account == right.Account &&
 		left.Client == right.Client &&
 		left.Model == right.Model &&
-		left.ModelProvider == right.ModelProvider
+		left.ModelProvider == right.ModelProvider &&
+		resolvedAuthentication(left) == resolvedAuthentication(right)
 }
 
+// Export projects configuration into the canonical credential-free team manifest form.
 func Export(cfg Config) ([]byte, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	recommendedRoutes := make(map[string]string, len(cfg.Routes))
-	for client, profile := range cfg.Routes {
-		recommendedRoutes[client] = profile
-	}
+	maps.Copy(recommendedRoutes, cfg.Routes)
 	data, err := toml.Marshal(Manifest{Version: currentVersion, RecommendedRoutes: recommendedRoutes, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
 	if err != nil {
 		return nil, err

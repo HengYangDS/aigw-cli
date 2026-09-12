@@ -11,9 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/account"
 	"aigw-cli/internal/cli"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
 
@@ -28,16 +27,23 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 	})
 
 	t.Run("stale checkpoint", func(t *testing.T) {
-		app, _, secretStore, _ := testApp(t, "")
+		app, _, secretStore, _, _ := testApp(t, "")
 		before := accountRenameConfig()
 		if err := app.Config.Save(before); err != nil {
 			t.Fatal(err)
 		}
-		if err := app.Config.SaveVerifiedCheckpoint(before, configuration.AdmittedClientIDs()); err != nil {
+		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), before, configuration.AdmittedClientIDs()); err != nil {
+			t.Fatal(err)
+		}
+		staleCheckpoint, err := os.ReadFile(app.Config.Path() + ".verified.json")
+		if err != nil {
 			t.Fatal(err)
 		}
 		current := renamedAccountConfig(before)
 		if err := app.Config.Save(current); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(app.Config.Path()+".verified.json", staleCheckpoint, 0o600); err != nil {
 			t.Fatal(err)
 		}
 		if err := secretStore.Set("zeta-new", "target-token"); err != nil {
@@ -57,13 +63,13 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 	})
 
 	t.Run("source account remains", func(t *testing.T) {
-		app, _, secretStore, _ := testApp(t, "")
+		app, _, secretStore, _, _ := testApp(t, "")
 		current := accountRenameConfig()
 		current.Accounts["zeta-new"] = current.Accounts["zeta-old"]
 		if err := app.Config.Save(current); err != nil {
 			t.Fatal(err)
 		}
-		if err := app.Config.SaveVerifiedCheckpoint(current, configuration.AdmittedClientIDs()); err != nil {
+		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, configuration.AdmittedClientIDs()); err != nil {
 			t.Fatal(err)
 		}
 		if err := secretStore.Set("zeta-new", "target-token"); err != nil {
@@ -76,42 +82,41 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
 	app, out, secretStore, current := prepareAccountFinalizer(t, configuration.AdmittedClientIDs())
 	const token = "finalize-shared-token"
-	probe := account.Credential{SystemToken: "finalize-shared-system", UserID: "finalize-shared-user"}
+	probe := secrets.DiagnosticCredential{SystemToken: "finalize-shared-system", UserID: "finalize-shared-user"}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
-		if err := secretStore.Set(id, token); err != nil {
-			t.Fatal(err)
-		}
-		if err := app.Accounts.Set(id, probe); err != nil {
-			t.Fatal(err)
-		}
+		setFinalizerCredentials(t, app, id, token, probe)
 	}
 	configBefore := readFile(t, app.Config.Path())
 	backupBefore := readFile(t, app.Config.Path()+".bak")
 	checkpointBefore := readFile(t, app.Config.Path()+".verified.json")
 	out.Reset()
 
-	if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--finalize", "--dry-run", "--json"); err != nil {
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize", "--dry-run", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 	result := decodeFinalizeResult(t, out.Bytes())
-	if result.Status != "planned" || result.Actions["backup"] != "converge-to-verified-current" || result.Actions["api_token"] != "delete-source" || result.Actions["account_probe"] != "delete-source" {
+	want := finalizeResult{Status: "planned", Actions: map[string]string{
+		"configuration": "already-renamed", "backup": "converge-to-verified-current",
+		"api_token": "delete-source", "account_probe": "delete-source",
+	}, ExternalTODOs: []string{}}
+	if !reflect.DeepEqual(result, want) {
 		t.Fatalf("finalize dry-run = %#v", result)
 	}
 	if !bytes.Equal(readFile(t, app.Config.Path()), configBefore) || !bytes.Equal(readFile(t, app.Config.Path()+".bak"), backupBefore) || !bytes.Equal(readFile(t, app.Config.Path()+".verified.json"), checkpointBefore) {
 		t.Fatal("finalize dry-run changed configuration state")
 	}
-	if !secretExists(t, secretStore, "zeta-old") || !app.Accounts.Has("zeta-old") {
+	if !secretExists(t, secretStore, "zeta-old") || !accountCredentialExists(t, app.Accounts, "zeta-old") {
 		t.Fatal("finalize dry-run deleted source credentials")
 	}
 
 	out.Reset()
-	if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--finalize"); err != nil {
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize"}); err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(readFile(t, app.Config.Path()), configBefore) || !bytes.Equal(readFile(t, app.Config.Path()+".bak"), configBefore) || !bytes.Equal(readFile(t, app.Config.Path()+".verified.json"), checkpointBefore) {
 		t.Fatal("finalize did not converge only the backup to current bytes")
 	}
-	if secretExists(t, secretStore, "zeta-old") || app.Accounts.Has("zeta-old") {
+	if secretExists(t, secretStore, "zeta-old") || accountCredentialExists(t, app.Accounts, "zeta-old") {
 		t.Fatal("finalize retained source credentials")
 	}
 	if got, err := secretStore.Get("zeta-new"); err != nil || got != token {
@@ -123,7 +128,7 @@ func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
 	assertCurrentAccountConfig(t, app, current)
 
 	out.Reset()
-	if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--finalize", "--dry-run", "--json"); err != nil {
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize", "--dry-run", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 	result = decodeFinalizeResult(t, out.Bytes())
@@ -152,7 +157,7 @@ func TestAccountFinalizeRequiresTargetAPIToken(t *testing.T) {
 }
 
 func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *testing.T) {
-	app, out, secretStore, _ := testApp(t, "")
+	app, out, secretStore, _, _ := testApp(t, "")
 	before := accountRenameConfig()
 	providerAccount := before.Accounts["zeta-old"]
 	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://dmx.test"}
@@ -164,25 +169,15 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Config.SaveVerifiedCheckpoint(current, configuration.AdmittedClientIDs()); err != nil {
+	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, configuration.AdmittedClientIDs()); err != nil {
 		t.Fatal(err)
 	}
 	const oldToken = "old-api-token"
 	const newToken = "sk-abcd-middle-wxyz"
-	oldProbe := account.Credential{SystemToken: "old-system", UserID: "old-user"}
-	newProbe := account.Credential{SystemToken: "new-system", UserID: "10000"}
-	if err := secretStore.Set("zeta-old", oldToken); err != nil {
-		t.Fatal(err)
-	}
-	if err := secretStore.Set("zeta-new", newToken); err != nil {
-		t.Fatal(err)
-	}
-	if err := app.Accounts.Set("zeta-old", oldProbe); err != nil {
-		t.Fatal(err)
-	}
-	if err := app.Accounts.Set("zeta-new", newProbe); err != nil {
-		t.Fatal(err)
-	}
+	oldProbe := secrets.DiagnosticCredential{SystemToken: "old-system", UserID: "old-user"}
+	newProbe := secrets.DiagnosticCredential{SystemToken: "new-system", UserID: "10000"}
+	setFinalizerCredentials(t, app, "zeta-old", oldToken, oldProbe)
+	setFinalizerCredentials(t, app, "zeta-new", newToken, newProbe)
 	requests := 0
 	app.HTTP = &fakeHTTP{handler: func(req *http.Request) (*http.Response, error) {
 		requests++
@@ -198,7 +193,7 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 	backupBefore := readFile(t, app.Config.Path()+".bak")
 	out.Reset()
 
-	if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--finalize", "--dry-run", "--json"); err != nil {
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize", "--dry-run", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 	result := decodeFinalizeResult(t, out.Bytes())
@@ -210,20 +205,20 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 	}
 
 	out.Reset()
-	err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--finalize")
+	err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize"})
 	if err == nil || !strings.Contains(err.Error(), "confirmation") {
 		t.Fatalf("unconfirmed rotation error = %v", err)
 	}
-	if requests != 0 || !secretExists(t, secretStore, "zeta-old") || !app.Accounts.Has("zeta-old") {
+	if requests != 0 || !secretExists(t, secretStore, "zeta-old") || !accountCredentialExists(t, app.Accounts, "zeta-old") {
 		t.Fatal("unconfirmed rotation changed credentials or performed a probe")
 	}
 
 	out.Reset()
-	if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--finalize", "--confirm-api-token-rotation", "--confirm-account-probe-rotation"); err != nil {
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize", "--confirm-api-token-rotation", "--confirm-account-probe-rotation"}); err != nil {
 		t.Fatal(err)
 	}
-	if requests != 2 || secretExists(t, secretStore, "zeta-old") || app.Accounts.Has("zeta-old") {
-		t.Fatalf("confirmed rotation requests=%d source_token=%v source_probe=%v", requests, secretExists(t, secretStore, "zeta-old"), app.Accounts.Has("zeta-old"))
+	if requests != 2 || secretExists(t, secretStore, "zeta-old") || accountCredentialExists(t, app.Accounts, "zeta-old") {
+		t.Fatalf("confirmed rotation requests=%d source_token=%v source_probe=%v", requests, secretExists(t, secretStore, "zeta-old"), accountCredentialExists(t, app.Accounts, "zeta-old"))
 	}
 	for _, forbidden := range []string{oldToken, newToken, oldProbe.SystemToken, oldProbe.UserID, newProbe.SystemToken, newProbe.UserID} {
 		if strings.Contains(out.String(), forbidden) {
@@ -235,34 +230,29 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 func TestAccountFinalizePartialDeleteCanRetryAfterBackupConvergence(t *testing.T) {
 	app, _, secretStore, _ := prepareAccountFinalizer(t, configuration.AdmittedClientIDs())
 	const token = "partial-delete-token"
-	probe := account.Credential{SystemToken: "partial-delete-system", UserID: "partial-delete-user"}
+	probe := secrets.DiagnosticCredential{SystemToken: "partial-delete-system", UserID: "partial-delete-user"}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
-		if err := secretStore.Set(id, token); err != nil {
-			t.Fatal(err)
-		}
-		if err := app.Accounts.Set(id, probe); err != nil {
-			t.Fatal(err)
-		}
+		setFinalizerCredentials(t, app, id, token, probe)
 	}
 	baseAccounts := app.Accounts
-	app.Accounts = failingDeleteAccountStore{Store: baseAccounts, accountID: "zeta-old", err: errors.New("probe delete refused")}
+	app.Accounts = failingDeleteAccountStore{DiagnosticCredentialStore: baseAccounts, accountID: "zeta-old", err: errors.New("probe delete refused")}
 
-	err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--finalize")
+	err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize"})
 	if err == nil || !strings.Contains(err.Error(), "finalization incomplete") {
 		t.Fatalf("partial delete error = %v", err)
 	}
-	if secretExists(t, secretStore, "zeta-old") || !baseAccounts.Has("zeta-old") {
-		t.Fatalf("partial delete state: source_token=%v source_probe=%v", secretExists(t, secretStore, "zeta-old"), baseAccounts.Has("zeta-old"))
+	if secretExists(t, secretStore, "zeta-old") || !accountCredentialExists(t, baseAccounts, "zeta-old") {
+		t.Fatalf("partial delete state: source_token=%v source_probe=%v", secretExists(t, secretStore, "zeta-old"), accountCredentialExists(t, baseAccounts, "zeta-old"))
 	}
 	if !bytes.Equal(readFile(t, app.Config.Path()), readFile(t, app.Config.Path()+".bak")) {
 		t.Fatal("partial deletion occurred before backup convergence")
 	}
 
 	app.Accounts = baseAccounts
-	if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--finalize"); err != nil {
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize"}); err != nil {
 		t.Fatal(err)
 	}
-	if baseAccounts.Has("zeta-old") || !baseAccounts.Has("zeta-new") {
+	if accountCredentialExists(t, baseAccounts, "zeta-old") || !accountCredentialExists(t, baseAccounts, "zeta-new") {
 		t.Fatal("retry did not finish probe credential cleanup")
 	}
 }
@@ -275,18 +265,18 @@ func TestAccountFinalizeEnvironmentCleanupIsExternalAndRetryable(t *testing.T) {
 		secrets.EnvironmentKey("zeta-new"): token,
 	}
 	app.Secrets = secrets.NewEnvironmentStore(func(key string) string { return values[key] })
-	probe := account.Credential{SystemToken: "environment-probe-system", UserID: "environment-probe-user"}
+	probe := secrets.DiagnosticCredential{SystemToken: "environment-probe-system", UserID: "environment-probe-user"}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
 		if err := app.Accounts.Set(id, probe); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--finalize")
+	err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize"})
 	if err == nil || !strings.Contains(err.Error(), secrets.EnvironmentKey("zeta-old")) || strings.Contains(err.Error(), token) {
 		t.Fatalf("environment cleanup error = %v", err)
 	}
-	if app.Accounts.Has("zeta-old") {
+	if accountCredentialExists(t, app.Accounts, "zeta-old") {
 		t.Fatal("environment cleanup did not finish writable probe cleanup")
 	}
 	if !bytes.Equal(readFile(t, app.Config.Path()), readFile(t, app.Config.Path()+".bak")) {
@@ -294,7 +284,7 @@ func TestAccountFinalizeEnvironmentCleanupIsExternalAndRetryable(t *testing.T) {
 	}
 
 	delete(values, secrets.EnvironmentKey("zeta-old"))
-	if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--finalize"); err != nil {
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := app.Secrets.Get("zeta-old"); !errors.Is(err, secrets.ErrNotFound) {
@@ -311,6 +301,16 @@ type finalizeResult struct {
 	ExternalTODOs []string          `json:"external_todos"`
 }
 
+func setFinalizerCredentials(t *testing.T, app *cli.App, account, token string, probe secrets.DiagnosticCredential) {
+	t.Helper()
+	if err := app.Secrets.Set(account, token); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Accounts.Set(account, probe); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func decodeFinalizeResult(t *testing.T, data []byte) finalizeResult {
 	t.Helper()
 	var result finalizeResult
@@ -320,9 +320,9 @@ func decodeFinalizeResult(t *testing.T, data []byte) finalizeResult {
 	return result
 }
 
-func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.Buffer, *secrets.MemoryStore, configuration.Config) {
+func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.Buffer, secrets.Store, configuration.Config) {
 	t.Helper()
-	app, out, secretStore, _ := testApp(t, "")
+	app, out, secretStore, _, _ := testApp(t, "")
 	before := accountRenameConfig()
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
@@ -332,7 +332,7 @@ func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.B
 		t.Fatal(err)
 	}
 	if clients != nil {
-		if err := app.Config.SaveVerifiedCheckpoint(current, clients); err != nil {
+		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, clients); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -354,7 +354,7 @@ func renamedAccountConfig(cfg configuration.Config) configuration.Config {
 
 func assertFinalizeRefused(t *testing.T, app *cli.App, message string) {
 	t.Helper()
-	err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--finalize", "--dry-run")
+	err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize", "--dry-run"})
 	if err == nil || !strings.Contains(err.Error(), message) {
 		t.Fatalf("finalize error = %v, want %q", err, message)
 	}
@@ -380,17 +380,8 @@ func containsString(values []string, substring string) bool {
 	return false
 }
 
-func readFile(t *testing.T, path string) []byte {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
-}
-
 type failingDeleteAccountStore struct {
-	account.Store
+	secrets.DiagnosticCredentialStore
 	accountID string
 	err       error
 }
@@ -399,5 +390,5 @@ func (s failingDeleteAccountStore) Delete(accountID string) error {
 	if accountID == s.accountID {
 		return s.err
 	}
-	return s.Store.Delete(accountID)
+	return s.DiagnosticCredentialStore.Delete(accountID)
 }

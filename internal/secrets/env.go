@@ -6,22 +6,27 @@ import (
 	"strings"
 )
 
-type EnvironmentStore struct{ getenv func(string) string }
+// environmentStore reads typed credential slots from an explicit environment and never persists changes.
+type environmentStore struct{ getenv func(string) string }
 
-func NewEnvironmentStore(getenv func(string) string) EnvironmentStore {
-	return EnvironmentStore{getenv: getenv}
+// NewEnvironmentStore constructs a read-only environment credential backend.
+func NewEnvironmentStore(getenv func(string) string) Store {
+	return scopedView{store: environmentStore{getenv: getenv}}
 }
 
-func EnvironmentKey(profile string) string {
-	return "AIGW_TOKEN_" + environmentAccountID(profile)
+// EnvironmentKey returns the API-token variable name for an Account.
+func EnvironmentKey(account string) string {
+	return "AIGW_TOKEN_" + environmentAccountID(account)
 }
 
-func DiagnosticSystemTokenEnvironmentKey(profile string) string {
-	return "AIGW_DIAGNOSTIC_SYSTEM_TOKEN_" + environmentAccountID(profile)
+// DiagnosticSystemTokenEnvironmentKey returns the provider-diagnostic system-token variable name for an Account.
+func DiagnosticSystemTokenEnvironmentKey(account string) string {
+	return "AIGW_DIAGNOSTIC_SYSTEM_TOKEN_" + environmentAccountID(account)
 }
 
-func DiagnosticUserIDEnvironmentKey(profile string) string {
-	return "AIGW_DIAGNOSTIC_USER_ID_" + environmentAccountID(profile)
+// DiagnosticUserIDEnvironmentKey returns the provider-diagnostic user-ID variable name for an Account.
+func DiagnosticUserIDEnvironmentKey(account string) string {
+	return "AIGW_DIAGNOSTIC_USER_ID_" + environmentAccountID(account)
 }
 
 func environmentAccountID(account string) string {
@@ -36,68 +41,35 @@ func environmentAccountID(account string) string {
 	return encoded.String()
 }
 
-func (s EnvironmentStore) Get(profile string) (string, error) {
-	return s.get(APIToken, profile)
-}
-
-func (s EnvironmentStore) get(kind Kind, profile string) (string, error) {
-	if err := validate(profile, "", false); err != nil {
-		return "", err
-	}
+func (s environmentStore) get(kind Kind, account string) (string, error) {
 	if kind == ProviderDiagnostic {
-		systemToken := s.getenv(DiagnosticSystemTokenEnvironmentKey(profile))
-		userID := s.getenv(DiagnosticUserIDEnvironmentKey(profile))
+		systemToken := s.getenv(DiagnosticSystemTokenEnvironmentKey(account))
+		userID := s.getenv(DiagnosticUserIDEnvironmentKey(account))
 		if systemToken == "" || userID == "" {
 			return "", ErrNotFound
 		}
-		value, _ := json.Marshal(struct {
-			SystemToken string `json:"system_token"`
-			UserID      string `json:"user_id"`
-		}{SystemToken: systemToken, UserID: userID})
+		value, _ := json.Marshal(DiagnosticCredential{SystemToken: systemToken, UserID: userID})
 		return string(value), nil
 	}
-	value := s.getenv(EnvironmentKey(profile))
+	value := s.getenv(EnvironmentKey(account))
 	if value == "" {
 		return "", ErrNotFound
 	}
 	return value, nil
 }
 
-func (EnvironmentStore) Set(profile, value string) error {
-	return EnvironmentStore{}.set(APIToken, profile, value)
-}
-
-func (EnvironmentStore) set(_ Kind, profile, value string) error {
-	if err := validate(profile, value, true); err != nil {
-		return err
-	}
+func (environmentStore) set(Kind, string, string) error {
 	return ErrReadOnly
 }
 
-func (EnvironmentStore) Delete(profile string) error {
-	return EnvironmentStore{}.delete(APIToken, profile)
-}
-
-func (EnvironmentStore) delete(_ Kind, profile string) error {
-	if err := validate(profile, "", false); err != nil {
-		return err
-	}
+func (environmentStore) delete(Kind, string) error {
 	return ErrReadOnly
 }
 
-func (s EnvironmentStore) Exists(profile string) (bool, error) {
-	return s.exists(APIToken, profile)
-}
-
-func (s EnvironmentStore) exists(kind Kind, profile string) (bool, error) {
-	if err := validate(profile, "", false); err != nil {
-		return false, err
-	}
+func (s environmentStore) exists(kind Kind, account string) (bool, error) {
 	if kind == ProviderDiagnostic {
-		return s.getenv(DiagnosticSystemTokenEnvironmentKey(profile)) != "" &&
-			s.getenv(DiagnosticUserIDEnvironmentKey(profile)) != "", nil
+		return s.getenv(DiagnosticSystemTokenEnvironmentKey(account)) != "" &&
+			s.getenv(DiagnosticUserIDEnvironmentKey(account)) != "", nil
 	}
-	return s.getenv(EnvironmentKey(profile)) != "", nil
+	return s.getenv(EnvironmentKey(account)) != "", nil
 }
-
-func (EnvironmentStore) ReadOnly() bool { return true }

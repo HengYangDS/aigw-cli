@@ -1,0 +1,2 @@
+# Configuration discovery runs before mise.toml; keep parent projects outside it.
+ceiling_paths = ['{{ config_root | dirname | dirname }}']

@@ -7,16 +7,17 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+
 	"github.com/spf13/cobra"
 )
 
 // NewCommand builds the private credential-helper command used by admitted clients.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	return &cobra.Command{
-		Use:    "credential <client>",
-		Short:  "Read the active client gateway credential",
+		Use:    "credential <client> <projection-fingerprint>",
+		Short:  "Read the Account Token matching a client projection",
 		Hidden: true,
-		Args:   cobra.ExactArgs(1),
+		Args:   cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			client := args[0]
 			if !configuration.IsAdmittedClient(client) {
@@ -34,9 +35,19 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if !clientRuntime.RequiresAccountToken() {
+				return fmt.Errorf(
+					"%s uses client-owned authentication; run `aigw verify --for %s` to verify it through the client",
+					clientRuntime.ProfileID,
+					client,
+				)
+			}
+			if clientRuntime.CredentialProjectionFingerprint(client) != args[1] {
+				return fmt.Errorf("%s credential projection no longer matches the selected Account and endpoint; run `aigw sync` and reload the client's configuration", client)
+			}
 			token, err := runtime.Secrets.Get(clientRuntime.AccountID)
 			if err != nil {
-				return fmt.Errorf("%s gateway credential is unavailable: %w", client, err)
+				return fmt.Errorf("%s Account Token is unavailable: %w", client, err)
 			}
 			_, err = fmt.Fprintln(runtime.Out, token)
 			return err

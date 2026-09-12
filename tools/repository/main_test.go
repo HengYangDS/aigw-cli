@@ -44,11 +44,54 @@ func TestParseChangelogRejectsInvalidDate(t *testing.T) {
 	}
 }
 
-func TestParseVersionOrdersPrereleases(t *testing.T) {
-	rc80, _ := parseVersion("0.1.0-rc.80")
-	rc79, _ := parseVersion("0.1.0-rc.79")
-	if compareVersion(rc80, rc79) <= 0 {
-		t.Fatal("rc.80 must sort after rc.79")
+func TestChangelogUsesStrictReleaseVersions(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		versions []string
+		valid    bool
+	}{
+		{name: "build identity", versions: []string{"1.2.3+build.001", "1.2.3-rc.1+build.002"}, valid: true},
+		{name: "numeric prerelease", versions: []string{"1.0.0-9223372036854775808", "1.0.0-999999999999999999"}, valid: true},
+		{name: "wide major", versions: []string{"9223372036854775808.0.0", "9223372036854775807.9.9"}, valid: true},
+		{name: "short core", versions: []string{"1.0"}},
+		{name: "empty prerelease component", versions: []string{"1.0.0-rc..1"}},
+		{name: "leading zero prerelease", versions: []string{"1.0.0-rc.01"}},
+		{name: "unrepresentable core", versions: []string{"18446744073709551616.0.0"}},
+		{name: "equal precedence", versions: []string{"1.2.3+first", "1.2.3+second"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var content strings.Builder
+			content.WriteString("## [Unreleased]\n")
+			for _, version := range test.versions {
+				fmt.Fprintf(&content, "\n## [%s] - 2026-08-07\n", version)
+			}
+			path := filepath.Join(t.TempDir(), "CHANGELOG.md")
+			if err := os.WriteFile(path, []byte(content.String()), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			entries, err := parseChangelog(path)
+			if (err == nil) != test.valid || (test.valid && len(entries) != len(test.versions)) {
+				t.Fatalf("versions=%v entries=%v error=%v valid=%t", test.versions, entries, err, test.valid)
+			}
+		})
+	}
+}
+
+func TestChangelogBindsExactBuildMetadataToTag(t *testing.T) {
+	const version = "1.2.3-rc.1+build.001"
+	root := initReleaseRepository(t, version)
+	if err := checkChangelog(root, []string{"CHANGELOG.md", "v" + version}); err != nil {
+		t.Fatal(err)
+	}
+	gitRepository(t, root, "tag", "v1.2.3-rc.1+build.002")
+	if err := checkChangelog(root, []string{"CHANGELOG.md", "v1.2.3-rc.1+build.002"}); err == nil || !strings.Contains(err.Error(), "first published section") {
+		t.Fatalf("different build identity accepted: %v", err)
+	}
+	if err := printReleaseEpoch(root, []string{version}); err != nil {
+		t.Fatal(err)
+	}
+	if err := printReleaseEpoch(root, []string{"1.2.3-rc.1+build.002"}); err == nil {
+		t.Fatal("release epoch ignored build identity")
 	}
 }
 
@@ -58,10 +101,16 @@ func TestRunChecksChangelogAndReleaseEpoch(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(changelog), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.MkdirAll(filepath.Join(root, "openspec", "changes", "archive"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := run([]string{"--root", root, "changelog"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := run([]string{"--root", root, "release-epoch", "1.2.3"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"--root", root, "protected-lifecycle"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{nil, {"unknown"}, {"--root", root, "release-epoch"}, {"--root", root, "changelog", "a", "b", "c"}} {
@@ -74,11 +123,8 @@ func TestRunChecksChangelogAndReleaseEpoch(t *testing.T) {
 	}
 }
 
-func TestRepositoryOwnsFormerShellForwarders(t *testing.T) {
+func TestRepositoryOwnsReleaseChecks(t *testing.T) {
 	root := initReleaseRepository(t, "1.2.3")
-	if err := run([]string{"--root", root, "go-format"}); err != nil {
-		t.Fatal(err)
-	}
 	if err := run([]string{"--root", root, "changelog"}); err != nil {
 		t.Fatal(err)
 	}
@@ -127,6 +173,9 @@ func TestMalformedChangelog(t *testing.T) {
 	if _, err := parseChangelog(bad); err == nil {
 		t.Fatal("changelog without Unreleased accepted")
 	}
+	if err := checkChangelog(root, nil); err == nil {
+		t.Fatal("changelog command accepted malformed content")
+	}
 }
 
 func TestChangelogTagBindingAndVersionEdges(t *testing.T) {
@@ -143,29 +192,21 @@ func TestChangelogTagBindingAndVersionEdges(t *testing.T) {
 	if err := checkChangelog(root, []string{"CHANGELOG.md", "v1.2.3"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, tag := range []string{"bad", "v9.9.9"} {
+	for _, tag := range []string{"bad", "1.2.3", "v1.2.3-01", "v1.2.3+", "v9.9.9"} {
 		if err := checkChangelog(root, []string{"CHANGELOG.md", tag}); err == nil {
 			t.Fatalf("invalid tag accepted: %s", tag)
 		}
 	}
-	for _, raw := range []string{"01.0.0", "1.0", "1.0.0-rc..1"} {
-		if _, err := parseVersion(raw); err == nil {
-			t.Fatalf("invalid version accepted: %s", raw)
-		}
-	}
-	stable, _ := parseVersion("1.0.0")
-	prerelease, _ := parseVersion("1.0.0-rc.1")
-	if compareVersion(stable, prerelease) <= 0 || compareVersion(stable, stable) != 0 {
-		t.Fatal("semantic version comparison failed")
-	}
 }
 
-func TestSemanticVersionOrderingIsComplete(t *testing.T) {
+func TestChangelogOrdersReleasePrecedence(t *testing.T) {
 	ordered := []string{
 		"2.0.0",
 		"1.1.0",
 		"1.0.1",
 		"1.0.0",
+		"1.0.0-rc.80",
+		"1.0.0-rc.79",
 		"1.0.0-rc.2",
 		"1.0.0-rc.1.1",
 		"1.0.0-rc.1",
@@ -174,17 +215,22 @@ func TestSemanticVersionOrderingIsComplete(t *testing.T) {
 		"1.0.0-1",
 		"0.9.9",
 	}
-	for index := 0; index < len(ordered)-1; index++ {
-		left, err := parseVersion(ordered[index])
-		if err != nil {
+	for _, reverse := range []bool{false, true} {
+		var content strings.Builder
+		content.WriteString("## [Unreleased]\n")
+		for index := range ordered {
+			if reverse {
+				index = len(ordered) - index - 1
+			}
+			fmt.Fprintf(&content, "\n## [%s] - 2026-08-07\n", ordered[index])
+		}
+		path := filepath.Join(t.TempDir(), "CHANGELOG.md")
+		if err := os.WriteFile(path, []byte(content.String()), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		right, err := parseVersion(ordered[index+1])
-		if err != nil {
-			t.Fatal(err)
-		}
-		if compareVersion(left, right) <= 0 || compareVersion(right, left) >= 0 {
-			t.Fatalf("ordering failed: %s > %s", ordered[index], ordered[index+1])
+		entries, err := parseChangelog(path)
+		if (err != nil) != reverse || (!reverse && len(entries) != len(ordered)) {
+			t.Fatalf("reverse=%t entries=%v error=%v", reverse, entries, err)
 		}
 	}
 }

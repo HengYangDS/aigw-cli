@@ -10,8 +10,7 @@ metadata:
   mod_timestamp: "{{ .Env.AIGW_RELEASE_EPOCH }}"
 
 builds:
-  -
-    id: portable
+  - id: portable
     main: ./cmd/aigw
     binary: aigw
     goos: [darwin, linux, windows]

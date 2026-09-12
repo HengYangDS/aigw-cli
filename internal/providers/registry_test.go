@@ -2,70 +2,15 @@ package providers_test
 
 import (
 	"context"
-	"go/ast"
-	"go/parser"
-	"go/token"
 	"io"
 	"net/http"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/account"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/providers"
+	"aigw-cli/internal/secrets"
 )
-
-func TestRegistryDoesNotDependOnProviderOwnedTransportContracts(t *testing.T) {
-	file, err := parser.ParseFile(token.NewFileSet(), "registry.go", nil, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	concreteProviders := map[string]struct{}{}
-	for _, imported := range file.Imports {
-		path, unquoteErr := strconv.Unquote(imported.Path.Value)
-		if unquoteErr != nil || !strings.Contains(path, "/internal/providers/") {
-			continue
-		}
-		name := filepath.Base(path)
-		if imported.Name != nil {
-			name = imported.Name.Name
-		}
-		concreteProviders[name] = struct{}{}
-	}
-	checkContract := func(owner string, node ast.Node) {
-		ast.Inspect(node, func(candidate ast.Node) bool {
-			selector, ok := candidate.(*ast.SelectorExpr)
-			if !ok {
-				return true
-			}
-			qualifier, ok := selector.X.(*ast.Ident)
-			if !ok {
-				return true
-			}
-			if _, concrete := concreteProviders[qualifier.Name]; concrete {
-				t.Errorf("%s contract depends on concrete provider type %s.%s", owner, qualifier.Name, selector.Sel.Name)
-			}
-			return true
-		})
-	}
-	for _, declaration := range file.Decls {
-		switch declaration := declaration.(type) {
-		case *ast.GenDecl:
-			for _, spec := range declaration.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if ok && typeSpec.Name.Name == "probeFunc" {
-					checkContract("probeFunc", typeSpec.Type)
-				}
-			}
-		case *ast.FuncDecl:
-			if declaration.Name.Name == "Probe" {
-				checkContract("Probe", declaration.Type)
-			}
-		}
-	}
-}
 
 func TestUnknownDiagnosticProviderIsRejectedAtExecutionNotConfiguration(t *testing.T) {
 	providerAccount := configuration.Account{
@@ -76,7 +21,7 @@ func TestUnknownDiagnosticProviderIsRejectedAtExecutionNotConfiguration(t *testi
 	if providers.Supports(providerAccount.AccountProbe.Kind) {
 		t.Fatal("an unbundled provider must not report support")
 	}
-	_, err := providers.Probe(context.Background(), nil, providerAccount, "api-token", account.Credential{SystemToken: "platform-token", UserID: "1"})
+	_, err := providers.Probe(context.Background(), nil, providerAccount, "api-token", secrets.DiagnosticCredential{SystemToken: "platform-token", UserID: "1"})
 	if err == nil || !strings.Contains(err.Error(), "not included in this AIGW build") {
 		t.Fatalf("error = %v", err)
 	}
@@ -89,7 +34,7 @@ func TestBundledDMXAPIDiagnosticsAreExplicitlyRegistered(t *testing.T) {
 }
 
 func TestProbeRequiresAccountProbeConfiguration(t *testing.T) {
-	_, err := providers.Probe(context.Background(), nil, configuration.Account{ID: "no-probe"}, "api-token", account.Credential{})
+	_, err := providers.Probe(context.Background(), nil, configuration.Account{ID: "no-probe"}, "api-token", secrets.DiagnosticCredential{})
 	if err == nil || !strings.Contains(err.Error(), "no exact diagnostic provider") {
 		t.Fatalf("error = %v", err)
 	}
@@ -100,17 +45,27 @@ type roundTrip func(*http.Request) (*http.Response, error)
 func (f roundTrip) Do(req *http.Request) (*http.Response, error) { return f(req) }
 
 func TestProbeDispatchesToDMXAPI(t *testing.T) {
+	var paths []string
 	client := roundTrip(func(req *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"success":true,"data":{"quota":100}}`))}, nil
+		paths = append(paths, req.URL.Path)
+		if req.Header.Get("Authorization") != "Bearer platform-token" {
+			t.Fatal("diagnostic dispatch lost its platform credential")
+		}
+		body := `{"success":true,"data":{"quota":6250000}}`
+		if req.URL.Path == "/api/token/search" {
+			body = `{"success":true,"data":{"items":[{"key":"abcd**********wxyz","name":"Selected Token","status":1,"remain_quota":2500000}]}}`
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
 	providerAccount := configuration.Account{
 		ID:           "dmx",
-		AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"},
+		AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostic.test"},
 	}
-	// We expect an error because the second call (fetchTokens) will fail due to our simple mock,
-	// but this confirms it reached the dmxapi case.
-	_, err := providers.Probe(context.Background(), client, providerAccount, "api-token", account.Credential{})
-	if err == nil || (!strings.Contains(err.Error(), "DMXAPI token query failed") && !strings.Contains(err.Error(), "EOF") && !strings.Contains(err.Error(), "not found in the DMXAPI account")) {
-		t.Fatalf("error = %v", err)
+	report, err := providers.Probe(t.Context(), client, providerAccount, "sk-abcd-middle-wxyz", secrets.DiagnosticCredential{SystemToken: "platform-token"})
+	if err != nil || report.AccountBalance != 12.5 || report.TokenRemaining != 5 || report.TokenName != "Selected Token" || report.TokenStatus != "enabled" {
+		t.Fatalf("dispatched diagnostic = %#v, %v", report, err)
+	}
+	if strings.Join(paths, ",") != "/api/user/self,/api/token/search" {
+		t.Fatalf("diagnostic request sequence = %v", paths)
 	}
 }

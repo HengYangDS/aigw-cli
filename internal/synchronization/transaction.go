@@ -7,61 +7,46 @@ import (
 	configuration "aigw-cli/internal/configuration"
 )
 
-// Commit persists one configuration transition and converges every affected
-// Codex projection and native authentication target. Any downstream failure
-// restores both configuration and projections to their verified preimages.
+// Commit persists one configuration transition and converges affected client
+// projections. Failures compensate owned writes without changing native credentials.
 func (s Synchronizer) Commit(ctx context.Context, before, after configuration.Config, subject string) error {
+	clients := s.registry().ChangedClients(before, after)
+	return s.commit(ctx, before, after, subject, len(clients) > 0, clients...)
+}
+
+// CommitProjection persists configuration and reconciles every client projection,
+// including missing or out-of-date projections of unchanged configuration.
+func (s Synchronizer) CommitProjection(ctx context.Context, before, after configuration.Config, subject string) error {
 	return s.commit(ctx, before, after, subject, true)
 }
 
-// CommitProjection persists one configuration transition and converges its
-// client projections without changing native client authentication.
-func (s Synchronizer) CommitProjection(ctx context.Context, before, after configuration.Config, subject string) error {
-	return s.commit(ctx, before, after, subject, false)
-}
-
-func (s Synchronizer) commit(ctx context.Context, before, after configuration.Config, subject string, bindAuthentication bool) error {
+func (s Synchronizer) commit(ctx context.Context, before, after configuration.Config, subject string, reconcileProjection bool, clientIDs ...string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	configBefore, err := s.Config.CaptureSnapshot()
 	if err != nil {
 		return err
 	}
-	if err := s.Config.Save(after); err != nil {
+	if reconcileProjection {
+		if _, err := s.registry().Plan(s.clientDependencies(), before, after, clientIDs...); err != nil {
+			return fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)
+		}
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
-	configAfter, err := s.Config.CaptureSnapshot()
+	configAfter, err := s.Config.Commit(configBefore, after)
 	if err != nil {
 		return err
 	}
-	if ProjectionChanged(before, after) || ClaudeProjectionChanged(before, after) {
-		if err := s.Reconcile(ctx, before, after); err != nil {
-			rollbackErr := s.rollback(ctx, before, after, configBefore, configAfter, false)
-			if rollbackErr != nil {
-				return fmt.Errorf("%s synchronization failed: %w; rollback also failed: %v", subject, err, rollbackErr)
+	if reconcileProjection {
+		if err := s.registry().Apply(ctx, s.clientDependencies(), before, after, clientIDs...); err != nil {
+			if rollbackErr := s.Config.RestoreSnapshot(configBefore, configAfter); rollbackErr != nil {
+				return fmt.Errorf("%s synchronization failed: %w; rollback also failed: %w", subject, err, rollbackErr)
 			}
-			return fmt.Errorf("%s synchronization failed and was rolled back: %w", subject, err)
+			return fmt.Errorf("%s synchronization failed; configuration was rolled back: %w", subject, err)
 		}
-	}
-	if bindAuthentication && AuthenticationChanged(before, after) {
-		if err := s.BindAuthentication(ctx, after); err != nil {
-			rollbackErr := s.rollback(ctx, before, after, configBefore, configAfter, true)
-			if rollbackErr != nil {
-				return fmt.Errorf("%s authentication failed: %w; rollback also failed: %v", subject, err, rollbackErr)
-			}
-			return fmt.Errorf("%s authentication failed and was rolled back: %w", subject, err)
-		}
-	}
-	return nil
-}
-
-func (s Synchronizer) rollback(ctx context.Context, before, after configuration.Config, configBefore, configAfter configuration.Snapshot, rebindNativeAuthentication bool) error {
-	if err := s.Config.RestoreSnapshot(configBefore, configAfter); err != nil {
-		return err
-	}
-	if err := s.Reconcile(ctx, after, before); err != nil {
-		return err
-	}
-	if rebindNativeAuthentication {
-		return s.BindAuthentication(ctx, before)
 	}
 	return nil
 }

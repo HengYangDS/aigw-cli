@@ -158,12 +158,16 @@ func TestValidateHTTPClientDoesNotFollowRedirects(t *testing.T) {
 	t.Cleanup(server.Close)
 	account := configuration.Account{ID: "team", Endpoints: configuration.Endpoints{OpenAIResponses: server.URL + "/v1"}}
 
-	err := Validate(context.Background(), server.Client(), account, "secret", configuration.ClientCodex)
+	httpClient := server.Client()
+	err := Validate(context.Background(), httpClient, account, "secret", configuration.ClientCodex)
 	if err == nil || !strings.Contains(err.Error(), "HTTP 302") {
 		t.Fatalf("error = %v, want HTTP 302", err)
 	}
 	if followed {
 		t.Fatal("validation followed a redirect")
+	}
+	if httpClient.CheckRedirect != nil {
+		t.Fatal("validation changed its caller's HTTP client")
 	}
 }
 
@@ -182,7 +186,11 @@ func TestCredentialHelpers(t *testing.T) {
 		called = true
 		return nil, nil
 	})
-	if _, err := withoutRedirects(doer).Do(request); err != nil || !called {
+	response, err := DoProbe(doer, request)
+	if response != nil {
+		_ = response.Body.Close()
+	}
+	if err != nil || !called {
 		t.Fatalf("non-HTTP doer call: called=%v error=%v", called, err)
 	}
 	if got := title(""); got != "" {

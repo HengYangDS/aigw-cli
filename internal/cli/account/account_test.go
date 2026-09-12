@@ -10,17 +10,9 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
+
 	"github.com/spf13/cobra"
 )
-
-func secretExists(t testing.TB, store secrets.Store, account string) bool {
-	t.Helper()
-	present, err := store.Exists(account)
-	if err != nil {
-		t.Fatalf("observe credential for %q: %v", account, err)
-	}
-	return present
-}
 
 func TestAccountReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
 	tests := []struct {
@@ -77,26 +69,6 @@ func TestAccountCommandsRequireAnAccountBeforeProviderWork(t *testing.T) {
 	}
 }
 
-func TestAddRollsBackTokenWhenConfigurationCannotBeSaved(t *testing.T) {
-	store, secretStore := blockedConfigurationStore(t)
-	command := NewAddCommand(invocation.Context{
-		Config:  store,
-		Secrets: secretStore,
-		In:      strings.NewReader("new-token\n"),
-		Out:     &bytes.Buffer{},
-	})
-	command.SetArgs([]string{"new", "--openai-url", "https://new.test/v1", "--token-stdin"})
-	command.SilenceErrors = true
-	command.SilenceUsage = true
-
-	if err := command.Execute(); err == nil {
-		t.Fatal("configuration save failure was accepted")
-	}
-	if secretExists(t, secretStore, "new") {
-		t.Fatal("token remained after configuration save failure")
-	}
-}
-
 func TestEditReturnsTransactionPreparationFailure(t *testing.T) {
 	store, secretStore := blockedConfigurationStore(t)
 	command := newEditCommand(invocation.Context{Config: store, Secrets: secretStore, Out: &bytes.Buffer{}})
@@ -109,7 +81,7 @@ func TestEditReturnsTransactionPreparationFailure(t *testing.T) {
 	}
 }
 
-func blockedConfigurationStore(t *testing.T) (configuration.Store, *secrets.MemoryStore) {
+func blockedConfigurationStore(t *testing.T) (configuration.Store, secrets.Store) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	store := configuration.NewStore(path)

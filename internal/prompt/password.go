@@ -11,6 +11,7 @@ type passwordInput struct {
 	read       func() ([]byte, error)
 }
 
+// ReadHiddenToken reads and optionally confirms one token without echoing its value.
 func ReadHiddenToken(out io.Writer, confirm bool) (string, error) {
 	return readHiddenToken(out, confirm, currentPasswordInput())
 }

@@ -113,3 +113,22 @@ func TestFindRejectsDirectoriesAndNonExecutableUnixFiles(t *testing.T) {
 		})
 	}
 }
+
+func TestExecutableAvailableReportsEmptyMissingAndInspectionFailure(t *testing.T) {
+	if available, err := ExecutableAvailable(""); available || err != nil {
+		t.Fatalf("ExecutableAvailable(empty) = %v, %v", available, err)
+	}
+	if available, err := ExecutableAvailable(filepath.Join(t.TempDir(), "missing")); available || err != nil {
+		t.Fatalf("ExecutableAvailable(missing) = %v, %v", available, err)
+	}
+	if runtime.GOOS == "windows" {
+		return
+	}
+	loop := filepath.Join(t.TempDir(), "loop")
+	if err := os.Symlink(loop, loop); err != nil {
+		t.Skipf("symbolic link unavailable: %v", err)
+	}
+	if available, err := ExecutableAvailable(loop); available || err == nil {
+		t.Fatalf("ExecutableAvailable(loop) = %v, %v", available, err)
+	}
+}

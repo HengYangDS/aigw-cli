@@ -8,6 +8,29 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- Assign the successor candidate version `0.1.0-rc.112`, keeping the installed
+  `rc.111` rollback baseline distinct from newer product bytes.
+- Advance the locked Go, mise, editorconfig-checker, mise Action, and CI image
+  inputs to their current stable releases across the supported build targets.
+- Advance GoReleaser to 2.18.1 after validating the existing portable release
+  configuration against its current stable archive and security fixes.
+- Use editorconfig-checker's upstream executable and artifact identity instead
+  of the retired `ec` asset convention.
+- Retire the unavailable `go-bcov` dependency and use the locked Go coverage
+  profile as the sole quantitative coverage authority instead of preserving an
+  unsupported branch-percentage claim.
+
+### Fixed
+
+- Preserve user-selected Claude models during route synchronization while
+  rejecting connection and credential conflicts before changing configuration.
+- Reject malformed command arguments before acquiring configuration locks,
+  inspecting credentials, or discovering clients.
+- Preserve publication credentials at the selected API authority instead of
+  forwarding them to redirected or externally linked artifact hosts.
+
 ## [0.1.0-rc.110] - 2026-09-01
 
 ### Added

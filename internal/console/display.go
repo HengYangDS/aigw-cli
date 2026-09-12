@@ -11,10 +11,12 @@ import (
 	"golang.org/x/term"
 )
 
+// Interactive reports whether a file descriptor is attached to a terminal.
 func Interactive(file *os.File) bool {
 	return file != nil && term.IsTerminal(int(file.Fd()))
 }
 
+// WidthFromEnvironment returns a validated terminal width declared by the environment, or zero when absent.
 func WidthFromEnvironment(env map[string]string) int {
 	width, err := strconv.Atoi(strings.TrimSpace(env["COLUMNS"]))
 	if err != nil || width <= 0 {
@@ -23,6 +25,7 @@ func WidthFromEnvironment(env map[string]string) int {
 	return width
 }
 
+// PresentationWidth selects the usable output width from the terminal and environment without mutating either.
 func PresentationWidth(out io.Writer, env map[string]string) int {
 	return presentationWidth(out, env, Interactive, term.GetSize)
 }
@@ -42,6 +45,7 @@ func presentationWidth(out io.Writer, env map[string]string, interactive func(*o
 	return width
 }
 
+// ColorEnabled decides whether color is safe for the platform, environment, and current output stream.
 func ColorEnabled(goos string, env map[string]string, interactive bool, enableVT func() bool) bool {
 	if !interactive || env["NO_COLOR"] != "" {
 		return false

@@ -16,23 +16,13 @@ directory, or a generic "OpenAI-compatible" claim must never bypass admission.
 Provider Account and Client Adapter are independent extension axes. Ordinary
 Bearer-authenticated endpoints use the Account schema; they do not require a
 provider-specific package. A distinct authentication mechanism or wire
-protocol requires an explicit Adapter decision instead of name-based branching.
+protocol requires an explicit protocol-extension decision instead of
+name-based branching; that decision does not admit a new Client Adapter.
 
-## Extension decision
-
-Classify the changed authority before adding code:
-
-| Need                           | Owner                  | Admission result          |
-| ------------------------------ | ---------------------- | ------------------------- |
-| Compatible endpoint or model   | Account schema         | Data only                 |
-| Distinct credential exchange   | Account authentication | Authentication extension  |
-| New local client configuration | Client Adapter         | Complete client lifecycle |
-| Incompatible wire behavior     | Independent data plane | Explicit Account endpoint |
-
-General gateways and narrow compatibility services remain optional Account
-endpoints. AIGW does not embed, supervise, configure, or copy their traffic
-policy. Provider identity must not select behavior, and a client integration
-must not branch through another client's Adapter.
+Classify an extension through the
+[architecture's extension model](../architecture/authority-and-projection-boundary.md#extension-model)
+before applying the evidence requirements below. Existing compatible Accounts
+and models need configuration admission, not a new client implementation.
 
 The admitted clients live in one static registry. Status, diagnostics, profile
 validation, route validation, and adapter discovery read from that registry. A
@@ -40,21 +30,21 @@ new model in an account catalog does not change it.
 
 ## Dependency admission
 
-Prefer a mature library or framework only when it replaces an AIGW-owned
-boundary and yields a net reduction in source, tests, dependencies, and runtime
-states. Admission must preserve the portable binary, deterministic configuration,
-credential boundary, and compensated projection transaction. Popularity,
-feature count, or overlap with a general gateway is not sufficient.
+Apply the shared
+[dependency and framework admission policy](change-and-release-policy.md#dependency-and-framework-admission).
+Client admission does not grant an exception to portability, credential or
+compensated-projection requirements.
 
 ## Admitted clients
 
-| Client                      | Configuration and authentication boundary                                                                   | Required account capability            |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| Claude Code                 | Official per-user settings projection; Token is read on demand through `aigw credential claude`             | Verified Anthropic-compatible endpoint |
-| Codex CLI and Codex Desktop | AIGW-owned `config.toml` projection in the shared Codex Home; official `codex login --with-api-key` binding | Verified OpenAI Responses endpoint     |
+| Client                      | Configuration and authentication boundary                                                                                                                              | Required account capability            |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Claude Code                 | Official per-user settings projection; Token is read on demand through `aigw credential claude <projection-fingerprint>`                                               | Verified Anthropic-compatible endpoint |
+| Codex CLI and Codex Desktop | AIGW-owned `config.toml` projection in the shared Codex Home; projection-matching command helper for Account Tokens; client-native authentication remains client-owned | Verified OpenAI Responses endpoint     |
 
-Each account retains one system token. Switching profiles within an account does
-not copy a token; switching accounts does not write a token into client files.
+An Account Token, when required, stays in the selected backend. Client-native
+authentication stays with the client. Switching Profiles does not copy Tokens
+into client files.
 
 ## Host-surface ownership
 
@@ -67,23 +57,6 @@ outside the Adapter boundary. Codex and every other client retain authority over
 existing conversations, model choices, transcripts, JSONL, SQLite, and runtime
 metadata.
 
-## Candidate status
-
-| Candidate             | Correct classification                    | Status                     |
-| --------------------- | ----------------------------------------- | -------------------------- |
-| Z.AI GLM coding plans | Provider Account                          | Evaluation only            |
-| Gemini CLI            | Separate client adapter                   | Not admitted               |
-| Qwen Code             | Separate client adapter                   | Not admitted               |
-| OpenCode              | Separate client adapter                   | Not admitted               |
-| Pi                    | Separate client adapter                   | Not admitted               |
-| Hermes Agent          | Separate client adapter                   | Not admitted               |
-| Qoder                 | Client Adapter; provider surface unproved | Capability evaluation only |
-| Perplexity            | Research provider, not a Codex default    | Not admitted               |
-| Grok                  | Independent cross-check provider          | Not admitted               |
-
-Official protocol documentation may prove an entry point, but it is not proof of
-an AIGW adapter, tool compatibility, quality, or operational readiness.
-
 ## Required admission record
 
 Every new adapter must supply all of the following before merge:
@@ -93,9 +66,9 @@ Every new adapter must supply all of the following before merge:
    directory reuse.
 3. Protocol contract: authentication, model selection, streaming, tools, and
    required image or long-context behavior.
-4. Secret proof: tokens come only from the selected AIGW credential backend's
-   API-token slot for the Account and never appear in public configuration,
-   logs, arguments, manifests, or backups.
+4. Secret proof: Account Tokens come only from the selected AIGW backend's
+   API-token slot; client-native authentication remains client-owned. Tokens
+   never appear in public configuration, logs, arguments, manifests, or backups.
 5. Rollback proof: byte-exact owned-state restoration; user drift fails closed.
 6. User-authorized minimal real verification with non-sensitive evidence.
 7. A decision covering quality, stability, cost, regional reachability,
@@ -116,11 +89,8 @@ Connectivity probes are part of the protocol contract. An Anthropic probe sets
 both the required and forbidden headers and prove that neither the credential
 nor its header name appears in command output.
 
-Until the record is complete, the candidate remains absent from enablement,
-configuration manifests, routable profiles, and automatic fallback.
-
-## Non-default rule
-
-Research and cross-check providers do not become Claude or Codex defaults.
-Discovery in an upstream catalog is transparent but never creates an admitted
-profile or route.
+Until a Client Adapter completes admission, it remains outside the operational
+registry and routable Profiles. Model and Account catalogue discovery does not
+create Profiles or select Routes. Comparative product observations belong to
+[research](../research/provider-tooling-assessment.md), not a second admission
+registry in this policy.

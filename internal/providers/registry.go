@@ -7,25 +7,18 @@ package providers
 import (
 	"context"
 	"fmt"
-	"net/http"
 
-	"aigw-cli/internal/account"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
+	"aigw-cli/internal/providers/diagnostic"
 	"aigw-cli/internal/providers/dmxapi"
+	"aigw-cli/internal/secrets"
 )
 
-// httpDoer is the provider-neutral transport required by every bundled
-// account diagnostic. Leaf integrations satisfy it structurally.
-type httpDoer interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
-type probeFunc func(context.Context, httpDoer, configuration.Account, string, account.Credential) (account.Report, error)
+type probeFunc func(context.Context, credential.HTTPDoer, configuration.Account, string, secrets.DiagnosticCredential) (diagnostic.Report, error)
 
 var registry = map[string]probeFunc{
-	dmxapi.Kind: func(ctx context.Context, client httpDoer, providerAccount configuration.Account, apiToken string, credential account.Credential) (account.Report, error) {
-		return dmxapi.Probe(ctx, client, providerAccount, apiToken, credential)
-	},
+	dmxapi.Kind: dmxapi.Probe,
 }
 
 // Supports reports whether this AIGW build has an explicit native diagnostic
@@ -36,13 +29,14 @@ func Supports(kind string) bool {
 	return ok
 }
 
-func Probe(ctx context.Context, client httpDoer, providerAccount configuration.Account, apiToken string, credential account.Credential) (account.Report, error) {
+// Probe dispatches an optional account diagnostic to the provider adapter declared by the account.
+func Probe(ctx context.Context, client credential.HTTPDoer, providerAccount configuration.Account, apiToken string, auth secrets.DiagnosticCredential) (diagnostic.Report, error) {
 	if providerAccount.AccountProbe == nil {
-		return account.Report{}, fmt.Errorf("account %q has no exact diagnostic provider", providerAccount.ID)
+		return diagnostic.Report{}, fmt.Errorf("account %q has no exact diagnostic provider", providerAccount.ID)
 	}
 	implementation, ok := registry[providerAccount.AccountProbe.Kind]
 	if !ok {
-		return account.Report{}, fmt.Errorf("exact diagnostics provider %q is not included in this AIGW build", providerAccount.AccountProbe.Kind)
+		return diagnostic.Report{}, fmt.Errorf("exact diagnostics provider %q is not included in this AIGW build", providerAccount.AccountProbe.Kind)
 	}
-	return implementation(ctx, client, providerAccount, apiToken, credential)
+	return implementation(ctx, client, providerAccount, apiToken, auth)
 }

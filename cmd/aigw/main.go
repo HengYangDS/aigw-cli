@@ -1,18 +1,18 @@
+// Package main starts the AIGW command-line application.
 package main
 
 import (
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/presentation"
 	"fmt"
 	"io"
 	"os"
 )
 
 func main() {
-	os.Exit(run(os.Args[0], os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
-func run(program string, args []string, stdout, stderr io.Writer) int {
+func run(args []string, stdout, stderr io.Writer) int {
 	app, err := cli.NewDefault()
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, "aigw:", err)
@@ -22,7 +22,6 @@ func run(program string, args []string, stdout, stderr io.Writer) int {
 	app.Err = stderr
 	err = cli.Execute(app, args)
 	if err != nil {
-		presentation.RenderError(app.Renderer(), err)
 		return 1
 	}
 	return 0

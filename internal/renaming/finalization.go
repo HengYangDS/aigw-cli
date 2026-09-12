@@ -3,7 +3,6 @@ package renaming
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -15,7 +14,7 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-func planFinalize(deps Dependencies, oldID, newID string, options FinalizeOptions) (Plan, error) {
+func planFinalize(deps Service, oldID, newID string, options FinalizeOptions) (Plan, error) {
 	state, err := deps.Config.CaptureVerifiedBackupState()
 	if err != nil {
 		return Plan{}, fmt.Errorf("Load current configuration and verified checkpoint: %w", err)
@@ -35,9 +34,6 @@ func planFinalize(deps Dependencies, oldID, newID string, options FinalizeOption
 		}
 	}
 	sort.Strings(references)
-	if !configsSemanticallyEqual(cfg, state.Checkpoint.Config) {
-		return Plan{}, errors.New("verified checkpoint does not match current configuration")
-	}
 	if !coversAllAdmittedClients(state.Checkpoint.Clients) {
 		return Plan{}, errors.New("verified checkpoint does not cover all admitted clients")
 	}
@@ -52,11 +48,10 @@ func planFinalize(deps Dependencies, oldID, newID string, options FinalizeOption
 		Status:             "planned",
 		AffectedReferences: references,
 		Actions: Actions{
-			Configuration:  "already-renamed",
-			APIToken:       "already-absent",
-			AccountProbe:   "already-absent",
-			Authentication: "unchanged",
-			Backup:         "converge-to-verified-current",
+			Configuration: "already-renamed",
+			APIToken:      "already-absent",
+			AccountProbe:  "already-absent",
+			Backup:        "converge-to-verified-current",
 		},
 		ExternalTODOs: []string{},
 		Account:       targetAccount,
@@ -88,7 +83,7 @@ func planFinalize(deps Dependencies, oldID, newID string, options FinalizeOption
 	return plan, nil
 }
 
-func planFinalToken(deps Dependencies, plan *Plan, oldID, newID string, confirmed bool, blocked *[]string) (bool, error) {
+func planFinalToken(deps Service, plan *Plan, oldID, newID string, confirmed bool, blocked *[]string) (bool, error) {
 	target, targetPresent, err := readOptionalToken(deps.Secrets, newID)
 	if err != nil {
 		return false, fmt.Errorf("Read target API token credential slot: %w", err)
@@ -123,7 +118,7 @@ func planFinalToken(deps Dependencies, plan *Plan, oldID, newID string, confirme
 	return true, nil
 }
 
-func planFinalProbe(deps Dependencies, plan *Plan, oldID, newID string, confirmed bool, blocked *[]string) (bool, error) {
+func planFinalProbe(deps Service, plan *Plan, oldID, newID string, confirmed bool, blocked *[]string) (bool, error) {
 	source, sourcePresent, err := readOptionalProbeCredential(deps.Accounts, oldID)
 	if err != nil {
 		return false, fmt.Errorf("Read source account probe credential slot: %w", err)
@@ -154,26 +149,6 @@ func planFinalProbe(deps Dependencies, plan *Plan, oldID, newID string, confirme
 	return true, nil
 }
 
-func configsSemanticallyEqual(left, right configuration.Config) bool {
-	normalizeConfigIdentity(&left)
-	normalizeConfigIdentity(&right)
-	leftJSON, leftErr := json.Marshal(left)
-	rightJSON, rightErr := json.Marshal(right)
-	return leftErr == nil && rightErr == nil && bytes.Equal(leftJSON, rightJSON)
-}
-
-func normalizeConfigIdentity(cfg *configuration.Config) {
-	cfg.Normalize()
-	for id, providerAccount := range cfg.Accounts {
-		providerAccount.ID = ""
-		cfg.Accounts[id] = providerAccount
-	}
-	for id, profile := range cfg.Profiles {
-		profile.ID = ""
-		cfg.Profiles[id] = profile
-	}
-}
-
 func coversAllAdmittedClients(clients []string) bool {
 	admitted := configuration.AdmittedClientIDs()
 	if len(clients) != len(admitted) {
@@ -194,13 +169,19 @@ func coversAllAdmittedClients(clients []string) bool {
 	return true
 }
 
-func applyFinalize(ctx context.Context, deps Dependencies, plan Plan) (Plan, error) {
+func applyFinalize(ctx context.Context, deps Service, plan Plan) (Plan, error) {
+	if err := ctx.Err(); err != nil {
+		return Plan{}, err
+	}
 	if plan.verifyProbe {
 		if err := verifyFinalizedAccountProbe(ctx, deps, plan); err != nil {
 			return Plan{}, err
 		}
 	}
-	if _, err := deps.Config.ConvergeVerifiedBackup(plan.snapshot); err != nil {
+	if err := ctx.Err(); err != nil {
+		return Plan{}, err
+	}
+	if err := deps.Config.ConvergeVerifiedBackup(plan.snapshot); err != nil {
 		return Plan{}, fmt.Errorf("Converge verified configuration backup: %w", err)
 	}
 	plan.Actions.Backup = "converged"
@@ -244,7 +225,7 @@ func applyFinalize(ctx context.Context, deps Dependencies, plan Plan) (Plan, err
 	return plan, nil
 }
 
-func verifyFinalizedAccountProbe(ctx context.Context, deps Dependencies, plan Plan) error {
+func verifyFinalizedAccountProbe(ctx context.Context, deps Service, plan Plan) error {
 	providerAccount := plan.Account
 	if providerAccount.AccountProbe == nil {
 		return fmt.Errorf("target account %q does not declare precise diagnostics", plan.NewID)

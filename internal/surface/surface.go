@@ -10,8 +10,10 @@ type ID string
 type Authority string
 
 const (
+	// CodexHomeDefault identifies the canonical default Codex Home projection surface.
 	CodexHomeDefault ID = "codex-home-default"
 
+	// AuthorityAIGW identifies a surface whose bounded projection is owned by AIGW.
 	AuthorityAIGW Authority = "aigw"
 
 	codexHomeExplicitPrefix = "codex-home-explicit-"

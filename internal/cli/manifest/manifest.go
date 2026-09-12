@@ -11,6 +11,7 @@ import (
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
+
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +54,12 @@ func newExportCommand(runtime invocation.Context) *cobra.Command {
 
 func newImportCommand(runtime invocation.Context) *cobra.Command {
 	var replaceAccounts, replaceProfiles []string
-	cmd := &cobra.Command{Use: "import <configuration.toml>", Short: "Merge a secret-free configuration manifest", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	cmd := &cobra.Command{Use: "import <configuration.toml>", Short: "Merge a secret-free configuration manifest", Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
+		if strings.TrimSpace(args[0]) == "" {
+			return fmt.Errorf("Configuration manifest path must not be blank; run `%s --help`", cmd.CommandPath())
+		}
+		return nil
+	}), RunE: func(cmd *cobra.Command, args []string) error {
 		data, err := os.ReadFile(args[0])
 		if err != nil {
 			return fmt.Errorf("Failed to read configuration manifest: %w", err)

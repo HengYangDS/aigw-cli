@@ -4,9 +4,9 @@ package process
 
 import "os/exec"
 
-func startCapturedProcess(cmd *exec.Cmd) (func(), error) {
+func startCapturedProcess(cmd *exec.Cmd) (func() error, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	return func() {}, nil
+	return func() error { return nil }, nil
 }

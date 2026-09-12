@@ -13,17 +13,22 @@ import (
 )
 
 func atomicTestRuntime() configuration.Runtime {
+	executable, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
 	return configuration.Runtime{
-		ProfileID:    "gpt-5.6-terra",
-		ProfileLabel: "GPT-5.6 Terra",
-		AccountID:    "gateway",
-		Client:       configuration.ClientCodex,
-		Endpoint:     "http://127.0.0.1:8791/v1",
-		Model:        "gpt-5.6-terra",
+		CredentialCommand: executable,
+		ProfileID:         "gpt-5.6-terra",
+		ProfileLabel:      "GPT-5.6 Terra",
+		AccountID:         "gateway",
+		Client:            configuration.ClientCodex,
+		Endpoint:          "http://127.0.0.1:8791/v1",
+		Model:             "gpt-5.6-terra",
 	}
 }
 
-func TestSyncConfigsRollsBackEveryTargetAndAbsentStateOnWriteFailure(t *testing.T) {
+func TestReconcileConfigsRollsBackEveryTargetAndAbsentStateOnWriteFailure(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.toml")
 	second := filepath.Join(dir, "second.toml")
@@ -46,9 +51,9 @@ func TestSyncConfigsRollsBackEveryTargetAndAbsentStateOnWriteFailure(t *testing.
 		return originalWrite(path, expected, data, mode)
 	}
 
-	err := SyncConfigs([]string{first, second}, atomicTestRuntime())
+	_, err := ReconcileConfigs(nil, codexHomeTargets([]string{first, second}), atomicTestRuntime())
 	if err == nil || !strings.Contains(err.Error(), "injected state-write failure") {
-		t.Fatalf("SyncConfigs() error = %v", err)
+		t.Fatalf("ReconcileConfigs() error = %v", err)
 	}
 	for path, want := range map[string][]byte{first: firstBefore, second: secondBefore} {
 		got, readErr := os.ReadFile(path)
@@ -61,7 +66,7 @@ func TestSyncConfigsRollsBackEveryTargetAndAbsentStateOnWriteFailure(t *testing.
 	}
 }
 
-func TestSyncConfigsPreflightRejectsLaterConflictWithoutChangingEarlierTarget(t *testing.T) {
+func TestReconcileConfigsPreflightRejectsLaterConflictWithoutChangingEarlierTarget(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.toml")
 	second := filepath.Join(dir, "second.toml")
@@ -85,9 +90,9 @@ func TestSyncConfigsPreflightRejectsLaterConflictWithoutChangingEarlierTarget(t 
 		t.Fatal(err)
 	}
 
-	err = SyncConfigs([]string{first, second}, runtime)
+	_, err = ReconcileConfigs(nil, codexHomeTargets([]string{first, second}), runtime)
 	if err == nil || !strings.Contains(err.Error(), "incomplete") {
-		t.Fatalf("SyncConfigs() error = %v, want later target conflict", err)
+		t.Fatalf("ReconcileConfigs() error = %v, want later target conflict", err)
 	}
 	if got, err := os.ReadFile(first); err != nil || string(got) != firstBefore {
 		t.Fatalf("earlier target changed during preflight: %q, %v", got, err)
@@ -100,23 +105,24 @@ func TestSyncConfigsPreflightRejectsLaterConflictWithoutChangingEarlierTarget(t 
 	}
 }
 
-func TestPlanConfigsClassifiesInitialConvergedAndExactTruncationRepair(t *testing.T) {
+func TestPlanReconciliationClassifiesInitialConvergedAndExactTruncationRepair(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	runtime := atomicTestRuntime()
-	plans, err := PlanConfigs([]string{path}, runtime)
+	targets := codexHomeTargets([]string{path})
+	plans, err := PlanReconciliation(nil, targets, runtime)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(plans) != 1 || plans[0].Action != "initial-project" {
 		t.Fatalf("initial plan = %#v", plans)
 	}
-	if err := SyncConfigs([]string{path}, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, targets, runtime); err != nil {
 		t.Fatal(err)
 	}
-	plans, err = PlanConfigs([]string{path}, runtime)
+	plans, err = PlanReconciliation(nil, targets, runtime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +137,7 @@ func TestPlanConfigsClassifiesInitialConvergedAndExactTruncationRepair(t *testin
 	if err := os.WriteFile(path, []byte(truncated), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	plans, err = PlanConfigs([]string{path}, runtime)
+	plans, err = PlanReconciliation(nil, targets, runtime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +146,7 @@ func TestPlanConfigsClassifiesInitialConvergedAndExactTruncationRepair(t *testin
 	}
 }
 
-func TestSyncConfigsRejectsUnattributedStateWithoutOriginalSelections(t *testing.T) {
+func TestReconcileConfigsRejectsUnattributedStateWithoutOriginalSelections(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
@@ -160,9 +166,9 @@ func TestSyncConfigsRejectsUnattributedStateWithoutOriginalSelections(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = SyncConfigs([]string{path}, runtime)
+	_, err = ReconcileConfigs(nil, codexHomeTargets([]string{path}), runtime)
 	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") {
-		t.Fatalf("SyncConfigs() error = %v, want incomplete attribution", err)
+		t.Fatalf("ReconcileConfigs() error = %v, want incomplete attribution", err)
 	}
 	afterConfig, readErr := os.ReadFile(path)
 	if readErr != nil || !bytes.Equal(afterConfig, beforeConfig) {

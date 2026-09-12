@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"golang.org/x/sys/windows"
 )
 
 func TestWindowsAutomaticFallbackPersistsProtectedToken(t *testing.T) {
@@ -67,5 +69,21 @@ func TestWindowsExplicitFileBackendRoundTrip(t *testing.T) {
 	}
 	if value, err := store.Get("team"); err != nil || value != "token" {
 		t.Fatalf("Get() = %q, %v", value, err)
+	}
+}
+
+func TestWindowsCredentialCodecRejectsEmptyAndInvalidInputs(t *testing.T) {
+	for _, codec := range []func([]byte) ([]byte, error){encodeCredential, decodeCredential} {
+		if value, err := codec(nil); err == nil || value != nil {
+			t.Fatalf("empty credential: value=%v error=%v", value, err)
+		}
+	}
+	if value, err := decodeCredential([]byte("not a protected credential")); err == nil || value != nil {
+		t.Fatalf("invalid protected credential: value=%v error=%v", value, err)
+	}
+	for _, blob := range []windows.DataBlob{{}, {Size: 1}} {
+		if value, err := consumeLocalBlob(blob); err == nil || value != nil {
+			t.Fatalf("empty DPAPI buffer: value=%v error=%v", value, err)
+		}
 	}
 }

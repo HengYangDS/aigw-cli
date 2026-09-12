@@ -22,7 +22,7 @@ func response(status int, body string) *http.Response {
 }
 
 func runtime() configuration.Runtime {
-	return configuration.Runtime{ProfileID: "dmx", ProfileLabel: "DMXAPI", AccountID: "dmx", AccountLabel: "DMXAPI", Client: configuration.ClientCodex, Endpoint: "https://gateway.test/v1"}
+	return configuration.Runtime{ProfileID: "dmx", ProfileLabel: "DMXAPI", AccountID: "dmx", AccountLabel: "DMXAPI", Client: configuration.ClientCodex, Endpoint: "https://service.test/v1"}
 }
 
 func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {
@@ -37,7 +37,7 @@ func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {
 		{403, `{"message":"forbidden"}`, diagnostics.TokenRestricted},
 		{429, `{"message":"too many requests"}`, diagnostics.RateLimited},
 		{503, `{"message":"no available channel for model"}`, diagnostics.ModelUnavailable},
-		{500, `{"message":"internal error"}`, diagnostics.GatewayFailure},
+		{500, `{"message":"internal error"}`, diagnostics.UpstreamFailure},
 		{404, `{"message":"not found"}`, diagnostics.EndpointMismatch},
 	}
 	for _, tt := range tests {
@@ -58,21 +58,106 @@ func TestProbeUsesModelsEndpointAndNeverReturnsCredential(t *testing.T) {
 		authorization = req.Header.Get("Authorization")
 		return response(200, `{"data":[]}`), nil
 	}), runtime(), secret)
-	if result.Kind != diagnostics.Healthy || requestURL != "https://gateway.test/v1/models" || authorization != "Bearer "+secret {
+	if result.Kind != diagnostics.Healthy || requestURL != "https://service.test/v1/models" || authorization != "Bearer "+secret {
 		t.Fatalf("result=%#v url=%q auth=%q", result, requestURL, authorization)
+	}
+	if result.Summary != "Endpoint diagnostic returned a successful response" {
+		t.Fatalf("summary = %q", result.Summary)
 	}
 	if strings.Contains(result.Summary+result.Detail+result.Fix, secret) {
 		t.Fatalf("credential leaked: %#v", result)
 	}
 }
 
-func TestProbeRedactsAnAPIKeyEchoedByTheGateway(t *testing.T) {
-	secret := "aigw-test-gateway-token-never-leaks"
+func TestProbeRedactsAnAccountTokenEchoedByTheService(t *testing.T) {
+	secret := "aigw-test-account-token-never-leaks"
 	result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
-		return response(http.StatusForbidden, `{"message":"rejected token aigw-test-gateway-token-never-leaks"}`), nil
+		return response(http.StatusForbidden, `{"message":"rejected token aigw-test-account-token-never-leaks"}`), nil
 	}), runtime(), secret)
 	if strings.Contains(result.Detail, secret) {
-		t.Fatalf("gateway response leaked API token: %#v", result)
+		t.Fatalf("service response leaked Account Token: %#v", result)
+	}
+}
+
+func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
+	tests := []struct {
+		name        string
+		status      int
+		body        string
+		wantKind    diagnostics.Kind
+		wantSummary string
+		wantFix     string
+	}{
+		{
+			name:        "invalid token",
+			status:      http.StatusUnauthorized,
+			body:        `{}`,
+			wantKind:    diagnostics.InvalidToken,
+			wantSummary: "Account Token is invalid or belongs to a different service",
+			wantFix:     "Run `aigw rotate dmx` to enter the token again, and confirm that the configured endpoint belongs to this Account",
+		},
+		{
+			name:        "quota exhausted",
+			status:      http.StatusForbidden,
+			body:        `{"message":"quota exhausted"}`,
+			wantKind:    diagnostics.QuotaExhausted,
+			wantSummary: "Token quota is exhausted",
+			wantFix:     "Increase the Token quota for Account dmx in the provider console",
+		},
+		{
+			name:        "token disabled",
+			status:      http.StatusForbidden,
+			body:        `{"message":"token disabled"}`,
+			wantKind:    diagnostics.TokenDisabled,
+			wantSummary: "Token is disabled",
+			wantFix:     "Enable the Token for Account dmx in the provider console",
+		},
+		{
+			name:        "token restricted",
+			status:      http.StatusForbidden,
+			body:        `{"message":"forbidden"}`,
+			wantKind:    diagnostics.TokenRestricted,
+			wantSummary: "Token or Account is restricted",
+			wantFix:     "Review access restrictions for Account dmx in the provider console",
+		},
+		{
+			name:        "missing protocol path",
+			status:      http.StatusNotFound,
+			body:        `{}`,
+			wantKind:    diagnostics.EndpointMismatch,
+			wantSummary: "API URL or path does not match",
+			wantFix:     "Check whether the configured protocol endpoint requires /v1 and whether its host is correct",
+		},
+		{
+			name:        "upstream failure",
+			status:      http.StatusInternalServerError,
+			body:        `{}`,
+			wantKind:    diagnostics.UpstreamFailure,
+			wantSummary: "Upstream service failed",
+			wantFix:     "Try again later; if it persists, contact the service operator with the HTTP status code",
+		},
+		{
+			name:        "unexpected response",
+			status:      http.StatusTeapot,
+			body:        `{}`,
+			wantKind:    diagnostics.Unexpected,
+			wantSummary: "Service endpoint returned unexpected HTTP status 418",
+			wantFix:     "Run `aigw doctor` for detailed status",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
+				return response(test.status, test.body), nil
+			}), runtime(), "secret")
+			if result.Kind != test.wantKind || result.Summary != test.wantSummary || result.Fix != test.wantFix {
+				t.Fatalf("Probe() = %#v", result)
+			}
+			if strings.Contains(strings.ToLower(result.Summary+result.Fix), "gateway") {
+				t.Fatalf("endpoint-neutral result mentions gateway: %#v", result)
+			}
+		})
 	}
 }
 

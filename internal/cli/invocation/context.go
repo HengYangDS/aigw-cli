@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"aigw-cli/internal/account"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
@@ -21,26 +20,12 @@ import (
 	"aigw-cli/internal/upgrade"
 )
 
-type Runner interface {
-	Run(context.Context, process.Plan) error
-}
-
-// RunCapture executes a bounded read-only child-process probe through the
-// invocation capability boundary. Commands that do not receive capture
-// capability fail explicitly instead of depending on a concrete runner.
-func RunCapture(runtime Context, ctx context.Context, plan process.Plan) ([]byte, error) {
-	runner, ok := runtime.Runner.(process.CaptureRunner)
-	if !ok {
-		return nil, fmt.Errorf("captured process execution is unavailable")
-	}
-	return runner.RunCapture(ctx, plan)
-}
-
 // HTTPDoer executes one HTTP request.
 type HTTPDoer interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
+// Prompter supplies interactive secret, text, and bounded-choice input.
 type Prompter interface {
 	Secret(label string) (string, error)
 	Text(label string) (string, error)
@@ -62,13 +47,13 @@ type Context struct {
 	ClaudeSettingsPath string
 	Config             configuration.Store
 	Secrets            secrets.Store
-	Accounts           account.Store
+	Accounts           secrets.DiagnosticCredentialStore
 	In                 io.Reader
 	Out                io.Writer
 	Color              bool
 	Width              int
 	Interactive        bool
-	Runner             Runner
+	Runner             process.CaptureRunner
 	HTTP               HTTPDoer
 	Prompt             Prompter
 	Discovery          discovery.Discoverer

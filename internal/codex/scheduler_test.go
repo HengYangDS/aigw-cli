@@ -9,7 +9,82 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/surface"
 	"aigw-cli/internal/transaction"
+
+	"github.com/pelletier/go-toml/v2"
 )
+
+func TestCodexSchedulerPreservesUserTextAcrossNativeTableSpellings(t *testing.T) {
+	const userText = "instructions = '''\n[agents]\nmax_depth = 73 # managed by AIGW\n[features.multi_agent_v2]\nmax_concurrent_threads_per_session = 74 # managed by AIGW\n'''\n\n"
+	const neighbor = "\n[profiles.user]\nmax_depth = 75 # managed by AIGW\n"
+	for _, tables := range []string{
+		"[agents]\nmax_threads = 9\nmax_depth = 3\n[features.multi_agent_v2]\nmax_concurrent_threads_per_session = 7\n",
+		"[ 'agents' ] # user table\n'max_threads' = +9\n\"max_depth\" = 0x3\n[features . 'multi_agent_v2']\n'max_concurrent_threads_per_session' = 1_7\n",
+	} {
+		t.Run(tables, func(t *testing.T) {
+			original := userText + tables + neighbor
+			captured, err := captureCodexScheduler(original)
+			if err != nil {
+				t.Fatal(err)
+			}
+			projected, err := projectCodexScheduler(original)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := validateCodexScheduler(projected); err != nil {
+				t.Fatal(err)
+			}
+			var observed struct {
+				Agents struct {
+					Threads int `toml:"max_threads"`
+					Depth   int `toml:"max_depth"`
+				} `toml:"agents"`
+				Features struct {
+					Agents struct {
+						Threads int `toml:"max_concurrent_threads_per_session"`
+					} `toml:"multi_agent_v2"`
+				} `toml:"features"`
+			}
+			if err := toml.Unmarshal([]byte(projected), &observed); err != nil || observed.Agents.Threads != codexSessionConcurrency || observed.Agents.Depth != codexAgentDepth || observed.Features.Agents.Threads != codexSessionConcurrency {
+				t.Fatalf("native TOML values do not match the projected policy: %+v, %v", observed, err)
+			}
+			if !strings.HasPrefix(projected, userText) || !strings.Contains(projected, neighbor) {
+				t.Fatalf("projection changed user text or a neighboring profile:\n%s", projected)
+			}
+			restored, err := restoreCodexScheduler(projected, captured)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var before, after map[string]any
+			if err := toml.Unmarshal([]byte(original), &before); err != nil {
+				t.Fatal(err)
+			}
+			if err := toml.Unmarshal([]byte(restored), &after); err != nil || !reflect.DeepEqual(after, before) {
+				t.Fatalf("scheduler restoration changed values: %v\n%s", err, restored)
+			}
+			if !strings.HasPrefix(restored, userText) || !strings.Contains(restored, neighbor) {
+				t.Fatalf("restoration changed unrelated source bytes:\n%s", restored)
+			}
+		})
+	}
+}
+
+func TestCodexSchedulerTableEditsPreserveNativeBoundaries(t *testing.T) {
+	for _, test := range []struct{ source, assignment, want string }{
+		{"['agents'] # table\r\n\"max_depth\" = +3 # original\r\n[profiles.user]\r\nmax_depth = 9\r\n", "max_depth = 1", "['agents'] # table\r\nmax_depth = 1\r\n[profiles.user]\r\nmax_depth = 9\r\n"},
+		{"[agents]\nexample = '''\nmax_depth = 9\n'''\nmax_depth = 3\n[[examples]]\nmax_depth = 8\n", "", "[agents]\nexample = '''\nmax_depth = 9\n'''\n[[examples]]\nmax_depth = 8\n"},
+		{"[agents]", "", "[agents]"},
+	} {
+		got, err := setCodexTableAssignment(test.source, "agents", "max_depth", test.assignment)
+		if err != nil || got != test.want {
+			t.Fatalf("table edit = %q, %v; want %q", got, err, test.want)
+		}
+	}
+	for _, source := range []string{"[agents\n", "[agents]\n[agents]\n", "[agents]\nmax_depth = 1\nmax_depth = 2\n"} {
+		if _, err := setCodexTableAssignment(source, "agents", "max_depth", "max_depth = 1"); err == nil {
+			t.Fatalf("ambiguous or malformed table accepted: %q", source)
+		}
+	}
+}
 
 func TestCodexSchedulerHelpersCoverAbsentAndMalformedShapes(t *testing.T) {
 	original := "model_provider = \"native\"\n\n[agents]\nmax_threads = 9\n"
@@ -46,23 +121,23 @@ func TestCodexSchedulerHelpersCoverAbsentAndMalformedShapes(t *testing.T) {
 	if _, err := projectCodexScheduler("[agents\n"); err == nil {
 		t.Fatal("projection accepted malformed TOML")
 	}
-	if _, err := restoreCodexScheduler("", map[string]*int{"invalid": nil}); err == nil {
-		t.Fatal("restore accepted an invalid scheduler state key")
+	if err := validateCodexSchedulerState(map[string]*int{"invalid": nil}); err == nil {
+		t.Fatal("scheduler state validation accepted an invalid key")
 	}
 }
 
 func TestCodexSchedulerHelpersCoverTableBoundariesAndHashing(t *testing.T) {
 	text := "[agents]\nmax_depth = 4 # note\nother = 1\n\n[next]\nvalue = 2\n"
-	start, end, present := codexTableBounds(text, "agents")
-	if !present || text[start:end] != "[agents]\nmax_depth = 4 # note\nother = 1\n\n" {
-		t.Fatalf("table bounds = %d, %d, %v: %q", start, end, present, text[start:end])
+	start, end, err := codexTableBounds(text, "agents")
+	if err != nil || start < 0 || text[start:end] != "[agents]\nmax_depth = 4 # note\nother = 1\n\n" {
+		t.Fatalf("table bounds = %d, %d, %v", start, end, err)
 	}
-	if _, _, present := codexTableBounds(text, "missing"); present {
+	if start, _, err := codexTableBounds(text, "missing"); err != nil || start >= 0 {
 		t.Fatal("missing table reported present")
 	}
 	withoutTrailingNewline := "[agents]\nmax_depth = 4\n[next]"
-	_, end, present = codexTableBounds(withoutTrailingNewline, "agents")
-	if !present || withoutTrailingNewline[end:] != "[next]" {
+	start, end, err = codexTableBounds(withoutTrailingNewline, "agents")
+	if err != nil || start < 0 || withoutTrailingNewline[end:] != "[next]" {
 		t.Fatalf("table without trailing newline ends at %d: %q", end, withoutTrailingNewline[end:])
 	}
 	if value, present, err := codexIntegerKey(text, "agents", "max_depth"); err != nil || !present || value != 4 {
@@ -72,21 +147,20 @@ func TestCodexSchedulerHelpersCoverTableBoundariesAndHashing(t *testing.T) {
 		t.Fatalf("missing integer key = %v, %v", present, err)
 	}
 
-	oneLine := "[agents]"
-	updated := setCodexIntegerKey(oneLine, "agents", "max_depth", 1)
-	if updated != "[agents]\nmax_depth = 1 # managed by AIGW\n" {
-		t.Fatalf("one-line table update = %q", updated)
+	for _, test := range []struct{ source, table, assignment, want string }{
+		{"[agents]", "agents", "max_depth = 1 # managed by AIGW", "[agents]\nmax_depth = 1 # managed by AIGW\n"},
+		{"external = true", "agents", "max_depth = 1 # managed by AIGW", "external = true\n\n[agents]\nmax_depth = 1 # managed by AIGW\n"},
+		{text, "missing", "", text},
+	} {
+		updated, err := setCodexTableAssignment(test.source, test.table, "max_depth", test.assignment)
+		if err != nil || updated != test.want {
+			t.Fatalf("table assignment in %q = %q, %v; want %q", test.source, updated, err, test.want)
+		}
 	}
-	if updated := setCodexIntegerKey("external = true", "agents", "max_depth", 1); updated != "external = true\n\n[agents]\nmax_depth = 1 # managed by AIGW\n" {
-		t.Fatalf("append table without trailing newline = %q", updated)
-	}
-	if removed := removeCodexIntegerKey(text, "missing", "max_depth"); removed != text {
-		t.Fatalf("remove from absent table = %q", removed)
-	}
-	if got := removeEmptyCodexTable("[agents]\n# comment\n\n[next]\nvalue = 2\n", "agents"); got != "[next]\nvalue = 2\n" {
+	if got, err := removeEmptyCodexTable("[agents]\n# comment\n\n[next]\nvalue = 2\n", "agents"); err != nil || got != "[next]\nvalue = 2\n" {
 		t.Fatalf("empty table removal = %q", got)
 	}
-	if got := removeEmptyCodexTable(text, "agents"); got != text {
+	if got, err := removeEmptyCodexTable(text, "agents"); err != nil || got != text {
 		t.Fatal("non-empty table was removed")
 	}
 
@@ -130,13 +204,7 @@ func TestCodexSchedulerHelpersCoverRemainingErrorPaths(t *testing.T) {
 	}
 }
 
-func TestCodexSchedulerCoversEmptyBackfillAndManagedRemovalBoundaries(t *testing.T) {
-	if got, err := backfillCodexScheduler(map[string]*int{}, ""); err != nil || len(got) != 0 {
-		t.Fatalf("empty scheduler backfill = %#v, %v", got, err)
-	}
-	if got := removeManagedCodexIntegerKey("external = true\n", "agents", "max_threads", codexSessionConcurrency); got != "external = true\n" {
-		t.Fatalf("managed removal changed an absent table: %q", got)
-	}
+func TestCodexSchedulerRejectsMalformedKeyInspection(t *testing.T) {
 	if _, err := codexKeyPresent("[agents\n", "agents", "max_threads"); err == nil {
 		t.Fatal("codexKeyPresent accepted malformed TOML")
 	}
@@ -157,8 +225,8 @@ func TestCodexSchedulerBindsOneKeyOfTheAliasPairPerTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	start, end, present := codexTableBounds(projected, "agents")
-	if !present {
+	start, end, err := codexTableBounds(projected, "agents")
+	if err != nil || start < 0 {
 		t.Fatalf("projection lost the agents table:\n%s", projected)
 	}
 	agents := projected[start:end]
@@ -197,127 +265,16 @@ func TestCodexSchedulerBindsOneKeyOfTheAliasPairPerTable(t *testing.T) {
 	}
 }
 
-// TestCodexSchedulerHashRecognizesLegacyProjections covers the upgrade path. A
-// sidecar written before the alias was retired recorded its projection hash over
-// the older key set; refusing that hash would make sync report a user edit on
-// exactly the machines that need the correction.
-func TestCodexSchedulerHashRecognizesLegacyProjections(t *testing.T) {
-	legacyProjection := "[agents]\nmax_concurrent_threads_per_session = 16\nmax_depth = 1\n\n[features.multi_agent_v2]\nmax_concurrent_threads_per_session = 16\n"
-	legacyHash := codexSchedulerHashFor(codexLegacySchedulerKeys, nil, legacyProjection)
-	if !codexSchedulerHashMatches(legacyHash, legacyProjection) {
-		t.Fatal("a hash written by the older projection was rejected as a user edit")
-	}
+func TestCodexSchedulerHashAdmitsOnlyCurrentProjection(t *testing.T) {
 	current := projectedSchedulerFixture()
 	if !codexSchedulerHashMatches(codexSchedulerHash(current), current) {
 		t.Fatal("the current projection hash was rejected")
 	}
-	if !codexSchedulerHashMatches("", current) {
-		t.Fatal("an unrecorded hash must not be treated as a conflict")
+	if codexSchedulerHashMatches("", current) {
+		t.Fatal("an absent projection hash proved ownership")
 	}
 	if codexSchedulerHashMatches("foreign", current) {
 		t.Fatal("a foreign hash was accepted")
-	}
-}
-
-// TestRestoreClearsAIGWKeysMissingFromLegacyState covers a state written before
-// max_threads joined the projected set: it records no original for that key, so
-// a restore must still remove AIGW's own value instead of leaving it behind, and
-// must keep a user-authored value that carries no ownership marker.
-func TestRestoreClearsAIGWKeysMissingFromLegacyState(t *testing.T) {
-	legacyState := map[string]*int{
-		"agents.max_concurrent_threads_per_session":                  nil,
-		"agents.max_depth":                                           nil,
-		"features.multi_agent_v2.max_concurrent_threads_per_session": nil,
-	}
-	projected, err := projectCodexScheduler("external = true\n")
-	if err != nil {
-		t.Fatal(err)
-	}
-	restored, err := restoreCodexScheduler(projected, legacyState)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(restored, "max_threads") || strings.Contains(restored, "[agents]") {
-		t.Fatalf("restore left AIGW's own scheduler value behind: %q", restored)
-	}
-	if strings.TrimRight(restored, "\n") != "external = true" {
-		t.Fatalf("restore changed unrelated content: %q", restored)
-	}
-
-	userOwned := "external = true\n\n[agents]\nmax_threads = 6\n"
-	restored, err = restoreCodexScheduler(userOwned, legacyState)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(restored, "max_threads = 6") {
-		t.Fatalf("restore discarded a user-authored value: %q", restored)
-	}
-}
-
-// TestCodexSyncUpgradesALegacyProjectionWithoutLosingUserMaxThreads covers the
-// upgrade this change ships into: a machine already synchronized by the AIGW that
-// projected the retired [agents] alias and did not own max_threads. The legacy
-// sidecar records no original for that key, so the upgrade has to record it before
-// taking ownership or the user's own value would be lost with no way back. The
-// legacy state is produced by the real projection code with the older key set
-// rather than a hand-written fixture.
-func TestCodexSyncUpgradesALegacyProjectionWithoutLosingUserMaxThreads(t *testing.T) {
-	path := t.TempDir() + "/configuration.toml"
-	original := "model_provider = \"native\"\n\n[agents]\nmax_threads = 6\n"
-	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	runtime := atomicTestRuntime()
-
-	func() {
-		originalKeys, originalRetired := codexSchedulerKeys, codexRetiredSchedulerKeys
-		defer func() { codexSchedulerKeys, codexRetiredSchedulerKeys = originalKeys, originalRetired }()
-		codexSchedulerKeys = codexLegacySchedulerKeys
-		codexRetiredSchedulerKeys = map[string][]string{}
-		if err := SyncConfig(path, runtime); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	legacy, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(legacy), "max_concurrent_threads_per_session = 16 # managed by AIGW") {
-		t.Fatalf("the older projection was not reproduced:\n%s", legacy)
-	}
-	if !strings.Contains(string(legacy), "max_threads = 6") {
-		t.Fatalf("the older projection was expected to leave max_threads alone:\n%s", legacy)
-	}
-
-	if err := SyncConfig(path, runtime); err != nil {
-		t.Fatalf("upgrade sync refused AIGW's own older projection: %v", err)
-	}
-	upgraded, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(upgraded)
-	if !strings.Contains(text, "max_threads = 16 # managed by AIGW") {
-		t.Fatalf("upgrade did not take ownership of max_threads:\n%s", text)
-	}
-	agents := text[strings.Index(text, "[agents]"):strings.Index(text, "[features.multi_agent_v2]")]
-	if strings.Contains(agents, "max_concurrent_threads_per_session") {
-		t.Fatalf("upgrade left the retired alias beside max_threads:\n%s", text)
-	}
-	if err := ValidateConfig(path, runtime); err != nil {
-		t.Fatalf("validation rejected the upgraded projection: %v", err)
-	}
-
-	if err := DisableConfig(path); err != nil {
-		t.Fatal(err)
-	}
-	restored, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(restored) != original {
-		t.Fatalf("upgrade lost the user's own scheduler value\nwant:\n%s\ngot:\n%s", original, restored)
 	}
 }
 
@@ -377,12 +334,12 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 	if _, err := codexStateForTarget(transaction.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection","writer_id":"foreign","transaction_id":"x"}`)}); err == nil {
 		t.Fatal("foreign writer was accepted")
 	}
-
 }
 
 func TestCodexReconciliationReportsManagedDrift(t *testing.T) {
 	driftPath := t.TempDir() + "/drift.toml"
-	driftRuntime := configuration.Runtime{ProfileID: "p", ProfileLabel: "P", Endpoint: "https://example.test", Model: "m"}
+	driftRuntime := atomicTestRuntime()
+	driftRuntime.ProfileLabel = "P"
 	if err := os.WriteFile(driftPath, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +372,6 @@ func TestCodexReconciliationReportsManagedDrift(t *testing.T) {
 	if err != nil || inspection.State != "aigw-drift" {
 		t.Fatalf("restored drift inspection = %#v, %v", inspection, err)
 	}
-
 }
 
 func TestCodexReconciliationRejectsConflictsAndMalformedHelpers(t *testing.T) {
@@ -465,14 +421,11 @@ func TestCodexReconciliationRejectsConflictsAndMalformedHelpers(t *testing.T) {
 	if got := removeCodexBeginMarker("plain"); got != "plain" {
 		t.Fatalf("plain text changed: %q", got)
 	}
-	if got := classifyCodexDiskSelection("model_provider ="); got != "external-or-host-owned" {
+	if got := classifyCodexDiskSelection("model_provider ="); got != "invalid" {
 		t.Fatalf("empty selection = %q", got)
 	}
-	if got := restoreModelSelection("plain", `model = "native"`); !strings.HasPrefix(got, `model = "native"`) {
-		t.Fatalf("restored model selection = %q", got)
-	}
-	if got := removeEnvironment([]string{"KEEP=1", "DROP=2", "AIGW_TOKEN_TEST=secret"}, "DROP"); len(got) != 1 || got[0] != "KEEP=1" {
-		t.Fatalf("filtered environment = %v", got)
+	if _, err := restoreModelSelection("plain", `model = "native"`); err == nil {
+		t.Fatal("restoration accepted invalid TOML")
 	}
 }
 

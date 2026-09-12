@@ -5,36 +5,44 @@
 
 ## Context
 
-A single proposal commit could start both branch-push and review pipelines on
-each Forge. Publishing the same accepted object to `dev` and `main` then
-started two more equivalent verification graphs. The duplicated executions
-increased latency and runner cost without measuring a different product object
-or lifecycle claim.
+A proposal push and its review update can request equivalent verification.
+Conversely, omitting accepted-branch verification assumes every `dev` update
+has reviewed evidence for that exact object. That assumption fails for direct
+maintainer pushes and cannot be repaired by merely observing a green `main`.
+The current system has no cross-event evidence-reuse verifier.
 
 ## Decision
 
-CI execution is routed by product lifecycle stage:
+[Workspace roles](../../.ethos/workspace.toml) own accepted integration and
+release branch names. The [CUE graph](../../.config/ci/pipeline.cue) consumes
+that native TOML and owns event routing; generated files own no policy.
 
-- developer proposals receive complete verification on review into `dev`;
-- maintainer publication receives complete verification on accepted `main`;
-- release tags use the release pipeline;
-- explicit manual dispatch remains available for diagnosis.
+| Event                                                            | Required execution                                              |
+| ---------------------------------------------------------------- | --------------------------------------------------------------- |
+| Open or update a proposal review into `dev`                      | Complete source verification for the review's selected object   |
+| Open or update an integration review into `main`                 | Complete source verification for the review's selected object   |
+| Push `dev`, including a maintainer fast-forward or merged review | Complete source verification for the resulting accepted object  |
+| Push `main`                                                      | Complete source verification plus exact `main`/`dev` ref parity |
+| Release tag                                                      | Declared signed-source, artifact and publication graph          |
+| Explicit manual dispatch                                         | Declared diagnostic or release workflow with explicit inputs    |
 
-Proposal pushes and the resulting `dev` update do not independently own
-verification. The atomic maintainer publication's `main` event owns both the
-complete graph and the assertion that peer `main` and `dev` resolve to that
-exact accepted object. The CUE CI model remains the sole topology authority and
-projects these semantics into GitHub and GitLab syntax. Every job still checks
-out and measures the exact product commit selected by its lifecycle event.
+Proposal branch pushes do not start a second graph alongside review events.
+Review admission includes both integration and release targets on both Forges;
+GitLab workflow admission and verification jobs consume the same conditions.
+Release-review checks do not require accepted-ref parity before the merge:
+that observation belongs to the resulting release-branch push.
+Accepted and release events do run separately, even when their object IDs match:
+no job currently consumes and verifies another event's complete evidence. Never
+silently omit the `dev` route to simulate deduplication. Every job measures the
+exact Git object selected by its event; the event alone is not proof of success.
 
 ## Consequences
 
-One product commit produces one complete verification graph per Forge and
-lifecycle stage. Review updates continue to retrigger verification. A proposal
-merge no longer produces an expected-failure parity result before acceptance.
-Maintainers can publish a locally accepted object without manufacturing a
-review event, and the equal `dev` ref remains available without duplicating
-accepted evidence.
+Review updates invalidate earlier green results. Maintainer integration does
+not need a fabricated review event, and accepted `dev` receives real checks.
+Ref parity belongs to release promotion, so an ordinary `dev` update need not
+already equal `main`. Separate accepted and release verification costs runner
+time; this is explicit, not a claim that all duplicate execution is eliminated.
 
 ## Revisit Trigger
 

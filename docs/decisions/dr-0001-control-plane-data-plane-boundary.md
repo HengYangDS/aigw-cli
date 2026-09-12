@@ -6,9 +6,11 @@
 
 ## Context
 
-Codex third-party Responses compatibility needs a local data-plane adapter,
-while account selection, credentials, and multi-client configuration need a
-control plane. Overlapping writers cause drift and ambiguous rollback.
+Clients may use a compatible provider directly or an explicitly selected
+transport service. Account selection, credentials and multi-client
+configuration have a different lifecycle from API traffic. Overlapping writers
+cause drift and ambiguous rollback; protocol compatibility does not make a
+local proxy mandatory.
 
 ## Decision
 
@@ -16,7 +18,8 @@ AIGW owns the canonical account manifest and marked provider projections across
 Codex targets. Any explicitly selected compatibility service owns its outbound
 request transformation and local lifecycle. AIGW has no transport-service
 lifecycle API, and an external service never gains authority over an
-AIGW-marked provider block. Codex CLI and Codex Desktop share the native Codex Home configuration, while
+AIGW-marked provider block. Codex CLI and Codex Desktop share the native Codex
+Home configuration, while
 Codex retains authority over existing conversation model selection, transcripts,
 and Desktop-only GUI settings. Foreign applications and integrations remain
 independent; AIGW neither depends on, configures, nor verifies them.

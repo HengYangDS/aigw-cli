@@ -43,10 +43,10 @@ func observeKeyringItem(service, slot string) (bool, error) {
 	var credentialsPointer unsafe.Pointer
 	result, _, callErr := syscall.SyscallN(
 		credentialEnumerate.Addr(),
-		uintptr(unsafe.Pointer(filter)),
+		uintptr(unsafe.Pointer(filter)), // #nosec G103 -- NUL-terminated UTF-16 input remains live through this synchronous Win32 call.
 		0,
-		uintptr(unsafe.Pointer(&count)),
-		uintptr(unsafe.Pointer(&credentialsPointer)),
+		uintptr(unsafe.Pointer(&count)), // #nosec G103 -- Win32 writes its DWORD count to this correctly sized output.
+		uintptr(unsafe.Pointer(&credentialsPointer)), // #nosec G103 -- Win32 returns one allocation, released by CredFree below.
 	)
 	runtime.KeepAlive(filter)
 	if result == 0 {
@@ -55,8 +55,10 @@ func observeKeyringItem(service, slot string) (bool, error) {
 		}
 		return false, fmt.Errorf("enumerate Windows credential metadata: %w", callErr)
 	}
-	defer credentialFree.Call(uintptr(credentialsPointer))
+	// CredFree returns VOID; LazyProc's return values do not represent errors.
+	defer func() { _, _, _ = credentialFree.Call(uintptr(credentialsPointer)) }()
 
+	// #nosec G103 -- Count and array come from the same Win32 allocation; inspect names only before CredFree.
 	credentials := unsafe.Slice((**windowsCredential)(credentialsPointer), count)
 	for _, credential := range credentials {
 		if credential != nil && windows.UTF16PtrToString(credential.TargetName) == target {

@@ -14,7 +14,6 @@ conversation state.
 - [Change and release policy](docs/governance/change-and-release-policy.md)
 - [Decision register](docs/decisions/decision-register.md)
 - [DR-0001](docs/decisions/dr-0001-control-plane-data-plane-boundary.md)
-- [Evidence policy](docs/evidence/evidence-policy.md)
 - [Release history](CHANGELOG.md)
 
 ## Authority Order
@@ -48,22 +47,24 @@ or a local proxy deployment to make a configuration test pass.
 
 ## Analyzer isolation
 
-An analyzer may inspect `main` read-only. Any analyzer capable of formatting,
-auto-fixing, rewriting, or otherwise writing source must use an isolated
-non-`main` worktree and a private per-task `TMPDIR`; it must never auto-fix
-`main`. Scratch reports and API or ref inventories must stay in that temporary
-directory, be removed after use, and never be redirected into a checkout or the
-user home directory. Before retiring its worktree, record the owning task and
-prove that the owner has handed off or terminated and that no owning task
-remains live.
-Worktree visibility or an apparently idle agent is not retirement authority.
+An analyzer may inspect `main` read-only. Write-capable analysis uses an owned
+non-`main` worktree and a private per-operation `TMPDIR`. Follow
+[output ownership and cleanup](CONTRIBUTING.md#output-ownership-and-cleanup)
+for temporary files, verification output, and tool-native evidence. Before
+retiring its worktree, establish that the owner has handed off or terminated
+and no owning task remains live. Worktree visibility alone is not retirement
+authority.
 
 ## Engineering quality
 
 - `.config/checks/coverage/policy.toml` is the coverage SSOT. Every canonical Go
   package participates, no source or package exclusion is permitted, and the
-  policy owns the aggregate floor, package-observation contract, comparison
-  semantics, measurement, remediation, and review conditions.
+  policy owns the native Go statement floor, package-observation contract,
+  comparison semantics, measurement, remediation, and review conditions.
+  Declaration-only packages remain visible as not applicable after source
+  inspection; a native zero-statement denominator is not a percentage. Do
+  not infer unsupported metrics or add an unmaintained analyzer to manufacture
+  a stronger-looking claim.
 - Keep one semantic owner for each policy and behavior. Prefer cohesive domain
   packages, explicit dependency direction, and narrow interfaces; apply SSOT,
   DRY, MECE, and SOLID rather than duplicating policy across scripts or CI.
@@ -92,8 +93,9 @@ Worktree visibility or an apparently idle agent is not retirement authority.
 
 ```bash
 mise install --locked
-npm ci --ignore-scripts
-mise exec --locked -- go run ./tools/ci source
+mise run bootstrap
+mise run check
+mise run native
 mise exec --locked -- go run ./tools/forge commits --email '<product author email>' --allowed-signers '<path>'
 mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 ```

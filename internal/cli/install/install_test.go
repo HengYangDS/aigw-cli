@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	configuration "aigw-cli/internal/configuration"
 )
 
 func TestInstallCommandUsesPlatformDefaultTarget(t *testing.T) {
@@ -78,27 +79,128 @@ func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing
 	}
 }
 
+func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T) {
+	t.Run("configuration load", func(t *testing.T) {
+		root := t.TempDir()
+		command := NewUninstallCommand(invocation.Context{Executable: filepath.Join(root, "aigw"), Config: configuration.NewStore(root)})
+		command.SetArgs(nil)
+		if err := command.Execute(); err == nil {
+			t.Fatal("uninstall succeeded despite an unreadable configuration path")
+		}
+	})
+
+	t.Run("configuration inspection", func(t *testing.T) {
+		root := t.TempDir()
+		target := filepath.Join(root, "aigw")
+		if err := os.WriteFile(target, []byte("current"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		command := NewUninstallCommand(invocation.Context{
+			Executable: target,
+			Config:     configuration.NewStore(filepath.Join(root, "invalid") + "\x00configuration.toml"),
+		})
+		command.SetArgs(nil)
+		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "inspect AIGW configuration") {
+			t.Fatalf("configuration inspection error = %v", err)
+		}
+		if _, err := os.Stat(target); err != nil {
+			t.Fatalf("program was removed after failed configuration inspection: %v", err)
+		}
+	})
+
+	t.Run("client withdrawal", func(t *testing.T) {
+		root := t.TempDir()
+		target := filepath.Join(root, "aigw")
+		if err := os.WriteFile(target, []byte("current"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		store := configuration.NewStore(filepath.Join(root, "configuration.toml"))
+		cfg := configuration.NewConfig()
+		cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+		cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "claude-test"}
+		cfg.Routes[configuration.ClientClaude] = "claude"
+		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: "/opt/claude"}
+		if err := store.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		blockedSettings := filepath.Join(root, "blocked-settings")
+		if err := os.Mkdir(blockedSettings, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		command := NewUninstallCommand(invocation.Context{
+			Executable:         target,
+			Config:             store,
+			ClaudeSettingsPath: blockedSettings,
+		})
+		command.SetArgs(nil)
+		if err := command.Execute(); err == nil {
+			t.Fatal("uninstall succeeded despite failed client withdrawal")
+		}
+		if _, err := os.Stat(target); err != nil {
+			t.Fatalf("program was removed after failed client withdrawal: %v", err)
+		}
+	})
+}
+
 func TestInstallCopiesCurrentExecutableAndPreservesOnePredecessor(t *testing.T) {
+	for _, previous := range []string{"", "previous"} {
+		t.Run("predecessor="+previous, func(t *testing.T) {
+			root := t.TempDir()
+			source := filepath.Join(root, "source-aigw")
+			target := filepath.Join(root, "bin", "aigw")
+			backup := filepath.Join(root, "bin", ".aigw.previous")
+			if err := os.WriteFile(source, []byte("current"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			wantFiles := map[string]string{target: "current"}
+			if previous != "" {
+				if err := os.WriteFile(target, []byte(previous), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				wantFiles[backup] = previous
+			}
+			for attempt := range 2 {
+				if err := Install(source, target); err != nil {
+					t.Fatal(err)
+				}
+				for path, want := range wantFiles {
+					got, err := os.ReadFile(path)
+					if err != nil || string(got) != want {
+						t.Fatalf("install %d: %s=%q,%v want %q", attempt+1, path, got, err, want)
+					}
+				}
+				if previous == "" {
+					if _, err := os.Stat(backup); !errors.Is(err, os.ErrNotExist) {
+						t.Fatalf("fresh install created a predecessor: %v", err)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestInstallKeepsIdenticalExecutableInPlace(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "source-aigw")
-	target := filepath.Join(root, "bin", "aigw")
-	if err := os.WriteFile(source, []byte("current"), 0o755); err != nil {
-		t.Fatal(err)
+	target := filepath.Join(root, "aigw")
+	for _, path := range []string{source, target} {
+		if err := os.WriteFile(path, []byte("current"), 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(target, []byte("previous"), 0o755); err != nil {
+	before, err := os.Stat(target)
+	if err != nil {
 		t.Fatal(err)
 	}
 	if err := Install(source, target); err != nil {
 		t.Fatal(err)
 	}
-	for path, want := range map[string]string{target: "current", filepath.Join(root, "bin", ".aigw.previous"): "previous"} {
-		got, err := os.ReadFile(path)
-		if err != nil || string(got) != want {
-			t.Fatalf("%s=%q,%v want %q", path, got, err, want)
-		}
+	after, err := os.Stat(target)
+	if err != nil || !os.SameFile(before, after) {
+		t.Fatalf("identical executable was replaced: %v", err)
 	}
 }
 

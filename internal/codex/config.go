@@ -1,10 +1,9 @@
 // Package codex owns Codex Home configuration projection, inspection,
-// reconciliation, and native authentication plans. It never owns conversations
+// and reconciliation. It never owns conversations
 // or Codex Desktop-only settings.
 package codex
 
 import (
-	"aigw-cli/internal/process"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -33,10 +32,6 @@ const (
 	codexAgentDepth         = 1
 )
 
-var modelProviderLine = regexp.MustCompile(`(?m)^[ \t]*model_provider[ \t]*=.*$`)
-var modelLine = regexp.MustCompile(`(?m)^[ \t]*model[ \t]*=.*$`)
-var modelCatalogLine = regexp.MustCompile(`(?m)^[ \t]*model_catalog_json[ \t]*=.*$`)
-
 type codexState struct {
 	ConfigAbsentBeforeProjection bool            `json:"config_absent_before_projection,omitempty"`
 	OriginalProvider             string          `json:"original_provider,omitempty"`
@@ -62,61 +57,9 @@ type ProjectionPlan struct {
 	Action string `json:"action"`
 }
 
-func LoginPlan(executable, codexHome, token string) (process.Plan, error) {
-	if executable == "" {
-		return process.Plan{}, fmt.Errorf("Codex executable is not configured")
-	}
-	if token == "" {
-		return process.Plan{}, fmt.Errorf("Codex token is empty")
-	}
-	env := os.Environ()
-	if codexHome != "" {
-		env = removeEnvironment(env, "CODEX_HOME")
-		env = append(env, "CODEX_HOME="+codexHome)
-	}
-	return process.Plan{
-		Executable: executable,
-		Args:       []string{"login", "--with-api-key"},
-		Env:        env,
-		Stdin:      token + "\n",
-	}, nil
-}
-
-// LoginStatusPlan inspects Codex native authentication through its public,
-// read-only command surface for one explicit Codex Home.
-func LoginStatusPlan(executable, codexHome string) (process.Plan, error) {
-	if executable == "" {
-		return process.Plan{}, fmt.Errorf("Codex executable is not configured")
-	}
-	env := os.Environ()
-	if codexHome != "" {
-		env = removeEnvironment(env, "CODEX_HOME")
-		env = append(env, "CODEX_HOME="+codexHome)
-	}
-	return process.Plan{
-		Executable: executable,
-		Args:       []string{"login", "status"},
-		Env:        env,
-	}, nil
-}
-
+// SyncConfig reconciles one Codex configuration target to the resolved runtime.
 func SyncConfig(path string, runtime configuration.Runtime) error {
-	return SyncConfigs([]string{path}, runtime)
-}
-
-// PlanConfigs performs every projection read and conflict check without
-// writing. It is the dry-run boundary used by the CLI and callers that need
-// evidence before mutation.
-func PlanConfigs(paths []string, runtime configuration.Runtime) ([]ProjectionPlan, error) {
-	return PlanReconciliation(nil, codexHomeTargets(paths), runtime)
-}
-
-// SyncConfigs is an all-target transaction. It prepares every target
-// before the first write; a later conflict therefore cannot leave an earlier
-// profile half-synchronized. If any atomic write fails, every configuration and
-// sidecar returns to its byte-exact pre-state, including an absent sidecar.
-func SyncConfigs(paths []string, runtime configuration.Runtime) error {
-	_, err := ReconcileConfigs(nil, codexHomeTargets(paths), runtime)
+	_, err := ReconcileConfigs(nil, codexHomeTargets([]string{path}), runtime)
 	return err
 }
 
@@ -133,7 +76,7 @@ func isExactTruncatedCodexProjection(current string, stateData []byte, runtime c
 // AIGW profile. It never changes the target; callers can safely use it for
 // diagnostics before offering an explicit sync.
 func ValidateConfig(path string, runtime configuration.Runtime) error {
-	if codexRuntimeProvider(runtime) != configuration.ModelProviderAIGW && runtime.CredentialCommand == "" {
+	if runtime.RequiresAccountToken() && runtime.CredentialCommand == "" {
 		executable, err := os.Executable()
 		if err != nil {
 			return fmt.Errorf("resolve AIGW executable: %w", err)
@@ -165,31 +108,39 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 		return err
 	}
 	provider := codexStateProvider(state)
-	if isManagedSelection(modelProviderLine.FindString(text), "model_provider", provider) {
-		if model := runtime.Model; model != "" {
-			if !isManagedSelection(modelLine.FindString(text), "model", strings.ReplaceAll(model, "\"", "'")) {
-				return fmt.Errorf("Codex config model selection does not match profile %q", runtime.ProfileID)
-			}
-		}
-		actualBlock, err := codexManagedBlockForProviderIn(text, provider)
+	providerLine, err := codexSelectionLine(text, "model_provider")
+	if err != nil {
+		return err
+	}
+	if !isManagedSelection(providerLine, "model_provider", provider) {
+		return fmt.Errorf("Codex config provider selection does not match AIGW")
+	}
+	if model := runtime.Model; model != "" {
+		modelLine, err := codexSelectionLine(text, "model")
 		if err != nil {
 			return err
 		}
-		if hashText(actualBlock) != hashText(expectedBlock) {
-			return fmt.Errorf("Codex config provider block does not match profile %q", runtime.ProfileID)
+		if !isManagedSelection(modelLine, "model", model) {
+			return fmt.Errorf("Codex config model selection does not match profile %q", runtime.ProfileID)
 		}
-		if !managedBlockHashMatches(state.ManagedBlockHash, actualBlock) {
-			return fmt.Errorf("Codex config AIGW state does not match profile %q", runtime.ProfileID)
-		}
-		if err := validateCodexScheduler(text); err != nil {
-			return err
-		}
-		if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, text) {
-			return fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
-		}
-		return validateCodexCatalog(path, text, state)
 	}
-	return fmt.Errorf("Codex config provider selection does not match AIGW")
+	actualBlock, err := codexManagedBlockForProviderIn(text, provider)
+	if err != nil {
+		return err
+	}
+	if hashText(actualBlock) != hashText(expectedBlock) {
+		return fmt.Errorf("Codex config provider block does not match profile %q", runtime.ProfileID)
+	}
+	if !managedBlockHashMatches(state.ManagedBlockHash, actualBlock) {
+		return fmt.Errorf("Codex config AIGW state does not match profile %q", runtime.ProfileID)
+	}
+	if err := validateCodexScheduler(text); err != nil {
+		return err
+	}
+	if err := validateCodexSchedulerOwnership(state, text); err != nil {
+		return err
+	}
+	return validateCodexCatalog(path, text, state)
 }
 
 // validateCodexCatalog verifies the model catalog AIGW owns for one target. A
@@ -200,7 +151,10 @@ func validateCodexCatalog(path, text string, state codexState) error {
 	if state.CatalogState == catalogStateStale {
 		return fmt.Errorf("Codex model catalog is stale: it was copied from Codex %q and no longer matches the installed client; run aigw sync", state.CatalogClientVersion)
 	}
-	line := modelCatalogLine.FindString(text)
+	line, err := codexSelectionLine(text, "model_catalog_json")
+	if err != nil {
+		return err
+	}
 	if state.CatalogHash == "" {
 		if line != "" && strings.Contains(line, "# managed by AIGW") {
 			return fmt.Errorf("Codex config references an AIGW-managed model catalog that AIGW does not own")
@@ -252,51 +206,49 @@ func validateCodexCatalog(path, text string, state codexState) error {
 	return nil
 }
 
+// DisableConfig removes AIGW's owned projection from one Codex configuration target.
 func DisableConfig(path string) error {
 	_, err := ReconcileConfigs(codexHomeTargets([]string{path}), nil, configuration.Runtime{})
 	return err
 }
 
 func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot, runtime configuration.Runtime, expectedBlock string) (string, codexState, error) {
-	if stateSnapshot.Exists {
-		var state codexState
-		if err := json.Unmarshal(stateSnapshot.Data, &state); err != nil {
-			return "", codexState{}, fmt.Errorf("parse Codex adapter state: %w", err)
-		}
-		currentText := string(configSnapshot.Data)
-		base, err := removeCodexProjection(currentText, state)
-		if err != nil {
-			if repaired, ok := completeExactTruncatedCodexProjection(currentText, state, runtime, expectedBlock); ok {
-				state.ManagedBlockHash = hashText(expectedBlock)
-				base, err = removeCodexProjection(repaired, state)
-			}
-		}
-		if err != nil {
-			return "", codexState{}, err
-		}
-		base, err = restoreCodexScheduler(base, state.OriginalScheduler)
-		if err != nil {
-			return "", codexState{}, err
-		}
-		state.OriginalScheduler, err = backfillCodexScheduler(state.OriginalScheduler, base)
-		if err != nil {
-			return "", codexState{}, err
-		}
-		return base, state, nil
-	}
 	text := string(configSnapshot.Data)
-	originalProvider := modelProviderLine.FindString(text)
-	originalModel := modelLine.FindString(text)
-	scheduler, err := captureCodexScheduler(text)
+	if !stateSnapshot.Exists {
+		scheduler, err := captureCodexScheduler(text)
+		if err != nil {
+			return "", codexState{}, err
+		}
+		provider, err := codexSelectionLine(text, "model_provider")
+		if err != nil {
+			return "", codexState{}, err
+		}
+		model, err := codexSelectionLine(text, "model")
+		if err != nil {
+			return "", codexState{}, err
+		}
+		return text, codexState{
+			ConfigAbsentBeforeProjection: !configSnapshot.Exists,
+			OriginalProvider:             provider,
+			OriginalModel:                model,
+			OriginalScheduler:            scheduler,
+		}, nil
+	}
+	state, err := codexStateForTarget(stateSnapshot)
 	if err != nil {
 		return "", codexState{}, err
 	}
-	return text, codexState{
-		ConfigAbsentBeforeProjection: !configSnapshot.Exists,
-		OriginalProvider:             originalProvider,
-		OriginalModel:                originalModel,
-		OriginalScheduler:            scheduler,
-	}, nil
+	base, err := removeCodexProjection(text, state)
+	if err != nil {
+		if repaired, ok := completeExactTruncatedCodexProjection(text, state, runtime, expectedBlock); ok {
+			state.ManagedBlockHash = hashText(expectedBlock)
+			base, err = removeCodexProjection(repaired, state)
+		}
+	}
+	if err != nil {
+		return "", codexState{}, err
+	}
+	return base, state, nil
 }
 
 // completeExactTruncatedCodexProjection admits only the known interrupted
@@ -305,10 +257,12 @@ func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot, run
 // normal atomic projection transaction remains the sole write path.
 func completeExactTruncatedCodexProjection(current string, state codexState, runtime configuration.Runtime, expectedBlock string) (string, bool) {
 	provider := codexStateProvider(state)
-	if !isManagedSelection(modelProviderLine.FindString(current), "model_provider", provider) {
+	providerLine, err := codexSelectionLine(current, "model_provider")
+	if err != nil || !isManagedSelection(providerLine, "model_provider", provider) {
 		return "", false
 	}
-	if runtime.Model != "" && !isManagedSelection(modelLine.FindString(current), "model", strings.ReplaceAll(runtime.Model, "\"", "'")) {
+	modelLine, err := codexSelectionLine(current, "model")
+	if err != nil || runtime.Model != "" && !isManagedSelection(modelLine, "model", runtime.Model) {
 		return "", false
 	}
 	marker := strings.Index(current, codexBegin)
@@ -345,57 +299,43 @@ func codexEndpoint(runtime configuration.Runtime) (string, error) {
 	if runtime.Endpoint == "" {
 		return "", fmt.Errorf("profile %q has no Codex endpoint", runtime.ProfileID)
 	}
-	if codexRuntimeProvider(runtime) != configuration.ModelProviderAIGW {
+	if runtime.RequiresAccountToken() {
 		if runtime.CredentialCommand == "" {
-			return "", fmt.Errorf("profile %q native Codex provider requires a credential command", runtime.ProfileID)
+			return "", fmt.Errorf("profile %q account-token Codex provider requires a credential command", runtime.ProfileID)
 		}
 		if !filepath.IsAbs(runtime.CredentialCommand) {
-			return "", fmt.Errorf("profile %q native Codex provider credential command must be absolute", runtime.ProfileID)
+			return "", fmt.Errorf("profile %q account-token Codex provider credential command must be absolute", runtime.ProfileID)
 		}
 	}
 	return runtime.Endpoint, nil
 }
 
-func projectCodex(original, block, model, catalogPath string) (string, error) {
-	return projectCodexForProvider(original, block, model, catalogPath, configuration.ModelProviderAIGW)
-}
-
-func projectCodexForProvider(original, block, model, catalogPath, provider string) (string, error) {
+func projectCodex(original, block, model, catalogPath, provider string) (string, error) {
 	base, err := projectCodexScheduler(original)
 	if err != nil {
 		return "", err
 	}
 	base = strings.TrimRight(base, "\r\n")
-	selection := fmt.Sprintf(`model_provider = "%s" # managed by AIGW`, provider)
-	if modelProviderLine.MatchString(base) {
-		base = modelProviderLine.ReplaceAllString(base, selection)
-	} else {
-		base = selection + "\n" + base
-	}
-	if model != "" {
-		selection := fmt.Sprintf("model = \"%s\" # managed by AIGW", strings.ReplaceAll(model, `"`, `'`))
-		if modelLine.MatchString(base) {
-			base = modelLine.ReplaceAllString(base, selection)
-		} else {
-			base = selection + "\n" + base
+	for _, selection := range []struct{ key, value string }{
+		{"model_provider", provider}, {"model", model}, {"model_catalog_json", catalogPath},
+	} {
+		if selection.value == "" {
+			continue
 		}
-	}
-	// The catalog reference is projected only when AIGW owns a catalog for this
-	// target. A stale reference is worse than none: the client refuses to start
-	// when model_catalog_json names a file it cannot read.
-	if catalogPath != "" {
-		quoted, err := codexTOMLString(catalogPath)
+		quoted, err := codexTOMLString(selection.value)
 		if err != nil {
 			return "", err
 		}
-		selection := "model_catalog_json = " + quoted + " # managed by AIGW"
-		if modelCatalogLine.MatchString(base) {
-			base = modelCatalogLine.ReplaceAllString(base, selection)
-		} else {
-			base = selection + "\n" + base
+		base, err = setCodexSelection(base, selection.key, selection.key+" = "+quoted+" # managed by AIGW")
+		if err != nil {
+			return "", err
 		}
-	} else {
-		base = removeManagedCodexModelCatalog(base)
+	}
+	if catalogPath == "" {
+		base, err = removeManagedCodexLine(base, "model_catalog_json")
+		if err != nil {
+			return "", err
+		}
 	}
 	// A managed projection owns the provider block, not the incidental number
 	// of blank lines before its ownership marker.  Keep the separator canonical
@@ -406,61 +346,58 @@ func projectCodexForProvider(original, block, model, catalogPath, provider strin
 
 func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 	provider := codexRuntimeProvider(runtime)
-	if provider != configuration.ModelProviderAIGW {
-		return codexProviderTable(provider) + "\n" +
-			fmt.Sprintf("base_url = \"%s\"\n", endpoint) +
-			"wire_api = \"responses\"\n\n" +
-			"[model_providers." + provider + ".auth]\n" +
-			fmt.Sprintf("command = %s\n", strconv.Quote(runtime.CredentialCommand)) +
-			"args = [\"credential\", \"codex\"]\n" +
-			codexEnd + "\n"
+	block := codexProviderTable(provider) + "\n"
+	if provider == configuration.ModelProviderAIGW {
+		block += fmt.Sprintf("name = %s\n", strconv.Quote("AIGW: "+runtime.ProfileLabel))
 	}
-	name := "AIGW: " + runtime.ProfileLabel
-	name = strings.ReplaceAll(name, `"`, `'`)
-	return "[model_providers.aigw]\n" +
-		fmt.Sprintf("name = \"%s\"\n", name) +
-		fmt.Sprintf("base_url = \"%s\"\n", endpoint) +
-		"wire_api = \"responses\"\n" +
-		"requires_openai_auth = true\n" +
-		codexEnd + "\n"
+	block += fmt.Sprintf("base_url = %s\n", strconv.Quote(endpoint)) + "wire_api = \"responses\"\n"
+	if runtime.RequiresAccountToken() {
+		block += "\n[model_providers." + provider + ".auth]\n" +
+			fmt.Sprintf("command = %s\n", strconv.Quote(runtime.CredentialCommand)) +
+			fmt.Sprintf("args = [\"credential\", \"codex\", %s]\n", strconv.Quote(runtime.CredentialProjectionFingerprint(configuration.ClientCodex)))
+	}
+	return block + codexEnd + "\n"
 }
 
 func removeCodexProjection(current string, state codexState) (string, error) {
 	provider := codexStateProvider(state)
-	if !modelProviderLine.MatchString(current) || !isManagedSelection(modelProviderLine.FindString(current), "model_provider", provider) {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits")
-	}
-	block, err := codexManagedBlockForProviderIn(current, provider)
+	providerLine, err := codexSelectionLine(current, "model_provider")
 	if err != nil {
 		return "", err
 	}
+	if !isManagedSelection(providerLine, "model_provider", provider) {
+		return "", fmt.Errorf("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits")
+	}
+	providerStart, providerEnd, err := codexManagedBlockBoundsForProviderIn(current, provider)
+	if err != nil {
+		return "", err
+	}
+	block := current[providerStart:providerEnd]
 	if !managedBlockHashMatches(state.ManagedBlockHash, block) {
 		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits")
 	}
-	if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, current) {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
+	if err := validateCodexSchedulerOwnership(state, current); err != nil {
+		return "", err
 	}
-	providerStart := strings.Index(current, codexProviderTable(provider))
-	providerEnd := providerStart + len(block)
 	base := strings.TrimRight(current[:providerStart]+current[providerEnd:], "\r\n")
 	base = removeCodexBeginMarker(base)
 	base = strings.TrimRight(base, "\r\n")
-	if state.OriginalProvider != "" {
-		base = modelProviderLine.ReplaceAllString(base, state.OriginalProvider)
-	} else {
-		base = modelProviderLine.ReplaceAllString(base, "")
-		base = strings.TrimLeft(base, "\r\n")
+	base, err = setCodexSelection(base, "model_provider", state.OriginalProvider)
+	if err != nil {
+		return "", err
 	}
-	if state.OriginalModel != "" {
-		base = restoreModelSelection(base, state.OriginalModel)
-	} else {
-		base = removeManagedModelSelection(base)
+	base, err = restoreModelSelection(base, state.OriginalModel)
+	if err != nil {
+		return "", err
 	}
 	// The catalog reference is AIGW's own line and its file is AIGW's own
 	// artifact, so a restore removes the reference here and the transaction
 	// removes the file. A user-authored model_catalog_json was never projected
 	// and is therefore not matched.
-	base = removeManagedCodexModelCatalog(base)
+	base, err = removeManagedCodexLine(base, "model_catalog_json")
+	if err != nil {
+		return "", err
+	}
 	base, err = restoreCodexScheduler(base+"\n", state.OriginalScheduler)
 	if err != nil {
 		return "", err
@@ -477,7 +414,8 @@ func removeCodexProjection(current string, state codexState) (string, error) {
 // top-level assignments written by the client. Values and the ownership marker
 // must still match exactly, so a semantic edit remains a conflict.
 func isManagedSelection(line, key, value string) bool {
-	return isManagedAssignment(line, key, `"`+value+`"`)
+	encoded, err := codexTOMLString(value)
+	return err == nil && isManagedAssignment(line, key, encoded)
 }
 
 // isManagedAssignment is the same check for a value that is already rendered as
@@ -493,18 +431,26 @@ func codexManagedBlockIn(current string) (string, error) {
 }
 
 func codexManagedBlockForProviderIn(current, provider string) (string, error) {
+	start, end, err := codexManagedBlockBoundsForProviderIn(current, provider)
+	if err != nil {
+		return "", err
+	}
+	return current[start:end], nil
+}
+
+func codexManagedBlockBoundsForProviderIn(current, provider string) (int, int, error) {
 	marker := strings.Index(current, codexBegin)
 	if marker < 0 {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block is missing")
+		return 0, 0, fmt.Errorf("Codex config conflict: AIGW-managed provider block is missing")
 	}
 	providerRel := strings.Index(current[marker:], codexProviderTable(provider))
 	if providerRel < 0 {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider table is missing")
+		return 0, 0, fmt.Errorf("Codex config conflict: AIGW-managed provider table is missing")
 	}
 	start := marker + providerRel
 	endRel := strings.Index(current[start:], codexEnd)
 	if endRel < 0 {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block is incomplete")
+		return 0, 0, fmt.Errorf("Codex config conflict: AIGW-managed provider block is incomplete")
 	}
 	end := start + endRel + len(codexEnd)
 	if end < len(current) && current[end] == '\r' {
@@ -513,7 +459,7 @@ func codexManagedBlockForProviderIn(current, provider string) (string, error) {
 	if end < len(current) && current[end] == '\n' {
 		end++
 	}
-	return current[start:end], nil
+	return start, end, nil
 }
 
 func codexRuntimeProvider(runtime configuration.Runtime) string {
@@ -547,37 +493,26 @@ func removeCodexBeginMarker(text string) string {
 	return text
 }
 
-func restoreModelSelection(base, originalModel string) string {
+func restoreModelSelection(base, originalModel string) (string, error) {
 	if originalModel != "" {
-		if modelLine.MatchString(base) {
-			return modelLine.ReplaceAllString(base, originalModel)
-		}
-		return originalModel + "\n" + base
+		return setCodexSelection(base, "model", originalModel)
 	}
-	return removeManagedModelSelection(base)
-}
-
-func removeManagedModelSelection(base string) string {
 	return removeManagedCodexLine(base, "model")
-}
-
-func removeManagedCodexModelCatalog(base string) string {
-	return removeManagedCodexLine(base, "model_catalog_json")
 }
 
 // removeManagedCodexLine drops the top-level assignment AIGW owns for one key.
 // The key is matched exactly, because model and model_catalog_json are separate
 // settings with separate owners and a prefix match would let a restore of one
 // silently discard the other.
-func removeManagedCodexLine(base, key string) string {
-	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=.*#[ \t]*managed by AIGW[ \t]*(?:\r?\n|$)`)
-	trimmed := pattern.ReplaceAllString(base, "")
-	// Removing the document's final line also removes the newline that separated
-	// it, so a document that did not end in a newline still does not.
-	if !strings.HasSuffix(base, "\n") {
-		return strings.TrimSuffix(trimmed, "\n")
+func removeManagedCodexLine(base, key string) (string, error) {
+	line, err := codexSelectionLine(base, key)
+	if err != nil {
+		return "", err
 	}
-	return trimmed
+	if !regexp.MustCompile(`#[ \t]*managed by AIGW[ \t]*$`).MatchString(line) {
+		return base, nil
+	}
+	return setCodexSelection(base, key, "")
 }
 
 func codexStatePath(path string) string { return path + ".aigw-state.json" }
@@ -585,20 +520,4 @@ func codexStatePath(path string) string { return path + ".aigw-state.json" }
 func hashText(text string) string {
 	sum := sha256.Sum256([]byte(text))
 	return hex.EncodeToString(sum[:])
-}
-
-func removeEnvironment(env []string, keys ...string) []string {
-	remove := map[string]bool{}
-	for _, key := range keys {
-		remove[key] = true
-	}
-	out := make([]string, 0, len(env))
-	for _, entry := range env {
-		key, _, _ := strings.Cut(entry, "=")
-		if remove[key] || strings.HasPrefix(key, "AIGW_TOKEN_") {
-			continue
-		}
-		out = append(out, entry)
-	}
-	return out
 }

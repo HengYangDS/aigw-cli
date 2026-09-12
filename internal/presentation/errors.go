@@ -1,6 +1,7 @@
 package presentation
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -21,28 +22,40 @@ type presentedError struct{ cause error }
 func (e *presentedError) Error() string { return e.cause.Error() }
 func (e *presentedError) Unwrap() error { return e.cause }
 
+// ProblemError creates a structured user-facing problem while preserving its underlying cause.
 func ProblemError(title, evidence, impact, fix string, cause error) error {
 	return &userError{problem: Problem{Title: title, Evidence: evidence, Impact: impact, Fix: fix}, cause: cause}
 }
 
+// Presented marks an error whose command result has already been rendered.
 func Presented(err error) error { return &presentedError{cause: err} }
 
-func RenderError(renderer *Renderer, err error) {
-	var already *presentedError
-	if errors.As(err, &already) {
+// RenderError emits one structured actionable error and records any output failure on the renderer.
+func RenderError(renderer *Renderer, err error, jsonMode bool) {
+	if _, ok := errors.AsType[*presentedError](err); ok {
 		return
 	}
-	var user *userError
-	if errors.As(err, &user) {
-		renderer.Problem(user.problem)
+	var problem Problem
+	if user, ok := errors.AsType[*userError](err); ok {
+		problem = user.problem
+	} else {
+		message := localizedErrorMessage(err)
+		problem = Problem{
+			Title:  message,
+			Impact: "The command could not finish; inspect current state before retrying.",
+			Fix:    suggestedFix(message),
+		}
+	}
+	if jsonMode {
+		encoder := json.NewEncoder(renderer.out)
+		encoder.SetIndent("", "  ")
+		renderer.err = encoder.Encode(struct {
+			OK bool `json:"ok"`
+			Problem
+		}{Problem: problem})
 		return
 	}
-	message := localizedErrorMessage(err)
-	renderer.Problem(Problem{
-		Title:  message,
-		Impact: "The operation did not complete; any committed transaction will be rolled back where possible.",
-		Fix:    suggestedFix(message),
-	})
+	renderer.Problem(problem)
 }
 
 func localizedErrorMessage(err error) string {
@@ -53,16 +66,13 @@ func localizedErrorMessage(err error) string {
 }
 
 func typedErrorMessage(err error) (string, bool) {
-	var mismatch *configuration.RuntimeProfileClientMismatchError
-	if errors.As(err, &mismatch) {
+	if mismatch, ok := errors.AsType[*configuration.RuntimeProfileClientMismatchError](err); ok {
 		return fmt.Sprintf("profile %q is for %s, not %s", mismatch.ProfileID, mismatch.ExpectedClient, mismatch.ActualClient), true
 	}
-	var unknownAccount *configuration.RuntimeProfileUnknownAccountError
-	if errors.As(err, &unknownAccount) {
+	if unknownAccount, ok := errors.AsType[*configuration.RuntimeProfileUnknownAccountError](err); ok {
 		return fmt.Sprintf("profile %q references unknown account %q", unknownAccount.ProfileID, unknownAccount.AccountID), true
 	}
-	var missingEndpoint *configuration.RuntimeMissingEndpointError
-	if errors.As(err, &missingEndpoint) {
+	if missingEndpoint, ok := errors.AsType[*configuration.RuntimeMissingEndpointError](err); ok {
 		switch missingEndpoint.Protocol {
 		case configuration.ProtocolAnthropic:
 			return fmt.Sprintf("account %q has no Anthropic endpoint", missingEndpoint.AccountID), true
@@ -70,12 +80,10 @@ func typedErrorMessage(err error) (string, bool) {
 			return fmt.Sprintf("account %q has no OpenAI Responses endpoint", missingEndpoint.AccountID), true
 		}
 	}
-	var version *configuration.UnsupportedConfigVersionError
-	if errors.As(err, &version) {
+	if version, ok := errors.AsType[*configuration.UnsupportedConfigVersionError](err); ok {
 		return fmt.Sprintf("unsupported configuration version: found %d, expected %d", version.Version, version.ExpectedVersion), true
 	}
-	var load *configuration.LoadError
-	if errors.As(err, &load) {
+	if _, ok := errors.AsType[*configuration.LoadError](err); ok {
 		return "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it", true
 	}
 	return "", false
@@ -134,9 +142,9 @@ func mentionedAIGWCommand(message string) string {
 		return ""
 	}
 	value := message[start+1:]
-	end := strings.Index(value, "`")
-	if end < 0 {
+	before, _, ok := strings.Cut(value, "`")
+	if !ok {
 		return ""
 	}
-	return value[:end]
+	return before
 }

@@ -1,280 +1,465 @@
-//go:build !windows
-
 package secrets
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
-func TestAutomaticSelectionFallsBackAndPersistsOnLinux(t *testing.T) {
-	data := t.TempDir()
-	root := filepath.Join(data, "secrets")
+func TestAutomaticSelectionFallsBackWhenWindowsKeyringIsUnavailable(t *testing.T) {
 	store, err := Select(Selection{
-		Backend:      "",
-		GOOS:         "linux",
-		Root:         root,
+		GOOS:         "windows",
+		Root:         filepath.Join(t.TempDir(), "secrets"),
 		Getenv:       func(string) string { return "" },
-		KeyringProbe: func(Store) error { return errors.New("service unavailable") },
+		KeyringProbe: func(Store) error { return errors.New("unavailable") },
 	})
 	if err != nil {
 		t.Fatalf("Select() error = %v", err)
 	}
-	if _, err := os.Stat(root); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("Select() mutated storage before first use: %v", err)
+	automatic, ok := backendStore(store).(*automaticStore)
+	if !ok {
+		t.Fatalf("Select() = %T, want *automaticStore", store)
 	}
-	if err := store.Set("alpha", "token"); err != nil {
-		t.Fatalf("Set() error = %v", err)
-	}
-
-	selected, err := Select(Selection{
-		GOOS:         "linux",
-		Root:         filepath.Join(data, "secrets"),
-		Getenv:       func(string) string { return "" },
-		KeyringProbe: func(Store) error { return nil },
-	})
+	selected, err := automatic.resolve()
 	if err != nil {
-		t.Fatalf("second Select() error = %v", err)
+		t.Fatalf("resolve() error = %v", err)
 	}
-	value, err := selected.Get("alpha")
-	if err != nil || value != "token" {
-		t.Fatalf("persisted selection Get() = %q, %v", value, err)
+	if _, ok := selected.(*fileStore); !ok {
+		t.Fatalf("resolve() = %T, want *fileStore", selected)
 	}
 }
 
-func TestAutomaticSelectionMissingTokenDoesNotPersist(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "secrets")
-	store, err := Select(Selection{
+func TestExplicitKeyringFailureDoesNotFallback(t *testing.T) {
+	_, err := Select(Selection{
+		Backend:      "keyring",
 		GOOS:         "linux",
-		Root:         root,
-		KeyringProbe: func(Store) error { return errors.New("service unavailable") },
+		Root:         filepath.Join(t.TempDir(), "secrets"),
+		Getenv:       func(string) string { return "" },
+		KeyringProbe: func(Store) error { return errors.New("unavailable") },
 	})
+	if err == nil {
+		t.Fatal("Select() succeeded with unavailable explicit keyring")
+	}
+}
+
+func TestExplicitFileBackendSupportsWindows(t *testing.T) {
+	store, err := Select(Selection{Backend: "file", GOOS: "windows", Root: t.TempDir()})
 	if err != nil {
 		t.Fatalf("Select() error = %v", err)
 	}
-	if _, err := store.Get("missing"); !errors.Is(err, ErrNotFound) {
+	if _, ok := backendStore(store).(*fileStore); !ok {
+		t.Fatalf("Select() = %T, want *fileStore", store)
+	}
+}
+
+func TestSelectionRejectsUnsupportedAutomaticAndFilePlatforms(t *testing.T) {
+	for _, selection := range []Selection{
+		{GOOS: "plan9", Root: t.TempDir()},
+		{Backend: "file", GOOS: "plan9", Root: t.TempDir()},
+	} {
+		if _, err := Select(selection); err == nil || !strings.Contains(err.Error(), "operating system") {
+			t.Fatalf("Select(%+v) error = %v", selection, err)
+		}
+	}
+}
+
+func TestFileSelectionRequiresStorageRoot(t *testing.T) {
+	for _, selection := range []Selection{
+		{Backend: "file", GOOS: "linux"},
+		{GOOS: "linux"},
+	} {
+		if _, err := Select(selection); err == nil || !strings.Contains(err.Error(), "storage root") {
+			t.Fatalf("Select(%+v) error = %v", selection, err)
+		}
+	}
+}
+
+func TestEnvironmentSelectionDefaultsToEmptyProcessEnvironment(t *testing.T) {
+	store, err := Select(Selection{Backend: "env"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Get("alpha"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Get() error = %v, want ErrNotFound", err)
 	}
-	if _, err := os.Stat(filepath.Join(root, "backend")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("read-only miss persisted backend selection: %v", err)
+}
+
+func TestDefaultKeyringProbeRecognizesReachableAndFailedStores(t *testing.T) {
+	unavailable := errors.New("service unavailable")
+	for _, test := range []struct {
+		name    string
+		present bool
+		err     error
+	}{
+		{name: "absent"},
+		{name: "present", present: true},
+		{name: "unavailable", err: unavailable},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			observed := false
+			store := scopedView{kind: APIToken, store: keyringStore{observe: func(service, slot string) (bool, error) {
+				observed = true
+				if service != Service || slot != "aigw-backend-probe" {
+					t.Fatalf("probe target = %q/%q", service, slot)
+				}
+				return test.present, test.err
+			}}}
+			if err := probeKeyring(store, nil); !errors.Is(err, test.err) {
+				t.Fatalf("probeKeyring() error = %v, want %v", err, test.err)
+			}
+			if !observed {
+				t.Fatal("keyring availability was not observed")
+			}
+		})
 	}
 }
 
-func TestAutomaticSelectionSuccessfulGetPersists(t *testing.T) {
+func TestAutomaticBackendSelectionRollbackRemovesOnlyTheTransactionSelection(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
-	if err := newFileStore(filepath.Join(root, "tokens")).Set("alpha", "token"); err != nil {
-		t.Fatalf("seed file Token: %v", err)
-	}
 	store, err := Select(Selection{
-		GOOS:         "linux",
+		GOOS:         runtime.GOOS,
 		Root:         root,
-		KeyringProbe: func(Store) error { return errors.New("service unavailable") },
+		KeyringProbe: func(Store) error { return errors.New("unavailable") },
 	})
 	if err != nil {
-		t.Fatalf("Select() error = %v", err)
+		t.Fatal(err)
 	}
-	value, err := store.Get("alpha")
-	if err != nil || value != "token" {
+	rollback, err := prepareBackendSelectionRollback(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "backend")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("backend selection remains after rollback: %v", err)
+	}
+}
+
+func TestAutomaticBackendSelectionReadNeedsNoRollback(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	if err := newFileStore(filepath.Join(root, "tokens")).Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	store, err := Select(Selection{
+		GOOS:         runtime.GOOS,
+		Root:         root,
+		KeyringProbe: func(Store) error { return errors.New("unavailable") },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollback, err := prepareBackendSelectionRollback(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value, err := store.Get("team"); err != nil || value != "token" {
 		t.Fatalf("Get() = %q, %v", value, err)
 	}
-	selected, err := os.ReadFile(filepath.Join(root, "backend"))
-	if err != nil || string(selected) != "file\n" {
-		t.Fatalf("persisted backend = %q, %v", selected, err)
+	if _, err := os.Stat(filepath.Join(root, backendChoiceName)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("read-only Get() persisted backend selection: %v", err)
 	}
-}
-
-func TestAutomaticSelectionPersistedKeyringNeverFallsBack(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "secrets")
-	choice := newBackendChoice(root)
-	if err := choice.Write("keyring"); err != nil {
-		t.Fatalf("persist keyring selection: %v", err)
-	}
-	store, err := Select(Selection{
-		GOOS:         "linux",
-		Root:         root,
-		KeyringProbe: func(Store) error { return errors.New("service unavailable") },
-	})
-	if err != nil {
-		t.Fatalf("Select() error = %v", err)
-	}
-	if _, err := store.Get("alpha"); err == nil || !strings.Contains(err.Error(), "service unavailable") {
-		t.Fatalf("Get() error = %v, want persisted keyring failure", err)
-	}
-	if _, err := os.Stat(filepath.Join(root, "tokens")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("persisted keyring failure created fallback store: %v", err)
-	}
-}
-
-func TestAutomaticSelectionFailedMutationDoesNotPersist(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "secrets")
-	store, err := Select(Selection{
-		GOOS:         "linux",
-		Root:         root,
-		KeyringProbe: func(Store) error { return errors.New("service unavailable") },
-	})
-	if err != nil {
-		t.Fatalf("Select() error = %v", err)
-	}
-	if err := store.Set("invalid profile", "token"); err == nil {
-		t.Fatal("Set() accepted invalid profile")
+	if err := rollback(); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "backend")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("failed mutation persisted backend selection: %v", err)
+		t.Fatalf("backend selection remains after rollback: %v", err)
 	}
 }
 
-func TestAutomaticSelectionCachesAndPersistsOneBackend(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "secrets")
-	store, err := Select(Selection{
-		GOOS:         "linux",
-		Root:         root,
-		KeyringProbe: func(Store) error { return errors.New("service unavailable") },
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.Get("missing"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("Get() error = %v", err)
-	}
-	if err := store.Set("alpha", "token"); err != nil {
-		t.Fatalf("Set() error = %v", err)
-	}
-	if err := store.Set("beta", "token"); err != nil {
-		t.Fatalf("second Set() error = %v", err)
-	}
-	if !mustExist(t, store, "alpha") {
-		t.Fatal("Has() did not reuse selected backend")
-	}
-	if value, err := store.Get("beta"); err != nil || value != "token" {
-		t.Fatalf("second Get() = %q, %v", value, err)
-	}
-	if err := store.Delete("alpha"); err != nil {
-		t.Fatalf("Delete() error = %v", err)
-	}
-}
-
-func TestAutomaticSelectionReportsInitialMarkerFailure(t *testing.T) {
-	parent := t.TempDir()
-	root := filepath.Join(parent, "secrets")
-	store, err := Select(Selection{
-		GOOS: "linux",
-		Root: root,
-		KeyringProbe: func(Store) error {
-			if err := os.WriteFile(root, []byte("not a directory"), 0o600); err != nil {
-				t.Fatalf("prepare marker failure: %v", err)
+func TestCompletedBackendRollbackPreservesTheNextSelection(t *testing.T) {
+	for _, writeFirst := range []bool{false, true} {
+		t.Run(fmt.Sprintf("previous-write-%t", writeFirst), func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "secrets")
+			store, err := Select(Selection{
+				GOOS:         runtime.GOOS,
+				Root:         root,
+				KeyringProbe: func(Store) error { return errors.New("unavailable") },
+			})
+			if err != nil {
+				t.Fatal(err)
 			}
-			return errors.New("service unavailable")
-		},
-	})
+			rollback, err := prepareBackendSelectionRollback(store)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if writeFirst {
+				if err := store.Set("first", "first-token"); err != nil {
+					t.Fatal(err)
+				}
+				if err := store.Delete("first"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := rollback(); err != nil {
+				t.Fatal(err)
+			}
+			if err := store.Set("next", "next-token"); err != nil {
+				t.Fatal(err)
+			}
+			if err := rollback(); err != nil {
+				t.Fatal(err)
+			}
+			if selected, err := newBackendChoice(root).Read(); err != nil || selected != "file" {
+				t.Fatalf("next backend selection = %q, %v; want file", selected, err)
+			}
+			if token, err := store.Get("next"); err != nil || token != "next-token" {
+				t.Fatalf("next credential = %q, %v; want next-token", token, err)
+			}
+		})
+	}
+}
+
+func TestAutomaticBackendSelectionRollbackPreservesExistingSelection(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	choice := newBackendChoice(root)
+	if _, _, err := choice.Persist("file"); err != nil {
+		t.Fatal(err)
+	}
+	store, err := Select(Selection{GOOS: runtime.GOOS, Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Set("alpha", "token"); err == nil {
-		t.Fatal("Set() ignored initial selection marker failure")
+	rollback, err := prepareBackendSelectionRollback(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if selected, err := choice.Read(); err != nil || selected != "file" {
+		t.Fatalf("backend selection = %q, %v; want file", selected, err)
 	}
 }
 
-func TestAutomaticSuccessfulReadReportsDeferredMarkerFailure(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "secrets")
-	memory := NewMemoryStore()
-	if err := memory.Set("alpha", "token"); err != nil {
-		t.Fatal(err)
-	}
-	blockedRoot := filepath.Join(root, "blocked")
-	if err := os.MkdirAll(root, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(blockedRoot, []byte("not a directory"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	store := &automaticStore{
-		choice:          newBackendChoice(filepath.Join(blockedRoot, "child")),
-		selected:        memory,
-		selectedBackend: "file",
-	}
-	if _, err := store.Get("alpha"); err == nil {
-		t.Fatal("Get() ignored deferred selection marker failure")
-	}
-}
-
-func TestAutomaticSelectionRejectsInvalidPersistedChoice(t *testing.T) {
+func TestAutomaticBackendSelectionRollbackRejectsInvalidSelectionState(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
 	if err := os.Mkdir(root, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "backend"), []byte("unknown\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, backendChoiceName), []byte("unknown\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store, err := Select(Selection{GOOS: "linux", Root: root})
+	store, err := Select(Selection{GOOS: runtime.GOOS, Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Get("alpha"); err == nil || !strings.Contains(err.Error(), "invalid persisted") {
-		t.Fatalf("Get() error = %v", err)
-	}
-	if present, err := store.Exists("alpha"); err == nil || present || !strings.Contains(err.Error(), "invalid persisted") {
-		t.Fatalf("Exists() = %v, %v", present, err)
+	if _, err := prepareBackendSelectionRollback(store); err == nil || !strings.Contains(err.Error(), "observe automatic credential backend selection") {
+		t.Fatalf("prepareBackendSelectionRollback() error = %v", err)
 	}
 }
 
-func TestAutomaticSelectionSuccessfulGetReportsMarkerFailure(t *testing.T) {
+func TestAutomaticBackendSelectionRollbackPreservesDrift(t *testing.T) {
+	for _, replacement := range []string{"keyring", "file"} {
+		t.Run(replacement, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "secrets")
+			choice := newBackendChoice(root)
+			store, err := Select(Selection{
+				GOOS:         runtime.GOOS,
+				Root:         root,
+				KeyringProbe: func(Store) error { return errors.New("unavailable") },
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			rollback, err := prepareBackendSelectionRollback(store)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := store.Set("team", "token"); err != nil {
+				t.Fatal(err)
+			}
+			if err := replaceBackendChoice(choice, replacement); err != nil {
+				t.Fatal(err)
+			}
+			if err := rollback(); err == nil || !strings.Contains(err.Error(), "changed") {
+				t.Fatalf("rollback error = %v; want drift rejection", err)
+			}
+			if selected, err := choice.Read(); err != nil || selected != replacement {
+				t.Fatalf("backend selection = %q, %v; want %s", selected, err, replacement)
+			}
+		})
+	}
+}
+
+func TestAutomaticBackendSelectionRollbackPreservesSelectionCreatedByAnotherWriter(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
-	if err := newFileStore(filepath.Join(root, "tokens")).Set("alpha", "token"); err != nil {
+	choice := newBackendChoice(root)
+	store, err := Select(Selection{GOOS: runtime.GOOS, Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollback, err := prepareBackendSelectionRollback(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := choice.Persist("file"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if selected, err := choice.Read(); err != nil || selected != "file" {
+		t.Fatalf("backend selection = %q, %v; want externally created file selection", selected, err)
+	}
+}
+
+func TestExplicitBackendSelectionRollbackIsNoOp(t *testing.T) {
+	rollback, err := prepareBackendSelectionRollback(NewMemoryStore())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rollback(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAutomaticMutationFailurePreservesExistingBackendSelection(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	choice := newBackendChoice(root)
+	if _, _, err := choice.Persist("file"); err != nil {
+		t.Fatal(err)
+	}
+	store, err := Select(Selection{GOOS: runtime.GOOS, Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("credential mutation failed")
+	automatic, ok := backendStore(store).(*automaticStore)
+	if !ok {
+		t.Fatalf("selected backend = %T, want *automaticStore", backendStore(store))
+	}
+	if err := automatic.mutate(func(credentialBackend) error { return want }); !errors.Is(err, want) {
+		t.Fatalf("mutate() error = %v, want %v", err, want)
+	}
+	if selected, err := choice.Read(); err != nil || selected != "file" {
+		t.Fatalf("backend selection = %q, %v; want retained file selection", selected, err)
+	}
+}
+
+func TestAutomaticFileMutationFailureRemovesItsBackendSelection(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	if err := os.MkdirAll(filepath.Join(root, "tokens", "team"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	store, err := Select(Selection{
-		GOOS:         "linux",
+		GOOS:         runtime.GOOS,
 		Root:         root,
-		KeyringProbe: func(Store) error { return errors.New("service unavailable") },
+		KeyringProbe: func(Store) error { return errors.New("unavailable") },
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(root, 0o755); err != nil {
-		t.Fatal(err)
+	if err := store.Set("team", "token"); err == nil {
+		t.Fatal("Set() replaced a directory at the credential slot")
 	}
-	if _, err := store.Get("alpha"); err == nil || !strings.Contains(err.Error(), "owner-only directory") {
-		t.Fatalf("Get() marker error = %v", err)
+	if _, err := os.Stat(filepath.Join(root, backendChoiceName)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("backend selection remains after failed credential mutation: %v", err)
 	}
-}
-
-func TestAutomaticDeleteRejectsInvalidAccountAndBrokenSelection(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "secrets")
-	store, err := Select(Selection{GOOS: "linux", Root: root})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Delete("invalid account"); err == nil {
-		t.Fatal("Delete() accepted an invalid Account ID")
-	}
-	if err := os.Mkdir(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Delete("alpha"); err == nil {
-		t.Fatal("Delete() ignored invalid backend selection storage")
+	if info, err := os.Stat(filepath.Join(root, "tokens", "team")); err != nil || !info.IsDir() {
+		t.Fatalf("credential slot = %#v, %v; want preserved directory", info, err)
 	}
 }
 
-func TestAutomaticSelectionReportsMarkerPersistenceFailure(t *testing.T) {
+func TestAutomaticMutationFailureReportsBackendRollbackConflict(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
-	store, err := Select(Selection{
-		GOOS:         "linux",
-		Root:         root,
-		KeyringProbe: func(Store) error { return errors.New("service unavailable") },
+	choice := newBackendChoice(root)
+	automatic := &automaticStore{
+		selection:       Selection{GOOS: runtime.GOOS, Root: root},
+		choice:          choice,
+		selected:        backendStore(NewMemoryStore()),
+		selectedBackend: "file",
+	}
+	want := errors.New("credential mutation failed")
+	err := automatic.mutate(func(credentialBackend) error {
+		if replaceErr := replaceBackendChoice(choice, "keyring"); replaceErr != nil {
+			t.Fatal(replaceErr)
+		}
+		return want
 	})
+	if !errors.Is(err, want) || !strings.Contains(err.Error(), "restore automatic credential backend selection") {
+		t.Fatalf("mutate() error = %v; want mutation and rollback conflict", err)
+	}
+	if selected, readErr := choice.Read(); readErr != nil || selected != "keyring" {
+		t.Fatalf("backend selection = %q, %v; want external keyring selection", selected, readErr)
+	}
+}
+
+func TestAutomaticMutationsRecheckPersistedBackend(t *testing.T) {
+	for _, test := range []struct {
+		operation, backend, wantBackend, wantToken string
+		readErr                                    error
+		allowed                                    bool
+	}{
+		{operation: "set", backend: "file", allowed: true, wantBackend: "file", wantToken: "replacement-token"},
+		{operation: "delete", backend: "file", allowed: true, wantBackend: "file", readErr: ErrNotFound},
+		{operation: "set", backend: "keyring", wantBackend: "keyring", wantToken: "original-token"},
+		{operation: "delete", backend: "keyring", wantBackend: "keyring", wantToken: "original-token"},
+		{operation: "set", backend: "invalid", wantBackend: "invalid", wantToken: "original-token"},
+		{operation: "delete", backend: "invalid", wantBackend: "invalid", wantToken: "original-token"},
+		{operation: "set", allowed: true, wantBackend: "file", wantToken: "replacement-token"},
+		{operation: "delete", allowed: true, wantBackend: "file", readErr: ErrNotFound},
+	} {
+		t.Run(test.operation+"/"+test.backend, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "secrets")
+			store, err := Select(Selection{
+				GOOS: runtime.GOOS, Root: root,
+				KeyringProbe: func(Store) error { return errors.New("isolated file backend") },
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := store.Set("team", "original-token"); err != nil {
+				t.Fatal(err)
+			}
+			marker := filepath.Join(root, backendChoiceName)
+			if test.backend == "" {
+				err = os.Remove(marker)
+			} else {
+				err = replaceBackendChoice(newBackendChoice(root), test.backend)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.operation == "set" {
+				err = store.Set("team", "replacement-token")
+			} else {
+				err = store.Delete("team")
+			}
+			if (err == nil) != test.allowed {
+				t.Fatalf("mutation error = %v; allowed = %v", err, test.allowed)
+			}
+			observed, err := os.ReadFile(marker)
+			if err != nil || string(observed) != test.wantBackend+"\n" {
+				t.Fatalf("persisted backend = %q, %v; want %q", observed, err, test.wantBackend)
+			}
+			file := newFileStore(filepath.Join(root, "tokens"))
+			value, err := file.Get("team")
+			if !errors.Is(err, test.readErr) || value != test.wantToken {
+				t.Fatalf("credential = %q, %v; want %q, %v", value, err, test.wantToken, test.readErr)
+			}
+		})
+	}
+}
+
+func replaceBackendChoice(choice backendChoice, backend string) error {
+	root, err := openSecureRoot(choice.root, true)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
-	if _, err := store.Get("missing"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("Get() error = %v", err)
-	}
-	if err := os.Mkdir(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Set("alpha", "token"); err == nil {
-		t.Fatal("Set() ignored unsafe selection storage")
-	}
+	defer func() { _ = root.Close() }()
+	return writeSecureFile(root, backendChoiceName, []byte(backend+"\n"))
 }

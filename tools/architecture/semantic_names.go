@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -25,8 +26,6 @@ var nativeCarrierNames = map[string]bool{
 	"AGENTS.md": true, "CHANGELOG.md": true, "CONTRIBUTING.md": true, "README.md": true,
 }
 
-var chronicleDateName = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}\.md$`)
-
 func checkSemanticNames(root string, report *Report) error {
 	files, err := trackedFiles(root)
 	if err != nil {
@@ -35,7 +34,7 @@ func checkSemanticNames(root string, report *Report) error {
 	for _, relative := range files {
 		name := path.Base(relative)
 		grammar, managed := semanticNameGrammars[strings.ToLower(path.Ext(name))]
-		if !managed || nativeCarrierNames[name] || isOpenSpecCarrier(relative, name) || isChronicleCarrier(relative, name) {
+		if !managed || nativeCarrierNames[name] || isOpenSpecCarrier(relative, name) {
 			continue
 		}
 		if !grammar.pattern.MatchString(name) {
@@ -45,18 +44,20 @@ func checkSemanticNames(root string, report *Report) error {
 	return nil
 }
 
-func isChronicleCarrier(relative, name string) bool {
-	return strings.HasPrefix(relative, "evidence/chronicle/") && chronicleDateName.MatchString(name)
-}
-
 func trackedFiles(root string) ([]string, error) {
-	command := exec.Command("git", "ls-files", "-z", "--cached")
+	gitPath := filepath.Join(root, ".git")
+	if _, err := os.Stat(gitPath); os.IsNotExist(err) {
+		return workspaceFiles(root)
+	}
+	command := exec.Command("git", "--git-dir", ".git", "--work-tree", ".", "ls-files", "-z", "--cached")
 	command.Dir = root
+	// This inventory belongs to the requested checkout's index, not its caller's.
+	command.Env = slices.DeleteFunc(command.Environ(), func(entry string) bool {
+		name, _, _ := strings.Cut(entry, "=")
+		return strings.EqualFold(name, "GIT_INDEX_FILE")
+	})
 	output, err := command.Output()
 	if err != nil {
-		if _, statErr := os.Stat(filepath.Join(root, ".git")); os.IsNotExist(statErr) {
-			return workspaceFiles(root)
-		}
 		return nil, fmt.Errorf("list tracked files: %w", err)
 	}
 	parts := bytes.Split(output, []byte{0})

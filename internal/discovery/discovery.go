@@ -3,12 +3,14 @@
 package discovery
 
 import (
-	configuration "aigw-cli/internal/configuration"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
+// Result contains discovered client executables and independently addressable configuration surfaces.
 type Result struct {
 	Executables map[string]string
 	Surfaces    []Surface
@@ -19,28 +21,38 @@ type Result struct {
 // a new field or switch when an adapter is admitted.
 func (r Result) Executable(client string) string { return r.Executables[client] }
 
+// Discoverer resolves currently available client executables and configuration surfaces.
 type Discoverer interface{ Discover() Result }
 
+// System discovers clients from one explicit operating-system, home, and search-path context.
 type System struct {
 	GOOS string
 	Home string
 	Path string
 }
 
+// Current returns the discovery context derived from the current process environment.
 func Current() System {
 	home, _ := os.UserHomeDir()
 	return System{GOOS: runtime.GOOS, Home: home, Path: os.Getenv("PATH")}
 }
 
-func (s System) Discover() Result {
-	result := Result{
-		Executables: map[string]string{
-			configuration.ClientClaude: s.find(configuration.ClientClaude),
-			configuration.ClientCodex:  s.find(configuration.ClientCodex),
-		},
-		Surfaces: s.discoverSurfaces(),
-	}
-	return result
+// Executable returns the first runnable command with name on this host.
+func (s System) Executable(name string) string { return s.find(name) }
+
+// HomeDirectory returns the user home observed by this discovery source.
+func (s System) HomeDirectory() string { return s.Home }
+
+// FilePresent reports whether path currently names a non-directory entry.
+func (s System) FilePresent(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && !info.IsDir()
+}
+
+// ExecutableAvailable reports whether path identifies a runnable executable on
+// the current platform.
+func ExecutableAvailable(path string) (bool, error) {
+	return executableAvailable(runtime.GOOS, path)
 }
 
 func (s System) find(name string) string {
@@ -51,15 +63,32 @@ func (s System) find(name string) string {
 	for _, dir := range filepath.SplitList(s.Path) {
 		for _, candidate := range names {
 			path := filepath.Join(dir, candidate)
-			info, err := os.Stat(path)
-			if err != nil || info.IsDir() {
+			available, err := executableAvailable(s.GOOS, path)
+			if err != nil || !available {
 				continue
 			}
-			if s.GOOS == "windows" || info.Mode()&0o111 != 0 {
-				absolute, _ := filepath.Abs(path)
+			absolute, err := filepath.Abs(path)
+			if err == nil {
 				return absolute
 			}
 		}
 	}
 	return ""
+}
+
+func executableAvailable(goos, path string) (bool, error) {
+	if strings.TrimSpace(path) == "" {
+		return false, nil
+	}
+	info, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if info.IsDir() {
+		return false, nil
+	}
+	return goos == "windows" || info.Mode().Perm()&0o111 != 0, nil
 }

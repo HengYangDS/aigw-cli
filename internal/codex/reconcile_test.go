@@ -1,6 +1,9 @@
 package codex
 
 import (
+	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/surface"
+	"aigw-cli/internal/transaction"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -9,9 +12,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"aigw-cli/internal/surface"
-	"aigw-cli/internal/transaction"
 )
 
 func codexHomeTarget(path string) TargetRef {
@@ -187,7 +187,7 @@ func TestReconcileConfigsRollsBackMixedRestoreAndAdd(t *testing.T) {
 	}
 }
 
-func TestReconcileConfigsReportsRollbackFailureWithoutOverwritingExternalEdit(t *testing.T) {
+func TestReconcileConfigsPreservesCommitAndCompensationFailures(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.toml")
 	second := filepath.Join(dir, "second.toml")
@@ -199,6 +199,8 @@ func TestReconcileConfigsReportsRollbackFailureWithoutOverwritingExternalEdit(t 
 
 	originalWrite := writeFileAtomicIfUnchanged
 	originalRestore := restoreFileAtomicIfPostimage
+	commitFailure := errors.New("injected commit failure")
+	rollbackFailure := errors.New("injected rollback failure")
 	t.Cleanup(func() {
 		writeFileAtomicIfUnchanged = originalWrite
 		restoreFileAtomicIfPostimage = originalRestore
@@ -207,17 +209,62 @@ func TestReconcileConfigsReportsRollbackFailureWithoutOverwritingExternalEdit(t 
 	writeFileAtomicIfUnchanged = func(path string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
 		writes++
 		if writes == 2 {
-			return transaction.FileSnapshot{}, errors.New("injected commit failure")
+			return transaction.FileSnapshot{}, commitFailure
 		}
 		return originalWrite(path, expected, data, mode)
 	}
 	restoreFileAtomicIfPostimage = func(path string, preimage, postimage transaction.FileSnapshot) error {
-		return errors.New("injected rollback failure")
+		return rollbackFailure
 	}
 
 	_, err := ReconcileConfigs(nil, []TargetRef{codexHomeTarget(first), codexHomeTarget(second)}, atomicTestRuntime())
-	if err == nil || !strings.Contains(err.Error(), "rollback also failed") || !strings.Contains(err.Error(), "injected rollback failure") {
+	if !errors.Is(err, commitFailure) || !errors.Is(err, rollbackFailure) {
 		t.Fatalf("ReconcileConfigs() error = %v", err)
+	}
+}
+
+func TestReconciliationReceiptPreservesForeignEditsAndRestoresOwnedFiles(t *testing.T) {
+	dir := t.TempDir()
+	paths := []string{filepath.Join(dir, "first.toml"), filepath.Join(dir, "second.toml")}
+	original := []byte("model_provider = \"native\"\n")
+	for _, path := range paths {
+		if err := os.WriteFile(path, original, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	receipt, err := ReconcileConfigs(nil, codexHomeTargets(paths), atomicTestRuntime())
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign := []byte("model_provider = \"user-selected\"\n")
+	if err := os.WriteFile(paths[1], foreign, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	originalRestore := restoreFileAtomicIfPostimage
+	t.Cleanup(func() { restoreFileAtomicIfPostimage = originalRestore })
+	var conflict error
+	restoreFileAtomicIfPostimage = func(path string, preimage, postimage transaction.FileSnapshot) error {
+		err := originalRestore(path, preimage, postimage)
+		if err != nil {
+			conflict = err
+		}
+		return err
+	}
+	err = receipt.Rollback()
+	for i, path := range paths {
+		want := original
+		if i == 1 {
+			want = foreign
+		}
+		if got, readErr := os.ReadFile(path); readErr != nil || !bytes.Equal(got, want) {
+			t.Errorf("configuration %s = %q, %v; want %q", path, got, readErr, want)
+		}
+		if _, statErr := os.Stat(codexStatePath(path)); !os.IsNotExist(statErr) {
+			t.Errorf("owned sidecar %s remains after compensation: %v", path, statErr)
+		}
+	}
+	if conflict == nil || !errors.Is(err, conflict) {
+		t.Fatalf("compensation must retain its actual conflict: %v; cause %v", err, conflict)
 	}
 }
 
@@ -248,189 +295,170 @@ func TestReconcileConfigsRejectsChangedPreimageWithoutOverwrite(t *testing.T) {
 	}
 }
 
-func TestReconcileConfigsRejectsUnattributedSidecar(t *testing.T) {
+func TestRollbackCodexArtifactsPreservesExternalEdit(t *testing.T) {
+	if err := rollbackCodexArtifacts(nil); err != nil {
+		t.Fatalf("rollbackCodexArtifacts(nil) error = %v", err)
+	}
+
 	path := filepath.Join(t.TempDir(), "configuration.toml")
-	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	target := codexHomeTarget(path)
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime()); err != nil {
-		t.Fatal(err)
-	}
-	statePath := codexStatePath(path)
-	stateData, err := os.ReadFile(statePath)
+	writeCodexFixture(t, path, "original\n")
+	before, err := transaction.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var state codexState
-	if err := json.Unmarshal(stateData, &state); err != nil {
+	post, err := transaction.WriteFileAtomicIfUnchanged(path, before, []byte("transaction postimage\n"), 0o600)
+	if err != nil {
 		t.Fatal(err)
 	}
+	writeCodexFixture(t, path, "newer external edit\n")
 
-	state.ProjectionMode = ""
-	state.WriterID = ""
-	state.TransactionID = ""
-	unattributed, err := json.Marshal(state)
+	committed := []committedCodexArtifact{{
+		prepared: codexPreparedArtifact{path: path, before: before},
+		post:     post,
+	}}
+	if err := rollbackCodexArtifacts(committed); err == nil || !strings.Contains(err.Error(), "postimage changed") {
+		t.Fatalf("rollbackCodexArtifacts() error = %v", err)
+	}
+	current, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(statePath, append(unattributed, '\n'), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	beforeConfig, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	beforeState, err := os.ReadFile(statePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime())
-	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") {
-		t.Fatalf("ReconcileConfigs() error = %v, want incomplete attribution", err)
-	}
-	afterConfig, readErr := os.ReadFile(path)
-	if readErr != nil || !bytes.Equal(afterConfig, beforeConfig) {
-		t.Fatalf("config changed after unattributed sidecar rejection: %q, %v", afterConfig, readErr)
-	}
-	afterState, readErr := os.ReadFile(statePath)
-	if readErr != nil || !bytes.Equal(afterState, beforeState) {
-		t.Fatalf("sidecar changed after unattributed sidecar rejection: %q, %v", afterState, readErr)
-	}
-
-	for _, mutate := range []func(*codexState){
-		func(state *codexState) { state.TransactionID = "" },
-		func(state *codexState) { state.WriterID = "foreign-projector" },
-	} {
-		beforeConfig, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		beforeState, err := os.ReadFile(statePath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := json.Unmarshal(beforeState, &state); err != nil {
-			t.Fatal(err)
-		}
-		mutate(&state)
-		mutatedState, err := json.Marshal(state)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(statePath, append(mutatedState, '\n'), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		currentState, err := os.ReadFile(statePath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime())
-		if err == nil {
-			t.Fatal("ReconcileConfigs() succeeded for invalid attribution")
-		}
-		afterConfig, readErr := os.ReadFile(path)
-		if readErr != nil || !bytes.Equal(afterConfig, beforeConfig) {
-			t.Fatalf("config changed after attribution rejection: %q, %v", afterConfig, readErr)
-		}
-		afterState, readErr := os.ReadFile(statePath)
-		if readErr != nil || !bytes.Equal(afterState, currentState) {
-			t.Fatalf("state changed after attribution rejection: %q, %v", afterState, readErr)
-		}
+	if string(current) != "newer external edit\n" {
+		t.Fatalf("rollback overwrote external edit: %q", current)
 	}
 }
 
-func TestReconcileConfigsRejectsUnattributedSidecarBesideSymlinkTarget(t *testing.T) {
-	dir := t.TempDir()
-	realDir := filepath.Join(dir, "real")
-	if err := os.MkdirAll(realDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	realPath := filepath.Join(realDir, "configuration.toml")
-	aliasPath := filepath.Join(dir, "alias.toml")
-	original := "model_provider = \"native\"\nmodel = \"gpt-native\"\n"
-	if err := os.WriteFile(realPath, []byte(original), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(realPath, aliasPath); err != nil {
-		t.Fatal(err)
-	}
-	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime, runtime.Endpoint)
-	projection, err := projectCodex(original, block, runtime.Model, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(realPath, []byte(projection), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	unattributed := codexState{
-		OriginalProvider: `model_provider = "native"`,
-		OriginalModel:    `model = "gpt-native"`,
-		ManagedBlockHash: hashText(block),
-	}
-	unattributedData, err := json.Marshal(unattributed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(codexStatePath(aliasPath), append(unattributedData, '\n'), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = ReconcileConfigs(nil, []TargetRef{codexHomeTarget(aliasPath)}, runtime)
-	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") {
-		t.Fatalf("ReconcileConfigs() error = %v, want incomplete attribution", err)
-	}
-	data, err := os.ReadFile(realPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count := strings.Count(string(data), "[model_providers.aigw]"); count != 1 {
-		t.Fatalf("managed provider tables changed after rejection: %d:\n%s", count, data)
-	}
-	if _, err := os.Stat(codexStatePath(realPath)); !os.IsNotExist(err) {
-		t.Fatalf("unexpected canonical sidecar created beside real target: %v", err)
-	}
-	stateData, err := os.ReadFile(codexStatePath(aliasPath))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var state codexState
-	if err := json.Unmarshal(stateData, &state); err != nil {
-		t.Fatal(err)
-	}
-	if state.WriterID != "" || state.ProjectionMode != "" || state.TransactionID != "" {
-		t.Fatalf("unattributed symlink sidecar changed: %#v", state)
+func TestPrepareCodexReconciliationRejectsInvalidTarget(t *testing.T) {
+	_, err := prepareCodexReconciliation([]TargetRef{{Path: ""}}, nil, configuration.Runtime{})
+	if err == nil {
+		t.Error("expected error for invalid target")
 	}
 }
 
-func TestValidateConfigRejectsForeignSidecarAttribution(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "configuration.toml")
-	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+func TestPrepareCodexRestoreHandlesRestoredAndUnsupportedState(t *testing.T) {
+	target := TargetRef{Path: "p", ProjectionMode: ProjectionFullSelection}
+	configSnap := transaction.FileSnapshot{Exists: true, Data: []byte("")}
+	stateSnap := transaction.FileSnapshot{Exists: false}
+
+	plan, err := prepareCodexRestore(target, configSnap, stateSnap, transaction.FileSnapshot{})
+	if err != nil || plan.plan.Action != "already-restored" {
+		t.Errorf("expected already-restored, got %+v, err %v", plan, err)
+	}
+
+	state := codexState{ProjectionMode: "invalid", WriterID: ProjectionWriterID, TransactionID: "t"}
+	data, _ := json.Marshal(state)
+	stateSnap = transaction.FileSnapshot{Exists: true, Data: data}
+	_, err = prepareCodexRestore(target, configSnap, stateSnap, transaction.FileSnapshot{})
+	if err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Errorf("expected unsupported error, got %v", err)
+	}
+}
+
+func writeCodexFixture(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runtime := atomicTestRuntime()
-	if err := SyncConfig(path, runtime); err != nil {
-		t.Fatal(err)
-	}
-	stateData, err := os.ReadFile(codexStatePath(path))
+}
+
+func writeCodexStateFixture(t *testing.T, path string, state codexState) {
+	t.Helper()
+	data, err := json.Marshal(state)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var state codexState
-	if err := json.Unmarshal(stateData, &state); err != nil {
-		t.Fatal(err)
-	}
-	state.WriterID = "foreign-projector"
-	mutated, err := json.Marshal(state)
+	writeCodexFixture(t, codexStatePath(path), string(data)+"\n")
+}
+
+func attributedCodexStateFixture(block string) codexState {
+	originalScheduler, err := captureCodexScheduler("")
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
-	if err := os.WriteFile(codexStatePath(path), append(mutated, '\n'), 0o600); err != nil {
-		t.Fatal(err)
+	projectedScheduler, err := projectCodexScheduler("")
+	if err != nil {
+		panic(err)
 	}
-	err = ValidateConfig(path, runtime)
-	if err == nil || !strings.Contains(err.Error(), "foreign writer") {
-		t.Fatalf("ValidateConfig() error = %v, want foreign writer", err)
+	return codexState{
+		ManagedBlockHash:       hashText(block),
+		OriginalScheduler:      originalScheduler,
+		ProjectedSchedulerHash: codexSchedulerHash(projectedScheduler),
+		ProjectionMode:         ProjectionFullSelection,
+		WriterID:               ProjectionWriterID,
+		TransactionID:          "test-transaction",
 	}
+}
+
+func TestCodexReconciliationPreflightErrors(t *testing.T) {
+	t.Run("invalid after target", func(t *testing.T) {
+		if _, err := PlanReconciliation(nil, []TargetRef{{}}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "requires surface_id") {
+			t.Fatalf("PlanReconciliation() error = %v", err)
+		}
+	})
+
+	t.Run("endpoint missing", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "configuration.toml")
+		writeCodexFixture(t, path, "external = true\n")
+		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, configuration.Runtime{ProfileID: "missing-endpoint"}); err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
+			t.Fatalf("PlanReconciliation() error = %v", err)
+		}
+	})
+
+	t.Run("config missing", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "missing.toml")
+		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "config does not exist") || !strings.Contains(err.Error(), "prepare Codex target") {
+			t.Fatalf("PlanReconciliation() error = %v", err)
+		}
+	})
+
+	t.Run("config is directory", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "configuration.toml")
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "read") {
+			t.Fatalf("PlanReconciliation() error = %v", err)
+		}
+	})
+
+	t.Run("sidecar is directory", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "configuration.toml")
+		writeCodexFixture(t, path, "external = true\n")
+		if err := os.Mkdir(codexStatePath(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "prepare Codex target") {
+			t.Fatalf("PlanReconciliation() error = %v", err)
+		}
+	})
+
+	t.Run("desired mode must be validated before preparation", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "configuration.toml")
+		writeCodexFixture(t, path, "external = true\n")
+		target := codexHomeTarget(path)
+		target.ProjectionMode = "unsupported"
+		if _, err := PlanReconciliation(nil, []TargetRef{target}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "cannot use authority") {
+			t.Fatalf("PlanReconciliation() error = %v", err)
+		}
+	})
+
+	t.Run("invalid desired authority", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "configuration.toml")
+		writeCodexFixture(t, path, "external = true\n")
+		target := codexHomeTarget(path)
+		target.Authority = "foreign"
+		if _, err := PlanReconciliation(nil, []TargetRef{target}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "cannot use authority") {
+			t.Fatalf("PlanReconciliation() error = %v", err)
+		}
+	})
+
+	t.Run("symlink loop", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "loop.toml")
+		if err := os.Symlink(path, path); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := normalizeCodexTargets([]TargetRef{codexHomeTarget(path)}); err == nil || !strings.Contains(err.Error(), "resolve Codex target symlinks") {
+			t.Fatalf("normalizeCodexTargets() error = %v", err)
+		}
+	})
 }

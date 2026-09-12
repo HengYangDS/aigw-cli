@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"go/parser"
 	"go/token"
@@ -9,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,7 +21,6 @@ var repositoryAnalysis = struct {
 	goFiles         func(string, policy) ([]goFileInfo, error)
 	peerImports     func(string, []goFileInfo, policy, *Report) error
 	importEdges     func(string, []goFileInfo, policy, *Report) error
-	goAST           func(string, []goFileInfo, policy, *Report) error
 }{
 	decisionRecords: checkDecisionRecords,
 	semanticNames:   checkSemanticNames,
@@ -29,7 +28,6 @@ var repositoryAnalysis = struct {
 	goFiles:         collectGoFiles,
 	peerImports:     checkPeerPackageImports,
 	importEdges:     checkImportEdges,
-	goAST:           checkGoAST,
 }
 
 type goFileInfo struct {
@@ -52,6 +50,11 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 			return Report{}, err
 		}
 	}
+	tracked, err := trackedFiles(absRoot)
+	if err != nil {
+		return Report{}, err
+	}
+	checkTrackedCarrierClasses(tracked, p, &report)
 	if err := repositoryAnalysis.packageChildren(absRoot, p, &report); err != nil {
 		return Report{}, err
 	}
@@ -67,10 +70,60 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	if err := repositoryAnalysis.importEdges(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}
-	if err := repositoryAnalysis.goAST(absRoot, goFiles, p, &report); err != nil {
-		return Report{}, err
-	}
 	return report, nil
+}
+
+func checkTrackedCarrierClasses(files []string, p policy, report *Report) {
+	for _, file := range files {
+		matches := make([]string, 0, 1)
+		for name, class := range p.TrackedCarrierClasses {
+			if class.matches(file) {
+				matches = append(matches, name)
+			}
+		}
+		if len(matches) == 1 {
+			continue
+		}
+		sort.Strings(matches)
+		message := "tracked carrier has no declared responsibility"
+		if len(matches) > 1 {
+			message = fmt.Sprintf("tracked carrier has multiple responsibilities: %s", strings.Join(matches, ", "))
+		}
+		report.addFinding(Finding{
+			Rule:    "tracked_carrier_responsibility",
+			Path:    file,
+			Name:    file,
+			Message: message,
+		})
+	}
+}
+
+func (class carrierClass) matches(file string) bool {
+	for _, excluded := range class.ExcludePrefixes {
+		if pathContains(excluded, file) {
+			return false
+		}
+	}
+	if slices.Contains(class.ExactPaths, file) {
+		return true
+	}
+	for _, prefix := range class.Prefixes {
+		if !pathContains(prefix, file) {
+			continue
+		}
+		if len(class.Suffixes) == 0 || slices.ContainsFunc(class.Suffixes, func(suffix string) bool {
+			return strings.HasSuffix(file, suffix)
+		}) {
+			return true
+		}
+	}
+	return len(class.Prefixes) == 0 && slices.ContainsFunc(class.Suffixes, func(suffix string) bool {
+		return strings.HasSuffix(file, suffix)
+	})
+}
+
+func pathContains(parent, file string) bool {
+	return file == parent || strings.HasPrefix(file, parent+"/")
 }
 
 func checkImportOwners(files []goFileInfo, p policy, report *Report) {
@@ -108,14 +161,11 @@ func checkPackageChildrenWithReadDir(
 	for packageRoot, allowedChildren := range p.PackageChildren {
 		packageRootPath := filepath.Join(root, filepath.FromSlash(packageRoot))
 		info, err := os.Stat(packageRootPath)
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
 		if err != nil {
 			return fmt.Errorf("stat package root %s: %w", packageRoot, err)
 		}
 		if !info.IsDir() {
-			continue
+			return fmt.Errorf("package root %s is not a directory", packageRoot)
 		}
 		entries, err := readDir(packageRootPath)
 		if err != nil {
@@ -171,7 +221,7 @@ func checkImportEdges(root string, files []goFileInfo, p policy, report *Report)
 		}
 		parsed, err := parser.ParseFile(fset, file.relPath, data, parser.ImportsOnly)
 		if err != nil {
-			continue
+			return fmt.Errorf("parse imports %s: %w", file.relPath, err)
 		}
 		for _, imported := range parsed.Imports {
 			importPath, _ := strconv.Unquote(imported.Path.Value)
@@ -214,16 +264,16 @@ func checkPeerPackageImports(root string, files []goFileInfo, p policy, report *
 			}
 			parsed, err := parser.ParseFile(fset, file.relPath, data, parser.ImportsOnly)
 			if err != nil {
-				continue
+				return fmt.Errorf("parse imports %s: %w", file.relPath, err)
 			}
 			for _, imported := range parsed.Imports {
 				path, _ := strconv.Unquote(imported.Path.Value)
 				marker := "/" + peerRoot + "/"
-				index := strings.Index(path, marker)
-				if index < 0 {
+				_, after, ok := strings.Cut(path, marker)
+				if !ok {
 					continue
 				}
-				tail := path[index+len(marker):]
+				tail := after
 				targetChild, _, _ := strings.Cut(tail, "/")
 				if targetChild == "" || targetChild == sourceChild || allowed[targetChild] {
 					continue
@@ -279,13 +329,10 @@ func collectGoFilesWith(
 		abs := filepath.Join(root, filepath.FromSlash(goRoot))
 		info, err := os.Stat(abs)
 		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
 			return nil, fmt.Errorf("stat go root %s: %w", goRoot, err)
 		}
 		if !info.IsDir() {
-			continue
+			return nil, fmt.Errorf("go root %s is not a directory", goRoot)
 		}
 		err = walkDir(abs, func(path string, d fs.DirEntry, walkErr error) error {
 			if walkErr != nil {

@@ -5,21 +5,26 @@ package presentation
 import (
 	"fmt"
 	"io"
-	"regexp"
 	"strings"
 
 	"charm.land/lipgloss/v2"
 )
 
+// State classifies one human-facing status row.
 type State int
 
 const (
+	// OK identifies a successful status.
 	OK State = iota
+	// Warn identifies an actionable but non-fatal status.
 	Warn
+	// Fail identifies a failed status.
 	Fail
+	// Info identifies neutral contextual information.
 	Info
 )
 
+// Renderer writes width-aware, optionally styled command output while retaining the first write failure.
 type Renderer struct {
 	out        io.Writer
 	err        error
@@ -30,6 +35,7 @@ type Renderer struct {
 	styles     styles
 }
 
+// ProductName is the sole human-facing product identity used in rendered output.
 const ProductName = "AIGW"
 
 const (
@@ -53,15 +59,18 @@ type styles struct {
 	stateKey lipgloss.Style
 }
 
+// Problem contains one actionable failure explanation with evidence, impact, and recovery guidance.
 type Problem struct {
-	Title    string
-	Evidence string
-	Impact   string
-	Fix      string
+	Title    string `json:"error"`
+	Evidence string `json:"evidence,omitempty"`
+	Impact   string `json:"impact,omitempty"`
+	Fix      string `json:"next_action"`
 }
 
+// New returns a renderer without an explicit width constraint.
 func New(out io.Writer, color bool) *Renderer { return NewWithWidth(out, color, 0) }
 
+// NewWithWidth returns a renderer constrained to the supplied display width; zero leaves wrapping unconstrained.
 func NewWithWidth(out io.Writer, color bool, width int) *Renderer {
 	base := styles{
 		rowKey:   lipgloss.NewStyle().Width(rowKeyWidth).MaxWidth(rowKeyWidth),
@@ -100,6 +109,7 @@ func (r *Renderer) println(args ...any) {
 	_, r.err = fmt.Fprintln(r.out, args...)
 }
 
+// Title starts a rendered result with a product and operation title.
 func (r *Renderer) Title(product, title string) {
 	if r.width > 0 {
 		for _, line := range wrap(product+"  "+title, r.width) {
@@ -116,6 +126,7 @@ func (r *Renderer) Title(product, title string) {
 // ProductTitle renders one title under the single product display identity.
 func (r *Renderer) ProductTitle(title string) { r.Title(ProductName, title) }
 
+// Section starts a named result section with stable spacing.
 func (r *Renderer) Section(title string) {
 	if r.hasContent {
 		r.println()
@@ -125,6 +136,7 @@ func (r *Renderer) Section(title string) {
 	r.inSection = true
 }
 
+// Row renders one label and value, switching to a compact layout when needed.
 func (r *Renderer) Row(label, value string) {
 	if r.requiresCompactColumn(label, value, rowKeyWidth) {
 		r.printf("  %s\n", label)
@@ -136,6 +148,7 @@ func (r *Renderer) Row(label, value string) {
 	r.hasContent = true
 }
 
+// Status renders one classified label and value with a stable state symbol.
 func (r *Renderer) Status(state State, label, value string) {
 	symbol := map[State]string{OK: "✓", Warn: "!", Fail: "✗", Info: "·"}[state]
 	if r.requiresCompactColumn(label, value, stateKeyWidth+2) {
@@ -149,6 +162,7 @@ func (r *Renderer) Status(state State, label, value string) {
 	r.hasContent = true
 }
 
+// StatusLine renders a compact classified line without a fixed label column.
 func (r *Renderer) StatusLine(state State, label, value string) {
 	symbol := map[State]string{OK: "✓", Warn: "!", Fail: "✗", Info: "·"}[state]
 	if r.compactRow(symbol+" "+label, value, true) {
@@ -159,6 +173,7 @@ func (r *Renderer) StatusLine(state State, label, value string) {
 	r.hasContent = true
 }
 
+// Detail renders subordinate explanatory text.
 func (r *Renderer) Detail(value string) {
 	if r.width > 0 {
 		r.writeWrapped(value, compactIndent, r.styles.dim)
@@ -169,6 +184,7 @@ func (r *Renderer) Detail(value string) {
 	r.hasContent = true
 }
 
+// Text renders ordinary human-facing text.
 func (r *Renderer) Text(value string) {
 	if r.compactText(value, 2, r.styles.dim) {
 		return
@@ -177,6 +193,7 @@ func (r *Renderer) Text(value string) {
 	r.hasContent = true
 }
 
+// Command renders a copyable command and wraps it without inserting shell syntax.
 func (r *Renderer) Command(value string) {
 	if r.width > 0 && DisplayWidth("  "+value) >= r.width {
 		r.writeWrapped(value, 2, r.styles.command)
@@ -187,6 +204,7 @@ func (r *Renderer) Command(value string) {
 	r.hasContent = true
 }
 
+// Success renders a successful terminal statement.
 func (r *Renderer) Success(value string) {
 	if r.compactRow("✓", value, true) {
 		return
@@ -195,11 +213,13 @@ func (r *Renderer) Success(value string) {
 	r.hasContent = true
 }
 
+// Next renders the single recommended follow-up command.
 func (r *Renderer) Next(command string) {
 	r.Section("Next")
 	r.Command(command)
 }
 
+// Problem renders a complete actionable problem report.
 func (r *Renderer) Problem(problem Problem) {
 	r.ProductTitle("Action required")
 	r.Section("Problem")
@@ -242,10 +262,7 @@ func (r *Renderer) requiresCompactColumn(label, value string, columnWidth int) b
 	if r.width <= 0 {
 		return false
 	}
-	labelWidth := DisplayWidth(label) + 1
-	if labelWidth < columnWidth {
-		labelWidth = columnWidth
-	}
+	labelWidth := max(DisplayWidth(label)+1, columnWidth)
 	return 2+labelWidth+DisplayWidth(value) > r.width
 }
 
@@ -274,10 +291,7 @@ func (r *Renderer) compactText(value string, indent int, style lipgloss.Style) b
 }
 
 func (r *Renderer) writeWrapped(value string, indent int, style lipgloss.Style) {
-	available := r.width - indent
-	if available < 1 {
-		available = 1
-	}
+	available := max(r.width-indent, 1)
 	for _, line := range wrap(value, available) {
 		r.printf("%s%s\n", strings.Repeat(" ", indent), style.Render(line))
 	}
@@ -321,15 +335,5 @@ func (r *Renderer) fixedLabel(style lipgloss.Style, label string, width int) str
 	return style.Render(label + " ")
 }
 
-var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
-
-func StripANSI(value string) string { return ansiPattern.ReplaceAllString(value, "") }
-
-func min(left, right int) int {
-	if left < right {
-		return left
-	}
-	return right
-}
-
+// DisplayWidth returns the terminal cell width of a string.
 func DisplayWidth(value string) int { return lipgloss.Width(value) }

@@ -53,36 +53,54 @@ func Validate(ctx context.Context, httpClient HTTPDoer, account configuration.Ac
 		if err != nil {
 			return err
 		}
-		checkCtx, cancel := context.WithTimeout(ctx, validationTimeout)
-		req, err := ProbeRequest(checkCtx, client, endpoint, token)
+		status, err := ProbeStatus(ctx, httpClient, client, endpoint, token)
 		if err != nil {
-			cancel()
 			return err
 		}
-		clientHTTP := withoutRedirects(httpClient)
-		resp, err := clientHTTP.Do(req)
-		if err != nil {
-			cancel()
-			return fmt.Errorf("%s endpoint is unreachable: %w", title(client), err)
+		if status == http.StatusUnauthorized || status == http.StatusForbidden {
+			return fmt.Errorf("%s authentication was rejected (HTTP %d)", title(client), status)
 		}
-		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
-			_ = resp.Body.Close()
-			cancel()
-			return fmt.Errorf("read %s endpoint response: %w", title(client), err)
-		}
-		if err := resp.Body.Close(); err != nil {
-			cancel()
-			return fmt.Errorf("close %s endpoint response: %w", title(client), err)
-		}
-		cancel()
-		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-			return fmt.Errorf("%s authentication was rejected (HTTP %d)", title(client), resp.StatusCode)
-		}
-		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-			return fmt.Errorf("%s endpoint returned HTTP %d", title(client), resp.StatusCode)
+		if status < http.StatusOK || status >= http.StatusMultipleChoices {
+			return fmt.Errorf("%s endpoint returned HTTP %d", title(client), status)
 		}
 	}
 	return nil
+}
+
+// ProbeStatus executes one bounded authenticated endpoint request and closes
+// its response before returning the status. A status is transport evidence;
+// callers own its interpretation as credential validation or diagnostics.
+func ProbeStatus(ctx context.Context, httpClient HTTPDoer, client, endpoint, token string) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, validationTimeout)
+	defer cancel()
+	request, err := ProbeRequest(ctx, client, endpoint, token)
+	if err != nil {
+		return 0, err
+	}
+	response, err := DoProbe(httpClient, request)
+	if err != nil {
+		return 0, fmt.Errorf("%s endpoint is unreachable: %w", title(client), err)
+	}
+	if _, err := io.Copy(io.Discard, response.Body); err != nil {
+		_ = response.Body.Close()
+		return 0, fmt.Errorf("read %s endpoint response: %w", title(client), err)
+	}
+	if err := response.Body.Close(); err != nil {
+		return 0, fmt.Errorf("close %s endpoint response: %w", title(client), err)
+	}
+	return response.StatusCode, nil
+}
+
+// DoProbe sends one authenticated request without following redirects when
+// using a native [http.Client]. It preserves the caller's client configuration.
+// Other injected transports must perform only the supplied request.
+func DoProbe(httpClient HTTPDoer, request *http.Request) (*http.Response, error) {
+	if client, ok := httpClient.(*http.Client); ok {
+		clone := *client
+		clone.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+		httpClient = &clone
+	}
+	return httpClient.Do(request)
 }
 
 // ProbeRequest constructs the authentication request declared by one admitted
@@ -120,16 +138,6 @@ func modelsEndpoint(endpoint string, protocol configuration.EndpointProtocol) st
 		return endpoint + "/v1/models"
 	}
 	return endpoint + "/models"
-}
-
-func withoutRedirects(doer HTTPDoer) HTTPDoer {
-	client, ok := doer.(*http.Client)
-	if !ok {
-		return doer
-	}
-	copy := *client
-	copy.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return &copy
 }
 
 func title(value string) string {

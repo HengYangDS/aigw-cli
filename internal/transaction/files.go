@@ -6,10 +6,12 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 // FileSnapshot is the exact file state observed during transaction
@@ -60,13 +62,7 @@ func captureOpenedFile(path string, file snapshotFile) (FileSnapshot, error) {
 	if err != nil {
 		return FileSnapshot{}, fmt.Errorf("inspect %s: %w", path, err)
 	}
-	sum := sha256.Sum256(data)
-	return FileSnapshot{
-		Exists: true,
-		Data:   append([]byte(nil), data...),
-		SHA256: hex.EncodeToString(sum[:]),
-		Mode:   info.Mode().Perm(),
-	}, nil
+	return NewFileSnapshot(data, info.Mode()), nil
 }
 
 // WriteFileAtomicIfUnchanged makes a best-effort guarded write: it refuses to
@@ -74,7 +70,7 @@ func captureOpenedFile(path string, file snapshotFile) (FileSnapshot, error) {
 // This is not a cross-process compare-and-swap; an uncooperative writer can
 // still race the subsequent atomic rename.
 func WriteFileAtomicIfUnchanged(path string, expected FileSnapshot, data []byte, defaultMode os.FileMode) (FileSnapshot, error) {
-	return writeFileAtomicIfUnchanged(path, expected, data, defaultMode, WriteFileAtomic)
+	return writeFileAtomicIfUnchanged(path, expected, data, defaultMode, true, WriteFileAtomic)
 }
 
 // WriteFileAtomicExactModeIfUnchanged is the same guarded write with the mode
@@ -82,7 +78,7 @@ func WriteFileAtomicIfUnchanged(path string, expected FileSnapshot, data []byte,
 // whose permissions are part of its contract uses this, so a mode that drifted
 // wider is corrected instead of carried forward.
 func WriteFileAtomicExactModeIfUnchanged(path string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
-	return writeFileAtomicIfUnchanged(path, expected, data, mode, WriteFileAtomicExactMode)
+	return writeFileAtomicIfUnchanged(path, expected, data, mode, false, WriteFileAtomicExactMode)
 }
 
 func writeFileAtomicIfUnchanged(
@@ -90,19 +86,46 @@ func writeFileAtomicIfUnchanged(
 	expected FileSnapshot,
 	data []byte,
 	defaultMode os.FileMode,
+	preserveExistingMode bool,
 	write func(string, []byte, os.FileMode) error,
 ) (FileSnapshot, error) {
 	current, err := CaptureFileSnapshot(path)
 	if err != nil {
 		return FileSnapshot{}, err
 	}
-	if !sameFileSnapshot(current, expected) {
+	if !current.Equal(expected) {
 		return FileSnapshot{}, fmt.Errorf("preimage changed for %s; refusing to overwrite newer state", path)
 	}
 	if err := write(path, data, defaultMode); err != nil {
 		return FileSnapshot{}, err
 	}
-	return CaptureFileSnapshot(path)
+	mode := defaultMode
+	if preserveExistingMode && expected.Exists {
+		mode = expected.Mode
+	}
+	return NewFileSnapshot(data, persistedMode(mode)), nil
+}
+
+// NewFileSnapshot captures owned bytes, their digest and permission bits for an
+// existing file. The zero value represents an absent file instead.
+func NewFileSnapshot(data []byte, mode os.FileMode) FileSnapshot {
+	sum := sha256.Sum256(data)
+	return FileSnapshot{
+		Exists: true,
+		Data:   append([]byte(nil), data...),
+		SHA256: hex.EncodeToString(sum[:]),
+		Mode:   mode.Perm(),
+	}
+}
+
+func persistedMode(mode os.FileMode) os.FileMode {
+	if runtime.GOOS != "windows" {
+		return mode.Perm()
+	}
+	if mode.Perm()&0o200 == 0 {
+		return 0o444
+	}
+	return 0o666
 }
 
 // RemoveFileIfUnchanged removes a prepared file only when it has not changed
@@ -117,7 +140,7 @@ func removeFileIfUnchanged(path string, expected FileSnapshot, remove func(strin
 	if err != nil {
 		return FileSnapshot{}, err
 	}
-	if !sameFileSnapshot(current, expected) {
+	if !current.Equal(expected) {
 		return FileSnapshot{}, fmt.Errorf("preimage changed for %s; refusing to overwrite newer state", path)
 	}
 	if !current.Exists {
@@ -141,7 +164,7 @@ func restoreFileAtomicIfPostimage(path string, preimage, postimage FileSnapshot,
 	if err != nil {
 		return err
 	}
-	if !sameFileSnapshot(current, postimage) {
+	if !current.Equal(postimage) {
 		return fmt.Errorf("postimage changed for %s; refusing to overwrite newer state", path)
 	}
 	if preimage.Exists {
@@ -156,13 +179,16 @@ func restoreFileAtomicIfPostimage(path string, preimage, postimage FileSnapshot,
 	return nil
 }
 
-func sameFileSnapshot(left, right FileSnapshot) bool {
-	return left.Exists == right.Exists &&
-		left.SHA256 == right.SHA256 &&
-		left.Mode == right.Mode &&
-		bytes.Equal(left.Data, right.Data)
+// Equal compares existence, bytes, digest and permissions exactly. It does not
+// infer ownership, normalize configuration or ignore a changed permission mode.
+func (snapshot FileSnapshot) Equal(other FileSnapshot) bool {
+	return snapshot.Exists == other.Exists &&
+		snapshot.SHA256 == other.SHA256 &&
+		snapshot.Mode == other.Mode &&
+		bytes.Equal(snapshot.Data, other.Data)
 }
 
+// WriteFileAtomic replaces one owned file atomically while preserving its requested mode.
 func WriteFileAtomic(path string, data []byte, defaultMode os.FileMode) error {
 	return writeFileAtomic(path, data, defaultMode, true)
 }
@@ -175,7 +201,7 @@ func WriteFileAtomicExactMode(path string, data []byte, mode os.FileMode) error 
 	return writeFileAtomic(path, data, mode, false)
 }
 
-func writeFileAtomic(path string, data []byte, defaultMode os.FileMode, preserveExistingMode bool) error {
+func writeFileAtomic(path string, data []byte, defaultMode os.FileMode, preserveExistingMode bool) (result error) {
 	mode := defaultMode
 	if preserveExistingMode {
 		if info, err := os.Stat(path); err == nil {
@@ -193,13 +219,24 @@ func writeFileAtomic(path string, data []byte, defaultMode os.FileMode, preserve
 	}
 	tmpName := tmp.Name()
 	defer func() {
-		_ = tmp.Close()
-		_ = os.Remove(tmpName)
+		if result != nil {
+			if err := os.Remove(tmpName); err != nil && !os.IsNotExist(err) {
+				result = errors.Join(result, fmt.Errorf("remove temporary file %s: %w", tmpName, err))
+			}
+		}
 	}()
 	return commitTemporaryFile(tmp, path, data, mode)
 }
 
-func commitTemporaryFile(tmp temporaryFile, path string, data []byte, mode os.FileMode) error {
+func commitTemporaryFile(tmp temporaryFile, path string, data []byte, mode os.FileMode) (result error) {
+	closed := false
+	defer func() {
+		if !closed {
+			if err := tmp.Close(); err != nil {
+				result = errors.Join(result, fmt.Errorf("close temporary file: %w", err))
+			}
+		}
+	}()
 	if _, err := tmp.Write(data); err != nil {
 		return fmt.Errorf("write temporary file: %w", err)
 	}
@@ -209,7 +246,9 @@ func commitTemporaryFile(tmp temporaryFile, path string, data []byte, mode os.Fi
 	if err := tmp.Sync(); err != nil {
 		return fmt.Errorf("sync temporary file: %w", err)
 	}
-	if err := tmp.Close(); err != nil {
+	err := tmp.Close()
+	closed = true
+	if err != nil {
 		return fmt.Errorf("close temporary file: %w", err)
 	}
 	if err := os.Rename(tmp.Name(), path); err != nil {

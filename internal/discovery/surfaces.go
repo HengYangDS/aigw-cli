@@ -1,11 +1,8 @@
 package discovery
 
 import (
-	"os"
 	"path/filepath"
 	"sort"
-
-	"aigw-cli/internal/surface"
 )
 
 // Surface is a stable host classification. Discovery only inspects paths; it
@@ -21,25 +18,7 @@ type Surface struct {
 	ManualFallbackAllowed bool   `json:"manual_fallback_allowed"`
 }
 
-func (s System) surfaceCatalog() []Surface {
-	return []Surface{{
-		ID:          string(surface.CodexHomeDefault),
-		Product:     "Codex",
-		Authority:   string(surface.AuthorityAIGW),
-		ConfigPath:  filepath.Join(s.Home, ".codex", "config.toml"),
-		AutoManaged: true,
-	}}
-}
-
-func (s System) discoverSurfaces() []Surface {
-	surfaces := s.surfaceCatalog()
-	for index := range surfaces {
-		info, err := os.Lstat(surfaces[index].ConfigPath)
-		surfaces[index].Present = err == nil && !info.IsDir()
-	}
-	return surfaces
-}
-
+// Surface resolves one discovered configuration surface by its stable identifier.
 func (r Result) Surface(id string) (Surface, bool) {
 	for _, surface := range r.Surfaces {
 		if surface.ID == id {
@@ -49,6 +28,7 @@ func (r Result) Surface(id string) (Surface, bool) {
 	return Surface{}, false
 }
 
+// SurfaceForConfigPath resolves the discovered surface that owns a configuration path.
 func (r Result) SurfaceForConfigPath(path string) (Surface, bool) {
 	for _, surface := range r.Surfaces {
 		if sameSurfacePath(surface.ConfigPath, path) {
@@ -58,6 +38,7 @@ func (r Result) SurfaceForConfigPath(path string) (Surface, bool) {
 	return Surface{}, false
 }
 
+// SurfaceForExecutablePath resolves the discovered surface associated with a client executable.
 func (r Result) SurfaceForExecutablePath(path string) (Surface, bool) {
 	for _, surface := range r.Surfaces {
 		if sameSurfacePath(surface.Executable, path) {

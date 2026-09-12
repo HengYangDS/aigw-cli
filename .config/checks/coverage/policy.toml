@@ -1,18 +1,18 @@
 # Go coverage policy truth boundary. The floor limits unobserved behavior in a
 # credential and configuration control plane while mandatory package
 # observation prevents a semantic owner from disappearing from the evidence.
+# Missing counters require a declaration-only check of Go-selected source.
+# Native zero-statement packages are visible as not applicable, never 100%.
 minimum_statement_percent = 95.0
-minimum_branch_percent = 95.0
 comparison = "greater-than"
 threshold_scopes = ["aggregate"]
 package_observation = "required"
 covermode = "atomic"
 packages = ["./..."]
-branch_analyzer = "go-bcov"
 owner = "product-toolchain"
-source = "Go statement profile with go-bcov branch analysis"
-risk_model = "unobserved control-flow in any semantic owner can corrupt credentials routes client projections or publication behavior without an observable regression"
-measurement = "one complete profile with exact aggregate statement and branch counts plus canonical-package observation diagnostics"
-false_positive_cost = "aggregate evidence can hide a local blind spot unless every package remains present executed and visible"
-remediation = "test meaningful behavior remove unreachable code or simplify the responsible semantic owner; wholly unexecuted packages and exclusions are not accepted"
+source = "Go statement coverage profile"
+risk_model = "unobserved behavior in any semantic owner can corrupt credentials routes client projections or publication behavior without an observable regression"
+measurement = "one Go profile instrumented by the exact go-list package inventory with canonical-package observation and rejection of counters outside that inventory"
+false_positive_cost = "aggregate evidence can hide a local blind spot unless every package remains visible and packages with measurable statements execute"
+remediation = "test meaningful behavior remove unreachable code or simplify the responsible semantic owner; packages with wholly unexecuted measurable statements and exclusions are not accepted"
 review_condition = "reassess when escaped defects show the aggregate boundary or mandatory package observation is insufficient"

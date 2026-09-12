@@ -22,11 +22,13 @@ func commandContext(ctx context.Context, plan Plan) *exec.Cmd {
 	if interpreter == "" {
 		interpreter = "cmd.exe"
 	}
-	commandLine := `"` + strings.ReplaceAll(plan.Executable, `"`, `""`) + `"`
+	var commandLine strings.Builder
+	commandLine.WriteString(`"` + strings.ReplaceAll(plan.Executable, `"`, `""`) + `"`)
 	for _, argument := range plan.Args {
-		commandLine += " " + windows.EscapeArg(argument)
+		commandLine.WriteByte(' ')
+		commandLine.WriteString(windows.EscapeArg(argument))
 	}
 	cmd := exec.CommandContext(ctx, interpreter)
-	cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: `/d /s /c "` + commandLine + `"`}
+	cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: `/d /s /c "` + commandLine.String() + `"`}
 	return cmd
 }

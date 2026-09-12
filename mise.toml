@@ -1,22 +1,93 @@
-min_version = "2026.8.10"
+min_version = "2026.9.5"
 
 [settings]
+legacy_version_file = false
 locked = true
+not_found_system_fallback = false
+
+[env]
+# Repository locks, not user Go settings or a parent workspace, select the build.
+GOENV = "off"
+GOTOOLCHAIN = "local"
+GOWORK = "off"
+
+[vars]
+renovate_image = "ghcr.io/renovatebot/renovate:44.82.3@sha256:d8fa5cceb1c68315c235559c981b5486db0165fd25e186a0cb6125f81578be87"
 
 [tools]
 # Language runtimes
 go = "1.27.1"
-node = "26.8.1"
+node = "26.8.2"
 
 # Specification and CI modeling
 cue = "0.17.1"
 
+# Release transport conformance
+glab = "1.117.0"
+
 # Build and supply-chain evidence
-"github:goreleaser/goreleaser" = "2.18.0"
+"github:goreleaser/goreleaser" = "2.18.1"
 "github:anchore/syft" = "1.51.1"
+# Build with the repository Go compiler; upstream binaries may lag its language.
+"go:github.com/google/osv-scanner/v2/cmd/osv-scanner" = "2.5.1"
+
+# Structured data quality
+taplo = "0.10.0"
 
 # Static quality
+"github:boyter/scc" = "4.1.0"
 "github:editorconfig-checker/editorconfig-checker" = "4.0.1"
 "github:gitleaks/gitleaks" = "8.30.1"
+"github:golangci/golangci-lint" = "2.13.2"
 "github:rhysd/actionlint" = "1.7.12"
 "github:lycheeverse/lychee" = "lychee-v0.24.2"
+
+[tasks.bootstrap]
+description = "Install this Work Lane's locked repository dependencies."
+run = ["go mod tidy -diff", "npm ci --include=dev --ignore-scripts"]
+
+[tasks.check]
+description = "Run the complete source and governance gate."
+run = "go run ./tools/ci source"
+
+[tasks.native]
+description = "Run native acceptance on the current host platform."
+run = "go run ./tools/ci native"
+
+[tasks.release]
+description = "Build the deterministic portable release matrix without publishing."
+run = "go run ./tools/release build dist"
+
+[tasks."dependencies:resolve"]
+description = "Verify two native mise lock refreshes preserve committed tool inputs."
+run = [
+  "git diff --exit-code HEAD -- mise.toml mise.lock",
+  "mise lock --platform {{ os() }}-{{ arch() }}",
+  "git diff --exit-code HEAD -- mise.toml mise.lock",
+  "mise lock --platform {{ os() }}-{{ arch() }}",
+  "git diff --exit-code HEAD -- mise.toml mise.lock",
+]
+
+[tasks."dependencies:check"]
+description = "Validate the dependency policy offline with the pinned Renovate image."
+run = """
+docker run --rm --read-only --network none --tmpfs /tmp:exec,mode=1777 \
+  --mount "type=bind,source={{config_root}},target=/workspace,readonly" \
+  --workdir /workspace --env HOME=/tmp \
+  --entrypoint renovate-config-validator {{vars.renovate_image}} \
+  --strict --no-global .config/dependencies/renovate.json5
+"""
+
+[tasks."dependencies:inspect"]
+description = "Inspect the managed dependency inventory offline without writes or credentials."
+run = """
+docker run --rm --read-only --network none --tmpfs /tmp:exec,mode=1777 \
+  --mount "type=bind,source={{config_root}},target=/workspace,readonly" \
+  --workdir /workspace --env HOME=/tmp --env RENOVATE_BASE_DIR=/tmp/renovate \
+  --env RENOVATE_CACHE_DIR=/tmp/renovate/cache \
+  --env RENOVATE_ONBOARDING=false --env RENOVATE_REQUIRE_CONFIG=ignored \
+  --env RENOVATE_GITHUB_TOKEN_WARN=false \
+  --env LOG_LEVEL=debug --env LOG_FORMAT=json \
+  --env RENOVATE_CONFIG_FILE=/workspace/.config/dependencies/renovate.json5 \
+  --entrypoint renovate {{vars.renovate_image}} --platform=local --dry-run=extract
+"""

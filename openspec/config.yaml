@@ -12,3 +12,4 @@ rules:
     - Assign every behavior and policy to one semantic owner and dependency direction.
   tasks:
     - Separate local gates, exact-HEAD proof, hosted CI, publication, and housekeeping.
+    - Put each bounded action and its verification in a numbered checkbox; keep execution results with their verifier and design rationale in design.md.

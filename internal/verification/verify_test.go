@@ -11,22 +11,25 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	"aigw-cli/internal/claude"
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 )
 
-type basicRunner struct{ err error }
-
-func (runner basicRunner) Run(context.Context, process.Plan) error { return runner.err }
+func TestProtocolTimeoutAllowsColdClientStartup(t *testing.T) {
+	if ProtocolTimeout < time.Minute {
+		t.Fatalf("ProtocolTimeout = %s, want at least %s", ProtocolTimeout, time.Minute)
+	}
+}
 
 type captureRunner struct {
 	output []byte
 	err    error
 }
 
-func (runner captureRunner) Run(context.Context, process.Plan) error { return runner.err }
 func (runner captureRunner) RunCapture(context.Context, process.Plan) ([]byte, error) {
 	return runner.output, runner.err
 }
@@ -36,11 +39,9 @@ type recordingCaptureRunner struct {
 	version            string
 	marker             string
 	removeFinalMessage bool
+	requestOutput      []byte
 	requestErr         error
-}
-
-func (runner *recordingCaptureRunner) Run(context.Context, process.Plan) error {
-	return runner.requestErr
+	prepareOutput      func(string) error
 }
 
 func (runner *recordingCaptureRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
@@ -48,15 +49,20 @@ func (runner *recordingCaptureRunner) RunCapture(_ context.Context, plan process
 	if slices.Equal(plan.Args, []string{"--version"}) {
 		return []byte(runner.version + "\n"), nil
 	}
-	if runner.requestErr != nil {
-		return nil, runner.requestErr
-	}
-	outputPath := argumentValue(plan.Args, "--output-last-message")
+	outputPath := finalMessagePath(plan.Args)
 	if outputPath == "" {
 		return nil, errors.New("verification output path is missing")
 	}
+	if runner.prepareOutput != nil {
+		if err := runner.prepareOutput(outputPath); err != nil {
+			return nil, err
+		}
+	}
+	if runner.requestErr != nil {
+		return append([]byte(nil), runner.requestOutput...), runner.requestErr
+	}
 	if runner.removeFinalMessage {
-		if err := os.Remove(outputPath); err != nil {
+		if err := os.Remove(outputPath); err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
 		return []byte("non-authoritative diagnostic output\n"), nil
@@ -67,9 +73,9 @@ func (runner *recordingCaptureRunner) RunCapture(_ context.Context, plan process
 	return []byte("non-authoritative diagnostic output\n"), nil
 }
 
-func argumentValue(arguments []string, name string) string {
+func finalMessagePath(arguments []string) string {
 	for index, argument := range arguments {
-		if argument == name && index+1 < len(arguments) {
+		if argument == "--output-last-message" && index+1 < len(arguments) {
 			return arguments[index+1]
 		}
 	}
@@ -79,8 +85,8 @@ func argumentValue(arguments []string, name string) string {
 func environmentValue(environment []string, name string) string {
 	prefix := name + "="
 	for _, value := range environment {
-		if strings.HasPrefix(value, prefix) {
-			return strings.TrimPrefix(value, prefix)
+		if after, ok := strings.CutPrefix(value, prefix); ok {
+			return after
 		}
 	}
 	return ""
@@ -99,88 +105,19 @@ func verificationConfig() configuration.Config {
 	return cfg
 }
 
-func TestValidateFullReadiness(t *testing.T) {
+func configuredCodexVerification(t *testing.T, targets ...string) (configuration.Config, configuration.Runtime) {
+	t.Helper()
 	cfg := verificationConfig()
-	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "enabled Claude") {
-		t.Fatalf("disabled Claude error = %v", err)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
-	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "available Claude") {
-		t.Fatalf("missing executable error = %v", err)
-	}
-	claudeExecutable := filepath.Join(t.TempDir(), "claude")
-	if goruntime.GOOS == "windows" {
-		claudeExecutable += ".exe"
-	}
-	if err := os.WriteFile(claudeExecutable, []byte("fixture"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
-	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "enabled Codex") {
-		t.Fatalf("disabled Codex error = %v", err)
-	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
-	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "synchronized Codex") {
-		t.Fatalf("drift error = %v", err)
-	}
-	target := filepath.Join(t.TempDir(), "configuration.toml")
-	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	codexRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := codex.SyncConfig(target, codexRuntime); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{target}}
-	if err := ValidateFullReadiness(cfg); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestValidateFullReadinessReportsInspectionAndRouteErrors(t *testing.T) {
-	cfg := verificationConfig()
-	loop := filepath.Join(t.TempDir(), "claude")
-	if err := os.Symlink(loop, loop); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: loop}
-	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "inspect Claude executable") {
-		t.Fatalf("Claude inspection error = %v", err)
-	}
-
-	claudeExecutable := filepath.Join(t.TempDir(), "claude")
-	if goruntime.GOOS == "windows" {
-		claudeExecutable += ".exe"
-	}
-	if err := os.WriteFile(claudeExecutable, []byte("fixture"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{"unused"}}
-	cfg.Routes[configuration.ClientCodex] = "missing"
-	delete(cfg.Routes, configuration.ClientCodex)
-	if err := ValidateFullReadiness(cfg); err == nil || !strings.Contains(err.Error(), "resolve the Codex route") {
-		t.Fatalf("Codex route error = %v", err)
-	}
-}
-
-func TestVerifyCodexUsesConfiguredClientAndOneSynchronizedTarget(t *testing.T) {
-	cfg := verificationConfig()
-	root := t.TempDir()
-	first := filepath.Join(root, "a", "config.toml")
-	second := filepath.Join(root, "z", "config.toml")
-	for _, target := range []string{first, second} {
+	runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
+	for _, target := range targets {
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-		if err != nil {
 			t.Fatal(err)
 		}
 		if err := codex.SyncConfig(target, runtime); err != nil {
@@ -191,25 +128,24 @@ func TestVerifyCodexUsesConfiguredClientAndOneSynchronizedTarget(t *testing.T) {
 	if goruntime.GOOS == "windows" {
 		executable += ".exe"
 	}
-	executableBytes := []byte("codex fixture")
-	if err := os.WriteFile(executable, executableBytes, 0o700); err != nil {
+	if err := os.WriteFile(executable, []byte("codex fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{
-		Enabled:    true,
-		Executable: executable,
-		Targets:    []string{first, second},
-	}
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: targets}
+	return cfg, runtime
+}
+
+func TestVerifyCodexUsesConfiguredClientAndOneSynchronizedTarget(t *testing.T) {
+	root := t.TempDir()
+	first, second := filepath.Join(root, "a", "config.toml"), filepath.Join(root, "z", "config.toml")
+	cfg, runtime := configuredCodexVerification(t, first, second)
+	executable := cfg.Adapters[configuration.ClientCodex].Executable
 	runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK"}
 	identity, err := VerifyCodexInvocation(context.Background(), runner, cfg, runtime)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantSHA256 := sha256.Sum256(executableBytes)
+	wantSHA256 := sha256.Sum256([]byte("codex fixture"))
 	if identity.Version != "codex-cli 9.9.9" || identity.SHA256 != fmt.Sprintf("%x", wantSHA256) {
 		t.Fatalf("identity = %#v", identity)
 	}
@@ -220,7 +156,7 @@ func TestVerifyCodexUsesConfiguredClientAndOneSynchronizedTarget(t *testing.T) {
 		t.Fatalf("identity plan = %#v", runner.plans[0])
 	}
 	plan := runner.plans[1]
-	outputPath := argumentValue(plan.Args, "--output-last-message")
+	outputPath := finalMessagePath(plan.Args)
 	wantArgs := []string{"exec", "--ephemeral", "--ignore-rules", "--skip-git-repo-check", "--strict-config", "--sandbox", "read-only", "--color", "never", "--cd", filepath.Dir(outputPath), "--output-last-message", outputPath, "--model", "gpt-test", "Reply with exactly: AIGW_OK"}
 	if plan.Executable != executable || outputPath == "" || !slices.Equal(plan.Args, wantArgs) {
 		t.Fatalf("plan = %#v", plan)
@@ -233,30 +169,72 @@ func TestVerifyCodexUsesConfiguredClientAndOneSynchronizedTarget(t *testing.T) {
 	}
 }
 
-func TestVerifyCodexRejectsUnavailableCapabilityAndWrongFinalMessage(t *testing.T) {
-	cfg := verificationConfig()
+func TestVerifyCodexOwnsClientWorkspace(t *testing.T) {
+	cfg, runtime := configuredCodexVerification(t, filepath.Join(t.TempDir(), "config.toml"))
+	primary := errors.New("client invocation failed")
+	for _, test := range []struct {
+		name           string
+		requestErr     error
+		cleanupFailure bool
+	}{
+		{"none", nil, false},
+		{"request", primary, false},
+		{"cleanup", nil, true},
+		{"request and cleanup", primary, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			scratch := t.TempDir()
+			for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+				t.Setenv(name, scratch)
+			}
+			var workspace string
+			remove := removeCodexWorkspace
+			t.Cleanup(func() { removeCodexWorkspace = remove })
+			var removed string
+			removeCodexWorkspace = func(path string) error {
+				removed = path
+				if test.cleanupFailure {
+					return &os.PathError{Op: "remove", Path: path, Err: os.ErrPermission}
+				}
+				return remove(path)
+			}
+			probe := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK", requestErr: test.requestErr, prepareOutput: func(path string) error {
+				workspace = filepath.Dir(path)
+				if workspace == scratch || filepath.Dir(workspace) != scratch {
+					t.Fatalf("verification does not own a private workspace: %s", workspace)
+				}
+				if err := os.WriteFile(filepath.Join(workspace, "client-output"), []byte("owned"), 0o600); err != nil {
+					return err
+				}
+				return nil
+			}}
+			_, err := VerifyCodexInvocation(t.Context(), probe, cfg, runtime)
+			if test.requestErr != nil && !errors.Is(err, test.requestErr) {
+				t.Fatalf("verification outcome = %v", err)
+			}
+			if removed != workspace {
+				t.Fatalf("cleanup target = %q, want %q", removed, workspace)
+			}
+			if test.cleanupFailure {
+				if !errors.Is(err, os.ErrPermission) || !strings.Contains(err.Error(), workspace) {
+					t.Fatalf("verification lost cleanup cause: %v", err)
+				}
+			} else {
+				if test.requestErr == nil && err != nil {
+					t.Fatal(err)
+				}
+				if _, err := os.Stat(workspace); !os.IsNotExist(err) {
+					t.Fatalf("client workspace survived: %s, %v", workspace, err)
+				}
+			}
+		})
+	}
+}
+
+func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "codex", "config.toml")
-	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := codex.SyncConfig(target, runtime); err != nil {
-		t.Fatal(err)
-	}
-	executable := filepath.Join(t.TempDir(), "codex")
-	if goruntime.GOOS == "windows" {
-		executable += ".exe"
-	}
-	if err := os.WriteFile(executable, []byte("codex fixture"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: []string{target}}
+	cfg, runtime := configuredCodexVerification(t, target)
+	executable := cfg.Adapters[configuration.ClientCodex].Executable
 
 	disabled := cfg.Clone()
 	disabled.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{}
@@ -278,7 +256,7 @@ func TestVerifyCodexRejectsUnavailableCapabilityAndWrongFinalMessage(t *testing.
 	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, cfg, missingModel); err == nil || !strings.Contains(err.Error(), "has no Codex model") {
 		t.Fatalf("missing model error = %v", err)
 	}
-	if _, err := VerifyCodexInvocation(context.Background(), basicRunner{}, cfg, runtime); err == nil || !strings.Contains(err.Error(), "capture") {
+	if _, err := VerifyCodexInvocation(context.Background(), nil, cfg, runtime); err == nil || !strings.Contains(err.Error(), "capture") {
 		t.Fatalf("capture error = %v", err)
 	}
 	missingOnDisk := cfg.Clone()
@@ -286,14 +264,42 @@ func TestVerifyCodexRejectsUnavailableCapabilityAndWrongFinalMessage(t *testing.
 	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, missingOnDisk, runtime); err == nil || !strings.Contains(err.Error(), "read Codex executable") {
 		t.Fatalf("missing executable file error = %v", err)
 	}
+	drifted := cfg.Clone()
+	drifted.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Model: "other"}
+	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, drifted, configuration.Runtime{ProfileID: "codex", Model: "other"}); err == nil || !strings.Contains(err.Error(), "synchronized") {
+		t.Fatalf("projection error = %v", err)
+	}
+}
+
+func TestVerifyCodexRequiresSuccessfulFinalMessage(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "codex", "config.toml")
+	cfg, runtime := configuredCodexVerification(t, target)
 	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "wrong"}, cfg, runtime); err == nil || !strings.Contains(err.Error(), "expected AIGW_OK") {
 		t.Fatalf("marker error = %v", err)
 	}
-	requestFailure := &recordingCaptureRunner{version: "codex-cli 9.9.9", requestErr: errors.New("request failed")}
-	if _, err := VerifyCodexInvocation(context.Background(), requestFailure, cfg, runtime); err == nil || !strings.Contains(err.Error(), "minimal verification request failed") {
-		t.Fatalf("request error = %v", err)
+	requestFailure := &recordingCaptureRunner{
+		version:       "codex-cli 9.9.9",
+		requestOutput: []byte("Error loading config.toml: unknown configuration field mcp_servers.github.disabled_reason; token=must-not-leak\n"),
+		requestErr:    errors.New("exit status 1"),
 	}
-	if outputPath := argumentValue(requestFailure.plans[len(requestFailure.plans)-1].Args, "--output-last-message"); outputPath == "" {
+	_, err := VerifyCodexInvocation(context.Background(), requestFailure, cfg, runtime)
+	if err == nil {
+		t.Fatal("failed Codex request was accepted")
+	}
+	for _, want := range []string{
+		"Codex minimal verification request failed",
+		"unknown configuration field mcp_servers.github.disabled_reason",
+		"token=[REDACTED]",
+		"aigw verify --for codex",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("request error lacks %q: %v", want, err)
+		}
+	}
+	if strings.Contains(err.Error(), "must-not-leak") {
+		t.Fatalf("request error exposed a credential: %v", err)
+	}
+	if outputPath := finalMessagePath(requestFailure.plans[len(requestFailure.plans)-1].Args); outputPath == "" {
 		t.Fatal("failed request plan has no output path")
 	} else if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
 		t.Fatalf("verification output remains after failed request: %v", err)
@@ -302,7 +308,7 @@ func TestVerifyCodexRejectsUnavailableCapabilityAndWrongFinalMessage(t *testing.
 	if _, err := VerifyCodexInvocation(context.Background(), missing, cfg, runtime); err == nil || !strings.Contains(err.Error(), "read Codex final response") {
 		t.Fatalf("missing final message error = %v", err)
 	}
-	if outputPath := argumentValue(missing.plans[len(missing.plans)-1].Args, "--output-last-message"); outputPath == "" {
+	if outputPath := finalMessagePath(missing.plans[len(missing.plans)-1].Args); outputPath == "" {
 		t.Fatal("missing final message plan has no output path")
 	} else if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
 		t.Fatalf("verification output remains after missing response: %v", err)
@@ -311,15 +317,10 @@ func TestVerifyCodexRejectsUnavailableCapabilityAndWrongFinalMessage(t *testing.
 	if _, err := VerifyCodexInvocation(context.Background(), oversized, cfg, runtime); err == nil || !strings.Contains(err.Error(), "exceeds") {
 		t.Fatalf("oversized final message error = %v", err)
 	}
-	if outputPath := argumentValue(oversized.plans[len(oversized.plans)-1].Args, "--output-last-message"); outputPath == "" {
+	if outputPath := finalMessagePath(oversized.plans[len(oversized.plans)-1].Args); outputPath == "" {
 		t.Fatal("oversized final message plan has no output path")
 	} else if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
 		t.Fatalf("verification output remains after oversized response: %v", err)
-	}
-	drifted := cfg.Clone()
-	drifted.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Model: "other"}
-	if _, err := VerifyCodexInvocation(context.Background(), &recordingCaptureRunner{}, drifted, configuration.Runtime{ProfileID: "codex", Model: "other"}); err == nil || !strings.Contains(err.Error(), "synchronized") {
-		t.Fatalf("projection error = %v", err)
 	}
 }
 
@@ -329,35 +330,25 @@ func TestVerifyClaude(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := VerifyClaudeInvocation(context.Background(), nil, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "disabled") {
-		t.Fatalf("disabled error = %v", err)
-	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
-	if err := VerifyClaudeInvocation(context.Background(), nil, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "executable is unavailable") {
-		t.Fatalf("missing executable error = %v", err)
-	}
-	loop := filepath.Join(t.TempDir(), "claude")
-	if err := os.Symlink(loop, loop); err != nil {
+	settings := filepath.Join(t.TempDir(), "settings.json")
+	runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
+	if _, err := claude.ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.Model); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: loop}
-	if err := VerifyClaudeInvocation(context.Background(), nil, cfg, runtime, "token"); err == nil || !strings.Contains(err.Error(), "inspect Claude executable") {
-		t.Fatalf("inspection error = %v", err)
-	}
 	want := errors.New("launcher failed")
-	if err := VerifyClaudeRuntime(context.Background(), nil, "claude", configuration.Runtime{ProfileID: "one"}, "token"); err == nil || !strings.Contains(err.Error(), "no Claude model") {
+	if err := VerifyClaudeRuntime(context.Background(), nil, "claude", settings, configuration.Runtime{ProfileID: "one"}, "token"); err == nil || !strings.Contains(err.Error(), "no Claude model") {
 		t.Fatalf("model error = %v", err)
 	}
-	if err := VerifyClaudeRuntime(context.Background(), nil, "", runtime, "token"); err == nil || !strings.Contains(err.Error(), "executable is not configured") {
+	if err := VerifyClaudeRuntime(context.Background(), nil, "", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "executable is not configured") {
 		t.Fatalf("plan error = %v", err)
 	}
-	if err := VerifyClaudeRuntime(context.Background(), basicRunner{}, "claude", runtime, "token"); err == nil || !strings.Contains(err.Error(), "runner is unavailable") {
+	if err := VerifyClaudeRuntime(context.Background(), nil, "claude", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "runner is unavailable") {
 		t.Fatalf("runner error = %v", err)
 	}
-	if err := VerifyClaudeRuntime(context.Background(), captureRunner{err: want}, "claude", runtime, "token"); !errors.Is(err, want) {
+	if err := VerifyClaudeRuntime(context.Background(), captureRunner{err: want}, "claude", settings, runtime, "token"); !errors.Is(err, want) {
 		t.Fatalf("capture error = %v", err)
 	}
-	if err := VerifyClaudeRuntime(context.Background(), captureRunner{output: []byte("wrong")}, "claude", runtime, "token"); err == nil || !strings.Contains(err.Error(), "expected AIGW_OK") {
+	if err := VerifyClaudeRuntime(context.Background(), captureRunner{output: []byte("wrong")}, "claude", settings, runtime, "token"); err == nil || !strings.Contains(err.Error(), "expected AIGW_OK") {
 		t.Fatalf("sentinel error = %v", err)
 	}
 	executable := filepath.Join(t.TempDir(), "claude")
@@ -367,8 +358,7 @@ func TestVerifyClaude(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("fixture"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
-	if err := VerifyClaudeInvocation(context.Background(), captureRunner{output: []byte(" AIGW_OK \n")}, cfg, runtime, "token"); err != nil {
+	if err := VerifyClaudeRuntime(context.Background(), captureRunner{output: []byte(" AIGW_OK \n")}, executable, settings, runtime, "token"); err != nil {
 		t.Fatal(err)
 	}
 }

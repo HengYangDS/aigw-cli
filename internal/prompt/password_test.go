@@ -20,17 +20,17 @@ func (writer *passwordWriter) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-func scriptedPasswordInput(terminal bool, values ...any) passwordInput {
+func scriptedPasswordInput(readError error, values ...string) passwordInput {
 	index := 0
 	return passwordInput{
-		isTerminal: func() bool { return terminal },
+		isTerminal: func() bool { return true },
 		read: func() ([]byte, error) {
+			if readError != nil && index == len(values) {
+				return nil, readError
+			}
 			value := values[index]
 			index++
-			if err, ok := value.(error); ok {
-				return nil, err
-			}
-			return []byte(value.(string)), nil
+			return []byte(value), nil
 		},
 	}
 }
@@ -51,16 +51,16 @@ func TestReadHiddenTokenFlowAndFailures(t *testing.T) {
 		want    string
 		message string
 	}{
-		{name: "prompt write", out: &passwordWriter{failAt: 1}, input: scriptedPasswordInput(true, "token"), message: "prompt for token"},
-		{name: "prompt newline", out: &passwordWriter{failAt: 2}, input: scriptedPasswordInput(true, "token"), message: "finish token prompt"},
-		{name: "first read", out: &passwordWriter{}, input: scriptedPasswordInput(true, errors.New("read failed")), message: "read hidden token"},
-		{name: "empty", out: &passwordWriter{}, input: scriptedPasswordInput(true, "   "), message: "empty token"},
-		{name: "single", out: &passwordWriter{}, input: scriptedPasswordInput(true, " token "), want: "token"},
-		{name: "confirm prompt", out: &passwordWriter{failAt: 3}, confirm: true, input: scriptedPasswordInput(true, "token", "token"), message: "prompt to confirm token"},
-		{name: "confirm newline", out: &passwordWriter{failAt: 4}, confirm: true, input: scriptedPasswordInput(true, "token", "token"), message: "finish token confirmation"},
-		{name: "confirm read", out: &passwordWriter{}, confirm: true, input: scriptedPasswordInput(true, "token", errors.New("read failed")), message: "confirm hidden token"},
-		{name: "mismatch", out: &passwordWriter{}, confirm: true, input: scriptedPasswordInput(true, "one", "two"), message: "do not match"},
-		{name: "confirmed", out: &passwordWriter{}, confirm: true, input: scriptedPasswordInput(true, " token ", "token"), want: "token"},
+		{name: "prompt write", out: &passwordWriter{failAt: 1}, input: scriptedPasswordInput(nil, "token"), message: "prompt for token"},
+		{name: "prompt newline", out: &passwordWriter{failAt: 2}, input: scriptedPasswordInput(nil, "token"), message: "finish token prompt"},
+		{name: "first read", out: &passwordWriter{}, input: scriptedPasswordInput(errors.New("read failed")), message: "read hidden token"},
+		{name: "empty", out: &passwordWriter{}, input: scriptedPasswordInput(nil, "   "), message: "empty token"},
+		{name: "single", out: &passwordWriter{}, input: scriptedPasswordInput(nil, " token "), want: "token"},
+		{name: "confirm prompt", out: &passwordWriter{failAt: 3}, confirm: true, input: scriptedPasswordInput(nil, "token", "token"), message: "prompt to confirm token"},
+		{name: "confirm newline", out: &passwordWriter{failAt: 4}, confirm: true, input: scriptedPasswordInput(nil, "token", "token"), message: "finish token confirmation"},
+		{name: "confirm read", out: &passwordWriter{}, confirm: true, input: scriptedPasswordInput(errors.New("read failed"), "token"), message: "confirm hidden token"},
+		{name: "mismatch", out: &passwordWriter{}, confirm: true, input: scriptedPasswordInput(nil, "one", "two"), message: "do not match"},
+		{name: "confirmed", out: &passwordWriter{}, confirm: true, input: scriptedPasswordInput(nil, " token ", "token"), want: "token"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

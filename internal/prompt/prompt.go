@@ -12,21 +12,25 @@ import (
 	"charm.land/huh/v2"
 )
 
+// Choice is one stable value and human label offered by a bounded selection prompt.
 type Choice struct {
 	Value string
 	Label string
 }
 
+// Prompt reads interactive input and renders prompts through one input/output pair.
 type Prompt struct {
 	in         io.Reader
 	out        io.Writer
 	accessible bool
 }
 
+// New constructs a prompt with explicit accessibility behavior.
 func New(in io.Reader, out io.Writer, accessible bool) Prompt {
 	return Prompt{in: in, out: out, accessible: accessible}
 }
 
+// Secret reads a required hidden value without persisting it.
 func (p Prompt) Secret(label string) (string, error) {
 	if p.accessible || os.Getenv("AIGW_ACCESSIBLE") != "" {
 		return p.plainInput(label, false)
@@ -44,6 +48,7 @@ func (p Prompt) Secret(label string) (string, error) {
 	return strings.TrimSpace(value), nil
 }
 
+// Text reads and trims one required text value.
 func (p Prompt) Text(label string) (string, error) {
 	if p.accessible || os.Getenv("AIGW_ACCESSIBLE") != "" {
 		return p.plainInput(label, false)
@@ -56,6 +61,7 @@ func (p Prompt) Text(label string) (string, error) {
 	return strings.TrimSpace(value), nil
 }
 
+// Select reads one choice, accepting either its stable value or displayed ordinal.
 func (p Prompt) Select(label string, choices []Choice) (string, error) {
 	if len(choices) == 0 {
 		return "", fmt.Errorf("no options are available")
@@ -63,38 +69,38 @@ func (p Prompt) Select(label string, choices []Choice) (string, error) {
 	if len(choices) == 1 {
 		return choices[0].Value, nil
 	}
-	if p.accessible || os.Getenv("AIGW_ACCESSIBLE") != "" {
-		if _, err := fmt.Fprintln(p.out, label); err != nil {
-			return "", fmt.Errorf("render selection prompt: %w", err)
+	if !p.accessible && os.Getenv("AIGW_ACCESSIBLE") == "" {
+		options := make([]huh.Option[string], 0, len(choices))
+		for _, choice := range choices {
+			options = append(options, huh.NewOption(choice.Label, choice.Value))
 		}
-		for index, choice := range choices {
-			if _, err := fmt.Fprintf(p.out, "  %d. %s\n", index+1, choice.Label); err != nil {
-				return "", fmt.Errorf("render selection option: %w", err)
-			}
-		}
-		value, err := p.plainInput("Select [1]: ", true)
-		if err != nil {
+		selected := choices[0].Value
+		field := huh.NewSelect[string]().Title(label).Options(options...).Value(&selected)
+		if err := p.run(field); err != nil {
 			return "", err
 		}
-		if value == "" {
-			return choices[0].Value, nil
-		}
-		selected, err := strconv.Atoi(value)
-		if err != nil || selected < 1 || selected > len(choices) {
-			return "", fmt.Errorf("invalid selection %q", value)
-		}
-		return choices[selected-1].Value, nil
+		return selected, nil
 	}
-	options := make([]huh.Option[string], 0, len(choices))
-	for _, choice := range choices {
-		options = append(options, huh.NewOption(choice.Label, choice.Value))
+	if _, err := fmt.Fprintln(p.out, label); err != nil {
+		return "", fmt.Errorf("render selection prompt: %w", err)
 	}
-	selected := choices[0].Value
-	field := huh.NewSelect[string]().Title(label).Options(options...).Value(&selected)
-	if err := p.run(field); err != nil {
+	for index, choice := range choices {
+		if _, err := fmt.Fprintf(p.out, "  %d. %s\n", index+1, choice.Label); err != nil {
+			return "", fmt.Errorf("render selection option: %w", err)
+		}
+	}
+	value, err := p.plainInput("Select [1]: ", true)
+	if err != nil {
 		return "", err
 	}
-	return selected, nil
+	if value == "" {
+		return choices[0].Value, nil
+	}
+	selected, err := strconv.Atoi(value)
+	if err != nil || selected < 1 || selected > len(choices) {
+		return "", fmt.Errorf("invalid selection %q", value)
+	}
+	return choices[selected-1].Value, nil
 }
 
 func (p Prompt) run(fields ...huh.Field) error {
@@ -109,6 +115,7 @@ func (p Prompt) run(fields ...huh.Field) error {
 	return nil
 }
 
+// RequiredValue rejects empty interactive input.
 func RequiredValue(value string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("this value cannot be empty")

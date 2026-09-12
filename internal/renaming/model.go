@@ -2,44 +2,36 @@
 package renaming
 
 import (
-	"io"
 	"net/http"
 
-	"aigw-cli/internal/account"
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/synchronization"
 )
 
+// HTTPDoer is the minimal transport required to verify a renamed account's diagnostic capability.
 type HTTPDoer interface {
 	Do(*http.Request) (*http.Response, error)
 }
-type Prompter interface {
-	Secret(string) (string, error)
-	Text(string) (string, error)
-	Select(string, []prompt.Choice) (string, error)
-}
-type Dependencies struct {
+
+// Service owns identity migration, credential preparation, and verified finalization.
+type Service struct {
 	Config       configuration.Store
 	Secrets      secrets.Store
-	Accounts     account.Store
-	Out          io.Writer
-	Color        bool
-	Width        int
-	Interactive  bool
-	Prompt       Prompter
+	Accounts     secrets.DiagnosticCredentialStore
 	HTTP         HTTPDoer
 	Synchronizer synchronization.Synchronizer
 }
+
+// Actions describes every configuration, credential, and backup effect of a rename.
 type Actions struct {
-	Configuration  string `json:"configuration"`
-	APIToken       string `json:"api_token"`
-	AccountProbe   string `json:"account_probe"`
-	Authentication string `json:"authentication"`
-	Backup         string `json:"backup"`
+	Configuration string `json:"configuration"`
+	APIToken      string `json:"api_token"`
+	AccountProbe  string `json:"account_probe"`
+	Backup        string `json:"backup"`
 }
 
+// Plan is the complete reviewable rename transaction, including affected references and deferred effects.
 type Plan struct {
 	Resource           string   `json:"resource"`
 	OldID              string   `json:"old_id"`
@@ -56,7 +48,7 @@ type Plan struct {
 	probeCopy            probeCopy             `json:"-"`
 	blockedReason        string                `json:"-"`
 	Finalize             bool                  `json:"-"`
-	snapshot             configuration.VerifiedBackupSnapshot
+	snapshot             configuration.Snapshot
 	deleteToken          bool `json:"-"`
 	deleteProbe          bool `json:"-"`
 	verifyProbe          bool `json:"-"`
@@ -69,10 +61,11 @@ type tokenCopy struct {
 }
 
 type probeCopy struct {
-	value account.Credential
+	value secrets.DiagnosticCredential
 	copy  bool
 }
 
+// FinalizeOptions records explicit authorization for credential rotations discovered during planning.
 type FinalizeOptions struct {
 	ConfirmAPITokenRotation     bool
 	ConfirmAccountProbeRotation bool
