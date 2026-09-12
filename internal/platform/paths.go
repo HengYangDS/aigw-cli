@@ -40,7 +40,7 @@ func PathsFor(goos string, env map[string]string) (Paths, error) {
 	secrets := path.Join(data, "secrets")
 	if goos == "windows" {
 		installName += ".exe"
-		secrets = windowsJoin(data, "secrets")
+		secrets = appendWindowsPath(data, "secrets")
 	}
 	return Paths{
 		Config:         config,
@@ -52,6 +52,7 @@ func PathsFor(goos string, env map[string]string) (Paths, error) {
 	}, nil
 }
 
+// ConfigPathFor returns the platform-native AIGW configuration path from an explicit environment.
 func ConfigPathFor(goos string, env map[string]string) (string, error) {
 	switch goos {
 	case "darwin":
@@ -74,12 +75,13 @@ func ConfigPathFor(goos string, env map[string]string) (string, error) {
 		if base == "" {
 			return "", fmt.Errorf("APPDATA is not set")
 		}
-		return windowsJoin(base, "aigw", "config.toml"), nil
+		return appendWindowsPath(base, "aigw", "config.toml"), nil
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
 }
 
+// DataDirFor returns the platform-native AIGW data directory from an explicit environment.
 func DataDirFor(goos string, env map[string]string) (string, error) {
 	switch goos {
 	case "darwin":
@@ -104,7 +106,7 @@ func DataDirFor(goos string, env map[string]string) (string, error) {
 		if base == "" {
 			return "", fmt.Errorf("LOCALAPPDATA and APPDATA are not set")
 		}
-		return windowsJoin(base, "aigw"), nil
+		return appendWindowsPath(base, "aigw"), nil
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
@@ -120,7 +122,7 @@ func ClaudeSettingsPathFor(goos string, env map[string]string) (string, error) {
 		if home == "" {
 			return "", fmt.Errorf("USERPROFILE is not set")
 		}
-		return windowsJoin(home, ".claude", "settings.json"), nil
+		return appendWindowsPath(home, ".claude", "settings.json"), nil
 	}
 	if goos != "darwin" && goos != "linux" {
 		return "", fmt.Errorf("unsupported operating system %q", goos)
@@ -132,6 +134,7 @@ func ClaudeSettingsPathFor(goos string, env map[string]string) (string, error) {
 	return path.Join(home, ".claude", "settings.json"), nil
 }
 
+// UserBinDirFor returns the platform-native per-user executable directory from an explicit environment.
 func UserBinDirFor(goos string, env map[string]string) (string, error) {
 	switch goos {
 	case "darwin", "linux":
@@ -148,22 +151,14 @@ func UserBinDirFor(goos string, env map[string]string) (string, error) {
 		if base == "" {
 			return "", fmt.Errorf("LOCALAPPDATA and APPDATA are not set")
 		}
-		return windowsJoin(base, "Programs", "aigw", "bin"), nil
+		return appendWindowsPath(base, "Programs", "aigw", "bin"), nil
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
 }
 
-func windowsJoin(parts ...string) string {
-	clean := make([]string, 0, len(parts))
-	for _, part := range parts {
-		part = strings.Trim(part, `\/`)
-		if part != "" {
-			clean = append(clean, part)
-		}
-	}
-	if len(parts[0]) > 0 && (strings.HasPrefix(parts[0], `\`) || strings.HasPrefix(parts[0], `/`)) {
-		return `\` + strings.Join(clean, `\`)
-	}
-	return strings.Join(clean, `\`)
+// appendWindowsPath appends owned components without reinterpreting the base namespace.
+func appendWindowsPath(base string, components ...string) string {
+	base = strings.ReplaceAll(base, "/", `\`)
+	return strings.TrimRight(base, `\`) + `\` + strings.Join(components, `\`)
 }

@@ -2,16 +2,18 @@ package codex
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
-	"sort"
 	"strings"
 	"time"
 
+	"aigw-cli/internal/codex/catalog"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/transaction"
+
+	"github.com/rogpeppe/go-internal/robustio"
 )
 
 const (
@@ -25,12 +27,18 @@ const (
 	// read the bundled catalog. A client that never answers must fail the
 	// generation rather than hold the projection transaction open.
 	codexCatalogTimeout = 30 * time.Second
+	// The client emits complete model instructions: the measured 0.153.4
+	// catalog is 517,840 bytes. This finite 8 MiB data budget leaves growth
+	// headroom without widening diagnostic capture for other invocations.
+	codexCatalogByteLimit = 8 << 20
 )
 
 // codexBundledCatalog reads the installed client's own bundled model catalog.
 // It is a package seam so tests can supply a catalog without an installed
 // client; production reads the client itself.
-var codexBundledCatalog = readCodexBundledCatalog
+var codexBundledCatalog = ReadBundledCatalog
+
+var removeCatalogProbe = robustio.RemoveAll
 
 // codexCatalogPlan is the catalog decision for one target: the path the
 // configuration should reference, the bytes AIGW should own, the client identity
@@ -44,8 +52,6 @@ type codexCatalogPlan struct {
 
 func codexCatalogPath(configPath string) string { return configPath + ".aigw-model-catalog.json" }
 
-func targetCodexCatalogPath(target TargetRef) string { return codexCatalogPath(target.Path) }
-
 // codexCatalogProjection decides what AIGW owns for one target without writing
 // anything. It withholds a catalog whenever it cannot prove the adaptation is
 // both needed and correct, so an unrecognized model keeps the client's own
@@ -54,17 +60,19 @@ func codexCatalogProjection(target TargetRef, model, base string, state codexSta
 	// A user-authored model_catalog_json is the user's own client policy. AIGW
 	// replaces the bundled table wholesale, so adopting that key here would
 	// silently drop models the user added.
-	if model == "" || modelCatalogLine.MatchString(base) {
+	selection, selectionErr := codexSelectionLine(base, "model_catalog_json")
+	if model == "" || selectionErr != nil || selection != "" {
 		return codexCatalogPlan{}
 	}
 	live, bundled, err := codexBundledCatalog(target.Executable)
 	if err == nil {
-		data, buildErr := buildCodexCatalog(bundled, model)
-		if buildErr == nil {
+		document, parseErr := catalog.Parse(bundled)
+		if parseErr == nil {
+			data, _ := document.Project(model)
 			if data == nil {
 				return codexCatalogPlan{}
 			}
-			return codexCatalogPlan{path: targetCodexCatalogPath(target), data: data, client: live, state: catalogStateProjected}
+			return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, state: catalogStateProjected}
 		}
 	}
 	// Regeneration failed. A previous copy is reusable only while it still
@@ -73,7 +81,7 @@ func codexCatalogProjection(target TargetRef, model, base string, state codexSta
 	// the fallback it was meant to prevent.
 	recorded := ExecutableIdentity{Version: state.CatalogClientVersion, SHA256: state.CatalogClientSHA256}
 	if state.CatalogHash != "" && live.same(recorded) && before.Exists && hashBytes(before.Data) == state.CatalogHash {
-		return codexCatalogPlan{path: targetCodexCatalogPath(target), data: before.Data, client: recorded, state: catalogStateProjected}
+		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: before.Data, client: recorded, state: catalogStateProjected}
 	}
 	if state.CatalogHash == "" && state.CatalogState == "" {
 		// AIGW never owned a catalog here, so nothing was lost and there is
@@ -101,7 +109,7 @@ func codexCatalogDesiredSnapshot(plan codexCatalogPlan, before transaction.FileS
 		// The catalog carries the resolved account's model metadata, so its mode
 		// is part of what AIGW owns rather than a user preference: a mode that
 		// drifted wider converges back instead of being carried forward.
-		return desiredCodexSnapshot(plan.data, ownerOnlyCatalogMode(before)), nil
+		return transaction.NewFileSnapshot(plan.data, ownerOnlyCatalogMode(before)), nil
 	}
 	if owned {
 		return transaction.FileSnapshot{}, nil
@@ -137,158 +145,56 @@ func applyCodexCatalogState(state *codexState, plan codexCatalogPlan) {
 	}
 }
 
-// codexCatalogDocument is the client's catalog document shape. Models are kept
-// as raw members so every field of a cloned entry survives exactly, including
-// fields a future client adds that AIGW knows nothing about.
-type codexCatalogDocument struct {
-	Models []map[string]json.RawMessage `json:"models"`
-}
-
-// buildCodexCatalog returns the catalog AIGW should own for one model id, or nil
-// when the client already resolves that id by itself. The result is the client's
-// complete bundled table plus aliases: a partial table would replace the
-// client's own and push every model AIGW did not name back onto fallback.
-func buildCodexCatalog(bundled []byte, model string) ([]byte, error) {
-	var document codexCatalogDocument
-	if err := json.Unmarshal(bundled, &document); err != nil {
-		return nil, fmt.Errorf("parse Codex bundled model catalog: %w", err)
-	}
-	if len(document.Models) == 0 {
-		return nil, fmt.Errorf("Codex bundled model catalog is empty")
-	}
-	slugs, err := codexCatalogSlugs(document)
-	if err != nil {
-		return nil, err
-	}
-	namespace, ok := codexCatalogNamespace(model, slugs)
-	if !ok {
-		return nil, nil
-	}
-	// Mirror the whole bundled table under the proven namespace. The provider
-	// prefix belongs to the account, not to one model, so every model that
-	// account can select resolves without AIGW keeping a list of model names.
-	names := make([]string, 0, len(slugs))
-	for slug := range slugs {
-		names = append(names, slug)
-	}
-	sort.Strings(names)
-	aliases := make([]map[string]json.RawMessage, 0, len(names))
-	for _, slug := range names {
-		alias := namespace + "." + slug
-		if _, present := slugs[alias]; present {
-			continue
-		}
-		encoded, err := json.Marshal(alias)
-		if err != nil {
-			return nil, fmt.Errorf("encode Codex model alias %q: %w", alias, err)
-		}
-		entry := make(map[string]json.RawMessage, len(document.Models[slugs[slug]]))
-		for key, value := range document.Models[slugs[slug]] {
-			entry[key] = value
-		}
-		entry["slug"] = encoded
-		aliases = append(aliases, entry)
-	}
-	if len(aliases) == 0 {
-		return nil, nil
-	}
-	document.Models = append(document.Models, aliases...)
-	data, err := json.Marshal(document)
-	if err != nil {
-		return nil, fmt.Errorf("encode Codex model catalog: %w", err)
-	}
-	return append(data, '\n'), nil
-}
-
-func codexCatalogSlugs(document codexCatalogDocument) (map[string]int, error) {
-	slugs := make(map[string]int, len(document.Models))
-	for index, entry := range document.Models {
-		raw, present := entry["slug"]
-		if !present {
-			return nil, fmt.Errorf("Codex bundled model catalog entry %d has no slug", index)
-		}
-		var slug string
-		if err := json.Unmarshal(raw, &slug); err != nil {
-			return nil, fmt.Errorf("parse Codex bundled model catalog entry %d slug: %w", index, err)
-		}
-		if slug == "" {
-			return nil, fmt.Errorf("Codex bundled model catalog entry %d has an empty slug", index)
-		}
-		if _, duplicate := slugs[slug]; duplicate {
-			return nil, fmt.Errorf("Codex bundled model catalog declares slug %q twice", slug)
-		}
-		slugs[slug] = index
-	}
-	return slugs, nil
-}
-
-// codexCatalogNamespace splits a provider-prefixed model id into the namespace
-// the provider adds and the client slug it wraps. Every dot-separated suffix is
-// matched exactly against the client's own slugs and exactly one match is
-// required, so neither a multi-level namespace nor a slug that itself contains
-// dots can be mapped by accident. An id the client already knows needs no alias.
-func codexCatalogNamespace(model string, slugs map[string]int) (string, bool) {
-	if _, present := slugs[model]; present {
-		return "", false
-	}
-	namespace := ""
-	matches := 0
-	for index := 0; index < len(model); index++ {
-		if model[index] != '.' || index == 0 {
-			continue
-		}
-		suffix := model[index+1:]
-		if suffix == "" {
-			continue
-		}
-		if _, present := slugs[suffix]; !present {
-			continue
-		}
-		namespace = model[:index]
-		matches++
-	}
-	if matches != 1 {
-		return "", false
-	}
-	return namespace, true
-}
-
-// readCodexBundledCatalog reads the installed client's identity and its bundled
+// ReadBundledCatalog reads the installed client's identity and its bundled
 // catalog. The identity is returned even when the catalog read fails, because
 // deciding whether a previous copy may be reused requires knowing which build is
 // installed now.
-func readCodexBundledCatalog(executable string) (ExecutableIdentity, []byte, error) {
+func ReadBundledCatalog(executable string) (client ExecutableIdentity, data []byte, result error) {
 	if strings.TrimSpace(executable) == "" {
 		return ExecutableIdentity{}, nil, fmt.Errorf("Codex executable is not configured")
 	}
-	home, err := os.MkdirTemp("", "aigw-codex-catalog-")
-	if err != nil {
-		return ExecutableIdentity{}, nil, fmt.Errorf("create Codex probe home: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(home) }()
-	ctx, cancel := context.WithTimeout(context.Background(), codexCatalogTimeout)
-	defer cancel()
-	client, err := IdentifyExecutable(ctx, process.Runner{}, executable, home)
-	if err != nil {
-		return ExecutableIdentity{}, nil, err
-	}
-	catalog, err := runCodexReadOnly(ctx, process.Runner{}, executable, home, "debug", "models", "--bundled")
-	if err != nil {
-		return client, nil, err
-	}
-	return client, catalog, nil
+	result = withCatalogProbe(func(ctx context.Context, home string) error {
+		var err error
+		client, err = IdentifyExecutable(ctx, process.Runner{}, executable, home)
+		if err != nil {
+			return err
+		}
+		data, err = runCodexReadOnly(ctx, process.Runner{StdoutLimit: codexCatalogByteLimit}, executable, home, "debug", "models", "--bundled")
+		return err
+	})
+	return client, data, result
 }
 
-// codexTOMLString quotes a value as a TOML basic string. A control character
-// cannot be expressed there, so it is refused rather than written out as a
-// document the client would reject.
-func codexTOMLString(value string) (string, error) {
-	for _, character := range value {
-		if character < 0x20 || character == 0x7f {
-			return "", fmt.Errorf("Codex model catalog path contains a control character")
+// ReadEffectiveCatalog asks the installed client to render its selected catalogue
+// in an isolated home. It neither reads user configuration nor sends inference.
+func ReadEffectiveCatalog(executable, catalogPath string) (data []byte, result error) {
+	args := []string{"debug", "models"}
+	if catalogPath != "" {
+		quoted, err := codexTOMLString(catalogPath)
+		if err != nil {
+			return nil, err
 		}
+		args = append(args, "-c", "model_catalog_json="+quoted)
 	}
-	escaped := strings.ReplaceAll(value, `\`, `\\`)
-	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
-	return `"` + escaped + `"`, nil
+	result = withCatalogProbe(func(ctx context.Context, home string) error {
+		var err error
+		data, err = runCodexReadOnly(ctx, process.Runner{StdoutLimit: codexCatalogByteLimit}, executable, home, args...)
+		return err
+	})
+	return data, result
+}
+
+func withCatalogProbe(probe func(context.Context, string) error) (result error) {
+	home, err := os.MkdirTemp("", "aigw-codex-catalog-")
+	if err != nil {
+		return fmt.Errorf("create Codex probe home: %w", err)
+	}
+	defer func() {
+		if err := removeCatalogProbe(home); err != nil {
+			result = errors.Join(result, fmt.Errorf("remove Codex probe home %s: %w", home, err))
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), codexCatalogTimeout)
+	defer cancel()
+	return probe(ctx, home)
 }

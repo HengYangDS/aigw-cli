@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"aigw-cli/internal/process"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,22 +15,6 @@ import (
 	"path/filepath"
 	"strings"
 )
-
-func (u Updater) downloadReleaseAssetsFromExactSource(ctx context.Context, source ReleaseSource, tag, directory string, assets ...string) (bool, error) {
-	switch source.Provider {
-	case ReleaseProviderGitLab:
-		original := u.GitLab
-		u.GitLab = source
-		err := u.downloadReleaseAssets(ctx, tag, directory, assets...)
-		u.GitLab = original
-		return isGlabUnavailable(err), err
-	case ReleaseProviderGitHub:
-		err := u.downloadReleaseAssetsFromGitHub(ctx, source, tag, directory, assets...)
-		return isGitHubUnavailable(err), err
-	default:
-		return false, fmt.Errorf("unsupported release provider %q", source.Provider)
-	}
-}
 
 func (u Updater) downloadReleaseAssets(ctx context.Context, tag, directory string, assets ...string) error {
 	for index, asset := range assets {
@@ -45,10 +30,10 @@ func (u Updater) downloadReleaseAssets(ctx context.Context, tag, directory strin
 			return nil
 		} else if !isGlabUnavailable(err) {
 			if tokenErr := u.validateTokenFallbackHost(); tokenErr != nil {
-				return fmt.Errorf("download release asset %s: %w; authenticated glab fallback failed: %v", asset, err, apiErr)
+				return fmt.Errorf("download release asset %s: %w; authenticated glab fallback failed: %w", asset, err, apiErr)
 			}
 		} else if tokenErr := u.validateTokenFallbackHost(); tokenErr != nil {
-			return fmt.Errorf("%w; authenticated glab fallback failed: %v", err, apiErr)
+			return fmt.Errorf("%w; authenticated glab fallback failed: %w", err, apiErr)
 		}
 		for _, remaining := range assets[index:] {
 			if err := u.downloadReleaseAssetFromGitLabAPI(ctx, tag, remaining, directory); err != nil {
@@ -61,10 +46,8 @@ func (u Updater) downloadReleaseAssets(ctx context.Context, tag, directory strin
 }
 
 func (u Updater) downloadReleaseAssetsWithGlabAPI(ctx context.Context, tag, directory string, assets ...string) error {
-	if _, ok := u.Runner.(FileRunner); !ok {
-		if _, ok := u.Runner.(EnvironmentFileRunner); !ok {
-			return unavailable(fmt.Errorf("authenticated glab asset download is unavailable"))
-		}
+	if _, ok := u.Runner.(process.FileRunner); !ok {
+		return unavailable(fmt.Errorf("authenticated glab asset download is unavailable"))
 	}
 	if len(assets) == 0 {
 		return fmt.Errorf("authenticated glab asset download is unavailable")
@@ -147,10 +130,10 @@ func (u Updater) downloadReleaseAssetFromGitLabAPI(ctx context.Context, tag, ass
 	if err != nil {
 		return fmt.Errorf("create GitLab release-download request: %w", err)
 	}
-	request.Header.Set("PRIVATE-TOKEN", token)
-	response, err := u.gitLabHTTPClient().Do(request)
+	request.Header.Set("Private-Token", token)
+	response, err := u.releaseHTTPClient().Do(request)
 	if err != nil {
-		return fmt.Errorf("download release asset %s: %w", asset, err)
+		return unavailable(fmt.Errorf("download release asset %s: %w", asset, err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
@@ -172,25 +155,6 @@ func (u Updater) downloadReleaseAssetFromGitLabAPI(ctx context.Context, tag, ass
 	return nil
 }
 
-func (u Updater) latestTagFromSource(ctx context.Context, source ReleaseSource) (string, bool, error) {
-	switch source.Provider {
-	case ReleaseProviderGitLab:
-		original := u.GitLab
-		u.GitLab = source
-		tag, err := u.latestTag(ctx)
-		u.GitLab = original
-		return tag, isGlabUnavailable(err), err
-	case ReleaseProviderGitHub:
-		tag, err := u.latestTagFromGitHubRelease(ctx, source)
-		if err != nil {
-			return "", isGitHubUnavailable(err), err
-		}
-		return tag, false, nil
-	default:
-		return "", false, fmt.Errorf("unsupported release provider %q", source.Provider)
-	}
-}
-
 func (u Updater) latestTag(ctx context.Context) (string, error) {
 	output, err := u.runGlab(ctx, "release", "list", "-R", u.releaseProject(), "--per-page", "1", "-F", "json", "--jq", ".[0].tag_name")
 	if err != nil {
@@ -202,7 +166,7 @@ func (u Updater) latestTag(ctx context.Context) (string, error) {
 		}
 		tag, apiErr := u.latestTagFromGitLabAPI(ctx)
 		if apiErr != nil && isSourceUnavailable(apiErr) {
-			return "", unavailable(fmt.Errorf("GitLab release lookup failed through glab and API: %v; %w", err, apiErr))
+			return "", unavailable(fmt.Errorf("GitLab release lookup failed through glab and API: %w; %w", err, apiErr))
 		}
 		return tag, apiErr
 	}
@@ -238,24 +202,6 @@ func releaseTagFromCLIOutput(output []byte) (string, error) {
 	return tag, nil
 }
 
-type sourceUnavailableError struct{ err error }
-
-func (e sourceUnavailableError) Error() string { return e.err.Error() }
-
-func (e sourceUnavailableError) Unwrap() error { return e.err }
-
-func unavailable(err error) error {
-	if err == nil {
-		return nil
-	}
-	return sourceUnavailableError{err: err}
-}
-
-func isSourceUnavailable(err error) bool {
-	var target sourceUnavailableError
-	return errors.As(err, &target)
-}
-
 func isGlabUnavailable(err error) bool {
 	if err == nil {
 		return false
@@ -272,8 +218,8 @@ func (u Updater) latestTagFromGitLabAPI(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("create GitLab latest-release request: %w", err)
 	}
-	request.Header.Set("PRIVATE-TOKEN", token)
-	response, err := u.gitLabHTTPClient().Do(request)
+	request.Header.Set("Private-Token", token)
+	response, err := u.releaseHTTPClient().Do(request)
 	if err != nil {
 		return "", unavailable(fmt.Errorf("query GitLab latest release: %w", err))
 	}
@@ -294,28 +240,34 @@ func (u Updater) latestTagFromGitLabAPI(ctx context.Context) (string, error) {
 }
 
 func (u Updater) runGlab(ctx context.Context, args ...string) ([]byte, error) {
-	if runner, ok := u.Runner.(EnvironmentRunner); ok {
-		return runner.RunWithEnv(ctx, []string{"GL_HOST=" + u.releaseHost()}, "glab", args...)
-	}
-	return u.Runner.Run(ctx, "glab", args...)
+	return u.captureReleaseCommand(ctx, u.glabPlan(args))
 }
 
 func (u Updater) runGlabToFile(ctx context.Context, destination string, args ...string) error {
-	if runner, ok := u.Runner.(EnvironmentFileRunner); ok {
-		return runner.RunToFileWithEnv(ctx, []string{"GL_HOST=" + u.releaseHost()}, destination, "glab", args...)
-	}
-	runner, ok := u.Runner.(FileRunner)
+	runner, ok := u.Runner.(process.FileRunner)
 	if !ok {
 		return unavailable(fmt.Errorf("authenticated glab asset download is unavailable"))
 	}
-	return runner.RunToFile(ctx, destination, "glab", args...)
+	return runner.RunToFile(ctx, destination, u.glabPlan(args))
+}
+
+func (u Updater) glabPlan(args []string) process.Plan {
+	origin := u.releaseHost()
+	// Source admission already limits this value to an HTTP(S) origin.
+	protocol, host, _ := strings.Cut(origin, "://")
+	return process.Plan{Executable: "glab", Args: args, Env: append(os.Environ(),
+		"GITLAB_HOST="+origin,
+		"GITLAB_API_HOST="+host,
+		"API_PROTOCOL="+protocol,
+		"GITLAB_SUBFOLDER=/", // A nonempty root overrides glab's stored subfolder.
+	)}
 }
 
 func (u Updater) releaseHost() string {
-	return strings.TrimRight(strings.TrimSpace(u.gitLabSource().Origin), "/")
+	return strings.TrimRight(strings.TrimSpace(u.GitLab.Origin), "/")
 }
 
-func (u Updater) releaseProject() string { return strings.TrimSpace(u.gitLabSource().Repository) }
+func (u Updater) releaseProject() string { return strings.TrimSpace(u.GitLab.Repository) }
 
 func (u Updater) releaseProjectPath() string { return url.PathEscape(u.releaseProject()) }
 
@@ -339,7 +291,7 @@ func gitLabToken() (string, error) {
 }
 
 func (u Updater) validateTokenFallbackHost() error {
-	configuredHost := strings.TrimSpace(u.gitLabSource().Origin)
+	configuredHost := strings.TrimSpace(u.GitLab.Origin)
 	if configuredHost == "" {
 		return fmt.Errorf("GITLAB_TOKEN fallback requires explicit AIGW_GITLAB_RELEASE_ORIGIN with an HTTPS origin")
 	}
@@ -348,29 +300,4 @@ func (u Updater) validateTokenFallbackHost() error {
 		return fmt.Errorf("GITLAB_TOKEN fallback requires AIGW_GITLAB_RELEASE_ORIGIN to be an HTTPS origin without credentials, path, query, or fragment")
 	}
 	return nil
-}
-
-func (u Updater) gitLabHTTPClient() *http.Client {
-	base := u.HTTPClient
-	if base == nil {
-		base = http.DefaultClient
-	}
-	client := *base
-	if client.Timeout == 0 {
-		client.Timeout = releaseRequestTimeout
-	}
-	defaultCheckRedirect := client.CheckRedirect
-	client.CheckRedirect = func(request *http.Request, previous []*http.Request) error {
-		if len(previous) > 0 && !strings.EqualFold(request.URL.Host, previous[0].URL.Host) {
-			request.Header.Del("PRIVATE-TOKEN")
-		}
-		if len(previous) > 0 && previous[0].URL.Scheme == "https" && request.URL.Scheme != "https" {
-			return fmt.Errorf("refusing GitLab update redirect from HTTPS to HTTP")
-		}
-		if defaultCheckRedirect != nil {
-			return defaultCheckRedirect(request, previous)
-		}
-		return nil
-	}
-	return &client
 }

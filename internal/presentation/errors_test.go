@@ -2,7 +2,9 @@ package presentation
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -34,6 +36,14 @@ func TestOutputLocalizationMalformedAndSpecificBranches(t *testing.T) {
 	}
 }
 
+func TestRenderErrorLeavesTransactionOutcomeToItsOwner(t *testing.T) {
+	var out bytes.Buffer
+	RenderError(New(&out, false), errors.New("output is unavailable"), false)
+	if !strings.Contains(out.String(), "The command could not finish; inspect current state before retrying.") {
+		t.Fatalf("generic failure did not preserve transaction uncertainty: %s", &out)
+	}
+}
+
 func TestRenderErrorAndSuggestedFixBranches(t *testing.T) {
 	cause := errors.New("cause")
 	problem := ProblemError("Problem title", "Evidence", "Impact", "aigw repair", cause)
@@ -55,15 +65,53 @@ func TestRenderErrorAndSuggestedFixBranches(t *testing.T) {
 		{errors.New("plain failure"), "aigw check"},
 	} {
 		var out bytes.Buffer
-		RenderError(New(&out, false), test.err)
+		RenderError(New(&out, false), test.err, false)
 		if !strings.Contains(out.String(), test.want) {
 			t.Fatalf("output = %q, want %q", out.String(), test.want)
 		}
 	}
 	var out bytes.Buffer
-	RenderError(New(&out, false), Presented(errors.New("already shown")))
+	RenderError(New(&out, false), Presented(errors.New("already shown")), false)
 	if out.Len() != 0 {
 		t.Fatalf("presented error rendered twice: %q", out.String())
+	}
+}
+
+func TestJSONErrorPreservesProblemAndOutputFailure(t *testing.T) {
+	cause := errors.New("internal cause")
+	problem := ProblemError("Cannot continue", "Observed failure", "Operation stopped", "aigw doctor", cause)
+	var out bytes.Buffer
+	renderer := New(&out, false)
+	RenderError(renderer, problem, true)
+	var result struct {
+		OK bool `json:"ok"`
+		Problem
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	want := Problem{Title: "Cannot continue", Evidence: "Observed failure", Impact: "Operation stopped", Fix: "aigw doctor"}
+	if result.OK || result.Problem != want || renderer.Err() != nil {
+		t.Fatalf("result=%+v error=%v", result, renderer.Err())
+	}
+	out.Reset()
+	RenderError(renderer, Presented(problem), true)
+	if out.Len() != 0 {
+		t.Fatalf("presented result emitted again: %s", &out)
+	}
+	reader, writer := io.Pipe()
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := writer.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	renderer = New(writer, false)
+	RenderError(renderer, problem, true)
+	if !errors.Is(renderer.Err(), io.ErrClosedPipe) {
+		t.Fatalf("renderer lost output failure: %v", renderer.Err())
 	}
 }
 

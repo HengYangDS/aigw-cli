@@ -1,16 +1,40 @@
 name: Verify
 env:
+  MISE_CONFIG_DIR: ${{ github.workspace }}/.config/ci
+  MISE_GLOBAL_CONFIG_FILE: ${{ github.workspace }}/.config/ci/config.toml
+  MISE_SYSTEM_CONFIG_DIR: ${{ github.workspace }}/.config/ci
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
 "on":
   push:
     branches:
+      - dev
       - main
   pull_request:
     branches:
       - dev
-  workflow_dispatch: {}
+      - main
+  workflow_dispatch:
+    inputs:
+      windows_clients:
+        description: With baseline_tag, qualify real Windows clients through the existing release lifecycle
+        required: false
+        type: boolean
+        default: false
+      refresh_locks:
+        description: Verify two native mise lock refreshes without changing committed inputs
+        required: false
+        type: boolean
+        default: false
+      commit_base:
+        description: Exclusive commit base for manual verification
+        required: true
+        type: string
+      baseline_tag:
+        description: Optional historical release tag for packaged upgrade and rollback acceptance
+        required: false
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -29,19 +53,22 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
+          version: 2026.9.5
           install: true
-          cache: false
+          install_args: --locked
+          cache: true
+          cache_key_prefix: mise-${{ github.job }}
       - name: Verify main and dev name the same product object
         run: mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=${{ github.sha }}" --expect "dev=${{ github.sha }}"
-  source-and-governance:
-    name: Source and governance
+  quality:
+    name: Quality and governance
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
     env:
-      MISE_ENABLE_TOOLS: go,node,cue,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee
+      MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -49,12 +76,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
+          version: 2026.9.5
           install: true
-          cache: false
-      - name: Install locked npm tools
-        run: npm ci --ignore-scripts
+          install_args: --locked
+          cache: true
+          cache_key_prefix: mise-${{ github.job }}
+      - name: Prepare locked dependencies
+        run: mise run bootstrap
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
@@ -64,16 +94,21 @@ jobs:
         env:
           SELECTED_TAG: ${{ github.ref_name }}
         run: mise exec --locked -- go run ./tools/forge tag --tag "$SELECTED_TAG" --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
-      - name: Run source and governance
+      - name: Run quality and governance
         env:
           CGO_ENABLED: "1"
+          AIGW_COMMIT_BASE: ${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base }}
           AIGW_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
           AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}
           AIGW_CHANGELOG_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-        run: mise exec --locked -- go run ./tools/ci source
+        run: mise exec --locked -- go run ./tools/ci quality
   native-darwin:
     name: Native macOS acceptance
     runs-on: macos-latest
+    timeout-minutes: 25
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
+    env:
+      MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,glab,github:anchore/syft
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -81,20 +116,105 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
+          version: 2026.9.5
           install: true
-          cache: false
-      - name: Run native macOS acceptance
+          install_args: --locked
+          cache: true
+          cache_key_prefix: mise-${{ github.job }}
+      - name: Prepare locked dependencies
+        run: mise run bootstrap
+      - name: Verify native lock resolution
+        if: github.event_name == 'workflow_dispatch' && inputs.refresh_locks
+        env:
+          MISE_GITHUB_TOKEN: ${{ github.token }}
+        run: mise run dependencies:resolve
+      - name: Retain native lock observation
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.refresh_locks
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: mise-lock-darwin
+          path: mise.lock
+      - env:
+          AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
+          AIGW_VERIFY_SYSTEM_KEYRING: "1"
+        name: Run native macOS acceptance
+        run: mise exec --locked -- go run ./tools/ci native --platform darwin
+      - name: Run historical release acceptance
+        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.windows_clients)
+        shell: pwsh
         env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
-        run: mise exec --locked -- go run ./tools/ci native --platform darwin
-    timeout-minutes: 25
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'
+          GH_TOKEN: ${{ github.token }}
+          AIGW_BASELINE_TAG: ${{ inputs.baseline_tag }}
+          AIGW_QUALIFY_WINDOWS_CLIENTS: ${{ inputs.windows_clients }}
+        run: |-
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ([string]::IsNullOrWhiteSpace($env:AIGW_BASELINE_TAG)) { throw 'Client qualification requires baseline_tag' }
+          $scope = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString())
+          New-Item -ItemType Directory -Path $scope | Out-Null
+          try {
+            $platform = mise exec --locked -- go env GOOS
+            $architecture = mise exec --locked -- go env GOARCH
+            $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
+            $pattern = "*_${platform}_${architecture}.${extension}"
+            gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
+            $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
+            if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
+            $archive = $archives[0]
+            $entries = @(Get-Content (Join-Path $scope 'checksums.txt') | ForEach-Object {
+              $entry = $_ -split '\s+', 2
+              if ($entry.Count -eq 2 -and $entry[1].TrimStart('*') -eq $archive.Name) { $entry[0] }
+            })
+            $actual = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash
+            if ($entries.Count -ne 1 -or $entries[0] -notmatch '^[0-9a-fA-F]{64}$' -or $entries[0] -ne $actual) {
+              throw 'Historical release archive checksum mismatch'
+            }
+            tar -xf $archive.FullName -C $scope
+            $program = if ($platform -eq 'windows') { 'aigw.exe' } else { 'aigw' }
+            $executables = @(Get-ChildItem -Path $scope -Recurse -Filter $program -File)
+            if ($executables.Count -ne 1) { throw 'Expected exactly one historical executable' }
+            $env:AIGW_ACCEPTANCE_BASELINE = $executables[0].FullName
+            Write-Output "Historical release $env:AIGW_BASELINE_TAG archive SHA256=$actual"
+            $acceptance = @('accept-native')
+            if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
+              $clients = Join-Path $scope 'clients'
+              New-Item -ItemType Directory -Path $clients | Out-Null
+              Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
+              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.154.0' '@anthropic-ai/claude-code-win32-x64@2.1.269'
+              mise exec --locked -- npm audit signatures --prefix $clients
+              $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
+              $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
+              $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
+              $gitBin = Split-Path (Get-Command git.exe).Source
+              $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
+              if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Claude requires a native Git Bash installation' }
+              $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
+              $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+              foreach ($client in @($env:AIGW_ACCEPTANCE_CODEX, $env:AIGW_ACCEPTANCE_CLAUDE)) {
+                if (-not (Test-Path -LiteralPath $client -PathType Leaf)) { throw "Missing native client: $client" }
+                Get-FileHash -LiteralPath $client -Algorithm SHA256
+              }
+              $acceptance += '--clients'
+            }
+            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+            mise exec --locked -- go run ./tools/release @acceptance
+          } finally {
+            foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH')) {
+              Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+            }
+            Remove-Item -LiteralPath $scope -Recurse -Force
+          }
   native-linux:
     name: Native Linux acceptance
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
+    env:
+      MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,glab,github:anchore/syft
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -102,19 +222,100 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
+          version: 2026.9.5
           install: true
-          cache: false
-      - name: Install Secret Service
-        run: sudo -- sh -c 'apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq dbus-x11 gnome-keyring'
+          install_args: --locked
+          cache: true
+          cache_key_prefix: mise-${{ github.job }}
+      - name: Prepare locked dependencies
+        run: mise run bootstrap
+      - name: Verify native lock resolution
+        if: github.event_name == 'workflow_dispatch' && inputs.refresh_locks
+        env:
+          MISE_GITHUB_TOKEN: ${{ github.token }}
+        run: mise run dependencies:resolve
+      - name: Retain native lock observation
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.refresh_locks
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: mise-lock-linux
+          path: mise.lock
       - name: Run native Linux acceptance
-        run: dbus-run-session -- sh -c 'printf \"\\n\" | gnome-keyring-daemon --unlock >/dev/null; export AIGW_VERIFY_SYSTEM_KEYRING=1; mise exec --locked -- go run ./tools/ci native --platform linux'
-    timeout-minutes: 25
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'
+        run: mise exec --locked -- go run ./tools/ci native --platform linux
+      - name: Run historical release acceptance
+        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.windows_clients)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AIGW_BASELINE_TAG: ${{ inputs.baseline_tag }}
+          AIGW_QUALIFY_WINDOWS_CLIENTS: ${{ inputs.windows_clients }}
+        run: |-
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ([string]::IsNullOrWhiteSpace($env:AIGW_BASELINE_TAG)) { throw 'Client qualification requires baseline_tag' }
+          $scope = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString())
+          New-Item -ItemType Directory -Path $scope | Out-Null
+          try {
+            $platform = mise exec --locked -- go env GOOS
+            $architecture = mise exec --locked -- go env GOARCH
+            $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
+            $pattern = "*_${platform}_${architecture}.${extension}"
+            gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
+            $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
+            if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
+            $archive = $archives[0]
+            $entries = @(Get-Content (Join-Path $scope 'checksums.txt') | ForEach-Object {
+              $entry = $_ -split '\s+', 2
+              if ($entry.Count -eq 2 -and $entry[1].TrimStart('*') -eq $archive.Name) { $entry[0] }
+            })
+            $actual = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash
+            if ($entries.Count -ne 1 -or $entries[0] -notmatch '^[0-9a-fA-F]{64}$' -or $entries[0] -ne $actual) {
+              throw 'Historical release archive checksum mismatch'
+            }
+            tar -xf $archive.FullName -C $scope
+            $program = if ($platform -eq 'windows') { 'aigw.exe' } else { 'aigw' }
+            $executables = @(Get-ChildItem -Path $scope -Recurse -Filter $program -File)
+            if ($executables.Count -ne 1) { throw 'Expected exactly one historical executable' }
+            $env:AIGW_ACCEPTANCE_BASELINE = $executables[0].FullName
+            Write-Output "Historical release $env:AIGW_BASELINE_TAG archive SHA256=$actual"
+            $acceptance = @('accept-native')
+            if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
+              $clients = Join-Path $scope 'clients'
+              New-Item -ItemType Directory -Path $clients | Out-Null
+              Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
+              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.154.0' '@anthropic-ai/claude-code-win32-x64@2.1.269'
+              mise exec --locked -- npm audit signatures --prefix $clients
+              $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
+              $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
+              $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
+              $gitBin = Split-Path (Get-Command git.exe).Source
+              $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
+              if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Claude requires a native Git Bash installation' }
+              $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
+              $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+              foreach ($client in @($env:AIGW_ACCEPTANCE_CODEX, $env:AIGW_ACCEPTANCE_CLAUDE)) {
+                if (-not (Test-Path -LiteralPath $client -PathType Leaf)) { throw "Missing native client: $client" }
+                Get-FileHash -LiteralPath $client -Algorithm SHA256
+              }
+              $acceptance += '--clients'
+            }
+            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+            mise exec --locked -- go run ./tools/release @acceptance
+          } finally {
+            foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH')) {
+              Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+            }
+            Remove-Item -LiteralPath $scope -Recurse -Force
+          }
   native-windows:
     name: Native Windows acceptance
     runs-on: windows-latest
+    timeout-minutes: 25
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
+    env:
+      MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,glab,github:anchore/syft
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -122,13 +323,93 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
+          version: 2026.9.5
           install: true
-          cache: false
-      - name: Run native Windows acceptance
+          install_args: --locked
+          cache: true
+          cache_key_prefix: mise-${{ github.job }}
+      - name: Prepare locked dependencies
+        run: mise run bootstrap
+      - name: Verify native lock resolution
+        if: github.event_name == 'workflow_dispatch' && inputs.refresh_locks
+        env:
+          MISE_GITHUB_TOKEN: ${{ github.token }}
+        run: mise run dependencies:resolve
+      - name: Retain native lock observation
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.refresh_locks
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: mise-lock-windows
+          path: mise.lock
+      - env:
+          AIGW_VERIFY_SYSTEM_KEYRING: "1"
+        name: Run native Windows acceptance
+        run: mise exec --locked -- go run ./tools/ci native --platform windows
+      - name: Run historical release acceptance
+        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.windows_clients)
+        shell: pwsh
         env:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
-        run: mise exec --locked -- go run ./tools/ci native --platform windows
-    timeout-minutes: 25
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'main'
+          GH_TOKEN: ${{ github.token }}
+          AIGW_BASELINE_TAG: ${{ inputs.baseline_tag }}
+          AIGW_QUALIFY_WINDOWS_CLIENTS: ${{ inputs.windows_clients }}
+        run: |-
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ([string]::IsNullOrWhiteSpace($env:AIGW_BASELINE_TAG)) { throw 'Client qualification requires baseline_tag' }
+          $scope = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString())
+          New-Item -ItemType Directory -Path $scope | Out-Null
+          try {
+            $platform = mise exec --locked -- go env GOOS
+            $architecture = mise exec --locked -- go env GOARCH
+            $extension = if ($platform -eq 'windows') { 'zip' } else { 'tar.gz' }
+            $pattern = "*_${platform}_${architecture}.${extension}"
+            gh release download $env:AIGW_BASELINE_TAG --repo $env:GITHUB_REPOSITORY --pattern $pattern --pattern checksums.txt --dir $scope
+            $archives = @(Get-ChildItem -Path $scope -Filter $pattern -File)
+            if ($archives.Count -ne 1) { throw 'Expected exactly one native release archive' }
+            $archive = $archives[0]
+            $entries = @(Get-Content (Join-Path $scope 'checksums.txt') | ForEach-Object {
+              $entry = $_ -split '\s+', 2
+              if ($entry.Count -eq 2 -and $entry[1].TrimStart('*') -eq $archive.Name) { $entry[0] }
+            })
+            $actual = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash
+            if ($entries.Count -ne 1 -or $entries[0] -notmatch '^[0-9a-fA-F]{64}$' -or $entries[0] -ne $actual) {
+              throw 'Historical release archive checksum mismatch'
+            }
+            tar -xf $archive.FullName -C $scope
+            $program = if ($platform -eq 'windows') { 'aigw.exe' } else { 'aigw' }
+            $executables = @(Get-ChildItem -Path $scope -Recurse -Filter $program -File)
+            if ($executables.Count -ne 1) { throw 'Expected exactly one historical executable' }
+            $env:AIGW_ACCEPTANCE_BASELINE = $executables[0].FullName
+            Write-Output "Historical release $env:AIGW_BASELINE_TAG archive SHA256=$actual"
+            $acceptance = @('accept-native')
+            if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
+              $clients = Join-Path $scope 'clients'
+              New-Item -ItemType Directory -Path $clients | Out-Null
+              Set-Content -LiteralPath (Join-Path $clients 'package.json') -Value '{"private":true}'
+              mise exec --locked -- npm install --prefix $clients --ignore-scripts --save-exact --no-audit --no-fund '@openai/codex@0.154.0' '@anthropic-ai/claude-code-win32-x64@2.1.269'
+              mise exec --locked -- npm audit signatures --prefix $clients
+              $codexRoot = Join-Path $clients 'node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc'
+              $env:AIGW_ACCEPTANCE_CODEX = Join-Path $codexRoot 'bin/codex.exe'
+              $env:AIGW_ACCEPTANCE_CLAUDE = Join-Path $clients 'node_modules/@anthropic-ai/claude-code-win32-x64/claude.exe'
+              $gitBin = Split-Path (Get-Command git.exe).Source
+              $bash = Join-Path (Split-Path $gitBin) 'bin/bash.exe'
+              if (-not (Test-Path -LiteralPath $bash -PathType Leaf)) { throw 'Claude requires a native Git Bash installation' }
+              $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
+              $env:AIGW_ACCEPTANCE_CLIENT_PATH = @((Join-Path $codexRoot 'codex-path'), $gitBin, (Split-Path $bash), (Join-Path $env:SystemRoot 'System32')) -join ';'
+              foreach ($client in @($env:AIGW_ACCEPTANCE_CODEX, $env:AIGW_ACCEPTANCE_CLAUDE)) {
+                if (-not (Test-Path -LiteralPath $client -PathType Leaf)) { throw "Missing native client: $client" }
+                Get-FileHash -LiteralPath $client -Algorithm SHA256
+              }
+              $acceptance += '--clients'
+            }
+            Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
+            mise exec --locked -- go run ./tools/release @acceptance
+          } finally {
+            foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH')) {
+              Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+            }
+            Remove-Item -LiteralPath $scope -Recurse -Force
+          }

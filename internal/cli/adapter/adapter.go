@@ -3,6 +3,7 @@ package adapter
 
 import (
 	"fmt"
+	"strings"
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
@@ -10,13 +11,14 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
 	surfaceidentity "aigw-cli/internal/surface"
+
 	"github.com/spf13/cobra"
 )
 
 // NewCommand constructs the adapter command tree.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	root := &cobra.Command{Use: "adapter", Short: "Manage client adapters"}
-	root.AddCommand(newListCommand(runtime), newDiscoverCommand(runtime), newEnableCommand(runtime), newAuthCommand(runtime), newDisableCommand(runtime))
+	root.AddCommand(newListCommand(runtime), newDiscoverCommand(runtime), newEnableCommand(runtime), newDisableCommand(runtime))
 	return root
 }
 
@@ -68,18 +70,22 @@ func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	var executable string
 	var targets []string
-	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client adapter", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		client := args[0]
-		spec, ok := configuration.ClientSpecFor(client)
-		if !ok {
-			return fmt.Errorf("Client must be %s; run `aigw adapter enable --help`", configuration.AdmittedClientUsage())
-		}
-		if executable == "" {
+	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client adapter", ValidArgs: configuration.AdmittedClientIDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument, func(_ *cobra.Command, args []string) error {
+		if strings.TrimSpace(executable) == "" {
 			return fmt.Errorf("--executable is required; run `aigw adapter discover`")
 		}
-		if client == configuration.ClientCodex && len(targets) == 0 {
-			return fmt.Errorf("Codex adapter requires at least one --target config.toml")
+		if args[0] == configuration.ClientCodex && len(targets) == 0 {
+			return fmt.Errorf("Codex adapter requires at least one --target config.toml; run `aigw adapter enable --help`")
 		}
+		for _, target := range targets {
+			if strings.TrimSpace(target) == "" {
+				return fmt.Errorf("--target requires a non-empty path; run `aigw adapter enable --help`")
+			}
+		}
+		return nil
+	}), RunE: func(cmd *cobra.Command, args []string) error {
+		client := args[0]
+		spec, _ := configuration.ClientSpecFor(client)
 		cfg, err := runtime.Config.Load()
 		if err != nil {
 			return err
@@ -92,13 +98,15 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		available, err := runtime.Secrets.Exists(clientRuntime.AccountID)
-		if err != nil {
-			return fmt.Errorf("Cannot inspect Account %q credential: %w", clientRuntime.AccountID, err)
-		}
-		if !available {
-			instruction, _ := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
-			return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.AccountID, instruction)
+		if clientRuntime.RequiresAccountToken() {
+			available, err := runtime.Secrets.Exists(clientRuntime.AccountID)
+			if err != nil {
+				return fmt.Errorf("Cannot inspect Account %q credential: %w", clientRuntime.AccountID, err)
+			}
+			if !available {
+				instruction, _ := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
+				return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.AccountID, instruction)
+			}
 		}
 		if client == configuration.ClientCodex {
 			discovered, err := discover(runtime)
@@ -127,36 +135,10 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
-func newAuthCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{Use: "auth codex", Short: "Bind the current account token to Codex", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		if args[0] != configuration.ClientCodex {
-			return fmt.Errorf("Native credential binding is available only for codex; run `aigw adapter auth codex`")
-		}
-		cfg, err := runtime.Config.Load()
-		if err != nil {
-			return err
-		}
-		if !cfg.Adapters[configuration.ClientCodex].Enabled {
-			return fmt.Errorf("Codex adapter is not enabled; first run `aigw adapter enable codex ...`")
-		}
-		if err := invocation.Synchronizer(runtime).BindAuthentication(cmd.Context(), cfg); err != nil {
-			return fmt.Errorf("Failed to bind Codex authentication: %w", err)
-		}
-		r := renderer(runtime)
-		r.ProductTitle("Codex authentication bound")
-		r.Success("The current account token was written to Codex native credential storage")
-		r.Next("aigw doctor")
-		return nil
-	}}
-}
-
 func newDisableCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{Use: "disable <client>", Short: "Disable a client adapter and remove AIGW-owned projections", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "disable <client>", Short: "Disable a client adapter and remove AIGW-owned projections", ValidArgs: configuration.AdmittedClientIDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument), RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
-		spec, ok := configuration.ClientSpecFor(client)
-		if !ok {
-			return fmt.Errorf("Client must be %s; run `aigw adapter disable --help`", configuration.AdmittedClientUsage())
-		}
+		spec, _ := configuration.ClientSpecFor(client)
 		cfg, err := runtime.Config.Load()
 		if err != nil {
 			return err
@@ -169,8 +151,10 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 			r.Status(presentation.Info, spec.Label, "Already disabled")
 			return nil
 		}
-		delete(cfg.Adapters, client)
-		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "adapter disable"); err != nil {
+		if err := invocation.Synchronizer(runtime).Withdraw(&cfg, client); err != nil {
+			return err
+		}
+		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "adapter disable"); err != nil {
 			return err
 		}
 		r := renderer(runtime)
@@ -179,6 +163,13 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		r.Success("All AIGW-owned projections were safely removed")
 		return nil
 	}}
+}
+
+func validateClientArgument(command *cobra.Command, args []string) error {
+	if err := cobra.OnlyValidArgs(command, args); err != nil {
+		return fmt.Errorf("Client must be %s; run `%s --help`: %w", configuration.AdmittedClientUsage(), command.CommandPath(), err)
+	}
+	return nil
 }
 
 // ValidateCodexTarget rejects executable paths and non-Codex-Home

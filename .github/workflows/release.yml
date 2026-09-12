@@ -1,5 +1,8 @@
 name: Release
 env:
+  MISE_CONFIG_DIR: ${{ github.workspace }}/.config/ci
+  MISE_GLOBAL_CONFIG_FILE: ${{ github.workspace }}/.config/ci/config.toml
+  MISE_SYSTEM_CONFIG_DIR: ${{ github.workspace }}/.config/ci
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
@@ -14,7 +17,7 @@ env:
         required: true
         type: string
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: release-${{ github.repository }}-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
@@ -23,6 +26,8 @@ jobs:
     name: Native macOS release acceptance
     runs-on: macos-latest
     timeout-minutes: 25
+    env:
+      MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,glab,github:anchore/syft
     steps:
       - name: Check out the exact release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -30,16 +35,23 @@ jobs:
           ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
+          version: 2026.9.5
           install: true
-          cache: false
+          install_args: --locked
+          cache: true
+          cache_key_prefix: mise-${{ github.job }}
+      - name: Prepare locked dependencies
+        run: mise run bootstrap
       - name: Run native macOS release acceptance
         run: mise exec --locked -- go run ./tools/ci native --platform darwin
   native-linux:
     name: Native Linux release acceptance
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,glab,github:anchore/syft
     steps:
       - name: Check out the exact release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -47,16 +59,23 @@ jobs:
           ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
+          version: 2026.9.5
           install: true
-          cache: false
+          install_args: --locked
+          cache: true
+          cache_key_prefix: mise-${{ github.job }}
+      - name: Prepare locked dependencies
+        run: mise run bootstrap
       - name: Run native Linux release acceptance
         run: mise exec --locked -- go run ./tools/ci native --platform linux
   native-windows:
     name: Native Windows release acceptance
     runs-on: windows-latest
     timeout-minutes: 25
+    env:
+      MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,glab,github:anchore/syft
     steps:
       - name: Check out the exact release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -64,15 +83,26 @@ jobs:
           ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
+          version: 2026.9.5
           install: true
-          cache: false
+          install_args: --locked
+          cache: true
+          cache_key_prefix: mise-${{ github.job }}
+      - name: Prepare locked dependencies
+        run: mise run bootstrap
       - name: Run native Windows release acceptance
         run: mise exec --locked -- go run ./tools/ci native --platform windows
   package-and-publish:
     name: Package and publish independently
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    env:
+      SSH_ASKPASS_REQUIRE: never
+      AIGW_RELEASE_ARTIFACT_SIGNER: ${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}
     needs:
       - native-darwin
       - native-linux
@@ -85,12 +115,19 @@ jobs:
           ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
+          version: 2026.9.5
           install: true
-          cache: false
-      - name: Install locked npm tools
-        run: npm ci --ignore-scripts
+          install_args: --locked
+          cache: true
+          cache_key_prefix: mise-${{ github.job }}
+      - name: Check release admission
+        env:
+          CI_COMMIT_TAG: ${{ inputs.tag || github.ref_name }}
+        run: mise exec --locked -- go run ./tools/release validate-readiness-tag
+      - name: Prepare locked dependencies
+        run: mise run bootstrap
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
@@ -98,10 +135,30 @@ jobs:
       - name: Verify the signed tag and source
         env:
           SELECTED_TAG: ${{ inputs.tag || github.ref_name }}
+          AIGW_COMMIT_BASE: ${{ format('{0}^', inputs.tag || github.ref_name) }}
           AIGW_CHANGELOG_RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
           AIGW_RELEASE_AUTHOR_EMAIL: ${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}
           AIGW_RELEASE_ALLOWED_SIGNERS_FILE: ${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}
         run: mise exec --locked -- go run ./tools/ci source
+      - name: Materialize artifact signature trust
+        env:
+          AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}
+        run: mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$RUNNER_TEMP/aigw-artifact-signers" --github-env "$GITHUB_ENV"
+      - name: Load the dedicated release signing key
+        uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
+        with:
+          ssh-private-key: ${{ secrets.AIGW_RELEASE_SIGNING_PRIVATE_KEY }}
+          log-public-key: false
+      - name: Verify release signing capability
+        env:
+          AIGW_RELEASE_SIGNING_PUBLIC_KEY: ${{ vars.AIGW_RELEASE_SIGNING_PUBLIC_KEY }}
+        run: |-
+          test -n "$AIGW_RELEASE_ARTIFACT_SIGNER"
+          test -n "$AIGW_RELEASE_SIGNING_PUBLIC_KEY"
+          key="$RUNNER_TEMP/aigw-release-signing.pub"
+          printf '%s\n' "$AIGW_RELEASE_SIGNING_PUBLIC_KEY" > "$key"
+          ssh-add -T "$key"
+          printf 'AIGW_RELEASE_SIGNING_KEY=%s\n' "$key" >> "$GITHUB_ENV"
       - name: Build the complete release matrix
         env:
           CI_COMMIT_TAG: ${{ inputs.tag || github.ref_name }}

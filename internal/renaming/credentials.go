@@ -7,11 +7,10 @@ import (
 	"os"
 	"runtime"
 
-	"aigw-cli/internal/account"
 	"aigw-cli/internal/secrets"
 )
 
-func planCredentialCopies(deps Dependencies, plan Plan) (Plan, error) {
+func planCredentialCopies(deps Service, plan Plan) (Plan, error) {
 	sourceToken, sourceTokenPresent, err := readOptionalToken(deps.Secrets, plan.OldID)
 	if err != nil {
 		return Plan{}, fmt.Errorf("Read source API token credential slot: %w", err)
@@ -21,11 +20,12 @@ func planCredentialCopies(deps Dependencies, plan Plan) (Plan, error) {
 		return Plan{}, fmt.Errorf("Read target API token credential slot: %w", err)
 	}
 	switch {
-	case !sourceTokenPresent && !targetTokenPresent:
+	case !sourceTokenPresent:
+		if targetTokenPresent {
+			return Plan{}, errors.New("API token credential slot state is inconsistent: target exists while source is absent")
+		}
 		plan.Actions.APIToken = "absent"
-	case !sourceTokenPresent && targetTokenPresent:
-		return Plan{}, errors.New("API token credential slot state is inconsistent: target exists while source is absent")
-	case sourceTokenPresent && targetTokenPresent:
+	case targetTokenPresent:
 		if !secretValuesEqual(sourceToken, targetToken) {
 			return Plan{}, errors.New("API token credential slots differ")
 		}
@@ -51,11 +51,12 @@ func planCredentialCopies(deps Dependencies, plan Plan) (Plan, error) {
 		return Plan{}, fmt.Errorf("Read target account probe credential slot: %w", err)
 	}
 	switch {
-	case !sourceProbePresent && !targetProbePresent:
+	case !sourceProbePresent:
+		if targetProbePresent {
+			return Plan{}, errors.New("account probe credential slot state is inconsistent: target exists while source is absent")
+		}
 		plan.Actions.AccountProbe = "absent"
-	case !sourceProbePresent && targetProbePresent:
-		return Plan{}, errors.New("account probe credential slot state is inconsistent: target exists while source is absent")
-	case sourceProbePresent && targetProbePresent:
+	case targetProbePresent:
 		if !probeCredentialsEqual(sourceProbe, targetProbe) {
 			return Plan{}, errors.New("account probe credential slots differ")
 		}
@@ -67,7 +68,7 @@ func planCredentialCopies(deps Dependencies, plan Plan) (Plan, error) {
 	return plan, nil
 }
 
-func applyCredentialCopies(deps Dependencies, plan Plan) error {
+func applyCredentialCopies(deps Service, plan Plan) error {
 	if plan.tokenCopy.copy {
 		if err := deps.Secrets.Set(plan.NewID, plan.tokenCopy.value); err != nil {
 			return fmt.Errorf("Copy API token credential slot: %w", err)
@@ -106,13 +107,13 @@ func readOptionalToken(store secrets.Store, id string) (string, bool, error) {
 	return value, true, nil
 }
 
-func readOptionalProbeCredential(store account.Store, id string) (account.Credential, bool, error) {
+func readOptionalProbeCredential(store secrets.DiagnosticCredentialStore, id string) (secrets.DiagnosticCredential, bool, error) {
 	value, err := store.Get(id)
-	if errors.Is(err, account.ErrNotFound) {
-		return account.Credential{}, false, nil
+	if errors.Is(err, secrets.ErrNotFound) {
+		return secrets.DiagnosticCredential{}, false, nil
 	}
 	if err != nil {
-		return account.Credential{}, false, err
+		return secrets.DiagnosticCredential{}, false, err
 	}
 	return value, true, nil
 }
@@ -128,6 +129,6 @@ func secretValuesEqual(left, right string) bool {
 	return subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
 }
 
-func probeCredentialsEqual(left, right account.Credential) bool {
+func probeCredentialsEqual(left, right secrets.DiagnosticCredential) bool {
 	return secretValuesEqual(left.SystemToken, right.SystemToken) && secretValuesEqual(left.UserID, right.UserID)
 }

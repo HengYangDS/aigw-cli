@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-07
+- Last amended: 2026-09-10
 
 ## Context
 
@@ -13,8 +14,9 @@ high cost for adding a provider.
 ## Decision
 
 An Account owns provider endpoints and one logical Token boundary. A Profile
-owns one explicit `account + client + model` choice. A Route selects a default
-or client-specific Profile before client execution. These entities are the
+owns one explicit `account + client + model` choice. Each client's Route selects
+one compatible Profile before execution; no global default spans clients.
+These entities are the
 configuration SSOT; model and provider names remain transparent values.
 
 Client adapters project this desired state but do not redefine it. Provider

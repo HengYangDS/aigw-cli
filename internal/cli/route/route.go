@@ -2,7 +2,6 @@
 package route
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/prompt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -19,20 +19,24 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "use <profile>",
 		Short: "Select a profile for its declared client",
-		Args:  cobra.MaximumNArgs(1),
+		Args: cobra.MatchAll(cobra.MaximumNArgs(1), func(_ *cobra.Command, args []string) error {
+			if len(args) == 0 && !runtime.Interactive {
+				return fmt.Errorf("Non-interactive use requires a profile; run `aigw use <profile>`")
+			}
+			return nil
+		}),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := cmd.Context().Err(); err != nil {
+				return err
+			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
 			}
-			before := cfg.Clone()
-			name := ""
+			var name string
 			if len(args) == 1 {
 				name = args[0]
 			} else {
-				if !runtime.Interactive {
-					return fmt.Errorf("Non-interactive use requires a profile; run `aigw use <profile>`")
-				}
 				name, err = chooseProfile(runtime, cfg, "Select the AI service to use: ")
 				if err != nil {
 					return err
@@ -45,10 +49,17 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			client := profile.Client
 			accountID := profile.Account
 			providerAccount := cfg.Accounts[accountID]
-			addedToken := false
-			available, err := runtime.Secrets.Exists(accountID)
+			var token string
+			clientRuntime, err := cfg.ResolveRuntime(client, name)
 			if err != nil {
-				return fmt.Errorf("Cannot inspect Account %q credential: %w", accountID, err)
+				return err
+			}
+			available := !clientRuntime.RequiresAccountToken()
+			if clientRuntime.RequiresAccountToken() {
+				available, err = runtime.Secrets.Exists(accountID)
+				if err != nil {
+					return fmt.Errorf("Cannot inspect Account %q credential: %w", accountID, err)
+				}
 			}
 			if !available {
 				instruction, writable := credential.TokenRecovery(runtime.Secrets, accountID)
@@ -58,43 +69,36 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 				if !runtime.Interactive {
 					return fmt.Errorf("Account %q is missing a token; %s", accountID, instruction)
 				}
-				token, err := runtime.Prompt.Secret("Paste " + providerAccount.Label + " token: ")
+				token, err = runtime.Prompt.Secret("Paste " + providerAccount.Label + " token: ")
 				if err != nil {
 					return err
 				}
 				providerAccount.ID = accountID
-				if err := credential.Validate(context.Background(), runtime.HTTP, providerAccount, token, client); err != nil {
+				if err := credential.Validate(cmd.Context(), runtime.HTTP, providerAccount, token, client); err != nil {
 					return fmt.Errorf("Token validation failed: %w", err)
 				}
-				if err := runtime.Secrets.Set(accountID, token); err != nil {
-					return err
-				}
-				addedToken = true
 			}
-			cfg.Routes[client] = name
 			synchronizer := invocation.Synchronizer(runtime)
-			cfg, _, err = synchronizer.DesiredClientConfiguration(cfg, client)
+			configurationChanged, err := synchronizer.SelectProfile(cmd.Context(), cfg, name, token)
 			if err != nil {
-				if addedToken {
-					_ = runtime.Secrets.Delete(accountID)
-				}
 				return err
 			}
-			if err := synchronizer.Commit(cmd.Context(), before, cfg, "route"); err != nil {
-				if addedToken {
-					_ = runtime.Secrets.Delete(accountID)
-				}
-				return err
+			title, detail := "Service already selected", "Selected client configuration synchronized; route unchanged"
+			switch {
+			case configurationChanged:
+				title, detail = "Service switched", "Client configuration synchronized"
+			case token != "":
+				title, detail = "Token stored", "Account token stored; selected client configuration synchronized"
 			}
-			r := renderer(runtime)
-			r.ProductTitle("Service switched")
+			r := invocation.Renderer(runtime)
+			r.ProductTitle(title)
 			r.Section("Current selection")
 			r.Row("Service", profile.Label)
 			if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
 				r.Row("Purpose", purpose)
 			}
 			r.Row("Client", invocation.Title(client))
-			r.Success("Client configuration synchronized")
+			r.Success(detail)
 			r.Next("aigw check")
 			return r.Err()
 		},
@@ -130,7 +134,7 @@ func runList(runtime invocation.Context) error {
 	if len(cfg.Profiles) == 0 {
 		return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "No client route is available to inspect.", "aigw setup", fmt.Errorf("not configured"))
 	}
-	r := renderer(runtime)
+	r := invocation.Renderer(runtime)
 	r.ProductTitle("Current routes")
 	r.Section("Clients")
 	nextCommand := ""
@@ -157,10 +161,6 @@ func runList(runtime invocation.Context) error {
 	}
 	r.Next(nextCommand)
 	return nil
-}
-
-func renderer(runtime invocation.Context) *presentation.Renderer {
-	return invocation.Renderer(runtime)
 }
 
 func chooseProfile(runtime invocation.Context, cfg configuration.Config, label string) (string, error) {

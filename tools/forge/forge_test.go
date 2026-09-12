@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,35 +10,46 @@ import (
 	"testing"
 )
 
-type forgeFixture struct {
-	repository     string
-	email          string
-	key            string
-	allowedSigners string
-}
-
-func TestProductObjectVerificationHasNoForgeIdentity(t *testing.T) {
+func TestForgeCommandsReportOutputFailureWithoutRevertingPublication(t *testing.T) {
 	fixture := newForgeFixture(t)
-
-	if err := run([]string{
-		"commits", "--repository", fixture.repository,
-		"--email", fixture.email,
-		"--allowed-signers", fixture.allowedSigners,
-	}); err != nil {
+	remote := newBareRepository(t)
+	gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+	commit := gitOutputForTest(t, fixture.repository, "rev-parse", "main")
+	tag := gitOutputForTest(t, fixture.repository, "rev-parse", "v1.2.3")
+	closed, err := os.CreateTemp(t.TempDir(), "closed-result")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := run([]string{
-		"tag", "--repository", fixture.repository,
-		"--tag", "v1.2.3",
-		"--allowed-signers", fixture.allowedSigners,
-	}); err != nil {
+	if err := closed.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := run([]string{
-		"tags", "--repository", fixture.repository,
-		"--allowed-signers", fixture.allowedSigners,
-	}); err != nil {
-		t.Fatal(err)
+	for _, scenario := range []struct {
+		name      string
+		arguments []string
+	}{
+		{"publish branches", []string{"project", "--remote", "peer", "--email", fixture.email, "--allowed-signers", fixture.allowedSigners}},
+		{"verify commits", []string{"commits", "--email", fixture.email, "--allowed-signers", fixture.allowedSigners}},
+		{"verify tag", []string{"tag", "--tag", "v1.2.3", "--allowed-signers", fixture.allowedSigners}},
+		{"verify tags", []string{"tags", "--allowed-signers", fixture.allowedSigners}},
+		{"verify refs", []string{"refs", "--remote", "peer", "--expect", "main=" + commit}},
+		{"publish tag", []string{"publish-tag", "--remote", "peer", "--tag", "v1.2.3", "--allowed-signers", fixture.allowedSigners}},
+		{"unchanged tag", []string{"publish-tag", "--remote", "peer", "--tag", "v1.2.3", "--allowed-signers", fixture.allowedSigners}},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			original := os.Stdout
+			t.Cleanup(func() { os.Stdout = original })
+			os.Stdout = closed
+			err := run(append(scenario.arguments, "--repository", fixture.repository))
+			os.Stdout = original
+			if !errors.Is(err, os.ErrClosed) {
+				t.Fatalf("result output failure = %v", err)
+			}
+		})
+	}
+	for ref, want := range map[string]string{"refs/heads/main": commit, "refs/heads/dev": commit, "refs/tags/v1.2.3": tag} {
+		if got := gitOutputForTest(t, remote, "rev-parse", ref); got != want {
+			t.Fatalf("report failure changed published %s: %s, want %s", ref, got, want)
+		}
 	}
 }
 
@@ -146,6 +158,31 @@ func TestProposalPublicationUsesOnlyItsMatchingRef(t *testing.T) {
 	}
 }
 
+func TestProposalPublicationVerifiesOnlyCommitsAfterTheAcceptedRemoteBase(t *testing.T) {
+	fixture := newForgeFixture(t)
+	remote := newBareRepository(t)
+	gitTest(t, fixture.repository, "commit", "--amend", "-q", "-m", "old history")
+	gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+	gitTest(t, fixture.repository, "push", "-q", "peer", "main:dev")
+	gitTest(t, fixture.repository, "switch", "-q", "-c", "proposal/range")
+	writeCommitWithSubjectForTest(t, fixture.repository, "current", "current\n", "fix: verify the proposal range")
+
+	arguments := []string{
+		"project", "--repository", fixture.repository,
+		"--source", "proposal/range", "--remote", "peer",
+		"--email", fixture.email,
+		"--allowed-signers", fixture.allowedSigners,
+	}
+	if err := run(arguments); err != nil {
+		t.Fatalf("valid proposal range: %v", err)
+	}
+
+	writeCommitWithSubjectForTest(t, fixture.repository, "invalid", "invalid\n", "update everything")
+	if err := run(arguments); err == nil || !strings.Contains(err.Error(), "subject") {
+		t.Fatalf("invalid proposal subject: %v", err)
+	}
+}
+
 func TestDivergentPublicationRequiresFreshExactLeases(t *testing.T) {
 	fixture := newForgeFixture(t)
 	remote := newBareRepository(t)
@@ -229,64 +266,8 @@ func TestQualifiedTagNamespaceIsRejected(t *testing.T) {
 	if err := run([]string{
 		"tags", "--repository", fixture.repository,
 		"--allowed-signers", fixture.allowedSigners,
-	}); err == nil || !strings.Contains(err.Error(), "unexpected release tag") {
+	}); err == nil || !strings.Contains(err.Error(), "release tag is malformed") {
 		t.Fatalf("qualified namespace: %v", err)
-	}
-}
-
-func TestCommitVerificationRejectsInvalidInputsAndHistory(t *testing.T) {
-	fixture := newForgeFixture(t)
-	for name, arguments := range map[string][]string{
-		"usage":      {"commits"},
-		"email":      {"commits", "--email", "invalid", "--allowed-signers", fixture.allowedSigners},
-		"trust":      {"commits", "--email", fixture.email, "--allowed-signers", "missing"},
-		"repository": {"commits", "--repository", t.TempDir(), "--email", fixture.email, "--allowed-signers", fixture.allowedSigners},
-		"revision":   {"commits", "--repository", fixture.repository, "--revision", "missing", "--email", fixture.email, "--allowed-signers", fixture.allowedSigners},
-	} {
-		t.Run(name, func(t *testing.T) {
-			if err := run(arguments); err == nil {
-				t.Fatal("invalid commit verification accepted")
-			}
-		})
-	}
-	if err := os.WriteFile(filepath.Join(fixture.repository, ".mailmap"), []byte("x\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := run([]string{"commits", "--repository", fixture.repository, "--email", fixture.email, "--allowed-signers", fixture.allowedSigners}); err == nil || !strings.Contains(err.Error(), ".mailmap") {
-		t.Fatalf("mailmap: %v", err)
-	}
-	if err := os.Remove(filepath.Join(fixture.repository, ".mailmap")); err != nil {
-		t.Fatal(err)
-	}
-	gitTest(t, fixture.repository, "config", "user.email", "wrong@example.invalid")
-	writeCommitForTest(t, fixture.repository, "drift", "drift\n")
-	if err := run([]string{"commits", "--repository", fixture.repository, "--email", fixture.email, "--allowed-signers", fixture.allowedSigners}); err == nil || !strings.Contains(err.Error(), "must use") {
-		t.Fatalf("identity drift: %v", err)
-	}
-}
-
-func TestTagVerificationRejectsInvalidShapesAndTrust(t *testing.T) {
-	fixture := newForgeFixture(t)
-	for name, arguments := range map[string][]string{
-		"usage":      {"tag"},
-		"malformed":  {"tag", "--repository", fixture.repository, "--tag", "latest", "--allowed-signers", fixture.allowedSigners},
-		"missing":    {"tag", "--repository", fixture.repository, "--tag", "v9.9.9", "--allowed-signers", fixture.allowedSigners},
-		"trust":      {"tag", "--repository", fixture.repository, "--tag", "v1.2.3", "--allowed-signers", "missing"},
-		"tags usage": {"tags"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			if err := run(arguments); err == nil {
-				t.Fatal("invalid tag verification accepted")
-			}
-		})
-	}
-	gitTest(t, fixture.repository, "-c", "tag.gpgsign=false", "tag", "v1.2.4")
-	if err := run([]string{"tag", "--repository", fixture.repository, "--tag", "v1.2.4", "--allowed-signers", fixture.allowedSigners}); err == nil || !strings.Contains(err.Error(), "annotated") {
-		t.Fatalf("lightweight tag: %v", err)
-	}
-	rogue := newSigningIdentity(t, "rogue@example.invalid")
-	if err := run([]string{"tag", "--repository", fixture.repository, "--tag", "v1.2.3", "--allowed-signers", rogue.allowedSigners}); err == nil || !strings.Contains(err.Error(), "trusted signature") {
-		t.Fatalf("untrusted tag: %v", err)
 	}
 }
 
@@ -389,27 +370,6 @@ func TestEmptyInvocationAndSuccessfulExecute(t *testing.T) {
 	}
 }
 
-func TestCommitVerificationRejectsUntrustedSignature(t *testing.T) {
-	fixture := newForgeFixture(t)
-	rogue := newSigningIdentity(t, fixture.email)
-	if err := run([]string{"commits", "--repository", fixture.repository, "--email", fixture.email, "--allowed-signers", rogue.allowedSigners}); err == nil || !strings.Contains(err.Error(), "trusted signature") {
-		t.Fatalf("untrusted commit: %v", err)
-	}
-}
-
-func TestEmptyTagSetAndUntrustedTagSet(t *testing.T) {
-	fixture := newForgeFixture(t)
-	gitTest(t, fixture.repository, "tag", "-d", "v1.2.3")
-	if err := run([]string{"tags", "--repository", fixture.repository, "--allowed-signers", fixture.allowedSigners}); err != nil {
-		t.Fatalf("empty tag set: %v", err)
-	}
-	gitTest(t, fixture.repository, "tag", "-s", "-a", "v1.2.3", "-m", "release")
-	rogue := newSigningIdentity(t, fixture.email)
-	if err := run([]string{"tags", "--repository", fixture.repository, "--allowed-signers", rogue.allowedSigners}); err == nil || !strings.Contains(err.Error(), "trusted signature") {
-		t.Fatalf("untrusted tag set: %v", err)
-	}
-}
-
 func TestProjectionRejectsDirtyStatusFailureAndPushFailure(t *testing.T) {
 	fixture := newForgeFixture(t)
 	remote := newBareRepository(t)
@@ -449,8 +409,49 @@ func TestRemoteObservationAndAncestryFailureBoundaries(t *testing.T) {
 		t.Fatal("missing remote observation accepted")
 	}
 	gitTest(t, fixture.repository, "remote", "add", "broken", filepath.Join(t.TempDir(), "absent.git"))
-	if isAncestor(fixture.repository, "broken", "main", strings.Repeat("0", 40), gitOutputForTest(t, fixture.repository, "rev-parse", "main")) {
-		t.Fatal("failed fetch reported ancestry")
+	if ancestor, err := isAncestor(fixture.repository, "broken", strings.Repeat("0", 40), gitOutputForTest(t, fixture.repository, "rev-parse", "main")); ancestor || err == nil {
+		t.Fatalf("failed fetch was reported as an ancestry result: %t, %v", ancestor, err)
+	}
+	if ancestor, err := isAncestor(fixture.repository, "peer", gitOutputForTest(t, fixture.repository, "rev-parse", "main"), strings.Repeat("0", 40)); ancestor || err == nil {
+		t.Fatalf("invalid comparison was reported as divergence: %t, %v", ancestor, err)
+	}
+}
+
+func TestAncestryObservationPreservesLocalReferences(t *testing.T) {
+	fixture := newForgeFixture(t)
+	remote := newBareRepository(t)
+	gitTest(t, fixture.repository, "remote", "add", "peer", remote)
+	gitTest(t, fixture.repository, "push", "-q", "peer", "main:main")
+	ancestor := gitOutputForTest(t, fixture.repository, "rev-parse", "main")
+	writeCommitForTest(t, fixture.repository, "successor", "successor\n")
+	descendant := gitOutputForTest(t, fixture.repository, "rev-parse", "main")
+	gitTest(t, fixture.repository, "update-ref", "refs/aigw/forge-observation/main", descendant)
+	before := gitOutputForTest(t, fixture.repository, "for-each-ref", "--format=%(refname) %(objectname)")
+	fetchHead := filepath.Join(fixture.repository, ".git", "FETCH_HEAD")
+	if err := os.WriteFile(fetchHead, []byte("operator fetch observation\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if related, err := isAncestor(fixture.repository, "peer", ancestor, descendant); !related || err != nil {
+		t.Fatalf("valid ancestry was not established: %t, %v", related, err)
+	}
+	if after := gitOutputForTest(t, fixture.repository, "for-each-ref", "--format=%(refname) %(objectname)"); after != before {
+		t.Fatalf("ancestry observation changed local refs:\nbefore: %s\nafter: %s", before, after)
+	}
+	if content, err := os.ReadFile(fetchHead); err != nil || string(content) != "operator fetch observation\n" {
+		t.Fatalf("ancestry observation replaced FETCH_HEAD: %q, %v", content, err)
+	}
+	other := newForgeFixture(t)
+	gitTest(t, other.repository, "remote", "add", "peer", remote)
+	gitTest(t, other.repository, "push", "-q", "peer", "main:other")
+	foreign := gitOutputForTest(t, other.repository, "rev-parse", "main")
+	if related, err := isAncestor(fixture.repository, "peer", foreign, descendant); related || err != nil {
+		t.Fatalf("fetched peer divergence was not established: %t, %v", related, err)
+	}
+	if after := gitOutputForTest(t, fixture.repository, "for-each-ref", "--format=%(refname) %(objectname)"); after != before {
+		t.Fatalf("object fetch changed local refs:\nbefore: %s\nafter: %s", before, after)
+	}
+	if content, err := os.ReadFile(fetchHead); err != nil || string(content) != "operator fetch observation\n" {
+		t.Fatalf("object fetch replaced FETCH_HEAD: %q, %v", content, err)
 	}
 }
 
@@ -513,124 +514,5 @@ func TestPublicationRejectsPeerHookMutation(t *testing.T) {
 	}
 	if err := run([]string{"publish-tag", "--repository", fixture.repository, "--remote", "peer", "--tag", "v1.2.3", "--allowed-signers", fixture.allowedSigners}); err == nil {
 		t.Fatal("rejected tag push reported success")
-	}
-}
-
-func newForgeFixture(t *testing.T) forgeFixture {
-	t.Helper()
-	repository := t.TempDir()
-	email := "forge@example.invalid"
-	key := filepath.Join(t.TempDir(), "signing-key")
-	runCommand(t, "ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key)
-	public, err := os.ReadFile(key + ".pub")
-	if err != nil {
-		t.Fatal(err)
-	}
-	fields := strings.Fields(string(public))
-	allowed := filepath.Join(t.TempDir(), "allowed-signers")
-	if err := os.WriteFile(allowed, []byte(email+" namespaces=\"git\" "+fields[0]+" "+fields[1]+"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	gitTest(t, repository, "init", "-q", "-b", "main")
-	gitTest(t, repository, "config", "user.name", "Forge Fixture")
-	gitTest(t, repository, "config", "user.email", email)
-	gitTest(t, repository, "config", "gpg.format", "ssh")
-	gitTest(t, repository, "config", "gpg.ssh.program", "ssh-keygen")
-	gitTest(t, repository, "config", "commit.gpgsign", "true")
-	gitTest(t, repository, "config", "tag.gpgsign", "true")
-	gitTest(t, repository, "config", "user.signingkey", key)
-	gitTest(t, repository, "config", "core.hooksPath", filepath.Join(repository, ".disabled-hooks"))
-	if err := os.WriteFile(filepath.Join(repository, "file"), []byte("value\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	gitTest(t, repository, "add", "file")
-	gitTest(t, repository, "commit", "-q", "-m", "feat: initial product object")
-	gitTest(t, repository, "tag", "-s", "-a", "v1.2.3", "-m", "release v1.2.3")
-	return forgeFixture{repository: repository, email: email, key: key, allowedSigners: allowed}
-}
-
-func newSigningIdentity(t *testing.T, email string) forgeFixture {
-	t.Helper()
-	key := filepath.Join(t.TempDir(), "signing-key")
-	runCommand(t, "ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key)
-	public, err := os.ReadFile(key + ".pub")
-	if err != nil {
-		t.Fatal(err)
-	}
-	fields := strings.Fields(string(public))
-	allowed := filepath.Join(t.TempDir(), "allowed-signers")
-	if err := os.WriteFile(allowed, []byte(email+" namespaces=\"git\" "+fields[0]+" "+fields[1]+"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	return forgeFixture{email: email, key: key, allowedSigners: allowed}
-}
-
-func writeCommitForTest(t *testing.T, repository, name, content string) {
-	t.Helper()
-	if err := os.WriteFile(filepath.Join(repository, name), []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	gitTest(t, repository, "add", name)
-	gitTest(t, repository, "commit", "-q", "-m", "test: advance product object")
-}
-
-func newBareRepository(t *testing.T) string {
-	t.Helper()
-	repository := filepath.Join(t.TempDir(), "peer.git")
-	runCommand(t, "git", "init", "-q", "--bare", repository)
-	gitTest(t, repository, "config", "core.hooksPath", filepath.Join(repository, "hooks"))
-	return repository
-}
-
-func setHostileGitHooks(t *testing.T) {
-	t.Helper()
-	config := filepath.Join(t.TempDir(), "config")
-	command := exec.Command("git", "config", "--file", config, "core.hooksPath", filepath.Join(t.TempDir(), "host-hooks"))
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("hostile git config: %v: %s", err, output)
-	}
-	t.Setenv("GIT_CONFIG_GLOBAL", config)
-	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
-}
-
-func seedRemoteBranches(t *testing.T, remote string) {
-	t.Helper()
-	repository := t.TempDir()
-	gitTest(t, repository, "init", "-q", "-b", "main")
-	gitTest(t, repository, "config", "user.name", "Previous Publisher")
-	gitTest(t, repository, "config", "user.email", "previous@example.invalid")
-	gitTest(t, repository, "config", "commit.gpgsign", "false")
-	gitTest(t, repository, "config", "core.hooksPath", filepath.Join(repository, ".disabled-hooks"))
-	if err := os.WriteFile(filepath.Join(repository, "old"), []byte("old\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	gitTest(t, repository, "add", "old")
-	gitTest(t, repository, "commit", "-q", "-m", "old history")
-	gitTest(t, repository, "branch", "dev", "main")
-	gitTest(t, repository, "remote", "add", "peer", remote)
-	gitTest(t, repository, "push", "-q", "peer", "main", "dev")
-}
-
-func gitTest(t *testing.T, repository string, arguments ...string) {
-	t.Helper()
-	arguments = append([]string{"-C", repository}, arguments...)
-	runCommand(t, "git", arguments...)
-}
-
-func gitOutputForTest(t *testing.T, repository string, arguments ...string) string {
-	t.Helper()
-	command := exec.Command("git", append([]string{"-C", repository}, arguments...)...)
-	output, err := command.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %s: %v: %s", strings.Join(arguments, " "), err, output)
-	}
-	return strings.TrimSpace(string(output))
-}
-
-func runCommand(t *testing.T, name string, arguments ...string) {
-	t.Helper()
-	command := exec.Command(name, arguments...)
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("%s %s: %v: %s", name, strings.Join(arguments, " "), err, output)
 	}
 }

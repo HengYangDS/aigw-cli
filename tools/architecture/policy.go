@@ -3,8 +3,9 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"os"
-	"path"
+	"slices"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -15,23 +16,32 @@ const defaultPolicyPath = ".config/checks/architecture/policy.toml"
 // policy is the declarative SSOT loaded from TOML. Checker behavior must
 // follow these fields rather than hardcoded repository layout constants.
 type policy struct {
-	Owner                string              `toml:"owner"`
-	Source               string              `toml:"source"`
-	RiskModel            string              `toml:"risk_model"`
-	Measurement          string              `toml:"measurement"`
-	FalsePositiveCost    string              `toml:"false_positive_cost"`
-	Remediation          string              `toml:"remediation"`
-	ReviewCondition      string              `toml:"review_condition"`
-	GoRoots              []string            `toml:"go_roots"`
-	PackageChildren      map[string][]string `toml:"package_children"`
-	CompositionRootFiles map[string][]string `toml:"composition_root_files"`
-	PeerPackageRoots     map[string][]string `toml:"peer_package_roots"`
-	AllowedImportEdges   map[string][]string `toml:"allowed_import_edges"`
-	IgnoreRoots          []string            `toml:"ignore_roots"`
-	IgnoreDirectoryNames []string            `toml:"ignore_directory_names"`
-	CheckDecisionRecords bool                `toml:"check_decision_records"`
-	CheckSemanticNames   bool                `toml:"check_semantic_names"`
-	RequireImportOwners  bool                `toml:"require_import_owners"`
+	Owner                 string                  `toml:"owner"`
+	Source                string                  `toml:"source"`
+	RiskModel             string                  `toml:"risk_model"`
+	Measurement           string                  `toml:"measurement"`
+	FalsePositiveCost     string                  `toml:"false_positive_cost"`
+	Remediation           string                  `toml:"remediation"`
+	ReviewCondition       string                  `toml:"review_condition"`
+	GoRoots               []string                `toml:"go_roots"`
+	TrackedCarrierClasses map[string]carrierClass `toml:"tracked_carrier_classes"`
+	PackageChildren       map[string][]string     `toml:"package_children"`
+	CompositionRootFiles  map[string][]string     `toml:"composition_root_files"`
+	PeerPackageRoots      map[string][]string     `toml:"peer_package_roots"`
+	AllowedImportEdges    map[string][]string     `toml:"allowed_import_edges"`
+	IgnoreRoots           []string                `toml:"ignore_roots"`
+	IgnoreDirectoryNames  []string                `toml:"ignore_directory_names"`
+	CheckDecisionRecords  bool                    `toml:"check_decision_records"`
+	CheckSemanticNames    bool                    `toml:"check_semantic_names"`
+	RequireImportOwners   bool                    `toml:"require_import_owners"`
+}
+
+type carrierClass struct {
+	Responsibility  string   `toml:"responsibility"`
+	ExactPaths      []string `toml:"exact_paths"`
+	Prefixes        []string `toml:"prefixes"`
+	ExcludePrefixes []string `toml:"exclude_prefixes"`
+	Suffixes        []string `toml:"suffixes"`
 }
 
 func loadPolicy(path string) (policy, error) {
@@ -64,6 +74,38 @@ func validatePolicy(p policy) error {
 	if err := validatePackagePolicy(p); err != nil {
 		return err
 	}
+	if err := validateTrackedCarrierClasses(p.TrackedCarrierClasses); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateTrackedCarrierClasses(classes map[string]carrierClass) error {
+	if len(classes) == 0 {
+		return fmt.Errorf("tracked_carrier_classes must be non-empty")
+	}
+	for name, class := range classes {
+		if strings.TrimSpace(name) == "" || strings.TrimSpace(class.Responsibility) == "" {
+			return fmt.Errorf("tracked_carrier_classes names and responsibilities must be non-empty")
+		}
+		if len(class.ExactPaths) == 0 && len(class.Prefixes) == 0 && len(class.Suffixes) == 0 {
+			return fmt.Errorf("tracked_carrier_classes must declare at least one selector")
+		}
+		paths := make([]string, 0, len(class.ExactPaths)+len(class.Prefixes)+len(class.ExcludePrefixes))
+		paths = append(paths, class.ExactPaths...)
+		paths = append(paths, class.Prefixes...)
+		paths = append(paths, class.ExcludePrefixes...)
+		for _, relative := range paths {
+			if !isPortableRelativePath(relative) {
+				return fmt.Errorf("tracked_carrier_classes paths must be portable relative paths")
+			}
+		}
+		for _, suffix := range class.Suffixes {
+			if !strings.HasPrefix(suffix, ".") || strings.ContainsAny(suffix, `/\\`) {
+				return fmt.Errorf("tracked_carrier_classes suffixes must be file extensions")
+			}
+		}
+	}
 	return nil
 }
 
@@ -76,68 +118,38 @@ func validatePackagePolicy(p policy) error {
 			return fmt.Errorf("go_roots entries must be non-empty relative paths")
 		}
 	}
-	for root, children := range p.PackageChildren {
-		if err := validateRelativeRoot(root, "package_children"); err != nil {
-			return err
-		}
-		if len(children) == 0 {
-			return fmt.Errorf("package_children values must be non-empty")
-		}
-		seen := map[string]bool{}
-		for _, child := range children {
-			if strings.TrimSpace(child) == "" || path.Base(child) != child || strings.ContainsAny(child, `/\\`) || seen[child] {
-				return fmt.Errorf("package_children values must be unique child package names")
+	for _, membership := range []struct {
+		field   string
+		roots   map[string][]string
+		minimum int
+		accepts func(string) bool
+	}{
+		{"package_children", p.PackageChildren, 1, isPortableBaseName},
+		{"peer_package_roots", p.PeerPackageRoots, 0, isPortableBaseName},
+		{"composition_root_files", p.CompositionRootFiles, 1, func(name string) bool {
+			return isPortableBaseName(name) && strings.HasSuffix(name, ".go")
+		}},
+		{"allowed_import_edges", p.AllowedImportEdges, 0, isPortableRelativePath},
+	} {
+		for _, root := range slices.Sorted(maps.Keys(membership.roots)) {
+			members := membership.roots[root]
+			if !isPortableRelativePath(root) || len(members) < membership.minimum {
+				return fmt.Errorf("%s requires relative roots and at least %d members", membership.field, membership.minimum)
 			}
-			seen[child] = true
-		}
-	}
-	for root, files := range p.CompositionRootFiles {
-		if !isPortableRelativePath(root) || len(files) == 0 {
-			return fmt.Errorf("composition_root_files keys must be relative paths with non-empty file lists")
-		}
-		seen := map[string]bool{}
-		for _, file := range files {
-			if strings.TrimSpace(file) == "" || path.Base(file) != file || !strings.HasSuffix(file, ".go") || seen[file] {
-				return fmt.Errorf("composition_root_files values must be unique .go base names")
+			seen := make(map[string]bool, len(members))
+			for _, member := range members {
+				if !membership.accepts(member) || seen[member] {
+					return fmt.Errorf("%s has invalid or duplicate member %q in %q", membership.field, member, root)
+				}
+				seen[member] = true
 			}
-			seen[file] = true
-		}
-	}
-	for root, allowed := range p.PeerPackageRoots {
-		if err := validateRelativeRoot(root, "peer_package_roots"); err != nil {
-			return err
-		}
-		seen := map[string]bool{}
-		for _, name := range allowed {
-			if strings.TrimSpace(name) == "" || path.Base(name) != name || strings.ContainsAny(name, `/\\`) || seen[name] {
-				return fmt.Errorf("peer_package_roots values must be unique child package names")
-			}
-			seen[name] = true
-		}
-	}
-	for source, targets := range p.AllowedImportEdges {
-		if err := validateRelativeRoot(source, "allowed_import_edges"); err != nil {
-			return err
-		}
-		seen := map[string]bool{}
-		for _, target := range targets {
-			if err := validateRelativeRoot(target, "allowed_import_edges"); err != nil {
-				return err
-			}
-			if seen[target] {
-				return fmt.Errorf("allowed_import_edges values must be unique package paths")
-			}
-			seen[target] = true
 		}
 	}
 	return nil
 }
 
-func validateRelativeRoot(root, field string) error {
-	if !isPortableRelativePath(root) {
-		return fmt.Errorf("%s keys must be non-empty relative paths", field)
-	}
-	return nil
+func isPortableBaseName(value string) bool {
+	return isPortableRelativePath(value) && !strings.Contains(value, "/")
 }
 
 func isPortableRelativePath(value string) bool {
@@ -147,7 +159,7 @@ func isPortableRelativePath(value string) bool {
 	if len(value) >= 2 && ((value[0] >= 'a' && value[0] <= 'z') || (value[0] >= 'A' && value[0] <= 'Z')) && value[1] == ':' {
 		return false
 	}
-	for _, element := range strings.Split(value, "/") {
+	for element := range strings.SplitSeq(value, "/") {
 		if element == "" || element == "." || element == ".." {
 			return false
 		}

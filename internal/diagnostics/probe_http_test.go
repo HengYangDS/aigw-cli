@@ -13,6 +13,27 @@ import (
 	"aigw-cli/internal/diagnostics"
 )
 
+func TestDiagnosticProbeKeepsCredentialsAtTheirSelectedOrigin(t *testing.T) {
+	for _, client := range []string{configuration.ClientCodex, configuration.ClientClaude} {
+		t.Run(client, func(t *testing.T) {
+			var followed atomic.Int32
+			target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+				followed.Add(1)
+				writer.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(target.Close)
+			origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				http.Redirect(writer, request, target.URL, http.StatusFound)
+			}))
+			t.Cleanup(origin.Close)
+			result := diagnostics.Probe(t.Context(), origin.Client(), configuration.Runtime{Client: client, Endpoint: origin.URL}, "synthetic-token")
+			if followed.Load() != 0 || result.HTTPStatus != http.StatusFound || result.Kind == diagnostics.Healthy {
+				t.Fatalf("diagnostic followed=%d result=%#v; want selected-origin redirect rejection", followed.Load(), result)
+			}
+		})
+	}
+}
+
 func TestProbeStableUsesRealHTTPRecoveryBoundary(t *testing.T) {
 	t.Run("immediate success", func(t *testing.T) {
 		const secret = "immediate-secret"
@@ -134,7 +155,7 @@ func TestProbeClassifiesRealHTTPResponses(t *testing.T) {
 		{name: "rate limited", status: http.StatusTooManyRequests, body: "rate limited", kind: diagnostics.RateLimited},
 		{name: "endpoint mismatch", status: http.StatusNotFound, body: "not found", kind: diagnostics.EndpointMismatch},
 		{name: "model unavailable", status: http.StatusServiceUnavailable, body: "model unavailable", kind: diagnostics.ModelUnavailable},
-		{name: "gateway failure", status: http.StatusInternalServerError, body: "gateway failed", kind: diagnostics.GatewayFailure},
+		{name: "upstream failure", status: http.StatusInternalServerError, body: "upstream failed", kind: diagnostics.UpstreamFailure},
 		{name: "unexpected", status: http.StatusTeapot, body: "teapot", kind: diagnostics.Unexpected},
 	}
 	for _, tt := range tests {
@@ -187,7 +208,7 @@ func TestProbeReportsTruncatedHTTPResponse(t *testing.T) {
 	defer server.Close()
 
 	result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Endpoint: server.URL}, secret)
-	if result.Kind != diagnostics.NetworkFailure || result.HTTPStatus != http.StatusOK || !result.Retryable || !strings.Contains(result.Detail, "unexpected EOF") {
+	if result.Kind != diagnostics.NetworkFailure || result.HTTPStatus != http.StatusOK || !result.Retryable || result.Summary != "Cannot read the service endpoint response" || !strings.Contains(result.Detail, "unexpected EOF") {
 		t.Fatalf("Probe() = %#v", result)
 	}
 	if strings.Contains(result.Detail, secret) {

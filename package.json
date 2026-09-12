@@ -1,9 +1,24 @@
 {
   "name": "aigw-repository-tools",
   "private": true,
+  "scripts": {
+    "dependencies:audit": "npm audit signatures",
+    "format:check": "go run ./tools/ci check-format .",
+    "markdown:check": "go run ./tools/ci check-markdown .",
+    "spec:check": "node node_modules/@fission-ai/openspec/bin/openspec.js validate --all --strict --report findings --json --no-interactive"
+  },
   "devDependencies": {
-    "@fission-ai/openspec": "1.11.0",
+    "@fission-ai/openspec": "1.13.0",
+    "@mermaid-lint/core": "0.53.1",
     "markdownlint-cli2": "0.23.2",
     "prettier": "3.9.6"
+  },
+  "overrides": {
+    "@mermaid-lint/core": {
+      "jsdom": "29.1.1"
+    },
+    "markdownlint-cli2": {
+      "smol-toml": "1.8.0"
+    }
   }
 }

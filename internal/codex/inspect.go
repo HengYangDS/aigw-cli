@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 // Inspection is a secret-free classification of the local ownership
@@ -65,12 +67,16 @@ func InspectConfig(path string) (Inspection, error) {
 		inspection.State = "stale-sidecar"
 		return inspection, nil
 	}
+	inspection.AIGWManaged = true
 	inspection.SidecarHashMatches = managedBlockHashMatches(state.ManagedBlockHash, block)
 	if !inspection.SidecarHashMatches {
 		inspection.State = "aigw-drift"
 		return inspection, nil
 	}
-	inspection.AIGWManaged = true
+	if err := validateCodexSchedulerOwnership(state, text); err != nil {
+		inspection.State = "aigw-drift"
+		return inspection, nil
+	}
 	if inspection.DiskSelection != "aigw-managed" {
 		inspection.State = "aigw-drift"
 	} else {
@@ -84,17 +90,23 @@ func classifyCodexDiskSelection(text string) string {
 }
 
 func classifyCodexDiskSelectionForProvider(text, provider string) string {
-	line := modelProviderLine.FindString(text)
+	line, err := codexSelectionLine(text, "model_provider")
+	if err != nil {
+		return "invalid"
+	}
 	if line == "" {
 		return "unset"
 	}
 	if isManagedSelection(line, "model_provider", provider) {
 		return "aigw-managed"
 	}
-	_, value, _ := strings.Cut(line, "=")
-	value, _, _ = strings.Cut(value, "#")
-	value = strings.Trim(strings.TrimSpace(value), "\"")
-	if value == "aigw" || value == "aigw_fallback" {
+	var selection struct {
+		Provider string `toml:"model_provider"`
+	}
+	if err := toml.Unmarshal([]byte(line), &selection); err != nil {
+		return "invalid"
+	}
+	if selection.Provider == "aigw" || selection.Provider == "aigw_fallback" {
 		return "aigw-user-selected"
 	}
 	return "external-or-host-owned"

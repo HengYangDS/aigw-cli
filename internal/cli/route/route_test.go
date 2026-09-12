@@ -2,10 +2,13 @@ package route
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -16,9 +19,14 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-type staticDiscovery struct{}
+type staticDiscovery struct{ onDiscover func() }
 
-func (staticDiscovery) Discover() discovery.Result { return discovery.Result{} }
+func (source staticDiscovery) Discover() discovery.Result {
+	if source.onDiscover != nil {
+		source.onDiscover()
+	}
+	return discovery.Result{}
+}
 
 func secretExists(t testing.TB, store secrets.Store, account string) bool {
 	t.Helper()
@@ -236,22 +244,22 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 	}
 }
 
-func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
-	newRuntime := func(t *testing.T) (invocation.Context, configuration.Config, *secrets.MemoryStore) {
-		t.Helper()
-		runtime, cfg, _ := configuredRuntime(t)
-		store := secrets.NewMemoryStore()
-		runtime.Secrets = store
-		runtime.Interactive = true
-		runtime.HTTP = doerFunc(func(*http.Request) (*http.Response, error) {
-			return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
-		})
-		runtime.Prompt = &promptStub{secret: "new-token"}
-		return runtime, cfg, store
-	}
+func tokenAcquisitionRuntime(t *testing.T) (invocation.Context, configuration.Config, secrets.Store, *bytes.Buffer) {
+	t.Helper()
+	run, cfg, out := configuredRuntime(t)
+	store := secrets.NewMemoryStore()
+	run.Secrets = store
+	run.Interactive = true
+	run.HTTP = doerFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+	})
+	run.Prompt = &promptStub{secret: "new-token"}
+	return run, cfg, store, out
+}
 
+func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		runtime, _, store := newRuntime(t)
+		runtime, _, store, buffer := tokenAcquisitionRuntime(t)
 		command := NewUseCommand(runtime)
 		command.SetArgs([]string{"codex"})
 		if err := command.Execute(); err != nil {
@@ -259,6 +267,12 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 		}
 		if token, err := store.Get("gateway"); err != nil || token != "new-token" {
 			t.Fatalf("token = %q, %v", token, err)
+		}
+		out := buffer.String()
+		for _, want := range []string{"Token stored", "Account token stored; selected client configuration synchronized"} {
+			if !strings.Contains(out, want) {
+				t.Fatalf("credential acquisition output lacks %q: %q", want, out)
+			}
 		}
 	})
 
@@ -281,6 +295,10 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			})
 			return value
 		}, want: "Token validation failed"},
+		{name: "client convergence", prepare: func(value invocation.Context, _ configuration.Config) invocation.Context {
+			value.Discovery = nil
+			return value
+		}, want: "client discovery is unavailable"},
 		{name: "commit", prepare: func(value invocation.Context, cfg configuration.Config) invocation.Context {
 			cfg.Profiles["next"] = configuration.Profile{Label: "Next", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-next"}
 			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "missing-configuration.toml")}}
@@ -288,10 +306,10 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 				t.Fatal(err)
 			}
 			return value
-		}, want: "synchronization failed"},
+		}, want: "synchronization preflight failed"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			runtime, cfg, store := newRuntime(t)
+			runtime, cfg, store, _ := tokenAcquisitionRuntime(t)
 			runtime = test.prepare(runtime, cfg)
 			command := NewUseCommand(runtime)
 			command.SilenceErrors = true
@@ -305,8 +323,8 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
-			if test.name == "commit" && secretExists(t, store, "gateway") {
-				t.Fatal("failed commit retained newly acquired token")
+			if secretExists(t, store, "gateway") {
+				t.Fatalf("failed %s retained newly acquired token", test.name)
 			}
 		})
 	}
@@ -329,9 +347,141 @@ func TestUseNamesMissingEnvironmentTokenWithoutPrompting(t *testing.T) {
 	}
 }
 
+func TestUseRespectsCommandCancellation(t *testing.T) {
+	for _, phase := range []string{"before validation", "during validation", "after validation", "client convergence"} {
+		t.Run(phase, func(t *testing.T) {
+			run, _, store, _ := tokenAcquisitionRuntime(t)
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			if phase == "before validation" {
+				cancel()
+			}
+			run.HTTP = doerFunc(func(request *http.Request) (*http.Response, error) {
+				if phase == "during validation" {
+					cancel()
+					if err := request.Context().Err(); err != nil {
+						return nil, err
+					}
+				}
+				if phase == "after validation" {
+					cancel()
+				}
+				return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+			})
+			if phase == "client convergence" {
+				run.Discovery = staticDiscovery{onDiscover: cancel}
+			}
+			command := NewUseCommand(run)
+			command.SilenceErrors = true
+			command.SilenceUsage = true
+			command.SetArgs([]string{"codex"})
+			if err := command.ExecuteContext(ctx); !errors.Is(err, context.Canceled) {
+				t.Fatalf("cancellation error = %v", err)
+			}
+			if secretExists(t, store, "gateway") {
+				t.Fatal("cancelled selection retained its acquired token")
+			}
+		})
+	}
+}
+
+func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
+	deletionError := errors.New("credential store refused deletion")
+	for _, test := range []struct {
+		name      string
+		newer     string
+		deleteErr error
+		want      string
+		retained  string
+	}{
+		{name: "deletion failure", deleteErr: deletionError, want: deletionError.Error(), retained: "new-token"},
+		{name: "newer credential", newer: "newer-token", want: "credential postimage changed", retained: "newer-token"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			run, cfg, store, _ := tokenAcquisitionRuntime(t)
+			run.Secrets = failingSecretStore{Store: store, deleteErr: test.deleteErr}
+			run.Discovery = staticDiscovery{onDiscover: func() {
+				if test.newer != "" {
+					if err := store.Set("gateway", test.newer); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}}
+			cfg.Profiles["next"] = configuration.Profile{Label: "Next", Account: "gateway", Client: configuration.ClientCodex, Model: "gpt-next"}
+			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Targets: []string{filepath.Join(t.TempDir(), "missing.toml")}}
+			if err := run.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			command := NewUseCommand(run)
+			command.SilenceErrors = true
+			command.SilenceUsage = true
+			command.SetArgs([]string{"next"})
+			err := command.ExecuteContext(t.Context())
+			for _, want := range []string{"synchronization preflight failed", "credential rollback also failed", test.want} {
+				if err == nil || !strings.Contains(err.Error(), want) {
+					t.Fatalf("selection error = %v, want %q", err, want)
+				}
+			}
+			if test.deleteErr != nil && !errors.Is(err, test.deleteErr) {
+				t.Fatalf("selection error lost credential store error: %v", err)
+			}
+			if token, err := store.Get("gateway"); err != nil || token != test.retained {
+				t.Fatalf("credential after failed compensation = %q, %v", token, err)
+			}
+			current, err := run.Config.Load()
+			if err != nil || current.Routes[configuration.ClientCodex] != "codex" {
+				t.Fatalf("failed selection changed route: %#v, %v", current.Routes, err)
+			}
+		})
+	}
+}
+
+func TestUseRollsBackAutomaticBackendSelection(t *testing.T) {
+	run, _, _, _ := tokenAcquisitionRuntime(t)
+	root := filepath.Join(t.TempDir(), "secrets")
+	store, err := secrets.Select(secrets.Selection{
+		GOOS: runtime.GOOS, Root: root,
+		KeyringProbe: func(secrets.Store) error { return errors.New("isolated file backend") },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run.Secrets = store
+	run.Discovery = nil
+	command := NewUseCommand(run)
+	command.SilenceErrors = true
+	command.SilenceUsage = true
+	command.SetArgs([]string{"codex"})
+	if err := command.ExecuteContext(t.Context()); err == nil || !strings.Contains(err.Error(), "client discovery is unavailable") {
+		t.Fatalf("selection error = %v", err)
+	}
+	if secretExists(t, store, "gateway") {
+		t.Fatal("failed selection retained its acquired token")
+	}
+	if _, err := os.Stat(filepath.Join(root, "backend")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("failed selection retained automatic backend choice: %v", err)
+	}
+}
+
+func TestUseKeepsCommittedTokenWhenRenderingFails(t *testing.T) {
+	run, _, store, _ := tokenAcquisitionRuntime(t)
+	outputError := errors.New("output closed")
+	run.RenderOut = failingWriter{err: outputError}
+	command := NewUseCommand(run)
+	command.SilenceErrors = true
+	command.SilenceUsage = true
+	command.SetArgs([]string{"codex"})
+	if err := command.ExecuteContext(t.Context()); !errors.Is(err, outputError) {
+		t.Fatalf("output error = %v", err)
+	}
+	if token, err := store.Get("gateway"); err != nil || token != "new-token" {
+		t.Fatalf("committed token after output failure = %q, %v", token, err)
+	}
+}
+
 func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 	runtime, _, _ := configuredRuntime(t)
-	runtime.Secrets = failingSecretStore{setErr: errors.New("store failed")}
+	runtime.Secrets = failingSecretStore{Store: secrets.NewMemoryStore(), setErr: errors.New("store failed")}
 	runtime.Interactive = true
 	runtime.Prompt = &promptStub{secret: "token"}
 	runtime.HTTP = doerFunc(func(*http.Request) (*http.Response, error) {
@@ -361,12 +511,25 @@ func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 	}
 }
 
-type failingSecretStore struct{ setErr error }
+type failingSecretStore struct {
+	secrets.Store
+	setErr    error
+	deleteErr error
+}
 
-func (failingSecretStore) Get(string) (string, error)     { return "", secrets.ErrNotFound }
-func (store failingSecretStore) Set(string, string) error { return store.setErr }
-func (failingSecretStore) Delete(string) error            { return nil }
-func (failingSecretStore) Exists(string) (bool, error)    { return false, nil }
+func (store failingSecretStore) Set(account, token string) error {
+	if store.setErr != nil {
+		return store.setErr
+	}
+	return store.Store.Set(account, token)
+}
+
+func (store failingSecretStore) Delete(account string) error {
+	if store.deleteErr != nil {
+		return store.deleteErr
+	}
+	return store.Store.Delete(account)
+}
 
 type failingWriter struct{ err error }
 

@@ -1,12 +1,14 @@
 variables:
+  MISE_CONFIG_DIR: $CI_PROJECT_DIR/.config/ci
+  MISE_GLOBAL_CONFIG_FILE: $CI_PROJECT_DIR/.config/ci/config.toml
+  MISE_SYSTEM_CONFIG_DIR: $CI_PROJECT_DIR/.config/ci
   GIT_DEPTH: "0"
   GOPROXY: https://goproxy.cn|https://proxy.golang.org|direct
-  MISE_GLOBAL_CONFIG_FILE: $CI_PROJECT_DIR/.config/ci/empty-mise-global.toml
 workflow:
   rules:
     - if: $CI_COMMIT_TAG
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
-    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
     - if: $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"
     - when: never
 stages:
@@ -16,39 +18,49 @@ stages:
   - release
 .linux-toolchain:
   image:
-    name: ghcr.io/jdx/mise@sha256:f2d637d5e5189f7ec177b73bce5cd5db7e7b17a4f466f887c1b88ac2dd431129
+    name: ghcr.io/jdx/mise:2026.9.5@sha256:d549958171c177f113e62ddba5afdfb9e245d699ac457148e4b7b0da7af3b0b7
     entrypoint:
       - ""
-.source-toolchain:
-  image:
-    name: ghcr.io/jdx/mise@sha256:f2d637d5e5189f7ec177b73bce5cd5db7e7b17a4f466f887c1b88ac2dd431129
-    entrypoint:
-      - ""
+  variables:
+    MISE_DATA_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise
+    MISE_CACHE_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise/cache
+  cache:
+    key:
+      files:
+        - mise.toml
+        - mise.lock
+      prefix: mise-linux-d549958171c177f113e62ddba5afdfb9e245d699ac457148e4b7b0da7af3b0b7-build-runtime-tool-cache-.mise-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME-$CI_COMMIT_REF_SLUG
+    paths:
+      - build/runtime/tool-cache/.mise/installs/
+      - build/runtime/tool-cache/.mise/cache/
+    policy: pull-push
+    when: always
   before_script:
-    - |-
-      lock_sha=$(sha256sum mise.lock | awk '{print $1}')
-      authenticated_api="$CI_SERVER_PROTOCOL://gitlab-ci-token:$CI_JOB_TOKEN@$CI_SERVER_HOST:$CI_SERVER_PORT/api/v4"
-      mirror="$authenticated_api/projects/$CI_PROJECT_ID/packages/generic/ci-source-tools/$lock_sha/\$4"
-      export MISE_URL_REPLACEMENTS="{\"regex:^https://github\\\\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/(.+)\$\":\"$mirror\"}"
     - mise install --locked
-source-and-governance:
+quality:
   stage: verify
   extends:
-    - .source-toolchain
+    - .linux-toolchain
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   variables:
-    MISE_ENABLE_TOOLS: go,node,cue,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:rhysd/actionlint,github:lycheeverse/lychee
+    MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo
   rules:
     - if: $CI_COMMIT_TAG
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
-    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"
+      variables:
+        AIGW_COMMIT_BASE: $CI_COMMIT_SHA^
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")
+      variables:
+        AIGW_COMMIT_BASE: $CI_MERGE_REQUEST_DIFF_BASE_SHA
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
+      variables:
+        AIGW_COMMIT_BASE: $CI_COMMIT_BEFORE_SHA
     - if: $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"
     - when: never
   script:
-    - npm ci --ignore-scripts
+    - mise run bootstrap
     - export AIGW_RELEASE_ALLOWED_SIGNERS_FILE="$AIGW_RELEASE_ALLOWED_SIGNERS"
-    - mise exec --locked -- go run ./tools/ci source
+    - mise exec --locked -- go run ./tools/ci quality
 accepted-ref-parity:
   stage: verify
   extends:
@@ -66,35 +78,46 @@ accepted-ref-parity:
 native-darwin:
   script:
     - mise install --locked
+    - mise run bootstrap
+    - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - mise exec --locked -- go run ./tools/ci native --platform darwin
   stage: verify
   tags:
     - $AIGW_GITLAB_DARWIN_RUNNER_TAG
   variables:
-    MISE_ENABLE_TOOLS: go,cue
+    MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,glab,github:anchore/syft
   rules:
     - if: $CI_COMMIT_TAG
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
-    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
     - if: $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"
     - when: never
+  artifacts:
+    when: always
+    paths:
+      - mise.lock
 native-linux:
   extends:
     - .linux-toolchain
   script:
-    - apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq dbus-x11 gnome-keyring
-    - dbus-run-session -- sh -c 'printf \"\\n\" | gnome-keyring-daemon --unlock >/dev/null; export AIGW_VERIFY_SYSTEM_KEYRING=1; mise exec --locked -- go run ./tools/ci native --platform linux'
+    - mise run bootstrap
+    - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
+    - mise exec --locked -- go run ./tools/ci native --platform linux
   stage: verify
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   variables:
-    MISE_ENABLE_TOOLS: go,cue
+    MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,glab,github:anchore/syft
   rules:
     - if: $CI_COMMIT_TAG
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev"
-    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
     - if: $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"
     - when: never
+  artifacts:
+    when: always
+    paths:
+      - mise.lock
 release-readiness:
   stage: verify
   extends:
@@ -104,7 +127,7 @@ release-readiness:
   variables:
     MISE_ENABLE_TOOLS: go
   rules:
-    - if: $CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /-(rc|beta|alpha)\./
+    - if: $CI_COMMIT_TAG
     - when: never
   script:
     - mise exec --locked -- go run ./tools/release validate-readiness-tag
@@ -112,16 +135,21 @@ package:
   stage: package
   tags:
     - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+  variables:
+    AIGW_RELEASE_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ALLOWED_SIGNERS
+    AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS
+    SSH_ASKPASS_REQUIRE: never
   rules:
     - if: $CI_COMMIT_TAG
     - when: never
   needs:
-    - job: source-and-governance
+    - job: quality
     - job: native-darwin
     - job: native-linux
     - job: release-readiness
-      optional: true
   script:
+    - test -s "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE" && test -s "$AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE" && test -n "$AIGW_RELEASE_ARTIFACT_SIGNER"
+    - ssh-keygen -y -P '' -f "$AIGW_RELEASE_SIGNING_KEY" >/dev/null
     - mise exec --locked -- go run ./tools/release build-ci build/release dist
   artifacts:
     expire_in: 30 days
@@ -131,6 +159,10 @@ publish:
   stage: publish
   tags:
     - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+  variables:
+    AIGW_RELEASE_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ALLOWED_SIGNERS
+    AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS
+    SSH_ASKPASS_REQUIRE: never
   rules:
     - if: $CI_COMMIT_TAG
     - when: never
@@ -143,6 +175,10 @@ release:
   stage: release
   tags:
     - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+  variables:
+    AIGW_RELEASE_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ALLOWED_SIGNERS
+    AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS
+    SSH_ASKPASS_REQUIRE: never
   rules:
     - if: $CI_COMMIT_TAG
     - when: never

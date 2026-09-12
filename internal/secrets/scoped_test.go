@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -9,6 +10,72 @@ import (
 )
 
 const diagnosticValue = `{"system_token":"platform-system","user_id":"42"}`
+
+func TestCredentialKindSelectionIsIdempotent(t *testing.T) {
+	for _, kind := range []Kind{APIToken, ProviderDiagnostic} {
+		t.Run(fmt.Sprint(kind), func(t *testing.T) {
+			backend := NewMemoryStore()
+			first, err := ForKind(backend, kind)
+			if err != nil {
+				t.Fatal(err)
+			}
+			again, err := ForKind(first, kind)
+			if err != nil {
+				t.Fatalf("select the same credential purpose: %v", err)
+			}
+			if err := again.Set("team", "credential"); err != nil {
+				t.Fatal(err)
+			}
+			if got, err := first.Get("team"); err != nil || got != "credential" {
+				t.Fatalf("original view = %q, %v", got, err)
+			}
+			initial, err := Inspect(backend)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if observed, err := Inspect(again); err != nil || observed != initial {
+				t.Fatalf("backend observation = %#v, %v; want %#v", observed, err, initial)
+			}
+			if err := again.Delete("team"); err != nil {
+				t.Fatal(err)
+			}
+			if present, err := first.Exists("team"); err != nil || present {
+				t.Fatalf("original view after deletion = %v, %v", present, err)
+			}
+		})
+	}
+}
+
+func TestCredentialViewValidatesBeforeBackendResolution(t *testing.T) {
+	for _, operation := range []string{"get", "set", "delete", "exists"} {
+		t.Run(operation, func(t *testing.T) {
+			probes := 0
+			store, err := Select(Selection{
+				GOOS: runtime.GOOS, Root: filepath.Join(t.TempDir(), "secrets"),
+				KeyringProbe: func(Store) error {
+					probes++
+					return errors.New("isolated file backend")
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch operation {
+			case "get":
+				_, err = store.Get("invalid account")
+			case "set":
+				err = store.Set("team", "")
+			case "delete":
+				err = store.Delete("invalid account")
+			case "exists":
+				_, err = store.Exists("invalid account")
+			}
+			if err == nil || probes != 0 {
+				t.Fatalf("input admission = %v, backend probes = %d; want validation before resolution", err, probes)
+			}
+		})
+	}
+}
 
 func TestTypedCredentialViewsShareBackendWithoutSharingSlots(t *testing.T) {
 	backend := NewMemoryStore()
@@ -36,47 +103,6 @@ func TestTypedCredentialViewsShareBackendWithoutSharingSlots(t *testing.T) {
 	}
 	if got, err := backend.Get("dmx"); err != nil || got != "api-token" {
 		t.Fatalf("diagnostic delete changed API token = %q, %v", got, err)
-	}
-}
-
-func TestEnvironmentBackendOwnsDiagnosticCredentialWithoutKeyringFallback(t *testing.T) {
-	values := map[string]string{
-		"AIGW_TOKEN_DMX":                   "api-token",
-		"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_DMX": "platform-system",
-		"AIGW_DIAGNOSTIC_USER_ID_DMX":      "42",
-	}
-	backend, err := Select(Selection{Backend: "env", Getenv: func(key string) string { return values[key] }})
-	if err != nil {
-		t.Fatal(err)
-	}
-	diagnostics, err := ForKind(backend, ProviderDiagnostic)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, err := diagnostics.Get("dmx"); err != nil || got != diagnosticValue {
-		t.Fatalf("diagnostic credential = %q, %v", got, err)
-	}
-	if err := diagnostics.Set("dmx", diagnosticValue); !errors.Is(err, ErrReadOnly) {
-		t.Fatalf("Set() error = %v, want ErrReadOnly", err)
-	}
-	if err := diagnostics.Delete("dmx"); !errors.Is(err, ErrReadOnly) {
-		t.Fatalf("Delete() error = %v, want ErrReadOnly", err)
-	}
-}
-
-func TestEnvironmentDiagnosticRequiresCompletePair(t *testing.T) {
-	for _, values := range []map[string]string{
-		{"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_DMX": "platform-system"},
-		{"AIGW_DIAGNOSTIC_USER_ID_DMX": "42"},
-	} {
-		backend := NewEnvironmentStore(func(key string) string { return values[key] })
-		diagnostics, err := ForKind(backend, ProviderDiagnostic)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := diagnostics.Get("dmx"); !errors.Is(err, ErrNotFound) {
-			t.Fatalf("partial diagnostic variables returned %v", err)
-		}
 	}
 }
 
@@ -132,5 +158,17 @@ func TestFileBackendCredentialKindsCannotCollideWithAccountIDs(t *testing.T) {
 	}
 	if got, err := diagnostics.Get("dmx"); err != nil || got != diagnosticValue {
 		t.Fatalf("diagnostic credential = %q, %v", got, err)
+	}
+}
+
+func TestForKindRejectsUntypedStoreAndUnknownKind(t *testing.T) {
+	if _, err := NewDiagnosticCredentialStore(&faultStore{Store: NewMemoryStore()}); err == nil {
+		t.Fatal("untyped diagnostic backend accepted")
+	}
+	if _, err := ForKind(&faultStore{Store: NewMemoryStore()}, APIToken); err == nil {
+		t.Fatal("untyped store accepted")
+	}
+	if _, err := ForKind(NewMemoryStore(), Kind(255)); err == nil {
+		t.Fatal("unknown credential kind accepted")
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	configuration "aigw-cli/internal/configuration"
@@ -105,7 +106,9 @@ func runCodexReadOnly(ctx context.Context, runner process.CaptureRunner, executa
 }
 
 func codexEnvironment(home string) []string {
-	environment := removeEnvironment(os.Environ(), "CODEX_HOME")
+	environment := slices.DeleteFunc(os.Environ(), func(entry string) bool {
+		return strings.HasPrefix(entry, "CODEX_HOME=")
+	})
 	if home != "" {
 		environment = append(environment, "CODEX_HOME="+home)
 	}

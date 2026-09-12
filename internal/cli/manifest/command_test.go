@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -50,6 +51,20 @@ func TestCommandRequiresAConfigurationOperation(t *testing.T) {
 	}
 }
 
+func TestConfigurationCommandTreeMatchesItsManifestResponsibility(t *testing.T) {
+	command := NewCommand(invocation.Context{Out: io.Discard})
+	var names []string
+	for _, child := range command.Commands() {
+		names = append(names, child.Name())
+		if child.RunE == nil || child.Args == nil {
+			t.Errorf("configuration operation %q lacks execution or argument admission", child.Name())
+		}
+	}
+	if want := []string{"export", "import", "path"}; !slices.Equal(names, want) {
+		t.Fatalf("configuration operations = %q, want %q", names, want)
+	}
+}
+
 func TestPathPrintsTheConfiguredStorePath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	out := &bytes.Buffer{}
@@ -71,8 +86,8 @@ func TestPathReturnsOutputFailure(t *testing.T) {
 }
 
 func TestExportWritesASecretFreeRoundTripManifest(t *testing.T) {
-	runtime, _ := savedRuntime(t, localConfig())
-	secretStore := runtime.Secrets.(*secrets.MemoryStore)
+	runtime, _, out, _ := savedRuntime(t, localConfig())
+	secretStore := runtime.Secrets
 	if err := secretStore.Set("local", "must-not-appear"); err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +96,7 @@ func TestExportWritesASecretFreeRoundTripManifest(t *testing.T) {
 	if err := executeManifestCommand(command); err != nil {
 		t.Fatal(err)
 	}
-	data := runtime.Out.(*bytes.Buffer).Bytes()
+	data := out.Bytes()
 	if bytes.Contains(data, []byte("must-not-appear")) {
 		t.Fatal("export leaked a system secret")
 	}
@@ -107,7 +122,7 @@ func TestExportSurfacesLoadAndOutputFailures(t *testing.T) {
 	})
 
 	t.Run("output", func(t *testing.T) {
-		runtime, _ := savedRuntime(t, localConfig())
+		runtime, _, _, _ := savedRuntime(t, localConfig())
 		runtime.Out = failingWriter{}
 		if err := executeManifestCommand(newExportCommand(runtime)); err == nil || !strings.Contains(err.Error(), "write refused") {
 			t.Fatalf("error = %v", err)
@@ -124,7 +139,7 @@ func TestExportSurfacesManifestValidationFailure(t *testing.T) {
 }
 
 func TestImportMergesConfigurationAndReportsOneMissingToken(t *testing.T) {
-	runtime, path := savedRuntime(t, localConfig())
+	runtime, path, _, renderOut := savedRuntime(t, localConfig())
 	manifestPath := writeManifest(t, importManifest)
 	command := NewCommand(runtime)
 	command.SetArgs([]string{"import", manifestPath})
@@ -139,7 +154,7 @@ func TestImportMergesConfigurationAndReportsOneMissingToken(t *testing.T) {
 	if loaded.Profiles["remote"].Account != "gateway" {
 		t.Fatalf("imported config = %#v", loaded)
 	}
-	output := runtime.RenderOut.(*bytes.Buffer).String()
+	output := renderOut.String()
 	for _, want := range []string{"Configuration manifest imported", "Profiles", "Accounts", "Token required", "aigw rotate gateway"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output %q does not contain %q", output, want)
@@ -148,7 +163,7 @@ func TestImportMergesConfigurationAndReportsOneMissingToken(t *testing.T) {
 }
 
 func TestImportNamesEnvironmentTokenInsteadOfRotate(t *testing.T) {
-	runtime, _ := savedRuntime(t, localConfig())
+	runtime, _, _, renderOut := savedRuntime(t, localConfig())
 	runtime.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
 	command := NewCommand(runtime)
 	command.SetArgs([]string{"import", writeManifest(t, importManifest)})
@@ -156,7 +171,7 @@ func TestImportNamesEnvironmentTokenInsteadOfRotate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	output := runtime.RenderOut.(*bytes.Buffer).String()
+	output := renderOut.String()
 	if !strings.Contains(output, secrets.EnvironmentKey("gateway")) || !strings.Contains(output, "aigw check") {
 		t.Fatalf("environment remediation is incomplete: %q", output)
 	}
@@ -177,7 +192,7 @@ func TestImportSelectsNextStepFromCredentialAvailability(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			runtime, _ := savedRuntime(t, localConfig())
+			runtime, _, _, renderOut := savedRuntime(t, localConfig())
 			for _, account := range test.seed {
 				if err := runtime.Secrets.Set(account, "token"); err != nil {
 					t.Fatal(err)
@@ -188,7 +203,7 @@ func TestImportSelectsNextStepFromCredentialAvailability(t *testing.T) {
 			if err := executeManifestCommand(command); err != nil {
 				t.Fatal(err)
 			}
-			if output := runtime.RenderOut.(*bytes.Buffer).String(); !strings.Contains(output, test.want) {
+			if output := renderOut.String(); !strings.Contains(output, test.want) {
 				t.Fatalf("output %q does not contain %q", output, test.want)
 			}
 		})
@@ -199,7 +214,7 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 	conflicting := strings.ReplaceAll(importManifest, "gateway", "local")
 	conflicting = strings.ReplaceAll(conflicting, "remote", "local")
 
-	runtime, path := savedRuntime(t, localConfig())
+	runtime, path, _, _ := savedRuntime(t, localConfig())
 	manifestPath := writeManifest(t, conflicting)
 	withoutConsent := newImportCommand(runtime)
 	withoutConsent.SetArgs([]string{manifestPath})
@@ -240,7 +255,7 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 		{
 			name: "read",
 			runtime: func(t *testing.T) invocation.Context {
-				runtime, _ := savedRuntime(t, localConfig())
+				runtime, _, _, _ := savedRuntime(t, localConfig())
 				return runtime
 			},
 			path: func(t *testing.T) string { return filepath.Join(t.TempDir(), "absent.toml") },
@@ -249,7 +264,7 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 		{
 			name: "parse",
 			runtime: func(t *testing.T) invocation.Context {
-				runtime, _ := savedRuntime(t, localConfig())
+				runtime, _, _, _ := savedRuntime(t, localConfig())
 				return runtime
 			},
 			path: func(t *testing.T) string { return writeManifest(t, "not = [valid") },
@@ -270,7 +285,7 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 		{
 			name: "merge",
 			runtime: func(t *testing.T) invocation.Context {
-				runtime, _ := savedRuntime(t, localConfig())
+				runtime, _, _, _ := savedRuntime(t, localConfig())
 				return runtime
 			},
 			path: func(t *testing.T) string {
@@ -292,7 +307,7 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 }
 
 func TestImportReturnsConfigurationTransactionFailure(t *testing.T) {
-	runtime, path := savedRuntime(t, localConfig())
+	runtime, path, _, _ := savedRuntime(t, localConfig())
 	backup := path + ".bak"
 	if err := os.Mkdir(backup, 0o700); err != nil {
 		t.Fatal(err)
@@ -307,7 +322,7 @@ func TestImportReturnsConfigurationTransactionFailure(t *testing.T) {
 	}
 }
 
-func savedRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, string) {
+func savedRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, string, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	store := configuration.NewStore(path)
@@ -322,7 +337,7 @@ func savedRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, s
 		Out:       out,
 		RenderOut: renderOut,
 		Width:     120,
-	}, path
+	}, path, out, renderOut
 }
 
 func localConfig() configuration.Config {

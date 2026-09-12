@@ -1,92 +1,202 @@
 package cli_test
 
 import (
-	"io"
-	"net/http"
+	"errors"
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/account"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/cli"
+	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 )
 
-func dmxBalanceHandler(t *testing.T) func(*http.Request) (*http.Response, error) {
-	t.Helper()
-	return func(req *http.Request) (*http.Response, error) {
-		body := `{"success":true,"data":{"quota":6250000}}`
-		if strings.Contains(req.URL.Path, "/api/token/search") {
-			body = `{"success":true,"data":{"items":[{"name":"Codex","key":"abcd**********wxyz","status":1,"used_quota":1000000,"remain_quota":2500000,"unlimited_quota":false,"unlimited_count":true,"expired_time":-1}]}}`
+func TestAccountEditValidation(t *testing.T) {
+	t.Run("account edit requires change", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		if err := cli.Execute(app, []string{"account", "edit", "one"}); err == nil {
+			t.Fatal("expected nothing-to-update error")
 		}
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
-	}
+	})
+
+	t.Run("account edit load", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		app.Config = configuration.NewStore(t.TempDir())
+		if err := cli.Execute(app, []string{"account", "edit", "one", "--label", "New"}); err == nil {
+			t.Fatal("expected config load failure")
+		}
+	})
+
+	t.Run("account edit unknown", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		err := cli.Execute(app, []string{"account", "edit", "missing", "--label", "New"})
+		if err == nil || !strings.Contains(err.Error(), "Unknown account") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("account edit label and anthropic", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		if err := cli.Execute(app, []string{"account", "edit", "one", "--label", "Renamed", "--anthropic-url", "https://new.test/"}); err != nil {
+			t.Fatal(err)
+		}
+		cfg, _ := app.Config.Load()
+		if cfg.Accounts["one"].Label != "Renamed" || cfg.Accounts["one"].Endpoints.Anthropic != "https://new.test" {
+			t.Fatalf("account = %#v", cfg.Accounts["one"])
+		}
+	})
 }
 
-func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
-	app, out, secretStore, _ := testApp(t, "")
+func TestAccountEditUpdatesSharedEndpointWithoutProfileDuplication(t *testing.T) {
+	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
-	cfg.Routes[configuration.ClientClaude] = "dmx"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+	addAccountProfile(&cfg, "gpt", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, configuration.ClientCodex, "gpt-test")
+	addAccountProfile(&cfg, "claude", "dmx", "DMXAPI", configuration.Endpoints{}, configuration.ClientClaude, "claude-test")
+	cfg.Routes[configuration.ClientCodex] = "gpt"
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	_ = secretStore.Set("dmx", "token")
-	app.HTTP.(*fakeHTTP).status = 403
-	app.HTTP.(*fakeHTTP).body = `{"message":"token quota is insufficient"}`
-	err := execute(t, app, "check")
-	if err == nil || !strings.Contains(out.String()+err.Error(), "Token quota is exhausted") || !strings.Contains(out.String()+err.Error(), "aigw rotate") {
-		t.Fatalf("output=%s error=%v", out.String(), err)
-	}
-}
 
-func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
-	app, out, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-test")
-	account := cfg.Accounts["dmx"]
-	account.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
-	cfg.Accounts["dmx"] = account
-	cfg.Routes[configuration.ClientCodex] = "dmx"
-	if err := app.Config.Save(cfg); err != nil {
+	if err := cli.Execute(app, []string{"account", "edit", "dmx", "--openai-url", "https://new.test/v1"}); err != nil {
 		t.Fatal(err)
 	}
-	err := execute(t, app, "balance")
-	if err == nil || !strings.Contains(out.String()+err.Error(), "aigw account connect dmx") || !strings.Contains(out.String()+err.Error(), "Precise balance diagnostics are not enabled") {
-		t.Fatalf("output=%s error=%v", out.String(), err)
-	}
-}
-
-func TestAccountConnectStoresSeparateCredentialAndBalanceShowsDetails(t *testing.T) {
-	app, out, secretStore, _ := testApp(t, "")
-	accountStore := account.NewMemoryStore()
-	app.Accounts = accountStore
-	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-test")
-	providerAccount := cfg.Accounts["dmx"]
-	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
-	cfg.Accounts["dmx"] = providerAccount
-	cfg.Routes[configuration.ClientCodex] = "dmx"
-	if err := app.Config.Save(cfg); err != nil {
+	got, err := app.Config.Load()
+	if err != nil {
 		t.Fatal(err)
 	}
-	_ = secretStore.Set("dmx", "sk-abcd-middle-wxyz")
-	prompt := &fakePrompt{secret: "system-secret", text: "10000"}
-	app.Prompt = prompt
-	app.Interactive = true
-	if err := execute(t, app, "account", "connect"); err != nil {
-		t.Fatal(err)
+	if got.Accounts["dmx"].Endpoints.OpenAIResponses != "https://new.test/v1" {
+		t.Fatalf("account endpoint = %#v", got.Accounts["dmx"])
 	}
-	if !accountStore.Has("dmx") {
-		t.Fatal("account credential not stored")
-	}
-	out.Reset()
-	app.HTTP.(*fakeHTTP).handler = dmxBalanceHandler(t)
-	if err := execute(t, app, "balance"); err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{"Account balance", "$12.5000", "Token status", "Enabled", "Remaining quota", "$5.0000"} {
-		if !strings.Contains(out.String(), want) {
-			t.Fatalf("balance lacks %q:\n%s", want, out.String())
+	for _, profile := range got.Profiles {
+		if profile.Account != "dmx" {
+			t.Fatalf("shared profile lost account reference: %#v", profile)
 		}
 	}
+}
+
+func TestAccountConnectValidationAndDependencyFailures(t *testing.T) {
+	t.Run("non-interactive", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		if err := cli.Execute(app, []string{"account", "connect"}); err == nil || !strings.Contains(err.Error(), "interactive") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("config load", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		app.Interactive = true
+		app.Config = configuration.NewStore(t.TempDir())
+		if err := cli.Execute(app, []string{"account", "connect"}); err == nil {
+			t.Fatal("expected config load failure")
+		}
+	})
+
+	t.Run("unknown explicit account", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		app.Interactive = true
+		saveProbeProfile(t, app.Config)
+		if err := cli.Execute(app, []string{"account", "connect", "missing"}); err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("no probe", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		app.Interactive = true
+		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		if err := cli.Execute(app, []string{"account", "connect"}); err == nil || !strings.Contains(err.Error(), "does not support") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("unsupported probe", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		app.Interactive = true
+		saveProbeProfile(t, app.Config)
+		cfg, _ := app.Config.Load()
+		providerAccount := cfg.Accounts["dmx"]
+		providerAccount.AccountProbe.Kind = "future"
+		cfg.Accounts["dmx"] = providerAccount
+		if err := app.Config.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := cli.Execute(app, []string{"account", "connect"}); err == nil || !strings.Contains(err.Error(), "does not include") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("secret prompt", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		app.Interactive = true
+		saveProbeProfile(t, app.Config)
+		want := errors.New("cancelled")
+		app.Prompt = &scriptedPrompt{secretErr: want}
+		if err := cli.Execute(app, []string{"account", "connect"}); !errors.Is(err, want) {
+			t.Fatalf("error = %v, want %v", err, want)
+		}
+	})
+
+	t.Run("text prompt", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		app.Interactive = true
+		saveProbeProfile(t, app.Config)
+		app.Prompt = &scriptedPrompt{secrets: []string{"system-token"}}
+		if err := cli.Execute(app, []string{"account", "connect"}); err == nil || !strings.Contains(err.Error(), "no text") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("credential write", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		app.Interactive = true
+		saveProbeProfile(t, app.Config)
+		want := errors.New("credential write failed")
+		app.Prompt = &scriptedPrompt{secrets: []string{"system-token"}, texts: []string{"user"}}
+		app.Accounts = &recordingCredentialStore[secrets.DiagnosticCredential]{backend: app.Accounts, setErr: want}
+		if err := cli.Execute(app, []string{"account", "connect"}); !errors.Is(err, want) {
+			t.Fatalf("error = %v, want %v", err, want)
+		}
+	})
+}
+
+func TestAccountDisconnectBranches(t *testing.T) {
+	t.Run("load", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		app.Config = configuration.NewStore(t.TempDir())
+		if err := cli.Execute(app, []string{"account", "disconnect"}); err == nil {
+			t.Fatal("expected config load failure")
+		}
+	})
+
+	t.Run("unknown", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		saveProbeProfile(t, app.Config)
+		if err := cli.Execute(app, []string{"account", "disconnect", "missing"}); err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("delete failure", func(t *testing.T) {
+		app, _, _, _, _ := testApp(t, "")
+		saveProbeProfile(t, app.Config)
+		want := errors.New("delete failed")
+		app.Accounts = &recordingCredentialStore[secrets.DiagnosticCredential]{backend: app.Accounts, deleteErr: want}
+		if err := cli.Execute(app, []string{"account", "disconnect", "dmx"}); !errors.Is(err, want) {
+			t.Fatalf("error = %v, want %v", err, want)
+		}
+	})
+
+	t.Run("success", func(t *testing.T) {
+		app, out, _, _, _ := testApp(t, "")
+		saveProbeProfile(t, app.Config)
+		store := app.Accounts
+		_ = store.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
+		if err := cli.Execute(app, []string{"account", "disconnect", "dmx"}); err != nil {
+			t.Fatal(err)
+		}
+		if accountCredentialExists(t, store, "dmx") || !strings.Contains(out.String(), "credentials were removed") {
+			t.Fatalf("output=%q", out.String())
+		}
+	})
 }

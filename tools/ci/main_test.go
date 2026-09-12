@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -14,32 +15,35 @@ import (
 )
 
 func TestSourceRunsThePortableGateSequence(t *testing.T) {
+	t.Setenv("AIGW_COMMIT_BASE", "")
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := [][]string{
+		{"golangci-lint", "config", "verify", "--config", ".config/checks/go/policy.yml"},
+		{"goreleaser", "check", ".config/release/goreleaser.yaml"},
 		{"cue", "fmt", "--check", "--files", ".config/ci"},
 		{"go", "run", "./tools/ci", "project", "--check"},
-		{"npm", "audit", "signatures"},
-		{"openspec", "validate", "--all", "--strict", "--no-interactive"},
+		{"node", "--run", "dependencies:audit"},
+		{"go", "run", "./tools/ci", "openspec"},
 		{"editorconfig-checker", "-disable-indentation", "-disable-indent-size"},
-		{"prettier", "--check", "--config", ".config/checks/markdown/prettier.json", "--ignore-path", ".config/checks/markdown/prettier-ignore", "*.md", "docs/**/*.md", "openspec/**/*.md"},
-		{"markdownlint-cli2", "--config", ".config/checks/markdown/policy.yaml"},
+		{"go", "run", "./tools/ci", "check-format", "."},
+		{"go", "run", "./tools/ci", "check-markdown", "."},
+		{"go", "run", "./tools/ci", "check-mermaid", "."},
 		{"go", "run", "./tools/ci", "links", "."},
-		{"gitleaks", "dir", "--redact", "--no-banner", "."},
+		{"go", "run", "./tools/ci", "check-toml", "."},
+		{"go", "mod", "tidy", "-diff"},
+		{"go", "mod", "verify"},
+		{"osv-scanner", "scan", "source", "--lockfile", "go.mod", "--lockfile", "package-lock.json", "--format", "table", "--verbosity", "warn", "."},
+		{"go", "run", "./tools/ci", "check-secrets", "."},
 		{"go", "run", "./tools/release", "validate-toolchain", "go.mod"},
 		{"go", "run", "./tools/release", "validate-release-sources"},
 		{"go", "run", "./tools/architecture", "--root", "."},
-		{"go", "test", "./tools/architecture"},
-		{"go", "run", "./tools/coverage", "--race"},
-		{"go", "vet", "./..."},
-		{"go", "tool", "staticcheck", "-checks=SA*,S1*", "./..."},
-		{"go", "tool", "errcheck", "./..."},
-		{"go", "run", "./tools/repository", "--root", ".", "go-format"},
-		{"go", "test", "./tools/repository"},
+		{"go", "run", "./tools/ci", "check-source-size", "."},
+		{"go", "run", "./tools/ci", "check-go", "."},
+		{"go", "test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|FilePreservation)$"},
 		{"go", "run", "./tools/repository", "--root", ".", "protected-lifecycle"},
-		{"go", "test", "./internal/upgrade", "./tools/release"},
 		{"actionlint"},
-		{"go", "test", "./tools/forge"},
+		{"go", "run", "./tools/coverage", "--race"},
 	}
 	var got [][]string
 	runner := func(call command) error {
@@ -54,154 +58,172 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	}
 }
 
-func TestRepositoryExecutablePrefersTheProjectLocalNpmTool(t *testing.T) {
-	root := t.TempDir()
-	bin := filepath.Join(root, "node_modules", ".bin")
-	if err := os.MkdirAll(bin, 0o755); err != nil {
+func TestQualityCommandsResolveInDeclaredToolchain(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	output, err := exec.Command("cue", "export", ".config/ci/pipeline.cue", ".ethos/workspace.toml", "--expression", "qualityToolchain", "--out", "json").Output()
+	if err != nil {
 		t.Fatal(err)
 	}
-	tool := filepath.Join(bin, "openspec")
-	if err := os.WriteFile(tool, []byte("tool"), 0o755); err != nil {
+	var environment map[string]string
+	if err := json.Unmarshal(output, &environment); err != nil {
 		t.Fatal(err)
 	}
-	if got := repositoryExecutable(root, "openspec", "darwin"); got != tool {
-		t.Fatalf("repository executable = %q, want %q", got, tool)
+	if environment["MISE_ENABLE_TOOLS"] == "" {
+		t.Fatal("quality toolchain must declare its native tools")
 	}
-	if got := repositoryExecutable(root, "go", "darwin"); got != "go" {
-		t.Fatalf("ambient executable = %q, want go", got)
+	for key, value := range environment {
+		t.Setenv(key, value)
 	}
-	missing := filepath.Join(root, "node_modules", ".bin", "prettier")
-	if got := repositoryExecutable(root, "prettier", "darwin"); got != missing {
-		t.Fatalf("missing repository executable = %q, want %q", got, missing)
-	}
-	if got := repositoryExecutable(root, filepath.Join("build", "aigw"), "darwin"); got != filepath.Join("build", "aigw") {
-		t.Fatalf("relative product executable = %q", got)
+	observed := make(map[string]bool)
+	for _, call := range qualityCommands {
+		if observed[call.Name] {
+			continue
+		}
+		observed[call.Name] = true
+		t.Run(call.Name, func(t *testing.T) {
+			if output, err := exec.Command("mise", "which", call.Name).CombinedOutput(); err != nil {
+				t.Fatalf("quality command is unavailable in its declared toolchain: %v\n%s", err, output)
+			}
+		})
 	}
 }
 
-func TestRepositoryExecutableUsesTheWindowsCommandShim(t *testing.T) {
-	root := t.TempDir()
-	bin := filepath.Join(root, "node_modules", ".bin")
-	if err := os.MkdirAll(bin, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	tool := filepath.Join(bin, "prettier.cmd")
-	if err := os.WriteFile(tool, []byte("tool"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if got := repositoryExecutable(root, "prettier", "windows"); got != tool {
-		t.Fatalf("Windows repository executable = %q, want %q", got, tool)
+func TestQualityUsesNativeConfigurationSchemas(t *testing.T) {
+	repository := repositoryRoot(t)
+	for _, test := range []struct {
+		tool, policy, state string
+	}{
+		{"golangci-lint", ".config/checks/go/policy.yml", "valid"},
+		{"golangci-lint", ".config/checks/go/policy.yml", "unknown field"},
+		{"golangci-lint", ".config/checks/go/policy.yml", "missing"},
+		{"goreleaser", ".config/release/goreleaser.yaml", "valid"},
+		{"goreleaser", ".config/release/goreleaser.yaml", "unknown field"},
+		{"goreleaser", ".config/release/goreleaser.yaml", "missing"},
+	} {
+		t.Run(test.tool+"/"+test.state, func(t *testing.T) {
+			content := readFile(t, filepath.Join(repository, filepath.FromSlash(test.policy)))
+			if test.state == "unknown field" {
+				content = append(content, []byte("\naigw_unknown_configuration_field: true\n")...)
+			}
+			root := filepath.Join(t.TempDir(), "checkout with spaces")
+			policy := filepath.Join(root, filepath.FromSlash(test.policy))
+			if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			t.Chdir(root)
+			t.Setenv("AIGW_COMMIT_BASE", "")
+			t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
+			t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
+			if test.state != "missing" {
+				if err := os.WriteFile(policy, content, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			observed := false
+			var diagnostics []byte
+			err := run([]string{"quality"}, &bytes.Buffer{}, func(call command) error {
+				if call.Name != test.tool {
+					return nil
+				}
+				observed = true
+				var err error
+				diagnostics, err = systemOutputRunner(call)
+				return err
+			})
+			if !observed || (err == nil) != (test.state == "valid") {
+				t.Fatalf("native schema validation: observed=%t state=%s error=%v\n%s", observed, test.state, err, diagnostics)
+			}
+			if test.state == "missing" {
+				if _, err := os.Stat(policy); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("schema validation created missing input: %v", err)
+				}
+				return
+			}
+			if actual := readFile(t, policy); !bytes.Equal(actual, content) {
+				t.Fatal("schema validation changed its input")
+			}
+		})
 	}
 }
 
-func TestLinksChecksCurrentRepositoryMarkdown(t *testing.T) {
-	root := t.TempDir()
-	git := func(args ...string) {
-		t.Helper()
-		process := exec.Command("git", append([]string{"-C", root}, args...)...)
-		if output, err := process.CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v: %s", args, err, output)
+func TestRepositoryInventoryUsesTheRequestedCheckoutIndex(t *testing.T) {
+	root, foreign := t.TempDir(), t.TempDir()
+	for _, directory := range []string{root, foreign} {
+		if output, err := exec.Command("git", "-C", directory, "init", "--quiet").CombinedOutput(); err != nil {
+			t.Fatalf("git init: %v\n%s", err, output)
 		}
-	}
-	write := func(relative, content string) {
-		t.Helper()
-		path := filepath.Join(root, relative)
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		if err := os.WriteFile(filepath.Join(directory, ".gitignore"), []byte("*.md\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(directory, "README.md"), []byte("# Project\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
+		if output, err := exec.Command("git", "-C", directory, "add", "-f", "README.md").CombinedOutput(); err != nil {
+			t.Fatalf("git add: %v\n%s", err, output)
+		}
 	}
-	git("init", "--quiet")
-	write("README.md", "[valid](docs/guide.md)\n")
-	write("--literal.md", "# Literal\n")
-	write("docs/guide.md", "# Guide\n")
-	write("new-guide.md", "# New guide\n")
-	write("retired.md", "# Retired\n")
-	write(".git/private.md", "[broken](missing.md)\n")
-	git("add", "--", "README.md", "--literal.md", "docs/guide.md", "retired.md")
-	if err := os.Remove(filepath.Join(root, "retired.md")); err != nil {
+	owned := filepath.Join(root, "owned.md")
+	if err := os.WriteFile(owned, []byte("# Owned source\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if output, err := exec.Command("git", "-C", root, "add", "-f", "owned.md").CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, output)
+	}
+	for _, binding := range []struct{ name, value string }{
+		{"GIT_INDEX_FILE", filepath.Join(foreign, ".git", "index")},
+		{"GIT_COMMON_DIR", filepath.Join(foreign, ".git")},
+	} {
+		t.Run(binding.name, func(t *testing.T) {
+			t.Setenv(binding.name, binding.value)
+			files, err := currentRepositoryFiles(root, "Markdown", "*.md")
+			if err != nil || !slices.Equal(files, []string{filepath.Join(root, "README.md"), owned}) {
+				t.Fatalf("requested checkout inventory = %v, %v", files, err)
+			}
+		})
+	}
+}
 
-	var got command
-	if err := run([]string{"links", root}, &bytes.Buffer{}, func(call command) error {
-		got = call
+func TestSourceExtendsQualityWithCompleteCoverage(t *testing.T) {
+	t.Setenv("AIGW_COMMIT_BASE", "")
+	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
+	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
+	quality, err := configuredQualityCommands()
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := configuredSourceCommands()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(source) != len(quality)+1 || !reflect.DeepEqual(source[:len(quality)], quality) {
+		t.Fatalf("source gate does not extend quality exactly\nquality: %#v\nsource:  %#v", quality, source)
+	}
+	if call := source[len(quality)]; call.Name != "go" || !slices.Equal(call.Args, []string{"run", "./tools/coverage", "--race"}) {
+		t.Fatalf("source gate lacks complete coverage: %#v", source)
+	}
+
+	var got [][]string
+	if err := run([]string{"quality"}, &bytes.Buffer{}, func(call command) error {
+		got = append(got, append([]string{call.Name}, call.Args...))
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	want := command{Name: "lychee", Args: []string{
-		"--offline", "--no-progress", "--cache=false", "--",
-		filepath.Join(root, "--literal.md"), filepath.Join(root, "README.md"),
-		filepath.Join(root, "docs/guide.md"), filepath.Join(root, "new-guide.md"),
-	}}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("link command = %#v, want %#v", got, want)
+	if expected := commandArguments(quality); !reflect.DeepEqual(got, expected) {
+		t.Fatalf("commands = %#v, want %#v", got, expected)
 	}
 }
 
-func TestLinksRejectsInvalidRepositoriesAndEmptyMarkdownSets(t *testing.T) {
-	invalidRoot := t.TempDir()
-	if _, err := currentRepositoryMarkdown(invalidRoot); err == nil || !strings.Contains(err.Error(), "list repository Markdown") {
-		t.Fatalf("non-repository error = %v", err)
+func commandArguments(commands []command) [][]string {
+	arguments := make([][]string, 0, len(commands))
+	for _, call := range commands {
+		arguments = append(arguments, append([]string{call.Name}, call.Args...))
 	}
-	if err := run([]string{"links", invalidRoot}, &bytes.Buffer{}, func(command) error { return nil }); err == nil || !strings.Contains(err.Error(), "list repository Markdown") {
-		t.Fatalf("links non-repository error = %v", err)
-	}
-
-	root := t.TempDir()
-	process := exec.Command("git", "-C", root, "init", "--quiet")
-	if output, err := process.CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v: %s", err, output)
-	}
-	if markdown, err := currentRepositoryMarkdown(root); err == nil || !strings.Contains(err.Error(), "no current Markdown") || markdown != nil {
-		t.Fatalf("empty Markdown set = %#v, error = %v", markdown, err)
-	}
-}
-
-func TestLinksPropagatesLycheeFailure(t *testing.T) {
-	root := t.TempDir()
-	process := exec.Command("git", "-C", root, "init", "--quiet")
-	if output, err := process.CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v: %s", err, output)
-	}
-	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("# AIGW\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	process = exec.Command("git", "-C", root, "add", "--", "README.md")
-	if output, err := process.CombinedOutput(); err != nil {
-		t.Fatalf("git add: %v: %s", err, output)
-	}
-
-	want := errors.New("lychee failed")
-	err := run([]string{"links", root}, &bytes.Buffer{}, func(command) error { return want })
-	if !errors.Is(err, want) {
-		t.Fatalf("link error = %v", err)
-	}
-}
-
-func TestStaticRunsTheNonBehaviorGateSequence(t *testing.T) {
-	var got [][]string
-	runner := func(call command) error {
-		got = append(got, append([]string{call.Name}, call.Args...))
-		return nil
-	}
-	if err := run([]string{"static"}, &bytes.Buffer{}, runner); err != nil {
-		t.Fatal(err)
-	}
-	if slices.ContainsFunc(got, func(call []string) bool {
-		return slices.Equal(call, []string{"go", "run", "./tools/coverage", "--race"})
-	}) {
-		t.Fatalf("static gate duplicated behavior coverage: %#v", got)
-	}
-	if len(got) == 0 {
-		t.Fatal("static gate ran no checks")
-	}
+	return arguments
 }
 
 func TestSourceStopsAtTheFirstFailedGate(t *testing.T) {
+	t.Setenv("AIGW_COMMIT_BASE", "")
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := errors.New("failed")
@@ -221,6 +243,7 @@ func TestSourceStopsAtTheFirstFailedGate(t *testing.T) {
 func TestSourceIncludesProductProvenanceWhenConfigured(t *testing.T) {
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "maintainer@example.com")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "trust/allowed-signers")
+	t.Setenv("AIGW_COMMIT_BASE", "accepted")
 	var got []command
 	if err := run([]string{"source"}, &bytes.Buffer{}, func(call command) error {
 		got = append(got, call)
@@ -228,40 +251,27 @@ func TestSourceIncludesProductProvenanceWhenConfigured(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	want := command{Name: "go", Args: []string{"run", "./tools/forge", "commits", "--email", "maintainer@example.com", "--allowed-signers", "trust/allowed-signers"}}
+	want := command{Name: "go", Args: []string{"run", "./tools/forge", "commits", "--base", "accepted", "--email", "maintainer@example.com", "--allowed-signers", "trust/allowed-signers"}}
 	if !slices.ContainsFunc(got, func(call command) bool { return reflect.DeepEqual(call, want) }) {
 		t.Fatalf("missing provenance command: %#v", got)
-	}
-	gitleaks := command{Name: "gitleaks", Args: []string{"dir", "--redact", "--no-banner", "."}}
-	if !slices.ContainsFunc(got, func(call command) bool { return reflect.DeepEqual(call, gitleaks) }) {
-		t.Fatalf("missing Forge-scoped gitleaks command: %#v", got)
-	}
-}
-
-func TestGitleaksRemainsInProductSourceGraph(t *testing.T) {
-	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "maintainer@example.com")
-	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "trust/allowed-signers")
-	commands, err := configuredSourceCommands()
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := command{Name: "gitleaks", Args: []string{"dir", "--redact", "--no-banner", "."}}
-	if !slices.ContainsFunc(commands, func(call command) bool { return reflect.DeepEqual(call, want) }) {
-		t.Fatalf("commands = %#v", commands)
 	}
 }
 
 func TestSourceConfigurationRejectsIncompleteProductProvenance(t *testing.T) {
-	for _, missing := range []string{"email", "signers"} {
+	for _, missing := range []string{"base", "email", "signers"} {
 		t.Run(missing, func(t *testing.T) {
+			t.Setenv("AIGW_COMMIT_BASE", "accepted")
 			t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "maintainer@example.com")
 			t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "trust/allowed-signers")
-			if missing == "email" {
+			switch missing {
+			case "base":
+				t.Setenv("AIGW_COMMIT_BASE", "")
+			case "email":
 				t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
-			} else {
+			case "signers":
 				t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 			}
-			if _, err := configuredSourceCommands(); err == nil || !strings.Contains(err.Error(), "requires author email") {
+			if _, err := configuredSourceCommands(); err == nil || !strings.Contains(err.Error(), "requires commit base") {
 				t.Fatalf("missing %s error = %v", missing, err)
 			}
 		})
@@ -282,10 +292,23 @@ func TestSourceReportsInvalidArgumentsAndConfiguredSourceFailure(t *testing.T) {
 func TestRunRejectsInvalidCommandShapes(t *testing.T) {
 	for _, args := range [][]string{
 		{"project", "extra"},
-		{"static", "extra"},
+		{"quality", "extra"},
 		{"source", "extra"},
+		{"openspec", "extra"},
 		{"links"},
 		{"links", ".", "extra"},
+		{"check-go"},
+		{"check-go", ".", "extra"},
+		{"check-toml"},
+		{"check-toml", ".", "extra"},
+		{"check-format"},
+		{"check-format", ".", "extra"},
+		{"check-markdown"},
+		{"check-markdown", ".", "extra"},
+		{"check-markdown-policy"},
+		{"check-markdown-policy", ".", "extra"},
+		{"check-secrets"},
+		{"check-secrets", ".", "extra"},
 		{"native", "--platform", "linux", "extra"},
 		{"trust-input"},
 		{"trust-input", "--output", "out", "--github-env", "env", "extra"},
@@ -301,172 +324,16 @@ func TestTrustInputRejectsMissingOrUnwritableDestinations(t *testing.T) {
 	root := t.TempDir()
 	output := filepath.Join(root, "allowed-signers")
 	environment := filepath.Join(root, "github-env")
-	if err := writeTrustInput(output, environment); err == nil || !strings.Contains(err.Error(), "is required") {
+	if err := writeTrustInput(output, environment, "AIGW_RELEASE_ALLOWED_SIGNERS"); err == nil || !strings.Contains(err.Error(), "is required") {
 		t.Fatalf("missing trust error = %v", err)
 	}
 
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS", "release ssh-ed25519 fixture")
-	if err := writeTrustInput(filepath.Join(root, "missing", "allowed-signers"), environment); err == nil || !strings.Contains(err.Error(), "write trust input") {
+	if err := writeTrustInput(filepath.Join(root, "missing", "allowed-signers"), environment, "AIGW_RELEASE_ALLOWED_SIGNERS"); err == nil || !strings.Contains(err.Error(), "write trust input") {
 		t.Fatalf("write trust error = %v", err)
 	}
-	if err := writeTrustInput(output, filepath.Join(root, "missing", "github-env")); err == nil || !strings.Contains(err.Error(), "open GitHub environment") {
+	if err := writeTrustInput(output, filepath.Join(root, "missing", "github-env"), "AIGW_RELEASE_ALLOWED_SIGNERS"); err == nil || !strings.Contains(err.Error(), "open GitHub environment") {
 		t.Fatalf("environment open error = %v", err)
-	}
-}
-
-func TestSystemRunnerPropagatesSetupAndCommandFailures(t *testing.T) {
-	root := t.TempDir()
-	previous, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(root); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(previous) })
-
-	if err := os.WriteFile("build", []byte("blocks directory"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := systemRunner(command{Name: "go", Args: []string{"version"}}); err == nil {
-		t.Fatal("systemRunner accepted an unavailable build directory")
-	}
-	if err := os.Remove("build"); err != nil {
-		t.Fatal(err)
-	}
-	if err := systemRunner(command{Name: "definitely-not-an-aigw-command"}); err == nil {
-		t.Fatal("systemRunner hid command failure")
-	}
-}
-
-func TestNativeAcceptanceUsesPortablePaths(t *testing.T) {
-	for _, platform := range []string{"darwin", "linux", "windows"} {
-		t.Run(platform, func(t *testing.T) {
-			calls := nativeCommands(platform, "1.2.3")
-			if len(calls) != 7 {
-				t.Fatalf("%s commands = %d, want 7", platform, len(calls))
-			}
-			for _, call := range calls {
-				joined := strings.Join(append([]string{call.Name}, call.Args...), " ")
-				for _, forbidden := range []string{"/tmp/", "/Users/", `C:\\Users\\`, "sh -c", "pwsh"} {
-					if strings.Contains(joined, forbidden) {
-						t.Fatalf("non-portable command %q", joined)
-					}
-				}
-			}
-			installed := filepath.Join("build", "acceptance", "installed", "aigw")
-			if platform == "windows" {
-				installed += ".exe"
-			}
-			if got := calls[5]; got.Name != installed || !reflect.DeepEqual(got.Args, []string{"--version"}) {
-				t.Fatalf("installed smoke = %#v", got)
-			}
-			if got := calls[6]; len(got.Args) != 3 || got.Args[0] != "uninstall" || got.Args[2] != installed {
-				t.Fatalf("portable uninstall = %#v", got)
-			}
-			if got := calls[2]; !slices.Contains(got.Args, "-ldflags=-X=aigw-cli/internal/cli.Version=1.2.3") {
-				t.Fatalf("native build lacks VERSION-derived identity: %#v", got)
-			}
-		})
-	}
-}
-
-func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
-	root := repositoryRoot(t)
-	previous, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(root); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(previous) })
-	var calls []command
-	if err := run([]string{"native", "--platform", runtime.GOOS}, &bytes.Buffer{}, func(call command) error {
-		calls = append(calls, call)
-		return nil
-	}); err != nil || len(calls) != 7 {
-		t.Fatalf("native host error=%v calls=%d", err, len(calls))
-	}
-	if runtime.GOOS == "windows" {
-		if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"test", "./..."}) {
-			t.Fatalf("native Windows test command = %#v", got)
-		}
-	} else {
-		wantProfile := filepath.Join("build", "acceptance", "coverage-"+runtime.GOOS+".out")
-		if got := calls[0]; got.Name != "go" || !slices.Equal(got.Args, []string{"run", "./tools/coverage", "--race", "--profile-output", wantProfile}) {
-			t.Fatalf("native coverage command = %#v", got)
-		}
-	}
-	other := "linux"
-	if runtime.GOOS == other {
-		other = "darwin"
-	}
-	if err := run([]string{"native", "--platform", other}, &bytes.Buffer{}, func(command) error { return nil }); err == nil || !strings.Contains(err.Error(), "requires "+other+" host") {
-		t.Fatalf("cross-host native acceptance error = %v", err)
-	}
-}
-
-func TestSourceVersionUsesOneValidatedSSOT(t *testing.T) {
-	root := t.TempDir()
-	valid := filepath.Join(root, "valid")
-	if err := os.WriteFile(valid, []byte("1.2.3\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if got, err := sourceVersion(valid); err != nil || got != "1.2.3" {
-		t.Fatalf("valid source version = %q, %v", got, err)
-	}
-	for name, content := range map[string]string{"empty": "\n", "spaced": "1.2.3 invalid\n"} {
-		path := filepath.Join(root, name)
-		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := sourceVersion(path); err == nil || !strings.Contains(err.Error(), "invalid source version") {
-			t.Fatalf("%s source version error = %v", name, err)
-		}
-	}
-	if _, err := sourceVersion(filepath.Join(root, "missing")); err == nil || !strings.Contains(err.Error(), "read source version") {
-		t.Fatalf("missing source version error = %v", err)
-	}
-}
-
-func TestNativeAcceptanceRefusesARepositoryWithoutVersionTruth(t *testing.T) {
-	previous, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(t.TempDir()); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(previous) })
-	calls := 0
-	err = run([]string{"native", "--platform", runtime.GOOS}, &bytes.Buffer{}, func(command) error {
-		calls++
-		return nil
-	})
-	if err == nil || !strings.Contains(err.Error(), "read source version") || calls != 0 {
-		t.Fatalf("missing VERSION error=%v calls=%d", err, calls)
-	}
-}
-
-func TestNativeCommandsUsePortableArtifactNames(t *testing.T) {
-	windows := nativeCommands("windows", "1.2.3")
-	if windows[2].Args[3] != filepath.Join("build", "acceptance", "aigw.exe") ||
-		!slices.Equal(windows[0].Args, []string{"test", "./..."}) {
-		t.Fatalf("Windows native commands = %#v", windows)
-	}
-	linux := nativeCommands("linux", "1.2.3")
-	if linux[2].Args[3] != filepath.Join("build", "acceptance", "aigw") ||
-		linux[0].Args[4] != filepath.Join("build", "acceptance", "coverage-linux.out") {
-		t.Fatalf("Linux native commands = %#v", linux)
-	}
-}
-
-func TestRejectsUnknownCommandsAndPlatforms(t *testing.T) {
-	for _, args := range [][]string{nil, {"unknown"}, {"native"}, {"native", "--platform", "plan9"}} {
-		if err := run(args, &bytes.Buffer{}, func(command) error { return nil }); err == nil {
-			t.Fatalf("accepted %#v", args)
-		}
 	}
 }
 
@@ -492,20 +359,101 @@ func TestTrustInputWritesPrivateFileAndGitHubEnvironment(t *testing.T) {
 	}
 }
 
-func TestSystemRunnerCreatesOnlyRepositoryLocalBuildState(t *testing.T) {
+func TestArtifactTrustInputHasItsOwnExplicitAuthority(t *testing.T) {
+	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS", "source-only ssh-ed25519 fixture")
+	t.Setenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS", "release ssh-ed25519 artifact")
 	root := t.TempDir()
-	previous, err := os.Getwd()
+	output, environment := filepath.Join(root, "artifact-signers"), filepath.Join(root, "github-env")
+	if err := run([]string{"trust-input", "--artifact", "--output", output, "--github-env", environment}, &bytes.Buffer{}, func(command) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(output)
+	if err != nil || string(data) != "release ssh-ed25519 artifact\n" {
+		t.Fatalf("artifact trust=%q error=%v", data, err)
+	}
+	data, err = os.ReadFile(environment)
+	if err != nil || string(data) != "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE="+output+"\n" {
+		t.Fatalf("artifact environment=%q error=%v", data, err)
+	}
+	t.Setenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS", "")
+	missing := filepath.Join(root, "missing-artifact-signers")
+	err = run([]string{"trust-input", "--artifact", "--output", missing, "--github-env", environment}, &bytes.Buffer{}, func(command) error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS is required") {
+		t.Fatalf("absent artifact authority must not adopt source trust: %v", err)
+	}
+	if _, err := os.Stat(missing); !os.IsNotExist(err) {
+		t.Fatalf("absent authority wrote a trust file: %v", err)
+	}
+}
+
+func TestProjectCommandRendersAndChecksTheTrackedProjections(t *testing.T) {
+	root := t.TempDir()
+	model := filepath.Join(root, ".config", "ci", "pipeline.cue")
+	if err := os.MkdirAll(filepath.Dir(model), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := `package ci
+gitlab: {stages: ["verify"]}
+githubVerify: {name: "Verify"}
+githubRelease: {name: "Release"}
+`
+	if err := os.WriteFile(model, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	workspace := filepath.Join(root, ".ethos", "workspace.toml")
+	if err := os.MkdirAll(filepath.Dir(workspace), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(workspace, []byte("[branch_roles]\naccepted_branch = 'dev'\nrelease_branch = 'main'\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := run([]string{"project", "--root", root}, &bytes.Buffer{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"project", "--check", "--root", root}, &bytes.Buffer{}, nil); err != nil {
+		t.Fatalf("fresh projection check: %v", err)
+	}
+	for _, relative := range []string{".gitlab-ci.yml", ".github/workflows/verify.yml", ".github/workflows/release.yml"} {
+		path := filepath.Join(root, relative)
+		if data, err := os.ReadFile(path); err != nil || len(data) == 0 {
+			t.Fatalf("projection %s: data=%q error=%v", relative, data, err)
+		}
+	}
+}
+
+func TestProjectCommandReportsRenderingFailure(t *testing.T) {
+	if err := run([]string{"project", "--root", t.TempDir()}, &bytes.Buffer{}, nil); err == nil || !strings.Contains(err.Error(), "render .gitlab-ci.yml") {
+		t.Fatalf("project command model error = %v", err)
+	}
+}
+
+func repositoryRoot(t *testing.T) string {
+	t.Helper()
+	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chdir(root); err != nil {
+	return root
+}
+
+func TestRepositoryRootWorksInSourceArchive(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "tools", "ci")
+	if err := os.MkdirAll(directory, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chdir(previous) })
-	if err := systemRunner(command{Name: "go", Args: []string{"version"}}); err != nil {
-		t.Fatal(err)
+	t.Chdir(directory)
+	if got := repositoryRoot(t); got != root {
+		t.Fatalf("repository root = %q, want %q", got, root)
 	}
-	if info, err := os.Stat(filepath.Join(root, "build", "acceptance")); err != nil || !info.IsDir() {
-		t.Fatalf("repository-local build directory: info=%v error=%v", info, err)
+}
+
+func readFile(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
 	}
+	return data
 }

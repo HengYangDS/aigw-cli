@@ -12,11 +12,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/spf13/cobra"
-	"os"
 	"strings"
+
+	"github.com/spf13/cobra"
 )
 
+// Request contains the explicit setup inputs before discovery and validation resolve their effects.
 type Request struct {
 	From, Account, Profile, Label string
 	OpenAIURL, AnthropicURL       string
@@ -26,40 +27,43 @@ type Request struct {
 	JSON                          bool
 }
 
+// NewCommand constructs the setup command and binds it to one invocation context.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	request := Request{}
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "Complete first-time setup",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
 			request.From = strings.TrimSpace(request.From)
 			request.Account = strings.TrimSpace(request.Account)
+			if !cmd.Flags().Changed("from") {
+				if request.JSON {
+					return fmt.Errorf("--json requires --from")
+				}
+				return nil
+			}
+			if request.From == "" {
+				return fmt.Errorf("--from requires a configuration manifest path")
+			}
+			if cmd.Flags().Changed("account") && request.Account == "" {
+				return fmt.Errorf("--account requires an Account ID from the configuration manifest")
+			}
+			if request.TokenStdin && request.Account == "" {
+				return fmt.Errorf("--token-stdin requires --account so one Token has one unambiguous owner; run `%s --help`", cmd.CommandPath())
+			}
+			return nil
+		}),
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if cmd.Flags().Changed("from") {
-				if request.From == "" {
-					return fmt.Errorf("--from requires a configuration manifest path")
-				}
-				if cmd.Flags().Changed("account") && request.Account == "" {
-					return fmt.Errorf("--account requires an Account ID from the configuration manifest")
-				}
-				for _, name := range []string{"profile", "label", "openai-url", "anthropic-url", "for", "model"} {
-					if !cmd.Flags().Changed(name) {
-						continue
-					}
-					return fmt.Errorf("--from cannot be combined with --profile, --label, --openai-url, --anthropic-url, --for, or --model")
-				}
 				return runManifestSetup(cmd.Context(), runtime, request)
 			}
-			if request.JSON {
-				return fmt.Errorf("--json requires --from")
-			}
-			if runtime.Interactive && request.Account == "" && request.Profile == "" && request.Label == "" && request.OpenAIURL == "" && request.AnthropicURL == "" && request.Client == "" && request.Model == "" && !request.TokenStdin {
+			if runtime.Interactive && request == (Request{}) {
 				cfg, err := runtime.Config.Load()
 				if err != nil {
 					return err
 				}
-				if len(cfg.Profiles) > 0 {
-					return fmt.Errorf("AIGW is already configured; run `aigw add` to add an account, `aigw profile add` to add a model profile, or `aigw status` to inspect current state")
+				if err := invocation.Synchronizer(runtime).AdmitSetup(cfg); err != nil {
+					return err
 				}
 				return RunWizard(cmd.Context(), runtime)
 			}
@@ -67,7 +71,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&request.From, "from", "", "Set up all profiles from a token-free configuration manifest")
-	cmd.Flags().StringVar(&request.Account, "account", "", "Account ID to connect; defaults to --profile outside manifest setup")
+	cmd.Flags().StringVar(&request.Account, "account", "", "Account ID; uses the first Profile ID when omitted")
 	cmd.Flags().StringVar(&request.Profile, "profile", "", "First profile ID")
 	cmd.Flags().StringVar(&request.Label, "label", "", "Provider display name")
 	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")
@@ -76,6 +80,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&request.Model, "model", "", "Upstream model ID for --for")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
 	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the manifest setup result as JSON")
+	for _, name := range []string{"profile", "label", "openai-url", "anthropic-url", "for", "model"} {
+		cmd.MarkFlagsMutuallyExclusive("from", name)
+	}
 	return cmd
 }
 
@@ -88,55 +95,46 @@ type setupPlan struct {
 	validationClients []string
 }
 
+type setupCredential struct {
+	account string
+	token   string
+	write   bool
+}
+
 func runSetup(ctx context.Context, runtime invocation.Context, request Request) error {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
+		return err
+	}
+	if err := invocation.Synchronizer(runtime).AdmitSetup(cfg); err != nil {
 		return err
 	}
 	plan, err := planSetup(cfg, request)
 	if err != nil {
 		return err
 	}
-	token, secretAlreadyManaged, err := setupToken(runtime, plan.request)
+	credentialChange, err := setupToken(runtime, plan.request)
 	if err != nil {
 		return err
 	}
-	if err := credential.Validate(ctx, runtime.HTTP, plan.account, token, plan.validationClients...); err != nil {
+	if err := credential.Validate(ctx, runtime.HTTP, plan.account, credentialChange.token, plan.validationClients...); err != nil {
 		return fmt.Errorf("Token validation failed: %w", err)
 	}
 
-	discovered, err := invocation.Discover(runtime)
+	tokens := make(map[string]string)
+	if credentialChange.write {
+		tokens[credentialChange.account] = credentialChange.token
+	}
+	plan.config, err = invocation.Synchronizer(runtime).Setup(ctx, plan.before, plan.config, tokens, plan.request.Client)
 	if err != nil {
 		return err
 	}
-	discoveredClaude := discovered.Executable(configuration.ClientClaude)
-	discoveredCodex := discovered.Executable(configuration.ClientCodex)
-	discoveredTargets := discovered.AutoManagedCodexTargets()
-	if _, resolveErr := plan.config.ResolveRuntime(configuration.ClientClaude, ""); resolveErr == nil && discoveredClaude != "" {
-		plan.config.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: discoveredClaude}
-	}
-	if _, resolveErr := plan.config.ResolveRuntime(configuration.ClientCodex, ""); resolveErr == nil && discoveredCodex != "" && len(discoveredTargets) > 0 {
-		plan.config.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: discoveredCodex, Targets: discoveredTargets}
-	}
-
 	renderSetupService(runtime, plan)
-	if !secretAlreadyManaged {
-		if err := runtime.Secrets.Set(plan.request.Account, token); err != nil {
-			return err
-		}
-	}
-	if err := invocation.Synchronizer(runtime).Commit(ctx, plan.before, plan.config, "setup"); err != nil {
-		rollbackSetup(runtime, plan.request.Account, !secretAlreadyManaged)
-		return fmt.Errorf("Client configuration failed and was rolled back: %w", err)
-	}
 	renderSetupClients(runtime, plan.config)
 	return nil
 }
 
 func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
-	if len(cfg.Profiles) > 0 {
-		return setupPlan{}, fmt.Errorf("AIGW is already configured; run `aigw add` to add an account, `aigw profile add` to add a model profile, or `aigw status` to inspect current state")
-	}
 	plan := setupPlan{request: request, before: cfg.Clone(), config: cfg}
 	plan.request.Profile = strings.TrimSpace(plan.request.Profile)
 	plan.request.Account = strings.TrimSpace(plan.request.Account)
@@ -146,10 +144,10 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 	if plan.request.Account == "" {
 		plan.request.Account = plan.request.Profile
 	}
-	if !configuration.ValidProfileName(plan.request.Account) {
+	if !configuration.ValidIdentifier(plan.request.Account) {
 		return setupPlan{}, fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Account)
 	}
-	if !configuration.ValidProfileName(plan.request.Profile) {
+	if !configuration.ValidIdentifier(plan.request.Profile) {
 		return setupPlan{}, fmt.Errorf("Invalid profile ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Profile)
 	}
 	if plan.request.Label == "" {
@@ -161,24 +159,22 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 	}
 	if plan.request.Client == "" {
 		return setupPlan{}, fmt.Errorf("--for is required and must be %s; a model profile belongs to exactly one client", configuration.AdmittedClientUsage())
-	} else {
-		spec, ok := configuration.ClientSpecFor(plan.request.Client)
-		if !ok {
-			return setupPlan{}, fmt.Errorf("--for must be %s; run `aigw setup --help`", configuration.AdmittedClientUsage())
-		}
-		account := configuration.Account{ID: plan.request.Account, Endpoints: endpoints}
-		if _, err := spec.Endpoint(account); err != nil {
-			var missing *configuration.RuntimeMissingEndpointError
-			if !errors.As(err, &missing) {
-				return setupPlan{}, err
-			}
-			return setupPlan{}, fmt.Errorf("--for %s requires %s", plan.request.Client, setupEndpointFlag(spec.EndpointProtocol))
-		}
-		if strings.TrimSpace(plan.request.Model) == "" {
-			return setupPlan{}, fmt.Errorf("--for %s requires --model", plan.request.Client)
-		}
-		plan.validationClients = append(plan.validationClients, plan.request.Client)
 	}
+	spec, ok := configuration.ClientSpecFor(plan.request.Client)
+	if !ok {
+		return setupPlan{}, fmt.Errorf("--for must be %s; run `aigw setup --help`", configuration.AdmittedClientUsage())
+	}
+	account := configuration.Account{ID: plan.request.Account, Endpoints: endpoints}
+	if _, err := spec.Endpoint(account); err != nil {
+		if _, ok := errors.AsType[*configuration.RuntimeMissingEndpointError](err); !ok {
+			return setupPlan{}, err
+		}
+		return setupPlan{}, fmt.Errorf("--for %s requires %s", plan.request.Client, setupEndpointFlag(spec.EndpointProtocol))
+	}
+	if strings.TrimSpace(plan.request.Model) == "" {
+		return setupPlan{}, fmt.Errorf("--for %s requires --model", plan.request.Client)
+	}
+	plan.validationClients = append(plan.validationClients, plan.request.Client)
 	storedAccount := configuration.Account{Label: plan.request.Label, Endpoints: endpoints}
 	plan.account = storedAccount
 	plan.account.ID = plan.request.Account
@@ -235,41 +231,37 @@ func setupEndpointFlag(protocol configuration.EndpointProtocol) string {
 // AIGW_SECRET_BACKEND=env: the environment store is intentionally read-only,
 // so setup must validate and reference its token rather than asking for a
 // second copy and attempting to persist it.
-func setupToken(runtime invocation.Context, request Request) (token string, alreadyManaged bool, err error) {
-	if !request.PromptToken && !request.TokenStdin {
-		token, err = runtime.Secrets.Get(request.Account)
-		if err == nil {
-			return token, true, nil
-		}
-		if !errors.Is(err, secrets.ErrNotFound) {
-			return "", false, err
-		}
+func setupToken(runtime invocation.Context, request Request) (setupCredential, error) {
+	credential := setupCredential{account: request.Account}
+	previous, err := runtime.Secrets.Get(request.Account)
+	if err != nil && !errors.Is(err, secrets.ErrNotFound) {
+		return setupCredential{}, err
+	}
+	if !request.PromptToken && !request.TokenStdin && err == nil {
+		credential.token = previous
+		return credential, nil
 	}
 	if request.PromptToken {
-		token, err = runtime.Prompt.Secret("Paste " + request.Label + " token: ")
-		return token, false, err
+		credential.token, err = runtime.Prompt.Secret("Paste " + request.Label + " token: ")
+	} else {
+		credential.token, err = invocation.ReadToken(runtime, request.TokenStdin, true)
 	}
-	token, err = invocation.ReadToken(runtime, request.TokenStdin, true)
-	return token, false, err
-}
-
-func rollbackSetup(runtime invocation.Context, account string, deleteNewSecret bool) {
-	if deleteNewSecret {
-		_ = runtime.Secrets.Delete(account)
+	if err != nil {
+		return setupCredential{}, err
 	}
-	_ = os.Remove(runtime.Config.Path())
-	_ = os.Remove(runtime.Config.Path() + ".bak")
+	credential.write = true
+	return credential, nil
 }
 
 // RunWizard is deliberately provider-neutral. AIGW never assumes a gateway,
 // token slot, URL, or model catalogue for a new user; the user may instead
 // import a secret-free configuration manifest before running this flow.
 func RunWizard(ctx context.Context, runtime invocation.Context) error {
-	account, err := runtime.Prompt.Text("Account ID (for example, team-gateway): ")
+	account, err := runtime.Prompt.Text("Account ID (for example, team-primary): ")
 	if err != nil {
 		return err
 	}
-	if !configuration.ValidProfileName(account) {
+	if !configuration.ValidIdentifier(account) {
 		return fmt.Errorf("invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", account)
 	}
 	label, err := runtime.Prompt.Text("Provider display name: ")

@@ -8,6 +8,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// EnableVirtualTerminal reports whether Windows stdout accepts ANSI terminal sequences.
 func EnableVirtualTerminal() bool {
 	var mode uint32
 	handle := windows.Handle(os.Stdout.Fd())

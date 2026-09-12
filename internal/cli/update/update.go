@@ -4,18 +4,31 @@ package update
 
 import (
 	"fmt"
+	"strings"
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/upgrade"
+
 	"github.com/spf13/cobra"
 )
 
+// NewCommand constructs the signed portable release update command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var rollback bool
 	var candidateArchive string
 	var candidateChecksums string
 	cmd := &cobra.Command{
-		Use: "update", Short: "Install a verified release, a local candidate, or restore the previous portable program", Args: cobra.NoArgs,
+		Use: "update", Short: "Install a verified release, a local candidate, or restore the previous portable program",
+		Long: "Replace the program without changing client settings. Run sync after upgrading. Before rollback, disable enabled client integrations; then restore the program and run its sync before resuming clients.",
+		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
+			for _, name := range []string{"candidate", "checksums"} {
+				flag := cmd.Flags().Lookup(name)
+				if flag.Changed && strings.TrimSpace(flag.Value.String()) == "" {
+					return fmt.Errorf("--%s requires a non-empty path; run `aigw update --help`", name)
+				}
+			}
+			return nil
+		}),
 		RunE: func(ctx *cobra.Command, _ []string) error {
 			if runtime.Updater == nil {
 				return fmt.Errorf("Automatic update is unavailable; install a verified release from GitLab or GitHub")
@@ -35,6 +48,16 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				result, err = runtime.Updater.Update(ctx.Context(), runtime.Version)
 			}
 			if err != nil {
+				if rollback {
+					return invocation.Problem(
+						runtime,
+						"Program rollback did not complete",
+						"AIGW could not activate the retained previous program.",
+						"No previous program version was confirmed active.",
+						"aigw check",
+						err,
+					)
+				}
 				return err
 			}
 			r := invocation.Renderer(runtime)
@@ -46,7 +69,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r.ProductTitle(title)
 			r.Success(result)
-			r.Next("aigw check")
+			r.Text("Run the active version's sync command to reconcile owned client settings, then check readiness.")
+			r.Next("aigw sync")
 			return nil
 		},
 	}

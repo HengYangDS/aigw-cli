@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"aigw-cli/internal/process"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -35,7 +36,7 @@ func (u Updater) latestPrereleaseTagFromGitHub(ctx context.Context, source Relea
 		return "", err
 	}
 	request.Header.Set("Accept", "application/vnd.github+json")
-	response, err := u.githubHTTPClient().Do(request)
+	response, err := u.releaseHTTPClient().Do(request)
 	if err != nil {
 		return "", unavailable(fmt.Errorf("query GitHub prerelease metadata: %w", err))
 	}
@@ -89,7 +90,7 @@ func (u Updater) latestTagFromGitHubRelease(ctx context.Context, source ReleaseS
 		if prereleaseErr == nil {
 			return tag, nil
 		}
-		if !isGitHubNotFound(prereleaseErr) {
+		if !isHTTPStatus(prereleaseErr, http.StatusNotFound) {
 			return "", prereleaseErr
 		}
 		if tag, cliErr := u.latestTagFromGitHubCLI(ctx, source); cliErr == nil {
@@ -111,14 +112,14 @@ func (u Updater) latestTagFromGitHubCLI(ctx context.Context, source ReleaseSourc
 	if !githubCLIFallbackAllowed(source) {
 		return "", fmt.Errorf("GitHub CLI fallback is unavailable for this release source")
 	}
-	release, err := u.githubReleaseWithCLI(ctx, source, "releases/latest")
+	release, err := u.latestGitHubReleaseWithCLI(ctx, source)
 	if err == nil {
 		if release.TagName == "" {
 			return "", fmt.Errorf("no AIGW release is available")
 		}
 		return release.TagName, nil
 	}
-	output, listErr := u.runGitHubCLI(ctx, "api", "repos/"+source.Repository+"/releases?per_page=100")
+	output, listErr := u.runGitHubCLI(ctx, source, "api", "repos/"+source.Repository+"/releases?per_page=100")
 	if listErr != nil {
 		return "", fmt.Errorf("query GitHub release metadata through gh: %w", listErr)
 	}
@@ -132,8 +133,8 @@ func (u Updater) latestTagFromGitHubCLI(ctx context.Context, source ReleaseSourc
 	return "", err
 }
 
-func (u Updater) githubReleaseWithCLI(ctx context.Context, source ReleaseSource, path string) (githubRelease, error) {
-	output, err := u.runGitHubCLI(ctx, "api", "repos/"+source.Repository+"/"+path)
+func (u Updater) latestGitHubReleaseWithCLI(ctx context.Context, source ReleaseSource) (githubRelease, error) {
+	output, err := u.runGitHubCLI(ctx, source, "api", "repos/"+source.Repository+"/releases/latest")
 	if err != nil {
 		return githubRelease{}, err
 	}
@@ -153,7 +154,7 @@ func (u Updater) githubRelease(ctx context.Context, source ReleaseSource, path s
 		return githubRelease{}, err
 	}
 	request.Header.Set("Accept", "application/vnd.github+json")
-	response, err := u.githubHTTPClient().Do(request)
+	response, err := u.releaseHTTPClient().Do(request)
 	if err != nil {
 		return githubRelease{}, unavailable(fmt.Errorf("query GitHub release metadata: %w", err))
 	}
@@ -212,7 +213,7 @@ func (u Updater) downloadGitHubReleaseAssetsWithCLI(ctx context.Context, source 
 		if filepath.Base(asset) != asset {
 			return fmt.Errorf("invalid release asset name %q", asset)
 		}
-		if _, err := u.runGitHubCLI(ctx, "release", "download", tag, "--repo", source.Repository, "--pattern", asset, "--dir", directory); err != nil {
+		if _, err := u.runGitHubCLI(ctx, source, "release", "download", tag, "--repo", source.Repository, "--pattern", asset, "--dir", directory); err != nil {
 			return fmt.Errorf("download GitHub release asset %s through gh: %w", asset, err)
 		}
 		info, err := os.Stat(filepath.Join(directory, asset))
@@ -231,7 +232,7 @@ func (u Updater) downloadGitHubAsset(ctx context.Context, rawURL, destination st
 	if err := u.authorizeGitHubRequest(request); err != nil {
 		return err
 	}
-	response, err := u.githubHTTPClient().Do(request)
+	response, err := u.releaseHTTPClient().Do(request)
 	if err != nil {
 		return unavailable(err)
 	}
@@ -254,40 +255,12 @@ func (u Updater) downloadGitHubAsset(ctx context.Context, rawURL, destination st
 	return nil
 }
 
-func isGitHubUnavailable(err error) bool { return isSourceUnavailable(err) }
-
 func (u Updater) githubAPIURL(source ReleaseSource, path string) string {
 	origin := strings.TrimRight(source.Origin, "/")
 	if strings.EqualFold(origin, "https://github.com") {
 		origin = "https://api.github.com"
 	}
 	return origin + "/repos/" + source.Repository + "/" + path
-}
-
-func (u Updater) githubHTTPClient() *http.Client {
-	base := u.HTTPClient
-	if base == nil {
-		base = http.DefaultClient
-	}
-	client := *base
-	if client.Timeout == 0 {
-		client.Timeout = releaseRequestTimeout
-	}
-	defaultCheckRedirect := client.CheckRedirect
-	client.CheckRedirect = func(request *http.Request, previous []*http.Request) error {
-		if len(previous) > 0 && !strings.EqualFold(request.URL.Host, previous[0].URL.Host) {
-			request.Header.Del("Authorization")
-			request.Header.Del("PRIVATE-TOKEN")
-		}
-		if len(previous) > 0 && previous[0].URL.Scheme == "https" && request.URL.Scheme != "https" {
-			return fmt.Errorf("refusing GitHub update redirect from HTTPS to HTTP")
-		}
-		if defaultCheckRedirect != nil {
-			return defaultCheckRedirect(request, previous)
-		}
-		return nil
-	}
-	return &client
 }
 
 func (u *Updater) authorizeGitHubRequest(request *http.Request) error {
@@ -305,14 +278,11 @@ func (u *Updater) authorizeGitHubRequest(request *http.Request) error {
 	return nil
 }
 
-func (u Updater) runGitHubCLI(ctx context.Context, args ...string) ([]byte, error) {
-	return u.Runner.Run(ctx, "gh", args...)
+func (u Updater) runGitHubCLI(ctx context.Context, source ReleaseSource, args ...string) ([]byte, error) {
+	_, host, _ := strings.Cut(strings.TrimRight(source.Origin, "/"), "://")
+	return u.captureReleaseCommand(ctx, process.Plan{Executable: "gh", Args: args, Env: append(os.Environ(), "GH_HOST="+host)})
 }
 
 func githubCLIFallbackAllowed(source ReleaseSource) bool {
 	return strings.EqualFold(strings.TrimRight(source.Origin, "/"), "https://github.com")
-}
-
-func isGitHubNotFound(err error) bool {
-	return isHTTPStatus(err, http.StatusNotFound)
 }

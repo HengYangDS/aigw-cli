@@ -4,12 +4,51 @@ package secrets
 
 import (
 	"errors"
-	"os/exec"
+	"path/filepath"
+	"slices"
 	"testing"
 )
 
+func TestKeychainMetadataCommandDoesNotRequestPasswordData(t *testing.T) {
+	command := keychainMetadataCommand("AIGW_TOKEN", "team")
+	want := []string{
+		"/usr/bin/security",
+		"find-generic-password",
+		"-s", "AIGW_TOKEN",
+		"-a", "team",
+	}
+	if !slices.Equal(command.Args, want) {
+		t.Fatalf("Keychain metadata command = %q, want %q", command.Args, want)
+	}
+}
+
+func TestAutomaticSelectionObservesNativeKeychainWithoutPersisting(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	store, err := Select(Selection{GOOS: "darwin", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := Inspect(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := BackendSelection{
+		Kind:         "keyring",
+		Availability: "available",
+		Mutability:   "read_write",
+		Persistence:  "deferred",
+	}
+	if got != want {
+		t.Fatalf("Inspect() = %#v, want %#v", got, want)
+	}
+	if _, err := newBackendChoice(root).Read(); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("value-free inspection persisted backend selection: %v", err)
+	}
+}
+
 func TestClassifyKeychainObservation(t *testing.T) {
-	absent := exec.Command("/usr/bin/security", "find-generic-password", "-s", "aigw-test-absent", "-a", "aigw-test-absent")
+	absent := keychainMetadataCommand("aigw-test-absent", "aigw-test-absent")
 	absentOutput, absentErr := absent.CombinedOutput()
 	if absentErr == nil {
 		t.Fatal("absent Keychain fixture unexpectedly exists")

@@ -2,6 +2,7 @@ package platform_test
 
 import (
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"aigw-cli/internal/platform"
@@ -74,18 +75,23 @@ func TestConfigPathUsesPlatformConvention(t *testing.T) {
 	}
 }
 
-func TestConfigPathRefusesMissingHomeOrUnsupportedOS(t *testing.T) {
-	if _, err := platform.ConfigPathFor("darwin", map[string]string{}); err == nil {
-		t.Fatal("darwin without HOME unexpectedly admitted")
-	}
-	if _, err := platform.ConfigPathFor("linux", map[string]string{}); err == nil {
-		t.Fatal("linux without HOME or XDG_CONFIG_HOME unexpectedly admitted")
-	}
-	if _, err := platform.ConfigPathFor("windows", map[string]string{}); err == nil {
-		t.Fatal("windows without APPDATA unexpectedly admitted")
-	}
-	if _, err := platform.ConfigPathFor("plan9", map[string]string{}); err == nil {
-		t.Fatal("unsupported operating system unexpectedly admitted")
+func TestPlatformPathsRequireSupportedHostInputs(t *testing.T) {
+	for _, operation := range []struct {
+		name string
+		path func(string, map[string]string) (string, error)
+	}{
+		{"configuration", platform.ConfigPathFor},
+		{"data", platform.DataDirFor},
+	} {
+		t.Run(operation.name, func(t *testing.T) {
+			for _, goos := range []string{"darwin", "linux", "windows", "plan9"} {
+				t.Run(goos, func(t *testing.T) {
+					if _, err := operation.path(goos, map[string]string{}); err == nil {
+						t.Fatal("unsupported operating system or missing platform input admitted")
+					}
+				})
+			}
+		})
 	}
 }
 
@@ -106,21 +112,6 @@ func TestDataDirUsesPlatformConvention(t *testing.T) {
 		if err != nil || filepath.Clean(got) != filepath.Clean(tt.want) {
 			t.Errorf("DataDirFor(%s, %v) = %q, %v; want %q", tt.goos, tt.env, got, err, tt.want)
 		}
-	}
-}
-
-func TestDataDirRefusesMissingHomeOrUnsupportedOS(t *testing.T) {
-	if _, err := platform.DataDirFor("darwin", map[string]string{}); err == nil {
-		t.Fatal("darwin without HOME unexpectedly admitted")
-	}
-	if _, err := platform.DataDirFor("linux", map[string]string{}); err == nil {
-		t.Fatal("linux without HOME or XDG_DATA_HOME unexpectedly admitted")
-	}
-	if _, err := platform.DataDirFor("windows", map[string]string{}); err == nil {
-		t.Fatal("windows without LOCALAPPDATA or APPDATA unexpectedly admitted")
-	}
-	if _, err := platform.DataDirFor("plan9", map[string]string{}); err == nil {
-		t.Fatal("unsupported operating system unexpectedly admitted")
 	}
 }
 
@@ -165,14 +156,54 @@ func TestUserBinDirRefusesMissingWindowsEnvOrUnsupportedOS(t *testing.T) {
 	}
 }
 
-func TestWindowsJoinPreservesRootedAndEmptyInputs(t *testing.T) {
-	got, err := platform.ConfigPathFor("windows", map[string]string{"APPDATA": `\\server\share`})
-	if err != nil || got != `\server\share\aigw\config.toml` {
-		t.Fatalf("rooted Windows config path = %q, %v", got, err)
-	}
-	got, err = platform.ConfigPathFor("windows", map[string]string{"APPDATA": `\\`})
-	if err != nil || got != `\aigw\config.toml` {
-		t.Fatalf("root-only Windows config path = %q, %v", got, err)
+func TestWindowsPathsPreserveTheSelectedNamespace(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		base string
+		want string
+	}{
+		{"drive", `C:\Users\alex`, `C:\Users\alex`},
+		{"drive root", `C:\`, `C:`},
+		{"rooted", `\`, ``},
+		{"UNC", `\\server\share`, `\\server\share`},
+		{"UNC trailing separator", `\\server\share\`, `\\server\share`},
+		{"UNC forward slashes", `//server/share`, `\\server\share`},
+		{"extended drive", `\\?\C:\Users\alex`, `\\?\C:\Users\alex`},
+		{"extended UNC", `\\?\UNC\server\share`, `\\?\UNC\server\share`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := platform.PathsFor("windows", map[string]string{
+				"APPDATA": test.base, "LOCALAPPDATA": test.base, "USERPROFILE": test.base,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, location := range []struct {
+				name  string
+				path  string
+				parts []string
+			}{
+				{"configuration", got.Config, []string{"aigw", "config.toml"}},
+				{"data", got.Data, []string{"aigw"}},
+				{"credentials", got.Secrets, []string{"aigw", "secrets"}},
+				{"Claude", got.ClaudeSettings, []string{".claude", "settings.json"}},
+				{"installation", got.InstallDir, []string{"Programs", "aigw", "bin"}},
+			} {
+				want := test.want
+				for _, component := range location.parts {
+					want += `\` + component
+				}
+				if location.path != want {
+					t.Errorf("%s = %q, want %q", location.name, location.path, want)
+				}
+				if runtime.GOOS == "windows" {
+					native := filepath.Join(append([]string{test.base}, location.parts...)...)
+					if location.path != native {
+						t.Errorf("%s = %q, native filepath.Join = %q", location.name, location.path, native)
+					}
+				}
+			}
+		})
 	}
 }
 

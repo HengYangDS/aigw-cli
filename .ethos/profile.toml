@@ -20,13 +20,15 @@ command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/coverage", "-
 dimensions = ["behavior", "test", "coverage"]
 evidence_class = "proof"
 trust_bearing = true
+writes_files = true
 network_policy = "offline"
 
 [[proof.gates]]
 id = "go-static-analysis"
 kind = "static"
-command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/ci", "static"]
+command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/ci", "quality"]
 dimensions = ["static-analysis", "architecture", "format", "governance", "release"]
 evidence_class = "proof"
 trust_bearing = true
-network_policy = "offline"
+writes_files = true
+network_policy = "required"

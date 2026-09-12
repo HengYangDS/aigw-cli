@@ -5,10 +5,13 @@ import (
 	"strings"
 )
 
+// EndpointProtocol identifies the upstream protocol required by an admitted client.
 type EndpointProtocol string
 
 const (
-	ProtocolAnthropic       EndpointProtocol = "anthropic"
+	// ProtocolAnthropic identifies the native Anthropic Messages-compatible endpoint.
+	ProtocolAnthropic EndpointProtocol = "anthropic"
+	// ProtocolOpenAIResponses identifies the OpenAI Responses-compatible endpoint.
 	ProtocolOpenAIResponses EndpointProtocol = "openai_responses"
 )
 
@@ -28,10 +31,12 @@ var admittedClientSpecs = []ClientSpec{
 	{ID: ClientCodex, Label: "Codex", EndpointProtocol: ProtocolOpenAIResponses},
 }
 
+// AdmittedClientSpecs returns an independent copy of every supported client contract.
 func AdmittedClientSpecs() []ClientSpec {
 	return append([]ClientSpec(nil), admittedClientSpecs...)
 }
 
+// AdmittedClientIDs returns admitted client identifiers in stable order.
 func AdmittedClientIDs() []string {
 	clients := make([]string, 0, len(admittedClientSpecs))
 	for _, spec := range admittedClientSpecs {
@@ -70,6 +75,7 @@ func naturalChoices(choices []string) string {
 	}
 }
 
+// ClientSpecFor resolves one admitted client contract by identifier.
 func ClientSpecFor(id string) (ClientSpec, bool) {
 	for _, spec := range admittedClientSpecs {
 		if spec.ID == id {
@@ -79,6 +85,7 @@ func ClientSpecFor(id string) (ClientSpec, bool) {
 	return ClientSpec{}, false
 }
 
+// IsAdmittedClient reports whether an identifier has an admitted client contract.
 func IsAdmittedClient(id string) bool {
 	_, ok := ClientSpecFor(id)
 	return ok

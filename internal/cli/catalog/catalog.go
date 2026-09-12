@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
+
 	"github.com/spf13/cobra"
 )
 
@@ -38,7 +40,7 @@ type modelRow struct {
 	Account string
 	Client  string
 	Model   string
-	Reach   string
+	Catalog string
 }
 
 type catalogModel struct {
@@ -63,7 +65,7 @@ type catalogOutput struct {
 func NewModelsCommand(deps Dependencies) *cobra.Command {
 	return &cobra.Command{
 		Use:   "models",
-		Short: "Check whether configured models are listed by their gateways",
+		Short: "Compare configured model IDs with provider catalogs; does not test inference",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := deps.Config.Load()
@@ -73,35 +75,18 @@ func NewModelsCommand(deps Dependencies) *cobra.Command {
 			if len(cfg.Profiles) == 0 {
 				return fmt.Errorf("not configured; run `aigw setup`")
 			}
-			modelSets := map[string]map[string]bool{}
-			for accountName, account := range cfg.Accounts {
-				if account.Endpoints.OpenAIResponses == "" {
-					continue
-				}
-				token, err := deps.Secrets.Get(accountName)
-				if err != nil {
-					continue
-				}
-				if models, err := FetchSet(cmd.Context(), deps.HTTP, account, token); err == nil {
-					modelSets[accountName] = models
-				}
-			}
-			rows := modelRows(cfg, modelSets)
+			rows := modelRows(cfg, discoverCatalog(cmd.Context(), deps, cfg))
 			r := renderer(deps)
-			r.ProductTitle("Model availability")
+			r.ProductTitle("Configured model catalog")
+			r.Detail("Catalog membership does not prove inference or client readiness.")
 			r.Section("Service profiles")
 			for _, row := range rows {
-				state := presentation.Info
-				if row.Reach == "Reachable" {
-					state = presentation.OK
-				} else if row.Reach == "Unavailable" {
-					state = presentation.Fail
+				state := presentation.Warn
+				if row.Catalog == "Listed" || row.Catalog == "Not listed" {
+					state = presentation.Info
 				}
 				r.StatusLine(state, "Profile", row.Profile)
-				r.Detail(fmt.Sprintf("%s · %s · %s · account %s", modelTitle(row.Client), row.Model, row.Reach, row.Account))
-			}
-			if len(rows) == 0 {
-				r.Status(presentation.Info, "model", "No model services are configured")
+				r.Detail(fmt.Sprintf("%s · %s · %s · account %s", modelTitle(row.Client), row.Model, row.Catalog, row.Account))
 			}
 			r.Next("aigw use")
 			return r.Err()
@@ -109,19 +94,25 @@ func NewModelsCommand(deps Dependencies) *cobra.Command {
 	}
 }
 
-func modelRows(cfg configuration.Config, modelSets map[string]map[string]bool) []modelRow {
+func modelRows(cfg configuration.Config, catalog catalogOutput) []modelRow {
+	accounts := make(map[string]catalogAccount, len(catalog.Accounts))
+	for _, account := range catalog.Accounts {
+		accounts[account.ID] = account
+	}
 	rows := []modelRow{}
 	for _, name := range sortedProfileNames(cfg) {
 		profile := cfg.Profiles[name]
-		model := profile.Model
-		reach := "Unknown"
-		if set, ok := modelSets[profile.Account]; ok {
-			reach = "Unavailable"
-			if set[model] {
-				reach = "Reachable"
+		membership := "Catalog not observed"
+		if account, ok := accounts[profile.Account]; ok {
+			membership = StatusText(account.Status)
+			if account.Status == "ok" {
+				membership = "Not listed"
+				if slices.ContainsFunc(account.Models, func(model catalogModel) bool { return model.ID == profile.Model }) {
+					membership = "Listed"
+				}
 			}
 		}
-		rows = append(rows, modelRow{name, profile.Account, profile.Client, model, reach})
+		rows = append(rows, modelRow{name, profile.Account, profile.Client, profile.Model, membership})
 	}
 	return rows
 }
@@ -261,6 +252,8 @@ func StatusText(status string) string {
 		return "OpenAI Responses endpoint is not configured"
 	case "token_unavailable":
 		return "Token unavailable"
+	case "credential_backend_failed":
+		return "Credential backend failed; catalog was not queried"
 	case "request_failed":
 		return "Catalog request failed; configuration was not changed"
 	default:
@@ -268,25 +261,10 @@ func StatusText(status string) string {
 	}
 }
 
-// FetchSet fetches the catalog and indexes its model IDs.
-func FetchSet(parent context.Context, client HTTPDoer, account configuration.Account, token string) (map[string]bool, error) {
-	ids, err := FetchIDs(parent, client, account, token)
-	if err != nil {
-		return nil, err
-	}
-	set := make(map[string]bool, len(ids))
-	for _, id := range ids {
-		set[id] = true
-	}
-	return set, nil
-}
-
 // FetchIDs fetches and parses an OpenAI-compatible model catalog.
 func FetchIDs(parent context.Context, client HTTPDoer, account configuration.Account, token string) ([]string, error) {
 	endpoint := strings.TrimRight(account.Endpoints.OpenAIResponses, "/")
-	if strings.HasSuffix(endpoint, "/v1") {
-		endpoint += "/models"
-	} else if !strings.HasSuffix(endpoint, "/models") {
+	if !strings.HasSuffix(endpoint, "/models") {
 		endpoint += "/models"
 	}
 	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
@@ -302,9 +280,16 @@ func FetchIDs(parent context.Context, client HTTPDoer, account configuration.Acc
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("model catalog endpoint returned HTTP %d", resp.StatusCode)
+	}
+	const maximumCatalogBytes = 4 << 20
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maximumCatalogBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("model catalog response could not be read completely")
+	}
+	if len(body) > maximumCatalogBytes {
+		return nil, fmt.Errorf("model catalog response exceeds the %d-byte limit", maximumCatalogBytes)
 	}
 	return ParseIDs(body)
 }

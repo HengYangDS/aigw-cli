@@ -2,11 +2,13 @@ package codex
 
 import (
 	"fmt"
-	"regexp"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/pelletier/go-toml/v2/unstable"
 )
 
 // codexSchedulerKeys are the scheduler keys AIGW projects and validates. Codex
@@ -26,22 +28,9 @@ var codexSchedulerKeys = map[string]map[string]int{
 
 // codexRetiredSchedulerKeys are keys AIGW must clear rather than bind, because
 // the table's projected key already carries their meaning. They are captured
-// before removal so a restore still returns the user's original bytes.
+// before removal so a restore still returns the user's original values.
 var codexRetiredSchedulerKeys = map[string][]string{
 	"agents": {"max_concurrent_threads_per_session"},
-}
-
-// codexLegacySchedulerKeys is the key set an older AIGW projected. It is never
-// projected or validated. It exists only so a projection hash recorded by that
-// older AIGW is still recognized as AIGW's own work instead of a user edit.
-var codexLegacySchedulerKeys = map[string]map[string]int{
-	"agents": {
-		"max_concurrent_threads_per_session": codexSessionConcurrency,
-		"max_depth":                          codexAgentDepth,
-	},
-	"features.multi_agent_v2": {
-		"max_concurrent_threads_per_session": codexSessionConcurrency,
-	},
 }
 
 // codexSchedulerTargets lists every table and key AIGW either projects or
@@ -97,110 +86,79 @@ func captureCodexSchedulerInto(original map[string]*int, text string) (map[strin
 	return original, nil
 }
 
-// backfillCodexScheduler records originals for keys AIGW projects now but did
-// not project when this state was written. Without it an upgrade would overwrite
-// a user's own [agents].max_threads with no record of the value to restore.
-// State that never tracked scheduler keys at all is left untouched.
-func backfillCodexScheduler(original map[string]*int, base string) (map[string]*int, error) {
-	if len(original) == 0 {
-		return original, nil
-	}
-	return captureCodexSchedulerInto(original, base)
-}
-
 func projectCodexScheduler(text string) (string, error) {
 	if err := validateCodexTOML(text); err != nil {
 		return "", err
 	}
 	result := text
-	tables := make([]string, 0, len(codexSchedulerKeys))
-	for table := range codexSchedulerKeys {
-		tables = append(tables, table)
-	}
-	sort.Strings(tables)
-	for _, table := range tables {
-		keys := make([]string, 0, len(codexSchedulerKeys[table]))
-		for key := range codexSchedulerKeys[table] {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		for _, key := range keys {
-			result = setCodexIntegerKey(result, table, key, codexSchedulerKeys[table][key])
+	for _, table := range slices.Sorted(maps.Keys(codexSchedulerKeys)) {
+		for _, key := range slices.Sorted(maps.Keys(codexSchedulerKeys[table])) {
+			var err error
+			assignment := fmt.Sprintf("%s = %d # managed by AIGW", key, codexSchedulerKeys[table][key])
+			result, err = setCodexTableAssignment(result, table, key, assignment)
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 	// A projected key and its retired alias cannot share a table: Codex reads the
 	// pair as one field declared twice and refuses to start.
-	retiredTables := make([]string, 0, len(codexRetiredSchedulerKeys))
-	for table := range codexRetiredSchedulerKeys {
-		retiredTables = append(retiredTables, table)
-	}
-	sort.Strings(retiredTables)
-	for _, table := range retiredTables {
+	for _, table := range slices.Sorted(maps.Keys(codexRetiredSchedulerKeys)) {
 		keys := append([]string(nil), codexRetiredSchedulerKeys[table]...)
 		sort.Strings(keys)
 		for _, key := range keys {
-			result = removeCodexIntegerKey(result, table, key)
+			var err error
+			result, err = setCodexTableAssignment(result, table, key, "")
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 	return result, validateCodexTOML(result)
 }
 
 func restoreCodexScheduler(text string, original map[string]*int) (string, error) {
-	if len(original) == 0 {
-		return text, nil
-	}
 	result := text
-	names := make([]string, 0, len(original))
-	for name := range original {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		table, key, ok := strings.Cut(name, ".max_")
-		if !ok {
-			return "", fmt.Errorf("invalid Codex scheduler state key %q", name)
-		}
-		key = "max_" + key
-		if original[name] == nil {
-			result = removeCodexIntegerKey(result, table, key)
-		} else {
-			result = setCodexIntegerKey(result, table, key, *original[name])
-		}
-		result = removeEmptyCodexTable(result, table)
-	}
-	// State written before a key joined the projected set records nothing for it,
-	// which would leave AIGW's own value behind after a restore. Remove such a key
-	// only while it still carries AIGW's value and managed marker, so a
-	// user-authored value is never discarded.
 	for _, target := range codexSchedulerTargets() {
 		table, key := target[0], target[1]
-		expected, managed := codexSchedulerKeys[table][key]
-		if !managed {
-			continue
+		name := table + "." + key
+		assignment := ""
+		if original[name] != nil {
+			assignment = fmt.Sprintf("%s = %d", key, *original[name])
 		}
-		if _, recorded := original[table+"."+key]; recorded {
-			continue
+		var err error
+		result, err = setCodexTableAssignment(result, table, key, assignment)
+		if err != nil {
+			return "", err
 		}
-		result = removeManagedCodexIntegerKey(result, table, key, expected)
-		result = removeEmptyCodexTable(result, table)
+		result, err = removeEmptyCodexTable(result, table)
+		if err != nil {
+			return "", err
+		}
 	}
-	result = regexp.MustCompile(`(?m)^([ \t]*max_(?:concurrent_threads_per_session|depth|threads)[ \t]*=[ \t]*[0-9]+)[ \t]*#[ \t]*managed by AIGW[ \t]*$`).ReplaceAllString(result, "$1")
 	return result, validateCodexTOML(result)
 }
 
-func codexSchedulerHash(text string) string {
-	return codexSchedulerHashFor(codexSchedulerKeys, codexRetiredSchedulerKeys, text)
+func validateCodexSchedulerState(original map[string]*int) error {
+	targets := codexSchedulerTargets()
+	expected := make(map[string]struct{}, len(targets))
+	for _, target := range targets {
+		expected[target[0]+"."+target[1]] = struct{}{}
+	}
+	for name := range original {
+		if _, ok := expected[name]; !ok {
+			return fmt.Errorf("invalid Codex scheduler state key %q", name)
+		}
+	}
+	if len(original) != len(expected) {
+		return fmt.Errorf("incomplete Codex scheduler state")
+	}
+	return nil
 }
 
-// codexSchedulerHashFor fingerprints one key set. Retired keys join the
-// fingerprint because AIGW owns their absence as much as it owns a projected
-// value: an alias that reappears beside the projected key recreates the pair
-// Codex rejects, so it has to read as drift rather than as AIGW's own work.
-// The legacy key set is fingerprinted without retired keys, exactly as the older
-// AIGW recorded it.
-func codexSchedulerHashFor(schedulerKeys map[string]map[string]int, retiredKeys map[string][]string, text string) string {
+func codexSchedulerHash(text string) string {
 	values := make([]string, 0)
-	for table, keys := range schedulerKeys {
+	for table, keys := range codexSchedulerKeys {
 		for key := range keys {
 			value, present, err := codexIntegerKey(text, table, key)
 			if err != nil || !present {
@@ -213,7 +171,7 @@ func codexSchedulerHashFor(schedulerKeys map[string]map[string]int, retiredKeys 
 	// A retired key is owned by its absence, so the fingerprint records only
 	// whether it exists. Any value at all is drift, not just an integer AIGW
 	// itself could have written.
-	for table, keys := range retiredKeys {
+	for table, keys := range codexRetiredSchedulerKeys {
 		for _, key := range keys {
 			state := "<missing>"
 			if present, err := codexKeyPresent(text, table, key); err != nil || present {
@@ -226,16 +184,19 @@ func codexSchedulerHashFor(schedulerKeys map[string]map[string]int, retiredKeys 
 	return hashText(strings.Join(values, "\n"))
 }
 
-// codexSchedulerHashMatches reports whether a recorded projection hash is one
-// AIGW itself wrote. A sidecar written before the [agents] alias was retired
-// recorded its hash over the older key set, so accepting that hash too keeps an
-// upgrade from misreading AIGW's own projection as a user edit and refusing to
-// synchronize the very configuration it needs to correct.
+// codexSchedulerHashMatches accepts only the current projection identity.
 func codexSchedulerHashMatches(recorded, text string) bool {
-	if recorded == "" {
-		return true
+	return recorded != "" && recorded == codexSchedulerHash(text)
+}
+
+func validateCodexSchedulerOwnership(state codexState, text string) error {
+	if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, text) {
+		return fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
 	}
-	return recorded == codexSchedulerHash(text) || recorded == codexSchedulerHashFor(codexLegacySchedulerKeys, nil, text)
+	if err := validateCodexSchedulerState(state.OriginalScheduler); err != nil {
+		return fmt.Errorf("Codex config conflict: %w", err)
+	}
+	return nil
 }
 
 func validateCodexScheduler(text string) error {
@@ -280,7 +241,7 @@ func codexKeyPresent(text, table, key string) (bool, error) {
 		return false, fmt.Errorf("parse Codex config: %w", err)
 	}
 	current := document
-	for _, segment := range strings.Split(table, ".") {
+	for segment := range strings.SplitSeq(table, ".") {
 		nested, ok := current[segment].(map[string]any)
 		if !ok {
 			return false, nil
@@ -299,63 +260,68 @@ func validateCodexTOML(text string) error {
 	return nil
 }
 
-func codexTableBounds(text, table string) (int, int, bool) {
-	header := "[" + table + "]"
-	lineStart := 0
-	for lineStart <= len(text) {
-		lineEnd := strings.IndexByte(text[lineStart:], '\n')
-		if lineEnd < 0 {
-			lineEnd = len(text)
-		} else {
-			lineEnd += lineStart + 1
+func codexTableBounds(text, table string) (int, int, error) {
+	var parser unstable.Parser
+	parser.Reset([]byte(text))
+	start, end := -1, len(text)
+	wanted := strings.Split(table, ".")
+	for parser.NextExpression() {
+		node := parser.Expression()
+		if node.Kind != unstable.Table && node.Kind != unstable.ArrayTable {
+			continue
 		}
-		line := strings.TrimSpace(strings.TrimSuffix(text[lineStart:lineEnd], "\n"))
-		if line == header {
-			end := lineEnd
-			for end < len(text) {
-				nextEnd := strings.IndexByte(text[end:], '\n')
-				if nextEnd < 0 {
-					nextEnd = len(text)
-				} else {
-					nextEnd += end + 1
-				}
-				next := strings.TrimSpace(strings.TrimSuffix(text[end:nextEnd], "\n"))
-				if strings.HasPrefix(next, "[") && strings.HasSuffix(next, "]") {
-					break
-				}
-				end = nextEnd
+		keys := node.Key()
+		lineStart := strings.LastIndexByte(text[:node.Child().Raw.Offset], '\n') + 1
+		matched, count := true, 0
+		for keys.Next() {
+			if count >= len(wanted) || string(keys.Node().Data) != wanted[count] {
+				matched = false
 			}
-			return lineStart, end, true
+			count++
 		}
-		if lineEnd == len(text) {
-			break
+		if start >= 0 && end == len(text) {
+			end = lineStart
 		}
-		lineStart = lineEnd
+		if node.Kind == unstable.Table && matched && count == len(wanted) {
+			if start >= 0 {
+				return -1, -1, fmt.Errorf("ambiguous Codex scheduler table %q", table)
+			}
+			start = lineStart
+		}
 	}
-	return 0, 0, false
+	if err := parser.Error(); err != nil {
+		return -1, -1, fmt.Errorf("parse Codex scheduler table: %w", err)
+	}
+	return start, end, nil
 }
 
 func codexIntegerKey(text, table, key string) (int, bool, error) {
-	start, end, present := codexTableBounds(text, table)
-	if !present {
-		return 0, false, nil
+	start, end, err := codexTableBounds(text, table)
+	if err != nil || start < 0 {
+		return 0, false, err
 	}
-	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*([0-9]+)[ \t]*(?:#.*)?$`)
-	match := pattern.FindStringSubmatch(text[start:end])
-	if match == nil {
-		return 0, false, nil
+	section := text[start:end]
+	body := section[strings.IndexByte(section, '\n')+1:]
+	line, err := codexSelectionLine(body, key)
+	if err != nil || line == "" {
+		return 0, false, err
 	}
-	var value int
-	if _, err := fmt.Sscanf(match[1], "%d", &value); err != nil {
+	var value map[string]int
+	if err := toml.Unmarshal([]byte(line), &value); err != nil {
 		return 0, false, fmt.Errorf("parse Codex scheduler key %s.%s: %w", table, key, err)
 	}
-	return value, true, nil
+	return value[key], true, nil
 }
 
-func setCodexIntegerKey(text, table, key string, value int) string {
-	start, end, present := codexTableBounds(text, table)
-	assignment := fmt.Sprintf("%s = %d # managed by AIGW", key, value)
-	if !present {
+func setCodexTableAssignment(text, table, key, assignment string) (string, error) {
+	start, end, err := codexTableBounds(text, table)
+	if err != nil {
+		return "", err
+	}
+	if start < 0 {
+		if assignment == "" {
+			return text, nil
+		}
 		separator := ""
 		if text != "" && !strings.HasSuffix(text, "\n") {
 			separator = "\n"
@@ -363,61 +329,36 @@ func setCodexIntegerKey(text, table, key string, value int) string {
 		if strings.TrimSpace(text) != "" {
 			separator += "\n"
 		}
-		return text + separator + "[" + table + "]\n" + assignment + "\n"
+		return text + separator + "[" + table + "]\n" + assignment + "\n", nil
 	}
 	section := text[start:end]
-	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=.*$`)
-	if pattern.MatchString(section) {
-		section = pattern.ReplaceAllString(section, assignment)
-	} else {
-		headerEnd := strings.IndexByte(section, '\n')
-		if headerEnd < 0 {
-			section += "\n" + assignment + "\n"
-		} else {
-			headerEnd++
-			section = section[:headerEnd] + assignment + "\n" + section[headerEnd:]
+	headerEnd := strings.IndexByte(section, '\n')
+	if headerEnd < 0 {
+		if assignment == "" {
+			return text, nil
 		}
+		return text[:end] + "\n" + assignment + "\n" + text[end:], nil
 	}
-	return text[:start] + section + text[end:]
+	bodyStart := start + headerEnd + 1
+	body, err := setCodexSelection(text[bodyStart:end], key, assignment)
+	if err != nil {
+		return "", err
+	}
+	return text[:bodyStart] + body + text[end:], nil
 }
 
-func removeCodexIntegerKey(text, table, key string) string {
-	start, end, present := codexTableBounds(text, table)
-	if !present {
-		return text
-	}
-	section := text[start:end]
-	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=.*(?:\n|$)`)
-	section = pattern.ReplaceAllString(section, "")
-	return text[:start] + section + text[end:]
-}
-
-// removeManagedCodexIntegerKey removes a key only while it still carries AIGW's
-// own value and ownership marker. The marker is the evidence that AIGW wrote the
-// line, so a user-authored value of any kind survives.
-func removeManagedCodexIntegerKey(text, table, key string, value int) string {
-	start, end, present := codexTableBounds(text, table)
-	if !present {
-		return text
-	}
-	section := text[start:end]
-	pattern := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta(key) + `[ \t]*=[ \t]*` + fmt.Sprintf("%d", value) + `[ \t]*#[ \t]*managed by AIGW[ \t]*(?:\n|$)`)
-	section = pattern.ReplaceAllString(section, "")
-	return text[:start] + section + text[end:]
-}
-
-func removeEmptyCodexTable(text, table string) string {
-	start, end, present := codexTableBounds(text, table)
-	if !present {
-		return text
+func removeEmptyCodexTable(text, table string) (string, error) {
+	start, end, err := codexTableBounds(text, table)
+	if err != nil || start < 0 {
+		return text, err
 	}
 	section := text[start:end]
 	lines := strings.Split(section, "\n")
 	for _, line := range lines[1:] {
 		trimmed := strings.TrimSpace(line)
 		if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
-			return text
+			return text, nil
 		}
 	}
-	return text[:start] + text[end:]
+	return text[:start] + text[end:], nil
 }

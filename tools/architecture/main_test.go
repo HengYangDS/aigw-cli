@@ -17,11 +17,18 @@ measurement = "parse repository structure against the declared contract"
 false_positive_cost = "a valid topology change requires policy review"
 remediation = "move behavior to an existing owner or update the contract"
 review_condition = "reassess when product topology changes"
-go_roots = ["cmd", "internal", "tools"]
-composition_root_files = { "internal/cli" = ["app.go"] }
+go_roots = ["internal"]
+tracked_carrier_classes = {
+  go = { responsibility = "Go source", prefixes = ["cmd", "tools"], suffixes = [".go"] },
+  internal = { responsibility = "product fixture", prefixes = ["internal"] },
+  configuration = { responsibility = "configuration fixture", prefixes = [".config"] },
+  policy = { responsibility = "policy fixture", exact_paths = ["policy.toml"] },
+  scripts = { responsibility = "script fixture", prefixes = ["scripts"] },
+}
+composition_root_files = { "internal/cli" = ["app.go"], "tools/release" = ["commands.go", "main.go"] }
 peer_package_roots = { "internal/cli" = ["invocation"] }
-ignore_roots = ["vendor", ".git", "records", "build"]
-ignore_directory_names = ["vendor", ".git", "records", "runtime", "node_modules"]
+ignore_roots = ["vendor", ".git", "build"]
+ignore_directory_names = ["vendor", ".git", "node_modules"]
 `
 
 type rejectingWriter struct{}
@@ -77,7 +84,8 @@ func hasRule(report Report, rule string) bool {
 
 func TestRunCleanFixture(t *testing.T) {
 	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
+	body := strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = ["cmd", "internal", "tools"]`, 1)
+	policyPath := writePolicy(t, root, body)
 	writeFile(t, filepath.Join(root, "scripts", "check", "ok.sh"), "#!/bin/sh\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "// Package pkg owns the fixture behavior.\npackage pkg\n\nfunc Hello() string { return \"ok\" }\n")
 	writeFile(t, filepath.Join(root, "cmd", "tool", "main.go"), "// Command tool runs the fixture.\npackage main\n\nfunc main() {}\n")
@@ -97,7 +105,8 @@ func TestRunCleanFixture(t *testing.T) {
 
 func TestRunDetectsCoreViolations(t *testing.T) {
 	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
+	body := strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = ["internal", "tools"]`, 1)
+	policyPath := writePolicy(t, root, body)
 
 	// forbidden directory name
 	writeFile(t, filepath.Join(root, "internal", "shims", "launcher.go"), "package shims\n\nfunc X() {}\n")
@@ -105,6 +114,8 @@ func TestRunDetectsCoreViolations(t *testing.T) {
 	// composition root behavior outside its declared assembler
 	writeFile(t, filepath.Join(root, "internal", "cli", "app.go"), "package cli\n")
 	writeFile(t, filepath.Join(root, "internal", "cli", "setup.go"), "package cli\n")
+	writeFile(t, filepath.Join(root, "tools", "release", "main.go"), "package main\n")
+	writeFile(t, filepath.Join(root, "tools", "release", "legacy.go"), "package main\n")
 	writeFile(t, filepath.Join(root, "internal", "cli", "account", "account.go"), "package account\n\nimport _ \"fixture/internal/cli/profile\"\n")
 	writeFile(t, filepath.Join(root, "internal", "cli", "profile", "profile.go"), "package profile\n\nimport _ \"fixture/internal/cli/invocation\"\n")
 
@@ -126,9 +137,12 @@ func TestRunDetectsCoreViolations(t *testing.T) {
 			t.Fatalf("missing rule %s in %v\nstdout=%s", rule, findingRules(report), stdout.String())
 		}
 	}
+	if report.Summary["composition_root_file"] != 2 {
+		t.Fatalf("composition root findings=%d want 2: %+v", report.Summary["composition_root_file"], report.Findings)
+	}
 }
 
-func TestParseErrorsRemainObservable(t *testing.T) {
+func TestArchitectureLeavesGoSyntaxToGoToolchain(t *testing.T) {
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "internal", "bad", "bad.go"), "package bad\nfunc (\n")
@@ -137,11 +151,11 @@ func TestParseErrorsRemainObservable(t *testing.T) {
 	var stderr bytes.Buffer
 	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
 	report := decodeReport(t, stdout.String())
-	if !hasRule(report, "go_parse_error") {
-		t.Fatalf("expected parse error finding, got %v", findingRules(report))
+	if hasRule(report, "go_parse_error") {
+		t.Fatalf("architecture duplicated Go syntax validation: %v", findingRules(report))
 	}
-	if code != 1 {
-		t.Fatalf("code=%d want 1 for parse error", code)
+	if code != 0 {
+		t.Fatalf("code=%d want 0; Go syntax belongs to the Go toolchain", code)
 	}
 }
 
@@ -159,14 +173,14 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 		{name: "missing policy", args: []string{"-root", root, "-policy", filepath.Join(root, "missing.toml")}, want: "load architecture policy", code: 1},
 		{name: "unknown field", body: validPolicy + "extra = 1\n", want: "load architecture policy", code: 1},
 		{name: "empty owner", body: strings.Replace(validPolicy, "product-toolchain", "", 1), want: "owner must be non-empty", code: 1},
-		{name: "empty go roots", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = []`, 1), want: "go_roots", code: 1},
-		{name: "abs go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["/tmp/x"]`, 1), want: "go_roots", code: 1},
-		{name: "windows drive go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["C:/tmp/x"]`, 1), want: "go_roots", code: 1},
-		{name: "windows relative drive go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["C:tmp/x"]`, 1), want: "go_roots", code: 1},
-		{name: "unc go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["//server/share"]`, 1), want: "go_roots", code: 1},
-		{name: "parent traversal go root", body: strings.Replace(validPolicy, `go_roots = ["cmd", "internal", "tools"]`, `go_roots = ["internal/../cmd"]`, 1), want: "go_roots", code: 1},
-		{name: "windows composition root", body: strings.Replace(validPolicy, `composition_root_files = { "internal/cli" = ["app.go"] }`, `composition_root_files = { "C:/internal/cli" = ["app.go"] }`, 1), want: "composition_root_files", code: 1},
-		{name: "duplicate composition file", body: strings.Replace(validPolicy, `composition_root_files = { "internal/cli" = ["app.go"] }`, `composition_root_files = { "internal/cli" = ["app.go", "app.go"] }`, 1), want: "composition_root_files", code: 1},
+		{name: "empty go roots", body: strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = []`, 1), want: "go_roots", code: 1},
+		{name: "abs go root", body: strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = ["/tmp/x"]`, 1), want: "go_roots", code: 1},
+		{name: "windows drive go root", body: strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = ["C:/tmp/x"]`, 1), want: "go_roots", code: 1},
+		{name: "windows relative drive go root", body: strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = ["C:tmp/x"]`, 1), want: "go_roots", code: 1},
+		{name: "unc go root", body: strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = ["//server/share"]`, 1), want: "go_roots", code: 1},
+		{name: "parent traversal go root", body: strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = ["internal/../cmd"]`, 1), want: "go_roots", code: 1},
+		{name: "windows composition root", body: strings.Replace(validPolicy, `"internal/cli" = ["app.go"]`, `"C:/internal/cli" = ["app.go"]`, 1), want: "composition_root_files", code: 1},
+		{name: "duplicate composition file", body: strings.Replace(validPolicy, `"internal/cli" = ["app.go"]`, `"internal/cli" = ["app.go", "app.go"]`, 1), want: "composition_root_files", code: 1},
 		{name: "parent peer root", body: strings.Replace(validPolicy, `peer_package_roots = { "internal/cli" = ["invocation"] }`, `peer_package_roots = { "internal/../cli" = ["invocation"] }`, 1), want: "peer_package_roots", code: 1},
 	}
 	for _, test := range tests {
@@ -283,60 +297,35 @@ func TestStartsWithDotDotAcceptsBothPortableSeparators(t *testing.T) {
 	}
 }
 
-func TestReportFinalizeStable(t *testing.T) {
-	report := newReport("p.toml", "/tmp/root")
-	report.addFinding(Finding{Rule: "b", Path: "z", Message: "m2"})
-	report.addFinding(Finding{Rule: "a", Path: "y", Message: "m1", Line: 2})
-	report.addFinding(Finding{Rule: "a", Path: "y", Message: "m0", Line: 1})
-	var buf bytes.Buffer
-	if err := writeReport(&buf, report); err != nil {
-		t.Fatal(err)
-	}
-	out := buf.String()
-	if !strings.Contains(out, `"ok": false`) {
-		t.Fatalf("out=%s", out)
-	}
-	// rule a before b
-	if idxA, idxB := strings.Index(out, `"rule": "a"`), strings.Index(out, `"rule": "b"`); idxA < 0 || idxB < 0 || idxA > idxB {
-		t.Fatalf("unstable order: %s", out)
-	}
-}
-
-func TestLoadPolicyRepoDefaultShape(t *testing.T) {
-	// Ensure the checked-in policy path shape is loadable when present relative to module.
-	// This test uses an embedded copy equivalent rather than depending on cwd.
+func TestLoadPolicyRetainsDeclaredRoots(t *testing.T) {
 	dir := t.TempDir()
 	path := writePolicy(t, dir, validPolicy)
 	p, err := loadPolicy(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Owner != "product-toolchain" || len(p.GoRoots) != 3 {
+	if p.Owner != "product-toolchain" || len(p.GoRoots) != 1 || p.GoRoots[0] != "internal" {
 		t.Fatalf("%+v", p)
 	}
 }
 
-func TestMissingGoRootsAreSkipped(t *testing.T) {
-	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
-	// No managed Go roots is a valid empty fixture.
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
-	}
-}
-
-func TestGoRootFileIgnored(t *testing.T) {
-	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
-	writeFile(t, filepath.Join(root, "internal"), "not-a-dir")
-	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
+func TestDeclaredGoRootsMustBeDirectories(t *testing.T) {
+	for _, state := range []string{"missing", "file"} {
+		t.Run(state, func(t *testing.T) {
+			root := t.TempDir()
+			policyPath := writePolicy(t, root, validPolicy)
+			if state == "file" {
+				writeFile(t, filepath.Join(root, "internal"), "not-a-directory")
+			}
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
+			if code != 1 || !strings.Contains(stderr.String(), "go root internal") {
+				t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("incomplete scan emitted an acceptance report: %s", stdout.String())
+			}
+		})
 	}
 }

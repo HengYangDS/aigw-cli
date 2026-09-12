@@ -17,11 +17,11 @@ func mustExist(t testing.TB, store Store, profile string) bool {
 func TestKeyringExistsUsesMetadataObserver(t *testing.T) {
 	observedService := ""
 	observedSlot := ""
-	store := KeyringStore{observe: func(service, slot string) (bool, error) {
+	store := scopedView{store: keyringStore{observe: func(service, slot string) (bool, error) {
 		observedService = service
 		observedSlot = slot
 		return true, nil
-	}}
+	}}}
 
 	present, err := store.Exists("team")
 	if err != nil || !present {
@@ -34,9 +34,9 @@ func TestKeyringExistsUsesMetadataObserver(t *testing.T) {
 
 func TestKeyringExistsPreservesObservationFailure(t *testing.T) {
 	want := errors.New("credential metadata unavailable")
-	store := KeyringStore{observe: func(string, string) (bool, error) {
+	store := scopedView{store: keyringStore{observe: func(string, string) (bool, error) {
 		return false, want
-	}}
+	}}}
 
 	present, err := store.Exists("team")
 	if present || !errors.Is(err, want) {
@@ -48,7 +48,7 @@ func TestExistsRejectsInvalidAccountIdentifiers(t *testing.T) {
 	stores := []Store{
 		NewMemoryStore(),
 		NewEnvironmentStore(func(string) string { return "value" }),
-		KeyringStore{observe: func(string, string) (bool, error) { return true, nil }},
+		scopedView{store: keyringStore{observe: func(string, string) (bool, error) { return true, nil }}},
 		newFileStore(t.TempDir()),
 	}
 	for _, store := range stores {

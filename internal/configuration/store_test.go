@@ -1,12 +1,11 @@
 package configuration
 
 import (
-	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -15,7 +14,7 @@ import (
 
 func TestLoadRejectsProfileOwnedEndpointResidue(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 2
+	raw := `version = 3
 
 [accounts.gateway]
 label = "Gateway"
@@ -27,19 +26,13 @@ openai_responses = "https://gateway.test/v1"
 label = "GPT"
 account = "gateway"
 client = "codex"
-
-[profiles.gpt.models]
-codex = "gpt-test"
+model = "gpt-test"
 
 [profiles.gpt.endpoints]
 openai_responses = "https://duplicate.test/v1"
 
-[profiles.gpt.account_probe]
-kind = "dmxapi"
-base_url = "https://duplicate.test"
-
 [routes]
-default = "gpt"
+codex = "gpt"
 `
 	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
@@ -50,208 +43,21 @@ default = "gpt"
 	}
 }
 
-func TestLoadRejectsNonCanonicalSchemaVersion(t *testing.T) {
+func TestLoadRequiresCanonicalSchemaVersion(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 1
-
-[accounts.gateway]
-label = "Gateway"
-
-[accounts.gateway.endpoints]
-anthropic = "https://gateway.test"
-
-[profiles.agent]
-label = "Agent"
-account = "gateway"
-
-[routes]
-default = "agent"
-`
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+	previousVersion := ConfigVersion - 1
+	raw := fmt.Appendf(nil, "version = %d\n", previousVersion)
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := NewStore(path).Load()
 	var loadErr *LoadError
 	var versionErr *UnsupportedConfigVersionError
 	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseValidate || !errors.As(err, &versionErr) {
-		t.Fatalf("version 1 load error = %v", err)
+		t.Fatalf("previous-version load error = %v", err)
 	}
-	if versionErr.Version != 1 || versionErr.ExpectedVersion != ConfigVersion || !strings.Contains(err.Error(), "unsupported config version 1") {
-		t.Fatalf("version 1 load error context = %#v, %v", versionErr, err)
-	}
-}
-
-func TestLoadMigratesVersionTwoRoutesToExplicitClientBindings(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 2
-
-[accounts.gateway]
-label = "Gateway"
-
-[accounts.gateway.endpoints]
-openai_responses = "https://gateway.test/v1"
-anthropic = "https://gateway.test"
-
-[profiles.claude]
-label = "Claude"
-account = "gateway"
-client = "claude"
-
-[profiles.claude.models]
-claude = "claude-test"
-
-[profiles.codex]
-label = "Codex"
-account = "gateway"
-client = "codex"
-
-[profiles.codex.models]
-codex = "gpt-test"
-
-[routes]
-default = "claude"
-
-[routes.overrides]
-codex = "codex"
-`
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := NewStore(path).Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.Version != ConfigVersion {
-		t.Fatalf("migrated version = %d, want %d", cfg.Version, ConfigVersion)
-	}
-	want := Routes{ClientClaude: "claude", ClientCodex: "codex"}
-	if !reflect.DeepEqual(cfg.Routes, want) {
-		t.Fatalf("migrated routes = %#v, want %#v", cfg.Routes, want)
-	}
-}
-
-func TestLoadVersionTwoOverrideWinsOverDefaultForTheSameClient(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 2
-
-[accounts.gateway]
-label = "Gateway"
-
-[accounts.gateway.endpoints]
-anthropic = "https://gateway.test"
-
-[profiles.old]
-label = "Old Claude"
-account = "gateway"
-client = "claude"
-
-[profiles.old.models]
-claude = "claude-old"
-
-[profiles.selected]
-label = "Selected Claude"
-account = "gateway"
-client = "claude"
-
-[profiles.selected.models]
-claude = "claude-selected"
-
-[routes]
-default = "old"
-
-[routes.overrides]
-claude = "selected"
-`
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := NewStore(path).Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(cfg.Routes, Routes{ClientClaude: "selected"}) {
-		t.Fatalf("migrated routes = %#v", cfg.Routes)
-	}
-}
-
-func TestLoadRejectsAmbiguousVersionTwoDefault(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 2
-
-[accounts.gateway]
-label = "Gateway"
-
-[accounts.gateway.endpoints]
-openai_responses = "https://gateway.test/v1"
-anthropic = "https://gateway.test"
-
-[profiles.shared]
-label = "Shared"
-account = "gateway"
-
-[profiles.shared.models]
-claude = "claude-test"
-codex = "gpt-test"
-
-[routes]
-default = "shared"
-`
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := NewStore(path).Load()
-	if err == nil || !strings.Contains(err.Error(), `cannot migrate profile "shared" because it does not declare exactly one client and model`) {
-		t.Fatalf("ambiguous migration error = %v", err)
-	}
-}
-
-func TestLoadRejectsUnknownVersionTwoDefaultRoute(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 2
-[accounts.gateway]
-label = "Gateway"
-[accounts.gateway.endpoints]
-anthropic = "https://gateway.test"
-[profiles.claude]
-label = "Claude"
-account = "gateway"
-client = "claude"
-[profiles.claude.models]
-claude = "claude-test"
-[routes]
-default = "missing"
-`
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := NewStore(path).Load()
-	if err == nil || !strings.Contains(err.Error(), `unknown profile "missing"`) {
-		t.Fatalf("unknown default migration error = %v", err)
-	}
-}
-
-func TestLoadRejectsInvalidVersionTwoOverrideAfterMigration(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	raw := `version = 2
-[accounts.gateway]
-label = "Gateway"
-[accounts.gateway.endpoints]
-anthropic = "https://gateway.test"
-[profiles.claude]
-label = "Claude"
-account = "gateway"
-client = "claude"
-[profiles.claude.models]
-claude = "claude-test"
-[routes.overrides]
-unknown = "claude"
-`
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := NewStore(path).Load()
-	if err == nil || !strings.Contains(err.Error(), `unknown route "unknown"`) {
-		t.Fatalf("invalid migrated override error = %v", err)
+	if versionErr.Version != previousVersion || versionErr.ExpectedVersion != ConfigVersion {
+		t.Fatalf("previous-version load error context = %#v, %v", versionErr, err)
 	}
 }
 
@@ -373,44 +179,29 @@ func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 	}
 }
 
-func TestLoadRejectsVersionTwoMultiClientProfile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	data := `version = 2
-[accounts.gateway]
-label = "Gateway"
-[accounts.gateway.endpoints]
-openai_responses = "https://gateway.test/v1"
-anthropic = "https://gateway.test"
-[profiles.both]
-label = "Both"
-account = "gateway"
-[profiles.both.models]
-claude = "claude-test"
-codex = "gpt-test"
-[routes]
-default = "both"
-`
-	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := NewStore(path).Load()
-	if err == nil || !strings.Contains(err.Error(), "does not declare exactly one client and model") {
-		t.Fatalf("multi-client migration error = %v", err)
-	}
-}
-
 func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(path, []byte("sentinel"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	store := NewStore(path)
-	if err := store.Save(Config{Version: ConfigVersion}); err == nil {
-		t.Fatal("expected validation error")
-	}
-	got, _ := os.ReadFile(path)
-	if string(got) != "sentinel" {
-		t.Fatalf("existing config was replaced: %q", got)
+	incompatible := validConfig()
+	account := incompatible.Accounts["dmx"]
+	account.Endpoints.Anthropic = ""
+	incompatible.Accounts["dmx"] = account
+	for name, cfg := range map[string]Config{
+		"empty":                {Version: ConfigVersion},
+		"incompatible Profile": incompatible,
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			if err := os.WriteFile(path, []byte("sentinel"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			store := NewStore(path)
+			if err := store.Save(cfg); err == nil {
+				t.Fatal("expected validation error")
+			}
+			got, err := os.ReadFile(path)
+			if err != nil || string(got) != "sentinel" {
+				t.Fatalf("existing config was replaced: %q, %v", got, err)
+			}
+		})
 	}
 }
 
@@ -445,6 +236,39 @@ func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
 	}
 }
 
+func TestCommitInvalidatesAndRestoreSnapshotRecoversVerifiedCheckpoint(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path)
+	beforeConfig := convergenceConfig("before")
+	if err := store.Save(beforeConfig); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveVerifiedCheckpoint(t.Context(), beforeConfig, []string{ClientClaude}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.Commit(before, convergenceConfig("after"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path + ".verified.json"); !os.IsNotExist(err) {
+		t.Fatalf("verified checkpoint remains after configuration change: %v", err)
+	}
+	if err := store.RestoreSnapshot(before, after); err != nil {
+		t.Fatal(err)
+	}
+	checkpoint, err := store.LoadVerifiedCheckpoint()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checkpoint.Config.Accounts["before"].Label != "BEFORE" {
+		t.Fatalf("restored checkpoint = %#v", checkpoint)
+	}
+}
+
 func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := NewStore(path)
@@ -473,201 +297,6 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	}
 }
 
-func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
-	cfg := Config{
-		Version:  ConfigVersion,
-		Accounts: map[string]Account{"dmx": {Label: "DMX", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
-		Profiles: map[string]Profile{"claude": {Label: "Claude", Account: "dmx", Client: ClientClaude, Model: "claude-test"}},
-		Routes:   Routes{ClientClaude: "claude"},
-	}
-	if err := store.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.SaveVerifiedCheckpoint(cfg, []string{"claude", "codex"}); err != nil {
-		t.Fatal(err)
-	}
-	checkpoint, err := store.LoadVerifiedCheckpoint()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if checkpoint.Config.Routes[ClientClaude] != "claude" || len(checkpoint.Clients) != 2 || checkpoint.VerifiedAt.IsZero() {
-		t.Fatalf("checkpoint = %#v", checkpoint)
-	}
-	data, err := os.ReadFile(path + ".verified.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(strings.ToLower(string(data)), "token") {
-		t.Fatalf("checkpoint contains token-like content: %s", data)
-	}
-}
-
-func TestLoadVerifiedCheckpointRejectsProfileOwnedEndpointResidue(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	checkpoint := `{
-  "config": {
-    "version": 1,
-    "accounts": {
-      "gateway": {
-        "label": "Gateway",
-        "endpoints": {"openai_responses": "https://gateway.test/v1"}
-      }
-    },
-    "profiles": {
-      "gpt": {
-        "label": "GPT",
-        "account": "gateway",
-        "client": "codex",
-        "models": {"codex": "gpt-test"},
-        "endpoints": {"openai_responses": "https://duplicate.test/v1"}
-      }
-    },
-    "routes": {"default": "gpt"}
-  },
-  "clients": ["codex"],
-  "verified_at": "2026-07-11T00:00:00Z"
-}`
-	if err := os.WriteFile(path+".verified.json", []byte(checkpoint), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := NewStore(path).LoadVerifiedCheckpoint(); err == nil {
-		t.Fatal("Profile-owned checkpoint endpoint residue was accepted")
-	}
-}
-
-func TestConvergeVerifiedBackupCopiesExactCurrentBytes(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
-	oldConfig := convergenceConfig("old")
-	currentConfig := convergenceConfig("current")
-	if err := store.Save(oldConfig); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Save(currentConfig); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.SaveVerifiedCheckpoint(currentConfig, AdmittedClientIDs()); err != nil {
-		t.Fatal(err)
-	}
-	currentBytes, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	customBytes := append([]byte("# byte-exact verified current\n"), currentBytes...)
-	if err := os.WriteFile(path, customBytes, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	state, err := store.CaptureVerifiedBackupState()
-	if err != nil {
-		t.Fatal(err)
-	}
-	verifiedBefore, err := os.ReadFile(path + ".verified.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := store.ConvergeVerifiedBackup(state.Snapshot)
-	if err != nil {
-		t.Fatal(err)
-	}
-	backup, err := os.ReadFile(path + ".bak")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(backup, customBytes) || !bytes.Equal(result.Backup.Data, customBytes) {
-		t.Fatalf("backup was not converged byte-exactly\nwant %q\ngot  %q", customBytes, backup)
-	}
-	if want := securePersistedFileMode(); result.Backup.Mode != want {
-		t.Fatalf("converged backup mode = %o, want %o", result.Backup.Mode, want)
-	}
-	verifiedAfter, err := os.ReadFile(path + ".verified.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(verifiedAfter, verifiedBefore) {
-		t.Fatal("backup convergence changed the verified checkpoint")
-	}
-}
-
-func TestConvergeVerifiedBackupRejectsChangedPreimages(t *testing.T) {
-	for _, changed := range []string{"config", "backup", "verified"} {
-		t.Run(changed, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "config.toml")
-			store := NewStore(path)
-			if err := store.Save(convergenceConfig("old")); err != nil {
-				t.Fatal(err)
-			}
-			current := convergenceConfig("current")
-			if err := store.Save(current); err != nil {
-				t.Fatal(err)
-			}
-			if err := store.SaveVerifiedCheckpoint(current, AdmittedClientIDs()); err != nil {
-				t.Fatal(err)
-			}
-			state, err := store.CaptureVerifiedBackupState()
-			if err != nil {
-				t.Fatal(err)
-			}
-			backupBefore, err := os.ReadFile(path + ".bak")
-			if err != nil {
-				t.Fatal(err)
-			}
-			changedPath := map[string]string{
-				"config":   path,
-				"backup":   path + ".bak",
-				"verified": path + ".verified.json",
-			}[changed]
-			changedBytes := []byte("external " + changed + " change\n")
-			if changed == "config" {
-				original, readErr := os.ReadFile(path)
-				if readErr != nil {
-					t.Fatal(readErr)
-				}
-				changedBytes = append(original, []byte("# external change\n")...)
-			}
-			if changed == "verified" {
-				original, readErr := os.ReadFile(path + ".verified.json")
-				if readErr != nil {
-					t.Fatal(readErr)
-				}
-				changedBytes = append(original, '\n')
-			}
-			if err := os.WriteFile(changedPath, changedBytes, 0o600); err != nil {
-				t.Fatal(err)
-			}
-
-			if _, err := store.ConvergeVerifiedBackup(state.Snapshot); err == nil || !strings.Contains(err.Error(), "preimage changed") {
-				t.Fatalf("convergence error = %v", err)
-			}
-			backupAfter, err := os.ReadFile(path + ".bak")
-			if err != nil {
-				t.Fatal(err)
-			}
-			wantBackup := backupBefore
-			if changed == "backup" {
-				wantBackup = changedBytes
-			}
-			if !bytes.Equal(backupAfter, wantBackup) {
-				t.Fatalf("backup overwritten after %s preimage change: %q", changed, backupAfter)
-			}
-		})
-	}
-}
-
-func TestCaptureVerifiedBackupStateRequiresCheckpoint(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
-	if err := store.Save(convergenceConfig("current")); err != nil {
-		t.Fatal(err)
-	}
-	_, err := store.CaptureVerifiedBackupState()
-	if err == nil || !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("missing checkpoint error = %v", err)
-	}
-}
-
 // securePersistedFileMode is the exact permission bits Store persists secrets
 // with, as observed through os.Stat. On Unix this is the literal 0o600 mode
 // passed to WriteFileAtomicExactMode/os.Chmod. Windows has no POSIX
@@ -680,12 +309,4 @@ func securePersistedFileMode() os.FileMode {
 		return 0o666
 	}
 	return 0o600
-}
-
-func convergenceConfig(id string) Config {
-	cfg := NewConfig()
-	cfg.Accounts[id] = Account{Label: strings.ToUpper(id), Endpoints: Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
-	cfg.Profiles[id] = Profile{Label: strings.ToUpper(id), Account: id, Client: ClientCodex, Model: id + "-model"}
-	cfg.Routes[ClientCodex] = id
-	return cfg
 }

@@ -6,6 +6,49 @@ import (
 	"testing"
 )
 
+type faultStore struct {
+	Store
+	getErr, setErr, deleteErr, existsErr error
+	setErrors                            map[int]error
+	setCalls                             int
+	onGet                                func(*faultStore, string)
+}
+
+func (store *faultStore) Get(account string) (string, error) {
+	if store.onGet != nil {
+		store.onGet(store, account)
+	}
+	if store.getErr != nil {
+		return "", store.getErr
+	}
+	return store.Store.Get(account)
+}
+
+func (store *faultStore) Set(account, value string) error {
+	store.setCalls++
+	if err := store.setErrors[store.setCalls]; err != nil {
+		return err
+	}
+	if store.setErr != nil {
+		return store.setErr
+	}
+	return store.Store.Set(account, value)
+}
+
+func (store *faultStore) Delete(account string) error {
+	if store.deleteErr != nil {
+		return store.deleteErr
+	}
+	return store.Store.Delete(account)
+}
+
+func (store *faultStore) Exists(account string) (bool, error) {
+	if store.existsErr != nil {
+		return false, store.existsErr
+	}
+	return store.Store.Exists(account)
+}
+
 func TestMemoryStoreLifecycle(t *testing.T) {
 	store := NewMemoryStore()
 	if mustExist(t, store, "dmx") {
@@ -58,9 +101,6 @@ func TestEnvironmentStoreUsesNormalizedReadOnlyVariable(t *testing.T) {
 	if !mustExist(t, store, "dmx-team.1") || mustExist(t, store, "missing") {
 		t.Fatalf("unexpected environment credential presence")
 	}
-	if !store.ReadOnly() {
-		t.Fatal("environment store must report read-only")
-	}
 	if !IsReadOnly(store) {
 		t.Fatal("IsReadOnly must detect the read-only reporter")
 	}
@@ -103,8 +143,8 @@ func TestSelectDefaultsToKeyringBackend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Select(keyring) error = %v", err)
 	}
-	if _, ok := store.(KeyringStore); !ok {
-		t.Fatalf("Select(keyring) = %T, want KeyringStore", store)
+	if observed, err := Inspect(store); err != nil || observed.Kind != "keyring" {
+		t.Fatalf("Select(keyring) observation = %#v, %v", observed, err)
 	}
 }
 

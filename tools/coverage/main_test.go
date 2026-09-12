@@ -5,11 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -22,17 +21,26 @@ type recordingRunner struct {
 	path           string
 	listedPackages []string
 	listErr        error
-	branchReport   string
-	branchErr      error
+	metadata       string
+	metadataErr    error
 }
 
-type rejectingWriter struct{}
+type rejectingWriter struct{ prefix string }
 
-func (rejectingWriter) Write([]byte) (int, error) {
+func (writer rejectingWriter) Write(data []byte) (int, error) {
+	if writer.prefix != "" && !bytes.HasPrefix(data, []byte(writer.prefix)) {
+		return len(data), nil
+	}
 	return 0, errors.New("write rejected")
 }
 
 func (r *recordingRunner) Run(name string, args []string, stdout, stderr io.Writer) error {
+	if slices.Equal(args[:min(2, len(args))], []string{"list", "-json"}) {
+		if _, err := io.WriteString(stdout, r.metadata); err != nil {
+			return err
+		}
+		return r.metadataErr
+	}
 	if len(args) > 0 && args[0] == "list" {
 		packages := r.listedPackages
 		if len(packages) == 0 {
@@ -42,7 +50,7 @@ func (r *recordingRunner) Run(name string, args []string, stdout, stderr io.Writ
 			packages = []string{"example/a"}
 		}
 		for _, packageName := range packages {
-			module := strings.Split(packageName, "/")[0]
+			module, _, _ := strings.Cut(packageName, "/")
 			if _, err := fmt.Fprintf(stdout, "%s\t%s\n", packageName, module); err != nil {
 				return err
 			}
@@ -52,8 +60,8 @@ func (r *recordingRunner) Run(name string, args []string, stdout, stderr io.Writ
 	r.name = name
 	r.args = append([]string(nil), args...)
 	for _, arg := range args {
-		if strings.HasPrefix(arg, "-coverprofile=") {
-			r.path = strings.TrimPrefix(arg, "-coverprofile=")
+		if after, ok := strings.CutPrefix(arg, "-coverprofile="); ok {
+			r.path = after
 			if r.profile != "" {
 				if err := os.WriteFile(r.path, []byte(r.profile), 0o600); err != nil {
 					return err
@@ -64,45 +72,10 @@ func (r *recordingRunner) Run(name string, args []string, stdout, stderr io.Writ
 	return r.err
 }
 
-func (r *recordingRunner) RunInput(name string, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	if r.branchErr != nil {
-		return r.branchErr
-	}
-	if _, err := io.Copy(io.Discard, stdin); err != nil {
-		return err
-	}
-	report := r.branchReport
-	if report == "" {
-		packages := r.listedPackages
-		if len(packages) == 0 {
-			packages = profilePackages(r.profile)
-		}
-		seen := map[string]bool{}
-		var body strings.Builder
-		body.WriteString(`<coverage version="1">`)
-		for _, packageName := range packages {
-			if seen[packageName] {
-				continue
-			}
-			seen[packageName] = true
-			relative := strings.TrimPrefix(packageName, strings.Split(packageName, "/")[0])
-			relative = strings.TrimPrefix(relative, "/")
-			if relative != "" {
-				relative += "/"
-			}
-			fmt.Fprintf(&body, `<file path="%sa.go"><lineToCover lineNumber="1" covered="true" branchesToCover="100" coveredBranches="100"/></file>`, relative)
-		}
-		body.WriteString(`</coverage>`)
-		report = body.String()
-	}
-	_, err := io.WriteString(stdout, report)
-	return err
-}
-
 func profilePackages(profile string) []string {
 	seen := map[string]bool{}
 	var packages []string
-	for _, line := range strings.Split(profile, "\n") {
+	for line := range strings.SplitSeq(profile, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) != 3 {
 			continue
@@ -129,18 +102,37 @@ func writePolicy(t *testing.T, body string) string {
 	return path
 }
 
-const validPolicy = `minimum_statement_percent = 95.0
-minimum_branch_percent = 95.0
+func TestLoadPolicyAcceptsTheGoCoverageAuthorityWithoutASecondAnalyzer(t *testing.T) {
+	policy := `minimum_statement_percent = 95.0
 comparison = "greater-than"
 threshold_scopes = ["aggregate"]
 package_observation = "required"
 covermode = "atomic"
 packages = ["./..."]
-branch_analyzer = "go-bcov"
 owner = "product-toolchain"
-source = "Go statement profile with go-bcov branch analysis"
-risk_model = "uncovered control-flow can corrupt credentials or projections"
-measurement = "exact aggregate statement and branch counts plus package observation diagnostics"
+source = "Go statement coverage profile"
+risk_model = "unobserved behavior in any semantic owner can corrupt credentials routes client projections or publication behavior without an observable regression"
+measurement = "one complete Go profile with exact aggregate statement counts plus canonical-package observation diagnostics"
+false_positive_cost = "aggregate evidence can hide a local blind spot unless every package remains present executed and visible"
+remediation = "test meaningful behavior remove unreachable code or simplify the responsible semantic owner; wholly unexecuted packages and exclusions are not accepted"
+review_condition = "reassess when escaped defects show the aggregate boundary or mandatory package observation is insufficient"
+`
+
+	if _, err := loadPolicy(writePolicy(t, policy)); err != nil {
+		t.Fatalf("statement-only policy rejected: %v", err)
+	}
+}
+
+const validPolicy = `minimum_statement_percent = 95.0
+comparison = "greater-than"
+threshold_scopes = ["aggregate"]
+package_observation = "required"
+covermode = "atomic"
+packages = ["./..."]
+owner = "product-toolchain"
+source = "Go statement coverage profile"
+risk_model = "unobserved behavior can corrupt credentials or projections"
+measurement = "exact aggregate statement counts plus package observation diagnostics"
 false_positive_cost = "aggregate evidence can hide a local blind spot unless package execution and ratios remain visible"
 remediation = "test behavior, remove unreachable code, or simplify the owner"
 review_condition = "reassess after repeated denominator-only blocks"
@@ -167,13 +159,13 @@ func TestRealMainPassesAggregatePolicyAndReportsPackageEvidence(t *testing.T) {
 			t.Errorf("arguments %q lack %q", runner.args, want)
 		}
 	}
-	if !contains(runner.args, "-coverpkg=./...") {
+	if !contains(runner.args, "-coverpkg=example") {
 		t.Errorf("arguments %q do not attribute full-suite execution to source packages", runner.args)
 	}
 	if got := runner.args[len(runner.args)-1]; got != "./..." {
 		t.Fatalf("last argument = %q, want ./...", got)
 	}
-	if !strings.Contains(stdout.String(), "package example statement coverage: 96.00%") || !strings.Contains(stdout.String(), "statement coverage: 96.00%") || !strings.Contains(stdout.String(), "branch coverage: 100.00%") || !strings.Contains(stdout.String(), "required > 95.00%") {
+	if !strings.Contains(stdout.String(), "package example statement coverage: 96.00%") || !strings.Contains(stdout.String(), "statement coverage: 96.00%") || !strings.Contains(stdout.String(), "required > 95.00%") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 	if _, err := os.Stat(runner.path); !errors.Is(err, os.ErrNotExist) {
@@ -181,41 +173,28 @@ func TestRealMainPassesAggregatePolicyAndReportsPackageEvidence(t *testing.T) {
 	}
 }
 
-func TestReadCoverageMergesRepeatedCrossPackageRanges(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "coverage.out")
-	body := "mode: atomic\nexample/a.go:1.1,2.1 96 0\nexample/a.go:3.1,4.1 4 0\nexample/a.go:1.1,2.1 96 1\nexample/a.go:3.1,4.1 4 0\n"
-	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	result, err := readCoverage(path, "atomic")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Total != 100 || result.Covered != 96 {
-		t.Fatalf("coverage = %d/%d, want 96/100", result.Covered, result.Total)
-	}
-}
-
-func TestReadCoverageRejectsConflictingRepeatedRange(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "coverage.out")
-	body := "mode: atomic\nexample/a.go:1.1,2.1 1 0\nexample/a.go:1.1,2.1 2 1\n"
-	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := readCoverage(path, "atomic"); err == nil || !strings.Contains(err.Error(), "conflicts with repeated source range") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
 func TestRealMainRejectsResultOutputFailure(t *testing.T) {
 	policyPath := writePolicy(t, validPolicy)
-	runner := &recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 96 1\nexample/a.go:3.1,4.1 4 0\n"}
-	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, rejectingWriter{}, &stderr, runner); code != 1 {
-		t.Fatalf("realMain code = %d, want 1", code)
-	}
-	if !strings.Contains(stderr.String(), "write coverage result") {
-		t.Fatalf("stderr = %q", stderr.String())
+	for _, test := range []struct {
+		name, additionalProfile, rejectedPrefix, diagnostic string
+	}{
+		{"measured package", "", "package example ", "write package observation"},
+		{"zero-statement package", "example/empty/data.go:1.1,2.1 0 0\n", "package example/empty ", "write package observation"},
+		{"aggregate result", "", "statement coverage:", "write coverage result"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runner := &recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 96 1\nexample/a.go:3.1,4.1 4 0\n" + test.additionalProfile}
+			var stderr bytes.Buffer
+			if code := realMain([]string{"--policy", policyPath}, rejectingWriter{prefix: test.rejectedPrefix}, &stderr, runner); code != 1 {
+				t.Fatalf("realMain code = %d, want 1", code)
+			}
+			if !strings.Contains(stderr.String(), test.diagnostic) {
+				t.Fatalf("stderr = %q", stderr.String())
+			}
+			if _, err := os.Stat(runner.path); !os.IsNotExist(err) {
+				t.Fatalf("failed report retained temporary coverage profile: %v", err)
+			}
+		})
 	}
 }
 
@@ -245,37 +224,6 @@ func TestRealMainReportsLowPackageRatioWhenAggregatePasses(t *testing.T) {
 	}
 }
 
-func TestRunBranchCoverageReportsExactAndLowPackageRatiosWhenAggregatePasses(t *testing.T) {
-	profile := filepath.Join(t.TempDir(), "coverage.out")
-	if err := os.WriteFile(profile, []byte("mode: atomic\nexample/low/a.go:1.1,2.1 1 1\nexample/high/b.go:1.1,2.1 1 1\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	policy, err := loadPolicy(writePolicy(t, validPolicy))
-	if err != nil {
-		t.Fatal(err)
-	}
-	packages := []packageInfo{
-		{ImportPath: "example/low", ModulePath: "example"},
-		{ImportPath: "example/high", ModulePath: "example"},
-	}
-	for _, test := range []struct {
-		name    string
-		covered int
-	}{
-		{name: "exact floor", covered: 95},
-		{name: "below floor", covered: 94},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			report := fmt.Sprintf(`<coverage><file path="low/a.go"><lineToCover branchesToCover="100" coveredBranches="%d"/></file><file path="high/b.go"><lineToCover branchesToCover="400" coveredBranches="400"/></file></coverage>`, test.covered)
-			var stdout, stderr bytes.Buffer
-			err := runBranchCoverage(profile, packages, policy, &stdout, &stderr, &recordingRunner{branchReport: report})
-			if err != nil || !strings.Contains(stdout.String(), "package example/low branch coverage") {
-				t.Fatalf("error=%v stdout=%q stderr=%q", err, stdout.String(), stderr.String())
-			}
-		})
-	}
-}
-
 func TestRealMainRejectsWhollyUnexecutedPackage(t *testing.T) {
 	policyPath := writePolicy(t, validPolicy)
 	runner := &recordingRunner{profile: "mode: atomic\nexample/idle/a.go:1.1,2.1 4 0\nexample/live/b.go:1.1,2.1 100 1\n"}
@@ -289,16 +237,16 @@ func TestRealMainRejectsWhollyUnexecutedPackage(t *testing.T) {
 	}
 }
 
-func TestRealMainRejectsPackageWithoutMeasuredStatements(t *testing.T) {
+func TestRealMainReportsPackageWithoutMeasuredStatements(t *testing.T) {
 	policyPath := writePolicy(t, validPolicy)
 	runner := &recordingRunner{profile: "mode: atomic\nexample/empty/a.go:1.1,2.1 0 0\nexample/live/b.go:1.1,2.1 100 1\n"}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 1 {
-		t.Fatalf("realMain code = %d, want 1", code)
+	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 0 {
+		t.Fatalf("realMain code = %d, stderr=%s", code, &stderr)
 	}
-	if !strings.Contains(stderr.String(), "package example/empty has no measured statements") {
-		t.Fatalf("stderr = %q", stderr.String())
+	if !strings.Contains(stdout.String(), "package example/empty statement coverage: not applicable (0 measured statements)") {
+		t.Fatalf("stdout = %q", stdout.String())
 	}
 }
 
@@ -318,29 +266,50 @@ func TestRealMainRejectsListedPackageMissingFromProfile(t *testing.T) {
 	}
 }
 
-func TestRealMainRejectsPackageEnumerationFailure(t *testing.T) {
-	policyPath := writePolicy(t, validPolicy)
-	runner := &recordingRunner{listErr: errors.New("list failed")}
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 1 {
-		t.Fatalf("realMain code = %d, want 1", code)
-	}
-	if !strings.Contains(stderr.String(), "go list failed") {
-		t.Fatalf("stderr = %q", stderr.String())
+func TestRealMainBindsCoverageToSelectedPackages(t *testing.T) {
+	for _, foreign := range []string{"", "strings", "exampleish", "example/undeclared"} {
+		t.Run(foreign, func(t *testing.T) {
+			profile := "mode: atomic\nexample/a.go:1.1,2.1 100 1\nexample/second/b.go:1.1,2.1 100 1\n"
+			if foreign != "" {
+				profile += foreign + "/foreign.go:1.1,2.1 1000 1\n"
+			}
+			runner := &recordingRunner{profile: profile, listedPackages: []string{"example/second", "example"}}
+			var stdout, stderr bytes.Buffer
+			code := realMain([]string{"--policy", writePolicy(t, validPolicy)}, &stdout, &stderr, runner)
+			if !contains(runner.args, "-coverpkg=example,example/second") {
+				t.Fatalf("coverage selection differs from package observation: %q", runner.args)
+			}
+			if foreign == "" {
+				if code != 0 || !strings.Contains(stdout.String(), "(200/200 statements)") {
+					t.Fatalf("selected scope rejected: code=%d, %s, %s", code, &stdout, &stderr)
+				}
+				return
+			}
+			if code != 1 || !strings.Contains(stderr.String(), "package "+foreign+" is outside the selected coverage scope") {
+				t.Fatalf("foreign counters changed the denominator: code=%d, %s, %s", code, &stdout, &stderr)
+			}
+		})
 	}
 }
 
-func TestRealMainRejectsTestFailure(t *testing.T) {
-	policyPath := writePolicy(t, validPolicy)
-	runner := &recordingRunner{err: errors.New("test failure")}
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 1 {
-		t.Fatalf("realMain code = %d, want 1", code)
-	}
-	if !strings.Contains(stderr.String(), "go test failed") {
-		t.Fatalf("stderr = %q", stderr.String())
+func TestRealMainRejectsNativeCommandFailure(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		runner recordingRunner
+		want   string
+	}{
+		{"package enumeration", recordingRunner{listErr: errors.New("list failed")}, "go list failed"},
+		{"test execution", recordingRunner{err: errors.New("test failure")}, "go test failed"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			if code := realMain([]string{"--policy", writePolicy(t, validPolicy)}, &stdout, &stderr, &test.runner); code != 1 {
+				t.Fatalf("realMain code = %d, want 1", code)
+			}
+			if !strings.Contains(stderr.String(), test.want) {
+				t.Fatalf("stderr = %q, want %q", stderr.String(), test.want)
+			}
+		})
 	}
 }
 
@@ -425,6 +394,40 @@ func TestRealMainRejectsCoverageProfileCloseFailure(t *testing.T) {
 	}
 }
 
+func TestCoverageCleanupFailurePreventsSuccessfulExit(t *testing.T) {
+	for _, failure := range []error{nil, errors.New("test process failed")} {
+		t.Run(fmt.Sprint(failure), func(t *testing.T) {
+			directory := t.TempDir()
+			remove := removeCoverageProfile
+			t.Cleanup(func() { removeCoverageProfile = remove })
+			var removed string
+			removeCoverageProfile = func(path string) error {
+				removed = path
+				return &os.PathError{Op: "remove", Path: path, Err: os.ErrPermission}
+			}
+			var profilePath string
+			restore := stubCoverageProfile(func() (*os.File, error) {
+				profile, err := os.CreateTemp(directory, "coverage-")
+				if err != nil {
+					return nil, err
+				}
+				profilePath = profile.Name()
+				return profile, nil
+			})
+			defer restore()
+			var stdout, stderr bytes.Buffer
+			runner := &recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 100 1\n", err: failure}
+			code := realMain([]string{"--policy", writePolicy(t, validPolicy)}, &stdout, &stderr, runner)
+			if code != 1 || removed != profilePath || !strings.Contains(stderr.String(), "remove coverage profile") || !strings.Contains(stderr.String(), profilePath) {
+				t.Fatalf("cleanup failed without a failing result: code=%d, %s", code, stderr.String())
+			}
+			if failure != nil && !strings.Contains(stderr.String(), failure.Error()) {
+				t.Fatalf("cleanup hid the test failure: %s", stderr.String())
+			}
+		})
+	}
+}
+
 func stubCoverageProfile(factory func() (*os.File, error)) func() {
 	original := createCoverageProfile
 	createCoverageProfile = factory
@@ -434,12 +437,6 @@ func stubCoverageProfile(factory func() (*os.File, error)) func() {
 type emptyListRunner struct{}
 
 func (emptyListRunner) Run(name string, args []string, stdout, stderr io.Writer) error {
-	return nil
-}
-
-type noInputRunner struct{}
-
-func (runner *noInputRunner) Run(name string, args []string, stdout, stderr io.Writer) error {
 	return nil
 }
 
@@ -486,13 +483,11 @@ func TestRealMainRejectsInvalidArgumentsAndPolicy(t *testing.T) {
 		{name: "wrong threshold scope", body: strings.Replace(validPolicy, `["aggregate"]`, `["package"]`, 1), want: "threshold_scopes", code: 1},
 		{name: "missing package observation", body: strings.Replace(validPolicy, "required", "optional", 1), want: "package_observation", code: 1},
 		{name: "invalid floor", body: strings.Replace(validPolicy, "95.0", "101.0", 1), want: "minimum_statement_percent", code: 1},
-		{name: "invalid branch floor", body: strings.Replace(validPolicy, "minimum_branch_percent = 95.0", "minimum_branch_percent = 0", 1), want: "minimum_branch_percent", code: 1},
 		{name: "wrong mode", body: strings.Replace(validPolicy, "atomic", "set", 1), want: "covermode", code: 1},
 		{name: "no packages", body: strings.Replace(validPolicy, "[\"./...\"]", "[]", 1), want: "packages", code: 1},
-		{name: "wrong branch analyzer", body: strings.Replace(validPolicy, "go-bcov", "gobco", 1), want: "branch_analyzer", code: 1},
 		{name: "missing owner", body: strings.Replace(validPolicy, "product-toolchain", "", 1), want: "owner and source", code: 1},
-		{name: "missing risk model", body: strings.Replace(validPolicy, "uncovered control-flow can corrupt credentials or projections", "", 1), want: "risk rationale", code: 1},
-		{name: "missing measurement", body: strings.Replace(validPolicy, "exact aggregate statement and branch counts plus package observation diagnostics", "", 1), want: "risk rationale", code: 1},
+		{name: "missing risk model", body: strings.Replace(validPolicy, "unobserved behavior can corrupt credentials or projections", "", 1), want: "risk rationale", code: 1},
+		{name: "missing measurement", body: strings.Replace(validPolicy, "exact aggregate statement counts plus package observation diagnostics", "", 1), want: "risk rationale", code: 1},
 		{name: "missing false-positive cost", body: strings.Replace(validPolicy, "aggregate evidence can hide a local blind spot unless package execution and ratios remain visible", "", 1), want: "risk rationale", code: 1},
 		{name: "missing remediation", body: strings.Replace(validPolicy, "test behavior, remove unreachable code, or simplify the owner", "", 1), want: "risk rationale", code: 1},
 		{name: "missing review condition", body: strings.Replace(validPolicy, "reassess after repeated denominator-only blocks", "", 1), want: "risk rationale", code: 1},
@@ -515,173 +510,6 @@ func TestRealMainRejectsInvalidArgumentsAndPolicy(t *testing.T) {
 	}
 }
 
-func TestReadCoverageRejectsMalformedProfiles(t *testing.T) {
-	tests := []struct {
-		name string
-		body string
-	}{
-		{name: "empty"},
-		{name: "wrong mode", body: "mode: set\nexample/a.go:1.1,2.1 1 1\n"},
-		{name: "malformed row", body: "mode: atomic\nmalformed\n"},
-		{name: "missing source range", body: "mode: atomic\nexample/a.go 1 1\n"},
-		{name: "invalid statements", body: "mode: atomic\nexample/a.go:1.1,2.1 nope 1\n"},
-		{name: "invalid count", body: "mode: atomic\nexample/a.go:1.1,2.1 1 nope\n"},
-		{name: "negative statements", body: "mode: atomic\nexample/a.go:1.1,2.1 -1 1\n"},
-		{name: "negative count", body: "mode: atomic\nexample/a.go:1.1,2.1 1 -1\n"},
-		{name: "zero statements", body: "mode: atomic\nexample/a.go:1.1,2.1 0 1\n"},
-		{name: "overflow", body: "mode: atomic\nexample/a.go:1.1,2.1 " + strconv.FormatInt(math.MaxInt64, 10) + " 1\nexample/a.go:3.1,4.1 1 1\n"},
-		{name: "scanner error", body: "mode: atomic\n" + strings.Repeat("x", 70_000)},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "coverage.out")
-			if err := os.WriteFile(path, []byte(test.body), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := readCoverage(path, "atomic"); err == nil {
-				t.Fatal("readCoverage accepted malformed profile")
-			}
-		})
-	}
-}
-
-func TestReadCoverageRejectsMissingFile(t *testing.T) {
-	if _, err := readCoverage(filepath.Join(t.TempDir(), "missing.out"), "atomic"); err == nil {
-		t.Fatal("readCoverage accepted a missing file")
-	}
-}
-
-func TestParsePackageList(t *testing.T) {
-	packages, err := parsePackageList("example/internal/a\texample\nexample\texample\nexample/internal/a\texample\n")
-	if err != nil || len(packages) != 2 || packages[0].ImportPath != "example" || packages[1].ImportPath != "example/internal/a" {
-		t.Fatalf("packages=%+v err=%v", packages, err)
-	}
-	for _, body := range []string{"broken\n", "foreign/pkg\texample\n"} {
-		if _, err := parsePackageList(body); err == nil {
-			t.Fatalf("invalid package list accepted: %q", body)
-		}
-	}
-}
-
-func TestParseBranchReportCountsEveryPackage(t *testing.T) {
-	packages := []packageInfo{{ImportPath: "example", ModulePath: "example"}, {ImportPath: "example/internal/a", ModulePath: "example"}}
-	report := `<coverage version="1"><file path="main.go"><lineToCover lineNumber="1" covered="true"/></file><file path="internal/a/a.go"><lineToCover lineNumber="2" covered="true" branchesToCover="4" coveredBranches="3"/></file></coverage>`
-	counts, err := parseBranchReport([]byte(report), packages)
-	if err != nil || counts["example"].Total != 0 || counts["example/internal/a"] != (coverageCount{Covered: 3, Total: 4}) {
-		t.Fatalf("counts=%+v err=%v", counts, err)
-	}
-}
-
-func TestParseBranchReportRejectsInvalidOrIncompleteEvidence(t *testing.T) {
-	packages := []packageInfo{{ImportPath: "example/internal/a", ModulePath: "example"}}
-	reports := []string{
-		`<coverage version="1"></coverage>`,
-		`<coverage version="1"><file path="foreign/a.go"/></coverage>`,
-		`<coverage version="1"><file path="../internal/a/a.go"/></coverage>`,
-		`<coverage version="1"><file path="internal/a/a.go"/><file path="internal/a/a.go"/></coverage>`,
-		`<coverage version="1"><file path="internal/a/a.go"><lineToCover branchesToCover="1" coveredBranches="2"/></file></coverage>`,
-		`not xml`,
-	}
-	for _, report := range reports {
-		if _, err := parseBranchReport([]byte(report), packages); err == nil {
-			t.Fatalf("invalid branch report accepted: %s", report)
-		}
-	}
-}
-
-func TestCoveragePercentHandlesEmptyTotal(t *testing.T) {
-	if coveragePercent(1, 0) != 0 {
-		t.Fatal("empty total must not produce coverage")
-	}
-}
-
-func TestRetainCoverageProfile(t *testing.T) {
-	source := filepath.Join(t.TempDir(), "source.out")
-	if err := os.WriteFile(source, []byte("mode: atomic\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := retainCoverageProfile(source, ""); err != nil {
-		t.Fatal(err)
-	}
-	target := filepath.Join(t.TempDir(), "nested", "coverage.out")
-	if err := retainCoverageProfile(source, target); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(target)
-	if err != nil || string(data) != "mode: atomic\n" {
-		t.Fatalf("retained profile = %q, %v", data, err)
-	}
-	if err := retainCoverageProfile(filepath.Join(t.TempDir(), "missing"), target); err == nil {
-		t.Fatal("missing source was accepted")
-	}
-	blocked := filepath.Join(t.TempDir(), "blocked")
-	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := retainCoverageProfile(source, filepath.Join(blocked, "coverage.out")); err == nil {
-		t.Fatal("invalid target parent was accepted")
-	}
-}
-
-func TestRunBranchCoverageRejectsMissingInputCapabilityAndProfile(t *testing.T) {
-	policy, err := loadPolicy(writePolicy(t, validPolicy))
-	if err != nil {
-		t.Fatal(err)
-	}
-	packages := []packageInfo{{ImportPath: "example/a", ModulePath: "example"}}
-	if err := runBranchCoverage("missing", packages, policy, io.Discard, io.Discard, &noInputRunner{}); err == nil || !strings.Contains(err.Error(), "standard input") {
-		t.Fatalf("missing input capability error = %v", err)
-	}
-	if err := runBranchCoverage(filepath.Join(t.TempDir(), "missing.out"), packages, policy, io.Discard, io.Discard, &recordingRunner{}); err == nil || !strings.Contains(err.Error(), "open coverage profile") {
-		t.Fatalf("missing profile error = %v", err)
-	}
-}
-
-func TestRunBranchCoverageRejectsAnalyzerAndPolicyFailures(t *testing.T) {
-	profile := filepath.Join(t.TempDir(), "coverage.out")
-	if err := os.WriteFile(profile, []byte("mode: atomic\nexample/a.go:1.1,2.1 1 1\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	policy, err := loadPolicy(writePolicy(t, validPolicy))
-	if err != nil {
-		t.Fatal(err)
-	}
-	packages := []packageInfo{{ImportPath: "example/a", ModulePath: "example"}}
-	for _, test := range []struct {
-		name   string
-		runner *recordingRunner
-		want   string
-	}{
-		{name: "execution", runner: &recordingRunner{branchErr: errors.New("unavailable")}, want: "analyzer execution"},
-		{name: "report", runner: &recordingRunner{branchReport: "not xml"}, want: "decode branch report"},
-		{name: "package unobserved", runner: &recordingRunner{branchReport: `<coverage><file path="a/a.go"><lineToCover branchesToCover="100" coveredBranches="0"/></file></coverage>`}, want: "policy is not satisfied"},
-		{name: "aggregate empty", runner: &recordingRunner{branchReport: `<coverage><file path="a/a.go"><lineToCover/></file></coverage>`}, want: "policy is not satisfied"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			var stdout, stderr bytes.Buffer
-			err := runBranchCoverage(profile, packages, policy, &stdout, &stderr, test.runner)
-			if err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("error=%v stdout=%q stderr=%q", err, stdout.String(), stderr.String())
-			}
-		})
-	}
-}
-
-func TestSystemRunnerExecutesInputCommand(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	if err := (systemRunner{}).RunInput("go", []string{"env", "GOVERSION"}, strings.NewReader("ignored"), &stdout, &stderr); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasPrefix(strings.TrimSpace(stdout.String()), "go") {
-		t.Fatalf("stdout=%q stderr=%q", stdout.String(), stderr.String())
-	}
-}
-
 func contains(values []string, wanted string) bool {
-	for _, value := range values {
-		if value == wanted {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, wanted)
 }

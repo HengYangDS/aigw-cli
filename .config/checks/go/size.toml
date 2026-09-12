@@ -1,0 +1,4 @@
+# SCC code lines include code with inline comments, but not comment-only or
+# blank lines. Product, tools, tests and platform variants share this budget.
+# Review cohesive declarations before splitting; preserve behavior and clarity.
+max_code_lines = 500

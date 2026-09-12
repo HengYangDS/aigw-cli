@@ -1,19 +1,16 @@
-/dist/
+# Product and verification output
 /aigw
 /aigw.exe
-*.test
-*.out
-.DS_Store
 /build/
+/dist/
+
+# Checkout-local dependencies
 /node_modules/
 
-# Local linked worktrees
-.worktrees/
-
-# Local Serena project metadata is a disposable developer-tool projection.
+# Local developer-tool projections
+.code-memory/
+.codebase-memory/
 .serena/
 
-# ETHOS local coordination state is runtime-only. Keep the directory contract,
-# never commit its database or write-ahead-log files.
-.ethos/state/*
-!.ethos/state/.gitignore
+# Host metadata
+.DS_Store

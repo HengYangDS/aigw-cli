@@ -2,6 +2,7 @@
 package install
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -10,11 +11,13 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/transaction"
+
 	"github.com/spf13/cobra"
 )
 
 var writeFileAtomic = transaction.WriteFileAtomic
 
+// NewInstallCommand constructs the portable executable installation command.
 func NewInstallCommand(runtime invocation.Context) *cobra.Command {
 	target := runtime.InstallTarget
 	command := &cobra.Command{
@@ -39,22 +42,41 @@ func NewInstallCommand(runtime invocation.Context) *cobra.Command {
 	return command
 }
 
+// NewUninstallCommand constructs the command that removes only the installed portable executable and its owned backup.
 func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 	var target string
 	command := &cobra.Command{
 		Use:   "uninstall",
 		Short: "Remove one portable AIGW installation",
 		Args:  cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(target) == "" {
 				target = runtime.Executable
+			}
+			_, statErr := os.Stat(runtime.Config.Path())
+			if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
+				return fmt.Errorf("inspect AIGW configuration: %w", statErr)
+			}
+			if statErr == nil {
+				before, err := runtime.Config.Load()
+				if err != nil {
+					return err
+				}
+				after := before.Clone()
+				synchronizer := invocation.Synchronizer(runtime)
+				if err := synchronizer.Withdraw(&after); err != nil {
+					return err
+				}
+				if err := synchronizer.CommitProjection(cmd.Context(), before, after, "uninstall"); err != nil {
+					return err
+				}
 			}
 			if err := Uninstall(target); err != nil {
 				return err
 			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Portable uninstall")
-			render.Success("Removed AIGW executable and its single rollback copy")
+			render.Success("Removed AIGW client projections, executable, and its single rollback copy")
 			render.Text("Configuration and credential-store secrets were preserved.")
 			return nil
 		},
@@ -63,6 +85,7 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 	return command
 }
 
+// Install atomically places the current executable at the requested portable target while retaining one rollback copy.
 func Install(source, target string) error {
 	sourcePath := filepath.Clean(source)
 	targetPath := filepath.Clean(target)
@@ -77,6 +100,9 @@ func Install(source, target string) error {
 		return fmt.Errorf("create portable installation directory: %w", err)
 	}
 	if previous, err := os.ReadFile(targetPath); err == nil {
+		if bytes.Equal(data, previous) {
+			return os.Chmod(targetPath, 0o755)
+		}
 		mode := os.FileMode(0o755)
 		if current, statErr := os.Stat(targetPath); statErr == nil {
 			mode = current.Mode().Perm()
@@ -93,6 +119,7 @@ func Install(source, target string) error {
 	return os.Chmod(targetPath, 0o755)
 }
 
+// Uninstall removes the portable executable and its owned rollback copy while tolerating absence.
 func Uninstall(target string) error {
 	if strings.TrimSpace(target) == "" {
 		return errors.New("portable uninstall target is empty")

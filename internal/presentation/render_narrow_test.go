@@ -57,7 +57,7 @@ func TestRendererKeepsCompactOutputWithinTerminalWidth(t *testing.T) {
 		Fix:      "aigw rotate team-gateway",
 	})
 
-	for _, line := range strings.Split(strings.TrimRight(out.String(), "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimRight(out.String(), "\n"), "\n") {
 		if got := presentation.DisplayWidth(line); got > width {
 			t.Fatalf("line width = %d, want <= %d: %q\n%s", got, width, line, out.String())
 		}
@@ -71,7 +71,7 @@ func TestRendererNeverExceedsACompactWidth(t *testing.T) {
 	r.Text("aigw")
 	r.Detail("go")
 
-	for _, line := range strings.Split(strings.TrimRight(out.String(), "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimRight(out.String(), "\n"), "\n") {
 		if got := presentation.DisplayWidth(line); got > width {
 			t.Fatalf("line width = %d, want <= %d: %q", got, width, line)
 		}

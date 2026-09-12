@@ -2,7 +2,7 @@
 
 AIGW keeps credentials local, mutations bounded, and client ownership explicit.
 
-## Secret boundary
+## Credential storage
 
 | Secret                         | Store                                                                                  | Repository/config exposure |
 | ------------------------------ | -------------------------------------------------------------------------------------- | -------------------------- |
@@ -10,9 +10,10 @@ AIGW keeps credentials local, mutations bounded, and client ownership explicit.
 | Optional diagnostic credential | The selected AIGW credential backend, under `diagnostic@<account>`                     | Never                      |
 | Forge publication credential   | Protected CI or operator process                                                       | Never tracked              |
 
-On every supported platform, automatic selection proves whether the native
-credential service is reachable. It pins that service when available;
-otherwise it pins one AIGW-owned fallback store. macOS and Linux enforce an
+Automatic selection first honors an existing backend choice. Without one, it
+attempts native-service metadata access and selects that backend if the probe
+succeeds; otherwise it selects one AIGW-owned fallback store. The probe does
+not read Tokens or prove future read/write permission. macOS and Linux enforce an
 owner-only directory and regular file per Account. Windows encrypts each Token
 with current-user DPAPI before writing it beneath the AIGW data directory.
 Both implementations use bounded paths and same-directory replacement. AIGW
@@ -26,14 +27,43 @@ rotate, or delete them. The optional provider-diagnostic pair uses
 encoding; both values are required, and neither can substitute for the API
 Token.
 
+Read-only commands do not persist a new choice. The first credential mutation
+records its selected backend before changing Token state; a failed mutation
+compensates only the choice it created. Once persisted, an unavailable backend
+fails closed rather than silently choosing another store. To require a specific
+mechanism, set `AIGW_SECRET_BACKEND` to
+`keyring`, `file`, or `env` before running AIGW:
+
+| Backend   | macOS                          | Linux                          | Windows                           | Mutation |
+| --------- | ------------------------------ | ------------------------------ | --------------------------------- | -------- |
+| `keyring` | Keychain                       | Secret Service                 | Credential Manager                | Yes      |
+| `file`    | Owner-only AIGW file           | Owner-only AIGW file           | Current-user DPAPI-protected file | Yes      |
+| `env`     | Process `AIGW_TOKEN_<ACCOUNT>` | Process `AIGW_TOKEN_<ACCOUNT>` | Process `AIGW_TOKEN_<ACCOUNT>`    | No       |
+
+Selecting `keyring` never opens an interactive fallback or silently switches
+stores. If the native service is unavailable, the command fails with a bounded
+recovery action. The `env` backend is intentionally read-only for credentials:
+setup, checks and client helpers may consume existing values, and setup may
+persist public configuration. Attempts to store, rotate or delete an environment
+Token fail before credential mutation.
+
+Supply environment credentials to the process that needs them. A Token set in
+one terminal is not automatically inherited by a separately launched GUI client.
+The projected helper runs in the client's environment. See the
+[environment-variable reference](../../README.md#environment-variables) for
+Account-ID encoding and process scope.
+
 ## Configuration boundary
 
 ```mermaid
-flowchart LR
-    M["Token-free manifest"] --> V["Semantic validation"]
-    K["Existing OS Token"] --> V
-    V --> C["Public configuration"]
-    V --> P["Client projection"]
+flowchart TB
+    accTitle: Public configuration and credential material have separate paths
+    accDescr: Manifest validation uses public metadata. Projection selects eligible routes from credential availability; Token material remains behind the selected backend's authentication boundary.
+    M["Token-free manifest"] --> V["Validate public metadata"]
+    V --> C["AIGW configuration"]
+    C --> P["Project eligible client Routes"]
+    K["Selected credential backend"] -. availability only .-> P
+    K -->|Owned authentication boundary| A["Native client authentication"]
 ```
 
 A manifest collision must be semantically identical or explicitly replaced.
@@ -41,11 +71,11 @@ Replacing Account metadata never redirects or overwrites the existing Token.
 
 ## Client boundary
 
-| Client                 | AIGW may write                                                    | AIGW never writes                                                                      |
-| ---------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Codex                  | Marked provider/model block, sidecar, official credential binding | Conversation JSONL, SQLite, history, item records, model metadata, Desktop GUI state   |
-| Claude Code            | AIGW-owned endpoint/model keys, sidecar, and credential helper    | Plaintext Token, shell profiles, command interception, sessions, or unrelated settings |
-| Missing/foreign client | Nothing                                                           | Directories, launch state, configuration                                               |
+| Client                 | AIGW may write                                                        | AIGW never writes                                                                                        |
+| ---------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Codex                  | Marked provider/model block, sidecar, credential-helper configuration | Native credentials, conversation JSONL, SQLite, history, item records, model metadata, Desktop GUI state |
+| Claude Code            | AIGW-owned endpoint/model keys, sidecar, and credential helper        | Plaintext Token, shell profiles, command interception, sessions, or unrelated settings                   |
+| Missing/foreign client | Nothing                                                               | Directories, launch state, configuration                                                                 |
 
 ## Transaction boundary
 
@@ -55,9 +85,13 @@ Every multi-file mutation:
 2. captures exact preimages;
 3. prepares all writes before the first commit;
 4. checks the expected preimage before each write;
-5. compensates in reverse order only while postimages still match.
+5. compensates only unchanged owned postimages, continuing independent recovery
+   after a conflict and preserving all failure causes.
 
-This prevents rollback from overwriting a newer writer.
+These checks preserve detected newer writes. They are best-effort filesystem
+guards, not cross-process CAS against editors that ignore AIGW's mutation lock.
+The [transaction model](authority-and-projection-boundary.md#configuration-transaction)
+owns sequencing and compensation details.
 
 ## Network boundary
 
@@ -68,15 +102,22 @@ This prevents rollback from overwriting a newer writer.
 - A loopback endpoint is not proof of listener health or ownership.
 - `aigw verify` may consume quota only when the operator requests it.
 
+An initial 401 is transient only when three bounded observations recover, and a
+Token is classified as persistently invalid only after three further 401
+responses. Mixed results or cancellation remain retryable instability. This
+single-command observation covers one configured endpoint and in-memory Token;
+it does not prove direct-upstream health, account or billing state, or a later
+request.
+
 ## Output boundary
 
-Human, JSON, logs, and diagnostics exclude:
-
-- Token values;
-- raw response bodies;
-- configuration bodies where not required;
-- private filesystem paths;
-- inherited client-token environment values.
+User-facing output excludes Token values and inherited client-token environment
+values. The credential-helper protocol deliberately writes only its requested
+Token to the invoking client's stdout; it is not a diagnostic or export surface.
+Diagnostics expose bounded, redacted response details rather than unbounded
+raw bodies. Explicit inspection and export commands may show configuration
+paths, endpoints or public configuration; those are not secret-free telemetry
+for public redistribution. Review such output before sharing it.
 
 Errors name the problem, bounded evidence, impact, and one recommended action.
 
@@ -90,6 +131,8 @@ and redirect failures are terminal.
 
 ## Uninstall
 
-Uninstall removes only AIGW-owned configuration markers, Claude settings state,
-credentials, and program files for the selected installation channel. It does
-not remove client conversations, provider accounts, or another product.
+Uninstall first withdraws AIGW-owned client projections, including marked
+configuration blocks, sidecars, generated catalogues, and credential helpers.
+It then removes the selected program and its rollback copy. Accounts, Profiles,
+Routes, Tokens, explicit configuration backup, client conversations, and
+neighboring user-authored settings remain intact.

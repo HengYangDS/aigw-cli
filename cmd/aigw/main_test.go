@@ -12,7 +12,7 @@ const mainHelperEnvironment = "AIGW_TEST_MAIN_HELPER"
 
 func TestMainProcess(t *testing.T) {
 	if os.Getenv(mainHelperEnvironment) == "1" {
-		os.Args = []string{"AIGW.EXE", "--version"}
+		os.Args = []string{"CLAUDE", "--version"}
 		main()
 		return
 	}
@@ -34,7 +34,7 @@ func TestRunAIGWVersion(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := run("/opt/aigw/AIGW.EXE", []string{"--version"}, &stdout, &stderr); code != 0 {
+	if code := run([]string{"--version"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "0.1.0-dev") {
@@ -47,24 +47,11 @@ func TestRunAIGWRendersCommandError(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := run("aigw", []string{"not-a-command"}, &stdout, &stderr); code != 1 {
+	if code := run([]string{"not-a-command"}, &stdout, &stderr); code != 1 {
 		t.Fatalf("run() code = %d, want 1", code)
 	}
 	if !strings.Contains(stdout.String(), `unknown command "not-a-command"`) {
 		t.Fatalf("run() stdout = %q, want unknown-command diagnostic", stdout.String())
-	}
-}
-
-func TestRunDoesNotInferBehaviorFromTheExecutableName(t *testing.T) {
-	setAIGWTestEnvironment(t)
-
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	if code := run("/usr/local/bin/CLAUDE", []string{"--version"}, &stdout, &stderr); code != 0 {
-		t.Fatalf("run() code = %d, stderr = %q", code, stderr.String())
-	}
-	if !strings.Contains(stdout.String(), "0.1.0-dev") {
-		t.Fatalf("run() stdout = %q, want AIGW version", stdout.String())
 	}
 }
 
@@ -74,11 +61,22 @@ func TestRunAIGWReportsInitializationFailure(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := run("aigw", []string{"--version"}, &stdout, &stderr); code != 1 {
+	if code := run([]string{"--version"}, &stdout, &stderr); code != 1 {
 		t.Fatalf("run() code = %d, want 1", code)
 	}
 	if !strings.Contains(stderr.String(), "aigw:") || !strings.Contains(stderr.String(), "invalid-test-backend") {
 		t.Fatalf("run() stderr = %q, want initialization diagnostic", stderr.String())
+	}
+}
+
+func TestRunCredentialFailureKeepsStandardOutputEmpty(t *testing.T) {
+	setAIGWTestEnvironment(t)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"credential", "unsupported"}, &stdout, &stderr); code != 1 {
+		t.Fatalf("credential exit code=%d, want 1", code)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("credential failure contaminated token output: %s", &stdout)
 	}
 }
 

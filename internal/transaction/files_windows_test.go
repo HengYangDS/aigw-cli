@@ -199,7 +199,7 @@ func TestRestoreFileAtomicIfPostimageRemovesCreatedFileOnWindows(t *testing.T) {
 }
 
 func TestWriteFileAtomicSurfacesInvalidWindowsPathDuringStat(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "invalid\x00name")
+	path := filepath.Join(t.TempDir(), "invalid") + "\x00name"
 	if err := transaction.WriteFileAtomic(path, []byte("x"), 0o600); err == nil || !strings.Contains(err.Error(), "inspect ") {
 		t.Fatalf("WriteFileAtomic() error = %v, want an invalid-path stat failure", err)
 	}

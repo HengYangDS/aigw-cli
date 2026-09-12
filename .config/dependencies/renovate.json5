@@ -1,0 +1,95 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+
+  // Only the operator-selected maintenance runner creates proposals. Forge
+  // files are projections, so their native dependency managers are not owners.
+  enabledManagers: ["gomod", "npm", "mise", "custom.regex"],
+  baseBranchPatterns: ["dev"],
+  branchPrefix: "proposal/dependencies/",
+  dependencyDashboard: false,
+  prConcurrentLimit: 1,
+  branchConcurrentLimit: 1,
+  semanticCommits: "enabled",
+  semanticCommitType: "build",
+  semanticCommitScope: "deps",
+
+  // Three days covers npm's initial unpublish window. Security fixes bypass
+  // the age delay, not signatures, current-commit tests, or Change admission.
+  ignoreUnstable: true,
+  minimumReleaseAge: "3 days",
+  minimumReleaseAgeBehaviour: "timestamp-required",
+  internalChecksFilter: "strict",
+  prCreation: "immediate",
+  rangeStrategy: "pin",
+  osvVulnerabilityAlerts: true,
+  vulnerabilityAlerts: {
+    minimumReleaseAge: "0 days",
+    groupName: null,
+    automerge: false,
+    vulnerabilityFixStrategy: "highest",
+  },
+
+  // A supported fast-forward preserves the locally signed Git object. A
+  // platform that cannot provide it must use the maintainer publication path.
+  automerge: false,
+  automergeType: "pr",
+  automergeStrategy: "fast-forward",
+  platformAutomerge: false,
+  packageRules: [
+    {
+      matchManagers: ["gomod", "mise"],
+      matchDepNames: ["go"],
+      groupName: "Go toolchain",
+    },
+    {
+      matchManagers: ["npm"],
+      matchUpdateTypes: ["minor", "patch"],
+      matchCurrentVersion: ">=1.0.0",
+      groupName: "repository tools",
+      automerge: true,
+    },
+    {
+      matchManagers: ["gomod"],
+      matchUpdateTypes: ["minor", "patch"],
+      matchDepTypes: ["require"],
+      matchCurrentVersion: ">=1.0.0",
+      groupName: "Go dependencies",
+      automerge: true,
+    },
+  ],
+
+  customManagers: [
+    {
+      customType: "regex",
+      description: "Pinned GitHub Actions in the CUE authority",
+      managerFilePatterns: ["/^\\.config/ci/pipeline\\.cue$/"],
+      matchStrings: [
+        '"(?<depName>[\\w.-]+/[\\w.-]+)@(?<currentDigest>[a-f0-9]{40})"\\s*//\\s*(?<currentValue>v[\\d.]+)',
+      ],
+      datasourceTemplate: "github-tags",
+      versioningTemplate: "github-actions",
+    },
+    {
+      customType: "regex",
+      description: "Pinned container images in their declared authorities",
+      managerFilePatterns: [
+        "/^\\.config/ci/pipeline\\.cue$/",
+        "/^mise\\.toml$/",
+      ],
+      matchStrings: [
+        '"(?<depName>ghcr\\.io/[\\w./-]+)(?::(?<currentValue>[\\w.-]+))?@(?<currentDigest>sha256:[a-f0-9]{64})"',
+      ],
+      datasourceTemplate: "docker",
+      versioningTemplate: "docker",
+    },
+    {
+      customType: "regex",
+      description: "mise bootstrap version",
+      managerFilePatterns: ["/^mise\\.toml$/"],
+      matchStrings: ['min_version = "(?<currentValue>[^"]+)"'],
+      depNameTemplate: "jdx/mise",
+      datasourceTemplate: "github-releases",
+      extractVersionTemplate: "^v(?<version>.*)$",
+    },
+  ],
+}

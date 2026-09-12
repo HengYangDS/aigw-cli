@@ -9,28 +9,31 @@ import (
 	"reflect"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/synchronization"
+
 	"github.com/spf13/cobra"
 )
 
+// NewRepairCommand constructs the command that reconciles recoverable AIGW-owned projection drift.
 func NewRepairCommand(runtime invocation.Context) *cobra.Command {
 	var dryRun, jsonMode bool
 	cmd := &cobra.Command{
 		Use: "repair", Short: "Discover and repair client configuration", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error { return runRepair(cmd.Context(), runtime, dryRun, jsonMode) },
 	}
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview repair without writing configuration or authentication")
-	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write a secret-free repair preview as JSON")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview repair without writing configuration or client projections")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the secret-free repair preview or result as JSON")
 	return cmd
 }
 
-type repairPreview struct {
+type repairResult struct {
 	DryRun              bool                      `json:"dry_run"`
 	ConfigurationAction string                    `json:"configuration_action"`
-	Projections         []repairProjectionPreview `json:"projections"`
+	Projections         []repairProjectionPreview `json:"projections,omitempty"`
+	NextAction          string                    `json:"next_action"`
 }
 
 type repairProjectionPreview struct {
@@ -47,43 +50,37 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	if len(before.Profiles) == 0 {
 		return presentation.ProblemError("Not configured", "No service profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
-	after, discovered, err := invocation.Synchronizer(runtime).DesiredClientConfiguration(before)
+	synchronizer := invocation.Synchronizer(runtime)
+	after, discovered, err := synchronizer.DesiredClientConfiguration(before)
 	if err != nil {
-		return err
+		return invocation.Problem(
+			runtime,
+			"Repair prerequisites are unavailable",
+			"AIGW could not inspect the current clients and configuration needed to plan a repair.",
+			"Configuration and client projections remain unchanged.",
+			"aigw doctor",
+			err,
+		)
 	}
+	var plans []client.ProjectionPlan
 	if dryRun {
-		plans, err := invocation.Synchronizer(runtime).Plan(before, after)
+		plans, err = synchronizer.Plan(before, after)
 		if err != nil {
 			return err
 		}
-		return renderRepairPreview(runtime, jsonMode, before, after, discovered, plans)
-	}
-	if err := invocation.Synchronizer(runtime).Commit(ctx, before, after, "repair"); err != nil {
+	} else if err := synchronizer.CommitProjection(ctx, before, after, "repair"); err != nil {
 		return err
 	}
-	if after.Adapters[configuration.ClientCodex].Enabled && !synchronization.ProjectionChanged(before, after) {
-		if err := invocation.Synchronizer(runtime).Reconcile(ctx, after, after); err != nil {
-			return fmt.Errorf("Failed to repair Codex configuration projection: %w", err)
-		}
-	}
-	r := invocation.Renderer(runtime)
-	r.ProductTitle("Repair completed")
-	r.Section("Results")
-	r.Status(presentation.OK, "Client", "Rediscovered")
-	r.Status(presentation.OK, "Configuration", "Synchronized")
-	authentication := "Unchanged"
-	if synchronization.AuthenticationChanged(before, after) {
-		authentication = "Bound"
-	}
-	r.Status(presentation.OK, "Authentication", authentication)
-	r.Next("aigw check")
-	return nil
+	return renderRepairResult(runtime, dryRun, jsonMode, !reflect.DeepEqual(before, after), discovered, plans)
 }
 
-func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, after configuration.Config, discovered discovery.Result, plans []synchronization.ProjectionPlan) error {
-	preview := repairPreview{DryRun: true, ConfigurationAction: "already-converged", Projections: make([]repairProjectionPreview, 0, len(plans))}
-	if !reflect.DeepEqual(before, after) {
-		preview.ConfigurationAction = "update"
+func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, discovered discovery.Result, plans []client.ProjectionPlan) error {
+	result := repairResult{DryRun: dryRun, ConfigurationAction: "already-converged", NextAction: "aigw check"}
+	if dryRun {
+		result.NextAction = "aigw repair"
+	}
+	if configurationChanged {
+		result.ConfigurationAction = "update"
 	}
 	for _, plan := range plans {
 		surfaceID := "claude-settings"
@@ -93,20 +90,27 @@ func renderRepairPreview(runtime invocation.Context, jsonMode bool, before, afte
 				surfaceID = surface.ID
 			}
 		}
-		preview.Projections = append(preview.Projections, repairProjectionPreview{Client: plan.Client, SurfaceID: surfaceID, Action: plan.Action})
+		result.Projections = append(result.Projections, repairProjectionPreview{Client: plan.Client, SurfaceID: surfaceID, Action: plan.Action})
 	}
 	if jsonMode {
 		encoder := json.NewEncoder(runtime.Out)
 		encoder.SetIndent("", "  ")
-		return encoder.Encode(preview)
+		return encoder.Encode(result)
 	}
 	r := invocation.Renderer(runtime)
-	r.ProductTitle("Repair preview")
-	r.Row("Configuration", preview.ConfigurationAction)
-	for _, plan := range preview.Projections {
-		r.Row(plan.Client+" · "+plan.SurfaceID, plan.Action)
+	if dryRun {
+		r.ProductTitle("Repair preview")
+		r.Row("Configuration", result.ConfigurationAction)
+		for _, plan := range result.Projections {
+			r.Row(plan.Client+" · "+plan.SurfaceID, plan.Action)
+		}
+		r.Success("Preview did not write configuration, state files, authentication, client executables, or conversations")
+	} else {
+		r.ProductTitle("Repair completed")
+		r.Section("Results")
+		r.Status(presentation.OK, "Client", "Rediscovered")
+		r.Status(presentation.OK, "Configuration", "Synchronized")
 	}
-	r.Success("Preview did not write configuration, state files, authentication, client executables, or conversations")
-	r.Next("aigw repair")
+	r.Next(result.NextAction)
 	return nil
 }

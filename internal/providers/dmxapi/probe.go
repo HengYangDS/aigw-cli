@@ -5,27 +5,33 @@ package dmxapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"aigw-cli/internal/account"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
+	"aigw-cli/internal/providers/diagnostic"
 	"aigw-cli/internal/redaction"
+	"aigw-cli/internal/secrets"
 )
 
 // Kind is the stable manifest identifier for the bundled DMXAPI diagnostic.
 const Kind = "dmxapi"
 
-type httpDoer interface {
-	Do(*http.Request) (*http.Response, error)
-}
+const (
+	responseLimit  = 2 << 20
+	tokenPageSize  = 100
+	tokenPageLimit = 100
+)
 
-func Probe(ctx context.Context, client httpDoer, providerAccount configuration.Account, apiToken string, credential account.Credential) (account.Report, error) {
+// Probe obtains and classifies DMXAPI account diagnostics without changing provider or AIGW state.
+func Probe(ctx context.Context, client credential.HTTPDoer, providerAccount configuration.Account, apiToken string, auth secrets.DiagnosticCredential) (diagnostic.Report, error) {
 	if providerAccount.AccountProbe == nil || providerAccount.AccountProbe.Kind != Kind {
-		return account.Report{}, fmt.Errorf("DMXAPI diagnostic provider is not configured")
+		return diagnostic.Report{}, fmt.Errorf("DMXAPI diagnostic provider is not configured")
 	}
 	base := strings.TrimRight(providerAccount.AccountProbe.BaseURL, "/")
 	var user struct {
@@ -35,15 +41,15 @@ func Probe(ctx context.Context, client httpDoer, providerAccount configuration.A
 		} `json:"data"`
 		Message string `json:"message"`
 	}
-	if err := getJSON(ctx, client, base+"/api/user/self", credential, &user); err != nil {
-		return account.Report{}, err
+	if err := getJSON(ctx, client, base+"/api/user/self", auth, &user); err != nil {
+		return diagnostic.Report{}, err
 	}
 	if !user.Success {
-		return account.Report{}, fmt.Errorf("DMXAPI account query failed: %s", redaction.Text(user.Message, credential.SystemToken, credential.UserID))
+		return diagnostic.Report{}, fmt.Errorf("DMXAPI account query failed: %s", redaction.Text(user.Message, auth.SystemToken, auth.UserID))
 	}
-	items, err := fetchTokens(ctx, client, base, credential)
+	items, err := fetchTokens(ctx, client, base, auth)
 	if err != nil {
-		return account.Report{}, err
+		return diagnostic.Report{}, err
 	}
 	masked := maskedToken(apiToken)
 	for _, token := range items {
@@ -54,7 +60,7 @@ func Probe(ctx context.Context, client httpDoer, providerAccount configuration.A
 		if token.Status == 1 {
 			status = "enabled"
 		}
-		return account.Report{
+		return diagnostic.Report{
 			AccountBalance: float64(user.Data.Quota) / 500000,
 			TokenName:      token.Name, TokenStatus: status,
 			TokenUsed:           float64(token.UsedQuota) / 500000,
@@ -65,7 +71,7 @@ func Probe(ctx context.Context, client httpDoer, providerAccount configuration.A
 			TokenExpiredAt:      token.ExpiredTime,
 		}, nil
 	}
-	return account.Report{AccountBalance: float64(user.Data.Quota) / 500000}, fmt.Errorf("current API Token was not found in the DMXAPI account")
+	return diagnostic.Report{AccountBalance: float64(user.Data.Quota) / 500000}, fmt.Errorf("current API Token was not found in the DMXAPI account")
 }
 
 type token struct {
@@ -80,10 +86,10 @@ type token struct {
 	ExpiredTime    int64  `json:"expired_time"`
 }
 
-func fetchTokens(ctx context.Context, client httpDoer, base string, credential account.Credential) ([]token, error) {
+func fetchTokens(ctx context.Context, client credential.HTTPDoer, base string, auth secrets.DiagnosticCredential) ([]token, error) {
 	items := []token{}
-	for page := 1; page <= 100; page++ {
-		endpoint := fmt.Sprintf("%s/api/token/search?page=%d&page_size=100", base, page)
+	for page := 1; page <= tokenPageLimit; page++ {
+		endpoint := fmt.Sprintf("%s/api/token/search?page=%d&page_size=%d", base, page, tokenPageSize)
 		var payload struct {
 			Success bool `json:"success"`
 			Data    struct {
@@ -92,39 +98,46 @@ func fetchTokens(ctx context.Context, client httpDoer, base string, credential a
 			} `json:"data"`
 			Message string `json:"message"`
 		}
-		if err := getJSON(ctx, client, endpoint, credential, &payload); err != nil {
+		if err := getJSON(ctx, client, endpoint, auth, &payload); err != nil {
 			return nil, err
 		}
 		if !payload.Success {
-			return nil, fmt.Errorf("DMXAPI token query failed: %s", redaction.Text(payload.Message, credential.SystemToken, credential.UserID))
+			return nil, fmt.Errorf("DMXAPI token query failed: %s", redaction.Text(payload.Message, auth.SystemToken, auth.UserID))
 		}
 		items = append(items, payload.Data.Items...)
-		if len(payload.Data.Items) < 100 {
-			break
+		if len(payload.Data.Items) < tokenPageSize {
+			return items, nil
 		}
 	}
-	return items, nil
+	return nil, fmt.Errorf("DMXAPI token search is incomplete after %d pages; token presence is unverified", tokenPageLimit)
 }
 
-func getJSON(ctx context.Context, client httpDoer, endpoint string, credential account.Credential, target any) error {
+func getJSON(ctx context.Context, client credential.HTTPDoer, endpoint string, auth secrets.DiagnosticCredential, target any) (resultErr error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+credential.SystemToken)
-	req.Header.Set("Rix-Api-User", credential.UserID)
-	req.Header.Set("Dmx-Api-User", credential.UserID)
-	resp, err := client.Do(req)
+	req.Header.Set("Authorization", "Bearer "+auth.SystemToken)
+	req.Header.Set("Rix-Api-User", auth.UserID)
+	req.Header.Set("Dmx-Api-User", auth.UserID)
+	resp, err := credential.DoProbe(client, req)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { resultErr = errors.Join(resultErr, resp.Body.Close()) }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return fmt.Errorf("DMXAPI platform API returned HTTP %d: %s", resp.StatusCode, redaction.Text(strings.TrimSpace(string(body)), credential.SystemToken, credential.UserID))
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return errors.Join(fmt.Errorf("DMXAPI platform API returned HTTP %d: %s", resp.StatusCode, redaction.Text(strings.TrimSpace(string(body)), auth.SystemToken, auth.UserID)), readErr)
 	}
-	return json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(target)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, responseLimit+1))
+	if err != nil {
+		return err
+	}
+	if len(body) > responseLimit {
+		return fmt.Errorf("DMXAPI response exceeds %d bytes", responseLimit)
+	}
+	return json.Unmarshal(body, target)
 }
 
 func maskedToken(value string) string {

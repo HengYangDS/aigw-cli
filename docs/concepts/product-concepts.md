@@ -1,40 +1,45 @@
 # Product Concepts
 
-AIGW has four configuration entities and two external boundaries.
+AIGW has four configuration entities: Account, Profile, Route, and Adapter.
+A Route selects one Profile for one client; that Profile refers to an Account.
 
 ```mermaid
-flowchart LR
-    A["Account"] --> P["Profile"]
-    P --> R["Route"]
-    R --> D["Adapter"]
-    A --> K["Selected Token slot"]
-    D --> C["Native client"]
+flowchart TB
+    accTitle: References among the four configuration entities
+    accDescr: A client Route selects a Profile, which names an Account. An Adapter projects the selected configuration into its native client. Account Tokens remain in a separate backend.
+    R["Client Route"] -->|selects| P["Profile"]
+    P -->|references| A["Account"]
+    A -. credential reference .-> K["Selected Token backend"]
+    R -->|projected through| D["Client Adapter"]
+    D -->|owned configuration| C["Native client"]
 ```
 
 ## Core entities
 
-| Entity  | Meaning                                                                           | Cardinal rule                               |
-| ------- | --------------------------------------------------------------------------------- | ------------------------------------------- |
-| Account | One provider endpoint and logical Token boundary                                  | Token belongs to the Account, not a Profile |
-| Profile | One `account + client + model` choice and optional Codex-native provider identity | Client scope is explicit                    |
-| Route   | One client's explicit Profile selection                                           | No hidden provider fallback                 |
-| Adapter | Projection into one native client                                                 | Never writes another client's surface       |
+| Entity  | Meaning                                                                           | Cardinal rule                             |
+| ------- | --------------------------------------------------------------------------------- | ----------------------------------------- |
+| Account | Protocol endpoints and a logical credential boundary                              | Account Tokens are separate from Profiles |
+| Profile | One `account + client + model` choice and optional Codex-native provider identity | Client scope is explicit                  |
+| Route   | One client's explicit Profile selection                                           | No hidden provider fallback               |
+| Adapter | Projection into one native client                                                 | Never writes another client's surface     |
 
-## Account
+### Account
 
 An Account contains:
 
 - a human label;
 - an OpenAI Responses endpoint, an Anthropic endpoint, or both;
-- one logical Token stored by the selected local backend;
+- an Account Token slot in the selected backend when authentication requires it;
 - an optional provider-native diagnostic declaration.
 
+Accounts can be imported before a Token is available. A client-native Profile
+delegates authentication to its client instead of requiring that Account slot.
 Configuration and manifests never contain the Token.
 The reviewed distribution is [`manifests/team.toml`](../../manifests/team.toml);
 it is the sole tracked team configuration and is directly consumable by
 `aigw setup --from`.
 
-## Profile
+### Profile
 
 A Profile is the daily model choice for one client. The team manifest carries
 the reviewed profile IDs and model IDs; operators select those IDs directly
@@ -46,23 +51,24 @@ Codex-scoped Profile may explicitly select one safe `model_provider`; omission
 selects the canonical `aigw` provider. The selection is Profile-owned and never
 falls back from Account metadata.
 
-## Route
+### Route
 
 ```bash
 aigw use dmxapi-gpt-5.6-sol
-aigw use dmxapi-claude-fable-5
+aigw use dmxapi-claude-fable-5-1
 ```
 
-Each Profile declares exactly one client. Selecting it replaces only that client's Route. There is no global default, inheritance, or cross-client fallback.
+Each Profile declares exactly one client. Selecting it replaces only that
+client's Route. There is no global default, inheritance, or cross-client fallback.
 AIGW selects before the request; it does not retry traffic through another
 service or model.
 
-## Adapter
+### Adapter
 
-| Adapter     | Projection                                                                                   |
-| ----------- | -------------------------------------------------------------------------------------------- |
-| Codex       | AIGW-marked provider/model configuration; canonical login or explicit command authentication |
-| Claude Code | Official user-settings endpoint/model projection and credential helper                       |
+| Adapter     | Projection                                                                                         |
+| ----------- | -------------------------------------------------------------------------------------------------- |
+| Codex       | Marked provider/model configuration; Account Token helper or explicit client-native authentication |
+| Claude Code | Official user-settings endpoint/model projection and credential helper                             |
 
 Adapters do not own provider behavior. Missing clients remain untouched.
 
@@ -100,7 +106,7 @@ Finalize fails closed if credential equality or checkpoint proof is incomplete.
 
 ## Installation lifecycle
 
-All platforms use one archive and one CLI-owned lifecycle: `aigw install`,
+Each platform uses its matching archive and the same CLI-owned lifecycle: `aigw install`,
 `aigw update`, `aigw update --rollback`, and `aigw uninstall`. Updates replace
 the binary atomically and retain exactly one immediate predecessor. There is no
 parallel package-manager channel.

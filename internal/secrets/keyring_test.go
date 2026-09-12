@@ -9,11 +9,15 @@ import (
 
 func TestKeyringCredentialKindsShareOneServiceWithoutSharingSlots(t *testing.T) {
 	keyring.MockInit()
-	store := NewKeyringStore()
-	if err := store.set(APIToken, "dmx", "api-token"); err != nil {
+	store := scopedView{store: keyringStore{observe: mockKeyringObserver}}
+	if err := store.Set("dmx", "api-token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.set(ProviderDiagnostic, "dmx", diagnosticValue); err != nil {
+	diagnostics, err := ForKind(store, ProviderDiagnostic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := diagnostics.Set("dmx", diagnosticValue); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := keyring.Get(Service, "dmx"); err != nil || got != "api-token" {
@@ -26,8 +30,7 @@ func TestKeyringCredentialKindsShareOneServiceWithoutSharingSlots(t *testing.T) 
 
 func TestKeyringStoreLifecycleAndValidation(t *testing.T) {
 	keyring.MockInit()
-	store := NewKeyringStore()
-	store.observe = mockKeyringObserver
+	store := scopedView{store: keyringStore{observe: mockKeyringObserver}}
 	if mustExist(t, store, "dmx") {
 		t.Fatal("new mocked keyring unexpectedly has a token")
 	}
@@ -67,13 +70,13 @@ func TestKeyringStoreMapsEmptyValuesAndProviderErrors(t *testing.T) {
 	if err := keyring.Set(Service, "dmx", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewKeyringStore().Get("dmx"); !errors.Is(err, ErrNotFound) {
+	if _, err := (scopedView{store: keyringStore{observe: mockKeyringObserver}}).Get("dmx"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("empty provider value error = %v", err)
 	}
 	want := errors.New("keyring unavailable")
 	keyring.MockInitWithError(want)
 	t.Cleanup(keyring.MockInit)
-	store := NewKeyringStore()
+	store := scopedView{store: keyringStore{observe: mockKeyringObserver}}
 	if _, err := store.Get("dmx"); !errors.Is(err, want) {
 		t.Fatalf("Get error = %v", err)
 	}
@@ -85,26 +88,10 @@ func TestKeyringStoreMapsEmptyValuesAndProviderErrors(t *testing.T) {
 	}
 }
 
-type untypedStore struct{}
-
-func (untypedStore) Get(string) (string, error)  { return "", ErrNotFound }
-func (untypedStore) Set(string, string) error    { return nil }
-func (untypedStore) Delete(string) error         { return nil }
-func (untypedStore) Exists(string) (bool, error) { return false, nil }
-
 func mockKeyringObserver(service, slot string) (bool, error) {
 	_, err := keyring.Get(service, slot)
 	if errors.Is(err, keyring.ErrNotFound) {
 		return false, nil
 	}
 	return err == nil, err
-}
-
-func TestForKindRejectsUntypedStoreAndUnknownKind(t *testing.T) {
-	if _, err := ForKind(untypedStore{}, APIToken); err == nil {
-		t.Fatal("untyped store accepted")
-	}
-	if _, err := ForKind(NewMemoryStore(), Kind(255)); err == nil {
-		t.Fatal("unknown credential kind accepted")
-	}
 }

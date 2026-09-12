@@ -3,20 +3,19 @@
 package cli
 
 import (
-	"context"
+	"errors"
 	"fmt"
-	"github.com/spf13/pflag"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
-	"strconv"
+	"slices"
 	"strings"
 	"time"
 
-	"aigw-cli/internal/account"
+	"github.com/spf13/pflag"
+
 	accountcli "aigw-cli/internal/cli/account"
 	"aigw-cli/internal/cli/adapter"
 	"aigw-cli/internal/cli/catalog"
@@ -29,9 +28,11 @@ import (
 	"aigw-cli/internal/cli/profile"
 	"aigw-cli/internal/cli/readiness"
 	"aigw-cli/internal/cli/recovery"
+	"aigw-cli/internal/cli/renaming"
 	"aigw-cli/internal/cli/route"
 	updatecli "aigw-cli/internal/cli/update"
 	"aigw-cli/internal/cli/verification"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/console"
 	"aigw-cli/internal/discovery"
@@ -39,33 +40,14 @@ import (
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/prompt"
-	"aigw-cli/internal/renaming"
+	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/synchronization"
 	"aigw-cli/internal/upgrade"
+
 	"github.com/spf13/cobra"
 )
 
-type Runner interface {
-	Run(context.Context, process.Plan) error
-}
-
-type HTTPDoer interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
-type Prompter interface {
-	Secret(label string) (string, error)
-	Text(label string) (string, error)
-	Select(label string, choices []prompt.Choice) (string, error)
-}
-
-type Updater interface {
-	Update(context.Context, string) (string, error)
-	UpdateCandidate(context.Context, string, upgrade.CandidateArchive) (string, error)
-	Rollback(context.Context) (string, error)
-}
-
+// App owns the dependencies and presentation state for one AIGW invocation.
 type App struct {
 	GOOS               string
 	DataDir            string
@@ -76,78 +58,94 @@ type App struct {
 	ClaudeSettingsPath string
 	Config             configuration.Store
 	Secrets            secrets.Store
-	Accounts           account.Store
+	Accounts           secrets.DiagnosticCredentialStore
 	Env                []string
 	In                 io.Reader
 	Out                io.Writer
 	Err                io.Writer
 	Interactive        bool
 	Color              bool
-	Runner             Runner
-	HTTP               HTTPDoer
-	Prompt             Prompter
+	Runner             process.CaptureRunner
+	HTTP               invocation.HTTPDoer
+	Prompt             invocation.Prompter
 	Discovery          discovery.Discoverer
-	Updater            Updater
-	renderErr          error
+	Updater            invocation.Updater
+	output             *commandOutput
 }
 
-// synchronizer is the CLI composition boundary for the synchronization
-// domain. It assembles dependencies only; synchronization behavior remains in
-// internal/synchronization.
-func (a *App) synchronizer() synchronization.Synchronizer {
-	return synchronization.Synchronizer{
-		Config: a.Config, Secrets: a.Secrets, Runner: a.Runner, Discovery: a.Discovery,
-		ClaudeSettingsPath: a.ClaudeSettingsPath,
-		AIGWExecutable:     a.Executable,
+// commandOutput owns write progress and the first failure for one invocation.
+type commandOutput struct {
+	writer  io.Writer
+	err     error
+	started bool
+}
+
+func (w *commandOutput) Write(data []byte) (int, error) {
+	if w.err != nil {
+		return 0, w.err
 	}
-}
-
-type renderErrorWriter struct {
-	writer io.Writer
-	err    *error
-}
-
-func (w renderErrorWriter) Write(data []byte) (int, error) {
 	count, writeErr := w.writer.Write(data)
-	if writeErr != nil && *w.err == nil {
-		*w.err = writeErr
+	w.started = w.started || count > 0
+	if writeErr == nil && count != len(data) {
+		writeErr = io.ErrShortWrite
 	}
+	w.err = writeErr
 	return count, writeErr
 }
 
-func (a *App) Renderer() *presentation.Renderer {
-	return presentation.NewWithWidth(renderErrorWriter{writer: a.Out, err: &a.renderErr}, a.Color, console.PresentationWidth(a.Out, environmentMap(a.Env)))
+func (a *App) outputWriter() io.Writer {
+	if a.output != nil {
+		return a.output
+	}
+	return a.Out
 }
 
-func renderer(app *App) *presentation.Renderer { return app.Renderer() }
+// Renderer uses invocation output while measuring the original terminal writer.
+func (a *App) Renderer() *presentation.Renderer {
+	return presentation.NewWithWidth(a.outputWriter(), a.Color, console.PresentationWidth(a.Out, environmentMap(a.Env)))
+}
 
+// Execute runs one argument vector, serializing mutations and returning any command or output failure.
 func Execute(app *App, args []string) error {
-	app.renderErr = nil
+	output := &commandOutput{writer: app.Out}
+	app.output = output
+	defer func() { app.output = nil }()
 	var unlock func() error
-	if mutationCommand(app, args) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		locked, err := app.Config.Lock(ctx)
+	root := NewRoot(app)
+	root.PersistentPreRunE = func(command *cobra.Command, _ []string) error {
+		// Cobra normally validates flag relationships after this mutation boundary.
+		if err := command.ValidateRequiredFlags(); err != nil {
+			return err
+		}
+		if err := command.ValidateFlagGroups(); err != nil {
+			return err
+		}
+		if !requiresConfigurationLock(app, command) {
+			return nil
+		}
+		locked, err := app.Config.Lock(command.Context())
 		if err != nil {
 			return fmt.Errorf("%w; retry after the other command finishes", err)
 		}
 		unlock = locked
+		return nil
 	}
-	root := NewRoot(app)
 	root.SetArgs(args)
-	err := root.Execute()
-	if err != nil && credentialInvocation(args) {
-		return err
-	}
-	if err == nil && app.renderErr != nil {
-		err = app.renderErr
+	command, err := root.ExecuteC()
+	if output.err != nil && !errors.Is(err, output.err) {
+		err = errors.Join(err, output.err)
 	}
 	err = finishExecution(err, unlock)
-	if err != nil {
-		presentation.RenderError(app.Renderer(), err)
-		return presentation.Presented(err)
+	if err == nil || credentialInvocation(args) || output.err != nil {
+		return err
 	}
-	return nil
+	jsonMode, _ := command.Flags().GetBool("json")
+	if jsonMode && output.started {
+		return err
+	}
+	renderer := app.Renderer()
+	presentation.RenderError(renderer, err, jsonMode)
+	return presentation.Presented(errors.Join(err, renderer.Err()))
 }
 
 func finishExecution(commandErr error, unlock func() error) error {
@@ -161,68 +159,34 @@ func finishExecution(commandErr error, unlock func() error) error {
 	if commandErr == nil {
 		return fmt.Errorf("release config lock: %w", unlockErr)
 	}
-	return fmt.Errorf("%w; release config lock: %v", commandErr, unlockErr)
+	return fmt.Errorf("%w; release config lock: %w", commandErr, unlockErr)
 }
 
 func credentialInvocation(args []string) bool {
 	return len(args) > 0 && args[0] == "credential"
 }
 
-func mutationCommand(app *App, args []string) bool {
-	if len(args) == 0 {
+func requiresConfigurationLock(app *App, command *cobra.Command) bool {
+	if command == command.Root() {
 		cfg, err := app.Config.Load()
 		return err == nil && len(cfg.Profiles) == 0 && app.Interactive
 	}
-	switch args[0] {
-	case "setup", "add", "use", "rotate", "rollback":
+	path := strings.TrimPrefix(command.CommandPath(), command.Root().Name()+" ")
+	switch path {
+	case "setup", "add", "use", "rotate", "rollback", "uninstall", "update",
+		"account connect", "account disconnect", "account edit",
+		"profile add", "profile edit", "profile remove",
+		"adapter enable", "adapter disable", "config import":
 		return true
-	case "sync":
-		return !boolArgumentEnabled(args[1:], "--dry-run")
-	case "repair":
-		return !boolArgumentEnabled(args[1:], "--dry-run")
-	case "update":
-		return true
-	case "account":
-		if len(args) < 2 {
-			return false
-		}
-		if args[1] == "rename" {
-			return !boolArgumentEnabled(args[2:], "--dry-run")
-		}
-		return args[1] == "connect" || args[1] == "disconnect" || args[1] == "edit"
-	case "profile":
-		if len(args) < 2 {
-			return false
-		}
-		if args[1] == "rename" {
-			return !boolArgumentEnabled(args[2:], "--dry-run")
-		}
-		return args[1] == "add" || args[1] == "edit" || args[1] == "remove"
-	case "route":
-		return len(args) > 1 && args[1] == "reset"
-	case "adapter":
-		return len(args) > 1 && (args[1] == "enable" || args[1] == "auth" || args[1] == "disable")
-	case "config":
-		return len(args) > 1 && args[1] == "import"
+	case "sync", "repair", "account rename", "profile rename":
+		dryRun, err := command.Flags().GetBool("dry-run")
+		return err != nil || !dryRun
 	default:
 		return false
 	}
 }
 
-func boolArgumentEnabled(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-		if !strings.HasPrefix(value, want+"=") {
-			continue
-		}
-		enabled, err := strconv.ParseBool(strings.TrimPrefix(value, want+"="))
-		return err == nil && enabled
-	}
-	return false
-}
-
+// NewDefault constructs an App from the current platform, environment, configuration, and credential backend.
 func NewDefault() (*App, error) {
 	env := environmentMap(os.Environ())
 	paths, err := platform.PathsFor(runtime.GOOS, env)
@@ -242,7 +206,7 @@ func NewDefault() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	diagnosticStore, err := secrets.ForKind(secretStore, secrets.ProviderDiagnostic)
+	diagnosticCredentialStore, err := secrets.NewDiagnosticCredentialStore(secretStore)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +220,7 @@ func NewDefault() (*App, error) {
 		ClaudeSettingsPath: paths.ClaudeSettings,
 		Config:             configuration.NewStore(paths.Config),
 		Secrets:            secretStore,
-		Accounts:           account.NewBackendStore(diagnosticStore, secrets.IsNotFound),
+		Accounts:           diagnosticCredentialStore,
 		Env:                os.Environ(),
 		In:                 os.Stdin,
 		Out:                os.Stdout,
@@ -266,7 +230,7 @@ func NewDefault() (*App, error) {
 		Runner:             process.Runner{},
 		HTTP:               &http.Client{},
 		Prompt:             prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
-		Discovery:          discovery.Current(),
+		Discovery:          client.NewDiscoverer(client.DefaultRegistry(), discovery.Current()),
 		Updater:            upgrade.Current(executable),
 	}, nil
 }
@@ -284,16 +248,19 @@ func environmentMap(values []string) map[string]string {
 
 func (a *App) doctorCommand() *cobra.Command {
 	return doctor.NewCommand(doctor.Dependencies{
-		Config: a.Config, Secrets: a.Secrets, Env: a.Env, Out: a.Out,
-		RenderOut: renderErrorWriter{writer: a.Out, err: &a.renderErr},
+		Config: a.Config, Secrets: a.Secrets, Clients: invocation.Synchronizer(a.invocationContext()), Env: a.Env, Out: a.outputWriter(),
+		Inspect: func(cfg configuration.Config) map[string]domainreadiness.Client {
+			return readiness.InspectClients(a.invocationContext(), cfg)
+		},
+		RenderOut: a.outputWriter(),
 		Color:     a.Color, Width: console.PresentationWidth(a.Out, environmentMap(a.Env)),
 	})
 }
 
 func (a *App) catalogDependencies() catalog.Dependencies {
 	return catalog.Dependencies{
-		Config: a.Config, Secrets: a.Secrets, HTTP: a.HTTP, Out: a.Out,
-		RenderOut: renderErrorWriter{writer: a.Out, err: &a.renderErr},
+		Config: a.Config, Secrets: a.Secrets, HTTP: a.HTTP, Out: a.outputWriter(),
+		RenderOut: a.outputWriter(),
 		Color:     a.Color, Width: console.PresentationWidth(a.Out, environmentMap(a.Env)),
 	}
 }
@@ -302,27 +269,19 @@ func (a *App) invocationContext() invocation.Context {
 	return invocation.Context{
 		Version: appVersion(a), Executable: a.Executable, InstallTarget: a.InstallTarget,
 		ClaudeSettingsPath: a.ClaudeSettingsPath,
-		Config:             a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.Out,
+		Config:             a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
 		In:        a.In,
-		RenderOut: renderErrorWriter{writer: a.Out, err: &a.renderErr},
+		RenderOut: a.outputWriter(),
 		Color:     a.Color, Width: console.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
 		Discovery: a.Discovery, Updater: a.Updater, Now: a.Now, Problem: presentation.ProblemError,
 	}
 }
 
-func (a *App) renamingDependencies() renaming.Dependencies {
-	return renaming.Dependencies{
-		Config: a.Config, Secrets: a.Secrets, Accounts: a.Accounts,
-		Out:   renderErrorWriter{writer: a.Out, err: &a.renderErr},
-		Color: a.Color, Width: console.PresentationWidth(a.Out, environmentMap(a.Env)),
-		Interactive: a.Interactive, Prompt: a.Prompt, HTTP: a.HTTP,
-		Synchronizer: a.synchronizer(),
-	}
-}
-
+// Version is the product version injected by the release build.
 var Version = "0.1.0-dev"
 
+// NewRoot constructs the complete Cobra command tree from its authoritative command metadata.
 func NewRoot(app *App) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "aigw",
@@ -341,7 +300,7 @@ func NewRoot(app *App) *cobra.Command {
 			return readiness.RunStatus(app.invocationContext(), false)
 		},
 	}
-	root.SetOut(app.Out)
+	root.SetOut(app.outputWriter())
 	root.SetErr(app.Err)
 	root.Version = appVersion(app)
 	root.InitDefaultHelpFlag()
@@ -364,21 +323,21 @@ func NewRoot(app *App) *cobra.Command {
 	runtime := app.invocationContext()
 	connect := []*cobra.Command{onboarding.NewCommand(runtime)}
 	daily := []*cobra.Command{readiness.NewStatusCommand(runtime), route.NewUseCommand(runtime), readiness.NewCheckCommand(runtime), accountcli.NewRotateCommand(runtime)}
-	recover := []*cobra.Command{
+	recoveryCommands := []*cobra.Command{
 		app.doctorCommand(), recovery.NewRepairCommand(runtime), recovery.NewSyncCommand(runtime),
 		recovery.NewRollbackCommand(runtime), updatecli.NewCommand(runtime),
 		installcli.NewInstallCommand(runtime), installcli.NewUninstallCommand(runtime),
 	}
 	advanced := []*cobra.Command{
-		accountcli.NewAddCommand(runtime), accountcli.NewCommand(runtime, renaming.NewAccountCommand(app.renamingDependencies())),
-		profile.NewCommand(runtime, renaming.NewProfileCommand(app.renamingDependencies())),
+		accountcli.NewAddCommand(runtime), accountcli.NewCommand(runtime, renaming.NewAccountCommand(runtime)),
+		profile.NewCommand(runtime, renaming.NewProfileCommand(runtime)),
 		route.NewCommand(runtime), adapter.NewCommand(runtime),
 		manifest.NewCommand(runtime), readiness.NewTestCommand(runtime),
 		verification.NewCommand(runtime), catalog.NewModelsCommand(app.catalogDependencies()),
 		catalog.NewCatalogCommand(app.catalogDependencies()), accountcli.NewBalanceCommand(runtime),
 	}
 	for group, commands := range map[string][]*cobra.Command{
-		"connect": connect, "daily": daily, "recover": recover, "advanced": advanced,
+		"connect": connect, "daily": daily, "recover": recoveryCommands, "advanced": advanced,
 	} {
 		for _, command := range commands {
 			command.GroupID = group
@@ -402,13 +361,17 @@ func appVersion(app *App) string {
 }
 
 func renderCommandHelp(app *App, command *cobra.Command) {
-	r := renderer(app)
+	r := app.Renderer()
 	title := "Command help"
 	if command.Parent() != nil {
 		title = command.CommandPath()
 	}
 	r.ProductTitle(title)
-	if command.Short != "" {
+	if command.Long != "" {
+		for line := range strings.SplitSeq(strings.TrimSpace(command.Long), "\n") {
+			r.Text(line)
+		}
+	} else if command.Short != "" {
 		r.Text(command.Short)
 	}
 	if command.Parent() == nil {
@@ -423,62 +386,50 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 		usage = command.CommandPath() + " [command]"
 	}
 	r.Command(usage)
+	if command.Example != "" {
+		r.Section("Examples")
+		for line := range strings.SplitSeq(strings.TrimSpace(command.Example), "\n") {
+			r.Command(line)
+		}
+	}
 	groups := map[string][]*cobra.Command{}
-	ungrouped := []*cobra.Command{}
 	for _, child := range command.Commands() {
-		if !child.IsAvailableCommand() || child.Hidden {
+		if !child.IsAvailableCommand() {
 			continue
 		}
-		if child.GroupID == "" {
-			ungrouped = append(ungrouped, child)
-		} else {
-			groups[child.GroupID] = append(groups[child.GroupID], child)
+		groups[child.GroupID] = append(groups[child.GroupID], child)
+	}
+	for _, group := range append(slices.Clone(command.Groups()), &cobra.Group{Title: "Commands"}) {
+		if len(groups[group.ID]) == 0 {
+			continue
+		}
+		r.Section(group.Title)
+		for _, child := range groups[group.ID] {
+			r.Row(child.Name(), child.Short)
 		}
 	}
-	for _, item := range []struct{ id, title string }{
-		{"connect", "Connect"},
-		{"daily", "Use every day"},
-		{"recover", "Recover"},
-		{"advanced", "Advanced"},
+	optionWidth := max(console.PresentationWidth(app.Out, environmentMap(app.Env))-2, 0)
+	options := presentation.New(app.outputWriter(), app.Color)
+	for _, group := range []struct {
+		title string
+		flags *pflag.FlagSet
+	}{
+		{title: "Options", flags: command.NonInheritedFlags()},
+		{title: "Inherited options", flags: command.InheritedFlags()},
 	} {
-		if len(groups[item.id]) == 0 {
+		if !group.flags.HasAvailableFlags() {
 			continue
 		}
-		r.Section(item.title)
-		for _, child := range groups[item.id] {
-			r.Row(child.Name(), child.Short)
+		r.Section(group.title)
+		for line := range strings.SplitSeq(strings.TrimRight(group.flags.FlagUsagesWrapped(optionWidth), "\n"), "\n") {
+			options.Text(strings.TrimRight(line, " \t"))
 		}
-	}
-	if len(ungrouped) > 0 {
-		sort.Slice(ungrouped, func(i, j int) bool { return ungrouped[i].Name() < ungrouped[j].Name() })
-		r.Section("Commands")
-		for _, child := range ungrouped {
-			r.Row(child.Name(), child.Short)
-		}
-	}
-	flags := command.NonInheritedFlags()
-	if flags.HasAvailableFlags() {
-		r.Section("Options")
-		flags.VisitAll(func(flag *pflag.Flag) {
-			if flag.Hidden {
-				return
-			}
-			name := "--" + flag.Name
-			if flag.Shorthand != "" {
-				name = "-" + flag.Shorthand + ", " + name
-			}
-			usage := strings.TrimSpace(flag.Usage)
-			if flag.Name == "help" {
-				usage = "show help"
-			}
-			r.Row(name, usage)
-		})
 	}
 }
 
 func newCompletionCommand(root *cobra.Command) *cobra.Command {
 	return &cobra.Command{
-		Use: "completion <bash|zsh|fish|powershell>", Short: "generate shell completion", Args: cobra.ExactArgs(1),
+		Use: "completion <bash|zsh|fish|powershell>", Short: "Generate shell completion", Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			switch args[0] {
 			case "bash":

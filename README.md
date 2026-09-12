@@ -5,18 +5,14 @@ A local-first control plane for teams using reviewed third-party AI services.
 AIGW manages Accounts, Tokens, Profiles, Routes, and native client projections.
 It does **not** relay model traffic, run a gateway, or own conversation state.
 
-| GitLab metadata            | Value      |
-| -------------------------- | ---------- |
-| **Project Name**           | `AIGW CLI` |
-| **Stable repository Path** | `aigw-cli` |
-
 ```mermaid
-flowchart LR
-    U["Operator"] --> A["AIGW"]
-    A --> C["Codex configuration"]
-    A --> L["Claude Code settings"]
-    C --> E["Selected Responses endpoint"]
-    L --> H["Selected Anthropic endpoint"]
+flowchart TB
+    accTitle: AIGW configures clients; clients call services
+    accDescr: Dashed arrows are configuration. Solid arrows are model requests sent by native clients to selected endpoints.
+    A["AIGW"] -. configuration .-> C["Codex"]
+    A -. configuration .-> L["Claude Code"]
+    C -->|Responses requests| E["Selected Responses endpoint"]
+    L -->|Anthropic requests| H["Selected Anthropic endpoint"]
 ```
 
 ## Start here
@@ -69,10 +65,13 @@ directory on Windows. An explicit destination is available for isolated use:
 ```
 
 `aigw install` copies only the running executable and retains one predecessor
-for rollback. It does not edit shell startup files, retrieve a release, store
-credentials, configure clients, or start another product. `aigw uninstall`
-removes only the installed executable and that rollback copy; configuration and
-credential-store secrets remain intact.
+for rollback. Reinstalling identical bytes preserves the existing program and
+its predecessor; a fresh installation has no predecessor. It does not edit
+shell startup files, retrieve a release, store
+credentials, configure clients, or start another product. `aigw uninstall` first withdraws every AIGW-owned client projection, then
+removes the installed executable and that rollback copy. Accounts, Profiles,
+Routes, Tokens, user-authored client settings, and the explicit configuration
+backup remain intact.
 
 GitLab and GitHub publish independently. Either release plane may supply a
 verified installation. When both are reachable during update, AIGW requires
@@ -124,18 +123,19 @@ aigw use dmxapi-gpt-5.6-sol
 
 If a supported client is installed after setup, `aigw sync` discovers it and
 creates only AIGW-owned projection state. Synchronization does not ask for or
-replace a Token or write native client credentials. For Codex, finish the
-explicit native authentication step and then verify the route:
+replace a Token or write client-owned credentials. Verify the projected route
+through the installed client when it is ready:
 
 ```bash
 aigw sync
-aigw adapter auth codex
 aigw check
+aigw verify --for codex
 ```
 
-`aigw status` reports projection readiness and Codex native authentication as
-separate facts. It never infers authentication merely because a Token and a
-configuration projection exist.
+`aigw status` reports selected Routes and local projection readiness without
+reading Token values or invoking clients. `aigw check` adds endpoint checks;
+`aigw verify --for <client>` runs the selected native client. Neither a present
+Token nor a synchronized file alone proves a working client request.
 
 ### Environment variables
 
@@ -143,8 +143,12 @@ Interactive users do not need environment variables. Without an override,
 AIGW first proves that the platform credential service is usable. If it is
 not, AIGW selects one platform-local fallback beneath the AIGW data directory:
 an owner-only store on macOS and Linux, or a Windows DPAPI-protected store.
-The automatic choice is persisted; AIGW never searches multiple stores for the
-same Token.
+The first credential mutation persists the automatic choice before changing a
+Token. Read-only commands and credential reads do not create selection state;
+AIGW never searches multiple stores for the same Token.
+
+See [Credential storage](docs/architecture/security-model.md#credential-storage)
+for the exact macOS, Linux, Windows, and environment-backed contracts.
 
 Use these variables only for explicit automation or a deliberately selected
 backend:
@@ -183,15 +187,15 @@ aigw repair
 aigw rotate [account]
 ```
 
-| Command    | Purpose                                                                          |
-| ---------- | -------------------------------------------------------------------------------- |
-| `status`   | Show selection, projection readiness, native authentication, and one next action |
-| `check`    | Verify configuration, client projection, and endpoint passage                    |
-| `doctor`   | Explain a problem without mutation                                               |
-| `repair`   | Reconcile bounded AIGW-owned client state                                        |
-| `test`     | Test configured connectivity and authentication                                  |
-| `verify`   | Make an explicit minimal model request that may consume quota                    |
-| `rollback` | Restore AIGW-managed configuration only                                          |
+| Command    | Purpose                                                               |
+| ---------- | --------------------------------------------------------------------- |
+| `status`   | Show selected Routes, local projection readiness, and one next action |
+| `check`    | Verify configuration, client projection, and endpoint passage         |
+| `doctor`   | Explain a problem without mutation                                    |
+| `repair`   | Reconcile bounded AIGW-owned client state                             |
+| `test`     | Test configured connectivity and authentication                       |
+| `verify`   | Make an explicit minimal model request that may consume quota         |
+| `rollback` | Restore AIGW-managed configuration only                               |
 
 Human output is task-oriented and terminal-width aware. Automation uses stable
 JSON flags where available. Expected failures do not emit tracebacks, warning
@@ -206,13 +210,7 @@ dumps, or unrelated usage text.
 | Route   | One client's explicit Profile selection                                   | Provider fallback      |
 | Adapter | One native client projection                                              | Another client's state |
 
-```mermaid
-flowchart LR
-    A["Account"] --> P1["Codex Profile"]
-    A --> P2["Claude Profile"]
-    P1 --> R1["Codex Route"]
-    P2 --> R2["Claude Route"]
-```
+See [Product concepts](docs/concepts/product-concepts.md) for entity relationships.
 
 The current admitted clients are:
 
@@ -253,20 +251,21 @@ model = "openai.gpt-5.6-sol"
 model_provider = "amazon-bedrock"
 ```
 
-AIGW then projects the Account endpoint and an absolute `aigw credential codex`
-authentication command into the shared Codex Home. The Token remains in AIGW's
-selected Token store. The field is Codex-only; it does not install or identify
-a proxy and it never changes Codex conversation state.
+For Account-Token authentication, every provider uses the absolute AIGW
+executable with `credential codex <projection-fingerprint>`. The fingerprint
+matches the projected client, Account and endpoint before the helper reads a
+Token; it is not a credential or caller authorization. A retained, stale
+projection requires `aigw sync` and a client configuration reload. Token rotation
+is observed on the next helper invocation; the client controls its refresh
+timing. A Profile using `authentication = "client-native"` leaves authentication
+to Codex and receives no AIGW Token helper. Provider naming does not select
+authentication ownership. Neither mode installs a proxy or changes conversation
+state.
 
 ## Team rollout
 
-```mermaid
-flowchart LR
-    M["Reviewed token-free manifest"] --> I["aigw setup --from"]
-    I --> K["Selected local Token store"]
-    I --> C["Installed client projections"]
-    C --> V["aigw check"]
-```
+Import the reviewed manifest first; add any one usable Account Token and install
+a client when ready. Missing credentials or clients remain deferred, not fatal.
 
 Use [Team rollout](docs/guides/team-rollout.md) for manifest review, staged
 adoption, and rollback. Tokens never enter the manifest or repository.
@@ -275,7 +274,19 @@ adoption, and rollback. Tokens never enter the manifest or repository.
 
 ```bash
 aigw update
+aigw sync
+aigw check
+```
+
+To return to the retained program, first list the enabled integrations and
+disable each one through `aigw adapter disable <client>`. This withdraws only
+AIGW-owned projections and preserves Accounts, Profiles, Routes and Tokens.
+Then activate the predecessor and recreate its projections:
+
+```bash
 aigw update --rollback
+aigw sync
+aigw check
 ```
 
 Every installation uses the same portable lifecycle and retains one immediate
@@ -283,25 +294,43 @@ predecessor. A verified offline candidate may be supplied explicitly with its
 checksum manifest; source trees, loose binaries, tags, and self-authored
 checksums are not installation evidence.
 
+Program replacement does not rewrite client configuration. Upgrade needs the
+new version's `sync`; rollback additionally needs withdrawal before replacement
+because a predecessor may not repair projections written by a newer version.
+Run `aigw adapter list` and check readiness before resuming client work; explicitly
+configured client locations may need to be enabled again. A program rollback
+does not convert configuration to an older schema; crossing a schema boundary
+requires an explicit data migration.
+
 ## Verify a source checkout
 
 ```bash
-mise exec --locked -- go run ./tools/ci source
+mise install --locked
+mise run bootstrap
+mise run check
+mise run native
 mise exec --locked -- go run ./tools/forge commits --email '<product author email>' --allowed-signers '<path>'
 mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 ```
 
+These tasks are the portable development entrypoints. `bootstrap`
+reconstructs this Work Lane's locked repository dependencies; `check` runs the
+complete source and governance gate; `native` proves the current host.
+The separate [`release` task](CONTRIBUTING.md#signed-artifact-builds) builds
+deterministic artifacts in `dist` without publishing them. It requires explicit
+artifact-signing inputs; ordinary source and native acceptance do not.
+
 ## Documentation
 
-| Need                                | Source of truth                                                        |
-| ----------------------------------- | ---------------------------------------------------------------------- |
-| Concepts                            | [Account, Profile, Route, Adapter](docs/concepts/product-concepts.md)  |
-| Client and control-plane boundaries | [Architecture](docs/architecture/authority-and-projection-boundary.md) |
-| Human terminal behavior             | [Terminal experience](docs/experience/terminal-experience.md)          |
-| Security                            | [Security model](docs/architecture/security-model.md)                  |
-| Team adoption                       | [Team rollout](docs/guides/team-rollout.md)                            |
-| Release evidence                    | [Release readiness](docs/evidence/release-evidence.md)                 |
-| Development                         | [CONTRIBUTING](CONTRIBUTING.md)                                        |
-| Full index                          | [Documentation root](docs/README.md)                                   |
+| Need                                | Source of truth                                                                                             |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Concepts                            | [Account, Profile, Route, Adapter](docs/concepts/product-concepts.md)                                       |
+| Client and control-plane boundaries | [Architecture](docs/architecture/authority-and-projection-boundary.md)                                      |
+| Human terminal behavior             | [Terminal experience](docs/experience/terminal-experience.md)                                               |
+| Security                            | [Security model](docs/architecture/security-model.md)                                                       |
+| Team adoption                       | [Team rollout](docs/guides/team-rollout.md)                                                                 |
+| Release evidence                    | [Quality and platform evidence](docs/governance/change-and-release-policy.md#quality-and-platform-evidence) |
+| Development                         | [CONTRIBUTING](CONTRIBUTING.md)                                                                             |
+| Full index                          | [Documentation root](docs/README.md)                                                                        |
 
 Licensed under the MIT License: [MIT](LICENSE).

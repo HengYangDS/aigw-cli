@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -17,8 +19,10 @@ import (
 )
 
 const (
+	// ProjectionFullSelection identifies a projection that owns both provider and model selection.
 	ProjectionFullSelection = "full-selection"
-	ProjectionWriterID      = "aigw-cli"
+	// ProjectionWriterID identifies AIGW as the writer of its bounded Codex projection.
+	ProjectionWriterID = "aigw-cli"
 )
 
 // TargetRef identifies a persistent configuration file together with the
@@ -36,11 +40,15 @@ type TargetRef struct {
 	statePath      string
 }
 
-// ReconciliationReceipt describes a completed in-process projection
-// transaction without exposing configuration bodies or credentials.
+// ReconciliationReceipt owns compensation for an applied client projection.
 type ReconciliationReceipt struct {
-	TransactionID string           `json:"transaction_id"`
-	Plans         []ProjectionPlan `json:"plans"`
+	committed []committedCodexArtifact
+}
+
+// Rollback restores the exact preimages captured by this reconciliation while
+// each artifact still equals the postimage written by this transaction.
+func (r ReconciliationReceipt) Rollback() error {
+	return rollbackCodexArtifacts(r.committed)
 }
 
 // ProjectionIdentity is the bounded sidecar identity used by surface
@@ -110,7 +118,7 @@ func ReadProjectionIdentity(path string) (ProjectionIdentity, error) {
 // PlanReconciliation prepares a before-to-after target transition
 // without writing configuration, sidecars, credentials, or sessions.
 func PlanReconciliation(before, after []TargetRef, runtime configuration.Runtime) ([]ProjectionPlan, error) {
-	prepared, _, err := prepareCodexReconciliation(before, after, runtime)
+	prepared, err := prepareCodexReconciliation(before, after, runtime)
 	if err != nil {
 		return nil, err
 	}
@@ -125,13 +133,9 @@ func PlanReconciliation(before, after []TargetRef, runtime configuration.Runtime
 // It guards every write against its captured preimage and compensates prior
 // writes in reverse order only while their postimages remain unchanged.
 func ReconcileConfigs(before, after []TargetRef, runtime configuration.Runtime) (ReconciliationReceipt, error) {
-	prepared, transactionID, err := prepareCodexReconciliation(before, after, runtime)
+	prepared, err := prepareCodexReconciliation(before, after, runtime)
 	if err != nil {
 		return ReconciliationReceipt{}, err
-	}
-	receipt := ReconciliationReceipt{TransactionID: transactionID, Plans: make([]ProjectionPlan, 0, len(prepared))}
-	for _, target := range prepared {
-		receipt.Plans = append(receipt.Plans, target.plan)
 	}
 	committed := make([]committedCodexArtifact, 0)
 	for _, target := range prepared {
@@ -140,20 +144,20 @@ func ReconcileConfigs(before, after []TargetRef, runtime configuration.Runtime) 
 			if commitErr != nil {
 				rollbackErr := rollbackCodexArtifacts(committed)
 				if rollbackErr != nil {
-					return ReconciliationReceipt{}, fmt.Errorf("commit Codex reconciliation %s: %w; rollback also failed: %v", artifact.path, commitErr, rollbackErr)
+					return ReconciliationReceipt{}, fmt.Errorf("commit Codex reconciliation %s: %w; rollback also failed: %w", artifact.path, commitErr, rollbackErr)
 				}
 				return ReconciliationReceipt{}, fmt.Errorf("commit Codex reconciliation %s: %w; all artifacts rolled back", artifact.path, commitErr)
 			}
 			committed = append(committed, committedCodexArtifact{prepared: artifact, post: post})
 		}
 	}
-	return receipt, nil
+	return ReconciliationReceipt{committed: committed}, nil
 }
 
-func prepareCodexReconciliation(before, after []TargetRef, runtime configuration.Runtime) ([]codexPreparedTarget, string, error) {
+func prepareCodexReconciliation(before, after []TargetRef, runtime configuration.Runtime) ([]codexPreparedTarget, error) {
 	targets, err := codexTargetUnion(before, after)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	transactionID := newCodexTransactionID()
 	endpoint := ""
@@ -167,18 +171,18 @@ func prepareCodexReconciliation(before, after []TargetRef, runtime configuration
 	if needsEndpoint {
 		endpoint, err = codexEndpoint(runtime)
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
 	}
 	prepared := make([]codexPreparedTarget, 0, len(targets))
 	for _, target := range targets {
 		candidate, err := prepareCodexReconciliationTarget(target, runtime, endpoint, transactionID)
 		if err != nil {
-			return nil, "", fmt.Errorf("prepare Codex target %s: %w", target.ref.Path, err)
+			return nil, fmt.Errorf("prepare Codex target %s: %w", target.ref.Path, err)
 		}
 		prepared = append(prepared, candidate)
 	}
-	return prepared, transactionID, nil
+	return prepared, nil
 }
 
 func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime configuration.Runtime, endpoint, transactionID string) (codexPreparedTarget, error) {
@@ -186,7 +190,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	if !configSnapshot.Exists && !(target.desired && target.ref.CreateIfAbsent) {
+	if !configSnapshot.Exists && (!target.desired || !target.ref.CreateIfAbsent) {
 		return codexPreparedTarget{}, fmt.Errorf("Codex config does not exist")
 	}
 	statePath := targetCodexStatePath(target.ref)
@@ -194,7 +198,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	catalogSnapshot, err := transaction.CaptureFileSnapshot(targetCodexCatalogPath(target.ref))
+	catalogSnapshot, err := transaction.CaptureFileSnapshot(codexCatalogPath(target.ref.Path))
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -206,15 +210,10 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 }
 
 func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, block string, configSnapshot, stateSnapshot, catalogSnapshot transaction.FileSnapshot, transactionID string) (codexPreparedTarget, error) {
-	state, err := codexStateForTarget(stateSnapshot)
+	base, state, err := codexUserConfig(configSnapshot, stateSnapshot, runtime, block)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	base, projectedState, err := codexUserConfig(configSnapshot, stateSnapshot, runtime, block)
-	if err != nil {
-		return codexPreparedTarget{}, err
-	}
-	state = projectedState
 	// The hash AIGW recorded writing is read before the state is updated: it is
 	// the only proof of which catalog bytes are AIGW's own, and therefore the only
 	// safe authorization to remove the file.
@@ -225,7 +224,7 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 		catalogModel = ""
 	}
 	catalog := codexCatalogProjection(target, catalogModel, base, state, catalogSnapshot)
-	projection, err := projectCodexForProvider(base, block, runtime.Model, catalog.path, provider)
+	projection, err := projectCodex(base, block, runtime.Model, catalog.path, provider)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -245,7 +244,7 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 	state.ProjectionMode = ProjectionFullSelection
 	state.WriterID = ProjectionWriterID
 	stateData := encodeCodexState(state)
-	catalogConverged := sameCodexSnapshot(catalogSnapshot, catalogDesired)
+	catalogConverged := catalogSnapshot.Equal(catalogDesired)
 	if !bytes.Equal(configSnapshot.Data, projected) || !bytes.Equal(stateSnapshot.Data, stateData) || !stateSnapshot.Exists || !catalogConverged {
 		state.TransactionID = transactionID
 		stateData = encodeCodexState(state)
@@ -302,8 +301,8 @@ func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalo
 // deletes the file only after nothing refers to it.
 func codexArtifactsForDesiredState(target TargetRef, configBefore transaction.FileSnapshot, configData []byte, stateBefore transaction.FileSnapshot, stateData []byte, catalogBefore, catalogDesired transaction.FileSnapshot) []codexPreparedArtifact {
 	artifacts := make([]codexPreparedArtifact, 0, 3)
-	catalog := codexPreparedArtifact{path: targetCodexCatalogPath(target), before: catalogBefore, desired: catalogDesired, exactMode: true}
-	catalogChanged := !sameCodexSnapshot(catalogBefore, catalogDesired)
+	catalog := codexPreparedArtifact{path: codexCatalogPath(target.Path), before: catalogBefore, desired: catalogDesired, exactMode: true}
+	catalogChanged := !catalogBefore.Equal(catalogDesired)
 	if catalogChanged && catalogDesired.Exists {
 		artifacts = append(artifacts, catalog)
 	}
@@ -311,8 +310,8 @@ func codexArtifactsForDesiredState(target TargetRef, configBefore transaction.Fi
 	if !configBefore.Exists {
 		configMode = 0o600
 	}
-	configDesired := desiredCodexSnapshot(configData, configMode)
-	if !sameCodexSnapshot(configBefore, configDesired) {
+	configDesired := transaction.NewFileSnapshot(configData, configMode)
+	if !configBefore.Equal(configDesired) {
 		artifacts = append(artifacts, codexPreparedArtifact{path: target.Path, before: configBefore, desired: configDesired})
 	}
 	stateDesired := transaction.FileSnapshot{}
@@ -321,9 +320,9 @@ func codexArtifactsForDesiredState(target TargetRef, configBefore transaction.Fi
 		if stateBefore.Exists {
 			stateMode = stateBefore.Mode
 		}
-		stateDesired = desiredCodexSnapshot(stateData, stateMode)
+		stateDesired = transaction.NewFileSnapshot(stateData, stateMode)
 	}
-	if !sameCodexSnapshot(stateBefore, stateDesired) {
+	if !stateBefore.Equal(stateDesired) {
 		artifacts = append(artifacts, codexPreparedArtifact{path: targetCodexStatePath(target), before: stateBefore, desired: stateDesired})
 	}
 	if catalogChanged && !catalogDesired.Exists {
@@ -343,25 +342,13 @@ func commitCodexArtifact(artifact codexPreparedArtifact) (transaction.FileSnapsh
 }
 
 func rollbackCodexArtifacts(committed []committedCodexArtifact) error {
-	failures := make([]string, 0)
-	for index := len(committed) - 1; index >= 0; index-- {
-		artifact := committed[index]
+	var failures []error
+	for _, artifact := range slices.Backward(committed) {
 		if err := restoreFileAtomicIfPostimage(artifact.prepared.path, artifact.prepared.before, artifact.post); err != nil {
-			failures = append(failures, fmt.Sprintf("restore %s: %v", artifact.prepared.path, err))
+			failures = append(failures, fmt.Errorf("restore %s: %w", artifact.prepared.path, err))
 		}
 	}
-	if len(failures) > 0 {
-		return fmt.Errorf("%s", strings.Join(failures, "; "))
-	}
-	return nil
-}
-
-func desiredCodexSnapshot(data []byte, mode os.FileMode) transaction.FileSnapshot {
-	return transaction.FileSnapshot{Exists: true, Data: append([]byte(nil), data...), SHA256: hashBytes(data), Mode: mode}
-}
-
-func sameCodexSnapshot(left, right transaction.FileSnapshot) bool {
-	return left.Exists == right.Exists && left.SHA256 == right.SHA256 && left.Mode == right.Mode && bytes.Equal(left.Data, right.Data)
+	return errors.Join(failures...)
 }
 
 func hashBytes(data []byte) string {

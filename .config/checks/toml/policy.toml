@@ -1,0 +1,7 @@
+# The repository gate supplies exact Git-owned TOML paths, including mise.lock.
+include = ["**/*"]
+
+[formatting]
+array_auto_collapse = false
+column_width = 100
+compact_inline_tables = true

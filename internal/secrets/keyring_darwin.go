@@ -4,6 +4,7 @@ package secrets
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os/exec"
 )
@@ -11,20 +12,25 @@ import (
 const keychainItemNotFoundExitCode = 44
 
 func observeKeyringItem(service, slot string) (bool, error) {
-	output, err := exec.Command(
+	output, err := keychainMetadataCommand(service, slot).CombinedOutput()
+	return classifyKeychainObservation(output, err)
+}
+
+func keychainMetadataCommand(service, slot string) *exec.Cmd {
+	return exec.Command(
 		"/usr/bin/security",
 		"find-generic-password",
 		"-s", service,
 		"-a", slot,
-	).CombinedOutput()
-	return classifyKeychainObservation(output, err)
+	)
 }
 
 func classifyKeychainObservation(output []byte, err error) (bool, error) {
 	if err == nil {
 		return true, nil
 	}
-	if exitError, ok := err.(*exec.ExitError); ok && exitError.ExitCode() == keychainItemNotFoundExitCode {
+	var exitError *exec.ExitError
+	if errors.As(err, &exitError) && exitError.ExitCode() == keychainItemNotFoundExitCode {
 		return false, nil
 	}
 	return false, fmt.Errorf("query Keychain item metadata: %w: %s", err, bytes.TrimSpace(output))

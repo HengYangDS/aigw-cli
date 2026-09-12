@@ -9,31 +9,30 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/account"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/cli"
+	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
 
 func TestAccountRenameInteractiveCopiesCredentialsAndUpdatesEveryProfile(t *testing.T) {
-	app, out, secretStore, runner := testApp(t, "")
+	app, out, secretStore, runner, _ := testApp(t, "")
 	cfg := accountRenameConfig()
-	beforeRoutes := cfg.Routes
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	const token = "account-rename-source-token"
-	probe := account.Credential{SystemToken: "account-rename-system-token", UserID: "account-rename-user"}
+	probe := secrets.DiagnosticCredential{SystemToken: "account-rename-system-token", UserID: "account-rename-user"}
 	if err := secretStore.Set("zeta-old", token); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Accounts.Set("zeta-old", probe); err != nil {
 		t.Fatal(err)
 	}
-	prompt := &fakePrompt{selected: "zeta-old", texts: []string{"zeta-new"}}
+	prompt := &scriptedPrompt{selections: []string{"zeta-old"}, texts: []string{"zeta-new"}}
 	app.Interactive = true
 	app.Prompt = prompt
 
-	if err := execute(t, app, "account", "rename"); err != nil {
+	if err := cli.Execute(app, []string{"account", "rename"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -44,23 +43,8 @@ func TestAccountRenameInteractiveCopiesCredentialsAndUpdatesEveryProfile(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := got.Accounts["zeta-old"]; ok {
-		t.Fatal("source account remains in configuration")
-	}
-	renamed, ok := got.Accounts["zeta-new"]
-	if !ok || renamed.Label != "Zeta" || renamed.Endpoints != cfg.Accounts["zeta-old"].Endpoints || !reflect.DeepEqual(renamed.AccountProbe, cfg.Accounts["zeta-old"].AccountProbe) {
-		t.Fatalf("renamed account = %#v, present = %v", renamed, ok)
-	}
-	for profileID, profile := range got.Profiles {
-		if profile.Account != "zeta-new" {
-			t.Fatalf("profile %q account = %q, want zeta-new", profileID, profile.Account)
-		}
-		if profile.Model != cfg.Profiles[profileID].Model || profile.Label != cfg.Profiles[profileID].Label {
-			t.Fatalf("profile %q changed beyond its account reference: %#v", profileID, profile)
-		}
-	}
-	if !reflect.DeepEqual(got.Routes, beforeRoutes) {
-		t.Fatalf("routes changed: got %#v, want %#v", got.Routes, beforeRoutes)
+	if want := renamedAccountConfig(cfg.Clone()); !reflect.DeepEqual(got, want) {
+		t.Fatalf("renamed configuration = %#v, want %#v", got, want)
 	}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
 		if gotToken, err := secretStore.Get(id); err != nil || gotToken != token {
@@ -82,12 +66,12 @@ func TestAccountRenameInteractiveCopiesCredentialsAndUpdatesEveryProfile(t *test
 }
 
 func TestAccountRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
-	app, out, secretStore, runner := testApp(t, "")
+	app, out, secretStore, runner, _ := testApp(t, "")
 	if err := app.Config.Save(accountRenameConfig()); err != nil {
 		t.Fatal(err)
 	}
 	const token = "account-rename-dry-run-token"
-	probe := account.Credential{SystemToken: "account-rename-dry-run-system", UserID: "account-rename-dry-run-user"}
+	probe := secrets.DiagnosticCredential{SystemToken: "account-rename-dry-run-system", UserID: "account-rename-dry-run-user"}
 	if err := secretStore.Set("zeta-old", token); err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +85,7 @@ func TestAccountRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	beforeFiles := directoryNames(t, filepath.Dir(app.Config.Path()))
 	out.Reset()
 
-	if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--dry-run", "--json"); err != nil {
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--dry-run", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -127,7 +111,7 @@ func TestAccountRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	if result.Actions["api_token"] != "copy-and-retain-source" || result.Actions["account_probe"] != "copy-and-retain-source" {
 		t.Fatalf("credential actions = %#v", result.Actions)
 	}
-	if result.Actions["authentication"] != "unchanged" || result.Actions["backup"] != "refresh-on-apply" {
+	if result.Actions["backup"] != "refresh-on-apply" {
 		t.Fatalf("transaction actions = %#v", result.Actions)
 	}
 	if result.ExternalTODOs == nil || len(result.ExternalTODOs) != 0 {
@@ -148,7 +132,7 @@ func TestAccountRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	if got := directoryNames(t, filepath.Dir(app.Config.Path())); !reflect.DeepEqual(got, beforeFiles) {
 		t.Fatalf("dry-run changed config directory entries: before %q, after %q", beforeFiles, got)
 	}
-	if secretExists(t, secretStore, "zeta-new") || app.Accounts.Has("zeta-new") {
+	if secretExists(t, secretStore, "zeta-new") || accountCredentialExists(t, app.Accounts, "zeta-new") {
 		t.Fatal("dry-run created target credential slots")
 	}
 	if len(runner.plans) != 0 {
@@ -157,12 +141,12 @@ func TestAccountRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 }
 
 func TestAccountRenameResumesWithEqualTargetCredentials(t *testing.T) {
-	app, _, secretStore, _ := testApp(t, "")
+	app, _, secretStore, _, _ := testApp(t, "")
 	if err := app.Config.Save(accountRenameConfig()); err != nil {
 		t.Fatal(err)
 	}
 	const token = "account-rename-equal-token"
-	probe := account.Credential{SystemToken: "account-rename-equal-system", UserID: "account-rename-equal-user"}
+	probe := secrets.DiagnosticCredential{SystemToken: "account-rename-equal-system", UserID: "account-rename-equal-user"}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
 		if err := secretStore.Set(id, token); err != nil {
 			t.Fatal(err)
@@ -172,7 +156,7 @@ func TestAccountRenameResumesWithEqualTargetCredentials(t *testing.T) {
 		}
 	}
 
-	if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new"); err != nil {
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -189,11 +173,11 @@ func TestAccountRenameResumesWithEqualTargetCredentials(t *testing.T) {
 func TestAccountRenameRefusesInconsistentCredentialSlots(t *testing.T) {
 	tests := []struct {
 		name  string
-		setup func(*testing.T, *secrets.MemoryStore, account.Store)
+		setup func(*testing.T, secrets.Store, secrets.DiagnosticCredentialStore)
 	}{
 		{
 			name: "different API tokens",
-			setup: func(t *testing.T, store *secrets.MemoryStore, _ account.Store) {
+			setup: func(t *testing.T, store secrets.Store, _ secrets.DiagnosticCredentialStore) {
 				if err := store.Set("zeta-old", "source-token"); err != nil {
 					t.Fatal(err)
 				}
@@ -204,7 +188,7 @@ func TestAccountRenameRefusesInconsistentCredentialSlots(t *testing.T) {
 		},
 		{
 			name: "target token without source",
-			setup: func(t *testing.T, store *secrets.MemoryStore, _ account.Store) {
+			setup: func(t *testing.T, store secrets.Store, _ secrets.DiagnosticCredentialStore) {
 				if err := store.Set("zeta-new", "target-only-token"); err != nil {
 					t.Fatal(err)
 				}
@@ -212,19 +196,19 @@ func TestAccountRenameRefusesInconsistentCredentialSlots(t *testing.T) {
 		},
 		{
 			name: "different account probe credentials",
-			setup: func(t *testing.T, _ *secrets.MemoryStore, store account.Store) {
-				if err := store.Set("zeta-old", account.Credential{SystemToken: "source-system", UserID: "same-user"}); err != nil {
+			setup: func(t *testing.T, _ secrets.Store, store secrets.DiagnosticCredentialStore) {
+				if err := store.Set("zeta-old", secrets.DiagnosticCredential{SystemToken: "source-system", UserID: "same-user"}); err != nil {
 					t.Fatal(err)
 				}
-				if err := store.Set("zeta-new", account.Credential{SystemToken: "different-system", UserID: "same-user"}); err != nil {
+				if err := store.Set("zeta-new", secrets.DiagnosticCredential{SystemToken: "different-system", UserID: "same-user"}); err != nil {
 					t.Fatal(err)
 				}
 			},
 		},
 		{
 			name: "target account probe without source",
-			setup: func(t *testing.T, _ *secrets.MemoryStore, store account.Store) {
-				if err := store.Set("zeta-new", account.Credential{SystemToken: "target-system", UserID: "target-user"}); err != nil {
+			setup: func(t *testing.T, _ secrets.Store, store secrets.DiagnosticCredentialStore) {
+				if err := store.Set("zeta-new", secrets.DiagnosticCredential{SystemToken: "target-system", UserID: "target-user"}); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -232,7 +216,7 @@ func TestAccountRenameRefusesInconsistentCredentialSlots(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app, out, secretStore, _ := testApp(t, "")
+			app, out, secretStore, _, _ := testApp(t, "")
 			if err := app.Config.Save(accountRenameConfig()); err != nil {
 				t.Fatal(err)
 			}
@@ -242,7 +226,7 @@ func TestAccountRenameRefusesInconsistentCredentialSlots(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			err = execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--dry-run")
+			err = cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--dry-run"})
 			if err == nil || !strings.Contains(err.Error(), "credential slot") {
 				t.Fatalf("error = %v, want credential slot refusal", err)
 			}
@@ -263,12 +247,12 @@ func TestAccountRenameRefusesInconsistentCredentialSlots(t *testing.T) {
 }
 
 func TestAccountRenameSupportsAccountWithoutCredentials(t *testing.T) {
-	app, _, secretStore, _ := testApp(t, "")
+	app, _, secretStore, _, _ := testApp(t, "")
 	if err := app.Config.Save(accountRenameConfig()); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new"); err != nil {
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -283,7 +267,7 @@ func TestAccountRenameSupportsAccountWithoutCredentials(t *testing.T) {
 		if _, err := secretStore.Get(id); !errors.Is(err, secrets.ErrNotFound) {
 			t.Fatalf("token slot %q error = %v, want not found", id, err)
 		}
-		if _, err := app.Accounts.Get(id); !errors.Is(err, account.ErrNotFound) {
+		if _, err := app.Accounts.Get(id); !errors.Is(err, secrets.ErrNotFound) {
 			t.Fatalf("probe slot %q error = %v, want not found", id, err)
 		}
 	}
@@ -291,7 +275,7 @@ func TestAccountRenameSupportsAccountWithoutCredentials(t *testing.T) {
 
 func TestAccountRenameEnvironmentTokenRequiresEqualTargetVariable(t *testing.T) {
 	t.Run("equal target", func(t *testing.T) {
-		app, out, _, _ := testApp(t, "")
+		app, out, _, _, _ := testApp(t, "")
 		if err := app.Config.Save(accountRenameConfig()); err != nil {
 			t.Fatal(err)
 		}
@@ -302,7 +286,7 @@ func TestAccountRenameEnvironmentTokenRequiresEqualTargetVariable(t *testing.T) 
 		}
 		app.Secrets = secrets.NewEnvironmentStore(func(key string) string { return values[key] })
 
-		if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new"); err != nil {
+		if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new"}); err != nil {
 			t.Fatal(err)
 		}
 		if strings.Contains(out.String(), token) {
@@ -311,7 +295,7 @@ func TestAccountRenameEnvironmentTokenRequiresEqualTargetVariable(t *testing.T) 
 	})
 
 	t.Run("missing target", func(t *testing.T) {
-		app, out, _, _ := testApp(t, "")
+		app, out, _, _, _ := testApp(t, "")
 		if err := app.Config.Save(accountRenameConfig()); err != nil {
 			t.Fatal(err)
 		}
@@ -327,7 +311,7 @@ func TestAccountRenameEnvironmentTokenRequiresEqualTargetVariable(t *testing.T) 
 			t.Fatal(err)
 		}
 
-		if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new", "--dry-run", "--json"); err != nil {
+		if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--dry-run", "--json"}); err != nil {
 			t.Fatal(err)
 		}
 		var result struct {
@@ -349,7 +333,7 @@ func TestAccountRenameEnvironmentTokenRequiresEqualTargetVariable(t *testing.T) 
 		}
 
 		out.Reset()
-		err = execute(t, app, "account", "rename", "zeta-old", "zeta-new")
+		err = cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new"})
 		if err == nil || !strings.Contains(err.Error(), secrets.EnvironmentKey("zeta-new")) || strings.Contains(err.Error(), token) {
 			t.Fatalf("apply error = %v", err)
 		}
@@ -364,7 +348,7 @@ func TestAccountRenameEnvironmentTokenRequiresEqualTargetVariable(t *testing.T) 
 }
 
 func TestAccountRenameRefusesUnverifiedTokenCopy(t *testing.T) {
-	app, out, secretStore, _ := testApp(t, "")
+	app, out, secretStore, _, _ := testApp(t, "")
 	if err := app.Config.Save(accountRenameConfig()); err != nil {
 		t.Fatal(err)
 	}
@@ -378,7 +362,7 @@ func TestAccountRenameRefusesUnverifiedTokenCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = execute(t, app, "account", "rename", "zeta-old", "zeta-new")
+	err = cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new"})
 	if err == nil || !strings.Contains(err.Error(), "verify target API token slot") {
 		t.Fatalf("error = %v, want target verification failure", err)
 	}
@@ -397,8 +381,8 @@ func TestAccountRenameRefusesUnverifiedTokenCopy(t *testing.T) {
 	}
 }
 
-func TestAccountRenameAuthenticationFailureRollsBackConfigAndRetainsBothCredentialSlots(t *testing.T) {
-	app, out, secretStore, _ := testApp(t, "")
+func TestAccountRenameProjectionFailureRollsBackConfigAndRetainsBothCredentialSlots(t *testing.T) {
+	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := accountRenameConfig()
 	target := filepath.Join(t.TempDir(), "codex", "configuration.toml")
 	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
@@ -416,25 +400,25 @@ func TestAccountRenameAuthenticationFailureRollsBackConfigAndRetainsBothCredenti
 		t.Fatal(err)
 	}
 	const token = "account-rename-auth-token"
-	probe := account.Credential{SystemToken: "account-rename-auth-system", UserID: "account-rename-auth-user"}
+	probe := secrets.DiagnosticCredential{SystemToken: "account-rename-auth-system", UserID: "account-rename-auth-user"}
 	if err := secretStore.Set("zeta-old", token); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Accounts.Set("zeta-old", probe); err != nil {
 		t.Fatal(err)
 	}
-	app.Runner = &failingRunner{err: errors.New("authentication refused"), remaining: 1}
+	app.Executable = "relative-helper"
 
-	err = execute(t, app, "account", "rename", "zeta-old", "zeta-new")
-	if err == nil || !strings.Contains(err.Error(), "was rolled back") {
-		t.Fatalf("error = %v, want rolled-back authentication failure", err)
+	err = cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new"})
+	if err == nil || !strings.Contains(err.Error(), "preflight failed") || strings.Contains(err.Error(), "rolled back") {
+		t.Fatalf("error = %v, want projection rejection before configuration commit", err)
 	}
 	after, readErr := os.ReadFile(app.Config.Path())
 	if readErr != nil {
 		t.Fatal(readErr)
 	}
 	if !reflect.DeepEqual(after, before) {
-		t.Fatal("authentication failure did not restore exact configuration bytes")
+		t.Fatal("projection failure did not restore exact configuration bytes")
 	}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
 		if got, err := secretStore.Get(id); err != nil || got != token {
@@ -446,13 +430,13 @@ func TestAccountRenameAuthenticationFailureRollsBackConfigAndRetainsBothCredenti
 	}
 	for _, forbidden := range []string{token, probe.SystemToken, probe.UserID} {
 		if strings.Contains(out.String(), forbidden) || strings.Contains(err.Error(), forbidden) {
-			t.Fatalf("authentication failure leaked %q: output=%s error=%v", forbidden, out.String(), err)
+			t.Fatalf("projection failure leaked %q: output=%s error=%v", forbidden, out.String(), err)
 		}
 	}
 }
 
 func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) {
-	app, _, secretStore, runner := testApp(t, "")
+	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := accountRenameConfig()
 	cfg.Accounts["active"] = configuration.Account{Label: "Active", Endpoints: configuration.Endpoints{OpenAIResponses: "https://active.test/v1"}}
 	cfg.Profiles["active-profile"] = configuration.Profile{Label: "Active", Account: "active", Client: configuration.ClientCodex, Model: "active-model"}
@@ -465,7 +449,7 @@ func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	if err := execute(t, app, "account", "rename", "zeta-old", "zeta-new"); err != nil {
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -477,7 +461,7 @@ func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) 
 func TestAccountRenameRefusesInvalidOrExistingTargetWithoutMutation(t *testing.T) {
 	for _, target := range []string{"alpha", "Invalid Target"} {
 		t.Run(target, func(t *testing.T) {
-			app, _, secretStore, _ := testApp(t, "")
+			app, _, secretStore, _, _ := testApp(t, "")
 			if err := app.Config.Save(accountRenameConfig()); err != nil {
 				t.Fatal(err)
 			}
@@ -489,7 +473,7 @@ func TestAccountRenameRefusesInvalidOrExistingTargetWithoutMutation(t *testing.T
 				t.Fatal(err)
 			}
 
-			if err := execute(t, app, "account", "rename", "zeta-old", target, "--dry-run"); err == nil {
+			if err := cli.Execute(app, []string{"account", "rename", "zeta-old", target, "--dry-run"}); err == nil {
 				t.Fatalf("rename to %q unexpectedly succeeded", target)
 			}
 			after, err := os.ReadFile(app.Config.Path())
@@ -506,11 +490,11 @@ func TestAccountRenameRefusesInvalidOrExistingTargetWithoutMutation(t *testing.T
 func TestAccountRenameNonInteractiveRequiresBothIDs(t *testing.T) {
 	for _, args := range [][]string{{"account", "rename"}, {"account", "rename", "zeta-old"}} {
 		t.Run(strings.Join(args, "_"), func(t *testing.T) {
-			app, _, _, _ := testApp(t, "")
+			app, _, _, _, _ := testApp(t, "")
 			if err := app.Config.Save(accountRenameConfig()); err != nil {
 				t.Fatal(err)
 			}
-			err := execute(t, app, args...)
+			err := cli.Execute(app, args)
 			if err == nil || !strings.Contains(err.Error(), "non-interactive") {
 				t.Fatalf("error = %v, want explicit non-interactive guidance", err)
 			}

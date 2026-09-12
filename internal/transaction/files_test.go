@@ -1,6 +1,7 @@
 package transaction_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -10,6 +11,45 @@ import (
 
 	"aigw-cli/internal/transaction"
 )
+
+func TestFileSnapshotOwnsExactContentAndPermissionIdentity(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "file")
+	data := []byte("prepared content")
+	if err := os.WriteFile(path, data, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	observed, err := transaction.CaptureFileSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepared := transaction.NewFileSnapshot(data, observed.Mode|os.ModeDir)
+	data[0] = 'x'
+	if !prepared.Equal(observed) || !observed.Equal(prepared) {
+		t.Fatalf("prepared snapshot does not retain its captured content and permissions: %#v", prepared)
+	}
+	variants := []struct {
+		name   string
+		change func(*transaction.FileSnapshot)
+	}{
+		{"existence", func(value *transaction.FileSnapshot) { value.Exists = false }},
+		{"data", func(value *transaction.FileSnapshot) { value.Data[0] = 'x' }},
+		{"digest", func(value *transaction.FileSnapshot) { value.SHA256 = "changed" }},
+		{"permissions", func(value *transaction.FileSnapshot) { value.Mode ^= 0o100 }},
+	}
+	for _, variant := range variants {
+		t.Run(variant.name, func(t *testing.T) {
+			changed := transaction.NewFileSnapshot(prepared.Data, prepared.Mode)
+			variant.change(&changed)
+			if prepared.Equal(changed) || changed.Equal(prepared) {
+				t.Fatal("distinct file state compares equal")
+			}
+		})
+	}
+	absent := transaction.FileSnapshot{}
+	if !absent.Equal(transaction.FileSnapshot{}) || absent.Equal(transaction.NewFileSnapshot(nil, 0o600)) {
+		t.Fatal("absent file identity must remain distinct from an existing empty file")
+	}
+}
 
 func TestCaptureFileSnapshotOfMissingFileIsEmptyNotError(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "absent")
@@ -188,9 +228,6 @@ func TestRestoreFileAtomicIfPostimageRemovesFileCreatedByTransaction(t *testing.
 // difference from the ordinary guarded write: the mode is written rather than
 // inherited, which is what lets an artifact treat its permissions as a contract.
 func TestWriteFileAtomicExactModeIfUnchangedCorrectsADriftedMode(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows does not represent owner-only permissions in a file mode")
-	}
 	path := filepath.Join(t.TempDir(), "file")
 	if err := os.WriteFile(path, []byte("before"), 0o644); err != nil {
 		t.Fatal(err)
@@ -203,15 +240,21 @@ func TestWriteFileAtomicExactModeIfUnchangedCorrectsADriftedMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if post.Mode.Perm() != 0o600 || string(post.Data) != "desired" {
+	wantMode := os.FileMode(0o600)
+	if runtime.GOOS == "windows" {
+		wantMode = 0o666
+	}
+	if !post.Exists || !bytes.Equal(post.Data, []byte("desired")) || post.Mode.Perm() != wantMode {
 		t.Fatalf("postimage = %#v", post)
 	}
-	info, err := os.Lstat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("mode on disk = %v, want 0600", info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		info, err := os.Lstat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != wantMode {
+			t.Fatalf("mode on disk = %v, want %v", info.Mode().Perm(), wantMode)
+		}
 	}
 	// The preimage guard is not weakened by writing the mode exactly.
 	if err := os.WriteFile(path, []byte("newer"), 0o600); err != nil {
@@ -278,7 +321,7 @@ func TestWriteFileAtomicSurfacesBlockedParentPath(t *testing.T) {
 }
 
 func TestWriteFileAtomicSurfacesStatFailureBeyondMissingFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "invalid\x00name")
+	path := filepath.Join(t.TempDir(), "invalid") + "\x00name"
 	if err := transaction.WriteFileAtomic(path, []byte("x"), 0o600); err == nil {
 		t.Fatal("WriteFileAtomic succeeded despite an invalid path")
 	}

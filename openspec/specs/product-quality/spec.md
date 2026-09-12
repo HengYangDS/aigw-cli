@@ -10,16 +10,13 @@ repository-specific measurements into arbitrary merge vetoes.
 
 ### Requirement: one complete quality graph
 
-The repository SHALL expose one logical quality graph reused by local
-development, exact-HEAD governance proof, GitLab CI, and GitHub Actions. One
-declarative topology authority SHALL generate every Forge-native CI file.
-Generated files SHALL NOT own policy. Executable behavior SHALL remain in
-repository-owned commands. Projection drift SHALL fail before other source
-gates. Product targets, release assets, native acceptance, and developer-host
-compatibility SHALL be distinct claims. Cross-compilation SHALL prove only
-asset production and SHALL NOT substitute for native execution evidence. Each
-Forge SHALL execute the complete verification graph at most once for one
-product commit in one lifecycle stage.
+The repository SHALL expose one quality graph reused by local development,
+exact-HEAD proof, GitLab, and GitHub. One declarative topology SHALL generate
+Forge files; generated files MUST NOT own policy, and repository commands SHALL
+own behavior. Projection drift fails first. Product targets, release assets,
+native acceptance, and host compatibility are distinct claims;
+cross-compilation proves only artifacts. A Forge MUST run the graph at most
+once per commit and lifecycle stage.
 
 #### Scenario: a new repository owner is added
 
@@ -153,15 +150,13 @@ transport credential and hosted account verification.
 
 ### Requirement: faithful quantitative quality evidence
 
-The repository SHALL measure statement and branch coverage independently. The
-canonical machine policy SHALL own the aggregate floor, package-observation
-contract, comparison semantics, risk model, false-positive cost, remediation
-path, and review condition. Every production package SHALL appear in the
-evidence, execute its owned statements and branches, and retain exact diagnostic
-ratios. Branchless packages SHALL remain visible and report 100-percent branch
-coverage. Evidence SHALL retain raw counts, package identity, source revision
-and tree, analyzer identity, and policy digest. No prose, CI projection, or
-tool-native formatting file SHALL own a competing threshold.
+Statement and branch coverage SHALL be measured independently under one machine
+policy owning the aggregate floor, package observation, comparison, risk,
+remediation, and review. Every production package MUST appear, execute its
+owned statements and branches, and retain exact ratios; branchless packages
+report 100-percent branch coverage. Evidence MUST bind raw counts, package,
+revision and tree, analyzer, and policy digest. No prose, CI projection, or
+formatter may own another threshold.
 
 #### Scenario: quantitative evidence is evaluated
 
@@ -195,20 +190,13 @@ tool-native formatting file SHALL own a competing threshold.
 
 ### Requirement: semantic structure
 
-Production, test, and repository-tool code SHALL follow the declared semantic
-topology and dependency direction. Naming, import ownership, and composition
-roots SHALL express cohesive semantic owners. Shared
-behavior SHALL live at the smallest stable owner rather than in a forwarding
-wrapper, alias-only package, or copied helper. Size, complexity, nesting, and
-other presentation heuristics MAY inform review, but SHALL NOT reject a change
-without an independently justified risk model, defined measurement semantics,
-false-positive cost, remediation path, and review trigger.
-
-The machine architecture policy SHALL state that rationale once for its positive
-contract. Its checker SHALL derive repository identity from canonical project
-metadata and SHALL NOT encode product names, authors, hosts, languages, shells,
-addresses, runner inventories, or historical implementation shapes as generic
-merge blacklists.
+All code SHALL follow declared semantic topology, dependency direction, naming,
+import ownership, and composition roots. Shared behavior belongs to the
+smallest stable owner, never a forwarding wrapper, alias-only package, or
+copied helper. Size and complexity MAY guide review but MUST NOT gate without a
+justified risk model, measurement, false-positive cost, remediation, and
+trigger. One machine policy SHALL state this positive contract without
+repository-specific merge blacklists.
 
 #### Scenario: structure violates semantic ownership
 
@@ -305,13 +293,12 @@ The GitLab Linux bootstrap SHALL derive its mise version from the repository loc
 
 ### Requirement: Forge capability projection
 
-The repository SHALL expose one product evidence graph and one deterministic CI
-topology authority. Product evidence requirements SHALL be modeled separately
-from each Forge's admitted executor capacity. A Forge projection SHALL contain
-only native jobs that Forge can execute, while the aggregate product evidence
-set SHALL retain every supported native platform. A missing executor on one
-Forge SHALL NOT create an optional, indefinitely pending, or `allow_failure`
-substitute and SHALL NOT weaken product support.
+One product evidence graph and deterministic CI topology SHALL separate product
+evidence from each Forge's executor capacity. A Forge projection MUST contain
+only native jobs it can run, while aggregate evidence retains every supported
+platform. Missing capacity on one Forge MUST NOT create optional, indefinitely
+pending, or `allow_failure` substitutes, weaken product support, or let
+cross-compilation stand in for native evidence.
 
 #### Scenario: one Forge lacks a Windows executor
 
@@ -328,16 +315,12 @@ substitute and SHALL NOT weaken product support.
 
 ### Requirement: Terminal local release readiness
 
-AIGW SHALL advance a release candidate to current stable releases across the
-application, test, and declared repository-tool closure before freezing that
-candidate. `go.mod` and `go.sum` SHALL own the compiled Go closure;
-`mise.toml` and `mise.lock` SHALL own language runtimes and standalone tools;
-`package.json` and `package-lock.json` SHALL own direct and transitive npm
-repository tools. A clean runner MUST NOT select an npm transitive dependency
-outside the committed lock. Aggregate statement and branch coverage SHALL
-remain strictly greater than 95 percent; every package SHALL remain present,
-executed, and reported. The native source and release gates SHALL pass before
-publication.
+AIGW SHALL update application, tests, and repository tools to stable releases
+before freezing a candidate. `go.mod` with `go.sum`, `mise.toml` with
+`mise.lock`, and `package.json` with `package-lock.json` own the Go, tool, and
+npm closures; a clean runner MUST use the npm lock. Bound aggregate statement
+and branch coverage MUST exceed 95 percent, every package remain present and
+executed, and native source and release gates pass before publication.
 
 #### Scenario: Stable dependency updates are available
 

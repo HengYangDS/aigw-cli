@@ -4,46 +4,44 @@ package account
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"aigw-cli/internal/account"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/synchronization"
+
 	"github.com/spf13/cobra"
 )
 
+// NewAddCommand constructs the guided command that adds one usable service.
 func NewAddCommand(runtime invocation.Context) *cobra.Command {
 	var label, openAIURL, anthropicURL, client, model string
 	var tokenStdin bool
 	cmd := &cobra.Command{
-		Use:   "add <profile>",
-		Short: "Add a service and its token",
-		Args:  cobra.ExactArgs(1),
+		Use:   "add <service>",
+		Short: "Add one Account, first Profile, Route, and Token",
+		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
+			if !configuration.ValidIdentifier(args[0]) {
+				return fmt.Errorf("Invalid service ID %q; use letters, numbers, dots, hyphens, or underscores; run `%s --help`", args[0], cmd.CommandPath())
+			}
+			if !configuration.IsAdmittedClient(client) || strings.TrimSpace(model) == "" {
+				return fmt.Errorf("--for and --model are required; --for must be %s; run `%s --help`", configuration.AdmittedClientUsage(), cmd.CommandPath())
+			}
+			return nil
+		}),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
-			if !configuration.ValidProfileName(name) {
-				return fmt.Errorf("Invalid service ID %q; use letters, numbers, dots, hyphens, or underscores", name)
-			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
 			}
-			if _, exists := cfg.Profiles[name]; exists {
-				return fmt.Errorf("Profile %q already exists; use `aigw profile edit %s` or `aigw rotate %s`", name, name, name)
-			}
 			if label == "" {
 				label = name
-			}
-			if !configuration.IsAdmittedClient(client) || strings.TrimSpace(model) == "" {
-				return fmt.Errorf("--for and --model are required; --for must be %s", configuration.AdmittedClientUsage())
 			}
 			account := configuration.Account{Label: label, Endpoints: configuration.Endpoints{
 				OpenAIResponses: strings.TrimRight(openAIURL, "/"),
@@ -54,22 +52,9 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			profile := configuration.Profile{Label: label, Account: name, Client: client, Model: strings.TrimSpace(model)}
-			token, err := invocation.ReadToken(runtime, tokenStdin, true)
-			if err != nil {
-				return err
-			}
-			cfg.Accounts[name] = account
-			cfg.Profiles[name] = profile
-			cfg.Routes[client] = name
-			if err := cfg.Validate(); err != nil {
-				return err
-			}
-			if err := runtime.Secrets.Set(name, token); err != nil {
-				return err
-			}
-			if err := runtime.Config.Save(cfg); err != nil {
-				_ = runtime.Secrets.Delete(name)
-				return err
+			acquireToken := func() (string, error) { return invocation.ReadToken(runtime, tokenStdin, true) }
+			if err := invocation.Synchronizer(runtime).CreateService(cmd.Context(), cfg, name, account, profile, acquireToken); err != nil {
+				return fmt.Errorf("%w; run `%s --help`", err, cmd.CommandPath())
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Service added")
@@ -136,11 +121,12 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
+// NewRotateCommand constructs the command that rotates credentials for one existing account.
 func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 	var tokenStdin bool
 	cmd := &cobra.Command{
 		Use:   "rotate [account]",
-		Short: "Update the current account token",
+		Short: "Update one Account Token",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := runtime.Config.Load()
@@ -166,10 +152,6 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 					cause,
 				)
 			}
-			oldToken, oldErr := runtime.Secrets.Get(accountName)
-			if oldErr != nil && !errors.Is(oldErr, secrets.ErrNotFound) {
-				return oldErr
-			}
 			var token string
 			if tokenStdin {
 				token, err = invocation.ReadToken(runtime, true, false)
@@ -182,47 +164,15 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			account.ID = accountName
-			if err := credential.Validate(context.Background(), runtime.HTTP, account, token); err != nil {
+			if err := credential.Validate(cmd.Context(), runtime.HTTP, account, token); err != nil {
 				return fmt.Errorf("Token validation failed: %w", err)
 			}
-			if err := runtime.Secrets.Set(accountName, token); err != nil {
+			if err := cmd.Context().Err(); err != nil {
 				return err
 			}
-			syncCodex := synchronization.RouteUsesAccount(cfg, accountName)
-			if syncCodex {
-				if err := invocation.Synchronizer(runtime).Reconcile(cmd.Context(), cfg, cfg); err != nil {
-					var rollbackErr error
-					if errors.Is(oldErr, secrets.ErrNotFound) {
-						rollbackErr = runtime.Secrets.Delete(accountName)
-					} else {
-						rollbackErr = runtime.Secrets.Set(accountName, oldToken)
-					}
-					if rollbackErr == nil {
-						rollbackErr = invocation.Synchronizer(runtime).Reconcile(cmd.Context(), cfg, cfg)
-					}
-					if rollbackErr != nil {
-						return fmt.Errorf("Token synchronization failed: %w; rollback also failed: %v", err, rollbackErr)
-					}
-					return fmt.Errorf("Token synchronization failed and was rolled back: %w", err)
-				}
-				if err := invocation.Synchronizer(runtime).BindAuthentication(cmd.Context(), cfg); err != nil {
-					var rollbackErr error
-					if errors.Is(oldErr, secrets.ErrNotFound) {
-						rollbackErr = runtime.Secrets.Delete(accountName)
-					} else {
-						rollbackErr = runtime.Secrets.Set(accountName, oldToken)
-					}
-					if rollbackErr == nil {
-						rollbackErr = invocation.Synchronizer(runtime).Reconcile(cmd.Context(), cfg, cfg)
-						if rollbackErr == nil {
-							rollbackErr = invocation.Synchronizer(runtime).BindAuthentication(cmd.Context(), cfg)
-						}
-					}
-					if rollbackErr != nil {
-						return fmt.Errorf("Token authentication synchronization failed: %w; rollback also failed: %v", err, rollbackErr)
-					}
-					return fmt.Errorf("Token authentication synchronization failed and was rolled back: %w", err)
-				}
+			_, err = secrets.Replace(runtime.Secrets, map[string]string{accountName: token})
+			if err != nil {
+				return err
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Token updated")
@@ -230,11 +180,7 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 			r.Row("Account", account.Label)
 			r.Row("Account", accountName)
 			r.Status(presentation.OK, "Token", "Validated and securely stored")
-			if syncCodex {
-				r.Success("Codex authentication synchronized")
-			} else {
-				r.Success("Not related to Codex; Codex configuration and authentication were not changed")
-			}
+			r.Success("Credential helpers read the new Token when next invoked; clients control their refresh timing")
 			r.Next("aigw check")
 			return nil
 		},
@@ -242,6 +188,8 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one token line from standard input")
 	return cmd
 }
+
+// NewCommand constructs the account command group from one invocation context.
 func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra.Command {
 	root := &cobra.Command{Use: "account", Short: "Manage account endpoints and optional precise diagnostics"}
 	root.AddCommand(
@@ -277,7 +225,7 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 			if err != nil {
 				return err
 			}
-			if err := runtime.Accounts.Set(accountName, account.Credential{SystemToken: systemToken, UserID: userID}); err != nil {
+			if err := runtime.Accounts.Set(accountName, secrets.DiagnosticCredential{SystemToken: systemToken, UserID: userID}); err != nil {
 				return err
 			}
 			r := invocation.Renderer(runtime)
@@ -313,6 +261,7 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 	return root
 }
 
+// NewBalanceCommand constructs the explicit provider-account diagnostic command.
 func NewBalanceCommand(runtime invocation.Context) *cobra.Command {
 	return &cobra.Command{Use: "balance [account]", Short: "Show account balance and token quota", Args: cobra.MaximumNArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := runtime.Config.Load()
