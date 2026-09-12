@@ -246,6 +246,9 @@ func bindSPDXFiles(directory string, files []any) error {
 			return errors.New("SPDX binary entry must be an object")
 		}
 		name, _ := file["fileName"].(string)
+		// Syft paths are rooted at the scan, not the host; Windows may retain
+		// the root separator because its SPDX converter only recognizes '/'.
+		name = strings.TrimPrefix(strings.ReplaceAll(name, `\`, "/"), "/")
 		name = filepath.Clean(filepath.FromSlash(name))
 		if !filepath.IsLocal(name) || seen[name] {
 			return fmt.Errorf("SPDX binary path is not unique and relative: %q", name)

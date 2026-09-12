@@ -364,6 +364,11 @@ func TestSPDXBindingRequiresOwnedBytes(t *testing.T) {
 		valid         bool
 	}{
 		{"missing checksum", `[{"fileName":"aigw"}]`, true},
+		{"scan root path", `[{"fileName":"/aigw"}]`, true},
+		{"Windows scan root path", `[{"fileName":"\\aigw"}]`, true},
+		{"Windows traversal", `[{"fileName":"\\..\\aigw"}]`, false},
+		{"network path", `[{"fileName":"\\\\host\\aigw"}]`, false},
+		{"root-relative duplicate", `[{"fileName":"aigw"},{"fileName":"\\aigw"}]`, false},
 		{"measured checksum", `[{"fileName":"aigw","checksums":` + matching + `}]`, true},
 		{"mismatch", `[{"fileName":"aigw","checksums":[{"algorithm":"SHA256","checksumValue":"wrong"}]}]`, false},
 		{"foreign path", `[{"fileName":"../aigw"}]`, false},
@@ -380,6 +385,12 @@ func TestSPDXBindingRequiresOwnedBytes(t *testing.T) {
 			}
 			if err := bindSPDXFiles(root, files); (err == nil) != test.valid {
 				t.Fatalf("valid=%t binding error=%v", test.valid, err)
+			}
+			if test.valid {
+				entry, ok := files[0].(map[string]any)
+				if !ok || entry["fileName"] != "aigw" {
+					t.Fatalf("scan-relative path was not normalized: %v", files)
+				}
 			}
 		})
 	}

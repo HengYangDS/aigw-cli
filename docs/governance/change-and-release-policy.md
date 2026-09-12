@@ -313,6 +313,10 @@ evidence. This also handles the [Syft directory-digest gap](https://github.com/a
 without patching the scanner, skipping Windows or weakening verification.
 The native test checks the normalized release document, not a scanner-only
 intermediate; dependency discovery and file integrity remain distinct owners.
+Scanner paths use their own root: either separator style and one leading root
+separator normalize to a relative path inside the selected build directory.
+Traversal, network paths and duplicate normalized entries remain invalid;
+host path interpretation must not redefine the scanner's namespace.
 
 The OSV invocation and report admission share the same exact lockfile paths.
 Every selected lockfile must appear once as a lockfile source with observed
