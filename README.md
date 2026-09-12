@@ -146,8 +146,8 @@ Token nor a synchronized file alone proves a working client request.
 ### Environment variables
 
 Interactive users do not need environment variables. Without an override,
-AIGW first proves that the platform credential service is usable. If it is
-not, AIGW selects one platform-local fallback beneath the AIGW data directory:
+AIGW observes the platform credential service's availability without reading a
+Token. If it is unavailable, AIGW selects one fallback beneath its data directory:
 an owner-only store on macOS and Linux, or a Windows DPAPI-protected store.
 The first credential mutation persists the automatic choice before changing a
 Token. Read-only commands and credential reads do not create selection state;
@@ -156,30 +156,35 @@ AIGW never searches multiple stores for the same Token.
 See [Credential storage](docs/architecture/security-model.md#credential-storage)
 for the exact macOS, Linux, Windows, and environment-backed contracts.
 
-Use these variables only for explicit automation or a deliberately selected
-backend:
+For an explicit choice, set `AIGW_SECRET_BACKEND`:
 
-| Variable                                                        | Meaning                                                                                                                                                                                                                                                     |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AIGW_SECRET_BACKEND=keyring`                                   | Require the native credential service: macOS Keychain, Windows Credential Manager, or Secret Service on Linux. Failure is explicit; no fallback occurs.                                                                                                     |
-| `AIGW_SECRET_BACKEND=file`                                      | Require AIGW's platform-local fallback store. macOS and Linux use owner-only files; Windows encrypts each Token with current-user DPAPI before writing it.                                                                                                  |
-| `AIGW_SECRET_BACKEND=env`                                       | Read Tokens from the current process environment without persisting, rotating, or deleting them. Intended for CI and other controlled automation.                                                                                                           |
-| `AIGW_TOKEN_<ACCOUNT>`                                          | Token for one manifest Account when `AIGW_SECRET_BACKEND=env`. Uppercase the Account ID and encode punctuation by its ASCII hex value: `-` becomes `_2D`, `.` becomes `_2E`, and `_` becomes `_5F` (for example, `dmx-api` becomes `AIGW_TOKEN_DMX_2DAPI`). |
-| `AIGW_DIAGNOSTIC_SYSTEM_TOKEN_<ACCOUNT>`                        | Optional provider-platform system token for precise account diagnostics when the `env` backend is selected. It is never used as an API token.                                                                                                               |
-| `AIGW_DIAGNOSTIC_USER_ID_<ACCOUNT>`                             | Optional provider-platform user ID paired with the diagnostic system token when the `env` backend is selected. Both diagnostic variables must be present to enable precise balance queries.                                                                 |
-| `AIGW_ACCESSIBLE=1`                                             | Use accessibility-oriented terminal output.                                                                                                                                                                                                                 |
-| `AIGW_GITLAB_RELEASE_ORIGIN` + `AIGW_GITLAB_RELEASE_REPOSITORY` | Override the GitLab update source as one complete `HTTPS origin + namespace/project` pair.                                                                                                                                                                  |
-| `AIGW_GITHUB_RELEASE_ORIGIN` + `AIGW_GITHUB_RELEASE_REPOSITORY` | Override the GitHub update source as one complete `HTTPS origin + owner/repository` pair.                                                                                                                                                                   |
-| `AIGW_GITHUB_TOKEN`, `GITHUB_TOKEN`, or `GH_TOKEN`              | Authenticate a private GitHub release lookup; checked in this order and never persisted.                                                                                                                                                                    |
-| `GITLAB_TOKEN`                                                  | Authenticate a private GitLab release lookup when `glab` credentials are unavailable; requires an explicit GitLab origin.                                                                                                                                   |
+| Value     | Source                               |
+| --------- | ------------------------------------ |
+| `keyring` | Native platform credential service   |
+| `file`    | Platform-local store described above |
+| `env`     | Environment of the calling process   |
 
-Release-origin and Forge-token variables belong to contributor and release
-operations, not normal product setup. Built-in official release coordinates
-remain the default; overrides replace a complete source tuple rather than
-partially combining sources. See [CONTRIBUTING](CONTRIBUTING.md).
+An explicit choice does not fall back to another backend. Environment mode is
+read-only: AIGW does not persist, rotate, or delete those Tokens.
 
-AIGW configures only supported clients that are present. Missing clients remain
-untouched and are reported as not configured.
+In environment mode, `AIGW_TOKEN_<ACCOUNT>` supplies one Account's API Token.
+Uppercase the Account ID and encode punctuation as ASCII hex: `-` becomes
+`_2D`, `.` becomes `_2E`, and `_` becomes `_5F`. For example, `dmx-api` uses
+`AIGW_TOKEN_DMX_2DAPI`.
+
+Optional platform diagnostics use a separate pair:
+`AIGW_DIAGNOSTIC_SYSTEM_TOKEN_<ACCOUNT>` and
+`AIGW_DIAGNOSTIC_USER_ID_<ACCOUNT>`. Both must be present; neither replaces the
+API Token. These variables use the same Account encoding and `env` backend.
+
+The client process must inherit the selected backend and Token variables too:
+its credential helper runs in that process environment. Setting a variable in
+one terminal does not configure an already-running client or a desktop launcher.
+Use a persistent backend for clients that do not inherit that environment.
+
+Output accessibility is independent: `AIGW_ACCESSIBLE=1` selects
+accessibility-oriented terminal output. Update-source variables belong to
+[release selection](#release-sources), not service setup.
 
 ## Use it every day
 
@@ -307,6 +312,23 @@ Run `aigw adapter list` and check readiness before resuming client work; explici
 configured client locations may need to be enabled again. A program rollback
 does not convert configuration to an older schema; crossing a schema boundary
 requires an explicit data migration.
+
+### Release sources
+
+Built-in release coordinates are the default. To select another source, supply
+both variables for that Forge; AIGW never combines a partial override with
+built-in coordinates:
+
+- GitHub: `AIGW_GITHUB_RELEASE_ORIGIN` and
+  `AIGW_GITHUB_RELEASE_REPOSITORY` select an HTTPS origin and `owner/repository`.
+- GitLab: `AIGW_GITLAB_RELEASE_ORIGIN` and
+  `AIGW_GITLAB_RELEASE_REPOSITORY` select an HTTPS origin and `namespace/project`.
+
+Private GitHub lookup checks `AIGW_GITHUB_TOKEN`, `GITHUB_TOKEN`, then `GH_TOKEN`,
+without persisting them. Private GitLab lookup uses `glab` credentials or falls
+back to `GITLAB_TOKEN`; that fallback requires an explicit HTTPS GitLab origin.
+These credentials authorize release downloads, not model requests. Repository
+maintainers can find publication instructions in [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Verify a source checkout
 
