@@ -91,8 +91,9 @@ scope without mixing unrelated edits or repeatedly rediscovering state.
 AIGW now has delivery priority over Proxy. Finish this product's remaining
 semantic and quality closures, native artifact and client acceptance, signed
 dual-Forge publication, and owned-residue cleanup before resuming Proxy work.
-Proxy's existing signed source and installed service remain unchanged. This
-sequencing does not reduce either product's terminal requirements.
+An active Proxy P0 incident may interrupt this order only for bounded repair,
+release and runtime verification; unrelated Proxy refactoring remains deferred.
+This sequencing does not reduce either product's terminal requirements.
 
 The remaining execution order is dependency-driven. Task checkboxes remain the
 only progress ledger; this table defines closure boundaries, not another status
@@ -101,7 +102,7 @@ mechanism or preserving an unsupported completion claim.
 
 | Order | Existing tasks            | Closure and acceptance                                                                                                                                                                                                     |
 | ----- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | 7.2, 7.3, 7.8             | Consolidate semantic owners and behavioral evidence; delete duplicate fixtures, suffix-only families and forwarding layers. Preserve native platform selection and prove complete recovery at the owning boundary.         |
+| 1     | 7.2, 7.3, 7.5, 7.8        | Consolidate semantic owners and behavioral evidence; delete duplicate fixtures, suffix-only families and forwarding layers. Preserve native platform selection and prove complete recovery at the owning boundary.         |
 | 2     | 8.1, 8.5, 8.8, 8.10, 8.11 | Verify effective quality coverage for source, tests, tools, docs, schemas and configuration. Justify metric thresholds, exercise failure propagation, and remove custom checks superseded by native tools.                 |
 | 3     | 9.7, 10.7–10.9            | Establish one signed update-proposal owner and object-preserving dual-Forge delivery. Recheck current stable dependencies and locks under 9.4–9.6; native Windows evidence need not wait for an unavailable GitLab runner. |
 | 4     | 11.4–11.6, 11.8           | Validate command semantics and complete user journeys, review the real team profile, and inspect rendered documentation and terminal output. Formatting alone is not semantic or visual acceptance.                        |
@@ -363,748 +364,181 @@ new vulnerability matcher.
 ### Semantic topology precedes physical movement
 
 Follow the architecture's [module-depth contract](../../../docs/architecture/authority-and-projection-boundary.md#module-depth).
+A package earns its boundary through one responsibility, dependency direction,
+change reason and recovery lifetime. Moving files, shortening functions or
+adding a forwarding interface does not establish an abstraction. Prefer an
+existing domain owner or the standard library before introducing another one.
 
-The package map is derived from product responsibilities and dependency
-direction. Only then are flat suffix families, concatenated names, ambiguous
-buckets, tests, tools, and documents moved. A move must reduce owners or make an
-enforced boundary visible; compatibility packages and re-exports are forbidden.
+#### Repository-wide ownership review
 
-This review covers the whole repository, including root metadata, configuration,
-manifests, documentation, active and archived OpenSpec, generated CI, source,
-tests, and repository tools. For each responsibility, inspect its consumer,
-dependency direction, change reason, lifetime, and navigation. Architecture
-classification establishes declared membership, not semantic correctness. Keep
-ecosystem-required locations, useful package-local tests, and native platform
-selection; do not turn every concern into a directory or package. Generated
-carriers point to their owner rather than acquiring an independent policy.
+The review covers every tracked carrier, not only Go files. The current
+inventory contains 1,020 files: 438 current carriers and 582 official OpenSpec
+archive files. Native Go selection resolves 59 packages for each of the six
+supported OS/architecture combinations. These are inventory observations, not
+new hard-coded policy limits.
 
-The root/configuration ownership review covers all 19 tracked root files and
-nine `.config` files at source `d2feaa4f`. Root files serve native discovery,
-dependency closure, product identity, legal metadata or reader entrypoints;
-the existing authority map records these responsibilities without a second
-file inventory. `.config` contains policy data, not implementation. The optional
-code indexer's `.cbmignore` is classified as development tooling, not a quality
-gate. Seven Taplo default repetitions are removed: both configurations produce
-byte-identical output for all ten tracked TOML carriers, including `mise.lock`.
-Native cross-checkout conformance additionally protects authored key order,
-array order and multiline grouping. Full rule coverage, hosted hook behavior,
-dependency freshness and whole-repository topology remain separate tasks.
+| Surface                      | Semantic owner and placement                                                                                                                        | Retention and acceptance boundary                                                                                                            |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entrypoint and commands      | `cmd/aigw` starts the program; `internal/cli` assembles operation-owned packages.                                                                   | Cobra owns argument admission, help and completion. Command leaves do not import peers.                                                      |
+| Configuration                | `internal/configuration` owns Accounts, Profiles, Routes, Adapter declarations, manifests and persistence.                                          | Validation, cloning, checkpoints and backup recovery share this owner; a manifest is not a second runtime model.                             |
+| Workflow                     | `internal/synchronization` owns setup, scoped selection and commit; `internal/renaming` owns identity migration.                                    | Callers supply intent rather than coordinate credential writes, rollback or verified retirement.                                             |
+| Clients                      | `internal/client` composes adapters; `internal/codex` and `internal/claude` own native projections.                                                 | Pure Codex catalogue transformation has its own subpackage; executable observation and reconciliation stay with the adapter.                 |
+| Credentials and observation  | `secrets` owns storage; `credential` owns authentication requests; `diagnostics` and `readiness` own observation and state vocabulary.              | Storage, authentication, catalogue membership and inference are different claims. Provider diagnostics stay below `providers`.               |
+| Host capabilities            | `discovery`, `surface`, `platform`, `process`, `transaction`, `console`, `prompt`, `presentation` and `redaction` own narrow capabilities.          | Each has current callers and a distinct change reason; no catch-all package combines filesystem, UI and process authority.                   |
+| Product update               | `internal/upgrade` owns source selection, peer transport and replacement; `artifact` owns archive admission.                                        | Artifact parsing does not depend on the updater. Public acceptance has an independent fixture lifetime.                                      |
+| Repository quality           | `tools/ci` executes native tools; `projection` and `markdown` own distinct inputs. `architecture`, `coverage` and `repository` own declared checks. | Configuration contains data, never implementation. Generic protected-lifecycle overlap remains an explicit open governance obligation.       |
+| Release                      | `tools/release` composes `construction`, `artifact`, `readiness` and `publication`; `tools/forge` owns signed-object transport and provenance.      | Native journeys belong to release, not CI dispatch. Transport and orchestration retain separate carriers within one package.                 |
+| Root and configuration       | Native discovery, locks, identity, licensing and reader entrypoints stay at root; eleven `.config` carriers own explicit policies.                  | The [authority map](../../../docs/governance/change-and-release-policy.md#authority-map) identifies consumers without a duplicate inventory. |
+| Documents and manifest       | The 22 documents follow audience and responsibility; `docs/README.md` is the sole directory index. `manifests/team.toml` owns team capability.      | Research is not an adopted decision. Physical placement does not certify rendering, live models or team setup.                               |
+| Specification and governance | Official OpenSpec owns specifications, one active Change and archived intent. Three `.ethos` files declare adoption, workspace and publication.     | Transient compilation, proof and coordination remain ETHOS-owned in the Git common directory; no second lifecycle state is added.            |
+| Generated and local output   | CUE owns both Forge projections. Locks are retained inputs; build, verification and developer-tool output stays ignored.                            | Follow [output ownership](../../../CONTRIBUTING.md#output-ownership-and-cleanup). Caches and receipts never acquire product authority.       |
 
-Optional provider-account diagnostic results belong under
-`internal/providers/diagnostic`, not a top-level Account domain. The result
-contract remains independent of the provider registry and concrete adapters,
-so both depend on it without a cycle. Its fields and consumers are unchanged;
-the former package and its unused CLI import allowance are removed without a
-compatibility alias. Canonical Accounts remain owned by configuration.
+All six native import inventories have no product-to-tool edge. Test-only
+references cannot justify dormant production allowances. A graph resolver's
+same-name call match is a navigation hint, not proof of a Go import; the native
+compiler and explicit imports decide that boundary.
 
-Production import allowances are checked against the union of native Go package
-imports for all six declared OS/architecture targets, not one host's import
-graph. Eleven unused allowances are removed, including an inapplicable owner
-entry for test-only upgrade acceptance. The gate governs production edges;
-test-only references cannot justify dormant production coupling. Each retained
-edge has a current cross-platform consumer, and existing source validation still
-requires explicit admission before a new dependency is introduced.
+Flat filenames are not inherently separate modules. Retain private access where
+one transaction needs it and native OS suffixes where the compiler selects
+behavior. Split when ownership, visibility or fixture lifetime changes, not
+merely to meet a line budget. An unrelated concern cannot remain in a file
+merely because it fits that budget.
 
-Native duplicate and unused-parameter analysis informs deletion, not automatic
-rewriting. Codex tests call the production projection directly; no test-only
-production wrapper remains. The entrypoint ignores executable aliases by
-construction. Fixture forwarding and fixed-choice parameters are removed where
-they hide no behavior; duplicate provider failures share their setup and retain
-both assertions. Explicit archive/version inputs remain part of fixture meaning,
-and host-dependent parameters retain their cross-platform role. A single-host
-constant-propagation finding does not justify deleting another platform's path.
+#### Behavioral and test ownership
 
-Architecture membership declarations share one root, cardinality, uniqueness
-and member-name validation path. Their differences remain explicit: child and
-composition lists are nonempty, peer and import allowances may be empty, and
-composition members are Go file base names. All reuse the existing portable
-relative-path predicate; four diverging loops and an error-only wrapper are
-removed. Root ordering makes membership diagnostics deterministic. Real
-regressions cover names previously accepted despite path or whitespace ambiguity;
-existing topology and empty-allowance behavior remains covered. Native scores
-for the membership validator fall from 32 to 12 cyclomatic complexity and from
-45 to 20 cognitive complexity without introducing another policy framework.
+| Responsibility                      | Test placement                                          | Reason                                                                                                          |
+| ----------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Public CLI journeys                 | `internal/cli/acceptance`                               | One isolated application fixture, grouped by user operation; manifest setup remains distinct.                   |
+| Command admission and presentation  | Relevant command package and CLI root                   | Flags, errors, help and completion do not need credentials or network fixtures.                                 |
+| Credential durability               | `internal/secrets`                                      | Typed slots, observation, file identity, replacement and native vault behavior need private seams.              |
+| Client composition                  | `internal/client`                                       | Admission order, compensation and future-adapter conformance are distinct contracts.                            |
+| Client projection                   | `internal/claude`, `internal/codex` and Codex `catalog` | Public external-package tests remain external; private recovery and pure transformation stay with their owners. |
+| Program update                      | `internal/upgrade`, `artifact` and `acceptance`         | Transport, archive validation and process-isolated journeys have different lifetimes and visibility.            |
+| Packaged lifecycle and real clients | `tools/release`                                         | Tests consume built artifacts and measured client identities; tool fixtures do not become product dependencies. |
 
-Credential-helper tests separate matching projections from stale bindings.
-Token rotation, model changes and label changes must still return the selected
-Account Token; changed client, Account or endpoint identity must fail before
-secret observation and leave stdout empty. These two outcomes no longer share
-conditional assertions or setup for a secret store they never consume. The
-existing test owners and real Store fixture remain; no helper layer or product
-behavior is added. Native Go overlays verify that both predecessor and current
-tests detect omitted binding checks, model-bound fingerprints and corrupted
-Token output. Statement coverage stays complete, while the largest affected
-test's cognitive score drops from 62 to 40 and the test file becomes smaller.
+Shared fixtures hide genuinely shared setup, not alternative behaviors behind
+boolean modes. Scenario-only fixtures stay beside their consumers. The real
+in-memory Store supports injected tests; fault wrappers add only the error
+being exercised. It is not an operator-selectable persistent backend. Do not
+add an exported support framework or duplicate Store/Runner merely to move tests.
 
-Client admission order is the sole lifecycle order. The registry retains that
-ordered ID sequence and its ID-to-adapter lookup, not a second adapter sequence
-derived from constructor argument order. Discovery, planning, application and
-reverse compensation therefore agree even when implementations are supplied in
-a different order. Explicit client selection retains the caller's requested
-order. The existing compensation test exercises reversed constructor input;
-the unused admission-record map is removed rather than synchronized separately.
+OS suffixes and build constraints are executable selection. Keep Unix-only
+credential and permission cases scoped; retain real Windows handle/namespace
+checks rather than treating compilation as execution. Relocation preserves
+declarations, assertions and platform selection, not just test counts. Assert
+outputs and owned effects rather than enumerating retired helper names.
 
-Ordinary configuration commits derive an ordered affected-client set from the
-registry rather than collapsing it to a global boolean. The transaction passes
-that set through preflight and apply; an empty set persists configuration only.
-Previously, changing either protocol endpoint could reset the other client's
-external model preference. Real-file regressions prove both directions now
-preserve the unrelated projection and sidecar byte-for-byte while committing
-the selected endpoint. Shared edits retain every affected client in admission
-order; returned scope slices do not expose registry state. Explicit sync/repair
-continues to reconcile the full requested scope. The synchronization boolean
-forwarder and CLI's repeated outcome prediction are removed; profile editing
-reports saved metadata, and acceptance checks the actual projected label.
+#### One owner per transaction
 
-Registry application owns compensation to completion. Its product caller needs
-only success or failure, so it returns an error rather than an aggregate
-rollback handle used only by tests. Adapter receipts remain internal to the
-transaction; an unchanged adapter returns no receipt. On failure, the registry
-attempts every prior receipt in reverse order and joins rollback errors without
-discarding their identities. One failed cleanup cannot suppress an independent
-client’s cleanup. Success retains no caller-managed compensation obligation.
+- **Configuration:** cloning isolates nested Account diagnostics and Adapter
+  targets. Runtime resolution is read-only and does not clone or initialize the
+  model. One validator admits complete checkpoint JSON and unique admitted
+  client scopes. Backup capture compares canonical configuration while retaining
+  original bytes and permissions for restoration.
+- **Setup and selection:** synchronization admits first-time setup before
+  prompting or probing, validates Token ownership and scope, then owns credential
+  and projection compensation. Selection derives its client from the Profile.
+  Scoped edits preserve unrelated client preferences and conflicts; explicit
+  sync/repair remains intentional reconciliation.
+- **Client composition:** admission order controls discovery, planning, apply
+  and reverse compensation, regardless of constructor order. Adapter receipts
+  stay internal; callers receive no unused aggregate rollback obligation.
+  Compensation attempts every independent target and joins original errors.
+- **Cancellation:** check before preparation and each new effect. Between
+  adapters, compensate completed effects; do not report a completed final commit
+  as canceled. Once replacement starts renaming, complete or compensate it.
+- **File durability:** the existing snapshot and guarded writer own bytes,
+  digest, existence, permissions and equality. Absent and empty files differ.
+  Close staging handles once, retain write and close failures, and remove only
+  exact owned staging names. A committed rename relinquishes its former name.
+- **Recovery:** Claude, Codex and configuration restore owned files independently,
+  preserve later user edits and join conflicts. Restored checkpoint bytes
+  describe captured configuration, not new external verification. Credential
+  storage retains stronger constant-time and filesystem-identity checks.
+- **Credentials:** one typed view exposes Store operations over purpose-aware
+  backends. Validate Account identity before resolution; repeated purpose
+  selection is idempotent. Preserve identity, read-only behavior, inspection and
+  compensation without default-Token forwarding on every backend.
+- **Credential helpers:** match projected client, Account and endpoint to the
+  current Route before reading a Token. Model, label and Token rotation preserve
+  that identity. Mismatch yields no Token; native authentication and conversation
+  data remain outside AIGW ownership.
 
-Cancellation admission belongs to those same transaction owners. Configuration
-commit rechecks after snapshot capture and projection preparation; the registry
-checks before planning and before each adapter starts. Cancellation between
-adapters follows the existing reverse compensation path, preserving cancellation
-and recovery conflicts without a new state machine. Real-file regressions prove
-configuration, backup, checkpoint and client preservation; ordered adapter
-tests prove no later write and independent compensation. A completed final
-adapter remains committed rather than being retroactively failed by cancellation.
+#### Transport and artifact boundaries
 
-Codex compensation follows the same contract at its artifact boundary: retain
-each original error with its target path and join failures with the standard
-library, rather than flattening them into text. The receipt retains only the
-applied artifacts needed for compensation; preview plans and the returned
-transaction-ID copy had no consumer and are removed. Sidecar identity remains
-unchanged. A real-file regression preserves a later user edit, restores the
-other target, removes owned sidecars and retains the exact conflict cause;
-write-failure injection also preserves both commit and compensation errors.
+Authentication and diagnostics reuse one credential-domain HTTP boundary;
+consumers interpret results according to their own claims. Native redirect
+limits, origin/TLS protection, bounded complete-body consumption and read/close
+errors remain effective. Provider pagination exhaustion is incomplete observation,
+not evidence of Token absence.
 
-The existing `transaction.FileSnapshot` owns construction and exact equality
-for configuration persistence, Codex projection and guarded filesystem writes.
-Its copied bytes, digest, existence and permission bits have one implementation;
-domain-local constructors and comparators are deleted. An absent file remains
-distinct from an existing empty file. Secure credential storage retains its
-separate constant-time value and filesystem-identity checks: that is a stronger
-security boundary, not another spelling of configuration equality.
+Catalogue presentation consumes the configuration domain's ordered Profile IDs.
+Account traversal uses native `maps.Keys` and `slices.Sorted`, not another sorting
+helper. Tests assert ordered rows and discovered Accounts; independent native
+Go overlays reverse each order and must fail. Similar-looking backup/checkpoint
+readers and Account/Profile edits retain different schemas, intent and errors
+rather than being forced into a generic framework.
 
-Compensation is exhaustive within each owner. Claude restores settings and its
-sidecar independently; configuration persistence restores config, backup and
-checkpoint independently. A postimage conflict preserves the newer file,
-continues safe restoration of the others and joins every original error.
-Checkpoint-invalidation failure follows that same rule for its already-written
-config and backup. Restored checkpoint bytes remain evidence of their captured
-configuration, never a verification claim about a newer external configuration.
-Real-file conflict tests cover both single and simultaneous recovery conflicts.
+The pure Codex catalogue owner preserves the complete native document and
+returns the uniquely matched base. Product reconciliation and repository
+acceptance share this contract. Executable identity remains observable after
+catalogue retrieval failure. Each real-client probe owns a private home and
+cleanup; cleanup failure retains the invocation cause and exact path.
 
-Credential replacement closes an owned staging handle before removal on failure
-and reports the exact staging name together with the original error. Once the
-rename commits, the old staging name is no longer owned and is not removed.
-Explicit client verification owns a private working directory, not a loose file
-in a shared temporary directory; its cleanup covers client-created output and
-retains invocation failures. The coverage command similarly reports exact-file
-cleanup failure and returns a failing status without hiding a test failure.
-Its single-file ownership does not authorize recursive deletion.
+Upgrade resolves source overrides once for metadata and asset transports.
+Unavailability differs from authorization/integrity failure. Preserve origin,
+redirect-chain credential and TLS protection. Archive admission returns the
+measured digest rather than rehashing for peer comparison. Runtime private HTTP
+and HTTPS-only embedded metadata remain different trust policies.
 
-The module-depth review retains these distinct boundaries:
+Update and rollback share recoverable executable replacement: preserve the
+predecessor, stage durably, retry only the narrow native rename, and compensate
+activation failure. Preserve UNC and extended Windows prefixes. Temporary and
+persistent handle-lock tests are native evidence; archive shape and synthetic
+version runners are not.
 
-| Intent                                    | Owner                               | Why the boundary remains                                                                                                                               |
-| ----------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Setup, selection and configuration commit | `internal/synchronization`          | Owns credential compensation, client scope, preflight, persistence and recovery; the CLI supplies intent and renders results.                          |
-| Client composition                        | `internal/client`                   | Selects admitted adapters and compensates them in reverse order; individual client packages own their artifact transactions.                           |
-| Settings and model catalogue projection   | `internal/claude`, `internal/codex` | Preserve client-specific ownership and restoration semantics without exposing internal file writes to callers.                                         |
-| Credential durability                     | `internal/secrets`                  | Owns backend selection, secure file identity, staging and compensation; stronger credential guards are not duplicated configuration semantics.         |
-| Live verification                         | `internal/verification`             | Consumes synchronized settings, executes a bounded request and owns its output; catalogue membership remains a separate claim.                         |
-| Program update                            | `internal/upgrade`                  | Owns peer selection, downloads, candidate admission and replacement; archive structure has its own pure owner.                                         |
-| Repository verification and publication   | Existing `tools` packages           | Native tools own their analyses; repository commands own declared inputs and outputs. CUE projects CI, while Forge transport preserves signed objects. |
+Construction owns its workspace and unique sibling backup. Failed publication
+restores previous output; failed restoration retains the exact backup and both
+causes. Successful publication followed by cleanup failure must say publication
+occurred. Two renames are recoverable replacement, not uninterrupted atomic
+directory visibility.
 
-These boundaries are supported by existing real-file, process and signed-Git
-regressions, not by counting interfaces. The shared atomic writer owns its
-temporary pathname; its commit helper owns exactly one handle close on every
-path. Write and close failures remain inspectable together. Failed writes report
-exact-file cleanup errors, while successful renames relinquish the old staging
-name. Stage-fault tests and real-file replacement tests verify these boundaries
-without adding a filesystem framework or changing callers.
-Complete topology, quantitative quality, hosted admission and final product
-journeys retain their separate tasks; this review does not certify them.
+The locked SemVer implementation owns grammar and precedence. Exact identity
+retains build metadata for tag/epoch matching. Construction, readiness, update
+and publication keep their error context without parallel regexes or a new
+shared-version package. Source validation rejects ambiguous origins and encoded
+separators before network/helper calls; runtime and build policies retain their
+intentional trust difference.
 
-Daily selection belongs to the same synchronization owner as setup and repair.
-`SelectProfile` derives scope from the Profile, owns optional validated Token
-storage and compensation, discovers that client and commits only its projection.
-The shared transaction forwards this scope through both preflight and apply.
-The CLI-owned rollback, configuration comparison and commit coordination are
-removed. Repeated selection remains a scoped reconciliation with no config or
-checkpoint rewrite. Both real-file acceptance directions deliberately drift the
-unselected client's projection while proving the selected projection changes;
-an unrelated client's conflict is not a selection failure.
-
-Authenticated endpoint requests have one credential-domain execution boundary.
-Validation, connectivity tests and readiness diagnostics use the same native
-HTTP redirect protection. Validation and connectivity additionally share
-bounded response lifetime and closure, removing the CLI's duplicated request
-mechanics. The response status remains an observation: each consumer owns its
-narrow interpretation, and a redirect is never healthy authentication.
-The connectivity result carrier lives beside connectivity behavior, not under
-the unrelated read-only status renderer.
-
-Provider-account diagnostics share the credential HTTP contract directly,
-removing their duplicate interfaces and forwarding adapter. Native-client
-redirect protection covers both account and Token endpoints. The provider
-reader admits one complete JSON document within the existing response budget
-and preserves read and close errors; a full final search page is incomplete
-evidence, not Token absence. Real HTTP regressions cover redirect isolation;
-body-lifetime and pagination tests cover partial observations. Registry
-acceptance verifies successful dispatch and report values rather than a
-source-AST pattern or one of several unrelated fixture failures.
-
-The upgrade review found source errors, Forge authentication and downloads,
-installation helpers, and generic transport tests mixed in catch-all files.
-It also found duplicate installation scenarios and an unconfigured-source test
-that inherited a configured GitLab source, so an unrelated missing helper could
-make it pass. These findings invalidate the earlier global deduplication
-completion claim: task 7.5 is reopened. Repairs below are bounded progress;
-tasks 7.2, 7.5, 8.1 and 8.11 remain open for complete topology and effective-check
-coverage. Completed behavioral ownership and module-depth reviews do not close
-those remaining obligations.
-
-Publication now separates transport from release orchestration inside the
-existing package. HTTP authority, redirect handling and response consumption
-belong together; their cross-Forge tests no longer live under a GitLab filename
-or among release-construction failures. Provider payloads remain beside the
-publication operations that consume them. This redistribution retains five Go
-files and preserves all 71 declarations, including 39 tests, by canonical AST
-comparison. It adds no package, forwarding entrypoint or behavioral variant.
-The native 500-line trial no longer flags this owner; that is bounded topology
-progress, not repository-wide ELOC enforcement.
-
-Credential storage repeated the default API-Token view on five backends
-alongside a second purpose-aware interface. The existing credential-kind view
-now owns all four consumer operations and validates input before backend
-resolution. Private backends implement only purpose-aware storage. Regressions
-reproduced rejected repeated purpose selection and backend probes for invalid
-Account reads and presence checks. Purpose selection is now idempotent and
-retains backend identity, observation, read-only behavior and compensation.
-Twenty duplicate entrypoints and their runtime interface conversion are removed;
-platform protection and persistent slot identities remain unchanged. No backend
-implementation is exported and no forwarding package is added. This supports
-the completed behavioral ownership and module-depth reviews; the global consumer
-audit remains under task 7.5.
-
-The tracked-root review also exposes unresolved boundaries, not a completed
-directory audit:
-
-| Surface                         | Current finding                                                                                                                                                                                                                                                                                                                                         | Closure owner              |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| Product and tests               | Behavioral ownership and module-depth reviews are complete. Private access and native platform selection remain intentional; complete physical topology still requires review.                                                                                                                                                                          | 7.2                        |
-| Repository tools                | Native artifact journeys now belong to release, not CI dispatch. The shared quality sequence still consumes `tools/repository/protected_lifecycle.go`; ETHOS must provide equivalent detached-checkout admission before that generic overlap can be removed.                                                                                            | 7.2, 7.5, 8.11             |
-| Root metadata and configuration | Editor defaults now inherit once; Git applies LF to all detected text rather than an incomplete extension list. Ignores follow owned output directories instead of hiding arbitrary test/output suffixes. Prettier applies locked defaults; EditorConfig owns editor defaults and its independent check. Neither has a redundant concern-local carrier. | 7.6                        |
-| Documentation and manifests     | The documentation root is connected, but audience placement, rendered tables and diagrams, current model claims and team-profile consumption still need direct acceptance. A release-coordinate example is not a deployed team configuration.                                                                                                           | 11.4–11.8                  |
-| CI, OpenSpec and outputs        | CUE is the declared projection owner; actual event conformance and output cleanup are separate proof obligations. Archived Changes retain historical intent, not current implementation authority.                                                                                                                                                      | 8.10, 10.7–10.9, 13.1–13.2 |
-
-Upgrade transport review reproduced four defects hidden by the original direct
-redirect tests: replacing the native redirect policy removed its request bound,
-origin comparison ignored the scheme, credentials reappeared after returning
-from a foreign origin, and an intermediate HTTPS hop could downgrade when the
-first request was HTTP. The existing updater now composes the native
-ten-request default with the complete redirect-chain credential and TLS
-boundary. Real HTTP/TLS chain tests and focused callback tests establish these
-cases; this does not establish installed-product or native-platform acceptance.
-
-Formatting now uses the shared checkout-bound Git inventory rather than CLI
-globs or `.gitignore` filtering, which silently omitted tracked ignored files.
-The package script and quality graph invoke the same executor. Its native
-Prettier adapter selects supported formats and applies `.prettierignore` only
-to official OpenSpec archive history; `.gitignore` still owns untracked output.
-Missing inputs and a scope with no supported authored files fail. Native
-conformance covers current Markdown, JSON and YAML, tracked ignored files,
-literal glob characters, checkout paths with spaces and parent configuration
-isolation. Paths travel relative to the requested checkout, so filesystem aliases
-cannot move authored files outside native ignore matching. No custom formatting or ignore parser is introduced.
-
-All three Node check adapters consume the streamed inventory through native
-`node:stream/consumers`, not a synchronous read of a potentially incomplete
-pipe. Fragmented input larger than one megabyte exercises formatting, Markdown
-and Mermaid checks without command-line limits or retry machinery.
-
-Repository inventories bind both the working tree and index to their explicitly
-requested checkout. The CI and architecture scanners remove only an inherited
-`GIT_INDEX_FILE` override from their Git subprocesses; ordinary Git operations,
-configuration, signing and transport retain their caller environment. Real
-two-repository regressions prove that a foreign index cannot silently omit a
-tracked file, including tracked paths matched by an ignore rule. CI retains its
-current tracked-and-untracked scope; architecture retains its tracked-only scope.
-
-Prettier uses locked defaults through its native API without configuration
-discovery; its redundant configuration is deleted rather than relocated.
-EditorConfig owns editor defaults and a separate native check, not Prettier
-options. Conformance proves isolation, current-carrier coverage and unchanged
-source bytes. Root ownership is complete under task 7.6;
-effective-check scope remains open under task 8.1. The unconsumed
-Forge environment template is removed: build inputs already belong to the
-release constructor and protected execution context. Contributor setup and
-verification now have their own section, rather than being nested beneath
-publication; duplicate coverage wording is replaced with its canonical policy
-link. Documentation navigation remains
-owned by `docs/README.md`; its existence does not prove every linked document
-belongs in its current audience or responsibility category.
-
-Local link verification now enables lychee's native heading-anchor checks.
-The prior command admitted a link to an existing document even when its
-fragment did not exist. Real command conformance admits an existing heading,
-rejects a missing heading, and verifies source preservation. This adds no link
-parser and does not turn offline source checks into external or rendered proof.
-
-CI projection has one owner under `tools/ci/projection`. The CLI supplies the
-repository root and check mode; the package renders every CUE output before
-reconciling its private fixed artifact set. Callers do not coordinate rendering
-and file writes or provide arbitrary output paths. Graph and projection
-contracts live with that owner; CLI tests retain argument-routing coverage.
-
-Portable upgrade artifacts have one owner under `internal/upgrade/artifact`:
-platform layout, manifest verification, and executable extraction. The updater
-owns release selection, candidate startup verification, replacement, and
-rollback. The artifact owner has no updater dependency. Manifest verification
-returns the measured digest, so peer comparison does not hash the same download
-again. Strict SemVer parsing and precedence use the maintained Masterminds
-library; AIGW only normalizes the release-tag prefix at its input boundary.
-Archive tests live with that owner; installation and transport tests retain
-their respective behavior. No forwarding package preserves the old layout.
-
-An online update owns one temporary workspace for all peer downloads and removes
-it through the existing cross-platform filesystem library. Download helpers
-receive that workspace rather than returning cleanup callbacks or coordinating
-independent resource lists. Failed-peer directories remain inside the same
-owner's lifetime. Errors retain their original causes, including cleanup errors;
-cleanup after successful replacement reports that the program was updated rather
-than implying rollback. Both peers classify transport unavailability consistently,
-while authentication and integrity failures remain terminal. Real-file tests
-verify workspace removal and preservation of unrelated files, current program
-bytes and the rollback copy; native macOS failure injection covers cleanup denial.
-
-Release construction follows the same ownership principle without sharing a
-product transaction abstraction. Construction and native acceptance report exact
-workspace cleanup failures. Replacing an existing output uses a uniquely created
-private sibling backup; a similarly named operator file grants no deletion
-authority. Failed publication restores the previous output; failed restoration
-retains its exact backup path and both causes. Successful publication followed by
-cleanup failure reports the new output as published. This is recoverable
-directory replacement, not a claim of uninterrupted atomic visibility across
-two filesystem renames.
-
-Program update and operator-requested rollback share one recoverable replacement
-boundary, including predecessor retention, file mode and restoration errors.
-Cancellation is admitted before preparation and checked again immediately before
-replacement; after the first rename begins, it completes or compensates
-without interruption. A completed swap is not reported as canceled afterward.
-
-Native Windows release acceptance exposed a sharing violation while renaming the
-installed executable. The former updater library directly called `os.Rename` and
-deleted the previous program first; retrying its whole transaction could repeat
-those effects. Its narrow replacement is now composed from existing durable-file
-staging and `robustio.Rename`, with one compensation owner shared by update and
-rollback. The unused updater dependency is removed. Candidate cleanup belongs to
-the replacement workspace on success and failure. Real Windows handle tests
-exercise temporary source/destination locks and persistent source locks; a
-portable fault-injected rename test verifies activation compensation and retained
-causes. macOS immutable-file testing rejects leftover staging, and a portable
-foreign-directory case replaces tests coupled to the old library's staging name.
-Native artifact acceptance remains required: cross-compilation and a passing
-macOS test cannot establish Windows behavior.
-Remove the unused one-value distribution Channel and its defaulting test.
-Rollback acceptance covers reversible bytes, operator guidance and the complete
-owned directory contents in one scenario, rather than duplicate swaps and
-historical filename prohibitions. Canceled rollback preserves both program files.
-
-Package-private upgrade tests follow source selection, GitHub, GitLab,
-installation, candidate admission, and updater orchestration. The mixed
-transport and validation files are absorbed into those existing owners. Public
-acceptance lives under `internal/upgrade/acceptance`, in a separate native test
-binary. This is a fixture-lifetime boundary, not a directory for every test
-category: simulated release configuration can no longer configure private
-tests. Private transport tests clear inherited credentials; acceptance owns
-its isolated client home and reports cleanup failure. No product API or
-exported test framework is added. The acceptance files group candidate,
-installation, source selection, GitHub, GitLab and peer agreement; GitLab HTTP
-and redirect scenarios no longer masquerade as installation tests.
-Local-candidate acceptance
-owns successful replacement and exact version reporting; the Windows candidate
-case owns executable-name admission. Delete their redundant narrower scenarios
-while retaining checksum-before-extraction, rollback, and native OS tests.
-Neither archive inspection nor a synthetic version runner proves native Windows
-execution. The unconfigured-source case clears both Forge coordinates and
-asserts that exact error with an isolated executable search path.
-
-CLI acceptance groups evidence by the user operation, not by the file where a
-regression was first added. Manifest import owns conflict and credential
-reporting; route selection owns activation; endpoint checks and native-client
-verification remain distinct. Configuration recovery stays separate from
-program update and rollback. Account diagnostics and catalogue discovery each
-have one test owner. Shared isolated application, discovery, prompt and manifest
-fixtures live together; scenario-only helpers stay beside their consumers.
-Relocation preserves test declarations and assertions; it does not justify a
-new exported fixture framework or claim that product behavior has changed.
-
-The completed test-ownership review keeps evidence boundaries explicit:
-
-| Responsibility       | Test owner                                   | Placement rationale                                                                                                                                                                            |
-| -------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public CLI journeys  | `internal/cli/acceptance`                    | One isolated application fixture; operation-named files omit the redundant command suffix. Guided and explicit setup share setup ownership; manifest setup remains a distinct journey.         |
-| Credential semantics | `internal/secrets`                           | Store faults share real memory state; typed slots, backend inspection, persisted selection, file durability and native credential observation retain distinct contracts.                       |
-| Client composition   | `internal/client`                            | Registry ordering and compensation differ from future-adapter conformance and built-in integration; their fixtures must not collapse into one configurable fake.                               |
-| Claude projection    | `internal/claude`                            | Public verification plans remain external-package tests; private real-file transactions retain access to their compensation seams.                                                             |
-| Codex projection     | `internal/codex`                             | Public configuration/provider tests remain external. Private transformation, read-only inspection, scheduling and reconciliation have separate owners rather than generic supplementary files. |
-| Release update       | `internal/upgrade`, `artifact`, `acceptance` | Archive admission, private transport and process-isolated public journeys have different lifetimes and visibility. Forge-only fixtures stay with their scenarios.                              |
-
-Native OS suffixes and build constraints are executable selection, not naming
-clutter. Keep Unix-only credential tests Unix-only and portable tests portable.
-Package-local tests do not justify a new exported test-support package. Test
-names state their real backend: replacing an in-memory Token is not evidence
-of overriding a read-only environment Token. Consolidation preserves test
-bodies and supported platform selection, not merely test counts.
-
-Command composition, help rendering and completion belong beside the CLI root,
-without constructing credential, network or discovery fixtures. The rendered
-group order and titles must consume Cobra's declared groups, not a second
-hard-coded category list. Keep one ordered public-help journey assertion and
-the narrow-terminal width contract. Configuration command admission is the
-positive `export`, `import`, `path` tree, not an inventory of retired names.
-Update, account-write and response-body fixtures belong beside their only
-scenario consumers; shared fixtures retain only genuinely shared capabilities.
-Remove the forwarding test executor and call the public CLI entrypoint directly.
-Configuration locking starts only after Cobra resolves a valid executable
-command and its flags. Help and completion rendering leave configuration storage
-untouched; dry-run classification consumes the same parsed flag value as the
-operation, rather than a second argument parser. Removed commands have no lock
-policy. This distinguishes a command's capability from an invocation's effect.
-
-Client tests own projection-change and credential-binding decisions. The
-synchronization suite owns transaction preparation, cancellation, persistence
-and compensation; client-native projection remains a transaction scenario, not
-a separate model-provider test file. Its persistence double implements only the
-consumed snapshot, commit and restore contract, without simulating the store's
-private write sequence. Real persistence failure coverage stays with the
-configuration owner. Duplicate runner and credential doubles are consolidated.
+Forge verification reads policy from the exact source object, not another
+checkout or uncommitted file. Already-local peer objects need no fetch; otherwise
+fetch the exact object without observation refs or `FETCH_HEAD` mutation.
+Execution failure is not divergence. Publish locally signed objects unchanged
+with explicit expected-state protection.
 
 #### Migration boundaries
 
-Topology migration follows semantic operations, not suffix matching. Review
-`internal/secrets` by backend selection, credential storage and transaction
-ownership; `internal/upgrade` by source discovery, candidate admission and
-installation; CLI acceptance by user journey. These are review boundaries, not
-a predetermined demand for new packages. Preserve Go platform suffixes where
-they select real platform implementations and co-located tests where they
-exercise one package contract. Split only a genuinely distinct dependency or
-invariant boundary, absorb single-use wrappers, and delete obsolete consumers
-in the same closure. Product behavior, readable dependencies, and fewer
-parallel owners establish success, not directory depth.
+The catalogue cleanup removes two functions and adds no module, file, dependency
+or policy. Native duplicate/unused analysis and six-target imports inform review;
+green tools alone do not certify semantic quality. Source, tests, specifications
+and focused mutation checks remain the behavioral evidence.
 
-The process package keeps native implementation and test selection together.
-Pipe-drain deadlines and inherited descriptors now live in `pipe_drain` test
-carriers, with Unix and Windows variants and one shared controlled-deadline
-fixture. The Unix shell precondition stays with ordinary Unix runner tests,
-which also consume it. These moves preserve test bodies and platform tags;
-another exported process-test package would weaken access to the private owner.
-Architecture package documentation moves to its command entrypoint rather than
-describing the whole package from a decision-record implementation file.
+The physical-topology review closes task 7.2, not these separate obligations:
 
-Native installation, credential and upgrade journeys move from `tools/ci` to
-the existing `tools/release` owner. CI command tests retain only their own file
-and checkout helpers, so they no longer depend on product-lifecycle fixtures.
-Release construction and contributor commands select the moved tests directly;
-the CUE entrypoint remains unchanged. No test-support package or alternate runner
-is introduced. Source-archive root derivation remains independent of Git state.
+- **7.5 and 8.11:** finish global consumer/dependency review and resolve generic
+  protected-lifecycle overlap. Retain the existing read-only admission until an
+  equivalent detached-checkout gate is demonstrated; do not add a lifecycle
+  engine or block unrelated product work.
+- **8.1, 8.5 and 8.10:** prove effective concern coverage, defensible quantitative
+  limits and local/hosted failure paths. A package map is not gate proof.
+- **11.4–11.8:** verify CLI semantics, team-model claims, rendering, links and
+  user journeys. Correct placement is not content acceptance.
+- **12 and 13:** complete exact published-artifact/platform evidence, final
+  consumer/residue audits, release and lane retirement. Historical proof does
+  not replace current observations.
 
-That boundary review exposed divergent `VERSION` readers: CI admitted arbitrary
-single-token text while construction required strict SemVer. The construction
-reader moves to `tools/release/readiness`, where CI, construction and native
-journeys reuse it. Public native admission now rejects malformed identities
-before invoking any downstream command. The permissive reader and its duplicate
-unit tests are removed; strict reader tests live beside the owner, while CI and
-construction retain integration checks. Version validity remains distinct from
-GA signing readiness.
-
-Credential selection is one private responsibility within `internal/secrets`:
-`selection.go` owns selection policy, secret-free observation, the persisted
-choice, and its compensation. `store.go` retains the storage contract rather
-than mixing in that lifecycle. Credential-kind views preserve the same backend
-identity for observation and rollback. They do not create another backend or
-make callers recover selection files. This consolidation replaces the separate
-`backend_choice.go`; complete physical topology and consumer review remain open.
-
-Automatic selection uses the same admission path as explicit selection and
-retains the admitted Store. It must not probe a temporary keyring and then
-probe a replacement instance: one resolution has one capability observation.
-Only an absent persisted choice permits initial secure-file fallback; an
-unavailable explicitly selected or persisted keyring remains an error. Repeated
-inspection uses that resolved backend without writing credential storage. The
-portable policy test covers available keyring and file fallback for all three
-supported platforms; it does not replace native credential acceptance.
-
-Backend persistence is not cached independently of its file. Each inspection
-reads current choice metadata while retaining the invocation's admitted backend:
-matching metadata is persisted, absence is deferred, and conflicting or invalid
-metadata is unavailable. This removes the duplicate persistence flag and its
-updates across selection, mutation and compensation. Inspection never switches
-backends or reads credential values; existing mutation and compensation guards
-remain responsible for writes.
-
-Diagnostic credentials, their JSON schema and the typed storage adapter belong
-to `internal/secrets`; `internal/providers/diagnostic` owns diagnostic results. The
-constructor binds diagnostic slots on the already selected backend, replacing
-caller-provided error classifiers and the parallel diagnostic memory store.
-CLI fixtures use that same adapter over their API Token backend. The shared
-recording fixture observes either credential type without reimplementing its
-storage. Constructor, interface and result names denote credential storage,
-not a diagnostic operation. Slot presence, readable valid content and Provider
-authentication are distinct guarantees; stored incomplete data is not absence.
-Environment pair decoding uses the same schema, and existing scoped/native
-backend tests retain their separate evidence boundaries.
-
-Client credential rotation follows the [synchronization ownership
-contract](../../../docs/architecture/authority-and-projection-boundary.md#synchronization-and-setup).
-The registry's binding operation returns its outcome instead of requiring a
-separate Account-use query. It reports a refresh only for configured native
-storage targets, not helper-based clients or targetless adapters. Synchronization
-retains compensation without a public forwarding method. No parallel state model
-is added.
-
-Repair follows the same result boundary: the transaction returns whether native
-bindings were updated, and the CLI renders that outcome instead of recomputing
-intent and calling it authentication. Targetless adapters require no binding
-refresh. Read-only binding comparison remains for rename previews, not as an
-extra prerequisite or completion claim in the execution path.
-
-Upgrade delegates helper execution to `internal/process.Runner`, including
-streamed assets. In-memory and file output share platform launch, child
-ownership, diagnostic limits, and bounded pipe draining. The upgrade-only
-executor and silent-truncation writer are removed. Execution conformance lives
-with the process owner; upgrade tests retain Forge selection, authentication,
-artifact admission, installation, and rollback responsibilities.
-
-Verification and every supplying layer use `process.CaptureRunner` directly.
-The three repeated `Run` interfaces and late capture assertions are removed;
-capture-only fixtures exercise the existing client journeys without unused
-methods. Consumer review found no production use of the uncaptured `Run`
-operation or process replacement. Their Unix/Windows implementations, mode
-flag and exclusive tests are deleted. Captured child ownership, diagnostics,
-explicit environments, Windows batch invocation and file streaming retain
-their behavioral tests; removing an unused mode does not remove those contracts.
-
-Private upgrade tests share two process fixtures in their existing fixture
-owner: capture-only observation and file-capable execution. Both retain full
-process plans; file execution distinguishes absent output, empty output,
-successful payload and write failure. The earlier per-error runners, custom
-not-found wrappers, duplicate call lists and writer-only subclasses are removed.
-Native `exec.ErrNotFound` and ordinary wrapping exercise unavailability without
-recreating standard errors. Protocol-specific GitHub sequencing and native
-platform locking fixtures remain separate because they prove different
-contracts. Existing upgrade test functions and assertions remain intact.
-
-Credential test faults wrap the existing in-memory Store; they do not own a
-second key/value implementation. Replacement, diagnostic errors and unavailable
-capability cases share that wrapper. Keyring availability tests invoke the real
-metadata-observation boundary with an injected observer, covering present,
-absent and unavailable results without accessing the host vault. Filesystem
-identity, durability and recovery fixtures remain beside their private owners.
-
-Public upgrade acceptance shares one release runner with explicit download
-outcomes and one archive constructor, including repeated-entry admission.
-Missing executables, GitHub release sequencing and GitLab streamed assets retain
-separate capabilities; Forge-specific fixtures live beside their consumers.
-Native slice operations replace duplicate command-match loops and forwarding
-helpers. Client projection keeps distinct registry-compensation and future-
-adapter lifecycle fixtures: combining them would hide different contracts.
-Private Codex identity and real-file projection tests remain package-local;
-native platform suffixes continue to select platform evidence.
-
-Windows path derivation appends owned components to an explicit base; it is
-not a general path-normalization API. The old joiner stripped the leading UNC
-or extended-length namespace and rebuilt a single root separator, changing
-the selected location. A narrower append operation preserves that prefix and
-normalizes ordinary separator spelling without touching the filesystem. The
-shared regression covers configuration, data, credentials, Claude settings and
-installation paths across drive, rooted, UNC and extended-length bases. On
-Windows it additionally compares each result with native `filepath.Join`.
-This proves path derivation, not access permission or lifecycle behavior on an
-actual network share. No parallel Windows path library or dependency is added.
-
-Configuration integrity is enforced at the value and persistence boundaries.
-`Config.Clone` isolates nested Account diagnostics, maps and Adapter targets;
-read-only runtime resolution does not clone the model. Tests assert value
-independence, unchanged query input and the selected endpoint rather than
-historical helper names.
-
-The Store admits exactly one complete checkpoint JSON document. One validator
-serves reading and writing: the client scope must be a nonempty, unique subset
-of admitted IDs. Invalid input cannot replace a usable checkpoint.
-
-Verified backup capture belongs to the Store. It compares canonical persisted
-configuration before exposing verified state, while preserving original file
-bytes for restoration, including harmless formatting differences. Rename retains
-client-coverage and credential-retirement decisions; it does not decode or
-compare configuration again. The existing Snapshot and guarded writer own
-capture, exact-mode convergence and platform permissions. Callers receive only
-the result they consume, not a second snapshot or recovery protocol.
-
-The `c57bf30` runtime-resolution comparison used the same fixture, Go toolchain
-and macOS arm64 host with a native Go overlay for the predecessor. It measured
-450.2–479.6 ns/op, 2,528 B/op and seven allocations before removal of the clone,
-versus 28.15–28.46 ns/op and zero allocations afterward. This is a historical
-function-level observation, not a current or cross-platform performance budget.
-
-Release chronology uses the already-locked Masterminds SemVer implementation
-shared by artifact admission and publication. Exact identity preserves build
-metadata for tag/epoch matching; precedence ignores it. One adjacent-entry
-comparison enforces strict descending order and uniqueness. Repository tests
-exercise heading/tag binding, valid metadata, invalid numeric prereleases and
-core overflow rather than reimplementing the dependency's parser.
-
-The separate active-Change publication check remains temporarily necessary:
-it is read-only, but still repeats branch classification locally. Removing it
-without a proven hosted ETHOS replacement would erase publication admission.
-Task 8.11 retains that ownership gap; SemVer simplification does not close it.
-
-Release sources have one private owner in `internal/upgrade/source.go`:
-configuration resolution, validation, peer dispatch, and unavailability
-classification. An update resolves environment overrides once; both metadata
-and asset transports consume the selected source. GitLab's private transport
-uses the bound source without resolving the environment again. Source-policy
-tests live with that owner, while GitLab tests retain CLI and HTTP behavior.
-The duplicated provider-resolution functions and value-receiver restoration
-are removed without adding a client layer or compatibility mode.
-
-Release identity follows the same ownership rule. Construction, readiness and
-publication use the already-admitted SemVer parser used by upgrade. Remove the
-release-only regular expression, dot-count validation and substring-based
-stability checks; preserve each entry point's error context and its separate
-signing or source-admission contract. Publication retains the parsed identity
-through asset selection and prerelease classification without another wrapper
-package or duplicated grammar.
-
-CUE projects mandatory release admission before construction on both Forges;
-it delegates version classification to the release command rather than
-reimplementing channels in workflow expressions. Release readiness owns
-executable admission only. Remove its unused historical-prose blacklist and
-command, leaving document quality with the existing native checks.
-
-Embedded release-source validation belongs to the construction request. The
-source-only command and actual build share that validator, including complete
-Forge coordinates and repository path semantics. This removes the weaker
-parallel build check without coupling release construction to runtime override
-policy. Neither Forge becomes mandatory and no new package is introduced.
-
-The source-boundary review found that empty hostnames and empty query or
-fragment markers passed both origin checks. Runtime additionally admitted a
-repository without a namespace, while encoded separators could change routing
-meaning. Both existing owners now compare the parsed origin with a native
-scheme-and-authority URL and use native relative-path and URL-escaping contracts
-for repository coordinates. This removes manual segment loops without adding
-a shared framework or coupling runtime overrides to build policy. IPv6, explicit
-ports, one root slash and ordinary namespace punctuation retain positive tests.
-Runtime private HTTP remains distinct from HTTPS-only embedded metadata.
-Public updater tests require zero HTTP requests and helper calls on rejected
-coordinates; build-entry tests require zero tool calls. Both validators pass the
-cyclomatic-20 trial, with behavior and failure boundaries preserved.
-
-Identity migration separates complete transactions from CLI presentation.
-`internal/renaming.Service` owns rename and verified finalization; its callers
-do not coordinate credential copies, configuration commits, or cleanup.
-`internal/cli/renaming` owns flags, interactive identity selection and rendering,
-using the existing invocation context instead of a second root-level dependency
-assembly. Domain tests own cancellation, retention and commit failure; CLI tests
-own argument routing, interaction and output. The old command API and duplicate
-prompt contract are removed rather than retained as forwarding compatibility.
-
-Codex catalogue transformation has one owner in `internal/codex/catalog`:
-validated identity, unmodified client metadata and deterministic alias
-projection. It preserves the full document, not only model entries, and returns
-the uniquely matched base alongside the projection. Product reconciliation and
-repository acceptance consume that same contract. `internal/codex` retains
-isolated executable observation and transactional projection;
-`tools/codex/catalog` owns measurements and acceptance verdicts. Pure document
-tests move with the transformation, while repository verification tests move
-out of the product package. The duplicate parser and unused probe renderer are
-removed, without forwarding exports or another catalogue schema.
-
-Bundled and effective catalogue observations share one private probe lifetime:
-an isolated home, bounded child execution, and exact cross-platform cleanup.
-Executable identity remains available when catalogue retrieval fails; cleanup
-errors retain the original command cause and name the owned home. Repository
-verification separately owns its projected input file and reports its cleanup
-failures. Existing native-process fixtures replace the two shell-only product
-tests, preserving identity, user configuration and lifecycle assertions on every
-host. Unix permission-denial cases remain explicitly platform-scoped rather than
-being presented as Windows evidence. No public probe framework is introduced.
-The two lifecycle tests share one private fixture that owns ambient settings,
-temporary-directory selection and permission restoration. Preservation checks
-run during teardown even after an assertion fails. Native Go overlays confirm
-unchanged detection of skipped cleanup, discarded cleanup errors and ambient
-home reuse; the covered product blocks remain identical.
-
-Setup transaction ownership belongs to the existing synchronization package.
-`Synchronizer.Setup` admits first-time configuration, validates desired
-configuration, Token Account ownership and selected client scope, then commits
-credentials and client projections
-with owned compensation. CLI onboarding provides input and result presentation;
-it no longer carries a credential rollback transaction. Domain tests cover
-preflight, cancellation and backend preservation; CLI tests retain guided and
-manifest journey behavior. Credential replacement mechanics remain with the
-secret storage owner. This removes the CLI transaction rather than introducing
-a setup framework or compatibility wrapper.
-
-First-time admission has one owner in synchronization. The command forms use
-that same read-only decision before prompting or probing; Setup enforces it
-before mutation. Existing Profiles require import, selection or credential
-rotation rather than Setup. Existing credential slots remain valid inputs to
-first-time configuration. This boundary removes three CLI-owned definitions
-without expanding Setup into a second configuration-and-rotation transaction.
-The domain regression checks that rejected setup performs no discovery,
-credential write, native-client invocation or configuration change. A separate
-public manifest-setup regression reproduced a native login writing credentials
-before failing, beyond AIGW's compensation boundary. The working change removes
-that duplicate persistence and its binding/rollback interfaces rather than
-expanding ownership into client-private storage. Public setup now preserves
-seeded client-owned credentials and uses command-backed Account Tokens.
-
-Both helpers match a fingerprint of the projected client, Account and endpoint
-against the current Route before reading a Token. Account or endpoint changes
-require synchronization and client reload; Token rotation, model and label
-changes retain the matching credential identity. Focused tests cover these
-cases and prove no Token access on mismatch. The fingerprint is neither secret
-nor caller authorization. Client-native authentication remains client-owned.
-
-Task 2.7 is verified at the owned-write boundary. Public setup failure after
-configuration commit restores the exact pre-existing file map and Token state,
-leaves no payload/backup/sidecar residue, and releases the mutation lock for
-immediate reacquisition. The inert lock file remains the shared synchronization
-identity, not an active lock. Success preserves seeded client-owned credentials.
-Affected module/race tests and the macOS isolated portable lifecycle pass.
-
-An isolated Codex 0.153.4 probe consumed the built AIGW helper from a path with
-spaces and sent the synthetic Token to a loopback Responses endpoint, preserving
-client-owned authentication bytes. The endpoint deliberately returned an error:
-this proves credential transport, not inference. Real-client refresh timing,
-Desktop and Windows/Linux invocation remain in the native acceptance phase;
-no immediate hot-refresh guarantee follows from helper support.
-
-Forge tooling separates command parsing, object provenance and peer transport
-within its existing package. Publication and read-only inspection call the same
-typed verifier, without parsing a second command line. The verifier binds the
-commit policy and tracked identity metadata to the resolved source commit, so
-another checkout or an uncommitted policy cannot alter its result. Signed local
-Git fixtures prove both inspection and publication against a different checked-
-out policy; no real peer or historical product object is modified.
-
-Ancestry inspection consumes the exact observed peer commit. If its object is
-already local, no fetch is needed; otherwise Git fetches that object without
-writing references or `FETCH_HEAD`. The temporary observation-ref mechanism is
-removed. Git's distinct ancestry result and execution failures stay distinct:
-transport or object errors cannot masquerade as divergence and invite a forced
-cutover. Signed local fixtures exercise both object paths, preserve the complete
-reference set and existing fetch observation, and retain exact-lease publication
-admission for genuine divergence.
+Git and existing source-bound output retain implementation history; this section
+owns surviving decisions, not a growing repair diary.
 
 ### Team catalogue presentation has one owner
 

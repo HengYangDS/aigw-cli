@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"slices"
 	"sort"
@@ -100,7 +101,7 @@ func modelRows(cfg configuration.Config, catalog catalogOutput) []modelRow {
 		accounts[account.ID] = account
 	}
 	rows := []modelRow{}
-	for _, name := range sortedProfileNames(cfg) {
+	for _, name := range cfg.ProfileIDs() {
 		profile := cfg.Profiles[name]
 		membership := "Catalog not observed"
 		if account, ok := accounts[profile.Account]; ok {
@@ -163,7 +164,7 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 
 func discoverCatalog(ctx context.Context, deps Dependencies, cfg configuration.Config) catalogOutput {
 	result := catalogOutput{Accounts: make([]catalogAccount, 0, len(cfg.Accounts))}
-	for _, accountName := range sortedModelAccountNames(cfg) {
+	for _, accountName := range slices.Sorted(maps.Keys(cfg.Accounts)) {
 		account := cfg.Accounts[accountName]
 		entry := catalogAccount{ID: accountName, Label: account.Label, Source: "openai_responses", Models: []catalogModel{}}
 		secretAvailable, observationErr := deps.Secrets.Exists(accountName)
@@ -344,24 +345,6 @@ func writeJSON(out io.Writer, value any) error {
 	enc := json.NewEncoder(out)
 	enc.SetIndent("", "  ")
 	return enc.Encode(value)
-}
-
-func sortedProfileNames(cfg configuration.Config) []string {
-	names := make([]string, 0, len(cfg.Profiles))
-	for name := range cfg.Profiles {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
-}
-
-func sortedModelAccountNames(cfg configuration.Config) []string {
-	names := make([]string, 0, len(cfg.Accounts))
-	for name := range cfg.Accounts {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
 }
 
 func modelTitle(value string) string {

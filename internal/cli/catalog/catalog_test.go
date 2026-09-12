@@ -199,11 +199,14 @@ func TestCatalogOutputFailuresAndHelpers(t *testing.T) {
 	if got := modelTitle(""); got != "" {
 		t.Fatalf("empty model title = %q", got)
 	}
-	if got := strings.Join(sortedProfileNames(cfg), ","); got != "claude,codex" {
-		t.Fatalf("profile order = %q", got)
+	rows := modelRows(cfg, catalogOutput{})
+	if len(rows) != 2 || rows[0].Profile != "claude" || rows[1].Profile != "codex" {
+		t.Fatalf("profile rows = %#v", rows)
 	}
-	if got := strings.Join(sortedModelAccountNames(cfg), ","); got != "gateway" {
-		t.Fatalf("account order = %q", got)
+	cfg.Accounts["alpha"] = configuration.Account{Label: "Alpha"}
+	accounts := discoverCatalog(context.Background(), deps, cfg).Accounts
+	if len(accounts) != 2 || accounts[0].ID != "alpha" || accounts[1].ID != "gateway" {
+		t.Fatalf("catalog accounts = %#v", accounts)
 	}
 	if state, detail := catalogModelDisplay(catalogModel{ID: "plain"}); state == 0 || detail != "Not configured" {
 		t.Fatalf("model display state=%v detail=%q", state, detail)
