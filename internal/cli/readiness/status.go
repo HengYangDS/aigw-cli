@@ -40,7 +40,7 @@ var inspectAdapter = func(ctx context.Context, runtime invocation.Context, cfg c
 // NewStatusCommand constructs the read-only configuration and client readiness command.
 func NewStatusCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
-	cmd := &cobra.Command{Use: "status", Short: "Show the active service and the next useful action", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "status", Short: "Show each client's selected profile and local readiness", Args: cobra.NoArgs}
 	cmd.RunE = func(_ *cobra.Command, _ []string) error { return RunStatus(runtime, jsonMode) }
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
 	return cmd

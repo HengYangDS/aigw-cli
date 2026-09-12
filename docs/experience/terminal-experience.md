@@ -14,6 +14,12 @@ A synchronized projection is not proof of authentication or inference.
 
 ## Navigation
 
+Help is the CLI reference, generated from the command declarations and native
+flag metadata rather than a separately maintained option list. Runnable
+commands show their invocation; command groups show `[command]`. A command that
+supports both shows both forms. The root journey uses `aigw use <profile>`:
+selection belongs to that Profile's client, not a hidden global default.
+
 | Intent    | Commands                                                                                  |
 | --------- | ----------------------------------------------------------------------------------------- |
 | Connect   | `setup`                                                                                   |

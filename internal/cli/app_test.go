@@ -264,7 +264,7 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 	for _, want := range []string{
 		"Start with one path",
 		"aigw setup    # connect the first service",
-		"aigw use      # choose the active service",
+		"aigw use <profile>  # select this profile for its client",
 		"aigw check    # confirm readiness",
 		"Usage", "aigw [command]",
 		"Connect", "setup",
@@ -390,6 +390,12 @@ func TestCommandHelpLeavesConfigurationStorageAbsent(t *testing.T) {
 				t.Fatalf("help created configuration storage: %v", err)
 			}
 			text := strings.Join(strings.Fields(output.String()), " ")
+			if command.Runnable() && !strings.Contains(text, command.UseLine()) {
+				t.Fatalf("help omitted runnable usage %q:\n%s", command.UseLine(), &output)
+			}
+			if command.HasAvailableSubCommands() && !strings.Contains(text, command.CommandPath()+" [command]") {
+				t.Fatalf("help omitted subcommand usage for %s:\n%s", command.CommandPath(), &output)
+			}
 			command.InitDefaultHelpFlag()
 			for _, flags := range []*pflag.FlagSet{command.NonInheritedFlags(), command.InheritedFlags()} {
 				if !strings.Contains(text, strings.Join(strings.Fields(flags.FlagUsages()), " ")) {

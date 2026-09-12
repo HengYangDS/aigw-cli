@@ -378,15 +378,16 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 	if command.Parent() == nil {
 		r.Section("Start with one path")
 		r.Command("aigw setup    # connect the first service")
-		r.Command("aigw use      # choose the active service")
+		r.Command("aigw use <profile>  # select this profile for its client")
 		r.Command("aigw check    # confirm readiness")
 	}
 	r.Section("Usage")
-	usage := command.UseLine()
-	if command.Parent() == nil && command.HasAvailableSubCommands() {
-		usage = command.CommandPath() + " [command]"
+	if command.Runnable() {
+		r.Command(command.UseLine())
 	}
-	r.Command(usage)
+	if command.HasAvailableSubCommands() {
+		r.Command(command.CommandPath() + " [command]")
+	}
 	if command.Example != "" {
 		r.Section("Examples")
 		for line := range strings.SplitSeq(strings.TrimSpace(command.Example), "\n") {
