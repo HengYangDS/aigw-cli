@@ -177,7 +177,11 @@ allowed_import_edges."internal/cli/credential" = [
   "internal/cli/invocation",
   "internal/configuration",
 ]
-allowed_import_edges."internal/cli/install" = ["internal/cli/invocation", "internal/transaction"]
+allowed_import_edges."internal/cli/install" = [
+  "internal/cli/invocation",
+  "internal/transaction",
+  "internal/upgrade",
+]
 allowed_import_edges."internal/cli/route" = [
   "internal/cli/invocation",
   "internal/configuration",

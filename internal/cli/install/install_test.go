@@ -10,6 +10,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/upgrade"
 )
 
 func TestInstallCommandUsesPlatformDefaultTarget(t *testing.T) {
@@ -33,6 +34,55 @@ func TestInstallCommandUsesPlatformDefaultTarget(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), target) || !strings.Contains(out.String(), "aigw setup") {
 		t.Fatalf("output = %q", out.String())
+	}
+}
+
+func TestInstallationCommandReportsHumanStateAndOutputFailures(t *testing.T) {
+	root := t.TempDir()
+	program := filepath.Join(root, "aigw")
+	for path, content := range map[string]string{program: "current", upgrade.RollbackPath(program): "previous"} {
+		if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, retained := range []bool{true, false} {
+		out := new(bytes.Buffer)
+		command := NewInspectionCommand(invocation.Context{Executable: program, Version: "1.2.3", Out: out})
+		command.SetArgs(nil)
+		if err := command.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		want := upgrade.RollbackPath(program)
+		if !retained {
+			want = "No retained predecessor"
+		}
+		if !strings.Contains(out.String(), "1.2.3") || !strings.Contains(out.String(), want) {
+			t.Fatalf("human installation output = %s", out)
+		}
+		if retained {
+			if err := os.Remove(upgrade.RollbackPath(program)); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	closed, err := os.CreateTemp(root, "closed-output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := closed.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{nil, {"--json"}} {
+		command := NewInspectionCommand(invocation.Context{Executable: program, Out: closed})
+		command.SetArgs(args)
+		if err := command.Execute(); !errors.Is(err, os.ErrClosed) {
+			t.Fatalf("output error = %v", err)
+		}
+	}
+	command := NewInspectionCommand(invocation.Context{Executable: root, Out: new(bytes.Buffer)})
+	command.SetArgs(nil)
+	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "current portable program") {
+		t.Fatalf("invalid installation observation = %v", err)
 	}
 }
 
@@ -284,13 +334,13 @@ func TestInstallAndUninstallReportOwnedFileFailures(t *testing.T) {
 	if err := os.WriteFile(target, []byte("previous"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir(backupPath(target), 0o700); err != nil {
+	if err := os.Mkdir(upgrade.RollbackPath(target), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := Install(source, target); err == nil || !strings.Contains(err.Error(), "save previous") {
 		t.Fatalf("blocked backup = %v", err)
 	}
-	if err := os.RemoveAll(backupPath(target)); err != nil {
+	if err := os.RemoveAll(upgrade.RollbackPath(target)); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Mkdir(target, 0o700); err == nil {
@@ -328,7 +378,7 @@ func TestInstallReportsAtomicTargetReplacementFailure(t *testing.T) {
 }
 
 func TestBackupPathUsesWindowsExecutableSuffix(t *testing.T) {
-	if got := backupPath(filepath.Join("root", "aigw.exe")); filepath.Base(got) != ".aigw.previous.exe" {
+	if got := upgrade.RollbackPath(filepath.Join("root", "aigw.exe")); filepath.Base(got) != ".aigw.previous.exe" {
 		t.Fatalf("backup path = %q", got)
 	}
 }

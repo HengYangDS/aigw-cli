@@ -86,7 +86,7 @@ func TestReplacementHandlesWindowsExecutableLocks(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			root := t.TempDir()
 			executable := filepath.Join(root, "aigw.exe")
-			for path, value := range map[string]string{executable: "current", rollbackPath(executable): "previous"} {
+			for path, value := range map[string]string{executable: "current", RollbackPath(executable): "previous"} {
 				if err := os.WriteFile(path, []byte(value), 0o700); err != nil {
 					t.Fatal(err)
 				}
@@ -94,7 +94,7 @@ func TestReplacementHandlesWindowsExecutableLocks(t *testing.T) {
 			locked := filepath.Join(root, test.locked)
 			release := holdWindowsFile(t, locked)
 			var lockedRename *os.LinkError
-			if err := os.Rename(executable, rollbackPath(executable)); !errors.As(err, &lockedRename) {
+			if err := os.Rename(executable, RollbackPath(executable)); !errors.As(err, &lockedRename) {
 				t.Fatalf("fixture did not establish a locked replacement: %v", err)
 			}
 			if test.transient {
@@ -112,7 +112,7 @@ func TestReplacementHandlesWindowsExecutableLocks(t *testing.T) {
 			if (err == nil) != test.transient || !test.transient && !errors.Is(err, lockedRename.Err) {
 				t.Fatalf("transient=%t error=%v", test.transient, err)
 			}
-			for path, want := range map[string]string{executable: test.current, rollbackPath(executable): test.previous} {
+			for path, want := range map[string]string{executable: test.current, RollbackPath(executable): test.previous} {
 				if got, err := os.ReadFile(path); err != nil || string(got) != want {
 					t.Fatalf("replacement file %s = %q, %v; want %q", path, got, err, want)
 				}
@@ -138,7 +138,7 @@ func TestCandidateActivationHandlesWindowsFileLocks(t *testing.T) {
 			root := t.TempDir()
 			current := filepath.Join(root, "aigw.exe")
 			candidate := filepath.Join(root, "candidate.exe")
-			for path, value := range map[string]string{current: "current", candidate: "next", rollbackPath(current): "older"} {
+			for path, value := range map[string]string{current: "current", candidate: "next", RollbackPath(current): "older"} {
 				if err := os.WriteFile(path, []byte(value), 0o700); err != nil {
 					t.Fatal(err)
 				}
@@ -151,7 +151,7 @@ func TestCandidateActivationHandlesWindowsFileLocks(t *testing.T) {
 				timer := time.AfterFunc(100*time.Millisecond, release)
 				t.Cleanup(func() { timer.Stop() })
 			}
-			err := commitProgramReplacement(candidate, current, rollbackPath(current), robustio.Rename)
+			err := commitProgramReplacement(candidate, current, RollbackPath(current), robustio.Rename)
 			release()
 			if (err == nil) != test.transient || !test.transient && !errors.Is(err, windows.ERROR_SHARING_VIOLATION) {
 				t.Fatalf("candidate activation: transient=%t error=%v", test.transient, err)
@@ -182,7 +182,7 @@ func TestWindowsPortableUpdateDoesNotCreateCommandScripts(t *testing.T) {
 	if got, err := os.ReadFile(executable); err != nil || string(got) != "windows-binary" {
 		t.Fatalf("updated executable = %q, %v", got, err)
 	}
-	if got, err := os.ReadFile(rollbackPath(executable)); err != nil || string(got) != "current" {
+	if got, err := os.ReadFile(RollbackPath(executable)); err != nil || string(got) != "current" {
 		t.Fatalf("rollback executable = %q, %v", got, err)
 	}
 	if _, err := updater.Rollback(context.Background()); err != nil {
@@ -196,7 +196,7 @@ func TestWindowsPortableUpdateDoesNotCreateCommandScripts(t *testing.T) {
 }
 
 func TestRollbackPathWindowsExecutableBaseName(t *testing.T) {
-	if got := rollbackPath("aigw.exe"); got != ".aigw.previous.exe" {
+	if got := RollbackPath("aigw.exe"); got != ".aigw.previous.exe" {
 		t.Fatalf("rollbackPath = %q", got)
 	}
 }

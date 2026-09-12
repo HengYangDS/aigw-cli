@@ -225,7 +225,7 @@ func TestUpdateOwnsDownloadWorkspace(t *testing.T) {
 			}
 			executable := filepath.Join(installation, "aigw")
 			for path, content := range map[string]string{
-				executable: "current", rollbackPath(executable): "previous",
+				executable: "current", RollbackPath(executable): "previous",
 				filepath.Join(temporary, "foreign"): "preserved",
 			} {
 				if err := os.WriteFile(path, []byte(content), 0o700); err != nil {
@@ -260,7 +260,7 @@ func TestUpdateOwnsDownloadWorkspace(t *testing.T) {
 				current, previous = "candidate", "current"
 			}
 			for path, want := range map[string]string{
-				executable: current, rollbackPath(executable): previous,
+				executable: current, RollbackPath(executable): previous,
 				filepath.Join(temporary, "foreign"): "preserved",
 			} {
 				got, err := os.ReadFile(path)

@@ -73,6 +73,12 @@ removes the installed executable and that rollback copy. Accounts, Profiles,
 Routes, Tokens, user-authored client settings, and the explicit configuration
 backup remain intact.
 
+Run `aigw installation` to inspect the invoked command, actual program file and
+retained predecessor. `aigw installation --json` provides a schema-versioned
+description with paths, byte counts and SHA-256 digests without requiring this
+checkout or valid Account configuration. A missing predecessor is `null`;
+observed bytes do not establish release trust or successful rollback.
+
 GitLab and GitHub publish independently. Either release plane may supply a
 verified installation. When both are reachable during update, AIGW requires
 their version and current-platform asset bytes to agree; it never combines

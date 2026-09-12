@@ -15,6 +15,34 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+func TestInstallationObservationSeparatesCommandAndPayload(t *testing.T) {
+	root := t.TempDir()
+	payload, command := filepath.Join(root, "payload"), filepath.Join(root, "aigw")
+	if err := os.WriteFile(payload, []byte("program"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(payload, command); err != nil {
+		t.Fatal(err)
+	}
+	result, err := InspectInstallation(command, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := filepath.EvalSymlinks(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.CommandPath != command || result.Payload.Path != resolved {
+		t.Fatalf("command and payload were conflated: %+v", result)
+	}
+	if err := os.Symlink(filepath.Join(root, "missing"), RollbackPath(command)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InspectInstallation(command, "test"); err == nil || !strings.Contains(err.Error(), "retained portable program") {
+		t.Fatalf("broken retained link accepted as absent: %v", err)
+	}
+}
+
 func makeImmutable(t *testing.T, path string) {
 	t.Helper()
 	if err := unix.Chflags(path, unix.UF_IMMUTABLE); err != nil {
@@ -76,7 +104,7 @@ func TestRollbackPropagatesRestoreWriteFailure(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("current"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(rollbackPath(executable), []byte("previous"), 0o755); err != nil {
+	if err := os.WriteFile(RollbackPath(executable), []byte("previous"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	makeImmutable(t, executable)
@@ -92,7 +120,7 @@ func TestRollbackPropagatesBackupReplacementFailure(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("current"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	backup := rollbackPath(executable)
+	backup := RollbackPath(executable)
 	if err := os.WriteFile(backup, []byte("previous"), 0o755); err != nil {
 		t.Fatal(err)
 	}

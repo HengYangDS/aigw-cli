@@ -70,7 +70,7 @@ func TestUpdateCandidateSameVersionRequiresVerifiedProgramIdentity(t *testing.T)
 				digest = strings.Repeat("0", 64)
 			}
 			executable := filepath.Join(directory, "aigw")
-			previous := rollbackPath(executable)
+			previous := RollbackPath(executable)
 			for path, content := range map[string][]byte{
 				executable: []byte("current"), previous: []byte("retained"),
 				archivePath: archive, checksumsPath: []byte(digest + "  " + archiveName + "\n"),
@@ -223,7 +223,7 @@ func TestUpdateCandidateKeepsCurrentAndRollbackUntilProgramIsVerified(t *testing
 		t.Run(test.name, func(t *testing.T) {
 			directory := t.TempDir()
 			executable := filepath.Join(directory, "aigw")
-			previous := rollbackPath(executable)
+			previous := RollbackPath(executable)
 			for path, content := range map[string]string{executable: "current", previous: "retained"} {
 				if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
 					t.Fatal(err)

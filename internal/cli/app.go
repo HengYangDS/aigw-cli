@@ -329,6 +329,7 @@ func NewRoot(app *App) *cobra.Command {
 		installcli.NewInstallCommand(runtime), installcli.NewUninstallCommand(runtime),
 	}
 	advanced := []*cobra.Command{
+		installcli.NewInspectionCommand(runtime),
 		accountcli.NewAddCommand(runtime), accountcli.NewCommand(runtime, renaming.NewAccountCommand(runtime)),
 		profile.NewCommand(runtime, renaming.NewProfileCommand(runtime)),
 		route.NewCommand(runtime), adapter.NewCommand(runtime),

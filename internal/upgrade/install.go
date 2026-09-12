@@ -79,7 +79,7 @@ func (u Updater) replacePortableBinary(ctx context.Context, binary []byte) (resu
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return commitProgramReplacement(candidate, u.Executable, rollbackPath(u.Executable), robustio.Rename)
+	return commitProgramReplacement(candidate, u.Executable, RollbackPath(u.Executable), robustio.Rename)
 }
 
 func commitProgramReplacement(candidate, current, previous string, rename func(string, string) error) error {
@@ -105,7 +105,7 @@ func (u Updater) Rollback(ctx context.Context) (string, error) {
 	if strings.TrimSpace(u.Executable) == "" {
 		return "", errors.New("AIGW executable path is empty")
 	}
-	backup := rollbackPath(u.Executable)
+	backup := RollbackPath(u.Executable)
 	previous, err := os.ReadFile(backup)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -119,13 +119,13 @@ func (u Updater) Rollback(ctx context.Context) (string, error) {
 	return "restored the previous program version. If that older program does not support `aigw update --rollback`, download the current portable package and run its installer; it replaces only AIGW and retains one predecessor.", nil
 }
 
-// rollbackPath derives the sibling backup path for executable using the
+// RollbackPath derives the sibling backup path for executable using the
 // separator style already present in executable, rather than the host OS's
 // native separator. This keeps the result stable across platforms: a
 // POSIX-style path (e.g. produced by a Windows binary staged from a
 // forward-slash working directory) must not be rewritten with backslashes,
 // and vice versa.
-func rollbackPath(executable string) string {
+func RollbackPath(executable string) string {
 	suffix := ".aigw.previous"
 	if strings.EqualFold(filepath.Ext(executable), ".exe") {
 		suffix += ".exe"

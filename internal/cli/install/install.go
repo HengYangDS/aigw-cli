@@ -3,6 +3,7 @@ package install
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -11,11 +12,48 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/upgrade"
 
 	"github.com/spf13/cobra"
 )
 
 var writeFileAtomic = transaction.WriteFileAtomic
+
+// NewInspectionCommand constructs read-only observation of the running installation.
+func NewInspectionCommand(runtime invocation.Context) *cobra.Command {
+	var jsonMode bool
+	command := &cobra.Command{
+		Use: "installation", Short: "Inspect the current portable program and retained predecessor",
+		Long: "Observe program paths, byte counts and SHA-256 without changing files or reading Account configuration. This does not verify release trust, rollback readiness or client connectivity.",
+		Args: cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			result, err := upgrade.InspectInstallation(runtime.Executable, runtime.Version)
+			if err != nil {
+				return err
+			}
+			if jsonMode {
+				encoder := json.NewEncoder(runtime.Out)
+				encoder.SetIndent("", "  ")
+				return encoder.Encode(result)
+			}
+			render := invocation.Renderer(runtime)
+			render.ProductTitle("Portable installation")
+			render.Row("Version", result.Version)
+			render.Row("Command", result.CommandPath)
+			render.Row("Payload", result.Payload.Path)
+			render.Row("SHA-256", result.Payload.SHA256)
+			if result.Rollback == nil {
+				render.Row("Rollback", "No retained predecessor")
+			} else {
+				render.Row("Rollback", result.Rollback.Path)
+				render.Row("SHA-256", result.Rollback.SHA256)
+			}
+			return render.Err()
+		},
+	}
+	command.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
+	return command
+}
 
 // NewInstallCommand constructs the portable executable installation command.
 func NewInstallCommand(runtime invocation.Context) *cobra.Command {
@@ -111,7 +149,7 @@ func Install(source, target string) error {
 		if current, statErr := os.Stat(targetPath); statErr == nil {
 			mode = current.Mode().Perm()
 		}
-		if err := writeFileAtomic(backupPath(targetPath), previous, mode); err != nil {
+		if err := writeFileAtomic(upgrade.RollbackPath(targetPath), previous, mode); err != nil {
 			return fmt.Errorf("save previous portable AIGW executable: %w", err)
 		}
 	}
@@ -126,18 +164,10 @@ func Uninstall(target string) error {
 	if strings.TrimSpace(target) == "" {
 		return errors.New("portable uninstall target is empty")
 	}
-	for _, path := range []string{target, backupPath(target)} {
+	for _, path := range []string{target, upgrade.RollbackPath(target)} {
 		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("remove portable AIGW file %s: %w", path, err)
 		}
 	}
 	return nil
-}
-
-func backupPath(target string) string {
-	name := ".aigw.previous"
-	if strings.EqualFold(filepath.Ext(target), ".exe") {
-		name += ".exe"
-	}
-	return filepath.Join(filepath.Dir(target), name)
 }

@@ -110,3 +110,11 @@ Each platform uses its matching archive and the same CLI-owned lifecycle: `aigw 
 `aigw update`, `aigw update --rollback`, and `aigw uninstall`. Updates replace
 the binary atomically and retain exactly one immediate predecessor. There is no
 parallel package-manager channel.
+
+`aigw installation --json` observes the command path, running version, resolved
+program file and optional retained predecessor through one schema-versioned
+file-identity contract. This is computed from existing files: no installation
+registry, source checkout or Account configuration is needed. Digests describe
+observed bytes; they do not certify release trust, rollback readiness or client
+connectivity. Install, update, rollback, uninstall and inspection share one
+predecessor-path rule.

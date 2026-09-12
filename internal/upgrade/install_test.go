@@ -65,7 +65,7 @@ func TestReplacementPreservesForeignRollbackDirectory(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("current"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	backup := rollbackPath(executable)
+	backup := RollbackPath(executable)
 	if err := os.Mkdir(backup, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestRollbackRejectsEmptyExecutable(t *testing.T) {
 func TestRollbackRejectsMissingCurrentExecutable(t *testing.T) {
 	directory := t.TempDir()
 	executable := filepath.Join(directory, "missing")
-	if err := os.WriteFile(rollbackPath(executable), []byte("previous-program"), 0o755); err != nil {
+	if err := os.WriteFile(RollbackPath(executable), []byte("previous-program"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	u := Updater{Executable: executable}
@@ -132,7 +132,7 @@ func TestRollbackRejectsUnreadableBackup(t *testing.T) {
 	}
 	// A directory at the backup path makes os.ReadFile fail with an error
 	// other than os.ErrNotExist.
-	if err := os.Mkdir(rollbackPath(executable), 0o700); err != nil {
+	if err := os.Mkdir(RollbackPath(executable), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	u := Updater{Executable: executable}
@@ -166,16 +166,16 @@ func zipArchive(t *testing.T, name string, data []byte) []byte {
 }
 
 func TestRollbackPathVariants(t *testing.T) {
-	if got := rollbackPath("/opt/aigw/aigw"); got != "/opt/aigw/.aigw.previous" {
+	if got := RollbackPath("/opt/aigw/aigw"); got != "/opt/aigw/.aigw.previous" {
 		t.Fatalf("rollbackPath = %q", got)
 	}
-	if got := rollbackPath("/opt/aigw/aigw.EXE"); got != "/opt/aigw/.aigw.previous.exe" {
+	if got := RollbackPath("/opt/aigw/aigw.EXE"); got != "/opt/aigw/.aigw.previous.exe" {
 		t.Fatalf("rollbackPath = %q", got)
 	}
-	if got := rollbackPath(`C:\aigw\aigw.exe`); got != `C:\aigw\.aigw.previous.exe` {
+	if got := RollbackPath(`C:\aigw\aigw.exe`); got != `C:\aigw\.aigw.previous.exe` {
 		t.Fatalf("rollbackPath = %q", got)
 	}
-	if got := rollbackPath(`C:\aigw\aigw`); got != `C:\aigw\.aigw.previous` {
+	if got := RollbackPath(`C:\aigw\aigw`); got != `C:\aigw\.aigw.previous` {
 		t.Fatalf("rollbackPath = %q", got)
 	}
 }
@@ -215,7 +215,7 @@ func TestPortableInstallHelpersRejectEmptyTargetAndPreserveForeignSeparators(t *
 	if err := (Updater{}).replacePortableBinary(t.Context(), []byte("binary")); err == nil || !strings.Contains(err.Error(), "path is empty") {
 		t.Fatalf("empty target error = %v", err)
 	}
-	if got := rollbackPath(`C:\\tools\\aigw.exe`); got != `C:\\tools\\.aigw.previous.exe` {
+	if got := RollbackPath(`C:\\tools\\aigw.exe`); got != `C:\\tools\\.aigw.previous.exe` {
 		t.Fatalf("Windows rollback path = %q", got)
 	}
 }

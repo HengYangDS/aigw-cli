@@ -227,6 +227,34 @@ source; it MUST NOT be treated as current state or applied implicitly.
   explicit previous-configuration backup remain available
 - **AND** no verified checkpoint continues to claim the withdrawn projections.
 
+### Requirement: Portable installation describes its own current files
+
+`aigw installation` SHALL observe the invoked portable program without changing
+files, accessing credential values, requiring valid Account configuration, or
+executing a retained program. Its `--json` output SHALL have an explicit schema
+version and bind the absolute command path, running version, resolved payload
+path, byte count and SHA-256. A present rollback copy SHALL be described by the
+same file-identity contract; absence SHALL be explicit, not an error or a claim
+that rollback has been verified. Unreadable or nonregular files SHALL fail with
+the affected boundary. The result SHALL be derived from existing files, not a
+persisted installation registry or a checkout-only build receipt.
+
+#### Scenario: Observe an installed program without source or configuration
+
+- **GIVEN** a portable installation outside its source checkout
+- **AND** Account configuration is absent or malformed
+- **WHEN** the operator runs `aigw installation --json`
+- **THEN** it reports the current program's file identity without modifying any
+  file, reading credentials or starting a client
+- **AND** a missing rollback copy is represented as `null`.
+
+#### Scenario: Observe program replacement and rollback
+
+- **WHEN** the operator observes an installation after update or rollback
+- **THEN** the result reflects the files actually present at those paths
+- **AND** install, update, rollback, uninstall and observation use one rollback
+  path rule rather than parallel naming implementations.
+
 ### Requirement: Token rotation is credential-scoped
 
 AIGW SHALL validate and replace only the selected Account's Token. Rotation

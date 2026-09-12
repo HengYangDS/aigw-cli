@@ -1084,6 +1084,15 @@ main/peer/install prerequisites in AIGW documentation.
 
 ### Evidence is attached to claims, not accumulated as a second history
 
+Portable installation inspection belongs to the existing upgrade owner.
+`aigw installation --json` exposes a schema-versioned observation of the current
+command, resolved program bytes and optional retained predecessor. It neither
+executes a retained binary nor reads Account configuration. The output is
+computed, not persisted in another manifest or workstation registry. One
+rollback-path rule serves install, update, rollback, uninstall and inspection.
+The result describes bytes and paths, not release trust or runtime readiness;
+those retain their own verification requirements.
+
 GitLab tool caching retains installed tools together with mise's native cache
 metadata, including incomplete-install markers. Its native `when: always`
 policy preserves completed installations after a later failure without masking

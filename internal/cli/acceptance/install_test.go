@@ -1,7 +1,9 @@
 package cli_test
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -14,6 +16,49 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/surface"
 )
+
+func TestInstallationDescribesCurrentFilesWithoutConfiguration(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	root := t.TempDir()
+	app.Executable = filepath.Join(root, executableName("aigw"))
+	app.Version = "1.2.3"
+	program := []byte("current portable program")
+	writeFile(t, app.Executable, program, 0o755)
+	writeFile(t, app.Config.Path(), []byte("malformed configuration"), 0o600)
+	if err := cli.Execute(app, []string{"installation", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		SchemaVersion int    `json:"schema_version"`
+		Version       string `json:"version"`
+		CommandPath   string `json:"command_path"`
+		Payload       struct {
+			Path      string `json:"path"`
+			SHA256    string `json:"sha256"`
+			SizeBytes int64  `json:"size_bytes"`
+		} `json:"payload"`
+		Rollback json.RawMessage `json:"rollback"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := filepath.EvalSymlinks(app.Executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.SchemaVersion != 1 || result.Version != app.Version || result.CommandPath != app.Executable ||
+		result.Payload.Path != resolved || result.Payload.SHA256 != fmt.Sprintf("%x", sha256.Sum256(program)) ||
+		result.Payload.SizeBytes != int64(len(program)) || string(result.Rollback) != "null" {
+		t.Fatalf("installation description = %+v", result)
+	}
+	if data, err := os.ReadFile(app.Config.Path()); err != nil || string(data) != "malformed configuration" {
+		t.Fatalf("installation observation changed configuration: %q, %v", data, err)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("installation observation added state: %v, %v", entries, err)
+	}
+}
 
 func TestPortableInstallAndUninstallCommandsOwnOnlyProgramFiles(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
