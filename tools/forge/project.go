@@ -57,22 +57,20 @@ func project(options projectionOptions) error {
 		if err != nil {
 			return err
 		}
-		switch remoteTip {
-		case "":
-			arguments = append(arguments, "--force-with-lease=refs/heads/"+branch+":"+strings.Repeat("0", len(sourceCommit)))
-		case sourceCommit:
-		default:
+		expectedTip, explicit := options.expectedTips[branch]
+		if explicit && expectedTip != remoteTip {
+			return fmt.Errorf("remote %s does not match its exact expected tip", branch)
+		}
+		if remoteTip != "" {
 			ancestor, err := isAncestor(options.repository, options.remote, remoteTip, sourceCommit)
 			if err != nil {
 				return err
 			}
-			if !ancestor {
-				if options.expectedTips[branch] != remoteTip {
-					return fmt.Errorf("remote %s diverges; exact expected tip is required for cutover", branch)
-				}
-				arguments = append(arguments, "--force-with-lease=refs/heads/"+branch+":"+remoteTip)
+			if !ancestor && !explicit {
+				return fmt.Errorf("remote %s diverges; exact expected tip is required for cutover", branch)
 			}
 		}
+		arguments = append(arguments, "--force-with-lease=refs/heads/"+branch+":"+remoteTip)
 	}
 	arguments = append(arguments, options.remote)
 	for _, branch := range targets {

@@ -150,7 +150,7 @@ func runProjection(arguments []string) error {
 	remote := flags.String("remote", "", "target Git remote")
 	email := flags.String("email", "", "product author and committer email")
 	allowedSigners := flags.String("allowed-signers", "", "product SSH trust input")
-	flags.Var(&expected, "expect-remote-tip", "branch=OID divergent cutover lease")
+	flags.Var(&expected, "expect-remote-tip", "branch=OID expected remote state; required for divergent cutover")
 	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *remote == "" || *email == "" || *allowedSigners == "" {
 		return errors.New("usage: forge project --remote <name> --email <email> --allowed-signers <path> [--source <main|proposal/*>] [--expect-remote-tip <branch=OID>]...")
 	}

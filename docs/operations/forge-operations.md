@@ -48,7 +48,12 @@ mise exec --locked -- go run ./tools/forge project \
   --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
 ```
 
-A fast-forward or equal tip needs no destructive option. A one-time divergent
+A fast-forward or equal tip needs no destructive option. Every update carries
+an exact lease for the observed remote tip, including expected absence. An
+explicit `--expect-remote-tip` is checked even for a fast-forward or equal tip;
+it is never ignored because the update appears safe. Concurrent remote drift
+rejects the atomic publication instead of silently changing its admitted base.
+A one-time divergent
 cutover requires every fresh observed peer tip:
 
 ```sh

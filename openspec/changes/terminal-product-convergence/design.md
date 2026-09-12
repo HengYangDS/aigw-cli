@@ -514,7 +514,13 @@ Forge verification reads policy from the exact source object, not another
 checkout or uncommitted file. Already-local peer objects need no fetch; otherwise
 fetch the exact object without observation refs or `FETCH_HEAD` mutation.
 Execution failure is not divergence. Publish locally signed objects unchanged
-with explicit expected-state protection.
+with explicit expected-state protection. Every branch update carries Git's exact
+observed-tip lease, including creation; an explicitly supplied expected tip must
+match even when the update is a fast-forward or already equal. Ancestry grants
+fast-forward eligibility, not permission to ignore the caller's expected state.
+Real signed-repository tests verify rejection before either ref changes and
+inspect Git's native trace for both atomic-update leases. No alternate push
+implementation or permanent hook bypass is part of this behavior.
 
 #### Migration boundaries
 

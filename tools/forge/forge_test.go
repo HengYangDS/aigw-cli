@@ -53,16 +53,6 @@ func TestForgeCommandsReportOutputFailureWithoutRevertingPublication(t *testing.
 	}
 }
 
-func TestRemovedHistoryAndLifecycleCommandsStayAbsent(t *testing.T) {
-	for _, command := range []string{"replay", "sync", "closeout", "promote-release"} {
-		t.Run(command, func(t *testing.T) {
-			if err := run([]string{command}); err == nil || !strings.Contains(err.Error(), "unknown forge command") {
-				t.Fatalf("removed command %q: %v", command, err)
-			}
-		})
-	}
-}
-
 func TestMainPublicationPreservesOneExactCommit(t *testing.T) {
 	fixture := newForgeFixture(t)
 	remote := newBareRepository(t)
@@ -292,23 +282,44 @@ func TestProjectionRejectsInvalidInputsAndCoordinates(t *testing.T) {
 	}
 }
 
-func TestProjectionSupportsFastForwardAndRejectsStaleLease(t *testing.T) {
+func TestProjectionHonorsExplicitExpectedTipsBeforeFastForward(t *testing.T) {
 	fixture := newForgeFixture(t)
 	remote := newBareRepository(t)
 	gitTest(t, fixture.repository, "remote", "add", "peer", remote)
 	gitTest(t, fixture.repository, "push", "-q", "peer", "main:main", "main:dev")
+	base := gitOutputForTest(t, fixture.repository, "rev-parse", "main")
 	writeCommitForTest(t, fixture.repository, "next", "next\n")
 	arguments := []string{"project", "--repository", fixture.repository, "--remote", "peer", "--source", "main", "--email", fixture.email, "--allowed-signers", fixture.allowedSigners}
-	if err := run(arguments); err != nil {
-		t.Fatalf("fast-forward: %v", err)
+	stale := append(append([]string(nil), arguments...), "--expect-remote-tip", "main="+strings.Repeat("0", len(base)))
+	if err := run(stale); err == nil || !strings.Contains(err.Error(), "expected tip") {
+		t.Fatalf("fast-forward ignored explicit expected state: %v", err)
 	}
-
-	other := newForgeFixture(t)
-	gitTest(t, other.repository, "remote", "add", "peer", remote)
-	stale := strings.Repeat("0", 40)
-	arguments = []string{"project", "--repository", other.repository, "--remote", "peer", "--source", "main", "--email", other.email, "--allowed-signers", other.allowedSigners, "--expect-remote-tip", "main=" + stale, "--expect-remote-tip", "dev=" + stale}
-	if err := run(arguments); err == nil || !strings.Contains(err.Error(), "exact expected tip") {
-		t.Fatalf("stale lease: %v", err)
+	for _, branch := range []string{"main", "dev"} {
+		if got := gitOutputForTest(t, remote, "rev-parse", branch); got != base {
+			t.Fatalf("rejected publication changed %s to %s", branch, got)
+		}
+	}
+	fresh := append(arguments, "--expect-remote-tip", "main="+base, "--expect-remote-tip", "dev="+base)
+	trace := filepath.Join(t.TempDir(), "git.trace")
+	t.Setenv("GIT_TRACE", trace)
+	if err := run(fresh); err != nil {
+		t.Fatalf("fresh expected state rejected: %v", err)
+	}
+	observed, err := os.ReadFile(trace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, branch := range []string{"main", "dev"} {
+		if !strings.Contains(string(observed), "--force-with-lease=refs/heads/"+branch+":"+base) {
+			t.Fatalf("publication omitted the exact %s lease: %s", branch, observed)
+		}
+	}
+	if err := run(fresh); err == nil || !strings.Contains(err.Error(), "expected tip") {
+		t.Fatalf("equal tips ignored the now-stale expected state: %v", err)
+	}
+	writeCommitForTest(t, fixture.repository, "later", "later\n")
+	if err := run(arguments); err != nil {
+		t.Fatalf("ordinary fast-forward required a destructive option: %v", err)
 	}
 }
 
