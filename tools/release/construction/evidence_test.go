@@ -86,7 +86,7 @@ func TestDependencyEvidenceBindsFixesToPackageAndVersionScheme(t *testing.T) {
 				t.Fatal(err)
 			}
 			target := filepath.Join(root, "vulnerabilities.json")
-			if err := normalizeDependencyEvidence(source, target, filepath.Join(root, "licenses.json")); err != nil {
+			if err := normalizeDependencyEvidence(source, target, filepath.Join(root, "licenses.json"), []string{"go.mod"}); err != nil {
 				t.Fatal(err)
 			}
 			data, err := os.ReadFile(target)
@@ -148,7 +148,7 @@ func TestNormalizeDependencyEvidenceRemovesHostAndVolatileMetadata(t *testing.T)
 	}
 	vulnerabilities := filepath.Join(t.TempDir(), "vulnerabilities.json")
 	licenses := filepath.Join(t.TempDir(), "licenses.json")
-	if err := normalizeDependencyEvidence(raw, vulnerabilities, licenses); err != nil {
+	if err := normalizeDependencyEvidence(raw, vulnerabilities, licenses, []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")}); err != nil {
 		t.Fatal(err)
 	}
 	for _, path := range []string{vulnerabilities, licenses} {
@@ -174,6 +174,60 @@ func TestNormalizeDependencyEvidenceRemovesHostAndVolatileMetadata(t *testing.T)
 		if !strings.Contains(string(licenseData), required) {
 			t.Fatalf("license report missing %q: %s", required, licenseData)
 		}
+	}
+}
+
+func TestDependencyEvidenceRequiresCompleteSelectedSources(t *testing.T) {
+	for _, scenario := range []string{
+		"complete", "missing results", "partial", "foreign checkout", "foreign lockfile", "duplicate source", "non-lockfile source", "empty packages",
+	} {
+		t.Run(scenario, func(t *testing.T) {
+			root := t.TempDir()
+			encoded, err := dependencyReportFixture(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var report osvFixtureReport
+			if err := json.Unmarshal(encoded, &report); err != nil {
+				t.Fatal(err)
+			}
+			switch scenario {
+			case "missing results":
+				report.Results = nil
+			case "partial":
+				report.Results = report.Results[:1]
+			case "foreign checkout":
+				report.Results[0].Source.Path = filepath.Join(root, "sibling", "go.mod")
+			case "foreign lockfile":
+				report.Results[0].Source.Path = filepath.Join(root, "other.lock")
+			case "duplicate source":
+				report.Results = append(report.Results, report.Results[0])
+			case "non-lockfile source":
+				report.Results[0].Source.Type = "directory"
+			case "empty packages":
+				report.Results[0].Packages = nil
+			}
+			source := filepath.Join(root, "osv.json")
+			if err := writeJSON(source, report); err != nil {
+				t.Fatal(err)
+			}
+			vulnerabilities, licenses := filepath.Join(root, "vulnerabilities.json"), filepath.Join(root, "licenses.json")
+			err = normalizeDependencyEvidence(source, vulnerabilities, licenses, []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")})
+			if scenario == "complete" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("%s dependency report was accepted", scenario)
+			}
+			for _, target := range []string{vulnerabilities, licenses} {
+				if _, err := os.Stat(target); !os.IsNotExist(err) {
+					t.Fatalf("incomplete scan wrote accepted evidence: %s, %v", target, err)
+				}
+			}
+		})
 	}
 }
 

@@ -164,24 +164,52 @@ func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 }
 
 func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
-	valid := buildRequest{
-		Root: releaseRoot(t), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400",
-		GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli",
-		GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli",
-		SigningKey: "key",
-	}
-	populate := func(call toolCall) error {
-		if call.Name == "goreleaser" {
-			return populatePortableStage(t, call, valid.Version, "portable_linux_amd64/aigw")
-		}
-		if call.Name == "syft" {
-			path := strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json=")
-			return os.WriteFile(path, []byte("{"), 0o600)
-		}
-		return nil
-	}
-	if err := buildRelease(valid, populate); err == nil || !strings.Contains(err.Error(), "decode Syft") {
-		t.Fatalf("SPDX normalization error = %v", err)
+	for _, boundary := range []string{"decode Syft", "selected lockfiles"} {
+		t.Run(boundary, func(t *testing.T) {
+			root := releaseRoot(t)
+			output := filepath.Join(root, "dist")
+			if err := os.Mkdir(output, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			accepted := filepath.Join(output, "accepted")
+			if err := os.WriteFile(accepted, []byte("previous release"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			valid := buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: "unused"}
+			err := buildRelease(valid, func(call toolCall) error {
+				switch call.Name {
+				case "git":
+					return nil
+				case "goreleaser":
+					return populatePortableStage(t, call, valid.Version, "portable_linux_amd64/aigw")
+				case "syft":
+					data := spdxFixture(valid.Version)
+					if boundary == "decode Syft" {
+						data = []byte("{")
+					}
+					return os.WriteFile(strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json="), data, 0o600)
+				case "osv-scanner":
+					return os.WriteFile(call.Args[len(call.Args)-1], []byte(`{"results":[]}`), 0o600)
+				default:
+					t.Fatalf("invalid evidence reached later release tool %s", call.Name)
+					return nil
+				}
+			})
+			if err == nil || !strings.Contains(err.Error(), boundary) {
+				t.Fatalf("release validation error = %v, want %s", err, boundary)
+			}
+			if data, err := os.ReadFile(accepted); err != nil || string(data) != "previous release" {
+				t.Fatalf("invalid evidence changed accepted output: %q, %v", data, err)
+			}
+			entries, err := os.ReadDir(output)
+			if err != nil || len(entries) != 1 {
+				t.Fatalf("partial evidence published: %v, %v", entries, err)
+			}
+			workspaces, err := filepath.Glob(filepath.Join(root, ".aigw-release-*"))
+			if err != nil || len(workspaces) != 0 {
+				t.Fatalf("failed release left workspace residue: %v, %v", workspaces, err)
+			}
+		})
 	}
 }
 

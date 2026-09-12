@@ -23,6 +23,7 @@ type osvReport struct {
 	Results []struct {
 		Source struct {
 			Path string `json:"path"`
+			Type string `json:"type"`
 		} `json:"source"`
 		Packages []struct {
 			Package         dependencyIdentity `json:"package"`
@@ -87,7 +88,7 @@ type licensedDependency struct {
 	Licenses []string `json:"licenses"`
 }
 
-func normalizeDependencyEvidence(source, vulnerabilityTarget, licenseTarget string) error {
+func normalizeDependencyEvidence(source, vulnerabilityTarget, licenseTarget string, lockfiles []string) error {
 	data, err := os.ReadFile(source)
 	if err != nil {
 		return fmt.Errorf("read OSV dependency report: %w", err)
@@ -96,15 +97,22 @@ func normalizeDependencyEvidence(source, vulnerabilityTarget, licenseTarget stri
 	if err := json.Unmarshal(data, &report); err != nil {
 		return fmt.Errorf("decode OSV dependency report: %w", err)
 	}
+	if len(lockfiles) == 0 || len(report.Results) != len(lockfiles) {
+		return errors.New("OSV dependency report does not cover the selected lockfiles")
+	}
+	remaining := make(map[string]bool, len(lockfiles))
+	for _, path := range lockfiles {
+		remaining[filepath.Clean(path)] = true
+	}
 	vulnerabilities := vulnerabilityEvidence{SchemaVersion: 1, Sources: make([]vulnerabilitySource, 0, len(report.Results))}
 	licenses := licenseEvidence{SchemaVersion: 1, Sources: make([]licenseSource, 0, len(report.Results))}
-	seen := map[string]bool{}
 	for _, result := range report.Results {
-		lockfile := filepath.Base(result.Source.Path)
-		if lockfile == "." || lockfile == "" || seen[lockfile] {
-			return fmt.Errorf("OSV dependency report has invalid or duplicate source %q", lockfile)
+		path := filepath.Clean(result.Source.Path)
+		if !remaining[path] || result.Source.Type != "lockfile" || len(result.Packages) == 0 {
+			return fmt.Errorf("OSV dependency report has an unselected, duplicate or unobserved lockfile %q", result.Source.Path)
 		}
-		seen[lockfile] = true
+		delete(remaining, path)
+		lockfile := filepath.Base(path)
 		vulnerabilitySource := vulnerabilitySource{Lockfile: lockfile, Packages: []vulnerableDependency{}}
 		licenseSource := licenseSource{Lockfile: lockfile, Packages: make([]licensedDependency, 0, len(result.Packages))}
 		for _, item := range result.Packages {

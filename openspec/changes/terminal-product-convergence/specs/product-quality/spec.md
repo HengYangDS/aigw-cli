@@ -182,6 +182,21 @@ dependencies and file digests in one SPDX document without a custom SBOM merger.
 - **AND** full-lock license and vulnerability evidence SHALL remain distinct
   from the binary runtime inventory.
 
+### Requirement: Dependency evidence binds the selected lockfiles
+
+The release scanner invocation and report admission SHALL share one exact
+lockfile-path selection. Normalization SHALL admit every selected lockfile
+exactly once with nonempty package observations before writing either report.
+
+#### Scenario: Scanner output does not establish the selected scope
+
+- **WHEN** an OSV report is empty, partial, duplicated, attributed to another
+  checkout or source kind, or lacks package observations
+- **THEN** release construction SHALL fail before evidence signing
+- **AND** neither normalized report SHALL be written
+- **AND** accepted output SHALL remain unchanged and temporary construction
+  state SHALL be reclaimed.
+
 ### Requirement: Quantitative policy is evidence-derived
 
 Complexity, executable lines, nesting, parameters, coverage, performance, and

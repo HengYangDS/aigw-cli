@@ -95,12 +95,13 @@ func buildRelease(request buildRequest, run toolRunner) (result error) {
 		return err
 	}
 	rawDependencies := filepath.Join(stage, "aigw.dependencies.json")
+	lockfiles := []string{filepath.Join(request.Root, "go.mod"), filepath.Join(request.Root, "package-lock.json")}
 	if err := run(toolCall{
 		Name: "osv-scanner", Directory: request.Root,
 		Args: []string{
 			"scan", "source",
-			"--lockfile", filepath.Join(request.Root, "go.mod"),
-			"--lockfile", filepath.Join(request.Root, "package-lock.json"),
+			"--lockfile", lockfiles[0],
+			"--lockfile", lockfiles[1],
 			"--no-call-analysis=go", "--format", "json", "--all-packages", "--licenses=",
 			"--output-file", rawDependencies,
 		},
@@ -111,6 +112,7 @@ func buildRelease(request buildRequest, run toolRunner) (result error) {
 		rawDependencies,
 		filepath.Join(candidate, "aigw_"+request.Version+".vulnerabilities.json"),
 		filepath.Join(candidate, "aigw_"+request.Version+".licenses.json"),
+		lockfiles,
 	); err != nil {
 		return err
 	}

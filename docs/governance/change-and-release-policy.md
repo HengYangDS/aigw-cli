@@ -305,6 +305,13 @@ or additional binary entries fail normalization before signing. This runtime
 inventory is distinct from the license and vulnerability evidence for the full
 Go and npm dependency locks.
 
+The OSV invocation and report admission share the same exact lockfile paths.
+Every selected lockfile must appear once as a lockfile source with observed
+packages before either report is written. An empty or partial report, another
+checkout's same-named file, or a directory scan is not clean dependency evidence.
+Only after this admission are host-specific path prefixes removed from the
+portable reports. Rejection occurs before signing or replacing accepted output.
+
 An untagged candidate uses the distinct version in `VERSION`. Until that
 version has a published Changelog entry, its reproducible timestamp comes from
 the exact source commit, not the wall clock or an invented release heading.
