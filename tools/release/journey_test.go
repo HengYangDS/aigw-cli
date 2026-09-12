@@ -5,6 +5,7 @@ import (
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -430,4 +431,41 @@ func entryNames(entries []os.DirEntry) []string {
 		names = append(names, entry.Name())
 	}
 	return names
+}
+
+func (j *journeyFixture) requireInstallationDescription(version, payload, rollback string) {
+	j.testing.Helper()
+	var observed struct {
+		SchemaVersion int    `json:"schema_version"`
+		Version       string `json:"version"`
+		CommandPath   string `json:"command_path"`
+		Payload       struct {
+			Path      string `json:"path"`
+			SHA256    string `json:"sha256"`
+			SizeBytes int64  `json:"size_bytes"`
+		} `json:"payload"`
+		Rollback *struct {
+			Path      string `json:"path"`
+			SHA256    string `json:"sha256"`
+			SizeBytes int64  `json:"size_bytes"`
+		} `json:"rollback"`
+	}
+	if err := json.Unmarshal(j.run("installation", "--json"), &observed); err != nil {
+		j.testing.Fatal(err)
+	}
+	resolved, err := filepath.EvalSymlinks(j.binary)
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	current, previous := readFile(j.testing, payload), readFile(j.testing, rollback)
+	if observed.SchemaVersion != 1 || observed.Version != version || observed.CommandPath != j.binary ||
+		observed.Payload.Path != resolved || observed.Payload.SHA256 != fmt.Sprintf("%x", sha256.Sum256(current)) ||
+		observed.Payload.SizeBytes != int64(len(current)) || observed.Rollback == nil ||
+		observed.Rollback.SHA256 != fmt.Sprintf("%x", sha256.Sum256(previous)) ||
+		observed.Rollback.SizeBytes != int64(len(previous)) {
+		j.testing.Fatalf("packaged installation description = %+v", observed)
+	}
+	if data := readFile(j.testing, observed.Rollback.Path); !bytes.Equal(data, previous) {
+		j.testing.Fatal("described rollback path does not hold the retained program")
+	}
 }
