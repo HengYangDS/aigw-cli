@@ -207,12 +207,17 @@ new Account's Token to a client retaining the old endpoint.
 
 ## Existing member
 
-Preview before merging reviewed metadata:
+Export local public metadata for comparison, then import the reviewed manifest:
 
 ```bash
-aigw config import manifest.toml --dry-run --json
+aigw config export > local-manifest.toml
 aigw config import manifest.toml
 ```
+
+Review the exported file against the incoming manifest before importing.
+`config import` applies a merge; it has no preview or JSON-output mode.
+Conflicting public metadata requires an explicit `--replace-account <id>` or
+`--replace-profile <id>` after review. Tokens are neither exported nor replaced.
 
 | Collision                          | Default behavior     | Explicit action                          |
 | ---------------------------------- | -------------------- | ---------------------------------------- |
@@ -221,8 +226,10 @@ aigw config import manifest.toml
 | Local-only Profile not in manifest | Preserve             | Remove explicitly if obsolete            |
 | Existing Token                     | Preserve             | Rotate explicitly if required            |
 
-Import does not change Routes unless the command explicitly requests that
-operation.
+Import preserves existing Routes and fills only empty Routes from the
+manifest's recommendations. It reconciles enabled client projections through
+the ordinary guarded transaction; a failed projection leaves the import
+uncommitted.
 
 ## Local choices
 

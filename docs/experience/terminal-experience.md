@@ -14,27 +14,17 @@ A synchronized projection is not proof of authentication or inference.
 
 ## Navigation
 
-Help is the CLI reference, generated from the command declarations and native
-flag metadata rather than a separately maintained option list. Runnable
-commands show their invocation; command groups show `[command]`. A command that
-supports both shows both forms. The root journey uses `aigw use <profile>`:
-selection belongs to that Profile's client, not a hidden global default.
-
-| Intent    | Commands                                                                                  |
-| --------- | ----------------------------------------------------------------------------------------- |
-| Connect   | `setup`                                                                                   |
-| Daily use | `status`, `use`, `check`, `rotate`                                                        |
-| Recover   | `doctor`, `repair`, `sync`, `rollback`, `update`                                          |
-| Advanced  | `account`, `profile`, `route`, `adapter`, `config`, `catalog`, `models`, `test`, `verify` |
-
-No alias exists only for presentation. The command grammar remains the
-automation contract.
-
 `aigw <command> --help` is the source-derived command reference. Cobra owns
 command grammar, descriptions, examples and available subcommands; pflag owns
 option notation, value types, declared defaults and inherited options. AIGW
 adds journey grouping and terminal layout, not a second option-definition
 table. Help is available before configuration and does not create local state.
+
+Runnable commands show their invocation; command groups show `[command]`.
+A command that supports both shows both forms. The root journey uses
+`aigw use <profile>`: selection belongs to that Profile's client, not a hidden
+global default. No alias exists only for presentation; the command grammar
+remains the automation contract.
 
 Argument admission precedes configuration locking and command execution. An
 explicit empty or whitespace-only update path is invalid, not an online-update

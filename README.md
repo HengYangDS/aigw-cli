@@ -30,7 +30,7 @@ The daily path is deliberately small:
 
 ```text
 aigw setup
-aigw use
+aigw use <profile>
 aigw check
 ```
 
@@ -185,7 +185,7 @@ untouched and are reported as not configured.
 
 ```bash
 aigw
-aigw use [profile]
+aigw use <profile>
 aigw check
 aigw doctor
 aigw repair --dry-run --json
