@@ -489,6 +489,13 @@ Go overlays reverse each order and must fail. Similar-looking backup/checkpoint
 readers and Account/Profile edits retain different schemas, intent and errors
 rather than being forced into a generic framework.
 
+Codex target preparation owns snapshot capture and desired projection in one
+operation. The single-caller seven-argument preparation layer is removed; one
+convergence observation determines both transaction-ID retention and the public
+plan classification. A converged target prepares no writes and preserves every
+owned file. The artifact dependency-ordering owner remains distinct because
+creation and withdrawal require opposite catalogue ordering.
+
 The pure Codex catalogue owner preserves the complete native document and
 returns the uniquely matched base. Product reconciliation and repository
 acceptance share this contract. Executable identity remains observable after

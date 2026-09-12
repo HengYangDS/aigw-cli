@@ -206,10 +206,6 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 		return prepareCodexRestore(target.ref, configSnapshot, stateSnapshot, catalogSnapshot)
 	}
 	block := codexManagedBlock(runtime, endpoint)
-	return prepareCodexFullSelection(target.ref, runtime, block, configSnapshot, stateSnapshot, catalogSnapshot, transactionID)
-}
-
-func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, block string, configSnapshot, stateSnapshot, catalogSnapshot transaction.FileSnapshot, transactionID string) (codexPreparedTarget, error) {
 	base, state, err := codexUserConfig(configSnapshot, stateSnapshot, runtime, block)
 	if err != nil {
 		return codexPreparedTarget{}, err
@@ -223,7 +219,7 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 	if provider != configuration.ModelProviderAIGW {
 		catalogModel = ""
 	}
-	catalog := codexCatalogProjection(target, catalogModel, base, state, catalogSnapshot)
+	catalog := codexCatalogProjection(target.ref, catalogModel, base, state, catalogSnapshot)
 	projection, err := projectCodex(base, block, runtime.Model, catalog.path, provider)
 	if err != nil {
 		return codexPreparedTarget{}, err
@@ -244,13 +240,14 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 	state.ProjectionMode = ProjectionFullSelection
 	state.WriterID = ProjectionWriterID
 	stateData := encodeCodexState(state)
-	catalogConverged := catalogSnapshot.Equal(catalogDesired)
-	if !bytes.Equal(configSnapshot.Data, projected) || !bytes.Equal(stateSnapshot.Data, stateData) || !stateSnapshot.Exists || !catalogConverged {
+	converged := stateSnapshot.Exists && bytes.Equal(configSnapshot.Data, projected) &&
+		bytes.Equal(stateSnapshot.Data, stateData) && catalogSnapshot.Equal(catalogDesired)
+	if !converged {
 		state.TransactionID = transactionID
 		stateData = encodeCodexState(state)
 	}
 	action := "update"
-	if bytes.Equal(configSnapshot.Data, projected) && stateSnapshot.Exists && bytes.Equal(stateSnapshot.Data, stateData) && catalogConverged {
+	if converged {
 		action = "already-converged"
 	} else if !stateSnapshot.Exists {
 		action = "initial-project"
@@ -258,8 +255,8 @@ func prepareCodexFullSelection(target TargetRef, runtime configuration.Runtime, 
 		action = "repair-truncated"
 	}
 	return codexPreparedTarget{
-		plan:      ProjectionPlan{Target: target.Path, Action: action},
-		artifacts: codexArtifactsForDesiredState(target, configSnapshot, projected, stateSnapshot, stateData, catalogSnapshot, catalogDesired),
+		plan:      ProjectionPlan{Target: target.ref.Path, Action: action},
+		artifacts: codexArtifactsForDesiredState(target.ref, configSnapshot, projected, stateSnapshot, stateData, catalogSnapshot, catalogDesired),
 	}, nil
 }
 

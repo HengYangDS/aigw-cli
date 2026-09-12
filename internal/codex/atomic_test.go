@@ -146,6 +146,36 @@ func TestPlanReconciliationClassifiesInitialConvergedAndExactTruncationRepair(t 
 	}
 }
 
+func TestConvergedCodexReconciliationPreservesEveryOwnedFile(t *testing.T) {
+	path := writeCodexTestConfig(t, "model_provider = \"native\"\nuser_setting = true\n")
+	targets := codexHomeTargets([]string{path})
+	runtime := atomicTestRuntime()
+	if _, err := ReconcileConfigs(nil, targets, runtime); err != nil {
+		t.Fatal(err)
+	}
+	before := map[string]transaction.FileSnapshot{}
+	for _, file := range []string{path, codexStatePath(path), codexCatalogPath(path)} {
+		snapshot, err := transaction.CaptureFileSnapshot(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		before[file] = snapshot
+	}
+	prepared, err := prepareCodexReconciliation(targets, targets, runtime)
+	if err != nil || len(prepared) != 1 || prepared[0].plan.Action != "already-converged" || len(prepared[0].artifacts) != 0 {
+		t.Fatalf("converged preparation = %#v, %v", prepared, err)
+	}
+	if _, err := ReconcileConfigs(targets, targets, runtime); err != nil {
+		t.Fatal(err)
+	}
+	for file, want := range before {
+		got, err := transaction.CaptureFileSnapshot(file)
+		if err != nil || !got.Equal(want) {
+			t.Fatalf("converged reconciliation changed %s: %v", file, err)
+		}
+	}
+}
+
 func TestReconcileConfigsRejectsUnattributedStateWithoutOriginalSelections(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	runtime := atomicTestRuntime()

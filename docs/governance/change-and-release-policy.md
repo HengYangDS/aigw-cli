@@ -440,6 +440,38 @@ Maintainability diagnostics remain visible even when a different rule rejects
 the same function. Native conformance covers both product and test source;
 a stricter threshold is not proven merely by a clean repository scan.
 
+#### Calibration decision
+
+The complete trial uses the locked analyzers on macOS arm64, Linux amd64 and
+Windows amd64 package selections, with product, tests and tools included and
+all per-rule diagnostics retained. The adopted set is the table above: file
+budget 500, cyclomatic 25, cognitive 45, span/statements 120/60, seven arguments,
+Nestif below four, maintainability at least 25 and clone threshold 100. Keep one
+policy for all source categories; no exception list or test-only softer rule.
+
+| Trial                  | Observation                                                                                                 | Decision and semantic reason                                                                                                                                                                                                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cyclomatic 20, then 15 | 20 yields 39 findings on macOS/Linux and 38 on Windows; four are tool orchestration. 15 yields 137/137/136. | Retain 25. Signed publication, report admission and release construction retain ordered checks; complete acceptance journeys retain every preservation assertion. The trial already exposed and fixed ignored expected remote state. A score reduction alone is not another defect. |
+| Cognitive 40           | 19 findings, all in tests, on every target.                                                                 | Retain 45. Bootstrap, recovery and native artifact tests jointly assert ownership, failure propagation and cleanup. Splitting those observations across helpers or weakening assertions does not reduce their product obligation.                                                   |
+| Span/statements 110/55 | Eight findings per target: five tests and three orchestration functions.                                    | Retain 120/60. The extra span includes explicit native executable declarations; the complete source/build/check journeys are still inspectable without forwarding stages or compressed literals.                                                                                    |
+| Arguments six          | After deletion of a single-caller preparation layer, two findings remain.                                   | Retain seven. A fixture declares an Account and Profile; the artifact-ordering function consumes one target plus before/after configuration, state and catalogue. Positional snapshot grouping alone would add a carrier rather than reduce knowledge.                              |
+| Nestif below four      | Six original findings; all resolved at their existing owners.                                               | Adopt the stricter bound. Early terminal paths remove nesting, and shared credential deletion verifies metadata instead of reading secret values. Product/test/native fixtures prove the boundary.                                                                                  |
+| Maintainability 30     | 17 findings per target: 16 tests and one release constructor.                                               | Retain 25. The index penalizes explicit assertion/data vocabulary as well as control flow; the independent size, nesting and decision limits already constrain these owners.                                                                                                        |
+| Clone threshold 80     | 23 diagnostics on macOS/Linux and 25 on Windows.                                                            | Retain 100. The extra Windows pair is DPAPI protection versus unprotection, not a repeated responsibility. Lower-sensitivity test findings inform the consumer review without forcing distinct assertions behind one configurable fake.                                             |
+
+Codex target preparation now has one complete owner rather than passing seven
+arguments into a single-caller layer. It measures convergence once before
+assigning a transaction ID; the regression proves that a converged target has
+no prepared writes and preserves configuration, sidecar and catalogue bytes.
+Combining this owner still passes all adopted limits and the cyclomatic-20
+trial. This is deletion with preserved semantics, not metric-driven splitting.
+
+This decision completes calibration, not every potential refactor. Global
+consumer/clone review remains task 7.5; complete gate effectiveness, native
+release and performance acceptance retain their own obligations. Reopen a
+threshold when concrete escaped risk or repeated cohesive-change rejection
+changes the trade-off, not merely when another numerical target is proposed.
+
 ### Check effectiveness and failure semantics
 
 Cross-checkout conformance runs the native commands against boundary pairs,
