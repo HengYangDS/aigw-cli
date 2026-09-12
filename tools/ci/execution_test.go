@@ -183,15 +183,11 @@ func TestDependencyScanUsesOwnedPolicyWithoutChangingCallerFilters(t *testing.T)
 			t.Fatal(err)
 		}
 	}
-	commands, err := configuredSourceCommands()
-	if err != nil {
-		t.Fatal(err)
-	}
-	index := slices.IndexFunc(commands, func(call command) bool { return call.Name == "osv-scanner" })
+	index := slices.IndexFunc(qualityCommands, func(call command) bool { return call.Name == "osv-scanner" })
 	if index < 0 {
 		t.Fatal("source gate has no dependency scan")
 	}
-	call := commands[index]
+	call := qualityCommands[index]
 	call.Dir = root
 	call.Env = []string{"OSV_SCALIBR_LOCAL_DB_CACHE_DIRECTORY=" + filepath.Join(root, "cache")}
 	// The private test checkout lives beneath the repository's ignored build tree.
