@@ -52,9 +52,13 @@ func TestInstallationCommandReportsHumanStateAndOutputFailures(t *testing.T) {
 		if err := command.Execute(); err != nil {
 			t.Fatal(err)
 		}
-		want := upgrade.RollbackPath(program)
-		if !retained {
-			want = "No retained predecessor"
+		want := "No retained predecessor"
+		if retained {
+			resolved, err := filepath.EvalSymlinks(upgrade.RollbackPath(program))
+			if err != nil {
+				t.Fatal(err)
+			}
+			want = resolved
 		}
 		if !strings.Contains(out.String(), "1.2.3") || !strings.Contains(out.String(), want) {
 			t.Fatalf("human installation output = %s", out)
