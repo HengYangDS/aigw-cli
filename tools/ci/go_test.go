@@ -190,11 +190,8 @@ func goCheckSource(t *testing.T, metric string, value int) string {
 				return true
 			}
 		}
-		if d {
-			return true
-		}
 	}
-	return false
+	return d
 }
 `)
 	case "nested branches":
@@ -204,9 +201,9 @@ func goCheckSource(t *testing.T, metric string, value int) string {
 			if c {
 				return true
 			}
-			if d {
-				return true
-			}
+		}
+		if d {
+			return true
 		}
 	}
 	return false

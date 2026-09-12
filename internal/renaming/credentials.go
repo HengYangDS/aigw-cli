@@ -10,6 +10,23 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
+func deleteCredentialSlot(store interface {
+	Delete(string) error
+	Exists(string) (bool, error)
+}, id, kind string) error {
+	if err := store.Delete(id); err != nil {
+		return fmt.Errorf("delete source %s credential slot: %w", kind, err)
+	}
+	present, err := store.Exists(id)
+	if err != nil {
+		return fmt.Errorf("verify source %s credential deletion: %w", kind, err)
+	}
+	if present {
+		return fmt.Errorf("verify source %s credential deletion: source slot still exists", kind)
+	}
+	return nil
+}
+
 func planCredentialCopies(deps Service, plan Plan) (Plan, error) {
 	sourceToken, sourceTokenPresent, err := readOptionalToken(deps.Secrets, plan.OldID)
 	if err != nil {

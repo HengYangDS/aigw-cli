@@ -99,10 +99,14 @@ func Install(source, target string) error {
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return fmt.Errorf("create portable installation directory: %w", err)
 	}
-	if previous, err := os.ReadFile(targetPath); err == nil {
-		if bytes.Equal(data, previous) {
-			return os.Chmod(targetPath, 0o755)
-		}
+	previous, err := os.ReadFile(targetPath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("read installed portable AIGW executable: %w", err)
+	}
+	if err == nil && bytes.Equal(data, previous) {
+		return os.Chmod(targetPath, 0o755)
+	}
+	if err == nil {
 		mode := os.FileMode(0o755)
 		if current, statErr := os.Stat(targetPath); statErr == nil {
 			mode = current.Mode().Perm()
@@ -110,8 +114,6 @@ func Install(source, target string) error {
 		if err := writeFileAtomic(backupPath(targetPath), previous, mode); err != nil {
 			return fmt.Errorf("save previous portable AIGW executable: %w", err)
 		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("read installed portable AIGW executable: %w", err)
 	}
 	if err := writeFileAtomic(targetPath, data, 0o755); err != nil {
 		return err

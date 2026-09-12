@@ -219,13 +219,13 @@ func TestVerifyCodexOwnsClientWorkspace(t *testing.T) {
 				if !errors.Is(err, os.ErrPermission) || !strings.Contains(err.Error(), workspace) {
 					t.Fatalf("verification lost cleanup cause: %v", err)
 				}
-			} else {
-				if test.requestErr == nil && err != nil {
-					t.Fatal(err)
-				}
-				if _, err := os.Stat(workspace); !os.IsNotExist(err) {
-					t.Fatalf("client workspace survived: %s, %v", workspace, err)
-				}
+				return
+			}
+			if test.requestErr == nil && err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(workspace); !os.IsNotExist(err) {
+				t.Fatalf("client workspace survived: %s, %v", workspace, err)
 			}
 		})
 	}

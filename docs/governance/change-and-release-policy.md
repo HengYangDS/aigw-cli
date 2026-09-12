@@ -396,7 +396,7 @@ The same boundaries apply to product, tooling and tests.
 | Funlen span       | At most 120 physical lines   | Keeps an operation inspectable; blank lines and multiline data count. Dense formatting is not remediation.                              |
 | Funlen statements | At most 60                   | Bounds selected AST statement forms. Its traversal does not cover every callback or branch form.                                        |
 | Revive arguments  | At most seven                | Bounds named declaration parameters; receivers, unnamed parameters and function literals have different analyzer coverage.              |
-| Nestif            | Reject score five or greater | Bounds nested conditional reasoning, not indentation depth or all loop and switch complexity.                                           |
+| Nestif            | Reject score four or greater | Bounds nested conditional reasoning, not indentation depth or all loop and switch complexity.                                           |
 | Maintidx          | At least 25                  | Combines span, vocabulary and cyclomatic complexity; large cohesive data can score poorly despite simple control flow.                  |
 | Dupl              | 100-token threshold          | Detects serialized syntax-tree similarity, not repeated responsibility; names and literal values do not distinguish matching structure. |
 
@@ -421,6 +421,14 @@ Lower values require demonstrated semantic benefit, not only a successful run:
 - Similar DPAPI protection and unprotection adapters own distinct native
   operations. Clone findings require same-owner analysis before consolidation;
   a host-only trial cannot justify a cross-platform threshold.
+
+The Nestif ceiling is calibrated against real transaction boundaries. A score
+of four now fails: setup and release paths expose their terminal cases early,
+while credential retirement shares one complete delete-and-observe operation.
+The rule applies equally to product, tests and repository tools, with native
+positive and failing fixtures at scores three and four. It is not a limit of
+three indentation levels; loops and other constructs remain covered by the
+complementary analyzers.
 
 Reassess a limit when an escaped defect exposes an unprotected risk or repeated
 cohesion-preserving changes are blocked. Keep every other gate, source category

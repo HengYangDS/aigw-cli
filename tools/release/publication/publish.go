@@ -69,29 +69,31 @@ func PublishGitHub(ctx context.Context, client *http.Client, config GitHubConfig
 	if err != nil {
 		return false, err
 	}
-	created := false
-	if status == http.StatusNotFound {
-		payload, _ := json.Marshal(map[string]any{
-			"tag_name":               config.Tag,
-			"name":                   "AIGW " + config.Tag,
-			"generate_release_notes": true,
-			"prerelease":             identity.Prerelease() != "",
-		})
-		release, status, err = githubRequest(ctx, client, http.MethodPost, base+"/repos/"+config.Repository+"/releases", config.Token, payload)
-		if err != nil {
-			return false, err
-		}
-		if status != http.StatusCreated {
-			return false, fmt.Errorf("GitHub release publication failed with HTTP %d", status)
-		}
-		if err := uploadGitHubAssets(ctx, client, config, release); err != nil {
-			return false, err
-		}
-		created = true
-		release, status, err = githubRequest(ctx, client, http.MethodGet, releaseURL, config.Token, nil)
-		if err != nil {
-			return false, err
-		}
+	if status == http.StatusOK {
+		return false, verifyGitHubAssets(ctx, client, config, release, version)
+	}
+	if status != http.StatusNotFound {
+		return false, fmt.Errorf("GitHub release preflight failed with HTTP %d", status)
+	}
+	payload, _ := json.Marshal(map[string]any{
+		"tag_name":               config.Tag,
+		"name":                   "AIGW " + config.Tag,
+		"generate_release_notes": true,
+		"prerelease":             identity.Prerelease() != "",
+	})
+	release, status, err = githubRequest(ctx, client, http.MethodPost, base+"/repos/"+config.Repository+"/releases", config.Token, payload)
+	if err != nil {
+		return false, err
+	}
+	if status != http.StatusCreated {
+		return false, fmt.Errorf("GitHub release publication failed with HTTP %d", status)
+	}
+	if err := uploadGitHubAssets(ctx, client, config, release); err != nil {
+		return false, err
+	}
+	release, status, err = githubRequest(ctx, client, http.MethodGet, releaseURL, config.Token, nil)
+	if err != nil {
+		return false, err
 	}
 	if status != http.StatusOK {
 		return false, fmt.Errorf("GitHub release preflight failed with HTTP %d", status)
@@ -99,7 +101,7 @@ func PublishGitHub(ctx context.Context, client *http.Client, config GitHubConfig
 	if err := verifyGitHubAssets(ctx, client, config, release, version); err != nil {
 		return false, err
 	}
-	return created, nil
+	return true, nil
 }
 
 // PublishGitLab creates or verifies one immutable GitLab Release and its complete asset inventory.

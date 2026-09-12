@@ -39,9 +39,6 @@ type faultTokenStore struct {
 }
 
 func (store *faultTokenStore) Get(id string) (string, error) {
-	if store.deleted && store.afterDeleteErr != nil {
-		return "", store.afterDeleteErr
-	}
 	if err := store.getErrors[id]; err != nil {
 		return "", err
 	}
@@ -77,6 +74,10 @@ func (store *faultTokenStore) Delete(id string) error {
 }
 
 func (store *faultTokenStore) Exists(id string) (bool, error) {
+	if store.deleted {
+		_, present := store.values[id]
+		return present, store.afterDeleteErr
+	}
 	_, err := store.Get(id)
 	if errors.Is(err, secrets.ErrNotFound) {
 		return false, nil
@@ -96,9 +97,6 @@ type faultProbeStore struct {
 }
 
 func (store *faultProbeStore) Get(id string) (secrets.DiagnosticCredential, error) {
-	if store.deleted && store.afterDeleteErr != nil {
-		return secrets.DiagnosticCredential{}, store.afterDeleteErr
-	}
 	if err := store.getErrors[id]; err != nil {
 		return secrets.DiagnosticCredential{}, err
 	}
@@ -134,6 +132,10 @@ func (store *faultProbeStore) Delete(id string) error {
 }
 
 func (store *faultProbeStore) Exists(id string) (bool, error) {
+	if store.deleted {
+		_, present := store.values[id]
+		return present, store.afterDeleteErr
+	}
 	_, err := store.Get(id)
 	if errors.Is(err, secrets.ErrNotFound) {
 		return false, nil
@@ -433,12 +435,12 @@ func TestApplyAccountFinalizeCleanupFailures(t *testing.T) {
 		accounts *faultProbeStore
 	}{
 		{name: "token delete", plan: Plan{OldID: "old", deleteToken: true}, secrets: &faultTokenStore{deleteErr: want}, accounts: &faultProbeStore{}},
-		{name: "token verify read", plan: Plan{OldID: "old", deleteToken: true}, secrets: &faultTokenStore{values: map[string]string{"old": "token"}, afterDeleteErr: want}, accounts: &faultProbeStore{}},
+		{name: "token verify metadata", plan: Plan{OldID: "old", deleteToken: true}, secrets: &faultTokenStore{values: map[string]string{"old": "token"}, afterDeleteErr: want}, accounts: &faultProbeStore{}},
 		{name: "token remains", plan: Plan{OldID: "old", deleteToken: true}, secrets: &faultTokenStore{values: map[string]string{"old": "token"}, retainDelete: true}, accounts: &faultProbeStore{}},
-		{name: "external read", plan: Plan{OldID: "old", externalTokenCleanup: true}, secrets: &faultTokenStore{getErrors: map[string]error{"old": want}}, accounts: &faultProbeStore{}},
+		{name: "external observation", plan: Plan{OldID: "old", externalTokenCleanup: true}, secrets: &faultTokenStore{getErrors: map[string]error{"old": want}}, accounts: &faultProbeStore{}},
 		{name: "external remains", plan: Plan{OldID: "old", externalTokenCleanup: true}, secrets: &faultTokenStore{values: map[string]string{"old": "token"}}, accounts: &faultProbeStore{}},
 		{name: "probe delete", plan: Plan{OldID: "old", deleteProbe: true}, secrets: &faultTokenStore{}, accounts: &faultProbeStore{deleteErr: want}},
-		{name: "probe verify read", plan: Plan{OldID: "old", deleteProbe: true}, secrets: &faultTokenStore{}, accounts: &faultProbeStore{values: map[string]secrets.DiagnosticCredential{"old": {SystemToken: "s", UserID: "u"}}, afterDeleteErr: want}},
+		{name: "probe verify metadata", plan: Plan{OldID: "old", deleteProbe: true}, secrets: &faultTokenStore{}, accounts: &faultProbeStore{values: map[string]secrets.DiagnosticCredential{"old": {SystemToken: "s", UserID: "u"}}, afterDeleteErr: want}},
 		{name: "probe remains", plan: Plan{OldID: "old", deleteProbe: true}, secrets: &faultTokenStore{}, accounts: &faultProbeStore{values: map[string]secrets.DiagnosticCredential{"old": {SystemToken: "s", UserID: "u"}}, retainDelete: true}},
 	}
 	for _, test := range tests {
@@ -459,6 +461,21 @@ func TestApplyAccountFinalizeCleanupFailures(t *testing.T) {
 			t.Fatalf("error = %v", err)
 		}
 	})
+}
+
+func TestFinalizeVerifiesDeletedSlotsWithoutReadingCredentialValues(t *testing.T) {
+	store, snapshot := renameFinalizationState(t)
+	unavailable := errors.New("credential values are not available for inspection")
+	tokens := &faultTokenStore{values: map[string]string{"old": "token"}, getErrors: map[string]error{"old": unavailable}}
+	probes := &faultProbeStore{values: map[string]secrets.DiagnosticCredential{"old": {SystemToken: "system", UserID: "user"}}, getErrors: map[string]error{"old": unavailable}}
+	plan := Plan{OldID: "old", snapshot: snapshot, deleteToken: true, deleteProbe: true}
+	result, err := applyFinalize(t.Context(), Service{Config: store, Secrets: tokens, Accounts: probes}, plan)
+	if err != nil || result.Status != "finalized" {
+		t.Fatalf("metadata-only finalization = %#v, %v", result, err)
+	}
+	if len(tokens.values) != 0 || len(probes.values) != 0 {
+		t.Fatal("finalization retained credential slots")
+	}
 }
 
 func TestApplyFinalizeStopsBeforeCleanupWhenProbeVerificationFails(t *testing.T) {

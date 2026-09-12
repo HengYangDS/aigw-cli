@@ -188,18 +188,14 @@ func applyFinalize(ctx context.Context, deps Service, plan Plan) (Plan, error) {
 
 	cleanupErrors := make([]error, 0, 2)
 	if plan.deleteToken {
-		if err := deps.Secrets.Delete(plan.OldID); err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("delete source API token credential slot: %w", err))
-		} else if _, present, err := readOptionalToken(deps.Secrets, plan.OldID); err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("verify source API token credential deletion: %w", err))
-		} else if present {
-			cleanupErrors = append(cleanupErrors, errors.New("verify source API token credential deletion: source slot still exists"))
+		if err := deleteCredentialSlot(deps.Secrets, plan.OldID, "API token"); err != nil {
+			cleanupErrors = append(cleanupErrors, err)
 		} else {
 			plan.Actions.APIToken = "source-deleted"
 		}
 	}
 	if plan.externalTokenCleanup {
-		if _, present, err := readOptionalToken(deps.Secrets, plan.OldID); err != nil {
+		if present, err := deps.Secrets.Exists(plan.OldID); err != nil {
 			cleanupErrors = append(cleanupErrors, fmt.Errorf("check external source API token cleanup: %w", err))
 		} else if present {
 			cleanupErrors = append(cleanupErrors, fmt.Errorf("unset %s outside AIGW, then retry finalization", secrets.EnvironmentKey(plan.OldID)))
@@ -208,12 +204,8 @@ func applyFinalize(ctx context.Context, deps Service, plan Plan) (Plan, error) {
 		}
 	}
 	if plan.deleteProbe {
-		if err := deps.Accounts.Delete(plan.OldID); err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("delete source account probe credential slot: %w", err))
-		} else if _, present, err := readOptionalProbeCredential(deps.Accounts, plan.OldID); err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("verify source account probe credential deletion: %w", err))
-		} else if present {
-			cleanupErrors = append(cleanupErrors, errors.New("verify source account probe credential deletion: source slot still exists"))
+		if err := deleteCredentialSlot(deps.Accounts, plan.OldID, "account probe"); err != nil {
+			cleanupErrors = append(cleanupErrors, err)
 		} else {
 			plan.Actions.AccountProbe = "source-deleted"
 		}

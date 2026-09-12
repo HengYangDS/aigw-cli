@@ -2,6 +2,7 @@
 package route
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -47,36 +48,9 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 				return fmt.Errorf("Unknown profile %q; run `aigw profile list`", name)
 			}
 			client := profile.Client
-			accountID := profile.Account
-			providerAccount := cfg.Accounts[accountID]
-			var token string
-			clientRuntime, err := cfg.ResolveRuntime(client, name)
+			token, err := selectionToken(cmd.Context(), runtime, cfg, name)
 			if err != nil {
 				return err
-			}
-			available := !clientRuntime.RequiresAccountToken()
-			if clientRuntime.RequiresAccountToken() {
-				available, err = runtime.Secrets.Exists(accountID)
-				if err != nil {
-					return fmt.Errorf("Cannot inspect Account %q credential: %w", accountID, err)
-				}
-			}
-			if !available {
-				instruction, writable := credential.TokenRecovery(runtime.Secrets, accountID)
-				if !writable {
-					return fmt.Errorf("Account %q is missing a token; %s; then run `aigw use %s`", accountID, instruction, name)
-				}
-				if !runtime.Interactive {
-					return fmt.Errorf("Account %q is missing a token; %s", accountID, instruction)
-				}
-				token, err = runtime.Prompt.Secret("Paste " + providerAccount.Label + " token: ")
-				if err != nil {
-					return err
-				}
-				providerAccount.ID = accountID
-				if err := credential.Validate(cmd.Context(), runtime.HTTP, providerAccount, token, client); err != nil {
-					return fmt.Errorf("Token validation failed: %w", err)
-				}
 			}
 			synchronizer := invocation.Synchronizer(runtime)
 			configurationChanged, err := synchronizer.SelectProfile(cmd.Context(), cfg, name, token)
@@ -104,6 +78,41 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	return cmd
+}
+
+func selectionToken(ctx context.Context, runtime invocation.Context, cfg configuration.Config, name string) (string, error) {
+	profile := cfg.Profiles[name]
+	selected, err := cfg.ResolveRuntime(profile.Client, name)
+	if err != nil {
+		return "", err
+	}
+	if !selected.RequiresAccountToken() {
+		return "", nil
+	}
+	available, err := runtime.Secrets.Exists(profile.Account)
+	if err != nil {
+		return "", fmt.Errorf("Cannot inspect Account %q credential: %w", profile.Account, err)
+	}
+	if available {
+		return "", nil
+	}
+	instruction, writable := credential.TokenRecovery(runtime.Secrets, profile.Account)
+	if !writable {
+		return "", fmt.Errorf("Account %q is missing a token; %s; then run `aigw use %s`", profile.Account, instruction, name)
+	}
+	if !runtime.Interactive {
+		return "", fmt.Errorf("Account %q is missing a token; %s", profile.Account, instruction)
+	}
+	account := cfg.Accounts[profile.Account]
+	token, err := runtime.Prompt.Secret("Paste " + account.Label + " token: ")
+	if err != nil {
+		return "", err
+	}
+	account.ID = profile.Account
+	if err := credential.Validate(ctx, runtime.HTTP, account, token, profile.Client); err != nil {
+		return "", fmt.Errorf("Token validation failed: %w", err)
+	}
+	return token, nil
 }
 
 // NewCommand constructs the route command tree.

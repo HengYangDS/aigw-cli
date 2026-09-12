@@ -464,6 +464,16 @@ outputs and owned effects rather than enumerating retired helper names.
   that identity. Mismatch yields no Token; native authentication and conversation
   data remain outside AIGW ownership.
 
+Credential retirement owns one complete delete-and-confirm operation for both
+Token and diagnostic slots. Confirmation uses metadata-only presence, never
+credential-value reads or JSON decoding. Deletion and observation failures keep
+their original causes, and independent slots still attempt cleanup. Route Token
+acquisition is a private, non-mutating decision separate from synchronization;
+existing and client-native credentials return before prompting. GitHub release
+verification returns before creation, so publication no longer carries a mutable
+created flag through nested branches. These semantic boundaries permit the
+stricter nesting rule without statement tricks, extra packages or exclusions.
+
 #### Transport and artifact boundaries
 
 Authentication and diagnostics reuse one credential-domain HTTP boundary;

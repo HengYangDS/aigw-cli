@@ -125,7 +125,7 @@ linters:
     maintidx:
       under: 25
     nestif:
-      min-complexity: 5
+      min-complexity: 4
     revive:
       enable-all-rules: false
       rules:
