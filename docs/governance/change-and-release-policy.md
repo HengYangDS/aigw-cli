@@ -254,10 +254,13 @@ Branch publication accepts only `main` and `proposal/*`:
 - `proposal/*` updates only the matching peer ref;
 - `dev`, `candidate/*`, `work/*`, and arbitrary feature refs are rejected.
 
-New refs use a zero-OID lease. An equal or fast-forward peer update is ordinary
-publication. A divergent one-time cutover requires the fresh exact old OID for
-every selected ref and uses `--force-with-lease`. Protected-branch force push is
-enabled only for that bounded transaction and restored immediately afterward.
+Every ref update carries `--force-with-lease` with its exact observed peer tip;
+an empty expected value asserts that a new ref does not exist. Equal and
+fast-forward updates require no destructive authorization, but an explicit
+expected tip still has to match. A divergent one-time cutover additionally
+requires the fresh exact old OID for every selected ref. Protected-branch force
+push is enabled only for that bounded transaction and restored immediately
+afterward.
 
 Formal tags are immutable product evidence. Old released tags are retained
 unless a separate inventory proves they are failed intermediate artifacts and
@@ -480,6 +483,16 @@ bytes. Removing the intended rule must invalidate its own expected rejection.
 Analyzer diagnostics retain all applicable rules at a source line rather than
 hiding one behind another. Conformance proves the selected check; it does not
 by itself prove hosted routing or implementation completeness.
+
+The native jobs execute the repository-tool tests as well as product tests.
+Windows runs the complete Go test set, including native-check subprocesses;
+macOS and Linux run it with race detection and package-observed coverage.
+Neither cross-compilation nor a green quality job substitutes for those native
+runs. Configuration schemas, exact file inventories, warning handling and
+failed output delivery are tested through their existing check owners, without
+another registry. Hook admission, external-link availability, visual rendering,
+live Provider responses and installed-artifact acceptance require their own
+observations; local conformance does not certify them.
 
 Correctness analysis includes native vet nilness and unused-write checks and
 checked dynamic type assertions. Fixtures should retain concrete dependencies
