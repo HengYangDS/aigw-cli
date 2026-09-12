@@ -305,6 +305,14 @@ or additional binary entries fail normalization before signing. This runtime
 inventory is distinct from the license and vulnerability evidence for the full
 Go and npm dependency locks.
 
+The release command selects the tracked [Syft policy](../../.config/release/syft.yaml)
+explicitly rather than discovering caller or user configuration. The policy
+limits Go cataloging to emitted artifacts: it does not enrich from host module
+caches, vendor directories, external Go tooling or remote license lookups.
+The separate OSV report owns full-lock license evidence. Native conformance
+proves that an unrelated caller configuration cannot exclude release inputs
+and remains unchanged. Explicit process-level overrides are not a sandbox.
+
 Normalization binds each unique relative SBOM path to actual bytes through a
 root-confined filesystem handle. It computes the SHA-256 integrity digest and
 the SHA-1 metadata required by [SPDX 2.3](https://spdx.github.io/spdx-spec/v2.3/file-information/#84-file-checksum-field).

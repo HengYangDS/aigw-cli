@@ -219,6 +219,13 @@ func releaseRoot(t *testing.T) string {
 	if err := os.WriteFile(filepath.Join(config, "goreleaser.yaml"), []byte("version: 2\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	policy, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "release", "syft.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(config, "syft.yaml"), policy, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	return root
 }
 

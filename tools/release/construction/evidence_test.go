@@ -406,6 +406,7 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 	root := releaseRoot(t)
 	for name, content := range map[string]string{
 		"go.mod": "module fixture\n", "main.go": "package main\nfunc main() {}\n",
+		".syft.yaml": "exclude: ['**/*']\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
@@ -466,6 +467,9 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 	})
 	if !errors.Is(err, observed) {
 		t.Fatalf("release did not reach native SBOM acceptance: %v", err)
+	}
+	if data, err := os.ReadFile(filepath.Join(root, ".syft.yaml")); err != nil || string(data) != "exclude: ['**/*']\n" {
+		t.Fatalf("release changed caller configuration: %q, %v", data, err)
 	}
 	var document struct {
 		Files []struct {

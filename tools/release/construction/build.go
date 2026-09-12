@@ -88,7 +88,7 @@ func buildRelease(request buildRequest, run toolRunner) (result error) {
 	}
 	sbom := filepath.Join(candidate, "aigw_"+request.Version+".spdx.json")
 	rawSBOM := filepath.Join(stage, "aigw.spdx.json")
-	if err := run(toolCall{Name: "syft", Directory: request.Root, Args: []string{"scan", "dir:" + stage, "--override-default-catalogers", "go-module-binary-cataloger,file", "--source-name", "aigw", "--source-version", request.Version, "-o", "spdx-json=" + rawSBOM}}); err != nil {
+	if err := run(toolCall{Name: "syft", Directory: request.Root, Args: []string{"scan", "dir:" + stage, "--config", filepath.Join(request.Root, ".config", "release", "syft.yaml"), "--override-default-catalogers", "go-module-binary-cataloger,file", "--source-name", "aigw", "--source-version", request.Version, "-o", "spdx-json=" + rawSBOM}}); err != nil {
 		return fmt.Errorf("generate release SBOM: %w", err)
 	}
 	if err := normalizeSPDX(rawSBOM, sbom, request.Version, instant); err != nil {

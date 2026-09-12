@@ -1,0 +1,8 @@
+# Release SBOM inputs are the emitted binaries, not host metadata or the network.
+check-for-app-update: false
+
+golang:
+  search-local-mod-cache-licenses: false
+  search-local-vendor-licenses: false
+  search-remote-licenses: false
+  use-packages-lib: false
