@@ -2,6 +2,7 @@ package construction
 
 import (
 	"aigw-cli/tools/release/artifact"
+	"crypto/sha1" //nolint:gosec // SPDX 2.3 requires SHA1 file metadata; signed SHA256 owns integrity.
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -215,6 +216,9 @@ func normalizeSPDX(source, target, version string, instant time.Time) error {
 	if !ok || len(files) != len(artifact.Archives(version)) {
 		return errors.New("Syft SPDX document must describe the complete release binary matrix")
 	}
+	if err := bindSPDXFiles(filepath.Dir(source), files); err != nil {
+		return err
+	}
 	creation, _ := document["creationInfo"].(map[string]any)
 	if creation == nil {
 		creation = map[string]any{}
@@ -227,4 +231,48 @@ func normalizeSPDX(source, target, version string, instant time.Time) error {
 	// encode again; MarshalIndent cannot fail for this closed value domain.
 	normalized, _ := json.MarshalIndent(document, "", "  ")
 	return os.WriteFile(target, append(normalized, '\n'), 0o600)
+}
+
+func bindSPDXFiles(directory string, files []any) error {
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
+	seen := make(map[string]bool, len(files))
+	for _, value := range files {
+		file, ok := value.(map[string]any)
+		if !ok {
+			return errors.New("SPDX binary entry must be an object")
+		}
+		name, _ := file["fileName"].(string)
+		name = filepath.Clean(filepath.FromSlash(name))
+		if !filepath.IsLocal(name) || seen[name] {
+			return fmt.Errorf("SPDX binary path is not unique and relative: %q", name)
+		}
+		seen[name] = true
+		data, err := root.ReadFile(name)
+		if err != nil {
+			return fmt.Errorf("read SPDX binary %q: %w", name, err)
+		}
+		sha256Value := fmt.Sprintf("%x", sha256.Sum256(data))
+		checksums, _ := file["checksums"].([]any)
+		for _, item := range checksums {
+			checksum, ok := item.(map[string]any)
+			if !ok {
+				return errors.New("SPDX checksum must be an object")
+			}
+			if checksum["algorithm"] == "SHA256" && checksum["checksumValue"] != sha256Value {
+				return fmt.Errorf("SPDX SHA256 differs from emitted binary %q", name)
+			}
+		}
+		// SPDX mandates SHA1 metadata; SHA256 remains the integrity authority.
+		sha1Value := fmt.Sprintf("%x", sha1.Sum(data)) //nolint:gosec // Required non-security SPDX checksum.
+		file["fileName"] = filepath.ToSlash(name)
+		file["checksums"] = []map[string]string{
+			{"algorithm": "SHA1", "checksumValue": sha1Value},
+			{"algorithm": "SHA256", "checksumValue": sha256Value},
+		}
+	}
+	return nil
 }

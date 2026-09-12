@@ -17,11 +17,20 @@ import (
 	"time"
 )
 
-func spdxFixture(version string) []byte {
+func spdxFixture(t *testing.T, root, version string) []byte {
+	t.Helper()
 	files := make([]string, 0, len(artifact.Archives(version)))
 	for _, archive := range artifact.Archives(version) {
 		name := strings.TrimSuffix(strings.TrimSuffix(archive, ".tar.gz"), ".zip")
-		files = append(files, fmt.Sprintf(`{"fileName":%q}`, name+"/aigw"))
+		relative := name + "/aigw"
+		target := filepath.Join(root, filepath.FromSlash(relative))
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, []byte(relative), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, fmt.Sprintf(`{"fileName":%q,"checksums":[{"algorithm":"SHA1","checksumValue":"0000000000000000000000000000000000000000"}]}`, relative))
 	}
 	return []byte(`{"spdxVersion":"SPDX-2.3","documentNamespace":"https://volatile.invalid/random","creationInfo":{"created":"2099-01-01T00:00:00Z"},"files":[` + strings.Join(files, ",") + `]}`)
 }
@@ -234,7 +243,7 @@ func TestDependencyEvidenceRequiresCompleteSelectedSources(t *testing.T) {
 func TestNormalizedSPDXIsDeterministicAndPortable(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "raw.json")
-	if err := os.WriteFile(source, spdxFixture("1.2.3"), 0o600); err != nil {
+	if err := os.WriteFile(source, spdxFixture(t, root, "1.2.3"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	instant, err := readiness.ParseEpoch("1784246400")
@@ -252,6 +261,30 @@ func TestNormalizedSPDXIsDeterministicAndPortable(t *testing.T) {
 	rightData, _ := os.ReadFile(right)
 	if !bytes.Equal(leftData, rightData) {
 		t.Fatal("normalized SPDX differs across equivalent runs")
+	}
+	var normalized struct {
+		Files []struct {
+			Name      string `json:"fileName"`
+			Checksums []struct {
+				Algorithm string `json:"algorithm"`
+				Value     string `json:"checksumValue"`
+			} `json:"checksums"`
+		} `json:"files"`
+	}
+	if err := json.Unmarshal(leftData, &normalized); err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range normalized.Files {
+		want := fmt.Sprintf("%x", sha256.Sum256([]byte(file.Name)))
+		found := false
+		for _, sum := range file.Checksums {
+			if sum.Algorithm == "SHA256" && sum.Value == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("normalized SBOM lacks measured SHA256 for %s", file.Name)
+		}
 	}
 	for _, forbidden := range []string{"/Users/", "/private/tmp/"} {
 		if bytes.Contains(leftData, []byte(forbidden)) {
@@ -271,7 +304,7 @@ func TestSPDXInputFailures(t *testing.T) {
 	spdxRoot := t.TempDir()
 	instant := time.Unix(1784246400, 0).UTC()
 	missingCreation := filepath.Join(spdxRoot, "missing-creation.json")
-	raw := bytes.Replace(spdxFixture("1.2.3"), []byte(`"creationInfo":{"created":"2099-01-01T00:00:00Z"},`), nil, 1)
+	raw := bytes.Replace(spdxFixture(t, spdxRoot, "1.2.3"), []byte(`"creationInfo":{"created":"2099-01-01T00:00:00Z"},`), nil, 1)
 	if err := os.WriteFile(missingCreation, raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -316,6 +349,45 @@ func TestSPDXRequiresTheCompletePlatformMatrix(t *testing.T) {
 		if _, err := os.Stat(target); !os.IsNotExist(err) {
 			t.Fatalf("invalid matrix created an accepted SBOM: %v", err)
 		}
+	}
+}
+
+func TestSPDXBindingRequiresOwnedBytes(t *testing.T) {
+	root := t.TempDir()
+	data := []byte("native executable")
+	if err := os.WriteFile(filepath.Join(root, "aigw"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	matching := fmt.Sprintf(`[{"algorithm":"SHA256","checksumValue":"%x"}]`, sha256.Sum256(data))
+	for _, test := range []struct {
+		name, encoded string
+		valid         bool
+	}{
+		{"missing checksum", `[{"fileName":"aigw"}]`, true},
+		{"measured checksum", `[{"fileName":"aigw","checksums":` + matching + `}]`, true},
+		{"mismatch", `[{"fileName":"aigw","checksums":[{"algorithm":"SHA256","checksumValue":"wrong"}]}]`, false},
+		{"foreign path", `[{"fileName":"../aigw"}]`, false},
+		{"duplicate", `[{"fileName":"aigw"},{"fileName":"./aigw"}]`, false},
+		{"missing binary", `[{"fileName":"absent"}]`, false},
+		{"missing path", `[{}]`, false},
+		{"invalid entry", `[null]`, false},
+		{"invalid checksum", `[{"fileName":"aigw","checksums":[null]}]`, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var files []any
+			if err := json.Unmarshal([]byte(test.encoded), &files); err != nil {
+				t.Fatal(err)
+			}
+			if err := bindSPDXFiles(root, files); (err == nil) != test.valid {
+				t.Fatalf("valid=%t binding error=%v", test.valid, err)
+			}
+		})
+	}
+	if err := bindSPDXFiles(filepath.Join(root, "absent"), nil); err == nil {
+		t.Fatal("absent build root was accepted")
+	}
+	if actual, err := os.ReadFile(filepath.Join(root, "aigw")); err != nil || !bytes.Equal(actual, data) {
+		t.Fatalf("SBOM binding changed native bytes: %q, %v", actual, err)
 	}
 }
 
@@ -368,14 +440,14 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 			if output, err := command.CombinedOutput(); err != nil || len(output) != 0 {
 				t.Fatalf("native Syft failed or emitted diagnostics: %v\n%s", err, output)
 			}
-			source := strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json=")
-			data, err := os.ReadFile(source)
+			return nil
+		case "osv-scanner":
+			stage := filepath.Dir(call.Args[len(call.Args)-1])
+			var err error
+			sbom, err = os.ReadFile(filepath.Join(filepath.Dir(stage), "artifacts", "aigw_"+version+".spdx.json"))
 			if err != nil {
 				t.Fatal(err)
 			}
-			sbom = data
-			return nil
-		case "osv-scanner":
 			return observed
 		default:
 			return fmt.Errorf("unexpected release tool %s", call.Name)

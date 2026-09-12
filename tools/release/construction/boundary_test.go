@@ -138,7 +138,7 @@ func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 			if err := os.Remove(filepath.Join(candidate, artifact.Names(valid.Version)[0])); err != nil {
 				return err
 			}
-			return os.WriteFile(raw, spdxFixture("1.2.3"), 0o600)
+			return os.WriteFile(raw, spdxFixture(t, filepath.Dir(raw), "1.2.3"), 0o600)
 		})
 		if err == nil {
 			t.Fatal("missing checksum input was accepted")
@@ -155,7 +155,7 @@ func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(candidate, "unexpected.bin"), []byte("unexpected"), 0o600); err != nil {
 				return err
 			}
-			return os.WriteFile(raw, spdxFixture("1.2.3"), 0o600)
+			return os.WriteFile(raw, spdxFixture(t, filepath.Dir(raw), "1.2.3"), 0o600)
 		})
 		if err == nil || !strings.Contains(err.Error(), "unexpected") {
 			t.Fatalf("unexpected matrix error = %v", err)
@@ -183,7 +183,7 @@ func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
 				case "goreleaser":
 					return populatePortableStage(t, call, valid.Version, "portable_linux_amd64/aigw")
 				case "syft":
-					data := spdxFixture(valid.Version)
+					data := spdxFixture(t, filepath.Dir(strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json=")), valid.Version)
 					if boundary == "decode Syft" {
 						data = []byte("{")
 					}

@@ -298,12 +298,21 @@ with the same inputs must produce identical bytes.
 
 The SPDX SBOM catalogs every emitted native binary in the isolated GoReleaser
 stage, including platform-specific dependencies. Syft's Go-binary and file
-catalogers own discovery and checksums; scanning only the first binary or the
+catalogers own discovery; scanning only the first binary or the
 compressed archive directory is insufficient. Native conformance compares every
 reported binary path and SHA-256 with the complete generated matrix. Missing
 or additional binary entries fail normalization before signing. This runtime
 inventory is distinct from the license and vulnerability evidence for the full
 Go and npm dependency locks.
+
+Normalization binds each unique relative SBOM path to actual bytes through a
+root-confined filesystem handle. It computes the SHA-256 integrity digest and
+the SHA-1 metadata required by [SPDX 2.3](https://spdx.github.io/spdx-spec/v2.3/file-information/#84-file-checksum-field).
+An existing SHA-256 must agree; missing digests never become invented integrity
+evidence. This also handles the [Syft directory-digest gap](https://github.com/anchore/syft/issues/4564)
+without patching the scanner, skipping Windows or weakening verification.
+The native test checks the normalized release document, not a scanner-only
+intermediate; dependency discovery and file integrity remain distinct owners.
 
 The OSV invocation and report admission share the same exact lockfile paths.
 Every selected lockfile must appear once as a lockfile source with observed

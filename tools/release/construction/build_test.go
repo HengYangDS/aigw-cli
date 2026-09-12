@@ -95,7 +95,7 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 				t.Fatalf("SBOM must catalog the complete native binary matrix: %v", call.Args)
 			}
 			path := strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json=")
-			return os.WriteFile(path, spdxFixture("1.2.3"), 0o600)
+			return os.WriteFile(path, spdxFixture(t, filepath.Dir(path), "1.2.3"), 0o600)
 		}
 		if call.Name == "osv-scanner" {
 			path := call.Args[slices.Index(call.Args, "--output-file")+1]
