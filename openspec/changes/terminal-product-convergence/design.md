@@ -604,6 +604,13 @@ existing repository verification owners. Each Work Lane owns mutable
 content-addressed caches. Minimal `bootstrap`, `check`, `native`, and `release`
 tasks replace command memorization without adding shell wrappers.
 
+Native early mise configuration owns discovery for local development and both
+Forges. It excludes parent, user and system policy using native path templates;
+CUE does not duplicate that boundary with environment overrides or a fictional
+empty configuration file. Real subprocess conformance runs each environment
+from the checkout root and nested directories while preserving foreign files.
+Shared caches and deliberate process-level overrides remain separate inputs.
+
 Bootstrap uses native `go mod tidy -diff` before
 `npm ci --include=dev --ignore-scripts`. The explicit development dependency
 selection preserves the task's purpose under production-oriented caller

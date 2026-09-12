@@ -31,9 +31,10 @@ Repository placement follows the consumer, not a preference for hidden files:
   scanning each have one native configuration; architecture and coverage each
   have one product-policy input consumed by their existing repository tool.
   Check implementation belongs in `tools`, not beside configuration data.
-- `.config/miserc.toml` owns native early mise configuration discovery. Its
-  parent-search boundary cannot live in `mise.toml`, which is read afterward.
-  Tool versions and tasks remain in the existing mise declaration and lock.
+- `.config/miserc.toml` owns native early mise configuration discovery for local
+  and hosted commands. Parent, global and system policy isolation cannot live
+  in `mise.toml`, which is read afterward. Tool versions and tasks remain in
+  the existing mise declaration and lock; CUE must not duplicate this boundary.
 - `.config/ci/pipeline.cue` owns the Forge projections;
   [.config/release/goreleaser.yaml](../../.config/release/goreleaser.yaml) owns
   archive construction; the dependency policy owns proposal grouping. Their

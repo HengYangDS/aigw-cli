@@ -40,13 +40,6 @@ goToolchain: MISE_ENABLE_TOOLS:      "go"
 nativeToolchain: MISE_ENABLE_TOOLS:  "\(qualityToolchain.MISE_ENABLE_TOOLS),glab,github:anchore/syft"
 qualityToolchain: MISE_ENABLE_TOOLS: "go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo"
 
-#MiseConfiguration: {
-	_root:                   string
-	MISE_CONFIG_DIR:         "\(_root)/.config/ci"
-	MISE_GLOBAL_CONFIG_FILE: "\(_root)/.config/ci/config.toml"
-	MISE_SYSTEM_CONFIG_DIR:  "\(_root)/.config/ci"
-}
-
 // Git role names belong to the adopter workspace; CUE consumes its native TOML.
 branch_roles: {accepted_branch: string, release_branch: string}
 
@@ -366,7 +359,6 @@ actions: {
 
 gitlab: {
 	variables: {
-		#MiseConfiguration & {_root: "$CI_PROJECT_DIR"}
 		GIT_DEPTH: "0"
 		GOPROXY:   "https://goproxy.cn|https://proxy.golang.org|direct"
 	}
@@ -493,7 +485,6 @@ gitlab: {
 githubVerify: {
 	name: "Verify"
 	env: {
-		#MiseConfiguration & {_root: "${{ github.workspace }}"}
 		GIT_CONFIG_COUNT:   "1"
 		GIT_CONFIG_KEY_0:   "init.defaultBranch"
 		GIT_CONFIG_VALUE_0: "main"
@@ -600,7 +591,6 @@ githubVerify: {
 githubRelease: {
 	name: "Release"
 	env: {
-		#MiseConfiguration & {_root: "${{ github.workspace }}"}
 		GIT_CONFIG_COUNT:   "1"
 		GIT_CONFIG_KEY_0:   "init.defaultBranch"
 		GIT_CONFIG_VALUE_0: "main"

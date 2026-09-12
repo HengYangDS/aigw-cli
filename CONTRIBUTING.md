@@ -198,20 +198,14 @@ missing dependencies fail and require `mise run bootstrap`, not a global-tool
 fallback. For example, `mise exec --locked -- node --run markdown:check` runs
 the same Markdown check used by the complete source gate.
 
-[The native early configuration](.config/miserc.toml) stops mise's parent
-configuration search before it reads tool declarations. It works from the
-checkout root and nested directories; no shell wrapper or developer-specific
-absolute path is required. Ordinary development retains explicitly selected
-user settings, while CI uses the shared CUE configuration boundary below.
-
-The shared CUE model assigns `MISE_CONFIG_DIR`, `MISE_GLOBAL_CONFIG_FILE` and
-`MISE_SYSTEM_CONFIG_DIR` to the checkout's existing CI policy directory before
-mise starts. The global file intentionally does not exist: it selects no user
-configuration, not a file to create. Combined with the early parent boundary,
-this excludes image, parent, user and system tool declarations. A private home
-or `MISE_CONFIG_DIR` alone is insufficient. Disposable CI verification must
-consume those projected values rather than approximate them; `mise config`
-shows the resulting sources. The native regression executes all three Forge
+[The native early configuration](.config/miserc.toml) excludes parent, global
+and system policy before mise reads tool declarations. Local development and
+both Forges consume this same file, not separate environment overrides or an
+invented empty CI configuration. Native path templates follow the operator's
+configuration locations without changing those files or shared package caches.
+Run from the target checkout or a nested directory; `mise -C` alone does not
+select another checkout's early configuration. `mise config` shows the actual
+inputs. The native regression executes ordinary local commands and all three Forge
 projections from root and nested directories, preserves the owned setting and
 proves foreign configurations remain unchanged and unselected.
 

@@ -1,8 +1,5 @@
 name: Release
 env:
-  MISE_CONFIG_DIR: ${{ github.workspace }}/.config/ci
-  MISE_GLOBAL_CONFIG_FILE: ${{ github.workspace }}/.config/ci/config.toml
-  MISE_SYSTEM_CONFIG_DIR: ${{ github.workspace }}/.config/ci
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main

@@ -291,6 +291,7 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 		"MISE_SYSTEM_CONFIG_DIR="+filepath.Join(workspace, "system"),
 		"MISE_TRUSTED_CONFIG_PATHS="+workspace,
 	)
+	projections = append(projections, projection{Path: "local", Content: "{}"})
 	for _, projection := range projections {
 		t.Run(projection.Path, func(t *testing.T) {
 			var config struct {

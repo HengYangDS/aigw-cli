@@ -1,7 +1,4 @@
 variables:
-  MISE_CONFIG_DIR: $CI_PROJECT_DIR/.config/ci
-  MISE_GLOBAL_CONFIG_FILE: $CI_PROJECT_DIR/.config/ci/config.toml
-  MISE_SYSTEM_CONFIG_DIR: $CI_PROJECT_DIR/.config/ci
   GIT_DEPTH: "0"
   GOPROXY: https://goproxy.cn|https://proxy.golang.org|direct
 workflow:
