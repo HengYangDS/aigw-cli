@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-07
-- Last amended: 2026-09-03
+- Last amended: 2026-09-13
 
 ## Context
 
@@ -25,11 +25,15 @@ support alone never admits a client.
 
 One ordered registry is the operational authority for the complete admitted-
 client lifecycle: discovery, desired configuration, projection planning,
-atomic apply and rollback, credential-helper projection, status inspection, live
+guarded commit and compensation, credential-helper projection, status inspection, live
 verification, withdrawal, and uninstall. Shared commands reach client behavior
 through that registry; they do not reproduce Claude- or Codex-specific state
 machines. Explicit client commands may expose client-specific operations, but
 still delegate their effects to the admitted adapter.
+
+The [projection transaction](dr-0006-transactional-client-projection.md) owns
+preflight, write ordering and guarded compensation; the registry does not
+promise atomic visibility across separate client files.
 
 The interface is shared; configuration paths, credential mechanisms, protocol
 details, and client-specific policy remain encapsulated by each adapter.

@@ -490,8 +490,12 @@ Bearer Account.
 A Client Adapter is admitted only when it can perform this complete slice:
 
 ```text
-discover -> plan -> guard preimage -> project atomically -> verify -> rollback
+discover -> plan -> guard preimage -> commit -> verify -> compensate on failure
 ```
+
+The [projection transaction](../decisions/dr-0006-transactional-client-projection.md)
+prepares every target before writing and guards compensation against newer
+edits. It does not provide atomic visibility across client files or homes.
 
 It must also define its uninstall boundary. OpenCode, Pi, Hermes Agent, Qoder,
 and later clients therefore extend AIGW through the same contract rather than
