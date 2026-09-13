@@ -427,8 +427,12 @@ executing anything from the matrix. It copies only the native archive and
 checksum file into owned scratch, extracts through the product's verified
 archive reader, and runs the existing lifecycle. Source artifacts remain
 unchanged; success and failure both reclaim scratch. `--clients` adds the same
-real-client journey described below. Omit `--artifacts` for source-built native
-acceptance; the two inputs share extraction and tests.
+real-client journey described below. The same candidate also runs the reviewed
+team manifest through import without Tokens or clients, each Account becoming
+available independently, deferred client synchronization, stable repeated sync,
+credential-helper execution and uninstall. Client discovery uses fixtures here;
+`--clients` remains the separate real-client proof. Omit `--artifacts` for
+source-built native acceptance; the two inputs share extraction and tests.
 
 The packaged suite also verifies configuration-aware rollback admission. It
 uses a real predecessor's inability to read newly imported configuration when

@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -165,7 +166,12 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program := buildNativeProgram(t, root, "0.0.0")
+	version, err := readiness.ReadProductVersion(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	program, _, _ := nativeReleaseCandidate(t, root, version)
+	t.Logf("team candidate version=%s sha256=%x", version, sha256.Sum256(readFile(t, program)))
 	for _, account := range append([]string{""}, configuration.ManifestAccountNames(manifest)...) {
 		t.Run(account, func(t *testing.T) {
 			journey := newNativeJourney(t, program, "https://unused.example.test", false)

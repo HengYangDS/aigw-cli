@@ -38,7 +38,7 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 					return nil
 				}
 				accepted = true
-				if call.Name != "go" || !slices.Equal(call.Args, []string{"test", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission)$/(portable_artifact_lifecycle|system_credential_store)$", "-count=1", "-v"}) {
+				if call.Name != "go" || !slices.Equal(call.Args, []string{"test", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney)$", "-count=1", "-v"}) {
 					t.Fatalf("native acceptance escaped its existing test owner: %#v", call)
 				}
 				if !slices.Equal(call.Env, []string{"AIGW_ACCEPTANCE_RELEASE=" + stage}) {
