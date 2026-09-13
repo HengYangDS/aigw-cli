@@ -101,6 +101,7 @@ func TestCheckJSONMakesMissingActiveCredentialActionable(t *testing.T) {
 	addAccountProfile(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
 	cfg.Routes[configuration.ClientClaude] = "claude"
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -185,6 +186,7 @@ func TestCheckSurfacesMissingSelectedRouteToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +228,17 @@ func TestCheckRejectsAnEnabledClientRouteWithoutItsAccountToken(t *testing.T) {
 	cfg.Routes[configuration.ClientClaude] = "claude"
 	cfg.Routes[configuration.ClientCodex] = "codex"
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
+	target := filepath.Join(t.TempDir(), "config.toml")
+	writeFile(t, target, nil, 0o600)
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
+	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientRuntime.CredentialCommand = app.Executable
+	if err := codex.SyncConfig(target, clientRuntime); err != nil {
+		t.Fatal(err)
+	}
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -235,7 +247,7 @@ func TestCheckRejectsAnEnabledClientRouteWithoutItsAccountToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := cli.Execute(app, []string{"check"})
+	err = cli.Execute(app, []string{"check"})
 	if err == nil {
 		t.Fatal("check accepted an enabled Codex route without its account token")
 	}

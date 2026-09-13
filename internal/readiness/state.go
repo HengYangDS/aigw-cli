@@ -92,6 +92,13 @@ func ClassifyClient(facts ClientFacts) Client {
 		} else {
 			state.NextAction = "aigw profile add"
 		}
+	case facts.AdapterEnabled && !facts.AdapterReady:
+		state.State = Invalid
+		state.Detail = facts.AdapterIssue
+		state.NextAction = facts.AdapterAction
+		if state.NextAction == "" {
+			state.NextAction = "aigw repair"
+		}
 	case facts.CredentialRequired && facts.CredentialObservationIssue != "":
 		state.State = Unavailable
 		state.Detail = facts.CredentialObservationIssue
@@ -107,13 +114,6 @@ func ClassifyClient(facts ClientFacts) Client {
 		state.State = Deferred
 		state.Detail = "The client is not installed or enabled"
 		state.NextAction = "aigw sync"
-	case !facts.AdapterReady:
-		state.State = Invalid
-		state.Detail = facts.AdapterIssue
-		state.NextAction = facts.AdapterAction
-		if state.NextAction == "" {
-			state.NextAction = "aigw repair"
-		}
 	default:
 		state.State = Configured
 	}

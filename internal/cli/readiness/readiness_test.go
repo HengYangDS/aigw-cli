@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -192,8 +193,8 @@ func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
 			if err != nil || requests == 0 {
 				t.Errorf("synchronized check: error=%v requests=%d", err, requests)
 			}
-		} else if err == nil || requests != 0 || !strings.Contains(buffer.String(), "aigw sync") {
-			t.Errorf("unsynchronized check: error=%v requests=%d output=%s", err, requests, buffer.String())
+		} else if err == nil || requests != 0 || secretStore.getCalls != secretReads || !strings.Contains(buffer.String(), "aigw sync") {
+			t.Errorf("unsynchronized check: error=%v requests=%d secret reads=%d output=%s", err, requests, secretStore.getCalls-secretReads, buffer.String())
 		}
 	}
 }
@@ -219,16 +220,85 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	store := &observingSecretStore{value: "token"}
 	runtime.Secrets = store
-	for _, client := range configuration.AdmittedClientIDs() {
-		cfg.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+	configureClaudeExecutable(t, &runtime, &cfg)
+	synchronizeClaudeSettings(t, runtime, cfg)
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex", Targets: []string{target}}
+	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientRuntime.CredentialCommand = runtime.Executable
+	if err := codex.SyncConfig(target, clientRuntime); err != nil {
+		t.Fatal(err)
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
+	runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
+	})
 	command := NewCheckCommand(runtime)
-	_ = evaluateCheck(command, runtime, cfg)
+	command.SetContext(t.Context())
+	if evaluation := evaluateCheck(command, runtime, cfg); !evaluation.ok() {
+		t.Fatalf("ready clients failed evaluation: %+v", evaluation.routes)
+	}
 	if store.existsCalls != 0 || store.getCalls != len(configuration.AdmittedClientIDs()) {
 		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
+	}
+}
+
+func TestCheckAdmitsProjectionBeforeReadingCredentials(t *testing.T) {
+	for _, client := range configuration.AdmittedClientIDs() {
+		for _, jsonMode := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json=%t", client, jsonMode), func(t *testing.T) {
+				runtime, cfg, output := configuredReadinessRuntime(t)
+				runtime.Version = "1.0.0"
+				problemDetail, problemAction := "", ""
+				runtime.Problem = func(_, evidence, _, action string, cause error) error {
+					problemDetail, problemAction = evidence, action
+					return cause
+				}
+				cfg.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+				if err := runtime.Config.Save(cfg); err != nil {
+					t.Fatal(err)
+				}
+				store := &observingSecretStore{getErr: errors.New("secret read before projection admission")}
+				runtime.Secrets = store
+				runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+					t.Fatal("invalid projection must not authenticate an endpoint")
+					return nil, nil
+				})
+				command := NewCheckCommand(runtime)
+				if jsonMode {
+					command.SetArgs([]string{"--json"})
+				} else {
+					command.SetArgs([]string{})
+				}
+				if err := executeCommand(command); err == nil {
+					t.Fatal("invalid projection was accepted")
+				}
+				if store.getCalls != 0 {
+					t.Fatalf("invalid projection read secret values %d times", store.getCalls)
+				}
+				if jsonMode {
+					var result checkJSON
+					if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+						t.Fatal(err)
+					}
+					problemDetail, problemAction = result.Routes[client].Issue, result.Routes[client].NextAction
+					if state := result.Clients[client]; state.State != domainreadiness.Invalid || state.NextAction != problemAction || state.Detail != problemDetail {
+						t.Fatalf("client and route disagree: client=%+v route=%+v", state, result.Routes[client])
+					}
+				}
+				if !strings.Contains(problemDetail, "executable is not configured") || problemAction != "aigw repair" {
+					t.Fatalf("projection recovery was lost: detail=%q action=%q", problemDetail, problemAction)
+				}
+			})
+		}
 	}
 }
 
@@ -361,7 +431,8 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 		runtime.Version = "1.0.0"
 		want := errors.New("credential backend unavailable")
 		runtime.Secrets = presentFailingSecretStore{err: want}
-		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
+		configureClaudeExecutable(t, &runtime, &cfg)
+		synchronizeClaudeSettings(t, runtime, cfg)
 		if err := runtime.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}

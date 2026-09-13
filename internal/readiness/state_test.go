@@ -135,6 +135,19 @@ func TestClassifyClientIncludesRouteFailures(t *testing.T) {
 	}
 }
 
+func TestClassifyClientPrioritizesObservedProjectionFailure(t *testing.T) {
+	for _, metadataIssue := range []string{"", "Credential metadata is unavailable"} {
+		got := ClassifyClient(ClientFacts{
+			Profile: "codex", Account: "team", CredentialRequired: true,
+			CredentialObservationIssue: metadataIssue,
+			AdapterEnabled:             true, AdapterIssue: "projection drift", AdapterAction: "aigw sync",
+		})
+		if got.State != Invalid || got.Detail != "projection drift" || got.NextAction != "aigw sync" {
+			t.Fatalf("projection failure lost to credential state: %+v", got)
+		}
+	}
+}
+
 func TestWithProbeMapsDiagnosticSemantics(t *testing.T) {
 	configured := Client{State: Configured, Profile: "codex", Account: "team"}
 	tests := []struct {

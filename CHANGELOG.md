@@ -24,6 +24,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Check the selected client's local projection before reading its Token, so a
+  configuration error does not trigger unnecessary credential access.
 - Preserve native Codex MCP edits by locating owned provider tables through
   TOML semantics instead of comment positions; reject changed provider values
   without requiring users to repair harmless formatting.

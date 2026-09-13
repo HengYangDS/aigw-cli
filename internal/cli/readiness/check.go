@@ -62,7 +62,6 @@ type evaluatedRoute struct {
 	runtime            configuration.Runtime
 	resolveErr         error
 	credentialErr      error
-	tokenAvailable     bool
 	fix                string
 	checkPassed        bool
 	issue              string
@@ -97,18 +96,6 @@ func evaluateRoute(cmd *cobra.Command, runtime invocation.Context, cfg configura
 	}
 	route.runtime = clientRuntime
 	route.endpointConfigured = strings.TrimSpace(clientRuntime.Endpoint) != ""
-	var token string
-	if clientRuntime.RequiresAccountToken() {
-		var tokenErr error
-		token, tokenErr = runtime.Secrets.Get(clientRuntime.AccountID)
-		if tokenErr != nil {
-			route.credentialErr = tokenErr
-			route.issue = "account token is unavailable"
-			route.fix = "aigw rotate " + clientRuntime.AccountID
-			return route
-		}
-		route.tokenAvailable = true
-	}
 	status := invocation.Synchronizer(runtime).Inspect(cmd.Context(), cfg, client, clientRuntime)
 	route.adapter = status.Ready
 	route.issue = status.Issue
@@ -119,6 +106,13 @@ func evaluateRoute(cmd *cobra.Command, runtime invocation.Context, cfg configura
 	if !clientRuntime.RequiresAccountToken() {
 		route.checkPassed = true
 		route.fix = "aigw verify --for " + client
+		return route
+	}
+	token, tokenErr := runtime.Secrets.Get(clientRuntime.AccountID)
+	if tokenErr != nil {
+		route.credentialErr = tokenErr
+		route.issue = "account token is unavailable"
+		route.fix = "aigw rotate " + clientRuntime.AccountID
 		return route
 	}
 	route.diagnostic = diagnostics.ProbeStable(cmd.Context(), runtime.HTTP, clientRuntime, token, diagnostics.DefaultStabilityPolicy())
@@ -176,7 +170,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			Attempts: route.diagnostic.Attempts, Retryable: route.diagnostic.Retryable,
 		}
 		state := clients[route.client]
-		if route.runtime.ProfileID != "" && route.runtime.RequiresAccountToken() && state.State == domainreadiness.Configured {
+		if route.diagnostic.Kind != "" && state.State == domainreadiness.Configured {
 			clients[route.client] = domainreadiness.WithProbe(state, route.diagnostic)
 		}
 	}
@@ -232,7 +226,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		if route.resolveErr != nil {
 			return invocation.Problem(runtime, invocation.Title(client)+" route cannot be resolved", route.resolveErr.Error(), invocation.Title(client)+" cannot determine which profile to use.", "aigw use <"+client+"-profile>", route.resolveErr)
 		}
-		if route.runtime.RequiresAccountToken() && !route.tokenAvailable {
+		if route.credentialErr != nil {
 			instruction, _ := credential.TokenRecovery(runtime.Secrets, route.runtime.AccountID)
 			return invocation.Problem(
 				runtime,

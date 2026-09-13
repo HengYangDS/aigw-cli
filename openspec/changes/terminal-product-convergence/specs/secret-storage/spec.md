@@ -96,6 +96,25 @@ the invocation's resolved backend.
 
 An Account Token SHALL be required only when an explicit operation activates,
 projects, checks, or verifies a Route that selects that Account.
+Readiness checks SHALL admit the selected client's executable and configuration
+projection before reading its Token value or authenticating its endpoint.
+An unready projection SHALL retain its own recovery action in both human and
+JSON output; an unobserved credential SHALL NOT be classified as absent.
+
+#### Scenario: A selected client's projection is not ready
+
+- **WHEN** `aigw check` observes a missing executable, missing target or invalid
+  projection for an enabled client
+- **THEN** it reports that client's projection problem and recovery action
+- **AND** it reads no Token value and makes no authenticated request for that
+  client, even if its Token is missing or unreadable.
+
+#### Scenario: A selected client's projection is ready
+
+- **WHEN** the enabled client's projection passes local checks
+- **THEN** an Account-authenticated Route reads its Token once before endpoint
+  diagnostics, retaining credential failure details when the read fails
+- **AND** client-owned authentication reads no AIGW credential or endpoint.
 
 #### Scenario: Catalogue contains unused Accounts
 

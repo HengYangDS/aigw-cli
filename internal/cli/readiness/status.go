@@ -79,40 +79,26 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 			routes[clientID] = routeStatus{Client: state}
 			continue
 		}
-		credentialAvailable := true
-		credentialAction := ""
-		if clientRuntime.RequiresAccountToken() {
-			available, observationErr := runtime.Secrets.Exists(clientRuntime.AccountID)
-			if observationErr != nil {
-				state := domainreadiness.ClassifyClient(domainreadiness.ClientFacts{
-					Profile:                    clientRuntime.ProfileID,
-					Account:                    clientRuntime.AccountID,
-					CredentialRequired:         true,
-					CredentialObservationIssue: "Credential metadata is unavailable",
-				})
-				routes[clientID] = routeStatus{
-					Client:             state,
-					Authentication:     clientRuntime.Authentication,
-					EndpointConfigured: strings.TrimSpace(clientRuntime.Endpoint) != "",
-					Transport:          TransportStatus(clientRuntime.Endpoint).Kind,
-				}
-				continue
-			}
-			credentialAvailable = available
-			credentialAction, _ = credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
-		}
 		adapterStatus := inspectAdapter(context.Background(), runtime, cfg, clientID, clientRuntime)
-		state := domainreadiness.ClassifyClient(domainreadiness.ClientFacts{
-			Profile:             clientRuntime.ProfileID,
-			Account:             clientRuntime.AccountID,
-			CredentialRequired:  clientRuntime.RequiresAccountToken(),
-			CredentialAvailable: credentialAvailable,
-			CredentialAction:    credentialAction,
-			AdapterEnabled:      cfg.Adapters[clientID].Enabled,
-			AdapterReady:        adapterStatus.Ready,
-			AdapterIssue:        adapterStatus.Issue,
-			AdapterAction:       adapterStatus.RepairAction,
-		})
+		facts := domainreadiness.ClientFacts{
+			Profile:            clientRuntime.ProfileID,
+			Account:            clientRuntime.AccountID,
+			CredentialRequired: clientRuntime.RequiresAccountToken(),
+			AdapterEnabled:     cfg.Adapters[clientID].Enabled,
+			AdapterReady:       adapterStatus.Ready,
+			AdapterIssue:       adapterStatus.Issue,
+			AdapterAction:      adapterStatus.RepairAction,
+		}
+		if facts.CredentialRequired && (!facts.AdapterEnabled || facts.AdapterReady) {
+			available, observationErr := runtime.Secrets.Exists(clientRuntime.AccountID)
+			facts.CredentialAvailable = available
+			if observationErr != nil {
+				facts.CredentialObservationIssue = "Credential metadata is unavailable"
+			} else {
+				facts.CredentialAction, _ = credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
+			}
+		}
+		state := domainreadiness.ClassifyClient(facts)
 		route := routeStatus{
 			Client:             state,
 			Authentication:     clientRuntime.Authentication,
