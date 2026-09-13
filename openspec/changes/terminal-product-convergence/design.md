@@ -572,19 +572,18 @@ or policy. Native duplicate/unused analysis and six-target imports inform review
 green tools alone do not certify semantic quality. Source, tests, specifications
 and focused mutation checks remain the behavioral evidence.
 
-The physical-topology review closes task 7.2, not these separate obligations:
+Carrier placement, consumer review, rule effectiveness and product delivery
+are distinct acceptance claims. Their current progress belongs to tasks.md:
 
-- **7.5 and 8.11:** finish global consumer/dependency review and resolve generic
-  protected-lifecycle overlap. Retain the existing read-only admission until an
-  equivalent detached-checkout gate is demonstrated; do not add a lifecycle
-  engine or block unrelated product work.
-- **8.1, 8.5 and 8.10:** prove effective concern coverage, defensible quantitative
-  limits and local/hosted failure paths. A package map is not gate proof.
-- **11.4–11.8:** verify CLI semantics, team-model claims, rendering, links and
-  user journeys. Correct placement is not content acceptance.
-- **12 and 13:** complete exact published-artifact/platform evidence, final
-  consumer/residue audits, release and lane retirement. Historical proof does
-  not replace current observations.
+- **7.2 and 7.5:** semantic placement and current dependency/consumer review.
+- **8:** effective checks, justified thresholds and local/hosted conformance.
+- **11:** precise content, rendered documents and actual user journeys.
+- **12 and 13:** final artifact, installation, publication and residue evidence.
+
+The current protected-lifecycle check has a real detached-source CI consumer.
+Retain it until ETHOS supplies an equivalent installed contract; removing the
+only effective gate is not deduplication. Its replacement is a governance
+boundary, not permission to block independent product work or add another engine.
 
 Git and existing source-bound output retain implementation history; this section
 owns surviving decisions, not a growing repair diary.
@@ -727,368 +726,129 @@ changes materially.
 
 ### Quality is a positive responsibility graph
 
-Native tool inputs share the subprocess's explicit checkout root. Taplo receives
-Git-selected files relative to that root: absolute paths through a symlinked
-parent can otherwise be filtered out against its canonical include scope.
-Conformance checks execute malformed TOML and lockfiles from a separate caller
-directory and require diagnostics, including on macOS's aliased temporary path.
-This retains the native parser and exact Git inventory without new exclusions.
+Quality has distinct owners, not a second control plane. The
+[authority map](../../../docs/governance/change-and-release-policy.md#authority-map)
+assigns policy, execution and acceptance; the
+[quality contract](../../../docs/governance/change-and-release-policy.md#quality-and-platform-evidence)
+defines scope and evidence. Native configuration owns executable rules. This
+Change owns design choices and tasks own progress; neither repeats current
+thresholds, trial counts or completed-repair history.
 
-The current-source secret scan shares the CI entrypoint's Git inventory, not
-the worktree's entire filesystem. One private regular-file copy preserves
-repository-relative paths for native Gitleaks policy. It includes ignored
-tracked files and nonignored new files, omits deleted paths and symlink targets,
-and is removed after success or failure. This small input adapter is needed
-because directory mode accepts no Git file list; it avoids per-file processes,
-duplicated ignore rules, a custom scanner, and history-only evidence that misses
-current edits. Ignored verification logs do not become authored source merely
-because they reside beneath the checkout.
+#### Checkout-bound execution
 
-The scan projection uses a hidden operation directory so native Go package
-discovery excludes it, including before its module descriptor has been copied.
-A real `go list ./...` regression observes source during scanning and verifies
-the projection is removed after both scanner success and failure. Git ignore
-rules alone do not isolate copied Go source from module discovery.
+The requested checkout owns input selection and subprocess execution. Git's
+explicit repository and worktree select tracked files, including tracked-ignored
+files, and nonignored authored files. Deleted files are absent. Parent discovery,
+an alternate index and sibling installations cannot redefine that inventory.
+Missing roots, malformed inputs, empty required scopes and partial results fail
+admission rather than producing a successful empty report.
 
-The architecture policy assigns every tracked carrier one semantic
-responsibility. `tools/ci` invokes the required checks; each native tool
-configuration owns its applicable rules and scope. Together these executable
-owners must cover format, lint, type, architecture, security, dependencies,
-documentation, and tests. A parallel list of check names cannot establish that
-coverage and is not retained in the architecture policy. Custom checks remain
-only for AIGW-specific invariants. Quantitative limits come from protected risks
-and measured distributions, not arbitrary severity. Warnings are fixed at the
-owner.
+The CI dispatcher owns arguments and execution; each check owns its exact input
+set. Native formatter, schema and behavior failures retain their causes. A gate
+requires writable progress output before it runs. A result-write failure after
+publication reports the completed effect without repeating or compensating that
+publication. Streaming and captured subprocesses share directory, environment
+and explicit standard-input semantics; generic execution creates no build tree.
 
-Markdown acceptance has three distinct layers: formatter-owned presentation,
-linter-owned structural rules, and source-grounded semantic and rendered review.
-Diagrams identify actors, edge meanings and trust boundaries; tables compare
-like concerns; examples state their platform and prerequisites. Heading and
-list structure express ownership and sequence rather than incidental edit order.
-Current documentation is rewritten in place; historical OpenSpec records are
-reviewed as history, not silently updated into current guidance.
+Three input adapters address demonstrated native-tool gaps:
 
-Native Markdown heading rules now reject decorative punctuation and standalone
-emphasis that conceals a section from navigation. Conformance preserves question
-headings, emphasized sentences and official OpenSpec labels; a deliberately
-misaligned table exercises the existing native alignment rule. The complete
-current Markdown scope passes without exclusions or a custom parser.
+- **TOML:** Taplo receives checkout-relative Git-selected TOML and lockfile
+  paths. This prevents symlinked parent paths and extensionless lockfiles from
+  disappearing through native include filtering.
+- **Secrets:** Gitleaks receives one private regular-file projection because
+  directory mode does not consume a Git file list. Paths and native policy are
+  preserved; symlink targets and ignored untracked output are outside scope.
+  A hidden operation directory keeps copied Go metadata outside package
+  discovery. The owner removes it after success or failure.
+- **Structured reports:** OpenSpec validates its official documents; its
+  consumer requires a nonempty all-scope report with consistent totals and no
+  findings from this checkout. The consumer does not recreate the parser.
+  Native size and coverage reports similarly require complete, unique input
+  attribution before their metrics can justify acceptance.
 
-The superseded GitHub-only release record is removed because its surviving
-independence and signed-object rationale already belongs to the independent-peer
-decision. The register retains stable sequence identities without an empty
-redirect record. The control-plane decision no longer implies a mandatory proxy.
-Credential documentation distinguishes metadata reachability, persisted backend
-choice, actual operation permission and client-process environment inheritance.
-These statements are checked against their existing selection and projection
-owners, not inferred from a healthy local backend.
+Architecture supports a Git-free source directory by walking the explicit root;
+Git-selected link and source checks require a checkout. These are different
+input contracts, not interchangeable fallback paths. Source, scratch and report
+lifetimes follow [output ownership](../../../CONTRIBUTING.md#output-ownership-and-cleanup).
 
-Five changed documents produce ten local previews at widths 1200 and 440 with
-the locked Markdown and Mermaid implementations. The rendering checks preserve
-heading hierarchy and the credential diagram's accessible title and description;
-the page has no horizontal overflow. This is local preview evidence, not hosted
-Forge rendering or completion of the full visual review. Screenshots and source
-digests remain under the source-bound verification output.
+#### Native policy and schema owners
 
-The terminal review distinguishes policy quality, measurement correctness,
-execution coverage, and product acceptance. A complete carrier inventory does
-not prove all required rules run; a green linter does not prove package cohesion;
-native compilation does not prove a released client journey.
+The Go toolchain owns language validation and platform selection. Architecture
+checks own semantic package boundaries, import admission and carrier placement;
+an allowed child does not require an unused package to exist. Every production
+import allowance needs a current consumer. Go lint, SCC and coverage consume
+their existing policies; CUE projects their command graph to both Forges.
+Cross-repository consistency means equivalent responsibility boundaries, not
+identical Go and Python directory layouts.
 
-Coverage separates package observation from statement measurement. Native Go
-owns counters and platform file selection. A missing package profile triggers
-inspection of those selected files with the standard Go parser; only the
-absence of function bodies establishes declaration-only status. Native
-zero-statement counters and proven declaration-only packages remain visible as
-not applicable, without invented percentages or package exclusions. Packages
-with statements still require executed counters and the unchanged aggregate
-floor. This admission check does not implement a second statement analyzer.
+Each native tool validates its own configuration where it has that capability.
+GoReleaser and golangci-lint schema checks precede execution. Markdownlint alone
+does not reject unknown policy keys and invalid rule parameters, so
+`tools/ci/markdown` binds the schemas bundled with the locked CLI and rule
+packages to the maintained Go JSON Schema library. No schema copies, downloaded
+references, second rule parser or additional executable are introduced. The
+library is repository-only and absent from the product command dependency graph.
 
-At source `3a75f7c5`, Go lint includes tests and has no broad test exemption for
-complexity. However, its limits are close to the documented existing maxima:
-150 function lines, 90 statements, cyclomatic complexity 42, and cognitive
-complexity 64. This is a growth ceiling, not evidence of an optimized quality
-standard. Tasks 7.3 and 8.5 are reopened: the CLI acceptance suite still needs a
-behavioral ownership review, and the structural limits need a risk-based
-decision rather than a fit to existing offenders. Prior focused passes remain
-valid for their exact revisions; they do not settle these broader obligations.
+The quality tool graph must resolve under CUE's declared tool selection rather
+than a developer's broader PATH. Native command resolution and Forge projection
+conformance test the same declaration. Transitive tools and full native runs
+retain their own execution requirements.
 
-Use the existing architecture policy for semantic owners, the native Go linter
-configuration for executable Go rules, the coverage policy for supported
-coverage claims, and the repository CI command for orchestration. CUE consumes
-that orchestration rather than defining a second quality standard. Do not add a
-parallel quality registry or force identical Python and Go directory layouts.
-Cross-repository consistency means equivalent responsibility boundaries and
-acceptance semantics, while native configuration formats remain tool-owned.
+#### Structural limits and behavioral evidence
 
-An architecture verdict requires every declared scan root to exist as a
-directory and every inspected dependency declaration to parse. Allowed child
-names remain an admission set, not a requirement to create unused packages.
-The architecture checker consumes import syntax only; the Go toolchain remains
-the owner of full language validation. A partial inspection is an error, not a
-successful empty report.
+The [calibration decision](../../../docs/governance/change-and-release-policy.md#calibration-decision)
+owns accepted limits and the reasons for retaining or tightening them. Every
+trial includes product, tools, tests and platform-selected files. A lower score
+is useful only when it reduces state, caller knowledge or verification cost
+without weakening cohesive operations. Declaration tables, complete acceptance
+journeys and ordered compensation are not split into shallow helpers to pass a
+number. No exclusion, permanent offender baseline or hidden companion diagnostic
+can stand in for that review.
 
-The same boundary applies to OpenSpec: native validation owns document meaning;
-the CI consumer binds its findings report to this checkout and admits only a
-nonempty `all` scope with consistent successful totals and no findings. It
-rejects parent-project discovery and empty success without recreating the
-OpenSpec parser. This proves document validation, not completed implementation.
+Native Go owns statement counters. Coverage admission accounts for every
+canonical package and rejects undeclared counters. Missing counters require
+inspection of the selected source: only declarations without function bodies
+establish a declaration-only package. Native zero-statement counters remain
+not applicable, never an invented percentage. This is evidence admission, not a
+parallel coverage analyzer.
 
-Repository inventories bind Git to the requested checkout's own `.git` entry,
-including a linked-worktree file. Parent-repository discovery cannot establish
-another root's file set. Architecture scanning supports a Git-free directory by
-walking that exact workspace; repository link checks require an actual Git
-checkout. This distinction remains explicit rather than hidden in fallback.
+Behavioral assertions compare complete owned observations where the contract
+requires them. Independent native JSON readers preserve unknown-field detection;
+fresh observations do not merge into preceding state. Scenario tables retain
+separate inputs, effects and recovery assertions. Shared fixtures hide genuinely
+shared setup, not a second behavior selected by scenario names or boolean modes.
+Fault injection must still invalidate the corresponding assertion after a
+simplification. Local conformance runs the actual check against boundary pairs,
+preserves source bytes and distinguishes the intended rule from companion
+failures. Current results belong only in the existing tasks and verifier output.
 
-File enumeration and tool execution share that root. `links`, `check-go`, and `check-toml`
-resolve it once and bind each subprocess working directory to it; an absolute
-file list alone cannot select the target Go module. Native conformance runs
-the real linter against a separate module through absolute and relative paths,
-including spaces, and proves valid input, format drift, type failures and
-source preservation. Streaming and captured commands carry the same directory
-and environment semantics without changing the parent's working directory.
-The generic runner creates no build tree: coverage and release owners create
-only their own outputs. This removes the unrelated acceptance-directory
-precondition from every quality command.
+#### Documents, interfaces and trust
 
-TOML syntax and formatting consume that same Git inventory for `*.toml` and
-`mise.lock`; Taplo owns parsing and layout, not a second directory whitelist.
-Its native include policy admits the supplied paths so extensionless TOML is
-not silently filtered. Markdownlint discovers `**/*.md` with the checkout's
-root `.gitignore`, keeping only the exact OpenSpec archive exclusion. A new
-document beside source, tooling, or hidden configuration is therefore checked
-without another policy edit. Native conformance proves these scopes, ignored
-generated output, parent-ignore isolation, syntax and format failures, and
-read-only execution. It does not establish semantic document review, TOML
-schema validation, or completed hosted CI acceptance.
+[Text layout policy](../../../docs/governance/text-layout.md) separates native
+formatting, structural lint and semantic/rendered review. Every authored Markdown
+location is covered by native discovery; OpenSpec archives retain their historical
+role. Mermaid validation consumes the exact inventory through standard input and
+uses the locked parser. Diagrams express actors, transitions and trust boundaries,
+not implementation steps disguised as architecture. Browser layout and terminal
+readability require independent observation of the final content.
 
-Native schema validation precedes the quality sequence: golangci-lint validates
-its own policy and GoReleaser validates its release configuration. This closes
-the gap between syntactically valid YAML and configuration the consumer accepts,
-without another parser, schema copy, or wrapper. An isolated checkout with spaces
-exercises the real validators through the shared quality dispatcher: valid
-configuration passes, unknown fields and missing files fail, and input bytes
-remain unchanged. Other configuration consumers remain independent review
-obligations; these two validators do not imply universal schema coverage.
+Cobra owns command order and metadata; one renderer presents grouped and ordinary
+commands without a parallel sorting path. Configuration admission owns stable
+collection and reference order. Human and JSON readiness share the observed
+facts and safe recovery, never inferring service identity from an address or
+credential-read permission from metadata reachability.
 
-Markdownlint's successful execution does not certify its configuration: native
-probes accepted an unknown top-level option, unknown rule and invalid rule
-parameter. The repository therefore validates the existing policy using the
-CLI schema and strict built-in-rule schema shipped in its locked npm packages.
-This repository uses built-in rules; admitting custom rule code would require a
-separate policy decision. Base and override rule objects have the same schema
-boundary. Missing, malformed or externally referenced schemas fail locally;
-there is no downloaded schema fallback or tracked copy of upstream rule names.
+Signed-object verification consumes the exact revision's complete subject policy
+and the existing strict SemVer parser. Transport authentication cannot rewrite
+object identity. ETHOS owns generic hooks and lifecycle transitions; AIGW owns
+product policy, tests and CI. A defect in one does not justify recreating the
+other or blocking independent product repair.
 
-The small `tools/ci/markdown` owner uses the maintained Go JSON Schema library
-`github.com/santhosh-tekuri/jsonschema/v6`, with the existing YAML parser. It
-reuses the CI runner and introduces no new executable, service, rule parser or
-JavaScript toolchain. CUE's direct schema import could not resolve the bundled
-cross-file references without a generated package tree; the upstream-suggested
-Ajv CLI would add a separately maintained executable and older transitive
-dependencies. The Go library owns schema semantics and reference handling;
-repository code only binds local inputs and the strict schema. Native module
-inspection confirms this dependency is absent from the product command's
-dependency graph. Focused tests cover valid policy, unknown fields and rules,
-invalid options, overrides, missing inputs, schema identity, external-reference
-rejection and preservation of input bytes. This is a tooling dependency, not a
-new foundational product boundary requiring a separate Decision Record.
-
-The quality command sequence must resolve inside its CUE-declared toolchain,
-not merely on a developer's broader PATH. A native `mise which` regression
-resolves every distinct direct command under that exact declaration; the Forge
-projection test proves both peers consume the same declaration rather than
-copying its tool list into a second test authority. Transitive commands and
-complete job execution remain covered by their native acceptance paths.
-
-The review covers these independent concerns:
-
-| Concern                          | Acceptance boundary                                                                                                                                            |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product semantics and topology   | Account, credential, route, projection, process, and upgrade invariants have one owner; callers do not coordinate another owner's internal recovery            |
-| Correctness and maintainability  | Go analysis covers product, tooling, and tests; complexity, nesting, arguments, and size have named measurement semantics and risk-justified bounds            |
-| Test design and coverage         | Behavioral tests and fixtures have precise scope and resource ownership; supported coverage includes every canonical package without inventing branch evidence |
-| Dependencies and security        | Dependency hygiene, dead code, secret handling, vulnerabilities, licenses, SBOM, signatures, and update trust have current executable checks                   |
-| Non-code quality                 | Every active config, document, schema, workflow, manifest, and root carrier has the relevant format, lint, validation, and navigation checks                   |
-| Development and product delivery | Locked independent lane environments and native artifacts prove setup, sync, credentials, client invocation, update, rollback, and uninstall                   |
-| Gate effectiveness               | Isolated conformance cases prove configured tools see the intended scope and propagate failures through local commands, hooks, and all required CI event paths |
-
-For each numeric limit, name the risk, native measurement, semantic scope,
-current distribution, largest legitimate cohesive example, false-positive cost,
-and review trigger before selecting a bound. Observed maxima alone cannot
-justify it. A test table is not equivalent to nested executable control flow;
-test setup, assertions, and teardown remain subject to their own risks. Reject
-blanket test exclusions, permanent offender baselines, and helper extraction
-that changes a metric without reducing state or responsibility. Native
-[`golangci-lint` settings](https://golangci-lint.run/docs/linters/configuration/)
-remain the first choice; no custom analyzer is added for a metric already owned
-by an admitted tool.
-
-File size is measured by locked SCC rather than a repository-owned counter.
-The native code-line budget applies to every authored Go file selected by the
-checkout inventory, including tests and non-host platform variants. Complete
-measurement is required: omitted, repeated or foreign results fail admission.
-Relocation preserves whole declarations, package identities and platform tags;
-no forwarding function or count-only parameter object is a valid remediation.
-The numeric authority is `.config/checks/go/size.toml`, consumed by the shared
-`check-source-size` gate, not duplicated in Forge workflows.
-
-The [quality policy](../../../docs/governance/change-and-release-policy.md#quality-and-platform-evidence)
-owns native measurement semantics, blind spots, numeric rationale and review
-triggers. Nesting rejects a score of five or more across product, tooling and
-tests; a bounded score-four path remains admitted. Cyclomatic complexity now
-admits at most 25 across those same scopes. Trial 20 first, then evaluate whether
-15 improves semantic clarity and verification enough to justify adoption; no
-lower target is planned.
-Cognitive complexity admits at most 50, function span at most 120 physical lines,
-and native function statements at most 65. Parameter and maintainability limits
-remain provisional.
-For every metric, preserving legitimate cohesive expression takes precedence
-over minimizing the number. A lower threshold is adopted only with demonstrated
-net benefit, never through shallow extraction, parameter bags or hidden state.
-No tightening may relax another limit, behavior assertion or covered scope.
-Splitting a cohesive journey to reduce its score does not
-satisfy task 8.5.
-
-The companion trial at `eae7e818` reports 38 cyclomatic-20 findings,
-24 cognitive-40 findings, 15 nested-conditional-score-four findings,
-four parameter-six findings and three statement-65 findings. Earlier
-combined counts were incomplete because native line deduplication hid companion
-rules on the same declaration. Disable that presentation filter in the one Go
-policy; counts are host-selected observations, not a cross-platform census or
-an exemption list. Review semantic responsibilities before adopting lower bounds.
-
-The statement-65 boundary is implemented without additional owners. Package
-coverage observation absorbs the measured-package loop from command orchestration
-and propagates failed writes for both measured and zero-statement reports. The
-existing report test now injects these failures independently of aggregate output
-and proves temporary-profile cleanup. Bootstrap declares one isolated environment and checks every executable identity
-through one matrix. Route checks preserve an explicit file/directory inventory,
-including Claude settings. The existing native repair owner now performs and
-verifies user edits after each upgrade; the outer lifecycle retains all upgrade,
-rollback and uninstall stages. No additional helper is introduced. Native
-65/66 cases cover product and test source.
-
-Projection assertions now use an independent native JSON reader with fresh
-maps, rather than repeatedly decoding through product helpers or merging into
-the previous observation. Model-drift recovery compares the complete expected
-document: fault injection that removes the credential helper passes the former
-partial assertion and fails the replacement. Existing rollback, ownership,
-foreign-field and credential-secrecy checks remain. Explicit receipt and doctor
-case tables replace decisions inferred from scenario names and nested boolean
-products. All five reviewed Claude settings tests pass the 20/40 trial without
-moving their lifecycle steps into a support package.
-
-Command help uses one grouped renderer, including ordinary ungrouped commands,
-and preserves Cobra's ordering rather than sorting its output again. Native
-metadata tests cover alphabetical defaults, explicitly disabled sorting, mixed
-groups, inherited options and unchanged configuration storage. This deletes a
-parallel presentation path; it does not change command dispatch or client state.
-
-Keep physical span 120: the cross-checkout conformance test legitimately keeps
-its readable source examples and case table next to execution and assertions.
-Moving that data out to pass 110 adds navigation without reducing responsibility.
-Maintainability 25 also rejects a branch-free declarative table that every other
-native rule admits; retain 20 for the quality policy's recorded reason. Parameters
-seven and nesting below five remain enforced pending semantic review. Neither
-trial permits exclusions, parameter bags or automatic splitting.
-
-The cyclomatic batch keeps complete setup, sync, check and uninstall journeys
-while sharing their real filesystem fixtures and native executable naming.
-Exact map/object comparisons replace longer partial field assertions and also
-reject unexpected observations. Filesystem inspection and ownership inspection,
-credential observation and input, verification admission and final responses,
-release inputs and SPDX normalization have separate test owners. Existing
-assertions and platform conditions remain. The native conformance fixture for
-cognitive complexity uses nested loops so the independent 50/51 boundary stays
-below the new cyclomatic limit; a cross-metric failure is not accepted as proof
-of the intended gate. No product package, schema, runtime state or tool is added.
-
-The next tightening keeps the same journeys while sharing actual finalizer
-credential setup and existing Codex sidecar fixtures. Exact Profile and settings
-comparisons replace partial checks; dry-run byte equality subsumes duplicate
-post-load assertions. Native host invocation has one argument/preflight owner,
-publication-source parsing owns allowed branch names, and coverage parsing owns
-nonempty package observations. Boundary conformance is 25/26. Lower trials must
-preserve these contracts and reduce real complexity before replacing the gate.
-Explicit scenario rows remove conditional test-oracle logic without losing
-Cartesian cases; independent schema fixtures remove inter-case state. Existing
-snapshots preserve exact file identity. The independent cognitive and physical
-span boundaries are 50/51 and 120/121; actual gate-loss and ownership-defect
-mutations must still be detected. No new metric framework or test exemption is
-introduced. Statement conformance is 65/66. Coverage package observation now
-belongs to the measured result and preserves all missing-package and inspection
-causes; the command retains execution and profile lifetime. Native lifecycle
-acceptance reuses its complete upgrade/sync/identity-check operation at both
-upgrade points, preserving the full rollback and uninstall journey.
-
-Nesting conformance is 4/5, including host-selected product and test sources.
-Existing Codex state recovery, prompt selection and rename rendering owners
-lose enclosing branches and duplicated output without new helpers or changed
-admission. Full behavioral suites and a disabled-gate mutation establish that
-the tighter rule preserves behavior and remains effective.
-
-Diagram grammar is checked by the existing CI command plane using the locked
-Mermaid validation library, not a custom parser or browser-dependent CI framework.
-The shared checkout inventory includes current and historical tracked diagrams,
-and local untracked authored documents. Conformance rejects the reproduced
-sequence-message semicolon error and missing local supply while preserving
-source bytes. The exact file inventory crosses standard input rather than the
-command line; no ambient parent configuration can change the validation.
-Native browser rendering remains separate visual evidence. The transaction
-diagram uses a decision flow instead of nested sequence frames: its purpose is
-to explain guarded writes and compensation, not concurrent participant timing.
-Short centered labels remain inside nodes rather than crossing lifelines.
-
-Configuration admission keeps collection and reference ordering in Config,
-Account constraints in Account, and Profile authentication in Profile. Stable
-key, query-parameter and endpoint traversal produces one reproducible diagnostic
-without mutation. Historical native measurements fell from cognitive 62 to 19
-and cyclomatic 37 to 14 for Config, with Account/Profile cognitive scores of
-13/16; these observations do not justify a repository-wide threshold.
-
-The CI dispatcher owns argument admission; Go, Markdown, TOML and secret checks
-own complete input selection and execution. Go checks deduplicate sorted
-packages after formatting and preserve either phase's original error. Source
-and quality share dispatch rather than duplicating it. This removed mutable
-cross-check command state and redundant path conversion; the dispatcher's
-historical cognitive score fell from 51 to 31.
-
-The existing cross-checkout conformance test exercises formatting, typing,
-nesting and five exact structural boundary pairs in applicable product/test
-source. Standard Go formatting prepares fixtures; actual native checks prove
-admission, rejection and unchanged source bytes. Disabling their linters through
-an isolated overlay makes all five over-limit expectations fail. Tasks 8.5 and
-8.10 still require justified remaining limits, analyzer-gap decisions and
-complete hook/hosted wiring; this evidence closes none of those by implication.
-
-Forge object verification matches the complete commit subject against the
-selected revision's policy, consistent with ETHOS hook matching rather than
-accepting a matching substring. Signed-object regressions exercise unanchored
-alternation, prefixes and suffixes. Individual-tag and tag-set verification use
-the existing strict SemVer parser; the handwritten tag regex and duplicate
-set-level validation are removed. Tests accept build metadata and reject
-numeric prerelease leading zeroes without changing signature verification.
-
-The quality work executes in a fixed order within existing tasks:
-
-1. Reconcile effective policy, scope, measurements, native tool settings, local
-   commands, hooks, CUE event routes, and completion claims against current code.
-2. Define justified final bounds and conformance tests before changing the
-   gate. Fix omitted or false-success paths without creating another checker.
-3. Simplify one complete product invariant and its behavioral tests at a time,
-   starting with credential/projection safety and upgrade recovery; then close
-   tooling, documentation, configuration, and naming gaps. Delete displaced code.
-4. Activate the final rules without permanent exemptions. Batch mechanical
-   formatting; use focused tests before the affected gate, not full CI to
-   discover syntax or policy errors.
-5. Freeze the complete candidate for full quality, native artifact, client,
-   security, performance, release and peer acceptance. Only then archive and
-   retire the authoring lane and unused outputs.
-
-ETHOS owns generic hook dispatch, scope admission and lifecycle defects. AIGW
-owns its product policy, rule applicability, tests and CI, and does not wait for
-ETHOS to repair those local responsibilities.
+These layers support different claims: inventory does not prove check execution,
+lint does not prove cohesion, compilation does not prove native operation, and
+controlled streams do not prove a live Provider or final released artifact.
+Final acceptance follows the existing execution order and
+[completion evidence](../../../docs/governance/change-and-release-policy.md#performance-and-completion-claims).
 
 ### CUE owns CI semantics; Forges own syntax and capacity
 
