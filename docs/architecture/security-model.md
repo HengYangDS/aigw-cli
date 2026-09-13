@@ -65,11 +65,16 @@ Replacing Account metadata never redirects or overwrites the existing Token.
 
 ## Client boundary
 
-| Client                 | AIGW may write                                                        | AIGW never writes                                                                                        |
-| ---------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Codex                  | Marked provider/model block, sidecar, credential-helper configuration | Native credentials, conversation JSONL, SQLite, history, item records, model metadata, Desktop GUI state |
-| Claude Code            | AIGW-owned endpoint/model keys, sidecar, and credential helper        | Plaintext Token, shell profiles, command interception, sessions, or unrelated settings                   |
-| Missing/foreign client | Nothing                                                               | Directories, launch state, configuration                                                                 |
+| Client                    | AIGW-owned projection                                             | Preserved client state                                                    |
+| ------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Codex                     | Recorded provider, selections, scheduler, catalogue and sidecar   | Native credentials, conversations, models chosen in the App and GUI state |
+| Claude Code               | Endpoint, guarded model preference, credential helper and sidecar | Native credentials, sessions, shell profiles and unrelated settings       |
+| Missing or foreign client | None                                                              | Existing files, directories and runtime state                             |
+
+The [client projection contract](authority-and-projection-boundary.md#client-boundaries)
+defines the exact source ranges and guarded writes. Codex JSONL, SQLite and
+conversation metadata remain client-owned; decorative comments grant no
+additional write authority.
 
 ## Transaction boundary
 

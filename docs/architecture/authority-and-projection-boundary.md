@@ -11,18 +11,18 @@ traffic hop, a client launcher, or an agent-state manager.
 
 | Concern                                     | AIGW role                                | Other owner                                        |
 | ------------------------------------------- | ---------------------------------------- | -------------------------------------------------- |
-| Provider service and endpoint capability    | Record verified Account capabilities     | Provider                                           |
+| Provider service and endpoint capability    | Declare Account protocol endpoints       | Provider                                           |
 | Token material                              | Select and use one Account Token backend | Native credential service or AIGW owner-only store |
 | Client intent                               | Select a Profile through a Route         | AIGW configuration                                 |
 | Native client configuration                 | Project one admitted, bounded region     | Client Adapter                                     |
 | Wire compatibility                          | Select an explicit endpoint              | Endpoint product                                   |
 | Conversations, memory, tools, and GUI state | None                                     | Client                                             |
 
-This split is the product's advantage over a traffic gateway: normal client
-configuration remains direct, auditable, and usable when AIGW is not running.
-Products such as LiteLLM, One API/New API, Kong AI Gateway, and Portkey may own
-provider aggregation, traffic policy, metering, or observability; they compose
-with AIGW as endpoints rather than becoming part of its control plane.
+Native clients send requests directly. AIGW runs for explicit configuration
+operations or on-demand credential helpers; no AIGW daemon is required.
+Traffic gateways remain independently selected endpoints. Comparative claims
+belong to the [provider tooling assessment](../research/provider-tooling-assessment.md),
+not this design contract.
 
 ## Product graph
 
@@ -40,14 +40,15 @@ hop. AIGW does not own that endpoint's process.
 
 ## Authority
 
-| Owner                     | Authoritative state                                             |
-| ------------------------- | --------------------------------------------------------------- |
-| AIGW configuration        | Accounts, Profiles, recommendations, selected Routes, Adapters  |
-| Selected Token store      | Account Tokens; the selection policy belongs to AIGW            |
-| Codex                     | Conversations, JSONL, SQLite, model metadata, Desktop GUI state |
-| Claude Code               | Session and client runtime behavior                             |
-| External endpoint product | Traffic normalization, retries, service lifecycle               |
-| GitLab / GitHub           | Independent CI, tags, releases, and assets                      |
+| Owner                     | Authoritative state                                              |
+| ------------------------- | ---------------------------------------------------------------- |
+| AIGW configuration        | Accounts, Profiles, recommendations, selected Routes, Adapters   |
+| Selected Token store      | Account Tokens; the selection policy belongs to AIGW             |
+| Codex                     | Conversations, JSONL, SQLite, model metadata, Desktop GUI state  |
+| Claude Code               | Session and client runtime behavior                              |
+| External endpoint product | Traffic normalization, retries, service lifecycle                |
+| Local Git                 | Signed commit and annotated-tag objects                          |
+| GitLab / GitHub           | Independent hosting, CI observations, Release records and assets |
 
 AIGW never edits conversation state and never manages an external endpoint
 process.
@@ -63,41 +64,13 @@ process.
 | `internal/claude`               | Claude Code settings projection, credential-safe process plans, and readiness |
 | `internal/credential`           | Provider-neutral endpoint authentication validation                           |
 | `internal/providers`            | Optional provider-native diagnostics only                                     |
-| `internal/presentation`         | Human projection of command results                                           |
+| `internal/presentation`         | Human and JSON rendering of command results                                   |
 | `internal/cli`                  | Command composition; domain behavior remains in semantic owners               |
 | `internal/transaction`          | Guarded filesystem mutation and rollback                                      |
 | `internal/upgrade`              | Independent-Forge update verification and installation                        |
 
 Dependency direction is toward domain owners. Presentation, CLI composition,
 Forge code, and host discovery do not define product semantics.
-
-Configuration admission checks every Profile against its Account's declared
-protocol endpoints, including Profiles not selected by a Route. It uses the
-same client-protocol definition as runtime resolution. Manifest import and local
-persistence share that validation; neither may accept a Profile that cannot
-resolve its protocol endpoint. This is a structural check, not evidence of
-credentials, installed clients, endpoint availability, or successful inference.
-
-Imported recommendations and actual selections have separate meanings in that
-same configuration. Import retains the recommendation; setup and sync select
-only for clients without a Route. They prefer an available recommendation, then
-its model on another usable Account, then stable Profile identifier order.
-Unavailable credentials do not authorize replacing an existing selection.
-
-Codex provider ownership binds the recorded canonical values, not the text span
-between decorative comments. The native TOML parser locates the provider and
-authentication tables even when the client inserts an MCP table between them or
-moves the closing comment. Inspection compares the same rendering used for
-projection; withdrawal removes only the proven provider ranges. Unknown or
-changed provider fields remain conflicts, and surrounding user tables retain
-their original source bytes. Root selections and scheduler state retain their
-separate ownership checks.
-
-Configuration cloning owns independence of nested Account diagnostics and
-Adapter target slices as well as maps. Read-only runtime resolution observes
-the selected Profile and Account directly; it neither clones the whole
-configuration nor initializes its collections. Behavioral tests cover those
-contracts instead of enumerating names of removed APIs.
 
 ### Module depth
 
@@ -118,7 +91,28 @@ Depth is not size. Preserve cohesive responsibilities even when they need more
 code, while splitting independent responsibilities that merely happen to live
 together. Review line counts as signals, not reasons to create shallow modules.
 
-### Synchronization and setup
+## Configuration admission
+
+Configuration admission checks every Profile against its Account's declared
+protocol endpoints, including Profiles not selected by a Route. It uses the
+same client-protocol definition as runtime resolution. Manifest import and local
+persistence share that validation; neither may accept a Profile that cannot
+resolve its protocol endpoint. This is a structural check, not evidence of
+credentials, installed clients, endpoint availability, or successful inference.
+
+Imported recommendations and actual selections have separate meanings in that
+same configuration. Import retains the recommendation; setup and sync select
+only for clients without a Route. They prefer an available recommendation, then
+its model on another usable Account, then stable Profile identifier order.
+Unavailable credentials do not authorize replacing an existing selection.
+
+Configuration cloning owns independence of nested Account diagnostics and
+Adapter target slices as well as maps. Read-only runtime resolution observes
+the selected Profile and Account directly; it neither clones the whole
+configuration nor initializes its collections. Behavioral tests cover those
+contracts instead of enumerating names of removed APIs.
+
+## Synchronization and setup
 
 Setup creates the first Profiles; it is not configuration replacement or Token
 rotation for an existing installation. Synchronization owns that admission
@@ -141,35 +135,10 @@ of sidecar writes or recovery steps. Each client Adapter hides its native file
 format and ownership rules. Sharing transaction mechanics does not justify
 combining the clients' distinct semantics.
 
-Credential rotation validates and replaces only the selected Account Token.
-It does not invoke clients or change configuration. Both admitted clients read
-Account Tokens through a command helper; same-Account rotation becomes visible
-on its next invocation, subject to the client's refresh policy. Client-native
-authentication is outside AIGW's credential ownership.
-
-Credential validation, endpoint tests and readiness diagnostics share the
-credential owner's authenticated request boundary. Native HTTP clients are
-copied with redirect following disabled, keeping credentials at the selected
-endpoint without changing the caller's client. Validation and endpoint tests
-also share response draining, closure and the bounded request lifetime;
-diagnostics retain their own bounded response interpretation. A redirect is
-not successful authentication. An unavailable Claude model-discovery endpoint
-may demonstrate reachability, but leaves credential acceptance unverified.
-
-Optional provider-account diagnostics use that same authenticated request
-boundary for both balance and Token queries. Their provider-specific reader
-requires one complete JSON document within its response budget; read, close,
-size and syntax failures invalidate the observation. Reaching the pagination
-budget reports an incomplete search, not proof that the Token is absent.
-
 Configuration repair discovers admitted clients and reconciles AIGW-owned
 projections. It reports configuration changes, not authentication success.
 Rename planning describes changes to Account references and projections; it
 cannot certify Provider authentication or client execution.
-
-Cancellation prevents new writes when observed at an admission boundary.
-Compensation restores only guarded AIGW-owned preimages. Recovery failures
-remain explicit; AIGW does not attempt to restore client-owned authentication.
 
 `Synchronizer.Setup` owns initial configuration, optional Token updates and
 client activation as one transaction. CLI onboarding collects operator input
@@ -200,7 +169,7 @@ Repeated selection reconciles only that client without rewriting unchanged
 configuration or checkpoints. Rendering failure does not undo a committed
 selection or its credentials.
 
-### Verification checkpoints
+## Verification checkpoints
 
 Live verification does not hold a configuration lock while waiting for a
 client. The configuration Store owns the short checkpoint commit: it acquires
@@ -212,7 +181,7 @@ only the checkpoint written by that operation. This is not a filesystem-wide
 transaction against editors that ignore the lock, nor a promise of continuing
 Provider availability after the request.
 
-### Credential storage
+## Credential storage
 
 The secrets module accepts Account-to-Token updates and owns both credential
 compensation and any automatic backend selection created by those writes.
@@ -224,8 +193,8 @@ Within that package, the storage contract, backend selection, credential kinds,
 and batch replacement are separate responsibilities. Backend selection owns
 its observation, persistence, and compensation together. A credential-kind view
 narrows slot access without hiding that backend from observation or recovery.
-These private responsibilities share one package rather than exposing filesystem
-snapshots and recovery steps through another adapter layer.
+These private responsibilities share one package; callers do not coordinate
+filesystem snapshots or recovery steps.
 
 One credential-kind view owns Account and value validation before any backend
 resolution, including presence checks. All store constructors return that view;
@@ -256,7 +225,28 @@ targets the original backend and credential kind: it restores only its unchanged
 postimage, then separately attempts to restore its backend choice. This does not
 make selection and a native credential service one cross-process transaction.
 
-### Identity migration
+Credential rotation validates and replaces only the selected Account Token.
+It does not invoke clients or change configuration. Both admitted clients read
+Account Tokens through a command helper; same-Account rotation becomes visible
+on its next invocation, subject to the client's refresh policy. Client-native
+authentication is outside AIGW's credential ownership.
+
+Credential validation, endpoint tests and readiness diagnostics share the
+credential owner's authenticated request boundary. Native HTTP clients are
+copied with redirect following disabled, keeping credentials at the selected
+endpoint without changing the caller's client. Validation and endpoint tests
+also share response draining, closure and the bounded request lifetime;
+diagnostics retain their own bounded response interpretation. A redirect is
+not successful authentication. An unavailable Claude model-discovery endpoint
+may demonstrate reachability, but leaves credential acceptance unverified.
+
+Optional provider-account diagnostics use that same authenticated request
+boundary for both balance and Token queries. Their provider-specific reader
+requires one complete JSON document within its response budget; read, close,
+size and syntax failures invalidate the observation. Reaching the pagination
+budget reports an incomplete search, not proof that the Token is absent.
+
+## Identity migration
 
 Identity migration follows the same boundary: `internal/renaming.Service` owns
 Profile renaming, Account credential preparation and commit, and verified
@@ -285,7 +275,7 @@ fails before persistence. A valid subset records only the clients actually
 verified. Enabled-client coverage remains a separate finalization requirement,
 not something the checkpoint reader infers from a nonempty list.
 
-### Upgrade and process execution
+## Upgrade and process execution
 
 The upgrade module owns portable artifact admission. Installation and
 same-version comparison share checksum and target-layout verification. An
@@ -327,7 +317,7 @@ late type assertion. An absent runner still produces a bounded unavailable
 diagnostic. In-memory and file capture remain distinct contracts because they
 have different output ownership and memory limits.
 
-### Repository tooling
+## Repository tooling
 
 Repository-only executables follow the same ontology: `tools/ci`,
 `tools/coverage`, `tools/forge`, `tools/release`, and `tools/repository` own
@@ -421,16 +411,35 @@ filesystem-wide transaction against external editors.
 
 ## Client boundaries
 
+Both clients use helpers carrying a fingerprint of the client, Account and endpoint. Before
+reading a Token, the helper compares it with the currently selected Route.
+A mismatch returns a synchronization/reload instruction without credential
+access. Model and label changes preserve that fingerprint. It detects stale
+projections; it neither authenticates callers nor grants access rights.
+
 ### Codex
 
-Codex CLI and Desktop share one Codex Home. AIGW owns only its marked provider
-and model projection, credential-helper configuration, and sidecar. Dry-run exposes
+Codex CLI and Desktop discover the same default Codex Home; additional homes
+are explicit Adapter targets. AIGW owns the recorded provider tables, root
+selections, configured scheduler fields, derived catalogue and sidecar, including
+its credential-helper configuration. Decorative markers are not the ownership
+boundary. Dry-run exposes
 the plan without reading credentials or changing files. A Codex-scoped Profile
 may select one explicit native provider identity. AIGW then projects that exact
 table with the Account endpoint and an absolute command-authentication helper;
 the Account still owns the Token and Codex still owns conversation state.
 Client-native authentication projects no AIGW credential helper. The Provider
 name and model catalogue are independent of credential ownership.
+
+Codex provider ownership binds the recorded canonical values, not the text span
+between decorative comments. The native TOML parser locates the provider and
+authentication tables even when the client inserts an MCP table between them or
+moves the closing comment. Inspection compares the same rendering used for
+projection; withdrawal removes only the proven provider ranges. Unknown or
+changed provider fields remain conflicts, and surrounding user tables retain
+their original source bytes. Root selections and scheduler state retain their
+separate ownership checks. The strict model includes admitted predecessor
+authentication fields even when current projections no longer emit them.
 
 Root selections are located through the locked TOML parser, not a document-wide
 regular expression. Named profiles, dotted keys, arrays of tables, and text inside
@@ -455,12 +464,6 @@ Token from the selected AIGW Token store when Claude Code requests it; the Token
 written to settings, shell profiles, arguments, or logs. Users continue to run
 the native `claude` command directly.
 
-Both helpers carry a fingerprint of the client, Account and endpoint. Before
-reading a Token, the helper compares it with the currently selected Route.
-A mismatch returns a synchronization/reload instruction without credential
-access. Model and label changes preserve that fingerprint. It detects stale
-projections; it neither authenticates callers nor grants access rights.
-
 The Claude settings module owns synchronization validation. Adapter inspection
 and native verification consume that same read-only decision: an available
 executable alone is not ready. Missing, stale, malformed, or externally changed
@@ -474,8 +477,9 @@ surface are present. Missing and foreign clients remain untouched.
 
 ## Extension model
 
-AIGW keeps three change axes independent. A feature must enter through exactly
-the axis whose authority it changes.
+Classify an extension by the contract it changes. An integration may span
+several contracts; each concern belongs to its existing owner rather than a
+provider-named implementation of all of them.
 
 | Change requested                          | Extension path         | AIGW implementation consequence                   |
 | ----------------------------------------- | ---------------------- | ------------------------------------------------- |
@@ -484,11 +488,13 @@ the axis whose authority it changes.
 | New local configuration target            | Client Adapter         | Add one complete client transaction               |
 | Incompatible request or response behavior | Independent data plane | Select its endpoint; do not add transport to AIGW |
 
-Account admission owns endpoints, protocol capabilities, models, Token
-references, and verification evidence. It needs code only when authentication
-or discovery cannot use the admitted Account contract. Client Adapter admission
-owns one client's official configuration surface and complete projection
-transaction. Protocol products own proven wire incompatibilities.
+Account admission owns protocol endpoints and credential references. Profiles
+own the Account, client and model choice; Routes own selection. Catalogue
+observations, authenticated probes and client verification provide separate
+evidence rather than becoming configuration facts. Code is needed only when
+authentication or discovery exceeds the admitted Account contract. Client
+Adapters own native configuration transactions; independent protocol products
+own proven wire incompatibilities.
 
 An ordinary Bearer-authenticated OpenAI Responses or Anthropic endpoint is an
 Account admission, not a new provider class. An authentication system such as
