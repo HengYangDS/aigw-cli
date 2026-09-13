@@ -244,84 +244,56 @@ func TestUpdateDownloadsFromGitLabAPIWhenGlabIsUnavailable(t *testing.T) {
 	}
 }
 
-func TestUpdateFallsBackToGitLabAPIWhenGlabReportsEmptyReleaseDownload(t *testing.T) {
-	const token = "test-token"
-	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("new-binary"))
-	sum := sha256.Sum256(archive)
-	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.Header.Get("Private-Token"); got != token {
-			t.Fatalf("PRIVATE-TOKEN = %q, want configured token", got)
-		}
-		switch r.URL.Path {
-		case "/example-group/example-project/-/releases/v0.2.0/downloads/" + archiveName:
-			_, _ = w.Write(archive)
-		case "/example-group/example-project/-/releases/v0.2.0/downloads/checksums.txt":
-			_, _ = fmt.Fprintf(w, "%x  ./%s\n", sum, archiveName)
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer server.Close()
-	binary := filepath.Join(t.TempDir(), "aigw")
-	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", server.URL)
-	t.Setenv("GITLAB_TOKEN", token)
-	runner := &releaseRunner{download: func(string, string) error { return nil }}
-	u := upgrade.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: runner, HTTPClient: server.Client()}
-	message, err := u.Update(context.Background(), "0.1.0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err := os.ReadFile(binary)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != "new-binary" || !strings.Contains(message, "v0.2.0") {
-		t.Fatalf("binary=%q message=%q", got, message)
-	}
-	if len(runner.calls) < 2 || !containsSequence(runner.calls[1], "glab", "release", "download") {
-		t.Fatalf("empty glab download was not attempted: %v", runner.calls)
-	}
-}
-
-func TestUpdateFallsBackToGitLabAPIWhenGlabReportsMissingDownloadedFile(t *testing.T) {
-	const token = "test-token"
-	archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("new-binary"))
-	sum := sha256.Sum256(archive)
-	archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.Header.Get("Private-Token"); got != token {
-			t.Fatalf("PRIVATE-TOKEN = %q, want configured token", got)
-		}
-		switch r.URL.Path {
-		case "/example-group/example-project/-/releases/v0.2.0/downloads/" + archiveName:
-			_, _ = w.Write(archive)
-		case "/example-group/example-project/-/releases/v0.2.0/downloads/checksums.txt":
-			_, _ = fmt.Fprintf(w, "%x  ./%s\n", sum, archiveName)
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer server.Close()
-	binary := filepath.Join(t.TempDir(), "aigw")
-	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", server.URL)
-	t.Setenv("GITLAB_TOKEN", token)
-	u := upgrade.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: &releaseRunner{download: func(string, string) error { return os.ErrNotExist }}, HTTPClient: server.Client()}
-	if _, err := u.Update(context.Background(), "0.1.0"); err != nil {
-		t.Fatal(err)
-	}
-	got, err := os.ReadFile(binary)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != "new-binary" {
-		t.Fatalf("binary=%q", got)
+func TestUpdateFallsBackToGitLabAPIWhenGlabLeavesNoArtifact(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		err  error
+	}{
+		{"empty successful download", nil},
+		{"missing downloaded file", os.ErrNotExist},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			const token = "test-token"
+			archive := tarGz(t, "aigw_0.2.0_darwin_arm64/aigw", []byte("new-binary"))
+			sum := sha256.Sum256(archive)
+			archiveName := "aigw_0.2.0_darwin_arm64.tar.gz"
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if got := r.Header.Get("Private-Token"); got != token {
+					t.Fatalf("PRIVATE-TOKEN = %q, want configured token", got)
+				}
+				switch r.URL.Path {
+				case "/example-group/example-project/-/releases/v0.2.0/downloads/" + archiveName:
+					_, _ = w.Write(archive)
+				case "/example-group/example-project/-/releases/v0.2.0/downloads/checksums.txt":
+					_, _ = fmt.Fprintf(w, "%x  ./%s\n", sum, archiveName)
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+			binary := filepath.Join(t.TempDir(), "aigw")
+			if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", server.URL)
+			t.Setenv("GITLAB_TOKEN", token)
+			runner := &releaseRunner{download: func(string, string) error { return test.err }}
+			u := upgrade.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary, Runner: runner, HTTPClient: server.Client()}
+			message, err := u.Update(context.Background(), "0.1.0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := os.ReadFile(binary)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != "new-binary" || !strings.Contains(message, "v0.2.0") {
+				t.Fatalf("binary=%q message=%q", got, message)
+			}
+			if len(runner.calls) < 2 || !containsSequence(runner.calls[1], "glab", "release", "download") {
+				t.Fatalf("empty glab download was not attempted: %v", runner.calls)
+			}
+		})
 	}
 }
 

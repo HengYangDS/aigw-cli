@@ -102,31 +102,24 @@ func TestSemanticNamesRejectWrongCarrierAndNumericNames(t *testing.T) {
 	assertFinding(t, report.Findings, "semantic_name_go", "internal/routing/route-plan.go")
 }
 
-func TestSemanticNamesAcceptOtherLanguagesWhenTheirCarrierNameIsSemantic(t *testing.T) {
-	root := t.TempDir()
-	runGit(t, root, "init", "-q")
-	writeFile(t, filepath.Join(root, "scripts", "checks", "legacy.py"), "print('legacy')\n")
-	runGit(t, root, "add", ".")
-	report := newReport("policy", root)
-	if err := checkSemanticNames(root, &report); err != nil {
-		t.Fatal(err)
-	}
-	if !report.OK {
-		t.Fatalf("language choice alone was treated as a repository defect: %+v", report.Findings)
-	}
-}
-
-func TestSemanticNamesAcceptPortableShellCarriers(t *testing.T) {
-	root := t.TempDir()
-	runGit(t, root, "init", "-q")
-	writeFile(t, filepath.Join(root, "scripts", "checks", "check-release.sh"), "#!/bin/sh\npython3 - <<'PY'\nprint('legacy')\nPY\n")
-	runGit(t, root, "add", ".")
-	report := newReport("policy", root)
-	if err := checkSemanticNames(root, &report); err != nil {
-		t.Fatal(err)
-	}
-	if !report.OK {
-		t.Fatalf("shell implementation syntax alone was treated as a repository defect: %+v", report.Findings)
+func TestSemanticNamesAcceptLanguageIndependentCarriers(t *testing.T) {
+	for _, test := range []struct{ name, content string }{
+		{"legacy.py", "print('legacy')\n"},
+		{"check-release.sh", "#!/bin/sh\npython3 - <<'PY'\nprint('legacy')\nPY\n"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			runGit(t, root, "init", "-q")
+			writeFile(t, filepath.Join(root, "scripts", "checks", test.name), test.content)
+			runGit(t, root, "add", ".")
+			report := newReport("policy", root)
+			if err := checkSemanticNames(root, &report); err != nil {
+				t.Fatal(err)
+			}
+			if !report.OK {
+				t.Fatalf("language choice alone was treated as a repository defect: %+v", report.Findings)
+			}
+		})
 	}
 }
 

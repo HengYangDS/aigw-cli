@@ -393,30 +393,19 @@ func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T
 }
 
 func TestCheckRejectsLocalProgramBuildBeforeClaimingHealth(t *testing.T) {
-	app, out, _, _, _ := testApp(t, "")
-	app.Version = "0.1.0-rc.44+local.test"
-	err := cli.Execute(app, []string{"check"})
-	if err == nil {
-		t.Fatal("check succeeded for a local program build")
-	}
-	for _, want := range []string{"Local program is not an official release", "Detected local build marker", "aigw update"} {
-		if !strings.Contains(out.String(), want) {
-			t.Fatalf("check output missing %q:\n%s", want, out.String())
-		}
-	}
-}
-
-func TestCheckRejectsDefaultDevelopmentProgramBuildBeforeClaimingHealth(t *testing.T) {
-	app, out, _, _, _ := testApp(t, "")
-	app.Version = "0.1.0-dev"
-	err := cli.Execute(app, []string{"check"})
-	if err == nil {
-		t.Fatal("check succeeded for the default development program build")
-	}
-	for _, want := range []string{"Local program is not an official release", "Detected local build marker", "aigw update"} {
-		if !strings.Contains(out.String(), want) {
-			t.Fatalf("check output missing %q:\n%s", want, out.String())
-		}
+	for _, version := range []string{"0.1.0-rc.44+local.test", "0.1.0-dev"} {
+		t.Run(version, func(t *testing.T) {
+			app, out, _, _, _ := testApp(t, "")
+			app.Version = version
+			if err := cli.Execute(app, []string{"check"}); err == nil {
+				t.Fatal("check succeeded for a local program build")
+			}
+			for _, want := range []string{"Local program is not an official release", "Detected local build marker", "aigw update"} {
+				if !strings.Contains(out.String(), want) {
+					t.Fatalf("check output missing %q:\n%s", want, out.String())
+				}
+			}
+		})
 	}
 }
 

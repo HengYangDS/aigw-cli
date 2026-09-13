@@ -208,21 +208,15 @@ func TestTerminalPromptAccessibleSelectAcceptsChosenNumber(t *testing.T) {
 	}
 }
 
-func TestTerminalPromptAccessibleSelectRejectsNonNumericInput(t *testing.T) {
-	p := Prompt{in: strings.NewReader("nope\n"), out: &bytes.Buffer{}, accessible: true}
-	choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
-	_, err := p.Select("Pick: ", choices)
-	if err == nil || !strings.Contains(err.Error(), "invalid selection") {
-		t.Fatalf("Select() error = %v", err)
-	}
-}
-
-func TestTerminalPromptAccessibleSelectRejectsOutOfRangeNumber(t *testing.T) {
-	p := Prompt{in: strings.NewReader("9\n"), out: &bytes.Buffer{}, accessible: true}
-	choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
-	_, err := p.Select("Pick: ", choices)
-	if err == nil || !strings.Contains(err.Error(), "invalid selection") {
-		t.Fatalf("Select() error = %v", err)
+func TestTerminalPromptAccessibleSelectRequiresAnOfferedNumber(t *testing.T) {
+	for _, input := range []string{"nope", "9"} {
+		t.Run(input, func(t *testing.T) {
+			p := Prompt{in: strings.NewReader(input + "\n"), out: &bytes.Buffer{}, accessible: true}
+			choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
+			if _, err := p.Select("Pick: ", choices); err == nil || !strings.Contains(err.Error(), "invalid selection") {
+				t.Fatalf("Select() error = %v", err)
+			}
+		})
 	}
 }
 

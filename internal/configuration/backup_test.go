@@ -26,31 +26,21 @@ func TestCaptureVerifiedBackupStateSurfacesConfigReadErrors(t *testing.T) {
 	}
 }
 
-func TestCaptureVerifiedBackupStateSurfacesBackupReadErrors(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
-	if err := store.Save(convergenceConfig("current")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(path+".bak", 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.CaptureVerifiedBackupState(); err == nil {
-		t.Fatal("CaptureVerifiedBackupState succeeded despite a directory at the backup path")
-	}
-}
-
-func TestCaptureVerifiedBackupStateSurfacesVerifiedReadErrors(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
-	if err := store.Save(convergenceConfig("current")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(path+".verified.json", 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.CaptureVerifiedBackupState(); err == nil {
-		t.Fatal("CaptureVerifiedBackupState succeeded despite a directory at the verified checkpoint path")
+func TestCaptureVerifiedBackupStateSurfacesRecoveryReadErrors(t *testing.T) {
+	for _, suffix := range []string{".bak", ".verified.json"} {
+		t.Run(suffix, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			store := NewStore(path)
+			if err := store.Save(convergenceConfig("current")); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Mkdir(path+suffix, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := store.CaptureVerifiedBackupState(); err == nil {
+				t.Fatal("CaptureVerifiedBackupState succeeded despite a directory at the recovery path")
+			}
+		})
 	}
 }
 
