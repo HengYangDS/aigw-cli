@@ -45,18 +45,18 @@ precedence rules. Go code narrows further through the declared package topology
 and import direction. An unlisted peer carrier is a gate failure. A generated
 projection is never authoritative and points back to the source named below.
 
-| Surface                                                   | Semantic owner and source of truth                                                            | Consumers and dependency direction                                               | Change and retirement rule                                                                                 |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Product behavior                                          | The narrow `internal` domain package; `cmd/aigw` only composes it                             | CLI journey → domain → client or Provider leaf                                   | Change for a product invariant; retire when no invariant, caller, or test consumes it                      |
-| Public commands, options, and results                     | The matching `internal/cli/<journey>` constructor and result type                             | Human and JSON clients → CLI owner → domain owner                                | Change with the journey contract; retire together when the journey is removed                              |
-| Configuration, manifest fields, and environment variables | `internal/configuration`, the reviewed manifest, or the domain package declaring the variable | Input → validation → typed model → transactional projection                      | Change only with the owning schema or capability; retire after supported state has no reader               |
-| Client and native resources                               | The admitted client Adapter plus `internal/platform` for OS-neutral facts                     | Configuration → complete plan → atomic OS/client projection                      | Change for an admitted client contract; remove exactly owned state on disable or uninstall                 |
-| Repository tools and quality policy                       | The semantic `tools/<concern>` package plus `.config/checks/<concern>`                        | Policy → focused tool → `mise` gate → CI                                         | Change for a measured repository risk; retire when a mature owner supersedes it or the risk disappears     |
-| CI projections                                            | `.config/ci/pipeline.cue`                                                                     | CUE model → `.github/workflows/*` and `.gitlab-ci.yml` → Forge runners           | Change in CUE; regenerate projections; retire a job when it proves no unique fact                          |
-| Release identity and artifacts                            | `VERSION`, `CHANGELOG.md`, `.config/release`, and `tools/release`                             | Version and source object → deterministic artifacts → Forge Releases → installer | Change once per release identity; retire unreferenced failed artifacts and obsolete tags                   |
-| Product intent, documentation, and journeys               | Active OpenSpec requirements plus the nearest canonical documentation entry point             | Product semantics → acceptance tests and user/contributor guidance               | Reconcile with implementation in the same Change; archive intent and delete stale guidance when superseded |
-| Team configuration                                        | `manifests/team.toml` without credentials                                                     | Reviewed capability → setup import → local Account, Profile, and Route state     | Change when team capability changes; retire examples or fields without an active consumer                  |
-| Repository governance and local exclusions                | `.ethos`, `AGENTS.md`, Git metadata files, and `.gitignore`                                   | Repository policy → developer and agent entry points                             | Change only at the owning governance boundary; remove obsolete exceptions and host-tool residue rules      |
+Use the [authority map](../../../docs/governance/change-and-release-policy.md#authority-map)
+for source ownership and the [package architecture](../../../docs/architecture/authority-and-projection-boundary.md#semantic-packages)
+for dependency direction; repeating those mappings here creates a second
+maintenance surface. An owner changes with its product invariant or measured
+repository risk. It retires when no supported state, caller, test or acceptance
+obligation consumes it. Generated outputs change only through their source owner.
+
+Client projections retain guarded writes and compensation, not atomic visibility
+across independent files. Team configuration remains the credential-free
+`manifests/team.toml`; governance declarations remain under their existing
+ETHOS and Git owners. A removed interface retires its guidance and generated
+projection together, while still-consumed user state follows explicit migration.
 
 This resolution also covers generated host projections: Codex and Claude files
 are transactional outputs of their Adapters, while build products and Forge
@@ -359,15 +359,27 @@ This Change retains the existing library boundaries pending a demonstrated
 replacement benefit. The review below records scope and the proof a replacement
 needs; it is not a benchmark or a claim that alternatives cannot meet it.
 
-| Responsibility               | Retained implementation                                   | Replacement question                                                                                                            |
-| ---------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| CLI and terminal interaction | Cobra, pflag, Huh, Lip Gloss                              | Does another framework remove parsing or presentation work while preserving command grammar and accessibility?                  |
-| Configuration                | `go-toml/v2` and the Account/Profile/Route domain         | Can Viper, Koanf, or schema tooling reduce validation and persistence work without a second configuration authority?            |
-| Tokens                       | `go-keyring` and the selected portable backend            | Can a backend library preserve non-interactive selection, Unix file invariants, and Windows DPAPI with less owned code?         |
-| Program update               | Shared durable staging and bounded `robustio` operations  | Can an installer or package manager simplify replacement, verification, rollback, recovery, and exact cleanup together?         |
-| Release                      | GoReleaser, Syft, OSV-Scanner, OpenSSH, and release tools | Can native pipes or another release tool replace final-matrix evidence or object-preserving peer publication?                   |
-| Provider diagnostics         | Standard HTTP and protocol-specific leaves                | Does an SDK remove actual request or credential complexity? An HTTP server framework does not match this control-plane product. |
-| Tests                        | Go testing, scoped fixtures, and static analyzers         | Can a test library delete repeated setup or improve assertions without adding another test runner?                              |
+- **CLI and terminal interaction**
+  - **Retained implementation:** Cobra, pflag, Huh, Lip Gloss
+  - **Replacement question:** Does another framework remove parsing or presentation work while preserving command grammar and accessibility?
+- **Configuration**
+  - **Retained implementation:** `go-toml/v2` and the Account/Profile/Route domain
+  - **Replacement question:** Can Viper, Koanf, or schema tooling reduce validation and persistence work without a second configuration authority?
+- **Tokens**
+  - **Retained implementation:** `go-keyring` and the selected portable backend
+  - **Replacement question:** Can a backend library preserve non-interactive selection, Unix file invariants, and Windows DPAPI with less owned code?
+- **Program update**
+  - **Retained implementation:** Shared durable staging and bounded `robustio` operations
+  - **Replacement question:** Can an installer or package manager simplify replacement, verification, rollback, recovery, and exact cleanup together?
+- **Release**
+  - **Retained implementation:** GoReleaser, Syft, OSV-Scanner, OpenSSH, and release tools
+  - **Replacement question:** Can native pipes or another release tool replace final-matrix evidence or object-preserving peer publication?
+- **Provider diagnostics**
+  - **Retained implementation:** Standard HTTP and protocol-specific leaves
+  - **Replacement question:** Does an SDK remove actual request or credential complexity? An HTTP server framework does not match this control-plane product.
+- **Tests**
+  - **Retained implementation:** Go testing, scoped fixtures, and static analyzers
+  - **Replacement question:** Can a test library delete repeated setup or improve assertions without adding another test runner?
 
 Release-tool evaluation must include construction, final-matrix verification,
 readiness, and independent GitHub/GitLab publication. Signing must cover the
@@ -403,21 +415,32 @@ OS/architecture combination. Source-bound observations belong to task evidence,
 not duplicated counts in the design. Official OpenSpec archives retain their
 historical role and are not current product instructions.
 
-| Surface                      | Semantic owner and placement                                                                                                                        | Retention and acceptance boundary                                                                                                            |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entrypoint and commands      | `cmd/aigw` starts the program; `internal/cli` assembles operation-owned packages.                                                                   | Cobra owns argument admission, help and completion. Command leaves do not import peers.                                                      |
-| Configuration                | `internal/configuration` owns Accounts, Profiles, Routes, Adapter declarations, manifests and persistence.                                          | Validation, cloning, checkpoints and backup recovery share this owner; a manifest is not a second runtime model.                             |
-| Workflow                     | `internal/synchronization` owns setup, scoped selection and commit; `internal/renaming` owns identity migration.                                    | Callers supply intent rather than coordinate credential writes, rollback or verified retirement.                                             |
-| Clients                      | `internal/client` composes adapters; `internal/codex` and `internal/claude` own native projections.                                                 | Pure Codex catalogue transformation has its own subpackage; executable observation and reconciliation stay with the adapter.                 |
-| Credentials and observation  | `secrets` owns storage; `credential` owns authentication requests; `diagnostics` and `readiness` own observation and state vocabulary.              | Storage, authentication, catalogue membership and inference are different claims. Provider diagnostics stay below `providers`.               |
-| Host capabilities            | `discovery`, `surface`, `platform`, `process`, `transaction`, `console`, `prompt`, `presentation` and `redaction` own narrow capabilities.          | Each has current callers and a distinct change reason; no catch-all package combines filesystem, UI and process authority.                   |
-| Product update               | `internal/upgrade` owns source selection, peer transport and replacement; `artifact` owns archive admission.                                        | Artifact parsing does not depend on the updater. Public acceptance has an independent fixture lifetime.                                      |
-| Repository quality           | `tools/ci` executes native tools; `projection` and `markdown` own distinct inputs. `architecture`, `coverage` and `repository` own declared checks. | Configuration contains data, never implementation. Generic protected-lifecycle overlap remains an explicit open governance obligation.       |
-| Release                      | `tools/release` composes `construction`, `artifact`, `readiness` and `publication`; `tools/forge` owns signed-object transport and provenance.      | Native journeys belong to release, not CI dispatch. Transport and orchestration retain separate carriers within one package.                 |
-| Root and configuration       | Native discovery, locks, identity, licensing and reader entrypoints stay at root; `.config` carries explicit policies.                              | The [authority map](../../../docs/governance/change-and-release-policy.md#authority-map) identifies consumers without a duplicate inventory. |
-| Documents and manifest       | Documents follow audience and responsibility; `docs/README.md` is the sole directory index. `manifests/team.toml` owns team capability.             | Research is not an adopted decision. Physical placement does not certify rendering, live models or team setup.                               |
-| Specification and governance | Official OpenSpec owns specifications, one active Change and archived intent. Three `.ethos` files declare adoption, workspace and publication.     | Transient compilation, proof and coordination remain ETHOS-owned in the Git common directory; no second lifecycle state is added.            |
-| Generated and local output   | CUE owns both Forge projections. Locks are retained inputs; build, verification and developer-tool output stays ignored.                            | Follow [output ownership](../../../CONTRIBUTING.md#output-ownership-and-cleanup). Caches and receipts never acquire product authority.       |
+The [architecture](../../../docs/architecture/authority-and-projection-boundary.md)
+and [machine policy](../../../.config/checks/architecture/policy.toml) own the
+package map. Review these semantic lifetimes rather than rebuilding that map:
+
+- **Product state:** configuration owns schema, validation, persistence and
+  checkpoints; synchronization and renaming own complete workflows and recovery.
+- **Native clients:** composition admits Adapters; each client owns its native
+  projection. Pure catalogue transformation has its own client subpackage.
+- **Credentials and observation:** storage, authentication, optional diagnostics,
+  readiness and inference prove different claims and retain different owners.
+- **Host and update capabilities:** discovery, filesystem identity, processes,
+  presentation and replacement keep narrow contracts. Archive admission stays
+  below the updater; product code never imports repository tools.
+- **Repository execution:** CI invokes existing check and release owners.
+  CUE generates Forge projections, `.config` holds policy data, and native
+  discovery and lock files retain their root locations.
+- **Documents and intent:** the documentation index owns navigation; official
+  OpenSpec owns specifications and Change progress. Research is not a decision,
+  and a correctly placed document is not proof of its claims or rendering.
+- **Generated state:** verification output and developer indexes stay local.
+  ETHOS owns transient compilation, proof and coordination in the Git common
+  directory; no second lifecycle state is added.
+
+Every retained package needs a current caller and a distinct reason to change.
+The detached-source lifecycle gate is a disclosed governance overlap with a
+real CI consumer; replacement requires an equivalent working ETHOS capability.
 
 All six native import inventories have no product-to-tool edge. Test-only
 references cannot justify dormant production allowances. A graph resolver's
@@ -432,15 +455,18 @@ merely because it fits that budget.
 
 #### Behavioral and test ownership
 
-| Responsibility                      | Test placement                                          | Reason                                                                                                          |
-| ----------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Public CLI journeys                 | `internal/cli/acceptance`                               | One isolated application fixture, grouped by user operation; manifest setup remains distinct.                   |
-| Command admission and presentation  | Relevant command package and CLI root                   | Flags, errors, help and completion do not need credentials or network fixtures.                                 |
-| Credential durability               | `internal/secrets`                                      | Typed slots, observation, file identity, replacement and native vault behavior need private seams.              |
-| Client composition                  | `internal/client`                                       | Admission order, compensation and future-adapter conformance are distinct contracts.                            |
-| Client projection                   | `internal/claude`, `internal/codex` and Codex `catalog` | Public external-package tests remain external; private recovery and pure transformation stay with their owners. |
-| Program update                      | `internal/upgrade`, `artifact` and `acceptance`         | Transport, archive validation and process-isolated journeys have different lifetimes and visibility.            |
-| Packaged lifecycle and real clients | `tools/release`                                         | Tests consume built artifacts and measured client identities; tool fixtures do not become product dependencies. |
+- **Public CLI journeys** live under `internal/cli/acceptance`, using one
+  isolated application fixture and operation-specific scenarios. Command
+  admission and rendering tests remain with their constructors.
+- **Credential durability** tests stay with `internal/secrets`, where private
+  seams expose slots, replacement, file identity and native vault behavior.
+- **Client composition** tests keep admission order, compensation and Adapter
+  conformance together. Native client tests retain their private recovery
+  access; public tests remain external packages.
+- **Program update** separates transport/replacement tests, archive admission
+  and process-isolated acceptance by their different contracts and lifetimes.
+- **Packaged and real-client journeys** belong to `tools/release`; they consume
+  built artifacts and measured clients. Their fixtures are not product APIs.
 
 Shared fixtures hide genuinely shared setup, not alternative behaviors behind
 boolean modes. Scenario-only fixtures stay beside their consumers. The real

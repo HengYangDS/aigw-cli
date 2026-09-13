@@ -100,11 +100,15 @@ replacement changes metadata only; it never changes the Token slot.
 
 ## Rename
 
-| Operation                   | Changes                                | Preserves                            |
-| --------------------------- | -------------------------------------- | ------------------------------------ |
-| `profile rename`            | Profile ID, Routes and recommendations | Account and Token                    |
-| `account rename`            | Account ID and Profile references      | Token through a two-phase migration  |
-| `account rename --finalize` | Removes verified old credential slots  | Current configuration and checkpoint |
+- **`profile rename`**
+  - **Changes:** Profile ID, Routes and recommendations
+  - **Preserves:** Account and Token
+- **`account rename`**
+  - **Changes:** Account ID and Profile references
+  - **Preserves:** Token through a two-phase migration
+- **`account rename --finalize`**
+  - **Changes:** Removes verified old credential slots
+  - **Preserves:** Current configuration and checkpoint
 
 Finalize fails closed if credential equality or checkpoint proof is incomplete.
 

@@ -52,21 +52,28 @@ They answer different questions; none substitutes for all the others.
 
 ## Reference map
 
-| Domain       | Document                                                                               | Owns                                                                   |
-| ------------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Architecture | [Authority and projection boundary](architecture/authority-and-projection-boundary.md) | Control-plane boundaries and projection transaction model.             |
-| Architecture | [Security model](architecture/security-model.md)                                       | Credentials, local process boundaries, and real-request verification.  |
-| Concepts     | [Product concepts](concepts/product-concepts.md)                                       | Account, Profile, Route, Adapter, endpoint, and update model.          |
-| Decisions    | [Decision register](decisions/decision-register.md)                                    | Decision grammar, coverage rule, and durable rulings.                  |
-| Experience   | [Terminal experience](experience/terminal-experience.md)                               | Task-first navigation, narrow-terminal layout, and recovery language.  |
-| Governance   | [Text layout](governance/text-layout.md)                                               | Repository-wide text, documentation and formatter ownership.           |
-| Governance   | [Adapter admission](governance/adapter-admission.md)                                   | Admission evidence for client adapters.                                |
-| Governance   | [Change and release policy](governance/change-and-release-policy.md)                   | Change, release, proof, and closeout policy.                           |
-| Guides       | [Team rollout](guides/team-rollout.md)                                                 | Configuration manifests, member setup, release artifacts, and updates. |
-| Operations   | [Forge operations](operations/forge-operations.md)                                     | Independent GitLab and GitHub operation.                               |
-| Research     | [Provider tooling assessment](research/provider-tooling-assessment.md)                 | Needs, solution paradigms, competitive value, and implications.        |
-| History      | [Changelog](../CHANGELOG.md)                                                           | Published release history.                                             |
-| Legal        | [License](../LICENSE)                                                                  | MIT licensing terms.                                                   |
+- **Architecture:** [Authority and projection boundary](architecture/authority-and-projection-boundary.md)
+  explains the control plane and projection transactions;
+  [Security model](architecture/security-model.md) defines credentials, process
+  boundaries and real-request verification.
+- **Concepts:** [Product concepts](concepts/product-concepts.md) defines Accounts,
+  Profiles, Routes, Adapters, endpoints and updates.
+- **Decisions:** [Decision register](decisions/decision-register.md) indexes
+  durable rulings and their rationale.
+- **Experience:** [Terminal experience](experience/terminal-experience.md)
+  defines navigation, layout and recovery language.
+- **Governance:** [Text layout](governance/text-layout.md),
+  [Adapter admission](governance/adapter-admission.md), and
+  [Change and release policy](governance/change-and-release-policy.md) own
+  contributor contracts.
+- **Guides:** [Team rollout](guides/team-rollout.md) covers configuration
+  distribution, member setup, release artifacts and updates.
+- **Operations:** [Forge operations](operations/forge-operations.md) explains
+  independent GitLab and GitHub publication.
+- **Research:** [Provider tooling assessment](research/provider-tooling-assessment.md)
+  compares needs, solution paradigms and practical implications.
+- **History and legal:** [Changelog](../CHANGELOG.md) records releases;
+  [License](../LICENSE) supplies the MIT terms.
 
 Stable product and journey documentation lives here. Contributor evidence and
 release acceptance live with the [change and release policy](governance/change-and-release-policy.md),

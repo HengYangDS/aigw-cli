@@ -9,14 +9,24 @@ AIGW minimizes the distance between an operator's intent and each client's
 official configuration surface. It deliberately avoids becoming a mandatory
 traffic hop, a client launcher, or an agent-state manager.
 
-| Concern                                     | AIGW role                                | Other owner                                        |
-| ------------------------------------------- | ---------------------------------------- | -------------------------------------------------- |
-| Provider service and endpoint capability    | Declare Account protocol endpoints       | Provider                                           |
-| Token material                              | Select and use one Account Token backend | Native credential service or AIGW owner-only store |
-| Client intent                               | Select a Profile through a Route         | AIGW configuration                                 |
-| Native client configuration                 | Project one admitted, bounded region     | Client Adapter                                     |
-| Wire compatibility                          | Select an explicit endpoint              | Endpoint product                                   |
-| Conversations, memory, tools, and GUI state | None                                     | Client                                             |
+- **Provider service and endpoint capability**
+  - **AIGW role:** Declare Account protocol endpoints
+  - **Other owner:** Provider
+- **Token material**
+  - **AIGW role:** Select and use one Account Token backend
+  - **Other owner:** Native credential service or AIGW owner-only store
+- **Client intent**
+  - **AIGW role:** Select a Profile through a Route
+  - **Other owner:** AIGW configuration
+- **Native client configuration**
+  - **AIGW role:** Project one admitted, bounded region
+  - **Other owner:** Client Adapter
+- **Wire compatibility**
+  - **AIGW role:** Select an explicit endpoint
+  - **Other owner:** Endpoint product
+- **Conversations, memory, tools, and GUI state**
+  - **AIGW role:** None
+  - **Other owner:** Client
 
 Native clients send requests directly. AIGW runs for explicit configuration
 operations or on-demand credential helpers; no AIGW daemon is required.
@@ -55,19 +65,17 @@ process.
 
 ## Semantic packages
 
-| Package                         | Responsibility                                                                |
-| ------------------------------- | ----------------------------------------------------------------------------- |
-| `internal/configuration`        | Account, Profile, Route, Adapter schema and persistence                       |
-| `internal/secrets`              | Account credential backends, typed diagnostic credentials and replacement     |
-| `internal/providers/diagnostic` | Optional provider-account diagnostic result contract                          |
-| `internal/codex`                | Codex projection planning and reconciliation                                  |
-| `internal/claude`               | Claude Code settings projection, credential-safe process plans, and readiness |
-| `internal/credential`           | Provider-neutral endpoint authentication validation                           |
-| `internal/providers`            | Optional provider-native diagnostics only                                     |
-| `internal/presentation`         | Human and JSON rendering of command results                                   |
-| `internal/cli`                  | Command composition; domain behavior remains in semantic owners               |
-| `internal/transaction`          | Guarded filesystem mutation and rollback                                      |
-| `internal/upgrade`              | Independent-Forge update verification and installation                        |
+- **`internal/configuration`:** Account, Profile, Route, Adapter schema and persistence
+- **`internal/secrets`:** Account credential backends, typed diagnostic credentials and replacement
+- **`internal/providers/diagnostic`:** Optional provider-account diagnostic result contract
+- **`internal/codex`:** Codex projection planning and reconciliation
+- **`internal/claude`:** Claude Code settings projection, credential-safe process plans, and readiness
+- **`internal/credential`:** Provider-neutral endpoint authentication validation
+- **`internal/providers`:** Optional provider-native diagnostics only
+- **`internal/presentation`:** Human and JSON rendering of command results
+- **`internal/cli`:** Command composition; domain behavior remains in semantic owners
+- **`internal/transaction`:** Guarded filesystem mutation and rollback
+- **`internal/upgrade`:** Independent-Forge update verification and installation
 
 Dependency direction is toward domain owners. Presentation, CLI composition,
 Forge code, and host discovery do not define product semantics.
@@ -481,12 +489,18 @@ Classify an extension by the contract it changes. An integration may span
 several contracts; each concern belongs to its existing owner rather than a
 provider-named implementation of all of them.
 
-| Change requested                          | Extension path         | AIGW implementation consequence                   |
-| ----------------------------------------- | ---------------------- | ------------------------------------------------- |
-| Compatible endpoint or model              | Account data           | Configuration only                                |
-| Distinct credential exchange              | Account authentication | Extend the authentication owner                   |
-| New local configuration target            | Client Adapter         | Add one complete client transaction               |
-| Incompatible request or response behavior | Independent data plane | Select its endpoint; do not add transport to AIGW |
+- **Compatible endpoint or model**
+  - **Extension path:** Account data
+  - **AIGW implementation consequence:** Configuration only
+- **Distinct credential exchange**
+  - **Extension path:** Account authentication
+  - **AIGW implementation consequence:** Extend the authentication owner
+- **New local configuration target**
+  - **Extension path:** Client Adapter
+  - **AIGW implementation consequence:** Add one complete client transaction
+- **Incompatible request or response behavior**
+  - **Extension path:** Independent data plane
+  - **AIGW implementation consequence:** Select its endpoint; do not add transport to AIGW
 
 Account admission owns protocol endpoints and credential references. Profiles
 own the Account, client and model choice; Routes own selection. Catalogue

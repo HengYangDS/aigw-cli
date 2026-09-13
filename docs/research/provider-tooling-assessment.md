@@ -22,13 +22,21 @@ Users do not ultimately need “provider switching.” They need to complete wor
 
 Different users therefore value different outcomes:
 
-| User and situation                               | Desired outcome                                        | Burden they are trying to remove                                                 |
-| ------------------------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| Individual using several coding clients          | Consistent, understandable access and easy recovery    | Repeated setup, wrong active accounts, conflicting settings and lost continuity. |
-| Developer comparing accounts/models concurrently | Independent experiments without disturbing normal work | Global configuration contention and accidental cross-account use.                |
-| Team lead distributing a recommended setup       | Members become productive with minimal assistance      | Inconsistent catalogs, secret sharing and machine-specific onboarding.           |
-| Organization funding and governing access        | Controlled consumption with revocation and attribution | Credential sprawl, unmanaged budgets and unclear responsibility.                 |
-| Platform or application developer                | A stable integration boundary                          | Provider-specific protocol, authentication and operational differences.          |
+- **Individual using several coding clients**
+  - **Desired outcome:** Consistent, understandable access and easy recovery
+  - **Burden they are trying to remove:** Repeated setup, wrong active accounts, conflicting settings and lost continuity.
+- **Developer comparing accounts/models concurrently**
+  - **Desired outcome:** Independent experiments without disturbing normal work
+  - **Burden they are trying to remove:** Global configuration contention and accidental cross-account use.
+- **Team lead distributing a recommended setup**
+  - **Desired outcome:** Members become productive with minimal assistance
+  - **Burden they are trying to remove:** Inconsistent catalogs, secret sharing and machine-specific onboarding.
+- **Organization funding and governing access**
+  - **Desired outcome:** Controlled consumption with revocation and attribution
+  - **Burden they are trying to remove:** Credential sprawl, unmanaged budgets and unclear responsibility.
+- **Platform or application developer**
+  - **Desired outcome:** A stable integration boundary
+  - **Burden they are trying to remove:** Provider-specific protocol, authentication and operational differences.
 
 These are analytic segments derived from the workflows under review, not measured customer populations. A person can occupy several roles; their preferences can conflict. The cheapest individual setup is not necessarily the least costly organizational operating model.
 
@@ -40,12 +48,18 @@ This explains why adding model names is often easy while maintaining a dependabl
 
 Separate four responsibilities before comparing products:
 
-| Responsibility        | Core question                                      | Legitimate ownership boundary                                                                          |
-| --------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Configuration control | What should this client use?                       | Catalogs, credential references, selected routes and explicitly owned settings.                        |
-| Request execution     | How does this request reach a compatible service?  | Credential delivery, transport, protocol conversion, streams and errors.                               |
-| Session continuity    | Does this ongoing task retain its meaning?         | Client-owned conversation/tool state; adapters preserve semantics without acquiring history ownership. |
-| Organizational access | Who may consume which resources, at whose expense? | Membership, downstream credentials, quotas, revocation, policy and audit.                              |
+- **Configuration control**
+  - **Core question:** What should this client use?
+  - **Legitimate ownership boundary:** Catalogs, credential references, selected routes and explicitly owned settings.
+- **Request execution**
+  - **Core question:** How does this request reach a compatible service?
+  - **Legitimate ownership boundary:** Credential delivery, transport, protocol conversion, streams and errors.
+- **Session continuity**
+  - **Core question:** Does this ongoing task retain its meaning?
+  - **Legitimate ownership boundary:** Client-owned conversation/tool state; adapters preserve semantics without acquiring history ownership.
+- **Organizational access**
+  - **Core question:** Who may consume which resources, at whose expense?
+  - **Legitimate ownership boundary:** Membership, downstream credentials, quotas, revocation, policy and audit.
 
 These are responsibility boundaries, not a proposal to create four products. One product may cover several; separate binaries may still be tightly coupled if they compete to own the same state.
 
@@ -53,15 +67,34 @@ These are responsibility boundaries, not a proposal to create four products. One
 
 A useful map starts with **how a solution removes work**, not the language it uses or whether it has a GUI.
 
-| Paradigm                            | Mechanism and benefit                                              | Obligation introduced or retained                                                    | Representative alternatives                      |
-| ----------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| Native/direct setup                 | Use the client's existing surface; no extra manager or traffic hop | User or administrator still coordinates settings and verifies upstream compatibility | The baseline to test before adding a product     |
-| Per-launch isolation                | Scope account and configuration to a child process                 | Different launch workflow and possibly different history/plugin discovery            | MuxLM; CC Switch CLI launch mode                 |
-| Persistent configuration management | Maintain reusable intent and project it to client settings         | Conflict detection, field ownership, credential delivery and safe withdrawal         | CC Switch Desktop/CLI, ccman, AIGW               |
-| Local compatibility proxy           | Adapt requests or routing at one endpoint                          | Semantic fidelity, ports, service availability, privacy and recovery                 | CLIProxyAPI, CCR, OpenCodex, Proxy               |
-| Shared access gateway               | Centralize authorization, routing, consumption and operations      | Server administration, member isolation and a shared failure/data boundary           | One API, New API, LiteLLM, Portkey, Bifrost      |
-| Integrated workbench                | Bundle several repeated tasks into one interaction surface         | Broader permission/state scope and coordination across features                      | CC Switch family, CCS, ZCF with different scopes |
-| Reusable component                  | Embed existing behavior behind an application boundary             | API integration, upgrade compatibility and host responsibilities                     | CC Switch Core; CLIProxyAPI SDK                  |
+- **Native/direct setup**
+  - **Mechanism and benefit:** Use the client's existing surface; no extra manager or traffic hop
+  - **Obligation introduced or retained:** User or administrator still coordinates settings and verifies upstream compatibility
+  - **Representative alternatives:** The baseline to test before adding a product
+- **Per-launch isolation**
+  - **Mechanism and benefit:** Scope account and configuration to a child process
+  - **Obligation introduced or retained:** Different launch workflow and possibly different history/plugin discovery
+  - **Representative alternatives:** MuxLM; CC Switch CLI launch mode
+- **Persistent configuration management**
+  - **Mechanism and benefit:** Maintain reusable intent and project it to client settings
+  - **Obligation introduced or retained:** Conflict detection, field ownership, credential delivery and safe withdrawal
+  - **Representative alternatives:** CC Switch Desktop/CLI, ccman, AIGW
+- **Local compatibility proxy**
+  - **Mechanism and benefit:** Adapt requests or routing at one endpoint
+  - **Obligation introduced or retained:** Semantic fidelity, ports, service availability, privacy and recovery
+  - **Representative alternatives:** CLIProxyAPI, CCR, OpenCodex, Proxy
+- **Shared access gateway**
+  - **Mechanism and benefit:** Centralize authorization, routing, consumption and operations
+  - **Obligation introduced or retained:** Server administration, member isolation and a shared failure/data boundary
+  - **Representative alternatives:** One API, New API, LiteLLM, Portkey, Bifrost
+- **Integrated workbench**
+  - **Mechanism and benefit:** Bundle several repeated tasks into one interaction surface
+  - **Obligation introduced or retained:** Broader permission/state scope and coordination across features
+  - **Representative alternatives:** CC Switch family, CCS, ZCF with different scopes
+- **Reusable component**
+  - **Mechanism and benefit:** Embed existing behavior behind an application boundary
+  - **Obligation introduced or retained:** API integration, upgrade compatibility and host responsibilities
+  - **Representative alternatives:** CC Switch Core; CLIProxyAPI SDK
 
 Sources and version qualifications are in the [catalog](#reference-the-broader-landscape). These are mechanisms, not mutually exclusive product buckets. CC Switch's optional proxy does not make it a mandatory traffic gateway; a gateway's client instructions do not make it a full configuration manager.
 
@@ -69,13 +102,21 @@ Local/self-hosted versus hosted, GUI versus CLI, personal versus shared, and API
 
 ### Competition is a graph, not a league table
 
-| Relationship            | Example                                                     | What a meaningful comparison asks                                                        |
-| ----------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Direct substitutes      | AIGW and CC Switch CLI for persistent configuration         | Can they complete the same onboarding, switching and withdrawal journey?                 |
-| Conditional substitutes | A direct native endpoint and a compatibility proxy          | Is the proxy solving a still-present incompatibility or another required operating need? |
-| Complements             | A local configuration manager and a shared gateway          | Is there a clean endpoint/credential handoff with no competing state owner?              |
-| Components and hosts    | CLIProxyAPI SDK and an integrated application               | Does embedding transfer enough implementation and maintenance work?                      |
-| Platform absorption     | An upstream or client adds a previously external capability | Which intermediary responsibility disappears, and which remains?                         |
+- **Direct substitutes**
+  - **Example:** AIGW and CC Switch CLI for persistent configuration
+  - **What a meaningful comparison asks:** Can they complete the same onboarding, switching and withdrawal journey?
+- **Conditional substitutes**
+  - **Example:** A direct native endpoint and a compatibility proxy
+  - **What a meaningful comparison asks:** Is the proxy solving a still-present incompatibility or another required operating need?
+- **Complements**
+  - **Example:** A local configuration manager and a shared gateway
+  - **What a meaningful comparison asks:** Is there a clean endpoint/credential handoff with no competing state owner?
+- **Components and hosts**
+  - **Example:** CLIProxyAPI SDK and an integrated application
+  - **What a meaningful comparison asks:** Does embedding transfer enough implementation and maintenance work?
+- **Platform absorption**
+  - **Example:** An upstream or client adds a previously external capability
+  - **What a meaningful comparison asks:** Which intermediary responsibility disappears, and which remains?
 
 Thus One API is neither irrelevant nor a drop-in replacement for every local workflow. CC Switch is neither merely a file editor nor necessarily a heavyweight mandatory gateway. An integrated tool can win by reducing coordination across products; a narrow tool can win by solving one boundary exceptionally well. Either must be assessed in its relevant mode, not its largest possible deployment.
 
@@ -163,14 +204,24 @@ The findings below separate observation, mechanism and decision implication. Rev
 
 A shortlist is an investigation order, not a claim that a candidate passed acceptance. Start with the native baseline and at most two contenders for the actual scenario; the broader catalog is a reserve, not a demand to test everything.
 
-| Actual journey                                     | First comparison                                                           | Decisive trade-off                                                                                |
-| -------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Manage persistent Claude/Codex settings visually   | Native settings; CC Switch Desktop; current AIGW journey                   | Daily usability and ownership-preserving withdrawal, rather than GUI feature count.               |
-| Script configuration and team onboarding           | CC Switch CLI; current AIGW journey                                        | One-key setup, secret-free distribution, deferred client installation and diagnosable automation. |
-| Run concurrent accounts in separate terminals      | CC Switch CLI per-launch mode; MuxLM                                       | Isolation convenience versus continuity with normal Desktop, history and plugin locations.        |
-| Fix a specific Codex Responses incompatibility     | Direct upstream; CC Switch optional proxy; CLIProxyAPI's relevant executor | Replay/tool fidelity; substitute OpenCodex if the executor contract rules CLIProxyAPI out.        |
-| Distribute paid access with budgets and revocation | One API/New API; LiteLLM                                                   | Shared access authority and operating cost, not local settings convenience.                       |
-| Keep a custom UX while replacing plumbing          | CLIProxyAPI SDK or CC Switch Core, according to boundary                   | Stable usable public APIs, integration burden and actual custom code removed.                     |
+- **Manage persistent Claude/Codex settings visually**
+  - **First comparison:** Native settings; CC Switch Desktop; current AIGW journey
+  - **Decisive trade-off:** Daily usability and ownership-preserving withdrawal, rather than GUI feature count.
+- **Script configuration and team onboarding**
+  - **First comparison:** CC Switch CLI; current AIGW journey
+  - **Decisive trade-off:** One-key setup, secret-free distribution, deferred client installation and diagnosable automation.
+- **Run concurrent accounts in separate terminals**
+  - **First comparison:** CC Switch CLI per-launch mode; MuxLM
+  - **Decisive trade-off:** Isolation convenience versus continuity with normal Desktop, history and plugin locations.
+- **Fix a specific Codex Responses incompatibility**
+  - **First comparison:** Direct upstream; CC Switch optional proxy; CLIProxyAPI's relevant executor
+  - **Decisive trade-off:** Replay/tool fidelity; substitute OpenCodex if the executor contract rules CLIProxyAPI out.
+- **Distribute paid access with budgets and revocation**
+  - **First comparison:** One API/New API; LiteLLM
+  - **Decisive trade-off:** Shared access authority and operating cost, not local settings convenience.
+- **Keep a custom UX while replacing plumbing**
+  - **First comparison:** CLIProxyAPI SDK or CC Switch Core, according to boundary
+  - **Decisive trade-off:** Stable usable public APIs, integration burden and actual custom code removed.
 
 ### CC Switch CLI versus AIGW: what the user would actually notice
 
@@ -216,12 +267,18 @@ The recommendation raises the evidence bar for custom plumbing. It does not stop
 
 Vendor count is a poor proxy for extensibility. One new model can be a data change; one new authentication or session contract can require substantial behavior.
 
-| Change                                            | Smallest plausible owner                  | Evidence of genuinely low-cost extension                                                         |
-| ------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Another endpoint/model using an admitted protocol | Catalog or configuration                  | No core branch or binary release; real client authentication, streaming and tools work.          |
-| New signing or credential renewal                 | Native client/provider SDK when available | Credential lifecycle works in the target process; no redundant local credential authority.       |
-| New wire or replay semantics                      | Maintained protocol adapter               | Conformance tests preserve task meaning, errors and cancellation; no silent field dropping.      |
-| New client such as Hermes, OpenCode or Pi         | Client-specific projection/launch adapter | Correct path, precedence, credential delivery, conflict handling and removal in the real client. |
+- **Another endpoint/model using an admitted protocol**
+  - **Smallest plausible owner:** Catalog or configuration
+  - **Evidence of genuinely low-cost extension:** No core branch or binary release; real client authentication, streaming and tools work.
+- **New signing or credential renewal**
+  - **Smallest plausible owner:** Native client/provider SDK when available
+  - **Evidence of genuinely low-cost extension:** Credential lifecycle works in the target process; no redundant local credential authority.
+- **New wire or replay semantics**
+  - **Smallest plausible owner:** Maintained protocol adapter
+  - **Evidence of genuinely low-cost extension:** Conformance tests preserve task meaning, errors and cancellation; no silent field dropping.
+- **New client such as Hermes, OpenCode or Pi**
+  - **Smallest plausible owner:** Client-specific projection/launch adapter
+  - **Evidence of genuinely low-cost extension:** Correct path, precedence, credential delivery, conflict handling and removal in the real client.
 
 CC Switch CLI declares Hermes, OpenCode and Pi support; AIGW currently admits Claude Code and Codex. That is a breadth difference, not a reason to call a future AIGW integration free. Equivalent Qoder evidence was not established in the assessed leading candidates. “Endpoint configured,” “model visible,” “tool loop works” and “survives upgrade” are separate acceptance levels. [CLI][cc-cli], [AIGW](../../README.md).
 
@@ -235,13 +292,21 @@ For an AWS evaluation, bind the exact client, model, region, API and authenticat
 
 The practical objective is better decisions and less work for users and maintainers—not a larger report or a larger test program. The following recommendations distinguish improvements within the approved delivery scope from experiments and product decisions that remain separate.
 
-| When                              | Recommended action                                                                                                                                                                                                  | Observable result or decision boundary                                                                                                                                                          |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Current delivery                  | Complete AIGW first, then Proxy. Use the existing Change and tests to close one-key onboarding, owned-setting preservation, credential delivery and recovery; do not add a parallel research-driven implementation. | Required user journeys work from the delivered artifact. Source checks, hosted CI and installed-product evidence remain separate.                                                               |
-| Next configuration evaluation     | Compare the current AIGW journey with native setup and CC Switch CLI; use Desktop instead when GUI operation is the actual need. Begin with one provider and one required client.                                   | Record setup effort, route clarity, unrelated-state preservation and withdrawal. Expand the pilot only if the result could change the choice.                                                   |
-| Next compatibility evaluation     | Reproduce the required Codex workflow directly against its upstream first; evaluate an existing proxy only for a demonstrated remaining need. Keep this isolated from the serving installation.                     | A passing direct path removes that proxy obligation from the proposed architecture. Otherwise, retained tool/replay semantics and recovery determine whether an existing service is sufficient. |
-| Each proposed extension           | Identify the changed contract; try configuration, native capability or a maintained public extension before new product code.                                                                                       | Document the behavior gained and the custom responsibility removed. A dependency without deleted work or a necessary new capability has not yet shown net benefit.                              |
-| After the user's product decision | Translate the selected option into one bounded migration or improvement plan, with retained state, rollback and exact retirement targets.                                                                           | The real journey remains usable; replacement mechanics and obsolete owned artifacts are removed only after their successors are verified.                                                       |
+- **Current delivery**
+  - **Recommended action:** Complete AIGW first, then Proxy. Use the existing Change and tests to close one-key onboarding, owned-setting preservation, credential delivery and recovery; do not add a parallel research-driven implementation.
+  - **Observable result or decision boundary:** Required user journeys work from the delivered artifact. Source checks, hosted CI and installed-product evidence remain separate.
+- **Next configuration evaluation**
+  - **Recommended action:** Compare the current AIGW journey with native setup and CC Switch CLI; use Desktop instead when GUI operation is the actual need. Begin with one provider and one required client.
+  - **Observable result or decision boundary:** Record setup effort, route clarity, unrelated-state preservation and withdrawal. Expand the pilot only if the result could change the choice.
+- **Next compatibility evaluation**
+  - **Recommended action:** Reproduce the required Codex workflow directly against its upstream first; evaluate an existing proxy only for a demonstrated remaining need. Keep this isolated from the serving installation.
+  - **Observable result or decision boundary:** A passing direct path removes that proxy obligation from the proposed architecture. Otherwise, retained tool/replay semantics and recovery determine whether an existing service is sufficient.
+- **Each proposed extension**
+  - **Recommended action:** Identify the changed contract; try configuration, native capability or a maintained public extension before new product code.
+  - **Observable result or decision boundary:** Document the behavior gained and the custom responsibility removed. A dependency without deleted work or a necessary new capability has not yet shown net benefit.
+- **After the user's product decision**
+  - **Recommended action:** Translate the selected option into one bounded migration or improvement plan, with retained state, rollback and exact retirement targets.
+  - **Observable result or decision boundary:** The real journey remains usable; replacement mechanics and obsolete owned artifacts are removed only after their successors are verified.
 
 These are conditional recommendations, not completed experiments or migration authorization. The next pilot should answer one unresolved decision; it must not become an indefinite prerequisite for current delivery.
 
@@ -259,14 +324,24 @@ Then compare usability, automation, client breadth, maintenance burden and measu
 
 ### Run the cheapest decisive experiment first
 
-| Order                        | Experiment                                                                                                                                                    | Decision it enables                                                                              |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| 1. Establish necessity       | Pin a client and upstream; run the native direct text/tool/stream journey. Replay the relevant sanitized failure separately.                                  | If direct access meets the required behavior, remove the proxy from that candidate architecture. |
-| 2. Test daily value          | Compare native setup and two scenario contenders: one key, missing other keys, client installed later, inspect route, switch and withdraw.                    | Eliminate tools that cannot deliver the primary journey; retain the simplest workable options.   |
-| 3. Test ownership            | Seed unrelated settings, plugins and session metadata; exercise update, conflicts, disable and uninstall. Compare exact owned/unowned effects.                | Distinguish acceptable integration from a merely successful configuration write.                 |
-| 4. Test protocol necessity   | Only for paths still needing a proxy: identical client/upstream fixtures for parallel tools, images, reasoning, replay, compaction, cancellation and failure. | Decide whether a general gateway suffices or a narrow missing behavior remains.                  |
-| 5. Test operational survival | On required native platforms, test environment and vault delivery separately; exercise upgrade, rollback and interrupted cleanup.                             | Establish deployability and the platform-specific operating burden.                              |
-| 6. Test economics and exit   | Perform one provider/client update and reversal; measure manual steps, patch surface, failure recovery and removal. Benchmark equivalent routes if needed.    | Compare adopt/compose/build on future cost; verify that the apparent simplification is real.     |
+- **1. Establish necessity**
+  - **Experiment:** Pin a client and upstream; run the native direct text/tool/stream journey. Replay the relevant sanitized failure separately.
+  - **Decision it enables:** If direct access meets the required behavior, remove the proxy from that candidate architecture.
+- **2. Test daily value**
+  - **Experiment:** Compare native setup and two scenario contenders: one key, missing other keys, client installed later, inspect route, switch and withdraw.
+  - **Decision it enables:** Eliminate tools that cannot deliver the primary journey; retain the simplest workable options.
+- **3. Test ownership**
+  - **Experiment:** Seed unrelated settings, plugins and session metadata; exercise update, conflicts, disable and uninstall. Compare exact owned/unowned effects.
+  - **Decision it enables:** Distinguish acceptable integration from a merely successful configuration write.
+- **4. Test protocol necessity**
+  - **Experiment:** Only for paths still needing a proxy: identical client/upstream fixtures for parallel tools, images, reasoning, replay, compaction, cancellation and failure.
+  - **Decision it enables:** Decide whether a general gateway suffices or a narrow missing behavior remains.
+- **5. Test operational survival**
+  - **Experiment:** On required native platforms, test environment and vault delivery separately; exercise upgrade, rollback and interrupted cleanup.
+  - **Decision it enables:** Establish deployability and the platform-specific operating burden.
+- **6. Test economics and exit**
+  - **Experiment:** Perform one provider/client update and reversal; measure manual steps, patch surface, failure recovery and removal. Benchmark equivalent routes if needed.
+  - **Decision it enables:** Compare adopt/compose/build on future cost; verify that the apparent simplification is real.
 
 Move a protocol test earlier if it is the known decisive requirement. Platform obligations follow the selected deployment, not a demand to run every optional feature everywhere. Docker Linux establishes container behavior; it does not replace Windows native service or desktop credential evidence.
 
@@ -313,44 +388,165 @@ These qualifications matter when a shortlisted option moves from inspection to a
 
 Capabilities below derive from the linked source snapshots and their READMEs. Relative strengths and trade-offs are analysis of those mechanisms, not measured performance or reliability scores.
 
-| Project and observed release                            | Main capabilities                                                                                                                    | Relative strengths                                                                               | Limitations or trade-offs                                                                                                                              |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [CC Switch Desktop][cc-desktop] · `v3.20.2`             | Multi-client providers, GUI/tray, MCP, skills, prompts, sessions, usage, sync, optional proxy and failover                           | Configuration and visual daily management in one product; switching need not start a proxy       | Local single-user model, not organizational authorization; optional session operations need review; recent compatibility reports exist                 |
-| [SaladDay/cc-switch-cli][cc-cli] · `v5.10.4`            | CLI/TUI, global and per-launch switching, seven client types, accounts, import/export, WebDAV, MCP/skills, usage, optional proxy     | Directly relevant to terminal and automation workflows; more than an endpoint editor             | No equivalent managed proxy daemon on Windows; shared databases require compatible versions                                                            |
-| [MuxLM][muxlm] · `v2.6.0`                               | Codex, Claude Code, and OpenCode launchers; provider/model catalog; isolated launch settings; platform-dependent credential backends | Single Go binary without a persistent proxy; fewer global configuration writes                   | Launch isolation differs from persistent Desktop configuration; Codex still receives a temporary key-bearing file; no Windows native vault established |
-| [ZCF][zcf] · `zcf@3.7.3`                                | Client initialization, API/CCR setup, MCP, workflow installation/updates, noninteractive setup                                       | Addresses onboarding a machine with no existing tools                                            | Broader environment changes; ownership, idempotence, and uninstall behavior in an existing team environment need testing                               |
-| [ccman][ccman] · `v3.3.31`                              | Codex, Claude Code, Gemini, OpenCode; CLI/Desktop; MCP; WebDAV                                                                       | Existing multi-client configuration and synchronization                                          | Export scope and full lifecycle remain unverified; README declares MIT, but no standalone license file was found in the inspected tree                 |
-| [aisw][aisw] · `v0.3.8`                                 | Account profiles, cross-client contexts, repository binding, isolated Codex homes, rollback                                          | Directly addresses work/personal account separation and project context                          | Isolated homes differ from a shared CLI/Desktop home; equivalent behavior cannot be assumed                                                            |
-| [OpenCils/cc-switch-cli][opencils] · `v1.2.14`          | Separate project; terminal UI, native configuration writes, Windows/WSL discovery, optional proxy takeover                           | Explicitly discovers distinct Windows and WSL installations                                      | Separate from SaladDay's project; package declares ISC, but no standalone license file was found; multi-environment writes need testing                |
-| [AI Provider Switcher][vs-switcher] · `v0.5.5`          | VS Code extension; providers, model catalog projection, Claude/Codex/Desktop settings, optional history migration                    | Editor-centered interaction; addresses configuration overrides and reconnection issues           | Editor-dependent; optional history migration must be compared with the no-history-rewrite requirement                                                  |
-| [U-Pool][u-pool] · `v0.8.0`                             | Desktop multi-client configuration, Cursor account pool, owned-field writes, Windows environment integration                         | Visual management with Windows user-environment integration                                      | Only Windows assets observed; README explicitly says no license is declared; reuse permission is not established                                       |
-| [cc-api-switcher-cli][ccsw] · `v0.1.0`                  | Single Go binary, Claude/Codex providers, templates, configuration import                                                            | Narrow responsibility and scriptable interface                                                   | Early release; insufficient evidence for team governance and complete lifecycle support                                                                |
-| [Cursedpotential/ccswitch][small-ccswitch] · No release | Claude-focused provider, environment, and launch switching                                                                           | Smaller client-specific problem scope                                                            | No published release observed; multi-client management must not be inferred                                                                            |
-| [Agent Switch][agent-switch] · No release               | Claude/Codex/OpenCode configuration overlays, local hot-switching proxy, MCP                                                         | Explicit focus on relevant fields rather than whole-file replacement                             | Early project; implemented behavior, roadmap, and proposed UI need separation                                                                          |
-| [CC Switch Lite][cc-lite] · No release                  | Focused provider/MCP/skill selection, shared database, ownership-checked projection                                                  | Narrower UI and writes with shared underlying capabilities                                       | Explicitly pre-alpha; concurrent writes with the full application remain restricted                                                                    |
-| [CC Switch Core][cc-core] · No release                  | Rust application registry, native import/projection, deterministic writes, CAS/rollback, separate Store                              | Reusable configuration semantics already exist; complete reimplementation is not the only option | Sealed built-in adapter trait; host still owns exact I/O, locks, resource identity, and platform security; pre-1.0 integration needs assessment        |
+#### [CC Switch Desktop][cc-desktop] · `v3.20.2`
+
+- **Main capabilities:** Multi-client providers, GUI/tray, MCP, skills, prompts, sessions, usage, sync, optional proxy and failover
+- **Relative strengths:** Configuration and visual daily management in one product; switching need not start a proxy
+- **Limitations or trade-offs:** Local single-user model, not organizational authorization; optional session operations need review; recent compatibility reports exist
+
+#### [SaladDay/cc-switch-cli][cc-cli] · `v5.10.4`
+
+- **Main capabilities:** CLI/TUI, global and per-launch switching, seven client types, accounts, import/export, WebDAV, MCP/skills, usage, optional proxy
+- **Relative strengths:** Directly relevant to terminal and automation workflows; more than an endpoint editor
+- **Limitations or trade-offs:** No equivalent managed proxy daemon on Windows; shared databases require compatible versions
+
+#### [MuxLM][muxlm] · `v2.6.0`
+
+- **Main capabilities:** Codex, Claude Code, and OpenCode launchers; provider/model catalog; isolated launch settings; platform-dependent credential backends
+- **Relative strengths:** Single Go binary without a persistent proxy; fewer global configuration writes
+- **Limitations or trade-offs:** Launch isolation differs from persistent Desktop configuration; Codex still receives a temporary key-bearing file; no Windows native vault established
+
+#### [ZCF][zcf] · `zcf@3.7.3`
+
+- **Main capabilities:** Client initialization, API/CCR setup, MCP, workflow installation/updates, noninteractive setup
+- **Relative strengths:** Addresses onboarding a machine with no existing tools
+- **Limitations or trade-offs:** Broader environment changes; ownership, idempotence, and uninstall behavior in an existing team environment need testing
+
+#### [ccman][ccman] · `v3.3.31`
+
+- **Main capabilities:** Codex, Claude Code, Gemini, OpenCode; CLI/Desktop; MCP; WebDAV
+- **Relative strengths:** Existing multi-client configuration and synchronization
+- **Limitations or trade-offs:** Export scope and full lifecycle remain unverified; README declares MIT, but no standalone license file was found in the inspected tree
+
+#### [aisw][aisw] · `v0.3.8`
+
+- **Main capabilities:** Account profiles, cross-client contexts, repository binding, isolated Codex homes, rollback
+- **Relative strengths:** Directly addresses work/personal account separation and project context
+- **Limitations or trade-offs:** Isolated homes differ from a shared CLI/Desktop home; equivalent behavior cannot be assumed
+
+#### [OpenCils/cc-switch-cli][opencils] · `v1.2.14`
+
+- **Main capabilities:** Separate project; terminal UI, native configuration writes, Windows/WSL discovery, optional proxy takeover
+- **Relative strengths:** Explicitly discovers distinct Windows and WSL installations
+- **Limitations or trade-offs:** Separate from SaladDay's project; package declares ISC, but no standalone license file was found; multi-environment writes need testing
+
+#### [AI Provider Switcher][vs-switcher] · `v0.5.5`
+
+- **Main capabilities:** VS Code extension; providers, model catalog projection, Claude/Codex/Desktop settings, optional history migration
+- **Relative strengths:** Editor-centered interaction; addresses configuration overrides and reconnection issues
+- **Limitations or trade-offs:** Editor-dependent; optional history migration must be compared with the no-history-rewrite requirement
+
+#### [U-Pool][u-pool] · `v0.8.0`
+
+- **Main capabilities:** Desktop multi-client configuration, Cursor account pool, owned-field writes, Windows environment integration
+- **Relative strengths:** Visual management with Windows user-environment integration
+- **Limitations or trade-offs:** Only Windows assets observed; README explicitly says no license is declared; reuse permission is not established
+
+#### [cc-api-switcher-cli][ccsw] · `v0.1.0`
+
+- **Main capabilities:** Single Go binary, Claude/Codex providers, templates, configuration import
+- **Relative strengths:** Narrow responsibility and scriptable interface
+- **Limitations or trade-offs:** Early release; insufficient evidence for team governance and complete lifecycle support
+
+#### [Cursedpotential/ccswitch][small-ccswitch] · No release
+
+- **Main capabilities:** Claude-focused provider, environment, and launch switching
+- **Relative strengths:** Smaller client-specific problem scope
+- **Limitations or trade-offs:** No published release observed; multi-client management must not be inferred
+
+#### [Agent Switch][agent-switch] · No release
+
+- **Main capabilities:** Claude/Codex/OpenCode configuration overlays, local hot-switching proxy, MCP
+- **Relative strengths:** Explicit focus on relevant fields rather than whole-file replacement
+- **Limitations or trade-offs:** Early project; implemented behavior, roadmap, and proposed UI need separation
+
+#### [CC Switch Lite][cc-lite] · No release
+
+- **Main capabilities:** Focused provider/MCP/skill selection, shared database, ownership-checked projection
+- **Relative strengths:** Narrower UI and writes with shared underlying capabilities
+- **Limitations or trade-offs:** Explicitly pre-alpha; concurrent writes with the full application remain restricted
+
+#### [CC Switch Core][cc-core] · No release
+
+- **Main capabilities:** Rust application registry, native import/projection, deterministic writes, CAS/rollback, separate Store
+- **Relative strengths:** Reusable configuration semantics already exist; complete reimplementation is not the only option
+- **Limitations or trade-offs:** Sealed built-in adapter trait; host still owns exact I/O, locks, resource identity, and platform security; pre-1.0 integration needs assessment
 
 ### Local proxies and composed products
 
-| Project and observed release            | Main capabilities                                                                                                                                 | Relative strengths                                                                   | Limitations or trade-offs                                                                                                             |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| [CLIProxyAPI][cpa] · `v7.2.155`         | Go relay, multiple inbound protocols, API keys/OAuth, multiple accounts, SDK, native assets                                                       | Existing data plane and reuse ecosystem across authentication models                 | Generic compatible execution uses Chat Completions; example configuration binds all interfaces; SDK documentation has version drift   |
-| [EasyCLIProxyAPI][easy-cpa] · `v0.2.81` | Tauri GUI, configuration, updates, tray, CLIProxyAPI management                                                                                   | Concrete example of a product UI reusing an existing data plane                      | Host UI and underlying runtime require separate version, update, and failure-boundary verification                                    |
-| [Claude Code Router][ccr] · `v3.0.22`   | Multi-agent configuration, stable local endpoint, protocols, model routing, credential pools, retries/fallback, observability; Desktop/npm/Docker | Broader than a Claude-only tool; configuration and traffic management                | Adds a gateway to requests; translation and post-failover session semantics need testing; HEAD and release are distinct               |
-| [CCS][ccs] · `v8.9.0`                   | CLI/dashboard, API/OAuth profiles, routing, accounts, CLIProxyAPI integration                                                                     | Uses composition instead of rebuilding every capability; concentrated user interface | Compatibility with the underlying proxy and optional fork must be verified; not all capabilities belong to one independent kernel     |
-| [OpenCodex][opencodex] · `v2.48.0`      | Responses translation, streaming/tools/reasoning/images, multiple clients, background service, account pools, session affinity                    | Direct overlap with Proxy, not generic HTTP forwarding                               | Long histories, compaction, built-in tools, and lifecycle behavior need real tests; npm/Bun distribution still has runtime complexity |
-| [9router][nine-router] · `v0.5.35`      | Multiple providers, local relay, accounts, dashboard                                                                                              | Another existing visual local aggregation product                                    | Not runtime-tested here; marketing claims of unlimited or free access do not establish quotas, authorization, or reliability          |
+#### [CLIProxyAPI][cpa] · `v7.2.155`
+
+- **Main capabilities:** Go relay, multiple inbound protocols, API keys/OAuth, multiple accounts, SDK, native assets
+- **Relative strengths:** Existing data plane and reuse ecosystem across authentication models
+- **Limitations or trade-offs:** Generic compatible execution uses Chat Completions; example configuration binds all interfaces; SDK documentation has version drift
+
+#### [EasyCLIProxyAPI][easy-cpa] · `v0.2.81`
+
+- **Main capabilities:** Tauri GUI, configuration, updates, tray, CLIProxyAPI management
+- **Relative strengths:** Concrete example of a product UI reusing an existing data plane
+- **Limitations or trade-offs:** Host UI and underlying runtime require separate version, update, and failure-boundary verification
+
+#### [Claude Code Router][ccr] · `v3.0.22`
+
+- **Main capabilities:** Multi-agent configuration, stable local endpoint, protocols, model routing, credential pools, retries/fallback, observability; Desktop/npm/Docker
+- **Relative strengths:** Broader than a Claude-only tool; configuration and traffic management
+- **Limitations or trade-offs:** Adds a gateway to requests; translation and post-failover session semantics need testing; HEAD and release are distinct
+
+#### [CCS][ccs] · `v8.9.0`
+
+- **Main capabilities:** CLI/dashboard, API/OAuth profiles, routing, accounts, CLIProxyAPI integration
+- **Relative strengths:** Uses composition instead of rebuilding every capability; concentrated user interface
+- **Limitations or trade-offs:** Compatibility with the underlying proxy and optional fork must be verified; not all capabilities belong to one independent kernel
+
+#### [OpenCodex][opencodex] · `v2.48.0`
+
+- **Main capabilities:** Responses translation, streaming/tools/reasoning/images, multiple clients, background service, account pools, session affinity
+- **Relative strengths:** Direct overlap with Proxy, not generic HTTP forwarding
+- **Limitations or trade-offs:** Long histories, compaction, built-in tools, and lifecycle behavior need real tests; npm/Bun distribution still has runtime complexity
+
+#### [9router][nine-router] · `v0.5.35`
+
+- **Main capabilities:** Multiple providers, local relay, accounts, dashboard
+- **Relative strengths:** Another existing visual local aggregation product
+- **Limitations or trade-offs:** Not runtime-tested here; marketing claims of unlimited or free access do not establish quotas, authorization, or reliability
 
 ### Shared gateways and API distribution
 
-| Project and observed release                        | Main capabilities                                                                                | Relative strengths                                                                              | Limitations or trade-offs                                                                                                                  |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| [LiteLLM][litellm] · `v1.100.0`                     | SDK/gateway, providers including Bedrock, virtual keys, spend, routing, logs, client integration | Library and service reuse; organizational API access beyond local switching                     | Enterprise directory has separate licensing; deployment, database, and authorization requirements depend on enabled features               |
-| [One API][one-api] · `v0.6.10`                      | Unified API, channels, load balancing, users/tokens/quotas, management API, Docker               | Already addresses third-party aggregation and downstream distribution; single-executable server | Observed release is older; modern Responses fidelity is not established; does not manage every local client's configuration                |
-| [New API][new-api] · `v1.0.0-rc.36`                 | One API-derived multi-protocol aggregation, distribution, users/tokens/metering                  | Continued development of shared administration and protocol coverage                            | RC tag is not a stable-version claim; AGPLv3 and additional attribution terms require review                                               |
-| [Portkey Gateway][portkey] · `v1.15.2`              | Open-source routing, fallback, retries, load balancing, observability integration                | Reusable unified API data plane with hosted-platform integration                                | OSS gateway and hosted platform differ; README's 2.0 prerelease features are not automatically delivered in 1.15.2                         |
-| [Bifrost][bifrost] · API returned `ent-v2.1.0-base` | Go gateway, providers including Bedrock, routing, governance, extension interfaces               | Go data plane and reusable core for shared governance                                           | Observed tag names an enterprise component, not a directly comparable OSS runtime release; speed claims were not independently benchmarked |
-| [LLM Gateway][llmgateway] · `v1.16.0`               | Unified model API, provider routing, management interface                                        | Covers parts of shared access and observability                                                 | LICENSE distinguishes AGPLv3 outside `ee/` from commercial enterprise code; complete self-hosting requirements remain unverified           |
+#### [LiteLLM][litellm] · `v1.100.0`
+
+- **Main capabilities:** SDK/gateway, providers including Bedrock, virtual keys, spend, routing, logs, client integration
+- **Relative strengths:** Library and service reuse; organizational API access beyond local switching
+- **Limitations or trade-offs:** Enterprise directory has separate licensing; deployment, database, and authorization requirements depend on enabled features
+
+#### [One API][one-api] · `v0.6.10`
+
+- **Main capabilities:** Unified API, channels, load balancing, users/tokens/quotas, management API, Docker
+- **Relative strengths:** Already addresses third-party aggregation and downstream distribution; single-executable server
+- **Limitations or trade-offs:** Observed release is older; modern Responses fidelity is not established; does not manage every local client's configuration
+
+#### [New API][new-api] · `v1.0.0-rc.36`
+
+- **Main capabilities:** One API-derived multi-protocol aggregation, distribution, users/tokens/metering
+- **Relative strengths:** Continued development of shared administration and protocol coverage
+- **Limitations or trade-offs:** RC tag is not a stable-version claim; AGPLv3 and additional attribution terms require review
+
+#### [Portkey Gateway][portkey] · `v1.15.2`
+
+- **Main capabilities:** Open-source routing, fallback, retries, load balancing, observability integration
+- **Relative strengths:** Reusable unified API data plane with hosted-platform integration
+- **Limitations or trade-offs:** OSS gateway and hosted platform differ; README's 2.0 prerelease features are not automatically delivered in 1.15.2
+
+#### [Bifrost][bifrost] · API returned `ent-v2.1.0-base`
+
+- **Main capabilities:** Go gateway, providers including Bedrock, routing, governance, extension interfaces
+- **Relative strengths:** Go data plane and reusable core for shared governance
+- **Limitations or trade-offs:** Observed tag names an enterprise component, not a directly comparable OSS runtime release; speed claims were not independently benchmarked
+
+#### [LLM Gateway][llmgateway] · `v1.16.0`
+
+- **Main capabilities:** Unified model API, provider routing, management interface
+- **Relative strengths:** Covers parts of shared access and observability
+- **Limitations or trade-offs:** LICENSE distinguishes AGPLv3 outside `ee/` from commercial enterprise code; complete self-hosting requirements remain unverified
 
 Kong AI Gateway belongs to the adjacent infrastructure category. Its specific AI plugin versions and licensing were not examined to the same depth, so it is not presented as an equally assessed twenty-seventh candidate. Hosted aggregation APIs also differ from local-first configuration tools: they may change billing relationships and the parties handling request data.
 

@@ -80,14 +80,21 @@ is not liveness or retirement proof.
 
 Paths below are relative to the active worktree unless a tool selects them.
 
-| Output                                                | Owner and lifetime                                                                                                                         |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Build intermediates and release candidates            | Ignored `build/` and `dist/`; remove when superseded or published                                                                          |
-| Raw verification output needed for an open decision   | Ignored `build/verification/<source-commit>/`; retain only until that decision is resolved and its required evidence has a durable owner   |
-| Temporary downloads, extraction, and analyzer scratch | One private hidden directory per operation under `build/tmp/`, passed as `TMPDIR`; reclaim on success, failure, or interruption            |
-| Dependency caches                                     | The package manager's cache; shared only where the tool supports it                                                                        |
-| ETHOS evidence and coordination                       | The current command's native artifact reference; ETHOS owns its Git-common-dir storage and retention                                       |
-| Published evidence                                    | The exact source revision's CI artifacts and release assets; local-only work retains required native evidence without depending on a Forge |
+- **Build intermediates and candidates** belong in ignored `build/` and
+  `dist/`. Remove them when superseded or published.
+- **Pending verification evidence** belongs in
+  `build/verification/<source-commit>/`. Retain it until its decision is resolved
+  and required evidence has a durable owner.
+- **Downloads, extraction and analyzer scratch** use one private hidden
+  directory under `build/tmp/`, passed as `TMPDIR`. Reclaim it on success,
+  failure or interruption.
+- **Dependency caches** belong to the package manager; share them only where
+  that tool supports it.
+- **ETHOS evidence and coordination** follow the current command's artifact
+  reference. ETHOS owns Git-common-dir storage and retention.
+- **Published evidence** belongs to the exact revision's CI artifacts and
+  release assets. Local-only work retains required native evidence without
+  depending on a Forge.
 
 Operating-system temporary storage remains suitable when a tool needs it, but
 not for long-lived handoffs. An operation owns cleanup, including after a
@@ -680,12 +687,19 @@ Keep the identical matrix until every selected peer has passed readback.
 
 Hosted verification requires public trust, not a signing secret:
 
-| Input                   | GitHub                                                      | GitLab                                                     |
-| ----------------------- | ----------------------------------------------------------- | ---------------------------------------------------------- |
-| Git source trust        | `AIGW_RELEASE_ALLOWED_SIGNERS` repository variable          | `AIGW_RELEASE_ALLOWED_SIGNERS` file-type variable          |
-| Artifact trust          | `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS` repository variable | `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS` file-type variable |
-| Artifact principal      | `AIGW_RELEASE_ARTIFACT_SIGNER` repository variable          | `AIGW_RELEASE_ARTIFACT_SIGNER` variable                    |
-| Download authentication | Read-only job token                                         | Native CI job-token auto-login                             |
+Configure three independent public trust inputs:
+
+- **Git source trust:** `AIGW_RELEASE_ALLOWED_SIGNERS`.
+- **Artifact trust:** `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS`.
+- **Artifact principal:** `AIGW_RELEASE_ARTIFACT_SIGNER`.
+
+GitHub uses repository variables for all three. GitLab uses file-type variables
+for the two signer lists and an ordinary variable for the principal. The
+workflow materializes or selects these files for the same verifier; neither
+peer receives a private signing key.
+
+Download authentication is separate: GitHub uses its read-only job token;
+GitLab uses native CI job-token auto-login.
 
 Tag push runs source and native checks. After all release assets are published,
 dispatch GitHub's **Release** workflow with the exact `tag` input, and dispatch

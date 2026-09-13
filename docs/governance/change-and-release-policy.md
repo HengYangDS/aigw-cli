@@ -2,20 +2,18 @@
 
 ## Authority Map
 
-| Surface                             | Authority                                    |
-| ----------------------------------- | -------------------------------------------- |
-| Product version                     | `VERSION`                                    |
-| Release chronology                  | `CHANGELOG.md`                               |
-| Product commit and tag objects      | Local Git                                    |
-| Change intent and behavioral deltas | Active OpenSpec Change                       |
-| Accepted behavior                   | `openspec/specs/`                            |
-| Go dependency closure               | `go.mod`, `go.sum`                           |
-| Runtime and standalone tools        | `mise.toml`, `mise.lock`                     |
-| npm repository tools                | `package.json`, `package-lock.json`          |
-| CI topology                         | `.config/ci/pipeline.cue`                    |
-| Coverage policy                     | `.config/checks/coverage/policy.toml`        |
-| Go source file budget               | `.config/checks/go/size.toml`                |
-| Release assets                      | Repository release tools and their manifests |
+- **Product version:** `VERSION`
+- **Release chronology:** `CHANGELOG.md`
+- **Product commit and tag objects:** Local Git
+- **Change intent and behavioral deltas:** Active OpenSpec Change
+- **Accepted behavior:** `openspec/specs/`
+- **Go dependency closure:** `go.mod`, `go.sum`
+- **Runtime and standalone tools:** `mise.toml`, `mise.lock`
+- **npm repository tools:** `package.json`, `package-lock.json`
+- **CI topology:** `.config/ci/pipeline.cue`
+- **Coverage policy:** `.config/checks/coverage/policy.toml`
+- **Go source file budget:** `.config/checks/go/size.toml`
+- **Release assets:** Repository release tools and their manifests
 
 Generated workflows, installed binaries, host caches, IDE state, Forge pages,
 and remote refs are projections—not competing authorities.
@@ -386,16 +384,30 @@ also checked. Inherited alternate indexes, parent configuration and sibling
 installations cannot redefine the selected scope. Missing inputs, empty required
 scopes, incomplete results and nonzero validator exits fail the gate.
 
-| Concern                                      | Execution owner                                                                              | Acceptance boundary                                                                                                     |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Text, formatting, documentation and diagrams | [Text layout policy](text-layout.md) and native formatters, markdownlint, Mermaid and lychee | Exact source inventory, valid local links and source-preserving checks; rendered and external-link evidence is separate |
-| Go correctness and structure                 | [Native Go policy](../../.config/checks/go/policy.yml)                                       | Product, tools, tests and each platform-selected source set; one shared lint policy                                     |
-| Package ownership and dependencies           | [Architecture policy](../../.config/checks/architecture/policy.toml)                         | Unique semantic ownership, admitted imports and composition boundaries                                                  |
-| Behavioral coverage                          | [Coverage policy](../../.config/checks/coverage/policy.toml)                                 | Complete package observation and exact native Go statement counts                                                       |
-| Authored Go file size                        | [Size policy](../../.config/checks/go/size.toml) and SCC                                     | Complete file measurements, including tests and platform variants                                                       |
-| Configuration semantics                      | The consuming tool's native schema or product validator                                      | Syntax alone is insufficient; unknown fields, invalid values and missing schemas fail                                   |
-| Dependencies and credentials                 | Native vulnerability, signature, provenance, license and secret checks                       | Required current evidence and redacted findings; no silent network or scope fallback                                    |
-| Artifacts and installation                   | Release construction and native lifecycle acceptance                                         | Exact artifact identity, supported-platform execution and preserved user state                                          |
+- **Text, formatting, documentation and diagrams**
+  - **Execution owner:** [Text layout policy](text-layout.md) and native formatters, markdownlint, Mermaid and lychee
+  - **Acceptance boundary:** Exact source inventory, valid local links and source-preserving checks; rendered and external-link evidence is separate
+- **Go correctness and structure**
+  - **Execution owner:** [Native Go policy](../../.config/checks/go/policy.yml)
+  - **Acceptance boundary:** Product, tools, tests and each platform-selected source set; one shared lint policy
+- **Package ownership and dependencies**
+  - **Execution owner:** [Architecture policy](../../.config/checks/architecture/policy.toml)
+  - **Acceptance boundary:** Unique semantic ownership, admitted imports and composition boundaries
+- **Behavioral coverage**
+  - **Execution owner:** [Coverage policy](../../.config/checks/coverage/policy.toml)
+  - **Acceptance boundary:** Complete package observation and exact native Go statement counts
+- **Authored Go file size**
+  - **Execution owner:** [Size policy](../../.config/checks/go/size.toml) and SCC
+  - **Acceptance boundary:** Complete file measurements, including tests and platform variants
+- **Configuration semantics**
+  - **Execution owner:** The consuming tool's native schema or product validator
+  - **Acceptance boundary:** Syntax alone is insufficient; unknown fields, invalid values and missing schemas fail
+- **Dependencies and credentials**
+  - **Execution owner:** Native vulnerability, signature, provenance, license and secret checks
+  - **Acceptance boundary:** Required current evidence and redacted findings; no silent network or scope fallback
+- **Artifacts and installation**
+  - **Execution owner:** Release construction and native lifecycle acceptance
+  - **Acceptance boundary:** Exact artifact identity, supported-platform execution and preserved user state
 
 Architecture classification proves ownership, not effective check coverage.
 A new carrier needs every applicable native check; it must not be accompanied
@@ -449,21 +461,19 @@ and policy digest remain part of the evidence. Statement coverage cannot be
 relabeled as branch coverage; an unsupported analyzer or inferred metric is not
 an acceptable substitute.
 
-The machine policies own blocking values. The following table explains their
+The machine policies own blocking values. The following list explains their
 current meaning and review trade-offs; it is not a second executable policy.
 The same boundaries apply to product, tooling and tests.
 
-| Measurement       | Boundary                     | Protected risk and limitation                                                                                                           |
-| ----------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| SCC code lines    | At most 500 per Go file      | Bounds traversal; includes inline-comment code but excludes blank and comment-only lines. It is not executable statement count.         |
-| Cyclop            | At most 25                   | Bounds decision-path score, including boolean operators and switch cases. It does not count executable paths or prove test adequacy.    |
-| Gocognit          | At most 45                   | Bounds nested control flow, including function literals. A low score does not establish a deep module.                                  |
-| Funlen span       | At most 120 physical lines   | Keeps an operation inspectable; blank lines and multiline data count. Dense formatting is not remediation.                              |
-| Funlen statements | At most 60                   | Bounds selected AST statement forms. Its traversal does not cover every callback or branch form.                                        |
-| Revive arguments  | At most seven                | Bounds named declaration parameters; receivers, unnamed parameters and function literals have different analyzer coverage.              |
-| Nestif            | Reject score four or greater | Bounds nested conditional reasoning, not indentation depth or all loop and switch complexity.                                           |
-| Maintidx          | At least 25                  | Combines span, vocabulary and cyclomatic complexity; large cohesive data can score poorly despite simple control flow.                  |
-| Dupl              | 100-token threshold          | Detects serialized syntax-tree similarity, not repeated responsibility; names and literal values do not distinguish matching structure. |
+- **SCC code lines — At most 500 per Go file.** Bounds traversal; includes inline-comment code but excludes blank and comment-only lines. It is not executable statement count.
+- **Cyclop — At most 25.** Bounds decision-path score, including boolean operators and switch cases. It does not count executable paths or prove test adequacy.
+- **Gocognit — At most 45.** Bounds nested control flow, including function literals. A low score does not establish a deep module.
+- **Funlen span — At most 120 physical lines.** Keeps an operation inspectable; blank lines and multiline data count. Dense formatting is not remediation.
+- **Funlen statements — At most 60.** Bounds selected AST statement forms. Its traversal does not cover every callback or branch form.
+- **Revive arguments — At most seven.** Bounds named declaration parameters; receivers, unnamed parameters and function literals have different analyzer coverage.
+- **Nestif — Reject score four or greater.** Bounds nested conditional reasoning, not indentation depth or all loop and switch complexity.
+- **Maintidx — At least 25.** Combines span, vocabulary and cyclomatic complexity; large cohesive data can score poorly despite simple control flow.
+- **Dupl — 100-token threshold.** Detects serialized syntax-tree similarity, not repeated responsibility; names and literal values do not distinguish matching structure.
 
 These distinctions follow the locked analyzers, including
 [funlen traversal](https://github.com/ultraware/funlen/blob/v0.2.0/funlen.go),
@@ -509,20 +519,32 @@ a stricter threshold is not proven merely by a clean repository scan.
 
 The complete trial uses the locked analyzers on macOS arm64, Linux amd64 and
 Windows amd64 package selections, with product, tests and tools included and
-all per-rule diagnostics retained. The adopted set is the table above: file
+all per-rule diagnostics retained. The adopted set is the list above: file
 budget 500, cyclomatic 25, cognitive 45, span/statements 120/60, seven arguments,
 Nestif below four, maintainability at least 25 and clone threshold 100. Keep one
 policy for all source categories; no exception list or test-only softer rule.
 
-| Trial                  | Observation                                                                                                 | Decision and semantic reason                                                                                                                                                                                                                                                        |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cyclomatic 20, then 15 | 20 yields 39 findings on macOS/Linux and 38 on Windows; four are tool orchestration. 15 yields 137/137/136. | Retain 25. Signed publication, report admission and release construction retain ordered checks; complete acceptance journeys retain every preservation assertion. The trial already exposed and fixed ignored expected remote state. A score reduction alone is not another defect. |
-| Cognitive 40           | 19 findings, all in tests, on every target.                                                                 | Retain 45. Bootstrap, recovery and native artifact tests jointly assert ownership, failure propagation and cleanup. Splitting those observations across helpers or weakening assertions does not reduce their product obligation.                                                   |
-| Span/statements 110/55 | Eight findings per target: five tests and three orchestration functions.                                    | Retain 120/60. The extra span includes explicit native executable declarations; the complete source/build/check journeys are still inspectable without forwarding stages or compressed literals.                                                                                    |
-| Arguments six          | After deletion of a single-caller preparation layer, two findings remain.                                   | Retain seven. A fixture declares an Account and Profile; the artifact-ordering function consumes one target plus before/after configuration, state and catalogue. Positional snapshot grouping alone would add a carrier rather than reduce knowledge.                              |
-| Nestif below four      | Six original findings; all resolved at their existing owners.                                               | Adopt the stricter bound. Early terminal paths remove nesting, and shared credential deletion verifies metadata instead of reading secret values. Product/test/native fixtures prove the boundary.                                                                                  |
-| Maintainability 30     | 17 findings per target: 16 tests and one release constructor.                                               | Retain 25. The index penalizes explicit assertion/data vocabulary as well as control flow; the independent size, nesting and decision limits already constrain these owners.                                                                                                        |
-| Clone threshold 80     | 23 diagnostics on macOS/Linux and 25 on Windows.                                                            | Retain 100. The extra Windows pair is DPAPI protection versus unprotection, not a repeated responsibility. Lower-sensitivity test findings inform the consumer review without forcing distinct assertions behind one configurable fake.                                             |
+- **Cyclomatic 20, then 15**
+  - **Observation:** 20 yields 39 findings on macOS/Linux and 38 on Windows; four are tool orchestration. 15 yields 137/137/136.
+  - **Decision and semantic reason:** Retain 25. Signed publication, report admission and release construction retain ordered checks; complete acceptance journeys retain every preservation assertion. The trial already exposed and fixed ignored expected remote state. A score reduction alone is not another defect.
+- **Cognitive 40**
+  - **Observation:** 19 findings, all in tests, on every target.
+  - **Decision and semantic reason:** Retain 45. Bootstrap, recovery and native artifact tests jointly assert ownership, failure propagation and cleanup. Splitting those observations across helpers or weakening assertions does not reduce their product obligation.
+- **Span/statements 110/55**
+  - **Observation:** Eight findings per target: five tests and three orchestration functions.
+  - **Decision and semantic reason:** Retain 120/60. The extra span includes explicit native executable declarations; the complete source/build/check journeys are still inspectable without forwarding stages or compressed literals.
+- **Arguments six**
+  - **Observation:** After deletion of a single-caller preparation layer, two findings remain.
+  - **Decision and semantic reason:** Retain seven. A fixture declares an Account and Profile; the artifact-ordering function consumes one target plus before/after configuration, state and catalogue. Positional snapshot grouping alone would add a carrier rather than reduce knowledge.
+- **Nestif below four**
+  - **Observation:** Six original findings; all resolved at their existing owners.
+  - **Decision and semantic reason:** Adopt the stricter bound. Early terminal paths remove nesting, and shared credential deletion verifies metadata instead of reading secret values. Product/test/native fixtures prove the boundary.
+- **Maintainability 30**
+  - **Observation:** 17 findings per target: 16 tests and one release constructor.
+  - **Decision and semantic reason:** Retain 25. The index penalizes explicit assertion/data vocabulary as well as control flow; the independent size, nesting and decision limits already constrain these owners.
+- **Clone threshold 80**
+  - **Observation:** 23 diagnostics on macOS/Linux and 25 on Windows.
+  - **Decision and semantic reason:** Retain 100. The extra Windows pair is DPAPI protection versus unprotection, not a repeated responsibility. Lower-sensitivity test findings inform the consumer review without forcing distinct assertions behind one configurable fake.
 
 Codex target preparation now has one complete owner rather than passing seven
 arguments into a single-caller layer. It measures convergence once before
