@@ -4,28 +4,19 @@ AIGW keeps credentials local, mutations bounded, and client ownership explicit.
 
 ## Credential storage
 
-| Secret                         | Store                                                                                  | Repository/config exposure |
-| ------------------------------ | -------------------------------------------------------------------------------------- | -------------------------- |
-| Account Token                  | One selected local backend: native credential service or platform-protected AIGW files | Never                      |
-| Optional diagnostic credential | The selected AIGW credential backend, under `diagnostic@<account>`                     | Never                      |
-| Forge publication credential   | Protected CI or operator process                                                       | Never tracked              |
+- **Account Tokens** use one selected local backend. They never appear in
+  repository files or public configuration.
+- **Diagnostic credentials** use a separate typed slot in that same backend.
+  Their system Token and user ID are both required; neither substitutes for an
+  Account Token. They never appear in repository files or public configuration.
+- **Forge credentials** belong to the protected CI or operator process, not
+  AIGW's Account store. They are never tracked in Git.
 
 Automatic selection first honors an existing backend choice. Without one, it
 attempts native-service metadata access and selects that backend if the probe
 succeeds; otherwise it selects one AIGW-owned fallback store. The probe does
-not read Tokens or prove future read/write permission. macOS and Linux enforce an
-owner-only directory and regular file per Account. Windows encrypts each Token
-with current-user DPAPI before writing it beneath the AIGW data directory.
-Both implementations use bounded paths and same-directory replacement. AIGW
-never searches or writes both stores. Explicit `keyring` selection fails closed
-when the service is unavailable. Controlled automation may select the read-only
-environment backend; it reads
-`AIGW_TOKEN_<ACCOUNT>` values supplied to that process but cannot persist,
-rotate, or delete them. The optional provider-diagnostic pair uses
-`AIGW_DIAGNOSTIC_SYSTEM_TOKEN_<ACCOUNT>` and
-`AIGW_DIAGNOSTIC_USER_ID_<ACCOUNT>` under the same reversible Account-ID
-encoding; both values are required, and neither can substitute for the API
-Token.
+not read Tokens or prove future read/write permission. AIGW never searches or
+writes both stores.
 
 Read-only commands do not persist a new choice. The first credential mutation
 records its selected backend before changing Token state; a failed mutation
@@ -34,24 +25,26 @@ fails closed rather than silently choosing another store. To require a specific
 mechanism, set `AIGW_SECRET_BACKEND` to
 `keyring`, `file`, or `env` before running AIGW:
 
-| Backend   | macOS                          | Linux                          | Windows                           | Mutation |
-| --------- | ------------------------------ | ------------------------------ | --------------------------------- | -------- |
-| `keyring` | Keychain                       | Secret Service                 | Credential Manager                | Yes      |
-| `file`    | Owner-only AIGW file           | Owner-only AIGW file           | Current-user DPAPI-protected file | Yes      |
-| `env`     | Process `AIGW_TOKEN_<ACCOUNT>` | Process `AIGW_TOKEN_<ACCOUNT>` | Process `AIGW_TOKEN_<ACCOUNT>`    | No       |
-
-Selecting `keyring` never opens an interactive fallback or silently switches
-stores. If the native service is unavailable, the command fails with a bounded
-recovery action. The `env` backend is intentionally read-only for credentials:
-setup, checks and client helpers may consume existing values, and setup may
-persist public configuration. Attempts to store, rotate or delete an environment
-Token fail before credential mutation.
+- **`keyring`** uses macOS Keychain, Linux Secret Service or Windows Credential
+  Manager. Reads and writes require that native service's access permission.
+  Explicit selection fails closed if the service is unavailable; AIGW does not
+  silently switch stores. Metadata observation does not authorize secret reads
+  or guarantee that a native service will never request interaction.
+- **`file`** uses an owner-only directory and regular file per Account on macOS
+  and Linux. Windows encrypts each Token with current-user DPAPI before writing
+  it beneath the AIGW data directory. Both use bounded paths and same-directory
+  replacement; the selected backend supports credential mutation.
+- **`env`** consumes credentials supplied to the invoking process on every
+  supported OS. It is read-only: setup may persist public configuration, but
+  storing, rotating or deleting an environment Token fails before mutation.
 
 Supply environment credentials to the process that needs them. A Token set in
 one terminal is not automatically inherited by a separately launched GUI client.
 The projected helper runs in the client's environment. See the
 [environment-variable reference](../../README.md#environment-variables) for
-Account-ID encoding and process scope.
+API-Token and diagnostic variable names, reversible Account-ID encoding and
+process scope. Unattended work requires an already-proven noninteractive
+credential boundary; it must not assume metadata access is sufficient.
 
 ## Configuration boundary
 
