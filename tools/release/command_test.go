@@ -188,11 +188,11 @@ func TestRunPublicationCommands(t *testing.T) {
 	}))
 	defer github.Close()
 	gitlab := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Method == http.MethodPut {
+		switch {
+		case request.Method == http.MethodPut:
 			response.WriteHeader(http.StatusCreated)
 			return
-		}
-		if strings.HasPrefix(request.URL.Path, "/packages/") {
+		case strings.HasPrefix(request.URL.Path, "/packages/"):
 			http.ServeFile(response, request, filepath.Join(artifacts, filepath.Base(request.URL.Path)))
 			return
 		}
@@ -212,7 +212,7 @@ func TestRunPublicationCommands(t *testing.T) {
 		"AIGW_RELEASE_ALLOWED_SIGNERS_FILE":          allowedSigners,
 		"GITHUB_API_URL":                             github.URL, "GITHUB_REPOSITORY": "acme/aigw",
 		"CI_COMMIT_TAG": "v" + version, "GH_TOKEN": "secret",
-		"CI_API_V4_URL": gitlab.URL, "CI_PROJECT_ID": "7", "CI_JOB_TOKEN": "secret",
+		"CI_API_V4_URL": gitlab.URL, "CI_PROJECT_ID": "7", "CI_JOB_TOKEN": "", "GITLAB_TOKEN": "local-release-token",
 	} {
 		t.Setenv(name, value)
 	}

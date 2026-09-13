@@ -19,12 +19,13 @@ func TestUploadGitLabArtifactsUsesGenericPackageAPI(t *testing.T) {
 	directory := releaseFixture(t, "1.2.3")
 	expected := readReleaseFixture(t, directory, "1.2.3")
 	uploaded := 0
+	header := "Job-Token"
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.Method != http.MethodPut || !strings.HasPrefix(request.URL.Path, "/projects/7/packages/generic/aigw/1.2.3/") {
 			t.Fatalf("request=%s %s", request.Method, request.URL.Path)
 		}
-		if request.Header.Get("Job-Token") != "token" {
-			t.Fatalf("token=%q", request.Header.Get("Job-Token"))
+		if request.Header.Get(header) != "token" || request.Header.Get("Job-Token") == request.Header.Get("Private-Token") {
+			t.Error("upload did not select exactly one native credential")
 		}
 		data, _ := io.ReadAll(request.Body)
 		if string(data) != string(expected[filepath.Base(request.URL.Path)]) {
@@ -34,17 +35,25 @@ func TestUploadGitLabArtifactsUsesGenericPackageAPI(t *testing.T) {
 		response.WriteHeader(http.StatusCreated)
 	}))
 	defer server.Close()
-	if err := UploadGitLab(context.Background(), server.Client(), GitLabConfig{APIBase: server.URL, ProjectID: "7", Tag: "v1.2.3", Token: "token", Artifacts: directory, Trust: fixtureTrust(directory), Source: fixtureSource(directory)}); err != nil {
-		t.Fatal(err)
+	config := GitLabConfig{APIBase: server.URL, ProjectID: "7", Tag: "v1.2.3", Artifacts: directory, Trust: fixtureTrust(directory), Source: fixtureSource(directory)}
+	for _, mode := range []string{"Job-Token", "Private-Token"} {
+		header = mode
+		config.JobToken, config.AccessToken = "token", ""
+		if mode == "Private-Token" {
+			config.JobToken, config.AccessToken = "", "token"
+		}
+		if err := UploadGitLab(t.Context(), server.Client(), config); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if uploaded != len(expected) {
-		t.Fatalf("uploaded=%d, expected=%d", uploaded, len(expected))
+	if uploaded != 2*len(expected) {
+		t.Fatalf("uploaded=%d, expected=%d", uploaded, 2*len(expected))
 	}
 }
 
 func TestUploadGitLabArtifactsFailsClosedAtEveryBoundary(t *testing.T) {
 	directory := releaseFixture(t, "1.2.3")
-	valid := GitLabConfig{APIBase: "https://example.test/api/v4", ProjectID: "7", Tag: "v1.2.3", Token: "token", Artifacts: directory, Trust: fixtureTrust(directory), Source: fixtureSource(directory)}
+	valid := GitLabConfig{APIBase: "https://example.test/api/v4", ProjectID: "7", Tag: "v1.2.3", JobToken: "token", Artifacts: directory, Trust: fixtureTrust(directory), Source: fixtureSource(directory)}
 	if err := UploadGitLab(context.Background(), http.DefaultClient, GitLabConfig{}); err == nil {
 		t.Fatal("invalid upload inputs accepted")
 	}
@@ -93,13 +102,13 @@ func TestPublicationRequiresSourceProvenanceBeforeNetwork(t *testing.T) {
 		},
 		"gitlab": func(client *http.Client) error {
 			_, err := PublishGitLab(t.Context(), client, GitLabConfig{
-				APIBase: "https://example.test", ProjectID: "7", Tag: "v1.2.3", Token: "token", Artifacts: directory, Trust: trust, Source: source,
+				APIBase: "https://example.test", ProjectID: "7", Tag: "v1.2.3", JobToken: "token", Artifacts: directory, Trust: trust, Source: source,
 			})
 			return err
 		},
 		"gitlab upload": func(client *http.Client) error {
 			return UploadGitLab(t.Context(), client, GitLabConfig{
-				APIBase: "https://example.test", ProjectID: "7", Tag: "v1.2.3", Token: "token", Artifacts: directory, Trust: trust, Source: source,
+				APIBase: "https://example.test", ProjectID: "7", Tag: "v1.2.3", JobToken: "token", Artifacts: directory, Trust: trust, Source: source,
 			})
 		},
 	} {
@@ -213,13 +222,13 @@ func TestPublicationRequiresArtifactAuthorizationBeforeNetwork(t *testing.T) {
 		},
 		"gitlab release": func(client *http.Client, trust artifact.SignatureTrust) error {
 			_, err := PublishGitLab(context.Background(), client, GitLabConfig{
-				APIBase: "https://example.test", ProjectID: "7", Tag: "v1.2.3", Token: "token", Artifacts: artifacts, Trust: trust,
+				APIBase: "https://example.test", ProjectID: "7", Tag: "v1.2.3", JobToken: "token", Artifacts: artifacts, Trust: trust,
 			})
 			return err
 		},
 		"gitlab upload": func(client *http.Client, trust artifact.SignatureTrust) error {
 			return UploadGitLab(context.Background(), client, GitLabConfig{
-				APIBase: "https://example.test", ProjectID: "7", Tag: "v1.2.3", Token: "token", Artifacts: artifacts, Trust: trust,
+				APIBase: "https://example.test", ProjectID: "7", Tag: "v1.2.3", JobToken: "token", Artifacts: artifacts, Trust: trust,
 			})
 		},
 	} {
@@ -368,7 +377,7 @@ func TestGitLabPublisherCreatesAndVerifiesImmutableRelease(t *testing.T) {
 	remote := readReleaseFixture(t, artifacts, "0.1.0")
 	created := false
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Header.Get("Job-Token") != "secret" {
+		if request.Header.Get("Private-Token") != "secret" || request.Header.Get("Job-Token") != "" {
 			t.Fatalf("missing GitLab authorization")
 		}
 		switch {
@@ -390,7 +399,7 @@ func TestGitLabPublisherCreatesAndVerifiesImmutableRelease(t *testing.T) {
 	defer server.Close()
 
 	createdNow, err := PublishGitLab(context.Background(), server.Client(), GitLabConfig{
-		APIBase: server.URL + "/api/v4", ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
+		APIBase: server.URL + "/api/v4", ProjectID: "7", Tag: "v0.1.0", AccessToken: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -416,7 +425,7 @@ func TestGitLabPublisherAcceptsExistingExactRelease(t *testing.T) {
 	defer server.Close()
 
 	created, err := PublishGitLab(context.Background(), server.Client(), GitLabConfig{
-		APIBase: server.URL + "/api/v4", ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
+		APIBase: server.URL + "/api/v4", ProjectID: "7", Tag: "v0.1.0", JobToken: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
 	})
 	if err != nil || created {
 		t.Fatalf("created=%v err=%v", created, err)
@@ -451,7 +460,7 @@ func TestPublicationValidatesSemanticIdentityBeforeUpload(t *testing.T) {
 				return response(http.StatusCreated, ""), nil
 			})}
 			err := UploadGitLab(t.Context(), client, GitLabConfig{
-				APIBase: "https://example.test", ProjectID: "7", Tag: tag, Token: "token", Artifacts: directory,
+				APIBase: "https://example.test", ProjectID: "7", Tag: tag, JobToken: "token", Artifacts: directory,
 			})
 			if err == nil || !strings.Contains(err.Error(), "semver") || requests != 0 {
 				t.Fatalf("publication error=%v requests=%d", err, requests)
@@ -473,7 +482,7 @@ func TestPublishersRejectUnexpectedRemoteStates(t *testing.T) {
 		t.Fatal("GitHub 500 accepted")
 	}
 	if _, err := PublishGitLab(context.Background(), server.Client(), GitLabConfig{
-		APIBase: server.URL, ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
+		APIBase: server.URL, ProjectID: "7", Tag: "v0.1.0", JobToken: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
 	}); err == nil {
 		t.Fatal("GitLab 500 accepted")
 	}
@@ -493,7 +502,7 @@ func TestPublishersRejectInvalidArtifactsAndTransportFailure(t *testing.T) {
 		},
 		"gitlab": func(artifacts string, client *http.Client) error {
 			_, err := PublishGitLab(context.Background(), client, GitLabConfig{
-				APIBase: "https://example.test/api/v4", ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
+				APIBase: "https://example.test/api/v4", ProjectID: "7", Tag: "v0.1.0", JobToken: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
 			})
 			return err
 		},

@@ -32,13 +32,14 @@ type GitHubConfig struct {
 
 // GitLabConfig contains the exact release identity, project, credential, and artifact directory for GitLab publication.
 type GitLabConfig struct {
-	APIBase   string
-	ProjectID string
-	Tag       string
-	Token     string
-	Artifacts string
-	Trust     artifact.SignatureTrust
-	Source    artifact.SourceTrust
+	APIBase     string
+	ProjectID   string
+	Tag         string
+	JobToken    string
+	AccessToken string
+	Artifacts   string
+	Trust       artifact.SignatureTrust
+	Source      artifact.SourceTrust
 }
 
 type githubRelease struct {
@@ -106,7 +107,11 @@ func PublishGitHub(ctx context.Context, client *http.Client, config GitHubConfig
 
 // PublishGitLab creates or verifies one immutable GitLab Release and its complete asset inventory.
 func PublishGitLab(ctx context.Context, client *http.Client, config GitLabConfig) (bool, error) {
-	identity, err := publishInputs(config.APIBase, config.ProjectID, config.Tag, config.Token, config.Artifacts)
+	header, token, err := config.credential()
+	if err != nil {
+		return false, err
+	}
+	identity, err := publishInputs(config.APIBase, config.ProjectID, config.Tag, token, config.Artifacts)
 	if err != nil {
 		return false, err
 	}
@@ -119,7 +124,7 @@ func PublishGitLab(ctx context.Context, client *http.Client, config GitLabConfig
 	}
 	base := strings.TrimSuffix(config.APIBase, "/") + "/projects/" + url.PathEscape(config.ProjectID)
 	releaseURL := base + "/releases/" + config.Tag
-	release, status, err := gitLabRequest(ctx, client, http.MethodGet, releaseURL, config.Token, nil)
+	release, status, err := gitLabRequest(ctx, client, http.MethodGet, releaseURL, header, token, nil)
 	if err != nil {
 		return false, err
 	}
@@ -127,7 +132,7 @@ func PublishGitLab(ctx context.Context, client *http.Client, config GitLabConfig
 	if status == http.StatusNotFound {
 		packageBase := base + "/packages/generic/aigw/" + version
 		payload, _ := json.Marshal(releaseDocument(config.Tag, packageBase))
-		_, status, err = gitLabRequest(ctx, client, http.MethodPost, base+"/releases", config.Token, payload)
+		_, status, err = gitLabRequest(ctx, client, http.MethodPost, base+"/releases", header, token, payload)
 		if err != nil {
 			return false, err
 		}
@@ -135,7 +140,7 @@ func PublishGitLab(ctx context.Context, client *http.Client, config GitLabConfig
 			return false, fmt.Errorf("GitLab release publication failed with HTTP %d", status)
 		}
 		created = status == http.StatusCreated
-		release, status, err = gitLabRequest(ctx, client, http.MethodGet, releaseURL, config.Token, nil)
+		release, status, err = gitLabRequest(ctx, client, http.MethodGet, releaseURL, header, token, nil)
 		if err != nil {
 			return false, err
 		}
@@ -152,7 +157,11 @@ func PublishGitLab(ctx context.Context, client *http.Client, config GitLabConfig
 
 // UploadGitLab uploads one complete artifact set through GitLab's generic package boundary before Release publication.
 func UploadGitLab(ctx context.Context, client *http.Client, config GitLabConfig) error {
-	identity, err := publishInputs(config.APIBase, config.ProjectID, config.Tag, config.Token, config.Artifacts)
+	header, token, err := config.credential()
+	if err != nil {
+		return err
+	}
+	identity, err := publishInputs(config.APIBase, config.ProjectID, config.Tag, token, config.Artifacts)
 	if err != nil {
 		return err
 	}
@@ -172,7 +181,7 @@ func UploadGitLab(ctx context.Context, client *http.Client, config GitLabConfig)
 		// publishInputs validates the base URL and every dynamic path segment is
 		// escaped, so request construction has no remaining error domain.
 		request, _ := http.NewRequestWithContext(ctx, http.MethodPut, base+"/"+url.PathEscape(name), file)
-		request.Header.Set("Job-Token", config.Token)
+		request.Header.Set(header, token)
 		response, err := requestWithoutRedirects(client, request)
 		_ = file.Close()
 		if err != nil {
@@ -307,12 +316,12 @@ func verifyGitHubAssets(ctx context.Context, client *http.Client, config GitHubC
 	return nil
 }
 
-func gitLabRequest(ctx context.Context, client *http.Client, method, endpoint, token string, body []byte) (remoteRelease, int, error) {
+func gitLabRequest(ctx context.Context, client *http.Client, method, endpoint, header, token string, body []byte) (remoteRelease, int, error) {
 	request, err := http.NewRequestWithContext(ctx, method, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return remoteRelease{}, 0, err
 	}
-	request.Header.Set("Job-Token", token)
+	request.Header.Set(header, token)
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}
@@ -331,6 +340,10 @@ func gitLabRequest(ctx context.Context, client *http.Client, method, endpoint, t
 }
 
 func verifyGitLabAssets(ctx context.Context, client *http.Client, config GitLabConfig, expected releasePayload, actual remoteRelease, version string) error {
+	header, token, err := config.credential()
+	if err != nil {
+		return err
+	}
 	if actual.TagName != config.Tag {
 		return errors.New("GitLab release verification returned the wrong tag")
 	}
@@ -354,7 +367,7 @@ func verifyGitLabAssets(ctx context.Context, client *http.Client, config GitLabC
 			return err
 		}
 		if same {
-			request.Header.Set("Job-Token", config.Token)
+			request.Header.Set(header, token)
 		}
 		data, err := responseBytes(client, request)
 		if err != nil {

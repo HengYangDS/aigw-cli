@@ -14,13 +14,46 @@ import (
 	"testing"
 )
 
+func TestGitLabCredentialRequiresOneNativeAuthority(t *testing.T) {
+	for _, scenario := range []struct {
+		name   string
+		config GitLabConfig
+		header string
+		token  string
+	}{
+		{"access", GitLabConfig{AccessToken: "access-secret"}, "Private-Token", "access-secret"},
+		{"job", GitLabConfig{JobToken: "job-secret"}, "Job-Token", "job-secret"},
+		{"absent", GitLabConfig{}, "", ""},
+		{"ambiguous", GitLabConfig{AccessToken: "access-secret", JobToken: "job-secret"}, "", ""},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			header, token, err := scenario.config.credential()
+			if header != scenario.header || token != scenario.token || (err == nil) != (scenario.header != "") {
+				t.Fatalf("credential admission returned header %q and error %v", header, err)
+			}
+			if err != nil {
+				client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+					t.Error("invalid credential selection reached the network")
+					return response(http.StatusUnauthorized, ""), nil
+				})}
+				if uploadErr := UploadGitLab(t.Context(), client, scenario.config); uploadErr == nil {
+					t.Fatal("invalid upload credential accepted")
+				}
+				if _, publishErr := PublishGitLab(t.Context(), client, scenario.config); publishErr == nil {
+					t.Fatal("invalid publication credential accepted")
+				}
+			}
+		})
+	}
+}
+
 func TestPublicationMetadataDoesNotForwardCredentialsAcrossRedirects(t *testing.T) {
 	for _, provider := range []string{"github", "gitlab"} {
 		t.Run(provider, func(t *testing.T) {
 			var redirected atomic.Int32
 			destination := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 				redirected.Add(1)
-				if request.Header.Get("Authorization") != "" || request.Header.Get("Job-Token") != "" {
+				if request.Header.Get("Authorization") != "" || request.Header.Get("Job-Token") != "" || request.Header.Get("Private-Token") != "" {
 					t.Error("release credential crossed the selected API authority")
 				}
 				if err := json.NewEncoder(response).Encode(map[string]any{}); err != nil {
@@ -38,7 +71,7 @@ func TestPublicationMetadataDoesNotForwardCredentialsAcrossRedirects(t *testing.
 			if provider == "github" {
 				_, status, err = githubRequest(t.Context(), client, http.MethodGet, origin.URL, "synthetic-token", nil)
 			} else {
-				_, status, err = gitLabRequest(t.Context(), client, http.MethodGet, origin.URL, "synthetic-token", nil)
+				_, status, err = gitLabRequest(t.Context(), client, http.MethodGet, origin.URL, "Job-Token", "synthetic-token", nil)
 			}
 			if err == nil && status == http.StatusOK {
 				t.Error("redirected metadata was accepted")
@@ -54,7 +87,7 @@ func TestReleaseAssetRedirectsKeepCredentialsAtTheInitialAuthority(t *testing.T)
 	var destinationCalls atomic.Int32
 	destination := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		destinationCalls.Add(1)
-		if request.Header.Get("Authorization") != "" || request.Header.Get("Job-Token") != "" {
+		if request.Header.Get("Authorization") != "" || request.Header.Get("Job-Token") != "" || request.Header.Get("Private-Token") != "" {
 			t.Error("asset redirect forwarded publication credentials")
 		}
 		if _, err := response.Write([]byte("verified artifact")); err != nil {
@@ -63,7 +96,7 @@ func TestReleaseAssetRedirectsKeepCredentialsAtTheInitialAuthority(t *testing.T)
 	}))
 	t.Cleanup(destination.Close)
 	origin := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Header.Get("Authorization") != "Bearer synthetic-token" || request.Header.Get("Job-Token") != "synthetic-token" {
+		if request.Header.Get("Authorization") != "Bearer synthetic-token" || request.Header.Get("Job-Token") != "synthetic-token" || request.Header.Get("Private-Token") != "synthetic-access-token" {
 			t.Error("initial asset request lost publication credentials")
 		}
 		http.Redirect(response, request, destination.URL, http.StatusFound)
@@ -75,6 +108,7 @@ func TestReleaseAssetRedirectsKeepCredentialsAtTheInitialAuthority(t *testing.T)
 	}
 	request.Header.Set("Authorization", "Bearer synthetic-token")
 	request.Header.Set("Job-Token", "synthetic-token")
+	request.Header.Set("Private-Token", "synthetic-access-token")
 	client := origin.Client()
 	data, err := responseBytes(client, request)
 	if err != nil || string(data) != "verified artifact" || destinationCalls.Load() != 1 {
@@ -191,7 +225,7 @@ func TestArtifactUploadsDoNotFollowRedirects(t *testing.T) {
 				}, githubRelease{UploadURL: origin.URL + "/uploads{?name,label}"})
 			} else {
 				err = UploadGitLab(t.Context(), origin.Client(), GitLabConfig{
-					APIBase: origin.URL, ProjectID: "7", Tag: "v0.1.0", Token: "synthetic-token", Artifacts: artifacts,
+					APIBase: origin.URL, ProjectID: "7", Tag: "v0.1.0", JobToken: "synthetic-token", Artifacts: artifacts,
 					Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
 				})
 			}
@@ -225,7 +259,7 @@ func TestAssetRedirectRejectsHTTPSDowngrade(t *testing.T) {
 func TestAssetCredentialsStayAbsentAfterReturningToOrigin(t *testing.T) {
 	var originURL string
 	foreign := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Header.Get("Authorization") != "" || request.Header.Get("Job-Token") != "" {
+		if request.Header.Get("Authorization") != "" || request.Header.Get("Job-Token") != "" || request.Header.Get("Private-Token") != "" {
 			t.Error("foreign hop received publication credentials")
 		}
 		http.Redirect(response, request, originURL+"/return", http.StatusFound)
@@ -236,7 +270,7 @@ func TestAssetCredentialsStayAbsentAfterReturningToOrigin(t *testing.T) {
 			http.Redirect(response, request, foreign.URL, http.StatusFound)
 			return
 		}
-		if request.Header.Get("Authorization") != "" || request.Header.Get("Job-Token") != "" {
+		if request.Header.Get("Authorization") != "" || request.Header.Get("Job-Token") != "" || request.Header.Get("Private-Token") != "" {
 			t.Error("return hop restored publication credentials")
 		}
 		if _, err := response.Write([]byte("artifact")); err != nil {
@@ -251,6 +285,7 @@ func TestAssetCredentialsStayAbsentAfterReturningToOrigin(t *testing.T) {
 	}
 	request.Header.Set("Authorization", "Bearer synthetic-token")
 	request.Header.Set("Job-Token", "synthetic-token")
+	request.Header.Set("Private-Token", "synthetic-access-token")
 	if data, err := responseBytes(origin.Client(), request); err != nil || string(data) != "artifact" {
 		t.Fatalf("return hop: data=%q error=%v", data, err)
 	}
@@ -259,7 +294,7 @@ func TestAssetCredentialsStayAbsentAfterReturningToOrigin(t *testing.T) {
 func TestGitLabAssetVerificationRejectsInvalidAuthorityAndDownload(t *testing.T) {
 	version := "0.1.0"
 	expected := releaseDocument("v"+version, "https://example.test/packages")
-	config := GitLabConfig{APIBase: "https://example.test", Tag: "v" + version, Token: "secret", Artifacts: releaseFixture(t, version)}
+	config := GitLabConfig{APIBase: "https://example.test", Tag: "v" + version, JobToken: "secret", Artifacts: releaseFixture(t, version)}
 
 	relative := remoteRelease{TagName: config.Tag}
 	for _, name := range artifact.Names(version) {
@@ -291,7 +326,7 @@ func TestRequestHelpersRejectMalformedEndpointsAndTransportFailure(t *testing.T)
 	if _, _, err := githubRequest(context.Background(), http.DefaultClient, http.MethodGet, ":", "token", nil); err == nil {
 		t.Fatal("malformed GitHub endpoint accepted")
 	}
-	if _, _, err := gitLabRequest(context.Background(), http.DefaultClient, http.MethodGet, ":", "token", nil); err == nil {
+	if _, _, err := gitLabRequest(context.Background(), http.DefaultClient, http.MethodGet, ":", "Job-Token", "token", nil); err == nil {
 		t.Fatal("malformed GitLab endpoint accepted")
 	}
 	request, err := http.NewRequest(http.MethodGet, "https://example.test/asset", nil)

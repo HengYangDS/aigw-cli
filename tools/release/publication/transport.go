@@ -9,6 +9,17 @@ import (
 	"strings"
 )
 
+func (config GitLabConfig) credential() (string, string, error) {
+	switch {
+	case config.AccessToken != "" && config.JobToken == "":
+		return "Private-Token", config.AccessToken, nil
+	case config.JobToken != "" && config.AccessToken == "":
+		return "Job-Token", config.JobToken, nil
+	default:
+		return "", "", errors.New("GitLab publication requires exactly one access token or CI job token")
+	}
+}
+
 func responseBytes(client *http.Client, request *http.Request) ([]byte, error) {
 	download := *client
 	download.CheckRedirect = func(next *http.Request, previous []*http.Request) error {
@@ -28,6 +39,7 @@ func responseBytes(client *http.Client, request *http.Request) ([]byte, error) {
 			if !same {
 				next.Header.Del("Authorization")
 				next.Header.Del("Job-Token")
+				next.Header.Del("Private-Token")
 			}
 		}
 		return nil

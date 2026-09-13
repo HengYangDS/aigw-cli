@@ -175,6 +175,25 @@ be narrow, justified, and owned by the same authority.
 - **AND** table-column alignment SHALL be checked by the native rule rather
   than a repository-specific parser.
 
+### Requirement: Release transport is independent of CI execution
+
+The existing release publisher SHALL accept local operator execution and CI
+execution through the same signed-artifact and source-verification path.
+GitLab authentication SHALL select exactly one access token or CI job token
+without manufacturing a job identity or exporting a signing private key.
+
+#### Scenario: A local operator publishes to GitLab
+
+- **WHEN** `GITLAB_TOKEN` is supplied and `CI_JOB_TOKEN` is absent
+- **THEN** the existing upload and publication commands SHALL use the native
+  access-token header for upload, metadata and same-origin asset readback
+- **AND** CI job-token execution SHALL retain its native job-token header
+- **AND** ambiguous or missing credentials SHALL fail before network access
+- **AND** redirects away from the selected authority SHALL strip credentials,
+  including when the redirect chain later returns to that authority
+- **AND** artifact trust, exact tagged source and complete asset verification
+  SHALL remain unchanged.
+
 ### Requirement: Release SBOM covers the native binary matrix
 
 The release builder SHALL catalog every emitted native executable through the

@@ -108,7 +108,7 @@ func TestGitLabPublisherFailClosedCases(t *testing.T) {
 			}))
 			defer server.Close()
 			if _, err := PublishGitLab(context.Background(), server.Client(), GitLabConfig{
-				APIBase: server.URL, ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
+				APIBase: server.URL, ProjectID: "7", Tag: "v0.1.0", JobToken: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
 			}); err == nil {
 				t.Fatal("invalid GitLab state accepted")
 			}
@@ -139,7 +139,7 @@ func TestGitLabPublisherRejectsMissingAndMismatchedAssets(t *testing.T) {
 			}))
 			defer server.Close()
 			if _, err := PublishGitLab(context.Background(), server.Client(), GitLabConfig{
-				APIBase: server.URL, ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
+				APIBase: server.URL, ProjectID: "7", Tag: "v0.1.0", JobToken: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
 			}); err == nil {
 				t.Fatal("invalid GitLab asset state accepted")
 			}
@@ -168,7 +168,7 @@ func TestCreationTransportAndStatusFailuresPropagate(t *testing.T) {
 		},
 		"gitlab": func(client *http.Client) error {
 			_, err := PublishGitLab(context.Background(), client, GitLabConfig{
-				APIBase: "https://example.test", ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
+				APIBase: "https://example.test", ProjectID: "7", Tag: "v0.1.0", JobToken: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
 			})
 			return err
 		},
@@ -192,7 +192,7 @@ func TestCreationTransportAndStatusFailuresPropagate(t *testing.T) {
 		return response(http.StatusNotFound, ""), nil
 	})}
 	if _, err := PublishGitLab(context.Background(), client, GitLabConfig{
-		APIBase: "https://example.test", ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
+		APIBase: "https://example.test", ProjectID: "7", Tag: "v0.1.0", JobToken: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
 	}); err == nil || !strings.Contains(err.Error(), "HTTP 404") {
 		t.Fatalf("GitLab publication status accepted: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestPostCreationRefreshFailuresPropagate(t *testing.T) {
 			return response(http.StatusCreated, ""), nil
 		})}
 		_, err := PublishGitLab(context.Background(), client, GitLabConfig{
-			APIBase: "https://example.test", ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
+			APIBase: "https://example.test", ProjectID: "7", Tag: "v0.1.0", JobToken: "secret", Artifacts: artifacts, Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
 		})
 		if !errors.Is(err, want) {
 			t.Fatalf("refresh error = %v", err)
@@ -262,7 +262,7 @@ func TestGitLabUploadUsesOnlyTheArtifactInventory(t *testing.T) {
 		return response(http.StatusCreated, ""), nil
 	})}
 	if err := UploadGitLab(context.Background(), client, GitLabConfig{
-		APIBase: "https://example.test", ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: directory, Trust: fixtureTrust(directory), Source: fixtureSource(directory),
+		APIBase: "https://example.test", ProjectID: "7", Tag: "v0.1.0", JobToken: "secret", Artifacts: directory, Trust: fixtureTrust(directory), Source: fixtureSource(directory),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +281,7 @@ func TestGitLabUploadRequiresEveryDeclaredArtifact(t *testing.T) {
 		return nil, errors.New("unexpected upload")
 	})}
 	if err := UploadGitLab(context.Background(), client, GitLabConfig{
-		APIBase: "https://example.test", ProjectID: "7", Tag: "v0.1.0", Token: "secret", Artifacts: directory, Trust: fixtureTrust(directory), Source: fixtureSource(directory),
+		APIBase: "https://example.test", ProjectID: "7", Tag: "v0.1.0", JobToken: "secret", Artifacts: directory, Trust: fixtureTrust(directory), Source: fixtureSource(directory),
 	}); err == nil || !strings.Contains(err.Error(), "missing or empty") {
 		t.Fatal("unreadable upload artifact was accepted")
 	}
@@ -348,7 +348,7 @@ func TestVerificationReportsLocalArtifactReadFailures(t *testing.T) {
 			URL string `json:"url"`
 		}{URL: link.URL})
 	}
-	if err := verifyGitLabAssets(context.Background(), server.Client(), GitLabConfig{APIBase: server.URL, Tag: "v" + version, Token: "token", Artifacts: artifacts}, expected, actual, version); err == nil {
+	if err := verifyGitLabAssets(context.Background(), server.Client(), GitLabConfig{APIBase: server.URL, Tag: "v" + version, JobToken: "token", Artifacts: artifacts}, expected, actual, version); err == nil {
 		t.Fatal("unreadable local GitLab artifact accepted")
 	}
 }
@@ -362,7 +362,7 @@ func TestGitLabAssetHelperErrorPaths(t *testing.T) {
 			URL string `json:"url"`
 		}{URL: "://invalid/" + strings.TrimPrefix(link.DirectAssetPath, "/")})
 	}
-	config := GitLabConfig{APIBase: "https://example.test", Tag: "v" + version, Token: "secret", Artifacts: releaseFixture(t, version)}
+	config := GitLabConfig{APIBase: "https://example.test", Tag: "v" + version, JobToken: "secret", Artifacts: releaseFixture(t, version)}
 	if err := verifyGitLabAssets(context.Background(), http.DefaultClient, config, expected, actual, version); err == nil {
 		t.Fatal("invalid GitLab asset authority accepted")
 	}

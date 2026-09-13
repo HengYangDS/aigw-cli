@@ -548,6 +548,22 @@ GitLab uploads only the declared matrix inventory, not arbitrary files found
 in the output directory. Verification does not access a private key or prompt
 for a password.
 
+GitLab publication accepts exactly one native credential: `GITLAB_TOKEN` for
+an operator's personal, project or group access token, or `CI_JOB_TOKEN` for a
+running CI job. These use GitLab's [access-token and job-token headers](https://docs.gitlab.com/api/rest/authentication/)
+respectively. Both set is an ambiguous authority and fails before network
+access; an absent token is not permission for anonymous publication. The same
+selection applies to upload, release metadata and same-origin asset readback.
+Cross-origin redirects receive neither credential. Supply tokens through the
+approved process environment, never command arguments, URLs or tracked files.
+
+Local release execution uses the same commands and explicit `CI_API_V4_URL`,
+`CI_PROJECT_ID` and `CI_COMMIT_TAG` identity inputs; their names do not require
+a CI runner. Building and signing locally does not require copying a private
+key to either Forge. HTTPS or an approved protected transport remains an
+operator prerequisite; a successful local fixture does not prove remote write
+permission or publication.
+
 Run publication from the product repository containing the selected
 `CI_COMMIT_TAG`, and supply `AIGW_RELEASE_ALLOWED_SIGNERS_FILE` for Git source
 trust. Before network access, each entrypoint resolves that local tag once,

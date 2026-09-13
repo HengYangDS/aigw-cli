@@ -129,7 +129,7 @@ func publicationCommands() commandSet {
 			}
 			return publication.UploadGitLab(context.Background(), http.DefaultClient, publication.GitLabConfig{
 				APIBase: os.Getenv("CI_API_V4_URL"), ProjectID: os.Getenv("CI_PROJECT_ID"), Tag: os.Getenv("CI_COMMIT_TAG"),
-				Token: os.Getenv("CI_JOB_TOKEN"), Artifacts: args[0],
+				JobToken: os.Getenv("CI_JOB_TOKEN"), AccessToken: os.Getenv("GITLAB_TOKEN"), Artifacts: args[0],
 				Trust:  trust,
 				Source: source,
 			})
@@ -140,7 +140,7 @@ func publicationCommands() commandSet {
 			}
 			created, err := publication.PublishGitLab(context.Background(), http.DefaultClient, publication.GitLabConfig{
 				APIBase: os.Getenv("CI_API_V4_URL"), ProjectID: os.Getenv("CI_PROJECT_ID"), Tag: os.Getenv("CI_COMMIT_TAG"),
-				Token: os.Getenv("CI_JOB_TOKEN"), Artifacts: args[0],
+				JobToken: os.Getenv("CI_JOB_TOKEN"), AccessToken: os.Getenv("GITLAB_TOKEN"), Artifacts: args[0],
 				Trust:  trust,
 				Source: source,
 			})
