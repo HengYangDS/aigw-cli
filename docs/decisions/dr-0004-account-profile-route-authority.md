@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-07
-- Last amended: 2026-09-10
+- Last amended: 2026-09-13
 
 ## Context
 
@@ -18,6 +18,12 @@ owns one explicit `account + client + model` choice. Each client's Route selects
 one compatible Profile before execution; no global default spans clients.
 These entities are the
 configuration SSOT; model and provider names remain transparent values.
+
+An imported recommendation is not a Route selection. It remains data in the
+same configuration owner until setup or synchronization can fill an unselected
+client. Explicit selections are preserved when their credentials are temporarily
+unavailable. Keeping these meanings separate avoids both silent reselection and
+a recommendation that prevents another connected Account from becoming usable.
 
 Client adapters project this desired state but do not redefine it. Provider
 diagnostics are optional leaf capabilities and cannot create a Profile, Route,

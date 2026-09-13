@@ -145,7 +145,7 @@ The peer is a deployment choice, not a product dependency. An automatic merge
 must preserve the signed object through fast-forward; if the peer cannot do
 that, use the existing maintainer publication path rather than rebase or
 re-sign. Refresh locks through native package managers and regenerate Forge
-projections through `go run ./tools/ci project` before verification. Protected
+projections through `mise exec --locked -- go run ./tools/ci project` before verification. Protected
 runner settings, credentials, schedules, and generic Change admission belong
 to the execution/governance owner, not this policy or a new AIGW updater.
 
@@ -224,10 +224,23 @@ expression omits anchors. Release tags use `v` followed by strict SemVer;
 individual-tag and tag-set checks share the existing SemVer library used by
 release construction, including prerelease and build-metadata syntax.
 
+ETHOS installs the local `commit-msg` and publication hooks into Git-common
+storage. The installed runtime selects the current workspace policy; it does
+not embed another grammar in the launcher. Hosted quality checks read that same
+policy from the exact reviewed commit and verify the introduced range, including
+release-preparation commits. GitHub review, accepted-branch and tag events and
+GitLab merge-request, accepted-branch and tag events select that shared check
+through CUE. No parallel pre-commit runner is needed to own these rules.
+An accepted-ref merge or proposal deletion is a separate delivery operation,
+not evidence implied by a valid commit message or a green review job.
+
 Product signing and peer transport authentication are independent. GitLab and
 GitHub may use different SSH keys, PATs, OIDC identities, or host credentials
 for transport without changing the product object. A host's `Verified` display
 is an account-level projection, not product identity authority.
+The principal reported by SSH signature verification identifies a trusted
+signer; it is not the commit's author or committer email. Read those fields from
+the Git object and verify them against the explicit product identity input.
 
 The following have no valid steady-state role:
 

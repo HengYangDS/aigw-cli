@@ -32,6 +32,10 @@ For shipped manifests and generated configuration, also exercise the actual
 delivery input through the public command. Small fixtures isolate a cause but
 cannot establish that the shipped catalogue works. Cover deferred prerequisites
 becoming available independently, while preserving explicit user choices.
+For an update that changes persisted configuration, exercise rollback after the
+successor writes that configuration; an unchanged predecessor fixture cannot
+prove downgrade safety. Test isolation includes derived native paths, not only
+environment variables: staged programs and user-data roots must stay disjoint.
 Record acceptance and evidence references in the active OpenSpec task, update
 the relevant operator guidance, and remove contradictory instructions. A new
 rule, skill, or passing format check is not proof that the failure cannot recur.
@@ -689,7 +693,8 @@ separate acceptance obligations; a successful one cannot replace another.
 Use focused Conventional Commits. Keep `CHANGELOG.md` with `## [Unreleased]` as
 its first release section, containing only changes after the latest tagged
 release. Every published heading must map to an existing `v<semver>` tag and
-its tag date; run `go run ./tools/repository --root . changelog` before requesting review.
+its tag date; run `mise exec --locked -- go run ./tools/repository --root . changelog`
+before requesting review.
 GitLab **Project Name** is `AIGW CLI`; stable clone **Path** is `aigw-cli`. Do
 not change external paths as a display-name cleanup.
 
@@ -700,7 +705,7 @@ exact objects. Product signing and trust use `AIGW_RELEASE_AUTHOR_EMAIL` and
 Git, SSH, or the protected host credential context. No peer-specific actor,
 signing key, tag namespace, history replay, or tree-only equivalence is valid.
 
-From a clean canonical checkout, `go run ./tools/forge project` publishes
+From a clean canonical checkout, `mise exec --locked -- go run ./tools/forge project` publishes
 `main` atomically to peer `main` and `dev`, or one explicit `proposal/*` to its
 matching ref. Candidate, work, and arbitrary branches are rejected. Ordinary
 fast-forward and idempotent publication need no destructive option. A divergent

@@ -61,6 +61,12 @@ client's Route. There is no global default, inheritance, or cross-client fallbac
 AIGW selects before the request; it does not retry traffic through another
 service or model.
 
+Team recommendations are inputs to selection, not already selected Routes.
+Import retains them separately. Setup and sync fill only unselected clients
+from usable Profiles; an existing Route survives a missing Token or a newly
+connected Account. See [team activation](../guides/team-rollout.md#local-choices)
+for deliberate selection changes.
+
 ### Adapter
 
 | Adapter     | Projection                                                                                         |
@@ -94,20 +100,26 @@ replacement changes metadata only; it never changes the Token slot.
 
 ## Rename
 
-| Operation                   | Changes                               | Preserves                            |
-| --------------------------- | ------------------------------------- | ------------------------------------ |
-| `profile rename`            | Profile ID and Route references       | Account and Token                    |
-| `account rename`            | Account ID and Profile references     | Token through a two-phase migration  |
-| `account rename --finalize` | Removes verified old credential slots | Current configuration and checkpoint |
+| Operation                   | Changes                                | Preserves                            |
+| --------------------------- | -------------------------------------- | ------------------------------------ |
+| `profile rename`            | Profile ID, Routes and recommendations | Account and Token                    |
+| `account rename`            | Account ID and Profile references      | Token through a two-phase migration  |
+| `account rename --finalize` | Removes verified old credential slots  | Current configuration and checkpoint |
 
 Finalize fails closed if credential equality or checkpoint proof is incomplete.
 
 ## Installation lifecycle
 
 Each platform uses its matching archive and the same CLI-owned lifecycle: `aigw install`,
-`aigw update`, `aigw update --rollback`, and `aigw uninstall`. Updates replace
-the binary atomically and retain exactly one immediate predecessor. There is no
-parallel package-manager channel.
+`aigw update`, `aigw update --rollback`, and `aigw uninstall`. Replacement retains
+exactly one immediate predecessor and restores the current program if activation
+fails. It is recoverable replacement, not uninterrupted atomic visibility or
+power-loss recovery. There is no parallel package-manager channel.
+
+Before rollback, the retained program must start and read an isolated copy of
+the current configuration. Incompatibility preserves the active program and
+configuration; restoring compatible configuration is an explicit operator
+decision, never a silent downgrade. See the [rollback journey](../../README.md#update-and-rollback).
 
 `aigw installation --json` observes the command path, running version, resolved
 program file and optional retained predecessor through one schema-versioned
