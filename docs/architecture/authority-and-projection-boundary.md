@@ -42,7 +42,7 @@ hop. AIGW does not own that endpoint's process.
 
 | Owner                     | Authoritative state                                             |
 | ------------------------- | --------------------------------------------------------------- |
-| AIGW configuration        | Accounts, Profiles, Routes, Adapter declarations                |
+| AIGW configuration        | Accounts, Profiles, recommendations, selected Routes, Adapters  |
 | Selected Token store      | Account Tokens; the selection policy belongs to AIGW            |
 | Codex                     | Conversations, JSONL, SQLite, model metadata, Desktop GUI state |
 | Claude Code               | Session and client runtime behavior                             |
@@ -77,6 +77,12 @@ same client-protocol definition as runtime resolution. Manifest import and local
 persistence share that validation; neither may accept a Profile that cannot
 resolve its protocol endpoint. This is a structural check, not evidence of
 credentials, installed clients, endpoint availability, or successful inference.
+
+Imported recommendations and actual selections have separate meanings in that
+same configuration. Import retains the recommendation; setup and sync select
+only for clients without a Route. They prefer an available recommendation, then
+its model on another usable Account, then stable Profile identifier order.
+Unavailable credentials do not authorize replacing an existing selection.
 
 Configuration cloning owns independence of nested Account diagnostics and
 Adapter target slices as well as maps. Read-only runtime resolution observes

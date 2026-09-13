@@ -86,6 +86,26 @@ func TestDesiredClientConfigurationSurfacesCredentialObservationFailures(t *test
 	}
 }
 
+func TestDesiredClientConfigurationFillsOnlyUnselectedScopedRoutes(t *testing.T) {
+	before := configuration.NewConfig()
+	before.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{
+		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
+	}}
+	before.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
+	before.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Client: configuration.ClientCodex, Model: "gpt-test"}
+	store := secrets.NewMemoryStore()
+	if err := store.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	after, _, err := (Synchronizer{Secrets: store, Discovery: staticDiscovery{}}).DesiredClientConfiguration(before, configuration.ClientClaude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Routes[configuration.ClientClaude] != "claude" || after.Routes[configuration.ClientCodex] != "" || len(before.Routes) != 0 {
+		t.Fatalf("scoped selection changed the wrong state: before=%#v after=%#v", before.Routes, after.Routes)
+	}
+}
+
 func TestProjectionPlanningValidatesEnabledClients(t *testing.T) {
 	syncer := Synchronizer{}
 	cfg := configuration.NewConfig()

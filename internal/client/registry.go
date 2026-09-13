@@ -146,6 +146,34 @@ func (registry Registry) Converge(deps Dependencies, before configuration.Config
 	if err != nil {
 		return configuration.Config{}, err
 	}
+	clients = make([]string, 0, len(adapters))
+	for _, adapter := range adapters {
+		clients = append(clients, adapter.Spec().ID)
+	}
+	connected := []string{}
+	observed := map[string]bool{}
+	for _, id := range after.ProfileIDs() {
+		client := after.Profiles[id].Client
+		if !slices.Contains(clients, client) || after.Routes[client] != "" {
+			continue
+		}
+		runtime, err := after.ResolveRuntime(client, id)
+		if err != nil || !runtime.RequiresAccountToken() || observed[runtime.AccountID] {
+			continue
+		}
+		observed[runtime.AccountID] = true
+		available, err := secretAvailable(deps.Secrets, runtime.AccountID)
+		if err != nil {
+			return configuration.Config{}, err
+		}
+		if available {
+			connected = append(connected, runtime.AccountID)
+		}
+	}
+	after, err = after.SelectRoutesForConnectedAccounts(connected, clients...)
+	if err != nil {
+		return configuration.Config{}, err
+	}
 	for _, adapter := range adapters {
 		if err := adapter.Converge(deps, &after, discovered); err != nil {
 			return configuration.Config{}, err

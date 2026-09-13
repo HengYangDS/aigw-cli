@@ -70,13 +70,15 @@ func planProfile(cfg configuration.Config, oldID, newID string) (Plan, error) {
 	next := cfg.Clone()
 	delete(next.Profiles, oldID)
 	next.Profiles[newID] = profile
-	references := make([]string, 0, len(next.Routes))
-	for client, profileID := range next.Routes {
-		if profileID != oldID {
-			continue
+	references := make([]string, 0, len(next.Routes)+len(next.RecommendedRoutes))
+	for name, routes := range map[string]configuration.Routes{"routes": next.Routes, "recommended_routes": next.RecommendedRoutes} {
+		for client, profileID := range routes {
+			if profileID != oldID {
+				continue
+			}
+			routes[client] = newID
+			references = append(references, name+"."+client)
 		}
-		next.Routes[client] = newID
-		references = append(references, "routes."+client)
 	}
 	sort.Strings(references)
 	if err := next.Validate(); err != nil {

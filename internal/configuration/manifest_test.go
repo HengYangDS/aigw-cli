@@ -83,7 +83,11 @@ authentication = "account-token"
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := merged.ResolveRuntime(ClientCodex, "")
+	selected, err := merged.SelectRoutesForConnectedAccounts([]string{"northstar"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := selected.ResolveRuntime(ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
 	}

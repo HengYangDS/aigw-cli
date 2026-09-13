@@ -158,8 +158,8 @@ func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *test
 		len(result.ConnectedAccounts) != 0 {
 		t.Fatalf("setup JSON catalogue state = %#v", result)
 	}
-	if result.SelectedRoutes[configuration.ClientClaude] != "aihubmix-claude" || result.SelectedRoutes[configuration.ClientCodex] != "dmxapi-gpt" {
-		t.Fatalf("setup JSON routes = %#v", result.SelectedRoutes)
+	if len(result.SelectedRoutes) != 0 {
+		t.Fatalf("setup turned unavailable recommendations into selections: %#v", result.SelectedRoutes)
 	}
 	if len(result.ProjectedClients) != 0 {
 		t.Fatalf("setup JSON projected clients = %#v", result.ProjectedClients)

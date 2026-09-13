@@ -122,9 +122,8 @@ func TestSelectRoutesForConnectedAccountsKeepsCapabilityAndChoosesUsableProfiles
 	cfg.Profiles["alpha-codex"] = Profile{Label: "Alpha Codex", Account: "alpha", Client: ClientCodex, Model: "gpt-test"}
 	cfg.Profiles["beta-claude"] = Profile{Label: "Beta Claude", Account: "beta", Client: ClientClaude, Model: "claude-test"}
 	cfg.Profiles["beta-codex"] = Profile{Label: "Beta Codex", Account: "beta", Client: ClientCodex, Model: "gpt-test"}
-	cfg.Routes[ClientCodex] = "alpha-codex"
-	cfg.Routes[ClientClaude] = "alpha-claude"
-	cfg.Routes[ClientCodex] = "alpha-codex"
+	cfg.RecommendedRoutes[ClientClaude] = "alpha-claude"
+	cfg.RecommendedRoutes[ClientCodex] = "alpha-codex"
 
 	one, err := cfg.SelectRoutesForConnectedAccounts([]string{"beta"})
 	if err != nil {
@@ -141,8 +140,8 @@ func TestSelectRoutesForConnectedAccountsKeepsCapabilityAndChoosesUsableProfiles
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(both.Routes, cfg.Routes) {
-		t.Fatalf("usable recommended routes changed: got %#v want %#v", both.Routes, cfg.Routes)
+	if !reflect.DeepEqual(both.Routes, cfg.RecommendedRoutes) {
+		t.Fatalf("usable recommended routes changed: got %#v want %#v", both.Routes, cfg.RecommendedRoutes)
 	}
 
 	if _, err := cfg.SelectRoutesForConnectedAccounts([]string{"missing"}); err == nil || !strings.Contains(err.Error(), "unknown account") {
@@ -159,8 +158,8 @@ func TestSelectRoutesForConnectedAccountsPreservesRecommendedModels(t *testing.T
 	cfg.Profiles["connected-claude"] = Profile{Label: "Connected Claude", Account: "connected", Client: ClientClaude, Model: "claude-fable-5"}
 	cfg.Profiles["connected-codex-luna"] = Profile{Label: "Connected Codex Luna", Account: "connected", Client: ClientCodex, Model: "gpt-5.6-luna"}
 	cfg.Profiles["connected-codex-sol"] = Profile{Label: "Connected Codex Sol", Account: "connected", Client: ClientCodex, Model: "gpt-5.6-sol"}
-	cfg.Routes[ClientClaude] = "preferred-claude"
-	cfg.Routes[ClientCodex] = "preferred-codex"
+	cfg.RecommendedRoutes[ClientClaude] = "preferred-claude"
+	cfg.RecommendedRoutes[ClientCodex] = "preferred-codex"
 
 	selected, err := cfg.SelectRoutesForConnectedAccounts([]string{"connected"})
 	if err != nil {
@@ -171,6 +170,31 @@ func TestSelectRoutesForConnectedAccountsPreservesRecommendedModels(t *testing.T
 	}
 	if selected.Routes[ClientClaude] != "connected-claude" {
 		t.Fatalf("Claude route = %q", selected.Routes[ClientClaude])
+	}
+}
+
+func TestSelectRoutesPreservesUnavailableExplicitChoice(t *testing.T) {
+	cfg := validConfig()
+	cfg.RecommendedRoutes = Routes{ClientCodex: "backup"}
+	chosen, err := cfg.SelectRoutesForConnectedAccounts(nil)
+	if err != nil || !reflect.DeepEqual(chosen.Routes, cfg.Routes) {
+		t.Fatalf("unavailable explicit choices changed: %#v, %v", chosen.Routes, err)
+	}
+}
+
+func TestSelectRoutesPrefersUsableRecommendationOverIdentifierOrder(t *testing.T) {
+	cfg := NewConfig()
+	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test"}}
+	cfg.Profiles["alpha"] = Profile{Label: "Alpha", Account: "team", Client: ClientClaude, Model: "first-model"}
+	cfg.Profiles["zeta"] = Profile{Label: "Zeta", Account: "team", Client: ClientClaude, Model: "recommended-model"}
+	cfg.RecommendedRoutes[ClientClaude] = "zeta"
+	deferred, err := cfg.SelectRoutesForConnectedAccounts(nil)
+	if err != nil || len(deferred.Routes) != 0 || deferred.RecommendedRoutes[ClientClaude] != "zeta" {
+		t.Fatalf("deferred recommendation = %#v, %v", deferred, err)
+	}
+	selected, err := deferred.SelectRoutesForConnectedAccounts([]string{"team"})
+	if err != nil || selected.Routes[ClientClaude] != "zeta" {
+		t.Fatalf("recommendation lost to identifier order: %#v, %v", selected.Routes, err)
 	}
 }
 

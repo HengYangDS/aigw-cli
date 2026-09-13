@@ -277,6 +277,9 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 			delete(cfg.Profiles, name)
+			if cfg.RecommendedRoutes[profile.Client] == name {
+				delete(cfg.RecommendedRoutes, profile.Client)
+			}
 			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "profile remove"); err != nil {
 				return err
 			}

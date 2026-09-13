@@ -229,8 +229,13 @@ Conflicting public metadata requires an explicit `--replace-account <id>` or
 | Local-only Profile not in manifest | Preserve             | Remove explicitly if obsolete            |
 | Existing Token                     | Preserve             | Rotate explicitly if required            |
 
-Import preserves existing Routes and fills only empty Routes from the
-manifest's recommendations. It reconciles enabled client projections through
+Import preserves existing Routes and stores the manifest's recommendations
+separately. Importing a recommendation does not select it. Setup and `sync`
+fill unselected Routes from currently usable Profiles: the recommendation first,
+then the same model on another connected Account, then stable Profile identifier
+order. An existing selection is preserved even if its Token is unavailable;
+use `aigw use <profile>` to change it explicitly. Client-native authentication
+does not require an AIGW Token. Import reconciles enabled client projections through
 the ordinary guarded transaction; a failed projection leaves the import
 uncommitted.
 

@@ -149,11 +149,7 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 		}
 		merged.Profiles[name] = profile
 	}
-	for client, profile := range incoming.RecommendedRoutes {
-		if merged.Routes[client] == "" {
-			merged.Routes[client] = profile
-		}
-	}
+	maps.Copy(merged.RecommendedRoutes, incoming.RecommendedRoutes)
 	if err := merged.Validate(); err != nil {
 		return Config{}, fmt.Errorf("merge configuration manifest: %w", err)
 	}
@@ -205,7 +201,8 @@ func Export(cfg Config) ([]byte, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	recommendedRoutes := make(map[string]string, len(cfg.Routes))
+	recommendedRoutes := make(map[string]string, len(cfg.RecommendedRoutes)+len(cfg.Routes))
+	maps.Copy(recommendedRoutes, cfg.RecommendedRoutes)
 	maps.Copy(recommendedRoutes, cfg.Routes)
 	data, err := toml.Marshal(Manifest{Version: currentVersion, RecommendedRoutes: recommendedRoutes, Accounts: cfg.Accounts, Profiles: cfg.Profiles})
 	if err != nil {

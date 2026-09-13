@@ -120,6 +120,7 @@ func TestConfigCloneDoesNotShareMutableState(t *testing.T) {
 	original.Accounts["dmx"] = account
 	original.Adapters = map[string]AdapterConfig{}
 	original.Adapters[ClientCodex] = AdapterConfig{Enabled: true, Targets: []string{"one"}}
+	original.RecommendedRoutes = Routes{ClientClaude: "dmx"}
 
 	clone := original.Clone()
 	clone.Accounts["dmx"].AccountProbe.BaseURL = "https://changed.test"
@@ -133,6 +134,7 @@ func TestConfigCloneDoesNotShareMutableState(t *testing.T) {
 	clone.Accounts["dmx"] = Account{Label: "Changed"}
 	clone.Profiles["default"] = Profile{Label: "Changed"}
 	clone.Routes[ClientClaude] = "changed"
+	clone.RecommendedRoutes[ClientClaude] = "changed"
 	adapter := clone.Adapters[ClientCodex]
 	adapter.Targets[0] = "changed"
 	clone.Adapters[ClientCodex] = adapter
@@ -140,7 +142,7 @@ func TestConfigCloneDoesNotShareMutableState(t *testing.T) {
 	if original.Accounts["dmx"].Label == "Changed" || original.Profiles["default"].Label == "Changed" {
 		t.Fatal("clone shares map state with original")
 	}
-	if original.Routes[ClientClaude] == "changed" {
+	if original.Routes[ClientClaude] == "changed" || original.RecommendedRoutes[ClientClaude] == "changed" {
 		t.Fatal("clone shares route overrides with original")
 	}
 	if original.Adapters[ClientCodex].Targets[0] == "changed" {
@@ -158,6 +160,9 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 		{"uppercase account name", func(c *Config) { c.Accounts["DMX"] = c.Accounts["dmx"] }, "must be lowercase"},
 		{"unknown profile route", func(c *Config) { c.Routes[ClientClaude] = "missing" }, "unknown profile"},
 		{"unknown client", func(c *Config) { c.Routes["chat"] = "dmx" }, "unknown route"},
+		{"unknown recommended profile", func(c *Config) { c.RecommendedRoutes = Routes{ClientClaude: "missing"} }, "unknown profile"},
+		{"unknown recommended client", func(c *Config) { c.RecommendedRoutes = Routes{"chat": "dmx"} }, "unknown recommended route"},
+		{"incompatible recommendation", func(c *Config) { c.RecommendedRoutes = Routes{ClientCodex: "dmx"} }, "selects profile"},
 		{"url user info", func(c *Config) {
 			a := c.Accounts["dmx"]
 			a.Endpoints.Anthropic = "https://user:secret@example.test"
@@ -365,7 +370,7 @@ func TestValidateTreatsUpstreamModelIDAsTransparentConfiguration(t *testing.T) {
 func TestNormalizeFillsEveryNilCollection(t *testing.T) {
 	cfg := Config{}
 	cfg.Normalize()
-	if cfg.Accounts == nil || cfg.Profiles == nil || cfg.Routes == nil || cfg.Adapters == nil {
+	if cfg.Accounts == nil || cfg.Profiles == nil || cfg.Routes == nil || cfg.RecommendedRoutes == nil || cfg.Adapters == nil {
 		t.Fatalf("normalized config still has nil collections: %#v", cfg)
 	}
 }

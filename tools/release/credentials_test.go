@@ -1,8 +1,10 @@
 package main
 
 import (
+	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secrets"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -205,4 +207,32 @@ func environmentValues(environment []string) map[string]string {
 		}
 	}
 	return values
+}
+
+func (j *journeyFixture) requireStoredCredentialAcrossUpdate(root, newVersion, oldVersion, token string, backend secrets.BackendSelection) {
+	j.testing.Helper()
+	candidate, archive, checksums := nativeReleaseCandidate(j.testing, root, newVersion)
+	j.testing.Logf("credential baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(j.testing, j.source)), newVersion, sha256.Sum256(readFile(j.testing, candidate)))
+	for _, step := range []struct {
+		version string
+		program string
+		args    []string
+	}{
+		{newVersion, candidate, []string{"update", "--candidate", archive, "--checksums", checksums}},
+		{oldVersion, j.source, []string{"update", "--rollback"}},
+		{newVersion, candidate, []string{"update", "--candidate", archive, "--checksums", checksums}},
+	} {
+		j.run("adapter", "disable", configuration.ClientClaude)
+		j.run(step.args...)
+		j.run("sync")
+		j.requireVersion(step.version)
+		j.requireProgramBytes(step.program)
+		if step.version == newVersion {
+			j.requireCredentialBackend(token, backend)
+		}
+		if got := j.claudeCredential(); got != token {
+			j.testing.Fatalf("program %s lost native credential continuity: %q", step.version, got)
+		}
+	}
+	j.source = candidate
 }

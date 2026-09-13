@@ -304,8 +304,11 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 		t.Fatalf("profile error = %v", err)
 	}
 
+	cfg.RecommendedRoutes = configuration.Routes{configuration.ClientClaude: "claude", configuration.ClientCodex: "codex"}
 	plan, err := planProfile(cfg, "codex", "new-codex")
-	if err != nil || plan.Config.Routes[configuration.ClientClaude] != "claude" {
+	if err != nil || plan.Config.Routes[configuration.ClientClaude] != "claude" ||
+		plan.Config.RecommendedRoutes[configuration.ClientCodex] != "new-codex" ||
+		plan.Config.RecommendedRoutes[configuration.ClientClaude] != "claude" {
 		t.Fatalf("plan=%#v error=%v", plan, err)
 	}
 }

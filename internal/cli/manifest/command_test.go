@@ -155,7 +155,7 @@ func TestImportMergesConfigurationAndReportsOneMissingToken(t *testing.T) {
 		t.Fatalf("imported config = %#v", loaded)
 	}
 	output := renderOut.String()
-	for _, want := range []string{"Configuration manifest imported", "Profiles", "Accounts", "Token required", "aigw rotate gateway"} {
+	for _, want := range []string{"Configuration manifest imported", "Profiles", "Accounts", "Token not connected", "aigw rotate gateway", "aigw sync"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output %q does not contain %q", output, want)
 		}
@@ -172,7 +172,7 @@ func TestImportNamesEnvironmentTokenInsteadOfRotate(t *testing.T) {
 	}
 
 	output := renderOut.String()
-	if !strings.Contains(output, secrets.EnvironmentKey("gateway")) || !strings.Contains(output, "aigw check") {
+	if !strings.Contains(output, secrets.EnvironmentKey("gateway")) || !strings.Contains(output, "aigw sync") {
 		t.Fatalf("environment remediation is incomplete: %q", output)
 	}
 	if strings.Contains(output, "aigw rotate") {
@@ -187,7 +187,8 @@ func TestImportSelectsNextStepFromCredentialAvailability(t *testing.T) {
 		seed     []string
 		want     string
 	}{
-		{name: "all available", manifest: importManifest, seed: []string{"gateway"}, want: "aigw models"},
+		{name: "all available", manifest: importManifest, seed: []string{"gateway"}, want: "aigw sync"},
+		{name: "one available", manifest: twoAccountManifest(), seed: []string{"gateway"}, want: "aigw sync"},
 		{name: "multiple missing", manifest: twoAccountManifest(), want: "aigw rotate <account>"},
 	}
 	for _, test := range tests {

@@ -37,8 +37,8 @@ model = "gpt-test"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Routes[ClientClaude] != "team-claude" || got.Routes[ClientCodex] != "team-codex" {
-		t.Fatalf("recommended routes not applied: %#v", got.Routes)
+	if len(got.Routes) != 0 {
+		t.Fatalf("import converted recommendations into choices: %#v", got.Routes)
 	}
 
 	got.Accounts["personal"] = Account{Label: "Personal", Endpoints: Endpoints{Anthropic: "https://personal.test"}}
@@ -48,7 +48,7 @@ model = "gpt-test"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if merged.Routes[ClientClaude] != "personal-claude" || merged.Routes[ClientCodex] != "team-codex" {
+	if merged.Routes[ClientClaude] != "personal-claude" || merged.Routes[ClientCodex] != "" {
 		t.Fatalf("merge replaced a personal route: %#v", merged.Routes)
 	}
 

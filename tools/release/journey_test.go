@@ -1,11 +1,11 @@
 package main
 
 import (
+	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -153,6 +153,69 @@ func TestNativeAccountRetirementWithoutClients(t *testing.T) {
 		t.Fatal("client-free retirement did not converge backup")
 	}
 	journey.uninstallAndRequireOwnedFilesAbsent()
+}
+
+func TestNativeTeamManifestJourney(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	team := readFile(t, filepath.Join(root, "manifests", "team.toml"))
+	manifest, err := configuration.Parse(team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	program := buildNativeProgram(t, root, "0.0.0")
+	for _, account := range append([]string{""}, configuration.ManifestAccountNames(manifest)...) {
+		t.Run(account, func(t *testing.T) {
+			journey := newNativeJourney(t, program, "https://unused.example.test", false)
+			journey.setEnvironment("CODEX_HOME", filepath.Join(journey.root, "home", ".codex"))
+			journey.setEnvironment("CLAUDE_CONFIG_DIR", filepath.Dir(journey.settings))
+			if err := os.WriteFile(journey.manifest, team, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			journey.run("setup", "--from", journey.manifest)
+			journey.run("doctor", "--json")
+			journey.requireNoClaudeProjection()
+			if account == "" {
+				journey.uninstallAndRequireOwnedFilesAbsent()
+				return
+			}
+			journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
+			for _, client := range configuration.AdmittedClientSpecs() {
+				journey.installClientFixture(client.ID)
+			}
+			journey.run("sync")
+			cfg, err := configuration.NewStore(journey.config).Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(cfg.Accounts) != len(manifest.Accounts) || len(cfg.Profiles) != len(manifest.Profiles) {
+				t.Fatal("setup lost reviewed team capabilities")
+			}
+			for _, client := range configuration.AdmittedClientSpecs() {
+				selected, err := cfg.ResolveRuntime(client.ID, "")
+				if err != nil || selected.AccountID != account || !cfg.Adapters[client.ID].Enabled {
+					t.Fatalf("one connected Account did not activate %s: %#v, %v", client.ID, selected, err)
+				}
+				recommended := manifest.Profiles[manifest.RecommendedRoutes[client.ID]]
+				for _, offered := range manifest.Profiles {
+					if offered.Account == account && offered.Client == client.ID && offered.Model == recommended.Model && selected.Model != recommended.Model {
+						t.Fatalf("%s activation lost recommended model %q: %q", client.ID, recommended.Model, selected.Model)
+					}
+				}
+				if got := strings.TrimSpace(string(journey.run("credential", client.ID, selected.CredentialProjectionFingerprint(client.ID)))); got != "team-journey-token" {
+					t.Fatalf("environment credential differs for %s", client.ID)
+				}
+			}
+			before := readFile(t, journey.config)
+			journey.run("sync")
+			if !bytes.Equal(before, readFile(t, journey.config)) {
+				t.Fatal("repeated team synchronization rewrote configuration")
+			}
+			journey.uninstallAndRequireOwnedFilesAbsent()
+		})
+	}
 }
 
 func buildNativeProgram(t *testing.T, root, version string) string {
@@ -454,41 +517,4 @@ func entryNames(entries []os.DirEntry) []string {
 		names = append(names, entry.Name())
 	}
 	return names
-}
-
-func (j *journeyFixture) requireInstallationDescription(version, payload, rollback string) {
-	j.testing.Helper()
-	var observed struct {
-		SchemaVersion int    `json:"schema_version"`
-		Version       string `json:"version"`
-		CommandPath   string `json:"command_path"`
-		Payload       struct {
-			Path      string `json:"path"`
-			SHA256    string `json:"sha256"`
-			SizeBytes int64  `json:"size_bytes"`
-		} `json:"payload"`
-		Rollback *struct {
-			Path      string `json:"path"`
-			SHA256    string `json:"sha256"`
-			SizeBytes int64  `json:"size_bytes"`
-		} `json:"rollback"`
-	}
-	if err := json.Unmarshal(j.run("installation", "--json"), &observed); err != nil {
-		j.testing.Fatal(err)
-	}
-	resolved, err := filepath.EvalSymlinks(j.binary)
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	current, previous := readFile(j.testing, payload), readFile(j.testing, rollback)
-	if observed.SchemaVersion != 1 || observed.Version != version || observed.CommandPath != j.binary ||
-		observed.Payload.Path != resolved || observed.Payload.SHA256 != fmt.Sprintf("%x", sha256.Sum256(current)) ||
-		observed.Payload.SizeBytes != int64(len(current)) || observed.Rollback == nil ||
-		observed.Rollback.SHA256 != fmt.Sprintf("%x", sha256.Sum256(previous)) ||
-		observed.Rollback.SizeBytes != int64(len(previous)) {
-		j.testing.Fatalf("packaged installation description = %+v", observed)
-	}
-	if data := readFile(j.testing, observed.Rollback.Path); !bytes.Equal(data, previous) {
-		j.testing.Fatal("described rollback path does not hold the retained program")
-	}
 }

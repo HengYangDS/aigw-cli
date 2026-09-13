@@ -28,6 +28,10 @@ the superseded path rather than maintaining two answers to the same problem.
 
 Keep the smallest reproducer as a regression. Run focused checks before the
 complete gate on stable inputs; a failure returns to its narrow reproducer.
+For shipped manifests and generated configuration, also exercise the actual
+delivery input through the public command. Small fixtures isolate a cause but
+cannot establish that the shipped catalogue works. Cover deferred prerequisites
+becoming available independently, while preserving explicit user choices.
 Record acceptance and evidence references in the active OpenSpec task, update
 the relevant operator guidance, and remove contradictory instructions. A new
 rule, skill, or passing format check is not proof that the failure cannot recur.

@@ -106,7 +106,7 @@ model = "claude-long-model"
 	if strings.Contains(text, "Token required") || strings.Contains(text, "gpt-long-model  ") || strings.Contains(text, "claude-long-model  ") {
 		t.Fatalf("import reported profile-level missing tokens despite account token:\n%s", text)
 	}
-	for _, want := range []string{"Accounts", "System secret", "dmx", "Token available", "aigw models"} {
+	for _, want := range []string{"Accounts", "System secret", "dmx", "Token available", "aigw sync"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("import output lacks %q:\n%s", want, text)
 		}
@@ -143,7 +143,7 @@ model = "claude-long-model"
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "dmx") || !strings.Contains(text, "Token required") || !strings.Contains(text, "aigw rotate dmx") {
+	if !strings.Contains(text, "dmx") || !strings.Contains(text, "Token not connected") || !strings.Contains(text, "aigw rotate dmx") || !strings.Contains(text, "aigw sync") {
 		t.Fatalf("import did not point to missing account token:\n%s", text)
 	}
 	if strings.Contains(text, "gpt-long-model") || strings.Contains(text, "claude-long-model") {

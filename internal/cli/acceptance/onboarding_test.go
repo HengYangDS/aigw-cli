@@ -164,7 +164,6 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 	}
 	wantRoutes := map[string]string{
 		configuration.ClientClaude: "aihubmix-claude",
-		configuration.ClientCodex:  "dmxapi-gpt",
 	}
 	if !maps.Equal(preview.Routes, wantRoutes) {
 		t.Fatalf("sync preview routes = %#v, want %#v", preview.Routes, wantRoutes)
@@ -221,6 +220,11 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
 	}
 	before, err := app.Config.Load()
 	if err != nil {
+		t.Fatal(err)
+	}
+	before.Routes[configuration.ClientClaude] = "aihubmix-claude"
+	before.Routes[configuration.ClientCodex] = "dmxapi-gpt"
+	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
 	}
 

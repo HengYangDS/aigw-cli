@@ -82,32 +82,51 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		}
 		accountNames := configuration.ManifestAccountNames(incoming)
 		missing := []string{}
+		ready := false
+		observed := map[string]bool{}
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Configuration manifest imported")
 		r.Row("Profiles", fmt.Sprintf("%d", len(incoming.Profiles)))
 		r.Row("Accounts", fmt.Sprintf("%d", len(accountNames)))
-		for _, name := range accountNames {
+		for _, id := range cfg.ProfileIDs() {
+			profile, err := cfg.ResolveRuntime(cfg.Profiles[id].Client, id)
+			if err != nil {
+				return err
+			}
+			if !profile.RequiresAccountToken() {
+				ready = true
+				continue
+			}
+			name := profile.AccountID
+			if observed[name] {
+				continue
+			}
+			observed[name] = true
 			available, observationErr := runtime.Secrets.Exists(name)
 			if observationErr != nil {
 				r.Status(presentation.Warn, name, "Credential status unavailable · "+observationErr.Error())
 				continue
 			}
 			if available {
+				ready = true
 				r.Status(presentation.OK, "System secret", name+" Token available")
 				continue
 			}
 			missing = append(missing, name)
 			instruction, _ := credential.TokenRecovery(runtime.Secrets, name)
-			r.Status(presentation.Warn, name, "Token required · "+instruction)
+			r.Status(presentation.Info, name, "Token not connected · "+instruction)
 		}
-		if len(missing) > 0 && secrets.IsReadOnly(runtime.Secrets) {
-			r.Next("Set the listed environment variables, then run `aigw check`")
-		} else if len(missing) == 1 {
-			r.Next("aigw rotate " + missing[0])
-		} else if len(missing) > 1 {
-			r.Next("aigw rotate <account>")
-		} else {
-			r.Next("aigw models")
+		switch {
+		case ready:
+			r.Next("aigw sync")
+		case len(missing) > 0 && secrets.IsReadOnly(runtime.Secrets):
+			r.Next("Set one compatible Account environment variable, then run `aigw sync`")
+		case len(missing) == 1:
+			r.Next("aigw rotate " + missing[0] + ", then run `aigw sync`")
+		case len(missing) > 1:
+			r.Next("aigw rotate <account>, then run `aigw sync`")
+		default:
+			r.Next("Inspect credential availability, then run `aigw sync`")
 		}
 		return nil
 	}}

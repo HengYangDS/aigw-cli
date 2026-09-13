@@ -110,10 +110,11 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", " toml")
 	store := NewStore(path)
 	want := Config{
-		Version:  ConfigVersion,
-		Accounts: map[string]Account{"dmx": {Label: "DMXAPI", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
-		Profiles: map[string]Profile{"dmx": {Label: "DMXAPI", Account: "dmx", Client: ClientClaude, Model: "claude-test"}},
-		Routes:   Routes{ClientClaude: "dmx"},
+		Version:           ConfigVersion,
+		Accounts:          map[string]Account{"dmx": {Label: "DMXAPI", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
+		Profiles:          map[string]Profile{"dmx": {Label: "DMXAPI", Account: "dmx", Client: ClientClaude, Model: "claude-test"}},
+		Routes:            Routes{ClientClaude: "dmx"},
+		RecommendedRoutes: Routes{ClientClaude: "dmx"},
 	}
 	if err := store.Save(want); err != nil {
 		t.Fatal(err)
@@ -129,7 +130,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["dmx"].Endpoints.Anthropic != "https://example.test" || got.Routes[ClientClaude] != "dmx" {
+	if got.Accounts["dmx"].Endpoints.Anthropic != "https://example.test" || got.Routes[ClientClaude] != "dmx" || got.RecommendedRoutes[ClientClaude] != "dmx" {
 		t.Fatalf("round trip = %#v", got)
 	}
 }

@@ -191,7 +191,7 @@ func TestSelectRoutesForConnectedAccountsTreatsClientNativeProfilesAsReadyWithou
 		ModelProvider:  "token-provider",
 		Authentication: AuthenticationAccountToken,
 	}
-	cfg.Routes[ClientCodex] = "token"
+	cfg.RecommendedRoutes[ClientCodex] = "token"
 
 	withoutTokens, err := cfg.SelectRoutesForConnectedAccounts(nil)
 	if err != nil {

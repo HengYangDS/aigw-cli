@@ -322,34 +322,6 @@ func (j *journeyFixture) updateTo(archive, checksums, version, program string) {
 	j.requireProgramBytes(program)
 }
 
-func (j *journeyFixture) requireStoredCredentialAcrossUpdate(root, newVersion, oldVersion, token string, backend secrets.BackendSelection) {
-	j.testing.Helper()
-	candidate, archive, checksums := nativeReleaseCandidate(j.testing, root, newVersion)
-	j.testing.Logf("credential baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(j.testing, j.source)), newVersion, sha256.Sum256(readFile(j.testing, candidate)))
-	for _, step := range []struct {
-		version string
-		program string
-		args    []string
-	}{
-		{newVersion, candidate, []string{"update", "--candidate", archive, "--checksums", checksums}},
-		{oldVersion, j.source, []string{"update", "--rollback"}},
-		{newVersion, candidate, []string{"update", "--candidate", archive, "--checksums", checksums}},
-	} {
-		j.run("adapter", "disable", configuration.ClientClaude)
-		j.run(step.args...)
-		j.run("sync")
-		j.requireVersion(step.version)
-		j.requireProgramBytes(step.program)
-		if step.version == newVersion {
-			j.requireCredentialBackend(token, backend)
-		}
-		if got := j.claudeCredential(); got != token {
-			j.testing.Fatalf("program %s lost native credential continuity: %q", step.version, got)
-		}
-	}
-	j.source = candidate
-}
-
 func (j *journeyFixture) requireHealthyVersion(version string) {
 	j.testing.Helper()
 	j.requireVersion(version)
@@ -508,4 +480,41 @@ func readFile(t *testing.T, path string) []byte {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return data
+}
+
+func (j *journeyFixture) requireInstallationDescription(version, payload, rollback string) {
+	j.testing.Helper()
+	var observed struct {
+		SchemaVersion int    `json:"schema_version"`
+		Version       string `json:"version"`
+		CommandPath   string `json:"command_path"`
+		Payload       struct {
+			Path      string `json:"path"`
+			SHA256    string `json:"sha256"`
+			SizeBytes int64  `json:"size_bytes"`
+		} `json:"payload"`
+		Rollback *struct {
+			Path      string `json:"path"`
+			SHA256    string `json:"sha256"`
+			SizeBytes int64  `json:"size_bytes"`
+		} `json:"rollback"`
+	}
+	if err := json.Unmarshal(j.run("installation", "--json"), &observed); err != nil {
+		j.testing.Fatal(err)
+	}
+	resolved, err := filepath.EvalSymlinks(j.binary)
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	current, previous := readFile(j.testing, payload), readFile(j.testing, rollback)
+	if observed.SchemaVersion != 1 || observed.Version != version || observed.CommandPath != j.binary ||
+		observed.Payload.Path != resolved || observed.Payload.SHA256 != fmt.Sprintf("%x", sha256.Sum256(current)) ||
+		observed.Payload.SizeBytes != int64(len(current)) || observed.Rollback == nil ||
+		observed.Rollback.SHA256 != fmt.Sprintf("%x", sha256.Sum256(previous)) ||
+		observed.Rollback.SizeBytes != int64(len(previous)) {
+		j.testing.Fatalf("packaged installation description = %+v", observed)
+	}
+	if data := readFile(j.testing, observed.Rollback.Path); !bytes.Equal(data, previous) {
+		j.testing.Fatal("described rollback path does not hold the retained program")
+	}
 }

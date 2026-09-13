@@ -38,11 +38,12 @@ var modelProviderPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`
 
 // Config is the typed source of truth for accounts, profiles, routes, and client adapters.
 type Config struct {
-	Version  int                      `toml:"version" json:"version"`
-	Accounts map[string]Account       `toml:"accounts,omitempty" json:"accounts,omitempty"`
-	Profiles map[string]Profile       `toml:"profiles" json:"profiles"`
-	Routes   Routes                   `toml:"routes" json:"routes"`
-	Adapters map[string]AdapterConfig `toml:"adapters,omitempty" json:"adapters,omitempty"`
+	Version           int                      `toml:"version" json:"version"`
+	Accounts          map[string]Account       `toml:"accounts,omitempty" json:"accounts,omitempty"`
+	Profiles          map[string]Profile       `toml:"profiles" json:"profiles"`
+	Routes            Routes                   `toml:"routes" json:"routes"`
+	RecommendedRoutes Routes                   `toml:"recommended_routes,omitempty" json:"recommended_routes,omitempty"`
+	Adapters          map[string]AdapterConfig `toml:"adapters,omitempty" json:"adapters,omitempty"`
 }
 
 // Account defines one provider capability and its protocol endpoints without containing credentials.
@@ -118,7 +119,7 @@ type AdapterConfig struct {
 
 // NewConfig returns an empty configuration with all collection invariants initialized.
 func NewConfig() Config {
-	return Config{Version: ConfigVersion, Accounts: map[string]Account{}, Profiles: map[string]Profile{}, Routes: Routes{}, Adapters: map[string]AdapterConfig{}}
+	return Config{Version: ConfigVersion, Accounts: map[string]Account{}, Profiles: map[string]Profile{}, Routes: Routes{}, RecommendedRoutes: Routes{}, Adapters: map[string]AdapterConfig{}}
 }
 
 // Clone returns an independent configuration value. Config is the semantic
@@ -136,6 +137,7 @@ func (c Config) Clone() Config {
 	}
 	maps.Copy(out.Profiles, c.Profiles)
 	maps.Copy(out.Routes, c.Routes)
+	maps.Copy(out.RecommendedRoutes, c.RecommendedRoutes)
 	for name, adapter := range c.Adapters {
 		adapter.Targets = append([]string(nil), adapter.Targets...)
 		out.Adapters[name] = adapter
@@ -265,12 +267,12 @@ func (c Config) RequiredAccountTokenIDs() []string {
 }
 
 // SelectRoutesForConnectedAccounts preserves the complete capability catalogue
-// while choosing routes whose authentication is currently usable. A
+// while filling unselected routes whose authentication is currently usable. A
 // client-native Profile is usable without an AIGW Account Token; an
 // account-token Profile is usable only when its Account is connected. The
-// existing recommendation wins whenever it is already usable; otherwise
-// lexical Profile order makes the replacement deterministic.
-func (c Config) SelectRoutesForConnectedAccounts(accountIDs []string) (Config, error) {
+// usable recommendation wins, followed by a compatible Profile of the same
+// model, then lexical Profile order. Existing selections are never replaced.
+func (c Config) SelectRoutesForConnectedAccounts(accountIDs []string, clients ...string) (Config, error) {
 	selected := c.Clone()
 	connected := make(map[string]bool, len(accountIDs))
 	for _, accountID := range accountIDs {
@@ -279,8 +281,11 @@ func (c Config) SelectRoutesForConnectedAccounts(accountIDs []string) (Config, e
 		}
 		connected[accountID] = true
 	}
-	for _, client := range AdmittedClientIDs() {
-		if selected.routeAuthenticationReady(client, connected) {
+	if len(clients) == 0 {
+		clients = AdmittedClientIDs()
+	}
+	for _, client := range clients {
+		if selected.Routes[client] != "" {
 			continue
 		}
 		profileID := selected.profileForAvailableAuthentication(client, connected)
@@ -292,14 +297,16 @@ func (c Config) SelectRoutesForConnectedAccounts(accountIDs []string) (Config, e
 	return selected, nil
 }
 
-func (c Config) routeAuthenticationReady(client string, connected map[string]bool) bool {
-	runtime, err := c.ResolveRuntime(client, "")
-	return err == nil && (!runtime.RequiresAccountToken() || connected[runtime.AccountID])
-}
-
 func (c Config) profileForAvailableAuthentication(client string, connected map[string]bool) string {
 	preferredModel := ""
-	if runtime, err := c.ResolveRuntime(client, ""); err == nil {
+	if recommendation := c.RecommendedRoutes[client]; recommendation != "" {
+		runtime, err := c.ResolveRuntime(client, recommendation)
+		if err != nil {
+			return ""
+		}
+		if !runtime.RequiresAccountToken() || connected[runtime.AccountID] {
+			return recommendation
+		}
 		preferredModel = runtime.Model
 	}
 	replacement := ""
@@ -335,6 +342,9 @@ func (c *Config) Normalize() {
 	if c.Routes == nil {
 		c.Routes = Routes{}
 	}
+	if c.RecommendedRoutes == nil {
+		c.RecommendedRoutes = Routes{}
+	}
 	if c.Adapters == nil {
 		c.Adapters = map[string]AdapterConfig{}
 	}
@@ -362,22 +372,32 @@ func (c Config) Validate() error {
 			return err
 		}
 	}
-	for _, client := range slices.Sorted(maps.Keys(c.Routes)) {
-		if !IsAdmittedClient(client) {
-			return fmt.Errorf("unknown route %q; supported routes are %s", client, AdmittedClientUsage())
-		}
-		profile := c.Routes[client]
-		selected, ok := c.Profiles[profile]
-		if !ok {
-			return fmt.Errorf("route %q references unknown profile %q", client, profile)
-		}
-		if selected.Client != client {
-			return fmt.Errorf("route %q selects profile %q for %q", client, profile, selected.Client)
-		}
+	if err := c.validateRoutes(c.Routes, "route"); err != nil {
+		return err
+	}
+	if err := c.validateRoutes(c.RecommendedRoutes, "recommended route"); err != nil {
+		return err
 	}
 	for _, name := range slices.Sorted(maps.Keys(c.Adapters)) {
 		if !IsAdmittedClient(name) {
 			return fmt.Errorf("unknown adapter %q", name)
+		}
+	}
+	return nil
+}
+
+func (c Config) validateRoutes(routes Routes, kind string) error {
+	for _, client := range slices.Sorted(maps.Keys(routes)) {
+		if !IsAdmittedClient(client) {
+			return fmt.Errorf("unknown %s %q; supported routes are %s", kind, client, AdmittedClientUsage())
+		}
+		profile := routes[client]
+		selected, ok := c.Profiles[profile]
+		if !ok {
+			return fmt.Errorf("%s %q references unknown profile %q", kind, client, profile)
+		}
+		if selected.Client != client {
+			return fmt.Errorf("%s %q selects profile %q for %q", kind, client, profile, selected.Client)
 		}
 	}
 	return nil

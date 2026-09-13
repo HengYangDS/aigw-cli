@@ -66,17 +66,14 @@ tracked source of truth.
 
 ### Reconciliation findings
 
-The baseline found the following concrete disagreements. Each is assigned to
-one existing closure rather than spawning another plan or compatibility path.
+Reconciliation belongs to the existing task that owns the violated contract.
+Completed baseline findings remain in Git history, not a second stale ledger.
 
-| Current disagreement                                                                                            | Owning closure                                |
-| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Direct pushes to `dev` do not currently enter either Forge verification graph                                   | 10.3 event coverage                           |
-| Architecture scanning still exempts historical `records` and nested `runtime` names                             | 7.6 and 13.1 residue removal                  |
-| Host-local semantic indexes other than `.serena` are not explicitly excluded                                    | 13.2 repository hygiene                       |
-| Root-level CLI tests still mix several evidence scopes beside the composition root                              | 7.3 test topology                             |
-| Canonical specifications still contain superseded default-route migration text until this delta is archived     | 13.6 archive and land                         |
-| The work candidate and installed release both report `0.1.0-rc.110` although they are different product objects | 13.6 unique release identity before packaging |
+| Disagreement                                                                                                                      | Owning closure                                |
+| --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| The predecessor cannot read newly persisted recommendations; existing-configuration upgrade success does not prove this downgrade | 12.8 configuration-aware rollback             |
+| Canonical specifications retain superseded default-route semantics pending official delta integration                             | 13.6 OpenSpec closeout                        |
+| Source/native checks pass, but final published-byte execution and installation remain unproved                                    | 12.2, 12.6, 12.8 and 13.6 delivery acceptance |
 
 ## Decisions
 
@@ -102,7 +99,7 @@ mechanism or preserving an unsupported completion claim.
 
 | Order | Existing tasks                    | Closure and acceptance                                                                                                                                                                                                                                                                                        |
 | ----- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | 12.2, 12.6, 12.8, 13.6            | Finish the current published-byte acceptance atom: one archive reader, source/tag binding, native lifecycle and optional real clients. Verify, commit and update the existing proposal without touching the installed product.                                                                                |
+| 1     | 12.8, 12.6, 13.6                  | Close configuration-aware rollback for the repaired team journey. Existing configurations pass rc.111 upgrade and rollback; newly persisted recommendations must be handled explicitly before publication. Preserve current installation, independent selections, credentials and client state.               |
 | 2     | 7.5, 8.8, 8.10, 11.5, 11.7, 13.1  | Close remaining semantic duplication, effective hooks and event routes, cross-format organization and stale claims. Remove superseded owners during each repair; replace temporary governance escape only after an installed equivalent is proved.                                                            |
 | 3     | 11.6, 11.8, 12.6, 12.7, 12.9      | Complete fresh-user and team journeys, real-provider and explicit external-endpoint acceptance, hosted rendering, supported client limits and comparative performance budgets. Synthetic streams, preserved settings and source tests cannot establish these claims.                                          |
 | 4     | 9.7                               | Establish the one signed dependency-update owner and demonstrate lock/projection refresh, checks and object-preserving integration. Recheck stable supply inputs within 9.4–9.6 without creating competing peer proposals or blocking independent product repairs.                                            |
@@ -151,9 +148,20 @@ readiness concerns. Validation reads the supplied value directly rather than
 cloning and normalizing every map before read-only checks. Profile checks form
 one pass rather than separate label and relationship passes.
 
-`setup --from` imports capability and may connect a chosen subset. `use` changes
-one client Route. `sync` observes only AIGW-owned Tokens plus installed clients,
-then converges eligible existing Routes and projections. `status` describes
+`setup --from` imports capability and may connect a chosen subset. Imported
+`recommended_routes` remain recommendation data in the existing configuration;
+`routes` holds actual selections. They are distinct meanings, not alternative
+authorities for the same selection. Setup and sync share the configuration
+selector: preserve every existing selection; for an unselected client, prefer a
+usable recommendation, then the same model on a usable Account, then stable
+Profile identifier order. No provisional-selection flag or history is needed.
+Metadata-only credential observation and client-native authentication determine
+eligibility, not a provider-name branch. Rename and deletion update recommendation
+references in the same transaction, and export lets local selections take
+precedence over imported recommendations in the outgoing team manifest.
+
+`use` changes one client Route. `sync` observes only AIGW-owned Tokens plus
+installed clients, then converges eligible Routes and projections. `status` describes
 local state; `check` probes AIGW-owned Account-Token Routes but only proves local
 readiness for client-native Routes; `verify` is the sole live client-owned
 authentication proof. `doctor` expands the same evidence without inventing
