@@ -105,6 +105,40 @@ func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
 	}
 }
 
+func TestUpdateRollbackPreservesExactConfigurationOnIncompatibility(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	config := []byte("version = 3\n# Preserve exact user bytes.\n[recommended_routes]\nclaude = 'team'\n")
+	if err := os.WriteFile(app.Config.Path(), config, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	updater := &fakeUpdater{rollbackErr: upgrade.ErrRollbackConfiguration}
+	app.Updater = updater
+	err := cli.Execute(app, []string{"update", "--rollback"})
+	if !errors.Is(err, upgrade.ErrRollbackConfiguration) || string(updater.rollbackConfig) != string(config) || updater.rollbackCalls != 1 {
+		t.Fatalf("rollback input or cause changed: %q, %v", updater.rollbackConfig, err)
+	}
+	if actual, err := os.ReadFile(app.Config.Path()); err != nil || string(actual) != string(config) {
+		t.Fatalf("rollback changed config: %q, %v", actual, err)
+	}
+	for _, want := range []string{"incompatible with the current configuration", "remain unchanged", "Restore a configuration supported by the retained program"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("rollback omitted %q: %s", want, out.String())
+		}
+	}
+}
+
+func TestUpdateRollbackStopsBeforeUpdaterWhenConfigurationCannotBeRead(t *testing.T) {
+	app, _, _, _, _ := testApp(t, "")
+	if err := os.Mkdir(app.Config.Path(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	updater := &fakeUpdater{}
+	app.Updater = updater
+	if err := cli.Execute(app, []string{"update", "--rollback"}); err == nil || updater.rollbackCalls != 0 {
+		t.Fatalf("rollback ignored unreadable configuration: %v, calls=%d", err, updater.rollbackCalls)
+	}
+}
+
 func TestUpdateHelpDescribesOfflineProgramRollback(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	if err := cli.Execute(app, []string{"update", "--help"}); err != nil {
@@ -164,6 +198,7 @@ type fakeUpdater struct {
 	updateResult      string
 	candidateResult   string
 	rollbackResult    string
+	rollbackConfig    []byte
 	updateErr         error
 	candidateErr      error
 	rollbackErr       error
@@ -181,7 +216,8 @@ func (u *fakeUpdater) UpdateCandidate(_ context.Context, _ string, candidate upg
 	return u.candidateResult, u.candidateErr
 }
 
-func (u *fakeUpdater) Rollback(_ context.Context) (string, error) {
+func (u *fakeUpdater) Rollback(_ context.Context, config []byte) (string, error) {
+	u.rollbackConfig = append([]byte(nil), config...)
 	u.rollbackCalls++
 	return u.rollbackResult, u.rollbackErr
 }

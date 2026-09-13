@@ -3,7 +3,9 @@
 package update
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
@@ -19,7 +21,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	var candidateChecksums string
 	cmd := &cobra.Command{
 		Use: "update", Short: "Install a verified release, a local candidate, or restore the previous portable program",
-		Long: "Replace the program without changing client settings. Run sync after upgrading. Before rollback, disable enabled client integrations; then restore the program and run its sync before resuming clients.",
+		Long: "Replace the program without changing client settings. Run sync after upgrading. Before rollback, disable enabled client integrations; the retained program must read an isolated copy of the current configuration before activation. If incompatible, explicitly restore a supported configuration first. Then restore the program and run its sync before resuming clients.",
 		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
 			for _, name := range []string{"candidate", "checksums"} {
 				flag := cmd.Flags().Lookup(name)
@@ -38,7 +40,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				err    error
 			)
 			if rollback {
-				result, err = runtime.Updater.Rollback(ctx.Context())
+				config, readErr := os.ReadFile(runtime.Config.Path())
+				if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
+					return fmt.Errorf("read configuration before program rollback: %w", readErr)
+				}
+				result, err = runtime.Updater.Rollback(ctx.Context(), config)
 			} else if candidateArchive != "" {
 				result, err = runtime.Updater.UpdateCandidate(ctx.Context(), runtime.Version, upgrade.CandidateArchive{
 					ArchivePath:   candidateArchive,
@@ -48,6 +54,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				result, err = runtime.Updater.Update(ctx.Context(), runtime.Version)
 			}
 			if err != nil {
+				if errors.Is(err, upgrade.ErrRollbackConfiguration) {
+					return invocation.Problem(runtime,
+						"Program rollback is incompatible with the current configuration",
+						"The retained program could not read an isolated copy of the current configuration.",
+						"The active program, retained program and configuration remain unchanged.",
+						"Restore a configuration supported by the retained program, then retry `aigw update --rollback`.", err)
+				}
 				if rollback {
 					return invocation.Problem(
 						runtime,

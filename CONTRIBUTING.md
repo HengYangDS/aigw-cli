@@ -411,6 +411,14 @@ unchanged; success and failure both reclaim scratch. `--clients` adds the same
 real-client journey described below. Omit `--artifacts` for source-built native
 acceptance; the two inputs share extraction and tests.
 
+The packaged suite also verifies configuration-aware rollback admission. It
+uses a real predecessor's inability to read newly imported configuration when
+present, otherwise injects an unsupported field. Rejection must preserve both
+programs and configuration bytes. After an explicit compatible restoration,
+the predecessor must export that configuration successfully, and re-upgrade and
+uninstall must still work. Historical inability is observed, not inferred from
+version strings; the current fixture alone does not prove historical support.
+
 For a previously verified unsigned source-build candidate, the lower-level
 tracked test also accepts an extracted native directory:
 

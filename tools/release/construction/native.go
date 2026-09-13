@@ -70,7 +70,7 @@ func acceptNative(request buildRequest, artifacts string, clients bool, run tool
 	}
 	call := toolCall{
 		Name: "go", Directory: request.Root,
-		Args: []string{"test", "./tools/release", "-run", "^TestNativeProductJourney$/(portable_artifact_lifecycle|system_credential_store)$", "-count=1", "-v"},
+		Args: []string{"test", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission)$/(portable_artifact_lifecycle|system_credential_store)$", "-count=1", "-v"},
 		Env:  []string{"AIGW_ACCEPTANCE_RELEASE=" + stage},
 	}
 	if err := run(call); err != nil {

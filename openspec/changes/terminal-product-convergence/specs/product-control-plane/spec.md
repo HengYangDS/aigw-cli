@@ -667,6 +667,25 @@ configuration to a historical schema. The documented rollback journey SHALL
 withdraw enabled integrations before activating a predecessor and recreate
 them through that predecessor's public commands.
 
+Before program rollback, AIGW SHALL execute the exact retained program in a
+private environment without operator credentials or client discovery paths. It
+SHALL verify startup and, when configuration exists, require that program's
+public configuration export to read an exact isolated copy. Failure SHALL
+preserve both program files and every operator configuration file. The operator
+MAY explicitly restore a compatible configuration using the existing
+configuration rollback command before retrying; program rollback SHALL NOT
+perform that restoration implicitly or invent a compatibility conversion.
+
+#### Scenario: The predecessor cannot read the current configuration
+
+- **WHEN** the current configuration contains a capability unknown to the
+  retained program
+- **THEN** program rollback fails before replacing either program file
+- **AND** the error identifies configuration compatibility rather than claiming
+  that the previous program became active
+- **AND** after an explicit compatible configuration restoration, rollback can
+  activate the predecessor and that predecessor can export the configuration.
+
 #### Scenario: A replacement changes the credential helper contract
 
 - **WHEN** an operator activates another program version
@@ -898,8 +917,10 @@ lexical order; endpoint diagnostics SHALL check Anthropic before Responses.
 #### Scenario: Import a multi-provider team catalogue
 
 - **WHEN** a team manifest declares recommended Routes for admitted clients
-- **THEN** setup SHALL materialize those per-client selections without a
-  separate recommended global default
+- **THEN** setup SHALL retain those recommendations separately from actual
+  per-client selections and fill only currently usable unselected Routes
+- **AND** neither a global default nor an unavailable recommendation SHALL
+  replace an explicit client selection.
 - **AND** a future client SHALL remain unselected until its own Route is
   explicitly admitted.
 

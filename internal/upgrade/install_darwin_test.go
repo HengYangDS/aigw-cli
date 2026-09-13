@@ -81,7 +81,7 @@ func TestReplacePortableBinaryPropagatesWriteFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	makeImmutable(t, executable)
-	u := Updater{Executable: executable}
+	u := Updater{Executable: executable, Runner: &recordingRunner{output: []byte("aigw version 1.2.3\n")}}
 	if err := u.replacePortableBinary(t.Context(), []byte("new-binary")); err == nil || !strings.Contains(err.Error(), "replace AIGW executable") {
 		t.Fatalf("error = %v", err)
 	}
@@ -108,8 +108,8 @@ func TestRollbackPropagatesRestoreWriteFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	makeImmutable(t, executable)
-	u := Updater{Executable: executable}
-	if _, err := u.Rollback(context.Background()); err == nil || !strings.Contains(err.Error(), "restore previous AIGW executable") {
+	u := Updater{Executable: executable, Runner: &recordingRunner{output: []byte("aigw version 1.2.3\n")}}
+	if _, err := u.Rollback(context.Background(), nil); err == nil || !strings.Contains(err.Error(), "restore previous AIGW executable") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -125,8 +125,8 @@ func TestRollbackPropagatesBackupReplacementFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	makeImmutable(t, backup)
-	u := Updater{Executable: executable}
-	_, err := u.Rollback(context.Background())
+	u := Updater{Executable: executable, Runner: &recordingRunner{output: []byte("aigw version 1.2.3\n")}}
+	_, err := u.Rollback(context.Background(), nil)
 	if err == nil || !strings.Contains(err.Error(), "restore previous AIGW executable") {
 		t.Fatalf("error = %v", err)
 	}

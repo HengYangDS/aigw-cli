@@ -69,11 +69,10 @@ tracked source of truth.
 Reconciliation belongs to the existing task that owns the violated contract.
 Completed baseline findings remain in Git history, not a second stale ledger.
 
-| Disagreement                                                                                                                      | Owning closure                                |
-| --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| The predecessor cannot read newly persisted recommendations; existing-configuration upgrade success does not prove this downgrade | 12.8 configuration-aware rollback             |
-| Canonical specifications retain superseded default-route semantics pending official delta integration                             | 13.6 OpenSpec closeout                        |
-| Source/native checks pass, but final published-byte execution and installation remain unproved                                    | 12.2, 12.6, 12.8 and 13.6 delivery acceptance |
+| Disagreement                                                                                          | Owning closure                                |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Canonical specifications retain superseded default-route semantics pending official delta integration | 13.6 OpenSpec closeout                        |
+| Source/native checks pass, but final published-byte execution and installation remain unproved        | 12.2, 12.6, 12.8 and 13.6 delivery acceptance |
 
 ## Decisions
 
@@ -99,7 +98,7 @@ mechanism or preserving an unsupported completion claim.
 
 | Order | Existing tasks                    | Closure and acceptance                                                                                                                                                                                                                                                                                        |
 | ----- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | 12.8, 12.6, 13.6                  | Close configuration-aware rollback for the repaired team journey. Existing configurations pass rc.111 upgrade and rollback; newly persisted recommendations must be handled explicitly before publication. Preserve current installation, independent selections, credentials and client state.               |
+| 1     | 12.8, 12.6, 13.6                  | Complete native packaged and hosted acceptance for configuration-aware rollback, then freeze this delivery atom. Source and exact rc.111 local journeys pass; final published-byte and other-platform results must be observed rather than inferred. Preserve operator state.                                 |
 | 2     | 7.5, 8.8, 8.10, 11.5, 11.7, 13.1  | Close remaining semantic duplication, effective hooks and event routes, cross-format organization and stale claims. Remove superseded owners during each repair; replace temporary governance escape only after an installed equivalent is proved.                                                            |
 | 3     | 11.6, 11.8, 12.6, 12.7, 12.9      | Complete fresh-user and team journeys, real-provider and explicit external-endpoint acceptance, hosted rendering, supported client limits and comparative performance budgets. Synthetic streams, preserved settings and source tests cannot establish these claims.                                          |
 | 4     | 9.7                               | Establish the one signed dependency-update owner and demonstrate lock/projection refresh, checks and object-preserving integration. Recheck stable supply inputs within 9.4–9.6 without creating competing peer proposals or blocking independent product repairs.                                            |

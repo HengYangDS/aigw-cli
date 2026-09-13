@@ -304,8 +304,14 @@ new version's `sync`; rollback additionally needs withdrawal before replacement
 because a predecessor may not repair projections written by a newer version.
 Run `aigw adapter list` and check readiness before resuming client work; explicitly
 configured client locations may need to be enabled again. A program rollback
-does not convert configuration to an older schema; crossing a schema boundary
-requires an explicit data migration.
+does not convert configuration to an older schema. Before replacing the program,
+AIGW checks whether the actual predecessor can read an isolated copy of the
+current configuration. An incompatible rollback leaves both programs and the
+configuration unchanged. Restore a compatible configuration explicitly with
+`aigw rollback` (or `aigw rollback --last-change` when that backup is the intended
+compatible state), then retry program rollback. If no compatible recovery source
+exists, keep the current program; AIGW does not delete newer settings to make an
+older program appear usable.
 
 ### Release sources
 

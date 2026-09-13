@@ -36,7 +36,7 @@ type Prompter interface {
 type Updater interface {
 	Update(context.Context, string) (string, error)
 	UpdateCandidate(context.Context, string, upgrade.CandidateArchive) (string, error)
-	Rollback(context.Context) (string, error)
+	Rollback(context.Context, []byte) (string, error)
 }
 
 // Context carries capabilities for one command execution without product-global state.

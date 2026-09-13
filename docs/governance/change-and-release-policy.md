@@ -183,6 +183,18 @@ reports both causes and leaves that program at its rollback path. Update and
 rollback use this same operation. Two renames provide recoverable replacement,
 not uninterrupted atomic visibility or power-loss recovery.
 
+Rollback also verifies the exact retained program before replacement. Its
+startup and public configuration export run in a private temporary home with
+an explicit environment backend, no Tokens and no client search path. An
+existing configuration is copied byte-for-byte; no historical schema is
+reconstructed. The predecessor must return a nonempty TOML manifest with its
+declared version and Profiles. This proves configuration readability, not
+Provider access or client compatibility. Failure preserves both program files
+and the original configuration; the existing explicit configuration rollback
+can restore a compatible state before retrying program rollback. The verifier
+uses the same bounded process and temporary-resource owners as candidate
+startup verification, without a second snapshot store or migration framework.
+
 Native Windows conformance holds real file handles without delete sharing and
 first observes the failed replacement using the same source and destination as
 the product. It preserves that native error rather than assuming source locks

@@ -1,6 +1,8 @@
 package upgrade
 
 import (
+	"aigw-cli/internal/platform"
+	"aigw-cli/internal/process"
 	"archive/tar"
 	"archive/zip"
 	"bytes"
@@ -11,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -107,8 +110,119 @@ func TestInstallPortableArchiveRequiresExistingInstallationDirectory(t *testing.
 
 func TestRollbackRejectsEmptyExecutable(t *testing.T) {
 	u := Updater{Executable: "  "}
-	if _, err := u.Rollback(context.Background()); err == nil || !strings.Contains(err.Error(), "AIGW executable path is empty") {
+	if _, err := u.Rollback(context.Background(), nil); err == nil || !strings.Contains(err.Error(), "AIGW executable path is empty") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestRollbackRejectsUnrunnablePredecessorWithoutReplacingPrograms(t *testing.T) {
+	root := t.TempDir()
+	current := filepath.Join(root, "aigw")
+	previous := RollbackPath(current)
+	for path, value := range map[string]string{current: "current-program", previous: "not an executable"} {
+		if err := os.WriteFile(path, []byte(value), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := (Updater{Executable: current}).Rollback(t.Context(), nil); err == nil {
+		t.Fatal("rollback activated an unverified predecessor")
+	}
+	for path, value := range map[string]string{current: "current-program", previous: "not an executable"} {
+		if data, err := os.ReadFile(path); err != nil || string(data) != value {
+			t.Fatalf("rollback changed %s: %q, %v", path, data, err)
+		}
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil || len(entries) != 2 {
+		t.Fatalf("rollback retained staging: %v, %v", entries, err)
+	}
+}
+
+func TestRollbackConfigurationVerdictsPreservePrograms(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		output     string
+		failure    error
+		compatible bool
+	}{
+		{name: "compatible", output: "version = 4\n[profiles.team]\nmodel = 'test'\n", compatible: true},
+		{name: "unreadable", failure: errors.New("unsupported configuration")},
+		{name: "empty export"},
+		{name: "invalid export", output: "not a configuration"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			current := filepath.Join(root, "aigw")
+			for path, value := range map[string]string{current: "current", RollbackPath(current): "previous"} {
+				if err := os.WriteFile(path, []byte(value), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			runner := &recordingRunner{inspect: func(plan process.Plan) ([]byte, error) {
+				if slices.Equal(plan.Args, []string{"--version"}) {
+					return []byte("aigw version 0.1.0-rc.111\n"), nil
+				}
+				return []byte(test.output), test.failure
+			}}
+			_, err := (Updater{Executable: current, Runner: runner}).Rollback(t.Context(), []byte("version = 3\n"))
+			if test.compatible && err != nil || !test.compatible && !errors.Is(err, ErrRollbackConfiguration) {
+				t.Fatalf("rollback admission: %v", err)
+			}
+			if len(runner.plans) != 2 {
+				t.Fatalf("predecessor verification count = %d", len(runner.plans))
+			}
+			wantCurrent, wantPrevious := "current", "previous"
+			if test.compatible {
+				wantCurrent, wantPrevious = wantPrevious, wantCurrent
+			}
+			for path, want := range map[string]string{current: wantCurrent, RollbackPath(current): wantPrevious} {
+				if data, err := os.ReadFile(path); err != nil || string(data) != want {
+					t.Fatalf("program %s = %q, %v; want %q", path, data, err, want)
+				}
+			}
+			if entries, err := os.ReadDir(root); err != nil || len(entries) != 2 {
+				t.Fatalf("rollback retained temporary resources: %v, %v", entries, err)
+			}
+		})
+	}
+}
+
+func TestRollbackVerificationReadsExactBytesWithoutHostCredentials(t *testing.T) {
+	root := t.TempDir()
+	config := []byte("version = 3\n# exact snapshot\n[recommended_routes]\nclaude = 'team'\n")
+	t.Setenv("AIGW_TOKEN_TEAM", "ambient-secret")
+	runner := &recordingRunner{inspect: func(plan process.Plan) ([]byte, error) {
+		environment := map[string]string{}
+		for _, entry := range plan.Env {
+			name, value, _ := strings.Cut(entry, "=")
+			environment[name] = value
+		}
+		if environment["AIGW_TOKEN_TEAM"] != "" || environment["AIGW_SECRET_BACKEND"] != "env" || environment["PATH"] != "" || environment["HOME"] != filepath.Dir(plan.Executable) {
+			t.Fatal("predecessor inherited host credentials or client paths")
+		}
+		if data, err := os.ReadFile(plan.Executable); err != nil || string(data) != "previous" {
+			t.Fatalf("verified different predecessor bytes: %q, %v", data, err)
+		}
+		if slices.Equal(plan.Args, []string{"--version"}) {
+			return []byte("aigw version 0.1.0-rc.111\n"), nil
+		}
+		if !slices.Equal(plan.Args, []string{"config", "export"}) {
+			t.Fatalf("unexpected predecessor command: %v", plan.Args)
+		}
+		path, err := platform.ConfigPathFor(runtime.GOOS, environment)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, config) {
+			t.Fatalf("predecessor read different configuration: %q, %v", data, err)
+		}
+		return []byte("version = 4\n[profiles.team]\nmodel = 'test'\n"), nil
+	}}
+	if err := (Updater{Executable: filepath.Join(root, "aigw"), Runner: runner}).verifyProgram(t.Context(), []byte("previous"), "", config); err != nil {
+		t.Fatal(err)
+	}
+	if entries, err := os.ReadDir(root); err != nil || len(entries) != 0 {
+		t.Fatalf("verification residue: %v, %v", entries, err)
 	}
 }
 
@@ -119,7 +233,7 @@ func TestRollbackRejectsMissingCurrentExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	u := Updater{Executable: executable}
-	if _, err := u.Rollback(t.Context()); err == nil || !strings.Contains(err.Error(), "inspect current AIGW executable") {
+	if _, err := u.Rollback(t.Context(), nil); err == nil || !strings.Contains(err.Error(), "inspect current AIGW executable") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -136,7 +250,7 @@ func TestRollbackRejectsUnreadableBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 	u := Updater{Executable: executable}
-	if _, err := u.Rollback(context.Background()); err == nil || !strings.Contains(err.Error(), "read previous AIGW executable") {
+	if _, err := u.Rollback(context.Background(), nil); err == nil || !strings.Contains(err.Error(), "read previous AIGW executable") {
 		t.Fatalf("error = %v", err)
 	}
 }

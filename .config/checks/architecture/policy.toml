@@ -84,6 +84,7 @@ allowed_import_edges."internal/client" = [
 ]
 # Upgrade reuses neutral process and durable staging owners.
 allowed_import_edges."internal/upgrade" = [
+  "internal/platform",
   "internal/process",
   "internal/transaction",
   "internal/upgrade/artifact",

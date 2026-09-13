@@ -34,7 +34,7 @@ func TestCanceledRollbackPreservesBothProgramFiles(t *testing.T) {
 				want = context.DeadlineExceeded
 			}
 			cancel()
-			message, err := (upgrade.Updater{Executable: current}).Rollback(ctx)
+			message, err := (upgrade.Updater{Executable: current}).Rollback(ctx, nil)
 			if message != "" || !errors.Is(err, want) {
 				t.Errorf("canceled rollback = %q, %v; want empty result and %v", message, err, want)
 			}
@@ -191,7 +191,7 @@ func TestPortableRollbackRefusesMissingPreviousBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 	u := upgrade.Updater{GOOS: "darwin", GOARCH: "arm64", Executable: binary}
-	_, err := u.Rollback(context.Background())
+	_, err := u.Rollback(context.Background(), nil)
 	if err == nil || !strings.Contains(err.Error(), "no previous portable AIGW binary") {
 		t.Fatalf("error = %v", err)
 	}
@@ -206,12 +206,12 @@ func TestRollbackExchangesCurrentAndPreviousProgramFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	u := upgrade.Updater{Executable: current}
+	u := upgrade.Updater{Executable: current, Runner: &releaseRunner{}}
 	for _, expected := range []struct{ current, previous string }{
 		{current: "previous-program", previous: "current-program"},
 		{current: "current-program", previous: "previous-program"},
 	} {
-		message, err := u.Rollback(t.Context())
+		message, err := u.Rollback(t.Context(), nil)
 		if err != nil {
 			t.Fatal(err)
 		}

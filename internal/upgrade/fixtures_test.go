@@ -20,13 +20,17 @@ func TestMain(m *testing.M) {
 
 // recordingRunner exposes capture only; file-capability admission stays observable.
 type recordingRunner struct {
-	output []byte
-	err    error
-	plans  []process.Plan
+	output  []byte
+	err     error
+	plans   []process.Plan
+	inspect func(process.Plan) ([]byte, error)
 }
 
 func (runner *recordingRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
 	runner.plans = append(runner.plans, plan)
+	if runner.inspect != nil {
+		return runner.inspect(plan)
+	}
 	return append([]byte(nil), runner.output...), runner.err
 }
 
