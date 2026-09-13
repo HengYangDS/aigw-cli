@@ -148,9 +148,15 @@ Desktop-only settings, or an external compatibility service.
 
 ## Boundary language
 
-A loopback endpoint is described only as an **external compatibility layer**.
-AIGW does not infer the product, expose its port as an ownership claim, or
-manage its lifecycle.
+A configured loopback address is described as a **loopback endpoint**, not an
+inferred compatibility layer. Human status identifies every affected client;
+JSON uses `external_loopback` for the same address observation. Neither view
+establishes service identity, listener health, or lifecycle ownership.
+
+Account admission and readiness share the standard IPv4 and IPv6 loopback
+classification, including IPv4-mapped addresses and case-insensitive
+`localhost`. Classification performs no DNS lookup or service probe. Private
+and unspecified network addresses are not loopback and still require HTTPS.
 
 Client route commands manage AIGW Profile selection only. They do not inspect
 or control IDEs, external proxies, desktop-only state, or conversations.
