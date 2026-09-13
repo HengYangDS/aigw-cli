@@ -6,8 +6,8 @@
 flowchart TB
     accTitle: Independent publication from one signed product identity
     accDescr: Local Git constructs the product object once. Each selected Forge receives that same object independently; neither peer authorizes the other.
-    Local["Signed Git object"] --> GitLab[GitLab peer]
-    Local --> GitHub[GitHub peer]
+    Local["Signed Git object"] --> GitLab[GitLab]
+    Local --> GitHub[GitHub]
 ```
 
 Local Git is the only commit and annotated-tag authority. GitLab and GitHub are

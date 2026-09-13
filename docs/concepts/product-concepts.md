@@ -7,11 +7,9 @@ A Route selects one Profile for one client; that Profile refers to an Account.
 flowchart TB
     accTitle: References among the four configuration entities
     accDescr: A client Route selects a Profile, which names an Account. An Adapter projects the selected configuration into its native client. Account Tokens remain in a separate backend.
-    R["Client Route"] -->|selects| P["Profile"]
+    R["Route"] -->|selects| P["Profile"]
     P -->|references| A["Account"]
-    A -. Token reference .-> K["Token backend"]
     R -->|projected by| D["Adapter"]
-    D -->|configures| C["Native client"]
 ```
 
 ## Core entities
