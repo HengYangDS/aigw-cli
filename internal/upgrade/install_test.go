@@ -197,8 +197,17 @@ func TestRollbackVerificationReadsExactBytesWithoutHostCredentials(t *testing.T)
 			name, value, _ := strings.Cut(entry, "=")
 			environment[name] = value
 		}
-		if environment["AIGW_TOKEN_TEAM"] != "" || environment["AIGW_SECRET_BACKEND"] != "env" || environment["PATH"] != "" || environment["HOME"] != filepath.Dir(plan.Executable) {
+		if environment["AIGW_TOKEN_TEAM"] != "" || environment["AIGW_SECRET_BACKEND"] != "env" || environment["PATH"] != "" || environment["HOME"] != filepath.Join(filepath.Dir(plan.Executable), "home") {
 			t.Fatal("predecessor inherited host credentials or client paths")
+		}
+		for _, goos := range []string{"darwin", "linux", "windows"} {
+			configPath, err := platform.ConfigPathFor(goos, environment)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.HasPrefix(filepath.ToSlash(configPath), filepath.ToSlash(plan.Executable)+"/") {
+				t.Fatalf("%s configuration directory collides with the staged program: %s", goos, configPath)
+			}
 		}
 		if data, err := os.ReadFile(plan.Executable); err != nil || string(data) != "previous" {
 			t.Fatalf("verified different predecessor bytes: %q, %v", data, err)

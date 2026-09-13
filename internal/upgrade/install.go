@@ -50,10 +50,11 @@ func (u Updater) verifyProgram(ctx context.Context, binary []byte, version strin
 	if u.Runner == nil {
 		u.Runner = process.Runner{}
 	}
+	home := filepath.Join(directory, "home")
 	environment := map[string]string{
-		"HOME": directory, "USERPROFILE": directory,
-		"XDG_CONFIG_HOME": directory, "XDG_DATA_HOME": directory,
-		"APPDATA": directory, "LOCALAPPDATA": directory,
+		"HOME": home, "USERPROFILE": home,
+		"XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home,
+		"APPDATA": home, "LOCALAPPDATA": home,
 	}
 	plan := process.Plan{Executable: program, Args: []string{"--version"}, Env: []string{
 		"PATH=", "AIGW_SECRET_BACKEND=env", "NO_COLOR=1",
