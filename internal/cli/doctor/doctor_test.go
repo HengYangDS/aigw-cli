@@ -128,6 +128,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 
 func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.T) {
 	cfg := validDoctorConfig()
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
 	cfg.Accounts["optional"] = configuration.Account{
 		Label: "Optional",
 		Endpoints: configuration.Endpoints{
@@ -142,9 +143,6 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 	}
 
 	checks := Collect(context.Background(), deps)
-	if !AllOK(checks) {
-		t.Fatalf("optional unconnected Account made doctor unhealthy: %#v", checks)
-	}
 	if check := findCheck(t, checks, "secret:team"); !check.OK {
 		t.Fatalf("selected Account secret = %#v", check)
 	}
@@ -157,6 +155,9 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 
 func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 	cfg := validDoctorConfig()
+	for _, client := range configuration.AdmittedClientIDs() {
+		cfg.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+	}
 	cfg.Accounts["native"] = configuration.Account{
 		Label: "Native",
 		Endpoints: configuration.Endpoints{

@@ -140,6 +140,12 @@ func TestNativeAccountRetirementWithoutClients(t *testing.T) {
 	artifact := buildNativeProgram(t, root, "0.0.0")
 	journey := newNativeJourney(t, artifact, "https://unused.example.test", false)
 	journey.run("setup", "--from", journey.manifest)
+	var diagnosis struct {
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal(journey.run("doctor", "--json"), &diagnosis); err != nil || !diagnosis.OK {
+		t.Fatalf("deferred setup is not corrupt: %v", err)
+	}
 	journey.run("account", "rename", "native-system-keyring-probe", "renamed-account")
 	journey.run("account", "rename", "native-system-keyring-probe", "renamed-account", "--finalize")
 	journey.requireNoClaudeProjection()

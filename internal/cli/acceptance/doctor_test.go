@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -16,19 +17,9 @@ import (
 )
 
 func TestDoctorReportsOneCredentialCheckForSharedAccount(t *testing.T) {
-	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
-	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Client: configuration.ClientCodex, Model: "codex-test"}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientCodex] = "codex"
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	if err := secretStore.Set("team", "token"); err != nil {
-		t.Fatal(err)
-	}
+	app, _ := readyVerificationApp(t)
+	out := new(bytes.Buffer)
+	app.Out = out
 	if err := cli.Execute(app, []string{"doctor", "--json"}); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +36,7 @@ func TestDoctorReportsOneCredentialCheckForSharedAccount(t *testing.T) {
 	for _, check := range result.Checks {
 		if strings.HasPrefix(check.Name, "secret:") {
 			credentials++
-			if check.Name != "secret:team" || !check.OK {
+			if check.Name != "secret:dmx" || !check.OK {
 				t.Errorf("credential check = %+v", check)
 			}
 		}
@@ -55,9 +46,46 @@ func TestDoctorReportsOneCredentialCheckForSharedAccount(t *testing.T) {
 	}
 }
 
+func TestDoctorAcceptsDeferredTeamSetupWithoutTokensOrClients(t *testing.T) {
+	app, out, _, runner, httpClient := testApp(t, "")
+	manifest := writeConfigurationManifest(t, configurationManifestFixture)
+	if err := cli.Execute(app, []string{"setup", "--from", manifest}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := app.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if err := cli.Execute(app, []string{"doctor", "--json"}); err != nil {
+		t.Fatalf("deferred setup is not a broken installation: %v\n%s", err, out)
+	}
+	var result struct {
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil || !result.OK {
+		t.Fatalf("deferred diagnosis = %s: %v", out, err)
+	}
+	after, err := app.Config.CaptureSnapshot()
+	if err != nil || !before.Config.Equal(after.Config) || !before.Backup.Equal(after.Backup) || !before.Verified.Equal(after.Verified) {
+		t.Fatalf("diagnosis changed configuration: %v", err)
+	}
+	if len(runner.plans) != 0 || httpClient.calls != 0 {
+		t.Fatal("deferred diagnosis invoked a client or endpoint")
+	}
+}
+
 func TestDoctorReportsCredentialObservationFailure(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	saveCommandProfile(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
 	want := errors.New("credential observation failed")
 	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: want}
 
@@ -265,20 +293,13 @@ func TestDoctorHumanOutputTranslatesUnreadableConfigWithoutLeakingPath(t *testin
 }
 
 func TestDoctorJSONKeepsMachineDiagnosticValues(t *testing.T) {
-	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
-	cfg.Routes[configuration.ClientClaude] = "team"
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	if err := secretStore.Set("team", "token"); err != nil {
-		t.Fatal(err)
-	}
+	app, _ := readyVerificationApp(t)
+	out := new(bytes.Buffer)
+	app.Out = out
 	if err := cli.Execute(app, []string{"doctor", "--json"}); err != nil {
 		t.Fatalf("doctor --json error = %v", err)
 	}
-	for _, want := range []string{`"name": "config"`, `"detail": "valid"`, `"name": "secret:team"`, `"detail": "available"`} {
+	for _, want := range []string{`"name": "config"`, `"detail": "valid"`, `"name": "secret:dmx"`, `"detail": "available"`} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("doctor JSON lost machine value %q:\n%s", want, out.String())
 		}

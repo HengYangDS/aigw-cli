@@ -56,6 +56,26 @@ func TestEnabledClientIDsFollowConfigurationNotSupportedCapabilities(t *testing.
 	}
 }
 
+func TestRequiredAccountTokensFollowEnabledRoutesAndAuthentication(t *testing.T) {
+	cfg := validConfig()
+	cfg.Normalize()
+	if got := cfg.RequiredAccountTokenIDs(); len(got) != 0 {
+		t.Fatalf("disabled Routes require Tokens: %v", got)
+	}
+	cfg.Adapters[ClientCodex] = AdapterConfig{Enabled: true}
+	want := []string{cfg.Profiles[cfg.Routes[ClientCodex]].Account}
+	if got := cfg.RequiredAccountTokenIDs(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("enabled Token scope = %v, want %v", got, want)
+	}
+	profile := cfg.Profiles[cfg.Routes[ClientCodex]]
+	profile.Authentication = AuthenticationClientNative
+	profile.ModelProvider = "native"
+	cfg.Profiles[cfg.Routes[ClientCodex]] = profile
+	if got := cfg.RequiredAccountTokenIDs(); len(got) != 0 {
+		t.Fatalf("client-native authentication requires Tokens: %v", got)
+	}
+}
+
 func validConfig() Config {
 	return Config{
 		Version: ConfigVersion,

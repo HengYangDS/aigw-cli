@@ -250,7 +250,7 @@ func (c Config) RoutedAccountIDs() []string {
 // credential concerns and therefore never create an AIGW Token requirement.
 func (c Config) RequiredAccountTokenIDs() []string {
 	required := map[string]bool{}
-	for _, client := range AdmittedClientIDs() {
+	for _, client := range c.EnabledClientIDs() {
 		runtime, err := c.ResolveRuntime(client, "")
 		if err == nil && runtime.AccountID != "" && runtime.RequiresAccountToken() {
 			required[runtime.AccountID] = true
