@@ -3,7 +3,6 @@ package install
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/transaction"
 	"aigw-cli/internal/upgrade"
 
@@ -32,9 +32,7 @@ func NewInspectionCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if jsonMode {
-				encoder := json.NewEncoder(runtime.Out)
-				encoder.SetIndent("", "  ")
-				return encoder.Encode(result)
+				return presentation.WriteJSON(runtime.Out, result)
 			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Portable installation")

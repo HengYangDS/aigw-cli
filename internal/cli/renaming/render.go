@@ -4,15 +4,12 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/renaming"
-	"encoding/json"
 	"fmt"
 )
 
 func writeResult(runtime invocation.Context, plan renaming.Plan, jsonMode bool) error {
 	if jsonMode {
-		enc := json.NewEncoder(runtime.Out)
-		enc.SetIndent("", "  ")
-		return enc.Encode(plan)
+		return presentation.WriteJSON(runtime.Out, plan)
 	}
 
 	r := invocation.Renderer(runtime)

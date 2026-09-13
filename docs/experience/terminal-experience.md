@@ -50,6 +50,11 @@ flowchart LR
 | Error    | **Problem → Evidence → Impact → Recommended action**           |
 | Pipeline | Plain text, no ANSI control sequences                          |
 
+JSON output uses one UTF-8 document, two-space indentation and a trailing
+newline. The presentation owner delegates encoding to Go's standard library;
+command owners retain their schemas and exit-status decisions. Terminal width
+and color do not alter machine output.
+
 For a command whose parsed `--json` value is true, a failure before any result
 is written produces one JSON document: `ok: false`, `error`, `next_action`, and
 available `evidence` and `impact`. `--json=false` keeps human output; a literal

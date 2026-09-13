@@ -1,8 +1,9 @@
-// Package presentation renders stable human-facing output and structured
-// problem guidance without owning command or domain behavior.
+// Package presentation renders human and machine output without owning
+// command results, domain behavior or client configuration.
 package presentation
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -65,6 +66,14 @@ type Problem struct {
 	Evidence string `json:"evidence,omitempty"`
 	Impact   string `json:"impact,omitempty"`
 	Fix      string `json:"next_action"`
+}
+
+// WriteJSON emits one two-space-indented JSON document and its trailing newline.
+// Command owners retain their result schema and exit-status semantics.
+func WriteJSON(out io.Writer, value any) error {
+	encoder := json.NewEncoder(out)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
 }
 
 // New returns a renderer without an explicit width constraint.

@@ -3,7 +3,6 @@ package doctor
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -64,9 +63,7 @@ func NewCommand(deps Dependencies) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			result := collectResult(cmd.Context(), deps)
 			if jsonMode {
-				enc := json.NewEncoder(deps.Out)
-				enc.SetIndent("", "  ")
-				if err := enc.Encode(result); err != nil {
+				if err := presentation.WriteJSON(deps.Out, result); err != nil {
 					return err
 				}
 				if !result.OK {

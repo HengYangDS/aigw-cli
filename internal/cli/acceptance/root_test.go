@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/configuration"
 )
 
 func TestJSONCommandFailuresRemainMachineReadable(t *testing.T) {
@@ -214,5 +215,35 @@ func TestFailureSuggestionUsesCommandNamedInEnglishGuidance(t *testing.T) {
 	err := cli.Execute(app, []string{"setup", "--profile", "new-profile"})
 	if err == nil || !strings.Contains(out.String(), "AIGW is already configured") || !strings.Contains(out.String(), "aigw add") {
 		t.Fatalf("err=%v output=%s", err, out.String())
+	}
+}
+
+func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
+	for _, args := range [][]string{
+		{"status", "--json"},
+		{"check", "--json"},
+		{"doctor", "--json"},
+		{"catalog", "--json"},
+		{"profile", "show", "claude", "--json"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			app, out, _, _, _ := testApp(t, "")
+			cfg := configuration.NewConfig()
+			addAccountProfile(&cfg, "claude", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := cli.Execute(app, args); err != nil {
+				t.Fatalf("command failed: %v\n%s", err, out)
+			}
+			var expected bytes.Buffer
+			if err := json.Indent(&expected, bytes.TrimSpace(out.Bytes()), "", "  "); err != nil {
+				t.Fatalf("expected one JSON document: %v\n%s", err, out)
+			}
+			expected.WriteByte('\n')
+			if !bytes.Equal(out.Bytes(), expected.Bytes()) {
+				t.Fatalf("JSON layout differs from the shared document format:\n%s", out)
+			}
+		})
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -186,10 +187,15 @@ func TestProfileReadsHonorClientNativeAuthenticationOwnership(t *testing.T) {
 	if len(observed.existsCalls) != 0 || len(observed.getCalls) != 0 {
 		t.Fatalf("profile show accessed client-native credentials: exists=%q get=%q", observed.existsCalls, observed.getCalls)
 	}
-	for _, want := range []string{`"authentication":"client-native"`, `"model_provider":"amazon-bedrock"`} {
-		if !strings.Contains(out.String(), want) {
-			t.Fatalf("profile JSON lacks %q: %s", want, out.String())
-		}
+	var result struct {
+		Authentication configuration.Authentication `json:"authentication"`
+		ModelProvider  string                       `json:"model_provider"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Authentication != configuration.AuthenticationClientNative || result.ModelProvider != "amazon-bedrock" {
+		t.Fatalf("profile JSON = %+v", result)
 	}
 	if strings.Contains(out.String(), "secret_available") {
 		t.Fatalf("profile JSON projected an AIGW Token fact for client-native authentication: %s", out.String())
@@ -231,7 +237,13 @@ func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
 	if err := cli.Execute(app, []string{"profile", "show", "codex", "--json"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), `"secret_available":true`) || strings.Contains(out.String(), "never-render-this") {
+	var result struct {
+		SecretAvailable bool `json:"secret_available"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if !result.SecretAvailable || strings.Contains(out.String(), "never-render-this") {
 		t.Fatalf("JSON output = %s", out.String())
 	}
 }
@@ -389,7 +401,13 @@ func TestProfilePurposeIsOptionalHumanGuidance(t *testing.T) {
 	if err := cli.Execute(app, []string{"profile", "show", "claude-fable-5", "--json"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), `"purpose":"Default agent"`) {
+	var result struct {
+		Purpose string `json:"purpose"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Purpose != "Default agent" {
 		t.Fatalf("profile JSON lacks purpose:\n%s", out.String())
 	}
 

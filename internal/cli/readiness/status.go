@@ -2,7 +2,6 @@ package readiness
 
 import (
 	"context"
-	"encoding/json"
 	"net/url"
 	"strings"
 
@@ -54,9 +53,7 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 	}
 	result := collectStatus(runtime, cfg)
 	if jsonMode {
-		enc := json.NewEncoder(runtime.Out)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
+		return presentation.WriteJSON(runtime.Out, result)
 	}
 	renderStatus(runtime, cfg, result)
 	return nil

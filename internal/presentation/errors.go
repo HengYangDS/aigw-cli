@@ -1,7 +1,6 @@
 package presentation
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -47,9 +46,7 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 		}
 	}
 	if jsonMode {
-		encoder := json.NewEncoder(renderer.out)
-		encoder.SetIndent("", "  ")
-		renderer.err = encoder.Encode(struct {
+		renderer.err = WriteJSON(renderer.out, struct {
 			OK bool `json:"ok"`
 			Problem
 		}{Problem: problem})

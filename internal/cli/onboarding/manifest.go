@@ -7,7 +7,6 @@ import (
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	"context"
-	"encoding/json"
 	"fmt"
 	"maps"
 	"os"
@@ -103,9 +102,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	}
 	result := buildManifestSetupResult(runtime, cfg, accountNames, connected, availableClients, selectedClients)
 	if request.JSON {
-		encoder := json.NewEncoder(runtime.Out)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(result)
+		return presentation.WriteJSON(runtime.Out, result)
 	}
 	renderManifestSetupResult(runtime, result)
 	return nil

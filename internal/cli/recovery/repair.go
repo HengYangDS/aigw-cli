@@ -4,7 +4,6 @@ package recovery
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -93,9 +92,7 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 		result.Projections = append(result.Projections, repairProjectionPreview{Client: plan.Client, SurfaceID: surfaceID, Action: plan.Action})
 	}
 	if jsonMode {
-		encoder := json.NewEncoder(runtime.Out)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(result)
+		return presentation.WriteJSON(runtime.Out, result)
 	}
 	r := invocation.Renderer(runtime)
 	if dryRun {

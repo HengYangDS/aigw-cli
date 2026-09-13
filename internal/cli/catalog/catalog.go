@@ -132,13 +132,13 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 		}
 		if len(cfg.Profiles) == 0 {
 			if jsonMode {
-				return writeJSON(deps.Out, catalogOutput{Accounts: []catalogAccount{}})
+				return presentation.WriteJSON(deps.Out, catalogOutput{Accounts: []catalogAccount{}})
 			}
 			return fmt.Errorf("not configured; run `aigw setup`")
 		}
 		result := discoverCatalog(cmd.Context(), deps, cfg)
 		if jsonMode {
-			return writeJSON(deps.Out, result)
+			return presentation.WriteJSON(deps.Out, result)
 		}
 		r := renderer(deps)
 		r.ProductTitle("Authenticated model catalog")
@@ -339,12 +339,6 @@ func renderer(deps Dependencies) *presentation.Renderer {
 		out = deps.RenderOut
 	}
 	return presentation.NewWithWidth(out, deps.Color, deps.Width)
-}
-
-func writeJSON(out io.Writer, value any) error {
-	enc := json.NewEncoder(out)
-	enc.SetIndent("", "  ")
-	return enc.Encode(value)
 }
 
 func modelTitle(value string) string {

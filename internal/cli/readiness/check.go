@@ -3,7 +3,6 @@
 package readiness
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -181,7 +180,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			clients[route.client] = domainreadiness.WithProbe(state, route.diagnostic)
 		}
 	}
-	if err := json.NewEncoder(runtime.Out).Encode(result); err != nil {
+	if err := presentation.WriteJSON(runtime.Out, result); err != nil {
 		return err
 	}
 	if !result.OK {
@@ -196,7 +195,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 
 func writeJSONFailure(runtime invocation.Context, state domainreadiness.State, message, fix string, cause error) error {
 	result := checkJSON{Routes: map[string]checkRoute{}, Clients: map[string]domainreadiness.Client{}, State: state, NextAction: fix, Error: message}
-	if err := json.NewEncoder(runtime.Out).Encode(result); err != nil {
+	if err := presentation.WriteJSON(runtime.Out, result); err != nil {
 		return err
 	}
 	return presentation.Presented(cause)

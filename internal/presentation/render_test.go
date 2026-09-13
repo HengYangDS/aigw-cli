@@ -2,6 +2,7 @@ package presentation_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -206,5 +207,17 @@ func TestRendererOmitsEmptyProblemSections(t *testing.T) {
 		"  Token needs attention\n"
 	if out.String() != want {
 		t.Fatalf("partial problem output = %q, want %q", out.String(), want)
+	}
+}
+
+func TestWriteJSONPreservesEncodingAndOutputFailures(t *testing.T) {
+	var out bytes.Buffer
+	err := presentation.WriteJSON(&out, make(chan string))
+	if _, ok := errors.AsType[*json.UnsupportedTypeError](err); !ok || out.Len() != 0 {
+		t.Fatalf("encoding failure=%v output=%q", err, out.String())
+	}
+	cause := errors.New("JSON output unavailable")
+	if err := presentation.WriteJSON(failingWriter{err: cause}, map[string]bool{"ok": true}); !errors.Is(err, cause) {
+		t.Fatalf("output failure=%v, want %v", err, cause)
 	}
 }

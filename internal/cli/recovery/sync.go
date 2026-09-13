@@ -1,7 +1,6 @@
 package recovery
 
 import (
-	"encoding/json"
 	"errors"
 
 	"aigw-cli/internal/cli/invocation"
@@ -54,9 +53,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if jsonMode {
-				enc := json.NewEncoder(runtime.Out)
-				enc.SetIndent("", "  ")
-				return enc.Encode(result)
+				return presentation.WriteJSON(runtime.Out, result)
 			}
 			r := invocation.Renderer(runtime)
 			if dryRun {

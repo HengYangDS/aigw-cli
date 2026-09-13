@@ -2,7 +2,6 @@
 package profile
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -170,7 +169,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 				if profileRuntime.RequiresAccountToken() {
 					result["secret_available"] = available
 				}
-				return json.NewEncoder(runtime.Out).Encode(result)
+				return presentation.WriteJSON(runtime.Out, result)
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Service details")
