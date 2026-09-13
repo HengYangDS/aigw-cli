@@ -47,8 +47,10 @@ executable once to install it in the platform's user program directory:
 .\aigw.exe install
 ```
 
-The default is `~/.local/bin/aigw` on macOS and Linux, and the AIGW user-program
-directory on Windows. An explicit destination is available for isolated use:
+The default is `~/.local/bin/aigw` on macOS and Linux, and
+`%LOCALAPPDATA%\Programs\aigw\bin\aigw.exe` on Windows. Windows falls back to
+`%APPDATA%` when `LOCALAPPDATA` is unset. The installer prints the exact path.
+An explicit destination is available for isolated use:
 
 ```bash
 ./aigw install --target /path/to/aigw
@@ -57,6 +59,28 @@ directory on Windows. An explicit destination is available for isolated use:
 ```powershell
 .\aigw.exe install --target C:\path\to\aigw.exe
 ```
+
+Installation does not change `PATH`. Until its directory is on your shell's
+search path, invoke the installed executable directly; running `aigw` by name
+may fail or select another installation. For the default destinations:
+
+```bash
+"$HOME/.local/bin/aigw" --version
+"$HOME/.local/bin/aigw" setup
+```
+
+```powershell
+$programRoot = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { $env:APPDATA }
+$aigw = Join-Path $programRoot 'Programs\aigw\bin\aigw.exe'
+& $aigw --version
+& $aigw setup
+```
+
+Use the printed path instead for a custom destination. Add its directory through
+your shell or operating system's normal user `PATH` settings if you want the
+short command. Then verify `aigw installation` resolves to that installation
+before following the commands below. A team import can replace interactive
+`setup` with `setup --from team.toml` at either installed path.
 
 `aigw install` copies only the running executable and retains one predecessor
 for rollback. Reinstalling identical bytes preserves the existing program and

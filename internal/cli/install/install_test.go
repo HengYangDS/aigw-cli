@@ -14,6 +14,8 @@ import (
 )
 
 func TestInstallCommandUsesPlatformDefaultTarget(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	originalPath := os.Getenv("PATH")
 	root := t.TempDir()
 	source := filepath.Join(root, "download", "aigw")
 	target := filepath.Join(root, "bin", "aigw")
@@ -34,6 +36,10 @@ func TestInstallCommandUsesPlatformDefaultTarget(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), target) || !strings.Contains(out.String(), "aigw setup") {
 		t.Fatalf("output = %q", out.String())
+	}
+	if !strings.Contains(out.String(), "PATH is unchanged") ||
+		!strings.Contains(out.String(), "installed path directly") || os.Getenv("PATH") != originalPath {
+		t.Fatalf("installation did not explain unchanged command discovery: %q", out.String())
 	}
 }
 

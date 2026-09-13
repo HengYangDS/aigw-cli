@@ -431,6 +431,19 @@ program file and any existing predecessor; it MAY restore executable permissions
 A fresh installation SHALL NOT create a predecessor until different program
 bytes replace it.
 
+Installation SHALL preserve shell configuration and `PATH`. Its result SHALL
+identify the installed executable and explain direct-path invocation before
+assuming that the command name resolves to that installation.
+
+#### Scenario: Install outside the command search path
+
+- **GIVEN** the destination directory is absent from `PATH`
+- **WHEN** portable installation succeeds
+- **THEN** the result identifies the installed path and explains that `PATH`
+  remains unchanged
+- **AND** the operator can invoke that executable directly without changing
+  shell configuration or relying on another installation.
+
 #### Scenario: Reinstall an unchanged downloaded program
 
 - **GIVEN** a portable executable is installed from another path

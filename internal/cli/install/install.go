@@ -70,6 +70,7 @@ func NewInstallCommand(runtime invocation.Context) *cobra.Command {
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Portable installation")
 			render.Success("Installed " + target)
+			render.Text("PATH is unchanged. Use the installed path directly, or add its directory to PATH before running the command below.")
 			render.Next("aigw setup")
 			return nil
 		},

@@ -123,6 +123,11 @@ journeys separately when the rollout depends on them.
 
 ## New member
 
+First follow [installation and command discovery](../../README.md#install).
+The examples below use `aigw` after its installed directory is on `PATH`; the
+installed executable's explicit path works with the same arguments. Importing
+team configuration does not install the program or change shell discovery.
+
 Import the reviewed catalogue without requiring every provider Token or either
 supported client:
 
