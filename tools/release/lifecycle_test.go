@@ -239,9 +239,8 @@ func (j *journeyFixture) requireRepairPreservesUserSettings(previousTheme, theme
 		j.testing.Fatal(err)
 	}
 	j.run("repair")
-	var repairedSettings map[string]json.RawMessage
-	if err := json.Unmarshal(readFile(j.testing, j.settings), &repairedSettings); err != nil || !reflect.DeepEqual(repairedSettings, settings) {
-		j.testing.Fatalf("repair changed the externally edited settings: got=%s want=%s error=%v", readFile(j.testing, j.settings), userSettings, err)
+	if got := readFile(j.testing, j.settings); !bytes.Equal(got, userSettings) {
+		j.testing.Fatalf("repair changed the externally edited settings: got=%s want=%s", got, userSettings)
 	}
 	paths := []string{j.config, j.config + ".bak", j.config + ".verified.json", j.settings, j.settings + ".aigw-state.json"}
 	codexConfig := filepath.Join(j.root, "home", ".codex", "config.toml")

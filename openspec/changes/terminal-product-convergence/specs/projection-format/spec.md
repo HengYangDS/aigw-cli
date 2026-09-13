@@ -115,7 +115,9 @@ spellings. Transaction compensation SHALL retain the byte-exact observed files.
 
 - **WHEN** the client escapes slashes or Unicode without changing managed values
 - **THEN** ownership verification accepts the unchanged values
-- **AND** preview writes nothing and compensation restores the exact observed bytes.
+- **AND** readiness remains valid and synchronization performs no writes to
+  settings or ownership state merely to normalize JSON spelling
+- **AND** a real projection change still compensates to the exact observed bytes.
 
 #### Scenario: The user changes or removes the projected model
 

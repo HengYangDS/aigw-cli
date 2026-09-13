@@ -193,14 +193,16 @@ func prepareSettingsChange(path string, disabled bool, runtime configuration.Run
 	if err != nil {
 		return settingsChange{}, err
 	}
+	observedHash := managedSettingsHash(document)
 	projectSettings(document, runtime, executable)
-	change.settingsData = encodeSettings(document)
-	state.ManagedSHA256 = managedSettingsHash(document)
-	change.stateData = encodeSettingsState(state)
-	if snapshotDataEqual(settingsBefore, change.settingsData) && snapshotDataEqual(stateBefore, change.stateData) {
+	projectedHash := managedSettingsHash(document)
+	if stateBefore.Exists && observedHash == projectedHash && state.ManagedSHA256 == projectedHash {
 		change.plan = SettingsPlan{Action: "already-converged", Target: path}
 		return change, nil
 	}
+	change.settingsData = encodeSettings(document)
+	state.ManagedSHA256 = projectedHash
+	change.stateData = encodeSettingsState(state)
 	change.plan = SettingsPlan{Action: "project", Target: path}
 	return change, nil
 }
@@ -466,9 +468,6 @@ func encodeSettingsState(state settingsState) []byte {
 	return append(data, '\n')
 }
 
-func snapshotDataEqual(snapshot transaction.FileSnapshot, data []byte) bool {
-	return snapshot.Exists && bytes.Equal(snapshot.Data, data)
-}
 func hashBytes(data []byte) string {
 	sum := sha256.Sum256(data)
 	return fmt.Sprintf("%x", sum)

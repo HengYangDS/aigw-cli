@@ -30,6 +30,8 @@ func TestSettingsReconcilesOnlyProvenModelPreferenceDrift(t *testing.T) {
 			want := maps.Clone(document)
 			want["model"] = json.RawMessage(`"claude-team"`)
 			before := encodeSettings(document)
+			before = bytes.ReplaceAll(before, []byte("/"), []byte(`\/`))
+			before = bytes.ReplaceAll(before, []byte("user-selected-model"), []byte(`\u0075ser-selected-model`))
 			if err := os.WriteFile(path, before, 0o600); err != nil {
 				t.Fatal(err)
 			}

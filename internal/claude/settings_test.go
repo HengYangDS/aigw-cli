@@ -4,7 +4,6 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -30,50 +29,48 @@ func readSettingsFile(t *testing.T, path string) settingsDocument {
 }
 
 func TestSettingsOwnershipUsesStringValuesNotJSONEscapes(t *testing.T) {
-	for _, removedModel := range []bool{false, true} {
-		t.Run(fmt.Sprintf("removed-model=%t", removedModel), func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "settings.json")
-			runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
-			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
-				t.Fatal(err)
-			}
-			before, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			escaped := bytes.ReplaceAll(before, []byte("/"), []byte(`\/`))
-			escaped = bytes.ReplaceAll(escaped, []byte("claude-team"), []byte(`\u0063laude-team`))
-			if removedModel {
-				var document settingsDocument
-				if err := json.Unmarshal(escaped, &document); err != nil {
-					t.Fatal(err)
-				}
-				delete(document, "model")
-				escaped = encodeSettings(document)
-			}
-			if err := os.WriteFile(path, escaped, 0o600); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := PlanSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
-				t.Fatalf("equivalent JSON spelling became an ownership conflict: %v", err)
-			}
-			if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, escaped) {
-				t.Fatal("preview rewrote the client's JSON")
-			}
-			receipt, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := ValidateSettings(path, runtime, testExecutable()); err != nil {
-				t.Fatal(err)
-			}
-			if err := receipt.Rollback(); err != nil {
-				t.Fatal(err)
-			}
-			if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, escaped) {
-				t.Fatal("compensation lost the observed client's JSON spelling")
-			}
-		})
+	path := filepath.Join(t.TempDir(), "settings.json")
+	runtime := configuration.Runtime{ProfileID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
+	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
+		t.Fatal(err)
+	}
+	observed := make(map[string][]byte)
+	for _, file := range []string{path, path + settingsStateSuffix} {
+		before, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		escaped := bytes.ReplaceAll(before, []byte("/"), []byte(`\/`))
+		escaped = bytes.ReplaceAll(escaped, []byte("claude-team"), []byte(`\u0063laude-team`))
+		escaped = bytes.ReplaceAll(escaped, []byte("  "), []byte("\t"))
+		if err := os.WriteFile(file, escaped, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		observed[file] = escaped
+	}
+	plan, err := PlanSettings(path, false, runtime, testExecutable(), runtime.Model)
+	if err != nil || plan.Action != "already-converged" {
+		t.Fatalf("equivalent JSON requires projection: %#v, %v", plan, err)
+	}
+	if err := ValidateSettings(path, runtime, testExecutable()); err != nil {
+		t.Fatalf("equivalent JSON became projection drift: %v", err)
+	}
+	receipt, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model)
+	if err != nil || receipt.Action != "already-converged" {
+		t.Fatalf("equivalent JSON reconciliation = %#v, %v", receipt, err)
+	}
+	for file, want := range observed {
+		if data, err := os.ReadFile(file); err != nil || !bytes.Equal(data, want) {
+			t.Fatalf("unchanged projection rewrote %s", file)
+		}
+	}
+	if err := receipt.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	for file, want := range observed {
+		if data, err := os.ReadFile(file); err != nil || !bytes.Equal(data, want) {
+			t.Fatalf("no-op compensation rewrote %s", file)
+		}
 	}
 }
 
