@@ -126,8 +126,9 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 	flags := flag.NewFlagSet("ci native", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	platform := flags.String("platform", runtime.GOOS, "darwin, linux, or windows")
+	fullQuality := flags.Bool("full-quality", false, "Qualify every repository quality tool on this host before native acceptance")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || !supportedNativePlatform(*platform) {
-		return errors.New("usage: ci native --platform <darwin|linux|windows>")
+		return errors.New("usage: ci native [--platform <darwin|linux|windows>] [--full-quality]")
 	}
 	if *platform != runtime.GOOS {
 		return fmt.Errorf("native acceptance requires %s host, running on %s", *platform, runtime.GOOS)
@@ -136,7 +137,11 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 	if err != nil {
 		return err
 	}
-	return runCommands(nativeCommands(*platform), stdout, runner)
+	commands := nativeCommands(*platform)
+	if *fullQuality {
+		commands = append(slices.Clone(qualityCommands), commands[1:]...)
+	}
+	return runCommands(commands, stdout, runner)
 }
 
 func configuredSourceCommands() ([]command, error) {

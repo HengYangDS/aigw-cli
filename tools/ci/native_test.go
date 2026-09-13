@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -94,6 +95,54 @@ func TestNativeCommandsKeepSourceEvidenceDistinct(t *testing.T) {
 	want := []string{"run", "./tools/coverage", "--race", "--profile-output", filepath.Join("build", "acceptance", "coverage-linux.out")}
 	if !slices.Equal(linux[1].Args, want) {
 		t.Fatalf("Linux source verification = %#v", linux[1])
+	}
+}
+
+func TestNativeFullQualityUsesTheExistingGateOnce(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	// Native tool qualification does not reinterpret source-publication inputs.
+	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "source-owner@example.test")
+	want := append(slices.Clone(qualityCommands), nativeCommands(runtime.GOOS)[1:]...)
+	var calls []command
+	err := run([]string{"native", "--full-quality"}, &bytes.Buffer{}, func(call command) error {
+		calls = append(calls, call)
+		return nil
+	})
+	if err != nil || !reflect.DeepEqual(calls, want) {
+		t.Fatalf("full native quality = %#v, %v; want existing gate then native tests and lifecycle", calls, err)
+	}
+	static := command{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}}
+	count := 0
+	for _, call := range calls {
+		if reflect.DeepEqual(call, static) {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("native Go static check ran %d times, want once", count)
+	}
+}
+
+func TestNativeFullQualityStopsAtEachFailedGate(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
+	failure := errors.New("native quality gate failed")
+	for index, expected := range qualityCommands {
+		t.Run(fmt.Sprintf("gate-%d", index), func(t *testing.T) {
+			calls := 0
+			err := run([]string{"native", "--full-quality"}, &bytes.Buffer{}, func(call command) error {
+				calls++
+				if calls == index+1 {
+					if !reflect.DeepEqual(call, expected) {
+						t.Fatalf("gate %d = %#v, want %#v", index, call, expected)
+					}
+					return failure
+				}
+				return nil
+			})
+			if calls != index+1 || !errors.Is(err, failure) {
+				t.Fatalf("gate %d failure: calls=%d error=%v", index, calls, err)
+			}
+		})
 	}
 }
 

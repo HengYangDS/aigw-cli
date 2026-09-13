@@ -77,7 +77,7 @@ native-darwin:
     - mise install --locked
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
-    - mise exec --locked -- go run ./tools/ci native --platform darwin
+    - mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
   stage: verify
   tags:
     - $AIGW_GITLAB_DARWIN_RUNNER_TAG
@@ -99,7 +99,7 @@ native-linux:
   script:
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
-    - mise exec --locked -- go run ./tools/ci native --platform linux
+    - mise exec --locked -- go run ./tools/ci native --platform linux --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
   stage: verify
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG

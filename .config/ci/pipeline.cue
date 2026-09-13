@@ -252,12 +252,22 @@ actions: {
 				path: "mise.lock"
 			}
 		},
-		{
-			name: "Run native \(nativeEvidence[_platform].name) acceptance"
-			if _platform != "linux" {
-				env: _credentialEnvironment
+		for full in [false, true] {
+			if !full {
+				name: "Run native \(nativeEvidence[_platform].name) acceptance"
+				if:   "github.event_name != 'workflow_dispatch' || !inputs.full_quality"
+				run:  commands.native[_platform]
 			}
-			run: commands.native[_platform]
+			if full {
+				name: "Qualify all repository tools on \(nativeEvidence[_platform].name)"
+				if:   "github.event_name == 'workflow_dispatch' && inputs.full_quality"
+				run:  "\(commands.native[_platform]) --full-quality"
+			}
+			if full || _platform != "linux" {
+				env: _credentialEnvironment & {
+					if full {CGO_ENABLED: "1"}
+				}
+			}
 		},
 		{
 			name:  "Run historical release acceptance"
@@ -334,11 +344,14 @@ actions: {
 #NativeGitLabJob: {
 	_platform:     #OperatingSystem
 	_refreshLocks: string
+	_native:       string
 	if _platform == "windows" {
 		_refreshLocks: "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
+		_native:       "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
 	}
 	if _platform != "windows" {
 		_refreshLocks: "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
+		_native:       "\(commands.native[_platform]) --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\""
 	}
 	stage:     graph["native-\(_platform)"].stage
 	tags:      nativeEvidence[_platform].gitlab.tags
@@ -350,10 +363,10 @@ actions: {
 	}
 	if _platform == "linux" {
 		extends: [".linux-toolchain"]
-		script: [commands.bootstrap, _refreshLocks, commands.native.linux]
+		script: [commands.bootstrap, _refreshLocks, _native]
 	}
 	if _platform != "linux" {
-		script: [commands.install, commands.bootstrap, _refreshLocks, commands.native[_platform]]
+		script: [commands.install, commands.bootstrap, _refreshLocks, _native]
 	}
 }
 
@@ -493,6 +506,12 @@ githubVerify: {
 		push: branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch]
 		"pull_request": branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch]
 		"workflow_dispatch": inputs: {
+			full_quality: {
+				description: "Qualify all repository quality tools on each native platform"
+				required:    false
+				type:        "boolean"
+				default:     false
+			}
 			windows_clients: {
 				description: "With baseline_tag, qualify real Windows clients through the existing release lifecycle"
 				required:    false

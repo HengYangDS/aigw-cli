@@ -109,7 +109,7 @@ func TestLinuxNativeJourneysUseTheSameLockedProductCommand(t *testing.T) {
 	}
 	githubCommands := make([]string, 0, len(workflow.Jobs["native-linux"].Steps))
 	for _, step := range workflow.Jobs["native-linux"].Steps {
-		if step.Run != "" && step.If == "" {
+		if step.Run != "" && (step.If == "" || step.If == "github.event_name != 'workflow_dispatch' || !inputs.full_quality") {
 			githubCommands = append(githubCommands, step.Run)
 		}
 	}
@@ -122,9 +122,76 @@ func TestLinuxNativeJourneysUseTheSameLockedProductCommand(t *testing.T) {
 			commands = slices.DeleteFunc(slices.Clone(commands), func(command string) bool {
 				return command == `if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi`
 			})
+			commands[len(commands)-1] = strings.TrimSuffix(commands[len(commands)-1], ` --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"`)
 		}
 		if !reflect.DeepEqual(commands, want) {
 			t.Fatalf("%s native Linux commands = %q, want locked dependencies then one product journey", forge, commands)
+		}
+	}
+}
+
+func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var github struct {
+		On struct {
+			Dispatch struct {
+				Inputs map[string]struct {
+					Type     string `yaml:"type"`
+					Default  bool   `yaml:"default"`
+					Required bool   `yaml:"required"`
+				} `yaml:"inputs"`
+			} `yaml:"workflow_dispatch"`
+		} `yaml:"on"`
+		Jobs map[string]struct {
+			Steps []struct {
+				Run string            `yaml:"run"`
+				If  string            `yaml:"if"`
+				Env map[string]string `yaml:"env"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
+		t.Fatal(err)
+	}
+	input, present := github.On.Dispatch.Inputs["full_quality"]
+	if !present || input.Type != "boolean" || input.Default || input.Required {
+		t.Fatal("full native quality must be an optional disabled-by-default input")
+	}
+	for _, platform := range []string{"darwin", "linux", "windows"} {
+		ordinary, full := 0, 0
+		for _, step := range github.Jobs["native-"+platform].Steps {
+			base := "mise exec --locked -- go run ./tools/ci native --platform " + platform
+			switch step.Run {
+			case base:
+				ordinary++
+				if step.If != "github.event_name != 'workflow_dispatch' || !inputs.full_quality" {
+					t.Fatalf("%s ordinary native selection = %q", platform, step.If)
+				}
+			case base + " --full-quality":
+				full++
+				if step.If != "github.event_name == 'workflow_dispatch' && inputs.full_quality" || step.Env["CGO_ENABLED"] != "1" {
+					t.Fatalf("%s full native selection or compiler capability is incomplete: %#v", platform, step)
+				}
+			}
+		}
+		if ordinary != 1 || full != 1 {
+			t.Fatalf("%s native paths = %d/%d, want one mutually exclusive pair", platform, ordinary, full)
+		}
+	}
+	var gitlab struct {
+		Darwin gitLabJob `yaml:"native-darwin"`
+		Linux  gitLabJob `yaml:"native-linux"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	for platform, job := range map[string]gitLabJob{"darwin": gitlab.Darwin, "linux": gitlab.Linux} {
+		want := "mise exec --locked -- go run ./tools/ci native --platform " + platform + ` --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"`
+		if !slices.Contains(job.Script, want) {
+			t.Fatalf("GitLab %s lacks the same explicit native-quality entrypoint", platform)
 		}
 	}
 }

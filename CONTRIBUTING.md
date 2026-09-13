@@ -320,6 +320,21 @@ upgrade, invalid-successor rejection, rollback, and uninstall acceptance.
 Construction and acceptance share one temporary scope, reclaimed on success or
 failure. This does not publish or sign a release and needs no signing credential.
 
+To qualify the complete repository toolchain on the current platform, run:
+
+```bash
+mise exec --locked -- go run ./tools/ci native --full-quality
+```
+
+This replaces the first Go-only check with the existing complete quality graph,
+then runs the same platform-selected tests and packaged lifecycle. It does not
+duplicate the Go check or require publication credentials. GitHub's manual
+**Verify** input `full_quality` selects this path on all native platforms;
+GitLab accepts `AIGW_FULL_NATIVE_QUALITY=true` for its available native jobs.
+Ordinary review jobs retain their smaller native path and separate quality job.
+Keep source-signature admission in that quality job; native tool qualification
+does not replace it or infer signer authority from an inherited variable.
+
 The default native suite builds a synthetic predecessor from current source.
 It tests portable update mechanics, not compatibility with a historical
 release. To repeat only the packaged lifecycle against a historical release,

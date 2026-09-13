@@ -121,6 +121,16 @@ be narrow, justified, and owned by the same authority.
 - **AND** a static-check failure SHALL stop those later stages
 - **AND** another platform's successful check SHALL NOT substitute for it.
 
+#### Scenario: The complete toolchain is qualified on a native platform
+
+- **WHEN** an operator explicitly selects full native quality
+- **THEN** the native entrypoint SHALL execute the existing complete quality
+  graph before platform-selected behavioral tests and packaged acceptance
+- **AND** each quality command SHALL run once, without a second policy list
+- **AND** any failed command SHALL stop all later commands
+- **AND** ordinary native acceptance SHALL retain its smaller default path
+- **AND** source-signature admission SHALL remain a distinct publication check.
+
 #### Scenario: Quality or release configuration is invalid
 
 - **WHEN** the shared quality command reads golangci-lint or GoReleaser

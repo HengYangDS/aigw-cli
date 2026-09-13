@@ -14,6 +14,11 @@ env:
       - main
   workflow_dispatch:
     inputs:
+      full_quality:
+        description: Qualify all repository quality tools on each native platform
+        required: false
+        type: boolean
+        default: false
       windows_clients:
         description: With baseline_tag, qualify real Windows clients through the existing release lifecycle
         required: false
@@ -137,7 +142,15 @@ jobs:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
         name: Run native macOS acceptance
+        if: github.event_name != 'workflow_dispatch' || !inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform darwin
+      - env:
+          AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
+          AIGW_VERIFY_SYSTEM_KEYRING: "1"
+          CGO_ENABLED: "1"
+        name: Qualify all repository tools on macOS
+        if: github.event_name == 'workflow_dispatch' && inputs.full_quality
+        run: mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality
       - name: Run historical release acceptance
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.windows_clients)
         shell: pwsh
@@ -240,7 +253,13 @@ jobs:
           name: mise-lock-linux
           path: mise.lock
       - name: Run native Linux acceptance
+        if: github.event_name != 'workflow_dispatch' || !inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform linux
+      - env:
+          CGO_ENABLED: "1"
+        name: Qualify all repository tools on Linux
+        if: github.event_name == 'workflow_dispatch' && inputs.full_quality
+        run: mise exec --locked -- go run ./tools/ci native --platform linux --full-quality
       - name: Run historical release acceptance
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.windows_clients)
         shell: pwsh
@@ -343,7 +362,14 @@ jobs:
       - env:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
         name: Run native Windows acceptance
+        if: github.event_name != 'workflow_dispatch' || !inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform windows
+      - env:
+          AIGW_VERIFY_SYSTEM_KEYRING: "1"
+          CGO_ENABLED: "1"
+        name: Qualify all repository tools on Windows
+        if: github.event_name == 'workflow_dispatch' && inputs.full_quality
+        run: mise exec --locked -- go run ./tools/ci native --platform windows --full-quality
       - name: Run historical release acceptance
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.windows_clients)
         shell: pwsh
