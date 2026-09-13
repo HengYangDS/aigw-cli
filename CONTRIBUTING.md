@@ -34,7 +34,11 @@ cannot establish that the shipped catalogue works. Cover deferred prerequisites
 becoming available independently, while preserving explicit user choices.
 For an update that changes persisted configuration, exercise rollback after the
 successor writes that configuration; an unchanged predecessor fixture cannot
-prove downgrade safety. Test isolation includes derived native paths, not only
+prove downgrade safety. Before an expensive matrix build, run the unchanged
+historical lifecycle against a verified released predecessor with its generated
+configuration still active. A real-client journey that disables an adapter
+before replacement proves a different transition; run both through the existing
+release acceptance command. Test isolation includes derived native paths, not only
 environment variables: staged programs and user-data roots must stay disjoint.
 Record acceptance and evidence references in the active OpenSpec task, update
 the relevant operator guidance, and remove contradictory instructions. A new
@@ -359,7 +363,11 @@ does not replace it or infer signer authority from an inherited variable.
 
 The default native suite builds a synthetic predecessor from current source.
 It tests portable update mechanics, not compatibility with a historical
-release. To repeat only the packaged lifecycle against a historical release,
+release. The historical product journey retains the predecessor's projections
+during the first replacement. The real-client journey separately disables and
+re-enables each adapter around replacement. Neither substitutes for the other:
+the first checks retained-state compatibility, the second checks native client
+integration. To repeat only the packaged lifecycle against a historical release,
 supply an extracted native binary from an independently verified archive:
 
 ```bash
