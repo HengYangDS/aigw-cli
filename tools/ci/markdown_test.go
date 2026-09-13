@@ -61,10 +61,11 @@ func TestLinksChecksCurrentRepositoryMarkdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := command{Name: "lychee", Dir: root, Args: []string{
-		"--offline", "--include-fragments=anchor-only", "--no-progress", "--cache=false", "--",
+		"--offline", "--include-fragments=anchor-only", "--no-progress", "--cache=false", "--files-from", "-",
+	}, Input: strings.Join([]string{
 		filepath.Join(root, "--literal.md"), filepath.Join(root, "README.md"),
 		filepath.Join(root, "docs", "guide.md"), filepath.Join(root, "new-guide.md"),
-	}}
+	}, "\n") + "\n"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("link command = %#v, want %#v", got, want)
 	}
@@ -276,24 +277,38 @@ func TestMermaidChecksExecuteAgainstRequestedSources(t *testing.T) {
 	}
 }
 
-func TestMermaidInputIsIndependentOfCommandLineLength(t *testing.T) {
+func TestDocumentInputsAreIndependentOfCommandLineLength(t *testing.T) {
 	root := t.TempDir()
 	if output, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
 		t.Fatalf("git init: %v\n%s", err, output)
 	}
+	var files []string
 	for index := range 400 {
 		name := filepath.Join(root, fmt.Sprintf("%03d-%s.md", index, strings.Repeat("document", 16)))
-		if err := os.WriteFile(name, []byte("# Document\n"), 0o600); err != nil {
+		if err := os.WriteFile(name, []byte("# Document\n\n[Heading](#document)\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
+		files = append(files, name)
 	}
-	if err := run([]string{"check-mermaid", root}, &bytes.Buffer{}, func(call command) error {
-		if len(call.Args) != 1 {
-			t.Fatalf("diagram inventory escaped onto the command line: %d arguments", len(call.Args))
-		}
-		return nil
-	}); err != nil {
-		t.Fatal(err)
+	for name, argumentCount := range map[string]int{"check-mermaid": 1, "links": 6} {
+		t.Run(name, func(t *testing.T) {
+			if err := run([]string{name, root}, &bytes.Buffer{}, func(call command) error {
+				if len(call.Args) != argumentCount {
+					t.Fatalf("document inventory escaped onto the command line: %d arguments", len(call.Args))
+				}
+				if name == "links" {
+					if call.Input != strings.Join(files, "\n")+"\n" {
+						t.Fatal("link input does not preserve the complete repository inventory")
+					}
+					if output, err := systemOutputRunner(call); err != nil {
+						return fmt.Errorf("native link check: %w\n%s", err, output)
+					}
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 

@@ -82,9 +82,9 @@ func checkLinks(root string, runner commandRunner) error {
 	if err != nil {
 		return err
 	}
-	return runner(command{Name: "lychee", Dir: root, Args: append(
-		[]string{"--offline", "--include-fragments=anchor-only", "--no-progress", "--cache=false", "--"}, files...,
-	)})
+	return runner(command{Name: "lychee", Dir: root, Args: []string{
+		"--offline", "--include-fragments=anchor-only", "--no-progress", "--cache=false", "--files-from", "-",
+	}, Input: strings.Join(files, "\n") + "\n"})
 }
 
 func checkFormat(root string, runner commandRunner) error {
