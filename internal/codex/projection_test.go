@@ -319,6 +319,48 @@ func TestCodexUserConfigRejectsInvalidState(t *testing.T) {
 	}
 }
 
+func TestCodexProjectionReconcilesOwnedNativeAuthenticationPreference(t *testing.T) {
+	for _, preference := range []string{"true", "false"} {
+		t.Run(preference, func(t *testing.T) {
+			runtime := atomicTestRuntime()
+			block := codexProviderTable(configuration.ModelProviderAIGW) + "\n" +
+				fmt.Sprintf("name = %q\nbase_url = %q\nwire_api = \"responses\"\nrequires_openai_auth = %s\n", "AIGW: "+runtime.ProfileLabel, runtime.Endpoint, preference) + codexEnd + "\n"
+			projection, err := projectCodex("", block, runtime.Model, "", configuration.ModelProviderAIGW)
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := writeCodexTestConfig(t, projection)
+			writeCodexStateFixture(t, path, attributedCodexStateFixture(block))
+			actual, err := codexManagedBlockIn(projection)
+			if err != nil || actual != block {
+				t.Fatalf("native authentication identity changed: %q: %v", actual, err)
+			}
+			changed := strings.Replace(projection, "requires_openai_auth = "+preference, "requires_openai_auth = "+map[string]string{"true": "false", "false": "true"}[preference], 1)
+			writeCodexFixture(t, path, changed)
+			if err := SyncConfig(path, runtime); err == nil {
+				t.Fatal("unowned authentication change was admitted")
+			}
+			if data, err := os.ReadFile(path); err != nil || string(data) != changed {
+				t.Fatalf("rejected authentication edit changed source: %v", err)
+			}
+			writeCodexFixture(t, path, projection)
+			if err := SyncConfig(path, runtime); err != nil {
+				t.Fatalf("owned native authentication preference blocked reconciliation: %v", err)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil || strings.Contains(string(data), "requires_openai_auth") || !strings.Contains(string(data), "[model_providers.aigw.auth]") {
+				t.Fatalf("current helper projection not adopted: %s: %v", data, err)
+			}
+			if err := ValidateConfig(path, runtime); err != nil {
+				t.Fatal(err)
+			}
+			if err := DisableConfig(path); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestCodexUserConfigRejectsInvalidCapturedSchedulerState(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)

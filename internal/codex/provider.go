@@ -13,10 +13,11 @@ import (
 // codexProviderProjection is the provider value AIGW writes and subsequently owns.
 // Its source tables may move independently of surrounding comments or user tables.
 type codexProviderProjection struct {
-	Name    *string `toml:"name"`
-	BaseURL string  `toml:"base_url"`
-	WireAPI string  `toml:"wire_api"`
-	Auth    *struct {
+	Name               *string `toml:"name"`
+	BaseURL            string  `toml:"base_url"`
+	WireAPI            string  `toml:"wire_api"`
+	RequiresOpenAIAuth *bool   `toml:"requires_openai_auth"`
+	Auth               *struct {
 		Command string   `toml:"command"`
 		Args    []string `toml:"args"`
 	} `toml:"auth"`
@@ -28,6 +29,9 @@ func (projection codexProviderProjection) render(provider string) string {
 		block += "name = " + strconv.Quote(*projection.Name) + "\n"
 	}
 	block += "base_url = " + strconv.Quote(projection.BaseURL) + "\nwire_api = " + strconv.Quote(projection.WireAPI) + "\n"
+	if projection.RequiresOpenAIAuth != nil {
+		block += "requires_openai_auth = " + strconv.FormatBool(*projection.RequiresOpenAIAuth) + "\n"
+	}
 	if projection.Auth != nil {
 		args := make([]string, len(projection.Auth.Args))
 		for index, arg := range projection.Auth.Args {

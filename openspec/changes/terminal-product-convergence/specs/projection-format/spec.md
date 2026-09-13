@@ -59,12 +59,25 @@ quotes, table order, whitespace, or removed provider comments SHALL NOT invalida
 that ownership. Invalid, unknown, missing, or changed owned fields SHALL fail
 before writing. No alternate hash scheme or truncation-repair path is needed.
 
+The native `requires_openai_auth` preference SHALL retain its absent, true, or
+false identity when proving an existing projection. Reconciliation SHALL replace
+it with the current Profile's authentication projection only after the recorded
+hash matches; reading the preference SHALL NOT enable it in new projections.
+
 #### Scenario: The native client edits another configuration table
 
 - **WHEN** `codex mcp add` or `codex mcp remove` edits an isolated Codex Home
 - **THEN** unchanged provider values remain valid without a repair command
 - **AND** synchronization and withdrawal preserve the client-owned MCP tables
 - **AND** actual endpoint or authentication edits remain ownership conflicts.
+
+#### Scenario: Upgrade retains a proven native authentication preference
+
+- **WHEN** an installed predecessor left `requires_openai_auth` in its owned
+  provider table
+- **THEN** the current parser reconstructs the same recorded provider identity
+- **AND** synchronization installs the current authentication projection
+- **AND** a user change to that preference fails before any file is written.
 
 ### Requirement: Codex scheduler edits follow native table boundaries
 
