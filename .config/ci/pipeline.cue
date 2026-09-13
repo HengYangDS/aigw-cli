@@ -446,7 +446,7 @@ gitlab: {
 		needs: [for dependency in graph["release-assets"].needs {{job: dependency}}]
 		script: [
 			#"mkdir dist"#,
-			#"mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --dir dist"#,
+			#"mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist"#,
 			commands.artifacts,
 		]
 	}
