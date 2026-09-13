@@ -29,12 +29,9 @@ with AIGW as endpoints rather than becoming part of its control plane.
 ```mermaid
 flowchart TB
     accTitle: Configuration ownership is separate from model traffic
-    accDescr: AIGW manages configuration and Account credentials. Native clients call their selected endpoints; an optional gateway is an endpoint choice, not a service owned by AIGW.
-    A["AIGW control plane"] -->|Account credentials| K["Selected Token backend"]
-    A -. owned configuration .-> C["Codex"]
-    A -. owned configuration .-> L["Claude Code"]
-    C -->|Responses requests| R["Selected Responses endpoint"]
-    L -->|Anthropic requests| H["Selected Anthropic endpoint"]
+    accDescr: AIGW configures the native client. Codex or Claude Code sends API requests to its selected endpoint. An optional gateway is an endpoint choice, not a service owned by AIGW.
+    A["AIGW"] -. Owned configuration .-> C["Codex or Claude Code"]
+    C -->|Native API requests| E["Selected endpoint"]
 ```
 
 The request sender is the native client, not its configuration file. An external
@@ -377,26 +374,18 @@ runtime-only private HTTP admission does not weaken HTTPS build metadata.
 
 ## Configuration transaction
 
-The shared commit path preflights every participating client before writing
-configuration, backup or checkpoint state. It then persists configuration,
-invalidates stale verification and applies client changes. A later successful
-verification owns the checkpoint. Setup adds credential preparation and
-compensation around this transaction.
+The shared commit path owns this sequence:
 
-```mermaid
-flowchart TB
-    accTitle: Configuration commit and guarded compensation
-    accDescr: Synchronization captures configuration, preflights every client, persists the new state and applies projections. Rejected preflight writes nothing. Later failure restores each unchanged owned file and reports every conflict.
-    Capture["Synchronizer<br/>Capture preimage"] --> Preflight{"Preflight<br/>admitted?"}
-    Preflight -->|No| Rejected["Return failure<br/>Write nothing"]
-    Preflight -->|Yes| Commit["Persist configuration<br/>Invalidate checkpoint"]
-    Commit --> Apply["Apply client projections"]
-    Apply --> Outcome{"All steps<br/>succeeded?"}
-    Outcome -->|Yes| Success["Return success"]
-    Outcome -->|No| Compensate["Compensate applied projections"]
-    Compensate --> Restore["Restore unchanged owned files"]
-    Restore --> Failed["Return failure<br/>Include all recovery conflicts"]
-```
+1. Capture configuration, backup and checkpoint preimages.
+2. Preflight every participating client before writing. A rejected preflight
+   returns an error without changing configuration or client files.
+3. Persist configuration and invalidate stale verification.
+4. Apply client projections. On failure, compensate applied projections, then
+   restore unchanged owned configuration files; return the original error and
+   every recovery conflict. Otherwise, return success.
+
+A later successful verification owns the checkpoint. Setup adds credential
+preparation and compensation around this transaction.
 
 Each write is guarded by its preimage. Compensation restores a preimage only
 while the current bytes match this operation's postimage; newer writes remain
@@ -463,16 +452,6 @@ surface are present. Missing and foreign clients remain untouched.
 
 AIGW keeps three change axes independent. A feature must enter through exactly
 the axis whose authority it changes.
-
-```mermaid
-flowchart TB
-    accTitle: Choose an extension by the authority it changes
-    accDescr: Provider access belongs to Account admission, client configuration to Adapter admission, and wire behavior to an independent protocol product.
-    N["New capability"] --> Q{"What authority changes?"}
-    Q -->|Provider access| A["Account admission"]
-    Q -->|Client configuration| C["Client Adapter admission"]
-    Q -->|Wire behavior| P["Protocol product decision"]
-```
 
 | Change requested                          | Extension path         | AIGW implementation consequence                   |
 | ----------------------------------------- | ---------------------- | ------------------------------------------------- |

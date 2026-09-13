@@ -3,10 +3,10 @@
 ## Authority
 
 ```mermaid
-flowchart LR
+flowchart TB
     accTitle: Independent publication from one signed product identity
     accDescr: Local Git constructs the product object once. Each selected Forge receives that same object independently; neither peer authorizes the other.
-    Local[Local signed product object] --> GitLab[GitLab peer]
+    Local["Signed Git object"] --> GitLab[GitLab peer]
     Local --> GitHub[GitHub peer]
 ```
 

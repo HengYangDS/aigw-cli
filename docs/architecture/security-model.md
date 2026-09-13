@@ -55,16 +55,10 @@ Account-ID encoding and process scope.
 
 ## Configuration boundary
 
-```mermaid
-flowchart TB
-    accTitle: Public configuration and credential material have separate paths
-    accDescr: Manifest validation uses public metadata. Projection selects eligible routes from credential availability; Token material remains behind the selected backend's authentication boundary.
-    M["Token-free manifest"] --> V["Validate public metadata"]
-    V --> C["AIGW configuration"]
-    C --> P["Project eligible client Routes"]
-    K["Selected credential backend"] -. availability only .-> P
-    K -->|Owned authentication boundary| A["Native client authentication"]
-```
+Manifest validation uses public metadata, not Token values. Projection checks
+credential availability before configuring an eligible client Route. The
+native client obtains its Token through the selected backend's authentication
+boundary; public configuration never carries the Token.
 
 A manifest collision must be semantically identical or explicitly replaced.
 Replacing Account metadata never redirects or overwrites the existing Token.

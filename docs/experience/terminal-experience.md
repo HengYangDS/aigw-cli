@@ -34,14 +34,8 @@ required flags and flag relationships; domain validation runs with the operation
 
 ## Output model
 
-```mermaid
-flowchart LR
-    accTitle: Human and machine output share observed facts
-    accDescr: Observed facts form one result model, rendered as either human output or JSON.
-    F["Observed facts"] --> R["Result model"]
-    R --> H["Human view"]
-    R --> J["JSON view"]
-```
+Human and JSON views render the same observed result; neither view defines a
+separate readiness model.
 
 | Surface  | Contract                                                       |
 | -------- | -------------------------------------------------------------- |

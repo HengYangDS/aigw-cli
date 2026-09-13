@@ -5,15 +5,9 @@ A local-first control plane for teams using reviewed third-party AI services.
 AIGW manages Accounts, Tokens, Profiles, Routes, and native client projections.
 It does **not** relay model traffic, run a gateway, or own conversation state.
 
-```mermaid
-flowchart TB
-    accTitle: AIGW configures clients; clients call services
-    accDescr: Dashed arrows are configuration. Solid arrows are model requests sent by native clients to selected endpoints.
-    A["AIGW"] -. configuration .-> C["Codex"]
-    A -. configuration .-> L["Claude Code"]
-    C -->|Responses requests| E["Selected Responses endpoint"]
-    L -->|Anthropic requests| H["Selected Anthropic endpoint"]
-```
+Codex and Claude Code call their selected endpoints directly. See the
+[product graph](docs/architecture/authority-and-projection-boundary.md#product-graph)
+for the configuration and traffic boundaries.
 
 ## Start here
 

@@ -1,19 +1,8 @@
 # Team Rollout
 
 A team distributes reviewed public configuration; each member supplies Tokens
-locally.
-
-```mermaid
-flowchart TB
-    accTitle: Team setup supports deferred credentials and clients
-    accDescr: A maintainer publishes public configuration. A member imports it, then activates an eligible client when credentials and the client are available; otherwise setup records a continuation.
-    R["Review and publish token-free manifest"] --> S["Member imports manifest"]
-    S --> E{"Eligible Route, credential and client?"}
-    E -->|Yes| C["Project selected client"]
-    C --> V["Member runs aigw check"]
-    E -->|Not yet| D["Keep import; report deferred action"]
-    D -->|Add credential or client; sync| E
-```
+locally. Import does not require Tokens or installed clients; activate each
+client when its prerequisites are available.
 
 ## Maintainer
 
