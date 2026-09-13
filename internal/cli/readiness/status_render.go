@@ -67,15 +67,20 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 }
 
 func renderTransportStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {
+	shown := false
 	for _, client := range clientIDs {
 		if result.Routes[client].Transport != "external_loopback" {
 			continue
 		}
-		r.Section("Transport")
-		r.Status(presentation.Info, invocation.Title(client), "External loopback compatibility layer")
-		r.Detail(invocation.Title(client) + " requests use the external listener")
-		r.Detail("AIGW does not start, stop, or configure it")
-		return
+		if !shown {
+			r.Section("Transport")
+			shown = true
+		}
+		r.Status(presentation.Info, invocation.Title(client), "Loopback endpoint")
+	}
+	if shown {
+		r.Detail("Service identity and availability are not inferred from the address")
+		r.Detail("AIGW does not start, stop, or configure the service")
 	}
 }
 

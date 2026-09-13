@@ -265,8 +265,8 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		if result.RecoveredTransient {
 			renderer.Detail(invocation.Title(client) + " authentication recovered after a transient response")
 		}
-		if transport := TransportStatus(route.runtime.Endpoint); transport.Kind == "external_loopback" {
-			renderer.Detail(invocation.Title(client) + " uses an external loopback compatibility layer that AIGW does not manage")
+		if endpointTransport(route.runtime.Endpoint) == "external_loopback" {
+			renderer.Detail(invocation.Title(client) + " uses a loopback endpoint; AIGW does not manage the service")
 		}
 		clientCount++
 	}

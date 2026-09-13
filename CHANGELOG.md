@@ -24,6 +24,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Describe every client's loopback endpoint without inferring a compatibility
+  service; use one standard address classification for admission and status.
 - Check the selected client's local projection before reading its Token, so a
   configuration error does not trigger unnecessary credential access.
 - Preserve native Codex MCP edits by locating owned provider tables through

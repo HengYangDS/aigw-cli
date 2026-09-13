@@ -387,7 +387,7 @@ func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T
 	if err := cli.Execute(app, []string{"check"}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out.String(), "External loopback compatibility layer") {
+	if strings.Contains(out.String(), "uses a loopback endpoint") {
 		t.Fatalf("check misclassified remote endpoint:\n%s", out.String())
 	}
 }

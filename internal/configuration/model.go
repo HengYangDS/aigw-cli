@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/netip"
 	"net/url"
 	"regexp"
 	"slices"
@@ -512,7 +513,7 @@ func validateEndpoint(raw string) error {
 	if u.User != nil {
 		return errors.New("URL userinfo is forbidden")
 	}
-	if u.Scheme == "http" && u.Hostname() != "127.0.0.1" && u.Hostname() != "localhost" && u.Hostname() != "::1" {
+	if u.Scheme == "http" && !IsLoopbackHost(u.Hostname()) {
 		return errors.New("plain HTTP is allowed only for a loopback endpoint")
 	}
 	for _, key := range slices.Sorted(maps.Keys(u.Query())) {
@@ -522,6 +523,15 @@ func validateEndpoint(raw string) error {
 		}
 	}
 	return nil
+}
+
+// IsLoopbackHost classifies a URL hostname without DNS or service discovery.
+func IsLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	address, err := netip.ParseAddr(host)
+	return err == nil && address.IsLoopback()
 }
 
 // ResolveRuntime resolves one client route to its validated account and profile runtime.

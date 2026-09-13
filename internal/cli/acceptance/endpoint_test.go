@@ -492,7 +492,7 @@ func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
 func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
-	addAccountProfile(&cfg, "local", "local", "Local Compatibility Layer", configuration.Endpoints{Anthropic: "http://127.0.0.1:4567"}, configuration.ClientClaude, "model-test")
+	addAccountProfile(&cfg, "local", "local", "Local Endpoint", configuration.Endpoints{Anthropic: "http://127.0.0.2:4567"}, configuration.ClientClaude, "model-test")
 	cfg.Routes[configuration.ClientClaude] = "local"
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
 	synchronizeClaudeProjection(t, app, cfg)
@@ -506,7 +506,7 @@ func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *tes
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"Claude", "external loopback compatibility layer that AIGW does not manage"} {
+	for _, want := range []string{"Claude", "uses a loopback endpoint; AIGW does not manage the service"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("check lacks %q:\n%s", want, text)
 		}

@@ -113,10 +113,62 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 				t.Fatal(err)
 			}
 			output := buffer.String()
-			if !strings.Contains(output, test.want) || !strings.Contains(output, "External loopback compatibility layer") {
+			if !strings.Contains(output, test.want) || !strings.Contains(output, "Loopback endpoint") {
 				t.Fatalf("output = %q", output)
 			}
 		})
+	}
+}
+
+func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *testing.T) {
+	runtime, cfg, buffer := configuredReadinessRuntime(t)
+	account := cfg.Accounts["one"]
+	account.Endpoints = configuration.Endpoints{Anthropic: "http://127.0.0.2:4567", OpenAIResponses: "http://[::ffff:127.0.0.2]:4568/v1"}
+	cfg.Accounts["one"] = account
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(runtime.Config.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &observingSecretStore{value: "token"}
+	runtime.Secrets = store
+	if err := RunStatus(runtime, false); err != nil {
+		t.Fatal(err)
+	}
+	_, transport, found := strings.Cut(buffer.String(), "Transport\n")
+	if !found {
+		t.Fatalf("transport section missing: %s", buffer.String())
+	}
+	transport, _, _ = strings.Cut(transport, "Optional diagnostics\n")
+	for _, want := range []string{"Claude", "Codex", "Service identity and availability are not inferred from the address"} {
+		if !strings.Contains(transport, want) {
+			t.Errorf("transport lacks %q: %s", want, transport)
+		}
+	}
+	if strings.Count(transport, "Loopback endpoint") != 2 {
+		t.Errorf("expected both endpoint observations: %s", transport)
+	}
+	buffer.Reset()
+	if err := RunStatus(runtime, true); err != nil {
+		t.Fatal(err)
+	}
+	var status statusOutput
+	if err := json.Unmarshal(buffer.Bytes(), &status); err != nil {
+		t.Fatal(err)
+	}
+	for _, client := range configuration.AdmittedClientIDs() {
+		if status.Routes[client].Transport != "external_loopback" {
+			t.Errorf("client %s transport = %q", client, status.Routes[client].Transport)
+		}
+	}
+	after, err := os.ReadFile(runtime.Config.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) || store.getCalls != 0 {
+		t.Fatalf("status changed configuration or read secrets: reads=%d", store.getCalls)
 	}
 }
 

@@ -234,13 +234,13 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 }
 
 func TestReadinessTransportHelpers(t *testing.T) {
-	if got := TransportStatus("%"); got.Kind != "" {
+	if got := endpointTransport("%"); got != "" {
 		t.Fatalf("invalid transport = %#v", got)
 	}
-	if got := TransportStatus("http://LOCALHOST:8791/v1"); got.Kind != "external_loopback" {
+	if got := endpointTransport("http://LOCALHOST:8791/v1"); got != "external_loopback" {
 		t.Fatalf("loopback transport = %#v", got)
 	}
-	if got := TransportStatus("https://api.example.test/v1"); got.Kind != "" {
+	if got := endpointTransport("https://api.example.test/v1"); got != "" {
 		t.Fatalf("remote transport = %#v", got)
 	}
 	buffer := &bytes.Buffer{}

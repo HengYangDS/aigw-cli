@@ -103,7 +103,7 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 			Client:             state,
 			Authentication:     clientRuntime.Authentication,
 			EndpointConfigured: strings.TrimSpace(clientRuntime.Endpoint) != "",
-			Transport:          TransportStatus(clientRuntime.Endpoint).Kind,
+			Transport:          endpointTransport(clientRuntime.Endpoint),
 			AdapterReady:       adapterStatus.Ready,
 		}
 		if adapterStatus.Ready && !clientRuntime.RequiresAccountToken() {
@@ -146,20 +146,10 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 	}
 }
 
-type transportState struct {
-	Kind string
-}
-
-// TransportStatus classifies an endpoint as external loopback when it resolves to the local host.
-func TransportStatus(endpoint string) transportState {
+func endpointTransport(endpoint string) string {
 	parsed, err := url.Parse(endpoint)
-	if err != nil {
-		return transportState{}
+	if err == nil && configuration.IsLoopbackHost(parsed.Hostname()) {
+		return "external_loopback"
 	}
-	switch strings.ToLower(parsed.Hostname()) {
-	case "127.0.0.1", "::1", "localhost":
-		return transportState{Kind: "external_loopback"}
-	default:
-		return transportState{}
-	}
+	return ""
 }

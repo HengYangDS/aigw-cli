@@ -165,6 +165,9 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 	}{
 		{"http_loopback", "http://localhost:4567/v1", `"external_loopback"`},
 		{"https_loopback", "https://[::1]:4567/v1", `"external_loopback"`},
+		{"ipv4_loopback_range", "http://127.1.2.3:4567/v1", `"external_loopback"`},
+		{"mapped_ipv4_loopback", "http://[::ffff:127.0.0.2]:4567/v1", `"external_loopback"`},
+		{"private_network", "https://192.168.1.1:4567/v1", ""},
 		{"remote", "https://gateway.test/v1", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

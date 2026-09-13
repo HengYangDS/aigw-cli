@@ -60,6 +60,28 @@ safe next action.
 - **THEN** configuration rollback restores that predecessor
 - **AND** does not fail merely because the preferred source was unusable.
 
+### Requirement: Endpoint observations preserve service independence
+
+Account admission and readiness SHALL share one loopback-host classification:
+case-insensitive `localhost` and standard IPv4, IPv6, and IPv4-mapped loopback
+addresses. Classification SHALL use the configured address without DNS lookup,
+credential access, listener probing, or service discovery. Plain HTTP SHALL
+remain restricted to that loopback boundary.
+
+#### Scenario: Both clients select loopback endpoints
+
+- **WHEN** Claude and Codex Routes select loopback endpoints
+- **THEN** human status SHALL show both clients' endpoint observations
+- **AND** JSON SHALL classify the same endpoints as `external_loopback`
+- **AND** neither representation SHALL infer a compatibility layer, service
+  identity, listener health, or lifecycle ownership from the address.
+
+#### Scenario: An Account selects a private non-loopback address
+
+- **WHEN** an Account endpoint uses a private or unspecified network address
+- **THEN** admission SHALL require HTTPS
+- **AND** readiness SHALL NOT classify that address as loopback.
+
 ### Requirement: Verification follows enabled client scope
 
 `verify --for all` SHALL verify every currently enabled client Route, not every
