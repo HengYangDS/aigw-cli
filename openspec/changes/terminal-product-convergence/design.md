@@ -389,11 +389,11 @@ existing domain owner or the standard library before introducing another one.
 
 #### Repository-wide ownership review
 
-The review covers every tracked carrier, not only Go files. The current
-inventory contains 1,020 files: 438 current carriers and 582 official OpenSpec
-archive files. Native Go selection resolves 59 packages for each of the six
-supported OS/architecture combinations. These are inventory observations, not
-new hard-coded policy limits.
+The review covers every tracked carrier, not only Go files. Git defines the
+file inventory; native Go selection defines packages for each supported
+OS/architecture combination. Source-bound observations belong to task evidence,
+not duplicated counts in the design. Official OpenSpec archives retain their
+historical role and are not current product instructions.
 
 | Surface                      | Semantic owner and placement                                                                                                                        | Retention and acceptance boundary                                                                                                            |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -406,8 +406,8 @@ new hard-coded policy limits.
 | Product update               | `internal/upgrade` owns source selection, peer transport and replacement; `artifact` owns archive admission.                                        | Artifact parsing does not depend on the updater. Public acceptance has an independent fixture lifetime.                                      |
 | Repository quality           | `tools/ci` executes native tools; `projection` and `markdown` own distinct inputs. `architecture`, `coverage` and `repository` own declared checks. | Configuration contains data, never implementation. Generic protected-lifecycle overlap remains an explicit open governance obligation.       |
 | Release                      | `tools/release` composes `construction`, `artifact`, `readiness` and `publication`; `tools/forge` owns signed-object transport and provenance.      | Native journeys belong to release, not CI dispatch. Transport and orchestration retain separate carriers within one package.                 |
-| Root and configuration       | Native discovery, locks, identity, licensing and reader entrypoints stay at root; eleven `.config` carriers own explicit policies.                  | The [authority map](../../../docs/governance/change-and-release-policy.md#authority-map) identifies consumers without a duplicate inventory. |
-| Documents and manifest       | The 22 documents follow audience and responsibility; `docs/README.md` is the sole directory index. `manifests/team.toml` owns team capability.      | Research is not an adopted decision. Physical placement does not certify rendering, live models or team setup.                               |
+| Root and configuration       | Native discovery, locks, identity, licensing and reader entrypoints stay at root; `.config` carries explicit policies.                              | The [authority map](../../../docs/governance/change-and-release-policy.md#authority-map) identifies consumers without a duplicate inventory. |
+| Documents and manifest       | Documents follow audience and responsibility; `docs/README.md` is the sole directory index. `manifests/team.toml` owns team capability.             | Research is not an adopted decision. Physical placement does not certify rendering, live models or team setup.                               |
 | Specification and governance | Official OpenSpec owns specifications, one active Change and archived intent. Three `.ethos` files declare adoption, workspace and publication.     | Transient compilation, proof and coordination remain ETHOS-owned in the Git common directory; no second lifecycle state is added.            |
 | Generated and local output   | CUE owns both Forge projections. Locks are retained inputs; build, verification and developer-tool output stays ignored.                            | Follow [output ownership](../../../CONTRIBUTING.md#output-ownership-and-cleanup). Caches and receipts never acquire product authority.       |
 
