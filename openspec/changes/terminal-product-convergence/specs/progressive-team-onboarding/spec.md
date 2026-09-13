@@ -55,33 +55,25 @@ credentials are unavailable.
   Route
 - **AND** setup does not need to be repeated.
 
-### Requirement: Setup reports progress rather than fictional completion
-
-Setup SHALL distinguish imported capability, connected Accounts, selected
-Routes, projected clients, and deferred actions in both human and JSON output.
-
-#### Scenario: Setup imports without activation
-
-- **WHEN** no Token or supported client is available
-- **THEN** setup reports the catalogue as imported
-- **AND** does not claim any endpoint, credential, or client is ready.
-
 ### Requirement: Setup has one explicit commit boundary
 
 Setup SHALL treat configuration, credential slots, backend selection, client
 projections, checkpoints, locks, and temporary files as one owned transaction
-until the canonical configuration commit succeeds. Failure before that boundary
-SHALL compensate only unchanged state written by the current transaction. A
-presentation or output failure after that boundary SHALL report the error
-without undoing committed product state.
+until configuration persistence and every participating client projection
+succeed. A configuration-file write is an intermediate effect, not completion
+of the whole setup transaction. Failure before full completion SHALL apply
+guarded compensation to that attempt's unchanged postimages. Recovery failure
+SHALL retain the original cause and exact unresolved resources; concurrent
+user changes SHALL be preserved. Presentation is outside this transaction.
 
 #### Scenario: Setup fails before commit
 
-- **WHEN** either guided or manifest setup fails before configuration commit
-- **THEN** every AIGW-owned preexisting state remains byte-identical and every
-  new owned artifact from that attempt is absent
-- **AND** a concurrently changed credential or backend selection remains
-  unchanged and the compensation conflict is reported.
+- **WHEN** guided or manifest setup fails before configuration and all selected
+  client projections complete, including after the configuration file is written
+- **THEN** compensation restores unchanged owned preimages and removes that
+  attempt's new resources wherever recovery succeeds
+- **AND** any failed recovery or concurrent postimage conflict remains explicit
+  without overwriting newer user state or claiming complete restoration.
 
 #### Scenario: Setup output fails after commit
 
@@ -92,6 +84,79 @@ without undoing committed product state.
   setup was rolled back.
 
 ## MODIFIED Requirements
+
+### Requirement: Onboarding state is explicit and actionable
+
+Setup results SHALL distinguish imported capability, connected Accounts,
+selected Routes, configured clients, and deferred work, and expose the smallest
+safe next action. With environment credentials, setup SHALL list every
+compatible variable as an equal choice and state that one is sufficient. After
+a Token or client appears, continuation is `aigw sync`; `aigw check` only
+verifies enabled Routes. Manifest setup MUST support `--json`, share one
+semantic result, and never expose credentials.
+
+#### Scenario: Guided setup completes before client installation
+
+- **WHEN** guided setup connects an Account while neither Claude Code nor Codex
+  is installed
+- **THEN** setup SHALL identify `aigw sync` as the next action after installing
+  a supported client
+- **AND** SHALL NOT identify `aigw check` as the activation action.
+
+#### Scenario: Selected Responses endpoint is unavailable
+
+- **WHEN** an installed Codex route selects a Responses endpoint that is not
+  reachable
+- **THEN** diagnostics SHALL identify the configured endpoint as unavailable
+- **AND** SHALL state that AIGW owns configuration rather than endpoint
+  lifecycle
+- **AND** SHALL offer checking that endpoint or selecting another Responses
+  profile without inferring the endpoint implementation.
+
+#### Scenario: No Token is available through a writable backend
+
+- **WHEN** a valid team manifest is imported and no Account is connected
+- **THEN** setup SHALL recommend `aigw rotate <account>`
+- **AND** SHALL NOT imply that every catalogue Account Token is required.
+
+#### Scenario: No Token is available through the environment backend
+
+- **WHEN** a valid team manifest is imported with the read-only environment
+  backend and no Account Token is available
+- **THEN** setup SHALL enumerate the environment variable for every compatible
+  Account as an alternative activation choice
+- **AND** SHALL direct the operator to run `aigw sync` after setting one
+- **AND** SHALL state that any one compatible Account is sufficient.
+
+#### Scenario: Environment Account becomes available later
+
+- **WHEN** a team catalogue was imported without a connected Account
+- **AND** exactly one compatible Account Token later becomes available through
+  the environment backend
+- **THEN** `aigw sync` SHALL activate Routes compatible with that Account
+- **AND** SHALL NOT require the previously recommended Account or any unrelated
+  Account Token.
+
+#### Scenario: Connected Account precedes client installation
+
+- **WHEN** setup connects an Account and no admitted client is installed
+- **THEN** its human and machine-readable results SHALL identify `aigw sync` as
+  the next action after client installation
+- **AND** SHALL NOT identify an observational command as the activation action.
+
+#### Scenario: Manifest setup is consumed by automation
+
+- **WHEN** an operator runs manifest-based setup with `--json`
+- **THEN** setup SHALL return the imported Account and Profile counts,
+  connected Accounts, client states, alternative activation choices, and next
+  safe action as machine-readable data
+- **AND** SHALL NOT include an Account Token or credential value.
+
+#### Scenario: Setup imports without activation
+
+- **WHEN** no Token or supported client is available
+- **THEN** setup reports the catalogue as imported
+- **AND** does not claim any endpoint, credential, or client is ready.
 
 ### Requirement: Activation follows present capabilities
 

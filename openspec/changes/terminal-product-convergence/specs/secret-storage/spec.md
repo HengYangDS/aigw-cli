@@ -28,8 +28,11 @@ authentication or a healthy diagnostic result.
 
 ### Requirement: Credential backend state is explicit and portable
 
-AIGW SHALL expose the selected credential backend, its availability, and its
-read/write capability without disclosing or retrieving credential values.
+AIGW SHALL expose the selected credential backend, its observed availability,
+declared mutability, persistence and recovery action without retrieving secret
+values. `read_write` describes the backend interface, not proof that an
+operating-system credential operation will be authorized or complete. Metadata
+observation SHALL NOT certify future secret access or durable writes.
 Automatic selection SHALL be deterministic for the installation and SHALL NOT
 silently cross-read another backend. Read-only observation and credential reads
 SHALL NOT persist a previously unrecorded automatic selection; the first
@@ -42,8 +45,8 @@ the invocation's resolved backend.
 
 #### Scenario: Native credential storage is usable
 
-- **WHEN** a credential mutation follows a bounded non-interactive capability
-  probe that admits the supported platform's native credential service
+- **WHEN** an unrecorded automatic selection admits a native backend through
+  non-interactive metadata observation and a credential mutation is requested
 - **THEN** automatic selection records that native backend before changing the
   credential
 - **AND** later commands reuse it without opening an access prompt merely to
@@ -128,14 +131,17 @@ JSON output; an unobserved credential SHALL NOT be classified as absent.
 A failed credential mutation that became externally visible SHALL restore the
 exact preimage only while compensation observes AIGW's own postimage. If
 compensation observes another writer's state, AIGW SHALL preserve it and report
-that compensation was not applied. Temporary files and partial Tokens SHALL
-NOT remain.
+that compensation was not applied. Successful cleanup SHALL leave no owned
+temporary file or partial Token; cleanup failure SHALL retain the exact owned
+resource and original failure without claiming restoration.
 
 #### Scenario: Durable replacement or deletion fails
 
 - **WHEN** AIGW changes a credential slot but cannot prove the change durable
-- **THEN** it restores the exact preimage
-- **AND** removes every temporary file owned by that attempt.
+- **THEN** it applies guarded restoration of the exact preimage and cleanup of
+  files owned by that attempt
+- **AND** successful recovery restores the preimage and leaves no owned staging
+  residue; failure reports the unresolved resource and every retained cause.
 
 #### Scenario: The credential changes before compensation
 

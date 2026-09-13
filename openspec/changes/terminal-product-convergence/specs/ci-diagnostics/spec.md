@@ -127,3 +127,36 @@ absolute HTTP(S), contain no user information and preserve HTTPS.
 - **WHEN** a verified release names an asset outside the selected API authority
 - **THEN** the asset is fetched without publication credentials
 - **AND** its bytes must still match the locally verified artifact.
+
+## MODIFIED Requirements
+
+### Requirement: Hosted Git initialization is explicit
+
+Every hosted Git-aware job SHALL verify its checkout, revision, platform, and
+repository-locked toolchain in the Forge environment. The CUE authority SHALL
+select the same exact mise bootstrap release for both Forges; GitLab Linux
+SHALL use its digest-pinned image and the shared locked installation step.
+Native package managers SHALL install each job's declared executable closure
+from repository locks, retaining artifact integrity checks. npm tools SHALL
+use `package-lock.json` with install scripts disabled. Tool-distribution
+authentication is separate from product Git-peer authority; no mirrored tool
+package or unrelated peer is a mandatory prerequisite.
+
+#### Scenario: A hosted action initializes a repository
+
+- **WHEN** checkout or a test fixture initializes Git state
+- **THEN** Git resolves `main` as the default branch
+- **AND** the repository-declared runtime and standalone tools are installed
+  from their locked distribution sources, without consulting another product
+  peer for source, policy, or evidence
+- **AND** npm repository tools are installed from the committed transitive lock with install scripts disabled
+- **AND** GitLab Linux bootstrap is defined once and inherited by every consuming job
+- **AND** GitLab source verification uses only its declared source-tool closure
+- **AND** native acceptance can execute every tool in its declared command closure
+- **AND** no verification or provenance gate is weakened
+
+#### Scenario: A required runner is unavailable
+
+- **WHEN** no admitted runner can execute a required platform gate
+- **THEN** the pipeline fails or reports the unavailable gate within a bounded interval
+- **AND** does not remain pending indefinitely

@@ -819,6 +819,51 @@ name the exact owned resource and SHALL NOT silently report success.
 
 ## MODIFIED Requirements
 
+### Requirement: Hosted evidence identity is Forge-portable
+
+Hosted acceptance SHALL bind its executed input to the exact selected product
+commit and tree. Historical observations SHALL retain their original identity
+and SHALL NOT become current acceptance merely because their commit is an
+ancestor. Independent peers receive the same local objects; tree-only
+substitution, peer-specific identity rewriting and commit maps establish no
+equivalence.
+
+#### Scenario: Evidence names the accepted product commit
+
+- **WHEN** a hosted job claims current product acceptance
+- **THEN** its measured commit and tree SHALL equal the object selected for that
+  job, with raw results retained at the job's evidence owner.
+
+#### Scenario: Evidence records a commit from the peer Forge
+
+- **WHEN** evidence names a product commit observed on either peer
+- **THEN** that identifier SHALL refer to the same locally constructed object
+- **AND** the job SHALL NOT use another peer's rebuilt object or a commit map
+  as a substitute for its selected source.
+
+#### Scenario: The recorded commit object is locally available
+
+- **WHEN** a historical observation is retained for comparison
+- **THEN** its recorded commit and tree SHALL remain resolvable as observed
+- **AND** ancestry or source availability alone SHALL NOT certify a later HEAD.
+
+### Requirement: Source-bound quantitative evidence
+
+A quantitative acceptance observation MUST retain its raw counts and bind the
+measured source revision, tree, toolchain and policy through the owning
+verification record. Displayed percentages SHALL derive from those counts.
+Native output and its invocation context MAY jointly carry this evidence;
+tracked source SHALL NOT require a self-referential commit identifier or a
+parallel claim-digest registry.
+
+#### Scenario: Quantitative evidence is incomplete or inconsistent
+
+- **WHEN** an acceptance observation omits its measured source context or raw
+  counts, or its percentage disagrees with those counts
+- **THEN** it SHALL NOT establish the claimed quantitative acceptance
+- **AND** the native measurement owner SHALL retain the raw failure rather than
+  manufacture missing facts in a second record.
+
 ### Requirement: Provider-neutral configuration
 
 AIGW SHALL model Accounts, Profiles, Routes, endpoints, authentication

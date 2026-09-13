@@ -17,7 +17,11 @@ semantic or byte-level drift.
 
 - **WHEN** unchanged canonical input is rendered in the same supported toolchain
 - **THEN** both outputs are byte-identical, end with one newline, contain no
-  host path or secret, and use a stable readable ordering.
+  secret value, and use a stable readable ordering
+- **AND** portable repository projections contain no operator-specific path
+- **AND** a local client projection may contain the explicitly selected absolute
+  executable or configuration path required by its native contract, without
+  leaking that host input into the portable source.
 
 ### Requirement: Codex selections respect TOML scope and literal identity
 

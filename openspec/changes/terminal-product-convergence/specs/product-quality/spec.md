@@ -1,5 +1,40 @@
 ## MODIFIED Requirements
 
+### Requirement: Accepted publication trees contain only archived Changes
+
+Normal accepted-ref admission SHALL require `openspec/changes/` to contain no
+active Change directories before `dev`, `main`, or a release tag is accepted.
+Work-lane and proposal source validation SHALL validate their active intent
+without treating its presence as a publication attempt. Generic archive and
+ref-transition admission belong to ETHOS, not a duplicate source-check state
+machine. Future publication, installation, or retirement MUST NOT be reported
+complete merely to satisfy an archive prerequisite.
+
+#### Scenario: Active Change reaches source verification
+
+- **WHEN** normal admission evaluates an accepted publication ref whose tree
+  still contains an active Change
+- **THEN** it SHALL identify that Change and withhold publication admission
+- **AND** source validation for its work lane or proposal may run normally
+- **AND** an impossible lifecycle prerequisite SHALL remain an explicit ETHOS
+  defect, not permission to falsify task completion.
+
+### Requirement: Portable exact-version CI bootstrap
+
+GitLab Linux bootstrap SHALL consume the exact mise image version and digest
+from the CUE authority and install the declared tool closure from repository
+locks. Native distribution clients SHALL own transport and bounded failure
+handling; the repository SHALL NOT retain a second installer, force an
+incidental HTTP version, or invent a mirror-package requirement.
+
+#### Scenario: Transient HTTP transport failure
+
+- **WHEN** an installer or asset transfer encounters a transient transport error
+- **THEN** the native distribution client may retry within its bounded policy
+- **AND** unresolved transport or integrity failure stops the job without
+  claiming bootstrap success or substituting an unverified tool
+- **AND** a retry retains the selected lock and integrity requirements.
+
 ### Requirement: faithful quantitative quality evidence
 
 Go statement coverage SHALL be measured under one machine policy owning the
