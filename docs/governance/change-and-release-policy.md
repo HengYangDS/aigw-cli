@@ -84,7 +84,11 @@ This policy defines admission criteria, not a permanent list of rejected tools.
 [Renovate policy](../../.config/dependencies/renovate.json5) is the single
 dependency-proposal policy. Its native Go, npm, and
 [mise manager](https://docs.renovatebot.com/modules/manager/mise/) read the
-existing manifests and locks. Three declarative extractors cover Actions and
+existing manifests and locks. Native
+[`includePaths`](https://docs.renovatebot.com/configuration-options/#includepaths)
+limits discovery to authored dependency inputs and associated locks; disposable
+source copies cannot become another dependency authority. Three declarative
+extractors cover Actions and
 images in the CUE authority and the mise bootstrap version; generated Forge
 files are never dependency inputs. Dependabot's
 [supported ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories)

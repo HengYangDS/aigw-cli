@@ -34,7 +34,7 @@ jobs:
       - name: Install the locked toolchain
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
-          version: 2026.9.5
+          version: 2026.9.6
           install: true
           install_args: --locked
           cache: true
@@ -58,7 +58,7 @@ jobs:
       - name: Install the locked toolchain
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
-          version: 2026.9.5
+          version: 2026.9.6
           install: true
           install_args: --locked
           cache: true
@@ -82,7 +82,7 @@ jobs:
       - name: Install the locked toolchain
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
-          version: 2026.9.5
+          version: 2026.9.6
           install: true
           install_args: --locked
           cache: true
@@ -114,7 +114,7 @@ jobs:
       - name: Install the locked toolchain
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c
         with:
-          version: 2026.9.5
+          version: 2026.9.6
           install: true
           install_args: --locked
           cache: true

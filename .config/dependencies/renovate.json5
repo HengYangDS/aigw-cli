@@ -4,6 +4,17 @@
   // Only the operator-selected maintenance runner creates proposals. Forge
   // files are projections, so their native dependency managers are not owners.
   enabledManagers: ["gomod", "npm", "mise", "custom.regex"],
+  // Dependency truth is authored here; temporary checkouts are not inputs.
+  includePaths: [
+    "go.mod",
+    "go.sum",
+    "mise.toml",
+    "mise.lock",
+    "package.json",
+    "package-lock.json",
+    ".npmrc",
+    ".config/ci/pipeline.cue",
+  ],
   baseBranchPatterns: ["dev"],
   branchPrefix: "proposal/dependencies/",
   dependencyDashboard: false,
