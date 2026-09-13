@@ -35,6 +35,10 @@ platform acceptance, signing, and GA status remain separate evidence.
   changing user-owned authentication or weakening provider conflict checks.
 - Preserve user-selected Claude models during route synchronization while
   rejecting connection and credential conflicts before changing configuration.
+- Preserve Claude settings and ownership-state bytes when JSON formatting
+  changes without changing the managed values.
+- Explain that portable installation leaves PATH unchanged, with direct-path
+  invocation for first-time setup before shell command discovery is configured.
 - Reject malformed command arguments before acquiring configuration locks,
   inspecting credentials, or discovering clients.
 - Preserve publication credentials at the selected API authority instead of

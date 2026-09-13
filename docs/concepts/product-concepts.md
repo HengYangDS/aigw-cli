@@ -14,13 +14,6 @@ flowchart TB
 
 ## Core entities
 
-| Entity  | Meaning                                                                           | Cardinal rule                             |
-| ------- | --------------------------------------------------------------------------------- | ----------------------------------------- |
-| Account | Protocol endpoints and a logical credential boundary                              | Account Tokens are separate from Profiles |
-| Profile | One `account + client + model` choice and optional Codex-native provider identity | Client scope is explicit                  |
-| Route   | One client's explicit Profile selection                                           | No hidden provider fallback               |
-| Adapter | Projection into one native client                                                 | Never writes another client's surface     |
-
 ### Account
 
 An Account contains:
@@ -49,6 +42,12 @@ Codex-scoped Profile may explicitly select one safe `model_provider`; omission
 selects the canonical `aigw` provider. The selection is Profile-owned and never
 falls back from Account metadata.
 
+Authentication defaults to `account-token`, which uses the Account's selected
+Token backend. Codex Profiles alone may choose `client-native` with an explicit
+`model_provider`: that client owns credentials and any signing, so AIGW does
+not require an Account Token. This declaration is not evidence that the client
+or provider supports the selected combination; verify the actual invocation.
+
 ### Route
 
 ```bash
@@ -69,12 +68,13 @@ for deliberate selection changes.
 
 ### Adapter
 
-| Adapter     | Projection                                                                                         |
-| ----------- | -------------------------------------------------------------------------------------------------- |
-| Codex       | Marked provider/model configuration; Account Token helper or explicit client-native authentication |
-| Claude Code | Official user-settings endpoint/model projection and credential helper                             |
+- **Codex:** recorded provider/model configuration, with an Account Token helper
+  or explicit client-native authentication.
+- **Claude Code:** official user-settings endpoint/model projection and
+  credential helper.
 
-Adapters do not own provider behavior. Missing clients remain untouched.
+An Adapter writes only its client's owned surface; it does not own provider
+behavior. Missing clients remain untouched.
 
 ## Endpoint
 

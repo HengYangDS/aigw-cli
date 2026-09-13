@@ -496,8 +496,8 @@ provider-named implementation of all of them.
   - **Extension path:** Account data
   - **AIGW implementation consequence:** Configuration only
 - **Distinct credential exchange**
-  - **Extension path:** Account authentication
-  - **AIGW implementation consequence:** Extend the authentication owner
+  - **Extension path:** Existing client-native authentication when supported
+  - **AIGW implementation consequence:** Declare the Profile's authentication owner; extend a credential boundary only when the admitted client cannot supply it
 - **New local configuration target**
   - **Extension path:** Client Adapter
   - **AIGW implementation consequence:** Add one complete client transaction
@@ -513,17 +513,23 @@ authentication or discovery exceeds the admitted Account contract. Client
 Adapters own native configuration transactions; independent protocol products
 own proven wire incompatibilities.
 
-An ordinary Bearer-authenticated OpenAI Responses or Anthropic endpoint is an
-Account admission, not a new provider class. An authentication system such as
-request signing, or a non-native invocation protocol, requires a separately
-reviewed authentication or protocol Adapter; it must not be disguised as a
-Bearer Account.
+An ordinary OpenAI Responses endpoint using Bearer authentication, or an
+Anthropic endpoint using an API-key header, is Account data rather than a new
+provider class. A Codex Profile may instead declare `authentication =
+"client-native"` with an explicit `model_provider` when that client already
+owns the required credential chain and signing. AIGW projects the selection
+without reading client credentials or adding a signer. The selected client,
+endpoint and model still require real invocation evidence.
 
-A Client Adapter is admitted only when it can perform this complete slice:
+An unsupported credential exchange needs a separately reviewed authentication
+extension; an incompatible wire protocol belongs to an independently selected
+data plane. Neither case is admitted by treating its credentials as an ordinary
+Account Token or branching on a provider name.
 
-```text
-discover -> plan -> guard preimage -> commit -> verify -> compensate on failure
-```
+A Client Adapter must own discovery, planning, guarded projection and
+compensation, local inspection, explicit client verification and withdrawal.
+Projection failure compensates only unchanged owned writes; a later failed
+Provider request does not implicitly undo the operator's configuration.
 
 The [projection transaction](../decisions/dr-0006-transactional-client-projection.md)
 prepares every target before writing and guards compensation against newer

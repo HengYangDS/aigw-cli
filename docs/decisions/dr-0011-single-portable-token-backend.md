@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-23
+- Last amended: 2026-09-14
 
 ## Context
 
@@ -12,11 +13,12 @@ Searching both a keyring and a file store would make Token authority ambiguous.
 
 ## Decision
 
-Each installation uses one Account Token backend. Every supported platform
-proves native-service availability when first resolving Token storage. If
-unavailable, AIGW
-selects one AIGW-owned fallback store: owner-only files on macOS and Linux, or
-current-user DPAPI-protected files on Windows. The automatic choice is persisted
+Each installation selects one Account Token backend. Automatic resolution
+honors an existing choice; only an unrecorded choice probes native-service
+metadata and selects a fallback if that probe fails. The probe neither reads
+Tokens nor proves future read/write permission or freedom from interaction.
+The fallback is owner-only files on macOS and Linux, or current-user
+DPAPI-protected files on Windows. The automatic choice is persisted
 before the first credential mutation changes Token state. Read-only commands and
 credential reads may use the resolved backend for that invocation but do not
 persist a previously unrecorded choice. Explicit `keyring`, `file`, and read-only

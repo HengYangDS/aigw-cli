@@ -131,7 +131,7 @@ which calls Mermaid's parser without installing a browser in CI. Its scoped
 jsdom override selects 29.1.1 to remove the deprecated encoding dependency in
 the upstream 26.x range. The newer 30.0.1 resolution was not admitted: npm
 advertised provenance for its whatwg-url 17.1.1 dependency, but the attestation
-endpoint returned 404 and remains unavailable on the current supply refresh.
+endpoint returned 404 during that admission attempt.
 This is an explicit supply-chain exception,
 not a claim that 29.1.1 is latest. Reconsider the override when the upstream
 range removes deprecated dependencies and the complete resolution passes
@@ -517,47 +517,31 @@ a stricter threshold is not proven merely by a clean repository scan.
 
 #### Calibration decision
 
-The complete trial uses the locked analyzers on macOS arm64, Linux amd64 and
-Windows amd64 package selections, with product, tests and tools included and
-all per-rule diagnostics retained. The adopted set is the list above: file
-budget 500, cyclomatic 25, cognitive 45, span/statements 120/60, seven arguments,
-Nestif below four, maintainability at least 25 and clone threshold 100. Keep one
-policy for all source categories; no exception list or test-only softer rule.
+Calibration compares the locked analyzers across macOS arm64, Linux amd64 and
+Windows amd64 package selections, including product, tests and tools. Keep one
+policy for all source categories, with no exception list or softer test policy.
+Exact trial inputs, findings and remediation belong to the proposing OpenSpec
+Change. The durable trade-offs are:
 
 - **Cyclomatic 20, then 15**
-  - **Observation:** 20 yields 39 findings on macOS/Linux and 38 on Windows; four are tool orchestration. 15 yields 137/137/136.
-  - **Decision and semantic reason:** Retain 25. Signed publication, report admission and release construction retain ordered checks; complete acceptance journeys retain every preservation assertion. The trial already exposed and fixed ignored expected remote state. A score reduction alone is not another defect.
+  - **Decision and semantic reason:** Retain the current bound. Signed publication, report admission and release construction need ordered checks; complete acceptance journeys retain every preservation assertion. Lower-score findings require owner-level review, not automatic extraction into forwarding functions.
 - **Cognitive 40**
-  - **Observation:** 19 findings, all in tests, on every target.
-  - **Decision and semantic reason:** Retain 45. Bootstrap, recovery and native artifact tests jointly assert ownership, failure propagation and cleanup. Splitting those observations across helpers or weakening assertions does not reduce their product obligation.
+  - **Decision and semantic reason:** Retain the current bound. Bootstrap, recovery and native artifact tests jointly assert ownership, failure propagation and cleanup. Splitting those observations across helpers or weakening assertions does not reduce their product obligation.
 - **Span/statements 110/55**
-  - **Observation:** Eight findings per target: five tests and three orchestration functions.
-  - **Decision and semantic reason:** Retain 120/60. The extra span includes explicit native executable declarations; the complete source/build/check journeys are still inspectable without forwarding stages or compressed literals.
+  - **Decision and semantic reason:** Retain the current bounds. Explicit native executable declarations and complete source/build/check journeys remain inspectable without forwarding stages or compressed literals.
 - **Arguments six**
-  - **Observation:** After deletion of a single-caller preparation layer, two findings remain.
-  - **Decision and semantic reason:** Retain seven. A fixture declares an Account and Profile; the artifact-ordering function consumes one target plus before/after configuration, state and catalogue. Positional snapshot grouping alone would add a carrier rather than reduce knowledge.
+  - **Decision and semantic reason:** Retain the current bound. A fixture declares an Account and Profile; artifact ordering consumes a target plus before/after configuration, state and catalogue. Positional snapshot grouping alone would add a carrier rather than reduce caller knowledge.
 - **Nestif below four**
-  - **Observation:** Six original findings; all resolved at their existing owners.
-  - **Decision and semantic reason:** Adopt the stricter bound. Early terminal paths remove nesting, and shared credential deletion verifies metadata instead of reading secret values. Product/test/native fixtures prove the boundary.
+  - **Decision and semantic reason:** Adopt the stricter bound. Early terminal paths remove nesting, and shared credential deletion verifies metadata instead of reading secret values. Product and test fixtures verify the boundary.
 - **Maintainability 30**
-  - **Observation:** 17 findings per target: 16 tests and one release constructor.
-  - **Decision and semantic reason:** Retain 25. The index penalizes explicit assertion/data vocabulary as well as control flow; the independent size, nesting and decision limits already constrain these owners.
+  - **Decision and semantic reason:** Retain the current floor. The index penalizes explicit assertion/data vocabulary as well as control flow; independent size, nesting and decision limits constrain those owners.
 - **Clone threshold 80**
-  - **Observation:** 23 diagnostics on macOS/Linux and 25 on Windows.
-  - **Decision and semantic reason:** Retain 100. The extra Windows pair is DPAPI protection versus unprotection, not a repeated responsibility. Lower-sensitivity test findings inform the consumer review without forcing distinct assertions behind one configurable fake.
+  - **Decision and semantic reason:** Retain the current threshold. DPAPI protection and unprotection are distinct operations, not automatically repeated responsibility. Findings inform consumer review without forcing distinct assertions behind one configurable fake.
 
-Codex target preparation now has one complete owner rather than passing seven
-arguments into a single-caller layer. It measures convergence once before
-assigning a transaction ID; the regression proves that a converged target has
-no prepared writes and preserves configuration, sidecar and catalogue bytes.
-Combining this owner still passes all adopted limits and the cyclomatic-20
-trial. This is deletion with preserved semantics, not metric-driven splitting.
-
-This decision completes calibration, not every potential refactor. Global
-consumer/clone review remains task 7.5; complete gate effectiveness, native
-release and performance acceptance retain their own obligations. Reopen a
-threshold when concrete escaped risk or repeated cohesive-change rejection
-changes the trade-off, not merely when another numerical target is proposed.
+Calibration does not complete consumer/clone review, native release or
+performance acceptance. Reopen a threshold when concrete escaped risk or
+repeated cohesive-change rejection changes the trade-off, not merely when
+another numerical target is proposed.
 
 ### Check effectiveness and failure semantics
 

@@ -14,10 +14,12 @@ and Codex adapters may be enabled. A model name, a shared configuration
 directory, or a generic "OpenAI-compatible" claim must never bypass admission.
 
 Provider Account and Client Adapter are independent extension axes. Ordinary
-Bearer-authenticated endpoints use the Account schema; they do not require a
-provider-specific package. A distinct authentication mechanism or wire
-protocol requires an explicit protocol-extension decision instead of
-name-based branching; that decision does not admit a new Client Adapter.
+Responses Bearer authentication and Anthropic API-key authentication use the
+Account schema, not provider-specific packages. Prefer an admitted client's
+existing credential chain and signing through explicit client-native Profile
+authentication. Unsupported authentication or wire behavior needs a reviewed
+extension at its own boundary, not provider-name branching or implicit client
+admission.
 
 Classify an extension through the
 [architecture's extension model](../architecture/authority-and-projection-boundary.md#extension-model)
