@@ -105,6 +105,19 @@ func publicationCommands() commandSet {
 	}
 	source := artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
 	return commandSet{
+		"verify-artifacts": func(args []string, _ io.Writer) error {
+			if err := requireArguments(args, 1, "usage: release verify-artifacts <artifact-directory>"); err != nil {
+				return err
+			}
+			version, err := readiness.ReadProductVersion(source.Repository)
+			if err != nil {
+				return err
+			}
+			if err := artifact.VerifyMatrix(context.Background(), args[0], version, trust); err != nil {
+				return err
+			}
+			return artifact.VerifyProvenance(context.Background(), args[0], os.Getenv("CI_COMMIT_TAG"), source)
+		},
 		"publish-github": func(args []string, stdout io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release publish-github <artifact-directory>"); err != nil {
 				return err

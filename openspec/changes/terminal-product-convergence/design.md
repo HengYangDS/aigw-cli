@@ -1086,8 +1086,11 @@ ETHOS to repair those local responsibilities.
 
 One CUE graph describes facts and dependencies. GitHub Actions and GitLab CI are
 generated projections. Jobs are separated by independently useful evidence:
-fast quality, Go compatibility, native product journeys, release construction,
-and publication. Platform proof follows real runner capability; superficial job
+fast quality, Go compatibility, native product journeys and published-artifact
+verification. The existing release builder constructs and signs one immutable
+matrix on the approved build host. Independent peer uploads consume that same
+matrix; post-publication jobs download their own peer assets and verify public
+trust, tagged source and provenance without signing keys. Platform proof follows real runner capability; superficial job
 symmetry is not required, semantic parity is.
 
 Branch role values are consumed from `.ethos/workspace.toml` by CUE's native

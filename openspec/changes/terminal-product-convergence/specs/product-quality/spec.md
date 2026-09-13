@@ -194,6 +194,20 @@ without manufacturing a job identity or exporting a signing private key.
 - **AND** artifact trust, exact tagged source and complete asset verification
   SHALL remain unchanged.
 
+#### Scenario: Published artifacts are qualified independently
+
+- **WHEN** the operator publishes one accepted, signed artifact matrix to
+  selected peers and requests post-publication verification
+- **THEN** each peer SHALL download only its own complete artifact set and run
+  the same read-only signature, inventory and tagged-provenance verifier
+- **AND** hosted verification SHALL require public trust and download access,
+  not a signing private key or a new artifact build
+- **AND** tag creation SHALL still run source and native-platform checks
+- **AND** missing trust, missing assets, checksum mismatch, invalid signatures
+  or mismatched source SHALL fail rather than trigger reconstruction
+- **AND** source CI, artifact verification and installed-product acceptance
+  SHALL retain distinct completion claims.
+
 ### Requirement: Release SBOM covers the native binary matrix
 
 The release builder SHALL catalog every emitted native executable through the

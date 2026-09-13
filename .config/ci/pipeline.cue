@@ -5,11 +5,11 @@ import "strings"
 // pipeline.cue owns CI topology. Forge files are generated projections.
 
 #OperatingSystem: "darwin" | "linux" | "windows"
-#JobID:           "accepted-ref-parity" | "quality" | "native-darwin" | "native-linux" | "native-windows" | "release-readiness" | "package" | "publish" | "release"
-#Claim:           "accepted-ref-parity" | "source-quality" | "go-source-compatibility" | "native-product-journey" | "lifecycle-acceptance" | "release-metadata" | "artifact-construction" | "artifact-publication" | "release-record"
+#JobID:           "accepted-ref-parity" | "quality" | "native-darwin" | "native-linux" | "native-windows" | "release-readiness" | "release-assets"
+#Claim:           "accepted-ref-parity" | "source-quality" | "go-source-compatibility" | "native-product-journey" | "lifecycle-acceptance" | "release-metadata" | "artifact-verification"
 
 #Job: {
-	stage: "verify" | "package" | "publish" | "release"
+	stage: "verify" | "release"
 	rank:  int & >=0
 	needs: [...#JobID]
 	claims: [#Claim, ...#Claim]
@@ -27,9 +27,7 @@ commands: {
 		}
 	}
 	readiness: "mise exec --locked -- go run ./tools/release validate-readiness-tag"
-	build:     "mise exec --locked -- go run ./tools/release build-ci build/release dist"
-	upload:    "mise exec --locked -- go run ./tools/release upload-gitlab dist"
-	publish:   "mise exec --locked -- go run ./tools/release publish-gitlab dist"
+	artifacts: "mise exec --locked -- go run ./tools/release verify-artifacts dist"
 	acceptedRefParity: {
 		gitlab: "mise exec --locked -- go run ./tools/forge refs --remote \(lifecycle.checkoutRemote) --expect \"\(lifecycle.releaseBranch)=$CI_COMMIT_SHA\" --expect \"\(lifecycle.acceptedBranch)=$CI_COMMIT_SHA\""
 		github: "mise exec --locked -- go run ./tools/forge refs --remote \(lifecycle.checkoutRemote) --expect \"\(lifecycle.releaseBranch)=${{ github.sha }}\" --expect \"\(lifecycle.acceptedBranch)=${{ github.sha }}\""
@@ -37,7 +35,7 @@ commands: {
 }
 
 goToolchain: MISE_ENABLE_TOOLS:      "go"
-nativeToolchain: MISE_ENABLE_TOOLS:  "\(qualityToolchain.MISE_ENABLE_TOOLS),glab,github:anchore/syft"
+nativeToolchain: MISE_ENABLE_TOOLS:  "\(qualityToolchain.MISE_ENABLE_TOOLS),gh,glab,github:anchore/syft"
 qualityToolchain: MISE_ENABLE_TOOLS: "go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo"
 
 // Git role names belong to the adopter workspace; CUE consumes its native TOML.
@@ -102,9 +100,8 @@ goSourceMatrix: {
 	}
 }
 
-// Evidence is never reused across runs. The only admitted reuse is the exact
-// package artifact inside one pipeline; any identity dimension change starts
-// a new proving run.
+// Each event performs its own verification. Published artifacts are inputs,
+// not inherited proof; selected source, trust and complete bytes are rechecked.
 evidenceReuse: {
 	crossRun: false
 	invalidatedBy: [
@@ -116,11 +113,7 @@ evidenceReuse: {
 		"release-identity",
 		"claimed-fact",
 	]
-	samePipeline: [{
-		producer: "package"
-		consumers: ["publish", "release"]
-		identity: "artifact-digest"
-	}]
+	samePipeline: []
 }
 
 graph: {
@@ -131,14 +124,7 @@ graph: {
 	"native-linux": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
 	"native-windows": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
 	"release-readiness": {stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
-	package: {
-		stage: "package"
-		rank:  1
-		needs: ["quality", "native-darwin", "native-linux", "release-readiness"]
-		claims: ["artifact-construction"]
-	}
-	publish: {stage: "publish", rank: 2, needs: ["package"], claims: ["artifact-publication"]}
-	release: {stage: "release", rank: 3, needs: ["publish"], claims: ["release-record"]}
+	"release-assets": {stage: "release", rank: 1, needs: ["quality", "native-darwin", "native-linux", "release-readiness"], claims: ["artifact-verification"]}
 }
 
 gitlabVerificationCondition: {
@@ -156,7 +142,7 @@ gitlabFullVerificationRules: [
 	{when: "never"},
 ]
 
-githubFullVerificationCondition: "github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == '\(lifecycle.acceptedBranch)' || github.ref_name == '\(lifecycle.releaseBranch)'"
+githubFullVerificationCondition: "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == '\(lifecycle.acceptedBranch)' || github.ref_name == '\(lifecycle.releaseBranch)'"
 
 githubCommitBase: "${{ github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || inputs.commit_base }}"
 
@@ -179,13 +165,14 @@ actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
 	mise:     "jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c"         // v4.3.0
 	upload:   "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" // v7.0.1
-	sshAgent: "webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555"    // v0.10.0
 }
 
 #ReleaseTrustFiles: {
 	AIGW_RELEASE_ALLOWED_SIGNERS_FILE:          "$AIGW_RELEASE_ALLOWED_SIGNERS"
 	AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: "$AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"
 	SSH_ASKPASS_REQUIRE:                        "never"
+	GLAB_ENABLE_CI_AUTOLOGIN:                   "true"
+	MISE_ENABLE_TOOLS:                          "go,glab"
 }
 
 #SourceCheckout: {
@@ -201,7 +188,7 @@ actions: {
 	name: "Check out the exact release tag"
 	uses: actions.checkout
 	with: {
-		ref:           "${{ inputs.tag || github.ref_name }}"
+		ref:           "${{ inputs.tag }}"
 		"fetch-depth": 0
 	}
 }
@@ -376,7 +363,7 @@ gitlab: {
 		GOPROXY:   "https://goproxy.cn|https://proxy.golang.org|direct"
 	}
 	workflow: rules: gitlabFullVerificationRules
-	stages: ["verify", "package", "publish", "release"]
+	stages: ["verify", "release"]
 	".linux-toolchain": {
 		_dataDirectory: "build/runtime/tool-cache/.mise"
 		_cacheDirectories: ["installs", "cache"]
@@ -447,52 +434,23 @@ gitlab: {
 		]
 		script: [commands.readiness]
 	}
-	package: {
-		stage:     graph.package.stage
-		tags:      nativeEvidence.darwin.gitlab.tags
+	"release-assets": {
+		stage: graph["release-assets"].stage
+		extends: [".linux-toolchain"]
+		tags:      nativeEvidence.linux.gitlab.tags
 		variables: #ReleaseTrustFiles
 		rules: [
-			{if: "$CI_COMMIT_TAG"},
+			{if: "$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == \"api\" || $CI_PIPELINE_SOURCE == \"web\")"},
 			{when: "never"},
 		]
-		needs: [
-			{job: "quality"},
-			{job: "native-darwin"},
-			{job: "native-linux"},
-			{job: "release-readiness"},
-		]
+		needs: [for dependency in graph["release-assets"].needs {{job: dependency}}]
 		script: [
-			#"test -s "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE" && test -s "$AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE" && test -n "$AIGW_RELEASE_ARTIFACT_SIGNER""#,
-			#"ssh-keygen -y -P '' -f "$AIGW_RELEASE_SIGNING_KEY" >/dev/null"#,
-			commands.build,
+			#"mkdir dist"#,
+			#"mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --dir dist"#,
+			commands.artifacts,
 		]
-		artifacts: {
-			"expire_in": "30 days"
-			paths: ["dist/"]
-		}
 	}
-	publish: {
-		stage:     graph.publish.stage
-		tags:      nativeEvidence.darwin.gitlab.tags
-		variables: #ReleaseTrustFiles
-		rules: [
-			{if: "$CI_COMMIT_TAG"},
-			{when: "never"},
-		]
-		needs: [{job: "package", artifacts: true}]
-		script: [commands.upload]
-	}
-	release: {
-		stage:     graph.release.stage
-		tags:      nativeEvidence.darwin.gitlab.tags
-		variables: #ReleaseTrustFiles
-		rules: [
-			{if: "$CI_COMMIT_TAG"},
-			{when: "never"},
-		]
-		needs: [{job: "publish"}, {job: "package", artifacts: true}]
-		script: [commands.publish]
-	}
+
 }
 
 githubVerify: {
@@ -503,7 +461,7 @@ githubVerify: {
 		GIT_CONFIG_VALUE_0: "main"
 	}
 	"on": {
-		push: branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch]
+		push: {branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch], tags: ["v*"]}
 		"pull_request": branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch]
 		"workflow_dispatch": inputs: {
 			full_quality: {
@@ -593,20 +551,6 @@ githubVerify: {
 	}
 }
 
-#ReleaseNativeJob: {
-	_platform:         #OperatingSystem
-	name:              "Native \(nativeEvidence[_platform].name) release acceptance"
-	"runs-on":         nativeEvidence[_platform].github.runner
-	"timeout-minutes": 25
-	env:               nativeToolchain
-	steps: [
-		#ReleaseCheckout,
-		#Toolchain,
-		{name: "Prepare locked dependencies", run: commands.bootstrap},
-		{name: "Run native \(nativeEvidence[_platform].name) release acceptance", run: commands.native[_platform]},
-	]
-}
-
 githubRelease: {
 	name: "Release"
 	env: {
@@ -615,57 +559,36 @@ githubRelease: {
 		GIT_CONFIG_VALUE_0: "main"
 	}
 	"on": {
-		push: tags: ["v*"]
 		"workflow_dispatch": inputs: tag: {
-			description: "Existing v* tag to publish"
+			description: "Existing published v* release to verify"
 			required:    true
 			type:        "string"
 		}
 	}
 	permissions: contents: "read"
 	concurrency: {
-		group:                "release-${{ github.repository }}-${{ inputs.tag || github.ref_name }}"
+		group:                "release-${{ github.repository }}-${{ inputs.tag }}"
 		"cancel-in-progress": false
 	}
 	jobs: {
-		"native-darwin": #ReleaseNativeJob & {_platform: "darwin"}
-		"native-linux": #ReleaseNativeJob & {_platform: "linux"}
-		"native-windows": #ReleaseNativeJob & {_platform: "windows"}
-		"package-and-publish": {
-			name:        "Package and publish independently"
-			"runs-on":   nativeEvidence.linux.github.runner
-			environment: "release"
-			permissions: contents: "write"
+		"release-assets": {
+			name:              "Verify published release artifacts"
+			"runs-on":         nativeEvidence.linux.github.runner
+			"timeout-minutes": 25
 			env: {
-				SSH_ASKPASS_REQUIRE:          "never"
+				MISE_ENABLE_TOOLS:            "go,gh"
+				GH_TOKEN:                     "${{ github.token }}"
+				CI_COMMIT_TAG:                "${{ inputs.tag }}"
 				AIGW_RELEASE_ARTIFACT_SIGNER: "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}"
 			}
-			needs: ["native-darwin", "native-linux", "native-windows"]
-			"timeout-minutes": 45
 			steps: [
 				#ReleaseCheckout,
 				#Toolchain,
-				{
-					name: "Check release admission"
-					env: CI_COMMIT_TAG: "${{ inputs.tag || github.ref_name }}"
-					run: commands.readiness
-				},
-				{name: "Prepare locked dependencies", run: commands.bootstrap},
+				{name: "Check release admission", run: commands.readiness},
 				{
 					name: "Materialize provenance trust input"
 					env: AIGW_RELEASE_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}"
 					run: "mise exec --locked -- go run ./tools/ci trust-input --output \"$RUNNER_TEMP/aigw-allowed-signers\" --github-env \"$GITHUB_ENV\""
-				},
-				{
-					name: "Verify the signed tag and source"
-					env: {
-						SELECTED_TAG:                      "${{ inputs.tag || github.ref_name }}"
-						AIGW_COMMIT_BASE:                  "${{ format('{0}^', inputs.tag || github.ref_name) }}"
-						AIGW_CHANGELOG_RELEASE_TAG:        "${{ inputs.tag || github.ref_name }}"
-						AIGW_RELEASE_AUTHOR_EMAIL:         "${{ vars.AIGW_RELEASE_AUTHOR_EMAIL }}"
-						AIGW_RELEASE_ALLOWED_SIGNERS_FILE: "${{ env.AIGW_RELEASE_ALLOWED_SIGNERS_FILE }}"
-					}
-					run: commands.source
 				},
 				{
 					name: "Materialize artifact signature trust"
@@ -673,42 +596,10 @@ githubRelease: {
 					run: "mise exec --locked -- go run ./tools/ci trust-input --artifact --output \"$RUNNER_TEMP/aigw-artifact-signers\" --github-env \"$GITHUB_ENV\""
 				},
 				{
-					name: "Load the dedicated release signing key"
-					uses: actions.sshAgent
-					with: {
-						"ssh-private-key": "${{ secrets.AIGW_RELEASE_SIGNING_PRIVATE_KEY }}"
-						"log-public-key":  false
-					}
+					name: "Download this peer's published artifacts"
+					run:  #"mise exec --locked -- gh release download "$CI_COMMIT_TAG" --repo "$GITHUB_REPOSITORY" --dir dist"#
 				},
-				{
-					name: "Verify release signing capability"
-					env: AIGW_RELEASE_SIGNING_PUBLIC_KEY: "${{ vars.AIGW_RELEASE_SIGNING_PUBLIC_KEY }}"
-					run: #"""
-						test -n "$AIGW_RELEASE_ARTIFACT_SIGNER"
-						test -n "$AIGW_RELEASE_SIGNING_PUBLIC_KEY"
-						key="$RUNNER_TEMP/aigw-release-signing.pub"
-						printf '%s\n' "$AIGW_RELEASE_SIGNING_PUBLIC_KEY" > "$key"
-						ssh-add -T "$key"
-						printf 'AIGW_RELEASE_SIGNING_KEY=%s\n' "$key" >> "$GITHUB_ENV"
-						"""#
-				},
-				{
-					name: "Build the complete release matrix"
-					env: {
-						CI_COMMIT_TAG:                  "${{ inputs.tag || github.ref_name }}"
-						AIGW_GITHUB_RELEASE_ORIGIN:     "${{ github.server_url }}"
-						AIGW_GITHUB_RELEASE_REPOSITORY: "${{ github.repository }}"
-					}
-					run: commands.build
-				},
-				{
-					name: "Publish or verify immutable GitHub release assets"
-					env: {
-						GH_TOKEN:      "${{ github.token }}"
-						CI_COMMIT_TAG: "${{ inputs.tag || github.ref_name }}"
-					}
-					run: "mise exec --locked -- go run ./tools/release publish-github dist"
-				},
+				{name: "Verify complete artifacts and signed source", run: commands.artifacts},
 			]
 		}
 	}

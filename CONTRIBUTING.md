@@ -19,6 +19,20 @@ failing regression before changing behavior. Changes to projection logic must
 cover successful convergence, preflight rejection, write failure, byte-exact
 rollback, and absent-sidecar restoration.
 
+### Closing a repair
+
+Identify the violated contract and its existing owner before choosing a fix.
+Distinguish product prerequisites from assumptions introduced by the current
+implementation. Repair the owner, exercise its affected consumers, and remove
+the superseded path rather than maintaining two answers to the same problem.
+
+Keep the smallest reproducer as a regression. Run focused checks before the
+complete gate on stable inputs; a failure returns to its narrow reproducer.
+Record acceptance and evidence references in the active OpenSpec task, update
+the relevant operator guidance, and remove contradictory instructions. A new
+rule, skill, or passing format check is not proof that the failure cannot recur.
+Source, packaged, installed, and hosted outcomes require their own observations.
+
 Local developer-tool state, including `.serena/`, is disposable and ignored.
 It may index the current checkout, but it is not AIGW configuration, evidence,
 or an input to release and runtime decisions. Do not add it to commits, copy it
@@ -576,45 +590,61 @@ schema, parallel field mapping or independently maintained artifact list.
 
 This establishes consistency between signed artifacts, provenance and selected
 source. It does not establish an independently trusted build environment,
-native runtime acceptance, remote tag equality or hosted signing-key
-provisioning. Those remain separate release obligations. Keep the artifact
+native runtime acceptance, remote tag equality or hosted observation. Those remain separate release obligations. Keep the artifact
 directory exclusively owned and immutable throughout verification and upload.
 
-### Hosted signing inputs
+### One signed matrix, independent publication
 
-Signing credentials belong to the release execution environment, not a
-developer's login session. A CI runner being online does not prove that it has
-a usable signing key. Both peers must authorize the same product artifact key
-and principal if their independently constructed signed matrices are to be
-byte-identical. Neither peer signs commits or tags on behalf of the other.
+The operator builds and signs one release matrix from the accepted tagged
+source. The existing `build-ci` command performs two builds and compares every
+artifact before returning the result; its historical name does not require a
+CI runner. Keep signing capability on the approved build host. Both peers
+receive the same immutable files, including the original signature; neither
+peer rebuilds, re-signs, or downloads from the other.
 
-| Input                       | GitHub                                                                                        | GitLab                                                               |
-| --------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Source trust                | `AIGW_RELEASE_ALLOWED_SIGNERS` variable, materialized by `ci trust-input`                     | `AIGW_RELEASE_ALLOWED_SIGNERS` file-type variable                    |
-| Artifact trust              | `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS` variable, materialized by `ci trust-input --artifact` | Protected `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS` file-type variable |
-| Artifact principal          | `AIGW_RELEASE_ARTIFACT_SIGNER` release-environment variable                                   | Protected `AIGW_RELEASE_ARTIFACT_SIGNER` variable                    |
-| Artifact public key         | `AIGW_RELEASE_SIGNING_PUBLIC_KEY` release-environment variable                                | Included in the approved artifact trust file                         |
-| Artifact signing capability | `AIGW_RELEASE_SIGNING_PRIVATE_KEY` release-environment secret, loaded into an ephemeral agent | Protected `AIGW_RELEASE_SIGNING_KEY` file-type variable              |
+After release readiness, source acceptance and the exact signed tag are proven:
 
-Use a dedicated unencrypted automation key, with access controlled by the Forge
-secret store. Do not upload a personal key, register this key for Git transport,
-reuse a host login agent, or print private material. Configure GitHub's
-`release` environment to admit only the intended release tags before adding
-secrets; the workflow's environment name alone creates no protection. GitLab
-signing inputs must be restricted to protected release refs and unavailable to
-proposal/MR jobs. Provisioning and access controls require direct hosted
-verification; a workflow declaration is not proof that they exist.
+```bash
+export CI_COMMIT_TAG="v$(cat VERSION)"
+mise exec --locked -- go run ./tools/release build-ci build/release dist
+mise exec --locked -- go run ./tools/release verify-artifacts dist
+mise exec --locked -- go run ./tools/release publish-github dist
+mise exec --locked -- go run ./tools/release upload-gitlab dist
+mise exec --locked -- go run ./tools/release publish-gitlab dist
+```
 
-GitHub uses the pinned `webfactory/ssh-agent` action for agent creation, key
-loading and post-job cleanup; it runs only after source checks. The capability
-check verifies the configured public key is usable by that agent before
-construction. GitLab checks required trust files and noninteractive private-key
-access before construction. Missing inputs stop the job rather than falling
-back to personal credentials. Upload and release jobs need public trust and
-transport credentials, not a signing key.
+Run only the commands for selected peers, with their own previously admitted
+transport credentials and identity inputs. A failed peer does not roll back
+another peer or authorize reconstruction. The commands verify public trust and
+tagged provenance before network access and compare uploaded bytes afterward.
+Keep the identical matrix until every selected peer has passed readback.
 
-The same local build and publication commands remain available without either
-Forge. Hosted setup is not required for local-only artifact construction.
+### Hosted release verification
+
+Hosted verification requires public trust, not a signing secret:
+
+| Input                   | GitHub                                                      | GitLab                                                     |
+| ----------------------- | ----------------------------------------------------------- | ---------------------------------------------------------- |
+| Git source trust        | `AIGW_RELEASE_ALLOWED_SIGNERS` repository variable          | `AIGW_RELEASE_ALLOWED_SIGNERS` file-type variable          |
+| Artifact trust          | `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS` repository variable | `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS` file-type variable |
+| Artifact principal      | `AIGW_RELEASE_ARTIFACT_SIGNER` repository variable          | `AIGW_RELEASE_ARTIFACT_SIGNER` variable                    |
+| Download authentication | Read-only job token                                         | Native CI job-token auto-login                             |
+
+Tag push runs source and native checks. After all release assets are published,
+dispatch GitHub's **Release** workflow with the exact `tag` input, and dispatch
+a GitLab pipeline on that tag through the API or UI. These are explicit
+post-publication observations: release-record creation can precede the final
+asset upload, so it must not race the verifier. No operator confirmation dialog
+is required; the delivering agent can dispatch through the native CLIs.
+
+Each peer's `release-assets` job downloads only its own published assets with
+locked `gh` or `glab`, then runs the same `verify-artifacts` command.
+That command verifies complete inventory, bytes, authorized artifact signature,
+annotated tag, signed source and source-bound provenance. GitHub grants only
+`contents: read`; GitLab uses [native CI auto-login](https://docs.gitlab.com/cli/authentication/).
+Missing trust, assets or authentication fails verification. Tag source CI,
+artifact observation, native execution of released bytes and installation are
+separate acceptance obligations; a successful one cannot replace another.
 
 ### Source and publication identity
 

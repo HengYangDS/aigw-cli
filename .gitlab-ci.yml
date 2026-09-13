@@ -10,8 +10,6 @@ workflow:
     - when: never
 stages:
   - verify
-  - package
-  - publish
   - release
 .linux-toolchain:
   image:
@@ -82,7 +80,7 @@ native-darwin:
   tags:
     - $AIGW_GITLAB_DARWIN_RUNNER_TAG
   variables:
-    MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,glab,github:anchore/syft
+    MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,gh,glab,github:anchore/syft
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")
@@ -104,7 +102,7 @@ native-linux:
   tags:
     - $AIGW_GITLAB_LINUX_RUNNER_TAG
   variables:
-    MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,glab,github:anchore/syft
+    MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,gh,glab,github:anchore/syft
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main")
@@ -128,16 +126,20 @@ release-readiness:
     - when: never
   script:
     - mise exec --locked -- go run ./tools/release validate-readiness-tag
-package:
-  stage: package
+release-assets:
+  stage: release
+  extends:
+    - .linux-toolchain
   tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
+    - $AIGW_GITLAB_LINUX_RUNNER_TAG
   variables:
     AIGW_RELEASE_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ALLOWED_SIGNERS
     AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS
     SSH_ASKPASS_REQUIRE: never
+    GLAB_ENABLE_CI_AUTOLOGIN: "true"
+    MISE_ENABLE_TOOLS: go,glab
   rules:
-    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == "api" || $CI_PIPELINE_SOURCE == "web")
     - when: never
   needs:
     - job: quality
@@ -145,43 +147,6 @@ package:
     - job: native-linux
     - job: release-readiness
   script:
-    - test -s "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE" && test -s "$AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE" && test -n "$AIGW_RELEASE_ARTIFACT_SIGNER"
-    - ssh-keygen -y -P '' -f "$AIGW_RELEASE_SIGNING_KEY" >/dev/null
-    - mise exec --locked -- go run ./tools/release build-ci build/release dist
-  artifacts:
-    expire_in: 30 days
-    paths:
-      - dist/
-publish:
-  stage: publish
-  tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
-  variables:
-    AIGW_RELEASE_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ALLOWED_SIGNERS
-    AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS
-    SSH_ASKPASS_REQUIRE: never
-  rules:
-    - if: $CI_COMMIT_TAG
-    - when: never
-  needs:
-    - job: package
-      artifacts: true
-  script:
-    - mise exec --locked -- go run ./tools/release upload-gitlab dist
-release:
-  stage: release
-  tags:
-    - $AIGW_GITLAB_DARWIN_RUNNER_TAG
-  variables:
-    AIGW_RELEASE_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ALLOWED_SIGNERS
-    AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE: $AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS
-    SSH_ASKPASS_REQUIRE: never
-  rules:
-    - if: $CI_COMMIT_TAG
-    - when: never
-  needs:
-    - job: publish
-    - job: package
-      artifacts: true
-  script:
-    - mise exec --locked -- go run ./tools/release publish-gitlab dist
+    - mkdir dist
+    - mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --dir dist
+    - mise exec --locked -- go run ./tools/release verify-artifacts dist

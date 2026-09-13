@@ -57,6 +57,16 @@ facts are identical.
 - **AND** `main`, `dev`, the tag, assets, checksums, signatures, provenance, and
   reported version agree where the release policy requires identity.
 
+#### Scenario: Published artifacts are ready for hosted observation
+
+- **WHEN** publication and immediate asset readback have completed for a peer
+- **THEN** the delivering operator SHALL dispatch that peer's artifact
+  verification with the exact release tag
+- **AND** the verifier SHALL download from that peer rather than another peer
+- **AND** Release record creation alone SHALL NOT imply complete asset upload
+- **AND** hosted artifact verification SHALL NOT require a signing secret or
+  repeat artifact construction.
+
 ### Requirement: Output failure preserves the operation boundary
 
 Required verification and publication commands SHALL propagate output failures

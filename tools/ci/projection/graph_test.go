@@ -63,6 +63,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 		On struct {
 			Push struct {
 				Branches []string `yaml:"branches"`
+				Tags     []string `yaml:"tags"`
 			} `yaml:"push"`
 			PullRequest struct {
 				Branches []string `yaml:"branches"`
@@ -73,7 +74,7 @@ func TestVerificationRoutingCoversReviewAndMaintainerPaths(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(github.On.Push.Branches, []string{"dev", "main"}) {
+	if !slices.Equal(github.On.Push.Branches, []string{"dev", "main"}) || !slices.Equal(github.On.Push.Tags, []string{"v*"}) {
 		t.Fatalf("GitHub protected-branch routes = %q, want [dev main]", github.On.Push.Branches)
 	}
 	if !slices.Equal(github.On.PullRequest.Branches, []string{"dev", "main"}) {
@@ -246,7 +247,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	for _, metadata := range []string{".linux-toolchain", "stages", "variables", "workflow"} {
 		delete(gitlab, metadata)
 	}
-	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "package", "publish", "quality", "release", "release-readiness"}
+	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "quality", "release-assets", "release-readiness"}
 	if got := slices.Sorted(maps.Keys(gitlab)); !slices.Equal(got, wantGitLabJobs) {
 		t.Fatalf("GitLab jobs = %q, want %q", got, wantGitLabJobs)
 	}
@@ -386,9 +387,7 @@ func TestSemanticGraphDefinesExactClaimsAndEvidenceReuse(t *testing.T) {
 		"native-linux":        {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
 		"native-windows":      {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
 		"release-readiness":   {Stage: "verify", Needs: []string{}, Claims: []string{"release-metadata"}},
-		"package":             {Stage: "package", Rank: 1, Needs: []string{"quality", "native-darwin", "native-linux", "release-readiness"}, Claims: []string{"artifact-construction"}},
-		"publish":             {Stage: "publish", Rank: 2, Needs: []string{"package"}, Claims: []string{"artifact-publication"}},
-		"release":             {Stage: "release", Rank: 3, Needs: []string{"publish"}, Claims: []string{"release-record"}},
+		"release-assets":      {Stage: "release", Rank: 1, Needs: []string{"quality", "native-darwin", "native-linux", "release-readiness"}, Claims: []string{"artifact-verification"}},
 	}
 	if !reflect.DeepEqual(graph, wantGraph) {
 		t.Fatalf("CI graph = %#v, want %#v", graph, wantGraph)
@@ -427,12 +426,8 @@ func TestSemanticGraphDefinesExactClaimsAndEvidenceReuse(t *testing.T) {
 	}
 	export("evidenceReuse", &reuse)
 	wantInvalidators := []string{"source", "platform", "environment", "dependency-locks", "toolchain", "release-identity", "claimed-fact"}
-	if reuse.CrossRun || !slices.Equal(reuse.InvalidatedBy, wantInvalidators) || len(reuse.SamePipeline) != 1 {
+	if reuse.CrossRun || !slices.Equal(reuse.InvalidatedBy, wantInvalidators) || len(reuse.SamePipeline) != 0 {
 		t.Fatalf("evidence reuse = %#v", reuse)
-	}
-	artifact := reuse.SamePipeline[0]
-	if artifact.Producer != "package" || !slices.Equal(artifact.Consumers, []string{"publish", "release"}) || artifact.Identity != "artifact-digest" {
-		t.Fatalf("same-pipeline artifact reuse = %#v", artifact)
 	}
 }
 
@@ -453,7 +448,7 @@ func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
 	}
 	var gitlab struct {
 		NativeWindows *gitLabJob `yaml:"native-windows"`
-		Package       gitLabJob  `yaml:"package"`
+		Assets        gitLabJob  `yaml:"release-assets"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
@@ -465,13 +460,13 @@ func TestForgeProjectionsFollowDeclaredNativeCapacity(t *testing.T) {
 		strings.Contains(projections[0].Content, "allow_failure:") {
 		t.Fatal("GitLab projection retains a disabled Windows runner surface")
 	}
-	for _, need := range gitlab.Package.Needs {
+	for _, need := range gitlab.Assets.Needs {
 		if need.Job == "native-windows" {
 			t.Fatal("GitLab package duplicates product-level native Windows admission")
 		}
 	}
 
-	for _, projectionIndex := range []int{1, 2} {
+	for _, projectionIndex := range []int{1} {
 		var github struct {
 			Jobs map[string]any `yaml:"jobs"`
 		}

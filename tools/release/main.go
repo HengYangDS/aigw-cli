@@ -36,7 +36,7 @@ func execute(args []string, stdout, stderr io.Writer) int {
 
 func run(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: release <build|build-ci|accept-native|validate-release-sources|validate-toolchain|validate-readiness|validate-readiness-tag|validate-artifacts|compare-artifacts|upload-gitlab|publish-github|publish-gitlab>")
+		return errors.New("usage: release <build|build-ci|accept-native|validate-release-sources|validate-toolchain|validate-readiness|validate-readiness-tag|validate-artifacts|verify-artifacts|compare-artifacts|upload-gitlab|publish-github|publish-gitlab>")
 	}
 	for _, commands := range []commandSet{buildCommands(), policyCommands(), artifactCommands(), publicationCommands()} {
 		if command, ok := commands[args[0]]; ok {

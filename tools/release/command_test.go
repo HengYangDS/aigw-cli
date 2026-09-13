@@ -18,7 +18,7 @@ import (
 
 func TestRunBuildCIAndTagReadinessInputBoundaries(t *testing.T) {
 	var output bytes.Buffer
-	for _, args := range [][]string{{"build-ci"}, {"upload-gitlab"}, {"publish-github"}, {"publish-gitlab"}, {"validate-readiness-tag", "extra"}} {
+	for _, args := range [][]string{{"build-ci"}, {"upload-gitlab"}, {"publish-github"}, {"publish-gitlab"}, {"verify-artifacts"}, {"validate-readiness-tag", "extra"}} {
 		if err := run(args, &output); err == nil {
 			t.Fatalf("invalid invocation accepted: %v", args)
 		}
@@ -126,6 +126,141 @@ func TestRunReleasePolicyCommands(t *testing.T) {
 
 func TestRunPublicationCommands(t *testing.T) {
 	const version = "0.1.0"
+	artifacts := prepareSignedRelease(t, version)
+	github := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodGet {
+			t.Fatalf("unexpected GitHub method %s", request.Method)
+		}
+		if strings.HasPrefix(request.URL.Path, "/assets/") {
+			http.ServeFile(response, request, filepath.Join(artifacts, filepath.Base(request.URL.Path)))
+			return
+		}
+		assets := make([]map[string]string, 0, len(artifact.Names(version)))
+		for _, name := range artifact.Names(version) {
+			assets = append(assets, map[string]string{"name": name, "url": "http://" + request.Host + "/assets/" + name})
+		}
+		if err := json.NewEncoder(response).Encode(map[string]any{"id": 1, "assets": assets}); err != nil {
+			t.Fatal(err)
+		}
+	}))
+	defer github.Close()
+	gitlab := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch {
+		case request.Method == http.MethodPut:
+			response.WriteHeader(http.StatusCreated)
+			return
+		case strings.HasPrefix(request.URL.Path, "/packages/"):
+			http.ServeFile(response, request, filepath.Join(artifacts, filepath.Base(request.URL.Path)))
+			return
+		}
+		links := make([]map[string]string, 0, len(artifact.Names(version)))
+		for _, name := range artifact.Names(version) {
+			links = append(links, map[string]string{"url": "http://" + request.Host + "/packages/" + name})
+		}
+		if err := json.NewEncoder(response).Encode(map[string]any{"tag_name": "v" + version, "assets": map[string]any{"links": links}}); err != nil {
+			t.Fatal(err)
+		}
+	}))
+	defer gitlab.Close()
+
+	for name, value := range map[string]string{
+		"GITHUB_API_URL": github.URL, "GITHUB_REPOSITORY": "acme/aigw",
+		"CI_COMMIT_TAG": "v" + version, "GH_TOKEN": "secret",
+		"CI_API_V4_URL": gitlab.URL, "CI_PROJECT_ID": "7", "CI_JOB_TOKEN": "", "GITLAB_TOKEN": "local-release-token",
+	} {
+		t.Setenv(name, value)
+	}
+	closed, err := os.CreateTemp(t.TempDir(), "closed-output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := closed.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	for _, scenario := range []struct {
+		name   string
+		writer io.Writer
+		cause  error
+	}{
+		{"publish-github", &output, nil},
+		{"upload-gitlab", &output, nil},
+		{"publish-gitlab", &output, nil},
+		{"publish-github", closed, os.ErrClosed},
+		{"publish-gitlab", closed, os.ErrClosed},
+	} {
+		err := run([]string{scenario.name, artifacts}, scenario.writer)
+		if !errors.Is(err, scenario.cause) {
+			t.Errorf("%s: error=%v, want cause=%v", scenario.name, err, scenario.cause)
+		}
+	}
+	if output.String() != "GitHub release verified (created=false)\nGitLab release verified (created=false)\n" {
+		t.Fatalf("publication report = %q", output.String())
+	}
+}
+
+func TestVerifyArtifactsWithPublicTrust(t *testing.T) {
+	artifacts := prepareSignedRelease(t, "0.1.0")
+	for _, name := range []string{"GH_TOKEN", "GITLAB_TOKEN", "CI_JOB_TOKEN", "SSH_AUTH_SOCK"} {
+		t.Setenv(name, "")
+	}
+	if err := run([]string{"verify-artifacts", artifacts}, io.Discard); err != nil {
+		t.Fatalf("offline verification without signing or publication credentials: %v", err)
+	}
+	t.Setenv("CI_COMMIT_TAG", "v9.9.9")
+	if err := run([]string{"verify-artifacts", artifacts}, io.Discard); err == nil {
+		t.Fatal("verification accepted a different release tag")
+	}
+}
+
+func TestReleaseEnvironmentSelection(t *testing.T) {
+	if envDefault("MISSING_RELEASE_ENV", "fallback") != "fallback" || firstNonEmpty("", "value") != "value" || firstNonEmpty() != "" {
+		t.Fatal("environment selection failed")
+	}
+}
+
+func TestVerifyArtifactsRequiresSourceAndSignatureTrust(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	for name, value := range map[string]string{
+		"AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE": "",
+		"AIGW_RELEASE_ARTIFACT_SIGNER":               "",
+		"AIGW_RELEASE_ALLOWED_SIGNERS_FILE":          "",
+		"CI_COMMIT_TAG":                              "v1.2.3",
+	} {
+		t.Setenv(name, value)
+	}
+	if err := run([]string{"verify-artifacts", root}, io.Discard); err == nil || !strings.Contains(err.Error(), "read VERSION") {
+		t.Fatalf("missing source version: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"verify-artifacts", root}, io.Discard); err == nil || !strings.Contains(err.Error(), "artifact authorization") {
+		t.Fatalf("missing public trust: %v", err)
+	}
+}
+
+func TestRunReportsCommandFailures(t *testing.T) {
+	var output bytes.Buffer
+	cases := [][]string{
+		nil,
+		{"build"},
+		{"validate-release-sources", "extra"},
+		{"validate-toolchain"},
+		{"validate-readiness"},
+		{"validate-artifacts"},
+		{"compare-artifacts"},
+	}
+	for _, args := range cases {
+		if err := run(args, &output); err == nil {
+			t.Errorf("invalid command accepted: %v", args)
+		}
+	}
+}
+
+func prepareSignedRelease(t *testing.T, version string) string {
+	t.Helper()
 	key := artifactSigningKey(t)
 	artifacts := writeArtifactFixture(t, version, key)
 	publicKey := readFile(t, key+".pub")
@@ -170,103 +305,18 @@ func TestRunPublicationCommands(t *testing.T) {
 		t.Fatalf("sign manifest: %v: %s", err, output)
 	}
 	t.Chdir(source)
-	github := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Method != http.MethodGet {
-			t.Fatalf("unexpected GitHub method %s", request.Method)
-		}
-		if strings.HasPrefix(request.URL.Path, "/assets/") {
-			http.ServeFile(response, request, filepath.Join(artifacts, filepath.Base(request.URL.Path)))
-			return
-		}
-		assets := make([]map[string]string, 0, len(artifact.Names(version)))
-		for _, name := range artifact.Names(version) {
-			assets = append(assets, map[string]string{"name": name, "url": "http://" + request.Host + "/assets/" + name})
-		}
-		if err := json.NewEncoder(response).Encode(map[string]any{"id": 1, "assets": assets}); err != nil {
-			t.Fatal(err)
-		}
-	}))
-	defer github.Close()
-	gitlab := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		switch {
-		case request.Method == http.MethodPut:
-			response.WriteHeader(http.StatusCreated)
-			return
-		case strings.HasPrefix(request.URL.Path, "/packages/"):
-			http.ServeFile(response, request, filepath.Join(artifacts, filepath.Base(request.URL.Path)))
-			return
-		}
-		links := make([]map[string]string, 0, len(artifact.Names(version)))
-		for _, name := range artifact.Names(version) {
-			links = append(links, map[string]string{"url": "http://" + request.Host + "/packages/" + name})
-		}
-		if err := json.NewEncoder(response).Encode(map[string]any{"tag_name": "v" + version, "assets": map[string]any{"links": links}}); err != nil {
-			t.Fatal(err)
-		}
-	}))
-	defer gitlab.Close()
-
+	if err := os.Remove(key); err != nil {
+		t.Fatal(err)
+	}
 	for name, value := range map[string]string{
 		"AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE": allowedSigners,
 		"AIGW_RELEASE_ARTIFACT_SIGNER":               "release@test.invalid",
 		"AIGW_RELEASE_ALLOWED_SIGNERS_FILE":          allowedSigners,
-		"GITHUB_API_URL":                             github.URL, "GITHUB_REPOSITORY": "acme/aigw",
-		"CI_COMMIT_TAG": "v" + version, "GH_TOKEN": "secret",
-		"CI_API_V4_URL": gitlab.URL, "CI_PROJECT_ID": "7", "CI_JOB_TOKEN": "", "GITLAB_TOKEN": "local-release-token",
+		"CI_COMMIT_TAG":                              "v" + version,
 	} {
 		t.Setenv(name, value)
 	}
-	closed, err := os.CreateTemp(t.TempDir(), "closed-output")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := closed.Close(); err != nil {
-		t.Fatal(err)
-	}
-	var output bytes.Buffer
-	for _, scenario := range []struct {
-		name   string
-		writer io.Writer
-		cause  error
-	}{
-		{"publish-github", &output, nil},
-		{"upload-gitlab", &output, nil},
-		{"publish-gitlab", &output, nil},
-		{"publish-github", closed, os.ErrClosed},
-		{"publish-gitlab", closed, os.ErrClosed},
-	} {
-		err := run([]string{scenario.name, artifacts}, scenario.writer)
-		if !errors.Is(err, scenario.cause) {
-			t.Errorf("%s: error=%v, want cause=%v", scenario.name, err, scenario.cause)
-		}
-	}
-	if output.String() != "GitHub release verified (created=false)\nGitLab release verified (created=false)\n" {
-		t.Fatalf("publication report = %q", output.String())
-	}
-}
-
-func TestReleaseEnvironmentSelection(t *testing.T) {
-	if envDefault("MISSING_RELEASE_ENV", "fallback") != "fallback" || firstNonEmpty("", "value") != "value" || firstNonEmpty() != "" {
-		t.Fatal("environment selection failed")
-	}
-}
-
-func TestRunReportsCommandFailures(t *testing.T) {
-	var output bytes.Buffer
-	cases := [][]string{
-		nil,
-		{"build"},
-		{"validate-release-sources", "extra"},
-		{"validate-toolchain"},
-		{"validate-readiness"},
-		{"validate-artifacts"},
-		{"compare-artifacts"},
-	}
-	for _, args := range cases {
-		if err := run(args, &output); err == nil {
-			t.Errorf("invalid command accepted: %v", args)
-		}
-	}
+	return artifacts
 }
 
 func writeArtifactFixture(t *testing.T, version, key string) string {

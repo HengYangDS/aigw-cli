@@ -352,8 +352,10 @@ validates its tag once and carries the parsed identity into asset selection and
 stability classification. Prerelease status comes from the prerelease field,
 never punctuation or channel-like text in build metadata. Native signing
 admission remains a separate readiness responsibility; a valid version alone
-does not establish release readiness. CUE requires that same admission command
-before construction on both Forges for every release tag. Document formatting,
+does not establish release readiness. CUE runs tag-source verification and
+requires that same admission before each peer verifies its published artifacts.
+The operator constructs and signs one matrix; each peer independently receives
+and verifies those bytes using public trust, without hosted signing keys. Document formatting,
 structure and links have their native quality gates; prose is not release
 evidence.
 

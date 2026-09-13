@@ -9,7 +9,9 @@ A proposal push and its review update can request equivalent verification.
 Conversely, omitting accepted-branch verification assumes every `dev` update
 has reviewed evidence for that exact object. That assumption fails for direct
 maintainer pushes and cannot be repaired by merely observing a green `main`.
-The current system has no cross-event evidence-reuse verifier.
+The current system has no cross-event evidence-reuse verifier. Release-record
+creation can precede asset completion, so artifact verification starts only
+after the operator has finished publication.
 
 ## Decision
 
@@ -23,7 +25,8 @@ that native TOML and owns event routing; generated files own no policy.
 | Open or update an integration review into `main`                 | Complete source verification for the review's selected object   |
 | Push `dev`, including a maintainer fast-forward or merged review | Complete source verification for the resulting accepted object  |
 | Push `main`                                                      | Complete source verification plus exact `main`/`dev` ref parity |
-| Release tag                                                      | Declared signed-source, artifact and publication graph          |
+| Release tag                                                      | Complete signed-source and native-platform verification         |
+| Explicit post-publication dispatch                               | Peer-local artifact download, signature and source verification |
 | Explicit manual dispatch                                         | Declared diagnostic or release workflow with explicit inputs    |
 
 Proposal branch pushes do not start a second graph alongside review events.
@@ -35,6 +38,13 @@ Accepted and release events do run separately, even when their object IDs match:
 no job currently consumes and verifies another event's complete evidence. Never
 silently omit the `dev` route to simulate deduplication. Every job measures the
 exact Git object selected by its event; the event alone is not proof of success.
+
+Hosted release jobs verify rather than construct: one approved build host signs
+a single matrix and publishes the same files independently to selected peers.
+The GitHub Release workflow and GitLab tag API/UI pipeline are dispatched after
+complete asset readback. This keeps private signing keys off runners and avoids
+a release-created event racing incomplete uploads. Public trust and transport
+authorization remain independent inputs.
 
 ## Consequences
 

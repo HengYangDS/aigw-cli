@@ -68,6 +68,7 @@ func TestMiseToolExecutablesMatchDeclaredVersions(t *testing.T) {
 		"go":                           {[]string{"go", "version"}, `^go version go(\S+)`},
 		"node":                         {[]string{"node", "--version"}, `^v(\S+)`},
 		"cue":                          {[]string{"cue", "version"}, `^cue version v(\S+)`},
+		"gh":                           {[]string{"gh", "--version"}, `^gh version (\S+)`},
 		"glab":                         {[]string{"glab", "--version"}, `^glab (\S+)`},
 		"github:goreleaser/goreleaser": {[]string{"goreleaser", "--version"}, `(?m)^GitVersion:\s+(\S+)`},
 		"github:anchore/syft":          {[]string{"syft", "version"}, `(?m)^Version:\s+(\S+)`},

@@ -72,32 +72,6 @@ func TestQualityJobsProjectTheIntegrationCommitBase(t *testing.T) {
 		}
 	}
 
-	var release struct {
-		Jobs map[string]struct {
-			Steps []struct {
-				Name string            `yaml:"name"`
-				Env  map[string]string `yaml:"env"`
-			} `yaml:"steps"`
-		} `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[2].Content), &release); err != nil {
-		t.Fatal(err)
-	}
-	releaseSteps := release.Jobs["package-and-publish"].Steps
-	releaseIndex := slices.IndexFunc(releaseSteps, func(step struct {
-		Name string            `yaml:"name"`
-		Env  map[string]string `yaml:"env"`
-	}) bool {
-		return step.Name == "Verify the signed tag and source"
-	})
-	if releaseIndex < 0 {
-		t.Fatal("GitHub release job lacks signed source verification")
-	}
-	wantReleaseBase := "${{ format('{0}^', inputs.tag || github.ref_name) }}"
-	if got := releaseSteps[releaseIndex].Env["AIGW_COMMIT_BASE"]; got != wantReleaseBase {
-		t.Fatalf("GitHub release commit base = %q, want %q", got, wantReleaseBase)
-	}
-
 	var manual struct {
 		On struct {
 			WorkflowDispatch struct {
@@ -127,9 +101,7 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		Quality           gitLabJob `yaml:"quality"`
 		Darwin            gitLabJob `yaml:"native-darwin"`
 		Linux             gitLabJob `yaml:"native-linux"`
-		Package           gitLabJob `yaml:"package"`
-		Publish           gitLabJob `yaml:"publish"`
-		Release           gitLabJob `yaml:"release"`
+		ReleaseAssets     gitLabJob `yaml:"release-assets"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
@@ -159,9 +131,7 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		}
 	}
 	for name, job := range map[string]gitLabJob{
-		"package": gitlab.Package,
-		"publish": gitlab.Publish,
-		"release": gitlab.Release,
+		"release-assets": gitlab.ReleaseAssets,
 	} {
 		for _, rule := range job.Rules {
 			if rule.If == `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "dev"` {
@@ -185,7 +155,7 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		if name == "accepted-ref-parity" {
 			continue
 		}
-		if job.If != "github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'" {
+		if job.If != "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'" {
 			t.Fatalf("GitHub %s does not positively admit the full verification lifecycle: %q", name, job.If)
 		}
 	}
@@ -259,167 +229,101 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 	}
 }
 
-func TestGitHubReleaseBuildUsesTheCanonicalTagInput(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	projections, err := renderProjections(root)
+func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var workflow struct {
-		Jobs map[string]struct {
-			Steps []struct {
-				Name string            `yaml:"name"`
-				Env  map[string]string `yaml:"env"`
-			} `yaml:"steps"`
-		} `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[2].Content), &workflow); err != nil {
-		t.Fatal(err)
-	}
-	steps := workflow.Jobs["package-and-publish"].Steps
-	index := slices.IndexFunc(steps, func(step struct {
-		Name string            `yaml:"name"`
-		Env  map[string]string `yaml:"env"`
-	}) bool {
-		return step.Name == "Build the complete release matrix"
-	})
-	if index < 0 {
-		t.Fatal("GitHub release build step is missing")
-	}
-	want := "${{ inputs.tag || github.ref_name }}"
-	if got := steps[index].Env["CI_COMMIT_TAG"]; got != want {
-		t.Fatalf("GitHub release build tag = %q, want %q", got, want)
-	}
-	if _, duplicated := steps[index].Env["SELECTED_TAG"]; duplicated {
-		t.Fatal("GitHub release build retains a parallel tag input")
-	}
-}
-
-func TestReleaseSigningHasExplicitInputsBeforeConstruction(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	projections, err := renderProjections(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var workflow struct {
+		On map[string]struct {
+			Inputs map[string]struct{ Required bool }
+		} `yaml:"on"`
 		Permissions map[string]string `yaml:"permissions"`
 		Jobs        map[string]struct {
-			Environment string            `yaml:"environment"`
-			Env         map[string]string `yaml:"env"`
 			Permissions map[string]string `yaml:"permissions"`
+			Env         map[string]string `yaml:"env"`
 			Steps       []struct {
-				Name string `yaml:"name"`
-				Uses string `yaml:"uses"`
-				Run  string `yaml:"run"`
-				With struct {
-					PrivateKey string `yaml:"ssh-private-key"`
-				} `yaml:"with"`
+				Name string            `yaml:"name"`
+				Run  string            `yaml:"run"`
+				Env  map[string]string `yaml:"env"`
+				With map[string]string `yaml:"with"`
 			} `yaml:"steps"`
 		} `yaml:"jobs"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[2].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
-	job := workflow.Jobs["package-and-publish"]
-	if job.Environment != "release" || job.Env["SSH_ASKPASS_REQUIRE"] != "never" {
-		t.Fatal("release signing must use an explicit release environment without password prompts")
+	job, present := workflow.Jobs["release-assets"]
+	if !present || len(workflow.Jobs) != 1 || workflow.Permissions["contents"] != "read" || len(job.Permissions) != 0 {
+		t.Fatal("published artifact verification must have read-only authority")
 	}
-	if workflow.Permissions["contents"] != "read" || job.Permissions["contents"] != "write" {
-		t.Fatal("release write authority must be scoped to the publication job")
+	if len(workflow.On) != 1 || !workflow.On["workflow_dispatch"].Inputs["tag"].Required {
+		t.Fatal("artifact verification requires explicit dispatch after complete publication")
 	}
-	loaded, tested := false, false
+	const tag = "${{ inputs.tag }}"
+	if job.Env["CI_COMMIT_TAG"] != tag || job.Steps[0].With["ref"] != tag {
+		t.Fatal("release verification changed the selected tag")
+	}
+	if job.Env["AIGW_RELEASE_ARTIFACT_SIGNER"] != "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}" {
+		t.Fatal("release signer trust is absent")
+	}
+	var commands []string
+	var trust []string
 	for _, step := range job.Steps {
-		if strings.HasPrefix(step.Uses, "webfactory/ssh-agent@") {
-			loaded = step.With.PrivateKey == "${{ secrets.AIGW_RELEASE_SIGNING_PRIVATE_KEY }}"
+		if step.Run != "" {
+			commands = append(commands, step.Run)
 		}
-		if strings.Contains(step.Run, "ssh-add -T") {
-			tested = loaded
-		}
-		if step.Name == "Build the complete release matrix" && !tested {
-			t.Fatal("artifact construction preceded explicit signing capability verification")
+		for _, key := range []string{"AIGW_RELEASE_ALLOWED_SIGNERS", "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"} {
+			if step.Env[key] == "${{ vars."+key+" }}" {
+				trust = append(trust, key)
+			}
 		}
 	}
-	if !loaded || !tested {
-		t.Fatal("release signing capability was not declared and verified")
+	want := []string{
+		"mise exec --locked -- go run ./tools/release validate-readiness-tag",
+		`mise exec --locked -- go run ./tools/ci trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"`,
+		`mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$RUNNER_TEMP/aigw-artifact-signers" --github-env "$GITHUB_ENV"`,
+		`mise exec --locked -- gh release download "$CI_COMMIT_TAG" --repo "$GITHUB_REPOSITORY" --dir dist`,
+		"mise exec --locked -- go run ./tools/release verify-artifacts dist",
 	}
-	var gitlab struct {
-		Package gitLabJob `yaml:"package"`
-		Publish gitLabJob `yaml:"publish"`
-		Release gitLabJob `yaml:"release"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
-		t.Fatal(err)
-	}
-	for name, job := range map[string]gitLabJob{"package": gitlab.Package, "publish": gitlab.Publish, "release": gitlab.Release} {
-		variables := job.Variables
-		if variables["AIGW_RELEASE_ALLOWED_SIGNERS_FILE"] != "$AIGW_RELEASE_ALLOWED_SIGNERS" || variables["AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"] != "$AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS" || variables["SSH_ASKPASS_REQUIRE"] != "never" {
-			t.Fatalf("GitLab %s omits release trust projection: %v", name, variables)
-		}
+	if !slices.Equal(commands, want) || !slices.Equal(trust, []string{"AIGW_RELEASE_ALLOWED_SIGNERS", "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"}) {
+		t.Fatalf("release verification order or trust differs: %q, %q", commands, trust)
 	}
 }
 
-func TestReleaseAdmissionPrecedesConstructionAcrossForges(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	projections, err := renderProjections(root)
+func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	const admission = "mise exec --locked -- go run ./tools/release validate-readiness-tag"
-	t.Run("GitLab", func(t *testing.T) {
-		var pipeline struct {
-			Readiness gitLabJob `yaml:"release-readiness"`
-			Package   struct {
-				Needs []struct {
-					Job      string `yaml:"job"`
-					Optional bool   `yaml:"optional"`
-				} `yaml:"needs"`
-			} `yaml:"package"`
-		}
-		if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
-			t.Fatal(err)
-		}
-		if !slices.Equal(pipeline.Readiness.Script, []string{admission}) {
-			t.Fatalf("release admission command=%q", pipeline.Readiness.Script)
-		}
-		rules := pipeline.Readiness.Rules
-		if len(rules) != 2 || rules[0].If != "$CI_COMMIT_TAG" || rules[0].When != "" || rules[1].When != "never" {
-			t.Errorf("release admission must evaluate every tag: %#v", rules)
-		}
-		for _, need := range pipeline.Package.Needs {
-			if need.Job == "release-readiness" && !need.Optional {
-				return
-			}
-		}
-		t.Fatal("package must require release admission")
-	})
-	t.Run("GitHub", func(t *testing.T) {
-		var workflow struct {
-			Jobs map[string]struct {
-				Steps []struct {
-					Run             string            `yaml:"run"`
-					If              string            `yaml:"if"`
-					ContinueOnError bool              `yaml:"continue-on-error"`
-					Env             map[string]string `yaml:"env"`
-				} `yaml:"steps"`
-			} `yaml:"jobs"`
-		}
-		if err := yaml.Unmarshal([]byte(projections[2].Content), &workflow); err != nil {
-			t.Fatal(err)
-		}
-		admitted := false
-		for _, step := range workflow.Jobs["package-and-publish"].Steps {
-			if step.Run == admission {
-				admitted = step.If == "" && !step.ContinueOnError && step.Env["CI_COMMIT_TAG"] == "${{ inputs.tag || github.ref_name }}"
-			}
-			if step.Run == "mise exec --locked -- go run ./tools/release build-ci build/release dist" {
-				if !admitted {
-					t.Fatal("GitHub construction must follow required admission for the selected tag")
-				}
-				return
-			}
-		}
-		t.Fatal("GitHub release construction is missing")
-	})
+	var pipeline struct {
+		Readiness gitLabJob `yaml:"release-readiness"`
+		Assets    gitLabJob `yaml:"release-assets"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(pipeline.Readiness.Script, []string{"mise exec --locked -- go run ./tools/release validate-readiness-tag"}) {
+		t.Fatal("tag admission is missing")
+	}
+	want := []string{"mkdir dist", `mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --dir dist`, "mise exec --locked -- go run ./tools/release verify-artifacts dist"}
+	if !slices.Equal(pipeline.Assets.Script, want) {
+		t.Fatalf("GitLab asset verification = %q", pipeline.Assets.Script)
+	}
+	variables := pipeline.Assets.Variables
+	if variables["AIGW_RELEASE_ALLOWED_SIGNERS_FILE"] != "$AIGW_RELEASE_ALLOWED_SIGNERS" || variables["AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"] != "$AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS" || variables["GLAB_ENABLE_CI_AUTOLOGIN"] != "true" {
+		t.Fatal("GitLab asset verification lacks native job authentication or public trust")
+	}
+	var needs []string
+	for _, need := range pipeline.Assets.Needs {
+		needs = append(needs, need.Job)
+	}
+	if !slices.Equal(needs, []string{"quality", "native-darwin", "native-linux", "release-readiness"}) {
+		t.Fatalf("release requirements = %q", needs)
+	}
+	if len(pipeline.Assets.Rules) != 2 || pipeline.Assets.Rules[0].If != `$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == "api" || $CI_PIPELINE_SOURCE == "web")` || pipeline.Assets.Rules[1].When != "never" {
+		t.Fatal("asset verification must follow explicit post-publication dispatch")
+	}
 }
 
 func TestGitLabQualityCarriesProductProvenanceIdentity(t *testing.T) {
