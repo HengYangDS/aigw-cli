@@ -26,7 +26,9 @@ differences.
 Proposal creation and update, review commits, maintainer integration, `dev`,
 `main`, and release tags SHALL trigger the evidence appropriate to the event
 and exact Git object. Evidence MAY be reused only when its inputs and claimed
-facts are identical.
+facts are identical and an admitted verifier establishes that equivalence.
+Until that verifier exists, each accepted-branch and release-branch push SHALL
+execute its own required graph, even when their object IDs are equal.
 
 #### Scenario: A proposal receives another commit
 
@@ -49,6 +51,20 @@ facts are identical.
 - **AND** updating that review SHALL check its new selected commit
 - **AND** accepted-ref parity SHALL remain a release-branch push observation,
   not a prerequisite that demands the unmerged target already equal the source.
+
+#### Scenario: A reviewed proposal reaches the accepted branch
+
+- **WHEN** a proposal review merges into the declared accepted branch
+- **THEN** its resulting push SHALL run the required graph for that accepted
+  object, independently of the earlier review result
+- **AND** it SHALL NOT require the release branch to have advanced already.
+
+#### Scenario: A maintainer publishes equal accepted and release refs
+
+- **WHEN** an atomic publication advances both protected refs to one object
+- **THEN** each resulting branch event SHALL execute its required verification
+- **AND** only the release-branch push SHALL check that both refs name its exact
+  object; matching SHAs alone SHALL NOT stand in for verified evidence reuse.
 
 #### Scenario: A release tag is created
 

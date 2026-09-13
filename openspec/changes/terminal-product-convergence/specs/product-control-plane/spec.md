@@ -1024,6 +1024,334 @@ state. Authentication ownership SHALL be independent of the provider name.
   `model_provider`
 - **THEN** configuration validation fails before persistence or projection.
 
+### Requirement: Enforced semantic ownership and quality
+
+Each behavior and policy SHALL have one semantic owner. Composition roots SHALL
+assemble declared owners; source gates SHALL enforce positive package topology,
+dependency direction, public surfaces, portability, and the canonical coverage
+policy. Compatibility facades and duplicate policy owners SHALL not be retained.
+
+#### Scenario: semantic ownership regresses
+
+- **WHEN** a change violates declared topology or dependency direction, or misses the canonical coverage policy
+- **THEN** verification SHALL fail with the exact semantic owner and evidence gap.
+
+#### Scenario: Architecture or coverage regresses
+
+- **WHEN** a change violates declared semantic ownership or dependency direction, or misses the canonical package or aggregate coverage policy
+- **THEN** local and hosted verification SHALL fail before publication.
+
+#### Scenario: Foreign-host absolute path enters policy
+
+- **WHEN** policy contains an absolute or parent-traversing path in another host's syntax
+- **THEN** validation SHALL reject it identically on macOS, Linux, and Windows.
+
+#### Scenario: No admitted branch authority exists
+
+- **WHEN** no maintained admitted analyzer can measure a proposed branch metric
+- **THEN** the quantitative policy SHALL omit that unsupported claim
+- **AND** native statement evidence and complete package observation SHALL remain
+  enforced without being relabeled as branch coverage.
+
+#### Scenario: A tool needs shared release policy
+
+- **WHEN** repository release tooling and product upgrade behavior require the same source-validation rule
+- **THEN** each validates its own authority-bound inputs without importing another runtime owner.
+
+#### Scenario: A legacy concatenated name remains
+
+- **WHEN** a package appears outside the declared direct-owner topology or a repository tool imports an undeclared product owner
+- **THEN** the architecture gate fails with the exact path and dependency.
+
+#### Scenario: an ordinary provider is added
+
+- **WHEN** a provider is added below the existing provider owner without changing topology
+- **THEN** the existing positive topology admits it without changing repository-shape policy.
+
+### Requirement: Portable source
+
+Product source SHALL NOT encode a personal identity, home directory, private
+Forge coordinate, local checkout path, credential, signing key, fingerprint,
+signing program, trust anchor, foreign-application private path, or external
+service lifecycle. CI SHALL provide trust material only from protected context.
+
+#### Scenario: Build in another team environment
+
+- **WHEN** the repository is cloned under a different user, directory, host, or
+  Forge
+- **THEN** build, verification, setup, repair, and uninstall SHALL not require
+  the original contributor's machine, account, key, IDE, or workstation state
+
+#### Scenario: An operator uses the installed command
+
+- **WHEN** another team installs AIGW on a supported host
+- **THEN** the installed executable SHALL provide the user command surface
+- **AND** repository tools SHALL remain developer-only entrypoints
+- **AND** documented configuration, credentials and discovery inputs SHALL not
+  require an author-specific path, identity, key, service or foreign product.
+
+#### Scenario: An operator selects environment credentials
+
+- **WHEN** `AIGW_SECRET_BACKEND=env` is selected
+- **THEN** the documented Account variable mapping SHALL supply credentials
+  without persistence
+- **AND** the user guide SHALL explain process inheritance and direct installed
+  command invocation without exposing real credentials.
+
+### Requirement: Latest stable repository-owned supply chain
+
+AIGW SHALL lock current stable Go, tool, Action, and release dependencies
+through one repository-owned authority for each ecosystem. The declared Go
+toolchain and resolver SHALL own transitive closure; local verification and both
+Forge projections SHALL consume those declarations rather than duplicate version
+literals or compatibility fallbacks.
+
+#### Scenario: A stable transitive update is available
+
+- **WHEN** the Go resolver reports a newer stable transitive dependency
+- **THEN** the owning direct dependency and native resolver SHALL determine its
+  admissible closure; an unused transitive update SHALL NOT create a new pin
+- **AND** an admitted graph change SHALL refresh declarations and locks together
+  and pass complete native verification before integration
+
+#### Scenario: A preceding archive projection changes text layout
+
+- **WHEN** an OpenSpec archive projection leaves a surplus terminal blank line
+- **THEN** the same native gate SHALL reject it
+- **AND** the active closeout SHALL restore canonical text without weakening policy
+
+#### Scenario: A declared stable dependency advances
+
+- **WHEN** the locked supply chain is refreshed
+- **THEN** local development, GitLab, and GitHub resolve the same declared versions
+- **AND** obsolete pins and compatibility fallbacks are removed.
+
+### Requirement: Terminal local release readiness
+
+AIGW SHALL admit a local release candidate only after canonical specifications
+have no placeholder authority; direct repository dependencies are current and
+stable under the dependency-admission policy; the faithful quantitative
+quality evidence contract is satisfied; native source gates pass; and the release
+matrix is reproducible and installable. Hosted CI, peer publication,
+installed-asset proof, and lane retirement SHALL consume, rather than block
+production of, the archived local result.
+
+#### Scenario: A stable direct dependency update is available
+
+- **WHEN** the declared Go toolchain reports a newer stable direct module
+  version
+- **THEN** `go.mod` and `go.sum` SHALL be refreshed together
+- **AND** the complete native source gate SHALL pass before integration.
+
+#### Scenario: Only an unneeded transitive update is reported
+
+- **WHEN** the module query reports a newer transitive version but `go mod why`
+  shows the main module does not need it
+- **THEN** AIGW SHALL leave selection with the direct dependency owner
+- **AND** SHALL NOT add an explicit pin merely to display the newest version.
+
+#### Scenario: A canonical document contains placeholder authority
+
+- **WHEN** a specification purpose remains `TBD` or describes generation
+  history
+- **THEN** terminal closeout SHALL fail until the purpose states current
+  product semantics directly.
+
+#### Scenario: Protected branches are projected
+
+- **WHEN** a proven accepted local `main` is selected for one peer
+- **THEN** its signature and exact object SHALL be verified before publication
+- **AND** remote `main` and `dev` SHALL advance atomically to that object
+- **AND** the other peer SHALL not be queried or mutated.
+
+#### Scenario: External delivery follows local readiness
+
+- **WHEN** the Change has passed exact-HEAD proof and has been archived and
+  landed
+- **THEN** native hosted verification and each optional peer MAY independently
+  consume that exact accepted result
+- **AND** released-asset installation and governed lane retirement occur only
+  after their corresponding external evidence exists.
+
+#### Scenario: A clean runner materializes npm tools
+
+- **WHEN** source verification starts without an existing npm installation
+- **THEN** bootstrap SHALL install the exact committed npm dependency graph with
+  install scripts disabled
+- **AND** direct and transitive selections SHALL remain bound to the lockfile
+- **AND** registry signatures SHALL verify through the ecosystem verifier.
+
+#### Scenario: The verified release is published
+
+- **WHEN** source and artifact acceptance admit a release for publication
+- **THEN** each selected Forge SHALL receive the same locally signed commit,
+  annotated tag and immutable asset matrix without re-signing or reconstruction
+- **AND** each peer SHALL verify its own publication independently.
+
+### Requirement: Reviewed team configuration is directly consumable
+
+The repository SHALL publish one token-free manifest of reviewed Accounts,
+Profiles, and recommended Routes, directly consumable by `aigw setup --from`
+without credentials or installed clients. Setup and later `aigw sync` SHALL
+preserve client and model intent while selecting compatible Profiles only from
+currently usable authentication boundaries, project only AIGW-owned client
+state, and never expose or rebind Tokens. Fictitious providers, workstation paths, and parallel
+example manifests MUST NOT remain.
+
+#### Scenario: Team member imports reviewed settings
+
+- **WHEN** a team member downloads the tracked manifest and runs `aigw setup --from`
+- **THEN** AIGW SHALL import the Accounts and Profiles from the reviewed
+  `manifests/team.toml` without a second provider or model-name policy
+- **AND** required Account Tokens SHALL remain outside the manifest
+- **AND** recommended selections SHALL come from that manifest rather than
+  duplicated model-version literals in this specification.
+
+#### Scenario: No Account is connected during import
+
+- **WHEN** a user imports the team manifest without supplying a Token
+- **THEN** every reviewed Account and Profile SHALL be retained
+- **AND** no client installation or credential SHALL be required
+- **AND** the next action SHALL enumerate the compatible Account connection
+  choices without making one Account mandatory.
+
+#### Scenario: One Provider Account is connected
+
+- **WHEN** a user imports the team manifest with exactly one available Account Token
+- **THEN** setup SHALL succeed without Tokens for other Accounts
+- **AND** each route SHALL select a compatible Profile owned by the connected Account
+- **AND** selection SHALL preserve the reviewed model when that Account offers it
+- **AND** a lexical fallback MAY be used only when no equivalent model exists.
+
+#### Scenario: A compatible Account becomes available after import
+
+- **WHEN** setup retained the reviewed catalogue without a connected Account
+- **AND** a Token for any compatible Account later becomes available through
+  the configured credential backend
+- **THEN** `aigw sync` SHALL select compatible Profiles owned by that Account
+- **AND** SHALL preserve the reviewed client and model intent
+- **AND** SHALL NOT require Tokens for other Accounts.
+
+#### Scenario: A supported client is installed later
+
+- **WHEN** setup completed before Codex or Claude Code was installed
+- **AND** an available Account has a compatible route
+- **THEN** `aigw sync` SHALL discover and project that client
+- **AND** SHALL NOT require, replace, or expose any Token
+- **AND** SHALL leave absent clients untouched.
+
+### Requirement: Independently admitted native clients
+
+Codex and Claude Code SHALL be independent Adapters owning discovery,
+projection, authentication, rollback, verification, status, and removal of
+AIGW-owned state. AIGW credential commands MUST use the absolute installed
+executable, keep Tokens out of client configuration, and resolve them through
+the active Route when Profile authentication is Account-Token. Client-native
+authentication SHALL remain owned by the admitted client. Ordinary client
+launch and beta preferences SHALL remain client-owned; explicit AIGW verification
+SHALL consume synchronized settings without a wrapper or hidden endpoint. A
+future client MUST add one Adapter without changing provider policy or existing
+Adapters.
+
+#### Scenario: One admitted client is absent
+
+- **WHEN** setup discovers only Codex or only Claude Code
+- **THEN** AIGW SHALL configure only the present client
+- **AND** it SHALL explicitly leave the absent client untouched
+
+#### Scenario: Claude launches outside the installer shell
+
+- **WHEN** Claude Code requests a credential from an enabled AIGW projection
+- **THEN** `apiKeyHelper` SHALL invoke the exact installed AIGW executable
+- **AND** credential retrieval SHALL not depend on the caller's PATH
+- **AND** the projected settings SHALL contain no plaintext Token
+
+#### Scenario: Codex authenticates an explicit native provider
+
+- **WHEN** an enabled Codex Profile selects an explicit native provider identity
+- **THEN** its declared authentication mode SHALL determine credential ownership
+- **AND** Account-Token authentication SHALL invoke the exact installed AIGW
+  helper for only the active Codex Route
+- **AND** client-native authentication SHALL project no AIGW Token helper
+- **AND** neither mode SHALL write a plaintext Token to public configuration
+
+#### Scenario: Claude uses an Anthropic-compatible provider
+
+- **WHEN** explicit verification invokes Claude Code for an admitted Profile
+- **THEN** the native client SHALL consume its synchronized settings in bare,
+  nonpersistent mode
+- **AND** stale AIGW-owned Anthropic environment overrides SHALL be removed
+- **AND** unrelated client preferences, including beta controls, SHALL remain
+  unchanged rather than becoming a new AIGW authority
+
+#### Scenario: The installed executable path is invalid
+
+- **WHEN** a client credential projection is prepared with a relative path or
+  control character in the AIGW executable path
+- **THEN** the transaction SHALL fail before writing the owned projection
+- **AND** existing user-owned settings SHALL remain unchanged
+
+#### Scenario: Credential retrieval is not admitted
+
+- **WHEN** a credential request names an unsupported client, a disabled adapter,
+  an unresolved Route, or an Account without a Token
+- **THEN** the request SHALL fail without writing credential bytes to standard
+  output
+
+#### Scenario: A future agent is admitted
+
+- **WHEN** Hermes or another agent supporting third-party LLM APIs is proposed
+- **THEN** admission SHALL require only that agent's adapter, declaration, and
+  fixtures and SHALL NOT change provider policy, external-gateway behavior,
+  command roots, or an existing adapter
+
+#### Scenario: Codex CLI and Desktop share one home
+
+- **WHEN** Codex uses the same configuration home for CLI and Desktop
+- **THEN** AIGW SHALL project the selected Profile once into that shared home
+- **AND** SHALL NOT create a second Desktop-specific configuration authority
+
+### Requirement: Composable extension boundary
+
+AIGW SHALL separate local configuration and client projection from API traffic.
+Compatible endpoints and models enter as Account data. Existing client-native
+credential exchange and signing SHALL be reused through explicit Profile
+authentication before an AIGW extension is considered. Unsupported credential
+contracts require separate admission, new clients enter through complete
+Adapters, and incompatible wire behavior stays in an independent data plane.
+External gateways remain optional endpoints, never runtime dependencies. A
+mature dependency MAY be admitted only when the boundary holds and total owned
+complexity decreases.
+
+#### Scenario: Add a compatible Provider endpoint
+
+- **WHEN** an endpoint satisfies an admitted client protocol and existing
+  Account authentication contract
+- **THEN** an operator SHALL add it through configuration data
+- **AND** AIGW SHALL NOT add provider-name branching or a provider-specific
+  runtime package.
+
+#### Scenario: Add a client integration
+
+- **WHEN** a new local client requires AIGW-managed configuration
+- **THEN** it SHALL be admitted through its own discovery, planning, guarded
+  projection, verification, rollback, and uninstall boundary
+- **AND** it SHALL NOT reuse another client's conditional path or private state.
+
+#### Scenario: Compose with a traffic gateway
+
+- **WHEN** an operator selects a general gateway or narrow compatibility
+  service
+- **THEN** AIGW SHALL model its URL as an ordinary Account endpoint
+- **AND** SHALL NOT install, supervise, configure, embed, or copy the service's
+  traffic policy.
+
+#### Scenario: Evaluate a mature dependency
+
+- **WHEN** a library or framework is proposed for an AIGW-owned boundary
+- **THEN** admission SHALL demonstrate a net reduction in owned complexity
+- **AND** popularity or feature count alone SHALL NOT justify adoption.
+
 ## REMOVED Requirements
 
 ### Requirement: Provider-owned Codex authentication
@@ -1045,3 +1373,21 @@ endpoint observations and real-client execution.
 **Migration**: Consume status for local configuration, check for endpoint
 observations, and verify for evidence from the selected client. Retire the
 native-authentication status field and adapter-auth command.
+
+### Requirement: Portable source and user contract
+
+**Reason:** This duplicates Portable source and retains an rc.80-specific branch-coverage promise that the current admitted toolchain does not measure.
+
+**Migration:** Portable source retains installed-command, developer-boundary and environment-input obligations; faithful quantitative quality evidence and native lifecycle requirements retain current coverage, source identity and platform acceptance.
+
+### Requirement: Native cross-platform release admission
+
+**Reason:** Platform admission and quantitative coverage already have explicit owners; this duplicate still demands an unsupported branch metric.
+
+**Migration:** Forge capability projection retains aggregate native macOS/Linux/Windows admission. Native released-artifact lifecycle acceptance retains product journeys. Faithful quantitative quality evidence retains exact package observation and the strict statement floor.
+
+### Requirement: Portable single-backend Token storage
+
+**Reason:** Credential backend selection and native fallback are duplicated here and in secret-storage, allowing contradictory platform and persistence rules.
+
+**Migration:** Use secret-storage / Native credential service failure has a portable outcome, One backend owns credential persistence, File persistence is owner-only and atomic, and Credential backend state is explicit and portable. These retain Windows DPAPI, explicit-backend failure, one-Account setup and single-store ownership.

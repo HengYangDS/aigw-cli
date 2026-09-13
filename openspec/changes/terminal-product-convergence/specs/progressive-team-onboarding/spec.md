@@ -90,3 +90,27 @@ without undoing committed product state.
 - **THEN** the committed product state remains available
 - **AND** the command reports only the output failure rather than claiming that
   setup was rolled back.
+
+## MODIFIED Requirements
+
+### Requirement: Activation follows present capabilities
+
+Setup SHALL validate and project only discovered clients whose selected
+Profiles have usable declared authentication: a required Account Token or
+client-native ownership. A later synchronization SHALL rediscover and adopt a
+newly installed admitted client without requiring
+manifest re-import.
+
+#### Scenario: Only Claude Code is installed
+
+- **WHEN** a connected Account has both Anthropic and Responses profiles but
+  only Claude Code is discovered
+- **THEN** setup SHALL validate and configure only the Claude route
+- **AND** an unavailable loopback Responses endpoint SHALL NOT block setup.
+
+#### Scenario: Client is installed later
+
+- **WHEN** a manifest was imported before Claude Code or Codex was installed
+- **AND** the user later runs synchronization after installing that client
+- **THEN** AIGW SHALL discover the client and converge its owned projection
+- **AND** SHALL preserve unrelated client and conversation state.

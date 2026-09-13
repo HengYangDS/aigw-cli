@@ -8,6 +8,8 @@ rules:
     - State the authority boundary, breaking removals, reuse stance, and non-goals.
   specs:
     - Define observable behavior and fail-closed boundaries, not implementation names.
+    - Replace a changed canonical requirement with MODIFIED, or retire its duplicate with REMOVED and name the surviving owner; ADDED alone does not supersede old behavior.
+    - Review the complete result of the locked OpenSpec merge before archive, including inherited requirements and scenario preservation; structural validation is not semantic consistency proof.
   design:
     - Assign every behavior and policy to one semantic owner and dependency direction.
   tasks:

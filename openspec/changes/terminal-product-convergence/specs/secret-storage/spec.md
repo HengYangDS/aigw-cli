@@ -95,7 +95,8 @@ the invocation's resolved backend.
 ### Requirement: Credential availability is scoped to active demand
 
 An Account Token SHALL be required only when an explicit operation activates,
-projects, checks, or verifies a Route that selects that Account.
+projects, checks, or verifies a Route with Account-Token authentication.
+Client-native authentication SHALL remain independent of AIGW Token slots.
 Readiness checks SHALL admit the selected client's executable and configuration
 projection before reading its Token value or authenticating its endpoint.
 An unready projection SHALL retain its own recovery action in both human and
@@ -150,3 +151,132 @@ NOT remain.
 - **THEN** compensation restores its unchanged credential in the original backend
   and credential kind
 - **AND** preserves the newer backend choice and reports its compensation conflict.
+
+## MODIFIED Requirements
+
+### Requirement: Native credential service failure has a portable outcome
+
+On supported platforms, automatic resolution SHALL honor an existing backend
+choice. Only an unrecorded choice MAY probe native metadata and select the
+platform-safe file fallback on failure. The probe SHALL not read Tokens or
+claim future read/write permission. Unix fallback SHALL use owner-only storage;
+Windows fallback SHALL protect values with current-user DPAPI.
+
+#### Scenario: Headless Linux has no usable credential service
+
+- **WHEN** no backend is recorded and native metadata probing fails on Linux
+- **THEN** AIGW selects the secure file backend
+- **AND** setup can persist one supplied provider Token
+
+#### Scenario: macOS credential service is unavailable
+
+- **WHEN** no backend is recorded and native metadata probing fails on macOS
+- **THEN** AIGW selects the secure file backend without prompting through a client application
+
+#### Scenario: Explicit keyring selection fails closed
+
+- **WHEN** the operator explicitly selects the native credential service
+- **AND** that service is unavailable
+- **THEN** AIGW reports the backend failure
+- **AND** does not silently select the file backend
+
+#### Scenario: Windows automatic selection
+
+- **WHEN** Windows resolves an unrecorded automatic backend
+- **THEN** successful native metadata probing SHALL select Credential Manager
+- **AND** a failed probe SHALL select the current-user DPAPI file backend
+- **AND** only a credential mutation SHALL persist that automatic choice
+
+### Requirement: File persistence is owner-only and atomic
+
+The file backend SHALL use a verified owning directory and regular Token
+files, with guarded same-directory replacement. Unix SHALL enforce current-user
+ownership, owner-only modes and link-count restrictions. Windows SHALL use
+current-user DPAPI with interaction forbidden; Unix mode bits SHALL NOT be
+presented as the Windows protection boundary.
+
+#### Scenario: Fresh file store
+
+- **WHEN** AIGW first persists a Token in the file backend
+- **THEN** Unix SHALL require directory mode `0700` and Token file mode `0600`
+- **AND** Windows SHALL persist only DPAPI-protected bytes bound to the current
+  user, without claiming Unix permission semantics
+
+#### Scenario: Unsafe storage object
+
+- **WHEN** the selected platform detects an invalid root, a nonregular Token
+  file or a path-identity change
+- **THEN** AIGW SHALL fail before returning or changing Token material
+- **AND** Unix SHALL additionally reject symbolic or multiply linked files,
+  unsafe modes and foreign ownership
+
+### Requirement: One backend owns credential persistence
+
+AIGW SHALL select exactly one credential backend for an invocation. The same
+backend SHALL own API Tokens and provider-diagnostic credentials in distinct
+typed slots, and AIGW SHALL NOT read or write another backend as a
+compatibility fallback.
+
+#### Scenario: Automatic selection remains stable
+
+- **WHEN** an unrecorded automatic backend receives its first credential mutation
+- **THEN** AIGW SHALL persist that selection before changing the credential
+- **AND** subsequent invocations SHALL reuse it for every credential purpose
+- **AND** read-only observation or retrieval SHALL not create selection state
+
+#### Scenario: Credential purposes remain isolated
+
+- **WHEN** one Account has an API Token and a provider-diagnostic credential
+- **THEN** each value is read, replaced, and deleted through its own typed slot
+- **AND** an operation on one purpose SHALL NOT change the other
+
+#### Scenario: Environment storage is explicit and read-only
+
+- **WHEN** the operator selects the environment backend
+- **THEN** AIGW reads only documented Account credential environment variables
+- **AND** refuses credential writes and deletes
+
+#### Scenario: Environment Account names cannot collide
+
+- **WHEN** two valid Account IDs differ by dot, dash, or underscore
+- **THEN** AIGW derives distinct deterministic environment variable names
+- **AND** the mapping identifies the original lowercase Account ID without an
+  ambiguous normalization rule
+
+#### Scenario: Diagnostic environment credential is incomplete
+
+- **WHEN** only the diagnostic system token or only the diagnostic user ID is
+  present for an Account
+- **THEN** AIGW treats the provider-diagnostic credential as unavailable
+- **AND** never substitutes the Account API Token or another backend
+
+### Requirement: Native availability observation is non-interactive
+
+AIGW SHALL use value-free native metadata operations to observe credentials on
+macOS, Linux, and Windows. Observation SHALL NOT request secret disclosure or
+open a credential-access prompt.
+
+#### Scenario: macOS Keychain observation
+
+- **WHEN** AIGW observes a generic-password item on macOS
+- **THEN** it queries item metadata without requesting password data
+
+#### Scenario: Linux Secret Service observation
+
+- **WHEN** AIGW observes a Secret Service item on Linux
+- **THEN** it searches item attributes without opening a secret session or
+  requesting secret bytes
+
+#### Scenario: Linux Secret Service is unavailable
+
+- **WHEN** an explicitly selected or already persisted native backend cannot
+  connect to Secret Service while observing a credential on Linux
+- **THEN** it reports the connection failure
+- **AND** it does not read credential values, select another backend, or open an
+  interactive prompt
+
+#### Scenario: Windows Credential Manager observation
+
+- **WHEN** AIGW observes a generic credential on Windows
+- **THEN** it uses credential metadata to determine presence without exposing
+  the credential blob to AIGW

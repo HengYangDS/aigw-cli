@@ -88,3 +88,84 @@ whose only purpose is structural symmetry.
 - **THEN** it uses a valid navigable link when a stable target exists
 - **AND** the link text states the destination's meaning rather than its file
   name alone.
+
+## MODIFIED Requirements
+
+### Requirement: Governed release-branch convergence
+
+Local `candidate/dev`, protected `dev`, and protected `main` SHALL advance
+through the current public governance lifecycle and tracked branch-role policy.
+The adopter SHALL declare its product roles and gates without prescribing ETHOS
+internal transition names or capability schema. GitLab and GitHub SHALL publish
+the same accepted source independently; remote availability SHALL not be a prerequisite
+for local proof or release assembly.
+
+#### Scenario: Accepted content is ready for release
+
+- **WHEN** exact-head proof has admitted the candidate and accepted `dev` is current
+- **THEN** the declared governed release transition advances `main` from that accepted content
+- **AND** local readiness remains distinct from remote publication.
+
+#### Scenario: Direct branch mutation is attempted
+
+- **WHEN** an actor attempts to bypass the governed lifecycle for `candidate/dev`, `dev`, or `main`
+- **THEN** repository admission blocks the mutation
+- **AND** reports the required public governance operation.
+
+#### Scenario: One Forge is unavailable
+
+- **WHEN** one publication plane cannot be reached
+- **THEN** the other may publish and verify the same signed revision independently
+- **AND** local accepted state remains valid without either remote.
+
+### Requirement: Semantic documentation architecture
+
+Documentation SHALL have one global entry point and semantic organization.
+Official OpenSpec artifacts are the sole tracked change-intent authority; ETHOS
+MAY derive transient execution inputs through its current public contract. The
+adopter SHALL NOT freeze ETHOS internal fields or persist a parallel intent
+carrier. Filenames MUST name their subjects. Local indexes or extra
+carriers MAY exist only for semantics not representable by OpenSpec, the global
+entry point, or existing authorities, and MUST declare owner, consumer,
+replaced authority, and retirement.
+
+#### Scenario: Reader enters the documentation
+
+- **WHEN** a reader starts at `docs/README.md`
+- **THEN** the entry point SHALL expose task-oriented paths and the complete
+  information-domain map
+- **AND** every canonical document SHALL be reachable from that map or a named
+  semantic register.
+
+#### Scenario: A document has a single semantic owner
+
+- **WHEN** a document describes architecture, concepts, decisions, evidence,
+  experience, governance, guidance, or operations
+- **THEN** its directory and filename SHALL identify that owner
+- **AND** no compatibility copy or redirect-only document SHALL remain.
+
+#### Scenario: A directory contains multiple documents
+
+- **WHEN** a semantic directory gains another document
+- **THEN** file count alone SHALL NOT require a local `README.md`
+- **AND** navigation SHALL remain with the smallest content-bearing owner.
+
+#### Scenario: A repository gate consumes a semantic register
+
+- **WHEN** a quality gate validates a documentation register
+- **THEN** it SHALL consume the register's semantic filename
+- **AND** it SHALL NOT require a container-named compatibility carrier.
+
+#### Scenario: Governance evaluates change intent
+
+- **WHEN** ETHOS evaluates the selected OpenSpec change
+- **THEN** it SHALL compile the Commitment transiently from official OpenSpec
+  artifacts
+- **AND** the repository SHALL persist no parallel Commitment carrier.
+
+#### Scenario: Historical change evidence is inspected
+
+- **WHEN** a maintainer inspects an archived change
+- **THEN** official OpenSpec archives and Git history SHALL describe the tracked
+  change
+- **AND** ETHOS Attestations SHALL remain the effect-evidence surface.

@@ -69,6 +69,129 @@ manufacture a stronger-looking claim.
 - **AND** the package ratio SHALL NOT independently veto an otherwise valid
   aggregate result.
 
+### Requirement: one complete quality graph
+
+The repository SHALL expose one quality graph reused by local development,
+exact-HEAD proof, GitLab, and GitHub. One declarative topology SHALL generate
+Forge files; generated files MUST NOT own policy, and repository commands SHALL
+own behavior. Projection drift fails first. Product targets, release assets,
+native acceptance, and host compatibility are distinct claims;
+cross-compilation proves only artifacts. A Forge SHALL schedule one verification graph for each admitted event. Separate
+review, accepted-branch and release-branch events remain separate evidence
+stages until an admitted verifier can prove safe cross-event reuse.
+
+#### Scenario: a new repository owner is added
+
+- **WHEN** tracked material is added or changed
+- **THEN** its semantic class SHALL select every applicable quality check without an exclusion.
+
+#### Scenario: a new package or test owner is added
+
+- **WHEN** tracked Go source changes
+- **THEN** architecture, static analysis, formatting, coverage, governance, and cross-platform contracts SHALL evaluate the new owner without an exclusion list.
+
+#### Scenario: a projection diverges
+
+- **WHEN** a tracked Forge file differs from the deterministic projection
+- **THEN** source verification SHALL fail with the exact file before expensive tests.
+
+#### Scenario: A required native runner is unavailable
+
+- **WHEN** a Forge lacks an admitted executor for a supported platform
+- **THEN** its projection SHALL omit that executor explicitly while aggregate
+  product evidence still requires the platform
+- **AND** exact-commit native evidence from another admitted executor MAY satisfy
+  that platform fact; another operating system or cross-compile SHALL NOT.
+
+#### Scenario: a release asset is cross-compiled
+
+- **WHEN** CI produces an archive for an OS and architecture not represented by that runner
+- **THEN** the archive MAY satisfy the release-asset matrix
+- **AND** it SHALL NOT be reported as native acceptance or developer-host proof.
+
+#### Scenario: a projection is regenerated
+
+- **WHEN** the CI authority is rendered
+- **THEN** every Forge-native file SHALL be produced deterministically
+- **AND** no separate parser or duplicated policy SHALL be required.
+
+#### Scenario: A GitLab job uses a toolchain container
+
+- **WHEN** the runner prepares a container-backed verification job
+- **THEN** the projected image configuration yields control to the runner shell
+- **AND** the image's own entrypoint cannot reinterpret runner shell arguments
+
+#### Scenario: Tests run inside a Forge job
+
+- **WHEN** a test verifies the generic source gate sequence
+- **THEN** it is independent of inherited Forge provenance variables
+- **AND** dedicated provenance tests supply their own complete inputs
+
+#### Scenario: A required native runner is misconfigured
+
+- **WHEN** its operating-system shell or locked toolchain cannot start
+- **THEN** the native gate fails explicitly
+- **AND** no cross-build or different operating system is reported as a substitute
+
+#### Scenario: a developer submits a proposal for review
+
+- **WHEN** a proposal targets `dev` through a pull request or merge request
+- **THEN** the review head SHA SHALL receive the complete verification graph
+- **AND** the proposal branch push SHALL NOT start a parallel copy of that graph.
+
+#### Scenario: a maintainer publishes an accepted product object
+
+- **WHEN** local accepted `main` is projected unchanged to peer `main` and `dev`
+- **THEN** the peer SHALL verify each resulting accepted-branch and release-branch
+  event for its exact object
+- **AND** only the release-branch push SHALL require accepted-ref parity; equal
+  object IDs alone SHALL NOT suppress the accepted-branch graph.
+
+#### Scenario: explicit diagnosis is required
+
+- **WHEN** a maintainer explicitly dispatches verification
+- **THEN** the selected Forge SHALL run the complete graph for the selected ref.
+
+### Requirement: complete delivery evidence
+
+Quality completion SHALL require distinct evidence for the complete local
+graph, exact-HEAD proof, native hosted CI, independent peer publication, exact
+branch and tag identity, asset integrity, installation, runtime acceptance, and
+repository housekeeping. A release SHALL be complete only when its one signed
+tag object, immutable assets, checksums, peer-native Release records, and
+supported-platform acceptance are verified at their owning boundaries. Every
+selected peer SHALL verify its own objects and assets; native platform evidence
+MAY be supplied by the admitted aggregate executor set without duplicating
+unavailable runners or weakening the platform requirement.
+
+#### Scenario: both publication planes complete
+
+- **WHEN** GitLab and GitHub independently publish one accepted product release
+- **THEN** their commit and annotated tag object identifiers SHALL equal local
+  Git exactly
+- **AND** their asset manifests and supported-platform semantics SHALL agree.
+
+#### Scenario: local proof passes but delivery is incomplete
+
+- **WHEN** hosted CI, a selected peer, exact object identity, asset integrity,
+  installation, runtime acceptance, or lane retirement remains unverified
+- **THEN** the repository SHALL report that stage as incomplete and SHALL NOT
+  claim terminal completion.
+
+#### Scenario: terminal closeout succeeds
+
+- **WHEN** every delivery stage passes for the exact accepted product object
+  and obsolete lanes, policies, compatibility paths, temporary assets, and
+  stale runtime residue are retired
+- **THEN** the repository MAY report completion with receipts for each
+  independent boundary.
+
+#### Scenario: release metadata exists without publication
+
+- **WHEN** `VERSION` and `CHANGELOG` name a release but either selected peer
+  lacks its exact signed tag object, Release record, or assets
+- **THEN** delivery SHALL remain incomplete.
+
 ## ADDED Requirements
 
 ### Requirement: Quality coverage has one positive authority
@@ -279,3 +402,17 @@ documentation, packaging, or CI path SHALL be resolved at its semantic owner.
 - **THEN** the gate fails until the cause is removed
 - **AND** a blanket filter, baseline, or ignored exit code is not accepted as
   the repair.
+
+## REMOVED Requirements
+
+### Requirement: Terminal local release readiness
+
+**Reason:** Release admission is duplicated across capabilities and this copy permits peer-local re-signing and an unavailable branch metric.
+
+**Migration:** Use product-control-plane / Terminal local release readiness for source admission, faithful quantitative quality evidence for coverage, and Independent Forge parity for unchanged signed objects. The npm bootstrap and publication scenarios are retained in the source-admission owner.
+
+### Requirement: accepted ref parity is visible without duplicate proof
+
+**Reason:** This requirement suppresses accepted dev events and conflicts with the admitted lifecycle-scoped CI graph.
+
+**Migration:** Use ci-diagnostics / Every integration path produces exact-commit evidence. Review and accepted-branch events each run; release pushes additionally verify ref parity. No cross-event evidence-reuse capability is implied.

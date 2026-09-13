@@ -49,6 +49,13 @@ the relevant operator guidance, and remove contradictory instructions. A new
 rule, skill, or passing format check is not proof that the failure cannot recur.
 Source, packaged, installed, and hosted outcomes require their own observations.
 
+For specification changes, inspect the current requirement before adding a delta.
+Use OpenSpec's MODIFIED operation for a changed contract and REMOVED for an
+obsolete duplicate, naming the surviving owner and preserving its obligations.
+Review the complete projected specification with the locked OpenSpec merge,
+not just the changed paragraphs. Valid delta syntax and preserved scenario
+names do not prove that inherited requirements agree with the new behavior.
+
 Local developer-tool state, including `.serena/`, is disposable and ignored.
 It may index the current checkout, but it is not AIGW configuration, evidence,
 or an input to release and runtime decisions. Do not add it to commits, copy it
