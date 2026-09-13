@@ -414,18 +414,6 @@ func TestPlanAccountFinalizeRejectsIncompleteRenameState(t *testing.T) {
 	}
 }
 
-func TestFinalizeClientCoverageValidation(t *testing.T) {
-	if coversAllAdmittedClients([]string{configuration.ClientCodex, configuration.ClientCodex}) {
-		t.Fatal("duplicate clients accepted")
-	}
-	if coversAllAdmittedClients([]string{configuration.ClientCodex, "future"}) {
-		t.Fatal("unknown client accepted")
-	}
-	if coversAllAdmittedClients([]string{configuration.ClientCodex}) {
-		t.Fatal("missing client accepted")
-	}
-}
-
 func TestApplyAccountFinalizeCleanupFailures(t *testing.T) {
 	want := errors.New("cleanup failed")
 	tests := []struct {

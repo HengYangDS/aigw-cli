@@ -119,6 +119,13 @@ The JSON vocabulary follows that evidence boundary:
 Model inference and real-client execution require their own verification;
 neither `ok` nor `endpoint_checked` establishes them.
 
+`verify --for all` means all enabled client Routes. It checks their local
+prerequisites before invoking any client, then writes a checkpoint only after
+all requested verifications succeed. Disabled clients are not prerequisites;
+no enabled clients produces an explicit error, not an empty success. Account
+rename finalization accepts that current scope. Without enabled clients, it
+checks credential and backup continuity without requiring an inference proof.
+
 `doctor` uses the same outcome for human and JSON output. Failed diagnostics or
 invalid, degraded, or unavailable client observations produce a nonzero exit
 status and `ok: false`. Deferred clients are not failures by themselves. A JSON

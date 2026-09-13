@@ -60,7 +60,7 @@ func TestAccountRenameInteractiveCopiesCredentialsAndUpdatesEveryProfile(t *test
 	if strings.Contains(out.String(), token) || strings.Contains(out.String(), probe.SystemToken) || strings.Contains(out.String(), probe.UserID) {
 		t.Fatalf("account rename leaked credentials: %s", out.String())
 	}
-	if !strings.Contains(out.String(), "aigw verify --for all") || !strings.Contains(out.String(), "aigw account rename zeta-old zeta-new --finalize") {
+	if strings.Contains(out.String(), "aigw verify --for all") || !strings.Contains(out.String(), "aigw account rename zeta-old zeta-new --finalize") {
 		t.Fatalf("account rename omitted safe next steps: %s", out.String())
 	}
 }

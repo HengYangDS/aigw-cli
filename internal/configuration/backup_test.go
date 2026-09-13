@@ -71,7 +71,9 @@ func TestCaptureVerifiedBackupStateSurfacesConfigDecodeErrors(t *testing.T) {
 func TestCaptureVerifiedBackupStateSurfacesCheckpointDecodeErrors(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := NewStore(path)
-	if err := store.Save(convergenceConfig("current")); err != nil {
+	current := convergenceConfig("current")
+	current.Adapters[ClientCodex] = AdapterConfig{Enabled: true}
+	if err := store.Save(current); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(path+".verified.json", []byte("not-json"), 0o600); err != nil {
@@ -139,6 +141,7 @@ func TestCaptureVerifiedBackupStateBindsCurrentConfiguration(t *testing.T) {
 		t.Run(fmt.Sprintf("configuration-changed=%t", changed), func(t *testing.T) {
 			store := NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 			current := convergenceConfig("current")
+			current.Adapters[ClientCodex] = AdapterConfig{Enabled: true}
 			if err := store.Save(current); err != nil {
 				t.Fatal(err)
 			}
@@ -296,12 +299,33 @@ func TestConvergeVerifiedBackupRejectsChangedPreimages(t *testing.T) {
 func TestCaptureVerifiedBackupStateRequiresCheckpoint(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := NewStore(path)
-	if err := store.Save(convergenceConfig("current")); err != nil {
+	current := convergenceConfig("current")
+	current.Adapters[ClientCodex] = AdapterConfig{Enabled: true}
+	if err := store.Save(current); err != nil {
 		t.Fatal(err)
 	}
 	_, err := store.CaptureVerifiedBackupState()
 	if err == nil || !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("missing checkpoint error = %v", err)
+	}
+}
+
+func TestCaptureVerifiedBackupStateWithoutEnabledClientsNeedsNoCheckpoint(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	if err := store.Save(convergenceConfig("current")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := store.CaptureVerifiedBackupState()
+	if err != nil || len(state.Checkpoint.Clients) != 0 || state.Snapshot.Verified.Exists {
+		t.Fatalf("unconfigured client evidence = %#v: %v", state.Checkpoint, err)
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatalf("retirement inspection changed storage: %v", err)
 	}
 }
 

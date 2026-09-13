@@ -40,6 +40,22 @@ func TestConfigQueriesOwnAccountAndProfileSelectionSemantics(t *testing.T) {
 	}
 }
 
+func TestEnabledClientIDsFollowConfigurationNotSupportedCapabilities(t *testing.T) {
+	cfg := NewConfig()
+	if got := cfg.EnabledClientIDs(); len(got) != 0 {
+		t.Fatalf("empty scope = %v", got)
+	}
+	cfg.Adapters[ClientCodex] = AdapterConfig{Enabled: true}
+	cfg.Adapters[ClientClaude] = AdapterConfig{Enabled: false}
+	if got := cfg.EnabledClientIDs(); !reflect.DeepEqual(got, []string{ClientCodex}) {
+		t.Fatalf("single-client scope = %v", got)
+	}
+	cfg.Adapters[ClientClaude] = AdapterConfig{Enabled: true}
+	if got := cfg.EnabledClientIDs(); !reflect.DeepEqual(got, AdmittedClientIDs()) {
+		t.Fatalf("full scope = %v", got)
+	}
+}
+
 func validConfig() Config {
 	return Config{
 		Version: ConfigVersion,

@@ -32,7 +32,7 @@ type Snapshot struct {
 	Verified transaction.FileSnapshot
 }
 
-// VerifiedBackupState pairs verified backup bytes with the currently loaded typed configuration.
+// VerifiedBackupState pairs current backup bytes with client evidence when any client is enabled.
 type VerifiedBackupState struct {
 	Snapshot   Snapshot
 	Current    Config
@@ -111,7 +111,7 @@ func (s Store) Commit(before Snapshot, cfg Config) (Snapshot, error) {
 	return Snapshot{}, errors.Join(failures...)
 }
 
-// CaptureVerifiedBackupState validates that current configuration still matches its verified checkpoint before returning recovery state.
+// CaptureVerifiedBackupState requires a current checkpoint only when clients are enabled.
 func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
 	snapshot, err := s.CaptureSnapshot()
 	if err != nil {
@@ -120,12 +120,15 @@ func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
 	if !snapshot.Config.Exists {
 		return VerifiedBackupState{}, fmt.Errorf("current config is unavailable: %w", os.ErrNotExist)
 	}
-	if !snapshot.Verified.Exists {
-		return VerifiedBackupState{}, fmt.Errorf("verified checkpoint is unavailable: %w", os.ErrNotExist)
-	}
 	current, err := decodeTOMLConfig(snapshot.Config.Data)
 	if err != nil {
 		return VerifiedBackupState{}, fmt.Errorf("decode current config snapshot: %w", err)
+	}
+	if len(current.EnabledClientIDs()) == 0 {
+		return VerifiedBackupState{Snapshot: snapshot, Current: current}, nil
+	}
+	if !snapshot.Verified.Exists {
+		return VerifiedBackupState{}, fmt.Errorf("verified checkpoint is unavailable: %w", os.ErrNotExist)
 	}
 	checkpoint, err := decodeVerifiedCheckpoint(snapshot.Verified.Data)
 	if err != nil {

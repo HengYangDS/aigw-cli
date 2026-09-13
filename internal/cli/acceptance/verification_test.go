@@ -60,6 +60,7 @@ func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 	cfg.Routes[configuration.ClientCodex] = "gpt"
 	cfg.Routes[configuration.ClientClaude] = "claude"
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -68,11 +69,63 @@ func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := cli.Execute(app, []string{"verify", "--for", "all"})
-	if err == nil || !strings.Contains(err.Error(), "Full verification requires a ready Codex adapter") || !strings.Contains(err.Error(), "Codex adapter is disabled") {
+	if err == nil || !strings.Contains(err.Error(), "Full verification requires a ready Codex adapter") {
 		t.Fatalf("error = %v", err)
 	}
 	if _, checkpointErr := app.Config.LoadVerifiedCheckpoint(); checkpointErr == nil {
 		t.Fatal("verification checkpoint was written despite failed readiness preflight")
+	}
+}
+
+func TestVerifyAllUsesEnabledClientScope(t *testing.T) {
+	for _, client := range configuration.AdmittedClientIDs() {
+		t.Run(client, func(t *testing.T) {
+			app, runner := readyVerificationApp(t)
+			cfg, err := app.Config.Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for other, adapter := range cfg.Adapters {
+				if other != client {
+					adapter.Enabled = false
+					cfg.Adapters[other] = adapter
+					delete(cfg.Routes, other)
+				}
+			}
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			runner.plans = nil
+			if err := cli.Execute(app, []string{"verify", "--for", "all"}); err != nil {
+				t.Fatal(err)
+			}
+			checkpoint, err := app.Config.LoadVerifiedCheckpoint()
+			if err != nil || !slices.Equal(checkpoint.Clients, []string{client}) {
+				t.Fatalf("checkpoint scope = %v: %v", checkpoint.Clients, err)
+			}
+			for _, plan := range runner.plans {
+				if plan.Executable != cfg.Adapters[client].Executable {
+					t.Fatalf("invoked disabled client: %s", plan.Executable)
+				}
+			}
+		})
+	}
+}
+
+func TestVerifyAllWithoutEnabledClientsDoesNotClaimVerification(t *testing.T) {
+	app, _, _, runner, _ := testApp(t, "")
+	if err := app.Config.Save(accountRenameConfig()); err != nil {
+		t.Fatal(err)
+	}
+	err := cli.Execute(app, []string{"verify", "--for", "all"})
+	if err == nil || !strings.Contains(err.Error(), "no enabled clients") {
+		t.Fatalf("empty verification result = %v", err)
+	}
+	if len(runner.plans) != 0 {
+		t.Fatal("empty verification invoked a client")
+	}
+	if _, err := app.Config.LoadVerifiedCheckpoint(); err == nil {
+		t.Fatal("empty verification wrote a checkpoint")
 	}
 }
 
@@ -147,6 +200,7 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 			cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "one", Client: configuration.ClientCodex, Model: "gpt-test"}
 			cfg.Routes[configuration.ClientClaude] = "claude"
 			cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true}
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -439,54 +493,14 @@ func TestVerifyAllReturnsCheckpointWriteFailure(t *testing.T) {
 }
 
 func TestVerifyRejectsMissingResponseSentinel(t *testing.T) {
-	app, _, _, runner, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
-	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Profiles["gpt"] = configuration.Profile{Label: "GPT", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-test"}
-	cfg.Routes[configuration.ClientCodex] = "gpt"
-	target := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	runtime.CredentialCommand = app.Executable
-	if err := codex.SyncConfig(target, runtime); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "codex"), Targets: []string{target}}
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	runner.output = []byte("wrong\n")
-	err = cli.Execute(app, []string{"verify", "--for", "codex"})
-	if err == nil || !strings.Contains(err.Error(), "did not return the expected AIGW_OK verification marker") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestVerifyClaudeRejectsMissingResponseSentinel(t *testing.T) {
-	app, _, secretStore, runner, _ := testApp(t, "")
-	claudeExecutable := executableFixture(t, "claude")
-	cfg := configuration.NewConfig()
-	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{Anthropic: "https://example.test"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "dmx", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	if err := secretStore.Set("dmx", "verify-token"); err != nil {
-		t.Fatal(err)
-	}
-	if err := cli.Execute(app, []string{"sync"}); err != nil {
-		t.Fatal(err)
-	}
-	runner.output = []byte("wrong response\n")
-	err := cli.Execute(app, []string{"verify", "--for", "claude"})
-	if err == nil || !strings.Contains(err.Error(), "did not return the expected AIGW_OK verification marker") {
-		t.Fatalf("error = %v", err)
+	for _, client := range configuration.AdmittedClientIDs() {
+		t.Run(client, func(t *testing.T) {
+			app, runner := readyVerificationApp(t)
+			runner.output = []byte("wrong\n")
+			err := cli.Execute(app, []string{"verify", "--for", client})
+			if err == nil || !strings.Contains(err.Error(), "did not return the expected AIGW_OK verification marker") {
+				t.Fatalf("error = %v", err)
+			}
+		})
 	}
 }

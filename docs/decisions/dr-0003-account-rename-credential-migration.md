@@ -8,7 +8,7 @@
 
 Renaming a provider Account ID requires migrating both its configuration in the AIGW TOML and its associated credentials (API Tokens and optional probe credentials) in the operating-system secret store. A single-step rename that immediately deletes the old credential slot risks permanent loss of access or inconsistent state if the configuration write is interrupted or if a client integration remains bound to the old ID.
 
-The API-token slot and optional provider-diagnostic slot in the selected AIGW credential backend cannot be committed atomically with configuration. Phase 1 therefore retains the old slots; finalization separately verifies the current configuration, its single `.bak` preimage, and the complete admitted-client verified checkpoint.
+The API-token slot and optional provider-diagnostic slot in the selected AIGW credential backend cannot be committed atomically with configuration. Phase 1 therefore retains the old slots; finalization separately checks the current configuration, its single `.bak` preimage, and verification of every enabled client. Product support for a client does not make that client an installation requirement.
 
 ## Decision
 
@@ -31,7 +31,7 @@ Implement a two-phase "copy-then-delete" migration for `aigw account rename`:
 
 `aigw account rename <old> <new> --finalize` performs the following:
 
-1. **Strict Verification**: Requires explicit old and new IDs, semantic agreement between the current configuration and the complete admitted-client verified checkpoint, and an available target Token.
+1. **Scoped Verification**: Requires explicit old and new IDs and, when any client is enabled, semantic agreement between current configuration and a checkpoint covering every enabled client. `aigw verify --for all` verifies that configured scope. With no enabled clients, finalization needs no checkpoint and makes no client-verification claim. A source Token may be retired only when its target Token is available; absent source and target slots require no invented Token.
 2. **Backup Convergence**: Before deleting an old slot, uses a three-file exact-preimage check to converge the single `.bak` to the verified current TOML.
 3. **Rotation Confirmation**: Requires `--confirm-api-token-rotation` only when the old and new Token slots differ, and `--confirm-account-probe-rotation` only when the corresponding probe slots differ.
 4. **Probe Execution**: If probe credentials differ during apply, executes the target provider probe live before cleanup.
@@ -53,6 +53,7 @@ Regression suites cover:
 - Token and probe credential copying and comparison logic.
 - Fail-closed behavior for credential mismatches and `env` backend requirements.
 - `--finalize` consistency checks against verified checkpoints.
+- Zero, one and multiple enabled clients, including rejection of unverified enabled clients without requiring disabled clients.
 - Single `.bak` convergence, conditional rotation confirmation, and retryable old-slot removal.
 - Dry-run and JSON output integrity.
 

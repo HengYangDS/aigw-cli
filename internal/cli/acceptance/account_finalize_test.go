@@ -29,6 +29,7 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 	t.Run("stale checkpoint", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
 		before := accountRenameConfig()
+		before.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
 		if err := app.Config.Save(before); err != nil {
 			t.Fatal(err)
 		}
@@ -58,7 +59,7 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 		if err := secretStore.Set("zeta-new", "target-token"); err != nil {
 			t.Fatal(err)
 		}
-		assertFinalizeRefused(t, app, "does not cover all admitted clients")
+		assertFinalizeRefused(t, app, "enabled client")
 		assertCurrentAccountConfig(t, app, current)
 	})
 
@@ -77,6 +78,50 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 		}
 		assertFinalizeRefused(t, app, "source account")
 	})
+}
+
+func TestAccountFinalizeUsesEnabledClientScope(t *testing.T) {
+	for _, enabled := range []string{"", configuration.ClientClaude, configuration.ClientCodex} {
+		t.Run("enabled="+enabled, func(t *testing.T) {
+			app, _, store, _, _ := testApp(t, "")
+			cfg := renamedAccountConfig(accountRenameConfig())
+			if enabled != "" {
+				cfg.Adapters[enabled] = configuration.AdapterConfig{Enabled: true}
+			}
+			if err := app.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if enabled != "" {
+				if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, []string{enabled}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, id := range []string{"zeta-old", "zeta-new"} {
+				if err := store.Set(id, "same-token"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize"}); err != nil {
+				t.Fatal(err)
+			}
+			if secretExists(t, store, "zeta-old") || !secretExists(t, store, "zeta-new") {
+				t.Fatal("retirement did not preserve only the target Token")
+			}
+			if !bytes.Equal(readFile(t, app.Config.Path()), readFile(t, app.Config.Path()+".bak")) {
+				t.Fatal("retirement did not converge backup")
+			}
+		})
+	}
+}
+
+func TestAccountFinalizeWithoutCredentialsNeedsNoToken(t *testing.T) {
+	app, _, _, _, _ := testApp(t, "")
+	if err := app.Config.Save(renamedAccountConfig(accountRenameConfig())); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize"}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
@@ -166,6 +211,9 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 		t.Fatal(err)
 	}
 	current := renamedAccountConfig(before)
+	for _, client := range configuration.AdmittedClientIDs() {
+		current.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+	}
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
 	}
@@ -328,6 +376,9 @@ func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.B
 		t.Fatal(err)
 	}
 	current := renamedAccountConfig(before)
+	for _, client := range configuration.AdmittedClientIDs() {
+		current.Adapters[client] = configuration.AdapterConfig{Enabled: true}
+	}
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
 	}

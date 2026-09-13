@@ -60,6 +60,38 @@ safe next action.
 - **THEN** configuration rollback restores that predecessor
 - **AND** does not fail merely because the preferred source was unusable.
 
+### Requirement: Verification follows enabled client scope
+
+`verify --for all` SHALL verify every currently enabled client Route, not every
+client implemented by AIGW. Disabled or absent clients SHALL NOT become
+prerequisites for Account rename finalization. Finalization SHALL retain
+credential equality, current-configuration and exact-backup guards; it SHALL
+require successful verification of all enabled clients before retiring source
+credentials. A configuration with no enabled clients needs no client checkpoint
+and SHALL NOT be described as having completed client verification.
+
+#### Scenario: One client is enabled
+
+- **WHEN** only Claude Code or only Codex is enabled after an Account rename
+- **THEN** bulk verification invokes only that enabled client and records its
+  exact scope
+- **AND** finalization accepts that scope without installing or invoking the
+  other client.
+
+#### Scenario: An enabled client is unready
+
+- **WHEN** an enabled client has a missing Route or invalid projection
+- **THEN** bulk verification fails before any client invocation
+- **AND** no complete verification checkpoint is written.
+
+#### Scenario: No client is enabled
+
+- **WHEN** an Account is renamed before any client is enabled
+- **THEN** finalization can converge the current backup and safely retire equal
+  source credentials without requiring a client checkpoint
+- **AND** bulk verification reports that there are no enabled clients rather
+  than claiming an empty successful inference.
+
 ### Requirement: Read-only commands remain non-interactive
 
 Read-only commands SHALL NOT prompt, mutate configuration, read secret values

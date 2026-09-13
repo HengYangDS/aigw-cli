@@ -254,20 +254,21 @@ observed before credential preparation or finalization admission starts no
 writes; once an admitted credential copy has occurred, a failed configuration
 commit preserves both slots for retry and rollback.
 
-Configuration owns the verified recovery boundary. Its Store captures the
-ordinary configuration/backup/checkpoint snapshot, decodes both configurations,
-and compares their canonical persisted representation before returning a
-verified state. Comments and presentation-only IDs do not change that identity;
-changed configuration does. Renaming owns the separate requirement for complete
-client verification and credential retirement, not a second configuration
-normalizer or snapshot type. Backup convergence checks the captured preimages
+Configuration owns the recovery boundary and the stable enabled-client set.
+Its Store captures the ordinary configuration/backup/checkpoint snapshot. When
+clients are enabled, it compares current and checkpoint configurations by their
+canonical persisted representation. Comments and presentation-only IDs do not
+change that identity; changed configuration does. Renaming requires the
+checkpoint to cover every enabled client before credential retirement, not every
+client supported by the product. With no enabled clients, no checkpoint is
+required and no client verification is claimed. Backup convergence checks the captured preimages
 and writes owner-only permissions through the existing guarded atomic writer;
 it returns success or failure, not an unused postimage receipt.
 
 Checkpoint reading consumes exactly one complete JSON document. Writer and
 reader share one nonempty, unique, admitted-client scope rule; invalid scope
 fails before persistence. A valid subset records only the clients actually
-verified. Complete-client coverage remains a separate finalization requirement,
+verified. Enabled-client coverage remains a separate finalization requirement,
 not something the checkpoint reader infers from a nonempty list.
 
 ### Upgrade and process execution

@@ -207,6 +207,17 @@ func (c Config) FirstProfileForClient(client string) string {
 	return ""
 }
 
+// EnabledClientIDs returns the stable client scope explicitly enabled by this configuration.
+func (c Config) EnabledClientIDs() []string {
+	clients := make([]string, 0, len(c.Adapters))
+	for _, client := range AdmittedClientIDs() {
+		if c.Adapters[client].Enabled {
+			clients = append(clients, client)
+		}
+	}
+	return clients
+}
+
 // RouteUsesAccount reports whether the resolved route for client selects the
 // given Account.
 func (c Config) RouteUsesAccount(client, accountID string) bool {

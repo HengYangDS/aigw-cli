@@ -232,6 +232,26 @@ func TestNativeClientJourney(t *testing.T) {
 				}
 			}
 			journey.testing = t
+			const renamedAccount = "renamed-client-account"
+			journey.setEnvironment(secrets.EnvironmentKey(renamedAccount), token)
+			journey.run("account", "rename", "native-system-keyring-probe", renamedAccount)
+			count := completions.Load()
+			journey.run("verify", "--for", "all")
+			if completions.Load() <= count {
+				t.Fatal("bulk verification did not invoke the enabled native client")
+			}
+			checkpoint, err := configuration.NewStore(journey.config).LoadVerifiedCheckpoint()
+			if err != nil || len(checkpoint.Clients) != 1 || checkpoint.Clients[0] != client {
+				t.Fatalf("single-client checkpoint = %v: %v", checkpoint.Clients, err)
+			}
+			journey.environment = environmentWithout(journey.environment, secrets.EnvironmentKey("native-system-keyring-probe"))
+			journey.run("account", "rename", "native-system-keyring-probe", renamedAccount, "--finalize")
+			var retirement struct {
+				Status string `json:"status"`
+			}
+			if err := json.Unmarshal(journey.run("account", "rename", "native-system-keyring-probe", renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already-finalized" {
+				t.Fatalf("repeated retirement = %q: %v", retirement.Status, err)
+			}
 			journey.runWith(candidate, "uninstall", "--target", journey.binary)
 			journey.requireOwnedFilesAbsent()
 			journey.requireNativePreferences(client)

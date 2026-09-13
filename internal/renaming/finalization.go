@@ -5,11 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/providers"
 	"aigw-cli/internal/secrets"
 )
@@ -34,8 +34,10 @@ func planFinalize(deps Service, oldID, newID string, options FinalizeOptions) (P
 		}
 	}
 	sort.Strings(references)
-	if !coversAllAdmittedClients(state.Checkpoint.Clients) {
-		return Plan{}, errors.New("verified checkpoint does not cover all admitted clients")
+	for _, client := range cfg.EnabledClientIDs() {
+		if !slices.Contains(state.Checkpoint.Clients, client) {
+			return Plan{}, fmt.Errorf("verified checkpoint does not cover enabled client %q; run `aigw verify --for all`", client)
+		}
 	}
 
 	backupConverged := state.Snapshot.Backup.Exists &&
@@ -88,15 +90,15 @@ func planFinalToken(deps Service, plan *Plan, oldID, newID string, confirmed boo
 	if err != nil {
 		return false, fmt.Errorf("Read target API token credential slot: %w", err)
 	}
-	if !targetPresent {
-		return false, fmt.Errorf("target API token for account %q is unavailable", newID)
-	}
 	source, sourcePresent, err := readOptionalToken(deps.Secrets, oldID)
 	if err != nil {
 		return false, fmt.Errorf("Read source API token credential slot: %w", err)
 	}
 	if !sourcePresent {
 		return false, nil
+	}
+	if !targetPresent {
+		return false, fmt.Errorf("target API token for account %q is unavailable", newID)
 	}
 	rotated := !secretValuesEqual(source, target)
 	switch {
@@ -147,26 +149,6 @@ func planFinalProbe(deps Service, plan *Plan, oldID, newID string, confirmed boo
 		plan.verifyProbe = true
 	}
 	return true, nil
-}
-
-func coversAllAdmittedClients(clients []string) bool {
-	admitted := configuration.AdmittedClientIDs()
-	if len(clients) != len(admitted) {
-		return false
-	}
-	seen := make(map[string]bool, len(clients))
-	for _, client := range clients {
-		if seen[client] || !configuration.IsAdmittedClient(client) {
-			return false
-		}
-		seen[client] = true
-	}
-	for _, client := range admitted {
-		if !seen[client] {
-			return false
-		}
-	}
-	return true
 }
 
 func applyFinalize(ctx context.Context, deps Service, plan Plan) (Plan, error) {

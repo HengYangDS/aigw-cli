@@ -29,7 +29,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		}),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			synchronizer := invocation.Synchronizer(runtime)
-			admittedClients := synchronizer.ClientIDs()
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
@@ -42,7 +41,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			clients := []string{client}
 			if client == "all" {
-				clients = admittedClients
+				clients = cfg.EnabledClientIDs()
+				if len(clients) == 0 {
+					return fmt.Errorf("no enabled clients to verify; run `aigw adapter list`")
+				}
 			}
 			clientRuntimes := make(map[string]configuration.Runtime, len(clients))
 			for _, target := range clients {
@@ -84,7 +86,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Verify the selected Route for "+configuration.AdmittedClientLabelUsage("all"))
+	cmd.Flags().StringVar(&client, "for", "", "Verify the selected Route for "+configuration.AdmittedClientLabelUsage("all")+"; all means enabled clients")
 	cmd.Flags().StringVar(&profileName, "profile", "", "Verify one Profile using its declared client without changing Routes")
 	cmd.MarkFlagsMutuallyExclusive("for", "profile")
 	return cmd

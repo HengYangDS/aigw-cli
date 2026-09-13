@@ -57,13 +57,15 @@ func writeResult(runtime invocation.Context, plan renaming.Plan, jsonMode bool) 
 	case "planned":
 		r.Success("Dry run complete; no changes were made")
 	case "already-finalized":
-		r.Success("The verified rollback baseline and source credential cleanup are already complete")
+		r.Success("The rollback baseline and source credential cleanup are already complete")
 	case "finalized":
-		r.Success("The verified rollback baseline was converged and source credential slots were removed")
+		r.Success("The rollback baseline was converged and source credential cleanup is complete")
 	case "applied":
 		if plan.Resource == "account" {
 			r.Success("Configuration and target credentials are ready; source credential slots were retained for rollback")
-			r.Next("aigw verify --for all")
+			if len(plan.Config.EnabledClientIDs()) > 0 {
+				r.Next("aigw verify --for all")
+			}
 			r.Next("aigw account rename " + plan.OldID + " " + plan.NewID + " --finalize")
 		} else {
 			r.Success("The account token remains in place and routes were synchronized")

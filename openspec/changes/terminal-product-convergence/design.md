@@ -293,6 +293,24 @@ latency. Runtime and final cross-platform release evidence remain separate.
 
 ### Credentials use one selected backend and typed purposes
 
+Bulk client verification uses the current configuration's enabled Adapter set,
+not the product's supported-client registry. Configuration owns that stable
+selection. The verification command preflights every enabled Route before
+invoking any client and saves only the successfully verified scope. An empty
+enabled set returns an explicit no-client result rather than an empty proof.
+
+Account retirement consumes the same set. A current checkpoint must cover every
+enabled client; with none enabled, credential equality and guarded backup
+convergence suffice. Missing source credentials need no replacement Token.
+Current-configuration equality, credential rotation consent, exact preimages and
+retryable cleanup remain unchanged. This removes the all-supported-client
+validator rather than adding a scope registry or another checkpoint format.
+
+Implementation order for this correction is behavioral RED at the public CLI,
+the existing configuration/finalization owners, focused GREEN and race tests,
+then source quality and packaged single-client acceptance. Existing task 11.4
+owns the correction; it creates neither a parallel Change nor a release claim.
+
 Backend selection is an installation fact. Native keyrings are admitted only
 after bounded non-interactive capability observation; the environment backend
 is explicit and read-only; a platform-safe file fallback is selected only by

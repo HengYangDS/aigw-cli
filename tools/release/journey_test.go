@@ -132,6 +132,23 @@ func TestNativeProductJourney(t *testing.T) {
 	}
 }
 
+func TestNativeAccountRetirementWithoutClients(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifact := buildNativeProgram(t, root, "0.0.0")
+	journey := newNativeJourney(t, artifact, "https://unused.example.test", false)
+	journey.run("setup", "--from", journey.manifest)
+	journey.run("account", "rename", "native-system-keyring-probe", "renamed-account")
+	journey.run("account", "rename", "native-system-keyring-probe", "renamed-account", "--finalize")
+	journey.requireNoClaudeProjection()
+	if !bytes.Equal(readFile(t, journey.config), readFile(t, journey.config+".bak")) {
+		t.Fatal("client-free retirement did not converge backup")
+	}
+	journey.uninstallAndRequireOwnedFilesAbsent()
+}
+
 func buildNativeProgram(t *testing.T, root, version string) string {
 	t.Helper()
 	artifact := filepath.Join(t.TempDir(), executableName())

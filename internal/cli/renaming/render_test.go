@@ -35,3 +35,21 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 		})
 	}
 }
+
+func TestAccountRenameContinuationFollowsEnabledClients(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		cfg := configuration.NewConfig()
+		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: enabled}
+		var out bytes.Buffer
+		plan := renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Config: cfg}
+		if err := writeResult(invocation.Context{Out: &out}, plan, false); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(out.String(), "aigw verify --for all") != enabled {
+			t.Fatalf("enabled=%t, continuation=%s", enabled, &out)
+		}
+		if !strings.Contains(out.String(), "aigw account rename old new --finalize") {
+			t.Fatalf("retirement continuation missing: %s", &out)
+		}
+	}
+}
