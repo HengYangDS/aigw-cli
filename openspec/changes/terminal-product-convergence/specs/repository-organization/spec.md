@@ -93,12 +93,16 @@ whose only purpose is structural symmetry.
 
 ### Requirement: Governed release-branch convergence
 
-Local `candidate/dev`, protected `dev`, and protected `main` SHALL advance
-through the current public governance lifecycle and tracked branch-role policy.
+Declared candidate, accepted and release refs SHALL advance through current
+transition authority and tracked branch-role policy. Normal governance and an
+explicitly authorized, exact-scope maintainer recovery SHALL retain proof,
+identity, compare-and-swap and post-effect observation requirements.
 The adopter SHALL declare its product roles and gates without prescribing ETHOS
 internal transition names or capability schema. GitLab and GitHub SHALL publish
 the same accepted source independently; remote availability SHALL not be a prerequisite
-for local proof or release assembly.
+for local proof or release assembly. Source integration MAY retain an active
+official Change while delivery is unfinished; its task carrier SHALL remain
+the sole progress authority until obligations are settled and archived.
 
 #### Scenario: Accepted content is ready for release
 
@@ -108,9 +112,12 @@ for local proof or release assembly.
 
 #### Scenario: Direct branch mutation is attempted
 
-- **WHEN** an actor attempts to bypass the governed lifecycle for `candidate/dev`, `dev`, or `main`
-- **THEN** repository admission blocks the mutation
-- **AND** reports the required public governance operation.
+- **WHEN** an actor attempts to move a declared ref without current exact-scope
+  authority or matching observed source and destination objects
+- **THEN** admission blocks the mutation
+- **AND** reports the missing authority or changed precondition
+- **AND** a governor defect requires an explicit bounded maintainer recovery,
+  not a permanent hook bypass or a replacement lifecycle engine.
 
 #### Scenario: One Forge is unavailable
 

@@ -150,17 +150,29 @@ to the execution/governance owner, not this policy or a new AIGW updater.
 ## Change Lifecycle
 
 [Workspace branch roles](../../.ethos/workspace.toml) distinguish accepted
-integration (`dev`) from release (`main`). Both publication trees contain
-archived Changes and canonical specifications. One owned work lane carries the
+integration (`dev`) from release (`main`). One owned work lane carries the
 active Change's intent, contract delta, design and progress; a `proposal/*` ref
-is its review projection, not another authoring lane.
+is its review projection, not another authoring lane. Accepted and release
+trees may retain that active Change while delivery is unfinished. Source
+acceptance, publication, installation and Change completion are distinct facts.
+
+Follow [OpenSpec's merge-then-archive convention](https://github.com/Fission-AI/OpenSpec/blob/v1.13.0/docs/team-workflow.md#when-to-archive):
+validate and integrate source first, retain pending delivery in the same official
+task carrier, and archive after those obligations are settled. Archive is not
+permission to mark future work complete. A malformed Change still fails native
+validation; a valid active Change is not itself a source defect.
 
 ETHOS owns write admission, proof, archive, integration and retirement. Start
 with its current `status --json` result in the exact checkout and follow the
 public continuation rather than treating this document as a second state
 machine. AIGW declares its [product gates](../../.ethos/profile.toml) and
 [publication surfaces](../../.ethos/release.toml); those declarations do not
-replace generic lifecycle authority.
+replace generic lifecycle authority. When the governor itself rejects this
+ordering, an explicitly authorized maintainer recovery is limited to the
+incorrect archive prerequisite: bind exact source/ref objects, preserve proof
+and signatures, record the effect, re-observe every selected target, and
+re-enter normal governance. Never install a permanent hook bypass or a second
+AIGW lifecycle checker.
 
 Product acceptance, release publication, installation and lane retirement are
 distinct claims. A local-only acceptance claims no hosted delivery. An installed

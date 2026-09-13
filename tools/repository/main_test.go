@@ -101,16 +101,10 @@ func TestRunChecksChangelogAndReleaseEpoch(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(changelog), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(root, "openspec", "changes", "archive"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	if err := run([]string{"--root", root, "changelog"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := run([]string{"--root", root, "release-epoch", "1.2.3"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := run([]string{"--root", root, "protected-lifecycle"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{nil, {"unknown"}, {"--root", root, "release-epoch"}, {"--root", root, "changelog", "a", "b", "c"}} {

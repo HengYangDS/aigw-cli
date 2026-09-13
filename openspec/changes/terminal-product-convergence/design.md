@@ -103,7 +103,7 @@ mechanism or preserving an unsupported completion claim.
 | 3     | 11.6, 11.8, 12.6, 12.7, 12.9      | Complete fresh-user and team journeys, real-provider and explicit external-endpoint acceptance, hosted rendering, supported client limits and comparative performance budgets. Synthetic streams, preserved settings and source tests cannot establish these claims.                                                                |
 | 4     | 9.7                               | Establish the one signed dependency-update owner and demonstrate lock/projection refresh, checks and object-preserving integration. Recheck stable supply inputs within 9.4–9.6 without creating competing peer proposals or blocking independent product repairs.                                                                  |
 | 5     | 13.3–13.5                         | Audit all feedback against its existing task and evidence, freeze a clean signed candidate, and run the complete final quality/native/release obligations. Reopen contradicted tasks; completion counts are not readiness percentages.                                                                                              |
-| 6     | 10.7–10.9, 12.2, 12.6, 12.8, 13.6 | Complete integration, OpenSpec closeout, local and dual-peer main/dev alignment, the unique signed release and identical assets. Run native acceptance against those published bytes, install safely and verify operator-owned state. Never mark a future delivery operation done to satisfy an archive gate.                       |
+| 6     | 10.7–10.9, 12.2, 12.6, 12.8, 13.6 | Integrate source with its active Change, align local and dual-peer main/dev, and publish one signed release and identical assets. Verify published bytes and install safely; update the same task carrier from observed outcomes before archive. Never predeclare future delivery to satisfy an archive gate.                       |
 | 7     | 13.1, 13.7                        | Retire the merged proposal and owned lane; delete obsolete refs, releases, scratch and runtimes only after consumer checks. Preserve the current installation and still-owned rollback material.                                                                                                                                    |
 
 Documentation, naming and configuration changes accompany their owning repair;
@@ -606,10 +606,14 @@ are distinct acceptance claims. Their current progress belongs to tasks.md:
 - **11:** precise content, rendered documents and actual user journeys.
 - **12 and 13:** final artifact, installation, publication and residue evidence.
 
-The current protected-lifecycle check has a real detached-source CI consumer.
-Retain it until ETHOS supplies an equivalent installed contract; removing the
-only effective gate is not deduplication. Its replacement is a governance
-boundary, not permission to block independent product work or add another engine.
+The branch-based protected-lifecycle check rejected valid source solely because
+its official Change remained active. Its consumer did not justify that rule: it
+created a dependency cycle when publication and installation were tasks of the
+Change. Remove the checker and its dispatch rather than recreate the same policy
+in ETHOS or another adapter. The existing source graph retains native OpenSpec
+validation, quality, exact-source evidence and signing. Source can be integrated
+with its active task carrier; real delivery outcomes update that same carrier
+before final archive.
 
 Git and existing source-bound output retain implementation history; this section
 owns surviving decisions, not a growing repair diary.
@@ -1006,6 +1010,8 @@ continues when the affected transition is not on its critical path.
 9. Build a signed release candidate; verify fresh install, update from the
    retained baseline, rollback, uninstall, credential modes, and real Codex and
    Claude projection journeys.
-10. Archive and land only after all tasks are proved; synchronize local and both
-    Forge `main` and `dev`, publish the signed tag and identical assets, then
-    remove the proposal, Work Lane, obsolete runtimes, and other owned residue.
+10. Integrate source only after its exact proof and required native checks pass,
+    preserving the active Change for unfinished delivery. Synchronize selected
+    local and Forge refs, publish the signed tag and identical assets, verify
+    published bytes and install safely. Update the same tasks from those real
+    outcomes; settle Change obligations before archive and exact final retirement.

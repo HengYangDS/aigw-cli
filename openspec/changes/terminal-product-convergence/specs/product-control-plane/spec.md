@@ -819,6 +819,21 @@ name the exact owned resource and SHALL NOT silently report success.
 
 ## MODIFIED Requirements
 
+### Requirement: Terminal candidate integration is exact and local
+
+A proven work lane SHALL advance the local candidate only through explicit
+compare-and-swap authority bound to the complete accumulated lane delta.
+
+#### Scenario: The candidate remains the observed ancestor
+
+- **WHEN** full proof passes for the exact clean work-lane HEAD with valid
+  official Change artifacts
+- **THEN** local integration SHALL move the declared candidate ref only from
+  its previously observed object under current transition authority
+- **AND** any candidate, Lease, tree, scope, or proof drift SHALL fail closed
+- **AND** no remote Forge SHALL be queried or mutated
+- **AND** pending external delivery tasks remain in the same active Change.
+
 ### Requirement: Hosted evidence identity is Forge-portable
 
 Hosted acceptance SHALL bind its executed input to the exact selected product
@@ -1173,13 +1188,15 @@ literals or compatibility fallbacks.
 
 ### Requirement: Terminal local release readiness
 
-AIGW SHALL admit a local release candidate only after canonical specifications
-have no placeholder authority; direct repository dependencies are current and
+AIGW SHALL admit a local release candidate only after the canonical contract
+and its active official deltas have no placeholder authority; direct repository dependencies are current and
 stable under the dependency-admission policy; the faithful quantitative
 quality evidence contract is satisfied; native source gates pass; and the release
 matrix is reproducible and installable. Hosted CI, peer publication,
 installed-asset proof, and lane retirement SHALL consume, rather than block
-production of, the archived local result.
+production of, the source-accepted local result. Active Change intent and
+pending delivery tasks SHALL remain available until their obligations are
+settled; archive SHALL NOT be used to erase that unfinished work.
 
 #### Scenario: A stable direct dependency update is available
 
@@ -1211,12 +1228,13 @@ production of, the archived local result.
 
 #### Scenario: External delivery follows local readiness
 
-- **WHEN** the Change has passed exact-HEAD proof and has been archived and
-  landed
+- **WHEN** source has passed exact-HEAD proof and authorized integration
 - **THEN** native hosted verification and each optional peer MAY independently
   consume that exact accepted result
 - **AND** released-asset installation and governed lane retirement occur only
-  after their corresponding external evidence exists.
+  after their corresponding external evidence exists
+- **AND** the same official task carrier retains pending outcomes; completed
+  Change obligations are archived afterward rather than predeclared.
 
 #### Scenario: A clean runner materializes npm tools
 

@@ -1,23 +1,25 @@
 ## MODIFIED Requirements
 
-### Requirement: Accepted publication trees contain only archived Changes
+### Requirement: Source acceptance precedes delivery completion
 
-Normal accepted-ref admission SHALL require `openspec/changes/` to contain no
-active Change directories before `dev`, `main`, or a release tag is accepted.
-Work-lane and proposal source validation SHALL validate their active intent
-without treating its presence as a publication attempt. Generic archive and
-ref-transition admission belong to ETHOS, not a duplicate source-check state
-machine. Future publication, installation, or retirement MUST NOT be reported
-complete merely to satisfy an archive prerequisite.
+Source acceptance SHALL require valid official Change artifacts, exact-source
+quality evidence and authorized object-preserving integration. An active
+Change MAY accompany that source into accepted or release refs while external
+delivery remains incomplete. Its original tasks SHALL retain the remaining
+work and be updated only after the corresponding outcomes are observed.
+Archive SHALL follow completed Change obligations, not become a prerequisite
+for the integration that enables them. AIGW SHALL retain native OpenSpec
+validation without a second branch-based lifecycle checker.
 
 #### Scenario: Active Change reaches source verification
 
-- **WHEN** normal admission evaluates an accepted publication ref whose tree
-  still contains an active Change
-- **THEN** it SHALL identify that Change and withhold publication admission
-- **AND** source validation for its work lane or proposal may run normally
-- **AND** an impossible lifecycle prerequisite SHALL remain an explicit ETHOS
-  defect, not permission to falsify task completion.
+- **WHEN** source verification observes an active Change in a work lane,
+  proposal, accepted branch or release branch
+- **THEN** the same official artifact validation and product quality graph run
+- **AND** the presence of its task carrier alone SHALL NOT reject valid source
+- **AND** malformed artifacts or failed quality checks still block acceptance
+- **AND** source acceptance SHALL NOT mark pending publication, installation or
+  cleanup complete.
 
 ### Requirement: Portable exact-version CI bootstrap
 
@@ -451,3 +453,8 @@ documentation, packaging, or CI path SHALL be resolved at its semantic owner.
 **Reason:** This requirement suppresses accepted dev events and conflicts with the admitted lifecycle-scoped CI graph.
 
 **Migration:** Use ci-diagnostics / Every integration path produces exact-commit evidence. Review and accepted-branch events each run; release pushes additionally verify ref parity. No cross-event evidence-reuse capability is implied.
+
+## RENAMED Requirements
+
+- FROM: `### Requirement: Accepted publication trees contain only archived Changes`
+- TO: `### Requirement: Source acceptance precedes delivery completion`

@@ -39,7 +39,6 @@ var qualityCommands = []command{
 	{Name: "go", Args: []string{"run", "./tools/ci", "check-source-size", "."}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}},
 	{Name: "go", Args: []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|FilePreservation)$"}},
-	{Name: "go", Args: []string{"run", "./tools/repository", "--root", ".", "protected-lifecycle"}},
 	{Name: "actionlint"},
 }
 

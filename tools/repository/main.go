@@ -26,15 +26,13 @@ func run(args []string) error {
 		return err
 	}
 	if flags.NArg() == 0 {
-		return fmt.Errorf("usage: repository [--root path] <changelog|release-epoch|protected-lifecycle>")
+		return fmt.Errorf("usage: repository [--root path] <changelog|release-epoch>")
 	}
 	switch flags.Arg(0) {
 	case "changelog":
 		return checkChangelog(*root, flags.Args()[1:])
 	case "release-epoch":
 		return printReleaseEpoch(*root, flags.Args()[1:])
-	case "protected-lifecycle":
-		return checkProtectedLifecycle(*root)
 	default:
 		return fmt.Errorf("unknown repository check: %s", flags.Arg(0))
 	}
