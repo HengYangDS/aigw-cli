@@ -96,8 +96,9 @@ mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 `aigw sync --dry-run --json` is a read-only planning surface. It may resolve
 configuration but must not bind credentials, restart a client, modify a Codex
 session, or write config/sidecar state. `aigw sync` prepares every configured
-Codex target before its first write and rolls every target back if a commit
-fails.
+Codex target before its first write. If a commit fails, it compensates in
+reverse order, restoring only targets that still match its own write. Newer
+external edits are preserved; see the [transaction contract](docs/decisions/dr-0006-transactional-client-projection.md).
 
 The projected Codex model catalog is the one projection whose loading only the
 client itself can confirm. Changing that projection, or qualifying a new client
@@ -216,12 +217,7 @@ checks. Copy existing Git objects and metadata rather than inventing a
 publication ref, synthesizing a tag or changing tracked files. Record those
 inputs with the result; no verification checkout becomes an authoring lane.
 
-### CI tool caches
-
-[The CUE model](.config/ci/pipeline.cue) projects native tool caching to both
-Forges. Every job still runs `mise install --locked`; cache presence is neither
-verification evidence nor permission to skip a gate. `mise run bootstrap`
-prepares Go dependencies and rebuilds Node packages in that checkout.
+### Environment reconstruction
 
 The ordinary test suite snapshots the current Go source and native mise/Go/npm
 inputs, including the early configuration, into a private checkout with spaces
@@ -269,6 +265,13 @@ do not establish complete provenance. Offline mode is not a substitute for
 remote metadata resolution. A successful cache-backed install and a successful
 online lock refresh are separate claims.
 
+### CI tool caches
+
+[The CUE model](.config/ci/pipeline.cue) projects native tool caching to both
+Forges. Every job still runs `mise install --locked`; cache presence is neither
+verification evidence nor permission to skip a gate. `mise run bootstrap`
+prepares Go dependencies and rebuilds Node packages in that checkout.
+
 GitHub uses the pinned mise action's cache key, which includes the platform,
 runner image, mise version, configuration and lockfile hashes. The job identifier
 separates installation scopes. GitLab Linux retains `installs/` and native
@@ -291,6 +294,8 @@ download cache; use its documented
 instead of a custom downloader or retry loop. An incompatible runner image or
 architecture requires a separate cache namespace. The current Linux boundary
 uses a dedicated runner; do not reuse that runner identity across architectures.
+
+### Source checks
 
 The [quality and platform evidence policy](docs/governance/change-and-release-policy.md#quality-and-platform-evidence)
 defines supported measurements and admission boundaries; native tool
@@ -353,6 +358,8 @@ deletion leaves it empty. This is not evidence of an AIGW duplicate credential.
 Retain the warning and exact backend version in acceptance evidence; do not
 silence it, delete before replacement, or claim warning-free qualification.
 
+### Existing candidate acceptance
+
 To test an already built candidate without rebuilding it:
 
 ```bash
@@ -375,6 +382,8 @@ projection drift even when the installed helper remains correct. Do not run
 `sync` to make this inspection green. Use the isolated lifecycle journey above
 to validate the candidate at its intended installation path while preserving
 the operator's configuration and credentials.
+
+### Real-client acceptance
 
 The tracked real-client journey reuses the same native installation and
 replacement fixtures, with a controlled authenticated streaming endpoint:
@@ -415,6 +424,8 @@ provide the same client and predecessor inputs and run
 The release owner supplies the candidate directory, retains it for both tests,
 stops on the first failure and cleans it afterward. No second build is needed.
 
+#### Hosted Windows qualification
+
 The existing GitHub **Verify** workflow exposes `windows_clients` for an explicit
 manual qualification with `baseline_tag`. It provisions pinned official native
 Codex and Claude packages using npm with install scripts disabled, verifies
@@ -424,6 +435,8 @@ its temporary clients are removed afterward. It does not install anything on
 the operator's workstation. The shared command is also available to local and
 GitLab runners that provision equivalent inputs; no second product verifier is
 introduced for a Forge that lacks a Windows executor.
+
+#### Disposable Linux clients
 
 For disposable Linux real-client acceptance, prepare the complete official
 client distribution, including its companion executables. Preserve each AIGW
@@ -449,6 +462,8 @@ enabled integration, then restores the program and synchronizes again. Both
 paths check credentials and readiness. The predecessor must accept the fixture's configuration and
 manifest schemas; an older-schema baseline requires its own reviewed migration
 journey and cannot establish compatibility through this test alone.
+
+### Historical release qualification
 
 GitHub's existing **Verify** workflow also accepts an optional `baseline_tag`
 for manual historical-release verification. Select the candidate ref, its

@@ -227,15 +227,10 @@ The following have no valid steady-state role:
 Local operation with zero peers remains complete. GitLab and GitHub are
 optional, equivalent, independent peers:
 
-```mermaid
-flowchart LR
-    Local[Local product SSOT] --> GitLab[GitLab]
-    Local --> GitHub[GitHub]
-```
-
 One peer never queries, downloads from, repairs, or authorizes the other. A
 failed peer is reported incomplete while local operation and the other peer
-continue independently.
+continue independently. [Forge operations](../operations/forge-operations.md#authority)
+illustrates this authority boundary and owns the publication commands.
 
 Release metadata and upload requests use the selected endpoint without following
 redirects. Artifact downloads retain native CDN redirects, the caller's stricter

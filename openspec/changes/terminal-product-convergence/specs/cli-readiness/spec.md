@@ -3,9 +3,9 @@
 ### Requirement: Operational commands share one state vocabulary
 
 `setup`, `use`, `sync`, `status`, `check`, `doctor`, and `verify` SHALL use
-configured, deferred, ready, degraded, invalid, and unavailable as one shared
+configured, deferred, endpoint_checked, degraded, invalid, and unavailable as one shared
 state vocabulary. Commands SHALL classify only the evidence they actually
-observe: a deeper authenticated probe may refine configured into ready,
+observe: a deeper authenticated probe may refine configured into endpoint_checked,
 degraded, invalid, or unavailable. Human and JSON output SHALL identify the
 affected Account, Profile, Route, client, backend, or endpoint and exactly one
 safe next action.
@@ -21,7 +21,7 @@ safe next action.
 
 - **WHEN** check observes a configured client through its bounded authenticated
   endpoint probe
-- **THEN** a successful probe reports ready
+- **THEN** a successful probe reports endpoint_checked, not client or inference readiness
 - **AND** a typed probe failure reports degraded, invalid, or unavailable
   without changing the underlying local configuration.
 
@@ -37,7 +37,7 @@ safe next action.
 - **WHEN** an enabled client Route passes its configuration, projection,
   Account Token, and endpoint checks but optional balance credentials are
   unavailable
-- **THEN** human and JSON check output both report that Route as ready
+- **THEN** human and JSON check output both report that Route as endpoint_checked
 - **AND** check does not access optional diagnostic credentials
 - **AND** the dedicated account and balance commands retain responsibility for
   connecting and using those credentials.

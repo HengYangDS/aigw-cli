@@ -44,6 +44,12 @@ OpenSpec; generated verification output does not become current documentation.
 | Understand durable decisions    | [Decision register](decisions/decision-register.md)                                  |
 | Change or release the product   | [Change and release policy](governance/change-and-release-policy.md)                 |
 
+For verification, distinguish [source checks](../CONTRIBUTING.md#source-checks),
+[native artifact lifecycle](../CONTRIBUTING.md#native-upgrade-acceptance),
+[real-client execution](../CONTRIBUTING.md#real-client-acceptance), and
+[historical upgrades](../CONTRIBUTING.md#historical-release-qualification).
+They answer different questions; none substitutes for all the others.
+
 ## Reference map
 
 | Domain       | Document                                                                               | Owns                                                                   |

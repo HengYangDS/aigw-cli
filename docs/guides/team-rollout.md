@@ -35,14 +35,18 @@ boundaries follow [Adapter admission](../governance/adapter-admission.md).
 
 The team manifest is a curated catalogue, not a collection of personal notes.
 
-| Field                | Responsibility                    | Team convention                                                                              |
-| -------------------- | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| Profile ID           | Stable selection key              | Account ID + `-` + exact provider model ID, including channel suffix                         |
-| `account`, `client`  | Credential owner and client scope | Explicit references to existing Accounts and admitted clients                                |
-| `model`              | Provider request identifier       | Exact provider spelling, including version punctuation and channel suffix                    |
-| `label`              | Human-readable identity           | `Account label · Model display name`; append `· CHANNEL` with a separating space when needed |
-| `purpose`            | Optional workflow description     | Omit throughout this model catalogue                                                         |
-| `recommended_routes` | Recommendation per client         | Sole recommendation owner, separate from display text                                        |
+- **Profile ID:** stable selection key: Account ID + `-` + the exact provider
+  model ID, including its channel suffix.
+- **`account` and `client`:** explicit references to the credential-owning
+  Account and admitted client.
+- **`model`:** exact provider request identifier, preserving version
+  punctuation and channel suffix.
+- **`label`:** human-readable identity: `Account label · Model display name`;
+  append `· CHANNEL` with a separating space when needed.
+- **`purpose`:** optional workflow description; omit throughout this
+  model catalogue.
+- **`recommended_routes`:** sole recommendation owner, one Profile per
+  client; recommendations do not belong in display text.
 
 Use product capitalization, dotted display versions, uppercase channel names,
 and spaces around `·`. Labels contain identity, not performance promises,
@@ -143,9 +147,11 @@ Setup:
 - preserves every reviewed Account and Profile;
 - connects no Account unless a Token already exists or the user selects one;
 - configures only installed admitted clients;
-- rolls back AIGW-owned changes if a required projection fails.
+- compensates failed projections only where its owned writes remain unchanged,
+  preserving newer external edits and reporting recovery conflicts.
 
-Connect any one Account; the rest remain optional:
+To connect one Account during first-time setup, use this form **instead of**
+the import-only command above. The rest remain optional:
 
 ```bash
 aigw setup --from team.toml --account dmxapi
@@ -156,11 +162,19 @@ The interactive command prompts only for the selected Account. Automation may
 pipe exactly one Token by adding `--token-stdin`; it must keep `--account` so
 the Token owner is explicit.
 
-If the catalogue is already imported, use `aigw rotate <account>` to add or
-replace that Account's Token, then select the desired Profile with
-`aigw use <profile>`; the Profile itself declares its client. One connected
-Account is enough to begin. Accounts without Tokens remain available but do not
-make setup, check, or another Account fail.
+If the catalogue is already imported, do not repeat setup. Add or replace one
+Account Token, then select its Profile:
+
+```bash
+aigw rotate dmxapi
+aigw use dmxapi-gpt-5.6-sol
+aigw check
+```
+
+One connected Account is enough to begin. Accounts without Tokens remain
+available but do not make another Account fail. With no enabled client, `check`
+and `doctor` validate local configuration without requiring the recommended
+Routes' Tokens; their success is not a client or inference proof.
 
 Interactive `aigw use <profile>` can also prompt for that Account's missing
 Token. Re-selecting the current Profile then reports **Token stored**, not an
