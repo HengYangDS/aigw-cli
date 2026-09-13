@@ -21,13 +21,19 @@ func buildCommands() commandSet {
 		"accept-native": func(args []string, _ io.Writer) error {
 			flags := flag.NewFlagSet("accept-native", flag.ContinueOnError)
 			clients := flags.Bool("clients", false, "Also verify real clients through the native lifecycle")
+			artifacts := flags.String("artifacts", "", "Consume an existing signed release matrix instead of building")
 			if err := flags.Parse(args); err != nil {
 				return err
 			}
-			if err := requireArguments(flags.Args(), 0, "usage: release accept-native [--clients]"); err != nil {
+			if err := requireArguments(flags.Args(), 0, "usage: release accept-native [--artifacts <directory>] [--clients]"); err != nil {
 				return err
 			}
-			return construction.AcceptNative(*clients)
+			if *artifacts != "" {
+				if err := verifyArtifacts(*artifacts); err != nil {
+					return err
+				}
+			}
+			return construction.AcceptNative(*artifacts, *clients)
 		},
 		"build": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release build <output-directory>"); err != nil {
@@ -109,14 +115,7 @@ func publicationCommands() commandSet {
 			if err := requireArguments(args, 1, "usage: release verify-artifacts <artifact-directory>"); err != nil {
 				return err
 			}
-			version, err := readiness.ReadProductVersion(source.Repository)
-			if err != nil {
-				return err
-			}
-			if err := artifact.VerifyMatrix(context.Background(), args[0], version, trust); err != nil {
-				return err
-			}
-			return artifact.VerifyProvenance(context.Background(), args[0], os.Getenv("CI_COMMIT_TAG"), source)
+			return verifyArtifacts(args[0])
 		},
 		"publish-github": func(args []string, stdout io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release publish-github <artifact-directory>"); err != nil {
@@ -166,4 +165,20 @@ func publicationCommands() commandSet {
 			return nil
 		},
 	}
+}
+
+func verifyArtifacts(directory string) error {
+	version, err := readiness.ReadProductVersion(".")
+	if err != nil {
+		return err
+	}
+	trust := artifact.SignatureTrust{
+		AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"),
+		Principal:      os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER"),
+	}
+	if err := artifact.VerifyMatrix(context.Background(), directory, version, trust); err != nil {
+		return err
+	}
+	source := artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
+	return artifact.VerifyProvenance(context.Background(), directory, os.Getenv("CI_COMMIT_TAG"), source)
 }

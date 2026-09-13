@@ -1,31 +1,39 @@
 package construction
 
 import (
-	"encoding/json"
+	"aigw-cli/internal/upgrade/artifact"
+	"archive/tar"
+	"archive/zip"
+	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 )
 
 func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
-	for _, failure := range []string{"", "build", "inventory", "acceptance"} {
+	for _, failure := range []string{"", "build", "archive", "acceptance"} {
 		t.Run(failure, func(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
 			var stage string
 			var accepted bool
 			want := errors.New("injected failure")
-			err := acceptNative(request, false, func(call toolCall) error {
+			err := acceptNative(request, "", false, func(call toolCall) error {
 				if call.Name == "goreleaser" {
 					stage = goReleaserStage(t, call.Args)
 					if failure == "build" {
 						return want
 					}
-					writeNativeInventory(t, stage, "valid")
-					if failure == "inventory" {
-						return os.Remove(filepath.Join(stage, "artifacts.json"))
+					writeNativeArchive(t, stage)
+					if failure == "archive" {
+						return os.Remove(filepath.Join(stage, "checksums.txt"))
 					}
 					return nil
 				}
@@ -59,14 +67,27 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 	}
 }
 
-func TestNativeInventorySelectsOneOwnedHostExecutable(t *testing.T) {
-	for _, scenario := range []string{"valid", "relative", "relative-escaped", "missing", "malformed", "foreign", "duplicate", "escaped", "unreadable", "collision"} {
+func TestNativeArchivePreparationRequiresVerifiedBytes(t *testing.T) {
+	for _, scenario := range []string{"valid", "missing", "corrupt", "collision"} {
 		t.Run(scenario, func(t *testing.T) {
 			stage := t.TempDir()
-			writeNativeInventory(t, stage, scenario)
-			err := prepareNativeBinary(filepath.Dir(stage), stage, "1.2.3")
-			if (err == nil) != (scenario == "valid" || scenario == "relative") {
-				t.Fatalf("inventory %s: %v", scenario, err)
+			writeNativeArchive(t, stage)
+			target := artifact.Target{OS: runtime.GOOS, Arch: runtime.GOARCH}
+			var err error
+			switch scenario {
+			case "missing":
+				err = os.Remove(filepath.Join(stage, target.ArchiveName("1.2.3")))
+			case "corrupt":
+				err = os.WriteFile(filepath.Join(stage, target.ArchiveName("1.2.3")), []byte("changed"), 0o600)
+			case "collision":
+				err = os.WriteFile(filepath.Join(stage, "aigw_1.2.3_"+runtime.GOOS+"_"+runtime.GOARCH), nil, 0o600)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = prepareNativeBinary(stage, "1.2.3")
+			if (err == nil) != (scenario == "valid") {
+				t.Fatalf("archive %s: %v", scenario, err)
 			}
 		})
 	}
@@ -86,10 +107,10 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 			var stage string
 			var calls []toolCall
 			want := errors.New("acceptance failed")
-			err := acceptNative(request, true, func(call toolCall) error {
+			err := acceptNative(request, "", true, func(call toolCall) error {
 				if call.Name == "goreleaser" {
 					stage = goReleaserStage(t, call.Args)
-					writeNativeInventory(t, stage, "valid")
+					writeNativeArchive(t, stage)
 					return nil
 				}
 				calls = append(calls, call)
@@ -119,49 +140,93 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 	}
 }
 
-func writeNativeInventory(t *testing.T, stage, scenario string) {
+func TestNativeAcceptanceConsumesExistingArchives(t *testing.T) {
+	for _, clients := range []bool{false, true} {
+		t.Run(fmt.Sprint(clients), func(t *testing.T) {
+			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
+			source := t.TempDir()
+			writeNativeArchive(t, source)
+			before, err := os.ReadFile(filepath.Join(source, "checksums.txt"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var stage string
+			calls := 0
+			want := errors.New("acceptance failed")
+			err = acceptNative(request, source, clients, func(call toolCall) error {
+				if call.Name != "go" {
+					t.Fatalf("existing artifact acceptance rebuilt: %#v", call)
+				}
+				stage = strings.TrimPrefix(call.Env[0], "AIGW_ACCEPTANCE_RELEASE=")
+				if stage == source {
+					t.Fatal("acceptance must own scratch rather than mutate source artifacts")
+				}
+				calls++
+				if calls == 2 || !clients {
+					return want
+				}
+				return nil
+			})
+			if !errors.Is(err, want) || calls != map[bool]int{false: 1, true: 2}[clients] {
+				t.Fatalf("calls=%d result=%v", calls, err)
+			}
+			if _, err := os.Stat(stage); !os.IsNotExist(err) {
+				t.Fatalf("acceptance scratch retained: %v", err)
+			}
+			after, err := os.ReadFile(filepath.Join(source, "checksums.txt"))
+			if err != nil || !bytes.Equal(before, after) {
+				t.Fatalf("source artifacts changed: %v", err)
+			}
+			if _, err := os.Stat(filepath.Join(source, "aigw_1.2.3_"+runtime.GOOS+"_"+runtime.GOARCH)); !os.IsNotExist(err) {
+				t.Fatalf("source gained extracted state: %v", err)
+			}
+		})
+	}
+}
+
+func writeNativeArchive(t *testing.T, stage string) {
 	t.Helper()
 	if err := os.MkdirAll(stage, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	name := "aigw"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	binary := filepath.Join(stage, name)
-	if err := os.WriteFile(binary, []byte("native candidate"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	item := map[string]string{"name": name, "path": binary, "goos": runtime.GOOS, "goarch": runtime.GOARCH, "type": "Binary"}
-	items := []map[string]string{item}
-	switch scenario {
-	case "relative":
-		item["path"] = filepath.Join(filepath.Base(stage), name)
-	case "relative-escaped":
-		item["path"] = filepath.Join("..", name)
-	case "missing":
-		return
-	case "foreign":
-		item["goos"] = "other-platform"
-	case "duplicate":
-		items = append(items, item)
-	case "escaped":
-		item["path"] = filepath.Join(filepath.Dir(stage), name)
-	case "unreadable":
-		item["path"] = filepath.Join(stage, "missing")
-	case "collision":
-		if err := os.WriteFile(filepath.Join(stage, "aigw_1.2.3_"+runtime.GOOS+"_"+runtime.GOARCH), nil, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	data, err := json.Marshal(items)
+	target := artifact.Target{OS: runtime.GOOS, Arch: runtime.GOARCH}
+	archive := filepath.Join(stage, target.ArchiveName("1.2.3"))
+	file, err := os.Create(archive)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if scenario == "malformed" {
-		data = []byte("{")
+	name := fmt.Sprintf("aigw_1.2.3_%s_%s/aigw", target.OS, target.Arch)
+	payload := []byte("native candidate")
+	var entry io.Writer
+	closers := []io.Closer{file}
+	if target.OS == "windows" {
+		writer := zip.NewWriter(file)
+		entry, err = writer.Create(name + ".exe")
+		closers = append([]io.Closer{writer}, closers...)
+	} else {
+		compressed := gzip.NewWriter(file)
+		writer := tar.NewWriter(compressed)
+		err = writer.WriteHeader(&tar.Header{Name: name, Mode: 0o700, Size: int64(len(payload))})
+		entry = writer
+		closers = append([]io.Closer{writer, compressed}, closers...)
 	}
-	if err := os.WriteFile(filepath.Join(stage, "artifacts.json"), data, 0o600); err != nil {
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := entry.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	for _, closer := range closers {
+		if err := closer.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	data, err := os.ReadFile(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checksums := fmt.Sprintf("%x  %s\n", sha256.Sum256(data), filepath.Base(archive))
+	if err := os.WriteFile(filepath.Join(stage, "checksums.txt"), []byte(checksums), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }

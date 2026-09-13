@@ -100,17 +100,18 @@ only progress ledger; this table defines closure boundaries, not another status
 store. A contradiction reopens its owning task instead of adding a parallel
 mechanism or preserving an unsupported completion claim.
 
-| Order | Existing tasks            | Closure and acceptance                                                                                                                                                                                                     |
-| ----- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | 7.2, 7.3, 7.5, 7.8        | Consolidate semantic owners and behavioral evidence; delete duplicate fixtures, suffix-only families and forwarding layers. Preserve native platform selection and prove complete recovery at the owning boundary.         |
-| 2     | 8.1, 8.5, 8.8, 8.10, 8.11 | Verify effective quality coverage for source, tests, tools, docs, schemas and configuration. Justify metric thresholds, exercise failure propagation, and remove custom checks superseded by native tools.                 |
-| 3     | 9.7, 10.7–10.9            | Establish one signed update-proposal owner and object-preserving dual-Forge delivery. Recheck current stable dependencies and locks under 9.4–9.6; native Windows evidence need not wait for an unavailable GitLab runner. |
-| 4     | 11.4–11.6, 11.8           | Validate command semantics and complete user journeys, review the real team profile, and inspect rendered documentation and terminal output. Formatting alone is not semantic or visual acceptance.                        |
-| 5     | 12.1–12.9                 | Freeze one candidate and prove bootstrap, native artifacts, credentials, client integration, update, rollback, recovery, uninstall and measured performance on each supported platform.                                    |
-| 6     | 13.1–13.7                 | Reconcile every requirement with evidence, remove remaining owned residue, archive and release a unique signed product object, align local and both Forge refs, then retire the merged proposal and lane.                  |
+| Order | Existing tasks                    | Closure and acceptance                                                                                                                                                                                                                                                                                        |
+| ----- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | 12.2, 12.6, 12.8, 13.6            | Finish the current published-byte acceptance atom: one archive reader, source/tag binding, native lifecycle and optional real clients. Verify, commit and update the existing proposal without touching the installed product.                                                                                |
+| 2     | 7.5, 8.8, 8.10, 11.5, 11.7, 13.1  | Close remaining semantic duplication, effective hooks and event routes, cross-format organization and stale claims. Remove superseded owners during each repair; replace temporary governance escape only after an installed equivalent is proved.                                                            |
+| 3     | 11.6, 11.8, 12.6, 12.7, 12.9      | Complete fresh-user and team journeys, real-provider and explicit external-endpoint acceptance, hosted rendering, supported client limits and comparative performance budgets. Synthetic streams, preserved settings and source tests cannot establish these claims.                                          |
+| 4     | 9.7                               | Establish the one signed dependency-update owner and demonstrate lock/projection refresh, checks and object-preserving integration. Recheck stable supply inputs within 9.4–9.6 without creating competing peer proposals or blocking independent product repairs.                                            |
+| 5     | 13.3–13.5                         | Audit all feedback against its existing task and evidence, freeze a clean signed candidate, and run the complete final quality/native/release obligations. Reopen contradicted tasks; completion counts are not readiness percentages.                                                                        |
+| 6     | 10.7–10.9, 12.2, 12.6, 12.8, 13.6 | Complete integration, OpenSpec closeout, local and dual-peer main/dev alignment, the unique signed release and identical assets. Run native acceptance against those published bytes, install safely and verify operator-owned state. Never mark a future delivery operation done to satisfy an archive gate. |
+| 7     | 13.1, 13.7                        | Retire the merged proposal and owned lane; delete obsolete refs, releases, scratch and runtimes only after consumer checks. Preserve the current installation and still-owned rollback material.                                                                                                              |
 
 Documentation, naming and configuration changes accompany their owning repair;
-they do not wait for order 4. Removal occurs in each closure, with order 6 as a
+they do not wait for a later phase. Removal occurs in each closure, with order 7 as a
 final audit rather than a backlog of deferred cleanup. New entities must reduce
 caller knowledge or protect a named product invariant; a directory, wrapper or
 policy file is not justified merely by a line-count limit.
@@ -1092,6 +1093,13 @@ matrix on the approved build host. Independent peer uploads consume that same
 matrix; post-publication jobs download their own peer assets and verify public
 trust, tagged source and provenance without signing keys. Platform proof follows real runner capability; superficial job
 symmetry is not required, semantic parity is.
+
+Final native qualification consumes the published matrix through the existing
+`accept-native --artifacts` command. Public trust and provenance are checked
+before execution; the product archive reader supplies the native executable in
+owned scratch. Source-built acceptance uses that same reader and lifecycle.
+The existing manual workflow selects the exact `candidate_tag` together with
+the historical `baseline_tag`; rebuilding is not evidence about released bytes.
 
 Branch role values are consumed from `.ethos/workspace.toml` by CUE's native
 TOML reader, not duplicated under CI-specific meanings. The projection command

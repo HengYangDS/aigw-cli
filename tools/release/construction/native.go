@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"encoding/json"
+	"aigw-cli/internal/upgrade/artifact"
 	"errors"
 	"fmt"
 	"os"
@@ -11,17 +11,34 @@ import (
 	"github.com/rogpeppe/go-internal/robustio"
 )
 
-// AcceptNative builds the release archives and proves the current host lifecycle.
+// AcceptNative proves the current host lifecycle using built or supplied archives.
 // It publishes nothing and owns the complete temporary build and test scope.
-func AcceptNative(clients bool) error {
+func AcceptNative(artifacts string, clients bool) error {
 	request, err := buildRequestFromEnvironment("")
 	if err != nil {
 		return err
 	}
-	return acceptNative(request, clients, executeTool)
+	if artifacts == "" {
+		return acceptNative(request, artifacts, clients, executeTool)
+	}
+	if err := ensureCleanSource(request.Root, executeTool); err != nil {
+		return err
+	}
+	selected, err := resolveGitObject(request.Root, "refs/tags/"+os.Getenv("CI_COMMIT_TAG")+"^{commit}", executeTool)
+	if err != nil {
+		return err
+	}
+	head, err := resolveGitObject(request.Root, "HEAD^{commit}", executeTool)
+	if err != nil {
+		return err
+	}
+	if head != selected {
+		return errors.New("native acceptance source must match the selected release tag")
+	}
+	return acceptNative(request, artifacts, clients, executeTool)
 }
 
-func acceptNative(request buildRequest, clients bool, run toolRunner) (result error) {
+func acceptNative(request buildRequest, artifacts string, clients bool, run toolRunner) (result error) {
 	if err := validateRequest(request); err != nil {
 		return err
 	}
@@ -34,11 +51,21 @@ func acceptNative(request buildRequest, clients bool, run toolRunner) (result er
 			result = errors.Join(result, fmt.Errorf("remove native acceptance workspace %s: %w", workspace, err))
 		}
 	}()
-	stage, err := buildArchives(request, workspace, run)
-	if err != nil {
-		return err
+	stage := workspace
+	if artifacts == "" {
+		stage, err = buildArchives(request, workspace, run)
+		if err != nil {
+			return err
+		}
+	} else {
+		target := artifact.Target{OS: runtime.GOOS, Arch: runtime.GOARCH}
+		for _, name := range []string{target.ArchiveName(request.Version), "checksums.txt"} {
+			if err := copyFile(filepath.Join(artifacts, name), filepath.Join(stage, name)); err != nil {
+				return err
+			}
+		}
 	}
-	if err := prepareNativeBinary(request.Root, stage, request.Version); err != nil {
+	if err := prepareNativeBinary(stage, request.Version); err != nil {
 		return err
 	}
 	call := toolCall{
@@ -56,52 +83,19 @@ func acceptNative(request buildRequest, clients bool, run toolRunner) (result er
 	return nil
 }
 
-func prepareNativeBinary(root, stage, version string) error {
-	data, err := os.ReadFile(filepath.Join(stage, "artifacts.json"))
+func prepareNativeBinary(stage, version string) error {
+	target := artifact.Target{OS: runtime.GOOS, Arch: runtime.GOARCH}
+	program, err := target.ReadProgram(filepath.Join(stage, target.ArchiveName(version)), filepath.Join(stage, "checksums.txt"), version)
 	if err != nil {
 		return err
 	}
-	var artifacts []struct {
-		Name   string `json:"name"`
-		Path   string `json:"path"`
-		Goos   string `json:"goos"`
-		Goarch string `json:"goarch"`
-		Type   string `json:"type"`
+	directory := filepath.Join(stage, fmt.Sprintf("aigw_%s_%s_%s", version, target.OS, target.Arch))
+	if err := os.MkdirAll(directory, 0o700); err != nil {
+		return err
 	}
-	if err := json.Unmarshal(data, &artifacts); err != nil {
-		return fmt.Errorf("read GoReleaser artifact inventory: %w", err)
+	name := "aigw"
+	if target.OS == "windows" {
+		name += ".exe"
 	}
-	var selected string
-	for _, item := range artifacts {
-		if item.Type != "Binary" || item.Goos != runtime.GOOS || item.Goarch != runtime.GOARCH {
-			continue
-		}
-		if selected != "" {
-			return errors.New("GoReleaser produced more than one native executable")
-		}
-		path := item.Path
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(root, path)
-		}
-		relative, err := filepath.Rel(stage, path)
-		if err != nil || !filepath.IsLocal(relative) || filepath.Base(item.Name) != item.Name {
-			return errors.New("GoReleaser native executable is outside its owned build scope")
-		}
-		selected = path
-		directory := filepath.Join(stage, fmt.Sprintf("aigw_%s_%s_%s", version, runtime.GOOS, runtime.GOARCH))
-		if err := os.MkdirAll(directory, 0o700); err != nil {
-			return err
-		}
-		target := filepath.Join(directory, item.Name)
-		if err := copyFile(path, target); err != nil {
-			return err
-		}
-		if err := os.Chmod(target, 0o700); err != nil {
-			return err
-		}
-	}
-	if selected == "" {
-		return errors.New("GoReleaser did not produce an executable for this host")
-	}
-	return nil
+	return os.WriteFile(filepath.Join(directory, name), program, 0o700)
 }

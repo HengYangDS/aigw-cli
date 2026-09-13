@@ -213,6 +213,28 @@ func TestVerifyArtifactsWithPublicTrust(t *testing.T) {
 	}
 }
 
+func TestNativeArtifactAcceptanceRequiresPublicTrustBeforeExecution(t *testing.T) {
+	artifacts := prepareSignedRelease(t, "0.1.0")
+	t.Run("current source must match the release", func(t *testing.T) {
+		before := readFile(t, "go.mod")
+		if err := os.WriteFile("go.mod", []byte("module example.invalid/changed\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := os.WriteFile("go.mod", before, 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		if err := run([]string{"accept-native", "--artifacts", artifacts}, io.Discard); err == nil || !strings.Contains(err.Error(), "committed source") {
+			t.Fatalf("changed release source admission = %v", err)
+		}
+	})
+	t.Setenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE", "")
+	if err := run([]string{"accept-native", "--artifacts", artifacts}, io.Discard); err == nil || !strings.Contains(err.Error(), "artifact authorization") {
+		t.Fatalf("native artifact acceptance bypassed public trust: %v", err)
+	}
+}
+
 func TestReleaseEnvironmentSelection(t *testing.T) {
 	if envDefault("MISSING_RELEASE_ENV", "fallback") != "fallback" || firstNonEmpty("", "value") != "value" || firstNonEmpty() != "" {
 		t.Fatal("environment selection failed")
@@ -271,6 +293,7 @@ func prepareSignedRelease(t *testing.T, version string) string {
 	source := t.TempDir()
 	for name, content := range map[string]string{
 		"VERSION": version + "\n", "go.mod": "module example.invalid/aigw\n", "go.sum": "sum\n",
+		"CHANGELOG.md":      "# Changelog\n\n## [" + version + "] - 2026-01-01\n",
 		"package-lock.json": "{}\n", "mise.lock": "lockfile_version = 1\n", "mise.toml": "[tools]\ngo = \"1.27.1\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(source, name), []byte(content), 0o600); err != nil {

@@ -188,9 +188,11 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
-	input, ok := workflow.On.Dispatch.Inputs["baseline_tag"]
-	if !ok || input.Required || input.Type != "string" {
-		t.Fatalf("historical baseline must be an optional explicit tag: %#v", workflow.On.Dispatch.Inputs)
+	for _, name := range []string{"baseline_tag", "candidate_tag"} {
+		input, ok := workflow.On.Dispatch.Inputs[name]
+		if !ok || input.Required || input.Type != "string" {
+			t.Fatalf("%s must be an optional explicit release tag: %#v", name, workflow.On.Dispatch.Inputs)
+		}
 	}
 	clients, ok := workflow.On.Dispatch.Inputs["windows_clients"]
 	if !ok || clients.Required || clients.Type != "boolean" {
@@ -214,8 +216,11 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 		if step.Env["AIGW_QUALIFY_WINDOWS_CLIENTS"] != "${{ inputs.windows_clients }}" {
 			t.Fatalf("%s lost the client qualification selection", platform)
 		}
-		if step.If != "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.windows_clients)" || step.Shell != "pwsh" || step.Env["AIGW_BASELINE_TAG"] != "${{ inputs.baseline_tag }}" {
+		if step.If != "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients)" || step.Shell != "pwsh" || step.Env["AIGW_BASELINE_TAG"] != "${{ inputs.baseline_tag }}" {
 			t.Fatalf("%s historical acceptance selection = %#v", platform, step)
+		}
+		if step.Env["AIGW_CANDIDATE_TAG"] != "${{ inputs.candidate_tag }}" || !strings.Contains(step.Run, "$acceptance += @('--artifacts', $candidate)") {
+			t.Fatalf("%s cannot consume the published candidate", platform)
 		}
 		if platform != "linux" && step.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != "1" {
 			t.Fatalf("%s historical acceptance must exercise its native credential store", platform)

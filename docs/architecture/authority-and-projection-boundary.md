@@ -359,6 +359,13 @@ and verifies those bytes using public trust, without hosted signing keys. Docume
 structure and links have their native quality gates; prose is not release
 evidence.
 
+Native acceptance consumes the upgrade archive contract rather than parsing a
+GoReleaser binary inventory or duplicating extraction. The declared dependency
+is one-way: release construction calls `internal/upgrade/artifact.Target` to
+verify and extract the same bytes that product updates consume. Runtime code
+does not import repository tools. Both built and published inputs use that
+reader; acceptance owns scratch, never the input artifact directory.
+
 Construction owns validation of embedded release sources. The standalone
 source check and build admission use the same request-owned validator before
 running tools. Each Forge is optional; a selected source requires its HTTPS

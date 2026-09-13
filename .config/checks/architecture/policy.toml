@@ -66,7 +66,7 @@ composition_root_files."tools/release" = ["commands.go", "main.go"]
 peer_package_roots."internal/cli" = ["invocation"]
 
 # Repository tools are independent composition roots. Only declared product
-# contracts needed by real-client acceptance cross into runtime packages.
+# contracts needed by native and real-client acceptance cross into runtime packages.
 allowed_import_edges."cmd/aigw" = ["internal/cli"]
 allowed_import_edges."internal/transaction" = []
 allowed_import_edges."internal/credential" = ["internal/configuration", "internal/secrets"]
@@ -304,6 +304,7 @@ allowed_import_edges."tools/release" = [
 ]
 allowed_import_edges."tools/release/artifact" = []
 allowed_import_edges."tools/release/construction" = [
+  "internal/upgrade/artifact",
   "tools/release/artifact",
   "tools/release/readiness",
 ]

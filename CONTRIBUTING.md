@@ -389,7 +389,26 @@ silence it, delete before replacement, or claim warning-free qualification.
 
 ### Existing candidate acceptance
 
-To test an already built candidate without rebuilding it:
+To qualify a complete signed release matrix without rebuilding it, supply the
+[public trust inputs](#hosted-release-verification), set `CI_COMMIT_TAG` to its
+exact signed tag, and run:
+
+```bash
+AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
+  mise exec --locked -- go run ./tools/release accept-native \
+  --artifacts /absolute/path/to/published/matrix
+```
+
+The command verifies signatures, provenance and complete inventory before
+executing anything from the matrix. It copies only the native archive and
+checksum file into owned scratch, extracts through the product's verified
+archive reader, and runs the existing lifecycle. Source artifacts remain
+unchanged; success and failure both reclaim scratch. `--clients` adds the same
+real-client journey described below. Omit `--artifacts` for source-built native
+acceptance; the two inputs share extraction and tests.
+
+For a previously verified unsigned source-build candidate, the lower-level
+tracked test also accepts an extracted native directory:
 
 ```bash
 AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
@@ -464,6 +483,13 @@ its temporary clients are removed afterward. It does not install anything on
 the operator's workstation. The shared command is also available to local and
 GitLab runners that provision equivalent inputs; no second product verifier is
 introduced for a Forge that lacks a Windows executor.
+
+Set `candidate_tag` with `baseline_tag` to consume a published signed matrix
+instead of reconstructing its successor. Each native job downloads from its own
+GitHub peer, supplies the public trust inputs, and runs `accept-native
+--artifacts`; with `windows_clients`, the real Windows clients consume those
+same candidate bytes. Run the workflow at the candidate tag's source revision.
+This is native execution evidence, separate from peer-local asset verification.
 
 #### Disposable Linux clients
 

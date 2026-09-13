@@ -258,12 +258,16 @@ actions: {
 		},
 		{
 			name:  "Run historical release acceptance"
-			if:    "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.windows_clients)"
+			if:    "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients)"
 			shell: "pwsh"
 			env: _credentialEnvironment & {
-				GH_TOKEN:                     "${{ github.token }}"
-				AIGW_BASELINE_TAG:            "${{ inputs.baseline_tag }}"
-				AIGW_QUALIFY_WINDOWS_CLIENTS: "${{ inputs.windows_clients }}"
+				GH_TOKEN:                              "${{ github.token }}"
+				AIGW_BASELINE_TAG:                     "${{ inputs.baseline_tag }}"
+				AIGW_CANDIDATE_TAG:                    "${{ inputs.candidate_tag }}"
+				AIGW_RELEASE_ALLOWED_SIGNERS:          "${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}"
+				AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}"
+				AIGW_RELEASE_ARTIFACT_SIGNER:          "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}"
+				AIGW_QUALIFY_WINDOWS_CLIENTS:          "${{ inputs.windows_clients }}"
 			}
 			run: #"""
 				$ErrorActionPreference = 'Stop'
@@ -295,6 +299,17 @@ actions: {
 				  $env:AIGW_ACCEPTANCE_BASELINE = $executables[0].FullName
 				  Write-Output "Historical release $env:AIGW_BASELINE_TAG archive SHA256=$actual"
 				  $acceptance = @('accept-native')
+				  if (-not [string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)) {
+				    $candidate = Join-Path $scope 'candidate'
+				    New-Item -ItemType Directory -Path $candidate | Out-Null
+				    mise exec --locked -- gh release download $env:AIGW_CANDIDATE_TAG --repo $env:GITHUB_REPOSITORY --dir $candidate
+				    $env:CI_COMMIT_TAG = $env:AIGW_CANDIDATE_TAG
+				    $env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE = Join-Path $scope 'source-signers'
+				    $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE = Join-Path $scope 'artifact-signers'
+				    [IO.File]::WriteAllText($env:AIGW_RELEASE_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ALLOWED_SIGNERS)
+				    [IO.File]::WriteAllText($env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE, $env:AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS)
+				    $acceptance += @('--artifacts', $candidate)
+				  }
 				  if ($platform -eq 'windows' -and $env:AIGW_QUALIFY_WINDOWS_CLIENTS -eq 'true') {
 				    $clients = Join-Path $scope 'clients'
 				    New-Item -ItemType Directory -Path $clients | Out-Null
@@ -489,6 +504,11 @@ githubVerify: {
 			}
 			baseline_tag: {
 				description: "Optional historical release tag for packaged upgrade and rollback acceptance"
+				required:    false
+				type:        "string"
+			}
+			candidate_tag: {
+				description: "With baseline_tag, consume this published candidate without rebuilding"
 				required:    false
 				type:        "string"
 			}
