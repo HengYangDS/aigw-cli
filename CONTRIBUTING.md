@@ -518,6 +518,13 @@ Secret Service also requires a registered user identity and a working user bus,
 not just an unassigned numeric UID. Provision fail-fast, then drop privileges
 and capabilities before running clients.
 
+Use Docker's `--init` for disposable client containers so exited descendants
+are reaped. Verify the chosen user exists rather than assuming a numeric UID.
+Copy inputs into live tmpfs through `docker exec -i` and a portable tar stream;
+verify the resulting hashes inside that mount. A host-side archive operation
+may not see runtime mounts. Teardown must observe the test user's process set,
+then remove the exact container and its temporary mounts.
+
 Codex requires working user namespaces and bubblewrap for its Linux sandbox.
 Probe those capabilities before acceptance rather than disabling the client's
 sandbox to silence diagnostics. The measured disposable container has no
