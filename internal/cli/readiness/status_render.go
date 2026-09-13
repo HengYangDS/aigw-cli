@@ -9,7 +9,7 @@ import (
 )
 
 func renderStatus(runtime invocation.Context, cfg configuration.Config, result statusOutput) {
-	r := Renderer(runtime)
+	r := invocation.Renderer(runtime)
 	if len(cfg.Profiles) == 0 {
 		r.ProductTitle("Not configured")
 		r.Section("Get started")

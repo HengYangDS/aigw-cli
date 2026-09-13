@@ -520,11 +520,13 @@ func TestDisableCodexReturnsProjectionFailure(t *testing.T) {
 	}
 }
 
-func TestRendererFallsBackToPrimaryOutput(t *testing.T) {
-	out := &bytes.Buffer{}
-	r := renderer(invocation.Context{Out: out})
-	r.Title("AIGW", "Adapter")
-	if !strings.Contains(out.String(), "Adapter") {
+func TestListFallsBackToPrimaryOutput(t *testing.T) {
+	runtime, out, _, _ := adapterRuntime(t, adapterConfig())
+	runtime.RenderOut = nil
+	if err := executeAdapter(t, runtime, "list"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Client adapters") {
 		t.Fatalf("output = %q", out.String())
 	}
 }

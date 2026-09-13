@@ -28,7 +28,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		r := renderer(runtime)
+		r := invocation.Renderer(runtime)
 		r.ProductTitle("Client adapters")
 		r.Section("Adapter")
 		for _, spec := range configuration.AdmittedClientSpecs() {
@@ -52,7 +52,7 @@ func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		r := renderer(runtime)
+		r := invocation.Renderer(runtime)
 		r.ProductTitle("Client discovery")
 		r.Section("Installed clients")
 		for _, spec := range configuration.AdmittedClientSpecs() {
@@ -123,7 +123,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "adapter enable"); err != nil {
 			return fmt.Errorf("Adapter enablement failed and was rolled back: %w", err)
 		}
-		r := renderer(runtime)
+		r := invocation.Renderer(runtime)
 		r.ProductTitle("Client enabled")
 		r.Row("Client", spec.Label)
 		r.Status(presentation.OK, "Adapter", "Configured")
@@ -146,7 +146,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		before := cfg.Clone()
 		adapter, ok := cfg.Adapters[client]
 		if !ok || !adapter.Enabled {
-			r := renderer(runtime)
+			r := invocation.Renderer(runtime)
 			r.ProductTitle("Client adapters")
 			r.Status(presentation.Info, spec.Label, "Already disabled")
 			return nil
@@ -157,7 +157,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "adapter disable"); err != nil {
 			return err
 		}
-		r := renderer(runtime)
+		r := invocation.Renderer(runtime)
 		r.ProductTitle("Client disabled")
 		r.Row("Client", spec.Label)
 		r.Success("All AIGW-owned projections were safely removed")
@@ -189,12 +189,4 @@ func discover(runtime invocation.Context) (discovery.Result, error) {
 		return discovery.Result{}, fmt.Errorf("client discovery is unavailable")
 	}
 	return runtime.Discovery.Discover(), nil
-}
-
-func renderer(runtime invocation.Context) *presentation.Renderer {
-	out := runtime.RenderOut
-	if out == nil {
-		out = runtime.Out
-	}
-	return presentation.NewWithWidth(out, runtime.Color, runtime.Width)
 }

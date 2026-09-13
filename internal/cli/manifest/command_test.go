@@ -236,10 +236,15 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 	}
 }
 
-func TestRendererFallsBackToThePrimaryOutput(t *testing.T) {
-	out := &bytes.Buffer{}
-	renderer(invocation.Context{Out: out, Width: 120}).Row("Account", "gateway")
-	if output := out.String(); !strings.Contains(output, "Account") || !strings.Contains(output, "gateway") {
+func TestImportFallsBackToThePrimaryOutput(t *testing.T) {
+	runtime, _, out, renderOut := savedRuntime(t, localConfig())
+	runtime.RenderOut = nil
+	command := newImportCommand(runtime)
+	command.SetArgs([]string{writeManifest(t, importManifest)})
+	if err := executeManifestCommand(command); err != nil {
+		t.Fatal(err)
+	}
+	if output := out.String(); !strings.Contains(output, "Configuration manifest imported") || renderOut.Len() != 0 {
 		t.Fatalf("output = %q", output)
 	}
 }

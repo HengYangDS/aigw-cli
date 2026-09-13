@@ -82,7 +82,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		}
 		accountNames := configuration.ManifestAccountNames(incoming)
 		missing := []string{}
-		r := renderer(runtime)
+		r := invocation.Renderer(runtime)
 		r.ProductTitle("Configuration manifest imported")
 		r.Row("Profiles", fmt.Sprintf("%d", len(incoming.Profiles)))
 		r.Row("Accounts", fmt.Sprintf("%d", len(accountNames)))
@@ -125,12 +125,4 @@ func ReplacementSet(names []string) map[string]bool {
 		}
 	}
 	return result
-}
-
-func renderer(runtime invocation.Context) *presentation.Renderer {
-	out := runtime.RenderOut
-	if out == nil {
-		out = runtime.Out
-	}
-	return presentation.NewWithWidth(out, runtime.Color, runtime.Width)
 }

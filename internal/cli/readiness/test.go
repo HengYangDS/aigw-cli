@@ -84,7 +84,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				}
 				results = append(results, endpointTestResult{client: target, profileID: clientRuntime.ProfileID, status: status, detail: detail})
 			}
-			r := Renderer(runtime)
+			r := invocation.Renderer(runtime)
 			r.ProductTitle("Connectivity test")
 			r.Section("Endpoints")
 			for _, result := range results {

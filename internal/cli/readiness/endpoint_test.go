@@ -244,10 +244,12 @@ func TestReadinessTransportHelpers(t *testing.T) {
 		t.Fatalf("remote transport = %#v", got)
 	}
 	buffer := &bytes.Buffer{}
-	renderer := Renderer(invocation.Context{Out: buffer})
-	renderer.Text("fallback writer")
-	if !strings.Contains(buffer.String(), "fallback writer") {
-		t.Fatalf("renderer output = %q", buffer.String())
+	runtime := invocation.Context{Config: configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")), Out: buffer, Secrets: secrets.NewMemoryStore()}
+	if err := RunStatus(runtime, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buffer.String(), "Not configured") {
+		t.Fatalf("status output = %q", buffer.String())
 	}
 	command := NewStatusCommand(invocation.Context{Config: configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")), Out: io.Discard, Secrets: secrets.NewMemoryStore()})
 	command.SetArgs([]string{"--json"})

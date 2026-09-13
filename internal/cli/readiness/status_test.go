@@ -247,7 +247,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 	} {
 		clientID := string(state)
 		attention, _ := renderClientStatus(
-			Renderer(runtime),
+			invocation.Renderer(runtime),
 			statusOutput{Routes: map[string]routeStatus{clientID: {Client: domainreadiness.Client{State: state}}}},
 			[]string{clientID},
 		)

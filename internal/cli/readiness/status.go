@@ -177,12 +177,3 @@ func TransportStatus(endpoint string) transportState {
 		return transportState{}
 	}
 }
-
-// Renderer returns the readiness renderer bound to the invocation output and width.
-func Renderer(runtime invocation.Context) *presentation.Renderer {
-	out := runtime.RenderOut
-	if out == nil {
-		out = runtime.Out
-	}
-	return presentation.NewWithWidth(out, runtime.Color, runtime.Width)
-}

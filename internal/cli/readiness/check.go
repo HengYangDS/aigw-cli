@@ -215,7 +215,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
-	renderer := Renderer(runtime)
+	renderer := invocation.Renderer(runtime)
 	renderer.ProductTitle("Health check")
 	renderer.Section("Configuration")
 	renderer.Status(presentation.OK, "Configuration file", "Healthy")
