@@ -19,16 +19,4 @@ capabilities = ["repository", "ci_cd", "publication"]
 ci_surface = ".github/workflows/verify.yml"
 
 [protected_refs]
-branches = ["main", "dev"]
 tags = ["v*"]
-
-[host_profile]
-provider = "native-release"
-
-[host_profile.surfaces]
-verification = ".github/workflows/verify.yml"
-installation = "README.md"
-
-[attestation]
-formats = ["in-toto-shaped", "slsa-shaped", "spdx-lite"]
-signing = "git-ssh"
