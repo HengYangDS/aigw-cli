@@ -124,7 +124,7 @@ func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
 	if err != nil {
 		return VerifiedBackupState{}, fmt.Errorf("decode current config snapshot: %w", err)
 	}
-	if len(current.EnabledClientIDs()) == 0 {
+	if !snapshot.Verified.Exists && len(current.EnabledClientIDs()) == 0 {
 		return VerifiedBackupState{Snapshot: snapshot, Current: current}, nil
 	}
 	if !snapshot.Verified.Exists {

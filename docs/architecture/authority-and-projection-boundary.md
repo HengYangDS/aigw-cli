@@ -261,7 +261,9 @@ canonical persisted representation. Comments and presentation-only IDs do not
 change that identity; changed configuration does. Renaming requires the
 checkpoint to cover every enabled client before credential retirement, not every
 client supported by the product. With no enabled clients, no checkpoint is
-required and no client verification is claimed. Backup convergence checks the captured preimages
+required and no client verification is claimed. An existing checkpoint must
+still match current configuration so rollback cannot revive retired credential
+references. Backup convergence checks the captured preimages
 and writes owner-only permissions through the existing guarded atomic writer;
 it returns success or failure, not an unused postimage receipt.
 

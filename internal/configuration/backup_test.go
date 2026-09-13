@@ -72,7 +72,6 @@ func TestCaptureVerifiedBackupStateSurfacesCheckpointDecodeErrors(t *testing.T) 
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := NewStore(path)
 	current := convergenceConfig("current")
-	current.Adapters[ClientCodex] = AdapterConfig{Enabled: true}
 	if err := store.Save(current); err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +140,6 @@ func TestCaptureVerifiedBackupStateBindsCurrentConfiguration(t *testing.T) {
 		t.Run(fmt.Sprintf("configuration-changed=%t", changed), func(t *testing.T) {
 			store := NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
 			current := convergenceConfig("current")
-			current.Adapters[ClientCodex] = AdapterConfig{Enabled: true}
 			if err := store.Save(current); err != nil {
 				t.Fatal(err)
 			}
