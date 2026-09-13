@@ -2,11 +2,16 @@
 
 - Status: accepted
 - Date: 2026-07-24
+- Last amended: 2026-09-14
 - Owner: AIGW maintainers
 
 ## Context
 
-Renaming a provider Account ID requires migrating both its configuration in the AIGW TOML and its associated credentials (API Tokens and optional probe credentials) in the operating-system secret store. A single-step rename that immediately deletes the old credential slot risks permanent loss of access or inconsistent state if the configuration write is interrupted or if a client integration remains bound to the old ID.
+Renaming an Account changes configuration references and credential-slot names
+in the selected backend. API Tokens and optional diagnostic credentials use
+distinct slots in that one backend, which may be native, file-backed or supplied
+through the process environment. Deleting old slots immediately risks lost
+access after an interrupted configuration write or a stale client projection.
 
 The API-token slot and optional provider-diagnostic slot in the selected AIGW credential backend cannot be committed atomically with configuration. Phase 1 therefore retains the old slots; finalization separately checks the current configuration, its single `.bak` preimage, and verification of every enabled client. Product support for a client does not make that client an installation requirement.
 
@@ -41,7 +46,7 @@ Implement a two-phase "copy-then-delete" migration for `aigw account rename`:
 ## Consequences
 
 - **Safety**: Phase 1 is resumable and keeps the old credential slots; explicit finalization and retryable partial cleanup separate adoption from deletion.
-- **Non-atomic boundary**: The configuration, Token secret store, and account-probe secret store do not form an ACID transaction. The three-file exact-preimage check is best-effort race protection, not a cross-process CAS; detected competing changes fail closed and may require a retry.
+- **Non-atomic boundary**: Configuration files and the selected backend's API-Token and diagnostic slots do not form an ACID transaction. Exact-preimage checks detect competing file changes but are not cross-process CAS against external writers; detected conflicts fail closed.
 - **Visibility**: JSON machine output and human-readable reports remain secret-free and path-free; no credentials or local filesystem paths enter the rename records.
 - **Constraints**: Labels, model IDs, endpoints, and probe kinds do not change with the Account ID; renaming is strictly an identity migration.
 
@@ -59,4 +64,5 @@ Regression suites cover:
 
 ## Revisit Trigger
 
-Revisit this decision if a cross-process CAS (Compare-And-Swap) guarantee is implemented across configuration and both secret stores or if the configuration-and-checkpoint transaction model is superseded by a centralized registry.
+Revisit if the storage platform can atomically commit configuration, checkpoint
+and both credential kinds without changing the single-backend authority model.

@@ -48,13 +48,15 @@ credential boundary; it must not assume metadata access is sufficient.
 
 ## Configuration boundary
 
-Manifest validation uses public metadata, not Token values. Projection checks
-credential availability before configuring an eligible client Route. The
-native client obtains its Token through the selected backend's authentication
-boundary; public configuration never carries the Token.
+Manifest validation uses public metadata, not Token values. Account-Token
+routes require credential availability before client activation. Client-native
+Codex authentication needs no AIGW Token and remains client-owned. Public
+configuration never carries credentials.
 
 A manifest collision must be semantically identical or explicitly replaced.
-Replacing Account metadata never redirects or overwrites the existing Token.
+Replacing Account metadata preserves its Token slot. An explicit endpoint
+change redirects future requests and therefore requires review; the old
+projection fingerprint cannot retrieve a Token for the new endpoint.
 
 ## Client boundary
 

@@ -30,8 +30,12 @@ Keep the smallest reproducer as a regression. Run focused checks before the
 complete gate on stable inputs; a failure returns to its narrow reproducer.
 For shipped manifests and generated configuration, also exercise the actual
 delivery input through the public command. Small fixtures isolate a cause but
-cannot establish that the shipped catalogue works. Cover deferred prerequisites
-becoming available independently, while preserving explicit user choices.
+cannot establish that the shipped catalogue works. Every selected native journey
+must consume the explicit candidate and report its binary digest; an absent
+candidate is an input failure, not permission to substitute a source build.
+Cover deferred prerequisites becoming available independently while preserving
+explicit user choices. Compare owned configuration values semantically, then
+assert byte-exact preservation of user files when no change is required.
 For an update that changes persisted configuration, exercise rollback after the
 successor writes that configuration; an unchanged predecessor fixture cannot
 prove downgrade safety. Before an expensive matrix build, run the unchanged

@@ -419,11 +419,12 @@ filesystem-wide transaction against external editors.
 
 ## Client boundaries
 
-Both clients use helpers carrying a fingerprint of the client, Account and endpoint. Before
-reading a Token, the helper compares it with the currently selected Route.
-A mismatch returns a synchronization/reload instruction without credential
-access. Model and label changes preserve that fingerprint. It detects stale
-projections; it neither authenticates callers nor grants access rights.
+Account-Token routes use a helper whose fingerprint binds the client, Account
+and endpoint. Before reading a Token, it compares that fingerprint with the
+selected Route. A mismatch requires synchronization and client reload without
+credential access. Model and label changes preserve the fingerprint; it detects
+stale projections, not caller authorization. Client-native Codex authentication
+uses no AIGW Token helper.
 
 ### Codex
 
@@ -473,10 +474,12 @@ written to settings, shell profiles, arguments, or logs. Users continue to run
 the native `claude` command directly.
 
 The Claude settings module owns synchronization validation. Adapter inspection
-and native verification consume that same read-only decision: an available
-executable alone is not ready. Missing, stale, malformed, or externally changed
-managed settings require synchronization before an endpoint check or client
-invocation. Inspection neither repairs files nor reads Token values.
+and native verification share that read-only decision. Equivalent JSON escapes
+or whitespace preserve readiness, and synchronization leaves the settings and
+sidecar bytes unchanged. A missing projection or proven model-only change can
+be synchronized; an endpoint or credential-helper conflict must be resolved
+without overwriting user edits. Malformed input must be corrected before
+projection. Inspection neither repairs files nor reads Token values.
 
 ### Missing clients
 
