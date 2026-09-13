@@ -41,6 +41,35 @@ func TestIgnoreHelpers(t *testing.T) {
 	}
 }
 
+func TestIgnorePolicyScopeAndAllocation(t *testing.T) {
+	p := policy{IgnoreRoots: []string{"generated"}, IgnoreDirectoryNames: []string{"vendor"}}
+	for _, test := range []struct {
+		path string
+		want bool
+	}{
+		{"generated/a.go", true},
+		{"internal/generated/a.go", false},
+		{"internal/vendor/a.go", true},
+		{"vendor/a.go", true},
+		{"internal/vendored/a.go", false},
+		{"internal/a.go", false},
+		{"", false},
+	} {
+		t.Run(test.path, func(t *testing.T) {
+			var got bool
+			allocations := testing.AllocsPerRun(100, func() {
+				got = shouldIgnoreRelPath(test.path, p)
+			})
+			if got != test.want {
+				t.Fatalf("ignored = %t, want %t", got, test.want)
+			}
+			if allocations != 0 {
+				t.Fatalf("policy lookup allocated %.0f objects per path", allocations)
+			}
+		})
+	}
+}
+
 func TestRelativePolicyFromRoot(t *testing.T) {
 	root := t.TempDir()
 	cfgDir := filepath.Join(root, ".config", "checks", "architecture")
@@ -266,13 +295,5 @@ func TestRunReportsAnalysisFailure(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), "analyze repository: stage failed") {
 		t.Fatalf("code=%d stderr=%q", code, stderr.String())
-	}
-}
-
-func TestShouldIgnoreRelPathEmptyParts(t *testing.T) {
-	p := mustPolicy(t)
-	// strings.Split("", "/") yields []string{""}; first part "" not in ignore roots
-	if shouldIgnoreRelPath("", p) {
-		t.Fatal("empty")
 	}
 }

@@ -386,18 +386,16 @@ func shouldIgnoreDirName(name string, p policy) bool {
 	if name == "." || name == ".." {
 		return false
 	}
-	_, ok := p.ignoreDirectoryNameSet()[name]
-	return ok
+	return slices.Contains(p.IgnoreDirectoryNames, name)
 }
 
 func shouldIgnoreRelPath(relPOSIX string, p policy) bool {
-	parts := strings.Split(relPOSIX, "/")
-	if _, ok := p.ignoreRootSet()[parts[0]]; ok {
+	root, _, _ := strings.Cut(relPOSIX, "/")
+	if slices.Contains(p.IgnoreRoots, root) {
 		return true
 	}
-	ignoreDirs := p.ignoreDirectoryNameSet()
-	for _, part := range parts {
-		if _, ok := ignoreDirs[part]; ok {
+	for part := range strings.SplitSeq(relPOSIX, "/") {
+		if slices.Contains(p.IgnoreDirectoryNames, part) {
 			return true
 		}
 	}

@@ -166,19 +166,3 @@ func isPortableRelativePath(value string) bool {
 	}
 	return true
 }
-
-func (p policy) ignoreRootSet() map[string]struct{} {
-	out := make(map[string]struct{}, len(p.IgnoreRoots))
-	for _, name := range p.IgnoreRoots {
-		out[name] = struct{}{}
-	}
-	return out
-}
-
-func (p policy) ignoreDirectoryNameSet() map[string]struct{} {
-	out := make(map[string]struct{}, len(p.IgnoreDirectoryNames))
-	for _, name := range p.IgnoreDirectoryNames {
-		out[name] = struct{}{}
-	}
-	return out
-}
