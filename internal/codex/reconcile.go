@@ -206,7 +206,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 		return prepareCodexRestore(target.ref, configSnapshot, stateSnapshot, catalogSnapshot)
 	}
 	block := codexManagedBlock(runtime, endpoint)
-	base, state, err := codexUserConfig(configSnapshot, stateSnapshot, runtime, block)
+	base, state, err := codexUserConfig(configSnapshot, stateSnapshot)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -251,8 +251,6 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 		action = "already-converged"
 	} else if !stateSnapshot.Exists {
 		action = "initial-project"
-	} else if isExactTruncatedCodexProjection(string(configSnapshot.Data), stateSnapshot.Data, runtime, block) {
-		action = "repair-truncated"
 	}
 	return codexPreparedTarget{
 		plan:      ProjectionPlan{Target: target.ref.Path, Action: action},

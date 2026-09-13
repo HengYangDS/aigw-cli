@@ -84,6 +84,15 @@ only for clients without a Route. They prefer an available recommendation, then
 its model on another usable Account, then stable Profile identifier order.
 Unavailable credentials do not authorize replacing an existing selection.
 
+Codex provider ownership binds the recorded canonical values, not the text span
+between decorative comments. The native TOML parser locates the provider and
+authentication tables even when the client inserts an MCP table between them or
+moves the closing comment. Inspection compares the same rendering used for
+projection; withdrawal removes only the proven provider ranges. Unknown or
+changed provider fields remain conflicts, and surrounding user tables retain
+their original source bytes. Root selections and scheduler state retain their
+separate ownership checks.
+
 Configuration cloning owns independence of nested Account diagnostics and
 Adapter target slices as well as maps. Read-only runtime resolution observes
 the selected Profile and Account directly; it neither clones the whole

@@ -418,7 +418,7 @@ func TestCodexReconciliationRejectsConflictsAndMalformedHelpers(t *testing.T) {
 	if _, err := codexManagedBlockIn(codexBegin + "\n[model_providers.aigw]\n"); err == nil {
 		t.Fatal("incomplete managed block was accepted")
 	}
-	if got := removeCodexBeginMarker("plain"); got != "plain" {
+	if got := removeCodexProviderMarkers("plain"); got != "plain" {
 		t.Fatalf("plain text changed: %q", got)
 	}
 	if got := classifyCodexDiskSelection("model_provider ="); got != "invalid" {

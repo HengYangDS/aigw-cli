@@ -214,7 +214,7 @@ func TestCodexProjectionRejectsUnownedChanges(t *testing.T) {
 		if err := os.WriteFile(path, []byte(truncated), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := codex.SyncConfig(path, profile); err == nil || !strings.Contains(err.Error(), "incomplete") {
+		if err := codex.SyncConfig(path, profile); err == nil || !strings.Contains(err.Error(), "provider block changed") {
 			t.Fatalf("SyncConfig() error = %v, want incomplete owned-projection conflict", err)
 		}
 	})
@@ -378,7 +378,7 @@ func TestCodexValidationAndDisablePreserveForeignFieldsBeforeProvider(t *testing
 	}
 }
 
-func TestCodexResyncRefusesUnmarkedManagedProjection(t *testing.T) {
+func TestCodexResyncAcceptsUnmarkedOwnedProjection(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -396,7 +396,7 @@ func TestCodexResyncRefusesUnmarkedManagedProjection(t *testing.T) {
 	if err := os.WriteFile(path, []byte(unmarked), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := codex.SyncConfig(path, profile); err == nil || !strings.Contains(err.Error(), "provider block is missing") {
-		t.Fatalf("unmarked projection sync error = %v, want missing provider block conflict", err)
+	if err := codex.SyncConfig(path, profile); err != nil {
+		t.Fatalf("unchanged provider without cosmetic markers rejected: %v", err)
 	}
 }

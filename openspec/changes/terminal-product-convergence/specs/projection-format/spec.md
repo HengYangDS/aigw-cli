@@ -50,6 +50,22 @@ syntax. Invalid or ambiguous selections SHALL fail before applying file changes.
 - **THEN** the operation reports the input error without normalizing it into a
   different model or applying configuration writes.
 
+### Requirement: Codex provider ownership follows TOML values
+
+AIGW SHALL identify its provider and authentication tables through the locked
+TOML parser, not the span between presentation comments. The recorded projection
+hash SHALL bind a canonical rendering of the complete owned values. Equivalent
+quotes, table order, whitespace, or removed provider comments SHALL NOT invalidate
+that ownership. Invalid, unknown, missing, or changed owned fields SHALL fail
+before writing. No alternate hash scheme or truncation-repair path is needed.
+
+#### Scenario: The native client edits another configuration table
+
+- **WHEN** `codex mcp add` or `codex mcp remove` edits an isolated Codex Home
+- **THEN** unchanged provider values remain valid without a repair command
+- **AND** synchronization and withdrawal preserve the client-owned MCP tables
+- **AND** actual endpoint or authentication edits remain ownership conflicts.
+
 ### Requirement: Codex scheduler edits follow native table boundaries
 
 AIGW SHALL identify scheduler tables and assignments through the locked TOML

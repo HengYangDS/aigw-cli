@@ -232,6 +232,7 @@ func TestNativeClientJourney(t *testing.T) {
 				}
 			}
 			journey.testing = t
+			journey.verifyNativeConfigEditing(client, executable)
 			const renamedAccount = "renamed-client-account"
 			journey.setEnvironment(secrets.EnvironmentKey(renamedAccount), token)
 			journey.run("account", "rename", "native-system-keyring-probe", renamedAccount)
@@ -260,6 +261,23 @@ func TestNativeClientJourney(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (j *journeyFixture) verifyNativeConfigEditing(client, executable string) {
+	j.testing.Helper()
+	if client != configuration.ClientCodex {
+		return
+	}
+	j.runWith(executable, "mcp", "add", "aigw-acceptance", "--", j.binary, "--version")
+	before := j.runWith(executable, "mcp", "get", "aigw-acceptance", "--json")
+	j.run("check")
+	j.run("sync")
+	if after := j.runWith(executable, "mcp", "get", "aigw-acceptance", "--json"); !bytes.Equal(before, after) {
+		j.testing.Fatal("AIGW synchronization changed the native MCP configuration")
+	}
+	j.requireNativePreferences(client)
+	j.runWith(executable, "mcp", "remove", "aigw-acceptance")
+	j.run("check")
 }
 
 func (j *journeyFixture) prepareNativeClient(client, executable string) {

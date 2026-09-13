@@ -24,6 +24,9 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Preserve native Codex MCP edits by locating owned provider tables through
+  TOML semantics instead of comment positions; reject changed provider values
+  without requiring users to repair harmless formatting.
 - Preserve user-selected Claude models during route synchronization while
   rejecting connection and credential conflicts before changing configuration.
 - Reject malformed command arguments before acquiring configuration locks,

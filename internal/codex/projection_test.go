@@ -162,12 +162,14 @@ func TestRemoveCodexProjectionRejectsInvalidCapturedSchedulerState(t *testing.T)
 }
 
 func TestManagedBlockAcceptsCRLFMarkerBoundary(t *testing.T) {
-	text := codexBegin + "\r\n[model_providers.aigw]\r\n" + codexEnd + "\r\n"
+	runtime := atomicTestRuntime()
+	want := codexManagedBlock(runtime, runtime.Endpoint)
+	text := codexBegin + "\r\n" + strings.ReplaceAll(want, "\n", "\r\n")
 	block, err := codexManagedBlockIn(text)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasSuffix(block, "\r\n") {
+	if block != want {
 		t.Fatalf("managed block = %q", block)
 	}
 }
@@ -211,12 +213,6 @@ func TestValidateConfigRejectsIncompleteOrMismatchedProjection(t *testing.T) {
 	err = ValidateConfig(path, runtime)
 	if err == nil || !strings.Contains(err.Error(), "state does not match") {
 		t.Errorf("expected hash mismatch error, got %v", err)
-	}
-}
-
-func TestExactTruncationRejectsShortInput(t *testing.T) {
-	if isExactTruncatedCodexProjection("too short", nil, configuration.Runtime{}, "") {
-		t.Error("expected false for short input")
 	}
 }
 
@@ -316,11 +312,9 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 }
 
 func TestCodexUserConfigRejectsInvalidState(t *testing.T) {
-	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime, runtime.Endpoint)
 	config := transaction.FileSnapshot{Exists: true, Data: []byte("external = true\n")}
 	state := transaction.FileSnapshot{Exists: true, Data: []byte("{")}
-	if _, _, err := codexUserConfig(config, state, runtime, block); err == nil || !strings.Contains(err.Error(), "parse Codex adapter state") {
+	if _, _, err := codexUserConfig(config, state); err == nil || !strings.Contains(err.Error(), "parse Codex adapter state") {
 		t.Fatalf("codexUserConfig() error = %v", err)
 	}
 }
@@ -340,98 +334,8 @@ func TestCodexUserConfigRejectsInvalidCapturedSchedulerState(t *testing.T) {
 	}
 	config := transaction.FileSnapshot{Exists: true, Data: []byte(projection)}
 	sidecar := transaction.FileSnapshot{Exists: true, Data: stateData}
-	if _, _, err := codexUserConfig(config, sidecar, runtime, block); err == nil || !strings.Contains(err.Error(), "invalid Codex scheduler state key") {
+	if _, _, err := codexUserConfig(config, sidecar); err == nil || !strings.Contains(err.Error(), "invalid Codex scheduler state key") {
 		t.Fatalf("codexUserConfig() error = %v", err)
-	}
-}
-
-func TestCompleteExactTruncatedCodexProjectionRejectsAmbiguities(t *testing.T) {
-	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime, runtime.Endpoint)
-	state := codexState{
-		ManagedBlockHash: hashText(block),
-		OriginalScheduler: map[string]*int{
-			"agents.max_concurrent_threads_per_session":                  nil,
-			"agents.max_depth":                                           nil,
-			"features.multi_agent_v2.max_concurrent_threads_per_session": nil,
-		},
-	}
-	truncated := strings.TrimSuffix(block, codexEnd+"\n")
-
-	for _, test := range []struct {
-		name    string
-		current string
-		state   codexState
-	}{
-		{
-			name:    "selection is not managed",
-			current: `model_provider = "native"` + "\n" + codexBegin + "\n" + truncated,
-			state:   state,
-		},
-		{
-			name:    "managed model differs",
-			current: codexSelection + "\n" + `model = "other" # managed by AIGW` + "\n" + codexBegin + "\n" + truncated,
-			state:   state,
-		},
-		{
-			name:    "provider table missing",
-			current: codexSelection + "\n" + codexBegin + "\n",
-			state:   state,
-		},
-		{
-			name:    "completion marker already present",
-			current: codexSelection + "\n" + fmt.Sprintf("model = %q # managed by AIGW\n", runtime.Model) + codexBegin + "\n" + block,
-			state:   state,
-		},
-		{
-			name:    "truncated bytes mismatch",
-			current: codexSelection + "\n" + codexBegin + "\n[model_providers.aigw]\nchanged = true\n",
-			state:   state,
-		},
-		{
-			name:    "state block hash missing",
-			current: codexSelection + "\n" + fmt.Sprintf("model = %q # managed by AIGW\n", runtime.Model) + codexBegin + "\n" + truncated,
-			state:   codexState{},
-		},
-		{
-			name:    "foreign content before next table",
-			current: codexSelection + "\n" + codexBegin + "\n" + truncated + "foreign = true\n[other]\n",
-			state:   state,
-		},
-		{
-			name:    "foreign trailing content",
-			current: codexSelection + "\n" + fmt.Sprintf("model = %q # managed by AIGW\n", runtime.Model) + codexBegin + "\n" + truncated + "foreign = true\n",
-			state:   state,
-		},
-		{
-			name:    "blank lines before next table are recoverable",
-			current: codexSelection + "\n" + fmt.Sprintf("model = %q # managed by AIGW\n", runtime.Model) + codexBegin + "\n" + truncated + "\n[next]\nvalue = 1\n",
-			state:   state,
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			completed, ok := completeExactTruncatedCodexProjection(test.current, test.state, runtime, block)
-			if test.name == "blank lines before next table are recoverable" {
-				if !ok || !strings.Contains(completed, codexEnd+"\n[next]") {
-					t.Fatalf("completeExactTruncatedCodexProjection() = %t:\n%s", ok, completed)
-				}
-				return
-			}
-			if ok {
-				t.Fatalf("completeExactTruncatedCodexProjection() admitted:\n%s", completed)
-			}
-		})
-	}
-}
-
-func TestCompleteExactTruncatedProjectionRejectsForeignContentAfterValidPrefix(t *testing.T) {
-	runtime := atomicTestRuntime()
-	block := codexManagedBlock(runtime, runtime.Endpoint)
-	state := codexState{ManagedBlockHash: hashText(block)}
-	truncated := strings.TrimSuffix(block, codexEnd+"\n")
-	current := codexSelection + "\n" + fmt.Sprintf("model = %q # managed by AIGW\n", runtime.Model) + codexBegin + "\n" + truncated + "foreign = true\n[other]\n"
-	if completed, ok := completeExactTruncatedCodexProjection(current, state, runtime, block); ok {
-		t.Fatalf("foreign content was admitted:\n%s", completed)
 	}
 }
 
@@ -452,8 +356,8 @@ func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 	if strings.Contains(restored, "model_provider") || !strings.Contains(restored, `model = "native-model"`) || !strings.Contains(restored, "external = true") {
 		t.Fatalf("restored config = %q", restored)
 	}
-	if got := removeCodexBeginMarker("external = true\n"); got != "external = true\n" {
-		t.Fatalf("removeCodexBeginMarker() = %q", got)
+	if got := removeCodexProviderMarkers("external = true\n"); got != "external = true\n" {
+		t.Fatalf("removeCodexProviderMarkers() = %q", got)
 	}
 }
 

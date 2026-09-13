@@ -28,6 +28,100 @@ func atomicTestRuntime() configuration.Runtime {
 	}
 }
 
+func TestCodexProviderOwnershipSurvivesNativeTableEditing(t *testing.T) {
+	for _, mode := range []string{"table before closing comment", "comments removed", "quoted keys", "interleaved auth"} {
+		t.Run(mode, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			runtime := atomicTestRuntime()
+			if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := SyncConfig(path, runtime); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			foreign := "[mcp_servers.fixture]\ncommand = \"/fixture/server\"\n"
+			text := strings.Replace(string(data), codexEnd, foreign+codexEnd, 1)
+			switch mode {
+			case "comments removed":
+				text = strings.ReplaceAll(strings.ReplaceAll(text, codexBegin+"\n", ""), codexEnd+"\n", "")
+			case "quoted keys":
+				text = strings.ReplaceAll(text, "model_providers.aigw", "model_providers.'aigw'")
+				text = strings.Replace(text, "wire_api = \"responses\"", "wire_api = 'responses'", 1)
+			case "interleaved auth":
+				text = strings.Replace(string(data), "[model_providers.aigw.auth]", foreign+"\n[model_providers.aigw.auth]", 1)
+			}
+			if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := ValidateConfig(path, runtime); err != nil {
+				t.Fatalf("unchanged provider rejected after native table edit: %v", err)
+			}
+			inspection, err := InspectConfig(path)
+			if err != nil || !inspection.SidecarHashMatches {
+				t.Fatalf("semantic ownership lost: %+v: %v", inspection, err)
+			}
+			if err := SyncConfig(path, runtime); err != nil {
+				t.Fatal(err)
+			}
+			if err := DisableConfig(path); err != nil {
+				t.Fatal(err)
+			}
+			restored, err := os.ReadFile(path)
+			if err != nil || !strings.Contains(string(restored), foreign) || strings.Contains(string(restored), "model_providers.") {
+				t.Fatalf("withdrawal changed foreign table or retained provider: %q: %v", restored, err)
+			}
+		})
+	}
+}
+
+func TestCodexProviderOwnershipRejectsChangedValuesBeforeWriting(t *testing.T) {
+	for _, change := range []struct{ before, after string }{
+		{"wire_api = \"responses\"", "wire_api = \"chat\""},
+		{"http://127.0.0.1:8791/v1", "https://other.test/v1"},
+		{"command = ", "other_command = "},
+		{codexEnd, "unknown = true\n" + codexEnd},
+	} {
+		t.Run(change.before, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			runtime := atomicTestRuntime()
+			if err := os.WriteFile(path, nil, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := SyncConfig(path, runtime); err != nil {
+				t.Fatal(err)
+			}
+			original, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			changed := strings.Replace(string(original), change.before, change.after, 1)
+			if changed == string(original) {
+				t.Fatal("test did not change the owned value")
+			}
+			if err := os.WriteFile(path, []byte(changed), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			for _, operation := range []func() error{
+				func() error { return ValidateConfig(path, runtime) },
+				func() error { return SyncConfig(path, runtime) },
+				func() error { return DisableConfig(path) },
+			} {
+				if err := operation(); err == nil {
+					t.Fatal("changed provider was admitted")
+				}
+				actual, err := os.ReadFile(path)
+				if err != nil || string(actual) != changed {
+					t.Fatalf("conflicting source changed: %v", err)
+				}
+			}
+		})
+	}
+}
+
 func TestReconcileConfigsRollsBackEveryTargetAndAbsentStateOnWriteFailure(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.toml")
@@ -91,7 +185,7 @@ func TestReconcileConfigsPreflightRejectsLaterConflictWithoutChangingEarlierTarg
 	}
 
 	_, err = ReconcileConfigs(nil, codexHomeTargets([]string{first, second}), runtime)
-	if err == nil || !strings.Contains(err.Error(), "incomplete") {
+	if err == nil || !strings.Contains(err.Error(), "provider block changed") {
 		t.Fatalf("ReconcileConfigs() error = %v, want later target conflict", err)
 	}
 	if got, err := os.ReadFile(first); err != nil || string(got) != firstBefore {
@@ -105,7 +199,7 @@ func TestReconcileConfigsPreflightRejectsLaterConflictWithoutChangingEarlierTarg
 	}
 }
 
-func TestPlanReconciliationClassifiesInitialConvergedAndExactTruncationRepair(t *testing.T) {
+func TestPlanReconciliationClassifiesInitialConvergedAndReformattedProjection(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -141,7 +235,7 @@ func TestPlanReconciliationClassifiesInitialConvergedAndExactTruncationRepair(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plans[0].Action != "repair-truncated" {
+	if plans[0].Action != "update" {
 		t.Fatalf("truncated plan = %#v", plans)
 	}
 }
