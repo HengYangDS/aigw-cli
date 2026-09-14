@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.114] - 2026-09-14
+
 ### Fixed
 
 - Explain credential-helper failures on stderr while keeping stdout exclusively
