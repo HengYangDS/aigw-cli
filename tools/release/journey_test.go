@@ -39,7 +39,8 @@ func TestNativeProductJourney(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	t.Run("ephemeral endpoint credentials", func(t *testing.T) {
-		runNativeEphemeralCredentials(t, artifact)
+		candidate, _, _ := nativeReleaseCandidate(t, root, newVersion)
+		runNativeEphemeralCredentials(t, candidate)
 	})
 
 	t.Run("delayed token and client activation", func(t *testing.T) {
