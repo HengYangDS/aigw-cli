@@ -215,6 +215,11 @@ actions: {
 		#SourceCheckout,
 		#Toolchain,
 		{name: "Prepare locked dependencies", run: commands.bootstrap},
+		if _platform == "linux" {
+			name: "Prepare native memory measurement"
+			if:   "github.event_name == 'workflow_dispatch' && inputs.performance"
+			run:  "sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y time"
+		},
 		{
 			name: "Verify native lock resolution"
 			if:   "github.event_name == 'workflow_dispatch' && inputs.refresh_locks"

@@ -250,6 +250,30 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 	}
 }
 
+func TestPerformanceHostPreparesNativeMemoryTool(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				If  string `yaml:"if"`
+				Run string `yaml:"run"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range workflow.Jobs["native-linux"].Steps {
+		if step.If == "github.event_name == 'workflow_dispatch' && inputs.performance" && strings.Contains(step.Run, "apt-get install --no-install-recommends -y time") {
+			return
+		}
+	}
+	t.Fatal("Linux performance must prepare its native GNU time prerequisite")
+}
+
 func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {

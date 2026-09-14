@@ -155,10 +155,21 @@ operator's login host. Native Hyperfine binaries are locked for Linux/macOS
 AMD64 and ARM64, and Windows AMD64. Windows ARM64 product acceptance remains
 independent of this measurement tool's missing native binary.
 
-Hyperfine's Unix memory values are cumulative child high-water observations,
-not independent per-process RSS; Windows values do not establish RSS at all.
-Keep peak-memory acceptance open until separately measured. Retain statistical
-outliers rather than deleting samples or changing budgets to obtain a pass.
+Memory acceptance runs separately from Hyperfine's timings. It measures the
+configured `status` process with macOS wait accounting, GNU time at
+`/usr/bin/time` on Linux, and a retained Windows process handle queried for its
+peak working set. Linux measurement hosts therefore require the distribution's
+GNU time package. The small native supervisor prevents the Go test parent's
+address space from inflating Linux child accounting. Every performance run
+first calibrates with a 128 MiB parent and 16/64/16 MiB child allocations;
+uncalibrated, empty or incomplete observations fail admission.
+
+The summary retains forty per-process byte observations for each candidate and
+predecessor block after five warmups, with the same reverse-order design.
+Compare each block's maximum against both declared growth thresholds. These
+are native resident-set observations, not sampled RSS, virtual memory, managed
+heap size or Hyperfine's cumulative child values. Retain statistical outliers
+rather than deleting samples or changing budgets to obtain a pass.
 
 ### Observe publication and integration
 

@@ -62,6 +62,9 @@ type performanceProgram struct {
 }
 
 func TestNativePerformance(t *testing.T) {
+	if !t.Run("native memory calibration", TestNativePeakMemory) {
+		t.Fatal("native memory accounting failed its independent allocation calibration")
+	}
 	output, candidateRoot := os.Getenv("AIGW_PERFORMANCE_OUTPUT"), os.Getenv("AIGW_ACCEPTANCE_RELEASE")
 	if !filepath.IsAbs(output) || !filepath.IsAbs(candidateRoot) || os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
 		t.Fatal("performance acceptance requires an absolute output, published candidate and explicit baseline")
@@ -89,6 +92,7 @@ func TestNativePerformance(t *testing.T) {
 		backends = append(backends, "keyring")
 	}
 	var measurements []performanceMeasurement
+	var memory []memoryMeasurement
 	for block, order := range [][]int{{0, 1}, {1, 0}} {
 		for _, index := range order {
 			program := programs[index]
@@ -97,6 +101,9 @@ func TestNativePerformance(t *testing.T) {
 					journey := nativePerformanceJourney(t, program.Path, backend)
 					rows := journey.measurePerformance(hyperfine, output, program.Variant, backend, block+1)
 					measurements = append(measurements, rows...)
+					if backend == "env" {
+						memory = append(memory, journey.measureMemory(program.Variant, block+1))
+					}
 				})
 			}
 		}
@@ -111,10 +118,11 @@ func TestNativePerformance(t *testing.T) {
 		Programs    []performanceProgram     `json:"programs"`
 		Blocks      []performanceMeasurement `json:"blocks"`
 		Pooled      []performanceMeasurement `json:"pooled"`
+		Memory      []memoryMeasurement      `json:"memory"`
 	}{runtime.GOOS, runtime.GOARCH, strings.TrimSpace(string(identity)),
-		"Hyperfine Unix child high-water only; Windows RSS unavailable; not independent per-process RSS",
+		"Configured status: per-child wait4 on macOS, GNU time on Linux, retained-handle peak working set on Windows; bytes, no periodic sampling; calibrated against a large parent",
 		"controlled client discovery; native projected helper; no Provider inference",
-		programs, measurements, pooled}
+		programs, measurements, pooled, memory}
 	encoded, err := json.MarshalIndent(summary, "", "  ")
 	if err != nil {
 		t.Fatal(err)
@@ -131,6 +139,9 @@ func TestNativePerformance(t *testing.T) {
 	baseline, candidate := programs[0].Bytes, programs[1].Bytes
 	if candidate-baseline > 1<<20 && float64(candidate) > float64(baseline)*1.1 {
 		t.Error("executable size growth requires review: exceeds both 10% and 1 MiB")
+	}
+	if err := reviewPeakMemory(memory); err != nil {
+		t.Error(err)
 	}
 }
 
