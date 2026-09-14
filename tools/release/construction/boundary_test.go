@@ -360,14 +360,14 @@ func TestValidateSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
 	cases := []struct {
 		name, origin, repository, want string
 	}{
-		{"missing origin", "", "group/project", "origin and repository together"},
-		{"missing repository", "https://gitlab.example.test", "", "origin and repository together"},
-		{"http origin", "http://gitlab.example.test", "group/project", "HTTPS authority"},
-		{"origin path", "https://gitlab.example.test/api", "group/project", "HTTPS authority"},
-		{"empty hostname", "https://:443", "group/project", "HTTPS authority"},
-		{"empty query", "https://gitlab.example.test?", "group/project", "HTTPS authority"},
-		{"empty fragment", "https://gitlab.example.test#", "group/project", "HTTPS authority"},
-		{"repeated root slash", "https://gitlab.example.test///", "group/project", "HTTPS authority"},
+		{"missing origin", "", "group/project", "release source is incomplete"},
+		{"missing repository", "https://gitlab.example.test", "", "release source is incomplete"},
+		{"public http origin", "http://gitlab.example.com", "group/project", "must use HTTPS"},
+		{"origin path", "https://gitlab.example.test/api", "group/project", "HTTP(S) origin"},
+		{"empty hostname", "https://:443", "group/project", "HTTP(S) origin"},
+		{"empty query", "https://gitlab.example.test?", "group/project", "HTTP(S) origin"},
+		{"empty fragment", "https://gitlab.example.test#", "group/project", "HTTP(S) origin"},
+		{"repeated root slash", "https://gitlab.example.test///", "group/project", "HTTP(S) origin"},
 		{"repository edge slash", "https://gitlab.example.test", "/group/project", "namespace/project path"},
 		{"repository query", "https://gitlab.example.test", "group/project?x", "namespace/project path"},
 		{"repository empty segment", "https://gitlab.example.test", "group//project", "namespace/project path"},

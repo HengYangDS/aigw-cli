@@ -399,8 +399,18 @@ SHALL remain unchanged.
 - **WHEN** an HTTPS origin includes a bracketed IPv6 address, port and optional
   root slash with valid repository coordinates
 - **THEN** admission SHALL preserve that source identity
-- **AND** existing runtime private-HTTP support SHALL remain separate from
-  HTTPS-only embedded build metadata.
+- **AND** build metadata and runtime selection SHALL consume the same
+  release-source address policy.
+
+#### Scenario: A release embeds an explicit private-network peer
+
+- **WHEN** a release configures an HTTP origin using a private, link-local or
+  loopback IP address, `localhost`, or a reserved `.test` host
+- **THEN** build metadata and runtime selection SHALL admit the same origin
+  and repository without substituting an ambient peer
+- **AND** public HTTP origins SHALL remain outside the admitted address set
+- **AND** signature verification and explicit-HTTPS Token fallback SHALL retain
+  their independent requirements; HTTP SHALL NOT imply transport confidentiality.
 
 ### Requirement: Local candidate identity is verified before a no-op result
 

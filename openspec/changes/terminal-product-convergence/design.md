@@ -557,8 +557,13 @@ cleanup; cleanup failure retains the invocation cause and exact path.
 Upgrade resolves source overrides once for metadata and asset transports.
 Unavailability differs from authorization/integrity failure. Preserve origin,
 redirect-chain credential and TLS protection. Archive admission returns the
-measured digest rather than rehashing for peer comparison. Runtime private HTTP
-and HTTPS-only embedded metadata remain different trust policies.
+measured digest rather than rehashing for peer comparison. The existing
+`ReleaseSource` value owns address validation for both embedded metadata and
+runtime selection. Public hosts require HTTPS; explicit private-network,
+link-local, loopback and reserved test authorities retain the existing HTTP
+admission. This address policy does not grant credential access, encrypt HTTP,
+or replace artifact-signature verification. Token fallback retains its separate
+explicit-HTTPS requirement.
 
 Update and rollback share recoverable executable replacement: preserve the
 predecessor, stage durably, retry only the narrow native rename, and compensate

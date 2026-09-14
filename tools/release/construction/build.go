@@ -2,6 +2,7 @@
 package construction
 
 import (
+	"aigw-cli/internal/upgrade"
 	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
 	"bufio"
@@ -9,8 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -213,25 +212,15 @@ func ValidateSources() error {
 }
 
 func (request buildRequest) validateSources() error {
-	for _, source := range []struct{ name, origin, repository string }{
-		{"GitLab", request.GitLabOrigin, request.GitLabRepository},
-		{"GitHub", request.GitHubOrigin, request.GitHubRepository},
+	for _, source := range []upgrade.ReleaseSource{
+		{Provider: upgrade.ReleaseProviderGitLab, Origin: request.GitLabOrigin, Repository: request.GitLabRepository},
+		{Provider: upgrade.ReleaseProviderGitHub, Origin: request.GitHubOrigin, Repository: request.GitHubRepository},
 	} {
-		if (source.origin == "") != (source.repository == "") {
-			return fmt.Errorf("%s release source is incomplete; set origin and repository together", source.name)
-		}
-		if source.origin == "" {
+		if source.Origin == "" && source.Repository == "" {
 			continue
 		}
-		parsed, err := url.Parse(source.origin)
-		if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || strings.TrimSuffix(source.origin, "/") != (&url.URL{Scheme: parsed.Scheme, Host: parsed.Host}).String() {
-			return fmt.Errorf("%s release origin must be an HTTPS authority", source.name)
-		}
-		if !fs.ValidPath(source.repository) || !strings.Contains(source.repository, "/") || (&url.URL{Path: source.repository}).EscapedPath() != source.repository {
-			return fmt.Errorf("%s release repository must be a namespace/project path", source.name)
-		}
-		if source.name == "GitHub" && strings.Count(source.repository, "/") != 1 {
-			return errors.New("GitHub release repository must be an owner/repository path")
+		if err := source.Validate(); err != nil {
+			return err
 		}
 	}
 	return nil

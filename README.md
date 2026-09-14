@@ -344,9 +344,15 @@ both variables for that Forge; AIGW never combines a partial override with
 built-in coordinates:
 
 - GitHub: `AIGW_GITHUB_RELEASE_ORIGIN` and
-  `AIGW_GITHUB_RELEASE_REPOSITORY` select an HTTPS origin and `owner/repository`.
+  `AIGW_GITHUB_RELEASE_REPOSITORY` select an origin and `owner/repository`.
 - GitLab: `AIGW_GITLAB_RELEASE_ORIGIN` and
-  `AIGW_GITLAB_RELEASE_REPOSITORY` select an HTTPS origin and `namespace/project`.
+  `AIGW_GITLAB_RELEASE_REPOSITORY` select an origin and `namespace/project`.
+
+Build-time coordinates and runtime overrides follow one address policy. Public
+hosts require HTTPS; explicit private, link-local and loopback IP addresses,
+`localhost` and reserved `.test` hosts also admit HTTP. HTTP does not encrypt
+traffic: prefer HTTPS even on private networks. Artifact integrity still requires
+the trusted release signature; an admitted address is not authentication.
 
 Private GitHub lookup checks `AIGW_GITHUB_TOKEN`, `GITHUB_TOKEN`, then `GH_TOKEN`,
 without persisting them. Private GitLab lookup uses `glab` credentials or falls

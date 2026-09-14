@@ -304,7 +304,9 @@ allowed_import_edges."tools/release" = [
   "tools/release/readiness",
 ]
 allowed_import_edges."tools/release/artifact" = []
+# Construction consumes the product's release-source address contract.
 allowed_import_edges."tools/release/construction" = [
+  "internal/upgrade",
   "internal/upgrade/artifact",
   "tools/release/artifact",
   "tools/release/readiness",

@@ -69,7 +69,7 @@ func validateReleaseSources(sources ...ReleaseSource) error {
 			continue
 		}
 		configured = true
-		if err := validateReleaseSource(source); err != nil {
+		if err := source.Validate(); err != nil {
 			return err
 		}
 	}
@@ -79,26 +79,27 @@ func validateReleaseSources(sources ...ReleaseSource) error {
 	return nil
 }
 
-func validateReleaseSource(source ReleaseSource) error {
-	origin, repository := strings.TrimSpace(source.Origin), strings.TrimSpace(source.Repository)
-	if source.Provider != ReleaseProviderGitLab && source.Provider != ReleaseProviderGitHub {
-		return fmt.Errorf("unsupported release provider %q", source.Provider)
+// Validate admits one release peer for embedded metadata and runtime selection.
+func (s ReleaseSource) Validate() error {
+	origin, repository := strings.TrimSpace(s.Origin), strings.TrimSpace(s.Repository)
+	if s.Provider != ReleaseProviderGitLab && s.Provider != ReleaseProviderGitHub {
+		return fmt.Errorf("unsupported release provider %q", s.Provider)
 	}
 	if origin == "" || repository == "" {
-		return fmt.Errorf("%s release source is incomplete; set provider, origin, and repository together", source.Provider)
+		return fmt.Errorf("%s release source is incomplete; set provider, origin, and repository together", s.Provider)
 	}
 	parsed, err := url.Parse(origin)
 	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Hostname() == "" || strings.TrimSuffix(origin, "/") != (&url.URL{Scheme: parsed.Scheme, Host: parsed.Host}).String() {
-		return fmt.Errorf("%s release origin must be an HTTP(S) origin without credentials, path, query, or fragment", source.Provider)
+		return fmt.Errorf("%s release origin must be an HTTP(S) origin without credentials, path, query, or fragment", s.Provider)
 	}
 	if parsed.Scheme != "https" && !plainHTTPReleaseOriginAllowed(parsed.Hostname()) {
-		return fmt.Errorf("%s release origin must use HTTPS", source.Provider)
+		return fmt.Errorf("%s release origin must use HTTPS", s.Provider)
 	}
-	if source.Provider == ReleaseProviderGitHub && strings.Count(repository, "/") != 1 {
+	if s.Provider == ReleaseProviderGitHub && strings.Count(repository, "/") != 1 {
 		return fmt.Errorf("GitHub release repository must be an owner/repository path")
 	}
 	if !fs.ValidPath(repository) || !strings.Contains(repository, "/") || (&url.URL{Path: repository}).EscapedPath() != repository {
-		return fmt.Errorf("%s release repository must be a valid namespace/project path", source.Provider)
+		return fmt.Errorf("%s release repository must be a valid namespace/project path", s.Provider)
 	}
 	return nil
 }

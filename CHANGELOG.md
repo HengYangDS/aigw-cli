@@ -52,6 +52,8 @@ platform acceptance, signing, and GA status remain separate evidence.
   requiring an unrelated client installation.
 - Preserve credential boundaries across release redirects and external asset
   links; permit native local GitLab publication without inventing a CI job.
+- Apply one release-source address policy to embedded metadata and runtime
+  overrides, including explicitly configured private-network peers.
 - Bind the release SBOM to every native binary and dependency reports to the
   exact selected lockfiles. Preserve prior output on construction failure.
 - Enforce observed remote tips even for fast-forward publication and stream the

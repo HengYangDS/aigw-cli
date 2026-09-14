@@ -257,10 +257,12 @@ func TestRenderGoReleaserConfigRejectsUnwritableDestination(t *testing.T) {
 
 func TestReleaseBuildAcceptsLocalOrSingleForgeContext(t *testing.T) {
 	for name, request := range map[string]buildRequest{
-		"local":  {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", SigningKey: "key"},
-		"gitlab": {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/subgroup/aigw-cli", SigningKey: "key"},
-		"github": {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli", SigningKey: "key"},
-		"ipv6":   {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://[fd00::8]:8443/", GitLabRepository: "group_name/project.name-1", SigningKey: "key"},
+		"local":          {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", SigningKey: "key"},
+		"gitlab":         {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/subgroup/aigw-cli", SigningKey: "key"},
+		"github":         {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli", SigningKey: "key"},
+		"ipv6":           {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://[fd00::8]:8443/", GitLabRepository: "group_name/project.name-1", SigningKey: "key"},
+		"private GitLab": {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "http://10.0.0.8:8080", GitLabRepository: "group/project", SigningKey: "key"},
+		"private GitHub": {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitHubOrigin: "http://[fd00::8]:8080", GitHubRepository: "org/project", SigningKey: "key"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if err := validateRequest(request); err != nil {

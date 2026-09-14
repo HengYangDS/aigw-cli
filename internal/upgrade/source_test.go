@@ -126,21 +126,21 @@ func TestLatestTagFromSourceMapsGitHubUnavailability(t *testing.T) {
 
 func TestValidateReleaseSourceRejectsUnsupportedProvider(t *testing.T) {
 	source := ReleaseSource{Provider: "bogus", Origin: "https://example.test", Repository: "o/r"}
-	if err := validateReleaseSource(source); err == nil || !strings.Contains(err.Error(), "unsupported release provider") {
+	if err := source.Validate(); err == nil || !strings.Contains(err.Error(), "unsupported release provider") {
 		t.Fatalf("error = %v", err)
 	}
 }
 
 func TestValidateReleaseSourceRejectsGitHubOverPlainHTTPForRealHost(t *testing.T) {
 	source := ReleaseSource{Provider: ReleaseProviderGitHub, Origin: "http://github.example.com", Repository: "o/r"}
-	if err := validateReleaseSource(source); err == nil || !strings.Contains(err.Error(), "must use HTTPS") {
+	if err := source.Validate(); err == nil || !strings.Contains(err.Error(), "must use HTTPS") {
 		t.Fatalf("error = %v", err)
 	}
 }
 
 func TestValidateReleaseSourceRejectsGitLabOverPlainHTTPForRealHost(t *testing.T) {
 	source := ReleaseSource{Provider: ReleaseProviderGitLab, Origin: "http://gitlab.example.com", Repository: "group/project"}
-	if err := validateReleaseSource(source); err == nil || !strings.Contains(err.Error(), "must use HTTPS") {
+	if err := source.Validate(); err == nil || !strings.Contains(err.Error(), "must use HTTPS") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -152,7 +152,7 @@ func TestValidateReleaseSourceAllowsPrivateGitLabOverPlainHTTP(t *testing.T) {
 		"http://[fd00::8]:8080",
 	} {
 		source := ReleaseSource{Provider: ReleaseProviderGitLab, Origin: origin, Repository: "group/project"}
-		if err := validateReleaseSource(source); err != nil {
+		if err := source.Validate(); err != nil {
 			t.Fatalf("origin=%q error = %v", origin, err)
 		}
 	}
@@ -162,7 +162,7 @@ func TestValidateReleaseSourceAllowsGitHubOverPlainHTTPForTestHosts(t *testing.T
 	cases := []string{"http://example.test", "http://localhost:8080", "http://127.0.0.1:8080"}
 	for _, origin := range cases {
 		source := ReleaseSource{Provider: ReleaseProviderGitHub, Origin: origin, Repository: "o/r"}
-		if err := validateReleaseSource(source); err != nil {
+		if err := source.Validate(); err != nil {
 			t.Fatalf("origin=%q error = %v", origin, err)
 		}
 	}
@@ -172,7 +172,7 @@ func TestValidateReleaseSourceRejectsInvalidRepositoryPath(t *testing.T) {
 	cases := []string{"/o/r", "o/r/", "o/r?x=1", "o/r#frag", "o\r\n/r", "project", "o/r with space", "o/r\tname", "o/%2e%2e", "o/r%2Fother"}
 	for _, repository := range cases {
 		source := ReleaseSource{Provider: ReleaseProviderGitLab, Origin: "https://example.test", Repository: repository}
-		if err := validateReleaseSource(source); err == nil {
+		if err := source.Validate(); err == nil {
 			t.Fatalf("repository=%q: accepted an invalid path", repository)
 		}
 	}
@@ -184,7 +184,7 @@ func TestValidateReleaseSourceRequiresOneAuthority(t *testing.T) {
 	} {
 		t.Run(origin, func(t *testing.T) {
 			source := ReleaseSource{Provider: ReleaseProviderGitLab, Origin: origin, Repository: "group/project"}
-			if err := validateReleaseSource(source); err == nil {
+			if err := source.Validate(); err == nil {
 				t.Fatalf("non-authority origin %q was admitted", origin)
 			}
 		})
@@ -193,11 +193,11 @@ func TestValidateReleaseSourceRequiresOneAuthority(t *testing.T) {
 
 func TestValidateReleaseSourceRejectsGitHubRepositoryWithWrongPartCount(t *testing.T) {
 	source := ReleaseSource{Provider: ReleaseProviderGitHub, Origin: "https://api.github.com", Repository: "only-one-part"}
-	if err := validateReleaseSource(source); err == nil || !strings.Contains(err.Error(), "owner/repository path") {
+	if err := source.Validate(); err == nil || !strings.Contains(err.Error(), "owner/repository path") {
 		t.Fatalf("error = %v", err)
 	}
 	source.Repository = "a/b/c"
-	if err := validateReleaseSource(source); err == nil || !strings.Contains(err.Error(), "owner/repository path") {
+	if err := source.Validate(); err == nil || !strings.Contains(err.Error(), "owner/repository path") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -206,7 +206,7 @@ func TestValidateReleaseSourceRejectsRepositoryPartsWithDotDotOrBackslash(t *tes
 	cases := []string{"group/..", "group/.", "group\\name/project", "group/"}
 	for _, repository := range cases {
 		source := ReleaseSource{Provider: ReleaseProviderGitLab, Origin: "https://example.test", Repository: repository}
-		if err := validateReleaseSource(source); err == nil {
+		if err := source.Validate(); err == nil {
 			t.Fatalf("repository=%q: accepted an invalid segment", repository)
 		}
 	}
@@ -218,7 +218,7 @@ func TestValidateReleaseSourceAcceptsNestedGitLabNamespace(t *testing.T) {
 		{Provider: ReleaseProviderGitLab, Origin: "https://[fd00::8]:8443/", Repository: "group_name/project.name-1"},
 		{Provider: ReleaseProviderGitHub, Origin: "https://github.example.test/", Repository: "owner_name/project.name-1"},
 	} {
-		if err := validateReleaseSource(source); err != nil {
+		if err := source.Validate(); err != nil {
 			t.Fatalf("valid source %#v: %v", source, err)
 		}
 	}
