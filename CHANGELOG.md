@@ -8,6 +8,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Explain credential-helper failures on stderr while keeping stdout exclusively
+  for credential delivery; redact raw backend and initialization errors.
+- Preserve stale-projection rejection before any Account Token access and
+  provide explicit configuration synchronization and reload guidance.
+- Link shared documentation to tracked repository owners and primary sources;
+  reject local link targets that exist only in an author's working environment.
+
 ## [0.1.0-rc.113] - 2026-09-14
 
 ### Added
