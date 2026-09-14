@@ -78,6 +78,22 @@ func TestRunCredentialFailureKeepsStandardOutputEmpty(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Fatalf("credential failure contaminated token output: %s", &stdout)
 	}
+	if !strings.Contains(stderr.String(), "credential") || !strings.Contains(stderr.String(), "aigw sync") {
+		t.Fatalf("credential failure lacks recovery guidance: %q", stderr.String())
+	}
+}
+
+func TestRunCredentialInitializationFailureRedactsInput(t *testing.T) {
+	setAIGWTestEnvironment(t)
+	const canary = "private-backend-input"
+	t.Setenv("AIGW_SECRET_BACKEND", canary)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"credential", "codex", "projection"}, &stdout, &stderr); code != 1 {
+		t.Fatalf("credential initialization exit code=%d", code)
+	}
+	if stdout.Len() != 0 || strings.Contains(stderr.String(), canary) || !strings.Contains(stderr.String(), "backend") {
+		t.Fatalf("unsafe initialization result: stdout=%q stderr=%q", stdout.String(), stderr.String())
+	}
 }
 
 func setAIGWTestEnvironment(t *testing.T) {

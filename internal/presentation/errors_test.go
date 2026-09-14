@@ -13,6 +13,31 @@ import (
 
 type rewrittenOutputError struct{ cause error }
 
+func TestCredentialErrorUsesOnlySafeProblems(t *testing.T) {
+	const canary = "private-backend-output"
+	cause := errors.New(canary)
+	for _, test := range []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"raw", cause, "aigw sync"},
+		{"safe", ProblemError("Token unavailable", "", "No Token returned.", "Inspect selected backend.", cause), "Inspect selected backend."},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var out bytes.Buffer
+			renderer := New(&out, false)
+			RenderCredentialError(renderer, test.err)
+			if renderer.Err() != nil || !strings.Contains(out.String(), test.want) || strings.Contains(out.String(), canary) {
+				t.Fatalf("unsafe credential diagnostic: output=%q error=%v", out.String(), renderer.Err())
+			}
+			if !errors.Is(test.err, cause) {
+				t.Fatal("credential cause was lost")
+			}
+		})
+	}
+}
+
 func (e rewrittenOutputError) Error() string { return "completely rewritten outer error" }
 func (e rewrittenOutputError) Unwrap() error { return e.cause }
 

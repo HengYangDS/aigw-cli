@@ -136,7 +136,12 @@ func Execute(app *App, args []string) error {
 		err = errors.Join(err, output.err)
 	}
 	err = finishExecution(err, unlock)
-	if err == nil || credentialInvocation(args) || output.err != nil {
+	if err != nil && credentialInvocation(args) {
+		renderer := presentation.New(app.Err, false)
+		presentation.RenderCredentialError(renderer, err)
+		return presentation.Presented(errors.Join(err, renderer.Err()))
+	}
+	if err == nil || output.err != nil {
 		return err
 	}
 	jsonMode, _ := command.Flags().GetBool("json")

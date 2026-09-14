@@ -29,6 +29,18 @@ func ProblemError(title, evidence, impact, fix string, cause error) error {
 // Presented marks an error whose command result has already been rendered.
 func Presented(err error) error { return &presentedError{cause: err} }
 
+// RenderCredentialError renders only explicitly safe diagnostics, never raw credential errors.
+func RenderCredentialError(renderer *Renderer, err error) {
+	if _, safe := errors.AsType[*userError](err); !safe {
+		err = ProblemError(
+			"Credential helper could not complete",
+			"", "No usable credential was returned.",
+			"Check the AIGW configuration and credential backend; run `aigw sync` and reload the client's configuration.", err,
+		)
+	}
+	RenderError(renderer, err, false)
+}
+
 // RenderError emits one structured actionable error and records any output failure on the renderer.
 func RenderError(renderer *Renderer, err error, jsonMode bool) {
 	if _, ok := errors.AsType[*presentedError](err); ok {

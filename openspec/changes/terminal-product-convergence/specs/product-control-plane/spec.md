@@ -587,7 +587,13 @@ as human errors. Credential-helper stdout SHALL contain only credential output.
 
 - **WHEN** the credential helper fails command validation or execution
 - **THEN** the executable SHALL return a nonzero exit status without rendering
-  a diagnostic on credential stdout.
+  a diagnostic on credential stdout
+- **AND** stderr SHALL explain the failure and its recovery using safe,
+  product-owned diagnostics, without echoing raw backend errors, configuration
+  values or credential bytes, including failures during initialization
+- **AND** stale projection rejection SHALL precede credential access and explain
+  that the client must reload its synchronized configuration
+- **AND** diagnostic write failures SHALL remain observable to the caller.
 
 ### Requirement: Command help preserves native metadata
 

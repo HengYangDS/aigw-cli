@@ -67,7 +67,8 @@ peer_package_roots."internal/cli" = ["invocation"]
 
 # Repository tools are independent composition roots. Only declared product
 # contracts needed by native and real-client acceptance cross into runtime packages.
-allowed_import_edges."cmd/aigw" = ["internal/cli"]
+# Bootstrap failures and command failures share the safe diagnostic owner.
+allowed_import_edges."cmd/aigw" = ["internal/cli", "internal/presentation"]
 allowed_import_edges."internal/transaction" = []
 allowed_import_edges."internal/credential" = ["internal/configuration", "internal/secrets"]
 allowed_import_edges."internal/configuration" = ["internal/transaction"]
@@ -177,6 +178,7 @@ allowed_import_edges."internal/cli/invocation" = [
 allowed_import_edges."internal/cli/credential" = [
   "internal/cli/invocation",
   "internal/configuration",
+  "internal/presentation",
 ]
 allowed_import_edges."internal/cli/install" = [
   "internal/cli/invocation",

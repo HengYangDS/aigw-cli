@@ -7,6 +7,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/presentation"
 
 	"github.com/spf13/cobra"
 )
@@ -25,31 +26,30 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {
-				return err
+				return presentation.ProblemError("Cannot read AIGW configuration", "", "Credential lookup did not start.", "Run `aigw doctor` to inspect the configuration.", err)
 			}
 			adapter := cfg.Adapters[client]
 			if !adapter.Enabled {
-				return fmt.Errorf("%s adapter is not enabled", client)
+				return presentation.ProblemError(fmt.Sprintf("%s adapter is not enabled", client), "", "Credential lookup did not start.", fmt.Sprintf("Enable the %s adapter before using its credential helper.", client), nil)
 			}
 			clientRuntime, err := cfg.ResolveRuntime(client, "")
 			if err != nil {
-				return err
+				return presentation.ProblemError("Cannot resolve the selected client route", "", "Credential lookup did not start.", "Select a Profile for this client, then run `aigw sync` and reload the client's configuration.", err)
 			}
 			if !clientRuntime.RequiresAccountToken() {
-				return fmt.Errorf(
-					"%s uses client-owned authentication; run `aigw verify --for %s` to verify it through the client",
-					clientRuntime.ProfileID,
-					client,
-				)
+				return presentation.ProblemError(fmt.Sprintf("%s uses client-owned authentication", client), "", "AIGW does not supply an Account Token for this route.", fmt.Sprintf("Run `aigw verify --for %s` to verify authentication through the client.", client), nil)
 			}
 			if clientRuntime.CredentialProjectionFingerprint(client) != args[1] {
-				return fmt.Errorf("%s credential projection no longer matches the selected Account and endpoint; run `aigw sync` and reload the client's configuration", client)
+				return presentation.ProblemError(fmt.Sprintf("%s credential projection no longer matches the selected Account and endpoint", client), "", "No Account Token was read or returned.", "Run `aigw sync` and reload the client's configuration.", nil)
 			}
 			token, err := runtime.Secrets.Get(clientRuntime.AccountID)
 			if err != nil {
-				return fmt.Errorf("%s Account Token is unavailable: %w", client, err)
+				return presentation.ProblemError(fmt.Sprintf("%s Account Token is unavailable", client), "", "No usable credential was returned.", "Check the selected Account's credential in the configured backend.", err)
 			}
 			_, err = fmt.Fprintln(runtime.Out, token)
+			if err != nil {
+				return presentation.ProblemError("Cannot write the Account Token to the client", "", "Credential delivery did not complete.", "Check the client's credential-helper connection before retrying.", err)
+			}
 			return err
 		},
 	}

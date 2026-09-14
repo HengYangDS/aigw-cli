@@ -93,11 +93,45 @@ func (writer failingWriter) Write([]byte) (int, error) { return 0, writer.err }
 
 func TestExecuteCredentialFailureStaysMachineReadable(t *testing.T) {
 	app := configuredApp(t)
-	var stderr bytes.Buffer
+	var stdout, stderr bytes.Buffer
+	app.Out = &stdout
 	app.Err = &stderr
 	err := Execute(app, []string{"credential", "unsupported"})
-	if err == nil || strings.Contains(stderr.String(), "Error") {
+	if err == nil || !strings.Contains(stderr.String(), "aigw sync") || stdout.Len() != 0 {
 		t.Fatalf("error=%v stderr=%q", err, stderr.String())
+	}
+}
+
+func TestExecuteCredentialFailurePreservesDiagnosticWriteError(t *testing.T) {
+	app := configuredApp(t)
+	writeErr := errors.New("diagnostic writer failed")
+	app.Err = failingWriter{err: writeErr}
+	if err := Execute(app, []string{"credential", "unsupported"}); !errors.Is(err, writeErr) {
+		t.Fatalf("credential diagnostic lost write failure: %v", err)
+	}
+}
+
+func TestExecuteCredentialStaleProjectionExplainsRecovery(t *testing.T) {
+	app := configuredApp(t)
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: "codex"}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	app.Out = &stdout
+	app.Err = &stderr
+	err = Execute(app, []string{"credential", configuration.ClientCodex, "stale-projection"})
+	if err == nil || stdout.Len() != 0 {
+		t.Fatalf("error=%v stdout=%q", err, app.Out)
+	}
+	for _, expected := range []string{"no longer matches", "aigw sync", "reload"} {
+		if !strings.Contains(stderr.String(), expected) {
+			t.Fatalf("credential diagnostic lacks %q: %q", expected, stderr.String())
+		}
 	}
 }
 

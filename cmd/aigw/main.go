@@ -3,6 +3,7 @@ package main
 
 import (
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/presentation"
 	"fmt"
 	"io"
 	"os"
@@ -15,7 +16,11 @@ func main() {
 func run(args []string, stdout, stderr io.Writer) int {
 	app, err := cli.NewDefault()
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "aigw:", err)
+		if len(args) > 0 && args[0] == "credential" {
+			presentation.RenderCredentialError(presentation.New(stderr, false), err)
+		} else {
+			_, _ = fmt.Fprintln(stderr, "aigw:", err)
+		}
 		return 1
 	}
 	app.Out = stdout

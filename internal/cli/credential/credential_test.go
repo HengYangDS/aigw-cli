@@ -9,6 +9,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 )
 
@@ -175,10 +176,27 @@ func TestClaudeCredentialHelperPropagatesOutputFailure(t *testing.T) {
 	if err := runtime.Secrets.Set("gateway", "secret-token"); err != nil {
 		t.Fatal(err)
 	}
-	runtime.Out = failingWriter{}
+	writeErr := errors.New("write failed")
+	runtime.Out = failingWriter{err: writeErr}
 	command := NewCommand(runtime)
-	if err := command.RunE(command, helperArgs(t, runtime, configuration.ClientClaude)); err == nil || !strings.Contains(err.Error(), "write failed") {
+	if err := command.RunE(command, helperArgs(t, runtime, configuration.ClientClaude)); !errors.Is(err, writeErr) {
 		t.Fatalf("error=%v", err)
+	}
+}
+
+func TestCredentialHelperRedactsBackendDiagnostics(t *testing.T) {
+	runtime, stdout := helperRuntime(t, configuration.ClientCodex, true)
+	runtime.Secrets = &refusingSecretStore{}
+	command := NewCommand(runtime)
+	err := command.RunE(command, helperArgs(t, runtime, configuration.ClientCodex))
+	var stderr bytes.Buffer
+	renderer := presentation.New(&stderr, false)
+	presentation.RenderError(renderer, err, false)
+	if stdout.Len() != 0 || !strings.Contains(stderr.String(), "Account Token is unavailable") {
+		t.Fatalf("stdout=%q stderr=%q", stdout.String(), stderr.String())
+	}
+	if strings.Contains(stderr.String(), "credential access is forbidden") {
+		t.Fatalf("raw backend error escaped the credential boundary: %q", stderr.String())
 	}
 }
 
@@ -216,9 +234,9 @@ func helperArgs(t *testing.T, runtime invocation.Context, client string) []strin
 	return []string{client, projection.CredentialProjectionFingerprint(client)}
 }
 
-type failingWriter struct{}
+type failingWriter struct{ err error }
 
-func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }
+func (writer failingWriter) Write([]byte) (int, error) { return 0, writer.err }
 
 type refusingSecretStore struct {
 	getCalls    int
@@ -256,8 +274,13 @@ func TestCredentialHelperRejectsClientNativeBeforeSecretAccess(t *testing.T) {
 	command := NewCommand(runtime)
 
 	err = command.RunE(command, helperArgs(t, runtime, configuration.ClientCodex))
-	if err == nil || !strings.Contains(err.Error(), "client-owned authentication") || !strings.Contains(err.Error(), "aigw verify --for codex") {
+	if err == nil || !strings.Contains(err.Error(), "client-owned authentication") {
 		t.Fatalf("credential helper error = %v", err)
+	}
+	var stderr bytes.Buffer
+	presentation.RenderError(presentation.New(&stderr, false), err, false)
+	if !strings.Contains(stderr.String(), "aigw verify --for codex") {
+		t.Fatalf("client-owned recovery action missing: %q", stderr.String())
 	}
 	if store.getCalls != 0 || store.existsCalls != 0 {
 		t.Fatalf("credential helper accessed client-native credentials: get=%d exists=%d", store.getCalls, store.existsCalls)
