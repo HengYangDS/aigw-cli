@@ -51,6 +51,28 @@ func TestNativeClientInputs(t *testing.T) {
 			}
 		})
 	}
+	t.Run("isolated client capabilities", func(t *testing.T) {
+		journey := &journeyFixture{
+			testing: t, root: root, manifest: filepath.Join(root, "team.toml"),
+			endpoint: "http://127.0.0.1:1/v1",
+		}
+		manifest := `version = 4
+[accounts.native-system-keyring-probe]
+label = 'Native'
+[accounts.native-system-keyring-probe.endpoints]
+anthropic = 'http://127.0.0.1:1'
+[profiles.native-client]
+label = 'Native client'
+account = 'native-system-keyring-probe'
+client = 'claude'
+model = 'claude-test'
+`
+		if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		journey.prepareNativeClient(configuration.ClientCodex, file)
+		journey.requireNativePreferences(configuration.ClientCodex)
+	})
 }
 
 func TestNativeClientFilePreservation(t *testing.T) {
@@ -287,7 +309,8 @@ func (j *journeyFixture) prepareNativeClient(client, executable string) {
 	j.setEnvironment("CODEX_HOME", filepath.Join(home, ".codex"))
 	j.setEnvironment("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
 	preferences := map[string]string{
-		configuration.ClientCodex:  "model_reasoning_effort = 'high'\nmodel_context_window = 500000\nmodel_auto_compact_token_limit = 450000\n",
+		// This journey owns client inference and projection, not marketplace synchronization.
+		configuration.ClientCodex:  "model_reasoning_effort = 'high'\nmodel_context_window = 500000\nmodel_auto_compact_token_limit = 450000\n[features]\nplugins = false\n",
 		configuration.ClientClaude: `{"effortLevel":"high","autoCompactWindow":180000}`,
 	}
 	path := j.settings
@@ -340,9 +363,12 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 	j.testing.Helper()
 	if client == configuration.ClientCodex {
 		var preferences struct {
-			Effort  string `toml:"model_reasoning_effort"`
-			Window  int    `toml:"model_context_window"`
-			Compact int    `toml:"model_auto_compact_token_limit"`
+			Effort   string `toml:"model_reasoning_effort"`
+			Window   int    `toml:"model_context_window"`
+			Compact  int    `toml:"model_auto_compact_token_limit"`
+			Features struct {
+				Plugins *bool `toml:"plugins"`
+			} `toml:"features"`
 		}
 		path := filepath.Join(j.root, "home", ".codex", "config.toml")
 		if err := toml.Unmarshal(readFile(j.testing, path), &preferences); err != nil {
@@ -350,6 +376,9 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 		}
 		if preferences.Effort != "high" || preferences.Window != 500000 || preferences.Compact != 450000 {
 			j.testing.Fatalf("Codex preferences changed: %+v", preferences)
+		}
+		if preferences.Features.Plugins == nil || *preferences.Features.Plugins {
+			j.testing.Fatal("isolated client enabled unrelated plugin startup tasks")
 		}
 		return
 	}
