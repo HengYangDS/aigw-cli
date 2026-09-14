@@ -129,6 +129,37 @@ Service still requires the separate isolated user-bus qualification. A queued
 job, inspected archive or successful checksum does not prove native execution.
 Real-client and live-Provider acceptance remain separate from this lifecycle.
 
+### Measure published native performance
+
+The existing `accept-native` command also consumes the
+[performance budgets](../governance/change-and-release-policy.md#performance-and-completion-claims).
+Use `mise run performance --artifacts "$CANDIDATE_DIRECTORY" --performance
+"$OUTPUT_DIRECTORY"` with the same signature inputs as artifact verification
+and `AIGW_ACCEPTANCE_BASELINE` pointing to the verified predecessor executable.
+The output must be a new absolute directory. The task installs its locked
+Hyperfine tool only when requested; ordinary checks do not require it.
+
+The GitHub Verify workflow accepts `performance=true` together with
+`baseline_tag` and `candidate_tag`. It reuses historical release acceptance,
+not a second build or lifecycle. Raw samples, warnings, individual blocks and
+pooled p95 are retained as native job artifacts, including on failure.
+Each case uses five warmups and two reversed-order blocks of forty samples.
+Setup uses an isolated synthetic endpoint; the timed helper executes its
+actual projected command through the native shell. Client discovery is a
+controlled fixture, not evidence of Provider inference.
+
+Environment credentials run on every measurement host. Linux additionally
+measures its explicit file backend; native vault measurement requires the
+existing isolated-credential opt-in. Never enable macOS vault tests on an
+operator's login host. Native Hyperfine binaries are locked for Linux/macOS
+AMD64 and ARM64, and Windows AMD64. Windows ARM64 product acceptance remains
+independent of this measurement tool's missing native binary.
+
+Hyperfine's Unix memory values are cumulative child high-water observations,
+not independent per-process RSS; Windows values do not establish RSS at all.
+Keep peak-memory acceptance open until separately measured. Retain statistical
+outliers rather than deleting samples or changing budgets to obtain a pass.
+
 ### Observe publication and integration
 
 Branch or tag publication is complete only when local Git and every selected

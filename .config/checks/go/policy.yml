@@ -4,6 +4,7 @@ run:
   tests: true
   build-tags:
     - client_acceptance
+    - performance_acceptance
   allow-serial-runners: true
 
 formatters:

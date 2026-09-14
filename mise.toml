@@ -59,6 +59,11 @@ run = "go run ./tools/ci native"
 description = "Build the deterministic portable release matrix without publishing."
 run = "go run ./tools/release build dist"
 
+[tasks.performance]
+description = "Measure explicit published native artifacts with retained Hyperfine samples."
+tools."github:sharkdp/hyperfine" = "1.20.0"
+run = "go run ./tools/release accept-native"
+
 [tasks."dependencies:resolve"]
 description = "Verify two native mise lock refreshes preserve committed tool inputs."
 run = [

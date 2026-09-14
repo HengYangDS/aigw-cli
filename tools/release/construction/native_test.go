@@ -25,7 +25,7 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 			var stage string
 			var accepted bool
 			want := errors.New("injected failure")
-			err := acceptNative(request, "", false, func(call toolCall) error {
+			err := acceptNative(request, "", false, "", func(call toolCall) error {
 				if call.Name == "goreleaser" {
 					stage = goReleaserStage(t, call.Args)
 					if failure == "build" {
@@ -107,7 +107,7 @@ func TestNativeClientAcceptanceSharesStageAndPropagatesFailure(t *testing.T) {
 			var stage string
 			var calls []toolCall
 			want := errors.New("acceptance failed")
-			err := acceptNative(request, "", true, func(call toolCall) error {
+			err := acceptNative(request, "", true, "", func(call toolCall) error {
 				if call.Name == "goreleaser" {
 					stage = goReleaserStage(t, call.Args)
 					writeNativeArchive(t, stage)
@@ -153,7 +153,7 @@ func TestNativeAcceptanceConsumesExistingArchives(t *testing.T) {
 			var stage string
 			calls := 0
 			want := errors.New("acceptance failed")
-			err = acceptNative(request, source, clients, func(call toolCall) error {
+			err = acceptNative(request, source, clients, "", func(call toolCall) error {
 				if call.Name != "go" {
 					t.Fatalf("existing artifact acceptance rebuilt: %#v", call)
 				}
@@ -181,6 +181,74 @@ func TestNativeAcceptanceConsumesExistingArchives(t *testing.T) {
 				t.Fatalf("source gained extracted state: %v", err)
 			}
 		})
+	}
+}
+
+func TestNativePerformanceOwnsResultsAndCleanup(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		failAt int
+		emit   bool
+	}{
+		{"success", 0, true}, {"lifecycle failure", 1, false},
+		{"performance failure", 2, false}, {"missing results", 0, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
+			source := t.TempDir()
+			writeNativeArchive(t, source)
+			output := filepath.Join(t.TempDir(), "measurements")
+			var stage string
+			calls := 0
+			err := acceptNative(request, source, false, output, func(call toolCall) error {
+				calls++
+				stage = strings.TrimPrefix(call.Env[0], "AIGW_ACCEPTANCE_RELEASE=")
+				if call.Name != "go" || call.Directory != request.Root || stage == source {
+					t.Fatalf("performance escaped native stage: %#v", call)
+				}
+				if calls == test.failAt {
+					return errors.New(test.name)
+				}
+				if calls == 1 {
+					return nil
+				}
+				want := []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}
+				if !slices.Equal(call.Args, want) || !slices.Contains(call.Env, "AIGW_PERFORMANCE_OUTPUT="+output) {
+					t.Fatalf("performance dispatch = %#v", call)
+				}
+				if !test.emit {
+					return nil
+				}
+				if err := os.Mkdir(output, 0o700); err != nil {
+					return err
+				}
+				return os.WriteFile(filepath.Join(output, "summary.json"), []byte(`{"blocks":[{}]}`), 0o600)
+			})
+			if (err == nil) != test.emit {
+				t.Fatalf("%s: %v", test.name, err)
+			}
+			if _, err := os.Stat(stage); !os.IsNotExist(err) {
+				t.Fatalf("native scratch survived %s: %v", test.name, err)
+			}
+			if test.emit {
+				if _, err := os.Stat(filepath.Join(output, "summary.json")); err != nil {
+					t.Fatalf("performance evidence not retained: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestNativePerformanceOutputAdmission(t *testing.T) {
+	for _, output := range []string{"relative-performance", t.TempDir()} {
+		request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "1784246400"}
+		err := acceptNative(request, "", false, output, func(call toolCall) error {
+			t.Fatalf("invalid output admitted an external command: %#v", call)
+			return nil
+		})
+		if err == nil {
+			t.Fatalf("invalid performance output accepted: %s", output)
+		}
 	}
 }
 

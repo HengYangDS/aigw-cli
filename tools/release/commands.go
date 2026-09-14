@@ -22,18 +22,22 @@ func buildCommands() commandSet {
 			flags := flag.NewFlagSet("accept-native", flag.ContinueOnError)
 			clients := flags.Bool("clients", false, "Also verify real clients through the native lifecycle")
 			artifacts := flags.String("artifacts", "", "Consume an existing signed release matrix instead of building")
+			performance := flags.String("performance", "", "Retain Hyperfine measurements in this absolute output directory")
 			if err := flags.Parse(args); err != nil {
 				return err
 			}
-			if err := requireArguments(flags.Args(), 0, "usage: release accept-native [--artifacts <directory>] [--clients]"); err != nil {
+			if err := requireArguments(flags.Args(), 0, "usage: release accept-native [--artifacts <directory>] [--clients] [--performance <absolute-directory>]"); err != nil {
 				return err
+			}
+			if *performance != "" && (*artifacts == "" || strings.TrimSpace(os.Getenv("AIGW_ACCEPTANCE_BASELINE")) == "") {
+				return errors.New("performance acceptance requires an explicit published candidate and baseline")
 			}
 			if *artifacts != "" {
 				if err := verifyArtifacts(*artifacts); err != nil {
 					return err
 				}
 			}
-			return construction.AcceptNative(*artifacts, *clients)
+			return construction.AcceptNative(*artifacts, *clients, *performance)
 		},
 		"build": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release build <output-directory>"); err != nil {

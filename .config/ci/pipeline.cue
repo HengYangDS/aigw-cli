@@ -249,7 +249,7 @@ actions: {
 		},
 		{
 			name:  "Run historical release acceptance"
-			if:    "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients)"
+			if:    "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.performance)"
 			shell: "pwsh"
 			env: _credentialEnvironment & {
 				GH_TOKEN:                              "${{ github.token }}"
@@ -259,11 +259,13 @@ actions: {
 				AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}"
 				AIGW_RELEASE_ARTIFACT_SIGNER:          "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}"
 				AIGW_QUALIFY_WINDOWS_CLIENTS:          "${{ inputs.windows_clients }}"
+				AIGW_MEASURE_PERFORMANCE:              "${{ inputs.performance }}"
 			}
 			run: #"""
 				$ErrorActionPreference = 'Stop'
 				$PSNativeCommandUseErrorActionPreference = $true
 				if ([string]::IsNullOrWhiteSpace($env:AIGW_BASELINE_TAG)) { throw 'Client qualification requires baseline_tag' }
+				if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true' -and [string]::IsNullOrWhiteSpace($env:AIGW_CANDIDATE_TAG)) { throw 'Performance qualification requires candidate_tag' }
 				$scope = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString())
 				New-Item -ItemType Directory -Path $scope | Out-Null
 				try {
@@ -322,7 +324,14 @@ actions: {
 				    $acceptance += '--clients'
 				  }
 				  Remove-Item Env:GH_TOKEN -ErrorAction SilentlyContinue
-				  mise exec --locked -- go run ./tools/release @acceptance
+				  if ($env:AIGW_MEASURE_PERFORMANCE -eq 'true') {
+				    $env:MISE_ENABLE_TOOLS += ',github:sharkdp/hyperfine'
+				    $output = Join-Path $env:GITHUB_WORKSPACE 'build/performance'
+				    $performance = $acceptance[1..($acceptance.Count - 1)] + @('--performance', $output)
+				    mise run performance @performance
+				  } else {
+				    mise exec --locked -- go run ./tools/release @acceptance
+				  }
 				} finally {
 				  foreach ($name in @('AIGW_ACCEPTANCE_BASELINE', 'AIGW_ACCEPTANCE_CODEX', 'AIGW_ACCEPTANCE_CLAUDE', 'AIGW_ACCEPTANCE_CLIENT_PATH', 'CLAUDE_CODE_GIT_BASH_PATH')) {
 				    Remove-Item "Env:$name" -ErrorAction SilentlyContinue
@@ -330,6 +339,16 @@ actions: {
 				  Remove-Item -LiteralPath $scope -Recurse -Force
 				}
 				"""#
+		},
+		{
+			name: "Retain native performance samples"
+			if:   "always() && github.event_name == 'workflow_dispatch' && inputs.performance"
+			uses: actions.upload
+			with: {
+				name:                "performance-\(_platform)"
+				path:                "build/performance"
+				"if-no-files-found": "error"
+			}
 		},
 	]
 }
@@ -478,6 +497,12 @@ githubVerify: {
 			}
 			windows_clients: {
 				description: "With baseline_tag, qualify real Windows clients through the existing release lifecycle"
+				required:    false
+				type:        "boolean"
+				default:     false
+			}
+			performance: {
+				description: "Measure published candidate_tag against baseline_tag with retained native samples"
 				required:    false
 				type:        "boolean"
 				default:     false

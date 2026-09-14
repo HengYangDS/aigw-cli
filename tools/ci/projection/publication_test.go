@@ -194,9 +194,11 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 			t.Fatalf("%s must be an optional explicit release tag: %#v", name, workflow.On.Dispatch.Inputs)
 		}
 	}
-	clients, ok := workflow.On.Dispatch.Inputs["windows_clients"]
-	if !ok || clients.Required || clients.Type != "boolean" {
-		t.Fatalf("Windows client qualification requires an explicit opt-in: %#v", clients)
+	for _, name := range []string{"windows_clients", "performance"} {
+		input, ok := workflow.On.Dispatch.Inputs[name]
+		if !ok || input.Required || input.Type != "boolean" {
+			t.Fatalf("%s qualification requires an explicit opt-in: %#v", name, input)
+		}
 	}
 	for _, platform := range []string{"darwin", "linux", "windows"} {
 		job := workflow.Jobs["native-"+platform]
@@ -213,13 +215,20 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 			t.Fatalf("%s has no historical native acceptance", platform)
 		}
 		step := job.Steps[index]
-		if step.Env["AIGW_QUALIFY_WINDOWS_CLIENTS"] != "${{ inputs.windows_clients }}" {
-			t.Fatalf("%s lost the client qualification selection", platform)
+		for key, value := range map[string]string{
+			"AIGW_QUALIFY_WINDOWS_CLIENTS": "${{ inputs.windows_clients }}",
+			"AIGW_MEASURE_PERFORMANCE":     "${{ inputs.performance }}",
+			"AIGW_BASELINE_TAG":            "${{ inputs.baseline_tag }}",
+			"AIGW_CANDIDATE_TAG":           "${{ inputs.candidate_tag }}",
+		} {
+			if step.Env[key] != value {
+				t.Fatalf("%s lost selection %s", platform, key)
+			}
 		}
-		if step.If != "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients)" || step.Shell != "pwsh" || step.Env["AIGW_BASELINE_TAG"] != "${{ inputs.baseline_tag }}" {
+		if step.If != "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.performance)" || step.Shell != "pwsh" {
 			t.Fatalf("%s historical acceptance selection = %#v", platform, step)
 		}
-		if step.Env["AIGW_CANDIDATE_TAG"] != "${{ inputs.candidate_tag }}" || !strings.Contains(step.Run, "$acceptance += @('--artifacts', $candidate)") {
+		if !strings.Contains(step.Run, "$acceptance += @('--artifacts', $candidate)") {
 			t.Fatalf("%s cannot consume the published candidate", platform)
 		}
 		if platform != "linux" && step.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != "1" {
@@ -230,6 +239,9 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 		}
 		if !strings.Contains(step.Run, "$acceptance = @('accept-native')") || !strings.Contains(step.Run, "mise exec --locked -- go run ./tools/release @acceptance") {
 			t.Fatalf("%s historical acceptance does not consume the existing package owner", platform)
+		}
+		if !strings.Contains(step.Run, "mise run performance @performance") {
+			t.Fatalf("%s performance must use the task-specific locked tool", platform)
 		}
 	}
 }

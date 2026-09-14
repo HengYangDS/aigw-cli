@@ -2,6 +2,7 @@ package construction
 
 import (
 	"aigw-cli/internal/upgrade/artifact"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -13,21 +14,29 @@ import (
 
 // AcceptNative proves the current host lifecycle using built or supplied archives.
 // It publishes nothing and owns the complete temporary build and test scope.
-func AcceptNative(artifacts string, clients bool) error {
+func AcceptNative(artifacts string, clients bool, performance string) error {
 	request, err := buildRequestFromEnvironment("")
 	if err != nil {
 		return err
 	}
 	if artifacts == "" {
-		return acceptNative(request, artifacts, clients, executeTool)
+		return acceptNative(request, artifacts, clients, performance, executeTool)
 	}
 	if err := ensureCleanSource(request.Root, executeTool); err != nil {
 		return err
 	}
-	return acceptNative(request, artifacts, clients, executeTool)
+	return acceptNative(request, artifacts, clients, performance, executeTool)
 }
 
-func acceptNative(request buildRequest, artifacts string, clients bool, run toolRunner) (result error) {
+func acceptNative(request buildRequest, artifacts string, clients bool, performance string, run toolRunner) (result error) {
+	if performance != "" && !filepath.IsAbs(performance) {
+		return errors.New("performance output must be an absolute directory")
+	}
+	if performance != "" {
+		if _, err := os.Stat(performance); !os.IsNotExist(err) {
+			return errors.New("performance output must be a new directory")
+		}
+	}
 	if err := validateRequest(request); err != nil {
 		return err
 	}
@@ -67,7 +76,20 @@ func acceptNative(request buildRequest, artifacts string, clients bool, run tool
 	}
 	if clients {
 		call.Args = []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClientJourney$", "-count=1", "-v"}
-		return run(call)
+		if err := run(call); err != nil {
+			return err
+		}
+	}
+	if performance != "" {
+		call.Args = []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNativePerformance$", "-count=1", "-v"}
+		call.Env = append(call.Env, "AIGW_PERFORMANCE_OUTPUT="+performance)
+		if err := run(call); err != nil {
+			return err
+		}
+		data, err := os.ReadFile(filepath.Join(performance, "summary.json"))
+		if err != nil || !json.Valid(data) {
+			return errors.New("performance acceptance did not produce its result summary")
+		}
 	}
 	return nil
 }

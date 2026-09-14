@@ -349,6 +349,18 @@ func TestReleaseEnvironmentSelection(t *testing.T) {
 	}
 }
 
+func TestNativePerformanceRequiresExplicitPublishedInputs(t *testing.T) {
+	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
+	for _, args := range [][]string{
+		{"accept-native", "--performance", t.TempDir()},
+		{"accept-native", "--artifacts", t.TempDir(), "--performance", t.TempDir()},
+	} {
+		if err := run(args, io.Discard); err == nil || !strings.Contains(err.Error(), "published candidate and baseline") {
+			t.Fatalf("performance input admission = %v", err)
+		}
+	}
+}
+
 func TestVerifyArtifactsRequiresSourceAndSignatureTrust(t *testing.T) {
 	root := t.TempDir()
 	t.Chdir(root)

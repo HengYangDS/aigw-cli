@@ -43,6 +43,32 @@ type miseTask struct {
 	Run  []string `json:"run"`
 }
 
+func TestMisePerformanceToolIsTaskScoped(t *testing.T) {
+	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), "mise.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configuration struct {
+		Tools map[string]string `toml:"tools"`
+		Tasks struct {
+			Performance struct {
+				Tools map[string]string `toml:"tools"`
+				Run   string            `toml:"run"`
+			} `toml:"performance"`
+		} `toml:"tasks"`
+	}
+	if err := toml.Unmarshal(content, &configuration); err != nil {
+		t.Fatal(err)
+	}
+	task := configuration.Tasks.Performance
+	if task.Tools["github:sharkdp/hyperfine"] == "" || task.Run != "go run ./tools/release accept-native" {
+		t.Fatalf("performance must bind Hyperfine to the existing native acceptance owner: %#v", task)
+	}
+	if configuration.Tools["github:sharkdp/hyperfine"] != "" {
+		t.Fatal("a task-specific measurement tool became a mandatory general tool")
+	}
+}
+
 type miseConfiguration struct {
 	Tools    map[string]string `toml:"tools"`
 	Settings struct {
