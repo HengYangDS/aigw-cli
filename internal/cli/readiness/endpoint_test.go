@@ -5,6 +5,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"io"
 	"net/http"
@@ -15,6 +16,50 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 )
+
+func TestEndpointTestExplicitKeyringFormatDecodesExactlyOnce(t *testing.T) {
+	const token = "public-fixture-token"
+	envelope := "go-keyring-base64:" + base64.StdEncoding.EncodeToString([]byte(token))
+	for _, explicit := range []bool{false, true} {
+		runtime, _, _ := configuredReadinessRuntime(t)
+		runtime.In = strings.NewReader(envelope)
+		runtime.Secrets = nil
+		want := envelope
+		args := []string{"--profile", "codex", "--token-stdin"}
+		if explicit {
+			want = token
+			args = append(args, "--token-format", "go-keyring-base64")
+		}
+		requests := 0
+		runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			requests++
+			if request.Header.Get("Authorization") != "Bearer "+want {
+				t.Fatal("explicit input format did not preserve its exact interpretation")
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
+		})
+		command := NewTestCommand(runtime)
+		command.SetArgs(args)
+		if err := executeCommand(command); err != nil || requests != 1 {
+			t.Fatalf("format explicit=%v requests=%d error=%v", explicit, requests, err)
+		}
+	}
+}
+
+func TestEndpointTestRejectsMalformedKeyringFormatBeforeHTTP(t *testing.T) {
+	for _, token := range []string{"", "token\r\nX-Injected: value", "token\x00", "token\n", " token", "秘密"} {
+		runtime, _, _ := configuredReadinessRuntime(t)
+		runtime.In = strings.NewReader("go-keyring-base64:" + base64.StdEncoding.EncodeToString([]byte(token)))
+		runtime.Secrets = nil
+		requests := 0
+		runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) { requests++; return nil, errors.New("unexpected request") })
+		command := NewTestCommand(runtime)
+		command.SetArgs([]string{"--profile", "codex", "--token-stdin", "--token-format", "go-keyring-base64"})
+		if err := executeCommand(command); err == nil || requests != 0 {
+			t.Fatalf("invalid decoded token reached HTTP: error=%v requests=%d", err, requests)
+		}
+	}
+}
 
 func TestEndpointTestDefaultsToSelectedRoutesOnly(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
@@ -40,6 +85,94 @@ func TestEndpointTestDefaultsToSelectedRoutesOnly(t *testing.T) {
 	}
 	if requests != 1 {
 		t.Fatalf("requests = %d, want 1 selected Route", requests)
+	}
+}
+
+func TestEndpointTestUsesOneEphemeralTokenAndExplicitConfig(t *testing.T) {
+	for _, client := range configuration.AdmittedClientIDs() {
+		t.Run(client, func(t *testing.T) {
+			runtime, _, output := configuredReadinessRuntime(t)
+			configPath := runtime.Config.Path()
+			before, err := os.ReadFile(configPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			runtime.Config = configuration.NewStore(filepath.Join(t.TempDir(), "unrelated.toml"))
+			runtime.Secrets = nil
+			runtime.In = io.MultiReader(strings.NewReader("ephemeral-"), strings.NewReader("token\r\n"))
+			requests := 0
+			runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+				requests++
+				if client == configuration.ClientCodex && request.Header.Get("Authorization") != "Bearer ephemeral-token" {
+					t.Fatal("request did not use the supplied Token")
+				}
+				if client == configuration.ClientClaude && request.Header.Get("X-Api-Key") != "ephemeral-token" {
+					t.Fatal("request did not use the supplied Token")
+				}
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
+			})
+			command := NewTestCommand(runtime)
+			command.SetArgs([]string{"--profile", client, "--token-stdin", "--config", configPath})
+			if err := executeCommand(command); err != nil {
+				t.Fatal(err)
+			}
+			after, err := os.ReadFile(configPath)
+			if err != nil || !bytes.Equal(before, after) || requests != 1 {
+				t.Fatalf("ephemeral request changed config or request count: requests=%d error=%v", requests, err)
+			}
+			if strings.Contains(output.String(), "ephemeral-token") || !strings.Contains(output.String(), "not model inference") {
+				t.Fatalf("result did not preserve evidence or secret boundary: %s", output.String())
+			}
+			entries, err := os.ReadDir(filepath.Dir(configPath))
+			if err != nil || len(entries) != 1 {
+				t.Fatalf("read-only test created state: entries=%d error=%v", len(entries), err)
+			}
+		})
+	}
+}
+
+func TestEndpointTestRejectsAmbiguousEphemeralInputsBeforeEffects(t *testing.T) {
+	for _, args := range [][]string{
+		{"--token-stdin"},
+		{"--token-stdin", "--for", "all"},
+		{"--token-stdin", "--profile", "missing"},
+		{"--token-stdin", "--profile", "codex", "--config", "relative.toml"},
+		{"--token-stdin", "--profile", "codex", "--config", ""},
+		{"--profile", "codex", "--config", "/unrelated/config.toml"},
+	} {
+		runtime, _, _ := configuredReadinessRuntime(t)
+		store := &observingSecretStore{}
+		runtime.Secrets = store
+		runtime.In = failingReader{err: errors.New("stdin must remain unread")}
+		requests := 0
+		runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+			requests++
+			return nil, errors.New("network must remain unused")
+		})
+		command := NewTestCommand(runtime)
+		command.SetArgs(args)
+		err := executeCommand(command)
+		if err == nil || strings.Contains(err.Error(), "stdin must remain unread") || requests != 0 || store.getCalls != 0 {
+			t.Fatalf("invalid selection had effects: args=%v error=%v requests=%d reads=%d", args, err, requests, store.getCalls)
+		}
+	}
+}
+
+func TestEndpointTestRejectsMalformedEphemeralTokenBeforeHTTP(t *testing.T) {
+	for _, input := range []string{"", "token\nextra", "token\r\nX-Injected: value", "token\x00", strings.Repeat("t", 65537)} {
+		runtime, _, _ := configuredReadinessRuntime(t)
+		runtime.In = strings.NewReader(input)
+		runtime.Secrets = nil
+		requests := 0
+		runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+			requests++
+			return nil, errors.New("network must remain unused")
+		})
+		command := NewTestCommand(runtime)
+		command.SetArgs([]string{"--for", "codex", "--token-stdin"})
+		if err := executeCommand(command); err == nil || requests != 0 {
+			t.Fatalf("malformed input reached HTTP: error=%v requests=%d", err, requests)
+		}
 	}
 }
 

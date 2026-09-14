@@ -224,6 +224,22 @@ over corrupt configuration, and rejected invocations perform no credential,
 client or network operation. The admitted client registry also supplies help
 text rather than another literal client list.
 
+Ephemeral endpoint testing reuses that command and the existing invocation
+Token reader. `--token-stdin` requires one explicit target; `--config` selects
+an absolute configuration file only for this read-only operation. Resolution
+and authentication ownership are checked before input. The shared reader
+consumes bounded input through EOF, admits visible ASCII with at most one final
+LF or CRLF, and never silently discards trailing content. No temporary secret
+store, environment injection, new verifier or client helper is introduced.
+The Keyring owner decodes an explicitly selected `go-keyring-base64` input
+because the pinned macOS backend stores an envelope, not the raw API value.
+Canonical decoding occurs once, followed by the shared Token validation;
+default raw input, normal backend reads and native Linux/Windows stores retain
+their own semantics. No heuristic decoding or legacy format reader is added.
+Endpoint results remain HTTP observations; `verify` still owns native-client
+inference and checkpoints. A native transport's zero exit is insufficient to
+admit Token syntax or prove a model response.
+
 `use` validates a missing Token with the command context, then reuses credential
 replacement and configuration commit as their existing transaction owners. A
 failure before selection commits compensates the Token and any new automatic

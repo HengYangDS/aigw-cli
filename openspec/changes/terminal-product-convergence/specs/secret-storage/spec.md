@@ -1,5 +1,60 @@
 ## ADDED Requirements
 
+### Requirement: Explicit Token input is complete and scoped
+
+Every `--token-stdin` operation SHALL read through EOF within a 64 KiB input
+budget and admit one non-empty visible ASCII Token with at most one terminal LF
+or CRLF. It SHALL reject malformed or incomplete input without credential,
+configuration or network effects. It SHALL NOT silently trim whitespace,
+discard extra lines or consult ambient credentials instead.
+
+Endpoint `test --token-stdin` SHALL require one explicit Profile or client,
+resolve its Account and endpoint before consuming input, and use the Token only
+for that request. It SHALL neither read nor write the credential store or client
+state. Its optional `--config` SHALL require an absolute configuration path and
+SHALL NOT change default path selection for another operation. The result SHALL
+remain HTTP endpoint observation, not model inference or client verification.
+
+Raw stdin SHALL remain literal by default. An explicitly selected
+`--token-format go-keyring-base64` SHALL decode exactly one canonical storage
+envelope produced by the pinned macOS backend and validate the decoded Token
+without trimming it. Unknown formats, missing or malformed envelopes, nested
+encoding and invalid decoded Tokens SHALL fail before HTTP. The option SHALL
+require `--token-stdin` and SHALL NOT alter the credential store.
+
+#### Scenario: Complete Token arrives in multiple pipe writes
+
+- **WHEN** the Token arrives in fragments and the producer later closes stdin
+- **THEN** the operation uses the complete Token only after EOF
+- **AND** a read failure after a first line fails rather than admitting that line.
+
+#### Scenario: Input contains an extra line or injected header
+
+- **WHEN** input contains embedded CR, LF, NUL, whitespace, non-ASCII characters,
+  more than one final line ending, or exceeds the byte budget
+- **THEN** the operation rejects it before using the credential or making HTTP
+  requests and does not expose the input in its diagnostic.
+
+#### Scenario: Endpoint test consumes an explicitly supplied Token
+
+- **WHEN** the operator selects one Account-Token Profile and supplies a valid
+  Token with `--token-stdin` and an absolute configuration file
+- **THEN** only that Profile's endpoint receives the Token
+- **AND** configuration, credential stores and client files remain unchanged.
+
+#### Scenario: Ephemeral input lacks an unambiguous credential owner
+
+- **WHEN** an ephemeral endpoint test omits the target, selects an unknown
+  Profile or selects client-owned authentication
+- **THEN** it fails before stdin consumption, credential access or HTTP.
+
+#### Scenario: A native broker returns macOS storage bytes
+
+- **WHEN** the endpoint test explicitly selects the go-keyring-base64 format
+- **THEN** the exact canonical envelope is decoded once and only the validated
+  decoded Token reaches the selected endpoint
+- **AND** raw mode never implicitly decodes a prefix-looking Token.
+
 ### Requirement: Authenticated probes stay at the selected endpoint
 
 Credential validation, endpoint tests, readiness and provider-account diagnostics

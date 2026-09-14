@@ -2,7 +2,6 @@
 package invocation
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -66,25 +65,44 @@ type Context struct {
 // ReadToken reads an explicitly requested token source without consulting
 // process-global input or environment state.
 func ReadToken(runtime Context, stdinMode bool, confirm bool) (string, error) {
-	if stdinMode {
-		if runtime.In == nil {
-			return "", fmt.Errorf("token input is unavailable")
+	if !stdinMode {
+		if !runtime.Interactive {
+			return "", fmt.Errorf("Token input requires an interactive terminal; pipe it to `aigw` with --token-stdin")
 		}
-		reader := bufio.NewReader(runtime.In)
-		value, err := reader.ReadString('\n')
-		if err != nil && err != io.EOF {
-			return "", fmt.Errorf("Failed to read token from standard input: %w", err)
-		}
-		value = strings.TrimSpace(value)
-		if value == "" {
-			return "", fmt.Errorf("Empty tokens are not accepted")
-		}
-		return value, nil
+		return prompt.ReadHiddenToken(runtime.Out, confirm)
 	}
-	if !runtime.Interactive {
-		return "", fmt.Errorf("Token input requires an interactive terminal; pipe it to `aigw` with --token-stdin")
+	if runtime.In == nil {
+		return "", fmt.Errorf("token input is unavailable")
 	}
-	return prompt.ReadHiddenToken(runtime.Out, confirm)
+	const inputLimit = 64 * 1024
+	data, err := io.ReadAll(io.LimitReader(runtime.In, inputLimit+1))
+	if err != nil {
+		return "", fmt.Errorf("Failed to read token from standard input: %w", err)
+	}
+	if len(data) > inputLimit {
+		return "", fmt.Errorf("Token input exceeds %d bytes", inputLimit)
+	}
+	value := strings.TrimSuffix(string(data), "\n")
+	if len(value) != len(data) {
+		value = strings.TrimSuffix(value, "\r")
+	}
+	if err := ValidateToken(value); err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+// ValidateToken checks an explicit API Token without normalizing its value or exposing it.
+func ValidateToken(value string) error {
+	if value == "" {
+		return fmt.Errorf("Empty tokens are not accepted")
+	}
+	for _, character := range value {
+		if character < '!' || character > '~' {
+			return fmt.Errorf("Token input must contain one visible ASCII value")
+		}
+	}
+	return nil
 }
 
 // Renderer creates the presentation projection bound to this invocation.

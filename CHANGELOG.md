@@ -8,6 +8,20 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Added
+
+- Test one explicit endpoint using an ephemeral stdin Token and an absolute
+  configuration path, without reading or changing stored credentials.
+- Decode the current macOS go-keyring storage envelope only when explicitly
+  selected for that endpoint test; raw input remains literal.
+
+### Fixed
+
+- Consume Token input through EOF and reject malformed or oversized input
+  instead of silently accepting a first line or trimming secret bytes.
+- Distinguish endpoint HTTP observation from model inference and native-client
+  verification in connectivity-test output.
+
 ## [0.1.0-rc.112] - 2026-09-14
 
 ### Added

@@ -137,6 +137,14 @@ printf '%s\n' "$DMXAPI_TOKEN" \
   | aigw setup --from team.toml --account dmxapi --token-stdin
 ```
 
+All `--token-stdin` commands read through EOF, up to 64 KiB. Supply one non-empty
+visible ASCII Token, optionally followed by one LF or CRLF; embedded whitespace,
+extra lines and control characters are rejected rather than trimmed or ignored.
+Setup stores the credential. To test connectivity without storing it, use
+`aigw test --profile <profile> --token-stdin`; its optional `--config` accepts an
+absolute AIGW configuration path without changing the default configuration.
+This tests the endpoint's HTTP response, not model inference or client behavior.
+
 If the catalogue was imported without a Token, connect an Account later and
 select any of its Profiles:
 

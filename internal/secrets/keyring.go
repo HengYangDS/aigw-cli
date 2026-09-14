@@ -1,11 +1,31 @@
 package secrets
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"strings"
 
 	keyring "github.com/zalando/go-keyring"
 )
+
+// DecodeKeyringBase64 decodes one explicitly selected macOS go-keyring storage envelope.
+// Ordinary Store reads remain owned by go-keyring; raw input never calls this decoder.
+func DecodeKeyringBase64(value string) (string, error) {
+	const prefix = "go-keyring-base64:"
+	encoded, present := strings.CutPrefix(value, prefix)
+	if !present || encoded == "" {
+		return "", errors.New("Token input requires a non-empty go-keyring-base64 envelope")
+	}
+	decoded, err := base64.StdEncoding.Strict().DecodeString(encoded)
+	if err != nil || base64.StdEncoding.EncodeToString(decoded) != encoded {
+		return "", errors.New("Token input has a noncanonical go-keyring-base64 envelope")
+	}
+	if strings.HasPrefix(string(decoded), prefix) {
+		return "", errors.New("Token input contains a nested go-keyring-base64 envelope")
+	}
+	return string(decoded), nil
+}
 
 // keyringStore persists credentials in the operating system's native credential service.
 type keyringStore struct {

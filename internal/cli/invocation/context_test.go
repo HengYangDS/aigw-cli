@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -15,14 +16,28 @@ import (
 )
 
 func TestReadTokenUsesExplicitInvocationInput(t *testing.T) {
-	runtime := Context{In: strings.NewReader("  secret-token  \n")}
-
-	got, err := ReadToken(runtime, true, false)
-	if err != nil {
-		t.Fatalf("ReadToken() error = %v", err)
+	for _, input := range []string{"secret-token", "secret-token\n", "secret-token\r\n"} {
+		got, err := ReadToken(Context{In: strings.NewReader(input)}, true, false)
+		if err != nil || got != "secret-token" {
+			t.Fatalf("ReadToken() = %q, %v", got, err)
+		}
 	}
-	if got != "secret-token" {
-		t.Fatalf("ReadToken() = %q, want secret-token", got)
+}
+
+func TestReadTokenRequiresCompleteSingleBoundedInput(t *testing.T) {
+	for _, input := range []string{"", "\n", "\r\n", " token", "token ", "token\tvalue", "token\x00value", "token\nextra", "token\r\nX-Injected: value", "token\n\n", "秘密", strings.Repeat("t", 65537)} {
+		if token, err := ReadToken(Context{In: strings.NewReader(input)}, true, false); err == nil || token != "" {
+			t.Errorf("malformed Token was admitted: length=%d", len(input))
+		}
+	}
+	problem := errors.New("failure after first line")
+	input := io.MultiReader(strings.NewReader("token\n"), failingReader{err: problem})
+	if _, err := ReadToken(Context{In: input}, true, false); !errors.Is(err, problem) {
+		t.Fatalf("input failure after first line = %v", err)
+	}
+	input = io.MultiReader(strings.NewReader("secret-"), strings.NewReader("token"))
+	if token, err := ReadToken(Context{In: input}, true, false); err != nil || token != "secret-token" {
+		t.Fatalf("fragmented complete input = %q, %v", token, err)
 	}
 }
 
@@ -33,7 +48,7 @@ func TestReadTokenRejectsUnavailableEmptyAndFailedExplicitInput(t *testing.T) {
 		want    string
 	}{
 		{name: "unavailable", runtime: Context{}, want: "unavailable"},
-		{name: "empty", runtime: Context{In: strings.NewReader(" \n")}, want: "Empty tokens"},
+		{name: "empty", runtime: Context{In: strings.NewReader("\n")}, want: "Empty tokens"},
 		{name: "failure", runtime: Context{In: failingReader{err: errors.New("broken pipe")}}, want: "Failed to read token"},
 	}
 	for _, test := range tests {

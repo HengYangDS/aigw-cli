@@ -154,7 +154,24 @@ aigw check
 
 The interactive command prompts only for the selected Account. Automation may
 pipe exactly one Token by adding `--token-stdin`; it must keep `--account` so
-the Token owner is explicit.
+the Token owner is explicit. The input is read through EOF and is limited to
+64 KiB, including an optional terminal LF or CRLF. A Token contains only visible
+ASCII characters; embedded whitespace, extra lines and control characters fail
+before validation or storage.
+
+For a one-time endpoint test, `aigw test --profile <profile> --token-stdin`
+consumes that Token without reading or writing the credential store. Supply
+`--config /absolute/path/to/config.toml` when the calling process intentionally
+has no ordinary user HOME. One explicit Profile or client is required so input
+cannot be reused across unrelated Accounts. This command reports HTTP endpoint
+observation only; use the ordinary native-client `verify` journey for inference.
+
+Raw stdin is the default. A broker that reads the native macOS bytes written by
+the pinned `go-keyring` backend must select `--token-format go-keyring-base64`:
+those bytes contain a storage envelope, not the API Token. AIGW accepts one
+canonical envelope, validates the decoded Token, and rejects malformed or nested
+encoding before HTTP. It does not infer a format, recursively decode, or rewrite
+Keychain items. Linux and Windows native stores do not imply this macOS format.
 
 If the catalogue is already imported, do not repeat setup. Add or replace one
 Account Token, then select its Profile:

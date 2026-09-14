@@ -4,15 +4,52 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secrets"
+	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 )
+
+func runNativeEphemeralCredentials(t *testing.T, artifact string) {
+	t.Helper()
+	const token = "native-ephemeral-token"
+	requests := 0
+	endpoint := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		requests++
+		if request.Header.Get("X-Api-Key") != token {
+			response.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		response.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(endpoint.Close)
+	journey := newNativeJourney(t, artifact, endpoint.URL, false)
+	journey.run("setup", "--from", journey.manifest)
+	before := readFile(t, journey.config)
+	for _, format := range []string{"raw", "go-keyring-base64"} {
+		input := token + "\r\n"
+		if format == "go-keyring-base64" {
+			input = "go-keyring-base64:" + base64.StdEncoding.EncodeToString([]byte(token))
+		}
+		output := journey.runWithInput(journey.binary, input, "test", "--profile", "native-system-keyring-probe-claude", "--token-stdin", "--token-format", format, "--config", journey.config)
+		if !bytes.Contains(output, []byte("not model inference")) || bytes.Contains(output, []byte(token)) {
+			t.Fatal("endpoint result lost its evidence or secret boundary")
+		}
+	}
+	if requests != 2 || !bytes.Equal(before, readFile(t, journey.config)) {
+		t.Fatalf("ephemeral endpoint requests=%d or configuration changed", requests)
+	}
+	journey.requireNoClaudeProjection()
+	journey.uninstallAndRequireOwnedFilesAbsent()
+}
 
 func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersion string) {
 	t.Helper()

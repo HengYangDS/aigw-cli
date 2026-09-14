@@ -94,7 +94,10 @@ Use the least powerful command that answers the current question:
    `aigw repair` applies that bounded plan.
 5. `aigw test` tests the selected service endpoints; use `--for` or `--profile`
    to narrow it. With no selected Route it fails and recommends
-   `aigw use <profile>` rather than reporting an empty success.
+   `aigw use <profile>` rather than reporting an empty success. A one-time
+   `--token-stdin` request requires an explicit target and never accesses the
+   credential store; optional `--config` selects an absolute configuration file.
+   Its result is HTTP observation, not model inference or native-client proof.
 6. `aigw verify` is the explicit quota-consuming real model request.
 
 `check` exits successfully when the enabled Routes pass their applicable

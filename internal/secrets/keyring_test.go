@@ -1,11 +1,25 @@
 package secrets
 
 import (
+	"encoding/base64"
 	"errors"
 	"testing"
 
 	keyring "github.com/zalando/go-keyring"
 )
+
+func TestDecodeKeyringBase64RequiresCanonicalSingleEnvelope(t *testing.T) {
+	const token = "public-fixture-token"
+	value := "go-keyring-base64:" + base64.StdEncoding.EncodeToString([]byte(token))
+	if decoded, err := DecodeKeyringBase64(value); err != nil || decoded != token {
+		t.Fatalf("decoded envelope = %q, %v", decoded, err)
+	}
+	for _, value := range []string{"", token, "go-keyring-encoded:746f6b656e", "go-keyring-base64:", "go-keyring-base64:Zh==", "go-keyring-base64:dG9r\nZW4=", "go-keyring-base64:" + base64.StdEncoding.EncodeToString([]byte("go-keyring-base64:dG9rZW4="))} {
+		if decoded, err := DecodeKeyringBase64(value); err == nil || decoded != "" {
+			t.Fatal("noncanonical or nested Keyring envelope was accepted")
+		}
+	}
+}
 
 func TestKeyringCredentialKindsShareOneServiceWithoutSharingSlots(t *testing.T) {
 	keyring.MockInit()
