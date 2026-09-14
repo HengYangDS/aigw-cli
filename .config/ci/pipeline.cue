@@ -589,7 +589,14 @@ githubRelease: {
 				description: "Native execution environment"
 				type:        "choice"
 				default:     nativeEvidence.linux.github.runner
-				options: [nativeEvidence.linux.github.runner, nativeEvidence.darwin.github.runner, nativeEvidence.windows.github.runner, "windows-11-arm"]
+				options: [
+					nativeEvidence.linux.github.runner,
+					"ubuntu-24.04-arm",
+					nativeEvidence.darwin.github.runner,
+					"macos-15-intel",
+					nativeEvidence.windows.github.runner,
+					"windows-11-arm",
+				]
 			}
 			native_lifecycle: {
 				description: "Run the existing native lifecycle against the published bytes"

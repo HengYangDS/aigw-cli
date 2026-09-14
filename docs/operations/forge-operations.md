@@ -102,6 +102,12 @@ against that host's published archive, after checksum, signature and source
 verification. This does not publish, replace a tag or rebuild the candidate.
 Separate runner selections can execute independently.
 
+The bounded choices cover the six published OS/architecture pairs. Alongside
+the ordinary Linux, macOS and Windows hosts, `ubuntu-24.04-arm`,
+`macos-15-intel` and `windows-11-arm` execute the additional architectures.
+Runner labels follow the [official image matrix](https://github.com/actions/runner-images#available-images);
+the job must still demonstrate the actual host and candidate identity.
+
 With `TAG` set to the exact published release, Windows ARM64 qualification uses:
 
 ```sh
