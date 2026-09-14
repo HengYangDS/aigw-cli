@@ -15,8 +15,12 @@ import "strings"
 	claims: [#Claim, ...#Claim]
 }
 
+// Go's module and checksum hosts reset HTTP/2 streams during cold installs.
+// Keep this transport choice in the installer process, not product execution.
+installationEnvironment: GODEBUG: "http2client=0"
+
 commands: {
-	install:      "mise install --locked"
+	install:      "env GODEBUG=\(installationEnvironment.GODEBUG) mise install --locked"
 	bootstrap:    "mise run bootstrap"
 	resolveLocks: "mise run dependencies:resolve"
 	quality:      "mise exec --locked -- go run ./tools/ci quality"
@@ -187,6 +191,7 @@ actions: {
 #Toolchain: {
 	name: "Install the locked toolchain"
 	uses: actions.mise
+	env:  installationEnvironment
 	with: {
 		version:          strings.Split(strings.Split(miseImage, ":")[1], "@")[0]
 		install:          true
@@ -360,13 +365,16 @@ actions: {
 
 #NativeGitLabJob: {
 	_platform:     #OperatingSystem
+	_install:      string
 	_refreshLocks: string
 	_native:       string
 	if _platform == "windows" {
+		_install:      "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
 		_refreshLocks: "if ($env:AIGW_REFRESH_LOCKS -eq 'true') { \(commands.resolveLocks) }"
 		_native:       "\(commands.native[_platform]) --full-quality=\"$($env:AIGW_FULL_NATIVE_QUALITY -eq 'true')\""
 	}
 	if _platform != "windows" {
+		_install:      commands.install
 		_refreshLocks: "if [ \"${AIGW_REFRESH_LOCKS:-false}\" = true ]; then \(commands.resolveLocks); fi"
 		_native:       "\(commands.native[_platform]) --full-quality=\"${AIGW_FULL_NATIVE_QUALITY:-false}\""
 	}
@@ -383,7 +391,7 @@ actions: {
 		script: [commands.bootstrap, _refreshLocks, _native]
 	}
 	if _platform != "linux" {
-		script: [commands.install, commands.bootstrap, _refreshLocks, _native]
+		script: [_install, commands.bootstrap, _refreshLocks, _native]
 	}
 }
 

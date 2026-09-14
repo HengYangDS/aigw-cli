@@ -106,14 +106,16 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 	if !strings.Contains(linux.Cache.Key.Prefix, layout+"-"+strings.Join(directories, "-")) {
 		t.Fatal("cache key must invalidate archives from a different installation or metadata layout")
 	}
-	if !slices.Contains(linux.BeforeScript, "mise install --locked") {
+	if !slices.Contains(linux.BeforeScript, "env GODEBUG=http2client=0 mise install --locked") {
 		t.Fatal("cache hit must not replace the locked installation command")
 	}
 	for _, projection := range projections[1:] {
 		var workflow struct {
 			Jobs map[string]struct {
+				Env   map[string]string `yaml:"env"`
 				Steps []struct {
-					Uses string `yaml:"uses"`
+					Uses string            `yaml:"uses"`
+					Env  map[string]string `yaml:"env"`
 					With struct {
 						Cache          bool   `yaml:"cache"`
 						Install        bool   `yaml:"install"`
@@ -127,12 +129,19 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 			t.Fatal(err)
 		}
 		for name, job := range workflow.Jobs {
+			if job.Env["GODEBUG"] != "" {
+				t.Fatalf("%s/%s leaks installation transport into product verification", projection.Path, name)
+			}
 			for _, step := range job.Steps {
-				if !strings.HasPrefix(step.Uses, "jdx/mise-action@") {
-					continue
+				transport := ""
+				if strings.HasPrefix(step.Uses, "jdx/mise-action@") {
+					transport = "http2client=0"
+					if !step.With.Cache || !step.With.Install || step.With.InstallArgs != "--locked" || step.With.CacheKeyPrefix != "mise-${{ github.job }}" {
+						t.Fatalf("%s/%s does not use a scoped native tool cache with locked installation: %#v", projection.Path, name, step.With)
+					}
 				}
-				if !step.With.Cache || !step.With.Install || step.With.InstallArgs != "--locked" || step.With.CacheKeyPrefix != "mise-${{ github.job }}" {
-					t.Fatalf("%s/%s does not use a scoped native tool cache with locked installation: %#v", projection.Path, name, step.With)
+				if step.Env["GODEBUG"] != transport {
+					t.Fatalf("%s/%s transport = %q, want %q", projection.Path, name, step.Env["GODEBUG"], transport)
 				}
 			}
 		}
@@ -181,7 +190,7 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(pipeline.LinuxToolchain.BeforeScript, []string{"mise install --locked"}) {
+	if !slices.Equal(pipeline.LinuxToolchain.BeforeScript, []string{"env GODEBUG=http2client=0 mise install --locked"}) {
 		t.Fatalf("Linux bootstrap must install the repository lock directly: %q", pipeline.LinuxToolchain.BeforeScript)
 	}
 	if pipeline.LinuxToolchain.Image.Name == "" || pipeline.LinuxToolchain.Image.Entrypoint == nil {

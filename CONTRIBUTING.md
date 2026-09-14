@@ -284,6 +284,13 @@ compiler against the locked Go version. After changing Go, rebuild a cached
 scanner with `mise install --force go:github.com/google/osv-scanner/v2/cmd/osv-scanner`.
 Then rerun `mise run check`; do not disable call analysis to accept an old build.
 
+CI tool installation uses Go's HTTP/1.1 transport after repeated HTTP/2 stream
+resets from the module and checksum services. The CUE projection scopes
+`GODEBUG=http2client=0` to the installer process; product tests and runtime keep
+their normal transport. TLS and module checksum verification remain enabled.
+This does not select an older prebuilt scanner: its compiler must still support
+the repository's Go language version and real vulnerable-source analysis.
+
 ### Native lock refresh
 
 Run `mise run dependencies:resolve` from a clean, authorized checkout to refresh

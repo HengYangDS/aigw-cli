@@ -31,7 +31,7 @@ stages:
     policy: pull-push
     when: always
   before_script:
-    - mise install --locked
+    - env GODEBUG=http2client=0 mise install --locked
 quality:
   stage: verify
   extends:
@@ -68,11 +68,11 @@ accepted-ref-parity:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"
     - when: never
   script:
-    - mise install --locked
+    - env GODEBUG=http2client=0 mise install --locked
     - mise exec --locked -- go run ./tools/forge refs --remote origin --expect "main=$CI_COMMIT_SHA" --expect "dev=$CI_COMMIT_SHA"
 native-darwin:
   script:
-    - mise install --locked
+    - env GODEBUG=http2client=0 mise install --locked
     - mise run bootstrap
     - if [ "${AIGW_REFRESH_LOCKS:-false}" = true ]; then mise run dependencies:resolve; fi
     - mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"
