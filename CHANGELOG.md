@@ -8,41 +8,54 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.112] - 2026-09-14
+
+### Added
+
+- Inspect the installed program and retained rollback copy with
+  `aigw installation`, including paths, versions, sizes and SHA-256 digests.
+- Retain team recommendations separately from selected client Routes so a
+  compatible Account or client can become available after setup.
+- Verify published artifact bytes through the existing native lifecycle,
+  including the shipped team manifest and real Codex and Claude clients.
+
 ### Changed
 
-- Assign the successor candidate version `0.1.0-rc.112`, keeping the installed
-  `rc.111` rollback baseline distinct from newer product bytes.
-- Advance the locked Go, mise, editorconfig-checker, mise Action, and CI image
-  inputs to their current stable releases across the supported build targets.
-- Advance GoReleaser to 2.18.1 after validating the existing portable release
-  configuration against its current stable archive and security fixes.
-- Use editorconfig-checker's upstream executable and artifact identity instead
-  of the retired `ec` asset convention.
-- Retire the unavailable `go-bcov` dependency and use the locked Go coverage
-  profile as the sole quantitative coverage authority instead of preserving an
-  unsupported branch-percentage claim.
+- Keep one explicit Route per client. Setup and synchronization preserve user
+  choices and fill only unselected clients from usable Account capabilities.
+- Align JSON results, errors, help and recovery actions with the same observable
+  state used by human output.
+- Refresh the locked development and release toolchain; use native Go statement
+  coverage and complete package observation without an unsupported branch metric.
+- Keep source integration independent from delivery completion. The same active
+  OpenSpec Change tracks pending publication and installation before final archive.
+- Generate both Forge pipelines from one CUE source while retaining native
+  platform qualification and independent, exact-object publication.
 
 ### Fixed
 
-- Describe every client's loopback endpoint without inferring a compatibility
-  service; use one standard address classification for admission and status.
-- Check the selected client's local projection before reading its Token, so a
-  configuration error does not trigger unnecessary credential access.
-- Preserve native Codex MCP edits by locating owned provider tables through
-  TOML semantics instead of comment positions; reject changed provider values
-  without requiring users to repair harmless formatting.
-- Reconcile a predecessor's proven native authentication preference without
-  changing user-owned authentication or weakening provider conflict checks.
-- Preserve user-selected Claude models during route synchronization while
-  rejecting connection and credential conflicts before changing configuration.
-- Preserve Claude settings and ownership-state bytes when JSON formatting
-  changes without changing the managed values.
-- Explain that portable installation leaves PATH unchanged, with direct-path
-  invocation for first-time setup before shell command discovery is configured.
-- Reject malformed command arguments before acquiring configuration locks,
-  inspecting credentials, or discovering clients.
-- Preserve publication credentials at the selected API authority instead of
-  forwarding them to redirected or externally linked artifact hosts.
+- Permit team setup with no Tokens or clients, and activate compatible clients
+  when any usable Account becomes available without requiring every provider.
+- Check each enabled client's projection before reading its Token. Local
+  configuration, endpoint diagnostics and real-client inference remain distinct.
+- Preserve harmless Codex TOML and Claude JSON rewrites without mistaking
+  equivalent values for ownership conflicts; keep unrelated user edits intact.
+- Reconcile proven predecessor authentication fields without taking ownership
+  of client-native credentials or weakening projection conflict checks.
+- Validate predecessor configuration compatibility before program rollback;
+  preserve the active program when the predecessor cannot read current state.
+- Explain direct executable invocation after installation without assuming or
+  changing the user's PATH.
+- Admit command arguments before configuration locks, credentials or client
+  discovery, and preserve original causes when guarded recovery also fails.
+- Scope Account retirement and full verification to enabled clients rather than
+  requiring an unrelated client installation.
+- Preserve credential boundaries across release redirects and external asset
+  links; permit native local GitLab publication without inventing a CI job.
+- Bind the release SBOM to every native binary and dependency reports to the
+  exact selected lockfiles. Preserve prior output on construction failure.
+- Enforce observed remote tips even for fast-forward publication and stream the
+  complete link inventory through the native cross-platform checker.
 
 ## [0.1.0-rc.110] - 2026-09-01
 
