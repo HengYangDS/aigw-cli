@@ -541,6 +541,7 @@ githubVerify: {
 			"runs-on":         nativeEvidence.linux.github.runner
 			"timeout-minutes": 5
 			if:                "github.event_name == 'push' && github.ref_name == '\(lifecycle.releaseBranch)'"
+			env:               goToolchain
 			steps: [
 				#SourceCheckout,
 				#Toolchain,

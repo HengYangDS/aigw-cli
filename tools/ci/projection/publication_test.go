@@ -142,7 +142,8 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 
 	var github struct {
 		Jobs map[string]struct {
-			If string `yaml:"if"`
+			If  string            `yaml:"if"`
+			Env map[string]string `yaml:"env"`
 		} `yaml:"jobs"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
@@ -150,6 +151,9 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 	}
 	if got := github.Jobs["accepted-ref-parity"].If; got != "github.event_name == 'push' && github.ref_name == 'main'" {
 		t.Fatalf("GitHub accepted parity condition = %q", got)
+	}
+	if got := github.Jobs["accepted-ref-parity"].Env["MISE_ENABLE_TOOLS"]; got != "go" {
+		t.Fatalf("accepted-ref observation must install only its Go command dependency, got %q", got)
 	}
 	for name, job := range github.Jobs {
 		if name == "accepted-ref-parity" {
