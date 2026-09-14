@@ -579,22 +579,36 @@ githubRelease: {
 		GIT_CONFIG_VALUE_0: "main"
 	}
 	"on": {
-		"workflow_dispatch": inputs: tag: {
-			description: "Existing published v* release to verify"
-			required:    true
-			type:        "string"
+		"workflow_dispatch": inputs: {
+			tag: {
+				description: "Existing published v* release to verify"
+				required:    true
+				type:        "string"
+			}
+			runner: {
+				description: "Native execution environment"
+				type:        "choice"
+				default:     nativeEvidence.linux.github.runner
+				options: [nativeEvidence.linux.github.runner, nativeEvidence.darwin.github.runner, nativeEvidence.windows.github.runner, "windows-11-arm"]
+			}
+			native_lifecycle: {
+				description: "Run the existing native lifecycle against the published bytes"
+				type:        "boolean"
+				default:     false
+			}
 		}
 	}
 	permissions: contents: "read"
 	concurrency: {
-		group:                "release-${{ github.repository }}-${{ inputs.tag }}"
+		group:                "release-${{ github.repository }}-${{ inputs.tag }}-${{ inputs.runner }}"
 		"cancel-in-progress": false
 	}
 	jobs: {
 		"release-assets": {
 			name:              "Verify published release artifacts"
-			"runs-on":         nativeEvidence.linux.github.runner
+			"runs-on":         "${{ inputs.runner }}"
 			"timeout-minutes": 25
+			defaults: run: shell: "pwsh"
 			env: {
 				MISE_ENABLE_TOOLS:            "go,gh"
 				GH_TOKEN:                     "${{ github.token }}"
@@ -608,18 +622,27 @@ githubRelease: {
 				{
 					name: "Materialize provenance trust input"
 					env: AIGW_RELEASE_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}"
-					run: "mise exec --locked -- go run ./tools/ci trust-input --output \"$RUNNER_TEMP/aigw-allowed-signers\" --github-env \"$GITHUB_ENV\""
+					run: "mise exec --locked -- go run ./tools/ci trust-input --output \"$env:RUNNER_TEMP/aigw-allowed-signers\" --github-env \"$env:GITHUB_ENV\""
 				},
 				{
 					name: "Materialize artifact signature trust"
 					env: AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}"
-					run: "mise exec --locked -- go run ./tools/ci trust-input --artifact --output \"$RUNNER_TEMP/aigw-artifact-signers\" --github-env \"$GITHUB_ENV\""
+					run: "mise exec --locked -- go run ./tools/ci trust-input --artifact --output \"$env:RUNNER_TEMP/aigw-artifact-signers\" --github-env \"$env:GITHUB_ENV\""
 				},
 				{
 					name: "Download this peer's published artifacts"
-					run:  #"mise exec --locked -- gh release download "$CI_COMMIT_TAG" --repo "$GITHUB_REPOSITORY" --dir dist"#
+					run:  #"mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir dist"#
 				},
 				{name: "Verify complete artifacts and signed source", run: commands.artifacts},
+				{
+					name: "Verify published native lifecycle"
+					if:   "inputs.native_lifecycle"
+					env: {
+						AIGW_VERIFY_SYSTEM_KEYRING:        "${{ runner.os != 'Linux' && '1' || '0' }}"
+						AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
+					}
+					run: "mise exec --locked -- go run ./tools/release accept-native --artifacts dist"
+				},
 			]
 		}
 	}

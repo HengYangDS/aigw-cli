@@ -265,6 +265,7 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 	if len(workflow.On) != 1 || !workflow.On["workflow_dispatch"].Inputs["tag"].Required {
 		t.Fatal("artifact verification requires explicit dispatch after complete publication")
 	}
+
 	const tag = "${{ inputs.tag }}"
 	if job.Env["CI_COMMIT_TAG"] != tag || job.Steps[0].With["ref"] != tag {
 		t.Fatal("release verification changed the selected tag")
@@ -286,13 +287,62 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 	}
 	want := []string{
 		"mise exec --locked -- go run ./tools/release validate-readiness-tag",
-		`mise exec --locked -- go run ./tools/ci trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"`,
-		`mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$RUNNER_TEMP/aigw-artifact-signers" --github-env "$GITHUB_ENV"`,
-		`mise exec --locked -- gh release download "$CI_COMMIT_TAG" --repo "$GITHUB_REPOSITORY" --dir dist`,
+		`mise exec --locked -- go run ./tools/ci trust-input --output "$env:RUNNER_TEMP/aigw-allowed-signers" --github-env "$env:GITHUB_ENV"`,
+		`mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$env:RUNNER_TEMP/aigw-artifact-signers" --github-env "$env:GITHUB_ENV"`,
+		`mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir dist`,
 		"mise exec --locked -- go run ./tools/release verify-artifacts dist",
+		"mise exec --locked -- go run ./tools/release accept-native --artifacts dist",
 	}
 	if !slices.Equal(commands, want) || !slices.Equal(trust, []string{"AIGW_RELEASE_ALLOWED_SIGNERS", "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"}) {
 		t.Fatalf("release verification order or trust differs: %q, %q", commands, trust)
+	}
+}
+
+func TestPublishedNativeLifecycleUsesSelectedIsolatedRunner(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		On map[string]struct {
+			Inputs map[string]struct {
+				Type    string
+				Default string
+				Options []string
+			}
+		} `yaml:"on"`
+		Concurrency struct{ Group string }
+		Jobs        map[string]struct {
+			Runner   string `yaml:"runs-on"`
+			Defaults struct{ Run struct{ Shell string } }
+			Steps    []struct {
+				If  string            `yaml:"if"`
+				Env map[string]string `yaml:"env"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[2].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	job := workflow.Jobs["release-assets"]
+	inputs := workflow.On["workflow_dispatch"].Inputs
+	runner := inputs["runner"]
+	if runner.Type != "choice" || runner.Default != "ubuntu-latest" ||
+		!slices.Equal(runner.Options, []string{"ubuntu-latest", "macos-latest", "windows-latest", "windows-11-arm"}) {
+		t.Fatalf("release verification runner choices = %#v", runner)
+	}
+	if inputs["native_lifecycle"].Type != "boolean" || inputs["native_lifecycle"].Default != "false" {
+		t.Fatal("published native lifecycle must be an explicit optional verification")
+	}
+	if job.Runner != "${{ inputs.runner }}" || job.Defaults.Run.Shell != "pwsh" {
+		t.Fatal("release verification must use the selected native runner and a portable shell")
+	}
+	if workflow.Concurrency.Group != "release-${{ github.repository }}-${{ inputs.tag }}-${{ inputs.runner }}" {
+		t.Fatal("different native release targets must be able to run independently")
+	}
+	native := job.Steps[len(job.Steps)-1]
+	if native.If != "inputs.native_lifecycle" || native.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != "${{ runner.os != 'Linux' && '1' || '0' }}" || native.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
+		t.Fatal("native lifecycle must retain explicit isolated credential-store admission")
 	}
 }
 

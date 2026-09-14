@@ -93,6 +93,33 @@ cutover.
 
 ## Completion
 
+### Verify published bytes on a native host
+
+The read-only GitHub Release workflow accepts an existing release tag and a
+bounded native runner choice. Its default remains Linux artifact verification.
+Set `native_lifecycle=true` to additionally run the existing release lifecycle
+against that host's published archive, after checksum, signature and source
+verification. This does not publish, replace a tag or rebuild the candidate.
+Separate runner selections can execute independently.
+
+With `TAG` set to the exact published release, Windows ARM64 qualification uses:
+
+```sh
+gh workflow run release.yml --ref main \
+  --field tag="$TAG" \
+  --field runner=windows-11-arm \
+  --field native_lifecycle=true
+```
+
+The selected tag owns product source and dependency locks; the selected workflow
+revision owns orchestration. Native macOS and Windows journeys explicitly test
+synthetic credentials on the disposable hosted machine. Linux's native Secret
+Service still requires the separate isolated user-bus qualification. A queued
+job, inspected archive or successful checksum does not prove native execution.
+Real-client and live-Provider acceptance remain separate from this lifecycle.
+
+### Observe publication and integration
+
 Branch or tag publication is complete only when local Git and every selected
 peer expose the same object OID. Hosted CI, Release records, assets, checksums,
 installation, and runtime acceptance remain separate evidence boundaries.
