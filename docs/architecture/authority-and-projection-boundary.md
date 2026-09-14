@@ -28,25 +28,13 @@ traffic hop, a client launcher, or an agent-state manager.
   - **AIGW role:** None
   - **Other owner:** Client
 
-Native clients send requests directly. AIGW runs for explicit configuration
-operations or on-demand credential helpers; no AIGW daemon is required.
-Traffic gateways remain independently selected endpoints. Comparative claims
+Native clients send API requests to their selected endpoint. AIGW runs for
+explicit configuration operations or on-demand credential helpers; it neither
+carries those requests nor requires a daemon. An external gateway is an
+optional endpoint choice, not an extra mandatory hop or an AIGW-owned process.
+Comparative claims
 belong to the [provider tooling assessment](../research/provider-tooling-assessment.md),
 not this design contract.
-
-## Product graph
-
-```mermaid
-flowchart TB
-    accTitle: Configuration ownership is separate from model traffic
-    accDescr: AIGW configures the native client. Codex or Claude Code sends API requests to its selected endpoint. An optional gateway is an endpoint choice, not a service owned by AIGW.
-    A["AIGW"] -. Owned configuration .-> C["Codex or Claude Code"]
-    C -->|Native API requests| E["Selected endpoint"]
-```
-
-The request sender is the native client, not its configuration file. An external
-gateway, when selected, occupies an endpoint node; it is not an extra mandatory
-hop. AIGW does not own that endpoint's process.
 
 ## Authority
 

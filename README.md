@@ -6,7 +6,7 @@ AIGW manages Accounts, Tokens, Profiles, Routes, and native client projections.
 It does **not** relay model traffic, run a gateway, or own conversation state.
 
 Codex and Claude Code call their selected endpoints directly. See the
-[product graph](docs/architecture/authority-and-projection-boundary.md#product-graph)
+[product position](docs/architecture/authority-and-projection-boundary.md#product-position)
 for the configuration and traffic boundaries.
 
 ## Start here
