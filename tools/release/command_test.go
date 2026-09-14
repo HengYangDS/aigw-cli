@@ -4,7 +4,9 @@ import (
 	"aigw-cli/internal/upgrade"
 	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
+	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"io"
@@ -17,6 +19,30 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestNativeJourneyOwnsWorkingDirectory(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	program := buildNativeProgram(t, root, "0.0.0")
+	journey := newNativeJourney(t, program, "https://unused.example.test", false)
+	actual, err := os.Stat(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err := os.Stat(journey.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !os.SameFile(actual, expected) {
+		t.Fatal("native journey inherited the repository working directory")
+	}
+	if output := journey.run("--help"); !bytes.Contains(output, []byte("Usage")) {
+		t.Fatalf("native help is unavailable: %s", output)
+	}
+	journey.uninstallAndRequireOwnedFilesAbsent()
+}
 
 func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
@@ -297,6 +323,23 @@ func TestNativeArtifactAcceptanceRequiresPublicTrustBeforeExecution(t *testing.T
 	t.Setenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE", "")
 	if err := run([]string{"accept-native", "--artifacts", artifacts}, io.Discard); err == nil || !strings.Contains(err.Error(), "artifact authorization") {
 		t.Fatalf("native artifact acceptance bypassed public trust: %v", err)
+	}
+}
+
+func TestNativeArtifactAcceptanceSeparatesVerifierAndProductRevisions(t *testing.T) {
+	artifacts := prepareSignedRelease(t, "0.1.0")
+	command := exec.Command("git", "-c", "core.hooksPath=.git/hooks", "-c", "commit.gpgsign=false",
+		"-c", "user.name=Verifier Test", "-c", "user.email=verifier@test.invalid",
+		"commit", "--allow-empty", "-m", "test: independent verifier revision")
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("advance verifier revision: %v: %s", err, output)
+	}
+	want := gzip.ErrHeader
+	if runtime.GOOS == "windows" {
+		want = zip.ErrFormat
+	}
+	if err := run([]string{"accept-native", "--artifacts", artifacts}, io.Discard); !errors.Is(err, want) {
+		t.Fatalf("trusted release must reach archive decoding under a different verifier revision: %v", err)
 	}
 }
 

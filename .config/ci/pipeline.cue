@@ -184,15 +184,6 @@ actions: {
 	}
 }
 
-#ReleaseCheckout: {
-	name: "Check out the exact release tag"
-	uses: actions.checkout
-	with: {
-		ref:           "${{ inputs.tag }}"
-		"fetch-depth": 0
-	}
-}
-
 #Toolchain: {
 	name: "Install the locked toolchain"
 	uses: actions.mise
@@ -623,7 +614,7 @@ githubRelease: {
 				AIGW_RELEASE_ARTIFACT_SIGNER: "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}"
 			}
 			steps: [
-				#ReleaseCheckout,
+				#SourceCheckout,
 				#Toolchain,
 				{name: "Check release admission", run: commands.readiness},
 				{

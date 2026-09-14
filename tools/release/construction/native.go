@@ -24,17 +24,6 @@ func AcceptNative(artifacts string, clients bool) error {
 	if err := ensureCleanSource(request.Root, executeTool); err != nil {
 		return err
 	}
-	selected, err := resolveGitObject(request.Root, "refs/tags/"+os.Getenv("CI_COMMIT_TAG")+"^{commit}", executeTool)
-	if err != nil {
-		return err
-	}
-	head, err := resolveGitObject(request.Root, "HEAD^{commit}", executeTool)
-	if err != nil {
-		return err
-	}
-	if head != selected {
-		return errors.New("native acceptance source must match the selected release tag")
-	}
 	return acceptNative(request, artifacts, clients, executeTool)
 }
 

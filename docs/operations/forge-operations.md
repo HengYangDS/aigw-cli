@@ -117,8 +117,13 @@ gh workflow run release.yml --ref main \
   --field native_lifecycle=true
 ```
 
-The selected tag owns product source and dependency locks; the selected workflow
-revision owns orchestration. Native macOS and Windows journeys explicitly test
+The selected tag and signed provenance identify the product bytes and their
+build inputs. The selected workflow revision owns the verifier, tests and their
+locked execution environment; it must declare the same product version, but
+need not be the release commit. This permits stronger tests of an unchanged
+published artifact without replacing its tag. The verifier checkout must be
+clean, and artifact signature, checksum and tagged-source verification remain
+mandatory. Native macOS and Windows journeys explicitly test
 synthetic credentials on the disposable hosted machine. Linux's native Secret
 Service still requires the separate isolated user-bus qualification. A queued
 job, inspected archive or successful checksum does not prove native execution.

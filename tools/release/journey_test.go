@@ -264,6 +264,7 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 			t.Fatal(err)
 		}
 	}
+	t.Chdir(root)
 	journey := &journeyFixture{
 		testing:   t,
 		source:    source,

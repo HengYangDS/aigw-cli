@@ -44,10 +44,10 @@ jobs:
       CI_COMMIT_TAG: ${{ inputs.tag }}
       AIGW_RELEASE_ARTIFACT_SIGNER: ${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}
     steps:
-      - name: Check out the exact release tag
+      - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c

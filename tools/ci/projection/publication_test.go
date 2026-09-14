@@ -267,8 +267,8 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 	}
 
 	const tag = "${{ inputs.tag }}"
-	if job.Env["CI_COMMIT_TAG"] != tag || job.Steps[0].With["ref"] != tag {
-		t.Fatal("release verification changed the selected tag")
+	if job.Env["CI_COMMIT_TAG"] != tag || job.Steps[0].With["ref"] != "${{ github.event.pull_request.head.sha || github.sha }}" {
+		t.Fatal("release artifact identity and verifier revision must remain separate")
 	}
 	if job.Env["AIGW_RELEASE_ARTIFACT_SIGNER"] != "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}" {
 		t.Fatal("release signer trust is absent")

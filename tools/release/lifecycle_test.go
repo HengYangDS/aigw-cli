@@ -324,6 +324,9 @@ func (j *journeyFixture) updateTo(archive, checksums, version, program string) {
 func (j *journeyFixture) requireHealthyVersion(version string) {
 	j.testing.Helper()
 	j.requireVersion(version)
+	if output := j.run("--help"); !bytes.Contains(output, []byte("Usage")) {
+		j.testing.Fatalf("installed program help is unavailable: %s", output)
+	}
 	if got := j.claudeCredential(); got != "native-journey-token" {
 		j.testing.Fatalf("credential = %q", got)
 	}
