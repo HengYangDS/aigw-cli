@@ -27,8 +27,10 @@ in the same transaction without enabling or changing another client.
 
 - **WHEN** the operator runs `aigw verify --profile <profile>`
 - **AND** the Profile declares `client = "claude"`
-- **THEN** one Claude Code protocol request is verified
-- **AND** no redundant client input is required.
+- **THEN** AIGW invokes the synchronized native Claude Code client for one
+  bounded verification request and requires its successful final response
+- **AND** no redundant client input is required
+- **AND** an HTTP endpoint probe alone does not establish this client result.
 
 #### Scenario: Select a Profile
 
@@ -78,18 +80,24 @@ names, models, endpoints, providers, or the other client's Route.
 
 ### Requirement: Unselected-profile behavior remains stable
 
-Commands SHALL preserve their established selection behavior when the operator
-does not name a profile.
+`aigw test` without a selector SHALL inspect only clients with an explicitly
+selected Route. It SHALL NOT select an unselected catalogue Profile or start
+a client. `aigw verify` SHALL require an explicit client or Profile before
+configuration, credential, or network access; bulk verification SHALL use the
+enabled-client scope defined by cli-readiness.
 
 #### Scenario: Connectivity test has no explicit profile or client
 
 - **WHEN** the operator runs `aigw test` without `--profile` or `--for`
-- **THEN** the command tests the admitted configured clients as before
+- **THEN** the command tests only the admitted clients with a selected Route
+- **AND** unselected clients and catalogue Profiles remain outside its scope.
 
 #### Scenario: Live verification has no explicit profile or client
 
 - **WHEN** the operator runs `aigw verify` without `--profile` or `--for`
-- **THEN** the command still requires an explicit verification target
+- **THEN** the command rejects the missing target before reading configuration
+- **AND** it requests either `--for <client>` or `--profile <profile>` without
+  starting a client, reading a Token, or making a network request.
 
 ### Requirement: Route selection has one authority
 
@@ -110,28 +118,71 @@ inheritance, cross-client fallback, or a second override layer.
 - **AND** SHALL recommend selecting a compatible Profile
 - **AND** SHALL NOT substitute another client's Profile.
 
-### Requirement: Previous local configuration migrates once
+### Requirement: Selection changes exactly one client Route
 
-AIGW SHALL convert the previous default-plus-overrides schema into explicit
-client Routes at the read boundary. The current runtime and persisted schema
-SHALL NOT retain the previous resolution model or read both models in parallel.
+`aigw use <profile>` SHALL derive one admitted client from the Profile and
+transactionally update only that client's Route and owned projection. AIGW
+SHALL expose no persistent global default and no bulk-selection state that is
+required for readiness.
 
-#### Scenario: An override and the previous default select the same client
+#### Scenario: Select a Codex Profile
 
-- **WHEN** previous configuration contains an explicit override for a client
-- **AND** its previous default Profile declares that same client
-- **THEN** the explicit override SHALL become that client's Route.
+- **WHEN** an operator selects a valid Codex Profile
+- **THEN** only the Codex Route and Codex-owned projection may change
+- **AND** the Claude Route, credential, and projection remain byte-identical.
 
-#### Scenario: The previous default is unambiguous
+#### Scenario: Select a Claude Profile
 
-- **WHEN** the previous default Profile declares exactly one admitted client
-  and model
-- **AND** that client has no explicit override
-- **THEN** the Profile SHALL become that client's Route.
+- **WHEN** an operator selects a valid Claude Profile
+- **THEN** only the Claude Route and Claude-owned projection may change
+- **AND** the Codex Route, credential, and projection remain byte-identical.
 
-#### Scenario: Previous Profile identity is ambiguous
+#### Scenario: The unselected client has an external configuration conflict
 
-- **WHEN** a previous Profile does not declare exactly one admitted client and
-  model
-- **THEN** migration SHALL fail before changing persisted configuration
-- **AND** SHALL require explicit operator correction rather than guessing.
+- **WHEN** an operator selects a valid Profile while another client's projection
+  contains external changes
+- **THEN** selection preflights and updates only the Profile's declared client
+- **AND** the unrelated conflict neither blocks selection nor changes that
+  client's configuration or ownership sidecar.
+
+#### Scenario: Re-select the active Profile
+
+- **WHEN** the selected Profile and owned projection already match the desired
+  state and any required Account Token is available
+- **THEN** the operation succeeds as an observable no-op
+- **AND** does not rewrite files, credentials, or verification checkpoints.
+
+#### Scenario: Re-select with a missing Account Token
+
+- **WHEN** the selected Profile is unchanged and interactive selection acquires
+  its missing Account Token
+- **THEN** the result reports Token storage rather than an unchanged credential
+- **AND** unchanged configuration, client files, and checkpoints are not rewritten.
+
+### Requirement: Selection owns its credential transaction
+
+Selection SHALL validate with the command context and reuse the credential
+replacement owner's guarded compensation. Before selection commits, failure
+or cancellation SHALL compensate its Token and automatic backend choice.
+Compensation SHALL preserve any newer state and report incomplete recovery
+alongside the original failure. Result rendering is outside this transaction.
+
+#### Scenario: Selection is cancelled
+
+- **WHEN** cancellation occurs before or during validation, or before selection
+  commits
+- **THEN** the command returns cancellation and applies guarded compensation to
+  any Token written by this attempt
+- **AND** reports any compensation failure without concealing the cancellation.
+
+#### Scenario: Selection fails after Token storage
+
+- **WHEN** client convergence or configuration persistence fails
+- **THEN** unchanged credential postimages and the newly persisted automatic
+  backend choice are compensated
+- **AND** any compensation error remains observable with the original failure.
+
+#### Scenario: Result output fails after selection commits
+
+- **WHEN** selection commits but its result cannot be written
+- **THEN** the output error is returned without undoing committed credentials.

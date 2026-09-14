@@ -73,22 +73,27 @@ func validateOpenSpecReport(raw []byte, root string, stdout io.Writer) error {
 	if !filepath.IsAbs(report.Root.Path) || expectedErr != nil || observedErr != nil || !observed.IsDir() || !os.SameFile(expected, observed) {
 		return fmt.Errorf("OpenSpec validation root %q does not identify requested checkout %q", report.Root.Path, root)
 	}
-	if len(report.ItemFindings) == 0 {
-		if totals.Failed != 0 {
-			return errors.New("OpenSpec validation reports failures without findings")
-		}
-		_, err := fmt.Fprintf(stdout, "OpenSpec: %d items, 0 findings\n", header.TotalItems)
-		return err
-	}
-
 	findings := make([]string, 0, report.Report.ReturnedItems)
+	failed := totals.Failed != 0
 	for _, item := range report.ItemFindings {
+		if len(item.Issues) == 0 {
+			return errors.New("unexpected OpenSpec validation report")
+		}
 		for _, issue := range item.Issues {
+			switch issue.Level {
+			case "INFO":
+			case "WARNING", "ERROR":
+				failed = true
+			default:
+				return fmt.Errorf("unknown OpenSpec validation severity %q", issue.Level)
+			}
 			findings = append(findings, fmt.Sprintf("%s %s [%s]: %s", item.ID, issue.Path, issue.Level, issue.Message))
 		}
 	}
-	if len(findings) == 0 {
-		return errors.New("unexpected OpenSpec validation report")
+	if failed {
+		return fmt.Errorf("OpenSpec validation findings (failed items: %d):\n%s", totals.Failed, strings.Join(findings, "\n"))
 	}
-	return fmt.Errorf("OpenSpec validation findings:\n%s", strings.Join(findings, "\n"))
+	summary := fmt.Sprintf("OpenSpec: %d items, %d findings", header.TotalItems, len(findings))
+	_, err := fmt.Fprintln(stdout, strings.Join(append([]string{summary}, findings...), "\n"))
+	return err
 }

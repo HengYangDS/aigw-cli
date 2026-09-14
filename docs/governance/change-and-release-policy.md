@@ -427,6 +427,11 @@ by a parallel check registry or a copied generic parser. Native schemas remain
 with their locked package owners. External schema references are not fetched
 implicitly during local policy validation.
 
+OpenSpec's `INFO` findings are advisory and remain visible in successful output;
+they are not warnings. Its `WARNING` and `ERROR` findings, failed validation
+summary, unknown severity or malformed report block admission. A length advisory
+prompts semantic review, not automatic fragmentation of a cohesive requirement.
+
 The [ETHOS gate declarations](../../.ethos/profile.toml) describe execution
 requirements, not a sandbox. Gates may create disposable verification output.
 Behavior tests use prepared tools and local fixtures; the quality gate requires

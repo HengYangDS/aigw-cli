@@ -440,6 +440,15 @@ documentation, packaging, or CI path SHALL be resolved at its semantic owner.
 - **AND** a blanket filter, baseline, or ignored exit code is not accepted as
   the repair.
 
+#### Scenario: Native validation distinguishes advice from failure
+
+- **WHEN** OpenSpec reports a complete successful validation with only `INFO`
+  findings
+- **THEN** the gate succeeds and displays every informational finding
+- **AND** `WARNING`, `ERROR`, a failed summary, unknown severity or malformed
+  evidence still fails admission
+- **AND** a diagnostic output failure remains an execution failure.
+
 ## REMOVED Requirements
 
 ### Requirement: Terminal local release readiness

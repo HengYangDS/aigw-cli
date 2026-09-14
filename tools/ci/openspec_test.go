@@ -29,6 +29,7 @@ func TestOpenSpecValidationRequiresCompleteCleanEvidence(t *testing.T) {
 		name    string
 		report  string
 		wantErr string
+		wantOut string
 	}{
 		{
 			name:   "clean",
@@ -42,7 +43,32 @@ func TestOpenSpecValidationRequiresCompleteCleanEvidence(t *testing.T) {
 		{
 			name:    "information",
 			report:  strings.Replace(withFinding, `"itemFindings":[]`, `"itemFindings":[{"id":"product-quality","issues":[{"level":"INFO","path":"requirements[0]","message":"too long"}]}]`, 1),
-			wantErr: "product-quality requirements[0] [INFO]: too long",
+			wantOut: "product-quality requirements[0] [INFO]: too long",
+		},
+		{
+			name:    "warning",
+			report:  strings.Replace(withFinding, `"itemFindings":[]`, `"itemFindings":[{"id":"product-quality","issues":[{"level":"WARNING","path":"requirements[0]","message":"invalid contract"}]}]`, 1),
+			wantErr: "product-quality requirements[0] [WARNING]: invalid contract",
+		},
+		{
+			name:    "error",
+			report:  strings.Replace(withFinding, `"itemFindings":[]`, `"itemFindings":[{"id":"product-quality","issues":[{"level":"ERROR","path":"requirements[0]","message":"invalid contract"}]}]`, 1),
+			wantErr: "product-quality requirements[0] [ERROR]: invalid contract",
+		},
+		{
+			name:    "unknown severity",
+			report:  strings.Replace(withFinding, `"itemFindings":[]`, `"itemFindings":[{"id":"product-quality","issues":[{"level":"NOTE","path":"requirements[0]","message":"unknown"}]}]`, 1),
+			wantErr: "unknown OpenSpec validation severity",
+		},
+		{
+			name:    "failed summary with information",
+			report:  strings.Replace(strings.Replace(withFinding, `"passed":1,"failed":0`, `"passed":0,"failed":1`, 1), `"itemFindings":[]`, `"itemFindings":[{"id":"product-quality","issues":[{"level":"INFO","path":"requirements[0]","message":"advice"}]}]`, 1),
+			wantErr: "OpenSpec validation findings",
+		},
+		{
+			name:    "mixed severities",
+			report:  strings.Replace(withFinding, `"itemFindings":[]`, `"itemFindings":[{"id":"product-quality","issues":[{"level":"INFO","path":"requirements[0]","message":"advice"},{"level":"WARNING","path":"requirements[1]","message":"invalid contract"}]}]`, 1),
+			wantErr: "[INFO]: advice\nproduct-quality requirements[1] [WARNING]: invalid contract",
 		},
 		{
 			name:    "malformed JSON",
@@ -72,18 +98,22 @@ func TestOpenSpecValidationRequiresCompleteCleanEvidence(t *testing.T) {
 		{
 			name:    "failure without findings",
 			report:  strings.Replace(clean, `"passed":1,"failed":0`, `"passed":0,"failed":1`, 1),
-			wantErr: "OpenSpec validation reports failures without findings",
+			wantErr: "OpenSpec validation findings (failed items: 1)",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := validateOpenSpecReport([]byte(test.report), root, &bytes.Buffer{})
+			var output bytes.Buffer
+			err := validateOpenSpecReport([]byte(test.report), root, &output)
 			if test.wantErr == "" && err != nil {
 				t.Fatal(err)
 			}
 			if test.wantErr != "" && (err == nil || !strings.Contains(err.Error(), test.wantErr)) {
 				t.Fatalf("error = %v, want containing %q", err, test.wantErr)
+			}
+			if !strings.Contains(output.String(), test.wantOut) {
+				t.Fatalf("output = %q, want containing %q", output.String(), test.wantOut)
 			}
 		})
 	}
@@ -157,15 +187,21 @@ func TestOpenSpecValidationMeasuresOnlyTheRequestedCheckout(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, item := range []struct {
-		name string
-		cwd  string
-		want string
+		name    string
+		cwd     string
+		want    string
+		output  string
+		content string
 	}{
-		{"complete checkout", root, ""},
-		{"parent fallback", child, "OpenSpec validation root"},
-		{"empty checkout", empty, "OpenSpec validation checked no items"},
+		{"complete checkout", root, "", "1 items, 0 findings", content},
+		{"parent fallback", child, "OpenSpec validation root", "", content},
+		{"empty checkout", empty, "OpenSpec validation checked no items", "", content},
+		{"native informational advice", root, "", "[INFO]: Requirement text is very long", strings.Replace(content, "The example SHALL complete.", strings.Repeat("The example SHALL preserve its observable contract. ", 12), 1)},
 	} {
 		t.Run(item.name, func(t *testing.T) {
+			if err := os.WriteFile(spec, []byte(item.content), 0o600); err != nil {
+				t.Fatal(err)
+			}
 			t.Chdir(item.cwd)
 			var stdout bytes.Buffer
 			err := runOpenSpecValidation(&stdout, func(call command) ([]byte, error) {
@@ -175,7 +211,7 @@ func TestOpenSpecValidationMeasuresOnlyTheRequestedCheckout(t *testing.T) {
 				return systemOutputRunner(command{Name: "node", Dir: call.Dir, Args: []string{checker, "validate", "--all", "--strict", "--report", "findings", "--json", "--no-interactive"}})
 			})
 			if item.want == "" {
-				if err != nil || !strings.Contains(stdout.String(), "1 items, 0 findings") {
+				if err != nil || !strings.Contains(stdout.String(), item.output) {
 					t.Fatalf("complete native validation: %v, %s", err, stdout.String())
 				}
 			} else if err == nil || !strings.Contains(err.Error(), item.want) || stdout.Len() != 0 {
@@ -191,5 +227,29 @@ func TestOpenSpecCommandReportsAnUnavailableValidator(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "OpenSpec validation failed") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestOpenSpecInformationOutputFailure(t *testing.T) {
+	root := t.TempDir()
+	encodedRoot, err := json.Marshal(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := fmt.Sprintf(`{
+  "report":{"kind":"validation-findings","version":"1.0","scope":"all","returnedItems":1,"totalItems":1},
+  "root":{"path":%s},
+  "summary":{"totals":{"items":1,"passed":1,"failed":0}},
+  "itemFindings":[{"id":"example","issues":[{"level":"INFO","path":"requirements[0]","message":"review cohesion"}]}]
+}`, encodedRoot)
+	output, err := os.CreateTemp(root, "closed-output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := output.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateOpenSpecReport([]byte(report), root, output); !errors.Is(err, os.ErrClosed) {
+		t.Fatalf("informational output failure = %v", err)
 	}
 }
