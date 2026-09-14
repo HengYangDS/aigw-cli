@@ -154,7 +154,7 @@ _graphOrder: {
 	}
 }
 
-miseImage: "ghcr.io/jdx/mise:2026.9.6@sha256:45a6612a95e3de3af6dc92867e324b64b6a62555e4fde4417c69bbe7c4bda642"
+miseImage: "ghcr.io/jdx/mise:2026.9.7@sha256:f7e1136dac52ed4e6fe7d54824dbb555a2f12267f7522eaaeecf69eded5d12e1"
 
 #MiseGitLabImage: {
 	name: miseImage
