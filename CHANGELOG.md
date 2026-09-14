@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.113] - 2026-09-14
+
 ### Added
 
 - Test one explicit endpoint using an ephemeral stdin Token and an absolute
