@@ -146,29 +146,25 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 				"codex":  `{"stream":true,"reasoning":{"effort":"high"}}`,
 				"claude": `{"stream":true,"output_config":{"effort":"high"}}`,
 			}[client]
-			request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
-			request.Header.Set("Authorization", "Bearer synthetic")
-			response := httptest.NewRecorder()
-			clientResponseHandler(client, "synthetic", &completions).ServeHTTP(response, request)
-			if response.Code != http.StatusOK || completions.Load() != 1 {
-				t.Fatalf("status=%d completions=%d", response.Code, completions.Load())
-			}
+			var response *httptest.ResponseRecorder
 			for _, test := range []struct {
 				method, path, credential, body string
 				status                         int
+				completed                      int64
 			}{
-				{http.MethodPost, path, "", `{"stream":true}`, http.StatusUnauthorized},
-				{http.MethodPost, "/wrong", "synthetic", `{"stream":true}`, http.StatusNotFound},
-				{http.MethodGet, path, "synthetic", `{"stream":true}`, http.StatusMethodNotAllowed},
-				{http.MethodPost, path, "synthetic", `{"stream":false}`, http.StatusBadRequest},
-				{http.MethodPost, path, "synthetic", `{"stream":true}`, http.StatusBadRequest},
-				{http.MethodPost, path, "synthetic", strings.ReplaceAll(body, "high", "low"), http.StatusBadRequest},
+				{http.MethodPost, path, "", `{"stream":true}`, http.StatusUnauthorized, 0},
+				{http.MethodPost, "/wrong", "synthetic", `{"stream":true}`, http.StatusNotFound, 0},
+				{http.MethodGet, path, "synthetic", `{"stream":true}`, http.StatusMethodNotAllowed, 0},
+				{http.MethodPost, path, "synthetic", `{"stream":false}`, http.StatusBadRequest, 0},
+				{http.MethodPost, path, "synthetic", `{"stream":true}`, http.StatusBadRequest, 0},
+				{http.MethodPost, path, "synthetic", strings.ReplaceAll(body, "high", "low"), http.StatusBadRequest, 0},
+				{http.MethodPost, path, "synthetic", body, http.StatusOK, 1},
 			} {
 				request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
 				request.Header.Set("Authorization", "Bearer "+test.credential)
-				response := httptest.NewRecorder()
+				response = httptest.NewRecorder()
 				clientResponseHandler(client, "synthetic", &completions).ServeHTTP(response, request)
-				if response.Code != test.status || completions.Load() != 1 {
+				if response.Code != test.status || completions.Load() != test.completed {
 					t.Fatalf("%s %s: status=%d completions=%d", test.method, test.path, response.Code, completions.Load())
 				}
 			}
