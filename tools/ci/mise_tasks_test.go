@@ -351,10 +351,16 @@ func TestMiseBootstrapReconstructsCheckoutLocalPackages(t *testing.T) {
 			{"exec", "--locked", "--", "npm", "install", "--package-lock-only", "--ignore-scripts"},
 			{"run", "bootstrap"},
 		} {
-			command := exec.Command("mise", append([]string{"-C", root}, arguments...)...)
-			command.Dir = root
-			if output, err := command.CombinedOutput(); err != nil {
-				t.Fatalf("resolution/bootstrap pass %d, %v: %v\n%s", pass+1, arguments, err, output)
+			if !t.Run(strings.Join(arguments, " "), func(t *testing.T) {
+				command := exec.CommandContext(t.Context(), "mise", append([]string{"-C", root}, arguments...)...)
+				command.Dir = root
+				command.Stdout = t.Output()
+				command.Stderr = t.Output()
+				if err := command.Run(); err != nil {
+					t.Fatalf("resolution/bootstrap pass %d: %v", pass+1, err)
+				}
+			}) {
+				t.FailNow()
 			}
 		}
 		if _, err := os.Stat(residue); !os.IsNotExist(err) {
@@ -369,36 +375,7 @@ func TestMiseBootstrapReconstructsCheckoutLocalPackages(t *testing.T) {
 				t.Fatalf("installed %s = %q, want %q: %v", name, installed.Version, want, err)
 			}
 		}
-		for name, probe := range map[string]struct {
-			arguments []string
-			version   string
-			pattern   string
-		}{
-			"node": {[]string{"node", "--version"}, configuration.Tools["node"], `^v(\S+)$`},
-			"@fission-ai/openspec": {
-				[]string{"node", filepath.Join(root, "node_modules", "@fission-ai", "openspec", "bin", "openspec.js"), "--version"},
-				manifest.Dependencies["@fission-ai/openspec"], `^(\S+)$`,
-			},
-			"markdownlint-cli2": {
-				[]string{"node", filepath.Join(root, "node_modules", "markdownlint-cli2", "markdownlint-cli2-bin.mjs"), "-"},
-				manifest.Dependencies["markdownlint-cli2"], `^markdownlint-cli2 v(\S+)`,
-			},
-			"prettier": {
-				[]string{"node", filepath.Join(root, "node_modules", "prettier", "bin", "prettier.cjs"), "--version"},
-				manifest.Dependencies["prettier"], `^(\S+)$`,
-			},
-		} {
-			if probe.version == "" {
-				t.Fatalf("executable version probe has no declared dependency: %s", name)
-			}
-			command := exec.Command("mise", append([]string{"-C", root, "exec", "--locked", "--"}, probe.arguments...)...)
-			command.Stdin = strings.NewReader("# Bootstrap\n")
-			output, err := command.CombinedOutput()
-			identity := regexp.MustCompile(probe.pattern).FindStringSubmatch(strings.TrimSpace(string(output)))
-			if err != nil || len(identity) != 2 || identity[1] != probe.version {
-				t.Fatalf("executable %s version mismatch, want %s: %v\n%s", name, probe.version, err, output)
-			}
-		}
+		requireCheckoutExecutables(t, root, configuration.Tools["node"], manifest.Dependencies)
 		for name, want := range inputs {
 			if got := readFile(t, filepath.Join(root, name)); !bytes.Equal(got, want) {
 				t.Fatalf("resolution, bootstrap or tool execution changed %s", name)
@@ -408,6 +385,40 @@ func TestMiseBootstrapReconstructsCheckoutLocalPackages(t *testing.T) {
 			if err := os.WriteFile(residue, []byte("previous installation"), 0o600); err != nil {
 				t.Fatal(err)
 			}
+		}
+	}
+}
+
+func requireCheckoutExecutables(t *testing.T, root, nodeVersion string, dependencies map[string]string) {
+	t.Helper()
+	for name, probe := range map[string]struct {
+		arguments []string
+		version   string
+		pattern   string
+	}{
+		"node": {[]string{"node", "--version"}, nodeVersion, `^v(\S+)$`},
+		"@fission-ai/openspec": {
+			[]string{"node", filepath.Join(root, "node_modules", "@fission-ai", "openspec", "bin", "openspec.js"), "--version"},
+			dependencies["@fission-ai/openspec"], `^(\S+)$`,
+		},
+		"markdownlint-cli2": {
+			[]string{"node", filepath.Join(root, "node_modules", "markdownlint-cli2", "markdownlint-cli2-bin.mjs"), "-"},
+			dependencies["markdownlint-cli2"], `^markdownlint-cli2 v(\S+)`,
+		},
+		"prettier": {
+			[]string{"node", filepath.Join(root, "node_modules", "prettier", "bin", "prettier.cjs"), "--version"},
+			dependencies["prettier"], `^(\S+)$`,
+		},
+	} {
+		if probe.version == "" {
+			t.Fatalf("executable version probe has no declared dependency: %s", name)
+		}
+		command := exec.Command("mise", append([]string{"-C", root, "exec", "--locked", "--"}, probe.arguments...)...)
+		command.Stdin = strings.NewReader("# Bootstrap\n")
+		output, err := command.CombinedOutput()
+		identity := regexp.MustCompile(probe.pattern).FindStringSubmatch(strings.TrimSpace(string(output)))
+		if err != nil || len(identity) != 2 || identity[1] != probe.version {
+			t.Fatalf("executable %s version mismatch, want %s: %v\n%s", name, probe.version, err, output)
 		}
 	}
 }
