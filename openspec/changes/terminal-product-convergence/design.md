@@ -68,11 +68,8 @@ tracked source of truth.
 
 Reconciliation belongs to the existing task that owns the violated contract.
 Completed baseline findings remain in Git history, not a second stale ledger.
-
-| Disagreement                                                                                          | Owning closure                                |
-| ----------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Canonical specifications retain superseded default-route semantics pending official delta integration | 13.6 OpenSpec closeout                        |
-| Source/native checks pass, but final published-byte execution and installation remain unproved        | 12.2, 12.6, 12.8 and 13.6 delivery acceptance |
+The active tasks own unresolved differences and evidence; this design does not
+duplicate their changing completion state.
 
 ## Decisions
 
@@ -95,6 +92,11 @@ The remaining execution order is dependency-driven. Task checkboxes remain the
 only progress ledger; this table defines closure boundaries, not another status
 store. A contradiction reopens its owning task instead of adding a parallel
 mechanism or preserving an unsupported completion claim.
+Skip a closure already supported by unchanged inputs and current evidence.
+A credential- or runner-dependent check blocks only its own claim: execute the
+next independent closure rather than waiting or repeating completed work.
+If only task progress changes after a release, retain the signed matrix and
+published tag; refresh governance evidence without rebuilding product bytes.
 
 | Order | Existing tasks                    | Closure and acceptance                                                                                                                                                                                                                                                                                                              |
 | ----- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

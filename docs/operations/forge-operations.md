@@ -96,3 +96,16 @@ cutover.
 Branch or tag publication is complete only when local Git and every selected
 peer expose the same object OID. Hosted CI, Release records, assets, checksums,
 installation, and runtime acceptance remain separate evidence boundaries.
+
+For a review merge, read back the review state and exact target-ref OID. A
+successful GitLab fast-forward may have no `merge_commit_sha` because no merge
+commit was constructed. Require the target to equal the admitted signed object
+and the merged proposal ref to be absent; a null merge-commit field alone is
+neither failure nor completion.
+
+Successful CI is distinct from enforced admission. Verify the native main/dev
+rules require the intended checks and producer identity where supported, then
+observe a real review blocked while checks are pending and admitted after they
+pass. Preserve signature, history and force-push controls. An executed
+maintainer merge does not prove a scheduled dependency updater; that automation
+requires its own end-to-end observation.

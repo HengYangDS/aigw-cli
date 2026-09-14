@@ -603,6 +603,33 @@ A regression needs a product benefit and an explicit accepted trade-off, or
 remediation through less allocation, I/O, state or redundant implementation.
 Old host measurements are not current budgets or evidence of improvement.
 
+The release review uses these product budgets, declared before its acceptance
+run. They are engineering targets, not claims about every host:
+
+| Boundary                                                              | Budget                                                                      | Product reason                                                                                                                |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Warm local `version`, `help`, configured `status` and `config export` | p95 at most 100 ms                                                          | These commands perform bounded local work and should not impose a perceptible wait.                                           |
+| Warm projected credential helper, including its native shell          | p95 at most 100 ms                                                          | Credential delivery is on the client's request path; its overhead must remain small.                                          |
+| One configured client Route change and durable projection             | p95 at most 250 ms                                                          | A user-triggered operation includes guarded configuration, checkpoint and client-file writes.                                 |
+| Peak resident memory for configured local observation                 | Review growth exceeding both 20% and 4 MiB against the retained predecessor | Require both a meaningful absolute cost and a relative change; allocator noise alone must not drive artificial restructuring. |
+| Uncompressed executable size for each matching target                 | Review growth exceeding both 10% and 1 MiB against the retained predecessor | Expose material distribution cost without demanding identical compiler output or removing useful product behavior.            |
+
+Exceeding a review threshold requires a measured explanation and an accepted
+product trade-off or repair; it is not silently waived. Timing budgets exclude
+network inference, client startup and human credential interaction. Record those
+as separate boundaries, never subtract them from an end-to-end result.
+
+Use exact published candidate and predecessor bytes with equivalent inputs,
+five warmups and two opposite-order blocks of at least forty samples per
+timing case. Keep all samples, including outliers, and report per-block results
+as well as pooled p95. If ordering or host contention changes the decision,
+the result is inconclusive: repeat under a controlled condition rather than
+increase a limit. OS, architecture, credential backend, client discovery and
+shell overhead remain explicit. Environment credentials do not qualify a
+native vault, and one platform's timing does not qualify another. Revisit a
+budget when the actual user journey or supported environment changes, not to
+make a candidate pass.
+
 Every completion claim names its scope, verifier, current evidence and limit.
 
 | Claim                       | Required evidence                                                                                                        | Insufficient evidence                                     |
