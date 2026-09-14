@@ -89,6 +89,24 @@ whose only purpose is structural symmetry.
 - **AND** the link text states the destination's meaning rather than its file
   name alone.
 
+#### Scenario: A contributor shares a local reference
+
+- **WHEN** a document links to a local file or directory
+- **THEN** the link check SHALL require that target to resolve to tracked
+  repository content, including a staged addition
+- **AND** an ignored or untracked file present only on the author's machine
+  SHALL NOT satisfy the check
+- **AND** current product and research documents SHALL cite shared primary
+  sources or published evidence rather than private verification output.
+
+#### Scenario: A document names an authority without a link
+
+- **WHEN** a document presents a specification, configuration, decision, code
+  owner or procedure as an authority or next step
+- **THEN** semantic review SHALL verify a navigable link at its introduction
+- **AND** literal examples and runtime paths SHALL remain distinguishable from
+  references to tracked artifacts.
+
 ## MODIFIED Requirements
 
 ### Requirement: Governed release-branch convergence

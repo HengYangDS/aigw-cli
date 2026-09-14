@@ -65,17 +65,17 @@ process.
 
 ## Semantic packages
 
-- **`internal/configuration`:** Account, Profile, Route, Adapter schema and persistence
-- **`internal/secrets`:** Account credential backends, typed diagnostic credentials and replacement
-- **`internal/providers/diagnostic`:** Optional provider-account diagnostic result contract
-- **`internal/codex`:** Codex projection planning and reconciliation
-- **`internal/claude`:** Claude Code settings projection, credential-safe process plans, and readiness
-- **`internal/credential`:** Provider-neutral endpoint authentication validation
-- **`internal/providers`:** Optional provider-native diagnostics only
-- **`internal/presentation`:** Human and JSON rendering of command results
-- **`internal/cli`:** Command composition; domain behavior remains in semantic owners
-- **`internal/transaction`:** Guarded filesystem mutation and rollback
-- **`internal/upgrade`:** Independent-Forge update verification and installation
+- **[Configuration](../../internal/configuration/):** Account, Profile, Route, Adapter schema and persistence
+- **[Secret storage](../../internal/secrets/):** Account credential backends, typed diagnostic credentials and replacement
+- **[Diagnostic contract](../../internal/providers/diagnostic/):** Optional provider-account diagnostic results
+- **[Codex integration](../../internal/codex/):** Projection planning and reconciliation
+- **[Claude integration](../../internal/claude/):** Settings projection, credential-safe process plans, and readiness
+- **[Endpoint authentication](../../internal/credential/):** Provider-neutral credential validation
+- **[Provider diagnostics](../../internal/providers/):** Optional provider-native diagnostics only
+- **[Presentation](../../internal/presentation/):** Human and JSON rendering of command results
+- **[CLI](../../internal/cli/):** Command composition; domain behavior remains in semantic owners
+- **[Transactions](../../internal/transaction/):** Guarded filesystem mutation and rollback
+- **[Upgrades](../../internal/upgrade/):** Independent-Forge update verification and installation
 
 Dependency direction is toward domain owners. Presentation, CLI composition,
 Forge code, and host discovery do not define product semantics.
@@ -256,7 +256,7 @@ budget reports an incomplete search, not proof that the Token is absent.
 
 ## Identity migration
 
-Identity migration follows the same boundary: `internal/renaming.Service` owns
+Identity migration follows the same boundary: the [renaming service](../../internal/renaming/model.go) owns
 Profile renaming, Account credential preparation and commit, and verified
 finalization. CLI commands only resolve operator intent and render the result.
 The service has no command, prompt, or presentation dependency. Cancellation
@@ -310,7 +310,7 @@ not change peer selection or silently discard the host environment.
 GitLab also binds API host, scheme and root path, so ambient CLI aliases and
 stored API routing cannot redirect the selected release source. GitHub's CLI
 fallback binds the admitted source host instead of inheriting `GH_HOST`.
-Overrides use `os/exec`'s last-value precedence, not a separate environment
+Overrides use the [Go process API](https://pkg.go.dev/os/exec)'s last-value precedence, not a separate environment
 merger. Native GitLab conformance uses the locked CLI, isolated configuration,
 synthetic credentials and two loopback servers to prove both capture and file
 download reach only the selected origin.
@@ -327,33 +327,33 @@ have different output ownership and memory limits.
 
 ## Repository tooling
 
-Repository-only executables follow the same ontology: `tools/ci`,
-`tools/coverage`, `tools/forge`, `tools/release`, and `tools/repository` own
+Repository-only executables follow the same ontology: [CI](../../tools/ci/),
+[coverage](../../tools/coverage/), [Forge operations](../../tools/forge/), [releases](../../tools/release/), and [repository checks](../../tools/repository/) own
 cross-cutting repository concerns, while client-specific verification is nested
-under its client owner. `tools/codex/catalog` owns catalogue acceptance,
-measurements and reporting. It consumes the same `internal/codex/catalog`
+under its client owner. [Codex catalogue verification](../../tools/codex/catalog/) owns catalogue acceptance,
+measurements and reporting. It consumes the same [catalogue projection](../../internal/codex/catalog/)
 document transformation as product projection, not a second parser or alias
 builder. That document owner preserves all client metadata and adds only
-uniquely established aliases. `internal/codex` owns isolated client reads,
+uniquely established aliases. [Codex integration](../../internal/codex/) owns isolated client reads,
 executable identity, projection state and transactional file ownership; it does
 not carry repository acceptance verdicts.
 
-Native product journeys belong to `tools/release`: they exercise built artifacts,
+Native product journeys belong to [release acceptance](../../tools/release/): they exercise built artifacts,
 credential backends, client projections, upgrades, rollback and uninstall. CI
-schedules those tests but does not own their fixtures. `tools/release/readiness`
-reads and validates the canonical `VERSION` once for CI admission, release
+schedules those tests but does not own their fixtures. [Release readiness](../../tools/release/readiness/)
+reads and validates the canonical [canonical version](../../VERSION) once for CI admission, release
 construction and native journeys; malformed SemVer fails before execution.
 Package-local test file readers do not expose a shared test-support API.
 
-CI projection consumes branch roles from `.ethos/workspace.toml` through CUE's
+CI projection consumes branch roles from [workspace roles](../../.ethos/workspace.toml) through CUE's
 native TOML input. It does not copy role values or interpret ETHOS internals.
-The generic accepted-tree/OpenSpec check still in `tools/repository` is an
+The generic accepted-tree/OpenSpec check still in [repository checks](../../tools/repository/) is an
 unresolved governance overlap, not an AIGW product responsibility. Replace it
 only when an equivalent detached-checkout admission is demonstrably available;
 deleting the only current check would weaken publication safety.
 
-Forge command parsing belongs to `tools/forge/main.go`; Git-object provenance
-belongs to `provenance.go`, and peer transport belongs to `project.go`.
+[Forge commands](../../tools/forge/main.go), [Git-object verification](../../tools/forge/provenance.go),
+and [peer publication](../../tools/forge/project.go) have distinct owners.
 Publication calls the same typed commit verifier as the read-only command,
 not a reconstructed command line. Policy and identity metadata come from the
 resolved source commit, never an unrelated checkout or an uncommitted file.
@@ -374,7 +374,7 @@ evidence.
 
 Native acceptance consumes the upgrade archive contract rather than parsing a
 GoReleaser binary inventory or duplicating extraction. The declared dependency
-is one-way: release construction calls `internal/upgrade/artifact.Target` to
+is one-way: release construction calls the [archive target contract](../../internal/upgrade/artifact/identity.go) to
 verify and extract the same bytes that product updates consume. Runtime code
 does not import repository tools. Both built and published inputs use that
 reader; acceptance owns scratch, never the input artifact directory.

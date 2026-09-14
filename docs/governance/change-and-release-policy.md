@@ -2,18 +2,18 @@
 
 ## Authority Map
 
-- **Product version:** `VERSION`
-- **Release chronology:** `CHANGELOG.md`
+- **Product version:** [Canonical version](../../VERSION)
+- **Release chronology:** [Changelog](../../CHANGELOG.md)
 - **Product commit and tag objects:** Local Git
-- **Change intent and behavioral deltas:** Active OpenSpec Change
-- **Accepted behavior:** `openspec/specs/`
-- **Go dependency closure:** `go.mod`, `go.sum`
-- **Runtime and standalone tools:** `mise.toml`, `mise.lock`
-- **npm repository tools:** `package.json`, `package-lock.json`
-- **CI topology:** `.config/ci/pipeline.cue`
-- **Coverage policy:** `.config/checks/coverage/policy.toml`
-- **Go source file budget:** `.config/checks/go/size.toml`
-- **Release assets:** Repository release tools and their manifests
+- **Change intent and behavioral deltas:** [Active OpenSpec Changes](../../openspec/changes/)
+- **Accepted behavior:** [Canonical specifications](../../openspec/specs/)
+- **Go dependency closure:** [Module declaration](../../go.mod) and [checksums](../../go.sum)
+- **Runtime and standalone tools:** [mise declaration](../../mise.toml) and [lock](../../mise.lock)
+- **npm repository tools:** [Package declaration](../../package.json) and [lock](../../package-lock.json)
+- **CI topology:** [CUE pipeline](../../.config/ci/pipeline.cue)
+- **Coverage policy:** [Statement coverage contract](../../.config/checks/coverage/policy.toml)
+- **Go source file budget:** [Source size policy](../../.config/checks/go/size.toml)
+- **Release assets:** [Release construction and publication](../../tools/release/)
 
 Generated workflows, installed binaries, host caches, IDE state, Forge pages,
 and remote refs are projections—not competing authorities.
@@ -23,21 +23,21 @@ Repository placement follows the consumer, not a preference for hidden files:
 - Root discovery files retain their native names: Git attributes and ignores,
   EditorConfig, npm metadata and registry selection, Go modules, mise tools and
   locks, formatter ignores, and the GitLab entrypoint.
-  `.cbmignore` controls optional developer indexing, not product quality or
+  The [indexing exclusions](../../.cbmignore) control optional developer indexing, not product quality or
   acceptance; it belongs with development-tool inputs.
-- `.config/checks` contains policy data only. Go, Markdown, TOML and secret
+- [Check configuration](../../.config/checks/) contains policy data only. Go, Markdown, TOML and secret
   scanning each have one native configuration; architecture and coverage each
   have one product-policy input consumed by their existing repository tool.
   Check implementation belongs in `tools`, not beside configuration data.
-- `.config/miserc.toml` owns native early mise configuration discovery for local
+- The [mise discovery policy](../../.config/miserc.toml) owns native early configuration discovery for local
   and hosted commands. Parent, global and system policy isolation cannot live
-  in `mise.toml`, which is read afterward. Tool versions and tasks remain in
+  in the [tool declaration](../../mise.toml), which is read afterward. Tool versions and tasks remain in
   the existing mise declaration and lock; CUE must not duplicate this boundary.
-- `.config/ci/pipeline.cue` owns the Forge projections;
+- The [CUE pipeline](../../.config/ci/pipeline.cue) owns the Forge projections;
   [.config/release/goreleaser.yaml](../../.config/release/goreleaser.yaml) owns
   archive construction; the dependency policy owns proposal grouping. Their
   different consumers and lifecycles justify separate configuration owners.
-- `.ethos` holds declarative adoption, ref roles and publication bindings.
+- [ETHOS adoption configuration](../../.ethos/) holds declarative adoption, ref roles and publication bindings.
   ETHOS owns hooks and transient coordination; AIGW must not add a second hook
   framework or copy the lifecycle engine to enforce the same policy.
 - OpenSpec owns current intent and canonical requirements; contributor and
@@ -49,8 +49,8 @@ Optional configuration that merely repeats locked defaults should be removed
 with its command and documentation consumers. Native discovery files and locks
 are not optional wrappers. The shared CI executor streams its checkout-bound
 Git inventory to Prettier's native API, which applies locked defaults without
-configuration discovery. Tracked files remain in scope even when `.gitignore`
-matches them; `.prettierignore` excludes only official OpenSpec archive history.
+configuration discovery. Tracked files remain in scope even when [Git exclusions](../../.gitignore)
+match them; [formatter scope](../../.prettierignore) excludes only official OpenSpec archive history.
 Missing inputs and a scope with no supported authored files fail the check.
 EditorConfig owns editor defaults and its independent native check, not
 Prettier options. No default-only or ambient parent formatter configuration is used.
@@ -304,10 +304,10 @@ selected peers.
 
 ## Release Chronicle
 
-`CHANGELOG.md` starts with `## [Unreleased]` and contains only changes after the
+[release chronology](../../CHANGELOG.md) starts with `## [Unreleased]` and contains only changes after the
 latest published version. Published headings are unique SemVer entries in
 descending order and correspond to an existing signed `v<semver>` tag and its
-date. `VERSION` is the release-version SSOT; branch names and planned versions
+date. [canonical version](../../VERSION) is the release-version SSOT; branch names and planned versions
 are not chronology.
 
 Changelog headings and selected tags use the existing strict SemVer library
@@ -324,9 +324,9 @@ claims require separate current evidence.
 
 ## Reproducible Assets
 
-The formal release derives its exact compiler and Go closure from `go.mod` and
-`go.sum`, language runtimes and standalone tools from `mise.toml` and
-`mise.lock`, npm repository tools from `package.json` and `package-lock.json`,
+The formal release derives its exact compiler and Go closure from [Go module declaration](../../go.mod) and
+[Go dependency checksums](../../go.sum), language runtimes and standalone tools from [tool declaration](../../mise.toml) and
+[tool lock](../../mise.lock), npm repository tools from [npm package declaration](../../package.json) and [npm dependency lock](../../package-lock.json),
 and `SOURCE_DATE_EPOCH` from the committed Changelog date. The build emits the
 complete portable archive matrix, checksums, and SPDX SBOM. Repeating the build
 with the same inputs must produce identical bytes.
@@ -368,7 +368,7 @@ checkout's same-named file, or a directory scan is not clean dependency evidence
 Only after this admission are host-specific path prefixes removed from the
 portable reports. Rejection occurs before signing or replacing accepted output.
 
-An untagged candidate uses the distinct version in `VERSION`. Until that
+An untagged candidate uses the distinct version in [canonical version](../../VERSION). Until that
 version has a published Changelog entry, its reproducible timestamp comes from
 the exact source commit, not the wall clock or an invented release heading.
 Tagged release builds still require the matching release chronicle. Candidate

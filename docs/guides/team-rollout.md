@@ -274,7 +274,7 @@ aigw profile add <profile> --account <account> --for <client> --model <model>
 ```
 
 `aigw use` changes only the named client's Route. Account and Profile commands
-change local configuration and are not written back into `manifests/team.toml`.
+change local configuration and are not written back into [distributed team manifest](../../manifests/team.toml).
 To publish a team change, review the manifest itself and distribute the new
 token-free revision.
 

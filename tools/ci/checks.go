@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -82,9 +83,74 @@ func checkLinks(root string, runner commandRunner) error {
 	if err != nil {
 		return err
 	}
+	if err := requireTrackedLinkTargets(root, files); err != nil {
+		return err
+	}
 	return runner(command{Name: "lychee", Dir: root, Args: []string{
 		"--offline", "--include-fragments=anchor-only", "--no-progress", "--cache=false", "--files-from", "-",
 	}, Input: strings.Join(files, "\n") + "\n"})
+}
+
+func requireTrackedLinkTargets(root string, files []string) error {
+	localRoot, err := filepath.Abs(root)
+	if err != nil {
+		return err
+	}
+	process := exec.Command("git", "-C", root, "--git-dir", ".git", "--work-tree", ".", "ls-files", "--cached", "-z")
+	process.Env = slices.DeleteFunc(process.Environ(), func(entry string) bool {
+		name, _, _ := strings.Cut(entry, "=")
+		return strings.EqualFold(name, "GIT_INDEX_FILE")
+	})
+	index, err := process.Output()
+	if err != nil {
+		return fmt.Errorf("read link target index: %w", err)
+	}
+	tracked := map[string]bool{".": true}
+	for file := range strings.SplitSeq(string(index), "\x00") {
+		if file == "" {
+			continue
+		}
+		for name := filepath.FromSlash(file); name != "."; name = filepath.Dir(name) {
+			tracked[name] = true
+		}
+	}
+	process = exec.Command("lychee", "--dump", "--offline", "--no-progress", "--scheme", "file", "--files-from", "-")
+	process.Dir = root
+	process.Stdin = strings.NewReader(strings.Join(files, "\n") + "\n")
+	links, err := process.Output()
+	if err != nil {
+		return fmt.Errorf("extract repository links: %w", err)
+	}
+	root, err = filepath.EvalSymlinks(root)
+	if err != nil {
+		return err
+	}
+	for link := range strings.SplitSeq(strings.TrimSpace(string(links)), "\n") {
+		if link == "" {
+			continue
+		}
+		target, err := url.Parse(link)
+		if err != nil {
+			return fmt.Errorf("parse extracted link: %w", err)
+		}
+		file := filepath.FromSlash(target.Path)
+		if strings.HasPrefix(file, string(filepath.Separator)) && filepath.VolumeName(file[1:]) != "" {
+			file = file[1:]
+		}
+		relative, err := filepath.Rel(localRoot, file)
+		if err != nil || target.Host != "" || !tracked[relative] {
+			return fmt.Errorf("link target is not Git-tracked repository content: %s; link to committed content or a published artifact", link)
+		}
+		resolved, err := filepath.EvalSymlinks(file)
+		if err != nil {
+			return fmt.Errorf("resolve link target %s: %w", link, err)
+		}
+		relative, err = filepath.Rel(root, resolved)
+		if err != nil || !tracked[relative] {
+			return fmt.Errorf("link target is not Git-tracked repository content: %s; link to committed content or a published artifact", link)
+		}
+	}
+	return nil
 }
 
 func checkFormat(root string, runner commandRunner) error {

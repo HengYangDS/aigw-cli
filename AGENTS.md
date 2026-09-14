@@ -57,7 +57,7 @@ authority.
 
 ## Engineering quality
 
-- `.config/checks/coverage/policy.toml` is the coverage SSOT. Every canonical Go
+- The [coverage policy](.config/checks/coverage/policy.toml) is the coverage SSOT. Every canonical Go
   package participates, no source or package exclusion is permitted, and the
   policy owns the native Go statement floor, package-observation contract,
   comparison semantics, measurement, remediation, and review conditions.

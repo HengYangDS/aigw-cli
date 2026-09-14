@@ -207,8 +207,8 @@ mise install --locked
 mise run bootstrap
 ```
 
-`mise.toml` and `mise.lock` own language runtimes and standalone tools.
-`package.json` and `package-lock.json` own OpenSpec, Prettier, markdownlint, and
+The [tool declaration](mise.toml) and [tool lock](mise.lock) own language runtimes and standalone tools.
+The [repository tool commands](package.json) and [npm dependency lock](package-lock.json) own OpenSpec, Prettier, markdownlint, and
 their complete npm dependency graph. Use `mise run check` for the complete
 source gate, `mise run native` for current-host acceptance, and
 [`mise run release`](#signed-artifact-builds) for a signed, deterministic
@@ -221,7 +221,7 @@ wrappers or a second task system.
 even when the caller sets `NODE_ENV=production` or npm's `omit=dev`; bootstrap
 does not change either user setting.
 The Go step prepares the complete source and dependency-test graph and rejects
-lock drift without rewriting `go.mod` or `go.sum`. Merely compiling AIGW does
+lock drift without rewriting the [Go module declaration](go.mod) or [dependency checksums](go.sum). Merely compiling AIGW does
 not populate every module needed for later dependency resolution. CI calls this
 same task rather than maintaining a separate npm-only setup sequence.
 
@@ -235,7 +235,7 @@ flags and platform targets remain separate inputs; these settings do not claim
 to make an arbitrary shell hermetic. Bare `go` outside the managed environment
 is not the repository verification entrypoint.
 
-The npm tool commands live in `package.json` and run through the locked Node
+The [npm tool commands](package.json) run through the locked Node
 runtime's `--run` entrypoint. The Go gate invokes those scripts rather than
 interpreting platform-specific npm launchers. Formatting, Markdown lint, and
 OpenSpec scripts address this checkout's installed package entrypoints;
@@ -274,7 +274,7 @@ installation file. Missing cache content fails rather than silently downloading
 or skipping; run the initial bootstrap before testing. These checks prove
 repeatable Go/npm resolution and installation, not fresh-download availability
 or mise lock refresh. Standalone executables are checked separately against
-every declaration in `mise.toml`.
+the [complete tool declaration](mise.toml).
 
 OSV Scanner uses mise's native Go backend so its integrated call analysis can
 read the repository's Go language version. Go module checksums authenticate the
@@ -394,7 +394,7 @@ AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/released/aigw \
 ```
 
 On Windows, set the same environment variable to the extracted `aigw.exe`.
-The candidate version comes from `VERSION` and must be newer than the baseline.
+The candidate uses the [canonical version](VERSION) and must be newer than the baseline.
 An invalid explicit baseline fails rather than falling back to a fixture.
 Each run installs into a temporary home, uses an environment credential and a
 stub client, verifies upgrade, rollback, re-upgrade and uninstall, and compares
@@ -667,7 +667,7 @@ permission or publication.
 Run publication from the product repository containing the selected
 `CI_COMMIT_TAG`, and supply `AIGW_RELEASE_ALLOWED_SIGNERS_FILE` for Git source
 trust. Before network access, each entrypoint resolves that local tag once,
-verifies the tag and its exact commit, and reads `VERSION`, lockfiles and the
+verifies the tag and its exact commit, and reads the [canonical version](VERSION), lockfiles and the
 toolchain from that immutable Git object, not the mutable checkout. Git replace
 objects do not participate. Artifact provenance must equal the canonical
 statement generated from those inputs and the actual artifact subjects.
@@ -741,7 +741,7 @@ separate acceptance obligations; a successful one cannot replace another.
 
 ### Source and publication identity
 
-Use focused Conventional Commits. Keep `CHANGELOG.md` with `## [Unreleased]` as
+Use focused Conventional Commits. Keep the [release chronology](CHANGELOG.md) with `## [Unreleased]` as
 its first release section, containing only changes after the latest tagged
 release. Every published heading must map to an existing `v<semver>` tag and
 its tag date; run `mise exec --locked -- go run ./tools/repository --root . changelog`

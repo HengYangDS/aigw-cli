@@ -552,7 +552,7 @@ Kong AI Gateway belongs to the adjacent infrastructure category. Its specific AI
 
 ## Source index
 
-Repository links are pinned to the inspected snapshots. Release pages and documentation are interpreted at the collection date. Original retrievals remain in this Work Lane's `build/verification/c357a2cae88408e09d3a2b2360c03f55d00df8d3/competitive-analysis/`; the additional AWS reference and revision checks are under `build/verification/95ca0800b11ee754c876655e65c131714a0149fe/research-revision/`. These are verification outputs, not a second product or governance state store.
+Repository links below identify the inspected snapshots. Release pages and documentation are interpreted at the collection date. These shared primary sources, not an author's local retrieval files, are the basis for reviewing or reproducing the comparison. A source inspection establishes documented behavior, not an independently executed product test; unverified capabilities remain explicitly qualified above.
 
 [cc-desktop]: https://github.com/farion1231/cc-switch/tree/f3b18df12007d0fd79fd8ad8d310880664015197
 [cc-cli]: https://github.com/SaladDay/cc-switch-cli/tree/8a5614db0f582cea36268389a98ea3abe4eaa418

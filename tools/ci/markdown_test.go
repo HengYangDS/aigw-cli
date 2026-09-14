@@ -80,6 +80,9 @@ func TestLinksChecksLocalHeadingTargets(t *testing.T) {
 	if err := os.WriteFile(guide, []byte("# Guide\n\n## Setup and verification\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if output, err := exec.Command("git", "-C", root, "add", "guide.md").CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, output)
+	}
 	for _, test := range []struct {
 		fragment string
 		valid    bool
@@ -107,6 +110,57 @@ func TestLinksChecksLocalHeadingTargets(t *testing.T) {
 			}
 			if got := string(readFile(t, readme)); got != source {
 				t.Fatal("link check changed source")
+			}
+		})
+	}
+}
+
+func TestLinksRequireTrackedTargets(t *testing.T) {
+	for _, target := range []struct {
+		name      string
+		reference string
+		tracked   bool
+	}{
+		{"untracked document", "guide.md", false},
+		{"ignored artifact", "build/result.json", false},
+		{"untracked directory", "drafts/", false},
+		{"tracked document", "guide.md", true},
+		{"tracked ignored artifact", "build/result.json", true},
+		{"tracked directory", "guide/", true},
+	} {
+		t.Run(target.name, func(t *testing.T) {
+			root := t.TempDir()
+			git := func(args ...string) {
+				t.Helper()
+				if output, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput(); err != nil {
+					t.Fatalf("git %v: %v\n%s", args, err, output)
+				}
+			}
+			git("init", "--quiet")
+			file := target.reference
+			if strings.HasSuffix(file, "/") {
+				file += "README.md"
+			}
+			write := func(name, content string) {
+				t.Helper()
+				filename := filepath.Join(root, name)
+				if err := os.MkdirAll(filepath.Dir(filename), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filename, []byte(content), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			write(file, "# Guide\n")
+			write(".gitignore", "build/\n")
+			write("README.md", "# Readme\n\n[Reference]("+target.reference+")\n")
+			git("add", "README.md", ".gitignore")
+			if target.tracked {
+				git("add", "--force", file)
+			}
+			err := checkLinks(root, func(call command) error { _, err := systemOutputRunner(call); return err })
+			if (err == nil) != target.tracked {
+				t.Fatalf("tracked=%t error=%v", target.tracked, err)
 			}
 		})
 	}
@@ -289,6 +343,9 @@ func TestDocumentInputsAreIndependentOfCommandLineLength(t *testing.T) {
 			t.Fatal(err)
 		}
 		files = append(files, name)
+	}
+	if output, err := exec.Command("git", "-C", root, "add", "--all").CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, output)
 	}
 	for name, argumentCount := range map[string]int{"check-mermaid": 1, "links": 6} {
 		t.Run(name, func(t *testing.T) {
