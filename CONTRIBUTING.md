@@ -545,14 +545,21 @@ archive's canonical filename: the updater checks its target platform as well
 as its bytes. Before running a journey, verify every input hash and its
 readability as the actual test user; a successful copy is not that proof.
 Secret Service also requires a registered user identity and a working user bus,
-not just an unassigned numeric UID. Provision fail-fast, then drop privileges
-and capabilities before running clients.
+not just an unassigned numeric UID. In the disposable user's session, initialize
+the empty test keyring with a newline on stdin, not immediate EOF, and verify
+the login collection exists and is unlocked through its native D-Bus property
+before invoking AIGW. Credential rotation also validates the endpoint: isolated
+acceptance must provide its controlled loopback response, not an unreachable
+placeholder. Provision fail-fast, then run clients without privileges or
+capabilities. These test prerequisites never authorize host Keychain access.
 
 Use Docker's `--init` for disposable client containers so exited descendants
 are reaped. Verify the chosen user exists rather than assuming a numeric UID.
 Copy inputs into live tmpfs through `docker exec -i` and a portable tar stream;
-verify the resulting hashes inside that mount. A host-side archive operation
-may not see runtime mounts. Teardown must observe the test user's process set,
+omit host extended attributes and the mount root's ownership metadata. Verify
+input hashes as the actual test user. Retrieve results through the same live
+mount and compare each file's hash before stopping the container; `docker cp`
+may not see runtime tmpfs. Teardown must observe the test user's process set,
 then remove the exact container and its temporary mounts.
 
 Codex requires working user namespaces and bubblewrap for its Linux sandbox.
