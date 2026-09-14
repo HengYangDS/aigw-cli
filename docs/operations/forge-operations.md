@@ -2,16 +2,9 @@
 
 ## Authority
 
-```mermaid
-flowchart TB
-    accTitle: Independent publication from one signed product identity
-    accDescr: Local Git constructs the product object once. Each selected Forge receives that same object independently; neither peer authorizes the other.
-    Local["Signed Git object"] --> GitLab[GitLab]
-    Local --> GitHub[GitHub]
-```
-
 Local Git is the only commit and annotated-tag authority. GitLab and GitHub are
-independent optional publication peers. Neither peer is an input to the other.
+independent optional publication peers. Each receives the same locally signed
+object; neither peer is an input to the other.
 
 | Concern                    | Authority                            |
 | -------------------------- | ------------------------------------ |
