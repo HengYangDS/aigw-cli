@@ -323,6 +323,8 @@ func TestMiseBootstrapReconstructsCheckoutLocalPackages(t *testing.T) {
 		"NPM_CONFIG_AUDIT":           "false",
 		"NPM_CONFIG_FUND":            "false",
 		"NPM_CONFIG_UPDATE_NOTIFIER": "false",
+		"NPM_CONFIG_LOGLEVEL":        "verbose",
+		"NPM_CONFIG_TIMING":          "true",
 		"MISE_TRUSTED_CONFIG_PATHS":  root,
 		"MISE_CONFIG_DIR":            t.TempDir(),
 		"MISE_GLOBAL_CONFIG_FILE":    filepath.Join(t.TempDir(), "config.toml"),

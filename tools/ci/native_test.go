@@ -46,7 +46,7 @@ func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 			t.Fatalf("native host args=%v error=%v calls=%d", args, err, len(calls))
 		}
 		if runtime.GOOS == "windows" {
-			if got := calls[1]; got.Name != "go" || !slices.Equal(got.Args, []string{"test", "./..."}) {
+			if got := calls[1]; got.Name != "go" || !slices.Equal(got.Args, []string{"test", "-json", "./..."}) {
 				t.Fatalf("native Windows test command = %#v", got)
 			}
 		} else {
@@ -88,7 +88,7 @@ func TestNativeAcceptanceRefusesARepositoryWithoutVersionTruth(t *testing.T) {
 
 func TestNativeCommandsKeepSourceEvidenceDistinct(t *testing.T) {
 	windows := nativeCommands("windows")
-	if !slices.Equal(windows[1].Args, []string{"test", "./..."}) {
+	if !slices.Equal(windows[1].Args, []string{"test", "-json", "./..."}) {
 		t.Fatalf("Windows source verification = %#v", windows[1])
 	}
 	linux := nativeCommands("linux")
