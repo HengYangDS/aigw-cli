@@ -5,9 +5,8 @@ closes. They do not duplicate specifications, task status, or incident history.
 
 ## File grammar
 
-```text
-dr-<four-digit-sequence>-<concise-kebab-case-description>.md
-```
+Use `dr-NNNN-description.md`: `NNNN` is a four-digit sequence and `description`
+is a concise kebab-case name.
 
 Sequences are stable and never reused. Records are amended, not silently
 repurposed. A fully superseded record is removed once its retained rationale

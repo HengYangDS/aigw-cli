@@ -20,14 +20,6 @@ for the configuration and traffic boundaries.
 | Diagnose local integration    | `aigw doctor`                 | Run its recommended action          |
 | Import reviewed team settings | `aigw setup --from team.toml` | Connect any one Account when needed |
 
-The daily path is deliberately small:
-
-```text
-aigw setup
-aigw use <profile>
-aigw check
-```
-
 Advanced object management remains under explicit command groups.
 
 ## Install
