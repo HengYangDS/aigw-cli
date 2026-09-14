@@ -250,7 +250,20 @@ func TestMiseTasksDelegateToCanonicalOwners(t *testing.T) {
 // isolatedDevelopmentCheckout snapshots current source and lock inputs, not another lane's environment.
 func isolatedDevelopmentCheckout(t *testing.T, repository string) (string, map[string][]byte) {
 	t.Helper()
-	root := filepath.Join(t.TempDir(), "checkout with spaces")
+	parent := filepath.Join(repository, "build", "tmp")
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	workspace, err := os.MkdirTemp(parent, ".bootstrap-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(workspace); err != nil {
+			t.Error(err)
+		}
+	})
+	root := filepath.Join(workspace, "checkout with spaces")
 	if err := os.Mkdir(root, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -295,6 +308,9 @@ func isolatedDevelopmentCheckout(t *testing.T, repository string) (string, map[s
 func TestMiseBootstrapReconstructsCheckoutLocalPackages(t *testing.T) {
 	repository := repositoryRoot(t)
 	root, inputs := isolatedDevelopmentCheckout(t, repository)
+	if parent := filepath.Dir(filepath.Dir(root)); parent != filepath.Join(repository, "build", "tmp") {
+		t.Fatalf("development checkout escaped repository scratch: %s", root)
+	}
 	var configuration miseConfiguration
 	if err := toml.Unmarshal(inputs["mise.toml"], &configuration); err != nil {
 		t.Fatal(err)
