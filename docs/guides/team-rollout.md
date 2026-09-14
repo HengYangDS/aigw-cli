@@ -101,6 +101,18 @@ client's model metadata unless the selected provider's larger limit has been
 verified. A catalog listing or a successful short request does not prove a
 full-window request will succeed.
 
+- **Codex:** `model_context_window` declares the available capacity;
+  `model_auto_compact_token_limit` sets the compaction threshold. The optional
+  `model_auto_compact_token_limit_scope` selects `total` (the default, counting
+  the full active context) or `body_after_prefix` (growth after the carried
+  compaction-window prefix). Changing the counting scope does not enlarge the
+  model's window. See the [Codex configuration reference](https://developers.openai.com/codex/config-reference).
+- **Claude Code:** [`autoCompactWindow`](https://code.claude.com/docs/en/settings-reference#autocompactwindow)
+  sets the automatic compaction window, not provider capacity. Claude Code caps
+  it at the model's window. Leaving it unset uses the client's model-specific
+  default; `CLAUDE_CODE_AUTO_COMPACT_WINDOW` overrides `--autocompact`, which
+  overrides the setting.
+
 The native client lifecycle acceptance preserves these user-owned settings
 through setup, synchronization, upgrade, rollback and uninstall. Its controlled
 upstream requires the selected `high` effort in actual Codex and Claude
@@ -115,6 +127,10 @@ works. Update through the existing installation owner rather than adding a
 second executable. Claude Code's
 [`stable` and `latest` channels](https://code.claude.com/docs/en/setup#update-claude-code)
 are distinct; choose deliberately when compatibility requires a channel change.
+The recommended [Fable 5.1](https://code.claude.com/docs/en/model-config#work-with-fable)
+requires Claude Code **2.1.257 or later**. A passing Sonnet request on an older
+client does not qualify the Fable recommendation; verify the selected Profile
+with the actual client version that team members will use.
 
 A successful short request proves only that client, Profile and invocation.
 It does not establish Desktop behavior, other operating systems, full-window

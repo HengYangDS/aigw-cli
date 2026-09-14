@@ -310,7 +310,13 @@ func (j *journeyFixture) prepareNativeClient(client, executable string) {
 	j.setEnvironment("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
 	preferences := map[string]string{
 		// This journey owns client inference and projection, not marketplace synchronization.
-		configuration.ClientCodex:  "model_reasoning_effort = 'high'\nmodel_context_window = 500000\nmodel_auto_compact_token_limit = 450000\n[features]\nplugins = false\n",
+		configuration.ClientCodex: `model_reasoning_effort = 'high'
+model_context_window = 500000
+model_auto_compact_token_limit = 450000
+model_auto_compact_token_limit_scope = 'body_after_prefix'
+[features]
+plugins = false
+`,
 		configuration.ClientClaude: `{"effortLevel":"high","autoCompactWindow":180000}`,
 	}
 	path := j.settings
@@ -366,6 +372,7 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 			Effort   string `toml:"model_reasoning_effort"`
 			Window   int    `toml:"model_context_window"`
 			Compact  int    `toml:"model_auto_compact_token_limit"`
+			Scope    string `toml:"model_auto_compact_token_limit_scope"`
 			Features struct {
 				Plugins *bool `toml:"plugins"`
 			} `toml:"features"`
@@ -374,7 +381,7 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 		if err := toml.Unmarshal(readFile(j.testing, path), &preferences); err != nil {
 			j.testing.Fatal(err)
 		}
-		if preferences.Effort != "high" || preferences.Window != 500000 || preferences.Compact != 450000 {
+		if preferences.Effort != "high" || preferences.Window != 500000 || preferences.Compact != 450000 || preferences.Scope != "body_after_prefix" {
 			j.testing.Fatalf("Codex preferences changed: %+v", preferences)
 		}
 		if preferences.Features.Plugins == nil || *preferences.Features.Plugins {
