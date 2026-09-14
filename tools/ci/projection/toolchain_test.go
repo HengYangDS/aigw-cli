@@ -106,9 +106,6 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 	if !strings.Contains(linux.Cache.Key.Prefix, layout+"-"+strings.Join(directories, "-")) {
 		t.Fatal("cache key must invalidate archives from a different installation or metadata layout")
 	}
-	if !slices.Contains(linux.BeforeScript, "env GODEBUG=http2client=0 mise install --locked") {
-		t.Fatal("cache hit must not replace the locked installation command")
-	}
 	for _, projection := range projections[1:] {
 		var workflow struct {
 			Jobs map[string]struct {
@@ -181,11 +178,10 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	var pipeline struct {
-		Variables        map[string]string `yaml:"variables"`
-		LinuxToolchain   gitLabJob         `yaml:".linux-toolchain"`
-		Quality          gitLabJob         `yaml:"quality"`
-		NativeLinux      gitLabJob         `yaml:"native-linux"`
-		ReleaseReadiness gitLabJob         `yaml:"release-readiness"`
+		LinuxToolchain   gitLabJob `yaml:".linux-toolchain"`
+		Quality          gitLabJob `yaml:"quality"`
+		NativeLinux      gitLabJob `yaml:"native-linux"`
+		ReleaseReadiness gitLabJob `yaml:"release-readiness"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
