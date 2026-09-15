@@ -48,6 +48,11 @@
   platformAutomerge: false,
   packageRules: [
     {
+      matchManagers: ["mise"],
+      matchDepNames: ["go:github.com/google/osv-scanner/v2/cmd/osv-scanner"],
+      overridePackageName: "github.com/google/osv-scanner/v2",
+    },
+    {
       matchManagers: ["gomod", "mise"],
       matchDepNames: ["go"],
       groupName: "Go toolchain",
