@@ -85,10 +85,11 @@ dependency-proposal policy. Its native Go, npm, and
 existing manifests and locks. Native
 [`includePaths`](https://docs.renovatebot.com/configuration-options/#includepaths)
 limits discovery to authored dependency inputs and associated locks; disposable
-source copies cannot become another dependency authority. Three declarative
-extractors cover Actions and
-images in the CUE authority and the mise bootstrap version; generated Forge
-files are never dependency inputs. Dependabot's
+source copies cannot become another dependency authority. Declarative extractors
+cover Actions and pinned container images in their authored inputs; generated
+Forge files are never dependency inputs. The local `min_version` is a
+compatibility floor, changed only when a required capability raises that floor;
+the pinned CI image owns the executed mise version. Dependabot's
 [supported ecosystems](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories)
 do not cover the declared mise closure; a second updater would create competing
 proposals.
