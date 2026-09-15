@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"crypto/sha256"
@@ -234,13 +235,13 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 
 func buildNativeProgram(t *testing.T, root, version string) string {
 	t.Helper()
-	artifact := filepath.Join(t.TempDir(), executableName())
-	build := exec.Command("go", "build", "-ldflags=-X=aigw-cli/internal/cli.Version="+version, "-o", artifact, "./cmd/aigw")
-	build.Dir = root
-	if output, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build native product %s: %v: %s", version, err, output)
+	prepareNativeSigning(t)
+	stage, err := construction.BuildNative(root, t.TempDir(), version)
+	if err != nil {
+		t.Fatalf("build native product %s: %v", version, err)
 	}
-	return artifact
+	base, _ := nativeArchiveNames(version)
+	return filepath.Join(stage, base, executableName())
 }
 
 type journeyFixture struct {
@@ -363,25 +364,6 @@ func (j *journeyFixture) runWithInput(binary, input string, args ...string) []by
 		j.testing.Fatalf("%s %s: %v\nstdout:\n%s\nstderr:\n%s", binary, strings.Join(args, " "), err, stdout, stderr)
 	}
 	return stdout.Bytes()
-}
-
-func (j *journeyFixture) requireCredentialBackend(token string, want secrets.BackendSelection) {
-	j.testing.Helper()
-	for _, command := range [][]string{{"status", "--json"}, {"doctor", "--json"}} {
-		output := j.run(command...)
-		if bytes.Contains(output, []byte(token)) {
-			j.testing.Fatalf("%s disclosed the credential", strings.Join(command, " "))
-		}
-		var result struct {
-			CredentialBackend secrets.BackendSelection `json:"credential_backend"`
-		}
-		if err := json.Unmarshal(output, &result); err != nil {
-			j.testing.Fatalf("decode %s: %v", strings.Join(command, " "), err)
-		}
-		if result.CredentialBackend != want {
-			j.testing.Fatalf("%s credential backend = %#v, want %#v", strings.Join(command, " "), result.CredentialBackend, want)
-		}
-	}
 }
 
 func (j *journeyFixture) requireConfigContains(values ...string) {

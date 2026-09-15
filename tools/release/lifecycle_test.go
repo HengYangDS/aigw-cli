@@ -19,6 +19,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/transaction"
+	"aigw-cli/tools/release/construction"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -81,9 +82,13 @@ func nativeReleaseCandidate(t *testing.T, root, version string) (program, archiv
 		baseName, archiveName := nativeArchiveNames(version)
 		return filepath.Join(directory, baseName, executableName()), filepath.Join(directory, archiveName), filepath.Join(directory, "checksums.txt")
 	}
-	program = buildNativeProgram(t, root, version)
-	archive, checksums = writeNativeArchive(t, program, version)
-	return program, archive, checksums
+	prepareNativeSigning(t)
+	stage, err := construction.BuildNative(root, t.TempDir(), version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, name := nativeArchiveNames(version)
+	return filepath.Join(stage, base, executableName()), filepath.Join(stage, name), filepath.Join(stage, "checksums.txt")
 }
 
 func runNativeReleaseLifecycle(t *testing.T, root, oldArtifact, newVersion, endpoint string) {

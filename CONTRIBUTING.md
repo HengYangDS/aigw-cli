@@ -389,7 +389,13 @@ Ordinary review jobs retain their smaller native path and separate quality job.
 Keep source-signature admission in that quality job; native tool qualification
 does not replace it or infer signer authority from an inherited variable.
 
-The default native suite builds a synthetic predecessor from current source.
+The default native suite builds a synthetic predecessor and candidate through
+the same GoReleaser archive construction used for releases. On macOS, its
+test-owned certificate files give both binaries one stable signing identity;
+the fixture does not import an identity, change host trust or read production
+credentials. An explicitly supplied archive is consumed unchanged and is never
+replaced by a source build. Private fixture signing does not establish
+authorization to credentials created by a historical released executable.
 It tests portable update mechanics, not compatibility with a historical
 release. The historical product journey retains the predecessor's projections
 during the first replacement. The real-client journey keeps each Adapter enabled
@@ -537,6 +543,8 @@ existing command sequence.
 To build one candidate and run both native lifecycle and real-client acceptance,
 provide the same client and predecessor inputs and run
 `mise exec --locked -- go run ./tools/release accept-native --clients`.
+On macOS this explicit build requires the
+[native release signing inputs](docs/decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
 The release owner supplies the candidate directory, retains it for both tests,
 stops on the first failure and cleans it afterward. No second build is needed.
 
