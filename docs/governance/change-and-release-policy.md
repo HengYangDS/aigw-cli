@@ -138,15 +138,25 @@ not a claim that 29.1.1 is latest. Reconsider the override when the upstream
 range removes deprecated dependencies and the complete resolution passes
 registry signatures, provenance, vulnerability and diagram conformance checks.
 
-Activation requires one operator-owned runner for one selected proposal peer,
-with local commit signing, an admitted OpenSpec Change, and current-commit CI.
-The peer is a deployment choice, not a product dependency. An automatic merge
-must preserve the signed object through fast-forward; if the peer cannot do
-that, use the existing maintainer publication path rather than rebase or
-re-sign. Refresh locks through native package managers and regenerate Forge
-projections through `mise exec --locked -- go run ./tools/ci project` before verification. Protected
-runner settings, credentials, schedules, and generic Change admission belong
-to the execution/governance owner, not this policy or a new AIGW updater.
+Candidate generation uses a disposable clone with independent Git metadata and
+an exact accepted base. Renovate resets and cleans its private checkout; that
+checkout must not share an active Work Lane, Git common directory, writable
+object store, credentials or signing agent. Its output is candidate material,
+not accepted source. The existing lane owner reviews the exact changes through
+current ETHOS write admission, native lock refresh, CI projection, signing and
+proof before publication.
+
+A runner claiming governed commit and push hooks must set
+[`gitNoVerify`](https://docs.renovatebot.com/self-hosted-configuration/#gitnoverify)
+to `[]` in operator-owned configuration and demonstrate hook rejection and
+success. Renovate defaults to bypassing both hooks; repository policy cannot
+override this global setting. Credentials, runner isolation and schedules
+belong to the execution owner, not a new AIGW updater.
+
+One admitted runner owns proposals on one selected peer. Automatic integration
+preserves the signed object through fast-forward or the existing maintainer
+publication path. A local candidate experiment or manual update does not prove
+that automation has executed.
 
 ## Change Lifecycle
 
