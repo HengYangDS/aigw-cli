@@ -457,8 +457,6 @@ package map. Review these semantic lifetimes rather than rebuilding that map:
   directory; no second lifecycle state is added.
 
 Every retained package needs a current caller and a distinct reason to change.
-The detached-source lifecycle gate is a disclosed governance overlap with a
-real CI consumer; replacement requires an equivalent working ETHOS capability.
 
 All six native import inventories have no product-to-tool edge. Test-only
 references cannot justify dormant production allowances. A graph resolver's
