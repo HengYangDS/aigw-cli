@@ -131,9 +131,12 @@ external observations must be refreshed when the decision depends on them.
 ```bash
 mise run check
 mise run native
-mise exec --locked -- go run ./tools/forge commits --email '<product author email>' --allowed-signers '<path>'
-mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 ```
+
+For signed-object admission, use the exact introduced range in
+[Forge object verification](docs/operations/forge-operations.md#verify-local-objects).
+That owner distinguishes change admission from whole-history and release-tag
+audits.
 
 ## Projection changes
 

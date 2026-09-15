@@ -19,11 +19,32 @@ Transport credentials never construct, rewrite, or sign product objects.
 
 ## Verify Local Objects
 
+For change admission, record the target commit before integration as
+`AIGW_REVIEW_BASE` and the reviewed candidate as `AIGW_REVIEW_HEAD`. Both values
+must be exact commit IDs; the base must be an ancestor of the candidate. Supply
+the product author email and trusted signers file through the corresponding
+release variables below.
+
 ```sh
 mise exec --locked -- go run ./tools/forge commits \
+  --base "$AIGW_REVIEW_BASE" \
+  --revision "$AIGW_REVIEW_HEAD" \
   --email "$AIGW_RELEASE_AUTHOR_EMAIL" \
   --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
+```
 
+This verifies every introduced commit in `base..head`, excluding the base.
+Retain the recorded IDs after integration; a moving target branch may already
+equal the candidate and would select an empty range. This command verifies
+objects, not CI success or permission to publish.
+
+Omitting `--base` deliberately audits the entire reachable history under the
+selected revision's policy. Historical subjects, authors or signatures can
+fail that separate audit; do not rewrite history merely to admit a valid new
+change. `tags` likewise audits all local release tags and belongs to an explicit
+release-history review:
+
+```sh
 mise exec --locked -- go run ./tools/forge tags \
   --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
 ```

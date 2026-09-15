@@ -96,9 +96,12 @@ mise install --locked
 mise run bootstrap
 mise run check
 mise run native
-mise exec --locked -- go run ./tools/forge commits --email '<product author email>' --allowed-signers '<path>'
-mise exec --locked -- go run ./tools/forge tags --allowed-signers '<path>'
 ```
+
+Verify the exact introduced commit range through
+[Forge object verification](docs/operations/forge-operations.md#verify-local-objects).
+Whole-history and release-tag audits are separate scopes, not ordinary change
+admission.
 
 Use `aigw sync --dry-run --json` before a configuration mutation where a target
 is drifted or a multi-target projection needs review. It must remain credential-
