@@ -344,6 +344,22 @@ the documented automatic policy. API Tokens and Provider diagnostic credentials
 use distinct typed slots in the same backend. No command searches several
 stores or opens a prompt for read-only status.
 
+Native macOS metadata queries and value reads use one same-executable worker under
+`internal/secrets/keychain`, the existing process runner and a five-second read
+deadline. The worker disables interaction before the exact file-based Keychain
+query; only HOME crosses the child environment. It preserves the go-keyring
+service, slot and stored-value grammar, while writes and deletes retain their
+existing owner. `purego` is the small Cgo-free native bridge, not another
+credential framework. No extra helper executable, service, configuration,
+fallback reader or access-control mutation is introduced. Denial and timeout
+are distinct from absence, and helper diagnostics remain off Token stdout.
+Private synthetic Keychains prove success, missing-item, locked and foreign-writer
+authorization behavior. An item created by `security` may allow metadata but deny
+the AIGW reader: neither the existing writer nor a successful external relay
+proves the new executable's authority. Publication and installed replacement stay
+blocked on actual reader-identity acceptance rather than changing production ACLs
+or representing safe refusal as a usable product journey.
+
 Alternative considered: search native, file, and environment stores on every
 read. Rejected because it creates several authorities, unpredictable prompts,
 and platform-dependent results.

@@ -33,6 +33,25 @@ implementation reads or migrates another product's credential state.
 
 ## Consequences
 
+macOS metadata queries and value reads use the existing file-based Keychain's native API in a
+same-executable worker. `purego` supplies the supported C-call bridge while
+keeping the portable build independent of Cgo. The worker disables interaction,
+preserves the existing service, slot, search-list and stored-value grammar, and
+returns bytes only after a successful read. Its parent enforces a five-second
+deadline with bounded process cleanup. This does not grant access: a locked or
+unauthorized item fails without changing ACLs, unlocking, migrating or falling
+back. The legacy API remains necessary for the existing file-based store; no
+Data Protection Keychain migration is implied.
+
+The system `security` command has no value-read no-interaction option. A timeout
+around it could still permit a password dialog, so it is not the read boundary.
+A separate installed helper or a new credential framework would introduce
+another deployment owner without removing the authorization requirement.
+The private native test demonstrates that `security`-created items can deny a
+different reader even when metadata is visible. An actual reader-identity
+acceptance gate therefore precedes deployment; preserving item bytes alone is
+not sufficient compatibility evidence.
+
 One provider Token is sufficient on a supported workstation even when no
 native credential service is available. Existing keyring Tokens remain in
 their selected backend; there is no dual-read compatibility period. Operators

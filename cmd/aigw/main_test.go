@@ -96,6 +96,18 @@ func TestRunCredentialInitializationFailureRedactsInput(t *testing.T) {
 	}
 }
 
+func TestNativeCredentialWorkerRejectsForeignServiceBeforeInitialization(t *testing.T) {
+	setAIGWTestEnvironment(t)
+	t.Setenv("AIGW_SECRET_BACKEND", "must-not-be-initialized")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"__aigw-keychain-read", "foreign-service", "team"}, &stdout, &stderr); code == 0 {
+		t.Fatal("invalid private worker invocation succeeded")
+	}
+	if stdout.Len() != 0 || stderr.Len() != 0 {
+		t.Fatal("worker leaked application or credential diagnostics")
+	}
+}
+
 func setAIGWTestEnvironment(t *testing.T) {
 	t.Helper()
 	home := t.TempDir()

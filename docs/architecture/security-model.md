@@ -28,8 +28,20 @@ mechanism, set `AIGW_SECRET_BACKEND` to
 - **`keyring`** uses macOS Keychain, Linux Secret Service or Windows Credential
   Manager. Reads and writes require that native service's access permission.
   Explicit selection fails closed if the service is unavailable; AIGW does not
-  silently switch stores. Metadata observation does not authorize secret reads
-  or guarantee that a native service will never request interaction.
+  silently switch stores. Metadata observation does not authorize secret reads.
+  macOS metadata and value queries run in a same-executable worker that disables Keychain interaction
+  before looking up the selected service and slot. The parent allows five seconds
+  for the read and the shared process runner bounds pipe teardown separately.
+  Denied, locked or timed-out reads return no Token; AIGW neither changes access
+  control nor retries through another reader. Writes and deletes retain the
+  native service's authorization requirements. Linux and Windows use their own
+  native adapters; the macOS worker is not a claim about those platforms.
+
+An item created by another executable can be visible to metadata queries while
+its access policy denies AIGW. Existing Token bytes and their storage location
+are not evidence of reader authorization. Native acceptance must verify the
+actual released AIGW identity; another helper's successful read is insufficient.
+
 - **`file`** uses an owner-only directory and regular file per Account on macOS
   and Linux. Windows encrypts each Token with current-user DPAPI before writing
   it beneath the AIGW data directory. Both use bounded paths and same-directory

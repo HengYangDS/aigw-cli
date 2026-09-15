@@ -4,6 +4,8 @@ package main
 import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secrets/keychain"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +16,9 @@ func main() {
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
+	if handled, code := keychain.RunWorker(args, stdout, secrets.Service); handled {
+		return code
+	}
 	app, err := cli.NewDefault()
 	if err != nil {
 		if len(args) > 0 && args[0] == "credential" {

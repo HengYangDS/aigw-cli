@@ -4,13 +4,16 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
+
+	"aigw-cli/internal/secrets/keychain"
 
 	keyring "github.com/zalando/go-keyring"
 )
 
 // DecodeKeyringBase64 decodes one explicitly selected macOS go-keyring storage envelope.
-// Ordinary Store reads remain owned by go-keyring; raw input never calls this decoder.
+// Native stored-value decoding is separate; raw stdin never calls this decoder.
 func DecodeKeyringBase64(value string) (string, error) {
 	const prefix = "go-keyring-base64:"
 	encoded, present := strings.CutPrefix(value, prefix)
@@ -30,11 +33,31 @@ func DecodeKeyringBase64(value string) (string, error) {
 // keyringStore persists credentials in the operating system's native credential service.
 type keyringStore struct {
 	observe func(service, slot string) (bool, error)
+	read    func(service, slot string) (string, error)
 }
 
-func (keyringStore) get(kind Kind, account string) (string, error) {
+func newKeyringStore() keyringStore {
+	reader := keyring.Get
+	if runtime.GOOS == "darwin" {
+		reader = readNativeKeychain
+	}
+	return keyringStore{observe: observeKeyringItem, read: reader}
+}
+
+func readNativeKeychain(service, slot string) (string, error) {
+	value, err := keychain.Read(service, slot)
+	if errors.Is(err, keychain.ErrNotFound) {
+		return "", keyring.ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return keychain.DecodeStoredValue(value)
+}
+
+func (store keyringStore) get(kind Kind, account string) (string, error) {
 	slot := slotName(kind, account)
-	value, err := keyring.Get(Service, slot)
+	value, err := store.read(Service, slot)
 	if errors.Is(err, keyring.ErrNotFound) {
 		return "", ErrNotFound
 	}

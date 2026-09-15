@@ -213,6 +213,42 @@ resource and original failure without claiming restoration.
   and credential kind
 - **AND** preserves the newer backend choice and reports its compensation conflict.
 
+### Requirement: macOS credential observations and reads are bounded and noninteractive
+
+The macOS Keychain adapter SHALL execute metadata queries and value reads in
+the same AIGW executable's isolated worker. The worker SHALL disable Keychain
+interaction before querying the selected service and slot. Metadata queries
+SHALL request neither password bytes nor an item-reference allocation.
+The parent SHALL enforce a five-second operation deadline and the existing
+bounded process cleanup contract. The child SHALL receive no Token, loader
+override, client configuration or fallback-reader selection in its environment.
+
+The adapter SHALL preserve the existing native search-list, service, slot and
+stored-value grammar. A denied or locked read SHALL fail without changing access
+control, unlocking, migrating a credential or trying another reader. Failure
+SHALL return no credential bytes; diagnostics SHALL remain separate from the
+client's Token stdout. A metadata success SHALL NOT prove value authorization.
+
+#### Scenario: A credential requires authentication interaction
+
+- **WHEN** the exact native item cannot be read without interaction
+- **THEN** the worker returns an authorization failure without a password dialog
+- **AND** no credential or access-control state changes and no Token is returned.
+
+#### Scenario: The native service does not answer
+
+- **WHEN** the operation reaches its deadline
+- **THEN** the parent terminates and reaps its worker through bounded cleanup
+- **AND** the helper reports the deadline rather than suggesting configuration sync.
+
+#### Scenario: Another executable created the selected item
+
+- **WHEN** metadata is readable but the item's native policy does not authorize AIGW
+- **THEN** observation succeeds and value retrieval fails as authorization denied
+- **AND** release or installation acceptance remains open until the actual reader
+  identity has independently verified permission; another reader's success is
+  not substituted for that proof.
+
 ## MODIFIED Requirements
 
 ### Requirement: Native credential service failure has a portable outcome
