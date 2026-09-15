@@ -1684,8 +1684,10 @@ Successful program update or rollback SHALL direct the operator to execute
 `aigw sync` with the newly active executable before checking readiness. Program
 replacement SHALL NOT silently rewrite client settings or convert stored
 configuration to a historical schema. The documented rollback journey SHALL
-withdraw enabled integrations before activating a predecessor and recreate
-them through that predecessor's public commands.
+retain enabled integrations and explicit client locations while activating a
+supported predecessor, then reconcile its projections through public
+synchronization. Release qualification SHALL test the actual predecessor with
+retained client state rather than recreate an integration around replacement.
 
 Before program rollback, AIGW SHALL execute the exact retained program in a
 private environment without operator credentials or client discovery paths. It
@@ -1713,6 +1715,15 @@ perform that restoration implicitly or invent a compatibility conversion.
   AIGW-owned client projection before the operator resumes client work
 - **AND** lifecycle acceptance SHALL execute the projected helper rather than
   infer its arguments from the candidate implementation.
+
+#### Scenario: A supported release pair retains enabled clients
+
+- **WHEN** a configured client remains enabled through upgrade, rollback and
+  re-upgrade between a qualified predecessor and successor
+- **THEN** each program replacement SHALL preserve the AIGW configuration bytes,
+  including explicit client locations and selected Routes
+- **AND** real-client acceptance SHALL check the exact active executable and
+  complete a request through that retained integration after each transition.
 
 ### Requirement: Online update owns its temporary resources and preserves failure causes
 

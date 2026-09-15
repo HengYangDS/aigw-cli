@@ -147,8 +147,10 @@ func TestUpdateHelpDescribesOfflineProgramRollback(t *testing.T) {
 	if !strings.Contains(out.String(), "Roll back the portable AIGW program to the previous version offline") {
 		t.Fatalf("help = %s", out.String())
 	}
-	if !strings.Contains(out.String(), "Before rollback, disable enabled client integrations") {
-		t.Fatalf("help omitted rollback projection boundary: %s", out.String())
+	for _, want := range []string{"Keep client integrations enabled", "Run sync after either replacement", "isolated copy of the current configuration"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("help omitted %q: %s", want, out.String())
+		}
 	}
 }
 

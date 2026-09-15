@@ -8,6 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep enabled client integrations throughout a supported program rollback;
+  align command help and rollout guidance with retained-state acceptance instead
+  of requiring an unnecessary disable/re-enable cycle.
+
 ## [0.1.0-rc.114] - 2026-09-14
 
 ### Fixed

@@ -322,13 +322,12 @@ aigw doctor
 aigw check
 ```
 
-After upgrading, run `sync` from the active executable before resuming clients.
-Before rolling back, list and disable enabled integrations through `adapter`
-commands, then restore the program and run its `sync`. A predecessor may skip
-projections written by a newer version when configuration values are unchanged.
-Re-enable any explicit client locations and verify readiness. Configuration-schema
-changes require a reviewed migration, not an implicit legacy reader or a claim
-that restoring the executable restores all data.
+Keep client integrations enabled across program replacement. Follow
+[update and rollback](../../README.md#update-and-rollback) with the active
+executable, then verify readiness. Pilot the actual release pair with retained
+client state; a fresh setup or disable/re-enable cycle tests a different journey.
+Configuration readability does not establish client or Provider compatibility,
+and restoring the executable does not restore configuration backups.
 
 ## Staged rollout
 

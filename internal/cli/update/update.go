@@ -21,7 +21,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	var candidateChecksums string
 	cmd := &cobra.Command{
 		Use: "update", Short: "Install a verified release, a local candidate, or restore the previous portable program",
-		Long: "Replace the program without changing client settings. Run sync after upgrading. Before rollback, disable enabled client integrations; the retained program must read an isolated copy of the current configuration before activation. If incompatible, explicitly restore a supported configuration first. Then restore the program and run its sync before resuming clients.",
+		Long: "Replace the program without changing client settings. Keep client integrations enabled. Run sync after either replacement, then check readiness before resuming clients. Before rollback, the retained program must read an isolated copy of the current configuration. If incompatible, explicitly restore a supported configuration before retrying.",
 		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
 			for _, name := range []string{"candidate", "checksums"} {
 				flag := cmd.Flags().Lookup(name)

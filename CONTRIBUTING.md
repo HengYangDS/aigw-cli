@@ -392,10 +392,13 @@ does not replace it or infer signer authority from an inherited variable.
 The default native suite builds a synthetic predecessor from current source.
 It tests portable update mechanics, not compatibility with a historical
 release. The historical product journey retains the predecessor's projections
-during the first replacement. The real-client journey separately disables and
-re-enables each adapter around replacement. Neither substitutes for the other:
-the first checks retained-state compatibility, the second checks native client
-integration. To repeat only the packaged lifecycle against a historical release,
+during the first replacement. The real-client journey keeps each Adapter enabled
+through upgrade, rollback and re-upgrade. Every transition preserves the AIGW
+configuration byte-for-byte, checks the exact active program and executes the
+selected client against a controlled stream. Neither substitutes for the other:
+the first checks packaged lifecycle mechanics, the second checks retained
+native-client integration for the selected release pair. To repeat only the
+packaged lifecycle against a historical release,
 supply an extracted native binary from an independently verified archive:
 
 ```bash

@@ -307,10 +307,7 @@ aigw sync
 aigw check
 ```
 
-To return to the retained program, first list the enabled integrations and
-disable each one through `aigw adapter disable <client>`. This withdraws only
-AIGW-owned projections and preserves Accounts, Profiles, Routes and Tokens.
-Then activate the predecessor and recreate its projections:
+To return to the retained program, keep client integrations enabled and run:
 
 ```bash
 aigw update --rollback
@@ -323,12 +320,14 @@ predecessor. A verified offline candidate may be supplied explicitly with its
 checksum manifest; source trees, loose binaries, tags, and self-authored
 checksums are not installation evidence.
 
-Program replacement does not rewrite client configuration. Upgrade needs the
-new version's `sync`; rollback additionally needs withdrawal before replacement
-because a predecessor may not repair projections written by a newer version.
-Run `aigw adapter list` and check readiness before resuming client work; explicitly
-configured client locations may need to be enabled again. A program rollback
-does not convert configuration to an older schema. Before replacing the program,
+Program replacement preserves the configured Accounts, Profiles, Routes and
+enabled client locations. Run `sync` with the newly active executable after
+either replacement, then check readiness before resuming client work. Use
+`aigw verify --for <client>` when a real client request is needed; it may consume
+quota. Configuration readability and successful synchronization do not prove
+that every client or Provider supports a particular predecessor.
+
+A program rollback does not convert configuration to an older schema. Before replacing the program,
 AIGW checks whether the actual predecessor can read an isolated copy of the
 current configuration. An incompatible rollback leaves both programs and the
 configuration unchanged. Restore a compatible configuration explicitly with

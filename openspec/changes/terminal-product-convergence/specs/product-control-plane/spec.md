@@ -687,42 +687,6 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 - **AND** explicit empty Profile purpose SHALL remain a valid request to clear
   that optional display field.
 
-### Requirement: Program replacement has an explicit client reconciliation boundary
-
-Successful program update or rollback SHALL direct the operator to execute
-`aigw sync` with the newly active executable before checking readiness. Program
-replacement SHALL NOT silently rewrite client settings or convert stored
-configuration to a historical schema. The documented rollback journey SHALL
-withdraw enabled integrations before activating a predecessor and recreate
-them through that predecessor's public commands.
-
-Before program rollback, AIGW SHALL execute the exact retained program in a
-private environment without operator credentials or client discovery paths. It
-SHALL verify startup and, when configuration exists, require that program's
-public configuration export to read an exact isolated copy. Failure SHALL
-preserve both program files and every operator configuration file. The operator
-MAY explicitly restore a compatible configuration using the existing
-configuration rollback command before retrying; program rollback SHALL NOT
-perform that restoration implicitly or invent a compatibility conversion.
-
-#### Scenario: The predecessor cannot read the current configuration
-
-- **WHEN** the current configuration contains a capability unknown to the
-  retained program
-- **THEN** program rollback fails before replacing either program file
-- **AND** the error identifies configuration compatibility rather than claiming
-  that the previous program became active
-- **AND** after an explicit compatible configuration restoration, rollback can
-  activate the predecessor and that predecessor can export the configuration.
-
-#### Scenario: A replacement changes the credential helper contract
-
-- **WHEN** an operator activates another program version
-- **THEN** the active program's explicit synchronization SHALL reconcile its
-  AIGW-owned client projection before the operator resumes client work
-- **AND** lifecycle acceptance SHALL execute the projected helper rather than
-  infer its arguments from the candidate implementation.
-
 ### Requirement: Online update owns its temporary resources and preserves failure causes
 
 An online update SHALL own all peer download directories within one operation
@@ -834,6 +798,53 @@ name the exact owned resource and SHALL NOT silently report success.
 - **AND** after a successful rename, it SHALL relinquish the old staging name.
 
 ## MODIFIED Requirements
+
+### Requirement: Program replacement has an explicit client reconciliation boundary
+
+Successful program update or rollback SHALL direct the operator to execute
+`aigw sync` with the newly active executable before checking readiness. Program
+replacement SHALL NOT silently rewrite client settings or convert stored
+configuration to a historical schema. The documented rollback journey SHALL
+retain enabled integrations and explicit client locations while activating a
+supported predecessor, then reconcile its projections through public
+synchronization. Release qualification SHALL test the actual predecessor with
+retained client state rather than recreate an integration around replacement.
+
+Before program rollback, AIGW SHALL execute the exact retained program in a
+private environment without operator credentials or client discovery paths. It
+SHALL verify startup and, when configuration exists, require that program's
+public configuration export to read an exact isolated copy. Failure SHALL
+preserve both program files and every operator configuration file. The operator
+MAY explicitly restore a compatible configuration using the existing
+configuration rollback command before retrying; program rollback SHALL NOT
+perform that restoration implicitly or invent a compatibility conversion.
+
+#### Scenario: The predecessor cannot read the current configuration
+
+- **WHEN** the current configuration contains a capability unknown to the
+  retained program
+- **THEN** program rollback fails before replacing either program file
+- **AND** the error identifies configuration compatibility rather than claiming
+  that the previous program became active
+- **AND** after an explicit compatible configuration restoration, rollback can
+  activate the predecessor and that predecessor can export the configuration.
+
+#### Scenario: A replacement changes the credential helper contract
+
+- **WHEN** an operator activates another program version
+- **THEN** the active program's explicit synchronization SHALL reconcile its
+  AIGW-owned client projection before the operator resumes client work
+- **AND** lifecycle acceptance SHALL execute the projected helper rather than
+  infer its arguments from the candidate implementation.
+
+#### Scenario: A supported release pair retains enabled clients
+
+- **WHEN** a configured client remains enabled through upgrade, rollback and
+  re-upgrade between a qualified predecessor and successor
+- **THEN** each program replacement SHALL preserve the AIGW configuration bytes,
+  including explicit client locations and selected Routes
+- **AND** real-client acceptance SHALL check the exact active executable and
+  complete a request through that retained integration after each transition.
 
 ### Requirement: Terminal candidate integration is exact and local
 
