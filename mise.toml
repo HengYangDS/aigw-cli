@@ -31,6 +31,8 @@ glab = "1.118.0"
 "github:anchore/syft" = "1.51.1"
 # Build with the repository Go compiler; upstream binaries may lag its language.
 "go:github.com/google/osv-scanner/v2/cmd/osv-scanner" = "2.6.0"
+# Private macOS credential identity tests; no host trust or signing-store changes.
+"github:indygreg/apple-platform-rs[version_prefix=apple-codesign/,os=macos]" = "0.29.0"
 
 # Structured data quality
 taplo = "0.10.0"

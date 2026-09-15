@@ -197,20 +197,75 @@ func TestNativePrivateKeychainReadAndLockedFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The fixture runs three instrumented child processes plus Keychain setup
-	// and teardown. Its budget is not the production worker's operation limit.
-	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
-	defer cancel()
-	command := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestNativePrivateKeychainReadAndLockedFailure$")
-	command.Env = append(os.Environ(), "AIGW_TEST_PRIVATE_KEYCHAIN="+t.TempDir())
-	output, runErr := command.CombinedOutput()
+	for _, identity := range []string{"ad-hoc", "certificate"} {
+		t.Run(identity, func(t *testing.T) {
+			root, program := t.TempDir(), os.Args[0]
+			environment := append(os.Environ(), "AIGW_TEST_PRIVATE_KEYCHAIN="+root)
+			if identity == "certificate" {
+				program = testCertificateReader(t, root)
+				environment = append(environment, "AIGW_TEST_CERTIFICATE_ROOT="+root)
+			}
+			// Each isolated journey includes instrumented child startup and exit;
+			// this budget is independent of the production worker's deadline.
+			ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+			defer cancel()
+			command := exec.CommandContext(ctx, program, "-test.run=^TestNativePrivateKeychainReadAndLockedFailure$")
+			command.Env = environment
+			if output, err := command.CombinedOutput(); err != nil {
+				t.Fatalf("isolated native contract: %v\n%s", err, output)
+			}
+		})
+	}
 	after, err := exec.Command("/usr/bin/security", "list-keychains", "-d", "user").Output()
 	if err != nil || !bytes.Equal(before, after) {
 		t.Fatalf("Keychain search list changed: %v", err)
 	}
-	if runErr != nil {
-		t.Fatalf("isolated native contract: %v\n%s", runErr, output)
+}
+
+func testCertificateReader(t *testing.T, root string) string {
+	t.Helper()
+	testSigningCommand(t, "rcodesign", "-C", "/dev/null", "generate-self-signed-certificate",
+		"--person-name", "aigw.private-keychain-fixture", "--validity-days", "1", "--pem-filename", filepath.Join(root, "identity"))
+	fingerprint := string(testSigningCommand(t, "/usr/bin/openssl", "x509", "-in", filepath.Join(root, "identity.crt"), "-noout", "-fingerprint", "-sha1"))
+	_, fingerprint, found := strings.Cut(fingerprint, "=")
+	if !found {
+		t.Fatal("synthetic certificate fingerprint absent")
 	}
+	fingerprint = strings.ReplaceAll(strings.TrimSpace(fingerprint), ":", "")
+	requirement := `certificate leaf = H"` + fingerprint + `" and identifier "aigw.private-keychain-fixture"`
+	testSigningCommand(t, "/usr/bin/csreq", "-r", "="+requirement, "-b", filepath.Join(root, "requirement.bin"))
+	program, err := os.ReadFile(os.Args[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "predecessor")
+	if err := os.WriteFile(path, program, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	testSignPrivateReader(t, root, path, nil)
+	return path
+}
+
+func testSignPrivateReader(t *testing.T, root, path string, options []string) {
+	t.Helper()
+	args := []string{"-C", "/dev/null", "sign", "--pem-file", filepath.Join(root, "identity.crt"),
+		"--pem-file", filepath.Join(root, "identity.key"), "--binary-identifier", "aigw.private-keychain-fixture",
+		"--code-requirements-file", filepath.Join(root, "requirement.bin"), "--timestamp-url", "none"}
+	args = append(args, options...)
+	testSigningCommand(t, "rcodesign", append(args, path)...)
+	testSigningCommand(t, "/usr/bin/codesign", "--verify", "--strict", "--test-requirement", filepath.Join(root, "requirement.bin"), path)
+}
+
+func testSigningCommand(t *testing.T, executable string, args ...string) []byte {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, executable, args...)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("private signer %s: %v; context=%v\n%s", executable, err, ctx.Err(), output)
+	}
+	return output
 }
 
 func testPrivateKeychain(t *testing.T, root string) {
@@ -355,6 +410,17 @@ func testPrivateReaderExecutableIdentity(t *testing.T, root string) {
 	}
 	for _, program := range []string{os.Args[0], copyPath} {
 		testPrivateReaderProcess(t, program, root, "authorized")
+	}
+	if certificate := os.Getenv("AIGW_TEST_CERTIFICATE_ROOT"); certificate != "" {
+		before := testSigningCommand(t, "/usr/bin/codesign", "--display", "--verbose=4", copyPath)
+		testSignPrivateReader(t, certificate, copyPath, []string{"--code-signature-flags", "kill"})
+		after := testSigningCommand(t, "/usr/bin/codesign", "--display", "--verbose=4", copyPath)
+		_, original, found := strings.Cut(string(before), "CDHash=")
+		original, _, _ = strings.Cut(original, "\n")
+		if !found || original == "" || strings.Contains(string(after), "CDHash="+original+"\n") {
+			t.Fatal("certificate successor must have a different code hash")
+		}
+		testPrivateReaderProcess(t, copyPath, root, "authorized")
 	}
 	metadata, err := exec.Command("/usr/bin/codesign", "--display", "--verbose=2", copyPath).CombinedOutput()
 	if err != nil {

@@ -73,14 +73,17 @@ the approved signing key through their existing protected signing infrastructure
 Its custody, recovery and rotation policy is not an AIGW Account or Token backend.
 No private signing material belongs in the repository or client configuration.
 
-An isolated feasibility probe used
+The private native credential regression uses
 [rcodesign](https://gregoryszorc.com/docs/apple-codesign/stable/apple_codesign_rcodesign_signing.html)
-with a disposable self-signed certificate loaded from files. Two executables with
-different code hashes and the same certificate-bound requirement read one retained
-private Keychain item; an unrelated ad-hoc reader was denied. Native signature
-verification and execution passed without importing that identity, changing host
-trust or widening item access. This qualifies that isolated authorization boundary,
-not a production signer, release artifact or supported upgrade path.
+with a disposable self-signed certificate loaded from files. The repository locks
+this tool only for macOS; it is not shipped in AIGW or installed on Linux and Windows
+development paths. Two executables with different code hashes and the same
+certificate-bound requirement read one retained private Keychain item; an unrelated
+ad-hoc reader is denied. Native signature verification and execution require no
+identity import, host trust change or wider item access. The existing private
+Keychain fixture owns creation and teardown for both identity modes. This qualifies
+that isolated authorization boundary, not a production signer, release artifact or
+supported upgrade path.
 
 Following [Apple's subsystem-specific trust model](https://developer.apple.com/library/archive/technotes/tn2206/_index.html),
 Keychain identity continuity, distribution trust and notarization remain separate
