@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.115] - 2026-09-15
+
 ### Fixed
 
 - Keep enabled client integrations throughout a supported program rollback;
