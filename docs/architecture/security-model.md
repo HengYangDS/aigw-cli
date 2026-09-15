@@ -29,18 +29,14 @@ mechanism, set `AIGW_SECRET_BACKEND` to
   Manager. Reads and writes require that native service's access permission.
   Explicit selection fails closed if the service is unavailable; AIGW does not
   silently switch stores. Metadata observation does not authorize secret reads.
-  macOS metadata and value queries run in a same-executable worker that disables Keychain interaction
+  macOS metadata and value queries run in a same-executable worker that disables
+  Keychain interaction
   before looking up the selected service and slot. The parent allows five seconds
   for the read and the shared process runner bounds pipe teardown separately.
   Denied, locked or timed-out reads return no Token; AIGW neither changes access
   control nor retries through another reader. Writes and deletes retain the
   native service's authorization requirements. Linux and Windows use their own
   native adapters; the macOS worker is not a claim about those platforms.
-
-An item created by another executable can be visible to metadata queries while
-its access policy denies AIGW. Existing Token bytes and their storage location
-are not evidence of reader authorization. Native acceptance must verify the
-actual released AIGW identity; another helper's successful read is insufficient.
 
 - **`file`** uses an owner-only directory and regular file per Account on macOS
   and Linux. Windows encrypts each Token with current-user DPAPI before writing
@@ -49,6 +45,11 @@ actual released AIGW identity; another helper's successful read is insufficient.
 - **`env`** consumes credentials supplied to the invoking process on every
   supported OS. It is read-only: setup may persist public configuration, but
   storing, rotating or deleting an environment Token fails before mutation.
+
+An item created by another executable can be visible to metadata queries while
+its access policy denies AIGW. Existing Token bytes and their storage location
+are not evidence of reader authorization. Native acceptance must verify the
+actual released AIGW identity; another helper's successful read is insufficient.
 
 Supply environment credentials to the process that needs them. A Token set in
 one terminal is not automatically inherited by a separately launched GUI client.
