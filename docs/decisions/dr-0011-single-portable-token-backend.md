@@ -65,6 +65,33 @@ identity is necessary for that release path, while existing foreign-created
 items require their own explicit authorization disposition. Neither is solved
 by widening item access, changing stores silently or retaining an old reader.
 
+### Release identity and credential authorization
+
+Release construction owns the native signing identity and designated requirement;
+the credential store owns authorization to each retained item. Operators provide
+the approved signing key through their existing protected signing infrastructure.
+Its custody, recovery and rotation policy is not an AIGW Account or Token backend.
+No private signing material belongs in the repository or client configuration.
+
+An isolated feasibility probe used
+[rcodesign](https://gregoryszorc.com/docs/apple-codesign/stable/apple_codesign_rcodesign_signing.html)
+with a disposable self-signed certificate loaded from files. Two executables with
+different code hashes and the same certificate-bound requirement read one retained
+private Keychain item; an unrelated ad-hoc reader was denied. Native signature
+verification and execution passed without importing that identity, changing host
+trust or widening item access. This qualifies that isolated authorization boundary,
+not a production signer, release artifact or supported upgrade path.
+
+Following [Apple's subsystem-specific trust model](https://developer.apple.com/library/archive/technotes/tn2206/_index.html),
+Keychain identity continuity, distribution trust and notarization remain separate
+acceptance decisions. Developer ID is not a prerequisite for the demonstrated
+private-item test. A certificate-leaf requirement does not survive key rotation
+automatically: rotation needs an explicitly admitted successor requirement and
+retained-item transition. Introducing a stable signer also cannot retroactively
+authorize items created by an older ad-hoc identity or another program. Their
+explicit authorization or re-enrollment must precede deployment; denial remains
+noninteractive until that decision is made.
+
 The system `security` command has no value-read no-interaction option. A timeout
 around it could still permit a password dialog, so it is not the read boundary.
 A separate installed helper or a new credential framework would introduce
