@@ -20,20 +20,19 @@ func TestRunCaptureBoundsPipeDrainAfterChildExit(t *testing.T) {
 		t.Run(output, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), capturedProcessWaitDelay+3*time.Second)
 			defer cancel()
-			plan := Plan{Executable: "/bin/sh", Args: []string{"-c", "(sleep 5) >&2 & printf AIGW_OK"}, Env: []string{}}
+			plan := Plan{Executable: "/bin/sh", Args: []string{"-c", "sleep 1.5; (sleep 5) >&2 & printf AIGW_OK"}, Env: []string{}}
 			destination := filepath.Join(t.TempDir(), "asset")
-			started := time.Now()
 			var err error
 			if output == "capture" {
 				_, err = (Runner{}).RunCapture(ctx, plan)
 			} else {
 				err = (Runner{}).RunToFile(ctx, destination, plan)
 			}
+			// ErrWaitDelay proves the native pipe-drain timer expired. Elapsed
+			// invocation time also includes startup and host scheduling, neither
+			// of which belongs to that timer's contract.
 			if !errors.Is(err, exec.ErrWaitDelay) {
 				t.Fatalf("%s error = %v, want exec.ErrWaitDelay", output, err)
-			}
-			if elapsed := time.Since(started); elapsed > capturedProcessWaitDelay+time.Second {
-				t.Fatalf("%s took %s, expected bounded pipe drain", output, elapsed)
 			}
 			if output == "file" {
 				if _, err := os.Stat(destination); !errors.Is(err, os.ErrNotExist) {

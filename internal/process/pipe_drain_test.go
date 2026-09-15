@@ -13,8 +13,7 @@ import (
 // its background descendant has inherited the output pipes, then
 // deterministically deliver the DeadlineExceeded signal that RunCapture
 // reports to callers. A fixed short timeout races process start under
-// parallel CI load. It is used by both the Unix (runner_test.go) and
-// Windows (runner_pipe_drain_windows_test.go) pipe-drain tests.
+// parallel CI load. Unix and Windows pipe-drain tests share this context.
 type controllableDeadlineContext struct {
 	done chan struct{}
 	once sync.Once
