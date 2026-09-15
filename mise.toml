@@ -12,7 +12,7 @@ GOTOOLCHAIN = "local"
 GOWORK = "off"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.89.1@sha256:54ae1abc5c61702727a452998e2eb22d58e2dcd6de269f290caf3b7b6ab3238a"
+renovate_image = "ghcr.io/renovatebot/renovate:44.90.2@sha256:7fbccea36c60ef12134d7d90ca76b6169978088443343c92dbb71b934d5c8bd9"
 
 [tools]
 # Language runtimes
@@ -30,7 +30,7 @@ glab = "1.117.0"
 "github:goreleaser/goreleaser" = "2.18.1"
 "github:anchore/syft" = "1.51.1"
 # Build with the repository Go compiler; upstream binaries may lag its language.
-"go:github.com/google/osv-scanner/v2/cmd/osv-scanner" = "2.5.1"
+"go:github.com/google/osv-scanner/v2/cmd/osv-scanner" = "2.6.0"
 
 # Structured data quality
 taplo = "0.10.0"
