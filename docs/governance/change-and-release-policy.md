@@ -319,7 +319,7 @@ release-epoch lookup preserve the complete version text. Unsupported numeric
 core values fail rather than silently overflowing a machine integer.
 
 A tag proves source identity, not asset publication, native-platform
-acceptance, signing, notarization, installation, or runtime health. Those
+acceptance, artifact signing, notarization, installation, or runtime health. Those
 claims require separate current evidence.
 
 ## Reproducible Assets
@@ -445,8 +445,12 @@ Product support requires native evidence for macOS, Linux and Windows across
 the admitted aggregate evidence set. A Forge without a qualified executor omits
 that job rather than substituting an indefinitely pending or allowed-to-fail
 job. Runner availability is not a product capability, and cross-compilation
-proves construction rather than native execution. Rooted macOS package-lifecycle
-acceptance remains a GA gate.
+proves construction rather than native execution. Qualify the published portable
+executable through its user-scoped install, update, rollback and uninstall
+commands on each supported OS. Artifact signatures and checksums remain
+independent requirements. A detached release signature does not establish
+platform code-signing or notarization; any such distribution claim needs its
+own evidence for the shipped executable.
 
 Every native job runs the shared Go static policy before behavioral tests and
 release acceptance. Another platform's result cannot substitute for the selected

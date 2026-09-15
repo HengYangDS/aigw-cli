@@ -32,10 +32,12 @@ or a local proxy deployment to make a configuration test pass.
 
 - Codex Desktop owns the model chosen by each existing conversation and its
   transcripts.
-- AIGW neither depends on, configures, nor verifies foreign applications or
-  their private runtime state.
+- AIGW configures only explicitly enabled client surfaces; unrelated
+  application settings and private runtime state remain outside its ownership.
 - AIGW owns marked provider blocks, endpoint selection, credentials, and the
-  atomic projection across configured Codex homes shared by CLI and Desktop.
+  guarded projection across configured Codex homes shared by CLI and Desktop.
+  [Compensation](docs/decisions/dr-0006-transactional-client-projection.md)
+  preserves newer edits; it does not provide atomic visibility across files.
 - AIGW does not own Codex Desktop-only GUI settings.
 - The admitted client set is Claude Code and Codex. Missing clients remain
   untouched; Hermes and any future client require a separately admitted
@@ -82,8 +84,8 @@ authority.
   product-level evidence without duplicating every executor; its own runner
   availability is an infrastructure signal, not a second product gate.
   Cross-compilation and package inspection cover additional CPU targets but do
-  not replace native source evidence. Rooted macOS package-lifecycle acceptance
-  remains a GA requirement.
+  not replace native execution of the published portable artifact and its
+  [installation lifecycle](docs/governance/change-and-release-policy.md#native-platform-evidence).
 - A claim only a real client can settle must be evidenced by a tracked
   verification command that records the client identity it measured, never by a
   test that skips itself when the client is absent. The Codex model catalog
