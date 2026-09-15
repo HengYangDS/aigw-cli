@@ -93,7 +93,7 @@ func selectBackend(selection Selection) (credentialBackend, error) {
 	}
 	switch selection.Backend {
 	case "keyring":
-		store := keyringStore{observe: observeKeyringItem}
+		store := newKeyringStore()
 		if err := probeKeyring(scopedView{store: store}, selection.KeyringProbe); err != nil {
 			return nil, fmt.Errorf("use keyring secret backend: %w", err)
 		}

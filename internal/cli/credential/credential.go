@@ -3,11 +3,14 @@
 package credential
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/secrets/keychain"
 
 	"github.com/spf13/cobra"
 )
@@ -44,6 +47,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			token, err := runtime.Secrets.Get(clientRuntime.AccountID)
 			if err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					return presentation.ProblemError("Account Token read exceeded its deadline", "", "The credential worker was stopped; no Token was returned.", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read.", err)
+				}
+				if errors.Is(err, keychain.ErrDenied) {
+					return presentation.ProblemError("Keychain did not authorize the Account Token read", "Interaction is disabled for credential reads.", "No Token was returned and no authorization setting was changed.", "Arrange explicit authorization for the selected credential; repeated helper calls cannot grant access.", err)
+				}
 				return presentation.ProblemError(fmt.Sprintf("%s Account Token is unavailable", client), "", "No usable credential was returned.", "Check the selected Account's credential in the configured backend.", err)
 			}
 			_, err = fmt.Fprintln(runtime.Out, token)

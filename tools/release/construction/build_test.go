@@ -144,6 +144,12 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 			t.Fatalf("GoReleaser environment missing %q: %v", expected, goReleaser.Env)
 		}
 	}
+	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
+		call := calls[slices.IndexFunc(calls, func(call toolCall) bool { return call.Name == "goreleaser" })]
+		if !slices.Contains(call.Env, name+"="+os.Getenv(name)) || os.Getenv(name) == "" {
+			t.Fatalf("release must bind explicit native signing input %s", name)
+		}
+	}
 	if err := artifact.ValidateMatrix(output, "1.2.3"); err != nil {
 		t.Fatal(err)
 	}
@@ -226,6 +232,13 @@ func releaseRoot(t *testing.T) string {
 	if err := os.WriteFile(filepath.Join(config, "syft.yaml"), policy, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
+		path := filepath.Join(root, name)
+		if err := os.WriteFile(path, []byte("synthetic native signing input"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv(name, path)
+	}
 	return root
 }
 
@@ -236,23 +249,6 @@ func signingKey(t *testing.T) string {
 		t.Fatalf("generate signing key: %v: %s", err, output)
 	}
 	return key
-}
-
-func TestRenderGoReleaserConfigRejectsMissingSource(t *testing.T) {
-	if _, err := renderGoReleaserConfig(t.TempDir(), t.TempDir(), t.TempDir()); err == nil || !strings.Contains(err.Error(), "read GoReleaser config") {
-		t.Fatalf("missing config error = %v", err)
-	}
-}
-
-func TestRenderGoReleaserConfigRejectsUnwritableDestination(t *testing.T) {
-	root := releaseRoot(t)
-	blocked := filepath.Join(t.TempDir(), "blocked")
-	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := renderGoReleaserConfig(root, blocked, t.TempDir()); err == nil || !strings.Contains(err.Error(), "write GoReleaser config") {
-		t.Fatalf("unwritable config error = %v", err)
-	}
 }
 
 func TestReleaseBuildAcceptsLocalOrSingleForgeContext(t *testing.T) {

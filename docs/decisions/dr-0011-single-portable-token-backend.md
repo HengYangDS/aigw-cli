@@ -33,6 +33,87 @@ implementation reads or migrates another product's credential state.
 
 ## Consequences
 
+macOS metadata, read, write and delete operations share the existing file-based
+Keychain's native API in a same-executable worker. `purego` supplies the C-call bridge while
+keeping the portable build independent of Cgo. The worker disables interaction,
+preserves the existing service, slot, search-list and stored-value grammar, and
+returns bytes only after a successful read. Its parent enforces a five-second
+deadline with bounded process cleanup. This does not grant access: a locked read
+or unauthorized operation fails without changing ACLs, unlocking, migrating or falling
+back. The legacy API remains necessary for the existing file-based store; no
+Data Protection Keychain migration is implied.
+
+The executable that creates a new item also reads it. Writes transport the
+existing base64 storage envelope through bounded stdin, never argv or the
+environment. Updating an item preserves its access policy; deleting an absent
+item succeeds without recreating it. Native deletion authorization is distinct
+from password-read authorization and may permit deletion while the store is
+locked. This repair does not establish cross-release code-identity continuity
+or authorize previously stored items.
+
+Code identity is a release input, not a filename. The private native regression
+reads one retained item from a new process and a byte-identical copy, then
+re-signs only that disposable copy with the same identifier and path. The changed
+ad-hoc identity is denied without a prompt. Thus keeping the installed path or
+setting a fixed signing identifier does not establish upgrade continuity.
+[Apple TN3127](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements)
+explains that an ad-hoc designated requirement identifies one code version.
+Release acceptance must prove the actual predecessor and successor identities
+can access retained credentials; a detached SSH artifact signature does not
+satisfy that native authorization contract. A stable authorized code-signing
+identity is necessary for that release path, while existing foreign-created
+items require their own explicit authorization disposition. Neither is solved
+by widening item access, changing stores silently or retaining an old reader.
+
+### Release identity and credential authorization
+
+Release construction owns the native signing identity and designated requirement;
+the credential store owns authorization to each retained item. Operators provide
+the approved signing key through their existing protected signing infrastructure.
+Its custody, recovery and rotation policy is not an AIGW Account or Token backend.
+No private signing material belongs in the repository or client configuration.
+
+The private native credential regression uses
+[rcodesign](https://gregoryszorc.com/docs/apple-codesign/stable/apple_codesign_rcodesign_signing.html)
+with a disposable self-signed certificate loaded from files. The repository locks
+this tool for release construction on each supported build host; it is never
+shipped in AIGW. Two executables with different code hashes and the same
+certificate-bound requirement read one retained private Keychain item; an unrelated
+ad-hoc reader is denied. Native signature verification and execution require no
+identity import, host trust change or wider item access. The existing private
+Keychain fixture owns creation and teardown for both identity modes. This qualifies
+that isolated authorization boundary, not a production signer, release artifact or
+supported upgrade path.
+
+The existing GoReleaser build signs macOS binaries before archiving. An encrypted
+PKCS#12 identity, password file and compiled designated requirement are explicit
+operator inputs; missing inputs stop construction without prompting or creating
+an identity. Signing time and post-signing file time use the release epoch, not
+wall time. Native Linux and Windows acceptance selects only its own operating
+system and needs no macOS credential. Full release construction still emits and
+verifies every declared target. The native archive test verifies both macOS
+architectures with Apple's verifier and compares two complete matrices across a
+wall-clock boundary. It uses a disposable signing identity, not production trust.
+
+Following [Apple's subsystem-specific trust model](https://developer.apple.com/library/archive/technotes/tn2206/_index.html),
+Keychain identity continuity, distribution trust and notarization remain separate
+acceptance decisions. Developer ID is not a prerequisite for the demonstrated
+private-item test. A certificate-leaf requirement does not survive key rotation
+automatically: rotation needs an explicitly admitted successor requirement and
+retained-item transition. Introducing a stable signer also cannot retroactively
+authorize items created by an older ad-hoc identity or another program. Their
+explicit authorization or re-enrollment must precede deployment; denial remains
+noninteractive until that decision is made.
+
+The system `security` command has no value-read no-interaction option. A timeout
+around it could still permit a password dialog, so it is not the read boundary.
+A separate installed helper or a new credential framework would introduce
+another deployment owner without removing the authorization requirement.
+The private native test demonstrates that `security`-created items can deny a
+different reader even when metadata is visible. An actual reader-identity
+acceptance gate therefore precedes deployment; preserving item bytes alone is
+not sufficient compatibility evidence.
+
 One provider Token is sufficient on a supported workstation even when no
 native credential service is available. Existing keyring Tokens remain in
 their selected backend; there is no dual-read compatibility period. Operators

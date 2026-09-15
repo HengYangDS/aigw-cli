@@ -389,7 +389,13 @@ Ordinary review jobs retain their smaller native path and separate quality job.
 Keep source-signature admission in that quality job; native tool qualification
 does not replace it or infer signer authority from an inherited variable.
 
-The default native suite builds a synthetic predecessor from current source.
+The default native suite builds a synthetic predecessor and candidate through
+the same GoReleaser archive construction used for releases. On macOS, its
+test-owned certificate files give both binaries one stable signing identity;
+the fixture does not import an identity, change host trust or read production
+credentials. An explicitly supplied archive is consumed unchanged and is never
+replaced by a source build. Private fixture signing does not establish
+authorization to credentials created by a historical released executable.
 It tests portable update mechanics, not compatibility with a historical
 release. The historical product journey retains the predecessor's projections
 during the first replacement. The real-client journey keeps each Adapter enabled
@@ -416,12 +422,17 @@ installation or use the host credential store.
 
 On a disposable native test host, `AIGW_VERIFY_SYSTEM_KEYRING=1` also exercises
 the selected predecessor and packaged candidate through the system credential
-store. It verifies rotation, upgrade, rollback, helper execution, retained
-credentials after uninstall, and exact test-slot deletion. macOS additionally
+store. It verifies rotation, upgrade, rollback, re-upgrade, uninstall, reinstall,
+retained helper credentials, and exact test-slot deletion. Each replacement
+keeps the Adapter enabled and checks configuration bytes before `sync` can
+change them. macOS additionally
 requires `AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host`; never set this on
 the operator's workstation. Linux requires a real user bus and Secret Service
 for this path; the no-bus fallback is a separate journey. Windows exercises
 Credential Manager. An occupied test slot fails before mutation.
+The installed AIGW helper, not the test executable, proves Token reads.
+The fixture observes slot presence and performs exact cleanup; requiring it to
+read the Token would add an unrelated reader-authorization prerequisite.
 
 Keep daemon diagnostics separate from the product command's result. GNOME
 Keyring 48.0 emits an already-registered-item warning when replacing an existing
@@ -532,6 +543,8 @@ existing command sequence.
 To build one candidate and run both native lifecycle and real-client acceptance,
 provide the same client and predecessor inputs and run
 `mise exec --locked -- go run ./tools/release accept-native --clients`.
+On macOS this explicit build requires the
+[native release signing inputs](docs/decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
 The release owner supplies the candidate directory, retains it for both tests,
 stops on the first failure and cleans it afterward. No second build is needed.
 
@@ -587,13 +600,13 @@ the client runs with no Linux capabilities and no-new-privileges. This is a
 test-host constraint, not an AIGW installation requirement or a recommendation
 to relax an operator's Docker security policy.
 
-The lifecycle executes the projected credential helper through the native shell
-rather than parsing a particular helper argument layout. Upgrade is followed
-by the active program's explicit `sync`; rollback first withdraws the fixture's
-enabled integration, then restores the program and synchronizes again. Both
-paths check credentials and readiness. The predecessor must accept the fixture's configuration and
-manifest schemas; an older-schema baseline requires its own reviewed migration
-journey and cannot establish compatibility through this test alone.
+The lifecycle executes the projected credential helper through the native shell,
+not a parsed copy of its arguments. Upgrade, rollback and re-upgrade keep the
+Adapter enabled; configuration must remain byte-identical before the active
+program synchronizes. Check the active executable, credential and readiness
+after each transition. The predecessor must accept the fixture's configuration
+and manifest schemas; an older-schema baseline needs its own reviewed migration
+journey, not a disabled integration that hides incompatibility.
 
 ### Historical release qualification
 

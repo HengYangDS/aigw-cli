@@ -28,6 +28,24 @@ func AcceptNative(artifacts string, clients bool, performance string) error {
 	return acceptNative(request, artifacts, clients, performance, executeTool)
 }
 
+// BuildNative constructs and extracts the current host's archive through the release owner.
+// The caller owns workspace and its cleanup; this neither publishes nor installs.
+func BuildNative(root, workspace, version string) (string, error) {
+	epoch, err := resolveReleaseEpoch(root, version)
+	if err != nil {
+		return "", err
+	}
+	request := buildRequest{Root: root, Version: version, Epoch: epoch, TargetOS: runtime.GOOS}
+	if err := validateRequest(request); err != nil {
+		return "", err
+	}
+	stage, err := buildArchives(request, workspace, executeTool)
+	if err != nil {
+		return "", err
+	}
+	return stage, prepareNativeBinary(stage, version)
+}
+
 func acceptNative(request buildRequest, artifacts string, clients bool, performance string, run toolRunner) (result error) {
 	if performance != "" && !filepath.IsAbs(performance) {
 		return errors.New("performance output must be an absolute directory")
@@ -49,27 +67,33 @@ func acceptNative(request buildRequest, artifacts string, clients bool, performa
 			result = errors.Join(result, fmt.Errorf("remove native acceptance workspace %s: %w", workspace, err))
 		}
 	}()
-	stage := workspace
-	if artifacts == "" {
+	stage := ""
+	if artifacts == "" && clients {
+		request.TargetOS = runtime.GOOS
 		stage, err = buildArchives(request, workspace, run)
 		if err != nil {
 			return err
 		}
-	} else {
+		if err := prepareNativeBinary(stage, request.Version); err != nil {
+			return err
+		}
+	}
+	if artifacts != "" {
+		stage = workspace
 		target := artifact.Target{OS: runtime.GOOS, Arch: runtime.GOARCH}
 		for _, name := range []string{target.ArchiveName(request.Version), "checksums.txt"} {
 			if err := copyFile(filepath.Join(artifacts, name), filepath.Join(stage, name)); err != nil {
 				return err
 			}
 		}
-	}
-	if err := prepareNativeBinary(stage, request.Version); err != nil {
-		return err
+		if err := prepareNativeBinary(stage, request.Version); err != nil {
+			return err
+		}
 	}
 	call := toolCall{
 		Name: "go", Directory: request.Root,
 		Args: []string{"test", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney)$", "-count=1", "-v"},
-		Env:  []string{"AIGW_ACCEPTANCE_RELEASE=" + stage},
+		Env:  []string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace},
 	}
 	if err := run(call); err != nil {
 		return err

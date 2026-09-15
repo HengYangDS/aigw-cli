@@ -78,6 +78,7 @@ type miseConfiguration struct {
 }
 
 func TestMiseToolExecutablesMatchDeclaredVersions(t *testing.T) {
+	const macSigner = "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]"
 	root := repositoryRoot(t)
 	content, err := os.ReadFile(filepath.Join(root, "mise.toml"))
 	if err != nil {
@@ -106,6 +107,7 @@ func TestMiseToolExecutablesMatchDeclaredVersions(t *testing.T) {
 		"github:golangci/golangci-lint":                    {[]string{"golangci-lint", "version"}, `^golangci-lint has version (\S+)`},
 		"github:rhysd/actionlint":                          {[]string{"actionlint", "--version"}, `^(\S+)`},
 		"github:lycheeverse/lychee":                        {[]string{"lychee", "--version"}, `^lychee (\S+)`},
+		macSigner:                                          {[]string{"rcodesign", "--version"}, `^apple-codesign (\S+)`},
 	}
 	for name, declared := range configuration.Tools {
 		t.Run(name, func(t *testing.T) {

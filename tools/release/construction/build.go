@@ -27,6 +27,7 @@ type buildRequest struct {
 	GitLabOrigin, GitLabRepository string
 	GitHubOrigin, GitHubRepository string
 	SigningKey                     string
+	TargetOS                       string
 }
 
 type toolCall struct {
@@ -47,6 +48,9 @@ func buildRelease(request buildRequest, run toolRunner) (result error) {
 	}
 	if strings.TrimSpace(request.SigningKey) == "" {
 		return errors.New("release construction requires AIGW_RELEASE_SIGNING_KEY")
+	}
+	if _, err := nativeSigningEnvironment(); err != nil {
+		return err
 	}
 	if err := ensureCleanSource(request.Root, run); err != nil {
 		return err
@@ -151,6 +155,14 @@ func buildRelease(request buildRequest, run toolRunner) (result error) {
 }
 
 func buildArchives(request buildRequest, workspace string, run toolRunner) (string, error) {
+	var signing []string
+	if request.TargetOS == "" || request.TargetOS == "darwin" {
+		var err error
+		signing, err = nativeSigningEnvironment()
+		if err != nil {
+			return "", err
+		}
+	}
 	stage := filepath.Join(workspace, "goreleaser")
 	config, err := renderGoReleaserConfig(request.Root, workspace, stage)
 	if err != nil {
@@ -161,6 +173,7 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 		return "", err
 	}
 	environment := []string{
+		"AIGW_BUILD_OS=" + request.TargetOS,
 		"AIGW_VERSION=" + request.Version,
 		"AIGW_RELEASE_EPOCH=" + request.Epoch,
 		"AIGW_RELEASE_TIMESTAMP=" + instant.Format(time.RFC3339),
@@ -169,10 +182,30 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 		"AIGW_GITHUB_RELEASE_ORIGIN=" + request.GitHubOrigin,
 		"AIGW_GITHUB_RELEASE_REPOSITORY=" + request.GitHubRepository,
 	}
+	environment = append(environment, signing...)
 	if err := run(toolCall{Name: "goreleaser", Directory: request.Root, Args: []string{"release", "--snapshot", "--clean", "--skip=publish", "--config", config}, Env: environment}); err != nil {
 		return "", fmt.Errorf("build portable release artifacts: %w", err)
 	}
 	return stage, nil
+}
+
+func nativeSigningEnvironment() ([]string, error) {
+	var environment []string
+	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
+		path := os.Getenv(name)
+		if path == "" || !filepath.IsAbs(path) {
+			return nil, fmt.Errorf("release construction requires an absolute %s file", name)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, fmt.Errorf("inspect %s: %w", name, err)
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("release construction requires a regular %s file", name)
+		}
+		environment = append(environment, name+"="+path)
+	}
+	return environment, nil
 }
 
 func renderGoReleaserConfig(root, workspace, stage string) (string, error) {

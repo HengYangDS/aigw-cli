@@ -369,7 +369,7 @@ func TestNativeJobsEnableTheirExactCommandToolClosure(t *testing.T) {
 				t.Errorf("GitLab %s cannot run repository conformance tests: missing %s", name, tool)
 			}
 		}
-		for _, tool := range []string{"glab", "github:goreleaser/goreleaser", "github:anchore/syft"} {
+		for _, tool := range []string{"glab", "github:goreleaser/goreleaser", "github:anchore/syft", "github:indygreg/apple-platform-rs"} {
 			if !slices.Contains(strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ","), tool) {
 				t.Errorf("GitLab %s lacks native release conformance tool %s", name, tool)
 			}

@@ -1,4 +1,4 @@
-min_version = "2026.9.5"
+min_version = "2026.9.9"
 
 [settings]
 legacy_version_file = false
@@ -12,7 +12,7 @@ GOTOOLCHAIN = "local"
 GOWORK = "off"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.90.3@sha256:aba0e1146d259bf2657c034f72ce63597a9f8335acec8084d9f396bc4ba09522"
+renovate_image = "ghcr.io/renovatebot/renovate:44.93.5@sha256:a813dd2b59451b4fc6f3d1679dcf92af6a6f045d354301d061d18c177a6f32a2"
 
 [tools]
 # Language runtimes
@@ -23,14 +23,16 @@ node = "26.8.2"
 cue = "0.17.1"
 
 # Release transport conformance
-gh = "2.100.0"
-glab = "1.117.0"
+gh = "2.101.0"
+glab = "1.118.0"
 
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.18.1"
 "github:anchore/syft" = "1.51.1"
 # Build with the repository Go compiler; upstream binaries may lag its language.
 "go:github.com/google/osv-scanner/v2/cmd/osv-scanner" = "2.6.0"
+# Cross-host macOS release signing and private native credential identity tests.
+"github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]" = "0.29.0"
 
 # Structured data quality
 taplo = "0.10.0"

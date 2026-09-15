@@ -9,6 +9,43 @@ import (
 	"testing"
 )
 
+func TestRenderGoReleaserConfigRejectsMissingSource(t *testing.T) {
+	if _, err := renderGoReleaserConfig(t.TempDir(), t.TempDir(), t.TempDir()); err == nil || !strings.Contains(err.Error(), "read GoReleaser config") {
+		t.Fatalf("missing config error = %v", err)
+	}
+}
+
+func TestRenderGoReleaserConfigRejectsUnwritableDestination(t *testing.T) {
+	root := releaseRoot(t)
+	blocked := filepath.Join(t.TempDir(), "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := renderGoReleaserConfig(root, blocked, t.TempDir()); err == nil || !strings.Contains(err.Error(), "write GoReleaser config") {
+		t.Fatalf("unwritable config error = %v", err)
+	}
+}
+
+func TestReleaseRequiresCompleteNativeSigningBeforeAnyTool(t *testing.T) {
+	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
+		for _, state := range []string{"absent", "relative", "missing", "directory"} {
+			t.Run(name+"/"+state, func(t *testing.T) {
+				root := releaseRoot(t)
+				value := map[string]string{"absent": "", "relative": "signer.p12", "missing": filepath.Join(root, "missing"), "directory": root}[state]
+				t.Setenv(name, value)
+				calls := 0
+				err := buildRelease(buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: "1.2.3", Epoch: "0", SigningKey: "synthetic"}, func(toolCall) error {
+					calls++
+					return errors.New("tool must not execute")
+				})
+				if err == nil || !strings.Contains(err.Error(), name) || calls != 0 {
+					t.Fatalf("missing native signing boundary: err=%v calls=%d", err, calls)
+				}
+			})
+		}
+	}
+}
+
 func TestReleaseBuildBoundaryFailures(t *testing.T) {
 	valid := buildRequest{
 		Root: releaseRoot(t), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400",

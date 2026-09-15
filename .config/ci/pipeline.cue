@@ -39,7 +39,7 @@ commands: {
 }
 
 goToolchain: MISE_ENABLE_TOOLS:      "go"
-nativeToolchain: MISE_ENABLE_TOOLS:  "\(qualityToolchain.MISE_ENABLE_TOOLS),gh,glab,github:anchore/syft"
+nativeToolchain: MISE_ENABLE_TOOLS:  "\(qualityToolchain.MISE_ENABLE_TOOLS),gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs"
 qualityToolchain: MISE_ENABLE_TOOLS: "go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo"
 
 // Git role names belong to the adopter workspace; CUE consumes its native TOML.
