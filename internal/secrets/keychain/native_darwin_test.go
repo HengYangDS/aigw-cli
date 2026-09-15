@@ -197,7 +197,9 @@ func TestNativePrivateKeychainReadAndLockedFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	// The fixture runs three instrumented child processes plus Keychain setup
+	// and teardown. Its budget is not the production worker's operation limit.
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
 	command := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestNativePrivateKeychainReadAndLockedFailure$")
 	command.Env = append(os.Environ(), "AIGW_TEST_PRIVATE_KEYCHAIN="+t.TempDir())
@@ -375,12 +377,14 @@ func testPrivateReaderExecutableIdentity(t *testing.T, root string) {
 
 func testPrivateReaderProcess(t *testing.T, program, root, expectation string) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	// Allow race/coverage startup and exit bookkeeping around the native call.
+	// The product worker still has its independent five-second deadline.
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
 	command := exec.CommandContext(ctx, program, "-test.run=^TestNativePrivateKeychainReadAndLockedFailure$")
 	command.Env = append(os.Environ(), "AIGW_TEST_PRIVATE_KEYCHAIN="+root, "AIGW_TEST_PRIVATE_READER="+expectation)
 	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("private reader process (%s): %v\n%s", expectation, err, output)
+		t.Fatalf("private reader process (%s, %s): %v; context=%v\n%s", filepath.Base(program), expectation, err, ctx.Err(), output)
 	}
 }
 
