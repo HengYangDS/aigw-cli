@@ -344,12 +344,14 @@ the documented automatic policy. API Tokens and Provider diagnostic credentials
 use distinct typed slots in the same backend. No command searches several
 stores or opens a prompt for read-only status.
 
-Native macOS metadata queries and value reads use one same-executable worker under
-`internal/secrets/keychain`, the existing process runner and a five-second read
-deadline. The worker disables interaction before the exact file-based Keychain
-query; only HOME crosses the child environment. It preserves the go-keyring
-service, slot and stored-value grammar, while writes and deletes retain their
-existing owner. `purego` is the small Cgo-free native bridge, not another
+Native macOS metadata, read, write and delete operations use one same-executable
+worker under `internal/secrets/keychain`, the existing process runner and a
+five-second operation deadline. The worker disables interaction before accessing
+the exact file-based Keychain item; only HOME crosses the child environment.
+It preserves the go-keyring service, slot and stored-value grammar. Writes use
+bounded stdin, updates retain item identity and access policy, and exact deletion
+is idempotent. Native authorization is evaluated for each operation rather than
+inferred from lock state. `purego` is the small Cgo-free native bridge, not another
 credential framework. No extra helper executable, service, configuration,
 fallback reader or access-control mutation is introduced. Denial and timeout
 are distinct from absence, and helper diagnostics remain off Token stdout.

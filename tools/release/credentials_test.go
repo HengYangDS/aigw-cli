@@ -1,13 +1,12 @@
 package main
 
 import (
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secrets/keychain"
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +16,23 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestMain(m *testing.M) {
+	if handled, code := keychain.RunWorker(os.Args[1:], os.Stdin, os.Stdout, secrets.Service); handled {
+		os.Exit(code)
+	}
+	os.Exit(m.Run())
+}
+
+func TestReleaseCredentialWorkerObservesOnlyAnAbsentItem(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("native Keychain worker boundary")
+	}
+	account := "aigw-release-absent-" + filepath.Base(t.TempDir())
+	if exists, err := keychain.Exists(secrets.Service, account); err != nil || exists {
+		t.Fatalf("release credential worker observation: exists=%t error=%v", exists, err)
+	}
+}
 
 func runNativeEphemeralCredentials(t *testing.T, artifact string) {
 	t.Helper()
@@ -83,26 +99,30 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		}
 	})
 	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
-	if got, err := store.Get("native-system-keyring-probe"); err != nil || got != token {
-		t.Fatalf("initial native credential = %q, %v", got, err)
-	}
 	if got := journey.claudeCredential(); got != token {
 		t.Fatalf("credential = %q", got)
 	}
 	journey.runWithInput(journey.binary, replacement+"\n", "rotate", "native-system-keyring-probe", "--token-stdin")
-	if got, err := store.Get("native-system-keyring-probe"); err != nil || got != replacement {
-		t.Fatalf("replaced credential = %q, %v", got, err)
+	if got := journey.claudeCredential(); got != replacement {
+		t.Fatalf("rotated client credential = %q", got)
 	}
 	journey.requireStoredCredentialAcrossUpdate(root, newVersion, oldVersion, replacement, backend)
 	journey.uninstallAndRequireOwnedFilesAbsent()
-	if got, err := store.Get("native-system-keyring-probe"); err != nil || got != replacement {
-		t.Fatalf("uninstall changed the retained credential: %q, %v", got, err)
+	if exists, err := store.Exists("native-system-keyring-probe"); err != nil || !exists {
+		t.Fatalf("uninstall removed the retained credential: exists=%t error=%v", exists, err)
 	}
+	journey.runWith(journey.source, "install", "--target", journey.binary)
+	journey.run("sync")
+	journey.requireCredentialBackend(replacement, backend)
+	if got := journey.claudeCredential(); got != replacement {
+		t.Fatalf("reinstalled client lost the retained credential: %q", got)
+	}
+	journey.uninstallAndRequireOwnedFilesAbsent()
 	if err := store.Delete("native-system-keyring-probe"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Get("native-system-keyring-probe"); !errors.Is(err, secrets.ErrNotFound) {
-		t.Fatalf("deleted credential remains: %v", err)
+	if exists, err := store.Exists("native-system-keyring-probe"); err != nil || exists {
+		t.Fatalf("deleted credential remains: exists=%t error=%v", exists, err)
 	}
 }
 
@@ -259,8 +279,11 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(root, newVersion, o
 		{oldVersion, j.source, []string{"update", "--rollback"}},
 		{newVersion, candidate, []string{"update", "--candidate", archive, "--checksums", checksums}},
 	} {
-		j.run("adapter", "disable", configuration.ClientClaude)
+		configurationBefore := readFile(j.testing, j.config)
 		j.run(step.args...)
+		if !bytes.Equal(readFile(j.testing, j.config), configurationBefore) {
+			j.testing.Fatal("credential lifecycle changed the retained client configuration")
+		}
 		j.run("sync")
 		j.requireVersion(step.version)
 		j.requireProgramBytes(step.program)

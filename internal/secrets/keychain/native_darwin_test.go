@@ -69,6 +69,68 @@ func TestNativeReadRequiresSuccessfulUISuppression(t *testing.T) {
 	}
 }
 
+func TestNativeMutationSuppressesUIAndPreservesItemIdentity(t *testing.T) {
+	for _, operation := range []string{writeCommand, deleteCommand} {
+		for _, status := range []int32{0, -25308, -25293, -25291} {
+			var calls []string
+			api := nativeAPI{
+				interaction: func(allowed bool) int32 {
+					if allowed {
+						t.Fatal("mutation enabled interaction")
+					}
+					calls = append(calls, "disable-ui")
+					return 0
+				},
+				find: func(chain uintptr, serviceSize uint32, service string, accountSize uint32, account string, size *uint32, data *unsafe.Pointer, item *uintptr) int32 {
+					if chain != 42 || service != "service" || account != "account" || serviceSize != 7 || accountSize != 7 || size != nil || data != nil || item == nil {
+						t.Fatal("mutation lookup changed identity or requested password")
+					}
+					calls = append(calls, "find")
+					*item = 99
+					return 0
+				},
+				modify: func(item, attributes uintptr, size uint32, data unsafe.Pointer) int32 {
+					// #nosec G103 -- Inspect the exact borrowed test buffer during this fake native call.
+					if item != 99 || attributes != 0 || string(unsafe.Slice((*byte)(data), size)) != "replacement" {
+						t.Fatal("update replaced item identity, attributes or bytes")
+					}
+					calls = append(calls, writeCommand)
+					return status
+				},
+				remove: func(item uintptr) int32 {
+					if item != 99 {
+						t.Fatal("delete targeted another item")
+					}
+					calls = append(calls, deleteCommand)
+					return status
+				},
+				release: func(item uintptr) {
+					if item != 99 {
+						t.Fatal("released another item")
+					}
+					calls = append(calls, "release")
+				},
+			}
+			err := api.mutate(42, operation, "service", "account", []byte("replacement"))
+			if !errors.Is(err, nativeStatus(status)) || !slices.Equal(calls, []string{"disable-ui", "find", operation, "release"}) {
+				t.Fatalf("mutation %s status %d: calls=%v error=%v", operation, status, calls, err)
+			}
+		}
+	}
+}
+
+func TestNativeMutationRejectsUnadmittedOperationsBeforeLookup(t *testing.T) {
+	api := nativeAPI{interaction: func(bool) int32 { return -1 }}
+	for _, operation := range []string{workerCommand, writeCommand, deleteCommand} {
+		if err := api.mutate(0, operation, "service", "account", nil); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("unavailable mutation %s: %v", operation, err)
+		}
+	}
+	if err := api.mutate(0, writeCommand, "service", "account", make([]byte, maxStoredValue+1)); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("oversized native write: %v", err)
+	}
+}
+
 func TestNativeObservationRequestsNoValueOrItemAllocation(t *testing.T) {
 	queried := false
 	api := nativeAPI{
@@ -91,7 +153,7 @@ func TestNativeReadReleasesRejectedNativeBuffers(t *testing.T) {
 		size       uint32
 		freeStatus int32
 	}{
-		{size: 128*1024 + 1}, {size: 0, freeStatus: -1}, {size: 1},
+		{size: maxStoredValue + 1}, {size: 0, freeStatus: -1}, {size: 1},
 	} {
 		freed := false
 		api := nativeAPI{
@@ -111,7 +173,7 @@ func TestNativeReadReleasesRejectedNativeBuffers(t *testing.T) {
 func TestNativeAbsentReadUsesTheRealBridgeAndBoundedWorker(t *testing.T) {
 	// Only a unique absent item is queried; this process disables its own UI.
 	account := "aigw-absent-" + filepath.Base(t.TempDir())
-	if value, err := queryNative("AIGW_TOKEN", account, false); value != nil || !errors.Is(err, ErrNotFound) {
+	if value, err := queryNative(workerCommand, "AIGW_TOKEN", account, nil); value != nil || !errors.Is(err, ErrNotFound) {
 		t.Fatalf("native missing item classification: %v", err)
 	}
 	if value, err := Read("AIGW_TOKEN", account); value != "" || !errors.Is(err, ErrNotFound) {
@@ -124,6 +186,10 @@ func TestNativeAbsentReadUsesTheRealBridgeAndBoundedWorker(t *testing.T) {
 
 func TestNativePrivateKeychainReadAndLockedFailure(t *testing.T) {
 	if root := os.Getenv("AIGW_TEST_PRIVATE_KEYCHAIN"); root != "" {
+		if expectation := os.Getenv("AIGW_TEST_PRIVATE_READER"); expectation != "" {
+			testPrivateKeychainReader(t, root, expectation)
+			return
+		}
 		testPrivateKeychain(t, root)
 		return
 	}
@@ -182,6 +248,7 @@ func testPrivateKeychain(t *testing.T, root string) {
 		t.Fatalf("create private Keychain: %d", code)
 	}
 	t.Cleanup(func() {
+		defer api.release(chain)
 		if code := remove(chain); code != 0 {
 			t.Errorf("delete private Keychain: %d", code)
 		}
@@ -193,9 +260,11 @@ func testPrivateKeychain(t *testing.T, root string) {
 	if got, err := api.read(chain, "service", "account", false); err != nil || string(got) != value {
 		t.Fatalf("synthetic exact item read: %v", err)
 	}
+	testPrivateReaderExecutableIdentity(t, root)
 	if got, err := api.read(chain, "service", "absent", false); got != nil || !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing item: %v", err)
 	}
+	testNativeCredentialMutation(t, api, chain)
 	command := exec.Command("/usr/bin/security", "-i")
 	command.Stdin = strings.NewReader("add-generic-password -s service -a security-writer -w synthetic-fixture '" + filepath.Join(root, "fixture.keychain") + "'\n")
 	if output, err := command.CombinedOutput(); err != nil {
@@ -212,5 +281,125 @@ func testPrivateKeychain(t *testing.T, root string) {
 	}
 	if got, err := api.read(chain, "service", "account", false); got != nil || !errors.Is(err, ErrDenied) {
 		t.Fatalf("locked item: %v", err)
+	}
+	if err := api.mutate(chain, writeCommand, "service", "account", []byte("replacement")); !errors.Is(err, ErrDenied) {
+		t.Fatalf("locked write: %v", err)
+	}
+	// File-based Keychain deletion has its own authorization: this owned item
+	// can be removed while locked without unlocking or reading its password.
+	if err := api.mutate(chain, deleteCommand, "service", "account", nil); err != nil {
+		t.Fatalf("owned locked-item deletion: %v", err)
+	}
+	if _, err := api.read(chain, "service", "account", true); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleted locked item remains: %v", err)
+	}
+}
+
+func testPrivateKeychainReader(t *testing.T, root, expectation string) {
+	t.Helper()
+	api, closeLibrary, err := loadNative()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := closeLibrary(); err != nil {
+			t.Error(err)
+		}
+	})
+	if code := api.interaction(false); code != 0 {
+		t.Fatalf("disable reader interaction: %d", code)
+	}
+	lib, err := purego.Dlopen(securityFramework, purego.RTLD_NOW|purego.RTLD_LOCAL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := purego.Dlclose(lib); err != nil {
+			t.Error(err)
+		}
+	})
+	var open func(string, *uintptr) int32
+	purego.RegisterLibFunc(&open, lib, "SecKeychainOpen")
+	var chain uintptr
+	if code := open(filepath.Join(root, "fixture.keychain"), &chain); code != 0 {
+		t.Fatalf("open private Keychain: %d", code)
+	}
+	defer api.release(chain)
+	value, err := api.read(chain, "service", "account", false)
+	defer clear(value)
+	switch expectation {
+	case "authorized":
+		if err != nil || string(value) != "go-keyring-base64:c3ludGhldGlj" {
+			t.Fatalf("same-image subprocess read: %v", err)
+		}
+	case "denied":
+		if value != nil || !errors.Is(err, ErrDenied) {
+			t.Fatalf("different-image authorization: %v", err)
+		}
+	default:
+		t.Fatal("unknown reader expectation")
+	}
+}
+
+func testPrivateReaderExecutableIdentity(t *testing.T, root string) {
+	t.Helper()
+	copyPath := filepath.Join(root, "successor-reader")
+	program, err := os.ReadFile(os.Args[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(copyPath, program, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, program := range []string{os.Args[0], copyPath} {
+		testPrivateReaderProcess(t, program, root, "authorized")
+	}
+	metadata, err := exec.Command("/usr/bin/codesign", "--display", "--verbose=2", copyPath).CombinedOutput()
+	if err != nil {
+		t.Fatalf("inspect disposable code identity: %v", err)
+	}
+	_, identifier, found := strings.Cut(string(metadata), "Identifier=")
+	identifier, _, _ = strings.Cut(identifier, "\n")
+	if !found || identifier == "" {
+		t.Fatal("disposable code has no signing identifier")
+	}
+	// Only this disposable copy is re-signed. No certificate, user keychain,
+	// production executable or item access policy is changed. Both the path
+	// and identifier stay the same; code-hash identity alone changes.
+	command := exec.Command("/usr/bin/codesign", "--force", "--sign", "-", "--identifier", identifier, copyPath)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("different disposable code identity: %v\n%s", err, output)
+	}
+	testPrivateReaderProcess(t, copyPath, root, "denied")
+}
+
+func testPrivateReaderProcess(t *testing.T, program, root, expectation string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, program, "-test.run=^TestNativePrivateKeychainReadAndLockedFailure$")
+	command.Env = append(os.Environ(), "AIGW_TEST_PRIVATE_KEYCHAIN="+root, "AIGW_TEST_PRIVATE_READER="+expectation)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("private reader process (%s): %v\n%s", expectation, err, output)
+	}
+}
+
+func testNativeCredentialMutation(t *testing.T, api nativeAPI, chain uintptr) {
+	t.Helper()
+	for _, token := range []string{"created-token", "rotated-token"} {
+		if err := api.mutate(chain, writeCommand, "service", "native-writer", []byte(token)); err != nil {
+			t.Fatalf("native writer: %v", err)
+		}
+		if got, err := api.read(chain, "service", "native-writer", false); err != nil || string(got) != token {
+			t.Fatalf("same-identity read after write: %v", err)
+		}
+	}
+	for range 2 {
+		if err := api.mutate(chain, deleteCommand, "service", "native-writer", nil); err != nil {
+			t.Fatalf("native delete: %v", err)
+		}
+	}
+	if _, err := api.read(chain, "service", "native-writer", true); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleted native item remains: %v", err)
 	}
 }

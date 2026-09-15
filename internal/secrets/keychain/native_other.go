@@ -2,6 +2,6 @@
 
 package keychain
 
-func queryNative(string, string, bool) ([]byte, error) {
+func queryNative(string, string, string, []byte) ([]byte, error) {
 	return nil, ErrUnavailable
 }

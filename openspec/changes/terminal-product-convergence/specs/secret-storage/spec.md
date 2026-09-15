@@ -215,9 +215,9 @@ resource and original failure without claiming restoration.
 
 ### Requirement: macOS credential observations and reads are bounded and noninteractive
 
-The macOS Keychain adapter SHALL execute metadata queries and value reads in
-the same AIGW executable's isolated worker. The worker SHALL disable Keychain
-interaction before querying the selected service and slot. Metadata queries
+The macOS Keychain adapter SHALL execute metadata, read, write and delete
+operations in the same AIGW executable's isolated worker. The worker SHALL
+disable Keychain interaction before accessing the selected service and slot. Metadata queries
 SHALL request neither password bytes nor an item-reference allocation.
 The parent SHALL enforce a five-second operation deadline and the existing
 bounded process cleanup contract. The child SHALL receive no Token, loader
@@ -228,6 +228,25 @@ stored-value grammar. A denied or locked read SHALL fail without changing access
 control, unlocking, migrating a credential or trying another reader. Failure
 SHALL return no credential bytes; diagnostics SHALL remain separate from the
 client's Token stdout. A metadata success SHALL NOT prove value authorization.
+
+Writes SHALL transport the existing storage envelope through bounded stdin,
+never command arguments or environment variables. Creation and reading SHALL
+use the same executable identity; updates SHALL preserve item identity and
+access policy. Deleting an absent item SHALL be a successful no-op. Each native
+operation SHALL own its authorization result; a locked store SHALL NOT imply
+that metadata observation or authorized deletion is forbidden. Successful fresh
+creation SHALL NOT prove retained-item or cross-release authorization.
+
+#### Scenario: The installed executable creates and rotates a credential
+
+- **WHEN** its native writer creates or updates an authorized exact slot
+- **THEN** its native reader returns the written value without interaction
+- **AND** mutation emits no Token, including unexpected backend output.
+
+#### Scenario: Exact deletion is repeated
+
+- **WHEN** an authorized deletion removes an item and deletion is requested again
+- **THEN** both operations succeed and the exact item remains absent.
 
 #### Scenario: A credential requires authentication interaction
 

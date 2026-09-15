@@ -29,13 +29,15 @@ mechanism, set `AIGW_SECRET_BACKEND` to
   Manager. Reads and writes require that native service's access permission.
   Explicit selection fails closed if the service is unavailable; AIGW does not
   silently switch stores. Metadata observation does not authorize secret reads.
-  macOS metadata and value queries run in a same-executable worker that disables
-  Keychain interaction
-  before looking up the selected service and slot. The parent allows five seconds
-  for the read and the shared process runner bounds pipe teardown separately.
+  macOS metadata, read, write and delete operations run in a same-executable
+  worker that disables Keychain interaction before accessing the selected service
+  and slot. The parent allows five seconds per operation; the shared process
+  runner bounds pipe teardown separately. Writes receive the existing storage
+  envelope through bounded stdin, never arguments or environment variables.
   Denied, locked or timed-out reads return no Token; AIGW neither changes access
-  control nor retries through another reader. Writes and deletes retain the
-  native service's authorization requirements. Linux and Windows use their own
+  control nor retries through another reader. Updates preserve item identity and
+  access policy; deletion is exact and idempotent. Each operation respects its
+  native authorization, which is not inferred from lock state alone. Linux and Windows use their own
   native adapters; the macOS worker is not a claim about those platforms.
 
 - **`file`** uses an owner-only directory and regular file per Account on macOS

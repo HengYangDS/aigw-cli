@@ -12,7 +12,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if handled, code := keychain.RunWorker(os.Args[1:], os.Stdout, Service); handled {
+	if handled, code := keychain.RunWorker(os.Args[1:], os.Stdin, os.Stdout, Service); handled {
 		os.Exit(code)
 	}
 	os.Exit(m.Run())
@@ -33,7 +33,7 @@ func TestDecodeKeyringBase64RequiresCanonicalSingleEnvelope(t *testing.T) {
 
 func TestKeyringCredentialKindsShareOneServiceWithoutSharingSlots(t *testing.T) {
 	keyring.MockInit()
-	store := scopedView{store: keyringStore{observe: mockKeyringObserver, read: keyring.Get}}
+	store := scopedView{store: keyringStore{observe: mockKeyringObserver, read: keyring.Get, write: keyring.Set, remove: keyring.Delete}}
 	if err := store.Set("dmx", "api-token"); err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestKeyringCredentialKindsShareOneServiceWithoutSharingSlots(t *testing.T) 
 
 func TestKeyringStoreLifecycleAndValidation(t *testing.T) {
 	keyring.MockInit()
-	store := scopedView{store: keyringStore{observe: mockKeyringObserver, read: keyring.Get}}
+	store := scopedView{store: keyringStore{observe: mockKeyringObserver, read: keyring.Get, write: keyring.Set, remove: keyring.Delete}}
 	if mustExist(t, store, "dmx") {
 		t.Fatal("new mocked keyring unexpectedly has a token")
 	}
@@ -94,13 +94,13 @@ func TestKeyringStoreMapsEmptyValuesAndProviderErrors(t *testing.T) {
 	if err := keyring.Set(Service, "dmx", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := (scopedView{store: keyringStore{observe: mockKeyringObserver, read: keyring.Get}}).Get("dmx"); !errors.Is(err, ErrNotFound) {
+	if _, err := (scopedView{store: keyringStore{observe: mockKeyringObserver, read: keyring.Get, write: keyring.Set, remove: keyring.Delete}}).Get("dmx"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("empty provider value error = %v", err)
 	}
 	want := errors.New("keyring unavailable")
 	keyring.MockInitWithError(want)
 	t.Cleanup(keyring.MockInit)
-	store := scopedView{store: keyringStore{observe: mockKeyringObserver, read: keyring.Get}}
+	store := scopedView{store: keyringStore{observe: mockKeyringObserver, read: keyring.Get, write: keyring.Set, remove: keyring.Delete}}
 	if _, err := store.Get("dmx"); !errors.Is(err, want) {
 		t.Fatalf("Get error = %v", err)
 	}

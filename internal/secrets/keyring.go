@@ -34,14 +34,20 @@ func DecodeKeyringBase64(value string) (string, error) {
 type keyringStore struct {
 	observe func(service, slot string) (bool, error)
 	read    func(service, slot string) (string, error)
+	write   func(service, slot, value string) error
+	remove  func(service, slot string) error
 }
 
 func newKeyringStore() keyringStore {
-	reader := keyring.Get
+	store := keyringStore{observe: observeKeyringItem, read: keyring.Get, write: keyring.Set, remove: keyring.Delete}
 	if runtime.GOOS == "darwin" {
-		reader = readNativeKeychain
+		store.read = readNativeKeychain
+		store.write = func(service, slot, value string) error {
+			return keychain.Write(service, slot, "go-keyring-base64:"+base64.StdEncoding.EncodeToString([]byte(value)))
+		}
+		store.remove = keychain.Delete
 	}
-	return keyringStore{observe: observeKeyringItem, read: reader}
+	return store
 }
 
 func readNativeKeychain(service, slot string) (string, error) {
@@ -70,17 +76,17 @@ func (store keyringStore) get(kind Kind, account string) (string, error) {
 	return value, nil
 }
 
-func (keyringStore) set(kind Kind, account, value string) error {
+func (store keyringStore) set(kind Kind, account, value string) error {
 	slot := slotName(kind, account)
-	if err := keyring.Set(Service, slot, value); err != nil {
+	if err := store.write(Service, slot, value); err != nil {
 		return fmt.Errorf("write %s/%s to system keyring: %w", Service, slot, err)
 	}
 	return nil
 }
 
-func (keyringStore) delete(kind Kind, account string) error {
+func (store keyringStore) delete(kind Kind, account string) error {
 	slot := slotName(kind, account)
-	err := keyring.Delete(Service, slot)
+	err := store.remove(Service, slot)
 	if errors.Is(err, keyring.ErrNotFound) {
 		return nil
 	}

@@ -17,7 +17,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if handled, code := RunWorker(os.Args[1:], os.Stdout, "AIGW_TOKEN"); handled {
+	if handled, code := RunWorker(os.Args[1:], os.Stdin, os.Stdout, "AIGW_TOKEN"); handled {
 		os.Exit(code)
 	}
 	os.Exit(m.Run())
@@ -36,7 +36,7 @@ func TestReadPreservesNativeResultAndClassifiesFailure(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			reader := fixtureReader{code: test.code}
-			value, err := read(context.Background(), reader, "/owned/aigw", workerCommand, "AIGW_TOKEN", "team", nil)
+			value, err := execute(context.Background(), reader, process.Plan{Executable: "/owned/aigw", Args: []string{workerCommand, "AIGW_TOKEN", "team"}})
 			if !errors.Is(err, test.want) || test.code == 0 && value != "exact-token" {
 				t.Fatalf("read result = %q, %v", value, err)
 			}
@@ -81,7 +81,7 @@ func TestReadTerminatesAndReapsUnresponsiveWorker(t *testing.T) {
 	defer cancel()
 	command := process.Plan{Executable: os.Args[0], Args: []string{"-test.run=^TestCredentialWaitFixture$"}, Env: append(os.Environ(), "AIGW_TEST_CREDENTIAL_WAIT=1")}
 	started := time.Now()
-	value, err := read(ctx, waitReader{plan: command}, os.Args[0], workerCommand, "AIGW_TOKEN", "team", nil)
+	value, err := execute(ctx, waitReader{plan: command}, process.Plan{Executable: os.Args[0], Args: []string{workerCommand, "AIGW_TOKEN", "team"}})
 	if value != "" || !errors.Is(err, context.DeadlineExceeded) || time.Since(started) > 3*time.Second {
 		t.Fatalf("unbounded credential read: %q, %v", value, err)
 	}
@@ -107,7 +107,7 @@ func TestWorkerRestrictsIdentityAndKeepsFailuresOffStandardOutput(t *testing.T) 
 		{workerCommand, "AIGW_TOKEN", "team", "extra"},
 	} {
 		var out bytes.Buffer
-		handled, code := dispatch(args, &out, "AIGW_TOKEN", func(string, string, bool) ([]byte, error) {
+		handled, code := dispatch(args, strings.NewReader(""), &out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) {
 			t.Fatal("invalid worker input reached Keychain")
 			return nil, nil
 		})
@@ -131,7 +131,7 @@ func TestWorkerResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var out bytes.Buffer
 			value := []byte("synthetic-token")
-			handled, code := dispatch([]string{workerCommand, "AIGW_TOKEN", "team"}, &out, "AIGW_TOKEN", func(string, string, bool) ([]byte, error) { return value, test.err })
+			handled, code := dispatch([]string{workerCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), &out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return value, test.err })
 			if !handled || code != test.code || test.err != nil && out.Len() != 0 || test.err == nil && out.String() != "synthetic-token" {
 				t.Fatalf("worker output: handled=%v code=%d", handled, code)
 			}
@@ -142,11 +142,11 @@ func TestWorkerResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 			}
 		})
 	}
-	if handled, _ := RunWorker([]string{"--version"}, io.Discard, "AIGW_TOKEN"); handled {
+	if handled, _ := RunWorker([]string{"--version"}, strings.NewReader(""), io.Discard, "AIGW_TOKEN"); handled {
 		t.Fatal("ordinary command intercepted")
 	}
 	for _, out := range []io.Writer{shortWriter{}, failedWriter{}} {
-		_, code := dispatch([]string{workerCommand, "AIGW_TOKEN", "team"}, out, "AIGW_TOKEN", func(string, string, bool) ([]byte, error) { return []byte("value"), nil })
+		_, code := dispatch([]string{workerCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return []byte("value"), nil })
 		if code != failureExit {
 			t.Fatal("failed stdout write returned success")
 		}
@@ -160,6 +160,72 @@ func (shortWriter) Write([]byte) (int, error) { return 0, nil }
 type failedWriter struct{}
 
 func (failedWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+func TestWorkerMutationAdmitsBoundedStdinAndErasesBuffers(t *testing.T) {
+	for _, test := range []struct {
+		operation, input string
+		accepted         bool
+	}{
+		{writeCommand, "synthetic-token", true},
+		{writeCommand, strings.Repeat("x", maxStoredValue), true},
+		{writeCommand, "", false},
+		{writeCommand, strings.Repeat("x", maxStoredValue+1), false},
+		{deleteCommand, "", true},
+	} {
+		var input, output []byte
+		var out bytes.Buffer
+		called := false
+		handled, code := dispatch([]string{test.operation, "AIGW_TOKEN", "team"}, strings.NewReader(test.input), &out, "AIGW_TOKEN", func(operation, service, account string, data []byte) ([]byte, error) {
+			called = true
+			if operation != test.operation || service != "AIGW_TOKEN" || account != "team" || string(data) != test.input {
+				t.Fatal("mutation target or stdin changed")
+			}
+			input, output = data, []byte("unexpected-backend-output")
+			return output, nil
+		})
+		if !handled || called != test.accepted || (code == 0) != test.accepted || out.Len() != 0 {
+			t.Fatalf("mutation admission: handled=%v called=%v code=%d", handled, called, code)
+		}
+		if bytes.Count(input, []byte{0}) != len(input) || bytes.Count(output, []byte{0}) != len(output) {
+			t.Fatal("worker retained credential buffers")
+		}
+	}
+	_, code := dispatch([]string{writeCommand, "AIGW_TOKEN", "team"}, failedReader{}, io.Discard, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) {
+		t.Fatal("failed input reached Keychain")
+		return nil, nil
+	})
+	if code != failureExit {
+		t.Fatal("failed stdin accepted")
+	}
+}
+
+type failedReader struct{}
+
+func (failedReader) Read([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+func TestWorkerMutationTransportsCredentialsOnlyThroughStdin(t *testing.T) {
+	for _, operation := range []string{writeCommand, deleteCommand} {
+		runner := mutationRunner{operation: operation}
+		if _, err := execute(t.Context(), runner, process.Plan{Executable: "/owned/aigw", Args: []string{operation, "AIGW_TOKEN", "team"}, Stdin: "synthetic-token", Env: []string{"HOME=/owned"}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := execute(t.Context(), mutationRunner{}, process.Plan{Stdin: strings.Repeat("x", maxStoredValue+1)}); !errors.Is(err, ErrUnavailable) {
+		t.Fatal("oversized stdin reached worker")
+	}
+}
+
+type mutationRunner struct{ operation string }
+
+func (r mutationRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
+	if _, ok := ctx.Deadline(); !ok {
+		return nil, errors.New("mutation lacks deadline")
+	}
+	if plan.Executable != "/owned/aigw" || strings.Join(plan.Args, " ") != r.operation+" AIGW_TOKEN team" || plan.Stdin != "synthetic-token" || strings.Join(plan.Env, " ") != "HOME=/owned" {
+		return nil, errors.New("mutation ownership or credential transport drift")
+	}
+	return nil, nil
+}
 
 func TestStoredValueDecodingPreservesCurrentKeyringGrammar(t *testing.T) {
 	for _, test := range []struct {
@@ -180,7 +246,7 @@ func TestStoredValueDecodingPreservesCurrentKeyringGrammar(t *testing.T) {
 }
 
 func TestReadFailsClosedWhenWorkerCannotStart(t *testing.T) {
-	value, err := read(t.Context(), process.Runner{}, filepath.Join(t.TempDir(), "absent"), workerCommand, "AIGW_TOKEN", "team", nil)
+	value, err := execute(t.Context(), process.Runner{}, process.Plan{Executable: filepath.Join(t.TempDir(), "absent"), Args: []string{workerCommand, "AIGW_TOKEN", "team"}})
 	if value != "" || !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("startup failure: %v", err)
 	}
@@ -189,7 +255,7 @@ func TestReadFailsClosedWhenWorkerCannotStart(t *testing.T) {
 func TestWorkerObservationDoesNotRequestSecretBytes(t *testing.T) {
 	var out bytes.Buffer
 	called := false
-	handled, code := dispatch([]string{workerCommand, "AIGW_TOKEN", "team", "observe"}, &out, "AIGW_TOKEN", func(string, string, bool) ([]byte, error) {
+	handled, code := dispatch([]string{workerCommand, "AIGW_TOKEN", "team", "observe"}, strings.NewReader(""), &out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) {
 		called = true
 		return []byte("credential"), nil
 	})
@@ -201,8 +267,8 @@ func TestWorkerObservationDoesNotRequestSecretBytes(t *testing.T) {
 func TestWorkerObservationUsesTheMetadataOperation(t *testing.T) {
 	var out bytes.Buffer
 	observed := false
-	handled, code := dispatch([]string{observeCommand, "AIGW_TOKEN", "team"}, &out, "AIGW_TOKEN", func(_, _ string, metadata bool) ([]byte, error) {
-		observed = metadata
+	handled, code := dispatch([]string{observeCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), &out, "AIGW_TOKEN", func(operation, _, _ string, _ []byte) ([]byte, error) {
+		observed = operation == observeCommand
 		return nil, nil
 	})
 	if !handled || code != 0 || !observed || out.Len() != 0 {

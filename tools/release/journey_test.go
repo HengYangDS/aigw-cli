@@ -96,6 +96,9 @@ func TestNativeProductJourney(t *testing.T) {
 		if !diagnosis.OK {
 			t.Fatal("doctor rejected a healthy partially connected catalogue")
 		}
+		journey.requireStoredCredentialAcrossUpdate(root, newVersion, oldVersion, "native-journey-token", secrets.BackendSelection{
+			Kind: "env", Availability: "available", Mutability: "read_only", Persistence: "explicit",
+		})
 		journey.uninstallAndRequireOwnedFilesAbsent()
 	})
 

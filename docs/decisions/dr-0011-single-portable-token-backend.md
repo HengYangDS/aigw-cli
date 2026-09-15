@@ -33,15 +33,37 @@ implementation reads or migrates another product's credential state.
 
 ## Consequences
 
-macOS metadata queries and value reads use the existing file-based Keychain's native API in a
-same-executable worker. `purego` supplies the supported C-call bridge while
+macOS metadata, read, write and delete operations share the existing file-based
+Keychain's native API in a same-executable worker. `purego` supplies the C-call bridge while
 keeping the portable build independent of Cgo. The worker disables interaction,
 preserves the existing service, slot, search-list and stored-value grammar, and
 returns bytes only after a successful read. Its parent enforces a five-second
-deadline with bounded process cleanup. This does not grant access: a locked or
-unauthorized item fails without changing ACLs, unlocking, migrating or falling
+deadline with bounded process cleanup. This does not grant access: a locked read
+or unauthorized operation fails without changing ACLs, unlocking, migrating or falling
 back. The legacy API remains necessary for the existing file-based store; no
 Data Protection Keychain migration is implied.
+
+The executable that creates a new item also reads it. Writes transport the
+existing base64 storage envelope through bounded stdin, never argv or the
+environment. Updating an item preserves its access policy; deleting an absent
+item succeeds without recreating it. Native deletion authorization is distinct
+from password-read authorization and may permit deletion while the store is
+locked. This repair does not establish cross-release code-identity continuity
+or authorize previously stored items.
+
+Code identity is a release input, not a filename. The private native regression
+reads one retained item from a new process and a byte-identical copy, then
+re-signs only that disposable copy with the same identifier and path. The changed
+ad-hoc identity is denied without a prompt. Thus keeping the installed path or
+setting a fixed signing identifier does not establish upgrade continuity.
+[Apple TN3127](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements)
+explains that an ad-hoc designated requirement identifies one code version.
+Release acceptance must prove the actual predecessor and successor identities
+can access retained credentials; a detached SSH artifact signature does not
+satisfy that native authorization contract. A stable authorized code-signing
+identity is necessary for that release path, while existing foreign-created
+items require their own explicit authorization disposition. Neither is solved
+by widening item access, changing stores silently or retaining an old reader.
 
 The system `security` command has no value-read no-interaction option. A timeout
 around it could still permit a password dialog, so it is not the read boundary.
