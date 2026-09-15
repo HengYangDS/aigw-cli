@@ -231,17 +231,17 @@ func TestNativeClientJourney(t *testing.T) {
 				name, version, program string
 				args                   []string
 			}{
-				{"baseline", oldVersion, journey.source, nil},
+				{"baseline", oldVersion, journey.source, []string{"status", "--json"}},
 				{"candidate", version, candidate, []string{"update", "--candidate", archive, "--checksums", checksums}},
 				{"rollback", oldVersion, journey.source, []string{"update", "--rollback"}},
 				{"re-upgrade", version, candidate, []string{"update", "--candidate", archive, "--checksums", checksums}},
 			} {
 				if !t.Run(step.name, func(t *testing.T) {
 					journey.testing = t
-					if len(step.args) != 0 {
-						journey.run("adapter", "disable", client)
-						journey.run(step.args...)
-						journey.enableNativeClient(client, executable)
+					configurationBefore := readFile(t, journey.config)
+					journey.run(step.args...)
+					if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
+						t.Fatal("lifecycle operation changed the retained client configuration")
 					}
 					journey.requireVersion(step.version)
 					journey.requireProgramBytes(step.program)
