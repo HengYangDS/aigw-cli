@@ -507,13 +507,17 @@ paths and a semicolon-separated client tool path. Supply complete client
 distributions and only their required companion tools. The test requires all
 four absolute inputs and never substitutes a stub or downloads software. It
 uses synthetic environment credentials and temporary client homes, not the
-operator's accounts or native credential store. Both clients execute at the
+operator's accounts or native credential store. It consumes the reviewed
+`manifests/team.toml`, preserving Profiles and recommendations while directing
+Account endpoints to the isolated server. The server requires the recommended
+model, configured effort and streaming protocol; a different model cannot
+silently satisfy acceptance. Both clients execute at the
 published predecessor, candidate, rollback and re-upgrade; uninstall preserves
 post-setup authentication presence and bytes, plus user files. An absent
 `auth.json` stays absent; an existing empty file is distinct from absence. The
 verification fixture observes authentication storage without rewriting it.
-Logs identify the exact client and artifact
-bytes. This proves the selected clients' integration, not live Provider
+Logs identify the exact client and artifact bytes. This proves the selected
+clients' configuration and protocol integration, not live Provider
 availability, model reasoning quality or an untested client version.
 
 The build tag makes real-client execution an explicit acceptance operation,

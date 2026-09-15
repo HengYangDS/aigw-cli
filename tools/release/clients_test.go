@@ -16,6 +16,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -56,22 +57,20 @@ func TestNativeClientInputs(t *testing.T) {
 			testing: t, root: root, manifest: filepath.Join(root, "team.toml"),
 			endpoint: "http://127.0.0.1:1/v1",
 		}
-		manifest := `version = 4
-[accounts.native-system-keyring-probe]
-label = 'Native'
-[accounts.native-system-keyring-probe.endpoints]
-anthropic = 'http://127.0.0.1:1'
-[profiles.native-client]
-label = 'Native client'
-account = 'native-system-keyring-probe'
-client = 'claude'
-model = 'claude-test'
-`
-		if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
+		team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
+		manifest, err := configuration.Parse(team)
+		if err != nil {
 			t.Fatal(err)
 		}
-		journey.prepareNativeClient(configuration.ClientCodex, file)
+		journey.prepareNativeClient(configuration.ClientCodex, file, team)
 		journey.requireNativePreferences(configuration.ClientCodex)
+		prepared, err := configuration.Parse(readFile(t, journey.manifest))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(prepared.Profiles, manifest.Profiles) || !reflect.DeepEqual(prepared.RecommendedRoutes, manifest.RecommendedRoutes) {
+			t.Fatal("native preparation substituted its own profile or model for the supplied recommendation")
+		}
 	})
 }
 
@@ -143,8 +142,8 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 			var completions atomic.Int64
 			path := map[string]string{"claude": "/v1/messages", "codex": "/v1/responses"}[client]
 			body := map[string]string{
-				"codex":  `{"stream":true,"reasoning":{"effort":"high"}}`,
-				"claude": `{"stream":true,"output_config":{"effort":"high"}}`,
+				"codex":  `{"model":"configured-model","stream":true,"reasoning":{"effort":"high"}}`,
+				"claude": `{"model":"configured-model","stream":true,"output_config":{"effort":"high"}}`,
 			}[client]
 			var response *httptest.ResponseRecorder
 			for _, test := range []struct {
@@ -158,17 +157,18 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 				{http.MethodPost, path, "synthetic", `{"stream":false}`, http.StatusBadRequest, 0},
 				{http.MethodPost, path, "synthetic", `{"stream":true}`, http.StatusBadRequest, 0},
 				{http.MethodPost, path, "synthetic", strings.ReplaceAll(body, "high", "low"), http.StatusBadRequest, 0},
+				{http.MethodPost, path, "synthetic", strings.ReplaceAll(body, "configured-model", "different-model"), http.StatusBadRequest, 0},
 				{http.MethodPost, path, "synthetic", body, http.StatusOK, 1},
 			} {
 				request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
 				request.Header.Set("Authorization", "Bearer "+test.credential)
 				response = httptest.NewRecorder()
-				clientResponseHandler(client, "synthetic", &completions).ServeHTTP(response, request)
+				clientResponseHandler(client, "configured-model", "synthetic", &completions).ServeHTTP(response, request)
 				if response.Code != test.status || completions.Load() != test.completed {
 					t.Fatalf("%s %s: status=%d completions=%d", test.method, test.path, response.Code, completions.Load())
 				}
 			}
-			for _, data := range clientResponseEvents(client) {
+			for _, data := range clientResponseEvents(client, "configured-model") {
 				var event struct {
 					Type string `json:"type"`
 				}
@@ -200,21 +200,30 @@ func TestNativeClientJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	team := readFile(t, filepath.Join(root, "manifests", "team.toml"))
+	manifest, err := configuration.Parse(team)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(manifest.RecommendedRoutes) != len(configuration.AdmittedClientIDs()) {
+		t.Fatal("team manifest must recommend one profile for every admitted client")
+	}
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
 	for _, path := range []string{candidate, archive, checksums} {
 		t.Logf("artifact %s sha256=%x", filepath.Base(path), sha256.Sum256(readFile(t, path)))
 	}
 	for _, client := range configuration.AdmittedClientIDs() {
+		profile := manifest.Profiles[manifest.RecommendedRoutes[client]]
 		t.Run(client, func(t *testing.T) {
 			const token = "native-real-client-token"
 			var completions atomic.Int64
-			server := httptest.NewServer(clientResponseHandler(client, token, &completions))
+			server := httptest.NewServer(clientResponseHandler(client, profile.Model, token, &completions))
 			t.Cleanup(server.Close)
 			journey := newNativeJourney(t, inputs["AIGW_ACCEPTANCE_BASELINE"], server.URL+"/v1", false)
 			executable := inputs["AIGW_ACCEPTANCE_"+strings.ToUpper(client)]
-			journey.prepareNativeClient(client, executable)
-			journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), token)
-			journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+			journey.prepareNativeClient(client, executable, team)
+			journey.setEnvironment(secrets.EnvironmentKey(profile.Account), token)
+			journey.run("setup", "--from", journey.manifest, "--account", profile.Account)
 			journey.enableNativeClient(client, executable)
 			before := journey.preserveClientFiles(client)
 			oldVersion := journey.predecessorVersion(version)
@@ -253,7 +262,7 @@ func TestNativeClientJourney(t *testing.T) {
 			journey.verifyNativeConfigEditing(client, executable)
 			const renamedAccount = "renamed-client-account"
 			journey.setEnvironment(secrets.EnvironmentKey(renamedAccount), token)
-			journey.run("account", "rename", "native-system-keyring-probe", renamedAccount)
+			journey.run("account", "rename", profile.Account, renamedAccount)
 			count := completions.Load()
 			journey.run("verify", "--for", "all")
 			if completions.Load() <= count {
@@ -263,12 +272,12 @@ func TestNativeClientJourney(t *testing.T) {
 			if err != nil || len(checkpoint.Clients) != 1 || checkpoint.Clients[0] != client {
 				t.Fatalf("single-client checkpoint = %v: %v", checkpoint.Clients, err)
 			}
-			journey.environment = environmentWithout(journey.environment, secrets.EnvironmentKey("native-system-keyring-probe"))
-			journey.run("account", "rename", "native-system-keyring-probe", renamedAccount, "--finalize")
+			journey.environment = environmentWithout(journey.environment, secrets.EnvironmentKey(profile.Account))
+			journey.run("account", "rename", profile.Account, renamedAccount, "--finalize")
 			var retirement struct {
 				Status string `json:"status"`
 			}
-			if err := json.Unmarshal(journey.run("account", "rename", "native-system-keyring-probe", renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already-finalized" {
+			if err := json.Unmarshal(journey.run("account", "rename", profile.Account, renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already-finalized" {
 				t.Fatalf("repeated retirement = %q: %v", retirement.Status, err)
 			}
 			journey.runWith(candidate, "uninstall", "--target", journey.binary)
@@ -298,7 +307,7 @@ func (j *journeyFixture) verifyNativeConfigEditing(client, executable string) {
 	j.run("check")
 }
 
-func (j *journeyFixture) prepareNativeClient(client, executable string) {
+func (j *journeyFixture) prepareNativeClient(client, executable string, team []byte) {
 	j.testing.Helper()
 	home := filepath.Join(j.root, "home")
 	j.environment = environmentWithout(j.environment, "CODEX_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL")
@@ -312,6 +321,8 @@ model_auto_compact_token_limit = 450000
 model_auto_compact_token_limit_scope = 'body_after_prefix'
 [features]
 plugins = false
+[features.multi_agent_v2]
+max_concurrent_threads_per_session = 16
 `,
 		configuration.ClientClaude: `{"effortLevel":"high","autoCompactWindow":180000}`,
 	}
@@ -325,19 +336,18 @@ plugins = false
 	if err := os.WriteFile(path, []byte(preferences[client]), 0o600); err != nil {
 		j.testing.Fatal(err)
 	}
-	manifest, err := configuration.Parse(readFile(j.testing, j.manifest))
+	manifest, err := configuration.Parse(team)
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	account := manifest.Accounts["native-system-keyring-probe"]
-	account.Endpoints.OpenAIResponses = j.endpoint
-	account.Endpoints.Anthropic = strings.TrimSuffix(j.endpoint, "/v1")
-	manifest.Accounts["native-system-keyring-probe"] = account
-	manifest.Profiles["native-client"] = configuration.Profile{
-		Label: "Native client", Account: "native-system-keyring-probe", Client: client,
-		Model: map[string]string{"codex": "gpt-5.6-sol", "claude": "claude-sonnet-5"}[client],
+	for name, account := range manifest.Accounts {
+		account.Endpoints.OpenAIResponses = j.endpoint
+		account.Endpoints.Anthropic = strings.TrimSuffix(j.endpoint, "/v1")
+		if account.AccountProbe != nil {
+			account.AccountProbe.BaseURL = j.endpoint
+		}
+		manifest.Accounts[name] = account
 	}
-	manifest.RecommendedRoutes = map[string]string{client: "native-client"}
 	data, err := toml.Marshal(manifest)
 	if err != nil {
 		j.testing.Fatal(err)
@@ -377,11 +387,8 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 		if err := toml.Unmarshal(readFile(j.testing, path), &preferences); err != nil {
 			j.testing.Fatal(err)
 		}
-		if preferences.Effort != "high" || preferences.Window != 500000 || preferences.Compact != 450000 || preferences.Scope != "body_after_prefix" {
+		if preferences.Effort != "high" || preferences.Window != 500000 || preferences.Compact != 450000 || preferences.Scope != "body_after_prefix" || preferences.Features.Plugins == nil || *preferences.Features.Plugins {
 			j.testing.Fatalf("Codex preferences changed: %+v", preferences)
-		}
-		if preferences.Features.Plugins == nil || *preferences.Features.Plugins {
-			j.testing.Fatal("isolated client enabled unrelated plugin startup tasks")
 		}
 		return
 	}
@@ -399,22 +406,18 @@ func (j *journeyFixture) requireNativePreferences(client string) {
 
 func (j *journeyFixture) preserveClientFiles(client string) func() error {
 	j.testing.Helper()
-	files := map[string][]byte{}
 	home := filepath.Join(j.root, "home")
-	switch client {
-	case configuration.ClientCodex:
-		files[filepath.Join(home, ".codex", "sessions", "user.jsonl")] = []byte("{\"owner\":\"user\"}\n")
-	case configuration.ClientClaude:
-		files[filepath.Join(home, ".claude", "CLAUDE.md")] = []byte("# User instructions\n")
+	path, content := filepath.Join(home, ".claude", "CLAUDE.md"), "# User instructions\n"
+	if client == configuration.ClientCodex {
+		path, content = filepath.Join(home, ".codex", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
 	}
-	for path, data := range files {
-		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			j.testing.Fatal(err)
-		}
-		if err := os.WriteFile(path, data, 0o600); err != nil {
-			j.testing.Fatal(err)
-		}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		j.testing.Fatal(err)
 	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		j.testing.Fatal(err)
+	}
+	files := map[string][]byte{path: []byte(content)}
 	if client == configuration.ClientCodex {
 		auth := filepath.Join(home, ".codex", "auth.json")
 		data, err := os.ReadFile(auth)
@@ -429,18 +432,15 @@ func (j *journeyFixture) preserveClientFiles(client string) func() error {
 			if want == nil && errors.Is(err, os.ErrNotExist) {
 				continue
 			}
-			if err != nil {
-				return fmt.Errorf("read preserved user file %s: %w", path, err)
-			}
-			if want == nil || !bytes.Equal(got, want) {
-				return fmt.Errorf("client lifecycle changed user file %s", path)
+			if err != nil || want == nil || !bytes.Equal(got, want) {
+				return errors.Join(fmt.Errorf("client lifecycle changed user file %s", path), err)
 			}
 		}
 		return nil
 	}
 }
 
-func clientResponseHandler(client, token string, completions *atomic.Int64) http.Handler {
+func clientResponseHandler(client, model, token string, completions *atomic.Int64) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/models", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
@@ -449,7 +449,8 @@ func clientResponseHandler(client, token string, completions *atomic.Int64) http
 	path := map[string]string{"claude": "/v1/messages", "codex": "/v1/responses"}[client]
 	mux.HandleFunc("POST "+path, func(response http.ResponseWriter, request *http.Request) {
 		var input struct {
-			Stream    bool `json:"stream"`
+			Model     string `json:"model"`
+			Stream    bool   `json:"stream"`
 			Reasoning struct {
 				Effort string `json:"effort"`
 			} `json:"reasoning"`
@@ -457,8 +458,8 @@ func clientResponseHandler(client, token string, completions *atomic.Int64) http
 				Effort string `json:"effort"`
 			} `json:"output_config"`
 		}
-		if err := json.NewDecoder(request.Body).Decode(&input); err != nil || !input.Stream {
-			http.Error(response, "stream required", http.StatusBadRequest)
+		if err := json.NewDecoder(request.Body).Decode(&input); err != nil || !input.Stream || input.Model != model {
+			http.Error(response, "configured model and stream required", http.StatusBadRequest)
 			return
 		}
 		effort := input.Reasoning.Effort
@@ -470,7 +471,7 @@ func clientResponseHandler(client, token string, completions *atomic.Int64) http
 			return
 		}
 		response.Header().Set("Content-Type", "text/event-stream")
-		for _, data := range clientResponseEvents(client) {
+		for _, data := range clientResponseEvents(client, model) {
 			var event struct {
 				Type string `json:"type"`
 			}
@@ -485,7 +486,6 @@ func clientResponseHandler(client, token string, completions *atomic.Int64) http
 		completions.Add(1)
 	})
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		defer func() { _ = request.Body.Close() }()
 		if request.Header.Get("Authorization") != "Bearer "+token && request.Header.Get("X-Api-Key") != token {
 			http.Error(response, "credential mismatch", http.StatusUnauthorized)
 			return
@@ -494,10 +494,10 @@ func clientResponseHandler(client, token string, completions *atomic.Int64) http
 	})
 }
 
-func clientResponseEvents(client string) []string {
+func clientResponseEvents(client, model string) []string {
 	if client == configuration.ClientClaude {
 		return []string{
-			`{"type":"message_start","message":{"id":"msg_fixture","type":"message","role":"assistant","model":"claude-sonnet-5","content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"output_tokens":0}}}`,
+			fmt.Sprintf(`{"type":"message_start","message":{"id":"msg_fixture","type":"message","role":"assistant","model":%q,"content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"output_tokens":0}}}`, model),
 			`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
 			`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"AIGW_OK"}}`,
 			`{"type":"content_block_stop","index":0}`,
