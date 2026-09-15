@@ -201,6 +201,35 @@ selected peer SHALL verify its own objects and assets; native platform evidence
 MAY be supplied by the admitted aggregate executor set without duplicating
 unavailable runners or weakening the platform requirement.
 
+macOS release binaries SHALL have an explicitly supplied certificate-bound
+identity before archive construction. Signing and archive timestamps SHALL use
+the release epoch. Missing signing inputs SHALL stop construction without
+prompting, provisioning an identity or substituting ad-hoc signing. Native
+acceptance SHALL select only its host operating system; unrelated platform
+credentials SHALL NOT be prerequisites. Consuming published assets SHALL NOT
+require their private signing keys.
+
+#### Scenario: Certificate-signed archives are rebuilt
+
+- **WHEN** identical source, toolchain, signing inputs and release epoch are built
+  on either side of a wall-clock boundary
+- **THEN** the complete archive matrix SHALL be byte-identical
+- **AND** macOS binaries extracted from the archives SHALL satisfy the declared
+  native signature requirement.
+
+#### Scenario: Native Linux or Windows acceptance builds its asset
+
+- **WHEN** native acceptance runs without macOS signing inputs
+- **THEN** it SHALL build only its current operating system's declared targets
+- **AND** full release construction SHALL still require the complete matrix.
+
+#### Scenario: Native signing authority is missing
+
+- **WHEN** macOS or complete release construction lacks a required identity,
+  password-file or designated-requirement input
+- **THEN** it SHALL stop before external build execution
+- **AND** existing release output, credentials and host trust SHALL remain intact.
+
 #### Scenario: both publication planes complete
 
 - **WHEN** GitLab and GitHub independently publish one accepted product release

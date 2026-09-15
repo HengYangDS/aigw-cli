@@ -51,6 +51,7 @@ func acceptNative(request buildRequest, artifacts string, clients bool, performa
 	}()
 	stage := workspace
 	if artifacts == "" {
+		request.TargetOS = runtime.GOOS
 		stage, err = buildArchives(request, workspace, run)
 		if err != nil {
 			return err

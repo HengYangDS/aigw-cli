@@ -76,14 +76,24 @@ No private signing material belongs in the repository or client configuration.
 The private native credential regression uses
 [rcodesign](https://gregoryszorc.com/docs/apple-codesign/stable/apple_codesign_rcodesign_signing.html)
 with a disposable self-signed certificate loaded from files. The repository locks
-this tool only for macOS; it is not shipped in AIGW or installed on Linux and Windows
-development paths. Two executables with different code hashes and the same
+this tool for release construction on each supported build host; it is never
+shipped in AIGW. Two executables with different code hashes and the same
 certificate-bound requirement read one retained private Keychain item; an unrelated
 ad-hoc reader is denied. Native signature verification and execution require no
 identity import, host trust change or wider item access. The existing private
 Keychain fixture owns creation and teardown for both identity modes. This qualifies
 that isolated authorization boundary, not a production signer, release artifact or
 supported upgrade path.
+
+The existing GoReleaser build signs macOS binaries before archiving. An encrypted
+PKCS#12 identity, password file and compiled designated requirement are explicit
+operator inputs; missing inputs stop construction without prompting or creating
+an identity. Signing time and post-signing file time use the release epoch, not
+wall time. Native Linux and Windows acceptance selects only its own operating
+system and needs no macOS credential. Full release construction still emits and
+verifies every declared target. The native archive test verifies both macOS
+architectures with Apple's verifier and compares two complete matrices across a
+wall-clock boundary. It uses a disposable signing identity, not production trust.
 
 Following [Apple's subsystem-specific trust model](https://developer.apple.com/library/archive/technotes/tn2206/_index.html),
 Keychain identity continuity, distribution trust and notarization remain separate

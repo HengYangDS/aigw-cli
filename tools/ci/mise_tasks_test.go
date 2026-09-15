@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -79,7 +78,7 @@ type miseConfiguration struct {
 }
 
 func TestMiseToolExecutablesMatchDeclaredVersions(t *testing.T) {
-	const macSigner = "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/,os=macos]"
+	const macSigner = "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]"
 	root := repositoryRoot(t)
 	content, err := os.ReadFile(filepath.Join(root, "mise.toml"))
 	if err != nil {
@@ -115,17 +114,6 @@ func TestMiseToolExecutablesMatchDeclaredVersions(t *testing.T) {
 			probe, present := probes[name]
 			if !present {
 				t.Fatalf("declared tool %s has no executable version probe", name)
-			}
-			if name == macSigner && runtime.GOOS != "darwin" {
-				output, err := exec.Command("mise", "-C", root, "ls", "--current", "--local", "--json").Output()
-				var active map[string]json.RawMessage
-				if err != nil || json.Unmarshal(output, &active) != nil {
-					t.Fatalf("resolve native tool selection: %v", err)
-				}
-				if _, enabled := active["github:indygreg/apple-platform-rs"]; enabled {
-					t.Fatal("macOS credential signer is active without a platform consumer")
-				}
-				return
 			}
 			command := exec.Command("mise", append([]string{"-C", root, "exec", "--locked", "--"}, probe.arguments...)...)
 			output, err := command.CombinedOutput()

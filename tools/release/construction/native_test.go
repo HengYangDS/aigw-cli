@@ -67,6 +67,43 @@ func TestNativeAcceptanceOwnsBuildConsumptionAndCleanup(t *testing.T) {
 	}
 }
 
+func TestNativeAcceptanceSelectsHostBuild(t *testing.T) {
+	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "0"}
+	stopped := errors.New("build selection observed")
+	err := acceptNative(request, "", false, "", func(call toolCall) error {
+		if call.Name != "goreleaser" || !slices.Contains(call.Env, "AIGW_BUILD_OS="+runtime.GOOS) {
+			t.Fatalf("native acceptance selected the wrong build: %#v", call)
+		}
+		return stopped
+	})
+	if !errors.Is(err, stopped) {
+		t.Fatalf("build selection: %v", err)
+	}
+}
+
+func TestNativeBuildRequiresOnlyItsPlatformSigningInputs(t *testing.T) {
+	for _, platform := range []string{"linux", "windows", "darwin", ""} {
+		t.Run(platform, func(t *testing.T) {
+			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "0", TargetOS: platform}
+			for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
+				t.Setenv(name, "")
+			}
+			calls := 0
+			_, err := buildArchives(request, t.TempDir(), func(call toolCall) error {
+				calls++
+				if !slices.Contains(call.Env, "AIGW_BUILD_OS="+platform) {
+					t.Fatal("build selection was not passed to GoReleaser")
+				}
+				return nil
+			})
+			allowed := platform == "linux" || platform == "windows"
+			if (err == nil) != allowed || (calls == 1) != allowed {
+				t.Fatalf("platform=%q calls=%d error=%v", platform, calls, err)
+			}
+		})
+	}
+}
+
 func TestNativeArchivePreparationRequiresVerifiedBytes(t *testing.T) {
 	for _, scenario := range []string{"valid", "missing", "corrupt", "collision"} {
 		t.Run(scenario, func(t *testing.T) {

@@ -349,6 +349,35 @@ and `SOURCE_DATE_EPOCH` from the committed Changelog date. The build emits the
 complete portable archive matrix, checksums, and SPDX SBOM. Repeating the build
 with the same inputs must produce identical bytes.
 
+macOS binary identity is distinct from the detached SSH archive signature.
+GoReleaser's native post-build hooks sign and verify macOS binaries before they
+enter archives, checksums and SBOMs. The release operator supplies three absolute
+file paths:
+
+| Input                              | Responsibility                                                                            |
+| ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| `AIGW_MACOS_SIGNING_P12`           | Encrypted, approved PKCS#12 code-signing identity                                         |
+| `AIGW_MACOS_SIGNING_PASSWORD_FILE` | Protected file containing its password                                                    |
+| `AIGW_MACOS_SIGNING_REQUIREMENTS`  | Compiled public designated requirement bound to the approved identity and AIGW identifier |
+
+Construction validates these paths before invoking tools. It neither provisions
+signing credentials nor changes user Keychains, trust settings or credential ACLs.
+Signing uses an explicit configuration and no network timestamp service; signature
+time comes from the selected release epoch. The locked GoReleaser 2.18.1 does not
+evaluate `builds_info.mtime` for binary entries, so the same post-build hook uses
+the locked Node filesystem API to restore that epoch after signing. A cross-second
+native archive regression prevents wall-clock metadata from breaking reproducibility.
+Remove that timestamp workaround when an admitted upstream version passes the
+same regression without it. Notarization remains a separate, unclaimed property.
+
+Native artifact acceptance builds only its current operating system; Linux and
+Windows do not require Apple signing inputs. Full release construction still
+requires the complete six-target matrix. macOS candidate construction requires an
+explicit approved or isolated test identity; it never silently substitutes an
+ad-hoc signature. Published-artifact acceptance consumes existing bytes without
+requiring access to their signing keys. Retained-credential authorization is
+verified separately under [the native credential decision](../decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
+
 The SPDX SBOM catalogs every emitted native binary in the isolated GoReleaser
 stage, including platform-specific dependencies. Syft's Go-binary and file
 catalogers own discovery; scanning only the first binary or the

@@ -10,10 +10,12 @@ metadata:
   mod_timestamp: "{{ .Env.AIGW_RELEASE_EPOCH }}"
 
 builds:
-  - id: portable
+  - &portable
+    id: portable
     main: ./cmd/aigw
     binary: aigw
-    goos: [darwin, linux, windows]
+    goos: [linux]
+    skip: '{{ and (ne .Env.AIGW_BUILD_OS "") (ne .Env.AIGW_BUILD_OS "linux") }}'
     goarch: [amd64, arm64]
     env: [CGO_ENABLED=0]
     mod_timestamp: "{{ .Env.AIGW_RELEASE_EPOCH }}"
@@ -26,9 +28,33 @@ builds:
         -X aigw-cli/internal/upgrade.BuildGitLabReleaseRepository={{ .Env.AIGW_GITLAB_RELEASE_REPOSITORY }}
         -X aigw-cli/internal/upgrade.BuildGitHubReleaseOrigin={{ .Env.AIGW_GITHUB_RELEASE_ORIGIN }}
         -X aigw-cli/internal/upgrade.BuildGitHubReleaseRepository={{ .Env.AIGW_GITHUB_RELEASE_REPOSITORY }}
+  - <<: *portable
+    id: windows
+    goos: [windows]
+    skip: '{{ and (ne .Env.AIGW_BUILD_OS "") (ne .Env.AIGW_BUILD_OS "windows") }}'
+  - <<: *portable
+    id: macos
+    goos: [darwin]
+    skip: '{{ and (ne .Env.AIGW_BUILD_OS "") (ne .Env.AIGW_BUILD_OS "darwin") }}'
+    hooks:
+      post:
+        - cmd: >-
+            rcodesign -C /dev/null sign
+            --p12-file "{{ .Env.AIGW_MACOS_SIGNING_P12 }}"
+            --p12-password-file "{{ .Env.AIGW_MACOS_SIGNING_PASSWORD_FILE }}"
+            --code-requirements-file "{{ .Env.AIGW_MACOS_SIGNING_REQUIREMENTS }}"
+            --binary-identifier "{{ .ProjectName }}"
+            --signing-time "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
+            --timestamp-url none "{{ .Path }}"
+        - cmd: 'rcodesign -C /dev/null verify "{{ .Path }}"'
+        # GoReleaser 2.18.1 does not evaluate builds_info.mtime for binaries.
+        # Restore the declared epoch after the native signer rewrites the file.
+        - cmd: >-
+            node --eval 'require("node:fs").utimesSync(process.argv[1], new Date(process.argv[2]), new Date(process.argv[2]))'
+            "{{ .Path }}" "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
 
 archives:
-  - ids: [portable]
+  - ids: [portable, windows, macos]
     name_template: "aigw_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     wrap_in_directory: true
     builds_info:
