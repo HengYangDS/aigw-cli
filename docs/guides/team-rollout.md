@@ -13,6 +13,13 @@ client when its prerequisites are available.
 4. Validate the manifest in a clean repository environment.
 5. Publish it through the team's ordinary configuration channel.
 
+Distribute the reviewed file from a release tag or immutable commit in either
+Forge, not a moving branch. Open `manifests/team.toml` at that revision and use
+the Forge's raw-file download; save it as `team.toml`. Do not save the rendered
+HTML page. The portable program archive does not include this team-specific
+configuration. Keep the selected revision with the team's rollout instructions
+so members receive the same public configuration without cloning the repository.
+
 A manifest should contain the minimum Profile set users need. Provider catalogs
 are discovery input, not automatic routing policy. Teams own model choice;
 AIGW does not infer capability, quality or version policy from a model ID.
@@ -145,7 +152,8 @@ installed executable's explicit path works with the same arguments. Importing
 team configuration does not install the program or change shell discovery.
 
 Import the reviewed catalogue without requiring every provider Token or either
-supported client:
+supported client. Save the maintainer's `team.toml` in the current directory,
+or pass its actual path to `--from`:
 
 ```bash
 aigw setup --from team.toml

@@ -2,6 +2,8 @@
 
 AIGW has four configuration entities: Account, Profile, Route, and Adapter.
 A Route selects one Profile for one client; that Profile refers to an Account.
+An Adapter projects that selection into its native client. Account Tokens stay
+in a separate credential backend, not in the client configuration.
 
 ```mermaid
 flowchart TB
