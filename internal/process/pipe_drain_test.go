@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+// pipeDrainFixtureWait bounds fixture startup and scheduling, not the product's
+// shorter pipe-drain deadline. Both native platforms use the same allowance.
+const pipeDrainFixtureWait = 5 * time.Second
+
 // controllableDeadlineContext lets pipe-drain tests begin the command only after
 // its background descendant has inherited the output pipes, then
 // deterministically deliver the DeadlineExceeded signal that RunCapture

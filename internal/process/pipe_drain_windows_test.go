@@ -60,7 +60,7 @@ func TestRunCaptureBoundsPipeDrainAfterChildExit(t *testing.T) {
 			var runErr error
 			select {
 			case runErr = <-result:
-			case <-time.After(capturedProcessWaitDelay + 5*time.Second):
+			case <-time.After(capturedProcessWaitDelay + pipeDrainFixtureWait):
 				cancel()
 				t.Fatal("RunCapture did not return after the bounded Windows pipe-drain delay")
 			}
@@ -95,7 +95,7 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 		ctx.expire()
 		t.Fatal(err)
 	}
-	if err := awaitFixtureFile(fixture.barrier, 5*time.Second); err != nil {
+	if err := awaitFixtureFile(fixture.barrier, pipeDrainFixtureWait); err != nil {
 		ctx.expire()
 		t.Fatalf("Windows pipe-drain fixture did not reach the deadline barrier: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 	var runErr error
 	select {
 	case runErr = <-result:
-	case <-time.After(capturedProcessWaitDelay + 5*time.Second):
+	case <-time.After(capturedProcessWaitDelay + pipeDrainFixtureWait):
 		t.Fatal("RunCapture did not return after the bounded Windows pipe-drain delay")
 	}
 	if runErr == nil || !strings.Contains(runErr.Error(), "exceeded its verification limit and its output pipes did not close within") {
@@ -157,7 +157,7 @@ func newWindowsPipeDrainFixture(t *testing.T, testName, role string) windowsPipe
 }
 
 func releaseWindowsPipeDrainChild(fixture windowsPipeDrainFixture) error {
-	if err := awaitFixtureFile(fixture.childReady, 5*time.Second); err != nil {
+	if err := awaitFixtureFile(fixture.childReady, pipeDrainFixtureWait); err != nil {
 		return fmt.Errorf("Windows pipe-drain child did not start: %w", err)
 	}
 	time.Sleep(100 * time.Millisecond)
@@ -186,7 +186,7 @@ func runWindowsPipeDrainHelper(t *testing.T, testName string) bool {
 	if err := os.WriteFile(os.Getenv(windowsPipeDrainChildReadyEnvironment), []byte(strconv.Itoa(os.Getpid())), 0o600); err != nil {
 		t.Fatalf("write Windows pipe-drain child readiness: %v", err)
 	}
-	if err := awaitFixtureFile(os.Getenv(windowsPipeDrainReleaseEnvironment), 5*time.Second); err != nil {
+	if err := awaitFixtureFile(os.Getenv(windowsPipeDrainReleaseEnvironment), pipeDrainFixtureWait); err != nil {
 		t.Fatalf("wait for Windows pipe-drain child release: %v", err)
 	}
 	descendant := exec.Command(os.Args[0], "-test.run=^"+testName+"$")
@@ -196,7 +196,7 @@ func runWindowsPipeDrainHelper(t *testing.T, testName string) bool {
 	if err := descendant.Start(); err != nil {
 		t.Fatalf("start Windows pipe-drain descendant: %v", err)
 	}
-	if err := awaitFixtureFile(os.Getenv(windowsPipeDrainPIDEnvironment), 5*time.Second); err != nil {
+	if err := awaitFixtureFile(os.Getenv(windowsPipeDrainPIDEnvironment), pipeDrainFixtureWait); err != nil {
 		t.Fatalf("wait for Windows pipe-drain descendant: %v", err)
 	}
 	if _, err := fmt.Fprint(os.Stdout, "AIGW_OK"); err != nil {

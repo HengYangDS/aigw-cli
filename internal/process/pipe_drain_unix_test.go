@@ -45,29 +45,19 @@ func TestRunCaptureBoundsPipeDrainAfterChildExit(t *testing.T) {
 
 func TestRunCaptureReportsDeadlineAfterPipeDrain(t *testing.T) {
 	requireShellFixture(t)
+	for _, startup := range []string{"0", "1.5"} {
+		t.Run("startup-"+startup, func(t *testing.T) {
+			testDeadlineAfterPipeDrain(t, startup)
+		})
+	}
+}
+
+func testDeadlineAfterPipeDrain(t *testing.T, startup string) {
+	t.Helper()
 	fixtureDir := t.TempDir()
-	marker, err := os.CreateTemp(fixtureDir, "pipe-drain-child-")
-	if err != nil {
-		t.Fatalf("CreateTemp marker: %v", err)
-	}
-	if err := marker.Close(); err != nil {
-		t.Fatalf("close marker: %v", err)
-	}
-	if err := os.Remove(marker.Name()); err != nil {
-		t.Fatalf("remove marker: %v", err)
-	}
-	ready, err := os.CreateTemp(fixtureDir, "pipe-drain-ready-")
-	if err != nil {
-		t.Fatalf("CreateTemp ready marker: %v", err)
-	}
-	if err := ready.Close(); err != nil {
-		t.Fatalf("close ready marker: %v", err)
-	}
-	if err := os.Remove(ready.Name()); err != nil {
-		t.Fatalf("remove ready marker: %v", err)
-	}
+	marker := filepath.Join(fixtureDir, "descendant.pid")
 	t.Cleanup(func() {
-		data, readErr := os.ReadFile(marker.Name())
+		data, readErr := os.ReadFile(marker)
 		if readErr != nil {
 			return
 		}
@@ -81,39 +71,29 @@ func TestRunCaptureReportsDeadlineAfterPipeDrain(t *testing.T) {
 	})
 
 	ctx := newControllableDeadlineContext()
+	t.Cleanup(ctx.expire)
 	result := make(chan error, 1)
 	go func() {
 		_, runErr := (Runner{}).RunCapture(ctx, Plan{
 			Executable: "/bin/sh",
-			Args:       []string{"-c", "(sleep 30) & printf '%s\\n' \"$!\" > \"$1\"; : > \"$2\"; while [ ! -f \"$3\" ]; do sleep 0.01; done; sleep 30", "sh", marker.Name(), ready.Name(), fixtureDir + "/expire"},
+			Args:       []string{"-c", "sleep \"$2\"; (sleep 30) & printf '%s\\n' \"$!\" > \"$1\"; sleep 30", "sh", marker, startup},
 			Env:        []string{},
 		})
 		result <- runErr
 	}()
-	if err := awaitFixtureFile(marker.Name(), time.Second); err != nil {
+	if err := awaitFixtureFile(marker, pipeDrainFixtureWait); err != nil {
 		ctx.expire()
 		select {
 		case <-result:
-		case <-time.After(capturedProcessWaitDelay + time.Second):
+		case <-time.After(capturedProcessWaitDelay + pipeDrainFixtureWait):
 		}
 		t.Fatalf("background descendant did not inherit output before deadline: %v", err)
-	}
-	if err := awaitFixtureFile(ready.Name(), time.Second); err != nil {
-		ctx.expire()
-		select {
-		case <-result:
-		case <-time.After(capturedProcessWaitDelay + time.Second):
-		}
-		t.Fatalf("shell fixture did not reach the deadline barrier: %v", err)
-	}
-	if err := os.WriteFile(fixtureDir+"/expire", []byte("expire\n"), 0o600); err != nil {
-		t.Fatalf("release deadline barrier: %v", err)
 	}
 	ctx.expire()
 	var runErr error
 	select {
 	case runErr = <-result:
-	case <-time.After(capturedProcessWaitDelay + time.Second):
+	case <-time.After(capturedProcessWaitDelay + pipeDrainFixtureWait):
 		t.Fatal("RunCapture did not return after the bounded pipe-drain delay")
 	}
 	if runErr == nil || !strings.Contains(runErr.Error(), "exceeded its verification limit and its output pipes did not close within") {
