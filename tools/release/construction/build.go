@@ -377,6 +377,9 @@ func buildCI(root, workspace, output string, build releaseBuilder, epoch release
 	if err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
+		return fmt.Errorf("prepare release output parent: %w", err)
+	}
 	first := filepath.Join(workspace, "first")
 	second := filepath.Join(workspace, "second")
 	request := buildRequest{

@@ -310,8 +310,12 @@ func TestBuildCIResolvesTagVersionAndReproducibleEpoch(t *testing.T) {
 	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "group/aigw-cli")
 	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example")
 	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "org/aigw-cli")
+	output := filepath.Join(t.TempDir(), "nested", "release", "dist")
 	var epochs []string
 	build := func(request buildRequest) error {
+		if info, err := os.Stat(filepath.Dir(output)); err != nil || !info.IsDir() {
+			t.Fatalf("output parent was not prepared before building: %v", err)
+		}
 		epochs = append(epochs, request.Epoch)
 		if request.Version != "1.2.3" {
 			t.Fatalf("version=%q", request.Version)
@@ -327,7 +331,7 @@ func TestBuildCIResolvesTagVersionAndReproducibleEpoch(t *testing.T) {
 		}
 		return "1784246400", nil
 	}
-	if err := buildCI(root, filepath.Join(t.TempDir(), "build"), filepath.Join(t.TempDir(), "dist"), build, epoch, func(left, right, version string) error {
+	if err := buildCI(root, filepath.Join(t.TempDir(), "build"), output, build, epoch, func(left, right, version string) error {
 		if version != "1.2.3" {
 			t.Fatalf("compare version=%q", version)
 		}
@@ -337,6 +341,9 @@ func TestBuildCIResolvesTagVersionAndReproducibleEpoch(t *testing.T) {
 	}
 	if !reflect.DeepEqual(epochs, []string{"1784246400", "1784246400"}) {
 		t.Fatalf("epochs=%v", epochs)
+	}
+	if data, err := os.ReadFile(filepath.Join(output, "artifact")); err != nil || string(data) != "same" {
+		t.Fatalf("published artifact=%q: %v", data, err)
 	}
 }
 
@@ -411,10 +418,21 @@ func TestBuildCIFailsClosedAcrossUntaggedAndDependencyFailures(t *testing.T) {
 
 	epoch := func(string, string) (string, error) { return "1784246400", nil }
 	calls := 0
-	if err := buildCI(root, workspace, output, func(buildRequest) error {
+	occupied := filepath.Join(root, "occupied")
+	if err := os.WriteFile(occupied, []byte("preserved"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	failingBuild := func(buildRequest) error {
 		calls++
 		return want
-	}, epoch, nil); !errors.Is(err, want) || calls != 1 {
+	}
+	if err := buildCI(root, workspace, filepath.Join(occupied, "dist"), failingBuild, epoch, nil); err == nil || !strings.Contains(err.Error(), "prepare release output parent") || calls != 0 {
+		t.Fatalf("output admission error=%v build calls=%d", err, calls)
+	}
+	if data, err := os.ReadFile(occupied); err != nil || string(data) != "preserved" {
+		t.Fatalf("output admission changed the existing file: %q, %v", data, err)
+	}
+	if err := buildCI(root, workspace, output, failingBuild, epoch, nil); !errors.Is(err, want) || calls != 1 {
 		t.Fatalf("first build error=%v calls=%d", err, calls)
 	}
 	calls = 0

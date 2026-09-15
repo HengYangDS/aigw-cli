@@ -15,6 +15,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Keep enabled client integrations throughout a supported program rollback;
   align command help and rollout guidance with retained-state acceptance instead
   of requiring an unnecessary disable/re-enable cycle.
+- Prepare the release output parent before reproducibility builds; reject an
+  unusable parent before invoking the builder and preserve existing content.
 
 ## [0.1.0-rc.114] - 2026-09-14
 
