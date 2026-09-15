@@ -12,7 +12,7 @@ GOTOOLCHAIN = "local"
 GOWORK = "off"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.93.4@sha256:bed8301bb7f38a2a4b95f24ede868db4f5cc1a487ed223055a7d5a226d9ec374"
+renovate_image = "ghcr.io/renovatebot/renovate:44.93.5@sha256:a813dd2b59451b4fc6f3d1679dcf92af6a6f045d354301d061d18c177a6f32a2"
 
 [tools]
 # Language runtimes
@@ -23,8 +23,8 @@ node = "26.8.2"
 cue = "0.17.1"
 
 # Release transport conformance
-gh = "2.100.0"
-glab = "1.117.0"
+gh = "2.101.0"
+glab = "1.118.0"
 
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.18.1"
