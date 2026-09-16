@@ -169,6 +169,26 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 	}
 }
 
+func TestVerificationConcurrencyPreservesIndependentManualRuns(t *testing.T) {
+	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Concurrency struct {
+			Group            string `yaml:"group"`
+			CancelInProgress bool   `yaml:"cancel-in-progress"`
+		} `yaml:"concurrency"`
+	}
+	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
+		t.Fatal(err)
+	}
+	const want = "verify-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'automatic' }}"
+	if workflow.Concurrency.Group != want || !workflow.Concurrency.CancelInProgress {
+		t.Fatalf("GitHub verification concurrency = %#v, want group %q with automatic-run cancellation", workflow.Concurrency, want)
+	}
+}
+
 func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 	projections, err := renderProjections(filepath.Clean(filepath.Join("..", "..", "..")))
 	if err != nil {

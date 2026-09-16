@@ -570,7 +570,7 @@ githubVerify: {
 	}
 	permissions: contents: "read"
 	concurrency: {
-		group:                "verify-${{ github.workflow }}-${{ github.ref }}"
+		group:                "verify-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'automatic' }}"
 		"cancel-in-progress": true
 	}
 	jobs: {
