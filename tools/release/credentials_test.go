@@ -182,10 +182,7 @@ func runNativeEphemeralCredentials(t *testing.T, artifact string) {
 
 func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersion string) {
 	t.Helper()
-	baseline, err := nativeLifecycleBaseline(artifact)
-	if err != nil {
-		t.Fatal(err)
-	}
+	baseline := requireNativeLifecycleBaseline(t, func() string { return artifact })
 	journey := newNativeJourney(t, baseline, endpoint, true)
 	oldVersion := journey.predecessorVersion(newVersion)
 	journey.prepareCodexLifecycle()

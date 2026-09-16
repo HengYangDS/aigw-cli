@@ -86,10 +86,7 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	baseline, err := nativeLifecycleBaseline(buildNativeProgram(t, root, "0.0.0"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	baseline := requireNativeLifecycleBaseline(t, func() string { return buildNativeProgram(t, root, "0.0.0") })
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
 	journey := newNativeJourney(t, baseline, "https://unused.example.test", false)
 	journey.run("setup", "--from", journey.manifest)

@@ -2,9 +2,26 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 )
+
+func requireNativeLifecycleBaseline(t *testing.T, buildFixture func() string) string {
+	t.Helper()
+	baseline, err := nativeLifecycleBaseline(buildFixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return baseline
+}
+
+func mustWriteFile(t *testing.T, path string, data []byte, mode os.FileMode) {
+	t.Helper()
+	if err := os.WriteFile(path, data, mode); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestExecuteReturnsPortableProcessStatus(t *testing.T) {
 	var stdout bytes.Buffer

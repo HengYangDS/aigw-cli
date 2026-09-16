@@ -161,10 +161,7 @@ func nativePerformancePrograms(t *testing.T) []performanceProgram {
 	if err != nil || !bytes.Equal(verified, readFile(t, candidate)) {
 		t.Fatalf("candidate program differs from verified archive: %v", err)
 	}
-	baseline, err := nativeLifecycleBaseline("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	baseline := requireNativeLifecycleBaseline(t, func() string { return "" })
 	programs := []performanceProgram{{Variant: "baseline", Path: baseline}, {Variant: "candidate", Path: candidate}}
 	for index := range programs {
 		data := readFile(t, programs[index].Path)

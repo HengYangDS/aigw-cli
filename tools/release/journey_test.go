@@ -33,7 +33,7 @@ func TestNativeProductJourney(t *testing.T) {
 		t.Fatal(err)
 	}
 	const oldVersion = "0.0.0"
-	artifact := buildNativeProgram(t, root, oldVersion)
+	artifact := requireNativeLifecycleBaseline(t, func() string { return buildNativeProgram(t, root, oldVersion) })
 
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
