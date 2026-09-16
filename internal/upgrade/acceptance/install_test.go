@@ -102,6 +102,9 @@ func TestUpdateDownloadsVerifiesAndAtomicallyReplacesBinary(t *testing.T) {
 	if err := os.WriteFile(binary, []byte("old-binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Chmod(binary, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	runner := &releaseRunner{
 		archive: archive, checksum: fmt.Sprintf("%x  ./%s\n", sum, name),
 	}
@@ -167,8 +170,14 @@ func TestUpdateMakesReplacedRollbackBinaryExecutable(t *testing.T) {
 	if err := os.WriteFile(binary, []byte("current-binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Chmod(binary, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	backupPath := filepath.Join(filepath.Dir(binary), ".aigw.previous")
 	if err := os.WriteFile(backupPath, []byte("stale-rollback"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(backupPath, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	runner := &releaseRunner{archive: archive, checksum: fmt.Sprintf("%x  ./%s\n", sum, name)}

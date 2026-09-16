@@ -291,6 +291,9 @@ func TestReconcileConfigsRefusesToAdoptAForeignCatalogFile(t *testing.T) {
 	if err := os.WriteFile(catalogPath, foreign, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Chmod(catalogPath, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	_, err := ReconcileConfigs(nil, []TargetRef{target}, catalogTestRuntime("openai.gpt-5.6-sol"))
 	if err == nil || !strings.Contains(err.Error(), "refusing to overwrite") {
 		t.Fatalf("ReconcileConfigs() error = %v, want a catalog ownership conflict", err)

@@ -76,6 +76,9 @@ func TestWriteFileAtomicPreservesMode(t *testing.T) {
 	if err := os.WriteFile(path, []byte("old"), 0o640); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Chmod(path, 0o640); err != nil {
+		t.Fatal(err)
+	}
 	if err := transaction.WriteFileAtomic(path, []byte("new"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -230,6 +233,9 @@ func TestRestoreFileAtomicIfPostimageRemovesFileCreatedByTransaction(t *testing.
 func TestWriteFileAtomicExactModeIfUnchangedCorrectsADriftedMode(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "file")
 	if err := os.WriteFile(path, []byte("before"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	expected, err := transaction.CaptureFileSnapshot(path)

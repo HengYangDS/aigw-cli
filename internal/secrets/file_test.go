@@ -86,6 +86,9 @@ func TestFileStoreRejectsUnsafePermissions(t *testing.T) {
 	if err := os.WriteFile(file, []byte("token"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Chmod(file, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := newFileStore(root).Get("alpha"); err == nil {
 		t.Fatal("Get() accepted group/world-readable Token")
 	}
@@ -114,6 +117,9 @@ func TestFileStoreRejectsHardLink(t *testing.T) {
 func TestFileStoreRejectsUnsafeDirectoryPermissions(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
 	if err := os.Mkdir(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := newFileStore(root).Get("alpha"); err == nil {
@@ -145,6 +151,9 @@ func TestBackendChoiceRejectsUnsafePermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(root, "backend"), []byte("file\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(root, "backend"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := newBackendChoice(root).Read(); err == nil {
@@ -196,6 +205,9 @@ func TestFileStoreDeleteRejectsUnsafeStorage(t *testing.T) {
 	if err := os.Mkdir(unsafeRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Chmod(unsafeRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := newFileStore(unsafeRoot).Delete("alpha"); err == nil {
 		t.Fatal("Delete() accepted an unsafe Token directory")
 	}
@@ -205,6 +217,9 @@ func TestFileStoreDeleteRejectsUnsafeStorage(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(root, "alpha"), []byte("token"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(root, "alpha"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := newFileStore(root).Delete("alpha"); err == nil {

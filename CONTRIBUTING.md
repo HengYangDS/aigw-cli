@@ -34,6 +34,12 @@ cannot establish that the shipped catalogue works. Native authorization fixtures
 must verify the persisted security format and effective enforcement boundary,
 not merely recreate an API call in temporary storage. Isolation must preserve the
 security semantics exercised by the deployed product.
+Permission-sensitive fixtures must set their intended mode explicitly after
+creation; creation modes are filtered by the caller's umask. Exercise those
+fixtures under both ordinary and restrictive umasks without changing the
+process-wide mask inside concurrent tests. Restrict evidence-directory access
+with an exact path operation rather than leaking an output-creation umask into
+the test process.
 Every selected native journey
 must consume the explicit candidate and report its binary digest; an absent
 candidate is an input failure, not permission to substitute a source build.

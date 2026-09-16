@@ -243,7 +243,11 @@ func TestAutomaticSelectionSuccessfulGetReportsMarkerFailure(t *testing.T) {
 
 func TestAutomaticDeleteRejectsInvalidAccountAndBrokenSelection(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
-	store, err := Select(Selection{GOOS: "linux", Root: root})
+	store, err := Select(Selection{
+		GOOS:         "linux",
+		Root:         root,
+		KeyringProbe: func(Store) error { return errors.New("service unavailable") },
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,6 +255,9 @@ func TestAutomaticDeleteRejectsInvalidAccountAndBrokenSelection(t *testing.T) {
 		t.Fatal("Delete() accepted an invalid Account ID")
 	}
 	if err := os.Mkdir(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Delete("alpha"); err == nil {
@@ -272,6 +279,9 @@ func TestAutomaticSelectionReportsMarkerPersistenceFailure(t *testing.T) {
 		t.Fatalf("Get() error = %v", err)
 	}
 	if err := os.Mkdir(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Set("alpha", "token"); err == nil {
