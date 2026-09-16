@@ -36,6 +36,11 @@ env:
         required: false
         type: boolean
         default: false
+      macos_keychain:
+        description: With baseline_tag, qualify retained credentials in the disposable macOS Keychain
+        required: false
+        type: boolean
+        default: false
       performance:
         description: Measure published candidate_tag against baseline_tag with retained native samples
         required: false
@@ -182,10 +187,11 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality
       - name: Run historical release acceptance
-        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.performance)
+        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)
         shell: pwsh
         env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
+          AIGW_VERIFY_SYSTEM_KEYRING: ${{ github.event_name == 'workflow_dispatch' && inputs.macos_keychain && '1' || '0' }}
           GH_TOKEN: ${{ github.token }}
           AIGW_BASELINE_TAG: ${{ inputs.baseline_tag }}
           AIGW_CANDIDATE_TAG: ${{ inputs.candidate_tag }}
@@ -329,7 +335,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform linux --full-quality
       - name: Run historical release acceptance
-        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.performance)
+        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -475,7 +481,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform windows --full-quality
       - name: Run historical release acceptance
-        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.performance)
+        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)
         shell: pwsh
         env:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"

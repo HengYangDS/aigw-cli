@@ -260,9 +260,12 @@ actions: {
 		},
 		{
 			name:  "Run historical release acceptance"
-			if:    "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.performance)"
+			if:    "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)"
 			shell: "pwsh"
 			env: _credentialEnvironment & {
+				if _platform == "darwin" {
+					AIGW_VERIFY_SYSTEM_KEYRING: "${{ github.event_name == 'workflow_dispatch' && inputs.macos_keychain && '1' || '0' }}"
+				}
 				GH_TOKEN:                              "${{ github.token }}"
 				AIGW_BASELINE_TAG:                     "${{ inputs.baseline_tag }}"
 				AIGW_CANDIDATE_TAG:                    "${{ inputs.candidate_tag }}"
@@ -526,6 +529,12 @@ githubVerify: {
 			}
 			windows_clients: {
 				description: "With baseline_tag, qualify real Windows clients through the existing release lifecycle"
+				required:    false
+				type:        "boolean"
+				default:     false
+			}
+			macos_keychain: {
+				description: "With baseline_tag, qualify retained credentials in the disposable macOS Keychain"
 				required:    false
 				type:        "boolean"
 				default:     false

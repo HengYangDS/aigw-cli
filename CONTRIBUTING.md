@@ -671,10 +671,12 @@ exclusive `commit_base`, and a published predecessor tag. Each native job
 downloads that peer's matching archive with GitHub CLI, verifies the published
 SHA-256 checksum, and passes the extracted executable to the same package
 lifecycle owner. The temporary download scope is removed on success or failure.
-The macOS and Windows jobs also enable the native credential journey against
-those exact predecessor and candidate bytes. Linux's hosted job proves the
-environment-credential lifecycle; native Secret Service acceptance requires
-the separately provisioned test environment described above.
+Windows always enables its native Credential Manager journey. Set
+`macos_keychain=true` only on a disposable GitHub macOS runner to exercise the
+same retained Keychain item across predecessor, candidate, rollback and
+re-upgrade. Linux's hosted job proves the environment-credential lifecycle;
+native Secret Service acceptance requires the separately provisioned test
+environment described above.
 An omitted tag retains the ordinary offline fixture-based journey. This checks
 historical upgrade compatibility, not a release signature: older releases may
 not include detached signatures. Local and GitLab operators can supply the same

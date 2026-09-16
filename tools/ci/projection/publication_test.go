@@ -233,13 +233,17 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 				t.Fatalf("%s lost selection %s", platform, key)
 			}
 		}
-		if step.If != "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.performance)" || step.Shell != "pwsh" {
+		if step.If != "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.windows_clients || inputs.macos_keychain || inputs.performance)" || step.Shell != "pwsh" {
 			t.Fatalf("%s historical acceptance selection = %#v", platform, step)
 		}
 		if !strings.Contains(step.Run, "$acceptance += @('--artifacts', $candidate)") {
 			t.Fatalf("%s cannot consume the published candidate", platform)
 		}
-		if step.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != map[string]string{"windows": "1"}[platform] {
+		wantKeyring := map[string]string{
+			"darwin":  "${{ github.event_name == 'workflow_dispatch' && inputs.macos_keychain && '1' || '0' }}",
+			"windows": "1",
+		}[platform]
+		if step.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != wantKeyring {
 			t.Fatalf("%s historical acceptance does not match its credential qualification boundary", platform)
 		}
 		if platform == "darwin" && step.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {

@@ -213,6 +213,15 @@ func TestGitHubDarwinSystemCredentialJourneyRequiresAnEphemeralHost(t *testing.T
 		t.Fatal(err)
 	}
 	var workflow struct {
+		On struct {
+			Dispatch struct {
+				Inputs map[string]struct {
+					Type     string    `yaml:"type"`
+					Default  yaml.Node `yaml:"default"`
+					Required bool      `yaml:"required"`
+				} `yaml:"inputs"`
+			} `yaml:"workflow_dispatch"`
+		} `yaml:"on"`
 		Jobs map[string]struct {
 			Steps []struct {
 				Name string            `yaml:"name"`
@@ -224,20 +233,39 @@ func TestGitHubDarwinSystemCredentialJourneyRequiresAnEphemeralHost(t *testing.T
 		t.Fatal(err)
 	}
 	steps := workflow.Jobs["native-darwin"].Steps
-	index := slices.IndexFunc(steps, func(step struct {
+	ordinary := slices.IndexFunc(steps, func(step struct {
 		Name string            `yaml:"name"`
 		Env  map[string]string `yaml:"env"`
 	}) bool {
 		return step.Name == "Run native macOS acceptance"
 	})
-	if index < 0 {
+	if ordinary < 0 {
 		t.Fatal("GitHub native macOS acceptance step is missing")
 	}
-	want := map[string]string{
-		"AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE": "ephemeral-host",
+	input, present := workflow.On.Dispatch.Inputs["macos_keychain"]
+	if !present || input.Type != "boolean" || input.Default.Value != "false" || input.Required {
+		t.Fatal("retained macOS Keychain qualification must be explicit and disabled by default")
 	}
-	if !reflect.DeepEqual(steps[index].Env, want) {
-		t.Fatalf("GitHub native macOS credential admission = %#v, want %#v", steps[index].Env, want)
+	if got := steps[ordinary].Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"]; got != "ephemeral-host" {
+		t.Fatalf("ordinary GitHub macOS credential scope = %q, want ephemeral-host", got)
+	}
+	if _, present := steps[ordinary].Env["AIGW_VERIFY_SYSTEM_KEYRING"]; present {
+		t.Fatal("ordinary GitHub macOS acceptance must not read credential values")
+	}
+	historical := slices.IndexFunc(steps, func(step struct {
+		Name string            `yaml:"name"`
+		Env  map[string]string `yaml:"env"`
+	}) bool {
+		return step.Name == "Run historical release acceptance"
+	})
+	if historical < 0 {
+		t.Fatal("GitHub historical macOS acceptance step is missing")
+	}
+	if got := steps[historical].Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"]; got != "ephemeral-host" {
+		t.Fatalf("historical GitHub macOS credential scope = %q, want ephemeral-host", got)
+	}
+	if got := steps[historical].Env["AIGW_VERIFY_SYSTEM_KEYRING"]; got != "${{ github.event_name == 'workflow_dispatch' && inputs.macos_keychain && '1' || '0' }}" {
+		t.Fatalf("historical GitHub macOS credential selection = %q", got)
 	}
 }
 
