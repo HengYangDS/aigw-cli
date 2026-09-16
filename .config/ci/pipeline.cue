@@ -40,7 +40,7 @@ commands: {
 
 goToolchain: MISE_ENABLE_TOOLS:      "go"
 nativeToolchain: MISE_ENABLE_TOOLS:  "\(qualityToolchain.MISE_ENABLE_TOOLS),gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs"
-qualityToolchain: MISE_ENABLE_TOOLS: "go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo"
+qualityToolchain: MISE_ENABLE_TOOLS: "go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo"
 
 // Git role names belong to the adopter workspace; CUE consumes its native TOML.
 branch_roles: {accepted_branch: string, release_branch: string}
@@ -236,8 +236,9 @@ actions: {
 			if:   "always() && github.event_name == 'workflow_dispatch' && inputs.refresh_locks"
 			uses: actions.upload
 			with: {
-				name: "mise-lock-\(_platform)"
-				path: "mise.lock"
+				name:                   "mise-lock-\(_platform)"
+				path:                   "mise.lock\n.mise/locks\n"
+				"include-hidden-files": true
 			}
 		},
 		for full in [false, true] {
@@ -384,7 +385,7 @@ actions: {
 	rules:     gitlabFullVerificationRules
 	artifacts: {
 		when: "always"
-		paths: ["mise.lock"]
+		paths: ["mise.lock", ".mise/locks"]
 	}
 	if _platform == "linux" {
 		extends: [".linux-toolchain"]

@@ -14,10 +14,15 @@ GOWORK = "off"
 [vars]
 renovate_image = "ghcr.io/renovatebot/renovate:44.93.5@sha256:a813dd2b59451b4fc6f3d1679dcf92af6a6f045d354301d061d18c177a6f32a2"
 
+[tool_alias]
+# Keep npm's native precedence over Node's bundled npm on every platform.
+npm = "npm:npm"
+
 [tools]
 # Language runtimes
 go = "1.27.1"
 node = "26.8.2"
+npm = "12.0.2"
 
 # Specification and CI modeling
 cue = "0.17.1"
@@ -69,11 +74,11 @@ run = "go run ./tools/release accept-native"
 [tasks."dependencies:resolve"]
 description = "Verify two native mise lock refreshes preserve committed tool inputs."
 run = [
-  "git diff --exit-code HEAD -- mise.toml mise.lock",
+  "git diff --exit-code HEAD -- mise.toml mise.lock .mise/locks",
   "mise lock --platform {{ os() }}-{{ arch() }}",
-  "git diff --exit-code HEAD -- mise.toml mise.lock",
+  "git diff --exit-code HEAD -- mise.toml mise.lock .mise/locks",
   "mise lock --platform {{ os() }}-{{ arch() }}",
-  "git diff --exit-code HEAD -- mise.toml mise.lock",
+  "git diff --exit-code HEAD -- mise.toml mise.lock .mise/locks",
 ]
 
 [tasks."dependencies:check"]

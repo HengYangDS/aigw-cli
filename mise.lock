@@ -563,6 +563,12 @@ url = "https://nodejs.org/dist/v26.8.2/node-v26.8.2-win-arm64.zip"
 checksum = "sha256:cf02f5d0c06c794b84f277177d5cf3743d0924ca49f6641cd435dd7cb6ee9085"
 url = "https://nodejs.org/dist/v26.8.2/node-v26.8.2-win-x64.zip"
 
+[[tools.npm]]
+version = "12.0.2"
+aube = { path = ".mise/locks/npm/12.0.2", digest = "sha256:3ed3e14903ee7b444a8e77318856561ede05bcc131425a2c12718d69f3029503" }
+backend = "npm:npm"
+specifiers = ["12.0.2"]
+
 [[tools.taplo]]
 version = "0.10.0"
 backend = "aqua:tamasfe/taplo"

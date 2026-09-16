@@ -97,6 +97,7 @@ func TestMiseToolExecutablesMatchDeclaredVersions(t *testing.T) {
 	}{
 		"go":                           {[]string{"go", "version"}, `^go version go(\S+)`},
 		"node":                         {[]string{"node", "--version"}, `^v(\S+)`},
+		"npm":                          {[]string{"npm", "--version"}, `^(\S+)`},
 		"cue":                          {[]string{"cue", "version"}, `^cue version v(\S+)`},
 		"gh":                           {[]string{"gh", "--version"}, `^gh version (\S+)`},
 		"glab":                         {[]string{"glab", "--version"}, `^glab (\S+)`},
@@ -238,11 +239,11 @@ func TestMiseTasksDelegateToCanonicalOwners(t *testing.T) {
 		"native":    {"go run ./tools/ci native"},
 		"release":   {"go run ./tools/release build dist"},
 		"dependencies:resolve": {
-			"git diff --exit-code HEAD -- mise.toml mise.lock",
+			"git diff --exit-code HEAD -- mise.toml mise.lock .mise/locks",
 			"mise lock --platform {{ os() }}-{{ arch() }}",
-			"git diff --exit-code HEAD -- mise.toml mise.lock",
+			"git diff --exit-code HEAD -- mise.toml mise.lock .mise/locks",
 			"mise lock --platform {{ os() }}-{{ arch() }}",
-			"git diff --exit-code HEAD -- mise.toml mise.lock",
+			"git diff --exit-code HEAD -- mise.toml mise.lock .mise/locks",
 		},
 	}
 	for name, commands := range want {
@@ -273,7 +274,19 @@ func isolatedDevelopmentCheckout(t *testing.T, repository string) (string, map[s
 		t.Fatal(err)
 	}
 	inputs := map[string][]byte{}
-	for _, name := range []string{".config/miserc.toml", "mise.toml", "mise.lock", "go.mod", "go.sum", "package.json", "package-lock.json"} {
+	lockfiles, err := currentRepositoryFiles(repository, "tool dependency locks", ".mise/locks/**")
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := []string{".config/miserc.toml", "mise.toml", "mise.lock", "go.mod", "go.sum", "package.json", "package-lock.json"}
+	for _, file := range lockfiles {
+		name, err := filepath.Rel(repository, file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		names = append(names, name)
+	}
+	for _, name := range names {
 		content, err := os.ReadFile(filepath.Join(repository, name))
 		if err != nil {
 			t.Fatal(err)
@@ -398,7 +411,7 @@ func TestMiseBootstrapReconstructsCheckoutLocalPackages(t *testing.T) {
 				t.Fatalf("installed %s = %q, want %q: %v", name, installed.Version, want, err)
 			}
 		}
-		requireCheckoutExecutables(t, root, configuration.Tools["node"], manifest.Dependencies)
+		requireCheckoutExecutables(t, root, configuration.Tools, manifest.Dependencies)
 		for name, want := range inputs {
 			if got := readFile(t, filepath.Join(root, name)); !bytes.Equal(got, want) {
 				t.Fatalf("resolution, bootstrap or tool execution changed %s", name)
@@ -412,14 +425,15 @@ func TestMiseBootstrapReconstructsCheckoutLocalPackages(t *testing.T) {
 	}
 }
 
-func requireCheckoutExecutables(t *testing.T, root, nodeVersion string, dependencies map[string]string) {
+func requireCheckoutExecutables(t *testing.T, root string, tools, dependencies map[string]string) {
 	t.Helper()
 	for name, probe := range map[string]struct {
 		arguments []string
 		version   string
 		pattern   string
 	}{
-		"node": {[]string{"node", "--version"}, nodeVersion, `^v(\S+)$`},
+		"node": {[]string{"node", "--version"}, tools["node"], `^v(\S+)$`},
+		"npm":  {[]string{"npm", "--version"}, tools["npm"], `^(\S+)$`},
 		"@fission-ai/openspec": {
 			[]string{"node", filepath.Join(root, "node_modules", "@fission-ai", "openspec", "bin", "openspec.js"), "--version"},
 			dependencies["@fission-ai/openspec"], `^(\S+)$`,
@@ -438,7 +452,8 @@ func requireCheckoutExecutables(t *testing.T, root, nodeVersion string, dependen
 		}
 		command := exec.Command("mise", append([]string{"-C", root, "exec", "--locked", "--"}, probe.arguments...)...)
 		command.Stdin = strings.NewReader("# Bootstrap\n")
-		output, err := command.CombinedOutput()
+		command.Stderr = t.Output()
+		output, err := command.Output()
 		identity := regexp.MustCompile(probe.pattern).FindStringSubmatch(strings.TrimSpace(string(output)))
 		if err != nil || len(identity) != 2 || identity[1] != probe.version {
 			t.Fatalf("executable %s version mismatch, want %s: %v\n%s", name, probe.version, err, output)

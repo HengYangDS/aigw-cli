@@ -85,7 +85,7 @@ jobs:
     timeout-minutes: 25
     if: github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
     env:
-      MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo
+      MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -127,7 +127,7 @@ jobs:
     timeout-minutes: 25
     if: github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
     env:
-      MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
+      MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -156,7 +156,10 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: mise-lock-darwin
-          path: mise.lock
+          path: |
+            mise.lock
+            .mise/locks
+          include-hidden-files: true
       - env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
@@ -274,7 +277,7 @@ jobs:
     timeout-minutes: 25
     if: github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
     env:
-      MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
+      MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -306,7 +309,10 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: mise-lock-linux
-          path: mise.lock
+          path: |
+            mise.lock
+            .mise/locks
+          include-hidden-files: true
       - name: Run native Linux acceptance
         if: github.event_name != 'workflow_dispatch' || !inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform linux
@@ -417,7 +423,7 @@ jobs:
     timeout-minutes: 25
     if: github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
     env:
-      MISE_ENABLE_TOOLS: go,node,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
+      MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
     steps:
       - name: Check out the exact product commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -446,7 +452,10 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: mise-lock-windows
-          path: mise.lock
+          path: |
+            mise.lock
+            .mise/locks
+          include-hidden-files: true
       - env:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
         name: Run native Windows acceptance

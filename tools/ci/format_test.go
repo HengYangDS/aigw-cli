@@ -44,8 +44,9 @@ choices = [
 ]
 record = {z = 2, a = 1}
 `
+	lockValid := strings.ReplaceAll(valid, "{z = 2, a = 1}", "{ z = 2, a = 1 }")
 	files := map[string]string{
-		"mise.lock":                 valid,
+		"mise.lock":                 lockValid,
 		"tools/domain/config.toml":  valid,
 		"internal/domain/test.toml": valid,
 		"build/generated.toml":      "value = [\n",
@@ -70,8 +71,10 @@ record = {z = 2, a = 1}
 		name, root, path, content string
 		valid                     bool
 	}{
-		{"absolute root", root, "mise.lock", valid, true},
-		{"relative root", filepath.Base(root), "mise.lock", valid, true},
+		{"absolute root", root, "mise.lock", lockValid, true},
+		{"relative root", filepath.Base(root), "mise.lock", lockValid, true},
+		{"native lock spacing", root, "mise.lock", valid, false},
+		{"authored table spacing", root, "tools/domain/config.toml", lockValid, false},
 		{"source fixture syntax", root, "internal/domain/test.toml", "value = [\n", false},
 		{"tool policy format", root, "tools/domain/config.toml", "value=1\n", false},
 		{"lock syntax", root, "mise.lock", "value = [\n", false},
@@ -82,7 +85,7 @@ record = {z = 2, a = 1}
 				t.Fatal(err)
 			}
 			t.Cleanup(func() {
-				if err := os.WriteFile(destination, []byte(valid), 0o600); err != nil {
+				if err := os.WriteFile(destination, []byte(files[test.path]), 0o600); err != nil {
 					t.Error(err)
 				}
 			})

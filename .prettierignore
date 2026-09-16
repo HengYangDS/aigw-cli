@@ -1,2 +1,5 @@
 # OpenSpec history is immutable; current files remain formatter-owned.
 /openspec/changes/archive/
+
+# Native dependency locks are byte-owned and digest-checked by mise/aube.
+/.mise/locks/**/aube-lock.yaml

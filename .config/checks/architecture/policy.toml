@@ -400,6 +400,7 @@ prefixes = ["manifests"]
 
 [tracked_carrier_classes.toolchain]
 responsibility = "development tooling and locked dependency closure"
+prefixes = [".mise/locks"]
 exact_paths = [
   ".cbmignore",
   ".config/miserc.toml",
