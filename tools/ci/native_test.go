@@ -2,12 +2,9 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -15,88 +12,6 @@ import (
 	"strings"
 	"testing"
 )
-
-func TestKeychainIntegrationHasExplicitBuildScope(t *testing.T) {
-	expected := map[string]string{
-		"aigw-cli/internal/secrets":          "keyring_darwin_test.go",
-		"aigw-cli/internal/secrets/keychain": "integration_darwin_test.go",
-		"aigw-cli/tools/release":             "credentials_darwin_test.go",
-	}
-	for _, selected := range []bool{false, true} {
-		args := []string{"list", "-json"}
-		if selected {
-			args = append(args, "-tags=keychain_integration")
-		}
-		args = append(args, "./internal/secrets", "./internal/secrets/keychain", "./tools/release")
-		call := exec.CommandContext(t.Context(), "go", args...)
-		call.Dir = repositoryRoot(t)
-		call.Env = append(os.Environ(), "GOOS=darwin", "GOFLAGS=")
-		output, err := call.Output()
-		if err != nil {
-			t.Fatal(err)
-		}
-		decoder := json.NewDecoder(bytes.NewReader(output))
-		seen := make(map[string]bool)
-		for {
-			var pkg struct {
-				ImportPath  string   `json:"ImportPath"`
-				TestGoFiles []string `json:"TestGoFiles"`
-			}
-			if err := decoder.Decode(&pkg); errors.Is(err, io.EOF) {
-				break
-			} else if err != nil {
-				t.Fatal(err)
-			}
-			file := expected[pkg.ImportPath]
-			if file == "" || slices.Contains(pkg.TestGoFiles, file) != selected {
-				t.Fatalf("integration selection=%t package=%s test files=%v", selected, pkg.ImportPath, pkg.TestGoFiles)
-			}
-			seen[pkg.ImportPath] = true
-		}
-		if len(seen) != len(expected) {
-			t.Fatalf("integration inventory returned %d packages, want %d", len(seen), len(expected))
-		}
-	}
-}
-
-func TestNativeDarwinRequiresAnEphemeralCredentialHost(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("macOS native admission")
-	}
-	t.Chdir(repositoryRoot(t))
-	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "1")
-	for _, fullQuality := range []bool{false, true} {
-		for _, scope := range []string{"", "operator-host", "ephemeral-host"} {
-			t.Run(fmt.Sprintf("full=%t/scope=%s", fullQuality, scope), func(t *testing.T) {
-				t.Setenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE", scope)
-				args := []string{"native", "--platform", "darwin"}
-				wantCalls := 3
-				if fullQuality {
-					args = append(args, "--full-quality")
-					wantCalls = len(qualityCommands) + 2
-				}
-				calls, integrationCalls := 0, 0
-				err := run(args, &bytes.Buffer{}, func(call command) error {
-					calls++
-					if slices.Contains(call.Env, "GOFLAGS=-tags=keychain_integration") {
-						integrationCalls++
-						if !slices.Contains(call.Args, "./tools/coverage") {
-							t.Fatal("host integration escaped the single native coverage execution")
-						}
-					}
-					return nil
-				})
-				if scope == "ephemeral-host" {
-					if err != nil || calls != wantCalls || integrationCalls != 1 {
-						t.Fatalf("admitted native host: calls=%d integration=%d error=%v", calls, integrationCalls, err)
-					}
-				} else if err == nil || calls != 0 || !strings.Contains(err.Error(), "ephemeral-host") {
-					t.Fatalf("unadmitted host reached native execution: calls=%d error=%v", calls, err)
-				}
-			})
-		}
-	}
-}
 
 func TestNativeAcceptanceUsesReleaseOwner(t *testing.T) {
 	for _, platform := range []string{"darwin", "linux", "windows"} {
@@ -111,28 +26,6 @@ func TestNativeAcceptanceUsesReleaseOwner(t *testing.T) {
 				t.Fatal("ordinary native acceptance enabled host credential integration")
 			}
 		})
-	}
-}
-
-func TestNativeDarwinSeparatesPrivateContractsFromPublisherQualification(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("macOS native admission")
-	}
-	t.Chdir(repositoryRoot(t))
-	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
-	t.Setenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE", "ephemeral-host")
-	integrationCalls := 0
-	err := run([]string{"native", "--platform", "darwin"}, &bytes.Buffer{}, func(call command) error {
-		if slices.Contains(call.Env, "GOFLAGS=-tags=keychain_integration") {
-			integrationCalls++
-		}
-		if slices.Contains(call.Env, "AIGW_VERIFY_SYSTEM_KEYRING=1") {
-			t.Fatal("private Keychain coverage opted into publisher-bound lifecycle")
-		}
-		return nil
-	})
-	if err != nil || integrationCalls != 1 {
-		t.Fatalf("private native coverage calls=%d error=%v", integrationCalls, err)
 	}
 }
 

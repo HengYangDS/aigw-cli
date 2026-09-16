@@ -3,8 +3,6 @@ package keychain
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"io"
 	"os"
@@ -16,13 +14,11 @@ import (
 )
 
 const (
-	workerCommand  = "__aigw-keychain-read"
-	observeCommand = "__aigw-keychain-observe"
-	writeCommand   = "__aigw-keychain-write"
-	deleteCommand  = "__aigw-keychain-delete"
-	missingExit    = 2
-	deniedExit     = 3
-	failureExit    = 4
+	workerCommand = "__aigw-keychain-read"
+	writeCommand  = "__aigw-keychain-write"
+	deleteCommand = "__aigw-keychain-delete"
+	missingExit   = 2
+	failureExit   = 3
 	// The shared runner separately bounds pipe teardown and captures at most 64 KiB.
 	operationTimeout = 5 * time.Second
 	maxStoredValue   = 64 * 1024
@@ -31,8 +27,6 @@ const (
 var (
 	// ErrNotFound means the exact credential item does not exist.
 	ErrNotFound = errors.New("Keychain item not found")
-	// ErrDenied means the item requires authorization unavailable without interaction.
-	ErrDenied = errors.New("Keychain access requires authorization; interaction disabled")
 	// ErrUnavailable means a native operation failed without returning credential data.
 	ErrUnavailable = errors.New("native Keychain operation unavailable")
 )
@@ -42,16 +36,7 @@ func Read(service, account string) (string, error) {
 	return invoke(workerCommand, service, account, "")
 }
 
-// Exists observes one exact item without requesting password bytes.
-func Exists(service, account string) (bool, error) {
-	_, err := invoke(observeCommand, service, account, "")
-	if errors.Is(err, ErrNotFound) {
-		return false, nil
-	}
-	return err == nil, err
-}
-
-// Write creates or updates one exact item using the same identity as Read.
+// Write creates or updates one exact item through the bounded worker.
 func Write(service, account, value string) error {
 	_, err := invoke(writeCommand, service, account, value)
 	return err
@@ -92,8 +77,6 @@ func execute(parent context.Context, runner process.CaptureRunner, plan process.
 		switch exit.ExitCode() {
 		case missingExit:
 			return "", ErrNotFound
-		case deniedExit:
-			return "", ErrDenied
 		}
 	}
 	return "", ErrUnavailable
@@ -101,22 +84,7 @@ func execute(parent context.Context, runner process.CaptureRunner, plan process.
 
 // RunWorker handles private native operations before CLI initialization.
 func RunWorker(args []string, input io.Reader, out io.Writer, service string) (bool, int) {
-	return dispatch(args, input, out, service, queryNative)
-}
-
-// DecodeStoredValue preserves the go-keyring storage grammar without rewriting items.
-// This differs from explicit stdin admission, which requires a canonical base64 envelope.
-func DecodeStoredValue(value string) (string, error) {
-	value = strings.TrimSpace(value)
-	if encoded, ok := strings.CutPrefix(value, "go-keyring-base64:"); ok {
-		decoded, err := base64.StdEncoding.DecodeString(encoded)
-		return string(decoded), err
-	}
-	if encoded, ok := strings.CutPrefix(value, "go-keyring-encoded:"); ok {
-		decoded, err := hex.DecodeString(encoded)
-		return string(decoded), err
-	}
-	return value, nil
+	return dispatch(args, input, out, service, queryKeyring)
 }
 
 func dispatch(args []string, input io.Reader, out io.Writer, service string, query func(string, string, string, []byte) ([]byte, error)) (bool, int) {
@@ -124,7 +92,7 @@ func dispatch(args []string, input io.Reader, out io.Writer, service string, que
 		return false, 0
 	}
 	switch args[0] {
-	case workerCommand, observeCommand, writeCommand, deleteCommand:
+	case workerCommand, writeCommand, deleteCommand:
 	default:
 		return false, 0
 	}
@@ -145,8 +113,6 @@ func dispatch(args []string, input io.Reader, out io.Writer, service string, que
 	switch {
 	case errors.Is(err, ErrNotFound):
 		return true, missingExit
-	case errors.Is(err, ErrDenied):
-		return true, deniedExit
 	case err != nil:
 		return true, failureExit
 	}

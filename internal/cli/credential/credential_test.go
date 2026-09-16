@@ -12,7 +12,6 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/secrets/keychain"
 )
 
 func TestCredentialHelperPrintsOnlyTheProjectedAccountToken(t *testing.T) {
@@ -254,26 +253,15 @@ func (store *refusingSecretStore) Get(string) (string, error) {
 	return "", errors.New("credential access is forbidden")
 }
 
-func TestCredentialReadFailuresHavePreciseNoninteractiveRecovery(t *testing.T) {
-	for _, test := range []struct {
-		name   string
-		cause  error
-		detail string
-	}{
-		{name: "deadline", cause: context.DeadlineExceeded, detail: "deadline"},
-		{name: "authorization", cause: keychain.ErrDenied, detail: "Interaction is disabled"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			runtime, stdout := helperRuntime(t, configuration.ClientCodex, true)
-			runtime.Secrets = &refusingSecretStore{readError: test.cause}
-			command := NewCommand(runtime)
-			err := command.RunE(command, helperArgs(t, runtime, configuration.ClientCodex))
-			var diagnostic bytes.Buffer
-			presentation.RenderCredentialError(presentation.New(&diagnostic, false), err)
-			if err == nil || stdout.Len() != 0 || !strings.Contains(diagnostic.String(), test.detail) || strings.Contains(diagnostic.String(), "aigw sync") {
-				t.Fatalf("read diagnostic is not specific: %v, %q", err, &diagnostic)
-			}
-		})
+func TestCredentialReadDeadlineHasPreciseRecovery(t *testing.T) {
+	runtime, stdout := helperRuntime(t, configuration.ClientCodex, true)
+	runtime.Secrets = &refusingSecretStore{readError: context.DeadlineExceeded}
+	command := NewCommand(runtime)
+	err := command.RunE(command, helperArgs(t, runtime, configuration.ClientCodex))
+	var diagnostic bytes.Buffer
+	presentation.RenderCredentialError(presentation.New(&diagnostic, false), err)
+	if err == nil || stdout.Len() != 0 || !strings.Contains(diagnostic.String(), "deadline") || strings.Contains(diagnostic.String(), "aigw sync") {
+		t.Fatalf("read diagnostic is not specific: %v, %q", err, &diagnostic)
 	}
 }
 

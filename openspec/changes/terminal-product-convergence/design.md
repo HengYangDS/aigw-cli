@@ -353,38 +353,23 @@ the documented automatic policy. API Tokens and Provider diagnostic credentials
 use distinct typed slots in the same backend. No command searches several
 stores or opens a prompt for read-only status.
 
-Native macOS metadata, read, write and delete operations use one same-executable
-worker under `internal/secrets/keychain`, the existing process runner and a
-five-second operation deadline. The worker disables interaction before accessing
-the exact file-based Keychain item; only HOME crosses the child environment.
-It preserves the go-keyring service, slot and stored-value grammar. Writes use
-bounded stdin, updates retain item identity and access policy, and exact deletion
-is idempotent. Native authorization is evaluated for each operation rather than
-inferred from lock state. `purego` is the small Cgo-free native bridge, not another
-credential framework. No extra helper executable, service, configuration,
-fallback reader or access-control mutation is introduced. Denial and timeout
-are distinct from absence, and helper diagnostics remain off Token stdout.
-Private synthetic Keychains use an isolated `Library/Keychains` path and assert
-partitioned format `0x200`; ordinary temporary paths create legacy `0x100`
-databases that omit this authorization layer. Same-byte reads, missing-item,
-locked and foreign-writer cases retain their native checks. A changed self-signed
-image is denied by its code-hash partition even when its designated requirement
-matches. For the current same-executable implementation, upgrade qualification
-uses an approved Apple-recognized publisher identity and exact retained-item
-evidence, not only a signature check. Users consuming published AIGW do not need
-developer membership or the publisher's private key.
-An item created by `security` may allow metadata but deny
-the AIGW reader: neither the existing writer nor a successful external relay
-proves the new executable's authority. Publication and installed replacement stay
-blocked on actual reader-identity acceptance rather than changing production ACLs
-or representing safe refusal as a usable product journey.
+On macOS, value reads and mutations use one private worker under
+`internal/secrets/keychain`, the existing process runner and a five-second
+deadline. The worker delegates to go-keyring's established `/usr/bin/security`
+provider, preserving the published service, slot and stored-value grammar.
+Writes carry the logical Token through bounded stdin, never arguments or the
+environment; go-keyring owns its single storage encoding. Metadata observation
+uses a separate value-free `security find-generic-password` invocation without
+`-w`. No extra executable, service, fallback reader, ACL mutation or backend
+migration is introduced. Failure and timeout return no Token and helper
+diagnostics remain off Token stdout. The deadline bounds the owned process but
+cannot guarantee that macOS itself will never present authorization UI.
 
-The product path remains the AIGW credential command and its same-executable
-native worker, not a separate host-local reader. [DR-0011](../../../docs/decisions/dr-0011-single-portable-token-backend.md#product-reader-and-migration-boundary)
-owns the path comparison and migration conditions. The rejected helper is not
-an alternative to completing that product contract. Retained-item authorization,
-original-caller continuity, routine no-prompt access and public distribution
-require distinct evidence; source verification alone permits no host cutover.
+The product path remains the `aigw credential` command and the selected backend,
+not a host-local helper. [DR-0011](../../../docs/decisions/dr-0011-single-portable-token-backend.md#product-reader-and-migration-boundary)
+owns the migration boundary. Retained-item authorization, original-caller
+continuity, real-client inference and public distribution require distinct
+evidence; source verification alone permits no host cutover.
 
 Alternative considered: search native, file, and environment stores on every
 read. Rejected because it creates several authorities, unpredictable prompts,

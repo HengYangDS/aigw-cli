@@ -435,13 +435,10 @@ do not replace the required pull-request checks; retain the review run separatel
 
 The default native suite builds a synthetic predecessor and candidate through
 the same GoReleaser archive construction used for releases. On macOS, its
-test-owned certificate files give both binaries one certificate-bound requirement;
-the fixture does not import an identity, change host trust or read production
-credentials. In the current same-executable reader, matching self-signed
-certificate requirements do not preserve Keychain partition authorization across
-changed code hashes. This is not a developer-membership prerequisite for users;
-the [credential decision](docs/decisions/dr-0011-single-portable-token-backend.md#product-reader-and-migration-boundary)
-separates publisher signing, enrollment, routine access and reader replacement.
+test-owned certificate files exercise archive signing without importing an
+identity, changing host trust or reading production credentials. Signing and
+credential authorization remain separate boundaries; see the
+[credential decision](docs/decisions/dr-0011-single-portable-token-backend.md#product-reader-and-migration-boundary).
 An explicitly supplied archive is consumed unchanged and is never
 replaced by a source build. Private fixture signing does not establish
 authorization to credentials created by a historical released executable.
@@ -469,29 +466,16 @@ stub client, verifies upgrade, rollback, re-upgrade and uninstall, and compares
 the installed binary hashes. By default it does not modify the operator's
 installation or use the host credential store.
 
-On macOS, ordinary Go tests exclude real Keychain access through the
-`keychain_integration` build tag. Fake-ABI unit tests and every product package
-remain in the default suite; static analysis includes the tagged tests. A
-temporary home or Keychain path does not isolate Security.framework from host
-state. Each native integration entrypoint therefore requires
-`AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host` before touching the store.
-This declaration is an operator prerequisite, not a sandbox or automatic host
-detection; never set it on the operator's workstation.
-
-For an admitted disposable macOS host, `AIGW_VERIFY_SYSTEM_KEYRING=1` selects
-the tag in the existing coverage invocation, including with `--full-quality`.
-That invocation owns its Go build flags; other checks and release construction
-do not inherit the integration tag. This runs one coverage suite, not a second
-copy, and preserves the required package inventory and coverage floor. A default
-source-test pass does not qualify native credentials or a release.
-
-On a disposable native test host, `AIGW_VERIFY_SYSTEM_KEYRING=1` also exercises
+Ordinary Go tests use provider doubles and do not touch the host credential
+store. On a disposable native test host, `AIGW_VERIFY_SYSTEM_KEYRING=1` exercises
 the selected predecessor and packaged candidate through the system credential
 store. It verifies rotation, upgrade, rollback, re-upgrade, uninstall, reinstall,
 retained helper credentials, and exact test-slot deletion. Each replacement
 keeps the Adapter enabled and checks configuration bytes before `sync` can
 change them. macOS additionally
-requires the explicit disposable-host scope described above. Linux requires a
+requires `AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host`. This declaration
+is an operator prerequisite, not proof that a machine is disposable; never set
+it on the operator workstation. Linux requires a
 real user bus and Secret Service for this path; the no-bus fallback is a separate
 journey. Windows exercises
 Credential Manager. An occupied test slot fails before mutation.

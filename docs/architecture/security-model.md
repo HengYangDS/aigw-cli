@@ -29,16 +29,15 @@ mechanism, set `AIGW_SECRET_BACKEND` to
   Manager. Reads and writes require that native service's access permission.
   Explicit selection fails closed if the service is unavailable; AIGW does not
   silently switch stores. Metadata observation does not authorize secret reads.
-  macOS metadata, read, write and delete operations run in a same-executable
-  worker that disables Keychain interaction before accessing the selected service
-  and slot. The parent allows five seconds per operation; the shared process
-  runner bounds pipe teardown separately. Writes receive the existing storage
-  envelope through bounded stdin, never arguments or environment variables.
-  Denied, locked or timed-out reads return no Token; AIGW neither changes access
-  control nor retries through another reader. Updates preserve item identity and
-  access policy; deletion is exact and idempotent. Each operation respects its
-  native authorization, which is not inferred from lock state alone. Linux and Windows use their own
-  native adapters; the macOS worker is not a claim about those platforms.
+  On macOS, value reads and mutations run through a private AIGW worker whose
+  provider is go-keyring's `/usr/bin/security` backend. The parent allows five
+  seconds per operation and bounds pipe teardown separately. Writes carry only
+  the logical Token through standard input; go-keyring applies its storage
+  encoding exactly once. Metadata observation invokes `security` without asking
+  for password bytes. Failures return no Token, do not retry through another
+  backend and do not modify access control. The timeout bounds AIGW's process;
+  it is not a claim that macOS can never display an authorization prompt. Linux
+  and Windows retain their native go-keyring providers.
 
 - **`file`** uses an owner-only directory and regular file per Account on macOS
   and Linux. Windows encrypts each Token with current-user DPAPI before writing
@@ -48,10 +47,11 @@ mechanism, set `AIGW_SECRET_BACKEND` to
   supported OS. It is read-only: setup may persist public configuration, but
   storing, rotating or deleting an environment Token fails before mutation.
 
-An item created by another executable can be visible to metadata queries while
-its access policy denies AIGW. Existing Token bytes and their storage location
-are not evidence of reader authorization. Native acceptance must verify the
-actual released AIGW identity; another helper's successful read is insufficient.
+An item can be visible to metadata queries while its access policy denies value
+access. Existing Token bytes and their storage location are not evidence of
+authorization. Native acceptance therefore invokes the exact released AIGW
+credential command against a retained item; a source fixture or another helper's
+successful read is insufficient.
 
 Supply environment credentials to the process that needs them. A Token set in
 one terminal is not automatically inherited by a separately launched GUI client.

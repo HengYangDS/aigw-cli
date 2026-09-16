@@ -1,20 +1,21 @@
 ## ADDED Requirements
 
-### Requirement: Native credential qualification names its identity boundary
+### Requirement: Native credential qualification owns real store access
 
-Disposable macOS CI SHALL exercise private Keychain bridge, permission, locked-item
-and reader-identity contracts without requiring publisher credentials. The separate
-retained-system-credential journey SHALL require its explicit signing inputs and
-fail before fixture creation if they are absent. Private native coverage SHALL NOT
-be reported as publisher-bound continuity or distribution trust.
+Ordinary source tests SHALL use provider doubles and avoid the host Keychain.
+The retained-system-credential journey SHALL run only on an explicitly admitted
+disposable host, use the published go-keyring `/usr/bin/security` provider, and
+remain independent of publisher signing credentials. Source coverage SHALL NOT
+be reported as retained-item, real-client or distribution proof.
 
 #### Scenario: A review runner has no publisher signing identity
 
-- **GIVEN** an explicitly isolated macOS runner without publisher signing inputs
+- **GIVEN** an explicitly admitted disposable macOS runner
 - **WHEN** ordinary native acceptance executes
-- **THEN** private native Keychain contracts and portable lifecycle run
-- **AND** no publisher-bound credential acceptance is claimed
-- **AND** explicitly requesting that additional qualification fails its signing preflight.
+- **THEN** source tests use provider doubles and do not touch the host Keychain
+- **AND** the explicit system-store journey may run without publisher signing
+  inputs
+- **AND** distribution trust remains a separate release claim.
 
 ### Requirement: Explicit host credential policy survives client projection
 
@@ -45,29 +46,27 @@ external credential retrieval or endpoint authentication has succeeded.
 - **AND** disabled policy remains disabled until explicit re-enablement
 - **AND** an older binary that cannot parse this policy is rejected before rollback.
 
-### Requirement: macOS credential observations and reads are bounded and noninteractive
+### Requirement: macOS credential value operations are bounded
 
-The macOS Keychain adapter SHALL execute metadata, read, write and delete
-operations in the same AIGW executable's isolated worker. The worker SHALL
-disable Keychain interaction before accessing the selected service and slot. Metadata queries
-SHALL request neither password bytes nor an item-reference allocation.
-The parent SHALL enforce a five-second operation deadline and the existing
-bounded process cleanup contract. The child SHALL receive no Token, loader
-override, client configuration or fallback-reader selection in its environment.
+The macOS Keychain adapter SHALL execute read, write and delete operations in a
+private AIGW worker backed by go-keyring's `/usr/bin/security` provider. The
+parent SHALL enforce a five-second deadline and the existing bounded process
+cleanup contract. Writes SHALL pass the logical Token through bounded standard
+input; the child SHALL receive no Token, loader override, client configuration
+or fallback-reader selection in its environment. Metadata observation SHALL use
+a value-free query that does not request password bytes.
 
-The adapter SHALL preserve the existing native search-list, service, slot and
-stored-value grammar. A denied or locked read SHALL fail without changing access
-control, unlocking, migrating a credential or trying another reader. Failure
-SHALL return no credential bytes; diagnostics SHALL remain separate from the
-client's Token stdout. A metadata success SHALL NOT prove value authorization.
+The adapter SHALL preserve the existing search-list, service, slot and stored-
+value grammar. A failed or timed-out read SHALL return no credential bytes,
+change no access control, migrate no credential and try no alternate backend.
+Diagnostics SHALL remain separate from Token stdout. A metadata success SHALL
+NOT prove value authorization. The process deadline SHALL NOT be represented as
+a guarantee that macOS cannot display authorization UI.
 
-Writes SHALL transport the existing storage envelope through bounded stdin,
-never command arguments or environment variables. Creation and reading SHALL
-use the same executable identity; updates SHALL preserve item identity and
-access policy. Deleting an absent item SHALL be a successful no-op. Each native
-operation SHALL own its authorization result; a locked store SHALL NOT imply
-that metadata observation or authorized deletion is forbidden. Successful fresh
-creation SHALL NOT prove retained-item or cross-release authorization.
+go-keyring SHALL apply its storage encoding exactly once. Updates SHALL preserve
+item identity and access policy. Deleting an absent item SHALL be a successful
+no-op. Successful fresh creation SHALL NOT prove retained-item or cross-release
+authorization.
 
 #### Scenario: The installed executable creates and rotates a credential
 
@@ -80,11 +79,13 @@ creation SHALL NOT prove retained-item or cross-release authorization.
 - **WHEN** an authorized deletion removes an item and deletion is requested again
 - **THEN** both operations succeed and the exact item remains absent.
 
-#### Scenario: A credential requires authentication interaction
+#### Scenario: A credential read fails or requires authorization
 
-- **WHEN** the exact native item cannot be read without interaction
-- **THEN** the worker returns an authorization failure without a password dialog
-- **AND** no credential or access-control state changes and no Token is returned.
+- **WHEN** the exact native item cannot be read within the admitted operation
+- **THEN** the worker fails without retrying or returning a Token
+- **AND** no credential or access-control state changes
+- **AND** any operating-system authorization UI remains an explicit platform
+  behavior rather than a suppressed or disproved event.
 
 #### Scenario: The native service does not answer
 
@@ -92,10 +93,9 @@ creation SHALL NOT prove retained-item or cross-release authorization.
 - **THEN** the parent terminates and reaps its worker through bounded cleanup
 - **AND** the helper reports the deadline rather than suggesting configuration sync.
 
-#### Scenario: Another executable created the selected item
+#### Scenario: A retained released item is consumed after replacement
 
-- **WHEN** metadata is readable but the item's native policy does not authorize AIGW
-- **THEN** observation succeeds and value retrieval fails as authorization denied
-- **AND** release or installation acceptance remains open until the actual reader
-  identity has independently verified permission; another reader's success is
-  not substituted for that proof.
+- **WHEN** the candidate replaces a published predecessor using the same provider
+- **THEN** each original client credential command is executed before sync
+- **AND** update, rollback and re-upgrade return the retained Token without
+  backend migration, helper replacement or configuration drift.

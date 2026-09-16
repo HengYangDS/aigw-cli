@@ -91,29 +91,20 @@ End users SHALL NOT require developer membership or private signing material
 to install and use published AIGW. A publisher and an end user MAY be the same
 person, but their roles and prerequisites SHALL remain distinct.
 
-macOS retained-Keychain qualification SHALL exercise partitioned database format
-`0x200` and both designated-requirement and application-partition authorization.
-A self-signed certificate with a matching designated requirement SHALL NOT count
-as proof of stable partition identity across changed code hashes. The current
-same-executable reader qualification SHALL use an approved Apple-recognized
-publisher identity. Every admitted reader architecture SHALL independently prove
-retained-credential access through CLI updates, actual reader-byte updates and
-rollback without prompts or ACL mutation. Initial enrollment or legacy-item
-re-enrollment SHALL require its own explicit authorization and SHALL NOT
-substitute for routine retained-item acceptance. A stable adapter proposal SHALL
-prove its caller and security-update boundaries before replacing the current
-reader; a successful unchanged-reader case alone SHALL NOT admit that design.
+macOS retained-Keychain qualification SHALL preserve the published go-keyring
+`/usr/bin/security` provider across predecessor, candidate and rollback. It SHALL
+execute each retained original client credential command before synchronization,
+return the same Token and preserve configuration bytes without ACL mutation,
+backend migration or a replacement helper. Artifact signing and notarization
+remain independent distribution requirements; they SHALL NOT be prerequisites
+for routine credential access.
 
-Ordinary macOS source tests SHALL exclude genuine host Keychain operations
-through the native `keychain_integration` build tag while retaining fake-ABI
-tests and every product package. Static analysis SHALL include the tagged tests.
-Every real Keychain test entrypoint SHALL require the explicit disposable-host
-scope before native access; a temporary path SHALL NOT establish host isolation.
-Explicit system-credential qualification SHALL include the tag in the existing
-native coverage invocation, including full-quality execution, without changing
-the package inventory or coverage floor. The scope declaration SHALL NOT be
-represented as a sandbox or proof that the machine is disposable. Source-only
-success SHALL NOT substitute for required native credential evidence.
+Ordinary source tests SHALL use provider doubles and SHALL NOT touch the host
+credential store. Every real Keychain journey SHALL require explicit disposable-
+host scope before native access, use exact owned slots and verify their removal.
+The scope declaration SHALL NOT be represented as a sandbox or proof that the
+machine is disposable. Source-only success SHALL NOT substitute for released-
+artifact credential evidence.
 
 Manual native qualification MAY select one supported platform through the
 existing CUE-owned Forge projections. Omitted or `all` selection SHALL preserve
@@ -213,17 +204,6 @@ capacity boundary rather than an inferred product pass.
   password-file or designated-requirement input
 - **THEN** it SHALL stop before external build execution
 - **AND** existing release output, credentials and host trust SHALL remain intact.
-
-#### Scenario: System Keychain qualification lacks a supplied signing identity
-
-- **WHEN** the current same-executable macOS acceptance requests system
-  credential-store verification without publisher-supplied signing inputs
-- **THEN** fixture preparation SHALL fail before generating a disposable signing
-  identity, constructing an archive or touching the system credential store
-- **AND** the diagnostic SHALL identify missing signing authority rather than
-  a later credential-read failure
-- **AND** supplying inputs SHALL NOT itself establish certificate trust or
-  retained-credential authorization.
 
 #### Scenario: both publication planes complete
 

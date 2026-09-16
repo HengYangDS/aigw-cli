@@ -5,7 +5,6 @@ import (
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/secrets/keychain"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -33,9 +32,6 @@ func TestMain(m *testing.M) {
 		}
 		_, _ = fmt.Fprintln(os.Stdout, "native-real-client-token")
 		os.Exit(0)
-	}
-	if handled, code := keychain.RunWorker(os.Args[1:], os.Stdin, os.Stdout, secrets.Service); handled {
-		os.Exit(code)
 	}
 	os.Exit(m.Run())
 }
@@ -104,9 +100,6 @@ func prepareNativeSigning(t *testing.T) {
 	if runtime.GOOS != "darwin" || os.Getenv("AIGW_MACOS_SIGNING_P12") != "" {
 		return
 	}
-	if os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
-		t.Fatal("system Keychain qualification requires a supplied signing identity; a disposable self-signed identity cannot prove retained-credential access")
-	}
 	root := t.TempDir()
 	certificate := filepath.Join(root, "identity")
 	p12, password, requirements := filepath.Join(root, "identity.p12"), filepath.Join(root, "password"), filepath.Join(root, "requirement.bin")
@@ -133,33 +126,6 @@ func prepareNativeSigning(t *testing.T) {
 	t.Setenv("AIGW_MACOS_SIGNING_P12", p12)
 	t.Setenv("AIGW_MACOS_SIGNING_PASSWORD_FILE", password)
 	t.Setenv("AIGW_MACOS_SIGNING_REQUIREMENTS", requirements)
-}
-
-func TestNativeSystemCredentialSigningRequiresSuppliedIdentity(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("native macOS signing admission")
-	}
-	const child = "AIGW_TEST_SIGNING_PREFLIGHT"
-	if os.Getenv(child) == "1" {
-		prepareNativeSigning(t)
-		return
-	}
-	program, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	command := exec.CommandContext(t.Context(), program, "-test.run=^TestNativeSystemCredentialSigningRequiresSuppliedIdentity$")
-	command.Env = environmentWith(os.Environ(), map[string]string{
-		child:                              "1",
-		"AIGW_VERIFY_SYSTEM_KEYRING":       "1",
-		"AIGW_MACOS_SIGNING_P12":           "",
-		"AIGW_MACOS_SIGNING_PASSWORD_FILE": "",
-		"AIGW_MACOS_SIGNING_REQUIREMENTS":  "",
-	})
-	output, err := command.CombinedOutput()
-	if err == nil || !bytes.Contains(output, []byte("system Keychain qualification requires a supplied signing identity")) {
-		t.Fatalf("missing production identity did not stop signing preflight: %v\n%s", err, output)
-	}
 }
 
 func (j *journeyFixture) requireCredentialBackend(token string, want secrets.BackendSelection) {

@@ -31,7 +31,6 @@ func TestReadPreservesNativeResultAndClassifiesFailure(t *testing.T) {
 	}{
 		{name: "success"},
 		{name: "missing", code: missingExit, want: ErrNotFound},
-		{name: "locked", code: deniedExit, want: ErrDenied},
 		{name: "denied", code: failureExit, want: ErrUnavailable},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -125,7 +124,6 @@ func TestWorkerResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 	}{
 		{name: "success"},
 		{name: "missing", err: ErrNotFound, code: missingExit},
-		{name: "locked", err: ErrDenied, code: deniedExit},
 		{name: "failure", err: errors.New("private backend diagnostic"), code: failureExit},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -227,51 +225,9 @@ func (r mutationRunner) RunCapture(ctx context.Context, plan process.Plan) ([]by
 	return nil, nil
 }
 
-func TestStoredValueDecodingPreservesCurrentKeyringGrammar(t *testing.T) {
-	for _, test := range []struct {
-		stored, want string
-		bad          bool
-	}{
-		{stored: " raw-token\n", want: "raw-token"},
-		{stored: "go-keyring-base64:dG9rZW4=", want: "token"},
-		{stored: "go-keyring-encoded:746f6b656e", want: "token"},
-		{stored: "go-keyring-base64:not-base64", bad: true},
-		{stored: "go-keyring-encoded:zz", bad: true},
-	} {
-		got, err := DecodeStoredValue(test.stored)
-		if (err != nil) != test.bad || !test.bad && got != test.want {
-			t.Fatalf("stored grammar mismatch: %v", err)
-		}
-	}
-}
-
 func TestReadFailsClosedWhenWorkerCannotStart(t *testing.T) {
 	value, err := execute(t.Context(), process.Runner{}, process.Plan{Executable: filepath.Join(t.TempDir(), "absent"), Args: []string{workerCommand, "AIGW_TOKEN", "team"}})
 	if value != "" || !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("startup failure: %v", err)
-	}
-}
-
-func TestWorkerObservationDoesNotRequestSecretBytes(t *testing.T) {
-	var out bytes.Buffer
-	called := false
-	handled, code := dispatch([]string{workerCommand, "AIGW_TOKEN", "team", "observe"}, strings.NewReader(""), &out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) {
-		called = true
-		return []byte("credential"), nil
-	})
-	if !handled || called || out.Len() != 0 || code == 0 {
-		t.Fatalf("unadmitted operation reached value reader: handled=%v code=%d", handled, code)
-	}
-}
-
-func TestWorkerObservationUsesTheMetadataOperation(t *testing.T) {
-	var out bytes.Buffer
-	observed := false
-	handled, code := dispatch([]string{observeCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), &out, "AIGW_TOKEN", func(operation, _, _ string, _ []byte) ([]byte, error) {
-		observed = operation == observeCommand
-		return nil, nil
-	})
-	if !handled || code != 0 || !observed || out.Len() != 0 {
-		t.Fatalf("metadata worker: %v, %d", handled, code)
 	}
 }
