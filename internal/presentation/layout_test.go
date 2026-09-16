@@ -60,3 +60,18 @@ func TestHumanTextPreservesMultilineIndentation(t *testing.T) {
 		}
 	}
 }
+
+func TestCommandsPreserveCopyableBytesAtEveryWidth(t *testing.T) {
+	const command = "aigw profile add team --label 'two  spaces' --model very-long-model-identifier\naigw profile add tabbed --label 'tab\tvalue'  "
+	for _, width := range []int{0, 8, 24, 120} {
+		for _, color := range []bool{false, true} {
+			var out bytes.Buffer
+			renderer := NewWithWidth(&out, color, width)
+			renderer.Command(command)
+			want := "  " + strings.ReplaceAll(command, "\n", "\n  ") + "\n"
+			if got := ansi.Strip(out.String()); got != want {
+				t.Fatalf("width=%d color=%t rewrote executable input:\n%q\nwant:\n%q", width, color, got, want)
+			}
+		}
+	}
+}

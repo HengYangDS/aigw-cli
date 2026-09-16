@@ -16,6 +16,19 @@ pflag SHALL remain the option-grammar owner. Color SHALL NOT alter text alignmen
 The tests SHALL verify display width, field preservation and actual description
 columns rather than reproduce manually padded source strings. Machine output,
 credential-helper output and interactive input contracts SHALL remain unchanged.
+Executable examples and follow-up commands SHALL preserve their original
+characters, quoted whitespace and explicit line breaks. The terminal SHALL own
+visual soft wrapping; a copyable command's logical line MAY exceed the available
+width. Explanatory usage grammar SHALL remain width-aware text rather than an
+executable command. Formatting SHALL NOT introduce shell continuation syntax.
+
+#### Scenario: Copy an executable command from a narrow terminal
+
+- **WHEN** an executable example or follow-up command exceeds the terminal width
+- **THEN** its output SHALL preserve the command bytes apart from presentation
+  indentation, optional styling and the final output newline
+- **AND** neither quoted whitespace nor argument tokens SHALL be rewritten to
+  satisfy an explanatory-text width rule.
 
 #### Scenario: Starting commands have different lengths
 
@@ -34,7 +47,7 @@ credential-helper output and interactive input contracts SHALL remain unchanged.
 #### Scenario: Inspect the complete public command tree
 
 - **WHEN** every public command renders help at supported narrow and wide widths
-- **THEN** headings, descriptions, commands and options SHALL fit those widths
+- **THEN** headings, descriptions, usage grammar and options SHALL fit those widths
 - **AND** native option meaning and credential-free help SHALL remain intact.
 
 ## MODIFIED Requirements

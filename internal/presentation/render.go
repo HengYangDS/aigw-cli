@@ -219,9 +219,12 @@ func (r *Renderer) Text(value string) {
 	r.writeHumanText(value, r.styles.dim)
 }
 
-// Command renders a copyable command and wraps it without inserting shell syntax.
+// Command preserves executable text; the terminal owns visual soft wrapping.
 func (r *Renderer) Command(value string) {
-	r.writeHumanText(value, r.styles.command)
+	for line := range strings.SplitSeq(value, "\n") {
+		r.printf("  %s\n", r.styles.command.TabWidth(lipgloss.NoTabConversion).Render(line))
+	}
+	r.hasContent = true
 }
 
 // Success renders a successful terminal statement.

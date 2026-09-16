@@ -27,8 +27,7 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 		"    connected\n",
 		"    Run aigw account\n",
 		"    connect team-gateway\n",
-		"  aigw config import\n",
-		"  configuration.toml\n",
+		"  aigw config import configuration.toml\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("narrow output missing %q:\n%s", want, got)
@@ -44,7 +43,7 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 	}
 }
 
-func TestEveryHumanElementBoundsLongAndMultilineContent(t *testing.T) {
+func TestExplanatoryElementsBoundLongAndMultilineContent(t *testing.T) {
 	for _, width := range []int{8, 24, 48} {
 		for _, color := range []bool{false, true} {
 			var out bytes.Buffer
@@ -58,7 +57,6 @@ func TestEveryHumanElementBoundsLongAndMultilineContent(t *testing.T) {
 			r.StatusLine(presentation.Info, label, value)
 			r.Text(value)
 			r.Detail(value)
-			r.Command(value)
 			r.Success(value)
 			for line := range strings.SplitSeq(out.String(), "\n") {
 				if got := presentation.DisplayWidth(line); got > width {

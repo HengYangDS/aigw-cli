@@ -261,6 +261,13 @@ func TestCommandHelpIncludesNativeFlagMetadataAndExamples(t *testing.T) {
 					}
 				}
 			}
+			out.Reset()
+			command.Example = "service connect --target 'a-long-path-with-two  spaces'\nservice connect --region 'tab\tvalue'"
+			renderCommandHelp(app, command)
+			want := "  " + strings.ReplaceAll(command.Example, "\n", "\n  ") + "\n"
+			if !strings.Contains(out.String(), want) {
+				t.Fatalf("help rewrote copyable example bytes:\n%q", out.String())
+			}
 		})
 	}
 }
@@ -349,10 +356,8 @@ func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
 					}
 				}
 			}
-			for line := range strings.SplitSeq(help, "\n") {
-				if presentation.DisplayWidth(line) > width || strings.Contains(line, "#") {
-					t.Fatalf("width=%d color=%t invalid help row: %q", width, color, line)
-				}
+			if strings.Contains(help, "#") {
+				t.Fatalf("help embeds explanations as executable shell comments: %q", help)
 			}
 		}
 	}

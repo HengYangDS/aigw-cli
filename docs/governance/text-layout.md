@@ -152,6 +152,11 @@ column, and a multiline or over-width row switches the whole group to stacked
 layout. Derive the executable name from Cobra command metadata. A narrow terminal
 places the explanation below its command instead of truncating either field.
 Standalone executable examples remain command output, not annotated rows.
+Preserve their characters, quoted whitespace and explicit line breaks; leave
+visual soft wrapping to the terminal. A logical command line may exceed the
+terminal width. Do not insert hard line breaks or shell-specific continuation
+syntax to fit it. Usage grammar with placeholders is explanatory text, not an
+executable example, and follows the width-aware text layout.
 
 Verify wide, narrow, colored and plain output through the real help renderer.
 Assert description-column alignment, complete meaning and bounded display width,
@@ -159,8 +164,9 @@ rather than copying source padding into expected strings. Existing Lip Gloss
 and ANSI utilities own display measurements; another layout framework or an
 independent help template is unnecessary. pflag owns option grammar, while the
 same width-aware renderer owns its final display. Long labels, unbroken values,
-multiline content and indentation must fit the available terminal cells without
-dropping text; color must not change measured layout. Routine machine output,
+multiline explanatory content and indentation must fit the available terminal
+cells without dropping text; color must not change measured layout. Copyable
+commands follow the byte-preservation contract above. Routine machine output,
 credential stdout and interactive input prompts retain their separate contracts.
 
 ## Generated configuration

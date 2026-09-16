@@ -390,16 +390,14 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 	}
 	r.Section("Usage")
 	if command.Runnable() {
-		r.Command(command.UseLine())
+		r.Text(command.UseLine())
 	}
 	if command.HasAvailableSubCommands() {
-		r.Command(command.CommandPath() + " [command]")
+		r.Text(command.CommandPath() + " [command]")
 	}
 	if command.Example != "" {
 		r.Section("Examples")
-		for line := range strings.SplitSeq(strings.TrimSpace(command.Example), "\n") {
-			r.Command(line)
-		}
+		r.Command(command.Example)
 	}
 	groups := map[string][]*cobra.Command{}
 	for _, child := range command.Commands() {
