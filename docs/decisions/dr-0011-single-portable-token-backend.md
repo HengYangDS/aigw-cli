@@ -177,49 +177,48 @@ authorize items created by an older ad-hoc identity or another program. Their
 explicit authorization or re-enrollment must precede deployment; denial remains
 noninteractive until that decision is made.
 
-### Reader architecture alternatives
+### Product reader and migration boundary
 
-The retained-item outcome is fixed; the same-executable worker is the current
-implementation, not an immutable product requirement. Compare these paths before
-making signing procurement the only remaining action:
+The product path is the existing `aigw credential` command and one selected
+backend. On macOS, the candidate uses its same-executable native worker;
+publisher signing belongs to release construction. No separate reader binary,
+host script, service or permanently retained predecessor is part of this path.
+This selects the implementation owner, not production migration acceptance.
 
-| Path                                          | Benefit                                                                                      | Cost and unproved boundary                                                                                                                                                              |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Publisher-signed AIGW with the current worker | One delivered program and existing lifecycle; users install without developer membership.    | Publisher signing/public distribution remains to be qualified; foreign-created items and signer rotation still need exact authorization evidence.                                       |
-| Narrowly owned stable credential adapter      | Unchanged reader bytes could decouple ordinary CLI rebuilds from Keychain code-hash changes. | Adds a delivered executable, caller boundary and update lifecycle; changed adapter bytes face the same retained-item problem. No end-to-end acceptance currently proves this candidate. |
+| Path                                 | Disposition                                                        | Reason                                                                                                                                                        |
+| ------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Published `/usr/bin/security` reader | Retained in the working predecessor until replacement is admitted. | A different reader needs its own retained-item authorization; a process timeout alone cannot prevent a password dialog.                                       |
+| Publisher-signed AIGW native worker  | Product-owned successor, pending native acceptance.                | Reuses one executable and lifecycle, disables interaction, and requires both signing-identity and retained-item evidence.                                     |
+| Host-local stable credential helper  | Rejected.                                                          | Adds an unapproved runtime and caller boundary; new-client success did not preserve original callers. Renaming or wrapping it does not resolve those defects. |
+| Silent backend migration             | Rejected.                                                          | Changes credential authority without the operator's decision.                                                                                                 |
 
-Prefer the publisher-signed current worker for the public product: it introduces
-no additional executable and reuses the existing lifecycle. The adapter remains
-a candidate only if an isolated proof establishes a net reduction in complexity
-or enables an explicitly required deployment that this path cannot serve. An
-unchanged vulnerable reader is not a valid stability strategy. An adapter would
-replace the current native reader, not become a second fallback path or backend.
+The existing optional `credential_command` configuration is an explicit
+integration contract, not permission to install a helper or an automatic
+Keychain recovery path. Its presence does not establish an approved deployment
+consumer. Product defaults continue to use AIGW itself.
 
-Before adopting an adapter, require all of the following at its existing owner:
+Before a successor can replace a working installation, the existing release
+journeys must establish all of these boundaries:
 
-- Define whether the trust boundary is the OS user or an authenticated calling
-  application. A fixed service, executable path, parent PID or environment
-  marker alone does not authenticate a caller. An application-bound IPC design
-  must validate OS-supplied caller identity and the admitted code requirement.
-- Keep the exact service/slot contract, bounded stdin/stdout, native interaction
-  suppression and process cleanup. Expose no arbitrary Keychain reader, loader
-  override, plugin mechanism or plaintext Token log.
-- Verify new installation and explicit enrollment, CLI-only update with unchanged
-  reader, actual reader-byte update, rollback and interrupted replacement against
-  retained items. Verify owned cleanup separately from retained user credentials.
-- Admit security updates and signer rotation without permanent old-reader
-  retention, silent store switching, expanded ACLs or a second read authority.
+1. Identify exact predecessor and candidate artifacts, actual native readers,
+   selected backend and retained item. Matching paths or service names alone
+   prove neither code identity nor access.
+2. Capture each client's original executable, arguments and environment before
+   replacement. Execute those snapshots before sync or client refresh after
+   update, rollback and re-upgrade. Capturing a later command must not overwrite
+   an earlier snapshot.
+3. Prove retained-item authorization and real-client inference separately.
+   Environment-backed fixtures and new-client runs do not qualify a Keychain
+   transition or establish recovery of every existing session.
+4. Verify bounded no-prompt denial, interrupted replacement, exact rollback and
+   uninstall preservation. Any required enrollment is a separately authorized
+   operation, never an implicit retry or access-policy expansion.
 
-None of this authorizes a host experiment, production enrollment, access-policy
-change, installation or restart. Native qualification uses the existing explicit
-disposable-host admission; source-only work proceeds independently.
-
-The system `security` command has no value-read no-interaction option. A timeout
-around it could still permit a password dialog, so it is not the read boundary.
-The private native test demonstrates that `security`-created items can deny a
-different reader even when metadata is visible. An actual reader-identity
-acceptance gate therefore precedes deployment; preserving item bytes alone is
-not sufficient compatibility evidence.
+These are source and release acceptance requirements, not authorization to read
+operator credentials, enroll items, alter ACLs, install software or restart
+clients. The working predecessor remains installed until the exact transition
+has evidence and the operator admits the cutover. A denied candidate blocks
+that transition, not unrelated source, documentation or platform work.
 
 One provider Token is sufficient on a supported workstation even when no
 native credential service is available. Existing keyring Tokens remain in
@@ -228,8 +227,8 @@ must make any intentional backend change explicitly.
 
 ## Revisit Trigger
 
-Revisit the reader architecture when isolated native evidence proves that a
-maintained adapter lowers lifecycle cost while preserving the caller and
-retained-item contracts, or when a supported operating system offers a stronger
-credential API without additional session assumptions. Any replacement must
-preserve the single-backend authority model and remove the superseded reader.
+Revisit the native reader when an operating-system contract changes or exact
+native evidence contradicts its security or lifecycle assumptions. A replacement
+requires an explicit product decision, preserves one backend authority, and
+removes the superseded implementation. This trigger does not reactivate the
+rejected host-local helper.

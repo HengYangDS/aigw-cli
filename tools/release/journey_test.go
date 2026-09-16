@@ -504,3 +504,30 @@ func entryNames(entries []os.DirEntry) []string {
 	}
 	return names
 }
+
+func TestRetainedClaudeCredentialCommandsRemainIndependent(t *testing.T) {
+	root := t.TempDir()
+	journey := &journeyFixture{
+		testing: t, root: root, settings: filepath.Join(root, "settings.json"),
+		environment: os.Environ(),
+	}
+	writeCommand := func(value string) {
+		t.Helper()
+		data, err := json.Marshal(map[string]string{"apiKeyHelper": "echo " + value})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(journey.settings, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeCommand("original-fixture-token")
+	original := journey.retainedCredential(configuration.ClientClaude)
+	writeCommand("successor-fixture-token")
+	successor := journey.retainedCredential(configuration.ClientClaude)
+	if err := os.Remove(journey.settings); err != nil {
+		t.Fatal(err)
+	}
+	journey.requireCredential(original, "original-fixture-token")
+	journey.requireCredential(successor, "successor-fixture-token")
+}

@@ -379,16 +379,12 @@ proves the new executable's authority. Publication and installed replacement sta
 blocked on actual reader-identity acceptance rather than changing production ACLs
 or representing safe refusal as a usable product journey.
 
-The required outcome is retained-item authorization, not a permanently fixed
-reader architecture. [DR-0011](../../../docs/decisions/dr-0011-single-portable-token-backend.md#reader-architecture-alternatives)
-compares publisher-signed single-program delivery with a narrowly owned stable
-credential adapter. The former remains the preferred public-product path because
-it adds no executable. The latter is unproved and would replace, not supplement,
-the current reader only after caller isolation, real reader updates, security
-maintenance, rollback and exact cleanup pass. Unchanged adapter bytes alone
-prove neither safe updates nor production readiness. One-time enrollment,
-routine no-prompt access and public distribution retain separate authorization
-and evidence; no production mutation follows from this comparison.
+The product path remains the AIGW credential command and its same-executable
+native worker, not a separate host-local reader. [DR-0011](../../../docs/decisions/dr-0011-single-portable-token-backend.md#product-reader-and-migration-boundary)
+owns the path comparison and migration conditions. The rejected helper is not
+an alternative to completing that product contract. Retained-item authorization,
+original-caller continuity, routine no-prompt access and public distribution
+require distinct evidence; source verification alone permits no host cutover.
 
 Alternative considered: search native, file, and environment stores on every
 read. Rejected because it creates several authorities, unpredictable prompts,
