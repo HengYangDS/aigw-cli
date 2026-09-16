@@ -235,7 +235,6 @@ func TestGitHubDarwinSystemCredentialJourneyRequiresAnEphemeralHost(t *testing.T
 	}
 	want := map[string]string{
 		"AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE": "ephemeral-host",
-		"AIGW_VERIFY_SYSTEM_KEYRING":        "1",
 	}
 	if !reflect.DeepEqual(steps[index].Env, want) {
 		t.Fatalf("GitHub native macOS credential admission = %#v, want %#v", steps[index].Env, want)

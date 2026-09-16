@@ -105,6 +105,13 @@ creating a disposable identity that cannot prove upgrade continuity. This
 preflight checks input presence, not certificate trust or retained-item access.
 Those remain obligations of the native release journey.
 
+Ordinary disposable macOS CI selects private native contracts through
+`AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host`; it does not opt into the
+publisher-bound journey without that identity. Both paths reuse the native
+coverage and release owners. Passing private contracts is not retained-item
+qualification, and neither a missing identity nor a denied read may be relabeled
+as successful production credential support.
+
 The private fixture must create a partitioned Keychain, assert database
 version `0x200`, and observe the item's partition ACL before testing access.
 A byte-identical copy can read the retained item. A changed self-signed image

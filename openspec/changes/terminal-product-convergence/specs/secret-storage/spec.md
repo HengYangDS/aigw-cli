@@ -1,5 +1,21 @@
 ## ADDED Requirements
 
+### Requirement: Native credential qualification names its identity boundary
+
+Disposable macOS CI SHALL exercise private Keychain bridge, permission, locked-item
+and reader-identity contracts without requiring publisher credentials. The separate
+retained-system-credential journey SHALL require its explicit signing inputs and
+fail before fixture creation if they are absent. Private native coverage SHALL NOT
+be reported as publisher-bound continuity or distribution trust.
+
+#### Scenario: A review runner has no publisher signing identity
+
+- **GIVEN** an explicitly isolated macOS runner without publisher signing inputs
+- **WHEN** ordinary native acceptance executes
+- **THEN** private native Keychain contracts and portable lifecycle run
+- **AND** no publisher-bound credential acceptance is claimed
+- **AND** explicitly requesting that additional qualification fails its signing preflight.
+
 ### Requirement: Explicit host credential policy survives client projection
 
 A local Adapter MAY select one trusted absolute credential executable with

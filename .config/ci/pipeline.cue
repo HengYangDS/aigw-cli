@@ -204,11 +204,11 @@ actions: {
 #NativeGitHubJob: {
 	_platform: #OperatingSystem
 	_credentialEnvironment: {
-		if _platform != "linux" {
+		if _platform == "windows" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "1"
-			if _platform == "darwin" {
-				AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
-			}
+		}
+		if _platform == "darwin" {
+			AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
 		}
 	}
 	name:              "Native \(nativeEvidence[_platform].name) acceptance"
@@ -691,7 +691,7 @@ githubRelease: {
 					name: "Verify published native lifecycle"
 					if:   "inputs.native_lifecycle"
 					env: {
-						AIGW_VERIFY_SYSTEM_KEYRING:        "${{ runner.os != 'Linux' && '1' || '0' }}"
+						AIGW_VERIFY_SYSTEM_KEYRING:        "${{ runner.os == 'Windows' && '1' || '0' }}"
 						AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
 					}
 					run: "mise exec --locked -- go run ./tools/release accept-native --artifacts dist"

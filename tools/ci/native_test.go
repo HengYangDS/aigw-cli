@@ -114,6 +114,28 @@ func TestNativeAcceptanceUsesReleaseOwner(t *testing.T) {
 	}
 }
 
+func TestNativeDarwinSeparatesPrivateContractsFromPublisherQualification(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS native admission")
+	}
+	t.Chdir(repositoryRoot(t))
+	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
+	t.Setenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE", "ephemeral-host")
+	integrationCalls := 0
+	err := run([]string{"native", "--platform", "darwin"}, &bytes.Buffer{}, func(call command) error {
+		if slices.Contains(call.Env, "GOFLAGS=-tags=keychain_integration") {
+			integrationCalls++
+		}
+		if slices.Contains(call.Env, "AIGW_VERIFY_SYSTEM_KEYRING=1") {
+			t.Fatal("private Keychain coverage opted into publisher-bound lifecycle")
+		}
+		return nil
+	})
+	if err != nil || integrationCalls != 1 {
+		t.Fatalf("private native coverage calls=%d error=%v", integrationCalls, err)
+	}
+}
+
 func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
 	root := repositoryRoot(t)

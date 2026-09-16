@@ -239,8 +239,8 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 		if !strings.Contains(step.Run, "$acceptance += @('--artifacts', $candidate)") {
 			t.Fatalf("%s cannot consume the published candidate", platform)
 		}
-		if platform != "linux" && step.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != "1" {
-			t.Fatalf("%s historical acceptance must exercise its native credential store", platform)
+		if step.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != map[string]string{"windows": "1"}[platform] {
+			t.Fatalf("%s historical acceptance does not match its credential qualification boundary", platform)
 		}
 		if platform == "darwin" && step.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
 			t.Fatal("historical macOS credentials require an ephemeral host")
@@ -385,7 +385,7 @@ func TestPublishedNativeLifecycleUsesSelectedIsolatedRunner(t *testing.T) {
 		t.Fatal("different native release targets must be able to run independently")
 	}
 	native := job.Steps[len(job.Steps)-1]
-	if native.If != "inputs.native_lifecycle" || native.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != "${{ runner.os != 'Linux' && '1' || '0' }}" || native.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
+	if native.If != "inputs.native_lifecycle" || native.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != "${{ runner.os == 'Windows' && '1' || '0' }}" || native.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
 		t.Fatal("native lifecycle must retain explicit isolated credential-store admission")
 	}
 }

@@ -196,6 +196,16 @@ Product acceptance, release publication, installation and lane retirement are
 distinct claims. A local-only acceptance claims no hosted delivery. An installed
 product requires native artifact evidence, not merely an accepted source tree.
 
+On disposable macOS runners, `AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host`
+includes the private Keychain bridge, locked-item, exact cleanup and reader-identity
+regressions in native coverage. It does not enable publisher-bound retained-item
+qualification. That separate journey requires `AIGW_VERIFY_SYSTEM_KEYRING=1`
+and the publisher signing inputs enforced by the release owner. Missing identity
+remains a qualification failure, not a successful skip. Ordinary CI therefore
+proves private native contracts and portable lifecycle, but cannot establish
+production Keychain continuity or public distribution trust. Windows keeps its
+native Credential Manager journey; Linux retains separate user-bus qualification.
+
 Candidate startup verification owns and removes its temporary executable before
 installation replacement. Cleanup uses
 [`robustio.RemoveAll`](https://github.com/rogpeppe/go-internal/tree/v1.16.0/robustio)

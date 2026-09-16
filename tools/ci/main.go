@@ -138,11 +138,12 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 		return err
 	}
 	commands := nativeCommands(*platform)
-	if *platform == "darwin" && os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" {
+	if *platform == "darwin" && (os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1" || os.Getenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE") != "") {
 		if os.Getenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE") != "ephemeral-host" {
 			return errors.New("macOS Keychain integration requires AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host on a disposable host")
 		}
-		// This coverage invocation owns its build selection, not ambient Go flags.
+		// Private native contracts require host isolation, not publisher credentials.
+		// The separate system-store switch retains its signing preflight.
 		commands[1].Env = []string{"GOFLAGS=-tags=keychain_integration"}
 	}
 	if *fullQuality {

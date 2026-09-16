@@ -172,13 +172,11 @@ jobs:
           include-hidden-files: true
       - env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
-          AIGW_VERIFY_SYSTEM_KEYRING: "1"
         name: Run native macOS acceptance
         if: github.event_name != 'workflow_dispatch' || !inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform darwin
       - env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
-          AIGW_VERIFY_SYSTEM_KEYRING: "1"
           CGO_ENABLED: "1"
         name: Qualify all repository tools on macOS
         if: github.event_name == 'workflow_dispatch' && inputs.full_quality
@@ -188,7 +186,6 @@ jobs:
         shell: pwsh
         env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
-          AIGW_VERIFY_SYSTEM_KEYRING: "1"
           GH_TOKEN: ${{ github.token }}
           AIGW_BASELINE_TAG: ${{ inputs.baseline_tag }}
           AIGW_CANDIDATE_TAG: ${{ inputs.candidate_tag }}
