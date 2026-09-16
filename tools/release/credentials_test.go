@@ -433,7 +433,7 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 				} `toml:"auth"`
 			} `toml:"model_providers"`
 		}
-		path := filepath.Join(j.root, "home", ".codex", "config.toml")
+		path := filepath.Join(environmentValues(j.environment)["CODEX_HOME"], "config.toml")
 		if err := toml.Unmarshal(readFile(j.testing, path), &config); err != nil {
 			j.testing.Fatal(err)
 		}
