@@ -185,9 +185,10 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	baseline := requireNativeLifecycleBaseline(t, func() string { return artifact })
 	journey := newNativeJourney(t, baseline, endpoint, true)
 	oldVersion := journey.predecessorVersion(newVersion)
-	journey.prepareCodexLifecycle()
 	journey.enableSystemCredentialStore()
-	store, err := secrets.Select(secrets.Selection{Backend: "keyring", Executable: artifact})
+	journey.prepareCodexLifecycle()
+	candidate, archive, checksums := nativeReleaseCandidate(t, root, newVersion)
+	store, err := secrets.Select(secrets.Selection{Backend: "keyring", Executable: candidate})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +214,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	journey.requireClaudeCredential(token)
 	journey.runWithInput(journey.binary, replacement+"\n", "rotate", "native-system-keyring-probe", "--token-stdin")
 	journey.requireClaudeCredential(replacement)
-	journey.requireStoredCredentialAcrossUpdate(root, newVersion, oldVersion, replacement, backend)
+	journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, oldVersion, replacement, backend)
 	journey.uninstallAndRequireOwnedFilesAbsent()
 	if exists, err := store.Exists("native-system-keyring-probe"); err != nil || !exists {
 		t.Fatalf("uninstall removed the retained credential: exists=%t error=%v", exists, err)
@@ -357,6 +358,7 @@ func systemCredentialEnvironment(goos string, current []string, hostHome, scope 
 	return environmentWith(environment, map[string]string{
 		"HOME":        hostHome,
 		"USERPROFILE": hostHome,
+		"CODEX_HOME":  filepath.Join(hostHome, ".codex"),
 	}), nil
 }
 
@@ -371,9 +373,8 @@ func environmentValues(environment []string) map[string]string {
 	return values
 }
 
-func (j *journeyFixture) requireStoredCredentialAcrossUpdate(root, newVersion, oldVersion, token string, backend secrets.BackendSelection) {
+func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, oldVersion, token string, backend secrets.BackendSelection) {
 	j.testing.Helper()
-	candidate, archive, checksums := nativeReleaseCandidate(j.testing, root, newVersion)
 	j.testing.Logf("credential baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(j.testing, j.source)), newVersion, sha256.Sum256(readFile(j.testing, candidate)))
 	retained := j.retainedCredentials()
 	for _, step := range []struct {

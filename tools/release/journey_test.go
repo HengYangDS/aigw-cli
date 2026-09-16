@@ -32,8 +32,7 @@ func TestNativeProductJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const sourceFixtureVersion = "0.0.0"
-	artifact := requireNativeLifecycleBaseline(t, func() string { return buildNativeProgram(t, root, sourceFixtureVersion) })
+	artifact := requireNativeLifecycleBaseline(t, func() string { return buildNativeProgram(t, root, "0.0.0") })
 
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
@@ -98,7 +97,8 @@ func TestNativeProductJourney(t *testing.T) {
 		if !diagnosis.OK {
 			t.Fatal("doctor rejected a healthy partially connected catalogue")
 		}
-		journey.requireStoredCredentialAcrossUpdate(root, newVersion, journey.predecessorVersion(newVersion), "native-journey-token", secrets.BackendSelection{
+		candidate, archive, checksums := nativeReleaseCandidate(t, root, newVersion)
+		journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, journey.predecessorVersion(newVersion), "native-journey-token", secrets.BackendSelection{
 			Kind: "env", Availability: "available", Mutability: "read_only", Persistence: "explicit",
 		})
 		journey.uninstallAndRequireOwnedFilesAbsent()
