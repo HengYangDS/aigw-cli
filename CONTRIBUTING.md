@@ -65,6 +65,10 @@ obsolete duplicate, naming the surviving owner and preserving its obligations.
 Review the complete projected specification with the locked OpenSpec merge,
 not just the changed paragraphs. Valid delta syntax and preserved scenario
 names do not prove that inherited requirements agree with the new behavior.
+Once canonical specs absorb a delta, remove its redundant operations only after
+the official merger proves that every complete projected spec remains
+byte-identical. Keep outstanding deltas, original Change intent and unfinished
+tasks; removing consumed delta files does not archive or complete the Change.
 
 Local developer-tool state, including `.serena/`, is disposable and ignored.
 It may index the current checkout, but it is not AIGW configuration, evidence,
