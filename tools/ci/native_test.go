@@ -138,6 +138,7 @@ func TestNativeDarwinSeparatesPrivateContractsFromPublisherQualification(t *test
 
 func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
+	t.Setenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE", "")
 	root := repositoryRoot(t)
 	previous, err := os.Getwd()
 	if err != nil {
@@ -212,6 +213,7 @@ func TestNativeCommandsKeepSourceEvidenceDistinct(t *testing.T) {
 func TestNativeFullQualityUsesTheExistingGateOnce(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
+	t.Setenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE", "")
 	// Native tool qualification does not reinterpret source-publication inputs.
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "source-owner@example.test")
 	want := append(slices.Clone(qualityCommands), nativeCommands(runtime.GOOS)[1:]...)
@@ -238,6 +240,7 @@ func TestNativeFullQualityUsesTheExistingGateOnce(t *testing.T) {
 func TestNativeFullQualityStopsAtEachFailedGate(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
+	t.Setenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE", "")
 	failure := errors.New("native quality gate failed")
 	for index, expected := range qualityCommands {
 		t.Run(fmt.Sprintf("gate-%d", index), func(t *testing.T) {
@@ -262,6 +265,7 @@ func TestNativeFullQualityStopsAtEachFailedGate(t *testing.T) {
 func TestNativeAcceptanceStopsBeforeTestsWhenStaticChecksFail(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	t.Setenv("AIGW_VERIFY_SYSTEM_KEYRING", "0")
+	t.Setenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE", "")
 	failure := errors.New("native source lint failed")
 	calls := 0
 	err := run([]string{"native"}, &bytes.Buffer{}, func(call command) error {
