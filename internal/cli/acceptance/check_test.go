@@ -131,7 +131,7 @@ func TestCheckJSONReportsPrerequisiteFailure(t *testing.T) {
 	for _, test := range []struct {
 		name, version, problem, nextAction string
 	}{
-		{"local build", "0.1.0-dev", "local program is not an official release", "aigw update"},
+		{"local build without configuration", "0.1.0-dev", "not configured", "aigw setup"},
 		{"unconfigured", "1.0.0", "not configured", "aigw setup"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -392,20 +392,36 @@ func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T
 	}
 }
 
-func TestCheckRejectsLocalProgramBuildBeforeClaimingHealth(t *testing.T) {
-	for _, version := range []string{"0.1.0-rc.44+local.test", "0.1.0-dev"} {
-		t.Run(version, func(t *testing.T) {
-			app, out, _, _, _ := testApp(t, "")
-			app.Version = version
-			if err := cli.Execute(app, []string{"check"}); err == nil {
-				t.Fatal("check succeeded for a local program build")
-			}
-			for _, want := range []string{"Local program is not an official release", "Detected local build marker", "aigw update"} {
-				if !strings.Contains(out.String(), want) {
-					t.Fatalf("check output missing %q:\n%s", want, out.String())
+func TestCheckEvaluatesRoutesIndependentlyOfProgramVersion(t *testing.T) {
+	for _, version := range []string{"", "0.1.0-rc.44+local.test", "0.1.0-dev", "1.2.3"} {
+		for _, jsonMode := range []bool{false, true} {
+			t.Run(version+map[bool]string{false: "/human", true: "/json"}[jsonMode], func(t *testing.T) {
+				app, out, store, _, _ := testApp(t, "")
+				app.Version = version
+				cfg := configuration.NewConfig()
+				addAccountProfile(&cfg, "claude", "account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
+				cfg.Routes[configuration.ClientClaude] = "claude"
+				cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude")}
+				synchronizeClaudeProjection(t, app, cfg)
+				if err := app.Config.Save(cfg); err != nil {
+					t.Fatal(err)
 				}
-			}
-		})
+				args := []string{"check"}
+				if jsonMode {
+					args = append(args, "--json")
+				}
+				if err := cli.Execute(app, args); err == nil || !strings.Contains(out.String(), "token is unavailable") {
+					t.Fatalf("missing credential must remain actionable: error=%v output=%s", err, out.String())
+				}
+				if err := store.Set("account", "synthetic-token"); err != nil {
+					t.Fatal(err)
+				}
+				out.Reset()
+				if err := cli.Execute(app, args); err != nil {
+					t.Fatalf("configured route rejected for version %q: %v; %s", version, err, out.String())
+				}
+			})
+		}
 	}
 }
 

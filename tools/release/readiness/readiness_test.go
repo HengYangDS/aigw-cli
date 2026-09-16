@@ -3,10 +3,73 @@ package readiness
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Masterminds/semver/v3"
 )
+
+func TestLocalVersionPreservesReleaseOrderingAndExactSource(t *testing.T) {
+	commit := strings.Repeat("a", 40)
+	for _, test := range []struct{ base, next, want string }{
+		{"0.1.0-rc.115", "0.1.0-rc.116", "0.1.0-rc.115.local.100+local." + commit},
+		{"1.2.3", "1.2.4", "1.2.4-local.100+local." + commit},
+	} {
+		got, err := LocalVersion(test.base, commit, "100")
+		if err != nil || got != test.want {
+			t.Fatalf("local identity=%q error=%v, want %q", got, err, test.want)
+		}
+		base := semver.MustParse(test.base)
+		local := semver.MustParse(got)
+		next := semver.MustParse(test.next)
+		if !local.GreaterThan(base) || !local.LessThan(next) {
+			t.Fatalf("local delivery must follow %s and precede %s: %s", base, next, local)
+		}
+	}
+	for _, fields := range [][3]string{
+		{"invalid", commit, "100"}, {"1.2.3", "HEAD", "100"}, {"1.2.3", commit, "-1"},
+	} {
+		if _, err := LocalVersion(fields[0], fields[1], fields[2]); err == nil {
+			t.Fatalf("invalid local identity admitted: %v", fields)
+		}
+	}
+}
+
+func TestDeliveryVersionUsesExactSourceAndExplicitMode(t *testing.T) {
+	root := t.TempDir()
+	if _, err := ReadDeliveryVersion(root, true); err == nil {
+		t.Fatal("missing source VERSION admitted")
+	}
+	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("1.2.3-rc.1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := ReadDeliveryVersion(root, false); err != nil || got != "1.2.3-rc.1" {
+		t.Fatalf("ordinary delivery identity=%q error=%v", got, err)
+	}
+	if _, err := ReadDeliveryVersion(root, true); err == nil {
+		t.Fatal("local delivery accepted a directory without source history")
+	}
+	for _, args := range [][]string{
+		{"init", "--quiet", root},
+		{"-C", root, "-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "-c", "user.name=Build Test", "-c", "user.email=build@example.test", "commit", "--allow-empty", "--quiet", "-m", "test source"},
+	} {
+		command := exec.Command("git", args...)
+		command.Env = append(os.Environ(), "GIT_AUTHOR_DATE=2026-09-07T00:00:00Z", "GIT_COMMITTER_DATE=2026-09-07T00:00:00Z")
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("prepare source identity: %v: %s", err, output)
+		}
+	}
+	commit, err := exec.Command("git", "-C", root, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "1.2.3-rc.1.local.1788739200+local." + strings.TrimSpace(string(commit))
+	if got, err := ReadDeliveryVersion(root, true); err != nil || got != want {
+		t.Fatalf("local identity=%q error=%v; want %q", got, err, want)
+	}
+}
 
 func TestReadProductVersion(t *testing.T) {
 	root := t.TempDir()

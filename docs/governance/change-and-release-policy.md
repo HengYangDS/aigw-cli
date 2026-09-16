@@ -196,6 +196,37 @@ Product acceptance, release publication, installation and lane retirement are
 distinct claims. A local-only acceptance claims no hosted delivery. An installed
 product requires native artifact evidence, not merely an accepted source tree.
 
+### Local delivery and public distribution
+
+Use `mise exec --locked -- go run ./tools/release build --local <output-directory>`
+for explicitly authorized local delivery. It uses the same GoReleaser archive,
+SBOM, dependency report, provenance and SSH-signed checksum owners as a release.
+The derived version includes the exact source commit and a source-epoch
+prerelease suffix; `VERSION` remains the release baseline. Local artifacts follow
+that baseline in SemVer precedence and precede the next release. A different
+artifact at equal precedence is rejected by the existing updater.
+
+The macOS hook uses [rcodesign's native ad-hoc mode](https://gregoryszorc.com/docs/apple-codesign/main/apple_codesign_rcodesign_signing.html)
+only for this explicit path. It does not claim publisher identity, notarization
+or retained native-Keychain authorization. The ordinary build still requires its
+certificate inputs and never falls back to local mode. A local AIGW using an
+external credential helper leaves the helper executable and credential store
+under their existing owner; local delivery does not grant AIGW new store access.
+
+Before installation, run `verify-artifacts --local <output-directory>` and
+`accept-native --local --artifacts <output-directory> --clients` through the same
+release command. Supply the approved artifact signer, Git signer trust and actual
+client/baseline inputs required by those commands. Verification binds the complete
+artifact matrix to the signed source commit without inventing a release tag.
+Both Forge publishers reject local identities, including locally signed tags.
+Install, update, rollback and uninstall continue to use the product's existing
+commands; there is no second installer or separate rollback store.
+
+`aigw check` evaluates configured Routes, credentials and projections regardless
+of the program's version label. It does not certify binary provenance, public
+distribution trust or real-client inference. Those claims remain at their
+respective verification boundaries.
+
 On disposable macOS runners, `AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host`
 includes the private Keychain bridge, locked-item, exact cleanup and reader-identity
 regressions in native coverage. It does not enable publisher-bound retained-item

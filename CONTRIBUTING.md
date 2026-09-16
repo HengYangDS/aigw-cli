@@ -603,6 +603,10 @@ On macOS this explicit build requires the
 [native release signing inputs](docs/decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
 The release owner supplies the candidate directory, retains it for both tests,
 stops on the first failure and cleans it afterward. No second build is needed.
+For an explicitly authorized local delivery, use the same command with
+`--local --artifacts <directory>` after local artifact verification; see
+[local delivery](docs/governance/change-and-release-policy.md#local-delivery-and-public-distribution).
+That path proves local operation, not publisher trust or native Keychain continuity.
 
 #### Hosted Windows qualification
 
@@ -697,6 +701,16 @@ neither peer depends on the other.
 An agent-backed public-key path works when the matching private key is already
 available through `SSH_AUTH_SOCK`; the public key itself does not sign. This
 capability is separate from GitLab or GitHub transport access.
+
+Public-release construction also requires the
+[macOS certificate inputs](docs/decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
+An authorized local delivery instead selects `go run ./tools/release build
+--local <output-directory>` under the locked mise environment. It retains the
+signed matrix and source provenance, uses a distinct local version and cannot
+be published through either Forge release command. The
+[local-delivery policy](docs/governance/change-and-release-policy.md#local-delivery-and-public-distribution)
+defines artifact verification, native acceptance and the existing installation
+path; missing public signing inputs never silently select this mode.
 
 For a POSIX shell with an already available signing agent:
 

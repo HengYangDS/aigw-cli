@@ -2,6 +2,7 @@ package construction
 
 import (
 	"aigw-cli/internal/upgrade/artifact"
+	"aigw-cli/tools/release/readiness"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,10 +15,17 @@ import (
 
 // AcceptNative proves the current host lifecycle using built or supplied archives.
 // It publishes nothing and owns the complete temporary build and test scope.
-func AcceptNative(artifacts string, clients bool, performance string) error {
+func AcceptNative(artifacts string, clients bool, performance string, local bool) error {
 	request, err := buildRequestFromEnvironment("")
 	if err != nil {
 		return err
+	}
+	if local {
+		request.Version, err = readiness.ReadDeliveryVersion(request.Root, true)
+		if err != nil {
+			return err
+		}
+		request.Local = true
 	}
 	if artifacts == "" {
 		return acceptNative(request, artifacts, clients, performance, executeTool)
@@ -35,7 +43,7 @@ func BuildNative(root, workspace, version string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	request := buildRequest{Root: root, Version: version, Epoch: epoch, TargetOS: runtime.GOOS}
+	request := buildRequest{Root: root, Version: version, Epoch: epoch, TargetOS: runtime.GOOS, Local: os.Getenv("AIGW_LOCAL_DELIVERY") == "true"}
 	if err := validateRequest(request); err != nil {
 		return "", err
 	}
@@ -67,33 +75,17 @@ func acceptNative(request buildRequest, artifacts string, clients bool, performa
 			result = errors.Join(result, fmt.Errorf("remove native acceptance workspace %s: %w", workspace, err))
 		}
 	}()
-	stage := ""
-	if artifacts == "" && clients {
-		request.TargetOS = runtime.GOOS
-		stage, err = buildArchives(request, workspace, run)
-		if err != nil {
-			return err
-		}
-		if err := prepareNativeBinary(stage, request.Version); err != nil {
-			return err
-		}
-	}
-	if artifacts != "" {
-		stage = workspace
-		target := artifact.Target{OS: runtime.GOOS, Arch: runtime.GOARCH}
-		for _, name := range []string{target.ArchiveName(request.Version), "checksums.txt"} {
-			if err := copyFile(filepath.Join(artifacts, name), filepath.Join(stage, name)); err != nil {
-				return err
-			}
-		}
-		if err := prepareNativeBinary(stage, request.Version); err != nil {
-			return err
-		}
+	stage, err := prepareNativeAcceptance(request, workspace, artifacts, clients, run)
+	if err != nil {
+		return err
 	}
 	call := toolCall{
 		Name: "go", Directory: request.Root,
 		Args: []string{"test", "./tools/release", "-run", "^(TestNativeProductJourney|TestNativeRollbackConfigurationAdmission|TestNativeTeamManifestJourney)$", "-count=1", "-v"},
 		Env:  []string{"AIGW_ACCEPTANCE_RELEASE=" + stage, "TMPDIR=" + workspace, "TMP=" + workspace, "TEMP=" + workspace},
+	}
+	if request.Local {
+		call.Env = append(call.Env, "AIGW_LOCAL_DELIVERY=true")
 	}
 	if err := run(call); err != nil {
 		return err
@@ -116,6 +108,38 @@ func acceptNative(request buildRequest, artifacts string, clients bool, performa
 		}
 	}
 	return nil
+}
+
+func prepareNativeAcceptance(request buildRequest, workspace, artifacts string, clients bool, run toolRunner) (string, error) {
+	if artifacts == "" && !clients {
+		return "", nil
+	}
+	stage := workspace
+	if artifacts == "" {
+		request.TargetOS = runtime.GOOS
+		var err error
+		stage, err = buildArchives(request, workspace, run)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		target := artifact.Target{OS: runtime.GOOS, Arch: runtime.GOARCH}
+		for _, name := range []string{target.ArchiveName(request.Version), "checksums.txt"} {
+			if err := copyFile(filepath.Join(artifacts, name), filepath.Join(stage, name)); err != nil {
+				return "", err
+			}
+		}
+	}
+	if err := prepareNativeBinary(stage, request.Version); err != nil {
+		return "", err
+	}
+	if request.Local && runtime.GOOS == "darwin" {
+		program := filepath.Join(stage, fmt.Sprintf("aigw_%s_darwin_%s", request.Version, runtime.GOARCH), "aigw")
+		if err := run(toolCall{Name: "codesign", Directory: request.Root, Args: []string{"--verify", "--strict", program}}); err != nil {
+			return "", fmt.Errorf("verify local macOS code signature: %w", err)
+		}
+	}
+	return stage, nil
 }
 
 func prepareNativeBinary(stage, version string) error {

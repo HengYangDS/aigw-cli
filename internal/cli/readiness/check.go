@@ -143,9 +143,6 @@ func (e checkEvaluation) route(client string) (evaluatedRoute, bool) {
 }
 
 func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
-	if isLocalProgramBuild(runtime.Version) {
-		return writeJSONFailure(runtime, domainreadiness.Invalid, "local program is not an official release", "aigw update", fmt.Errorf("local program build"))
-	}
 	cfg, err := runtime.Config.Load()
 	if err != nil {
 		return writeJSONFailure(runtime, domainreadiness.Invalid, "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it", "aigw doctor", err)
@@ -198,9 +195,6 @@ func writeJSONFailure(runtime invocation.Context, state domainreadiness.State, m
 // RunCheck verifies the selected route, configured client projections, and
 // endpoint authentication without mutating configuration or credentials.
 func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
-	if isLocalProgramBuild(runtime.Version) {
-		return invocation.Problem(runtime, "Local program is not an official release", "Detected local build marker: "+runtime.Version, "A local development build must not replace a verified team release.", "aigw update", fmt.Errorf("local program build"))
-	}
 	cfg, err := runtime.Config.Load()
 	if err != nil {
 		return err
@@ -282,9 +276,4 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		renderer.Next(command)
 	}
 	return nil
-}
-
-func isLocalProgramBuild(version string) bool {
-	version = strings.TrimSpace(version)
-	return version == "" || strings.HasSuffix(version, "-dev") || strings.Contains(version, "+local")
 }

@@ -141,7 +141,7 @@ transition; a certificate alone is not that proof.
 
 The existing GoReleaser build signs macOS binaries before archiving. An encrypted
 PKCS#12 identity, password file and compiled designated requirement are explicit
-publisher release inputs; missing inputs stop construction without prompting or
+publisher release inputs; missing inputs stop public-release construction without prompting or
 creating an identity. Signing time and post-signing file time use the release epoch, not
 wall time. Native Linux and Windows acceptance selects only its own operating
 system and needs no macOS credential. Full release construction still emits and
@@ -152,6 +152,13 @@ disposable signing identity, not production trust. The
 [release policy](../governance/change-and-release-policy.md#reproducible-assets)
 owns Developer ID provisioning and the remaining secure-timestamp and
 notarization boundary; these are not credential-store responsibilities.
+
+An explicitly authorized [local delivery](../governance/change-and-release-policy.md#local-delivery-and-public-distribution)
+reuses that build owner with native ad-hoc signing and a source-bound version.
+It retains signed artifact verification but establishes neither publisher trust
+nor authorization to native Keychain items. When an Adapter explicitly selects
+an external credential helper, that helper remains the unchanged reader and
+store owner; installing a local AIGW does not transfer its credential authority.
 
 Following [Apple's subsystem-specific trust model](https://developer.apple.com/library/archive/technotes/tn2206/_index.html),
 Keychain identity continuity, distribution trust and notarization remain separate

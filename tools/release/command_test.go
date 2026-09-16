@@ -49,7 +49,7 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadProductVersion(root)
+	version, err := readiness.ReadDeliveryVersion(root, os.Getenv("AIGW_LOCAL_DELIVERY") == "true")
 	if err != nil {
 		t.Fatal(err)
 	}

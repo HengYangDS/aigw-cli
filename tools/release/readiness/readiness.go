@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -69,4 +71,49 @@ func ReadProductVersion(root string) (string, error) {
 		return "", fmt.Errorf("VERSION contains invalid release version %q: %w", version, err)
 	}
 	return version, nil
+}
+
+// ReadDeliveryVersion selects the declared release or an exact-source local identity.
+func ReadDeliveryVersion(root string, local bool) (string, error) {
+	version, err := ReadProductVersion(root)
+	if err != nil || !local {
+		return version, err
+	}
+	output, err := exec.Command("git", "--no-replace-objects", "-C", root, "show", "-s", "--format=%H %ct", "HEAD").Output()
+	if err != nil {
+		return "", fmt.Errorf("read local delivery source: %w", err)
+	}
+	fields := strings.Fields(string(output))
+	if len(fields) != 2 {
+		return "", errors.New("local delivery requires a commit and source epoch")
+	}
+	return LocalVersion(version, fields[0], fields[1])
+}
+
+// LocalVersion orders a source build after its baseline and before the next release.
+func LocalVersion(base, commit, epoch string) (string, error) {
+	version, err := semver.StrictNewVersion(base)
+	if err != nil {
+		return "", err
+	}
+	if matched, _ := regexp.MatchString(`^[0-9a-f]{40}(?:[0-9a-f]{24})?$`, commit); !matched {
+		return "", errors.New("local delivery requires an exact Git commit")
+	}
+	instant, err := ParseEpoch(epoch)
+	if err != nil {
+		return "", err
+	}
+	prerelease := "local." + strconv.FormatInt(instant.Unix(), 10)
+	if version.Prerelease() == "" {
+		next := version.IncPatch()
+		version = &next
+	} else {
+		prerelease = version.Prerelease() + "." + prerelease
+	}
+	local, err := version.SetPrerelease(prerelease)
+	if err != nil {
+		return "", err
+	}
+	local, err = local.SetMetadata("local." + commit)
+	return local.String(), err
 }
