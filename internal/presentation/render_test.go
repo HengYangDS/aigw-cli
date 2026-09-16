@@ -193,7 +193,7 @@ func TestRendererHandlesEmptyNarrowContent(t *testing.T) {
 
 	var detail bytes.Buffer
 	presentation.NewWithWidth(&detail, false, 3).Detail("")
-	if want := "    \n"; detail.String() != want {
+	if want := "  \n"; detail.String() != want {
 		t.Fatalf("empty detail = %q, want %q", detail.String(), want)
 	}
 }

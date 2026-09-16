@@ -14,6 +14,7 @@ import (
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/presentation"
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
@@ -35,6 +36,15 @@ func TestRenderRepairPreviewIncludesKnownAndExplicitSurfaces(t *testing.T) {
 	for _, want := range []string{"Repair preview", "update", string(surfaceidentity.CodexHomeDefault), "codex-home-explicit", "create"} {
 		if !bytes.Contains(out.Bytes(), []byte(want)) {
 			t.Fatalf("output lacks %q: %s", want, out.String())
+		}
+	}
+	column := -1
+	for line := range strings.SplitSeq(out.String(), "\n") {
+		if prefix, _, found := strings.Cut(line, "update"); found {
+			if column >= 0 && presentation.DisplayWidth(prefix) != column {
+				t.Fatalf("repair preview action columns differ:\n%s", out.String())
+			}
+			column = presentation.DisplayWidth(prefix)
 		}
 	}
 }

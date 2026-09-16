@@ -97,10 +97,11 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 	r := invocation.Renderer(runtime)
 	if dryRun {
 		r.ProductTitle("Repair preview")
-		r.Row("Configuration", result.ConfigurationAction)
+		rows := []presentation.Field{{Label: "Configuration", Value: result.ConfigurationAction}}
 		for _, plan := range result.Projections {
-			r.Row(plan.Client+" · "+plan.SurfaceID, plan.Action)
+			rows = append(rows, presentation.Field{Label: plan.Client + " · " + plan.SurfaceID, Value: plan.Action})
 		}
+		r.Rows(rows...)
 		r.Success("Preview did not write configuration, state files, authentication, client executables, or conversations")
 	} else {
 		r.ProductTitle("Repair completed")

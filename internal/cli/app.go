@@ -382,9 +382,11 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 	}
 	if command.Parent() == nil {
 		r.Section("Start with one path")
-		r.Command("aigw setup    # connect the first service")
-		r.Command("aigw use <profile>  # select this profile for its client")
-		r.Command("aigw check    # confirm readiness")
+		r.Rows(
+			presentation.Field{Label: command.CommandPath() + " setup", Value: "Connect the first service"},
+			presentation.Field{Label: command.CommandPath() + " use <profile>", Value: "Select this profile for its client"},
+			presentation.Field{Label: command.CommandPath() + " check", Value: "Confirm readiness"},
+		)
 	}
 	r.Section("Usage")
 	if command.Runnable() {
@@ -411,12 +413,13 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 			continue
 		}
 		r.Section(group.Title)
+		rows := make([]presentation.Field, 0, len(groups[group.ID]))
 		for _, child := range groups[group.ID] {
-			r.Row(child.Name(), child.Short)
+			rows = append(rows, presentation.Field{Label: child.Name(), Value: child.Short})
 		}
+		r.Rows(rows...)
 	}
 	optionWidth := max(console.PresentationWidth(app.Out, environmentMap(app.Env))-2, 0)
-	options := presentation.New(app.outputWriter(), app.Color)
 	for _, group := range []struct {
 		title string
 		flags *pflag.FlagSet
@@ -429,7 +432,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 		}
 		r.Section(group.title)
 		for line := range strings.SplitSeq(strings.TrimRight(group.flags.FlagUsagesWrapped(optionWidth), "\n"), "\n") {
-			options.Text(strings.TrimRight(line, " \t"))
+			r.Text(strings.TrimRight(line, " \t"))
 		}
 	}
 }

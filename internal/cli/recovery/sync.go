@@ -58,15 +58,19 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			if dryRun {
 				r.ProductTitle("Synchronization preview")
+				var routes []presentation.Field
 				for _, client := range configuration.AdmittedClientIDs() {
-					r.Row("Route · "+client, after.Routes[client])
+					routes = append(routes, presentation.Field{Label: "Route · " + client, Value: after.Routes[client]})
 				}
+				r.Rows(routes...)
 				if len(result.Targets) == 0 {
 					r.Status(presentation.OK, "Projection", "No client configuration needs changing")
 				} else {
+					targets := make([]presentation.Field, 0, len(result.Targets))
 					for _, plan := range result.Targets {
-						r.Row(plan.Target, plan.Action)
+						targets = append(targets, presentation.Field{Label: plan.Target, Value: plan.Action})
 					}
+					r.Rows(targets...)
 				}
 				r.Success("Preview did not write configuration, state files, authentication, or conversations")
 			} else {

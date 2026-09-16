@@ -1,3 +1,42 @@
+## ADDED Requirements
+
+### Requirement: Terminal layout follows semantic fields and display width
+
+Human-facing command output SHALL use the existing presentation owner for
+terminal-cell measurement, ANSI-aware layout and wrapping. Related command and
+description fields SHALL share one measured column and switch as a group to
+stacked layout when content cannot fit or contains multiple lines. Command
+metadata SHALL own executable names; manual padding and shell-comment syntax
+SHALL NOT substitute for structured explanatory fields. Existing native text
+libraries SHALL own word and grapheme wrapping without dropping content.
+
+Every public command's help SHALL retain its native option meaning at wide and
+narrow widths. The final option display SHALL use the same width-aware renderer;
+pflag SHALL remain the option-grammar owner. Color SHALL NOT alter text alignment.
+The tests SHALL verify display width, field preservation and actual description
+columns rather than reproduce manually padded source strings. Machine output,
+credential-helper output and interactive input contracts SHALL remain unchanged.
+
+#### Scenario: Starting commands have different lengths
+
+- **WHEN** root help presents the setup, selection and readiness journey
+- **THEN** command and explanation SHALL be distinct fields with one description
+  column derived from the group's longest label
+- **AND** a renamed root command SHALL propagate without hard-coded product text.
+
+#### Scenario: A terminal is narrow or a value spans multiple lines
+
+- **WHEN** human output contains long labels, unbroken values or multiple lines
+- **THEN** the renderer SHALL retain text and continuation indentation within the
+  available display width and use stacked rows where necessary
+- **AND** colored and plain output SHALL preserve the same layout.
+
+#### Scenario: Inspect the complete public command tree
+
+- **WHEN** every public command renders help at supported narrow and wide widths
+- **THEN** headings, descriptions, commands and options SHALL fit those widths
+- **AND** native option meaning and credential-free help SHALL remain intact.
+
 ## MODIFIED Requirements
 
 ### Requirement: complete delivery evidence

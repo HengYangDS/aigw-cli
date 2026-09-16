@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // State classifies one human-facing status row.
@@ -29,11 +30,15 @@ const (
 type Renderer struct {
 	out        io.Writer
 	err        error
-	color      bool
 	width      int
 	hasContent bool
-	inSection  bool
 	styles     styles
+}
+
+// Field keeps a row's label separate from its explanatory value.
+type Field struct {
+	Label string
+	Value string
 }
 
 // ProductName is the sole human-facing product identity used in rendered output.
@@ -96,7 +101,7 @@ func NewWithWidth(out io.Writer, color bool, width int) *Renderer {
 		base.command = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
 		base.problem = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
 	}
-	return &Renderer{out: out, color: color, width: width, styles: base}
+	return &Renderer{out: out, width: width, styles: base}
 }
 
 // Err reports the first output failure observed while rendering. Renderer
@@ -129,7 +134,6 @@ func (r *Renderer) Title(product, title string) {
 		r.printf("%s  %s\n%s\n", r.styles.title.Render(product), title, strings.Repeat("─", 40))
 	}
 	r.hasContent = true
-	r.inSection = false
 }
 
 // ProductTitle renders one title under the single product display identity.
@@ -140,28 +144,45 @@ func (r *Renderer) Section(title string) {
 	if r.hasContent {
 		r.println()
 	}
-	r.println(r.styles.section.Render(title))
+	if r.width > 0 {
+		r.writeWrapped(title, 0, r.styles.section)
+	} else {
+		r.println(r.styles.section.Render(title))
+	}
 	r.hasContent = true
-	r.inSection = true
 }
 
 // Row renders one label and value, switching to a compact layout when needed.
 func (r *Renderer) Row(label, value string) {
-	if r.requiresCompactColumn(label, value, rowKeyWidth) {
-		r.printf("  %s\n", label)
-		r.writeWrapped(value, compactIndent, r.styles.dim)
-		r.hasContent = true
-		return
+	r.Rows(Field{Label: label, Value: value})
+}
+
+// Rows aligns a semantic group, stacking the whole group when a row cannot fit.
+func (r *Renderer) Rows(fields ...Field) {
+	columnWidth := rowKeyWidth
+	for _, field := range fields {
+		columnWidth = max(columnWidth, DisplayWidth(field.Label)+1)
 	}
-	r.printf("  %s%s\n", r.fixedLabel(r.styles.rowKey, label, rowKeyWidth), value)
-	r.hasContent = true
+	compact := false
+	for _, field := range fields {
+		compact = compact || r.requiresCompactColumn(field.Label, field.Value, columnWidth)
+	}
+	for _, field := range fields {
+		if compact {
+			r.writeWrapped(field.Label, 2, lipgloss.NewStyle())
+			r.writeWrapped(field.Value, compactIndent, r.styles.dim)
+		} else {
+			r.printf("  %s%s\n", r.fixedLabel(r.styles.rowKey, field.Label, columnWidth), field.Value)
+		}
+		r.hasContent = true
+	}
 }
 
 // Status renders one classified label and value with a stable state symbol.
 func (r *Renderer) Status(state State, label, value string) {
 	symbol := map[State]string{OK: "✓", Warn: "!", Fail: "✗", Info: "·"}[state]
 	if r.requiresCompactColumn(label, value, stateKeyWidth+2) {
-		r.printf("  %s %s\n", r.stateStyle(state).Render(symbol), label)
+		r.writeWrapped(r.stateStyle(state).Render(symbol)+" "+label, 2, lipgloss.NewStyle())
 		r.writeWrapped(value, compactIndent, r.styles.dim)
 		r.hasContent = true
 		return
@@ -174,7 +195,7 @@ func (r *Renderer) Status(state State, label, value string) {
 // StatusLine renders a compact classified line without a fixed label column.
 func (r *Renderer) StatusLine(state State, label, value string) {
 	symbol := map[State]string{OK: "✓", Warn: "!", Fail: "✗", Info: "·"}[state]
-	if r.compactRow(symbol+" "+label, value, true) {
+	if r.compactRow(symbol+" "+label, value) {
 		return
 	}
 	symbol = r.stateStyle(state).Render(symbol)
@@ -195,27 +216,17 @@ func (r *Renderer) Detail(value string) {
 
 // Text renders ordinary human-facing text.
 func (r *Renderer) Text(value string) {
-	if r.compactText(value, 2, r.styles.dim) {
-		return
-	}
-	r.printf("  %s\n", value)
-	r.hasContent = true
+	r.writeHumanText(value, r.styles.dim)
 }
 
 // Command renders a copyable command and wraps it without inserting shell syntax.
 func (r *Renderer) Command(value string) {
-	if r.width > 0 && DisplayWidth("  "+value) >= r.width {
-		r.writeWrapped(value, 2, r.styles.command)
-		r.hasContent = true
-		return
-	}
-	r.printf("  %s\n", r.styles.command.Render(value))
-	r.hasContent = true
+	r.writeHumanText(value, r.styles.command)
 }
 
 // Success renders a successful terminal statement.
 func (r *Renderer) Success(value string) {
-	if r.compactRow("✓", value, true) {
+	if r.compactRow("✓", value) {
 		return
 	}
 	r.printf("  %s %s\n", r.styles.ok.Render("✓"), value)
@@ -252,7 +263,7 @@ func (r *Renderer) stateStyle(state State) lipgloss.Style {
 }
 
 func (r *Renderer) writeHumanText(value string, style lipgloss.Style) {
-	if r.width > 0 {
+	if strings.ContainsAny(value, "\n\r") || r.width > 0 && DisplayWidth("  "+value) > r.width {
 		r.writeWrapped(value, 2, style)
 	} else {
 		r.printf("  %s\n", style.Render(value))
@@ -261,6 +272,9 @@ func (r *Renderer) writeHumanText(value string, style lipgloss.Style) {
 }
 
 func (r *Renderer) requiresCompact(label, value string, gap int) bool {
+	if strings.ContainsAny(label+value, "\n\r") {
+		return true
+	}
 	if r.width <= 0 {
 		return false
 	}
@@ -268,6 +282,9 @@ func (r *Renderer) requiresCompact(label, value string, gap int) bool {
 }
 
 func (r *Renderer) requiresCompactColumn(label, value string, columnWidth int) bool {
+	if strings.ContainsAny(label+value, "\n\r") {
+		return true
+	}
 	if r.width <= 0 {
 		return false
 	}
@@ -275,32 +292,23 @@ func (r *Renderer) requiresCompactColumn(label, value string, columnWidth int) b
 	return 2+labelWidth+DisplayWidth(value) > r.width
 }
 
-func (r *Renderer) compactRow(label, value string, status bool) bool {
+func (r *Renderer) compactRow(label, value string) bool {
 	if !r.requiresCompact(label, value, 2) {
 		return false
 	}
-	if status {
-		symbol, rest, _ := strings.Cut(label, " ")
-		r.printf("  %s %s\n", r.stateStyleForSymbol(symbol).Render(symbol), rest)
-	} else {
-		r.printf("  %s\n", label)
-	}
+	symbol, rest, _ := strings.Cut(label, " ")
+	r.writeWrapped(r.stateStyleForSymbol(symbol).Render(symbol)+" "+rest, 2, lipgloss.NewStyle())
 	r.writeWrapped(value, compactIndent, r.styles.dim)
 	r.hasContent = true
 	return true
 }
 
-func (r *Renderer) compactText(value string, indent int, style lipgloss.Style) bool {
-	if r.width <= 0 || DisplayWidth(strings.Repeat(" ", indent)+value) < r.width {
-		return false
-	}
-	r.writeWrapped(value, indent, style)
-	r.hasContent = true
-	return true
-}
-
 func (r *Renderer) writeWrapped(value string, indent int, style lipgloss.Style) {
-	available := max(r.width-indent, 1)
+	available := DisplayWidth(value)
+	if r.width > 0 {
+		indent = min(indent, max(r.width-1, 0))
+		available = max(r.width-indent, 1)
+	}
 	for _, line := range wrap(value, available) {
 		r.printf("%s%s\n", strings.Repeat(" ", indent), style.Render(line))
 	}
@@ -316,32 +324,15 @@ func (r *Renderer) stateStyleForSymbol(symbol string) lipgloss.Style {
 }
 
 func wrap(value string, width int) []string {
-	words := strings.Fields(value)
-	if len(words) == 0 {
-		return []string{""}
-	}
-	lines := []string{}
-	line := ""
-	for _, word := range words {
-		if line == "" {
-			line = word
-			continue
-		}
-		if DisplayWidth(line+" "+word) <= width {
-			line += " " + word
-			continue
-		}
-		lines = append(lines, line)
-		line = word
-	}
-	return append(lines, line)
+	width = max(width, 1)
+	return strings.Split(ansi.Hardwrap(ansi.Wordwrap(strings.TrimSpace(value), width, ""), width, true), "\n")
 }
 
 func (r *Renderer) fixedLabel(style lipgloss.Style, label string, width int) string {
 	if DisplayWidth(label) >= width {
 		return label + " "
 	}
-	return style.Render(label + " ")
+	return style.Width(width).MaxWidth(width).Render(label + " ")
 }
 
 // DisplayWidth returns the terminal cell width of a string.

@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/presentation"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
@@ -39,6 +41,34 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 	}
 	if strings.Contains(got, "\x1b[") {
 		t.Fatalf("plain narrow output contains ANSI: %q", got)
+	}
+}
+
+func TestEveryHumanElementBoundsLongAndMultilineContent(t *testing.T) {
+	for _, width := range []int{8, 24, 48} {
+		for _, color := range []bool{false, true} {
+			var out bytes.Buffer
+			r := presentation.NewWithWidth(&out, color, width)
+			label := "configuration-with-an-unusually-long-name"
+			value := "https://example.test/a/very/long/unbroken/path\nSecond line"
+			r.Title(label, value)
+			r.Section(label)
+			r.Row(label, value)
+			r.Status(presentation.Warn, label, value)
+			r.StatusLine(presentation.Info, label, value)
+			r.Text(value)
+			r.Detail(value)
+			r.Command(value)
+			r.Success(value)
+			for line := range strings.SplitSeq(out.String(), "\n") {
+				if got := presentation.DisplayWidth(line); got > width {
+					t.Fatalf("width=%d color=%t overflow=%d: %q", width, color, got, line)
+				}
+			}
+			if !strings.Contains(ansi.Strip(out.String()), "Second") {
+				t.Fatal("multiline content was lost")
+			}
+		}
 	}
 }
 

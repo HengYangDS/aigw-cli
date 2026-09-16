@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -297,9 +299,9 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 	remaining := out.String()
 	for _, want := range []string{
 		"Start with one path",
-		"aigw setup    # connect the first service",
-		"aigw use <profile>  # select this profile for its client",
-		"aigw check    # confirm readiness",
+		"aigw setup", "Connect the first service",
+		"aigw use <profile>", "Select this profile for its client",
+		"aigw check", "Confirm readiness",
 		"Usage", "aigw [command]",
 		"Connect", "setup",
 		"Use every day", "check", "rotate", "status", "use",
@@ -312,6 +314,47 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 			t.Fatalf("help journey is missing or misorders %q:\n%s", want, out.String())
 		}
 		remaining = after
+	}
+}
+
+func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
+	for _, width := range []int{32, 80, 120} {
+		for _, color := range []bool{false, true} {
+			var out bytes.Buffer
+			app := &App{Out: &out, Err: &out, Color: color, Env: []string{"COLUMNS=" + strconv.Itoa(width)}}
+			command := NewRoot(app)
+			command.Use = "gateway"
+			renderCommandHelp(app, command)
+			_, help, found := strings.Cut(ansi.Strip(out.String()), "Start with one path\n")
+			if !found {
+				t.Fatal("root help omitted the starting journey")
+			}
+			help, _, _ = strings.Cut(help, "\nUsage")
+			column := -1
+			for _, row := range [][2]string{
+				{"gateway setup", "Connect the first service"},
+				{"gateway use <profile>", "Select this profile for its client"},
+				{"gateway check", "Confirm readiness"},
+			} {
+				if !strings.Contains(help, row[0]) || !strings.Contains(strings.Join(strings.Fields(help), " "), row[1]) {
+					t.Fatalf("width=%d color=%t lost command or description %q:\n%s", width, color, row, help)
+				}
+				for line := range strings.SplitSeq(help, "\n") {
+					if prefix, _, present := strings.Cut(line, row[1]); present && width >= 80 {
+						position := presentation.DisplayWidth(prefix)
+						if column >= 0 && position != column {
+							t.Fatalf("descriptions use different display columns %d/%d:\n%s", column, position, help)
+						}
+						column = position
+					}
+				}
+			}
+			for line := range strings.SplitSeq(help, "\n") {
+				if presentation.DisplayWidth(line) > width || strings.Contains(line, "#") {
+					t.Fatalf("width=%d color=%t invalid help row: %q", width, color, line)
+				}
+			}
+		}
 	}
 }
 
@@ -362,16 +405,34 @@ func TestPublicCommandTreeCarriesOneCoherentMetadataContract(t *testing.T) {
 	}
 }
 
-func TestRootHelpUsesCompactRowsWhenColumnsAreNarrow(t *testing.T) {
-	out := new(bytes.Buffer)
-	app := &App{Out: out, Err: out}
-	app.Env = []string{"COLUMNS=48"}
-	if err := Execute(app, []string{"--help"}); err != nil {
-		t.Fatal(err)
-	}
-	for line := range strings.SplitSeq(strings.TrimRight(out.String(), "\n"), "\n") {
-		if got := presentation.DisplayWidth(line); got > 48 {
-			t.Fatalf("help line width = %d, want <= 48: %q\n%s", got, line, out.String())
+func TestPublicCommandHelpFitsDeclaredTerminalWidths(t *testing.T) {
+	for _, width := range []int{24, 48, 80, 120} {
+		for _, color := range []bool{false, true} {
+			var out bytes.Buffer
+			app := &App{Out: &out, Err: &out, Color: color, Env: []string{"COLUMNS=" + strconv.Itoa(width)}}
+			var visit func(*cobra.Command)
+			visit = func(command *cobra.Command) {
+				out.Reset()
+				renderCommandHelp(app, command)
+				var reference bytes.Buffer
+				renderCommandHelp(&App{Out: &reference, Err: io.Discard}, command)
+				actual := strings.ReplaceAll(ansi.Strip(out.String()), "─", "")
+				original := strings.ReplaceAll(reference.String(), "─", "")
+				if strings.Join(strings.Fields(actual), "") != strings.Join(strings.Fields(original), "") {
+					t.Fatalf("%s width=%d color=%t changed help content", command.CommandPath(), width, color)
+				}
+				for line := range strings.SplitSeq(out.String(), "\n") {
+					if got := presentation.DisplayWidth(line); got > width {
+						t.Fatalf("%s width=%d color=%t overflow=%d: %q", command.CommandPath(), width, color, got, line)
+					}
+				}
+				for _, child := range command.Commands() {
+					if !child.Hidden {
+						visit(child)
+					}
+				}
+			}
+			visit(NewRoot(app))
 		}
 	}
 }

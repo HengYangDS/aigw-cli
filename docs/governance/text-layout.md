@@ -142,6 +142,27 @@ The [documentation index](../README.md) owns navigation. Historical OpenSpec
 archives remain immutable; current instructions must not depend on obsolete
 archived guidance.
 
+## Terminal help
+
+Commands and explanations are distinct fields, not strings joined by manual
+spaces or shell-comment markers. Use the existing presentation renderer for
+aligned rows; it owns terminal-cell measurement, ANSI-aware widths and compact
+layout. Pass related rows as one group: its longest label sets the description
+column, and a multiline or over-width row switches the whole group to stacked
+layout. Derive the executable name from Cobra command metadata. A narrow terminal
+places the explanation below its command instead of truncating either field.
+Standalone executable examples remain command output, not annotated rows.
+
+Verify wide, narrow, colored and plain output through the real help renderer.
+Assert description-column alignment, complete meaning and bounded display width,
+rather than copying source padding into expected strings. Existing Lip Gloss
+and ANSI utilities own display measurements; another layout framework or an
+independent help template is unnecessary. pflag owns option grammar, while the
+same width-aware renderer owns its final display. Long labels, unbroken values,
+multiline content and indentation must fit the available terminal cells without
+dropping text; color must not change measured layout. Routine machine output,
+credential stdout and interactive input prompts retain their separate contracts.
+
 ## Generated configuration
 
 AIGW-generated TOML remains deterministic and readable, but its serializer is
