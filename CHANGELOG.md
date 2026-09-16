@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.116] - 2026-09-17
+
 ### Fixed
 
 - Preserve explicit host credential executables through synchronization, program
