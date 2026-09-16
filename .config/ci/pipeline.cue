@@ -214,7 +214,7 @@ actions: {
 	name:              "Native \(nativeEvidence[_platform].name) acceptance"
 	"runs-on":         nativeEvidence[_platform].github.runner
 	"timeout-minutes": 25
-	if:                githubFullVerificationCondition
+	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
 	env:               nativeToolchain
 	steps: [
 		#SourceCheckout,
@@ -382,7 +382,15 @@ actions: {
 	stage:     graph["native-\(_platform)"].stage
 	tags:      nativeEvidence[_platform].gitlab.tags
 	variables: nativeToolchain
-	rules:     gitlabFullVerificationRules
+	rules: [for rule in gitlabFullVerificationRules {
+		if rule.if != _|_ {
+			if rule.if == gitlabVerificationCondition.manual {
+				if: "(\(rule.if)) && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == \"\" || $AIGW_NATIVE_PLATFORM == \"all\" || $AIGW_NATIVE_PLATFORM == \"\(_platform)\")"
+			}
+			if rule.if != gitlabVerificationCondition.manual {rule}
+		}
+		if rule.if == _|_ {rule}
+	}]
 	artifacts: {
 		when: "always"
 		paths: ["mise.lock", ".mise/locks"]
@@ -503,6 +511,13 @@ githubVerify: {
 		push: {branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch], tags: ["v*"]}
 		"pull_request": branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch]
 		"workflow_dispatch": inputs: {
+			native_platform: {
+				description: "Native platform to qualify; partial runs do not establish full release readiness"
+				required:    false
+				type:        "choice"
+				default:     "all"
+				options: ["all", for platform in productEvidence.native {platform}]
+			}
 			full_quality: {
 				description: "Qualify all repository quality tools on each native platform"
 				required:    false

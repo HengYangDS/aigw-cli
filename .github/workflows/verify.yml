@@ -16,6 +16,16 @@ env:
       - main
   workflow_dispatch:
     inputs:
+      native_platform:
+        description: Native platform to qualify; partial runs do not establish full release readiness
+        required: false
+        type: choice
+        default: all
+        options:
+          - all
+          - darwin
+          - linux
+          - windows
       full_quality:
         description: Qualify all repository quality tools on each native platform
         required: false
@@ -125,7 +135,7 @@ jobs:
     name: Native macOS acceptance
     runs-on: macos-latest
     timeout-minutes: 25
-    if: github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
+    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'darwin')
     env:
       MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
     steps:
@@ -275,7 +285,7 @@ jobs:
     name: Native Linux acceptance
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    if: github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
+    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
     env:
       MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
     steps:
@@ -421,7 +431,7 @@ jobs:
     name: Native Windows acceptance
     runs-on: windows-latest
     timeout-minutes: 25
-    if: github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'
+    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main') && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
     env:
       MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,go:github.com/google/osv-scanner/v2/cmd/osv-scanner,github:lycheeverse/lychee,github:rhysd/actionlint,taplo,gh,glab,github:anchore/syft,github:indygreg/apple-platform-rs
     steps:

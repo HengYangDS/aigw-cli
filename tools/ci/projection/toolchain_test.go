@@ -417,9 +417,9 @@ func TestLockRefreshIsExplicitAndUsesOneNativeTask(t *testing.T) {
 		On struct {
 			Dispatch struct {
 				Inputs map[string]struct {
-					Type     string `yaml:"type"`
-					Required bool   `yaml:"required"`
-					Default  bool   `yaml:"default"`
+					Type     string    `yaml:"type"`
+					Required bool      `yaml:"required"`
+					Default  yaml.Node `yaml:"default"`
 				} `yaml:"inputs"`
 			} `yaml:"workflow_dispatch"`
 		} `yaml:"on"`
@@ -436,7 +436,7 @@ func TestLockRefreshIsExplicitAndUsesOneNativeTask(t *testing.T) {
 		t.Fatal(err)
 	}
 	input, present := workflow.On.Dispatch.Inputs["refresh_locks"]
-	if !present || input.Type != "boolean" || input.Required || input.Default {
+	if !present || input.Type != "boolean" || input.Required || input.Default.Value != "false" {
 		t.Fatal("lock refresh must be an explicit optional manual input")
 	}
 	for _, platform := range []string{"darwin", "linux", "windows"} {

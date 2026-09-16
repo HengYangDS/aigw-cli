@@ -140,9 +140,10 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 		On struct {
 			Dispatch struct {
 				Inputs map[string]struct {
-					Type     string `yaml:"type"`
-					Default  bool   `yaml:"default"`
-					Required bool   `yaml:"required"`
+					Type     string    `yaml:"type"`
+					Default  yaml.Node `yaml:"default"`
+					Required bool      `yaml:"required"`
+					Options  []string  `yaml:"options"`
 				} `yaml:"inputs"`
 			} `yaml:"workflow_dispatch"`
 		} `yaml:"on"`
@@ -158,8 +159,12 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	input, present := github.On.Dispatch.Inputs["full_quality"]
-	if !present || input.Type != "boolean" || input.Default || input.Required {
+	if !present || input.Type != "boolean" || input.Default.Value != "false" || input.Required {
 		t.Fatal("full native quality must be an optional disabled-by-default input")
+	}
+	selection := github.On.Dispatch.Inputs["native_platform"]
+	if selection.Type != "choice" || selection.Required || selection.Default.Value != "all" || !slices.Equal(selection.Options, []string{"all", "darwin", "linux", "windows"}) {
+		t.Fatalf("native qualification must default to the complete platform set: %#v", selection)
 	}
 	for _, platform := range []string{"darwin", "linux", "windows"} {
 		ordinary, full := 0, 0
@@ -190,6 +195,10 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	for platform, job := range map[string]gitLabJob{"darwin": gitlab.Darwin, "linux": gitlab.Linux} {
+		wantRule := `($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "` + platform + `")`
+		if len(job.Rules) != 5 || job.Rules[3].If != wantRule {
+			t.Fatalf("GitLab %s lacks equivalent manual platform selection: %#v", platform, job.Rules)
+		}
 		want := "mise exec --locked -- go run ./tools/ci native --platform " + platform + ` --full-quality="${AIGW_FULL_NATIVE_QUALITY:-false}"`
 		if !slices.Contains(job.Script, want) {
 			t.Fatalf("GitLab %s lacks the same explicit native-quality entrypoint", platform)

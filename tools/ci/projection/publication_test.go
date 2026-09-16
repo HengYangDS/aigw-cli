@@ -159,7 +159,11 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		if name == "accepted-ref-parity" {
 			continue
 		}
-		if job.If != "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'" {
+		want := "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.ref_name == 'dev' || github.ref_name == 'main'"
+		if platform, native := strings.CutPrefix(name, "native-"); native {
+			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '" + platform + "')"
+		}
+		if job.If != want {
 			t.Fatalf("GitHub %s does not positively admit the full verification lifecycle: %q", name, job.If)
 		}
 	}

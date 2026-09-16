@@ -54,6 +54,28 @@ the package inventory or coverage floor. The scope declaration SHALL NOT be
 represented as a sandbox or proof that the machine is disposable. Source-only
 success SHALL NOT substitute for required native credential evidence.
 
+Manual native qualification MAY select one supported platform through the
+existing CUE-owned Forge projections. Omitted or `all` selection SHALL preserve
+the complete available platform set. Selection SHALL NOT remove source quality
+or narrow review, accepted-branch push or tag admission. A partial manual result
+SHALL prove only its selected platform, not complete release readiness or
+required review admission. A Forge's unavailable runner SHALL remain an explicit
+capacity boundary rather than an inferred product pass.
+
+#### Scenario: A maintainer qualifies an updated Windows toolchain
+
+- **WHEN** manual verification explicitly selects Windows and full quality
+- **THEN** the Windows native job SHALL run its existing complete quality,
+  source and packaged lifecycle commands without launching unrelated native jobs
+- **AND** source quality SHALL remain selected and other required platforms
+  SHALL retain their independent evidence obligations.
+
+#### Scenario: A platform selector is supplied during release or review admission
+
+- **WHEN** a tag, review or accepted-branch push triggers verification
+- **THEN** its complete available native set SHALL remain selected
+- **AND** manual qualification SHALL NOT replace missing review checks.
+
 #### Scenario: A user consumes the publisher's signed release
 
 - **WHEN** a user installs and invokes published AIGW
