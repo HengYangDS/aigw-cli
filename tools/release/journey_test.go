@@ -83,6 +83,7 @@ func TestNativeProductJourney(t *testing.T) {
 
 	t.Run("one selected account does not require every token", func(t *testing.T) {
 		journey := newNativeJourney(t, artifact, server.URL+"/v1", true)
+		journey.prepareCodexLifecycle()
 		journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 		journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")

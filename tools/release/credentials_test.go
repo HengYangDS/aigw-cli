@@ -222,6 +222,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	}
 	journey := newNativeJourney(t, baseline, endpoint, true)
 	oldVersion := journey.predecessorVersion(newVersion)
+	journey.prepareCodexLifecycle()
 	journey.enableSystemCredentialStore()
 	store, err := secrets.Select(secrets.Selection{Backend: "keyring"})
 	if err != nil {
@@ -411,7 +412,7 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(root, newVersion, o
 	j.testing.Helper()
 	candidate, archive, checksums := nativeReleaseCandidate(j.testing, root, newVersion)
 	j.testing.Logf("credential baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(j.testing, j.source)), newVersion, sha256.Sum256(readFile(j.testing, candidate)))
-	retained := j.retainedCredential(configuration.ClientClaude)
+	retained := j.retainedCredentials()
 	for _, step := range []struct {
 		version string
 		program string
@@ -426,7 +427,9 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(root, newVersion, o
 		if !bytes.Equal(readFile(j.testing, j.config), configurationBefore) {
 			j.testing.Fatal("credential lifecycle changed the retained client configuration")
 		}
-		j.requireCredential(retained, token)
+		for _, credential := range retained {
+			j.requireCredential(credential, token)
+		}
 		j.run("sync")
 		j.requireVersion(step.version)
 		j.requireProgramBytes(step.program)
@@ -506,4 +509,13 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 		plan.Executable, plan.Args = "/bin/sh", []string{"-c", settings.APIKeyHelper}
 	}
 	return plan
+}
+
+func (j *journeyFixture) retainedCredentials() []process.Plan {
+	clients := configuration.AdmittedClientIDs()
+	credentials := make([]process.Plan, 0, len(clients))
+	for _, client := range clients {
+		credentials = append(credentials, j.retainedCredential(client))
+	}
+	return credentials
 }

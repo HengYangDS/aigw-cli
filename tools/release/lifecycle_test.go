@@ -194,6 +194,7 @@ func (j *journeyFixture) prepareCodexLifecycle() (string, string) {
 		j.testing.Fatal(err)
 	}
 	codexConfig := filepath.Join(j.root, "home", ".codex", "config.toml")
+	j.setEnvironment("CODEX_HOME", filepath.Dir(codexConfig))
 	originalCodex := "# User configuration\nmodel = 'user-selected'\nuser_preference = true\n"
 	if err := os.MkdirAll(filepath.Dir(codexConfig), 0o700); err != nil {
 		j.testing.Fatal(err)
