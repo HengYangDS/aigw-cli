@@ -440,7 +440,7 @@ the fixture does not import an identity, change host trust or read production
 credentials. In the current same-executable reader, matching self-signed
 certificate requirements do not preserve Keychain partition authorization across
 changed code hashes. This is not a developer-membership prerequisite for users;
-the [credential decision](docs/decisions/dr-0011-single-portable-token-backend.md#reader-architecture-alternatives)
+the [credential decision](docs/decisions/dr-0011-single-portable-token-backend.md#product-reader-and-migration-boundary)
 separates publisher signing, enrollment, routine access and reader replacement.
 An explicitly supplied archive is consumed unchanged and is never
 replaced by a source build. Private fixture signing does not establish
