@@ -589,8 +589,14 @@ acceptance must provide its controlled loopback response, not an unreachable
 placeholder. Provision fail-fast, then run clients without privileges or
 capabilities. These test prerequisites never authorize host Keychain access.
 
+Before the native suite, require `getent passwd "$(id -u)"`, an owned checkout
+and Git directory, a writable private `HOME`, successful `git status`, and
+disposable SSH key generation as that exact user. Recreate an incorrectly owned
+fixture rather than change Git's trust policy or recursively relax permissions.
+Native gh/glab version probes use test-owned configuration directories.
+
 Use Docker's `--init` for disposable client containers so exited descendants
-are reaped. Verify the chosen user exists rather than assuming a numeric UID.
+are reaped.
 Copy inputs into live tmpfs through `docker exec -i` and a portable tar stream;
 omit host extended attributes and the mount root's ownership metadata. Verify
 input hashes as the actual test user. Retrieve results through the same live

@@ -79,6 +79,9 @@ type miseConfiguration struct {
 
 func TestMiseToolExecutablesMatchDeclaredVersions(t *testing.T) {
 	const macSigner = "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]"
+	// Version observation uses test-owned CLI configuration.
+	t.Setenv("GH_CONFIG_DIR", t.TempDir())
+	t.Setenv("GLAB_CONFIG_DIR", t.TempDir())
 	root := repositoryRoot(t)
 	content, err := os.ReadFile(filepath.Join(root, "mise.toml"))
 	if err != nil {
