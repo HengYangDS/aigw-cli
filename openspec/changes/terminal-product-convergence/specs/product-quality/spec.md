@@ -153,11 +153,11 @@ capacity boundary rather than an inferred product pass.
 - **AND** native credential denial SHALL block production acceptance rather than
   trigger an alternate reader, ACL change or repeated authorization attempt.
 
-#### Scenario: Ordinary source verification runs on an operator workstation
+#### Scenario: Ordinary source verification isolates native credentials
 
-- **WHEN** Go tests run without the Keychain integration build tag
-- **THEN** native Keychain test files SHALL be excluded while product packages
-  and fake-ABI tests remain selected
+- **WHEN** source verification exercises the macOS credential worker
+- **THEN** it SHALL use the injected provider boundary without accessing the
+  operator Keychain
 - **AND** this result SHALL NOT qualify retained system credentials.
 
 #### Scenario: Explicit Keychain qualification has no disposable-host scope
@@ -174,13 +174,6 @@ capacity boundary rather than an inferred product pass.
   disposable-host scope
 - **THEN** the existing coverage invocation SHALL include integration tests once
 - **AND** selecting full quality SHALL preserve that same inclusion and scope.
-
-#### Scenario: A private Keychain fixture models the system authorization boundary
-
-- **WHEN** native credential tests create an isolated Keychain
-- **THEN** they SHALL prove partitioned format and the item's partition ACL
-- **AND** a same-byte reader SHALL retain access while a changed self-signed
-  code-hash partition SHALL be denied without modifying access policy.
 
 #### Scenario: Offline certificate-signed archives are rebuilt
 
