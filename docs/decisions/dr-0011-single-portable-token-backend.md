@@ -77,7 +77,13 @@ The private native credential regression uses
 [rcodesign](https://gregoryszorc.com/docs/apple-codesign/stable/apple_codesign_rcodesign_signing.html)
 with a disposable self-signed certificate loaded from files. The repository locks
 this tool for release construction on each supported build host; it is never
-shipped in AIGW. The fixture must create a partitioned Keychain, assert database
+shipped in AIGW. System-Keychain qualification requires operator-supplied signing
+inputs before fixture construction; missing inputs fail explicitly instead of
+creating a disposable identity that cannot prove upgrade continuity. This
+preflight checks input presence, not certificate trust or retained-item access.
+Those remain obligations of the native release journey.
+
+The private fixture must create a partitioned Keychain, assert database
 version `0x200`, and observe the item's partition ACL before testing access.
 A byte-identical copy can read the retained item. A changed self-signed image
 can satisfy the same certificate-bound designated requirement yet still be

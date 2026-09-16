@@ -244,6 +244,17 @@ observed retained-credential transition without prompts or ACL mutation.
 - **THEN** it SHALL stop before external build execution
 - **AND** existing release output, credentials and host trust SHALL remain intact.
 
+#### Scenario: System Keychain qualification lacks a supplied signing identity
+
+- **WHEN** macOS native acceptance requests system credential-store verification
+  without operator-supplied signing inputs
+- **THEN** fixture preparation SHALL fail before generating a disposable signing
+  identity, constructing an archive or touching the system credential store
+- **AND** the diagnostic SHALL identify missing signing authority rather than
+  a later credential-read failure
+- **AND** supplying inputs SHALL NOT itself establish certificate trust or
+  retained-credential authorization.
+
 #### Scenario: both publication planes complete
 
 - **WHEN** GitLab and GitHub independently publish one accepted product release
