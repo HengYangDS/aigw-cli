@@ -280,7 +280,7 @@ model = "openai.gpt-5.6-sol"
 model_provider = "amazon-bedrock"
 ```
 
-For Account-Token authentication, every provider uses the absolute AIGW
+For Account-Token authentication, the default helper is the absolute AIGW
 executable with `credential codex <projection-fingerprint>`. The fingerprint
 matches the projected client, Account and endpoint before the helper reads a
 Token; it is not a credential or caller authorization. A retained, stale
@@ -290,6 +290,19 @@ timing. A Profile using `authentication = "client-native"` leaves authentication
 to Codex and receives no AIGW Token helper. Provider naming does not select
 authentication ownership. Neither mode installs a proxy or changes conversation
 state.
+
+An operator can select another trusted credential executable in the local
+`[adapters.codex]` or `[adapters.claude]` table with `credential_command`.
+This field is one absolute executable path, not a shell command or a Token.
+The helper must implement `credential <client> <projection-fingerprint>`;
+its only successful stdout is the requested Token. This host-local setting
+does not belong in the team manifest. See the
+[external credential boundary](docs/architecture/security-model.md#external-credential-executable)
+before enabling it, then review `aigw sync --dry-run --json` and apply `aigw sync`.
+Sync and program upgrades preserve the explicit choice. Disabling a client
+removes its projection but retains this policy; later sync leaves it disabled
+until explicit `aigw adapter enable`. Full uninstall removes Adapter policy,
+not the external executable or its credentials.
 
 ## Team rollout
 

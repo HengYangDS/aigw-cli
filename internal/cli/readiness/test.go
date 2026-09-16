@@ -62,6 +62,9 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 						spec.Label,
 					)
 				}
+				if clientRuntime.CredentialCommand != "" && !tokenStdin {
+					return fmt.Errorf("profile %q uses an external credential helper; run `aigw verify --for %s` or provide an explicit test Token on stdin", clientRuntime.ProfileID, spec.ID)
+				}
 				resolved[spec.ID] = clientRuntime
 			}
 			results := make([]endpointTestResult, 0, len(clients))

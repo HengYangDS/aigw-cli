@@ -13,6 +13,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
 	domainverification "aigw-cli/internal/verification"
@@ -68,22 +69,31 @@ func (codexAdapter) Converge(deps Dependencies, cfg *configuration.Config, disco
 		return nil
 	}
 	adapter := cfg.Adapters[configuration.ClientCodex]
+	if !adapter.Enabled && adapter.CredentialCommand != "" {
+		return nil
+	}
 	targets := codexTargets(discovered, adapter.Targets)
 	executable, err := resolveExecutable(configuration.ClientCodex, adapter.Executable, discovered.Executable(configuration.ClientCodex))
 	if err != nil {
 		return err
 	}
-	available := !runtime.RequiresAccountToken()
-	if runtime.RequiresAccountToken() {
+	available := !runtime.UsesAIGWCredentialStore()
+	if runtime.UsesAIGWCredentialStore() {
 		available, err = secretAvailable(deps.Secrets, runtime.AccountID)
 		if err != nil {
 			return err
 		}
 	}
 	if executable != "" && len(targets) > 0 && (adapter.Enabled || available) {
-		cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: targets}
+		adapter.Enabled = true
+		adapter.Executable = executable
+		adapter.Targets = targets
+		cfg.Adapters[configuration.ClientCodex] = adapter
 	} else if adapter.Enabled && len(targets) == 0 {
 		delete(cfg.Adapters, configuration.ClientCodex)
+		if adapter.CredentialCommand != "" {
+			cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{CredentialCommand: adapter.CredentialCommand}
+		}
 	}
 	return nil
 }
@@ -115,7 +125,7 @@ func (codexAdapter) Apply(_ context.Context, deps Dependencies, before, after co
 func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
 	beforeAdapter := before.Adapters[configuration.ClientCodex]
 	afterAdapter := after.Adapters[configuration.ClientCodex]
-	if beforeAdapter.Enabled != afterAdapter.Enabled {
+	if beforeAdapter.Enabled != afterAdapter.Enabled || beforeAdapter.CredentialCommand != afterAdapter.CredentialCommand {
 		return true
 	}
 	if !afterAdapter.Enabled {
@@ -140,7 +150,7 @@ func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
 
 func (codexAdapter) Inspect(_ context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) Status {
 	if deps.AIGWExecutable != "" {
-		runtime.CredentialCommand = deps.AIGWExecutable
+		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
 	}
 	adapter := cfg.Adapters[configuration.ClientCodex]
 	if !adapter.Enabled {
@@ -171,11 +181,15 @@ func (codexAdapter) Inspect(_ context.Context, deps Dependencies, cfg configurat
 
 func (codexAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) (Verification, error) {
 	if deps.AIGWExecutable != "" {
-		runtime.CredentialCommand = deps.AIGWExecutable
+		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
 	}
 	verifyCtx, cancel := context.WithTimeout(ctx, domainverification.ProtocolTimeout)
 	defer cancel()
-	identity, err := domainverification.VerifyCodexInvocation(verifyCtx, deps.Runner, cfg, runtime)
+	runner := deps.Runner
+	if cfg.Adapters[configuration.ClientCodex].CredentialCommand != "" && runner != nil {
+		runner = externalCredentialRunner{runner: runner}
+	}
+	identity, err := domainverification.VerifyCodexInvocation(verifyCtx, runner, cfg, runtime)
 	return Verification{Version: identity.Version, SHA256: identity.SHA256}, err
 }
 
@@ -199,16 +213,24 @@ func (claudeAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 		return nil
 	}
 	adapter := cfg.Adapters[configuration.ClientClaude]
+	if !adapter.Enabled && adapter.CredentialCommand != "" {
+		return nil
+	}
 	executable, err := resolveExecutable(configuration.ClientClaude, adapter.Executable, discovered.Executable(configuration.ClientClaude))
 	if err != nil {
 		return err
 	}
-	available, err := secretAvailable(deps.Secrets, runtime.AccountID)
-	if err != nil {
-		return err
+	available := !runtime.UsesAIGWCredentialStore()
+	if runtime.UsesAIGWCredentialStore() {
+		available, err = secretAvailable(deps.Secrets, runtime.AccountID)
+		if err != nil {
+			return err
+		}
 	}
 	if executable != "" && (adapter.Enabled || available) {
-		cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executable}
+		adapter.Enabled = true
+		adapter.Executable = executable
+		cfg.Adapters[configuration.ClientClaude] = adapter
 	}
 	return nil
 }
@@ -222,7 +244,7 @@ func (claudeAdapter) Plan(deps Dependencies, before, after configuration.Config)
 		return nil, err
 	}
 	previous, _ := before.ResolveRuntime(configuration.ClientClaude, "")
-	plan, err := claude.PlanSettings(deps.ClaudeSettingsPath, disabled, runtime, deps.AIGWExecutable, previous.Model)
+	plan, err := claude.PlanSettings(deps.ClaudeSettingsPath, disabled, runtime, runtime.CredentialExecutable(deps.AIGWExecutable), previous.Model)
 	if err != nil {
 		return nil, err
 	}
@@ -238,13 +260,13 @@ func (claudeAdapter) Apply(_ context.Context, deps Dependencies, before, after c
 		return nil, err
 	}
 	previous, _ := before.ResolveRuntime(configuration.ClientClaude, "")
-	return claude.ReconcileSettings(deps.ClaudeSettingsPath, disabled, runtime, deps.AIGWExecutable, previous.Model)
+	return claude.ReconcileSettings(deps.ClaudeSettingsPath, disabled, runtime, runtime.CredentialExecutable(deps.AIGWExecutable), previous.Model)
 }
 
 func (claudeAdapter) ProjectionChanged(before, after configuration.Config) bool {
 	beforeAdapter := before.Adapters[configuration.ClientClaude]
 	afterAdapter := after.Adapters[configuration.ClientClaude]
-	if beforeAdapter.Enabled != afterAdapter.Enabled {
+	if beforeAdapter.Enabled != afterAdapter.Enabled || beforeAdapter.CredentialCommand != afterAdapter.CredentialCommand {
 		return true
 	}
 	if !afterAdapter.Enabled {
@@ -273,22 +295,41 @@ func (claudeAdapter) Inspect(_ context.Context, deps Dependencies, cfg configura
 	if !ready {
 		return Status{Issue: "Claude executable is unavailable", RepairAction: "aigw repair"}
 	}
-	if err := claude.ValidateSettings(deps.ClaudeSettingsPath, runtime, deps.AIGWExecutable); err != nil {
+	if err := claude.ValidateSettings(deps.ClaudeSettingsPath, runtime, runtime.CredentialExecutable(deps.AIGWExecutable)); err != nil {
 		return Status{Issue: err.Error(), RepairAction: "aigw sync"}
 	}
 	return Status{Ready: true}
 }
 
-func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) (Verification, error) {
-	if deps.Secrets == nil {
-		return Verification{}, fmt.Errorf("Token for account %q is unavailable: secret store is unavailable", runtime.AccountID)
-	}
-	token, err := deps.Secrets.Get(runtime.AccountID)
+// externalCredentialRunner suppresses unknown external-helper credentials on
+// failure while retaining the existing verifier's response-marker semantics.
+type externalCredentialRunner struct{ runner process.CaptureRunner }
+
+func (runner externalCredentialRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
+	output, err := runner.runner.RunCapture(ctx, plan)
 	if err != nil {
-		instruction, _ := credential.TokenRecovery(deps.Secrets, runtime.AccountID)
-		return Verification{}, fmt.Errorf("Token for account %q is unavailable: %w; %s", runtime.AccountID, err, instruction)
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return nil, fmt.Errorf("external credential client failed; diagnostics suppressed")
 	}
+	return output, nil
+}
+
+func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) (Verification, error) {
 	adapter := cfg.Adapters[configuration.ClientClaude]
+	token := ""
+	if adapter.CredentialCommand == "" {
+		if deps.Secrets == nil {
+			return Verification{}, fmt.Errorf("Token for account %q is unavailable: secret store is unavailable", runtime.AccountID)
+		}
+		var err error
+		token, err = deps.Secrets.Get(runtime.AccountID)
+		if err != nil {
+			instruction, _ := credential.TokenRecovery(deps.Secrets, runtime.AccountID)
+			return Verification{}, fmt.Errorf("Token for account %q is unavailable: %w; %s", runtime.AccountID, err, instruction)
+		}
+	}
 	if !adapter.Enabled || adapter.Executable == "" {
 		return Verification{}, fmt.Errorf("Claude adapter is disabled; run `aigw repair`")
 	}
@@ -301,8 +342,12 @@ func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configur
 	}
 	verifyCtx, cancel := context.WithTimeout(ctx, domainverification.ProtocolTimeout)
 	defer cancel()
-	runtime.CredentialCommand = deps.AIGWExecutable
-	return Verification{}, domainverification.VerifyClaudeRuntime(verifyCtx, deps.Runner, adapter.Executable, deps.ClaudeSettingsPath, runtime, token)
+	runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
+	runner := deps.Runner
+	if adapter.CredentialCommand != "" && runner != nil {
+		runner = externalCredentialRunner{runner: runner}
+	}
+	return Verification{}, domainverification.VerifyClaudeRuntime(verifyCtx, runner, adapter.Executable, deps.ClaudeSettingsPath, runtime, token)
 }
 
 func (claudeAdapter) Withdraw(cfg *configuration.Config) {
@@ -393,7 +438,7 @@ func codexReconciliationInputs(deps Dependencies, before, after configuration.Co
 		return nil, nil, configuration.Runtime{}, err
 	}
 	if runtime.RequiresAccountToken() {
-		runtime.CredentialCommand = deps.AIGWExecutable
+		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
 	}
 	return beforeRefs, afterRefs, runtime, nil
 }

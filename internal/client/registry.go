@@ -158,7 +158,7 @@ func (registry Registry) Converge(deps Dependencies, before configuration.Config
 			continue
 		}
 		runtime, err := after.ResolveRuntime(client, id)
-		if err != nil || !runtime.RequiresAccountToken() || observed[runtime.AccountID] {
+		if err != nil || !runtime.UsesAIGWCredentialStore() || observed[runtime.AccountID] {
 			continue
 		}
 		observed[runtime.AccountID] = true

@@ -103,7 +103,7 @@ func evaluateRoute(cmd *cobra.Command, runtime invocation.Context, cfg configura
 	if !route.adapter {
 		return route
 	}
-	if !clientRuntime.RequiresAccountToken() {
+	if !clientRuntime.UsesAIGWCredentialStore() {
 		route.checkPassed = true
 		route.fix = "aigw verify --for " + client
 		return route
@@ -214,7 +214,6 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	renderer.Section("Configuration")
 	renderer.Status(presentation.OK, "Configuration file", "Healthy")
 	renderer.Section("Client")
-	clientCount := 0
 	verificationCommands := []string{}
 	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
 		adapter := cfg.Adapters[client]
@@ -238,16 +237,17 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			)
 		}
 		if !route.adapter {
-			issue := route.issue
-			fix := route.fix
 			impact := invocation.Title(client) + " cannot inherit AIGW routes, tokens, or configuration projections."
-			return invocation.Problem(runtime, invocation.Title(client)+" adapter is not ready", issue, impact, fix, fmt.Errorf("%s adapter not ready", client))
+			return invocation.Problem(runtime, invocation.Title(client)+" adapter is not ready", route.issue, impact, route.fix, fmt.Errorf("%s adapter not ready", client))
 		}
-		if !route.runtime.RequiresAccountToken() {
+		if !route.runtime.UsesAIGWCredentialStore() {
 			renderer.Status(presentation.OK, invocation.Title(client), route.runtime.ProfileLabel+" · Local projection checked")
-			renderer.Detail("Client-owned authentication requires an explicit live verification")
+			detail := "Client-owned authentication requires an explicit live verification"
+			if route.runtime.CredentialCommand != "" {
+				detail = "External credential helper requires an explicit live verification"
+			}
+			renderer.Detail(detail)
 			verificationCommands = append(verificationCommands, route.fix)
-			clientCount++
 			continue
 		}
 		result := route.diagnostic
@@ -268,10 +268,9 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		if endpointTransport(route.runtime.Endpoint) == "external_loopback" {
 			renderer.Detail(invocation.Title(client) + " uses a loopback endpoint; AIGW does not manage the service")
 		}
-		clientCount++
 	}
 	renderer.Section("Result")
-	if clientCount == 0 {
+	if len(evaluation.routes) == 0 {
 		renderer.Success("Configuration is healthy; no clients are enabled")
 		return nil
 	}

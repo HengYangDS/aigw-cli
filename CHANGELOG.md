@@ -8,6 +8,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve explicit host credential executables through synchronization, program
+  updates and client disable/re-enable without changing AIGW's native store.
+- Keep external credential readiness local and require real-client verification
+  instead of a duplicate native Token; suppress unknown credential-bearing
+  diagnostics and reject incompatible program-only rollback before replacement.
+
 ## [0.1.0-rc.115] - 2026-09-15
 
 ### Fixed

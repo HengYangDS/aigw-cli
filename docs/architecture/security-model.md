@@ -61,6 +61,38 @@ API-Token and diagnostic variable names, reversible Account-ID encoding and
 process scope. Unattended work requires an already-proven noninteractive
 credential boundary; it must not assume metadata access is sufficient.
 
+### External credential executable
+
+Each local Adapter may set `credential_command` to one absolute executable
+path. The selected executable must accept
+`credential <client> <projection-fingerprint>`, validate the requested projection,
+and emit only its Token on successful stdout. The fingerprint identifies a
+route; it is not caller authorization. The operator owns the executable's
+installation, trust, permissions and credential source. AIGW does not discover
+an alternative reader, change native access control or install the helper.
+
+This explicit client projection does not change `aigw credential` or backend
+selection. Without it, the released AIGW executable remains the credential
+reader. Sync, check and dry-run do not execute the external helper; they cannot
+prove that it can retrieve a Token. With an external helper, check and status
+report only local projection readiness and direct the operator to live
+verification instead of requiring a duplicate Token in AIGW's store.
+Direct `aigw test` does not invoke an external helper: use real-client
+verification, or supply an explicit test Token through the existing stdin path.
+Explicit live verification uses the selected
+native client's synchronized settings. Claude verification does not first read
+AIGW's native store when this policy is present. A failure hides raw client
+diagnostics because AIGW does not know the external Token to redact it;
+cancellation and the bounded verification deadline remain observable.
+
+Disabling the Adapter retains its explicit credential policy without
+automatically enabling it on a later sync. Full withdrawal removes that local
+policy, but does not remove the external executable or its credential store.
+Replacing the policy requires ordinary guarded projection reconciliation.
+An older AIGW release that cannot parse this field is not a compatible
+binary-only rollback: restore a compatible configuration explicitly before
+selecting that predecessor. The updater's compatibility check remains required.
+
 ## Configuration boundary
 
 Manifest validation uses public metadata, not Token values. Account-Token

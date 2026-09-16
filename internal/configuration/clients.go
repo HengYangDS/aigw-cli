@@ -109,3 +109,26 @@ func (s ClientSpec) Endpoint(account Account) (string, error) {
 	}
 	return strings.TrimRight(endpoint, "/"), nil
 }
+
+// AdapterConfig records whether an admitted client is enabled and which discovered targets it owns.
+type AdapterConfig struct {
+	Enabled           bool     `toml:"enabled" json:"enabled"`
+	Executable        string   `toml:"executable,omitempty" json:"executable,omitempty"`
+	Targets           []string `toml:"targets,omitempty" json:"targets,omitempty"`
+	CredentialCommand string   `toml:"credential_command,omitempty" json:"credential_command,omitempty"`
+}
+
+// CredentialExecutable selects explicit host policy or the native AIGW executable.
+// It changes client projection only; the credential command itself stays native.
+func (runtime Runtime) CredentialExecutable(native string) string {
+	if runtime.CredentialCommand != "" {
+		return runtime.CredentialCommand
+	}
+	return native
+}
+
+// UsesAIGWCredentialStore distinguishes AIGW-owned retrieval from an explicitly
+// configured client helper without changing the Provider authentication protocol.
+func (runtime Runtime) UsesAIGWCredentialStore() bool {
+	return runtime.RequiresAccountToken() && runtime.CredentialCommand == ""
+}

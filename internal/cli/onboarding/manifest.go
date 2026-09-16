@@ -299,7 +299,7 @@ func accountHasTokenAuthenticatedProfile(cfg configuration.Config, accountName s
 			continue
 		}
 		runtime, err := cfg.ResolveRuntime(profile.Client, profileName)
-		if err == nil && runtime.RequiresAccountToken() {
+		if err == nil && runtime.UsesAIGWCredentialStore() {
 			return true
 		}
 	}
@@ -331,7 +331,7 @@ func manifestSetupSelectedClients(cfg configuration.Config, connected map[string
 		if !available[client] {
 			continue
 		}
-		if runtime.RequiresAccountToken() {
+		if runtime.UsesAIGWCredentialStore() {
 			if _, ok := connected[runtime.AccountID]; !ok {
 				continue
 			}

@@ -109,7 +109,10 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				}
 				accountName := profile.Account
 				authentication := "Client-owned authentication"
-				if profileRuntime.RequiresAccountToken() {
+				if profileRuntime.CredentialCommand != "" {
+					authentication = "External credential helper"
+				}
+				if profileRuntime.UsesAIGWCredentialStore() {
 					available, observationErr := runtime.Secrets.Exists(accountName)
 					if observationErr != nil {
 						return fmt.Errorf("observe credential for Account %q: %w", accountName, observationErr)
@@ -153,7 +156,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			available := false
-			if profileRuntime.RequiresAccountToken() {
+			if profileRuntime.UsesAIGWCredentialStore() {
 				available, err = runtime.Secrets.Exists(accountName)
 				if err != nil {
 					return fmt.Errorf("observe credential for Account %q: %w", accountName, err)
@@ -166,7 +169,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 					"model_provider": profileRuntime.ModelProvider, "authentication": profileRuntime.Authentication,
 					"endpoints": account.Endpoints,
 				}
-				if profileRuntime.RequiresAccountToken() {
+				if profileRuntime.UsesAIGWCredentialStore() {
 					result["secret_available"] = available
 				}
 				return presentation.WriteJSON(runtime.Out, result)
@@ -188,12 +191,14 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			if account.Endpoints.Anthropic != "" {
 				r.Row("Anthropic", account.Endpoints.Anthropic)
 			}
-			if profileRuntime.RequiresAccountToken() {
+			if profileRuntime.UsesAIGWCredentialStore() {
 				state, text := presentation.Warn, "Missing"
 				if available {
 					state, text = presentation.OK, "Available"
 				}
 				r.Status(state, "System secret", text)
+			} else if profileRuntime.CredentialCommand != "" {
+				r.Row("Authentication", "External credential helper")
 			} else {
 				r.Row("Authentication", "Client-owned")
 			}

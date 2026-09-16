@@ -1,5 +1,34 @@
 ## ADDED Requirements
 
+### Requirement: Explicit host credential policy survives client projection
+
+A local Adapter MAY select one trusted absolute credential executable with
+`credential_command`. Its invocation SHALL retain the existing
+`credential <client> <projection-fingerprint>` contract. The setting SHALL NOT
+change the native `aigw credential` implementation, select another secret backend,
+enter a team manifest, or grant native credential access.
+
+Sync, program upgrade and explicit Adapter re-enablement SHALL preserve this
+setting. Disable SHALL withdraw the client projection while retaining disabled
+host policy; sync SHALL NOT implicitly re-enable it. Full uninstall SHALL remove
+Adapter policy without deleting the external executable or its credentials.
+Client verification SHALL consume the synchronized helper through the existing
+bounded native client runner, without a redundant native-store read. Unknown
+credential-bearing diagnostics SHALL be suppressed. A successful client exit
+without the expected verification marker SHALL remain a verification failure.
+Readiness, route selection and re-enablement SHALL NOT require a duplicate Token
+in AIGW's store. A local check SHALL report projection readiness, not claim
+external credential retrieval or endpoint authentication has succeeded.
+
+#### Scenario: A trusted external reader supplies the client credential
+
+- **GIVEN** an enabled Adapter with an explicit absolute credential executable
+- **WHEN** sync, program upgrade and live client verification execute
+- **THEN** sync and upgrade preserve the helper and do not read a Token
+- **AND** verification uses the synchronized native client, not a fallback reader
+- **AND** disabled policy remains disabled until explicit re-enablement
+- **AND** an older binary that cannot parse this policy is rejected before rollback.
+
 ### Requirement: macOS credential observations and reads are bounded and noninteractive
 
 The macOS Keychain adapter SHALL execute metadata, read, write and delete

@@ -9,10 +9,12 @@ import (
 	"maps"
 	"net/netip"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // Authentication identifies which boundary owns credentials for a profile.
@@ -81,8 +83,8 @@ type Runtime struct {
 	CredentialCommand string         `json:"-"`
 }
 
-// RequiresAccountToken reports whether AIGW owns the selected Profile's
-// authentication material. The zero value preserves the ordinary Account
+// RequiresAccountToken reports whether the selected Profile uses Account Token
+// authentication on the wire. The zero value preserves the ordinary Account
 // Token behavior for Profiles created before authentication was explicit.
 func (runtime Runtime) RequiresAccountToken() bool {
 	return runtime.Authentication == "" || runtime.Authentication == AuthenticationAccountToken
@@ -110,13 +112,6 @@ type Endpoints struct {
 // fallback because a client-scoped Profile cannot represent another client's
 // protocol or model.
 type Routes map[string]string
-
-// AdapterConfig records whether an admitted client is enabled and which discovered targets it owns.
-type AdapterConfig struct {
-	Enabled    bool     `toml:"enabled" json:"enabled"`
-	Executable string   `toml:"executable,omitempty" json:"executable,omitempty"`
-	Targets    []string `toml:"targets,omitempty" json:"targets,omitempty"`
-}
 
 // NewConfig returns an empty configuration with all collection invariants initialized.
 func NewConfig() Config {
@@ -383,6 +378,10 @@ func (c Config) Validate() error {
 		if !IsAdmittedClient(name) {
 			return fmt.Errorf("unknown adapter %q", name)
 		}
+		command := c.Adapters[name].CredentialCommand
+		if command != "" && (!filepath.IsAbs(command) || strings.TrimSpace(command) != command || strings.ContainsFunc(command, unicode.IsControl)) {
+			return fmt.Errorf("adapter %q credential_command must be one absolute executable path", name)
+		}
 	}
 	return nil
 }
@@ -561,15 +560,16 @@ func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, error) 
 		return Runtime{}, err
 	}
 	return Runtime{
-		ProfileID:      name,
-		ProfileLabel:   profile.Label,
-		AccountID:      account.ID,
-		AccountLabel:   account.Label,
-		Client:         client,
-		Endpoint:       endpoint,
-		Model:          profile.Model,
-		ModelProvider:  resolvedModelProvider(client, profile),
-		Authentication: resolvedAuthentication(profile),
+		ProfileID:         name,
+		ProfileLabel:      profile.Label,
+		AccountID:         account.ID,
+		AccountLabel:      account.Label,
+		Client:            client,
+		Endpoint:          endpoint,
+		Model:             profile.Model,
+		ModelProvider:     resolvedModelProvider(client, profile),
+		Authentication:    resolvedAuthentication(profile),
+		CredentialCommand: c.Adapters[client].CredentialCommand,
 	}, nil
 }
 

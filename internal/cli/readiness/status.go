@@ -83,7 +83,7 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 		facts := domainreadiness.ClientFacts{
 			Profile:            clientRuntime.ProfileID,
 			Account:            clientRuntime.AccountID,
-			CredentialRequired: clientRuntime.RequiresAccountToken(),
+			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
 			AdapterEnabled:     cfg.Adapters[clientID].Enabled,
 			AdapterReady:       adapterStatus.Ready,
 			AdapterIssue:       adapterStatus.Issue,
@@ -106,9 +106,12 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config) 
 			Transport:          endpointTransport(clientRuntime.Endpoint),
 			AdapterReady:       adapterStatus.Ready,
 		}
-		if adapterStatus.Ready && !clientRuntime.RequiresAccountToken() {
+		if adapterStatus.Ready && !clientRuntime.UsesAIGWCredentialStore() {
 			route.State = domainreadiness.Configured
 			route.Detail = "Projection ready; client-owned authentication is not proven"
+			if clientRuntime.CredentialCommand != "" {
+				route.Detail = "Projection ready; external credential helper is not verified"
+			}
 			route.NextAction = "aigw verify --for " + clientID
 		}
 		routes[clientID] = route

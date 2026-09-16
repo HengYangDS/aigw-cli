@@ -516,3 +516,13 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 		}
 	})
 }
+
+func TestExternalCredentialRunnerPreservesCancellationWithoutDiagnostics(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	runner := externalCredentialRunner{runner: &captureAdapterRunner{err: errors.New("public-secret-marker")}}
+	out, err := runner.RunCapture(ctx, process.Plan{})
+	if !errors.Is(err, context.Canceled) || len(out) != 0 {
+		t.Fatalf("cancellation=%v, output bytes=%d", err, len(out))
+	}
+}

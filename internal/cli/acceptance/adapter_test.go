@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -279,5 +280,160 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 	restored, _ := os.ReadFile(target)
 	if string(restored) != original {
 		t.Fatalf("target not restored:\n%s", restored)
+	}
+}
+
+func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) {
+	app, _, store, runner, _ := testApp(t, "")
+	root := t.TempDir()
+	target := filepath.Join(root, "config.toml")
+	writeFile(t, target, []byte("model_provider = \"native\"\nforeign = true\n"), 0o600)
+	writeFile(t, app.ClaudeSettingsPath, []byte(`{"theme":"dark","env":{"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS":"1"}}`), 0o600)
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
+	for _, id := range configuration.AdmittedClientIDs() {
+		executable := filepath.Join(root, id)
+		writeFile(t, executable, []byte("public fixture"), 0o700)
+		cfg.Profiles[id] = configuration.Profile{Label: id, Account: "gateway", Client: id, Model: "fixture-model"}
+		cfg.Routes[id] = id
+		cfg.Adapters[id] = configuration.AdapterConfig{Enabled: true, Executable: executable}
+	}
+	adapter := cfg.Adapters[configuration.ClientCodex]
+	adapter.Targets = []string{target}
+	cfg.Adapters[configuration.ClientCodex] = adapter
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set("gateway", "public-fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := cli.Execute(app, []string{"sync"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := filepath.Join(root, "credential adapter")
+	for _, id := range configuration.AdmittedClientIDs() {
+		adapter := cfg.Adapters[id]
+		adapter.CredentialCommand = command
+		cfg.Adapters[id] = adapter
+	}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	beforeCodex := readFile(t, target)
+	beforeClaude := readFile(t, app.ClaudeSettingsPath)
+	beforeConfig := readFile(t, app.Config.Path())
+	if err := cli.Execute(app, []string{"sync", "--dry-run", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(beforeCodex, readFile(t, target)) || !bytes.Equal(beforeClaude, readFile(t, app.ClaudeSettingsPath)) || !bytes.Equal(beforeConfig, readFile(t, app.Config.Path())) {
+		t.Fatal("dry-run wrote configuration")
+	}
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	projectedCodex := readFile(t, target)
+	projectedClaude := readFile(t, app.ClaudeSettingsPath)
+	if !strings.Contains(string(projectedCodex), "credential adapter") || !strings.Contains(string(projectedClaude), "credential adapter") {
+		t.Fatal("native projection omitted explicit command")
+	}
+	app.Executable = filepath.Join(root, "upgraded-aigw")
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(projectedCodex, readFile(t, target)) || !bytes.Equal(projectedClaude, readFile(t, app.ClaudeSettingsPath)) {
+		t.Fatal("AIGW executable update replaced explicit helper")
+	}
+	assertCredentialPolicyDisableReenable(t, app, root, target, command)
+	if len(runner.plans) != 0 {
+		t.Fatal("sync started a native client or credential reader")
+	}
+	if token, err := store.Get("gateway"); err != nil || token != "public-fixture-token" {
+		t.Fatal("sync changed credential")
+	}
+}
+
+func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, target, command string) {
+	t.Helper()
+	for _, id := range configuration.AdmittedClientIDs() {
+		if err := cli.Execute(app, []string{"adapter", "disable", id}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	disabled, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range configuration.AdmittedClientIDs() {
+		adapter := disabled.Adapters[id]
+		if adapter.Enabled || adapter.CredentialCommand != command {
+			t.Fatalf("sync did not preserve disabled %s policy: %#v", id, adapter)
+		}
+		args := []string{"adapter", "enable", id, "--executable", filepath.Join(root, id)}
+		if id == configuration.ClientCodex {
+			args = append(args, "--target", target)
+		}
+		if err := cli.Execute(app, args); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reenabled, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range configuration.AdmittedClientIDs() {
+		if adapter := reenabled.Adapters[id]; !adapter.Enabled || adapter.CredentialCommand != command {
+			t.Fatalf("reenable replaced %s credential policy: %#v", id, adapter)
+		}
+	}
+}
+
+func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *testing.T) {
+	app, out, _, runner, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://example.invalid"}}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "gateway", Client: configuration.ClientClaude, Model: "fixture-model"}
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	command := filepath.Join(t.TempDir(), "explicit-helper")
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude"), CredentialCommand: command}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	beforeConfig := readFile(t, app.Config.Path())
+	beforeSettings := readFile(t, app.ClaudeSettingsPath)
+	app.Secrets = nil
+	if err := cli.Execute(app, []string{"verify", "--for", "claude"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.plans) != 1 || runner.plans[0].Executable != cfg.Adapters[configuration.ClientClaude].Executable {
+		t.Fatal("verification did not use the sole native client plan")
+	}
+	if !bytes.Equal(beforeConfig, readFile(t, app.Config.Path())) || !bytes.Equal(beforeSettings, readFile(t, app.ClaudeSettingsPath)) {
+		t.Fatal("verification mutated configuration")
+	}
+	out.Reset()
+	runner.output = []byte("public-secret-canary")
+	runner.capture = errors.New("public-secret-canary")
+	err := cli.Execute(app, []string{"verify", "--for", "claude"})
+	if err == nil || strings.Contains(err.Error(), "public-secret-canary") || strings.Contains(out.String(), "public-secret-canary") {
+		t.Fatal("unknown helper diagnostics escaped or failure was accepted")
+	}
+	if len(runner.plans) != 2 {
+		t.Fatal("verification retried or fell back")
+	}
+	runner.capture = nil
+	if err := cli.Execute(app, []string{"verify", "--for", "claude"}); err == nil || strings.Contains(err.Error(), "public-secret-canary") {
+		t.Fatal("non-marker client success was accepted or disclosed its output")
 	}
 }

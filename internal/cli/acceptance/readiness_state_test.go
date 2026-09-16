@@ -48,6 +48,45 @@ type canonicalReadinessDocument struct {
 	} `json:"clients"`
 }
 
+func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
+	app, out, _, runner, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://example.invalid"}}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Client: configuration.ClientClaude, Account: "gateway", Model: "fixture"}
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	command := filepath.Join(t.TempDir(), "credential adapter")
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: executableFixture(t, "claude"), CredentialCommand: command}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("native metadata must not select external credentials")}
+	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"profile", "list"}, {"profile", "show", "claude"}, {"use", "claude"}, {"adapter", "disable", "claude"}, {"adapter", "enable", "claude", "--executable", cfg.Adapters[configuration.ClientClaude].Executable}} {
+		out.Reset()
+		if err := cli.Execute(app, args); err != nil {
+			t.Fatalf("%v required a native Token: %v", args, err)
+		}
+		if args[0] == "check" || args[0] == "status" {
+			var result canonicalReadinessDocument
+			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+				t.Fatal(err)
+			}
+			state := result.Clients[configuration.ClientClaude]
+			if state.State != "configured" || state.NextAction != "aigw verify --for claude" {
+				t.Fatalf("external credential readiness = %#v", state)
+			}
+		}
+	}
+	if len(runner.plans) != 0 {
+		t.Fatal("local admission executed a client or credential helper")
+	}
+	if err := cli.Execute(app, []string{"test", "--for", "claude"}); err == nil || !strings.Contains(err.Error(), "external credential helper") {
+		t.Fatalf("direct endpoint test did not explain external credential ownership: %v", err)
+	}
+}
+
 func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 	tests := []struct {
 		name      string

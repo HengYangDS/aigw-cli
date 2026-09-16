@@ -98,7 +98,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if clientRuntime.RequiresAccountToken() {
+		if clientRuntime.UsesAIGWCredentialStore() {
 			available, err := runtime.Secrets.Exists(clientRuntime.AccountID)
 			if err != nil {
 				return fmt.Errorf("Cannot inspect Account %q credential: %w", clientRuntime.AccountID, err)
@@ -119,7 +119,11 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 		}
-		cfg.Adapters[client] = configuration.AdapterConfig{Enabled: true, Executable: executable, Targets: append([]string(nil), targets...)}
+		adapter := cfg.Adapters[client]
+		adapter.Enabled = true
+		adapter.Executable = executable
+		adapter.Targets = append([]string(nil), targets...)
+		cfg.Adapters[client] = adapter
 		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "adapter enable"); err != nil {
 			return fmt.Errorf("Adapter enablement failed and was rolled back: %w", err)
 		}
@@ -153,6 +157,11 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		}
 		if err := invocation.Synchronizer(runtime).Withdraw(&cfg, client); err != nil {
 			return err
+		}
+		// Disable withdraws client projections, not explicit host credential policy.
+		// Full uninstall still uses Withdraw directly and removes all adapter state.
+		if adapter.CredentialCommand != "" {
+			cfg.Adapters[client] = configuration.AdapterConfig{CredentialCommand: adapter.CredentialCommand}
 		}
 		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "adapter disable"); err != nil {
 			return err

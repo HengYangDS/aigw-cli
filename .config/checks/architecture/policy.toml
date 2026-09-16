@@ -49,6 +49,7 @@ package_children."tools" = [
   "release",
   "repository",
 ]
+package_children."internal/client" = ["acceptance"]
 package_children."internal/codex" = ["catalog"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
 package_children."tools/ci" = ["markdown", "projection"]

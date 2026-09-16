@@ -86,7 +86,7 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg configu
 	if err != nil {
 		return "", err
 	}
-	if !selected.RequiresAccountToken() {
+	if !selected.UsesAIGWCredentialStore() {
 		return "", nil
 	}
 	available, err := runtime.Secrets.Exists(profile.Account)
