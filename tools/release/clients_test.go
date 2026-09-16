@@ -121,21 +121,6 @@ func TestNativeClientFilePreservation(t *testing.T) {
 	}
 }
 
-func requiredClientInput(key string, directory bool) (string, error) {
-	path := os.Getenv(key)
-	if !filepath.IsAbs(path) {
-		return "", fmt.Errorf("%s requires an explicit absolute path", key)
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		return "", fmt.Errorf("%s: %w", key, err)
-	}
-	if info.IsDir() != directory || (!directory && !info.Mode().IsRegular()) {
-		return "", fmt.Errorf("%s has the wrong input kind", key)
-	}
-	return path, nil
-}
-
 func TestNativeClientStreamEnvelope(t *testing.T) {
 	for _, client := range configuration.AdmittedClientIDs() {
 		t.Run(client, func(t *testing.T) {
@@ -280,6 +265,7 @@ func TestNativeClientJourney(t *testing.T) {
 			if err := json.Unmarshal(journey.run("account", "rename", profile.Account, renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already-finalized" {
 				t.Fatalf("repeated retirement = %q: %v", retirement.Status, err)
 			}
+			journey.requireExternalCredentialClient(client, executable, renamedAccount, completions.Load)
 			journey.runWith(candidate, "uninstall", "--target", journey.binary)
 			journey.requireOwnedFilesAbsent()
 			journey.requireNativePreferences(client)

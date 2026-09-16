@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/keychain"
@@ -22,10 +23,76 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	if len(os.Args) == 4 && os.Args[1] == "credential" && os.Getenv("AIGW_TEST_EXTERNAL_CREDENTIAL") == "1" {
+		if os.Args[2] != os.Getenv("AIGW_TEST_EXTERNAL_CLIENT") || os.Args[3] != os.Getenv("AIGW_TEST_EXTERNAL_FINGERPRINT") {
+			os.Exit(2)
+		}
+		_, _ = fmt.Fprintln(os.Stdout, "native-real-client-token")
+		os.Exit(0)
+	}
 	if handled, code := keychain.RunWorker(os.Args[1:], os.Stdin, os.Stdout, secrets.Service); handled {
 		os.Exit(code)
 	}
 	os.Exit(m.Run())
+}
+
+func (j *journeyFixture) requireExternalCredentialClient(client, executable, account string, completed func() int64) {
+	j.testing.Helper()
+	count := completed()
+	program, err := os.Executable()
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	helper := filepath.Join(j.root, "credential helper")
+	if runtime.GOOS == "windows" {
+		helper += ".exe"
+	}
+	if err := os.WriteFile(helper, readFile(j.testing, program), 0o700); err != nil {
+		j.testing.Fatal(err)
+	}
+	store := configuration.NewStore(j.config)
+	cfg, err := store.Load()
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	adapter := cfg.Adapters[client]
+	adapter.CredentialCommand = helper
+	cfg.Adapters[client] = adapter
+	if err := store.Save(cfg); err != nil {
+		j.testing.Fatal(err)
+	}
+	selected, err := cfg.ResolveRuntime(client, "")
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	j.environment = environmentWithout(j.environment, secrets.EnvironmentKey(account))
+	j.setEnvironment("AIGW_TEST_EXTERNAL_CREDENTIAL", "1")
+	j.setEnvironment("AIGW_TEST_EXTERNAL_CLIENT", client)
+	j.setEnvironment("AIGW_TEST_EXTERNAL_FINGERPRINT", selected.CredentialProjectionFingerprint(client))
+	before := readFile(j.testing, j.config)
+	j.run("sync", "--dry-run", "--json")
+	if !bytes.Equal(before, readFile(j.testing, j.config)) {
+		j.testing.Fatal("external helper dry-run changed host configuration")
+	}
+	j.run("sync")
+	j.run("check", "--json")
+	j.run("verify", "--for", client)
+	j.run("adapter", "disable", client)
+	j.run("sync")
+	args := []string{"adapter", "enable", client, "--executable", executable}
+	if client == configuration.ClientCodex {
+		args = append(args, "--target", filepath.Join(j.root, "home", ".codex", "config.toml"))
+	}
+	j.run(args...)
+	j.run("sync")
+	j.run("verify", "--for", client)
+	retained, err := store.Load()
+	if err != nil || retained.Adapters[client].CredentialCommand != helper {
+		j.testing.Fatalf("native lifecycle discarded explicit helper: %v", err)
+	}
+	if completed() < count+2 {
+		j.testing.Fatal("external helper did not authenticate both real-client invocations")
+	}
 }
 
 func prepareNativeSigning(t *testing.T) {
@@ -371,4 +438,19 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(root, newVersion, o
 		}
 	}
 	j.source = candidate
+}
+
+func requiredClientInput(key string, directory bool) (string, error) {
+	path := os.Getenv(key)
+	if !filepath.IsAbs(path) {
+		return "", fmt.Errorf("%s requires an explicit absolute path", key)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", key, err)
+	}
+	if info.IsDir() != directory || (!directory && !info.Mode().IsRegular()) {
+		return "", fmt.Errorf("%s has the wrong input kind", key)
+	}
+	return path, nil
 }
