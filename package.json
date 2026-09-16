@@ -11,7 +11,7 @@
     "@fission-ai/openspec": "1.13.0",
     "@mermaid-lint/core": "0.53.1",
     "markdownlint-cli2": "0.23.2",
-    "prettier": "3.9.6"
+    "prettier": "3.9.7"
   },
   "overrides": {
     "@mermaid-lint/core": {
