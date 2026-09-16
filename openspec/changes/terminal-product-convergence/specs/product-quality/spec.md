@@ -33,6 +33,39 @@ as proof of stable partition identity across changed code hashes. Release
 admission SHALL require an approved Apple-recognized signing identity and an
 observed retained-credential transition without prompts or ACL mutation.
 
+Ordinary macOS source tests SHALL exclude genuine host Keychain operations
+through the native `keychain_integration` build tag while retaining fake-ABI
+tests and every product package. Static analysis SHALL include the tagged tests.
+Every real Keychain test entrypoint SHALL require the explicit disposable-host
+scope before native access; a temporary path SHALL NOT establish host isolation.
+Explicit system-credential qualification SHALL include the tag in the existing
+native coverage invocation, including full-quality execution, without changing
+the package inventory or coverage floor. The scope declaration SHALL NOT be
+represented as a sandbox or proof that the machine is disposable. Source-only
+success SHALL NOT substitute for required native credential evidence.
+
+#### Scenario: Ordinary source verification runs on an operator workstation
+
+- **WHEN** Go tests run without the Keychain integration build tag
+- **THEN** native Keychain test files SHALL be excluded while product packages
+  and fake-ABI tests remain selected
+- **AND** this result SHALL NOT qualify retained system credentials.
+
+#### Scenario: Explicit Keychain qualification has no disposable-host scope
+
+- **WHEN** macOS native qualification enables system credentials without
+  `AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host`
+- **THEN** it SHALL fail before executing any quality, test or release command
+- **AND** directly selected integration tests SHALL reject that scope before
+  native credential access.
+
+#### Scenario: Explicit Keychain qualification uses a disposable host
+
+- **WHEN** macOS native qualification selects both system credentials and the
+  disposable-host scope
+- **THEN** the existing coverage invocation SHALL include integration tests once
+- **AND** selecting full quality SHALL preserve that same inclusion and scope.
+
 #### Scenario: A private Keychain fixture models the system authorization boundary
 
 - **WHEN** native credential tests create an isolated Keychain

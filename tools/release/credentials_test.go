@@ -110,16 +110,6 @@ func (j *journeyFixture) requireCredentialBackend(token string, want secrets.Bac
 	}
 }
 
-func TestReleaseCredentialWorkerObservesOnlyAnAbsentItem(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("native Keychain worker boundary")
-	}
-	account := "aigw-release-absent-" + filepath.Base(t.TempDir())
-	if exists, err := keychain.Exists(secrets.Service, account); err != nil || exists {
-		t.Fatalf("release credential worker observation: exists=%t error=%v", exists, err)
-	}
-}
-
 func runNativeEphemeralCredentials(t *testing.T, artifact string) {
 	t.Helper()
 	const token = "native-ephemeral-token"
