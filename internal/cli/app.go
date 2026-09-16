@@ -203,10 +203,11 @@ func NewDefault() (*App, error) {
 		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
 	}
 	secretStore, err := secrets.Select(secrets.Selection{
-		Backend: env["AIGW_SECRET_BACKEND"],
-		GOOS:    runtime.GOOS,
-		Root:    paths.Secrets,
-		Getenv:  os.Getenv,
+		Backend:    env["AIGW_SECRET_BACKEND"],
+		GOOS:       runtime.GOOS,
+		Root:       paths.Secrets,
+		Executable: executable,
+		Getenv:     os.Getenv,
 	})
 	if err != nil {
 		return nil, err

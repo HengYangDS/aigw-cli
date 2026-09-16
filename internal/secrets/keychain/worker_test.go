@@ -46,6 +46,12 @@ func TestReadPreservesNativeResultAndClassifiesFailure(t *testing.T) {
 	}
 }
 
+func TestInvokeRequiresTheOwningProductExecutable(t *testing.T) {
+	if _, err := invoke("", workerCommand, "AIGW_TOKEN", "team", ""); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("empty product executable error = %v, want ErrUnavailable", err)
+	}
+}
+
 type fixtureReader struct{ code int }
 
 func (r fixtureReader) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {

@@ -187,7 +187,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	oldVersion := journey.predecessorVersion(newVersion)
 	journey.prepareCodexLifecycle()
 	journey.enableSystemCredentialStore()
-	store, err := secrets.Select(secrets.Selection{Backend: "keyring"})
+	store, err := secrets.Select(secrets.Selection{Backend: "keyring", Executable: artifact})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -49,7 +49,7 @@ func (codexAdapter) Spec() configuration.ClientSpec {
 }
 
 func (codexAdapter) Discover(source DiscoverySource) discovery.Result {
-	path := filepath.Join(source.HomeDirectory(), ".codex", "config.toml")
+	path := filepath.Join(source.CodexHomeDirectory(), "config.toml")
 	return discovery.Result{
 		Executables: map[string]string{configuration.ClientCodex: source.Executable(configuration.ClientCodex)},
 		Surfaces: []discovery.Surface{{

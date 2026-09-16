@@ -14,6 +14,7 @@ type Selection struct {
 	Backend      string
 	GOOS         string
 	Root         string
+	Executable   string
 	Getenv       func(string) string
 	KeyringProbe func(Store) error
 }
@@ -93,7 +94,7 @@ func selectBackend(selection Selection) (credentialBackend, error) {
 	}
 	switch selection.Backend {
 	case "keyring":
-		store := newKeyringStore()
+		store := newKeyringStore(selection.Executable)
 		if err := probeKeyring(scopedView{store: store}, selection.KeyringProbe); err != nil {
 			return nil, fmt.Errorf("use keyring secret backend: %w", err)
 		}

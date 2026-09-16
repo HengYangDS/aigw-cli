@@ -20,7 +20,7 @@ import (
 // It contains no mutation capability.
 type DiscoverySource interface {
 	Executable(string) string
-	HomeDirectory() string
+	CodexHomeDirectory() string
 	FilePresent(string) bool
 }
 

@@ -26,22 +26,28 @@ type Discoverer interface{ Discover() Result }
 
 // System discovers clients from one explicit operating-system, home, and search-path context.
 type System struct {
-	GOOS string
-	Home string
-	Path string
+	GOOS      string
+	Home      string
+	CodexHome string
+	Path      string
 }
 
 // Current returns the discovery context derived from the current process environment.
 func Current() System {
 	home, _ := os.UserHomeDir()
-	return System{GOOS: runtime.GOOS, Home: home, Path: os.Getenv("PATH")}
+	return System{GOOS: runtime.GOOS, Home: home, CodexHome: os.Getenv("CODEX_HOME"), Path: os.Getenv("PATH")}
 }
 
 // Executable returns the first runnable command with name on this host.
 func (s System) Executable(name string) string { return s.find(name) }
 
-// HomeDirectory returns the user home observed by this discovery source.
-func (s System) HomeDirectory() string { return s.Home }
+// CodexHomeDirectory returns the explicit Codex Home or its platform default.
+func (s System) CodexHomeDirectory() string {
+	if s.CodexHome != "" {
+		return s.CodexHome
+	}
+	return filepath.Join(s.Home, ".codex")
+}
 
 // FilePresent reports whether path currently names a non-directory entry.
 func (s System) FilePresent(path string) bool {

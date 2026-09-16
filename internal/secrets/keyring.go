@@ -38,7 +38,7 @@ type keyringStore struct {
 	remove  func(service, slot string) error
 }
 
-func newKeyringStore() keyringStore {
+func newKeyringStore(executable string) keyringStore {
 	store := keyringStore{
 		observe: observeKeyringItem,
 		read:    keyring.Get,
@@ -46,9 +46,9 @@ func newKeyringStore() keyringStore {
 		remove:  keyring.Delete,
 	}
 	if runtime.GOOS == "darwin" {
-		store.read = keychain.Read
-		store.write = keychain.Write
-		store.remove = keychain.Delete
+		store.read = func(service, account string) (string, error) { return keychain.Read(executable, service, account) }
+		store.write = func(service, account, value string) error { return keychain.Write(executable, service, account, value) }
+		store.remove = func(service, account string) error { return keychain.Delete(executable, service, account) }
 	}
 	return store
 }

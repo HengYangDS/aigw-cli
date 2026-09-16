@@ -71,11 +71,13 @@ func TestDiscoverReturnsClaudeExecutableWithoutPrivateMarkers(t *testing.T) {
 
 func TestCurrentReflectsProcessPlatformAndPath(t *testing.T) {
 	wantPath := filepath.Join(t.TempDir(), "bin")
+	wantCodexHome := filepath.Join(t.TempDir(), "codex-home")
 	t.Setenv("PATH", wantPath)
+	t.Setenv("CODEX_HOME", wantCodexHome)
 
 	system := discovery.Current()
-	if system.GOOS != runtime.GOOS || system.Path != wantPath {
-		t.Fatalf("Current() = %#v, want GOOS %q and PATH %q", system, runtime.GOOS, wantPath)
+	if system.GOOS != runtime.GOOS || system.Path != wantPath || system.CodexHomeDirectory() != wantCodexHome {
+		t.Fatalf("Current() = %#v, want GOOS %q, PATH %q and Codex Home %q", system, runtime.GOOS, wantPath, wantCodexHome)
 	}
 }
 

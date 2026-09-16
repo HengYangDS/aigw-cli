@@ -32,25 +32,24 @@ var (
 )
 
 // Read returns one exact native item without permitting authentication UI.
-func Read(service, account string) (string, error) {
-	return invoke(workerCommand, service, account, "")
+func Read(executable, service, account string) (string, error) {
+	return invoke(executable, workerCommand, service, account, "")
 }
 
 // Write creates or updates one exact item through the bounded worker.
-func Write(service, account, value string) error {
-	_, err := invoke(writeCommand, service, account, value)
+func Write(executable, service, account, value string) error {
+	_, err := invoke(executable, writeCommand, service, account, value)
 	return err
 }
 
 // Delete removes one exact item; an already absent item is a successful no-op.
-func Delete(service, account string) error {
-	_, err := invoke(deleteCommand, service, account, "")
+func Delete(executable, service, account string) error {
+	_, err := invoke(executable, deleteCommand, service, account, "")
 	return err
 }
 
-func invoke(operation, service, account, input string) (string, error) {
-	executable, err := os.Executable()
-	if err != nil {
+func invoke(executable, operation, service, account, input string) (string, error) {
+	if strings.TrimSpace(executable) == "" {
 		return "", ErrUnavailable
 	}
 	// The native worker does not consume profiles, Tokens, PATH or loader overrides.
