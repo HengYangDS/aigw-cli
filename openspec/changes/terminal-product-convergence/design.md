@@ -360,13 +360,26 @@ partitioned format `0x200`; ordinary temporary paths create legacy `0x100`
 databases that omit this authorization layer. Same-byte reads, missing-item,
 locked and foreign-writer cases retain their native checks. A changed self-signed
 image is denied by its code-hash partition even when its designated requirement
-matches. Production upgrade admission requires an approved Apple-recognized
-identity and exact retained-item evidence, not only a signature check.
+matches. For the current same-executable implementation, upgrade qualification
+uses an approved Apple-recognized publisher identity and exact retained-item
+evidence, not only a signature check. Users consuming published AIGW do not need
+developer membership or the publisher's private key.
 An item created by `security` may allow metadata but deny
 the AIGW reader: neither the existing writer nor a successful external relay
 proves the new executable's authority. Publication and installed replacement stay
 blocked on actual reader-identity acceptance rather than changing production ACLs
 or representing safe refusal as a usable product journey.
+
+The required outcome is retained-item authorization, not a permanently fixed
+reader architecture. [DR-0011](../../../docs/decisions/dr-0011-single-portable-token-backend.md#reader-architecture-alternatives)
+compares publisher-signed single-program delivery with a narrowly owned stable
+credential adapter. The former remains the preferred public-product path because
+it adds no executable. The latter is unproved and would replace, not supplement,
+the current reader only after caller isolation, real reader updates, security
+maintenance, rollback and exact cleanup pass. Unchanged adapter bytes alone
+prove neither safe updates nor production readiness. One-time enrollment,
+routine no-prompt access and public distribution retain separate authorization
+and evidence; no production mutation follows from this comparison.
 
 Alternative considered: search native, file, and environment stores on every
 read. Rejected because it creates several authorities, unpredictable prompts,

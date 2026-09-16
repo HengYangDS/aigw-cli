@@ -15,8 +15,9 @@ unavailable runners or weakening the platform requirement.
 macOS release binaries SHALL have an explicitly supplied certificate-bound
 identity and Hardened Runtime before archive construction. Offline qualification
 signing and archive timestamps SHALL use the release epoch. Production
-distribution SHALL separately require an Apple-issued Developer ID identity,
-secure timestamp, successful notarization and native artifact verification.
+distribution SHALL separately require a publisher-controlled Apple-issued
+Developer ID identity, secure timestamp, successful notarization and native
+artifact verification.
 Reproducible payload evidence SHALL remain distinct from externally issued
 timestamp and notarization evidence. Selected peers SHALL receive the same
 immutable distribution bytes, not independently re-signed artifacts.
@@ -25,13 +26,22 @@ prompting, provisioning an identity or substituting ad-hoc signing. Native
 acceptance SHALL select only its host operating system; unrelated platform
 credentials SHALL NOT be prerequisites. Consuming published assets SHALL NOT
 require their private signing keys.
+End users SHALL NOT require developer membership or private signing material
+to install and use published AIGW. A publisher and an end user MAY be the same
+person, but their roles and prerequisites SHALL remain distinct.
 
 macOS retained-Keychain qualification SHALL exercise partitioned database format
 `0x200` and both designated-requirement and application-partition authorization.
 A self-signed certificate with a matching designated requirement SHALL NOT count
-as proof of stable partition identity across changed code hashes. Release
-admission SHALL require an approved Apple-recognized signing identity and an
-observed retained-credential transition without prompts or ACL mutation.
+as proof of stable partition identity across changed code hashes. The current
+same-executable reader qualification SHALL use an approved Apple-recognized
+publisher identity. Every admitted reader architecture SHALL independently prove
+retained-credential access through CLI updates, actual reader-byte updates and
+rollback without prompts or ACL mutation. Initial enrollment or legacy-item
+re-enrollment SHALL require its own explicit authorization and SHALL NOT
+substitute for routine retained-item acceptance. A stable adapter proposal SHALL
+prove its caller and security-update boundaries before replacing the current
+reader; a successful unchanged-reader case alone SHALL NOT admit that design.
 
 Ordinary macOS source tests SHALL exclude genuine host Keychain operations
 through the native `keychain_integration` build tag while retaining fake-ABI
@@ -43,6 +53,20 @@ native coverage invocation, including full-quality execution, without changing
 the package inventory or coverage floor. The scope declaration SHALL NOT be
 represented as a sandbox or proof that the machine is disposable. Source-only
 success SHALL NOT substitute for required native credential evidence.
+
+#### Scenario: A user consumes the publisher's signed release
+
+- **WHEN** a user installs and invokes published AIGW
+- **THEN** no developer membership or private signing key SHALL be required
+- **AND** the exact reader's native credential permission SHALL remain a separate
+  acceptance obligation from the artifact signature and distribution trust.
+
+#### Scenario: A proposed adapter survives only CLI-only updates
+
+- **WHEN** unchanged adapter bytes retain item access while the CLI changes
+- **THEN** actual adapter replacement, rollback and caller authorization SHALL
+  remain unproved until their own retained-item journeys pass
+- **AND** preserving a vulnerable old reader SHALL NOT satisfy safe updates.
 
 #### Scenario: Ordinary source verification runs on an operator workstation
 
@@ -98,8 +122,8 @@ success SHALL NOT substitute for required native credential evidence.
 
 #### Scenario: System Keychain qualification lacks a supplied signing identity
 
-- **WHEN** macOS native acceptance requests system credential-store verification
-  without operator-supplied signing inputs
+- **WHEN** the current same-executable macOS acceptance requests system
+  credential-store verification without publisher-supplied signing inputs
 - **THEN** fixture preparation SHALL fail before generating a disposable signing
   identity, constructing an archive or touching the system credential store
 - **AND** the diagnostic SHALL identify missing signing authority rather than

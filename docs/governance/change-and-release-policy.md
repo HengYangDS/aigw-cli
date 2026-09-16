@@ -371,12 +371,16 @@ Remove that timestamp workaround when an admitted upstream version passes the
 same regression without it. This offline, deterministic signing stage is not
 production-distribution qualification, even when supplied an Apple certificate.
 
-For distribution outside the App Store, an individual or organization Apple
-Developer Program Account Holder obtains a
+For the product's notarized distribution outside the App Store, the publisher's
+individual or organization Apple Developer Program Account Holder obtains a
 [Developer ID Application certificate](https://developer.apple.com/help/account/certificates/create-developer-id-certificates).
 The certificate and its corresponding private key form the signing identity;
 the certificate alone cannot sign. Keep the key and password in the authorized
-operator's signing infrastructure, outside Git, client profiles and chat.
+release operator's signing infrastructure, outside Git, client profiles and chat.
+End users need neither developer membership nor the signing private key to
+install and use published artifacts. Local signing, native credential enrollment
+and routine retained-item access are separate decisions; this public-distribution
+policy does not establish their technical prerequisites or authorize host changes.
 
 [Apple's notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
 also require a secure timestamp and Hardened Runtime for command-line targets.

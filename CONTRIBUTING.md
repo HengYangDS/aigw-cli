@@ -415,8 +415,11 @@ The default native suite builds a synthetic predecessor and candidate through
 the same GoReleaser archive construction used for releases. On macOS, its
 test-owned certificate files give both binaries one certificate-bound requirement;
 the fixture does not import an identity, change host trust or read production
-credentials. Self-signed certificates do not establish the partition identity
-required for retained system-Keychain access across different code hashes.
+credentials. In the current same-executable reader, matching self-signed
+certificate requirements do not preserve Keychain partition authorization across
+changed code hashes. This is not a developer-membership prerequisite for users;
+the [credential decision](docs/decisions/dr-0011-single-portable-token-backend.md#reader-architecture-alternatives)
+separates publisher signing, enrollment, routine access and reader replacement.
 An explicitly supplied archive is consumed unchanged and is never
 replaced by a source build. Private fixture signing does not establish
 authorization to credentials created by a historical released executable.
