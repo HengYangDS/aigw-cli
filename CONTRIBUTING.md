@@ -30,7 +30,11 @@ Keep the smallest reproducer as a regression. Run focused checks before the
 complete gate on stable inputs; a failure returns to its narrow reproducer.
 For shipped manifests and generated configuration, also exercise the actual
 delivery input through the public command. Small fixtures isolate a cause but
-cannot establish that the shipped catalogue works. Every selected native journey
+cannot establish that the shipped catalogue works. Native authorization fixtures
+must verify the persisted security format and effective enforcement boundary,
+not merely recreate an API call in temporary storage. Isolation must preserve the
+security semantics exercised by the deployed product.
+Every selected native journey
 must consume the explicit candidate and report its binary digest; an absent
 candidate is an input failure, not permission to substitute a source build.
 Cover deferred prerequisites becoming available independently while preserving
@@ -391,9 +395,11 @@ does not replace it or infer signer authority from an inherited variable.
 
 The default native suite builds a synthetic predecessor and candidate through
 the same GoReleaser archive construction used for releases. On macOS, its
-test-owned certificate files give both binaries one stable signing identity;
+test-owned certificate files give both binaries one certificate-bound requirement;
 the fixture does not import an identity, change host trust or read production
-credentials. An explicitly supplied archive is consumed unchanged and is never
+credentials. Self-signed certificates do not establish the partition identity
+required for retained system-Keychain access across different code hashes.
+An explicitly supplied archive is consumed unchanged and is never
 replaced by a source build. Private fixture signing does not establish
 authorization to credentials created by a historical released executable.
 It tests portable update mechanics, not compatibility with a historical

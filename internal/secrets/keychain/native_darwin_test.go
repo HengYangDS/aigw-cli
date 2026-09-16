@@ -199,7 +199,12 @@ func TestNativePrivateKeychainReadAndLockedFailure(t *testing.T) {
 	}
 	for _, identity := range []string{"ad-hoc", "certificate"} {
 		t.Run(identity, func(t *testing.T) {
-			root, program := t.TempDir(), os.Args[0]
+			// Security.framework selects partitioned Keychains by this path shape.
+			// The entire path remains private; it is not the operator's HOME.
+			root, program := filepath.Join(t.TempDir(), "Library", "Keychains"), os.Args[0]
+			if err := os.MkdirAll(root, 0o700); err != nil {
+				t.Fatal(err)
+			}
 			environment := append(os.Environ(), "AIGW_TEST_PRIVATE_KEYCHAIN="+root)
 			if identity == "certificate" {
 				program = testCertificateReader(t, root)
@@ -314,6 +319,7 @@ func testPrivateKeychain(t *testing.T, root string) {
 	if code := add(chain, 7, "service", 7, "account", uint32(len(value)), value, nil); code != 0 {
 		t.Fatalf("create synthetic item: %d", code)
 	}
+	testRequirePartitionedKeychain(t, lib, chain, root)
 	if got, err := api.read(chain, "service", "account", false); err != nil || string(got) != value {
 		t.Fatalf("synthetic exact item read: %v", err)
 	}
@@ -349,6 +355,23 @@ func testPrivateKeychain(t *testing.T, root string) {
 	}
 	if _, err := api.read(chain, "service", "account", true); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("deleted locked item remains: %v", err)
+	}
+}
+
+func testRequirePartitionedKeychain(t *testing.T, library, chain uintptr, root string) {
+	t.Helper()
+	var getVersion func(uintptr, *uint32) int32
+	purego.RegisterLibFunc(&getVersion, library, "SecKeychainGetKeychainVersion")
+	var version uint32
+	if code := getVersion(chain, &version); code != 0 {
+		t.Fatalf("inspect private Keychain version: %d", code)
+	}
+	if version != 0x200 {
+		t.Fatalf("native credential fixture must enforce partition ACLs: %#x", version)
+	}
+	acl := testSigningCommand(t, "/usr/bin/security", "dump-keychain", "-a", filepath.Join(root, "fixture.keychain"))
+	if !bytes.Contains(acl, []byte("partition_id")) || !bytes.Contains(acl, []byte("cdhash:")) {
+		t.Fatal("private item lacks its code-hash partition boundary")
 	}
 }
 
@@ -420,7 +443,9 @@ func testPrivateReaderExecutableIdentity(t *testing.T, root string) {
 		if !found || original == "" || strings.Contains(string(after), "CDHash="+original+"\n") {
 			t.Fatal("certificate successor must have a different code hash")
 		}
-		testPrivateReaderProcess(t, copyPath, root, "authorized")
+		// A self-signed designated requirement can match while the independent
+		// code-hash partition still denies a changed image without interaction.
+		testPrivateReaderProcess(t, copyPath, root, "denied")
 	}
 	metadata, err := exec.Command("/usr/bin/codesign", "--display", "--verbose=2", copyPath).CombinedOutput()
 	if err != nil {

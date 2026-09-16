@@ -355,8 +355,14 @@ inferred from lock state. `purego` is the small Cgo-free native bridge, not anot
 credential framework. No extra helper executable, service, configuration,
 fallback reader or access-control mutation is introduced. Denial and timeout
 are distinct from absence, and helper diagnostics remain off Token stdout.
-Private synthetic Keychains prove success, missing-item, locked and foreign-writer
-authorization behavior. An item created by `security` may allow metadata but deny
+Private synthetic Keychains use an isolated `Library/Keychains` path and assert
+partitioned format `0x200`; ordinary temporary paths create legacy `0x100`
+databases that omit this authorization layer. Same-byte reads, missing-item,
+locked and foreign-writer cases retain their native checks. A changed self-signed
+image is denied by its code-hash partition even when its designated requirement
+matches. Production upgrade admission requires an approved Apple-recognized
+identity and exact retained-item evidence, not only a signature check.
+An item created by `security` may allow metadata but deny
 the AIGW reader: neither the existing writer nor a successful external relay
 proves the new executable's authority. Publication and installed replacement stay
 blocked on actual reader-identity acceptance rather than changing production ACLs

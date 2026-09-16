@@ -77,13 +77,29 @@ The private native credential regression uses
 [rcodesign](https://gregoryszorc.com/docs/apple-codesign/stable/apple_codesign_rcodesign_signing.html)
 with a disposable self-signed certificate loaded from files. The repository locks
 this tool for release construction on each supported build host; it is never
-shipped in AIGW. Two executables with different code hashes and the same
-certificate-bound requirement read one retained private Keychain item; an unrelated
-ad-hoc reader is denied. Native signature verification and execution require no
-identity import, host trust change or wider item access. The existing private
-Keychain fixture owns creation and teardown for both identity modes. This qualifies
-that isolated authorization boundary, not a production signer, release artifact or
-supported upgrade path.
+shipped in AIGW. The fixture must create a partitioned Keychain, assert database
+version `0x200`, and observe the item's partition ACL before testing access.
+A byte-identical copy can read the retained item. A changed self-signed image
+can satisfy the same certificate-bound designated requirement yet still be
+denied by its different code-hash partition. This is an authorization regression,
+not evidence that a self-signed identity supports production upgrades.
+
+The fixture lives under its own temporary `Library/Keychains` directory, never
+the operator's home. This path has a security meaning: Apple's
+[database format selection](https://github.com/apple-oss-distributions/Security/blob/db15acbe6a7f257a859ad9a3bb86097bfe0679d9/OSX/libsecurityd/lib/ssblob.cpp#L58-L86)
+creates old-format `0x100` Keychains elsewhere. Those databases skip
+[partition authorization](https://github.com/apple-oss-distributions/Security/blob/db15acbe6a7f257a859ad9a3bb86097bfe0679d9/securityd/src/acls.cpp#L147-L184).
+The previous plain-temporary-directory fixture therefore proved a weaker
+authorization contract than the system Keychain. Its apparent cross-code-hash
+success does not establish current platform support.
+
+Apple derives [application partition identity](https://github.com/apple-oss-distributions/Security/blob/db15acbe6a7f257a859ad9a3bb86097bfe0679d9/securityd/src/clientid.cpp#L187-L287)
+independently from the designated requirement. Recognized Apple-issued developer
+certificate chains use a team partition; other signed code uses `cdhash:`.
+A self-signed certificate, fixed identifier, or matching designated requirement
+alone cannot provide the stable partition required by this product's no-prompt,
+no-ACL-mutation upgrade contract. Release qualification must use an approved
+Apple-recognized signing identity and prove the exact retained-item transition.
 
 The existing GoReleaser build signs macOS binaries before archiving. An encrypted
 PKCS#12 identity, password file and compiled designated requirement are explicit
@@ -97,8 +113,8 @@ wall-clock boundary. It uses a disposable signing identity, not production trust
 
 Following [Apple's subsystem-specific trust model](https://developer.apple.com/library/archive/technotes/tn2206/_index.html),
 Keychain identity continuity, distribution trust and notarization remain separate
-acceptance decisions. Developer ID is not a prerequisite for the demonstrated
-private-item test. A certificate-leaf requirement does not survive key rotation
+acceptance decisions. The private self-signed fixture proves refusal, not a
+substitute for the production signing authority. A certificate-leaf requirement does not survive key rotation
 automatically: rotation needs an explicitly admitted successor requirement and
 retained-item transition. Introducing a stable signer also cannot retroactively
 authorize items created by an older ad-hoc identity or another program. Their

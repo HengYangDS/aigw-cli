@@ -209,6 +209,20 @@ acceptance SHALL select only its host operating system; unrelated platform
 credentials SHALL NOT be prerequisites. Consuming published assets SHALL NOT
 require their private signing keys.
 
+macOS retained-Keychain qualification SHALL exercise partitioned database format
+`0x200` and both designated-requirement and application-partition authorization.
+A self-signed certificate with a matching designated requirement SHALL NOT count
+as proof of stable partition identity across changed code hashes. Release
+admission SHALL require an approved Apple-recognized signing identity and an
+observed retained-credential transition without prompts or ACL mutation.
+
+#### Scenario: A private Keychain fixture models the system authorization boundary
+
+- **WHEN** native credential tests create an isolated Keychain
+- **THEN** they SHALL prove partitioned format and the item's partition ACL
+- **AND** a same-byte reader SHALL retain access while a changed self-signed
+  code-hash partition SHALL be denied without modifying access policy.
+
 #### Scenario: Certificate-signed archives are rebuilt
 
 - **WHEN** identical source, toolchain, signing inputs and release epoch are built
