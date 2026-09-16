@@ -43,11 +43,7 @@ func TestNativeReleaseArchivesContainDeterministicCertificateSignatures(t *testi
 					t.Fatal(err)
 				}
 				if platform == "darwin" {
-					path := filepath.Join(t.TempDir(), "aigw")
-					if err := os.WriteFile(path, program, 0o700); err != nil {
-						t.Fatal(err)
-					}
-					privateReleaseCommand(t, "", "/usr/bin/codesign", "--verify", "--strict", "--test-requirement", "="+requirement, path)
+					requireNativeReleaseSignature(t, program, requirement)
 				}
 			}
 		}
@@ -73,6 +69,19 @@ func TestNativeReleaseArchivesContainDeterministicCertificateSignatures(t *testi
 				}
 			}
 		})
+	}
+}
+
+func requireNativeReleaseSignature(t *testing.T, program []byte, requirement string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(path, program, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	privateReleaseCommand(t, "", "/usr/bin/codesign", "--verify", "--strict", "--test-requirement", "="+requirement, path)
+	signature := privateReleaseCommand(t, "", "/usr/bin/codesign", "--display", "--verbose=4", path)
+	if !strings.Contains(string(signature), "(runtime)") {
+		t.Fatalf("macOS archive must enable Hardened Runtime: %s", signature)
 	}
 }
 

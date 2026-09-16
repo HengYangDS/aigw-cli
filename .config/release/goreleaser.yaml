@@ -44,6 +44,7 @@ builds:
             --p12-password-file "{{ .Env.AIGW_MACOS_SIGNING_PASSWORD_FILE }}"
             --code-requirements-file "{{ .Env.AIGW_MACOS_SIGNING_REQUIREMENTS }}"
             --binary-identifier "{{ .ProjectName }}"
+            --code-signature-flags runtime
             --signing-time "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
             --timestamp-url none "{{ .Path }}"
         - cmd: 'rcodesign -C /dev/null verify "{{ .Path }}"'

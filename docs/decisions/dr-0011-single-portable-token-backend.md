@@ -114,8 +114,12 @@ an identity. Signing time and post-signing file time use the release epoch, not
 wall time. Native Linux and Windows acceptance selects only its own operating
 system and needs no macOS credential. Full release construction still emits and
 verifies every declared target. The native archive test verifies both macOS
-architectures with Apple's verifier and compares two complete matrices across a
-wall-clock boundary. It uses a disposable signing identity, not production trust.
+architectures and their Hardened Runtime flag with Apple's verifier, then
+compares two complete matrices across a wall-clock boundary. It uses a
+disposable signing identity, not production trust. The
+[release policy](../governance/change-and-release-policy.md#reproducible-assets)
+owns Developer ID provisioning and the remaining secure-timestamp and
+notarization boundary; these are not credential-store responsibilities.
 
 Following [Apple's subsystem-specific trust model](https://developer.apple.com/library/archive/technotes/tn2206/_index.html),
 Keychain identity continuity, distribution trust and notarization remain separate

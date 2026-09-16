@@ -350,7 +350,7 @@ complete portable archive matrix, checksums, and SPDX SBOM. Repeating the build
 with the same inputs must produce identical bytes.
 
 macOS binary identity is distinct from the detached SSH archive signature.
-GoReleaser's native post-build hooks sign and verify macOS binaries before they
+GoReleaser's native post-build hooks enable Hardened Runtime, sign and verify macOS binaries before they
 enter archives, checksums and SBOMs. The release operator supplies three absolute
 file paths:
 
@@ -368,7 +368,26 @@ evaluate `builds_info.mtime` for binary entries, so the same post-build hook use
 the locked Node filesystem API to restore that epoch after signing. A cross-second
 native archive regression prevents wall-clock metadata from breaking reproducibility.
 Remove that timestamp workaround when an admitted upstream version passes the
-same regression without it. Notarization remains a separate, unclaimed property.
+same regression without it. This offline, deterministic signing stage is not
+production-distribution qualification, even when supplied an Apple certificate.
+
+For distribution outside the App Store, an individual or organization Apple
+Developer Program Account Holder obtains a
+[Developer ID Application certificate](https://developer.apple.com/help/account/certificates/create-developer-id-certificates).
+The certificate and its corresponding private key form the signing identity;
+the certificate alone cannot sign. Keep the key and password in the authorized
+operator's signing infrastructure, outside Git, client profiles and chat.
+
+[Apple's notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
+also require a secure timestamp and Hardened Runtime for command-line targets.
+The current hook enables Hardened Runtime but disables the timestamp service;
+neither production timestamping nor notarization is implemented or claimed.
+Completing that path must separate reproducible build inputs from the
+externally timestamped distribution envelope: verify the payload first, sign
+and notarize once, then publish those same immutable bytes to each selected
+peer. Rebuilding timestamped signatures independently is not a byte-parity
+strategy. Qualification must inspect the actual distribution artifact and
+preserve the separate retained-credential acceptance obligation below.
 
 Native artifact acceptance builds only its current operating system; Linux and
 Windows do not require Apple signing inputs. Full release construction still
