@@ -64,7 +64,16 @@ selected peer SHALL verify its own objects and assets; native platform evidence
 MAY be supplied by the admitted aggregate executor set without duplicating
 unavailable runners or weakening the platform requirement.
 
-macOS public-release binaries SHALL have an explicitly supplied certificate-bound
+Upgrade acceptance SHALL retain each enabled client's original credential
+command, arguments and process environment and execute that invocation after
+program replacement but before synchronization or client configuration reload.
+Native-store acceptance SHALL retain the original item and identify the real
+reader implementation and authorization identity on both sides. A fresh client
+consuming a replacement helper SHALL NOT establish existing-caller continuity.
+Complete rollback SHALL restore compatible program, configuration and credential
+ownership without requiring a credential fallback or new host helper.
+
+macOS release binaries SHALL have an explicitly supplied certificate-bound
 identity and Hardened Runtime before archive construction. Offline qualification
 signing and archive timestamps SHALL use the release epoch. Production
 distribution SHALL separately require a publisher-controlled Apple-issued
@@ -73,7 +82,7 @@ artifact verification.
 Reproducible payload evidence SHALL remain distinct from externally issued
 timestamp and notarization evidence. Selected peers SHALL receive the same
 immutable distribution bytes, not independently re-signed artifacts.
-Missing signing inputs SHALL stop public-release construction without
+Missing signing inputs SHALL stop construction without
 prompting, provisioning an identity or substituting ad-hoc signing. Native
 acceptance SHALL select only its host operating system; unrelated platform
 credentials SHALL NOT be prerequisites. Consuming published assets SHALL NOT
@@ -81,17 +90,6 @@ require their private signing keys.
 End users SHALL NOT require developer membership or private signing material
 to install and use published AIGW. A publisher and an end user MAY be the same
 person, but their roles and prerequisites SHALL remain distinct.
-
-Explicit local delivery SHALL reuse the existing archive, signature, provenance,
-installation and rollback owners. Its version SHALL bind the source commit,
-remain distinct from the release baseline and precede the next release.
-Local macOS archives MAY use native ad-hoc signing without claiming publisher
-identity, notarization or retained native-Keychain authorization. Verification
-SHALL require trusted artifact signatures and the exact signed source commit.
-Both Forge publishers SHALL reject local delivery identities even when a signed
-tag exists. The default public build SHALL NOT silently select local delivery.
-Route health checks SHALL evaluate actual configuration and credentials rather
-than infer operational failure or distribution trust from version spelling.
 
 macOS retained-Keychain qualification SHALL exercise partitioned database format
 `0x200` and both designated-requirement and application-partition authorization.
@@ -153,6 +151,17 @@ capacity boundary rather than an inferred product pass.
   remain unproved until their own retained-item journeys pass
 - **AND** preserving a vulnerable old reader SHALL NOT satisfy safe updates.
 
+#### Scenario: A client retains its credential command across an update
+
+- **GIVEN** a client has already loaded a valid credential command and environment
+- **WHEN** the installed AIGW program is replaced without changing its route
+- **THEN** that retained invocation SHALL return the original authorized Token
+  before synchronization or client restart
+- **AND** updated projections or success from a new helper SHALL NOT substitute
+  for that invocation
+- **AND** native credential denial SHALL block production acceptance rather than
+  trigger an alternate reader, ACL change or repeated authorization attempt.
+
 #### Scenario: Ordinary source verification runs on an operator workstation
 
 - **WHEN** Go tests run without the Keychain integration build tag
@@ -197,15 +206,6 @@ capacity boundary rather than an inferred product pass.
 - **WHEN** native acceptance runs without macOS signing inputs
 - **THEN** it SHALL build only its current operating system's declared targets
 - **AND** full release construction SHALL still require the complete matrix.
-
-#### Scenario: An authorized local delivery has no publisher certificate
-
-- **WHEN** an operator explicitly selects local construction
-- **THEN** the existing pipeline SHALL create source-bound signed artifacts
-  without requiring a public-distribution certificate
-- **AND** native lifecycle and real-client acceptance SHALL consume those exact
-  artifacts before installation
-- **AND** public publication and native store trust SHALL remain separate claims.
 
 #### Scenario: Native signing authority is missing
 

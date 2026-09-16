@@ -40,21 +40,14 @@ builds:
       post:
         - cmd: >-
             rcodesign -C /dev/null sign
-            {{ if ne .Env.AIGW_LOCAL_DELIVERY "true" }}
             --p12-file "{{ .Env.AIGW_MACOS_SIGNING_P12 }}"
             --p12-password-file "{{ .Env.AIGW_MACOS_SIGNING_PASSWORD_FILE }}"
             --code-requirements-file "{{ .Env.AIGW_MACOS_SIGNING_REQUIREMENTS }}"
-            {{ end }}
             --binary-identifier "{{ .ProjectName }}"
             --code-signature-flags runtime
             --signing-time "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
             --timestamp-url none "{{ .Path }}"
-        # rcodesign verify cannot validate ad-hoc signatures; native acceptance
-        # verifies local artifacts with Apple's codesign before installation.
-        - cmd: >-
-            rcodesign -C /dev/null
-            {{ if eq .Env.AIGW_LOCAL_DELIVERY "true" }}print-signature-info{{ else }}verify{{ end }}
-            "{{ .Path }}"
+        - cmd: 'rcodesign -C /dev/null verify "{{ .Path }}"'
         # GoReleaser 2.18.1 does not evaluate builds_info.mtime for binaries.
         # Restore the declared epoch after the native signer rewrites the file.
         - cmd: >-

@@ -3,6 +3,7 @@ package main
 import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/platform"
+	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/keychain"
 	"bytes"
@@ -17,9 +18,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 func TestMain(m *testing.M) {
@@ -242,13 +246,9 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		}
 	})
 	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
-	if got := journey.claudeCredential(); got != token {
-		t.Fatalf("credential = %q", got)
-	}
+	journey.requireClaudeCredential(token)
 	journey.runWithInput(journey.binary, replacement+"\n", "rotate", "native-system-keyring-probe", "--token-stdin")
-	if got := journey.claudeCredential(); got != replacement {
-		t.Fatalf("rotated client credential = %q", got)
-	}
+	journey.requireClaudeCredential(replacement)
 	journey.requireStoredCredentialAcrossUpdate(root, newVersion, oldVersion, replacement, backend)
 	journey.uninstallAndRequireOwnedFilesAbsent()
 	if exists, err := store.Exists("native-system-keyring-probe"); err != nil || !exists {
@@ -257,9 +257,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	journey.runWith(journey.source, "install", "--target", journey.binary)
 	journey.run("sync")
 	journey.requireCredentialBackend(replacement, backend)
-	if got := journey.claudeCredential(); got != replacement {
-		t.Fatalf("reinstalled client lost the retained credential: %q", got)
-	}
+	journey.requireClaudeCredential(replacement)
 	journey.uninstallAndRequireOwnedFilesAbsent()
 	if err := store.Delete("native-system-keyring-probe"); err != nil {
 		t.Fatal(err)
@@ -413,6 +411,7 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(root, newVersion, o
 	j.testing.Helper()
 	candidate, archive, checksums := nativeReleaseCandidate(j.testing, root, newVersion)
 	j.testing.Logf("credential baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(j.testing, j.source)), newVersion, sha256.Sum256(readFile(j.testing, candidate)))
+	retained := j.retainedCredential(configuration.ClientClaude)
 	for _, step := range []struct {
 		version string
 		program string
@@ -427,15 +426,14 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(root, newVersion, o
 		if !bytes.Equal(readFile(j.testing, j.config), configurationBefore) {
 			j.testing.Fatal("credential lifecycle changed the retained client configuration")
 		}
+		j.requireCredential(retained, token)
 		j.run("sync")
 		j.requireVersion(step.version)
 		j.requireProgramBytes(step.program)
 		if step.version == newVersion {
 			j.requireCredentialBackend(token, backend)
 		}
-		if got := j.claudeCredential(); got != token {
-			j.testing.Fatalf("program %s lost native credential continuity: %q", step.version, got)
-		}
+		j.requireClaudeCredential(token)
 	}
 	j.source = candidate
 }
@@ -453,4 +451,59 @@ func requiredClientInput(key string, directory bool) (string, error) {
 		return "", fmt.Errorf("%s has the wrong input kind", key)
 	}
 	return path, nil
+}
+
+func (j *journeyFixture) retainedCredential(client string) process.Plan {
+	j.testing.Helper()
+	plan := process.Plan{Env: slices.Clone(j.environment)}
+	if client == configuration.ClientCodex {
+		var config struct {
+			ModelProvider  string `toml:"model_provider"`
+			ModelProviders map[string]struct {
+				Auth struct {
+					Command string   `toml:"command"`
+					Args    []string `toml:"args"`
+				} `toml:"auth"`
+			} `toml:"model_providers"`
+		}
+		path := filepath.Join(j.root, "home", ".codex", "config.toml")
+		if err := toml.Unmarshal(readFile(j.testing, path), &config); err != nil {
+			j.testing.Fatal(err)
+		}
+		auth := config.ModelProviders[config.ModelProvider].Auth
+		if auth.Command == "" || len(auth.Args) == 0 {
+			j.testing.Fatal("Codex projection lacks a credential command")
+		}
+		plan.Executable, plan.Args = auth.Command, auth.Args
+		return plan
+	}
+	if client != configuration.ClientClaude {
+		j.testing.Fatalf("unsupported credential client %q", client)
+	}
+	var settings struct {
+		APIKeyHelper string `json:"apiKeyHelper"`
+	}
+	if err := json.Unmarshal(readFile(j.testing, j.settings), &settings); err != nil {
+		j.testing.Fatal(err)
+	}
+	if settings.APIKeyHelper == "" {
+		j.testing.Fatal("Claude projection lacks a credential helper")
+	}
+	if runtime.GOOS == "windows" {
+		// Execute the exact helper as native shell source, not a quoted Go
+		// argument: cmd.exe does not use CommandLineToArgvW escaping.
+		script, err := os.CreateTemp(j.root, "credential-*.cmd")
+		if err != nil {
+			j.testing.Fatal(err)
+		}
+		_, writeErr := script.WriteString("@echo off\r\n" + settings.APIKeyHelper + "\r\n")
+		closeErr := script.Close()
+		if writeErr != nil || closeErr != nil {
+			j.testing.Fatalf("retain exact Windows credential command: write=%v close=%v", writeErr, closeErr)
+		}
+		plan.Executable = script.Name()
+	} else {
+		plan.Executable, plan.Args = "/bin/sh", []string{"-c", settings.APIKeyHelper}
+	}
+	return plan
 }

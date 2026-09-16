@@ -1,6 +1,8 @@
 package main
 
 import (
+	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/upgrade"
 	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
@@ -19,6 +21,37 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestRetainedCredentialCommandDoesNotReloadClientProjection(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	program := buildNativeProgram(t, root, "0.0.0")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"data":[]}`)
+	}))
+	t.Cleanup(server.Close)
+	for _, client := range configuration.AdmittedClientIDs() {
+		t.Run(client, func(t *testing.T) {
+			journey := newNativeJourney(t, program, server.URL, true)
+			var projection string
+			if client == configuration.ClientCodex {
+				projection, _ = journey.prepareCodexLifecycle()
+			} else {
+				projection = journey.settings
+			}
+			journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+			journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+			retained := journey.retainedCredential(client)
+			journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "changed-after-capture")
+			if err := os.Remove(projection); err != nil {
+				t.Fatal(err)
+			}
+			journey.requireCredential(retained, "native-journey-token")
+		})
+	}
+}
 
 func TestNativeJourneyOwnsWorkingDirectory(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
@@ -49,7 +82,7 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadDeliveryVersion(root, os.Getenv("AIGW_LOCAL_DELIVERY") == "true")
+	version, err := readiness.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,12 +373,6 @@ func TestNativeArtifactAcceptanceSeparatesVerifierAndProductRevisions(t *testing
 	}
 	if err := run([]string{"accept-native", "--artifacts", artifacts}, io.Discard); !errors.Is(err, want) {
 		t.Fatalf("trusted release must reach archive decoding under a different verifier revision: %v", err)
-	}
-}
-
-func TestReleaseEnvironmentSelection(t *testing.T) {
-	if envDefault("MISSING_RELEASE_ENV", "fallback") != "fallback" || firstNonEmpty("", "value") != "value" || firstNonEmpty() != "" {
-		t.Fatal("environment selection failed")
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -365,41 +364,5 @@ func TestAuthorityRejectsInvalidInputs(t *testing.T) {
 	}
 	if _, err := assetAuthority("https://example.test", "bad"); err == nil {
 		t.Fatal("invalid right authority accepted")
-	}
-}
-
-func TestUploadGitLabArtifactsUsesGenericPackageAPI(t *testing.T) {
-	directory := releaseFixture(t, "1.2.3")
-	expected := readReleaseFixture(t, directory, "1.2.3")
-	uploaded := 0
-	header := "Job-Token"
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Method != http.MethodPut || !strings.HasPrefix(request.URL.Path, "/projects/7/packages/generic/aigw/1.2.3/") {
-			t.Fatalf("request=%s %s", request.Method, request.URL.Path)
-		}
-		if request.Header.Get(header) != "token" || request.Header.Get("Job-Token") == request.Header.Get("Private-Token") {
-			t.Error("upload did not select exactly one native credential")
-		}
-		data, _ := io.ReadAll(request.Body)
-		if string(data) != string(expected[filepath.Base(request.URL.Path)]) {
-			t.Fatalf("payload=%q", data)
-		}
-		uploaded++
-		response.WriteHeader(http.StatusCreated)
-	}))
-	defer server.Close()
-	config := GitLabConfig{APIBase: server.URL, ProjectID: "7", Tag: "v1.2.3", Artifacts: directory, Trust: fixtureTrust(directory), Source: fixtureSource(directory)}
-	for _, mode := range []string{"Job-Token", "Private-Token"} {
-		header = mode
-		config.JobToken, config.AccessToken = "token", ""
-		if mode == "Private-Token" {
-			config.JobToken, config.AccessToken = "", "token"
-		}
-		if err := UploadGitLab(t.Context(), server.Client(), config); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if uploaded != 2*len(expected) {
-		t.Fatalf("uploaded=%d, expected=%d", uploaded, 2*len(expected))
 	}
 }

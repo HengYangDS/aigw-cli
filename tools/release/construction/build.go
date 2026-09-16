@@ -28,7 +28,6 @@ type buildRequest struct {
 	GitHubOrigin, GitHubRepository string
 	SigningKey                     string
 	TargetOS                       string
-	Local                          bool
 }
 
 type toolCall struct {
@@ -50,7 +49,7 @@ func buildRelease(request buildRequest, run toolRunner) (result error) {
 	if strings.TrimSpace(request.SigningKey) == "" {
 		return errors.New("release construction requires AIGW_RELEASE_SIGNING_KEY")
 	}
-	if _, err := nativeSigningEnvironment(request.Local); err != nil {
+	if _, err := nativeSigningEnvironment(); err != nil {
 		return err
 	}
 	if err := ensureCleanSource(request.Root, run); err != nil {
@@ -157,9 +156,9 @@ func buildRelease(request buildRequest, run toolRunner) (result error) {
 
 func buildArchives(request buildRequest, workspace string, run toolRunner) (string, error) {
 	var signing []string
-	if !request.Local && (request.TargetOS == "" || request.TargetOS == "darwin") {
+	if request.TargetOS == "" || request.TargetOS == "darwin" {
 		var err error
-		signing, err = nativeSigningEnvironment(request.Local)
+		signing, err = nativeSigningEnvironment()
 		if err != nil {
 			return "", err
 		}
@@ -174,7 +173,6 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 		return "", err
 	}
 	environment := []string{
-		"AIGW_LOCAL_DELIVERY=" + strconv.FormatBool(request.Local),
 		"AIGW_BUILD_OS=" + request.TargetOS,
 		"AIGW_VERSION=" + request.Version,
 		"AIGW_RELEASE_EPOCH=" + request.Epoch,
@@ -191,10 +189,7 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 	return stage, nil
 }
 
-func nativeSigningEnvironment(local bool) ([]string, error) {
-	if local {
-		return nil, nil
-	}
+func nativeSigningEnvironment() ([]string, error) {
 	var environment []string
 	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
 		path := os.Getenv(name)
@@ -356,21 +351,10 @@ func ensureCleanSource(root string, run toolRunner) error {
 }
 
 // Build constructs the portable release matrix for the current repository.
-func Build(output string, local bool) error {
+func Build(output string) error {
 	request, err := buildRequestFromEnvironment(output)
 	if err != nil {
 		return err
-	}
-	if local {
-		request.Version, err = readiness.ReadDeliveryVersion(request.Root, true)
-		if err != nil {
-			return err
-		}
-		request.Epoch, err = resolveReleaseEpoch(request.Root, request.Version)
-		if err != nil {
-			return err
-		}
-		request.Local = true
 	}
 	return buildRelease(request, executeTool)
 }

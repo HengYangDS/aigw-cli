@@ -181,7 +181,7 @@ func TestNativeClientJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadDeliveryVersion(root, os.Getenv("AIGW_LOCAL_DELIVERY") == "true")
+	version, err := readiness.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,6 +210,7 @@ func TestNativeClientJourney(t *testing.T) {
 			journey.setEnvironment(secrets.EnvironmentKey(profile.Account), token)
 			journey.run("setup", "--from", journey.manifest, "--account", profile.Account)
 			journey.enableNativeClient(client, executable)
+			retainedCredential := journey.retainedCredential(client)
 			before := journey.preserveClientFiles(client)
 			oldVersion := journey.predecessorVersion(version)
 			for _, step := range []struct {
@@ -230,6 +231,7 @@ func TestNativeClientJourney(t *testing.T) {
 					}
 					journey.requireVersion(step.version)
 					journey.requireProgramBytes(step.program)
+					journey.requireCredential(retainedCredential, token)
 					count := completions.Load()
 					journey.run("verify", "--for", client)
 					journey.requireNativePreferences(client)

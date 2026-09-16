@@ -7,6 +7,7 @@ import (
 	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNativeProductJourney(t *testing.T) {
@@ -26,7 +28,7 @@ func TestNativeProductJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	newVersion, err := readiness.ReadDeliveryVersion(root, os.Getenv("AIGW_LOCAL_DELIVERY") == "true")
+	newVersion, err := readiness.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,9 +74,7 @@ func TestNativeProductJourney(t *testing.T) {
 			Mutability:   "read_only",
 			Persistence:  "explicit",
 		})
-		if got := journey.claudeCredential(); got != "native-journey-token" {
-			t.Fatalf("credential = %q", got)
-		}
+		journey.requireClaudeCredential("native-journey-token")
 		journey.run("check")
 		journey.run("verify", "--for", "claude")
 		journey.uninstallAndRequireOwnedFilesAbsent()
@@ -130,9 +130,7 @@ func TestNativeProductJourney(t *testing.T) {
 				Mutability:   "read_write",
 				Persistence:  "persisted",
 			})
-			if got := journey.claudeCredential(); got != token {
-				t.Fatalf("credential = %q", got)
-			}
+			journey.requireClaudeCredential(token)
 			backend := filepath.Join(journey.root, "data", "aigw", "secrets", "backend")
 			if got := strings.TrimSpace(string(readFile(t, backend))); got != "file" {
 				t.Fatalf("persisted backend = %q, want file", got)
@@ -175,7 +173,7 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadDeliveryVersion(root, os.Getenv("AIGW_LOCAL_DELIVERY") == "true")
+	version, err := readiness.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -398,31 +396,22 @@ func (j *journeyFixture) requireClaudeProjection() {
 	}
 }
 
-func (j *journeyFixture) claudeCredential() string {
+func (j *journeyFixture) requireClaudeCredential(want string) {
 	j.testing.Helper()
-	var settings struct {
-		APIKeyHelper string `json:"apiKeyHelper"`
+	j.requireCredential(j.retainedCredential(configuration.ClientClaude), want)
+}
+
+func (j *journeyFixture) requireCredential(plan process.Plan, want string) {
+	j.testing.Helper()
+	ctx, cancel := context.WithTimeout(j.testing.Context(), 10*time.Second)
+	defer cancel()
+	output, err := (process.Runner{}).RunCapture(ctx, plan)
+	if err != nil {
+		j.testing.Fatalf("execute retained credential command: %v", err)
 	}
-	if err := json.Unmarshal(readFile(j.testing, j.settings), &settings); err != nil {
-		j.testing.Fatal(err)
+	if strings.TrimSpace(string(output)) != want {
+		j.testing.Fatal("retained credential command returned unexpected content")
 	}
-	if settings.APIKeyHelper == "" {
-		j.testing.Fatal("Claude projection lacks a credential helper")
-	}
-	if runtime.GOOS == "windows" {
-		// Execute the exact helper as native shell source, not a quoted Go
-		// argument: cmd.exe does not use CommandLineToArgvW escaping.
-		script := filepath.Join(j.root, "credential helper.cmd")
-		if err := os.WriteFile(script, []byte("@echo off\r\n"+settings.APIKeyHelper+"\r\n"), 0o600); err != nil {
-			j.testing.Fatal(err)
-		}
-		output, err := (process.Runner{}).RunCapture(j.testing.Context(), process.Plan{Executable: script, Env: j.environment})
-		if err != nil {
-			j.testing.Fatalf("execute projected credential helper: %v", err)
-		}
-		return strings.TrimSpace(string(output))
-	}
-	return strings.TrimSpace(string(j.runWith("/bin/sh", "-c", settings.APIKeyHelper)))
 }
 
 func (j *journeyFixture) uninstallAndRequireOwnedFilesAbsent() {

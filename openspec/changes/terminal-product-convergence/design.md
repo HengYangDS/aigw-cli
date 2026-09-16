@@ -98,6 +98,15 @@ next independent closure rather than waiting or repeating completed work.
 If only task progress changes after a release, retain the signed matrix and
 published tag; refresh governance evidence without rebuilding product bytes.
 
+Before another credential-related deployment, identify the published
+predecessor's actual credential reader rather than infer it from the AIGW
+executable path. Capture the original client invocation before replacement and
+exercise it before any projection refresh; retain the same native item for
+authorization acceptance. New-process success with rewritten configuration
+proves a different boundary. Existing installation and complete rollback remain
+protected while reader ownership is unresolved. A host-local helper is not a
+product architecture decision or an alternative acceptance path.
+
 | Order | Existing tasks                    | Closure and acceptance                                                                                                                                                                                                                                                                                                              |
 | ----- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | 5.4, 12.8, 12.6, 13.6             | Close retained-state upgrade and native-client regressions before matrix construction. Run the verified published predecessor through the unchanged product lifecycle and the separate real-client journey on each supported OS. Reopen contradicted tasks; keep run status and blockers only in tasks.md. Preserve operator state. |

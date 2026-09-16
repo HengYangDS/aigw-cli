@@ -72,34 +72,6 @@ func TestNativeReleaseArchivesContainDeterministicCertificateSignatures(t *testi
 	}
 }
 
-func TestNativeLocalArchiveUsesAdHocSigning(t *testing.T) {
-	request, _ := privateCertificateRelease(t)
-	request.Local = true
-	request.TargetOS = "darwin"
-	request.Version = "1.2.4-local.100+local." + strings.Repeat("a", 40)
-	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
-		t.Setenv(name, "")
-	}
-	stage, err := buildArchives(request, t.TempDir(), executeTool)
-	if err != nil {
-		t.Fatal(err)
-	}
-	target := artifact.Target{OS: "darwin", Arch: "arm64"}
-	program, err := target.ReadProgram(filepath.Join(stage, target.ArchiveName(request.Version)), filepath.Join(stage, "checksums.txt"), request.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(t.TempDir(), "aigw")
-	if err := os.WriteFile(path, program, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	privateReleaseCommand(t, "", "/usr/bin/codesign", "--verify", "--strict", path)
-	detail := privateReleaseCommand(t, "", "/usr/bin/codesign", "--display", "--verbose=4", path)
-	if !bytes.Contains(detail, []byte("Signature=adhoc")) {
-		t.Fatalf("local delivery unexpectedly claims a publisher identity: %s", detail)
-	}
-}
-
 func requireNativeReleaseSignature(t *testing.T, program []byte, requirement string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "aigw")

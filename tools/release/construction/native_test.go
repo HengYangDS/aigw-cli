@@ -137,49 +137,6 @@ func TestNativeBuildRequiresOnlyItsPlatformSigningInputs(t *testing.T) {
 	}
 }
 
-func TestExplicitLocalBuildDoesNotRequirePublisherCertificate(t *testing.T) {
-	request := buildRequest{Root: releaseRoot(t), Version: "1.2.4-local.100+local." + strings.Repeat("a", 40), Epoch: "100", TargetOS: "darwin", Local: true}
-	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
-		t.Setenv(name, "")
-	}
-	calls := 0
-	_, err := buildArchives(request, t.TempDir(), func(call toolCall) error {
-		calls++
-		if call.Name != "goreleaser" || !slices.Contains(call.Env, "AIGW_LOCAL_DELIVERY=true") {
-			t.Fatalf("local build escaped existing archive owner: %#v", call)
-		}
-		return nil
-	})
-	if err != nil || calls != 1 {
-		t.Fatalf("local build still requires publisher credentials: calls=%d error=%v", calls, err)
-	}
-}
-
-func TestLocalNativeAdmissionVerifiesSignatureBeforeExecution(t *testing.T) {
-	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "0", Local: true}
-	source := t.TempDir()
-	writeNativeArchive(t, source)
-	want := errors.New("native signature rejected")
-	executed := false
-	err := acceptNative(request, source, false, "", func(call toolCall) error {
-		if call.Name == "codesign" {
-			return want
-		}
-		executed = true
-		if !slices.Contains(call.Env, "AIGW_LOCAL_DELIVERY=true") {
-			t.Fatal("native journey lost explicit local delivery selection")
-		}
-		return nil
-	})
-	if runtime.GOOS == "darwin" {
-		if !errors.Is(err, want) || executed {
-			t.Fatalf("signature rejection admitted client execution: error=%v executed=%t", err, executed)
-		}
-	} else if err != nil || !executed {
-		t.Fatalf("non-macOS lifecycle acquired a signing prerequisite: error=%v executed=%t", err, executed)
-	}
-}
-
 func TestNativeArchivePreparationRequiresVerifiedBytes(t *testing.T) {
 	for _, scenario := range []string{"valid", "missing", "corrupt", "collision"} {
 		t.Run(scenario, func(t *testing.T) {

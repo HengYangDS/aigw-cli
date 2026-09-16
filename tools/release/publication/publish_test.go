@@ -2,7 +2,6 @@ package publication
 
 import (
 	"aigw-cli/tools/release/artifact"
-	"aigw-cli/tools/release/readiness"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +14,42 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestUploadGitLabArtifactsUsesGenericPackageAPI(t *testing.T) {
+	directory := releaseFixture(t, "1.2.3")
+	expected := readReleaseFixture(t, directory, "1.2.3")
+	uploaded := 0
+	header := "Job-Token"
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPut || !strings.HasPrefix(request.URL.Path, "/projects/7/packages/generic/aigw/1.2.3/") {
+			t.Fatalf("request=%s %s", request.Method, request.URL.Path)
+		}
+		if request.Header.Get(header) != "token" || request.Header.Get("Job-Token") == request.Header.Get("Private-Token") {
+			t.Error("upload did not select exactly one native credential")
+		}
+		data, _ := io.ReadAll(request.Body)
+		if string(data) != string(expected[filepath.Base(request.URL.Path)]) {
+			t.Fatalf("payload=%q", data)
+		}
+		uploaded++
+		response.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+	config := GitLabConfig{APIBase: server.URL, ProjectID: "7", Tag: "v1.2.3", Artifacts: directory, Trust: fixtureTrust(directory), Source: fixtureSource(directory)}
+	for _, mode := range []string{"Job-Token", "Private-Token"} {
+		header = mode
+		config.JobToken, config.AccessToken = "token", ""
+		if mode == "Private-Token" {
+			config.JobToken, config.AccessToken = "", "token"
+		}
+		if err := UploadGitLab(t.Context(), server.Client(), config); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if uploaded != 2*len(expected) {
+		t.Fatalf("uploaded=%d, expected=%d", uploaded, 2*len(expected))
+	}
+}
 
 func TestUploadGitLabArtifactsFailsClosedAtEveryBoundary(t *testing.T) {
 	directory := releaseFixture(t, "1.2.3")
@@ -87,45 +122,6 @@ func TestPublicationRequiresSourceProvenanceBeforeNetwork(t *testing.T) {
 				t.Fatalf("source admission=%v, network requests=%d, want 0", err, requests)
 			}
 		})
-	}
-}
-
-func TestLocalSourceArtifactsCannotBecomePublicReleases(t *testing.T) {
-	version := "1.2.3-rc.1+local." + strings.Repeat("a", 40)
-	directory := releaseFixture(t, version)
-	err := artifact.VerifyProvenance(t.Context(), directory, "v"+version, fixtureSource(directory))
-	if err == nil || !strings.Contains(err.Error(), "local") {
-		t.Fatalf("local delivery must remain outside public publication even with a signed tag: %v", err)
-	}
-}
-
-func TestLocalProvenanceUsesSignedCommitWithoutReleaseTag(t *testing.T) {
-	directory := releaseFixture(t, "1.2.3-rc.1")
-	source := fixtureSource(directory)
-	commit := releaseGit(t, source.Repository, "rev-parse", "HEAD")
-	tree := releaseGit(t, source.Repository, "rev-parse", "HEAD^{tree}")
-	epoch := releaseGit(t, source.Repository, "show", "-s", "--format=%ct", "HEAD")
-	version, err := readiness.LocalVersion("1.2.3-rc.1", commit, epoch)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range artifact.Names("1.2.3-rc.1") {
-		if err := os.Rename(filepath.Join(directory, name), filepath.Join(directory, strings.ReplaceAll(name, "1.2.3-rc.1", version))); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := artifact.WriteProvenance(source.Repository, directory, filepath.Join(directory, "aigw_"+version+".provenance.json"), version, commit, tree); err != nil {
-		t.Fatal(err)
-	}
-	releaseGit(t, source.Repository, "tag", "-d", "v1.2.3-rc.1")
-	if err := artifact.VerifyLocalProvenance(t.Context(), directory, version, source); err != nil {
-		t.Fatalf("signed local source must not require a release tag: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(directory, artifact.Archives(version)[0]), []byte("changed artifact"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := artifact.VerifyLocalProvenance(t.Context(), directory, version, source); err == nil {
-		t.Fatal("local provenance accepted changed artifact bytes")
 	}
 }
 

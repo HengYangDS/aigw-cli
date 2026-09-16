@@ -151,7 +151,7 @@ func nativePerformancePrograms(t *testing.T) []performanceProgram {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadDeliveryVersion(root, os.Getenv("AIGW_LOCAL_DELIVERY") == "true")
+	version, err := readiness.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,9 +196,7 @@ func nativePerformanceJourney(t *testing.T, program, backend string) *journeyFix
 		j.runWithInput(j.binary, token+"\n", append(args, "--token-stdin")...)
 	}
 	j.run("profile", "add", "performance-second", "--account", account, "--for", "claude", "--model", "claude-second")
-	if got := j.claudeCredential(); got != token {
-		t.Fatal("projected helper did not return its owned synthetic credential")
-	}
+	j.requireClaudeCredential(token)
 	return j
 }
 

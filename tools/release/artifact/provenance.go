@@ -1,7 +1,6 @@
 package artifact
 
 import (
-	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -80,25 +79,12 @@ func WriteProvenance(root, candidate, target, version, commit, tree string) erro
 
 // VerifyProvenance binds canonical artifact provenance to the selected, trusted local tag and commit.
 func VerifyProvenance(ctx context.Context, directory, tag string, trust SourceTrust) error {
-	return verifyProvenance(ctx, directory, tag, trust, false)
-}
-
-// VerifyLocalProvenance binds local artifacts to their exact approved source commit.
-// It does not admit them for Forge publication.
-func VerifyLocalProvenance(ctx context.Context, directory, version string, trust SourceTrust) error {
-	return verifyProvenance(ctx, directory, "v"+version, trust, true)
-}
-
-func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTrust, local bool) error {
 	if trust.Repository == "" || trust.AllowedSigners == "" {
 		return errors.New("release source authorization requires repository and Git allowed-signers file")
 	}
 	version, err := semver.StrictNewVersion(strings.TrimPrefix(tag, "v"))
 	if err != nil || !strings.HasPrefix(tag, "v") {
 		return errors.New("release provenance requires v<semver> tag")
-	}
-	if strings.HasPrefix(version.Metadata(), "local.") != local {
-		return errors.New("local delivery and public release provenance require different admission")
 	}
 	git := func(args ...string) ([]byte, error) {
 		command := exec.CommandContext(ctx, "git", append([]string{
@@ -111,16 +97,13 @@ func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 		}
 		return output, nil
 	}
-	object := strings.TrimPrefix(version.Metadata(), "local.")
-	if !local {
-		tagObject, err := git("rev-parse", "--verify", "refs/tags/"+tag)
-		if err != nil {
-			return err
-		}
-		object = strings.TrimSpace(string(tagObject))
-		if _, err := git("verify-tag", object); err != nil {
-			return err
-		}
+	tagObject, err := git("rev-parse", "--verify", "refs/tags/"+tag)
+	if err != nil {
+		return err
+	}
+	object := strings.TrimSpace(string(tagObject))
+	if _, err := git("verify-tag", object); err != nil {
+		return err
 	}
 	commitBytes, err := git("rev-parse", "--verify", object+"^{commit}")
 	if err != nil {
@@ -139,18 +122,7 @@ func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 	if err != nil {
 		return err
 	}
-	declaredVersion := strings.TrimSpace(string(declared))
-	if local {
-		epoch, err := git("show", "-s", "--format=%ct", commit)
-		if err != nil {
-			return err
-		}
-		declaredVersion, err = readiness.LocalVersion(declaredVersion, commit, strings.TrimSpace(string(epoch)))
-		if err != nil {
-			return err
-		}
-	}
-	if declaredVersion != version.String() {
+	if strings.TrimSpace(string(declared)) != version.String() {
 		return errors.New("release provenance tag and source VERSION differ")
 	}
 	expected, err := provenanceBytes(readSource, directory, version.String(), commit, strings.TrimSpace(string(treeBytes)))

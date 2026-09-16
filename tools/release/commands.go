@@ -21,7 +21,6 @@ func buildCommands() commandSet {
 		"accept-native": func(args []string, _ io.Writer) error {
 			flags := flag.NewFlagSet("accept-native", flag.ContinueOnError)
 			clients := flags.Bool("clients", false, "Also verify real clients through the native lifecycle")
-			local := flags.Bool("local", false, "Consume exact-source local artifacts without public distribution claims")
 			artifacts := flags.String("artifacts", "", "Consume an existing signed release matrix instead of building")
 			performance := flags.String("performance", "", "Retain Hyperfine measurements in this absolute output directory")
 			if err := flags.Parse(args); err != nil {
@@ -34,22 +33,17 @@ func buildCommands() commandSet {
 				return errors.New("performance acceptance requires an explicit published candidate and baseline")
 			}
 			if *artifacts != "" {
-				if err := verifyArtifacts(*artifacts, *local); err != nil {
+				if err := verifyArtifacts(*artifacts); err != nil {
 					return err
 				}
 			}
-			return construction.AcceptNative(*artifacts, *clients, *performance, *local)
+			return construction.AcceptNative(*artifacts, *clients, *performance)
 		},
 		"build": func(args []string, _ io.Writer) error {
-			flags := flag.NewFlagSet("build", flag.ContinueOnError)
-			local := flags.Bool("local", false, "Build exact-source local artifacts; never publish them")
-			if err := flags.Parse(args); err != nil {
+			if err := requireArguments(args, 1, "usage: release build <output-directory>"); err != nil {
 				return err
 			}
-			if err := requireArguments(flags.Args(), 1, "usage: release build [--local] <output-directory>"); err != nil {
-				return err
-			}
-			return construction.Build(flags.Arg(0), *local)
+			return construction.Build(args[0])
 		},
 		"build-ci": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 2, "usage: release build-ci <workspace> <output-directory>"); err != nil {
@@ -122,15 +116,10 @@ func publicationCommands() commandSet {
 	source := artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
 	return commandSet{
 		"verify-artifacts": func(args []string, _ io.Writer) error {
-			flags := flag.NewFlagSet("verify-artifacts", flag.ContinueOnError)
-			local := flags.Bool("local", false, "Verify local artifacts against signed source rather than a release tag")
-			if err := flags.Parse(args); err != nil {
+			if err := requireArguments(args, 1, "usage: release verify-artifacts <artifact-directory>"); err != nil {
 				return err
 			}
-			if err := requireArguments(flags.Args(), 1, "usage: release verify-artifacts [--local] <artifact-directory>"); err != nil {
-				return err
-			}
-			return verifyArtifacts(flags.Arg(0), *local)
+			return verifyArtifacts(args[0])
 		},
 		"publish-github": func(args []string, stdout io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release publish-github <artifact-directory>"); err != nil {
@@ -182,8 +171,8 @@ func publicationCommands() commandSet {
 	}
 }
 
-func verifyArtifacts(directory string, local bool) error {
-	version, err := readiness.ReadDeliveryVersion(".", local)
+func verifyArtifacts(directory string) error {
+	version, err := readiness.ReadProductVersion(".")
 	if err != nil {
 		return err
 	}
@@ -195,8 +184,5 @@ func verifyArtifacts(directory string, local bool) error {
 		return err
 	}
 	source := artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
-	if local {
-		return artifact.VerifyLocalProvenance(context.Background(), directory, version, source)
-	}
 	return artifact.VerifyProvenance(context.Background(), directory, os.Getenv("CI_COMMIT_TAG"), source)
 }
