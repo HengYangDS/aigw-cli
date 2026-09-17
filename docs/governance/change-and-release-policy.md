@@ -142,10 +142,11 @@ vulnerability scanning and repository Mermaid conformance must pass together.
 This is not a claim that every transitive dependency is its latest major.
 
 The former jsdom 30.x and whatwg-url 17.1.0 overrides are removed. They created
-a repository-owned dependency contract and a pin around the missing npm
-attestation for whatwg-url 17.1.1. Removing that unnecessary contract removes
-the broken publication from the dependency graph without waiving verification
-or modifying upstream packages. It does not repair the upstream registry.
+a repository-owned dependency contract around a publication whose advertised
+npm attestation returned HTTP 404. The current graph no longer selects that
+publication, and dependency acceptance is defined only over packages in the
+committed lockfile. A missing advertised attestation for any selected package is
+a failed candidate, never a permanent exception.
 
 The native dependency graph still reports the upstream deprecation of
 `whatwg-encoding@3.1.1`. The current vulnerability audit is clean, but that
