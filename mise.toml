@@ -36,7 +36,7 @@ glab = "1.118.0"
 "github:anchore/syft" = "1.51.1"
 # Build with the repository Go compiler; upstream binaries may lag its language.
 "go:github.com/google/osv-scanner/v2/cmd/osv-scanner" = "2.6.0"
-# Cross-host macOS release signing and private native credential identity tests.
+# Cross-host ad-hoc macOS artifact signing.
 "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]" = "0.29.0"
 
 # Structured data quality

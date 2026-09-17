@@ -338,8 +338,9 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 	if job.Env["CI_COMMIT_TAG"] != tag || job.Steps[0].With["ref"] != "${{ github.event.pull_request.head.sha || github.sha }}" {
 		t.Fatal("release artifact identity and verifier revision must remain separate")
 	}
-	if job.Env["AIGW_RELEASE_ARTIFACT_SIGNER"] != "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}" {
-		t.Fatal("release signer trust is absent")
+	if job.Env["AIGW_RELEASE_ARTIFACT_SIGNER"] != "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}" ||
+		job.Env["MISE_ENABLE_TOOLS"] != "${{ inputs.native_lifecycle && 'go,gh,node,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' || 'go,gh' }}" {
+		t.Fatal("release signer trust or lifecycle tool closure is absent")
 	}
 	var commands []string
 	var trust []string
