@@ -8,7 +8,7 @@
     "spec:check": "node node_modules/@fission-ai/openspec/bin/openspec.js validate --all --strict --report findings --json --no-interactive"
   },
   "devDependencies": {
-    "@fission-ai/openspec": "1.13.0",
+    "@fission-ai/openspec": "1.13.1",
     "@mermaid-lint/core": "0.53.1",
     "markdownlint-cli2": "0.23.2",
     "prettier": "3.9.7"
