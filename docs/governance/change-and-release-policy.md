@@ -136,14 +136,21 @@ itself; registry integrity and the native Markdown checks remain required.
 
 Mermaid validation uses the development-only `@mermaid-lint/core` package,
 which calls Mermaid's parser without installing a browser in CI. Its scoped
-jsdom override selects 29.1.1 to remove the deprecated encoding dependency in
-the upstream 26.x range. The newer 30.0.1 resolution was not admitted: npm
-advertised provenance for its whatwg-url 17.1.1 dependency, but the attestation
-endpoint returned 404 during that admission attempt.
-This is an explicit supply-chain exception,
-not a claim that 29.1.1 is latest. Reconsider the override when the upstream
-range removes deprecated dependencies and the complete resolution passes
-registry signatures, provenance, vulnerability and diagram conformance checks.
+jsdom override selects 30.0.1 and resolves `whatwg-url` to 17.1.0, within
+jsdom's declared `^17.1.0` range. This removes the former 29.1.1 freeze
+without accepting the broken 17.1.1 provenance record or disabling verification.
+
+The npm metadata for `whatwg-url@17.1.1` advertises an attestation that returns
+HTTP 404; 17.1.0 returns a verifiable attestation. The upstream report is
+[whatwg-url issue 338](https://github.com/jsdom/whatwg-url/issues/338).
+This is a registry publication failure, not evidence of a runtime vulnerability.
+jsdom 30.1.0 requires `^17.1.1`, so forcing 17.1.0 into that release would
+violate its dependency contract. Keep the compatible 30.0.1/17.1.0 pair until a
+newer complete resolution passes clean installation, registry signatures and
+provenance, vulnerability scanning and Mermaid conformance. Every explicitly
+invoked dependency-maintenance run rechecks that condition; remove the nested
+URL override in the first admitted resolution that no longer needs it. Do not
+claim that the upstream record has been repaired or that this pair is latest.
 
 [Renovate's local platform](https://docs.renovatebot.com/modules/platform/local/)
 supports extraction and lookup only. It cannot generate an update branch.
