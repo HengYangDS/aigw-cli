@@ -6,7 +6,6 @@ import (
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -14,13 +13,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -93,39 +90,6 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	if completed() < count+2 {
 		j.testing.Fatal("external helper did not authenticate both real-client invocations")
 	}
-}
-
-func prepareNativeSigning(t *testing.T) {
-	t.Helper()
-	if runtime.GOOS != "darwin" || os.Getenv("AIGW_MACOS_SIGNING_P12") != "" {
-		return
-	}
-	root := t.TempDir()
-	certificate := filepath.Join(root, "identity")
-	p12, password, requirements := filepath.Join(root, "identity.p12"), filepath.Join(root, "password"), filepath.Join(root, "requirement.bin")
-	if err := os.WriteFile(password, []byte("synthetic"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	run := func(executable string, args ...string) string {
-		ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-		defer cancel()
-		output, err := exec.CommandContext(ctx, executable, args...).CombinedOutput()
-		if err != nil {
-			t.Fatalf("private signing fixture %s: %v\n%s", executable, err, output)
-		}
-		return string(output)
-	}
-	run("rcodesign", "-C", "/dev/null", "generate-self-signed-certificate", "--person-name", "aigw-native-journey", "--validity-days", "1", "--pem-filename", certificate, "--p12-file", p12, "--p12-password", "synthetic")
-	fingerprint := run("/usr/bin/openssl", "x509", "-in", certificate+".crt", "-noout", "-fingerprint", "-sha1")
-	_, fingerprint, found := strings.Cut(fingerprint, "=")
-	if !found {
-		t.Fatal("private signing certificate fingerprint absent")
-	}
-	fingerprint = strings.ReplaceAll(strings.TrimSpace(fingerprint), ":", "")
-	run("/usr/bin/csreq", "-r", `=certificate leaf = H"`+fingerprint+`" and identifier "aigw"`, "-b", requirements)
-	t.Setenv("AIGW_MACOS_SIGNING_P12", p12)
-	t.Setenv("AIGW_MACOS_SIGNING_PASSWORD_FILE", password)
-	t.Setenv("AIGW_MACOS_SIGNING_REQUIREMENTS", requirements)
 }
 
 func (j *journeyFixture) requireCredentialBackend(token string, want secrets.BackendSelection) {

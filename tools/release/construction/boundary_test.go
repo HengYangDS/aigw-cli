@@ -86,23 +86,22 @@ func TestRenderGoReleaserConfigRejectsUnwritableDestination(t *testing.T) {
 	}
 }
 
-func TestReleaseRequiresCompleteNativeSigningBeforeAnyTool(t *testing.T) {
+func TestInternalReleaseNeedsNoPublisherCredentials(t *testing.T) {
+	root := releaseRoot(t)
 	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
-		for _, state := range []string{"absent", "relative", "missing", "directory"} {
-			t.Run(name+"/"+state, func(t *testing.T) {
-				root := releaseRoot(t)
-				value := map[string]string{"absent": "", "relative": "signer.p12", "missing": filepath.Join(root, "missing"), "directory": root}[state]
-				t.Setenv(name, value)
-				calls := 0
-				err := buildRelease(t.Context(), buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: "1.2.3", Epoch: "0", SigningKey: "synthetic"}, func(toolCall) error {
-					calls++
-					return errors.New("tool must not execute")
-				})
-				if err == nil || !strings.Contains(err.Error(), name) || calls != 0 {
-					t.Fatalf("missing native signing boundary: err=%v calls=%d", err, calls)
-				}
-			})
+		t.Setenv(name, "")
+	}
+	want := errors.New("source inspection reached")
+	calls := 0
+	err := buildRelease(t.Context(), buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: "1.2.3", Epoch: "0", SigningKey: "synthetic"}, func(call toolCall) error {
+		calls++
+		if call.Name != "git" {
+			t.Fatalf("first boundary = %s, want source inspection", call.Name)
 		}
+		return want
+	})
+	if !errors.Is(err, want) || calls != 1 {
+		t.Fatalf("internal release blocked before source inspection: err=%v calls=%d", err, calls)
 	}
 }
 

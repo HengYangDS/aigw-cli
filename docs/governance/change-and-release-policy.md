@@ -377,57 +377,28 @@ and `SOURCE_DATE_EPOCH` from the committed Changelog date. The build emits the
 complete portable archive matrix, checksums, and SPDX SBOM. Repeating the build
 with the same inputs must produce identical bytes.
 
-macOS binary identity is distinct from the detached SSH archive signature.
-GoReleaser's native post-build hooks enable Hardened Runtime, sign and verify macOS binaries before they
-enter archives, checksums and SBOMs. The release operator supplies three absolute
-file paths:
+Internal macOS delivery does not require Apple Developer enrollment, a publisher
+certificate, a password file or notarization. GoReleaser's existing post-build
+hooks apply an ad-hoc Mach-O signature with Hardened Runtime before archiving.
+Native macOS qualification verifies the extracted binaries with Apple codesign. This provides local code-integrity metadata, not a trusted publisher
+identity or Gatekeeper distribution approval. Public notarized macOS distribution
+is outside the current delivery scope; no system trust or quarantine policy is
+changed to simulate that approval.
 
-| Input                              | Responsibility                                                                            |
-| ---------------------------------- | ----------------------------------------------------------------------------------------- |
-| `AIGW_MACOS_SIGNING_P12`           | Encrypted, approved PKCS#12 code-signing identity                                         |
-| `AIGW_MACOS_SIGNING_PASSWORD_FILE` | Protected file containing its password                                                    |
-| `AIGW_MACOS_SIGNING_REQUIREMENTS`  | Compiled public designated requirement bound to the approved identity and AIGW identifier |
+Signing uses explicit tool configuration, no credential store and no network
+timestamp service. Signature time comes from the selected release epoch.
+GoReleaser 2.18.1 does not evaluate `builds_info.mtime` for binary entries, so the
+existing Node hook restores that epoch after signing. The native archive test
+verifies both macOS architectures and compares complete matrices across a
+wall-clock boundary. Remove the timestamp workaround when an admitted upstream
+version passes the same regression without it.
 
-Construction validates these paths before invoking tools. It neither provisions
-signing credentials nor changes user Keychains, trust settings or credential ACLs.
-Signing uses an explicit configuration and no network timestamp service; signature
-time comes from the selected release epoch. The locked GoReleaser 2.18.1 does not
-evaluate `builds_info.mtime` for binary entries, so the same post-build hook uses
-the locked Node filesystem API to restore that epoch after signing. A cross-second
-native archive regression prevents wall-clock metadata from breaking reproducibility.
-Remove that timestamp workaround when an admitted upstream version passes the
-same regression without it. This offline, deterministic signing stage is not
-production-distribution qualification, even when supplied an Apple certificate.
-
-For the product's notarized distribution outside the App Store, the publisher's
-individual or organization Apple Developer Program Account Holder obtains a
-[Developer ID Application certificate](https://developer.apple.com/help/account/certificates/create-developer-id-certificates).
-The certificate and its corresponding private key form the signing identity;
-the certificate alone cannot sign. Keep the key and password in the authorized
-release operator's signing infrastructure, outside Git, client profiles and chat.
-End users need neither developer membership nor the signing private key to
-install and use published artifacts. Local signing, native credential enrollment
-and routine retained-item access are separate decisions; this public-distribution
-policy does not establish their technical prerequisites or authorize host changes.
-
-[Apple's notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
-also require a secure timestamp and Hardened Runtime for command-line targets.
-The current hook enables Hardened Runtime but disables the timestamp service;
-neither production timestamping nor notarization is implemented or claimed.
-Completing that path must separate reproducible build inputs from the
-externally timestamped distribution envelope: verify the payload first, sign
-and notarize once, then publish those same immutable bytes to each selected
-peer. Rebuilding timestamped signatures independently is not a byte-parity
-strategy. Qualification must inspect the actual distribution artifact and
-preserve the separate retained-credential acceptance obligation below.
-
-Native artifact acceptance builds only its current operating system; Linux and
-Windows do not require Apple signing inputs. Full release construction still
-requires the complete six-target matrix. macOS candidate construction requires an
-explicit approved or isolated test identity; it never silently substitutes an
-ad-hoc signature. Published-artifact acceptance consumes existing bytes without
-requiring access to their signing keys. Retained-credential authorization is
-verified separately under [the native credential decision](../decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
+Detached SSH signatures authenticate the archive manifest independently of the
+local Mach-O signature. Checksums, provenance, SBOMs and immutable peer parity
+remain required. Native acceptance builds its current operating system; full
+release construction emits all six targets. Consumers need no signing key.
+Retained credential access remains a separate native acceptance obligation under
+[the credential decision](../decisions/dr-0011-single-portable-token-backend.md#release-identity-and-credential-authorization).
 
 The SPDX SBOM catalogs every emitted native binary in the isolated GoReleaser
 stage, including platform-specific dependencies. Syft's Go-binary and file

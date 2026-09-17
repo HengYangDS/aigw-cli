@@ -18,8 +18,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func TestNativeReleaseArchivesContainDeterministicCertificateSignatures(t *testing.T) {
-	request, requirement := privateCertificateRelease(t)
+func TestNativeReleaseArchivesHaveDeterministicLocalSignatures(t *testing.T) {
+	request := privateInternalRelease(t)
 	var previous []byte
 	for range 2 {
 		if previous != nil {
@@ -32,7 +32,7 @@ func TestNativeReleaseArchivesContainDeterministicCertificateSignatures(t *testi
 		}
 		checksums, err := os.ReadFile(filepath.Join(stage, "checksums.txt"))
 		if err != nil || previous != nil && !bytes.Equal(previous, checksums) {
-			t.Fatalf("certificate-signed archive matrix is not reproducible: %v\nfirst:\n%s\nsecond:\n%s", err, previous, checksums)
+			t.Fatalf("locally signed archive matrix is not reproducible: %v\nfirst:\n%s\nsecond:\n%s", err, previous, checksums)
 		}
 		previous = checksums
 		for _, platform := range []string{"darwin", "linux", "windows"} {
@@ -43,12 +43,12 @@ func TestNativeReleaseArchivesContainDeterministicCertificateSignatures(t *testi
 					t.Fatal(err)
 				}
 				if platform == "darwin" {
-					requireNativeReleaseSignature(t, program, requirement)
+					requireNativeReleaseSignature(t, program)
 				}
 			}
 		}
 	}
-	for _, platform := range []string{"linux", "windows"} {
+	for _, platform := range []string{"darwin", "linux", "windows"} {
 		t.Run(platform+" without macOS credentials", func(t *testing.T) {
 			request.TargetOS = platform
 			for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
@@ -72,20 +72,20 @@ func TestNativeReleaseArchivesContainDeterministicCertificateSignatures(t *testi
 	}
 }
 
-func requireNativeReleaseSignature(t *testing.T, program []byte, requirement string) {
+func requireNativeReleaseSignature(t *testing.T, program []byte) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "aigw")
 	if err := os.WriteFile(path, program, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	privateReleaseCommand(t, "", "/usr/bin/codesign", "--verify", "--strict", "--test-requirement", "="+requirement, path)
+	privateReleaseCommand(t, "", "/usr/bin/codesign", "--verify", "--strict", path)
 	signature := privateReleaseCommand(t, "", "/usr/bin/codesign", "--display", "--verbose=4", path)
-	if !strings.Contains(string(signature), "(runtime)") {
-		t.Fatalf("macOS archive must enable Hardened Runtime: %s", signature)
+	if !strings.Contains(string(signature), "(adhoc,runtime)") || !strings.Contains(string(signature), "Signature=adhoc") {
+		t.Fatalf("macOS internal archive must have an ad-hoc signature and Hardened Runtime: %s", signature)
 	}
 }
 
-func privateCertificateRelease(t *testing.T) (buildRequest, string) {
+func privateInternalRelease(t *testing.T) buildRequest {
 	t.Helper()
 	root := releaseRoot(t)
 	config, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "release", "goreleaser.yaml"))
@@ -106,28 +106,13 @@ func privateCertificateRelease(t *testing.T) (buildRequest, string) {
 			t.Fatal(err)
 		}
 	}
-	private := t.TempDir()
-	p12, password, certificate := filepath.Join(private, "identity.p12"), filepath.Join(private, "password"), filepath.Join(private, "identity")
-	if err := os.WriteFile(password, []byte("synthetic"), 0o600); err != nil {
-		t.Fatal(err)
+	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
+		t.Setenv(name, "")
 	}
-	privateReleaseCommand(t, "", "rcodesign", "-C", "/dev/null", "generate-self-signed-certificate", "--person-name", "aigw-release-fixture", "--validity-days", "1", "--pem-filename", certificate, "--p12-file", p12, "--p12-password", "synthetic")
-	fingerprint := string(privateReleaseCommand(t, "", "/usr/bin/openssl", "x509", "-in", certificate+".crt", "-noout", "-fingerprint", "-sha1"))
-	_, fingerprint, found := strings.Cut(fingerprint, "=")
-	if !found {
-		t.Fatal("synthetic certificate fingerprint is absent")
-	}
-	fingerprint = strings.ReplaceAll(strings.TrimSpace(fingerprint), ":", "")
-	requirement := `certificate leaf = H"` + fingerprint + `" and identifier "aigw"`
-	requirements := filepath.Join(private, "requirement.bin")
-	privateReleaseCommand(t, "", "/usr/bin/csreq", "-r", "="+requirement, "-b", requirements)
-	t.Setenv("AIGW_MACOS_SIGNING_P12", p12)
-	t.Setenv("AIGW_MACOS_SIGNING_PASSWORD_FILE", password)
-	t.Setenv("AIGW_MACOS_SIGNING_REQUIREMENTS", requirements)
 	privateReleaseCommand(t, root, "git", "init", "--quiet")
 	privateReleaseCommand(t, root, "git", "-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.test", "commit", "--allow-empty", "--quiet", "-m", "test fixture")
 	request := buildRequest{Root: root, Version: "1.2.3", Epoch: strconv.FormatInt(time.Now().Unix(), 10)}
-	return request, requirement
+	return request
 }
 
 func privateReleaseCommand(t *testing.T, directory, executable string, args ...string) []byte {

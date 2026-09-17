@@ -61,31 +61,23 @@ Installing or using published AIGW requires neither developer membership nor the
 publisher's private key. An individual may also be the publisher; that is a
 separate role, not a prerequisite imposed on every workstation user.
 
-[Apple's Code Signing Tasks](https://developer.apple.com/library/archive/documentation/Security/Conceptual/CodeSigningGuide/Procedures/Procedures.html)
-distinguishes signing from certificate-authority trust. Local signing need not
-use a CA-issued certificate, but that does not establish public distribution
-trust or authorization to a retained Keychain item. The product obligations are:
+The current macOS delivery scope is internal use, not notarized public
+distribution. Its boundaries are:
 
-| Boundary            | Required outcome                                                                                     |
-| ------------------- | ---------------------------------------------------------------------------------------------------- |
-| Native signing      | Verify the exact executable and declared code identity.                                              |
-| Public distribution | Supply Developer ID signing and notarization under the release policy.                               |
-| Routine access      | Use the selected backend and exact slots without fallback, migration or access-control modification. |
-| Release transition  | Prove retained-item access through update, rollback and re-upgrade using original client commands.   |
+| Boundary              | Required outcome                                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| Artifact integrity    | Verify the SSH-signed archive manifest and exact payload checksums.                                  |
+| Local macOS execution | Verify the ad-hoc Mach-O signature and execute the native artifact.                                  |
+| Routine access        | Use the selected backend and exact slots without fallback, migration or access-control modification. |
+| Release transition    | Prove retained-item access through update, rollback and re-upgrade using original client commands.   |
 
-The existing GoReleaser build signs macOS binaries before archiving. An encrypted
-PKCS#12 identity, password file and compiled designated requirement are explicit
-publisher release inputs; missing inputs stop construction without prompting or
-creating an identity. Signing time and post-signing file time use the release epoch, not
-wall time. Native Linux and Windows acceptance selects only its own operating
-system and needs no macOS credential. Full release construction still emits and
-verifies every declared target. The native archive test verifies both macOS
-architectures and their Hardened Runtime flag with Apple's verifier, then
-compares two complete matrices across a wall-clock boundary. It uses a
-disposable signing identity, not production trust. The
+The existing GoReleaser build applies a local signature before archiving; no
+publisher certificate or test identity is created. The release epoch controls
+signature and archive time. Native qualification verifies both macOS
+architectures, Hardened Runtime and repeated-build equality. These checks do not
+establish publisher trust or retained-item authorization. The
 [release policy](../governance/change-and-release-policy.md#reproducible-assets)
-owns Developer ID provisioning and the remaining secure-timestamp and
-notarization boundary; these are not credential-store responsibilities.
+owns artifact integrity and the excluded public-distribution boundary.
 
 Following [Apple's subsystem-specific trust model](https://developer.apple.com/library/archive/technotes/tn2206/_index.html),
 credential authorization, distribution trust and notarization remain separate

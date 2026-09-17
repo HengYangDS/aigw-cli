@@ -114,7 +114,7 @@ func TestBuildNativeRejectsInvalidInputsWithoutOwningCallerWorkspace(t *testing.
 	}
 }
 
-func TestNativeBuildRequiresOnlyItsPlatformSigningInputs(t *testing.T) {
+func TestNativeBuildNeedsNoPublisherCredentials(t *testing.T) {
 	for _, platform := range []string{"linux", "windows", "darwin", ""} {
 		t.Run(platform, func(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "0", TargetOS: platform}
@@ -129,8 +129,7 @@ func TestNativeBuildRequiresOnlyItsPlatformSigningInputs(t *testing.T) {
 				}
 				return nil
 			})
-			allowed := platform == "linux" || platform == "windows"
-			if (err == nil) != allowed || (calls == 1) != allowed {
+			if err != nil || calls != 1 {
 				t.Fatalf("platform=%q calls=%d error=%v", platform, calls, err)
 			}
 		})

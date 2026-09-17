@@ -73,30 +73,24 @@ consuming a replacement helper SHALL NOT establish existing-caller continuity.
 Complete rollback SHALL restore compatible program, configuration and credential
 ownership without requiring a credential fallback or new host helper.
 
-macOS release binaries SHALL have an explicitly supplied certificate-bound
-identity and Hardened Runtime before archive construction. Offline qualification
-signing and archive timestamps SHALL use the release epoch. Production
-distribution SHALL separately require a publisher-controlled Apple-issued
-Developer ID identity, secure timestamp, successful notarization and native
-artifact verification.
-Reproducible payload evidence SHALL remain distinct from externally issued
-timestamp and notarization evidence. Selected peers SHALL receive the same
-immutable distribution bytes, not independently re-signed artifacts.
-Missing signing inputs SHALL stop construction without
-prompting, provisioning an identity or substituting ad-hoc signing. Native
-acceptance SHALL select only its host operating system; unrelated platform
-credentials SHALL NOT be prerequisites. Consuming published assets SHALL NOT
-require their private signing keys.
-End users SHALL NOT require developer membership or private signing material
-to install and use published AIGW. A publisher and an end user MAY be the same
-person, but their roles and prerequisites SHALL remain distinct.
+Internal macOS release binaries SHALL have a verified ad-hoc Mach-O signature
+and Hardened Runtime before archiving, without requiring Apple Developer
+membership, publisher credentials or a generated test identity. Signing and
+archive timestamps SHALL use the release epoch. Public notarized macOS
+distribution is outside the current delivery scope; local signing SHALL NOT be
+represented as publisher authentication or Gatekeeper approval.
+Detached SSH manifest signatures, checksums, provenance and complete native
+acceptance SHALL remain required. Selected peers SHALL receive the same immutable
+artifact bytes. Native acceptance SHALL select only its host operating system;
+full construction SHALL emit the complete target matrix. Consuming published
+assets SHALL NOT require their private signing keys or developer membership.
 
 macOS retained-Keychain qualification SHALL preserve the published go-keyring
 `/usr/bin/security` provider across predecessor, candidate and rollback. It SHALL
 execute each retained original client credential command before synchronization,
 return the same Token and preserve configuration bytes without ACL mutation,
-backend migration or a replacement helper. Artifact signing and notarization
-remain independent distribution requirements; they SHALL NOT be prerequisites
+backend migration or a replacement helper. Artifact signing remains an independent integrity requirement; public
+notarization is outside scope. Neither SHALL be a prerequisite
 for routine credential access.
 
 Ordinary source tests SHALL use provider doubles and SHALL NOT touch the host
@@ -175,28 +169,23 @@ capacity boundary rather than an inferred product pass.
 - **THEN** the existing coverage invocation SHALL include integration tests once
 - **AND** selecting full quality SHALL preserve that same inclusion and scope.
 
-#### Scenario: Offline certificate-signed archives are rebuilt
+#### Scenario: Internal archives are rebuilt without publisher credentials
 
-- **WHEN** offline qualification uses identical source, toolchain, isolated
-  signing inputs and release epoch on either side of a wall-clock boundary
+- **WHEN** construction uses identical source, toolchain and release epoch on
+  either side of a wall-clock boundary without publisher credentials
 - **THEN** the complete archive matrix SHALL be byte-identical
-- **AND** macOS binaries extracted from the archives SHALL satisfy the declared
-  native signature requirement and enable Hardened Runtime
-- **AND** that result SHALL NOT establish production timestamping, notarization
-  or access to retained credentials.
+- **AND** extracted macOS binaries SHALL pass native signature verification
+  with ad-hoc signatures and Hardened Runtime
+- **AND** that result SHALL NOT establish publisher trust, notarization or
+  access to retained credentials.
 
-#### Scenario: Native Linux or Windows acceptance builds its asset
+#### Scenario: Native acceptance builds its asset
 
-- **WHEN** native acceptance runs without macOS signing inputs
+- **WHEN** native acceptance runs on macOS, Linux or Windows without Apple
+  signing credentials
 - **THEN** it SHALL build only its current operating system's declared targets
-- **AND** full release construction SHALL still require the complete matrix.
-
-#### Scenario: Native signing authority is missing
-
-- **WHEN** macOS or complete release construction lacks a required identity,
-  password-file or designated-requirement input
-- **THEN** it SHALL stop before external build execution
-- **AND** existing release output, credentials and host trust SHALL remain intact.
+- **AND** full release construction SHALL still require the complete matrix
+- **AND** construction SHALL leave existing credentials and host trust intact.
 
 #### Scenario: both publication planes complete
 

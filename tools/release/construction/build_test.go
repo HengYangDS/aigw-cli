@@ -144,12 +144,6 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 			t.Fatalf("GoReleaser environment missing %q: %v", expected, goReleaser.Env)
 		}
 	}
-	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
-		call := calls[slices.IndexFunc(calls, func(call toolCall) bool { return call.Name == "goreleaser" })]
-		if !slices.Contains(call.Env, name+"="+os.Getenv(name)) || os.Getenv(name) == "" {
-			t.Fatalf("release must bind explicit native signing input %s", name)
-		}
-	}
 	if err := artifact.ValidateMatrix(t.Context(), output, "1.2.3"); err != nil {
 		t.Fatal(err)
 	}
@@ -231,13 +225,6 @@ func releaseRoot(t *testing.T) string {
 	}
 	if err := os.WriteFile(filepath.Join(config, "syft.yaml"), policy, 0o600); err != nil {
 		t.Fatal(err)
-	}
-	for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
-		path := filepath.Join(root, name)
-		if err := os.WriteFile(path, []byte("synthetic native signing input"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		t.Setenv(name, path)
 	}
 	return root
 }
