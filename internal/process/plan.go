@@ -4,6 +4,7 @@ package process
 // Plan is a complete child-process invocation, including its explicit environment and standard input.
 type Plan struct {
 	Executable string
+	Directory  string
 	Args       []string
 	Env        []string
 	Stdin      string

@@ -8,8 +8,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // requireShellFixture fails loudly (rather than skipping) when this POSIX
@@ -58,4 +63,44 @@ func TestRunCaptureRejectsOversizedStdout(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "exceeds") {
 		t.Fatalf("RunCapture() error = %v, want oversized output", err)
 	}
+}
+
+func TestRunCaptureStopsOwnedDescendantsAfterParentExit(t *testing.T) {
+	requireShellFixture(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	other := exec.CommandContext(ctx, "/bin/sleep", "30")
+	if err := other.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = other.Process.Kill(); _ = other.Wait() })
+	output, err := (Runner{}).RunCapture(ctx, Plan{
+		Executable: "/bin/sh",
+		Args:       []string{"-c", "sleep 30 </dev/null >/dev/null 2>&1 & printf '%s' \"$!\""},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pid, err := strconv.Atoi(string(output))
+	if err != nil || pid <= 0 {
+		t.Fatalf("owned descendant identity = %q: %v", output, err)
+	}
+	t.Cleanup(func() { _ = unix.Kill(pid, unix.SIGKILL) })
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		status, queryErr := exec.CommandContext(ctx, "ps", "-o", "stat=", "-p", strconv.Itoa(pid)).Output()
+		var exited *exec.ExitError
+		absent := errors.As(queryErr, &exited) && exited.ExitCode() == 1
+		if queryErr != nil && !absent {
+			t.Fatalf("observe owned descendant: %v", queryErr)
+		}
+		if absent || strings.HasPrefix(strings.TrimSpace(string(status)), "Z") {
+			if err := other.Process.Signal(syscall.Signal(0)); err != nil {
+				t.Fatalf("unrelated process was stopped: %v", err)
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("owned descendant remains running after the invocation returned")
 }

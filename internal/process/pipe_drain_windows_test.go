@@ -106,7 +106,7 @@ func TestRunCaptureReportsPipeDrainAfterContextDeadline(t *testing.T) {
 	case <-time.After(capturedProcessWaitDelay + pipeDrainFixtureWait):
 		t.Fatal("RunCapture did not return after the bounded Windows pipe-drain delay")
 	}
-	if runErr == nil || !strings.Contains(runErr.Error(), "exceeded its verification limit and its output pipes did not close within") {
+	if !errors.Is(runErr, context.DeadlineExceeded) {
 		t.Fatalf("RunCapture error = %v, want Windows pipe-drain deadline diagnostic", runErr)
 	}
 }

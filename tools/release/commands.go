@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-func buildCommands() commandSet {
+func buildCommands(ctx context.Context) commandSet {
 	return commandSet{
 		"accept-native": func(args []string, _ io.Writer) error {
 			flags := flag.NewFlagSet("accept-native", flag.ContinueOnError)
@@ -33,17 +33,17 @@ func buildCommands() commandSet {
 				return errors.New("performance acceptance requires an explicit published candidate and baseline")
 			}
 			if *artifacts != "" {
-				if err := verifyArtifacts(*artifacts); err != nil {
+				if err := verifyArtifacts(ctx, *artifacts); err != nil {
 					return err
 				}
 			}
-			return construction.AcceptNative(*artifacts, *clients, *performance)
+			return construction.AcceptNative(ctx, *artifacts, *clients, *performance)
 		},
 		"build": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release build <output-directory>"); err != nil {
 				return err
 			}
-			return construction.Build(args[0])
+			return construction.Build(ctx, args[0])
 		},
 		"build-ci": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 2, "usage: release build-ci <workspace> <output-directory>"); err != nil {
@@ -53,7 +53,7 @@ func buildCommands() commandSet {
 			if err != nil {
 				return err
 			}
-			return construction.BuildCI(root, args[0], args[1])
+			return construction.BuildCI(ctx, root, args[0], args[1])
 		},
 	}
 }
@@ -91,13 +91,13 @@ func policyCommands() commandSet {
 	}
 }
 
-func artifactCommands() commandSet {
+func artifactCommands(ctx context.Context) commandSet {
 	return commandSet{
 		"validate-artifacts": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 2, "usage: release validate-artifacts <directory> <version>"); err != nil {
 				return err
 			}
-			return artifact.ValidateMatrix(args[0], args[1])
+			return artifact.ValidateMatrix(ctx, args[0], args[1])
 		},
 		"compare-artifacts": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 3, "usage: release compare-artifacts <left-directory> <right-directory> <version>"); err != nil {
@@ -108,7 +108,7 @@ func artifactCommands() commandSet {
 	}
 }
 
-func publicationCommands() commandSet {
+func publicationCommands(ctx context.Context) commandSet {
 	trust := artifact.SignatureTrust{
 		AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"),
 		Principal:      os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER"),
@@ -119,13 +119,13 @@ func publicationCommands() commandSet {
 			if err := requireArguments(args, 1, "usage: release verify-artifacts <artifact-directory>"); err != nil {
 				return err
 			}
-			return verifyArtifacts(args[0])
+			return verifyArtifacts(ctx, args[0])
 		},
 		"publish-github": func(args []string, stdout io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release publish-github <artifact-directory>"); err != nil {
 				return err
 			}
-			created, err := publication.PublishGitHub(context.Background(), http.DefaultClient, publication.GitHubConfig{
+			created, err := publication.PublishGitHub(ctx, http.DefaultClient, publication.GitHubConfig{
 				APIBase: envDefault("GITHUB_API_URL", "https://api.github.com"), Repository: os.Getenv("GITHUB_REPOSITORY"),
 				Tag: os.Getenv("CI_COMMIT_TAG"), Token: firstNonEmpty(os.Getenv("GH_TOKEN"), os.Getenv("GITHUB_TOKEN")), Artifacts: args[0],
 				Trust:  trust,
@@ -143,7 +143,7 @@ func publicationCommands() commandSet {
 			if err := requireArguments(args, 1, "usage: release upload-gitlab <artifact-directory>"); err != nil {
 				return err
 			}
-			return publication.UploadGitLab(context.Background(), http.DefaultClient, publication.GitLabConfig{
+			return publication.UploadGitLab(ctx, http.DefaultClient, publication.GitLabConfig{
 				APIBase: os.Getenv("CI_API_V4_URL"), ProjectID: os.Getenv("CI_PROJECT_ID"), Tag: os.Getenv("CI_COMMIT_TAG"),
 				JobToken: os.Getenv("CI_JOB_TOKEN"), AccessToken: os.Getenv("GITLAB_TOKEN"), Artifacts: args[0],
 				Trust:  trust,
@@ -154,7 +154,7 @@ func publicationCommands() commandSet {
 			if err := requireArguments(args, 1, "usage: release publish-gitlab <artifact-directory>"); err != nil {
 				return err
 			}
-			created, err := publication.PublishGitLab(context.Background(), http.DefaultClient, publication.GitLabConfig{
+			created, err := publication.PublishGitLab(ctx, http.DefaultClient, publication.GitLabConfig{
 				APIBase: os.Getenv("CI_API_V4_URL"), ProjectID: os.Getenv("CI_PROJECT_ID"), Tag: os.Getenv("CI_COMMIT_TAG"),
 				JobToken: os.Getenv("CI_JOB_TOKEN"), AccessToken: os.Getenv("GITLAB_TOKEN"), Artifacts: args[0],
 				Trust:  trust,
@@ -171,7 +171,7 @@ func publicationCommands() commandSet {
 	}
 }
 
-func verifyArtifacts(directory string) error {
+func verifyArtifacts(ctx context.Context, directory string) error {
 	version, err := readiness.ReadProductVersion(".")
 	if err != nil {
 		return err
@@ -180,9 +180,9 @@ func verifyArtifacts(directory string) error {
 		AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"),
 		Principal:      os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER"),
 	}
-	if err := artifact.VerifyMatrix(context.Background(), directory, version, trust); err != nil {
+	if err := artifact.VerifyMatrix(ctx, directory, version, trust); err != nil {
 		return err
 	}
 	source := artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
-	return artifact.VerifyProvenance(context.Background(), directory, os.Getenv("CI_COMMIT_TAG"), source)
+	return artifact.VerifyProvenance(ctx, directory, os.Getenv("CI_COMMIT_TAG"), source)
 }

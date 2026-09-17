@@ -991,6 +991,15 @@ stage. Both absolute and build-root-relative inventory paths are valid; paths
 outside the stage remain invalid. The fixture exercises both forms so placing
 temporary output inside the repository does not invalidate legitimate products.
 
+Release execution uses the existing process owner for captured results and
+streamed build logs. The command's interrupt context reaches construction,
+artifact verification and Forge requests; tools retain explicit directories,
+environments and closed stdin. Unix invocations own a process group, while
+Windows invocations retain their existing Job Object. Return terminates remaining
+owned descendants and preserves unrelated processes. This boundary does not
+claim recovery after an uncatchable host kill or containment of a descendant
+that deliberately escapes its process group.
+
 Real-client lifecycle acceptance belongs to the existing release test owner,
 not a second platform-specific script suite. An explicit Go build tag admits
 the client journey; required absolute artifact and client inputs fail closed.

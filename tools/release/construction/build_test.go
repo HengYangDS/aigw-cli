@@ -126,7 +126,7 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 		GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli",
 		SigningKey: key,
 	}
-	if err := buildRelease(request, runner); err != nil {
+	if err := buildRelease(t.Context(), request, runner); err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Equal(names, []string{"git", "goreleaser", "syft", "osv-scanner", "git", "git", "ssh-keygen"}) {
@@ -150,7 +150,7 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 			t.Fatalf("release must bind explicit native signing input %s", name)
 		}
 	}
-	if err := artifact.ValidateMatrix(output, "1.2.3"); err != nil {
+	if err := artifact.ValidateMatrix(t.Context(), output, "1.2.3"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -288,7 +288,7 @@ func TestReleaseBuildRejectsInvalidOrPartialInputsBeforeLaunchingTools(t *testin
 			request := valid
 			mutate(&request)
 			launched := false
-			err := buildRelease(request, func(toolCall) error { launched = true; return nil })
+			err := buildRelease(t.Context(), request, func(toolCall) error { launched = true; return nil })
 			if err == nil || launched {
 				t.Fatalf("error=%v launched=%t", err, launched)
 			}
@@ -454,18 +454,18 @@ func TestResolveReleaseEpochUsesChangelogAuthorityInEveryEnvironment(t *testing.
 	if err := os.WriteFile(changelog, []byte("## [1.2.3] - 2026-08-09\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if epoch, err := resolveReleaseEpoch(root, "1.2.3"); err != nil || epoch != "1786233600" {
+	if epoch, err := resolveReleaseEpoch(t.Context(), root, "1.2.3"); err != nil || epoch != "1786233600" {
 		t.Fatalf("local release epoch=%q error=%v", epoch, err)
 	}
 
 	t.Setenv("CI_COMMIT_TAG", "v1.2.3")
-	if epoch, err := resolveReleaseEpoch(root, "1.2.3"); err != nil || epoch != "1786233600" {
+	if epoch, err := resolveReleaseEpoch(t.Context(), root, "1.2.3"); err != nil || epoch != "1786233600" {
 		t.Fatalf("tagged release epoch=%q error=%v", epoch, err)
 	}
-	if _, err := resolveReleaseEpoch(root, "9.9.9"); err == nil || !strings.Contains(err.Error(), "heading not found") {
+	if _, err := resolveReleaseEpoch(t.Context(), root, "9.9.9"); err == nil || !strings.Contains(err.Error(), "heading not found") {
 		t.Fatalf("missing heading error = %v", err)
 	}
-	if _, err := resolveReleaseEpoch(t.TempDir(), "1.2.3"); err == nil || !strings.Contains(err.Error(), "open CHANGELOG") {
+	if _, err := resolveReleaseEpoch(t.Context(), t.TempDir(), "1.2.3"); err == nil || !strings.Contains(err.Error(), "open CHANGELOG") {
 		t.Fatalf("missing changelog error=%v", err)
 	}
 }
@@ -487,11 +487,11 @@ func TestCandidateBuildEpochUsesSourceCommitWithoutInventingARelease(t *testing.
 	}
 	t.Setenv("CI_COMMIT_TAG", "")
 	t.Setenv("GITHUB_REF_TYPE", "")
-	if epoch, err := resolveReleaseEpoch(root, "1.2.4"); err != nil || epoch != "1788739200" {
+	if epoch, err := resolveReleaseEpoch(t.Context(), root, "1.2.4"); err != nil || epoch != "1788739200" {
 		t.Fatalf("candidate source epoch=%q error=%v", epoch, err)
 	}
 	t.Setenv("CI_COMMIT_TAG", "v1.2.4")
-	if _, err := resolveReleaseEpoch(root, "1.2.4"); err == nil {
+	if _, err := resolveReleaseEpoch(t.Context(), root, "1.2.4"); err == nil {
 		t.Fatal("tagged release accepted without its release chronicle")
 	}
 }
@@ -506,7 +506,7 @@ func TestReleaseBuildPropagatesToolFailureAndNeverPublishesPartialMatrix(t *test
 		t.Fatal(err)
 	}
 	want := errors.New("tool failed")
-	err := buildRelease(buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli", SigningKey: "key"}, func(call toolCall) error {
+	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli", SigningKey: "key"}, func(call toolCall) error {
 		if call.Name == "goreleaser" {
 			return populatePortableStage(t, call, "1.2.3", "portable_darwin_arm64_v8.0/aigw")
 		}

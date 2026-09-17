@@ -1,6 +1,7 @@
 package process
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -11,6 +12,61 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestRunnerStreamsBothOutputsAndPreservesCancellation(t *testing.T) {
+	if os.Getenv("AIGW_TEST_STREAM_EXECUTION") == "child" {
+		_, _ = os.Stdout.WriteString(strings.Repeat("o", 128<<10))
+		_, _ = os.Stderr.WriteString(strings.Repeat("e", 128<<10))
+		code, _ := strconv.Atoi(os.Getenv("AIGW_TEST_STREAM_EXIT"))
+		os.Exit(code)
+	}
+	runner := Runner{}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, code := range []int{0, 23} {
+		var stdout, stderr bytes.Buffer
+		err := runner.RunStream(t.Context(), Plan{
+			Executable: executable,
+			Args:       []string{"-test.run=^TestRunnerStreamsBothOutputsAndPreservesCancellation$"},
+			Env:        append(os.Environ(), "AIGW_TEST_STREAM_EXECUTION=child", "AIGW_TEST_STREAM_EXIT="+strconv.Itoa(code)),
+		}, &stdout, &stderr)
+		var failure *exec.ExitError
+		if code == 0 && err != nil || code != 0 && (!errors.As(err, &failure) || failure.ExitCode() != code) {
+			t.Fatalf("stream exit %d: %v", code, err)
+		}
+		if stdout.String() != strings.Repeat("o", 128<<10) || stderr.String() != strings.Repeat("e", 128<<10) {
+			t.Fatalf("stream lost output: stdout=%d stderr=%d", stdout.Len(), stderr.Len())
+		}
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	var output bytes.Buffer
+	err = runner.RunStream(ctx, Plan{Executable: executable}, &output, &output)
+	if !errors.Is(err, context.Canceled) || output.Len() != 0 {
+		t.Fatalf("canceled stream executed or lost cancellation: %v, output=%q", err, output.String())
+	}
+}
+
+func TestRunnerStreamAllowsDiscardedOutput(t *testing.T) {
+	if os.Getenv("AIGW_TEST_DISCARDED_OUTPUT") == "child" {
+		_, _ = os.Stdout.WriteString("unused result")
+		_, _ = os.Stderr.WriteString("unused diagnostic")
+		os.Exit(0)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := (Runner{}).RunStream(t.Context(), Plan{
+		Executable: executable,
+		Args:       []string{"-test.run=^TestRunnerStreamAllowsDiscardedOutput$"},
+		Env:        append(os.Environ(), "AIGW_TEST_DISCARDED_OUTPUT=child"),
+	}, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+}
 
 const captureFailureFixture = "AIGW_TEST_CAPTURE_FAILURE_FIXTURE"
 

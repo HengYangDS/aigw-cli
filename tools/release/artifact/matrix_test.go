@@ -56,30 +56,30 @@ func TestValidateMatrixVerifiesDetachedSignature(t *testing.T) {
 	version := "1.2.3"
 	key := signingKey(t)
 	directory := writeFixtureWithKey(t, version, key)
-	if err := ValidateMatrix(directory, version); err != nil {
+	if err := ValidateMatrix(t.Context(), directory, version); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(directory, "checksums.txt.sig"), []byte("invalid\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "signature") {
+	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "signature") {
 		t.Fatalf("invalid detached signature=%v", err)
 	}
 }
 
 func TestMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	version := "1.2.3"
-	if err := ValidateMatrix(filepath.Join(t.TempDir(), "missing"), version); err == nil {
+	if err := ValidateMatrix(t.Context(), filepath.Join(t.TempDir(), "missing"), version); err == nil {
 		t.Fatal("missing matrix accepted")
 	}
 	directory := writeFixtureWithKey(t, version, signingKey(t))
-	if err := ValidateMatrix(directory, version); err != nil {
+	if err := ValidateMatrix(t.Context(), directory, version); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove(filepath.Join(directory, Names(version)[0])); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "missing or empty") {
+	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "missing or empty") {
 		t.Fatalf("missing artifact=%v", err)
 	}
 
@@ -87,7 +87,7 @@ func TestMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(directory, Names(version)[0]), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "missing or empty") {
+	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "missing or empty") {
 		t.Fatalf("empty artifact=%v", err)
 	}
 
@@ -95,7 +95,7 @@ func TestMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(directory, "unexpected"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected") {
+	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "unexpected") {
 		t.Fatalf("extra artifact=%v", err)
 	}
 
@@ -103,7 +103,7 @@ func TestMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(directory, Names(version)[0]), []byte("corrupt"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
 		t.Fatalf("corrupt artifact=%v", err)
 	}
 
@@ -112,7 +112,7 @@ func TestMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	if err := os.WriteFile(checksumPath, []byte("bad\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "invalid checksum") {
+	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "invalid checksum") {
 		t.Fatalf("invalid checksum manifest=%v", err)
 	}
 
@@ -125,7 +125,7 @@ func TestMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(directory, "checksums.txt"), append(content, []byte(first+"\n")...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "duplicate checksum") {
+	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "duplicate checksum") {
 		t.Fatalf("duplicate checksum=%v", err)
 	}
 
@@ -133,7 +133,7 @@ func TestMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(directory, "checksums.txt"), append(content, []byte(strings.Repeat("0", 64)+"  unknown\n")...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected entries") {
+	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "unexpected entries") {
 		t.Fatalf("unexpected checksum=%v", err)
 	}
 }

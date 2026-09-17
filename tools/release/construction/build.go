@@ -2,16 +2,17 @@
 package construction
 
 import (
+	"aigw-cli/internal/process"
 	"aigw-cli/internal/upgrade"
 	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -42,7 +43,7 @@ type releaseBuilder func(buildRequest) error
 type releaseEpochResolver func(root, version string) (string, error)
 type artifactComparator func(left, right, version string) error
 
-func buildRelease(request buildRequest, run toolRunner) (result error) {
+func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (result error) {
 	if err := validateRequest(request); err != nil {
 		return err
 	}
@@ -148,7 +149,7 @@ func buildRelease(request buildRequest, run toolRunner) (result error) {
 	}); err != nil {
 		return fmt.Errorf("sign release checksums: %w", err)
 	}
-	if err := artifact.ValidateMatrix(candidate, request.Version); err != nil {
+	if err := artifact.ValidateMatrix(ctx, candidate, request.Version); err != nil {
 		return err
 	}
 	return replaceDirectory(candidate, output)
@@ -312,16 +313,17 @@ func replaceDirectory(source, target string) (result error) {
 	return nil
 }
 
-func executeTool(call toolCall) error {
-	command := exec.Command(call.Name, call.Args...)
-	command.Dir = call.Directory
-	command.Env = append(os.Environ(), call.Env...)
-	command.Stdout = call.Stdout
-	if command.Stdout == nil {
-		command.Stdout = os.Stdout
+func executeTool(ctx context.Context) toolRunner {
+	return func(call toolCall) error {
+		stdout := call.Stdout
+		if stdout == nil {
+			stdout = os.Stdout
+		}
+		return (process.Runner{}).RunStream(ctx, process.Plan{
+			Executable: call.Name, Directory: call.Directory,
+			Args: call.Args, Env: append(os.Environ(), call.Env...),
+		}, stdout, os.Stderr)
 	}
-	command.Stderr = os.Stderr
-	return command.Run()
 }
 
 func resolveGitObject(root, revision string, run toolRunner) (string, error) {
@@ -351,22 +353,24 @@ func ensureCleanSource(root string, run toolRunner) error {
 }
 
 // Build constructs the portable release matrix for the current repository.
-func Build(output string) error {
-	request, err := buildRequestFromEnvironment(output)
+func Build(ctx context.Context, output string) error {
+	request, err := buildRequestFromEnvironment(ctx, output)
 	if err != nil {
 		return err
 	}
-	return buildRelease(request, executeTool)
+	return buildRelease(ctx, request, executeTool(ctx))
 }
 
 // BuildCI constructs the release twice and admits only an identical matrix.
-func BuildCI(root, workspace, output string) error {
+func BuildCI(ctx context.Context, root, workspace, output string) error {
 	return buildCI(root, workspace, output, func(request buildRequest) error {
-		return buildRelease(request, executeTool)
-	}, resolveReleaseEpoch, artifact.CompareMatrices)
+		return buildRelease(ctx, request, executeTool(ctx))
+	}, func(root, version string) (string, error) {
+		return resolveReleaseEpoch(ctx, root, version)
+	}, artifact.CompareMatrices)
 }
 
-func buildRequestFromEnvironment(output string) (buildRequest, error) {
+func buildRequestFromEnvironment(ctx context.Context, output string) (buildRequest, error) {
 	root, err := os.Getwd()
 	if err != nil {
 		return buildRequest{}, err
@@ -375,7 +379,7 @@ func buildRequestFromEnvironment(output string) (buildRequest, error) {
 	if err != nil {
 		return buildRequest{}, err
 	}
-	epoch, err := resolveReleaseEpoch(root, version)
+	epoch, err := resolveReleaseEpoch(ctx, root, version)
 	if err != nil {
 		return buildRequest{}, err
 	}
@@ -435,7 +439,7 @@ func buildCI(root, workspace, output string, build releaseBuilder, epoch release
 	return replaceDirectory(first, output)
 }
 
-func resolveReleaseEpoch(root, version string) (string, error) {
+func resolveReleaseEpoch(ctx context.Context, root, version string) (string, error) {
 	file, err := os.Open(filepath.Join(root, "CHANGELOG.md"))
 	if err != nil {
 		return "", fmt.Errorf("open CHANGELOG.md: %w", err)
@@ -460,13 +464,11 @@ func resolveReleaseEpoch(root, version string) (string, error) {
 	if os.Getenv("CI_COMMIT_TAG") != "" || os.Getenv("GITHUB_REF_TYPE") == "tag" {
 		return "", fmt.Errorf("release heading not found: %s", version)
 	}
-	command := exec.Command("git", "show", "-s", "--format=%ct", "HEAD")
-	command.Dir = root
-	output, err := command.Output()
-	if err != nil {
+	var output bytes.Buffer
+	if err := executeTool(ctx)(toolCall{Name: "git", Directory: root, Args: []string{"show", "-s", "--format=%ct", "HEAD"}, Stdout: &output}); err != nil {
 		return "", fmt.Errorf("resolve candidate source epoch: %w", err)
 	}
-	epoch := strings.TrimSpace(string(output))
+	epoch := strings.TrimSpace(output.String())
 	if _, err := readiness.ParseEpoch(epoch); err != nil {
 		return "", fmt.Errorf("candidate source epoch: %w", err)
 	}

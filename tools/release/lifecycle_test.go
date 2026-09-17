@@ -88,7 +88,7 @@ func nativeReleaseCandidate(t *testing.T, root, version string) (program, archiv
 		return filepath.Join(directory, baseName, executableName()), filepath.Join(directory, archiveName), filepath.Join(directory, "checksums.txt")
 	}
 	prepareNativeSigning(t)
-	stage, err := construction.BuildNative(root, t.TempDir(), version)
+	stage, err := construction.BuildNative(t.Context(), root, t.TempDir(), version)
 	if err != nil {
 		t.Fatal(err)
 	}

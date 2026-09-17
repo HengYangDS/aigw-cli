@@ -235,7 +235,7 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 func buildNativeProgram(t *testing.T, root, version string) string {
 	t.Helper()
 	prepareNativeSigning(t)
-	stage, err := construction.BuildNative(root, t.TempDir(), version)
+	stage, err := construction.BuildNative(t.Context(), root, t.TempDir(), version)
 	if err != nil {
 		t.Fatalf("build native product %s: %v", version, err)
 	}

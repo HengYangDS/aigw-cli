@@ -2,12 +2,72 @@ package construction
 
 import (
 	"aigw-cli/tools/release/artifact"
+	"context"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestReleaseToolOwnsOutputPipesAndExplicitContext(t *testing.T) {
+	if os.Getenv("AIGW_TEST_RELEASE_TOOL") == "child" {
+		for _, output := range []*os.File{os.Stdout, os.Stderr} {
+			info, err := output.Stat()
+			if err != nil || info.Mode()&os.ModeNamedPipe == 0 {
+				os.Exit(24)
+			}
+		}
+		input, err := io.ReadAll(os.Stdin)
+		if err != nil || len(input) != 0 {
+			os.Exit(25)
+		}
+		data, err := os.ReadFile("marker")
+		if err != nil {
+			os.Exit(26)
+		}
+		_, _ = fmt.Fprintf(os.Stdout, "%s:%s", data, os.Getenv("AIGW_TEST_RELEASE_VALUE"))
+		os.Exit(0)
+	}
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "marker"), []byte("owned"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := os.CreateTemp(t.TempDir(), "output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = output.Close() })
+	err = executeTool(t.Context())(toolCall{
+		Name: executable, Directory: root,
+		Args:   []string{"-test.run=^TestReleaseToolOwnsOutputPipesAndExplicitContext$"},
+		Env:    []string{"AIGW_TEST_RELEASE_TOOL=child", "AIGW_TEST_RELEASE_VALUE=explicit"},
+		Stdout: output,
+	})
+	data, readErr := os.ReadFile(output.Name())
+	if err != nil || readErr != nil || string(data) != "owned:explicit" {
+		t.Fatalf("release tool output=%q, execution=%v, read=%v", data, err, readErr)
+	}
+}
+
+func TestReleaseToolCancellationStopsBeforeExecution(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = executeTool(ctx)(toolCall{Name: executable, Args: []string{"-test.run=^TestReleaseToolCancellationStopsBeforeExecution$"}})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("release tool lost cancellation: %v", err)
+	}
+}
 
 func TestRenderGoReleaserConfigRejectsMissingSource(t *testing.T) {
 	if _, err := renderGoReleaserConfig(t.TempDir(), t.TempDir(), t.TempDir()); err == nil || !strings.Contains(err.Error(), "read GoReleaser config") {
@@ -34,7 +94,7 @@ func TestReleaseRequiresCompleteNativeSigningBeforeAnyTool(t *testing.T) {
 				value := map[string]string{"absent": "", "relative": "signer.p12", "missing": filepath.Join(root, "missing"), "directory": root}[state]
 				t.Setenv(name, value)
 				calls := 0
-				err := buildRelease(buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: "1.2.3", Epoch: "0", SigningKey: "synthetic"}, func(toolCall) error {
+				err := buildRelease(t.Context(), buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: "1.2.3", Epoch: "0", SigningKey: "synthetic"}, func(toolCall) error {
 					calls++
 					return errors.New("tool must not execute")
 				})
@@ -64,7 +124,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 
 	t.Run("GoReleaser failure", func(t *testing.T) {
 		want := errors.New("goreleaser failed")
-		if err := buildRelease(valid, func(toolCall) error { return want }); !errors.Is(err, want) {
+		if err := buildRelease(t.Context(), valid, func(toolCall) error { return want }); !errors.Is(err, want) {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -72,7 +132,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 	t.Run("candidate directory collision", func(t *testing.T) {
 		request := valid
 		request.Output = filepath.Join(t.TempDir(), "dist")
-		err := buildRelease(request, func(call toolCall) error {
+		err := buildRelease(t.Context(), request, func(call toolCall) error {
 			if call.Name != "goreleaser" {
 				return nil
 			}
@@ -86,7 +146,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 	})
 
 	t.Run("missing GoReleaser artifact", func(t *testing.T) {
-		err := buildRelease(valid, func(call toolCall) error {
+		err := buildRelease(t.Context(), valid, func(call toolCall) error {
 			if call.Name == "goreleaser" {
 				return os.MkdirAll(goReleaserStage(t, call.Args), 0o700)
 			}
@@ -98,7 +158,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 	})
 
 	t.Run("missing portable binary", func(t *testing.T) {
-		err := buildRelease(valid, func(call toolCall) error {
+		err := buildRelease(t.Context(), valid, func(call toolCall) error {
 			if call.Name == "syft" {
 				path := strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json=")
 				return os.WriteFile(path, []byte(`{"spdxVersion":"SPDX-2.3"}`), 0o600)
@@ -129,7 +189,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 			t.Fatal(err)
 		}
 		request.Output = filepath.Join(parent, "dist")
-		if err := buildRelease(request, func(toolCall) error { return nil }); err == nil || !strings.Contains(err.Error(), "output parent") {
+		if err := buildRelease(t.Context(), request, func(toolCall) error { return nil }); err == nil || !strings.Contains(err.Error(), "output parent") {
 			t.Fatalf("output parent collision error = %v", err)
 		}
 	})
@@ -138,7 +198,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 		request := valid
 		request.Root = t.TempDir()
 		request.Output = filepath.Join(t.TempDir(), "dist")
-		if err := buildRelease(request, func(toolCall) error { return nil }); err == nil || !strings.Contains(err.Error(), "GoReleaser config") {
+		if err := buildRelease(t.Context(), request, func(toolCall) error { return nil }); err == nil || !strings.Contains(err.Error(), "GoReleaser config") {
 			t.Fatalf("missing configuration error = %v", err)
 		}
 	})
@@ -166,7 +226,7 @@ func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 	valid := buildRequest{Root: releaseRoot(t), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400", SigningKey: "key"}
 
 	t.Run("checksum input disappears", func(t *testing.T) {
-		err := buildRelease(valid, func(call toolCall) error {
+		err := buildRelease(t.Context(), valid, func(call toolCall) error {
 			if call.Name == "goreleaser" {
 				return populatePortableStage(t, call, valid.Version, "portable_linux_amd64/aigw")
 			}
@@ -183,7 +243,7 @@ func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 	})
 
 	t.Run("unexpected matrix entry", func(t *testing.T) {
-		err := buildRelease(valid, func(call toolCall) error {
+		err := buildRelease(t.Context(), valid, func(call toolCall) error {
 			if call.Name == "goreleaser" {
 				return populatePortableStage(t, call, valid.Version, "portable_linux_amd64/aigw")
 			}
@@ -213,7 +273,7 @@ func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
 				t.Fatal(err)
 			}
 			valid := buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: "unused"}
-			err := buildRelease(valid, func(call toolCall) error {
+			err := buildRelease(t.Context(), valid, func(call toolCall) error {
 				switch call.Name {
 				case "git":
 					return nil
@@ -304,10 +364,10 @@ func TestReleaseBuildHelpersCoverAtomicReplacementAndCommands(t *testing.T) {
 	}
 
 	command := toolCall{Name: "go", Directory: root, Args: []string{"version"}, Env: []string{"AIGW_TEST_VALUE=present"}}
-	if err := executeTool(command); err != nil {
+	if err := executeTool(t.Context())(command); err != nil {
 		t.Fatal(err)
 	}
-	if err := executeTool(toolCall{Name: filepath.Join(root, "missing-command")}); err == nil {
+	if err := executeTool(t.Context())(toolCall{Name: filepath.Join(root, "missing-command")}); err == nil {
 		t.Fatal("missing command succeeded")
 	}
 }
@@ -329,7 +389,7 @@ func TestReleaseBuildEnvironment(t *testing.T) {
 	} {
 		t.Setenv(name, value)
 	}
-	request, err := buildRequestFromEnvironment("dist")
+	request, err := buildRequestFromEnvironment(t.Context(), "dist")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,7 +402,7 @@ func TestReleaseBuildEnvironment(t *testing.T) {
 	if err := os.Chdir(missingVersion); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := buildRequestFromEnvironment("dist"); err == nil || !strings.Contains(err.Error(), "read VERSION") {
+	if _, err := buildRequestFromEnvironment(t.Context(), "dist"); err == nil || !strings.Contains(err.Error(), "read VERSION") {
 		t.Fatalf("missing VERSION error = %v", err)
 	}
 	missingChronology := t.TempDir()
@@ -352,7 +412,7 @@ func TestReleaseBuildEnvironment(t *testing.T) {
 	if err := os.Chdir(missingChronology); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := buildRequestFromEnvironment("dist"); err == nil || !strings.Contains(err.Error(), "open CHANGELOG") {
+	if _, err := buildRequestFromEnvironment(t.Context(), "dist"); err == nil || !strings.Contains(err.Error(), "open CHANGELOG") {
 		t.Fatalf("missing release chronology error = %v", err)
 	}
 }
@@ -379,13 +439,13 @@ func TestReleaseEpochRejectsInvalidDateAndOversizedChangelogLine(t *testing.T) {
 	if err := os.WriteFile(changelog, []byte("## [1.2.3] - 2026-99-99\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := resolveReleaseEpoch(root, "1.2.3"); err == nil {
+	if _, err := resolveReleaseEpoch(t.Context(), root, "1.2.3"); err == nil {
 		t.Fatal("invalid release date was accepted")
 	}
 	if err := os.WriteFile(changelog, []byte(strings.Repeat("x", 70*1024)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := resolveReleaseEpoch(root, "1.2.3"); err == nil || !strings.Contains(err.Error(), "token too long") {
+	if _, err := resolveReleaseEpoch(t.Context(), root, "1.2.3"); err == nil || !strings.Contains(err.Error(), "token too long") {
 		t.Fatalf("oversized changelog error = %v", err)
 	}
 }
@@ -425,7 +485,7 @@ func TestValidateSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
 			}
 			calls := 0
 			unexpected := errors.New("construction reached external tool execution")
-			err := buildRelease(request, func(toolCall) error { calls++; return unexpected })
+			err := buildRelease(t.Context(), request, func(toolCall) error { calls++; return unexpected })
 			if err == nil || !strings.Contains(err.Error(), tc.want) || calls != 0 {
 				t.Fatalf("build error=%v tool calls=%d, want %q before execution", err, calls, tc.want)
 			}

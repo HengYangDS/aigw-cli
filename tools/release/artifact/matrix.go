@@ -63,11 +63,11 @@ func provenanceSubjects(version string) []string {
 }
 
 // ValidateMatrix verifies membership, non-empty files, and checksums.
-func ValidateMatrix(directory, version string) error {
+func ValidateMatrix(ctx context.Context, directory, version string) error {
 	if _, err := verifiedDigests(directory, version); err != nil {
 		return err
 	}
-	return verifySignature(context.Background(), directory, "check-novalidate")
+	return verifySignature(ctx, directory, "check-novalidate")
 }
 
 func verifySignature(ctx context.Context, directory, operation string, arguments ...string) error {

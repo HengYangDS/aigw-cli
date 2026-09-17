@@ -416,7 +416,7 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 	expected := make(map[string]string)
 	var sbom []byte
 	observed := errors.New("native SBOM observed before other release evidence")
-	err := buildRelease(buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: version, Epoch: "1784246400", SigningKey: "unused"}, func(call toolCall) error {
+	err := buildRelease(t.Context(), buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: version, Epoch: "1784246400", SigningKey: "unused"}, func(call toolCall) error {
 		switch call.Name {
 		case "git":
 			return nil

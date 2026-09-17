@@ -103,7 +103,7 @@ func TestBuildNativeRejectsInvalidInputsWithoutOwningCallerWorkspace(t *testing.
 					t.Fatal(err)
 				}
 			}
-			stage, err := BuildNative(root, workspace, version)
+			stage, err := BuildNative(t.Context(), root, workspace, version)
 			if err == nil || stage != "" {
 				t.Fatalf("%s: stage=%q error=%v", failure, stage, err)
 			}

@@ -16,7 +16,7 @@ import (
 // Runner executes process plans without consulting shell startup state.
 type Runner struct {
 	// StdoutLimit bounds captured result data; zero uses the diagnostic default.
-	// Standard error always retains the smaller diagnostic limit.
+	// Captured standard error retains the smaller diagnostic limit.
 	StdoutLimit int
 }
 
@@ -93,10 +93,7 @@ func (Runner) RunToFile(ctx context.Context, destination string, plan Plan) erro
 	if err != nil {
 		return fmt.Errorf("open command output %s: %w", filepath.Base(destination), err)
 	}
-	// Keep the destination handle in this process. os/exec otherwise passes
-	// *os.File directly to the child, whose descendants can retain it and
-	// prevent failure cleanup on Windows after the pipe-drain deadline.
-	diagnostic, runErr := runCaptured(ctx, plan, struct{ io.Writer }{file})
+	diagnostic, runErr := runCaptured(ctx, plan, file)
 	closeErr := file.Close()
 	if runErr == nil && closeErr == nil {
 		return nil
@@ -112,29 +109,43 @@ func (Runner) RunToFile(ctx context.Context, destination string, plan Plan) erro
 }
 
 func runCaptured(ctx context.Context, plan Plan, stdout io.Writer) (diagnostic []byte, err error) {
+	stderr := &limitedBuffer{limit: capturedProcessOutputLimit}
+	err = (Runner{}).RunStream(ctx, plan, stdout, stderr)
+	if stderr.overflow {
+		return nil, fmt.Errorf("captured stderr from %s exceeds %d bytes", plan.Executable, capturedProcessOutputLimit)
+	}
+	if err != nil {
+		return append([]byte(nil), stderr.Bytes()...), err
+	}
+	return nil, nil
+}
+
+// RunStream executes an owned non-interactive process with caller-owned output
+// streams. Cancellation and return reclaim its native process group or Job.
+func (Runner) RunStream(ctx context.Context, plan Plan, stdout, stderr io.Writer) (err error) {
 	cmd := commandContext(ctx, plan)
+	cmd.Dir = plan.Directory
 	cmd.Env = plan.Env
 	cmd.Stdin = strings.NewReader(plan.Stdin)
 	cmd.WaitDelay = capturedProcessWaitDelay
-	stderr := &limitedBuffer{limit: capturedProcessOutputLimit}
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
+	// Retain file ownership in this process instead of passing native handles
+	// to descendants, which can otherwise outlive the output boundary.
+	if stdout != nil {
+		cmd.Stdout = struct{ io.Writer }{stdout}
+	}
+	if stderr != nil {
+		cmd.Stderr = struct{ io.Writer }{stderr}
+	}
 	cleanup, err := startCapturedProcess(cmd)
 	if err != nil {
-		return nil, fmt.Errorf("start %s: %w", plan.Executable, err)
+		return fmt.Errorf("start %s: %w", plan.Executable, err)
 	}
 	defer func() { err = errors.Join(err, cleanup()) }()
 	if err := cmd.Wait(); err != nil {
-		if stderr.overflow {
-			return nil, fmt.Errorf("captured stderr from %s exceeds %d bytes", plan.Executable, capturedProcessOutputLimit)
-		}
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return nil, fmt.Errorf("%s exceeded its verification limit and its output pipes did not close within %s: %w", plan.Executable, capturedProcessWaitDelay, err)
-		}
 		if errors.Is(err, exec.ErrWaitDelay) {
-			return nil, fmt.Errorf("output pipes for %s did not close within %s: %w", plan.Executable, capturedProcessWaitDelay, err)
+			err = fmt.Errorf("output pipes did not close within %s: %w", capturedProcessWaitDelay, err)
 		}
-		return append([]byte(nil), stderr.Bytes()...), fmt.Errorf("run %s: %w", plan.Executable, err)
+		return fmt.Errorf("run %s: %w", plan.Executable, errors.Join(err, ctx.Err()))
 	}
-	return nil, nil
+	return nil
 }

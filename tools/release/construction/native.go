@@ -2,6 +2,7 @@ package construction
 
 import (
 	"aigw-cli/internal/upgrade/artifact"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,24 +15,24 @@ import (
 
 // AcceptNative proves the current host lifecycle using built or supplied archives.
 // It publishes nothing and owns the complete temporary build and test scope.
-func AcceptNative(artifacts string, clients bool, performance string) error {
-	request, err := buildRequestFromEnvironment("")
+func AcceptNative(ctx context.Context, artifacts string, clients bool, performance string) error {
+	request, err := buildRequestFromEnvironment(ctx, "")
 	if err != nil {
 		return err
 	}
 	if artifacts == "" {
-		return acceptNative(request, artifacts, clients, performance, executeTool)
+		return acceptNative(request, artifacts, clients, performance, executeTool(ctx))
 	}
-	if err := ensureCleanSource(request.Root, executeTool); err != nil {
+	if err := ensureCleanSource(request.Root, executeTool(ctx)); err != nil {
 		return err
 	}
-	return acceptNative(request, artifacts, clients, performance, executeTool)
+	return acceptNative(request, artifacts, clients, performance, executeTool(ctx))
 }
 
 // BuildNative constructs and extracts the current host's archive through the release owner.
 // The caller owns workspace and its cleanup; this neither publishes nor installs.
-func BuildNative(root, workspace, version string) (string, error) {
-	epoch, err := resolveReleaseEpoch(root, version)
+func BuildNative(ctx context.Context, root, workspace, version string) (string, error) {
+	epoch, err := resolveReleaseEpoch(ctx, root, version)
 	if err != nil {
 		return "", err
 	}
@@ -39,7 +40,7 @@ func BuildNative(root, workspace, version string) (string, error) {
 	if err := validateRequest(request); err != nil {
 		return "", err
 	}
-	stage, err := buildArchives(request, workspace, executeTool)
+	stage, err := buildArchives(request, workspace, executeTool(ctx))
 	if err != nil {
 		return "", err
 	}

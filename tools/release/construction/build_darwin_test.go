@@ -26,7 +26,7 @@ func TestNativeReleaseArchivesContainDeterministicCertificateSignatures(t *testi
 			// Cross a filesystem timestamp boundary so wall-clock metadata fails.
 			time.Sleep(1100 * time.Millisecond)
 		}
-		stage, err := buildArchives(request, t.TempDir(), executeTool)
+		stage, err := buildArchives(request, t.TempDir(), executeTool(t.Context()))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -54,7 +54,7 @@ func TestNativeReleaseArchivesContainDeterministicCertificateSignatures(t *testi
 			for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
 				t.Setenv(name, "")
 			}
-			stage, err := buildArchives(request, t.TempDir(), executeTool)
+			stage, err := buildArchives(request, t.TempDir(), executeTool(t.Context()))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -155,7 +155,7 @@ func TestReleaseBuildPreservesToolAndWorkspaceCleanupFailures(t *testing.T) {
 	}
 	want := errors.New("interrupted release tool")
 	var workspace string
-	err := buildRelease(buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: "fixture-key"}, func(call toolCall) error {
+	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: "fixture-key"}, func(call toolCall) error {
 		if call.Name != "goreleaser" {
 			return nil
 		}
