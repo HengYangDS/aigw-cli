@@ -135,26 +135,21 @@ when the admitted markdownlint-cli2 release resolves a non-vulnerable version
 itself; registry integrity and the native Markdown checks remain required.
 
 Mermaid validation uses the latest admitted development-only
-`@mermaid-lint/core` release and its declared dependency ranges. The repository
-does not force a newer jsdom major into that tool. Its native resolution uses
-jsdom 26.1.0 and whatwg-url 14.2.0; clean installation, registry authentication,
-vulnerability scanning and repository Mermaid conformance must pass together.
-This is not a claim that every transitive dependency is its latest major.
+`@mermaid-lint/core` release and preserves its syntax diagnostics and semantic
+rules. Its declared jsdom 26 range still selects deprecated
+`whatwg-encoding@3.1.1`, while upstream has not released a replacement. A
+narrow override therefore selects jsdom 29.1.1: the latest stable jsdom line
+whose dependency graph removes that package and retains an attested
+`whatwg-url` release. Clean installation, registry signatures and attestations,
+vulnerability scanning, valid and invalid fixtures, and every tracked Mermaid
+diagram must pass. The lock is also rejected whenever any selected npm package
+is marked deprecated. Remove the override when `@mermaid-lint/core` adopts an
+equivalent non-deprecated jsdom line.
 
-The former jsdom 30.x and whatwg-url 17.1.0 overrides are removed. They created
-a repository-owned dependency contract around a publication whose advertised
-npm attestation returned HTTP 404. The current graph no longer selects that
-publication, and dependency acceptance is defined only over packages in the
-committed lockfile. A missing advertised attestation for any selected package is
-a failed candidate, never a permanent exception.
-
-The native dependency graph still reports the upstream deprecation of
-`whatwg-encoding@3.1.1`. The current vulnerability audit is clean, but that
-warning remains an explicit maintenance gap, not a suppressed diagnostic or
-completed supply-chain modernization. Resolve it through an admitted upstream
-tool release or an equivalent lower-maintenance validator, not another forced
-transitive major upgrade. Dependency maintenance must verify the actual tool
-contract and repository checks before replacing any part of this graph.
+jsdom 30 is not admitted because its `whatwg-url@17.1.1` publication advertises
+an npm attestation endpoint that returns HTTP 404. Dependency acceptance is
+defined over the committed lockfile: any selected package with a missing
+advertised attestation is a failed candidate, never a permanent exception.
 
 [Renovate's local platform](https://docs.renovatebot.com/modules/platform/local/)
 supports extraction and lookup only. It cannot generate an update branch.

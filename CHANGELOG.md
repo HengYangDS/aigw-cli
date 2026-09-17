@@ -8,6 +8,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- Remove deprecated `whatwg-encoding` from the Mermaid validation graph while
+  preserving the established syntax and semantic checks; reject deprecated
+  packages in the committed npm graph.
+
 ## [0.1.0-rc.116] - 2026-09-17
 
 ### Fixed

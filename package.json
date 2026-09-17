@@ -16,6 +16,9 @@
   "overrides": {
     "markdownlint-cli2": {
       "smol-toml": "1.8.0"
+    },
+    "@mermaid-lint/core": {
+      "jsdom": "29.1.1"
     }
   }
 }
