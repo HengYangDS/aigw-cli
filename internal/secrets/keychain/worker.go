@@ -1,4 +1,4 @@
-// Package keychain confines native credential operations to a bounded, noninteractive worker.
+// Package keychain confines native credential operations to a bounded worker.
 package keychain
 
 import (
@@ -31,7 +31,8 @@ var (
 	ErrUnavailable = errors.New("native Keychain operation unavailable")
 )
 
-// Read returns one exact native item without permitting authentication UI.
+// Read returns one exact native item through the bounded provider worker.
+// Native authorization UI remains controlled by the operating system.
 func Read(executable, service, account string) (string, error) {
 	return invoke(executable, workerCommand, service, account, "")
 }
