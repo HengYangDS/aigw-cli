@@ -610,3 +610,53 @@ documentation, packaging, or CI path SHALL be resolved at its semantic owner.
 - **AND** `WARNING`, `ERROR`, a failed summary, unknown severity or malformed
   evidence still fails admission
 - **AND** a diagnostic output failure remains an execution failure.
+
+### Requirement: Terminal layout follows semantic fields and display width
+
+Human-facing command output SHALL use the existing presentation owner for
+terminal-cell measurement, ANSI-aware layout and wrapping. Related command and
+description fields SHALL share one measured column and switch as a group to
+stacked layout when content cannot fit or contains multiple lines. Command
+metadata SHALL own executable names; manual padding and shell-comment syntax
+SHALL NOT substitute for structured explanatory fields. Existing native text
+libraries SHALL own word and grapheme wrapping without dropping content.
+
+Every public command's help SHALL retain its native option meaning at wide and
+narrow widths. The final option display SHALL use the same width-aware renderer;
+pflag SHALL remain the option-grammar owner. Color SHALL NOT alter text alignment.
+The tests SHALL verify display width, field preservation and actual description
+columns rather than reproduce manually padded source strings. Machine output,
+credential-helper output and interactive input contracts SHALL remain unchanged.
+Executable examples and follow-up commands SHALL preserve their original
+characters, quoted whitespace and explicit line breaks. The terminal SHALL own
+visual soft wrapping; a copyable command's logical line MAY exceed the available
+width. Explanatory usage grammar SHALL remain width-aware text rather than an
+executable command. Formatting SHALL NOT introduce shell continuation syntax.
+
+#### Scenario: Copy an executable command from a narrow terminal
+
+- **WHEN** an executable example or follow-up command exceeds the terminal width
+- **THEN** its output SHALL preserve the command bytes apart from presentation
+  indentation, optional styling and the final output newline
+- **AND** neither quoted whitespace nor argument tokens SHALL be rewritten to
+  satisfy an explanatory-text width rule.
+
+#### Scenario: Starting commands have different lengths
+
+- **WHEN** root help presents the setup, selection and readiness journey
+- **THEN** command and explanation SHALL be distinct fields with one description
+  column derived from the group's longest label
+- **AND** a renamed root command SHALL propagate without hard-coded product text.
+
+#### Scenario: A terminal is narrow or a value spans multiple lines
+
+- **WHEN** human output contains long labels, unbroken values or multiple lines
+- **THEN** the renderer SHALL retain text and continuation indentation within the
+  available display width and use stacked rows where necessary
+- **AND** colored and plain output SHALL preserve the same layout.
+
+#### Scenario: Inspect the complete public command tree
+
+- **WHEN** every public command renders help at supported narrow and wide widths
+- **THEN** headings, descriptions, usage grammar and options SHALL fit those widths
+- **AND** native option meaning and credential-free help SHALL remain intact.
