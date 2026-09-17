@@ -104,3 +104,38 @@ func TestRunCaptureStopsOwnedDescendantsAfterParentExit(t *testing.T) {
 	}
 	t.Fatal("owned descendant remains running after the invocation returned")
 }
+
+func TestRunCaptureInterruptCancelsOnlyActiveInvocation(t *testing.T) {
+	if os.Getenv("AIGW_TEST_PROCESS_INTERRUPT") == "child" {
+		_, err := (Runner{}).RunCapture(t.Context(), Plan{
+			Executable: "/bin/sh",
+			Args:       []string{"-c", "kill -TERM \"$PPID\"; sleep 2"},
+		})
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("active invocation lost interruption: %v", err)
+		}
+		_, _ = fmt.Fprintln(os.Stdout, "owned invocation canceled")
+		if err := syscall.Kill(os.Getpid(), syscall.SIGTERM); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(time.Second)
+		t.Fatal("invocation retained the host signal handler after return")
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, executable, "-test.run=^TestRunCaptureInterruptCancelsOnlyActiveInvocation$")
+	command.Env = append(os.Environ(), "AIGW_TEST_PROCESS_INTERRUPT=child")
+	output, err := command.CombinedOutput()
+	var exited *exec.ExitError
+	if !errors.As(err, &exited) || !strings.Contains(string(output), "owned invocation canceled") {
+		t.Fatalf("interruption did not complete owned cleanup: %v\n%s", err, output)
+	}
+	status, ok := exited.Sys().(syscall.WaitStatus)
+	if !ok || status.Signal() != syscall.SIGTERM {
+		t.Fatalf("host signal behavior was not restored: %v\n%s", err, output)
+	}
+}

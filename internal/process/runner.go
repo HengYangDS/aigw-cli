@@ -8,8 +8,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -123,6 +125,8 @@ func runCaptured(ctx context.Context, plan Plan, stdout io.Writer) (diagnostic [
 // RunStream executes an owned non-interactive process with caller-owned output
 // streams. Cancellation and return reclaim its native process group or Job.
 func (Runner) RunStream(ctx context.Context, plan Plan, stdout, stderr io.Writer) (err error) {
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	cmd := commandContext(ctx, plan)
 	cmd.Dir = plan.Directory
 	cmd.Env = plan.Env

@@ -14,6 +14,9 @@ in the parent. Returning from an invocation SHALL terminate its remaining owned
 process-group or Job descendants without selecting unrelated host processes.
 Captured results SHALL retain their existing size limits; streamed build logs
 SHALL preserve both output channels without applying those capture limits.
+The process owner SHALL observe host interruption only during an active
+non-interactive invocation and restore the previous signal behavior on return.
+Interactive input SHALL retain its own signal handling outside that boundary.
 
 #### Scenario: Existing output has an unrelated neighboring file
 
@@ -43,3 +46,10 @@ SHALL preserve both output channels without applying those capture limits.
 - **THEN** both output channels SHALL reach their caller-owned destinations
 - **AND** the child SHALL receive the selected directory, environment and closed
   standard input rather than ambient interactive shell state.
+
+#### Scenario: The host interrupts an isolated child invocation
+
+- **WHEN** an interrupt or termination signal arrives while an owned child runs
+- **THEN** its caller SHALL receive cancellation after owned-process cleanup
+- **AND** returning from the invocation SHALL restore the previous host signal
+  behavior rather than retaining a handler during later interactive input.

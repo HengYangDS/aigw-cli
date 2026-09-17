@@ -996,7 +996,10 @@ streamed build logs. The command's interrupt context reaches construction,
 artifact verification and Forge requests; tools retain explicit directories,
 environments and closed stdin. Unix invocations own a process group, while
 Windows invocations retain their existing Job Object. Return terminates remaining
-owned descendants and preserves unrelated processes. This boundary does not
+owned descendants and preserves unrelated processes. Signal observation is
+scoped to each non-interactive invocation and restores the prior handler on
+return; a product-wide handler must not swallow interruption during blocking
+interactive input. This boundary does not
 claim recovery after an uncatchable host kill or containment of a descendant
 that deliberately escapes its process group.
 
