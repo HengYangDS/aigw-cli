@@ -138,18 +138,15 @@ Mermaid validation uses the latest admitted development-only
 `@mermaid-lint/core` release and preserves its syntax diagnostics and semantic
 rules. Its declared jsdom 26 range still selects deprecated
 `whatwg-encoding@3.1.1`, while upstream has not released a replacement. A
-narrow override therefore selects jsdom 29.1.1: the latest stable jsdom line
-whose dependency graph removes that package and retains an attested
-`whatwg-url` release. Clean installation, registry signatures and attestations,
-vulnerability scanning, valid and invalid fixtures, and every tracked Mermaid
-diagram must pass. The lock is also rejected whenever any selected npm package
-is marked deprecated. Remove the override when `@mermaid-lint/core` adopts an
-equivalent non-deprecated jsdom line.
-
-jsdom 30 is not admitted because its `whatwg-url@17.1.1` publication advertises
-an npm attestation endpoint that returns HTTP 404. Dependency acceptance is
-defined over the committed lockfile: any selected package with a missing
-advertised attestation is a failed candidate, never a permanent exception.
+narrow override therefore selects the newest jsdom release whose complete
+resolved graph passes the repository's ordinary dependency admission. Clean
+installation, registry signatures and attestations, vulnerability scanning,
+valid and invalid fixtures, and every tracked Mermaid diagram must pass. The
+lock is also rejected whenever any selected npm package is marked deprecated.
+No transitive package is pinned or waived because of a registry incident: each
+dependency proposal resolves a fresh lock and passes the same admission. Remove
+the jsdom override when `@mermaid-lint/core` adopts an equivalent
+non-deprecated line.
 
 [Renovate's local platform](https://docs.renovatebot.com/modules/platform/local/)
 supports extraction and lookup only. It cannot generate an update branch.
