@@ -4,7 +4,6 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"context"
@@ -230,16 +229,6 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 			journey.uninstallAndRequireOwnedFilesAbsent()
 		})
 	}
-}
-
-func buildNativeProgram(t *testing.T, root, version string) string {
-	t.Helper()
-	stage, err := construction.BuildNative(t.Context(), root, t.TempDir(), version)
-	if err != nil {
-		t.Fatalf("build native product %s: %v", version, err)
-	}
-	base, _ := nativeArchiveNames(version)
-	return filepath.Join(stage, base, executableName())
 }
 
 type journeyFixture struct {

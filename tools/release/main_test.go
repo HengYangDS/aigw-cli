@@ -1,8 +1,10 @@
 package main
 
 import (
+	"aigw-cli/tools/release/construction"
 	"bytes"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -38,5 +40,46 @@ func TestExecuteReturnsPortableProcessStatus(t *testing.T) {
 func TestReleaseEnvironmentSelection(t *testing.T) {
 	if envDefault("MISSING_RELEASE_ENV", "fallback") != "fallback" || firstNonEmpty("", "value") != "value" || firstNonEmpty() != "" {
 		t.Fatal("environment selection failed")
+	}
+}
+
+func buildNativeProgram(t *testing.T, root, version string) string {
+	t.Helper()
+	for _, name := range []string{"CI_COMMIT_TAG", "GITHUB_REF_TYPE"} {
+		value, present := os.LookupEnv(name)
+		t.Setenv(name, "")
+		defer func() {
+			var err error
+			if present {
+				err = os.Setenv(name, value)
+			} else {
+				err = os.Unsetenv(name)
+			}
+			if err != nil {
+				t.Errorf("restore release environment %s: %v", name, err)
+			}
+		}()
+	}
+	stage, err := construction.BuildNative(t.Context(), root, t.TempDir(), version)
+	if err != nil {
+		t.Fatalf("build native product %s: %v", version, err)
+	}
+	base, _ := nativeArchiveNames(version)
+	return filepath.Join(stage, base, executableName())
+}
+
+func TestNativeFixturePreservesReleaseEnvironment(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CI_COMMIT_TAG", "v0.1.0-rc.116")
+	t.Setenv("GITHUB_REF_TYPE", "tag")
+	program := buildNativeProgram(t, root, "0.0.0")
+	if _, err := os.Stat(program); err != nil {
+		t.Fatal(err)
+	}
+	if os.Getenv("CI_COMMIT_TAG") != "v0.1.0-rc.116" || os.Getenv("GITHUB_REF_TYPE") != "tag" {
+		t.Fatal("fixture construction changed the surrounding release context")
 	}
 }
