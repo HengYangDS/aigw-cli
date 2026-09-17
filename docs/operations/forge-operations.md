@@ -201,5 +201,6 @@ Successful CI is distinct from enforced admission. Verify the native main/dev
 rules require the intended checks and producer identity where supported, then
 observe a real review blocked while checks are pending and admitted after they
 pass. Preserve signature, history and force-push controls. An executed
-maintainer merge does not prove a scheduled dependency updater; that automation
-requires its own end-to-end observation.
+maintainer merge alone does not prove the dependency-maintenance path; candidate
+calculation, native lock refresh, checks and exact-object integration require
+their own observations. That path does not require a scheduler.

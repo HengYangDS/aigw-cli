@@ -145,25 +145,44 @@ not a claim that 29.1.1 is latest. Reconsider the override when the upstream
 range removes deprecated dependencies and the complete resolution passes
 registry signatures, provenance, vulnerability and diagram conformance checks.
 
-Candidate generation uses a disposable clone with independent Git metadata and
-an exact accepted base. Renovate resets and cleans its private checkout; that
-checkout must not share an active Work Lane, Git common directory, writable
-object store, credentials or signing agent. Its output is candidate material,
-not accepted source. The existing lane owner reviews the exact changes through
-current ETHOS write admission, native lock refresh, CI projection, signing and
-proof before publication.
+[Renovate's local platform](https://docs.renovatebot.com/modules/platform/local/)
+supports extraction and lookup only. It cannot generate an update branch.
+Candidate calculation uses the selected Forge platform with
+[`dryRun=full`](https://docs.renovatebot.com/self-hosted-configuration/#dryrun)
+and the existing repository policy. Its structured debug output includes the
+proposed file contents; it does not publish branches or reviews. Retain the
+observed accepted commit with that output and reject it if the base moves.
+Candidate contents still require native package-manager verification. In
+particular, a proposed manifest and lockfile may disagree even when the dry run
+exits successfully. Rebuild locks with the repository's selected tools, then
+require clean installation and package authentication before admitting them.
+
+Renovate owns a disposable clone with independent Git metadata. Its checkout
+must not share an active Work Lane, writable object store or signing agent.
+The execution owner supplies bounded noninteractive Forge authentication in
+process memory, with secret output redacted and no credential files mounted.
+The existing lane owner admits the exact proposed paths, applies the candidate,
+refreshes native locks and CI projections, verifies package provenance, and
+signs the accepted content through the existing Git identity. Renovate's
+[`gitPrivateKey`](https://docs.renovatebot.com/self-hosted-configuration/#gitprivatekey)
+option is for PGP signing; it is not an SSH signing-key reference.
 
 A runner claiming governed commit and push hooks must set
 [`gitNoVerify`](https://docs.renovatebot.com/self-hosted-configuration/#gitnoverify)
 to `[]` in operator-owned configuration and demonstrate hook rejection and
 success. Renovate defaults to bypassing both hooks; repository policy cannot
-override this global setting. Credentials, runner isolation and schedules
+override this global setting. Credentials and runner isolation
 belong to the execution owner, not a new AIGW updater.
 
-One admitted runner owns proposals on one selected peer. Automatic integration
-preserves the signed object through fast-forward or the existing maintainer
-publication path. A local candidate experiment or manual update does not prove
-that automation has executed.
+The repository owner explicitly invokes dependency maintenance. Each run first
+observes active work, leases and proposals, then resumes or starts one bounded
+update under current write authority. Proposals use one selected review peer;
+the existing publication path distributes the same signed object to the other
+selected peers after verification. Automatic integration preserves that object,
+and merged proposals are removed promptly. Successful candidate calculation and
+a completed signed update are separate observations; only the latter proves
+the complete maintenance path. Scheduling is optional and requires separate
+operator authorization.
 
 ## Change Lifecycle
 
