@@ -90,9 +90,9 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 	if linux.Cache.When != "always" {
 		t.Fatal("completed tool installations must survive a later job failure")
 	}
-	for _, input := range []string{"linux", "$CI_RUNNER_ID", "$CI_JOB_NAME", "$CI_COMMIT_REF_SLUG"} {
-		if !strings.Contains(linux.Cache.Key.Prefix, input) {
-			t.Fatalf("GitLab cache key lacks %s: %s", input, linux.Cache.Key.Prefix)
+	for input, required := range map[string]bool{"linux": true, "$CI_RUNNER_ID": true, "$CI_JOB_NAME": true, "$CI_COMMIT_REF_SLUG": false} {
+		if strings.Contains(linux.Cache.Key.Prefix, input) != required {
+			t.Fatalf("GitLab cache key membership for %s = %t, want %t: %s", input, !required, required, linux.Cache.Key.Prefix)
 		}
 	}
 	if len(linux.Cache.Paths) != 2 || linux.Variables["MISE_DATA_DIR"]+"/installs/" != "$CI_PROJECT_DIR/"+linux.Cache.Paths[0] || linux.Variables["MISE_CACHE_DIR"]+"/" != "$CI_PROJECT_DIR/"+linux.Cache.Paths[1] {

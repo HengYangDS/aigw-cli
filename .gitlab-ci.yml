@@ -24,7 +24,7 @@ stages:
       files:
         - mise.toml
         - mise.lock
-      prefix: mise-linux-e6263d300a50e3a28f1a3cef3969ab171d4dfa5f3bccdf868ae53c8dbf41685f-build-runtime-tool-cache-.mise-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME-$CI_COMMIT_REF_SLUG
+      prefix: mise-linux-e6263d300a50e3a28f1a3cef3969ab171d4dfa5f3bccdf868ae53c8dbf41685f-build-runtime-tool-cache-.mise-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME
     paths:
       - build/runtime/tool-cache/.mise/installs/
       - build/runtime/tool-cache/.mise/cache/

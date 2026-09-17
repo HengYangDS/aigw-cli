@@ -425,7 +425,7 @@ gitlab: {
 		cache: {
 			key: {
 				files: ["mise.toml", "mise.lock"]
-				prefix: "mise-linux-\(strings.Split(miseImage, "@sha256:")[1])-\(strings.Join(strings.Split(_dataDirectory, "/"), "-"))-\(strings.Join(_cacheDirectories, "-"))-$CI_RUNNER_ID-$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+				prefix: "mise-linux-\(strings.Split(miseImage, "@sha256:")[1])-\(strings.Join(strings.Split(_dataDirectory, "/"), "-"))-\(strings.Join(_cacheDirectories, "-"))-$CI_RUNNER_ID-$CI_JOB_NAME"
 			}
 			paths: [for directory in _cacheDirectories {"\(_dataDirectory)/\(directory)/"}]
 			policy: "pull-push"
