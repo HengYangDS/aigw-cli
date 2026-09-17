@@ -173,25 +173,13 @@ open a credential-access prompt.
 
 ### Requirement: Explicit Token input is complete and scoped
 
-Every `--token-stdin` operation SHALL read through EOF within a 64 KiB input
-budget and admit one non-empty visible ASCII Token with at most one terminal LF
-or CRLF. It SHALL reject malformed or incomplete input without credential,
-configuration or network effects. It SHALL NOT silently trim whitespace,
-discard extra lines or consult ambient credentials instead.
-
-Endpoint `test --token-stdin` SHALL require one explicit Profile or client,
-resolve its Account and endpoint before consuming input, and use the Token only
-for that request. It SHALL neither read nor write the credential store or client
-state. Its optional `--config` SHALL require an absolute configuration path and
-SHALL NOT change default path selection for another operation. The result SHALL
-remain HTTP endpoint observation, not model inference or client verification.
-
-Raw stdin SHALL remain literal by default. An explicitly selected
-`--token-format go-keyring-base64` SHALL decode exactly one canonical storage
-envelope produced by the pinned macOS backend and validate the decoded Token
-without trimming it. Unknown formats, missing or malformed envelopes, nested
-encoding and invalid decoded Tokens SHALL fail before HTTP. The option SHALL
-require `--token-stdin` and SHALL NOT alter the credential store.
+Every `--token-stdin` operation SHALL read one complete Token through EOF within
+64 KiB, preserving visible ASCII except one terminal LF or CRLF.
+Malformed, incomplete, multiline, or ambiguous input SHALL fail before
+credential, configuration, or network effects. Endpoint testing SHALL resolve
+one Profile or client before consuming input and use it only for that request.
+Explicit storage-envelope decoding SHALL validate one canonical format without
+reading or changing the credential store.
 
 #### Scenario: Complete Token arrives in multiple pipe writes
 
@@ -254,20 +242,13 @@ authentication or a healthy diagnostic result.
 
 ### Requirement: Credential backend state is explicit and portable
 
-AIGW SHALL expose the selected credential backend, its observed availability,
-declared mutability, persistence and recovery action without retrieving secret
-values. `read_write` describes the backend interface, not proof that an
-operating-system credential operation will be authorized or complete. Metadata
-observation SHALL NOT certify future secret access or durable writes.
-Automatic selection SHALL be deterministic for the installation and SHALL NOT
-silently cross-read another backend. Read-only observation and credential reads
-SHALL NOT persist a previously unrecorded automatic selection; the first
-credential mutation SHALL persist it before changing credential state.
-Every later ordinary mutation SHALL validate the current persisted selection
-against its resolved backend before writing or deleting a credential.
-Inspection SHALL derive persistence from current selection metadata rather than
-an earlier in-memory observation. Conflicting metadata SHALL NOT silently change
-the invocation's resolved backend.
+AIGW SHALL expose backend selection, availability, mutability, persistence, and
+recovery without reading secrets. Interface capability SHALL NOT prove host
+authorization. Automatic selection SHALL be deterministic and never cross-read
+a backend. Observation and reads SHALL NOT persist a new selection; the first
+mutation SHALL persist it before credential effects, and later mutations SHALL
+revalidate it. Inspection SHALL use current metadata; conflicts SHALL NOT
+silently switch backend.
 
 #### Scenario: Native credential storage is usable
 
@@ -323,13 +304,11 @@ the invocation's resolved backend.
 
 ### Requirement: Credential availability is scoped to active demand
 
-An Account Token SHALL be required only when an explicit operation activates,
-projects, checks, or verifies a Route with Account-Token authentication.
-Client-native authentication SHALL remain independent of AIGW Token slots.
-Readiness checks SHALL admit the selected client's executable and configuration
-projection before reading its Token value or authenticating its endpoint.
-An unready projection SHALL retain its own recovery action in both human and
-JSON output; an unobserved credential SHALL NOT be classified as absent.
+An Account Token SHALL be required only for an explicit operation on an active
+Account-Token Route. Client-native authentication SHALL remain independent.
+Readiness SHALL admit the selected executable and projection before reading a
+Token or probing an endpoint. An unready projection SHALL retain its human and
+JSON recovery action; an unobserved credential SHALL NOT be classified as absent.
 
 #### Scenario: A selected client's projection is not ready
 
@@ -403,23 +382,12 @@ be reported as retained-item, real-client or distribution proof.
 
 ### Requirement: Explicit host credential policy survives client projection
 
-A local Adapter MAY select one trusted absolute credential executable with
-`credential_command`. Its invocation SHALL retain the existing
-`credential <client> <projection-fingerprint>` contract. The setting SHALL NOT
-change the native `aigw credential` implementation, select another secret backend,
-enter a team manifest, or grant native credential access.
-
-Sync, program upgrade and explicit Adapter re-enablement SHALL preserve this
-setting. Disable SHALL withdraw the client projection while retaining disabled
-host policy; sync SHALL NOT implicitly re-enable it. Full uninstall SHALL remove
-Adapter policy without deleting the external executable or its credentials.
-Client verification SHALL consume the synchronized helper through the existing
-bounded native client runner, without a redundant native-store read. Unknown
-credential-bearing diagnostics SHALL be suppressed. A successful client exit
-without the expected verification marker SHALL remain a verification failure.
-Readiness, route selection and re-enablement SHALL NOT require a duplicate Token
-in AIGW's store. A local check SHALL report projection readiness, not claim
-external credential retrieval or endpoint authentication has succeeded.
+A local Adapter MAY select one trusted absolute `credential_command` using the
+existing client-and-fingerprint contract. It SHALL change neither AIGW's native
+credential implementation nor backend authority. Sync, upgrade, and explicit
+reenablement SHALL preserve it; disable SHALL retain dormant policy and uninstall
+SHALL remove only Adapter policy. Verification SHALL use the synchronized helper
+through the bounded client runner. Readiness SHALL claim projection state only.
 
 #### Scenario: A trusted external reader supplies the client credential
 
@@ -432,25 +400,13 @@ external credential retrieval or endpoint authentication has succeeded.
 
 ### Requirement: macOS credential value operations are bounded
 
-The macOS Keychain adapter SHALL execute read, write and delete operations in a
-private AIGW worker backed by go-keyring's `/usr/bin/security` provider. The
-parent SHALL enforce a five-second deadline and the existing bounded process
-cleanup contract. Writes SHALL pass the logical Token through bounded standard
-input; the child SHALL receive no Token, loader override, client configuration
-or fallback-reader selection in its environment. Metadata observation SHALL use
-a value-free query that does not request password bytes.
-
-The adapter SHALL preserve the existing search-list, service, slot and stored-
-value grammar. A failed or timed-out read SHALL return no credential bytes,
-change no access control, migrate no credential and try no alternate backend.
-Diagnostics SHALL remain separate from Token stdout. A metadata success SHALL
-NOT prove value authorization. The process deadline SHALL NOT be represented as
-a guarantee that macOS cannot display authorization UI.
-
-go-keyring SHALL apply its storage encoding exactly once. Updates SHALL preserve
-item identity and access policy. Deleting an absent item SHALL be a successful
-no-op. Successful fresh creation SHALL NOT prove retained-item or cross-release
-authorization.
+The macOS adapter SHALL perform value operations in a private five-second AIGW
+worker using go-keyring's `/usr/bin/security` provider and bounded cleanup.
+Tokens SHALL enter only through bounded stdin; metadata SHALL use a value-free
+query. Failures SHALL return no secret, alter no ACL, migrate nothing, and try no
+fallback. Diagnostics SHALL stay off Token stdout. Encoding SHALL occur once;
+updates SHALL preserve item identity and policy. Timing and creation SHALL NOT
+prove future authorization.
 
 #### Scenario: The installed executable creates and rotates a credential
 

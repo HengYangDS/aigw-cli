@@ -7,23 +7,13 @@ transactional client projections, and no ownership of API traffic or sessions.
 
 ### Requirement: Provider-neutral configuration
 
-AIGW SHALL model Accounts, Profiles, Routes, endpoints, authentication
-ownership, and native models without provider identity hacks, named gateways,
-deployment topology, or global fallback. Each Route MUST bind one admitted
-client to one compatible Profile. Only the current schema is executable; old
-schemas need replacement. Manifests MUST omit credentials. Readiness SHALL
-follow authentication ownership: a bounded Account-Token probe, or local
-client-native prerequisites plus `aigw verify`.
-
-Every Profile MUST reference an Account endpoint for its declared client's
-protocol, even when no Route selects that Profile. Configuration validation is
-the shared admission boundary for local persistence and manifest import; it
-does not require a Token, an installed client, or a successful remote request.
-
-Validation SHALL report the first problem in stable order without changing the
-input: schema and required collections, Accounts, Profiles, Routes, then
-Adapters. Collection keys and credential-like query parameter names SHALL use
-lexical order; endpoint diagnostics SHALL check Anthropic before Responses.
+AIGW SHALL model Accounts, Profiles, Routes, endpoints, authentication, and
+models without provider-specific hacks, named gateways, topology, or global
+fallback. Routes MUST bind admitted clients to compatible Profiles; Profiles
+MUST bind protocol-compatible Account endpoints. Only the current
+credential-free schema SHALL execute. Offline validation SHALL serve
+persistence and import and report the first failure deterministically. Readiness
+SHALL follow authentication ownership.
 
 #### Scenario: Diagnose several configuration problems
 
@@ -505,15 +495,12 @@ endpoint verification MUST remain functional without them.
 ### Requirement: Independently admitted native clients
 
 Codex and Claude Code SHALL be independent Adapters owning discovery,
-projection, authentication, rollback, verification, status, and removal of
-AIGW-owned state. AIGW credential commands MUST use the absolute installed
-executable, keep Tokens out of client configuration, and resolve them through
-the active Route when Profile authentication is Account-Token. Client-native
-authentication SHALL remain owned by the admitted client. Ordinary client
-launch and beta preferences SHALL remain client-owned; explicit AIGW verification
-SHALL consume synchronized settings without a wrapper or hidden endpoint. A
-future client MUST add one Adapter without changing provider policy or existing
-Adapters.
+projection, authentication, rollback, verification, status, and withdrawal of
+AIGW state. Account-Token helpers MUST use the absolute installed AIGW
+command and Route without storing Tokens in client files. Client-native
+authentication and preferences SHALL remain client-owned. Verification SHALL
+use synchronized settings without wrappers. New clients MUST add an Adapter
+without changing provider policy or existing Adapters.
 
 #### Scenario: One admitted client is absent
 
@@ -742,15 +729,12 @@ compare-and-swap authority bound to the complete accumulated lane delta.
 
 ### Requirement: Terminal local release readiness
 
-AIGW SHALL admit a local release candidate only after the canonical contract
-and its active official deltas have no placeholder authority; direct repository dependencies are current and
-stable under the dependency-admission policy; the faithful quantitative
-quality evidence contract is satisfied; native source gates pass; and the release
-matrix is reproducible and installable. Hosted CI, peer publication,
-installed-asset proof, and lane retirement SHALL consume, rather than block
-production of, the source-accepted local result. Active Change intent and
-pending delivery tasks SHALL remain available until their obligations are
-settled; archive SHALL NOT be used to erase that unfinished work.
+A local release candidate SHALL require complete canonical intent, admitted
+stable direct dependencies, faithful quantitative evidence, passing native
+source gates, and a reproducible installable matrix. Hosted CI, publication,
+installed-asset proof, and lane retirement SHALL consume that accepted result
+rather than block its production. Active Change tasks SHALL remain authoritative
+until all delivery obligations finish; archive SHALL NOT erase unfinished work.
 
 #### Scenario: A stable direct dependency update is available
 
@@ -807,13 +791,12 @@ settled; archive SHALL NOT be used to erase that unfinished work.
 
 ### Requirement: Reviewed team configuration is directly consumable
 
-The repository SHALL publish one token-free manifest of reviewed Accounts,
-Profiles, and recommended Routes, directly consumable by `aigw setup --from`
-without credentials or installed clients. Setup and later `aigw sync` SHALL
-preserve client and model intent while selecting compatible Profiles only from
-currently usable authentication boundaries, project only AIGW-owned client
-state, and never expose or rebind Tokens. Fictitious providers, workstation paths, and parallel
-example manifests MUST NOT remain.
+The repository SHALL publish one token-free reviewed manifest directly
+consumable by `aigw setup --from` without credentials or installed clients.
+Setup and sync SHALL preserve client and model intent, select Profiles only
+through usable authentication boundaries, project only AIGW-owned state, and
+never expose or rebind Tokens. Fictitious providers, workstation paths, and
+parallel example manifests SHALL NOT remain.
 
 #### Scenario: Team member imports reviewed settings
 
@@ -912,15 +895,13 @@ lifecycle residue.
 
 ### Requirement: Composable extension boundary
 
-AIGW SHALL separate local configuration and client projection from API traffic.
-Compatible endpoints and models enter as Account data. Existing client-native
-credential exchange and signing SHALL be reused through explicit Profile
-authentication before an AIGW extension is considered. Unsupported credential
-contracts require separate admission, new clients enter through complete
-Adapters, and incompatible wire behavior stays in an independent data plane.
-External gateways remain optional endpoints, never runtime dependencies. A
-mature dependency MAY be admitted only when the boundary holds and total owned
-complexity decreases.
+AIGW SHALL keep configuration and client projection separate from API traffic.
+Endpoints and models SHALL enter as Account data; existing
+client-native authentication SHALL be reused through explicit Profiles. New
+clients SHALL require complete Adapters, unsupported credential contracts SHALL
+require admission, and incompatible wire behavior SHALL remain in a separate
+data plane. Gateways SHALL remain optional endpoints. Dependencies MAY be
+admitted only when total owned complexity falls.
 
 #### Scenario: Add a compatible Provider endpoint
 
@@ -1179,18 +1160,12 @@ projection, or make an optional product a dependency.
 
 ### Requirement: Client deactivation is ownership-bounded
 
-AIGW SHALL withdraw client integration through the same guarded projection
-transaction that created it. Disabling one Adapter SHALL remove only that
-client's AIGW-owned configuration block, sidecar, generated catalogue, and
-credential-helper or command projection. Portable uninstall SHALL first disable
-every enabled Adapter and SHALL remove the executable only after client
-withdrawal succeeds. Both operations SHALL preserve Accounts, Profiles, Routes,
-Tokens, other enabled Adapters, and neighboring user-authored client state.
-
-A successful disable or uninstall SHALL remove the verified checkpoint because
-it describes client projections that are no longer present. The single previous
-configuration backup MAY remain as an explicit operator-selected rollback
-source; it MUST NOT be treated as current state or applied implicitly.
+AIGW SHALL withdraw integration through the guarded projection transaction that
+created it. Disable SHALL remove only that client's owned projection and obsolete
+checkpoint; uninstall SHALL first disable all enabled Adapters and remove the
+program only after withdrawal succeeds. Both SHALL preserve configuration,
+Tokens, other Adapters, and neighboring user state. A retained previous
+configuration MAY serve only as an explicit rollback source.
 
 #### Scenario: Disable one client
 
@@ -1220,15 +1195,13 @@ source; it MUST NOT be treated as current state or applied implicitly.
 
 ### Requirement: Portable installation describes its own current files
 
-`aigw installation` SHALL observe the invoked portable program without changing
-files, accessing credential values, requiring valid Account configuration, or
-executing a retained program. Its `--json` output SHALL have an explicit schema
-version and bind the absolute command path, running version, resolved payload
-path, byte count and SHA-256. A present rollback copy SHALL be described by the
-same file-identity contract; absence SHALL be explicit, not an error or a claim
-that rollback has been verified. Unreadable or nonregular files SHALL fail with
-the affected boundary. The result SHALL be derived from existing files, not a
-persisted installation registry or a checkout-only build receipt.
+`aigw installation` SHALL describe the invoked portable program from current
+files without mutation, credential reads, valid Account configuration, or
+executing a retained program. Versioned JSON SHALL bind absolute command and
+payload paths, version, size, and SHA-256. A rollback copy SHALL use the same
+identity model; absence SHALL be explicit. Unreadable or nonregular files SHALL
+fail at their boundary. No persisted registry or checkout-only receipt SHALL
+supply the result.
 
 #### Scenario: Observe an installed program without source or configuration
 
@@ -1307,15 +1280,12 @@ or Profile identity SHALL NOT be implicitly replaced.
 
 ### Requirement: Verification checkpoints remain bound to current configuration
 
-The configuration Store SHALL own checkpoint admission, bounded mutation-lock
-acquisition, guarded persistence, and compensation. Live requests SHALL run
-outside that lock. A completed verification SHALL create a checkpoint only
-when its configuration still matches the current configuration. A checkpoint
-SHALL NOT create missing configuration or certify missing configuration.
-
-Checkpoint reads SHALL consume exactly one complete JSON document. Checkpoint
-creation and reading SHALL use one client-scope contract: a nonempty list of
-distinct admitted clients, without requiring every client to have participated.
+The configuration Store SHALL own checkpoint admission, bounded locking,
+guarded persistence, and compensation; live requests SHALL run outside the lock.
+Verification SHALL create a checkpoint only while its configuration remains
+current and SHALL NOT create or certify missing configuration. Reads SHALL
+consume one complete JSON document. Creation and reading SHALL share one
+nonempty, distinct admitted-client scope.
 
 #### Scenario: Invalid checkpoint content or client scope
 
@@ -1426,15 +1396,12 @@ and comparison SHALL preserve the current executable and retained predecessor.
 
 ### Requirement: Repeated portable installation preserves rollback identity
 
-Portable installation SHALL compare executable content before rotating the
-retained predecessor. Reinstalling identical bytes SHALL preserve the current
-program file and any existing predecessor; it MAY restore executable permissions.
-A fresh installation SHALL NOT create a predecessor until different program
-bytes replace it.
-
-Installation SHALL preserve shell configuration and `PATH`. Its result SHALL
-identify the installed executable and explain direct-path invocation before
-assuming that the command name resolves to that installation.
+Portable installation SHALL compare executable bytes before rotating the
+predecessor. Identical reinstall SHALL preserve both program identities and MAY
+restore executable permission; a fresh install SHALL create no predecessor.
+Installation SHALL preserve shell configuration and `PATH`, identify the
+installed executable, and explain direct-path invocation before assuming name
+resolution.
 
 #### Scenario: Install outside the command search path
 
@@ -1454,13 +1421,12 @@ assuming that the command name resolves to that installation.
 
 ### Requirement: Projection-matched Account Token delivery
 
-Every Account-Token Codex provider SHALL use command-backed authentication
-through the absolute AIGW executable. Its helper invocation SHALL carry a
-fingerprint of the projected client, Account and endpoint. Before reading a
-Token, the helper SHALL compare that fingerprint with the selected Route.
-AIGW SHALL neither invoke native login nor modify client-owned credentials.
-Client-native authentication SHALL project no AIGW Token helper. Provider
-naming and catalogue selection SHALL NOT change credential ownership.
+Every Account-Token Codex provider SHALL authenticate through the absolute AIGW
+command. The helper SHALL carry the projected client, Account, and endpoint
+fingerprint and compare it with the selected Route before reading a Token. AIGW
+SHALL neither invoke native login nor change client credentials. Client-native
+Profiles SHALL project no AIGW Token helper; naming and catalogue selection
+SHALL NOT alter credential ownership.
 
 #### Scenario: Account-Token provider projection
 
@@ -1680,23 +1646,13 @@ lock or executing an operation. Cobra SHALL own shared flag validation.
 
 ### Requirement: Program replacement has an explicit client reconciliation boundary
 
-Successful program update or rollback SHALL direct the operator to execute
-`aigw sync` with the newly active executable before checking readiness. Program
-replacement SHALL NOT silently rewrite client settings or convert stored
-configuration to a historical schema. The documented rollback journey SHALL
-retain enabled integrations and explicit client locations while activating a
-supported predecessor, then reconcile its projections through public
-synchronization. Release qualification SHALL test the actual predecessor with
-retained client state rather than recreate an integration around replacement.
-
-Before program rollback, AIGW SHALL execute the exact retained program in a
-private environment without operator credentials or client discovery paths. It
-SHALL verify startup and, when configuration exists, require that program's
-public configuration export to read an exact isolated copy. Failure SHALL
-preserve both program files and every operator configuration file. The operator
-MAY explicitly restore a compatible configuration using the existing
-configuration rollback command before retrying; program rollback SHALL NOT
-perform that restoration implicitly or invent a compatibility conversion.
+Update and rollback SHALL activate program bytes without silently changing
+client settings or schema, then direct reconciliation through `aigw sync`.
+Rollback SHALL first qualify the exact retained program against an isolated
+configuration copy without credentials or client discovery. Failure SHALL
+preserve both programs and operator configuration. Compatibility restoration
+SHALL be explicit; release qualification SHALL use the real predecessor and
+retained client state.
 
 #### Scenario: The predecessor cannot read the current configuration
 
@@ -1750,21 +1706,12 @@ Reported failures SHALL retain their original causes for caller inspection.
 
 ### Requirement: Release construction owns only its operation resources
 
-Release construction and native acceptance SHALL retain tool and cleanup failure
-causes and identify the exact workspace requiring cleanup. Replacing release
-output SHALL use an operation-owned private backup rather than deleting a
-predictably named sibling of the requested output.
-
-Release commands SHALL propagate interruption through construction, verification
-and publication. Non-interactive tools SHALL share the product's process owner,
-preserve explicit working directories and environments, and keep output handles
-in the parent. Returning from an invocation SHALL terminate its remaining owned
-process-group or Job descendants without selecting unrelated host processes.
-Captured results SHALL retain their existing size limits; streamed build logs
-SHALL preserve both output channels without applying those capture limits.
-The process owner SHALL observe host interruption only during an active
-non-interactive invocation and restore the previous signal behavior on return.
-Interactive input SHALL retain its own signal handling outside that boundary.
+Release work SHALL own its workspace, private replacement backup, processes,
+and cleanup. Commands SHALL preserve failure causes, directories, environments,
+parent output handles, bounded captures, and complete streamed channels.
+Interruption SHALL propagate through every stage; return SHALL terminate only
+owned process-group or Job descendants. Signal interception SHALL be scoped to
+active non-interactive work and restore prior behavior.
 
 #### Scenario: Existing output has an unrelated neighboring file
 

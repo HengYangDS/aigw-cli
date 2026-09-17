@@ -73,17 +73,13 @@ syntax. Invalid or ambiguous selections SHALL fail before applying file changes.
 
 ### Requirement: Codex provider ownership follows TOML values
 
-AIGW SHALL identify its provider and authentication tables through the locked
-TOML parser, not the span between presentation comments. The recorded projection
-hash SHALL bind a canonical rendering of the complete owned values. Equivalent
-quotes, table order, whitespace, or removed provider comments SHALL NOT invalidate
-that ownership. Invalid, unknown, missing, or changed owned fields SHALL fail
-before writing. No alternate hash scheme or truncation-repair path is needed.
-
-The native `requires_openai_auth` preference SHALL retain its absent, true, or
-false identity when proving an existing projection. Reconciliation SHALL replace
-it with the current Profile's authentication projection only after the recorded
-hash matches; reading the preference SHALL NOT enable it in new projections.
+AIGW SHALL identify provider and authentication tables through the locked TOML
+parser, never comment spans. One canonical rendering of complete owned values
+SHALL define the projection hash; equivalent syntax SHALL preserve ownership,
+while invalid, missing, unknown, or changed owned values fail before writing.
+`requires_openai_auth` SHALL retain absent, true, or false identity until a
+matching projection is reconciled to the current Profile; reading it SHALL NOT
+enable it in a new projection.
 
 #### Scenario: The native client edits another configuration table
 
@@ -124,13 +120,12 @@ recorded scheduler values without removing ownership-like text elsewhere.
 
 ### Requirement: Claude model preference and connection ownership are distinct
 
-AIGW SHALL reconcile an explicit Claude Route selection or synchronization when
-the recorded managed hash proves that only the top-level model preference changed.
-The prior Route supplies the previous model; the current user settings SHALL NOT
-establish their own ownership. Endpoint, credential-helper, and managed credential
-changes SHALL remain conflicts. Neighboring user settings SHALL be preserved.
-Ownership hashes SHALL compare decoded string values, not equivalent JSON escape
-spellings. Transaction compensation SHALL retain the byte-exact observed files.
+AIGW SHALL reconcile an explicit Claude Route when the recorded managed hash
+proves that only the top-level model changed. The prior Route supplies the old
+model; current user settings SHALL NOT establish ownership. Endpoint, helper,
+and managed-credential changes SHALL remain conflicts. AIGW SHALL preserve
+neighboring settings and byte-exact compensation, and SHALL compare decoded
+strings rather than equivalent JSON escapes.
 
 #### Scenario: A client rewrites equivalent JSON string escapes
 

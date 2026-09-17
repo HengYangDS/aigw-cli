@@ -24,16 +24,13 @@ AIGW SHALL expose one tracked, machine-readable product version source used by C
 
 ### Requirement: Governed release-branch convergence
 
-Declared candidate, accepted and release refs SHALL advance through current
-transition authority and tracked branch-role policy. Normal governance and an
-explicitly authorized, exact-scope maintainer recovery SHALL retain proof,
-identity, compare-and-swap and post-effect observation requirements.
-The adopter SHALL declare its product roles and gates without prescribing ETHOS
-internal transition names or capability schema. GitLab and GitHub SHALL publish
-the same accepted source independently; remote availability SHALL not be a prerequisite
-for local proof or release assembly. Source integration MAY retain an active
-official Change while delivery is unfinished; its task carrier SHALL remain
-the sole progress authority until obligations are settled and archived.
+Candidate, accepted, and release refs SHALL advance through current authority
+and tracked branch roles. Normal and exact-scope maintainer paths SHALL preserve
+proof, identity, compare-and-swap, and post-effect observation. The adopter
+SHALL declare product roles without encoding ETHOS internals. Each Forge SHALL
+independently publish the same accepted source; local work SHALL require neither
+remote. OpenSpec SHALL remain progress authority until delivery is complete and
+archived.
 
 #### Scenario: Accepted content is ready for release
 
@@ -78,13 +75,12 @@ policy SHALL not create parallel authority.
 ### Requirement: Semantic documentation architecture
 
 Documentation SHALL have one global entry point and semantic organization.
-Official OpenSpec artifacts are the sole tracked change-intent authority; ETHOS
-MAY derive transient execution inputs through its current public contract. The
-adopter SHALL NOT freeze ETHOS internal fields or persist a parallel intent
-carrier. Filenames MUST name their subjects. Local indexes or extra
-carriers MAY exist only for semantics not representable by OpenSpec, the global
-entry point, or existing authorities, and MUST declare owner, consumer,
-replaced authority, and retirement.
+OpenSpec artifacts are the sole tracked change-intent authority; ETHOS
+MAY derive only transient execution inputs through its public contract. The
+adopter SHALL NOT persist ETHOS internals or parallel intent.
+Filenames MUST identify subjects. Any otherwise necessary local index or carrier
+MAY exist only for otherwise unrepresented semantics and MUST declare its
+owner, consumer, displaced authority, and retirement.
 
 #### Scenario: Reader enters the documentation
 
@@ -129,13 +125,11 @@ replaced authority, and retirement.
 
 ### Requirement: Release chronology shares strict version semantics
 
-Release headings and tags SHALL consume the same strict SemVer implementation
-already used by release construction and update admission. Published headings
-SHALL have strictly decreasing precedence. Exact tag and release-epoch lookup
-SHALL retain build metadata, which does not alter precedence. Values outside
-the supported numeric core SHALL fail rather than silently overflow.
-Native source admission and release construction SHALL consume one strict
-reader of the canonical `VERSION` carrier before executing downstream work.
+Release headings, tags, source admission, construction, and update admission
+SHALL share one strict SemVer reader of canonical `VERSION`. Published headings
+SHALL decrease strictly by precedence; exact tag and release-epoch lookup SHALL
+retain non-ordering build metadata. Unsupported numeric values fail before
+downstream work rather than silently overflow.
 
 #### Scenario: Native acceptance receives an invalid source version
 

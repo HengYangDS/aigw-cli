@@ -151,14 +151,12 @@ authentication, and verification without making every provider mandatory.
 ### Requirement: Deferred activation has one resumable path
 
 Importing a reviewed team manifest SHALL establish available capability without
-requiring every Account Token or supported client. `aigw sync` SHALL later
-converge newly available credentials and clients without requiring setup to be
-repeated or a hidden bulk-selection step. Imported recommendations SHALL remain
-distinct from selected per-client Routes. Setup and synchronization SHALL fill
-only unselected Routes: prefer a usable recommendation, then a compatible
-Profile with the recommended model, then the first usable Profile in stable
-identifier order. Existing selections SHALL remain unchanged even when their
-credentials are unavailable.
+requiring every Token or client. `aigw sync` SHALL later converge newly
+available credentials and clients without repeated setup or hidden bulk
+selection. Recommendations SHALL remain distinct from selected Routes. Setup
+and sync SHALL fill only unselected Routes, preferring a usable recommendation,
+its model, then the first usable Profile in stable identifier order. Existing
+selections SHALL remain unchanged.
 
 #### Scenario: Any one Account is available
 
@@ -205,14 +203,12 @@ credentials are unavailable.
 
 ### Requirement: Setup has one explicit commit boundary
 
-Setup SHALL treat configuration, credential slots, backend selection, client
-projections, checkpoints, locks, and temporary files as one owned transaction
-until configuration persistence and every participating client projection
-succeed. A configuration-file write is an intermediate effect, not completion
-of the whole setup transaction. Failure before full completion SHALL apply
-guarded compensation to that attempt's unchanged postimages. Recovery failure
-SHALL retain the original cause and exact unresolved resources; concurrent
-user changes SHALL be preserved. Presentation is outside this transaction.
+Setup SHALL own configuration, credential slots, backend selection, client
+projections, checkpoints, locks, and temporary files as one transaction until
+persistence and every participating projection succeed. A configuration write
+SHALL NOT establish completion. Failure SHALL compensate only unchanged
+postimages, preserve concurrent user changes, and report the original cause plus
+unresolved resources. Presentation SHALL remain outside the transaction.
 
 #### Scenario: Setup fails before commit
 

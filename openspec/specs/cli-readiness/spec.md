@@ -122,13 +122,12 @@ remain restricted to that loopback boundary.
 
 ### Requirement: Verification follows enabled client scope
 
-`verify --for all` SHALL verify every currently enabled client Route, not every
-client implemented by AIGW. Disabled or absent clients SHALL NOT become
-prerequisites for Account rename finalization. Finalization SHALL retain
-credential equality, current-configuration and exact-backup guards; it SHALL
-require successful verification of all enabled clients before retiring source
-credentials. A configuration with no enabled clients needs no client checkpoint
-and SHALL NOT be described as having completed client verification.
+`verify --for all` SHALL verify exactly the enabled client Routes. Disabled or
+absent clients SHALL NOT block Account rename. Finalization SHALL preserve
+credential equality, current-configuration, and exact-backup guards, and retire
+source credentials only after every enabled client verifies successfully. With
+no enabled clients, AIGW SHALL create neither a client checkpoint nor a
+completed-client claim.
 
 #### Scenario: One client is enabled
 

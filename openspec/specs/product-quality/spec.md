@@ -10,14 +10,12 @@ repository-specific measurements into arbitrary merge vetoes.
 
 ### Requirement: one complete quality graph
 
-The repository SHALL expose one quality graph reused by local development,
-exact-HEAD proof, GitLab, and GitHub. One declarative topology SHALL generate
-Forge files; generated files MUST NOT own policy, and repository commands SHALL
-own behavior. Projection drift fails first. Product targets, release assets,
-native acceptance, and host compatibility are distinct claims;
-cross-compilation proves only artifacts. A Forge SHALL schedule one verification graph for each admitted event. Separate
-review, accepted-branch and release-branch events remain separate evidence
-stages until an admitted verifier can prove safe cross-event reuse.
+One quality graph SHALL serve local development, exact-HEAD proof, GitLab, and
+GitHub. A declarative topology generates Forge files; repository commands own
+behavior and projection drift SHALL fail first. Product targets, artifacts,
+native acceptance, and host compatibility SHALL remain distinct claims. Each
+admitted event SHALL receive its required graph; cross-event reuse requires an
+explicit verifier, and cross-compilation SHALL prove artifacts only.
 
 #### Scenario: a new repository owner is added
 
@@ -155,15 +153,12 @@ transport credential and hosted account verification.
 
 ### Requirement: faithful quantitative quality evidence
 
-Go statement coverage SHALL be measured under one machine policy owning the
-aggregate floor, package observation, comparison, risk, remediation, and
-review. Every canonical production package MUST remain visible. Packages with
-measurable statements MUST execute owned statements and retain exact ratios;
-proven declaration-only and native zero-statement packages MUST report not
-applicable instead of an invented ratio. Evidence MUST bind raw counts, package,
-revision and tree, toolchain, and policy digest. The repository SHALL NOT infer
-branch coverage from statement data or depend on an unavailable analyzer to
-manufacture a stronger-looking claim.
+One machine policy SHALL own Go statement coverage, including the aggregate
+floor, package observation, comparison, risk, remediation, and review. Every
+production package MUST remain visible; measurable packages MUST execute owned
+statements with exact ratios, while proven zero-statement packages MUST report
+not applicable. Evidence MUST bind raw counts, package, revision, tree,
+toolchain, and policy. Statement data SHALL NOT be relabeled as branch coverage.
 
 #### Scenario: quantitative evidence is evaluated
 
@@ -261,15 +256,13 @@ repository-specific merge blacklists.
 
 ### Requirement: complete delivery evidence
 
-Quality completion SHALL require distinct evidence for the complete local
-graph, exact-HEAD proof, native hosted CI, independent peer publication, exact
-branch and tag identity, asset integrity, installation, runtime acceptance, and
-repository housekeeping. A release SHALL be complete only when its one signed
-tag object, immutable assets, checksums, peer-native Release records, and
-supported-platform acceptance are verified at their owning boundaries. Every
-selected peer SHALL verify its own objects and assets; native platform evidence
-MAY be supplied by the admitted aggregate executor set without duplicating
-unavailable runners or weakening the platform requirement.
+Quality completion SHALL require distinct evidence for local gates, exact-HEAD
+proof, native CI, independent peer publication, branch and tag identity,
+asset integrity, installation, runtime acceptance, and housekeeping. A release
+SHALL be complete only when its signed tag, immutable assets, checksums, peer
+records, and platform acceptance pass at their owners. Each peer SHALL
+verify its objects and assets; admitted executors MAY supply native evidence
+without weakening platform requirements.
 
 #### Scenario: both publication planes complete
 
@@ -359,13 +352,11 @@ cross-compilation stand in for native evidence.
 ### Requirement: Source acceptance precedes delivery completion
 
 Source acceptance SHALL require valid official Change artifacts, exact-source
-quality evidence and authorized object-preserving integration. An active
-Change MAY accompany that source into accepted or release refs while external
-delivery remains incomplete. Its original tasks SHALL retain the remaining
-work and be updated only after the corresponding outcomes are observed.
-Archive SHALL follow completed Change obligations, not become a prerequisite
-for the integration that enables them. AIGW SHALL retain native OpenSpec
-validation without a second branch-based lifecycle checker.
+quality evidence, and authorized object-preserving integration. An active
+Change MAY reach accepted or release refs while delivery remains incomplete;
+its original tasks SHALL retain that work until outcomes are observed. Archive
+SHALL follow completed obligations and SHALL NOT gate enabling integration.
+Native OpenSpec validation SHALL remain the sole repository lifecycle check.
 
 #### Scenario: Active Change reaches source verification
 
@@ -395,13 +386,12 @@ Immutable OpenSpec archives SHALL remain outside current-document rewriting.
 
 ### Requirement: Quality coverage has one positive authority
 
-The architecture policy SHALL assign each tracked carrier exactly one semantic
-responsibility. The CI entrypoint and native tool configurations SHALL own the
-executable checks and their scopes, collectively covering every applicable
-formatting, lint, type, semantic, test, security, and generated-projection
-concern. Architecture classification alone SHALL NOT establish quality
-coverage. Rules SHALL state the required shape positively; exclusions SHALL
-be narrow, justified, and owned by the same authority.
+Architecture policy SHALL assign each tracked carrier one semantic owner.
+The CI entrypoint and native tool configurations SHALL own executable scopes
+covering every applicable format, lint, type, semantic, test, security, and
+projection concern. Classification alone SHALL NOT prove execution. Rules SHALL
+state positive required shape; exclusions SHALL remain narrow, justified, and
+owned by the same authority.
 
 #### Scenario: A tracked carrier is added
 
@@ -613,25 +603,13 @@ documentation, packaging, or CI path SHALL be resolved at its semantic owner.
 
 ### Requirement: Terminal layout follows semantic fields and display width
 
-Human-facing command output SHALL use the existing presentation owner for
-terminal-cell measurement, ANSI-aware layout and wrapping. Related command and
-description fields SHALL share one measured column and switch as a group to
-stacked layout when content cannot fit or contains multiple lines. Command
-metadata SHALL own executable names; manual padding and shell-comment syntax
-SHALL NOT substitute for structured explanatory fields. Existing native text
-libraries SHALL own word and grapheme wrapping without dropping content.
-
-Every public command's help SHALL retain its native option meaning at wide and
-narrow widths. The final option display SHALL use the same width-aware renderer;
-pflag SHALL remain the option-grammar owner. Color SHALL NOT alter text alignment.
-The tests SHALL verify display width, field preservation and actual description
-columns rather than reproduce manually padded source strings. Machine output,
-credential-helper output and interactive input contracts SHALL remain unchanged.
-Executable examples and follow-up commands SHALL preserve their original
-characters, quoted whitespace and explicit line breaks. The terminal SHALL own
-visual soft wrapping; a copyable command's logical line MAY exceed the available
-width. Explanatory usage grammar SHALL remain width-aware text rather than an
-executable command. Formatting SHALL NOT introduce shell continuation syntax.
+Human output SHALL use one presentation owner for terminal-cell measurement,
+ANSI-aware layout, wrapping, and aligned semantic fields. Groups stack when
+content cannot fit; metadata SHALL own executable names and pflag SHALL own
+option grammar. Color SHALL NOT alter alignment. Machine, helper, and interactive
+contracts SHALL remain unchanged. Copyable commands SHALL preserve characters,
+whitespace, and logical lines; only explanatory text MAY wrap, without adding
+shell syntax.
 
 #### Scenario: Copy an executable command from a narrow terminal
 

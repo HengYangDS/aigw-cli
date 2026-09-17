@@ -10,14 +10,11 @@ failures without relying on runner-global state.
 ### Requirement: Hosted Git initialization is explicit
 
 Every hosted Git-aware job SHALL verify its checkout, revision, platform, and
-repository-locked toolchain in the Forge environment. The CUE authority SHALL
-select the same exact mise bootstrap release for both Forges; GitLab Linux
-SHALL use its digest-pinned image and the shared locked installation step.
-Native package managers SHALL install each job's declared executable closure
-from repository locks, retaining artifact integrity checks. npm tools SHALL
-use `package-lock.json` with install scripts disabled. Tool-distribution
-authentication is separate from product Git-peer authority; no mirrored tool
-package or unrelated peer is a mandatory prerequisite.
+complete repository-locked executable closure. CUE SHALL select one mise
+bootstrap release for both Forges; GitLab Linux SHALL use its digest-pinned
+image and shared install step. npm SHALL consume `package-lock.json` with
+scripts disabled. Tool authentication SHALL remain independent of product Git
+peers; no mirror or unrelated peer SHALL be mandatory.
 
 #### Scenario: A hosted action initializes a repository
 
