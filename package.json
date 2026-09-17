@@ -18,7 +18,10 @@
       "smol-toml": "1.8.0"
     },
     "@mermaid-lint/core": {
-      "jsdom": "29.1.1"
+      "jsdom": {
+        ".": "30.0.1",
+        "whatwg-url": "17.1.0"
+      }
     }
   }
 }
