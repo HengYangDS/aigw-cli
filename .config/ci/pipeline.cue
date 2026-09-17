@@ -672,7 +672,7 @@ githubRelease: {
 			"timeout-minutes": 25
 			defaults: run: shell: "pwsh"
 			env: {
-				MISE_ENABLE_TOOLS:            "${{ inputs.native_lifecycle && 'go,gh,node,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' || 'go,gh' }}"
+				MISE_ENABLE_TOOLS:            "${{ inputs.native_lifecycle && (startsWith(inputs.runner, 'macos-') && 'go,gh,node,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' || 'go,gh,node,github:goreleaser/goreleaser') || 'go,gh' }}"
 				GH_TOKEN:                     "${{ github.token }}"
 				CI_COMMIT_TAG:                "${{ inputs.tag }}"
 				AIGW_RELEASE_ARTIFACT_SIGNER: "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}"

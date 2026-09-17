@@ -339,7 +339,7 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 		t.Fatal("release artifact identity and verifier revision must remain separate")
 	}
 	if job.Env["AIGW_RELEASE_ARTIFACT_SIGNER"] != "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}" ||
-		job.Env["MISE_ENABLE_TOOLS"] != "${{ inputs.native_lifecycle && 'go,gh,node,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' || 'go,gh' }}" {
+		job.Env["MISE_ENABLE_TOOLS"] != "${{ inputs.native_lifecycle && (startsWith(inputs.runner, 'macos-') && 'go,gh,node,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' || 'go,gh,node,github:goreleaser/goreleaser') || 'go,gh' }}" {
 		t.Fatal("release signer trust or lifecycle tool closure is absent")
 	}
 	var commands []string
