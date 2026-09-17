@@ -14,12 +14,6 @@
     "prettier": "3.9.7"
   },
   "overrides": {
-    "@mermaid-lint/core": {
-      "jsdom": {
-        ".": "30.0.1",
-        "whatwg-url": "17.1.0"
-      }
-    },
     "markdownlint-cli2": {
       "smol-toml": "1.8.0"
     }

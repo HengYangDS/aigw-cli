@@ -134,23 +134,26 @@ without adding a direct dependency or patching vendor code. Remove the override
 when the admitted markdownlint-cli2 release resolves a non-vulnerable version
 itself; registry integrity and the native Markdown checks remain required.
 
-Mermaid validation uses the development-only `@mermaid-lint/core` package,
-which calls Mermaid's parser without installing a browser in CI. Its scoped
-jsdom override selects 30.0.1 and resolves `whatwg-url` to 17.1.0, within
-jsdom's declared `^17.1.0` range. This removes the former 29.1.1 freeze
-without accepting the broken 17.1.1 provenance record or disabling verification.
+Mermaid validation uses the latest admitted development-only
+`@mermaid-lint/core` release and its declared dependency ranges. The repository
+does not force a newer jsdom major into that tool. Its native resolution uses
+jsdom 26.1.0 and whatwg-url 14.2.0; clean installation, registry authentication,
+vulnerability scanning and repository Mermaid conformance must pass together.
+This is not a claim that every transitive dependency is its latest major.
 
-The npm metadata for `whatwg-url@17.1.1` advertises an attestation that returns
-HTTP 404; 17.1.0 returns a verifiable attestation. The upstream report is
-[whatwg-url issue 338](https://github.com/jsdom/whatwg-url/issues/338).
-This is a registry publication failure, not evidence of a runtime vulnerability.
-jsdom 30.1.0 requires `^17.1.1`, so forcing 17.1.0 into that release would
-violate its dependency contract. Keep the compatible 30.0.1/17.1.0 pair until a
-newer complete resolution passes clean installation, registry signatures and
-provenance, vulnerability scanning and Mermaid conformance. Every explicitly
-invoked dependency-maintenance run rechecks that condition; remove the nested
-URL override in the first admitted resolution that no longer needs it. Do not
-claim that the upstream record has been repaired or that this pair is latest.
+The former jsdom 30.x and whatwg-url 17.1.0 overrides are removed. They created
+a repository-owned dependency contract and a pin around the missing npm
+attestation for whatwg-url 17.1.1. Removing that unnecessary contract removes
+the broken publication from the dependency graph without waiving verification
+or modifying upstream packages. It does not repair the upstream registry.
+
+The native dependency graph still reports the upstream deprecation of
+`whatwg-encoding@3.1.1`. The current vulnerability audit is clean, but that
+warning remains an explicit maintenance gap, not a suppressed diagnostic or
+completed supply-chain modernization. Resolve it through an admitted upstream
+tool release or an equivalent lower-maintenance validator, not another forced
+transitive major upgrade. Dependency maintenance must verify the actual tool
+contract and repository checks before replacing any part of this graph.
 
 [Renovate's local platform](https://docs.renovatebot.com/modules/platform/local/)
 supports extraction and lookup only. It cannot generate an update branch.
