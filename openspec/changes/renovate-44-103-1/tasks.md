@@ -5,5 +5,5 @@
 
 ## 2. Integrate
 
-- [ ] 2.1 Commit the signed result, obtain exact-HEAD proof, integrate it into local candidate, dev, and main, and publish it unchanged through each admitted Forge path.
-- [ ] 2.2 Verify exact-SHA hosted CI on both `dev` and `main`, archive this Change, and retire its proposal and Work Lane without residue.
+- [x] 2.1 Commit the signed result, obtain exact-HEAD proof, integrate it into local candidate, dev, and main, and publish it unchanged through each admitted Forge path.
+- [x] 2.2 Verify exact-SHA hosted CI on both `dev` and `main` and remove the consumed proposal ref.
