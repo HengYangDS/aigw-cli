@@ -8,6 +8,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.117] - 2026-09-18
+
 ### Changed
 
 - Remove deprecated `whatwg-encoding` from the Mermaid validation graph while
