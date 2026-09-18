@@ -27,5 +27,5 @@
 
 ## 4. Integration
 
-- [ ] 4.1 Commit the clean signed candidate, obtain exact-HEAD ETHOS proof, and
+- [x] 4.1 Commit the clean signed candidate, obtain exact-HEAD ETHOS proof, and
       integrate through the governed candidate and accepted branches.
