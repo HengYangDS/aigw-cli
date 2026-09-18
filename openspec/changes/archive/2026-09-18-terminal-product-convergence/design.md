@@ -45,8 +45,8 @@ precedence rules. Go code narrows further through the declared package topology
 and import direction. An unlisted peer carrier is a gate failure. A generated
 projection is never authoritative and points back to the source named below.
 
-Use the [authority map](../../../docs/governance/change-and-release-policy.md#authority-map)
-for source ownership and the [package architecture](../../../docs/architecture/authority-and-projection-boundary.md#semantic-packages)
+Use the [authority map](../../../../docs/governance/change-and-release-policy.md#authority-map)
+for source ownership and the [package architecture](../../../../docs/architecture/authority-and-projection-boundary.md#semantic-packages)
 for dependency direction; repeating those mappings here creates a second
 maintenance surface. An owner changes with its product invariant or measured
 repository risk. It retires when no supported state, caller, test or acceptance
@@ -366,7 +366,7 @@ diagnostics remain off Token stdout. The deadline bounds the owned process but
 cannot guarantee that macOS itself will never present authorization UI.
 
 The product path remains the `aigw credential` command and the selected backend,
-not a host-local helper. [DR-0011](../../../docs/decisions/dr-0011-single-portable-token-backend.md#product-reader-and-migration-boundary)
+not a host-local helper. [DR-0011](../../../../docs/decisions/dr-0011-single-portable-token-backend.md#product-reader-and-migration-boundary)
 owns the migration boundary. Retained-item authorization, original-caller
 continuity, real-client inference and public distribution require distinct
 evidence; source verification alone permits no host cutover.
@@ -399,7 +399,7 @@ conformance suite. Existing client or Provider code is not modified unless the
 common contract itself changes.
 
 Library admission follows the durable
-[dependency policy](../../../docs/governance/change-and-release-policy.md#dependency-and-framework-admission).
+[dependency policy](../../../../docs/governance/change-and-release-policy.md#dependency-and-framework-admission).
 This Change retains the existing library boundaries pending a demonstrated
 replacement benefit. The review below records scope and the proof a replacement
 needs; it is not a benchmark or a claim that alternatives cannot meet it.
@@ -446,7 +446,7 @@ new vulnerability matcher.
 
 ### Semantic topology precedes physical movement
 
-Follow the architecture's [module-depth contract](../../../docs/architecture/authority-and-projection-boundary.md#module-depth).
+Follow the architecture's [module-depth contract](../../../../docs/architecture/authority-and-projection-boundary.md#module-depth).
 A package earns its boundary through one responsibility, dependency direction,
 change reason and recovery lifetime. Moving files, shortening functions or
 adding a forwarding interface does not establish an abstraction. Prefer an
@@ -460,8 +460,8 @@ OS/architecture combination. Source-bound observations belong to task evidence,
 not duplicated counts in the design. Official OpenSpec archives retain their
 historical role and are not current product instructions.
 
-The [architecture](../../../docs/architecture/authority-and-projection-boundary.md)
-and [machine policy](../../../.config/checks/architecture/policy.toml) own the
+The [architecture](../../../../docs/architecture/authority-and-projection-boundary.md)
+and [machine policy](../../../../.config/checks/architecture/policy.toml) own the
 package map. Review these semantic lifetimes rather than rebuilding that map:
 
 - **Product state:** configuration owns schema, validation, persistence and
@@ -805,9 +805,9 @@ changes materially.
 ### Quality is a positive responsibility graph
 
 Quality has distinct owners, not a second control plane. The
-[authority map](../../../docs/governance/change-and-release-policy.md#authority-map)
+[authority map](../../../../docs/governance/change-and-release-policy.md#authority-map)
 assigns policy, execution and acceptance; the
-[quality contract](../../../docs/governance/change-and-release-policy.md#quality-and-platform-evidence)
+[quality contract](../../../../docs/governance/change-and-release-policy.md#quality-and-platform-evidence)
 defines scope and evidence. Native configuration owns executable rules. This
 Change owns design choices and tasks own progress; neither repeats current
 thresholds, trial counts or completed-repair history.
@@ -847,7 +847,7 @@ Three input adapters address demonstrated native-tool gaps:
 Architecture supports a Git-free source directory by walking the explicit root;
 Git-selected link and source checks require a checkout. These are different
 input contracts, not interchangeable fallback paths. Source, scratch and report
-lifetimes follow [output ownership](../../../CONTRIBUTING.md#output-ownership-and-cleanup).
+lifetimes follow [output ownership](../../../../CONTRIBUTING.md#output-ownership-and-cleanup).
 
 #### Native policy and schema owners
 
@@ -874,7 +874,7 @@ retain their own execution requirements.
 
 #### Structural limits and behavioral evidence
 
-The [calibration decision](../../../docs/governance/change-and-release-policy.md#calibration-decision)
+The [calibration decision](../../../../docs/governance/change-and-release-policy.md#calibration-decision)
 owns accepted limits and the reasons for retaining or tightening them. Every
 trial includes product, tools, tests and platform-selected files. A lower score
 is useful only when it reduces state, caller knowledge or verification cost
@@ -902,7 +902,7 @@ failures. Current results belong only in the existing tasks and verifier output.
 
 #### Documents, interfaces and trust
 
-[Text layout policy](../../../docs/governance/text-layout.md) separates native
+[Text layout policy](../../../../docs/governance/text-layout.md) separates native
 formatting, structural lint and semantic/rendered review. Every authored Markdown
 location is covered by native discovery; OpenSpec archives retain their historical
 role. Mermaid validation consumes the exact inventory through standard input and
@@ -926,7 +926,7 @@ These layers support different claims: inventory does not prove check execution,
 lint does not prove cohesion, compilation does not prove native operation, and
 controlled streams do not prove a live Provider or final released artifact.
 Final acceptance follows the existing execution order and
-[completion evidence](../../../docs/governance/change-and-release-policy.md#performance-and-completion-claims).
+[completion evidence](../../../../docs/governance/change-and-release-policy.md#performance-and-completion-claims).
 
 ### CUE owns CI semantics; Forges own syntax and capacity
 
@@ -949,7 +949,7 @@ the historical `baseline_tag`; rebuilding is not evidence about released bytes.
 Branch role values are consumed from `.ethos/workspace.toml` by CUE's native
 TOML reader, not duplicated under CI-specific meanings. The projection command
 passes both authoritative inputs; missing workspace data fails rendering before
-any output is written. The [event routing decision](../../../docs/decisions/dr-0010-lifecycle-scoped-ci-evidence.md)
+any output is written. The [event routing decision](../../../../docs/decisions/dr-0010-lifecycle-scoped-ci-evidence.md)
 records why accepted `dev` and release `main` both execute verification until
 cross-event reuse can verify equivalent evidence. Current projections retain
 their exact bytes while the declaration loses its contradictory role names.
