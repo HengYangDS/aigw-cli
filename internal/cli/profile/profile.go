@@ -87,53 +87,102 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func newListCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{
+	var jsonMode bool
+	command := &cobra.Command{
 		Use: "list", Short: "List service profiles", Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
 			}
+			result := profileListOutput{Profiles: make([]profileListItem, 0, len(cfg.Profiles))}
+			for _, name := range cfg.ProfileIDs() {
+				item, collectErr := collectProfileListItem(runtime, cfg, name)
+				if collectErr != nil {
+					return collectErr
+				}
+				result.Profiles = append(result.Profiles, item)
+			}
+			if jsonMode {
+				return presentation.WriteJSON(runtime.Out, result)
+			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Service profiles")
 			r.Section("Available profiles")
-			for _, name := range cfg.ProfileIDs() {
+			for _, item := range result.Profiles {
 				state, stateText := presentation.Info, "Available"
-				profile := cfg.Profiles[name]
-				profileRuntime, err := cfg.ResolveRuntime(profile.Client, name)
-				if err != nil {
-					return err
+				if item.Selected {
+					state, stateText = presentation.OK, "Selected for "+invocation.Title(item.Client)
 				}
-				if cfg.Routes[profile.Client] == name {
-					state, stateText = presentation.OK, "Selected for "+invocation.Title(profile.Client)
-				}
-				accountName := profile.Account
 				authentication := "Client-owned authentication"
-				if profileRuntime.CredentialCommand != "" {
+				if item.CredentialOwnership == "external" {
 					authentication = "External credential helper"
 				}
-				if profileRuntime.UsesAIGWCredentialStore() {
-					available, observationErr := runtime.Secrets.Exists(accountName)
-					if observationErr != nil {
-						return fmt.Errorf("observe credential for Account %q: %w", accountName, observationErr)
-					}
+				if item.SecretAvailable != nil {
 					authentication = "Token missing"
-					if available {
+					if *item.SecretAvailable {
 						authentication = "Token available"
 					}
 				}
 				detail := []string{}
-				if profile.Client != "" {
-					detail = append(detail, invocation.Title(profile.Client))
+				if item.Client != "" {
+					detail = append(detail, invocation.Title(item.Client))
 				}
-				detail = append(detail, choiceLabel(profile), stateText, "Account "+accountName, authentication)
-				r.StatusLine(state, "Configuration", name)
+				detail = append(detail, choiceLabel(configuration.Profile{Label: item.Label, Purpose: item.Purpose}), stateText, "Account "+item.Account, authentication)
+				r.StatusLine(state, "Configuration", item.ID)
 				r.Detail(strings.Join(detail, " · "))
 			}
 			r.Next("aigw use")
-			return nil
+			return r.Err()
 		},
 	}
+	command.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
+	return command
+}
+
+type profileListOutput struct {
+	Profiles []profileListItem `json:"profiles"`
+}
+
+type profileListItem struct {
+	ID                  string                       `json:"id"`
+	Label               string                       `json:"label"`
+	Purpose             string                       `json:"purpose,omitempty"`
+	Account             string                       `json:"account"`
+	Client              string                       `json:"client"`
+	Model               string                       `json:"model"`
+	ModelProvider       string                       `json:"model_provider"`
+	Authentication      configuration.Authentication `json:"authentication"`
+	CredentialOwnership string                       `json:"credential_ownership"`
+	Selected            bool                         `json:"selected"`
+	SecretAvailable     *bool                        `json:"secret_available,omitempty"`
+}
+
+func collectProfileListItem(runtime invocation.Context, cfg configuration.Config, name string) (profileListItem, error) {
+	profile := cfg.Profiles[name]
+	profileRuntime, err := cfg.ResolveRuntime(profile.Client, name)
+	if err != nil {
+		return profileListItem{}, err
+	}
+	item := profileListItem{
+		ID: name, Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account,
+		Client: profile.Client, Model: profile.Model, ModelProvider: profileRuntime.ModelProvider,
+		Authentication: profileRuntime.Authentication, Selected: cfg.Routes[profile.Client] == name,
+	}
+	switch {
+	case profileRuntime.UsesAIGWCredentialStore():
+		item.CredentialOwnership = "aigw"
+		available, observationErr := runtime.Secrets.Exists(profile.Account)
+		if observationErr != nil {
+			return profileListItem{}, fmt.Errorf("observe credential for Account %q: %w", profile.Account, observationErr)
+		}
+		item.SecretAvailable = &available
+	case profileRuntime.CredentialCommand != "":
+		item.CredentialOwnership = "external"
+	default:
+		item.CredentialOwnership = "client"
+	}
+	return item, nil
 }
 
 func newShowCommand(runtime invocation.Context) *cobra.Command {

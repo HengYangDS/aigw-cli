@@ -210,6 +210,49 @@ func TestProfileReadsHonorClientNativeAuthenticationOwnership(t *testing.T) {
 	}
 }
 
+func TestProfileListJSONIsStableAndPreservesAuthenticationOwnership(t *testing.T) {
+	app, out, secretStore, _, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	cfg.Accounts["shared"] = configuration.Account{Label: "Shared", Endpoints: configuration.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
+	cfg.Profiles["zeta"] = configuration.Profile{Label: "Zeta", Account: "shared", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Profiles["alpha"] = configuration.Profile{Label: "Alpha", Account: "shared", Client: configuration.ClientCodex, Model: "gpt-test", ModelProvider: "amazon-bedrock", Authentication: configuration.AuthenticationClientNative}
+	cfg.Routes[configuration.ClientClaude] = "zeta"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("shared", "never-print-this-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cli.Execute(app, []string{"profile", "list", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Profiles []struct {
+			ID                  string                       `json:"id"`
+			Authentication      configuration.Authentication `json:"authentication"`
+			CredentialOwnership string                       `json:"credential_ownership"`
+			Selected            bool                         `json:"selected"`
+			SecretAvailable     *bool                        `json:"secret_available,omitempty"`
+		} `json:"profiles"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Profiles) != 2 || result.Profiles[0].ID != "alpha" || result.Profiles[1].ID != "zeta" {
+		t.Fatalf("profile order = %#v", result.Profiles)
+	}
+	if result.Profiles[0].Authentication != configuration.AuthenticationClientNative || result.Profiles[0].CredentialOwnership != "client" || result.Profiles[0].SecretAvailable != nil {
+		t.Fatalf("client-native profile projected AIGW credential state: %#v", result.Profiles[0])
+	}
+	if result.Profiles[1].CredentialOwnership != "aigw" || !result.Profiles[1].Selected || result.Profiles[1].SecretAvailable == nil || !*result.Profiles[1].SecretAvailable {
+		t.Fatalf("selected account-token profile = %#v", result.Profiles[1])
+	}
+	if strings.Contains(out.String(), "never-print-this-token") {
+		t.Fatalf("profile list exposed Token material: %s", out.String())
+	}
+}
+
 func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()

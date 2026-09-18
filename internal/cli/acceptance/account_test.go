@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -9,6 +10,35 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
+
+func TestAccountListJSONIsStableAndSecretFree(t *testing.T) {
+	app, out, secretStore, _, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "zeta", "zeta", "Zeta", configuration.Endpoints{Anthropic: "https://zeta.test"}, configuration.ClientClaude, "claude-test")
+	addAccountProfile(&cfg, "alpha", "alpha", "Alpha", configuration.Endpoints{OpenAIResponses: "https://alpha.test/v1"}, configuration.ClientCodex, "gpt-test")
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("alpha", "never-print-this-token"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cli.Execute(app, []string{"account", "list", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Accounts []configuration.Account `json:"accounts"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Accounts) != 2 || result.Accounts[0].ID != "alpha" || result.Accounts[1].ID != "zeta" {
+		t.Fatalf("account order = %#v", result.Accounts)
+	}
+	if strings.Contains(out.String(), "never-print-this-token") {
+		t.Fatalf("account list exposed Token material: %s", out.String())
+	}
+}
 
 func TestAccountEditValidation(t *testing.T) {
 	t.Run("account edit requires change", func(t *testing.T) {

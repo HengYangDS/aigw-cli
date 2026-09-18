@@ -291,3 +291,38 @@ func TestRouteListReportsEachUnselectedClientIndependently(t *testing.T) {
 		}
 	}
 }
+
+func TestRouteListJSONReportsSelectedAndDeferredClients(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	cfg := configuration.NewConfig()
+	addAccountProfile(&cfg, "gpt", "team", "GPT", configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}, configuration.ClientCodex, "gpt-test")
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Purpose: "Independent review", Account: "team", Client: configuration.ClientClaude, Model: "claude-test"}
+	cfg.Routes[configuration.ClientCodex] = "gpt"
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cli.Execute(app, []string{"route", "list", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Routes []struct {
+			Client     string `json:"client"`
+			State      string `json:"state"`
+			Profile    string `json:"profile"`
+			NextAction string `json:"next_action"`
+		} `json:"routes"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Routes) != 2 || result.Routes[0].Client != configuration.ClientClaude || result.Routes[1].Client != configuration.ClientCodex {
+		t.Fatalf("route order = %#v", result.Routes)
+	}
+	if result.Routes[0].State != "unselected" || result.Routes[0].Profile != "" || result.Routes[0].NextAction != "aigw use claude" {
+		t.Fatalf("Claude route = %#v", result.Routes[0])
+	}
+	if result.Routes[1].State != "selected" || result.Routes[1].Profile != "gpt" || result.Routes[1].NextAction != "" {
+		t.Fatalf("Codex route = %#v", result.Routes[1])
+	}
+}

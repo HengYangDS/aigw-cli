@@ -49,6 +49,13 @@ newline. The presentation owner delegates encoding to Go's standard library;
 command owners retain their schemas and exit-status decisions. Terminal width
 and color do not alter machine output.
 
+`account list`, `profile list`, and `route list` expose deterministic,
+secret-free JSON inventories. Account and Profile IDs use lexical order; Route
+rows use the admitted-client order. Profile inventory names credential
+ownership as `aigw`, `external`, or `client`, and only AIGW-owned credentials
+include availability metadata. Unselected Routes remain explicit and include
+their next usable `aigw use` action when one exists.
+
 For a command whose parsed `--json` value is true, a failure before any result
 is written produces one JSON document: `ok: false`, `error`, `next_action`, and
 available `evidence` and `impact`. `--json=false` keeps human output; a literal

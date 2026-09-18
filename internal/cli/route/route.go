@@ -125,17 +125,38 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return fmt.Errorf("Choose a route subcommand; run `aigw route --help`")
 		},
 	}
-	root.AddCommand(
-		&cobra.Command{Use: "list", Short: "Show each client's selected profile", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
-			return runList(runtime)
-		}},
-	)
+	root.AddCommand(newListCommand(runtime))
 	return root
+}
+
+func newListCommand(runtime invocation.Context) *cobra.Command {
+	var jsonMode bool
+	command := &cobra.Command{Use: "list", Short: "Show each client's selected profile", Args: cobra.NoArgs}
+	command.RunE = func(_ *cobra.Command, _ []string) error { return runListWithFormat(runtime, jsonMode) }
+	command.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
+	return command
+}
+
+type routeListOutput struct {
+	Routes []routeListItem `json:"routes"`
+}
+
+type routeListItem struct {
+	Client     string `json:"client"`
+	State      string `json:"state"`
+	Profile    string `json:"profile,omitempty"`
+	Label      string `json:"label,omitempty"`
+	Purpose    string `json:"purpose,omitempty"`
+	NextAction string `json:"next_action,omitempty"`
 }
 
 // runList answers the narrow question "which profile will each client use?".
 // Operational readiness remains owned by the readiness command group.
 func runList(runtime invocation.Context) error {
+	return runListWithFormat(runtime, false)
+}
+
+func runListWithFormat(runtime invocation.Context, jsonMode bool) error {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
 		return err
@@ -143,27 +164,44 @@ func runList(runtime invocation.Context) error {
 	if len(cfg.Profiles) == 0 {
 		return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "No client route is available to inspect.", "aigw setup", fmt.Errorf("not configured"))
 	}
-	r := invocation.Renderer(runtime)
-	r.ProductTitle("Current routes")
-	r.Section("Clients")
+	result := routeListOutput{Routes: make([]routeListItem, 0, len(configuration.AdmittedClientIDs()))}
 	nextCommand := ""
 	for _, client := range configuration.AdmittedClientIDs() {
 		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
 		if resolveErr != nil {
-			message := "No " + invocation.Title(client) + " profile selected"
+			item := routeListItem{Client: client, State: "unselected"}
 			if suggested := cfg.FirstProfileForClient(client); suggested != "" {
-				command := "aigw use " + suggested
-				message += " · " + command
+				item.NextAction = "aigw use " + suggested
 				if nextCommand == "" {
-					nextCommand = command
+					nextCommand = item.NextAction
 				}
 			}
-			r.Status(presentation.Warn, invocation.Title(client), message)
+			result.Routes = append(result.Routes, item)
 			continue
 		}
 		profile := cfg.Profiles[clientRuntime.ProfileID]
-		r.Status(presentation.OK, invocation.Title(client), clientRuntime.ProfileID)
-		r.Detail(profileChoiceLabel(profile))
+		result.Routes = append(result.Routes, routeListItem{
+			Client: client, State: "selected", Profile: clientRuntime.ProfileID,
+			Label: profile.Label, Purpose: strings.TrimSpace(profile.Purpose),
+		})
+	}
+	if jsonMode {
+		return presentation.WriteJSON(runtime.Out, result)
+	}
+	r := invocation.Renderer(runtime)
+	r.ProductTitle("Current routes")
+	r.Section("Clients")
+	for _, item := range result.Routes {
+		if item.State == "unselected" {
+			message := "No " + invocation.Title(item.Client) + " profile selected"
+			if item.NextAction != "" {
+				message += " · " + item.NextAction
+			}
+			r.Status(presentation.Warn, invocation.Title(item.Client), message)
+			continue
+		}
+		r.Status(presentation.OK, invocation.Title(item.Client), item.Profile)
+		r.Detail(profileChoiceLabel(configuration.Profile{Label: item.Label, Purpose: item.Purpose}))
 	}
 	if nextCommand == "" {
 		nextCommand = "aigw use <profile>"

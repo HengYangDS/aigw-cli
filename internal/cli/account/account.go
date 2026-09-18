@@ -5,6 +5,8 @@ package account
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -203,6 +205,7 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra.Command {
 	root := &cobra.Command{Use: "account", Short: "Manage account endpoints and optional precise diagnostics"}
 	root.AddCommand(
+		newListCommand(runtime),
 		newEditCommand(runtime),
 		renameCommand,
 		&cobra.Command{Use: "connect [account]", Short: "Bind provider platform credentials to query precise balance", Args: cobra.MatchAll(cobra.MaximumNArgs(1), func(cmd *cobra.Command, _ []string) error {
@@ -271,6 +274,42 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 		}},
 	)
 	return root
+}
+
+type accountListOutput struct {
+	Accounts []configuration.Account `json:"accounts"`
+}
+
+func newListCommand(runtime invocation.Context) *cobra.Command {
+	var jsonMode bool
+	command := &cobra.Command{
+		Use: "list", Short: "List account endpoints without credential values", Args: cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			cfg, err := runtime.Config.Load()
+			if err != nil {
+				return err
+			}
+			result := accountListOutput{Accounts: make([]configuration.Account, 0, len(cfg.Accounts))}
+			for _, id := range slices.Sorted(maps.Keys(cfg.Accounts)) {
+				account := cfg.Accounts[id]
+				account.ID = id
+				result.Accounts = append(result.Accounts, account)
+			}
+			if jsonMode {
+				return presentation.WriteJSON(runtime.Out, result)
+			}
+			render := invocation.Renderer(runtime)
+			render.ProductTitle("Accounts")
+			render.Section("Configured endpoints")
+			for _, account := range result.Accounts {
+				render.Row(account.ID, account.Label)
+			}
+			render.Next("aigw profile list")
+			return render.Err()
+		},
+	}
+	command.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
+	return command
 }
 
 // NewBalanceCommand constructs the explicit provider-account diagnostic command.

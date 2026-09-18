@@ -13,6 +13,8 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Remove deprecated `whatwg-encoding` from the Mermaid validation graph while
   preserving the established syntax and semantic checks; reject deprecated
   packages in the committed npm graph.
+- Add deterministic, secret-free JSON inventories for Accounts, Profiles and
+  per-client Routes while preserving the existing human-readable views.
 
 ## [0.1.0-rc.116] - 2026-09-17
 
