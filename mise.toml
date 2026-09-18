@@ -1,4 +1,4 @@
-min_version = "2026.9.9"
+min_version = "2026.9.11"
 
 [settings]
 legacy_version_file = false
@@ -12,7 +12,7 @@ GOTOOLCHAIN = "local"
 GOWORK = "off"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.97.2@sha256:b9b32d70f395ec78b9c2a29633079ce4d249049e51018ad3f086417dadf96b86"
+renovate_image = "ghcr.io/renovatebot/renovate:44.102.0@sha256:ab9e537eacb00cb79bef69fc69e8b9fcd3d3e6cd7ae8fd2bda7f9c206afa7624"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.
@@ -32,8 +32,8 @@ gh = "2.101.0"
 glab = "1.118.0"
 
 # Build and supply-chain evidence
-"github:goreleaser/goreleaser" = "2.18.1"
-"github:anchore/syft" = "1.51.1"
+"github:goreleaser/goreleaser" = "2.18.2"
+"github:anchore/syft" = "1.52.0"
 # Build with the repository Go compiler; upstream binaries may lag its language.
 "go:github.com/google/osv-scanner/v2/cmd/osv-scanner" = "2.6.0"
 # Cross-host ad-hoc macOS artifact signing.

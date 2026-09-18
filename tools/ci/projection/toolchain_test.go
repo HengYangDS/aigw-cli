@@ -20,8 +20,7 @@ type miseLock struct {
 }
 
 type misePlatformLock struct {
-	Provenance         any  `toml:"provenance"`
-	ProvenanceVerified bool `toml:"provenance_verified"`
+	Provenance any `toml:"provenance"`
 }
 
 func TestToolchainCacheStaysOutsideGoPackageDiscovery(t *testing.T) {

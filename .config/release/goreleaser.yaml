@@ -44,11 +44,6 @@ builds:
             --code-signature-flags runtime
             --signing-time "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
             --timestamp-url none "{{ .Path }}"
-        # GoReleaser 2.18.1 does not evaluate builds_info.mtime for binaries.
-        # Restore the declared epoch after the native signer rewrites the file.
-        - cmd: >-
-            node --eval 'require("node:fs").utimesSync(process.argv[1], new Date(process.argv[2]), new Date(process.argv[2]))'
-            "{{ .Path }}" "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
 
 archives:
   - ids: [portable, windows, macos]

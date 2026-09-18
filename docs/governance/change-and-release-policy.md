@@ -143,10 +143,12 @@ resolved graph passes the repository's ordinary dependency admission. Clean
 installation, registry signatures and attestations, vulnerability scanning,
 valid and invalid fixtures, and every tracked Mermaid diagram must pass. The
 lock is also rejected whenever any selected npm package is marked deprecated.
-No transitive package is pinned or waived because of a registry incident: each
-dependency proposal resolves a fresh lock and passes the same admission. Remove
-the jsdom override when `@mermaid-lint/core` adopts an equivalent
-non-deprecated line.
+The same package boundary retains `whatwg-url` 17.1.0 because 17.1.1 advertises
+an npm attestation URL that returns 404; 17.1.0 has a retrievable signed
+attestation and otherwise satisfies jsdom's declared range. This is a bounded
+integrity fallback, not a second owner or a skipped verification. Remove both
+overrides when `@mermaid-lint/core` adopts an equivalent non-deprecated and
+fully attestable line.
 
 [Renovate's local platform](https://docs.renovatebot.com/modules/platform/local/)
 supports extraction and lookup only. It cannot generate an update branch.
@@ -196,7 +198,7 @@ is its review projection, not another authoring lane. Accepted and release
 trees may retain that active Change while delivery is unfinished. Source
 acceptance, publication, installation and Change completion are distinct facts.
 
-Follow [OpenSpec's merge-then-archive convention](https://github.com/Fission-AI/OpenSpec/blob/v1.13.0/docs/team-workflow.md#when-to-archive):
+Follow [OpenSpec's merge-then-archive convention](https://github.com/Fission-AI/OpenSpec/blob/v1.13.1/docs/team-workflow.md#when-to-archive):
 validate and integrate source first, retain pending delivery in the same official
 task carrier, and archive after those obligations are settled. Archive is not
 permission to mark future work complete. A malformed Change still fails native
@@ -380,6 +382,12 @@ and `SOURCE_DATE_EPOCH` from the committed Changelog date. The build emits the
 complete portable archive matrix, checksums, and SPDX SBOM. Repeating the build
 with the same inputs must produce identical bytes.
 
+Mise's current lock writer records the provenance method that successfully
+validated an artifact but no longer emits `provenance_verified`; older copies of
+that field are inert compatibility metadata. A lockfile provenance declaration
+therefore proves the selected verification method was used during generation,
+while checksums continue to bind installations to the reviewed bytes.
+
 Internal macOS delivery does not require Apple Developer enrollment, a publisher
 certificate, a password file or notarization. GoReleaser's existing post-build
 hooks apply an ad-hoc Mach-O signature with Hardened Runtime before archiving.
@@ -390,11 +398,10 @@ changed to simulate that approval.
 
 Signing uses explicit tool configuration, no credential store and no network
 timestamp service. Signature time comes from the selected release epoch.
-GoReleaser 2.18.1 does not evaluate `builds_info.mtime` for binary entries, so the
-existing Node hook restores that epoch after signing. The native archive test
+GoReleaser 2.18.2 applies `builds_info.mtime` after the signing hook, so archive
+metadata needs no second timestamp-rewrite hook. The native archive test
 verifies both macOS architectures and compares complete matrices across a
-wall-clock boundary. Remove the timestamp workaround when an admitted upstream
-version passes the same regression without it.
+wall-clock boundary.
 
 Detached SSH signatures authenticate the archive manifest independently of the
 local Mach-O signature. Checksums, provenance, SBOMs and immutable peer parity
