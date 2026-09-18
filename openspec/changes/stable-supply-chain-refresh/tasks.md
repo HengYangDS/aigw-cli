@@ -13,7 +13,7 @@
 
 ## 3. Acceptance
 
-- [ ] 3.1 Pass strict OpenSpec, bootstrap, dependency-policy, source, native,
+- [x] 3.1 Pass strict OpenSpec, bootstrap, dependency-policy, source, native,
       and release-construction gates.
 - [ ] 3.2 Commit the signed candidate, obtain exact-HEAD proof, integrate it,
       and verify local and both Forge `main` and `dev` refs and CI.
