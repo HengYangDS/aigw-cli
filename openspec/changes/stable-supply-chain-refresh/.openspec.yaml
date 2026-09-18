@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-09-19
+goal: Refresh newly released stable repository-owned supply-chain inputs without
+  changing product behavior or creating another version authority.
+skip_specs: true
