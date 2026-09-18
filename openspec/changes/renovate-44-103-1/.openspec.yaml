@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-09-19
+goal: Advance the repository-owned Renovate image to the current stable release
+  without changing product behavior or adding another supply-chain owner.
+
+skip_specs: true
