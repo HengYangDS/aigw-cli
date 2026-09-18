@@ -34,15 +34,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if !adapter.Enabled {
 				return presentation.ProblemError(fmt.Sprintf("%s adapter is not enabled", client), "", "Credential lookup did not start.", fmt.Sprintf("Enable the %s adapter before using its credential helper.", client), nil)
 			}
-			clientRuntime, err := cfg.ResolveRuntime(client, "")
+			clientRuntime, err := resolveProjectedRuntime(cfg, client, args[1])
 			if err != nil {
-				return presentation.ProblemError("Cannot resolve the selected client route", "", "Credential lookup did not start.", "Select a Profile for this client, then run `aigw sync` and reload the client's configuration.", err)
+				return presentation.ProblemError(fmt.Sprintf("%s credential projection no longer matches an available Account and endpoint", client), "", "No Account Token was read or returned.", "Run `aigw sync` and reload the client's configuration.", err)
 			}
 			if !clientRuntime.RequiresAccountToken() {
 				return presentation.ProblemError(fmt.Sprintf("%s uses client-owned authentication", client), "", "AIGW does not supply an Account Token for this route.", fmt.Sprintf("Run `aigw verify --for %s` to verify authentication through the client.", client), nil)
-			}
-			if clientRuntime.CredentialProjectionFingerprint(client) != args[1] {
-				return presentation.ProblemError(fmt.Sprintf("%s credential projection no longer matches the selected Account and endpoint", client), "", "No Account Token was read or returned.", "Run `aigw sync` and reload the client's configuration.", nil)
 			}
 			token, err := runtime.Secrets.Get(clientRuntime.AccountID)
 			if err != nil {
@@ -58,4 +55,17 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		},
 	}
+}
+
+func resolveProjectedRuntime(cfg configuration.Config, client, fingerprint string) (configuration.Runtime, error) {
+	for _, profileID := range cfg.ProfileIDs() {
+		clientRuntime, err := cfg.ResolveRuntime(client, profileID)
+		if err != nil {
+			continue
+		}
+		if clientRuntime.CredentialProjectionFingerprint(client) == fingerprint {
+			return clientRuntime, nil
+		}
+	}
+	return configuration.Runtime{}, fmt.Errorf("unknown credential projection fingerprint")
 }

@@ -41,7 +41,7 @@ func (runner *captureAdapterRunner) RunCapture(ctx context.Context, _ process.Pl
 func TestBuiltInAdapterVerificationBoundsClientProcesses(t *testing.T) {
 	codexConfig, codexRuntime := codexVerificationFixture(t)
 	codexRunner := &captureAdapterRunner{err: errors.New("stop after deadline observation")}
-	_, _ = (codexAdapter{}).Verify(context.Background(), Dependencies{Runner: codexRunner}, codexConfig, codexRuntime)
+	_, _ = (codexAdapter{}).Verify(context.Background(), Dependencies{Runner: codexRunner}, codexConfig, codexRuntime, "")
 	if len(codexRunner.deadlines) == 0 || !codexRunner.deadlines[0] {
 		t.Fatalf("Codex verification deadlines = %#v", codexRunner.deadlines)
 	}
@@ -69,7 +69,7 @@ func TestBuiltInAdapterVerificationBoundsClientProcesses(t *testing.T) {
 	if _, err := claude.ReconcileSettings(settings, false, claudeRuntime, aigwExecutable, claudeRuntime.Model); err != nil {
 		t.Fatal(err)
 	}
-	_, _ = (claudeAdapter{}).Verify(context.Background(), Dependencies{Runner: claudeRunner, Secrets: secretStore, ClaudeSettingsPath: settings, AIGWExecutable: aigwExecutable}, claudeConfig, claudeRuntime)
+	_, _ = (claudeAdapter{}).Verify(context.Background(), Dependencies{Runner: claudeRunner, Secrets: secretStore, ClaudeSettingsPath: settings, AIGWExecutable: aigwExecutable}, claudeConfig, claudeRuntime, "")
 	if len(claudeRunner.deadlines) != 1 || !claudeRunner.deadlines[0] {
 		t.Fatalf("Claude verification deadlines = %#v", claudeRunner.deadlines)
 	}
@@ -311,7 +311,7 @@ func TestClaudeVerificationRequiresTheSynchronizedProjection(t *testing.T) {
 	runner := &captureAdapterRunner{err: errors.New("client must not start")}
 	deps := Dependencies{Runner: runner, Secrets: store, ClaudeSettingsPath: filepath.Join(root, "settings.json"), AIGWExecutable: filepath.Join(root, "aigw")}
 	runtime := configuration.Runtime{AccountID: "gateway", ProfileID: "claude", Model: "claude-model", Endpoint: "https://gateway.test"}
-	_, err := (claudeAdapter{}).Verify(context.Background(), deps, cfg, runtime)
+	_, err := (claudeAdapter{}).Verify(context.Background(), deps, cfg, runtime, "")
 	if err == nil || !strings.Contains(err.Error(), "not synchronized") || runner.calls != 0 {
 		t.Fatalf("unsynchronized projection: calls=%d error=%v", runner.calls, err)
 	}
@@ -389,11 +389,11 @@ func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
 	}
 	dependencies := Dependencies{Secrets: secretStore}
 	cfg := configuration.NewConfig()
-	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
+	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
 		t.Fatalf("Verify() disabled error = %v", err)
 	}
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true}
-	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
+	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
 		t.Fatalf("Verify() unconfigured error = %v", err)
 	}
 
@@ -407,14 +407,14 @@ func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
 		t.Fatalf("status = %#v", status)
 	}
 
-	if _, err := (claudeAdapter{}).Verify(context.Background(), Dependencies{}, cfg, runtime); err == nil || !strings.Contains(err.Error(), "secret store is unavailable") {
+	if _, err := (claudeAdapter{}).Verify(context.Background(), Dependencies{}, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "secret store is unavailable") {
 		t.Fatalf("Verify() error = %v", err)
 	}
-	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime); err == nil || !strings.Contains(err.Error(), "inspect Claude executable") {
+	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "inspect Claude executable") {
 		t.Fatalf("Verify() inspection error = %v", err)
 	}
 	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: filepath.Join(t.TempDir(), "missing")}
-	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime); err == nil || !strings.Contains(err.Error(), "executable is unavailable") {
+	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "executable is unavailable") {
 		t.Fatalf("Verify() unavailable error = %v", err)
 	}
 }

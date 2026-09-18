@@ -88,6 +88,24 @@ type settingsChange struct {
 	removeSettings bool
 }
 
+// CopyProjection copies one complete AIGW-owned Claude projection to a private
+// target without interpreting or changing its contents.
+func CopyProjection(source, target string) error {
+	for _, suffix := range []string{"", settingsStateSuffix} {
+		snapshot, err := transaction.CaptureFileSnapshot(source + suffix)
+		if err != nil {
+			return err
+		}
+		if !snapshot.Exists {
+			continue
+		}
+		if err := transaction.WriteFileAtomicExactMode(target+suffix, snapshot.Data, snapshot.Mode); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // PlanSettings returns the exact non-secret Claude Code settings change that
 // ReconcileSettings would apply without writing either the settings file or
 // its ownership state. previousModel is the selection before this transition,

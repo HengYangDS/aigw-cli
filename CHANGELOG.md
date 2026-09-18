@@ -18,6 +18,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 - Add deterministic, secret-free JSON inventories for Accounts, Profiles and
   per-client Routes while preserving the existing human-readable views.
 
+### Fixed
+
+- Verify an explicitly named Profile through an isolated copy of the current
+  client projection, preserving the selected Route and user configuration while
+  resolving the matching Account Token by projection identity.
+
 ## [0.1.0-rc.116] - 2026-09-17
 
 ### Fixed

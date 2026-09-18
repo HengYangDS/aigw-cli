@@ -60,6 +60,46 @@ func TestCredentialHelperPrintsOnlyTheProjectedAccountToken(t *testing.T) {
 	}
 }
 
+func TestCredentialHelperResolvesAnUnselectedProfileProjection(t *testing.T) {
+	for _, client := range configuration.AdmittedClientIDs() {
+		t.Run(client, func(t *testing.T) {
+			runtime, buffer := helperRuntime(t, client, true)
+			cfg, err := runtime.Config.Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			account := configuration.Account{Label: "Alternate"}
+			if client == configuration.ClientClaude {
+				account.Endpoints.Anthropic = "https://alternate.test"
+			} else {
+				account.Endpoints.OpenAIResponses = "https://alternate.test/v1"
+			}
+			cfg.Accounts["alternate"] = account
+			cfg.Profiles["alternate"] = configuration.Profile{
+				Label: "Alternate", Account: "alternate", Client: client, Model: client + "-alternate",
+			}
+			if err := runtime.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := runtime.Secrets.Set("alternate", "alternate-token"); err != nil {
+				t.Fatal(err)
+			}
+			projection, err := cfg.ResolveRuntime(client, "alternate")
+			if err != nil {
+				t.Fatal(err)
+			}
+			command := NewCommand(runtime)
+			err = command.RunE(command, []string{client, projection.CredentialProjectionFingerprint(client)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := buffer.String(); got != "alternate-token\n" {
+				t.Fatalf("unselected Profile credential = %q", got)
+			}
+		})
+	}
+}
+
 func TestCredentialHelperRejectsStaleBindingBeforeSecretAccess(t *testing.T) {
 	for _, client := range configuration.AdmittedClientIDs() {
 		for _, change := range []string{"client", "account", "endpoint"} {

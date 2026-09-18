@@ -148,7 +148,7 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 			}
 			runner := &rejectingClient{}
 			deps.Runner = runner
-			_, err = registry.Verify(context.Background(), deps, cfg, id, runtime)
+			_, err = registry.Verify(context.Background(), deps, cfg, id, runtime, "")
 			if err == nil || strings.Contains(err.Error(), "public-secret-canary") || !strings.Contains(err.Error(), "diagnostics suppressed") {
 				t.Fatalf("external client failure = %v", err)
 			}

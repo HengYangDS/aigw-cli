@@ -67,7 +67,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			r.Detail("This makes one minimal model request; it does not modify client configuration or restart clients.")
 			for _, target := range clients {
 				clientRuntime := clientRuntimes[target]
-				result, err := synchronizer.Verify(cmd.Context(), cfg, target, clientRuntime)
+				result, err := synchronizer.Verify(cmd.Context(), cfg, target, clientRuntime, profileName)
 				if err != nil {
 					return err
 				}

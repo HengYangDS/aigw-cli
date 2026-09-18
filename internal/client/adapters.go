@@ -11,12 +11,9 @@ import (
 	"aigw-cli/internal/claude"
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
-	domainverification "aigw-cli/internal/verification"
 )
 
 var defaultRegistry = mustRegistry(
@@ -179,20 +176,6 @@ func (codexAdapter) Inspect(_ context.Context, deps Dependencies, cfg configurat
 	return status
 }
 
-func (codexAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) (Verification, error) {
-	if deps.AIGWExecutable != "" {
-		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
-	}
-	verifyCtx, cancel := context.WithTimeout(ctx, domainverification.ProtocolTimeout)
-	defer cancel()
-	runner := deps.Runner
-	if cfg.Adapters[configuration.ClientCodex].CredentialCommand != "" && runner != nil {
-		runner = externalCredentialRunner{runner: runner}
-	}
-	identity, err := domainverification.VerifyCodexInvocation(verifyCtx, runner, cfg, runtime)
-	return Verification{Version: identity.Version, SHA256: identity.SHA256}, err
-}
-
 func (codexAdapter) Withdraw(cfg *configuration.Config) {
 	delete(cfg.Adapters, configuration.ClientCodex)
 }
@@ -299,55 +282,6 @@ func (claudeAdapter) Inspect(_ context.Context, deps Dependencies, cfg configura
 		return Status{Issue: err.Error(), RepairAction: "aigw sync"}
 	}
 	return Status{Ready: true}
-}
-
-// externalCredentialRunner suppresses unknown external-helper credentials on
-// failure while retaining the existing verifier's response-marker semantics.
-type externalCredentialRunner struct{ runner process.CaptureRunner }
-
-func (runner externalCredentialRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
-	output, err := runner.runner.RunCapture(ctx, plan)
-	if err != nil {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		return nil, fmt.Errorf("external credential client failed; diagnostics suppressed")
-	}
-	return output, nil
-}
-
-func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) (Verification, error) {
-	adapter := cfg.Adapters[configuration.ClientClaude]
-	token := ""
-	if adapter.CredentialCommand == "" {
-		if deps.Secrets == nil {
-			return Verification{}, fmt.Errorf("Token for account %q is unavailable: secret store is unavailable", runtime.AccountID)
-		}
-		var err error
-		token, err = deps.Secrets.Get(runtime.AccountID)
-		if err != nil {
-			instruction, _ := credential.TokenRecovery(deps.Secrets, runtime.AccountID)
-			return Verification{}, fmt.Errorf("Token for account %q is unavailable: %w; %s", runtime.AccountID, err, instruction)
-		}
-	}
-	if !adapter.Enabled || adapter.Executable == "" {
-		return Verification{}, fmt.Errorf("Claude adapter is disabled; run `aigw repair`")
-	}
-	ready, err := discovery.ExecutableAvailable(adapter.Executable)
-	if err != nil {
-		return Verification{}, fmt.Errorf("inspect Claude executable: %w", err)
-	}
-	if !ready {
-		return Verification{}, fmt.Errorf("Claude executable is unavailable; run `aigw repair`")
-	}
-	verifyCtx, cancel := context.WithTimeout(ctx, domainverification.ProtocolTimeout)
-	defer cancel()
-	runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
-	runner := deps.Runner
-	if adapter.CredentialCommand != "" && runner != nil {
-		runner = externalCredentialRunner{runner: runner}
-	}
-	return Verification{}, domainverification.VerifyClaudeRuntime(verifyCtx, runner, adapter.Executable, deps.ClaudeSettingsPath, runtime, token)
 }
 
 func (claudeAdapter) Withdraw(cfg *configuration.Config) {

@@ -74,7 +74,7 @@ func (failingProjectionAdapter) Inspect(context.Context, Dependencies, configura
 	return Status{}
 }
 
-func (failingProjectionAdapter) Verify(context.Context, Dependencies, configuration.Config, configuration.Runtime) (Verification, error) {
+func (failingProjectionAdapter) Verify(context.Context, Dependencies, configuration.Config, configuration.Runtime, string) (Verification, error) {
 	return Verification{}, nil
 }
 
@@ -149,7 +149,7 @@ func (adapter *recordingAdapter) Inspect(_ context.Context, _ Dependencies, _ co
 	return Status{Ready: true}
 }
 
-func (adapter *recordingAdapter) Verify(_ context.Context, _ Dependencies, _ configuration.Config, _ configuration.Runtime) (Verification, error) {
+func (adapter *recordingAdapter) Verify(_ context.Context, _ Dependencies, _ configuration.Config, _ configuration.Runtime, _ string) (Verification, error) {
 	adapter.calls = append(adapter.calls, "verify")
 	return Verification{Version: "verified"}, nil
 }
@@ -185,7 +185,7 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 	if status := registry.Inspect(context.Background(), Dependencies{}, cfg, "future", configuration.Runtime{}); !status.Ready {
 		t.Fatalf("status = %#v", status)
 	}
-	if result, err := registry.Verify(context.Background(), Dependencies{}, cfg, "future", configuration.Runtime{}); err != nil || result.Version != "verified" {
+	if result, err := registry.Verify(context.Background(), Dependencies{}, cfg, "future", configuration.Runtime{}, ""); err != nil || result.Version != "verified" {
 		t.Fatalf("verification = %#v, %v", result, err)
 	}
 	if err := registry.Withdraw(&cfg, "future"); err != nil {
@@ -405,7 +405,7 @@ func TestRegistryRejectsUnknownClientOperations(t *testing.T) {
 	if status := registry.Inspect(context.Background(), Dependencies{}, cfg, "unknown", configuration.Runtime{}); status.Ready || !strings.Contains(status.Issue, "no admitted operational adapter") {
 		t.Fatalf("unknown inspection = %#v", status)
 	}
-	_, err = registry.Verify(context.Background(), Dependencies{}, cfg, "unknown", configuration.Runtime{})
+	_, err = registry.Verify(context.Background(), Dependencies{}, cfg, "unknown", configuration.Runtime{}, "")
 	assertUnknown("verify", err)
 	assertUnknown("withdraw", registry.Withdraw(&cfg, "unknown"))
 }

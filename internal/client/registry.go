@@ -77,7 +77,7 @@ type Adapter interface {
 	Apply(context.Context, Dependencies, configuration.Config, configuration.Config) (ProjectionReceipt, error)
 	ProjectionChanged(configuration.Config, configuration.Config) bool
 	Inspect(context.Context, Dependencies, configuration.Config, configuration.Runtime) Status
-	Verify(context.Context, Dependencies, configuration.Config, configuration.Runtime) (Verification, error)
+	Verify(context.Context, Dependencies, configuration.Config, configuration.Runtime, string) (Verification, error)
 	Withdraw(*configuration.Config)
 }
 
@@ -261,12 +261,12 @@ func (registry Registry) Inspect(ctx context.Context, deps Dependencies, cfg con
 }
 
 // Verify runs one explicit live verification through the admitted adapter.
-func (registry Registry) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, clientID string, runtime configuration.Runtime) (Verification, error) {
+func (registry Registry) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, clientID string, runtime configuration.Runtime, explicitProfile string) (Verification, error) {
 	adapter, err := registry.adapter(clientID)
 	if err != nil {
 		return Verification{}, err
 	}
-	return adapter.Verify(ctx, deps, cfg, runtime)
+	return adapter.Verify(ctx, deps, cfg, runtime, explicitProfile)
 }
 
 // Withdraw removes the selected adapter from desired configuration. The

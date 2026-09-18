@@ -45,6 +45,24 @@ type ReconciliationReceipt struct {
 	committed []committedCodexArtifact
 }
 
+// CopyProjection copies one complete AIGW-owned Codex projection to a private
+// target without interpreting or changing its contents.
+func CopyProjection(source, target string) error {
+	for _, suffix := range []string{"", ".aigw-state.json", ".aigw-model-catalog.json"} {
+		snapshot, err := transaction.CaptureFileSnapshot(source + suffix)
+		if err != nil {
+			return err
+		}
+		if !snapshot.Exists {
+			continue
+		}
+		if err := transaction.WriteFileAtomicExactMode(target+suffix, snapshot.Data, snapshot.Mode); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Rollback restores the exact preimages captured by this reconciliation while
 // each artifact still equals the postimage written by this transaction.
 func (r ReconciliationReceipt) Rollback() error {
