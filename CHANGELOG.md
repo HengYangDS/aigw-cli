@@ -8,6 +8,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0-rc.118] - 2026-09-19
+
+### Changed
+
+- Refresh the locked Go, npm, mise, release, and dependency-automation toolchain
+  to the latest stable compatible graph, including Renovate 44.103.1.
+- Use the current GoReleaser archive timestamp contract directly and retain
+  reproducible native artifacts without a redundant timestamp rewrite.
+
 ## [0.1.0-rc.117] - 2026-09-18
 
 ### Changed

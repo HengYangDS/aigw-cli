@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-09-19
+goal: Publish the accepted stable supply-chain refresh as AIGW 0.1.0-rc.118 from
+  one exact signed product object.
+skip_specs: true
