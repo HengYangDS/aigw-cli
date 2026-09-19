@@ -27,6 +27,42 @@ Keep reproducibility claims scoped to construction inputs. Trusted signing times
 
 First qualify local identity and bounded signing; then implement final-byte distribution and tests. Admit stable versions through the existing acceptance owner. Only then publish and generate the tap from verified inventory. Run clean installation and retained-state upgrade/rollback before the local cutover. Complete peer parity, documentation, and cleanup last. Missing Apple authorization blocks notarization claims only, not independent implementation or validation.
 
-## Risks and recovery
+## Post-release engineering-reference quality
+
+Formal publication and installed-product acceptance come first. Afterward,
+open a separate official Change for engineering-reference quality; do not restart
+this release to include that work. Educational value must follow from sound
+engineering, not from additional tutorial material. Before archiving this Change,
+transfer the following objectives without leaving a second progress ledger:
+
+- Review product concepts, invariants and ownership before reorganizing code;
+  align names, semantic packages, configuration and documentation.
+- Remove duplicate behavior, unnecessary abstractions and obsolete mechanisms;
+  prefer mature native capabilities when they reduce total maintenance cost.
+- Explain a small set of complete journeys: setup and deferred synchronization,
+  credential ownership, transactional projection, installation and rollback,
+  and release trust. Link explanations to tracked implementation and tests.
+- Demonstrate TDD and adversarial verification that can disprove design
+  assumptions, with safe fixtures and explicit cross-platform limitations.
+- Make a newcomer reproduce the documented development and extension journeys
+  from a clean checkout. Assess comprehension, necessary complexity and
+  correctness rather than treating coverage percentages as engineering quality.
+- Keep operational documentation in English, navigable and concise. Record
+  trade-offs in existing decision owners; do not add a parallel tutorial
+  framework or present unresolved defects as exemplary engineering.
+
+Require evidence for reliable failure handling, safe installation and rollback,
+credential boundaries, reproducible development, and measured performance.
+Assess the entire repository, including tests, configuration, documentation, CI
+and distribution. Each abstraction must justify its responsibility; do not add
+patterns, frameworks or stricter numeric limits merely to appear exemplary.
+A newcomer must be able to explain an important invariant, locate its owner,
+make a bounded extension, and verify it without relying on the original author.
+
+These objectives extend the overall AIGW goal. They do not certify reference
+quality, erase outstanding Proxy obligations, or justify changing the frozen
+release candidate.
+
+## Release recovery
 
 A signing identity listed by Keychain does not prove usable noninteractive access. A notary submission is not acceptance. Failure keeps the current release and credentials intact. Pending submission handles are resumed, not recreated. Homebrew replacement must retain clients' usable executable path or explicitly prepare their projections; binary removal alone is not a complete product uninstall.
