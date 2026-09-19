@@ -86,6 +86,31 @@ The preceding RC executable, portable installation directory, and rollback copy
 are absent. Historical signed release records remain chronology, not an active
 installation or compatibility path.
 
+## Feedback acceptance map
+
+The Change keeps one task ledger while mapping the accumulated feedback to its
+owning closure:
+
+| Feedback theme                                                                                                                             | Owning tasks |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
+| Natural first setup, partial credentials, absent clients, later synchronization, and precise `use`/`check` semantics                       | 2.1–2.6      |
+| Keychain, Secret Service, Credential Manager, file and environment portability without repeated prompts                                    | 3.1–3.5      |
+| Optional Proxy composition, direct endpoints, and low-cost Provider or Client extension                                                    | 4.1–4.6      |
+| Semantic packages, test topology, precise names and types, no suffix-based flat sprawl, hard-coding, wrappers, or parallel implementations | 5.1–5.6      |
+| Comprehensive format, lint, type, test, documentation, schema, security, complexity, size, coverage, and warning policy                    | 6.1–6.7      |
+| Latest stable direct supply chain, locked clean-lane bootstrap, and removal of stale installers or caches                                  | 7.1–7.5      |
+| English, navigable, accurate documentation; correct research, decision, architecture, guide, governance, and operations placement          | 8.1–8.6      |
+| Real macOS, Linux, and Windows product journeys; performance; dual-Forge identity and CI projection                                        | 9.1–9.7      |
+| Versioning, release only for changed product bytes, branch convergence, proposal cleanup, lane retirement, and residue removal             | 10.1–10.4    |
+
+Generic Work Lane, lease, commitment, publication, review, and retirement
+mechanisms remain ETHOS responsibilities. Proxy protocol translation, service
+supervision, replay correctness, and host-service cleanup remain Proxy
+responsibilities. Codex Desktop rendering and conversation-model selection, and
+operator-wide private configuration, remain application or workstation
+responsibilities. AIGW tests only its explicit boundary with each of those
+systems and does not copy their state machines into this repository.
+
 ## Initial semantic inventory
 
 The first repository-wide inventory establishes the surfaces that later closures
@@ -120,6 +145,25 @@ must preserve or deliberately remove:
 This is an ownership inventory, not a claim that every current package or file
 is already optimal. Task 1.4 carries the consumer-level deletion audit; later
 journeys may still prove that an apparent owner is redundant or misplaced.
+
+## Initial deletion inventory
+
+The initial residue audit classifies current candidates before any removal:
+
+| Candidate                                                             | Current classification                                               | Disposition                                                                   |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| RC.118 local executable, portable install root, and rollback copy     | Proved disposable after installed 0.1.0 acceptance                   | Already removed; retain no compatibility reader.                              |
+| `proposal/engineering-reference-convergence` on both peers            | Review-only projection absorbed into exact `dev` object `b2fbec3a`   | Already removed by merged reviews.                                            |
+| `work/20260919-stable-macos-release` and its worktree                 | Clean lane absorbed by accepted truth                                | Retired through ETHOS with exact-head receipt.                                |
+| `.serena/` and `node_modules/` in the active Work Lane                | Ignored, reproducible development state                              | Keep only while the lane is active; remove with lane retirement.              |
+| Git-common ETHOS runtime, attestations, receipts, and release records | Active governance runtime or durable evidence with current consumers | Preserve; lifecycle and retention policy belong to ETHOS, not AIGW.           |
+| Signed release tags and OpenSpec archives                             | Immutable product chronology and release evidence                    | Preserve until a separate authorized retention policy proves them disposable. |
+
+No tracked `evidence`, `claims`, `chronicle`, `.code-memory`, or `.ethos/state`
+container exists. The repository currently exposes one work lane, one candidate
+checkout, and no remote proposal branch. Further deletion remains scoped to the
+semantic closure that proves a specific implementation, test, configuration,
+or document has no consumer.
 
 ## Migration Plan
 

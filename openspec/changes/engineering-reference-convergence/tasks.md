@@ -3,9 +3,9 @@
 ## 1. Establish the authoritative baseline
 
 - [x] 1.1 Inventory every public command, user journey, semantic package, test owner, configuration owner, documentation domain, generated projection, dependency, and delivery surface; verify every tracked carrier has one current consumer or an explicit deletion disposition.
-- [ ] 1.2 Reconcile all prior user feedback against canonical OpenSpec requirements; verify each item maps to one task and no copied progress ledger remains.
+- [x] 1.2 Reconcile all prior user feedback against canonical OpenSpec requirements; verify each item maps to one task and no copied progress ledger remains.
 - [x] 1.3 Record the accepted AIGW 0.1.0 source, artifact, installation, route, credential, and client-projection baseline; verify later comparisons use immutable object and artifact identities.
-- [ ] 1.4 Identify all parallel implementations, forwarding wrappers, compatibility paths, stale runtime state, obsolete evidence, abandoned branches, and empty directories; verify the deletion set excludes active user, foreign-agent, and immutable historical state.
+- [x] 1.4 Identify all parallel implementations, forwarding wrappers, compatibility paths, stale runtime state, obsolete evidence, abandoned branches, and empty directories; verify the deletion set excludes active user, foreign-agent, and immutable historical state.
 
 ## 2. Converge configuration and onboarding journeys
 
