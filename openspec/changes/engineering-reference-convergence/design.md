@@ -322,8 +322,8 @@ candidate proves a required behavior and deletes more implementation,
 verification, platform, and operating responsibility than it introduces.
 
 Task 5.1 binds the production topology to executable evidence rather than a
-directory impression. The current build contains 45 production packages. Every
-one appears exactly once as an import owner in the architecture policy, with no
+directory impression. The baseline mapped by that task contained 45 production packages. Every
+one appeared exactly once as an import owner in the architecture policy, with no
 stale product owner, and both declared composition roots match their production
 files exactly. The architecture gate reports no undeclared package, child,
 composition-root file, import edge, carrier class, semantic name, or Decision
@@ -364,6 +364,22 @@ tests while deleting the shallow package and the CLI-to-console edge. Stable
 surface identity remains separate because Client, Codex, and CLI owners all
 consume it; collapsing that boundary would increase coupling rather than remove
 accidental complexity.
+
+Task 5.2 completes the production-layout review at 44 packages. Every remaining
+directory names a product capability, command boundary, or reusable release
+responsibility; no concatenated package name remains. Native `_darwin`, `_linux`,
+`_unix`, `_windows`, and `_test` suffixes are Go's platform and test selection
+contracts, not substitute domains. Configuration, secrets, Codex projection,
+upgrade, synchronization, and renaming remain cohesive deep modules because
+their private files coordinate one transaction or invariant; splitting those
+files would expose more state without reducing a caller's burden.
+`internal/client/verification` remains a deliberate child because it isolates a
+complete quota-consuming protocol with its own timeout, redaction, subprocess,
+response, and cleanup contract. `internal/surface` remains a neutral identity
+boundary shared by Client, Codex, and CLI owners, while
+`internal/providers/diagnostic` prevents the optional Provider registry and its
+implementations from forming an import cycle. The review therefore deletes the
+one proved shallow package without manufacturing replacement subpackages.
 
 Repository quality execution no longer exposes unused npm-script aliases for
 formatting, Markdown, OpenSpec, or signature checks. `package.json` now owns
