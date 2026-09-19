@@ -227,10 +227,15 @@ func TestRunReleasePolicyCommands(t *testing.T) {
 	if err := os.WriteFile(module, []byte("module example\n\ngo "+strings.TrimPrefix(runtime.Version(), "go")+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(tmp, "CHANGELOG.md"), []byte("## [Unreleased]\n\n## [1.2.3] - 2026-08-07\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(tmp)
 	var output bytes.Buffer
 	for _, args := range [][]string{
 		{"validate-toolchain", module},
 		{"validate-version", "1.2.3-rc.1"},
+		{"validate-changelog"},
 	} {
 		if err := run(args, &output); err != nil {
 			t.Fatalf("%v: %v", args, err)
@@ -239,24 +244,8 @@ func TestRunReleasePolicyCommands(t *testing.T) {
 	for _, args := range [][]string{
 		{"validate-toolchain"},
 		{"validate-version"},
+		{"validate-changelog", "extra"},
 	} {
-		if err := run(args, &output); err == nil {
-			t.Fatalf("invalid invocation accepted: %v", args)
-		}
-	}
-}
-
-func TestRunChangelogPolicyCommands(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("## [Unreleased]\n\n## [1.2.3] - 2026-08-07\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Chdir(root)
-	var output bytes.Buffer
-	if err := run([]string{"validate-changelog"}, &output); err != nil {
-		t.Fatal(err)
-	}
-	for _, args := range [][]string{{"validate-changelog", "extra"}} {
 		if err := run(args, &output); err == nil {
 			t.Fatalf("invalid invocation accepted: %v", args)
 		}
@@ -431,10 +420,6 @@ func TestRunReportsCommandFailures(t *testing.T) {
 		nil,
 		{"build"},
 		{"validate-release-sources", "extra"},
-		{"validate-toolchain"},
-		{"validate-version"},
-		{"validate-artifacts"},
-		{"compare-artifacts"},
 	}
 	for _, args := range cases {
 		if err := run(args, &output); err == nil {

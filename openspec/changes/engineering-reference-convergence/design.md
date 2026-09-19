@@ -359,8 +359,8 @@ architecture gate pass after the move.
 Repository quality execution no longer exposes unused npm-script aliases for
 formatting, Markdown, OpenSpec, or signature checks. `package.json` now owns
 only the locked Node dependency declaration, while the existing Go CI command
-remains the sole quality command plane and invokes npm's native signature audit
-directly. This deletes four unconsumed entry points and one unnecessary
+remains the sole quality command plane and invokes the repository-local OpenSpec
+executable and npm's native signature audit directly. This deletes four unconsumed entry points and one unnecessary
 Node-to-npm forwarding hop without changing the quality graph.
 
 Task 5.4 closes the repository-tool topology. `mise.toml` and its locks own
