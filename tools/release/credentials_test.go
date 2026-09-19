@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -23,6 +24,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	if handled, code := runInstalledClientFixture(os.Args[0], os.Args[1:]); handled {
+		os.Exit(code)
+	}
 	if len(os.Args) == 4 && os.Args[1] == "credential" && os.Getenv("AIGW_TEST_EXTERNAL_CREDENTIAL") == "1" {
 		if os.Args[2] != os.Getenv("AIGW_TEST_EXTERNAL_CLIENT") || os.Args[3] != os.Getenv("AIGW_TEST_EXTERNAL_FINGERPRINT") {
 			os.Exit(2)
@@ -31,6 +35,49 @@ func TestMain(m *testing.M) {
 		os.Exit(0)
 	}
 	os.Exit(m.Run())
+}
+
+func runInstalledClientFixture(executable string, args []string) (bool, int) {
+	client := strings.TrimSuffix(filepath.Base(executable), filepath.Ext(executable))
+	if client == configuration.ClientClaude {
+		_, _ = fmt.Fprintln(os.Stdout, "AIGW_OK")
+		return true, 0
+	}
+	if client != configuration.ClientCodex {
+		return false, 0
+	}
+	if slices.Equal(args, []string{"--version"}) {
+		_, _ = fmt.Fprintln(os.Stdout, "codex-cli 0.0.0-fixture")
+		return true, 0
+	}
+	for index, argument := range args {
+		if argument == "--output-last-message" && index+1 < len(args) {
+			if err := os.WriteFile(args[index+1], []byte("AIGW_OK\n"), 0o600); err != nil {
+				return true, 3
+			}
+			return true, 0
+		}
+	}
+	return true, 2
+}
+
+func TestCodexFixtureWritesItsFinalResponse(t *testing.T) {
+	fixture := &journeyFixture{testing: t, clientBin: t.TempDir()}
+	fixture.installClientFixture(configuration.ClientCodex)
+	executable := filepath.Join(fixture.clientBin, configuration.ClientCodex)
+	if runtime.GOOS == "windows" {
+		executable += ".exe"
+	}
+	if version, err := exec.Command(executable, "--version").Output(); err != nil || !strings.Contains(string(version), "codex-cli") {
+		t.Fatalf("Codex fixture version = %q, %v", version, err)
+	}
+	response := filepath.Join(t.TempDir(), "response.txt")
+	if output, err := exec.Command(executable, "exec", "--output-last-message", response).Output(); err != nil || len(output) != 0 {
+		t.Fatalf("Codex fixture output = %q, %v", output, err)
+	}
+	if got := strings.TrimSpace(string(readFile(t, response))); got != "AIGW_OK" {
+		t.Fatalf("Codex fixture final response = %q", got)
+	}
 }
 
 func (j *journeyFixture) requireExternalCredentialClient(client, executable, account string, completed func() int64) {

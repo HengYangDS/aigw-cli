@@ -301,11 +301,15 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 
 func (j *journeyFixture) installClientFixture(client string) {
 	j.testing.Helper()
-	name, content, mode := client, "#!/bin/sh\nprintf 'AIGW_OK\\n'\n", os.FileMode(0o755)
-	if runtime.GOOS == "windows" {
-		name, content, mode = client+".cmd", "@echo off\r\necho AIGW_OK\r\n", 0o600
+	program, err := os.Executable()
+	if err != nil {
+		j.testing.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(j.clientBin, name), []byte(content), mode); err != nil {
+	name := client
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	if err := os.WriteFile(filepath.Join(j.clientBin, name), readFile(j.testing, program), 0o700); err != nil {
 		j.testing.Fatal(err)
 	}
 }
