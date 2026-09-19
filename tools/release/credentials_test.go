@@ -192,6 +192,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		}
 	}
 	journey.requireClaudeCredential(replacement)
+	journey.run("verify", "--for", "all")
 	journey.run("account", "rename", sourceAccount, targetAccount, "--finalize")
 	if exists, err := store.Exists(sourceAccount); err != nil || exists {
 		t.Fatalf("finalized source credential remains: exists=%t error=%v", exists, err)
