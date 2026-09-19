@@ -26,12 +26,12 @@
 
 ## 4. Enforce the AIGW and external-gateway boundary
 
-- [ ] 4.1 Trace all Proxy names, loopback defaults, lifecycle assumptions, and traffic behavior in AIGW; verify AIGW retains only provider-neutral endpoint composition and no Proxy installation or runtime ownership.
-- [ ] 4.2 Verify direct provider endpoints and independently managed compatible endpoints through the same Account/Profile/Route contract, including absent and unavailable gateways.
-- [ ] 4.3 Remove mandatory Proxy-shaped defaults, duplicated compatibility behavior, and unconsumed gateway fields; verify existing supported configurations receive a precise migration path.
-- [ ] 4.4 Add a synthetic ordinary Provider through declarative configuration and verify no provider-specific branch enters the control-plane core.
-- [ ] 4.5 Add a synthetic Client through the adapter contract and verify discovery, projection, validation, rollback, disable, uninstall, and documentation without duplicating shared lifecycle logic.
-- [ ] 4.6 Evaluate mature lightweight libraries and frameworks against measured maintenance cost, portability, dependency depth, and displaced code; adopt only candidates with demonstrated net value and record rejected alternatives concisely.
+- [x] 4.1 Trace all Proxy names, loopback defaults, lifecycle assumptions, and traffic behavior in AIGW; verify AIGW retains only provider-neutral endpoint composition and no Proxy installation or runtime ownership.
+- [x] 4.2 Verify direct provider endpoints and independently managed compatible endpoints through the same Account/Profile/Route contract, including absent and unavailable gateways.
+- [x] 4.3 Remove mandatory Proxy-shaped defaults, duplicated compatibility behavior, and unconsumed gateway fields; verify existing supported configurations receive a precise migration path.
+- [x] 4.4 Add a synthetic ordinary Provider through declarative configuration and verify no provider-specific branch enters the control-plane core.
+- [x] 4.5 Add a synthetic Client through the adapter contract and verify discovery, projection, validation, rollback, disable, uninstall, and documentation without duplicating shared lifecycle logic.
+- [x] 4.6 Evaluate mature lightweight libraries and frameworks against measured maintenance cost, portability, dependency depth, and displaced code; adopt only candidates with demonstrated net value and record rejected alternatives concisely.
 
 ## 5. Align logical and physical repository structure
 

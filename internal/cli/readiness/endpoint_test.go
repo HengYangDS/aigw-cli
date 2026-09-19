@@ -370,7 +370,7 @@ func TestReadinessTransportHelpers(t *testing.T) {
 	if got := endpointTransport("%"); got != "" {
 		t.Fatalf("invalid transport = %#v", got)
 	}
-	if got := endpointTransport("http://LOCALHOST:8791/v1"); got != "external_loopback" {
+	if got := endpointTransport("http://LOCALHOST:48721/v1"); got != "external_loopback" {
 		t.Fatalf("loopback transport = %#v", got)
 	}
 	if got := endpointTransport("https://api.example.test/v1"); got != "" {

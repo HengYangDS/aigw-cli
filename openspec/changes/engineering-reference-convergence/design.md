@@ -245,6 +245,82 @@ or non-secret projection bytes, not Tokens. Current Claude sidecars record no
 present original credential value, and the first-adoption path rejects
 plaintext credentials or a foreign helper before writing a sidecar.
 
+The external-gateway boundary is accepted through tasks 4.1 to 4.5. Production
+source and the shipped team manifest contain no Proxy identity, fixed Proxy
+port, listener, service manager, installation, or runtime lifecycle. An Account
+holds either a direct HTTPS endpoint or an explicitly selected loopback endpoint;
+both follow the same Profile, Route, projection, readiness, and diagnostic path.
+Loopback classification reports only that the service is external, while an
+absent or unavailable endpoint produces the ordinary configuration or network
+failure without installation, startup, retry, or repair of another product.
+Historical Proxy-shaped test ports were replaced with a neutral loopback
+fixture. Strict local and manifest schema admission rejects older versions and
+unknown fields rather than retaining a compatibility reader or gateway field.
+
+A synthetic `northstar` Provider passes parse, merge, connected-Account route
+selection, runtime resolution, and client-native Codex projection using only
+manifest data; no provider name enters the control-plane core. The sole
+provider-specific production package remains the explicitly selected DMXAPI
+Account diagnostic, which is outside Route and projection semantics. A
+synthetic `future` Client passes the complete registry contract for discovery,
+convergence, preflight, guarded projection, change detection, inspection, live
+verification, compensation, disable, and withdrawal. The same registry rejects
+unadmitted or incomplete implementations, prepares all selected clients before
+writing, compensates in reverse order, and preserves existing Accounts, Routes,
+and built-in clients. Adapter and uninstall acceptance confirm that withdrawal
+removes only owned projection state and never the foreign client executable.
+The extension and admission documents identify the same contract and keep
+incompatible wire behavior in an independent data plane. Focused suites for
+`internal/configuration`, `internal/client`, `internal/cli/acceptance`,
+`internal/cli/adapter`, `internal/cli/install`, `internal/cli/readiness`, and
+`internal/codex` pass with these boundaries.
+
+Task 4.6 compares replaceable responsibility rather than feature count. At this
+closure, AIGW declares 14 direct Go modules; the selected build list contains
+63 modules and the compiled command graph contains 315 packages. The installed
+arm64 program is 10,770,864 bytes. The relevant product owners contain 1,448
+production lines in configuration, 912 in client orchestration and adapters,
+and 211 in optional Provider diagnostics. These counts bound the surface a
+candidate could displace; they do not by themselves justify retention or
+adoption.
+
+The bounded upstream review on 2026-09-20 produced these decisions:
+
+- [koanf 2.3.6](https://github.com/knadh/koanf/releases/tag/v2.3.6) declares
+  three direct and one indirect core module requirement; [Viper
+  1.21.0](https://github.com/spf13/viper/releases/tag/v1.21.0) declares ten
+  direct and seven indirect requirements. Both own generic source loading and
+  merging. Neither removes AIGW's strict schema, unknown-field rejection,
+  Account/Profile/Route validation, explicit conflict admission, atomic store,
+  or source-preserving client projection. Their alias, default, watch, or
+  ambient-source behavior would introduce a second configuration semantic, so
+  neither is adopted.
+- [go-plugin 1.8.0](https://github.com/hashicorp/go-plugin/releases/tag/v1.8.0)
+  declares seven direct and eight indirect requirements and adds subprocess,
+  RPC, handshake, version, installation, trust, logging, and cleanup contracts.
+  The static in-process registry already centralizes selection, preflight,
+  compensation, inspection, verification, and withdrawal; a dynamic plugin
+  layer would delete none of the client-specific ownership work. It is rejected
+  unless independently shipped third-party adapters become a demonstrated
+  product requirement.
+- [Fx 1.24.0](https://github.com/uber-go/fx/releases/tag/v1.24.0) declares six
+  direct and three indirect requirements, while [Wire
+  0.7.0](https://github.com/google/wire/releases/tag/v0.7.0) is archived. AIGW's
+  explicit construction has no unresolved dependency-graph or component
+  lifecycle problem, so either dependency would add machinery without deleting
+  a product obligation.
+- [LiteLLM 1.101.0](https://github.com/BerriAI/litellm/releases/tag/v1.101.0)
+  is a Python SDK and traffic gateway, not a replacement for local Account,
+  credential, Route, or native-client projection ownership. It may be selected
+  as an external endpoint, or evaluated later against Proxy with protocol and
+  lifecycle evidence, but it must not enter AIGW as a framework dependency.
+
+The resulting decision is to add no framework. Existing narrow dependencies
+already delegate TOML parsing, native credential APIs, bounded Windows cleanup,
+and CLI grammar at their exact owners. Reconsider this decision only when a
+candidate proves a required behavior and deletes more implementation,
+verification, platform, and operating responsibility than it introduces.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:

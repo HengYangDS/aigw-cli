@@ -23,7 +23,7 @@ func atomicTestRuntime() configuration.Runtime {
 		ProfileLabel:      "GPT-5.6 Terra",
 		AccountID:         "gateway",
 		Client:            configuration.ClientCodex,
-		Endpoint:          "http://127.0.0.1:8791/v1",
+		Endpoint:          "http://127.0.0.1:48721/v1",
 		Model:             "gpt-5.6-terra",
 	}
 }
@@ -81,7 +81,7 @@ func TestCodexProviderOwnershipSurvivesNativeTableEditing(t *testing.T) {
 func TestCodexProviderOwnershipRejectsChangedValuesBeforeWriting(t *testing.T) {
 	for _, change := range []struct{ before, after string }{
 		{"wire_api = \"responses\"", "wire_api = \"chat\""},
-		{"http://127.0.0.1:8791/v1", "https://other.test/v1"},
+		{"http://127.0.0.1:48721/v1", "https://other.test/v1"},
 		{"command = ", "other_command = "},
 		{codexEnd, "unknown = true\n" + codexEnd},
 	} {
