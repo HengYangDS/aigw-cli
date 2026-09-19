@@ -86,6 +86,41 @@ The preceding RC executable, portable installation directory, and rollback copy
 are absent. Historical signed release records remain chronology, not an active
 installation or compatibility path.
 
+## Initial semantic inventory
+
+The first repository-wide inventory establishes the surfaces that later closures
+must preserve or deliberately remove:
+
+- the public command graph contains one `aigw` composition root and the setup,
+  selection, readiness, credential, client, installation, recovery, catalogue,
+  and provider-administration journeys listed by `aigw --help`;
+- the production graph contains 43 Go packages. Its principal dependency
+  boundaries run from CLI adapters into configuration, presentation, process,
+  secrets, synchronization, and transaction owners; the architecture gate
+  currently reports no undeclared package or import edge;
+- focused behavior is co-located with its semantic owner, while cross-command,
+  client, upgrade, and release journeys live in explicitly named acceptance
+  packages rather than in a second implementation;
+- repository configuration has distinct owners for architecture, coverage,
+  dependency policy, Go analysis, size, Markdown, secret scanning, TOML,
+  release construction, and the CUE CI graph. GitHub and GitLab workflow files
+  are generated projections of that CI graph;
+- current documentation has one index and distinct architecture, concepts,
+  decisions, experience, governance, guides, operations, research, history, and
+  legal domains; every current document below `docs/` has an inbound tracked
+  link;
+- the tracked repository contains no `evidence`, `claims`, `chronicle`,
+  `.code-memory`, or `.ethos/state` directory. Serena state and installed Node
+  packages are ignored Work Lane-local development state;
+- after the stable delivery was accepted, both peer proposal refs were removed,
+  local and peer `dev` converged on the signed object `b2fbec3a`, the superseded
+  `stable-macos-release` Work Lane was retired, and this Change now owns the sole
+  active Work Lane.
+
+This is an ownership inventory, not a claim that every current package or file
+is already optimal. Task 1.4 carries the consumer-level deletion audit; later
+journeys may still prove that an apparent owner is redundant or misplaced.
+
 ## Migration Plan
 
 1. Freeze and inventory the current accepted product, published bytes, user journeys, tracked carriers, dependencies, and residue.
