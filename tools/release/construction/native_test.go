@@ -118,12 +118,16 @@ func TestNativeBuildNeedsNoPublisherCredentials(t *testing.T) {
 	for _, platform := range []string{"linux", "windows", "darwin", ""} {
 		t.Run(platform, func(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "0", TargetOS: platform}
+			t.Setenv("AIGW_MACOS_SIGNING_IDENTITY", strings.Repeat("a", 40))
 			for _, name := range []string{"AIGW_MACOS_SIGNING_P12", "AIGW_MACOS_SIGNING_PASSWORD_FILE", "AIGW_MACOS_SIGNING_REQUIREMENTS"} {
 				t.Setenv(name, "")
 			}
 			calls := 0
 			_, err := buildArchives(request, t.TempDir(), func(call toolCall) error {
 				calls++
+				if !slices.Contains(call.Env, "AIGW_MACOS_SIGNING_IDENTITY=") {
+					t.Fatal("native build inherited publisher identity")
+				}
 				if !slices.Contains(call.Env, "AIGW_BUILD_OS="+platform) {
 					t.Fatal("build selection was not passed to GoReleaser")
 				}
@@ -370,5 +374,33 @@ func writeNativeArchive(t *testing.T, stage string) {
 	checksums := fmt.Sprintf("%x  %s\n", sha256.Sum256(data), filepath.Base(archive))
 	if err := os.WriteFile(filepath.Join(stage, "checksums.txt"), []byte(checksums), 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPublisherSigningIdentityIsExplicitAndNative(t *testing.T) {
+	identity := strings.Repeat("a", 40)
+	request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "0", MacOSSigningIdentity: identity}
+	_, err := buildArchives(request, t.TempDir(), func(call toolCall) error {
+		if !slices.Contains(call.Env, "AIGW_MACOS_SIGNING_IDENTITY="+identity) {
+			t.Fatal("publisher identity missing")
+		}
+		return nil
+	})
+	if runtime.GOOS == "darwin" && err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "darwin" && err == nil {
+		t.Fatal("native signing accepted on another operating system")
+	}
+	for _, value := range []string{"publisher name", `a" --anything`, strings.Repeat("g", 40)} {
+		request.MacOSSigningIdentity = value
+		if err := validateRequest(request); err == nil {
+			t.Fatalf("invalid fingerprint accepted: %q", value)
+		}
+	}
+	request.MacOSSigningIdentity = identity
+	request.TargetOS = "windows"
+	if err := validateRequest(request); err == nil {
+		t.Fatal("irrelevant signing identity accepted for Windows-only build")
 	}
 }

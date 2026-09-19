@@ -9,12 +9,14 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -29,6 +31,7 @@ type buildRequest struct {
 	GitHubOrigin, GitHubRepository string
 	SigningKey                     string
 	TargetOS                       string
+	MacOSSigningIdentity           string
 }
 
 type toolCall struct {
@@ -156,6 +159,9 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 }
 
 func buildArchives(request buildRequest, workspace string, run toolRunner) (string, error) {
+	if err := validateRequest(request); err != nil {
+		return "", err
+	}
 	stage := filepath.Join(workspace, "goreleaser")
 	config, err := renderGoReleaserConfig(request.Root, workspace, stage)
 	if err != nil {
@@ -167,6 +173,7 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 	}
 	environment := []string{
 		"AIGW_BUILD_OS=" + request.TargetOS,
+		"AIGW_MACOS_SIGNING_IDENTITY=" + request.MacOSSigningIdentity,
 		"AIGW_VERSION=" + request.Version,
 		"AIGW_RELEASE_EPOCH=" + request.Epoch,
 		"AIGW_RELEASE_TIMESTAMP=" + instant.Format(time.RFC3339),
@@ -205,6 +212,18 @@ func validateRequest(request buildRequest) error {
 	}
 	if _, err := readiness.ParseEpoch(request.Epoch); err != nil {
 		return err
+	}
+	if request.MacOSSigningIdentity != "" {
+		fingerprint, err := hex.DecodeString(request.MacOSSigningIdentity)
+		if err != nil || len(fingerprint) != 20 {
+			return errors.New("macOS signing identity must be a 40-character certificate SHA-1 fingerprint")
+		}
+		if runtime.GOOS != "darwin" {
+			return errors.New("Developer ID signing requires a macOS host")
+		}
+		if request.TargetOS != "" && request.TargetOS != "darwin" {
+			return errors.New("macOS signing identity requires a build containing macOS artifacts")
+		}
 	}
 	return request.validateSources()
 }
@@ -363,7 +382,8 @@ func buildRequestFromEnvironment(ctx context.Context, output string) (buildReque
 		Root: root, Version: version, Epoch: epoch, Output: output,
 		GitLabOrigin: os.Getenv("AIGW_GITLAB_RELEASE_ORIGIN"), GitLabRepository: os.Getenv("AIGW_GITLAB_RELEASE_REPOSITORY"),
 		GitHubOrigin: os.Getenv("AIGW_GITHUB_RELEASE_ORIGIN"), GitHubRepository: os.Getenv("AIGW_GITHUB_RELEASE_REPOSITORY"),
-		SigningKey: os.Getenv("AIGW_RELEASE_SIGNING_KEY"),
+		SigningKey:           os.Getenv("AIGW_RELEASE_SIGNING_KEY"),
+		MacOSSigningIdentity: os.Getenv("AIGW_MACOS_SIGNING_IDENTITY"),
 	}, nil
 }
 

@@ -388,20 +388,29 @@ that field are inert compatibility metadata. A lockfile provenance declaration
 therefore proves the selected verification method was used during generation,
 while checksums continue to bind installations to the reviewed bytes.
 
-Internal macOS delivery does not require Apple Developer enrollment, a publisher
-certificate, a password file or notarization. GoReleaser's existing post-build
-hooks apply an ad-hoc Mach-O signature with Hardened Runtime before archiving.
-Native macOS qualification verifies the extracted binaries with Apple codesign. This provides local code-integrity metadata, not a trusted publisher
-identity or Gatekeeper distribution approval. Public notarized macOS distribution
-is outside the current delivery scope; no system trust or quarantine policy is
-changed to simulate that approval.
+Credential-free construction uses the existing GoReleaser post-build hook to
+apply an ad-hoc Mach-O signature and Hardened Runtime before archiving. Native
+macOS qualification verifies extracted binaries with Apple codesign. These
+signatures establish local code-integrity metadata, not publisher identity or
+Gatekeeper approval. Ordinary native tests explicitly clear publisher identity
+instead of inheriting an operator's credential environment.
 
-Signing uses explicit tool configuration, no credential store and no network
-timestamp service. Signature time comes from the selected release epoch.
-GoReleaser 2.18.2 applies `builds_info.mtime` after the signing hook, so archive
-metadata needs no second timestamp-rewrite hook. The native archive test
-verifies both macOS architectures and compares complete matrices across a
-wall-clock boundary.
+For operator-driven Developer ID construction on macOS, supply
+`AIGW_MACOS_SIGNING_IDENTITY` as the exact certificate SHA-1 fingerprint listed
+by `security find-identity -v -p codesigning`. This selects an existing identity;
+it is not an artifact checksum or a private key. The same GoReleaser hook uses
+Apple codesign with Hardened Runtime and a trusted timestamp before creating
+archives and Homebrew projections. Neither the fingerprint nor any personal
+identity is embedded in repository configuration. The release command does not
+export private keys or change their access policy.
+
+Reproducible CI construction remains credential-free. Its signature time comes
+from the selected release epoch; GoReleaser applies `builds_info.mtime` after the
+hook. Developer ID timestamped output is a distinct distribution artifact, not
+a byte-identical rebuild claim. Sign once, verify the final archives, and publish
+those same bytes to all selected peers. Public notarization is a separate required
+acceptance: a successful build or signature does not establish Apple approval.
+No system trust or quarantine policy is changed to simulate that approval.
 
 Detached SSH signatures authenticate the archive manifest independently of the
 local Mach-O signature. Checksums, provenance, SBOMs and immutable peer parity

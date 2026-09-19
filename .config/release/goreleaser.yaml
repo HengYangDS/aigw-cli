@@ -39,11 +39,16 @@ builds:
     hooks:
       post:
         - cmd: >-
+            {{ if .Env.AIGW_MACOS_SIGNING_IDENTITY }}
+            /usr/bin/codesign --force --sign "{{ .Env.AIGW_MACOS_SIGNING_IDENTITY }}"
+            --options runtime --timestamp "{{ .Path }}"
+            {{ else }}
             rcodesign -C /dev/null sign
             --binary-identifier "{{ .ProjectName }}"
             --code-signature-flags runtime
             --signing-time "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
             --timestamp-url none "{{ .Path }}"
+            {{ end }}
 
 archives:
   - ids: [portable, windows, macos]
