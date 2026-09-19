@@ -26,8 +26,11 @@ func checkDecisionRecordsWithReadDir(
 	registerPath := filepath.Join(directory, decisionRegister)
 	register, err := os.ReadFile(registerPath)
 	if err != nil {
-		report.addFinding(Finding{Rule: "decision_record_register_missing", Path: "docs/decisions/" + decisionRegister, Message: "Decision Records require one canonical register"})
-		return nil
+		if os.IsNotExist(err) {
+			report.addFinding(Finding{Rule: "decision_record_register_missing", Path: "docs/decisions/" + decisionRegister, Message: "Decision Records require one canonical register"})
+			return nil
+		}
+		return fmt.Errorf("read Decision Register: %w", err)
 	}
 	entries, err := readDir(directory)
 	if err != nil {

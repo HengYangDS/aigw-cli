@@ -35,6 +35,22 @@ func TestDecisionRecordDirectoryReadFailureIsReported(t *testing.T) {
 	}
 }
 
+func TestDecisionRegisterReadFailureIsNotReportedAsMissing(t *testing.T) {
+	root := t.TempDir()
+	registerPath := filepath.Join(root, "docs", "decisions", decisionRegister)
+	if err := os.MkdirAll(registerPath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	report := newReport("policy", root)
+	err := checkDecisionRecords(root, &report)
+	if err == nil || !strings.Contains(err.Error(), "read Decision Register") {
+		t.Fatalf("Decision Register read error = %v", err)
+	}
+	if hasRule(report, "decision_record_register_missing") {
+		t.Fatalf("unreadable Decision Register was classified as missing: %+v", report.Findings)
+	}
+}
+
 func TestDecisionRecordsAcceptSemanticContiguousRegister(t *testing.T) {
 	root := t.TempDir()
 	writeDecisionRecord(t, root, "dr-0001-product-boundary.md", 1)
