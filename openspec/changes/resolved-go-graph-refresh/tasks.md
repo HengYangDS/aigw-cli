@@ -6,5 +6,5 @@
 ## 2. Verify and integrate
 
 - [x] 2.1 Pass strict OpenSpec validation and the complete source gate.
-- [ ] 2.2 Integrate and publish the signed result unchanged to local and dual-Forge `dev` and `main`.
+- [x] 2.2 Integrate and publish the signed result unchanged to local and dual-Forge `dev` and `main`.
 - [ ] 2.3 Verify exact-SHA hosted CI, archive this Change, and retire its proposal and Work Lane without residue.
