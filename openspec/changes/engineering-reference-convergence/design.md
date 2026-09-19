@@ -321,6 +321,32 @@ and CLI grammar at their exact owners. Reconsider this decision only when a
 candidate proves a required behavior and deletes more implementation,
 verification, platform, and operating responsibility than it introduces.
 
+Task 5.1 binds the production topology to executable evidence rather than a
+directory impression. The current build contains 45 production packages. Every
+one appears exactly once as an import owner in the architecture policy, with no
+stale product owner, and both declared composition roots match their production
+files exactly. The architecture gate reports no undeclared package, child,
+composition-root file, import edge, carrier class, semantic name, or Decision
+Record defect; the complete Go package list also resolves successfully. The
+dependency direction matches the product concepts documented above:
+configuration, credentials, guarded transactions, process execution, discovery,
+presentation, and readiness are stable capabilities; Client owns admitted
+client orchestration; provider-specific code is confined to optional
+diagnostics; synchronization and CLI packages compose those owners; upgrade and
+repository tools remain independent entry points. The indexed source graph has
+complete parse coverage for product code and reports one internal validation
+recursion cycle, not a package dependency cycle. Focused architecture, CI, and
+release tool suites pass against this same topology.
+
+The first physical simplification removes the one-file
+`internal/client/acceptance` test-only subpackage. Its credential-projection
+journeys exercise the public Client contract but own no separate implementation,
+fixture API, or package boundary; they now live as external tests beside
+`internal/client`, and the obsolete child declaration is removed from the
+architecture policy. Test-only acceptance packages for public CLI and release
+journeys remain because they span multiple production owners and represent
+distinct product boundaries rather than suffix-based mirrors of one package.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:

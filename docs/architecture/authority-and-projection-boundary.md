@@ -60,6 +60,8 @@ process.
 - **[Claude integration](../../internal/claude/):** Settings projection, credential-safe process plans, and readiness
 - **[Endpoint authentication](../../internal/credential/):** Provider-neutral credential validation
 - **[Provider diagnostics](../../internal/providers/):** Optional provider-native diagnostics only
+- **[Client orchestration](../../internal/client/):** Admitted client discovery, projection, inspection, verification, compensation, and withdrawal
+- **[Synchronization](../../internal/synchronization/):** Route convergence and all-client configuration transaction
 - **[Presentation](../../internal/presentation/):** Human and JSON rendering of command results
 - **[CLI](../../internal/cli/):** Command composition; domain behavior remains in semantic owners
 - **[Transactions](../../internal/transaction/):** Guarded filesystem mutation and rollback

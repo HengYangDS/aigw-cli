@@ -35,7 +35,7 @@
 
 ## 5. Align logical and physical repository structure
 
-- [ ] 5.1 Build a dependency and semantic-ownership map for production packages; verify import direction, composition roots, and public interfaces match the product concepts.
+- [x] 5.1 Build a dependency and semantic-ownership map for production packages; verify import direction, composition roots, and public interfaces match the product concepts.
 - [ ] 5.2 Reorganize flat suffix families, mixed-responsibility directories, concatenated names, and misplaced code into cohesive semantic packages; verify behavior remains unchanged through focused tests.
 - [ ] 5.3 Mirror production ownership in test organization without co-locating unrelated fixtures or creating a second implementation; verify reusable fixtures expose only stable test contracts.
 - [ ] 5.4 Reorganize repository tools and configuration by responsibility; verify publication, CI, quality, release, and development bootstrap each have one discoverable owner.
