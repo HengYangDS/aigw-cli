@@ -146,6 +146,12 @@ func runNativeEphemeralCredentials(t *testing.T, artifact string) {
 
 func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersion string) {
 	t.Helper()
+	const (
+		sourceAccount = "native-system-keyring-probe"
+		targetAccount = "renamed-system-keyring-probe"
+		token         = "native-system-keyring-token"
+		replacement   = "native-system-keyring-replacement"
+	)
 	baseline := requireNativeLifecycleBaseline(t, func() string { return artifact })
 	journey := newNativeJourney(t, baseline, endpoint, true)
 	oldVersion := journey.predecessorVersion(newVersion)
@@ -156,13 +162,12 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if exists, err := store.Exists("native-system-keyring-probe"); err != nil || exists {
+	if exists, err := store.Exists(sourceAccount); err != nil || exists {
 		t.Fatalf("native credential test requires an unoccupied slot: exists=%t error=%v", exists, err)
 	}
-	const (
-		token       = "native-system-keyring-token"
-		replacement = "native-system-keyring-replacement"
-	)
+	if exists, err := store.Exists(targetAccount); err != nil || exists {
+		t.Fatalf("native credential test requires an unoccupied rename target: exists=%t error=%v", exists, err)
+	}
 	backend := secrets.BackendSelection{
 		Kind:         "keyring",
 		Availability: "available",
@@ -170,17 +175,33 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		Persistence:  "persisted",
 	}
 	t.Cleanup(func() {
-		if err := store.Delete("native-system-keyring-probe"); err != nil {
-			t.Errorf("clean system credential store: %v", err)
+		for _, account := range []string{sourceAccount, targetAccount} {
+			if err := store.Delete(account); err != nil {
+				t.Errorf("clean system credential store %q: %v", account, err)
+			}
 		}
 	})
-	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
+	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", sourceAccount, "--token-stdin")
 	journey.requireClaudeCredential(token)
-	journey.runWithInput(journey.binary, replacement+"\n", "rotate", "native-system-keyring-probe", "--token-stdin")
+	journey.runWithInput(journey.binary, replacement+"\n", "rotate", sourceAccount, "--token-stdin")
 	journey.requireClaudeCredential(replacement)
+	journey.run("account", "rename", sourceAccount, targetAccount)
+	for _, account := range []string{sourceAccount, targetAccount} {
+		if value, err := store.Get(account); err != nil || value != replacement {
+			t.Fatalf("renamed credential %q = %q, %v", account, value, err)
+		}
+	}
+	journey.requireClaudeCredential(replacement)
+	journey.run("account", "rename", sourceAccount, targetAccount, "--finalize")
+	if exists, err := store.Exists(sourceAccount); err != nil || exists {
+		t.Fatalf("finalized source credential remains: exists=%t error=%v", exists, err)
+	}
+	if value, err := store.Get(targetAccount); err != nil || value != replacement {
+		t.Fatalf("finalized target credential = %q, %v", value, err)
+	}
 	journey.requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, oldVersion, replacement, backend)
 	journey.uninstallAndRequireOwnedFilesAbsent()
-	if exists, err := store.Exists("native-system-keyring-probe"); err != nil || !exists {
+	if exists, err := store.Exists(targetAccount); err != nil || !exists {
 		t.Fatalf("uninstall removed the retained credential: exists=%t error=%v", exists, err)
 	}
 	journey.runWith(journey.source, "install", "--target", journey.binary)
@@ -188,10 +209,10 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	journey.requireCredentialBackend(replacement, backend)
 	journey.requireClaudeCredential(replacement)
 	journey.uninstallAndRequireOwnedFilesAbsent()
-	if err := store.Delete("native-system-keyring-probe"); err != nil {
+	if err := store.Delete(targetAccount); err != nil {
 		t.Fatal(err)
 	}
-	if exists, err := store.Exists("native-system-keyring-probe"); err != nil || exists {
+	if exists, err := store.Exists(targetAccount); err != nil || exists {
 		t.Fatalf("deleted credential remains: exists=%t error=%v", exists, err)
 	}
 }

@@ -178,6 +178,22 @@ direct the operator to a matching release or an explicitly reviewed canonical
 export instead of suggesting a generic readiness retry. Focused configuration,
 presentation, onboarding, synchronization, and CLI acceptance suites pass.
 
+Credential portability is accepted at signed commit `3863e05e`. The ordinary
+GitHub review run `35455496791` exercised the complete native graph on macOS,
+Linux, and Windows; Windows also completed the real Credential Manager journey.
+GitLab review pipeline `7573` independently passed macOS and Linux after its
+stopped OrbStack runtime was restored without changing repository code. The
+focused stores verify explicit environment, file, and keyring selection,
+read-only environment credentials, persisted automatic selection, precise
+Secret Service unavailability, no fallback after an explicit keyring failure,
+bounded worker termination, restricted identity environment, metadata-only
+observation, and standard-input-only mutation. GitHub workflow `35457062367`
+then consumed published `v0.1.0-rc.118` as the predecessor and passed the real
+macOS Keychain create, read, rotate, update, rollback, forward-recovery,
+uninstall, reinstall, and exact-delete journey. These observations establish
+tasks 3.1 and 3.2; Linux proves the unavailable Secret Service path rather than
+claiming a service that the runner does not provide.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:
