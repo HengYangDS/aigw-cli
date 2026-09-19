@@ -146,6 +146,28 @@ This is an ownership inventory, not a claim that every current package or file
 is already optimal. Task 1.4 carries the consumer-level deletion audit; later
 journeys may still prove that an apparent owner is redundant or misplaced.
 
+## Accepted journey observations
+
+Focused acceptance at the current baseline confirms the intended public
+semantics before further restructuring:
+
+- manifest setup imports capability with no Token and no installed client;
+- any one available Account Token is sufficient, including an explicitly
+  selected Account or the read-only environment backend;
+- setup projects only the intersection of installed clients and usable Routes;
+- installing a client or making its Token available later is completed by
+  `aigw sync` or an explicit `aigw use <profile>`, without repeating setup;
+- independent Claude and Codex selections remain independent, and `aigw check`
+  accepts both without a hidden global or bulk-selection step;
+- cancellation, invalid backend state, projection failure, persistence failure,
+  and compensation failure preserve or restore the owned preimage and report the
+  exact incomplete boundary.
+
+The focused suites for CLI acceptance, onboarding, configuration,
+synchronization, and secret backends pass at the current Work Lane base. These
+observations establish the existing behavior for tasks 2.1 through 2.5. They do
+not yet prove released-artifact execution on every host, which remains task 9.3.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:

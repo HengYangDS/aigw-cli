@@ -9,11 +9,11 @@
 
 ## 2. Converge configuration and onboarding journeys
 
-- [ ] 2.1 Exercise first-time interactive setup with each supported credential mode and no installed clients; verify one available Account is sufficient and no unrelated Token is required.
-- [ ] 2.2 Exercise `setup --from` with zero, one, and several available Accounts; verify token-free import, partial activation, and precise next actions.
-- [ ] 2.3 Verify deferred client installation and later synchronization for Claude Code and Codex without re-importing team configuration or changing unrelated client state.
-- [ ] 2.4 Reconcile `use`, client-scoped selection, default selection, `use --all`, `status`, `check`, `doctor`, `test`, and `verify`; verify defaults have one human-readable meaning and explicit client selections require no hidden global step.
-- [ ] 2.5 Verify setup, synchronization, selection, and repair are transactional under cancellation, output failure, concurrent external edits, and compensation failure.
+- [x] 2.1 Exercise first-time interactive setup with each supported credential mode and no installed clients; verify one available Account is sufficient and no unrelated Token is required.
+- [x] 2.2 Exercise `setup --from` with zero, one, and several available Accounts; verify token-free import, partial activation, and precise next actions.
+- [x] 2.3 Verify deferred client installation and later synchronization for Claude Code and Codex without re-importing team configuration or changing unrelated client state.
+- [x] 2.4 Reconcile `use`, client-scoped selection, default selection, `use --all`, `status`, `check`, `doctor`, `test`, and `verify`; verify defaults have one human-readable meaning and explicit client selections require no hidden global step.
+- [x] 2.5 Verify setup, synchronization, selection, and repair are transactional under cancellation, output failure, concurrent external edits, and compensation failure.
 - [ ] 2.6 Remove obsolete setup aliases, duplicate state transitions, and unconsumed configuration fields; verify supported manifests receive explicit migration errors rather than silent reinterpretation.
 
 ## 3. Converge credential ownership and portability
