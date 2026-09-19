@@ -59,6 +59,33 @@ The root README remains the concise product entry point. Task-oriented guides ex
 - **External tools can expand the maintenance surface** → admit only stable tools that replace more code and operational burden than they add.
 - **Breaking cleanup can surprise existing users** → remove only unsupported or unconsumed behavior; document migration for supported public contracts.
 
+## Accepted baseline
+
+Subsequent comparisons use the immutable stable release rather than an RC or a
+mutable checkout:
+
+- source commit: `0e4c411410b264ab587aa90b8d237acc5e06fa79`;
+- signed tag object: `ccd4853751fad10fc851207c5a348d4f8915b2c0`
+  (`v0.1.0`);
+- release inventory: the ten entries signed by `checksums.txt.sig`, including
+  native archives for macOS, Linux, and Windows;
+- peer identity: GitHub and GitLab expose the same tag object, peeled commit,
+  checksum manifest, signature, and provenance bytes;
+- installed product: Homebrew Cask `aigw 0.1.0` at
+  `/opt/homebrew/Caskroom/aigw/0.1.0/aigw`, accepted as a notarized Developer ID
+  application;
+- retained user state: Keychain storage is available, Claude selects
+  `ucloud-claude-fable-5-1`, Codex selects `ucloud-gpt-6-astra`, and current
+  `status`, `check`, and `doctor` observations pass;
+- transition evidence: GitHub workflow `35445819802` exercised
+  `0.1.0-rc.118` to `0.1.0`, rollback, and forward recovery on macOS, Linux,
+  and Windows; published-artifact verification passed in GitHub jobs
+  `35445069751`, `35445072366`, and `35445075077`, and GitLab pipeline `7538`.
+
+The preceding RC executable, portable installation directory, and rollback copy
+are absent. Historical signed release records remain chronology, not an active
+installation or compatibility path.
+
 ## Migration Plan
 
 1. Freeze and inventory the current accepted product, published bytes, user journeys, tracked carriers, dependencies, and residue.
