@@ -47,7 +47,7 @@ const (
 
 // HTTPDoer is the minimal transport required by a provider diagnostic probe.
 type HTTPDoer interface {
-	Do(*http.Request) (*http.Response, error)
+	Do(request *http.Request) (*http.Response, error)
 }
 
 // Result is the stable, non-secret diagnostic classification returned to commands and JSON consumers.

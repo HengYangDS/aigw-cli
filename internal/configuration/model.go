@@ -41,32 +41,32 @@ var modelProviderPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`
 
 // Config is the typed source of truth for accounts, profiles, routes, and client adapters.
 type Config struct {
-	Version           int                      `toml:"version" json:"version"`
-	Accounts          map[string]Account       `toml:"accounts,omitempty" json:"accounts,omitempty"`
-	Profiles          map[string]Profile       `toml:"profiles" json:"profiles"`
-	Routes            Routes                   `toml:"routes" json:"routes"`
-	RecommendedRoutes Routes                   `toml:"recommended_routes,omitempty" json:"recommended_routes,omitempty"`
-	Adapters          map[string]AdapterConfig `toml:"adapters,omitempty" json:"adapters,omitempty"`
+	Version           int                      `json:"version"                      toml:"version"`
+	Accounts          map[string]Account       `json:"accounts,omitempty"           toml:"accounts,omitempty"`
+	Profiles          map[string]Profile       `json:"profiles"                     toml:"profiles"`
+	Routes            Routes                   `json:"routes"                       toml:"routes"`
+	RecommendedRoutes Routes                   `json:"recommended_routes,omitempty" toml:"recommended_routes,omitempty"`
+	Adapters          map[string]AdapterConfig `json:"adapters,omitempty"           toml:"adapters,omitempty"`
 }
 
 // Account defines one provider capability and its protocol endpoints without containing credentials.
 type Account struct {
-	ID           string        `toml:"-" json:"id,omitempty"`
-	Label        string        `toml:"label" json:"label"`
-	Endpoints    Endpoints     `toml:"endpoints" json:"endpoints"`
-	AccountProbe *AccountProbe `toml:"account_probe,omitempty" json:"account_probe,omitempty"`
+	ID           string        `json:"id,omitempty"            toml:"-"`
+	Label        string        `json:"label"                   toml:"label"`
+	Endpoints    Endpoints     `json:"endpoints"               toml:"endpoints"`
+	AccountProbe *AccountProbe `json:"account_probe,omitempty" toml:"account_probe,omitempty"`
 }
 
 // Profile binds one account, client, model, and authentication owner into a selectable route target.
 type Profile struct {
-	ID             string         `toml:"-" json:"id,omitempty"`
-	Label          string         `toml:"label" json:"label"`
-	Purpose        string         `toml:"purpose,omitempty" json:"purpose,omitempty"`
-	Account        string         `toml:"account" json:"account"`
-	Client         string         `toml:"client" json:"client"`
-	Model          string         `toml:"model" json:"model"`
-	ModelProvider  string         `toml:"model_provider,omitempty" json:"model_provider,omitempty"`
-	Authentication Authentication `toml:"authentication,omitempty" json:"authentication,omitempty"`
+	ID             string         `json:"id,omitempty"             toml:"-"`
+	Label          string         `json:"label"                    toml:"label"`
+	Purpose        string         `json:"purpose,omitempty"        toml:"purpose,omitempty"`
+	Account        string         `json:"account"                  toml:"account"`
+	Client         string         `json:"client"                   toml:"client"`
+	Model          string         `json:"model"                    toml:"model"`
+	ModelProvider  string         `json:"model_provider,omitempty" toml:"model_provider,omitempty"`
+	Authentication Authentication `json:"authentication,omitempty" toml:"authentication,omitempty"`
 }
 
 // Runtime is the resolved, immutable input used to project or invoke one client profile.
@@ -98,14 +98,14 @@ func (runtime Runtime) CredentialProjectionFingerprint(client string) string {
 
 // AccountProbe declares an optional provider-owned diagnostic API independently from inference traffic.
 type AccountProbe struct {
-	Kind    string `toml:"kind" json:"kind"`
-	BaseURL string `toml:"base_url" json:"base_url"`
+	Kind    string `json:"kind"     toml:"kind"`
+	BaseURL string `json:"base_url" toml:"base_url"`
 }
 
 // Endpoints declares the protocol-specific upstream URLs offered by an account.
 type Endpoints struct {
-	OpenAIResponses string `toml:"openai_responses,omitempty" json:"openai_responses,omitempty"`
-	Anthropic       string `toml:"anthropic,omitempty" json:"anthropic,omitempty"`
+	OpenAIResponses string `json:"openai_responses,omitempty" toml:"openai_responses,omitempty"`
+	Anthropic       string `json:"anthropic,omitempty"        toml:"anthropic,omitempty"`
 }
 
 // Routes maps each admitted client to its selected Profile. There is no global

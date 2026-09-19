@@ -228,10 +228,10 @@ func saveCommandProfile(t *testing.T, app *cli.App, endpoints configuration.Endp
 
 type recordingCredentialStore[T string | secrets.DiagnosticCredential] struct {
 	backend interface {
-		Get(string) (T, error)
-		Set(string, T) error
-		Delete(string) error
-		Exists(string) (bool, error)
+		Get(accountID string) (T, error)
+		Set(accountID string, value T) error
+		Delete(accountID string) error
+		Exists(accountID string) (bool, error)
 	}
 	getCalls    []string
 	existsCalls []string

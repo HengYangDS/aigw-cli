@@ -21,7 +21,7 @@ import (
 
 // HTTPDoer executes one HTTP request.
 type HTTPDoer interface {
-	Do(*http.Request) (*http.Response, error)
+	Do(request *http.Request) (*http.Response, error)
 }
 
 // Prompter supplies interactive secret, text, and bounded-choice input.
@@ -33,9 +33,9 @@ type Prompter interface {
 
 // Updater performs one verified program lifecycle transition.
 type Updater interface {
-	Update(context.Context, string) (string, error)
-	UpdateCandidate(context.Context, string, upgrade.CandidateArchive) (string, error)
-	Rollback(context.Context, []byte) (string, error)
+	Update(ctx context.Context, currentVersion string) (string, error)
+	UpdateCandidate(ctx context.Context, currentVersion string, candidate upgrade.CandidateArchive) (string, error)
+	Rollback(ctx context.Context, config []byte) (string, error)
 }
 
 // Context carries capabilities for one command execution without product-global state.

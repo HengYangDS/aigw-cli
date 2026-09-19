@@ -14,7 +14,7 @@ import (
 const credentialStagingPrefix = ".token-"
 
 type syncWriter interface {
-	Write([]byte) (int, error)
+	Write(value []byte) (int, error)
 	Sync() error
 }
 
@@ -23,16 +23,16 @@ type syncer interface {
 }
 
 type readRoot interface {
-	Lstat(string) (os.FileInfo, error)
-	Open(string) (*os.File, error)
+	Lstat(name string) (os.FileInfo, error)
+	Open(name string) (*os.File, error)
 }
 
 type writeRoot interface {
-	Lstat(string) (os.FileInfo, error)
-	OpenFile(string, int, os.FileMode) (*os.File, error)
-	Remove(string) error
-	Rename(string, string) error
-	Open(string) (*os.File, error)
+	Lstat(name string) (os.FileInfo, error)
+	OpenFile(name string, flag int, mode os.FileMode) (*os.File, error)
+	Remove(name string) error
+	Rename(oldName, newName string) error
+	Open(name string) (*os.File, error)
 }
 
 type credentialFileSnapshot struct {
@@ -366,7 +366,7 @@ func writeAndSync(target syncWriter, value []byte) error {
 }
 
 func syncRoot(root interface {
-	Open(string) (*os.File, error)
+	Open(name string) (*os.File, error)
 }) error {
 	directory, err := root.Open(".")
 	if err != nil {

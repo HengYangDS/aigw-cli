@@ -33,8 +33,8 @@ type snapshotFile interface {
 
 type temporaryFile interface {
 	Name() string
-	Write([]byte) (int, error)
-	Chmod(os.FileMode) error
+	Write(value []byte) (int, error)
+	Chmod(mode os.FileMode) error
 	Sync() error
 	Close() error
 }

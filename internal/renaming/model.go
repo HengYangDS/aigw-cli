@@ -11,7 +11,7 @@ import (
 
 // HTTPDoer is the minimal transport required to verify a renamed account's diagnostic capability.
 type HTTPDoer interface {
-	Do(*http.Request) (*http.Response, error)
+	Do(request *http.Request) (*http.Response, error)
 }
 
 // Service owns identity migration, credential preparation, and verified finalization.

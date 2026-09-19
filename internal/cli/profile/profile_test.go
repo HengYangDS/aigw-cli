@@ -45,7 +45,7 @@ func TestProfileMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 }
 
 type commandExecutor interface {
-	SetArgs([]string)
+	SetArgs(args []string)
 	Execute() error
 }
 

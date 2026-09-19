@@ -11,8 +11,8 @@ import (
 )
 
 func deleteCredentialSlot(store interface {
-	Delete(string) error
-	Exists(string) (bool, error)
+	Delete(id string) error
+	Exists(id string) (bool, error)
 }, id, kind string) error {
 	if err := store.Delete(id); err != nil {
 		return fmt.Errorf("delete source %s credential slot: %w", kind, err)

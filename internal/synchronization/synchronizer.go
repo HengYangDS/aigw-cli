@@ -41,8 +41,8 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 // transaction.
 type ConfigStore interface {
 	CaptureSnapshot() (configuration.Snapshot, error)
-	Commit(configuration.Snapshot, configuration.Config) (configuration.Snapshot, error)
-	RestoreSnapshot(configuration.Snapshot, configuration.Snapshot) error
+	Commit(before configuration.Snapshot, cfg configuration.Config) (configuration.Snapshot, error)
+	RestoreSnapshot(before, after configuration.Snapshot) error
 }
 
 // Synchronizer carries the explicit dependencies required for one convergence

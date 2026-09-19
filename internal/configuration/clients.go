@@ -112,10 +112,10 @@ func (s ClientSpec) Endpoint(account Account) (string, error) {
 
 // AdapterConfig records whether an admitted client is enabled and which discovered targets it owns.
 type AdapterConfig struct {
-	Enabled           bool     `toml:"enabled" json:"enabled"`
-	Executable        string   `toml:"executable,omitempty" json:"executable,omitempty"`
-	Targets           []string `toml:"targets,omitempty" json:"targets,omitempty"`
-	CredentialCommand string   `toml:"credential_command,omitempty" json:"credential_command,omitempty"`
+	Enabled           bool     `json:"enabled"                      toml:"enabled"`
+	Executable        string   `json:"executable,omitempty"         toml:"executable,omitempty"`
+	Targets           []string `json:"targets,omitempty"            toml:"targets,omitempty"`
+	CredentialCommand string   `json:"credential_command,omitempty" toml:"credential_command,omitempty"`
 }
 
 // CredentialExecutable selects explicit host policy or the native AIGW executable.

@@ -19,9 +19,9 @@ import (
 // DiscoverySource is the bounded host observation surface used by adapters.
 // It contains no mutation capability.
 type DiscoverySource interface {
-	Executable(string) string
+	Executable(clientID string) string
 	CodexHomeDirectory() string
-	FilePresent(string) bool
+	FilePresent(path string) bool
 }
 
 // Dependencies are the shared capabilities supplied to one adapter operation.
@@ -71,14 +71,14 @@ type Verification struct {
 // Adapter is the complete operational boundary for one admitted client.
 type Adapter interface {
 	Spec() configuration.ClientSpec
-	Discover(DiscoverySource) discovery.Result
-	Converge(Dependencies, *configuration.Config, discovery.Result) error
-	Plan(Dependencies, configuration.Config, configuration.Config) ([]ProjectionPlan, error)
-	Apply(context.Context, Dependencies, configuration.Config, configuration.Config) (ProjectionReceipt, error)
-	ProjectionChanged(configuration.Config, configuration.Config) bool
-	Inspect(context.Context, Dependencies, configuration.Config, configuration.Runtime) Status
-	Verify(context.Context, Dependencies, configuration.Config, configuration.Runtime, string) (Verification, error)
-	Withdraw(*configuration.Config)
+	Discover(source DiscoverySource) discovery.Result
+	Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error
+	Plan(deps Dependencies, before, after configuration.Config) ([]ProjectionPlan, error)
+	Apply(ctx context.Context, deps Dependencies, before, after configuration.Config) (ProjectionReceipt, error)
+	ProjectionChanged(before, after configuration.Config) bool
+	Inspect(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) Status
+	Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime, prompt string) (Verification, error)
+	Withdraw(cfg *configuration.Config)
 }
 
 // Registry is the sole ordered operational registry for admitted clients.

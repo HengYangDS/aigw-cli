@@ -22,7 +22,7 @@ import (
 
 // HTTPDoer executes catalog requests.
 type HTTPDoer interface {
-	Do(*http.Request) (*http.Response, error)
+	Do(request *http.Request) (*http.Response, error)
 }
 
 // Dependencies are the capabilities required by model commands.

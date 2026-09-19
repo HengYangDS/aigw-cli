@@ -27,7 +27,7 @@ func TokenRecovery(store secrets.Store, account string) (instruction string, wri
 
 // HTTPDoer executes one validation request.
 type HTTPDoer interface {
-	Do(*http.Request) (*http.Response, error)
+	Do(request *http.Request) (*http.Response, error)
 }
 
 // Validate proves that token is accepted by each requested client protocol.

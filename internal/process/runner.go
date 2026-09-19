@@ -25,12 +25,12 @@ type Runner struct {
 // CaptureRunner runs a bounded process. It returns standard output on success
 // and standard error with an execution error.
 type CaptureRunner interface {
-	RunCapture(context.Context, Plan) ([]byte, error)
+	RunCapture(ctx context.Context, plan Plan) ([]byte, error)
 }
 
 // FileRunner streams a process's standard output into an owned file.
 type FileRunner interface {
-	RunToFile(context.Context, string, Plan) error
+	RunToFile(ctx context.Context, path string, plan Plan) error
 }
 
 const (
