@@ -34,7 +34,6 @@ import (
 	"aigw-cli/internal/cli/verification"
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/console"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/presentation"
@@ -102,7 +101,7 @@ func (a *App) outputWriter() io.Writer {
 
 // Renderer uses invocation output while measuring the original terminal writer.
 func (a *App) Renderer() *presentation.Renderer {
-	return presentation.NewWithWidth(a.outputWriter(), a.Color, console.PresentationWidth(a.Out, environmentMap(a.Env)))
+	return presentation.NewWithWidth(a.outputWriter(), a.Color, presentation.PresentationWidth(a.Out, environmentMap(a.Env)))
 }
 
 // Execute runs one argument vector, serializing mutations and returning any command or output failure.
@@ -231,8 +230,8 @@ func NewDefault() (*App, error) {
 		In:                 os.Stdin,
 		Out:                os.Stdout,
 		Err:                os.Stderr,
-		Interactive:        console.Interactive(os.Stdin),
-		Color:              console.ColorEnabled(runtime.GOOS, env, console.Interactive(os.Stdout), console.EnableVirtualTerminal),
+		Interactive:        presentation.Interactive(os.Stdin),
+		Color:              presentation.ColorEnabled(runtime.GOOS, env, presentation.Interactive(os.Stdout), presentation.EnableVirtualTerminal),
 		Runner:             process.Runner{},
 		HTTP:               &http.Client{},
 		Prompt:             prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
@@ -259,7 +258,7 @@ func (a *App) doctorCommand() *cobra.Command {
 			return readiness.InspectClients(a.invocationContext(), cfg)
 		},
 		RenderOut: a.outputWriter(),
-		Color:     a.Color, Width: console.PresentationWidth(a.Out, environmentMap(a.Env)),
+		Color:     a.Color, Width: presentation.PresentationWidth(a.Out, environmentMap(a.Env)),
 	})
 }
 
@@ -267,7 +266,7 @@ func (a *App) catalogDependencies() catalog.Dependencies {
 	return catalog.Dependencies{
 		Config: a.Config, Secrets: a.Secrets, HTTP: a.HTTP, Out: a.outputWriter(),
 		RenderOut: a.outputWriter(),
-		Color:     a.Color, Width: console.PresentationWidth(a.Out, environmentMap(a.Env)),
+		Color:     a.Color, Width: presentation.PresentationWidth(a.Out, environmentMap(a.Env)),
 	}
 }
 
@@ -278,7 +277,7 @@ func (a *App) invocationContext() invocation.Context {
 		Config:             a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
 		In:        a.In,
 		RenderOut: a.outputWriter(),
-		Color:     a.Color, Width: console.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
+		Color:     a.Color, Width: presentation.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
 		Discovery: a.Discovery, Updater: a.Updater, Now: a.Now, Problem: presentation.ProblemError,
 	}
@@ -418,7 +417,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 		}
 		r.Rows(rows...)
 	}
-	optionWidth := max(console.PresentationWidth(app.Out, environmentMap(app.Env))-2, 0)
+	optionWidth := max(presentation.PresentationWidth(app.Out, environmentMap(app.Env))-2, 0)
 	for _, group := range []struct {
 		title string
 		flags *pflag.FlagSet

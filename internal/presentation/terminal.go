@@ -1,6 +1,4 @@
-// Package console detects terminal display capabilities without owning
-// application presentation or interactive input policy.
-package console
+package presentation
 
 import (
 	"io"

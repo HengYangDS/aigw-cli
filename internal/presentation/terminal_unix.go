@@ -1,6 +1,6 @@
 //go:build !windows
 
-package console
+package presentation
 
 // EnableVirtualTerminal makes no mode change on Unix and reports false.
 func EnableVirtualTerminal() bool { return false }

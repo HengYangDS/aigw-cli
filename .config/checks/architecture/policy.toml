@@ -21,7 +21,6 @@ package_children."internal" = [
   "client",
   "codex",
   "configuration",
-  "console",
   "credential",
   "diagnostics",
   "discovery",
@@ -298,7 +297,6 @@ allowed_import_edges."internal/diagnostics" = [
 allowed_import_edges."internal/providers/diagnostic" = []
 allowed_import_edges."internal/presentation" = ["internal/configuration"]
 allowed_import_edges."internal/process" = []
-allowed_import_edges."internal/console" = []
 allowed_import_edges."tools/ci" = [
   "tools/ci/markdown",
   "tools/ci/projection",

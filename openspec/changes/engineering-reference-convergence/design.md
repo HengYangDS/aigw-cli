@@ -356,6 +356,15 @@ edge without changing the client process plan, timeout, response marker,
 redaction, or cleanup behavior. The complete internal test graph, Go lint, and
 architecture gate pass after the move.
 
+The terminal-capability code formerly exposed as `internal/console` has one
+production consumer and changes for the same reason as human rendering: output
+width, interactivity, colour, and Windows virtual-terminal support. It now lives
+inside `internal/presentation`, preserving its platform variants and focused
+tests while deleting the shallow package and the CLI-to-console edge. Stable
+surface identity remains separate because Client, Codex, and CLI owners all
+consume it; collapsing that boundary would increase coupling rather than remove
+accidental complexity.
+
 Repository quality execution no longer exposes unused npm-script aliases for
 formatting, Markdown, OpenSpec, or signature checks. `package.json` now owns
 only the locked Node dependency declaration, while the existing Go CI command

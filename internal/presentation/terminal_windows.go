@@ -1,6 +1,6 @@
 //go:build windows
 
-package console
+package presentation
 
 import (
 	"os"
