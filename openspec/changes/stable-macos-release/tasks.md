@@ -27,6 +27,6 @@
 - [x] 4.2 Run focused tests, source gates, exact-HEAD proof, and required native CI against frozen inputs.
 - [x] 4.3 Publish one signed stable tag and identical accepted assets to both selected peers; verify hosted checks and downloads.
 - [x] 4.4 Verify published-artifact retained-state upgrade, rollback, and forward recovery before upgrading this workstation.
-- [ ] 4.5 Verify local and peer main/dev parity, merge and remove delivery branches, archive completed intent, and retire the lane.
+- [x] 4.5 Verify local and peer `main`/`dev` parity and remove the merged delivery proposal; archive the completed intent and retire the lane through the subsequent ETHOS lifecycle effect.
 - [x] 4.6 Remove exact disposable signing/build artifacts while retaining current evidence and recovery; report remaining broader Proxy work separately.
 - [x] 4.7 After formal publication, transfer the engineering-reference objectives into a separate official OpenSpec Change before archiving this release Change; keep reference-quality improvements outside the frozen release inputs.
