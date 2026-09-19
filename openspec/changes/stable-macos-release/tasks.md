@@ -1,0 +1,31 @@
+## 1. Distribution contract and native identity
+
+- [x] 1.1 Create the owned release lane and install its locked development dependencies; verify bootstrap completes without vulnerabilities.
+- [x] 1.2 Verify the Developer ID identity and certificate chain; record discoverable metadata without exporting its private key.
+- [x] 1.3 Validate the official OpenSpec change and reconcile the full existing delivery requirement without losing its scenarios.
+- [ ] 1.4 Qualify exact native signing and verification on an isolated artifact without modifying the installed program or credential ACLs.
+- [ ] 1.5 Establish and validate native notarization authentication; retain no secret in source or logs.
+
+## 2. Release construction and admission
+
+- [ ] 2.1 Add failing tests separating strict SemVer parsing, product readiness, and platform trust; remove the unconditional stable-version rejection through the existing owner.
+- [ ] 2.2 Integrate bounded native signing and notarization into the existing release flow with explicit inputs and resumable submission identity.
+- [ ] 2.3 Verify final signed artifacts before generating checksums, SBOM/provenance, and the existing signed release manifest.
+- [ ] 2.4 Preserve reproducible construction tests while qualifying trusted final-byte signatures separately; test interruption and rejected notarization.
+- [ ] 2.5 Validate unchanged Linux/Windows construction and native lifecycle; disclose Authenticode status independently of SemVer.
+
+## 3. Homebrew ownership and packaging
+
+- [ ] 3.1 Select and test minimal packaging that preserves the accepted macOS signed binary; derive version, asset location, and checksum from release inventory.
+- [ ] 3.2 Test package-managed update/uninstall ownership and retained client projections; preserve user configuration and credentials.
+- [ ] 3.3 Create the public tap only after local package validation and populate it with the generated release projection and concise English instructions.
+- [ ] 3.4 Verify clean Homebrew installation, invocation, upgrade, removal, and reinstall with no credential prompts or implicit client configuration.
+
+## 4. Product release and closeout
+
+- [ ] 4.1 Update canonical release policy and installation documentation, removing superseded RC-only and notarization-out-of-scope statements.
+- [ ] 4.2 Run focused tests, source gates, exact-HEAD proof, and required native CI against frozen inputs.
+- [ ] 4.3 Publish one signed stable tag and identical accepted assets to both selected peers; verify hosted checks and downloads.
+- [ ] 4.4 Verify published-artifact retained-state upgrade, rollback, and forward recovery before upgrading this workstation.
+- [ ] 4.5 Verify local and peer main/dev parity, merge and remove delivery branches, archive completed intent, and retire the lane.
+- [ ] 4.6 Remove exact disposable signing/build artifacts while retaining current evidence and recovery; report remaining broader Proxy work separately.
