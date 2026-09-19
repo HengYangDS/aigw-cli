@@ -381,6 +381,18 @@ boundary shared by Client, Codex, and CLI owners, while
 implementations from forming an import cycle. The review therefore deletes the
 one proved shallow package without manufacturing replacement subpackages.
 
+Task 5.3 applies the same ownership test to verification code. Package-local
+white-box tests remain beside the private invariant they exercise; external
+`*_test` packages exercise public contracts. The CLI acceptance package remains
+one cross-command product boundary over configuration, credentials, Clients,
+discovery, prompting, and upgrade, and its shared fixtures are private test-only
+adapters rather than a second implementation. Upgrade acceptance likewise owns
+the public peer-resolution, transport, candidate, and installation journey.
+The Client credential-policy tests already belong beside `internal/client`; the
+misleading `credentials_acceptance_test.go` name is replaced by
+`credential_policy_test.go`. No shared test library or additional test package
+is introduced.
+
 Repository quality execution no longer exposes unused npm-script aliases for
 formatting, Markdown, OpenSpec, or signature checks. `package.json` now owns
 only the locked Node dependency declaration, while the existing Go CI command
