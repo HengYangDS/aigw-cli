@@ -291,13 +291,6 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 	}
 
 	config := t.TempDir() + "/config.toml"
-	if err := os.WriteFile(codexStatePath(config), data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	identity, err := ReadProjectionIdentity(config)
-	if err != nil || !identity.Present || identity.AttributionState != "recognized" {
-		t.Fatalf("identity = %#v, err=%v", identity, err)
-	}
 	if _, err := canonicalCodexTargetPath(config); err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +329,7 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 	}
 }
 
-func TestCodexReconciliationReportsManagedDrift(t *testing.T) {
+func TestCodexReconciliationRejectsManagedDrift(t *testing.T) {
 	driftPath := t.TempDir() + "/drift.toml"
 	driftRuntime := atomicTestRuntime()
 	driftRuntime.ProfileLabel = "P"
@@ -354,75 +347,23 @@ func TestCodexReconciliationReportsManagedDrift(t *testing.T) {
 	if err := os.WriteFile(driftPath, []byte(driftText), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	inspection, err := InspectConfig(driftPath)
-	if err != nil || inspection.State != "aigw-drift" {
-		t.Fatalf("drift inspection = %#v, %v", inspection, err)
-	}
-	managedData, err := os.ReadFile(driftPath)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := SyncConfig(driftPath, driftRuntime); err == nil {
 		t.Fatal("sync unexpectedly repaired drift")
 	}
-	if err := os.WriteFile(driftPath, managedData, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	inspection, err = InspectConfig(driftPath)
-	if err != nil || inspection.State != "aigw-drift" {
-		t.Fatalf("restored drift inspection = %#v, %v", inspection, err)
+	if after, err := os.ReadFile(driftPath); err != nil || string(after) != driftText {
+		t.Fatalf("rejected drift changed configuration: %q, %v", after, err)
 	}
 }
 
-func TestCodexReconciliationRejectsConflictsAndMalformedHelpers(t *testing.T) {
-	state := codexState{
-		ProjectionMode: ProjectionFullSelection,
-		WriterID:       ProjectionWriterID,
-		TransactionID:  "transaction",
-	}
-	driftRuntime := configuration.Runtime{ProfileID: "p", ProfileLabel: "P", Endpoint: "https://example.test", Model: "m"}
-
-	conflictPath := t.TempDir() + "/conflict.toml"
-	if err := os.WriteFile(conflictPath, []byte("model_provider = \"aigw\" # managed by AIGW\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	conflictState := state
-	conflictState.ProjectionMode = "unsupported"
-	conflictData := encodeCodexState(conflictState)
-	if err := os.WriteFile(codexStatePath(conflictPath), conflictData, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	inspection, err := InspectConfig(conflictPath)
-	if err != nil || inspection.State != "ownership-conflict" {
-		t.Fatalf("conflict inspection = %#v, %v", inspection, err)
-	}
-
-	unattributedPath := t.TempDir() + "/unattributed.toml"
-	unattributedBlock := codexManagedBlock(driftRuntime, driftRuntime.Endpoint)
-	unattributedConfig := "model_provider = \"aigw\" # managed by AIGW\n\n" + codexBegin + "\n" + unattributedBlock
-	if err := os.WriteFile(unattributedPath, []byte(unattributedConfig), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	unattributedState := codexState{ManagedBlockHash: hashText(unattributedBlock)}
-	unattributedData := encodeCodexState(unattributedState)
-	if err := os.WriteFile(codexStatePath(unattributedPath), unattributedData, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	inspection, err = InspectConfig(unattributedPath)
-	if err != nil || inspection.State != "ownership-conflict" {
-		t.Fatalf("unattributed inspection = %#v, %v", inspection, err)
-	}
-	if _, err := codexManagedBlockIn(codexBegin + "\n" + codexEnd); err == nil {
+func TestCodexReconciliationRejectsMalformedHelpers(t *testing.T) {
+	if _, err := codexManagedBlockForProviderIn(codexBegin+"\n"+codexEnd, configuration.ModelProviderAIGW); err == nil {
 		t.Fatal("managed block without provider table was accepted")
 	}
-	if _, err := codexManagedBlockIn(codexBegin + "\n[model_providers.aigw]\n"); err == nil {
+	if _, err := codexManagedBlockForProviderIn(codexBegin+"\n[model_providers.aigw]\n", configuration.ModelProviderAIGW); err == nil {
 		t.Fatal("incomplete managed block was accepted")
 	}
 	if got := removeCodexProviderMarkers("plain"); got != "plain" {
 		t.Fatalf("plain text changed: %q", got)
-	}
-	if got := classifyCodexDiskSelection("model_provider ="); got != "invalid" {
-		t.Fatalf("empty selection = %q", got)
 	}
 	if _, err := restoreModelSelection("plain", `model = "native"`); err == nil {
 		t.Fatal("restoration accepted invalid TOML")

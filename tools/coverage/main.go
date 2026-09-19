@@ -346,13 +346,6 @@ func parsePackageList(output string) ([]string, error) {
 	return packages, nil
 }
 
-func coveragePercent(covered, total int64) float64 {
-	if total == 0 {
-		return 0
-	}
-	return float64(covered) * 100 / float64(total)
-}
-
 func readCoverage(path, expectedMode string) (coverageResult, error) {
 	file, err := os.Open(path)
 	if err != nil {

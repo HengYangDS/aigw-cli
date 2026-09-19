@@ -178,25 +178,6 @@ func TestValidateConfigRejectsForeignSidecarAttribution(t *testing.T) {
 	}
 }
 
-func TestReadProjectionIdentityDistinguishesMissingAndIncompleteState(t *testing.T) {
-	root := t.TempDir()
-	path := filepath.Join(root, "identity.toml")
-
-	id, err := ReadProjectionIdentity(path)
-	if err != nil || id.Present {
-		t.Errorf("expected not present, got %+v, err %v", id, err)
-	}
-
-	// Unattributed sidecars fail closed.
-	writeCodexFixture(t, path, "")
-	state := codexState{}
-	writeCodexStateFixture(t, path, state)
-	id, err = ReadProjectionIdentity(path)
-	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") || id.Present {
-		t.Errorf("expected incomplete attribution rejection, got %+v, err %v", id, err)
-	}
-}
-
 func TestCanonicalCodexTargetPathResolvesAbsoluteAndSymlinkPaths(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "target.toml")
@@ -278,36 +259,4 @@ func TestNormalizeCodexTargetsRejectsIncompleteAndDuplicateTargets(t *testing.T)
 	if err == nil || !strings.Contains(err.Error(), "duplicated") {
 		t.Errorf("expected duplicate error, got %v", err)
 	}
-}
-
-func TestReadProjectionIdentityErrors(t *testing.T) {
-	t.Run("sidecar is directory", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "configuration.toml")
-		if err := os.Mkdir(codexStatePath(path), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := ReadProjectionIdentity(path); err == nil || !strings.Contains(err.Error(), "read Codex adapter state") {
-			t.Fatalf("ReadProjectionIdentity() error = %v", err)
-		}
-	})
-
-	t.Run("invalid sidecar", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeCodexFixture(t, codexStatePath(path), "{")
-		if _, err := ReadProjectionIdentity(path); err == nil || !strings.Contains(err.Error(), "parse Codex adapter state") {
-			t.Fatalf("ReadProjectionIdentity() error = %v", err)
-		}
-	})
-
-	t.Run("foreign attribution", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "configuration.toml")
-		writeCodexStateFixture(t, path, codexState{
-			ProjectionMode: ProjectionFullSelection,
-			WriterID:       "foreign",
-			TransactionID:  "foreign-transaction",
-		})
-		if _, err := ReadProjectionIdentity(path); err == nil || !strings.Contains(err.Error(), "foreign writer") {
-			t.Fatalf("ReadProjectionIdentity() error = %v", err)
-		}
-	})
 }

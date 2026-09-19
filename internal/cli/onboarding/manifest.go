@@ -340,17 +340,3 @@ func manifestSetupSelectedClients(cfg configuration.Config, connected map[string
 	}
 	return clients
 }
-
-func firstRuntimeForAccountClient(cfg configuration.Config, accountName, client string) (configuration.Runtime, bool) {
-	for _, profileName := range cfg.ProfileIDs() {
-		profile := cfg.Profiles[profileName]
-		if profile.Account != accountName {
-			continue
-		}
-		runtime, err := cfg.ResolveRuntime(client, profileName)
-		if err == nil && runtime.Model != "" {
-			return runtime, true
-		}
-	}
-	return configuration.Runtime{}, false
-}

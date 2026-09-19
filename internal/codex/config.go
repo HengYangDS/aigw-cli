@@ -374,10 +374,6 @@ func isManagedAssignment(line, key, encoded string) bool {
 	return regexp.MustCompile(pattern).MatchString(line)
 }
 
-func codexManagedBlockIn(current string) (string, error) {
-	return codexManagedBlockForProviderIn(current, configuration.ModelProviderAIGW)
-}
-
 func codexRuntimeProvider(runtime configuration.Runtime) string {
 	if runtime.ModelProvider == "" {
 		return configuration.ModelProviderAIGW

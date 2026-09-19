@@ -413,23 +413,14 @@ model = "gpt-test"
 	}
 }
 
-func TestSetupAccountClientAndRuntimeHelpers(t *testing.T) {
+func TestConfiguredClientsForAccount(t *testing.T) {
 	cfg := configuration.NewConfig()
-	cfg.Accounts["legacy"] = configuration.Account{Label: "Legacy", Endpoints: configuration.Endpoints{OpenAIResponses: "https://legacy.test/v1", Anthropic: "https://legacy.test"}}
-	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{Anthropic: "https://other.test"}}
-	cfg.Profiles["legacy"] = configuration.Profile{Label: "Legacy", Account: "legacy", Client: configuration.ClientCodex, Model: "gpt-legacy"}
-	cfg.Profiles["other"] = configuration.Profile{Label: "Other", Account: "other", Client: configuration.ClientClaude, Model: "claude-test"}
-	cfg.Routes[configuration.ClientCodex] = "legacy"
+	cfg.Profiles["legacy"] = configuration.Profile{Account: "legacy", Client: configuration.ClientCodex}
+	cfg.Profiles["other"] = configuration.Profile{Account: "other", Client: configuration.ClientClaude}
 
 	clients := configuredClientsForAccount(cfg, "legacy")
 	if len(clients) != 1 || clients[0] != configuration.ClientCodex {
 		t.Fatalf("clients = %#v", clients)
-	}
-	if runtime, ok := firstRuntimeForAccountClient(cfg, "legacy", configuration.ClientCodex); !ok || runtime.Model != "gpt-legacy" {
-		t.Fatalf("runtime = %#v, ok=%v", runtime, ok)
-	}
-	if runtime, ok := firstRuntimeForAccountClient(cfg, "other", configuration.ClientClaude); !ok || runtime.Model != "claude-test" {
-		t.Fatalf("runtime = %#v, ok=%v", runtime, ok)
 	}
 }
 

@@ -39,7 +39,7 @@
 - [x] 5.2 Reorganize flat suffix families, mixed-responsibility directories, concatenated names, and misplaced code into cohesive semantic packages; verify behavior remains unchanged through focused tests.
 - [x] 5.3 Mirror production ownership in test organization without co-locating unrelated fixtures or creating a second implementation; verify reusable fixtures expose only stable test contracts.
 - [x] 5.4 Reorganize repository tools and configuration by responsibility; verify publication, CI, quality, release, and development bootstrap each have one discoverable owner.
-- [ ] 5.5 Delete duplicate helpers, aliases, facades, dead branches, stale runtime artifacts, unused dependencies, orphaned evidence, and empty directories; verify no current consumer or required recovery path is lost.
+- [x] 5.5 Delete duplicate helpers, aliases, facades, dead branches, stale runtime artifacts, unused dependencies, orphaned evidence, and empty directories; verify no current consumer or required recovery path is lost.
 - [ ] 5.6 Review names, types, constants, error values, configuration keys, and CLI copy repository-wide; verify every semantic scope is narrow, consistent, English, and free of unexplained hard-coding.
 
 ## 6. Consolidate and tighten the quality graph

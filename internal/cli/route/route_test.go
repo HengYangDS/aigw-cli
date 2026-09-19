@@ -104,7 +104,7 @@ func TestCommandTreeAndList(t *testing.T) {
 
 func TestListCoversLoadEmptySuggestedAndFallbackViews(t *testing.T) {
 	badRuntime := invocation.Context{Config: configuration.NewStore(t.TempDir()), Out: io.Discard}
-	if err := runList(badRuntime); err == nil {
+	if err := execute([]string{"list"}, badRuntime); err == nil {
 		t.Fatal("malformed configuration was accepted by route list")
 	}
 
@@ -116,7 +116,7 @@ func TestListCoversLoadEmptySuggestedAndFallbackViews(t *testing.T) {
 			return problem
 		},
 	}
-	if err := runList(emptyRuntime); !errors.Is(err, problem) {
+	if err := execute([]string{"list"}, emptyRuntime); !errors.Is(err, problem) {
 		t.Fatalf("empty route error = %v", err)
 	}
 
@@ -125,7 +125,7 @@ func TestListCoversLoadEmptySuggestedAndFallbackViews(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := runList(runtime); err != nil {
+	if err := execute([]string{"list"}, runtime); err != nil {
 		t.Fatal(err)
 	}
 	if got := out.String(); !strings.Contains(got, "aigw use codex") {
@@ -138,7 +138,7 @@ func TestListCoversLoadEmptySuggestedAndFallbackViews(t *testing.T) {
 		t.Fatal(err)
 	}
 	out.Reset()
-	if err := runList(runtime); err != nil {
+	if err := execute([]string{"list"}, runtime); err != nil {
 		t.Fatal(err)
 	}
 	if got := out.String(); !strings.Contains(got, "aigw use claude") || !strings.Contains(got, "aigw use codex") {

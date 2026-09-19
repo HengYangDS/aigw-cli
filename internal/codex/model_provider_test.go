@@ -170,11 +170,4 @@ func TestCodexValidateResolvesCurrentAIGWExecutable(t *testing.T) {
 	if err := codex.ValidateConfig(path, runtime); err != nil {
 		t.Fatal(err)
 	}
-	inspection, err := codex.InspectConfig(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inspection.State != "aigw-managed" || !inspection.AIGWManaged || !inspection.SidecarHashMatches {
-		t.Fatalf("inspection = %#v", inspection)
-	}
 }

@@ -60,10 +60,6 @@ func TestCodexProviderOwnershipSurvivesNativeTableEditing(t *testing.T) {
 			if err := ValidateConfig(path, runtime); err != nil {
 				t.Fatalf("unchanged provider rejected after native table edit: %v", err)
 			}
-			inspection, err := InspectConfig(path)
-			if err != nil || !inspection.SidecarHashMatches {
-				t.Fatalf("semantic ownership lost: %+v: %v", inspection, err)
-			}
 			if err := SyncConfig(path, runtime); err != nil {
 				t.Fatal(err)
 			}

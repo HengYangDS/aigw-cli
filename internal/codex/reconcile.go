@@ -69,15 +69,6 @@ func (r ReconciliationReceipt) Rollback() error {
 	return rollbackCodexArtifacts(r.committed)
 }
 
-// ProjectionIdentity is the bounded sidecar identity used by surface
-// routing. It intentionally excludes configuration bodies, paths, endpoints,
-// and credential material.
-type ProjectionIdentity struct {
-	Present          bool
-	ProjectionMode   string
-	AttributionState string
-}
-
 type codexReconciliationTarget struct {
 	ref     TargetRef
 	desired bool
@@ -108,30 +99,6 @@ var writeFileAtomicIfUnchanged = transaction.WriteFileAtomicIfUnchanged
 var writeFileAtomicExactModeIfUnchanged = transaction.WriteFileAtomicExactModeIfUnchanged
 var removeFileIfUnchanged = transaction.RemoveFileIfUnchanged
 var restoreFileAtomicIfPostimage = transaction.RestoreFileAtomicIfPostimage
-
-// ReadProjectionIdentity reads only the sidecar attribution required to
-// select a safe surface mode. It never changes configuration or sessions.
-func ReadProjectionIdentity(path string) (ProjectionIdentity, error) {
-	data, err := os.ReadFile(codexStatePath(path))
-	if os.IsNotExist(err) {
-		return ProjectionIdentity{}, nil
-	}
-	if err != nil {
-		return ProjectionIdentity{}, fmt.Errorf("read Codex adapter state: %w", err)
-	}
-	var state codexState
-	if err := json.Unmarshal(data, &state); err != nil {
-		return ProjectionIdentity{}, fmt.Errorf("parse Codex adapter state: %w", err)
-	}
-	if err := validateCodexStateAttribution(state); err != nil {
-		return ProjectionIdentity{}, err
-	}
-	return ProjectionIdentity{
-		Present:          true,
-		ProjectionMode:   state.ProjectionMode,
-		AttributionState: "recognized",
-	}, nil
-}
 
 // PlanReconciliation prepares a before-to-after target transition
 // without writing configuration, sidecars, credentials, or sessions.

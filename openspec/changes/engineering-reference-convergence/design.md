@@ -415,6 +415,22 @@ current code, task, CI, documentation, or release consumers; projection drift,
 tool bootstrap, Changelog/tag binding, strict semantic-version ordering, and
 release construction tests pass after the consolidation.
 
+Task 5.5 removes implementations retained only by tests after their product
+consumers disappeared: the standalone Codex inspection result model and
+sidecar-identity reader, an onboarding runtime selector, a route-list forwarding
+function, a default-provider parsing wrapper, and a duplicate coverage-percent
+helper. Their live safety properties remain exercised through the actual
+`ValidateConfig`, `ReconcileConfigs`, route command, onboarding, and coverage
+paths. A cross-platform `deadcode` 0.50.0 audit over Darwin arm64, Linux amd64,
+and Windows amd64 reports no unreachable functions when all declared acceptance
+build tags are enabled. The production-only view leaves eleven intentional test
+seams: credential backend constructors, direct Codex projection helpers, and
+native release construction. Direct Go and Node dependencies each retain a
+current source or tool consumer; `go mod tidy -diff` is empty. No non-ignored
+untracked or empty directory remains. Active-lane `.serena` and `node_modules`
+remain reproducible workspace inputs until lane retirement; branch and Work Lane
+removal remain task 10.3 rather than being performed beneath active work.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:

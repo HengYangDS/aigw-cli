@@ -216,12 +216,6 @@ func TestParsePackageList(t *testing.T) {
 	}
 }
 
-func TestCoveragePercentHandlesEmptyTotal(t *testing.T) {
-	if coveragePercent(1, 0) != 0 {
-		t.Fatal("empty total must not produce coverage")
-	}
-}
-
 func TestRetainCoverageProfile(t *testing.T) {
 	source := filepath.Join(t.TempDir(), "source.out")
 	if err := os.WriteFile(source, []byte("mode: atomic\n"), 0o600); err != nil {

@@ -150,12 +150,6 @@ type routeListItem struct {
 	NextAction string `json:"next_action,omitempty"`
 }
 
-// runList answers the narrow question "which profile will each client use?".
-// Operational readiness remains owned by the readiness command group.
-func runList(runtime invocation.Context) error {
-	return runListWithFormat(runtime, false)
-}
-
 func runListWithFormat(runtime invocation.Context, jsonMode bool) error {
 	cfg, err := runtime.Config.Load()
 	if err != nil {

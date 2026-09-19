@@ -165,7 +165,7 @@ func TestManagedBlockAcceptsCRLFMarkerBoundary(t *testing.T) {
 	runtime := atomicTestRuntime()
 	want := codexManagedBlock(runtime, runtime.Endpoint)
 	text := codexBegin + "\r\n" + strings.ReplaceAll(want, "\n", "\r\n")
-	block, err := codexManagedBlockIn(text)
+	block, err := codexManagedBlockForProviderIn(text, configuration.ModelProviderAIGW)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,7 +331,7 @@ func TestCodexProjectionReconcilesOwnedNativeAuthenticationPreference(t *testing
 			}
 			path := writeCodexTestConfig(t, projection)
 			writeCodexStateFixture(t, path, attributedCodexStateFixture(block))
-			actual, err := codexManagedBlockIn(projection)
+			actual, err := codexManagedBlockForProviderIn(projection, configuration.ModelProviderAIGW)
 			if err != nil || actual != block {
 				t.Fatalf("native authentication identity changed: %q: %v", actual, err)
 			}
