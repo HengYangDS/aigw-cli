@@ -189,6 +189,9 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 	if err := run(toolCall{Name: "goreleaser", Directory: request.Root, Args: args, Env: environment}); err != nil {
 		return "", fmt.Errorf("build portable release artifacts: %w", err)
 	}
+	if err := verifySignedArchives(request, stage, run); err != nil {
+		return "", err
+	}
 	return stage, nil
 }
 

@@ -135,3 +135,30 @@ func prepareNativeBinary(stage, version string) error {
 	}
 	return os.WriteFile(filepath.Join(directory, name), program, 0o700)
 }
+
+func verifySignedArchives(request buildRequest, stage string, run toolRunner) (result error) {
+	if request.MacOSSigningIdentity == "" {
+		return nil
+	}
+	scratch, err := os.MkdirTemp(filepath.Dir(stage), ".signature-verification-")
+	if err != nil {
+		return fmt.Errorf("prepare signed archive verification: %w", err)
+	}
+	defer func() { result = errors.Join(result, robustio.RemoveAll(scratch)) }()
+	for _, arch := range []string{"amd64", "arm64"} {
+		target := artifact.Target{OS: "darwin", Arch: arch}
+		program, err := target.ReadProgram(filepath.Join(stage, target.ArchiveName(request.Version)), filepath.Join(stage, "checksums.txt"), request.Version)
+		if err != nil {
+			return err
+		}
+		path := filepath.Join(scratch, arch)
+		if err := os.WriteFile(path, program, 0o700); err != nil {
+			return err
+		}
+		requirement := `-R=anchor apple generic and certificate leaf = H"` + request.MacOSSigningIdentity + `"`
+		if err := run(toolCall{Name: "/usr/bin/codesign", Directory: request.Root, Args: []string{"--verify", "--strict", requirement, path}}); err != nil {
+			return fmt.Errorf("verify signed macOS %s archive: %w", arch, err)
+		}
+	}
+	return nil
+}
