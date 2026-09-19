@@ -94,10 +94,10 @@ func policyCommands() commandSet {
 func artifactCommands(ctx context.Context) commandSet {
 	return commandSet{
 		"verify-macos-distribution": func(args []string, _ io.Writer) error {
-			if err := requireArguments(args, 3, "usage: release verify-macos-distribution <artifact-directory> <version> <certificate-fingerprint>"); err != nil {
+			if err := requireArguments(args, 6, "usage: release verify-macos-distribution <artifact-directory> <version> <certificate-fingerprint> <uploaded-zip> <submission-id> <keychain-profile>"); err != nil {
 				return err
 			}
-			return construction.VerifyMacOSDistribution(ctx, args[0], args[1], args[2])
+			return construction.VerifyMacOSDistribution(ctx, args[0], args[1], args[2], construction.Notarization{Archive: args[3], SubmissionID: args[4], KeychainProfile: args[5]})
 		},
 		"validate-artifacts": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 2, "usage: release validate-artifacts <directory> <version>"); err != nil {
@@ -197,5 +197,7 @@ func verifyArtifacts(ctx context.Context, directory string) error {
 }
 
 func verifyMacOSPublication(ctx context.Context, directory, version string) error {
-	return construction.VerifyMacOSDistribution(ctx, directory, version, os.Getenv("AIGW_MACOS_SIGNING_IDENTITY"))
+	return construction.VerifyMacOSDistribution(ctx, directory, version, os.Getenv("AIGW_MACOS_SIGNING_IDENTITY"), construction.Notarization{
+		Archive: os.Getenv("AIGW_MACOS_NOTARY_ARCHIVE"), SubmissionID: os.Getenv("AIGW_MACOS_NOTARY_SUBMISSION"), KeychainProfile: os.Getenv("AIGW_MACOS_NOTARY_PROFILE"),
+	})
 }

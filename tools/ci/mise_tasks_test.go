@@ -492,3 +492,26 @@ func TestEthosProofDelegatesStaticAnalysisToQualityOwner(t *testing.T) {
 		t.Fatal("go-static-analysis proof gate is missing")
 	}
 }
+
+func TestNotarizationUsesBoundedNativeTask(t *testing.T) {
+	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), "mise.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configuration struct {
+		Tasks struct {
+			Notary struct {
+				Run     string `toml:"run"`
+				Timeout string `toml:"timeout"`
+				Raw     bool   `toml:"raw"`
+			} `toml:"release:notary"`
+		} `toml:"tasks"`
+	}
+	if err := toml.Unmarshal(content, &configuration); err != nil {
+		t.Fatal(err)
+	}
+	task := configuration.Tasks.Notary
+	if task.Run != "xcrun notarytool" || task.Timeout != "5m" || !task.Raw {
+		t.Fatalf("notarization must delegate to Apple's command with bounded native execution: %#v", task)
+	}
+}

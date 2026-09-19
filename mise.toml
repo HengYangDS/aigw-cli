@@ -66,6 +66,12 @@ run = "go run ./tools/ci native"
 description = "Build the deterministic portable release matrix without publishing."
 run = "go run ./tools/release build dist"
 
+[tasks."release:notary"]
+description = "Run Apple notarization on macOS using explicit native arguments."
+run = "xcrun notarytool"
+raw = true
+timeout = "5m"
+
 [tasks.performance]
 description = "Measure explicit published native artifacts with retained Hyperfine samples."
 tools."github:sharkdp/hyperfine" = "1.20.0"

@@ -416,15 +416,22 @@ After Apple accepts the submission, verify both archived macOS executables:
 
 ```bash
 mise exec --locked -- go run ./tools/release verify-macos-distribution \
-  "$ARTIFACT_DIRECTORY" "$VERSION" "$AIGW_MACOS_SIGNING_IDENTITY"
+  "$ARTIFACT_DIRECTORY" "$VERSION" "$AIGW_MACOS_SIGNING_IDENTITY" \
+  "$AIGW_MACOS_NOTARY_ARCHIVE" "$AIGW_MACOS_NOTARY_SUBMISSION" \
+  "$AIGW_MACOS_NOTARY_PROFILE"
 ```
 
-The verifier checks archive checksums, the exact Developer ID certificate, and
-Gatekeeper execution assessment within a bounded deadline. Signature validation
-alone is not notarization acceptance. All three publication entrypoints require
+The verifier checks archive checksums and the exact Developer ID certificate,
+then retrieves Apple's log using the native authenticated Keychain profile. It
+requires an accepted matching submission, the exact uploaded ZIP checksum, and
+both final executables inside that ZIP. An agent-written receipt or a signature
+check alone is not notarization acceptance. `spctl --type execute` is not the
+admission test for this standalone CLI: it can reject valid notarized code
+because it is not an App bundle. All three publication entrypoints require
 this verification for stable tags before contacting a Forge. Initial stable
 publication therefore runs on the authorized macOS host, with an explicit
-signing identity. RC publication remains portable; downloading and validating
+signing identity and the three explicit `AIGW_MACOS_NOTARY_*` inputs above.
+Follow the [native notarization procedure](../operations/forge-operations.md#macos-signing-and-notarization). RC publication remains portable; downloading and validating
 published artifacts never requires macOS or the publisher's private key.
 
 Detached SSH signatures authenticate the archive manifest independently of the

@@ -84,6 +84,67 @@ The operator temporarily authorizes protected-branch force push, runs the exact
 compare-and-swap transaction, verifies the two remote OIDs, and immediately
 restores force push to disabled. A changed tip invalidates the prepared command.
 
+## macOS signing and notarization
+
+Use an existing Developer ID Application identity and an already validated
+`notarytool` Keychain profile on the authorized macOS host. Do not export the
+signing private key to enable this workflow. The signing identity and archive
+verification contract are defined in the [release policy](../governance/change-and-release-policy.md#quality-and-platform-evidence).
+
+Keep the signed candidate immutable while Apple processes it. Prepare one ZIP
+containing the exact signed executables extracted from both macOS archives,
+each in its own architecture directory. Preserve their executable permissions.
+Use an explicit, new operation directory under the checkout's
+`build/verification/`; retain the ZIP, candidate checksums and native responses
+until the release decision is resolved. Never upload credentials or source-state
+directories with the executables.
+
+With `NOTARY_ZIP`, `NOTARY_PROFILE`, and `EVIDENCE_DIRECTORY` set to those
+reviewed inputs, submit once:
+
+```sh
+mise run release:notary submit "$NOTARY_ZIP" \
+  --keychain-profile "$NOTARY_PROFILE" --no-wait --output-format json \
+  < /dev/null > "$EVIDENCE_DIRECTORY/submission.json"
+```
+
+Set `SUBMISSION_ID` to the returned Apple `id`. Query or resume that same
+submission rather than uploading again:
+
+```sh
+mise run release:notary info "$SUBMISSION_ID" \
+  --keychain-profile "$NOTARY_PROFILE" --output-format json < /dev/null
+
+mise run release:notary wait "$SUBMISSION_ID" \
+  --keychain-profile "$NOTARY_PROFILE" --timeout 4m --output-format json \
+  < /dev/null > "$EVIDENCE_DIRECTORY/wait.json"
+```
+
+The mise task forwards native arguments and bounds each invocation to five
+minutes; the shorter native wait leaves time for command shutdown. A wait
+timeout does not cancel Apple's submission. If upload is interrupted before
+an ID is returned, inspect native `history` and recover the existing submission
+before considering another upload. An authentication failure requires explicit
+credential recovery, not repeated calls or interactive password prompts.
+
+Only `Accepted` permits proceeding. Retrieve Apple's log, then run the
+[final archive verifier](../governance/change-and-release-policy.md#quality-and-platform-evidence)
+against the retained candidate before publication:
+
+```sh
+mise run release:notary log "$SUBMISSION_ID" \
+  --keychain-profile "$NOTARY_PROFILE" \
+  "$EVIDENCE_DIRECTORY/notarization-log.json" < /dev/null
+```
+
+`Invalid` stops publication; use the log to diagnose the exact candidate.
+Apple's [notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow)
+creates tickets for standalone binaries, but cannot staple tickets to those
+binaries or ZIP files. Gatekeeper therefore needs online ticket discovery on a
+fresh machine. Do not claim offline first-launch approval for the portable
+archive. An independently stapled installer would be a separate distribution
+channel, not a reason to alter these accepted executable bytes.
+
 ## Publish a Tag
 
 Create and sign an annotated tag once in local Git. Publish that exact tag

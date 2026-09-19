@@ -19,7 +19,9 @@ Prefer native macOS signing with the existing login-Keychain identity for the in
 
 Use a self-maintained tap first. Official core submission is not a prerequisite. Decide Formula versus Cask from artifact and ownership requirements, not the executable being a CLI. Do not create parallel source and binary distributions unless their consumers and acceptance are explicit.
 
-Keep reproducibility claims scoped to construction inputs. Trusted signing timestamps and notarization are external observations, not deterministic rebuild output. Do not suppress certificate or Gatekeeper verification to preserve an obsolete byte-equality claim.
+Use the existing mise task runner for bounded calls to Apple's native notarization commands. Preserve native submission IDs and responses; do not introduce a second submission journal or polling state machine. Signing changes executable bytes; standalone-binary notarization creates remote tickets without stapling those binaries. Retain the exact signed candidate across pending submissions and require authenticated Apple acceptance bound to both final executable bytes before publication. Offline first-launch approval is not claimed for the portable archive.
+
+Keep reproducibility claims scoped to construction inputs. Trusted signing timestamps and notarization are external observations, not deterministic rebuild output. Do not suppress certificate or notarization verification to preserve an obsolete byte-equality claim.
 
 ## Execution order
 
