@@ -1,0 +1,70 @@
+# Design
+
+## Context
+
+AIGW 0.1.0 is an immutable published baseline. The repository already declares the intended product boundaries and many strong local and hosted gates, but accumulated delivery work can still leave physical topology, user journeys, tests, documentation, and quality policy harder to understand than the product requires. This Change converges those surfaces without rewriting the stable tag or importing generic lifecycle state into AIGW.
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- Establish one evidence-backed map from product journeys and invariants to semantic owners.
+- Repair behavior before reorganizing its files, then make logical and physical ownership agree.
+- Remove unconsumed entities and parallel semantics before adding tools or abstractions.
+- Make setup, deferred activation, synchronization, credentials, client projection, installation, recovery, and extension natural on every supported platform.
+- Make the repository independently understandable and reproducible by a new contributor.
+
+**Non-Goals:**
+
+- Rebuild AIGW as a traffic gateway, daemon, desktop application, or package-manager framework.
+- Add a tutorial subsystem, duplicate status ledger, compatibility facade, or local ETHOS state machine.
+- Rewrite 0.1.0 artifacts, tags, historical OpenSpec archives, or user-owned client configuration.
+- Change Codex Responses Proxy implementation from this repository.
+
+## Decisions
+
+### 1. Audit by semantic closure, not by directory
+
+Begin with the public journeys and invariants, then trace their source, tests, configuration, documentation, and evidence. Each closure ends with one owner, focused tests, full gates where needed, updated documentation, and deletion of displaced material. A file-by-file cleanup without this trace is rejected because it can polish the wrong topology.
+
+### 2. Delete before adding
+
+For every duplicate helper, wrapper, configuration fragment, compatibility path, or document, first identify its current consumer and protected invariant. Delete it when both are absent. Reuse an existing owner when present. Add an entity only when no current owner can express the behavior without increasing coupling; record the displaced complexity in the existing decision register.
+
+### 3. Product journeys define dependency order
+
+Converge the paths in this order: configuration and route authority; credentials; client projections; installation and recovery; provider/client extension; repository topology; quality graph; documentation; performance and final acceptance. This order prevents structural refactors from preserving broken behavior and avoids running expensive matrices before local semantics stabilize.
+
+### 4. AIGW and Proxy compose only through explicit endpoints
+
+AIGW owns Accounts, Tokens, Profiles, Routes, and client projections. It carries no Proxy lifecycle, state, or mandatory loopback default. A profile may select a direct provider endpoint or any independently managed compatible endpoint. Proxy owns protocol translation and runtime traffic when explicitly installed. Tests use an external endpoint contract rather than importing Proxy implementation.
+
+### 5. Quality has one declarative graph
+
+The repository keeps one machine-readable mapping from tracked carrier classes to mature formatters, linters, analyzers, tests, security checks, and generated projections. GitHub and GitLab remain deterministic projections of that graph. Custom code is retained only for AIGW-specific semantics that general tools cannot express. Threshold changes require measured distributions and named risks, not aesthetic severity.
+
+### 6. Cross-platform claims consume real released bytes
+
+Source tests establish contracts; native jobs establish host behavior; published-artifact jobs establish distribution behavior. macOS, Linux, and Windows each exercise build, install, update, rollback, uninstall, credential mode, and client projection using the selected immutable release bytes. Unsupported platform trust, client availability, or credential service behavior remains explicit rather than inferred.
+
+### 7. Documentation teaches by tracing the product
+
+The root README remains the concise product entry point. Task-oriented guides explain complete user and contributor journeys; architecture documents explain stable boundaries; decisions record chosen trade-offs; research remains evidence for future choices. Code, commands, diagrams, tables, and links are validated through the same repository quality graph. No private local file may be a shared prerequisite.
+
+## Risks / Trade-offs
+
+- **Large scope can create churn** → complete one semantic closure at a time and require deletion plus focused acceptance before the next structural move.
+- **Stricter gates can reward fragmentation** → derive thresholds from distributions and preserve coherent domain units.
+- **Native evidence can become expensive** → run focused local falsification first, freeze inputs, then reuse exact matching immutable evidence.
+- **External tools can expand the maintenance surface** → admit only stable tools that replace more code and operational burden than they add.
+- **Breaking cleanup can surprise existing users** → remove only unsupported or unconsumed behavior; document migration for supported public contracts.
+
+## Migration Plan
+
+1. Freeze and inventory the current accepted product, published bytes, user journeys, tracked carriers, dependencies, and residue.
+2. Repair and verify each product journey while retaining AIGW 0.1.0 as the working baseline.
+3. Reorganize source and tests around the verified semantic owners; delete superseded material in the same closure.
+4. Consolidate quality and CI projections, then upgrade direct dependencies under the complete graph.
+5. Rewrite current documentation from the accepted design and verify navigation and rendering.
+6. Run exact-HEAD, native, published-artifact, installation, performance, and residue acceptance; publish only a new version when product bytes change.
+7. Archive this Change and retire its proposal and Work Lane through ETHOS after every task is evidenced.
