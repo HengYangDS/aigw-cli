@@ -87,8 +87,15 @@ Portable lifecycle commands do not manage Homebrew installations. When the
 resolved executable or destination belongs to a Homebrew receipt, AIGW stops
 before downloading, replacing files, or withdrawing client projections. Use
 Homebrew to manage that installation; copying another executable over its files
-would bypass its package inventory. This ownership guard does not imply that an
-AIGW Homebrew package has been published.
+would bypass its package inventory. Before removing a package-managed AIGW,
+run `aigw adapter list`, then `aigw adapter disable <client>` for each enabled
+client. These existing commands withdraw AIGW-owned client settings without
+reading Tokens or removing the program. Repeating a disable is safe. After all
+enabled clients are disabled, remove the package with Homebrew. If withdrawal
+fails, resolve the reported conflict before removing the program. Accounts,
+Profiles, Routes, credential policy, and Tokens remain available for reinstall.
+This ownership guard does not imply that an AIGW Homebrew package has been
+published.
 
 Run `aigw installation` to inspect the invoked command, actual program file and
 retained predecessor. `aigw installation --json` provides a schema-versioned

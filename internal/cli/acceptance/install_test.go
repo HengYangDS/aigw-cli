@@ -96,9 +96,21 @@ func TestPortableInstallAndUninstallCommandsOwnOnlyProgramFiles(t *testing.T) {
 }
 
 func TestUninstallWithdrawsOwnedClientStateAndPreservesCapabilities(t *testing.T) {
+	for _, manager := range []string{"portable", "homebrew"} {
+		t.Run(manager, func(t *testing.T) { verifyUninstallOwnership(t, manager) })
+	}
+}
+
+func verifyUninstallOwnership(t *testing.T, manager string) {
+	t.Helper()
 	app, _, secretStore, _, _ := testApp(t, "")
 	root := t.TempDir()
 	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
+	if manager == "homebrew" {
+		packageRoot := filepath.Join(root, "Caskroom", "aigw")
+		app.Executable = filepath.Join(packageRoot, "0.1.0", "bin", executableName("aigw"))
+		writeFile(t, filepath.Join(packageRoot, ".metadata", "INSTALL_RECEIPT.json"), []byte(`{"homebrew_version":"7.0.2","source":{"tap":"owner/tap"}}`), 0o600)
+	}
 	previousExecutable := filepath.Join(filepath.Dir(app.Executable), executableName(".aigw.previous"))
 	for _, path := range []string{app.Executable, previousExecutable} {
 		writeFile(t, path, []byte("program"), 0o755)
@@ -111,53 +123,26 @@ func TestUninstallWithdrawsOwnedClientStateAndPreservesCapabilities(t *testing.T
 	foreign := filepath.Join(root, "neighboring-user-state")
 	writeFile(t, foreign, []byte("preserve"), 0o600)
 
-	claudeExecutable := executableFixture(t, "claude")
-	codexExecutable := executableFixture(t, "codex")
-	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{
-			configuration.ClientClaude: claudeExecutable,
-			configuration.ClientCodex:  codexExecutable,
-		},
-		Surfaces: []discovery.Surface{{
-			ID:          string(surface.CodexHomeDefault),
-			Authority:   string(surface.AuthorityAIGW),
-			ConfigPath:  codexTarget,
-			AutoManaged: true,
-		}},
-	}}
-	cfg := configuration.NewConfig()
-	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
-	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-model"}
-	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Client: configuration.ClientCodex, Model: "gpt-model"}
-	cfg.Routes[configuration.ClientClaude] = "claude"
-	cfg.Routes[configuration.ClientCodex] = "codex"
-	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
-	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: codexExecutable, Targets: []string{codexTarget}}
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	if err := secretStore.Set("team", "token"); err != nil {
-		t.Fatal(err)
-	}
-	if err := cli.Execute(app, []string{"sync"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, configuration.AdmittedClientIDs()); err != nil {
-		t.Fatal(err)
+	configureUninstallClients(t, app, codexTarget)
+
+	credentialCalls := &recordingCredentialStore[string]{backend: secretStore}
+	app.Secrets = credentialCalls
+	withdrawInstallationClients(t, app, manager, previousExecutable)
+
+	if len(credentialCalls.getCalls)+len(credentialCalls.setCalls)+len(credentialCalls.deleteCalls) != 0 {
+		t.Fatal("client withdrawal accessed credential values")
 	}
 
-	if err := cli.Execute(app, []string{"uninstall"}); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, path := range []string{
-		app.Executable,
-		previousExecutable,
+	removedPaths := []string{
 		codexTarget + ".aigw-state.json",
 		codexTarget + ".aigw-model-catalog.json",
 		app.ClaudeSettingsPath + ".aigw-state.json",
 		app.Config.Path() + ".verified.json",
-	} {
+	}
+	if manager == "portable" {
+		removedPaths = append(removedPaths, app.Executable, previousExecutable)
+	}
+	for _, path := range removedPaths {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatalf("owned uninstall residue remains at %s: %v", path, err)
 		}
@@ -187,7 +172,77 @@ func TestUninstallWithdrawsOwnedClientStateAndPreservesCapabilities(t *testing.T
 		t.Fatalf("neighboring user state = %q, %v", data, err)
 	}
 	previous, err := app.Config.LoadBackup()
-	if err != nil || len(previous.Adapters) != 2 {
+	expectedAdapters := 2
+	if manager == "homebrew" {
+		expectedAdapters = 1
+	}
+	if err != nil || len(previous.Adapters) != expectedAdapters {
 		t.Fatalf("previous configuration = %#v, %v", previous, err)
+	}
+}
+
+func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
+	t.Helper()
+	claudeExecutable := executableFixture(t, "claude")
+	codexExecutable := executableFixture(t, "codex")
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{
+			configuration.ClientClaude: claudeExecutable,
+			configuration.ClientCodex:  codexExecutable,
+		},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surface.CodexHomeDefault),
+			Authority:   string(surface.AuthorityAIGW),
+			ConfigPath:  codexTarget,
+			AutoManaged: true,
+		}},
+	}}
+	cfg := configuration.NewConfig()
+	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
+	cfg.Profiles["claude"] = configuration.Profile{Label: "Claude", Account: "team", Client: configuration.ClientClaude, Model: "claude-model"}
+	cfg.Profiles["codex"] = configuration.Profile{Label: "Codex", Account: "team", Client: configuration.ClientCodex, Model: "gpt-model"}
+	cfg.Routes[configuration.ClientClaude] = "claude"
+	cfg.Routes[configuration.ClientCodex] = "codex"
+	cfg.Adapters[configuration.ClientClaude] = configuration.AdapterConfig{Enabled: true, Executable: claudeExecutable}
+	cfg.Adapters[configuration.ClientCodex] = configuration.AdapterConfig{Enabled: true, Executable: codexExecutable, Targets: []string{codexTarget}}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Secrets.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, configuration.AdmittedClientIDs()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func withdrawInstallationClients(t *testing.T, app *cli.App, manager, previousExecutable string) {
+	t.Helper()
+	if manager == "portable" {
+		if err := cli.Execute(app, []string{"uninstall"}); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+
+	if err := cli.Execute(app, []string{"uninstall"}); err == nil || !strings.Contains(err.Error(), "Homebrew") {
+		t.Fatalf("managed uninstall = %v", err)
+	}
+	for _, client := range configuration.AdmittedClientIDs() {
+		if err := cli.Execute(app, []string{"adapter", "disable", client}); err != nil {
+			t.Fatal(err)
+		}
+		if err := cli.Execute(app, []string{"adapter", "disable", client}); err != nil {
+			t.Fatalf("repeat disable: %v", err)
+		}
+	}
+	for _, path := range []string{app.Executable, previousExecutable} {
+		data, err := os.ReadFile(path)
+		if err != nil || string(data) != "program" {
+			t.Fatalf("package-owned file changed: %q, %v", data, err)
+		}
 	}
 }

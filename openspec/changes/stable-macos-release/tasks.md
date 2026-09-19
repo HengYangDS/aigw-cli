@@ -17,7 +17,7 @@
 ## 3. Homebrew ownership and packaging
 
 - [ ] 3.1 Select and test minimal packaging that preserves the accepted macOS signed binary; derive version, asset location, and checksum from release inventory.
-- [ ] 3.2 Test package-managed update/uninstall ownership and retained client projections; preserve user configuration and credentials.
+- [x] 3.2 Test package-managed update/uninstall ownership and retained client projections; preserve user configuration and credentials.
 - [ ] 3.3 Create the public tap only after local package validation and populate it with the generated release projection and concise English instructions.
 - [ ] 3.4 Verify clean Homebrew installation, invocation, upgrade, removal, and reinstall with no credential prompts or implicit client configuration.
 
