@@ -38,7 +38,6 @@ package_children."internal" = [
   "synchronization",
   "transaction",
   "upgrade",
-  "verification",
 ]
 package_children."tools" = [
   "architecture",
@@ -50,6 +49,7 @@ package_children."tools" = [
   "repository",
 ]
 package_children."internal/codex" = ["catalog"]
+package_children."internal/client" = ["verification"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
 package_children."tools/ci" = ["markdown", "projection"]
 package_children."tools/codex" = ["catalog"]
@@ -86,7 +86,14 @@ allowed_import_edges."internal/client" = [
   "internal/process",
   "internal/secrets",
   "internal/surface",
-  "internal/verification",
+  "internal/client/verification",
+]
+allowed_import_edges."internal/client/verification" = [
+  "internal/claude",
+  "internal/codex",
+  "internal/configuration",
+  "internal/process",
+  "internal/redaction",
 ]
 # Upgrade reuses neutral process and durable staging owners.
 allowed_import_edges."internal/upgrade" = [
@@ -281,13 +288,6 @@ allowed_import_edges."internal/cli/onboarding" = [
   "internal/presentation",
   "internal/prompt",
   "internal/secrets",
-]
-allowed_import_edges."internal/verification" = [
-  "internal/claude",
-  "internal/codex",
-  "internal/configuration",
-  "internal/process",
-  "internal/redaction",
 ]
 allowed_import_edges."internal/prompt" = []
 allowed_import_edges."internal/redaction" = []

@@ -9,13 +9,13 @@ import (
 	"sort"
 
 	"aigw-cli/internal/claude"
+	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
 	surfaceidentity "aigw-cli/internal/surface"
-	domainverification "aigw-cli/internal/verification"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )
@@ -52,13 +52,13 @@ func (codexAdapter) Verify(ctx context.Context, deps Dependencies, cfg configura
 		}()
 		cfg = isolated
 	}
-	verifyCtx, cancel := context.WithTimeout(ctx, domainverification.ProtocolTimeout)
+	verifyCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	defer cancel()
 	runner := deps.Runner
 	if cfg.Adapters[configuration.ClientCodex].CredentialCommand != "" && runner != nil {
 		runner = externalCredentialRunner{runner: runner}
 	}
-	identity, err := domainverification.VerifyCodexInvocation(verifyCtx, runner, cfg, runtime)
+	identity, err := clientverification.VerifyCodexInvocation(verifyCtx, runner, cfg, runtime)
 	return Verification{Version: identity.Version, SHA256: identity.SHA256}, err
 }
 
@@ -86,7 +86,7 @@ func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configur
 	if !ready {
 		return Verification{}, fmt.Errorf("Claude executable is unavailable; run `aigw repair`")
 	}
-	verifyCtx, cancel := context.WithTimeout(ctx, domainverification.ProtocolTimeout)
+	verifyCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	defer cancel()
 	runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
 	settingsPath := deps.ClaudeSettingsPath
@@ -106,7 +106,7 @@ func (claudeAdapter) Verify(ctx context.Context, deps Dependencies, cfg configur
 	if adapter.CredentialCommand != "" && runner != nil {
 		runner = externalCredentialRunner{runner: runner}
 	}
-	return Verification{}, domainverification.VerifyClaudeRuntime(verifyCtx, runner, adapter.Executable, settingsPath, runtime, token)
+	return Verification{}, clientverification.VerifyClaudeRuntime(verifyCtx, runner, adapter.Executable, settingsPath, runtime, token)
 }
 
 func isolateCodexProjection(cfg configuration.Config, runtime configuration.Runtime, adapter configuration.AdapterConfig) (configuration.Config, string, error) {

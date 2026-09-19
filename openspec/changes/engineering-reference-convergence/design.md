@@ -347,6 +347,15 @@ architecture policy. Test-only acceptance packages for public CLI and release
 journeys remain because they span multiple production owners and represent
 distinct product boundaries rather than suffix-based mirrors of one package.
 
+The same review found that `internal/verification` had no consumer outside the
+Client Adapter owner. Its live Codex and Claude invocation contract and tests
+therefore move intact to `internal/client/verification`; `internal/client`
+continues to own selection, isolated projections, credential suppression, and
+the public Adapter result. This removes a top-level semantic owner and import
+edge without changing the client process plan, timeout, response marker,
+redaction, or cleanup behavior. The complete internal test graph, Go lint, and
+architecture gate pass after the move.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:
