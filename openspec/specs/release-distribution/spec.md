@@ -1,7 +1,7 @@
 # release-distribution Specification
 
 ## Purpose
-TBD - created by archiving change stable-macos-release. Update Purpose after archive.
+Define stable AIGW distribution trust, immutable release-byte authority, and package-manager ownership without coupling installation to credentials or client activation.
 
 ## Requirements
 
