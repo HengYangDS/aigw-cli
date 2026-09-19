@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-09-19
+goal: Refresh the complete Go module graph to the current compatible stable
+  fixed point without changing product behavior or adding dependency machinery.
+
+skip_specs: true
