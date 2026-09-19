@@ -3,9 +3,9 @@
 owner = "product-toolchain"
 source = "repository architecture layout"
 risk_model = "undeclared semantic owners and dependency edges create hidden coupling, ambiguous authority, and non-local change risk"
-measurement = "parse tracked Go packages, imports, composition roots, semantic carriers, Decision Records, and deterministic text bytes against this declared contract"
+measurement = "parse tracked Go packages, exact import edges, composition roots, semantic carriers, Decision Records, and deterministic text bytes against this declared contract"
 false_positive_cost = "a valid new semantic owner or dependency requires an intentional policy update reviewed with the implementation"
-remediation = "move behavior to an existing owner or declare the new owner and dependency here with focused contract tests"
+remediation = "move behavior to an existing owner, delete an unused allowance, or declare a required owner and dependency here with focused contract tests"
 review_condition = "reassess when the product topology changes or when two legitimate changes in one release train are blocked by the same contract"
 
 # Managed Go trees subject to topology, naming, and AST rules.
@@ -169,7 +169,6 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/verification",
   "internal/client",
   "internal/configuration",
-  "internal/console",
   "internal/discovery",
   "internal/platform",
   "internal/presentation",

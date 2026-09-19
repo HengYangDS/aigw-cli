@@ -203,6 +203,7 @@ func checkImportEdges(root string, files []goFileInfo, p policy, report *Report)
 		return err
 	}
 	modulePrefix := module + "/"
+	usedAllowances := make(map[string]map[string]bool, len(p.AllowedImportEdges))
 	for _, file := range files {
 		if file.isTest {
 			continue
@@ -212,6 +213,11 @@ func checkImportEdges(root string, files []goFileInfo, p policy, report *Report)
 			continue
 		}
 		allowed := make(map[string]bool, len(allowedTargets))
+		used := usedAllowances[file.dir]
+		if used == nil {
+			used = make(map[string]bool, len(allowedTargets))
+			usedAllowances[file.dir] = used
+		}
 		for _, target := range allowedTargets {
 			allowed[target] = true
 		}
@@ -229,7 +235,11 @@ func checkImportEdges(root string, files []goFileInfo, p policy, report *Report)
 				continue
 			}
 			target := strings.TrimPrefix(importPath, modulePrefix)
-			if target == file.dir || allowed[target] {
+			if allowed[target] {
+				used[target] = true
+				continue
+			}
+			if target == file.dir {
 				continue
 			}
 			pos := fset.Position(imported.Pos())
@@ -239,6 +249,19 @@ func checkImportEdges(root string, files []goFileInfo, p policy, report *Report)
 				Line:    pos.Line,
 				Package: target,
 				Message: fmt.Sprintf("package %q may not import %q; declare the dependency or move shared behavior to a neutral owner", file.dir, target),
+			})
+		}
+	}
+	for owner, allowedTargets := range p.AllowedImportEdges {
+		for _, target := range allowedTargets {
+			if usedAllowances[owner][target] {
+				continue
+			}
+			report.addFinding(Finding{
+				Rule:    "unused_import_allowance",
+				Path:    owner,
+				Package: target,
+				Message: fmt.Sprintf("package %q declares unused access to %q; delete the stale allowance", owner, target),
 			})
 		}
 	}

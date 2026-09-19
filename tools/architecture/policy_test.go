@@ -265,6 +265,21 @@ func TestImportEdgesAcceptAllowedDependenciesAndExcludeTestEdges(t *testing.T) {
 	}
 }
 
+func TestImportEdgesRejectStaleAllowance(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
+	writeFile(t, filepath.Join(root, "tools", "release", "main.go"), "package main\n\nimport _ \"example.com/aigw/tools/current\"\n")
+	files := []goFileInfo{{relPath: "tools/release/main.go", dir: "tools/release"}}
+	report := newReport("policy", root)
+	policy := policy{AllowedImportEdges: map[string][]string{"tools/release": {"tools/current", "tools/retired"}}}
+	if err := checkImportEdges(root, files, policy, &report); err != nil {
+		t.Fatal(err)
+	}
+	if countRule(report, "unused_import_allowance") != 1 {
+		t.Fatalf("stale import allowance was not rejected: %+v", report.Findings)
+	}
+}
+
 func TestImportEdgesReportUnavailableManagedSource(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
