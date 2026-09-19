@@ -61,8 +61,8 @@ func TestReleaseReadiness(t *testing.T) {
 	if err := ValidateVersion("1.2.3-rc.1"); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateVersion("1.2.3"); err == nil {
-		t.Fatal("unsigned GA accepted")
+	if err := ValidateVersion("1.2.3"); err != nil {
+		t.Fatalf("stable semantic version rejected: %v", err)
 	}
 }
 
@@ -78,14 +78,17 @@ func TestParseEpoch(t *testing.T) {
 	}
 }
 
-func TestReadinessUsesParsedReleaseStability(t *testing.T) {
+func TestVersionValidationUsesStrictSemantics(t *testing.T) {
 	for _, tc := range []struct {
 		version string
 		ready   bool
 	}{
 		{"1.2.3-rc.1+build.7", true},
 		{"1.2.3-preview.1", true},
-		{"1.2.3+build-rc.1", false},
+		{"1.2.3+build-rc.1", true},
+		{"0.1.0", true},
+		{"v1.2.3", false},
+		{"01.2.3", false},
 		{"not-a-version-rc.1", false},
 		{"1.2.3-rc.01", false},
 	} {

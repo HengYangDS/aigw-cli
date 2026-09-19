@@ -5,7 +5,7 @@ import "strings"
 // pipeline.cue owns CI topology. Forge files are generated projections.
 
 #OperatingSystem: "darwin" | "linux" | "windows"
-#JobID:           "accepted-ref-parity" | "quality" | "native-darwin" | "native-linux" | "native-windows" | "release-readiness" | "release-assets"
+#JobID:           "accepted-ref-parity" | "quality" | "native-darwin" | "native-linux" | "native-windows" | "release-version" | "release-assets"
 #Claim:           "accepted-ref-parity" | "source-quality" | "go-source-compatibility" | "native-product-journey" | "lifecycle-acceptance" | "release-metadata" | "artifact-verification"
 
 #Job: {
@@ -30,7 +30,7 @@ commands: {
 			(platform): "mise exec --locked -- go run ./tools/ci native --platform \(platform)"
 		}
 	}
-	readiness: "mise exec --locked -- go run ./tools/release validate-readiness-tag"
+	version:   "mise exec --locked -- go run ./tools/release validate-version-tag"
 	artifacts: "mise exec --locked -- go run ./tools/release verify-artifacts dist"
 	acceptedRefParity: {
 		gitlab: "mise exec --locked -- go run ./tools/forge refs --remote \(lifecycle.checkoutRemote) --expect \"\(lifecycle.releaseBranch)=$CI_COMMIT_SHA\" --expect \"\(lifecycle.acceptedBranch)=$CI_COMMIT_SHA\""
@@ -127,8 +127,8 @@ graph: {
 	"native-darwin": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
 	"native-linux": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
 	"native-windows": {stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
-	"release-readiness": {stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
-	"release-assets": {stage: "release", rank: 1, needs: ["quality", "native-darwin", "native-linux", "release-readiness"], claims: ["artifact-verification"]}
+	"release-version": {stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
+	"release-assets": {stage: "release", rank: 1, needs: ["quality", "native-darwin", "native-linux", "release-version"], claims: ["artifact-verification"]}
 }
 
 gitlabVerificationCondition: {
@@ -473,8 +473,8 @@ gitlab: {
 	if forgeCapabilities.gitlab.windows {
 		"native-windows": #NativeGitLabJob & {_platform: "windows"}
 	}
-	"release-readiness": {
-		stage: graph["release-readiness"].stage
+	"release-version": {
+		stage: graph["release-version"].stage
 		extends: [".linux-toolchain"]
 		tags:      nativeEvidence.linux.gitlab.tags
 		variables: goToolchain
@@ -482,7 +482,7 @@ gitlab: {
 			{if: "$CI_COMMIT_TAG"},
 			{when: "never"},
 		]
-		script: [commands.readiness]
+		script: [commands.version]
 	}
 	"release-assets": {
 		stage: graph["release-assets"].stage
@@ -680,7 +680,7 @@ githubRelease: {
 			steps: [
 				#SourceCheckout,
 				#Toolchain,
-				{name: "Check release admission", run: commands.readiness},
+				{name: "Validate release version", run: commands.version},
 				{
 					name: "Materialize provenance trust input"
 					env: AIGW_RELEASE_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}"

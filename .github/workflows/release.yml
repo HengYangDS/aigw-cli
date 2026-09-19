@@ -59,8 +59,8 @@ jobs:
           install_args: --locked
           cache: true
           cache_key_prefix: mise-${{ github.job }}
-      - name: Check release admission
-        run: mise exec --locked -- go run ./tools/release validate-readiness-tag
+      - name: Validate release version
+        run: mise exec --locked -- go run ./tools/release validate-version-tag
       - name: Materialize provenance trust input
         env:
           AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}

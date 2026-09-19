@@ -8,7 +8,7 @@
 
 ## 2. Release construction and admission
 
-- [ ] 2.1 Add failing tests separating strict SemVer parsing, product readiness, and platform trust; remove the unconditional stable-version rejection through the existing owner.
+- [x] 2.1 Add failing tests separating strict SemVer parsing, product readiness, and platform trust; remove the unconditional stable-version rejection through the existing owner.
 - [ ] 2.2 Integrate bounded native signing and notarization into the existing release flow with explicit inputs and resumable submission identity.
 - [ ] 2.3 Verify final signed artifacts before generating checksums, SBOM/provenance, and the existing signed release manifest.
 - [ ] 2.4 Preserve reproducible construction tests while qualifying trusted final-byte signatures separately; test interruption and rejected notarization.

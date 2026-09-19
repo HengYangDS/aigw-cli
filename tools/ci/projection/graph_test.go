@@ -283,7 +283,7 @@ func TestVerificationProjectsIndependentQualityAndNativeFacts(t *testing.T) {
 	for _, metadata := range []string{".linux-toolchain", "stages", "variables", "workflow"} {
 		delete(gitlab, metadata)
 	}
-	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "quality", "release-assets", "release-readiness"}
+	wantGitLabJobs := []string{"accepted-ref-parity", "native-darwin", "native-linux", "quality", "release-assets", "release-version"}
 	if got := slices.Sorted(maps.Keys(gitlab)); !slices.Equal(got, wantGitLabJobs) {
 		t.Fatalf("GitLab jobs = %q, want %q", got, wantGitLabJobs)
 	}
@@ -422,8 +422,8 @@ func TestSemanticGraphDefinesExactClaimsAndEvidenceReuse(t *testing.T) {
 		"native-darwin":       {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
 		"native-linux":        {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
 		"native-windows":      {Stage: "verify", Needs: []string{}, Claims: []string{"go-source-compatibility", "native-product-journey", "lifecycle-acceptance"}},
-		"release-readiness":   {Stage: "verify", Needs: []string{}, Claims: []string{"release-metadata"}},
-		"release-assets":      {Stage: "release", Rank: 1, Needs: []string{"quality", "native-darwin", "native-linux", "release-readiness"}, Claims: []string{"artifact-verification"}},
+		"release-version":     {Stage: "verify", Needs: []string{}, Claims: []string{"release-metadata"}},
+		"release-assets":      {Stage: "release", Rank: 1, Needs: []string{"quality", "native-darwin", "native-linux", "release-version"}, Claims: []string{"artifact-verification"}},
 	}
 	if !reflect.DeepEqual(graph, wantGraph) {
 		t.Fatalf("CI graph = %#v, want %#v", graph, wantGraph)

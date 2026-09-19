@@ -139,13 +139,13 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 
 func TestRunBuildCIAndTagReadinessInputBoundaries(t *testing.T) {
 	var output bytes.Buffer
-	for _, args := range [][]string{{"build-ci"}, {"upload-gitlab"}, {"publish-github"}, {"publish-gitlab"}, {"verify-artifacts"}, {"validate-readiness-tag", "extra"}} {
+	for _, args := range [][]string{{"build-ci"}, {"upload-gitlab"}, {"publish-github"}, {"publish-gitlab"}, {"verify-artifacts"}, {"validate-version-tag", "extra"}} {
 		if err := run(args, &output); err == nil {
 			t.Fatalf("invalid invocation accepted: %v", args)
 		}
 	}
 	t.Setenv("CI_COMMIT_TAG", "")
-	if err := run([]string{"validate-readiness-tag"}, &output); err == nil || !strings.Contains(err.Error(), "v<semver>") {
+	if err := run([]string{"validate-version-tag"}, &output); err == nil || !strings.Contains(err.Error(), "v<semver>") {
 		t.Fatalf("missing tag error = %v", err)
 	}
 	for _, tc := range []struct {
@@ -153,11 +153,12 @@ func TestRunBuildCIAndTagReadinessInputBoundaries(t *testing.T) {
 		ready bool
 	}{
 		{"v1.2.3-rc.1+build.7", true},
-		{"v1.2.3+build-rc.1", false},
+		{"v1.2.3+build-rc.1", true},
+		{"v0.1.0", true},
 		{"v1.2.3-rc.01", false},
 	} {
 		t.Setenv("CI_COMMIT_TAG", tc.tag)
-		if err := run([]string{"validate-readiness-tag"}, &output); (err == nil) != tc.ready {
+		if err := run([]string{"validate-version-tag"}, &output); (err == nil) != tc.ready {
 			t.Errorf("tag=%q readiness=%v, ready=%t", tc.tag, err, tc.ready)
 		}
 	}
@@ -229,7 +230,7 @@ func TestRunReleasePolicyCommands(t *testing.T) {
 	var output bytes.Buffer
 	for _, args := range [][]string{
 		{"validate-toolchain", module},
-		{"validate-readiness", "1.2.3-rc.1"},
+		{"validate-version", "1.2.3-rc.1"},
 	} {
 		if err := run(args, &output); err != nil {
 			t.Fatalf("%v: %v", args, err)
@@ -237,7 +238,7 @@ func TestRunReleasePolicyCommands(t *testing.T) {
 	}
 	for _, args := range [][]string{
 		{"validate-toolchain"},
-		{"validate-readiness"},
+		{"validate-version"},
 	} {
 		if err := run(args, &output); err == nil {
 			t.Fatalf("invalid invocation accepted: %v", args)
@@ -414,7 +415,7 @@ func TestRunReportsCommandFailures(t *testing.T) {
 		{"build"},
 		{"validate-release-sources", "extra"},
 		{"validate-toolchain"},
-		{"validate-readiness"},
+		{"validate-version"},
 		{"validate-artifacts"},
 		{"compare-artifacts"},
 	}

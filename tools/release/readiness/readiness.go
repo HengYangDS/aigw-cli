@@ -45,17 +45,12 @@ func ValidateToolchain(modulePath, actual string) error {
 	return nil
 }
 
-// ValidateVersion admits valid prereleases while GA native signing remains
-// unavailable. Build metadata does not change a release's stability.
+// ValidateVersion checks strict SemVer syntax without claiming product or artifact readiness.
 func ValidateVersion(version string) error {
-	parsed, err := semver.StrictNewVersion(version)
-	if err != nil {
+	if _, err := semver.StrictNewVersion(version); err != nil {
 		return fmt.Errorf("invalid release version %q: %w", version, err)
 	}
-	if parsed.Prerelease() != "" {
-		return nil
-	}
-	return errors.New("GA release requires protected macOS notarization, Windows Authenticode, and artifact signature verification")
+	return nil
 }
 
 // ReadProductVersion reads the canonical VERSION carrier and validates strict SemVer.

@@ -177,10 +177,10 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	var pipeline struct {
-		LinuxToolchain   gitLabJob `yaml:".linux-toolchain"`
-		Quality          gitLabJob `yaml:"quality"`
-		NativeLinux      gitLabJob `yaml:"native-linux"`
-		ReleaseReadiness gitLabJob `yaml:"release-readiness"`
+		LinuxToolchain gitLabJob `yaml:".linux-toolchain"`
+		Quality        gitLabJob `yaml:"quality"`
+		NativeLinux    gitLabJob `yaml:"native-linux"`
+		ReleaseVersion gitLabJob `yaml:"release-version"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
@@ -192,8 +192,8 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 		t.Fatalf("Linux toolchain image is incomplete: %#v", pipeline.LinuxToolchain.Image)
 	}
 	for name, job := range map[string]gitLabJob{
-		"native-linux":      pipeline.NativeLinux,
-		"release-readiness": pipeline.ReleaseReadiness,
+		"native-linux":    pipeline.NativeLinux,
+		"release-version": pipeline.ReleaseVersion,
 	} {
 		if !slices.Equal(job.Extends, []string{".linux-toolchain"}) {
 			t.Fatalf("%s extends = %q, want [.linux-toolchain]", name, job.Extends)

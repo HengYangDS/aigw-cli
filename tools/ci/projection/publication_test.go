@@ -355,7 +355,7 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 		}
 	}
 	want := []string{
-		"mise exec --locked -- go run ./tools/release validate-readiness-tag",
+		"mise exec --locked -- go run ./tools/release validate-version-tag",
 		`mise exec --locked -- go run ./tools/ci trust-input --output "$env:RUNNER_TEMP/aigw-allowed-signers" --github-env "$env:GITHUB_ENV"`,
 		`mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$env:RUNNER_TEMP/aigw-artifact-signers" --github-env "$env:GITHUB_ENV"`,
 		`mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir dist`,
@@ -421,13 +421,13 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 		t.Fatal(err)
 	}
 	var pipeline struct {
-		Readiness gitLabJob `yaml:"release-readiness"`
-		Assets    gitLabJob `yaml:"release-assets"`
+		Version gitLabJob `yaml:"release-version"`
+		Assets  gitLabJob `yaml:"release-assets"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(pipeline.Readiness.Script, []string{"mise exec --locked -- go run ./tools/release validate-readiness-tag"}) {
+	if !slices.Equal(pipeline.Version.Script, []string{"mise exec --locked -- go run ./tools/release validate-version-tag"}) {
 		t.Fatal("tag admission is missing")
 	}
 	want := []string{"mkdir dist", `mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist`, "mise exec --locked -- go run ./tools/release verify-artifacts dist"}
@@ -442,7 +442,7 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 	for _, need := range pipeline.Assets.Needs {
 		needs = append(needs, need.Job)
 	}
-	if !slices.Equal(needs, []string{"quality", "native-darwin", "native-linux", "release-readiness"}) {
+	if !slices.Equal(needs, []string{"quality", "native-darwin", "native-linux", "release-version"}) {
 		t.Fatalf("release requirements = %q", needs)
 	}
 	if len(pipeline.Assets.Rules) != 2 || pipeline.Assets.Rules[0].If != `$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == "api" || $CI_PIPELINE_SOURCE == "web")` || pipeline.Assets.Rules[1].When != "never" {

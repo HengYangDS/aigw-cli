@@ -32,7 +32,7 @@ func TestExecuteReturnsPortableProcessStatus(t *testing.T) {
 		t.Fatalf("failure status=%d stderr=%q", status, stderr.String())
 	}
 	stderr.Reset()
-	if status := execute([]string{"validate-readiness", "1.2.3-rc.1"}, &stdout, &stderr); status != 0 {
+	if status := execute([]string{"validate-version", "1.2.3-rc.1"}, &stdout, &stderr); status != 0 {
 		t.Fatalf("success status=%d stderr=%q", status, stderr.String())
 	}
 }

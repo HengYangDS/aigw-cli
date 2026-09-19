@@ -72,14 +72,14 @@ func policyCommands() commandSet {
 			}
 			return readiness.ValidateToolchain(args[0], runtime.Version())
 		},
-		"validate-readiness": func(args []string, _ io.Writer) error {
-			if err := requireArguments(args, 1, "usage: release validate-readiness <version>"); err != nil {
+		"validate-version": func(args []string, _ io.Writer) error {
+			if err := requireArguments(args, 1, "usage: release validate-version <version>"); err != nil {
 				return err
 			}
 			return readiness.ValidateVersion(args[0])
 		},
-		"validate-readiness-tag": func(args []string, _ io.Writer) error {
-			if err := requireArguments(args, 0, "usage: release validate-readiness-tag"); err != nil {
+		"validate-version-tag": func(args []string, _ io.Writer) error {
+			if err := requireArguments(args, 0, "usage: release validate-version-tag"); err != nil {
 				return err
 			}
 			tag := os.Getenv("CI_COMMIT_TAG")
