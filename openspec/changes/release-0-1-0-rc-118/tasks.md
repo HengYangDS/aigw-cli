@@ -5,8 +5,8 @@
 
 ## 2. Release-source proof
 
-- [ ] 2.1 Pass strict OpenSpec validation and the complete source gate.
-- [ ] 2.2 Pass native macOS release acceptance from the exact release source.
+- [x] 2.1 Pass strict OpenSpec validation and the complete source gate.
+- [x] 2.2 Pass native macOS release acceptance from the exact release source.
 
 Hosted CI, exact-ref publication, tag publication, Releases, native Linux and
 Windows acceptance, installation, rollback, uninstall, and residue cleanup are
