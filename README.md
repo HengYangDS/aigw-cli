@@ -83,6 +83,13 @@ removes the installed executable and that rollback copy. Accounts, Profiles,
 Routes, Tokens, user-authored client settings, and the explicit configuration
 backup remain intact.
 
+Portable lifecycle commands do not manage Homebrew installations. When the
+resolved executable or destination belongs to a Homebrew receipt, AIGW stops
+before downloading, replacing files, or withdrawing client projections. Use
+Homebrew to manage that installation; copying another executable over its files
+would bypass its package inventory. This ownership guard does not imply that an
+AIGW Homebrew package has been published.
+
 Run `aigw installation` to inspect the invoked command, actual program file and
 retained predecessor. `aigw installation --json` provides a schema-versioned
 description with paths, byte counts and SHA-256 digests without requiring this

@@ -136,6 +136,9 @@ func Current(executable string) Updater {
 
 // Update installs a strictly newer verified release and returns its version.
 func (u Updater) Update(ctx context.Context, currentVersion string) (string, error) {
+	if err := RequirePortableOwnership(u.Executable); err != nil {
+		return "", err
+	}
 	if u.Runner == nil {
 		u.Runner = process.Runner{}
 	}

@@ -32,6 +32,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		}),
 		RunE: func(ctx *cobra.Command, _ []string) error {
+			if err := upgrade.RequirePortableOwnership(runtime.Executable); err != nil {
+				return err
+			}
 			if runtime.Updater == nil {
 				return fmt.Errorf("Automatic update is unavailable; install a verified release from GitLab or GitHub")
 			}

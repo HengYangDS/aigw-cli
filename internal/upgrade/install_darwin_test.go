@@ -135,3 +135,34 @@ func TestRollbackPropagatesBackupReplacementFailure(t *testing.T) {
 		t.Fatalf("current executable was not restored: got=%q err=%v", got, readErr)
 	}
 }
+
+func TestHomebrewOwnershipFollowsCommandAndParentLinks(t *testing.T) {
+	root := t.TempDir()
+	version := filepath.Join(root, "Caskroom", "aigw", "1.2.3")
+	program := filepath.Join(version, "bin", "aigw")
+	receipt := filepath.Join(root, "Caskroom", "aigw", ".metadata", "INSTALL_RECEIPT.json")
+	for name, data := range map[string]string{program: "retained", receipt: `{"homebrew_version":"7.0.2","source":{"tap":"owner/tap"}}`} {
+		if err := os.MkdirAll(filepath.Dir(name), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(name, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	command, directory := filepath.Join(root, "aigw"), filepath.Join(root, "linked-bin")
+	if err := os.Symlink(program, command); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Dir(program), directory); err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range []string{command, filepath.Join(directory, "new-program")} {
+		if err := RequirePortableOwnership(target); err == nil || !strings.Contains(err.Error(), "Homebrew") {
+			t.Fatalf("linked ownership = %v", err)
+		}
+	}
+	data, err := os.ReadFile(program)
+	if err != nil || string(data) != "retained" {
+		t.Fatalf("program changed: %q, %v", data, err)
+	}
+}

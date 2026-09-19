@@ -90,6 +90,9 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 			if strings.TrimSpace(target) == "" {
 				target = runtime.Executable
 			}
+			if err := upgrade.RequirePortableOwnership(target); err != nil {
+				return err
+			}
 			_, statErr := os.Stat(runtime.Config.Path())
 			if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
 				return fmt.Errorf("inspect AIGW configuration: %w", statErr)
@@ -124,6 +127,9 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 
 // Install atomically places the current executable at the requested portable target while retaining one rollback copy.
 func Install(source, target string) error {
+	if err := upgrade.RequirePortableOwnership(target); err != nil {
+		return err
+	}
 	sourcePath := filepath.Clean(source)
 	targetPath := filepath.Clean(target)
 	if sourcePath == targetPath {
@@ -160,6 +166,9 @@ func Install(source, target string) error {
 
 // Uninstall removes the portable executable and its owned rollback copy while tolerating absence.
 func Uninstall(target string) error {
+	if err := upgrade.RequirePortableOwnership(target); err != nil {
+		return err
+	}
 	if strings.TrimSpace(target) == "" {
 		return errors.New("portable uninstall target is empty")
 	}

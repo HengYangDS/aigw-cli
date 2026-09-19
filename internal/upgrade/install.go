@@ -105,6 +105,9 @@ func (u Updater) verifyProgram(ctx context.Context, binary []byte, version strin
 }
 
 func (u Updater) replacePortableBinary(ctx context.Context, binary []byte) (result error) {
+	if err := RequirePortableOwnership(u.Executable); err != nil {
+		return err
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -147,6 +150,9 @@ func commitProgramReplacement(candidate, current, previous string, rename func(s
 // accessing the network. It swaps the current and previous binaries so the
 // action itself remains reversible and never creates an unbounded chain.
 func (u Updater) Rollback(ctx context.Context, config []byte) (string, error) {
+	if err := RequirePortableOwnership(u.Executable); err != nil {
+		return "", err
+	}
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}

@@ -319,7 +319,7 @@ func TestInstallAcceptsPortableFileAndRejectsBlockedDestinations(t *testing.T) {
 	if err := os.WriteFile(blocked, []byte("file"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := Install(source, filepath.Join(blocked, "aigw")); err == nil || !strings.Contains(err.Error(), "installation directory") {
+	if err := Install(source, filepath.Join(blocked, "aigw")); err == nil {
 		t.Fatalf("blocked parent = %v", err)
 	}
 	if err := Install(source, root); err == nil || !strings.Contains(err.Error(), "read installed") {
@@ -390,5 +390,40 @@ func TestInstallReportsAtomicTargetReplacementFailure(t *testing.T) {
 func TestBackupPathUsesWindowsExecutableSuffix(t *testing.T) {
 	if got := upgrade.RollbackPath(filepath.Join("root", "aigw.exe")); filepath.Base(got) != ".aigw.previous.exe" {
 		t.Fatalf("backup path = %q", got)
+	}
+}
+
+func TestPortableInstallAndUninstallPreserveHomebrewOwnership(t *testing.T) {
+	root := t.TempDir()
+	version := filepath.Join(root, "Cellar", "aigw", "0.1.0")
+	target := filepath.Join(version, "bin", "aigw")
+	source := filepath.Join(root, "download")
+	for name, data := range map[string]string{target: "managed", source: "download", filepath.Join(version, "INSTALL_RECEIPT.json"): `{"homebrew_version":"7.0.2","source":{"tap":"owner/tap"}}`} {
+		if err := os.MkdirAll(filepath.Dir(name), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(name, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, operation := range map[string]func() error{
+		"install":   func() error { return Install(source, target) },
+		"uninstall": func() error { return Uninstall(target) },
+		"command": func() error {
+			command := NewUninstallCommand(invocation.Context{Executable: target, Config: configuration.NewStore("invalid\x00config")})
+			command.SetArgs(nil)
+			return command.Execute()
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := operation()
+			if err == nil || !strings.Contains(err.Error(), "Homebrew") {
+				t.Fatalf("ownership error = %v", err)
+			}
+			data, err := os.ReadFile(target)
+			if err != nil || string(data) != "managed" {
+				t.Fatalf("managed program changed: %q, %v", data, err)
+			}
+		})
 	}
 }

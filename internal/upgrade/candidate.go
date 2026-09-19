@@ -13,6 +13,9 @@ import (
 // UpdateCandidate installs an explicitly supplied local archive. It never
 // consults a release source or HTTP client.
 func (u Updater) UpdateCandidate(ctx context.Context, currentVersion string, candidate CandidateArchive) (string, error) {
+	if err := RequirePortableOwnership(u.Executable); err != nil {
+		return "", err
+	}
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
