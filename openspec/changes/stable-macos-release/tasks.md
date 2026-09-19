@@ -4,7 +4,7 @@
 - [x] 1.2 Verify the Developer ID identity and certificate chain; record discoverable metadata without exporting its private key.
 - [x] 1.3 Validate the official OpenSpec change and reconcile the full existing delivery requirement without losing its scenarios.
 - [ ] 1.4 Qualify exact native signing and verification on an isolated artifact without modifying the installed program or credential ACLs.
-- [ ] 1.5 Establish and validate native notarization authentication; retain no secret in source or logs.
+- [x] 1.5 Establish and validate native notarization authentication; retain no secret in source or logs.
 
 ## 2. Release construction and admission
 
