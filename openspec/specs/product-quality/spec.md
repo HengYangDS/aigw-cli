@@ -275,12 +275,12 @@ consuming a replacement helper SHALL NOT establish existing-caller continuity.
 Complete rollback SHALL restore compatible program, configuration and credential
 ownership without requiring a credential fallback or new host helper.
 
-Internal macOS release binaries SHALL have a verified ad-hoc Mach-O signature
-and Hardened Runtime before archiving, without requiring Apple Developer
-membership, publisher credentials or a generated test identity. Signing and
-archive timestamps SHALL use the release epoch. Public notarized macOS
-distribution is outside the current delivery scope; local signing SHALL NOT be
-represented as publisher authentication or Gatekeeper approval.
+Credential-free construction SHALL retain verified ad-hoc Mach-O signatures
+and Hardened Runtime with release-epoch timestamps for native qualification.
+Public macOS distribution SHALL additionally verify Developer ID signing and
+accepted Apple notarization before final checksums and publication. Trusted
+signing timestamps and notarization SHALL be distinguished from reproducible
+construction; neither SHALL change the credential reader or its authorization.
 Detached SSH manifest signatures, checksums, provenance and complete native
 acceptance SHALL remain required. Selected peers SHALL receive the same immutable
 artifact bytes. Native acceptance SHALL select only its host operating system;
@@ -291,9 +291,8 @@ macOS retained-Keychain qualification SHALL preserve the published go-keyring
 `/usr/bin/security` provider across predecessor, candidate and rollback. It SHALL
 execute each retained original client credential command before synchronization,
 return the same Token and preserve configuration bytes without ACL mutation,
-backend migration or a replacement helper. Artifact signing remains an independent integrity requirement; public
-notarization is outside scope. Neither SHALL be a prerequisite
-for routine credential access.
+backend migration or a replacement helper. Artifact signing and public notarization remain independent distribution
+requirements. Neither SHALL be a prerequisite for routine credential access.
 
 Ordinary source tests SHALL use provider doubles and SHALL NOT touch the host
 credential store. Every real Keychain journey SHALL require explicit disposable-
