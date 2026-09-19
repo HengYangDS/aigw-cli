@@ -466,6 +466,24 @@ func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.
 	}
 }
 
+func TestDefaultRegistryIgnoresOnlyAnUnselectedRoute(t *testing.T) {
+	for _, clientID := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+		t.Run(clientID+" without a route", func(t *testing.T) {
+			if _, err := DefaultRegistry().Converge(Dependencies{}, configuration.NewConfig(), discovery.Result{}, clientID); err != nil {
+				t.Fatalf("Converge(%q) without a route = %v", clientID, err)
+			}
+		})
+
+		t.Run(clientID+" with a broken route", func(t *testing.T) {
+			cfg := configuration.NewConfig()
+			cfg.Routes[clientID] = "missing-profile"
+			if _, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown profile "missing-profile"`) {
+				t.Fatalf("Converge(%q) broken route error = %v", clientID, err)
+			}
+		})
+	}
+}
+
 func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 	dir := t.TempDir()
 	codexTarget := filepath.Join(dir, ".codex", "config.toml")

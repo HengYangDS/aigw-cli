@@ -539,7 +539,7 @@ func (c Config) ResolveRuntime(client, explicitProfile string) (Runtime, error) 
 	if name == "" {
 		name = c.Routes[client]
 		if name == "" {
-			return Runtime{}, fmt.Errorf("no route selected for client %q", client)
+			return Runtime{}, &RuntimeRouteUnselectedError{Client: client}
 		}
 	}
 	profile, ok := c.Profiles[name]

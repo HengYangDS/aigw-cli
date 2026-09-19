@@ -2,6 +2,16 @@ package configuration
 
 import "fmt"
 
+// RuntimeRouteUnselectedError reports that a client has no selected Profile.
+type RuntimeRouteUnselectedError struct {
+	Client string
+}
+
+// Error formats the missing client-scoped Route without implying invalid configuration.
+func (e *RuntimeRouteUnselectedError) Error() string {
+	return fmt.Sprintf("no route selected for client %q", e.Client)
+}
+
 // UnsupportedConfigVersionError reports a configuration schema newer or older than the one accepted by this build.
 type UnsupportedConfigVersionError struct {
 	Version         int

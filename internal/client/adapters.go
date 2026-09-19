@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -63,7 +64,11 @@ func (codexAdapter) Discover(source DiscoverySource) discovery.Result {
 func (codexAdapter) Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
 	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
-		return nil
+		var unselected *configuration.RuntimeRouteUnselectedError
+		if errors.As(err, &unselected) {
+			return nil
+		}
+		return err
 	}
 	adapter := cfg.Adapters[configuration.ClientCodex]
 	if !adapter.Enabled && adapter.CredentialCommand != "" {
@@ -193,7 +198,11 @@ func (claudeAdapter) Discover(source DiscoverySource) discovery.Result {
 func (claudeAdapter) Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
 	runtime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
-		return nil
+		var unselected *configuration.RuntimeRouteUnselectedError
+		if errors.As(err, &unselected) {
+			return nil
+		}
+		return err
 	}
 	adapter := cfg.Adapters[configuration.ClientClaude]
 	if !adapter.Enabled && adapter.CredentialCommand != "" {

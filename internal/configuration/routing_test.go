@@ -23,6 +23,14 @@ func TestRuntimeResolutionPreservesConfiguration(t *testing.T) {
 	}
 }
 
+func TestResolveRuntimeClassifiesAnUnselectedRoute(t *testing.T) {
+	_, err := NewConfig().ResolveRuntime(ClientClaude, "")
+	var routeErr *RuntimeRouteUnselectedError
+	if !errors.As(err, &routeErr) || routeErr.Client != ClientClaude {
+		t.Fatalf("unselected route error = %#v, %v", routeErr, err)
+	}
+}
+
 func BenchmarkResolveRuntime(b *testing.B) {
 	cfg := validConfig()
 	b.ReportAllocs()
