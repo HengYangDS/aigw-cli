@@ -21,25 +21,27 @@ import (
 
 // GitHubConfig contains the exact release identity, repository, credential, and artifact directory for GitHub publication.
 type GitHubConfig struct {
-	APIBase    string
-	Repository string
-	Tag        string
-	Token      string
-	Artifacts  string
-	Trust      artifact.SignatureTrust
-	Source     artifact.SourceTrust
+	APIBase            string
+	Repository         string
+	Tag                string
+	Token              string
+	Artifacts          string
+	Trust              artifact.SignatureTrust
+	Source             artifact.SourceTrust
+	VerifyDistribution func(context.Context, string, string) error
 }
 
 // GitLabConfig contains the exact release identity, project, credential, and artifact directory for GitLab publication.
 type GitLabConfig struct {
-	APIBase     string
-	ProjectID   string
-	Tag         string
-	JobToken    string
-	AccessToken string
-	Artifacts   string
-	Trust       artifact.SignatureTrust
-	Source      artifact.SourceTrust
+	APIBase            string
+	ProjectID          string
+	Tag                string
+	JobToken           string
+	AccessToken        string
+	Artifacts          string
+	Trust              artifact.SignatureTrust
+	Source             artifact.SourceTrust
+	VerifyDistribution func(context.Context, string, string) error
 }
 
 type githubRelease struct {
@@ -62,6 +64,9 @@ func PublishGitHub(ctx context.Context, client *http.Client, config GitHubConfig
 		return false, err
 	}
 	if err := artifact.VerifyProvenance(ctx, config.Artifacts, config.Tag, config.Source); err != nil {
+		return false, err
+	}
+	if err := verifyDistribution(ctx, identity, config.Artifacts, config.VerifyDistribution); err != nil {
 		return false, err
 	}
 	base := strings.TrimSuffix(config.APIBase, "/")
@@ -122,6 +127,9 @@ func PublishGitLab(ctx context.Context, client *http.Client, config GitLabConfig
 	if err := artifact.VerifyProvenance(ctx, config.Artifacts, config.Tag, config.Source); err != nil {
 		return false, err
 	}
+	if err := verifyDistribution(ctx, identity, config.Artifacts, config.VerifyDistribution); err != nil {
+		return false, err
+	}
 	base := strings.TrimSuffix(config.APIBase, "/") + "/projects/" + url.PathEscape(config.ProjectID)
 	releaseURL := base + "/releases/" + config.Tag
 	release, status, err := gitLabRequest(ctx, client, http.MethodGet, releaseURL, header, token, nil)
@@ -170,6 +178,9 @@ func UploadGitLab(ctx context.Context, client *http.Client, config GitLabConfig)
 		return err
 	}
 	if err := artifact.VerifyProvenance(ctx, config.Artifacts, config.Tag, config.Source); err != nil {
+		return err
+	}
+	if err := verifyDistribution(ctx, identity, config.Artifacts, config.VerifyDistribution); err != nil {
 		return err
 	}
 	base := strings.TrimSuffix(config.APIBase, "/") + "/projects/" + url.PathEscape(config.ProjectID) + "/packages/generic/aigw/" + url.PathEscape(version)
@@ -426,4 +437,14 @@ func lastPath(raw string) string {
 	}
 	parts := strings.Split(strings.TrimSuffix(parsed.Path, "/"), "/")
 	return parts[len(parts)-1]
+}
+
+func verifyDistribution(ctx context.Context, version *semver.Version, directory string, verify func(context.Context, string, string) error) error {
+	if version.Prerelease() != "" {
+		return nil
+	}
+	if verify == nil {
+		return errors.New("stable publication requires distribution verification")
+	}
+	return verify(ctx, directory, version.String())
 }

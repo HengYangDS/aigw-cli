@@ -83,3 +83,20 @@ func TestNativeFixturePreservesReleaseEnvironment(t *testing.T) {
 		t.Fatal("fixture construction changed the surrounding release context")
 	}
 }
+
+func TestStablePublicationCommandsRequireExplicitMacOSIdentity(t *testing.T) {
+	t.Setenv("AIGW_MACOS_SIGNING_IDENTITY", "")
+	artifacts := prepareSignedRelease(t, "0.1.0")
+	for name, value := range map[string]string{
+		"GITHUB_REPOSITORY": "acme/aigw", "CI_COMMIT_TAG": "v0.1.0", "GH_TOKEN": "synthetic",
+		"CI_API_V4_URL": "https://example.test", "CI_PROJECT_ID": "7", "CI_JOB_TOKEN": "", "GITLAB_TOKEN": "synthetic",
+	} {
+		t.Setenv(name, value)
+	}
+	for _, command := range []string{"publish-github", "publish-gitlab", "upload-gitlab"} {
+		var output bytes.Buffer
+		if err := run([]string{command, artifacts}, &output); err == nil || !strings.Contains(err.Error(), "explicit signing identity") {
+			t.Fatalf("%s bypassed native distribution admission: %v", command, err)
+		}
+	}
+}

@@ -421,9 +421,11 @@ mise exec --locked -- go run ./tools/release verify-macos-distribution \
 
 The verifier checks archive checksums, the exact Developer ID certificate, and
 Gatekeeper execution assessment within a bounded deadline. Signature validation
-alone is not notarization acceptance. This explicit command does not yet enforce
-admission in every publication entrypoint; complete that integration before
-claiming automatic stable-release protection.
+alone is not notarization acceptance. All three publication entrypoints require
+this verification for stable tags before contacting a Forge. Initial stable
+publication therefore runs on the authorized macOS host, with an explicit
+signing identity. RC publication remains portable; downloading and validating
+published artifacts never requires macOS or the publisher's private key.
 
 Detached SSH signatures authenticate the archive manifest independently of the
 local Mach-O signature. Checksums, provenance, SBOMs and immutable peer parity

@@ -247,7 +247,7 @@ func TestRunReleasePolicyCommands(t *testing.T) {
 }
 
 func TestRunPublicationCommands(t *testing.T) {
-	const version = "0.1.0"
+	const version = "0.1.0-rc.1"
 	artifacts := prepareSignedRelease(t, version)
 	github := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.Method != http.MethodGet {

@@ -134,8 +134,9 @@ func publicationCommands(ctx context.Context) commandSet {
 			created, err := publication.PublishGitHub(ctx, http.DefaultClient, publication.GitHubConfig{
 				APIBase: envDefault("GITHUB_API_URL", "https://api.github.com"), Repository: os.Getenv("GITHUB_REPOSITORY"),
 				Tag: os.Getenv("CI_COMMIT_TAG"), Token: firstNonEmpty(os.Getenv("GH_TOKEN"), os.Getenv("GITHUB_TOKEN")), Artifacts: args[0],
-				Trust:  trust,
-				Source: source,
+				Trust:              trust,
+				Source:             source,
+				VerifyDistribution: verifyMacOSPublication,
 			})
 			if err != nil {
 				return err
@@ -152,8 +153,9 @@ func publicationCommands(ctx context.Context) commandSet {
 			return publication.UploadGitLab(ctx, http.DefaultClient, publication.GitLabConfig{
 				APIBase: os.Getenv("CI_API_V4_URL"), ProjectID: os.Getenv("CI_PROJECT_ID"), Tag: os.Getenv("CI_COMMIT_TAG"),
 				JobToken: os.Getenv("CI_JOB_TOKEN"), AccessToken: os.Getenv("GITLAB_TOKEN"), Artifacts: args[0],
-				Trust:  trust,
-				Source: source,
+				Trust:              trust,
+				Source:             source,
+				VerifyDistribution: verifyMacOSPublication,
 			})
 		},
 		"publish-gitlab": func(args []string, stdout io.Writer) error {
@@ -163,8 +165,9 @@ func publicationCommands(ctx context.Context) commandSet {
 			created, err := publication.PublishGitLab(ctx, http.DefaultClient, publication.GitLabConfig{
 				APIBase: os.Getenv("CI_API_V4_URL"), ProjectID: os.Getenv("CI_PROJECT_ID"), Tag: os.Getenv("CI_COMMIT_TAG"),
 				JobToken: os.Getenv("CI_JOB_TOKEN"), AccessToken: os.Getenv("GITLAB_TOKEN"), Artifacts: args[0],
-				Trust:  trust,
-				Source: source,
+				Trust:              trust,
+				Source:             source,
+				VerifyDistribution: verifyMacOSPublication,
 			})
 			if err != nil {
 				return err
@@ -191,4 +194,8 @@ func verifyArtifacts(ctx context.Context, directory string) error {
 	}
 	source := artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
 	return artifact.VerifyProvenance(ctx, directory, os.Getenv("CI_COMMIT_TAG"), source)
+}
+
+func verifyMacOSPublication(ctx context.Context, directory, version string) error {
+	return construction.VerifyMacOSDistribution(ctx, directory, version, os.Getenv("AIGW_MACOS_SIGNING_IDENTITY"))
 }

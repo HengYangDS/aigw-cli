@@ -226,7 +226,7 @@ func TestArtifactUploadsDoNotFollowRedirects(t *testing.T) {
 			} else {
 				err = UploadGitLab(t.Context(), origin.Client(), GitLabConfig{
 					APIBase: origin.URL, ProjectID: "7", Tag: "v0.1.0", JobToken: "synthetic-token", Artifacts: artifacts,
-					Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts),
+					Trust: fixtureTrust(artifacts), Source: fixtureSource(artifacts), VerifyDistribution: fixtureDistribution,
 				})
 			}
 			if err == nil || !strings.Contains(err.Error(), "HTTP 307") || calls.Load() != 0 {
@@ -366,3 +366,55 @@ func TestAuthorityRejectsInvalidInputs(t *testing.T) {
 		t.Fatal("invalid right authority accepted")
 	}
 }
+
+func TestStablePublicationRequiresDistributionAdmissionBeforeNetwork(t *testing.T) {
+	for _, scenario := range []struct {
+		version, mode   string
+		calls, requests int
+		want            string
+	}{
+		{"1.2.3", "absent", 0, 0, "distribution"},
+		{"1.2.3", "rejected", 3, 0, "distribution"},
+		{"1.2.3", "accepted", 3, 3, "network reached"},
+		{"1.2.3-rc.1", "absent", 0, 3, "network reached"},
+		{"1.2.3-rc.1", "rejected", 0, 3, "network reached"},
+	} {
+		version, mode := scenario.version, scenario.mode
+		directory := releaseFixture(t, version)
+		t.Run(version+"/"+mode, func(t *testing.T) {
+			calls, requests := 0, 0
+			var verify func(context.Context, string, string) error
+			if mode != "absent" {
+				verify = func(_ context.Context, actualDirectory, actualVersion string) error {
+					calls++
+					if actualDirectory != directory || actualVersion != version {
+						t.Fatal("distribution verification lost artifact identity")
+					}
+					if mode == "rejected" {
+						return errors.New("distribution rejected")
+					}
+					return nil
+				}
+			}
+			client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+				requests++
+				return nil, errors.New("network reached")
+			})}
+			github := GitHubConfig{APIBase: "https://example.test", Repository: "acme/aigw", Tag: "v" + version, Token: "token", Artifacts: directory, Trust: fixtureTrust(directory), Source: fixtureSource(directory), VerifyDistribution: verify}
+			gitlab := GitLabConfig{APIBase: "https://example.test", ProjectID: "7", Tag: "v" + version, JobToken: "token", Artifacts: directory, Trust: fixtureTrust(directory), Source: fixtureSource(directory), VerifyDistribution: verify}
+			_, githubErr := PublishGitHub(t.Context(), client, github)
+			_, gitlabErr := PublishGitLab(t.Context(), client, gitlab)
+			uploadErr := UploadGitLab(t.Context(), client, gitlab)
+			for _, err := range []error{githubErr, gitlabErr, uploadErr} {
+				if err == nil || !strings.Contains(err.Error(), scenario.want) {
+					t.Fatalf("admission error: %v", err)
+				}
+			}
+			if calls != scenario.calls || requests != scenario.requests {
+				t.Fatalf("verifier=%d network=%d, want %d/%d", calls, requests, scenario.calls, scenario.requests)
+			}
+		})
+	}
+}
+
+func fixtureDistribution(context.Context, string, string) error { return nil }
