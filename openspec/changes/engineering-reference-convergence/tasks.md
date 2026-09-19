@@ -18,8 +18,8 @@
 
 ## 3. Converge credential ownership and portability
 
-- [ ] 3.1 Verify automatic backend selection and explicit keyring, file, and environment modes on macOS, Linux, and Windows; confirm environment credentials work without a native credential service and remain read-only.
-- [ ] 3.2 Verify native Keychain, Secret Service, and Credential Manager availability checks are non-interactive, bounded, and precise; confirm denied access never causes repeated prompts or fallback weakening.
+- [x] 3.1 Verify automatic backend selection and explicit keyring, file, and environment modes on macOS, Linux, and Windows; confirm environment credentials work without a native credential service and remain read-only.
+- [x] 3.2 Verify native Keychain, Secret Service, and Credential Manager availability checks are non-interactive, bounded, and precise; confirm denied access never causes repeated prompts or fallback weakening.
 - [ ] 3.3 Exercise create, read, rotate, rename, migrate, remove, rollback, and retained-command credential journeys through released executables; verify exact item ownership and postimage-guarded compensation.
 - [ ] 3.4 Remove duplicate credential readers, helper identities, stale slots, and unsupported backend compatibility; verify every remaining credential command derives from the active installed AIGW owner.
 - [ ] 3.5 Review secret-bearing paths, logs, diagnostics, fixtures, release evidence, and repository history; verify no Token, private key, recoverable fragment, or secret hash enters tracked or emitted evidence.
