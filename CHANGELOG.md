@@ -8,6 +8,31 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-19
+
+### Added
+
+- Prepare macOS distribution with Developer ID signing, resumable native
+  notarization, and publication checks bound to Apple's accepted upload and
+  both final executable architectures.
+- Generate a Homebrew Cask from the release archive inventory without changing
+  the signed executable or configuring clients during installation.
+
+### Changed
+
+- Separate strict semantic version parsing from product and distribution
+  acceptance. Version syntax alone never admits publication.
+- Delegate Homebrew-owned program updates and removal to Homebrew; retain
+  explicit client withdrawal, user configuration, and credentials.
+
+### Distribution status
+
+- This initial 0.x line does not promise 1.x API compatibility. A changelog
+  entry is not publication evidence; verify the signed tag and release assets.
+- Windows archives do not carry Authenticode signatures. Portable macOS
+  executables cannot carry stapled notarization tickets and require online
+  ticket discovery on a fresh machine.
+
 ## [0.1.0-rc.118] - 2026-09-19
 
 ### Changed
