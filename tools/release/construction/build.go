@@ -6,7 +6,6 @@ import (
 	"aigw-cli/internal/upgrade"
 	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/hex"
@@ -439,26 +438,12 @@ func buildCI(root, workspace, output string, build releaseBuilder, epoch release
 }
 
 func resolveReleaseEpoch(ctx context.Context, root, version string) (string, error) {
-	file, err := os.Open(filepath.Join(root, "CHANGELOG.md"))
+	epoch, found, err := readiness.LookupReleaseEpoch(filepath.Join(root, "CHANGELOG.md"), version)
 	if err != nil {
-		return "", fmt.Errorf("open CHANGELOG.md: %w", err)
-	}
-	defer func() { _ = file.Close() }()
-	pattern := regexp.MustCompile(`^## \[([^]]+)] - (\d{4}-\d{2}-\d{2})$`)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		match := pattern.FindStringSubmatch(scanner.Text())
-		if len(match) < 3 || match[1] != version {
-			continue
-		}
-		date, parseErr := time.Parse("2006-01-02", match[2])
-		if parseErr != nil {
-			return "", parseErr
-		}
-		return fmt.Sprint(date.Unix()), nil
-	}
-	if err := scanner.Err(); err != nil {
 		return "", err
+	}
+	if found {
+		return epoch, nil
 	}
 	if os.Getenv("CI_COMMIT_TAG") != "" || os.Getenv("GITHUB_REF_TYPE") == "tag" {
 		return "", fmt.Errorf("release heading not found: %s", version)
@@ -467,9 +452,9 @@ func resolveReleaseEpoch(ctx context.Context, root, version string) (string, err
 	if err := executeTool(ctx)(toolCall{Name: "git", Directory: root, Args: []string{"show", "-s", "--format=%ct", "HEAD"}, Stdout: &output}); err != nil {
 		return "", fmt.Errorf("resolve candidate source epoch: %w", err)
 	}
-	epoch := strings.TrimSpace(output.String())
-	if _, err := readiness.ParseEpoch(epoch); err != nil {
+	candidateEpoch := strings.TrimSpace(output.String())
+	if _, err := readiness.ParseEpoch(candidateEpoch); err != nil {
 		return "", fmt.Errorf("candidate source epoch: %w", err)
 	}
-	return epoch, nil
+	return candidateEpoch, nil
 }

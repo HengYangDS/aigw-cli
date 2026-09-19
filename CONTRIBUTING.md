@@ -835,7 +835,7 @@ separate acceptance obligations; a successful one cannot replace another.
 Use focused Conventional Commits. Keep the [release chronology](CHANGELOG.md) with `## [Unreleased]` as
 its first release section, containing only changes after the latest tagged
 release. Every published heading must map to an existing `v<semver>` tag and
-its tag date; run `mise exec --locked -- go run ./tools/repository --root . changelog`
+its tag date; run `mise exec --locked -- go run ./tools/release validate-changelog`
 before requesting review.
 GitLab **Project Name** is `AIGW CLI`; stable clone **Path** is `aigw-cli`. Do
 not change external paths as a display-name cleanup.

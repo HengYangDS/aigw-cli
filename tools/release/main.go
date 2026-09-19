@@ -41,7 +41,7 @@ func run(args []string, stdout io.Writer) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if len(args) == 0 {
-		return errors.New("usage: release <build|build-ci|accept-native|validate-release-sources|validate-toolchain|validate-version|validate-version-tag|validate-artifacts|verify-artifacts|verify-macos-distribution|compare-artifacts|upload-gitlab|publish-github|publish-gitlab>")
+		return errors.New("usage: release <build|build-ci|accept-native|validate-changelog|validate-release-sources|validate-toolchain|validate-version|validate-version-tag|validate-artifacts|verify-artifacts|verify-macos-distribution|compare-artifacts|upload-gitlab|publish-github|publish-gitlab>")
 	}
 	for _, commands := range []commandSet{buildCommands(ctx), policyCommands(), artifactCommands(ctx), publicationCommands(ctx)} {
 		if command, ok := commands[args[0]]; ok {

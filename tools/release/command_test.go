@@ -246,6 +246,23 @@ func TestRunReleasePolicyCommands(t *testing.T) {
 	}
 }
 
+func TestRunChangelogPolicyCommands(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("## [Unreleased]\n\n## [1.2.3] - 2026-08-07\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(root)
+	var output bytes.Buffer
+	if err := run([]string{"validate-changelog"}, &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"validate-changelog", "extra"}} {
+		if err := run(args, &output); err == nil {
+			t.Fatalf("invalid invocation accepted: %v", args)
+		}
+	}
+}
+
 func TestRunPublicationCommands(t *testing.T) {
 	const version = "0.1.0-rc.1"
 	artifacts := prepareSignedRelease(t, version)
@@ -438,7 +455,7 @@ func prepareSignedRelease(t *testing.T, version string) string {
 	source := t.TempDir()
 	for name, content := range map[string]string{
 		"VERSION": version + "\n", "go.mod": "module example.invalid/aigw\n", "go.sum": "sum\n",
-		"CHANGELOG.md":      "# Changelog\n\n## [" + version + "] - 2026-01-01\n",
+		"CHANGELOG.md":      "# Changelog\n\n## [Unreleased]\n\n## [" + version + "] - 2026-01-01\n",
 		"package-lock.json": "{}\n", "mise.lock": "lockfile_version = 1\n", "mise.toml": "[tools]\ngo = \"1.27.1\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(source, name), []byte(content), 0o600); err != nil {

@@ -1,4 +1,4 @@
-package main
+package readiness
 
 import (
 	"bufio"
@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,38 +16,30 @@ import (
 
 var releaseHeading = regexp.MustCompile(`^## \[([^]]+)] - (\d{4}-\d{2}-\d{2})$`)
 
-type releaseEntry struct {
+type changelogEntry struct {
 	version *semver.Version
 	date    time.Time
 }
 
-func checkChangelog(root string, args []string) error {
-	if len(args) > 2 {
-		return fmt.Errorf("usage: repository changelog [path] [tag]")
+// SelectedReleaseTag resolves the current Forge release tag without treating a
+// branch name as a tag.
+func SelectedReleaseTag() string {
+	if tag := os.Getenv("AIGW_CHANGELOG_RELEASE_TAG"); tag != "" {
+		return tag
 	}
-	path := filepath.Join(root, "CHANGELOG.md")
-	if len(args) >= 1 && args[0] != "" {
-		path = args[0]
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(root, path)
-		}
+	if os.Getenv("GITHUB_REF_TYPE") == "tag" {
+		return os.Getenv("GITHUB_REF_NAME")
 	}
+	return os.Getenv("CI_COMMIT_TAG")
+}
+
+// ValidateChangelog verifies release chronology and, when selectedTag is set,
+// binds the first published release to the exact tag and current Git object.
+func ValidateChangelog(root, path, selectedTag string) error {
+	path = resolveChangelogPath(root, path)
 	entries, err := parseChangelog(path)
 	if err != nil {
 		return err
-	}
-	selectedTag := ""
-	if len(args) == 2 {
-		selectedTag = args[1]
-	}
-	if selectedTag == "" {
-		selectedTag = os.Getenv("AIGW_CHANGELOG_RELEASE_TAG")
-	}
-	if selectedTag == "" && os.Getenv("GITHUB_REF_TYPE") == "tag" {
-		selectedTag = os.Getenv("GITHUB_REF_NAME")
-	}
-	if selectedTag == "" {
-		selectedTag = os.Getenv("CI_COMMIT_TAG")
 	}
 	if selectedTag == "" {
 		return nil
@@ -69,38 +62,38 @@ func checkChangelog(root string, args []string) error {
 	return nil
 }
 
-func printReleaseEpoch(root string, args []string) error {
-	if len(args) < 1 || len(args) > 2 {
-		return fmt.Errorf("usage: repository release-epoch <version> [changelog]")
-	}
-	path := filepath.Join(root, "CHANGELOG.md")
-	if len(args) == 2 {
-		path = args[1]
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(root, path)
-		}
-	}
+// LookupReleaseEpoch returns the exact release heading's UTC Unix timestamp.
+func LookupReleaseEpoch(path, version string) (string, bool, error) {
 	entries, err := parseChangelog(path)
 	if err != nil {
-		return err
+		return "", false, err
 	}
 	for _, entry := range entries {
-		if entry.version.Original() == args[0] {
-			_, err := fmt.Fprintln(os.Stdout, entry.date.Unix())
-			return err
+		if entry.version.Original() == version {
+			return strconv.FormatInt(entry.date.Unix(), 10), true, nil
 		}
 	}
-	return fmt.Errorf("release heading not found: %s", args[0])
+	return "", false, nil
 }
 
-func parseChangelog(path string) ([]releaseEntry, error) {
+func resolveChangelogPath(root, path string) string {
+	if path == "" {
+		path = "CHANGELOG.md"
+	}
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(root, path)
+}
+
+func parseChangelog(path string) ([]changelogEntry, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("CHANGELOG.md: missing file")
+		return nil, fmt.Errorf("open CHANGELOG.md: %w", err)
 	}
 	defer func() { _ = file.Close() }()
 	firstHeading := ""
-	entries := []releaseEntry{}
+	entries := []changelogEntry{}
 	scanner := bufio.NewScanner(file)
 	lineNumber := 0
 	for scanner.Scan() {
@@ -127,7 +120,7 @@ func parseChangelog(path string) ([]releaseEntry, error) {
 		if len(entries) > 0 && !entries[len(entries)-1].version.GreaterThan(version) {
 			return nil, fmt.Errorf("CHANGELOG.md: published releases must appear once in strict descending semantic-version order")
 		}
-		entries = append(entries, releaseEntry{version: version, date: date})
+		entries = append(entries, changelogEntry{version: version, date: date})
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err

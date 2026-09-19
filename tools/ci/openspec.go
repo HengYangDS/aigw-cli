@@ -45,8 +45,11 @@ func runOpenSpecValidation(stdout io.Writer, runner outputRunner) error {
 	}
 	output, err := runner(command{
 		Name: "node",
-		Args: []string{"--run", "spec:check"},
-		Dir:  root,
+		Args: []string{
+			filepath.Join(root, "node_modules", "@fission-ai", "openspec", "bin", "openspec.js"),
+			"validate", "--all", "--strict", "--report", "findings", "--json", "--no-interactive",
+		},
+		Dir: root,
 	})
 	if err != nil {
 		return fmt.Errorf("OpenSpec validation failed: %w: %s", err, strings.TrimSpace(string(output)))

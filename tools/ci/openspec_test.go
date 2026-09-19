@@ -121,20 +121,11 @@ func TestOpenSpecValidationRequiresCompleteCleanEvidence(t *testing.T) {
 
 func TestRunDispatchesOpenSpecValidation(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "checkout with spaces")
-	if err := os.MkdirAll(root, 0o755); err != nil {
+	checker := filepath.Join(root, "node_modules", "@fission-ai", "openspec", "bin", "openspec.js")
+	if err := os.MkdirAll(filepath.Dir(checker), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Chdir(root)
-	manifest := map[string]map[string]string{
-		"scripts": {"spec:check": "node validator.mjs"},
-	}
-	body, err := json.Marshal(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile("package.json", body, 0o600); err != nil {
-		t.Fatal(err)
-	}
 	script := `console.log(JSON.stringify({
   report: {kind: "validation-findings", version: "1.0", scope: "all", returnedItems: 0, totalItems: 10},
   itemFindings: [],
@@ -143,7 +134,7 @@ func TestRunDispatchesOpenSpecValidation(t *testing.T) {
 }));
 process.exit(Number(process.env.AIGW_TEST_VALIDATOR_EXIT || 0));
 `
-	if err := os.WriteFile("validator.mjs", []byte(script), 0o600); err != nil {
+	if err := os.WriteFile(checker, []byte(script), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("AIGW_TEST_VALIDATOR_EXIT", "0")
@@ -169,7 +160,6 @@ process.exit(Number(process.env.AIGW_TEST_VALIDATOR_EXIT || 0));
 		t.Fatal("valid-looking output concealed validator failure")
 	}
 }
-
 func TestOpenSpecValidationMeasuresOnlyTheRequestedCheckout(t *testing.T) {
 	repository := repositoryRoot(t)
 	checker := filepath.Join(repository, "node_modules", "@fission-ai", "openspec", "bin", "openspec.js")
@@ -205,7 +195,11 @@ func TestOpenSpecValidationMeasuresOnlyTheRequestedCheckout(t *testing.T) {
 			t.Chdir(item.cwd)
 			var stdout bytes.Buffer
 			err := runOpenSpecValidation(&stdout, func(call command) ([]byte, error) {
-				if call.Name != "node" || !reflect.DeepEqual(call.Args, []string{"--run", "spec:check"}) || call.Dir != item.cwd {
+				wantArgs := []string{
+					filepath.Join(item.cwd, "node_modules", "@fission-ai", "openspec", "bin", "openspec.js"),
+					"validate", "--all", "--strict", "--report", "findings", "--json", "--no-interactive",
+				}
+				if call.Name != "node" || !reflect.DeepEqual(call.Args, wantArgs) || call.Dir != item.cwd {
 					t.Fatalf("validation command = %#v", call)
 				}
 				return systemOutputRunner(command{Name: "node", Dir: call.Dir, Args: []string{checker, "validate", "--all", "--strict", "--report", "findings", "--json", "--no-interactive"}})

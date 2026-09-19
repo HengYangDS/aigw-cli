@@ -46,7 +46,6 @@ package_children."tools" = [
   "coverage",
   "forge",
   "release",
-  "repository",
 ]
 package_children."internal/codex" = ["catalog"]
 package_children."internal/client" = ["verification"]
@@ -300,7 +299,6 @@ allowed_import_edges."internal/providers/diagnostic" = []
 allowed_import_edges."internal/presentation" = ["internal/configuration"]
 allowed_import_edges."internal/process" = []
 allowed_import_edges."internal/console" = []
-allowed_import_edges."tools/repository" = []
 allowed_import_edges."tools/ci" = [
   "tools/ci/markdown",
   "tools/ci/projection",

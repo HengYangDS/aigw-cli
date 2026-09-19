@@ -363,6 +363,21 @@ remains the sole quality command plane and invokes npm's native signature audit
 directly. This deletes four unconsumed entry points and one unnecessary
 Node-to-npm forwarding hop without changing the quality graph.
 
+Task 5.4 closes the repository-tool topology. `mise.toml` and its locks own
+bootstrap; `.config/checks` contains concern-specific policy only; `tools/ci`
+owns the executable quality graph and deterministic CUE projection;
+`tools/forge` owns Git-object trust and peer publication; and `tools/release`
+owns release readiness, construction, native acceptance, artifact validation,
+and release publication. The former generic `tools/repository` command had only
+Changelog chronology and release-epoch consumers, duplicating parsing already
+inside release construction. Those contracts and their adversarial tests now
+live once under `tools/release/readiness`; CI calls the release owner directly,
+and the obsolete command, package, documentation path, and architecture entry
+are deleted. The surviving tool packages and configuration files all have
+current code, task, CI, documentation, or release consumers; projection drift,
+tool bootstrap, Changelog/tag binding, strict semantic-version ordering, and
+release construction tests pass after the consolidation.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:

@@ -60,6 +60,16 @@ func buildCommands(ctx context.Context) commandSet {
 
 func policyCommands() commandSet {
 	return commandSet{
+		"validate-changelog": func(args []string, _ io.Writer) error {
+			if err := requireArguments(args, 0, "usage: release validate-changelog"); err != nil {
+				return err
+			}
+			root, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			return readiness.ValidateChangelog(root, "CHANGELOG.md", readiness.SelectedReleaseTag())
+		},
 		"validate-release-sources": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 0, "usage: release validate-release-sources"); err != nil {
 				return err

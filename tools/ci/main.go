@@ -35,6 +35,7 @@ var qualityCommands = []command{
 	{Name: "go", Args: []string{"run", "./tools/ci", "check-secrets", "."}},
 	{Name: "go", Args: []string{"run", "./tools/release", "validate-toolchain", "go.mod"}},
 	{Name: "go", Args: []string{"run", "./tools/release", "validate-release-sources"}},
+	{Name: "go", Args: []string{"run", "./tools/release", "validate-changelog"}},
 	{Name: "go", Args: []string{"run", "./tools/architecture", "--root", "."}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "check-source-size", "."}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}},

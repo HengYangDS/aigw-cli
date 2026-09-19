@@ -318,8 +318,8 @@ have different output ownership and memory limits.
 ## Repository tooling
 
 Repository-only executables follow the same ontology: [CI](../../tools/ci/),
-[coverage](../../tools/coverage/), [Forge operations](../../tools/forge/), [releases](../../tools/release/), and [repository checks](../../tools/repository/) own
-cross-cutting repository concerns, while client-specific verification is nested
+[coverage](../../tools/coverage/), [Forge operations](../../tools/forge/), and
+[releases](../../tools/release/) own cross-cutting repository concerns, while client-specific verification is nested
 under its client owner. [Codex catalogue verification](../../tools/codex/catalog/) owns catalogue acceptance,
 measurements and reporting. It consumes the same [catalogue projection](../../internal/codex/catalog/)
 document transformation as product projection, not a second parser or alias
@@ -337,10 +337,9 @@ Package-local test file readers do not expose a shared test-support API.
 
 CI projection consumes branch roles from [workspace roles](../../.ethos/workspace.toml) through CUE's
 native TOML input. It does not copy role values or interpret ETHOS internals.
-The generic accepted-tree/OpenSpec check still in [repository checks](../../tools/repository/) is an
-unresolved governance overlap, not an AIGW product responsibility. Replace it
-only when an equivalent detached-checkout admission is demonstrably available;
-deleting the only current check would weaken publication safety.
+Release readiness also owns Changelog chronology, exact tag-to-HEAD binding,
+and release-epoch lookup. CI invokes that owner directly; no generic repository
+command layer or duplicated Changelog parser remains.
 
 [Forge commands](../../tools/forge/main.go), [Git-object verification](../../tools/forge/provenance.go),
 and [peer publication](../../tools/forge/project.go) have distinct owners.
