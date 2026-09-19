@@ -14,7 +14,7 @@
 - [x] 2.3 Verify deferred client installation and later synchronization for Claude Code and Codex without re-importing team configuration or changing unrelated client state.
 - [x] 2.4 Reconcile `use`, client-scoped selection, default selection, `use --all`, `status`, `check`, `doctor`, `test`, and `verify`; verify defaults have one human-readable meaning and explicit client selections require no hidden global step.
 - [x] 2.5 Verify setup, synchronization, selection, and repair are transactional under cancellation, output failure, concurrent external edits, and compensation failure.
-- [ ] 2.6 Remove obsolete setup aliases, duplicate state transitions, and unconsumed configuration fields; verify supported manifests receive explicit migration errors rather than silent reinterpretation.
+- [x] 2.6 Remove obsolete setup aliases, duplicate state transitions, and unconsumed configuration fields; verify supported manifests receive explicit migration errors rather than silent reinterpretation.
 
 ## 3. Converge credential ownership and portability
 

@@ -187,7 +187,9 @@ account = "team"
 client = "claude"
 model = "claude-team"
 `)
-	if _, err := Parse(oldSchema); err == nil || !strings.Contains(err.Error(), "unsupported configuration manifest version 1") {
+	if _, err := Parse(oldSchema); err == nil ||
+		!strings.Contains(err.Error(), "unsupported configuration manifest version 1") ||
+		!strings.Contains(err.Error(), "does not reinterpret schema versions") {
 		t.Fatalf("version 1 parse error = %v", err)
 	}
 	current := []byte(strings.Replace(string(oldSchema), "version = 1", "version = 4", 1))

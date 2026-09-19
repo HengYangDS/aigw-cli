@@ -64,7 +64,12 @@ func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
 		t.Fatal("status unexpectedly succeeded")
 	}
 	text := out.String()
-	for _, want := range []string{"unsupported configuration version: found 0, expected 3", "Recommended action", "aigw check"} {
+	for _, want := range []string{
+		"unsupported configuration version: found 0, expected 3",
+		"AIGW does not reinterpret configuration schemas",
+		"Recommended action",
+		"aigw doctor",
+	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("localized configuration error lacks %q:\n%s", want, text)
 		}

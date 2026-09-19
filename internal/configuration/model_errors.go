@@ -10,7 +10,11 @@ type UnsupportedConfigVersionError struct {
 
 // Error formats the unsupported-version failure without exposing configuration contents.
 func (e *UnsupportedConfigVersionError) Error() string {
-	return fmt.Sprintf("unsupported config version %d; expected %d", e.Version, e.ExpectedVersion)
+	return fmt.Sprintf(
+		"unsupported config version %d; expected %d; AIGW does not reinterpret configuration schemas; restore a configuration supported by this program or use the matching AIGW release",
+		e.Version,
+		e.ExpectedVersion,
+	)
 }
 
 // RuntimeProfileClientMismatchError reports a profile selected for a different client.

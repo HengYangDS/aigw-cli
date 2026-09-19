@@ -59,7 +59,7 @@ func Parse(data []byte) (Manifest, error) {
 		return Manifest{}, fmt.Errorf("validate configuration manifest shape: %w", err)
 	}
 	if result.Version != currentVersion {
-		return Manifest{}, fmt.Errorf("unsupported configuration manifest version %d; expected %d", result.Version, currentVersion)
+		return Manifest{}, unsupportedManifestVersionError(result.Version)
 	}
 	if result.Accounts == nil {
 		result.Accounts = map[string]Account{}
@@ -121,7 +121,7 @@ func Merge(cfg Config, incoming Manifest) (Config, error) {
 // MergeWithOptions combines a manifest under explicit conflict-replacement policy.
 func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Config, error) {
 	if incoming.Version != currentVersion {
-		return Config{}, fmt.Errorf("unsupported configuration manifest version %d; expected %d", incoming.Version, currentVersion)
+		return Config{}, unsupportedManifestVersionError(incoming.Version)
 	}
 	merged := cfg.Clone()
 	if err := validateReplacementSelectors(incoming, options); err != nil {
@@ -154,6 +154,14 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 		return Config{}, fmt.Errorf("merge configuration manifest: %w", err)
 	}
 	return merged, nil
+}
+
+func unsupportedManifestVersionError(version int) error {
+	return fmt.Errorf(
+		"unsupported configuration manifest version %d; expected %d; AIGW does not reinterpret schema versions; export the manifest with the matching AIGW release, then review and import that canonical output",
+		version,
+		currentVersion,
+	)
 }
 
 func validateReplacementSelectors(incoming Manifest, options MergeOptions) error {

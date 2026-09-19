@@ -168,6 +168,16 @@ synchronization, and secret backends pass at the current Work Lane base. These
 observations establish the existing behavior for tasks 2.1 through 2.5. They do
 not yet prove released-artifact execution on every host, which remains task 9.3.
 
+The configuration-lifecycle audit found one public setup command, one shared
+setup transaction, and no command alias or parallel persisted selection model.
+The removed `recommended_default` manifest field and the preceding local
+default-plus-overrides schema are rejected by strict decoding or exact version
+admission; runtime code retains neither migration reader. Unsupported local and
+manifest schema errors now state that AIGW does not reinterpret versions and
+direct the operator to a matching release or an explicitly reviewed canonical
+export instead of suggesting a generic readiness retry. Focused configuration,
+presentation, onboarding, synchronization, and CLI acceptance suites pass.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:

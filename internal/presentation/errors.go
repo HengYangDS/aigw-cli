@@ -90,7 +90,11 @@ func typedErrorMessage(err error) (string, bool) {
 		}
 	}
 	if version, ok := errors.AsType[*configuration.UnsupportedConfigVersionError](err); ok {
-		return fmt.Sprintf("unsupported configuration version: found %d, expected %d", version.Version, version.ExpectedVersion), true
+		return fmt.Sprintf(
+			"unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas",
+			version.Version,
+			version.ExpectedVersion,
+		), true
 	}
 	if _, ok := errors.AsType[*configuration.LoadError](err); ok {
 		return "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it", true
@@ -140,6 +144,8 @@ func suggestedFix(message string) string {
 	switch {
 	case strings.Contains(message, "unknown command"), strings.Contains(message, "unknown option"), strings.Contains(message, "unknown flag"):
 		return "aigw --help"
+	case strings.Contains(message, "unsupported configuration version"):
+		return "aigw doctor"
 	default:
 		return "aigw check"
 	}
