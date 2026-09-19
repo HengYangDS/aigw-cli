@@ -73,7 +73,7 @@ allowed_import_edges."cmd/aigw" = [
   "internal/cli",
   "internal/presentation",
   "internal/secrets",
-  "internal/secrets/keychain",
+  "internal/secrets/native",
 ]
 allowed_import_edges."internal/transaction" = []
 allowed_import_edges."internal/credential" = ["internal/configuration", "internal/secrets"]
@@ -112,9 +112,9 @@ allowed_import_edges."internal/synchronization" = [
 ]
 allowed_import_edges."internal/secrets" = [
   "internal/configuration",
-  "internal/secrets/keychain",
+  "internal/secrets/native",
 ]
-allowed_import_edges."internal/secrets/keychain" = ["internal/process"]
+allowed_import_edges."internal/secrets/native" = ["internal/process"]
 allowed_import_edges."internal/claude" = [
   "internal/configuration",
   "internal/process",
@@ -189,7 +189,6 @@ allowed_import_edges."internal/cli/credential" = [
   "internal/cli/invocation",
   "internal/configuration",
   "internal/presentation",
-  "internal/secrets/keychain",
 ]
 allowed_import_edges."internal/cli/install" = [
   "internal/cli/invocation",

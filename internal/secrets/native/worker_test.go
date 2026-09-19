@@ -1,4 +1,4 @@
-package keychain
+package native
 
 import (
 	"bytes"
@@ -35,7 +35,7 @@ func TestReadPreservesNativeResultAndClassifiesFailure(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			reader := fixtureReader{code: test.code}
-			value, err := execute(context.Background(), reader, process.Plan{Executable: "/owned/aigw", Args: []string{workerCommand, "AIGW_TOKEN", "team"}})
+			value, err := execute(context.Background(), reader, process.Plan{Executable: "/owned/aigw", Args: []string{readCommand, "AIGW_TOKEN", "team"}})
 			if !errors.Is(err, test.want) || test.code == 0 && value != "exact-token" {
 				t.Fatalf("read result = %q, %v", value, err)
 			}
@@ -47,7 +47,7 @@ func TestReadPreservesNativeResultAndClassifiesFailure(t *testing.T) {
 }
 
 func TestInvokeRequiresTheOwningProductExecutable(t *testing.T) {
-	if _, err := invoke("", workerCommand, "AIGW_TOKEN", "team", ""); !errors.Is(err, ErrUnavailable) {
+	if _, err := invoke("", readCommand, "AIGW_TOKEN", "team", ""); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("empty product executable error = %v, want ErrUnavailable", err)
 	}
 }
@@ -58,7 +58,7 @@ func (r fixtureReader) RunCapture(ctx context.Context, plan process.Plan) ([]byt
 	if _, ok := ctx.Deadline(); !ok {
 		return nil, errors.New("credential read lacks a deadline")
 	}
-	if plan.Executable != "/owned/aigw" || strings.Join(plan.Args, " ") != workerCommand+" AIGW_TOKEN team" || plan.Stdin != "" {
+	if plan.Executable != "/owned/aigw" || strings.Join(plan.Args, " ") != readCommand+" AIGW_TOKEN team" || plan.Stdin != "" {
 		return nil, errors.New("credential worker target drift")
 	}
 	if r.code == 0 {
@@ -86,7 +86,7 @@ func TestReadTerminatesAndReapsUnresponsiveWorker(t *testing.T) {
 	defer cancel()
 	command := process.Plan{Executable: os.Args[0], Args: []string{"-test.run=^TestCredentialWaitFixture$"}, Env: append(os.Environ(), "AIGW_TEST_CREDENTIAL_WAIT=1")}
 	started := time.Now()
-	value, err := execute(ctx, waitReader{plan: command}, process.Plan{Executable: os.Args[0], Args: []string{workerCommand, "AIGW_TOKEN", "team"}})
+	value, err := execute(ctx, waitReader{plan: command}, process.Plan{Executable: os.Args[0], Args: []string{readCommand, "AIGW_TOKEN", "team"}})
 	if value != "" || !errors.Is(err, context.DeadlineExceeded) || time.Since(started) > 3*time.Second {
 		t.Fatalf("unbounded credential read: %q, %v", value, err)
 	}
@@ -106,14 +106,14 @@ func TestCredentialWaitFixture(t *testing.T) {
 
 func TestWorkerRestrictsIdentityAndKeepsFailuresOffStandardOutput(t *testing.T) {
 	for _, args := range [][]string{
-		{workerCommand},
-		{workerCommand, "foreign-service", "team"},
-		{workerCommand, "AIGW_TOKEN", ""},
-		{workerCommand, "AIGW_TOKEN", "team", "extra"},
+		{readCommand},
+		{readCommand, "foreign-service", "team"},
+		{readCommand, "AIGW_TOKEN", ""},
+		{readCommand, "AIGW_TOKEN", "team", "extra"},
 	} {
 		var out bytes.Buffer
 		handled, code := dispatch(args, strings.NewReader(""), &out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) {
-			t.Fatal("invalid worker input reached Keychain")
+			t.Fatal("invalid worker input reached the native credential service")
 			return nil, nil
 		})
 		if !handled || code == 0 || out.Len() != 0 {
@@ -135,7 +135,7 @@ func TestWorkerResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var out bytes.Buffer
 			value := []byte("synthetic-token")
-			handled, code := dispatch([]string{workerCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), &out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return value, test.err })
+			handled, code := dispatch([]string{readCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), &out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return value, test.err })
 			if !handled || code != test.code || test.err != nil && out.Len() != 0 || test.err == nil && out.String() != "synthetic-token" {
 				t.Fatalf("worker output: handled=%v code=%d", handled, code)
 			}
@@ -150,10 +150,40 @@ func TestWorkerResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 		t.Fatal("ordinary command intercepted")
 	}
 	for _, out := range []io.Writer{shortWriter{}, failedWriter{}} {
-		_, code := dispatch([]string{workerCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return []byte("value"), nil })
+		_, code := dispatch([]string{readCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), out, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return []byte("value"), nil })
 		if code != failureExit {
 			t.Fatal("failed stdout write returned success")
 		}
+	}
+}
+
+func TestWorkerReturnsOnlyCredentialPresenceMetadata(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		value  []byte
+		output string
+	}{
+		{name: "present", value: []byte("1"), output: "1"},
+		{name: "absent", value: []byte("0"), output: "0"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var out bytes.Buffer
+			handled, code := dispatch(
+				[]string{existsCommand, "AIGW_TOKEN", "team"},
+				strings.NewReader(""),
+				&out,
+				"AIGW_TOKEN",
+				func(operation, service, account string, data []byte) ([]byte, error) {
+					if operation != existsCommand || service != "AIGW_TOKEN" || account != "team" || len(data) != 0 {
+						t.Fatal("credential metadata request changed")
+					}
+					return append([]byte(nil), test.value...), nil
+				},
+			)
+			if !handled || code != 0 || out.String() != test.output {
+				t.Fatalf("metadata result: handled=%v code=%d output=%q", handled, code, &out)
+			}
+		})
 	}
 }
 
@@ -195,7 +225,7 @@ func TestWorkerMutationAdmitsBoundedStdinAndErasesBuffers(t *testing.T) {
 		}
 	}
 	_, code := dispatch([]string{writeCommand, "AIGW_TOKEN", "team"}, failedReader{}, io.Discard, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) {
-		t.Fatal("failed input reached Keychain")
+		t.Fatal("failed input reached the native credential service")
 		return nil, nil
 	})
 	if code != failureExit {
@@ -232,7 +262,7 @@ func (r mutationRunner) RunCapture(ctx context.Context, plan process.Plan) ([]by
 }
 
 func TestReadFailsClosedWhenWorkerCannotStart(t *testing.T) {
-	value, err := execute(t.Context(), process.Runner{}, process.Plan{Executable: filepath.Join(t.TempDir(), "absent"), Args: []string{workerCommand, "AIGW_TOKEN", "team"}})
+	value, err := execute(t.Context(), process.Runner{}, process.Plan{Executable: filepath.Join(t.TempDir(), "absent"), Args: []string{readCommand, "AIGW_TOKEN", "team"}})
 	if value != "" || !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("startup failure: %v", err)
 	}

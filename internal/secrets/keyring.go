@@ -4,10 +4,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"runtime"
 	"strings"
 
-	"aigw-cli/internal/secrets/keychain"
+	"aigw-cli/internal/secrets/native"
 
 	keyring "github.com/zalando/go-keyring"
 )
@@ -39,24 +38,24 @@ type keyringStore struct {
 }
 
 func newKeyringStore(executable string) keyringStore {
-	store := keyringStore{
-		observe: observeKeyringItem,
-		read:    keyring.Get,
-		write:   keyring.Set,
-		remove:  keyring.Delete,
+	return keyringStore{
+		observe: func(service, account string) (bool, error) {
+			return native.Exists(executable, service, account)
+		},
+		read: func(service, account string) (string, error) {
+			return native.Read(executable, service, account)
+		},
+		write: func(service, account, value string) error {
+			return native.Write(executable, service, account, value)
+		},
+		remove: func(service, account string) error { return native.Delete(executable, service, account) },
 	}
-	if runtime.GOOS == "darwin" {
-		store.read = func(service, account string) (string, error) { return keychain.Read(executable, service, account) }
-		store.write = func(service, account, value string) error { return keychain.Write(executable, service, account, value) }
-		store.remove = func(service, account string) error { return keychain.Delete(executable, service, account) }
-	}
-	return store
 }
 
 func (store keyringStore) get(kind Kind, account string) (string, error) {
 	slot := slotName(kind, account)
 	value, err := store.read(Service, slot)
-	if errors.Is(err, keyring.ErrNotFound) || errors.Is(err, keychain.ErrNotFound) {
+	if errors.Is(err, keyring.ErrNotFound) || errors.Is(err, native.ErrNotFound) {
 		return "", ErrNotFound
 	}
 	if err != nil {
@@ -79,7 +78,7 @@ func (store keyringStore) set(kind Kind, account, value string) error {
 func (store keyringStore) delete(kind Kind, account string) error {
 	slot := slotName(kind, account)
 	err := store.remove(Service, slot)
-	if errors.Is(err, keyring.ErrNotFound) || errors.Is(err, keychain.ErrNotFound) {
+	if errors.Is(err, keyring.ErrNotFound) || errors.Is(err, native.ErrNotFound) {
 		return nil
 	}
 	if err != nil {

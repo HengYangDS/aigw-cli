@@ -1,5 +1,5 @@
-// Package keychain confines native credential operations to a bounded worker.
-package keychain
+// Package native confines operating-system credential operations to a bounded worker.
+package native
 
 import (
 	"context"
@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	workerCommand = "__aigw-keychain-read"
-	writeCommand  = "__aigw-keychain-write"
-	deleteCommand = "__aigw-keychain-delete"
+	readCommand   = "__aigw-native-credential-read"
+	writeCommand  = "__aigw-native-credential-write"
+	deleteCommand = "__aigw-native-credential-delete"
+	existsCommand = "__aigw-native-credential-exists"
 	missingExit   = 2
 	failureExit   = 3
 	// The shared runner separately bounds pipe teardown and captures at most 64 KiB.
@@ -26,15 +27,15 @@ const (
 
 var (
 	// ErrNotFound means the exact credential item does not exist.
-	ErrNotFound = errors.New("Keychain item not found")
+	ErrNotFound = errors.New("native credential item not found")
 	// ErrUnavailable means a native operation failed without returning credential data.
-	ErrUnavailable = errors.New("native Keychain operation unavailable")
+	ErrUnavailable = errors.New("native credential operation unavailable")
 )
 
 // Read returns one exact native item through the bounded provider worker.
 // Native authorization UI remains controlled by the operating system.
 func Read(executable, service, account string) (string, error) {
-	return invoke(executable, workerCommand, service, account, "")
+	return invoke(executable, readCommand, service, account, "")
 }
 
 // Write creates or updates one exact item through the bounded worker.
@@ -49,6 +50,22 @@ func Delete(executable, service, account string) error {
 	return err
 }
 
+// Exists observes one exact native item without returning its value.
+func Exists(executable, service, account string) (bool, error) {
+	output, err := invoke(executable, existsCommand, service, account, "")
+	if err != nil {
+		return false, err
+	}
+	switch output {
+	case "1":
+		return true, nil
+	case "0":
+		return false, nil
+	default:
+		return false, ErrUnavailable
+	}
+}
+
 func invoke(executable, operation, service, account, input string) (string, error) {
 	if strings.TrimSpace(executable) == "" {
 		return "", ErrUnavailable
@@ -56,8 +73,18 @@ func invoke(executable, operation, service, account, input string) (string, erro
 	// The native worker does not consume profiles, Tokens, PATH or loader overrides.
 	return execute(context.Background(), process.Runner{}, process.Plan{
 		Executable: executable, Args: []string{operation, service, account}, Stdin: input,
-		Env: []string{"HOME=" + os.Getenv("HOME")},
+		Env: nativeEnvironment(os.Getenv),
 	})
+}
+
+func retainedEnvironment(getenv func(string) string, names ...string) []string {
+	environment := make([]string, 0, len(names))
+	for _, name := range names {
+		if value := getenv(name); value != "" {
+			environment = append(environment, name+"="+value)
+		}
+	}
+	return environment
 }
 
 func execute(parent context.Context, runner process.CaptureRunner, plan process.Plan) (string, error) {
@@ -84,7 +111,7 @@ func execute(parent context.Context, runner process.CaptureRunner, plan process.
 
 // RunWorker handles private native operations before CLI initialization.
 func RunWorker(args []string, input io.Reader, out io.Writer, service string) (bool, int) {
-	return dispatch(args, input, out, service, queryKeyring)
+	return dispatch(args, input, out, service, queryCredential)
 }
 
 func dispatch(args []string, input io.Reader, out io.Writer, service string, query func(string, string, string, []byte) ([]byte, error)) (bool, int) {
@@ -92,7 +119,7 @@ func dispatch(args []string, input io.Reader, out io.Writer, service string, que
 		return false, 0
 	}
 	switch args[0] {
-	case workerCommand, writeCommand, deleteCommand:
+	case readCommand, writeCommand, deleteCommand, existsCommand:
 	default:
 		return false, 0
 	}
@@ -116,7 +143,7 @@ func dispatch(args []string, input io.Reader, out io.Writer, service string, que
 	case err != nil:
 		return true, failureExit
 	}
-	if args[0] == workerCommand {
+	if args[0] == readCommand || args[0] == existsCommand {
 		if n, err := out.Write(value); err != nil || n != len(value) {
 			return true, failureExit
 		}

@@ -204,7 +204,7 @@ func (j *journeyFixture) preparePerformanceCredentials(backend, account string) 
 		return
 	}
 	j.enableSystemCredentialStore()
-	store, err := secrets.Select(secrets.Selection{Backend: "keyring"})
+	store, err := secrets.Select(secrets.Selection{Backend: "keyring", Executable: j.binary})
 	if err != nil {
 		j.testing.Fatal(err)
 	}

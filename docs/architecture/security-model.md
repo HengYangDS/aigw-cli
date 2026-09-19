@@ -26,18 +26,14 @@ mechanism, set `AIGW_SECRET_BACKEND` to
 `keyring`, `file`, or `env` before running AIGW:
 
 - **`keyring`** uses macOS Keychain, Linux Secret Service or Windows Credential
-  Manager. Reads and writes require that native service's access permission.
-  Explicit selection fails closed if the service is unavailable; AIGW does not
-  silently switch stores. Metadata observation does not authorize secret reads.
-  On macOS, value reads and mutations run through a private AIGW worker whose
-  provider is go-keyring's `/usr/bin/security` backend. The parent allows five
-  seconds per operation and bounds pipe teardown separately. Writes carry only
-  the logical Token through standard input; go-keyring applies its storage
-  encoding exactly once. Metadata observation invokes `security` without asking
-  for password bytes. Failures return no Token, do not retry through another
-  backend and do not modify access control. The timeout bounds AIGW's process;
-  it is not a claim that macOS can never display an authorization prompt. Linux
-  and Windows retain their native go-keyring providers.
+  Manager. Every value or metadata operation runs through the installed AIGW
+  executable as a private worker with a five-second deadline and bounded process
+  cleanup. The worker receives only the platform identity environment it needs;
+  writes carry the logical Token only through standard input. Metadata queries
+  never request credential bytes. Explicit selection fails closed if the native
+  service is unavailable; AIGW neither retries through another backend nor
+  changes access policy. The deadline bounds AIGW's process, not operating-system
+  authorization UI controlled by the selected native service.
 
 - **`file`** uses an owner-only directory and regular file per Account on macOS
   and Linux. Windows encrypts each Token with current-user DPAPI before writing

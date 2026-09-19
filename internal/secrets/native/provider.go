@@ -1,6 +1,4 @@
-//go:build darwin
-
-package keychain
+package native
 
 import (
 	"errors"
@@ -8,9 +6,9 @@ import (
 	keyring "github.com/zalando/go-keyring"
 )
 
-func queryKeyring(operation, service, account string, input []byte) ([]byte, error) {
+func queryCredential(operation, service, account string, input []byte) ([]byte, error) {
 	switch operation {
-	case workerCommand:
+	case readCommand:
 		value, err := keyring.Get(service, account)
 		if errors.Is(err, keyring.ErrNotFound) {
 			return nil, ErrNotFound
@@ -24,6 +22,15 @@ func queryKeyring(operation, service, account string, input []byte) ([]byte, err
 			return nil, nil
 		}
 		return nil, err
+	case existsCommand:
+		present, err := observeCredential(service, account)
+		if err != nil {
+			return nil, err
+		}
+		if present {
+			return []byte("1"), nil
+		}
+		return []byte("0"), nil
 	default:
 		return nil, ErrUnavailable
 	}

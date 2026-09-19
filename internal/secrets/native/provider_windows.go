@@ -1,6 +1,6 @@
 //go:build windows
 
-package secrets
+package native
 
 import (
 	"fmt"
@@ -32,8 +32,8 @@ var (
 	credentialFree      = advapi32.NewProc("CredFree")
 )
 
-func observeKeyringItem(service, slot string) (bool, error) {
-	target := service + ":" + slot
+func observeCredential(service, account string) (bool, error) {
+	target := service + ":" + account
 	filter, err := windows.UTF16PtrFromString(target)
 	if err != nil {
 		return false, fmt.Errorf("encode Windows credential target: %w", err)
@@ -55,10 +55,9 @@ func observeKeyringItem(service, slot string) (bool, error) {
 		}
 		return false, fmt.Errorf("enumerate Windows credential metadata: %w", callErr)
 	}
-	// CredFree returns VOID; LazyProc's return values do not represent errors.
 	defer func() { _, _, _ = credentialFree.Call(uintptr(credentialsPointer)) }()
 
-	// #nosec G103 -- Count and array come from the same Win32 allocation; inspect names only before CredFree.
+	// #nosec G103 -- Count and array share the Win32 allocation and remain live until CredFree.
 	credentials := unsafe.Slice((**windowsCredential)(credentialsPointer), count)
 	for _, credential := range credentials {
 		if credential != nil && windows.UTF16PtrToString(credential.TargetName) == target {
@@ -66,4 +65,8 @@ func observeKeyringItem(service, slot string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func nativeEnvironment(getenv func(string) string) []string {
+	return retainedEnvironment(getenv, "USERPROFILE", "APPDATA", "LOCALAPPDATA", "SystemRoot", "HOMEDRIVE", "HOMEPATH")
 }
