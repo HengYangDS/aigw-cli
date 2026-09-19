@@ -214,7 +214,7 @@ func TestRunArtifactCommands(t *testing.T) {
 	if err := run([]string{"compare-artifacts", left, right, version}, &output); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"validate-artifacts"}, {"compare-artifacts"}} {
+	for _, args := range [][]string{{"validate-artifacts"}, {"compare-artifacts"}, {"verify-macos-distribution"}, {"verify-macos-distribution", "artifacts", "1.2.3"}} {
 		if err := run(args, &output); err == nil {
 			t.Fatalf("invalid invocation accepted: %v", args)
 		}

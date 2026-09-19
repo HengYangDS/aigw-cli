@@ -93,6 +93,12 @@ func policyCommands() commandSet {
 
 func artifactCommands(ctx context.Context) commandSet {
 	return commandSet{
+		"verify-macos-distribution": func(args []string, _ io.Writer) error {
+			if err := requireArguments(args, 3, "usage: release verify-macos-distribution <artifact-directory> <version> <certificate-fingerprint>"); err != nil {
+				return err
+			}
+			return construction.VerifyMacOSDistribution(ctx, args[0], args[1], args[2])
+		},
 		"validate-artifacts": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 2, "usage: release validate-artifacts <directory> <version>"); err != nil {
 				return err

@@ -507,3 +507,12 @@ func TestValidateSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
 		t.Fatalf("nested GitHub build repository error = %v", err)
 	}
 }
+
+func TestMacOSDistributionRequiresExplicitIdentity(t *testing.T) {
+	if err := VerifyMacOSDistribution(t.Context(), t.TempDir(), "1.2.3", ""); err == nil {
+		t.Fatal("distribution accepted without explicit publisher")
+	}
+	if err := VerifyMacOSDistribution(t.Context(), t.TempDir(), "invalid", strings.Repeat("a", 40)); err == nil {
+		t.Fatal("invalid version accepted")
+	}
+}

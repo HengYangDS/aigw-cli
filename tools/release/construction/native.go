@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )
@@ -136,7 +137,25 @@ func prepareNativeBinary(stage, version string) error {
 	return os.WriteFile(filepath.Join(directory, name), program, 0o700)
 }
 
-func verifySignedArchives(request buildRequest, stage string, run toolRunner) (result error) {
+// VerifyMacOSDistribution checks the selected publisher and Gatekeeper admission for both macOS archives.
+func VerifyMacOSDistribution(ctx context.Context, directory, version, identity string) error {
+	if identity == "" {
+		return errors.New("macOS distribution verification requires an explicit signing identity")
+	}
+	request := buildRequest{Version: version, Epoch: "0", MacOSSigningIdentity: identity}
+	if err := validateRequest(request); err != nil {
+		return err
+	}
+	bounded, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	return verifyMacOSArchives(request, directory, executeTool(bounded), true)
+}
+
+func verifySignedArchives(request buildRequest, stage string, run toolRunner) error {
+	return verifyMacOSArchives(request, stage, run, false)
+}
+
+func verifyMacOSArchives(request buildRequest, stage string, run toolRunner, distribution bool) (result error) {
 	if request.MacOSSigningIdentity == "" {
 		return nil
 	}
@@ -158,6 +177,11 @@ func verifySignedArchives(request buildRequest, stage string, run toolRunner) (r
 		requirement := `-R=anchor apple generic and certificate leaf = H"` + request.MacOSSigningIdentity + `"`
 		if err := run(toolCall{Name: "/usr/bin/codesign", Directory: request.Root, Args: []string{"--verify", "--strict", requirement, path}}); err != nil {
 			return fmt.Errorf("verify signed macOS %s archive: %w", arch, err)
+		}
+		if distribution {
+			if err := run(toolCall{Name: "/usr/sbin/spctl", Directory: request.Root, Args: []string{"--assess", "--type", "execute", "--verbose=4", path}}); err != nil {
+				return fmt.Errorf("macOS %s distribution is not approved by Gatekeeper: %w", arch, err)
+			}
 		}
 	}
 	return nil

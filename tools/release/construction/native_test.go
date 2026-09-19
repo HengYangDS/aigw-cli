@@ -485,3 +485,30 @@ func writeMacOSArchiveFixtures(t *testing.T, stage string, includeChecksums bool
 		}
 	}
 }
+
+func TestMacOSDistributionRequiresGatekeeperAfterSignature(t *testing.T) {
+	for _, rejected := range []string{"", "/usr/bin/codesign", "/usr/sbin/spctl"} {
+		t.Run(rejected, func(t *testing.T) {
+			stage := t.TempDir()
+			writeMacOSArchiveFixtures(t, stage, true)
+			var commands []string
+			sentinel := errors.New("distribution denied")
+			err := verifyMacOSArchives(buildRequest{Version: "1.2.3", MacOSSigningIdentity: strings.Repeat("a", 40)}, stage, func(call toolCall) error {
+				commands = append(commands, call.Name)
+				if call.Name == "/usr/sbin/spctl" && !slices.Equal(call.Args[:4], []string{"--assess", "--type", "execute", "--verbose=4"}) {
+					t.Fatalf("wrong assessment: %v", call.Args)
+				}
+				if call.Name == rejected {
+					return sentinel
+				}
+				return nil
+			}, true)
+			if rejected != "" && !errors.Is(err, sentinel) {
+				t.Fatalf("lost failure: %v", err)
+			}
+			if rejected == "" && (err != nil || !slices.Equal(commands, []string{"/usr/bin/codesign", "/usr/sbin/spctl", "/usr/bin/codesign", "/usr/sbin/spctl"})) {
+				t.Fatalf("distribution sequence: %v, %v", commands, err)
+			}
+		})
+	}
+}

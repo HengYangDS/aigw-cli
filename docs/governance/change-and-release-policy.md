@@ -412,6 +412,19 @@ those same bytes to all selected peers. Public notarization is a separate requir
 acceptance: a successful build or signature does not establish Apple approval.
 No system trust or quarantine policy is changed to simulate that approval.
 
+After Apple accepts the submission, verify both archived macOS executables:
+
+```bash
+mise exec --locked -- go run ./tools/release verify-macos-distribution \
+  "$ARTIFACT_DIRECTORY" "$VERSION" "$AIGW_MACOS_SIGNING_IDENTITY"
+```
+
+The verifier checks archive checksums, the exact Developer ID certificate, and
+Gatekeeper execution assessment within a bounded deadline. Signature validation
+alone is not notarization acceptance. This explicit command does not yet enforce
+admission in every publication entrypoint; complete that integration before
+claiming automatic stable-release protection.
+
 Detached SSH signatures authenticate the archive manifest independently of the
 local Mach-O signature. Checksums, provenance, SBOMs and immutable peer parity
 remain required. Native acceptance builds its current operating system; full
