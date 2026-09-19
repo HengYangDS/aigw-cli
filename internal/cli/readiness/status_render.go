@@ -69,7 +69,7 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 func renderTransportStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {
 	shown := false
 	for _, client := range clientIDs {
-		if result.Routes[client].Transport != "external_loopback" {
+		if result.Routes[client].Transport != endpointTransportExternalLoopback {
 			continue
 		}
 		if !shown {

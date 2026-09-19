@@ -141,13 +141,20 @@ type routeListOutput struct {
 	Routes []routeListItem `json:"routes"`
 }
 
+type routeSelectionState string
+
+const (
+	routeSelected   routeSelectionState = "selected"
+	routeUnselected routeSelectionState = "unselected"
+)
+
 type routeListItem struct {
-	Client     string `json:"client"`
-	State      string `json:"state"`
-	Profile    string `json:"profile,omitempty"`
-	Label      string `json:"label,omitempty"`
-	Purpose    string `json:"purpose,omitempty"`
-	NextAction string `json:"next_action,omitempty"`
+	Client     string              `json:"client"`
+	State      routeSelectionState `json:"state"`
+	Profile    string              `json:"profile,omitempty"`
+	Label      string              `json:"label,omitempty"`
+	Purpose    string              `json:"purpose,omitempty"`
+	NextAction string              `json:"next_action,omitempty"`
 }
 
 func runListWithFormat(runtime invocation.Context, jsonMode bool) error {
@@ -163,7 +170,7 @@ func runListWithFormat(runtime invocation.Context, jsonMode bool) error {
 	for _, client := range configuration.AdmittedClientIDs() {
 		clientRuntime, resolveErr := cfg.ResolveRuntime(client, "")
 		if resolveErr != nil {
-			item := routeListItem{Client: client, State: "unselected"}
+			item := routeListItem{Client: client, State: routeUnselected}
 			if suggested := cfg.FirstProfileForClient(client); suggested != "" {
 				item.NextAction = "aigw use " + suggested
 				if nextCommand == "" {
@@ -175,7 +182,7 @@ func runListWithFormat(runtime invocation.Context, jsonMode bool) error {
 		}
 		profile := cfg.Profiles[clientRuntime.ProfileID]
 		result.Routes = append(result.Routes, routeListItem{
-			Client: client, State: "selected", Profile: clientRuntime.ProfileID,
+			Client: client, State: routeSelected, Profile: clientRuntime.ProfileID,
 			Label: profile.Label, Purpose: strings.TrimSpace(profile.Purpose),
 		})
 	}
@@ -186,7 +193,7 @@ func runListWithFormat(runtime invocation.Context, jsonMode bool) error {
 	r.ProductTitle("Current routes")
 	r.Section("Clients")
 	for _, item := range result.Routes {
-		if item.State == "unselected" {
+		if item.State == routeUnselected {
 			message := "No " + invocation.Title(item.Client) + " profile selected"
 			if item.NextAction != "" {
 				message += " · " + item.NextAction

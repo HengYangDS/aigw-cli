@@ -38,10 +38,10 @@ func planAccount(cfg configuration.Config, oldID, newID string) (Plan, error) {
 	}
 
 	return Plan{
-		Resource:           "account",
+		Resource:           ResourceAccount,
 		OldID:              oldID,
 		NewID:              newID,
-		Status:             "planned",
+		Status:             StatusPlanned,
 		AffectedReferences: references,
 		Actions: Actions{
 			Configuration: "rename-and-update-profile-references",
@@ -86,10 +86,10 @@ func planProfile(cfg configuration.Config, oldID, newID string) (Plan, error) {
 	}
 
 	return Plan{
-		Resource:           "profile",
+		Resource:           ResourceProfile,
 		OldID:              oldID,
 		NewID:              newID,
-		Status:             "planned",
+		Status:             StatusPlanned,
 		AffectedReferences: references,
 		Actions: Actions{
 			Configuration: "rename-and-update-references",

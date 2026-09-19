@@ -21,7 +21,7 @@ func (s Service) RenameProfile(ctx context.Context, oldID, newID string, dryRun 
 	if err := s.Synchronizer.Commit(ctx, cfg, plan.Config, "profile rename"); err != nil {
 		return Plan{}, err
 	}
-	plan.Status, plan.Actions.Backup = "applied", "refreshed"
+	plan.Status, plan.Actions.Backup = StatusApplied, "refreshed"
 	return plan, nil
 }
 
@@ -55,7 +55,7 @@ func (s Service) RenameAccount(ctx context.Context, oldID, newID string, dryRun 
 	if err := s.Synchronizer.Commit(ctx, cfg, plan.Config, "account rename"); err != nil {
 		return Plan{}, fmt.Errorf("Account rename configuration commit failed; source and target credential slots were retained: %w", err)
 	}
-	plan.Status, plan.Actions.Backup = "applied", "refreshed"
+	plan.Status, plan.Actions.Backup = StatusApplied, "refreshed"
 	return plan, nil
 }
 
@@ -65,7 +65,7 @@ func (s Service) FinalizeAccount(ctx context.Context, oldID, newID string, dryRu
 		return Plan{}, err
 	}
 	plan, err := planFinalize(s, oldID, newID, options)
-	if err != nil || dryRun || plan.Status == "already-finalized" {
+	if err != nil || dryRun || plan.Status == StatusAlreadyFinalized {
 		return plan, err
 	}
 	if plan.blockedReason != "" {

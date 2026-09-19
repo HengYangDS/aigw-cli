@@ -50,13 +50,23 @@ type catalogModel struct {
 }
 
 type catalogAccount struct {
-	ID              string         `json:"id"`
-	Label           string         `json:"label"`
-	Source          string         `json:"source"`
-	SecretAvailable bool           `json:"secret_available"`
-	Status          string         `json:"status"`
-	Models          []catalogModel `json:"models"`
+	ID              string                         `json:"id"`
+	Label           string                         `json:"label"`
+	Source          configuration.EndpointProtocol `json:"source"`
+	SecretAvailable bool                           `json:"secret_available"`
+	Status          catalogStatus                  `json:"status"`
+	Models          []catalogModel                 `json:"models"`
 }
+
+type catalogStatus string
+
+const (
+	catalogOK                    catalogStatus = "ok"
+	catalogEndpointUnavailable   catalogStatus = "openai_responses_unavailable"
+	catalogCredentialUnavailable catalogStatus = "credential_backend_failed"
+	catalogTokenUnavailable      catalogStatus = "token_unavailable"
+	catalogRequestFailed         catalogStatus = "request_failed"
+)
 
 type catalogOutput struct {
 	Accounts []catalogAccount `json:"accounts"`
@@ -105,8 +115,8 @@ func modelRows(cfg configuration.Config, catalog catalogOutput) []modelRow {
 		profile := cfg.Profiles[name]
 		membership := "Catalog not observed"
 		if account, ok := accounts[profile.Account]; ok {
-			membership = StatusText(account.Status)
-			if account.Status == "ok" {
+			membership = catalogStatusText(account.Status)
+			if account.Status == catalogOK {
 				membership = "Not listed"
 				if slices.ContainsFunc(account.Models, func(model catalogModel) bool { return model.ID == profile.Model }) {
 					membership = "Listed"
@@ -144,8 +154,8 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 		r.ProductTitle("Authenticated model catalog")
 		for _, account := range result.Accounts {
 			r.Section(account.Label + " · " + account.ID)
-			if account.Status != "ok" {
-				r.Status(presentation.Warn, "Catalog", StatusText(account.Status))
+			if account.Status != catalogOK {
+				r.Status(presentation.Warn, "Catalog", catalogStatusText(account.Status))
 				continue
 			}
 			if len(account.Models) == 0 {
@@ -166,28 +176,28 @@ func discoverCatalog(ctx context.Context, deps Dependencies, cfg configuration.C
 	result := catalogOutput{Accounts: make([]catalogAccount, 0, len(cfg.Accounts))}
 	for _, accountName := range slices.Sorted(maps.Keys(cfg.Accounts)) {
 		account := cfg.Accounts[accountName]
-		entry := catalogAccount{ID: accountName, Label: account.Label, Source: "openai_responses", Models: []catalogModel{}}
+		entry := catalogAccount{ID: accountName, Label: account.Label, Source: configuration.ProtocolOpenAIResponses, Models: []catalogModel{}}
 		secretAvailable, observationErr := deps.Secrets.Exists(accountName)
 		entry.SecretAvailable = secretAvailable
 		switch {
 		case account.Endpoints.OpenAIResponses == "":
-			entry.Status = "openai_responses_unavailable"
+			entry.Status = catalogEndpointUnavailable
 		case observationErr != nil:
-			entry.Status = "credential_backend_failed"
+			entry.Status = catalogCredentialUnavailable
 		case !entry.SecretAvailable:
-			entry.Status = "token_unavailable"
+			entry.Status = catalogTokenUnavailable
 		default:
 			token, err := deps.Secrets.Get(accountName)
 			if err != nil {
-				entry.Status = "token_unavailable"
+				entry.Status = catalogTokenUnavailable
 				break
 			}
 			ids, err := FetchIDs(ctx, deps.HTTP, account, token)
 			if err != nil {
-				entry.Status = "request_failed"
+				entry.Status = catalogRequestFailed
 				break
 			}
-			entry.Status = "ok"
+			entry.Status = catalogOK
 			for _, id := range ids {
 				entry.Models = append(entry.Models, catalogModel{ID: id, Profiles: ConfiguredProfiles(cfg, accountName, id)})
 			}
@@ -246,19 +256,20 @@ func ConfiguredProfiles(cfg configuration.Config, accountName, model string) []s
 	return profiles
 }
 
-// StatusText maps machine catalog states to human text.
-func StatusText(status string) string {
+func catalogStatusText(status catalogStatus) string {
 	switch status {
-	case "openai_responses_unavailable":
+	case catalogOK:
+		return string(status)
+	case catalogEndpointUnavailable:
 		return "OpenAI Responses endpoint is not configured"
-	case "token_unavailable":
+	case catalogTokenUnavailable:
 		return "Token unavailable"
-	case "credential_backend_failed":
+	case catalogCredentialUnavailable:
 		return "Credential backend failed; catalog was not queried"
-	case "request_failed":
+	case catalogRequestFailed:
 		return "Catalog request failed; configuration was not changed"
 	default:
-		return status
+		return string(status)
 	}
 }
 

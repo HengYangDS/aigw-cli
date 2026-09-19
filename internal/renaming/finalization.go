@@ -44,10 +44,10 @@ func planFinalize(deps Service, oldID, newID string, options FinalizeOptions) (P
 		state.Snapshot.Backup.Mode == expectedPersistedMode() &&
 		bytes.Equal(state.Snapshot.Backup.Data, state.Snapshot.Config.Data)
 	plan := Plan{
-		Resource:           "account",
+		Resource:           ResourceAccount,
 		OldID:              oldID,
 		NewID:              newID,
-		Status:             "planned",
+		Status:             StatusPlanned,
 		AffectedReferences: references,
 		Actions: Actions{
 			Configuration: "already-renamed",
@@ -75,12 +75,12 @@ func planFinalize(deps Service, oldID, newID string, options FinalizeOptions) (P
 	}
 
 	if len(blocked) > 0 {
-		plan.Status = "blocked"
+		plan.Status = StatusBlocked
 		plan.blockedReason = strings.Join(blocked, "; ")
 	} else if plan.externalTokenCleanup {
-		plan.Status = "blocked"
+		plan.Status = StatusBlocked
 	} else if backupConverged && !sourceTokenPresent && !sourceProbePresent {
-		plan.Status = "already-finalized"
+		plan.Status = StatusAlreadyFinalized
 	}
 	return plan, nil
 }
@@ -195,7 +195,7 @@ func applyFinalize(ctx context.Context, deps Service, plan Plan) (Plan, error) {
 	if len(cleanupErrors) > 0 {
 		return Plan{}, fmt.Errorf("account finalization incomplete after backup convergence: %w", errors.Join(cleanupErrors...))
 	}
-	plan.Status = "finalized"
+	plan.Status = StatusFinalized
 	return plan, nil
 }
 

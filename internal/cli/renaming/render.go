@@ -13,14 +13,14 @@ func writeResult(runtime invocation.Context, plan renaming.Plan, jsonMode bool) 
 	}
 
 	r := invocation.Renderer(runtime)
-	isPlan := plan.Status != "applied"
+	isPlan := plan.Status != renaming.StatusApplied
 	referenceLabel := "Route references"
-	if plan.Resource == "account" {
+	if plan.Resource == renaming.ResourceAccount {
 		referenceLabel = "Profile references"
 		switch {
-		case plan.Finalize && plan.Status == "finalized":
+		case plan.Finalize && plan.Status == renaming.StatusFinalized:
 			r.ProductTitle("Account finalization complete")
-		case plan.Finalize && plan.Status == "already-finalized":
+		case plan.Finalize && plan.Status == renaming.StatusAlreadyFinalized:
 			r.ProductTitle("Account already finalized")
 		case plan.Finalize:
 			r.ProductTitle("Account finalization plan")
@@ -49,16 +49,16 @@ func writeResult(runtime invocation.Context, plan renaming.Plan, jsonMode bool) 
 		r.Row("External action", todo)
 	}
 	switch plan.Status {
-	case "blocked":
+	case renaming.StatusBlocked:
 		r.Status(presentation.Warn, "Plan", "Blocked; no changes were made")
-	case "planned":
+	case renaming.StatusPlanned:
 		r.Success("Dry run complete; no changes were made")
-	case "already-finalized":
+	case renaming.StatusAlreadyFinalized:
 		r.Success("The rollback baseline and source credential cleanup are already complete")
-	case "finalized":
+	case renaming.StatusFinalized:
 		r.Success("The rollback baseline was converged and source credential cleanup is complete")
-	case "applied":
-		if plan.Resource == "account" {
+	case renaming.StatusApplied:
+		if plan.Resource == renaming.ResourceAccount {
 			r.Success("Configuration and target credentials are ready; source credential slots were retained for rollback")
 			if len(plan.Config.EnabledClientIDs()) > 0 {
 				r.Next("aigw verify --for all")

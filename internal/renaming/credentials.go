@@ -49,7 +49,7 @@ func planCredentialCopies(deps Service, plan Plan) (Plan, error) {
 		plan.Actions.APIToken = "reuse-equal-target-and-retain-source"
 	case secrets.IsReadOnly(deps.Secrets):
 		plan.Actions.APIToken = "provide-equal-environment-variable"
-		plan.Status = "blocked"
+		plan.Status = StatusBlocked
 		sourceKey := secrets.EnvironmentKey(plan.OldID)
 		targetKey := secrets.EnvironmentKey(plan.NewID)
 		plan.blockedReason = fmt.Sprintf("set %s to the same value as %s outside AIGW", targetKey, sourceKey)

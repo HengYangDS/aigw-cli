@@ -20,9 +20,13 @@ type routeStatus struct {
 	domainreadiness.Client
 	Authentication     configuration.Authentication `json:"authentication"`
 	EndpointConfigured bool                         `json:"endpoint_configured"`
-	Transport          string                       `json:"transport,omitempty"`
+	Transport          endpointTransportKind        `json:"transport,omitempty"`
 	AdapterReady       bool                         `json:"adapter_ready"`
 }
+
+type endpointTransportKind string
+
+const endpointTransportExternalLoopback endpointTransportKind = "external_loopback"
 
 type statusOutput struct {
 	ConfigPath        string                            `json:"config_path"`
@@ -149,10 +153,10 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 	}
 }
 
-func endpointTransport(endpoint string) string {
+func endpointTransport(endpoint string) endpointTransportKind {
 	parsed, err := url.Parse(endpoint)
 	if err == nil && configuration.IsLoopbackHost(parsed.Hostname()) {
-		return "external_loopback"
+		return endpointTransportExternalLoopback
 	}
 	return ""
 }

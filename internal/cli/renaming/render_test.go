@@ -24,7 +24,7 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 		{"Profile renamed", renaming.Plan{Resource: "profile", OldID: "old", NewID: "new", Status: "applied", Profile: configuration.Profile{Account: "account"}}},
 	}
 	for _, test := range statuses {
-		t.Run(test.title+"/"+test.plan.Status, func(t *testing.T) {
+		t.Run(test.title+"/"+string(test.plan.Status), func(t *testing.T) {
 			out := &bytes.Buffer{}
 			if err := writeResult(invocation.Context{Out: out}, test.plan, false); err != nil {
 				t.Fatal(err)

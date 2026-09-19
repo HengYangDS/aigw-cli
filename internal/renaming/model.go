@@ -23,6 +23,25 @@ type Service struct {
 	Synchronizer synchronization.Synchronizer
 }
 
+// Resource identifies the configuration entity changed by a rename plan.
+type Resource string
+
+const (
+	ResourceAccount Resource = "account"
+	ResourceProfile Resource = "profile"
+)
+
+// Status identifies the lifecycle state of a rename plan.
+type Status string
+
+const (
+	StatusPlanned          Status = "planned"
+	StatusBlocked          Status = "blocked"
+	StatusApplied          Status = "applied"
+	StatusAlreadyFinalized Status = "already-finalized"
+	StatusFinalized        Status = "finalized"
+)
+
 // Actions describes every configuration, credential, and backup effect of a rename.
 type Actions struct {
 	Configuration string `json:"configuration"`
@@ -33,10 +52,10 @@ type Actions struct {
 
 // Plan is the complete reviewable rename transaction, including affected references and deferred effects.
 type Plan struct {
-	Resource           string   `json:"resource"`
+	Resource           Resource `json:"resource"`
 	OldID              string   `json:"old_id"`
 	NewID              string   `json:"new_id"`
-	Status             string   `json:"status"`
+	Status             Status   `json:"status"`
 	AffectedReferences []string `json:"affected_references"`
 	Actions            Actions  `json:"actions"`
 	ExternalTODOs      []string `json:"external_todos"`

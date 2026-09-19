@@ -264,14 +264,14 @@ func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
 	if got := ConfiguredProfiles(cfg, "one", "gpt"); len(got) != 1 || got[0] != "matching" {
 		t.Fatalf("profiles = %#v", got)
 	}
-	for status, want := range map[string]string{
-		"openai_responses_unavailable": "OpenAI Responses",
-		"token_unavailable":            "Token unavailable",
-		"request_failed":               "Catalog request failed",
-		"future":                       "future",
+	for status, want := range map[catalogStatus]string{
+		catalogEndpointUnavailable: "OpenAI Responses",
+		catalogTokenUnavailable:    "Token unavailable",
+		catalogRequestFailed:       "Catalog request failed",
+		"future":                   "future",
 	} {
-		if got := StatusText(status); !strings.Contains(got, want) {
-			t.Errorf("StatusText(%q) = %q", status, got)
+		if got := catalogStatusText(status); !strings.Contains(got, want) {
+			t.Errorf("catalogStatusText(%q) = %q", status, got)
 		}
 	}
 
