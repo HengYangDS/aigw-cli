@@ -194,6 +194,28 @@ uninstall, reinstall, and exact-delete journey. These observations establish
 tasks 3.1 and 3.2; Linux proves the unavailable Secret Service path rather than
 claiming a service that the runner does not provide.
 
+Task 3.3 is accepted at signed commit `84f1edb3`. GitHub workflow
+`35462782608` consumed published `v0.1.0-rc.118` and built the exact candidate
+source. Its disposable macOS Keychain journey exercised setup, create, read,
+rotate, staged identity migration, verified finalization, update, rollback,
+forward recovery, retained Claude and Codex credential commands, uninstall,
+reinstall, and exact deletion. Configuration bytes and the selected backend
+remained unchanged across replacement. Current-HEAD provider-double suites
+independently pass postimage-guarded replacement, backend-choice, setup, route,
+account-migration, and file-recovery failure cases without accessing operator
+credentials. Accepted `dev` run `35463197605` then passed the macOS, Linux,
+Windows, and quality jobs at the same commit. The candidate executable differs
+from the published `v0.1.0` artifact, so this is transition evidence, not a
+claim that current HEAD has already been released.
+
+Task 3.4 retains a narrower boundary than its original shorthand suggested.
+The default projected credential command is owned by the active AIGW
+executable. The supported `credential_command` field remains an explicit,
+operator-owned extension contract: AIGW preserves it but neither installs,
+discovers, owns, nor falls back to that executable. Cleanup therefore targets
+only AIGW-owned duplicate identities, automatic readers, stale owned slots, and
+unsupported compatibility paths.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:
