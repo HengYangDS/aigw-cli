@@ -216,6 +216,19 @@ discovers, owns, nor falls back to that executable. Cleanup therefore targets
 only AIGW-owned duplicate identities, automatic readers, stale owned slots, and
 unsupported compatibility paths.
 
+The task 3.4 consumer and host audit finds one native implementation dependency,
+`go-keyring`, behind the cross-platform bounded worker. The current macOS
+Keychain exposes exactly the `aihubmix`, `dmxapi`, and `ucloud` slots under
+service `AIGW_TOKEN`, matching the three configured Accounts; no test or stale
+slot remains. The rejected `aigw-keychain`, `aigw_keychain.py`, and
+`keychain-return` executables, source references, and launchd identities are
+absent. Both installed Claude and Codex projections invoke
+`/opt/homebrew/bin/aigw`, which resolves to the signed Homebrew 0.1.0 binary,
+and an installed `aigw sync --dry-run --json` reports both targets already
+converged. The independent `keychain-blob` executable remains outside AIGW: its
+credential-governance source and tests are active consumers, and neither AIGW
+configuration nor client projection selects it.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:
