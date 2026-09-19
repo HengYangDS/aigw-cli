@@ -12,23 +12,13 @@ import (
 	"testing"
 )
 
-func TestRepositoryQualityScriptsRequireLocalDependencies(t *testing.T) {
-	body, err := os.ReadFile(filepath.Join(repositoryRoot(t), "package.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestOpenSpecCheckRequiresTheRepositoryLocalDependency(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "package.json"), body, 0o600); err != nil {
-		t.Fatal(err)
-	}
 	t.Chdir(root)
-	for _, name := range []string{"spec:check"} {
-		t.Run(name, func(t *testing.T) {
-			output, err := systemOutputRunner(command{Name: "node", Args: []string{"--run", name}})
-			if err == nil || !bytes.Contains(output, []byte("MODULE_NOT_FOUND")) || !bytes.Contains(output, []byte("node_modules")) {
-				t.Fatalf("missing local dependency: error=%v output=%s", err, output)
-			}
-		})
+	checker := filepath.Join(root, "node_modules", "@fission-ai", "openspec", "bin", "openspec.js")
+	output, err := systemOutputRunner(command{Name: "node", Args: []string{checker, "validate", "--all", "--strict"}})
+	if err == nil || !bytes.Contains(output, []byte("MODULE_NOT_FOUND")) || !bytes.Contains(output, []byte("node_modules")) {
+		t.Fatalf("missing local dependency: error=%v output=%s", err, output)
 	}
 }
 

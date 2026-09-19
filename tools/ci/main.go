@@ -21,7 +21,7 @@ var qualityCommands = []command{
 	{Name: "goreleaser", Args: []string{"check", ".config/release/goreleaser.yaml"}},
 	{Name: "cue", Args: []string{"fmt", "--check", "--files", ".config/ci"}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "project", "--check"}},
-	{Name: "node", Args: []string{"--run", "dependencies:audit"}},
+	{Name: "npm", Args: []string{"audit", "signatures"}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "openspec"}},
 	{Name: "editorconfig-checker", Args: []string{"-disable-indentation", "-disable-indent-size"}},
 	{Name: "go", Args: []string{"run", "./tools/ci", "check-format", "."}},

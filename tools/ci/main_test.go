@@ -23,7 +23,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"goreleaser", "check", ".config/release/goreleaser.yaml"},
 		{"cue", "fmt", "--check", "--files", ".config/ci"},
 		{"go", "run", "./tools/ci", "project", "--check"},
-		{"node", "--run", "dependencies:audit"},
+		{"npm", "audit", "signatures"},
 		{"go", "run", "./tools/ci", "openspec"},
 		{"editorconfig-checker", "-disable-indentation", "-disable-indent-size"},
 		{"go", "run", "./tools/ci", "check-format", "."},

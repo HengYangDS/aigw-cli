@@ -1,12 +1,6 @@
 {
   "name": "aigw-repository-tools",
   "private": true,
-  "scripts": {
-    "dependencies:audit": "npm audit signatures",
-    "format:check": "go run ./tools/ci check-format .",
-    "markdown:check": "go run ./tools/ci check-markdown .",
-    "spec:check": "node node_modules/@fission-ai/openspec/bin/openspec.js validate --all --strict --report findings --json --no-interactive"
-  },
   "devDependencies": {
     "@fission-ai/openspec": "1.13.1",
     "@mermaid-lint/core": "0.53.1",
