@@ -206,7 +206,11 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 func populatePortableStage(t *testing.T, call toolCall, version, executable string) error {
 	t.Helper()
 	stage := goReleaserStage(t, call.Args)
-	if err := os.MkdirAll(stage, 0o700); err != nil {
+	casks := filepath.Join(stage, "homebrew", "Casks")
+	if err := os.MkdirAll(casks, 0o700); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(casks, "aigw.rb"), []byte("generated cask"), 0o600); err != nil {
 		return err
 	}
 	for _, name := range artifact.Archives(version) {

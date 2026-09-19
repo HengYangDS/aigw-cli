@@ -147,6 +147,9 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 	if err := artifact.ValidateMatrix(t.Context(), output, "1.2.3"); err != nil {
 		t.Fatal(err)
 	}
+	if data, err := os.ReadFile(filepath.Join(output, "homebrew", "Casks", "aigw.rb")); err != nil || string(data) != "generated cask" {
+		t.Fatalf("generated package projection was discarded: %q, %v", data, err)
+	}
 }
 
 func TestReleaseSourceMustBeClean(t *testing.T) {

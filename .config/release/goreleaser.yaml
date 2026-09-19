@@ -79,3 +79,19 @@ changelog:
 
 release:
   disable: true
+
+# Generated packaging remains local until the accepted release is published.
+homebrew_casks:
+  - name: aigw
+    repository:
+      owner: HengYangDS
+      name: homebrew-tap
+    skip_upload: true
+    homepage: https://github.com/HengYangDS/aigw-cli
+    description: Local control plane for AI provider accounts and client configuration
+    url:
+      template: "https://github.com/HengYangDS/aigw-cli/releases/download/v{{ .Version }}/{{ .ArtifactName }}"
+    caveats: |
+      Run aigw setup to configure a provider and explicitly enable clients.
+      Before uninstalling, run aigw adapter list and aigw adapter disable <client>
+      for each enabled client. Configuration and Tokens remain available.

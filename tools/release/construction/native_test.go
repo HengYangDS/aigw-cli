@@ -127,6 +127,10 @@ func TestNativeBuildNeedsNoPublisherCredentials(t *testing.T) {
 				if !slices.Contains(call.Env, "AIGW_BUILD_OS="+platform) {
 					t.Fatal("build selection was not passed to GoReleaser")
 				}
+
+				if slices.Contains(call.Args, "--skip=homebrew") != (platform == "windows") {
+					t.Fatalf("Homebrew generation does not match target %q: %v", platform, call.Args)
+				}
 				return nil
 			})
 			if err != nil || calls != 1 {

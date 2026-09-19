@@ -149,6 +149,9 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	if err := artifact.ValidateMatrix(ctx, candidate, request.Version); err != nil {
 		return err
 	}
+	if err := os.CopyFS(filepath.Join(candidate, "homebrew"), os.DirFS(filepath.Join(stage, "homebrew"))); err != nil {
+		return fmt.Errorf("retain generated Homebrew projection: %w", err)
+	}
 	return replaceDirectory(candidate, output)
 }
 
@@ -172,7 +175,11 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 		"AIGW_GITHUB_RELEASE_ORIGIN=" + request.GitHubOrigin,
 		"AIGW_GITHUB_RELEASE_REPOSITORY=" + request.GitHubRepository,
 	}
-	if err := run(toolCall{Name: "goreleaser", Directory: request.Root, Args: []string{"release", "--snapshot", "--clean", "--skip=publish", "--config", config}, Env: environment}); err != nil {
+	args := []string{"release", "--snapshot", "--clean", "--skip=publish", "--config", config}
+	if request.TargetOS == "windows" {
+		args = append(args, "--skip=homebrew")
+	}
+	if err := run(toolCall{Name: "goreleaser", Directory: request.Root, Args: args, Env: environment}); err != nil {
 		return "", fmt.Errorf("build portable release artifacts: %w", err)
 	}
 	return stage, nil

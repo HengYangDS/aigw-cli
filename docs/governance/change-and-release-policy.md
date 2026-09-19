@@ -457,6 +457,20 @@ Each selected Forge creates its own Release record and publishes the same asset
 matrix. When both are reachable, compare every filename and digest. One peer's
 assets are never an input to the other peer's build.
 
+### Homebrew packaging projection
+
+The [GoReleaser configuration](../../.config/release/goreleaser.yaml) owns Cask
+generation from the built archives. Full construction retains its output under
+`dist/homebrew/Casks/aigw.rb`, separate from the signed portable asset matrix.
+Windows-only construction skips Homebrew; Linux and macOS use the same native
+generator. Cask generation neither creates a tap nor publishes a release.
+
+The generated checksum and archive-internal executable location must match the
+accepted distribution archives before copying the projection into the tap.
+Regenerate after any signing transformation; a Cask derived from ad-hoc fixture
+bytes does not qualify notarized distribution. Publishing the tap requires
+verified release downloads and an independently tested package installation.
+
 ## Quality and Platform Evidence
 
 ### Scope and authority

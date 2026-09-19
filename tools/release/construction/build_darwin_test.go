@@ -6,7 +6,9 @@ import (
 	"aigw-cli/internal/upgrade/artifact"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -199,5 +201,38 @@ func TestReleaseOutputReportsPublicationBeforeCleanupFailure(t *testing.T) {
 	}
 	if content, err := os.ReadFile(retained[0]); err != nil || string(content) != "old release" {
 		t.Fatalf("retained predecessor = %q, %v", content, err)
+	}
+}
+
+func TestHomebrewProjectionUsesExactArchiveBytes(t *testing.T) {
+	request := privateInternalRelease(t)
+	request.TargetOS = "darwin"
+	stage, err := buildArchives(request, t.TempDir(), executeTool(t.Context()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cask, err := os.ReadFile(filepath.Join(stage, "homebrew", "Casks", "aigw.rb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, arch := range []string{"amd64", "arm64"} {
+		name := (artifact.Target{OS: "darwin", Arch: arch}).ArchiveName(request.Version)
+		archive, err := os.ReadFile(filepath.Join(stage, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		digest := fmt.Sprintf("%x", sha256.Sum256(archive))
+		if !strings.Contains(string(cask), digest) {
+			t.Fatalf("archive checksum missing for %s", name)
+		}
+		source := strings.TrimSuffix(name, ".tar.gz") + "/aigw"
+		if !strings.Contains(string(cask), fmt.Sprintf("rename %q, %q", source, "aigw")) {
+			t.Fatalf("wrapped program location missing for %s", name)
+		}
+	}
+	for _, expected := range []string{`cask "aigw"`, `version "` + request.Version + `"`, `binary "aigw"`, "/releases/download/v#{version}/", "aigw adapter disable"} {
+		if !strings.Contains(string(cask), expected) {
+			t.Fatalf("Homebrew projection missing %q", expected)
+		}
 	}
 }
