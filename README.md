@@ -24,9 +24,20 @@ Advanced object management remains under explicit command groups.
 
 ## Install
 
-Install the checksum-verified archive matching the host from either independent
-release plane: `darwin_amd64`, `darwin_arm64`, `linux_amd64`, `linux_arm64`,
-`windows_amd64`, or `windows_arm64`.
+On macOS, install the signed and notarized stable release with Homebrew:
+
+```bash
+brew install --cask HengYangDS/tap/aigw
+```
+
+Then run `aigw setup`. Package installation never reads Tokens or changes client
+configuration; `aigw sync` explicitly projects an existing selection after the
+active installation owner changes.
+
+For macOS, Linux, or Windows without Homebrew, install the checksum-verified
+archive matching the host from either independent release plane: `darwin_amd64`,
+`darwin_arm64`, `linux_amd64`, `linux_arm64`, `windows_amd64`, or
+`windows_arm64`.
 
 A portable archive contains only the executable, README, and license. Run the
 executable once to install it in the platform's user program directory:
@@ -94,8 +105,8 @@ reading Tokens or removing the program. Repeating a disable is safe. After all
 enabled clients are disabled, remove the package with Homebrew. If withdrawal
 fails, resolve the reported conflict before removing the program. Accounts,
 Profiles, Routes, credential policy, and Tokens remain available for reinstall.
-This ownership guard does not imply that an AIGW Homebrew package has been
-published.
+The public package is `HengYangDS/tap/aigw`; Homebrew remains the sole owner of
+that installed executable.
 
 Run `aigw installation` to inspect the invoked command, actual program file and
 retained predecessor. `aigw installation --json` provides a schema-versioned
