@@ -9,14 +9,14 @@
 ## 2. Release construction and admission
 
 - [x] 2.1 Add failing tests separating strict SemVer parsing, product readiness, and platform trust; remove the unconditional stable-version rejection through the existing owner.
-- [ ] 2.2 Integrate bounded native signing and notarization into the existing release flow with explicit inputs and resumable submission identity.
-- [ ] 2.3 Verify final signed artifacts before generating checksums, SBOM/provenance, and the existing signed release manifest.
+- [x] 2.2 Integrate bounded native signing and notarization into the existing release flow with explicit inputs and resumable submission identity.
+- [x] 2.3 Verify final signed artifacts before generating checksums, SBOM/provenance, and the existing signed release manifest.
 - [ ] 2.4 Preserve reproducible construction tests while qualifying trusted final-byte signatures separately; test interruption and rejected notarization.
 - [ ] 2.5 Validate unchanged Linux/Windows construction and native lifecycle; disclose Authenticode status independently of SemVer.
 
 ## 3. Homebrew ownership and packaging
 
-- [ ] 3.1 Select and test minimal packaging that preserves the accepted macOS signed binary; derive version, asset location, and checksum from release inventory.
+- [x] 3.1 Select and test minimal packaging that preserves the accepted macOS signed binary; derive version, asset location, and checksum from release inventory.
 - [x] 3.2 Test package-managed update/uninstall ownership and retained client projections; preserve user configuration and credentials.
 - [ ] 3.3 Create the public tap only after local package validation and populate it with the generated release projection and concise English instructions.
 - [ ] 3.4 Verify clean Homebrew installation, invocation, upgrade, removal, and reinstall with no credential prompts or implicit client configuration.

@@ -127,6 +127,9 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 
 // Install atomically places the current executable at the requested portable target while retaining one rollback copy.
 func Install(source, target string) error {
+	if err := upgrade.RequirePortableOwnership(source); err != nil {
+		return err
+	}
 	if err := upgrade.RequirePortableOwnership(target); err != nil {
 		return err
 	}

@@ -427,3 +427,29 @@ func TestPortableInstallAndUninstallPreserveHomebrewOwnership(t *testing.T) {
 		})
 	}
 }
+
+func TestHomebrewSourceCannotCreatePortableInstallation(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "Caskroom", "aigw", "0.1.0", "aigw")
+	receipt := filepath.Join(root, "Caskroom", "aigw", ".metadata", "INSTALL_RECEIPT.json")
+	target := filepath.Join(root, "portable", "aigw")
+	for name, data := range map[string]string{source: "managed", receipt: `{"homebrew_version":"7.0.4","source":{"tap":"owner/tap"}}`, target: "prior"} {
+		if err := os.MkdirAll(filepath.Dir(name), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(name, []byte(data), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	command := NewInstallCommand(invocation.Context{Executable: source, InstallTarget: target})
+	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "Homebrew") {
+		t.Fatalf("managed source escaped ownership: %v", err)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil || string(data) != "prior" {
+		t.Fatalf("portable target changed: %q %v", data, err)
+	}
+	if _, err := os.Stat(upgrade.RollbackPath(target)); !os.IsNotExist(err) {
+		t.Fatalf("backup created: %v", err)
+	}
+}

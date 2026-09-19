@@ -54,6 +54,10 @@ configuration still active. A real-client journey that disables an adapter
 before replacement proves a different transition; run both through the existing
 release acceptance command. Test isolation includes derived native paths, not only
 environment variables: staged programs and user-data roots must stay disjoint.
+Package-manager verification uses an explicit disposable portable target, even
+when the command is expected to reject the request. Never test a rejection by
+targeting the operator's default installation. Compare both source and target
+ownership, retain the host executable digest, and verify it is unchanged.
 Capture each client's credential command, arguments and environment before
 replacement, then execute that retained invocation before synchronization or
 client configuration reload. A restarted client reading a new helper cannot
