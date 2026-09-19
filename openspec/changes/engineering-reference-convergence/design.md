@@ -186,7 +186,7 @@ stopped OrbStack runtime was restored without changing repository code. The
 focused stores verify explicit environment, file, and keyring selection,
 read-only environment credentials, persisted automatic selection, precise
 Secret Service unavailability, no fallback after an explicit keyring failure,
-bounded worker termination, restricted identity environment, metadata-only
+bounded credential subprocess termination, restricted identity environment, metadata-only
 observation, and standard-input-only mutation. GitHub workflow `35457062367`
 then consumed published `v0.1.0-rc.118` as the predecessor and passed the real
 macOS Keychain create, read, rotate, update, rollback, forward-recovery,
@@ -217,7 +217,7 @@ only AIGW-owned duplicate identities, automatic readers, stale owned slots, and
 unsupported compatibility paths.
 
 The task 3.4 consumer and host audit finds one native implementation dependency,
-`go-keyring`, behind the cross-platform bounded worker. The current macOS
+`go-keyring`, behind the cross-platform bounded credential subprocess. The current macOS
 Keychain exposes exactly the `aihubmix`, `dmxapi`, and `ucloud` slots under
 service `AIGW_TOKEN`, matching the three configured Accounts; no test or stale
 slot remains. The rejected `aigw-keychain`, `aigw_keychain.py`, and

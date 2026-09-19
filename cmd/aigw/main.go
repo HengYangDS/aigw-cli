@@ -16,7 +16,7 @@ func main() {
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
-	if handled, code := native.RunWorker(args, os.Stdin, stdout, secrets.Service); handled {
+	if handled, code := native.RunCredentialSubprocess(args, os.Stdin, stdout, secrets.Service); handled {
 		return code
 	}
 	app, err := cli.NewDefault()

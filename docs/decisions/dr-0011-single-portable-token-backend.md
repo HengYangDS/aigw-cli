@@ -88,7 +88,7 @@ distribution trust.
 ### Product reader and migration boundary
 
 The product path is the existing `aigw credential` command and one selected
-backend. On macOS, a private worker invokes the same go-keyring provider used by
+backend. On macOS, a bounded credential subprocess invokes the same go-keyring provider used by
 the published predecessor. No separate reader binary, host script, service or
 permanently retained predecessor is part of this path.
 

@@ -4,8 +4,8 @@
 
 ### Requirement: Native credential operations are bounded
 
-AIGW SHALL perform native credential value and metadata operations in a private
-five-second worker provided by the active AIGW executable. The parent SHALL use
+AIGW SHALL perform native credential value and metadata operations in a bounded
+five-second subprocess provided by the active AIGW executable. The parent SHALL use
 bounded process cleanup and SHALL pass only the platform identity environment
 required by macOS Keychain, Linux Secret Service, or Windows Credential Manager.
 Tokens SHALL enter only through bounded standard input; metadata operations SHALL
@@ -29,13 +29,13 @@ SHALL NOT prove future authorization.
 #### Scenario: Credential presence is observed
 
 - **WHEN** AIGW checks an exact native credential slot
-- **THEN** the worker returns only present or absent metadata
+- **THEN** the subprocess returns only present or absent metadata
 - **AND** no credential value enters the parent process.
 
 #### Scenario: A credential operation fails or requires authorization
 
 - **WHEN** the exact native item cannot be accessed within the admitted operation
-- **THEN** the worker fails without retrying or returning a Token
+- **THEN** the subprocess fails without retrying or returning a Token
 - **AND** no credential or access-control state changes
 - **AND** any operating-system authorization UI remains an explicit platform
   behavior rather than a suppressed or disproved event.
@@ -43,7 +43,7 @@ SHALL NOT prove future authorization.
 #### Scenario: The native service does not answer
 
 - **WHEN** the operation reaches its deadline
-- **THEN** the parent terminates and reaps its worker through bounded cleanup
+- **THEN** the parent terminates and reaps its subprocess through bounded cleanup
 - **AND** the helper reports the deadline rather than suggesting configuration sync.
 
 #### Scenario: A retained released item is consumed after replacement

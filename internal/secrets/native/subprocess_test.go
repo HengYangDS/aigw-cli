@@ -17,7 +17,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if handled, code := RunWorker(os.Args[1:], os.Stdin, os.Stdout, "AIGW_TOKEN"); handled {
+	if handled, code := RunCredentialSubprocess(os.Args[1:], os.Stdin, os.Stdout, "AIGW_TOKEN"); handled {
 		os.Exit(code)
 	}
 	os.Exit(m.Run())
@@ -59,7 +59,7 @@ func (r fixtureReader) RunCapture(ctx context.Context, plan process.Plan) ([]byt
 		return nil, errors.New("credential read lacks a deadline")
 	}
 	if plan.Executable != "/owned/aigw" || strings.Join(plan.Args, " ") != readCommand+" AIGW_TOKEN team" || plan.Stdin != "" {
-		return nil, errors.New("credential worker target drift")
+		return nil, errors.New("credential subprocess target drift")
 	}
 	if r.code == 0 {
 		return []byte("exact-token"), nil
@@ -81,7 +81,7 @@ func TestCredentialExitFixture(t *testing.T) {
 	}
 }
 
-func TestReadTerminatesAndReapsUnresponsiveWorker(t *testing.T) {
+func TestReadTerminatesAndReapsUnresponsiveCredentialSubprocess(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Millisecond)
 	defer cancel()
 	command := process.Plan{Executable: os.Args[0], Args: []string{"-test.run=^TestCredentialWaitFixture$"}, Env: append(os.Environ(), "AIGW_TEST_CREDENTIAL_WAIT=1")}
@@ -104,7 +104,7 @@ func TestCredentialWaitFixture(t *testing.T) {
 	}
 }
 
-func TestWorkerRestrictsIdentityAndKeepsFailuresOffStandardOutput(t *testing.T) {
+func TestCredentialSubprocessRestrictsIdentityAndKeepsFailuresOffStandardOutput(t *testing.T) {
 	for _, args := range [][]string{
 		{readCommand},
 		{readCommand, "foreign-service", "team"},
@@ -122,7 +122,7 @@ func TestWorkerRestrictsIdentityAndKeepsFailuresOffStandardOutput(t *testing.T) 
 	}
 }
 
-func TestWorkerResultOwnsExitStatusAndSecretOutput(t *testing.T) {
+func TestCredentialSubprocessResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 	for _, test := range []struct {
 		name string
 		err  error
@@ -146,7 +146,7 @@ func TestWorkerResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 			}
 		})
 	}
-	if handled, _ := RunWorker([]string{"--version"}, strings.NewReader(""), io.Discard, "AIGW_TOKEN"); handled {
+	if handled, _ := RunCredentialSubprocess([]string{"--version"}, strings.NewReader(""), io.Discard, "AIGW_TOKEN"); handled {
 		t.Fatal("ordinary command intercepted")
 	}
 	for _, out := range []io.Writer{shortWriter{}, failedWriter{}} {
@@ -157,7 +157,7 @@ func TestWorkerResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 	}
 }
 
-func TestWorkerReturnsOnlyCredentialPresenceMetadata(t *testing.T) {
+func TestCredentialSubprocessReturnsOnlyPresenceMetadata(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		value  []byte
@@ -195,7 +195,7 @@ type failedWriter struct{}
 
 func (failedWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
 
-func TestWorkerMutationAdmitsBoundedStdinAndErasesBuffers(t *testing.T) {
+func TestCredentialSubprocessMutationAdmitsBoundedStdinAndErasesBuffers(t *testing.T) {
 	for _, test := range []struct {
 		operation, input string
 		accepted         bool
@@ -237,7 +237,7 @@ type failedReader struct{}
 
 func (failedReader) Read([]byte) (int, error) { return 0, io.ErrClosedPipe }
 
-func TestWorkerMutationTransportsCredentialsOnlyThroughStdin(t *testing.T) {
+func TestCredentialSubprocessMutationTransportsCredentialsOnlyThroughStdin(t *testing.T) {
 	for _, operation := range []string{writeCommand, deleteCommand} {
 		runner := mutationRunner{operation: operation}
 		if _, err := execute(t.Context(), runner, process.Plan{Executable: "/owned/aigw", Args: []string{operation, "AIGW_TOKEN", "team"}, Stdin: "synthetic-token", Env: []string{"HOME=/owned"}}); err != nil {
@@ -261,7 +261,7 @@ func (r mutationRunner) RunCapture(ctx context.Context, plan process.Plan) ([]by
 	return nil, nil
 }
 
-func TestReadFailsClosedWhenWorkerCannotStart(t *testing.T) {
+func TestReadFailsClosedWhenCredentialSubprocessCannotStart(t *testing.T) {
 	value, err := execute(t.Context(), process.Runner{}, process.Plan{Executable: filepath.Join(t.TempDir(), "absent"), Args: []string{readCommand, "AIGW_TOKEN", "team"}})
 	if value != "" || !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("startup failure: %v", err)

@@ -27,8 +27,8 @@ mechanism, set `AIGW_SECRET_BACKEND` to
 
 - **`keyring`** uses macOS Keychain, Linux Secret Service or Windows Credential
   Manager. Every value or metadata operation runs through the installed AIGW
-  executable as a private worker with a five-second deadline and bounded process
-  cleanup. The worker receives only the platform identity environment it needs;
+  executable as a bounded credential subprocess with a five-second deadline and
+  bounded process cleanup. The subprocess receives only the platform identity environment it needs;
   writes carry the logical Token only through standard input. Metadata queries
   never request credential bytes. Explicit selection fails closed if the native
   service is unavailable; AIGW neither retries through another backend nor

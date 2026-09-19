@@ -44,7 +44,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			token, err := runtime.Secrets.Get(clientRuntime.AccountID)
 			if err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {
-					return presentation.ProblemError("Account Token read exceeded its deadline", "", "The credential worker was stopped; no Token was returned.", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read.", err)
+					return presentation.ProblemError("Account Token read exceeded its deadline", "", "The credential subprocess was stopped; no Token was returned.", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read.", err)
 				}
 				return presentation.ProblemError(fmt.Sprintf("%s Account Token is unavailable", client), "", "No usable credential was returned.", "Check the selected Account's credential in the configured backend.", err)
 			}

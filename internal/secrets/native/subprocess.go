@@ -1,4 +1,4 @@
-// Package native confines operating-system credential operations to a bounded worker.
+// Package native confines operating-system credential operations to bounded subprocesses.
 package native
 
 import (
@@ -32,13 +32,13 @@ var (
 	ErrUnavailable = errors.New("native credential operation unavailable")
 )
 
-// Read returns one exact native item through the bounded provider worker.
+// Read returns one exact native item through a bounded credential subprocess.
 // Native authorization UI remains controlled by the operating system.
 func Read(executable, service, account string) (string, error) {
 	return invoke(executable, readCommand, service, account, "")
 }
 
-// Write creates or updates one exact item through the bounded worker.
+// Write creates or updates one exact item through a bounded credential subprocess.
 func Write(executable, service, account, value string) error {
 	_, err := invoke(executable, writeCommand, service, account, value)
 	return err
@@ -109,8 +109,8 @@ func execute(parent context.Context, runner process.CaptureRunner, plan process.
 	return "", ErrUnavailable
 }
 
-// RunWorker handles private native operations before CLI initialization.
-func RunWorker(args []string, input io.Reader, out io.Writer, service string) (bool, int) {
+// RunCredentialSubprocess handles hidden native credential operations before CLI initialization.
+func RunCredentialSubprocess(args []string, input io.Reader, out io.Writer, service string) (bool, int) {
 	return dispatch(args, input, out, service, queryCredential)
 }
 

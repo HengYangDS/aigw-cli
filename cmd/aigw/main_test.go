@@ -96,15 +96,15 @@ func TestRunCredentialInitializationFailureRedactsInput(t *testing.T) {
 	}
 }
 
-func TestNativeCredentialWorkerRejectsForeignServiceBeforeInitialization(t *testing.T) {
+func TestNativeCredentialSubprocessRejectsForeignServiceBeforeInitialization(t *testing.T) {
 	setAIGWTestEnvironment(t)
 	t.Setenv("AIGW_SECRET_BACKEND", "must-not-be-initialized")
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"__aigw-native-credential-read", "foreign-service", "team"}, &stdout, &stderr); code == 0 {
-		t.Fatal("invalid private worker invocation succeeded")
+		t.Fatal("invalid credential subprocess invocation succeeded")
 	}
 	if stdout.Len() != 0 || stderr.Len() != 0 {
-		t.Fatal("worker leaked application or credential diagnostics")
+		t.Fatal("credential subprocess leaked application or credential diagnostics")
 	}
 }
 
