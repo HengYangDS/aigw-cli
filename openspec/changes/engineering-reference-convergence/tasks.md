@@ -22,7 +22,7 @@
 - [x] 3.2 Verify native Keychain, Secret Service, and Credential Manager availability checks are non-interactive, bounded, and precise; confirm denied access never causes repeated prompts or fallback weakening.
 - [x] 3.3 Exercise create, read, rotate, rename, migrate, remove, rollback, and retained-command credential journeys through a published predecessor and exact candidate executable; verify exact item ownership and postimage-guarded compensation.
 - [x] 3.4 Remove AIGW-installed or auto-discovered duplicate credential readers, helper identities, stale owned slots, and unsupported backend compatibility; verify default projected credential commands derive from the active installed AIGW, while an explicitly configured operator-owned command remains external and preserved.
-- [ ] 3.5 Review secret-bearing paths, logs, diagnostics, fixtures, release evidence, and repository history; verify no Token, private key, recoverable fragment, or secret hash enters tracked or emitted evidence.
+- [x] 3.5 Review secret-bearing paths, logs, diagnostics, fixtures, release evidence, and repository history; verify no Token, private key, recoverable fragment, or secret hash enters tracked or emitted evidence.
 
 ## 4. Enforce the AIGW and external-gateway boundary
 

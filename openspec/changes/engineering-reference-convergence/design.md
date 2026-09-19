@@ -229,6 +229,22 @@ converged. The independent `keychain-blob` executable remains outside AIGW: its
 credential-governance source and tests are active consumers, and neither AIGW
 configuration nor client projection selects it.
 
+Task 3.5 uses the repository's pinned Gitleaks policy rather than a second
+scanner. The current authored tree, local recovery records, GitHub runs
+`35462782608` and `35463197605`, GitLab pipeline `7591`, and the recursively
+opened `v0.1.0` assets from both peers contain no finding; all 12 peer assets
+also have identical SHA-256 values. A reachable product-ref history scan finds
+one false positive consisting of two synthetic model identifiers in an old
+test. Extending the scan to all refs adds 63 false positives from ETHOS's
+private attestation-set ref: 53 Git object digests and 10 structured Git object
+references. The three current artifact-store findings are the public SSH
+signing status. Explicit private-key and common access-token patterns are
+absent. Source review confirms that projection fingerprints hash only client,
+Account, and endpoint identity; artifact and ownership hashes consume program
+or non-secret projection bytes, not Tokens. Current Claude sidecars record no
+present original credential value, and the first-adoption path rejects
+plaintext credentials or a foreign helper before writing a sidecar.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:
