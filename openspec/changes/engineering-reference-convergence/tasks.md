@@ -44,7 +44,7 @@
 
 ## 6. Consolidate and tighten the quality graph
 
-- [ ] 6.1 Inventory every tracked file class and current quality invocation; verify format, lint, type, test, security, architecture, documentation, schema, workflow, and generated-projection coverage has no accidental gaps.
+- [x] 6.1 Inventory every tracked file class and current quality invocation; verify format, lint, type, test, security, architecture, documentation, schema, workflow, and generated-projection coverage has no accidental gaps.
 - [ ] 6.2 Consolidate quality configuration into one authority per concern and one repository graph; verify GitHub and GitLab files are deterministic projections rather than copied implementations.
 - [ ] 6.3 Enable the highest-value stable checks from Go, Markdown, TOML, YAML, JSON, CUE, shell, OpenSpec, spelling, links, secrets, vulnerabilities, and dependency analysis; verify each tool replaces rather than duplicates custom logic.
 - [ ] 6.4 Measure executable lines, cyclomatic and cognitive complexity, nesting, parameters, test size, coverage, binary size, startup, steady-state latency, and memory; set strict but coherent thresholds with scope, rationale, and remediation.

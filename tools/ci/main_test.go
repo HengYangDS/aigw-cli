@@ -19,6 +19,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := [][]string{
+		{"go", "run", "./tools/ci", "check-quality-coverage", "."},
 		{"golangci-lint", "config", "verify", "--config", ".config/checks/go/policy.yml"},
 		{"goreleaser", "check", ".config/release/goreleaser.yaml"},
 		{"cue", "fmt", "--check", "--files", ".config/ci"},

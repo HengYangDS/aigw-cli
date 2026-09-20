@@ -16,33 +16,7 @@ import (
 	"aigw-cli/tools/release/readiness"
 )
 
-var qualityCommands = []command{
-	{Name: "golangci-lint", Args: []string{"config", "verify", "--config", ".config/checks/go/policy.yml"}},
-	{Name: "goreleaser", Args: []string{"check", ".config/release/goreleaser.yaml"}},
-	{Name: "cue", Args: []string{"fmt", "--check", "--files", ".config/ci"}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "project", "--check"}},
-	{Name: "npm", Args: []string{"audit", "signatures"}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "openspec"}},
-	{Name: "editorconfig-checker", Args: []string{"-disable-indentation", "-disable-indent-size"}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "check-format", "."}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "check-markdown", "."}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "check-mermaid", "."}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "links", "."}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "check-toml", "."}},
-	{Name: "go", Args: []string{"mod", "tidy", "-diff"}},
-	{Name: "go", Args: []string{"mod", "verify"}},
-	{Name: "osv-scanner", Args: []string{"scan", "source", "--config", ".config/checks/dependencies/policy.toml", "--lockfile", "go.mod", "--lockfile", "package-lock.json", "--format", "table", "--verbosity", "warn", "."}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "check-secrets", "."}},
-	{Name: "go", Args: []string{"run", "./tools/release", "validate-toolchain", "go.mod"}},
-	{Name: "go", Args: []string{"run", "./tools/release", "validate-release-sources"}},
-	{Name: "go", Args: []string{"run", "./tools/release", "validate-changelog"}},
-	{Name: "go", Args: []string{"run", "./tools/architecture", "--root", "."}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "check-source-size", "."}},
-	{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}},
-	{Name: "go", Args: []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|FilePreservation)$"}},
-	{Name: "go", Args: []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|Performance(Samples|Command|PooledSamples))$"}},
-	{Name: "actionlint"},
-}
+var qualityCommands = repositoryQualityGraph.commands(false)
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, systemRunner); err != nil {
@@ -53,16 +27,17 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <project|source|quality|openspec|links|check-format|check-go|check-source-size|check-toml|check-markdown|check-markdown-policy|check-mermaid|check-secrets|native|trust-input>")
+		return errors.New("usage: ci <project|source|quality|openspec|links|check-format|check-go|check-quality-coverage|check-source-size|check-toml|check-markdown|check-markdown-policy|check-mermaid|check-secrets|native|trust-input>")
 	}
 	checks := map[string]func(string, commandRunner) error{
 		"links": checkLinks, "check-go": checkGo,
 		"check-toml": checkTOML, "check-secrets": checkSecrets,
-		"check-format":          checkFormat,
-		"check-source-size":     checkSourceSize,
-		"check-mermaid":         checkMermaid,
-		"check-markdown":        checkMarkdown,
-		"check-markdown-policy": func(root string, _ commandRunner) error { return markdown.CheckPolicy(root) },
+		"check-format":           checkFormat,
+		"check-quality-coverage": checkQualityCoverage,
+		"check-source-size":      checkSourceSize,
+		"check-mermaid":          checkMermaid,
+		"check-markdown":         checkMarkdown,
+		"check-markdown-policy":  func(root string, _ commandRunner) error { return markdown.CheckPolicy(root) },
 	}
 	if check := checks[args[0]]; check != nil {
 		if len(args) != 2 {
@@ -150,7 +125,12 @@ func configuredSourceCommands() ([]command, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append(commands, command{Name: "go", Args: []string{"run", "./tools/coverage", "--race"}}), nil
+	for _, gate := range repositoryQualityGraph.Gates {
+		if gate.SourceOnly {
+			commands = append(commands, gate.Command)
+		}
+	}
+	return commands, nil
 }
 
 func configuredQualityCommands() ([]command, error) {

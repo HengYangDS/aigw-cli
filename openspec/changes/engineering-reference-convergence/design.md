@@ -455,6 +455,33 @@ Focused internal tests, Go lint, strict OpenSpec validation, and whitespace
 validation pass after the closure; the complete repository graph is the final
 acceptance prerequisite before the task is marked complete.
 
+Task 6.1 makes the executable quality graph explicit without copying it into
+architecture policy. The existing architecture policy remains the sole owner
+of the fourteen tracked carrier classes and their selectors. `tools/ci` now
+owns twenty-seven named executable gates, the ten supported quality concerns,
+and the carrier-to-gate coverage relation. Its first gate compares that relation
+with the live architecture carrier inventory, rejects missing or unknown
+classes, unknown or unused gates, and required concerns without an executing
+gate, then the same graph supplies the actual `quality` and `source` command
+sequences. This preserves the specification boundary: architecture proves one
+semantic owner, while executed native gates prove format, lint, type, test,
+security, architecture, documentation, schema, workflow, and projection
+coverage. The inventory covers all 1,067 tracked files, including immutable
+OpenSpec history through common byte, secret, and ownership gates; archive
+formatting remains deliberately excluded by its existing immutable-history
+policy. Focused CI and architecture tests plus the repository Go quality gate
+pass with the new graph.
+
+Pants, Dagger, Nix, and CEL are not admitted by this closure. None displaces a
+current AIGW responsibility without adding another build, execution,
+environment, or policy authority. CUE 0.17.1 remains the stable locked CI model
+because it already replaces separately maintained Forge workflows. CEL may be
+reconsidered only for a future data-plane product that needs operator-authored,
+high-frequency runtime predicates; AIGW's explicit Profile and Route model has
+no such requirement. Pants, Dagger, and Nix require the same future test: remove
+more owned execution and environment complexity than they introduce, without
+weakening native macOS, Linux, or Windows evidence.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:
