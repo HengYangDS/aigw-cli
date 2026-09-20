@@ -38,7 +38,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if len(args) == 1 {
 				name = args[0]
 			} else {
-				name, err = chooseProfile(runtime, cfg, "Select the AI service to use: ")
+				name, err = chooseProfile(runtime, cfg, "Select the Profile to use: ")
 				if err != nil {
 					return err
 				}
@@ -57,17 +57,17 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			title, detail := "Service already selected", "Selected client configuration synchronized; route unchanged"
+			title, detail := "Profile already selected", "Selected client configuration synchronized; route unchanged"
 			switch {
 			case configurationChanged:
-				title, detail = "Service switched", "Client configuration synchronized"
+				title, detail = "Profile selected", "Client configuration synchronized"
 			case token != "":
 				title, detail = "Token stored", "Account token stored; selected client configuration synchronized"
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle(title)
 			r.Section("Current selection")
-			r.Row("Service", profile.Label)
+			r.Row("Profile", profile.Label)
 			if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
 				r.Row("Purpose", purpose)
 			}
@@ -163,7 +163,7 @@ func runListWithFormat(runtime invocation.Context, jsonMode bool) error {
 		return err
 	}
 	if len(cfg.Profiles) == 0 {
-		return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "No client route is available to inspect.", "aigw setup", fmt.Errorf("not configured"))
+		return invocation.Problem(runtime, "Not configured", "No Profiles have been created.", "No client route is available to inspect.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	result := routeListOutput{Routes: make([]routeListItem, 0, len(configuration.AdmittedClientIDs()))}
 	nextCommand := ""

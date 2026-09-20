@@ -20,7 +20,7 @@ func NewProfileCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		plan, err := service(runtime).RenameProfile(cmd.Context(), oldID, newID, dryRun)
+		plan, err := renamer(runtime).RenameProfile(cmd.Context(), oldID, newID, dryRun)
 		if err != nil {
 			return err
 		}
@@ -49,13 +49,13 @@ func NewAccountCommand(runtime invocation.Context) *cobra.Command {
 		var plan renaming.Plan
 		var err error
 		if finalize {
-			plan, err = service(runtime).FinalizeAccount(cmd.Context(), args[0], args[1], dryRun, options)
+			plan, err = renamer(runtime).FinalizeAccount(cmd.Context(), args[0], args[1], dryRun, options)
 		} else {
 			oldID, newID, resolveErr := resolveIDs(runtime, "account", args)
 			if resolveErr != nil {
 				return resolveErr
 			}
-			plan, err = service(runtime).RenameAccount(cmd.Context(), oldID, newID, dryRun)
+			plan, err = renamer(runtime).RenameAccount(cmd.Context(), oldID, newID, dryRun)
 		}
 		if err != nil {
 			return err
@@ -93,8 +93,8 @@ func renameArguments(runtime invocation.Context, resource string) cobra.Position
 	}
 }
 
-func service(runtime invocation.Context) renaming.Service {
-	return renaming.Service{
+func renamer(runtime invocation.Context) renaming.Renamer {
+	return renaming.Renamer{
 		Config: runtime.Config, Secrets: runtime.Secrets, Accounts: runtime.Accounts,
 		HTTP: runtime.HTTP, Synchronizer: invocation.Synchronizer(runtime),
 	}

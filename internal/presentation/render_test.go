@@ -22,11 +22,11 @@ func TestRendererProducesAlignedHumanReadableLayout(t *testing.T) {
 	r.Title("AIGW", "Health check")
 	r.Section("Configuration")
 	r.Row("Configuration file", "Healthy")
-	r.Row("Current service", "DMXAPI")
+	r.Row("Current Account", "DMXAPI")
 	r.Section("Connection")
 	r.Status(presentation.OK, "API Token", "Healthy")
 	r.Status(presentation.Warn, "Precise balance", "Disabled")
-	r.Detail("aigw account connect")
+	r.Detail("aigw account diagnostics enable")
 	r.Section("Result")
 	r.Success("Everything is healthy")
 	r.Next("aigw balance")
@@ -34,11 +34,11 @@ func TestRendererProducesAlignedHumanReadableLayout(t *testing.T) {
 		"────────────────────────────────────────\n\n" +
 		"Configuration\n" +
 		"  Configuration file   Healthy\n" +
-		"  Current service      DMXAPI\n\n" +
+		"  Current Account      DMXAPI\n\n" +
 		"Connection\n" +
 		"  ✓ API Token          Healthy\n" +
 		"  ! Precise balance    Disabled\n" +
-		"                       aigw account connect\n\n" +
+		"                       aigw account diagnostics enable\n\n" +
 		"Result\n" +
 		"  ✓ Everything is healthy\n\n" +
 		"Next\n" +
@@ -62,7 +62,7 @@ func TestRowsAndStatusesShareValueColumnAndRetainSeparator(t *testing.T) {
 	var out bytes.Buffer
 	r := presentation.New(&out, false)
 	r.Row("Configuration file", "VALUE")
-	r.Row("Current service", "VALUE")
+	r.Row("Current Account", "VALUE")
 	r.Status(presentation.OK, "Configuration file", "VALUE")
 	r.Status(presentation.OK, "API Token", "VALUE")
 	r.Status(presentation.Warn, "Precise balance", "VALUE")

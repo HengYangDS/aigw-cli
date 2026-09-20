@@ -48,6 +48,17 @@ An Account Token, when required, stays in the selected backend. Client-native
 authentication stays with the client. Switching Profiles does not copy Tokens
 into client files.
 
+Hermes Agent and CodeBuddy CLI are research candidates because each documents
+an external credential-command surface. They remain unadmitted until the full
+record below passes on every supported platform. WorkBuddy Desktop remains a
+UI-managed surface despite accepting legacy CodeBuddy model files. Qoder IDE is
+also UI-managed, while the current Qoder CLI contract reserves BYOK management
+to its `/model` wizard and live account catalog. Generic settings, protocol
+compatibility, or a shared product name do not grant AIGW ownership of those
+credential stores or model records. The Qoder SDK is an embedding boundary for
+another application, not an Adapter for the installed Qoder products. See the
+[surface-specific assessment](../research/provider-tooling-assessment.md#workbuddy-and-qoder-require-surface-specific-admission).
+
 ## Host-surface ownership
 
 Client admission does not grant AIGW control over every product that can read a

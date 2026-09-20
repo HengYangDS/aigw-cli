@@ -178,7 +178,7 @@ func requiresConfigurationLock(app *App, command *cobra.Command) bool {
 	path := strings.TrimPrefix(command.CommandPath(), command.Root().Name()+" ")
 	switch path {
 	case "setup", "add", "use", "rotate", "rollback", "uninstall", "update",
-		"account connect", "account disconnect", "account edit",
+		"account diagnostics enable", "account diagnostics disable", "account edit",
 		"profile add", "profile edit", "profile remove",
 		"adapter enable", "adapter disable", "config import":
 		return true
@@ -383,7 +383,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 	if command.Parent() == nil {
 		r.Section("Start with one path")
 		r.Rows(
-			presentation.Field{Label: command.CommandPath() + " setup", Value: "Connect the first service"},
+			presentation.Field{Label: command.CommandPath() + " setup", Value: "Connect the first account"},
 			presentation.Field{Label: command.CommandPath() + " use <profile>", Value: "Select this profile for its client"},
 			presentation.Field{Label: command.CommandPath() + " check", Value: "Confirm readiness"},
 		)

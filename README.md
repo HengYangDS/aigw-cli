@@ -13,7 +13,7 @@ for the configuration and traffic boundaries.
 
 | Goal                          | Command                       | Next step                           |
 | ----------------------------- | ----------------------------- | ----------------------------------- |
-| Connect the first service     | `aigw setup`                  | `aigw check`                        |
+| Connect the first Account     | `aigw setup`                  | `aigw check`                        |
 | Inspect the active selection  | `aigw`                        | Follow **Next**                     |
 | Select a profile              | `aigw use <profile>`          | `aigw check`                        |
 | Replace an Account Token      | `aigw rotate <account>`       | `aigw check`                        |
@@ -119,7 +119,7 @@ verified installation. When both are reachable during update, AIGW requires
 their version and current-platform asset bytes to agree; it never combines
 assets from different Forges.
 
-## Connect a service
+## Connect an Account
 
 Interactive setup creates one Account, one Profile, one Route, and one local
 Token slot:
@@ -227,7 +227,7 @@ Use a persistent backend for clients that do not inherit that environment.
 
 Output accessibility is independent: `AIGW_ACCESSIBLE=1` selects
 accessibility-oriented terminal output. Update-source variables belong to
-[release selection](#release-sources), not service setup.
+[release selection](#release-sources), not Account setup.
 
 ## Use it every day
 

@@ -178,7 +178,7 @@ func TestUseSelectsOnlyTheProfilesDeclaredClient(t *testing.T) {
 	if got.Routes[configuration.ClientClaude] != "claude" || got.Routes[configuration.ClientCodex] != "codex" || len(got.Routes) != 2 {
 		t.Fatalf("routes = %#v", got.Routes)
 	}
-	for _, want := range []string{"Service switched", "Claude", "Team reviewer", "Client configuration synchronized", "aigw check"} {
+	for _, want := range []string{"Profile selected", "Claude", "Team reviewer", "Client configuration synchronized", "aigw check"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("output lacks %q: %q", want, out.String())
 		}

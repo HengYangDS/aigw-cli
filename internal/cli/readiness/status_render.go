@@ -13,12 +13,12 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	if len(cfg.Profiles) == 0 {
 		r.ProductTitle("Not configured")
 		r.Section("Get started")
-		r.Text("Run the guided setup once to add a service, token, and first model profile.")
+		r.Text("Run the guided setup once to add an Account, Token, and first Profile.")
 		r.Next("aigw setup")
 		return
 	}
 	r.ProductTitle("Configuration status")
-	r.Text("The active service, client readiness, and the smallest next action.")
+	r.Text("The selected Profiles, client readiness, and the smallest next action.")
 	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
 	attention, nextAction := renderClientStatus(r, result, clientIDs)
 	renderTransportStatus(r, result, clientIDs)
@@ -79,8 +79,8 @@ func renderTransportStatus(r *presentation.Renderer, result statusOutput, client
 		r.Status(presentation.Info, invocation.Title(client), "Loopback endpoint")
 	}
 	if shown {
-		r.Detail("Service identity and availability are not inferred from the address")
-		r.Detail("AIGW does not start, stop, or configure the service")
+		r.Detail("Endpoint runtime identity and availability are not inferred from the address")
+		r.Detail("AIGW does not start, stop, or configure the endpoint runtime")
 	}
 }
 
@@ -108,7 +108,7 @@ func renderDiagnosticStatus(runtime invocation.Context, r *presentation.Renderer
 		case available:
 			r.Status(presentation.OK, accountName, "Precise balance enabled")
 		default:
-			r.Status(presentation.Warn, accountName, "Precise balance disabled · aigw account connect "+accountName)
+			r.Status(presentation.Warn, accountName, "Precise balance disabled · aigw account diagnostics enable "+accountName)
 		}
 	}
 }

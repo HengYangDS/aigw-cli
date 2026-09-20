@@ -99,7 +99,7 @@ Use the least powerful command that answers the current question:
    mutation.
 4. `aigw repair --dry-run --json` previews only AIGW-owned reconciliation;
    `aigw repair` applies that bounded plan.
-5. `aigw test` tests the selected service endpoints; use `--for` or `--profile`
+5. `aigw test` tests the selected Account endpoints; use `--for` or `--profile`
    to narrow it. With no selected Route it fails and recommends
    `aigw use <profile>` rather than reporting an empty success. A one-time
    `--token-stdin` request requires an explicit target and never accesses the

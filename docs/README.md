@@ -18,7 +18,7 @@ OpenSpec; generated verification output does not become current documentation.
 | Evaluate product scope and ownership                | [Project overview](../README.md) and [authority boundary](architecture/authority-and-projection-boundary.md) |
 | Compare existing configuration and gateway products | [Competitor capabilities and evidence](research/provider-tooling-assessment.md)                              |
 | Install or uninstall                                | [Portable installation lifecycle](../README.md#install)                                                      |
-| Connect the first service                           | [Interactive or manifest setup](../README.md#connect-a-service)                                              |
+| Connect the first Account                           | [Interactive or manifest setup](../README.md#connect-an-account)                                             |
 | Select and verify daily use                         | [Daily commands](../README.md#use-it-every-day)                                                              |
 | Add a client after setup                            | [Deferred client synchronization](guides/team-rollout.md#install-a-client-later)                             |
 | Choose a credential backend                         | [Credential storage](architecture/security-model.md#credential-storage)                                      |

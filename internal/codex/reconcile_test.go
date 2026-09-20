@@ -341,7 +341,7 @@ func TestPrepareCodexRestoreHandlesRestoredAndUnsupportedState(t *testing.T) {
 	stateSnap := transaction.FileSnapshot{Exists: false}
 
 	plan, err := prepareCodexRestore(target, configSnap, stateSnap, transaction.FileSnapshot{})
-	if err != nil || plan.plan.Action != "already-restored" {
+	if err != nil || plan.plan.Action != ProjectionActionAlreadyRestored {
 		t.Errorf("expected already-restored, got %+v, err %v", plan, err)
 	}
 

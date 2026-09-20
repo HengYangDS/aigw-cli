@@ -54,10 +54,24 @@ type settingsState struct {
 	ManagedSHA256 string           `json:"managed_sha256"`
 }
 
+// SettingsAction identifies one closed Claude settings transition.
+type SettingsAction string
+
+const (
+	// SettingsActionProject writes the selected AIGW projection.
+	SettingsActionProject SettingsAction = "project"
+	// SettingsActionRestore restores the settings that preceded AIGW ownership.
+	SettingsActionRestore SettingsAction = "restore"
+	// SettingsActionAlreadyConverged reports that the selected projection needs no change.
+	SettingsActionAlreadyConverged SettingsAction = "already-converged"
+	// SettingsActionAlreadyRestored reports that no AIGW-owned settings remain.
+	SettingsActionAlreadyRestored SettingsAction = "already-restored"
+)
+
 // SettingsPlan describes the non-secret action and target for a Claude settings projection.
 type SettingsPlan struct {
-	Action string `json:"action"`
-	Target string `json:"target"`
+	Action SettingsAction `json:"action"`
+	Target string         `json:"target"`
 }
 
 // SettingsReceipt records the settings projection that was actually applied.
@@ -125,7 +139,7 @@ func ValidateSettings(path string, runtime configuration.Runtime, executable str
 	if err != nil {
 		return fmt.Errorf("Claude settings are not synchronized: %w; run `aigw sync`", err)
 	}
-	if settings.Action != "already-converged" {
+	if settings.Action != SettingsActionAlreadyConverged {
 		return fmt.Errorf("Claude settings are not synchronized; run `aigw sync`")
 	}
 	return nil
@@ -141,9 +155,9 @@ func ReconcileSettings(path string, disabled bool, runtime configuration.Runtime
 		return SettingsReceipt{}, err
 	}
 	switch change.plan.Action {
-	case "already-converged", "already-restored":
+	case SettingsActionAlreadyConverged, SettingsActionAlreadyRestored:
 		return SettingsReceipt{SettingsPlan: change.plan}, nil
-	case "project", "restore":
+	case SettingsActionProject, SettingsActionRestore:
 		return change.apply()
 	default:
 		return SettingsReceipt{}, fmt.Errorf("unsupported Claude settings action %q", change.plan.Action)
@@ -176,7 +190,7 @@ func prepareSettingsChange(path string, disabled bool, runtime configuration.Run
 	}
 
 	if disabled && !stateBefore.Exists {
-		change.plan = SettingsPlan{Action: "already-restored", Target: path}
+		change.plan = SettingsPlan{Action: SettingsActionAlreadyRestored, Target: path}
 		return change, nil
 	}
 	if disabled {
@@ -187,7 +201,7 @@ func prepareSettingsChange(path string, disabled bool, runtime configuration.Run
 		if !state.acceptModelPreference(document, previousModel) {
 			return settingsChange{}, errors.New("managed Claude settings changed outside AIGW; refusing to remove user edits")
 		}
-		change.plan = SettingsPlan{Action: "restore", Target: path}
+		change.plan = SettingsPlan{Action: SettingsActionRestore, Target: path}
 		restoreOriginalSettings(document, state.Original)
 		if !state.Original.FileExisted && len(document) == 0 {
 			change.removeSettings = true
@@ -215,13 +229,13 @@ func prepareSettingsChange(path string, disabled bool, runtime configuration.Run
 	projectSettings(document, runtime, executable)
 	projectedHash := managedSettingsHash(document)
 	if stateBefore.Exists && observedHash == projectedHash && state.ManagedSHA256 == projectedHash {
-		change.plan = SettingsPlan{Action: "already-converged", Target: path}
+		change.plan = SettingsPlan{Action: SettingsActionAlreadyConverged, Target: path}
 		return change, nil
 	}
 	change.settingsData = encodeSettings(document)
 	state.ManagedSHA256 = projectedHash
 	change.stateData = encodeSettingsState(state)
-	change.plan = SettingsPlan{Action: "project", Target: path}
+	change.plan = SettingsPlan{Action: SettingsActionProject, Target: path}
 	return change, nil
 }
 
@@ -266,7 +280,7 @@ func (change settingsChange) apply() (SettingsReceipt, error) {
 	var settingsAfter transaction.FileSnapshot
 	var err error
 	settingsAction, stateAction := "write", "write"
-	if change.plan.Action == "restore" {
+	if change.plan.Action == SettingsActionRestore {
 		settingsAction, stateAction = "restore", "remove"
 	}
 	if change.removeSettings {
@@ -278,7 +292,7 @@ func (change settingsChange) apply() (SettingsReceipt, error) {
 		return SettingsReceipt{}, fmt.Errorf("%s Claude settings: %w", settingsAction, err)
 	}
 	var stateAfter transaction.FileSnapshot
-	if change.plan.Action == "restore" {
+	if change.plan.Action == SettingsActionRestore {
 		stateAfter, err = removeGuarded(change.statePath, change.stateBefore)
 	} else {
 		stateAfter, err = writeGuarded(change.statePath, change.stateBefore, change.stateData, 0o600)

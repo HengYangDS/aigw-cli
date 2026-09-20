@@ -194,7 +194,7 @@ func TestCheckSurfacesMissingSelectedRouteToken(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "Claude account token is unavailable") {
 		t.Fatalf("error = %v", err)
 	}
-	if output := out.String() + err.Error(); !strings.Contains(output, "selected service endpoint") || strings.Contains(output, "selected gateway") {
+	if output := out.String() + err.Error(); !strings.Contains(output, "selected endpoint") || strings.Contains(output, "selected gateway") {
 		t.Fatalf("missing-token guidance is endpoint-ambiguous: %s", output)
 	}
 }

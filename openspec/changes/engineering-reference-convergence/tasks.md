@@ -40,7 +40,7 @@
 - [x] 5.3 Mirror production ownership in test organization without co-locating unrelated fixtures or creating a second implementation; verify reusable fixtures expose only stable test contracts.
 - [x] 5.4 Reorganize repository tools and configuration by responsibility; verify publication, CI, quality, release, and development bootstrap each have one discoverable owner.
 - [x] 5.5 Delete duplicate helpers, aliases, facades, dead branches, stale runtime artifacts, unused dependencies, orphaned evidence, and empty directories; verify no current consumer or required recovery path is lost.
-- [ ] 5.6 Review names, types, constants, error values, configuration keys, and CLI copy repository-wide; verify every semantic scope is narrow, consistent, English, and free of unexplained hard-coding.
+- [x] 5.6 Review names, types, constants, error values, configuration keys, and CLI copy repository-wide; verify every semantic scope is narrow, consistent, English, and free of unexplained hard-coding.
 
 ## 6. Consolidate and tighten the quality graph
 
@@ -63,7 +63,7 @@
 ## 8. Rebuild documentation and contributor experience
 
 - [ ] 8.1 Reconfirm documentation domains and move every current document to its precise semantic owner; verify research, decisions, architecture, concepts, guides, governance, operations, and history are not mixed.
-- [ ] 8.2 Rewrite the README as a concise English product entry point covering installation, first service, explicit client activation, direct endpoint composition, diagnosis, recovery, and removal with current commands.
+- [ ] 8.2 Rewrite the README as a concise English product entry point covering installation, first Account, explicit client activation, direct endpoint composition, diagnosis, recovery, and removal with current commands.
 - [ ] 8.3 Document complete setup, deferred synchronization, credential, installation, update, rollback, uninstall, Provider extension, Client extension, and optional-gateway journeys; verify every referenced source and artifact is tracked or publicly reachable.
 - [ ] 8.4 Review every heading, paragraph, list, table, code block, Mermaid diagram, internal link, and external link for semantic order, rendering, accessibility, and concise `信、达、雅` expression.
 - [ ] 8.5 Create a clean-checkout contributor path from bootstrap through a bounded TDD change and review; verify a new contributor can locate the invariant, owner, test, gate, and evidence without private context.

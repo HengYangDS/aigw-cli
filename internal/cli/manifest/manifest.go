@@ -109,7 +109,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			}
 			if available {
 				ready = true
-				r.Status(presentation.OK, "System secret", name+" Token available")
+				r.Status(presentation.OK, "Account Token", name+" Token available")
 				continue
 			}
 			missing = append(missing, name)

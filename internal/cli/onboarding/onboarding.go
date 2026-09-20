@@ -191,7 +191,7 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 func renderSetupService(runtime invocation.Context, plan setupPlan) {
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("First-time setup")
-	r.Section("Service")
+	r.Section("Account")
 	r.Row("Account", plan.request.Account)
 	r.Row("Profile", plan.request.Profile)
 	r.Row("Model", plan.profile.Model)

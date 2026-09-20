@@ -60,7 +60,7 @@ aigw use dmxapi-claude-fable-5-1
 Each Profile declares exactly one client. Selecting it replaces only that
 client's Route. There is no global default, inheritance, or cross-client fallback.
 AIGW selects before the request; it does not retry traffic through another
-service or model.
+endpoint or model.
 
 Team recommendations are inputs to selection, not already selected Routes.
 Import retains them separately. Setup and sync fill only unselected clients

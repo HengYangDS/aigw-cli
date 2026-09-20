@@ -9,7 +9,7 @@ AIGW minimizes the distance between an operator's intent and each client's
 official configuration surface. It deliberately avoids becoming a mandatory
 traffic hop, a client launcher, or an agent-state manager.
 
-- **Provider service and endpoint capability**
+- **Provider endpoint capability**
   - **AIGW role:** Declare Account protocol endpoints
   - **Other owner:** Provider
 - **Token material**
@@ -246,10 +246,10 @@ budget reports an incomplete search, not proof that the Token is absent.
 
 ## Identity migration
 
-Identity migration follows the same boundary: the [renaming service](../../internal/renaming/model.go) owns
+Identity migration follows the same boundary: the [renaming owner](../../internal/renaming/model.go) owns
 Profile renaming, Account credential preparation and commit, and verified
 finalization. CLI commands only resolve operator intent and render the result.
-The service has no command, prompt, or presentation dependency. Cancellation
+The owner has no command, prompt, or presentation dependency. Cancellation
 observed before credential preparation or finalization admission starts no
 writes; once an admitted credential copy has occurred, a failed configuration
 commit preserves both slots for retry and rollback.

@@ -63,7 +63,7 @@ func TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plans) != 1 || plans[0].Action != "already-converged" {
+	if len(plans) != 1 || plans[0].Action != ProjectionActionAlreadyConverged {
 		t.Fatalf("second projection is not converged: %+v", plans)
 	}
 
@@ -251,7 +251,7 @@ func TestReconcileConfigsConvergesDriftedCatalogPermissions(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(plans) != 1 || plans[0].Action == "already-converged" {
+		if len(plans) != 1 || plans[0].Action == ProjectionActionAlreadyConverged {
 			t.Fatalf("drift at %v reads as converged: %+v", drifted, plans)
 		}
 		if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {

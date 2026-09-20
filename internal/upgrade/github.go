@@ -263,7 +263,7 @@ func (u Updater) githubAPIURL(source ReleaseSource, path string) string {
 	return origin + "/repos/" + source.Repository + "/" + path
 }
 
-func (u *Updater) authorizeGitHubRequest(request *http.Request) error {
+func (u Updater) authorizeGitHubRequest(request *http.Request) error {
 	for _, name := range []string{"AIGW_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"} {
 		token := os.Getenv(name)
 		if token == "" {

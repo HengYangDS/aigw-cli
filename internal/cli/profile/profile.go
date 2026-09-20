@@ -16,7 +16,7 @@ import (
 // by the rename domain because rename is a credential-aware transaction, not
 // ordinary profile metadata editing.
 func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra.Command {
-	root := &cobra.Command{Use: "profile", Short: "Manage service profiles"}
+	root := &cobra.Command{Use: "profile", Short: "Manage Profiles"}
 	root.AddCommand(newAddCommand(runtime), newListCommand(runtime), newShowCommand(runtime), newEditCommand(runtime), renameCommand, newRemoveCommand(runtime))
 	return root
 }
@@ -89,7 +89,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 func newListCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
 	command := &cobra.Command{
-		Use: "list", Short: "List service profiles", Args: cobra.NoArgs,
+		Use: "list", Short: "List Profiles", Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := runtime.Config.Load()
 			if err != nil {
@@ -107,7 +107,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				return presentation.WriteJSON(runtime.Out, result)
 			}
 			r := invocation.Renderer(runtime)
-			r.ProductTitle("Service profiles")
+			r.ProductTitle("Profiles")
 			r.Section("Available profiles")
 			for _, item := range result.Profiles {
 				state, stateText := presentation.Info, "Available"
@@ -224,8 +224,8 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 				return presentation.WriteJSON(runtime.Out, result)
 			}
 			r := invocation.Renderer(runtime)
-			r.ProductTitle("Service details")
-			r.Section("Service profiles")
+			r.ProductTitle("Profile details")
+			r.Section("Profile")
 			r.Row("Profile ID", args[0])
 			r.Row("Name", profile.Label)
 			if purpose := strings.TrimSpace(profile.Purpose); purpose != "" {
@@ -245,7 +245,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 				if available {
 					state, text = presentation.OK, "Available"
 				}
-				r.Status(state, "System secret", text)
+				r.Status(state, "Account Token", text)
 			} else if profileRuntime.CredentialCommand != "" {
 				r.Row("Authentication", "External credential helper")
 			} else {

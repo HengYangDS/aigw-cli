@@ -49,12 +49,28 @@ type codexState struct {
 	TransactionID                string          `json:"transaction_id,omitempty"`
 }
 
+// ProjectionAction identifies one closed Codex projection transition.
+type ProjectionAction string
+
+const (
+	// ProjectionActionInitialProject creates AIGW-owned state for a new target.
+	ProjectionActionInitialProject ProjectionAction = "initial-project"
+	// ProjectionActionUpdate changes an existing AIGW-owned projection.
+	ProjectionActionUpdate ProjectionAction = "update"
+	// ProjectionActionAlreadyConverged reports that the target needs no change.
+	ProjectionActionAlreadyConverged ProjectionAction = "already-converged"
+	// ProjectionActionAlreadyRestored reports that no AIGW-owned projection remains.
+	ProjectionActionAlreadyRestored ProjectionAction = "already-restored"
+	// ProjectionActionRestoreExternal restores the target's pre-AIGW state.
+	ProjectionActionRestoreExternal ProjectionAction = "restore-external"
+)
+
 // ProjectionPlan is a non-secret, read-only rendering of one target's
 // proposed configuration projection. It never includes configuration content,
 // credentials, or state bodies.
 type ProjectionPlan struct {
-	Target string `json:"target"`
-	Action string `json:"action"`
+	Target string           `json:"target"`
+	Action ProjectionAction `json:"action"`
 }
 
 // SyncConfig reconciles one Codex configuration target to the resolved runtime.

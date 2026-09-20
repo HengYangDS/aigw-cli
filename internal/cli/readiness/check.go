@@ -200,7 +200,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		return err
 	}
 	if len(cfg.Profiles) == 0 {
-		return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
+		return invocation.Problem(runtime, "Not configured", "No Profiles have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
 	renderer := invocation.Renderer(runtime)
@@ -225,7 +225,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 				runtime,
 				invocation.Title(client)+" account token is unavailable",
 				"Account "+route.runtime.AccountID+" has no available Token.",
-				invocation.Title(client)+" cannot authenticate to its selected service endpoint.",
+				invocation.Title(client)+" cannot authenticate to its selected endpoint.",
 				instruction,
 				fmt.Errorf("%s account token unavailable: %w", client, route.credentialErr),
 			)
@@ -260,7 +260,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			renderer.Detail(invocation.Title(client) + " authentication recovered after a transient response")
 		}
 		if endpointTransport(route.runtime.Endpoint) == endpointTransportExternalLoopback {
-			renderer.Detail(invocation.Title(client) + " uses a loopback endpoint; AIGW does not manage the service")
+			renderer.Detail(invocation.Title(client) + " uses a loopback endpoint; AIGW does not manage the endpoint runtime")
 		}
 	}
 	renderer.Section("Result")

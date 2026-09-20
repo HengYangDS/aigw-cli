@@ -27,7 +27,7 @@ func deleteCredentialSlot(store interface {
 	return nil
 }
 
-func planCredentialCopies(deps Service, plan Plan) (Plan, error) {
+func planCredentialCopies(deps Renamer, plan Plan) (Plan, error) {
 	sourceToken, sourceTokenPresent, err := readOptionalToken(deps.Secrets, plan.OldID)
 	if err != nil {
 		return Plan{}, fmt.Errorf("Read source API token credential slot: %w", err)
@@ -85,7 +85,7 @@ func planCredentialCopies(deps Service, plan Plan) (Plan, error) {
 	return plan, nil
 }
 
-func applyCredentialCopies(deps Service, plan Plan) error {
+func applyCredentialCopies(deps Renamer, plan Plan) error {
 	if plan.tokenCopy.copy {
 		if err := deps.Secrets.Set(plan.NewID, plan.tokenCopy.value); err != nil {
 			return fmt.Errorf("Copy API token credential slot: %w", err)

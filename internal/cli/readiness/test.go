@@ -28,7 +28,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 	var tokenStdin bool
 	cmd := &cobra.Command{
 		Use:   "test",
-		Short: "Test selected service endpoints",
+		Short: "Test selected endpoints",
 		Args:  cobra.MatchAll(cobra.NoArgs, validateEndpointTestSelection),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if configPath != "" {
@@ -39,14 +39,14 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if len(cfg.Profiles) == 0 {
-				return invocation.Problem(runtime, "Not configured", "No service profiles have been created.", "No client endpoint is available to test.", "aigw setup", fmt.Errorf("not configured"))
+				return invocation.Problem(runtime, "Not configured", "No Profiles have been created.", "No client endpoint is available to test.", "aigw setup", fmt.Errorf("not configured"))
 			}
 			clients, err := endpointTestClients(cfg, client, profileName)
 			if err != nil {
 				return err
 			}
 			if len(clients) == 0 {
-				return invocation.Problem(runtime, "No Route is selected", "Profiles exist, but no client has an active Route.", "There is no selected service endpoint to test.", "aigw use <profile>", fmt.Errorf("no route selected"))
+				return invocation.Problem(runtime, "No Route is selected", "Profiles exist, but no client has an active Route.", "There is no selected endpoint to test.", "aigw use <profile>", fmt.Errorf("no route selected"))
 			}
 			resolved := make(map[string]configuration.Runtime, len(clients))
 			for _, spec := range clients {
@@ -85,7 +85,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				}
 				detail := ""
 				if status == http.StatusNotFound && target == configuration.ClientClaude {
-					detail = "Service is reachable; model discovery is unavailable and credential acceptance is unverified"
+					detail = "Endpoint is reachable; model discovery is unavailable and credential acceptance is unverified"
 				} else if status < http.StatusOK || status >= http.StatusMultipleChoices {
 					return fmt.Errorf("%s endpoint returned HTTP %d", invocation.Title(target), status)
 				}

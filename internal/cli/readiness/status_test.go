@@ -51,7 +51,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := buffer.String(); !strings.Contains(got, "aigw account connect one") {
+	if got := buffer.String(); !strings.Contains(got, "aigw account diagnostics enable one") {
 		t.Fatalf("missing diagnostic credential status = %q", got)
 	}
 	if err := runtime.Accounts.Set("one", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
@@ -142,7 +142,7 @@ func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *test
 		t.Fatalf("transport section missing: %s", buffer.String())
 	}
 	transport, _, _ = strings.Cut(transport, "Optional diagnostics\n")
-	for _, want := range []string{"Claude", "Codex", "Service identity and availability are not inferred from the address"} {
+	for _, want := range []string{"Claude", "Codex", "Endpoint runtime identity and availability are not inferred from the address"} {
 		if !strings.Contains(transport, want) {
 			t.Errorf("transport lacks %q: %s", want, transport)
 		}

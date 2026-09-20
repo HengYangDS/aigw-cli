@@ -187,7 +187,7 @@ func TestEndpointTestRequiresASelectedRouteByDefault(t *testing.T) {
 		return nil, nil
 	})
 	runtime.Problem = func(title, evidence, impact, fix string, cause error) error {
-		if title != "No Route is selected" || evidence != "Profiles exist, but no client has an active Route." || impact != "There is no selected service endpoint to test." || fix != "aigw use <profile>" {
+		if title != "No Route is selected" || evidence != "Profiles exist, but no client has an active Route." || impact != "There is no selected endpoint to test." || fix != "aigw use <profile>" {
 			t.Fatalf("problem = %q, %q, %q, %q", title, evidence, impact, fix)
 		}
 		return cause

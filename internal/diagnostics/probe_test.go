@@ -69,13 +69,13 @@ func TestProbeUsesModelsEndpointAndNeverReturnsCredential(t *testing.T) {
 	}
 }
 
-func TestProbeRedactsAnAccountTokenEchoedByTheService(t *testing.T) {
+func TestProbeRedactsAnAccountTokenEchoedByTheEndpoint(t *testing.T) {
 	secret := "aigw-test-account-token-never-leaks"
 	result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 		return response(http.StatusForbidden, `{"message":"rejected token aigw-test-account-token-never-leaks"}`), nil
 	}), runtime(), secret)
 	if strings.Contains(result.Detail, secret) {
-		t.Fatalf("service response leaked Account Token: %#v", result)
+		t.Fatalf("endpoint response leaked Account Token: %#v", result)
 	}
 }
 
@@ -93,7 +93,7 @@ func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
 			status:      http.StatusUnauthorized,
 			body:        `{}`,
 			wantKind:    diagnostics.InvalidToken,
-			wantSummary: "Account Token is invalid or belongs to a different service",
+			wantSummary: "Account Token is invalid or does not belong to the configured endpoint",
 			wantFix:     "Run `aigw rotate dmx` to enter the token again, and confirm that the configured endpoint belongs to this Account",
 		},
 		{
@@ -133,15 +133,15 @@ func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
 			status:      http.StatusInternalServerError,
 			body:        `{}`,
 			wantKind:    diagnostics.UpstreamFailure,
-			wantSummary: "Upstream service failed",
-			wantFix:     "Try again later; if it persists, contact the service operator with the HTTP status code",
+			wantSummary: "Endpoint provider failed",
+			wantFix:     "Try again later; if it persists, contact the endpoint operator with the HTTP status code",
 		},
 		{
 			name:        "unexpected response",
 			status:      http.StatusTeapot,
 			body:        `{}`,
 			wantKind:    diagnostics.Unexpected,
-			wantSummary: "Service endpoint returned unexpected HTTP status 418",
+			wantSummary: "Endpoint returned unexpected HTTP status 418",
 			wantFix:     "Run `aigw doctor` for detailed status",
 		},
 	}

@@ -18,7 +18,7 @@ import (
 )
 
 func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
-	app, _, secretStore, _, _ := testApp(t, "")
+	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Profiles["gpt-5.6-sol"] = configuration.Profile{Label: "GPT Profile", Account: "dmx", Client: configuration.ClientCodex, Model: "gpt-5.6-sol"}
@@ -35,6 +35,12 @@ func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	}
 	if len(prompt.secretCalls) != 1 || prompt.secretCalls[0] != "Paste DMXAPI token: " {
 		t.Fatalf("prompt labels = %q", prompt.secretCalls)
+	}
+	output := strings.Join(strings.Fields(out.String()), " ")
+	for _, want := range []string{"Account DMXAPI", "Account ID dmx", "Account Token Validated and securely stored"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("rotate output lacks %q:\n%s", want, out.String())
+		}
 	}
 }
 

@@ -268,7 +268,7 @@ func TestProfileShowRendersEverySecretFreeField(t *testing.T) {
 	if err := cli.Execute(app, []string{"profile", "show", "codex"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Codex Model", "Daily work", "shared", "Codex", "gpt-test", "https://shared.test/v1", "https://shared.test", "Available"} {
+	for _, want := range []string{"Codex Model", "Daily work", "shared", "Codex", "gpt-test", "https://shared.test/v1", "https://shared.test", "Account Token", "Available"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("human output lacks %q:\n%s", want, out.String())
 		}
@@ -499,12 +499,12 @@ func TestProfileListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"Service profiles", "Available profiles", "Configuration  gpt", "Codex · GPT Test · native Codex picker-aligned daily default · Selected for Codex · Account team · Token available"} {
+	for _, want := range []string{"Profiles", "Available profiles", "Configuration  gpt", "Codex · GPT Test · native Codex picker-aligned daily default · Selected for Codex · Account team · Token available"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("profile list lacks %q:\n%s", want, text)
 		}
 	}
-	for _, retired := range []string{"Profiles\n", "Profile  gpt"} {
+	for _, retired := range []string{"Service profiles\n", "Profile  gpt"} {
 		if strings.Contains(text, retired) {
 			t.Fatalf("profile list retained product label %q:\n%s", retired, text)
 		}

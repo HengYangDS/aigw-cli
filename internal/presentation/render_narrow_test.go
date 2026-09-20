@@ -15,7 +15,7 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 	r := presentation.NewWithWidth(&out, false, 24)
 	r.Row("Current profile", "GPT-5.6 Terra")
 	r.Status(presentation.OK, "Precise balance", "Disabled until connected")
-	r.Detail("Run aigw account connect team-gateway")
+	r.Detail("Run aigw account diagnostics enable team-gateway")
 	r.Command("aigw config import configuration.toml")
 
 	got := out.String()
@@ -26,7 +26,8 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 		"    Disabled until\n",
 		"    connected\n",
 		"    Run aigw account\n",
-		"    connect team-gateway\n",
+		"    diagnostics enable\n",
+		"    team-gateway\n",
 		"  aigw config import configuration.toml\n",
 	} {
 		if !strings.Contains(got, want) {

@@ -245,7 +245,7 @@ verification is separate. Configuration success alone is not authentication
 or inference proof.
 
 Optional balance credentials do not participate in `aigw check`, in either
-human or JSON output. Use `aigw account connect <account>` to configure them
+human or JSON output. Use `aigw account diagnostics enable <account>` to configure them
 and `aigw balance <account>` to request provider diagnostics. An unavailable
 balance service does not make a working client Route unhealthy.
 

@@ -90,7 +90,7 @@ func NewModelsCommand(deps Dependencies) *cobra.Command {
 			r := renderer(deps)
 			r.ProductTitle("Configured model catalog")
 			r.Detail("Catalog membership does not prove inference or client readiness.")
-			r.Section("Service profiles")
+			r.Section("Profiles")
 			for _, row := range rows {
 				state := presentation.Warn
 				if row.Catalog == "Listed" || row.Catalog == "Not listed" {

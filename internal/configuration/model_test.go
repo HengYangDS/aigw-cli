@@ -278,12 +278,12 @@ func TestValidateRequiresEachProfilesClientProtocol(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/selected=%t", client.ID, selected), func(t *testing.T) {
 				cfg := validConfig()
 				cfg.Normalize()
-				cfg.Profiles = map[string]Profile{"service": {
-					Label: "Service", Account: "dmx", Client: client.ID, Model: "model",
+				cfg.Profiles = map[string]Profile{"selected-profile": {
+					Label: "Selected Profile", Account: "dmx", Client: client.ID, Model: "model",
 				}}
 				cfg.Routes = Routes{}
 				if selected {
-					cfg.Routes[client.ID] = "service"
+					cfg.Routes[client.ID] = "selected-profile"
 				}
 				if err := cfg.Validate(); err != nil {
 					t.Fatalf("compatible profile: %v", err)
@@ -302,7 +302,7 @@ func TestValidateRequiresEachProfilesClientProtocol(t *testing.T) {
 				if !errors.As(err, &missing) || missing.AccountID != "dmx" || missing.Protocol != client.EndpointProtocol {
 					t.Fatalf("incompatible profile error = %v; want Account dmx protocol %s", err, client.EndpointProtocol)
 				}
-				if !strings.Contains(err.Error(), "service") {
+				if !strings.Contains(err.Error(), "selected-profile") {
 					t.Fatalf("validation error omits Profile: %v", err)
 				}
 				if !reflect.DeepEqual(cfg, before) {

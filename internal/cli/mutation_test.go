@@ -40,7 +40,7 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		{[]string{"adapter", "enable", "codex", "--executable", "codex"}, "requires at least one --target", "aigw adapter enable --help"},
 		{[]string{"adapter", "enable", "codex", "--executable", "codex", "--target", " "}, "--target requires a non-empty path", "aigw adapter enable --help"},
 		{[]string{"add", "new"}, "--for and --model are required", "aigw add --help"},
-		{[]string{"add", "bad id"}, "Invalid service ID", "aigw add --help"},
+		{[]string{"add", "bad id"}, "Invalid account ID", "aigw add --help"},
 		{[]string{"add", "new", "--for", "unknown", "--model", "model"}, "--for and --model are required", "aigw add --help"},
 		{[]string{"add", "new", "--for", "codex", "--model", " "}, "--for and --model are required", "aigw add --help"},
 		{[]string{"profile", "add", "new"}, "--account, --for, and --model are required", "aigw profile add --help"},
@@ -58,7 +58,7 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		{[]string{"profile", "edit", "bad id", "--label", "Name"}, "Invalid profile ID", "aigw profile edit --help"},
 		{[]string{"profile", "edit", "profile", "--label", " "}, "--label requires a non-empty value", "aigw profile edit --help"},
 		{[]string{"profile", "remove", " "}, "Invalid profile ID", "aigw profile remove --help"},
-		{[]string{"account", "connect", "account"}, "requires an interactive terminal", "aigw account connect --help"},
+		{[]string{"account", "diagnostics", "enable", "account"}, "requires an interactive terminal", "aigw account diagnostics enable --help"},
 	} {
 		t.Run(strings.Join(test.args, "/"), func(t *testing.T) {
 			root := filepath.Join(t.TempDir(), "configuration")
@@ -89,7 +89,7 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 	}{
 		{name: "top-level add", args: []string{"add", "account"}, want: true},
 		{name: "account edit", args: []string{"account", "edit", "account"}, want: true},
-		{name: "account connect", args: []string{"account", "connect", "account"}, want: true},
+		{name: "account diagnostics enable", args: []string{"account", "diagnostics", "enable", "account"}, want: true},
 		{name: "account rename", args: []string{"account", "rename", "old", "new"}, want: true},
 		{name: "account rename dry-run", args: []string{"account", "rename", "old", "new", "--dry-run"}, want: false},
 		{name: "account rename dry-run equals", args: []string{"account", "rename", "old", "new", "--dry-run=true"}, want: false},

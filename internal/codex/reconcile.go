@@ -231,11 +231,11 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 		state.TransactionID = transactionID
 		stateData = encodeCodexState(state)
 	}
-	action := "update"
+	action := ProjectionActionUpdate
 	if converged {
-		action = "already-converged"
+		action = ProjectionActionAlreadyConverged
 	} else if !stateSnapshot.Exists {
-		action = "initial-project"
+		action = ProjectionActionInitialProject
 	}
 	return codexPreparedTarget{
 		plan:      ProjectionPlan{Target: target.ref.Path, Action: action},
@@ -245,7 +245,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, runtime 
 
 func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalogSnapshot transaction.FileSnapshot) (codexPreparedTarget, error) {
 	if !stateSnapshot.Exists {
-		return codexPreparedTarget{plan: ProjectionPlan{Target: target.Path, Action: "already-restored"}}, nil
+		return codexPreparedTarget{plan: ProjectionPlan{Target: target.Path, Action: ProjectionActionAlreadyRestored}}, nil
 	}
 	state, err := codexStateForTarget(stateSnapshot)
 	if err != nil {
@@ -269,7 +269,7 @@ func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalo
 		}
 	}
 	return codexPreparedTarget{
-		plan:      ProjectionPlan{Target: target.Path, Action: "restore-external"},
+		plan:      ProjectionPlan{Target: target.Path, Action: ProjectionActionRestoreExternal},
 		artifacts: artifacts,
 	}, nil
 }

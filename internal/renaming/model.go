@@ -14,8 +14,8 @@ type HTTPDoer interface {
 	Do(request *http.Request) (*http.Response, error)
 }
 
-// Service owns identity migration, credential preparation, and verified finalization.
-type Service struct {
+// Renamer owns identity migration, credential preparation, and verified finalization.
+type Renamer struct {
 	Config       configuration.Store
 	Secrets      secrets.Store
 	Accounts     secrets.DiagnosticCredentialStore
@@ -27,7 +27,9 @@ type Service struct {
 type Resource string
 
 const (
+	// ResourceAccount identifies an Account rename.
 	ResourceAccount Resource = "account"
+	// ResourceProfile identifies a Profile rename.
 	ResourceProfile Resource = "profile"
 )
 
@@ -35,11 +37,16 @@ const (
 type Status string
 
 const (
-	StatusPlanned          Status = "planned"
-	StatusBlocked          Status = "blocked"
-	StatusApplied          Status = "applied"
+	// StatusPlanned identifies a mutation plan that has not been applied.
+	StatusPlanned Status = "planned"
+	// StatusBlocked identifies a plan that cannot proceed without an explicit prerequisite.
+	StatusBlocked Status = "blocked"
+	// StatusApplied identifies a completed rename whose old credential slots remain available.
+	StatusApplied Status = "applied"
+	// StatusAlreadyFinalized identifies an idempotent finalization with no remaining old state.
 	StatusAlreadyFinalized Status = "already-finalized"
-	StatusFinalized        Status = "finalized"
+	// StatusFinalized identifies a completed removal of verified old credential slots.
+	StatusFinalized Status = "finalized"
 )
 
 // Actions describes every configuration, credential, and backup effect of a rename.

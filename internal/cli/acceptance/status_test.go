@@ -25,7 +25,7 @@ func TestStatusSuggestsAccountSpecificDiagnostics(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "aigw account connect dmx") {
+	if !strings.Contains(text, "aigw account diagnostics enable dmx") {
 		t.Fatalf("status should suggest account-specific diagnostics:\n%s", text)
 	}
 }

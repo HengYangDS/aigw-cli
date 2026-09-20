@@ -49,14 +49,14 @@ func TestSettingsOwnershipUsesStringValuesNotJSONEscapes(t *testing.T) {
 		observed[file] = escaped
 	}
 	plan, err := PlanSettings(path, false, runtime, testExecutable(), runtime.Model)
-	if err != nil || plan.Action != "already-converged" {
+	if err != nil || plan.Action != SettingsActionAlreadyConverged {
 		t.Fatalf("equivalent JSON requires projection: %#v, %v", plan, err)
 	}
 	if err := ValidateSettings(path, runtime, testExecutable()); err != nil {
 		t.Fatalf("equivalent JSON became projection drift: %v", err)
 	}
 	receipt, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model)
-	if err != nil || receipt.Action != "already-converged" {
+	if err != nil || receipt.Action != SettingsActionAlreadyConverged {
 		t.Fatalf("equivalent JSON reconciliation = %#v, %v", receipt, err)
 	}
 	for file, want := range observed {
@@ -94,7 +94,7 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if receipt.Action != "project" {
+	if receipt.Action != SettingsActionProject {
 		t.Fatalf("action = %q", receipt.Action)
 	}
 	var got map[string]any
@@ -334,7 +334,7 @@ func TestSettingsProjectionIsIdempotentAndRejectsInvalidInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.Action != "project" || second.Action != "already-converged" {
+	if first.Action != SettingsActionProject || second.Action != SettingsActionAlreadyConverged {
 		t.Fatalf("actions = %q, %q", first.Action, second.Action)
 	}
 	for _, test := range []struct {
@@ -362,7 +362,7 @@ func TestPlanSettingsMatchesApplyWithoutMutation(t *testing.T) {
 	executable := testExecutable()
 
 	plan, err := PlanSettings(path, false, runtime, executable, runtime.Model)
-	if err != nil || plan.Action != "project" || plan.Target != path {
+	if err != nil || plan.Action != SettingsActionProject || plan.Target != path {
 		t.Fatalf("initial plan = %#v, %v", plan, err)
 	}
 	for _, candidate := range []string{path, path + settingsStateSuffix} {
@@ -383,11 +383,11 @@ func TestPlanSettingsMatchesApplyWithoutMutation(t *testing.T) {
 	}
 
 	plan, err = PlanSettings(path, false, runtime, executable, runtime.Model)
-	if err != nil || plan.Action != "already-converged" {
+	if err != nil || plan.Action != SettingsActionAlreadyConverged {
 		t.Fatalf("converged plan = %#v, %v", plan, err)
 	}
 	plan, err = PlanSettings(path, true, configuration.Runtime{}, "", "")
-	if err != nil || plan.Action != "restore" {
+	if err != nil || plan.Action != SettingsActionRestore {
 		t.Fatalf("restore plan = %#v, %v", plan, err)
 	}
 	settingsAfter, err := os.ReadFile(path)
@@ -403,7 +403,7 @@ func TestPlanSettingsMatchesApplyWithoutMutation(t *testing.T) {
 func TestSettingsDisableWithoutOwnedStateIsAlreadyRestored(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	receipt, err := ReconcileSettings(path, true, configuration.Runtime{}, "", "")
-	if err != nil || receipt.Action != "already-restored" {
+	if err != nil || receipt.Action != SettingsActionAlreadyRestored {
 		t.Fatalf("receipt=%#v error=%v", receipt, err)
 	}
 }

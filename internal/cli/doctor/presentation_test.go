@@ -47,7 +47,7 @@ func TestHumanFormattingBranches(t *testing.T) {
 		"environment:client-token": "Client token environment",
 		"config":                   "Local configuration",
 		"credential:backend":       "Credential backend",
-		"secret:team":              "System secret",
+		"secret:team":              "Account Token",
 		"adapter:claude":           "Claude adapter",
 		"adapter:codex":            "Codex adapter",
 		"projection:codex":         "Codex route",

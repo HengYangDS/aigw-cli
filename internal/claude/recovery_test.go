@@ -36,7 +36,7 @@ func TestSettingsReconcilesOnlyProvenModelPreferenceDrift(t *testing.T) {
 				t.Fatal(err)
 			}
 			plan, err := PlanSettings(path, false, selected, testExecutable(), selected.Model)
-			if err != nil || plan.Action != "project" {
+			if err != nil || plan.Action != SettingsActionProject {
 				t.Fatalf("recoverable model drift: %+v, %v", plan, err)
 			}
 			if after, err := os.ReadFile(path); err != nil || !bytes.Equal(after, before) {

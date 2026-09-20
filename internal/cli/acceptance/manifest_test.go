@@ -106,7 +106,7 @@ model = "claude-long-model"
 	if strings.Contains(text, "Token required") || strings.Contains(text, "gpt-long-model  ") || strings.Contains(text, "claude-long-model  ") {
 		t.Fatalf("import reported profile-level missing tokens despite account token:\n%s", text)
 	}
-	for _, want := range []string{"Accounts", "System secret", "dmx", "Token available", "aigw sync"} {
+	for _, want := range []string{"Accounts", "Account Token", "dmx", "Token available", "aigw sync"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("import output lacks %q:\n%s", want, text)
 		}

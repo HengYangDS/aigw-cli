@@ -10,7 +10,7 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-func TestServiceCreationAdmitsStateBeforeTokenAcquisition(t *testing.T) {
+func TestAccountConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
 	for _, phase := range []string{"cancelled", "profile collision", "account collision", "invalid configuration"} {
 		t.Run(phase, func(t *testing.T) {
 			before := setupConfiguration()
@@ -31,7 +31,7 @@ func TestServiceCreationAdmitsStateBeforeTokenAcquisition(t *testing.T) {
 				account.Endpoints.Anthropic = "invalid-endpoint"
 			}
 			acquired := false
-			err := (Synchronizer{}).CreateService(ctx, before, name, account, profile, func() (string, error) {
+			err := (Synchronizer{}).ConnectAccount(ctx, before, name, account, profile, func() (string, error) {
 				acquired = true
 				return "token", nil
 			})
@@ -42,7 +42,7 @@ func TestServiceCreationAdmitsStateBeforeTokenAcquisition(t *testing.T) {
 	}
 }
 
-func TestServiceCreationPreservesStateWhenTokenAcquisitionFails(t *testing.T) {
+func TestAccountConnectionPreservesStateWhenTokenAcquisitionFails(t *testing.T) {
 	for _, phase := range []string{"input failure", "cancelled during input", "empty token"} {
 		t.Run(phase, func(t *testing.T) {
 			before := setupConfiguration()
@@ -52,7 +52,7 @@ func TestServiceCreationPreservesStateWhenTokenAcquisitionFails(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			failure := errors.New("input unavailable")
-			err := syncer.CreateService(ctx, before, "new", before.Accounts["team"], before.Profiles["claude"], func() (string, error) {
+			err := syncer.ConnectAccount(ctx, before, "new", before.Accounts["team"], before.Profiles["claude"], func() (string, error) {
 				switch phase {
 				case "input failure":
 					return "", failure

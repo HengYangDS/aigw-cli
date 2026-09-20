@@ -282,6 +282,40 @@ Vendor count is a poor proxy for extensibility. One new model can be a data chan
 
 CC Switch CLI declares Hermes, OpenCode and Pi support; AIGW currently admits Claude Code and Codex. That is a breadth difference, not a reason to call a future AIGW integration free. Equivalent Qoder evidence was not established in the assessed leading candidates. “Endpoint configured,” “model visible,” “tool loop works” and “survives upgrade” are separate acceptance levels. [CLI][cc-cli], [AIGW](../../README.md).
 
+### WorkBuddy and Qoder require surface-specific admission
+
+A product family is not one Adapter boundary. WorkBuddy Desktop and CodeBuddy
+CLI expose different configuration and credential contracts; Qoder IDE, Qoder
+CLI, and the Qoder SDK do the same. Treating a shared brand or protocol label as
+proof of interchangeable management would create another unsafe generic writer.
+
+| Surface           | Documented integration contract                                                                                                                              | AIGW disposition                                                                                                                                                                                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CodeBuddy CLI     | User/project `models.json`, environment references for model keys and URLs, model variants, and a `settings.json` `apiKeyHelper` command                     | Strong Adapter candidate. It still needs exact merge, ownership, withdrawal, Windows execution, header, and real tool-loop proof. Its documented custom-model file is OpenAI Chat Completions-specific; Anthropic-compatible routing uses a separate environment contract. |
+| WorkBuddy Desktop | Custom models are managed through **Settings → Model**; legacy `~/.codebuddy/models.json` entries remain visible and editable in the UI                      | Manual composition only. The reviewed Desktop contract does not establish an external credential helper or a safe independently owned write boundary, so AIGW must not infer that the CLI contract applies.                                                                |
+| Qoder CLI         | The current contract makes the `/model` BYOK wizard and the account's live catalog authoritative and explicitly rejects manual BYOK edits in `settings.json` | Not an AIGW-managed Adapter today. Generic settings layering and `--settings` do not authorize AIGW to own the wizard's model records or credentials. Reconsider only after Qoder exposes a supported noninteractive import or external credential contract.               |
+| Qoder IDE         | The current UI accepts API keys for a documented provider catalog                                                                                            | Manual composition only. The reviewed contract does not document an arbitrary OpenAI- or Anthropic-compatible endpoint or an external credential helper, so AIGW has no safe projection boundary.                                                                          |
+| Qoder SDK         | Per-request model policy can return BYOK credentials and route by purpose                                                                                    | An embedding API for a new host application, not a configuration Adapter for the installed IDE or CLI. Using it would create a different product boundary.                                                                                                                 |
+
+The practical order is therefore **Hermes Agent and CodeBuddy CLI first**, once
+their external credential commands and native lifecycle pass the full Adapter
+admission record. WorkBuddy Desktop and Qoder remain documented manual paths
+until their vendors expose a supported ownership boundary. No implementation or
+support claim should precede a real installed-client test on macOS, Linux, and
+Windows. [CodeBuddy models][codebuddy-models], [CodeBuddy settings][codebuddy-settings],
+[CodeBuddy environment][codebuddy-env], [WorkBuddy models][workbuddy-models],
+[Qoder CLI models][qoder-cli-models], [Qoder CLI settings][qoder-cli-settings],
+[Qoder IDE models][qoder-ide-models], [Qoder SDK model policy][qoder-sdk-policy].
+
+The September 20 local inventory found WorkBuddy Desktop 5.5.6 with embedded
+CodeBuddy CLI 2.137.1 and Qoder IDE 1.31.0. No standalone Qoder agent CLI was on
+`PATH`; the `qoder` executable inside the IDE bundle exposed the editor launcher,
+not the agent CLI. No CodeBuddy user model or settings file existed, and no
+third-party model call was made. These observations establish available test
+surfaces, not Adapter acceptance. A stale search excerpt described direct Qoder
+`modelConfigs.customModels` editing, but the live official CLI page explicitly
+forbids that path; the live product contract therefore governs this assessment.
+
 ### AWS illustrates why adapters need an expiry condition
 
 The pinned [Bedrock Access Gateway README][aws-gateway] marks the sample deprecated and recommends native OpenAI-compatible and Anthropic-compatible Bedrock APIs instead. This is evidence of that sample's rationale, not proof that every model, region or client can use every AWS surface. Direct official-document retrievals failed in the original collection; no AWS request was run.
@@ -365,7 +399,7 @@ This report's earlier inventory repeated part of that error: it collected facts 
 
 ## Evidence and limits
 
-- **Collection:** September 9, 2026; synthesis revised September 10. Scope covers 26 competitor repositories plus two AWS reference cases, not an exhaustive internet census. Agent Reach's read-only GitHub/gh API route was used; selected pinned source identities were rechecked during revision.
+- **Collection:** September 9, 2026; synthesis revised September 10; WorkBuddy and Qoder client-contract review added September 20, 2026. Scope covers 26 competitor repositories, two AWS reference cases, and the current official WorkBuddy and Qoder documentation; it is not an exhaustive internet census. Agent Reach's read-only GitHub/gh API route and official product documentation were used; selected pinned source identities were rechecked during revision.
 - **Evidence levels:** documented capability, inspected implementation, published artifact, unreplicated issue report and unverified behavior remain distinct. Source at HEAD is not automatically released capability. No competitor runtime, throughput, security-audit or migration success is claimed.
 - **Internal comparison:** AIGW's original declared baseline was HEAD `c357a2cae88408e09d3a2b2360c03f55d00df8d3`; Proxy's was `210a108ec7a90ca2774dd702c70326cf1b240e1c`. AIGW's responsibility document was also reread at `95ca0800b11ee754c876655e65c131714a0149fe`. These are contract comparisons, not current release/install attestations. Direct OpenAI documentation retrieval during revision returned a timeout and HTTP 403; no new native-client capability was inferred from those failed requests.
 - **Balanced reliability evidence:** CC Switch's observed [tool-message issue][desktop-issue-tools] and [Desktop-routing issue][desktop-issue-route] identify useful regression scenarios, not a comparative failure rate. Our products must face the same tests. The [CLI Windows issue][cli-windows-issue] being closed does not override its stable README's daemon restriction.
@@ -607,3 +641,11 @@ Repository links below identify the inspected snapshots. Release pages and docum
 [historical-ccr]: https://github.com/musistudio/claude-code-router/tree/deff4859b57f2d0822a3d1fb3f0504d34ac2b06c
 [aws-gateway]: https://github.com/aws-samples/bedrock-access-gateway/blob/144c4bcb866d247dc1cef5b7c5d4cbea8bc7d633/README.md
 [aws-native-adoption]: https://github.com/aws-solutions-library-samples/guidance-for-claude-code-with-amazon-bedrock/blob/014d7abe7cc8fb1820ffe1e3b26df4ac30d23fd9/README.md
+[codebuddy-env]: https://www.workbuddy.ai/docs/cli/env-vars
+[codebuddy-models]: https://www.workbuddy.ai/docs/cli/models
+[codebuddy-settings]: https://www.workbuddy.ai/docs/cli/settings
+[qoder-cli-models]: https://docs.qoder.com/cli/custom-models
+[qoder-cli-settings]: https://docs.qoder.com/cli/settings
+[qoder-ide-models]: https://docs.qoder.com/user-guide/chat/custom-models
+[qoder-sdk-policy]: https://docs.qoder.com/cli/sdk/model-policy
+[workbuddy-models]: https://www.workbuddy.ai/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Model

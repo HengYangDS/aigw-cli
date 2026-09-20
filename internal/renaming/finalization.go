@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-func planFinalize(deps Service, oldID, newID string, options FinalizeOptions) (Plan, error) {
+func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (Plan, error) {
 	state, err := deps.Config.CaptureVerifiedBackupState()
 	if err != nil {
 		return Plan{}, fmt.Errorf("Load current configuration and verified checkpoint: %w", err)
@@ -85,7 +85,7 @@ func planFinalize(deps Service, oldID, newID string, options FinalizeOptions) (P
 	return plan, nil
 }
 
-func planFinalToken(deps Service, plan *Plan, oldID, newID string, confirmed bool, blocked *[]string) (bool, error) {
+func planFinalToken(deps Renamer, plan *Plan, oldID, newID string, confirmed bool, blocked *[]string) (bool, error) {
 	target, targetPresent, err := readOptionalToken(deps.Secrets, newID)
 	if err != nil {
 		return false, fmt.Errorf("Read target API token credential slot: %w", err)
@@ -120,7 +120,7 @@ func planFinalToken(deps Service, plan *Plan, oldID, newID string, confirmed boo
 	return true, nil
 }
 
-func planFinalProbe(deps Service, plan *Plan, oldID, newID string, confirmed bool, blocked *[]string) (bool, error) {
+func planFinalProbe(deps Renamer, plan *Plan, oldID, newID string, confirmed bool, blocked *[]string) (bool, error) {
 	source, sourcePresent, err := readOptionalProbeCredential(deps.Accounts, oldID)
 	if err != nil {
 		return false, fmt.Errorf("Read source account probe credential slot: %w", err)
@@ -151,7 +151,7 @@ func planFinalProbe(deps Service, plan *Plan, oldID, newID string, confirmed boo
 	return true, nil
 }
 
-func applyFinalize(ctx context.Context, deps Service, plan Plan) (Plan, error) {
+func applyFinalize(ctx context.Context, deps Renamer, plan Plan) (Plan, error) {
 	if err := ctx.Err(); err != nil {
 		return Plan{}, err
 	}
@@ -199,7 +199,7 @@ func applyFinalize(ctx context.Context, deps Service, plan Plan) (Plan, error) {
 	return plan, nil
 }
 
-func verifyFinalizedAccountProbe(ctx context.Context, deps Service, plan Plan) error {
+func verifyFinalizedAccountProbe(ctx context.Context, deps Renamer, plan Plan) error {
 	providerAccount := plan.Account
 	if providerAccount.AccountProbe == nil {
 		return fmt.Errorf("target account %q does not declare precise diagnostics", plan.NewID)

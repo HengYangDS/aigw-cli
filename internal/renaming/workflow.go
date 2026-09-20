@@ -6,7 +6,7 @@ import (
 )
 
 // RenameProfile updates one Profile identity and all Route references as one transaction.
-func (s Service) RenameProfile(ctx context.Context, oldID, newID string, dryRun bool) (Plan, error) {
+func (s Renamer) RenameProfile(ctx context.Context, oldID, newID string, dryRun bool) (Plan, error) {
 	if err := ctx.Err(); err != nil {
 		return Plan{}, err
 	}
@@ -27,7 +27,7 @@ func (s Service) RenameProfile(ctx context.Context, oldID, newID string, dryRun 
 
 // RenameAccount prepares target credentials and commits the new Account identity.
 // Source and prepared target slots remain available after a failed commit for retry or rollback.
-func (s Service) RenameAccount(ctx context.Context, oldID, newID string, dryRun bool) (Plan, error) {
+func (s Renamer) RenameAccount(ctx context.Context, oldID, newID string, dryRun bool) (Plan, error) {
 	if err := ctx.Err(); err != nil {
 		return Plan{}, err
 	}
@@ -60,7 +60,7 @@ func (s Service) RenameAccount(ctx context.Context, oldID, newID string, dryRun 
 }
 
 // FinalizeAccount converges a verified rollback baseline before retiring old credential slots.
-func (s Service) FinalizeAccount(ctx context.Context, oldID, newID string, dryRun bool, options FinalizeOptions) (Plan, error) {
+func (s Renamer) FinalizeAccount(ctx context.Context, oldID, newID string, dryRun bool, options FinalizeOptions) (Plan, error) {
 	if err := ctx.Err(); err != nil {
 		return Plan{}, err
 	}

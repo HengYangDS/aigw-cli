@@ -105,10 +105,10 @@ func TestAccountEditUpdatesSharedEndpointWithoutProfileDuplication(t *testing.T)
 	}
 }
 
-func TestAccountConnectValidationAndDependencyFailures(t *testing.T) {
+func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 	t.Run("non-interactive", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		if err := cli.Execute(app, []string{"account", "connect"}); err == nil || !strings.Contains(err.Error(), "interactive") {
+		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err == nil || !strings.Contains(err.Error(), "interactive") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -117,7 +117,7 @@ func TestAccountConnectValidationAndDependencyFailures(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
 		app.Config = configuration.NewStore(t.TempDir())
-		if err := cli.Execute(app, []string{"account", "connect"}); err == nil {
+		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
 	})
@@ -126,7 +126,7 @@ func TestAccountConnectValidationAndDependencyFailures(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
 		saveProbeProfile(t, app.Config)
-		if err := cli.Execute(app, []string{"account", "connect", "missing"}); err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown") {
+		if err := cli.Execute(app, []string{"account", "diagnostics", "enable", "missing"}); err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -135,7 +135,7 @@ func TestAccountConnectValidationAndDependencyFailures(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
 		saveCommandProfile(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
-		if err := cli.Execute(app, []string{"account", "connect"}); err == nil || !strings.Contains(err.Error(), "does not support") {
+		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err == nil || !strings.Contains(err.Error(), "does not support") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -151,7 +151,7 @@ func TestAccountConnectValidationAndDependencyFailures(t *testing.T) {
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
-		if err := cli.Execute(app, []string{"account", "connect"}); err == nil || !strings.Contains(err.Error(), "does not include") {
+		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err == nil || !strings.Contains(err.Error(), "does not include") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -162,7 +162,7 @@ func TestAccountConnectValidationAndDependencyFailures(t *testing.T) {
 		saveProbeProfile(t, app.Config)
 		want := errors.New("cancelled")
 		app.Prompt = &scriptedPrompt{secretErr: want}
-		if err := cli.Execute(app, []string{"account", "connect"}); !errors.Is(err, want) {
+		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
@@ -172,7 +172,7 @@ func TestAccountConnectValidationAndDependencyFailures(t *testing.T) {
 		app.Interactive = true
 		saveProbeProfile(t, app.Config)
 		app.Prompt = &scriptedPrompt{secrets: []string{"system-token"}}
-		if err := cli.Execute(app, []string{"account", "connect"}); err == nil || !strings.Contains(err.Error(), "no text") {
+		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err == nil || !strings.Contains(err.Error(), "no text") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -184,17 +184,17 @@ func TestAccountConnectValidationAndDependencyFailures(t *testing.T) {
 		want := errors.New("credential write failed")
 		app.Prompt = &scriptedPrompt{secrets: []string{"system-token"}, texts: []string{"user"}}
 		app.Accounts = &recordingCredentialStore[secrets.DiagnosticCredential]{backend: app.Accounts, setErr: want}
-		if err := cli.Execute(app, []string{"account", "connect"}); !errors.Is(err, want) {
+		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
 }
 
-func TestAccountDisconnectBranches(t *testing.T) {
+func TestAccountDiagnosticsDisableBranches(t *testing.T) {
 	t.Run("load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Config = configuration.NewStore(t.TempDir())
-		if err := cli.Execute(app, []string{"account", "disconnect"}); err == nil {
+		if err := cli.Execute(app, []string{"account", "diagnostics", "disable"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
 	})
@@ -202,7 +202,7 @@ func TestAccountDisconnectBranches(t *testing.T) {
 	t.Run("unknown", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveProbeProfile(t, app.Config)
-		if err := cli.Execute(app, []string{"account", "disconnect", "missing"}); err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown") {
+		if err := cli.Execute(app, []string{"account", "diagnostics", "disable", "missing"}); err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -212,7 +212,7 @@ func TestAccountDisconnectBranches(t *testing.T) {
 		saveProbeProfile(t, app.Config)
 		want := errors.New("delete failed")
 		app.Accounts = &recordingCredentialStore[secrets.DiagnosticCredential]{backend: app.Accounts, deleteErr: want}
-		if err := cli.Execute(app, []string{"account", "disconnect", "dmx"}); !errors.Is(err, want) {
+		if err := cli.Execute(app, []string{"account", "diagnostics", "disable", "dmx"}); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
@@ -222,7 +222,7 @@ func TestAccountDisconnectBranches(t *testing.T) {
 		saveProbeProfile(t, app.Config)
 		store := app.Accounts
 		_ = store.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
-		if err := cli.Execute(app, []string{"account", "disconnect", "dmx"}); err != nil {
+		if err := cli.Execute(app, []string{"account", "diagnostics", "disable", "dmx"}); err != nil {
 			t.Fatal(err)
 		}
 		if accountCredentialExists(t, store, "dmx") || !strings.Contains(out.String(), "credentials were removed") {

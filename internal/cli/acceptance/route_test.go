@@ -320,7 +320,7 @@ func TestRepeatedUseOfActiveProfileDoesNotRewriteOwnedState(t *testing.T) {
 	if err := cli.Execute(app, []string{"use", "claude"}); err != nil {
 		t.Fatalf("repeat active selection: %v", err)
 	}
-	if text := out.String(); !strings.Contains(text, "Service already selected") || strings.Contains(text, "Service switched") {
+	if text := out.String(); !strings.Contains(text, "Profile already selected") || strings.Contains(text, "Profile selected") {
 		t.Fatalf("repeated use did not report its no-op semantics:\n%s", text)
 	}
 

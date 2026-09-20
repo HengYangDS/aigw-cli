@@ -64,8 +64,7 @@ func (codexAdapter) Discover(source DiscoverySource) discovery.Result {
 func (codexAdapter) Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
 	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
 	if err != nil {
-		var unselected *configuration.RuntimeRouteUnselectedError
-		if errors.As(err, &unselected) {
+		if _, unselected := errors.AsType[*configuration.RuntimeRouteUnselectedError](err); unselected {
 			return nil
 		}
 		return err
@@ -111,7 +110,7 @@ func (codexAdapter) Plan(deps Dependencies, before, after configuration.Config) 
 	}
 	result := make([]ProjectionPlan, 0, len(plans))
 	for _, plan := range plans {
-		result = append(result, ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: plan.Action})
+		result = append(result, ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: string(plan.Action)})
 	}
 	return result, nil
 }
@@ -198,8 +197,7 @@ func (claudeAdapter) Discover(source DiscoverySource) discovery.Result {
 func (claudeAdapter) Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
 	runtime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
 	if err != nil {
-		var unselected *configuration.RuntimeRouteUnselectedError
-		if errors.As(err, &unselected) {
+		if _, unselected := errors.AsType[*configuration.RuntimeRouteUnselectedError](err); unselected {
 			return nil
 		}
 		return err
@@ -240,7 +238,7 @@ func (claudeAdapter) Plan(deps Dependencies, before, after configuration.Config)
 	if err != nil {
 		return nil, err
 	}
-	return []ProjectionPlan{{Client: configuration.ClientClaude, Target: plan.Target, Action: plan.Action}}, nil
+	return []ProjectionPlan{{Client: configuration.ClientClaude, Target: plan.Target, Action: string(plan.Action)}}, nil
 }
 
 func (claudeAdapter) Apply(_ context.Context, deps Dependencies, before, after configuration.Config) (ProjectionReceipt, error) {

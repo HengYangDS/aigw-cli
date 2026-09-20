@@ -279,7 +279,7 @@ func Label(name string) string {
 	case name == "credential:backend":
 		return "Credential backend"
 	case strings.HasPrefix(name, "secret:"):
-		return "System secret"
+		return "Account Token"
 	case name == "adapter:claude":
 		return "Claude adapter"
 	case name == "adapter:codex":

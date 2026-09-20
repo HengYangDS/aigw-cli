@@ -126,12 +126,12 @@ func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := cli.Execute(app, []string{"balance"})
-	if err == nil || !strings.Contains(out.String()+err.Error(), "aigw account connect dmx") || !strings.Contains(out.String()+err.Error(), "Precise balance diagnostics are not enabled") {
+	if err == nil || !strings.Contains(out.String()+err.Error(), "aigw account diagnostics enable dmx") || !strings.Contains(out.String()+err.Error(), "Precise balance diagnostics are not enabled") {
 		t.Fatalf("output=%s error=%v", out.String(), err)
 	}
 }
 
-func TestAccountConnectStoresSeparateCredentialAndBalanceShowsDetails(t *testing.T) {
+func TestAccountDiagnosticsEnableStoresSeparateCredentialAndBalanceShowsDetails(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	accountStore := app.Accounts
 	cfg := configuration.NewConfig()
@@ -147,11 +147,17 @@ func TestAccountConnectStoresSeparateCredentialAndBalanceShowsDetails(t *testing
 	prompt := &scriptedPrompt{secrets: []string{"system-secret"}, texts: []string{"10000"}}
 	app.Prompt = prompt
 	app.Interactive = true
-	if err := cli.Execute(app, []string{"account", "connect"}); err != nil {
+	if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err != nil {
 		t.Fatal(err)
 	}
 	if !accountCredentialExists(t, accountStore, "dmx") {
 		t.Fatal("account credential not stored")
+	}
+	output := strings.Join(strings.Fields(out.String()), " ")
+	for _, want := range []string{"Account DMXAPI", "Account ID dmx", "Diagnostic credential Securely stored"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("diagnostics enable output lacks %q:\n%s", want, out.String())
+		}
 	}
 	out.Reset()
 	httpClient.handler = handleDMXBalance

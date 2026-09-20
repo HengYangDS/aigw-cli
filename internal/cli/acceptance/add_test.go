@@ -17,7 +17,7 @@ import (
 func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 	for _, clientID := range configuration.AdmittedClientIDs() {
 		t.Run(clientID, func(t *testing.T) {
-			app, _, credentials, _, _ := testApp(t, "new-token\n")
+			app, out, credentials, _, _ := testApp(t, "new-token\n")
 			target := filepath.Join(t.TempDir(), "config.toml")
 			if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 				t.Fatal(err)
@@ -54,17 +54,30 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			if err := cli.Execute(app, []string{"add", "new", "--for", clientID, "--model", "new-model", "--anthropic-url", "https://new.test", "--openai-url", "https://new.test/v1", "--token-stdin"}); err != nil {
 				t.Fatal(err)
 			}
+			assertAccountConnectionOutput(t, out.String())
 			current, err := app.Config.Load()
 			if err != nil || current.Routes[clientID] != "new" || current.Routes[other] != other {
 				t.Fatalf("creation routes = %v, %v", current.Routes, err)
 			}
 			if !bytes.Contains(readFile(t, paths[clientID]), []byte("new-model")) {
-				t.Fatal("service creation left the selected client on its old model")
+				t.Fatal("Account connection left the selected client on its old model")
 			}
 			if !bytes.Equal(readFile(t, paths[other]), foreign) || !bytes.Equal(readFile(t, paths[other]+".aigw-state.json"), state) {
-				t.Fatal("service creation touched the unrelated client")
+				t.Fatal("Account connection touched the unrelated client")
 			}
 		})
+	}
+}
+
+func assertAccountConnectionOutput(t *testing.T, output string) {
+	t.Helper()
+	for _, want := range []string{"Account connected", "Account ID", "Profile ID", "Client", "Model", "Token"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("add output lacks %q:\n%s", want, output)
+		}
+	}
+	if strings.Contains(output, "Service") {
+		t.Fatalf("add output retained ambiguous service terminology:\n%s", output)
 	}
 }
 
@@ -123,7 +136,7 @@ func TestAddPreservesExistingAccountWithDifferentProfileID(t *testing.T) {
 func TestAddRejectsInvalidProfileName(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
 	err := cli.Execute(app, []string{"add", "not valid!", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
-	if err == nil || !strings.Contains(err.Error(), "Invalid service ID") {
+	if err == nil || !strings.Contains(err.Error(), "Invalid account ID") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -135,7 +148,7 @@ func TestAddSurfacesConfigLoadFailure(t *testing.T) {
 	dir := t.TempDir()
 	app.Config = configuration.NewStore(dir)
 	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
-	if err == nil || strings.Contains(err.Error(), "Invalid service ID") {
+	if err == nil || strings.Contains(err.Error(), "Invalid account ID") {
 		t.Fatalf("error = %v, want a config load failure", err)
 	}
 }

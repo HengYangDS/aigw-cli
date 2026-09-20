@@ -306,7 +306,7 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 	remaining := out.String()
 	for _, want := range []string{
 		"Start with one path",
-		"aigw setup", "Connect the first service",
+		"aigw setup", "Connect the first account",
 		"aigw use <profile>", "Select this profile for its client",
 		"aigw check", "Confirm readiness",
 		"Usage", "aigw [command]",
@@ -339,7 +339,7 @@ func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
 			help, _, _ = strings.Cut(help, "\nUsage")
 			column := -1
 			for _, row := range [][2]string{
-				{"gateway setup", "Connect the first service"},
+				{"gateway setup", "Connect the first account"},
 				{"gateway use <profile>", "Select this profile for its client"},
 				{"gateway check", "Confirm readiness"},
 			} {
@@ -405,7 +405,7 @@ func TestPublicCommandTreeCarriesOneCoherentMetadataContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if add.Use != "add <service>" || add.Short != "Add one Account, first Profile, Route, and Token" {
+	if add.Use != "add <account>" || add.Short != "Add and connect one Account with its first Profile" {
 		t.Fatalf("add metadata = %q / %q", add.Use, add.Short)
 	}
 }
@@ -450,7 +450,7 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		want []string
 	}{
 		{args: []string{"setup", "--help"}, want: []string{"Account ID; uses the first Profile ID when omitted", "First profile ID", "Read one token line from standard input"}},
-		{args: []string{"test", "--help"}, want: []string{"Test selected service endpoints", "Test the selected Route for Claude or Codex"}},
+		{args: []string{"test", "--help"}, want: []string{"Test selected endpoints", "Test the selected Route for Claude or Codex"}},
 		{args: []string{"models", "--help"}, want: []string{"Compare configured model IDs with provider catalogs", "does not test inference"}},
 		{args: []string{"verify", "--help"}, want: []string{"Verify the selected Route for Claude, Codex, or all", "Verify one Profile using its declared client without changing Routes"}},
 		{args: []string{"rotate", "--help"}, want: []string{"Update one Account Token"}},

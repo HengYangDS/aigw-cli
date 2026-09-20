@@ -35,7 +35,7 @@ const (
 	RateLimited Kind = "rate_limited"
 	// ModelUnavailable identifies a configured model that the provider cannot currently serve.
 	ModelUnavailable Kind = "model_unavailable"
-	// UpstreamFailure identifies a failure returned by the selected service endpoint.
+	// UpstreamFailure identifies a failure returned by the selected endpoint.
 	UpstreamFailure Kind = "upstream_failure"
 	// EndpointMismatch identifies a configured URL that does not expose the expected protocol path.
 	EndpointMismatch Kind = "endpoint_mismatch"
@@ -177,7 +177,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 	if readErr != nil {
 		return Result{
 			Kind:       NetworkFailure,
-			Summary:    "Cannot read the service endpoint response",
+			Summary:    "Cannot read the endpoint response",
 			Detail:     redaction.Text(readErr.Error(), token),
 			Fix:        "Check the configured endpoint and network, then try again",
 			HTTPStatus: resp.StatusCode,
@@ -191,7 +191,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 	case resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices:
 		result.Kind, result.Summary = Healthy, "Endpoint diagnostic returned a successful response"
 	case resp.StatusCode == http.StatusUnauthorized:
-		result.Kind, result.Summary = InvalidToken, "Account Token is invalid or belongs to a different service"
+		result.Kind, result.Summary = InvalidToken, "Account Token is invalid or does not belong to the configured endpoint"
 		result.Fix = "Run `aigw rotate " + runtime.AccountID + "` to enter the token again, and confirm that the configured endpoint belongs to this Account"
 	case resp.StatusCode == http.StatusForbidden && containsAny(lower, "quota", "balance", "insufficient", "exhaust"):
 		result.Kind, result.Summary = QuotaExhausted, "Token quota is exhausted"
@@ -212,10 +212,10 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 		result.Kind, result.Summary, result.Retryable = ModelUnavailable, "Current model or channel is unavailable", true
 		result.Fix = "Confirm the model name and token model restrictions, or try again later"
 	case resp.StatusCode >= 500:
-		result.Kind, result.Summary, result.Retryable = UpstreamFailure, "Upstream service failed", true
-		result.Fix = "Try again later; if it persists, contact the service operator with the HTTP status code"
+		result.Kind, result.Summary, result.Retryable = UpstreamFailure, "Endpoint provider failed", true
+		result.Fix = "Try again later; if it persists, contact the endpoint operator with the HTTP status code"
 	default:
-		result.Kind, result.Summary = Unexpected, fmt.Sprintf("Service endpoint returned unexpected HTTP status %d", resp.StatusCode)
+		result.Kind, result.Summary = Unexpected, fmt.Sprintf("Endpoint returned unexpected HTTP status %d", resp.StatusCode)
 		result.Fix = "Run `aigw doctor` for detailed status"
 	}
 	return result

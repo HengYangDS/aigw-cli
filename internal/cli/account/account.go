@@ -20,16 +20,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewAddCommand constructs the guided command that adds one usable service.
+// NewAddCommand constructs the guided command that connects one Account and its first Profile.
 func NewAddCommand(runtime invocation.Context) *cobra.Command {
 	var label, openAIURL, anthropicURL, client, model string
 	var tokenStdin bool
 	cmd := &cobra.Command{
-		Use:   "add <service>",
-		Short: "Add one Account, first Profile, Route, and Token",
+		Use:   "add <account>",
+		Short: "Add and connect one Account with its first Profile",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
 			if !configuration.ValidIdentifier(args[0]) {
-				return fmt.Errorf("Invalid service ID %q; use letters, numbers, dots, hyphens, or underscores; run `%s --help`", args[0], cmd.CommandPath())
+				return fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores; run `%s --help`", args[0], cmd.CommandPath())
 			}
 			if !configuration.IsAdmittedClient(client) || strings.TrimSpace(model) == "" {
 				return fmt.Errorf("--for and --model are required; --for must be %s; run `%s --help`", configuration.AdmittedClientUsage(), cmd.CommandPath())
@@ -55,15 +55,18 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 			}
 			profile := configuration.Profile{Label: label, Account: name, Client: client, Model: strings.TrimSpace(model)}
 			acquireToken := func() (string, error) { return invocation.ReadToken(runtime, tokenStdin, true) }
-			if err := invocation.Synchronizer(runtime).CreateService(cmd.Context(), cfg, name, account, profile, acquireToken); err != nil {
+			if err := invocation.Synchronizer(runtime).ConnectAccount(cmd.Context(), cfg, name, account, profile, acquireToken); err != nil {
 				return fmt.Errorf("%w; run `%s --help`", err, cmd.CommandPath())
 			}
 			r := invocation.Renderer(runtime)
-			r.ProductTitle("Service added")
-			r.Section("Service")
-			r.Row("Name", label)
-			r.Row("Configuration", name)
-			r.Status(presentation.OK, "System secret", "Securely stored")
+			r.ProductTitle("Account connected")
+			r.Section("Selection")
+			r.Row("Account", label)
+			r.Row("Account ID", name)
+			r.Row("Profile ID", name)
+			r.Row("Client", invocation.Title(client))
+			r.Row("Model", profile.Model)
+			r.Status(presentation.OK, "Token", "Securely stored")
 			r.Next("aigw check")
 			return nil
 		},
@@ -188,10 +191,10 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Token updated")
-			r.Section("Service")
+			r.Section("Account")
 			r.Row("Account", account.Label)
-			r.Row("Account", accountName)
-			r.Status(presentation.OK, "Token", "Validated and securely stored")
+			r.Row("Account ID", accountName)
+			r.Status(presentation.OK, "Account Token", "Validated and securely stored")
 			r.Success("Credential helpers read the new Token when next invoked; clients control their refresh timing")
 			r.Next("aigw check")
 			return nil
@@ -204,13 +207,11 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 // NewCommand constructs the account command group from one invocation context.
 func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra.Command {
 	root := &cobra.Command{Use: "account", Short: "Manage account endpoints and optional precise diagnostics"}
-	root.AddCommand(
-		newListCommand(runtime),
-		newEditCommand(runtime),
-		renameCommand,
-		&cobra.Command{Use: "connect [account]", Short: "Bind provider platform credentials to query precise balance", Args: cobra.MatchAll(cobra.MaximumNArgs(1), func(cmd *cobra.Command, _ []string) error {
+	diagnostics := &cobra.Command{Use: "diagnostics", Short: "Manage optional precise provider diagnostics"}
+	diagnostics.AddCommand(
+		&cobra.Command{Use: "enable [account]", Short: "Store credentials for precise provider diagnostics", Args: cobra.MatchAll(cobra.MaximumNArgs(1), func(cmd *cobra.Command, _ []string) error {
 			if !runtime.Interactive {
-				return fmt.Errorf("Binding platform credentials requires an interactive terminal; run `%s --help`", cmd.CommandPath())
+				return fmt.Errorf("Enabling precise provider diagnostics requires an interactive terminal; run `%s --help`", cmd.CommandPath())
 			}
 			return nil
 		}), RunE: func(_ *cobra.Command, args []string) error {
@@ -245,13 +246,14 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Account diagnostics enabled")
-			r.Section("Service")
-			r.Row("Name", providerAccount.Label)
-			r.Status(presentation.OK, "System credential", "Securely stored")
+			r.Section("Account")
+			r.Row("Account", providerAccount.Label)
+			r.Row("Account ID", accountName)
+			r.Status(presentation.OK, "Diagnostic credential", "Securely stored")
 			r.Next("aigw balance")
 			return nil
 		}},
-		&cobra.Command{Use: "disconnect [account]", Short: "Remove optional provider platform credentials", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+		&cobra.Command{Use: "disable [account]", Short: "Remove credentials for precise provider diagnostics", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
@@ -269,9 +271,15 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Account diagnostics disabled")
-			r.Success("Platform system credentials were removed from secure storage")
+			r.Success("Provider diagnostic credentials were removed from secure storage")
 			return nil
 		}},
+	)
+	root.AddCommand(
+		newListCommand(runtime),
+		newEditCommand(runtime),
+		renameCommand,
+		diagnostics,
 	)
 	return root
 }
@@ -337,9 +345,9 @@ func NewBalanceCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return presentation.ProblemError(
 				"Precise balance diagnostics are not enabled",
-				"Missing "+accountName+" provider platform query credentials; the API token is stored separately in system secret storage.",
+				"Missing "+accountName+" provider platform diagnostic credential; the Account Token is stored separately in the selected credential backend.",
 				"Cannot distinguish account balance, remaining token quota, disabled token state, and request limits.",
-				"aigw account connect "+accountName,
+				"aigw account diagnostics enable "+accountName,
 				err,
 			)
 		}

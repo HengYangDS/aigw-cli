@@ -211,7 +211,7 @@ func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T
 		t.Fatal(err)
 	}
 	result := out.String()
-	for _, want := range []string{"No global client token environment variables detected", "Configuration is valid", "System secret", "team · available", "Claude adapter", "Enabled"} {
+	for _, want := range []string{"No global client token environment variables detected", "Configuration is valid", "Account Token", "team · available", "Claude adapter", "Enabled"} {
 		if !strings.Contains(result, want) {
 			t.Fatalf("doctor human output missing %q:\n%s", want, result)
 		}

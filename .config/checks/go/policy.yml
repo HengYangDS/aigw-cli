@@ -51,6 +51,7 @@ linters:
     - nosprintfhostport
     - predeclared
     - reassign
+    - recvcheck
     - revive
     - sloglint
     - staticcheck
@@ -128,6 +129,11 @@ linters:
       under: 25
     nestif:
       min-complexity: 4
+    recvcheck:
+      # Normalize is the sole mutator; every observational Config method keeps
+      # value semantics.
+      exclusions:
+        - Config.Normalize
     revive:
       enable-all-rules: false
       rules:

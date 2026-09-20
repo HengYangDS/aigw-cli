@@ -191,7 +191,7 @@ func TestTestCommandDistinguishesReachabilityFromCredentialAcceptance(t *testing
 	if err := cli.Execute(app, []string{"test", "--for", "claude"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "HTTP 404 · Service is reachable; model discovery is unavailable and credential acceptance is unverified") {
+	if !strings.Contains(out.String(), "HTTP 404 · Endpoint is reachable; model discovery is unavailable and credential acceptance is unverified") {
 		t.Fatalf("Claude model-discovery 404 probe result = %s", out.String())
 	}
 }
@@ -244,7 +244,7 @@ func TestTestCommandExplainsUnconfiguredStateBeforeResolvingRoutes(t *testing.T)
 		t.Fatal("test command unexpectedly succeeded")
 	}
 	text := out.String()
-	for _, want := range []string{"Not configured", "No service profiles have been created.", "aigw setup"} {
+	for _, want := range []string{"Not configured", "No Profiles have been created.", "aigw setup"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("unconfigured test output lacks %q:\n%s", want, text)
 		}
@@ -419,7 +419,7 @@ func TestCheckUsesBoundedAuthenticationStabilityWithoutMutation(t *testing.T) {
 			name:      "persistent invalid token",
 			statuses:  []int{http.StatusUnauthorized, http.StatusUnauthorized, http.StatusUnauthorized, http.StatusUnauthorized},
 			wantError: true,
-			wantText:  []string{"Account Token is invalid or belongs to a different service", "aigw rotate dmx"},
+			wantText:  []string{"Account Token is invalid or does not belong to the configured endpoint", "aigw rotate dmx"},
 		},
 		{
 			name:       "unstable authentication",
@@ -506,7 +506,7 @@ func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *tes
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"Claude", "uses a loopback endpoint; AIGW does not manage the service"} {
+	for _, want := range []string{"Claude", "uses a loopback endpoint; AIGW does not manage the endpoint runtime"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("check lacks %q:\n%s", want, text)
 		}

@@ -54,11 +54,11 @@ func TestAccountCommandsRequireAnAccountBeforeProviderWork(t *testing.T) {
 	}
 
 	accountCommand := NewCommand(runtime, &cobra.Command{Use: "rename"})
-	accountCommand.SetArgs([]string{"connect"})
+	accountCommand.SetArgs([]string{"diagnostics", "enable"})
 	accountCommand.SilenceErrors = true
 	accountCommand.SilenceUsage = true
 	if err := accountCommand.Execute(); err == nil || !strings.Contains(err.Error(), "0 accounts") {
-		t.Fatalf("account connect error = %v", err)
+		t.Fatalf("account diagnostics enable error = %v", err)
 	}
 
 	balanceCommand := NewBalanceCommand(runtime)

@@ -431,6 +431,30 @@ untracked or empty directory remains. Active-lane `.serena` and `node_modules`
 remain reproducible workspace inputs until lane retirement; branch and Work Lane
 removal remain task 10.3 rather than being performed beneath active work.
 
+Task 5.6 narrows the remaining domain language around the objects AIGW actually
+owns. The guided `add` journey now connects an Account and its first Profile;
+optional provider-platform credentials live under `account diagnostics`, so
+they cannot be confused with an Account Token or with connectivity itself.
+Account identifiers, labels, Tokens, Profile identifiers, Routes, endpoint
+runtimes, and native credential services retain distinct names in code and
+human output. The former generic renaming `Service` is now `Renamer`, while
+Codex and Claude projection transitions use closed action types at their owning
+boundaries. The Client Adapter aggregate intentionally keeps its action as a
+string because future admitted adapters form an open set; converting each
+client's private enum at that boundary avoids a false shared enumeration.
+
+The same audit enables `recvcheck` for observational receiver consistency with
+one documented exception: `Config.Normalize` is the sole intended mutator.
+Repository-wide scans find no remaining public `add <service>`, first-service,
+account-connect, account-disconnect, or current-service wording. Legitimate
+uses of `service` remain only where the subject is an external runtime or a
+native credential service. The WorkBuddy/Qoder review preserves the same
+precision: Desktop, CLI, and SDK surfaces are assessed independently, and
+documented custom-model support is not reported as AIGW Adapter admission.
+Focused internal tests, Go lint, strict OpenSpec validation, and whitespace
+validation pass after the closure; the complete repository graph is the final
+acceptance prerequisite before the task is marked complete.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:

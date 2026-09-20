@@ -206,7 +206,7 @@ func TestPlanReconciliationClassifiesInitialConvergedAndReformattedProjection(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plans) != 1 || plans[0].Action != "initial-project" {
+	if len(plans) != 1 || plans[0].Action != ProjectionActionInitialProject {
 		t.Fatalf("initial plan = %#v", plans)
 	}
 	if _, err := ReconcileConfigs(nil, targets, runtime); err != nil {
@@ -216,7 +216,7 @@ func TestPlanReconciliationClassifiesInitialConvergedAndReformattedProjection(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plans[0].Action != "already-converged" {
+	if plans[0].Action != ProjectionActionAlreadyConverged {
 		t.Fatalf("converged plan = %#v", plans)
 	}
 	projected, err := os.ReadFile(path)
@@ -231,7 +231,7 @@ func TestPlanReconciliationClassifiesInitialConvergedAndReformattedProjection(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plans[0].Action != "update" {
+	if plans[0].Action != ProjectionActionUpdate {
 		t.Fatalf("truncated plan = %#v", plans)
 	}
 }
@@ -252,7 +252,7 @@ func TestConvergedCodexReconciliationPreservesEveryOwnedFile(t *testing.T) {
 		before[file] = snapshot
 	}
 	prepared, err := prepareCodexReconciliation(targets, targets, runtime)
-	if err != nil || len(prepared) != 1 || prepared[0].plan.Action != "already-converged" || len(prepared[0].artifacts) != 0 {
+	if err != nil || len(prepared) != 1 || prepared[0].plan.Action != ProjectionActionAlreadyConverged || len(prepared[0].artifacts) != 0 {
 		t.Fatalf("converged preparation = %#v, %v", prepared, err)
 	}
 	if _, err := ReconcileConfigs(targets, targets, runtime); err != nil {
