@@ -688,19 +688,41 @@ Exact trial inputs, findings and remediation belong to the proposing OpenSpec
 Change. The durable trade-offs are:
 
 - **Cyclomatic 20, then 15**
-  - **Decision and semantic reason:** Retain the current bound. Signed publication, report admission and release construction need ordered checks; complete acceptance journeys retain every preservation assertion. Lower-score findings require owner-level review, not automatic extraction into forwarding functions.
+  - **Decision and semantic reason:** Do not adopt either trial; keep the
+    machine limit at 25. Signed publication, report admission and release
+    construction need ordered checks; complete acceptance journeys retain every
+    preservation assertion. Lower-score findings require owner-level review,
+    not automatic extraction into forwarding functions.
 - **Cognitive 40**
-  - **Decision and semantic reason:** Retain the current bound. Bootstrap, recovery and native artifact tests jointly assert ownership, failure propagation and cleanup. Splitting those observations across helpers or weakening assertions does not reduce their product obligation.
+  - **Decision and semantic reason:** Do not adopt the trial; keep the machine
+    limit at 45. Bootstrap, recovery and native artifact tests jointly assert
+    ownership, failure propagation and cleanup. Splitting those observations
+    across helpers or weakening assertions does not reduce their product
+    obligation.
 - **Span/statements 110/55**
-  - **Decision and semantic reason:** Retain the current bounds. Explicit native executable declarations and complete source/build/check journeys remain inspectable without forwarding stages or compressed literals.
+  - **Decision and semantic reason:** Do not adopt the trial; keep the machine
+    limits at 120 physical lines and 60 statements. Explicit native executable
+    declarations and complete source, build, and check journeys remain
+    inspectable without forwarding stages or compressed literals.
 - **Arguments six**
-  - **Decision and semantic reason:** Retain the current bound. A fixture declares an Account and Profile; artifact ordering consumes a target plus before/after configuration, state and catalogue. Positional snapshot grouping alone would add a carrier rather than reduce caller knowledge.
+  - **Decision and semantic reason:** Do not adopt the trial; keep the machine
+    limit at seven. A fixture declares an Account and Profile; artifact ordering
+    consumes a target plus before/after configuration, state and catalogue.
+    Positional snapshot grouping alone would add a carrier rather than reduce
+    caller knowledge.
 - **Nestif below four**
   - **Decision and semantic reason:** Adopt the stricter bound. Early terminal paths remove nesting, and shared credential deletion verifies metadata instead of reading secret values. Product and test fixtures verify the boundary.
 - **Maintainability 30**
-  - **Decision and semantic reason:** Retain the current floor. The index penalizes explicit assertion/data vocabulary as well as control flow; independent size, nesting and decision limits constrain those owners.
+  - **Decision and semantic reason:** Do not adopt the trial; keep the machine
+    floor at 25. The index penalizes explicit assertion and data vocabulary as
+    well as control flow; independent size, nesting and decision limits
+    constrain those owners.
 - **Clone threshold 80**
-  - **Decision and semantic reason:** Retain the current threshold. DPAPI protection and unprotection are distinct operations, not automatically repeated responsibility. Findings inform consumer review without forcing distinct assertions behind one configurable fake.
+  - **Decision and semantic reason:** Do not adopt the trial; keep the machine
+    threshold at 100 tokens. DPAPI protection and unprotection are distinct
+    operations, not automatically repeated responsibility. Findings inform
+    consumer review without forcing distinct assertions behind one configurable
+    fake.
 
 Calibration does not complete consumer/clone review, native release or
 performance acceptance. Reopen a threshold when concrete escaped risk or

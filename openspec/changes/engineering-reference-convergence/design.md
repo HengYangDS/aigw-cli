@@ -510,6 +510,40 @@ and GitLab. Current YAML and JSON already receive formatting and semantic
 validation from their native owners, so Yamlfmt or another generic parser would
 duplicate authority rather than improve coverage.
 
+Task 6.4 recalibrates the existing machine limits against the product tree at
+`a1668b9b`. The locked analyzers inspected the complete package graph under
+Darwin arm64, Linux amd64, and Windows amd64 selections; SCC independently
+measured all 372 tracked and current Go files: 113 product files, 32 repository
+tool files, and 227 test files. The trial made no exclusions and retained every
+test assertion. Its result is deliberately not a mandate to split coherent
+transactions or acceptance journeys:
+
+| Trial                  | Current findings on each target selection                                   | Decision                                                                  |
+| ---------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| SCC 450, then 400      | 36 files above 450; 61 above 400. Tests account for 35 and 53 respectively. | Keep 500; the largest product/tool files are 487/433 and tests reach 500. |
+| Cyclomatic 20, then 15 | 50 at 20 on every target; 158 on Darwin and 157 on Linux/Windows at 15.     | Keep 25; lower limits primarily fragment complete behavioral tests.       |
+| Cognitive 40           | 23 on every target: two product functions and 21 tests.                     | Keep 45.                                                                  |
+| Span/statements 110/55 | Eight on every target: one product, three tools, and four tests.            | Keep 120/60.                                                              |
+| Six parameters         | Four on every target: one product, one tool, and two tests.                 | Keep seven.                                                               |
+| Nesting score four     | No current finding under the already adopted fail-at-four rule.             | Keep the current strict rule.                                             |
+| Maintainability 30     | 17 on every target: one product, one tool, and 15 tests.                    | Keep 25.                                                                  |
+| Duplicate threshold 80 | 13 test findings on Darwin/Linux; 15 including two Windows product pairs.   | Keep 100 and review matches by semantic ownership.                        |
+
+The exact-HEAD repository proof reports 96.35% statement coverage
+(10,436/10,831), above the single greater-than-95% floor with every canonical
+package observed. A local macOS arm64 comparison then measured the current
+source program against the downloaded published `0.1.0` predecessor. The
+candidate's pooled p95 was 4.442 ms for version, 4.300 ms for help, 4.323 ms
+for configured status, 4.331 ms for configuration export, 6.720 ms for the
+projected environment credential helper, and 23.093 ms for one durable Route
+projection. Its two configured-status peak-memory blocks each reached
+14,876,672 bytes, compared with predecessor maxima of 14,827,520 and 14,925,824
+bytes. Across the six release targets, executable-size change ranged from
+-0.035% to +0.465%; the largest absolute increase was 50,080 bytes. All current
+budgets pass, so no numerical gate changes merely to manufacture a tighter
+score. This is current-source calibration, not the later multi-host published-
+artifact acceptance owned by task 9.6.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:
