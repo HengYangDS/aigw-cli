@@ -8,6 +8,31 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-20
+
+### Changed
+
+- Align the public CLI with the Account, Profile, Route, and Adapter model;
+  provider diagnostics now use `aigw account diagnostics enable|disable` instead
+  of the former `connect|disconnect` commands.
+- Use one bounded native credential implementation across macOS Keychain, Linux
+  Secret Service, and Windows Credential Manager while preserving explicit file,
+  environment, and operator-owned credential-command modes.
+- Reorganize product, test, release, and quality code around their semantic
+  owners; remove obsolete forwarding packages and duplicate repository checks.
+- Upgrade and lock the direct development, verification, and release toolchain;
+  generate GitHub and GitLab pipelines from the same CUE model.
+- Rebuild product and contributor guidance around the supported setup,
+  synchronization, credential, extension, recovery, and distribution journeys.
+
+### Fixed
+
+- Preserve precise client-scoped Route failures, external client edits, and
+  guarded Account-rename recovery instead of collapsing them into generic
+  readiness or rollback errors.
+- Make clean-checkout bootstrap independent of ambient tools and sibling Work
+  Lanes on macOS, Linux, and Windows.
+
 ## [0.1.0] - 2026-09-19
 
 ### Added
