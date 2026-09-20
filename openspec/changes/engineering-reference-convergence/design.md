@@ -652,13 +652,16 @@ reached the race gate but CGO was disabled, and a CGO-enabled Go toolchain also
 requires a compiler and C development headers. These are not unrelated job
 exceptions: they are the operating-system capability closure of the declared
 quality and native graph. The CUE owner therefore declares the single minimal
-Debian package set `gcc`, `libatomic1`, `libc6-dev`, and `openssh-client`,
-projects it once through `.linux-toolchain`, and explicitly enables CGO for the
-Linux quality and native jobs. Projection tests reject an incomplete package
-set, missing CGO, or job-local installation copies. No alternate image,
-entrypoint override, retry, or second bootstrap owner is added. Task 7.4 remains
-open until the exact image passes real ARM64 execution and the repaired hosted
-run, followed by the other supported clean-host bootstrap journeys.
+Debian package set `gcc`, `libatomic1`, `libc6-dev`, `openssh-client`, and
+`procps`: the last package supplies `ps` to the existing process-ownership
+acceptance rather than making that test infer process state through a second,
+platform-specific implementation. The model projects the package set once
+through `.linux-toolchain` and explicitly enables CGO for the Linux quality and
+native jobs. Projection tests reject an incomplete package set, missing CGO, or
+job-local installation copies. No alternate image, entrypoint override, retry,
+or second bootstrap owner is added. Task 7.4 remains open until the exact image
+passes real ARM64 execution and the repaired hosted run, followed by the other
+supported clean-host bootstrap journeys.
 
 ## Initial deletion inventory
 

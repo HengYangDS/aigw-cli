@@ -179,7 +179,7 @@ func TestGitLabLinuxJobsUseOneLockedToolchainImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantBootstrap := []string{
-		"apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y gcc libatomic1 libc6-dev openssh-client",
+		"apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y gcc libatomic1 libc6-dev openssh-client procps",
 		"env GODEBUG=http2client=0 mise install --locked",
 	}
 	if got := pipeline.LinuxToolchain.BeforeScript; !slices.Equal(got, wantBootstrap) {

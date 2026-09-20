@@ -22,7 +22,7 @@ installationEnvironment: GODEBUG: "http2client=0"
 linuxToolchain: {
 	// The runnable Mise image is intentionally small. Declare the complete
 	// repository execution closure here so every Linux job inherits one owner.
-	runtimePackages: ["gcc", "libatomic1", "libc6-dev", "openssh-client"]
+	runtimePackages: ["gcc", "libatomic1", "libc6-dev", "openssh-client", "procps"]
 	prepare: "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \(strings.Join(runtimePackages, " "))"
 }
 
