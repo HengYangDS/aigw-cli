@@ -9,7 +9,7 @@
 - **Accepted behavior:** [Canonical specifications](../../openspec/specs/)
 - **Go dependency closure:** [Module declaration](../../go.mod) and [checksums](../../go.sum)
 - **Runtime and standalone tools:** [mise declaration](../../mise.toml) and [lock](../../mise.lock)
-- **npm repository tools:** [Package declaration](../../package.json) and [lock](../../package-lock.json)
+- **npm dependency closure:** [Package declaration](../../package.json) and [lock](../../package-lock.json)
 - **CI topology:** [CUE pipeline](../../.config/ci/pipeline.cue)
 - **Coverage policy:** [Statement coverage contract](../../.config/checks/coverage/policy.toml)
 - **Go source file budget:** [Source size policy](../../.config/checks/go/size.toml)
@@ -96,7 +96,7 @@ proposals.
 
 The mise tool key identifies the executable to install, not necessarily its
 versioned Go module. The OSV Scanner rule uses Renovate's native
-[`overridePackageName`](https://docs.renovatebot.com/configuration-options/#overridepackagename)
+[`overridePackageName`](https://docs.renovatebot.com/configuration-options/#packagerulesoverridepackagename)
 to query `github.com/google/osv-scanner/v2` while preserving the
 `go:github.com/google/osv-scanner/v2/cmd/osv-scanner` installation key. Keep this
 translation in the dependency policy, not a second extractor or the tool lock.
@@ -378,7 +378,7 @@ claims require separate current evidence.
 
 The formal release derives its exact compiler and Go closure from [Go module declaration](../../go.mod) and
 [Go dependency checksums](../../go.sum), language runtimes and standalone tools from [tool declaration](../../mise.toml) and
-[tool lock](../../mise.lock), npm repository tools from [npm package declaration](../../package.json) and [npm dependency lock](../../package-lock.json),
+[tool lock](../../mise.lock), npm dependency closure from [npm package declaration](../../package.json) and [npm dependency lock](../../package-lock.json),
 and `SOURCE_DATE_EPOCH` from the committed Changelog date. The build emits the
 complete portable archive matrix, checksums, and SPDX SBOM. Repeating the build
 with the same inputs must produce identical bytes.

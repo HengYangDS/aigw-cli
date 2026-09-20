@@ -51,11 +51,12 @@ successful read is insufficient.
 
 Supply environment credentials to the process that needs them. A Token set in
 one terminal is not automatically inherited by a separately launched GUI client.
-The projected helper runs in the client's environment. See the
-[environment-variable reference](../../README.md#environment-variables) for
-API-Token and diagnostic variable names, reversible Account-ID encoding and
-process scope. Unattended work requires an already-proven noninteractive
-credential boundary; it must not assume metadata access is sufficient.
+The projected helper runs in the client's environment. See
+[automated rollout](../guides/team-rollout.md#automated-rollout) for API-Token
+variable names, reversible Account-ID encoding, and process scope.
+
+Unattended work requires an already-proven noninteractive credential boundary;
+it must not assume metadata access is sufficient.
 
 ### External credential executable
 

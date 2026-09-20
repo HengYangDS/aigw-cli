@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-23
-- Last amended: 2026-09-16
+- Last amended: 2026-09-20
 
 ## Context
 
@@ -33,10 +33,10 @@ implementation reads or migrates another product's credential state.
 
 ## Consequences
 
-The published `rc.115` implementation delegates macOS credential operations to
-go-keyring `v0.2.8`, whose provider invokes `/usr/bin/security`. The successor
-preserves that provider and service/slot grammar inside a private AIGW worker.
-The worker adds a five-second process deadline and bounded cleanup without
+The accepted implementation delegates macOS credential operations to
+go-keyring `v0.2.8`, whose provider invokes `/usr/bin/security`. A private AIGW
+worker preserves that provider and service/slot grammar. The worker adds a
+five-second process deadline and bounded cleanup without
 introducing a helper executable, a second backend or a credential migration.
 
 Writes carry the logical Token through standard input, never argv or the
@@ -55,29 +55,27 @@ admit deployment.
 
 Release construction owns distribution signing; the credential store owns
 authorization to each retained item. Signing-key custody, recovery and rotation
-are not an AIGW Account or Token backend.
-No private signing material belongs in the repository or client configuration.
+are not an AIGW Account or Token backend. No private signing material belongs in
+the repository or client configuration.
 Installing or using published AIGW requires neither developer membership nor the
 publisher's private key. An individual may also be the publisher; that is a
 separate role, not a prerequisite imposed on every workstation user.
 
-The current macOS delivery scope is internal use, not notarized public
-distribution. Its boundaries are:
+Distribution and credential authorization retain separate acceptance
+boundaries:
 
-| Boundary              | Required outcome                                                                                     |
-| --------------------- | ---------------------------------------------------------------------------------------------------- |
-| Artifact integrity    | Verify the SSH-signed archive manifest and exact payload checksums.                                  |
-| Local macOS execution | Verify the ad-hoc Mach-O signature and execute the native artifact.                                  |
-| Routine access        | Use the selected backend and exact slots without fallback, migration or access-control modification. |
-| Release transition    | Prove retained-item access through update, rollback and re-upgrade using original client commands.   |
+| Boundary                     | Required outcome                                                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Reproducible construction    | Verify deterministic archives, checksums, provenance, and ad-hoc native signatures where required.    |
+| Public macOS distribution    | Verify Developer ID signing and accepted Apple notarization before publishing final bytes.            |
+| Routine credential access    | Use the selected backend and exact slots without fallback, migration, or access-control modification. |
+| Installed release transition | Prove retained-item access through update, rollback, and re-upgrade using original client commands.   |
 
-The existing GoReleaser build applies a local signature before archiving; no
-publisher certificate or test identity is created. The release epoch controls
-signature and archive time. Native qualification verifies both macOS
-architectures, Hardened Runtime and repeated-build equality. These checks do not
-establish publisher trust or retained-item authorization. The
+The release owner applies the signature required by the selected distribution
+mode before final inventory and checksums. Reproducible construction, publisher
+trust, notarization, and retained-item authorization remain distinct claims. The
 [release policy](../governance/change-and-release-policy.md#reproducible-assets)
-owns artifact integrity and the excluded public-distribution boundary.
+owns their executable acceptance and current channel requirements.
 
 Following [Apple's subsystem-specific trust model](https://developer.apple.com/library/archive/technotes/tn2206/_index.html),
 credential authorization, distribution trust and notarization remain separate
@@ -88,9 +86,9 @@ distribution trust.
 ### Product reader and migration boundary
 
 The product path is the existing `aigw credential` command and one selected
-backend. On macOS, a bounded credential subprocess invokes the same go-keyring provider used by
-the published predecessor. No separate reader binary, host script, service or
-permanently retained predecessor is part of this path.
+backend. On macOS, a bounded credential subprocess invokes the same go-keyring
+provider used by the published predecessor. No helper binary, host script,
+service, or permanently retained predecessor is part of this path.
 
 | Path                                      | Disposition | Reason                                                                                      |
 | ----------------------------------------- | ----------- | ------------------------------------------------------------------------------------------- |

@@ -81,3 +81,7 @@ not in an independent evidence directory. Code, tests, schemas, and CI outrank
 prose. AIGW-owned client artifacts are derived from canonical AIGW
 configuration; client runtime and external service state are evidence, not
 AIGW source of truth.
+
+`AGENTS.md` is the repository entry point for automated contributors rather than
+reader documentation, so it is intentionally not listed as a documentation
+destination here.

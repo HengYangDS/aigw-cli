@@ -113,7 +113,7 @@ full-window request will succeed.
   `model_auto_compact_token_limit_scope` selects `total` (the default, counting
   the full active context) or `body_after_prefix` (growth after the carried
   compaction-window prefix). Changing the counting scope does not enlarge the
-  model's window. See the [Codex configuration reference](https://developers.openai.com/codex/config-reference).
+  model's window. See the [Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
 - **Claude Code:** [`autoCompactWindow`](https://code.claude.com/docs/en/settings-reference#autocompactwindow)
   sets the automatic compaction window, not provider capacity. Claude Code caps
   it at the model's window. Leaving it unset uses the client's model-specific
@@ -230,8 +230,10 @@ overwriting them.
 
 Claude Code and Codex are not setup prerequisites. After installing either
 client, run `aigw sync`; AIGW rediscovers supported clients and converges only
-its owned configuration. Account-Token routes receive a credential helper;
-client-native routes continue to use the client's own authentication:
+its owned configuration. If that client has a selected Route and usable
+authentication, sync enables its Adapter and writes the owned projection.
+Account-Token routes receive a credential helper; client-native routes continue
+to use the client's own authentication:
 
 ```bash
 aigw sync

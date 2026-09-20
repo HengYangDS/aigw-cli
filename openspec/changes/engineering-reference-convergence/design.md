@@ -137,10 +137,9 @@ must preserve or deliberately remove:
 - the tracked repository contains no `evidence`, `claims`, `chronicle`,
   `.code-memory`, or `.ethos/state` directory. Serena state and installed Node
   packages are ignored Work Lane-local development state;
-- after the stable delivery was accepted, both peer proposal refs were removed,
-  local and peer `dev` converged on the signed object `b2fbec3a`, the superseded
-  `stable-macos-release` Work Lane was retired, and this Change now owns the sole
-  active Work Lane.
+- proposal refs and branch convergence are live delivery projections, not design
+  facts; task 10.2 verifies their exact identities and task 10.3 removes the
+  merged proposal refs and retires this Work Lane.
 
 This is an ownership inventory, not a claim that every current package or file
 is already optimal. Task 1.4 carries the consumer-level deletion audit; later
@@ -546,10 +545,12 @@ artifact acceptance owned by task 9.6.
 
 Task 6.5 distinguishes repository failures from bounded external outcomes. The
 exact-HEAD proof and complete macOS native entrypoint emit no repository-owned
-warning and no skipped Go test. OpenSpec's remaining long-requirement `INFO` is
-visible advice under the existing validation contract, not a warning or an
-admission bypass. GoReleaser reports only its explicit snapshot exclusions:
-publication and its disabled internal SBOM pipe are outside native acceptance,
+warning and no skipped Go test. OpenSpec's requirement-length guidance is
+resolved by assigning delivery, credential, distribution, test-isolation, and
+manual-qualification semantics to distinct canonical requirements.
+
+GoReleaser reports only its explicit snapshot exclusions: publication and its
+disabled internal SBOM pipe are outside native acceptance,
 while the `AIGW_BUILD_OS=darwin` selection excludes Linux and Windows artifacts
 from that host-local build. CUE keeps those product/platform distinctions in
 `productEvidence`, `forgeCapabilities`, and `nativeEvidence`; projection tests
@@ -558,6 +559,14 @@ macOS and Linux capacity. The sole source-level `t.Skip` names the Windows
 symlink-privilege limitation and executes the same ownership test on supported
 hosts. No retry, ignored exit code, `allow_failure`, `continue-on-error`, or
 silent capability promotion remains in the quality or Forge graph.
+
+The OpenSpec ownership split is verified through the official archive command
+in an isolated copy of the repository state. The archive reports no lifecycle
+warning, the resulting ten canonical specifications validate without findings,
+all fourteen scenarios formerly nested under the overloaded delivery
+requirement survive exactly once, and no requirement title is duplicated across
+capabilities. Active Change deltas remain the sole pre-archive mutation source;
+canonical specifications are not edited ahead of the governed archive.
 
 Task 6.6 reuses the adversarial regressions already introduced at each semantic
 owner instead of adding a parallel fault-test layer. Invalid command shapes are
@@ -663,6 +672,44 @@ or second bootstrap owner is added. Task 7.4 remains open until the exact image
 passes real ARM64 execution and the repaired hosted run, followed by the other
 supported clean-host bootstrap journeys.
 
+## Documentation closure
+
+Tasks 8.1–8.6 retain one documentation index and the existing semantic domains:
+architecture explains current structure, concepts define product language,
+decisions preserve durable trade-offs, experience owns interaction, guides own
+operator journeys, governance owns repository policy, operations owns Forge
+procedures, and research informs later decisions without becoming policy. All
+22 current documents below `docs/` have an inbound tracked link; no current root
+or documentation page refers to an untracked local target or private host path.
+
+The root README is reduced from 431 to 245 lines and now leads from installation
+through first Account connection, deferred client activation, daily use,
+boundaries, recovery, removal, contribution, and deeper documentation. The team
+guide, security model, architecture boundary, Adapter admission policy,
+contributor guide, and Forge operations retain the complete setup, credential,
+extension, native-client, installation, and release journeys rather than copying
+them back into the entry point. A built current executable returned valid help
+for all 42 command and command-group surfaces used to check those examples.
+
+The complete current Markdown graph passes Prettier, markdownlint, repository
+policy, spelling, local-link, and Mermaid validation. A bounded online Lychee run
+checked 352 links, 226 unique, with no error, timeout, unsupported target, or
+redirect after updating moved upstream locations. The sole current documentation
+diagram rendered through the installed Mermaid dependency to a valid SVG and was
+visually inspected without clipped or overlapping labels. Every current entry,
+architecture, concept, decision, experience, governance, guide, operations, and
+research page also rendered through the locked Markdown parser with a leading
+title and intact tables and fenced blocks. Distinct semantic paragraphs now use
+one blank line; the text-layout owner records that rule without duplicating
+Prettier's wrapping.
+
+The contributor entry point now gives one bounded TDD path from requirement and
+semantic owner through failing regression, minimal repair, focused verification,
+complete source gate, and exact-range review. Existing source checks prove the
+clean checkout reconstructs local Node dependencies and rejects ambient tool
+fallbacks. Duplicate entry-point prose and stale release-detail copies were
+removed; current navigation remains complete after that deletion.
+
 ## Initial deletion inventory
 
 The initial residue audit classifies current candidates before any removal:
@@ -670,17 +717,17 @@ The initial residue audit classifies current candidates before any removal:
 | Candidate                                                             | Current classification                                               | Disposition                                                                   |
 | --------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | RC.118 local executable, portable install root, and rollback copy     | Proved disposable after installed 0.1.0 acceptance                   | Already removed; retain no compatibility reader.                              |
-| `proposal/engineering-reference-convergence` on both peers            | Review-only projection absorbed into exact `dev` object `b2fbec3a`   | Already removed by merged reviews.                                            |
+| Proposal refs for this Change                                         | Active review projections until final accepted integration           | Remove after their exact objects are admitted to `dev`.                       |
 | `work/20260919-stable-macos-release` and its worktree                 | Clean lane absorbed by accepted truth                                | Retired through ETHOS with exact-head receipt.                                |
 | `.serena/` and `node_modules/` in the active Work Lane                | Ignored, reproducible development state                              | Keep only while the lane is active; remove with lane retirement.              |
 | Git-common ETHOS runtime, attestations, receipts, and release records | Active governance runtime or durable evidence with current consumers | Preserve; lifecycle and retention policy belong to ETHOS, not AIGW.           |
 | Signed release tags and OpenSpec archives                             | Immutable product chronology and release evidence                    | Preserve until a separate authorized retention policy proves them disposable. |
 
 No tracked `evidence`, `claims`, `chronicle`, `.code-memory`, or `.ethos/state`
-container exists. The repository currently exposes one work lane, one candidate
-checkout, and no remote proposal branch. Further deletion remains scoped to the
-semantic closure that proves a specific implementation, test, configuration,
-or document has no consumer.
+container exists. Live lane, checkout, lease, candidate, and proposal topology
+is observed at the operation boundary rather than copied into this design.
+Further deletion remains scoped to the semantic closure that proves a specific
+implementation, test, configuration, or document has no consumer.
 
 ## Migration Plan
 

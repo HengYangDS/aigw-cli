@@ -600,8 +600,8 @@ Repository links below identify the inspected snapshots. Release pages and docum
 [ccsw]: https://github.com/zhouyeyu/cc-api-switcher-cli/tree/3c0adaaab6001c564e7f2e0bd0e832277d9f083e
 [small-ccswitch]: https://github.com/Cursedpotential/ccswitch/tree/211c4b7708e1d5954400676a4428b18ce772b0a5
 [agent-switch]: https://github.com/IvanLark/agent-switch/tree/c73af9bd425983d4c59608e35e471a92a3922159
-[cc-lite]: https://github.com/SaladDay/cc-switch-lite/tree/f65ad1b38fb8286f648c8390ff79cc578c8fa060
-[cc-core]: https://github.com/SaladDay/cc-switch-core/tree/f5b6b4cd21c0207aea82ab21b8ca9281c2ff0569
+[cc-lite]: https://github.com/CCS-HQ/cc-switch-lite/tree/f65ad1b38fb8286f648c8390ff79cc578c8fa060
+[cc-core]: https://github.com/CCS-HQ/cc-switch-core/tree/f5b6b4cd21c0207aea82ab21b8ca9281c2ff0569
 [cpa]: https://github.com/router-for-me/CLIProxyAPI/tree/7fac6b15bcfe5ea55c18c9eaec8e5b7e6457d974
 [easy-cpa]: https://github.com/router-for-me/EasyCLIProxyAPI/tree/895bff0d2c1e31e2e89ab63250b72256d0e7930e
 [ccr]: https://github.com/musistudio/claude-code-router/tree/5ad5083b4eca8e0fe04f69f03b2e674772305425
@@ -621,8 +621,8 @@ Repository links below identify the inspected snapshots. Release pages and docum
 [muxlm-storage]: https://github.com/Neo-Isshin/MuxLM/blob/72440581778996e0361b60eeaa16dc06b46651cf/storage.go
 [muxlm-keys]: https://github.com/Neo-Isshin/MuxLM/blob/72440581778996e0361b60eeaa16dc06b46651cf/keys.go
 [muxlm-launch]: https://github.com/Neo-Isshin/MuxLM/blob/72440581778996e0361b60eeaa16dc06b46651cf/launch.go
-[core-adapter]: https://github.com/SaladDay/cc-switch-core/blob/f5b6b4cd21c0207aea82ab21b8ca9281c2ff0569/src/adapter.rs
-[core-executor]: https://github.com/SaladDay/cc-switch-core/blob/f5b6b4cd21c0207aea82ab21b8ca9281c2ff0569/src/executor.rs
+[core-adapter]: https://github.com/CCS-HQ/cc-switch-core/blob/f5b6b4cd21c0207aea82ab21b8ca9281c2ff0569/src/adapter.rs
+[core-executor]: https://github.com/CCS-HQ/cc-switch-core/blob/f5b6b4cd21c0207aea82ab21b8ca9281c2ff0569/src/executor.rs
 [opencils-package]: https://github.com/OpenCils/cc-switch-cli/blob/d8da75b2f96417cac686afac79d381ce4663bff7/package.json
 [llmgateway-license]: https://github.com/theopenco/llmgateway/blob/2eeccaf513802bf8eac0c84f19355e8fdbd2eb3c/LICENSE
 [desktop-release]: https://github.com/farion1231/cc-switch/releases/tag/v3.20.2

@@ -34,18 +34,21 @@ cannot establish that the shipped catalogue works. Native authorization fixtures
 must verify the persisted security format and effective enforcement boundary,
 not merely recreate an API call in temporary storage. Isolation must preserve the
 security semantics exercised by the deployed product.
+
 Permission-sensitive fixtures must set their intended mode explicitly after
 creation; creation modes are filtered by the caller's umask. Exercise those
 fixtures under both ordinary and restrictive umasks without changing the
 process-wide mask inside concurrent tests. Restrict evidence-directory access
 with an exact path operation rather than leaking an output-creation umask into
 the test process.
+
 Every selected native journey
 must consume the explicit candidate and report its binary digest; an absent
 candidate is an input failure, not permission to substitute a source build.
 Cover deferred prerequisites becoming available independently while preserving
 explicit user choices. Compare owned configuration values semantically, then
 assert byte-exact preservation of user files when no change is required.
+
 For an update that changes persisted configuration, exercise rollback after the
 successor writes that configuration; an unchanged predecessor fixture cannot
 prove downgrade safety. Before an expensive matrix build, run the unchanged
@@ -54,19 +57,23 @@ configuration still active. A real-client journey that disables an adapter
 before replacement proves a different transition; run both through the existing
 release acceptance command. Test isolation includes derived native paths, not only
 environment variables: staged programs and user-data roots must stay disjoint.
+
 Package-manager verification uses an explicit disposable portable target, even
 when the command is expected to reject the request. Never test a rejection by
 targeting the operator's default installation. Compare both source and target
 ownership, retain the host executable digest, and verify it is unchanged.
+
 Capture each client's credential command, arguments and environment before
 replacement, then execute that retained invocation before synchronization or
 client configuration reload. A restarted client reading a new helper cannot
 prove that an existing caller still works. Native-store acceptance must also
 retain the original credential item and identify the actual reader executable
 and implementation on both sides; preserving the CLI path is insufficient.
+
 Require complete program/configuration rollback and original-caller acceptance
 before a production cutover. A locally authored workaround is not an approved
 product dependency, regardless of its name or another task's successful probe.
+
 Record acceptance and evidence references in the active OpenSpec task, update
 the relevant operator guidance, and remove contradictory instructions. A new
 rule, skill, or passing format check is not proof that the failure cannot recur.
@@ -87,6 +94,26 @@ Local developer-tool state, including `.serena/`, is disposable and ignored.
 It may index the current checkout, but it is not AIGW configuration, evidence,
 or an input to release and runtime decisions. Do not add it to commits, copy it
 between worktrees, or use it to reconstruct source state.
+
+### Bounded TDD journey
+
+For one semantic change, use this path:
+
+1. Find the current requirement in [OpenSpec](openspec/) and the implementation
+   owner through the [architecture boundary](docs/architecture/authority-and-projection-boundary.md).
+2. Add the smallest regression at that owner's public or domain boundary, then
+   run it and confirm that it fails for the intended missing behavior.
+3. Implement the smallest complete repair and delete the superseded path.
+4. Re-run the focused test, the affected package or projection checks, and then
+   `mise run check` after the semantic closure is stable.
+5. Review the exact introduced commit range through
+   [Forge object verification](docs/operations/forge-operations.md#verify-local-objects),
+   and keep native, hosted, published, and installed evidence separate.
+
+This sequence identifies the invariant, owner, regression, implementation,
+gate, and evidence without private workstation context. A formatter-only change
+does not need an invented failing behavior test; run its native formatter and
+structural gate instead.
 
 For codebase-memory, select an existing project by its exact worktree root,
 not a similar name, and reuse it. Check `check_index_coverage` for the relevant
@@ -237,23 +264,28 @@ mise install --locked
 mise run bootstrap
 ```
 
-The [tool declaration](mise.toml) and [tool lock](mise.lock) own language runtimes and standalone tools.
-The [repository tool commands](package.json) and [npm dependency lock](package-lock.json) own OpenSpec, Prettier, markdownlint, and
-their complete npm dependency graph. Use `mise run check` for the complete
-source gate, `mise run native` for current-host acceptance, and
-[`mise run release`](#signed-artifact-builds) for a signed, deterministic
-non-publishing build. The tasks delegate to the
-existing Go and npm owners rather than duplicating their behavior in shell
-wrappers or a second task system.
+The [tool declaration](mise.toml) and [tool lock](mise.lock) own language
+runtimes and standalone tools. The [npm package declaration](package.json) and
+[dependency lock](package-lock.json) own OpenSpec, Prettier, markdownlint,
+Mermaid lint, and their complete npm dependency graph. They define
+dependencies, not a second command plane.
+
+Use `mise run check` for the complete source gate, `mise run native` for
+current-host acceptance, and [`mise run release`](#signed-artifact-builds) for
+a signed, deterministic non-publishing build. The Mise tasks delegate execution
+to the existing Go owners, which invoke checkout-local package entrypoints
+directly.
 
 `bootstrap` first runs `go mod tidy -diff`, then
 `npm ci --include=dev --ignore-scripts`. Development dependencies are required
 even when the caller sets `NODE_ENV=production` or npm's `omit=dev`; bootstrap
 does not change either user setting.
+
 The Go step prepares the complete source and dependency-test graph and rejects
-lock drift without rewriting the [Go module declaration](go.mod) or [dependency checksums](go.sum). Merely compiling AIGW does
-not populate every module needed for later dependency resolution. CI calls this
-same task rather than maintaining a separate npm-only setup sequence.
+lock drift without rewriting the [Go module declaration](go.mod) or
+[dependency checksums](go.sum). Merely compiling AIGW does not populate every
+module needed for later dependency resolution. CI calls this same task rather
+than maintaining a separate npm-only setup sequence.
 
 The repository's native `mise` environment disables the persistent user Go
 environment file and parent workspaces, and uses only the selected bundled
@@ -273,13 +305,11 @@ are part of [the tool lock](mise.lock), not a second application dependency
 manifest. Keep their generated bytes and digest together in checkout snapshots
 and CI evidence; do not reformat the generated dependency lock.
 
-The [npm tool commands](package.json) run through the locked Node
-runtime's `--run` entrypoint. The Go gate invokes those scripts rather than
-interpreting platform-specific npm launchers. Formatting, Markdown lint, and
-OpenSpec scripts address this checkout's installed package entrypoints;
-missing dependencies fail and require `mise run bootstrap`, not a global-tool
-fallback. For example, `mise exec --locked -- node --run markdown:check` runs
-the same Markdown check used by the complete source gate.
+The Go quality graph invokes the installed OpenSpec, Prettier,
+markdownlint, and Mermaid entrypoints through the locked Node runtime. It does
+not route through `package.json` scripts or platform-specific npm launchers.
+Missing checkout-local dependencies fail with an instruction to run
+`mise run bootstrap`; global installations are never fallback authorities.
 
 [The native early configuration](.config/miserc.toml) excludes parent, global
 and system policy before mise reads tool declarations. Local development and

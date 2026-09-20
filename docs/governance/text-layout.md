@@ -9,6 +9,11 @@ The byte invariants apply to every tracked text file, including root metadata,
 source, documentation, configuration, locks and generated CI projections.
 Disposable build output and binary content are not text-policy inputs.
 
+Markdown authors separate distinct semantic paragraphs with one blank line.
+Headings, lists, tables, and fenced blocks also retain one blank line from
+adjacent prose. Formatter wrapping within one semantic paragraph does not create
+a new paragraph; Prettier owns that mechanical wrapping.
+
 ## Enforced byte invariants
 
 - UTF-8 text uses LF line endings.
@@ -18,10 +23,10 @@ Disposable build output and binary content are not text-policy inputs.
 Git's [text attributes](https://git-scm.com/docs/gitattributes#_text) establish
 one LF checkout policy for automatically detected text, including extensions
 not individually listed. The locked EditorConfig Checker enforces the byte
-invariants from [EditorConfig policy](../../.editorconfig); native formatters retain ownership of layout.
-Editor defaults are inherited once, with Go's tab indentation as an override. No
-repository-specific parser duplicates those mature responsibilities or decides
-how many blank lines are aesthetically appropriate.
+invariants from [EditorConfig policy](../../.editorconfig); native formatters
+retain ownership of layout. Editor defaults are inherited once, with Go's tab
+indentation as an override. No repository-specific parser duplicates those
+mature responsibilities.
 
 ## Format ownership
 
@@ -54,11 +59,13 @@ tracked content. Stage new linked files before checking their source links.
 Source checks remain offline, so they do not establish external URL
 availability or rendered browser behavior.
 
-The [repository tool commands](../../package.json) expose the repository-wide format check through the existing
+The repository quality graph exposes one format check through the existing
 CI owner. That owner streams the exact checkout-bound Git inventory to the
-locked, checkout-local Prettier API. Git ignores filter untracked output, not
-tracked source; [formatter scope](../../.prettierignore) excludes only immutable OpenSpec history.
-A directory named `archive` elsewhere remains current source.
+locked, checkout-local Prettier API declared by
+[the npm package manifest](../../package.json). Git ignores filter untracked
+output, not tracked source; [formatter scope](../../.prettierignore) excludes
+only immutable OpenSpec history. A directory named `archive` elsewhere remains
+current source.
 
 The adapter applies native defaults without discovering local or parent
 Prettier configuration. EditorConfig owns editor defaults and its independent
