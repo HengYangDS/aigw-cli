@@ -548,7 +548,7 @@ This report's earlier inventory repeated part of that error: it collected facts 
 - **Evidence levels:** documented capability, inspected implementation, published artifact, unreplicated issue report and unverified behavior remain distinct. Source at HEAD is not automatically released capability. No competitor runtime, throughput, security-audit or migration success is claimed.
 - **Internal comparison:** AIGW's original declared baseline was HEAD `c357a2cae88408e09d3a2b2360c03f55d00df8d3`; Proxy's was `210a108ec7a90ca2774dd702c70326cf1b240e1c`. AIGW's responsibility document was also reread at `95ca0800b11ee754c876655e65c131714a0149fe`. These are contract comparisons, not current release/install attestations. Earlier OpenAI retrieval failures were superseded by successful official provider and Bedrock documentation reads during the client-surface review.
 - **Balanced reliability evidence:** CC Switch's observed [tool-message issue][desktop-issue-tools] and [Desktop-routing issue][desktop-issue-route] identify useful regression scenarios, not a comparative failure rate. Our products must face the same tests. The [CLI Windows issue][cli-windows-issue] being closed does not override its stable README's daemon restriction.
-- **Compatibility precision:** CLIProxyAPI's generic executor finding does not apply to every specialized executor. CC Switch CLI v5.10.4's [schema compatibility note][cli-release-note] names Desktop v3.20.1, not arbitrary version combinations. Shared storage is not proof of safe concurrent operation.
+- **Compatibility precision:** CLIProxyAPI's generic executor finding does not apply to every specialized executor. CC Switch CLI v5.10.4's [schema compatibility note][cli-release-note] names Desktop v3.20.1, not arbitrary version combinations. Its later v5.10.5 release says the database schema remains at v18; neither statement proves arbitrary cross-version shared-storage safety. [v5.10.5 notes][cc-cli-release-5105].
 - **Security precision:** local-first describes where control runs, not where inference data travels. A relay adds a party to the path. OAuth, API keys and subscription allowances are different contracts; login or a successful request does not establish entitlement to unrestricted relay use. No private credential store was examined.
 - **Commercial boundary:** licenses, upstream access terms, hosted features, enterprise components and maintenance cost need separate assessment. The inventory records source observations, not legal clearance. No comparable total-cost data was collected.
 
@@ -573,11 +573,11 @@ Capabilities below derive from the linked source snapshots and their READMEs. Re
 - **Relative strengths:** Configuration and visual daily management in one product; switching need not start a proxy
 - **Limitations or trade-offs:** Local single-user model, not organizational authorization; optional session operations need review; recent compatibility reports exist
 
-#### [SaladDay/cc-switch-cli][cc-cli] · `v5.10.4`
+#### [SaladDay/cc-switch-cli][cc-cli-head] · `v5.10.5`
 
-- **Main capabilities:** CLI/TUI, global and per-launch switching, seven client types, accounts, import/export, WebDAV, MCP/skills, usage, optional proxy
+- **Main capabilities:** CLI/TUI, global and per-launch switching, seven client types, accounts, import/export, WebDAV, MCP/skills, usage, optional proxy, and opt-in shared Codex sessions on macOS/Linux
 - **Relative strengths:** Directly relevant to terminal and automation workflows; more than an endpoint editor
-- **Limitations or trade-offs:** No equivalent managed proxy daemon on Windows; shared databases require compatible versions
+- **Limitations or trade-offs:** No equivalent managed proxy daemon on Windows; shared sessions add explicit platform, locking, and lifecycle constraints; its broader database and workbench authority is not a drop-in match for AIGW's secret-free team catalogue
 
 #### [MuxLM][muxlm] · `v2.6.0`
 
