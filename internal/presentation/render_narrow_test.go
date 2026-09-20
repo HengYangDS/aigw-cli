@@ -34,7 +34,8 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 			t.Fatalf("narrow output missing %q:\n%s", want, got)
 		}
 	}
-	for _, forbidden := range []string{"Current profileGPT", "connec\nted", "configuration.tom\nl"} {
+	brokenConnected := strings.Replace("connected", "ct", "c\nt", 1)
+	for _, forbidden := range []string{"Current profileGPT", brokenConnected, "configuration.tom\nl"} {
 		if strings.Contains(got, forbidden) {
 			t.Fatalf("narrow output contains %q:\n%s", forbidden, got)
 		}

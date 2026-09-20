@@ -201,6 +201,26 @@ func checkMermaid(root string, runner commandRunner) error {
 	return runner(command{Name: "node", Dir: root, Args: []string{checker}, Input: string(input)})
 }
 
+func checkSpelling(root string, runner commandRunner) error {
+	files, err := currentRepositoryFiles(root, "authored files")
+	if err != nil {
+		return err
+	}
+	for index, file := range files {
+		relative, err := filepath.Rel(root, file)
+		if err != nil {
+			return fmt.Errorf("resolve spelling input relative to checkout: %w", err)
+		}
+		files[index] = filepath.ToSlash(relative)
+	}
+	return runner(command{
+		Name:  "typos",
+		Dir:   root,
+		Args:  []string{"--config", ".config/checks/spelling/policy.toml", "--force-exclude", "--file-list", "-"},
+		Input: strings.Join(files, "\n") + "\n",
+	})
+}
+
 func checkTOML(root string, runner commandRunner) error {
 	files, err := currentRepositoryFiles(root, "TOML", "*.toml", "mise.lock")
 	if err != nil {

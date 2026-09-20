@@ -15,11 +15,11 @@ import (
 )
 
 func TestSourceRunsThePortableGateSequence(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
 	t.Setenv("AIGW_COMMIT_BASE", "")
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 	want := [][]string{
-		{"go", "run", "./tools/ci", "check-quality-coverage", "."},
 		{"golangci-lint", "config", "verify", "--config", ".config/checks/go/policy.yml"},
 		{"goreleaser", "check", ".config/release/goreleaser.yaml"},
 		{"cue", "fmt", "--check", "--files", ".config/ci"},
@@ -31,6 +31,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "run", "./tools/ci", "check-markdown", "."},
 		{"go", "run", "./tools/ci", "check-mermaid", "."},
 		{"go", "run", "./tools/ci", "links", "."},
+		{"go", "run", "./tools/ci", "check-spelling", "."},
 		{"go", "run", "./tools/ci", "check-toml", "."},
 		{"go", "mod", "tidy", "-diff"},
 		{"go", "mod", "verify"},
@@ -72,6 +73,12 @@ func TestQualityCommandsResolveInDeclaredToolchain(t *testing.T) {
 	}
 	if environment["MISE_ENABLE_TOOLS"] == "" {
 		t.Fatal("quality toolchain must declare its native tools")
+	}
+	toolchain := strings.Split(environment["MISE_ENABLE_TOOLS"], ",")
+	for _, required := range []string{"shellcheck", "typos"} {
+		if !slices.Contains(toolchain, required) {
+			t.Fatalf("quality toolchain lacks %s: %q", required, toolchain)
+		}
 	}
 	for key, value := range environment {
 		t.Setenv(key, value)
@@ -120,6 +127,13 @@ func TestQualityUsesNativeConfigurationSchemas(t *testing.T) {
 				if err := os.WriteFile(policy, content, 0o600); err != nil {
 					t.Fatal(err)
 				}
+			}
+			architecturePolicy := filepath.Join(root, ".config", "checks", "architecture", "policy.toml")
+			if err := os.MkdirAll(filepath.Dir(architecturePolicy), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(architecturePolicy, readFile(t, filepath.Join(repository, ".config", "checks", "architecture", "policy.toml")), 0o600); err != nil {
+				t.Fatal(err)
 			}
 			observed := false
 			var diagnostics []byte
@@ -186,14 +200,16 @@ func TestRepositoryInventoryUsesTheRequestedCheckoutIndex(t *testing.T) {
 }
 
 func TestSourceExtendsQualityWithCompleteCoverage(t *testing.T) {
+	root := repositoryRoot(t)
+	t.Chdir(root)
 	t.Setenv("AIGW_COMMIT_BASE", "")
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
-	quality, err := configuredQualityCommands()
+	quality, err := configuredQualityCommands(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, err := configuredSourceCommands()
+	source, err := configuredSourceCommands(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,6 +241,7 @@ func commandArguments(commands []command) [][]string {
 }
 
 func TestSourceStopsAtTheFirstFailedGate(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
 	t.Setenv("AIGW_COMMIT_BASE", "")
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
@@ -243,6 +260,7 @@ func TestSourceStopsAtTheFirstFailedGate(t *testing.T) {
 }
 
 func TestSourceIncludesProductProvenanceWhenConfigured(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "maintainer@example.com")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "trust/allowed-signers")
 	t.Setenv("AIGW_COMMIT_BASE", "accepted")
@@ -260,6 +278,7 @@ func TestSourceIncludesProductProvenanceWhenConfigured(t *testing.T) {
 }
 
 func TestSourceConfigurationRejectsIncompleteProductProvenance(t *testing.T) {
+	root := repositoryRoot(t)
 	for _, missing := range []string{"base", "email", "signers"} {
 		t.Run(missing, func(t *testing.T) {
 			t.Setenv("AIGW_COMMIT_BASE", "accepted")
@@ -273,7 +292,7 @@ func TestSourceConfigurationRejectsIncompleteProductProvenance(t *testing.T) {
 			case "signers":
 				t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
 			}
-			if _, err := configuredSourceCommands(); err == nil || !strings.Contains(err.Error(), "requires commit base") {
+			if _, err := configuredSourceCommands(root); err == nil || !strings.Contains(err.Error(), "requires commit base") {
 				t.Fatalf("missing %s error = %v", missing, err)
 			}
 		})
@@ -281,6 +300,7 @@ func TestSourceConfigurationRejectsIncompleteProductProvenance(t *testing.T) {
 }
 
 func TestSourceReportsInvalidArgumentsAndConfiguredSourceFailure(t *testing.T) {
+	t.Chdir(repositoryRoot(t))
 	if err := run([]string{"source", "extra"}, &bytes.Buffer{}, func(command) error { return nil }); err == nil {
 		t.Fatal("source accepted an extra argument")
 	}
@@ -301,6 +321,8 @@ func TestRunRejectsInvalidCommandShapes(t *testing.T) {
 		{"links", ".", "extra"},
 		{"check-go"},
 		{"check-go", ".", "extra"},
+		{"check-spelling"},
+		{"check-spelling", ".", "extra"},
 		{"check-toml"},
 		{"check-toml", ".", "extra"},
 		{"check-format"},

@@ -47,8 +47,10 @@ taplo = "0.10.0"
 "github:editorconfig-checker/editorconfig-checker" = "4.0.1"
 "github:gitleaks/gitleaks" = "8.30.1"
 "github:golangci/golangci-lint" = "2.13.2"
+shellcheck = "0.11.0"
 "github:rhysd/actionlint" = "1.7.12"
 "github:lycheeverse/lychee" = "lychee-v0.24.2"
+typos = "1.50.2"
 
 [tasks.bootstrap]
 description = "Install this Work Lane's locked repository dependencies."

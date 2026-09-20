@@ -141,7 +141,7 @@ func TestSourceCommandsKeepSuccessfulOutputQuietWithoutSuppressingWarnings(t *te
 	t.Setenv("AIGW_COMMIT_BASE", "")
 	t.Setenv("AIGW_RELEASE_AUTHOR_EMAIL", "")
 	t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
-	commands, err := configuredSourceCommands()
+	commands, err := configuredSourceCommands(repositoryRoot(t))
 	if err != nil {
 		t.Fatal(err)
 	}

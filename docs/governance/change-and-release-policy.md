@@ -521,7 +521,7 @@ installations cannot redefine the selected scope. Missing inputs, empty required
 scopes, incomplete results and nonzero validator exits fail the gate.
 
 - **Text, formatting, documentation and diagrams**
-  - **Execution owner:** [Text layout policy](text-layout.md) and native formatters, markdownlint, Mermaid and lychee
+  - **Execution owner:** [Text layout policy](text-layout.md), [spelling policy](../../.config/checks/spelling/policy.toml), Prettier, Typos, markdownlint, Mermaid and lychee
   - **Acceptance boundary:** Exact source inventory, valid local links and source-preserving checks; rendered and external-link evidence is separate
 - **Go correctness and structure**
   - **Execution owner:** [Native Go policy](../../.config/checks/go/policy.yml)
@@ -538,6 +538,9 @@ scopes, incomplete results and nonzero validator exits fail the gate.
 - **Configuration semantics**
   - **Execution owner:** The consuming tool's native schema or product validator
   - **Acceptance boundary:** Syntax alone is insufficient; unknown fields, invalid values and missing schemas fail
+- **Workflow shell fragments**
+  - **Execution owner:** Actionlint with its locked ShellCheck executable
+  - **Acceptance boundary:** GitHub workflow structure and embedded shell syntax share one invocation; GitLab execution remains covered by generated-projection checks and native job execution
 - **Dependencies and credentials**
   - **Execution owner:** Native vulnerability, signature, provenance, license and secret checks
   - **Acceptance boundary:** Required current evidence and redacted findings; no silent network or scope fallback
@@ -550,6 +553,22 @@ A new carrier needs every applicable native check; it must not be accompanied
 by a parallel check registry or a copied generic parser. Native schemas remain
 with their locked package owners. External schema references are not fetched
 implicitly during local policy validation.
+
+Typos checks the exact current checkout inventory supplied through its native
+file-list interface, including hidden repository configuration. Its sole word
+allowance is `importas`, the official golangci-lint analyzer identifier.
+Immutable OpenSpec history remains excluded by the same narrow archival policy
+used by formatting and Markdown lint; no current source, configuration, or
+documentation subtree is exempt. ShellCheck is not invoked through another
+wrapper: actionlint discovers the locked executable and analyzes embedded
+GitHub workflow shell fragments as part of its existing workflow gate.
+
+Yamlfmt is not added because Prettier, OpenSpec's native validator, Go YAML
+decoding, GoReleaser schema checking, and actionlint already own every current
+YAML concern; another YAML formatter would create a competing style authority.
+Pants, Dagger, Nix, and CEL likewise remain outside the active graph until one
+can replace more present execution, environment, or policy responsibility than
+it introduces while retaining native macOS, Linux, and Windows evidence.
 
 OpenSpec's `INFO` findings are advisory and remain visible in successful output;
 they are not warnings. Its `WARNING` and `ERROR` findings, failed validation

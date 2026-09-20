@@ -459,14 +459,15 @@ Task 6.1 makes the executable quality graph explicit without copying it into
 architecture policy. The existing architecture policy remains the sole owner
 of the fourteen tracked carrier classes and their selectors. `tools/ci` now
 owns twenty-seven named executable gates, the ten supported quality concerns,
-and the carrier-to-gate coverage relation. Its first gate compares that relation
-with the live architecture carrier inventory, rejects missing or unknown
-classes, unknown or unused gates, and required concerns without an executing
-gate, then the same graph supplies the actual `quality` and `source` command
-sequences. This preserves the specification boundary: architecture proves one
+and the carrier-to-gate coverage relation. Before returning any `quality`,
+`source`, or full native sequence, the existing CI entrypoint compares that
+relation with the live architecture carrier inventory and rejects missing or
+unknown classes, unknown or unused gates, and required concerns without an
+executing gate. The same graph supplies the executable command sequences. This
+preserves the specification boundary: architecture proves one
 semantic owner, while executed native gates prove format, lint, type, test,
 security, architecture, documentation, schema, workflow, and projection
-coverage. The inventory covers all 1,067 tracked files, including immutable
+coverage. The inventory covers the complete tracked tree, including immutable
 OpenSpec history through common byte, secret, and ownership gates; archive
 formatting remains deliberately excluded by its existing immutable-history
 policy. Focused CI and architecture tests plus the repository Go quality gate
@@ -482,8 +483,8 @@ no such requirement. Pants, Dagger, and Nix require the same future test: remove
 more owned execution and environment complexity than they introduce, without
 weakening native macOS, Linux, or Windows evidence.
 
-Task 6.2 confirms one authority per quality concern. Eight native policy files
-under `.config/checks` are consumed directly by their owning implementation or
+Task 6.2 confirms one authority per quality concern. Concern-specific native
+policy files under `.config/checks` are consumed directly by their owning implementation or
 mature tool; none is a second command registry. The `repositoryQualityGraph`
 is the only executable source and the former `qualityCommands` value is now a
 derived compatibility-free view used by existing internal tests and native
@@ -494,6 +495,20 @@ projection without modifying it. Both Forge quality jobs invoke the same locked
 `go run ./tools/ci quality` entrypoint and declare the same tool closure.
 Focused projection tests, exact projection reconciliation, and the complete
 repository quality graph pass at signed commit `7b6e496e`.
+
+Task 6.3 adds only two mature checks that close measured gaps. Typos 1.50.2
+receives the exact tracked and current checkout inventory through its native
+file-list interface; its policy excludes immutable OpenSpec archives and names
+only the official `importas` analyzer identifier. The first full scan found one
+test-only split word, which the fixture now constructs without retaining a
+misspelling in source. ShellCheck 0.11.0 is a locked dependency of the existing
+actionlint invocation, not another shell command plane; an injected unquoted
+workflow variable proves that actionlint actually delegates to it. Both tools
+have mise checksum and download bindings for Linux and macOS on arm64 and x64,
+and Windows on arm64 and x64, and CUE projects the same tool closure to GitHub
+and GitLab. Current YAML and JSON already receive formatting and semantic
+validation from their native owners, so Yamlfmt or another generic parser would
+duplicate authority rather than improve coverage.
 
 ## Initial deletion inventory
 

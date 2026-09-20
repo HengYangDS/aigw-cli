@@ -60,7 +60,6 @@ type qualityGraph struct {
 
 var repositoryQualityGraph = qualityGraph{
 	Gates: []qualityGate{
-		{ID: "quality-coverage", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-quality-coverage", "."}}, Concerns: []qualityConcern{qualityArchitecture}},
 		{ID: "go-policy-schema", Command: command{Name: "golangci-lint", Args: []string{"config", "verify", "--config", ".config/checks/go/policy.yml"}}, Concerns: []qualityConcern{qualitySchema}},
 		{ID: "release-policy-schema", Command: command{Name: "goreleaser", Args: []string{"check", ".config/release/goreleaser.yaml"}}, Concerns: []qualityConcern{qualitySchema}},
 		{ID: "cue-format", Command: command{Name: "cue", Args: []string{"fmt", "--check", "--files", ".config/ci"}}, Concerns: []qualityConcern{qualityFormat}},
@@ -72,6 +71,7 @@ var repositoryQualityGraph = qualityGraph{
 		{ID: "markdown", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-markdown", "."}}, Concerns: []qualityConcern{qualityLint, qualityDocumentation}},
 		{ID: "mermaid", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-mermaid", "."}}, Concerns: []qualityConcern{qualityDocumentation, qualitySchema}},
 		{ID: "links", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "links", "."}}, Concerns: []qualityConcern{qualityDocumentation}},
+		{ID: "spelling", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-spelling", "."}}, Concerns: []qualityConcern{qualityLint, qualityDocumentation}},
 		{ID: "toml", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-toml", "."}}, Concerns: []qualityConcern{qualityFormat, qualitySchema}},
 		{ID: "go-module-tidy", Command: command{Name: "go", Args: []string{"mod", "tidy", "-diff"}}, Concerns: []qualityConcern{qualityLint, qualitySchema}},
 		{ID: "go-module-integrity", Command: command{Name: "go", Args: []string{"mod", "verify"}}, Concerns: []qualityConcern{qualitySecurity}},
@@ -85,25 +85,25 @@ var repositoryQualityGraph = qualityGraph{
 		{ID: "go-analysis", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}}, Concerns: []qualityConcern{qualityFormat, qualityLint, qualityType, qualitySecurity}},
 		{ID: "client-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^TestNativeClient(Inputs|StreamEnvelope|FilePreservation)$"}}, Concerns: []qualityConcern{qualityTest}},
 		{ID: "performance-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|Performance(Samples|Command|PooledSamples))$"}}, Concerns: []qualityConcern{qualityTest}},
-		{ID: "workflow-lint", Command: command{Name: "actionlint"}, Concerns: []qualityConcern{qualitySchema, qualityWorkflow}},
+		{ID: "workflow-lint", Command: command{Name: "actionlint"}, Concerns: []qualityConcern{qualityLint, qualitySchema, qualityWorkflow}},
 		{ID: "coverage", Command: command{Name: "go", Args: []string{"run", "./tools/coverage", "--race"}}, Concerns: []qualityConcern{qualityTest}, SourceOnly: true},
 	},
-	CommonGates: []string{"quality-coverage", "text-layout", "secrets", "architecture"},
+	CommonGates: []string{"text-layout", "secrets", "architecture"},
 	Carriers: []carrierQuality{
-		{Class: "go-source", Required: []qualityConcern{qualityFormat, qualityLint, qualityType, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"go-analysis", "source-size", "client-acceptance", "performance-acceptance", "coverage"}},
-		{Class: "native-check-adapters", Required: []qualityConcern{qualityFormat, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "npm-signatures", "coverage"}},
-		{Class: "current-documentation", Required: []qualityConcern{qualityFormat, qualityLint, qualityDocumentation, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "markdown", "mermaid", "links", "changelog"}},
-		{Class: "active-openspec", Required: []qualityConcern{qualityFormat, qualityLint, qualityDocumentation, qualitySchema, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "markdown", "mermaid", "links", "openspec"}},
+		{Class: "go-source", Required: []qualityConcern{qualityFormat, qualityLint, qualityType, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"spelling", "go-analysis", "source-size", "client-acceptance", "performance-acceptance", "coverage"}},
+		{Class: "native-check-adapters", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "spelling", "npm-signatures", "coverage"}},
+		{Class: "current-documentation", Required: []qualityConcern{qualityFormat, qualityLint, qualityDocumentation, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "markdown", "mermaid", "links", "spelling", "changelog"}},
+		{Class: "active-openspec", Required: []qualityConcern{qualityFormat, qualityLint, qualityDocumentation, qualitySchema, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "markdown", "mermaid", "links", "spelling", "openspec"}},
 		{Class: "archived-openspec", Required: []qualityConcern{qualityFormat, qualitySecurity, qualityArchitecture}},
-		{Class: "ethos-governance", Required: []qualityConcern{qualityFormat, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema, qualityProjection}, Gates: []string{"toml", "ci-projection", "coverage"}},
-		{Class: "ci-authority", Required: []qualityConcern{qualityFormat, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema, qualityWorkflow, qualityProjection}, Gates: []string{"cue-format", "ci-projection", "coverage"}},
-		{Class: "ci-projection", Required: []qualityConcern{qualityFormat, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema, qualityWorkflow, qualityProjection}, Gates: []string{"format", "ci-projection", "workflow-lint", "coverage"}},
-		{Class: "quality-policy", Required: []qualityConcern{qualityFormat, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"go-policy-schema", "format", "markdown", "toml", "vulnerabilities", "source-size", "go-analysis", "coverage"}},
-		{Class: "release-policy", Required: []qualityConcern{qualityFormat, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema, qualityProjection}, Gates: []string{"release-policy-schema", "format", "release-sources", "coverage"}},
-		{Class: "dependency-policy", Required: []qualityConcern{qualityFormat, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "coverage"}},
-		{Class: "team-manifest", Required: []qualityConcern{qualityFormat, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"toml", "coverage"}},
-		{Class: "toolchain", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"format", "toml", "npm-signatures", "go-module-tidy", "go-module-integrity", "vulnerabilities", "toolchain", "coverage"}},
-		{Class: "repository-metadata", Required: []qualityConcern{qualityFormat, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"format", "release-sources", "coverage"}},
+		{Class: "ethos-governance", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema, qualityProjection}, Gates: []string{"spelling", "toml", "ci-projection", "coverage"}},
+		{Class: "ci-authority", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema, qualityWorkflow, qualityProjection}, Gates: []string{"cue-format", "spelling", "ci-projection", "coverage"}},
+		{Class: "ci-projection", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema, qualityWorkflow, qualityProjection}, Gates: []string{"format", "spelling", "ci-projection", "workflow-lint", "coverage"}},
+		{Class: "quality-policy", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"go-policy-schema", "format", "markdown", "spelling", "toml", "vulnerabilities", "source-size", "go-analysis", "coverage"}},
+		{Class: "release-policy", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema, qualityProjection}, Gates: []string{"release-policy-schema", "format", "spelling", "release-sources", "coverage"}},
+		{Class: "dependency-policy", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "spelling", "coverage"}},
+		{Class: "team-manifest", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"spelling", "toml", "coverage"}},
+		{Class: "toolchain", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"format", "spelling", "toml", "npm-signatures", "go-module-tidy", "go-module-integrity", "vulnerabilities", "toolchain", "coverage"}},
+		{Class: "repository-metadata", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"format", "spelling", "release-sources", "coverage"}},
 	},
 }
 
@@ -118,7 +118,7 @@ func (graph qualityGraph) commands(source bool) []command {
 	return commands
 }
 
-func checkQualityCoverage(root string, _ commandRunner) error {
+func validateRepositoryQualityGraph(root string) error {
 	classes, err := loadTrackedCarrierClasses(filepath.Join(root, ".config", "checks", "architecture", "policy.toml"))
 	if err != nil {
 		return err

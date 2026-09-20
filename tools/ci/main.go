@@ -27,17 +27,17 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <project|source|quality|openspec|links|check-format|check-go|check-quality-coverage|check-source-size|check-toml|check-markdown|check-markdown-policy|check-mermaid|check-secrets|native|trust-input>")
+		return errors.New("usage: ci <project|source|quality|openspec|links|check-format|check-go|check-source-size|check-spelling|check-toml|check-markdown|check-markdown-policy|check-mermaid|check-secrets|native|trust-input>")
 	}
 	checks := map[string]func(string, commandRunner) error{
 		"links": checkLinks, "check-go": checkGo,
 		"check-toml": checkTOML, "check-secrets": checkSecrets,
-		"check-format":           checkFormat,
-		"check-quality-coverage": checkQualityCoverage,
-		"check-source-size":      checkSourceSize,
-		"check-mermaid":          checkMermaid,
-		"check-markdown":         checkMarkdown,
-		"check-markdown-policy":  func(root string, _ commandRunner) error { return markdown.CheckPolicy(root) },
+		"check-format":          checkFormat,
+		"check-source-size":     checkSourceSize,
+		"check-spelling":        checkSpelling,
+		"check-mermaid":         checkMermaid,
+		"check-markdown":        checkMarkdown,
+		"check-markdown-policy": func(root string, _ commandRunner) error { return markdown.CheckPolicy(root) },
 	}
 	if check := checks[args[0]]; check != nil {
 		if len(args) != 2 {
@@ -54,9 +54,9 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 		if len(args) != 1 {
 			return fmt.Errorf("usage: ci %s", args[0])
 		}
-		configured := configuredQualityCommands
+		configured := func() ([]command, error) { return configuredQualityCommands(".") }
 		if args[0] == "source" {
-			configured = configuredSourceCommands
+			configured = func() ([]command, error) { return configuredSourceCommands(".") }
 		}
 		commands, err := configured()
 		if err != nil {
@@ -115,13 +115,16 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 	}
 	commands := nativeCommands(*platform)
 	if *fullQuality {
+		if err := validateRepositoryQualityGraph("."); err != nil {
+			return err
+		}
 		commands = append(slices.Clone(qualityCommands), commands[1:]...)
 	}
 	return runCommands(commands, stdout, runner)
 }
 
-func configuredSourceCommands() ([]command, error) {
-	commands, err := configuredQualityCommands()
+func configuredSourceCommands(root string) ([]command, error) {
+	commands, err := configuredQualityCommands(root)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +136,10 @@ func configuredSourceCommands() ([]command, error) {
 	return commands, nil
 }
 
-func configuredQualityCommands() ([]command, error) {
+func configuredQualityCommands(root string) ([]command, error) {
+	if err := validateRepositoryQualityGraph(root); err != nil {
+		return nil, err
+	}
 	commands := slices.Clone(qualityCommands)
 	base := os.Getenv("AIGW_COMMIT_BASE")
 	email := os.Getenv("AIGW_RELEASE_AUTHOR_EMAIL")

@@ -111,6 +111,8 @@ func TestMiseToolExecutablesMatchDeclaredVersions(t *testing.T) {
 		"github:golangci/golangci-lint":                    {[]string{"golangci-lint", "version"}, `^golangci-lint has version (\S+)`},
 		"github:rhysd/actionlint":                          {[]string{"actionlint", "--version"}, `^(\S+)`},
 		"github:lycheeverse/lychee":                        {[]string{"lychee", "--version"}, `^lychee (\S+)`},
+		"shellcheck":                                       {[]string{"shellcheck", "--version"}, `(?m)^version: (\S+)`},
+		"typos":                                            {[]string{"typos", "--version"}, `^typos-cli (\S+)`},
 		macSigner:                                          {[]string{"rcodesign", "--version"}, `^apple-codesign (\S+)`},
 	}
 	for name, declared := range configuration.Tools {

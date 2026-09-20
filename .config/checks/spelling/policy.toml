@@ -1,0 +1,9 @@
+# Typos policy — current authored text is checked; immutable OpenSpec history is not rewritten.
+
+[files]
+extend-exclude = ["openspec/changes/archive/**"]
+ignore-hidden = false
+
+[default.extend-identifiers]
+# importas is the canonical golangci-lint analyzer name.
+importas = "importas"
