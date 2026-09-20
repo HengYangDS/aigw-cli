@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-07
-- Last amended: 2026-09-13
+- Last amended: 2026-09-20
 
 ## Context
 
@@ -15,13 +15,23 @@ cause AIGW to adopt foreign IDEs or agents accidentally.
 
 The current admitted client set is Codex CLI and Desktop through their shared
 Codex Home, plus Claude Code through its official per-user settings and
-credential-helper interfaces. Missing
-clients are untouched. Desktop-only GUI state, JetBrains products, MCP, ACP,
-Hermes, and every other agent remain outside the current adapter boundary.
+credential-helper interfaces. Missing clients are untouched. This describes
+the operational registry, not the complete requested delivery scope. Hermes
+and Claude Desktop are implementation obligations of the active Change and
+remain pending until their own admission passes. Session state, unrelated GUI
+preferences, JetBrains products, and external services retain their owners.
 
 A new client requires one explicit adapter admission with configuration,
 secret, rollback, uninstall, platform, and real verification evidence. Provider
 support alone never admits a client.
+
+Claude Desktop's documented third-party inference configuration is distinct
+from Claude Code's settings. Its Chat, Cowork, and Code capabilities must each
+be qualified. The same distinction applies to ChatGPT's regular Chat and its
+Codex mode. Model families are independent of client names: admission follows
+the selected protocol and required behavior, not a Claude or GPT name prefix.
+The [source-backed assessment](../research/provider-tooling-assessment.md#client-surfaces-and-cross-model-inference)
+records the available native and maintained integration paths.
 
 One ordered registry is the operational authority for the complete admitted-
 client lifecycle: discovery, desired configuration, projection planning,

@@ -282,6 +282,110 @@ Vendor count is a poor proxy for extensibility. One new model can be a data chan
 
 CC Switch CLI declares Hermes, OpenCode and Pi support; AIGW currently admits Claude Code and Codex. That is a breadth difference, not a reason to call a future AIGW integration free. Equivalent Qoder evidence was not established in the assessed leading candidates. “Endpoint configured,” “model visible,” “tool loop works” and “survives upgrade” are separate acceptance levels. [CLI][cc-cli], [AIGW](../../README.md).
 
+### Client surfaces and cross-model inference
+
+**Client branding does not determine the model vendor.** The useful question
+is whether the selected client surface, protocol, credential path, and model
+preserve the required workflow. Changing the service that hosts Claude is one
+operation; using a different model inside the Claude app is another.
+
+| Surface                           | Primary evidence                                                                                                                                                              | Practical conclusion                                                                                                                                                                             |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Claude Code CLI                   | Anthropic documents gateway configuration and `apiKeyHelper`; DeepSeek documents a direct Anthropic-compatible endpoint and Claude Code setup.                                | Other model families can use the client through a compatible Messages API. Qualify the model's tools and continuation rather than infer equivalence from a text response.                        |
+| Claude Desktop Chat, Cowork, Code | Anthropic documents third-party inference mode, a compatible gateway, native configuration, and an external credential helper. Ollama documents non-Claude model integration. | A separate Desktop Adapter has a supported configuration boundary. Claude Code settings do not configure it. Each mode and host needs its own verification.                                      |
+| Codex CLI and desktop surfaces    | OpenAI documents custom providers and external authentication. DeepSeek documents Responses support; Ollama documents Codex profiles and model selection.                     | Codex can use non-OpenAI models through a compatible Responses endpoint. Shared configuration does not prove every desktop version or advanced tool works.                                       |
+| ChatGPT Desktop: Codex mode       | Ollama documents adding models to the Codex picker alongside native models.                                                                                                   | This is a concrete cross-model route for Codex mode. Its documented regular Chat and voice remain on their usual connection.                                                                     |
+| ChatGPT Work/Codex with AWS       | OpenAI documents built-in Amazon Bedrock configuration, AWS authentication, and supported OpenAI models.                                                                      | Native AWS integration can remove a signer or gateway. It does not establish arbitrary model availability in ordinary ChatGPT Chat.                                                              |
+| Hermes Agent                      | Hermes documents provider/model configuration, environment credential references, native Windows, macOS Apple Silicon, and Linux support.                                     | Integrate its own provider contract and preserve its sessions and services. A generic credential command still needs direct verification; a plugin authentication type is insufficient evidence. |
+| OpenCode                          | Its own provider documentation describes provider configuration, custom endpoints, model selection, and AWS credential chains.                                                | Prefer native configuration and authentication; an AIGW Adapter remains a separate implementation and acceptance task.                                                                           |
+| Pi                                | Its own model configuration supports custom providers, Responses, Messages, Chat Completions, and Google APIs, plus environment references and credential commands.           | There is a concrete configuration boundary to reuse. AIGW must still verify invocation quoting, credential ownership, and the actual host lifecycle.                                             |
+
+Sources: [Claude connection contracts][claude-gateway-connect],
+[Desktop overview][claude-desktop-overview],
+[Desktop configuration][claude-desktop-config],
+[Desktop gateway][claude-desktop-gateway],
+[OpenAI provider configuration][openai-providers],
+[OpenAI AWS configuration][openai-bedrock],
+[DeepSeek Anthropic compatibility][deepseek-anthropic],
+[DeepSeek Responses compatibility][deepseek-responses],
+[Ollama Desktop][ollama-claude-desktop],
+[Ollama Codex][ollama-codex],
+[Ollama ChatGPT][ollama-chatgpt],
+[Hermes model configuration][hermes-models],
+[Hermes platform support][hermes-platforms], and
+[OpenCode providers][opencode-providers], and [Pi models][pi-models]. These are documented capabilities and
+selected source observations; no live cross-model inference was run for this
+assessment.
+
+Vendor support and technical interoperability are different conclusions.
+Anthropic explicitly [does not support routing Claude Code to non-Claude
+models][claude-gateway-support]. DeepSeek and Ollama document working routes
+from their own products; this is provider-supported integration, not an
+Anthropic guarantee. Record both positions when admitting a model rather than
+turning either statement into a universal claim of support or impossibility.
+
+Claude Desktop's gateway auto-discovery normally recognizes Claude model IDs.
+Its documented `inferenceModels` list can provide explicit model IDs and display
+labels, so an Adapter should examine that native path before adding name
+rewriting. The gateway still has to satisfy Messages streaming and tool-use
+contracts. A model list alone does not establish compatibility.
+
+The Ollama source comparison used its stable `v0.34.2` tree
+`dfabde4539e42ba1e1eab50a3a50b88aea7958a0`. The four integration documents and
+Claude Desktop launcher have the same Git blob identities as the inspected
+main-tree files. The documented Desktop integration is macOS-only, with
+Windows pending; that is an Ollama integration limitation, not evidence that
+Anthropic's independent Windows third-party mode is unavailable. Hermes
+platform evidence is pinned to `v2026.9.14` at
+`345cd2b057a452236de401d3534b8502a7465e8d`; native Windows is listed explicitly,
+while Intel macOS and Homebrew installation are not upstream-supported.
+
+#### Where compatibility loses meaning
+
+DeepSeek's Responses table supports streaming, function calls, and the
+`apply_patch` custom tool, but declares `previous_response_id`, server-side
+conversation storage, and `context_management` unsupported. It treats the
+`developer` role as `user`, supports plain reasoning content rather than opaque
+reasoning fields, and ignores several built-in tools and unrecognized input
+types. A client that relies on those semantics needs a demonstrated compatible
+path. Silently dropping data is not such a path.
+
+Its Anthropic API maps Claude-shaped names to DeepSeek models. That establishes
+a transport mechanism, not the identity suggested by the alias: the documented
+Opus mapping selects a different model and price from the Sonnet/Haiku mapping.
+It also ignores cache-control fields and some thinking and tool controls.
+AIGW should show the provider and resolved model where known, and disclose an
+unverified mapping rather than promise a Claude model or equivalent caching.
+These limits come from the provider's [Responses][deepseek-responses] and
+[Anthropic][deepseek-anthropic] tables.
+
+For this product, qualification therefore follows the entire task:
+authentication and real model identity; streamed completion; tool calls and
+results; cancellation and continuation; compaction; supported images and hosted
+tools; then upgrade and rollback with the retained credential invocation.
+Capability declarations guide this test selection but never substitute for it.
+
+#### What AIGW should own
+
+Prefer the client's native provider path. If an upstream already speaks the
+required protocol, AIGW needs an endpoint and credential projection rather than
+a new transport. Where conversion is necessary, evaluate a maintained gateway
+or runtime against the missing semantics first. Ollama and Claude Code Router
+already implement substantial cross-model integration; their existence removes
+any presumption that AIGW or Proxy should reproduce it.
+
+AIGW's justified responsibility is consistent setup, explicit route selection,
+protected credential delivery, understandable diagnostics, and reversible
+configuration across the requested clients. One Adapter owns each native
+configuration surface; one shared transaction owns compensation. The existing
+Proxy retains its bounded Responses-compatibility responsibility, not a new
+mandate to become a universal model gateway.
+
+Hermes and Claude Desktop remain requested AIGW implementation work. OpenCode,
+Pi, WorkBuddy/CodeBuddy, Qoder, and the remaining ChatGPT surfaces receive
+bounded dispositions before additional implementation is proposed. Research
+informs these choices without deciding the fate of either product for the user.
+
 ### WorkBuddy and Qoder require surface-specific admission
 
 A product family is not one Adapter boundary. WorkBuddy Desktop and CodeBuddy
@@ -297,12 +401,11 @@ proof of interchangeable management would create another unsafe generic writer.
 | Qoder IDE         | The current UI accepts API keys for a documented provider catalog                                                                                            | Manual composition only. The reviewed contract does not document an arbitrary OpenAI- or Anthropic-compatible endpoint or an external credential helper, so AIGW has no safe projection boundary.                                                                          |
 | Qoder SDK         | Per-request model policy can return BYOK credentials and route by purpose                                                                                    | An embedding API for a new host application, not a configuration Adapter for the installed IDE or CLI. Using it would create a different product boundary.                                                                                                                 |
 
-The practical order is therefore **Hermes Agent and CodeBuddy CLI first**, once
-their external credential commands and native lifecycle pass the full Adapter
-admission record. WorkBuddy Desktop and Qoder remain documented manual paths
-until their vendors expose a supported ownership boundary. No implementation or
-support claim should precede a real installed-client test on macOS, Linux, and
-Windows. [CodeBuddy models][codebuddy-models], [CodeBuddy settings][codebuddy-settings],
+This evidence makes CodeBuddy CLI a plausible additional Adapter, but does not
+supersede the requested Hermes and Claude Desktop work. WorkBuddy Desktop and
+Qoder retain documented native user journeys while automated configuration
+ownership remains unproved. Each support claim requires an installed-client
+test on the actual supported host. [CodeBuddy models][codebuddy-models], [CodeBuddy settings][codebuddy-settings],
 [CodeBuddy environment][codebuddy-env], [WorkBuddy models][workbuddy-models],
 [Qoder CLI models][qoder-cli-models], [Qoder CLI settings][qoder-cli-settings],
 [Qoder IDE models][qoder-ide-models], [Qoder SDK model policy][qoder-sdk-policy].
@@ -321,6 +424,12 @@ forbids that path; the live product contract therefore governs this assessment.
 The pinned [Bedrock Access Gateway README][aws-gateway] marks the sample deprecated and recommends native OpenAI-compatible and Anthropic-compatible Bedrock APIs instead. This is evidence of that sample's rationale, not proof that every model, region or client can use every AWS surface. Direct official-document retrievals failed in the original collection; no AWS request was run.
 
 For an AWS evaluation, bind the exact client, model, region, API and authentication contract; check native support and maintained SDKs first. The extension question follows the value-movement analysis: which responsibility still requires an intermediary? Do not introduce a signer or translator solely because an earlier integration needed one.
+
+The later [official OpenAI guide][openai-bedrock] establishes a native
+`amazon-bedrock` provider for local Work/Codex surfaces with AWS authentication
+and region/profile selection. Anthropic's [Desktop deployment][claude-desktop-overview]
+also documents Bedrock. These successful documentation reads supersede the
+earlier retrieval gap; no real AWS request or account entitlement is claimed.
 
 ## 8. From research to practice
 
@@ -399,9 +508,9 @@ This report's earlier inventory repeated part of that error: it collected facts 
 
 ## Evidence and limits
 
-- **Collection:** September 9, 2026; synthesis revised September 10; WorkBuddy and Qoder client-contract review added September 20, 2026. Scope covers 26 competitor repositories, two AWS reference cases, and the current official WorkBuddy and Qoder documentation; it is not an exhaustive internet census. Agent Reach's read-only GitHub/gh API route and official product documentation were used; selected pinned source identities were rechecked during revision.
+- **Collection:** September 9, 2026; synthesis revised September 10; client-surface, cross-model, WorkBuddy, and Qoder reviews updated September 20, 2026. The earlier 26-repository inventory is supplemented by official OpenAI, Anthropic, DeepSeek, Hermes, OpenCode, and stable Ollama sources. Agent Reach's read-only GitHub route and primary documentation were used; this is not an exhaustive internet census.
 - **Evidence levels:** documented capability, inspected implementation, published artifact, unreplicated issue report and unverified behavior remain distinct. Source at HEAD is not automatically released capability. No competitor runtime, throughput, security-audit or migration success is claimed.
-- **Internal comparison:** AIGW's original declared baseline was HEAD `c357a2cae88408e09d3a2b2360c03f55d00df8d3`; Proxy's was `210a108ec7a90ca2774dd702c70326cf1b240e1c`. AIGW's responsibility document was also reread at `95ca0800b11ee754c876655e65c131714a0149fe`. These are contract comparisons, not current release/install attestations. Direct OpenAI documentation retrieval during revision returned a timeout and HTTP 403; no new native-client capability was inferred from those failed requests.
+- **Internal comparison:** AIGW's original declared baseline was HEAD `c357a2cae88408e09d3a2b2360c03f55d00df8d3`; Proxy's was `210a108ec7a90ca2774dd702c70326cf1b240e1c`. AIGW's responsibility document was also reread at `95ca0800b11ee754c876655e65c131714a0149fe`. These are contract comparisons, not current release/install attestations. Earlier OpenAI retrieval failures were superseded by successful official provider and Bedrock documentation reads during the client-surface review.
 - **Balanced reliability evidence:** CC Switch's observed [tool-message issue][desktop-issue-tools] and [Desktop-routing issue][desktop-issue-route] identify useful regression scenarios, not a comparative failure rate. Our products must face the same tests. The [CLI Windows issue][cli-windows-issue] being closed does not override its stable README's daemon restriction.
 - **Compatibility precision:** CLIProxyAPI's generic executor finding does not apply to every specialized executor. CC Switch CLI v5.10.4's [schema compatibility note][cli-release-note] names Desktop v3.20.1, not arbitrary version combinations. Shared storage is not proof of safe concurrent operation.
 - **Security precision:** local-first describes where control runs, not where inference data travels. A relay adds a party to the path. OAuth, API keys and subscription allowances are different contracts; login or a successful request does not establish entitlement to unrestricted relay use. No private credential store was examined.
@@ -649,3 +758,19 @@ Repository links below identify the inspected snapshots. Release pages and docum
 [qoder-ide-models]: https://docs.qoder.com/user-guide/chat/custom-models
 [qoder-sdk-policy]: https://docs.qoder.com/cli/sdk/model-policy
 [workbuddy-models]: https://www.workbuddy.ai/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Model
+[claude-gateway-connect]: https://code.claude.com/docs/en/llm-gateway-connect
+[claude-desktop-overview]: https://claude.com/docs/third-party/claude-desktop/overview
+[claude-desktop-config]: https://claude.com/docs/third-party/claude-desktop/configuration
+[claude-desktop-gateway]: https://claude.com/docs/third-party/claude-desktop/gateway
+[openai-providers]: https://learn.chatgpt.com/docs/config-file/config-advanced#custom-model-providers
+[openai-bedrock]: https://learn.chatgpt.com/docs/amazon-bedrock
+[deepseek-anthropic]: https://api-docs.deepseek.com/guides/anthropic_api/
+[deepseek-responses]: https://api-docs.deepseek.com/guides/responses_api/
+[ollama-claude-desktop]: https://github.com/ollama/ollama/blob/v0.34.2/docs/integrations/claude-desktop.mdx
+[ollama-codex]: https://github.com/ollama/ollama/blob/v0.34.2/docs/integrations/codex.mdx
+[ollama-chatgpt]: https://github.com/ollama/ollama/blob/v0.34.2/docs/integrations/chatgpt.mdx
+[hermes-models]: https://github.com/NousResearch/hermes-agent/blob/345cd2b057a452236de401d3534b8502a7465e8d/website/docs/user-guide/configuring-models.md
+[hermes-platforms]: https://github.com/NousResearch/hermes-agent/blob/345cd2b057a452236de401d3534b8502a7465e8d/website/docs/getting-started/platform-support.md
+[opencode-providers]: https://github.com/anomalyco/opencode/blob/dev/packages/web/src/content/docs/providers.mdx
+[pi-models]: https://github.com/earendil-works/pi/blob/3390bd93630965a12a0a1a5c36ce890ec22f7e1d/packages/coding-agent/docs/models.md
+[claude-gateway-support]: https://code.claude.com/docs/en/llm-gateway

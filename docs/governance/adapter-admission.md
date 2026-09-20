@@ -9,9 +9,10 @@ AIGW distinguishes two admissions:
 2. **Client Adapter admission**: a local client's safe configuration,
    authentication, verification, rollback, and uninstall behavior.
 
-Provider support for a protocol does not admit a new client. Only proven Claude
-and Codex adapters may be enabled. A model name, a shared configuration
-directory, or a generic "OpenAI-compatible" claim must never bypass admission.
+Provider support for a protocol does not admit a new client. Only Adapters in
+the operational registry may be enabled. That registry records implementation
+and acceptance; it does not restrict which clients a requested Change must
+deliver. Model names and shared directories do not establish admission.
 
 Provider Account and Client Adapter are independent extension axes. Ordinary
 Responses Bearer authentication and Anthropic API-key authentication use the
@@ -48,16 +49,19 @@ An Account Token, when required, stays in the selected backend. Client-native
 authentication stays with the client. Switching Profiles does not copy Tokens
 into client files.
 
-Hermes Agent and CodeBuddy CLI are research candidates because each documents
-an external credential-command surface. They remain unadmitted until the full
-record below passes on every supported platform. WorkBuddy Desktop remains a
-UI-managed surface despite accepting legacy CodeBuddy model files. Qoder IDE is
-also UI-managed, while the current Qoder CLI contract reserves BYOK management
-to its `/model` wizard and live account catalog. Generic settings, protocol
-compatibility, or a shared product name do not grant AIGW ownership of those
-credential stores or model records. The Qoder SDK is an embedding boundary for
-another application, not an Adapter for the installed Qoder products. See the
-[surface-specific assessment](../research/provider-tooling-assessment.md#workbuddy-and-qoder-require-surface-specific-admission).
+Hermes Agent and Claude Desktop are requested implementation targets; their
+incomplete admission remains explicit. The current registry above must change
+only when their implementations and native acceptance pass. A synthetic
+extension test cannot satisfy either client journey. CodeBuddy, WorkBuddy,
+OpenCode, Pi, and Qoder retain the individual dispositions in the
+[client assessment](../research/provider-tooling-assessment.md#client-surfaces-and-cross-model-inference).
+
+Claude Desktop uses its own third-party inference configuration. Its Chat,
+Cowork, and Code modes require separate capability observations; projecting
+Claude Code settings does not establish Desktop routing. Hermes configuration,
+provider authentication, and platform support likewise require their exact
+native contracts. A plugin's external-process authentication type does not by
+itself prove a general credential-command interface.
 
 ## Host-surface ownership
 
@@ -69,6 +73,12 @@ settings, IDE configuration, client sessions, and application lifecycle remain
 outside the Adapter boundary. Codex and every other client retain authority over
 existing conversations, model choices, transcripts, JSONL, SQLite, and runtime
 metadata.
+
+For any desktop app, identify the actual mode before selecting a configuration
+owner. ChatGPT's Codex mode and regular Chat are different acceptance surfaces.
+Use documented configuration layers, preserve administrator precedence, and
+report any app restart needed for activation. Session history and current
+model choices remain outside AIGW's projection transaction.
 
 ## Required admission record
 
@@ -89,6 +99,10 @@ Every new adapter must supply all of the following before merge:
 8. A host-surface ownership record showing that every mutated key has one
    admitted writer and that generic discovery cannot silently adopt a foreign
    IDE or CLI surface.
+9. An explicit compatibility result for the selected client, endpoint, model,
+   and host: streaming, tools, cancellation, continuation, compaction, and any
+   required images or hosted services. Preserve provider model mappings in
+   user-visible identity; an alias is not proof of the serving model.
 
 The implementation must expose one cohesive Adapter boundary for discovery,
 planning, guarded projection, verification, rollback, and uninstall. Client

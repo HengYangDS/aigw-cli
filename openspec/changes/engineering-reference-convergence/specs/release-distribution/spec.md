@@ -1,5 +1,29 @@
 # Spec Delta
 
+## ADDED Requirements
+
+### Requirement: Stable publication follows completed change acceptance
+
+AIGW SHALL complete and archive the relevant OpenSpec Change before publishing
+its stable release. Pre-publication acceptance SHALL consume immutable
+candidate artifacts without requiring a public stable tag. The release
+procedure SHALL verify the final source and artifact identities, selected-peer
+downloads, package-manager projection, and installed behavior after archival.
+Archive completion SHALL NOT by itself establish distribution success.
+
+#### Scenario: Implementation or client acceptance remains incomplete
+
+- **WHEN** a required Change task, requested Adapter, or candidate journey remains open
+- **THEN** stable tagging and publication SHALL remain pending
+- **AND** review branches and isolated candidate validation MAY continue.
+
+#### Scenario: Completed source proceeds to distribution
+
+- **WHEN** the completed Change has been archived and its final source is accepted
+- **THEN** the release procedure SHALL qualify the exact final artifact inputs
+- **AND** every selected peer and package-manager projection SHALL preserve those bytes
+- **AND** published download and installed-product observations remain separate evidence.
+
 ## MODIFIED Requirements
 
 ### Requirement: Stable identity and platform trust are distinct

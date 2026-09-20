@@ -12,6 +12,7 @@ AIGW 0.1.0 is an immutable published baseline. The repository already declares t
 - Repair behavior before reorganizing its files, then make logical and physical ownership agree.
 - Remove unconsumed entities and parallel semantics before adding tools or abstractions.
 - Make setup, deferred activation, synchronization, credentials, client projection, installation, recovery, and extension natural on every supported platform.
+- Deliver Hermes and Claude Desktop integration, with explicit evidence for each supported desktop mode and host, and qualify model choice independently of client brand.
 - Make the repository independently understandable and reproducible by a new contributor.
 
 **Non-Goals:**
@@ -45,11 +46,37 @@ The repository keeps one machine-readable mapping from tracked carrier classes t
 
 ### 6. Cross-platform claims consume real released bytes
 
-Source tests establish contracts; native jobs establish host behavior; published-artifact jobs establish distribution behavior. macOS, Linux, and Windows each exercise build, install, update, rollback, uninstall, credential mode, and client projection using the selected immutable release bytes. Unsupported platform trust, client availability, or credential service behavior remains explicit rather than inferred.
+Source tests establish contracts; native jobs establish host behavior; published-artifact jobs establish distribution behavior. Before stable publication, macOS, Linux, and Windows exercise the immutable candidate through installation, update, rollback, uninstall, credentials, and client projection. After Change completion and archival, the release procedure qualifies the final distribution inputs and verifies the same published bytes through each selected peer. Any change to an actual build input requires renewed artifact evidence. Client platform availability and credential-service behavior remain explicit.
 
 ### 7. Documentation teaches by tracing the product
 
 The root README remains the concise product entry point. Task-oriented guides explain complete user and contributor journeys; architecture documents explain stable boundaries; decisions record chosen trade-offs; research remains evidence for future choices. Code, commands, diagrams, tables, and links are validated through the same repository quality graph. No private local file may be a shared prerequisite.
+
+### 8. Requested scope precedes current adapter inventory
+
+Hermes and Claude Desktop are implementation obligations of this Change. A
+synthetic Adapter proves that an interface can be extended; it cannot replace
+either requested integration. The operational registry continues to describe
+only implemented and admitted clients while the tasks retain incomplete work.
+Claude Desktop Chat, Cowork, and Code have distinct feature evidence, and its
+third-party inference configuration is independent of Claude Code settings.
+
+Client, provider, model, protocol, and host surface are separate dimensions.
+AIGW selects explicit endpoints and credential references through the shared
+route and transaction owners. Client Adapters encapsulate native configuration,
+authentication delivery, discovery, verification, and withdrawal. Model names
+are provider data; usable capabilities come from the actual client and endpoint.
+Protocol translation remains at an independently selected compatible service.
+Provider mappings must identify the real serving model rather than imply that
+a Claude- or GPT-shaped alias proves its identity.
+
+OpenCode, Pi, CodeBuddy CLI, WorkBuddy Desktop, Qoder CLI/IDE, and ChatGPT
+Chat/Work/Codex receive bounded source-backed dispositions. Their assessment
+does not promise an unimplemented Adapter or silently remove Hermes and Claude
+Desktop from delivery. AWS Bedrock and other provider recipes distinguish
+native client authentication from compatible gateway composition. The existing
+[research assessment](../../../docs/research/provider-tooling-assessment.md#client-surfaces-and-cross-model-inference)
+owns source evidence; tasks own implementation progress.
 
 ## Risks / Trade-offs
 
@@ -91,17 +118,20 @@ installation or compatibility path.
 The Change keeps one task ledger while mapping the accumulated feedback to its
 owning closure:
 
-| Feedback theme                                                                                                                             | Owning tasks |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
-| Natural first setup, partial credentials, absent clients, later synchronization, and precise `use`/`check` semantics                       | 2.1–2.6      |
-| Keychain, Secret Service, Credential Manager, file and environment portability without repeated prompts                                    | 3.1–3.5      |
-| Optional Proxy composition, direct endpoints, and low-cost Provider or Client extension                                                    | 4.1–4.6      |
-| Semantic packages, test topology, precise names and types, no suffix-based flat sprawl, hard-coding, wrappers, or parallel implementations | 5.1–5.6      |
-| Comprehensive format, lint, type, test, documentation, schema, security, complexity, size, coverage, and warning policy                    | 6.1–6.7      |
-| Latest stable direct supply chain, locked clean-lane bootstrap, and removal of stale installers or caches                                  | 7.1–7.5      |
-| English, navigable, accurate documentation; correct research, decision, architecture, guide, governance, and operations placement          | 8.1–8.6      |
-| Real macOS, Linux, and Windows product journeys; performance; dual-Forge identity and CI projection                                        | 9.1–9.7      |
-| Versioning, release only for changed product bytes, branch convergence, proposal cleanup, lane retirement, and residue removal             | 10.1–10.4    |
+| Feedback theme                                                                                                                             | Owning tasks     |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
+| Natural first setup, partial credentials, absent clients, later synchronization, and precise `use`/`check` semantics                       | 2.1–2.6          |
+| Keychain, Secret Service, Credential Manager, file and environment portability without repeated prompts                                    | 3.1–3.5          |
+| Optional Proxy composition, direct endpoints, and mature reuse before custom implementation                                                | 4.1–4.3, 4.6     |
+| Hermes, Claude Desktop, model-neutral access, and real client qualification                                                                | 4.4–4.5, 4.7–4.8 |
+| OpenCode, Pi, WorkBuddy/CodeBuddy, Qoder, ChatGPT surfaces, and AWS/provider extension research                                            | 4.9–4.10         |
+| Real team configuration, consistent model identity and channel variants, and preserved explicit selections                                 | 4.11             |
+| Semantic packages, test topology, precise names and types, no suffix-based flat sprawl, hard-coding, wrappers, or parallel implementations | 5.1–5.6          |
+| Comprehensive format, lint, type, test, documentation, schema, security, complexity, size, coverage, and warning policy                    | 6.1–6.7          |
+| Latest stable direct supply chain, locked clean-lane bootstrap, and removal of stale installers or caches                                  | 7.1–7.5          |
+| English, navigable, accurate documentation; correct research, decision, architecture, guide, governance, and operations placement          | 8.1–8.6          |
+| Real macOS, Linux, and Windows product journeys; performance; dual-Forge identity and CI projection                                        | 9.1–9.7          |
+| Versioning, release only for changed product bytes, branch convergence, proposal cleanup, lane retirement, and residue removal             | 10.1–10.4        |
 
 Generic Work Lane, lease, commitment, publication, review, and retirement
 mechanisms remain ETHOS responsibilities. Proxy protocol translation, service
@@ -736,5 +766,8 @@ implementation, test, configuration, or document has no consumer.
 3. Reorganize source and tests around the verified semantic owners; delete superseded material in the same closure.
 4. Consolidate quality and CI projections, then upgrade direct dependencies under the complete graph.
 5. Rewrite current documentation from the accepted design and verify navigation and rendering.
-6. Run exact-HEAD, native, published-artifact, installation, performance, and residue acceptance; publish only a new version when product bytes change.
-7. Archive this Change and retire its proposal and Work Lane through ETHOS after every task is evidenced.
+6. Complete Hermes and Claude Desktop integration, cross-model qualification, the real team manifest, and bounded client/provider research before freezing the release candidate.
+7. Complete current-HEAD governance, native candidate, real-client, credential, performance, and residue acceptance; verify every task and the official archive preview.
+8. Archive the completed Change through ETHOS and integrate the archival commit through the reviewed branch path. Keep the active lane until these effects finish.
+9. Follow the existing release procedure: qualify final build inputs, sign and notarize where required, publish identical assets to selected peers, update Homebrew, verify downloads and installation, and converge local and peer `main`/`dev` refs.
+10. Retire the exact owned Work Lane and remaining disposable resources through their existing owners. Release records and native lifecycle results carry these post-archive effects; an archived task file is not rewritten to report later deployment state.

@@ -10,6 +10,60 @@ transition` requirement and the `aigw add <account>` command.
 
 ## ADDED Requirements
 
+### Requirement: Requested client surfaces have explicit adapters
+
+AIGW SHALL integrate Hermes and Claude Desktop through their supported native
+configuration and credential interfaces. Each Adapter SHALL use the shared
+route, transaction, discovery, verification, and withdrawal owners. Claude
+Desktop Chat, Cowork, and Code SHALL retain distinct capability evidence.
+Client-owned sessions, services, and model choices SHALL remain client-owned.
+
+#### Scenario: Hermes becomes available after team import
+
+- **GIVEN** team configuration was imported before Hermes was installed
+- **WHEN** Hermes becomes available and its Profile is explicitly selected
+- **THEN** synchronization SHALL configure its admitted provider and model
+- **AND** credentials SHALL use the selected supported delivery mechanism
+- **AND** unrelated clients, Hermes sessions, and Hermes services remain unchanged.
+
+#### Scenario: Claude Desktop and Claude Code use different routes
+
+- **WHEN** the operator enables distinct Desktop and CLI Profiles
+- **THEN** each surface SHALL use its own documented configuration boundary
+- **AND** status SHALL state which Desktop modes and platforms were qualified
+- **AND** a required app restart SHALL be reported before activation is claimed.
+
+### Requirement: Model admission follows protocol and capability
+
+AIGW SHALL admit model identifiers independently of client branding, using the
+selected endpoint's protocol and verified capabilities. Provider-native APIs
+SHALL be preferred when sufficient. An independently selected compatibility
+service MAY supply a missing protocol without becoming part of AIGW's runtime.
+Displayed mappings SHALL preserve the identity of the requested and serving
+models. A successful text request SHALL establish only text connectivity.
+
+#### Scenario: A non-Anthropic model serves Claude
+
+- **WHEN** an explicit route selects a non-Anthropic model through a compatible
+  Messages endpoint
+- **THEN** AIGW SHALL preserve that provider and model identity in its output
+- **AND** support claims SHALL reflect tested streaming, tool results,
+  continuation, and model-specific limits.
+
+#### Scenario: Codex uses an independent Responses endpoint
+
+- **WHEN** an explicit route selects a model through an independent Responses
+  endpoint
+- **THEN** validation SHALL verify its actual input, event, and tool contracts
+- **AND** missing compaction or hosted tools SHALL have explicit outcomes
+- **AND** existing conversation metadata and native model selections remain unchanged.
+
+#### Scenario: A provider exposes a smaller capability set
+
+- **WHEN** an endpoint does not support a capability required by a client journey
+- **THEN** the journey SHALL report the specific unsupported capability
+- **AND** configuration or a renamed model SHALL NOT be presented as full acceptance.
+
 ### Requirement: Account connection is an atomic client-scoped transition
 
 Account connection SHALL admit a new Account and first Profile before requesting
